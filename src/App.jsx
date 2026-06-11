@@ -83,7 +83,7 @@ export default function App() {
     window.addEventListener('keydown', handleEsc, true)
     return () => window.removeEventListener('keydown', handleEsc, true)
   }, [isOverlay])
-  const [activeTab, setActiveTab] = useState(null) // 'chat' | 'study' | 'picture' | 'stats' — null until config loads
+  const [activeTab, setActiveTab] = useState(null) // 'chat' | 'study' | 'deck' | 'picture' | 'stats' — null until config loads
   const [chatSidePanel, setChatSidePanel] = useState(false) // split-screen chat alongside another tab
   const [provider, setProvider] = useState('anthropic')
   const [configLoaded, setConfigLoaded] = useState(false)
@@ -207,6 +207,11 @@ export default function App() {
   const [deckBrowserRefineInput, setDeckBrowserRefineInput] = useState('')
   const [deckBrowserRefining, setDeckBrowserRefining] = useState(false)
   const [deckBrowserSaveStatus, setDeckBrowserSaveStatus] = useState(null) // null | 'saving' | 'saved' | 'error'
+  const [deckAnalyzeLoading, setDeckAnalyzeLoading] = useState(false)
+  const [deckAnalyzeRecs, setDeckAnalyzeRecs] = useState([]) // [{ noteId, reason, currentFields, recommendedFields, refineInput, refining, accepted }]
+  const [deckAnalyzeCommitting, setDeckAnalyzeCommitting] = useState(false)
+  const [deckAnalyzeError, setDeckAnalyzeError] = useState(null)
+  const [deckAnalyzeEmpty, setDeckAnalyzeEmpty] = useState(false) // true when analyze completed with 0 recommendations
   const [studyWrappingUp, setStudyWrappingUp] = useState(false)
   const [studyDeleteConfirm, setStudyDeleteConfirm] = useState(null) // cardIdx being confirmed for deletion
   const [studyFeedbackChat, setStudyFeedbackChat] = useState({}) // { [cardIdx]: { messages, input, loading } }
@@ -1624,6 +1629,214 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     setDeckBrowserSearch('')
   }
 
+  // ─── Deck Analyze (find ambiguous cards, propose fixes) ────────────────
+  const analyzeDeck = async () => {
+    if (deckBrowserNotes.length === 0 || !apiKey || deckAnalyzeLoading) return
+    // Soft limit: very large decks may exceed the model's context or cost a lot. Confirm before proceeding.
+    if (deckBrowserNotes.length > 200) {
+      const ok = window.confirm(
+        `This deck has ${deckBrowserNotes.length} cards. Analyzing them all in one AI call may be slow ` +
+        `or hit token limits. Continue anyway?`
+      )
+      if (!ok) return
+    }
+    setDeckAnalyzeLoading(true)
+    setDeckAnalyzeError(null)
+    setDeckAnalyzeEmpty(false)
+    try {
+      const rules = activeMode.studyRules || defaultStudyRules
+      const studyLang = rules.studyLanguage || 'English'
+
+      // Preserve line breaks for the AI (br → \n) so it sees the actual structure of multi-line backs.
+      const htmlToPlain = (v) => String(v || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').trim()
+      const cards = deckBrowserNotes.map((n) => ({
+        noteId: n.noteId,
+        fields: Object.fromEntries(
+          Object.entries(n.fields).map(([name, f]) => [name, htmlToPlain(f.value)])
+        ),
+      }))
+
+      const prompt = `You are analyzing flashcards in a ${studyLang} learning deck. Find cards where the ${studyLang} word/phrase has MULTIPLE distinct everyday meanings that the card's current content does NOT disambiguate.\n\nFor each ambiguous card, propose updated field content that clarifies the intended meaning — e.g. specify the domain, add a usage example, or list the senses with a short note for each.\n\nDO NOT flag cards where:\n- The word has only one common meaning\n- The current content already disambiguates well\n- A learner would clearly understand from common usage\n\nCards (JSON):\n${JSON.stringify(cards)}\n\nReturn a JSON array — ONLY include cards that need fixing (skip the rest):\n[\n  {\n    "noteId": <number>,\n    "reason": "<one short sentence: what is ambiguous>",\n    "recommendedFields": { "<fieldName>": "<new content>", ... }\n  }\n]\n\nIn recommendedFields, include ONLY fields you're changing (typically just the back). Match each field's language (replace a ${studyLang} field with ${studyLang} content; replace an English field with English content). Use plain text with newlines for line breaks (no HTML, no <br>).\n\nOutput ONLY raw JSON. No markdown, no commentary.`
+
+      const text = await providerConfig.call(apiKey, 'You analyze flashcard quality. Always respond with valid JSON only.', prompt)
+      const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+      if (!Array.isArray(parsed)) throw new Error('Response is not an array')
+
+      const recs = parsed.map((r) => {
+        const noteId = typeof r.noteId === 'string' ? Number(r.noteId) : r.noteId
+        const note = deckBrowserNotes.find((n) => n.noteId === noteId)
+        if (!note || !r.recommendedFields || typeof r.recommendedFields !== 'object') return null
+        const currentFields = Object.fromEntries(
+          Object.entries(note.fields).map(([name, f]) => [name, htmlToPlain(f.value)])
+        )
+        const recommendedFields = { ...currentFields }
+        Object.entries(r.recommendedFields).forEach(([k, v]) => {
+          if (k in recommendedFields) recommendedFields[k] = String(v ?? '')
+        })
+        // Skip if AI flagged the card but didn't actually propose any changes.
+        const hasChange = Object.keys(recommendedFields).some((k) => recommendedFields[k] !== currentFields[k])
+        if (!hasChange) return null
+        return {
+          noteId,
+          reason: r.reason || '',
+          currentFields,
+          recommendedFields,
+          refineInput: '',
+          refining: false,
+          accepted: false,
+        }
+      }).filter(Boolean)
+
+      setDeckAnalyzeRecs(recs)
+      setDeckAnalyzeEmpty(recs.length === 0)
+      console.log('[Deck] analyzed,', recs.length, 'recommendations from', cards.length, 'cards')
+    } catch (err) {
+      console.error('[Deck] analyze failed:', err.message)
+      setDeckAnalyzeError(err.message)
+    } finally {
+      setDeckAnalyzeLoading(false)
+    }
+  }
+
+  const updateRecField = (idx, fieldName, value) => {
+    setDeckAnalyzeRecs((prev) => prev.map((r, i) => i === idx ? { ...r, recommendedFields: { ...r.recommendedFields, [fieldName]: value } } : r))
+  }
+
+  const setRecRefineInput = (idx, value) => {
+    setDeckAnalyzeRecs((prev) => prev.map((r, i) => i === idx ? { ...r, refineInput: value } : r))
+  }
+
+  const refineRec = async (idx) => {
+    const rec = deckAnalyzeRecs[idx]
+    if (!rec || !rec.refineInput.trim() || rec.refining || !apiKey) return
+    setDeckAnalyzeRecs((prev) => prev.map((r, i) => i === idx ? { ...r, refining: true } : r))
+    try {
+      const fieldsDesc = Object.entries(rec.recommendedFields).map(([k, v]) => `${k}:\n${v}`).join('\n\n')
+      const prompt = `Here is a flashcard recommendation:\n\n${fieldsDesc}\n\nThe user wants this change: "${rec.refineInput}"\n\nReturn a JSON object with the updated fields: { ${Object.keys(rec.recommendedFields).map((k) => `"${k}": "..."`).join(', ')} }\nKeep any fields the user didn't ask to change. Use plain text with newlines (no HTML). Output ONLY raw JSON, no markdown.`
+      const text = await providerConfig.call(apiKey, 'You edit Anki flashcard content. Always respond with valid JSON only.', prompt)
+      const updated = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+      setDeckAnalyzeRecs((prev) => prev.map((r, i) => {
+        if (i !== idx) return r
+        const newFields = { ...r.recommendedFields }
+        Object.entries(updated).forEach(([k, v]) => { if (k in newFields) newFields[k] = String(v) })
+        return { ...r, recommendedFields: newFields, refineInput: '', refining: false }
+      }))
+    } catch (err) {
+      console.error('[Deck] rec refine failed:', err.message)
+      setDeckAnalyzeRecs((prev) => prev.map((r, i) => i === idx ? { ...r, refining: false } : r))
+    }
+  }
+
+  const toggleAcceptRec = (idx) => {
+    setDeckAnalyzeRecs((prev) => prev.map((r, i) => i === idx ? { ...r, accepted: !r.accepted } : r))
+  }
+
+  const rejectRec = (idx) => {
+    setDeckAnalyzeRecs((prev) => prev.filter((_, i) => i !== idx))
+  }
+
+  const commitAcceptedRecs = async () => {
+    const toCommit = deckAnalyzeRecs.filter((r) => r.accepted)
+    if (toCommit.length === 0 || deckAnalyzeCommitting) return
+
+    // Build per-rec diff: only fields the user/AI actually changed get sent to Anki.
+    // Unchanged fields are NOT sent, so original HTML markup (<b>, <img>, sound refs, etc.) is preserved.
+    const updates = toCommit.map((rec) => {
+      const changed = {}
+      Object.keys(rec.recommendedFields).forEach((k) => {
+        const newVal = String(rec.recommendedFields[k] ?? '')
+        const oldVal = String(rec.currentFields[k] ?? '')
+        if (newVal !== oldVal) changed[k] = newVal
+      })
+      return { rec, changed }
+    })
+
+    // Safety checks: refuse to wipe a previously-populated field; refuse no-op recs.
+    const issues = []
+    updates.forEach(({ rec, changed }) => {
+      if (Object.keys(changed).length === 0) {
+        issues.push(`Card #${rec.noteId}: no changes from original`)
+        return
+      }
+      Object.entries(changed).forEach(([k, v]) => {
+        const wasPopulated = String(rec.currentFields[k] ?? '').trim() !== ''
+        if (wasPopulated && String(v).trim() === '') {
+          issues.push(`Card #${rec.noteId}: field "${k}" would be wiped`)
+        }
+      })
+    })
+    if (issues.length > 0) {
+      setDeckAnalyzeError('Refusing to save: ' + issues.join('; '))
+      console.error('[Deck] commit blocked by safety checks:', issues)
+      return
+    }
+
+    // Confirm with the user, listing exactly which cards + fields will change.
+    const summary = updates.map(({ rec, changed }) => `  • Card #${rec.noteId} (${Object.keys(changed).join(', ')})`).join('\n')
+    const ok = window.confirm(
+      `Save ${toCommit.length} card update${toCommit.length === 1 ? '' : 's'} to Anki?\n\n${summary}\n\n` +
+      `Only the listed fields will be modified. Untouched fields keep their original content and formatting. ` +
+      `You can undo individual changes with Ctrl+Z in Anki.`
+    )
+    if (!ok) return
+
+    setDeckAnalyzeCommitting(true)
+    setDeckAnalyzeError(null)
+    const failures = []
+    const successes = []
+
+    for (const { rec, changed } of updates) {
+      try {
+        const htmlFields = {}
+        Object.entries(changed).forEach(([k, v]) => {
+          htmlFields[k] = String(v).replace(/\n/g, '<br>')
+        })
+        await ankiUpdateNote(rec.noteId, htmlFields)
+        successes.push(rec.noteId)
+      } catch (err) {
+        failures.push({ noteId: rec.noteId, error: err.message })
+        console.error('[Deck] update failed for', rec.noteId, ':', err.message)
+      }
+    }
+
+    if (successes.length > 0) ankiSync().catch(() => {})
+
+    if (failures.length > 0) {
+      // Keep failed recs in the queue so the user can retry. Drop successfully-saved ones.
+      const failedIds = new Set(failures.map((f) => f.noteId))
+      setDeckAnalyzeRecs((prev) => prev.filter((r) => failedIds.has(r.noteId) || !r.accepted))
+      setDeckAnalyzeError(
+        `Saved ${successes.length} / ${toCommit.length}. Failed: ` +
+        failures.map((f) => `#${f.noteId} (${f.error})`).join('; ')
+      )
+      // Refresh the loaded notes so successful changes show up in the list.
+      if (successes.length > 0) await loadDeckNotes(deckBrowserDeck).catch(() => {})
+    } else {
+      await loadDeckNotes(deckBrowserDeck)
+      setDeckAnalyzeRecs([])
+    }
+
+    setDeckAnalyzeCommitting(false)
+    console.log('[Deck] commit done:', successes.length, 'saved,', failures.length, 'failed')
+  }
+
+  const clearAnalyze = () => {
+    setDeckAnalyzeRecs([])
+    setDeckAnalyzeError(null)
+  }
+
+  // Auto-open the deck browser when the Deck tab is entered, sync edits back when leaving.
+  const prevTabRef = useRef(null)
+  useEffect(() => {
+    if (activeTab === 'deck' && !deckBrowserActive && ankiConnected) {
+      openDeckBrowser()
+    }
+    if (prevTabRef.current === 'deck' && activeTab !== 'deck' && activeTab !== null) {
+      closeDeckBrowser()
+    }
+    prevTabRef.current = activeTab
+  }, [activeTab, ankiConnected])
+
   // ─── Knowledge Base Management ──────────────────────────────────────────
   const loadKnowledgeFiles = async () => {
     try {
@@ -1731,20 +1944,32 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const back = getCardBack(card)
     const n = rules.questionsPerCard || 3
     const questionPrompt = rules.questionPrompt || defaultStudyRules.questionPrompt
+    const isLanguage = activeMode.type === 'language'
+
+    const deepQ = isLanguage
+      ? `Q${n} (USAGE/DEPTH): Test deeper knowledge of the ${studyLang} word — usage in a short sentence, register (formal/informal), gender/conjugation, or distinguishing it from a close synonym. Stay within the everyday/general meaning unless the card explicitly indicates a specialized domain.`
+      : `Q${n} (DEEP UNDERSTANDING): May freely name the subject. Test HOW, WHY, WHEN, or process. E.g. "Explain how X works" or "What distinguishes X from Y?" Open-ended — student demonstrates conceptual depth.`
+
+    const q1Language = `Q1 (TRANSLATION PRODUCTION): Ask the student to translate the non-${studyLang} text on the card INTO ${studyLang}. Phrase it cleanly, e.g. "Translate to ${studyLang}: '<the non-${studyLang} text>'" or "How do you say '<the non-${studyLang} text>' in ${studyLang}?". The expected answer is the ${studyLang} word/phrase on the card. acceptedAnswers MUST be the ${studyLang} word(s), lowercase, with and without accents. Type MUST be "recall". Do NOT invent a definition or context for Q1 — translation tests are unambiguous and that's exactly what we want for the first question of every card.`
+    const q1General = `Q1 (BLIND RECALL): Never name or hint at the target word/answer. Present a scenario, definition, or usage context that forces the student to produce the exact word. Example: "You need to X in situation Y — what word/tool/concept applies?"`
+    const q2Language = `Q2–Q${n - 1} (CONTEXTUAL USAGE): A fill-in-the-blank or short scenario where the target ${studyLang} word fits AND no other plausible ${studyLang} word fits. If the card has an example/usage field, PREFER using that exact sentence (with the target word blanked) — it was authored for this word and is guaranteed unambiguous. If you must invent a context, apply the AMBIGUITY SELF-CHECK below rigorously. Each from a DIFFERENT angle.`
+    const q2General = `Q2–Q${n - 1} (GUIDED RECALL): May reference related concepts, synonyms as contrast, or fill-in-the-blank. Must still require the EXACT target word. E.g. "Instead of [synonym], what [N]-letter word means...?" Each from a DIFFERENT angle.`
 
     const orderRules = n === 1
-      ? `Generate 1 question. It must be BLIND RECALL — never mention the target word/answer.`
+      ? (isLanguage ? q1Language : `Generate 1 question. It must be BLIND RECALL — never mention the target word/answer.`)
       : [
           `Generate exactly ${n} questions in this STRICT ORDER:`,
-          `Q1 (BLIND RECALL): Never name or hint at the target word/answer. Present a scenario, definition, or usage context that forces the student to produce the exact word. Example: "You need to X in situation Y — what word/tool/concept applies?"`,
-          n >= 3 ? `Q2–Q${n - 1} (GUIDED RECALL): May reference related concepts, synonyms as contrast, or fill-in-the-blank. Must still require the EXACT target word. E.g. "Instead of [synonym], what [N]-letter word means...?" Each from a DIFFERENT angle.` : null,
-          `Q${n} (DEEP UNDERSTANDING): May freely name the subject. Test HOW, WHY, WHEN, or process. E.g. "Explain how X works" or "What distinguishes X from Y?" Open-ended — student demonstrates conceptual depth.`,
+          isLanguage ? q1Language : q1General,
+          n >= 3 ? (isLanguage ? q2Language : q2General) : null,
+          deepQ,
         ].filter(Boolean).join('\n')
 
-    const prompt = `Card front: "${front}"\nCard back: "${back}"\n\n${orderRules}\n\nCRITICAL RULES:\n- Questions must require the SPECIFIC answer on this card — synonyms are NOT acceptable for recall/fill_blank questions\n- NEVER construct a question whose only purpose is to directly name the answer (e.g. "what noun corresponds to adjective X?" when that noun IS the answer)\n- Each question must test a DIFFERENT angle\n- For language cards: test usage in sentences, grammatical properties, contextual usage\n- For conceptual cards: test application, process, comparison\n\n${questionPrompt}\n\nGenerate all questions in ${studyLang}.${knowledgeContext}\n\nReturn a JSON array of exactly ${n} objects:\n[\n  {\n    "question": "the question text",\n    "type": "recall" | "fill_blank" | "explanation",\n    "hint1": "N letters" (letter count of primary answer, null for explanation),\n    "hint2": "starts with 'X'" (first letter of primary answer, null for explanation),\n    "acceptedAnswers": ["answer1", "answer2"] (lowercase; exact words that are correct; empty for explanation)\n  }\n]\nOutput ONLY raw JSON array. No markdown, no backticks.`
+    const languageBlock = isLanguage ? `\nLANGUAGE MODE — REQUIRED:\n- The student is learning ${studyLang}. The EXPECTED ANSWER is ALWAYS the ${studyLang} word/phrase on the card, regardless of which side it's on.\n- Identify which side (front or back) is written in ${studyLang} — that side is the answer. The other side is just the translation/hint.\n- "acceptedAnswers" MUST contain the ${studyLang} word (lowercase, plus close variants with/without accents). NEVER put the translation/non-${studyLang} word in acceptedAnswers.\n- Treat the word in its BROADEST everyday meaning. If the card text doesn't pin down a specific domain, do NOT restrict questions to specialized contexts (programming, medicine, law, military, etc.). Example: "puntero" alone could be a clock hand, laser pointer, finger, or mouse cursor — don't assume programming.\n- BUT if the card text explicitly indicates a domain (e.g. back says "Pointer (C/C++)", "syringe (medical)", tag mentions a field), quiz within that domain.\n` : ''
+
+    const prompt = `Card front: "${front}"\nCard back: "${back}"\n${languageBlock}\n${orderRules}\n\nCRITICAL RULES:\n- Questions must require the SPECIFIC answer on this card — synonyms are NOT acceptable for recall/fill_blank questions\n- NEVER construct a question whose only purpose is to directly name the answer (e.g. "what noun corresponds to adjective X?" when that noun IS the answer)\n- Each question must test a DIFFERENT angle\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question before finalizing): mentally substitute 2–3 plausible alternative ${studyLang} words into the question. If ANY of them fit the sentence/scenario as naturally as the target word, the question is too vague — REWRITE it with more specific cues that exclude the alternatives. Hints (letter count, first letter) DO NOT make an ambiguous question valid; the question itself must point at the target word.\n  - BAD example: "Necesito ir a ___ para tomar mi vuelo a Madrid." Target answer "terminal" — but "aeropuerto" fits just as well. Rewrite needed.\n  - GOOD example: "El edificio específico dentro del aeropuerto donde se abordan los aviones se llama la ___" — now only "terminal" fits because "aeropuerto" is excluded by being named in the question itself.\n- For language cards: test usage in sentences, grammatical properties, contextual usage\n- For conceptual cards: test application, process, comparison\n\n${questionPrompt}\n\nGenerate all questions in ${studyLang}.${knowledgeContext}\n\nReturn a JSON array of exactly ${n} objects:\n[\n  {\n    "question": "the question text",\n    "type": "recall" | "fill_blank" | "explanation",\n    "hint1": "N letters" (letter count of primary answer, null for explanation),\n    "hint2": "starts with 'X'" (first letter of primary answer, null for explanation),\n    "acceptedAnswers": ["answer1", "answer2"] (lowercase; exact words that are correct; empty for explanation)\n  }\n]\nOutput ONLY raw JSON array. No markdown, no backticks.`
 
     try {
-      const text = await providerConfig.call(apiKey, 'You generate structured flashcard quiz questions. Always respond with a valid JSON array of objects.', prompt)
+      const text = await providerConfig.call(apiKey, 'You generate structured flashcard quiz questions. Always respond with a valid JSON array of objects.', prompt, providerConfig.questionModel)
       const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
       if (!Array.isArray(parsed)) throw new Error('not array')
       return parsed.slice(0, n).map(q => ({
@@ -2007,7 +2232,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
           : ''
         return `Q${i+1} [${type}]: ${getQuestionText(q)}${acceptedLine}\nAnswer: ${cs.answers[i] || '(no answer)'}`
       }).join('\n\n')
-      const prompt = `Evaluate ALL answers for this flashcard at once.\n\nCard front: "${cs.front}"\nCard back: "${cs.back}"\n\n${modeType}\n\n${questionsAndAnswers}\n\nGrading rules by question type:\n- recall / fill_blank: the answer MUST match one of the "Accepted answers" for that question. Normalize for case, accents, and minor typos. Synonyms, related words, or different words with the same meaning are INCORRECT — mark them wrong, and in the feedback acknowledge the synonym is related but note the specific word this card tests. If no "Accepted answers" line is given, fall back to the card back.\n- explanation: grade on conceptual understanding — accept any answer that correctly addresses the question.\nALWAYS note any grammar, spelling, or accent issues in the feedback (e.g. missing accent mark on brújula). These notes are educational, not penalizing.${grammarExtra}\n\nReturn a JSON array of ${cs.questions.length} objects: [{"correct": true/false, "feedback": "brief explanation including any grammar/accent notes"${grammarOn ? ', "grammarNote": "...", "grammarRelevant": true/false' : ''}}]\n\nOutput ONLY raw JSON. No markdown, no backticks.`
+      const prompt = `Evaluate ALL answers for this flashcard at once.\n\nCard front: "${cs.front}"\nCard back: "${cs.back}"\n\n${modeType}\n\n${questionsAndAnswers}\n\nGrading rules by question type:\n- recall / fill_blank: the answer MUST match one of the "Accepted answers" for that question. Normalize for case, accents, and minor typos. Synonyms, related words, or different words with the same meaning are INCORRECT — mark them wrong, and in the feedback acknowledge the synonym is related but note the specific word this card tests. If no "Accepted answers" line is given, fall back to the ${studyLang} side of the card for language mode, otherwise the card back.\n- explanation: grade on conceptual understanding — accept any answer that correctly addresses the question.\nALWAYS note any grammar, spelling, or accent issues in the feedback (e.g. missing accent mark on brújula). These notes are educational, not penalizing.${grammarExtra}\n\nReturn a JSON array of ${cs.questions.length} objects: [{"correct": true/false, "feedback": "brief explanation including any grammar/accent notes"${grammarOn ? ', "grammarNote": "...", "grammarRelevant": true/false' : ''}}]\n\nOutput ONLY raw JSON. No markdown, no backticks.`
 
       const text = await providerConfig.call(apiKey, 'You evaluate flashcard answers. Always respond with valid JSON only.', prompt)
       const results = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
@@ -2078,32 +2303,68 @@ Output ONLY raw JSON. No markdown, no backticks.`
   // startBatch is no longer used in the new system but keep for compatibility
   const startBatch = async () => {}
 
-  // Sync all completed card ratings to Anki (called when going to summary or explicitly)
+  // Sync all completed card ratings to Anki. Returns { synced, failed, error? }.
+  // Safe to call repeatedly — only unsynced cards are submitted, and only the
+  // cards we actually submitted are marked synced (avoids a race where a card
+  // that becomes done+ease between the filter and the setState gets marked
+  // synced without being pushed to Anki).
+  const syncingRef = useRef(false)
   const syncRatingsToAnki = async () => {
+    if (syncingRef.current) return { synced: 0, failed: 0, skipped: true }
     const ratingsToSync = studyCardState.filter(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced)
-    if (ratingsToSync.length > 0) {
-      try {
-        await ankiAnswerCards(ratingsToSync.map(cs => ({ cardId: cs.cardId, ease: cs.ease })))
-        ankiSync().catch(() => {})
-        ankiGetDeckStats([studyDeck]).then(s => {
-          const ds = Object.values(s)[0]
-          if (ds) setStudyDeckStats(ds)
-        }).catch(() => {})
-        // Mark as synced
-        setStudyCardState(prev => prev.map(cs => cs.done && cs.ease ? { ...cs, synced: true } : cs))
-        console.log('[Study] synced', ratingsToSync.length, 'card ratings to Anki')
-      } catch (err) {
-        console.warn('[Study] failed to sync ratings:', err.message)
-      }
+    if (ratingsToSync.length === 0) return { synced: 0, failed: 0 }
+    syncingRef.current = true
+    try {
+      await ankiAnswerCards(ratingsToSync.map(cs => ({ cardId: cs.cardId, ease: cs.ease })))
+      ankiSync().catch(() => {})
+      ankiGetDeckStats([studyDeck]).then(s => {
+        const ds = Object.values(s)[0]
+        if (ds) setStudyDeckStats(ds)
+      }).catch(() => {})
+      const submittedIds = new Set(ratingsToSync.map(cs => cs.cardId))
+      setStudyCardState(prev => prev.map(cs => submittedIds.has(cs.cardId) ? { ...cs, synced: true } : cs))
+      console.log('[Study] synced', ratingsToSync.length, 'card ratings to Anki')
+      return { synced: ratingsToSync.length, failed: 0 }
+    } catch (err) {
+      console.warn('[Study] failed to sync ratings:', err.message)
+      return { synced: 0, failed: ratingsToSync.length, error: err.message }
+    } finally {
+      syncingRef.current = false
     }
   }
+
+  // Auto-sync: continuously push newly-evaluated card ratings to Anki as soon as
+  // they're ready, so partial progress is preserved even if the user closes the
+  // tab, the browser crashes, or AnkiConnect briefly disconnects.
+  useEffect(() => {
+    if (!studyActive) return
+    const hasUnsynced = studyCardState.some(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced)
+    if (hasUnsynced) {
+      syncRatingsToAnki()
+    }
+  }, [studyCardState, studyActive])
 
   const nextBatch = async () => {
     await syncRatingsToAnki()
     setStudyPhase('summary')
   }
 
-  const exitStudy = () => {
+  const exitStudy = async () => {
+    // Last-line defense: try to flush any unsynced ratings before tearing down state.
+    // If Anki is unreachable, ask the user whether to exit anyway (losing those ratings)
+    // or stay so they can fix the connection and retry.
+    const unsynced = studyCardState.filter(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced)
+    if (unsynced.length > 0) {
+      const result = await syncRatingsToAnki()
+      if (result.failed > 0) {
+        const proceed = window.confirm(
+          `Could not sync ${result.failed} card rating${result.failed === 1 ? '' : 's'} to Anki ` +
+          `(${result.error || 'unknown error'}).\n\n` +
+          `Exit anyway and lose those ratings? Click Cancel to stay and retry (e.g. make sure Anki is running with AnkiConnect).`
+        )
+        if (!proceed) return
+      }
+    }
     setStudyActive(false)
     setStudyAllCards([])
     setStudyCardState([])
@@ -2939,7 +3200,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           <h1 style={S.title}>ScreenLens</h1>
           <span style={S.badge}>LOCAL</span>
           <div style={S.tabBar}>
-            {['chat', 'study', 'picture', 'stats'].map((tab) => (
+            {['chat', 'study', 'deck', 'picture', 'stats'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => {
@@ -2948,7 +3209,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 }}
                 style={{ ...S.tab, ...(activeTab === tab ? S.tabActive : {}) }}
               >
-                {{ chat: 'Chat', study: 'Study', picture: 'Picture', stats: 'Stats' }[tab]}
+                {{ chat: 'Chat', study: 'Study', deck: 'Deck', picture: 'Picture', stats: 'Stats' }[tab]}
               </button>
             ))}
           </div>
@@ -3424,18 +3685,31 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       )}
 
       {/* ── Deck Browser ─────────────────────────────────────────────────────── */}
-      {activeTab === 'study' && deckBrowserActive && (
+      {activeTab === 'deck' && (
         <main style={{ ...S.main, display: 'flex', flexDirection: 'column', padding: 20 }}>
           <div style={{ maxWidth: 800, width: '100%', margin: '0 auto' }}>
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <div style={{ fontSize: 16, fontWeight: 700, color: '#e6edf3' }}>Deck Browser</div>
-              <button onClick={closeDeckBrowser} style={{ ...S.ghostBtn, fontSize: 10 }}>Close</button>
             </div>
+
+            {ankiConnected === false && (
+              <div style={{ fontSize: 11, color: '#d29922', marginBottom: 12 }}>Anki is not connected. Start Anki with AnkiConnect addon.</div>
+            )}
+            {ankiConnected === null && (
+              <div style={{ fontSize: 11, color: '#7d8590', marginBottom: 12 }}>Checking Anki connection...</div>
+            )}
 
             {/* Deck picker + search */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-              <select value={deckBrowserDeck} onChange={(e) => { setDeckBrowserDeck(e.target.value); if (e.target.value) loadDeckNotes(e.target.value) }}
+              <select value={deckBrowserDeck} onChange={(e) => {
+                  if (deckAnalyzeRecs.length > 0 && !window.confirm('Switching decks will discard the current suggestions. Continue?')) return
+                  setDeckBrowserDeck(e.target.value)
+                  setDeckAnalyzeRecs([])
+                  setDeckAnalyzeError(null)
+                  setDeckAnalyzeEmpty(false)
+                  if (e.target.value) loadDeckNotes(e.target.value)
+                }}
                 style={{ ...S.select, minWidth: 150 }}>
                 <option value="">Select deck...</option>
                 {ankiDecks.map((d) => <option key={d} value={d}>{d}</option>)}
@@ -3449,6 +3723,134 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 <span style={{ fontSize: 11, color: '#7d8590', alignSelf: 'center' }}>{deckBrowserNotes.length} cards</span>
               )}
             </div>
+
+            {/* Analyze row */}
+            {deckBrowserNotes.length > 0 && (
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                <button
+                  onClick={analyzeDeck}
+                  disabled={deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0}
+                  style={{ background: 'rgba(210,168,255,0.12)', color: '#d2a8ff', border: '1px solid rgba(210,168,255,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: (deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0) ? 0.5 : 1 }}
+                >
+                  {deckAnalyzeLoading ? 'Analyzing...' : 'Analyze for ambiguous cards'}
+                </button>
+                {!apiKey && <span style={{ fontSize: 10, color: '#7d8590' }}>(API key required)</span>}
+                {deckAnalyzeError && <span style={{ fontSize: 10, color: '#f85149' }}>{deckAnalyzeError}</span>}
+                {!deckAnalyzeLoading && !deckAnalyzeError && deckAnalyzeRecs.length === 0 && !deckAnalyzeEmpty && (
+                  <span style={{ fontSize: 10, color: '#7d8590' }}>Scans every card for ambiguous words and proposes clarifications.</span>
+                )}
+                {deckAnalyzeEmpty && !deckAnalyzeLoading && (
+                  <span style={{ fontSize: 10, color: '#7ee787' }}>No ambiguous cards found — your deck looks clean.</span>
+                )}
+              </div>
+            )}
+
+            {/* Recommendations panel */}
+            {deckAnalyzeRecs.length > 0 && (() => {
+              const acceptedCount = deckAnalyzeRecs.filter((r) => r.accepted).length
+              return (
+                <div style={{ marginBottom: 16, border: '1px solid rgba(210,168,255,0.25)', borderRadius: 6, padding: '10px 12px', background: 'rgba(210,168,255,0.04)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+                    <div style={{ fontSize: 12, color: '#d2a8ff', fontWeight: 600 }}>
+                      {deckAnalyzeRecs.length} suggestion{deckAnalyzeRecs.length === 1 ? '' : 's'} • {acceptedCount} accepted
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        onClick={commitAcceptedRecs}
+                        disabled={acceptedCount === 0 || deckAnalyzeCommitting}
+                        style={{ ...S.captureBtn, borderRadius: 5, fontSize: 11, padding: '5px 12px', opacity: (acceptedCount === 0 || deckAnalyzeCommitting) ? 0.5 : 1 }}
+                      >
+                        {deckAnalyzeCommitting ? 'Saving...' : `Save ${acceptedCount} accepted`}
+                      </button>
+                      <button onClick={clearAnalyze} disabled={deckAnalyzeCommitting} style={{ ...S.ghostBtn, fontSize: 11 }}>
+                        Cancel all
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {deckAnalyzeRecs.map((rec, idx) => {
+                      const fieldNames = Object.keys(rec.recommendedFields)
+                      return (
+                        <div key={rec.noteId} style={{
+                          border: rec.accepted ? '1px solid rgba(126,231,135,0.4)' : '1px solid #2a3040',
+                          borderRadius: 6, padding: 10,
+                          background: rec.accepted ? 'rgba(126,231,135,0.06)' : '#0d1117',
+                        }}>
+                          <div style={{ fontSize: 10, color: '#7d8590', marginBottom: 8 }}>
+                            <span style={{ color: '#d2a8ff' }}>Card #{rec.noteId}</span>
+                            {rec.reason && <span> — {rec.reason}</span>}
+                          </div>
+
+                          {fieldNames.map((fieldName) => {
+                            const value = rec.recommendedFields[fieldName]
+                            const original = rec.currentFields[fieldName] || ''
+                            const changed = value !== original
+                            return (
+                              <div key={fieldName} style={{ marginBottom: 6 }}>
+                                <div style={{ fontSize: 10, color: '#7d8590', marginBottom: 3, fontWeight: 600 }}>{fieldName}</div>
+                                <textarea
+                                  value={value}
+                                  onChange={(e) => updateRecField(idx, fieldName, e.target.value)}
+                                  style={{ ...S.keyInput, fontSize: 12, minHeight: 50, resize: 'vertical', width: '100%', boxSizing: 'border-box' }}
+                                />
+                                {changed && (
+                                  <div style={{ fontSize: 9, color: '#7d8590', marginTop: 2, fontStyle: 'italic' }}>
+                                    Original: {original.slice(0, 120)}{original.length > 120 ? '…' : ''}
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+
+                          <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginTop: 6 }}>
+                            <input
+                              type="text"
+                              value={rec.refineInput}
+                              onChange={(e) => setRecRefineInput(idx, e.target.value)}
+                              onKeyDown={(e) => { if (e.key === 'Enter') refineRec(idx) }}
+                              placeholder='Tell AI different (e.g. "focus on the clock-hand meaning")'
+                              disabled={rec.refining}
+                              style={{ flex: 1, background: '#161b22', color: '#e6edf3', border: '1px solid #2a3040', borderRadius: 4, padding: '5px 8px', fontSize: 11, fontFamily: 'inherit', outline: 'none' }}
+                            />
+                            <button
+                              onClick={() => refineRec(idx)}
+                              disabled={rec.refining || !rec.refineInput.trim()}
+                              style={{ background: 'rgba(136,98,255,.15)', color: '#a78bfa', border: '1px solid rgba(136,98,255,.3)', borderRadius: 4, padding: '5px 10px', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit', opacity: (rec.refining || !rec.refineInput.trim()) ? 0.4 : 1 }}
+                            >
+                              {rec.refining ? '…' : 'Refine'}
+                            </button>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: 6, marginTop: 8, justifyContent: 'flex-end' }}>
+                            <button
+                              onClick={() => rejectRec(idx)}
+                              title="Reject — remove this suggestion"
+                              style={{ ...S.ghostBtn, fontSize: 14, padding: '3px 12px', color: '#f85149', borderColor: 'rgba(248,81,73,.25)' }}
+                            >
+                              ✗
+                            </button>
+                            <button
+                              onClick={() => toggleAcceptRec(idx)}
+                              title={rec.accepted ? 'Click to un-accept' : 'Accept — will save when you click Save accepted'}
+                              style={{
+                                ...S.ghostBtn,
+                                fontSize: 14, padding: '3px 12px',
+                                color: rec.accepted ? '#7ee787' : '#7d8590',
+                                borderColor: rec.accepted ? 'rgba(126,231,135,.5)' : '#2a3040',
+                                background: rec.accepted ? 'rgba(126,231,135,.12)' : 'transparent',
+                              }}
+                            >
+                              ✓
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* Card list */}
             {deckBrowserNotes.length > 0 && (
@@ -3527,26 +3929,19 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         </main>
       )}
 
-      {/* ── Study Tab Home (no active session or browser) ─────────────────── */}
-      {activeTab === 'study' && !studyActive && !deckBrowserActive && (
+      {/* ── Study Tab Home (no active session) ─────────────────────────────── */}
+      {activeTab === 'study' && !studyActive && (
         <main style={{ ...S.main, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
           <div style={{ maxWidth: 400, width: '100%', textAlign: 'center', padding: '40px 20px' }}>
             <div style={{ fontSize: 20, fontWeight: 700, color: '#e6edf3', marginBottom: 16 }}>Study</div>
-            <div style={{ fontSize: 12, color: '#7d8590', marginBottom: 24 }}>Review your Anki cards with AI-powered quizzes or browse your decks.</div>
+            <div style={{ fontSize: 12, color: '#7d8590', marginBottom: 24 }}>Review your Anki cards with AI-powered quizzes.</div>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
               <button
-                onClick={() => { closeDeckBrowser(); startStudySession() }}
+                onClick={startStudySession}
                 disabled={studyLoading || ankiConnected === false}
                 style={{ ...S.captureBtn, borderRadius: 8, fontSize: 13, padding: '10px 24px', opacity: (studyLoading || ankiConnected === false) ? 0.5 : 1 }}
               >
                 {studyLoading ? 'Loading...' : 'Study Now'}
-              </button>
-              <button
-                onClick={() => { exitStudy(); openDeckBrowser() }}
-                disabled={ankiConnected === false}
-                style={{ ...S.ghostBtn, fontSize: 13, padding: '10px 24px', color: '#d2a8ff', borderColor: 'rgba(210,168,255,0.25)', opacity: ankiConnected === false ? 0.5 : 1 }}
-              >
-                Browse Deck
               </button>
             </div>
             {ankiConnected === false && (
@@ -3848,7 +4243,14 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
 
       {/* ── Study Session ────────────────────────────────────────────────────── */}
       {activeTab === 'study' && studyActive && (
-        <main style={{ ...S.main, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
+        <main style={{
+          ...S.main,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          // Center vertically only on the pick phase; question/summary content can exceed viewport and must scroll from the top.
+          ...(studyPhase === 'pick' ? { justifyContent: 'center' } : {}),
+        }}>
           <div style={{ maxWidth: 600, width: '100%', padding: '40px 20px' }}>
 
             {/* Study start phase */}
