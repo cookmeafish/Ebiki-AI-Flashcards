@@ -7,7 +7,8 @@ export const PROVIDERS = {
     url: 'https://console.anthropic.com/settings/keys',
     billingUrl: 'https://console.anthropic.com/settings/plans',
     model: 'claude-haiku-4-5-20251001',
-    call: async (apiKey, systemPrompt, userContent) => {
+    questionModel: 'claude-sonnet-4-6',
+    call: async (apiKey, systemPrompt, userContent, modelOverride) => {
       const resp = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -17,7 +18,7 @@ export const PROVIDERS = {
           'anthropic-dangerous-direct-browser-access': 'true',
         },
         body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
+          model: modelOverride || 'claude-haiku-4-5-20251001',
           max_tokens: 4000,
           system: systemPrompt,
           messages: [{ role: 'user', content: userContent }],
@@ -39,7 +40,8 @@ export const PROVIDERS = {
     url: 'https://platform.openai.com/api-keys',
     billingUrl: 'https://platform.openai.com/settings/organization/billing',
     model: 'gpt-4o-mini',
-    call: async (apiKey, systemPrompt, userContent) => {
+    questionModel: 'gpt-4o-mini',
+    call: async (apiKey, systemPrompt, userContent, modelOverride) => {
       const resp = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -47,7 +49,7 @@ export const PROVIDERS = {
           'Authorization': `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: modelOverride || 'gpt-4o-mini',
           max_tokens: 4000,
           response_format: { type: 'json_object' },
           messages: [
@@ -72,9 +74,11 @@ export const PROVIDERS = {
     url: 'https://aistudio.google.com/apikey',
     billingUrl: 'https://aistudio.google.com/apikey',
     model: 'gemini-2.0-flash',
-    call: async (apiKey, systemPrompt, userContent) => {
+    questionModel: 'gemini-2.0-flash',
+    call: async (apiKey, systemPrompt, userContent, modelOverride) => {
+      const model = modelOverride || 'gemini-2.0-flash'
       const resp = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -101,7 +105,8 @@ export const PROVIDERS = {
     url: 'https://console.x.ai/',
     billingUrl: 'https://console.x.ai/',
     model: 'grok-3-mini-fast',
-    call: async (apiKey, systemPrompt, userContent) => {
+    questionModel: 'grok-3-mini-fast',
+    call: async (apiKey, systemPrompt, userContent, modelOverride) => {
       const resp = await fetch('https://api.x.ai/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -109,7 +114,7 @@ export const PROVIDERS = {
           'Authorization': `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: 'grok-3-mini-fast',
+          model: modelOverride || 'grok-3-mini-fast',
           max_tokens: 4000,
           messages: [
             { role: 'system', content: systemPrompt },
