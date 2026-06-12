@@ -6,7 +6,7 @@ A multi-tab learning app with AI chat, Anki-integrated study sessions, screen tr
 
 ### Tabs
 - **Chat** — AI conversational assistant for learning, with inline Anki card generation, deck attachment for personalized tutoring, web search, and persistent conversation history
-- **Study** — Anki study sessions with AI-generated questions, deck browser, typo correction, feedback chat, "I know this" card deletion, wrap up/end now controls, and spaced repetition insights
+- **Study** — Anki study sessions with AI-generated questions, deck browser, typo correction, feedback chat, "I know this" card deletion, "I Don't Know" skip, wrap up/end now controls, and spaced repetition insights
 - **Picture** — Screen capture/OCR/translation with pixel-accurate word overlays, overlay mode for games
 - **Stats** — Study streaks, accuracy trends, per-deck breakdown (coming soon)
 
@@ -38,6 +38,7 @@ A multi-tab learning app with AI chat, Anki-integrated study sessions, screen tr
 - **Inline feedback** — completed card feedback appears below the active question as evaluations finish, so you can review while continuing to answer other cards
 - **Previous attempts shown** — results view shows all retry attempts grayed out above the final answer
 - **Smart evaluation** — for language learning, typos in the response language (e.g. English typos when studying Spanish) don't count against you
+- **I Don't Know** — skip the current question and mark it wrong instantly, no need to type wrong answers repeatedly. Rating can still be overridden at the end of the card
 - **Feedback chat** — after feedback is revealed, chat with AI to fix typos, flag out-of-scope questions, or request card updates. AI trusts student corrections and never argues
 - **Card updates from feedback** — AI can update Anki card content to add clarity
 - **Ratings synced after review** — Anki ratings only sync when you finish, giving you time to dispute/correct first
@@ -177,7 +178,7 @@ Card format is AI-generated per mode and fully customizable via the Card Format 
 ### Study sessions
 
 1. Go to the **Study** tab and click **Study Now**
-2. Select mode, deck, quiz language — the first card appears immediately, rest generate in background
+2. Select mode, deck, quiz language — the first card appears immediately, rest generate in background. Enable Grammar feedback to get accent/spelling notes written in the quiz language
 3. Answer questions — Q1 is always blind recall (no target word in question). Wrong answers trigger progressive hints
 4. Use **← Back** to undo your last answer and retry (available until the card syncs to Anki)
 5. As each card completes, AI evaluates in the background and feedback appears inline
@@ -193,7 +194,9 @@ Study features:
 - **Back / undo** — undo last answer on any unsynced card
 - **10-card pool** — questions randomly interleaved across 10 active cards for natural spacing
 - **Hidden card fronts** — prevents answer leakage
-- **Smart language evaluation** — English typos don't penalize you when studying Spanish
+- **Smart language evaluation** — typos in your native language don't penalize you when studying a foreign language
+- **I Don't Know** — one-click skip marks the question wrong without typing; card rating still adjustable at the end
+- **Grammar feedback** — when enabled, grammar and accent notes appear inline with each result, written in the quiz language
 - **Feedback chat** — dispute answers, fix typos, flag out-of-scope questions, update Anki cards
 - **Smart Wrap Up** — drops unstarted cards immediately, finishes only what you've started
 - **End Now** — immediate session end with partial results

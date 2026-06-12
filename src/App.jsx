@@ -2182,6 +2182,52 @@ Output ONLY raw JSON. No markdown, no backticks.`
     }
   }
 
+  const skipStudyQuestion = () => {
+    if (studyLoading || !currentQuestion) return
+    const { cardIdx, questionIdx } = currentQuestion
+    const cs = studyCardState[cardIdx]
+    const qpc = (activeMode.studyRules || defaultStudyRules).questionsPerCard || 3
+
+    setStudyHintLevel(0)
+    setStudyCurrentHint(null)
+
+    const newStates = [...studyCardState]
+    newStates[cardIdx] = {
+      ...cs,
+      answers: [...cs.answers, '(skipped)'],
+      questionIdx: cs.questionIdx + 1,
+    }
+
+    setStudyAnswerHistory(prev => [...prev, { cardIdx, questionIdx }])
+
+    if (newStates[cardIdx].questionIdx >= qpc) {
+      newStates[cardIdx].done = true
+      newStates[cardIdx].evaluating = true
+      setStudyCardState(newStates)
+      setStudyInput('')
+
+      const remaining = newStates.filter(cs => !cs.done && cs.questionIdx < cs.questions.length)
+      if (remaining.length > 0) {
+        const nextActive = remaining[Math.floor(Math.random() * remaining.length)]
+        setCurrentQuestion({ cardIdx: newStates.indexOf(nextActive), questionIdx: nextActive.questionIdx })
+      } else {
+        setCurrentQuestion(null)
+      }
+      evaluateCardAnswers(cardIdx, newStates[cardIdx])
+      pullNewCard()
+    } else {
+      setStudyCardState(newStates)
+      setStudyInput('')
+      const nextQ = (() => {
+        const active = newStates.filter(cs => !cs.done && cs.questionIdx < cs.questions.length)
+        if (active.length === 0) return null
+        const pick = active[Math.floor(Math.random() * active.length)]
+        return { cardIdx: newStates.indexOf(pick), questionIdx: pick.questionIdx }
+      })()
+      setCurrentQuestion(nextQ)
+    }
+  }
+
   const undoLastAnswer = () => {
     if (studyAnswerHistory.length === 0) return
     const last = studyAnswerHistory[studyAnswerHistory.length - 1]
@@ -2232,7 +2278,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
           : ''
         return `Q${i+1} [${type}]: ${getQuestionText(q)}${acceptedLine}\nAnswer: ${cs.answers[i] || '(no answer)'}`
       }).join('\n\n')
-      const prompt = `Evaluate ALL answers for this flashcard at once.\n\nCard front: "${cs.front}"\nCard back: "${cs.back}"\n\n${modeType}\n\n${questionsAndAnswers}\n\nGrading rules by question type:\n- recall / fill_blank: the answer MUST match one of the "Accepted answers" for that question. Normalize for case, accents, and minor typos. Synonyms, related words, or different words with the same meaning are INCORRECT — mark them wrong, and in the feedback acknowledge the synonym is related but note the specific word this card tests. If no "Accepted answers" line is given, fall back to the ${studyLang} side of the card for language mode, otherwise the card back.\n- explanation: grade on conceptual understanding — accept any answer that correctly addresses the question.\nALWAYS note any grammar, spelling, or accent issues in the feedback (e.g. missing accent mark on brújula). These notes are educational, not penalizing.${grammarExtra}\n\nReturn a JSON array of ${cs.questions.length} objects: [{"correct": true/false, "feedback": "brief explanation including any grammar/accent notes"${grammarOn ? ', "grammarNote": "...", "grammarRelevant": true/false' : ''}}]\n\nOutput ONLY raw JSON. No markdown, no backticks.`
+      const prompt = `Evaluate ALL answers for this flashcard at once.\n\nCard front: "${cs.front}"\nCard back: "${cs.back}"\n\n${modeType}\n\n${questionsAndAnswers}\n\nGrading rules by question type:\n- recall / fill_blank: the answer MUST match one of the "Accepted answers" for that question. Normalize for case, accents, and minor typos. Synonyms, related words, or different words with the same meaning are INCORRECT — mark them wrong, and in the feedback acknowledge the synonym is related but note the specific word this card tests. If no "Accepted answers" line is given, fall back to the ${studyLang} side of the card for language mode, otherwise the card back.\n- explanation: grade on conceptual understanding — accept any answer that correctly addresses the question.\nALWAYS note any grammar, spelling, or accent issues in the feedback (e.g. missing accent mark on brújula). These notes are educational, not penalizing.${grammarExtra}\n\nWrite ALL feedback text in ${studyLang}.\n\nReturn a JSON array of ${cs.questions.length} objects: [{"correct": true/false, "feedback": "brief explanation including any grammar/accent notes"${grammarOn ? ', "grammarNote": "...", "grammarRelevant": true/false' : ''}}]\n\nOutput ONLY raw JSON. No markdown, no backticks.`
 
       const text = await providerConfig.call(apiKey, 'You evaluate flashcard answers. Always respond with valid JSON only.', prompt)
       const results = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
@@ -4420,6 +4466,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       {/* Action buttons */}
                       <div style={{ display: 'flex', gap: 8, marginTop: 8, justifyContent: 'space-between' }}>
                         <div style={{ display: 'flex', gap: 6 }}>
+                          <button onClick={skipStudyQuestion}
+                            style={{ ...S.ghostBtn, fontSize: 10, color: '#f85149', borderColor: 'rgba(248,81,73,.25)' }}>
+                            I Don't Know
+                          </button>
                           <button onClick={() => setStudyDeleteConfirm(cq.cardIdx)}
                             style={{ ...S.ghostBtn, fontSize: 10, color: '#7d8590', borderColor: '#2a3040' }}>
                             I know this already
@@ -4515,6 +4565,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                             <div style={{ color: '#7d8590', marginBottom: 3 }}><span style={{ fontWeight: 600 }}>Q:</span> {getQuestionText(cs.questions[qi])}</div>
                             <div style={{ color: '#c9d1d9', marginBottom: 4 }}><span style={{ fontWeight: 600 }}>Your answer:</span> {cs.answers[qi]}</div>
                             <div style={{ color: r.correct ? '#7ee787' : '#ffa657', lineHeight: 1.5, fontSize: 11 }}>{r.feedback}</div>
+                            {r.grammarNote && (
+                              <div style={{ color: '#d2a8ff', fontSize: 10, marginTop: 2, fontStyle: 'italic' }}>
+                                {r.grammarRelevant ? '⚠️' : '\u{1F4A1}'} Grammar: {r.grammarNote}
+                              </div>
+                            )}
                           </div>
                         ))}
                         <div style={{ padding: '4px 12px', borderTop: '1px solid #2a3040', fontSize: 10, color: '#484f58' }}>{cs.back}</div>

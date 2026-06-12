@@ -33,7 +33,7 @@
 - Interleaved multi-card quizzes (configurable cards at once)
 - AI-generated contextual questions (not templates)
 - AI answer evaluation with feedback
-- Grammar feedback toggle (optional, per quiz language)
+- Grammar feedback toggle (optional, per quiz language) — notes appear inline with results, written in the quiz language
 - Anki spaced repetition rating (Easy/Good/Hard/Again)
 - Live New/Learn/Due counts from Anki
 - Knowledge base context for smarter questions
@@ -44,6 +44,7 @@
 - Progressive hint system: wrong answer → letter count hint → first letter hint → Try Again
 - Undo last answer (Back button) while card is unsynced
 - Smart Wrap Up: drops unstarted cards immediately, only finishes in-progress ones
+- I Don't Know button: skip and mark question wrong instantly; card rating still adjustable via dropdown after evaluation
 - Feedback chat trusts student corrections; mark_all_correct action for bulk typo fixes
 - Deck browser edits sync back to active study session on close (no refresh needed)
 - Browse cards save status feedback (Saving/Saved/error)
