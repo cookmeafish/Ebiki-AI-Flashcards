@@ -196,8 +196,9 @@ Study features:
 - **Hidden card fronts** — prevents answer leakage
 - **Smart language evaluation** — typos in your native language don't penalize you when studying a foreign language
 - **I Don't Know** — one-click skip marks the question wrong without typing; card rating still adjustable at the end
+- **Meaning Hint** — ask for a context hint at any time; AI describes what the answer means without revealing the word, any conjugations, or spelling
 - **Grammar feedback** — when enabled, grammar and accent notes appear inline with each result, written in the quiz language
-- **Feedback chat** — dispute answers, fix typos, flag out-of-scope questions, update Anki cards
+- **Feedback chat** — dispute answers, fix typos, flag out-of-scope questions, update Anki cards. Use Reply to send corrections or context to the AI
 - **Smart Wrap Up** — drops unstarted cards immediately, finishes only what you've started
 - **End Now** — immediate session end with partial results
 - **"I know this"** — delete mastered cards with confirmation

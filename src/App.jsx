@@ -217,6 +217,8 @@ export default function App() {
   const [studyFeedbackChat, setStudyFeedbackChat] = useState({}) // { [cardIdx]: { messages, input, loading } }
   const [studyCurrentHint, setStudyCurrentHint] = useState(null) // hint text for current question
   const [studyHintLevel, setStudyHintLevel] = useState(0) // 0=none, 1=hint1 shown, 2=hint2 shown
+  const [studyMeaningHint, setStudyMeaningHint] = useState(null)
+  const [studyMeaningHintLoading, setStudyMeaningHintLoading] = useState(false)
   const [studyAnswerHistory, setStudyAnswerHistory] = useState([]) // [{cardIdx, questionIdx}] for undo
   const [studyInsights, setStudyInsights] = useState(null)
   const [studyInsightsLoading, setStudyInsightsLoading] = useState(false)
@@ -2143,6 +2145,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     // Advance — correct, explanation type, or max hints exhausted
     setStudyHintLevel(0)
     setStudyCurrentHint(null)
+    setStudyMeaningHint(null)
 
     newStates[cardIdx] = {
       ...newStates[cardIdx],
@@ -2190,6 +2193,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
 
     setStudyHintLevel(0)
     setStudyCurrentHint(null)
+    setStudyMeaningHint(null)
 
     const newStates = [...studyCardState]
     newStates[cardIdx] = {
@@ -2228,6 +2232,36 @@ Output ONLY raw JSON. No markdown, no backticks.`
     }
   }
 
+  const fetchMeaningHint = async () => {
+    if (!currentQuestion || !apiKey || studyMeaningHintLoading) return
+    const { cardIdx, questionIdx } = currentQuestion
+    const cs = studyCardState[cardIdx]
+    const questionObj = cs.questions[questionIdx]
+    const question = getQuestionText(questionObj)
+    const rules = activeMode.studyRules || defaultStudyRules
+    const studyLang = rules.studyLanguage || 'English'
+    setStudyMeaningHintLoading(true)
+    try {
+      const prompt = `A student is studying a flashcard and needs a meaning hint. Give 1–2 sentences describing the core meaning or concept behind the answer — enough to help them understand what they're looking for without revealing the answer word itself.
+
+Card front: "${cs.front}"
+Card back: "${cs.back}"
+Question: "${question}"
+
+Rules:
+- Do NOT include the answer word or any conjugated/inflected form of it
+- Do NOT give spelling hints or letter counts
+- Describe the concept, meaning, or context only
+- Write in ${studyLang}`
+      const text = await providerConfig.call(apiKey, 'You give concise flashcard study hints. Never reveal the answer word or any of its forms.', prompt)
+      setStudyMeaningHint(text.trim())
+    } catch {
+      setStudyMeaningHint(null)
+    } finally {
+      setStudyMeaningHintLoading(false)
+    }
+  }
+
   const undoLastAnswer = () => {
     if (studyAnswerHistory.length === 0) return
     const last = studyAnswerHistory[studyAnswerHistory.length - 1]
@@ -2257,6 +2291,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     setCurrentQuestion({ cardIdx, questionIdx })
     setStudyCurrentHint(null)
     setStudyHintLevel(0)
+    setStudyMeaningHint(null)
     setStudyInput('')
   }
 
@@ -2427,6 +2462,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     setCurrentQuestion(null)
     setStudyCurrentHint(null)
     setStudyHintLevel(0)
+    setStudyMeaningHint(null)
     setStudyAnswerHistory([])
   }
 
@@ -4448,6 +4484,15 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         </div>
                       )}
 
+                      {studyMeaningHint && (
+                        <div style={{ fontSize: 11, color: '#79c0ff', background: 'rgba(121,192,255,.06)', border: '1px solid rgba(121,192,255,.2)', borderRadius: 5, padding: '5px 10px', marginBottom: 8 }}>
+                          💡 {studyMeaningHint}
+                        </div>
+                      )}
+                      {studyMeaningHintLoading && (
+                        <div style={{ fontSize: 10, color: '#7d8590', marginBottom: 8 }}>Loading hint...</div>
+                      )}
+
                       <div style={{ display: 'flex', gap: 8 }}>
                         <input
                           value={studyInput}
@@ -4469,6 +4514,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           <button onClick={skipStudyQuestion}
                             style={{ ...S.ghostBtn, fontSize: 10, color: '#f85149', borderColor: 'rgba(248,81,73,.25)' }}>
                             I Don't Know
+                          </button>
+                          <button onClick={fetchMeaningHint} disabled={studyMeaningHintLoading || !!studyMeaningHint}
+                            style={{ ...S.ghostBtn, fontSize: 10, color: '#79c0ff', borderColor: 'rgba(121,192,255,.25)', opacity: (studyMeaningHintLoading || !!studyMeaningHint) ? 0.5 : 1 }}>
+                            {studyMeaningHintLoading ? 'Loading...' : 'Meaning Hint'}
                           </button>
                           <button onClick={() => setStudyDeleteConfirm(cq.cardIdx)}
                             style={{ ...S.ghostBtn, fontSize: 10, color: '#7d8590', borderColor: '#2a3040' }}>
@@ -4582,7 +4631,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                             {studyFeedbackChat[ci]?.loading && <div style={{ fontSize: 10, color: '#7d8590', padding: '2px 8px' }}>Thinking...</div>}
                             <div style={{ display: 'flex', gap: 4 }}>
                               <input value={studyFeedbackChat[ci]?.input || ''} onChange={(e) => setStudyFeedbackChat(prev => ({ ...prev, [ci]: { ...(prev[ci] || { messages: [], loading: false }), input: e.target.value } }))} onKeyDown={(e) => { if (e.key === 'Enter') sendStudyFeedbackChat(ci) }} placeholder="Fix typo, flag bad question, or ask..." style={{ ...S.keyInput, flex: 1, fontSize: 10, padding: '4px 8px' }} />
-                              <button onClick={() => sendStudyFeedbackChat(ci)} disabled={studyFeedbackChat[ci]?.loading || !(studyFeedbackChat[ci]?.input?.trim())} style={{ ...S.ghostBtn, fontSize: 9, padding: '4px 8px', opacity: (studyFeedbackChat[ci]?.loading || !(studyFeedbackChat[ci]?.input?.trim())) ? 0.4 : 1 }}>Ask</button>
+                              <button onClick={() => sendStudyFeedbackChat(ci)} disabled={studyFeedbackChat[ci]?.loading || !(studyFeedbackChat[ci]?.input?.trim())} style={{ ...S.ghostBtn, fontSize: 9, padding: '4px 8px', opacity: (studyFeedbackChat[ci]?.loading || !(studyFeedbackChat[ci]?.input?.trim())) ? 0.4 : 1 }}>Reply</button>
                             </div>
                           </div>
                         )}
@@ -4667,7 +4716,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           <button onClick={() => sendStudyFeedbackChat(ci)}
                             disabled={studyFeedbackChat[ci]?.loading || !(studyFeedbackChat[ci]?.input?.trim())}
                             style={{ ...S.ghostBtn, fontSize: 9, padding: '4px 8px', opacity: (studyFeedbackChat[ci]?.loading || !(studyFeedbackChat[ci]?.input?.trim())) ? 0.4 : 1 }}>
-                            Ask
+                            Reply
                           </button>
                         </div>
                       </div>

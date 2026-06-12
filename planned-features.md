@@ -45,6 +45,8 @@
 - Undo last answer (Back button) while card is unsynced
 - Smart Wrap Up: drops unstarted cards immediately, only finishes in-progress ones
 - I Don't Know button: skip and mark question wrong instantly; card rating still adjustable via dropdown after evaluation
+- Meaning Hint button: on-demand AI hint describing the word's meaning/context without revealing the answer word or any conjugated form
+- Feedback chat Reply button: renamed from Ask to better reflect both corrections and questions
 - Feedback chat trusts student corrections; mark_all_correct action for bulk typo fixes
 - Deck browser edits sync back to active study session on close (no refresh needed)
 - Browse cards save status feedback (Saving/Saved/error)
