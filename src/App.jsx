@@ -223,6 +223,7 @@ export default function App() {
   const [studyInsights, setStudyInsights] = useState(null)
   const [studyInsightsLoading, setStudyInsightsLoading] = useState(false)
   const [studySyncNotification, setStudySyncNotification] = useState(false)
+  const [studySyncError, setStudySyncError] = useState(null)
 
   // ─── Chat Tab State ───────────────────────────────────────────────────────
   const [chatTabMsgs, setChatTabMsgs] = useState([]) // [{ role, content, cards? }]
@@ -2395,23 +2396,50 @@ Rules:
     const ratingsToSync = studyCardState.filter(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced)
     if (ratingsToSync.length === 0) return { synced: 0, failed: 0 }
     syncingRef.current = true
+
+    // Try each card individually so one bad card doesn't block the rest
+    const synced = []
+    const failed = []
     try {
-      await ankiAnswerCards(ratingsToSync.map(cs => ({ cardId: cs.cardId, ease: cs.ease })))
+      for (const cs of ratingsToSync) {
+        try {
+          console.log('[Anki sync] answering card', cs.cardId, 'ease', cs.ease, 'rating', cs.rating)
+          const result = await ankiAnswerCards([{ cardId: cs.cardId, ease: cs.ease }])
+          if (result === false) {
+            // answerCards returns false when ease is out of range for the card's current state
+            // (e.g. new card only has 3 buttons but we sent ease=4). Retry with capped ease.
+            console.warn('[Anki sync] answerCards returned false for card', cs.cardId, '— retrying with ease 3')
+            const retry = await ankiAnswerCards([{ cardId: cs.cardId, ease: Math.min(cs.ease, 3) }])
+            if (retry === false) {
+              console.error('[Anki sync] retry also failed for card', cs.cardId)
+              failed.push(cs)
+            } else {
+              console.log('[Anki sync] retry succeeded for card', cs.cardId)
+              synced.push(cs)
+            }
+          } else {
+            synced.push(cs)
+          }
+        } catch (err) {
+          console.error('[Anki sync] error for card', cs.cardId, err.message)
+          failed.push(cs)
+        }
+      }
+    } finally {
+      syncingRef.current = false
+    }
+
+    if (synced.length > 0) {
+      const syncedIds = new Set(synced.map(cs => cs.cardId))
+      setStudyCardState(prev => prev.map(cs => syncedIds.has(cs.cardId) ? { ...cs, synced: true } : cs))
       ankiSync().catch(() => {})
       ankiGetDeckStats([studyDeck]).then(s => {
         const ds = Object.values(s)[0]
         if (ds) setStudyDeckStats(ds)
       }).catch(() => {})
-      const submittedIds = new Set(ratingsToSync.map(cs => cs.cardId))
-      setStudyCardState(prev => prev.map(cs => submittedIds.has(cs.cardId) ? { ...cs, synced: true } : cs))
-      console.log('[Study] synced', ratingsToSync.length, 'card ratings to Anki')
-      return { synced: ratingsToSync.length, failed: 0 }
-    } catch (err) {
-      console.warn('[Study] failed to sync ratings:', err.message)
-      return { synced: 0, failed: ratingsToSync.length, error: err.message }
-    } finally {
-      syncingRef.current = false
+      console.log('[Anki sync] synced', synced.length, 'cards. Failed:', failed.length)
     }
+    return { synced: synced.length, failed: failed.length, ...(failed.length > 0 ? { error: `${failed.length} card(s) failed` } : {}) }
   }
 
   // Auto-sync: continuously push newly-evaluated card ratings to Anki as soon as
@@ -2421,7 +2449,9 @@ Rules:
     if (!studyActive) return
     const hasUnsynced = studyCardState.some(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced)
     if (hasUnsynced) {
-      syncRatingsToAnki()
+      syncRatingsToAnki().then(result => {
+        if (result?.failed > 0) console.error('[Anki auto-sync] failed cards:', result.failed, result.error)
+      })
     }
   }, [studyCardState, studyActive])
 
@@ -4562,10 +4592,16 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   {studyCardState.filter(cs => cs.done && cs.results.length > 0 && !cs.dismissed).length > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
                       <button onClick={async () => {
-                        await syncRatingsToAnki()
+                        setStudySyncError(null)
+                        const result = await syncRatingsToAnki()
                         setStudyCardState(prev => prev.map(cs => cs.done && cs.results.length > 0 ? { ...cs, dismissed: true } : cs))
-                        setStudySyncNotification(true)
-                        setTimeout(() => setStudySyncNotification(false), 3000)
+                        if (result.failed > 0) {
+                          setStudySyncError(`${result.failed} card(s) failed to sync — check browser console for details`)
+                          setTimeout(() => setStudySyncError(null), 8000)
+                        } else {
+                          setStudySyncNotification(true)
+                          setTimeout(() => setStudySyncNotification(false), 3000)
+                        }
                       }} style={{ ...S.ghostBtn, fontSize: 11, color: '#7ee787', borderColor: 'rgba(126,231,135,.3)' }}>
                         Done — Sync to Anki
                       </button>
@@ -4573,6 +4609,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   )}
                   {studySyncNotification && (
                     <div style={{ textAlign: 'center', marginTop: 8, fontSize: 11, color: '#7ee787' }}>Synced to Anki</div>
+                  )}
+                  {studySyncError && (
+                    <div style={{ textAlign: 'center', marginTop: 8, fontSize: 11, color: '#f85149', background: 'rgba(248,81,73,.06)', border: '1px solid rgba(248,81,73,.2)', borderRadius: 6, padding: '6px 12px' }}>{studySyncError}</div>
                   )}
                   {studyCardState.filter(cs => cs.done && cs.results.length > 0 && !cs.dismissed).map((cs, i) => {
                     const ci = studyCardState.indexOf(cs)
