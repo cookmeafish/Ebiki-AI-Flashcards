@@ -102,3 +102,17 @@ export async function ankiSync() {
   await ankiRequest('sync')
   ankiLog('sync complete')
 }
+
+// ─── Media files (used as a cloud-synced key/value store) ───────────────────
+// Files prefixed with "_" are ignored by Anki's "Check Media" and never garbage
+// collected, but still sync to AnkiWeb — the documented way to store config data.
+export async function ankiStoreMediaFile(filename, dataBase64) {
+  ankiLog(`storing media file "${filename}"`)
+  return ankiRequest('storeMediaFile', { filename, data: dataBase64 })
+}
+
+// Returns the base64-encoded file contents, or false if the file does not exist.
+export async function ankiRetrieveMediaFile(filename) {
+  ankiLog(`retrieving media file "${filename}"`)
+  return ankiRequest('retrieveMediaFile', { filename })
+}

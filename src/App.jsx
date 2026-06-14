@@ -5,9 +5,12 @@ import { PROVIDERS } from './config/providers'
 import { LANGS } from './config/languages'
 import FormattedText from './components/FormattedText'
 import HelpChat from './components/HelpChat'
+import DiscoverPanel from './components/DiscoverPanel'
 import { S } from './styles/theme'
 import { ocrLog, ocrLogTable, ocrLogFlush } from './utils/logger'
 import { ankiPing, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiFindCards, ankiCardsInfo, ankiAnswerCards, ankiGetDeckStats, ankiFindNotes, ankiNotesInfo, ankiUpdateNote, ankiDeleteNotes, ankiSync } from './utils/anki'
+import { readBlob, writeBlob, DEFAULT_LEDGER } from './discover/storage'
+import { buildProfilePrompt, buildSuggestionPrompt, buildVerifyPrompt } from './discover/prompts'
 
 
 // ─── Image Preprocessing for OCR ────────────────────────────────────────────
@@ -212,6 +215,22 @@ export default function App() {
   const [deckAnalyzeCommitting, setDeckAnalyzeCommitting] = useState(false)
   const [deckAnalyzeError, setDeckAnalyzeError] = useState(null)
   const [deckAnalyzeEmpty, setDeckAnalyzeEmpty] = useState(false) // true when analyze completed with 0 recommendations
+  // Discover Mode (adaptive new-card discovery)
+  const [deckMode, setDeckMode] = useState('browser') // 'browser' | 'discover'
+  const [discoverProfile, setDiscoverProfile] = useState(null)
+  const [discoverProfileLoading, setDiscoverProfileLoading] = useState(false)
+  const [discoverLedger, setDiscoverLedger] = useState(DEFAULT_LEDGER)
+  const [discoverSuggestion, setDiscoverSuggestion] = useState(null)
+  const [discoverSuggestionLoading, setDiscoverSuggestionLoading] = useState(false)
+  const [discoverError, setDiscoverError] = useState(null)
+  const [discoverStatus, setDiscoverStatus] = useState(null) // null | 'thinking' | 'searching' | 'verifying'
+  const [discoverSources, setDiscoverSources] = useState(null)
+  const [discoverWebVerify, setDiscoverWebVerify] = useState(true)
+  const [discoverCard, setDiscoverCard] = useState(null) // { front, back, tags } preview when making a card
+  const [discoverCardLoading, setDiscoverCardLoading] = useState(false)
+  const [discoverCardSaving, setDiscoverCardSaving] = useState(false)
+  const discoverInitRef = useRef(false)
+  const discoverDeckTermsRef = useRef([]) // existing card fronts, to avoid re-suggesting them
   const [studyWrappingUp, setStudyWrappingUp] = useState(false)
   const [studyDeleteConfirm, setStudyDeleteConfirm] = useState(null) // cardIdx being confirmed for deletion
   const [studyFeedbackChat, setStudyFeedbackChat] = useState({}) // { [cardIdx]: { messages, input, loading } }
@@ -1332,23 +1351,12 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
     }
   }
 
-  const generateAnkiCard = async (word) => {
-    if (!apiKey || ankiGenerating) return
-    setAnkiGenerating(true)
-    setAnkiError(null)
-    setAnkiCard(null)
-    setAnkiEditing(false)
-    setAnkiRefineInput('')
-    // Re-check Anki connection so the status is fresh (user may have opened Anki since last check)
-    const connected = await ankiPing()
-    setAnkiConnected(connected)
-    if (connected) {
-      const decks = await ankiGetDecks().catch(() => [])
-      setAnkiDecks(decks)
-    }
+  // Shared card builder — turns a term into templated { front, back, tags } using the
+  // active mode's format. Used by both the Picture-tab flow and Discover Mode. Pure: it
+  // does not touch UI state, so callers control loading/preview/error handling.
+  const buildCardFields = async ({ term, partOfSpeech = '', translation = '', contextText = '' }) => {
     const srcLang = LANGS.find((l) => l.code === language)?.label || 'the source language'
     const tgtLang = LANGS.find((l) => l.code === targetLang)?.label || 'English'
-    const context = ocrWords.map((w) => w.text).join(' ')
     const fmt = ankiFormat
 
     // Build the AI prompt based on which fields are enabled (dynamic)
@@ -1376,47 +1384,69 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
     fieldRequests.push(tagInstruction)
 
     const modeContext = activeMode.type === 'language'
-      ? `Source language: ${srcLang}\nTranslation: ${word.translation}`
+      ? `Source language: ${srcLang}${translation ? `\nTranslation: ${translation}` : ''}`
       : `Study subject: ${activeMode.description || activeMode.name}`
 
-    const prompt = `Generate an Anki flashcard for the ${activeMode.type === 'language' ? 'word' : 'term'} "${word.text}" (${word.partOfSpeech || 'unknown'}).
+    const prompt = `Generate an Anki flashcard for the ${activeMode.type === 'language' ? 'word' : 'term'} "${term}" (${partOfSpeech || 'unknown'}).
 ${modeContext}
-Context: "${context}"
+Context: "${contextText}"
 
 Return a JSON object with these fields:
 ${fieldRequests.map((f) => `- ${f}`).join('\n')}
 
 Output ONLY raw JSON. No markdown, no backticks.`
 
+    console.log('[Anki] generating card with AI...')
+    const text = await providerConfig.call(apiKey, 'You generate Anki flashcard content. Always respond with valid JSON only.', prompt)
+    const cardData = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+    console.log('[Anki] AI card data:', cardData)
+
+    // Dynamic template replacement
+    const replacements = {
+      word: term, term,
+      partOfSpeech: partOfSpeech || '',
+      ...cardData,
+    }
+    // Remove tags from replacements (it's an array, not a template field)
+    const aiTags = cardData.tags
+    delete replacements.tags
+
+    let front = fmt.frontTemplate
+    let back = fmt.backTemplate
+    Object.entries(replacements).forEach(([key, val]) => {
+      const re = new RegExp(`\\{${key}\\}`, 'g')
+      front = front.replace(re, String(val || ''))
+      back = back.replace(re, String(val || ''))
+    })
+
+    const tags = Array.isArray(aiTags) && aiTags.length > 0 ? aiTags : ['screenlens']
+    console.log('[Anki] card generated', { front, back, tags })
+    return { front, back, tags }
+  }
+
+  const generateAnkiCard = async (word) => {
+    if (!apiKey || ankiGenerating) return
+    setAnkiGenerating(true)
+    setAnkiError(null)
+    setAnkiCard(null)
+    setAnkiEditing(false)
+    setAnkiRefineInput('')
+    // Re-check Anki connection so the status is fresh (user may have opened Anki since last check)
+    const connected = await ankiPing()
+    setAnkiConnected(connected)
+    if (connected) {
+      const decks = await ankiGetDecks().catch(() => [])
+      setAnkiDecks(decks)
+    }
     try {
-      console.log('[Anki] generating card with AI...')
-      const text = await providerConfig.call(apiKey, 'You generate Anki flashcard content. Always respond with valid JSON only.', prompt)
-      const cardData = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
-      console.log('[Anki] AI card data:', cardData)
-
-      // Dynamic template replacement
-      const replacements = {
-        word: word.text, term: word.text,
-        partOfSpeech: word.partOfSpeech || '',
-        ...cardData,
-      }
-      // Remove tags from replacements (it's an array, not a template field)
-      const aiTags = cardData.tags
-      delete replacements.tags
-
-      let front = fmt.frontTemplate
-      let back = fmt.backTemplate
-      Object.entries(replacements).forEach(([key, val]) => {
-        const re = new RegExp(`\\{${key}\\}`, 'g')
-        front = front.replace(re, String(val || ''))
-        back = back.replace(re, String(val || ''))
+      const contextText = ocrWords.map((w) => w.text).join(' ')
+      const card = await buildCardFields({
+        term: word.text,
+        partOfSpeech: word.partOfSpeech,
+        translation: word.translation,
+        contextText,
       })
-
-      const tags = Array.isArray(aiTags) && aiTags.length > 0
-        ? aiTags
-        : ['screenlens']
-      console.log('[Anki] card generated', { front, back, tags })
-      setAnkiCard({ front, back, tags })
+      setAnkiCard(card)
     } catch (err) {
       console.error('[Anki] card generation failed:', err.message)
       setAnkiError('Card generation failed: ' + err.message)
@@ -1827,6 +1857,273 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     setDeckAnalyzeRecs([])
     setDeckAnalyzeError(null)
   }
+
+  // ─── Discover Mode ───────────────────────────────────────────────────────
+  // Build (or refresh) the learner profile from cards, mastery stats, progress
+  // observations and chat history. Persists to the Anki media store (+ local cache).
+  const buildLearnerProfile = async () => {
+    if (!apiKey) { setDiscoverError('API key required'); return null }
+    setDiscoverProfileLoading(true)
+    setDiscoverError(null)
+    try {
+      const deck = ankiDeck
+      let cards = []
+      let cardCount = 0
+      let masterySummary = ''
+      try {
+        if (deck) {
+          const noteIds = await ankiFindNotes(`deck:"${deck}"`)
+          cardCount = noteIds.length
+          const notes = noteIds.length ? await ankiNotesInfo(noteIds.slice(0, 150)) : []
+          cards = notes.map((n) => {
+            const f = Object.values(n.fields).sort((a, b) => a.order - b.order)
+            return { front: stripHtml(f[0]?.value || ''), back: stripHtml(f[1]?.value || '') }
+          })
+          discoverDeckTermsRef.current = cards.map((c) => c.front).filter(Boolean)
+          const cardIds = await ankiFindCards(`deck:"${deck}"`).catch(() => [])
+          const info = cardIds.length ? await ankiCardsInfo(cardIds.slice(0, 300)) : []
+          if (info.length) {
+            const mature = info.filter((c) => (c.interval || 0) >= 21).length
+            const learning = info.filter((c) => (c.interval || 0) > 0 && (c.interval || 0) < 21).length
+            const fresh = info.filter((c) => !c.interval).length
+            const hard = info.filter((c) => (c.lapses || 0) >= 2).length
+            const avgEasePct = Math.round(info.reduce((s, c) => s + (c.factor || 0), 0) / info.length / 10)
+            masterySummary = `Scheduling: ${info.length} cards — ${mature} mature (interval>=21d), ${learning} learning, ${fresh} new. ~${hard} have lapsed 2+ times (struggle). Avg ease ~${avgEasePct}%.`
+          }
+        }
+      } catch (e) { console.warn('[Discover] card gather failed:', e.message) }
+
+      let progressObs = ''
+      try {
+        if (deck) {
+          const r = await fetch(`/api/deck-progress?deck=${encodeURIComponent(deck)}`)
+          progressObs = (await r.json()).content || ''
+        }
+      } catch {}
+
+      let chatSummary = ''
+      let chatCount = 0
+      try {
+        const sessions = await (await fetch('/api/chats')).json()
+        const relevant = (sessions || []).filter((s) => s.type === 'study' || s.type === 'feedback' || !s.type)
+        chatCount = relevant.length
+        chatSummary = relevant.slice(0, 20).map((s) => `- ${s.title}`).join('\n')
+      } catch {}
+
+      let knowledgeSummary = ''
+      try {
+        const d = await (await fetch(`/api/modes/knowledge?mode=${encodeURIComponent(activeMode.name)}`)).json()
+        const names = (d.files || []).filter((f) => !f.disabled).map((f) => f.name)
+        if (names.length) knowledgeSummary = `Knowledge base files: ${names.join(', ')}`
+      } catch {}
+
+      const cardList = cards.slice(0, 120).map((c) => `- ${c.front} -> ${c.back}`).join('\n')
+      const evidence = [
+        `Total cards in deck "${deck || '(none)'}": ${cardCount}`,
+        masterySummary,
+        cardCount ? `Sample of their cards:\n${cardList}` : 'No cards yet — likely a beginner.',
+        progressObs ? `Progress observations:\n${progressObs}` : '',
+        chatCount ? `Recent study/feedback chat topics (${chatCount}):\n${chatSummary}` : '',
+        knowledgeSummary,
+      ].filter(Boolean).join('\n\n')
+
+      const prompt = buildProfilePrompt({
+        modeType: activeMode.type || 'general',
+        modeName: activeMode.name,
+        modeDescription: activeMode.description,
+        evidence,
+      })
+      const text = await providerConfig.call(apiKey, 'You assess learner proficiency. Always respond with valid JSON only.', prompt, providerConfig.questionModel)
+      const profile = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+      setDiscoverProfile(profile)
+      writeBlob('profile', activeMode.name, profile).catch(() => {})
+      console.log('[Discover] profile built:', profile)
+      return profile
+    } catch (err) {
+      console.error('[Discover] profile failed:', err.message)
+      setDiscoverError('Could not analyze level: ' + err.message)
+      return null
+    } finally {
+      setDiscoverProfileLoading(false)
+    }
+  }
+
+  // Compute the exclude list (never suggest these again).
+  const discoverExcludeList = (ledger) => {
+    const l = ledger || discoverLedger
+    return [
+      ...(l.offered || []),
+      ...(l.known || []).map((x) => x.term),
+      ...(l.declined || []).map((x) => x.term),
+      ...(l.carded || []).map((x) => x.term),
+      ...discoverDeckTermsRef.current,
+    ].filter(Boolean)
+  }
+
+  // Fetch one new suggestion calibrated to the profile, optionally web-verified.
+  const fetchNextSuggestion = async (profileArg, ledgerArg) => {
+    const profile = profileArg || discoverProfile
+    if (!apiKey || !profile) return
+    setDiscoverSuggestionLoading(true)
+    setDiscoverError(null)
+    setDiscoverSuggestion(null)
+    setDiscoverSources(null)
+    setDiscoverCard(null)
+    setDiscoverStatus('thinking')
+    try {
+      const ledger = ledgerArg || discoverLedger
+      const studyLanguage = activeMode.studyRules?.studyLanguage || (LANGS.find((l) => l.code === language)?.label)
+      const prompt = buildSuggestionPrompt({
+        profile,
+        modeType: activeMode.type || 'general',
+        modeName: activeMode.name,
+        modeDescription: activeMode.description,
+        studyLanguage,
+        excludeList: discoverExcludeList(ledger),
+      })
+      const text = await providerConfig.call(apiKey, 'You suggest new study items. Always respond with valid JSON only.', prompt, providerConfig.questionModel)
+      let suggestion = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+
+      // Web grounding: verify/correct facts against search results.
+      if (discoverWebVerify && suggestion?.term) {
+        setDiscoverStatus('searching')
+        try {
+          const q = `${suggestion.term} meaning ${studyLanguage || ''}`.trim()
+          const searchData = await (await fetch(`/api/web-search?q=${encodeURIComponent(q)}`)).json()
+          if (searchData.results?.length > 0) {
+            setDiscoverSources(searchData.results.slice(0, 4))
+            setDiscoverStatus('verifying')
+            const vText = await providerConfig.call(apiKey, 'You verify facts and respond with valid JSON only.', buildVerifyPrompt({ suggestion, searchResults: searchData.results.slice(0, 5) }), providerConfig.questionModel)
+            const v = JSON.parse(vText.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+            suggestion = { ...suggestion, translation: v.translation || suggestion.translation, draftMeaning: v.draftMeaning || suggestion.draftMeaning, verified: !!v.verified, verifyNote: v.note || '' }
+          }
+        } catch (e) { console.warn('[Discover] verify failed:', e.message) }
+      }
+
+      setDiscoverSuggestion(suggestion)
+      // Record as offered so it is never repeated.
+      const nextLedger = { ...ledger, offered: [...new Set([...(ledger.offered || []), suggestion.term])] }
+      setDiscoverLedger(nextLedger)
+      writeBlob('ledger', activeMode.name, nextLedger).catch(() => {})
+    } catch (err) {
+      console.error('[Discover] suggestion failed:', err.message)
+      setDiscoverError('Could not get a suggestion: ' + err.message)
+    } finally {
+      setDiscoverSuggestionLoading(false)
+      setDiscoverStatus(null)
+    }
+  }
+
+  // Record an action in the ledger and advance to the next suggestion.
+  const discoverRecordAndNext = (kind, reason) => {
+    const s = discoverSuggestion
+    if (!s) return
+    const entry = { term: s.term, ts: new Date().toISOString(), ...(reason ? { reason } : {}) }
+    const nextLedger = { ...discoverLedger, [kind]: [...(discoverLedger[kind] || []), entry] }
+    setDiscoverLedger(nextLedger)
+    writeBlob('ledger', activeMode.name, nextLedger).catch(() => {})
+    // "I know this" is mild evidence the learner is above this item — nudge confidence.
+    fetchNextSuggestion(discoverProfile, nextLedger)
+  }
+
+  // Generate a card preview for the current suggestion.
+  const makeDiscoverCard = async () => {
+    const s = discoverSuggestion
+    if (!s || !apiKey || discoverCardLoading) return
+    setDiscoverCardLoading(true)
+    setDiscoverError(null)
+    try {
+      const card = await buildCardFields({
+        term: s.term,
+        partOfSpeech: s.partOfSpeech,
+        translation: s.translation,
+        contextText: s.draftMeaning || s.why || '',
+      })
+      setDiscoverCard(card)
+    } catch (err) {
+      setDiscoverError('Card generation failed: ' + err.message)
+    } finally {
+      setDiscoverCardLoading(false)
+    }
+  }
+
+  // Save the previewed card to Anki, record it, and move on.
+  const saveDiscoverCard = async () => {
+    const card = discoverCard
+    const s = discoverSuggestion
+    if (!card || !s || discoverCardSaving) return
+    setDiscoverCardSaving(true)
+    setDiscoverError(null)
+    try {
+      const connected = await ankiPing()
+      setAnkiConnected(connected)
+      if (!connected) { setDiscoverError('Anki is not running — open Anki to save cards'); return }
+      if (ankiDeck && !(await ankiGetDecks().catch(() => [])).includes(ankiDeck)) {
+        await ankiCreateDeck(ankiDeck)
+      }
+      const ankiBack = card.back.split('\n').map((line) => {
+        const m = line.match(/^([A-Za-zÁÉÍÓÚáéíóúñÑ\s]+):(.*)$/)
+        return m ? `<b>${m[1]}:</b>${m[2]}` : line
+      }).join('<br>')
+      const noteId = await ankiAddNote(ankiDeck, card.front, ankiBack, card.tags)
+      ankiSync().catch(() => {})
+      discoverDeckTermsRef.current = [...discoverDeckTermsRef.current, card.front]
+      const nextLedger = {
+        ...discoverLedger,
+        carded: [...(discoverLedger.carded || []), { term: s.term, noteId, ts: new Date().toISOString() }],
+        offered: [...new Set([...(discoverLedger.offered || []), s.term])],
+      }
+      setDiscoverLedger(nextLedger)
+      writeBlob('ledger', activeMode.name, nextLedger).catch(() => {})
+      setDiscoverCard(null)
+      fetchNextSuggestion(discoverProfile, nextLedger)
+    } catch (err) {
+      setDiscoverError('Save failed: ' + err.message)
+    } finally {
+      setDiscoverCardSaving(false)
+    }
+  }
+
+  // Initialize Discover when the user switches to it: load ledger + profile, then suggest.
+  const initDiscover = async () => {
+    if (discoverInitRef.current || !apiKey) return
+    discoverInitRef.current = true
+    try {
+      const ledger = (await readBlob('ledger', activeMode.name)) || DEFAULT_LEDGER
+      setDiscoverLedger(ledger)
+      let profile = await readBlob('profile', activeMode.name)
+      if (!profile) profile = await buildLearnerProfile()
+      else setDiscoverProfile(profile)
+      if (profile) await fetchNextSuggestion(profile, ledger)
+    } catch (err) {
+      setDiscoverError('Discover init failed: ' + err.message)
+    }
+  }
+
+  // Re-analyze level on demand, then refresh the suggestion.
+  const reanalyzeDiscover = async () => {
+    const profile = await buildLearnerProfile()
+    if (profile) fetchNextSuggestion(profile, discoverLedger)
+  }
+
+  // Reset Discover state when the active mode (and thus deck/profile) changes.
+  // Defined before the init effect so on a mode switch the reset runs first.
+  useEffect(() => {
+    discoverInitRef.current = false
+    discoverDeckTermsRef.current = []
+    setDiscoverProfile(null)
+    setDiscoverSuggestion(null)
+    setDiscoverLedger(DEFAULT_LEDGER)
+    setDiscoverCard(null)
+    setDiscoverError(null)
+    setDiscoverSources(null)
+  }, [activeModeId])
+
+  useEffect(() => {
+    if (activeTab === 'deck' && deckMode === 'discover' && ankiConnected && apiKey && !discoverInitRef.current) {
+      initDiscover()
+    }
+  }, [activeTab, deckMode, ankiConnected, apiKey, activeModeId])
 
   // Auto-open the deck browser when the Deck tab is entered, sync edits back when leaving.
   const prevTabRef = useRef(null)
@@ -3800,9 +4097,17 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       {activeTab === 'deck' && (
         <main style={{ ...S.main, display: 'flex', flexDirection: 'column', padding: 20 }}>
           <div style={{ maxWidth: 800, width: '100%', margin: '0 auto' }}>
-            {/* Header */}
+            {/* Header + Browser/Discover toggle */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#e6edf3' }}>Deck Browser</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#e6edf3' }}>{deckMode === 'discover' ? 'Discover' : 'Deck Browser'}</div>
+              <div style={{ display: 'flex', gap: 4, background: 'rgba(110,118,129,0.12)', borderRadius: 6, padding: 3 }}>
+                {[['browser', 'Browser'], ['discover', 'Discover']].map(([k, label]) => (
+                  <button key={k} onClick={() => setDeckMode(k)}
+                    style={{ background: deckMode === k ? 'rgba(88,166,255,0.18)' : 'transparent', color: deckMode === k ? '#58a6ff' : '#7d8590', border: 'none', borderRadius: 4, padding: '4px 12px', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {ankiConnected === false && (
@@ -3812,6 +4117,39 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               <div style={{ fontSize: 11, color: '#7d8590', marginBottom: 12 }}>Checking Anki connection...</div>
             )}
 
+            {/* ── Discover Mode panel ───────────────────────────────────────── */}
+            {deckMode === 'discover' && (
+              <DiscoverPanel
+                profile={discoverProfile}
+                profileLoading={discoverProfileLoading}
+                suggestion={discoverSuggestion}
+                suggestionLoading={discoverSuggestionLoading}
+                status={discoverStatus}
+                sources={discoverSources}
+                error={discoverError}
+                webVerify={discoverWebVerify}
+                setWebVerify={setDiscoverWebVerify}
+                card={discoverCard}
+                cardLoading={discoverCardLoading}
+                cardSaving={discoverCardSaving}
+                ledger={discoverLedger}
+                deck={ankiDeck}
+                apiKey={apiKey}
+                ankiConnected={ankiConnected}
+                onReanalyze={reanalyzeDiscover}
+                onMakeCard={makeDiscoverCard}
+                onSaveCard={saveDiscoverCard}
+                onCancelCard={() => setDiscoverCard(null)}
+                onKnow={() => discoverRecordAndNext('known')}
+                onSkip={() => discoverRecordAndNext('declined', 'skipped')}
+                onNotInterested={() => discoverRecordAndNext('declined', 'not interested')}
+                onNext={() => fetchNextSuggestion(discoverProfile, discoverLedger)}
+                setCard={setDiscoverCard}
+              />
+            )}
+
+            {/* ── Deck Browser (existing) ───────────────────────────────────── */}
+            {deckMode === 'browser' && (<>
             {/* Deck picker + search */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
               <select value={deckBrowserDeck} onChange={(e) => {
@@ -4037,6 +4375,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   })}
               </div>
             )}
+            </>)}
           </div>
         </main>
       )}
