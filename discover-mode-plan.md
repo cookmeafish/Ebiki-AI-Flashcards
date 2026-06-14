@@ -36,7 +36,7 @@ Inside the Deck panel, add a **Browser / Discover** toggle. Discover runs an int
 
 ## 2. Decisions (confirmed with user)
 
-- **Placement:** toggle inside the existing **Deck tab** (not a new top-level tab).
+- **Placement:** its own top-level **Discover** tab (Chat · Study · Deck · Discover · Picture · Stats). (Originally a toggle inside the Deck tab; promoted to a full tab.)
 - **Level model:** **smart per-subject** (see §5). Languages are the primary use case, but the
   design must let a user learn **any** subject, so the scale is chosen dynamically by the AI
   per mode, with a generic beginner/intermediate/advanced fallback for arbitrary subjects.

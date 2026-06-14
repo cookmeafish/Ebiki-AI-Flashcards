@@ -7,7 +7,8 @@ A multi-tab learning app with AI chat, Anki-integrated study sessions, screen tr
 ### Tabs
 - **Chat** — AI conversational assistant for learning, with inline Anki card generation, deck attachment for personalized tutoring, web search, and persistent conversation history
 - **Study** — Anki study sessions with AI-generated questions, deck browser, typo correction, feedback chat, "I know this" card deletion, "I Don't Know" skip, wrap up/end now controls, and spaced repetition insights
-- **Deck** — Browse/edit/search deck cards, plus **Discover Mode**: adaptive suggestions for new cards calibrated to your level (see below)
+- **Deck** — Browse/edit/search deck cards, add cards manually or with AI, analyze for ambiguous cards, scan for duplicates to merge
+- **Discover** — Adaptive suggestions for new cards calibrated to your level, with a setup screen and web verification (see below)
 - **Picture** — Screen capture/OCR/translation with pixel-accurate word overlays, overlay mode for games
 - **Stats** — Study streaks, accuracy trends, per-deck breakdown (coming soon)
 
@@ -213,22 +214,26 @@ Study features:
 Go to the **Study** tab and click **Browse Deck** to:
 - View all flashcards in any deck
 - Search cards by content
+- **Add card** — create a new card manually (front/back/tags) or type a word and let the AI generate it from your mode's template, then save straight to the deck
 - Edit card fields inline with AI refine input ("Say football instead of soccer")
 - Delete cards with confirmation
+- **Analyze for ambiguous cards** — AI scans every card for words with multiple meanings and proposes clarifications to accept/edit/commit
+- **Scan for duplicates** — two-stage detection so unrelated words are never grouped: (1) code groups cards with the same headword ignoring accents/articles/parentheticals (catches `Oración` vs `Oracion`) and flags close spellings by edit distance; (2) the AI only *confirms* which close candidates are truly the same word (rejecting look-alikes like `casa`/`caza`), then merges the backs into one card combining all unique info. Expand any card in a group to inspect its full content before deciding. Review/edit the merge, then commit: the kept card is updated and the duplicates are deleted. A **Do not merge** button permanently remembers that a group is *not* a duplicate (stored per-deck, cloud-synced) so it's never suggested again
 - Save button shows live status (Saving → Saved / Save failed — is Anki open?)
 - Closing the browser syncs any edits back into your active study session immediately — no tab refresh needed
 - Changes auto-sync to AnkiWeb
 
 ## Discover Mode
 
-A **Browser / Discover** toggle in the Deck tab turns the panel into an adaptive engine for finding **new** cards to make — calibrated to how advanced you already are. It never quizzes you on existing cards; every suggestion is something new.
+The **Discover** tab is an adaptive engine for finding **new** cards to make — calibrated to how advanced you already are. It never quizzes you on existing cards; every suggestion is something new.
 
 How it works:
 1. **Level analysis** — on open, the AI estimates your proficiency from your cards, Anki scheduling stats (mature/learning/lapsed counts, ease), progress observations, and study/feedback chat history. The scale adapts to the subject: **CEFR** (A1–C2) for languages, **exam-domain coverage** for certifications (e.g. Security+), and **beginner/intermediate/advanced** tiers for anything else.
-2. **Suggestions** — it proposes one new word/concept at a time, targeted slightly above your level and biased toward your weak areas. Nothing already in your deck, known, or declined is ever suggested again.
-3. **Web verification** (toggle, on by default) — confirms the facts of each suggestion via web search before showing it, with clickable source citations and a ✓ verified / ⚠ unverified badge, so you don't card a hallucination.
-4. **Actions** — **Make Card** (generates a card from your mode's template, editable, then saves to Anki), **I Know This** (skip + remember), **Skip**, **Not Interested**, or **Next**.
-5. **Re-analyze level** — recomputes your profile on demand.
+2. **Setup screen** — before suggesting anything, you choose what to look for: language modes pick **Words / Phrases / Both**; any mode gets a **Focus** box (free text) to tell the AI what topics or kinds of cards you want. Hit **Start discovering** (and **⚙ Adjust** later to change it).
+3. **Suggestions** — it proposes one new word/concept at a time, honoring your focus, targeted slightly above your level and biased toward your weak areas. Nothing already in your deck, known, or declined is ever suggested again.
+4. **Web verification** (toggle, on by default) — confirms the facts of each suggestion via web search before showing it, with clickable source citations and a ✓ verified / ⚠ unverified badge, so you don't card a hallucination.
+5. **Actions** — **Make Card** (generates a card from your mode's template, editable, then saves to Anki), **I Know This** (skip + remember), **Skip**, **Not Interested**, or **Next**.
+6. **Re-analyze level** — recomputes your profile on demand.
 
 **Cloud-synced metrics.** Your learner profile and the ledger of made/known/declined items are stored as Anki **media files** (`_screenlens/profile__<mode>.json`, `_screenlens/ledger__<mode>.json`), which sync to AnkiWeb and follow you across machines. When Anki is offline they fall back to a local `discover/` cache. The `_` prefix keeps them from being touched by Anki's Check Media.
 

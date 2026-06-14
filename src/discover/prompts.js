@@ -37,21 +37,31 @@ Base the estimate on real evidence. Be honest — if there is little evidence, l
 // ─── Next suggestion ────────────────────────────────────────────────────────
 // Proposes ONE new item to learn, calibrated to the profile and never repeating
 // anything the learner already has / knows / declined.
-export function buildSuggestionPrompt({ profile, modeType, modeName, modeDescription, studyLanguage, excludeList }) {
+export function buildSuggestionPrompt({ profile, modeType, modeName, modeDescription, studyLanguage, excludeList, itemType, focus }) {
   const level = profile?.level || { scale: 'tiers', estimate: 'beginner' }
   const weak = (profile?.domains || []).filter((d) => d.status !== 'strong').map((d) => d.name)
   const isLang = modeType === 'language'
 
-  return `You are a tutor suggesting ONE new ${isLang ? 'word or phrase' : 'concept or term'} for the learner to make a flashcard from. They are studying "${modeName}"${modeDescription ? ` (${modeDescription})` : ''}.
+  // What kind of item to suggest (language modes only): single word, multi-word phrase, or either.
+  let itemTypeRule = ''
+  let itemKind = isLang ? 'word or phrase' : 'concept or term'
+  if (isLang) {
+    if (itemType === 'word') { itemKind = 'single word'; itemTypeRule = '- Suggest a SINGLE WORD (one token), not a multi-word phrase.' }
+    else if (itemType === 'phrase') { itemKind = 'phrase or expression'; itemTypeRule = '- Suggest a multi-word PHRASE, idiom or expression — not a single word.' }
+    else { itemTypeRule = '- It may be either a single word or a short phrase, whichever is most useful.' }
+  }
+
+  return `You are a tutor suggesting ONE new ${itemKind} for the learner to make a flashcard from. They are studying "${modeName}"${modeDescription ? ` (${modeDescription})` : ''}.
 
 Learner level: ${level.scale} = ${level.estimate} (confidence ${profile?.level?.confidence ?? 'unknown'}).
 ${profile?.summary ? `Profile summary: ${profile.summary}` : ''}
 ${weak.length ? `Weak / under-covered areas to prioritize: ${weak.join(', ')}.` : ''}
+${focus ? `\nThe learner specifically asked you to focus on: "${focus}". Honor this above all else — every suggestion must fit this request.` : ''}
 
 RULES:
 - Suggest exactly ONE item, appropriate for their level — slightly stretch them, never trivial.
-- ${isLang ? `Do NOT suggest beginner vocabulary if they are intermediate or above (no "manzana" for a B1+ learner). For an advanced learner prefer nuanced/idiomatic/formal items.` : `Prefer a term from an under-covered exam domain or a gap in their knowledge.`}
-- Prefer the weak/under-covered areas listed above when sensible.
+${itemTypeRule ? itemTypeRule + '\n' : ''}- ${isLang ? `Do NOT suggest beginner vocabulary if they are intermediate or above (no "manzana" for a B1+ learner). For an advanced learner prefer nuanced/idiomatic/formal items.` : `Prefer a term from an under-covered exam domain or a gap in their knowledge.`}
+- ${focus ? 'Match the focus request above.' : 'Prefer the weak/under-covered areas listed above when sensible.'}
 - Do NOT suggest anything in this exclude list (already known, declined, or already a card):
 ${excludeList.length ? excludeList.map((t) => `  - ${t}`).join('\n') : '  (none yet)'}
 ${isLang && studyLanguage ? `- The item must be in ${studyLanguage}. Provide its English translation.` : ''}

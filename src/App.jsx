@@ -210,13 +210,29 @@ export default function App() {
   const [deckBrowserRefineInput, setDeckBrowserRefineInput] = useState('')
   const [deckBrowserRefining, setDeckBrowserRefining] = useState(false)
   const [deckBrowserSaveStatus, setDeckBrowserSaveStatus] = useState(null) // null | 'saving' | 'saved' | 'error'
+  // Add card (manual / AI-assisted)
+  const [deckAddOpen, setDeckAddOpen] = useState(false)
+  const [deckAddTerm, setDeckAddTerm] = useState('')
+  const [deckAddFront, setDeckAddFront] = useState('')
+  const [deckAddBack, setDeckAddBack] = useState('')
+  const [deckAddTags, setDeckAddTags] = useState('')
+  const [deckAddGenerating, setDeckAddGenerating] = useState(false)
+  const [deckAddSaving, setDeckAddSaving] = useState(false)
+  const [deckAddError, setDeckAddError] = useState(null)
   const [deckAnalyzeLoading, setDeckAnalyzeLoading] = useState(false)
   const [deckAnalyzeRecs, setDeckAnalyzeRecs] = useState([]) // [{ noteId, reason, currentFields, recommendedFields, refineInput, refining, accepted }]
   const [deckAnalyzeCommitting, setDeckAnalyzeCommitting] = useState(false)
   const [deckAnalyzeError, setDeckAnalyzeError] = useState(null)
   const [deckAnalyzeEmpty, setDeckAnalyzeEmpty] = useState(false) // true when analyze completed with 0 recommendations
+  // Duplicate scan / merge
+  const [deckDupLoading, setDeckDupLoading] = useState(false)
+  const [deckDupGroups, setDeckDupGroups] = useState([]) // [{ noteIds, reason, cards:[{noteId,fields}], mergedFields, accepted }]
+  const [deckDupCommitting, setDeckDupCommitting] = useState(false)
+  const [deckDupError, setDeckDupError] = useState(null)
+  const [deckDupEmpty, setDeckDupEmpty] = useState(false)
+  const [deckDupExpanded, setDeckDupExpanded] = useState({}) // noteId -> bool (show full card)
+  const [deckDupIgnore, setDeckDupIgnore] = useState([]) // ["minId-maxId", ...] pairs never to suggest
   // Discover Mode (adaptive new-card discovery)
-  const [deckMode, setDeckMode] = useState('browser') // 'browser' | 'discover'
   const [discoverProfile, setDiscoverProfile] = useState(null)
   const [discoverProfileLoading, setDiscoverProfileLoading] = useState(false)
   const [discoverLedger, setDiscoverLedger] = useState(DEFAULT_LEDGER)
@@ -229,6 +245,8 @@ export default function App() {
   const [discoverCard, setDiscoverCard] = useState(null) // { front, back, tags } preview when making a card
   const [discoverCardLoading, setDiscoverCardLoading] = useState(false)
   const [discoverCardSaving, setDiscoverCardSaving] = useState(false)
+  const [discoverStarted, setDiscoverStarted] = useState(false) // false = setup screen, true = suggestion loop
+  const [discoverConfig, setDiscoverConfig] = useState({ itemType: 'both', focus: '' }) // itemType: word|phrase|both
   const discoverInitRef = useRef(false)
   const discoverDeckTermsRef = useRef([]) // existing card fronts, to avoid re-suggesting them
   const [studyWrappingUp, setStudyWrappingUp] = useState(false)
@@ -1858,6 +1876,331 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     setDeckAnalyzeError(null)
   }
 
+  // ─── Duplicate scan / merge ──────────────────────────────────────────────
+  // Two-stage, so the AI can never group unrelated words:
+  //   1. Deterministic — group cards whose headword is identical after stripping
+  //      accents/articles/parentheticals (catches "Oración" vs "Oracion"), and
+  //      flag CLOSE spellings (small edit distance) as candidates.
+  //   2. AI — only CONFIRMS which close candidates are truly the same word (typo/
+  //      spelling variants), then merges the backs of every confirmed group.
+  const stripAccents = (s) => s
+    .replace(/[áàâä]/g, 'a').replace(/[éèêë]/g, 'e').replace(/[íìîï]/g, 'i')
+    .replace(/[óòôö]/g, 'o').replace(/[úùûü]/g, 'u') // keep ñ (año ≠ ano)
+  const normKey = (s) => stripAccents(String(s || '')
+    .replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, ' ')
+    .toLowerCase())
+    .replace(/\([^)]*\)/g, ' ')
+    .replace(/^\s*(el|la|los|las|un|una|unos|unas|to)\s+/, '')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ').trim()
+
+  const levenshtein = (a, b) => {
+    const m = a.length, n = b.length
+    if (!m) return n; if (!n) return m
+    let prev = Array.from({ length: n + 1 }, (_, j) => j)
+    for (let i = 1; i <= m; i++) {
+      const cur = [i]
+      for (let j = 1; j <= n; j++) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1
+        cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost)
+      }
+      prev = cur
+    }
+    return prev[n]
+  }
+
+  // Unordered pairs of noteIds, used as stable signatures for the "do not merge" list.
+  const pairsOf = (ids) => {
+    const out = []
+    for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++) {
+      const [a, b] = [ids[i], ids[j]].sort((x, y) => x - y)
+      out.push(`${a}-${b}`)
+    }
+    return out
+  }
+
+  const scanDuplicates = async () => {
+    if (deckBrowserNotes.length === 0 || !apiKey || deckDupLoading) return
+    setDeckDupLoading(true)
+    setDeckDupError(null)
+    setDeckDupEmpty(false)
+    setDeckDupExpanded({})
+    try {
+      // Load the per-deck "do not merge" ignore list (cloud-synced via Anki media).
+      const ignoreData = (await readBlob('dupignore', deckBrowserDeck)) || { pairs: [] }
+      const ignoreSet = new Set(ignoreData.pairs || [])
+      setDeckDupIgnore(ignoreData.pairs || [])
+      const htmlToPlain = (v) => String(v || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').trim()
+      const frontOf = (n) => Object.values(n.fields).sort((a, b) => a.order - b.order)[0]?.value || ''
+      const plainFields = (n) => Object.fromEntries(Object.entries(n.fields).map(([name, f]) => [name, htmlToPlain(f.value)]))
+
+      // Stage 1a: exact (accent-insensitive) groups — confirmed duplicates.
+      const byKey = new Map()
+      deckBrowserNotes.forEach((n) => {
+        const key = normKey(frontOf(n))
+        if (!key) return
+        if (!byKey.has(key)) byKey.set(key, [])
+        byKey.get(key).push(n)
+      })
+      const confirmedGroups = [...byKey.values()].filter((arr) => arr.length >= 2)
+
+      // Stage 1b: close spellings across DIFFERENT keys → candidate pairs (edit distance).
+      const keys = [...byKey.keys()]
+      const parent = {}
+      const find = (x) => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x] } return x }
+      keys.forEach((k) => { parent[k] = k })
+      let hasCandidates = false
+      for (let i = 0; i < keys.length; i++) {
+        for (let j = i + 1; j < keys.length; j++) {
+          const a = keys[i], b = keys[j]
+          const maxDist = Math.min(a.length, b.length) <= 4 ? 1 : 2
+          if (Math.abs(a.length - b.length) <= maxDist && levenshtein(a, b) <= maxDist) {
+            parent[find(a)] = find(b)
+            hasCandidates = true
+          }
+        }
+      }
+      // Build clusters of keys that got linked, keeping only multi-key clusters.
+      const clusters = new Map()
+      keys.forEach((k) => { const r = find(k); if (!clusters.has(r)) clusters.set(r, []); clusters.get(r).push(k) })
+      const candidateClusters = [...clusters.values()].filter((ks) => ks.length >= 2)
+
+      // Stage 2a: AI confirms which close candidates are truly the same word.
+      let fuzzyGroups = []
+      if (candidateClusters.length > 0) {
+        try {
+          const forAI = candidateClusters.map((ks, ci) => ({
+            cluster: ci,
+            cards: ks.flatMap((k) => byKey.get(k).map((n) => ({ noteId: n.noteId, front: htmlToPlain(frontOf(n)) }))),
+          }))
+          const prompt = `These are flashcard headwords that look similar (possible spelling/accent/typo variants of the SAME word). For each cluster, identify which cards are truly the SAME word and should be merged. Different words that merely look alike (e.g. "casa" vs "caza", "pero" vs "perro") must NOT be grouped.\n\nClusters (JSON):\n${JSON.stringify(forAI)}\n\nReturn ONLY a JSON array of the duplicate sets you confirm (omit anything that isn't a real duplicate):\n[ { "merge": [<noteId>, <noteId>, ...] }, ... ]\n\nEach "merge" set must have 2+ noteIds that are the same word. Output ONLY raw JSON, no markdown.`
+          const text = await providerConfig.call(apiKey, 'You confirm whether similar-looking flashcards are the same word. Always respond with valid JSON only.', prompt)
+          const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+          if (Array.isArray(parsed)) {
+            fuzzyGroups = parsed.map((p) => {
+              const ids = (p.merge || []).map((id) => (typeof id === 'string' ? Number(id) : id))
+              const notes = ids.map((id) => deckBrowserNotes.find((n) => n.noteId === id)).filter(Boolean)
+              return notes.length >= 2 ? notes : null
+            }).filter(Boolean)
+          }
+        } catch (e) {
+          console.warn('[Deck] fuzzy confirm failed:', e.message)
+        }
+      }
+
+      // Combine, removing any fuzzy group whose notes are already in a confirmed exact group.
+      const exactIds = new Set(confirmedGroups.flatMap((g) => g.map((n) => n.noteId)))
+      const dupNoteGroups = [
+        ...confirmedGroups,
+        ...fuzzyGroups.filter((g) => !g.every((n) => exactIds.has(n.noteId))),
+      ]
+        // Drop groups the user has dismissed (every pair is on the ignore list).
+        .filter((g) => !pairsOf(g.map((n) => n.noteId)).every((p) => ignoreSet.has(p)))
+
+      if (dupNoteGroups.length === 0) {
+        setDeckDupGroups([])
+        setDeckDupEmpty(true)
+        console.log('[Deck] duplicate scan: nothing found', hasCandidates ? '(had candidates, AI rejected)' : '')
+        return
+      }
+
+      // Naive deterministic merge — fallback / starting point.
+      const naiveMerge = (notes) => {
+        const keep = notes[0]
+        const merged = {}
+        Object.keys(keep.fields).forEach((name, i) => {
+          if (i === 0) { merged[name] = htmlToPlain(keep.fields[name].value); return }
+          const lines = []
+          notes.forEach((n) => htmlToPlain(n.fields[name]?.value).split('\n').forEach((ln) => {
+            const t = ln.trim()
+            if (t && !lines.includes(t)) lines.push(t)
+          }))
+          merged[name] = lines.join('\n')
+        })
+        return merged
+      }
+
+      // Stage 2b: AI merges the backs of each confirmed group.
+      let aiMerges = {}
+      try {
+        const groupsForAI = dupNoteGroups.map((notes, i) => ({ group: i, cards: notes.map(plainFields) }))
+        const prompt = `Each group below is a set of DUPLICATE flashcards that teach the same word. For EACH group, merge its cards into ONE card: keep the clearest front, and combine the backs so every distinct meaning, example, synonym and note is kept (remove only exact repeats).\n\nGroups (JSON):\n${JSON.stringify(groupsForAI)}\n\nReturn ONLY a JSON array, one object per group IN THE SAME ORDER:\n[ { "group": <number>, "mergedFields": { "<fieldName>": "<merged plain text>", ... } } ]\n\nUse the SAME field names as the input. Plain text with newlines (no HTML, no <br>). Output ONLY raw JSON, no markdown.`
+        const text = await providerConfig.call(apiKey, 'You merge duplicate flashcards. Always respond with valid JSON only.', prompt)
+        const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+        if (Array.isArray(parsed)) parsed.forEach((p) => { if (typeof p.group === 'number' && p.mergedFields) aiMerges[p.group] = p.mergedFields })
+      } catch (e) {
+        console.warn('[Deck] AI merge failed, using naive merge:', e.message)
+      }
+
+      const groups = dupNoteGroups.map((notes, i) => {
+        const keepNote = notes[0]
+        const ai = aiMerges[i]
+        const fallback = naiveMerge(notes)
+        const mergedFields = {}
+        Object.keys(keepNote.fields).forEach((name) => {
+          mergedFields[name] = ai && ai[name] != null ? String(ai[name]) : fallback[name]
+        })
+        const fronts = [...new Set(notes.map((n) => htmlToPlain(frontOf(n))))]
+        return {
+          noteIds: notes.map((n) => n.noteId),
+          reason: fronts.length > 1 ? `Variants of the same word: ${fronts.join(' / ')}` : `Same headword: "${fronts[0]}"`,
+          cards: notes.map((n) => ({ noteId: n.noteId, fields: plainFields(n) })),
+          mergedFields,
+          accepted: false,
+        }
+      })
+
+      setDeckDupGroups(groups)
+      setDeckDupEmpty(groups.length === 0)
+      console.log('[Deck] duplicate scan:', groups.length, 'groups (', confirmedGroups.length, 'exact,', fuzzyGroups.length, 'fuzzy-confirmed )')
+    } catch (err) {
+      console.error('[Deck] duplicate scan failed:', err.message)
+      setDeckDupError(err.message)
+    } finally {
+      setDeckDupLoading(false)
+    }
+  }
+
+  const toggleAcceptDup = (idx) => {
+    setDeckDupGroups((prev) => prev.map((g, i) => i === idx ? { ...g, accepted: !g.accepted } : g))
+  }
+
+  const updateDupField = (idx, fieldName, value) => {
+    setDeckDupGroups((prev) => prev.map((g, i) => i === idx ? { ...g, mergedFields: { ...g.mergedFields, [fieldName]: value } } : g))
+  }
+
+  const rejectDup = (idx) => {
+    setDeckDupGroups((prev) => prev.filter((_, i) => i !== idx))
+  }
+
+  const toggleDupExpanded = (noteId) => {
+    setDeckDupExpanded((prev) => ({ ...prev, [noteId]: !prev[noteId] }))
+  }
+
+  // "Do not merge" — remember these cards are NOT duplicates so they're never
+  // suggested again, and remove the group from view. Persisted per-deck (cloud-synced).
+  const dismissDup = async (idx) => {
+    const group = deckDupGroups[idx]
+    if (!group) return
+    const newPairs = [...new Set([...deckDupIgnore, ...pairsOf(group.noteIds)])]
+    setDeckDupIgnore(newPairs)
+    setDeckDupGroups((prev) => prev.filter((_, i) => i !== idx))
+    writeBlob('dupignore', deckBrowserDeck, { pairs: newPairs }).catch((e) => console.warn('[Deck] dupignore save failed:', e.message))
+  }
+
+  const clearDup = () => {
+    setDeckDupGroups([])
+    setDeckDupError(null)
+  }
+
+  // ─── Add card (manual / AI-assisted) ─────────────────────────────────────
+  const openAddCard = () => {
+    setDeckAddOpen(true)
+    setDeckAddTerm(''); setDeckAddFront(''); setDeckAddBack(''); setDeckAddTags(''); setDeckAddError(null)
+  }
+  const closeAddCard = () => {
+    setDeckAddOpen(false)
+    setDeckAddTerm(''); setDeckAddFront(''); setDeckAddBack(''); setDeckAddTags(''); setDeckAddError(null)
+  }
+
+  // Generate front/back/tags from a word using the mode's card template.
+  const generateAddCard = async () => {
+    const term = deckAddTerm.trim()
+    if (!term || !apiKey || deckAddGenerating) return
+    setDeckAddGenerating(true)
+    setDeckAddError(null)
+    try {
+      const card = await buildCardFields({ term, contextText: '' })
+      setDeckAddFront(card.front)
+      setDeckAddBack(card.back)
+      setDeckAddTags((card.tags || []).join(', '))
+    } catch (err) {
+      setDeckAddError('Generation failed: ' + err.message)
+    } finally {
+      setDeckAddGenerating(false)
+    }
+  }
+
+  // Save the new card to the current deck.
+  const saveAddCard = async () => {
+    const front = deckAddFront.trim()
+    const back = deckAddBack.trim()
+    if (!front || !back) { setDeckAddError('Front and back are required'); return }
+    if (!deckBrowserDeck) { setDeckAddError('Select a deck first'); return }
+    if (deckAddSaving) return
+    setDeckAddSaving(true)
+    setDeckAddError(null)
+    try {
+      const connected = await ankiPing()
+      setAnkiConnected(connected)
+      if (!connected) { setDeckAddError('Anki is not running — open Anki to add cards'); return }
+      if (!(await ankiGetDecks().catch(() => [])).includes(deckBrowserDeck)) {
+        await ankiCreateDeck(deckBrowserDeck)
+      }
+      const ankiBack = back.split('\n').map((line) => {
+        const m = line.match(/^([A-Za-zÁÉÍÓÚáéíóúñÑ\s]+):(.*)$/)
+        return m ? `<b>${m[1]}:</b>${m[2]}` : line
+      }).join('<br>')
+      const tags = deckAddTags.split(',').map((t) => t.trim()).filter(Boolean)
+      await ankiAddNote(deckBrowserDeck, front, ankiBack, tags.length ? tags : ['screenlens'])
+      ankiSync().catch(() => {})
+      await loadDeckNotes(deckBrowserDeck)
+      closeAddCard()
+    } catch (err) {
+      setDeckAddError('Save failed: ' + err.message)
+    } finally {
+      setDeckAddSaving(false)
+    }
+  }
+
+  // Merge each accepted group: update the first note with merged content, delete the rest.
+  const commitAcceptedDups = async () => {
+    const toCommit = deckDupGroups.filter((g) => g.accepted)
+    if (toCommit.length === 0 || deckDupCommitting) return
+
+    const totalDeletes = toCommit.reduce((sum, g) => sum + (g.noteIds.length - 1), 0)
+    const summary = toCommit.map((g) => `  • Keep #${g.noteIds[0]}, delete ${g.noteIds.slice(1).map((id) => `#${id}`).join(', ')}`).join('\n')
+    const ok = window.confirm(
+      `Merge ${toCommit.length} duplicate group${toCommit.length === 1 ? '' : 's'}?\n\n${summary}\n\n` +
+      `This updates the kept card with the merged content and permanently deletes ${totalDeletes} duplicate card${totalDeletes === 1 ? '' : 's'} from Anki. This cannot be undone from here.`
+    )
+    if (!ok) return
+
+    setDeckDupCommitting(true)
+    setDeckDupError(null)
+    const failures = []
+    let merged = 0
+
+    for (const g of toCommit) {
+      try {
+        const keepId = g.noteIds[0]
+        const htmlFields = {}
+        Object.entries(g.mergedFields).forEach(([k, v]) => { htmlFields[k] = String(v).replace(/\n/g, '<br>') })
+        await ankiUpdateNote(keepId, htmlFields)
+        const deleteIds = g.noteIds.slice(1)
+        if (deleteIds.length > 0) await ankiDeleteNotes(deleteIds)
+        merged++
+      } catch (err) {
+        failures.push({ noteIds: g.noteIds, error: err.message })
+        console.error('[Deck] merge failed for', g.noteIds, ':', err.message)
+      }
+    }
+
+    if (merged > 0) ankiSync().catch(() => {})
+
+    if (failures.length > 0) {
+      setDeckDupError(`Merged ${merged} / ${toCommit.length}. Failed: ` + failures.map((f) => `[${f.noteIds.join(',')}] (${f.error})`).join('; '))
+      await loadDeckNotes(deckBrowserDeck).catch(() => {})
+      setDeckDupGroups((prev) => prev.filter((g) => !g.accepted || failures.some((f) => f.noteIds[0] === g.noteIds[0])))
+    } else {
+      await loadDeckNotes(deckBrowserDeck)
+      setDeckDupGroups([])
+    }
+
+    setDeckDupCommitting(false)
+    console.log('[Deck] merge done:', merged, 'merged,', failures.length, 'failed')
+  }
+
   // ─── Discover Mode ───────────────────────────────────────────────────────
   // Build (or refresh) the learner profile from cards, mastery stats, progress
   // observations and chat history. Persists to the Anki media store (+ local cache).
@@ -1980,6 +2323,8 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         modeDescription: activeMode.description,
         studyLanguage,
         excludeList: discoverExcludeList(ledger),
+        itemType: discoverConfig.itemType,
+        focus: discoverConfig.focus.trim(),
       })
       const text = await providerConfig.call(apiKey, 'You suggest new study items. Always respond with valid JSON only.', prompt, providerConfig.questionModel)
       let suggestion = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
@@ -2084,7 +2429,8 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     }
   }
 
-  // Initialize Discover when the user switches to it: load ledger + profile, then suggest.
+  // Initialize Discover when the user switches to it: load ledger + profile, then STOP
+  // at the setup screen (no suggestion yet — the user picks options and clicks Start).
   const initDiscover = async () => {
     if (discoverInitRef.current || !apiKey) return
     discoverInitRef.current = true
@@ -2094,16 +2440,32 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       let profile = await readBlob('profile', activeMode.name)
       if (!profile) profile = await buildLearnerProfile()
       else setDiscoverProfile(profile)
-      if (profile) await fetchNextSuggestion(profile, ledger)
     } catch (err) {
       setDiscoverError('Discover init failed: ' + err.message)
     }
   }
 
-  // Re-analyze level on demand, then refresh the suggestion.
+  // Begin suggesting with the chosen options.
+  const startDiscover = async () => {
+    let profile = discoverProfile
+    if (!profile) profile = await buildLearnerProfile()
+    if (!profile) return
+    setDiscoverStarted(true)
+    fetchNextSuggestion(profile, discoverLedger)
+  }
+
+  // Return to the setup screen to change options.
+  const adjustDiscover = () => {
+    setDiscoverStarted(false)
+    setDiscoverSuggestion(null)
+    setDiscoverCard(null)
+    setDiscoverSources(null)
+  }
+
+  // Re-analyze level on demand.
   const reanalyzeDiscover = async () => {
     const profile = await buildLearnerProfile()
-    if (profile) fetchNextSuggestion(profile, discoverLedger)
+    if (profile && discoverStarted) fetchNextSuggestion(profile, discoverLedger)
   }
 
   // Reset Discover state when the active mode (and thus deck/profile) changes.
@@ -2117,13 +2479,15 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     setDiscoverCard(null)
     setDiscoverError(null)
     setDiscoverSources(null)
+    setDiscoverStarted(false)
+    setDiscoverConfig({ itemType: 'both', focus: '' })
   }, [activeModeId])
 
   useEffect(() => {
-    if (activeTab === 'deck' && deckMode === 'discover' && ankiConnected && apiKey && !discoverInitRef.current) {
+    if (activeTab === 'discover' && ankiConnected && apiKey && !discoverInitRef.current) {
       initDiscover()
     }
-  }, [activeTab, deckMode, ankiConnected, apiKey, activeModeId])
+  }, [activeTab, ankiConnected, apiKey, activeModeId])
 
   // Auto-open the deck browser when the Deck tab is entered, sync edits back when leaving.
   const prevTabRef = useRef(null)
@@ -3609,7 +3973,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           <h1 style={S.title}>ScreenLens</h1>
           <span style={S.badge}>LOCAL</span>
           <div style={S.tabBar}>
-            {['chat', 'study', 'deck', 'picture', 'stats'].map((tab) => (
+            {['chat', 'study', 'deck', 'discover', 'picture', 'stats'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => {
@@ -3618,7 +3982,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 }}
                 style={{ ...S.tab, ...(activeTab === tab ? S.tabActive : {}) }}
               >
-                {{ chat: 'Chat', study: 'Study', deck: 'Deck', picture: 'Picture', stats: 'Stats' }[tab]}
+                {{ chat: 'Chat', study: 'Study', deck: 'Deck', discover: 'Discover', picture: 'Picture', stats: 'Stats' }[tab]}
               </button>
             ))}
           </div>
@@ -4097,17 +4461,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       {activeTab === 'deck' && (
         <main style={{ ...S.main, display: 'flex', flexDirection: 'column', padding: 20 }}>
           <div style={{ maxWidth: 800, width: '100%', margin: '0 auto' }}>
-            {/* Header + Browser/Discover toggle */}
+            {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#e6edf3' }}>{deckMode === 'discover' ? 'Discover' : 'Deck Browser'}</div>
-              <div style={{ display: 'flex', gap: 4, background: 'rgba(110,118,129,0.12)', borderRadius: 6, padding: 3 }}>
-                {[['browser', 'Browser'], ['discover', 'Discover']].map(([k, label]) => (
-                  <button key={k} onClick={() => setDeckMode(k)}
-                    style={{ background: deckMode === k ? 'rgba(88,166,255,0.18)' : 'transparent', color: deckMode === k ? '#58a6ff' : '#7d8590', border: 'none', borderRadius: 4, padding: '4px 12px', fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    {label}
-                  </button>
-                ))}
-              </div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#e6edf3' }}>Deck Browser</div>
             </div>
 
             {ankiConnected === false && (
@@ -4117,47 +4473,17 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               <div style={{ fontSize: 11, color: '#7d8590', marginBottom: 12 }}>Checking Anki connection...</div>
             )}
 
-            {/* ── Discover Mode panel ───────────────────────────────────────── */}
-            {deckMode === 'discover' && (
-              <DiscoverPanel
-                profile={discoverProfile}
-                profileLoading={discoverProfileLoading}
-                suggestion={discoverSuggestion}
-                suggestionLoading={discoverSuggestionLoading}
-                status={discoverStatus}
-                sources={discoverSources}
-                error={discoverError}
-                webVerify={discoverWebVerify}
-                setWebVerify={setDiscoverWebVerify}
-                card={discoverCard}
-                cardLoading={discoverCardLoading}
-                cardSaving={discoverCardSaving}
-                ledger={discoverLedger}
-                deck={ankiDeck}
-                apiKey={apiKey}
-                ankiConnected={ankiConnected}
-                onReanalyze={reanalyzeDiscover}
-                onMakeCard={makeDiscoverCard}
-                onSaveCard={saveDiscoverCard}
-                onCancelCard={() => setDiscoverCard(null)}
-                onKnow={() => discoverRecordAndNext('known')}
-                onSkip={() => discoverRecordAndNext('declined', 'skipped')}
-                onNotInterested={() => discoverRecordAndNext('declined', 'not interested')}
-                onNext={() => fetchNextSuggestion(discoverProfile, discoverLedger)}
-                setCard={setDiscoverCard}
-              />
-            )}
-
-            {/* ── Deck Browser (existing) ───────────────────────────────────── */}
-            {deckMode === 'browser' && (<>
             {/* Deck picker + search */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
               <select value={deckBrowserDeck} onChange={(e) => {
-                  if (deckAnalyzeRecs.length > 0 && !window.confirm('Switching decks will discard the current suggestions. Continue?')) return
+                  if ((deckAnalyzeRecs.length > 0 || deckDupGroups.length > 0) && !window.confirm('Switching decks will discard the current suggestions. Continue?')) return
                   setDeckBrowserDeck(e.target.value)
                   setDeckAnalyzeRecs([])
                   setDeckAnalyzeError(null)
                   setDeckAnalyzeEmpty(false)
+                  setDeckDupGroups([])
+                  setDeckDupError(null)
+                  setDeckDupEmpty(false)
                   if (e.target.value) loadDeckNotes(e.target.value)
                 }}
                 style={{ ...S.select, minWidth: 150 }}>
@@ -4174,24 +4500,79 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               )}
             </div>
 
-            {/* Analyze row */}
-            {deckBrowserNotes.length > 0 && (
+            {/* Toolbar: add card / analyze / scan */}
+            {deckBrowserDeck && (
               <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                <button
-                  onClick={analyzeDeck}
-                  disabled={deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0}
-                  style={{ background: 'rgba(210,168,255,0.12)', color: '#d2a8ff', border: '1px solid rgba(210,168,255,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: (deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0) ? 0.5 : 1 }}
-                >
-                  {deckAnalyzeLoading ? 'Analyzing...' : 'Analyze for ambiguous cards'}
+                <button onClick={openAddCard} disabled={deckAddOpen}
+                  style={{ background: 'rgba(88,166,255,0.12)', color: '#58a6ff', border: '1px solid rgba(88,166,255,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: deckAddOpen ? 0.5 : 1 }}>
+                  + Add card
                 </button>
-                {!apiKey && <span style={{ fontSize: 10, color: '#7d8590' }}>(API key required)</span>}
-                {deckAnalyzeError && <span style={{ fontSize: 10, color: '#f85149' }}>{deckAnalyzeError}</span>}
-                {!deckAnalyzeLoading && !deckAnalyzeError && deckAnalyzeRecs.length === 0 && !deckAnalyzeEmpty && (
-                  <span style={{ fontSize: 10, color: '#7d8590' }}>Scans every card for ambiguous words and proposes clarifications.</span>
-                )}
-                {deckAnalyzeEmpty && !deckAnalyzeLoading && (
-                  <span style={{ fontSize: 10, color: '#7ee787' }}>No ambiguous cards found — your deck looks clean.</span>
-                )}
+                {deckBrowserNotes.length > 0 && (<>
+                  <button
+                    onClick={analyzeDeck}
+                    disabled={deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0}
+                    style={{ background: 'rgba(210,168,255,0.12)', color: '#d2a8ff', border: '1px solid rgba(210,168,255,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: (deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0) ? 0.5 : 1 }}
+                  >
+                    {deckAnalyzeLoading ? 'Analyzing...' : 'Analyze for ambiguous cards'}
+                  </button>
+                  <button
+                    onClick={scanDuplicates}
+                    disabled={deckDupLoading || !apiKey || deckDupGroups.length > 0}
+                    style={{ background: 'rgba(255,166,87,0.12)', color: '#ffa657', border: '1px solid rgba(255,166,87,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: (deckDupLoading || !apiKey || deckDupGroups.length > 0) ? 0.5 : 1 }}
+                  >
+                    {deckDupLoading ? 'Scanning...' : 'Scan for duplicates'}
+                  </button>
+                  {!apiKey && <span style={{ fontSize: 10, color: '#7d8590' }}>(API key required)</span>}
+                  {deckAnalyzeError && <span style={{ fontSize: 10, color: '#f85149' }}>{deckAnalyzeError}</span>}
+                  {deckDupError && <span style={{ fontSize: 10, color: '#f85149' }}>{deckDupError}</span>}
+                  {deckAnalyzeEmpty && !deckAnalyzeLoading && (
+                    <span style={{ fontSize: 10, color: '#7ee787' }}>No ambiguous cards found — your deck looks clean.</span>
+                  )}
+                  {deckDupEmpty && !deckDupLoading && (
+                    <span style={{ fontSize: 10, color: '#7ee787' }}>No duplicates found — your deck looks clean.</span>
+                  )}
+                </>)}
+              </div>
+            )}
+
+            {/* Add card form */}
+            {deckAddOpen && (
+              <div style={{ marginBottom: 12, border: '1px solid rgba(88,166,255,0.25)', borderRadius: 6, padding: '12px', background: 'rgba(88,166,255,0.04)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <div style={{ fontSize: 12, color: '#58a6ff', fontWeight: 600 }}>New card → {deckBrowserDeck}</div>
+                  <button onClick={closeAddCard} style={{ ...S.ghostBtn, fontSize: 11 }}>Cancel</button>
+                </div>
+
+                {/* Optional AI generation from a word */}
+                <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                  <input value={deckAddTerm} onChange={(e) => setDeckAddTerm(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') generateAddCard() }}
+                    placeholder="Type a word, then Generate (optional)…"
+                    style={{ ...S.keyInput, flex: 1, fontSize: 12 }} />
+                  <button onClick={generateAddCard} disabled={deckAddGenerating || !deckAddTerm.trim() || !apiKey}
+                    style={{ background: 'rgba(210,168,255,0.15)', color: '#d2a8ff', border: '1px solid rgba(210,168,255,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', opacity: (deckAddGenerating || !deckAddTerm.trim() || !apiKey) ? 0.5 : 1 }}>
+                    {deckAddGenerating ? 'Generating…' : 'Generate with AI'}
+                  </button>
+                </div>
+
+                <div style={{ fontSize: 10, color: '#7d8590', marginBottom: 3, fontWeight: 600 }}>Front</div>
+                <textarea value={deckAddFront} onChange={(e) => setDeckAddFront(e.target.value)}
+                  style={{ ...S.keyInput, fontSize: 12, minHeight: 38, resize: 'vertical', width: '100%', boxSizing: 'border-box', marginBottom: 8 }} />
+                <div style={{ fontSize: 10, color: '#7d8590', marginBottom: 3, fontWeight: 600 }}>Back</div>
+                <textarea value={deckAddBack} onChange={(e) => setDeckAddBack(e.target.value)}
+                  style={{ ...S.keyInput, fontSize: 12, minHeight: 70, resize: 'vertical', width: '100%', boxSizing: 'border-box', marginBottom: 8 }} />
+                <div style={{ fontSize: 10, color: '#7d8590', marginBottom: 3, fontWeight: 600 }}>Tags (comma-separated)</div>
+                <input value={deckAddTags} onChange={(e) => setDeckAddTags(e.target.value)}
+                  placeholder="screenlens, noun, …"
+                  style={{ ...S.keyInput, fontSize: 12, width: '100%', boxSizing: 'border-box', marginBottom: 10 }} />
+
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <button onClick={saveAddCard} disabled={deckAddSaving || !deckAddFront.trim() || !deckAddBack.trim()}
+                    style={{ ...S.captureBtn, borderRadius: 5, fontSize: 12, padding: '6px 14px', opacity: (deckAddSaving || !deckAddFront.trim() || !deckAddBack.trim()) ? 0.5 : 1 }}>
+                    {deckAddSaving ? 'Saving…' : `Add to ${deckBrowserDeck}`}
+                  </button>
+                  {deckAddError && <span style={{ fontSize: 10, color: '#f85149' }}>{deckAddError}</span>}
+                </div>
               </div>
             )}
 
@@ -4302,6 +4683,120 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               )
             })()}
 
+            {/* Duplicates panel */}
+            {deckDupGroups.length > 0 && (() => {
+              const acceptedCount = deckDupGroups.filter((g) => g.accepted).length
+              return (
+                <div style={{ marginBottom: 16, border: '1px solid rgba(255,166,87,0.25)', borderRadius: 6, padding: '10px 12px', background: 'rgba(255,166,87,0.04)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+                    <div style={{ fontSize: 12, color: '#ffa657', fontWeight: 600 }}>
+                      {deckDupGroups.length} duplicate group{deckDupGroups.length === 1 ? '' : 's'} • {acceptedCount} to merge
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      <button
+                        onClick={commitAcceptedDups}
+                        disabled={acceptedCount === 0 || deckDupCommitting}
+                        style={{ ...S.captureBtn, borderRadius: 5, fontSize: 11, padding: '5px 12px', opacity: (acceptedCount === 0 || deckDupCommitting) ? 0.5 : 1 }}
+                      >
+                        {deckDupCommitting ? 'Merging...' : `Merge ${acceptedCount} selected`}
+                      </button>
+                      <button onClick={clearDup} disabled={deckDupCommitting} style={{ ...S.ghostBtn, fontSize: 11 }}>
+                        Cancel all
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {deckDupGroups.map((group, idx) => {
+                      const fieldNames = Object.keys(group.mergedFields)
+                      return (
+                        <div key={group.noteIds.join('-')} style={{
+                          border: group.accepted ? '1px solid rgba(126,231,135,0.4)' : '1px solid #2a3040',
+                          borderRadius: 6, padding: 10,
+                          background: group.accepted ? 'rgba(126,231,135,0.06)' : '#0d1117',
+                        }}>
+                          <div style={{ fontSize: 10, color: '#7d8590', marginBottom: 8 }}>
+                            <span style={{ color: '#ffa657' }}>{group.noteIds.length} duplicates</span>
+                            {group.reason && <span> — {group.reason}</span>}
+                          </div>
+
+                          {/* The cards being merged — click a row to expand its full content */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 8 }}>
+                            {group.cards.map((c, ci) => {
+                              const vals = Object.values(c.fields)
+                              const expanded = !!deckDupExpanded[c.noteId]
+                              return (
+                                <div key={c.noteId} style={{ fontSize: 10, color: '#7d8590', background: '#161b22', borderRadius: 4, overflow: 'hidden' }}>
+                                  <div onClick={() => toggleDupExpanded(c.noteId)} style={{ padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <span style={{ color: '#7d8590', width: 8, flexShrink: 0 }}>{expanded ? '▾' : '▸'}</span>
+                                    <span style={{ color: ci === 0 ? '#7ee787' : '#f85149', flexShrink: 0 }}>{ci === 0 ? 'KEEP' : 'DELETE'} #{c.noteId}</span>
+                                    {!expanded && <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}> — {vals[0]} → {vals[1]}</span>}
+                                  </div>
+                                  {expanded && (
+                                    <div style={{ padding: '2px 8px 8px 22px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                      {Object.entries(c.fields).map(([name, val]) => (
+                                        <div key={name}>
+                                          <div style={{ color: '#6e7681', fontWeight: 600 }}>{name}</div>
+                                          <div style={{ color: '#adbac7', whiteSpace: 'pre-wrap' }}>{val || '—'}</div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+
+                          {/* Merged result (editable) */}
+                          <div style={{ fontSize: 10, color: '#7ee787', fontWeight: 600, marginBottom: 4 }}>Merged card:</div>
+                          {fieldNames.map((fieldName) => (
+                            <div key={fieldName} style={{ marginBottom: 6 }}>
+                              <div style={{ fontSize: 10, color: '#7d8590', marginBottom: 3, fontWeight: 600 }}>{fieldName}</div>
+                              <textarea
+                                value={group.mergedFields[fieldName]}
+                                onChange={(e) => updateDupField(idx, fieldName, e.target.value)}
+                                style={{ ...S.keyInput, fontSize: 12, minHeight: 50, resize: 'vertical', width: '100%', boxSizing: 'border-box' }}
+                              />
+                            </div>
+                          ))}
+
+                          <div style={{ display: 'flex', gap: 6, marginTop: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
+                            <button
+                              onClick={() => dismissDup(idx)}
+                              title="Do not merge — these are different words. Never suggest this again."
+                              style={{ ...S.ghostBtn, fontSize: 11, padding: '4px 10px', color: '#d29922', borderColor: 'rgba(210,153,34,.3)' }}
+                            >
+                              Do not merge
+                            </button>
+                            <button
+                              onClick={() => rejectDup(idx)}
+                              title="Dismiss this group for now (may reappear on next scan)"
+                              style={{ ...S.ghostBtn, fontSize: 14, padding: '3px 12px', color: '#f85149', borderColor: 'rgba(248,81,73,.25)' }}
+                            >
+                              ✗
+                            </button>
+                            <button
+                              onClick={() => toggleAcceptDup(idx)}
+                              title={group.accepted ? 'Click to un-select' : 'Select — will merge when you click Merge selected'}
+                              style={{
+                                ...S.ghostBtn,
+                                fontSize: 14, padding: '3px 12px',
+                                color: group.accepted ? '#7ee787' : '#7d8590',
+                                borderColor: group.accepted ? 'rgba(126,231,135,.5)' : '#2a3040',
+                                background: group.accepted ? 'rgba(126,231,135,.12)' : 'transparent',
+                              }}
+                            >
+                              ✓
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })()}
+
             {/* Card list */}
             {deckBrowserNotes.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -4375,7 +4870,56 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   })}
               </div>
             )}
-            </>)}
+          </div>
+        </main>
+      )}
+
+      {/* ── Discover Tab ─────────────────────────────────────────────────────── */}
+      {activeTab === 'discover' && (
+        <main style={{ ...S.main, display: 'flex', flexDirection: 'column', padding: 20 }}>
+          <div style={{ maxWidth: 800, width: '100%', margin: '0 auto' }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#e6edf3', marginBottom: 12 }}>Discover</div>
+            {ankiConnected === false && (
+              <div style={{ fontSize: 11, color: '#d29922', marginBottom: 12 }}>Anki is not connected. Start Anki with AnkiConnect addon.</div>
+            )}
+            {ankiConnected === null && (
+              <div style={{ fontSize: 11, color: '#7d8590', marginBottom: 12 }}>Checking Anki connection...</div>
+            )}
+            <DiscoverPanel
+              profile={discoverProfile}
+              profileLoading={discoverProfileLoading}
+              suggestion={discoverSuggestion}
+              suggestionLoading={discoverSuggestionLoading}
+              status={discoverStatus}
+              sources={discoverSources}
+              error={discoverError}
+              webVerify={discoverWebVerify}
+              setWebVerify={setDiscoverWebVerify}
+              card={discoverCard}
+              cardLoading={discoverCardLoading}
+              cardSaving={discoverCardSaving}
+              ledger={discoverLedger}
+              deck={ankiDeck}
+              apiKey={apiKey}
+              ankiConnected={ankiConnected}
+              onReanalyze={reanalyzeDiscover}
+              onMakeCard={makeDiscoverCard}
+              onSaveCard={saveDiscoverCard}
+              onCancelCard={() => setDiscoverCard(null)}
+              onKnow={() => discoverRecordAndNext('known')}
+              onSkip={() => discoverRecordAndNext('declined', 'skipped')}
+              onNotInterested={() => discoverRecordAndNext('declined', 'not interested')}
+              onNext={() => fetchNextSuggestion(discoverProfile, discoverLedger)}
+              setCard={setDiscoverCard}
+              started={discoverStarted}
+              config={discoverConfig}
+              setConfig={setDiscoverConfig}
+              onStart={startDiscover}
+              onAdjust={adjustDiscover}
+              isLanguage={(activeMode.type || 'general') === 'language'}
+              modeName={activeMode.name}
+              modeDescription={activeMode.description}
+            />
           </div>
         </main>
       )}
