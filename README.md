@@ -101,7 +101,9 @@ Opens at `http://localhost:3000`.
 1. Click the **AI provider button** in the toolbar (e.g. "Anthropic (Claude)")
 2. Select your provider and enter your API key in the settings panel
 3. Click the **gear icon** to configure language settings, Anki, and knowledge base
-4. Navigate between tabs: **Chat** for AI conversation, **Study** for Anki quizzes, **Picture** for screen translation
+4. Navigate between tabs: **Chat** for AI conversation, **Study** for Anki quizzes, **Deck** for browsing/editing, **Discover** for new-card suggestions, **Picture** for screen translation
+
+> **Display sizing:** the UI applies a default 1.35× zoom so the fixed pixel layout reads comfortably on typical Windows displays — view at 100% browser zoom. Overlay mode is exempt (it stays 1:1 with screen pixels so OCR boxes line up).
 
 ## Supported AI Providers
 
