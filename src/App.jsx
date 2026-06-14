@@ -2788,15 +2788,31 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const qpc = (activeMode.studyRules || defaultStudyRules).questionsPerCard || 3
     const isExplanation = questionObj?.type === 'explanation'
     const acceptedAnswers = questionObj?.acceptedAnswers || []
+    const isLanguageMode = (activeMode.type || 'general') === 'language'
 
     // Track this attempt in questionAttempts
     const prevAttempts = cs.questionAttempts?.[questionIdx] || []
     const allAttempts = [...prevAttempts, answer]
 
-    // Check correctness for non-explanation questions with acceptedAnswers
+    // Check correctness for non-explanation questions with acceptedAnswers.
+    // Lenient: ignore a leading article and accept the correct word even when the
+    // student adds an article or extra function word (e.g. "una huelga" for "huelga").
     const normalize = (s) => s.toLowerCase().trim().replace(/[.!?,;:]/g, '').replace(/\s+/g, ' ')
-    const isCorrect = !isExplanation && acceptedAnswers.length > 0 &&
-      acceptedAnswers.some(a => normalize(a) === normalize(answer))
+    const stripArticles = (s) => s.replace(/^(el|la|los|las|un|una|unos|unas|lo|al|del|the|a|an|to)\s+/, '')
+    const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const ans = normalize(answer)
+    const ansNoArt = stripArticles(ans)
+    const matchesAccepted = (a) => {
+      const acc = normalize(a)
+      const accNoArt = stripArticles(acc)
+      if (acc === ans || accNoArt === ansNoArt || acc === ansNoArt || accNoArt === ans) return true
+      // accept the exact correct word/phrase appearing as a whole token within the answer
+      return accNoArt.length >= 3 && new RegExp(`(^|\\s)${escapeRe(accNoArt)}(\\s|$)`).test(ansNoArt)
+    }
+    // In non-language modes the student answers in their own words (explaining topics),
+    // so we never run the letter-count hint/retry loop — just advance and let the AI grade
+    // on understanding. The hint loop only applies to language vocabulary recall.
+    const isCorrect = !isLanguageMode || (!isExplanation && acceptedAnswers.length > 0 && acceptedAnswers.some(matchesAccepted))
 
     const newStates = [...studyCardState]
     const newAttempts = [...(cs.questionAttempts || [])]
@@ -2974,7 +2990,8 @@ Rules:
       const rules = activeMode.studyRules || defaultStudyRules
       const studyLang = rules.studyLanguage || 'English'
       const grammarOn = rules.grammarFeedback || false
-      const modeType = activeMode.type === 'language' ? `The student is learning a FOREIGN LANGUAGE (${activeMode.name}). Typos in ${studyLang} should be marked CORRECT if the concept is understood.` : `The student is studying ${activeMode.name}.`
+      const isLanguage = activeMode.type === 'language'
+      const modeType = isLanguage ? `The student is learning a FOREIGN LANGUAGE (${activeMode.name}). Typos in ${studyLang} should be marked CORRECT if the concept is understood.` : `The student is studying ${activeMode.name}. They answer in their own words to explain topics/situations.`
       const grammarExtra = grammarOn ? ' For each answer also include "grammarNote" (correction or null) and "grammarRelevant" (true only if grammar error relates to what the card tests).' : ''
 
       const questionsAndAnswers = cs.questions.map((q, i) => {
@@ -2982,11 +2999,18 @@ Rules:
         const type = isObj ? (q.type || 'recall') : 'recall'
         const accepted = isObj && Array.isArray(q.acceptedAnswers) ? q.acceptedAnswers : []
         const acceptedLine = (type !== 'explanation' && accepted.length > 0)
-          ? `\nAccepted answers (only these exact words count — synonyms are WRONG): ${accepted.join(', ')}`
+          ? (isLanguage
+              ? `\nAccepted answers (CORRECT if the student's answer contains one of these — a leading article or extra words are fine; synonyms are WRONG): ${accepted.join(', ')}`
+              : `\nReference answer(s) (a guide, not exact-match — accept any answer that shows correct understanding): ${accepted.join(', ')}`)
           : ''
         return `Q${i+1} [${type}]: ${getQuestionText(q)}${acceptedLine}\nAnswer: ${cs.answers[i] || '(no answer)'}`
       }).join('\n\n')
-      const prompt = `Evaluate ALL answers for this flashcard at once.\n\nCard front: "${cs.front}"\nCard back: "${cs.back}"\n\n${modeType}\n\n${questionsAndAnswers}\n\nGrading rules by question type:\n- recall / fill_blank: the answer MUST match one of the "Accepted answers" for that question. Normalize for case, accents, and minor typos. Synonyms, related words, or different words with the same meaning are INCORRECT — mark them wrong, and in the feedback acknowledge the synonym is related but note the specific word this card tests. If no "Accepted answers" line is given, fall back to the ${studyLang} side of the card for language mode, otherwise the card back.\n- explanation: grade on conceptual understanding — accept any answer that correctly addresses the question.\nALWAYS note any grammar, spelling, or accent issues in the feedback (e.g. missing accent mark on brújula). These notes are educational, not penalizing.${grammarExtra}\n\nWrite ALL feedback text in ${studyLang}.\n\nReturn a JSON array of ${cs.questions.length} objects: [{"correct": true/false, "feedback": "brief explanation including any grammar/accent notes"${grammarOn ? ', "grammarNote": "...", "grammarRelevant": true/false' : ''}}]\n\nOutput ONLY raw JSON. No markdown, no backticks.`
+
+      const gradingRules = isLanguage
+        ? `Grading rules by question type:\n- recall / fill_blank: mark CORRECT if the student's answer CONTAINS one of the "Accepted answers" — ignore a leading article (e.g. "una", "el") and extra function words, so "una huelga" is CORRECT for "huelga". Normalize for case, accents, and minor typos. Synonyms, related words, or different words with the same meaning are INCORRECT — mark them wrong and note the specific word this card tests. If no "Accepted answers" line is given, fall back to the ${studyLang} side of the card.\n- explanation: grade on conceptual understanding — accept any answer that correctly addresses the question.\nALWAYS note any grammar, spelling, or accent issues in the feedback (e.g. missing accent mark on brújula). These notes are educational, not penalizing.`
+        : `Grading rules:\n- This is NOT a vocabulary test. The student answers in their own words to explain concepts or situations. Grade EVERY question on conceptual understanding: mark CORRECT if the answer demonstrates correct understanding of the topic, even when phrased differently, with extra words, or not matching the reference answer exactly. Only mark WRONG if the answer is factually incorrect, off-topic, or empty. When useful, add a brief note in the feedback about anything they missed.`
+
+      const prompt = `Evaluate ALL answers for this flashcard at once.\n\nCard front: "${cs.front}"\nCard back: "${cs.back}"\n\n${modeType}\n\n${questionsAndAnswers}\n\n${gradingRules}${grammarExtra}\n\nWrite ALL feedback text in ${studyLang}.\n\nReturn a JSON array of ${cs.questions.length} objects: [{"correct": true/false, "feedback": "brief explanation${isLanguage ? ' including any grammar/accent notes' : ''}"${grammarOn ? ', "grammarNote": "...", "grammarRelevant": true/false' : ''}}]\n\nOutput ONLY raw JSON. No markdown, no backticks.`
 
       const text = await providerConfig.call(apiKey, 'You evaluate flashcard answers. Always respond with valid JSON only.', prompt)
       const results = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
