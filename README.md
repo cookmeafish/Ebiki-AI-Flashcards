@@ -42,7 +42,8 @@ A multi-tab learning app with AI chat, Anki-integrated study sessions, screen tr
 - **Previous attempts shown** — results view shows all retry attempts grayed out above the final answer
 - **Smart evaluation** — for language learning, typos in the response language (e.g. English typos when studying Spanish) don't count against you
 - **I Don't Know** — skip the current question and mark it wrong instantly, no need to type wrong answers repeatedly. Rating can still be overridden at the end of the card
-- **Feedback chat** — after feedback is revealed, chat with AI to fix typos, flag out-of-scope questions, or request card updates. AI trusts student corrections and never argues
+- **Color-coded feedback** — each result's notes are categorized and colored: ✓ what you got right (green), ✗ incorrect/factual error (red), ✎ grammar/spelling/accents (orange), ◆ word choice/term (purple), + missing detail (teal), ➜ tip to improve (blue). Works for language *and* general modes. A **Color legend** button explains the colors
+- **Feedback chat** — after feedback is revealed, chat with AI to fix typos, flag out-of-scope questions, or request card updates. AI trusts student corrections, never argues, and replies in the quiz language
 - **Card updates from feedback** — AI can update Anki card content to add clarity
 - **Ratings synced after review** — Anki ratings only sync when you finish, giving you time to dispute/correct first
 - **"I know this already"** — delete cards you've mastered with AI confirmation

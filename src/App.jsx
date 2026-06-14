@@ -12,6 +12,17 @@ import { ankiPing, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiFindCards, ank
 import { readBlob, writeBlob, DEFAULT_LEDGER } from './discover/storage'
 import { buildProfilePrompt, buildSuggestionPrompt, buildVerifyPrompt } from './discover/prompts'
 
+// Color-coded study feedback categories (used for all modes — language and general).
+const FEEDBACK_CATS = {
+  praise:      { color: '#7ee787', icon: '✓', label: 'What you got right' },
+  correction:  { color: '#f85149', icon: '✗', label: 'Incorrect / factual error' },
+  grammar:     { color: '#ffa657', icon: '✎', label: 'Grammar, spelling & accents' },
+  terminology: { color: '#d2a8ff', icon: '◆', label: 'Word choice / correct term' },
+  detail:      { color: '#39c5cf', icon: '+', label: 'Missing or incomplete detail' },
+  tip:         { color: '#58a6ff', icon: '➜', label: 'Tip to improve' },
+}
+const FEEDBACK_CAT_ORDER = ['praise', 'correction', 'grammar', 'terminology', 'detail', 'tip']
+
 
 // ─── Image Preprocessing for OCR ────────────────────────────────────────────
 // Creates a high-contrast grayscale version optimized for Tesseract
@@ -265,6 +276,7 @@ export default function App() {
   const [studyHintLevel, setStudyHintLevel] = useState(0) // 0=none, 1=hint1 shown, 2=hint2 shown
   const [studyMeaningHint, setStudyMeaningHint] = useState(null)
   const [studyMeaningHintLoading, setStudyMeaningHintLoading] = useState(false)
+  const [studyLegendOpen, setStudyLegendOpen] = useState(false)
   const [studyAnswerHistory, setStudyAnswerHistory] = useState([]) // [{cardIdx, questionIdx}] for undo
   const [studyInsights, setStudyInsights] = useState(null)
   const [studyInsightsLoading, setStudyInsightsLoading] = useState(false)
@@ -2612,6 +2624,43 @@ Output ONLY raw JSON. No markdown, no backticks.`
     tmp.innerHTML = html
     return (tmp.textContent || tmp.innerText || '').trim()
   }
+
+  // Render color-coded feedback notes for a study result (works for all modes).
+  // Falls back to a legacy grammarNote if present (older in-memory results).
+  const renderFeedbackNotes = (r) => {
+    const notes = [
+      ...(Array.isArray(r?.notes) ? r.notes : []),
+      ...(r?.grammarNote ? [{ type: 'grammar', text: r.grammarNote }] : []),
+    ]
+    return notes.map((n, i) => {
+      const cat = FEEDBACK_CATS[n.type] || FEEDBACK_CATS.tip
+      return (
+        <div key={i} style={{ color: cat.color, fontSize: 10, marginTop: 2 }}>
+          <span style={{ fontWeight: 700 }}>{cat.icon}</span> {n.text}
+        </div>
+      )
+    })
+  }
+
+  // Small legend popover explaining the feedback colors.
+  const FeedbackLegend = () => (
+    <div style={{ position: 'relative', display: 'inline-block' }}>
+      <button onClick={() => setStudyLegendOpen(o => !o)} style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 8px' }}>
+        {studyLegendOpen ? 'Hide legend' : 'Color legend'}
+      </button>
+      {studyLegendOpen && (
+        <div style={{ position: 'absolute', right: 0, top: '110%', zIndex: 20, background: '#161b22', border: '1px solid #2a3040', borderRadius: 6, padding: '8px 10px', width: 230, boxShadow: '0 4px 16px rgba(0,0,0,.4)' }}>
+          <div style={{ fontSize: 10, color: '#7d8590', fontWeight: 700, marginBottom: 6 }}>Feedback colors</div>
+          {FEEDBACK_CAT_ORDER.map((k) => (
+            <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+              <span style={{ color: FEEDBACK_CATS[k].color, fontWeight: 700, width: 12, textAlign: 'center' }}>{FEEDBACK_CATS[k].icon}</span>
+              <span style={{ color: FEEDBACK_CATS[k].color, fontSize: 10 }}>{FEEDBACK_CATS[k].label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
   const generateQuestionsForCard = async (card, rules, studyLang, knowledgeContext) => {
     const front = getCardFront(card)
     const back = getCardBack(card)
@@ -2992,7 +3041,7 @@ Rules:
       const grammarOn = rules.grammarFeedback || false
       const isLanguage = activeMode.type === 'language'
       const modeType = isLanguage ? `The student is learning a FOREIGN LANGUAGE (${activeMode.name}). Typos in ${studyLang} should be marked CORRECT if the concept is understood.` : `The student is studying ${activeMode.name}. They answer in their own words to explain topics/situations.`
-      const grammarExtra = grammarOn ? ' For each answer also include "grammarNote" (correction or null) and "grammarRelevant" (true only if grammar error relates to what the card tests).' : ''
+      const notesInstruction = `\n\nFEEDBACK CATEGORIES: In addition to the one-line "feedback" summary, return a "notes" array of 0-4 short, categorized points (each written in ${studyLang}). Each note is {"type": <category>, "text": "...", "penalize": true/false}. Categories:\n- "praise": what the student got right / did well\n- "correction": what was wrong or a factual error\n- "grammar": grammar, spelling or accent issues\n- "terminology": word choice — using the precise/correct term\n- "detail": important information that was missing or incomplete\n- "tip": a concrete suggestion to improve\nUse the categories that apply (often just 1-2). ${grammarOn ? 'Include "grammar" notes when relevant; set "penalize": true ONLY when the grammar/accent error relates to what the card tests.' : 'Do NOT include "grammar" notes (grammar feedback is turned off).'} "penalize" defaults to false for all other categories.`
 
       const questionsAndAnswers = cs.questions.map((q, i) => {
         const isObj = typeof q === 'object' && q !== null
@@ -3010,7 +3059,7 @@ Rules:
         ? `Grading rules by question type:\n- recall / fill_blank: mark CORRECT if the student's answer CONTAINS one of the "Accepted answers" — ignore a leading article (e.g. "una", "el") and extra function words, so "una huelga" is CORRECT for "huelga". Normalize for case, accents, and minor typos. Synonyms, related words, or different words with the same meaning are INCORRECT — mark them wrong and note the specific word this card tests. If no "Accepted answers" line is given, fall back to the ${studyLang} side of the card.\n- explanation: grade on conceptual understanding — accept any answer that correctly addresses the question.\nALWAYS note any grammar, spelling, or accent issues in the feedback (e.g. missing accent mark on brújula). These notes are educational, not penalizing.`
         : `Grading rules:\n- This is NOT a vocabulary test. The student answers in their own words to explain concepts or situations. Grade EVERY question on conceptual understanding: mark CORRECT if the answer demonstrates correct understanding of the topic, even when phrased differently, with extra words, or not matching the reference answer exactly. Only mark WRONG if the answer is factually incorrect, off-topic, or empty. When useful, add a brief note in the feedback about anything they missed.`
 
-      const prompt = `Evaluate ALL answers for this flashcard at once.\n\nCard front: "${cs.front}"\nCard back: "${cs.back}"\n\n${modeType}\n\n${questionsAndAnswers}\n\n${gradingRules}${grammarExtra}\n\nWrite ALL feedback text in ${studyLang}.\n\nReturn a JSON array of ${cs.questions.length} objects: [{"correct": true/false, "feedback": "brief explanation${isLanguage ? ' including any grammar/accent notes' : ''}"${grammarOn ? ', "grammarNote": "...", "grammarRelevant": true/false' : ''}}]\n\nOutput ONLY raw JSON. No markdown, no backticks.`
+      const prompt = `Evaluate ALL answers for this flashcard at once.\n\nCard front: "${cs.front}"\nCard back: "${cs.back}"\n\n${modeType}\n\n${questionsAndAnswers}\n\n${gradingRules}${notesInstruction}\n\nWrite ALL feedback text in ${studyLang}.\n\nReturn a JSON array of ${cs.questions.length} objects: [{"correct": true/false, "feedback": "one short summary sentence", "notes": [{"type": "praise|correction|grammar|terminology|detail|tip", "text": "...", "penalize": true/false}]}]\n\nOutput ONLY raw JSON. No markdown, no backticks.`
 
       const text = await providerConfig.call(apiKey, 'You evaluate flashcard answers. Always respond with valid JSON only.', prompt)
       const results = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
@@ -3019,7 +3068,7 @@ Rules:
 
       // Rate the card
       const qpc = cs.questions.length
-      const wrongCount = results.filter(r => !r.correct || r.grammarRelevant).length
+      const wrongCount = results.filter(r => !r.correct || (grammarOn && (r.notes || []).some(n => n.type === 'grammar' && n.penalize))).length
       let ease, label
       if (wrongCount === 0) { ease = 4; label = 'easy' }
       else if (wrongCount === 1) { ease = 3; label = 'good' }
@@ -3327,6 +3376,7 @@ Last updated: ${new Date().toISOString().split('T')[0]}
     const q = chat.input?.trim()
     if (!q || !apiKey || chat.loading) return
     const cs = studyCardState[cardIdx]
+    const studyLang = (activeMode.studyRules || defaultStudyRules).studyLanguage || 'English'
     const newMessages = [...(chat.messages || []), { role: 'user', text: q }]
     setStudyFeedbackChat(prev => ({ ...prev, [cardIdx]: { ...chat, messages: newMessages, input: '', loading: true } }))
     try {
@@ -3348,10 +3398,10 @@ The student may:
 3. Flag an out-of-scope question — if genuinely unfair, include <action>{"type":"bad_question","questionIndex":N,"reason":"..."}</action>
 4. Ask to update the Anki card — include <action>{"type":"update_card","newFront":"...","newBack":"..."}</action>
 
-To mark ALL questions correct: <action>{"type":"mark_all_correct","reason":"brief reason"}</action>
-To mark ONE question correct: <action>{"type":"fix_typo","questionIndex":N,"correctedAnswer":"...","shouldBeCorrect":true}</action>
+To mark ALL questions correct: <action>{"type":"mark_all_correct","reason":"brief reason","feedback":"short confirmation in ${studyLang}"}</action>
+To mark ONE question correct: <action>{"type":"fix_typo","questionIndex":N,"correctedAnswer":"...","shouldBeCorrect":true,"feedback":"short confirmation in ${studyLang}"}</action>
 
-Respond in 1-2 sentences max. Always include the action tag when applicable. Never refuse a student's correction request.`
+Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the student is studying — not English, unless ${studyLang} is English). Always include the action tag when applicable. Never refuse a student's correction request.`
       const fullPrompt = newMessages.map(m => `${m.role === 'user' ? 'User' : 'Tutor'}: ${m.text}`).join('\n')
       const text = await providerConfig.call(apiKey, systemPrompt, fullPrompt)
 
@@ -3366,7 +3416,7 @@ Respond in 1-2 sentences max. Always include the action tag when applicable. Nev
           if (action.type === 'mark_all_correct') {
             if (!updatedStates) updatedStates = [...studyCardState]
             updatedStates[cardIdx] = { ...updatedStates[cardIdx] }
-            updatedStates[cardIdx].results = updatedStates[cardIdx].results.map(r => ({ ...r, correct: true, feedback: 'Marked correct.' }))
+            updatedStates[cardIdx].results = updatedStates[cardIdx].results.map(r => ({ ...r, correct: true, feedback: action.feedback || r.feedback || 'Marked correct.' }))
           } else if (action.type === 'fix_typo' && action.shouldBeCorrect) {
             // Re-evaluate: mark the question as correct
             if (!updatedStates) updatedStates = [...studyCardState]
@@ -3374,7 +3424,7 @@ Respond in 1-2 sentences max. Always include the action tag when applicable. Nev
             if (qi >= 0 && qi < updatedStates[cardIdx].results.length) {
               updatedStates[cardIdx] = { ...updatedStates[cardIdx] }
               updatedStates[cardIdx].results = [...updatedStates[cardIdx].results]
-              updatedStates[cardIdx].results[qi] = { ...updatedStates[cardIdx].results[qi], correct: true, feedback: `Typo corrected: "${action.correctedAnswer}" — Correct!` }
+              updatedStates[cardIdx].results[qi] = { ...updatedStates[cardIdx].results[qi], correct: true, feedback: action.feedback || `Typo corrected: "${action.correctedAnswer}" — Correct!` }
               updatedStates[cardIdx].answers = [...updatedStates[cardIdx].answers]
               updatedStates[cardIdx].answers[qi] = action.correctedAnswer + ' (corrected)'
             }
@@ -3396,7 +3446,8 @@ Respond in 1-2 sentences max. Always include the action tag when applicable. Nev
       // Re-rate the card if results were changed
       if (updatedStates) {
         const qpc = updatedStates[cardIdx].results.length
-        const wrongCount = updatedStates[cardIdx].results.filter(r => !r.correct || r.grammarRelevant).length
+        const grammarOn = (activeMode.studyRules || defaultStudyRules).grammarFeedback || false
+        const wrongCount = updatedStates[cardIdx].results.filter(r => !r.correct || (grammarOn && (r.notes || []).some(n => n.type === 'grammar' && n.penalize))).length
         let label
         if (wrongCount === 0) label = 'easy'
         else if (wrongCount === 1) label = 'good'
@@ -5420,7 +5471,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       <span style={{ color: '#7ee787' }}>{completedCount} <span style={{ fontSize: 10, color: '#7d8590' }}>Done</span></span>
                       <span style={{ color: '#7d8590' }}>{studyDeckStats.new_count || 0} New / {studyDeckStats.learn_count || 0} Learn / {studyDeckStats.review_count || 0} Due</span>
                     </div>
-                    <button onClick={exitStudy} style={{ ...S.ghostBtn, fontSize: 10 }}>Exit Study</button>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <FeedbackLegend />
+                      <button onClick={exitStudy} style={{ ...S.ghostBtn, fontSize: 10 }}>Exit Study</button>
+                    </div>
                   </div>
 
                   {/* Current question — card front is HIDDEN */}
@@ -5575,11 +5629,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                             <div style={{ color: '#7d8590', marginBottom: 3 }}><span style={{ fontWeight: 600 }}>Q:</span> {getQuestionText(cs.questions[qi])}</div>
                             <div style={{ color: '#c9d1d9', marginBottom: 4 }}><span style={{ fontWeight: 600 }}>Your answer:</span> {cs.answers[qi]}</div>
                             <div style={{ color: r.correct ? '#7ee787' : '#ffa657', lineHeight: 1.5, fontSize: 11 }}>{r.feedback}</div>
-                            {r.grammarNote && (
-                              <div style={{ color: '#d2a8ff', fontSize: 10, marginTop: 2, fontStyle: 'italic' }}>
-                                {r.grammarRelevant ? '⚠️' : '\u{1F4A1}'} Grammar: {r.grammarNote}
-                              </div>
-                            )}
+                            {renderFeedbackNotes(r)}
                           </div>
                         ))}
                         <div style={{ padding: '4px 12px', borderTop: '1px solid #2a3040', fontSize: 10, color: '#484f58' }}>{cs.back}</div>
@@ -5606,7 +5656,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             {/* Batch feedback — show all card results */}
             {studyPhase === 'batchFeedback' && (
               <div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#e6edf3', marginBottom: 16 }}>Batch Results</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#e6edf3' }}>Batch Results</div>
+                  <FeedbackLegend />
+                </div>
                 {studyCardState.map((cs, ci) => {
                   const ratingColors = { easy: '#7ee787', good: '#58a6ff', hard: '#d29922', again: '#f85149', deleted: '#7d8590' }
                   return (
@@ -5642,11 +5695,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           <div style={{ color: cs.results[qi]?.correct ? '#7ee787' : '#ffa657', lineHeight: 1.5, fontSize: 11 }}>
                             {cs.results[qi]?.feedback}
                           </div>
-                          {cs.results[qi]?.grammarNote && (
-                            <div style={{ color: '#d2a8ff', fontSize: 10, marginTop: 2, fontStyle: 'italic' }}>
-                              {cs.results[qi]?.grammarRelevant ? '\u26A0\uFE0F' : '\u{1F4A1}'} Grammar: {cs.results[qi]?.grammarNote}
-                            </div>
-                          )}
+                          {renderFeedbackNotes(cs.results[qi])}
                         </div>
                       ))}
                       <div style={{ padding: '4px 12px', borderTop: '1px solid #2a3040', fontSize: 10, color: '#484f58' }}>
