@@ -100,6 +100,7 @@
 ### Study Improvements
 - **Discover Mode — adaptive card discovery** ✅: a top-level **Discover** tab that estimates the user's level (CEFR / exam-domains / tiers), opens to a setup screen (Words/Phrases/Both + Focus box), then suggests *new* cards calibrated to the level (web-verified) and lets them Make Card / I Know This / Skip / Not Interested. Profile + ledger stored as cloud-synced Anki media files (local fallback). Full design in [discover-mode-plan.md](discover-mode-plan.md).
 - **Deck tab tools** ✅: Add card (manual or AI-generated), Analyze for ambiguous cards, and Scan for duplicates (accent-insensitive + edit-distance detection, AI-confirmed, with a per-deck "do not merge" memory).
+- **Default UI zoom** ✅: 1.35× body zoom so the fixed-pixel layout reads well on Windows (root height divides the zoom out so vh-centered layouts stay centered); overlay mode exempt for OCR alignment.
 - Spaced repetition scheduling within the app (without Anki)
 - Study session history and statistics
 - Progress tracking per mode
