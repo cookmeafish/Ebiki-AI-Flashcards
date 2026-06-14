@@ -2913,18 +2913,20 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const studyLang = rules.studyLanguage || 'English'
     setStudyMeaningHintLoading(true)
     try {
-      const prompt = `A student is studying a flashcard and needs a meaning hint. Give 1–2 sentences describing the core meaning or concept behind the answer — enough to help them understand what they're looking for without revealing the answer word itself.
+      const prompt = `Write your ENTIRE response in ${studyLang}. The student is studying in ${studyLang}, so the hint must be in ${studyLang} — not English (unless ${studyLang} is English).
+
+A student needs a meaning hint for a flashcard. Give 1–2 sentences, in ${studyLang}, describing the core meaning or concept behind the answer — enough to help them understand what they're looking for without revealing the answer word itself.
 
 Card front: "${cs.front}"
 Card back: "${cs.back}"
 Question: "${question}"
 
 Rules:
+- Respond ONLY in ${studyLang}.
 - Do NOT include the answer word or any conjugated/inflected form of it
 - Do NOT give spelling hints or letter counts
-- Describe the concept, meaning, or context only
-- Write in ${studyLang}`
-      const text = await providerConfig.call(apiKey, 'You give concise flashcard study hints. Never reveal the answer word or any of its forms.', prompt)
+- Describe the concept, meaning, or context only`
+      const text = await providerConfig.call(apiKey, `You give concise flashcard study hints written entirely in ${studyLang}. Never reveal the answer word or any of its forms.`, prompt)
       setStudyMeaningHint(text.trim())
     } catch {
       setStudyMeaningHint(null)
