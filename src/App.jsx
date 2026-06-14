@@ -73,6 +73,15 @@ export default function App() {
     document.body.style.background = 'transparent'
   }, [isOverlay])
 
+  // Default UI zoom: the app uses fixed pixel sizes, which render small on typical
+  // Windows displays. Scale the whole UI up so 100% browser zoom looks comfortable.
+  // NOT applied in overlay mode — that must stay 1:1 with screen pixels so OCR
+  // bounding boxes line up with the captured image.
+  useEffect(() => {
+    document.body.style.zoom = isOverlay ? '' : '1.35'
+    return () => { document.body.style.zoom = '' }
+  }, [isOverlay])
+
   // ESC hides overlay — Electron handles the actual window hiding via global shortcut
   // This just resets the web app state so it's ready for the next capture
   useEffect(() => {
@@ -3938,7 +3947,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       style={isOverlay ? {
         ...S.app, height: '100vh', overflow: 'hidden',
         background: ((selectionMode || selectionViewport || (areaSelectBounds && pinnedIdx !== null)) && activeMode.areaSelectTransparent !== false) ? 'transparent' : S.app.background,
-      } : S.app}
+      } : {
+        // Divide out the body zoom so the root still fills exactly one viewport
+        // (otherwise 100vh × zoom overflows and vh-centered layouts sit too low).
+        ...S.app, height: 'calc(100vh / 1.35)',
+      }}
     >
       <input
         ref={fileInputRef}
