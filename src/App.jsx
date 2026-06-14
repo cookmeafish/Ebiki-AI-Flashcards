@@ -2645,7 +2645,13 @@ Output ONLY raw JSON. No markdown, no backticks.`
   // Small legend popover explaining the feedback colors.
   const FeedbackLegend = () => (
     <div style={{ position: 'relative', display: 'inline-block' }}>
-      <button onClick={() => setStudyLegendOpen(o => !o)} style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 8px' }}>
+      <button onClick={() => setStudyLegendOpen(o => !o)}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: studyLegendOpen ? 'rgba(210,168,255,0.2)' : 'rgba(210,168,255,0.12)', color: '#d2a8ff', border: '1px solid rgba(210,168,255,0.45)', borderRadius: 6, padding: '5px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+        <span style={{ display: 'inline-flex', gap: 2 }}>
+          {['#7ee787', '#f85149', '#ffa657', '#58a6ff'].map(c => (
+            <span key={c} style={{ width: 7, height: 7, borderRadius: '50%', background: c }} />
+          ))}
+        </span>
         {studyLegendOpen ? 'Hide legend' : 'Color legend'}
       </button>
       {studyLegendOpen && (
@@ -2921,9 +2927,12 @@ Output ONLY raw JSON. No markdown, no backticks.`
     }
   }
 
+  // "I Don't Know" — give up on the WHOLE card: skip every remaining question at
+  // once, mark the card done (all skipped answers grade as wrong → Again), and send
+  // it straight to the results so the user can sync to Anki.
   const skipStudyQuestion = () => {
     if (studyLoading || !currentQuestion) return
-    const { cardIdx, questionIdx } = currentQuestion
+    const { cardIdx } = currentQuestion
     const cs = studyCardState[cardIdx]
     const qpc = (activeMode.studyRules || defaultStudyRules).questionsPerCard || 3
 
@@ -2931,41 +2940,30 @@ Output ONLY raw JSON. No markdown, no backticks.`
     setStudyCurrentHint(null)
     setStudyMeaningHint(null)
 
+    const filledAnswers = [...cs.answers]
+    while (filledAnswers.length < qpc) filledAnswers.push('(skipped)')
+
     const newStates = [...studyCardState]
     newStates[cardIdx] = {
       ...cs,
-      answers: [...cs.answers, '(skipped)'],
-      questionIdx: cs.questionIdx + 1,
+      answers: filledAnswers,
+      questionIdx: qpc,
+      done: true,
+      evaluating: true,
     }
+    setStudyCardState(newStates)
+    setStudyInput('')
 
-    setStudyAnswerHistory(prev => [...prev, { cardIdx, questionIdx }])
-
-    if (newStates[cardIdx].questionIdx >= qpc) {
-      newStates[cardIdx].done = true
-      newStates[cardIdx].evaluating = true
-      setStudyCardState(newStates)
-      setStudyInput('')
-
-      const remaining = newStates.filter(cs => !cs.done && cs.questionIdx < cs.questions.length)
-      if (remaining.length > 0) {
-        const nextActive = remaining[Math.floor(Math.random() * remaining.length)]
-        setCurrentQuestion({ cardIdx: newStates.indexOf(nextActive), questionIdx: nextActive.questionIdx })
-      } else {
-        setCurrentQuestion(null)
-      }
-      evaluateCardAnswers(cardIdx, newStates[cardIdx])
-      pullNewCard()
+    // Move to the next active card (or none) and evaluate this one in the background.
+    const remaining = newStates.filter(c => !c.done && c.questionIdx < c.questions.length)
+    if (remaining.length > 0) {
+      const nextActive = remaining[Math.floor(Math.random() * remaining.length)]
+      setCurrentQuestion({ cardIdx: newStates.indexOf(nextActive), questionIdx: nextActive.questionIdx })
     } else {
-      setStudyCardState(newStates)
-      setStudyInput('')
-      const nextQ = (() => {
-        const active = newStates.filter(cs => !cs.done && cs.questionIdx < cs.questions.length)
-        if (active.length === 0) return null
-        const pick = active[Math.floor(Math.random() * active.length)]
-        return { cardIdx: newStates.indexOf(pick), questionIdx: pick.questionIdx }
-      })()
-      setCurrentQuestion(nextQ)
+      setCurrentQuestion(null)
     }
+    evaluateCardAnswers(cardIdx, newStates[cardIdx])
+    pullNewCard()
   }
 
   const fetchMeaningHint = async () => {
