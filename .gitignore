@@ -10,6 +10,7 @@ modes/_meta.json
 logs/
 decks/
 chats/
+/discover/
 electron/last-capture.png
-.claude/
+.claude/settings.local.json
 planned-features.md

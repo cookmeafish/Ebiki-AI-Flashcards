@@ -521,6 +521,36 @@ function apiPlugin() {
         } else { res.statusCode = 405; res.end('') }
       })
 
+      // Discover Mode fallback store — local cache for learner profile + ledger when Anki
+      // (the cloud-synced source of truth) is offline. Stored flat under discover/.
+      server.middlewares.use('/api/discover-store', (req, res) => {
+        const url = new URL(req.url, 'http://localhost')
+        const kind = (url.searchParams.get('kind') || '').replace(/[^a-z]/gi, '')
+        const mode = (url.searchParams.get('mode') || '').replace(/[^a-zA-Z0-9._-]/g, '-')
+        res.setHeader('Content-Type', 'application/json')
+        if (!kind || !mode) { res.statusCode = 400; res.end(JSON.stringify({ error: 'kind and mode required' })); return }
+        const file = path.resolve('discover', `${kind}__${mode}.json`)
+        if (req.method === 'GET') {
+          if (fs.existsSync(file)) res.end(JSON.stringify({ content: fs.readFileSync(file, 'utf8') }))
+          else res.end(JSON.stringify({ content: '' }))
+        } else if (req.method === 'POST') {
+          let body = ''
+          req.on('data', c => body += c)
+          req.on('end', () => {
+            try {
+              const { content } = JSON.parse(body)
+              const dir = path.resolve('discover')
+              if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+              fs.writeFileSync(file, content, 'utf8')
+              res.end(JSON.stringify({ ok: true }))
+            } catch (e) {
+              res.statusCode = 400
+              res.end(JSON.stringify({ error: e.message }))
+            }
+          })
+        } else { res.statusCode = 405; res.end('') }
+      })
+
       // Chat sessions — saved to chats/ folder
       server.middlewares.use('/api/chats', (req, res) => {
         const chatsDir = path.resolve('chats')

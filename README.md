@@ -7,6 +7,7 @@ A multi-tab learning app with AI chat, Anki-integrated study sessions, screen tr
 ### Tabs
 - **Chat** — AI conversational assistant for learning, with inline Anki card generation, deck attachment for personalized tutoring, web search, and persistent conversation history
 - **Study** — Anki study sessions with AI-generated questions, deck browser, typo correction, feedback chat, "I know this" card deletion, "I Don't Know" skip, wrap up/end now controls, and spaced repetition insights
+- **Deck** — Browse/edit/search deck cards, plus **Discover Mode**: adaptive suggestions for new cards calibrated to your level (see below)
 - **Picture** — Screen capture/OCR/translation with pixel-accurate word overlays, overlay mode for games
 - **Stats** — Study streaks, accuracy trends, per-deck breakdown (coming soon)
 
@@ -16,6 +17,7 @@ A multi-tab learning app with AI chat, Anki-integrated study sessions, screen tr
 - **Anki integration** — Generate flashcards, sync to Anki, study with AI quizzes, browse/edit decks
 - **Knowledge base** — Upload .txt/.md reference materials per mode for smarter AI context
 - **Progress tracking** — Per-deck progress observations saved to disk, AI tracks struggles and improvements across sessions
+- **Discover Mode** — Adaptive new-card suggestions calibrated to your level (CEFR / exam domains / tiers), web-verified, with cloud-synced learner profile stored as Anki media files
 - **18 languages** — Spanish, French, German, Japanese, Korean, Chinese, Russian, Arabic, etc.
 
 ### Chat Tab
@@ -217,6 +219,19 @@ Go to the **Study** tab and click **Browse Deck** to:
 - Closing the browser syncs any edits back into your active study session immediately — no tab refresh needed
 - Changes auto-sync to AnkiWeb
 
+## Discover Mode
+
+A **Browser / Discover** toggle in the Deck tab turns the panel into an adaptive engine for finding **new** cards to make — calibrated to how advanced you already are. It never quizzes you on existing cards; every suggestion is something new.
+
+How it works:
+1. **Level analysis** — on open, the AI estimates your proficiency from your cards, Anki scheduling stats (mature/learning/lapsed counts, ease), progress observations, and study/feedback chat history. The scale adapts to the subject: **CEFR** (A1–C2) for languages, **exam-domain coverage** for certifications (e.g. Security+), and **beginner/intermediate/advanced** tiers for anything else.
+2. **Suggestions** — it proposes one new word/concept at a time, targeted slightly above your level and biased toward your weak areas. Nothing already in your deck, known, or declined is ever suggested again.
+3. **Web verification** (toggle, on by default) — confirms the facts of each suggestion via web search before showing it, with clickable source citations and a ✓ verified / ⚠ unverified badge, so you don't card a hallucination.
+4. **Actions** — **Make Card** (generates a card from your mode's template, editable, then saves to Anki), **I Know This** (skip + remember), **Skip**, **Not Interested**, or **Next**.
+5. **Re-analyze level** — recomputes your profile on demand.
+
+**Cloud-synced metrics.** Your learner profile and the ledger of made/known/declined items are stored as Anki **media files** (`_screenlens/profile__<mode>.json`, `_screenlens/ledger__<mode>.json`), which sync to AnkiWeb and follow you across machines. When Anki is offline they fall back to a local `discover/` cache. The `_` prefix keeps them from being touched by Anki's Check Media.
+
 ## Knowledge Base
 
 Each mode can have reference materials that the AI uses for context during study sessions and card generation.
@@ -294,14 +309,18 @@ src/
   components/
     FormattedText.jsx   ← Rich text formatting for AI explanations
     HelpChat.jsx        ← Context-aware floating/docked help assistant
+    DiscoverPanel.jsx   ← Discover Mode UI (profile header, suggestion card, actions)
   config/
     languages.js       ← 18 supported languages
     prompts.js         ← Translation prompt + POS/category color maps
     providers.js       ← AI provider implementations (Anthropic, OpenAI, Gemini, Grok)
+  discover/
+    storage.js         ← Discover profile/ledger store (Anki media files + local fallback)
+    prompts.js         ← Discover prompt builders (profile, suggestion, web verify)
   styles/
     theme.js           ← GitHub Dark design system (~100 style objects)
   utils/
-    anki.js            ← AnkiConnect API wrapper (ping, decks, cards, notes, sync)
+    anki.js            ← AnkiConnect API wrapper (ping, decks, cards, notes, sync, media files)
     logger.js          ← OCR pipeline logging
 electron/
   main.cjs             ← Electron main process (window, shortcuts, screenshot capture)
@@ -310,5 +329,5 @@ modes/
   Default/             ← Default Language Learning config template (committed)
     config.json
   <user modes>/        ← Custom modes with per-mode configs + knowledge (gitignored)
-vite.config.js         ← Vite dev server + API endpoints (keys, config, modes, knowledge, anki proxy, overlay, chats, web search)
+vite.config.js         ← Vite dev server + API endpoints (keys, config, modes, knowledge, anki proxy, overlay, chats, web search, discover-store)
 ```

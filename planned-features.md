@@ -98,6 +98,7 @@
 - Hotkey customization
 
 ### Study Improvements
+- **Discover Mode — adaptive card discovery** ✅: a Browser/Discover toggle in the Deck panel that estimates the user's level (CEFR / exam-domains / tiers), suggests *new* cards calibrated to it (web-verified), and lets them Make Card / I Know This / Skip / Not Interested. Profile + ledger stored as cloud-synced Anki media files (local fallback). Full design in [discover-mode-plan.md](discover-mode-plan.md).
 - Spaced repetition scheduling within the app (without Anki)
 - Study session history and statistics
 - Progress tracking per mode
