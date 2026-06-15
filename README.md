@@ -41,11 +41,11 @@ A multi-tab learning app with AI chat, Anki-integrated study sessions, screen tr
 - **Inline feedback** — completed card feedback appears below the active question as evaluations finish, so you can review while continuing to answer other cards
 - **Previous attempts shown** — results view shows all retry attempts grayed out above the final answer
 - **Smart evaluation** — for language learning, typos in the response language (e.g. English typos when studying Spanish) don't count against you
-- **I Don't Know** — give up on the whole card in one click: all remaining questions are skipped and marked wrong, the card is rated Again, and it goes straight to the results so you can sync to Anki. Rating can still be overridden afterward
+- **I Don't Know** — give up on the whole card: after a confirmation prompt, all remaining questions are skipped and marked wrong and the card is rated Again (the review records in Anki via auto-sync). The confirmation guards against a misclick
 - **Color-coded feedback** — each result's notes are categorized and colored: ✓ what you got right (green), ✗ incorrect/factual error (red), ✎ grammar/spelling/accents (orange), ◆ word choice/term (purple), + missing detail (teal), ➜ tip to improve (blue). Works for language *and* general modes. A **Color legend** button explains the colors
 - **Feedback chat** — after feedback is revealed, chat with AI to fix typos, flag out-of-scope questions, or request card updates. AI trusts student corrections, never argues, and replies in the quiz language
 - **Card updates from feedback** — AI can update Anki card content to add clarity
-- **Ratings synced after review** — Anki ratings only sync when you finish, giving you time to dispute/correct first
+- **Continuous rating auto-sync** — each card's rating is pushed to Anki as soon as it's evaluated, so progress is preserved even if the tab closes or AnkiConnect briefly drops
 - **"I know this already"** — delete cards you've mastered with AI confirmation
 - **Smart Wrap Up** — immediately drops all unstarted cards (0 answers), finishes only in-progress ones. Session ends as fast as possible without abandoning cards you already started
 - **End Now** — immediately end session with partial results

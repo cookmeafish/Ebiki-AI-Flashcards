@@ -2936,6 +2936,10 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const cs = studyCardState[cardIdx]
     const qpc = (activeMode.studyRules || defaultStudyRules).questionsPerCard || 3
 
+    // Giving up finalizes the whole card and the Again rating auto-syncs to Anki —
+    // confirm so a misclick doesn't record a review you didn't mean.
+    if (!window.confirm(`Give up on "${cs.front}"? All its questions will be marked wrong and the card rated Again — this records the review in Anki right away. Continue?`)) return
+
     setStudyHintLevel(0)
     setStudyCurrentHint(null)
     setStudyMeaningHint(null)
