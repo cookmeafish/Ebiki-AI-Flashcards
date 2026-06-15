@@ -45,7 +45,7 @@ A multi-tab learning app with AI chat, Anki-integrated study sessions, screen tr
 - **Color-coded feedback** — each result's notes are categorized and colored: ✓ what you got right (green), ✗ incorrect/factual error (red), ✎ grammar/spelling/accents (orange), ◆ word choice/term (purple), + missing detail (teal), ➜ tip to improve (blue). Works for language *and* general modes. A **Color legend** button explains the colors
 - **Feedback chat** — after feedback is revealed, chat with AI to fix typos, flag out-of-scope questions, or request card updates. AI trusts student corrections, never argues, and replies in the quiz language
 - **Card updates from feedback** — AI can update Anki card content to add clarity
-- **Continuous rating auto-sync** — each card's rating is pushed to Anki as soon as it's evaluated, so progress is preserved even if the tab closes or AnkiConnect briefly drops
+- **Rating auto-sync (with a correction window)** — each card's rating is pushed to Anki ~15s after it's evaluated, so progress is preserved if the tab closes or AnkiConnect drops. The delay lets you correct a rating (e.g. AGAIN → EASY) first, so only the final rating is sent as a single review. Correcting after it has synced re-answers the card (Anki's last answer wins)
 - **"I know this already"** — delete cards you've mastered with AI confirmation
 - **Smart Wrap Up** — immediately drops all unstarted cards (0 answers), finishes only in-progress ones. Session ends as fast as possible without abandoning cards you already started
 - **End Now** — immediately end session with partial results
