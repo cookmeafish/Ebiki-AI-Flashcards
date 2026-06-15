@@ -3189,17 +3189,21 @@ Rules:
     return { synced: synced.length, failed: failed.length, ...(failed.length > 0 ? { error: `${failed.length} card(s) failed` } : {}) }
   }
 
-  // Auto-sync: continuously push newly-evaluated card ratings to Anki as soon as
-  // they're ready, so partial progress is preserved even if the user closes the
-  // tab, the browser crashes, or AnkiConnect briefly disconnects.
+  // Auto-sync: push newly-evaluated card ratings to Anki so partial progress is
+  // preserved if the tab closes, the browser crashes, or AnkiConnect disconnects.
+  // Debounced 15s so that if the user corrects a rating (e.g. AGAIN → EASY) shortly
+  // after, only the FINAL rating is sent — avoiding a stacked AGAIN+EASY review.
+  // A later correction re-marks the card unsynced and re-syncs (Anki's last answer wins).
   useEffect(() => {
     if (!studyActive) return
     const hasUnsynced = studyCardState.some(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced)
-    if (hasUnsynced) {
+    if (!hasUnsynced) return
+    const t = setTimeout(() => {
       syncRatingsToAnki().then(result => {
         if (result?.failed > 0) console.error('[Anki auto-sync] failed cards:', result.failed, result.error)
       })
-    }
+    }, 15000)
+    return () => clearTimeout(t)
   }, [studyCardState, studyActive])
 
   const nextBatch = async () => {
@@ -3461,6 +3465,7 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
           setStudyStats(prev => ({ ...prev, [oldRating]: Math.max(0, prev[oldRating] - 1), [label]: prev[label] + 1 }))
         }
         updatedStates[cardIdx].rating = label
+        updatedStates[cardIdx].ease = { easy: 4, good: 3, hard: 2, again: 1 }[label] || 1
         updatedStates[cardIdx].synced = false
         setStudyCardState(updatedStates)
       }
@@ -5607,7 +5612,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               setStudyCardState(prev => {
                                 const updated = [...prev]
                                 const oldRating = updated[ci].rating
-                                updated[ci] = { ...updated[ci], rating: newRating, ease: easeMap[newRating] || 1 }
+                                // synced:false so the corrected rating is pushed to Anki (re-answers the card with the new ease).
+                                updated[ci] = { ...updated[ci], rating: newRating, ease: easeMap[newRating] || 1, synced: false }
                                 setStudyStats(s => ({
                                   ...s,
                                   [oldRating]: Math.max(0, (s[oldRating] || 0) - 1),
