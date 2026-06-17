@@ -2763,11 +2763,11 @@ Output ONLY raw JSON. No markdown, no backticks.`
       setStudyStats({ easy: 0, good: 0, hard: 0, again: 0 })
 
       const rules = activeMode.studyRules || (activeMode.type === 'language' ? defaultStudyRules : defaultGeneralStudyRules)
-      const cardsAtOnce = 10
+      const cardsAtOnce = rules.cardsAtOnce || 3
       const studyLang = rules.studyLanguage || 'English'
       const knowledgeContext = knowledgeRes.content ? `\n\nReference material:\n${knowledgeRes.content.substring(0, 4000)}\n\nUse this context to create more specific, contextual questions.` : ''
 
-      // Generate first card only, then start immediately
+      // Generate card 0 first so the session starts immediately
       const firstCard = cards[0]
       const firstQuestions = await generateQuestionsForCard(firstCard, rules, studyLang, knowledgeContext)
       const firstCardState = {
@@ -2775,34 +2775,26 @@ Output ONLY raw JSON. No markdown, no backticks.`
         questions: firstQuestions, answers: [], results: [], done: false, questionIdx: 0, questionAttempts: [],
       }
 
-      console.log('[Study] started with first card, generating rest in background')
+      console.log('[Study] started with first card, generating rest in parallel')
       setStudyCardState([firstCardState])
-      setStudyBatchIdx(cardsAtOnce) // pullNewCard starts at index 10+
+      setStudyBatchIdx(cardsAtOnce)
       setStudyQueue([])
       setStudyQueueIdx(0)
       setStudyInput('')
       setStudyLoading(false)
       setStudyPhase('question')
 
-      // Background: generate cards 1..9 and append as ready
-      ;(async () => {
-        const backgroundCards = cards.slice(1, cardsAtOnce)
-        for (const card of backgroundCards) {
-          if (studyWrappingUpRef.current) {
-            setStudyCardState(prev => [...prev, {
-              cardId: card.cardId, front: getCardFront(card), back: getCardBack(card),
-              questions: [], answers: [], results: [], done: true, skipped: true, questionIdx: 0,
-            }])
-            continue
-          }
-          const questions = await generateQuestionsForCard(card, rules, studyLang, knowledgeContext)
-          if (studyWrappingUpRef.current) continue
-          setStudyCardState(prev => [...prev, {
-            cardId: card.cardId, front: getCardFront(card), back: getCardBack(card),
-            questions, answers: [], results: [], done: false, questionIdx: 0, questionAttempts: [],
-          }])
-        }
-      })()
+      // Generate remaining pool cards in parallel — each joins the pool as soon as it's ready
+      cards.slice(1, cardsAtOnce).forEach(async (card) => {
+        if (studyWrappingUpRef.current) return
+        const questions = await generateQuestionsForCard(card, rules, studyLang, knowledgeContext)
+        if (studyWrappingUpRef.current) return
+        setStudyCardState(prev => [...prev, {
+          cardId: card.cardId, front: getCardFront(card), back: getCardBack(card),
+          questions, answers: [], results: [], done: false, questionIdx: 0, questionAttempts: [],
+        }])
+        console.log('[Study] pool card ready:', getCardFront(card))
+      })
     } catch (err) {
       console.error('[Study] failed to start:', err.message)
       setAnkiError('Study failed: ' + err.message)
