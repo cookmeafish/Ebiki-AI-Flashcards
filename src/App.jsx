@@ -209,6 +209,8 @@ export default function App() {
   const [studyQueue, setStudyQueue] = useState([])
   const [studyQueueIdx, setStudyQueueIdx] = useState(0)
   const [studyPhase, setStudyPhase] = useState('pick')       // 'pick' | 'question' | 'batchFeedback' | 'summary'
+  const [studyMode, setStudyMode] = useState('flashcards')   // 'flashcards' | 'conjugations'
+  const [studyConjugationWords, setStudyConjugationWords] = useState([]) // word pool for conjugation mode
   const [studyDeck, setStudyDeck] = useState('')
   const [studyInput, setStudyInput] = useState('')
   const [studyLoading, setStudyLoading] = useState(false)
@@ -2717,6 +2719,72 @@ Output ONLY raw JSON. No markdown, no backticks.`
     }
   }
 
+  // Build a pool of words to conjugate: verbs from the user's deck + AI-supplemented common verbs
+  const generateConjugationWordPool = async (cards, language) => {
+    const deckFronts = cards.slice(0, 30).map(c => getCardFront(c)).filter(w => w.length > 0)
+    const prompt = `You are helping a ${language} language learner practice verb conjugations.
+Words from their vocabulary deck: ${deckFronts.join(', ')}
+
+Return a JSON array of up to 40 conjugatable words (verbs) for practice.
+- Include all verbs/conjugatable words from the deck list above with fromDeck: true
+- Supplement with common ${language} verbs the learner should know with fromDeck: false
+- No duplicates. Use the infinitive form.
+- Each item: {"word": "infinitive", "meaning": "English meaning", "fromDeck": true/false}
+
+Output ONLY a raw JSON array. No markdown, no backticks.`
+    try {
+      const text = await providerConfig.call(apiKey, 'You help language learners practice verb conjugations. Respond with valid JSON only.', prompt)
+      const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+      if (!Array.isArray(parsed)) throw new Error('not array')
+      return parsed.filter(w => w.word && w.meaning)
+    } catch {
+      return deckFronts.slice(0, 20).map(w => ({ word: w, meaning: '', fromDeck: true }))
+    }
+  }
+
+  // Generate conjugation practice questions for a single word
+  const generateConjugationQuestions = async (word, meaning, language, n) => {
+    const prompt = `Generate ${n} conjugation practice questions for the ${language} verb "${word}"${meaning ? ` (meaning: "${meaning}")` : ''}.
+
+Cover varied tenses and subjects. For Spanish use: present, preterite, future, imperfect, subjunctive; subjects yo/tú/él-ella/nosotros/vosotros/ellos. Adapt subjects and tenses correctly for other languages.
+
+Each question must test exactly ONE conjugated form.
+Return JSON: [{"question": "...", "type": "recall", "hint1": "X letters", "hint2": "starts with 'Y'", "acceptedAnswers": ["conjugated form"]}]
+
+Output ONLY raw JSON. No markdown, no backticks.`
+    try {
+      const text = await providerConfig.call(apiKey, 'You generate conjugation quiz questions. Always respond with a valid JSON array of objects.', prompt, providerConfig.questionModel)
+      const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+      if (!Array.isArray(parsed)) throw new Error('not array')
+      return parsed.slice(0, n).map(q => ({
+        question: typeof q === 'string' ? q : (q.question || ''),
+        type: 'recall',
+        hint1: q.hint1 || null,
+        hint2: q.hint2 || null,
+        acceptedAnswers: Array.isArray(q.acceptedAnswers) ? q.acceptedAnswers.map(a => String(a).toLowerCase().trim()) : [],
+      }))
+    } catch {
+      return [
+        { question: `Conjugate "${word}" in the present tense (yo form).`, type: 'recall', hint1: null, hint2: null, acceptedAnswers: [] },
+        { question: `Conjugate "${word}" in the preterite (él/ella form).`, type: 'recall', hint1: null, hint2: null, acceptedAnswers: [] },
+        { question: `Conjugate "${word}" in the future tense (nosotros form).`, type: 'recall', hint1: null, hint2: null, acceptedAnswers: [] },
+      ].slice(0, n)
+    }
+  }
+
+  // Save an AI-supplemented conjugation word as a vocabulary card in the user's Anki deck
+  const addConjugationWordToAnki = async (cardIdx) => {
+    const cs = studyCardState[cardIdx]
+    if (!cs || cs.addedToAnki) return
+    try {
+      const { front, back, tags } = await buildCardFields({ term: cs.front, partOfSpeech: 'verb', translation: cs.back || '' })
+      await ankiAddNote(studyDeck, front, back, tags)
+      setStudyCardState(prev => prev.map((c, i) => i === cardIdx ? { ...c, addedToAnki: true } : c))
+    } catch (err) {
+      console.error('[Conjugation] failed to add word to Anki:', err.message)
+    }
+  }
+
   // Extracts question text whether question is a string (legacy) or object {question, type, ...}
   const getQuestionText = (q) => (typeof q === 'string' ? q : q?.question || '')
 
@@ -2740,7 +2808,8 @@ Output ONLY raw JSON. No markdown, no backticks.`
     setStudyPhase('pick')
   }
 
-  const beginStudy = async (deck) => {
+  const beginStudy = async (deck, mode = 'flashcards') => {
+    setStudyMode(mode)
     setStudyLoading(true)
     setAnkiError(null)
     try {
@@ -2767,34 +2836,71 @@ Output ONLY raw JSON. No markdown, no backticks.`
       const studyLang = rules.studyLanguage || 'English'
       const knowledgeContext = knowledgeRes.content ? `\n\nReference material:\n${knowledgeRes.content.substring(0, 4000)}\n\nUse this context to create more specific, contextual questions.` : ''
 
-      // Generate card 0 first so the session starts immediately
-      const firstCard = cards[0]
-      const firstQuestions = await generateQuestionsForCard(firstCard, rules, studyLang, knowledgeContext)
-      const firstCardState = {
-        cardId: firstCard.cardId, front: getCardFront(firstCard), back: getCardBack(firstCard),
-        questions: firstQuestions, answers: [], results: [], done: false, questionIdx: 0, questionAttempts: [],
+      if (mode === 'conjugations') {
+        // Build word pool from deck + AI-supplemented common verbs
+        const wordPool = await generateConjugationWordPool(cards, studyLang)
+        setStudyConjugationWords(wordPool)
+        if (wordPool.length === 0) { setAnkiError('Could not generate conjugation word pool'); setStudyLoading(false); return }
+
+        const qpc = rules.questionsPerCard || 3
+        const firstWord = wordPool[0]
+        const firstQuestions = await generateConjugationQuestions(firstWord.word, firstWord.meaning, studyLang, qpc)
+        const firstCardState = {
+          cardId: null, front: firstWord.word, back: firstWord.meaning,
+          fromDeck: firstWord.fromDeck, isConjugation: true,
+          questions: firstQuestions, answers: [], results: [], done: false, questionIdx: 0, questionAttempts: [],
+        }
+
+        console.log('[Study:conjugations] started with first word:', firstWord.word, '— generating rest in parallel')
+        setStudyCardState([firstCardState])
+        setStudyBatchIdx(cardsAtOnce)
+        setStudyQueue([])
+        setStudyQueueIdx(0)
+        setStudyInput('')
+        setStudyLoading(false)
+        setStudyPhase('question')
+
+        wordPool.slice(1, cardsAtOnce).forEach(async (w) => {
+          if (studyWrappingUpRef.current) return
+          const questions = await generateConjugationQuestions(w.word, w.meaning, studyLang, qpc)
+          if (studyWrappingUpRef.current) return
+          setStudyCardState(prev => [...prev, {
+            cardId: null, front: w.word, back: w.meaning,
+            fromDeck: w.fromDeck, isConjugation: true,
+            questions, answers: [], results: [], done: false, questionIdx: 0, questionAttempts: [],
+          }])
+          console.log('[Study:conjugations] pool word ready:', w.word)
+        })
+      } else {
+        // Generate card 0 first so the session starts immediately
+        const firstCard = cards[0]
+        const firstQuestions = await generateQuestionsForCard(firstCard, rules, studyLang, knowledgeContext)
+        const firstCardState = {
+          cardId: firstCard.cardId, front: getCardFront(firstCard), back: getCardBack(firstCard),
+          questions: firstQuestions, answers: [], results: [], done: false, questionIdx: 0, questionAttempts: [],
+        }
+
+        console.log('[Study] started with first card, generating rest in parallel')
+        setStudyCardState([firstCardState])
+        setStudyBatchIdx(cardsAtOnce)
+        setStudyQueue([])
+        setStudyQueueIdx(0)
+        setStudyInput('')
+        setStudyLoading(false)
+        setStudyPhase('question')
+
+        // Generate remaining pool cards in parallel — each joins the pool as soon as it's ready
+        cards.slice(1, cardsAtOnce).forEach(async (card) => {
+          if (studyWrappingUpRef.current) return
+          const questions = await generateQuestionsForCard(card, rules, studyLang, knowledgeContext)
+          if (studyWrappingUpRef.current) return
+          setStudyCardState(prev => [...prev, {
+            cardId: card.cardId, front: getCardFront(card), back: getCardBack(card),
+            questions, answers: [], results: [], done: false, questionIdx: 0, questionAttempts: [],
+          }])
+          console.log('[Study] pool card ready:', getCardFront(card))
+        })
       }
-
-      console.log('[Study] started with first card, generating rest in parallel')
-      setStudyCardState([firstCardState])
-      setStudyBatchIdx(cardsAtOnce)
-      setStudyQueue([])
-      setStudyQueueIdx(0)
-      setStudyInput('')
-      setStudyLoading(false)
-      setStudyPhase('question')
-
-      // Generate remaining pool cards in parallel — each joins the pool as soon as it's ready
-      cards.slice(1, cardsAtOnce).forEach(async (card) => {
-        if (studyWrappingUpRef.current) return
-        const questions = await generateQuestionsForCard(card, rules, studyLang, knowledgeContext)
-        if (studyWrappingUpRef.current) return
-        setStudyCardState(prev => [...prev, {
-          cardId: card.cardId, front: getCardFront(card), back: getCardBack(card),
-          questions, answers: [], results: [], done: false, questionIdx: 0, questionAttempts: [],
-        }])
-        console.log('[Study] pool card ready:', getCardFront(card))
-      })
     } catch (err) {
       console.error('[Study] failed to start:', err.message)
       setAnkiError('Study failed: ' + err.message)
@@ -2930,7 +3036,10 @@ Output ONLY raw JSON. No markdown, no backticks.`
 
     // Giving up finalizes the whole card and the Again rating auto-syncs to Anki —
     // confirm so a misclick doesn't record a review you didn't mean.
-    if (!window.confirm(`Give up on "${cs.front}"? All its questions will be marked wrong and the card rated Again — this records the review in Anki right away. Continue?`)) return
+    if (!window.confirm(cs.isConjugation
+      ? `Give up on "${cs.front}"? All remaining questions will be skipped and rated Again. Continue?`
+      : `Give up on "${cs.front}"? All its questions will be marked wrong and the card rated Again — this records the review in Anki right away. Continue?`
+    )) return
 
     setStudyHintLevel(0)
     setStudyCurrentHint(null)
@@ -3082,7 +3191,10 @@ Rules:
         const allEvaluated = prev.every(cs => !cs.evaluating)
         if (allDone && allEvaluated && !studyWrappingUpRef.current) {
           // All cards done — if no more in pool, go to summary
-          if (studyBatchIdx >= studyAllCards.length) {
+          const poolExhausted = studyMode === 'conjugations'
+            ? studyBatchIdx >= studyConjugationWords.length
+            : studyBatchIdx >= studyAllCards.length
+          if (poolExhausted) {
             setTimeout(() => setStudyPhase('summary'), 100)
           }
         }
@@ -3100,25 +3212,41 @@ Rules:
     }
   }
 
-  // Pull a new card from the pool to replace a completed one
+  // Pull a new card/word from the pool to replace a completed one
   const pullNewCard = async () => {
-    if (studyWrappingUpRef.current || studyBatchIdx >= studyAllCards.length) return
-    const card = studyAllCards[studyBatchIdx]
-    if (!card) return
-    setStudyBatchIdx(prev => prev + 1)
+    if (studyWrappingUpRef.current) return
 
     const rules = activeMode.studyRules || defaultStudyRules
     const studyLang = rules.studyLanguage || 'English'
-    const knowledgeContext = studyKnowledge ? `\n\nReference material:\n${studyKnowledge.substring(0, 2000)}` : ''
+    const qpc = rules.questionsPerCard || 3
 
-    const questions = await generateQuestionsForCard(card, rules, studyLang, knowledgeContext)
-    if (studyWrappingUpRef.current) return
-
-    setStudyCardState(prev => [...prev, {
-      cardId: card.cardId, front: getCardFront(card), back: getCardBack(card),
-      questions, answers: [], results: [], done: false, questionIdx: 0,
-    }])
-    console.log('[Study] pulled new card:', getCardFront(card))
+    if (studyMode === 'conjugations') {
+      if (studyBatchIdx >= studyConjugationWords.length) return
+      const w = studyConjugationWords[studyBatchIdx]
+      if (!w) return
+      setStudyBatchIdx(prev => prev + 1)
+      const questions = await generateConjugationQuestions(w.word, w.meaning, studyLang, qpc)
+      if (studyWrappingUpRef.current) return
+      setStudyCardState(prev => [...prev, {
+        cardId: null, front: w.word, back: w.meaning,
+        fromDeck: w.fromDeck, isConjugation: true,
+        questions, answers: [], results: [], done: false, questionIdx: 0, questionAttempts: [],
+      }])
+      console.log('[Study:conjugations] pulled new word:', w.word)
+    } else {
+      if (studyBatchIdx >= studyAllCards.length) return
+      const card = studyAllCards[studyBatchIdx]
+      if (!card) return
+      setStudyBatchIdx(prev => prev + 1)
+      const knowledgeContext = studyKnowledge ? `\n\nReference material:\n${studyKnowledge.substring(0, 2000)}` : ''
+      const questions = await generateQuestionsForCard(card, rules, studyLang, knowledgeContext)
+      if (studyWrappingUpRef.current) return
+      setStudyCardState(prev => [...prev, {
+        cardId: card.cardId, front: getCardFront(card), back: getCardBack(card),
+        questions, answers: [], results: [], done: false, questionIdx: 0,
+      }])
+      console.log('[Study] pulled new card:', getCardFront(card))
+    }
   }
 
   // startBatch is no longer used in the new system but keep for compatibility
@@ -3132,7 +3260,7 @@ Rules:
   const syncingRef = useRef(false)
   const syncRatingsToAnki = async () => {
     if (syncingRef.current) return { synced: 0, failed: 0, skipped: true }
-    const ratingsToSync = studyCardState.filter(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced)
+    const ratingsToSync = studyCardState.filter(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation)
     if (ratingsToSync.length === 0) return { synced: 0, failed: 0 }
     syncingRef.current = true
 
@@ -3188,7 +3316,7 @@ Rules:
   // A later correction re-marks the card unsynced and re-syncs (Anki's last answer wins).
   useEffect(() => {
     if (!studyActive) return
-    const hasUnsynced = studyCardState.some(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced)
+    const hasUnsynced = studyCardState.some(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation)
     if (!hasUnsynced) return
     const t = setTimeout(() => {
       syncRatingsToAnki().then(result => {
@@ -3207,7 +3335,7 @@ Rules:
     // Last-line defense: try to flush any unsynced ratings before tearing down state.
     // If Anki is unreachable, ask the user whether to exit anyway (losing those ratings)
     // or stay so they can fix the connection and retry.
-    const unsynced = studyCardState.filter(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced)
+    const unsynced = studyCardState.filter(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation)
     if (unsynced.length > 0) {
       const result = await syncRatingsToAnki()
       if (result.failed > 0) {
@@ -3237,6 +3365,8 @@ Rules:
     setStudyHintLevel(0)
     setStudyMeaningHint(null)
     setStudyAnswerHistory([])
+    setStudyMode('flashcards')
+    setStudyConjugationWords([])
   }
 
   // Generate spaced repetition insights + update progress observations
@@ -5392,10 +5522,14 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   </label>
                 </div>
 
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 8 }}>
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 8, flexWrap: 'wrap' }}>
                   <button onClick={() => beginStudy(studyDeck)} disabled={!studyDeck || studyLoading}
                     style={{ ...S.captureBtn, borderRadius: 6, padding: '10px 24px', fontSize: 13, opacity: !studyDeck || studyLoading ? 0.5 : 1 }}>
-                    {studyLoading ? 'Loading cards...' : 'Study Now'}
+                    {studyLoading ? 'Loading...' : 'Study Now'}
+                  </button>
+                  <button onClick={() => beginStudy(studyDeck, 'conjugations')} disabled={!studyDeck || studyLoading}
+                    style={{ ...S.captureBtn, borderRadius: 6, padding: '10px 24px', fontSize: 13, background: 'rgba(88,166,255,.15)', borderColor: 'rgba(88,166,255,.4)', opacity: !studyDeck || studyLoading ? 0.5 : 1 }}>
+                    {studyLoading ? 'Loading...' : 'Study Conjugations'}
                   </button>
                   <button onClick={exitStudy} style={{ ...S.ghostBtn }}>Cancel</button>
                 </div>
@@ -5479,6 +5613,24 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   {/* Current question — card front is HIDDEN */}
                   {question ? (
                     <>
+                      {/* Conjugation mode: show the word being conjugated + option to add it to Anki */}
+                      {studyMode === 'conjugations' && cs && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, padding: '6px 10px', background: 'rgba(88,166,255,.06)', border: '1px solid rgba(88,166,255,.2)', borderRadius: 6 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: '#79c0ff' }}>{cs.front}</span>
+                          {cs.back && <span style={{ fontSize: 12, color: '#7d8590' }}>— <em>{cs.back}</em></span>}
+                          <div style={{ marginLeft: 'auto' }}>
+                            {cs.addedToAnki ? (
+                              <span style={{ fontSize: 11, color: '#7ee787' }}>✓ Added to deck</span>
+                            ) : !cs.fromDeck ? (
+                              <button onClick={() => addConjugationWordToAnki(cq.cardIdx)}
+                                style={{ ...S.ghostBtn, fontSize: 10, color: '#58a6ff', borderColor: 'rgba(88,166,255,.3)', padding: '3px 8px' }}>
+                                + Add to Anki
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                      )}
+
                       <div style={{ fontSize: 13, color: '#e6edf3', fontWeight: 600, marginBottom: 8 }}>
                         {question}
                       </div>
@@ -5524,10 +5676,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                             style={{ ...S.ghostBtn, fontSize: 10, color: '#79c0ff', borderColor: 'rgba(121,192,255,.25)', opacity: (studyMeaningHintLoading || !!studyMeaningHint) ? 0.5 : 1 }}>
                             {studyMeaningHintLoading ? 'Loading...' : 'Meaning Hint'}
                           </button>
-                          <button onClick={() => setStudyDeleteConfirm(cq.cardIdx)}
-                            style={{ ...S.ghostBtn, fontSize: 10, color: '#7d8590', borderColor: '#2a3040' }}>
-                            I know this already
-                          </button>
+                          {studyMode !== 'conjugations' && (
+                            <button onClick={() => setStudyDeleteConfirm(cq.cardIdx)}
+                              style={{ ...S.ghostBtn, fontSize: 10, color: '#7d8590', borderColor: '#2a3040' }}>
+                              I know this already
+                            </button>
+                          )}
                           {canUndo && (
                             <button onClick={undoLastAnswer} style={{ ...S.ghostBtn, fontSize: 10, color: '#7d8590', borderColor: '#2a3040' }}>← Back</button>
                           )}
@@ -5573,12 +5727,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         if (result.failed > 0) {
                           setStudySyncError(`${result.failed} card(s) failed to sync — check browser console for details`)
                           setTimeout(() => setStudySyncError(null), 8000)
-                        } else {
+                        } else if (studyMode !== 'conjugations') {
                           setStudySyncNotification(true)
                           setTimeout(() => setStudySyncNotification(false), 3000)
                         }
                       }} style={{ ...S.ghostBtn, fontSize: 11, color: '#7ee787', borderColor: 'rgba(126,231,135,.3)' }}>
-                        Done — Sync to Anki
+                        {studyMode === 'conjugations' ? 'Dismiss' : 'Done — Sync to Anki'}
                       </button>
                     </div>
                   )}
@@ -5735,7 +5889,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 })}
                 <div style={{ textAlign: 'center', marginTop: 8 }}>
                   <button onClick={nextBatch} style={{ ...S.captureBtn, borderRadius: 6 }}>
-                    {studyBatchIdx + (activeMode.studyRules?.cardsAtOnce || 3) >= studyAllCards.length ? 'Finish Session' : 'Next Batch \u2192'}
+                    {studyBatchIdx + (activeMode.studyRules?.cardsAtOnce || 3) >= (studyMode === 'conjugations' ? studyConjugationWords.length : studyAllCards.length) ? 'Finish Session' : 'Next Batch \u2192'}
                   </button>
                 </div>
               </div>
