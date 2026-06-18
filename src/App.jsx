@@ -2972,14 +2972,31 @@ Output ONLY raw JSON. No markdown, no backticks.`
     newAttempts[questionIdx] = allAttempts
     newStates[cardIdx] = { ...cs, questionAttempts: newAttempts }
 
-    // If wrong on a hintable question and hints remain — show hint, stay on question
+    // If wrong on a hintable question and hints remain — show the next hint the user doesn't already satisfy
     if (!isExplanation && acceptedAnswers.length > 0 && !isCorrect && studyHintLevel < 2) {
-      const newLevel = studyHintLevel + 1
-      setStudyHintLevel(newLevel)
-      setStudyCurrentHint(newLevel === 1 ? (questionObj.hint1 || null) : (questionObj.hint2 || null))
-      setStudyCardState(newStates)
-      setStudyInput('')
-      return
+      const hintSatisfied = (hint) => {
+        if (!hint) return true
+        const a = ans.replace(/\s/g, '')
+        const lettersMatch = hint.match(/^(\d+)\s+letters?$/i)
+        if (lettersMatch) return a.length === parseInt(lettersMatch[1])
+        const startsMatch = hint.match(/starts with ['"]?([^\s'"]+)['"]?/i)
+        if (startsMatch) return ansNoArt.startsWith(startsMatch[1].toLowerCase())
+        return false
+      }
+      const allHints = [questionObj.hint1, questionObj.hint2]
+      let nextLevel = null, nextHint = null
+      for (let level = studyHintLevel + 1; level <= 2; level++) {
+        const candidate = allHints[level - 1]
+        if (!hintSatisfied(candidate)) { nextLevel = level; nextHint = candidate; break }
+      }
+      if (nextLevel !== null) {
+        setStudyHintLevel(nextLevel)
+        setStudyCurrentHint(nextHint)
+        setStudyCardState(newStates)
+        setStudyInput('')
+        return
+      }
+      // All remaining hints already satisfied — fall through and advance
     }
 
     // Advance — correct, explanation type, or max hints exhausted
@@ -3068,6 +3085,27 @@ Output ONLY raw JSON. No markdown, no backticks.`
       setCurrentQuestion(null)
     }
     evaluateCardAnswers(cardIdx, newStates[cardIdx])
+    pullNewCard()
+  }
+
+  // Conjugation mode only — silently drop the current word and move on (no rating, no feedback)
+  const skipConjugationWord = () => {
+    if (!currentQuestion) return
+    const { cardIdx } = currentQuestion
+    const newStates = [...studyCardState]
+    newStates[cardIdx] = { ...newStates[cardIdx], done: true, skipped: true, results: [] }
+    setStudyCardState(newStates)
+    setStudyInput('')
+    setStudyHintLevel(0)
+    setStudyCurrentHint(null)
+    setStudyMeaningHint(null)
+    const remaining = newStates.filter(c => !c.done && c.questionIdx < c.questions.length)
+    if (remaining.length > 0) {
+      const next = remaining[Math.floor(Math.random() * remaining.length)]
+      setCurrentQuestion({ cardIdx: newStates.indexOf(next), questionIdx: next.questionIdx })
+    } else {
+      setCurrentQuestion(null)
+    }
     pullNewCard()
   }
 
@@ -5522,14 +5560,23 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   </label>
                 </div>
 
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 8, flexWrap: 'wrap' }}>
-                  <button onClick={() => beginStudy(studyDeck)} disabled={!studyDeck || studyLoading}
+                {/* Study type dropdown */}
+                <div style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 10, padding: '10px 20px',
+                  background: '#1c2129', border: '1px solid #2a3040', borderRadius: 8, marginTop: 8, marginBottom: 4,
+                }}>
+                  <span style={{ fontSize: 12, color: '#7d8590' }}>Study type:</span>
+                  <select value={studyMode} onChange={(e) => setStudyMode(e.target.value)}
+                    style={{ ...S.select, fontSize: 12, padding: '6px 10px' }}>
+                    <option value="flashcards">Flashcards</option>
+                    <option value="conjugations">Conjugations</option>
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 8 }}>
+                  <button onClick={() => beginStudy(studyDeck, studyMode)} disabled={!studyDeck || studyLoading}
                     style={{ ...S.captureBtn, borderRadius: 6, padding: '10px 24px', fontSize: 13, opacity: !studyDeck || studyLoading ? 0.5 : 1 }}>
-                    {studyLoading ? 'Loading...' : 'Study Now'}
-                  </button>
-                  <button onClick={() => beginStudy(studyDeck, 'conjugations')} disabled={!studyDeck || studyLoading}
-                    style={{ ...S.captureBtn, borderRadius: 6, padding: '10px 24px', fontSize: 13, background: 'rgba(88,166,255,.15)', borderColor: 'rgba(88,166,255,.4)', opacity: !studyDeck || studyLoading ? 0.5 : 1 }}>
-                    {studyLoading ? 'Loading...' : 'Study Conjugations'}
+                    {studyLoading ? 'Loading...' : 'Start'}
                   </button>
                   <button onClick={exitStudy} style={{ ...S.ghostBtn }}>Cancel</button>
                 </div>
@@ -5672,6 +5719,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                             style={{ ...S.ghostBtn, fontSize: 10, color: '#f85149', borderColor: 'rgba(248,81,73,.25)' }}>
                             I Don't Know
                           </button>
+                          {studyMode === 'conjugations' && (
+                            <button onClick={skipConjugationWord}
+                              style={{ ...S.ghostBtn, fontSize: 10, color: '#7d8590', borderColor: '#2a3040' }}>
+                              Skip Word
+                            </button>
+                          )}
                           <button onClick={fetchMeaningHint} disabled={studyMeaningHintLoading || !!studyMeaningHint}
                             style={{ ...S.ghostBtn, fontSize: 10, color: '#79c0ff', borderColor: 'rgba(121,192,255,.25)', opacity: (studyMeaningHintLoading || !!studyMeaningHint) ? 0.5 : 1 }}>
                             {studyMeaningHintLoading ? 'Loading...' : 'Meaning Hint'}
