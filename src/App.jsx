@@ -211,6 +211,7 @@ export default function App() {
   const [studyPhase, setStudyPhase] = useState('pick')       // 'pick' | 'question' | 'batchFeedback' | 'summary'
   const [studyMode, setStudyMode] = useState('flashcards')   // 'flashcards' | 'conjugations'
   const [studyConjugationWords, setStudyConjugationWords] = useState([]) // word pool for conjugation mode
+  const [studyConjugationLanguage, setStudyConjugationLanguage] = useState('English') // language detected from deck content
   const [studyDeck, setStudyDeck] = useState('')
   const [studyInput, setStudyInput] = useState('')
   const [studyLoading, setStudyLoading] = useState(false)
@@ -223,6 +224,10 @@ export default function App() {
 
   // Deck browser
   const [deckBrowserActive, setDeckBrowserActive] = useState(false)
+  const [deckBrowserAddPanel, setDeckBrowserAddPanel] = useState(false)
+  const [deckBrowserAddName, setDeckBrowserAddName] = useState('')
+  const [deckBrowserAddPurpose, setDeckBrowserAddPurpose] = useState('')
+  const [deckBrowserAddLoading, setDeckBrowserAddLoading] = useState(false)
   const [deckBrowserDeck, setDeckBrowserDeck] = useState('')
   const [deckBrowserNotes, setDeckBrowserNotes] = useState([])
   const [deckBrowserLoading, setDeckBrowserLoading] = useState(false)
@@ -1590,6 +1595,43 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
   }
 
   // ─── Deck Browser ──────────────────────────────────────────────────────
+  const handleAddDeck = async () => {
+    const name = deckBrowserAddName.trim()
+    if (!name) return
+    setDeckBrowserAddLoading(true)
+    try {
+      await ankiCreateDeck(name)
+      const decks = await ankiGetDecks().catch(() => [])
+      setAnkiDecks(decks)
+      const purpose = deckBrowserAddPurpose.trim()
+      if (purpose) {
+        const norm = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
+        const sigWords = (s) => s.toLowerCase().replace(/[^a-z0-9]/g, ' ').split(/\s+/).filter(w => w.length > 2)
+        const purposeNorm = norm(purpose)
+        const purposeWords = new Set(sigWords(purpose))
+        const existing = modes.find(m => {
+          const mn = norm(m.name)
+          if (mn === purposeNorm || mn.includes(purposeNorm) || purposeNorm.includes(mn)) return true
+          return sigWords(m.name).some(w => purposeWords.has(w))
+        })
+        if (existing) {
+          saveModes(modes.map(m => m.id === existing.id ? { ...m, ankiDeck: name } : m), existing.id)
+        } else {
+          await createMode(purpose, name)
+        }
+      }
+      setDeckBrowserDeck(name)
+      loadDeckNotes(name)
+      setDeckBrowserAddPanel(false)
+      setDeckBrowserAddName('')
+      setDeckBrowserAddPurpose('')
+    } catch (e) {
+      window.alert('Failed to create deck: ' + (e.message || e))
+    } finally {
+      setDeckBrowserAddLoading(false)
+    }
+  }
+
   const openDeckBrowser = async () => {
     if (!ankiConnected) return
     const decks = await ankiGetDecks().catch(() => [])
@@ -2719,26 +2761,32 @@ Output ONLY raw JSON. No markdown, no backticks.`
     }
   }
 
-  // Build a pool of words to conjugate: verbs from the user's deck + AI-supplemented common verbs
-  const generateConjugationWordPool = async (cards, language) => {
+  // Build a pool of words to conjugate: verbs from the user's deck + AI-supplemented common verbs.
+  // Language is inferred from the deck name + card content — never assumed from the active mode.
+  const generateConjugationWordPool = async (cards, deckName) => {
     const deckFronts = cards.slice(0, 30).map(c => getCardFront(c)).filter(w => w.length > 0)
-    const prompt = `You are helping a ${language} language learner practice verb conjugations.
-Words from their vocabulary deck: ${deckFronts.join(', ')}
+    const prompt = `Deck name: "${deckName}"
+Sample card fronts: ${deckFronts.slice(0, 20).join(', ')}
 
-Return a JSON array of up to 40 conjugatable words (verbs) for practice.
-- Include all verbs/conjugatable words from the deck list above with fromDeck: true
-- Supplement with common ${language} verbs the learner should know with fromDeck: false
-- No duplicates. Use the infinitive form.
-- Each item: {"word": "infinitive", "meaning": "English meaning", "fromDeck": true/false}
+1. Determine the language being learned in this deck based on the deck name and card content.
+2. Extract any verbs/conjugatable words found in the card fronts (fromDeck: true).
+3. Supplement with up to 30 common verbs for the detected language (fromDeck: false). Only add verbs relevant to what this deck is studying.
 
-Output ONLY a raw JSON array. No markdown, no backticks.`
+Return a JSON object:
+{
+  "language": "the full language name detected (e.g. Spanish, French, English)",
+  "words": [{"word": "infinitive form", "meaning": "English meaning", "fromDeck": true/false}]
+}
+
+Use up to 40 words total. No duplicates. Output ONLY raw JSON. No markdown, no backticks.`
     try {
       const text = await providerConfig.call(apiKey, 'You help language learners practice verb conjugations. Respond with valid JSON only.', prompt)
       const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
-      if (!Array.isArray(parsed)) throw new Error('not array')
-      return parsed.filter(w => w.word && w.meaning)
+      const language = (parsed.language && typeof parsed.language === 'string') ? parsed.language : 'English'
+      const words = Array.isArray(parsed.words) ? parsed.words.filter(w => w.word && w.meaning) : []
+      return { words, language }
     } catch {
-      return deckFronts.slice(0, 20).map(w => ({ word: w, meaning: '', fromDeck: true }))
+      return { words: deckFronts.slice(0, 20).map(w => ({ word: w, meaning: '', fromDeck: true })), language: 'English' }
     }
   }
 
@@ -2837,14 +2885,16 @@ Output ONLY raw JSON. No markdown, no backticks.`
       const knowledgeContext = knowledgeRes.content ? `\n\nReference material:\n${knowledgeRes.content.substring(0, 4000)}\n\nUse this context to create more specific, contextual questions.` : ''
 
       if (mode === 'conjugations') {
-        // Build word pool from deck + AI-supplemented common verbs
-        const wordPool = await generateConjugationWordPool(cards, studyLang)
+        // Build word pool — language is detected from deck name + card content, not assumed from active mode
+        const wordPoolResult = await generateConjugationWordPool(cards, deck)
+        const { words: wordPool, language: detectedLang } = wordPoolResult
         setStudyConjugationWords(wordPool)
+        setStudyConjugationLanguage(detectedLang)
         if (wordPool.length === 0) { setAnkiError('Could not generate conjugation word pool'); setStudyLoading(false); return }
 
         const qpc = rules.questionsPerCard || 3
         const firstWord = wordPool[0]
-        const firstQuestions = await generateConjugationQuestions(firstWord.word, firstWord.meaning, studyLang, qpc)
+        const firstQuestions = await generateConjugationQuestions(firstWord.word, firstWord.meaning, detectedLang, qpc)
         const firstCardState = {
           cardId: null, front: firstWord.word, back: firstWord.meaning,
           fromDeck: firstWord.fromDeck, isConjugation: true,
@@ -2862,7 +2912,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
 
         wordPool.slice(1, cardsAtOnce).forEach(async (w) => {
           if (studyWrappingUpRef.current) return
-          const questions = await generateConjugationQuestions(w.word, w.meaning, studyLang, qpc)
+          const questions = await generateConjugationQuestions(w.word, w.meaning, detectedLang, qpc)
           if (studyWrappingUpRef.current) return
           setStudyCardState(prev => [...prev, {
             cardId: null, front: w.word, back: w.meaning,
@@ -3263,7 +3313,7 @@ Rules:
       const w = studyConjugationWords[studyBatchIdx]
       if (!w) return
       setStudyBatchIdx(prev => prev + 1)
-      const questions = await generateConjugationQuestions(w.word, w.meaning, studyLang, qpc)
+      const questions = await generateConjugationQuestions(w.word, w.meaning, studyConjugationLanguage, qpc)
       if (studyWrappingUpRef.current) return
       setStudyCardState(prev => [...prev, {
         cardId: null, front: w.word, back: w.meaning,
@@ -3405,6 +3455,7 @@ Rules:
     setStudyAnswerHistory([])
     setStudyMode('flashcards')
     setStudyConjugationWords([])
+    setStudyConjugationLanguage('English')
   }
 
   // Generate spaced repetition insights + update progress observations
@@ -3868,7 +3919,7 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
   }
 
   // ─── AI Mode Creation ────────────────────────────────────────────────────
-  const createMode = async (description) => {
+  const createMode = async (description, ankiDeckForMode = '') => {
     if (!apiKey || modeCreating) return
     setModeCreating(true)
     try {
@@ -3906,6 +3957,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
           questionPrompt: config.questionPrompt || ((config.type || 'general') === 'language' ? defaultStudyRules : defaultGeneralStudyRules).questionPrompt,
           ratingRules: defaultStudyRules.ratingRules,
         },
+        ankiDeck: ankiDeckForMode || '',
       }
       saveModes([...modes, newMode], newId)
       console.log('[Mode] created:', newMode)
@@ -4721,7 +4773,43 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <div style={{ fontSize: 16, fontWeight: 700, color: '#e6edf3' }}>Deck Browser</div>
+              <button
+                disabled={!ankiConnected}
+                onClick={() => { setDeckBrowserAddPanel(p => !p); setDeckBrowserAddName(''); setDeckBrowserAddPurpose('') }}
+                style={{ background: deckBrowserAddPanel ? 'rgba(63,185,80,0.25)' : 'rgba(63,185,80,0.12)', color: '#3fb950', border: '1px solid rgba(63,185,80,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: ankiConnected ? 1 : 0.5 }}
+              >+ Add Deck</button>
             </div>
+
+            {deckBrowserAddPanel && (
+              <div style={{ background: '#161b22', border: '1px solid #2a3040', borderRadius: 8, padding: 12, marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <input
+                  placeholder="Deck name"
+                  value={deckBrowserAddName}
+                  onChange={(e) => setDeckBrowserAddName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && deckBrowserAddName.trim() && !deckBrowserAddLoading) handleAddDeck() }}
+                  style={{ ...S.keyInput, fontSize: 12 }}
+                  autoFocus
+                />
+                <input
+                  placeholder="What is this deck for? (e.g. Security+, Spanish) — creates a matching mode"
+                  value={deckBrowserAddPurpose}
+                  onChange={(e) => setDeckBrowserAddPurpose(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && deckBrowserAddName.trim() && !deckBrowserAddLoading) handleAddDeck() }}
+                  style={{ ...S.keyInput, fontSize: 12 }}
+                />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={handleAddDeck}
+                    disabled={!deckBrowserAddName.trim() || deckBrowserAddLoading}
+                    style={{ background: 'rgba(63,185,80,0.15)', color: '#3fb950', border: '1px solid rgba(63,185,80,0.3)', borderRadius: 5, padding: '6px 14px', fontSize: 11, cursor: (!deckBrowserAddName.trim() || deckBrowserAddLoading) ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: (!deckBrowserAddName.trim() || deckBrowserAddLoading) ? 0.5 : 1 }}
+                  >{deckBrowserAddLoading ? 'Creating...' : 'Create'}</button>
+                  <button
+                    onClick={() => { setDeckBrowserAddPanel(false); setDeckBrowserAddName(''); setDeckBrowserAddPurpose('') }}
+                    style={{ ...S.ghostBtn, fontSize: 11 }}
+                  >Cancel</button>
+                </div>
+              </div>
+            )}
 
             {ankiConnected === false && (
               <div style={{ fontSize: 11, color: '#d29922', marginBottom: 12 }}>Anki is not connected. Start Anki with AnkiConnect addon.</div>
