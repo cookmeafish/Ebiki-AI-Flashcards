@@ -69,7 +69,7 @@ function buildSystemPrompt(appContext) {
   return parts.join('\n')
 }
 
-export default function HelpChat({ apiKey, appContext }) {
+export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-6', onModelRetired }) {
   const [open, setOpen] = useState(false)
   const [docked, setDocked] = useState(false) // side panel mode
   const [messages, setMessages] = useState([])
@@ -180,23 +180,34 @@ export default function HelpChat({ apiKey, appContext }) {
 
     try {
       const apiMessages = newMsgs.map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text }))
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 300,
-          system: buildSystemPrompt(appContext),
-          messages: apiMessages,
-        }),
-      })
-      if (!resp.ok) throw new Error('API ' + resp.status)
-      const data = await resp.json()
+      const callModel = async (mdl) => {
+        const resp = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true',
+          },
+          body: JSON.stringify({
+            model: mdl,
+            max_tokens: 300,
+            system: buildSystemPrompt(appContext),
+            messages: apiMessages,
+          }),
+        })
+        if (!resp.ok) throw new Error('API ' + resp.status)
+        return resp.json()
+      }
+      let data
+      try {
+        data = await callModel(model)
+      } catch (err) {
+        // Retired/invalid model → ask the host to find a current one, then retry once.
+        const healed = (err.message.includes('404') && onModelRetired) ? await onModelRetired(model) : null
+        if (!healed) throw err
+        data = await callModel(healed)
+      }
       const updatedMsgs = [...newMsgs, { role: 'assistant', text: data.content[0].text }]
       setMessages(updatedMsgs)
       const savedId = await saveMessages(updatedMsgs, sessionId)
