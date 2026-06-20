@@ -14,6 +14,8 @@ A multi-tab learning app with AI chat, Anki-integrated study sessions, screen tr
 
 ### Core Features
 - **Multi-provider AI** — Claude, GPT, Gemini, and Grok with unified provider settings panel
+- **Configurable models per role** — each part of the app (general tasks, question generation, the Help assistant) has its own model, editable per provider in settings. Blank = the provider's built-in default
+- **Self-healing models** — if a configured model has been retired (e.g. an API 404), the app queries the provider's models API, switches to a current model, retries, saves the choice, and shows a toast
 - **Learning modes** — Create AI-configured modes for any subject (languages, Security+, Organic Chemistry, etc.)
 - **Anki integration** — Generate flashcards, sync to Anki, study with AI quizzes, browse/edit decks
 - **Knowledge base** — Upload .txt/.md reference materials per mode for smarter AI context
@@ -108,9 +110,11 @@ Opens at `http://localhost:3000`.
 
 ## Supported AI Providers
 
-| Provider | Model | JSON Mode |
+Models below are the **defaults**; each role (general / questions / help) is overridable per provider in the settings panel, and retired models auto-switch to a current one.
+
+| Provider | Default model | JSON Mode |
 |---|---|---|
-| **Anthropic (Claude)** | Claude Haiku 4.5 | Prompt-based |
+| **Anthropic (Claude)** | Claude Haiku 4.5 (general), Claude Sonnet 4.6 (questions/help) | Prompt-based |
 | **OpenAI (GPT)** | GPT-4o-mini | `response_format: json_object` |
 | **Google (Gemini)** | Gemini 2.0 Flash | `responseMimeType: application/json` |
 | **xAI (Grok)** | Grok 3 Mini Fast | Prompt-based |
@@ -203,6 +207,7 @@ Study features:
 - **Smart language evaluation** — typos in your native language don't penalize you when studying a foreign language
 - **I Don't Know** — one-click skip marks the question wrong without typing; card rating still adjustable at the end
 - **Meaning Hint** — ask for a context hint at any time; AI describes what the answer means without revealing the word, any conjugations, or spelling
+- **Tap-a-word lookup (language modes)** — in a language study session, tap any underlined word in the question to see its contextual meaning, so you can decode an unfamiliar word in the sentence. The blank placeholder and the answer word itself are never tappable, so it can't reveal the answer
 - **Grammar feedback** — when enabled, grammar and accent notes appear inline with each result, written in the quiz language
 - **Feedback chat** — dispute answers, fix typos, flag out-of-scope questions, update Anki cards. Use Reply to send corrections or context to the AI
 - **Smart Wrap Up** — drops unstarted cards immediately, finishes only what you've started

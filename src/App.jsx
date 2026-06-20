@@ -112,6 +112,11 @@ export default function App() {
   const [configLoaded, setConfigLoaded] = useState(false)
   const [apiKeys, setApiKeys] = useState({})
   const [keysLoaded, setKeysLoaded] = useState(false)
+  // Per-provider, per-role model overrides: { [provider]: { general, question, help } }.
+  // Empty role falls back to the provider's built-in default (see resolveModel).
+  const [aiModels, setAiModels] = useState({})
+  // Transient toast shown when a retired model is auto-replaced.
+  const [modelHealNotice, setModelHealNotice] = useState(null)
   const [showKeyInput, setShowKeyInput] = useState(false)
   const [screenshot, setScreenshot] = useState(null)
   const [imgDims, setImgDims] = useState({ w: 0, h: 0 })
@@ -283,6 +288,8 @@ export default function App() {
   const [studyHintLevel, setStudyHintLevel] = useState(0) // 0=none, 1=hint1 shown, 2=hint2 shown
   const [studyMeaningHint, setStudyMeaningHint] = useState(null)
   const [studyMeaningHintLoading, setStudyMeaningHintLoading] = useState(false)
+  // Tap-a-word-in-the-question contextual lookup (language study): { word, meaning, loading }
+  const [studyWordLookup, setStudyWordLookup] = useState(null)
   const [studyLegendOpen, setStudyLegendOpen] = useState(false)
   const [studyAnswerHistory, setStudyAnswerHistory] = useState([]) // [{cardIdx, questionIdx}] for undo
   const [studyInsights, setStudyInsights] = useState(null)
@@ -330,6 +337,80 @@ export default function App() {
   const apiKey = apiKeys[provider] || ''
   const providerConfig = PROVIDERS[provider]
 
+  // ─── Configurable AI models + self-healing on retired models ───────────────
+  // Each provider exposes three roles. `general` = the everyday/cheap model
+  // (translations, explanations, chat, card edits); `question` = the stronger
+  // model for generating study/conjugation questions and assessments; `help` =
+  // the ScreenLens Help assistant. Resolve to the user's override, else the
+  // provider default baked into providers.js.
+  // These helpers are called from memoized callbacks that don't list aiModels as
+  // a dependency, so read the live values from a ref rather than a stale closure.
+  const aiStateRef = useRef({})
+  aiStateRef.current = { provider, aiModels, apiKeys }
+  const ROLE_DEFAULTS = (pc) => ({ general: pc.model, question: pc.questionModel, help: pc.questionModel })
+  const resolveModel = (role, prov = aiStateRef.current.provider) => {
+    const pc = PROVIDERS[prov]
+    const overrides = aiStateRef.current.aiModels[prov]
+    return (overrides && overrides[role]) || ROLE_DEFAULTS(pc)[role]
+  }
+
+  // Ask the provider which models exist now and pick a sensible current one for
+  // the role. Anthropic returns models newest-first; we prefer the role's tier.
+  const discoverCurrentModel = async (role, prov = aiStateRef.current.provider) => {
+    try {
+      if (prov === 'anthropic') {
+        const resp = await fetch('https://api.anthropic.com/v1/models?limit=100', {
+          headers: { 'x-api-key': aiStateRef.current.apiKeys[prov] || '', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+        })
+        if (!resp.ok) return null
+        const data = await resp.json()
+        const ids = (data.data || []).map((m) => m.id)
+        const prefer = role === 'general' ? ['haiku', 'sonnet', 'opus'] : ['sonnet', 'opus', 'haiku']
+        for (const fam of prefer) { const hit = ids.find((id) => id.includes(fam)); if (hit) return hit }
+        return ids[0] || null
+      }
+    } catch { /* fall through */ }
+    return null
+  }
+
+  // True when an error looks like "this model id no longer exists".
+  const isRetiredModelError = (msg = '') => /\b404\b|not[_ ]?found|model.*(not found|does not exist|unavailable|retired|deprecated)/i.test(msg)
+
+  // On a retired-model error, find a current model, persist it as the role's
+  // override, toast the user, and return it so the caller can retry.
+  const healRetiredModel = async (errMsg, failedModel, role) => {
+    if (!isRetiredModelError(errMsg)) return null
+    const prov = aiStateRef.current.provider
+    const replacement = await discoverCurrentModel(role)
+    if (!replacement || replacement === failedModel) return null
+    setAiModels((prev) => ({ ...prev, [prov]: { ...(prev[prov] || {}), [role]: replacement } }))
+    setModelHealNotice(`${role} model "${failedModel}" was unavailable — switched to "${replacement}".`)
+    return replacement
+  }
+
+  // Wrapper around providerConfig.call that injects the configured model and
+  // self-heals retired models. modelOverride (when given) is the question-tier
+  // model; otherwise the general model is used.
+  const aiCall = async (key, systemPrompt, userContent, modelOverride) => {
+    const prov = aiStateRef.current.provider
+    const role = modelOverride ? 'question' : 'general'
+    const model = modelOverride || resolveModel('general')
+    try {
+      return await PROVIDERS[prov].call(key, systemPrompt, userContent, model)
+    } catch (e) {
+      const healed = await healRetiredModel(e?.message || '', model, role)
+      if (healed) return await PROVIDERS[prov].call(key, systemPrompt, userContent, healed)
+      throw e
+    }
+  }
+
+  // Auto-dismiss the model-heal toast after a few seconds.
+  useEffect(() => {
+    if (!modelHealNotice) return
+    const t = setTimeout(() => setModelHealNotice(null), 7000)
+    return () => clearTimeout(t)
+  }, [modelHealNotice])
+
   // ─── Load Keys & Config from file on mount ─────────────────────────────────
   useEffect(() => {
     Promise.all([
@@ -368,6 +449,7 @@ export default function App() {
       }
       setApiKeys(keys)
       if (config.provider) setProvider(config.provider)
+      if (config.aiModels) setAiModels(config.aiModels)
       if (config.language) setLanguage(config.language)
       if (config.targetLang) setTargetLang(config.targetLang)
       if (config.showHighlights !== undefined) setShowHighlights(config.showHighlights)
@@ -532,9 +614,9 @@ export default function App() {
     fetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider, language, targetLang, showHighlights, ...(activeTab ? { activeTab } : {}) }),
+      body: JSON.stringify({ provider, aiModels, language, targetLang, showHighlights, ...(activeTab ? { activeTab } : {}) }),
     }).catch(() => {})
-  }, [provider, language, targetLang, showHighlights, activeTab, configLoaded])
+  }, [provider, aiModels, language, targetLang, showHighlights, activeTab, configLoaded])
 
   const setCurrentKey = (key) => {
     setApiKeys((prev) => ({ ...prev, [provider]: key }))
@@ -924,7 +1006,7 @@ export default function App() {
         const fromLabel = language === 'auto' ? 'Auto-detect' : (LANGS.find((l) => l.code === language)?.label || 'Unknown')
         const toLabel = LANGS.find((l) => l.code === targetLang)?.label || 'English'
         const payload = JSON.stringify({ words: indexedWords, from: fromLabel, to: toLabel, context: fullContext })
-        const text = await providerConfig.call(apiKey, TRANSLATE_PROMPT, payload)
+        const text = await aiCall(apiKey, TRANSLATE_PROMPT, payload)
         if (!text) throw new Error('Empty translation response')
 
         ocrLog(`Chunk ${i}: sent ${indexedWords.length} words`)
@@ -1230,7 +1312,7 @@ export default function App() {
       const fromLabel = language === 'auto' ? 'Auto-detect' : (LANGS.find((l) => l.code === language)?.label || 'Unknown')
       const toLabel = LANGS.find((l) => l.code === targetLang)?.label || 'English'
       const payload = JSON.stringify({ words: [{ i: idx, w: word.text }], from: fromLabel, to: toLabel, context })
-      const text = await providerConfig.call(apiKey, TRANSLATE_PROMPT, payload)
+      const text = await aiCall(apiKey, TRANSLATE_PROMPT, payload)
       if (!text) return
       let parsed = JSON.parse(text.replace(/```json|```/g, '').trim())
       // Get the first translation item regardless of format
@@ -1369,7 +1451,7 @@ Context: "${getContext()}"
 Study subject: ${activeMode.description || activeMode.name}
 
 In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.name}. No markdown.`
-      const text = await providerConfig.call(apiKey, activeMode.type === 'language' ? 'You are a concise language tutor. Answer in 1-2 sentences max.' : `You are a concise ${activeMode.name} tutor. Answer in 1-2 sentences max.`, prompt)
+      const text = await aiCall(apiKey, activeMode.type === 'language' ? 'You are a concise language tutor. Answer in 1-2 sentences max.' : `You are a concise ${activeMode.name} tutor. Answer in 1-2 sentences max.`, prompt)
       setExplanation(text)
     } catch (err) {
       setExplanation('Failed: ' + err.message)
@@ -1443,7 +1525,7 @@ ${fieldRequests.map((f) => `- ${f}`).join('\n')}
 Output ONLY raw JSON. No markdown, no backticks.`
 
     console.log('[Anki] generating card with AI...')
-    const text = await providerConfig.call(apiKey, 'You generate Anki flashcard content. Always respond with valid JSON only.', prompt)
+    const text = await aiCall(apiKey, 'You generate Anki flashcard content. Always respond with valid JSON only.', prompt)
     const cardData = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
     console.log('[Anki] AI card data:', cardData)
 
@@ -1522,7 +1604,7 @@ The user wants this change: "${instruction}"
 Return a JSON object with the updated card: { "front": "...", "back": "...", "tags": [...] }
 Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown or backticks.`
 
-      const text = await providerConfig.call(apiKey, 'You edit Anki flashcard content. Always respond with valid JSON only.', prompt)
+      const text = await aiCall(apiKey, 'You edit Anki flashcard content. Always respond with valid JSON only.', prompt)
       const updated = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
       setAnkiCard({
         front: updated.front || ankiCard.front,
@@ -1699,7 +1781,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       const fieldsDesc = Object.entries(deckBrowserEditFields).map(([name, val]) => `${name}:\n${val}`).join('\n\n')
       const prompt = `Here is an Anki flashcard:\n\n${fieldsDesc}\n\nThe user wants this change: "${instruction}"\n\nReturn a JSON object with the updated fields: { ${Object.keys(deckBrowserEditFields).map(k => `"${k}": "..."`).join(', ')} }\nKeep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown or backticks.`
 
-      const text = await providerConfig.call(apiKey, 'You edit Anki flashcard content. Always respond with valid JSON only.', prompt)
+      const text = await aiCall(apiKey, 'You edit Anki flashcard content. Always respond with valid JSON only.', prompt)
       const updated = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
       const newFields = { ...deckBrowserEditFields }
       Object.entries(updated).forEach(([k, v]) => { if (k in newFields) newFields[k] = String(v) })
@@ -1774,7 +1856,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
 
       const prompt = `You are analyzing flashcards in a ${studyLang} learning deck. Find cards where the ${studyLang} word/phrase has MULTIPLE distinct everyday meanings that the card's current content does NOT disambiguate.\n\nFor each ambiguous card, propose updated field content that clarifies the intended meaning — e.g. specify the domain, add a usage example, or list the senses with a short note for each.\n\nDO NOT flag cards where:\n- The word has only one common meaning\n- The current content already disambiguates well\n- A learner would clearly understand from common usage\n\nCards (JSON):\n${JSON.stringify(cards)}\n\nReturn a JSON array — ONLY include cards that need fixing (skip the rest):\n[\n  {\n    "noteId": <number>,\n    "reason": "<one short sentence: what is ambiguous>",\n    "recommendedFields": { "<fieldName>": "<new content>", ... }\n  }\n]\n\nIn recommendedFields, include ONLY fields you're changing (typically just the back). Match each field's language (replace a ${studyLang} field with ${studyLang} content; replace an English field with English content). Use plain text with newlines for line breaks (no HTML, no <br>).\n\nOutput ONLY raw JSON. No markdown, no commentary.`
 
-      const text = await providerConfig.call(apiKey, 'You analyze flashcard quality. Always respond with valid JSON only.', prompt)
+      const text = await aiCall(apiKey, 'You analyze flashcard quality. Always respond with valid JSON only.', prompt)
       const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
       if (!Array.isArray(parsed)) throw new Error('Response is not an array')
 
@@ -1829,7 +1911,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     try {
       const fieldsDesc = Object.entries(rec.recommendedFields).map(([k, v]) => `${k}:\n${v}`).join('\n\n')
       const prompt = `Here is a flashcard recommendation:\n\n${fieldsDesc}\n\nThe user wants this change: "${rec.refineInput}"\n\nReturn a JSON object with the updated fields: { ${Object.keys(rec.recommendedFields).map((k) => `"${k}": "..."`).join(', ')} }\nKeep any fields the user didn't ask to change. Use plain text with newlines (no HTML). Output ONLY raw JSON, no markdown.`
-      const text = await providerConfig.call(apiKey, 'You edit Anki flashcard content. Always respond with valid JSON only.', prompt)
+      const text = await aiCall(apiKey, 'You edit Anki flashcard content. Always respond with valid JSON only.', prompt)
       const updated = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
       setDeckAnalyzeRecs((prev) => prev.map((r, i) => {
         if (i !== idx) return r
@@ -2039,7 +2121,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
             cards: ks.flatMap((k) => byKey.get(k).map((n) => ({ noteId: n.noteId, front: htmlToPlain(frontOf(n)) }))),
           }))
           const prompt = `These are flashcard headwords that look similar (possible spelling/accent/typo variants of the SAME word). For each cluster, identify which cards are truly the SAME word and should be merged. Different words that merely look alike (e.g. "casa" vs "caza", "pero" vs "perro") must NOT be grouped.\n\nClusters (JSON):\n${JSON.stringify(forAI)}\n\nReturn ONLY a JSON array of the duplicate sets you confirm (omit anything that isn't a real duplicate):\n[ { "merge": [<noteId>, <noteId>, ...] }, ... ]\n\nEach "merge" set must have 2+ noteIds that are the same word. Output ONLY raw JSON, no markdown.`
-          const text = await providerConfig.call(apiKey, 'You confirm whether similar-looking flashcards are the same word. Always respond with valid JSON only.', prompt)
+          const text = await aiCall(apiKey, 'You confirm whether similar-looking flashcards are the same word. Always respond with valid JSON only.', prompt)
           const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
           if (Array.isArray(parsed)) {
             fuzzyGroups = parsed.map((p) => {
@@ -2090,7 +2172,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       try {
         const groupsForAI = dupNoteGroups.map((notes, i) => ({ group: i, cards: notes.map(plainFields) }))
         const prompt = `Each group below is a set of DUPLICATE flashcards that teach the same word. For EACH group, merge its cards into ONE card: keep the clearest front, and combine the backs so every distinct meaning, example, synonym and note is kept (remove only exact repeats).\n\nGroups (JSON):\n${JSON.stringify(groupsForAI)}\n\nReturn ONLY a JSON array, one object per group IN THE SAME ORDER:\n[ { "group": <number>, "mergedFields": { "<fieldName>": "<merged plain text>", ... } } ]\n\nUse the SAME field names as the input. Plain text with newlines (no HTML, no <br>). Output ONLY raw JSON, no markdown.`
-        const text = await providerConfig.call(apiKey, 'You merge duplicate flashcards. Always respond with valid JSON only.', prompt)
+        const text = await aiCall(apiKey, 'You merge duplicate flashcards. Always respond with valid JSON only.', prompt)
         const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
         if (Array.isArray(parsed)) parsed.forEach((p) => { if (typeof p.group === 'number' && p.mergedFields) aiMerges[p.group] = p.mergedFields })
       } catch (e) {
@@ -2341,7 +2423,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         modeDescription: activeMode.description,
         evidence,
       })
-      const text = await providerConfig.call(apiKey, 'You assess learner proficiency. Always respond with valid JSON only.', prompt, providerConfig.questionModel)
+      const text = await aiCall(apiKey, 'You assess learner proficiency. Always respond with valid JSON only.', prompt, resolveModel('question'))
       const profile = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
       setDiscoverProfile(profile)
       writeBlob('profile', activeMode.name, profile).catch(() => {})
@@ -2391,7 +2473,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         itemType: discoverConfig.itemType,
         focus: discoverConfig.focus.trim(),
       })
-      const text = await providerConfig.call(apiKey, 'You suggest new study items. Always respond with valid JSON only.', prompt, providerConfig.questionModel)
+      const text = await aiCall(apiKey, 'You suggest new study items. Always respond with valid JSON only.', prompt, resolveModel('question'))
       let suggestion = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
 
       // Web grounding: verify/correct facts against search results.
@@ -2403,7 +2485,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
           if (searchData.results?.length > 0) {
             setDiscoverSources(searchData.results.slice(0, 4))
             setDiscoverStatus('verifying')
-            const vText = await providerConfig.call(apiKey, 'You verify facts and respond with valid JSON only.', buildVerifyPrompt({ suggestion, searchResults: searchData.results.slice(0, 5) }), providerConfig.questionModel)
+            const vText = await aiCall(apiKey, 'You verify facts and respond with valid JSON only.', buildVerifyPrompt({ suggestion, searchResults: searchData.results.slice(0, 5) }), resolveModel('question'))
             const v = JSON.parse(vText.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
             suggestion = { ...suggestion, translation: v.translation || suggestion.translation, draftMeaning: v.draftMeaning || suggestion.draftMeaning, verified: !!v.verified, verifyNote: v.note || '' }
           }
@@ -2636,7 +2718,7 @@ Modify the config according to the user's request. Return the FULL updated JSON 
 
 Output ONLY raw JSON. No markdown, no backticks.`
 
-      const text = await providerConfig.call(apiKey,
+      const text = await aiCall(apiKey,
         'You modify study mode configurations. Always respond with valid JSON only.',
         prompt
       )
@@ -2741,7 +2823,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const prompt = `Card front: "${front}"\nCard back: "${back}"\n${languageBlock}\n${orderRules}\n\nCRITICAL RULES:\n- Questions must require the SPECIFIC answer on this card — synonyms are NOT acceptable for recall/fill_blank questions\n- NEVER construct a question whose only purpose is to directly name the answer (e.g. "what noun corresponds to adjective X?" when that noun IS the answer)\n- Each question must test a DIFFERENT angle\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question before finalizing): mentally substitute 2–3 plausible alternative ${studyLang} words into the question. If ANY of them fit the sentence/scenario as naturally as the target word, the question is too vague — REWRITE it with more specific cues that exclude the alternatives. Hints (letter count, first letter) DO NOT make an ambiguous question valid; the question itself must point at the target word.\n  - BAD example: "Necesito ir a ___ para tomar mi vuelo a Madrid." Target answer "terminal" — but "aeropuerto" fits just as well. Rewrite needed.\n  - GOOD example: "El edificio específico dentro del aeropuerto donde se abordan los aviones se llama la ___" — now only "terminal" fits because "aeropuerto" is excluded by being named in the question itself.\n- For language cards: test usage in sentences, grammatical properties, contextual usage\n- For conceptual cards: test application, process, comparison\n\n${questionPrompt}\n\nGenerate all questions in ${studyLang}.${knowledgeContext}\n\nReturn a JSON array of exactly ${n} objects:\n[\n  {\n    "question": "the question text",\n    "type": "recall" | "fill_blank" | "explanation",\n    "hint1": "N letters" (letter count of primary answer, null for explanation),\n    "hint2": "starts with 'X'" (first letter of primary answer, null for explanation),\n    "acceptedAnswers": ["answer1", "answer2"] (lowercase; exact words that are correct; empty for explanation)\n  }\n]\nOutput ONLY raw JSON array. No markdown, no backticks.`
 
     try {
-      const text = await providerConfig.call(apiKey, 'You generate structured flashcard quiz questions. Always respond with a valid JSON array of objects.', prompt, providerConfig.questionModel)
+      const text = await aiCall(apiKey, 'You generate structured flashcard quiz questions. Always respond with a valid JSON array of objects.', prompt, resolveModel('question'))
       const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
       if (!Array.isArray(parsed)) throw new Error('not array')
       return parsed.slice(0, n).map(q => ({
@@ -2780,7 +2862,7 @@ Return a JSON object:
 
 Use up to 40 words total. No duplicates. Output ONLY raw JSON. No markdown, no backticks.`
     try {
-      const text = await providerConfig.call(apiKey, 'You help language learners practice verb conjugations. Respond with valid JSON only.', prompt)
+      const text = await aiCall(apiKey, 'You help language learners practice verb conjugations. Respond with valid JSON only.', prompt)
       const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
       const language = (parsed.language && typeof parsed.language === 'string') ? parsed.language : 'English'
       const words = Array.isArray(parsed.words) ? parsed.words.filter(w => w.word && w.meaning) : []
@@ -2790,9 +2872,14 @@ Use up to 40 words total. No duplicates. Output ONLY raw JSON. No markdown, no b
     }
   }
 
-  // Generate conjugation practice questions for a single word
-  const generateConjugationQuestions = async (word, meaning, language, n) => {
+  // Generate conjugation practice questions for a single word.
+  // `quizLang` is the language the student wants to be quizzed IN — all instructions,
+  // scenario sentences, and tense/subject labels are written in it. The verb forms
+  // themselves stay in `language` (the deck's language).
+  const generateConjugationQuestions = async (word, meaning, language, n, quizLang = 'English') => {
     const prompt = `Generate ${n} conjugation practice questions for the ${language} verb "${word}"${meaning ? ` (meaning: "${meaning}")` : ''}.
+
+Write ALL question text in ${quizLang}: the instructions, any fill-in-the-blank scenario sentence, and the tense/subject labels must be in ${quizLang}. Do NOT add English translations or parentheticals unless ${quizLang} is English. The conjugated verb forms themselves stay in ${language}.
 
 Cover varied tenses and subjects. For Spanish use: present, preterite, future, imperfect, subjunctive; subjects yo/tú/él-ella/nosotros/vosotros/ellos. Adapt subjects and tenses correctly for other languages.
 
@@ -2801,7 +2888,7 @@ Return JSON: [{"question": "...", "type": "recall", "hint1": "X letters", "hint2
 
 Output ONLY raw JSON. No markdown, no backticks.`
     try {
-      const text = await providerConfig.call(apiKey, 'You generate conjugation quiz questions. Always respond with a valid JSON array of objects.', prompt, providerConfig.questionModel)
+      const text = await aiCall(apiKey, 'You generate conjugation quiz questions. Always respond with a valid JSON array of objects.', prompt, resolveModel('question'))
       const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
       if (!Array.isArray(parsed)) throw new Error('not array')
       return parsed.slice(0, n).map(q => ({
@@ -2894,7 +2981,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
 
         const qpc = rules.questionsPerCard || 3
         const firstWord = wordPool[0]
-        const firstQuestions = await generateConjugationQuestions(firstWord.word, firstWord.meaning, detectedLang, qpc)
+        const firstQuestions = await generateConjugationQuestions(firstWord.word, firstWord.meaning, detectedLang, qpc, studyLang)
         const firstCardState = {
           cardId: null, front: firstWord.word, back: firstWord.meaning,
           fromDeck: firstWord.fromDeck, isConjugation: true,
@@ -2912,7 +2999,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
 
         wordPool.slice(1, cardsAtOnce).forEach(async (w) => {
           if (studyWrappingUpRef.current) return
-          const questions = await generateConjugationQuestions(w.word, w.meaning, detectedLang, qpc)
+          const questions = await generateConjugationQuestions(w.word, w.meaning, detectedLang, qpc, studyLang)
           if (studyWrappingUpRef.current) return
           setStudyCardState(prev => [...prev, {
             cardId: null, front: w.word, back: w.meaning,
@@ -3052,7 +3139,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     // Advance — correct, explanation type, or max hints exhausted
     setStudyHintLevel(0)
     setStudyCurrentHint(null)
-    setStudyMeaningHint(null)
+    setStudyMeaningHint(null); setStudyWordLookup(null)
 
     newStates[cardIdx] = {
       ...newStates[cardIdx],
@@ -3110,7 +3197,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
 
     setStudyHintLevel(0)
     setStudyCurrentHint(null)
-    setStudyMeaningHint(null)
+    setStudyMeaningHint(null); setStudyWordLookup(null)
 
     const filledAnswers = [...cs.answers]
     while (filledAnswers.length < qpc) filledAnswers.push('(skipped)')
@@ -3148,7 +3235,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     setStudyInput('')
     setStudyHintLevel(0)
     setStudyCurrentHint(null)
-    setStudyMeaningHint(null)
+    setStudyMeaningHint(null); setStudyWordLookup(null)
     const remaining = newStates.filter(c => !c.done && c.questionIdx < c.questions.length)
     if (remaining.length > 0) {
       const next = remaining[Math.floor(Math.random() * remaining.length)]
@@ -3182,12 +3269,30 @@ Rules:
 - Do NOT include the answer word or any conjugated/inflected form of it
 - Do NOT give spelling hints or letter counts
 - Describe the concept, meaning, or context only`
-      const text = await providerConfig.call(apiKey, `You give concise flashcard study hints written entirely in ${studyLang}. Never reveal the answer word or any of its forms.`, prompt)
+      const text = await aiCall(apiKey, `You give concise flashcard study hints written entirely in ${studyLang}. Never reveal the answer word or any of its forms.`, prompt)
       setStudyMeaningHint(text.trim())
     } catch {
-      setStudyMeaningHint(null)
+      setStudyMeaningHint(null); setStudyWordLookup(null)
     } finally {
       setStudyMeaningHintLoading(false)
+    }
+  }
+
+  // Language study: look up what a single word in the question sentence means, in the
+  // quiz language. Lets a learner decode an unfamiliar word without revealing the answer.
+  const lookupStudyWord = async (word, sentence) => {
+    if (!apiKey || !word) return
+    const rules = activeMode.studyRules || defaultStudyRules
+    const studyLang = rules.studyLanguage || 'English'
+    setStudyWordLookup({ word, meaning: null, loading: true })
+    try {
+      const prompt = `In the sentence below, what does the word "${word}" mean as used here? Reply in ${studyLang} with just a short definition or translation of "${word}" (a few words — no full-sentence translation, no extra commentary).
+
+Sentence: "${sentence}"`
+      const text = await aiCall(apiKey, `You are a concise bilingual dictionary. Given one word in a sentence, return only that word's contextual meaning, written in ${studyLang}.`, prompt)
+      setStudyWordLookup({ word, meaning: text.trim(), loading: false })
+    } catch {
+      setStudyWordLookup({ word, meaning: 'Lookup failed — try again.', loading: false })
     }
   }
 
@@ -3220,7 +3325,7 @@ Rules:
     setCurrentQuestion({ cardIdx, questionIdx })
     setStudyCurrentHint(null)
     setStudyHintLevel(0)
-    setStudyMeaningHint(null)
+    setStudyMeaningHint(null); setStudyWordLookup(null)
     setStudyInput('')
   }
 
@@ -3252,7 +3357,7 @@ Rules:
 
       const prompt = `Evaluate ALL answers for this flashcard at once.\n\nCard front: "${cs.front}"\nCard back: "${cs.back}"\n\n${modeType}\n\n${questionsAndAnswers}\n\n${gradingRules}${notesInstruction}\n\nWrite ALL feedback text in ${studyLang}.\n\nReturn a JSON array of ${cs.questions.length} objects: [{"correct": true/false, "feedback": "one short summary sentence", "notes": [{"type": "praise|correction|grammar|terminology|detail|tip", "text": "...", "penalize": true/false}]}]\n\nOutput ONLY raw JSON. No markdown, no backticks.`
 
-      const text = await providerConfig.call(apiKey, 'You evaluate flashcard answers. Always respond with valid JSON only.', prompt)
+      const text = await aiCall(apiKey, 'You evaluate flashcard answers. Always respond with valid JSON only.', prompt)
       const results = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
 
       if (!Array.isArray(results)) return
@@ -3313,7 +3418,7 @@ Rules:
       const w = studyConjugationWords[studyBatchIdx]
       if (!w) return
       setStudyBatchIdx(prev => prev + 1)
-      const questions = await generateConjugationQuestions(w.word, w.meaning, studyConjugationLanguage, qpc)
+      const questions = await generateConjugationQuestions(w.word, w.meaning, studyConjugationLanguage, qpc, studyLang)
       if (studyWrappingUpRef.current) return
       setStudyCardState(prev => [...prev, {
         cardId: null, front: w.word, back: w.meaning,
@@ -3451,7 +3556,7 @@ Rules:
     setCurrentQuestion(null)
     setStudyCurrentHint(null)
     setStudyHintLevel(0)
-    setStudyMeaningHint(null)
+    setStudyMeaningHint(null); setStudyWordLookup(null)
     setStudyAnswerHistory([])
     setStudyMode('flashcards')
     setStudyConjugationWords([])
@@ -3502,7 +3607,7 @@ Last updated: ${new Date().toISOString().split('T')[0]}
 ## Mastered (recently)
 (items no longer a problem)`
 
-      const text = await providerConfig.call(apiKey, 'You analyze study session results and track learning progress.', prompt)
+      const text = await aiCall(apiKey, 'You analyze study session results and track learning progress.', prompt)
       const parts = text.split('---')
       const insight = parts[0]?.trim() || text
       const newProgress = parts[1]?.trim()
@@ -3620,7 +3725,7 @@ To mark ONE question correct: <action>{"type":"fix_typo","questionIndex":N,"corr
 
 Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the student is studying — not English, unless ${studyLang} is English). Always include the action tag when applicable. Never refuse a student's correction request.`
       const fullPrompt = newMessages.map(m => `${m.role === 'user' ? 'User' : 'Tutor'}: ${m.text}`).join('\n')
-      const text = await providerConfig.call(apiKey, systemPrompt, fullPrompt)
+      const text = await aiCall(apiKey, systemPrompt, fullPrompt)
 
       // Parse and execute actions from the response
       const actionMatches = [...text.matchAll(/<action>(.*?)<\/action>/gs)]
@@ -3783,7 +3888,7 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       }
 
       const convo = newMsgs.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n\n')
-      const text = await providerConfig.call(apiKey, systemPrompt, convo)
+      const text = await aiCall(apiKey, systemPrompt, convo)
 
       // Parse anki cards from response
       const cardMatches = [...text.matchAll(/<anki-card>(.*?)<\/anki-card>/gs)]
@@ -3936,7 +4041,7 @@ Generate a JSON config for this study mode:
 
 Output ONLY raw JSON. No markdown, no backticks.`
 
-      const text = await providerConfig.call(apiKey,
+      const text = await aiCall(apiKey,
         'You configure study modes for a learning app. Always respond with valid JSON only.',
         prompt
       )
@@ -4016,7 +4121,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     }
   }
 
-  // ─── Deep Explain (uses Sonnet for thorough breakdown) ────────────────────
+  // ─── Deep Explain (uses the stronger "question" model for a thorough breakdown) ──
   const deepExplain = useCallback(async (word) => {
     if (!apiKey || deepExplaining) return
     setDeepExplaining(true)
@@ -4026,27 +4131,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
 Context: "${getContext()}"
 
 In 3-4 short sentences, explain why "${word.text}" means "${word.translation}" in this context. Be concise and direct. No filler, no repetition, no grammar analysis, no examples. Just the meaning and why.`
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 200,
-          system: 'You are a concise language tutor. Explain in 3-4 sentences max. No fluff.',
-          messages: [{ role: 'user', content: prompt }],
-        }),
-      })
-      if (!resp.ok) {
-        const errBody = await resp.text()
-        throw new Error(`API ${resp.status}: ${errBody.slice(0, 200)}`)
-      }
-      const data = await resp.json()
-      const text = data.content?.map((c) => (c.type === 'text' ? c.text : '')).join('')
+      const text = await aiCall(apiKey, 'You are a concise language tutor. Explain in 3-4 sentences max. No fluff.', prompt, resolveModel('question'))
       setDeepExplanation(text)
     } catch (err) {
       setDeepExplanation('Failed: ' + err.message)
@@ -4079,7 +4164,7 @@ REGISTER: One word — formal/informal/neutral/slang.
 RELATED: 3 related words with brief English meaning, one per line.
 
 No paragraphs. No explanations. Just the facts. Use the section labels above.`
-      const text = await providerConfig.call(apiKey, 'You are a concise dictionary. Short bullet points only. No paragraphs, no filler.', prompt)
+      const text = await aiCall(apiKey, 'You are a concise dictionary. Short bullet points only. No paragraphs, no filler.', prompt)
       setWordStudy(text)
     } catch (err) {
       setWordStudy('Failed: ' + err.message)
@@ -4112,7 +4197,7 @@ For nouns: SINGULAR: [form], PLURAL: [form], GENDER: [m/f]
 For adjectives: MASC SING: [form], FEM SING: [form], MASC PL: [form], FEM PL: [form]
 
 No explanations. Just the forms. Use the section labels above.`
-      const text = await providerConfig.call(apiKey, 'You are a conjugation table generator. Only output the forms, no commentary.', prompt)
+      const text = await aiCall(apiKey, 'You are a conjugation table generator. Only output the forms, no commentary.', prompt)
       setConjugation(text)
     } catch (err) {
       setConjugation('Failed: ' + err.message)
@@ -4137,7 +4222,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       ]
       // Build the full conversation as a single user message for simplicity
       const fullPrompt = messages.map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n')
-      const text = await providerConfig.call(apiKey, systemPrompt, fullPrompt)
+      const text = await aiCall(apiKey, systemPrompt, fullPrompt)
       setChatMessages((prev) => [...prev, { role: 'assistant', text }])
     } catch (err) {
       setChatMessages((prev) => [...prev, { role: 'assistant', text: 'Error: ' + err.message }])
@@ -4416,6 +4501,36 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             />
             <a href={providerConfig.url} target="_blank" rel="noopener noreferrer" style={S.getKeyLink}>Get key</a>
           </div>
+
+          {/* Per-role model overrides — blank = provider default. Lets each part of
+              the app run a different model (and a different provider, via the picker above). */}
+          <div style={{ borderTop: '1px solid #2a3040', paddingTop: 8, marginTop: 2 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#7d8590' }}>AI Models — {providerConfig.label}</span>
+              {aiModels[provider] && Object.keys(aiModels[provider]).length > 0 && (
+                <button onClick={() => setAiModels((prev) => { const n = { ...prev }; delete n[provider]; return n })}
+                  style={{ ...S.ghostBtn, fontSize: 9, padding: '2px 6px' }}>Reset to defaults</button>
+              )}
+            </div>
+            {[
+              { role: 'general', label: 'General', hint: 'translations, explanations, chat, card edits' },
+              { role: 'question', label: 'Questions', hint: 'study & conjugation questions, assessments' },
+              { role: 'help', label: 'Help chat', hint: 'the ScreenLens Help assistant' },
+            ].map(({ role, label, hint }) => (
+              <div key={role} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                <span style={{ fontSize: 10, color: '#7d8590', width: 70, flexShrink: 0 }} title={hint}>{label}</span>
+                <input
+                  value={aiModels[provider]?.[role] || ''}
+                  onChange={(e) => setAiModels((prev) => ({ ...prev, [provider]: { ...(prev[provider] || {}), [role]: e.target.value } }))}
+                  placeholder={ROLE_DEFAULTS(providerConfig)[role]}
+                  spellCheck={false}
+                  style={{ ...S.keyInput, flex: 1, fontSize: 11, padding: '5px 8px' }}
+                />
+              </div>
+            ))}
+            <span style={{ fontSize: 9, color: '#484f58' }}>Leave blank to use the provider default (shown as placeholder). Retired models auto-switch to a current one.</span>
+          </div>
+
           <span style={{ fontSize: 10, color: '#484f58' }}>Keys stored in localStorage only</span>
         </div>
       )}
@@ -5766,9 +5881,33 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         </div>
                       )}
 
-                      <div style={{ fontSize: 13, color: '#e6edf3', fontWeight: 600, marginBottom: 8 }}>
-                        {question}
+                      <div style={{ fontSize: 13, color: '#e6edf3', fontWeight: 600, marginBottom: studyWordLookup ? 6 : 8 }}>
+                        {activeMode.type === 'language'
+                          ? question.split(/(\s+)/).map((tok, ti) => {
+                              const clean = tok.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '')
+                              const answers = questionObj?.acceptedAnswers || []
+                              // Skip whitespace, the blank placeholder, and the answer word itself
+                              const lookupable = clean.length > 1 && !/_{2,}/.test(tok) && !answers.includes(clean.toLowerCase())
+                              if (!lookupable) return <span key={ti}>{tok}</span>
+                              return (
+                                <span key={ti} onClick={() => lookupStudyWord(clean, question)}
+                                  title={`What does "${clean}" mean?`}
+                                  style={{ cursor: 'pointer', borderBottom: '1px dotted rgba(121,192,255,.45)' }}>
+                                  {tok}
+                                </span>
+                              )
+                            })
+                          : question}
                       </div>
+
+                      {activeMode.type === 'language' && studyWordLookup && (
+                        <div style={{ fontSize: 11, color: '#a5d6ff', background: 'rgba(121,192,255,.06)', border: '1px solid rgba(121,192,255,.2)', borderRadius: 5, padding: '5px 10px', marginBottom: 8, display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                          <span style={{ fontWeight: 700, color: '#79c0ff' }}>{studyWordLookup.word}</span>
+                          <span style={{ color: '#7d8590' }}>—</span>
+                          <span style={{ flex: 1 }}>{studyWordLookup.loading ? 'Looking up…' : studyWordLookup.meaning}</span>
+                          <span onClick={() => setStudyWordLookup(null)} style={{ cursor: 'pointer', color: '#7d8590', fontSize: 13, lineHeight: 1 }}>×</span>
+                        </div>
+                      )}
 
                       {studyCurrentHint && (
                         <div style={{ fontSize: 11, color: '#ffa657', background: 'rgba(255,166,87,.08)', border: '1px solid rgba(255,166,87,.2)', borderRadius: 5, padding: '5px 10px', marginBottom: 8 }}>
@@ -6670,7 +6809,27 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       `}</style>
 
       {/* Floating AI Help Button */}
-      {!isOverlay && <HelpChat apiKey={apiKey} appContext={{
+      {modelHealNotice && (
+        <div style={{
+          position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 10001,
+          background: '#161b22', border: '1px solid rgba(126,231,135,.4)', borderRadius: 8,
+          padding: '8px 14px', fontSize: 11, color: '#7ee787', maxWidth: 420,
+          boxShadow: '0 4px 16px rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', gap: 10,
+        }}>
+          <span style={{ flex: 1 }}>🔧 {modelHealNotice}</span>
+          <span onClick={() => setModelHealNotice(null)} style={{ cursor: 'pointer', color: '#7d8590' }}>×</span>
+        </div>
+      )}
+
+      {!isOverlay && <HelpChat
+        apiKey={apiKey}
+        provider={provider}
+        model={resolveModel('help')}
+        onModelRetired={async (failedModel) => {
+          const healed = await healRetiredModel('404 not_found', failedModel, 'help')
+          return healed
+        }}
+        appContext={{
         activeTab,
         activeMode: { name: activeMode.name, type: activeMode.type, ankiDeck: activeMode.ankiDeck },
         ocrWords: ocrWords.map(w => ({ text: w.text, translation: w.translation })),
