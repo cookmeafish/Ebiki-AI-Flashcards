@@ -222,10 +222,11 @@ Study features:
 Go to the **Study** tab and click **Browse Deck** to:
 - View all flashcards in any deck
 - Search cards by content
+- **Sort cards** — order the list by Newest/Oldest (creation date), A→Z / Z→A (alphabetical), Recently / Least-recently studied, New-unstudied-first, Problem cards (most lapses), or Mastered (longest interval). Stat-based sorts use per-card Anki scheduling data loaded with the deck
 - **Add card** — create a new card manually (front/back/tags) or type a word and let the AI generate it from your mode's template, then save straight to the deck
 - Edit card fields inline with AI refine input ("Say football instead of soccer")
 - Delete cards with confirmation
-- **Analyze for ambiguous cards** — AI scans every card for words with multiple meanings and proposes clarifications to accept/edit/commit
+- **Analyze for ambiguous cards** — AI scans every card for words with multiple meanings and proposes clarifications to accept/edit/commit. Each suggestion shows an inline **before/after word diff** (removed text in red strikethrough, added text in green) that updates live as you edit. A card-identity guard verifies the AI's suggestion matches the exact card by both note id and headword — mismatches are discarded (shown as "⚠ N discarded (card mismatch)"), never displayed or saved, so one card's content can never be written onto another
 - **Scan for duplicates** — two-stage detection so unrelated words are never grouped: (1) code groups cards with the same headword ignoring accents/articles/parentheticals (catches `Oración` vs `Oracion`) and flags close spellings by edit distance; (2) the AI only *confirms* which close candidates are truly the same word (rejecting look-alikes like `casa`/`caza`), then merges the backs into one card combining all unique info. Expand any card in a group to inspect its full content before deciding. Review/edit the merge, then commit: the kept card is updated and the duplicates are deleted. A **Do not merge** button permanently remembers that a group is *not* a duplicate (stored per-deck, cloud-synced) so it's never suggested again
 - Save button shows live status (Saving → Saved / Save failed — is Anki open?)
 - Closing the browser syncs any edits back into your active study session immediately — no tab refresh needed
