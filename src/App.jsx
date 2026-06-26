@@ -239,6 +239,7 @@ export default function App() {
   const [deckBrowserEditing, setDeckBrowserEditing] = useState(null) // noteId being edited
   const [deckBrowserEditFields, setDeckBrowserEditFields] = useState({})
   const [deckBrowserSearch, setDeckBrowserSearch] = useState('')
+  const [deckBrowserSort, setDeckBrowserSort] = useState('created-desc')
   const [deckBrowserRefineInput, setDeckBrowserRefineInput] = useState('')
   const [deckBrowserRefining, setDeckBrowserRefining] = useState(false)
   const [deckBrowserSaveStatus, setDeckBrowserSaveStatus] = useState(null) // null | 'saving' | 'saved' | 'error'
@@ -256,6 +257,7 @@ export default function App() {
   const [deckAnalyzeCommitting, setDeckAnalyzeCommitting] = useState(false)
   const [deckAnalyzeError, setDeckAnalyzeError] = useState(null)
   const [deckAnalyzeEmpty, setDeckAnalyzeEmpty] = useState(false) // true when analyze completed with 0 recommendations
+  const [deckAnalyzeSkipped, setDeckAnalyzeSkipped] = useState(0) // recs dropped because AI's noteId/front disagreed
   // Duplicate scan / merge
   const [deckDupLoading, setDeckDupLoading] = useState(false)
   const [deckDupGroups, setDeckDupGroups] = useState([]) // [{ noteIds, reason, cards:[{noteId,fields}], mergedFields, accepted }]
@@ -1731,6 +1733,28 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     try {
       const noteIds = await ankiFindNotes(`deck:"${deck}"`)
       const notes = noteIds.length > 0 ? await ankiNotesInfo(noteIds) : []
+      // Fetch card-level scheduling stats so we can sort by studied/lapses/interval.
+      // Aggregated per note across its cards; failures here don't block the listing.
+      try {
+        const allCardIds = notes.flatMap((n) => n.cards || [])
+        if (allCardIds.length > 0) {
+          const cardsInfo = await ankiCardsInfo(allCardIds)
+          const byId = {}
+          cardsInfo.forEach((c) => { byId[c.cardId] = c })
+          notes.forEach((n) => {
+            const cs = (n.cards || []).map((id) => byId[id]).filter(Boolean)
+            if (cs.length === 0) { n.stats = null; return }
+            n.stats = {
+              interval: Math.max(...cs.map((c) => c.interval || 0)),
+              reps: cs.reduce((s, c) => s + (c.reps || 0), 0),
+              lapses: cs.reduce((s, c) => s + (c.lapses || 0), 0),
+              mod: Math.max(...cs.map((c) => c.mod || 0)), // last modified ≈ last studied (seconds)
+            }
+          })
+        }
+      } catch (e) {
+        console.warn('[Deck] card stats unavailable:', e.message)
+      }
       setDeckBrowserNotes(notes)
       console.log('[Deck] loaded', notes.length, 'notes from:', deck)
     } catch (err) {
@@ -1841,6 +1865,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     setDeckAnalyzeLoading(true)
     setDeckAnalyzeError(null)
     setDeckAnalyzeEmpty(false)
+    setDeckAnalyzeSkipped(0)
     try {
       const rules = activeMode.studyRules || defaultStudyRules
       const studyLang = rules.studyLanguage || 'English'
@@ -1854,16 +1879,53 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         ),
       }))
 
-      const prompt = `You are analyzing flashcards in a ${studyLang} learning deck. Find cards where the ${studyLang} word/phrase has MULTIPLE distinct everyday meanings that the card's current content does NOT disambiguate.\n\nFor each ambiguous card, propose updated field content that clarifies the intended meaning — e.g. specify the domain, add a usage example, or list the senses with a short note for each.\n\nDO NOT flag cards where:\n- The word has only one common meaning\n- The current content already disambiguates well\n- A learner would clearly understand from common usage\n\nCards (JSON):\n${JSON.stringify(cards)}\n\nReturn a JSON array — ONLY include cards that need fixing (skip the rest):\n[\n  {\n    "noteId": <number>,\n    "reason": "<one short sentence: what is ambiguous>",\n    "recommendedFields": { "<fieldName>": "<new content>", ... }\n  }\n]\n\nIn recommendedFields, include ONLY fields you're changing (typically just the back). Match each field's language (replace a ${studyLang} field with ${studyLang} content; replace an English field with English content). Use plain text with newlines for line breaks (no HTML, no <br>).\n\nOutput ONLY raw JSON. No markdown, no commentary.`
+      const frontFieldName = Object.keys(cards[0]?.fields || {})[0] || 'Front'
+      const prompt = `You are analyzing flashcards in a ${studyLang} learning deck. Find cards where the ${studyLang} word/phrase has MULTIPLE distinct everyday meanings that the card's current content does NOT disambiguate.\n\nFor each ambiguous card, propose updated field content that clarifies the intended meaning — e.g. specify the domain, add a usage example, or list the senses with a short note for each.\n\nDO NOT flag cards where:\n- The word has only one common meaning\n- The current content already disambiguates well\n- A learner would clearly understand from common usage\n\nCards (JSON):\n${JSON.stringify(cards)}\n\nReturn a JSON array — ONLY include cards that need fixing (skip the rest):\n[\n  {\n    "noteId": <number>,\n    "front": "<exact verbatim value of the card's "${frontFieldName}" field, copied character-for-character>",\n    "reason": "<one short sentence: what is ambiguous>",\n    "recommendedFields": { "<fieldName>": "<new content>", ... }\n  }\n]\n\nCRITICAL: "noteId" and "front" MUST identify the SAME card. Copy the "front" value verbatim from that exact card's data above — never paraphrase it, never use a different card's word, and double-check that the recommendedFields you write are for that same word. If you cannot be certain a noteId and its word match, omit that card.\n\nIn recommendedFields, include ONLY fields you're changing (typically just the back). Match each field's language (replace a ${studyLang} field with ${studyLang} content; replace an English field with English content). Use plain text with newlines for line breaks (no HTML, no <br>).\n\nOutput ONLY raw JSON. No markdown, no commentary.`
 
       const text = await aiCall(apiKey, 'You analyze flashcard quality. Always respond with valid JSON only.', prompt)
       const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
       if (!Array.isArray(parsed)) throw new Error('Response is not an array')
 
+      // Front (first field by order) of a note, as normalized plain text — used to
+      // verify the AI's recommendation actually belongs to the card it names.
+      const frontOf = (note) => {
+        const first = Object.entries(note.fields).sort(([, a], [, b]) => a.order - b.order)[0]
+        return htmlToPlain(first?.[1]?.value || '').toLowerCase()
+      }
+
+      let mismatchDropped = 0
       const recs = parsed.map((r) => {
+        if (!r.recommendedFields || typeof r.recommendedFields !== 'object') return null
         const noteId = typeof r.noteId === 'string' ? Number(r.noteId) : r.noteId
-        const note = deckBrowserNotes.find((n) => n.noteId === noteId)
-        if (!note || !r.recommendedFields || typeof r.recommendedFields !== 'object') return null
+        const byId = deckBrowserNotes.find((n) => n.noteId === noteId)
+        const echoedFront = htmlToPlain(r.front || '').toLowerCase()
+
+        // INTEGRITY GUARD: the AI must identify a card by BOTH its noteId and its
+        // verbatim front, and the two must resolve to the SAME card. The model can
+        // scramble these (attach card A's fix to card B's id); if that happens we
+        // would otherwise show — and on save, WRITE — one card's content onto
+        // another. So we cross-check and DROP any rec we cannot match unambiguously.
+        let note = null
+        if (echoedFront) {
+          const frontMatches = deckBrowserNotes.filter((n) => frontOf(n) === echoedFront)
+          if (frontMatches.length === 1) {
+            // Unique front match. If a noteId was also given, it must agree.
+            if (byId && byId.noteId !== frontMatches[0].noteId) { mismatchDropped++; console.warn('[Deck] analyze: noteId/front disagree, dropping', { noteId, echoedFront, idFront: byId && frontOf(byId) }); return null }
+            note = frontMatches[0]
+          } else if (frontMatches.length > 1) {
+            // Duplicate fronts: disambiguate strictly by the given noteId.
+            note = frontMatches.find((n) => n.noteId === noteId) || null
+            if (!note) { mismatchDropped++; console.warn('[Deck] analyze: ambiguous front, no id match, dropping', { noteId, echoedFront }); return null }
+          } else {
+            // Front matches nothing in the deck — the AI invented/mismatched it.
+            mismatchDropped++; console.warn('[Deck] analyze: front not found in deck, dropping', { noteId, echoedFront }); return null
+          }
+        } else if (byId) {
+          // Backward-compat: no front echoed. Trust the id alone (older models).
+          note = byId
+        }
+        if (!note) { mismatchDropped++; console.warn('[Deck] analyze: unresolved card, dropping', { noteId, echoedFront }); return null }
+
         const currentFields = Object.fromEntries(
           Object.entries(note.fields).map(([name, f]) => [name, htmlToPlain(f.value)])
         )
@@ -1874,8 +1936,9 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         // Skip if AI flagged the card but didn't actually propose any changes.
         const hasChange = Object.keys(recommendedFields).some((k) => recommendedFields[k] !== currentFields[k])
         if (!hasChange) return null
+        // Final assertion: noteId we will write to MUST be this resolved card's id.
         return {
-          noteId,
+          noteId: note.noteId,
           reason: r.reason || '',
           currentFields,
           recommendedFields,
@@ -1886,8 +1949,9 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       }).filter(Boolean)
 
       setDeckAnalyzeRecs(recs)
+      setDeckAnalyzeSkipped(mismatchDropped)
       setDeckAnalyzeEmpty(recs.length === 0)
-      console.log('[Deck] analyzed,', recs.length, 'recommendations from', cards.length, 'cards')
+      console.log('[Deck] analyzed,', recs.length, 'recommendations from', cards.length, 'cards', mismatchDropped ? `(${mismatchDropped} dropped for card-identity mismatch)` : '')
     } catch (err) {
       console.error('[Deck] analyze failed:', err.message)
       setDeckAnalyzeError(err.message)
@@ -2021,6 +2085,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
   const clearAnalyze = () => {
     setDeckAnalyzeRecs([])
     setDeckAnalyzeError(null)
+    setDeckAnalyzeSkipped(0)
   }
 
   // ─── Duplicate scan / merge ──────────────────────────────────────────────
@@ -2170,19 +2235,26 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       // Stage 2b: AI merges the backs of each confirmed group.
       let aiMerges = {}
       try {
-        const groupsForAI = dupNoteGroups.map((notes, i) => ({ group: i, cards: notes.map(plainFields) }))
-        const prompt = `Each group below is a set of DUPLICATE flashcards that teach the same word. For EACH group, merge its cards into ONE card: keep the clearest front, and combine the backs so every distinct meaning, example, synonym and note is kept (remove only exact repeats).\n\nGroups (JSON):\n${JSON.stringify(groupsForAI)}\n\nReturn ONLY a JSON array, one object per group IN THE SAME ORDER:\n[ { "group": <number>, "mergedFields": { "<fieldName>": "<merged plain text>", ... } } ]\n\nUse the SAME field names as the input. Plain text with newlines (no HTML, no <br>). Output ONLY raw JSON, no markdown.`
+        const groupsForAI = dupNoteGroups.map((notes, i) => ({ group: i, headword: htmlToPlain(frontOf(notes[0])), cards: notes.map(plainFields) }))
+        const prompt = `Each group below is a set of DUPLICATE flashcards that teach the same word. For EACH group, merge its cards into ONE card: keep the clearest front, and combine the backs so every distinct meaning, example, synonym and note is kept (remove only exact repeats).\n\nGroups (JSON):\n${JSON.stringify(groupsForAI)}\n\nReturn ONLY a JSON array, one object per group IN THE SAME ORDER:\n[ { "group": <number>, "headword": "<echo the same group's headword verbatim>", "mergedFields": { "<fieldName>": "<merged plain text>", ... } } ]\n\nThe "group" number, "headword", and "mergedFields" MUST all belong to the SAME group — never mix one group's content with another's.\n\nUse the SAME field names as the input. Plain text with newlines (no HTML, no <br>). Output ONLY raw JSON, no markdown.`
         const text = await aiCall(apiKey, 'You merge duplicate flashcards. Always respond with valid JSON only.', prompt)
         const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
-        if (Array.isArray(parsed)) parsed.forEach((p) => { if (typeof p.group === 'number' && p.mergedFields) aiMerges[p.group] = p.mergedFields })
+        if (Array.isArray(parsed)) parsed.forEach((p) => { if (typeof p.group === 'number' && p.mergedFields) aiMerges[p.group] = { fields: p.mergedFields, headword: p.headword || '' } })
       } catch (e) {
         console.warn('[Deck] AI merge failed, using naive merge:', e.message)
       }
 
       const groups = dupNoteGroups.map((notes, i) => {
         const keepNote = notes[0]
-        const ai = aiMerges[i]
         const fallback = naiveMerge(notes)
+        // INTEGRITY GUARD: only trust the AI merge for this group if the headword it
+        // echoed back actually matches one of THIS group's cards. If the model
+        // scrambled group order/content, fall back to the safe deterministic merge
+        // so one word's content can never land on another word's card.
+        const aiEntry = aiMerges[i]
+        const groupKeys = new Set(notes.map((n) => normKey(htmlToPlain(frontOf(n)))))
+        const ai = (aiEntry && (!aiEntry.headword || groupKeys.has(normKey(aiEntry.headword)))) ? aiEntry.fields : null
+        if (aiEntry && !ai) console.warn('[Deck] dup merge: headword mismatch for group', i, '— using deterministic merge', { echoed: aiEntry.headword })
         const mergedFields = {}
         Object.keys(keepNote.fields).forEach((name) => {
           mergedFields[name] = ai && ai[name] != null ? String(ai[name]) : fallback[name]
@@ -2749,6 +2821,52 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const tmp = document.createElement('div')
     tmp.innerHTML = html
     return (tmp.textContent || tmp.innerText || '').trim()
+  }
+
+  // Word-level diff (LCS) between two strings. Returns tokens tagged
+  // 'same' | 'del' | 'add' so a before/after can be rendered inline.
+  const diffWords = (oldStr, newStr) => {
+    const a = (oldStr || '').split(/(\s+)/)
+    const b = (newStr || '').split(/(\s+)/)
+    const n = a.length, m = b.length
+    const dp = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0))
+    for (let i = n - 1; i >= 0; i--)
+      for (let j = m - 1; j >= 0; j--)
+        dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1])
+    const out = []
+    let i = 0, j = 0
+    while (i < n && j < m) {
+      if (a[i] === b[j]) { out.push({ type: 'same', text: a[i] }); i++; j++ }
+      else if (dp[i + 1][j] >= dp[i][j + 1]) { out.push({ type: 'del', text: a[i] }); i++ }
+      else { out.push({ type: 'add', text: b[j] }); j++ }
+    }
+    while (i < n) { out.push({ type: 'del', text: a[i++] }) }
+    while (j < m) { out.push({ type: 'add', text: b[j++] }) }
+    return out
+  }
+
+  // Front text (first field by order) for a deck-browser note, lowercased for sorting.
+  const deckNoteFront = (note) => {
+    const f = Object.entries(note.fields).sort(([, a], [, b]) => a.order - b.order)
+    return stripHtml(f[0]?.[1]?.value || '').toLowerCase()
+  }
+
+  // Comparator for the deck browser sort dropdown. noteId encodes Anki's
+  // creation timestamp (ms); stats.mod is last-modified (s) ≈ last studied.
+  const deckNoteCompare = (sort) => (a, b) => {
+    const sa = a.stats || {}, sb = b.stats || {}
+    switch (sort) {
+      case 'alpha-asc': return deckNoteFront(a).localeCompare(deckNoteFront(b))
+      case 'alpha-desc': return deckNoteFront(b).localeCompare(deckNoteFront(a))
+      case 'created-asc': return a.noteId - b.noteId
+      case 'created-desc': return b.noteId - a.noteId
+      case 'studied-desc': return (sb.mod || 0) - (sa.mod || 0)
+      case 'studied-asc': return (sa.mod || 0) - (sb.mod || 0)
+      case 'new-first': return (sa.reps || 0) - (sb.reps || 0) || b.noteId - a.noteId
+      case 'problem': return (sb.lapses || 0) - (sa.lapses || 0) || (sb.reps || 0) - (sa.reps || 0)
+      case 'mastered': return (sb.interval || 0) - (sa.interval || 0)
+      default: return b.noteId - a.noteId
+    }
   }
 
   // Render color-coded feedback notes for a study result (works for all modes).
@@ -4941,6 +5059,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   setDeckAnalyzeRecs([])
                   setDeckAnalyzeError(null)
                   setDeckAnalyzeEmpty(false)
+                  setDeckAnalyzeSkipped(0)
                   setDeckDupGroups([])
                   setDeckDupError(null)
                   setDeckDupEmpty(false)
@@ -4954,6 +5073,20 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               {deckBrowserNotes.length > 0 && (
                 <input value={deckBrowserSearch} onChange={(e) => setDeckBrowserSearch(e.target.value)}
                   placeholder="Search cards..." style={{ ...S.keyInput, flex: 1, fontSize: 12 }} />
+              )}
+              {deckBrowserNotes.length > 0 && (
+                <select value={deckBrowserSort} onChange={(e) => setDeckBrowserSort(e.target.value)}
+                  title="Sort cards" style={{ ...S.select, minWidth: 170, fontSize: 12 }}>
+                  <option value="created-desc">Newest first</option>
+                  <option value="created-asc">Oldest first</option>
+                  <option value="alpha-asc">A → Z</option>
+                  <option value="alpha-desc">Z → A</option>
+                  <option value="studied-desc">Recently studied</option>
+                  <option value="studied-asc">Least recently studied</option>
+                  <option value="new-first">New / unstudied first</option>
+                  <option value="problem">Problem cards (most lapses)</option>
+                  <option value="mastered">Mastered (longest interval)</option>
+                </select>
               )}
               {deckBrowserNotes.length > 0 && (
                 <span style={{ fontSize: 11, color: '#7d8590', alignSelf: 'center' }}>{deckBrowserNotes.length} cards</span>
@@ -5044,6 +5177,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
                     <div style={{ fontSize: 12, color: '#d2a8ff', fontWeight: 600 }}>
                       {deckAnalyzeRecs.length} suggestion{deckAnalyzeRecs.length === 1 ? '' : 's'} • {acceptedCount} accepted
+                      {deckAnalyzeSkipped > 0 && (
+                        <span style={{ fontSize: 10, color: '#d29922', fontWeight: 400, marginLeft: 8 }}
+                          title="These were discarded because the AI's card id and word did not match the same card — never shown to avoid mixing cards. Re-run to try again.">
+                          ⚠ {deckAnalyzeSkipped} discarded (card mismatch)
+                        </span>
+                      )}
                     </div>
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button
@@ -5086,8 +5225,17 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                   style={{ ...S.keyInput, fontSize: 12, minHeight: 50, resize: 'vertical', width: '100%', boxSizing: 'border-box' }}
                                 />
                                 {changed && (
-                                  <div style={{ fontSize: 9, color: '#7d8590', marginTop: 2, fontStyle: 'italic' }}>
-                                    Original: {original.slice(0, 120)}{original.length > 120 ? '…' : ''}
+                                  <div style={{ marginTop: 4, padding: '6px 8px', background: '#161b22', border: '1px solid #2a3040', borderRadius: 4, fontSize: 11, lineHeight: 1.55, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                                    <span style={{ fontSize: 9, color: '#7d8590', fontWeight: 600, display: 'block', marginBottom: 4 }}>
+                                      Changes (<span style={{ color: '#f85149' }}>removed</span> / <span style={{ color: '#7ee787' }}>added</span>)
+                                    </span>
+                                    {diffWords(original, value).map((t, k) => (
+                                      <span key={k} style={
+                                        t.type === 'del' ? { color: '#f85149', background: 'rgba(248,81,73,.15)', textDecoration: 'line-through' }
+                                        : t.type === 'add' ? { color: '#7ee787', background: 'rgba(126,231,135,.15)' }
+                                        : { color: '#9da7b3' }
+                                      }>{t.text}</span>
+                                    ))}
                                   </div>
                                 )}
                               </div>
@@ -5266,6 +5414,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     const s = deckBrowserSearch.toLowerCase()
                     return Object.values(n.fields).some((f) => stripHtml(f.value).toLowerCase().includes(s))
                   })
+                  .sort(deckNoteCompare(deckBrowserSort))
                   .map((note) => {
                     const fields = Object.entries(note.fields).sort(([,a],[,b]) => a.order - b.order)
                     const front = stripHtml(fields[0]?.[1]?.value || '')
