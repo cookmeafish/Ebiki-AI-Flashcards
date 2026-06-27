@@ -292,6 +292,9 @@ export default function App() {
   const [studyMeaningHintLoading, setStudyMeaningHintLoading] = useState(false)
   // Tap-a-word-in-the-question contextual lookup (language study): { word, meaning, loading }
   const [studyWordLookup, setStudyWordLookup] = useState(null)
+  // Brief "correct spelling" toast when an answer is accepted despite a missing accent / typo
+  const [studySpellingNote, setStudySpellingNote] = useState(null) // { correct } | null
+  const studySpellingNoteTimer = useRef(null)
   const [studyLegendOpen, setStudyLegendOpen] = useState(false)
   const [studyAnswerHistory, setStudyAnswerHistory] = useState([]) // [{cardIdx, questionIdx}] for undo
   const [studyInsights, setStudyInsights] = useState(null)
@@ -2922,7 +2925,8 @@ Output ONLY raw JSON. No markdown, no backticks.`
       ? `Q${n} (USAGE/DEPTH): Test deeper knowledge of the ${studyLang} word — usage in a short sentence, register (formal/informal), gender/conjugation, or distinguishing it from a close synonym. Stay within the everyday/general meaning unless the card explicitly indicates a specialized domain.`
       : `Q${n} (DEEP UNDERSTANDING): May freely name the subject. Test HOW, WHY, WHEN, or process. E.g. "Explain how X works" or "What distinguishes X from Y?" Open-ended — student demonstrates conceptual depth.`
 
-    const q1Language = `Q1 (TRANSLATION PRODUCTION): Ask the student to translate the non-${studyLang} text on the card INTO ${studyLang}. Phrase it cleanly, e.g. "Translate to ${studyLang}: '<the non-${studyLang} text>'" or "How do you say '<the non-${studyLang} text>' in ${studyLang}?". The expected answer is the ${studyLang} word/phrase on the card. acceptedAnswers MUST be the ${studyLang} word(s), lowercase, with and without accents. Type MUST be "recall". Do NOT invent a definition or context for Q1 — translation tests are unambiguous and that's exactly what we want for the first question of every card.`
+    const q1Language = `Q1 (TRANSLATION PRODUCTION): Ask the student to translate the non-${studyLang} text on the card INTO ${studyLang}. Phrase it cleanly, e.g. "Translate to ${studyLang}: '<the non-${studyLang} text>'" or "How do you say '<the non-${studyLang} text>' in ${studyLang}?". The expected answer is the ${studyLang} word/phrase on the card. acceptedAnswers MUST be the ${studyLang} word(s), lowercase, with and without accents. Type MUST be "recall".
+  TRANSLATION AMBIGUITY CHECK (apply before finalizing Q1): does the source text have MULTIPLE common ${studyLang} translations, with the card's target word being only one of several synonyms? E.g. English "favorable" → "favorable", "propicio", "auspicioso"; "happy" → "feliz", "contento", "alegre". If YES, a bare translation prompt is UNFAIR — the student cannot know which synonym you want. You MUST add a disambiguating cue INSIDE the question that singles out the target word WITHOUT stating it: a sense/nuance gloss in ${studyLang} (e.g. "(en el sentido de 'que augura algo bueno')"), a register note (formal / literario / coloquial), a domain, and/or the first letter ("empieza con 'a'"). Only when the translation is genuinely one-to-one may you leave it as a plain translation prompt.`
     const q1General = `Q1 (BLIND RECALL): Never name or hint at the target word/answer. Present a scenario, definition, or usage context that forces the student to produce the exact word. Example: "You need to X in situation Y — what word/tool/concept applies?"`
     const q2Language = `Q2–Q${n - 1} (CONTEXTUAL USAGE): A fill-in-the-blank or short scenario where the target ${studyLang} word fits AND no other plausible ${studyLang} word fits. If the card has an example/usage field, PREFER using that exact sentence (with the target word blanked) — it was authored for this word and is guaranteed unambiguous. If you must invent a context, apply the AMBIGUITY SELF-CHECK below rigorously. Each from a DIFFERENT angle.`
     const q2General = `Q2–Q${n - 1} (GUIDED RECALL): May reference related concepts, synonyms as contrast, or fill-in-the-blank. Must still require the EXACT target word. E.g. "Instead of [synonym], what [N]-letter word means...?" Each from a DIFFERENT angle.`
@@ -3207,20 +3211,54 @@ Output ONLY raw JSON. No markdown, no backticks.`
     // student adds an article or extra function word (e.g. "una huelga" for "huelga").
     const normalize = (s) => s.toLowerCase().trim().replace(/[.!?,;:]/g, '').replace(/\s+/g, ' ')
     const stripArticles = (s) => s.replace(/^(el|la|los|las|un|una|unos|unas|lo|al|del|the|a|an|to)\s+/, '')
+    const stripAccents = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '')
     const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     const ans = normalize(answer)
     const ansNoArt = stripArticles(ans)
-    const matchesAccepted = (a) => {
+    // Exact match (accent- and spelling-sensitive)
+    const matchesExact = (a) => {
       const acc = normalize(a)
       const accNoArt = stripArticles(acc)
       if (acc === ans || accNoArt === ansNoArt || acc === ansNoArt || accNoArt === ans) return true
       // accept the exact correct word/phrase appearing as a whole token within the answer
       return accNoArt.length >= 3 && new RegExp(`(^|\\s)${escapeRe(accNoArt)}(\\s|$)`).test(ansNoArt)
     }
+    // Lenient match (accent-insensitive): "brujula" accepted for "brújula".
+    const ansNA = stripAccents(ans)
+    const ansNoArtNA = stripAccents(ansNoArt)
+    const matchesLenient = (a) => {
+      const accNA = stripAccents(normalize(a))
+      const accNoArtNA = stripArticles(accNA)
+      if (accNA === ansNA || accNoArtNA === ansNoArtNA || accNA === ansNoArtNA || accNoArtNA === ansNA) return true
+      return accNoArtNA.length >= 3 && new RegExp(`(^|\\s)${escapeRe(accNoArtNA)}(\\s|$)`).test(ansNoArtNA)
+    }
+    const matchesAccepted = (a) => matchesExact(a) || matchesLenient(a)
     // In non-language modes the student answers in their own words (explaining topics),
     // so we never run the letter-count hint/retry loop — just advance and let the AI grade
     // on understanding. The hint loop only applies to language vocabulary recall.
     const isCorrect = !isLanguageMode || (!isExplanation && acceptedAnswers.length > 0 && acceptedAnswers.some(matchesAccepted))
+
+    // If the answer is right but spelled without the correct accents, briefly surface the
+    // properly-accented spelling on the side so the user can practice it on later questions.
+    // Only when grammar feedback is enabled. NOTE: acceptedAnswers often contains BOTH the
+    // accented and un-accented variants, so we can't just check "was there an exact match" —
+    // we compare the typed answer against the canonical (accented) spelling specifically.
+    const grammarOn = (activeMode.studyRules || defaultStudyRules).grammarFeedback || false
+    if (isCorrect && grammarOn && isLanguageMode && !isExplanation && acceptedAnswers.length > 0) {
+      const matched = acceptedAnswers.filter(matchesLenient)
+      // Canonical = a matched variant that actually carries accent marks (the spelling to teach)
+      const canonical = matched.find(a => stripAccents(normalize(a)) !== normalize(a))
+      if (canonical) {
+        const canonNorm = normalize(canonical)
+        const canonNoArt = stripArticles(canonNorm)
+        const typedExactly = canonNorm === ans || canonNoArt === ansNoArt || canonNorm === ansNoArt || canonNoArt === ans
+        if (!typedExactly) {
+          if (studySpellingNoteTimer.current) clearTimeout(studySpellingNoteTimer.current)
+          setStudySpellingNote({ correct: canonical })
+          studySpellingNoteTimer.current = setTimeout(() => setStudySpellingNote(null), 10000)
+        }
+      }
+    }
 
     const newStates = [...studyCardState]
     const newAttempts = [...(cs.questionAttempts || [])]
@@ -5996,6 +6034,14 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
 
               return (
                 <div>
+                  {/* Correct-spelling toast (accent/typo accepted) — stays mounted across card transitions */}
+                  {studySpellingNote && (
+                    <div style={{ position: 'fixed', top: '30%', right: 24, zIndex: 50, maxWidth: 220, background: 'rgba(34,40,30,.97)', border: '1px solid rgba(126,231,135,.35)', borderRadius: 8, padding: '10px 14px', boxShadow: '0 4px 18px rgba(0,0,0,.4)', animation: 'fadeIn .2s ease' }}>
+                      <div style={{ fontSize: 10, color: '#7ee787', fontWeight: 700, marginBottom: 3, letterSpacing: '.04em' }}>✓ CORRECT — SPELLING</div>
+                      <div style={{ fontSize: 15, color: '#e6edf3', fontWeight: 600 }}>{studySpellingNote.correct}</div>
+                    </div>
+                  )}
+
                   {/* Header */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <div style={{ display: 'flex', gap: 12, fontSize: 12 }}>
