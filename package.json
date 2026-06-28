@@ -11,6 +11,8 @@
     "overlay:dev": "electron electron/main.cjs --dev"
   },
   "dependencies": {
+    "dompurify": "^3.4.11",
+    "marked": "^18.0.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tesseract.js": "^5.1.1"
