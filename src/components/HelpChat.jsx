@@ -262,7 +262,9 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
   const getChatStyle = () => {
     const btn = btnRef.current
     const rect = btn?.getBoundingClientRect()
-    if (!rect) return {}
+    // No floating button to anchor to (e.g. opened via "Ask Ebi" during study): show a
+    // normal chat panel docked to the bottom-left corner instead of filling the screen.
+    if (!rect) return { position: 'fixed', left: 20, bottom: 20, width: 360, maxHeight: 460 }
     const zoom = getZoom()
     const left = rect.left / zoom, right = rect.right / zoom
     const top = rect.top / zoom, bottom = rect.bottom / zoom
