@@ -468,20 +468,18 @@ export default function App() {
   const scrollChatToLatestTurn = () => {
     const c = chatTabScrollRef.current
     if (!c) return
-    const z = getZoom() // body zoom: rects are real px, scrollTop/clientHeight are layout px
     const users = c.querySelectorAll('[data-role="user"]')
     const last = users[users.length - 1]
     const sp = chatSpacerRef.current
     if (!last) { if (sp) sp.style.height = '0px'; c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' }); return }
-    // Size the spacer to EXACTLY what's needed to put the latest turn at the top (no excess void):
-    // spacer = viewport − (height from the latest user msg to the bottom of the messages).
-    const lastTopReal = last.getBoundingClientRect().top
-    const contentBottomReal = sp ? sp.getBoundingClientRect().top : c.getBoundingClientRect().bottom
-    const turnHeight = (contentBottomReal - lastTopReal) / z
-    if (sp) sp.style.height = Math.max(0, c.clientHeight - turnHeight - 12) + 'px'
-    // Scroll ONLY this container (scrollIntoView would scroll the zoomed page + hide the header).
-    const top = c.scrollTop + (last.getBoundingClientRect().top - c.getBoundingClientRect().top) / z - 12
-    c.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+    // Use offsetTop (layout px, relative to the position:relative container) — zoom-free and exact,
+    // unlike getBoundingClientRect. Size the spacer so the latest turn pins to the top with NO room
+    // to over-scroll past it: spacer = viewport − turnHeight − 12, which makes maxScroll == target.
+    const PAD = 12
+    const contentBottom = sp ? sp.offsetTop : c.scrollHeight
+    const turnHeight = contentBottom - last.offsetTop
+    if (sp) sp.style.height = Math.max(0, c.clientHeight - turnHeight - PAD) + 'px'
+    c.scrollTo({ top: Math.max(0, last.offsetTop - PAD), behavior: 'smooth' })
   }
 
   // Load chat sessions from disk on mount, and restore the last-open session (persisted in
@@ -2088,6 +2086,19 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
 
   // Generate one or more cards per input word. Spanish/language modes use the exact format;
   // other modes let the AI design a subject-appropriate back. Returns [{ front, back, tags, _rich }].
+  // Second-pass proofreader: cards get MEMORIZED, so a wrong word/translation is unacceptable.
+  // Sends the generated cards back to the model to find and FIX errors before the user sees them.
+  const verifyCards = async (richCards, subjectLabel) => {
+    if (!richCards.length) return richCards
+    try {
+      const prompt = `You are a meticulous ${subjectLabel} teacher proofreading flashcards a student will MEMORIZE. Accuracy is critical, a single error is harmful. For EACH card object, carefully verify and FIX any error: a headword that does NOT exist or is misspelled (replace it with the correct word), wrong part of speech or grammatical gender, incorrect pronunciation, wrong/missing translation, wrong synonyms, an incorrect or unnatural definition, and an example sentence that is wrong, unnatural, or mistranslated. Leave correct fields exactly as they are. Return the corrected JSON array with the SAME keys and structure. Output ONLY the JSON array, no commentary.`
+      const text = await aiCall(apiKey, prompt, JSON.stringify(richCards), resolveModel('deck'))
+      const parsed = parseAiJson(text)
+      const arr = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.cards) ? parsed.cards : null)
+      return (arr && arr.length) ? arr : richCards
+    } catch { return richCards }
+  }
+
   const generateCards = async (words) => {
     const list = (Array.isArray(words) ? words : [words]).map((w) => String(w).trim()).filter(Boolean)
     if (!list.length) return []
@@ -2095,13 +2106,15 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
       const payload = JSON.stringify({ words: list, deck: activeMode.ankiDeck || 'Español' })
       const text = await aiCall(apiKey, SPANISH_CARD_PROMPT, payload, resolveModel('deck'))
       const parsed = parseAiJson(text)
-      const arr = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : [])
+      let arr = (Array.isArray(parsed) ? parsed : (parsed ? [parsed] : [])).filter((c) => c && (c.word || c.front))
+      arr = await verifyCards(arr, 'Spanish') // double-check before the user memorizes it
       return arr.filter((c) => c && (c.word || c.front)).map((c) => ({ ...spanishCardToFrontBack(c), _rich: c }))
     }
     const prompt = GENERIC_CARD_PROMPT.replace('{MODE}', activeMode.name).replace('{TYPE}', activeMode.type)
     const text = await aiCall(apiKey, prompt, JSON.stringify({ words: list }), resolveModel('deck'))
     const parsed = parseAiJson(text)
-    const arr = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : [])
+    let arr = (Array.isArray(parsed) ? parsed : (parsed ? [parsed] : [])).filter((c) => c && (c.word || c.front))
+    arr = await verifyCards(arr, activeMode.name)
     return arr.filter((c) => c && (c.word || c.front)).map((c) => ({
       front: c.word || c.front || '',
       back: c.back || '',
@@ -4785,7 +4798,15 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
     try {
       let systemPrompt = `You are Ebi, a helpful study assistant. The user is studying with mode "${activeMode.name}".
 
-You run on the ${providerConfig.label} model "${resolveModel('chat')}". If the user asks what AI model or provider powers you, just tell them — it's not a secret.
+ACCURACY IS CRITICAL. This is a learning app and the user will MEMORIZE what you teach, so a single error is harmful. Rules:
+- NEVER invent words or state facts you are not sure are correct. Do not guess.
+- Before stating any word, translation, conjugation, gender, definition, or fact, double-check it is correct and that the word actually EXISTS and is spelled correctly in the target language.
+- Silently re-read your answer before sending and fix any mistakes. If you realize a word may not exist, correct it.
+- If you are not fully certain, say so honestly instead of presenting a guess as fact.
+
+WRITING STYLE: Never use em-dashes (—) or en-dashes (–); they read as fake/AI. Use commas, periods, parentheses, or just shorter sentences instead. Write naturally and human.
+
+You run on the ${providerConfig.label} model "${resolveModel('chat')}". If the user asks what AI model or provider powers you, just tell them, it's not a secret.
 
 IMPORTANT BEHAVIOR RULES:
 1. When the user asks you to build a whole DECK or many cards for a broad topic:
@@ -4898,7 +4919,8 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
         if (cited.length > 0) sources = cited
       }
 
-      const cleanText = text.replace(/<anki-card>.*?<\/anki-card>/gs, '').replace(/<progress-update>[\s\S]*?<\/progress-update>/g, '').replace(/<sources>[\s\S]*?<\/sources>/g, '').trim()
+      const cleanText = text.replace(/<anki-card>.*?<\/anki-card>/gs, '').replace(/<progress-update>[\s\S]*?<\/progress-update>/g, '').replace(/<sources>[\s\S]*?<\/sources>/g, '')
+        .replace(/\s*[—–]\s*/g, ', ').trim() // strip em/en dashes (AI tell)
       // Let the Mascot AI analyze the reply and pick the best-fitting pose, but AWAIT it so the
       // message appears ONCE already wearing the final pose — no instant-then-swap flicker.
       // (choosePose never throws: it falls back to the keyword pose on no-key/error.)
@@ -6238,7 +6260,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             )}
 
             {/* Messages */}
-            <div ref={chatTabScrollRef} style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
+            <div ref={chatTabScrollRef} style={{ flex: 1, overflow: 'auto', padding: '16px 20px', position: 'relative' }}>
               {chatTabMsgs.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '52px 20px' }}>
                   <img src={shrimpUrl(poseFile('singer'))} alt="Ebi" style={{ width: 76, height: 76, objectFit: 'contain', marginBottom: 10 }} />
