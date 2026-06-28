@@ -15,6 +15,7 @@ export default function OnboardingWizard(p) {
     provider, setProvider, apiKeys, apiKey, setCurrentKey, providerConfig,
     createMode, modeCreating,
     aiModels, setAiModels,
+    intelligence, setIntelligence,
   } = p
 
   const [step, setStep] = useState(0)
@@ -22,10 +23,10 @@ export default function OnboardingWizard(p) {
   const [creatingFirst, setCreatingFirst] = useState(false)
   const [advanced, setAdvanced] = useState(false) // emergency: custom model entry
 
-  const poses = ['default', 'book', 'artist', 'science', 'book', 'party']
+  const poses = ['default', 'book', 'artist', 'science', 'science', 'book', 'party']
   const ebi = shrimpUrl(poseFile(poses[step]) || DEFAULT_SHRIMP)
 
-  const steps = ['welcome', 'language', 'appearance', 'provider', 'mode', 'finish']
+  const steps = ['welcome', 'language', 'appearance', 'provider', 'intelligence', 'mode', 'finish']
   const last = steps.length - 1
   const next = () => setStep((s) => Math.min(s + 1, last))
   const back = () => setStep((s) => Math.max(s - 1, 0))
@@ -109,6 +110,32 @@ export default function OnboardingWizard(p) {
               </div>
             )}
           </div>
+        </>)
+      case 'intelligence':
+        return (<>
+          <div style={heading}>How smart should Ebi be?</div>
+          <div style={sub}>This sets the AI model used across the whole app for {providerConfig.label}. You can change it anytime in Settings → AI models.</div>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 22, flexWrap: 'wrap' }}>
+            {[
+              { key: 'normal', title: 'Normal', model: providerConfig.presets?.normal || providerConfig.questionModel, desc: 'Balanced and fast — great for everyday studying.' },
+              { key: 'max', title: 'More intelligent', model: providerConfig.presets?.max || providerConfig.questionModel, desc: 'Most capable answers, but slower and uses more tokens.' },
+            ].map((opt) => {
+              const active = (intelligence || 'normal') === opt.key
+              return (
+                <button key={opt.key} onClick={() => setIntelligence(opt.key)} style={{
+                  width: 240, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
+                  padding: '14px 16px', borderRadius: RADIUS.md,
+                  border: `2px solid ${active ? C.brand : C.border}`, background: active ? C.brandTint : C.surface,
+                  transition: 'all .15s ease',
+                }}>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: active ? C.brand : C.ink }}>{active ? '● ' : '○ '}{opt.title}</div>
+                  <div style={{ fontSize: 12, color: C.inkDim, margin: '6px 0' }}>{opt.desc}</div>
+                  <div style={{ fontSize: 10, color: C.inkFaint, fontFamily: 'monospace' }}>{opt.model}</div>
+                </button>
+              )
+            })}
+          </div>
+          <div style={{ marginTop: 22 }}><button className="btn-press" style={bigBtn} onClick={next}>Continue</button></div>
         </>)
       case 'mode':
         return (<>

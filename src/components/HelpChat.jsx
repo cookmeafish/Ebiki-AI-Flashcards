@@ -72,7 +72,7 @@ function buildSystemPrompt(appContext) {
   return parts.join('\n')
 }
 
-export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-6', onModelRetired, mascotFile = DEFAULT_SHRIMP, onAiReply, askEbiSignal, hideButton }) {
+export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-6', askAI, mascotFile = DEFAULT_SHRIMP, onAiReply, askEbiSignal, hideButton }) {
   const [open, setOpen] = useState(false)
   // FancyZones-style snapping. null = floating popup anchored to the button.
   // 'left'|'right'|'top'|'bottom' = snapped to that screen edge ('bottom' sits under the question).
@@ -294,9 +294,9 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
   }
   const isEdgeZone = !!ZONE_RECTS[snapZone]
 
-  // Call Sonnet directly for better quality
+  // Routed through the host's aiCall (askAI) so Help works on ANY provider, not just Anthropic.
   const sendMessage = async () => {
-    if (!input.trim() || loading || !apiKey) return
+    if (!input.trim() || loading || !apiKey || !askAI) return
     const userMsg = input.trim()
     setInput('')
     const newMsgs = [...messages, { role: 'user', text: userMsg }]
@@ -304,36 +304,9 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
     setLoading(true)
 
     try {
-      const apiMessages = newMsgs.map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text }))
-      const callModel = async (mdl) => {
-        const resp = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true',
-          },
-          body: JSON.stringify({
-            model: mdl,
-            max_tokens: 300,
-            system: buildSystemPrompt(appContext) + `\n\nYou run on the model "${mdl}". If the user asks what AI model powers you, just tell them — it's not a secret.`,
-            messages: apiMessages,
-          }),
-        })
-        if (!resp.ok) throw new Error('API ' + resp.status)
-        return resp.json()
-      }
-      let data
-      try {
-        data = await callModel(model)
-      } catch (err) {
-        // Retired/invalid model → ask the host to find a current one, then retry once.
-        const healed = (err.message.includes('404') && onModelRetired) ? await onModelRetired(model) : null
-        if (!healed) throw err
-        data = await callModel(healed)
-      }
-      const replyText = data.content[0].text
+      const sys = buildSystemPrompt(appContext) + `\n\nYou run on the model "${model}". If the user asks what AI model powers you, just tell them — it's not a secret.`
+      const convo = newMsgs.map(m => `${m.role === 'user' ? 'User' : 'Ebi'}: ${m.text}`).join('\n\n')
+      const replyText = (await askAI(sys, convo) || '').trim() || '…'
       const updatedMsgs = [...newMsgs, { role: 'assistant', text: replyText }]
       setMessages(updatedMsgs)
       onAiReply?.(replyText) // let the host pick Ebi's pose via the Mascot model
