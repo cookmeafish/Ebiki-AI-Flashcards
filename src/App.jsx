@@ -525,10 +525,10 @@ export default function App() {
   const ROLE_DEFAULTS = (pc) => ({
     general: pc.model,        // fallback + mode config generation
     picture: pc.questionModel, // vision image reading + in-context translation (stronger model)
-    deck: pc.model,           // Anki card generation, editing, analysis, dedup
+    deck: pc.questionModel,   // Anki card generation, editing, analysis, dedup (stronger = better cards)
     study: pc.questionModel,  // study question gen, evaluation, hints, insights, feedback
     discover: pc.questionModel, // learner profiling, suggestions, fact-checking
-    chat: pc.model,           // the chat tab assistant
+    chat: pc.questionModel,   // the chat tab assistant (stronger model for quality replies)
     help: pc.questionModel,   // Ebi's Help assistant
     pose: pc.questionModel,   // picks Ebi's mascot pose from context — stronger model for better fit
   })
