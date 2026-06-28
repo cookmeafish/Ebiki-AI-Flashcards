@@ -5779,7 +5779,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       {activeTab === 'study' && !studyActive && (
         <main style={{ ...S.main, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
           <div style={{ maxWidth: 400, width: '100%', textAlign: 'center', padding: '40px 20px' }}>
-            <img src={shrimpUrl(DEFAULT_SHRIMP)} alt="Ebi" style={{ width: 84, height: 84, objectFit: 'contain', marginBottom: 12, filter: 'drop-shadow(0 6px 16px rgba(223,37,64,.28))' }} />
+            <img src={shrimpUrl(poseFile('book'))} alt="Ebi" style={{ width: 84, height: 84, objectFit: 'contain', marginBottom: 12, filter: 'drop-shadow(0 6px 16px rgba(223,37,64,.28))' }} />
             <div style={{ fontSize: 26, fontWeight: 800, fontFamily: FONT.display, color: C.ink, marginBottom: 10 }}>{t('studyTitle')}</div>
             <div style={{ fontSize: 13, color: C.inkDim, marginBottom: 24, fontWeight: 600 }}>{t('studyTagline')}</div>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
@@ -5854,7 +5854,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             <div ref={chatTabScrollRef} style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
               {chatTabMsgs.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '52px 20px' }}>
-                  <img src={shrimpUrl(DEFAULT_SHRIMP)} alt="Ebi" style={{ width: 76, height: 76, objectFit: 'contain', marginBottom: 10, filter: 'drop-shadow(0 6px 14px rgba(223,37,64,.28))' }} />
+                  <img src={shrimpUrl(poseFile('singer'))} alt="Ebi" style={{ width: 76, height: 76, objectFit: 'contain', marginBottom: 10, filter: 'drop-shadow(0 6px 14px rgba(223,37,64,.28))' }} />
                   <div style={{ fontSize: 24, fontWeight: 800, marginBottom: 8, fontFamily: FONT.display, background: 'linear-gradient(90deg, var(--c-brand), var(--c-brand-dark))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Ask Ebi anything</div>
                   <div style={{ fontSize: 12, color: 'var(--c-ink-dim)', marginBottom: 20, maxWidth: 400, margin: '0 auto 20px' }}>
                     Ask questions, create Anki cards, or attach a deck for personalized tutoring.
@@ -6607,7 +6607,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         {stage === 'idle' && !isOverlay && (
           <div style={S.emptyState}>
             <div style={{ marginBottom: 18, width: 120, height: 120, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'radial-gradient(circle at 40% 30%, var(--c-surface), var(--c-surface-alt))', border: `1px solid ${C.border}`, boxShadow: SHADOW.md }}>
-              <img src={shrimpUrl(DEFAULT_SHRIMP)} alt="Ebi" style={{ width: 84, height: 84, objectFit: 'contain', filter: 'drop-shadow(0 4px 10px rgba(223,37,64,.3))' }} />
+              <img src={shrimpUrl(poseFile('camera'))} alt="Ebi" style={{ width: 84, height: 84, objectFit: 'contain', filter: 'drop-shadow(0 4px 10px rgba(223,37,64,.3))' }} />
             </div>
             <h2 style={S.emptyTitle}>Capture, paste, drop, or upload</h2>
             <p style={S.emptyDesc}>
