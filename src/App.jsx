@@ -7111,7 +7111,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         </div>
       )}
 
-      {!isOverlay && <HelpChat
+      {!isOverlay && configLoaded && onboarded && <HelpChat
         apiKey={apiKey}
         provider={provider}
         mascotFile={helpMascot}
