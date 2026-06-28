@@ -459,6 +459,7 @@ export default function App() {
   const chatImageInputRef = useRef(null)
   const [chatTabStatus, setChatTabStatus] = useState(null) // null | 'searching' | 'thinking' | 'search-done' | 'search-empty' | 'search-failed'
   const chatTabScrollRef = useRef(null)
+  const chatTabInputRef = useRef(null)
   const chatSpacerRef = useRef(null) // bottom spacer so the latest turn can scroll to the top
 
   // Claude-style scroll: pin the latest USER message near the top of the viewport (with a
@@ -467,17 +468,20 @@ export default function App() {
   const scrollChatToLatestTurn = () => {
     const c = chatTabScrollRef.current
     if (!c) return
-    if (chatSpacerRef.current) chatSpacerRef.current.style.height = c.clientHeight + 'px'
+    const z = getZoom() // body zoom: rects are real px, scrollTop/clientHeight are layout px
     const users = c.querySelectorAll('[data-role="user"]')
     const last = users[users.length - 1]
-    if (last) {
-      // Scroll ONLY this container (not the window — scrollIntoView would scroll the whole
-      // zoomed page and hide the app header). Bring the latest user message to the top.
-      const top = c.scrollTop + (last.getBoundingClientRect().top - c.getBoundingClientRect().top) - 12
-      c.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
-    } else {
-      c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' })
-    }
+    const sp = chatSpacerRef.current
+    if (!last) { if (sp) sp.style.height = '0px'; c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' }); return }
+    // Size the spacer to EXACTLY what's needed to put the latest turn at the top (no excess void):
+    // spacer = viewport − (height from the latest user msg to the bottom of the messages).
+    const lastTopReal = last.getBoundingClientRect().top
+    const contentBottomReal = sp ? sp.getBoundingClientRect().top : c.getBoundingClientRect().bottom
+    const turnHeight = (contentBottomReal - lastTopReal) / z
+    if (sp) sp.style.height = Math.max(0, c.clientHeight - turnHeight - 12) + 'px'
+    // Scroll ONLY this container (scrollIntoView would scroll the zoomed page + hide the header).
+    const top = c.scrollTop + (last.getBoundingClientRect().top - c.getBoundingClientRect().top) / z - 12
+    c.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
   }
 
   // Load chat sessions from disk on mount, and restore the last-open session (persisted in
@@ -4777,7 +4781,7 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
     setChatTabImage(null)
     setChatPlusOpen(false)
     setChatTabLoading(true)
-    setTimeout(scrollChatToLatestTurn, 60)
+    setTimeout(() => { scrollChatToLatestTurn(); chatTabInputRef.current?.focus() }, 60)
     try {
       let systemPrompt = `You are Ebi, a helpful study assistant. The user is studying with mode "${activeMode.name}".
 
@@ -6425,12 +6429,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   }}
                 >&#127760;</button>
                 <input
+                  ref={chatTabInputRef}
                   value={chatTabInput}
                   onChange={(e) => setChatTabInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatTabMessage() } }}
                   placeholder={chatTabWebSearch ? 'Search the web and ask...' : 'Ask anything, or tell me to make a flashcard...'}
                   style={{ ...S.keyInput, flex: 1, fontSize: 13, padding: '10px 14px' }}
-                  disabled={chatTabLoading}
                 />
                 <button
                   onClick={sendChatTabMessage}
