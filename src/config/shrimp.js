@@ -7,7 +7,9 @@
 //   2. pickShrimp(text): instant keyword fallback for non-AI moments (study questions,
 //      picture words) or when the AI returns no pose.
 
-export const DEFAULT_SHRIMP = '6820-holeshrimp.png'
+// The neutral/"nothing" pose — a plain shrimp. Used whenever no other pose clearly fits
+// (better a plain Ebi than a pose that doesn't correlate). This is also the AI's "default".
+export const DEFAULT_SHRIMP = 'shrimp.png'
 
 export const shrimpUrl = (file) => `/assets/shrimp/${file}`
 
@@ -22,6 +24,7 @@ export const shrimpUrl = (file) => `/assets/shrimp/${file}`
 //
 // Each entry: name (the AI-facing label) + file + keywords for the fallback matcher.
 export const SHRIMP = [
+  { name: 'hiding', file: '6820-holeshrimp.png', keywords: ['hide', 'hidden', 'hiding', 'peek', 'sneaky', 'shy', 'burrow', 'secret', 'lurk', 'peeking'] },
   { name: 'work', file: '7994-workshrimp.png', keywords: ['work', 'working', 'job', 'office', 'business', 'career', 'labor', 'labour', 'employ', 'task', 'hammer', 'build', 'construction', 'project', 'productive'] },
   { name: 'food', file: '8642-shrimpfriedrice.png', keywords: ['rice', 'food', 'cook', 'cooking', 'fried', 'meal', 'dinner', 'lunch', 'eat', 'eating', 'cuisine', 'recipe', 'kitchen', 'wok', 'restaurant', 'hungry', 'comida', 'arroz', 'comer'] },
   { name: 'cheese', file: '48438-cheeseshrimp.png', keywords: ['cheese', 'dairy', 'queso', 'fromage', 'cheesy', 'smile', 'grin', '🧀'] },
@@ -77,8 +80,10 @@ function hashStr(s) {
   return Math.abs(h)
 }
 
-// Pick the shrimp whose keywords best match `text`. Returns a filename.
-// Ties are broken deterministically by a hash of the text so it doesn't flicker.
+// Pick the shrimp whose keywords best match `text`. Returns a filename, or DEFAULT_SHRIMP
+// (the plain "nothing" shrimp) when nothing clearly fits. Matches WHOLE WORDS/phrases only —
+// never substrings — so e.g. "art" never matches inside "particular". Ties broken by a stable
+// hash of the text so the pose doesn't flicker.
 export function pickShrimp(text) {
   if (!text) return DEFAULT_SHRIMP
   const t = ` ${String(text).toLowerCase()} `
@@ -87,10 +92,10 @@ export function pickShrimp(text) {
   for (const s of SHRIMP) {
     let score = 0
     for (const kw of s.keywords) {
-      if (kw.length <= 2) { if (t.includes(kw)) score += 1; continue }
+      if (kw.length <= 2) { if (t.includes(kw)) score += 1; continue } // short tokens / emoji
+      // whole-word (or whole-phrase) match only — no substring matching
       const re = new RegExp(`(^|[^a-z])${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z]|$)`, 'i')
-      if (re.test(t)) score += 2
-      else if (t.includes(kw)) score += 1
+      if (re.test(t)) score += 1
     }
     if (score > bestScore) { bestScore = score; best = [s] }
     else if (score === bestScore && score > 0) best.push(s)
