@@ -3,6 +3,7 @@ import Tesseract from 'tesseract.js'
 import { TRANSLATE_PROMPT, POS_COLORS, CATEGORY_COLORS } from './config/prompts'
 import { PROVIDERS } from './config/providers'
 import { LANGS } from './config/languages'
+import { makeT, APP_LANGUAGES } from './i18n'
 import FormattedText from './components/FormattedText'
 import HelpChat from './components/HelpChat'
 import DiscoverPanel from './components/DiscoverPanel'
@@ -117,6 +118,13 @@ export default function App() {
   const [aiModels, setAiModels] = useState({})
   // Transient toast shown when a retired model is auto-replaced.
   const [modelHealNotice, setModelHealNotice] = useState(null)
+  // App UI language ('en' | 'es' | 'zh' | 'ja' | ...). Translates chrome, not flashcards.
+  const [appLanguage, setAppLanguage] = useState('en')
+  const t = makeT(appLanguage)
+  // Available model ids fetched from each provider's API: { [provider]: [ids] }.
+  const [availableModels, setAvailableModels] = useState({})
+  const [modelsLoading, setModelsLoading] = useState(false)
+  const [modelsError, setModelsError] = useState(null)
   const [showKeyInput, setShowKeyInput] = useState(false)
   const [screenshot, setScreenshot] = useState(null)
   const [imgDims, setImgDims] = useState({ w: 0, h: 0 })
@@ -352,12 +360,60 @@ export default function App() {
   // a dependency, so read the live values from a ref rather than a stale closure.
   const aiStateRef = useRef({})
   aiStateRef.current = { provider, aiModels, apiKeys }
-  const ROLE_DEFAULTS = (pc) => ({ general: pc.model, question: pc.questionModel, help: pc.questionModel })
+  // Per-feature model roles. Each app area can run its own model (and provider).
+  // Defaults: cheap/fast model for high-volume areas, stronger model where quality matters.
+  const ROLE_DEFAULTS = (pc) => ({
+    general: pc.model,        // fallback + mode config generation
+    picture: pc.model,        // OCR translation, word explain, tooltip lookups
+    deck: pc.model,           // Anki card generation, editing, analysis, dedup
+    study: pc.questionModel,  // study question gen, evaluation, hints, insights, feedback
+    discover: pc.questionModel, // learner profiling, suggestions, fact-checking
+    chat: pc.model,           // the chat tab assistant
+    help: pc.questionModel,   // the ScreenLens Help assistant
+  })
+  // UI metadata for the AI Settings panel — order + labels + hints.
+  const AI_ROLE_META = [
+    { role: 'picture', label: 'Picture', hint: 'OCR translation, word explanations, tooltip lookups' },
+    { role: 'deck', label: 'Deck', hint: 'Anki card generation, editing, analysis, deduplication' },
+    { role: 'study', label: 'Study', hint: 'quiz/conjugation questions, answer grading, hints, insights, feedback' },
+    { role: 'discover', label: 'Discover', hint: 'learner profiling, new-item suggestions, fact-checking' },
+    { role: 'chat', label: 'Chat', hint: 'the chat tab assistant' },
+    { role: 'help', label: 'Help', hint: 'the ScreenLens Help assistant' },
+    { role: 'general', label: 'General', hint: 'fallback + AI mode/config generation' },
+  ]
   const resolveModel = (role, prov = aiStateRef.current.provider) => {
     const pc = PROVIDERS[prov]
     const overrides = aiStateRef.current.aiModels[prov]
     return (overrides && overrides[role]) || ROLE_DEFAULTS(pc)[role]
   }
+
+  // Ask the provider for its current model list (used by the "Check for new models"
+  // button and an auto-fetch when the AI Settings panel opens). Stores per provider.
+  const refreshModels = async (prov = provider) => {
+    const pc = PROVIDERS[prov]
+    const key = apiKeys[prov]
+    if (!pc?.listModels || !key) return
+    setModelsLoading(true)
+    setModelsError(null)
+    try {
+      const ids = await pc.listModels(key)
+      if (Array.isArray(ids) && ids.length) {
+        setAvailableModels((prev) => ({ ...prev, [prov]: ids }))
+      } else {
+        setModelsError('No models returned.')
+      }
+    } catch (e) {
+      setModelsError(e?.message || 'Failed to fetch models.')
+    } finally {
+      setModelsLoading(false)
+    }
+  }
+
+  // Auto-fetch the model list when the settings panel opens and we don't have one yet.
+  useEffect(() => {
+    if (showKeyInput && apiKeys[provider] && !availableModels[provider]) refreshModels(provider)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showKeyInput, provider, keysLoaded])
 
   // Ask the provider which models exist now and pick a sensible current one for
   // the role. Anthropic returns models newest-first; we prefer the role's tier.
@@ -455,6 +511,8 @@ export default function App() {
       setApiKeys(keys)
       if (config.provider) setProvider(config.provider)
       if (config.aiModels) setAiModels(config.aiModels)
+      if (config.availableModels) setAvailableModels(config.availableModels)
+      if (config.appLanguage) setAppLanguage(config.appLanguage)
       if (config.language) setLanguage(config.language)
       if (config.targetLang) setTargetLang(config.targetLang)
       if (config.showHighlights !== undefined) setShowHighlights(config.showHighlights)
@@ -619,9 +677,9 @@ export default function App() {
     fetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider, aiModels, language, targetLang, showHighlights, ...(activeTab ? { activeTab } : {}) }),
+      body: JSON.stringify({ provider, aiModels, availableModels, appLanguage, language, targetLang, showHighlights, ...(activeTab ? { activeTab } : {}) }),
     }).catch(() => {})
-  }, [provider, aiModels, language, targetLang, showHighlights, activeTab, configLoaded])
+  }, [provider, aiModels, availableModels, appLanguage, language, targetLang, showHighlights, activeTab, configLoaded])
 
   const setCurrentKey = (key) => {
     setApiKeys((prev) => ({ ...prev, [provider]: key }))
@@ -1011,7 +1069,7 @@ export default function App() {
         const fromLabel = language === 'auto' ? 'Auto-detect' : (LANGS.find((l) => l.code === language)?.label || 'Unknown')
         const toLabel = LANGS.find((l) => l.code === targetLang)?.label || 'English'
         const payload = JSON.stringify({ words: indexedWords, from: fromLabel, to: toLabel, context: fullContext })
-        const text = await aiCall(apiKey, TRANSLATE_PROMPT, payload)
+        const text = await aiCall(apiKey, TRANSLATE_PROMPT, payload, resolveModel('picture'))
         if (!text) throw new Error('Empty translation response')
 
         ocrLog(`Chunk ${i}: sent ${indexedWords.length} words`)
@@ -1317,7 +1375,7 @@ export default function App() {
       const fromLabel = language === 'auto' ? 'Auto-detect' : (LANGS.find((l) => l.code === language)?.label || 'Unknown')
       const toLabel = LANGS.find((l) => l.code === targetLang)?.label || 'English'
       const payload = JSON.stringify({ words: [{ i: idx, w: word.text }], from: fromLabel, to: toLabel, context })
-      const text = await aiCall(apiKey, TRANSLATE_PROMPT, payload)
+      const text = await aiCall(apiKey, TRANSLATE_PROMPT, payload, resolveModel('picture'))
       if (!text) return
       let parsed = JSON.parse(text.replace(/```json|```/g, '').trim())
       // Get the first translation item regardless of format
@@ -1456,7 +1514,7 @@ Context: "${getContext()}"
 Study subject: ${activeMode.description || activeMode.name}
 
 In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.name}. No markdown.`
-      const text = await aiCall(apiKey, activeMode.type === 'language' ? 'You are a concise language tutor. Answer in 1-2 sentences max.' : `You are a concise ${activeMode.name} tutor. Answer in 1-2 sentences max.`, prompt)
+      const text = await aiCall(apiKey, activeMode.type === 'language' ? 'You are a concise language tutor. Answer in 1-2 sentences max.' : `You are a concise ${activeMode.name} tutor. Answer in 1-2 sentences max.`, prompt, resolveModel('picture'))
       setExplanation(text)
     } catch (err) {
       setExplanation('Failed: ' + err.message)
@@ -1530,7 +1588,7 @@ ${fieldRequests.map((f) => `- ${f}`).join('\n')}
 Output ONLY raw JSON. No markdown, no backticks.`
 
     console.log('[Anki] generating card with AI...')
-    const text = await aiCall(apiKey, 'You generate Anki flashcard content. Always respond with valid JSON only.', prompt)
+    const text = await aiCall(apiKey, 'You generate Anki flashcard content. Always respond with valid JSON only.', prompt, resolveModel('deck'))
     const cardData = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
     console.log('[Anki] AI card data:', cardData)
 
@@ -1609,7 +1667,7 @@ The user wants this change: "${instruction}"
 Return a JSON object with the updated card: { "front": "...", "back": "...", "tags": [...] }
 Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown or backticks.`
 
-      const text = await aiCall(apiKey, 'You edit Anki flashcard content. Always respond with valid JSON only.', prompt)
+      const text = await aiCall(apiKey, 'You edit Anki flashcard content. Always respond with valid JSON only.', prompt, resolveModel('deck'))
       const updated = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
       setAnkiCard({
         front: updated.front || ankiCard.front,
@@ -1808,7 +1866,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       const fieldsDesc = Object.entries(deckBrowserEditFields).map(([name, val]) => `${name}:\n${val}`).join('\n\n')
       const prompt = `Here is an Anki flashcard:\n\n${fieldsDesc}\n\nThe user wants this change: "${instruction}"\n\nReturn a JSON object with the updated fields: { ${Object.keys(deckBrowserEditFields).map(k => `"${k}": "..."`).join(', ')} }\nKeep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown or backticks.`
 
-      const text = await aiCall(apiKey, 'You edit Anki flashcard content. Always respond with valid JSON only.', prompt)
+      const text = await aiCall(apiKey, 'You edit Anki flashcard content. Always respond with valid JSON only.', prompt, resolveModel('deck'))
       const updated = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
       const newFields = { ...deckBrowserEditFields }
       Object.entries(updated).forEach(([k, v]) => { if (k in newFields) newFields[k] = String(v) })
@@ -1885,7 +1943,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       const frontFieldName = Object.keys(cards[0]?.fields || {})[0] || 'Front'
       const prompt = `You are analyzing flashcards in a ${studyLang} learning deck. Find cards where the ${studyLang} word/phrase has MULTIPLE distinct everyday meanings that the card's current content does NOT disambiguate.\n\nFor each ambiguous card, propose updated field content that clarifies the intended meaning — e.g. specify the domain, add a usage example, or list the senses with a short note for each.\n\nDO NOT flag cards where:\n- The word has only one common meaning\n- The current content already disambiguates well\n- A learner would clearly understand from common usage\n\nCards (JSON):\n${JSON.stringify(cards)}\n\nReturn a JSON array — ONLY include cards that need fixing (skip the rest):\n[\n  {\n    "noteId": <number>,\n    "front": "<exact verbatim value of the card's "${frontFieldName}" field, copied character-for-character>",\n    "reason": "<one short sentence: what is ambiguous>",\n    "recommendedFields": { "<fieldName>": "<new content>", ... }\n  }\n]\n\nCRITICAL: "noteId" and "front" MUST identify the SAME card. Copy the "front" value verbatim from that exact card's data above — never paraphrase it, never use a different card's word, and double-check that the recommendedFields you write are for that same word. If you cannot be certain a noteId and its word match, omit that card.\n\nIn recommendedFields, include ONLY fields you're changing (typically just the back). Match each field's language (replace a ${studyLang} field with ${studyLang} content; replace an English field with English content). Use plain text with newlines for line breaks (no HTML, no <br>).\n\nOutput ONLY raw JSON. No markdown, no commentary.`
 
-      const text = await aiCall(apiKey, 'You analyze flashcard quality. Always respond with valid JSON only.', prompt)
+      const text = await aiCall(apiKey, 'You analyze flashcard quality. Always respond with valid JSON only.', prompt, resolveModel('deck'))
       const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
       if (!Array.isArray(parsed)) throw new Error('Response is not an array')
 
@@ -1978,7 +2036,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     try {
       const fieldsDesc = Object.entries(rec.recommendedFields).map(([k, v]) => `${k}:\n${v}`).join('\n\n')
       const prompt = `Here is a flashcard recommendation:\n\n${fieldsDesc}\n\nThe user wants this change: "${rec.refineInput}"\n\nReturn a JSON object with the updated fields: { ${Object.keys(rec.recommendedFields).map((k) => `"${k}": "..."`).join(', ')} }\nKeep any fields the user didn't ask to change. Use plain text with newlines (no HTML). Output ONLY raw JSON, no markdown.`
-      const text = await aiCall(apiKey, 'You edit Anki flashcard content. Always respond with valid JSON only.', prompt)
+      const text = await aiCall(apiKey, 'You edit Anki flashcard content. Always respond with valid JSON only.', prompt, resolveModel('deck'))
       const updated = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
       setDeckAnalyzeRecs((prev) => prev.map((r, i) => {
         if (i !== idx) return r
@@ -2189,7 +2247,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
             cards: ks.flatMap((k) => byKey.get(k).map((n) => ({ noteId: n.noteId, front: htmlToPlain(frontOf(n)) }))),
           }))
           const prompt = `These are flashcard headwords that look similar (possible spelling/accent/typo variants of the SAME word). For each cluster, identify which cards are truly the SAME word and should be merged. Different words that merely look alike (e.g. "casa" vs "caza", "pero" vs "perro") must NOT be grouped.\n\nClusters (JSON):\n${JSON.stringify(forAI)}\n\nReturn ONLY a JSON array of the duplicate sets you confirm (omit anything that isn't a real duplicate):\n[ { "merge": [<noteId>, <noteId>, ...] }, ... ]\n\nEach "merge" set must have 2+ noteIds that are the same word. Output ONLY raw JSON, no markdown.`
-          const text = await aiCall(apiKey, 'You confirm whether similar-looking flashcards are the same word. Always respond with valid JSON only.', prompt)
+          const text = await aiCall(apiKey, 'You confirm whether similar-looking flashcards are the same word. Always respond with valid JSON only.', prompt, resolveModel('deck'))
           const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
           if (Array.isArray(parsed)) {
             fuzzyGroups = parsed.map((p) => {
@@ -2240,7 +2298,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       try {
         const groupsForAI = dupNoteGroups.map((notes, i) => ({ group: i, headword: htmlToPlain(frontOf(notes[0])), cards: notes.map(plainFields) }))
         const prompt = `Each group below is a set of DUPLICATE flashcards that teach the same word. For EACH group, merge its cards into ONE card: keep the clearest front, and combine the backs so every distinct meaning, example, synonym and note is kept (remove only exact repeats).\n\nGroups (JSON):\n${JSON.stringify(groupsForAI)}\n\nReturn ONLY a JSON array, one object per group IN THE SAME ORDER:\n[ { "group": <number>, "headword": "<echo the same group's headword verbatim>", "mergedFields": { "<fieldName>": "<merged plain text>", ... } } ]\n\nThe "group" number, "headword", and "mergedFields" MUST all belong to the SAME group — never mix one group's content with another's.\n\nUse the SAME field names as the input. Plain text with newlines (no HTML, no <br>). Output ONLY raw JSON, no markdown.`
-        const text = await aiCall(apiKey, 'You merge duplicate flashcards. Always respond with valid JSON only.', prompt)
+        const text = await aiCall(apiKey, 'You merge duplicate flashcards. Always respond with valid JSON only.', prompt, resolveModel('deck'))
         const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
         if (Array.isArray(parsed)) parsed.forEach((p) => { if (typeof p.group === 'number' && p.mergedFields) aiMerges[p.group] = { fields: p.mergedFields, headword: p.headword || '' } })
       } catch (e) {
@@ -2498,7 +2556,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         modeDescription: activeMode.description,
         evidence,
       })
-      const text = await aiCall(apiKey, 'You assess learner proficiency. Always respond with valid JSON only.', prompt, resolveModel('question'))
+      const text = await aiCall(apiKey, 'You assess learner proficiency. Always respond with valid JSON only.', prompt, resolveModel('discover'))
       const profile = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
       setDiscoverProfile(profile)
       writeBlob('profile', activeMode.name, profile).catch(() => {})
@@ -2548,7 +2606,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         itemType: discoverConfig.itemType,
         focus: discoverConfig.focus.trim(),
       })
-      const text = await aiCall(apiKey, 'You suggest new study items. Always respond with valid JSON only.', prompt, resolveModel('question'))
+      const text = await aiCall(apiKey, 'You suggest new study items. Always respond with valid JSON only.', prompt, resolveModel('discover'))
       let suggestion = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
 
       // Web grounding: verify/correct facts against search results.
@@ -2560,7 +2618,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
           if (searchData.results?.length > 0) {
             setDiscoverSources(searchData.results.slice(0, 4))
             setDiscoverStatus('verifying')
-            const vText = await aiCall(apiKey, 'You verify facts and respond with valid JSON only.', buildVerifyPrompt({ suggestion, searchResults: searchData.results.slice(0, 5) }), resolveModel('question'))
+            const vText = await aiCall(apiKey, 'You verify facts and respond with valid JSON only.', buildVerifyPrompt({ suggestion, searchResults: searchData.results.slice(0, 5) }), resolveModel('discover'))
             const v = JSON.parse(vText.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
             suggestion = { ...suggestion, translation: v.translation || suggestion.translation, draftMeaning: v.draftMeaning || suggestion.draftMeaning, verified: !!v.verified, verifyNote: v.note || '' }
           }
@@ -2795,7 +2853,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
 
       const text = await aiCall(apiKey,
         'You modify study mode configurations. Always respond with valid JSON only.',
-        prompt
+        prompt, resolveModel('general')
       )
       const config = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
       const updates = {
@@ -2899,7 +2957,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
             <span key={c} style={{ width: 7, height: 7, borderRadius: '50%', background: c }} />
           ))}
         </span>
-        {studyLegendOpen ? 'Hide legend' : 'Color legend'}
+        {studyLegendOpen ? t('hideLegend') : t('colorLegend')}
       </button>
       {studyLegendOpen && (
         <div style={{ position: 'absolute', right: 0, top: '110%', zIndex: 20, background: '#161b22', border: '1px solid #2a3040', borderRadius: 6, padding: '8px 10px', width: 230, boxShadow: '0 4px 16px rgba(0,0,0,.4)' }}>
@@ -2945,7 +3003,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const prompt = `Card front: "${front}"\nCard back: "${back}"\n${languageBlock}\n${orderRules}\n\nCRITICAL RULES:\n- Questions must require the SPECIFIC answer on this card — synonyms are NOT acceptable for recall/fill_blank questions\n- NEVER construct a question whose only purpose is to directly name the answer (e.g. "what noun corresponds to adjective X?" when that noun IS the answer)\n- Each question must test a DIFFERENT angle\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question before finalizing): mentally substitute 2–3 plausible alternative ${studyLang} words into the question. If ANY of them fit the sentence/scenario as naturally as the target word, the question is too vague — REWRITE it with more specific cues that exclude the alternatives. Hints (letter count, first letter) DO NOT make an ambiguous question valid; the question itself must point at the target word.\n  - BAD example: "Necesito ir a ___ para tomar mi vuelo a Madrid." Target answer "terminal" — but "aeropuerto" fits just as well. Rewrite needed.\n  - GOOD example: "El edificio específico dentro del aeropuerto donde se abordan los aviones se llama la ___" — now only "terminal" fits because "aeropuerto" is excluded by being named in the question itself.\n- For language cards: test usage in sentences, grammatical properties, contextual usage\n- For conceptual cards: test application, process, comparison\n\n${questionPrompt}\n\nGenerate all questions in ${studyLang}.${knowledgeContext}\n\nReturn a JSON array of exactly ${n} objects:\n[\n  {\n    "question": "the question text",\n    "type": "recall" | "fill_blank" | "explanation",\n    "hint1": "N letters" (letter count of primary answer, null for explanation),\n    "hint2": "starts with 'X'" (first letter of primary answer, null for explanation),\n    "acceptedAnswers": ["answer1", "answer2"] (lowercase; exact words that are correct; empty for explanation)\n  }\n]\nOutput ONLY raw JSON array. No markdown, no backticks.`
 
     try {
-      const text = await aiCall(apiKey, 'You generate structured flashcard quiz questions. Always respond with a valid JSON array of objects.', prompt, resolveModel('question'))
+      const text = await aiCall(apiKey, 'You generate structured flashcard quiz questions. Always respond with a valid JSON array of objects.', prompt, resolveModel('study'))
       const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
       if (!Array.isArray(parsed)) throw new Error('not array')
       return parsed.slice(0, n).map(q => ({
@@ -2984,7 +3042,7 @@ Return a JSON object:
 
 Use up to 40 words total. No duplicates. Output ONLY raw JSON. No markdown, no backticks.`
     try {
-      const text = await aiCall(apiKey, 'You help language learners practice verb conjugations. Respond with valid JSON only.', prompt)
+      const text = await aiCall(apiKey, 'You help language learners practice verb conjugations. Respond with valid JSON only.', prompt, resolveModel('study'))
       const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
       const language = (parsed.language && typeof parsed.language === 'string') ? parsed.language : 'English'
       const words = Array.isArray(parsed.words) ? parsed.words.filter(w => w.word && w.meaning) : []
@@ -3010,7 +3068,7 @@ Return JSON: [{"question": "...", "type": "recall", "hint1": "X letters", "hint2
 
 Output ONLY raw JSON. No markdown, no backticks.`
     try {
-      const text = await aiCall(apiKey, 'You generate conjugation quiz questions. Always respond with a valid JSON array of objects.', prompt, resolveModel('question'))
+      const text = await aiCall(apiKey, 'You generate conjugation quiz questions. Always respond with a valid JSON array of objects.', prompt, resolveModel('study'))
       const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
       if (!Array.isArray(parsed)) throw new Error('not array')
       return parsed.slice(0, n).map(q => ({
@@ -3425,7 +3483,7 @@ Rules:
 - Do NOT include the answer word or any conjugated/inflected form of it
 - Do NOT give spelling hints or letter counts
 - Describe the concept, meaning, or context only`
-      const text = await aiCall(apiKey, `You give concise flashcard study hints written entirely in ${studyLang}. Never reveal the answer word or any of its forms.`, prompt)
+      const text = await aiCall(apiKey, `You give concise flashcard study hints written entirely in ${studyLang}. Never reveal the answer word or any of its forms.`, prompt, resolveModel('study'))
       setStudyMeaningHint(text.trim())
     } catch {
       setStudyMeaningHint(null); setStudyWordLookup(null)
@@ -3445,7 +3503,7 @@ Rules:
       const prompt = `In the sentence below, what does the word "${word}" mean as used here? Reply in ${studyLang} with just a short definition or translation of "${word}" (a few words — no full-sentence translation, no extra commentary).
 
 Sentence: "${sentence}"`
-      const text = await aiCall(apiKey, `You are a concise bilingual dictionary. Given one word in a sentence, return only that word's contextual meaning, written in ${studyLang}.`, prompt)
+      const text = await aiCall(apiKey, `You are a concise bilingual dictionary. Given one word in a sentence, return only that word's contextual meaning, written in ${studyLang}.`, prompt, resolveModel('study'))
       setStudyWordLookup({ word, meaning: text.trim(), loading: false })
     } catch {
       setStudyWordLookup({ word, meaning: 'Lookup failed — try again.', loading: false })
@@ -3513,7 +3571,7 @@ Sentence: "${sentence}"`
 
       const prompt = `Evaluate ALL answers for this flashcard at once.\n\nCard front: "${cs.front}"\nCard back: "${cs.back}"\n\n${modeType}\n\n${questionsAndAnswers}\n\n${gradingRules}${notesInstruction}\n\nWrite ALL feedback text in ${studyLang}.\n\nReturn a JSON array of ${cs.questions.length} objects: [{"correct": true/false, "feedback": "one short summary sentence", "notes": [{"type": "praise|correction|grammar|terminology|detail|tip", "text": "...", "penalize": true/false}]}]\n\nOutput ONLY raw JSON. No markdown, no backticks.`
 
-      const text = await aiCall(apiKey, 'You evaluate flashcard answers. Always respond with valid JSON only.', prompt)
+      const text = await aiCall(apiKey, 'You evaluate flashcard answers. Always respond with valid JSON only.', prompt, resolveModel('study'))
       const results = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
 
       if (!Array.isArray(results)) return
@@ -3763,7 +3821,7 @@ Last updated: ${new Date().toISOString().split('T')[0]}
 ## Mastered (recently)
 (items no longer a problem)`
 
-      const text = await aiCall(apiKey, 'You analyze study session results and track learning progress.', prompt)
+      const text = await aiCall(apiKey, 'You analyze study session results and track learning progress.', prompt, resolveModel('study'))
       const parts = text.split('---')
       const insight = parts[0]?.trim() || text
       const newProgress = parts[1]?.trim()
@@ -3881,7 +3939,7 @@ To mark ONE question correct: <action>{"type":"fix_typo","questionIndex":N,"corr
 
 Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the student is studying — not English, unless ${studyLang} is English). Always include the action tag when applicable. Never refuse a student's correction request.`
       const fullPrompt = newMessages.map(m => `${m.role === 'user' ? 'User' : 'Tutor'}: ${m.text}`).join('\n')
-      const text = await aiCall(apiKey, systemPrompt, fullPrompt)
+      const text = await aiCall(apiKey, systemPrompt, fullPrompt, resolveModel('study'))
 
       // Parse and execute actions from the response
       const actionMatches = [...text.matchAll(/<action>(.*?)<\/action>/gs)]
@@ -4044,7 +4102,7 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       }
 
       const convo = newMsgs.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n\n')
-      const text = await aiCall(apiKey, systemPrompt, convo)
+      const text = await aiCall(apiKey, systemPrompt, convo, resolveModel('chat'))
 
       // Parse anki cards from response
       const cardMatches = [...text.matchAll(/<anki-card>(.*?)<\/anki-card>/gs)]
@@ -4199,7 +4257,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
 
       const text = await aiCall(apiKey,
         'You configure study modes for a learning app. Always respond with valid JSON only.',
-        prompt
+        prompt, resolveModel('general')
       )
       const config = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
 
@@ -4287,7 +4345,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
 Context: "${getContext()}"
 
 In 3-4 short sentences, explain why "${word.text}" means "${word.translation}" in this context. Be concise and direct. No filler, no repetition, no grammar analysis, no examples. Just the meaning and why.`
-      const text = await aiCall(apiKey, 'You are a concise language tutor. Explain in 3-4 sentences max. No fluff.', prompt, resolveModel('question'))
+      const text = await aiCall(apiKey, 'You are a concise language tutor. Explain in 3-4 sentences max. No fluff.', prompt, resolveModel('picture'))
       setDeepExplanation(text)
     } catch (err) {
       setDeepExplanation('Failed: ' + err.message)
@@ -4320,7 +4378,7 @@ REGISTER: One word — formal/informal/neutral/slang.
 RELATED: 3 related words with brief English meaning, one per line.
 
 No paragraphs. No explanations. Just the facts. Use the section labels above.`
-      const text = await aiCall(apiKey, 'You are a concise dictionary. Short bullet points only. No paragraphs, no filler.', prompt)
+      const text = await aiCall(apiKey, 'You are a concise dictionary. Short bullet points only. No paragraphs, no filler.', prompt, resolveModel('picture'))
       setWordStudy(text)
     } catch (err) {
       setWordStudy('Failed: ' + err.message)
@@ -4353,7 +4411,7 @@ For nouns: SINGULAR: [form], PLURAL: [form], GENDER: [m/f]
 For adjectives: MASC SING: [form], FEM SING: [form], MASC PL: [form], FEM PL: [form]
 
 No explanations. Just the forms. Use the section labels above.`
-      const text = await aiCall(apiKey, 'You are a conjugation table generator. Only output the forms, no commentary.', prompt)
+      const text = await aiCall(apiKey, 'You are a conjugation table generator. Only output the forms, no commentary.', prompt, resolveModel('picture'))
       setConjugation(text)
     } catch (err) {
       setConjugation('Failed: ' + err.message)
@@ -4378,7 +4436,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       ]
       // Build the full conversation as a single user message for simplicity
       const fullPrompt = messages.map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n')
-      const text = await aiCall(apiKey, systemPrompt, fullPrompt)
+      const text = await aiCall(apiKey, systemPrompt, fullPrompt, resolveModel('picture'))
       setChatMessages((prev) => [...prev, { role: 'assistant', text }])
     } catch (err) {
       setChatMessages((prev) => [...prev, { role: 'assistant', text: 'Error: ' + err.message }])
@@ -4521,7 +4579,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             <circle cx="18" cy="7" r="4" fill="#58a6ff"/>
           </svg>
           <h1 style={S.title}>ScreenLens</h1>
-          <span style={S.badge}>LOCAL</span>
+          <span style={S.badge}>{t('badge_local')}</span>
           <div style={S.tabBar}>
             {['chat', 'study', 'deck', 'discover', 'picture', 'stats'].map((tab) => (
               <button
@@ -4532,7 +4590,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 }}
                 style={{ ...S.tab, ...(activeTab === tab ? S.tabActive : {}) }}
               >
-                {{ chat: 'Chat', study: 'Study', deck: 'Deck', discover: 'Discover', picture: 'Picture', stats: 'Stats' }[tab]}
+                {t('tab_' + tab)}
               </button>
             ))}
           </div>
@@ -4549,7 +4607,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             </button>
           )}
 
-          {activeTab === 'picture' && stage !== 'idle' && <button onClick={reset} style={S.ghostBtn}>New</button>}
+          {activeTab === 'picture' && stage !== 'idle' && <button onClick={reset} style={S.ghostBtn}>{t('pictureNew')}</button>}
 
           {activeTab === 'picture' && screenshot && !loading && stage === 'done' && (
             <button onClick={() => analyzeImage(screenshot)} style={S.ghostBtn}>Re-analyze</button>
@@ -4631,8 +4689,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       {showKeyInput && (
         <div style={{ ...S.keyBar, flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#e6edf3' }}>AI Provider Settings</span>
-            <button onClick={() => setShowKeyInput(false)} style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 8px' }}>Close</button>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#e6edf3' }}>{t('aiSettings')}</span>
+            <button onClick={() => setShowKeyInput(false)} style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 8px' }}>{t('close')}</button>
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {Object.entries(PROVIDERS).map(([key, p]) => (
@@ -4658,36 +4716,69 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             <a href={providerConfig.url} target="_blank" rel="noopener noreferrer" style={S.getKeyLink}>Get key</a>
           </div>
 
-          {/* Per-role model overrides — blank = provider default. Lets each part of
-              the app run a different model (and a different provider, via the picker above). */}
+          {/* Per-role model dropdowns. Each picks from the provider's live model list
+              (fetched via "Check for new models"); blank = provider default. */}
+          {(() => {
+            const provModels = availableModels[provider] || []
+            return (
           <div style={{ borderTop: '1px solid #2a3040', paddingTop: 8, marginTop: 2 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#7d8590' }}>AI Models — {providerConfig.label}</span>
-              {aiModels[provider] && Object.keys(aiModels[provider]).length > 0 && (
-                <button onClick={() => setAiModels((prev) => { const n = { ...prev }; delete n[provider]; return n })}
-                  style={{ ...S.ghostBtn, fontSize: 9, padding: '2px 6px' }}>Reset to defaults</button>
-              )}
-            </div>
-            {[
-              { role: 'general', label: 'General', hint: 'translations, explanations, chat, card edits' },
-              { role: 'question', label: 'Questions', hint: 'study & conjugation questions, assessments' },
-              { role: 'help', label: 'Help chat', hint: 'the ScreenLens Help assistant' },
-            ].map(({ role, label, hint }) => (
-              <div key={role} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
-                <span style={{ fontSize: 10, color: '#7d8590', width: 70, flexShrink: 0 }} title={hint}>{label}</span>
-                <input
-                  value={aiModels[provider]?.[role] || ''}
-                  onChange={(e) => setAiModels((prev) => ({ ...prev, [provider]: { ...(prev[provider] || {}), [role]: e.target.value } }))}
-                  placeholder={ROLE_DEFAULTS(providerConfig)[role]}
-                  spellCheck={false}
-                  style={{ ...S.keyInput, flex: 1, fontSize: 11, padding: '5px 8px' }}
-                />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#7d8590' }}>{t('aiModelsFor')} {providerConfig.label}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <button onClick={() => refreshModels(provider)} disabled={modelsLoading || !apiKey}
+                  title={t('checkNewModelsHint')}
+                  style={{ ...S.ghostBtn, fontSize: 9, padding: '2px 8px', color: '#58a6ff', borderColor: 'rgba(88,166,255,.3)', opacity: (modelsLoading || !apiKey) ? 0.5 : 1 }}>
+                  {modelsLoading ? t('checkingModels') : `↻ ${t('checkNewModels')}`}
+                </button>
+                {aiModels[provider] && Object.keys(aiModels[provider]).length > 0 && (
+                  <button onClick={() => setAiModels((prev) => { const n = { ...prev }; delete n[provider]; return n })}
+                    style={{ ...S.ghostBtn, fontSize: 9, padding: '2px 6px' }}>{t('resetToDefaults')}</button>
+                )}
               </div>
-            ))}
-            <span style={{ fontSize: 9, color: '#484f58' }}>Leave blank to use the provider default (shown as placeholder). Retired models auto-switch to a current one.</span>
+            </div>
+            {modelsError && <div style={{ fontSize: 9, color: '#f85149', marginBottom: 6 }}>{modelsError}</div>}
+            {AI_ROLE_META.map(({ role, label, hint }) => {
+              const def = ROLE_DEFAULTS(providerConfig)[role]
+              const current = aiModels[provider]?.[role] || ''
+              // Option list = live model list ∪ default ∪ current selection (so nothing is lost).
+              const opts = Array.from(new Set([...(provModels.length ? provModels : []), def, current].filter(Boolean)))
+              return (
+              <div key={role} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                <span style={{ fontSize: 10, color: '#7d8590', width: 70, flexShrink: 0 }} title={hint}>{t('aiRole_' + role)}</span>
+                <select
+                  value={current}
+                  onChange={(e) => setAiModels((prev) => ({ ...prev, [provider]: { ...(prev[provider] || {}), [role]: e.target.value } }))}
+                  style={{ ...S.keyInput, flex: 1, fontSize: 11, padding: '5px 8px' }}
+                >
+                  <option value="">{t('providerDefault')} ({def})</option>
+                  {opts.map((m) => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+              )
+            })}
+            <span style={{ fontSize: 9, color: '#484f58' }}>{provModels.length ? t('aiModelsHintDropdown') : t('aiModelsHint')}</span>
+          </div>
+            )
+          })()}
+
+          {/* App language — translates all UI chrome (everything outside flashcard content) */}
+          <div style={{ borderTop: '1px solid #2a3040', paddingTop: 8, marginTop: 2 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#7d8590', flexShrink: 0 }}>{t('appLanguage')}</span>
+              <select
+                value={appLanguage}
+                onChange={(e) => setAppLanguage(e.target.value)}
+                style={{ ...S.keyInput, flex: 1, fontSize: 11, padding: '5px 8px' }}
+              >
+                {APP_LANGUAGES.map((l) => (
+                  <option key={l.code} value={l.code}>{l.label}</option>
+                ))}
+              </select>
+            </div>
+            <span style={{ fontSize: 9, color: '#484f58' }}>{t('appLanguageHint')}</span>
           </div>
 
-          <span style={{ fontSize: 10, color: '#484f58' }}>Keys stored in localStorage only</span>
+          <span style={{ fontSize: 10, color: '#484f58' }}>{t('keysStored')}</span>
         </div>
       )}
 
@@ -4695,7 +4786,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         <div style={{ ...S.keyBar, flexDirection: 'column', alignItems: 'stretch', gap: 10 }}>
           {/* Mode list + create */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#58a6ff' }}>Modes:</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#58a6ff' }}>{t('modes')}:</span>
             {modes.map((m) => (
               <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 {editingModeName === m.id ? (
@@ -4744,7 +4835,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               disabled={modeCreating || !modeEditInput.trim()}
               style={{ ...S.keyDone, opacity: modeCreating || !modeEditInput.trim() ? 0.5 : 1 }}
             >
-              {modeCreating ? 'Creating...' : 'Create'}
+              {modeCreating ? t('creating') : t('create')}
             </button>
           </div>
 
@@ -5043,12 +5134,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           <div style={{ maxWidth: 800, width: '100%', margin: '0 auto' }}>
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#e6edf3' }}>Deck Browser</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#e6edf3' }}>{t('deckBrowser')}</div>
               <button
                 disabled={!ankiConnected}
                 onClick={() => { setDeckBrowserAddPanel(p => !p); setDeckBrowserAddName(''); setDeckBrowserAddPurpose('') }}
                 style={{ background: deckBrowserAddPanel ? 'rgba(63,185,80,0.25)' : 'rgba(63,185,80,0.12)', color: '#3fb950', border: '1px solid rgba(63,185,80,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: ankiConnected ? 1 : 0.5 }}
-              >+ Add Deck</button>
+              >{t('addDeck')}</button>
             </div>
 
             {deckBrowserAddPanel && (
@@ -5073,20 +5164,20 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     onClick={handleAddDeck}
                     disabled={!deckBrowserAddName.trim() || deckBrowserAddLoading}
                     style={{ background: 'rgba(63,185,80,0.15)', color: '#3fb950', border: '1px solid rgba(63,185,80,0.3)', borderRadius: 5, padding: '6px 14px', fontSize: 11, cursor: (!deckBrowserAddName.trim() || deckBrowserAddLoading) ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: (!deckBrowserAddName.trim() || deckBrowserAddLoading) ? 0.5 : 1 }}
-                  >{deckBrowserAddLoading ? 'Creating...' : 'Create'}</button>
+                  >{deckBrowserAddLoading ? t('creating') : t('create')}</button>
                   <button
                     onClick={() => { setDeckBrowserAddPanel(false); setDeckBrowserAddName(''); setDeckBrowserAddPurpose('') }}
                     style={{ ...S.ghostBtn, fontSize: 11 }}
-                  >Cancel</button>
+                  >{t('cancel')}</button>
                 </div>
               </div>
             )}
 
             {ankiConnected === false && (
-              <div style={{ fontSize: 11, color: '#d29922', marginBottom: 12 }}>Anki is not connected. Start Anki with AnkiConnect addon.</div>
+              <div style={{ fontSize: 11, color: '#d29922', marginBottom: 12 }}>{t('ankiNotConnected')}</div>
             )}
             {ankiConnected === null && (
-              <div style={{ fontSize: 11, color: '#7d8590', marginBottom: 12 }}>Checking Anki connection...</div>
+              <div style={{ fontSize: 11, color: '#7d8590', marginBottom: 12 }}>{t('checkingAnki')}</div>
             )}
 
             {/* Deck picker + search */}
@@ -5525,14 +5616,15 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       {activeTab === 'discover' && (
         <main style={{ ...S.main, display: 'flex', flexDirection: 'column', padding: 20 }}>
           <div style={{ maxWidth: 800, width: '100%', margin: '0 auto' }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#e6edf3', marginBottom: 12 }}>Discover</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#e6edf3', marginBottom: 12 }}>{t('discoverTitle')}</div>
             {ankiConnected === false && (
-              <div style={{ fontSize: 11, color: '#d29922', marginBottom: 12 }}>Anki is not connected. Start Anki with AnkiConnect addon.</div>
+              <div style={{ fontSize: 11, color: '#d29922', marginBottom: 12 }}>{t('ankiNotConnected')}</div>
             )}
             {ankiConnected === null && (
-              <div style={{ fontSize: 11, color: '#7d8590', marginBottom: 12 }}>Checking Anki connection...</div>
+              <div style={{ fontSize: 11, color: '#7d8590', marginBottom: 12 }}>{t('checkingAnki')}</div>
             )}
             <DiscoverPanel
+              t={t}
               profile={discoverProfile}
               profileLoading={discoverProfileLoading}
               suggestion={discoverSuggestion}
@@ -5575,22 +5667,22 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       {activeTab === 'study' && !studyActive && (
         <main style={{ ...S.main, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
           <div style={{ maxWidth: 400, width: '100%', textAlign: 'center', padding: '40px 20px' }}>
-            <div style={{ fontSize: 20, fontWeight: 700, color: '#e6edf3', marginBottom: 16 }}>Study</div>
-            <div style={{ fontSize: 12, color: '#7d8590', marginBottom: 24 }}>Review your Anki cards with AI-powered quizzes.</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: '#e6edf3', marginBottom: 16 }}>{t('studyTitle')}</div>
+            <div style={{ fontSize: 12, color: '#7d8590', marginBottom: 24 }}>{t('studyTagline')}</div>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
               <button
                 onClick={startStudySession}
                 disabled={studyLoading || ankiConnected === false}
                 style={{ ...S.captureBtn, borderRadius: 8, fontSize: 13, padding: '10px 24px', opacity: (studyLoading || ankiConnected === false) ? 0.5 : 1 }}
               >
-                {studyLoading ? 'Loading...' : 'Study Now'}
+                {studyLoading ? t('loading') : t('studyNow')}
               </button>
             </div>
             {ankiConnected === false && (
-              <div style={{ fontSize: 11, color: '#d29922', marginTop: 12 }}>Anki is not connected. Start Anki with AnkiConnect addon.</div>
+              <div style={{ fontSize: 11, color: '#d29922', marginTop: 12 }}>{t('ankiNotConnected')}</div>
             )}
             {ankiConnected === null && (
-              <div style={{ fontSize: 11, color: '#7d8590', marginTop: 12 }}>Checking Anki connection...</div>
+              <div style={{ fontSize: 11, color: '#7d8590', marginTop: 12 }}>{t('checkingAnki')}</div>
             )}
           </div>
         </main>
@@ -5602,7 +5694,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           {/* Session sidebar */}
           <div style={{ width: 200, borderRight: '1px solid #2a3040', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
             <button onClick={chatTabNewChat} style={{ ...S.captureBtn, margin: 8, borderRadius: 6, fontSize: 11, padding: '8px 12px' }}>
-              + New Chat
+              {t('newChat')}
             </button>
             <div style={{ flex: 1, overflow: 'auto', padding: '0 8px 8px' }}>
               {chatTabSessions.map(s => (
@@ -5817,27 +5909,27 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         return (
         <main style={{ ...S.main, padding: 20 }}>
           <div style={{ maxWidth: 700, margin: '0 auto', width: '100%' }}>
-            <div style={{ fontSize: 20, fontWeight: 700, color: '#e6edf3', marginBottom: 20 }}>Stats</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: '#e6edf3', marginBottom: 20 }}>{t('statsTitle')}</div>
 
             {/* Top row: streak + today */}
             <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
               <div style={{ flex: 1, padding: '16px 20px', background: '#1c2129', border: '1px solid #2a3040', borderRadius: 8, textAlign: 'center' }}>
                 <div style={{ fontSize: 32, fontWeight: 700, color: '#ffa657' }}>{streak}</div>
-                <div style={{ fontSize: 11, color: '#7d8590' }}>Day Streak</div>
+                <div style={{ fontSize: 11, color: '#7d8590' }}>{t('dayStreak')}</div>
               </div>
               <div style={{ flex: 1, padding: '16px 20px', background: '#1c2129', border: '1px solid #2a3040', borderRadius: 8, textAlign: 'center' }}>
                 <div style={{ fontSize: 32, fontWeight: 700, color: '#58a6ff' }}>{todayCards}</div>
-                <div style={{ fontSize: 11, color: '#7d8590' }}>Cards Today</div>
+                <div style={{ fontSize: 11, color: '#7d8590' }}>{t('cardsToday')}</div>
               </div>
               <div style={{ flex: 1, padding: '16px 20px', background: '#1c2129', border: '1px solid #2a3040', borderRadius: 8, textAlign: 'center' }}>
                 <div style={{ fontSize: 32, fontWeight: 700, color: '#7ee787' }}>{todayTotal > 0 ? Math.round(todayCorrect / todayTotal * 100) : 0}%</div>
-                <div style={{ fontSize: 11, color: '#7d8590' }}>Accuracy Today</div>
+                <div style={{ fontSize: 11, color: '#7d8590' }}>{t('accuracyToday')}</div>
               </div>
             </div>
 
             {/* 14-day chart */}
             <div style={{ padding: '16px 20px', background: '#1c2129', border: '1px solid #2a3040', borderRadius: 8, marginBottom: 20 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#e6edf3', marginBottom: 12 }}>Last 14 Days</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#e6edf3', marginBottom: 12 }}>{t('last14Days')}</div>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 100 }}>
                 {chartDays.map((day, i) => (
                   <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
@@ -5855,25 +5947,25 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
 
             {/* Per-deck breakdown */}
             <div style={{ padding: '16px 20px', background: '#1c2129', border: '1px solid #2a3040', borderRadius: 8, marginBottom: 20 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#e6edf3', marginBottom: 12 }}>Decks</div>
-              {Object.keys(deckMap).length === 0 && <div style={{ fontSize: 11, color: '#484f58' }}>No study history yet</div>}
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#e6edf3', marginBottom: 12 }}>{t('decks')}</div>
+              {Object.keys(deckMap).length === 0 && <div style={{ fontSize: 11, color: '#484f58' }}>{t('noStudyHistory')}</div>}
               {Object.entries(deckMap).map(([deck, data]) => (
                 <div key={deck} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #2a3040', fontSize: 11 }}>
                   <span style={{ color: '#e6edf3', fontWeight: 600 }}>{deck}</span>
-                  <span style={{ color: '#7d8590' }}>{data.cards} cards / {data.sessions} sessions / last: {data.lastDate}</span>
+                  <span style={{ color: '#7d8590' }}>{data.cards} {t('cardsLabel')} / {data.sessions} {t('sessionsLabel')} / {t('lastLabel')}: {data.lastDate}</span>
                 </div>
               ))}
             </div>
 
             {/* Recent sessions */}
             <div style={{ padding: '16px 20px', background: '#1c2129', border: '1px solid #2a3040', borderRadius: 8 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#e6edf3', marginBottom: 12 }}>Recent Sessions</div>
-              {history.length === 0 && <div style={{ fontSize: 11, color: '#484f58' }}>No sessions yet. Complete a study session to see stats here.</div>}
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#e6edf3', marginBottom: 12 }}>{t('recentSessions')}</div>
+              {history.length === 0 && <div style={{ fontSize: 11, color: '#484f58' }}>{t('noSessions')}</div>}
               {history.slice(0, 20).map((h, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #2a3040', fontSize: 11 }}>
                   <span style={{ color: '#7d8590' }}>{h.date}</span>
                   <span style={{ color: '#58a6ff' }}>{h.deck}</span>
-                  <span style={{ color: '#e6edf3' }}>{h.cardsStudied} cards</span>
+                  <span style={{ color: '#e6edf3' }}>{h.cardsStudied} {t('cardsLabel')}</span>
                   <span style={{ color: h.accuracy >= 80 ? '#7ee787' : h.accuracy >= 50 ? '#d29922' : '#f85149' }}>{h.accuracy}%</span>
                 </div>
               ))}
@@ -5898,14 +5990,14 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             {/* Study start phase */}
             {studyPhase === 'pick' && (
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 20, fontWeight: 700, color: '#e6edf3', marginBottom: 8 }}>Study Session</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: '#e6edf3', marginBottom: 8 }}>{t('studySession')}</div>
                 {/* Mode & Deck selectors */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center', marginBottom: 16 }}>
                   <div style={{
                     display: 'inline-flex', alignItems: 'center', gap: 10, padding: '10px 20px',
                     background: '#1c2129', border: '1px solid #2a3040', borderRadius: 8,
                   }}>
-                    <span style={{ fontSize: 12, color: '#7d8590' }}>Mode:</span>
+                    <span style={{ fontSize: 12, color: '#7d8590' }}>{t('mode')}:</span>
                     <select value={activeModeId} onChange={(e) => {
                       const id = parseInt(e.target.value)
                       setActiveModeId(id)
@@ -5921,7 +6013,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     display: 'inline-flex', alignItems: 'center', gap: 10, padding: '10px 20px',
                     background: '#1c2129', border: '1px solid #2a3040', borderRadius: 8,
                   }}>
-                    <span style={{ fontSize: 12, color: '#7d8590' }}>Deck:</span>
+                    <span style={{ fontSize: 12, color: '#7d8590' }}>{t('deck')}:</span>
                     <select value={studyDeck} onChange={(e) => { setStudyDeck(e.target.value); setAnkiDeck(e.target.value) }}
                       style={{ ...S.select, fontSize: 12, padding: '6px 10px' }}>
                       {ankiDecks.map((d) => <option key={d} value={d}>{d}</option>)}
@@ -5934,7 +6026,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   display: 'inline-flex', alignItems: 'center', gap: 10, padding: '10px 20px',
                   background: '#1c2129', border: '1px solid #2a3040', borderRadius: 8, marginBottom: 16,
                 }}>
-                  <span style={{ fontSize: 12, color: '#7d8590' }}>Quiz in:</span>
+                  <span style={{ fontSize: 12, color: '#7d8590' }}>{t('quizIn')}:</span>
                   <select value={activeMode.studyRules?.studyLanguage || 'English'}
                     onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), studyLanguage: e.target.value } })}
                     style={{ ...S.select, fontSize: 11, padding: '4px 8px' }}>
@@ -5946,7 +6038,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     <input type="checkbox" checked={activeMode.studyRules?.grammarFeedback || false}
                       onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), grammarFeedback: e.target.checked } })}
                     />
-                    Grammar feedback
+                    {t('grammarFeedback')}
                   </label>
                 </div>
 
@@ -5955,20 +6047,20 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   display: 'inline-flex', alignItems: 'center', gap: 10, padding: '10px 20px',
                   background: '#1c2129', border: '1px solid #2a3040', borderRadius: 8, marginTop: 8, marginBottom: 4,
                 }}>
-                  <span style={{ fontSize: 12, color: '#7d8590' }}>Study type:</span>
+                  <span style={{ fontSize: 12, color: '#7d8590' }}>{t('studyType')}:</span>
                   <select value={studyMode} onChange={(e) => setStudyMode(e.target.value)}
                     style={{ ...S.select, fontSize: 12, padding: '6px 10px' }}>
-                    <option value="flashcards">Flashcards</option>
-                    <option value="conjugations">Conjugations</option>
+                    <option value="flashcards">{t('flashcards')}</option>
+                    <option value="conjugations">{t('conjugations')}</option>
                   </select>
                 </div>
 
                 <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 8 }}>
                   <button onClick={() => beginStudy(studyDeck, studyMode)} disabled={!studyDeck || studyLoading}
                     style={{ ...S.captureBtn, borderRadius: 6, padding: '10px 24px', fontSize: 13, opacity: !studyDeck || studyLoading ? 0.5 : 1 }}>
-                    {studyLoading ? 'Loading...' : 'Start'}
+                    {studyLoading ? t('loading') : t('start')}
                   </button>
-                  <button onClick={exitStudy} style={{ ...S.ghostBtn }}>Cancel</button>
+                  <button onClick={exitStudy} style={{ ...S.ghostBtn }}>{t('cancel')}</button>
                 </div>
                 {ankiError && <div style={{ color: '#f85149', fontSize: 11, marginTop: 8 }}>{ankiError}</div>}
               </div>
@@ -5977,9 +6069,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             {/* Summary phase */}
             {studyPhase === 'summary' && (
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 20, fontWeight: 700, color: '#e6edf3', marginBottom: 16 }}>Session Complete</div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: '#e6edf3', marginBottom: 16 }}>{t('sessionComplete')}</div>
                 <div style={{ fontSize: 14, color: '#7d8590', marginBottom: 24 }}>
-                  {studyStats.easy + studyStats.good + studyStats.hard + studyStats.again} cards studied
+                  {studyStats.easy + studyStats.good + studyStats.hard + studyStats.again} {t('cardsStudied')}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 24 }}>
                   {[
@@ -5998,7 +6090,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 {/* Spaced repetition insights */}
                 {!studyInsights && !studyInsightsLoading && (
                   <button onClick={generateStudyInsights} style={{ ...S.ghostBtn, fontSize: 11, marginBottom: 16, color: '#d2a8ff', borderColor: 'rgba(210,168,255,.25)' }}>
-                    Generate Insights
+                    {t('generateInsights')}
                   </button>
                 )}
                 {studyInsightsLoading && (
@@ -6018,7 +6110,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   </div>
                 )}
 
-                <button onClick={exitStudy} style={{ ...S.captureBtn, borderRadius: 6 }}>Done</button>
+                <button onClick={exitStudy} style={{ ...S.captureBtn, borderRadius: 6 }}>{t('done')}</button>
               </div>
             )}
 
@@ -6037,7 +6129,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   {/* Correct-spelling toast (accent/typo accepted) — stays mounted across card transitions */}
                   {studySpellingNote && (
                     <div style={{ position: 'fixed', top: '30%', right: 24, zIndex: 50, maxWidth: 220, background: 'rgba(34,40,30,.97)', border: '1px solid rgba(126,231,135,.35)', borderRadius: 8, padding: '10px 14px', boxShadow: '0 4px 18px rgba(0,0,0,.4)', animation: 'fadeIn .2s ease' }}>
-                      <div style={{ fontSize: 10, color: '#7ee787', fontWeight: 700, marginBottom: 3, letterSpacing: '.04em' }}>✓ CORRECT — SPELLING</div>
+                      <div style={{ fontSize: 10, color: '#7ee787', fontWeight: 700, marginBottom: 3, letterSpacing: '.04em' }}>{t('spellingCorrect')}</div>
                       <div style={{ fontSize: 15, color: '#e6edf3', fontWeight: 600 }}>{studySpellingNote.correct}</div>
                     </div>
                   )}
@@ -6045,13 +6137,13 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   {/* Header */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <div style={{ display: 'flex', gap: 12, fontSize: 12 }}>
-                      <span style={{ color: '#58a6ff' }}>{activeCount} <span style={{ fontSize: 10, color: '#7d8590' }}>Active</span></span>
-                      <span style={{ color: '#7ee787' }}>{completedCount} <span style={{ fontSize: 10, color: '#7d8590' }}>Done</span></span>
-                      <span style={{ color: '#7d8590' }}>{studyDeckStats.new_count || 0} New / {studyDeckStats.learn_count || 0} Learn / {studyDeckStats.review_count || 0} Due</span>
+                      <span style={{ color: '#58a6ff' }}>{activeCount} <span style={{ fontSize: 10, color: '#7d8590' }}>{t('active')}</span></span>
+                      <span style={{ color: '#7ee787' }}>{completedCount} <span style={{ fontSize: 10, color: '#7d8590' }}>{t('doneCount')}</span></span>
+                      <span style={{ color: '#7d8590' }}>{studyDeckStats.new_count || 0} {t('new')} / {studyDeckStats.learn_count || 0} {t('learn')} / {studyDeckStats.review_count || 0} {t('due')}</span>
                     </div>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                       <FeedbackLegend />
-                      <button onClick={exitStudy} style={{ ...S.ghostBtn, fontSize: 10 }}>Exit Study</button>
+                      <button onClick={exitStudy} style={{ ...S.ghostBtn, fontSize: 10 }}>{t('exitStudy')}</button>
                     </div>
                   </div>
 
@@ -6124,13 +6216,13 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           value={studyInput}
                           onChange={(e) => setStudyInput(e.target.value)}
                           onKeyDown={(e) => { if (e.key === 'Enter') submitStudyAnswer() }}
-                          placeholder={studyCurrentHint ? 'Try again...' : 'Type your answer...'}
+                          placeholder={studyCurrentHint ? t('tryAgain') + '...' : t('typeYourAnswer')}
                           style={{ ...S.keyInput, flex: 1, fontSize: 13, padding: '10px 14px' }}
                           autoFocus
                         />
                         <button onClick={submitStudyAnswer} disabled={!studyInput.trim()}
                           style={{ ...S.captureBtn, borderRadius: 6, opacity: !studyInput.trim() ? 0.5 : 1 }}>
-                          {studyCurrentHint ? 'Try Again' : 'Submit'}
+                          {studyCurrentHint ? t('tryAgain') : t('submit')}
                         </button>
                       </div>
 
@@ -6139,33 +6231,33 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         <div style={{ display: 'flex', gap: 6 }}>
                           <button onClick={skipStudyQuestion}
                             style={{ ...S.ghostBtn, fontSize: 10, color: '#f85149', borderColor: 'rgba(248,81,73,.25)' }}>
-                            I Don't Know
+                            {t('iDontKnow')}
                           </button>
                           {studyMode === 'conjugations' && (
                             <button onClick={skipConjugationWord}
                               style={{ ...S.ghostBtn, fontSize: 10, color: '#7d8590', borderColor: '#2a3040' }}>
-                              Skip Word
+                              {t('skipWord')}
                             </button>
                           )}
                           <button onClick={fetchMeaningHint} disabled={studyMeaningHintLoading || !!studyMeaningHint}
                             style={{ ...S.ghostBtn, fontSize: 10, color: '#79c0ff', borderColor: 'rgba(121,192,255,.25)', opacity: (studyMeaningHintLoading || !!studyMeaningHint) ? 0.5 : 1 }}>
-                            {studyMeaningHintLoading ? 'Loading...' : 'Meaning Hint'}
+                            {studyMeaningHintLoading ? t('loading') : t('meaningHint')}
                           </button>
                           {studyMode !== 'conjugations' && (
                             <button onClick={() => setStudyDeleteConfirm(cq.cardIdx)}
                               style={{ ...S.ghostBtn, fontSize: 10, color: '#7d8590', borderColor: '#2a3040' }}>
-                              I know this already
+                              {t('iKnowThisAlready')}
                             </button>
                           )}
                           {canUndo && (
-                            <button onClick={undoLastAnswer} style={{ ...S.ghostBtn, fontSize: 10, color: '#7d8590', borderColor: '#2a3040' }}>← Back</button>
+                            <button onClick={undoLastAnswer} style={{ ...S.ghostBtn, fontSize: 10, color: '#7d8590', borderColor: '#2a3040' }}>← {t('back')}</button>
                           )}
                         </div>
                         <div style={{ display: 'flex', gap: 6 }}>
                           {!studyWrappingUp && (
-                            <button onClick={studyWrapUp} style={{ ...S.ghostBtn, fontSize: 10, color: '#d29922', borderColor: 'rgba(210,153,34,.25)' }}>Wrap Up</button>
+                            <button onClick={studyWrapUp} style={{ ...S.ghostBtn, fontSize: 10, color: '#d29922', borderColor: 'rgba(210,153,34,.25)' }}>{t('wrapUp')}</button>
                           )}
-                          <button onClick={studyEndNow} style={{ ...S.ghostBtn, fontSize: 10, color: '#f85149', borderColor: 'rgba(248,81,73,.25)' }}>End Now</button>
+                          <button onClick={studyEndNow} style={{ ...S.ghostBtn, fontSize: 10, color: '#f85149', borderColor: 'rgba(248,81,73,.25)' }}>{t('endNow')}</button>
                         </div>
                       </div>
 
@@ -6207,7 +6299,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           setTimeout(() => setStudySyncNotification(false), 3000)
                         }
                       }} style={{ ...S.ghostBtn, fontSize: 11, color: '#7ee787', borderColor: 'rgba(126,231,135,.3)' }}>
-                        {studyMode === 'conjugations' ? 'Dismiss' : 'Done — Sync to Anki'}
+                        {studyMode === 'conjugations' ? t('close') : t('doneSyncToAnki')}
                       </button>
                     </div>
                   )}

@@ -8,6 +8,15 @@ export const PROVIDERS = {
     billingUrl: 'https://console.anthropic.com/settings/plans',
     model: 'claude-haiku-4-5-20251001',
     questionModel: 'claude-sonnet-4-6',
+    // List the model ids currently offered by the provider (newest first).
+    listModels: async (apiKey) => {
+      const resp = await fetch('https://api.anthropic.com/v1/models?limit=1000', {
+        headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      })
+      if (!resp.ok) throw new Error(`API ${resp.status}: ${(await resp.text()).slice(0, 200)}`)
+      const data = await resp.json()
+      return (data.data || []).map((m) => m.id).filter(Boolean)
+    },
     call: async (apiKey, systemPrompt, userContent, modelOverride) => {
       const resp = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -41,6 +50,17 @@ export const PROVIDERS = {
     billingUrl: 'https://platform.openai.com/settings/organization/billing',
     model: 'gpt-4o-mini',
     questionModel: 'gpt-4o-mini',
+    // Only chat-capable models (skip embeddings, tts, whisper, image, moderation).
+    listModels: async (apiKey) => {
+      const resp = await fetch('https://api.openai.com/v1/models', {
+        headers: { 'Authorization': `Bearer ${apiKey}` },
+      })
+      if (!resp.ok) throw new Error(`API ${resp.status}: ${(await resp.text()).slice(0, 200)}`)
+      const data = await resp.json()
+      return (data.data || []).map((m) => m.id)
+        .filter((id) => (/^(gpt|chatgpt|o\d)/.test(id)) && !/(embedding|audio|tts|whisper|image|realtime|moderation|transcribe|search|dall)/.test(id))
+        .sort()
+    },
     call: async (apiKey, systemPrompt, userContent, modelOverride) => {
       const resp = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -75,6 +95,17 @@ export const PROVIDERS = {
     billingUrl: 'https://aistudio.google.com/apikey',
     model: 'gemini-2.0-flash',
     questionModel: 'gemini-2.0-flash',
+    // Models that support generateContent; strip the "models/" prefix.
+    listModels: async (apiKey) => {
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}&pageSize=1000`)
+      if (!resp.ok) throw new Error(`API ${resp.status}: ${(await resp.text()).slice(0, 200)}`)
+      const data = await resp.json()
+      return (data.models || [])
+        .filter((m) => (m.supportedGenerationMethods || []).includes('generateContent'))
+        .map((m) => (m.name || '').replace(/^models\//, ''))
+        .filter((id) => id.includes('gemini'))
+        .sort()
+    },
     call: async (apiKey, systemPrompt, userContent, modelOverride) => {
       const model = modelOverride || 'gemini-2.0-flash'
       const resp = await fetch(
@@ -106,6 +137,14 @@ export const PROVIDERS = {
     billingUrl: 'https://console.x.ai/',
     model: 'grok-3-mini-fast',
     questionModel: 'grok-3-mini-fast',
+    listModels: async (apiKey) => {
+      const resp = await fetch('https://api.x.ai/v1/models', {
+        headers: { 'Authorization': `Bearer ${apiKey}` },
+      })
+      if (!resp.ok) throw new Error(`API ${resp.status}: ${(await resp.text()).slice(0, 200)}`)
+      const data = await resp.json()
+      return (data.data || []).map((m) => m.id).filter((id) => id.includes('grok')).sort()
+    },
     call: async (apiKey, systemPrompt, userContent, modelOverride) => {
       const resp = await fetch('https://api.x.ai/v1/chat/completions', {
         method: 'POST',

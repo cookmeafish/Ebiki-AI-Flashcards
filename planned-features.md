@@ -50,6 +50,8 @@
 - Feedback chat trusts student corrections; mark_all_correct action for bulk typo fixes
 - Deck browser edits sync back to active study session on close (no refresh needed)
 - Browse cards save status feedback (Saving/Saved/error)
+- Accent-tolerant answers + spelling toast: when grammar feedback is on, answers missing/wrong accents are accepted and the correctly-accented spelling pops up on the side (10s) so it can be practiced on the card's remaining questions
+- Ambiguous-translation disambiguation: the question generator adds a sense/register/first-letter cue when a source word has multiple valid translations (e.g. "Favorable" → auspicioso)
 
 ### Knowledge Base ✅
 - Per-mode knowledge/ folder
@@ -77,6 +79,18 @@
 - Auto-scroll to start of AI replies
 - Input stays focused during and after AI responses
 - Hidden in overlay mode
+
+### AI Model Configuration ✅
+- AI Settings panel with a separately configurable model per app area (Picture, Deck, Study, Discover, Chat, Help, General)
+- Each role is a dropdown of the provider's live model list — no manual model-id typing
+- "Provider default" option shows the model actually in use when no override is set
+- "Check for new models" button fetches the current model list from the provider's API (Anthropic, OpenAI, Gemini, xAI) so new releases appear without manual entry; auto-fetches on panel open and persists the list
+- Retired-model self-healing retained (falls back to a current model on 404)
+
+### App Language / Localization ✅
+- App Language selector translates all UI chrome (tabs, buttons, labels, headers) across every tab — flashcard content is never translated
+- Languages: English, Español, 中文 (简体), 日本語; missing keys fall back to English
+- Dictionary-based i18n in src/i18n with a t() lookup; setting persisted in config
 
 ### Anki Card Formatting ✅
 - Bold HTML labels (Pronunciación, Traducción, etc.)
