@@ -3620,15 +3620,31 @@ Rules:
     // Explain in the USER's language (= the app language), since that's the language they
     // speak and are learning from — not the quiz/study language.
     const explainLang = APP_LANG_NAME[appLanguage] || 'English'
-    setStudyWordLookup({ word, meaning: null, loading: true })
+    const studyLang = (activeMode.studyRules || defaultStudyRules).studyLanguage || 'English'
+    setStudyWordLookup({ word, primary: null, alternatives: [], loading: true })
     try {
-      const prompt = `In the sentence below, what does the word "${word}" mean as used here? Reply in ${explainLang} with just a short definition or translation of "${word}" (a few words — no full-sentence translation, no extra commentary).
+      // Disambiguate by the WHOLE question — the same word can mean different things in different
+      // contexts. Return the in-context meaning (shown in the legend's "correct" green) plus other
+      // common senses (shown in the legend's "word choice" purple).
+      const prompt = `A learner tapped the word "${word}" in this ${studyLang} study question. Read the ENTIRE question for context — the same word can have different meanings depending on context.
 
-Sentence: "${sentence}"`
-      const text = await aiCall(apiKey, `You are a concise bilingual dictionary. Given one word in a sentence, return only that word's contextual meaning, written in ${explainLang}.`, prompt, resolveModel('study'))
-      setStudyWordLookup({ word, meaning: text.trim(), loading: false })
+Question: "${sentence}"
+
+Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
+{
+  "primary": "the meaning/translation of \\"${word}\\" AS USED in THIS question — the single best fit, a few words only",
+  "alternatives": ["up to 3 other common meanings the word can have in OTHER contexts, a few words each; use [] if it really only has one meaning"]
+}`
+      const text = await aiCall(apiKey, `You are a concise bilingual dictionary that disambiguates words by context. Output JSON only, written in ${explainLang}.`, prompt, resolveModel('study'))
+      const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+      setStudyWordLookup({
+        word,
+        primary: String(parsed.primary || '').trim() || '—',
+        alternatives: Array.isArray(parsed.alternatives) ? parsed.alternatives.filter(Boolean).map(String).slice(0, 3) : [],
+        loading: false,
+      })
     } catch {
-      setStudyWordLookup({ word, meaning: 'Lookup failed — try again.', loading: false })
+      setStudyWordLookup({ word, primary: 'Lookup failed — try again.', alternatives: [], loading: false })
     }
   }
 
@@ -5981,10 +5997,21 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       </div>
 
                       {activeMode.type === 'language' && studyWordLookup && (
-                        <div style={{ fontSize: 11, color: 'var(--c-brand)', background: 'rgba(223,37,64,.06)', border: '1px solid rgba(223,37,64,.2)', borderRadius: 5, padding: '5px 10px', marginBottom: 8, display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                        <div style={{ fontSize: 11, background: 'rgba(223,37,64,.06)', border: '1px solid rgba(223,37,64,.2)', borderRadius: 5, padding: '5px 10px', marginBottom: 8, display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
                           <span style={{ fontWeight: 700, color: 'var(--c-brand)' }}>{studyWordLookup.word}</span>
                           <span style={{ color: 'var(--c-ink-dim)' }}>—</span>
-                          <span style={{ flex: 1 }}>{studyWordLookup.loading ? 'Looking up…' : studyWordLookup.meaning}</span>
+                          {studyWordLookup.loading ? (
+                            <span style={{ flex: 1, color: 'var(--c-ink-dim)' }}>Looking up…</span>
+                          ) : (
+                            <span style={{ flex: 1 }}>
+                              {/* In-context meaning in the legend's "correct" green */}
+                              <span style={{ color: 'var(--c-success)', fontWeight: 700 }}>{studyWordLookup.primary}</span>
+                              {/* Other senses in the legend's "word choice" purple */}
+                              {studyWordLookup.alternatives?.length > 0 && (
+                                <span style={{ color: 'var(--c-ink-faint)' }}> · also <span style={{ color: 'var(--c-purple)', fontWeight: 600 }}>{studyWordLookup.alternatives.join(', ')}</span></span>
+                              )}
+                            </span>
+                          )}
                           <span onClick={() => setStudyWordLookup(null)} style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 13, lineHeight: 1 }}>×</span>
                         </div>
                       )}
