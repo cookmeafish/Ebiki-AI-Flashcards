@@ -4857,6 +4857,10 @@ ${activeMode.type === 'language' ? `   - LANGUAGE MODE — use this EXACT back f
 
       // Web search if enabled
       let searchSources = null
+      if (!chatTabWebSearch) {
+        // No web access right now: rather than guess, offer to look it up.
+        systemPrompt += `\n\nWEB ACCESS IS OFF. If you genuinely do not know something, or are unsure of a CURRENT/factual detail you cannot verify (recent events, prices, live data, niche facts), do NOT guess or make something up. Briefly say you're not certain, and offer to look it up by adding the tag <offer-search>a concise web search query</offer-search> to your reply. Only offer search when it would actually help — for things you reliably know (common vocabulary, grammar, basic concepts), just answer.`
+      }
       if (chatTabWebSearch) {
         setChatTabStatus('searching')
         systemPrompt += '\n\n5. You have WEB SEARCH capability. Search results from the internet are provided below. You MUST use them to answer the user\'s question. Do NOT say you cannot search the internet — the search has already been performed for you. You MUST cite your sources inline using [Source Title](URL) format for every claim based on search results.'
@@ -4940,13 +4944,16 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
         if (cited.length > 0) sources = cited
       }
 
-      const cleanText = text.replace(/<anki-card>.*?<\/anki-card>/gs, '').replace(/<progress-update>[\s\S]*?<\/progress-update>/g, '').replace(/<sources>[\s\S]*?<\/sources>/g, '')
+      // Offer-to-search: the model emits <offer-search>query</offer-search> when it won't guess.
+      const offerMatch = text.match(/<offer-search>([\s\S]*?)<\/offer-search>/)
+      const offerSearch = (!chatTabWebSearch && offerMatch) ? offerMatch[1].trim() : undefined
+      const cleanText = text.replace(/<anki-card>.*?<\/anki-card>/gs, '').replace(/<progress-update>[\s\S]*?<\/progress-update>/g, '').replace(/<sources>[\s\S]*?<\/sources>/g, '').replace(/<offer-search>[\s\S]*?<\/offer-search>/g, '')
         .replace(/\s*[—–]\s*/g, ', ').trim() // strip em/en dashes (AI tell)
       // Let the Mascot AI analyze the reply and pick the best-fitting pose, but AWAIT it so the
       // message appears ONCE already wearing the final pose — no instant-then-swap flicker.
       // (choosePose never throws: it falls back to the keyword pose on no-key/error.)
       const poseF = await choosePose(cleanText)
-      const assistantMsg = { role: 'assistant', content: cleanText, mascot: poseF || pickShrimp(cleanText), cards: parsedCards.length > 0 ? parsedCards : undefined, sources: sources || undefined }
+      const assistantMsg = { role: 'assistant', content: cleanText, mascot: poseF || pickShrimp(cleanText), cards: parsedCards.length > 0 ? parsedCards : undefined, sources: sources || undefined, offerSearch }
       const updatedMsgs = [...newMsgs, assistantMsg]
       setChatTabMsgs(updatedMsgs)
       // Keep the user's message pinned near the top; the reply renders below it (don't jump to bottom).
@@ -4956,6 +4963,47 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       if (!chatTabSessionId) setChatTabSessionId(savedId)
     } catch (err) {
       setChatTabMsgs(prev => [...prev, { role: 'assistant', content: 'Error: ' + err.message }])
+    } finally {
+      setChatTabLoading(false)
+      setChatTabStatus(null)
+    }
+  }
+
+  // User declined the offered web search — just hide the offer buttons.
+  const chatOfferSearchDecline = (msgIdx) => {
+    setChatTabMsgs((prev) => prev.map((m, i) => i === msgIdx ? { ...m, offerSearch: undefined } : m))
+  }
+  // User accepted the offered web search — run the search and answer from the results.
+  const chatOfferSearchAccept = async (query, msgIdx) => {
+    if (!apiKey || chatTabLoading) return
+    setChatTabMsgs((prev) => prev.map((m, i) => i === msgIdx ? { ...m, offerSearch: undefined } : m))
+    setChatTabLoading(true)
+    setChatTabStatus('searching')
+    const baseMsgs = chatTabMsgs
+    try {
+      let results = []
+      try { results = (await (await fetch(`/api/web-search?q=${encodeURIComponent(query)}`)).json()).results || [] } catch {}
+      setChatTabStatus('thinking')
+      const sys = results.length
+        ? `You are Ebi, a study assistant. Web search results for "${query}":\n` + results.map((r, i) => `${i + 1}. ${r.title}\n   URL: ${r.url}\n   ${r.snippet}`).join('\n\n') + `\n\nAnswer the user's question using these results. Cite sources at the end inside <sources>Title | URL</sources> tags. Never use em-dashes (—).`
+        : `You are Ebi. A web search for "${query}" returned nothing. Briefly tell the user you couldn't find it. Never use em-dashes (—).`
+      const convo = baseMsgs.map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n\n')
+      const text = (await aiCall(apiKey, sys, convo, resolveModel('chat'), { maxTokens: 1500 }) || '').replace(/\s*[—–]\s*/g, ', ')
+      const sm = text.match(/<sources>([\s\S]*?)<\/sources>/)
+      let sources = results.length ? results.map((r) => ({ title: r.title, url: r.url })) : null
+      if (sm) {
+        const cited = sm[1].trim().split('\n').map((line) => { const p = line.split('|').map((s) => s.trim()); return p.length >= 2 ? { title: p[0], url: p[1] } : null }).filter(Boolean)
+        if (cited.length) sources = cited
+      }
+      const clean = text.replace(/<sources>[\s\S]*?<\/sources>/g, '').trim()
+      const poseF = await choosePose(clean)
+      const msg = { role: 'assistant', content: clean, mascot: poseF || pickShrimp(clean), sources: sources || undefined }
+      const updated = [...baseMsgs, msg]
+      setChatTabMsgs(updated)
+      setTimeout(scrollChatToLatestTurn, 60)
+      chatTabSaveCurrent(updated, chatTabSessionId).then((id) => { if (!chatTabSessionId) setChatTabSessionId(id) })
+    } catch (err) {
+      setChatTabMsgs((prev) => [...prev, { role: 'assistant', content: 'Search failed: ' + err.message }])
     } finally {
       setChatTabLoading(false)
       setChatTabStatus(null)
@@ -6358,6 +6406,18 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           {src.url && <span style={{ color: 'var(--c-ink-faint)', marginLeft: 6, fontSize: 9 }}>{src.url.replace(/^https?:\/\//, '').split('/')[0]}</span>}
                         </div>
                       ))}
+                    </div>
+                  )}
+                  {/* Offer to search the web (shown when Ebi declined to guess and search is off) */}
+                  {m.offerSearch && !chatTabWebSearch && (
+                    <div style={{ maxWidth: '80%', marginTop: 6, padding: '10px 12px', borderRadius: 8, background: 'rgba(45,134,201,.08)', border: '1px solid rgba(45,134,201,.25)' }}>
+                      <div style={{ fontSize: 11, color: 'var(--c-ink)', marginBottom: 8 }}>🔎 Search the web for <b>“{m.offerSearch}”</b>?</div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={() => chatOfferSearchAccept(m.offerSearch, i)} disabled={chatTabLoading}
+                          style={{ ...S.captureBtn, borderRadius: 5, fontSize: 11, padding: '5px 14px', opacity: chatTabLoading ? 0.5 : 1 }}>Yes, search</button>
+                        <button onClick={() => chatOfferSearchDecline(i)} disabled={chatTabLoading}
+                          style={{ ...S.ghostBtn, fontSize: 11, padding: '5px 12px' }}>No thanks</button>
+                      </div>
                     </div>
                   )}
                     </div>
