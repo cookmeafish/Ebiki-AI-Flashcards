@@ -16,7 +16,7 @@ export default function SettingsModal(p) {
     t, category, setCategory, onClose,
     // General (global)
     appTheme, setAppTheme, appLanguage, setAppLanguage,
-    language, setLanguage, targetLang, setTargetLang,
+    language, setLanguage, targetLang, setTargetLang, onRunSetup,
     // AI Models (global)
     provider, setProvider, apiKeys, apiKey, setCurrentKey, providerConfig,
     AI_ROLE_META, ROLE_DEFAULTS, aiModels, setAiModels, availableModels,
@@ -121,6 +121,9 @@ export default function SettingsModal(p) {
         </div>
         <div style={hint}>{t('translationHint')}</div>
       </div>
+      {onRunSetup && (
+        <button onClick={onRunSetup} style={{ ...S.ghostBtn, fontSize: 12 }}>↻ {t('runSetupAgain')}</button>
+      )}
     </div>
   )
 
