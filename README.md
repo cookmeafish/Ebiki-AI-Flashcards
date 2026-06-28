@@ -101,6 +101,8 @@ screenlens/
 
 ## Setup
 
+**Prerequisite — install Node.js first.** This app runs on [Node.js](https://nodejs.org) (which includes `npm`). Install the **LTS** build (Node 18 or newer) before running anything below — `git`, `npm install`, and `npm run dev` all require it. Verify with `node -v` and `npm -v`.
+
 ```bash
 git clone https://github.com/cookmeafish/Ebiki-AI-Flashcards.git
 cd Ebiki-AI-Flashcards   # the clone creates this folder — run everything from inside it
