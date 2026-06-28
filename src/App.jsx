@@ -6334,7 +6334,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       {/* Chat AI model — same override as Settings → AI models (aiModels[provider].chat). */}
                       <div style={labelStyle}>Chat model</div>
                       <select value={aiModels[provider]?.chat || ''} onChange={(e) => setAiModels((prev) => ({ ...prev, [provider]: { ...(prev[provider] || {}), chat: e.target.value } }))} style={selStyle}>
-                        <option value="">Default</option>
+                        <option value="">Default ({ROLE_DEFAULTS(providerConfig).chat})</option>
                         {modelsLoading && !(availableModels[provider] || []).length && <option disabled>Loading…</option>}
                         {(availableModels[provider] || []).map((mid) => <option key={mid} value={mid}>{mid}</option>)}
                       </select>
