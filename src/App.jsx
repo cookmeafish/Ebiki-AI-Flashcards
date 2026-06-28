@@ -4862,10 +4862,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
                     <circle cx="12" cy="13" r="4" stroke="currentColor" strokeWidth="2"/>
                   </svg>
-                  Capture
+                  {t('capture')}
                 </button>
                 <button onClick={() => fileInputRef.current?.click()} disabled={loading} style={S.uploadBtn}>
-                  Upload
+                  {t('upload')}
                 </button>
               </div>
 
@@ -4885,7 +4885,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 borderColor: overlayRunning ? 'rgba(24,169,87,0.3)' : 'var(--c-border)',
                 background: overlayRunning ? 'rgba(24,169,87,0.08)' : 'transparent',
               }}>
-                {overlayRunning ? '\u25CF' : '\u25CB'} Overlay
+                {overlayRunning ? '\u25CF' : '\u25CB'} {t('overlay')}
               </button>
 
               <kbd style={S.kbd}>Ctrl+Shift+S</kbd>
