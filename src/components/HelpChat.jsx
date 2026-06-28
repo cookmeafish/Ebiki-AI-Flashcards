@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { pickShrimp, shrimpUrl, DEFAULT_SHRIMP } from '../config/shrimp'
+import { pickShrimp, shrimpUrl, DEFAULT_SHRIMP, POSE_NAMES, poseFile } from '../config/shrimp'
+import { FONT } from '../config/tokens'
 
 const HELP_BASE = `You are Ebi — the friendly mascot and built-in assistant of the Ebiki app. Ebi is a little red shrimp (Ebiki is a play on "ebi", the Japanese word for shrimp, and "Anki"). If the user asks who or what you (Ebi) are, tell them you're Ebiki's shrimp mascot and helper. You are context-aware: you can answer questions about the app AND about whatever the user is currently working on (screenshots, translations, study sessions, Anki cards, etc). Answer briefly and conversationally — 2-3 sentences max unless the user asks for details. Never use markdown formatting (no **, ##, -, etc). Just plain text. The user can ask follow-up questions.
 
@@ -67,6 +68,7 @@ function buildSystemPrompt(appContext) {
   }
 
   parts.push('\nUse this context to give informed, specific answers. If the user asks about a word, translation, or card on screen, reference the actual data above.')
+  parts.push(`\nMASCOT POSE: At the very end of your reply, on its own line, output <pose>NAME</pose> where NAME is the single Ebi shrimp pose that best fits the topic, chosen ONLY from: ${POSE_NAMES.join(', ')}. Use "default" if none clearly fit. This tag controls Ebi's picture and is hidden from the user.`)
   return parts.join('\n')
 }
 
@@ -77,6 +79,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
   const [sessionId, setSessionId] = useState(null)
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [posed, setPosed] = useState(null) // Ebi pose chosen by the AI's <pose> tag
   const [pos, setPos] = useState({ x: 20, y: null })
   const [dragging, setDragging] = useState(false)
   const dragOffset = useRef({ x: 0, y: 0 })
@@ -233,7 +236,11 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
         if (!healed) throw err
         data = await callModel(healed)
       }
-      const updatedMsgs = [...newMsgs, { role: 'assistant', text: data.content[0].text }]
+      const raw = data.content[0].text
+      const pm = raw.match(/<pose>\s*([a-zA-Z]+)\s*<\/pose>/i)
+      if (pm) { const f = poseFile(pm[1]); if (f) setPosed(f) }
+      const replyText = raw.replace(/<pose>[\s\S]*?<\/pose>/gi, '').trim()
+      const updatedMsgs = [...newMsgs, { role: 'assistant', text: replyText }]
       setMessages(updatedMsgs)
       const savedId = await saveMessages(updatedMsgs, sessionId)
       if (!sessionId) setSessionId(savedId)
@@ -279,14 +286,14 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
   const chatContent = (isSidePanel) => (
     <>
       {/* Header */}
-      <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+      <div style={{ padding: '10px 14px', borderBottom: '1px solid #E2E8ED', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, background: 'linear-gradient(90deg, #79c0ff, #d2a8ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Ebi's Help</span>
+          <span style={{ fontSize: 12, fontWeight: 700, background: 'linear-gradient(90deg, #DF2540, #8B5CF6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Ebi's Help</span>
           {messages.length > 0 && (
             <span
               onClick={newChat}
               title="New chat"
-              style={{ cursor: 'pointer', color: '#7d8590', fontSize: 11, padding: '1px 6px', border: '1px solid rgba(255,255,255,.08)', borderRadius: 4, lineHeight: '16px' }}
+              style={{ cursor: 'pointer', color: '#51626C', fontSize: 11, padding: '1px 6px', border: '1px solid #E2E8ED', borderRadius: 4, lineHeight: '16px' }}
             >+</span>
           )}
         </div>
@@ -295,23 +302,23 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
             <span
               onClick={() => { setDocked(false); setOpen(false) }}
               title="Pop out to floating button"
-              style={{ cursor: 'pointer', color: '#7d8590', fontSize: 13, lineHeight: 1 }}
+              style={{ cursor: 'pointer', color: '#51626C', fontSize: 13, lineHeight: 1 }}
             >&#8599;</span>
           ) : (
             <span
               onClick={() => { setOpen(false); setDocked(true) }}
               title="Dock to side panel"
-              style={{ cursor: 'pointer', color: '#7d8590', fontSize: 13, lineHeight: 1 }}
+              style={{ cursor: 'pointer', color: '#51626C', fontSize: 13, lineHeight: 1 }}
             >&#9699;</span>
           )}
-          <span onClick={() => { setOpen(false); setDocked(false) }} style={{ cursor: 'pointer', color: '#7d8590', fontSize: 16, lineHeight: 1 }}>&times;</span>
+          <span onClick={() => { setOpen(false); setDocked(false) }} style={{ cursor: 'pointer', color: '#51626C', fontSize: 16, lineHeight: 1 }}>&times;</span>
         </div>
       </div>
 
       {/* Messages */}
       <div ref={msgTopRef} style={{ flex: 1, overflow: 'auto', padding: '10px 14px' }}>
         {messages.length === 0 && (
-          <div style={{ color: '#484f58', fontSize: 11, textAlign: 'center', padding: '30px 10px', lineHeight: 1.6 }}>
+          <div style={{ color: '#8A99A3', fontSize: 11, textAlign: 'center', padding: '30px 10px', lineHeight: 1.6 }}>
             Ask Ebi anything about Ebiki!<br />
             "What does Study do?"<br />
             "How do I use the overlay?"
@@ -320,21 +327,21 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
         {messages.map((m, i) => (
           <div key={i} data-msg style={{
             marginBottom: 8, padding: '8px 10px', borderRadius: 6,
-            background: m.role === 'user' ? 'rgba(88,166,255,.1)' : 'rgba(126,231,135,.05)',
-            border: m.role === 'user' ? '1px solid rgba(88,166,255,.15)' : '1px solid rgba(126,231,135,.1)',
-            fontSize: 12, color: '#c9d1d9', lineHeight: 1.6,
+            background: m.role === 'user' ? 'rgba(223,37,64,.1)' : 'rgba(24,169,87,.05)',
+            border: m.role === 'user' ? '1px solid rgba(223,37,64,.15)' : '1px solid rgba(24,169,87,.1)',
+            fontSize: 12, color: '#334049', lineHeight: 1.6,
             whiteSpace: 'pre-wrap', wordBreak: 'break-word',
           }}>
             {m.text}
           </div>
         ))}
         {loading && (
-          <div style={{ fontSize: 11, color: '#7d8590', padding: '4px 10px' }}>Thinking...</div>
+          <div style={{ fontSize: 11, color: '#51626C', padding: '4px 10px' }}>Thinking...</div>
         )}
       </div>
 
       {/* Input */}
-      <div style={{ padding: '8px 10px', borderTop: '1px solid rgba(255,255,255,.08)', display: 'flex', gap: 6, flexShrink: 0 }}>
+      <div style={{ padding: '8px 10px', borderTop: '1px solid #E2E8ED', display: 'flex', gap: 6, flexShrink: 0 }}>
         <input
           ref={inputRef}
           autoFocus
@@ -344,7 +351,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
           placeholder={apiKey ? (loading ? 'Thinking...' : 'Ask a question...') : 'Set API key first'}
           disabled={!apiKey}
           style={{
-            flex: 1, padding: '7px 11px', background: 'rgba(0,0,0,.3)', color: '#e6edf3',
+            flex: 1, padding: '7px 11px', background: '#FFFFFF', color: '#16242C',
             border: '1px solid rgba(255,255,255,.1)', borderRadius: 8, fontSize: 11,
             fontFamily: 'inherit', outline: 'none',
           }}
@@ -353,10 +360,10 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
           onClick={sendMessage}
           disabled={!apiKey || loading || !input.trim()}
           style={{
-            padding: '7px 14px', background: 'linear-gradient(135deg, #58a6ff, #7c5cff)', color: '#fff',
+            padding: '7px 14px', background: 'linear-gradient(135deg, #DF2540, #8B5CF6)', color: '#fff',
             border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 11,
             fontFamily: 'inherit', cursor: 'pointer',
-            boxShadow: '0 3px 12px rgba(124,92,255,.35)',
+            boxShadow: '0 3px 12px rgba(223,37,64,.35)',
             opacity: !apiKey || loading || !input.trim() ? 0.4 : 1,
           }}
         >
@@ -369,7 +376,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
   // While chatting with Ebi, the button reflects the help conversation; otherwise it
   // shows the app-context pose passed in from App (study question, picture word, etc).
   const buttonMascot = ((open || docked) && messages.length)
-    ? pickShrimp(messages.slice(-2).map(m => m.text).join(' '))
+    ? (posed || pickShrimp(messages.slice(-2).map(m => m.text).join(' ')))
     : mascotFile
 
   return (
@@ -383,20 +390,17 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
           style={{
             position: 'fixed', left: pos.x,
             ...(pos.y !== null ? { top: pos.y } : { bottom: 20 }),
-            width: 56, height: 56, borderRadius: '50%',
-            background: open
-              ? 'radial-gradient(circle at 35% 30%, rgba(124,92,255,.35), rgba(20,16,33,.92))'
-              : 'radial-gradient(circle at 35% 30%, rgba(88,166,255,.22), rgba(16,20,27,.9))',
-            border: '1px solid rgba(124,92,255,.4)',
+            width: 58, height: 58, borderRadius: '50%',
+            background: 'radial-gradient(circle at 38% 30%, #FFFFFF, #FFF1F2)',
+            border: open ? '2px solid #DF2540' : '2px solid rgba(223,37,64,.45)',
             padding: 0, overflow: 'hidden',
             cursor: dragging ? 'grabbing' : 'grab',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             zIndex: 10000,
             boxShadow: open
-              ? '0 0 0 3px rgba(124,92,255,.35), 0 8px 26px rgba(124,92,255,.55)'
-              : '0 6px 20px rgba(0,0,0,.45)',
-            backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
-            fontFamily: 'inherit', transition: 'box-shadow .2s ease, filter .2s ease',
+              ? '0 0 0 4px rgba(223,37,64,.18), 0 10px 26px rgba(223,37,64,.4)'
+              : '0 6px 20px rgba(16,36,44,.18)',
+            fontFamily: 'inherit', transition: 'box-shadow .2s ease, border-color .2s ease',
           }}
           title="Ebi's Help — ask anything about Ebiki"
         >
@@ -415,13 +419,13 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
         return (
           <div style={{
             ...chatStyle,
-            background: 'linear-gradient(180deg, rgba(26,31,40,.97), rgba(18,22,29,.97))',
+            background: 'rgba(255,255,255,.98)',
             backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
-            border: '1px solid rgba(124,92,255,.25)',
+            border: '1px solid #E2E8ED',
             borderRadius: 16, overflow: 'hidden',
             display: 'flex', flexDirection: 'column',
-            zIndex: 10000, boxShadow: '0 20px 60px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.03)',
-            fontFamily: "'JetBrains Mono', monospace",
+            zIndex: 10000, boxShadow: '0 24px 60px rgba(16,36,44,.18)',
+            fontFamily: FONT.body,
             animation: 'pop .18s cubic-bezier(.34,1.56,.64,1)',
           }}>
             {chatContent(false)}
@@ -433,12 +437,12 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
       {docked && (
         <div style={{
           position: 'fixed', right: 0, top: 0, bottom: 0, width: 380,
-          background: 'linear-gradient(180deg, rgba(26,31,40,.98), rgba(16,20,27,.98))',
+          background: 'rgba(255,255,255,.98)',
           backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
-          borderLeft: '1px solid rgba(124,92,255,.25)',
+          borderLeft: '1px solid #E2E8ED',
           display: 'flex', flexDirection: 'column',
-          zIndex: 10000, boxShadow: '-8px 0 40px rgba(0,0,0,.5)',
-          fontFamily: "'JetBrains Mono', monospace",
+          zIndex: 10000, boxShadow: '-12px 0 40px rgba(16,36,44,.14)',
+          fontFamily: FONT.body,
         }}>
           {chatContent(true)}
         </div>
