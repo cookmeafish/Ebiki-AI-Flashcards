@@ -10,12 +10,14 @@ A multi-tab learning app with AI chat, Anki-integrated study sessions, screen tr
 - **Deck** — Browse/edit/search deck cards, add cards manually or with AI, analyze for ambiguous cards, scan for duplicates to merge
 - **Discover** — Adaptive suggestions for new cards calibrated to your level, with a setup screen and web verification (see below)
 - **Picture** — Screen capture/OCR/translation with pixel-accurate word overlays, overlay mode for games
-- **Stats** — Study streaks, accuracy trends, per-deck breakdown (coming soon)
+- **Stats** — Study streaks, accuracy trends, per-deck breakdown, and recent sessions
 
 ### Core Features
-- **Multi-provider AI** — Claude, GPT, Gemini, and Grok with unified provider settings panel
-- **Configurable models per role** — each part of the app (general tasks, question generation, the Help assistant) has its own model, editable per provider in settings. Blank = the provider's built-in default
+- **Multi-provider AI** — Claude, GPT, Gemini, and Grok with a unified AI Settings panel
+- **Configurable models per feature** — each app area (Picture, Deck, Study, Discover, Chat, Help, General) has its own model, chosen from a **dropdown** of the provider's live model list (no typing). Blank = the provider's built-in default, which is shown so you always see the model in use
+- **Check for new models** — a button fetches the latest available models from the provider's API so new releases (Claude, GPT, Gemini, Grok) appear in the dropdowns automatically; the list is cached and auto-fetched when the panel opens
 - **Self-healing models** — if a configured model has been retired (e.g. an API 404), the app queries the provider's models API, switches to a current model, retries, saves the choice, and shows a toast
+- **App language** — translate the entire UI (tabs, buttons, labels) into English, Spanish, Chinese, or Japanese; flashcard content is never translated
 - **Learning modes** — Create AI-configured modes for any subject (languages, Security+, Organic Chemistry, etc.)
 - **Anki integration** — Generate flashcards, sync to Anki, study with AI quizzes, browse/edit decks
 - **Knowledge base** — Upload .txt/.md reference materials per mode for smarter AI context
@@ -101,16 +103,18 @@ Opens at `http://localhost:3000`.
 
 ## Configuration
 
-1. Click the **AI provider button** in the toolbar (e.g. "Anthropic (Claude)")
-2. Select your provider and enter your API key in the settings panel
-3. Click the **gear icon** to configure language settings, Anki, and knowledge base
-4. Navigate between tabs: **Chat** for AI conversation, **Study** for Anki quizzes, **Deck** for browsing/editing, **Discover** for new-card suggestions, **Picture** for screen translation
+1. Click the **AI provider button** in the toolbar to open **AI Settings**
+2. Select your provider and enter your API key
+3. Pick a model per feature from the dropdowns (or leave "Provider default"); press **Check for new models** to pull the latest list from the provider
+4. Set the **App Language** to translate the interface
+5. Click the **gear icon** to configure language settings, Anki, and knowledge base
+6. Navigate between tabs: **Chat** for AI conversation, **Study** for Anki quizzes, **Deck** for browsing/editing, **Discover** for new-card suggestions, **Picture** for screen translation, **Stats** for progress
 
 > **Display sizing:** the UI applies a default 1.35× zoom so the fixed pixel layout reads comfortably on typical Windows displays — view at 100% browser zoom. Overlay mode is exempt (it stays 1:1 with screen pixels so OCR boxes line up).
 
 ## Supported AI Providers
 
-Models below are the **defaults**; each role (general / questions / help) is overridable per provider in the settings panel, and retired models auto-switch to a current one.
+Models below are the **defaults**; each feature (Picture / Deck / Study / Discover / Chat / Help / General) is overridable per provider via dropdowns in AI Settings. Use **Check for new models** to refresh the list from the provider's API, and retired models auto-switch to a current one.
 
 | Provider | Default model | JSON Mode |
 |---|---|---|
@@ -327,7 +331,9 @@ src/
   config/
     languages.js       ← 18 supported languages
     prompts.js         ← Translation prompt + POS/category color maps
-    providers.js       ← AI provider implementations (Anthropic, OpenAI, Gemini, Grok)
+    providers.js       ← AI provider implementations + model listing (Anthropic, OpenAI, Gemini, Grok)
+  i18n/
+    index.js           ← App-language dictionaries (en/es/zh/ja) + t() lookup
   discover/
     storage.js         ← Discover profile/ledger store (Anki media files + local fallback)
     prompts.js         ← Discover prompt builders (profile, suggestion, web verify)
