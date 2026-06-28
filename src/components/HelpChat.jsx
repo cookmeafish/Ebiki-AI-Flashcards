@@ -538,7 +538,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
         return (
           <div ref={panelRef} style={{
             ...chatStyle,
-            background: 'rgba(255,255,255,.98)',
+            background: 'color-mix(in srgb, var(--c-surface) 94%, transparent)',
             backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
             border: '1px solid var(--c-border)',
             borderRadius: 16, overflow: 'hidden',
