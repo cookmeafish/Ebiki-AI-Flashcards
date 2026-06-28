@@ -230,8 +230,10 @@ export const S = {
     fontFamily: FONT.body, color: C.ink,
   },
   tooltipBackdrop: {
+    // Transparent: it only captures outside-clicks to dismiss the pin — it must NOT dim
+    // the screenshot behind the pinned word tooltip.
     position: 'fixed', inset: 0, zIndex: 9998,
-    background: 'rgba(22,36,44,.25)',
+    background: 'transparent',
   },
   tooltipExpanded: {
     position: 'fixed', left: '50%', top: '50%',
