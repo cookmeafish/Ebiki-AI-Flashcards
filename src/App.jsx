@@ -9,6 +9,7 @@ import { C, RADIUS, SHADOW, FONT } from './config/tokens'
 import FormattedText from './components/FormattedText'
 import HelpChat from './components/HelpChat'
 import DiscoverPanel from './components/DiscoverPanel'
+import SettingsModal from './components/SettingsModal'
 import { S } from './styles/theme'
 import { ocrLog, ocrLogTable, ocrLogFlush } from './utils/logger'
 import { ankiPing, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiFindCards, ankiCardsInfo, ankiAnswerCards, ankiGetDeckStats, ankiFindNotes, ankiNotesInfo, ankiUpdateNote, ankiDeleteNotes, ankiSync } from './utils/anki'
@@ -174,7 +175,8 @@ export default function App() {
   const [availableModels, setAvailableModels] = useState({})
   const [modelsLoading, setModelsLoading] = useState(false)
   const [modelsError, setModelsError] = useState(null)
-  const [showKeyInput, setShowKeyInput] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsCategory, setSettingsCategory] = useState('general')
   const [screenshot, setScreenshot] = useState(null)
   const [imgDims, setImgDims] = useState({ w: 0, h: 0 })
   const [ocrWords, setOcrWords] = useState([])
@@ -225,7 +227,6 @@ export default function App() {
   const [ankiEditBack, setAnkiEditBack] = useState('')
   const [ankiRefineInput, setAnkiRefineInput] = useState('')
   const [ankiRefining, setAnkiRefining] = useState(false)
-  const [showAnkiSettings, setShowAnkiSettings] = useState(false)
   const defaultStudyRules = {
     questionsPerCard: 3,
     cardsAtOnce: 3,
@@ -252,15 +253,9 @@ export default function App() {
   }
   const [modes, setModes] = useState([defaultMode])
   const [activeModeId, setActiveModeId] = useState(1)
-  const [showModePanel, setShowModePanel] = useState(false)
-  const [showModeFormatEditor, setShowModeFormatEditor] = useState(false)
   const [editingModeName, setEditingModeName] = useState(null)
   const [modeCreating, setModeCreating] = useState(false)
   const [modeEditInput, setModeEditInput] = useState('')
-  const [showSettings, setShowSettings] = useState(false)
-  const [showAnkiSection, setShowAnkiSection] = useState(false)
-  const [showKnowledgeSection, setShowKnowledgeSection] = useState(false)
-  const [settingsSection, setSettingsSection] = useState(null) // null | 'format' | 'tags' | 'study' (sub-sections within Anki)
 
   const [studyActive, setStudyActive] = useState(false)
   const [studyAllCards, setStudyAllCards] = useState([])     // all cards to study
@@ -462,9 +457,14 @@ export default function App() {
 
   // Auto-fetch the model list when the settings panel opens and we don't have one yet.
   useEffect(() => {
-    if (showKeyInput && apiKeys[provider] && !availableModels[provider]) refreshModels(provider)
+    if (settingsOpen && settingsCategory === 'models' && apiKeys[provider] && !availableModels[provider]) refreshModels(provider)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showKeyInput, provider, keysLoaded])
+  }, [settingsOpen, settingsCategory, provider, keysLoaded])
+  // Load knowledge-base files when that settings category opens.
+  useEffect(() => {
+    if (settingsOpen && settingsCategory === 'knowledge') loadKnowledgeFiles()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settingsOpen, settingsCategory, activeModeId])
 
   // Ask the provider which models exist now and pick a sensible current one for
   // the role. Anthropic returns models newest-first; we prefer the role's tier.
@@ -764,9 +764,9 @@ export default function App() {
     if (key) setError(null)
   }
 
-  // Show key input if none stored for current provider
+  // Open Settings → AI models if the current provider has no key stored
   useEffect(() => {
-    if (keysLoaded && !apiKeys[provider]) setShowKeyInput(true)
+    if (keysLoaded && !apiKeys[provider]) { setSettingsCategory('models'); setSettingsOpen(true) }
   }, [provider, keysLoaded])
 
   // ─── Load Image Helper ──────────────────────────────────────────────────────
@@ -922,7 +922,7 @@ export default function App() {
   const analyzeImage = useCallback(async (dataUrl) => {
     if (!dataUrl) return
     if (!apiKey) {
-      setShowKeyInput(true)
+      setSettingsCategory('models'); setSettingsOpen(true)
       setError(`Set your ${providerConfig.label} API key first.`)
       return
     }
@@ -1416,10 +1416,11 @@ export default function App() {
   })
 
   // ─── Drag & Drop ───────────────────────────────────────────────────────────
+  const knowledgeOpen = settingsOpen && settingsCategory === 'knowledge'
   const handleDragOver = (e) => {
     e.preventDefault()
     // Don't show image drop overlay if dragging text files while knowledge section is open
-    if (showKnowledgeSection) return
+    if (knowledgeOpen) return
     setDragging(true)
   }
   const handleDragLeave = (e) => {
@@ -1429,11 +1430,11 @@ export default function App() {
     e.preventDefault(); setDragging(false)
     const file = e.dataTransfer?.files?.[0]
     if (!file) return
-    console.log('[App] drop event, file:', file.name, 'knowledgeOpen:', showKnowledgeSection)
+    console.log('[App] drop event, file:', file.name, 'knowledgeOpen:', knowledgeOpen)
     // Don't handle text files at app level — they're for knowledge base
     if (file.name.match(/\.(txt|md)$/i)) {
       // If knowledge section is open, forward the file there
-      if (showKnowledgeSection) {
+      if (knowledgeOpen) {
         console.log('[App] forwarding text file to knowledge upload')
         uploadKnowledgeFile(file)
       }
@@ -4665,7 +4666,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       />
 
       {/* ── Drag Overlay ─────────────────────────────────────────────────────── */}
-      {dragging && !showKnowledgeSection && (
+      {dragging && !knowledgeOpen && (
         <div style={S.dragOverlay}>
           <div style={S.dragBox}>
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
@@ -4696,13 +4697,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 onClick={() => {
                   setActiveTab(tab)
                   setChatSidePanel(false)
-                  // Switching tabs closes any open settings/mode panels so only the tab shows
-                  setShowKeyInput(false)
-                  setShowSettings(false)
-                  setShowModePanel(false)
-                  setSettingsSection(null)
-                  setShowAnkiSection(false)
-                  setShowKnowledgeSection(false)
+                  setSettingsOpen(false) // switching tabs closes the settings modal
                 }}
                 style={{ ...S.tab, ...(activeTab === tab ? S.tabActive : {}) }}
               >
@@ -4729,34 +4724,20 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             <button onClick={() => analyzeImage(screenshot)} style={S.ghostBtn}>Re-analyze</button>
           )}
 
-          {/* Mode selector + Settings gear — always visible */}
-          <div style={{ display: 'flex', gap: 0 }}>
-            <button onClick={() => { setShowModePanel(!showModePanel); if (showModePanel) setModeSettingsTab(null) }} style={{
-              ...S.ghostBtn, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,0.25)',
-              borderRadius: '6px 0 0 6px', borderRight: 'none',
-            }}>
-              {activeMode.type === 'language' ? '\u{1F310}' : '\u{1F4DA}'} {activeMode.name}
-            </button>
-            <button onClick={() => {
-              setShowSettings(!showSettings)
-              if (showSettings) { setSettingsSection(null); setShowAnkiSection(false); setShowKnowledgeSection(false) }
-            }} style={{
-              ...S.ghostBtn, borderRadius: '0 6px 6px 0',
-              color: showSettings ? 'var(--c-ink)' : 'var(--c-ink-dim)',
-              borderColor: showSettings ? 'rgba(230,237,243,0.2)' : 'rgba(223,37,64,0.25)',
-              padding: '6px 8px',
-            }}>
-              {'\u2699\uFE0F'}
-            </button>
-          </div>
+          {/* Mode quick-switcher (fast switch without opening Settings) */}
+          <select
+            value={activeModeId}
+            onChange={(e) => { const id = parseInt(e.target.value); setActiveModeId(id); saveModes(modes, id); const nm = modes.find((m) => m.id === id); if (nm?.ankiDeck) setStudyDeck(nm.ankiDeck) }}
+            title={t('settingsMode')}
+            style={{ ...S.select, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)', background: 'rgba(223,37,64,.08)', fontWeight: 700 }}
+          >
+            {modes.map((m) => <option key={m.id} value={m.id}>{m.type === 'language' ? '\u{1F310}' : '\u{1F4DA}'} {m.name}</option>)}
+          </select>
 
-          {/* AI Provider button — replaces provider dropdown + Key Set */}
-          <button onClick={() => setShowKeyInput(!showKeyInput)} style={{
-            ...S.ghostBtn,
-            color: providerConfig.color,
-            borderColor: `${providerConfig.color}44`,
-          }}>
-            {providerConfig.label} {apiKey ? '' : '(no key)'}
+          {/* Single Settings entry — opens the unified modal */}
+          <button onClick={() => setSettingsOpen(true)} title={t('settingsTitle')} style={{ ...S.ghostBtn, position: 'relative', padding: '6px 10px' }}>
+            {'⚙️'} {t('settingsTitle')}
+            {!apiKey && <span style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: '50%', background: 'var(--c-danger)' }} />}
           </button>
 
           {/* Picture tab: Capture, Upload, Overlay */}
@@ -4801,470 +4782,34 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         </div>
       </header>}
 
-      {/* ── AI Provider Settings ──────────────────────────────────────────── */}
-      {showKeyInput && (
-        <div style={{ ...S.keyBar, flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-ink)' }}>{t('aiSettings')}</span>
-            <button onClick={() => setShowKeyInput(false)} style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 8px' }}>{t('close')}</button>
-          </div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {Object.entries(PROVIDERS).map(([key, p]) => (
-              <button key={key} onClick={() => setProvider(key)} style={{
-                ...S.ghostBtn, fontSize: 11, padding: '4px 12px',
-                color: provider === key ? p.color : 'var(--c-ink-dim)',
-                borderColor: provider === key ? `${p.color}66` : 'var(--c-border)',
-                background: provider === key ? `${p.color}11` : 'transparent',
-              }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: apiKeys[key] ? 'var(--c-success)' : 'var(--c-ink-faint)', display: 'inline-block', marginRight: 6 }} />
-                {p.label}
-              </button>
-            ))}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setCurrentKey(e.target.value)}
-              placeholder={providerConfig.placeholder}
-              style={{ ...S.keyInput, flex: 1 }}
-            />
-            <a href={providerConfig.url} target="_blank" rel="noopener noreferrer" style={S.getKeyLink}>Get key</a>
-          </div>
-
-          {/* Per-role model dropdowns. Each picks from the provider's live model list
-              (fetched via "Check for new models"); blank = provider default. */}
-          {(() => {
-            const provModels = availableModels[provider] || []
-            return (
-          <div style={{ borderTop: '1px solid var(--c-border)', paddingTop: 8, marginTop: 2 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-ink-dim)' }}>{t('aiModelsFor')} {providerConfig.label}</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <button onClick={() => refreshModels(provider)} disabled={modelsLoading || !apiKey}
-                  title={t('checkNewModelsHint')}
-                  style={{ ...S.ghostBtn, fontSize: 9, padding: '2px 8px', color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)', opacity: (modelsLoading || !apiKey) ? 0.5 : 1 }}>
-                  {modelsLoading ? t('checkingModels') : `↻ ${t('checkNewModels')}`}
-                </button>
-                {aiModels[provider] && Object.keys(aiModels[provider]).length > 0 && (
-                  <button onClick={() => setAiModels((prev) => { const n = { ...prev }; delete n[provider]; return n })}
-                    style={{ ...S.ghostBtn, fontSize: 9, padding: '2px 6px' }}>{t('resetToDefaults')}</button>
-                )}
-              </div>
-            </div>
-            {modelsError && <div style={{ fontSize: 9, color: 'var(--c-danger)', marginBottom: 6 }}>{modelsError}</div>}
-            {AI_ROLE_META.map(({ role, label, hint }) => {
-              const def = ROLE_DEFAULTS(providerConfig)[role]
-              const current = aiModels[provider]?.[role] || ''
-              // Option list = live model list ∪ default ∪ current selection (so nothing is lost).
-              const opts = Array.from(new Set([...(provModels.length ? provModels : []), def, current].filter(Boolean)))
-              return (
-              <div key={role} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
-                <span style={{ fontSize: 10, color: 'var(--c-ink-dim)', width: 70, flexShrink: 0 }} title={hint}>{t('aiRole_' + role)}</span>
-                <select
-                  value={current}
-                  onChange={(e) => setAiModels((prev) => ({ ...prev, [provider]: { ...(prev[provider] || {}), [role]: e.target.value } }))}
-                  style={{ ...S.keyInput, flex: 1, fontSize: 11, padding: '5px 8px' }}
-                >
-                  <option value="">{t('providerDefault')} ({def})</option>
-                  {opts.map((m) => <option key={m} value={m}>{m}</option>)}
-                </select>
-              </div>
-              )
-            })}
-            <span style={{ fontSize: 9, color: 'var(--c-ink-faint)' }}>{provModels.length ? t('aiModelsHintDropdown') : t('aiModelsHint')}</span>
-          </div>
-            )
-          })()}
-
-          {/* Appearance — light / dark theme toggle */}
-          <div style={{ borderTop: '1px solid var(--c-border)', paddingTop: 8, marginTop: 2 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-ink-dim)', flexShrink: 0 }}>{t('appearance')}</span>
-              <div style={{ display: 'flex', gap: 4, background: 'var(--c-surface-alt)', borderRadius: RADIUS.pill, padding: 3 }}>
-                {[['light', '☀️ ' + t('themeLight')], ['dark', '🌙 ' + t('themeDark')]].map(([val, label]) => (
-                  <button key={val} onClick={() => setAppTheme(val)}
-                    style={{
-                      border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 11, fontWeight: 700,
-                      padding: '5px 14px', borderRadius: RADIUS.pill,
-                      background: appTheme === val ? 'var(--c-surface)' : 'transparent',
-                      color: appTheme === val ? 'var(--c-brand)' : 'var(--c-ink-dim)',
-                      boxShadow: appTheme === val ? 'var(--sh-sm)' : 'none',
-                    }}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* App language — translates all UI chrome (everything outside flashcard content) */}
-          <div style={{ borderTop: '1px solid var(--c-border)', paddingTop: 8, marginTop: 2 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-ink-dim)', flexShrink: 0 }}>{t('appLanguage')}</span>
-              <select
-                value={appLanguage}
-                onChange={(e) => setAppLanguage(e.target.value)}
-                style={{ ...S.keyInput, flex: 1, fontSize: 11, padding: '5px 8px' }}
-              >
-                {APP_LANGUAGES.map((l) => (
-                  <option key={l.code} value={l.code}>{l.label}</option>
-                ))}
-              </select>
-            </div>
-            <span style={{ fontSize: 9, color: 'var(--c-ink-faint)' }}>{t('appLanguageHint')}</span>
-          </div>
-
-          <span style={{ fontSize: 10, color: 'var(--c-ink-faint)' }}>{t('keysStored')}</span>
-        </div>
-      )}
-
-      {showModePanel && (
-        <div style={{ ...S.keyBar, flexDirection: 'column', alignItems: 'stretch', gap: 10 }}>
-          {/* Mode list + create */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-brand)' }}>{t('modes')}:</span>
-            {modes.map((m) => (
-              <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                {editingModeName === m.id ? (
-                  <input autoFocus defaultValue={m.name}
-                    onBlur={(e) => renameMode(m.id, e.target.value || m.name)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') renameMode(m.id, e.target.value || m.name) }}
-                    style={{ ...S.keyInput, width: 120, fontSize: 11, padding: '4px 8px' }}
-                  />
-                ) : (
-                  <button
-                    onClick={() => {
-                      if (m.id === activeModeId) { setEditingModeName(m.id) }
-                      else { setActiveModeId(m.id); saveModes(modes, m.id) }
-                    }}
-                    title={`${m.description || m.name}\nDouble-click to rename`}
-                    style={{
-                      padding: '4px 10px', borderRadius: 5, fontSize: 11, fontFamily: 'inherit', cursor: 'pointer',
-                      background: m.id === activeModeId ? 'rgba(223,37,64,.2)' : 'rgba(125,133,144,.1)',
-                      color: m.id === activeModeId ? 'var(--c-brand)' : 'var(--c-ink-dim)',
-                      border: m.id === activeModeId ? '1px solid rgba(223,37,64,.4)' : '1px solid var(--c-border)',
-                      fontWeight: m.id === activeModeId ? 700 : 400,
-                    }}
-                  >
-                    {m.type === 'language' ? '\u{1F310}' : '\u{1F4DA}'} {m.name}
-                  </button>
-                )}
-                {modes.length > 1 && (
-                  <span onClick={() => { if (confirm(`Delete mode "${m.name}"? This will remove all settings for this mode.`)) deleteMode(m.id) }} style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 12 }}>&times;</span>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Create new mode */}
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              value={modeEditInput}
-              onChange={(e) => setModeEditInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && modeEditInput.trim()) { createMode(modeEditInput.trim()); setModeEditInput('') } }}
-              placeholder="What do you want to learn? (e.g. Spanish, Security+, Organic Chemistry)"
-              style={{ ...S.keyInput, flex: 1 }}
-              disabled={modeCreating}
-            />
-            <button
-              onClick={() => { if (modeEditInput.trim()) { createMode(modeEditInput.trim()); setModeEditInput('') } }}
-              disabled={modeCreating || !modeEditInput.trim()}
-              style={{ ...S.keyDone, opacity: modeCreating || !modeEditInput.trim() ? 0.5 : 1 }}
-            >
-              {modeCreating ? t('creating') : t('create')}
-            </button>
-          </div>
-
-          {/* Bottom buttons */}
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={addDefaultMode} style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-success)', borderColor: 'rgba(24,169,87,.25)' }}>
-              + Default Mode
-            </button>
-            <div style={{ flex: 1 }} />
-            <button onClick={() => { setShowModePanel(false); setShowSettings(false); setSettingsSection(null); setShowAnkiSection(false); setShowKnowledgeSection(false) }} style={S.keyDone}>Done</button>
-          </div>
-        </div>
-      )}
-
-      {/* Settings panel — independent of mode panel */}
-      {showSettings && (
-        <div style={{ ...S.keyBar, flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
-          <div style={{ fontSize: 11, color: 'var(--c-ink-dim)', display: 'flex', alignItems: 'center', gap: 8 }}>
-            Settings for:
-            <select value={activeModeId} onChange={(e) => { const id = parseInt(e.target.value); setActiveModeId(id); saveModes(modes, id) }}
-              style={{ ...S.select, fontSize: 11, padding: '3px 8px', color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)', background: 'rgba(223,37,64,.08)' }}>
-              {modes.map((m) => <option key={m.id} value={m.id}>{m.type === 'language' ? '\u{1F310}' : '\u{1F4DA}'} {m.name}</option>)}
-            </select>
-            {editingModeName === activeModeId ? (
-              <input autoFocus defaultValue={activeMode.name}
-                onBlur={(e) => renameMode(activeModeId, e.target.value || activeMode.name)}
-                onKeyDown={(e) => { if (e.key === 'Enter') renameMode(activeModeId, e.target.value || activeMode.name) }}
-                style={{ ...S.keyInput, width: 120, fontSize: 11, padding: '2px 6px' }}
-              />
-            ) : (
-              <span onClick={() => setEditingModeName(activeModeId)} style={{ cursor: 'pointer', color: 'var(--c-ink-faint)', fontSize: 10 }} title="Click to rename">
-                rename
-              </span>
-            )}
-          </div>
-          {/* Language Settings */}
-          {activeMode.type === 'language' && (
-            <div style={{
-              padding: '10px 14px', borderRadius: 10,
-              background: 'linear-gradient(180deg, rgba(223,37,64,.09), rgba(223,37,64,.03))', border: '1px solid rgba(223,37,64,.22)',
-              boxShadow: '0 8px 24px -18px rgba(0,0,0,.8)',
-            }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-brand)', marginBottom: 6 }}>Language Settings</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>Source:</span>
-                <select value={language} onChange={(e) => setLanguage(e.target.value)} style={{ ...S.select, fontSize: 11, flex: 1, minWidth: 120 }}>
-                  {LANGS.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
-                </select>
-                <span style={{ color: 'var(--c-brand)', fontWeight: 700 }}>→</span>
-                <span style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>Target:</span>
-                <select value={targetLang} onChange={(e) => setTargetLang(e.target.value)} style={{ ...S.select, fontSize: 11, flex: 1, minWidth: 120 }}>
-                  {LANGS.filter((l) => l.code !== 'auto').map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
-                </select>
-              </div>
-            </div>
-          )}
-
-          {/* Anki — top-level collapsible */}
-          <button
-            onClick={() => { setShowAnkiSection(!showAnkiSection); setSettingsSection(null) }}
-            style={{
-              width: '100%', textAlign: 'left', padding: '10px 14px', borderRadius: 10,
-              fontSize: 12, fontFamily: 'inherit', cursor: 'pointer', fontWeight: 700,
-              background: showAnkiSection ? 'linear-gradient(180deg, rgba(223,37,64,.2), rgba(223,37,64,.08))' : 'linear-gradient(180deg, rgba(223,37,64,.09), rgba(223,37,64,.03))',
-              color: 'var(--c-brand)', border: '1px solid rgba(223,37,64,.22)',
-            }}
-          >
-            {showAnkiSection ? '\u25BC' : '\u25B6'} Anki Settings {ankiConnected ? '' : ankiConnected === false ? '(offline)' : ''}
-          </button>
-
-          {showAnkiSection && (
-            <div style={{ paddingLeft: 8, borderLeft: '2px solid rgba(223,37,64,.2)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-
-              {/* Connection & Deck */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '4px 0' }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: ankiConnected ? 'var(--c-success)' : ankiConnected === false ? 'var(--c-warning)' : 'var(--c-ink-dim)', flexShrink: 0 }} />
-                <span style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>
-                  {ankiConnected ? 'Connected' : ankiConnected === false ? 'Not connected' : 'Checking...'}
-                </span>
-                {ankiConnected && ankiDecks.length > 0 && (
-                  <>
-                    <span style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>Deck:</span>
-                    <select value={ankiDeck} onChange={(e) => setAnkiDeck(e.target.value)} style={{ ...S.select, minWidth: 120 }}>
-                      {ankiDecks.map((d) => <option key={d} value={d}>{d}</option>)}
-                    </select>
-                  </>
-                )}
-                <button onClick={refreshAnkiConnection} style={{ ...S.getKeyLink, fontSize: 10 }}>
-                  {ankiConnected === null ? 'Checking...' : 'Refresh'}
-                </button>
-              </div>
-
-              {/* Card Format — nested collapsible */}
-              <button onClick={() => setSettingsSection(settingsSection === 'format' ? 'anki' : 'format')}
-                style={{ width: '100%', textAlign: 'left', padding: '5px 10px', borderRadius: 5, fontSize: 11, fontFamily: 'inherit', cursor: 'pointer', background: settingsSection === 'format' ? 'rgba(139,92,246,.15)' : 'rgba(139,92,246,.06)', color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,.2)', fontWeight: 600 }}
-              >
-                {settingsSection === 'format' ? '\u25BC' : '\u25B6'} Card Format
-              </button>
-              {settingsSection === 'format' && (
-                <div style={{ padding: '6px 10px', display: 'flex', flexDirection: 'column', gap: 8, borderLeft: '2px solid rgba(139,92,246,.2)', marginLeft: 4 }}>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <input value={modeEditInput} onChange={(e) => setModeEditInput(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter' && modeEditInput.trim()) { editModeWithAI(modeEditInput.trim()); setModeEditInput('') } }}
-                      placeholder="Ask AI to change format (e.g. 'add a mnemonic field')"
-                      style={{ ...S.keyInput, flex: 1, fontSize: 11 }} disabled={modeCreating}
-                    />
-                    <button onClick={() => { if (modeEditInput.trim()) { editModeWithAI(modeEditInput.trim()); setModeEditInput('') } }}
-                      disabled={modeCreating || !modeEditInput.trim()}
-                      style={{ ...S.getKeyLink, opacity: modeCreating ? 0.5 : 1, fontSize: 10 }}
-                    >{modeCreating ? '...' : 'AI Edit'}</button>
-                  </div>
-                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                    {Object.entries(ankiFormat.fields).map(([field, enabled]) => (
-                      <label key={field} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: enabled ? 'var(--c-ink)' : 'var(--c-ink-dim)', cursor: 'pointer' }}>
-                        <input type="checkbox" checked={enabled} onChange={() => updateActiveMode({ fields: { ...ankiFormat.fields, [field]: !enabled } })} /> {field}
-                      </label>
-                    ))}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 4 }}>Front template</div>
-                    <input value={ankiFormat.frontTemplate} onChange={(e) => updateActiveMode({ frontTemplate: e.target.value })} style={{ ...S.keyInput, fontSize: 11 }} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 4 }}>Back template</div>
-                    <textarea value={ankiFormat.backTemplate} onChange={(e) => updateActiveMode({ backTemplate: e.target.value })} style={{ ...S.keyInput, fontSize: 11, minHeight: 70, resize: 'vertical' }} />
-                  </div>
-                  <div style={{ fontSize: 10, color: 'var(--c-ink-faint)' }}>Placeholders: {'{word}'} {'{term}'} {'{partOfSpeech}'} {'{pronunciation}'} {'{translation}'} {'{synonyms}'} {'{definition}'} {'{example}'}</div>
-                </div>
-              )}
-
-              {/* Tag Rules — nested collapsible */}
-              <button onClick={() => setSettingsSection(settingsSection === 'tags' ? 'anki' : 'tags')}
-                style={{ width: '100%', textAlign: 'left', padding: '5px 10px', borderRadius: 5, fontSize: 11, fontFamily: 'inherit', cursor: 'pointer', background: settingsSection === 'tags' ? 'rgba(24,169,87,.15)' : 'rgba(24,169,87,.06)', color: 'var(--c-success)', border: '1px solid rgba(24,169,87,.2)', fontWeight: 600 }}
-              >
-                {settingsSection === 'tags' ? '\u25BC' : '\u25B6'} Tag Rules
-              </button>
-              {settingsSection === 'tags' && (
-                <div style={{ padding: '6px 10px', borderLeft: '2px solid rgba(24,169,87,.2)', marginLeft: 4 }}>
-                  <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 4 }}>AI reads these rules when generating tags for cards</div>
-                  <textarea value={activeMode.tagRules || ''} onChange={(e) => updateActiveMode({ tagRules: e.target.value })}
-                    style={{ ...S.keyInput, fontSize: 11, minHeight: 80, resize: 'vertical', width: '100%', boxSizing: 'border-box' }}
-                    placeholder="Instructions for AI tag generation..." />
-                </div>
-              )}
-
-              {/* Study Rules — nested collapsible */}
-              <button onClick={() => setSettingsSection(settingsSection === 'study' ? 'anki' : 'study')}
-                style={{ width: '100%', textAlign: 'left', padding: '5px 10px', borderRadius: 5, fontSize: 11, fontFamily: 'inherit', cursor: 'pointer', background: settingsSection === 'study' ? 'rgba(232,147,12,.15)' : 'rgba(232,147,12,.06)', color: 'var(--c-warning)', border: '1px solid rgba(232,147,12,.2)', fontWeight: 600 }}
-              >
-                {settingsSection === 'study' ? '\u25BC' : '\u25B6'} Study Rules
-              </button>
-              {settingsSection === 'study' && (
-                <div style={{ padding: '6px 10px', borderLeft: '2px solid rgba(232,147,12,.2)', marginLeft: 4, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                    <div>
-                      <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 2 }}>Questions per card</div>
-                      <input type="number" min="1" max="10" value={activeMode.studyRules?.questionsPerCard || 3}
-                        onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), questionsPerCard: parseInt(e.target.value) || 3 } })}
-                        style={{ ...S.keyInput, fontSize: 11, width: 60 }} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 2 }}>Cards at once</div>
-                      <input type="number" min="1" max="10" value={activeMode.studyRules?.cardsAtOnce || 3}
-                        onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), cardsAtOnce: parseInt(e.target.value) || 3 } })}
-                        style={{ ...S.keyInput, fontSize: 11, width: 60 }} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 2 }}>Quiz language</div>
-                      <select value={activeMode.studyRules?.studyLanguage || 'English'}
-                        onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), studyLanguage: e.target.value } })}
-                        style={{ ...S.select, fontSize: 11, minWidth: 100 }}>
-                        {LANGS.filter(l => l.code !== 'auto').map(l => (
-                          <option key={l.code} value={l.label}>{l.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 2 }}>Grammar feedback</div>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--c-ink-dim)', cursor: 'pointer' }}>
-                        <input type="checkbox" checked={activeMode.studyRules?.grammarFeedback || false}
-                          onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), grammarFeedback: e.target.checked } })} />
-                        {activeMode.studyRules?.grammarFeedback ? 'On' : 'Off'}
-                      </label>
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 2 }}>Question generation prompt (AI uses this to create questions per card)</div>
-                  <textarea
-                    value={activeMode.studyRules?.questionPrompt || (activeMode.type === 'language' ? defaultStudyRules : defaultGeneralStudyRules).questionPrompt}
-                    onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), questionPrompt: e.target.value } })}
-                    style={{ ...S.keyInput, fontSize: 11, minHeight: 100, resize: 'vertical', width: '100%', boxSizing: 'border-box' }}
-                    placeholder='Describe what kinds of questions the AI should ask...' />
-                  <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 2 }}>Rating rules</div>
-                  <input value={activeMode.studyRules?.ratingRules || defaultStudyRules.ratingRules}
-                    onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), ratingRules: e.target.value } })}
-                    style={{ ...S.keyInput, fontSize: 11 }} />
-                </div>
-              )}
-
-              <div style={{ fontSize: 10, color: 'var(--c-ink-faint)' }}>Requires AnkiConnect addon (code: 2055492159)</div>
-            </div>
-          )}
-
-          {/* Overlay Settings */}
-          <div style={{
-            padding: '10px 14px', borderRadius: 10,
-            background: 'linear-gradient(180deg, rgba(139,92,246,.09), rgba(139,92,246,.03))', border: '1px solid rgba(139,92,246,.22)',
-            boxShadow: '0 8px 24px -18px rgba(0,0,0,.8)',
-          }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-purple)', marginBottom: 6 }}>Overlay Settings</div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--c-ink)', cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={activeMode.areaSelectTransparent !== false}
-                onChange={() => updateActiveMode({ areaSelectTransparent: !(activeMode.areaSelectTransparent !== false) })}
-              />
-              Transparent background on area select (Ctrl+Shift+A)
-            </label>
-            <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginTop: 3 }}>
-              When enabled, only the selected area stays frozen — the rest of the screen shows through live.
-            </div>
-          </div>
-
-          {/* Knowledge Base — top-level collapsible */}
-          <button
-            onClick={() => { const opening = !showKnowledgeSection; setShowKnowledgeSection(opening); if (opening) loadKnowledgeFiles() }}
-            style={{
-              width: '100%', textAlign: 'left', padding: '10px 14px', borderRadius: 10,
-              fontSize: 12, fontFamily: 'inherit', cursor: 'pointer', fontWeight: 700,
-              background: showKnowledgeSection ? 'linear-gradient(180deg, rgba(24,169,87,.2), rgba(24,169,87,.08))' : 'linear-gradient(180deg, rgba(24,169,87,.09), rgba(24,169,87,.03))',
-              color: 'var(--c-success)', border: '1px solid rgba(24,169,87,.22)',
-            }}
-          >
-            {showKnowledgeSection ? '\u25BC' : '\u25B6'} Knowledge Base
-          </button>
-          {showKnowledgeSection && (() => {
-            return (
-              <div style={{ paddingLeft: 8, borderLeft: '2px solid rgba(24,169,87,.2)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>
-                  Add .txt or .md files to give the AI extra context for study questions. Optional.
-                </div>
-
-                {/* Drag & drop zone */}
-                <div
-                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setKnowledgeDragging(true) }}
-                  onDragLeave={() => setKnowledgeDragging(false)}
-                  onDrop={handleKnowledgeDrop}
-                  style={{
-                    padding: '16px', borderRadius: 6, textAlign: 'center', cursor: 'pointer',
-                    border: `2px dashed ${knowledgeDragging ? 'rgba(24,169,87,.5)' : 'var(--c-border)'}`,
-                    background: knowledgeDragging ? 'rgba(24,169,87,.06)' : 'transparent',
-                    color: 'var(--c-ink-dim)', fontSize: 11,
-                  }}
-                  onClick={() => document.getElementById('knowledge-file-input').click()}
-                >
-                  {knowledgeDragging ? 'Drop files here' : 'Drag & drop .txt/.md files here or click to browse'}
-                  <input id="knowledge-file-input" type="file" accept=".txt,.md" multiple
-                    onChange={handleKnowledgeFileInput} style={{ display: 'none' }} />
-                </div>
-
-                {/* File list */}
-                {knowledgeFiles.length > 0 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {knowledgeFiles.map((f) => (
-                      <div key={f.name} style={{
-                        display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px',
-                        background: f.disabled ? 'rgba(125,133,144,.04)' : 'rgba(24,169,87,.04)',
-                        border: `1px solid ${f.disabled ? 'var(--c-border)' : 'rgba(24,169,87,.15)'}`,
-                        borderRadius: 5, fontSize: 11,
-                      }}>
-                        <span style={{ flex: 1, color: f.disabled ? 'var(--c-ink-faint)' : 'var(--c-ink)', textDecoration: f.disabled ? 'line-through' : 'none' }}>
-                          {f.name}
-                        </span>
-                        <span style={{ color: 'var(--c-ink-faint)', fontSize: 10 }}>{(f.size / 1024).toFixed(1)}KB</span>
-                        <button onClick={() => toggleKnowledgeFile(f.name)}
-                          style={{ ...S.ghostBtn, fontSize: 9, padding: '2px 6px', color: f.disabled ? 'var(--c-success)' : 'var(--c-ink-dim)' }}>
-                          {f.disabled ? 'Enable' : 'Disable'}
-                        </button>
-                        <button onClick={() => { if (confirm(`Delete "${f.name}"? This cannot be undone.`)) deleteKnowledgeFile(f.name) }}
-                          style={{ ...S.ghostBtn, fontSize: 9, padding: '2px 6px', color: 'var(--c-danger)', borderColor: 'rgba(229,57,46,.25)' }}>
-                          Delete
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {knowledgeFiles.length === 0 && (
-                  <div style={{ fontSize: 10, color: 'var(--c-ink-faint)' }}>No files added yet</div>
-                )}
-              </div>
-            )
-          })()}
-        </div>
+      {/* ── Unified Settings modal (App + Mode settings) ───────────────────── */}
+      {settingsOpen && (
+        <SettingsModal
+          t={t}
+          category={settingsCategory}
+          setCategory={setSettingsCategory}
+          onClose={() => setSettingsOpen(false)}
+          appTheme={appTheme} setAppTheme={setAppTheme}
+          appLanguage={appLanguage} setAppLanguage={setAppLanguage}
+          language={language} setLanguage={setLanguage}
+          targetLang={targetLang} setTargetLang={setTargetLang}
+          provider={provider} setProvider={setProvider}
+          apiKeys={apiKeys} apiKey={apiKey} setCurrentKey={setCurrentKey} providerConfig={providerConfig}
+          AI_ROLE_META={AI_ROLE_META} ROLE_DEFAULTS={ROLE_DEFAULTS}
+          aiModels={aiModels} setAiModels={setAiModels} availableModels={availableModels}
+          refreshModels={refreshModels} modelsLoading={modelsLoading} modelsError={modelsError}
+          modes={modes} activeModeId={activeModeId} setActiveModeId={setActiveModeId} saveModes={saveModes}
+          editingModeName={editingModeName} setEditingModeName={setEditingModeName} renameMode={renameMode}
+          modeEditInput={modeEditInput} setModeEditInput={setModeEditInput} createMode={createMode}
+          modeCreating={modeCreating} addDefaultMode={addDefaultMode} deleteMode={deleteMode}
+          activeMode={activeMode} updateActiveMode={updateActiveMode}
+          defaultStudyRules={defaultStudyRules} defaultGeneralStudyRules={defaultGeneralStudyRules}
+          ankiConnected={ankiConnected} refreshAnkiConnection={refreshAnkiConnection} ankiDecks={ankiDecks}
+          ankiDeck={ankiDeck} setAnkiDeck={setAnkiDeck} ankiFormat={ankiFormat} editModeWithAI={editModeWithAI}
+          knowledgeFiles={knowledgeFiles} knowledgeDragging={knowledgeDragging} setKnowledgeDragging={setKnowledgeDragging}
+          handleKnowledgeDrop={handleKnowledgeDrop} handleKnowledgeFileInput={handleKnowledgeFileInput}
+          toggleKnowledgeFile={toggleKnowledgeFile} deleteKnowledgeFile={deleteKnowledgeFile}
+        />
       )}
 
       {/* ── Deck Browser ─────────────────────────────────────────────────────── */}
@@ -6684,7 +6229,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     ))
                   }
                   {Object.entries(PROVIDERS).filter(([key]) => key !== provider && apiKeys[key]).length === 0 && (
-                    <button onClick={() => setShowKeyInput(true)} style={S.errorSwitchBtn}>
+                    <button onClick={() => { setSettingsCategory('models'); setSettingsOpen(true) }} style={S.errorSwitchBtn}>
                       Set up another provider
                     </button>
                   )}

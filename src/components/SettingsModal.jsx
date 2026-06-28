@@ -1,0 +1,414 @@
+import { useState, useEffect } from 'react'
+import { S } from '../styles/theme'
+import { C, RADIUS, SHADOW, FONT } from '../config/tokens'
+import { LANGS } from '../config/languages'
+import { PROVIDERS } from '../config/providers'
+import { APP_LANGUAGES } from '../i18n'
+
+// Unified Settings modal. Left sidebar = categories grouped by scope (APP vs MODE);
+// right pane = the selected category. All state/handlers come from App via `p`.
+//
+// SCOPE (verified against the persistence layer):
+//   APP (global config.json): General (theme, app language, translation), AI Models
+//   MODE (activeMode → modes/<name>): Study, Cards & Anki, Knowledge, Overlay, Manage Modes
+export default function SettingsModal(p) {
+  const {
+    t, category, setCategory, onClose,
+    // General (global)
+    appTheme, setAppTheme, appLanguage, setAppLanguage,
+    language, setLanguage, targetLang, setTargetLang,
+    // AI Models (global)
+    provider, setProvider, apiKeys, apiKey, setCurrentKey, providerConfig,
+    AI_ROLE_META, ROLE_DEFAULTS, aiModels, setAiModels, availableModels,
+    refreshModels, modelsLoading, modelsError,
+    // Modes
+    modes, activeModeId, setActiveModeId, saveModes, editingModeName, setEditingModeName,
+    renameMode, modeEditInput, setModeEditInput, createMode, modeCreating, addDefaultMode, deleteMode,
+    // Mode config
+    activeMode, updateActiveMode, defaultStudyRules, defaultGeneralStudyRules,
+    ankiConnected, refreshAnkiConnection, ankiDecks, ankiDeck, setAnkiDeck, ankiFormat,
+    editModeWithAI,
+    // Knowledge
+    knowledgeFiles, knowledgeDragging, setKnowledgeDragging, handleKnowledgeDrop,
+    handleKnowledgeFileInput, toggleKnowledgeFile, deleteKnowledgeFile,
+  } = p
+
+  const isLanguage = (activeMode?.type || 'general') === 'language'
+  // Per-role "type a custom model" toggles (emergency: provider list empty / future models).
+  const [customRoles, setCustomRoles] = useState({})
+
+  // Esc closes the modal
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const NAV = [
+    { group: t('settingsApp'), items: [
+      { id: 'general', label: t('setGeneral'), icon: '⚙' },
+      { id: 'models', label: t('setAIModels'), icon: '🧠' },
+    ] },
+    { group: t('settingsMode'), items: [
+      { id: 'study', label: t('setStudy'), icon: '📚' },
+      { id: 'cards', label: t('setCards'), icon: '🗂' },
+      { id: 'knowledge', label: t('setKnowledge'), icon: '📎' },
+      { id: 'overlay', label: t('setOverlay'), icon: '🖥' },
+      { id: 'modes', label: t('setModes'), icon: '🌐' },
+    ] },
+  ]
+
+  const sectionTitle = (txt) => (
+    <div style={{ fontSize: 16, fontWeight: 800, fontFamily: FONT.display, color: C.ink, marginBottom: 14 }}>{txt}</div>
+  )
+  const fieldLabel = (txt) => <div style={{ fontSize: 11, fontWeight: 700, color: C.inkDim, marginBottom: 5, textTransform: 'uppercase', letterSpacing: '.04em' }}>{txt}</div>
+  const card = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.md, padding: '14px 16px', marginBottom: 12, boxShadow: SHADOW.sm }
+  const hint = { fontSize: 11, color: C.inkFaint, marginTop: 6, lineHeight: 1.5 }
+
+  // ── Mode context bar (shown atop per-mode categories) ──
+  const modeBar = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+      <span style={{ fontSize: 12, color: C.inkDim, fontWeight: 700 }}>{t('configuring')}</span>
+      <select value={activeModeId} onChange={(e) => { const id = parseInt(e.target.value); setActiveModeId(id); saveModes(modes, id) }}
+        style={{ ...S.select, color: C.brand, borderColor: C.brandRing, background: C.brandTint }}>
+        {modes.map((m) => <option key={m.id} value={m.id}>{m.type === 'language' ? '\u{1F310}' : '\u{1F4DA}'} {m.name}</option>)}
+      </select>
+      {editingModeName === activeModeId ? (
+        <input autoFocus defaultValue={activeMode.name}
+          onBlur={(e) => renameMode(activeModeId, e.target.value || activeMode.name)}
+          onKeyDown={(e) => { if (e.key === 'Enter') renameMode(activeModeId, e.target.value || activeMode.name) }}
+          style={{ ...S.keyInput, width: 140, fontSize: 12, padding: '4px 8px' }} />
+      ) : (
+        <span onClick={() => setEditingModeName(activeModeId)} style={{ cursor: 'pointer', color: C.inkFaint, fontSize: 11 }} title="Rename">{t('rename')}</span>
+      )}
+    </div>
+  )
+
+  // ── Panes ──
+  const General = (
+    <div>
+      {sectionTitle(t('setGeneral'))}
+      <div style={card}>
+        {fieldLabel(t('appearance'))}
+        <div style={{ display: 'flex', gap: 4, background: C.surfaceAlt, borderRadius: RADIUS.pill, padding: 3, width: 'fit-content' }}>
+          {[['light', '☀️ ' + t('themeLight')], ['dark', '🌙 ' + t('themeDark')]].map(([val, label]) => (
+            <button key={val} onClick={() => setAppTheme(val)} style={{
+              border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, padding: '6px 16px', borderRadius: RADIUS.pill,
+              background: appTheme === val ? C.surface : 'transparent', color: appTheme === val ? C.brand : C.inkDim, boxShadow: appTheme === val ? SHADOW.sm : 'none',
+            }}>{label}</button>
+          ))}
+        </div>
+      </div>
+      <div style={card}>
+        {fieldLabel(t('appLanguage'))}
+        <select value={appLanguage} onChange={(e) => setAppLanguage(e.target.value)} style={{ ...S.select, width: '100%' }}>
+          {APP_LANGUAGES.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
+        </select>
+        <div style={hint}>{t('appLanguageHint')}</div>
+      </div>
+      <div style={card}>
+        {fieldLabel(t('translation'))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, color: C.inkDim }}>{t('source')}</span>
+          <select value={language} onChange={(e) => setLanguage(e.target.value)} style={{ ...S.select, flex: 1, minWidth: 130 }}>
+            {LANGS.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
+          </select>
+          <span style={{ color: C.brand, fontWeight: 700 }}>→</span>
+          <span style={{ fontSize: 12, color: C.inkDim }}>{t('target')}</span>
+          <select value={targetLang} onChange={(e) => setTargetLang(e.target.value)} style={{ ...S.select, flex: 1, minWidth: 130 }}>
+            {LANGS.filter((l) => l.code !== 'auto').map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
+          </select>
+        </div>
+        <div style={hint}>{t('translationHint')}</div>
+      </div>
+    </div>
+  )
+
+  const provModels = availableModels[provider] || []
+  const AIModels = (
+    <div>
+      {sectionTitle(t('setAIModels'))}
+      <div style={card}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+          {Object.entries(PROVIDERS).map(([key, pr]) => (
+            <button key={key} onClick={() => setProvider(key)} style={{
+              ...S.ghostBtn, fontSize: 12, padding: '5px 12px',
+              color: provider === key ? pr.color : C.inkDim,
+              borderColor: provider === key ? `${pr.color}66` : C.border,
+              background: provider === key ? `${pr.color}14` : C.surface,
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: apiKeys[key] ? C.success : C.inkFaint, display: 'inline-block', marginRight: 6 }} />
+              {pr.label}
+            </button>
+          ))}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input type="password" value={apiKey} onChange={(e) => setCurrentKey(e.target.value)} placeholder={providerConfig.placeholder} style={{ ...S.keyInput, flex: 1 }} />
+          <a href={providerConfig.url} target="_blank" rel="noopener noreferrer" style={S.getKeyLink}>{t('getKey')}</a>
+        </div>
+        <div style={hint}>{t('keysStored')}</div>
+      </div>
+
+      <div style={card}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 8, flexWrap: 'wrap' }}>
+          {fieldLabel(`${t('aiModelsFor')} ${providerConfig.label}`)}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button onClick={() => refreshModels(provider)} disabled={modelsLoading || !apiKey} title={t('checkNewModelsHint')}
+              style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 9px', color: C.brand, borderColor: C.brandRing, opacity: (modelsLoading || !apiKey) ? 0.5 : 1 }}>
+              {modelsLoading ? t('checkingModels') : `↻ ${t('checkNewModels')}`}
+            </button>
+            {aiModels[provider] && Object.keys(aiModels[provider]).length > 0 && (
+              <button onClick={() => setAiModels((prev) => { const n = { ...prev }; delete n[provider]; return n })} style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 8px' }}>{t('resetToDefaults')}</button>
+            )}
+          </div>
+        </div>
+        {modelsError && <div style={{ fontSize: 10, color: C.danger, marginBottom: 6 }}>{modelsError}</div>}
+        {AI_ROLE_META.map(({ role }) => {
+          const def = ROLE_DEFAULTS(providerConfig)[role]
+          const current = aiModels[provider]?.[role] || ''
+          const opts = Array.from(new Set([...(provModels.length ? provModels : []), def, current].filter(Boolean)))
+          const isCustom = customRoles[role]
+          const setRole = (v) => setAiModels((prev) => ({ ...prev, [provider]: { ...(prev[provider] || {}), [role]: v } }))
+          return (
+            <div key={role} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <span style={{ fontSize: 11, color: C.inkDim, width: 70, flexShrink: 0, fontWeight: 600 }}>{t('aiRole_' + role)}</span>
+              {isCustom ? (
+                <input value={current} onChange={(e) => setRole(e.target.value)} spellCheck={false}
+                  placeholder="exact model id (e.g. claude-…)" style={{ ...S.keyInput, flex: 1, fontSize: 11, padding: '6px 9px' }} />
+              ) : (
+                <select value={current} onChange={(e) => { if (e.target.value === '__custom__') { setCustomRoles((c) => ({ ...c, [role]: true })) } else setRole(e.target.value) }}
+                  style={{ ...S.select, flex: 1, fontSize: 11, padding: '6px 9px' }}>
+                  <option value="">{t('providerDefault')} ({def})</option>
+                  {opts.map((m) => <option key={m} value={m}>{m}</option>)}
+                  <option value="__custom__">✏️ {t('customModel')}</option>
+                </select>
+              )}
+              {isCustom && (
+                <button onClick={() => { setCustomRoles((c) => ({ ...c, [role]: false })); setRole('') }} style={{ ...S.ghostBtn, fontSize: 9, padding: '3px 7px' }} title={t('useList')}>↩</button>
+              )}
+            </div>
+          )
+        })}
+        <div style={hint}>
+          {provModels.length ? t('aiModelsHintDropdown') : t('aiModelsHint')}<br />
+          {t('customModelHelp')} <a href={providerConfig.url} target="_blank" rel="noopener noreferrer" style={{ color: C.brand }}>{providerConfig.label} ↗</a>
+        </div>
+      </div>
+    </div>
+  )
+
+  const Study = (
+    <div>
+      {sectionTitle(t('setStudy'))}{modeBar}
+      <div style={card}>
+        <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+          <div>
+            {fieldLabel(t('questionsPerCard'))}
+            <input type="number" min="1" max="10" value={activeMode.studyRules?.questionsPerCard || 3}
+              onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), questionsPerCard: parseInt(e.target.value) || 3 } })}
+              style={{ ...S.keyInput, width: 70 }} />
+          </div>
+          <div>
+            {fieldLabel(t('cardsAtOnce'))}
+            <input type="number" min="1" max="10" value={activeMode.studyRules?.cardsAtOnce || 3}
+              onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), cardsAtOnce: parseInt(e.target.value) || 3 } })}
+              style={{ ...S.keyInput, width: 70 }} />
+          </div>
+          {isLanguage && (
+            <div>
+              {fieldLabel(t('quizIn'))}
+              <select value={activeMode.studyRules?.studyLanguage || 'English'}
+                onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), studyLanguage: e.target.value } })}
+                style={{ ...S.select, minWidth: 120 }}>
+                {LANGS.filter((l) => l.code !== 'auto').map((l) => <option key={l.code} value={l.label}>{l.label}</option>)}
+              </select>
+            </div>
+          )}
+          {isLanguage && (
+            <div>
+              {fieldLabel(t('grammarFeedback'))}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: C.inkDim, cursor: 'pointer', paddingTop: 6 }}>
+                <input type="checkbox" checked={activeMode.studyRules?.grammarFeedback || false}
+                  onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), grammarFeedback: e.target.checked } })} />
+                {activeMode.studyRules?.grammarFeedback ? t('on') : t('off')}
+              </label>
+            </div>
+          )}
+        </div>
+      </div>
+      <div style={card}>
+        {fieldLabel(t('questionPrompt'))}
+        <textarea value={activeMode.studyRules?.questionPrompt || (isLanguage ? defaultStudyRules : defaultGeneralStudyRules).questionPrompt}
+          onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), questionPrompt: e.target.value } })}
+          style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box', minHeight: 110, resize: 'vertical' }} />
+        <div style={{ marginTop: 10 }}>{fieldLabel(t('ratingRules'))}
+          <input value={activeMode.studyRules?.ratingRules || defaultStudyRules.ratingRules}
+            onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), ratingRules: e.target.value } })}
+            style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box' }} />
+        </div>
+      </div>
+    </div>
+  )
+
+  const Cards = (
+    <div>
+      {sectionTitle(t('setCards'))}{modeBar}
+      <div style={card}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: ankiConnected ? C.success : ankiConnected === false ? C.warning : C.inkFaint }} />
+          <span style={{ fontSize: 12, color: C.inkDim }}>{ankiConnected ? t('connected') : ankiConnected === false ? t('notConnected') : t('checkingAnki')}</span>
+          {ankiConnected && ankiDecks.length > 0 && (<>
+            <span style={{ fontSize: 12, color: C.inkDim, marginLeft: 4 }}>{t('deck')}:</span>
+            <select value={ankiDeck} onChange={(e) => setAnkiDeck(e.target.value)} style={{ ...S.select, minWidth: 140 }}>
+              {ankiDecks.map((d) => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </>)}
+          <button onClick={refreshAnkiConnection} style={{ ...S.getKeyLink, fontSize: 11, marginLeft: 'auto' }}>{ankiConnected === null ? t('checkingAnki') : t('refresh')}</button>
+        </div>
+        <div style={hint}>{t('ankiAddonNote')}</div>
+      </div>
+      <div style={card}>
+        {fieldLabel(t('cardFormat'))}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+          <input value={modeEditInput} onChange={(e) => setModeEditInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && modeEditInput.trim()) { editModeWithAI(modeEditInput.trim()); setModeEditInput('') } }}
+            placeholder={t('aiEditPlaceholder')} style={{ ...S.keyInput, flex: 1, fontSize: 12 }} disabled={modeCreating} />
+          <button onClick={() => { if (modeEditInput.trim()) { editModeWithAI(modeEditInput.trim()); setModeEditInput('') } }}
+            disabled={modeCreating || !modeEditInput.trim()} style={{ ...S.getKeyLink, opacity: modeCreating ? 0.5 : 1 }}>{modeCreating ? '…' : t('aiEdit')}</button>
+        </div>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
+          {Object.entries(ankiFormat.fields || {}).map(([field, enabled]) => (
+            <label key={field} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: enabled ? C.ink : C.inkDim, cursor: 'pointer' }}>
+              <input type="checkbox" checked={enabled} onChange={() => updateActiveMode({ fields: { ...ankiFormat.fields, [field]: !enabled } })} /> {field}
+            </label>
+          ))}
+        </div>
+        {fieldLabel(t('frontTemplate'))}
+        <input value={ankiFormat.frontTemplate} onChange={(e) => updateActiveMode({ frontTemplate: e.target.value })} style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box', fontSize: 12, marginBottom: 8 }} />
+        {fieldLabel(t('backTemplate'))}
+        <textarea value={ankiFormat.backTemplate} onChange={(e) => updateActiveMode({ backTemplate: e.target.value })} style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box', fontSize: 12, minHeight: 70, resize: 'vertical' }} />
+        <div style={hint}>Placeholders: {'{word} {term} {partOfSpeech} {pronunciation} {translation} {synonyms} {definition} {example}'}</div>
+      </div>
+      <div style={card}>
+        {fieldLabel(t('tagRules'))}
+        <textarea value={activeMode.tagRules || ''} onChange={(e) => updateActiveMode({ tagRules: e.target.value })}
+          placeholder={t('tagRulesPlaceholder')} style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box', fontSize: 12, minHeight: 80, resize: 'vertical' }} />
+      </div>
+    </div>
+  )
+
+  const Knowledge = (
+    <div>
+      {sectionTitle(t('setKnowledge'))}{modeBar}
+      <div style={card}>
+        <div style={{ fontSize: 12, color: C.inkDim, marginBottom: 10 }}>{t('knowledgeIntro')}</div>
+        <div onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setKnowledgeDragging(true) }} onDragLeave={() => setKnowledgeDragging(false)} onDrop={handleKnowledgeDrop}
+          onClick={() => document.getElementById('knowledge-file-input').click()}
+          style={{ padding: 18, borderRadius: RADIUS.md, textAlign: 'center', cursor: 'pointer', border: `2px dashed ${knowledgeDragging ? C.brand : C.border}`, background: knowledgeDragging ? C.brandTint2 : C.surfaceSunken, color: C.inkDim, fontSize: 12 }}>
+          {knowledgeDragging ? t('dropHere') : t('dropZone')}
+          <input id="knowledge-file-input" type="file" accept=".txt,.md" multiple onChange={handleKnowledgeFileInput} style={{ display: 'none' }} />
+        </div>
+        {knowledgeFiles.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10 }}>
+            {knowledgeFiles.map((f) => (
+              <div key={f.name} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: f.disabled ? C.surfaceSunken : C.successTint, border: `1px solid ${f.disabled ? C.border : 'rgba(24,169,87,.2)'}`, borderRadius: RADIUS.sm, fontSize: 12 }}>
+                <span style={{ flex: 1, color: f.disabled ? C.inkFaint : C.ink, textDecoration: f.disabled ? 'line-through' : 'none' }}>{f.name}</span>
+                <span style={{ color: C.inkFaint, fontSize: 10 }}>{(f.size / 1024).toFixed(1)}KB</span>
+                <button onClick={() => toggleKnowledgeFile(f.name)} style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 7px' }}>{f.disabled ? t('enable') : t('disable')}</button>
+                <button onClick={() => { if (confirm(`Delete "${f.name}"?`)) deleteKnowledgeFile(f.name) }} style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 7px', color: C.danger, borderColor: 'rgba(229,57,46,.25)' }}>{t('delete')}</button>
+              </div>
+            ))}
+          </div>
+        ) : <div style={{ fontSize: 11, color: C.inkFaint, marginTop: 8 }}>{t('noFiles')}</div>}
+      </div>
+    </div>
+  )
+
+  const Overlay = (
+    <div>
+      {sectionTitle(t('setOverlay'))}{modeBar}
+      <div style={card}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: C.ink, cursor: 'pointer' }}>
+          <input type="checkbox" checked={activeMode.areaSelectTransparent !== false}
+            onChange={() => updateActiveMode({ areaSelectTransparent: !(activeMode.areaSelectTransparent !== false) })} />
+          {t('overlayTransparent')}
+        </label>
+        <div style={hint}>{t('overlayTransparentHint')}</div>
+      </div>
+    </div>
+  )
+
+  const Modes = (
+    <div>
+      {sectionTitle(t('setModes'))}
+      <div style={card}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+          {modes.map((m) => (
+            <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <button onClick={() => { if (m.id === activeModeId) setEditingModeName(m.id); else { setActiveModeId(m.id); saveModes(modes, m.id) } }}
+                title={`${m.description || m.name}`}
+                style={{ padding: '5px 12px', borderRadius: RADIUS.pill, fontSize: 12, fontFamily: 'inherit', cursor: 'pointer',
+                  background: m.id === activeModeId ? C.brandTint : C.surfaceAlt, color: m.id === activeModeId ? C.brand : C.inkDim,
+                  border: m.id === activeModeId ? `1px solid ${C.brandRing}` : `1px solid ${C.border}`, fontWeight: m.id === activeModeId ? 700 : 500 }}>
+                {m.type === 'language' ? '\u{1F310}' : '\u{1F4DA}'} {m.name}
+              </button>
+              {modes.length > 1 && (
+                <span onClick={() => { if (confirm(`Delete mode "${m.name}"?`)) deleteMode(m.id) }} style={{ cursor: 'pointer', color: C.inkFaint, fontSize: 14, padding: '0 2px' }}>&times;</span>
+              )}
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input value={modeEditInput} onChange={(e) => setModeEditInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && modeEditInput.trim()) { createMode(modeEditInput.trim()); setModeEditInput('') } }}
+            placeholder={t('createModePlaceholder')} style={{ ...S.keyInput, flex: 1 }} disabled={modeCreating} />
+          <button onClick={() => { if (modeEditInput.trim()) { createMode(modeEditInput.trim()); setModeEditInput('') } }}
+            disabled={modeCreating || !modeEditInput.trim()} style={{ ...S.keyDone, opacity: modeCreating || !modeEditInput.trim() ? 0.5 : 1 }}>{modeCreating ? t('creating') : t('create')}</button>
+        </div>
+        <button onClick={addDefaultMode} style={{ ...S.ghostBtn, fontSize: 11, color: C.success, borderColor: 'rgba(24,169,87,.3)', marginTop: 10 }}>+ {t('defaultMode')}</button>
+      </div>
+    </div>
+  )
+
+  const panes = { general: General, models: AIModels, study: Study, cards: Cards, knowledge: Knowledge, overlay: Overlay, modes: Modes }
+
+  return (
+    <div style={S.backdrop} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        display: 'flex', width: 'min(900px, 94vw)', height: 'min(640px, 86vh)',
+        background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg,
+        boxShadow: SHADOW.xl, overflow: 'hidden', animation: 'pop .18s cubic-bezier(.34,1.56,.64,1)', cursor: 'default',
+      }}>
+        {/* Sidebar */}
+        <div style={{ width: 200, flexShrink: 0, background: C.surfaceSunken, borderRight: `1px solid ${C.border}`, padding: '14px 10px', overflowY: 'auto' }}>
+          <div style={{ fontSize: 15, fontWeight: 800, fontFamily: FONT.display, color: C.ink, padding: '2px 8px 12px' }}>⚙ {t('settingsTitle')}</div>
+          {NAV.map((grp) => (
+            <div key={grp.group} style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: C.inkFaint, padding: '4px 8px' }}>{grp.group}</div>
+              {grp.items.map((it) => (
+                <button key={it.id} onClick={() => setCategory(it.id)} style={{
+                  display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
+                  padding: '8px 10px', borderRadius: RADIUS.sm, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                  fontSize: 13, fontWeight: category === it.id ? 700 : 600, marginBottom: 2,
+                  background: category === it.id ? C.brandTint : 'transparent',
+                  color: category === it.id ? C.brand : C.inkDim,
+                }}>
+                  <span style={{ width: 16, textAlign: 'center' }}>{it.icon}</span>{it.label}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+        {/* Content */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 14px 0' }}>
+            <button onClick={onClose} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px' }}>{t('close')}</button>
+          </div>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '8px 22px 24px' }}>
+            {panes[category] || General}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
