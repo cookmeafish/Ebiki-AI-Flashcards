@@ -365,7 +365,7 @@ export default function App() {
   const [deckBrowserAddName, setDeckBrowserAddName] = useState('')
   const [deckBrowserAddPurpose, setDeckBrowserAddPurpose] = useState('')
   const [deckBrowserAddLoading, setDeckBrowserAddLoading] = useState(false)
-  const [deckBrowserDeck, setDeckBrowserDeck] = useState('')
+  const [deckBrowserDeck, setDeckBrowserDeck] = useState(() => { try { return localStorage.getItem('ebiki-deck') || '' } catch { return '' } })
   const [deckBrowserNotes, setDeckBrowserNotes] = useState([])
   const [deckBrowserLoading, setDeckBrowserLoading] = useState(false)
   const [deckBrowserEditing, setDeckBrowserEditing] = useState(null) // noteId being edited
@@ -457,12 +457,38 @@ export default function App() {
   const [chatTabStatus, setChatTabStatus] = useState(null) // null | 'searching' | 'thinking' | 'search-done' | 'search-empty' | 'search-failed'
   const chatTabScrollRef = useRef(null)
 
-  // Load chat sessions from disk on mount
+  // Load chat sessions from disk on mount, and restore the last-open session (persisted in
+  // localStorage) so refreshing inside a chat keeps that chat instead of resetting to New Chat.
   useEffect(() => {
-    fetch('/api/chats').then(r => r.json()).then(sessions => {
+    fetch('/api/chats').then(r => r.json()).then(async sessions => {
       setChatTabSessions(sessions)
+      try {
+        const savedId = localStorage.getItem('ebiki-chat-session')
+        const match = savedId && sessions.find(s => String(s.id) === String(savedId))
+        if (match) {
+          const data = await fetch(`/api/chat-load?id=${encodeURIComponent(match.id)}`).then(r => r.json())
+          setChatTabMsgs((data.messages || []).map(m => ({ ...m, content: m.content || m.text })))
+          setChatTabSessionId(match.id)
+        }
+      } catch {}
     }).catch(() => {})
   }, [])
+
+  // Persist the open chat session id across refreshes.
+  useEffect(() => {
+    try {
+      if (chatTabSessionId) localStorage.setItem('ebiki-chat-session', String(chatTabSessionId))
+      else localStorage.removeItem('ebiki-chat-session')
+    } catch {}
+  }, [chatTabSessionId])
+
+  // Persist the selected Deck-browser deck across refreshes.
+  useEffect(() => {
+    try {
+      if (deckBrowserDeck) localStorage.setItem('ebiki-deck', deckBrowserDeck)
+      else localStorage.removeItem('ebiki-deck')
+    } catch {}
+  }, [deckBrowserDeck])
 
   const activeMode = modes.find((m) => m.id === activeModeId) || modes[0] || defaultMode
   const ankiFormat = activeMode
@@ -3824,6 +3850,50 @@ Output ONLY raw JSON. No markdown, no backticks.`
 
   const [currentQuestion, setCurrentQuestion] = useState(null)
 
+  // ── Study session persistence — resume an in-progress session after a refresh ──────
+  const [studyHydrated, setStudyHydrated] = useState(false)
+  // Restore once after config loads (before the user can interact).
+  useEffect(() => {
+    if (!configLoaded || studyHydrated) return
+    try {
+      const raw = localStorage.getItem('ebiki-study-session')
+      const s = raw ? JSON.parse(raw) : null
+      if (s && s.studyActive) {
+        setStudyAllCards(s.studyAllCards || [])
+        setStudyCardState(s.studyCardState || [])
+        setStudyBatchIdx(s.studyBatchIdx || 0)
+        setStudyQueue(s.studyQueue || [])
+        setStudyQueueIdx(s.studyQueueIdx || 0)
+        setStudyStats(s.studyStats || { easy: 0, good: 0, hard: 0, again: 0 })
+        setStudyDeck(s.studyDeck || '')
+        setStudyMode(s.studyMode || 'flashcards')
+        setStudyConjugationWords(s.studyConjugationWords || [])
+        setStudyConjugationLanguage(s.studyConjugationLanguage || 'English')
+        setStudyAnswerHistory(s.studyAnswerHistory || [])
+        setCurrentQuestion(s.currentQuestion || null)
+        setStudyPhase(s.studyPhase || 'question')
+        setStudyActive(true)
+      }
+    } catch {}
+    setStudyHydrated(true)
+  }, [configLoaded, studyHydrated])
+  // Snapshot the session on change (only after hydration, so we never clobber a saved session
+  // before restoring it). Cleared automatically when the session ends (studyActive=false).
+  useEffect(() => {
+    if (!studyHydrated) return
+    try {
+      if (studyActive) {
+        localStorage.setItem('ebiki-study-session', JSON.stringify({
+          studyActive: true, studyPhase, studyMode, studyAllCards, studyCardState,
+          studyBatchIdx, studyQueue, studyQueueIdx, studyStats, studyDeck,
+          currentQuestion, studyConjugationWords, studyConjugationLanguage, studyAnswerHistory,
+        }))
+      } else {
+        localStorage.removeItem('ebiki-study-session')
+      }
+    } catch {}
+  }, [studyHydrated, studyActive, studyPhase, studyMode, studyAllCards, studyCardState, studyBatchIdx, studyQueue, studyQueueIdx, studyStats, studyDeck, currentQuestion, studyConjugationWords, studyConjugationLanguage, studyAnswerHistory])
+
   // Pick first question when entering question phase
   useEffect(() => {
     if (studyPhase === 'question' && !currentQuestion && studyCardState.length > 0) {
@@ -5206,6 +5276,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
   }, [currentQuestion, studyActive])
 
   // ─── Render ────────────────────────────────────────────────────────────────
+  // Wait for config + modes before the first real paint so the saved tab/mode are already
+  // applied — otherwise the UI briefly flashes the default mode/tab before load (the flicker).
+  if (!isOverlay && !configLoaded) {
+    return <div style={{ minHeight: '100vh', background: 'var(--c-bg)' }} />
+  }
   return (
     <div
       ref={containerRef}

@@ -119,6 +119,19 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   `getZoom()` everywhere a tooltip position is derived from a rect/cursor (hover, pin, drag), and clamp the
   pinned popup to the (zoom-adjusted) viewport so it's always fully visible.
 
+## State persistence across refresh
+- **No-flicker first paint:** the app returns a blank themed `<div>` until `configLoaded` (App.jsx,
+  just before the main `return`), so the saved tab/mode are applied before the first real render —
+  otherwise it briefly flashes the default mode (`activeModeId` starts at 1 = Language Learning) / tab.
+- **What persists:** `activeTab` + AI/app settings → `config.json`; `activeModeId` + modes → `modes/_meta.json`;
+  **open chat session** → `localStorage('ebiki-chat-session')` (restored in the chats-load effect);
+  **selected Deck** → `localStorage('ebiki-deck')` (lazy-init on `deckBrowserDeck`); **in-progress study
+  session** → `localStorage('ebiki-study-session')`.
+- **Study resume:** a snapshot of the core study state (cards, queue, phase, stats, currentQuestion, …)
+  is written whenever it changes, gated behind `studyHydrated` so the write effect never clobbers the
+  saved session before the one-shot restore effect reads it. Cleared automatically when `studyActive` ends.
+- The overlay launch preference persists too (`overlayEnabled` in `config.json`, default ON, auto-launches once).
+
 ## Card generator (shared engine) + Quick-Add
 - `generateCards(words)` (App.jsx) is the shared engine. **Language modes** → `SPANISH_CARD_PROMPT`
   (exact Frente/Dorso format, one card per distinct meaning, surfaces misspelling `correction`);
