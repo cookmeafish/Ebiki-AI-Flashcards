@@ -279,6 +279,8 @@ export default function App() {
   const [language, setLanguage] = useState('auto')
   const [targetLang, setTargetLang] = useState('eng')
   const [overlayRunning, setOverlayRunning] = useState(false)
+  // Persisted user preference: launch the screen overlay on startup. Defaults ON.
+  const [overlayEnabled, setOverlayEnabled] = useState(true)
   const [selectionMode, setSelectionMode] = useState(false)
   const [selRect, setSelRect] = useState(null) // { x1, y1, x2, y2 } in viewport coords
   const [selectionOffset, setSelectionOffset] = useState(null) // { x, y } in full-image pixels
@@ -686,6 +688,7 @@ export default function App() {
       if (config.language) setLanguage(config.language)
       if (config.targetLang) setTargetLang(config.targetLang)
       if (config.showHighlights !== undefined) setShowHighlights(config.showHighlights)
+      if (config.overlayEnabled !== undefined) setOverlayEnabled(config.overlayEnabled)
       if (config.onboarded) setOnboarded(true)
       setActiveTab(config.activeTab || 'picture')
       // ankiDeck is now per-mode (stored in mode config)
@@ -848,9 +851,22 @@ export default function App() {
     fetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider, aiModels, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, onboarded, ...(activeTab ? { activeTab } : {}) }),
+      body: JSON.stringify({ provider, aiModels, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, overlayEnabled, onboarded, ...(activeTab ? { activeTab } : {}) }),
     }).catch(() => {})
-  }, [provider, aiModels, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, onboarded, activeTab, configLoaded])
+  }, [provider, aiModels, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, overlayEnabled, onboarded, activeTab, configLoaded])
+
+  // Auto-launch the overlay once on startup when the persisted preference is ON (default).
+  const overlayAutoLaunchedRef = useRef(false)
+  useEffect(() => {
+    if (isOverlay || !configLoaded || overlayAutoLaunchedRef.current) return
+    if (overlayEnabled && !overlayRunning) {
+      overlayAutoLaunchedRef.current = true
+      fetch('/api/launch-overlay', { method: 'POST' })
+        .then((r) => r.json())
+        .then((d) => { if (!d.error) setOverlayRunning(true) })
+        .catch(() => {})
+    }
+  }, [configLoaded, overlayEnabled, overlayRunning, isOverlay])
 
   const setCurrentKey = (key) => {
     setApiKeys((prev) => ({ ...prev, [provider]: key }))
@@ -5268,8 +5284,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
 
           {/* Ask Ebi — opens the Help chat (the floating shrimp is hidden on the picture result) */}
           {activeTab === 'picture' && stage === 'done' && (
-            <button onClick={() => setAskEbiSignal((n) => n + 1)} style={S.ghostBtn} title="Ask Ebi about this">
-              🦐 Ask Ebi
+            <button onClick={() => setAskEbiSignal((n) => n + 1)} title="Ask Ebi about this"
+              style={{ ...S.ghostBtn, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)', fontWeight: 700 }}>
+              Ask Ebi
             </button>
           )}
 
@@ -5284,23 +5301,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             <button onClick={reset} style={{ ...S.ghostBtn, padding: '6px 9px' }} title="Exit picture analysis">✕</button>
           )}
 
-          {/* Mode quick-switcher (fast switch without opening Settings) */}
-          <select
-            value={activeModeId}
-            onChange={(e) => { const id = parseInt(e.target.value); setActiveModeId(id); saveModes(modes, id); const nm = modes.find((m) => m.id === id); if (nm?.ankiDeck) setStudyDeck(nm.ankiDeck) }}
-            title={t('settingsMode')}
-            style={{ ...S.select, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)', background: 'rgba(223,37,64,.08)', fontWeight: 700 }}
-          >
-            {modes.map((m) => <option key={m.id} value={m.id}>{m.type === 'language' ? '\u{1F310}' : '\u{1F4DA}'} {m.name}</option>)}
-          </select>
-
-          {/* Single Settings entry — opens the unified modal */}
-          <button onClick={() => setSettingsOpen(true)} title={t('settingsTitle')} style={{ ...S.ghostBtn, position: 'relative', padding: '6px 10px' }}>
-            {'⚙️'} {t('settingsTitle')}
-            {!apiKey && <span style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: '50%', background: 'var(--c-danger)' }} />}
-          </button>
-
-          {/* Picture tab: Capture, Upload, Overlay */}
+          {/* Picture tab: Capture, Upload, Overlay (kept left of the mode + Settings cluster so
+              Settings stays the right-most control, consistent with the other tabs) */}
           {activeTab === 'picture' && (
             <>
               <div style={S.captureGroup}>
@@ -5318,14 +5320,17 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               </div>
 
               <button onClick={async () => {
-                if (overlayRunning) {
-                  try { await fetch('/api/launch-overlay', { method: 'DELETE' }); setOverlayRunning(false) } catch {}
-                } else {
+                // Toggle the user's persisted preference AND launch/kill the overlay process.
+                const next = !overlayEnabled
+                setOverlayEnabled(next)
+                if (next) {
                   try {
                     const r = await fetch('/api/launch-overlay', { method: 'POST' })
                     const d = await r.json()
                     if (d.error) { alert(d.error) } else { setOverlayRunning(true) }
                   } catch (err) { alert('Failed to launch overlay: ' + err.message) }
+                } else {
+                  try { await fetch('/api/launch-overlay', { method: 'DELETE' }); setOverlayRunning(false) } catch {}
                 }
               }} style={{
                 ...S.ghostBtn,
@@ -5339,6 +5344,22 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               <kbd style={S.kbd}>Ctrl+Shift+S</kbd>
             </>
           )}
+
+          {/* Mode quick-switcher (fast switch without opening Settings) */}
+          <select
+            value={activeModeId}
+            onChange={(e) => { const id = parseInt(e.target.value); setActiveModeId(id); saveModes(modes, id); const nm = modes.find((m) => m.id === id); if (nm?.ankiDeck) setStudyDeck(nm.ankiDeck) }}
+            title={t('settingsMode')}
+            style={{ ...S.select, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)', background: 'rgba(223,37,64,.08)', fontWeight: 700 }}
+          >
+            {modes.map((m) => <option key={m.id} value={m.id}>{m.type === 'language' ? '\u{1F310}' : '\u{1F4DA}'} {m.name}</option>)}
+          </select>
+
+          {/* Single Settings entry \u2014 opens the unified modal (right-most, like every tab) */}
+          <button onClick={() => setSettingsOpen(true)} title={t('settingsTitle')} style={{ ...S.ghostBtn, position: 'relative', padding: '6px 10px' }}>
+            {'\u2699\uFE0F'} {t('settingsTitle')}
+            {!apiKey && <span style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: '50%', background: 'var(--c-danger)' }} />}
+          </button>
         </div>
       </header>}
 
