@@ -38,6 +38,7 @@ A multi-tab learning app with AI chat, Anki-integrated study sessions, screen tr
 - Ask the AI to create Anki flashcards inline — cards appear with preview, edit, and sync controls
 - Attach an Anki deck for personalized tutoring — AI reads all cards + progress observations to focus on weak areas
 - **Web search** — toggle the globe button to search the internet before AI responds, with clickable source citations and live status indicators (searching, found results, analyzing, etc.)
+- **Per-mode starter prompts** — the empty state offers subject-specific suggestion chips (generated with the mode at creation, backfilled for older modes), plus an always-present "💬 Just chat with Ebi" for casual conversation
 - Conversation history persisted to disk (`chats/` directory) with session management sidebar
 - AI can auto-update progress observations when it discovers new struggles or improvements
 
@@ -63,6 +64,7 @@ A multi-tab learning app with AI chat, Anki-integrated study sessions, screen tr
 - **End Now** — immediately end session with partial results
 - **Spaced repetition insights** — AI analyzes session results and updates `decks/<deck>/progress-observations.md` with struggles, improvements, and mastered topics
 - **Multiple choice support** — AI can generate multiple choice questions when it makes sense, but prefers text-based answers
+- **Tap a word for context** — tap any word in a question (language modes) to get its meaning *as used in that question* (analyzed from the whole sentence), shown in the legend's correct-green, with other common senses in word-choice-purple. Definitions are written in your app language
 
 ### Picture Tab
 - **Screen capture** — `Ctrl+Shift+S` for full screen, `Ctrl+Shift+A` for area selection
@@ -303,13 +305,14 @@ npm install electron --save-optional
 - Fullscreen exclusive games may not work; use borderless windowed mode
 - The Overlay button toggles on/off and auto-detects if Electron is running
 
-## AI Help Assistant
+## Ebi's Help (AI assistant)
 
-A floating **?** button provides a context-aware AI assistant that knows the app and your current state.
+A floating **Ebi** in the bottom-left opens a context-aware AI assistant that knows the app and your current state. It's the transparent mascot with a soft red glow (no circle), facing right, with a little pop on hover.
 
-- Click the **?** button to open the help chat, drag it anywhere on screen
+- Click **Ebi** to open the help chat; drag the button anywhere on screen
 - **Context-aware** — sees your current tab, active mode, OCR words, selected word details, study session, and recent chat messages
-- **Dock to side panel** — click the dock icon to pin the help chat as a right-side panel; pop out to return to floating mode
+- **Opens at the bottom** so the most recent message is visible
+- **Dock anywhere (FancyZones-style)** — drag the chat header to snap it, or click the dock button to be asked where: three labeled targets light up — **Dock left**, **Dock right**, or **Under the question** — and the preview shows exactly where it lands. Drop in open space to free-float. Esc cancels; **×** restores the floating button
 - **Persistent history** — help chat sessions are saved to disk and appear in the Chat tab sidebar (marked with a blue ?)
 - **New chat** — click + to start a fresh help conversation; old ones remain accessible in the Chat tab
 - Ask anything: "What does this word mean?", "Help me with this study question", "How do I use the overlay?"

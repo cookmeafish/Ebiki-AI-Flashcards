@@ -58,10 +58,28 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   - It sets the mascot **exactly once per call** (no keyword→AI flicker). Ebi keeps its prior pose until
     the model decides. Routed through `choosePose` everywhere: chat, study question, feedback, Help
     (`onAiReply`), picture word, discover.
-- Ebi only reacts on **assistant** messages, never the user's. The floating button uses a soft glow (no ring).
-- Per-tab empty-state defaults: Picture→camera, Study→book, Chat→singer (via `poseFile('…')`).
+- Ebi only reacts on **assistant** messages, never the user's.
+- Per-tab empty-state defaults: Picture→camera, Study→book, Chat→singer (via `poseFile('…')`). These render
+  the bare PNG with a drop-shadow (no circular badge), matching across tabs.
 - Study companion: a big Ebi sits beside the question with an **Ask Ebi** button (`askEbiSignal` → opens
-  HelpChat); the floating button is hidden during the study question phase (`hideButton`).
+  HelpChat); the floating button is hidden during the study question phase (`hideButton`). The study pose is
+  precomputed per question (`q.pose` from generation) so Ebi changes exactly once, with the question.
+- **Help mascot is decoupled from study** — the bottom-left button (`helpMascot`) only changes when the user
+  talks to Ebi in the help chat; the study pose (`studyMascot`) never bleeds into it.
+
+## Ebi's Help floating button + chat (`src/components/HelpChat.jsx`)
+- **The button is NOT a circle** — it's the transparent Ebi PNG (80px) with a soft red glow that hugs the
+  shrimp's silhouette via the image's `drop-shadow` filter (no background/box-shadow disc). It's **flipped
+  to face right** by default (`.flipped` = `scaleX(-1)`) and **pops** (scales up) on hover. All transform
+  states share the same `scale() scaleX()` function list so transitions interpolate per-function (a
+  mismatched list falls back to matrix interpolation, which collapses the mirror to a 1px line).
+- The chat **scrolls to the bottom on open** so the latest message shows.
+- **FancyZones-style docking**: drag the chat header (⠿ grip) to snap to a zone, or click the dock (◣) button
+  to be asked where — both show three labeled targets (**Dock left**, **Dock right**, **Under the question**)
+  whose preview rectangles come from one shared `ZONE_RECTS` so they match exactly where the panel lands.
+  Drag-drop snaps on release; the dock button dims the screen + shows a banner and commits on click (Esc
+  cancels). Dropping in open space free-floats. `snapZone` = `null` (anchored to button) | `left`/`right`/
+  `bottom` (edge dock) | `free`. `×` closes and restores the floating button.
 
 ## ⭐ HOW TO ADD A NEW EBI EMOTE (when the user drops new shrimp images)
 1. **Place the file** in `public/assets/shrimp/` (any filename; `.png`/`.webp` both fine in `<img>`).
@@ -78,8 +96,13 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
 
 ## Other notes
 - Tapped-word lookup in study explains in the **app language** (`APP_LANG_NAME` map), not the quiz language.
+  It is **context-aware** (`lookupStudyWord` reads the whole question): returns the in-context meaning, shown
+  in the legend's correct-green, plus other senses in the legend's word-choice-purple.
 - Non-language modes (e.g. Security+) hide language-only study controls and quiz on concepts.
 - AI failures (out of credits / rate limit / bad key) surface a toast; the secondary pose call is `silent`.
+- Images are non-draggable globally (`img { -webkit-user-drag: none }`): a dragged `<img>` reports `'Files'`
+  in `dataTransfer`, which used to falsely trip the "Drop image here" overlay. `handleDragOver` also guards
+  on `dataTransfer.types` including `'Files'`.
 
 ## Commits
 - The user prefers **no Claude attribution** in commit messages.
