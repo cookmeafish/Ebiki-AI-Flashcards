@@ -59,8 +59,8 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
     the model decides. Routed through `choosePose` everywhere: chat, study question, feedback, Help
     (`onAiReply`), picture word, discover.
 - Ebi only reacts on **assistant** messages, never the user's.
-- Per-tab empty-state defaults: Picture→camera, Study→book, Chat→singer (via `poseFile('…')`). These render
-  the bare PNG with a drop-shadow (no circular badge), matching across tabs.
+- Per-tab empty-state defaults: Picture→camera, Study→book, Chat→singer (via `poseFile('…')`). These (and the
+  big study companion) render the bare PNG with no badge and no glow — only the bottom-left Help button glows.
 - Study companion: a big Ebi sits beside the question with an **Ask Ebi** button (`askEbiSignal` → opens
   HelpChat); the floating button is hidden during the study question phase (`hideButton`). The study pose is
   precomputed per question (`q.pose` from generation) so Ebi changes exactly once, with the question.
