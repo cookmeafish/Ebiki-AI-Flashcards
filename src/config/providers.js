@@ -18,7 +18,14 @@ export const PROVIDERS = {
       const data = await resp.json()
       return (data.data || []).map((m) => m.id).filter(Boolean)
     },
-    call: async (apiKey, systemPrompt, userContent, modelOverride) => {
+    call: async (apiKey, systemPrompt, userContent, modelOverride, images, maxTokens) => {
+      // When images are present, send a multimodal content array (images first, then text).
+      const content = (images && images.length)
+        ? [
+            ...images.map((im) => ({ type: 'image', source: { type: 'base64', media_type: im.mediaType, data: im.base64 } })),
+            { type: 'text', text: userContent },
+          ]
+        : userContent
       const resp = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -29,9 +36,9 @@ export const PROVIDERS = {
         },
         body: JSON.stringify({
           model: modelOverride || 'claude-haiku-4-5-20251001',
-          max_tokens: 4000,
+          max_tokens: maxTokens || 4000,
           system: systemPrompt,
-          messages: [{ role: 'user', content: userContent }],
+          messages: [{ role: 'user', content }],
         }),
       })
       if (!resp.ok) {
@@ -63,7 +70,13 @@ export const PROVIDERS = {
         .filter((id) => (/^(gpt|chatgpt|o\d)/.test(id)) && !/(embedding|audio|tts|whisper|image|realtime|moderation|transcribe|search|dall)/.test(id))
         .sort()
     },
-    call: async (apiKey, systemPrompt, userContent, modelOverride) => {
+    call: async (apiKey, systemPrompt, userContent, modelOverride, images, maxTokens) => {
+      const userMsg = (images && images.length)
+        ? [
+            { type: 'text', text: userContent },
+            ...images.map((im) => ({ type: 'image_url', image_url: { url: `data:${im.mediaType};base64,${im.base64}` } })),
+          ]
+        : userContent
       const resp = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -72,11 +85,11 @@ export const PROVIDERS = {
         },
         body: JSON.stringify({
           model: modelOverride || 'gpt-4o-mini',
-          max_tokens: 4000,
+          max_tokens: maxTokens || 4000,
           response_format: { type: 'json_object' },
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: userContent },
+            { role: 'user', content: userMsg },
           ],
         }),
       })
@@ -109,8 +122,12 @@ export const PROVIDERS = {
         .filter((id) => id.includes('gemini'))
         .sort()
     },
-    call: async (apiKey, systemPrompt, userContent, modelOverride) => {
+    call: async (apiKey, systemPrompt, userContent, modelOverride, images, maxTokens) => {
       const model = modelOverride || 'gemini-2.0-flash'
+      const parts = [
+        { text: userContent },
+        ...((images && images.length) ? images.map((im) => ({ inline_data: { mime_type: im.mediaType, data: im.base64 } })) : []),
+      ]
       const resp = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
         {
@@ -118,8 +135,8 @@ export const PROVIDERS = {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             system_instruction: { parts: [{ text: systemPrompt }] },
-            contents: [{ parts: [{ text: userContent }] }],
-            generationConfig: { responseMimeType: 'application/json' },
+            contents: [{ parts }],
+            generationConfig: { responseMimeType: 'application/json', ...(maxTokens ? { maxOutputTokens: maxTokens } : {}) },
           }),
         }
       )
@@ -149,7 +166,13 @@ export const PROVIDERS = {
       const data = await resp.json()
       return (data.data || []).map((m) => m.id).filter((id) => id.includes('grok')).sort()
     },
-    call: async (apiKey, systemPrompt, userContent, modelOverride) => {
+    call: async (apiKey, systemPrompt, userContent, modelOverride, images, maxTokens) => {
+      const userMsg = (images && images.length)
+        ? [
+            { type: 'text', text: userContent },
+            ...images.map((im) => ({ type: 'image_url', image_url: { url: `data:${im.mediaType};base64,${im.base64}` } })),
+          ]
+        : userContent
       const resp = await fetch('https://api.x.ai/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -158,10 +181,10 @@ export const PROVIDERS = {
         },
         body: JSON.stringify({
           model: modelOverride || 'grok-3-mini-fast',
-          max_tokens: 4000,
+          max_tokens: maxTokens || 4000,
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: userContent },
+            { role: 'user', content: userMsg },
           ],
         }),
       })

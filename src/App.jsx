@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import Tesseract from 'tesseract.js'
-import { TRANSLATE_PROMPT, POS_COLORS, CATEGORY_COLORS } from './config/prompts'
+import { TRANSLATE_PROMPT, VISION_OCR_PROMPT, POS_COLORS, CATEGORY_COLORS } from './config/prompts'
+import { dataUrlToImagePart, downscaleDataUrl } from './utils/image'
 import { PROVIDERS } from './config/providers'
 import { LANGS } from './config/languages'
 import { makeT, APP_LANGUAGES } from './i18n'
@@ -8,6 +9,7 @@ import { pickShrimp, shrimpUrl, DEFAULT_SHRIMP, IDLE_SHRIMP, POSE_NAMES, poseFil
 import { C, RADIUS, SHADOW, FONT } from './config/tokens'
 import FormattedText from './components/FormattedText'
 import HelpChat from './components/HelpChat'
+import Markdown from './components/Markdown'
 import DiscoverPanel from './components/DiscoverPanel'
 import SettingsModal from './components/SettingsModal'
 import OnboardingWizard from './components/OnboardingWizard'
@@ -79,6 +81,63 @@ async function preprocessForOCR(dataUrl) {
     }
     img.src = dataUrl
   })
+}
+
+// Salvage every complete top-level {...} object from a (possibly truncated) string,
+// respecting quoted strings/escapes. Lets us recover most rows even when an array was
+// cut off mid-object (e.g. a long vision response that hit the token limit).
+function salvageJsonObjects(str) {
+  const out = []
+  let depth = 0, start = -1, inStr = false, esc = false
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i]
+    if (inStr) {
+      if (esc) esc = false
+      else if (ch === '\\') esc = true
+      else if (ch === '"') inStr = false
+      continue
+    }
+    if (ch === '"') { inStr = true; continue }
+    if (ch === '{') { if (depth === 0) start = i; depth++ }
+    else if (ch === '}') {
+      depth--
+      if (depth === 0 && start !== -1) {
+        try { out.push(JSON.parse(str.slice(start, i + 1))) } catch { /* skip bad row */ }
+        start = -1
+      }
+    }
+  }
+  return out
+}
+
+// ─── Robust JSON extraction from an AI response ──────────────────────────────
+// Strips markdown fences/preamble, isolates the outermost array/object, repairs common
+// LLM JSON glitches, and as a last resort salvages whatever complete objects it can
+// (so a truncated array still yields most of its rows). Returns parsed value or null.
+function parseAiJson(text) {
+  if (!text) return null
+  let cleaned = String(text).replace(/```(?:json)?\s*/gi, '').replace(/```\s*/g, '')
+  const jsonStart = cleaned.search(/[[{]/)
+  if (jsonStart > 0) cleaned = cleaned.slice(jsonStart)
+  const wasArray = cleaned[0] === '['
+  let trimmed = cleaned
+  const lastBracket = Math.max(cleaned.lastIndexOf(']'), cleaned.lastIndexOf('}'))
+  if (lastBracket > 0) trimmed = cleaned.slice(0, lastBracket + 1)
+  trimmed = trimmed.trim()
+  // 1) Straight parse.
+  try { return JSON.parse(trimmed) } catch { /* fall through */ }
+  // 2) Light repair (bare keys, single quotes, trailing commas).
+  try {
+    let r = trimmed
+    r = r.replace(/([{,]\s*)([A-Za-z_]\w*)\s*:/g, '$1"$2":')
+    r = r.replace(/'/g, '"')
+    r = r.replace(/,\s*([}\]])/g, '$1')
+    return JSON.parse(r)
+  } catch { /* fall through */ }
+  // 3) Salvage complete objects (handles truncation). For an array, return the rows.
+  const objs = salvageJsonObjects(cleaned)
+  if (objs.length) return wasArray ? objs : objs[0]
+  return null
 }
 
 export default function App() {
@@ -190,6 +249,8 @@ export default function App() {
   const [screenshot, setScreenshot] = useState(null)
   const [imgDims, setImgDims] = useState({ w: 0, h: 0 })
   const [ocrWords, setOcrWords] = useState([])
+  // Reading-order line groups for the picture reading panel: [{ line, idxs:[ocrWords index] }]
+  const [ocrLines, setOcrLines] = useState([])
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState('')
   const [error, setError] = useState(null)
@@ -425,7 +486,7 @@ export default function App() {
   // Defaults: cheap/fast model for high-volume areas, stronger model where quality matters.
   const ROLE_DEFAULTS = (pc) => ({
     general: pc.model,        // fallback + mode config generation
-    picture: pc.model,        // OCR translation, word explain, tooltip lookups
+    picture: pc.questionModel, // vision image reading + in-context translation (stronger model)
     deck: pc.model,           // Anki card generation, editing, analysis, dedup
     study: pc.questionModel,  // study question gen, evaluation, hints, insights, feedback
     discover: pc.questionModel, // learner profiling, suggestions, fact-checking
@@ -542,14 +603,18 @@ export default function App() {
     const prov = aiStateRef.current.provider
     const role = modelOverride ? 'question' : 'general'
     const model = modelOverride || resolveModel('general')
+    // opts.images: optional array of { mediaType, base64 } sent as vision content blocks.
+    // opts.maxTokens: optional output token budget (vision/long JSON needs more than the default).
+    const images = opts.images
+    const maxTokens = opts.maxTokens
     try {
-      const out = await PROVIDERS[prov].call(key, systemPrompt, userContent, model)
+      const out = await PROVIDERS[prov].call(key, systemPrompt, userContent, model, images, maxTokens)
       setAiErrorNotice((prev) => prev ? null : prev) // clear a stale error toast on success
       return out
     } catch (e) {
       const healed = await healRetiredModel(e?.message || '', model, role)
       if (healed) {
-        try { return await PROVIDERS[prov].call(key, systemPrompt, userContent, healed) }
+        try { return await PROVIDERS[prov].call(key, systemPrompt, userContent, healed, images, maxTokens) }
         catch (e2) { if (!opts.silent) reportAiError(e2); throw e2 }
       }
       // Surface out-of-credits / rate-limit / bad-key errors so failures aren't silent.
@@ -942,7 +1007,7 @@ export default function App() {
   }, [])
 
   // ─── Analysis Pipeline ──────────────────────────────────────────────────────
-  const analyzeImage = useCallback(async (dataUrl) => {
+  const analyzeImageTesseract = useCallback(async (dataUrl) => {
     if (!dataUrl) return
     if (!apiKey) {
       setSettingsCategory('models'); setSettingsOpen(true)
@@ -1353,6 +1418,186 @@ export default function App() {
     }
   }, [apiKey, language, targetLang, providerConfig])
 
+  // Single-pass Tesseract used ONLY to localize words (pixel-accurate boxes) so we can snap
+  // the vision model's accurate text onto them. Returns [{ text, bbox, confidence }].
+  const getTesseractBoxes = useCallback(async (dataUrl) => {
+    try {
+      const dimImg = new Image()
+      await new Promise((resolve, reject) => { dimImg.onload = resolve; dimImg.onerror = reject; dimImg.src = dataUrl })
+      const realW = dimImg.naturalWidth, realH = dimImg.naturalHeight
+      let ocrInput = dataUrl
+      if (realW > 3000) {
+        const scale = 2560 / realW
+        const c = document.createElement('canvas')
+        c.width = 2560; c.height = Math.round(realH * scale)
+        const img = new Image()
+        await new Promise((resolve) => { img.onload = resolve; img.src = dataUrl })
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height)
+        ocrInput = c.toDataURL('image/png')
+      }
+      const bboxScale = realW > 3000 ? realW / 2560 : 1
+      const ocrLang = language === 'auto' ? 'eng+spa+fra+deu+por+ita' : language
+      const preprocessed = await preprocessForOCR(ocrInput)
+      const r = await Tesseract.recognize(preprocessed, ocrLang, {})
+      return (r.data.words || [])
+        .map((w) => ({
+          text: (w.text || '').trim(),
+          confidence: w.confidence,
+          bbox: {
+            x0: Math.round(w.bbox.x0 * bboxScale), y0: Math.round(w.bbox.y0 * bboxScale),
+            x1: Math.round(w.bbox.x1 * bboxScale), y1: Math.round(w.bbox.y1 * bboxScale),
+          },
+        }))
+        .filter((w) => w.text && w.confidence > 30 && (w.bbox.x1 - w.bbox.x0) > 4 && (w.bbox.y1 - w.bbox.y0) > 4)
+    } catch {
+      return []
+    }
+  }, [language])
+
+  // ── Vision pipeline: the model reads the image directly (accurate on busy/stylized
+  // game screens, in-context, one call). Tesseract localizes the boxes. ────────────────
+  const analyzeImageVision = useCallback(async (dataUrl) => {
+    cancelRef.current = false
+    setLoading(true)
+    setStage('ocr')
+    setError(null)
+    setOcrWords([])
+    setOcrLines([])
+    try {
+      setProgress('Reading image…')
+      // Real dimensions of the image we'll map boxes against.
+      const dimImg = new Image()
+      await new Promise((resolve) => { dimImg.onload = resolve; dimImg.src = dataUrl })
+      const realW = dimImg.naturalWidth, realH = dimImg.naturalHeight
+      if (cancelRef.current) return
+
+      // Localize words with Tesseract IN PARALLEL with the vision read — the model's own
+      // boxes are imprecise, so we snap its accurate text onto Tesseract's accurate boxes.
+      const tessPromise = getTesseractBoxes(dataUrl)
+
+      // Downscale before upload (faster/cheaper, within vision limits) — boxes stay normalized.
+      const sendUrl = await downscaleDataUrl(dataUrl, 1500)
+      const imagePart = dataUrlToImagePart(sendUrl)
+      if (cancelRef.current) return
+
+      const fromLabel = language === 'auto' ? 'Auto-detect' : (LANGS.find((l) => l.code === language)?.label || 'Unknown')
+      const toLabel = LANGS.find((l) => l.code === targetLang)?.label || 'English'
+      const payload = JSON.stringify({ from: fromLabel, to: toLabel, context: '' })
+
+      const text = await aiCall(apiKey, VISION_OCR_PROMPT, payload, resolveModel('picture'), { images: [imagePart], maxTokens: 8000 })
+      if (cancelRef.current) return
+      ocrLog(`Vision returned (${String(text).length} chars): ${String(text).slice(0, 1200)}`)
+
+      const parsed = parseAiJson(text)
+      if (!Array.isArray(parsed)) {
+        ocrLog('[Vision] could not parse JSON — falling back to Tesseract')
+        ocrLogFlush()
+        return analyzeImageTesseract(dataUrl)
+      }
+
+      const clamp01 = (n) => Math.max(0, Math.min(1, Number(n) || 0))
+      const words = parsed
+        .filter((it) => it && typeof it === 'object' && String(it.w || '').trim())
+        .map((it, idx) => {
+          const box = Array.isArray(it.box) ? it.box : [0, 0, 0, 0]
+          const x0 = clamp01(box[0]), y0 = clamp01(box[1]), x1 = clamp01(box[2]), y1 = clamp01(box[3])
+          const category = it.c || (it.e === true ? 'target' : 'foreign')
+          return {
+            text: String(it.w).trim(),
+            bbox: {
+              x0: Math.round(Math.min(x0, x1) * realW),
+              y0: Math.round(Math.min(y0, y1) * realH),
+              x1: Math.round(Math.max(x0, x1) * realW),
+              y1: Math.round(Math.max(y0, y1) * realH),
+            },
+            confidence: 100,
+            translation: it.t || String(it.w).trim(),
+            synonyms: Array.isArray(it.s) ? it.s : [],
+            category,
+            partOfSpeech: it.p || 'other',
+            pronunciation: it.r || '',
+            isEnglish: category === 'target',
+            _untranslated: false,
+            sense: it.sense || '',
+            alts: Array.isArray(it.alts) ? it.alts.filter(Boolean).map(String).slice(0, 3) : [],
+            line: Number.isFinite(Number(it.line)) ? Number(it.line) : idx,
+            _globalIdx: idx,
+          }
+        })
+
+      if (words.length === 0) {
+        setError('No readable text found. Try a clearer screenshot or a different language.')
+        setStage('captured')
+        setLoading(false)
+        return
+      }
+
+      // ── Snap vision words onto Tesseract's accurate boxes (by matching text) ──────────
+      // The vision model's boxes are imprecise; Tesseract gives pixel-accurate localization.
+      // Matched words get the precise box (_snapped); unmatched words keep no image box
+      // (they still appear in the reading panel) so we never draw a misplaced overlay.
+      const tessWords = (await tessPromise) || []
+      // NFD decomposes accents into combining marks; [^a-z0-9] then strips marks + punctuation.
+      const norm = (s) => String(s).toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, '')
+      const tess = tessWords.map((tw) => ({
+        n: norm(tw.text), bbox: tw.bbox, confidence: tw.confidence, used: false,
+        cx: (tw.bbox.x0 + tw.bbox.x1) / 2, cy: (tw.bbox.y0 + tw.bbox.y1) / 2,
+      })).filter((tw) => tw.n)
+      let snappedCount = 0
+      words.forEach((w) => {
+        const wn = norm(w.text)
+        if (!wn) { w._approxBox = true; return }
+        const wcx = (w.bbox.x0 + w.bbox.x1) / 2, wcy = (w.bbox.y0 + w.bbox.y1) / 2
+        let best = null, bestD = Infinity
+        for (const tw of tess) {
+          if (tw.used || tw.n !== wn) continue
+          const d = (tw.cx - wcx) ** 2 + (tw.cy - wcy) ** 2
+          if (d < bestD) { bestD = d; best = tw }
+        }
+        if (best) { best.used = true; w.bbox = best.bbox; w.confidence = best.confidence; w._snapped = true; snappedCount++ }
+        else { w._approxBox = true }
+      })
+      ocrLog(`Snapped ${snappedCount}/${words.length} vision words onto Tesseract boxes (${tess.length} tess words)`)
+
+      // Group into reading-order lines for the reading panel.
+      const lineMap = new Map()
+      words.forEach((w, i) => {
+        const ln = Number.isFinite(w.line) ? w.line : 9999
+        if (!lineMap.has(ln)) lineMap.set(ln, [])
+        lineMap.get(ln).push(i)
+      })
+      const lines = [...lineMap.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([line, idxs]) => ({ line, idxs: idxs.sort((x, y) => words[x].bbox.x0 - words[y].bbox.x0) }))
+
+      ocrLog(`Vision pipeline complete: ${words.length} words, ${lines.length} lines`)
+      ocrLogFlush()
+      setOcrWords(words)
+      setOcrLines(lines)
+      setStage('done')
+    } catch (err) {
+      ocrLog(`[Vision ERROR] ${err.message} — falling back to Tesseract`)
+      ocrLogFlush()
+      console.error(err)
+      if (cancelRef.current) return
+      return analyzeImageTesseract(dataUrl)
+    } finally {
+      setLoading(false)
+      setProgress('')
+    }
+  }, [apiKey, language, targetLang, analyzeImageTesseract])
+
+  // Dispatcher: vision when a key is set (primary), otherwise prompt for one.
+  const analyzeImage = useCallback(async (dataUrl) => {
+    if (!dataUrl) return
+    if (!apiKey) {
+      setSettingsCategory('models'); setSettingsOpen(true)
+      setError(`Set your ${providerConfig.label} API key first.`)
+      return
+    }
+    return analyzeImageVision(dataUrl)
+  }, [apiKey, providerConfig, analyzeImageVision])
+
   // ─── Keyboard Shortcuts ─────────────────────────────────────────────────────
   useEffect(() => {
     const handler = (e) => {
@@ -1371,15 +1616,30 @@ export default function App() {
           setProgress('')
         } else if (pinnedIdx !== null) {
           dismissPin()
-        } else {
+        } else if (expanded) {
           setExpanded(false)
+          setHoveredIdx(null)
+        } else if (activeTab === 'picture' && stage !== 'idle') {
+          // Exit the picture analysis (same as the ✕ / New button)
+          reset()
+        } else {
           setHoveredIdx(null)
         }
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [captureScreen])
+  }, [captureScreen, activeTab, stage, expanded, pinnedIdx, loading, screenshot])
+
+  // Leaving the Picture tab should drop any picture focus (pinned/hovered word, expanded
+  // view, open tooltip) so switching to Chat/Study fully focuses the new tab.
+  useEffect(() => {
+    if (activeTab !== 'picture') {
+      setHoveredIdx(null)
+      setPinnedIdx(null)
+      setExpanded(false)
+    }
+  }, [activeTab])
 
   // ─── Paste Handler ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1530,18 +1790,24 @@ export default function App() {
   }, [apiKey, language, ocrWords, providerConfig])
 
   // ─── Hover & Pin Handlers ───────────────────────────────────────────────────
+  // The body has CSS zoom (1.35) in normal mode. position:fixed tooltips are sized/placed
+  // in layout px, but getBoundingClientRect()/clientX report real px — divide by this to
+  // convert real → layout px so tooltips land where the cursor/word actually is.
+  const getZoom = () => (parseFloat(document.body.style.zoom) || 1)
+
   const handleWordHover = (idx, e) => {
     if (pinnedIdx !== null) return // don't override pinned tooltip
     setHoveredIdx(idx)
+    const z = getZoom()
     const rect = e.currentTarget.getBoundingClientRect()
-    const vw = window.innerWidth
+    const vw = window.innerWidth / z
     const ttHalf = 160 // ~half of tooltip maxWidth (300/2 + margin)
-    let x = rect.left + rect.width / 2
-    let y = rect.top - 6
+    let x = (rect.left + rect.width / 2) / z
+    let y = rect.top / z - 6
     let anchor = 'above'
     // If not enough room above the word, show below
-    if (rect.top < 180) {
-      y = rect.bottom + 6
+    if (rect.top / z < 180) {
+      y = rect.bottom / z + 6
       anchor = 'below'
     }
     // Clamp horizontal so tooltip doesn't clip left/right edges
@@ -1569,8 +1835,9 @@ export default function App() {
       setAnkiCard(null); setAnkiError(null); setAnkiEditing(false); setAnkiRefineInput('')
       setChatMessages([])
       setChatInput('')
+      const z = getZoom()
       const rect = e.currentTarget.getBoundingClientRect()
-      setTooltipPos({ x: rect.left + rect.width / 2, y: rect.top - 6 })
+      setTooltipPos({ x: (rect.left + rect.width / 2) / z, y: rect.top / z - 6 })
       // In area-select overlay (small window), expand to full screen so tooltip has room
       if (isOverlay && areaSelectBounds && window.overlayAPI?.resizeWindow) {
         window.overlayAPI.resizeWindow({ x: 0, y: 0, width: screen.width, height: screen.height })
@@ -1583,7 +1850,7 @@ export default function App() {
           })
         }
       } else if (!pinnedTooltipPos) {
-        setPinnedTooltipPos({ x: Math.max(10, rect.left - 100), y: Math.max(10, rect.bottom + 10) })
+        setPinnedTooltipPos({ x: Math.max(10, rect.left / z - 100), y: Math.max(10, rect.bottom / z + 10) })
       }
       // Lazy translate if in click mode and word hasn't been translated yet
       if (ocrWords[idx]?._untranslated) lazyTranslate(idx)
@@ -1611,11 +1878,14 @@ export default function App() {
     const el = e.currentTarget.closest('[data-tooltip-pinned]')
     if (!el) return
     const rect = el.getBoundingClientRect()
-    tooltipDragRef.current = { offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top }
+    // Work entirely in layout px (left/top are layout px; clientX/rect are real px).
+    const zoom = el.offsetWidth ? ((rect.width / el.offsetWidth) || 1) : getZoom()
+    tooltipDragRef.current = { offsetX: (e.clientX - rect.left) / zoom, offsetY: (e.clientY - rect.top) / zoom, zoom }
     const onMove = (ev) => {
       if (!tooltipDragRef.current) return
-      const x = ev.clientX - tooltipDragRef.current.offsetX
-      const y = ev.clientY - tooltipDragRef.current.offsetY
+      const { offsetX, offsetY, zoom } = tooltipDragRef.current
+      const x = ev.clientX / zoom - offsetX
+      const y = ev.clientY / zoom - offsetY
       setPinnedTooltipPos({ x, y })
     }
     const onUp = () => {
@@ -4653,7 +4923,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
   }, [apiKey, chatInput, chatLoading, chatMessages, ocrWords, providerConfig])
 
   const reset = () => {
-    setScreenshot(null); setOcrWords([]); setStage('idle')
+    setScreenshot(null); setOcrWords([]); setOcrLines([]); setStage('idle')
     setError(null); setHoveredIdx(null); setPinnedIdx(null)
     setExplanation(null); setDeepExplanation(null); setWordStudy(null)
     setChatMessages([]); setChatInput(''); setExpanded(false)
@@ -4689,6 +4959,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
     }
 
     return ocrWords.map((word, i) => {
+      // Skip words we couldn't localize precisely (vision boxes are unreliable) — they live
+      // in the reading panel instead, so we never draw a misplaced overlay box.
+      if (word._approxBox) return null
       const box = boxes[i]
       const x = (box.x0 / refW) * 100
       const y = (box.y0 / refH) * 100
@@ -4830,10 +5103,22 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             </button>
           )}
 
+          {/* Ask Ebi — opens the Help chat (the floating shrimp is hidden on the picture result) */}
+          {activeTab === 'picture' && stage === 'done' && (
+            <button onClick={() => setAskEbiSignal((n) => n + 1)} style={S.ghostBtn} title="Ask Ebi about this">
+              🦐 Ask Ebi
+            </button>
+          )}
+
           {activeTab === 'picture' && stage !== 'idle' && <button onClick={reset} style={S.ghostBtn}>{t('pictureNew')}</button>}
 
           {activeTab === 'picture' && screenshot && !loading && stage === 'done' && (
             <button onClick={() => analyzeImage(screenshot)} style={S.ghostBtn}>Re-analyze</button>
+          )}
+
+          {/* Explicit exit — leaves the analysis and returns to the empty Picture state */}
+          {activeTab === 'picture' && stage !== 'idle' && (
+            <button onClick={reset} style={{ ...S.ghostBtn, padding: '6px 9px' }} title="Exit picture analysis">✕</button>
           )}
 
           {/* Mode quick-switcher (fast switch without opening Settings) */}
@@ -5591,9 +5876,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     maxWidth: '80%', padding: '10px 14px', borderRadius: 12, fontSize: 13, lineHeight: 1.5,
                     background: m.role === 'user' ? 'linear-gradient(135deg, rgba(223,37,64,.2), rgba(223,37,64,.12))' : 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))',
                     border: `1px solid ${m.role === 'user' ? 'rgba(223,37,64,.28)' : 'var(--c-border)'}`,
-                    color: 'var(--c-ink)', whiteSpace: 'pre-wrap',
+                    color: 'var(--c-ink)', ...(m.role === 'user' ? { whiteSpace: 'pre-wrap' } : {}),
                   }}>
-                    {m.content}
+                    {m.role === 'user' ? m.content : <Markdown text={m.content} />}
                   </div>
                   {/* Inline Anki card previews */}
                   {m.cards?.map((card, ci) => (
@@ -6528,6 +6813,44 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 </span>
               </div>
             )}
+
+            {/* Reading panel — transcribed lines, each word clickable for in-context meaning.
+                Hover/click is shared with the image overlay (linked highlighting via hoveredIdx). */}
+            {stage === 'done' && !isOverlay && ocrLines.length > 0 && (
+              <div style={{
+                maxWidth: 760, margin: '16px auto 0', textAlign: 'left',
+                background: 'var(--c-surface)', border: '1px solid var(--c-border)',
+                borderRadius: 12, padding: '14px 16px', boxShadow: SHADOW.md,
+              }}>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--c-ink-dim)', marginBottom: 10 }}>
+                  Reading — tap a word for its meaning here
+                </div>
+                {ocrLines.map((ln, li) => (
+                  <div key={li} style={{ marginBottom: 4, lineHeight: 2 }}>
+                    {ln.idxs.map((wi) => {
+                      const w = ocrWords[wi]
+                      if (!w) return null
+                      const isActive = hoveredIdx === wi || pinnedIdx === wi
+                      const col = w.isEnglish ? CATEGORY_COLORS.target : (POS_COLORS[w.partOfSpeech] || POS_COLORS.other)
+                      return (
+                        <span key={wi}
+                          onMouseEnter={(e) => handleWordHover(wi, e)}
+                          onMouseLeave={handleWordLeave}
+                          onClick={(e) => handleWordClick(wi, e)}
+                          style={{
+                            cursor: 'pointer', padding: '2px 5px', margin: '0 1px', borderRadius: 5,
+                            background: isActive ? col.bg : 'transparent',
+                            border: `1px solid ${isActive ? col.border : 'transparent'}`,
+                            color: 'var(--c-ink)', transition: 'background .1s, border .1s',
+                          }}>
+                          {w.text}
+                        </span>
+                      )
+                    })}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </main>}
@@ -6565,8 +6888,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             {chatTabMsgs.length === 0 && <div style={{ textAlign: 'center', color: 'var(--c-ink-faint)', fontSize: 11, padding: 20 }}>Start a conversation...</div>}
             {chatTabMsgs.map((m, i) => (
               <div key={i} style={{ marginBottom: 8, display: 'flex', flexDirection: 'column', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                <div style={{ maxWidth: '90%', padding: '8px 12px', borderRadius: 8, fontSize: 12, lineHeight: 1.4, background: m.role === 'user' ? 'rgba(223,37,64,.12)' : 'var(--c-surface-alt)', border: `1px solid ${m.role === 'user' ? 'rgba(223,37,64,.2)' : 'var(--c-border)'}`, color: 'var(--c-ink)', whiteSpace: 'pre-wrap' }}>
-                  {m.content}
+                <div style={{ maxWidth: '90%', padding: '8px 12px', borderRadius: 8, fontSize: 12, lineHeight: 1.4, background: m.role === 'user' ? 'rgba(223,37,64,.12)' : 'var(--c-surface-alt)', border: `1px solid ${m.role === 'user' ? 'rgba(223,37,64,.2)' : 'var(--c-border)'}`, color: 'var(--c-ink)', ...(m.role === 'user' ? { whiteSpace: 'pre-wrap' } : {}) }}>
+                  {m.role === 'user' ? m.content : <Markdown text={m.content} />}
                 </div>
                 {m.cards?.map((card, ci) => (
                   <div key={ci} style={{ maxWidth: '90%', marginTop: 4, padding: '8px 10px', borderRadius: 6, background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', fontSize: 11 }}>
@@ -6604,13 +6927,23 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         const hoverTransform = tooltipPos.anchor === 'below'
           ? 'translate(-50%, 0)' // tooltip below word
           : 'translate(-50%, -100%)' // tooltip above word (default)
+        // Keep the pinned popup fully on-screen: clamp its top-left to the viewport (in layout
+        // px, accounting for body zoom) and let it scroll if the content is taller than the screen.
+        const ttZoom = getZoom()
+        const estW = hasExpanded ? 520 : 340
+        const estH = hasExpanded ? 580 : 460
+        const vw = (typeof window !== 'undefined' ? window.innerWidth : 1280) / ttZoom
+        const vh = (typeof window !== 'undefined' ? window.innerHeight : 800) / ttZoom
+        const maxH = Math.round(vh - 20)
         const pinnedStyle = isPinned && pinnedTooltipPos
           ? { ...S.tooltip, ...S.tooltipExpanded,
-              left: pinnedTooltipPos.x, top: pinnedTooltipPos.y, transform: 'none',
+              left: Math.max(10, Math.min(pinnedTooltipPos.x, vw - estW - 10)),
+              top: Math.max(10, Math.min(pinnedTooltipPos.y, vh - estH - 10)),
+              transform: 'none', maxHeight: maxH, overflowY: 'auto',
               ...(hasExpanded ? { maxWidth: 900, width: 500 } : { maxWidth: 400, width: 'auto', minWidth: 300 }),
             }
           : isPinned
-            ? { ...S.tooltip, ...S.tooltipExpanded, ...(hasExpanded ? { maxWidth: 900, width: '92vw' } : { maxWidth: 400, width: 'auto' }) }
+            ? { ...S.tooltip, ...S.tooltipExpanded, maxHeight: maxH, overflowY: 'auto', ...(hasExpanded ? { maxWidth: 900, width: '92vw' } : { maxWidth: 400, width: 'auto' }) }
             : null
         const tooltipStyle = pinnedStyle || { ...S.tooltip, left: tooltipPos.x, top: tooltipPos.y, transform: hoverTransform }
         return (
@@ -6656,6 +6989,17 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           {activeWord.translation && (
             <div style={S.ttTrans}>→ {activeWord.translation}</div>
           )}
+          {/* In-context meaning (green) + other senses (purple), like the Study legend */}
+          {activeWord.sense && (
+            <div style={{ fontSize: 12, color: 'var(--c-success)', fontWeight: 600, marginBottom: activeWord.alts?.length ? 2 : 6 }}>
+              {activeWord.sense}
+            </div>
+          )}
+          {activeWord.alts?.length > 0 && (
+            <div style={{ fontSize: 11, color: 'var(--c-purple)', marginBottom: 6 }}>
+              also: {activeWord.alts.join(' · ')}
+            </div>
+          )}
           {activeWord.category === 'name' && (
             <div style={{ fontSize: 11, color: 'var(--c-success)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>Name / Proper Noun</div>
           )}
@@ -6672,7 +7016,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               </div>
             </div>
           )}
-          <div style={S.ttConf}>OCR confidence: {Math.round(activeWord.confidence)}%</div>
+          {activeWord.confidence < 100 && (
+            <div style={S.ttConf}>OCR confidence: {Math.round(activeWord.confidence)}%</div>
+          )}
 
           {/* Pinned: actions */}
           {isPinned && (
@@ -7081,6 +7427,30 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         .chip { transition: border-color .16s ease, color .16s ease, background .16s ease; }
         .chip-inner { display: inline-block; transition: transform .14s ease; }
         .chip:hover .chip-inner { transform: translateY(-1px); }
+
+        /* Rendered markdown (chat + help messages). Themed via CSS vars so it flips with the theme. */
+        .md-body { color: var(--c-ink); word-break: break-word; }
+        .md-body > :first-child { margin-top: 0; }
+        .md-body > :last-child { margin-bottom: 0; }
+        .md-body p { margin: 0 0 8px; }
+        .md-body h1, .md-body h2, .md-body h3, .md-body h4 { margin: 10px 0 6px; line-height: 1.25; font-family: ${FONT.display}; font-weight: 700; }
+        .md-body h1 { font-size: 1.3em; }
+        .md-body h2 { font-size: 1.18em; }
+        .md-body h3 { font-size: 1.06em; }
+        .md-body h4 { font-size: 1em; }
+        .md-body ul, .md-body ol { margin: 4px 0 8px; padding-left: 1.3em; }
+        .md-body li { margin: 2px 0; }
+        .md-body li > p { margin: 0; }
+        .md-body a { color: var(--c-brand); text-decoration: underline; }
+        .md-body strong { font-weight: 700; }
+        .md-body em { font-style: italic; }
+        .md-body code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; background: var(--c-surface-sunken); border: 1px solid var(--c-border); border-radius: 4px; padding: 1px 4px; }
+        .md-body pre { background: var(--c-surface-sunken); border: 1px solid var(--c-border); border-radius: 8px; padding: 10px 12px; overflow: auto; margin: 6px 0 8px; }
+        .md-body pre code { background: none; border: none; padding: 0; }
+        .md-body blockquote { margin: 6px 0; padding: 2px 0 2px 12px; border-left: 3px solid var(--c-border); color: var(--c-ink-dim); }
+        .md-body hr { border: none; border-top: 1px solid var(--c-border); margin: 10px 0; }
+        .md-body table { border-collapse: collapse; margin: 6px 0; }
+        .md-body th, .md-body td { border: 1px solid var(--c-border); padding: 4px 8px; }
       `}</style>
 
       {/* Floating AI Help Button */}
@@ -7117,7 +7487,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         mascotFile={helpMascot}
         onAiReply={(text) => choosePose(text, setHelpMascot)}
         askEbiSignal={askEbiSignal}
-        hideButton={activeTab === 'study' && studyActive && studyPhase === 'question'}
+        hideButton={(activeTab === 'study' && studyActive && studyPhase === 'question') || (activeTab === 'picture' && stage === 'done')}
         model={resolveModel('help')}
         onModelRetired={async (failedModel) => {
           const healed = await healRetiredModel('404 not_found', failedModel, 'help')

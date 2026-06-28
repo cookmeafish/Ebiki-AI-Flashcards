@@ -29,6 +29,40 @@ Fragment example:
 Input: {"words":[{"i":0,"w":"Sobre"},{"i":1,"w":"guardia"}],"from":"Spanish","to":"English","context":"Sobreguardia"}
 Output: [{"i":0,"w":"Sobre","t":"Overguard","s":["shield"],"c":"foreign","p":"noun","r":"soh-breh-GWAR-dee-ah","m":[0,1]},{"i":1,"w":"guardia","t":"guard","s":[],"c":"foreign","p":"noun","r":"GWAR-dee-ah"}]`
 
+// Vision OCR + in-context translation in a single pass. The model READS the image
+// directly (far more accurate than Tesseract on stylized/busy game screens) and returns
+// every learnable word with an in-context translation, sense, alternatives, POS,
+// pronunciation, synonyms, a reading-order line group, and a normalized bounding box.
+export const VISION_OCR_PROMPT = `You read text from an image for a language learner and translate it IN CONTEXT.
+
+You receive JSON: {"from":"Spanish","to":"English","context":"optional note"}
+
+Look at the image. Extract every meaningful word written in the SOURCE language ("from").
+Use the whole scene as context so each translation fits how the word is actually used.
+
+Return ONLY a raw JSON array (no markdown, no prose). One object PER WORD, in natural
+reading order (top-to-bottom, left-to-right):
+- "w": the exact word as written in the image (keep accents/punctuation-free form)
+- "t": its translation into the TARGET language ("to"), chosen for THIS context. If it is a
+  proper name keep it; if already in the target language keep it as-is.
+- "sense": a short (2-6 word) gloss of what the word means AS USED here
+- "alts": up to 3 other common meanings it has in OTHER contexts (a few words each; [] if none)
+- "s": 2-3 synonyms in the target language ([] for names/numbers/function words)
+- "c": category — "foreign" (needs translation) | "name" (proper noun/character/place/brand) |
+  "target" (already in the target language) | "number" (digits/stats)
+- "p": part of speech — "noun"|"verb"|"adj"|"adv"|"prep"|"art"|"conj"|"pron"|"other"
+- "r": approximate pronunciation of the original word in simple English phonetics (e.g. "soor-KAR")
+- "line": integer line/sentence group. Words on the same visual line share the same number;
+  increment for each new line, top to bottom.
+- "box": [x0,y0,x1,y1] the word's bounding box as fractions of image size (0..1), where x0,y0 is
+  the top-left and x1,y1 the bottom-right. Make boxes tight around the word.
+
+RULES:
+- ONLY include real readable words. Do NOT invent text for textures, shapes, logos, icons or noise.
+- Skip pure UI chrome / HUD numbers / menu labels unless they are learnable source-language words.
+- If the image has no readable source-language text, return [].
+- Output ONLY the JSON array.`
+
 // Part-of-speech color map. Translucent tinted pills + accent-variable text so they read
 // on both Ocean Light and Dark (text colors flip with the theme via CSS variables).
 export const POS_COLORS = {

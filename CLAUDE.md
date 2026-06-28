@@ -94,6 +94,37 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
 4. Keep entries non-overlapping; ties break by a stable text hash. Sanity-check with a quick `node` import
    of `pickShrimp`, or `npx vite build`.
 
+## Picture tab — vision OCR (primary) with Tesseract for boxes
+- **The model reads the image directly.** `analyzeImage` dispatches to `analyzeImageVision` when an API
+  key is set (else the legacy Tesseract translate path `analyzeImageTesseract`, kept as offline fallback).
+  Vision = one `aiCall(..., VISION_OCR_PROMPT, payload, resolveModel('picture'), { images:[part], maxTokens:8000 })`
+  that returns each word with in-context `t`/`sense`/`alts`/`s`/`c`/`p`/`r`, a reading-order `line`, and a
+  normalized `box`. `resolveModel('picture')` defaults to `questionModel` (Sonnet) — strong vision.
+- **Multimodal plumbing:** `aiCall` takes `opts.images` (`[{mediaType,base64}]`) and `opts.maxTokens`, passed
+  to every provider `call()` in `src/config/providers.js` (Anthropic image blocks / OpenAI+Grok `image_url` /
+  Gemini `inline_data`). Helpers in `src/utils/image.js` (`dataUrlToImagePart`, `downscaleDataUrl` to ≤1500px).
+- **Boxes come from Tesseract, not the model.** Vision boxes are imprecise, so `getTesseractBoxes` runs in
+  PARALLEL and each vision word is **snapped** onto the matching Tesseract box (normalized-text match, nearest
+  center). Snapped words get `_snapped` + a precise box; unmatched get `_approxBox` and are NOT drawn on the
+  image (`renderWordOverlays` skips them) — they still appear in the reading panel.
+- **Reading panel** (`ocrLines`, grouped by `line`) renders below the image: each word a clickable chip that
+  shares `hoveredIdx`/`pinnedIdx` with the image overlay (linked highlighting). Click shows `sense` (green) +
+  `alts` (purple), like the Study legend. Robust JSON via module-level `parseAiJson` (+ `salvageJsonObjects`
+  recovers rows from truncated arrays).
+- **Picture UX:** the floating Ebi FAB is hidden on `activeTab==='picture' && stage==='done'` (inline
+  **Ask Ebi** + **✕ Exit** in the toolbar instead); Esc exits the analysis; switching tabs clears
+  pinned/hovered/expanded so the new tab is fully focused.
+- **Tooltip positioning is zoom-aware.** Body has CSS `zoom:1.35` (non-overlay) which scales `position:fixed`
+  tooltips; `getBoundingClientRect()`/`clientX` are real px while `left/top` are layout px. Divide by
+  `getZoom()` everywhere a tooltip position is derived from a rect/cursor (hover, pin, drag), and clamp the
+  pinned popup to the (zoom-adjusted) viewport so it's always fully visible.
+
+## Chat — markdown rendering
+- Chat + Help messages render **markdown** via `src/components/Markdown.jsx` (`marked` + `DOMPurify`), themed
+  by the global `.md-body` CSS in App.jsx's `<style>` block. Only **assistant** messages are parsed; user
+  text stays literal (`whiteSpace:'pre-wrap'`). `<anki-card>`/`<sources>`/`<progress-update>` tags are
+  stripped in `sendChatTabMessage` BEFORE the content reaches the renderer.
+
 ## Other notes
 - **Stats tab pulls live from Anki** when connected (effect on `activeTab==='stats'` → `ankiStats`):
   Cards Today (`getNumCardsReviewedToday`), 14-day chart + streak (`getNumCardsReviewedByDay`), and a
