@@ -475,13 +475,12 @@ export default function App() {
     const users = c.querySelectorAll('[data-role="user"]')
     const last = users[users.length - 1]
     if (!last) { sp.style.height = '0px'; return }
-    // Size the spacer EMPIRICALLY so maxScroll === the pin target (last user msg PAD from the top),
-    // independent of container padding/margins: measure scrollHeight with the spacer collapsed, then
-    // grow it just enough that (scrollHeight − clientHeight) === target. Never over-scrolls/clips.
-    sp.style.height = '0px'
+    // Size the spacer so maxScroll === the pin target (latest user msg, PAD from the top), independent
+    // of container padding. Measure the base height NON-destructively (scrollHeight − current spacer)
+    // so we never collapse it to 0 mid-scroll, which would clamp the position and kill the auto-scroll.
+    const base = c.scrollHeight - sp.offsetHeight
     const target = Math.max(0, last.offsetTop - CHAT_PAD)
-    const desiredScrollHeight = target + c.clientHeight
-    sp.style.height = Math.max(0, desiredScrollHeight - c.scrollHeight) + 'px'
+    sp.style.height = Math.max(0, target + c.clientHeight - base) + 'px'
   }
   const scrollChatToLatestTurn = () => {
     const c = chatTabScrollRef.current
