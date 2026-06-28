@@ -11,7 +11,19 @@
 - Modern UI: gradient/glass surfaces, soft borders, hover/press feedback, entrance animations, custom scrollbars; geometry-safe button feedback; zoom-correct, clamped mascot drag
 - AI Settings: per-feature model dropdowns from the provider's live list, "Check for new models", app-language (en/es/zh/ja) UI translation
 - AI request errors (out of credits / rate limit / bad key) now surface a clear toast instead of failing silently
-- Switching tabs closes any open settings/mode panels
+- **Unified Settings modal**: one ⚙ entry with a scoped sidebar — **App settings** (General: appearance, app language, translation · AI models) vs **Mode settings** (Study · Cards & Anki · Knowledge · Overlay · Learning modes). Header keeps a quick mode-switcher. Replaces the old stacking banner panels
+- **Custom model entry**: pick any per-feature model from the provider's live list, or type a custom model id (emergency for future models), with a help link
+- **Configurable Mascot model**: a dedicated, cheap-by-default AI role picks Ebi's pose from each response/question (fixes context mismatches like the "ethereal→knife" bug); keyword matching is the instant fallback
+- **First-run onboarding**: Ebi-guided wizard (welcome → app language → light/dark → AI provider + key → first study mode), themed; re-runnable from Settings → General
+- **Study companion**: a big Ebi sits beside the question with an "Ask Ebi" button (the floating button hides during study)
+- Non-language modes (e.g. Security+) hide language-only study controls (quiz language, grammar feedback, conjugations) and quiz on concepts
+- Tapped-word definitions during study are written in the app language (the user's language), not the quiz language
+- Switching tabs closes the settings modal; all user config stays in gitignored local files (per-user)
+- **Mascot pose changes exactly once per AI output** (no keyword→AI flicker); Ebi keeps its prior pose until the Mascot model decides, then changes once
+- **"Ask AI" with a review step** in Cards & Anki and Study settings: the AI proposes changes shown as a before/after word-diff that you **✓ Accept / ✗ Deny / or refine** — nothing is applied without confirmation
+- **Plain "neutral" shrimp** (`shrimp.png`) is the default pose when nothing else fits (whole-word keyword matching avoids spurious matches); the floating Help button rests on the peeking hole shrimp with a soft glow (no ring)
+- Knowledge base is **per mode** (`modes/<mode>/knowledge/`), saved on upload, and gitignored so personal materials never reach git
+- "Ask Ebi" during study opens a compact bottom-docked chat (no longer full-screen)
 
 ### Core Translation (Phase 1-3) ✅
 - Two-stage OCR + AI translation pipeline
