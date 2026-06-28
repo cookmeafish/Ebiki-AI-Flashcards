@@ -140,17 +140,35 @@ export default function App() {
   // exchange fires (study question shown, chat/feedback message sent, picture word, etc.)
   // so Ebi always matches what's happening. Ebi's Help chat overrides this with its own.
   const [aiMascot, setAiMascot] = useState(DEFAULT_SHRIMP)
-  const flashMascot = (text) => { if (text) setAiMascot(pickShrimp(text)) }
-  // Appended to AI system prompts so the model can pick Ebi's pose semantically.
-  const POSE_INSTRUCTION = `\n\nMASCOT POSE: At the very end of your reply, on its own line, output a tag <pose>NAME</pose> where NAME is the single Ebi shrimp pose that best fits the topic, chosen ONLY from this list: ${POSE_NAMES.join(', ')}. Use "default" if none clearly fit. This tag controls the mascot picture and is hidden from the user.`
-  // Parse <pose> from an AI reply: set Ebi's pose from the tag (or keyword fallback).
-  // Returns { text: reply with tag stripped, pose: chosen pose name (or null) }.
-  const applyPose = (text) => {
-    const m = String(text || '').match(/<pose>\s*([a-zA-Z]+)\s*<\/pose>/i)
-    const stripped = String(text || '').replace(/<pose>[\s\S]*?<\/pose>/gi, '').trim()
-    const f = m && poseFile(m[1])
-    if (f) setAiMascot(f); else flashMascot(stripped)
-    return { text: stripped, pose: f ? m[1].toLowerCase() : null }
+  const [askEbiSignal, setAskEbiSignal] = useState(0) // bump to open Ebi's Help (study "Ask Ebi")
+  // Strip study-question boilerplate ("¿Cómo se dice '…'?", "How do you say …") so pose
+  // selection keys on the actual concept, not the scaffolding (which caused false matches).
+  const meaningfulPoseText = (text) => String(text || '')
+    .replace(/¿?\s*c[óo]mo se (dice|escribe)[^'":]*/gi, '')
+    .replace(/how (do you say|would you say)[^'"?:]*/gi, '')
+    .replace(/translate[^'":]*:/gi, '')
+    .trim() || String(text || '')
+  // Instant keyword-based pose (free, offline) — used as the immediate value and fallback.
+  const flashMascot = (text) => { if (text) setAiMascot(pickShrimp(meaningfulPoseText(text))) }
+  // System prompt for the dedicated, configurable "Mascot" model (cheap/fast). It reads the
+  // generated response/question and returns the single best Ebi pose name.
+  const POSE_SYS = `You pick a mascot pose for Ebi, a cute red shrimp, based on a piece of text. Reply with ONLY one pose name from this exact list and nothing else: ${POSE_NAMES.join(', ')}. Choose the one whose theme best fits the meaning of the text. If none clearly fit, reply "default".`
+  // choosePose: set Ebi instantly from keywords, then refine via the Mascot model.
+  // Non-blocking; silent on error; returns the final shrimp filename.
+  const choosePose = async (text) => {
+    const clean = String(text || '').trim()
+    if (!clean) return DEFAULT_SHRIMP
+    const fallback = pickShrimp(meaningfulPoseText(clean))
+    setAiMascot(fallback)
+    const prov = aiStateRef.current.provider
+    if (!aiStateRef.current.apiKeys[prov]) return fallback
+    try {
+      const out = await aiCall(aiStateRef.current.apiKeys[prov], POSE_SYS, clean.slice(0, 800), resolveModel('pose'), { silent: true })
+      const name = String(out || '').trim().toLowerCase().replace(/[^a-z]/g, '')
+      const f = poseFile(name) || fallback
+      setAiMascot(f)
+      return f
+    } catch { return fallback }
   }
   // Available model ids fetched from each provider's API: { [provider]: [ids] }.
   const [availableModels, setAvailableModels] = useState({})
@@ -401,6 +419,7 @@ export default function App() {
     discover: pc.questionModel, // learner profiling, suggestions, fact-checking
     chat: pc.model,           // the chat tab assistant
     help: pc.questionModel,   // Ebi's Help assistant
+    pose: pc.model,           // picks Ebi's mascot pose from context — cheapest/fastest
   })
   // UI metadata for the AI Settings panel — order + labels + hints.
   const AI_ROLE_META = [
@@ -410,6 +429,7 @@ export default function App() {
     { role: 'discover', label: 'Discover', hint: 'learner profiling, new-item suggestions, fact-checking' },
     { role: 'chat', label: 'Chat', hint: 'the chat tab assistant' },
     { role: 'help', label: 'Help', hint: "Ebi's Help assistant" },
+    { role: 'pose', label: 'Mascot', hint: "picks Ebi's pose from context — use a cheap, fast model" },
     { role: 'general', label: 'General', hint: 'fallback + AI mode/config generation' },
   ]
   const resolveModel = (role, prov = aiStateRef.current.provider) => {
@@ -501,7 +521,7 @@ export default function App() {
   // Wrapper around providerConfig.call that injects the configured model and
   // self-heals retired models. modelOverride (when given) is the question-tier
   // model; otherwise the general model is used.
-  const aiCall = async (key, systemPrompt, userContent, modelOverride) => {
+  const aiCall = async (key, systemPrompt, userContent, modelOverride, opts = {}) => {
     const prov = aiStateRef.current.provider
     const role = modelOverride ? 'question' : 'general'
     const model = modelOverride || resolveModel('general')
@@ -513,10 +533,11 @@ export default function App() {
       const healed = await healRetiredModel(e?.message || '', model, role)
       if (healed) {
         try { return await PROVIDERS[prov].call(key, systemPrompt, userContent, healed) }
-        catch (e2) { reportAiError(e2); throw e2 }
+        catch (e2) { if (!opts.silent) reportAiError(e2); throw e2 }
       }
       // Surface out-of-credits / rate-limit / bad-key errors so failures aren't silent.
-      reportAiError(e)
+      // `silent` callers (e.g. the secondary mascot-pose call) never raise a toast.
+      if (!opts.silent) reportAiError(e)
       throw e
     }
   }
@@ -3972,7 +3993,6 @@ Last updated: ${new Date().toISOString().split('T')[0]}
     const studyLang = (activeMode.studyRules || defaultStudyRules).studyLanguage || 'English'
     const newMessages = [...(chat.messages || []), { role: 'user', text: q }]
     setStudyFeedbackChat(prev => ({ ...prev, [cardIdx]: { ...chat, messages: newMessages, input: '', loading: true } }))
-    flashMascot(`${q} ${cs?.front || ''}`) // Ebi reacts to the feedback-chat topic as the reply starts
     try {
       const resultsContext = cs.questions.map((question, qi) =>
         `Q${qi+1}: ${getQuestionText(question)}\nAnswer: ${cs.answers[qi] || '(skipped)'}\nResult: ${cs.results[qi]?.correct ? 'Correct' : 'Incorrect'} — ${cs.results[qi]?.feedback}`
@@ -3997,11 +4017,12 @@ To mark ONE question correct: <action>{"type":"fix_typo","questionIndex":N,"corr
 
 Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the student is studying — not English, unless ${studyLang} is English). Always include the action tag when applicable. Never refuse a student's correction request.`
       const fullPrompt = newMessages.map(m => `${m.role === 'user' ? 'User' : 'Tutor'}: ${m.text}`).join('\n')
-      const text = await aiCall(apiKey, systemPrompt + POSE_INSTRUCTION, fullPrompt, resolveModel('study'))
+      const text = await aiCall(apiKey, systemPrompt, fullPrompt, resolveModel('study'))
 
       // Parse and execute actions from the response
       const actionMatches = [...text.matchAll(/<action>(.*?)<\/action>/gs)]
-      const cleanText = applyPose(text.replace(/<action>.*?<\/action>/gs, '').trim()).text
+      const cleanText = text.replace(/<action>.*?<\/action>/gs, '').trim()
+      choosePose(cleanText)
       let updatedStates = null
 
       for (const match of actionMatches) {
@@ -4103,7 +4124,6 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
     setChatTabMsgs(newMsgs)
     setChatTabInput('')
     setChatTabLoading(true)
-    flashMascot(q) // Ebi reacts to the chat topic the moment the message is sent
     setTimeout(() => chatTabScrollRef.current?.scrollTo({ top: chatTabScrollRef.current.scrollHeight, behavior: 'smooth' }), 50)
     try {
       let systemPrompt = `You are a helpful study assistant. The user is studying with mode "${activeMode.name}".
@@ -4161,7 +4181,7 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       }
 
       const convo = newMsgs.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n\n')
-      const text = await aiCall(apiKey, systemPrompt + POSE_INSTRUCTION, convo, resolveModel('chat'))
+      const text = await aiCall(apiKey, systemPrompt, convo, resolveModel('chat'))
 
       // Parse anki cards from response
       const cardMatches = [...text.matchAll(/<anki-card>(.*?)<\/anki-card>/gs)]
@@ -4194,12 +4214,15 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
         if (cited.length > 0) sources = cited
       }
 
-      const cleanText0 = text.replace(/<anki-card>.*?<\/anki-card>/gs, '').replace(/<progress-update>[\s\S]*?<\/progress-update>/g, '').replace(/<sources>[\s\S]*?<\/sources>/g, '').trim()
-      const posed = applyPose(cleanText0) // sets Ebi's pose from <pose> tag (or keyword fallback) and strips it
-      const cleanText = posed.text
-      const assistantMsg = { role: 'assistant', content: cleanText, pose: posed.pose, cards: parsedCards.length > 0 ? parsedCards : undefined, sources: sources || undefined }
+      const cleanText = text.replace(/<anki-card>.*?<\/anki-card>/gs, '').replace(/<progress-update>[\s\S]*?<\/progress-update>/g, '').replace(/<sources>[\s\S]*?<\/sources>/g, '').trim()
+      const msgIdx = newMsgs.length // index of the assistant message we're appending
+      const assistantMsg = { role: 'assistant', content: cleanText, cards: parsedCards.length > 0 ? parsedCards : undefined, sources: sources || undefined }
       const updatedMsgs = [...newMsgs, assistantMsg]
       setChatTabMsgs(updatedMsgs)
+      // Pipe the reply into the Mascot model to pick Ebi's pose; tag this message with it.
+      choosePose(cleanText).then((file) => {
+        if (file) setChatTabMsgs((prev) => prev.map((m, i) => i === msgIdx ? { ...m, mascot: file } : m))
+      })
       setTimeout(() => chatTabScrollRef.current?.scrollTo({ top: chatTabScrollRef.current.scrollHeight, behavior: 'smooth' }), 50)
       // Auto-save to disk after each response
       const savedId = await chatTabSaveCurrent(updatedMsgs, chatTabSessionId)
@@ -4600,19 +4623,19 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
     const cs = studyCardState[currentQuestion.cardIdx]
     const q = cs?.questions?.[currentQuestion.questionIdx]
     const qt = typeof q === 'string' ? q : (q?.question || '')
-    flashMascot([qt, cs?.front, cs?.back].filter(Boolean).join(' '))
+    choosePose([qt, cs?.front, cs?.back].filter(Boolean).join(' '))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentQuestion, studyActive])
   useEffect(() => {
     if (activeTab !== 'picture') return
     const w = pinnedIdx !== null ? pinnedIdx : hoveredIdx
     const word = w !== null ? ocrWords[w] : null
-    if (word) flashMascot([word.text, word.translation, word.definition].filter(Boolean).join(' '))
+    if (word) choosePose([word.text, word.translation, word.definition].filter(Boolean).join(' '))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pinnedIdx, hoveredIdx, activeTab])
   useEffect(() => {
     if (activeTab === 'discover' && discoverSuggestion) {
-      flashMascot([discoverSuggestion.term, discoverSuggestion.translation, discoverSuggestion.draftMeaning].filter(Boolean).join(' '))
+      choosePose([discoverSuggestion.term, discoverSuggestion.translation, discoverSuggestion.draftMeaning].filter(Boolean).join(' '))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [discoverSuggestion, activeTab])
@@ -5878,13 +5901,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               {chatTabMsgs.map((m, i) => (
                 <div key={i} style={{ marginBottom: 12, display: 'flex', flexDirection: 'column', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
                   {/* Ebi reacts on ASSISTANT messages only — Ebi is the AI, not the user.
-                      Uses the pose the AI chose (m.pose) if present, else a keyword match. */}
-                  {m.role !== 'user' && (() => {
-                    const ms = m.pose ? (poseFile(m.pose) || pickShrimp(m.content)) : pickShrimp(m.content)
-                    return (
-                      <img src={shrimpUrl(ms)} alt="Ebi" title="Ebi" style={{ width: 34, height: 34, objectFit: 'contain', marginBottom: 4, animation: 'pop .3s cubic-bezier(.34,1.56,.64,1)', filter: 'drop-shadow(var(--sh-sm))' }} />
-                    )
-                  })()}
+                      Uses the Mascot-model pose (m.mascot) once it resolves, else a keyword match. */}
+                  {m.role !== 'user' && (
+                    <img src={shrimpUrl(m.mascot || pickShrimp(meaningfulPoseText(m.content)))} alt="Ebi" title="Ebi" style={{ width: 34, height: 34, objectFit: 'contain', marginBottom: 4, animation: 'pop .3s cubic-bezier(.34,1.56,.64,1)', filter: 'drop-shadow(var(--sh-sm))' }} />
+                  )}
                   <div style={{
                     maxWidth: '80%', padding: '10px 14px', borderRadius: 12, fontSize: 13, lineHeight: 1.5,
                     background: m.role === 'user' ? 'linear-gradient(135deg, rgba(223,37,64,.2), rgba(223,37,64,.12))' : 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))',
@@ -7373,6 +7393,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         apiKey={apiKey}
         provider={provider}
         mascotFile={aiMascot}
+        onAiReply={(text) => choosePose(text)}
+        askEbiSignal={askEbiSignal}
         model={resolveModel('help')}
         onModelRetired={async (failedModel) => {
           const healed = await healRetiredModel('404 not_found', failedModel, 'help')
