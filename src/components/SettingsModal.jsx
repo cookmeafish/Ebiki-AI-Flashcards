@@ -237,7 +237,7 @@ export default function SettingsModal(p) {
         })}
         <div style={hint}>
           {provModels.length ? t('aiModelsHintDropdown') : t('aiModelsHint')}<br />
-          {t('customModelHelp')} <a href={providerConfig.url} target="_blank" rel="noopener noreferrer" style={{ color: C.brand }}>{providerConfig.label} ↗</a>
+          {t('customModelHelp')} <a href={providerConfig.modelsUrl || providerConfig.url} target="_blank" rel="noopener noreferrer" style={{ color: C.brand }}>{providerConfig.label} ↗</a>
         </div>
       </div>
     </div>

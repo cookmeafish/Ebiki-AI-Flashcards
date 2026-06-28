@@ -102,13 +102,13 @@ screenlens/
 ## Setup
 
 ```bash
-git clone https://github.com/cookmeafish/screenlens.git
-cd screenlens
+git clone https://github.com/cookmeafish/Ebiki-AI-Flashcards.git
+cd Ebiki-AI-Flashcards   # the clone creates this folder — run everything from inside it
 npm install
 npm run dev
 ```
 
-Opens at `http://localhost:3000`.
+Opens at `http://localhost:3000`. (Run the commands **inside** the `Ebiki-AI-Flashcards` folder — `npm run dev` fails with a "no package.json" error if you run it in the parent directory.)
 
 ## Configuration
 

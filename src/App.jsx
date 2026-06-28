@@ -782,10 +782,15 @@ export default function App() {
     if (key) setError(null)
   }
 
-  // Open Settings → AI models if the current provider has no key stored
+  // Gently nudge a returning (already-onboarded) user to add a key — ONCE on load, and never
+  // during onboarding. Don't re-fire on provider switches, so picking/configuring a provider that
+  // has no key yet doesn't yank the user into Settings.
+  const keyPromptedRef = useRef(false)
   useEffect(() => {
-    if (keysLoaded && !apiKeys[provider]) { setSettingsCategory('models'); setSettingsOpen(true) }
-  }, [provider, keysLoaded])
+    if (!keysLoaded || !onboarded || keyPromptedRef.current) return
+    if (!apiKeys[provider]) { keyPromptedRef.current = true; setSettingsCategory('models'); setSettingsOpen(true) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keysLoaded, onboarded])
 
   // ─── Load Image Helper ──────────────────────────────────────────────────────
   const loadImageFromDataUrl = useCallback((dataUrl) => {

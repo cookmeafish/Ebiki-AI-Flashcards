@@ -556,7 +556,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
       {open && snapZone && (
         <div ref={panelRef} style={{
           ...panelStyle(),
-          background: 'rgba(255,255,255,.98)',
+          background: 'color-mix(in srgb, var(--c-surface) 94%, transparent)',
           backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
           border: '1px solid var(--c-border)',
           borderRadius: isEdgeZone ? 0 : 16, overflow: 'hidden',
@@ -602,7 +602,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
                 fontFamily: FONT.body, fontSize: 14, fontWeight: 700,
                 cursor: choosingZone ? 'pointer' : 'default',
                 color: hoverZone === z.id ? 'var(--c-brand)' : 'rgba(223,37,64,.6)',
-                background: hoverZone === z.id ? 'rgba(223,37,64,.18)' : 'rgba(255,255,255,.55)',
+                background: hoverZone === z.id ? 'rgba(223,37,64,.18)' : 'color-mix(in srgb, var(--c-surface) 70%, transparent)',
                 border: hoverZone === z.id ? '2px solid rgba(223,37,64,.7)' : '2px dashed rgba(223,37,64,.4)',
                 transition: 'background .12s ease, border-color .12s ease, color .12s ease',
               }}>{z.label}</div>
