@@ -47,7 +47,8 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   `"default"`). `IDLE_SHRIMP = '6820-holeshrimp.png'` — the resting image for the floating Help button.
 - **How a pose is chosen — `choosePose(text)` in App.jsx (the ONLY thing that sets the pose):**
   1. With an API key: text is piped to the **configurable "Mascot" AI role** (`resolveModel('pose')`,
-     defaults to the provider's cheapest model; appears in AI models settings). It returns a pose name.
+     defaults to the provider's stronger model — `questionModel`, e.g. Sonnet for Anthropic — for a
+     better pose fit; user-configurable in AI models settings). It returns a pose name.
   2. Without a key / on error: keyword fallback `pickShrimp(text)` (whole-word matching only — never
      substrings, so "art" won't match "particular").
   - It sets the mascot **exactly once per call** (no keyword→AI flicker). Ebi keeps its prior pose until

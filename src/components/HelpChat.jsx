@@ -235,12 +235,13 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
         if (Math.hypot(e.clientX - snapDragStart.current.x, e.clientY - snapDragStart.current.y) < 5) return
         didSnapDrag.current = true
       }
+      // Three intuitive targets: drag low → dock UNDER the question; drag to a side → dock there;
+      // anywhere in the middle → free-float. (Big, sensible regions — no thin edge strips.)
       const fx = e.clientX / window.innerWidth, fy = e.clientY / window.innerHeight
       let zone = null
-      if (fx < 0.16) zone = 'left'
-      else if (fx > 0.84) zone = 'right'
-      else if (fy > 0.82) zone = 'bottom'
-      else if (fy < 0.16) zone = 'top'
+      if (fy > 0.62) zone = 'bottom'
+      else if (fx < 0.26) zone = 'left'
+      else if (fx > 0.74) zone = 'right'
       hoverZoneRef.current = zone
       setHoverZone(zone)
       const zoom = getZoom()
@@ -464,39 +465,51 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
 
   return (
     <>
+      {/* Ebi help button: gentle scale + wiggle on hover so it reads as clickable. */}
+      <style>{`
+        .ebi-fab-img { transition: transform .2s cubic-bezier(.34,1.56,.64,1), filter .25s ease; transform-origin: 50% 70%; }
+        .ebi-fab:hover .ebi-fab-img { animation: ebiWiggle .6s ease-in-out infinite; }
+        @keyframes ebiWiggle {
+          0%, 100% { transform: scale(1.16) rotate(-4deg); }
+          50%      { transform: scale(1.16) rotate(4deg); }
+        }
+      `}</style>
       {/* Floating help button — hidden when the chat is snapped/detached, or when the host hides it (e.g. study Ebi is shown) */}
       {!snapZone && !hideButton && (
         <button
           ref={btnRef}
+          className="ebi-fab"
           onMouseDown={handleMouseDown}
           onClick={() => { if (!didDrag.current) setOpen(!open) }}
           style={{
             position: 'fixed', left: pos.x,
             ...(pos.y !== null ? { top: pos.y } : { bottom: 20 }),
-            width: 64, height: 64, borderRadius: '50%',
-            // A faint, translucent light behind the shrimp with a single smooth falloff to fully
-            // transparent. Kept low-opacity so it melts into the red bloom rather than reading as a disc.
-            background: 'radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--c-surface) 42%, transparent) 0%, transparent 70%)',
-            border: 'none',
+            width: 64, height: 64,
+            // No circle, no background — just the transparent PNG. The glow lives on the image's
+            // drop-shadow (below), which traces the shrimp's silhouette instead of a disc.
+            background: 'transparent', border: 'none', boxShadow: 'none', borderRadius: 0,
             padding: 0, overflow: 'visible',
             cursor: dragging ? 'grabbing' : 'grab',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             zIndex: 10000,
-            // A big, saturated red bloom is the main feature (two feathered layers) — the soft white
-            // core blends into it so the whole thing reads as a glowing orb, not a flat white circle.
-            boxShadow: open
-              ? '0 0 52px 14px rgba(223,37,64,.52), 0 0 96px 34px rgba(223,37,64,.22), 0 8px 22px rgba(223,37,64,.18)'
-              : '0 0 46px 12px rgba(223,37,64,.42), 0 0 84px 28px rgba(223,37,64,.16), 0 6px 16px rgba(16,36,44,.08)',
-            fontFamily: 'inherit', transition: 'box-shadow .25s ease',
+            fontFamily: 'inherit',
           }}
           title="Ebi's Help — ask anything about Ebiki"
         >
-          {/* Show the full art (no crop), sized to sit comfortably in the circle. */}
+          {/* Transparent PNG with a soft red glow that hugs the shrimp's shape (drop-shadow follows
+              the alpha channel), so there's no circle — just Ebi with a slight glow around it. */}
           <img
             src={shrimpUrl(buttonMascot)}
             alt="Ebi, the Ebiki mascot"
             draggable={false}
-            style={{ width: '90%', height: '90%', objectFit: 'contain', objectPosition: 'center', pointerEvents: 'none', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.35))' }}
+            className="ebi-fab-img"
+            style={{
+              width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center',
+              pointerEvents: 'none',
+              filter: open
+                ? 'drop-shadow(0 0 6px rgba(223,37,64,.7)) drop-shadow(0 0 16px rgba(223,37,64,.5)) drop-shadow(0 2px 3px rgba(0,0,0,.3))'
+                : 'drop-shadow(0 0 5px rgba(223,37,64,.55)) drop-shadow(0 0 13px rgba(223,37,64,.38)) drop-shadow(0 2px 3px rgba(0,0,0,.3))',
+            }}
           />
         </button>
       )}
@@ -538,21 +551,24 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
         </div>
       )}
 
-      {/* FancyZones drop-zone overlays — shown only while dragging the chat header */}
+      {/* Drop-zone overlays — shown only while dragging the chat header. Three sensible targets:
+          dock left, dock right, or under the question (matches the snap detection regions). */}
       {snapDragging && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9998, pointerEvents: 'none' }}>
           {[
-            { id: 'left', style: { left: 0, top: 0, bottom: 0, width: '16%' } },
-            { id: 'right', style: { right: 0, top: 0, bottom: 0, width: '16%' } },
-            { id: 'top', style: { top: 0, left: 0, right: 0, height: '16%' } },
-            { id: 'bottom', style: { bottom: 0, left: 0, right: 0, height: '18%' } },
+            { id: 'left', label: 'Dock left', style: { left: 12, top: 12, height: '50%', width: '24%' } },
+            { id: 'right', label: 'Dock right', style: { right: 12, top: 12, height: '50%', width: '24%' } },
+            { id: 'bottom', label: 'Under the question', style: { bottom: 12, left: 12, right: 12, height: '34%' } },
           ].map(z => (
             <div key={z.id} style={{
               position: 'fixed', ...z.style,
-              background: hoverZone === z.id ? 'rgba(223,37,64,.18)' : 'rgba(223,37,64,.05)',
-              border: hoverZone === z.id ? '2px solid rgba(223,37,64,.65)' : '2px dashed rgba(223,37,64,.25)',
-              borderRadius: 14, transition: 'background .12s ease, border-color .12s ease',
-            }} />
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontFamily: FONT.body, fontSize: 14, fontWeight: 700,
+              color: hoverZone === z.id ? 'var(--c-brand)' : 'rgba(223,37,64,.5)',
+              background: hoverZone === z.id ? 'rgba(223,37,64,.16)' : 'rgba(223,37,64,.05)',
+              border: hoverZone === z.id ? '2px solid rgba(223,37,64,.7)' : '2px dashed rgba(223,37,64,.3)',
+              borderRadius: 16, transition: 'background .12s ease, border-color .12s ease, color .12s ease',
+            }}>{z.label}</div>
           ))}
         </div>
       )}
