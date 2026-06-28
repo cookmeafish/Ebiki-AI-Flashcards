@@ -4899,9 +4899,11 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       }
 
       const cleanText = text.replace(/<anki-card>.*?<\/anki-card>/gs, '').replace(/<progress-update>[\s\S]*?<\/progress-update>/g, '').replace(/<sources>[\s\S]*?<\/sources>/g, '').trim()
-      // Pose is chosen ONCE from keywords so Ebi appears with the message and never swaps a beat
-      // later. (No secondary Mascot-model call here — that caused the visible double-change.)
-      const assistantMsg = { role: 'assistant', content: cleanText, mascot: pickShrimp(cleanText), cards: parsedCards.length > 0 ? parsedCards : undefined, sources: sources || undefined }
+      // Let the Mascot AI analyze the reply and pick the best-fitting pose, but AWAIT it so the
+      // message appears ONCE already wearing the final pose — no instant-then-swap flicker.
+      // (choosePose never throws: it falls back to the keyword pose on no-key/error.)
+      const poseF = await choosePose(cleanText)
+      const assistantMsg = { role: 'assistant', content: cleanText, mascot: poseF || pickShrimp(cleanText), cards: parsedCards.length > 0 ? parsedCards : undefined, sources: sources || undefined }
       const updatedMsgs = [...newMsgs, assistantMsg]
       setChatTabMsgs(updatedMsgs)
       // Keep the user's message pinned near the top; the reply renders below it (don't jump to bottom).
