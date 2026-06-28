@@ -114,7 +114,7 @@ export default function OnboardingWizard(p) {
       case 'intelligence':
         return (<>
           <div style={heading}>How smart should Ebi be?</div>
-          <div style={sub}>This sets the AI model used across the whole app for {providerConfig.label}. You can change it anytime in Settings → AI models.</div>
+          <div style={sub}>This sets the AI model used across the whole app for {providerConfig.label}.</div>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 22, flexWrap: 'wrap' }}>
             {[
               { key: 'normal', title: 'Normal', model: providerConfig.presets?.normal || providerConfig.questionModel, desc: 'Balanced and fast — great for everyday studying.' },
@@ -135,7 +135,8 @@ export default function OnboardingWizard(p) {
               )
             })}
           </div>
-          <div style={{ marginTop: 22 }}><button className="btn-press" style={bigBtn} onClick={next}>Continue</button></div>
+          <div style={{ fontSize: 12, color: C.inkFaint, marginTop: 16 }}>You can change this anytime in Settings → AI models.</div>
+          <div style={{ marginTop: 16 }}><button className="btn-press" style={bigBtn} onClick={next}>Continue</button></div>
         </>)
       case 'mode':
         return (<>
