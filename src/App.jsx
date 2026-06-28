@@ -4899,16 +4899,11 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       }
 
       const cleanText = text.replace(/<anki-card>.*?<\/anki-card>/gs, '').replace(/<progress-update>[\s\S]*?<\/progress-update>/g, '').replace(/<sources>[\s\S]*?<\/sources>/g, '').trim()
-      const msgIdx = newMsgs.length // index of the assistant message we're appending
-      // Seed an instant keyword pose so Ebi appears AT THE SAME TIME as the message text; the
-      // async Mascot-model call below then refines it (same <img>, so it doesn't re-pop).
+      // Pose is chosen ONCE from keywords so Ebi appears with the message and never swaps a beat
+      // later. (No secondary Mascot-model call here — that caused the visible double-change.)
       const assistantMsg = { role: 'assistant', content: cleanText, mascot: pickShrimp(cleanText), cards: parsedCards.length > 0 ? parsedCards : undefined, sources: sources || undefined }
       const updatedMsgs = [...newMsgs, assistantMsg]
       setChatTabMsgs(updatedMsgs)
-      // Pipe the reply into the Mascot model to pick Ebi's pose; tag this message with it.
-      choosePose(cleanText).then((file) => {
-        if (file) setChatTabMsgs((prev) => prev.map((m, i) => i === msgIdx ? { ...m, mascot: file } : m))
-      })
       // Keep the user's message pinned near the top; the reply renders below it (don't jump to bottom).
       setTimeout(scrollChatToLatestTurn, 60)
       // Auto-save to disk after each response
