@@ -103,7 +103,7 @@ export default function OnboardingWizard(p) {
             <span onClick={() => setAdvanced((a) => !a)} style={{ fontSize: 11, color: C.brand, cursor: 'pointer' }}>{advanced ? '▾' : '▸'} {t('obAdvanced')}</span>
             {advanced && (
               <div style={{ maxWidth: 460, margin: '8px auto 0', textAlign: 'left' }}>
-                <div style={{ fontSize: 11, color: C.inkDim, marginBottom: 5 }}>{t('obCustomModelBody')} <a href={providerConfig.url} target="_blank" rel="noopener noreferrer" style={{ color: C.brand }}>{providerConfig.label} ↗</a></div>
+                <div style={{ fontSize: 11, color: C.inkDim, marginBottom: 5 }}>{t('obCustomModelBody')} <a href={providerConfig.modelsUrl || providerConfig.url} target="_blank" rel="noopener noreferrer" style={{ color: C.brand }}>{providerConfig.label} ↗</a></div>
                 <input value={aiModels[provider]?.general || ''} onChange={(e) => setAiModels((prev) => ({ ...prev, [provider]: { ...(prev[provider] || {}), general: e.target.value } }))}
                   placeholder="exact model id (e.g. claude-…)" spellCheck={false} style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box', fontSize: 12 }} />
               </div>
@@ -145,7 +145,7 @@ export default function OnboardingWizard(p) {
         background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg,
         boxShadow: SHADOW.xl, padding: '34px 30px 26px', animation: 'pop .2s cubic-bezier(.34,1.56,.64,1)',
       }}>
-        <img src={ebi} alt="Ebi" style={{ width: 96, height: 96, objectFit: 'contain', filter: 'drop-shadow(0 8px 18px rgba(223,37,64,.28))', animation: 'floaty 4s ease-in-out infinite' }} />
+        <img src={ebi} alt="Ebi" style={{ width: 96, height: 96, objectFit: 'contain', animation: 'floaty 4s ease-in-out infinite' }} />
         <Body />
         {/* Footer nav (hidden on welcome/finish which have their own primary button) */}
         {step > 0 && step < last && (
