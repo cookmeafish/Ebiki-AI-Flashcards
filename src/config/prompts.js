@@ -29,21 +29,22 @@ Fragment example:
 Input: {"words":[{"i":0,"w":"Sobre"},{"i":1,"w":"guardia"}],"from":"Spanish","to":"English","context":"Sobreguardia"}
 Output: [{"i":0,"w":"Sobre","t":"Overguard","s":["shield"],"c":"foreign","p":"noun","r":"soh-breh-GWAR-dee-ah","m":[0,1]},{"i":1,"w":"guardia","t":"guard","s":[],"c":"foreign","p":"noun","r":"GWAR-dee-ah"}]`
 
-// Part-of-speech color map (Ocean Light — distinct, readable on white)
+// Part-of-speech color map. Translucent tinted pills + accent-variable text so they read
+// on both Ocean Light and Dark (text colors flip with the theme via CSS variables).
 export const POS_COLORS = {
-  noun: { bg: 'rgba(223,37,64,.12)', border: 'rgba(223,37,64,.28)', text: '#C00A29', label: 'Noun' },
-  verb: { bg: 'rgba(139,92,246,.12)', border: 'rgba(139,92,246,.28)', text: '#7C4DEB', label: 'Verb' },
-  adj:  { bg: 'rgba(232,147,12,.14)', border: 'rgba(232,147,12,.30)', text: '#B36F08', label: 'Adjective' },
-  adv:  { bg: 'rgba(17,168,160,.14)', border: 'rgba(17,168,160,.30)', text: '#0C857F', label: 'Adverb' },
-  pron: { bg: 'rgba(45,134,201,.14)', border: 'rgba(45,134,201,.30)', text: '#2070AE', label: 'Pronoun' },
-  prep: { bg: 'rgba(81,98,108,.08)', border: 'rgba(81,98,108,.18)', text: '#51626C', label: 'Preposition' },
-  art:  { bg: 'rgba(81,98,108,.08)', border: 'rgba(81,98,108,.18)', text: '#51626C', label: 'Article' },
-  conj: { bg: 'rgba(81,98,108,.08)', border: 'rgba(81,98,108,.18)', text: '#51626C', label: 'Conjunction' },
-  other:{ bg: 'rgba(81,98,108,.10)', border: 'rgba(81,98,108,.20)', text: '#51626C', label: 'Other' },
+  noun: { bg: 'rgba(223,37,64,.12)', border: 'rgba(223,37,64,.28)', text: 'var(--c-brand)', label: 'Noun' },
+  verb: { bg: 'rgba(139,92,246,.14)', border: 'rgba(139,92,246,.30)', text: 'var(--c-purple)', label: 'Verb' },
+  adj:  { bg: 'rgba(232,147,12,.16)', border: 'rgba(232,147,12,.32)', text: 'var(--c-warning)', label: 'Adjective' },
+  adv:  { bg: 'rgba(17,168,160,.16)', border: 'rgba(17,168,160,.32)', text: 'var(--c-teal)', label: 'Adverb' },
+  pron: { bg: 'rgba(45,134,201,.16)', border: 'rgba(45,134,201,.32)', text: 'var(--c-info)', label: 'Pronoun' },
+  prep: { bg: 'rgba(81,98,108,.10)', border: 'rgba(81,98,108,.20)', text: 'var(--c-ink-dim)', label: 'Preposition' },
+  art:  { bg: 'rgba(81,98,108,.10)', border: 'rgba(81,98,108,.20)', text: 'var(--c-ink-dim)', label: 'Article' },
+  conj: { bg: 'rgba(81,98,108,.10)', border: 'rgba(81,98,108,.20)', text: 'var(--c-ink-dim)', label: 'Conjunction' },
+  other:{ bg: 'rgba(81,98,108,.12)', border: 'rgba(81,98,108,.22)', text: 'var(--c-ink-dim)', label: 'Other' },
 }
 
 export const CATEGORY_COLORS = {
-  name:   { bg: 'rgba(24,169,87,.14)', border: 'rgba(24,169,87,.30)', text: '#138A47', label: 'Name' },
-  target: { bg: 'rgba(24,169,87,.08)', border: 'rgba(24,169,87,.16)', text: '#138A47', label: null },
-  number: { bg: 'transparent', border: 'transparent', text: '#51626C', label: 'Number' },
+  name:   { bg: 'rgba(24,169,87,.16)', border: 'rgba(24,169,87,.32)', text: 'var(--c-success)', label: 'Name' },
+  target: { bg: 'rgba(24,169,87,.10)', border: 'rgba(24,169,87,.18)', text: 'var(--c-success)', label: null },
+  number: { bg: 'transparent', border: 'transparent', text: 'var(--c-ink-dim)', label: 'Number' },
 }

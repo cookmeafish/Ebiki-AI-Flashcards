@@ -4,8 +4,8 @@
 // lives in App.jsx; this is presentational.
 
 const C = {
-  blue: '#DF2540', purple: '#8B5CF6', green: '#18A957', orange: '#E8930C',
-  red: '#E5392E', dim: '#51626C', text: '#16242C',
+  blue: 'var(--c-brand)', purple: 'var(--c-purple)', green: 'var(--c-success)', orange: 'var(--c-warning)',
+  red: 'var(--c-danger)', dim: 'var(--c-ink-dim)', text: 'var(--c-ink)',
 }
 
 function StatusLine({ status }) {
@@ -70,7 +70,7 @@ export default function DiscoverPanel(props) {
 
       {/* ── Setup screen (before starting) ─────────────────────────────────── */}
       {!started && (
-        <div style={{ border: '1px solid #E2E8ED', borderRadius: 6, padding: '14px 16px' }}>
+        <div style={{ border: '1px solid var(--c-border)', borderRadius: 6, padding: '14px 16px' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>{t('d_whatSuggest')}</div>
 
           {isLanguage && (
@@ -91,7 +91,7 @@ export default function DiscoverPanel(props) {
             <div style={{ fontSize: 11, color: C.dim, marginBottom: 6, fontWeight: 600 }}>{t('d_focusOptional')}</div>
             <textarea value={config.focus} onChange={(e) => setConfig({ ...config, focus: e.target.value })}
               placeholder={focusPlaceholder}
-              style={{ width: '100%', boxSizing: 'border-box', minHeight: 60, resize: 'vertical', background: '#FFFFFF', color: C.text, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 5, padding: 8, fontSize: 12, fontFamily: 'inherit' }} />
+              style={{ width: '100%', boxSizing: 'border-box', minHeight: 60, resize: 'vertical', background: 'var(--c-surface)', color: C.text, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 5, padding: 8, fontSize: 12, fontFamily: 'inherit' }} />
           </div>
 
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: C.dim, marginBottom: 14, cursor: 'pointer' }}>
@@ -156,10 +156,10 @@ export default function DiscoverPanel(props) {
               <div style={{ borderTop: '1px solid rgba(81,98,108,0.2)', paddingTop: 10, marginTop: 6 }}>
                 <div style={{ fontSize: 10, color: C.dim, marginBottom: 4 }}>FRONT</div>
                 <textarea value={card.front} onChange={(e) => setCard({ ...card, front: e.target.value })}
-                  style={{ width: '100%', background: '#FFFFFF', color: C.text, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 4, padding: 8, fontSize: 12, fontFamily: 'inherit', resize: 'vertical', marginBottom: 8, boxSizing: 'border-box' }} rows={1} />
+                  style={{ width: '100%', background: 'var(--c-surface)', color: C.text, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 4, padding: 8, fontSize: 12, fontFamily: 'inherit', resize: 'vertical', marginBottom: 8, boxSizing: 'border-box' }} rows={1} />
                 <div style={{ fontSize: 10, color: C.dim, marginBottom: 4 }}>BACK</div>
                 <textarea value={card.back} onChange={(e) => setCard({ ...card, back: e.target.value })}
-                  style={{ width: '100%', background: '#FFFFFF', color: C.text, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 4, padding: 8, fontSize: 12, fontFamily: 'inherit', resize: 'vertical', marginBottom: 8, boxSizing: 'border-box' }} rows={5} />
+                  style={{ width: '100%', background: 'var(--c-surface)', color: C.text, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 4, padding: 8, fontSize: 12, fontFamily: 'inherit', resize: 'vertical', marginBottom: 8, boxSizing: 'border-box' }} rows={5} />
                 {card.tags?.length > 0 && <div style={{ fontSize: 10, color: C.dim, marginBottom: 10 }}>Tags: {card.tags.join(', ')}</div>}
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <button onClick={onSaveCard} disabled={cardSaving || ankiConnected === false}

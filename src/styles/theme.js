@@ -1,6 +1,6 @@
 import { C, FONT, RADIUS, SHADOW } from '../config/tokens'
 
-// Ebiki — Ocean Light theme. Bright, friendly, red-focused (mascot #DF2540).
+// Ebiki — Ocean Light theme. Bright, friendly, red-focused (mascot var(--c-brand)).
 // Primary CTAs use the "3D" look (hard bottom edge in brandDark); add the
 // className "btn-press" in JSX to get the Duolingo press-down on :active.
 
@@ -16,7 +16,7 @@ export const S = {
   header: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     padding: '10px 20px', borderBottom: `1px solid ${C.border}`,
-    background: 'rgba(255,255,255,.82)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
+    background: C.glass, backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
     flexWrap: 'wrap', gap: 8, position: 'relative', zIndex: 20,
     boxShadow: SHADOW.sm,
   },
@@ -83,7 +83,7 @@ export const S = {
   // API Key bar
   keyBar: {
     display: 'flex', alignItems: 'center', gap: 10, padding: '12px 20px',
-    background: 'rgba(255,255,255,.9)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+    background: C.glass, backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
     borderBottom: `1px solid ${C.border}`, flexWrap: 'wrap',
   },
   keyLabel: { fontSize: 13, color: C.inkDim, fontWeight: 700 },
@@ -183,7 +183,7 @@ export const S = {
   },
   hint: {
     position: 'absolute', bottom: 12, right: 12,
-    background: 'rgba(255,255,255,.92)', color: C.inkDim,
+    background: C.glassStrong, color: C.inkDim,
     padding: '6px 12px', borderRadius: RADIUS.sm, fontSize: 11,
     display: 'flex', alignItems: 'center', gap: 6,
     border: `1px solid ${C.border}`, pointerEvents: 'none', fontWeight: 600,
@@ -221,7 +221,7 @@ export const S = {
   // Tooltip
   tooltip: {
     position: 'fixed', transform: 'translate(-50%, -100%)',
-    background: 'rgba(255,255,255,.97)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
+    background: C.glassStrong, backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
     border: `1px solid ${C.border}`,
     borderRadius: RADIUS.lg, padding: '12px 16px', zIndex: 9999,
     boxShadow: SHADOW.xl,
@@ -241,7 +241,7 @@ export const S = {
     borderRadius: RADIUS.lg, padding: '24px 32px',
     boxShadow: SHADOW.xl,
     border: `1px solid ${C.border}`,
-    background: 'rgba(255,255,255,.98)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+    background: C.glassStrong, backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
     animation: 'pop .18s cubic-bezier(.34,1.56,.64,1)', color: C.ink,
   },
   ttWord: { fontSize: 17, fontWeight: 800, color: C.ink, marginBottom: 2, fontFamily: FONT.display },
@@ -388,7 +388,7 @@ export const S = {
   // Drag overlay
   dragOverlay: {
     position: 'fixed', inset: 0, zIndex: 100,
-    background: 'rgba(242,245,248,.9)',
+    background: C.glass,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
   dragBox: {
