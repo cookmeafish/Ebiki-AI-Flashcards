@@ -5344,6 +5344,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               </button>
             ))}
           </div>
+          {/* Ask Ebi — opens Ebi's help chat (replaces the old floating shrimp button) */}
+          <button onClick={() => setAskEbiSignal((n) => n + 1)} title="Ask Ebi — your study helper"
+            style={{ ...S.ghostBtn, marginLeft: 8, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)', fontWeight: 700 }}>
+            Ask Ebi
+          </button>
         </div>
         <div style={S.headerRight}>
           {/* Picture tab: context buttons */}
@@ -5354,14 +5359,6 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               borderColor: showHighlights ? 'rgba(139,92,246,0.25)' : 'var(--c-border)',
             }}>
               {showHighlights ? '● Highlights' : '○ Highlights'}
-            </button>
-          )}
-
-          {/* Ask Ebi — opens the Help chat (the floating shrimp is hidden on the picture result) */}
-          {activeTab === 'picture' && stage === 'done' && (
-            <button onClick={() => setAskEbiSignal((n) => n + 1)} title="Ask Ebi about this"
-              style={{ ...S.ghostBtn, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)', fontWeight: 700 }}>
-              Ask Ebi
             </button>
           )}
 
@@ -7877,7 +7874,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         mascotFile={helpMascot}
         onAiReply={(text) => choosePose(text, setHelpMascot)}
         askEbiSignal={askEbiSignal}
-        hideButton={(activeTab === 'study' && studyActive && studyPhase === 'question') || (activeTab === 'picture' && stage === 'done')}
+        hideButton={true}
         model={resolveModel('help')}
         onModelRetired={async (failedModel) => {
           const healed = await healRetiredModel('404 not_found', failedModel, 'help')
