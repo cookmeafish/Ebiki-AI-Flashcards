@@ -1654,21 +1654,30 @@ export default function App() {
   // ─── Paste Handler ──────────────────────────────────────────────────────────
   useEffect(() => {
     const handler = (e) => {
-      // Don't capture paste if typing in input
-      if (e.target.tagName === 'INPUT') return
       const items = e.clipboardData?.items
       if (!items) return
       for (const item of items) {
         if (item.type.startsWith('image/')) {
+          const file = item.getAsFile()
+          // On the Chat tab, paste an image straight into the composer (even from the input).
+          if (activeTab === 'chat') {
+            e.preventDefault()
+            const r = new FileReader()
+            r.onload = (ev) => setChatTabImage(ev.target.result)
+            r.readAsDataURL(file)
+            return
+          }
+          // Elsewhere → Picture tab, but don't hijack paste while typing in an input.
+          if (e.target.tagName === 'INPUT') return
           e.preventDefault()
-          loadImageFromFile(item.getAsFile())
+          loadImageFromFile(file)
           return
         }
       }
     }
     window.addEventListener('paste', handler)
     return () => window.removeEventListener('paste', handler)
-  }, [loadImageFromFile])
+  }, [loadImageFromFile, activeTab])
 
   // ─── Save study stats to history when session reaches summary ────────────
   useEffect(() => {
@@ -1765,6 +1774,13 @@ export default function App() {
         console.log('[App] forwarding text file to knowledge upload')
         uploadKnowledgeFile(file)
       }
+      return
+    }
+    // On the Chat tab, dropping an image attaches it to the chat composer (not the Picture tab).
+    if (activeTab === 'chat' && file.type.startsWith('image/')) {
+      const r = new FileReader()
+      r.onload = (ev) => setChatTabImage(ev.target.result)
+      r.readAsDataURL(file)
       return
     }
     loadImageFromFile(file)
@@ -4712,8 +4728,12 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       if (prefs.explain && prefs.explain !== 'auto') systemPrompt += `\nWrite your explanations in ${prefs.explain}.`
 
       const convo = newMsgs.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n\n')
-      const imgPart = img ? dataUrlToImagePart(await downscaleDataUrl(img, 1500)) : null
-      const text = await aiCall(apiKey, systemPrompt, convo, resolveModel('chat'), imgPart ? { images: [imgPart] } : undefined)
+      // Include images from the recent conversation (most recent up to 4) so follow-up questions
+      // about an attached image keep working — like the Claude app's multimodal chat.
+      const imgMsgs = newMsgs.filter((m) => m.image).slice(-4)
+      const imageParts = []
+      for (const m of imgMsgs) imageParts.push(dataUrlToImagePart(await downscaleDataUrl(m.image, 1500)))
+      const text = await aiCall(apiKey, systemPrompt, convo, resolveModel('chat'), imageParts.length ? { images: imageParts } : undefined)
 
       // Parse anki cards from response
       const cardMatches = [...text.matchAll(/<anki-card>(.*?)<\/anki-card>/gs)]
@@ -6184,7 +6204,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 <input ref={chatImageInputRef} type="file" accept="image/*" style={{ display: 'none' }}
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) { const r = new FileReader(); r.onload = (ev) => setChatTabImage(ev.target.result); r.readAsDataURL(f) } e.target.value = ''; setChatPlusOpen(false) }} />
                 {/* "+" learning-focused options menu */}
-                <button onClick={() => setChatPlusOpen((v) => !v)} title="Options"
+                <button onClick={() => { const open = !chatPlusOpen; setChatPlusOpen(open); if (open && apiKey && !availableModels[provider]) refreshModels(provider) }} title="Options"
                   style={{ background: chatPlusOpen ? 'rgba(223,37,64,.15)' : 'transparent', border: `1px solid ${chatPlusOpen ? 'var(--c-brand)' : 'var(--c-border)'}`, color: chatPlusOpen ? 'var(--c-brand)' : 'var(--c-ink-faint)', borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontSize: 16, lineHeight: 1, fontFamily: 'inherit' }}>+</button>
                 {chatPlusOpen && (() => {
                   const prefs = activeMode.chatPrefs || {}
@@ -6215,6 +6235,14 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         <option value="English">English</option>
                         <option value="Spanish">Spanish</option>
                       </select>
+                      {/* Chat AI model — same override as Settings → AI models (aiModels[provider].chat). */}
+                      <div style={labelStyle}>Chat model</div>
+                      <select value={aiModels[provider]?.chat || ''} onChange={(e) => setAiModels((prev) => ({ ...prev, [provider]: { ...(prev[provider] || {}), chat: e.target.value } }))} style={selStyle}>
+                        <option value="">Default</option>
+                        {modelsLoading && !(availableModels[provider] || []).length && <option disabled>Loading…</option>}
+                        {(availableModels[provider] || []).map((mid) => <option key={mid} value={mid}>{mid}</option>)}
+                      </select>
+                      <div style={{ fontSize: 9, color: 'var(--c-ink-faint)', padding: '2px 8px 4px' }}>Also editable in Settings → AI models</div>
                     </div>
                   )
                 })()}
