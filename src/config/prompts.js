@@ -88,6 +88,8 @@ distinct unrelated meanings — one card per meaning). Each card object:
   card on the corrected word; OMIT or "" otherwise.
 - "tags": array of useful tags (part of speech, level, topic). Always include "ebiki".
 
+ACCURACY IS CRITICAL — the student will MEMORIZE these. Only use REAL, correctly-spelled Spanish words; never invent a word. Verify the gender, pronunciation, translation, and that the example sentence is natural and correct before outputting. If the input word does not exist, use the closest correct real word and set "correction".
+
 All English is American English. Definitions stay concise and in Spanish; examples natural.
 Output ONLY the raw JSON array. No markdown, no backticks, no commentary.`
 

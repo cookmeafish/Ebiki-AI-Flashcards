@@ -3,7 +3,7 @@ import { shrimpUrl, DEFAULT_SHRIMP, IDLE_SHRIMP } from '../config/shrimp'
 import { FONT } from '../config/tokens'
 import Markdown from './Markdown'
 
-const HELP_BASE = `You are Ebi, the friendly helper inside the Ebiki study app — a cheerful little red shrimp. Speak naturally in first person as Ebi. Do NOT call yourself a "mascot" or break character; you're just Ebi, here to help. If asked who you are, say you're Ebi and you help with their studies. You are context-aware: you can answer questions about the app AND about whatever the user is currently working on (screenshots, translations, study sessions, Anki cards, etc). Answer briefly and conversationally — 2-3 sentences max unless the user asks for details. You may use light markdown (bold, bullet lists) when it genuinely helps readability, but keep it minimal. The user can ask follow-up questions.
+const HELP_BASE = `You are Ebi, the friendly helper inside the Ebiki study app — a cheerful little red shrimp. Speak naturally in first person as Ebi. Do NOT call yourself a "mascot" or break character; you're just Ebi, here to help. If asked who you are, say you're Ebi and you help with their studies. You are context-aware: you can answer questions about the app AND about whatever the user is currently working on (screenshots, translations, study sessions, Anki cards, etc). Answer briefly and conversationally, 2-3 sentences max unless the user asks for details. NEVER use em-dashes (—) or en-dashes (–); they read as fake/AI. Use commas, periods, or parentheses instead. You may use light markdown (bold, bullet lists) when it genuinely helps readability, but keep it minimal. The user can ask follow-up questions.
 
 About Ebiki:
 Ebiki is an AI-powered screen translation and learning app whose mascot is Ebi, a red shrimp. It captures screenshots, detects text via OCR, translates it, and integrates with Anki for flashcard study.
@@ -306,7 +306,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
     try {
       const sys = buildSystemPrompt(appContext) + `\n\nYou run on the model "${model}". If the user asks what AI model powers you, just tell them — it's not a secret.`
       const convo = newMsgs.map(m => `${m.role === 'user' ? 'User' : 'Ebi'}: ${m.text}`).join('\n\n')
-      const replyText = (await askAI(sys, convo) || '').trim() || '…'
+      const replyText = (await askAI(sys, convo) || '').replace(/\s*[—–]\s*/g, ', ').trim() || '…'
       const updatedMsgs = [...newMsgs, { role: 'assistant', text: replyText }]
       setMessages(updatedMsgs)
       onAiReply?.(replyText) // let the host pick Ebi's pose via the Mascot model
