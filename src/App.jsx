@@ -4673,6 +4673,13 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 onClick={() => {
                   setActiveTab(tab)
                   setChatSidePanel(false)
+                  // Switching tabs closes any open settings/mode panels so only the tab shows
+                  setShowKeyInput(false)
+                  setShowSettings(false)
+                  setShowModePanel(false)
+                  setSettingsSection(null)
+                  setShowAnkiSection(false)
+                  setShowKnowledgeSection(false)
                 }}
                 style={{ ...S.tab, ...(activeTab === tab ? S.tabActive : {}) }}
               >
