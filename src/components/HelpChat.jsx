@@ -465,14 +465,10 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
 
   return (
     <>
-      {/* Ebi help button: gentle scale + wiggle on hover so it reads as clickable. */}
+      {/* Ebi help button: a little pop (scale up) on hover so it reads as clickable. */}
       <style>{`
-        .ebi-fab-img { transition: transform .2s cubic-bezier(.34,1.56,.64,1), filter .25s ease; transform-origin: 50% 70%; }
-        .ebi-fab:hover .ebi-fab-img { animation: ebiWiggle .6s ease-in-out infinite; }
-        @keyframes ebiWiggle {
-          0%, 100% { transform: scale(1.16) rotate(-4deg); }
-          50%      { transform: scale(1.16) rotate(4deg); }
-        }
+        .ebi-fab-img { transition: transform .18s cubic-bezier(.34,1.56,.64,1), filter .25s ease; transform-origin: 50% 70%; }
+        .ebi-fab:hover .ebi-fab-img { transform: scale(1.14); }
       `}</style>
       {/* Floating help button — hidden when the chat is snapped/detached, or when the host hides it (e.g. study Ebi is shown) */}
       {!snapZone && !hideButton && (
