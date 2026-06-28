@@ -19,6 +19,10 @@
     </style>
   </head>
   <body>
+    <script>
+      // Apply saved theme before paint to avoid a flash of the wrong theme.
+      try { document.documentElement.setAttribute('data-theme', localStorage.getItem('ebiki-theme') || 'light'); } catch (e) {}
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

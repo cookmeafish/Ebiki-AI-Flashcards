@@ -286,14 +286,14 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
   const chatContent = (isSidePanel) => (
     <>
       {/* Header */}
-      <div style={{ padding: '10px 14px', borderBottom: '1px solid #E2E8ED', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+      <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--c-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, background: 'linear-gradient(90deg, #DF2540, #8B5CF6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Ebi's Help</span>
+          <span style={{ fontSize: 12, fontWeight: 700, background: 'linear-gradient(90deg, var(--c-brand), var(--c-purple))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Ebi's Help</span>
           {messages.length > 0 && (
             <span
               onClick={newChat}
               title="New chat"
-              style={{ cursor: 'pointer', color: '#51626C', fontSize: 11, padding: '1px 6px', border: '1px solid #E2E8ED', borderRadius: 4, lineHeight: '16px' }}
+              style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 11, padding: '1px 6px', border: '1px solid var(--c-border)', borderRadius: 4, lineHeight: '16px' }}
             >+</span>
           )}
         </div>
@@ -302,23 +302,23 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
             <span
               onClick={() => { setDocked(false); setOpen(false) }}
               title="Pop out to floating button"
-              style={{ cursor: 'pointer', color: '#51626C', fontSize: 13, lineHeight: 1 }}
+              style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 13, lineHeight: 1 }}
             >&#8599;</span>
           ) : (
             <span
               onClick={() => { setOpen(false); setDocked(true) }}
               title="Dock to side panel"
-              style={{ cursor: 'pointer', color: '#51626C', fontSize: 13, lineHeight: 1 }}
+              style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 13, lineHeight: 1 }}
             >&#9699;</span>
           )}
-          <span onClick={() => { setOpen(false); setDocked(false) }} style={{ cursor: 'pointer', color: '#51626C', fontSize: 16, lineHeight: 1 }}>&times;</span>
+          <span onClick={() => { setOpen(false); setDocked(false) }} style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 16, lineHeight: 1 }}>&times;</span>
         </div>
       </div>
 
       {/* Messages */}
       <div ref={msgTopRef} style={{ flex: 1, overflow: 'auto', padding: '10px 14px' }}>
         {messages.length === 0 && (
-          <div style={{ color: '#8A99A3', fontSize: 11, textAlign: 'center', padding: '30px 10px', lineHeight: 1.6 }}>
+          <div style={{ color: 'var(--c-ink-faint)', fontSize: 11, textAlign: 'center', padding: '30px 10px', lineHeight: 1.6 }}>
             Ask Ebi anything about Ebiki!<br />
             "What does Study do?"<br />
             "How do I use the overlay?"
@@ -329,19 +329,19 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
             marginBottom: 8, padding: '8px 10px', borderRadius: 6,
             background: m.role === 'user' ? 'rgba(223,37,64,.1)' : 'rgba(24,169,87,.05)',
             border: m.role === 'user' ? '1px solid rgba(223,37,64,.15)' : '1px solid rgba(24,169,87,.1)',
-            fontSize: 12, color: '#334049', lineHeight: 1.6,
+            fontSize: 12, color: 'var(--c-ink)', lineHeight: 1.6,
             whiteSpace: 'pre-wrap', wordBreak: 'break-word',
           }}>
             {m.text}
           </div>
         ))}
         {loading && (
-          <div style={{ fontSize: 11, color: '#51626C', padding: '4px 10px' }}>Thinking...</div>
+          <div style={{ fontSize: 11, color: 'var(--c-ink-dim)', padding: '4px 10px' }}>Thinking...</div>
         )}
       </div>
 
       {/* Input */}
-      <div style={{ padding: '8px 10px', borderTop: '1px solid #E2E8ED', display: 'flex', gap: 6, flexShrink: 0 }}>
+      <div style={{ padding: '8px 10px', borderTop: '1px solid var(--c-border)', display: 'flex', gap: 6, flexShrink: 0 }}>
         <input
           ref={inputRef}
           autoFocus
@@ -351,7 +351,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
           placeholder={apiKey ? (loading ? 'Thinking...' : 'Ask a question...') : 'Set API key first'}
           disabled={!apiKey}
           style={{
-            flex: 1, padding: '7px 11px', background: '#FFFFFF', color: '#16242C',
+            flex: 1, padding: '7px 11px', background: 'var(--c-surface)', color: 'var(--c-ink)',
             border: '1px solid rgba(255,255,255,.1)', borderRadius: 8, fontSize: 11,
             fontFamily: 'inherit', outline: 'none',
           }}
@@ -360,7 +360,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
           onClick={sendMessage}
           disabled={!apiKey || loading || !input.trim()}
           style={{
-            padding: '7px 14px', background: 'linear-gradient(135deg, #DF2540, #8B5CF6)', color: '#fff',
+            padding: '7px 14px', background: 'linear-gradient(135deg, var(--c-brand), var(--c-purple))', color: '#fff',
             border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 11,
             fontFamily: 'inherit', cursor: 'pointer',
             boxShadow: '0 3px 12px rgba(223,37,64,.35)',
@@ -391,8 +391,8 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
             position: 'fixed', left: pos.x,
             ...(pos.y !== null ? { top: pos.y } : { bottom: 20 }),
             width: 58, height: 58, borderRadius: '50%',
-            background: 'radial-gradient(circle at 38% 30%, #FFFFFF, #FFF1F2)',
-            border: open ? '2px solid #DF2540' : '2px solid rgba(223,37,64,.45)',
+            background: 'radial-gradient(circle at 38% 30%, var(--c-surface), var(--c-surface-alt))',
+            border: open ? '2px solid var(--c-brand)' : '2px solid rgba(223,37,64,.45)',
             padding: 0, overflow: 'hidden',
             cursor: dragging ? 'grabbing' : 'grab',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -421,7 +421,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
             ...chatStyle,
             background: 'rgba(255,255,255,.98)',
             backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
-            border: '1px solid #E2E8ED',
+            border: '1px solid var(--c-border)',
             borderRadius: 16, overflow: 'hidden',
             display: 'flex', flexDirection: 'column',
             zIndex: 10000, boxShadow: '0 24px 60px rgba(16,36,44,.18)',
@@ -439,7 +439,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
           position: 'fixed', right: 0, top: 0, bottom: 0, width: 380,
           background: 'rgba(255,255,255,.98)',
           backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
-          borderLeft: '1px solid #E2E8ED',
+          borderLeft: '1px solid var(--c-border)',
           display: 'flex', flexDirection: 'column',
           zIndex: 10000, boxShadow: '-12px 0 40px rgba(16,36,44,.14)',
           fontFamily: FONT.body,

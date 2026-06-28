@@ -51,6 +51,9 @@ const en = {
 
   // App language
   appLanguage: 'App Language',
+  appearance: 'Appearance',
+  themeLight: 'Light',
+  themeDark: 'Dark',
   appLanguageHint: 'Translates the app interface (tabs, buttons, labels) — flashcard content is never changed.',
 
   // Study session setup
@@ -194,6 +197,9 @@ const es = {
   aiRole_general: 'General',
 
   appLanguage: 'Idioma de la app',
+  appearance: 'Apariencia',
+  themeLight: 'Claro',
+  themeDark: 'Oscuro',
   appLanguageHint: 'Traduce la interfaz (pestañas, botones, etiquetas) — el contenido de las tarjetas nunca cambia.',
 
   studySession: 'Sesión de estudio',
@@ -326,6 +332,9 @@ const zh = {
   aiRole_general: '通用',
 
   appLanguage: '应用语言',
+  appearance: '外观',
+  themeLight: '浅色',
+  themeDark: '深色',
   appLanguageHint: '翻译应用界面（标签、按钮、文字）——卡片内容不会被更改。',
 
   studySession: '学习会话',
@@ -458,6 +467,9 @@ const ja = {
   aiRole_general: '一般',
 
   appLanguage: 'アプリの言語',
+  appearance: '外観',
+  themeLight: 'ライト',
+  themeDark: 'ダーク',
   appLanguageHint: 'アプリのUI（タブ・ボタン・ラベル）を翻訳します。カードの内容は変更されません。',
 
   studySession: '学習セッション',
