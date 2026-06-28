@@ -95,6 +95,12 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
    of `pickShrimp`, or `npx vite build`.
 
 ## Other notes
+- **Stats tab pulls live from Anki** when connected (effect on `activeTab==='stats'` → `ankiStats`):
+  Cards Today (`getNumCardsReviewedToday`), 14-day chart + streak (`getNumCardsReviewedByDay`), and a
+  stable accuracy = today's review-log pass-rate (`ankiGetTodayReviewStats`, cumulative so re-reviews
+  don't make it flip). `ankiStats` is persisted to `localStorage('ebiki-anki-stats')` and hydrated on
+  mount so numbers don't flash to zero on refresh; falls back to local `screenlens-study-history` when
+  offline. Date math uses **local** `YYYY-MM-DD` (`toLocaleDateString('en-CA')`) to align with Anki days.
 - Tapped-word lookup in study explains in the **app language** (`APP_LANG_NAME` map), not the quiz language.
   It is **context-aware** (`lookupStudyWord` reads the whole question): returns the in-context meaning, shown
   in the legend's correct-green, plus other senses in the legend's word-choice-purple.

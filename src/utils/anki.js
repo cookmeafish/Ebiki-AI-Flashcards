@@ -77,6 +77,35 @@ export async function ankiGetDeckStats(decks) {
   return ankiRequest('getDeckStats', { decks })
 }
 
+// Number of reviews done today (matches Anki's own "reviews today" figure).
+export async function ankiGetNumCardsReviewedToday() {
+  return ankiRequest('getNumCardsReviewedToday')
+}
+
+// Reviews per day: [["YYYY-MM-DD", count], ...] (used for the chart + streak).
+export async function ankiGetNumCardsReviewedByDay() {
+  return ankiRequest('getNumCardsReviewedByDay')
+}
+
+// Today's pass-rate straight from the review log (every review since local midnight, across all
+// decks). Cumulative — a card failed then re-passed counts as one fail + one pass — so the number
+// is STABLE and won't flip between refreshes the way a most-recent-ease query does.
+export async function ankiGetTodayReviewStats() {
+  const decks = await ankiRequest('deckNames')
+  const midnight = new Date(); midnight.setHours(0, 0, 0, 0)
+  const startID = midnight.getTime() // revlog ids are unix-ms timestamps
+  let reviews = 0, passed = 0
+  for (const deck of decks) {
+    let rows = []
+    try { rows = await ankiRequest('cardReviews', { deck, startID }) } catch { continue }
+    for (const r of (rows || [])) {
+      reviews++
+      if (Number(r[3]) >= 2) passed++ // r[3] = button pressed: 1 Again, 2 Hard, 3 Good, 4 Easy
+    }
+  }
+  return { reviews, passed }
+}
+
 export async function ankiFindNotes(query) {
   ankiLog(`finding notes: ${query}`)
   return ankiRequest('findNotes', { query })

@@ -13,7 +13,7 @@ import SettingsModal from './components/SettingsModal'
 import OnboardingWizard from './components/OnboardingWizard'
 import { S } from './styles/theme'
 import { ocrLog, ocrLogTable, ocrLogFlush } from './utils/logger'
-import { ankiPing, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiFindCards, ankiCardsInfo, ankiAnswerCards, ankiGetDeckStats, ankiFindNotes, ankiNotesInfo, ankiUpdateNote, ankiDeleteNotes, ankiSync } from './utils/anki'
+import { ankiPing, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiFindCards, ankiCardsInfo, ankiAnswerCards, ankiGetDeckStats, ankiFindNotes, ankiNotesInfo, ankiUpdateNote, ankiDeleteNotes, ankiSync, ankiGetNumCardsReviewedToday, ankiGetNumCardsReviewedByDay, ankiGetTodayReviewStats } from './utils/anki'
 import { readBlob, writeBlob, DEFAULT_LEDGER } from './discover/storage'
 import { buildProfilePrompt, buildSuggestionPrompt, buildVerifyPrompt } from './discover/prompts'
 
@@ -226,6 +226,11 @@ export default function App() {
   const [areaSelectBounds, setAreaSelectBounds] = useState(null) // original small window bounds to restore on dismiss
   const selStartRef = useRef(null)
   const [ankiConnected, setAnkiConnected] = useState(null)
+  // Live review stats from Anki for the Stats tab. Hydrated from localStorage on mount so the
+  // numbers show instantly (and don't flash to zero) on a page refresh, then re-fetched from Anki.
+  const [ankiStats, setAnkiStats] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('ebiki-anki-stats') || 'null') } catch { return null }
+  })
   const [ankiDecks, setAnkiDecks] = useState([])
   const [ankiCard, setAnkiCard] = useState(null)
   const [ankiSynced, setAnkiSynced] = useState({})
@@ -1414,6 +1419,38 @@ export default function App() {
       console.log('[Stats] saved session:', entry)
     } catch {}
   }, [studyPhase, studyStats, studyCardState, studyDeck])
+
+  // ─── Pull LIVE review stats from Anki when the Stats tab is open ──────────
+  // The headline numbers (cards today, 14-day chart, streak) come straight from Anki's
+  // review log so they always match Anki. Accuracy here is a pass-rate (% of today's
+  // reviewed cards that weren't answered "Again"). Falls back to local history if offline.
+  useEffect(() => {
+    if (activeTab !== 'stats') return
+    let cancelled = false
+    ;(async () => {
+      const connected = await ankiPing()
+      if (cancelled) return
+      setAnkiConnected(connected)
+      // Keep the last-known (hydrated) numbers visible if Anki is momentarily unreachable —
+      // don't wipe to zero on a transient failure.
+      if (!connected) return
+      try {
+        const [today, byDayRaw, todayReviews] = await Promise.all([
+          ankiGetNumCardsReviewedToday().catch(() => 0),
+          ankiGetNumCardsReviewedByDay().catch(() => []),
+          ankiGetTodayReviewStats().catch(() => ({ reviews: 0, passed: 0 })),
+        ])
+        if (cancelled) return
+        const byDay = {}
+        ;(byDayRaw || []).forEach((row) => { if (Array.isArray(row)) byDay[row[0]] = row[1] })
+        const accuracy = todayReviews.reviews > 0 ? Math.round(todayReviews.passed / todayReviews.reviews * 100) : 0
+        const stats = { today: today || 0, byDay, accuracy }
+        setAnkiStats(stats)
+        try { localStorage.setItem('ebiki-anki-stats', JSON.stringify(stats)) } catch {}
+      } catch { /* keep last-known numbers */ }
+    })()
+    return () => { cancelled = true }
+  }, [activeTab])
 
   // ─── Overlay auto-analyze ────────────────────────────────────────────────
   useEffect(() => {
@@ -5661,19 +5698,27 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       {/* ── Stats Tab ────────────────────────────────────────────────────────── */}
       {activeTab === 'stats' && (() => {
         const history = (() => { try { return JSON.parse(localStorage.getItem('screenlens-study-history') || '[]') } catch { return [] } })()
-        const today = new Date().toISOString().split('T')[0]
+        // Use LOCAL date strings (YYYY-MM-DD) so they line up with Anki's local review days.
+        const today = new Date().toLocaleDateString('en-CA')
         const todayStats = history.filter(h => h.date === today)
-        const todayCards = todayStats.reduce((s, h) => s + (h.cardsStudied || 0), 0)
         const todayCorrect = todayStats.reduce((s, h) => s + (h.correct || 0), 0)
         const todayTotal = todayStats.reduce((s, h) => s + (h.totalQuestions || 0), 0)
 
-        // Streak: count consecutive days
-        const dates = [...new Set(history.map(h => h.date))].sort().reverse()
+        // Prefer live Anki review data (reflects what you actually did today) when connected;
+        // fall back to locally-recorded session history when Anki is offline.
+        const usingAnki = !!ankiStats
+        const dayCount = (ds) => usingAnki
+          ? (ankiStats.byDay[ds] || 0)
+          : history.filter(h => h.date === ds).reduce((s, h) => s + (h.cardsStudied || 0), 0)
+        const todayCards = usingAnki ? ankiStats.today : todayStats.reduce((s, h) => s + (h.cardsStudied || 0), 0)
+        const accuracyToday = usingAnki ? ankiStats.accuracy : (todayTotal > 0 ? Math.round(todayCorrect / todayTotal * 100) : 0)
+
+        // Streak: count consecutive days with any reviews (from Anki when connected)
         let streak = 0
         const d = new Date()
         for (let i = 0; i < 365; i++) {
-          const dateStr = d.toISOString().split('T')[0]
-          if (dates.includes(dateStr)) { streak++; d.setDate(d.getDate() - 1) }
+          const dateStr = d.toLocaleDateString('en-CA')
+          if (dayCount(dateStr) > 0) { streak++; d.setDate(d.getDate() - 1) }
           else if (i === 0) { d.setDate(d.getDate() - 1) } // allow today to not be studied yet
           else break
         }
@@ -5683,8 +5728,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         for (let i = 13; i >= 0; i--) {
           const dd = new Date(); dd.setDate(dd.getDate() - i)
           const ds = dd.toISOString().split('T')[0]
-          const dayH = history.filter(h => h.date === ds)
-          chartDays.push({ date: ds, label: dd.toLocaleDateString('en', { weekday: 'short' }), cards: dayH.reduce((s, h) => s + (h.cardsStudied || 0), 0) })
+          chartDays.push({ date: ds, label: dd.toLocaleDateString('en', { weekday: 'short' }), cards: dayCount(ds) })
         }
         const maxCards = Math.max(1, ...chartDays.map(d => d.cards))
 
@@ -5707,7 +5751,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               {[
                 { val: streak, color: 'var(--c-warning)', label: t('dayStreak') },
                 { val: todayCards, color: 'var(--c-brand)', label: t('cardsToday') },
-                { val: `${todayTotal > 0 ? Math.round(todayCorrect / todayTotal * 100) : 0}%`, color: 'var(--c-success)', label: t('accuracyToday') },
+                { val: `${accuracyToday}%`, color: 'var(--c-success)', label: t('accuracyToday') },
               ].map((s, i) => (
                 <div key={i} style={{
                   flex: 1, padding: '18px 20px', position: 'relative', overflow: 'hidden',
