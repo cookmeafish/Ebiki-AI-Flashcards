@@ -79,7 +79,8 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
   const [snapZone, setSnapZone] = useState(null)
   const [chatPos, setChatPos] = useState({ x: 80, y: 80 }) // free-float position (layout px)
   const [snapDragging, setSnapDragging] = useState(false)
-  const [hoverZone, setHoverZone] = useState(null) // zone highlighted under the cursor while dragging
+  const [choosingZone, setChoosingZone] = useState(false) // dock button → pick a zone by clicking
+  const [hoverZone, setHoverZone] = useState(null) // zone highlighted under the cursor while dragging/choosing
   const [messages, setMessages] = useState([])
   const [sessionId, setSessionId] = useState(null)
   const [input, setInput] = useState('')
@@ -159,6 +160,14 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
       }
     }, 50)
   }, [messages])
+
+  // While choosing a dock spot, Esc cancels.
+  useEffect(() => {
+    if (!choosingZone) return
+    const onKey = (e) => { if (e.key === 'Escape') { setChoosingZone(false); setHoverZone(null) } }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [choosingZone])
 
   // On open, jump to the bottom so the most recent message is visible (history loads scrolled up).
   useEffect(() => {
@@ -401,8 +410,8 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
           ) : (
             <span
               onMouseDown={(e) => e.stopPropagation()}
-              onClick={() => { setSnapZone('right') }}
-              title="Dock to side panel"
+              onClick={() => { setChoosingZone(true) }}
+              title="Dock… pick a spot"
               style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 13, lineHeight: 1 }}
             >&#9699;</span>
           )}
@@ -560,24 +569,43 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
         </div>
       )}
 
-      {/* Drop-zone overlays — shown only while dragging the chat header. Each overlay uses the SAME
-          rectangle the panel will dock into (ZONE_RECTS), so the preview is exactly where it lands. */}
-      {snapDragging && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9998, pointerEvents: 'none' }}>
+      {/* Drop-zone overlays. Shown while DRAGGING the header (drop to snap) OR after clicking the
+          dock button (CHOOSING — click a zone to dock). Each overlay uses the SAME rectangle the
+          panel docks into (ZONE_RECTS) so the preview is exactly where it lands. */}
+      {(snapDragging || choosingZone) && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9998, pointerEvents: choosingZone ? 'auto' : 'none' }}>
+          {/* Dimmed backdrop + instruction when choosing (clicking it cancels). */}
+          {choosingZone && (
+            <div
+              onClick={() => { setChoosingZone(false); setHoverZone(null) }}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(16,36,44,.28)', backdropFilter: 'blur(1px)' }}
+            >
+              <div style={{
+                position: 'fixed', top: 24, left: '50%', transform: 'translateX(-50%)',
+                background: 'var(--c-brand)', color: '#fff', fontFamily: FONT.body, fontSize: 13, fontWeight: 700,
+                padding: '8px 16px', borderRadius: 999, boxShadow: '0 8px 22px rgba(223,37,64,.35)',
+              }}>Where should Ebi's Help dock? Click a zone — Esc to cancel</div>
+            </div>
+          )}
           {[
             { id: 'left', label: 'Dock left' },
             { id: 'right', label: 'Dock right' },
             { id: 'bottom', label: 'Under the question' },
           ].map(z => (
-            <div key={z.id} style={{
-              position: 'fixed', ...ZONE_RECTS[z.id],
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: FONT.body, fontSize: 14, fontWeight: 700,
-              color: hoverZone === z.id ? 'var(--c-brand)' : 'rgba(223,37,64,.5)',
-              background: hoverZone === z.id ? 'rgba(223,37,64,.16)' : 'rgba(223,37,64,.05)',
-              border: hoverZone === z.id ? '2px solid rgba(223,37,64,.7)' : '2px dashed rgba(223,37,64,.3)',
-              transition: 'background .12s ease, border-color .12s ease, color .12s ease',
-            }}>{z.label}</div>
+            <div key={z.id}
+              onMouseEnter={() => choosingZone && setHoverZone(z.id)}
+              onMouseLeave={() => choosingZone && setHoverZone(null)}
+              onClick={choosingZone ? () => { setSnapZone(z.id); setChoosingZone(false); setHoverZone(null) } : undefined}
+              style={{
+                position: 'fixed', ...ZONE_RECTS[z.id],
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontFamily: FONT.body, fontSize: 14, fontWeight: 700,
+                cursor: choosingZone ? 'pointer' : 'default',
+                color: hoverZone === z.id ? 'var(--c-brand)' : 'rgba(223,37,64,.6)',
+                background: hoverZone === z.id ? 'rgba(223,37,64,.18)' : 'rgba(255,255,255,.55)',
+                border: hoverZone === z.id ? '2px solid rgba(223,37,64,.7)' : '2px dashed rgba(223,37,64,.4)',
+                transition: 'background .12s ease, border-color .12s ease, color .12s ease',
+              }}>{z.label}</div>
           ))}
         </div>
       )}
