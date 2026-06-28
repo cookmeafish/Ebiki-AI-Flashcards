@@ -4734,7 +4734,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 }}
                 style={{ ...S.tab, ...(activeTab === tab ? S.tabActive : {}) }}
               >
-                {t('tab_' + tab)}
+                <span className="ui-tab-inner">{t('tab_' + tab)}</span>
               </button>
             ))}
           </div>
@@ -5487,7 +5487,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
                     {['Explain subnetting', 'Make me a flashcard about DNS', 'Help me with verb conjugations'].map(hint => (
                       <button key={hint} className="chip" onClick={() => { setChatTabInput(hint) }} style={{ ...S.ghostBtn, fontSize: 10, padding: '7px 14px', borderRadius: 20 }}>
-                        {hint}
+                        <span className="chip-inner">{hint}</span>
                       </button>
                     ))}
                   </div>
@@ -5944,8 +5944,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               return (
                                 <span key={ti} className="study-word" onClick={() => lookupStudyWord(clean, question)}
                                   title={`What does "${clean}" mean?`}
-                                  style={{ cursor: 'pointer', display: 'inline-block', borderBottom: '1px dotted rgba(223,37,64,.45)' }}>
-                                  {tok}
+                                  style={{ cursor: 'pointer', display: 'inline-block' }}>
+                                  <span className="study-word-inner" style={{ display: 'inline-block', borderBottom: '1px dotted rgba(223,37,64,.45)' }}>{tok}</span>
                                 </span>
                               )
                             })
@@ -6938,9 +6938,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         /* Duolingo-style 3D press: add className "btn-press" to primary CTAs */
         .btn-press:active:not(:disabled) { transform: translateY(2px); box-shadow: none !important; }
 
-        /* Top navigation tabs: gentle float-up on hover (vertical only, no click shrink) */
-        .ui-tab { transition: transform .16s cubic-bezier(.34,1.56,.64,1), color .18s ease, background .18s ease, box-shadow .18s ease; }
-        .ui-tab:hover { transform: translateY(-2px); }
+        /* Top navigation tabs: gentle float-up on hover (vertical only, no click shrink).
+           The lift is on an INNER span, not the button, so the button's hover hit-box never
+           moves out from under the cursor — otherwise the lift triggers mouseleave→enter shake. */
+        .ui-tab { transition: color .18s ease, background .18s ease, box-shadow .18s ease; }
+        .ui-tab-inner { display: inline-block; transition: transform .16s cubic-bezier(.34,1.56,.64,1); }
+        .ui-tab:hover .ui-tab-inner { transform: translateY(-2px); }
 
         input, select, textarea { transition: border-color .16s ease, box-shadow .16s ease, background .16s ease; }
         input:focus, select:focus, textarea:focus {
@@ -6952,9 +6955,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         a { transition: color .15s ease, filter .15s ease; color: var(--c-brand); }
         a:hover { filter: brightness(1.08); }
 
-        /* Tappable words in study questions — lift + highlight on hover */
-        .study-word { transition: transform .14s cubic-bezier(.34,1.56,.64,1), color .14s ease, border-color .14s ease; }
-        .study-word:hover {
+        /* Tappable words in study questions — lift + highlight on hover. The lift lives on an
+           inner span so the outer hit-box stays put (no mouseleave→enter shake at the edges). */
+        .study-word-inner { transition: transform .14s cubic-bezier(.34,1.56,.64,1), color .14s ease, border-color .14s ease; }
+        .study-word:hover .study-word-inner {
           transform: translateY(-3px);
           color: var(--c-brand);
           border-bottom-color: rgba(223,37,64,.85) !important;
@@ -6966,9 +6970,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         /* Chat session sidebar items — highlight on hover */
         .chat-session:hover { background: rgba(223,37,64,.06) !important; }
 
-        /* Suggestion / pill chips — lift + glow on hover */
-        .chip:hover { border-color: rgba(223,37,64,.45) !important; color: var(--c-brand) !important; transform: translateY(-1px); }
-        .chip { transition: transform .14s ease, border-color .16s ease, color .16s ease, background .16s ease; }
+        /* Suggestion / pill chips — lift + glow on hover (lift on inner span; see .ui-tab note) */
+        .chip:hover { border-color: rgba(223,37,64,.45) !important; color: var(--c-brand) !important; }
+        .chip { transition: border-color .16s ease, color .16s ease, background .16s ease; }
+        .chip-inner { display: inline-block; transition: transform .14s ease; }
+        .chip:hover .chip-inner { transform: translateY(-1px); }
       `}</style>
 
       {/* Floating AI Help Button */}

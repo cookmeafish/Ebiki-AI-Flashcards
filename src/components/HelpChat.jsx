@@ -73,7 +73,13 @@ function buildSystemPrompt(appContext) {
 
 export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-6', onModelRetired, mascotFile = DEFAULT_SHRIMP, onAiReply, askEbiSignal, hideButton }) {
   const [open, setOpen] = useState(false)
-  const [docked, setDocked] = useState(false) // side panel mode
+  // FancyZones-style snapping. null = floating popup anchored to the button.
+  // 'left'|'right'|'top'|'bottom' = snapped to that screen edge ('bottom' sits under the question).
+  // 'free' = detached panel at chatPos.
+  const [snapZone, setSnapZone] = useState(null)
+  const [chatPos, setChatPos] = useState({ x: 80, y: 80 }) // free-float position (layout px)
+  const [snapDragging, setSnapDragging] = useState(false)
+  const [hoverZone, setHoverZone] = useState(null) // zone highlighted under the cursor while dragging
   const [messages, setMessages] = useState([])
   const [sessionId, setSessionId] = useState(null)
   const [input, setInput] = useState('')
@@ -84,8 +90,11 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
   const dragStart = useRef({ x: 0, y: 0 })
   const wasOpenBeforeDrag = useRef(false)
   const didDrag = useRef(false)
+  const snapDragOffset = useRef({ x: 0, y: 0 })
+  const hoverZoneRef = useRef(null)
   const msgTopRef = useRef(null)
   const btnRef = useRef(null)
+  const panelRef = useRef(null)
   const inputRef = useRef(null)
 
   // Open the chat when the host fires the "Ask Ebi" signal (e.g. the study companion button).
@@ -155,9 +164,9 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
   // VISUAL px while CSS left/top are in pre-zoom LAYOUT px. We measure the live zoom from
   // the button itself (rect.width / offsetWidth) and convert, then clamp on-screen.
   const getZoom = () => {
-    const btn = btnRef.current
-    if (!btn || !btn.offsetWidth) return 1
-    return btn.getBoundingClientRect().width / btn.offsetWidth || 1
+    const el = btnRef.current || panelRef.current
+    if (!el || !el.offsetWidth) return 1
+    return el.getBoundingClientRect().width / el.offsetWidth || 1
   }
   const handleMouseDown = (e) => {
     wasOpenBeforeDrag.current = open
@@ -200,6 +209,71 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
     window.addEventListener('mouseup', up)
     return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up) }
   }, [dragging])
+
+  // ─── FancyZones-style chat snapping ──────────────────────────────────────
+  // Grab the chat header and drag: edge zones light up, the panel previews into the
+  // hovered zone, and dropping commits it (or 'free' if dropped in open space).
+  const ZONE_W = 360, ZONE_H = 320, FREE_W = 340, FREE_H = 440
+  const snapDragStart = useRef({ x: 0, y: 0 })
+  const didSnapDrag = useRef(false)
+  const startSnapDrag = (e) => {
+    e.preventDefault()
+    const rect = panelRef.current?.getBoundingClientRect()
+    const zoom = getZoom()
+    snapDragOffset.current = rect
+      ? { x: (e.clientX - rect.left) / zoom, y: (e.clientY - rect.top) / zoom }
+      : { x: 40, y: 16 }
+    snapDragStart.current = { x: e.clientX, y: e.clientY }
+    didSnapDrag.current = false
+    setSnapDragging(true)
+  }
+  useEffect(() => {
+    if (!snapDragging) return
+    const move = (e) => {
+      // Require real movement before snapping, so clicking the header never yanks the panel.
+      if (!didSnapDrag.current) {
+        if (Math.hypot(e.clientX - snapDragStart.current.x, e.clientY - snapDragStart.current.y) < 5) return
+        didSnapDrag.current = true
+      }
+      const fx = e.clientX / window.innerWidth, fy = e.clientY / window.innerHeight
+      let zone = null
+      if (fx < 0.16) zone = 'left'
+      else if (fx > 0.84) zone = 'right'
+      else if (fy > 0.82) zone = 'bottom'
+      else if (fy < 0.16) zone = 'top'
+      hoverZoneRef.current = zone
+      setHoverZone(zone)
+      const zoom = getZoom()
+      const vw = window.innerWidth / zoom, vh = window.innerHeight / zoom
+      let x = e.clientX / zoom - snapDragOffset.current.x
+      let y = e.clientY / zoom - snapDragOffset.current.y
+      x = Math.max(5, Math.min(x, vw - FREE_W - 5))
+      y = Math.max(5, Math.min(y, vh - 60))
+      setChatPos({ x, y })
+      setSnapZone(zone || 'free') // live preview
+    }
+    const up = () => {
+      setSnapDragging(false)
+      if (didSnapDrag.current) setSnapZone(hoverZoneRef.current || 'free') // only commit on a real drag
+      setHoverZone(null)
+      hoverZoneRef.current = null
+    }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+    return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up) }
+  }, [snapDragging])
+
+  // Fixed-position style for the panel given its current snap zone.
+  const panelStyle = () => {
+    switch (snapZone) {
+      case 'left': return { position: 'fixed', left: 0, top: 0, bottom: 0, width: ZONE_W }
+      case 'right': return { position: 'fixed', right: 0, top: 0, bottom: 0, width: ZONE_W }
+      case 'top': return { position: 'fixed', top: 0, left: 0, right: 0, height: ZONE_H }
+      case 'bottom': return { position: 'fixed', bottom: 0, left: 0, right: 0, height: ZONE_H }
+      default: return { position: 'fixed', left: chatPos.x, top: chatPos.y, width: FREE_W, maxHeight: FREE_H } // 'free'
+    }
+  }
+  const isEdgeZone = snapZone === 'left' || snapZone === 'right' || snapZone === 'top' || snapZone === 'bottom'
 
   // Call Sonnet directly for better quality
   const sendMessage = async () => {
@@ -290,11 +364,17 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
   const chatContent = (isSidePanel) => (
     <>
       {/* Header */}
-      <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--c-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+      <div
+        onMouseDown={startSnapDrag}
+        style={{ padding: '10px 14px', borderBottom: '1px solid var(--c-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, cursor: snapDragging ? 'grabbing' : 'grab', userSelect: 'none' }}
+        title="Drag to move or snap the chat to a screen edge"
+      >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ color: 'var(--c-ink-faint)', fontSize: 12, lineHeight: 1, letterSpacing: -1 }}>⠿</span>
           <span style={{ fontSize: 12, fontWeight: 700, background: 'linear-gradient(90deg, var(--c-brand), var(--c-purple))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Ebi's Help</span>
           {messages.length > 0 && (
             <span
+              onMouseDown={(e) => e.stopPropagation()}
               onClick={newChat}
               title="New chat"
               style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 11, padding: '1px 6px', border: '1px solid var(--c-border)', borderRadius: 4, lineHeight: '16px' }}
@@ -304,18 +384,20 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {isSidePanel ? (
             <span
-              onClick={() => { setDocked(false); setOpen(false) }}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => { setSnapZone(null) }}
               title="Pop out to floating button"
               style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 13, lineHeight: 1 }}
             >&#8599;</span>
           ) : (
             <span
-              onClick={() => { setOpen(false); setDocked(true) }}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => { setSnapZone('right') }}
               title="Dock to side panel"
               style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 13, lineHeight: 1 }}
             >&#9699;</span>
           )}
-          <span onClick={() => { setOpen(false); setDocked(false) }} style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 16, lineHeight: 1 }}>&times;</span>
+          <span onMouseDown={(e) => e.stopPropagation()} onClick={() => { setOpen(false); setSnapZone(null) }} style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 16, lineHeight: 1 }}>&times;</span>
         </div>
       </div>
 
@@ -382,8 +464,8 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
 
   return (
     <>
-      {/* Floating help button — hidden when docked, or when the host hides it (e.g. study Ebi is shown) */}
-      {!docked && !hideButton && (
+      {/* Floating help button — hidden when the chat is snapped/detached, or when the host hides it (e.g. study Ebi is shown) */}
+      {!snapZone && !hideButton && (
         <button
           ref={btnRef}
           onMouseDown={handleMouseDown}
@@ -391,17 +473,20 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
           style={{
             position: 'fixed', left: pos.x,
             ...(pos.y !== null ? { top: pos.y } : { bottom: 20 }),
-            width: 58, height: 58, borderRadius: '50%',
-            background: 'radial-gradient(circle at 38% 30%, var(--c-surface), var(--c-surface-alt))',
+            width: 64, height: 64, borderRadius: '50%',
+            // A faint, translucent light behind the shrimp with a single smooth falloff to fully
+            // transparent. Kept low-opacity so it melts into the red bloom rather than reading as a disc.
+            background: 'radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--c-surface) 42%, transparent) 0%, transparent 70%)',
             border: 'none',
-            padding: 0, overflow: 'hidden',
+            padding: 0, overflow: 'visible',
             cursor: dragging ? 'grabbing' : 'grab',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             zIndex: 10000,
-            // Pure soft glow — no spread, so there's no sharp inner ring, just a fade
+            // A big, saturated red bloom is the main feature (two feathered layers) — the soft white
+            // core blends into it so the whole thing reads as a glowing orb, not a flat white circle.
             boxShadow: open
-              ? '0 0 28px rgba(223,37,64,.55), 0 8px 22px rgba(223,37,64,.22)'
-              : '0 0 22px rgba(223,37,64,.40), 0 6px 16px rgba(16,36,44,.12)',
+              ? '0 0 52px 14px rgba(223,37,64,.52), 0 0 96px 34px rgba(223,37,64,.22), 0 8px 22px rgba(223,37,64,.18)'
+              : '0 0 46px 12px rgba(223,37,64,.42), 0 0 84px 28px rgba(223,37,64,.16), 0 6px 16px rgba(16,36,44,.08)',
             fontFamily: 'inherit', transition: 'box-shadow .25s ease',
           }}
           title="Ebi's Help — ask anything about Ebiki"
@@ -416,11 +501,11 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
         </button>
       )}
 
-      {/* Floating popup */}
-      {open && !docked && (() => {
+      {/* Floating popup — anchored to the button (no snap zone) */}
+      {open && !snapZone && (() => {
         const chatStyle = getChatStyle()
         return (
-          <div style={{
+          <div ref={panelRef} style={{
             ...chatStyle,
             background: 'rgba(255,255,255,.98)',
             backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
@@ -436,18 +521,39 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
         )
       })()}
 
-      {/* Docked side panel */}
-      {docked && (
-        <div style={{
-          position: 'fixed', right: 0, top: 0, bottom: 0, width: 380,
+      {/* Snapped / detached panel (left·right·top·bottom edge zones, or free-floating) */}
+      {open && snapZone && (
+        <div ref={panelRef} style={{
+          ...panelStyle(),
           background: 'rgba(255,255,255,.98)',
           backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
-          borderLeft: '1px solid var(--c-border)',
+          border: '1px solid var(--c-border)',
+          borderRadius: isEdgeZone ? 0 : 16, overflow: 'hidden',
           display: 'flex', flexDirection: 'column',
-          zIndex: 10000, boxShadow: '-12px 0 40px rgba(16,36,44,.14)',
+          zIndex: 10000, boxShadow: '0 24px 60px rgba(16,36,44,.18)',
           fontFamily: FONT.body,
+          transition: snapDragging ? 'none' : 'left .14s ease, top .14s ease, width .14s ease, height .14s ease',
         }}>
           {chatContent(true)}
+        </div>
+      )}
+
+      {/* FancyZones drop-zone overlays — shown only while dragging the chat header */}
+      {snapDragging && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9998, pointerEvents: 'none' }}>
+          {[
+            { id: 'left', style: { left: 0, top: 0, bottom: 0, width: '16%' } },
+            { id: 'right', style: { right: 0, top: 0, bottom: 0, width: '16%' } },
+            { id: 'top', style: { top: 0, left: 0, right: 0, height: '16%' } },
+            { id: 'bottom', style: { bottom: 0, left: 0, right: 0, height: '18%' } },
+          ].map(z => (
+            <div key={z.id} style={{
+              position: 'fixed', ...z.style,
+              background: hoverZone === z.id ? 'rgba(223,37,64,.18)' : 'rgba(223,37,64,.05)',
+              border: hoverZone === z.id ? '2px solid rgba(223,37,64,.65)' : '2px dashed rgba(223,37,64,.25)',
+              borderRadius: 14, transition: 'background .12s ease, border-color .12s ease',
+            }} />
+          ))}
         </div>
       )}
     </>
