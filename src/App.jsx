@@ -144,7 +144,10 @@ export default function App() {
   // Ebi (the shrimp mascot) pose for the bottom-left button. Updated the instant any AI
   // exchange fires (study question shown, chat/feedback message sent, picture word, etc.)
   // so Ebi always matches what's happening. Ebi's Help chat overrides this with its own.
-  const [aiMascot, setAiMascot] = useState(IDLE_SHRIMP)
+  // Two independent mascots: the Help button (only changes when you talk to Ebi's Help) and
+  // the study companion (changes with the current study question).
+  const [helpMascot, setHelpMascot] = useState(IDLE_SHRIMP)
+  const [studyMascot, setStudyMascot] = useState(IDLE_SHRIMP)
   const [askEbiSignal, setAskEbiSignal] = useState(0) // bump to open Ebi's Help (study "Ask Ebi")
   const [onboarded, setOnboarded] = useState(false) // first-run onboarding completed?
   // Strip study-question boilerplate ("¿Cómo se dice '…'?", "How do you say …") so pose
@@ -161,20 +164,22 @@ export default function App() {
   // single change per AI output (no keyword→AI flicker). With a key, it waits for the Mascot
   // model and sets once; Ebi keeps its previous pose until then. Without a key (or on error),
   // it sets the keyword fallback once. Non-blocking; silent on error; returns the filename.
-  const choosePose = async (text) => {
+  // `setter` (optional) receives the chosen file, so callers target a specific mascot
+  // (e.g. the study companion vs. the Help button) — they stay independent. Returns the file.
+  const choosePose = async (text, setter) => {
     const clean = String(text || '').trim()
     if (!clean) return DEFAULT_SHRIMP
     const fallback = () => pickShrimp(meaningfulPoseText(clean))
     const prov = aiStateRef.current.provider
     const key = aiStateRef.current.apiKeys[prov]
-    if (!key) { const f = fallback(); setAiMascot(f); return f }
+    if (!key) { const f = fallback(); setter?.(f); return f }
     try {
       const out = await aiCall(key, POSE_SYS, clean.slice(0, 800), resolveModel('pose'), { silent: true })
       const name = String(out || '').trim().toLowerCase().replace(/[^a-z]/g, '')
       const f = poseFile(name) || fallback()
-      setAiMascot(f)
+      setter?.(f)
       return f
-    } catch { const f = fallback(); setAiMascot(f); return f }
+    } catch { const f = fallback(); setter?.(f); return f }
   }
   // Available model ids fetched from each provider's API: { [provider]: [ids] }.
   const [availableModels, setAvailableModels] = useState({})
@@ -1426,9 +1431,11 @@ export default function App() {
   // ─── Drag & Drop ───────────────────────────────────────────────────────────
   const knowledgeOpen = settingsOpen && settingsCategory === 'knowledge'
   const handleDragOver = (e) => {
+    // Only react to actual FILE drags — not dragging UI elements/text (e.g. the dock icon),
+    // which would otherwise pop the "drop an image" overlay.
+    if (!e.dataTransfer || !Array.from(e.dataTransfer.types || []).includes('Files')) return
     e.preventDefault()
-    // Don't show image drop overlay if dragging text files while knowledge section is open
-    if (knowledgeOpen) return
+    if (knowledgeOpen) return // knowledge dropzone handles text files itself
     setDragging(true)
   }
   const handleDragLeave = (e) => {
@@ -3113,7 +3120,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
 
     const languageBlock = isLanguage ? `\nLANGUAGE MODE — REQUIRED:\n- The student is learning ${studyLang}. The EXPECTED ANSWER is ALWAYS the ${studyLang} word/phrase on the card, regardless of which side it's on.\n- Identify which side (front or back) is written in ${studyLang} — that side is the answer. The other side is just the translation/hint.\n- "acceptedAnswers" MUST contain the ${studyLang} word (lowercase, plus close variants with/without accents). NEVER put the translation/non-${studyLang} word in acceptedAnswers.\n- Treat the word in its BROADEST everyday meaning. If the card text doesn't pin down a specific domain, do NOT restrict questions to specialized contexts (programming, medicine, law, military, etc.). Example: "puntero" alone could be a clock hand, laser pointer, finger, or mouse cursor — don't assume programming.\n- BUT if the card text explicitly indicates a domain (e.g. back says "Pointer (C/C++)", "syringe (medical)", tag mentions a field), quiz within that domain.\n` : ''
 
-    const prompt = `Card front: "${front}"\nCard back: "${back}"\n${languageBlock}\n${orderRules}\n\nCRITICAL RULES:\n- Questions must require the SPECIFIC answer on this card — synonyms are NOT acceptable for recall/fill_blank questions\n- NEVER construct a question whose only purpose is to directly name the answer (e.g. "what noun corresponds to adjective X?" when that noun IS the answer)\n- Each question must test a DIFFERENT angle\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question before finalizing): mentally substitute 2–3 plausible alternative ${studyLang} words into the question. If ANY of them fit the sentence/scenario as naturally as the target word, the question is too vague — REWRITE it with more specific cues that exclude the alternatives. Hints (letter count, first letter) DO NOT make an ambiguous question valid; the question itself must point at the target word.\n  - BAD example: "Necesito ir a ___ para tomar mi vuelo a Madrid." Target answer "terminal" — but "aeropuerto" fits just as well. Rewrite needed.\n  - GOOD example: "El edificio específico dentro del aeropuerto donde se abordan los aviones se llama la ___" — now only "terminal" fits because "aeropuerto" is excluded by being named in the question itself.\n- For language cards: test usage in sentences, grammatical properties, contextual usage\n- For conceptual cards: test application, process, comparison\n\n${questionPrompt}\n\nGenerate all questions in ${studyLang}.${knowledgeContext}\n\nReturn a JSON array of exactly ${n} objects:\n[\n  {\n    "question": "the question text",\n    "type": "recall" | "fill_blank" | "explanation",\n    "hint1": "N letters" (letter count of primary answer, null for explanation),\n    "hint2": "starts with 'X'" (first letter of primary answer, null for explanation),\n    "acceptedAnswers": ["answer1", "answer2"] (lowercase; exact words that are correct; empty for explanation)\n  }\n]\nOutput ONLY raw JSON array. No markdown, no backticks.`
+    const prompt = `Card front: "${front}"\nCard back: "${back}"\n${languageBlock}\n${orderRules}\n\nCRITICAL RULES:\n- Questions must require the SPECIFIC answer on this card — synonyms are NOT acceptable for recall/fill_blank questions\n- NEVER construct a question whose only purpose is to directly name the answer (e.g. "what noun corresponds to adjective X?" when that noun IS the answer)\n- Each question must test a DIFFERENT angle\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question before finalizing): mentally substitute 2–3 plausible alternative ${studyLang} words into the question. If ANY of them fit the sentence/scenario as naturally as the target word, the question is too vague — REWRITE it with more specific cues that exclude the alternatives. Hints (letter count, first letter) DO NOT make an ambiguous question valid; the question itself must point at the target word.\n  - BAD example: "Necesito ir a ___ para tomar mi vuelo a Madrid." Target answer "terminal" — but "aeropuerto" fits just as well. Rewrite needed.\n  - GOOD example: "El edificio específico dentro del aeropuerto donde se abordan los aviones se llama la ___" — now only "terminal" fits because "aeropuerto" is excluded by being named in the question itself.\n- For language cards: test usage in sentences, grammatical properties, contextual usage\n- For conceptual cards: test application, process, comparison\n\n${questionPrompt}\n\nGenerate all questions in ${studyLang}.${knowledgeContext}\n\nReturn a JSON array of exactly ${n} objects:\n[\n  {\n    "question": "the question text",\n    "type": "recall" | "fill_blank" | "explanation",\n    "hint1": "N letters" (letter count of primary answer, null for explanation),\n    "hint2": "starts with 'X'" (first letter of primary answer, null for explanation),\n    "acceptedAnswers": ["answer1", "answer2"] (lowercase; exact words that are correct; empty for explanation),\n    "pose": one mascot pose name that best fits this question's topic, chosen ONLY from: ${POSE_NAMES.join(', ')} (use "default" if none fit)\n  }\n]\nOutput ONLY raw JSON array. No markdown, no backticks.`
 
     try {
       const text = await aiCall(apiKey, 'You generate structured flashcard quiz questions. Always respond with a valid JSON array of objects.', prompt, resolveModel('study'))
@@ -3125,6 +3132,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
         hint1: q.hint1 || null,
         hint2: q.hint2 || null,
         acceptedAnswers: Array.isArray(q.acceptedAnswers) ? q.acceptedAnswers.map(a => String(a).toLowerCase().trim()) : [],
+        pose: (typeof q === 'object' && q.pose) ? String(q.pose).toLowerCase().trim() : null, // precomputed mascot pose
       }))
     } catch {
       const fallback = [
@@ -4058,7 +4066,7 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
       // Parse and execute actions from the response
       const actionMatches = [...text.matchAll(/<action>(.*?)<\/action>/gs)]
       const cleanText = text.replace(/<action>.*?<\/action>/gs, '').trim()
-      choosePose(cleanText)
+      choosePose(cleanText, setStudyMascot) // feedback chat updates the study companion
       let updatedStates = null
 
       for (const match of actionMatches) {
@@ -4652,29 +4660,19 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
   const activeWord = activeIdx !== null ? ocrWords[activeIdx] : null
   const isPinned = pinnedIdx !== null
 
-  // Update Ebi's pose the instant the active AI context changes, so the shrimp always
-  // matches the current study question / picture word / discover suggestion.
+  // Study companion pose changes SYNCHRONOUSLY when the question changes — same instant the
+  // question renders, exactly once. The pose is precomputed during question generation
+  // (q.pose); fall back to instant keyword matching. No async call here (that caused a delayed
+  // second change). The Help button is independent and only changes from its own conversation.
   useEffect(() => {
     if (!studyActive || !currentQuestion) return
     const cs = studyCardState[currentQuestion.cardIdx]
     const q = cs?.questions?.[currentQuestion.questionIdx]
     const qt = typeof q === 'string' ? q : (q?.question || '')
-    choosePose([qt, cs?.front, cs?.back].filter(Boolean).join(' '))
+    const file = (q && typeof q === 'object' && poseFile(q.pose)) || pickShrimp(meaningfulPoseText([qt, cs?.front, cs?.back].filter(Boolean).join(' ')))
+    setStudyMascot(file)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentQuestion, studyActive])
-  useEffect(() => {
-    if (activeTab !== 'picture') return
-    const w = pinnedIdx !== null ? pinnedIdx : hoveredIdx
-    const word = w !== null ? ocrWords[w] : null
-    if (word) choosePose([word.text, word.translation, word.definition].filter(Boolean).join(' '))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pinnedIdx, hoveredIdx, activeTab])
-  useEffect(() => {
-    if (activeTab === 'discover' && discoverSuggestion) {
-      choosePose([discoverSuggestion.term, discoverSuggestion.translation, discoverSuggestion.draftMeaning].filter(Boolean).join(' '))
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [discoverSuggestion, activeTab])
 
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
@@ -6044,7 +6042,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     </div>
                     {/* Ebi study companion — big, circle-less, reacts to the question; Ask Ebi opens Help */}
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, paddingTop: 8, flexShrink: 0 }}>
-                      <img src={shrimpUrl(aiMascot)} alt="Ebi" style={{ width: 132, height: 132, objectFit: 'contain', filter: 'drop-shadow(0 8px 18px rgba(223,37,64,.28))' }} />
+                      <img src={shrimpUrl(studyMascot)} alt="Ebi" style={{ width: 132, height: 132, objectFit: 'contain', filter: 'drop-shadow(0 8px 18px rgba(223,37,64,.28))' }} />
                       <button onClick={() => setAskEbiSignal((n) => n + 1)} style={{ ...S.ghostBtn, fontSize: 12, color: 'var(--c-brand)', borderColor: 'var(--c-brand-ring, rgba(223,37,64,.35))', fontWeight: 700, padding: '7px 16px', borderRadius: RADIUS.pill }}>
                         {t('askEbi')}
                       </button>
@@ -7004,8 +7002,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       {!isOverlay && <HelpChat
         apiKey={apiKey}
         provider={provider}
-        mascotFile={aiMascot}
-        onAiReply={(text) => choosePose(text)}
+        mascotFile={helpMascot}
+        onAiReply={(text) => choosePose(text, setHelpMascot)}
         askEbiSignal={askEbiSignal}
         hideButton={activeTab === 'study' && studyActive && studyPhase === 'question'}
         model={resolveModel('help')}
