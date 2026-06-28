@@ -4349,12 +4349,13 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
         const allDone = prev.every(cs => cs.done)
         const allEvaluated = prev.every(cs => !cs.evaluating)
         if (allDone && allEvaluated && !studyWrappingUpRef.current) {
-          // All cards done — if no more in pool, go to summary
+          // All cards done — if no more in pool, show the per-card review (right/wrong, rating, and
+          // the correction chat). The "Finish Session" button there (nextBatch) then goes to summary.
           const poolExhausted = studyMode === 'conjugations'
             ? studyBatchIdx >= studyConjugationWords.length
             : studyBatchIdx >= studyAllCards.length
           if (poolExhausted) {
-            setTimeout(() => setStudyPhase('summary'), 100)
+            setTimeout(() => setStudyPhase('batchFeedback'), 100)
           }
         }
         return prev
