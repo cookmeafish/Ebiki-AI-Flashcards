@@ -465,10 +465,12 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
 
   return (
     <>
-      {/* Ebi help button: a little pop (scale up) on hover so it reads as clickable. */}
+      {/* Ebi help button: a little pop (scale up) on hover; flips to face right when open (clicked). */}
       <style>{`
-        .ebi-fab-img { transition: transform .18s cubic-bezier(.34,1.56,.64,1), filter .25s ease; transform-origin: 50% 70%; }
+        .ebi-fab-img { transition: transform .22s cubic-bezier(.34,1.56,.64,1), filter .25s ease; transform-origin: 50% 70%; }
+        .ebi-fab-img.flipped { transform: scaleX(-1); }
         .ebi-fab:hover .ebi-fab-img { transform: scale(1.14); }
+        .ebi-fab:hover .ebi-fab-img.flipped { transform: scale(1.14) scaleX(-1); }
       `}</style>
       {/* Floating help button — hidden when the chat is snapped/detached, or when the host hides it (e.g. study Ebi is shown) */}
       {!snapZone && !hideButton && (
@@ -498,7 +500,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
             src={shrimpUrl(buttonMascot)}
             alt="Ebi, the Ebiki mascot"
             draggable={false}
-            className="ebi-fab-img"
+            className={`ebi-fab-img${open ? ' flipped' : ''}`}
             style={{
               width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center',
               pointerEvents: 'none',
