@@ -6014,7 +6014,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     </div>
                     {/* Ebi study companion — big, circle-less, reacts to the question; Ask Ebi opens Help */}
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, paddingTop: 8, flexShrink: 0 }}>
-                      <img src={shrimpUrl(aiMascot)} alt="Ebi" style={{ width: 132, height: 132, objectFit: 'contain', filter: 'drop-shadow(0 8px 18px rgba(223,37,64,.28))', animation: 'floaty 4s ease-in-out infinite' }} />
+                      <img src={shrimpUrl(aiMascot)} alt="Ebi" style={{ width: 132, height: 132, objectFit: 'contain', filter: 'drop-shadow(0 8px 18px rgba(223,37,64,.28))' }} />
                       <button onClick={() => setAskEbiSignal((n) => n + 1)} style={{ ...S.ghostBtn, fontSize: 12, color: 'var(--c-brand)', borderColor: 'var(--c-brand-ring, rgba(223,37,64,.35))', fontWeight: 700, padding: '7px 16px', borderRadius: RADIUS.pill }}>
                         {t('askEbi')}
                       </button>
