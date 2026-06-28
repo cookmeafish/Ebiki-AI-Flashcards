@@ -220,6 +220,13 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
   // Grab the chat header and drag: edge zones light up, the panel previews into the
   // hovered zone, and dropping commits it (or 'free' if dropped in open space).
   const ZONE_W = 360, ZONE_H = 320, FREE_W = 340, FREE_H = 440
+  // The exact docked rectangle for each zone. Shared by the live panel AND the drop-zone preview
+  // overlays so the preview outlines precisely where Ebi's Help will land.
+  const ZONE_RECTS = {
+    left: { left: 0, top: 0, bottom: 0, width: ZONE_W },
+    right: { right: 0, top: 0, bottom: 0, width: ZONE_W },
+    bottom: { bottom: 0, left: 0, right: 0, height: ZONE_H },
+  }
   const snapDragStart = useRef({ x: 0, y: 0 })
   const didSnapDrag = useRef(false)
   const startSnapDrag = (e) => {
@@ -272,15 +279,10 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
 
   // Fixed-position style for the panel given its current snap zone.
   const panelStyle = () => {
-    switch (snapZone) {
-      case 'left': return { position: 'fixed', left: 0, top: 0, bottom: 0, width: ZONE_W }
-      case 'right': return { position: 'fixed', right: 0, top: 0, bottom: 0, width: ZONE_W }
-      case 'top': return { position: 'fixed', top: 0, left: 0, right: 0, height: ZONE_H }
-      case 'bottom': return { position: 'fixed', bottom: 0, left: 0, right: 0, height: ZONE_H }
-      default: return { position: 'fixed', left: chatPos.x, top: chatPos.y, width: FREE_W, maxHeight: FREE_H } // 'free'
-    }
+    if (ZONE_RECTS[snapZone]) return { position: 'fixed', ...ZONE_RECTS[snapZone] }
+    return { position: 'fixed', left: chatPos.x, top: chatPos.y, width: FREE_W, maxHeight: FREE_H } // 'free'
   }
-  const isEdgeZone = snapZone === 'left' || snapZone === 'right' || snapZone === 'top' || snapZone === 'bottom'
+  const isEdgeZone = !!ZONE_RECTS[snapZone]
 
   // Call Sonnet directly for better quality
   const sendMessage = async () => {
@@ -471,8 +473,8 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
 
   return (
     <>
-      {/* Ebi help button: a little pop (scale up) on hover; flips to face right when open (clicked).
-          Every state uses the SAME transform function list (scale + scaleX) so transitions
+      {/* Ebi help button: always flipped to face right (.flipped), with a little pop (scale up) on
+          hover. Every state uses the SAME transform function list (scale + scaleX) so transitions
           interpolate per-function — otherwise mismatched lists fall back to matrix interpolation,
           which makes the mirror pass through scaleX=0 and collapse to a 1px line. */}
       <style>{`
@@ -491,7 +493,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
           style={{
             position: 'fixed', left: pos.x,
             ...(pos.y !== null ? { top: pos.y } : { bottom: 20 }),
-            width: 64, height: 64,
+            width: 96, height: 96,
             // No circle, no background — just the transparent PNG. The glow lives on the image's
             // drop-shadow (below), which traces the shrimp's silhouette instead of a disc.
             background: 'transparent', border: 'none', boxShadow: 'none', borderRadius: 0,
@@ -509,7 +511,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
             src={shrimpUrl(buttonMascot)}
             alt="Ebi, the Ebiki mascot"
             draggable={false}
-            className={`ebi-fab-img${open ? ' flipped' : ''}`}
+            className="ebi-fab-img flipped"
             style={{
               width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center',
               pointerEvents: 'none',
@@ -558,23 +560,23 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
         </div>
       )}
 
-      {/* Drop-zone overlays — shown only while dragging the chat header. Three sensible targets:
-          dock left, dock right, or under the question (matches the snap detection regions). */}
+      {/* Drop-zone overlays — shown only while dragging the chat header. Each overlay uses the SAME
+          rectangle the panel will dock into (ZONE_RECTS), so the preview is exactly where it lands. */}
       {snapDragging && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9998, pointerEvents: 'none' }}>
           {[
-            { id: 'left', label: 'Dock left', style: { left: 12, top: 12, height: '50%', width: '24%' } },
-            { id: 'right', label: 'Dock right', style: { right: 12, top: 12, height: '50%', width: '24%' } },
-            { id: 'bottom', label: 'Under the question', style: { bottom: 12, left: 12, right: 12, height: '34%' } },
+            { id: 'left', label: 'Dock left' },
+            { id: 'right', label: 'Dock right' },
+            { id: 'bottom', label: 'Under the question' },
           ].map(z => (
             <div key={z.id} style={{
-              position: 'fixed', ...z.style,
+              position: 'fixed', ...ZONE_RECTS[z.id],
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontFamily: FONT.body, fontSize: 14, fontWeight: 700,
               color: hoverZone === z.id ? 'var(--c-brand)' : 'rgba(223,37,64,.5)',
               background: hoverZone === z.id ? 'rgba(223,37,64,.16)' : 'rgba(223,37,64,.05)',
               border: hoverZone === z.id ? '2px solid rgba(223,37,64,.7)' : '2px dashed rgba(223,37,64,.3)',
-              borderRadius: 16, transition: 'background .12s ease, border-color .12s ease, color .12s ease',
+              transition: 'background .12s ease, border-color .12s ease, color .12s ease',
             }}>{z.label}</div>
           ))}
         </div>
