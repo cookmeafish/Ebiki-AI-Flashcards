@@ -57,8 +57,8 @@ export const PROVIDERS = {
     url: 'https://platform.openai.com/api-keys',
     modelsUrl: 'https://platform.openai.com/docs/models',
     billingUrl: 'https://platform.openai.com/settings/organization/billing',
-    model: 'gpt-4o-mini',
-    questionModel: 'gpt-4o-mini',
+    model: 'gpt-4o-mini',       // cheap/fast tier (vision-capable) — matches Claude's Haiku slot
+    questionModel: 'gpt-4o',    // strong tier (vision-capable) — matches Claude's Sonnet slot
     // Only chat-capable models (skip embeddings, tts, whisper, image, moderation).
     listModels: async (apiKey) => {
       const resp = await fetch('https://api.openai.com/v1/models', {
@@ -86,7 +86,9 @@ export const PROVIDERS = {
         body: JSON.stringify({
           model: modelOverride || 'gpt-4o-mini',
           max_tokens: maxTokens || 4000,
-          response_format: { type: 'json_object' },
+          // No forced response_format: JSON-expecting prompts already say "output JSON" and
+          // parseAiJson() extracts it — while forcing json_object breaks free-form chat/help
+          // (and errors unless the prompt contains the word "json"). Mirrors Claude's behavior.
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userMsg },
@@ -109,8 +111,8 @@ export const PROVIDERS = {
     url: 'https://aistudio.google.com/apikey',
     modelsUrl: 'https://ai.google.dev/gemini-api/docs/models',
     billingUrl: 'https://aistudio.google.com/apikey',
-    model: 'gemini-2.0-flash',
-    questionModel: 'gemini-2.0-flash',
+    model: 'gemini-2.0-flash',      // cheap/fast tier (vision-capable) — Haiku slot
+    questionModel: 'gemini-2.5-pro', // strong tier (vision-capable) — Sonnet slot
     // Models that support generateContent; strip the "models/" prefix.
     listModels: async (apiKey) => {
       const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}&pageSize=1000`)
@@ -136,7 +138,9 @@ export const PROVIDERS = {
           body: JSON.stringify({
             system_instruction: { parts: [{ text: systemPrompt }] },
             contents: [{ parts }],
-            generationConfig: { responseMimeType: 'application/json', ...(maxTokens ? { maxOutputTokens: maxTokens } : {}) },
+            // No forced responseMimeType: it would break free-form chat/help. JSON roles still
+            // work via the prompt + parseAiJson(), like Claude.
+            generationConfig: { ...(maxTokens ? { maxOutputTokens: maxTokens } : {}) },
           }),
         }
       )
@@ -156,8 +160,8 @@ export const PROVIDERS = {
     url: 'https://console.x.ai/',
     modelsUrl: 'https://docs.x.ai/docs/models',
     billingUrl: 'https://console.x.ai/',
-    model: 'grok-3-mini-fast',
-    questionModel: 'grok-3-mini-fast',
+    model: 'grok-3-mini-fast', // cheap/fast tier — Haiku slot
+    questionModel: 'grok-4',   // strong tier (multimodal/vision) — Sonnet slot
     listModels: async (apiKey) => {
       const resp = await fetch('https://api.x.ai/v1/models', {
         headers: { 'Authorization': `Bearer ${apiKey}` },

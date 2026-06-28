@@ -185,6 +185,17 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   in `dataTransfer`, which used to falsely trip the "Drop image here" overlay. `handleDragOver` also guards
   on `dataTransfer.types` including `'Files'`.
 
+## AI providers (`src/config/providers.js`) — two model tiers each
+- Every provider exposes a **cheap `model`** (Haiku slot, used by the `general` role) and a **strong
+  `questionModel`** (Sonnet slot, used by picture/deck/study/discover/chat/help/pose). Defaults:
+  Anthropic `haiku`/`sonnet-4-6`; OpenAI `gpt-4o-mini`/`gpt-4o`; Gemini `2.0-flash`/`2.5-pro`; Grok
+  `grok-3-mini-fast`/`grok-4`. All `questionModel`s are **vision-capable** (the Picture role sends images).
+- **No forced JSON.** OpenAI/Gemini do NOT set `response_format`/`responseMimeType` — that would break
+  free-form chat/help (OpenAI even errors unless the prompt says "json"). JSON roles rely on the prompt +
+  `parseAiJson()`, exactly like Claude.
+- **Self-heal for ALL providers:** `discoverCurrentModel` (App.jsx) uses each provider's `listModels()` +
+  a role-tier family preference, so a stale/unavailable default id 404s → auto-switches to a current model.
+
 ## Commits
 - The user prefers **no Claude attribution** in commit messages.
 - Don't commit to `master` directly unless asked; work on feature branches (currently `ebiki-ocean-light`).

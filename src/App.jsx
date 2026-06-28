@@ -585,18 +585,34 @@ export default function App() {
   // Ask the provider which models exist now and pick a sensible current one for
   // the role. Anthropic returns models newest-first; we prefer the role's tier.
   const discoverCurrentModel = async (role, prov = aiStateRef.current.provider) => {
+    // Pick a currently-available model for the role's tier (general = cheap/fast, otherwise strong),
+    // so a stale/unavailable default id self-heals — for EVERY provider, not just Anthropic.
+    const strong = role !== 'general'
+    // Per-provider family preference, ordered best→worst, for the strong vs cheap tier.
+    const PREF = {
+      anthropic: strong ? ['sonnet', 'opus', 'haiku'] : ['haiku', 'sonnet', 'opus'],
+      openai:    strong ? ['gpt-4o', 'gpt-4.1', 'gpt-4-turbo', 'gpt-4', 'gpt-4o-mini'] : ['gpt-4o-mini', 'gpt-4.1-mini', 'gpt-4o'],
+      gemini:    strong ? ['2.5-pro', '1.5-pro', 'pro', '2.5-flash', '2.0-flash', 'flash'] : ['2.0-flash', '2.5-flash', 'flash', 'pro'],
+      grok:      strong ? ['grok-4', 'grok-3', 'grok-2-vision', 'grok-2'] : ['grok-3-mini', 'grok-4-mini', 'grok-3', 'grok-4'],
+    }
+    const pickFrom = (ids) => {
+      if (!ids || !ids.length) return null
+      for (const fam of (PREF[prov] || [])) { const hit = ids.find((id) => id.toLowerCase().includes(fam.toLowerCase())); if (hit) return hit }
+      return ids[0] || null
+    }
     try {
+      const key = aiStateRef.current.apiKeys[prov] || ''
       if (prov === 'anthropic') {
         const resp = await fetch('https://api.anthropic.com/v1/models?limit=100', {
-          headers: { 'x-api-key': aiStateRef.current.apiKeys[prov] || '', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+          headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
         })
         if (!resp.ok) return null
         const data = await resp.json()
-        const ids = (data.data || []).map((m) => m.id)
-        const prefer = role === 'general' ? ['haiku', 'sonnet', 'opus'] : ['sonnet', 'opus', 'haiku']
-        for (const fam of prefer) { const hit = ids.find((id) => id.includes(fam)); if (hit) return hit }
-        return ids[0] || null
+        return pickFrom((data.data || []).map((m) => m.id))
       }
+      // openai / gemini / grok — reuse the provider's own listModels().
+      const pc = PROVIDERS[prov]
+      if (pc?.listModels && key) return pickFrom(await pc.listModels(key))
     } catch { /* fall through */ }
     return null
   }
