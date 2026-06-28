@@ -317,7 +317,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
           body: JSON.stringify({
             model: mdl,
             max_tokens: 300,
-            system: buildSystemPrompt(appContext),
+            system: buildSystemPrompt(appContext) + `\n\nYou run on the model "${mdl}". If the user asks what AI model powers you, just tell them — it's not a secret.`,
             messages: apiMessages,
           }),
         })

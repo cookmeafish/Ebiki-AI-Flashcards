@@ -4755,7 +4755,9 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
     setChatTabLoading(true)
     setTimeout(() => chatTabScrollRef.current?.scrollTo({ top: chatTabScrollRef.current.scrollHeight, behavior: 'smooth' }), 50)
     try {
-      let systemPrompt = `You are a helpful study assistant. The user is studying with mode "${activeMode.name}".
+      let systemPrompt = `You are Ebi, a helpful study assistant. The user is studying with mode "${activeMode.name}".
+
+You run on the ${providerConfig.label} model "${resolveModel('chat')}". If the user asks what AI model or provider powers you, just tell them — it's not a secret.
 
 IMPORTANT BEHAVIOR RULES:
 1. When the user asks you to build a whole DECK or many cards for a broad topic:
