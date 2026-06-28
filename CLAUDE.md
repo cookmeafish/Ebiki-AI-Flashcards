@@ -71,8 +71,12 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
 - **The floating shrimp button is removed.** Help is opened from the **"Ask Ebi"** button in the header
   (left nav, right after the Stats tab) which bumps `askEbiSignal`; `HelpChat` is rendered with
   `hideButton={true}` so the FAB never shows. With no button, the panel docks bottom-left (`getChatStyle`).
-  The panel header shows the **hole-pose Ebi** (`IDLE_SHRIMP`) on the right of the "Ebi's Help" title as the
-  mascot identity. (The old FAB code path still exists in HelpChat behind `!hideButton` if ever re-enabled.)
+  The panel header shows **Ebi on the right** of the "Ebi's Help" title; it uses the **context-aware pose**
+  (`mascotFile`/`helpMascot`, updated by `choosePose` on each reply — defaults to `IDLE_SHRIMP`), sized ~46px
+  with negative vertical margins so it doesn't bloat the header. (The old FAB code path still exists in
+  HelpChat behind `!hideButton` if ever re-enabled.)
+- **Ebi stays in character:** the `HELP_BASE` persona speaks as Ebi and must NOT call itself a "mascot" or
+  break the fourth wall — just "I'm Ebi, here to help."
 - The chat **scrolls to the bottom on open** so the latest message shows.
 - **FancyZones-style docking**: drag the chat header (⠿ grip) to snap to a zone, or click the dock (◣) button
   to be asked where — both show three labeled targets (**Dock left**, **Dock right**, **Under the question**)
@@ -145,10 +149,19 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   and to split multi-meaning words; cards render as `<anki-card>` widgets; `chatTabSyncCard` HTML-formats + syncs.
 
 ## Chat — composer "+" menu (learning-focused)
-- The chat composer has a Claude-style **"+" menu**: attach photo (sent to the chat model via the multimodal
-  `aiCall`), web search, and per-mode **Focus** preset (Tutor/Translator/Card-maker/Quiz-master/Free),
-  **Level**, and **Explain-in** language. Saved on `activeMode.chatPrefs` via `setChatPref` → `updateActiveMode`
-  and injected into the chat system prompt in `sendChatTabMessage`. Attached images ride along as `opts.images`.
+- The chat composer has a Claude-style **"+" menu**: attach photo, web search, per-mode **Focus** preset
+  (Tutor/Translator/Card-maker/Quiz-master/Free), **Level**, **Explain-in** language, and a **Chat model**
+  picker. Focus/Level/Explain save on `activeMode.chatPrefs` (`setChatPref` → `updateActiveMode`) and are
+  injected into the chat system prompt in `sendChatTabMessage`. The model picker writes
+  `aiModels[provider].chat` — the **same override as Settings → AI models** (so they stay in sync); the
+  "Default (…)" option names the resolved default (`ROLE_DEFAULTS(pc).chat`).
+- **Images in chat:** `chatTabImage` holds the pending attachment (set by the photo menu item OR by
+  **dropping / pasting** an image while on the Chat tab — `handleDrop`/paste route to chat instead of the
+  Picture tab). On send, images from the recent conversation (last 4 user messages with `m.image`) ride along
+  as `opts.images` so follow-ups about an image keep working, like the Claude app. `downscaleDataUrl` first.
+- **Message layout:** each bubble is width-capped (~620px) with `overflow-wrap:anywhere` so long/unbroken
+  strings wrap; assistant replies render a **larger Ebi (96px) to the right** of the bubble (its per-message
+  `m.mascot` pose) using the open space. Only **assistant** content renders markdown; user text stays literal.
 
 ## Chat — markdown rendering
 - Chat + Help messages render **markdown** via `src/components/Markdown.jsx` (`marked` + `DOMPurify`), themed
