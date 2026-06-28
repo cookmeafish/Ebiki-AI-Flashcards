@@ -154,27 +154,27 @@ export default function App() {
     .replace(/how (do you say|would you say)[^'"?:]*/gi, '')
     .replace(/translate[^'":]*:/gi, '')
     .trim() || String(text || '')
-  // Instant keyword-based pose (free, offline) — used as the immediate value and fallback.
-  const flashMascot = (text) => { if (text) setAiMascot(pickShrimp(meaningfulPoseText(text))) }
   // System prompt for the dedicated, configurable "Mascot" model (cheap/fast). It reads the
   // generated response/question and returns the single best Ebi pose name.
   const POSE_SYS = `You pick a mascot pose for Ebi, a cute red shrimp, based on a piece of text. Reply with ONLY one pose name from this exact list and nothing else: ${POSE_NAMES.join(', ')}. Choose the one whose theme best fits the meaning of the text. If none clearly fit, reply "default".`
-  // choosePose: set Ebi instantly from keywords, then refine via the Mascot model.
-  // Non-blocking; silent on error; returns the final shrimp filename.
+  // choosePose: pick Ebi's pose for some text. Sets the mascot EXACTLY ONCE so there is a
+  // single change per AI output (no keyword→AI flicker). With a key, it waits for the Mascot
+  // model and sets once; Ebi keeps its previous pose until then. Without a key (or on error),
+  // it sets the keyword fallback once. Non-blocking; silent on error; returns the filename.
   const choosePose = async (text) => {
     const clean = String(text || '').trim()
     if (!clean) return DEFAULT_SHRIMP
-    const fallback = pickShrimp(meaningfulPoseText(clean))
-    setAiMascot(fallback)
+    const fallback = () => pickShrimp(meaningfulPoseText(clean))
     const prov = aiStateRef.current.provider
-    if (!aiStateRef.current.apiKeys[prov]) return fallback
+    const key = aiStateRef.current.apiKeys[prov]
+    if (!key) { const f = fallback(); setAiMascot(f); return f }
     try {
-      const out = await aiCall(aiStateRef.current.apiKeys[prov], POSE_SYS, clean.slice(0, 800), resolveModel('pose'), { silent: true })
+      const out = await aiCall(key, POSE_SYS, clean.slice(0, 800), resolveModel('pose'), { silent: true })
       const name = String(out || '').trim().toLowerCase().replace(/[^a-z]/g, '')
-      const f = poseFile(name) || fallback
+      const f = poseFile(name) || fallback()
       setAiMascot(f)
       return f
-    } catch { return fallback }
+    } catch { const f = fallback(); setAiMascot(f); return f }
   }
   // Available model ids fetched from each provider's API: { [provider]: [ids] }.
   const [availableModels, setAvailableModels] = useState({})
@@ -5468,9 +5468,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               {chatTabMsgs.map((m, i) => (
                 <div key={i} style={{ marginBottom: 12, display: 'flex', flexDirection: 'column', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
                   {/* Ebi reacts on ASSISTANT messages only — Ebi is the AI, not the user.
-                      Uses the Mascot-model pose (m.mascot) once it resolves, else a keyword match. */}
-                  {m.role !== 'user' && (
-                    <img src={shrimpUrl(m.mascot || pickShrimp(meaningfulPoseText(m.content)))} alt="Ebi" title="Ebi" style={{ width: 34, height: 34, objectFit: 'contain', marginBottom: 4, animation: 'pop .3s cubic-bezier(.34,1.56,.64,1)', filter: 'drop-shadow(var(--sh-sm))' }} />
+                      Render once the Mascot-model pose (m.mascot) resolves, so it appears a single
+                      time with the chosen pose (no keyword→AI swap). */}
+                  {m.role !== 'user' && m.mascot && (
+                    <img src={shrimpUrl(m.mascot)} alt="Ebi" title="Ebi" style={{ width: 34, height: 34, objectFit: 'contain', marginBottom: 4, animation: 'pop .3s cubic-bezier(.34,1.56,.64,1)', filter: 'drop-shadow(var(--sh-sm))' }} />
                   )}
                   <div style={{
                     maxWidth: '80%', padding: '10px 14px', borderRadius: 12, fontSize: 13, lineHeight: 1.5,
