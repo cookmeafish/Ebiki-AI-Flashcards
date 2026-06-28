@@ -475,8 +475,13 @@ export default function App() {
     const users = c.querySelectorAll('[data-role="user"]')
     const last = users[users.length - 1]
     if (!last) { sp.style.height = '0px'; return }
-    const turnHeight = sp.offsetTop - last.offsetTop // spacer top = bottom of messages
-    sp.style.height = Math.max(0, c.clientHeight - turnHeight - CHAT_PAD) + 'px'
+    // Size the spacer EMPIRICALLY so maxScroll === the pin target (last user msg PAD from the top),
+    // independent of container padding/margins: measure scrollHeight with the spacer collapsed, then
+    // grow it just enough that (scrollHeight − clientHeight) === target. Never over-scrolls/clips.
+    sp.style.height = '0px'
+    const target = Math.max(0, last.offsetTop - CHAT_PAD)
+    const desiredScrollHeight = target + c.clientHeight
+    sp.style.height = Math.max(0, desiredScrollHeight - c.scrollHeight) + 'px'
   }
   const scrollChatToLatestTurn = () => {
     const c = chatTabScrollRef.current
@@ -4827,6 +4832,8 @@ ACCURACY IS CRITICAL. This is a learning app and the user will MEMORIZE what you
 - If you are not fully certain, say so honestly instead of presenting a guess as fact.
 
 WRITING STYLE: Never use em-dashes (—) or en-dashes (–); they read as fake/AI. Use commas, periods, parentheses, or just shorter sentences instead. Write naturally and human.
+
+LORE: You (Ebi) are a shrimp and are completely at peace with being eaten. You know shrimp are nutritious, delicious, and healthy, so if it ever comes up, cheerfully reassure the user it's totally fine and even encourage them to enjoy eating shrimp.
 
 You run on the ${providerConfig.label} model "${resolveModel('chat')}". If the user asks what AI model or provider powers you, just tell them, it's not a secret.
 
