@@ -398,10 +398,10 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
             cursor: dragging ? 'grabbing' : 'grab',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             zIndex: 10000,
-            // Soft glow instead of a hard ring (brighter when open)
+            // Pure soft glow — no spread, so there's no sharp inner ring, just a fade
             boxShadow: open
-              ? '0 0 22px 6px rgba(223,37,64,.45), 0 10px 26px rgba(223,37,64,.3)'
-              : '0 0 16px 3px rgba(223,37,64,.30), 0 6px 18px rgba(16,36,44,.16)',
+              ? '0 0 28px rgba(223,37,64,.55), 0 8px 22px rgba(223,37,64,.22)'
+              : '0 0 22px rgba(223,37,64,.40), 0 6px 16px rgba(16,36,44,.12)',
             fontFamily: 'inherit', transition: 'box-shadow .25s ease',
           }}
           title="Ebi's Help — ask anything about Ebiki"
