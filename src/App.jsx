@@ -10,6 +10,7 @@ import FormattedText from './components/FormattedText'
 import HelpChat from './components/HelpChat'
 import DiscoverPanel from './components/DiscoverPanel'
 import SettingsModal from './components/SettingsModal'
+import OnboardingWizard from './components/OnboardingWizard'
 import { S } from './styles/theme'
 import { ocrLog, ocrLogTable, ocrLogFlush } from './utils/logger'
 import { ankiPing, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiFindCards, ankiCardsInfo, ankiAnswerCards, ankiGetDeckStats, ankiFindNotes, ankiNotesInfo, ankiUpdateNote, ankiDeleteNotes, ankiSync } from './utils/anki'
@@ -145,6 +146,7 @@ export default function App() {
   // so Ebi always matches what's happening. Ebi's Help chat overrides this with its own.
   const [aiMascot, setAiMascot] = useState(DEFAULT_SHRIMP)
   const [askEbiSignal, setAskEbiSignal] = useState(0) // bump to open Ebi's Help (study "Ask Ebi")
+  const [onboarded, setOnboarded] = useState(false) // first-run onboarding completed?
   // Strip study-question boilerplate ("¿Cómo se dice '…'?", "How do you say …") so pose
   // selection keys on the actual concept, not the scaffolding (which caused false matches).
   const meaningfulPoseText = (text) => String(text || '')
@@ -597,6 +599,7 @@ export default function App() {
       if (config.language) setLanguage(config.language)
       if (config.targetLang) setTargetLang(config.targetLang)
       if (config.showHighlights !== undefined) setShowHighlights(config.showHighlights)
+      if (config.onboarded) setOnboarded(true)
       setActiveTab(config.activeTab || 'picture')
       // ankiDeck is now per-mode (stored in mode config)
       setKeysLoaded(true)
@@ -758,9 +761,9 @@ export default function App() {
     fetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider, aiModels, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, ...(activeTab ? { activeTab } : {}) }),
+      body: JSON.stringify({ provider, aiModels, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, onboarded, ...(activeTab ? { activeTab } : {}) }),
     }).catch(() => {})
-  }, [provider, aiModels, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, activeTab, configLoaded])
+  }, [provider, aiModels, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, onboarded, activeTab, configLoaded])
 
   const setCurrentKey = (key) => {
     setApiKeys((prev) => ({ ...prev, [provider]: key }))
@@ -4786,6 +4789,20 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         </div>
       </header>}
 
+      {/* ── First-run onboarding (Ebi-guided) ──────────────────────────────── */}
+      {!isOverlay && configLoaded && !onboarded && (
+        <OnboardingWizard
+          t={t}
+          onFinish={() => setOnboarded(true)}
+          appLanguage={appLanguage} setAppLanguage={setAppLanguage}
+          appTheme={appTheme} setAppTheme={setAppTheme}
+          provider={provider} setProvider={setProvider}
+          apiKeys={apiKeys} apiKey={apiKey} setCurrentKey={setCurrentKey} providerConfig={providerConfig}
+          createMode={createMode} modeCreating={modeCreating}
+          aiModels={aiModels} setAiModels={setAiModels}
+        />
+      )}
+
       {/* ── Unified Settings modal (App + Mode settings) ───────────────────── */}
       {settingsOpen && (
         <SettingsModal
@@ -4797,6 +4814,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           appLanguage={appLanguage} setAppLanguage={setAppLanguage}
           language={language} setLanguage={setLanguage}
           targetLang={targetLang} setTargetLang={setTargetLang}
+          onRunSetup={() => { setSettingsOpen(false); setOnboarded(false) }}
           provider={provider} setProvider={setProvider}
           apiKeys={apiKeys} apiKey={apiKey} setCurrentKey={setCurrentKey} providerConfig={providerConfig}
           AI_ROLE_META={AI_ROLE_META} ROLE_DEFAULTS={ROLE_DEFAULTS}
