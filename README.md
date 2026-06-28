@@ -2,7 +2,7 @@
 
 A multi-tab learning app with AI chat, Anki-integrated study sessions, screen translation, and progress tracking. Supports multiple learning modes — from language learning to CompTIA certifications and beyond.
 
-> **The name & the mascot.** *Ebiki* is a play on **ebi** (海老 — Japanese for *shrimp*) and **Anki**. The app's mascot and built-in helper is **Ebi**, a little red shrimp who lives in the bottom-left corner. Ebi's pose changes to match whatever you're doing (working, fighting a two-handed sword question, eating cheese, etc.), and the in-app assistant ("Ebi's Help") speaks as Ebi.
+> **The name & the mascot.** *Ebiki* is a play on **ebi** (海老 — Japanese for *shrimp*) and **Anki**. The app's helper is **Ebi**, a little red shrimp. Ebi's pose changes to match whatever you're doing (working, fighting a two-handed sword question, eating cheese, etc.), and the in-app assistant — opened from the **"Ask Ebi"** button in the header — speaks as Ebi.
 >
 > **Look & feel.** Ebiki uses an **Ocean Light** theme built around Ebi's red (`#DF2540`) as the single focus color — Duolingo-style, where the brand color flows from the mascot. Rounded friendly type (Baloo 2 + Nunito), soft white cards, and playful press/hover motion. A **dark mode** is toggleable in Settings → Appearance (CSS-variable themed, persisted, no flash on load). Design tokens live in `src/config/tokens.js`. To add a new Ebi pose, see `CLAUDE.md`.
 
@@ -70,8 +70,8 @@ A multi-tab learning app with AI chat, Anki-integrated study sessions, screen tr
 - **Screen capture** — `Ctrl+Shift+S` for full screen, `Ctrl+Shift+A` for area selection
 - **Area selection** — transparent drawing window, screen not frozen during selection, only selected area captured
 - **Paste / Upload / Drag-drop** — Alternative image input methods
-- **Dual-pass OCR** — Tesseract on preprocessed + original images for maximum detection
-- **Pixel-accurate overlays** — Hover any word for translation, pronunciation, synonyms, part of speech
+- **Vision reading** — a vision model reads the image directly (accurate on busy/stylized game screens), translating each word in context; Tesseract runs alongside only to pin precise word boxes
+- **Pixel-accurate overlays + reading panel** — hover any word for translation, in-context meaning, pronunciation, synonyms, part of speech; a reading panel lists the transcribed text for tap-to-define
 - **Anki card generation** — Click a word, generate a card, edit/refine with AI, sync to Anki
 - **Draggable tooltip** — Pinned word tooltip can be dragged anywhere, position saved across sessions
 - **Overlay mode** — Fullscreen overlay on top of games/apps via Electron
@@ -93,11 +93,11 @@ screenlens/
   vite.config.js       ← Dev server + API endpoints
 ```
 
-**Dual-pass OCR pipeline:**
-1. **Tesseract.js Pass 1** — High-contrast preprocessed image (grayscale, 2.5x contrast, dark-bg inversion). Good for clean text.
-2. **Tesseract.js Pass 2** — Original image. Catches text on complex/textured backgrounds that preprocessing destroys.
-3. **Merge** — Non-overlapping words from pass 2 are added to pass 1 results.
-4. **AI Translation** — Merged word list sent to AI for translation, synonyms, pronunciation, and part of speech.
+**Vision OCR pipeline (with Tesseract for localization):**
+1. **Vision read** — the image is sent to a vision model (`VISION_OCR_PROMPT`) which returns each learnable word with its in-context translation, sense, alternatives, pronunciation, part of speech and a normalized box. Far more accurate than OCR on stylized/cluttered game UI.
+2. **Tesseract localization** — runs in parallel purely to get pixel-accurate word boxes.
+3. **Snap** — each vision word is matched onto its Tesseract box; unmatched words show in the reading panel only (so a misplaced box is never drawn).
+4. **Fallback** — with no API key (or on a vision failure) the legacy Tesseract OCR + translation path still runs.
 
 ## Setup
 
