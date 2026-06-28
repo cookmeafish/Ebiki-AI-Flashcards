@@ -107,6 +107,27 @@ fields belong on the back — definition, key points, formula, example, etc.):
 - "tags": array of relevant tags. Always include "ebiki".
 Output ONLY the raw JSON array. No markdown, no backticks, no commentary.`
 
+// Language-agnostic flashcard generator — works for ANY language being learned (Spanish, German,
+// Chinese, etc.). The model writes the back labels IN the learned language. Returns a JSON ARRAY.
+export const LANGUAGE_CARD_PROMPT = `You generate {LEARN_LANG}-learning flashcards for someone who speaks {USER_LANG}.
+
+You receive JSON: {"words": ["...", ...]}
+
+For EACH input word/phrase, output one or more card objects (multiple ONLY for clearly distinct unrelated meanings, one card per meaning). Each card object:
+- "front": "<headword> (<part of speech written in {LEARN_LANG}>)". For verbs use the infinitive. For languages with no spaces (e.g. Chinese), the headword is the word/characters.
+- "back": the card back as plain text, each labeled line on its OWN line. Write the LABELS in {LEARN_LANG}. Include these fields in order:
+   • pronunciation: simplified phonetics for a {USER_LANG} speaker, stressed syllable in CAPS (for Chinese/Japanese also give romanization/pinyin)
+   • translation: the {USER_LANG} translation(s)
+   • direct/literal translation: only if a meaningful one exists, otherwise OMIT this line entirely
+   • synonyms: similar {USER_LANG} words
+   • definition: a simple definition written IN {LEARN_LANG}
+   • example: one natural {LEARN_LANG} sentence, with its {USER_LANG} translation in parentheses
+- "correction": if the input is misspelled or is NOT a real {LEARN_LANG} word, set this to the correct word and base the card on it; omit otherwise.
+- "tags": array including the part of speech, level, topic, and "ebiki".
+
+ACCURACY IS CRITICAL, the student will MEMORIZE these. Only use REAL, correctly-spelled {LEARN_LANG} words; never invent one. Verify gender, pronunciation, translation, and that the example is natural and correct. All non-{LEARN_LANG} text is in {USER_LANG}.
+Output ONLY the raw JSON array. No markdown, no backticks, no commentary.`
+
 // Part-of-speech color map. Translucent tinted pills + accent-variable text so they read
 // on both Ocean Light and Dark (text colors flip with the theme via CSS variables).
 export const POS_COLORS = {
