@@ -6198,19 +6198,19 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   </div>
                 </div>
               )}
-              {chatTabMsgs.map((m, i) => (
-                <div key={i} style={{ marginBottom: 12, display: 'flex', flexDirection: 'column', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                  {/* Ebi reacts on ASSISTANT messages only — Ebi is the AI, not the user.
-                      Render once the Mascot-model pose (m.mascot) resolves, so it appears a single
-                      time with the chosen pose (no keyword→AI swap). */}
-                  {m.role !== 'user' && m.mascot && (
-                    <img src={shrimpUrl(m.mascot)} alt="Ebi" title="Ebi" style={{ width: 34, height: 34, objectFit: 'contain', marginBottom: 4, animation: 'pop .3s cubic-bezier(.34,1.56,.64,1)', filter: 'drop-shadow(var(--sh-sm))' }} />
-                  )}
+              {chatTabMsgs.map((m, i) => {
+                const isUser = m.role === 'user'
+                return (
+                <div key={i} style={{ marginBottom: 16, display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}>
+                  <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 14, maxWidth: '100%' }}>
+                    {/* Content column — width-capped so long messages wrap and leave room for Ebi */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: isUser ? 'flex-end' : 'flex-start', minWidth: 0, maxWidth: 620 }}>
                   <div style={{
-                    maxWidth: '80%', padding: '10px 14px', borderRadius: 12, fontSize: 13, lineHeight: 1.5,
+                    maxWidth: '100%', padding: '10px 14px', borderRadius: 12, fontSize: 13, lineHeight: 1.5,
                     background: m.role === 'user' ? 'linear-gradient(135deg, rgba(223,37,64,.2), rgba(223,37,64,.12))' : 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))',
                     border: `1px solid ${m.role === 'user' ? 'rgba(223,37,64,.28)' : 'var(--c-border)'}`,
-                    color: 'var(--c-ink)', ...(m.role === 'user' ? { whiteSpace: 'pre-wrap' } : {}),
+                    color: 'var(--c-ink)', overflowWrap: 'anywhere', wordBreak: 'break-word',
+                    ...(m.role === 'user' ? { whiteSpace: 'pre-wrap' } : {}),
                   }}>
                     {m.image && <img src={m.image} alt="attached" style={{ display: 'block', maxWidth: 220, maxHeight: 160, borderRadius: 8, marginBottom: m.content && m.content !== '(image)' ? 8 : 0 }} />}
                     {m.role === 'user' ? (m.content === '(image)' ? '' : m.content) : <Markdown text={m.content} />}
@@ -6218,7 +6218,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   {/* Inline Anki card previews */}
                   {m.cards?.map((card, ci) => (
                     <div key={ci} style={{
-                      maxWidth: '80%', marginTop: 6, padding: '10px 14px', borderRadius: 8,
+                      maxWidth: '100%', marginTop: 6, padding: '10px 14px', borderRadius: 8,
                       background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)',
                     }}>
                       <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', fontWeight: 600, marginBottom: 4 }}>ANKI CARD</div>
@@ -6253,8 +6253,15 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       ))}
                     </div>
                   )}
+                    </div>
+                    {/* Bigger Ebi to the right of its response (uses the open space) */}
+                    {!isUser && m.mascot && (
+                      <img src={shrimpUrl(m.mascot)} alt="Ebi" title="Ebi" style={{ width: 96, height: 96, objectFit: 'contain', flexShrink: 0, alignSelf: 'flex-start', animation: 'pop .3s cubic-bezier(.34,1.56,.64,1)', filter: 'drop-shadow(var(--sh-sm))' }} />
+                    )}
+                  </div>
                 </div>
-              ))}
+                )
+              })}
               {chatTabLoading && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '8px 0' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: chatTabStatus === 'searching' ? 'var(--c-brand)' : chatTabStatus === 'search-done' ? 'var(--c-success)' : chatTabStatus === 'search-empty' || chatTabStatus === 'search-failed' ? '#f0883e' : 'var(--c-ink-dim)', fontSize: 12 }}>
