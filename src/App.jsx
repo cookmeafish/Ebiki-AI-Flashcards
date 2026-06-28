@@ -465,22 +465,43 @@ export default function App() {
   // Claude-style scroll: pin the latest USER message near the top of the viewport (with a
   // one-viewport spacer below) so the user mostly sees the most recent exchange and scrolls up
   // for history — instead of stacking everything and showing Ebi repeated down the page.
+  // Size the bottom spacer so the latest turn can pin to the top with EXACTLY no over-scroll past it
+  // (maxScroll === the pin target). Uses offsetTop (layout px, relative to the position:relative
+  // container) — zoom-free and exact. Must be re-run after the reply fully renders (see effect below).
+  const CHAT_PAD = 12
+  const sizeChatSpacer = () => {
+    const c = chatTabScrollRef.current, sp = chatSpacerRef.current
+    if (!c || !sp) return
+    const users = c.querySelectorAll('[data-role="user"]')
+    const last = users[users.length - 1]
+    if (!last) { sp.style.height = '0px'; return }
+    const turnHeight = sp.offsetTop - last.offsetTop // spacer top = bottom of messages
+    sp.style.height = Math.max(0, c.clientHeight - turnHeight - CHAT_PAD) + 'px'
+  }
   const scrollChatToLatestTurn = () => {
     const c = chatTabScrollRef.current
     if (!c) return
+    sizeChatSpacer()
     const users = c.querySelectorAll('[data-role="user"]')
     const last = users[users.length - 1]
-    const sp = chatSpacerRef.current
-    if (!last) { if (sp) sp.style.height = '0px'; c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' }); return }
-    // Use offsetTop (layout px, relative to the position:relative container) — zoom-free and exact,
-    // unlike getBoundingClientRect. Size the spacer so the latest turn pins to the top with NO room
-    // to over-scroll past it: spacer = viewport − turnHeight − 12, which makes maxScroll == target.
-    const PAD = 12
-    const contentBottom = sp ? sp.offsetTop : c.scrollHeight
-    const turnHeight = contentBottom - last.offsetTop
-    if (sp) sp.style.height = Math.max(0, c.clientHeight - turnHeight - PAD) + 'px'
-    c.scrollTo({ top: Math.max(0, last.offsetTop - PAD), behavior: 'smooth' })
+    if (last) c.scrollTo({ top: Math.max(0, last.offsetTop - CHAT_PAD), behavior: 'smooth' })
+    else c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' })
   }
+  // Re-size the spacer AFTER the reply fully renders (double rAF) so the early measurement can't
+  // leave it too tall (which let you scroll into empty space past the last message).
+  useEffect(() => {
+    if (activeTab !== 'chat') return
+    const id = requestAnimationFrame(() => requestAnimationFrame(sizeChatSpacer))
+    return () => cancelAnimationFrame(id)
+  }, [chatTabMsgs, chatTabLoading, activeTab])
+  // Keep it correct on window/container resize too.
+  useEffect(() => {
+    const c = chatTabScrollRef.current
+    if (!c || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => sizeChatSpacer())
+    ro.observe(c)
+    return () => ro.disconnect()
+  }, [])
 
   // Load chat sessions from disk on mount, and restore the last-open session (persisted in
   // localStorage) so refreshing inside a chat keeps that chat instead of resetting to New Chat.
