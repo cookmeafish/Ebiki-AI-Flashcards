@@ -63,6 +63,48 @@ RULES:
 - If the image has no readable source-language text, return [].
 - Output ONLY the JSON array.`
 
+// Spanish flashcard generator — produces the user's exact Frente/Dorso format. Returns a
+// JSON ARRAY of card objects (one per distinct meaning; multiple = multi-meaning word).
+export const SPANISH_CARD_PROMPT = `You generate Spanish-learning flashcards for an American English speaker.
+
+You receive JSON: {"words": ["surcar", ...], "deck": "Español"}
+
+For EACH input word/phrase, output one or more card objects (multiple ONLY if it has clearly
+distinct unrelated meanings — one card per meaning). Each card object:
+- "word": the headword shown on the front. For verbs use the INFINITIVE.
+- "pos": part of speech in SPANISH (e.g. "sustantivo masculino", "sustantivo femenino", "verbo",
+  "adjetivo", "adverbio", "expresión").
+- "pronunciation": simplified phonetics for an American English speaker, stressed syllable in CAPS
+  (e.g. "soor-KAR").
+- "translation": main English translation(s).
+- "directTranslation": literal translation or cognate if a meaningful one exists; OMIT this key
+  entirely (or set "") if there is none.
+- "synonyms": similar ENGLISH words (comma-separated string), or "" if none.
+- "definition": a simple definition IN SPANISH.
+- "example": one natural Spanish example sentence followed by its English translation in parentheses.
+- "note": optional short note (e.g. "forma conjugada de 'surcar'" when a conjugated form was given);
+  OMIT or "" if not needed.
+- "correction": if the input looks misspelled, set this to the suggested correct spelling and base the
+  card on the corrected word; OMIT or "" otherwise.
+- "tags": array of useful tags (part of speech, level, topic). Always include "ebiki".
+
+All English is American English. Definitions stay concise and in Spanish; examples natural.
+Output ONLY the raw JSON array. No markdown, no backticks, no commentary.`
+
+// Generic flashcard generator for NON-language modes — lets the model design a format that
+// actually helps the learner for that subject (chemistry ≠ vocabulary). Returns a JSON ARRAY.
+export const GENERIC_CARD_PROMPT = `You generate study flashcards. Subject/mode: "{MODE}" ({TYPE}).
+
+You receive JSON: {"words": ["term", ...]}
+
+For EACH input term output one card object designed to best teach THAT subject (you choose which
+fields belong on the back — definition, key points, formula, example, etc.):
+- "word": the term shown on the front
+- "back": the back content as plain text. Put each labeled line as "Label: value" on its own line
+  (newline-separated) so labels can be bolded. Use whatever labels suit the subject.
+- "tags": array of relevant tags. Always include "ebiki".
+Output ONLY the raw JSON array. No markdown, no backticks, no commentary.`
+
 // Part-of-speech color map. Translucent tinted pills + accent-variable text so they read
 // on both Ocean Light and Dark (text colors flip with the theme via CSS variables).
 export const POS_COLORS = {

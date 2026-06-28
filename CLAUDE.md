@@ -119,6 +119,24 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   `getZoom()` everywhere a tooltip position is derived from a rect/cursor (hover, pin, drag), and clamp the
   pinned popup to the (zoom-adjusted) viewport so it's always fully visible.
 
+## Card generator (shared engine) + Quick-Add
+- `generateCards(words)` (App.jsx) is the shared engine. **Language modes** → `SPANISH_CARD_PROMPT`
+  (exact Frente/Dorso format, one card per distinct meaning, surfaces misspelling `correction`);
+  **other modes** → `GENERIC_CARD_PROMPT` (AI-designed back per subject). `spanishCardToFrontBack` builds
+  the labeled back; `cardBackToHtml` bolds `Label:` prefixes + `<br>` for Anki. Sync via `ankiAddNote`
+  (+ `ankiCreateDeck`, `ankiSync`); duplicate pre-check via `ankiCanAddNote` (`canAddNotes`) — warns, never blocks.
+- **Deck → ⚡ Quick Add** (`quickAdd*` state): paste many words → `generateCards` → a **review tray**
+  (per-card editable front/back/tags, ✓ accept toggle, per-card Sync, batch "Sync N approved", dup/correction
+  badges). Mirrors the existing recommendations-panel pattern.
+- **Chat** also emits cards: the chat system prompt tells the model the exact format (language vs subject)
+  and to split multi-meaning words; cards render as `<anki-card>` widgets; `chatTabSyncCard` HTML-formats + syncs.
+
+## Chat — composer "+" menu (learning-focused)
+- The chat composer has a Claude-style **"+" menu**: attach photo (sent to the chat model via the multimodal
+  `aiCall`), web search, and per-mode **Focus** preset (Tutor/Translator/Card-maker/Quiz-master/Free),
+  **Level**, and **Explain-in** language. Saved on `activeMode.chatPrefs` via `setChatPref` → `updateActiveMode`
+  and injected into the chat system prompt in `sendChatTabMessage`. Attached images ride along as `opts.images`.
+
 ## Chat — markdown rendering
 - Chat + Help messages render **markdown** via `src/components/Markdown.jsx` (`marked` + `DOMPurify`), themed
   by the global `.md-body` CSS in App.jsx's `<style>` block. Only **assistant** messages are parsed; user

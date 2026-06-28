@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import Tesseract from 'tesseract.js'
-import { TRANSLATE_PROMPT, VISION_OCR_PROMPT, POS_COLORS, CATEGORY_COLORS } from './config/prompts'
+import { TRANSLATE_PROMPT, VISION_OCR_PROMPT, SPANISH_CARD_PROMPT, GENERIC_CARD_PROMPT, POS_COLORS, CATEGORY_COLORS } from './config/prompts'
 import { dataUrlToImagePart, downscaleDataUrl } from './utils/image'
 import { PROVIDERS } from './config/providers'
 import { LANGS } from './config/languages'
@@ -15,7 +15,7 @@ import SettingsModal from './components/SettingsModal'
 import OnboardingWizard from './components/OnboardingWizard'
 import { S } from './styles/theme'
 import { ocrLog, ocrLogTable, ocrLogFlush } from './utils/logger'
-import { ankiPing, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiFindCards, ankiCardsInfo, ankiAnswerCards, ankiGetDeckStats, ankiFindNotes, ankiNotesInfo, ankiUpdateNote, ankiDeleteNotes, ankiSync, ankiGetNumCardsReviewedToday, ankiGetNumCardsReviewedByDay, ankiGetTodayReviewStats } from './utils/anki'
+import { ankiPing, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiCanAddNote, ankiFindCards, ankiCardsInfo, ankiAnswerCards, ankiGetDeckStats, ankiFindNotes, ankiNotesInfo, ankiUpdateNote, ankiDeleteNotes, ankiSync, ankiGetNumCardsReviewedToday, ankiGetNumCardsReviewedByDay, ankiGetTodayReviewStats } from './utils/anki'
 import { readBlob, writeBlob, DEFAULT_LEDGER } from './discover/storage'
 import { buildProfilePrompt, buildSuggestionPrompt, buildVerifyPrompt } from './discover/prompts'
 
@@ -382,6 +382,12 @@ export default function App() {
   const [deckAddGenerating, setDeckAddGenerating] = useState(false)
   const [deckAddSaving, setDeckAddSaving] = useState(false)
   const [deckAddError, setDeckAddError] = useState(null)
+  // Quick-Add: paste many words → generate formatted cards → review tray → sync approved.
+  const [quickAddOpen, setQuickAddOpen] = useState(false)
+  const [quickAddInput, setQuickAddInput] = useState('')
+  const [quickAddLoading, setQuickAddLoading] = useState(false)
+  const [quickAddError, setQuickAddError] = useState(null)
+  const [quickAddCards, setQuickAddCards] = useState([]) // [{ front, back, tags, correction, accepted, synced, syncing, dup }]
   const [deckAnalyzeLoading, setDeckAnalyzeLoading] = useState(false)
   const [deckAnalyzeRecs, setDeckAnalyzeRecs] = useState([]) // [{ noteId, reason, currentFields, recommendedFields, refineInput, refining, accepted }]
   const [deckAnalyzeCommitting, setDeckAnalyzeCommitting] = useState(false)
@@ -442,6 +448,10 @@ export default function App() {
   const [chatTabSessionId, setChatTabSessionId] = useState(null)
   const [chatTabEditingTitle, setChatTabEditingTitle] = useState(null)
   const [chatTabWebSearch, setChatTabWebSearch] = useState(false)
+  // Chat composer "+" menu (learning-focused options) + an optional attached image for the next message.
+  const [chatPlusOpen, setChatPlusOpen] = useState(false)
+  const [chatTabImage, setChatTabImage] = useState(null) // dataUrl
+  const chatImageInputRef = useRef(null)
   const [chatTabStatus, setChatTabStatus] = useState(null) // null | 'searching' | 'thinking' | 'search-done' | 'search-empty' | 'search-failed'
   const chatTabScrollRef = useRef(null)
 
@@ -1951,6 +1961,56 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
   // Shared card builder — turns a term into templated { front, back, tags } using the
   // active mode's format. Used by both the Picture-tab flow and Discover Mode. Pure: it
   // does not touch UI state, so callers control loading/preview/error handling.
+  // ── Card generator (shared by Deck Quick-Add and Chat) ───────────────────────
+  // Bold "Label:" prefixes and join with <br> for clean HTML in Anki's Back field.
+  const cardBackToHtml = (back) => String(back || '').split('\n').map((line) => {
+    const m = line.match(/^([A-Za-zÁÉÍÓÚáéíóúñÑ\s]+):(.*)$/)
+    return m ? `<b>${m[1]}:</b>${m[2]}` : line
+  }).join('<br>')
+
+  // Spanish card object → { front, back, tags } in the exact Frente/Dorso format.
+  const spanishCardToFrontBack = (c) => {
+    const lines = []
+    lines.push(`Pronunciación: ${c.pronunciation || ''}`)
+    lines.push(`Traducción: ${c.translation || ''}`)
+    if (c.directTranslation && String(c.directTranslation).trim()) lines.push(`Traducción Directa: ${c.directTranslation}`)
+    if (c.synonyms && String(c.synonyms).trim()) lines.push(`Sinónimos: ${c.synonyms}`)
+    lines.push(`Definición: ${c.definition || ''}`)
+    lines.push(`Ejemplo: ${c.example || ''}`)
+    if (c.note && String(c.note).trim()) lines.push(`Nota: ${c.note}`)
+    return {
+      front: `${c.word || ''}${c.pos ? ` (${c.pos})` : ''}`.trim(),
+      back: lines.join('\n'),
+      tags: Array.isArray(c.tags) && c.tags.length ? c.tags : ['ebiki'],
+      correction: c.correction || '',
+    }
+  }
+
+  // Generate one or more cards per input word. Spanish/language modes use the exact format;
+  // other modes let the AI design a subject-appropriate back. Returns [{ front, back, tags, _rich }].
+  const generateCards = async (words) => {
+    const list = (Array.isArray(words) ? words : [words]).map((w) => String(w).trim()).filter(Boolean)
+    if (!list.length) return []
+    if (activeMode.type === 'language') {
+      const payload = JSON.stringify({ words: list, deck: activeMode.ankiDeck || 'Español' })
+      const text = await aiCall(apiKey, SPANISH_CARD_PROMPT, payload, resolveModel('deck'))
+      const parsed = parseAiJson(text)
+      const arr = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : [])
+      return arr.filter((c) => c && (c.word || c.front)).map((c) => ({ ...spanishCardToFrontBack(c), _rich: c }))
+    }
+    const prompt = GENERIC_CARD_PROMPT.replace('{MODE}', activeMode.name).replace('{TYPE}', activeMode.type)
+    const text = await aiCall(apiKey, prompt, JSON.stringify({ words: list }), resolveModel('deck'))
+    const parsed = parseAiJson(text)
+    const arr = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : [])
+    return arr.filter((c) => c && (c.word || c.front)).map((c) => ({
+      front: c.word || c.front || '',
+      back: c.back || '',
+      tags: Array.isArray(c.tags) && c.tags.length ? c.tags : ['ebiki'],
+      correction: c.correction || '',
+      _rich: c,
+    }))
+  }
+
   const buildCardFields = async ({ term, partOfSpeech = '', translation = '', contextText = '' }) => {
     const srcLang = LANGS.find((l) => l.code === language)?.label || 'the source language'
     const tgtLang = LANGS.find((l) => l.code === targetLang)?.label || 'English'
@@ -2107,6 +2167,9 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     )
     saveModes(updated)
   }
+
+  // Per-mode chat composer preferences (focus / level / explain language).
+  const setChatPref = (k, v) => updateActiveMode({ chatPrefs: { ...(activeMode.chatPrefs || {}), [k]: v } })
 
   const deleteMode = (id) => {
     if (modes.length <= 1) return
@@ -2838,6 +2901,60 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       setDeckAddSaving(false)
     }
   }
+
+  // ── Quick-Add: batch-generate formatted cards into a review tray ───────────────
+  const runQuickAdd = async () => {
+    if (!apiKey) { setQuickAddError('Set your API key first'); return }
+    // Split on newlines or commas → distinct words/phrases.
+    const words = quickAddInput.split(/[\n,]+/).map((w) => w.trim()).filter(Boolean)
+    if (!words.length) { setQuickAddError('Type one or more words first'); return }
+    setQuickAddLoading(true)
+    setQuickAddError(null)
+    try {
+      const cards = await generateCards(words)
+      if (!cards.length) { setQuickAddError('No cards were generated — try again'); return }
+      const deck = deckBrowserDeck || activeMode.ankiDeck || ''
+      // Duplicate pre-check (best-effort; never blocks).
+      const withDup = await Promise.all(cards.map(async (c) => ({
+        ...c, accepted: true, synced: false, syncing: false,
+        dup: deck ? !(await ankiCanAddNote(deck, c.front, cardBackToHtml(c.back))) : false,
+      })))
+      setQuickAddCards(withDup)
+    } catch (err) {
+      setQuickAddError('Generation failed: ' + err.message)
+    } finally {
+      setQuickAddLoading(false)
+    }
+  }
+
+  const syncQuickAddCard = async (i) => {
+    const card = quickAddCards[i]
+    if (!card || card.synced || card.syncing) return
+    const deck = deckBrowserDeck || activeMode.ankiDeck || ''
+    if (!deck) { setQuickAddError('Select a deck first'); return }
+    setQuickAddCards((prev) => prev.map((c, k) => k === i ? { ...c, syncing: true } : c))
+    try {
+      const connected = await ankiPing()
+      setAnkiConnected(connected)
+      if (!connected) { setQuickAddError('Anki is not running — open Anki to add cards'); setQuickAddCards((prev) => prev.map((c, k) => k === i ? { ...c, syncing: false } : c)); return }
+      if (!(await ankiGetDecks().catch(() => [])).includes(deck)) await ankiCreateDeck(deck)
+      await ankiAddNote(deck, card.front, cardBackToHtml(card.back), (card.tags && card.tags.length) ? card.tags : ['ebiki'], card.dup)
+      ankiSync().catch(() => {})
+      setQuickAddCards((prev) => prev.map((c, k) => k === i ? { ...c, synced: true, syncing: false } : c))
+      if (deck === deckBrowserDeck) loadDeckNotes(deck).catch(() => {})
+    } catch (err) {
+      setQuickAddError('Sync failed: ' + err.message)
+      setQuickAddCards((prev) => prev.map((c, k) => k === i ? { ...c, syncing: false } : c))
+    }
+  }
+
+  const syncQuickAddAccepted = async () => {
+    for (let i = 0; i < quickAddCards.length; i++) {
+      if (quickAddCards[i].accepted && !quickAddCards[i].synced) await syncQuickAddCard(i)
+    }
+  }
+
+  const closeQuickAdd = () => { setQuickAddOpen(false); setQuickAddInput(''); setQuickAddCards([]); setQuickAddError(null) }
 
   // Merge each accepted group: update the first note with merged content, delete the rest.
   const commitAcceptedDups = async () => {
@@ -4510,28 +4627,39 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
 
   const sendChatTabMessage = async () => {
     const q = chatTabInput.trim()
-    if (!q || !apiKey || chatTabLoading) return
-    const newMsgs = [...chatTabMsgs, { role: 'user', content: q }]
+    const img = chatTabImage
+    if ((!q && !img) || !apiKey || chatTabLoading) return
+    const newMsgs = [...chatTabMsgs, { role: 'user', content: q || '(image)', image: img || undefined }]
     setChatTabMsgs(newMsgs)
     setChatTabInput('')
+    setChatTabImage(null)
+    setChatPlusOpen(false)
     setChatTabLoading(true)
     setTimeout(() => chatTabScrollRef.current?.scrollTo({ top: chatTabScrollRef.current.scrollHeight, behavior: 'smooth' }), 50)
     try {
       let systemPrompt = `You are a helpful study assistant. The user is studying with mode "${activeMode.name}".
 
 IMPORTANT BEHAVIOR RULES:
-1. When the user asks you to "make a deck" or "create cards" for a topic:
-   - DO NOT immediately generate cards
-   - Instead, ASK the user: "I can help with that! Would you like me to: (1) Search for top-rated existing Anki decks for this topic online, or (2) Generate custom cards based on specific objectives or materials you provide?"
-   - If they want to search: suggest they use the "Find Decks" feature (coming soon), or recommend searching AnkiWeb at ankiweb.net/shared/decks for "[topic]" and advise what to look for (high ratings, recent updates, comprehensive coverage)
-   - If they want custom cards: ask what specific topics, chapters, or objectives to cover. Ask if they have materials in their Knowledge Base. Then generate cards systematically by topic.
+1. When the user asks you to build a whole DECK or many cards for a broad topic:
+   - DO NOT immediately generate a wall of cards
+   - Instead, ASK: "I can help with that! Would you like me to: (1) Search for top-rated existing Anki decks for this topic online, or (2) Generate custom cards based on specific objectives or materials you provide?"
+   - If they want custom cards: ask what to cover, then generate systematically.
+   - BUT if the user just asks for a card for a SPECIFIC word/phrase (e.g. "make a card for surcar"), make it right away — no need to ask first.
 
-2. When creating flashcards (after the user confirms what they want):
-   - Generate cards one topic at a time, not all at once
-   - Use this JSON format wrapped in <anki-card> tags:
-   {"front": "...", "back": "...", "tags": [...]}
-   - Make cards high quality: clear fronts, comprehensive backs, relevant tags
-   - Ask if they want more cards on the same topic or move to the next
+2. When creating flashcards:
+   - Emit each card as JSON wrapped in <anki-card> tags: {"front": "...", "back": "...", "tags": [...]}
+   - If a word has clearly distinct meanings, emit a SEPARATE <anki-card> per meaning.
+   - If the input looks misspelled, mention the correction and base the card on the corrected word.
+${activeMode.type === 'language' ? `   - LANGUAGE MODE — use this EXACT back format (each label on its own line; American English):
+     front: "<word> (<part of speech in Spanish, e.g. 'verbo', 'sustantivo masculino'>)"
+     back (newline-separated labeled lines):
+       Pronunciación: <phonetics, stressed syllable in CAPS, e.g. soor-KAR>
+       Traducción: <main English translation(s)>
+       Traducción Directa: <literal/cognate — OMIT this line if none>
+       Sinónimos: <similar English words>
+       Definición: <simple definition IN SPANISH>
+       Ejemplo: <Spanish example (English translation in parentheses)>
+     tags: include part of speech, level, topic, and "ebiki".` : `   - Design a back that best teaches this subject (definition, key points, formula, example as fits). Always include an "ebiki" tag.`}
 
 3. For general questions: be concise and helpful. Explain concepts clearly.
 
@@ -4571,8 +4699,21 @@ Card contents (all ${chatTabAttachedDeck.cards.length} cards):\n${cardSummary}
 Focus on their weak areas. If you discover new struggles or notice improvement, wrap observation updates in <progress-update>new content for the file</progress-update> tags.`
       }
 
+      // Learning-focused composer prefs (per-mode "+" menu).
+      const prefs = activeMode.chatPrefs || {}
+      const focusText = {
+        tutor: 'Act as a patient tutor: explain step-by-step and check the user understands.',
+        translator: 'Act as a translator: give the translation first, then briefly explain nuances.',
+        cardmaker: 'Bias toward flashcards: when a useful word/term comes up, proactively offer a formatted <anki-card>.',
+        quiz: 'Quiz the user: ask questions and give feedback instead of lecturing.',
+      }[prefs.focus] || ''
+      if (focusText) systemPrompt += `\n\nFOCUS: ${focusText}`
+      if (prefs.level) systemPrompt += `\nTarget a ${prefs.level} learner.`
+      if (prefs.explain && prefs.explain !== 'auto') systemPrompt += `\nWrite your explanations in ${prefs.explain}.`
+
       const convo = newMsgs.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n\n')
-      const text = await aiCall(apiKey, systemPrompt, convo, resolveModel('chat'))
+      const imgPart = img ? dataUrlToImagePart(await downscaleDataUrl(img, 1500)) : null
+      const text = await aiCall(apiKey, systemPrompt, convo, resolveModel('chat'), imgPart ? { images: [imgPart] } : undefined)
 
       // Parse anki cards from response
       const cardMatches = [...text.matchAll(/<anki-card>(.*?)<\/anki-card>/gs)]
@@ -4630,7 +4771,9 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
     if (!ankiConnected) return
     const deck = ankiDeck || ankiDecks[0] || 'Default'
     try {
-      await ankiAddNote(deck, card.front, card.back, card.tags || ['screenlens'])
+      if (!(await ankiGetDecks().catch(() => [])).includes(deck)) await ankiCreateDeck(deck)
+      // Bold the "Label:" prefixes so the formatted back renders cleanly in Anki.
+      await ankiAddNote(deck, card.front, cardBackToHtml(card.back), card.tags || ['ebiki'])
       ankiSync().catch(() => {})
       // Mark card as synced in the message
       setChatTabMsgs(prev => prev.map((m, i) => {
@@ -5327,6 +5470,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   style={{ background: 'rgba(223,37,64,0.12)', color: 'var(--c-brand)', border: '1px solid rgba(223,37,64,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: deckAddOpen ? 0.5 : 1 }}>
                   + Add card
                 </button>
+                <button onClick={() => setQuickAddOpen((v) => !v)} disabled={!apiKey}
+                  title="Paste many words → generate formatted cards → review → sync"
+                  style={{ background: 'rgba(17,168,160,0.12)', color: 'var(--c-teal)', border: '1px solid rgba(17,168,160,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: !apiKey ? 0.5 : 1 }}>
+                  ⚡ Quick Add
+                </button>
                 {deckBrowserNotes.length > 0 && (<>
                   <button
                     onClick={analyzeDeck}
@@ -5352,6 +5500,79 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     <span style={{ fontSize: 10, color: 'var(--c-success)' }}>No duplicates found — your deck looks clean.</span>
                   )}
                 </>)}
+              </div>
+            )}
+
+            {/* Quick Add — batch generate formatted cards → review tray → sync */}
+            {quickAddOpen && (
+              <div style={{ marginBottom: 12, border: '1px solid rgba(17,168,160,0.3)', borderRadius: 8, padding: 14, background: 'rgba(17,168,160,0.04)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <div style={{ fontSize: 12, color: 'var(--c-teal)', fontWeight: 700 }}>⚡ Quick Add → {deckBrowserDeck || activeMode.ankiDeck || 'pick a deck'}</div>
+                  <button onClick={closeQuickAdd} style={{ ...S.ghostBtn, fontSize: 11 }}>Close</button>
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 6 }}>
+                  Paste words (one per line or comma-separated). {activeMode.type === 'language' ? 'Spanish cards use your Frente/Dorso format.' : `Cards are tailored for ${activeMode.name}.`}
+                </div>
+                <textarea
+                  value={quickAddInput}
+                  onChange={(e) => setQuickAddInput(e.target.value)}
+                  placeholder={'surcar\nhuelga\nrendir cuentas'}
+                  rows={3}
+                  style={{ width: '100%', boxSizing: 'border-box', fontSize: 12, fontFamily: 'inherit', padding: 8, borderRadius: 6, border: '1px solid var(--c-border)', background: 'var(--c-surface-sunken)', color: 'var(--c-ink)', resize: 'vertical' }}
+                />
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+                  <button onClick={runQuickAdd} disabled={quickAddLoading || !quickAddInput.trim()}
+                    style={{ ...S.captureBtn, borderRadius: 5, fontSize: 11, opacity: (quickAddLoading || !quickAddInput.trim()) ? 0.5 : 1 }}>
+                    {quickAddLoading ? 'Generating…' : 'Generate cards'}
+                  </button>
+                  {quickAddCards.length > 0 && (
+                    <button onClick={syncQuickAddAccepted} disabled={!quickAddCards.some((c) => c.accepted && !c.synced)}
+                      style={{ background: 'rgba(24,169,87,0.14)', color: 'var(--c-success)', border: '1px solid rgba(24,169,87,0.35)', borderRadius: 5, padding: '7px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: quickAddCards.some((c) => c.accepted && !c.synced) ? 1 : 0.5 }}>
+                      Sync {quickAddCards.filter((c) => c.accepted && !c.synced).length} approved
+                    </button>
+                  )}
+                  {quickAddError && <span style={{ fontSize: 10, color: 'var(--c-danger)' }}>{quickAddError}</span>}
+                </div>
+
+                {/* Review tray */}
+                {quickAddCards.map((card, i) => (
+                  <div key={i} style={{ marginTop: 10, border: `1px solid ${card.accepted ? 'rgba(24,169,87,0.35)' : 'var(--c-border)'}`, borderRadius: 6, padding: 10, background: 'var(--c-surface)', opacity: card.accepted ? 1 : 0.55 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <input value={card.front} onChange={(e) => setQuickAddCards((prev) => prev.map((c, k) => k === i ? { ...c, front: e.target.value } : c))}
+                          style={{ width: '100%', boxSizing: 'border-box', fontSize: 12, fontWeight: 700, fontFamily: 'inherit', padding: '4px 6px', borderRadius: 4, border: '1px solid var(--c-border)', background: 'var(--c-surface-sunken)', color: 'var(--c-ink)', marginBottom: 4 }} />
+                        <textarea value={card.back} onChange={(e) => setQuickAddCards((prev) => prev.map((c, k) => k === i ? { ...c, back: e.target.value } : c))}
+                          rows={card.back.split('\n').length}
+                          style={{ width: '100%', boxSizing: 'border-box', fontSize: 11, fontFamily: 'inherit', padding: '4px 6px', borderRadius: 4, border: '1px solid var(--c-border)', background: 'var(--c-surface-sunken)', color: 'var(--c-ink)', resize: 'vertical', lineHeight: 1.5 }} />
+                        {(card.correction || card.dup) && (
+                          <div style={{ marginTop: 4, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            {card.correction && <span style={{ fontSize: 10, color: 'var(--c-warning)' }}>✎ corrected to “{card.correction}”</span>}
+                            {card.dup && <span style={{ fontSize: 10, color: 'var(--c-warning)' }}>⚠ already in deck — sync adds anyway</span>}
+                          </div>
+                        )}
+                        {card.tags?.length > 0 && (
+                          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
+                            {card.tags.map((t, ti) => <span key={ti} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: 'rgba(125,133,144,.15)', color: 'var(--c-ink-dim)' }}>{t}</span>)}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' }}>
+                        {card.synced ? (
+                          <span style={{ fontSize: 10, color: 'var(--c-success)', fontWeight: 700 }}>✓ Synced</span>
+                        ) : (<>
+                          <button onClick={() => setQuickAddCards((prev) => prev.map((c, k) => k === i ? { ...c, accepted: !c.accepted } : c))}
+                            title={card.accepted ? 'Approved' : 'Skipped'}
+                            style={{ width: 26, height: 26, borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit', border: `1px solid ${card.accepted ? 'rgba(24,169,87,0.5)' : 'var(--c-border)'}`, background: card.accepted ? 'rgba(24,169,87,0.18)' : 'transparent', color: card.accepted ? 'var(--c-success)' : 'var(--c-ink-dim)' }}>✓</button>
+                          <button onClick={() => syncQuickAddCard(i)} disabled={card.syncing || !card.accepted}
+                            title="Sync this card to Anki"
+                            style={{ fontSize: 9, padding: '3px 6px', borderRadius: 4, cursor: 'pointer', fontFamily: 'inherit', border: '1px solid var(--c-border)', background: 'var(--c-surface-sunken)', color: 'var(--c-ink-dim)', opacity: (card.syncing || !card.accepted) ? 0.5 : 1 }}>
+                            {card.syncing ? '…' : 'Sync'}
+                          </button>
+                        </>)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
 
@@ -5878,7 +6099,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     border: `1px solid ${m.role === 'user' ? 'rgba(223,37,64,.28)' : 'var(--c-border)'}`,
                     color: 'var(--c-ink)', ...(m.role === 'user' ? { whiteSpace: 'pre-wrap' } : {}),
                   }}>
-                    {m.role === 'user' ? m.content : <Markdown text={m.content} />}
+                    {m.image && <img src={m.image} alt="attached" style={{ display: 'block', maxWidth: 220, maxHeight: 160, borderRadius: 8, marginBottom: m.content && m.content !== '(image)' ? 8 : 0 }} />}
+                    {m.role === 'user' ? (m.content === '(image)' ? '' : m.content) : <Markdown text={m.content} />}
                   </div>
                   {/* Inline Anki card previews */}
                   {m.cards?.map((card, ci) => (
@@ -5951,7 +6173,51 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 )}
                 {chatTabAttachLoading && <span style={{ fontSize: 10, color: 'var(--c-ink-dim)' }}>Loading deck...</span>}
               </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              {/* Attached-image preview for the next message */}
+              {chatTabImage && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <img src={chatTabImage} alt="attached" style={{ height: 44, borderRadius: 6, border: '1px solid var(--c-border)' }} />
+                  <button onClick={() => setChatTabImage(null)} style={{ ...S.ghostBtn, fontSize: 10 }}>Remove image</button>
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', position: 'relative' }}>
+                <input ref={chatImageInputRef} type="file" accept="image/*" style={{ display: 'none' }}
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) { const r = new FileReader(); r.onload = (ev) => setChatTabImage(ev.target.result); r.readAsDataURL(f) } e.target.value = ''; setChatPlusOpen(false) }} />
+                {/* "+" learning-focused options menu */}
+                <button onClick={() => setChatPlusOpen((v) => !v)} title="Options"
+                  style={{ background: chatPlusOpen ? 'rgba(223,37,64,.15)' : 'transparent', border: `1px solid ${chatPlusOpen ? 'var(--c-brand)' : 'var(--c-border)'}`, color: chatPlusOpen ? 'var(--c-brand)' : 'var(--c-ink-faint)', borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontSize: 16, lineHeight: 1, fontFamily: 'inherit' }}>+</button>
+                {chatPlusOpen && (() => {
+                  const prefs = activeMode.chatPrefs || {}
+                  const itemStyle = { textAlign: 'left', background: 'transparent', border: 'none', color: 'var(--c-ink)', fontFamily: 'inherit', fontSize: 12, padding: '7px 8px', borderRadius: 6, cursor: 'pointer' }
+                  const labelStyle = { fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--c-ink-dim)', padding: '6px 8px 2px' }
+                  const selStyle = { ...S.select, fontSize: 11, padding: '5px 6px', margin: '0 6px' }
+                  return (
+                    <div style={{ position: 'absolute', bottom: 'calc(100% + 8px)', left: 0, width: 230, background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 10, boxShadow: SHADOW.lg, padding: 6, zIndex: 50, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <button onClick={() => chatImageInputRef.current?.click()} style={itemStyle}>📷 Attach photo</button>
+                      <button onClick={() => setChatTabWebSearch((v) => !v)} style={itemStyle}>🌐 Web search {chatTabWebSearch ? '✓' : ''}</button>
+                      <div style={labelStyle}>Focus</div>
+                      <select value={prefs.focus || 'free'} onChange={(e) => setChatPref('focus', e.target.value)} style={selStyle}>
+                        <option value="free">Free chat</option>
+                        <option value="tutor">Tutor</option>
+                        <option value="translator">Translator</option>
+                        <option value="cardmaker">Card-maker</option>
+                        <option value="quiz">Quiz-master</option>
+                      </select>
+                      <div style={labelStyle}>Level</div>
+                      <select value={prefs.level || 'intermediate'} onChange={(e) => setChatPref('level', e.target.value)} style={selStyle}>
+                        <option value="beginner">Beginner</option>
+                        <option value="intermediate">Intermediate</option>
+                        <option value="advanced">Advanced</option>
+                      </select>
+                      <div style={labelStyle}>Explain in</div>
+                      <select value={prefs.explain || 'auto'} onChange={(e) => setChatPref('explain', e.target.value)} style={selStyle}>
+                        <option value="auto">Auto</option>
+                        <option value="English">English</option>
+                        <option value="Spanish">Spanish</option>
+                      </select>
+                    </div>
+                  )
+                })()}
                 <button
                   onClick={() => setChatTabWebSearch(prev => !prev)}
                   title={chatTabWebSearch ? 'Web search enabled' : 'Enable web search'}
@@ -5974,8 +6240,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 />
                 <button
                   onClick={sendChatTabMessage}
-                  disabled={chatTabLoading || !chatTabInput.trim()}
-                  style={{ ...S.captureBtn, borderRadius: 6, opacity: chatTabLoading || !chatTabInput.trim() ? 0.5 : 1 }}
+                  disabled={chatTabLoading || (!chatTabInput.trim() && !chatTabImage)}
+                  style={{ ...S.captureBtn, borderRadius: 6, opacity: chatTabLoading || (!chatTabInput.trim() && !chatTabImage) ? 0.5 : 1 }}
                 >
                   Send
                 </button>

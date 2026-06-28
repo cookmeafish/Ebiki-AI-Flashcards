@@ -40,19 +40,32 @@ export async function ankiCreateDeck(deckName) {
   return ankiRequest('createDeck', { deck: deckName })
 }
 
-export async function ankiAddNote(deckName, front, back, tags = []) {
+export async function ankiAddNote(deckName, front, back, tags = [], allowDuplicate = false) {
   ankiLog(`adding note to deck "${deckName}"`, { front, back, tags })
   const noteId = await ankiRequest('addNote', {
     note: {
       deckName,
       modelName: 'Basic',
       fields: { Front: front, Back: back },
-      options: { allowDuplicate: false },
+      options: { allowDuplicate },
       tags,
     },
   })
   ankiLog(`note added, id: ${noteId}`)
   return noteId
+}
+
+// Duplicate pre-check. Returns true if the note can be added (no duplicate). On any error
+// (e.g. Anki not running) returns true so we never block adding on a flaky check.
+export async function ankiCanAddNote(deckName, front, back) {
+  try {
+    const res = await ankiRequest('canAddNotes', {
+      notes: [{ deckName, modelName: 'Basic', fields: { Front: front, Back: back }, tags: [] }],
+    })
+    return Array.isArray(res) ? res[0] !== false : true
+  } catch {
+    return true
+  }
 }
 
 export async function ankiFindCards(query) {
