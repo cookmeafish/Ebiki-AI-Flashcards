@@ -11,6 +11,9 @@
 // (better a plain Ebi than a pose that doesn't correlate). This is also the AI's "default".
 export const DEFAULT_SHRIMP = 'shrimp.png'
 
+// Resting image for the floating Help button before any context (the peeking hole shrimp).
+export const IDLE_SHRIMP = '6820-holeshrimp.png'
+
 export const shrimpUrl = (file) => `/assets/shrimp/${file}`
 
 // ⭐ ADDING A NEW EMOTE (when the user drops new shrimp PNGs):

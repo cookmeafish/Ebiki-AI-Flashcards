@@ -4,7 +4,7 @@ import { TRANSLATE_PROMPT, POS_COLORS, CATEGORY_COLORS } from './config/prompts'
 import { PROVIDERS } from './config/providers'
 import { LANGS } from './config/languages'
 import { makeT, APP_LANGUAGES } from './i18n'
-import { pickShrimp, shrimpUrl, DEFAULT_SHRIMP, POSE_NAMES, poseFile } from './config/shrimp'
+import { pickShrimp, shrimpUrl, DEFAULT_SHRIMP, IDLE_SHRIMP, POSE_NAMES, poseFile } from './config/shrimp'
 import { C, RADIUS, SHADOW, FONT } from './config/tokens'
 import FormattedText from './components/FormattedText'
 import HelpChat from './components/HelpChat'
@@ -144,7 +144,7 @@ export default function App() {
   // Ebi (the shrimp mascot) pose for the bottom-left button. Updated the instant any AI
   // exchange fires (study question shown, chat/feedback message sent, picture word, etc.)
   // so Ebi always matches what's happening. Ebi's Help chat overrides this with its own.
-  const [aiMascot, setAiMascot] = useState(DEFAULT_SHRIMP)
+  const [aiMascot, setAiMascot] = useState(IDLE_SHRIMP)
   const [askEbiSignal, setAskEbiSignal] = useState(0) // bump to open Ebi's Help (study "Ask Ebi")
   const [onboarded, setOnboarded] = useState(false) // first-run onboarding completed?
   // Strip study-question boilerplate ("¿Cómo se dice '…'?", "How do you say …") so pose
@@ -261,6 +261,8 @@ export default function App() {
   const [editingModeName, setEditingModeName] = useState(null)
   const [modeCreating, setModeCreating] = useState(false)
   const [modeEditInput, setModeEditInput] = useState('')
+  const [modeEditProposal, setModeEditProposal] = useState(null) // { scope, changes:[{key,label,before,after}] }
+  const [modeEditBusy, setModeEditBusy] = useState(false)
 
   const [studyActive, setStudyActive] = useState(false)
   const [studyAllCards, setStudyAllCards] = useState([])     // all cards to study
@@ -2923,44 +2925,70 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
   }
 
   // ─── AI Format Editing ───────────────────────────────────────────────────
-  const editModeWithAI = async (instruction) => {
-    if (!apiKey || modeCreating) return
-    setModeCreating(true)
+  // ── "Ask AI" mode edits with a review step (propose → accept/deny/modify) ──
+  // Scopes group which per-mode fields an edit touches.
+  const MODE_EDIT_SCOPES = {
+    cards: [
+      { key: 'fields', label: 'Fields' },
+      { key: 'frontTemplate', label: 'Front template' },
+      { key: 'backTemplate', label: 'Back template' },
+      { key: 'tagRules', label: 'Tag rules' },
+    ],
+    study: [
+      { key: 'questionPrompt', label: 'Question generation prompt' },
+      { key: 'ratingRules', label: 'Rating rules' },
+    ],
+  }
+  const modeFieldValue = (key) => {
+    if (key === 'questionPrompt') return activeMode.studyRules?.questionPrompt || (activeMode.type === 'language' ? defaultStudyRules : defaultGeneralStudyRules).questionPrompt
+    if (key === 'ratingRules') return activeMode.studyRules?.ratingRules || defaultStudyRules.ratingRules
+    return activeMode[key]
+  }
+  // Ask the AI for changes but DON'T apply them — store a proposal to review.
+  const proposeModeEdit = async (instruction, scope) => {
+    if (!apiKey || modeEditBusy || !instruction?.trim()) return
+    setModeEditBusy(true); setModeEditProposal(null); setAnkiError(null)
     try {
-      const prompt = `Current study mode config:
-${JSON.stringify({ name: activeMode.name, type: activeMode.type, fields: activeMode.fields, frontTemplate: activeMode.frontTemplate, backTemplate: activeMode.backTemplate, tagRules: activeMode.tagRules, questionPrompt: activeMode.studyRules?.questionPrompt || '' }, null, 2)}
+      const meta = MODE_EDIT_SCOPES[scope] || MODE_EDIT_SCOPES.cards
+      const current = {}; meta.forEach((f) => { current[f.key] = modeFieldValue(f.key) })
+      const prompt = `Current ${scope} settings (JSON):
+${JSON.stringify(current, null, 2)}
 
-User's request: "${instruction}"
+User request: "${instruction}"
 
-Modify the config according to the user's request. Return the FULL updated JSON config with all fields (name, type, fields, frontTemplate, backTemplate, tagRules, questionPrompt). Keep everything the user didn't ask to change.
-
+Return ONLY updated JSON with these exact keys: ${meta.map((f) => f.key).join(', ')}. Keep anything the user didn't ask to change identical to the current value.${scope === 'cards' ? ' "fields" is an object of {fieldName: boolean}.' : ''}
 Output ONLY raw JSON. No markdown, no backticks.`
-
-      const text = await aiCall(apiKey,
-        'You modify study mode configurations. Always respond with valid JSON only.',
-        prompt, resolveModel('general')
-      )
-      const config = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
-      const updates = {
-        name: config.name || activeMode.name,
-        type: config.type || activeMode.type,
-        fields: config.fields || activeMode.fields,
-        frontTemplate: config.frontTemplate || activeMode.frontTemplate,
-        backTemplate: config.backTemplate || activeMode.backTemplate,
-        tagRules: config.tagRules || activeMode.tagRules,
+      const text = await aiCall(apiKey, 'You modify study-mode settings. Respond with valid JSON only.', prompt, resolveModel('general'))
+      const cfg = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+      const changes = []
+      for (const f of meta) {
+        if (cfg[f.key] === undefined) continue
+        if (JSON.stringify(modeFieldValue(f.key)) !== JSON.stringify(cfg[f.key])) {
+          changes.push({ key: f.key, label: f.label, before: modeFieldValue(f.key), after: cfg[f.key] })
+        }
       }
-      if (config.questionPrompt) {
-        updates.studyRules = { ...(activeMode.studyRules || defaultStudyRules), questionPrompt: config.questionPrompt }
-      }
-      updateActiveMode(updates)
-      console.log('[Mode] updated via AI:', config)
-    } catch (err) {
-      console.error('[Mode] AI edit failed:', err.message)
-      setAnkiError('Format edit failed: ' + err.message)
+      if (changes.length === 0) setAnkiError('Ebi proposed no changes — try rephrasing.')
+      else setModeEditProposal({ scope, changes })
+    } catch (e) {
+      setAnkiError('AI edit failed: ' + e.message)
     } finally {
-      setModeCreating(false)
+      setModeEditBusy(false)
     }
   }
+  const acceptModeEdit = () => {
+    if (!modeEditProposal) return
+    const { scope, changes } = modeEditProposal
+    if (scope === 'study') {
+      const sr = { ...(activeMode.studyRules || defaultStudyRules) }
+      changes.forEach((c) => { sr[c.key] = c.after })
+      updateActiveMode({ studyRules: sr })
+    } else {
+      const upd = {}; changes.forEach((c) => { upd[c.key] = c.after })
+      updateActiveMode(upd)
+    }
+    setModeEditProposal(null)
+  }
+  const denyModeEdit = () => setModeEditProposal(null)
 
   // ─── Study Session (interleaved multi-card) ────────────────────────────
   const stripHtml = (html) => {
@@ -4827,7 +4855,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           activeMode={activeMode} updateActiveMode={updateActiveMode}
           defaultStudyRules={defaultStudyRules} defaultGeneralStudyRules={defaultGeneralStudyRules}
           ankiConnected={ankiConnected} refreshAnkiConnection={refreshAnkiConnection} ankiDecks={ankiDecks}
-          ankiDeck={ankiDeck} setAnkiDeck={setAnkiDeck} ankiFormat={ankiFormat} editModeWithAI={editModeWithAI}
+          ankiDeck={ankiDeck} setAnkiDeck={setAnkiDeck} ankiFormat={ankiFormat}
+          proposeModeEdit={proposeModeEdit} acceptModeEdit={acceptModeEdit} denyModeEdit={denyModeEdit}
+          modeEditProposal={modeEditProposal} modeEditBusy={modeEditBusy} diffWords={diffWords}
           knowledgeFiles={knowledgeFiles} knowledgeDragging={knowledgeDragging} setKnowledgeDragging={setKnowledgeDragging}
           handleKnowledgeDrop={handleKnowledgeDrop} handleKnowledgeFileInput={handleKnowledgeFileInput}
           toggleKnowledgeFile={toggleKnowledgeFile} deleteKnowledgeFile={deleteKnowledgeFile}

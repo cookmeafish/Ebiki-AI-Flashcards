@@ -27,7 +27,7 @@ export default function SettingsModal(p) {
     // Mode config
     activeMode, updateActiveMode, defaultStudyRules, defaultGeneralStudyRules,
     ankiConnected, refreshAnkiConnection, ankiDecks, ankiDeck, setAnkiDeck, ankiFormat,
-    editModeWithAI,
+    proposeModeEdit, acceptModeEdit, denyModeEdit, modeEditProposal, modeEditBusy, diffWords,
     // Knowledge
     knowledgeFiles, knowledgeDragging, setKnowledgeDragging, handleKnowledgeDrop,
     handleKnowledgeFileInput, toggleKnowledgeFile, deleteKnowledgeFile,
@@ -83,6 +83,49 @@ export default function SettingsModal(p) {
       )}
     </div>
   )
+
+  // ── "Ask AI" box with a review step (propose → before/after → accept/deny/modify) ──
+  const askAi = (scope, placeholder) => {
+    const proposal = modeEditProposal && modeEditProposal.scope === scope ? modeEditProposal : null
+    const toStr = (v) => (v && typeof v === 'object') ? Object.entries(v).filter(([, e]) => e).map(([k]) => k).join(', ') : String(v ?? '')
+    return (
+      <div style={{ marginTop: 10 }}>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input value={modeEditInput} onChange={(e) => setModeEditInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && modeEditInput.trim() && !modeEditBusy) { proposeModeEdit(modeEditInput.trim(), scope); } }}
+            placeholder={placeholder} style={{ ...S.keyInput, flex: 1, fontSize: 12 }} disabled={modeEditBusy} />
+          <button onClick={() => { if (modeEditInput.trim()) proposeModeEdit(modeEditInput.trim(), scope) }}
+            disabled={modeEditBusy || !modeEditInput.trim()} style={{ ...S.getKeyLink, opacity: modeEditBusy ? 0.5 : 1 }}>
+            {modeEditBusy ? '…' : t('askAi')}
+          </button>
+        </div>
+        {proposal && (
+          <div style={{ marginTop: 10, border: `1px solid ${C.brandRing}`, borderRadius: RADIUS.md, padding: '12px 14px', background: C.brandTint2 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: C.brand, marginBottom: 8, letterSpacing: '.03em' }}>{t('ebiSuggests')}</div>
+            {proposal.changes.map((ch) => (
+              <div key={ch.key} style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 10, fontWeight: 700, color: C.inkDim, marginBottom: 3, textTransform: 'uppercase' }}>{ch.label}</div>
+                <div style={{ fontSize: 12, lineHeight: 1.55, background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.sm, padding: '8px 10px', maxHeight: 160, overflow: 'auto', whiteSpace: 'pre-wrap' }}>
+                  {diffWords(toStr(ch.before), toStr(ch.after)).map((tk, i) => (
+                    <span key={i} style={{
+                      background: tk.type === 'add' ? C.successTint : tk.type === 'del' ? C.dangerTint : 'transparent',
+                      color: tk.type === 'add' ? C.success : tk.type === 'del' ? C.danger : C.ink,
+                      textDecoration: tk.type === 'del' ? 'line-through' : 'none',
+                    }}>{tk.text}</span>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button onClick={() => { acceptModeEdit(); setModeEditInput('') }} style={{ ...S.keyDone, fontSize: 12, padding: '7px 16px' }}>✓ {t('accept')}</button>
+              <button onClick={denyModeEdit} style={{ ...S.ghostBtn, fontSize: 12, padding: '7px 14px', color: C.danger, borderColor: 'rgba(229,57,46,.3)' }}>✗ {t('deny')}</button>
+              <span style={{ fontSize: 11, color: C.inkFaint, marginLeft: 4 }}>{t('orModify')}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   // ── Panes ──
   const General = (
@@ -249,6 +292,7 @@ export default function SettingsModal(p) {
             onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), ratingRules: e.target.value } })}
             style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box' }} />
         </div>
+        {askAi('study', t('askAiStudyPlaceholder'))}
       </div>
     </div>
   )
@@ -272,14 +316,8 @@ export default function SettingsModal(p) {
       </div>
       <div style={card}>
         {fieldLabel(t('cardFormat'))}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-          <input value={modeEditInput} onChange={(e) => setModeEditInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && modeEditInput.trim()) { editModeWithAI(modeEditInput.trim()); setModeEditInput('') } }}
-            placeholder={t('aiEditPlaceholder')} style={{ ...S.keyInput, flex: 1, fontSize: 12 }} disabled={modeCreating} />
-          <button onClick={() => { if (modeEditInput.trim()) { editModeWithAI(modeEditInput.trim()); setModeEditInput('') } }}
-            disabled={modeCreating || !modeEditInput.trim()} style={{ ...S.getKeyLink, opacity: modeCreating ? 0.5 : 1 }}>{modeCreating ? '…' : t('aiEdit')}</button>
-        </div>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
+        {askAi('cards', t('aiEditPlaceholder'))}
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', margin: '12px 0 10px' }}>
           {Object.entries(ankiFormat.fields || {}).map(([field, enabled]) => (
             <label key={field} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: enabled ? C.ink : C.inkDim, cursor: 'pointer' }}>
               <input type="checkbox" checked={enabled} onChange={() => updateActiveMode({ fields: { ...ankiFormat.fields, [field]: !enabled } })} /> {field}
