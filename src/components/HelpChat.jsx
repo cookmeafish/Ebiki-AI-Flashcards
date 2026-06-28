@@ -401,8 +401,9 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {/* Ebi on the right of the title line — reflects the context-aware pose (mascotFile) */}
-          <img src={shrimpUrl(mascotFile || IDLE_SHRIMP)} alt="Ebi" draggable={false} style={{ width: 30, height: 30, objectFit: 'contain', pointerEvents: 'none', transition: 'opacity .2s' }} />
+          {/* Ebi on the right of the title line — reflects the context-aware pose (mascotFile).
+              Sized up but with negative vertical margins so it doesn't bloat the header height. */}
+          <img src={shrimpUrl(mascotFile || IDLE_SHRIMP)} alt="Ebi" draggable={false} style={{ width: 46, height: 46, objectFit: 'contain', pointerEvents: 'none', margin: '-10px 0', transition: 'opacity .2s' }} />
           {isSidePanel ? (
             <span
               onMouseDown={(e) => e.stopPropagation()}
