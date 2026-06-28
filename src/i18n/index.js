@@ -88,7 +88,7 @@ const en = {
   overlayTransparent: 'Transparent background on area select (Ctrl+Shift+A)',
   overlayTransparentHint: 'When enabled, only the selected area stays frozen — the rest of the screen shows through live.',
   createModePlaceholder: 'What do you want to learn? (e.g. Spanish, Security+, Organic Chemistry)',
-  defaultMode: 'Default Mode',
+  defaultMode: 'Language Learning mode',
   askEbi: 'Ask Ebi',
   // ── Onboarding wizard ──
   obStart: "Let's go", obNext: 'Next', obSkip: 'Skip for now', obFinish: 'Start learning',
