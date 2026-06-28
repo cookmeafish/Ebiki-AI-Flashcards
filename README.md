@@ -17,10 +17,14 @@ A multi-tab learning app with AI chat, Anki-integrated study sessions, screen tr
 - **Stats** — Study streaks, accuracy trends, per-deck breakdown, and recent sessions
 
 ### Core Features
-- **Multi-provider AI** — Claude, GPT, Gemini, and Grok with a unified AI Settings panel
-- **Configurable models per feature** — each app area (Picture, Deck, Study, Discover, Chat, Help, General) has its own model, chosen from a **dropdown** of the provider's live model list (no typing). Blank = the provider's built-in default, which is shown so you always see the model in use
-- **Check for new models** — a button fetches the latest available models from the provider's API so new releases (Claude, GPT, Gemini, Grok) appear in the dropdowns automatically; the list is cached and auto-fetched when the panel opens
+- **First-run onboarding** — an Ebi-guided wizard walks new users through app language → light/dark → AI provider + key → first study mode. Re-runnable anytime from Settings → General
+- **Unified Settings** — one ⚙ modal with a scoped sidebar: **App settings** (General — appearance, app language, translation · AI models) vs **Mode settings** (Study · Cards & Anki · Knowledge base · Screen overlay · Learning modes). A quick mode-switcher stays in the header
+- **Light & Dark themes** — Ocean Light by default, dark mode toggle in Settings → General (persisted, no flash on load)
+- **Multi-provider AI** — Claude, GPT, Gemini, and Grok
+- **Configurable models per feature** — each app area (Picture, Deck, Study, Discover, Chat, Help, **Mascot**, General) has its own model, chosen from a **dropdown** of the provider's live model list, **or type a custom model id** (future-proof). Blank = the provider's default, which is shown so you always see the model in use
+- **Check for new models** — a button fetches the latest models from the provider's API so new releases appear automatically; the list is cached and auto-fetched
 - **Self-healing models** — if a configured model has been retired (e.g. an API 404), the app queries the provider's models API, switches to a current model, retries, saves the choice, and shows a toast
+- **Ask AI to edit settings** — in Cards & Anki and Study, describe a change and the AI proposes it as a **before/after diff** you Accept / Deny / refine — nothing is applied without confirmation
 - **App language** — translate the entire UI (tabs, buttons, labels) into English, Spanish, Chinese, or Japanese; flashcard content is never translated
 - **Learning modes** — Create AI-configured modes for any subject (languages, Security+, Organic Chemistry, etc.)
 - **Anki integration** — Generate flashcards, sync to Anki, study with AI quizzes, browse/edit decks
@@ -78,9 +82,8 @@ screenlens/
   electron/            ← Optional Electron overlay companion
     main.cjs           ← Electron main process (overlay + area select)
     preload.cjs        ← IPC bridge
-  modes/
-    Default/           ← Default mode template (committed to git)
-    <your modes>/      ← Your custom modes (gitignored)
+  modes/               ← All modes (gitignored, auto-generated per user)
+    <your modes>/      ← Each mode: config.json + knowledge/ (created on demand)
   chats/               ← Persistent chat sessions (gitignored)
   decks/               ← Per-deck progress tracking (auto-created)
     <deck-name>/
@@ -118,11 +121,11 @@ Opens at `http://localhost:3000`.
 
 ## Supported AI Providers
 
-Models below are the **defaults**; each feature (Picture / Deck / Study / Discover / Chat / Help / General) is overridable per provider via dropdowns in AI Settings. Use **Check for new models** to refresh the list from the provider's API, and retired models auto-switch to a current one.
+Models below are the **defaults**; each feature (Picture / Deck / Study / Discover / Chat / Help / **Mascot** / General) is overridable per provider via dropdowns in AI Settings — or type a custom model id. The **Mascot** role picks Ebi's pose from each AI response and defaults to the cheapest model. Use **Check for new models** to refresh the list from the provider's API, and retired models auto-switch to a current one.
 
 | Provider | Default model | JSON Mode |
 |---|---|---|
-| **Anthropic (Claude)** | Claude Haiku 4.5 (general), Claude Sonnet 4.6 (questions/help) | Prompt-based |
+| **Anthropic (Claude)** | Claude Haiku 4.5 (general/mascot), Claude Sonnet 4.6 (questions/help) | Prompt-based |
 | **OpenAI (GPT)** | GPT-4o-mini | `response_format: json_object` |
 | **Google (Gemini)** | Gemini 2.0 Flash | `responseMimeType: application/json` |
 | **xAI (Grok)** | Grok 3 Mini Fast | Prompt-based |
@@ -161,10 +164,8 @@ Mode configurations are saved in `modes/<mode-name>/config.json`.
 ### Mode storage
 
 ```
-modes/
-  Default/              ← Default template (committed to git)
-    config.json
-  Language Learning/    ← Your modes (gitignored)
+modes/                  ← gitignored; created on demand, never breaks if missing
+  Language Learning/    ← Your modes (per-user, local only)
     config.json
     knowledge/          ← Reference materials (optional)
       vocab.txt

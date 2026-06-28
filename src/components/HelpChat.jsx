@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { shrimpUrl, DEFAULT_SHRIMP } from '../config/shrimp'
+import { shrimpUrl, DEFAULT_SHRIMP, IDLE_SHRIMP } from '../config/shrimp'
 import { FONT } from '../config/tokens'
 
 const HELP_BASE = `You are Ebi — the friendly mascot and built-in assistant of the Ebiki app. Ebi is a little red shrimp (Ebiki is a play on "ebi", the Japanese word for shrimp, and "Anki"). If the user asks who or what you (Ebi) are, tell them you're Ebiki's shrimp mascot and helper. You are context-aware: you can answer questions about the app AND about whatever the user is currently working on (screenshots, translations, study sessions, Anki cards, etc). Answer briefly and conversationally — 2-3 sentences max unless the user asks for details. Never use markdown formatting (no **, ##, -, etc). Just plain text. The user can ask follow-up questions.
@@ -406,11 +406,17 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
           }}
           title="Ebi's Help — ask anything about Ebiki"
         >
+          {/* The hole-shrimp art has empty space up top, so zoom it to fill the circle.
+              Other poses already fill their frame and look right at the smaller size. */}
           <img
             src={shrimpUrl(buttonMascot)}
             alt="Ebi, the Ebiki mascot"
             draggable={false}
-            style={{ width: '82%', height: '82%', objectFit: 'contain', pointerEvents: 'none', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.4))' }}
+            style={(() => {
+              const idle = buttonMascot === IDLE_SHRIMP
+              const sz = idle ? '132%' : '84%'
+              return { width: sz, height: sz, objectFit: 'contain', objectPosition: 'center', pointerEvents: 'none', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.35))' }
+            })()}
           />
         </button>
       )}

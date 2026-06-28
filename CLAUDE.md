@@ -1,45 +1,81 @@
 # Ebiki — project notes for Claude
 
-Ebiki is a local-first AI flashcard/study app (React + Vite). Mascot: **Ebi**, a red shrimp.
-Brand color = **#DF2540** (sampled from Ebi), theme = **Ocean Light**, fonts = Baloo 2 (display) + Nunito (body).
+Ebiki is a local-first AI flashcard/study app (React + Vite) that grew out of "ScreenLens".
+Mascot: **Ebi**, a red shrimp. Brand color = **#DF2540** (sampled from Ebi). Two themes
+(**Ocean Light** + **Dark**), fonts = Baloo 2 (display) + Nunito (body).
 
 ## Design system (use these — don't hardcode colors)
-- `src/config/tokens.js` — `C` (colors), `FONT`, `RADIUS`, `SHADOW`. Single source of truth.
+- `src/config/tokens.js` — `C` (colors as `var(--c-*)`), `FONT`, `RADIUS`, `SHADOW`. Single source of truth.
+- Theme palettes live in the global `<style>` block in `src/App.jsx` as CSS variables under `:root`
+  (light) and `[data-theme="dark"]`. Theme is flipped by `appTheme` → `<html data-theme>`, persisted in
+  config + localStorage, with a no-flash pre-paint script in `index.html`.
 - `src/styles/theme.js` — the `S.*` style objects, built from tokens. Most chrome imports `S`.
-- Global CSS/keyframes live in the `<style>` block inside `src/App.jsx`.
-- Primary CTAs get the className `btn-press` for the Duolingo-style press; tabs use `ui-tab`.
+- Primary CTAs get className `btn-press` (Duolingo press); tabs use `ui-tab`.
 
-## Ebi the mascot
-- 34 pose PNGs in `public/assets/shrimp/`, registered in `src/config/shrimp.js` (`SHRIMP` array).
-- The floating button (`src/components/HelpChat.jsx`) shows Ebi; pose changes with context.
-- Two ways a pose is chosen:
-  1. **AI-chosen** — AI replies append `<pose>NAME</pose>` (names from `POSE_NAMES`); parsed and
-     stripped in `applyPose()` (App.jsx) and HelpChat's `sendMessage`. Best accuracy.
-  2. **Keyword fallback** — `pickShrimp(text)` for non-AI moments (study question shown, picture word).
+## Settings (global vs per-mode — important)
+One **⚙ Settings** modal: `src/components/SettingsModal.jsx`. Sidebar split by scope:
+- **App settings** (GLOBAL, saved in `config.json` via `/api/config`): General (appTheme, appLanguage,
+  translation `language`/`targetLang`), AI models (provider, key, per-feature models).
+- **Mode settings** (PER-MODE, saved on `activeMode` → `modes/<name>/config.json` via `updateActiveMode`):
+  Study (studyRules: questionsPerCard, cardsAtOnce, quizLanguage, grammarFeedback, questionPrompt,
+  ratingRules), Cards & Anki (deck=`activeMode.ankiDeck`, fields/front/back templates, tagRules),
+  Knowledge base, Overlay (`areaSelectTransparent`), Learning modes (create/switch/rename/delete).
+- **Rule of thumb:** if a setting can differ per mode it belongs on `activeMode`; otherwise it's global.
+- Header has a quick mode-switcher + the ⚙ button. Switching tabs closes the modal.
 
-## ⭐ HOW TO ADD A NEW EBI EMOTE (do this whenever the user drops new shrimp PNGs)
-The user will add new pose PNG(s). To wire each one so the app + AI actually use it:
+## "Ask AI" mode edits (review flow)
+Cards and Study panes have an **Ask AI** box. It does NOT apply directly — `proposeModeEdit(instruction, scope)`
+(App.jsx) returns a proposal; the modal shows a **before/after word diff** (`diffWords`) with
+**✓ Accept / ✗ Deny**, or type again to refine. `acceptModeEdit()` applies via `updateActiveMode`.
+Scopes: `cards` (fields/templates/tagRules) and `study` (questionPrompt/ratingRules).
 
-1. **Place the file** in `public/assets/shrimp/` (keep the given filename, e.g. `12345-ninjashrimp.png`).
-2. **Register it** in `src/config/shrimp.js` → add one entry to the `SHRIMP` array:
+## Onboarding
+First run (config has no `onboarded` flag) shows `src/components/OnboardingWizard.jsx`:
+welcome → app language → light/dark → AI provider + key (with an "Advanced" custom-model escape hatch) →
+first study mode (via `createMode`) → finish. Re-runnable from Settings → General.
+
+## Modes & knowledge base — per mode, fully gitignored, auto-generated
+Modes live in `modes/<mode name>/config.json`; knowledge files in `modes/<mode name>/knowledge/`
+(served by `/api/modes/knowledge` in `vite.config.js`, always scoped by `?mode=<activeMode.name>`).
+The **entire `modes/` folder is gitignored** (it's all user-generated), so personal modes and knowledge
+never reach git. The app never breaks on a missing folder: `vite.config.js` `mkdirSync(MODES_DIR,
+{recursive})` on demand, and App falls back to an in-memory `defaultMode` when no modes load.
+
+## Ebi the mascot & poses
+- Pose PNGs in `public/assets/shrimp/`, registered in `src/config/shrimp.js` (`SHRIMP` array).
+- `DEFAULT_SHRIMP = 'shrimp.png'` — the plain "neutral/nothing" pose (used when nothing fits; the AI's
+  `"default"`). `IDLE_SHRIMP = '6820-holeshrimp.png'` — the resting image for the floating Help button.
+- **How a pose is chosen — `choosePose(text)` in App.jsx (the ONLY thing that sets the pose):**
+  1. With an API key: text is piped to the **configurable "Mascot" AI role** (`resolveModel('pose')`,
+     defaults to the provider's cheapest model; appears in AI models settings). It returns a pose name.
+  2. Without a key / on error: keyword fallback `pickShrimp(text)` (whole-word matching only — never
+     substrings, so "art" won't match "particular").
+  - It sets the mascot **exactly once per call** (no keyword→AI flicker). Ebi keeps its prior pose until
+    the model decides. Routed through `choosePose` everywhere: chat, study question, feedback, Help
+    (`onAiReply`), picture word, discover.
+- Ebi only reacts on **assistant** messages, never the user's. The floating button uses a soft glow (no ring).
+- Per-tab empty-state defaults: Picture→camera, Study→book, Chat→singer (via `poseFile('…')`).
+- Study companion: a big Ebi sits beside the question with an **Ask Ebi** button (`askEbiSignal` → opens
+  HelpChat); the floating button is hidden during the study question phase (`hideButton`).
+
+## ⭐ HOW TO ADD A NEW EBI EMOTE (when the user drops new shrimp images)
+1. **Place the file** in `public/assets/shrimp/` (any filename; `.png`/`.webp` both fine in `<img>`).
+2. **Register it** in `src/config/shrimp.js` → one entry in `SHRIMP`:
    ```js
    { name: 'ninja', file: '12345-ninjashrimp.png',
-     keywords: ['ninja', 'stealth', 'shuriken', 'assassin', 'martial arts', 'sneak'] },
+     keywords: ['ninja', 'stealth', 'shuriken', 'martial arts', 'sneak'] },
    ```
-   - `name` = the short AI-facing label (lowercase, unique). It is auto-added to `POSE_NAMES`,
-     so the AI immediately learns it can pick `<pose>ninja</pose>` — no prompt edits needed.
-   - `keywords` = words/phrases that should trigger it via the instant keyword fallback. Include
-     synonyms and a few Spanish terms. Think about *when* this pose should appear and cover those words.
-3. **That's it** — `POSE_NAMES`, the name→file lookup (`poseFile`), and the AI prompt instruction all
-   derive from `SHRIMP`, so no other code changes are required.
-4. If two poses overlap (e.g. two "weapon" shrimp), give them distinct `name`s and split keywords so
-   each has a clear niche; ties are broken deterministically by a text hash.
-5. After adding, optionally sanity-check with: `node -e` importing `pickShrimp` from `src/config/shrimp.js`
-   on a sample sentence, or just build (`npx vite build`).
+   - `name` = short unique lowercase label → auto-added to `POSE_NAMES`, so the Mascot AI can pick it
+     immediately (no prompt edits). `keywords` drive the whole-word fallback (add synonyms + some Spanish).
+3. That's it — `POSE_NAMES`, `poseFile`, and the AI pose prompt all derive from `SHRIMP`.
+4. Keep entries non-overlapping; ties break by a stable text hash. Sanity-check with a quick `node` import
+   of `pickShrimp`, or `npx vite build`.
 
-Keep this list curated: every entry should have a clear, non-overlapping purpose so Ebi's reactions
-feel intentional.
+## Other notes
+- Tapped-word lookup in study explains in the **app language** (`APP_LANG_NAME` map), not the quiz language.
+- Non-language modes (e.g. Security+) hide language-only study controls and quiz on concepts.
+- AI failures (out of credits / rate limit / bad key) surface a toast; the secondary pose call is `silent`.
 
 ## Commits
 - The user prefers **no Claude attribution** in commit messages.
-- Don't commit to `master` directly unless asked; feature branches otherwise.
+- Don't commit to `master` directly unless asked; work on feature branches (currently `ebiki-ocean-light`).

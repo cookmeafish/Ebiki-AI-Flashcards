@@ -4,9 +4,7 @@ dist
 .env.local
 config.json
 ankiformat.json
-modes/*
-!modes/Default/
-modes/_meta.json
+modes/
 logs/
 decks/
 chats/
