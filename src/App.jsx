@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import Tesseract from 'tesseract.js'
-import { TRANSLATE_PROMPT, VISION_OCR_PROMPT, SPANISH_CARD_PROMPT, GENERIC_CARD_PROMPT, POS_COLORS, CATEGORY_COLORS } from './config/prompts'
+import { TRANSLATE_PROMPT, VISION_OCR_PROMPT, LANGUAGE_CARD_PROMPT, GENERIC_CARD_PROMPT, POS_COLORS, CATEGORY_COLORS } from './config/prompts'
 import { dataUrlToImagePart, downscaleDataUrl } from './utils/image'
 import { PROVIDERS } from './config/providers'
 import { LANGS } from './config/languages'
@@ -990,6 +990,24 @@ export default function App() {
     reader.onload = (e) => loadImageFromDataUrl(e.target.result)
     reader.readAsDataURL(file)
   }, [loadImageFromDataUrl])
+
+  // Read an image directly from the clipboard (for the "Ctrl+V Paste" button — do it for the user).
+  const pasteImageFromClipboard = useCallback(async () => {
+    try {
+      const items = await navigator.clipboard.read()
+      for (const item of items) {
+        const type = item.types.find((t) => t.startsWith('image/'))
+        if (type) {
+          const blob = await item.getType(type)
+          loadImageFromFile(new File([blob], 'pasted.png', { type }))
+          return
+        }
+      }
+      setError('No image found in your clipboard. Copy an image first, then click paste.')
+    } catch {
+      setError('Couldn’t read the clipboard (permission needed). Press Ctrl+V instead.')
+    }
+  }, [loadImageFromFile])
 
   // ─── Screen Capture ─────────────────────────────────────────────────────────
   const captureScreen = useCallback(async () => {
@@ -2081,63 +2099,46 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
   // active mode's format. Used by both the Picture-tab flow and Discover Mode. Pure: it
   // does not touch UI state, so callers control loading/preview/error handling.
   // ── Card generator (shared by Deck Quick-Add and Chat) ───────────────────────
-  // Bold "Label:" prefixes and join with <br> for clean HTML in Anki's Back field.
+  // Bold the leading "Label:" of each line and join with <br> for clean HTML in Anki's Back field.
+  // Matches a label in ANY script (German umlauts, Chinese, etc.), up to the first colon (≤30 chars).
   const cardBackToHtml = (back) => String(back || '').split('\n').map((line) => {
-    const m = line.match(/^([A-Za-zÁÉÍÓÚáéíóúñÑ\s]+):(.*)$/)
+    const m = line.match(/^([^:\n]{1,30}):(.*)$/)
     return m ? `<b>${m[1]}:</b>${m[2]}` : line
   }).join('<br>')
 
-  // Spanish card object → { front, back, tags } in the exact Frente/Dorso format.
-  const spanishCardToFrontBack = (c) => {
-    const lines = []
-    lines.push(`Pronunciación: ${c.pronunciation || ''}`)
-    lines.push(`Traducción: ${c.translation || ''}`)
-    if (c.directTranslation && String(c.directTranslation).trim()) lines.push(`Traducción Directa: ${c.directTranslation}`)
-    if (c.synonyms && String(c.synonyms).trim()) lines.push(`Sinónimos: ${c.synonyms}`)
-    lines.push(`Definición: ${c.definition || ''}`)
-    lines.push(`Ejemplo: ${c.example || ''}`)
-    if (c.note && String(c.note).trim()) lines.push(`Nota: ${c.note}`)
-    return {
-      front: `${c.word || ''}${c.pos ? ` (${c.pos})` : ''}`.trim(),
-      back: lines.join('\n'),
-      tags: Array.isArray(c.tags) && c.tags.length ? c.tags : ['ebiki'],
-      correction: c.correction || '',
-    }
-  }
+  // The language the active mode is teaching (Spanish, German, Chinese…) and the user's own language.
+  const learnLangName = () => activeMode.studyRules?.studyLanguage || (LANGS.find((l) => l.code === language)?.label) || activeMode.name || 'the target language'
+  const userLangName = () => APP_LANG_NAME[appLanguage] || 'English'
 
-  // Generate one or more cards per input word. Spanish/language modes use the exact format;
-  // other modes let the AI design a subject-appropriate back. Returns [{ front, back, tags, _rich }].
   // Second-pass proofreader: cards get MEMORIZED, so a wrong word/translation is unacceptable.
   // Sends the generated cards back to the model to find and FIX errors before the user sees them.
-  const verifyCards = async (richCards, subjectLabel) => {
-    if (!richCards.length) return richCards
+  const verifyCards = async (cards, subjectLabel) => {
+    if (!cards.length) return cards
     try {
       const prompt = `You are a meticulous ${subjectLabel} teacher proofreading flashcards a student will MEMORIZE. Accuracy is critical, a single error is harmful. For EACH card object, carefully verify and FIX any error: a headword that does NOT exist or is misspelled (replace it with the correct word), wrong part of speech or grammatical gender, incorrect pronunciation, wrong/missing translation, wrong synonyms, an incorrect or unnatural definition, and an example sentence that is wrong, unnatural, or mistranslated. Leave correct fields exactly as they are. Return the corrected JSON array with the SAME keys and structure. Output ONLY the JSON array, no commentary.`
-      const text = await aiCall(apiKey, prompt, JSON.stringify(richCards), resolveModel('deck'))
+      const text = await aiCall(apiKey, prompt, JSON.stringify(cards), resolveModel('deck'))
       const parsed = parseAiJson(text)
       const arr = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.cards) ? parsed.cards : null)
-      return (arr && arr.length) ? arr : richCards
-    } catch { return richCards }
+      return (arr && arr.length) ? arr : cards
+    } catch { return cards }
   }
 
+  // Generate one or more cards per input word. Language modes use the language-agnostic prompt (the
+  // model writes labels in the learned language); other modes let the AI design a subject back.
+  // Every card is proofread (verifyCards) before return. Returns [{ front, back, tags, _rich }].
   const generateCards = async (words) => {
     const list = (Array.isArray(words) ? words : [words]).map((w) => String(w).trim()).filter(Boolean)
     if (!list.length) return []
-    if (activeMode.type === 'language') {
-      const payload = JSON.stringify({ words: list, deck: activeMode.ankiDeck || 'Español' })
-      const text = await aiCall(apiKey, SPANISH_CARD_PROMPT, payload, resolveModel('deck'))
-      const parsed = parseAiJson(text)
-      let arr = (Array.isArray(parsed) ? parsed : (parsed ? [parsed] : [])).filter((c) => c && (c.word || c.front))
-      arr = await verifyCards(arr, 'Spanish') // double-check before the user memorizes it
-      return arr.filter((c) => c && (c.word || c.front)).map((c) => ({ ...spanishCardToFrontBack(c), _rich: c }))
-    }
-    const prompt = GENERIC_CARD_PROMPT.replace('{MODE}', activeMode.name).replace('{TYPE}', activeMode.type)
+    const isLang = activeMode.type === 'language'
+    const prompt = isLang
+      ? LANGUAGE_CARD_PROMPT.replace(/\{LEARN_LANG\}/g, learnLangName()).replace(/\{USER_LANG\}/g, userLangName())
+      : GENERIC_CARD_PROMPT.replace('{MODE}', activeMode.name).replace('{TYPE}', activeMode.type)
     const text = await aiCall(apiKey, prompt, JSON.stringify({ words: list }), resolveModel('deck'))
     const parsed = parseAiJson(text)
-    let arr = (Array.isArray(parsed) ? parsed : (parsed ? [parsed] : [])).filter((c) => c && (c.word || c.front))
-    arr = await verifyCards(arr, activeMode.name)
-    return arr.filter((c) => c && (c.word || c.front)).map((c) => ({
-      front: c.word || c.front || '',
+    let arr = (Array.isArray(parsed) ? parsed : (parsed ? [parsed] : [])).filter((c) => c && (c.front || c.word))
+    arr = await verifyCards(arr, isLang ? learnLangName() : activeMode.name)
+    return arr.filter((c) => c && (c.front || c.word)).map((c) => ({
+      front: c.front || c.word || '',
       back: c.back || '',
       tags: Array.isArray(c.tags) && c.tags.length ? c.tags : ['ebiki'],
       correction: c.correction || '',
@@ -4840,16 +4841,10 @@ IMPORTANT BEHAVIOR RULES:
    - Emit each card as JSON wrapped in <anki-card> tags: {"front": "...", "back": "...", "tags": [...]}
    - If a word has clearly distinct meanings, emit a SEPARATE <anki-card> per meaning.
    - If the input looks misspelled, mention the correction and base the card on the corrected word.
-${activeMode.type === 'language' ? `   - LANGUAGE MODE — use this EXACT back format (each label on its own line; American English):
-     front: "<word> (<part of speech in Spanish, e.g. 'verbo', 'sustantivo masculino'>)"
-     back (newline-separated labeled lines):
-       Pronunciación: <phonetics, stressed syllable in CAPS, e.g. soor-KAR>
-       Traducción: <main English translation(s)>
-       Traducción Directa: <literal/cognate — OMIT this line if none>
-       Sinónimos: <similar English words>
-       Definición: <simple definition IN SPANISH>
-       Ejemplo: <Spanish example (English translation in parentheses)>
-     tags: include part of speech, level, topic, and "ebiki".` : `   - Design a back that best teaches this subject (definition, key points, formula, example as fits). Always include an "ebiki" tag.`}
+${activeMode.type === 'language' ? `   - LANGUAGE MODE (learning ${learnLangName()}, user speaks ${userLangName()}) — use this back format, each label on its own line, with the LABELS WRITTEN IN ${learnLangName()}:
+     front: "<word> (<part of speech written in ${learnLangName()}>)"
+     back lines: pronunciation (phonetics for a ${userLangName()} speaker, stress in CAPS), translation (to ${userLangName()}), direct/literal translation (omit the line if none), synonyms (in ${userLangName()}), definition (written IN ${learnLangName()}), example (a natural ${learnLangName()} sentence with its ${userLangName()} translation in parentheses).
+     tags: include part of speech, level, topic, and "ebiki". Only use REAL, correctly-spelled ${learnLangName()} words.` : `   - Design a back that best teaches this subject (definition, key points, formula, example as fits). Always include an "ebiki" tag.`}
 
 3. For general questions: be concise and helpful. Explain concepts clearly.
 
@@ -7200,9 +7195,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             <h2 style={S.emptyTitle}>Capture, paste, drop, or upload</h2>
             <p style={S.emptyDesc}>
               Hit <kbd style={S.kbdInline}>Ctrl+Shift+S</kbd> to screenshot your display,
-              or paste / drag-drop any image. Tesseract.js pinpoints every word's exact
-              pixel position. Your chosen AI ({providerConfig.label}) translates them.
-              Hover any word on the image for translations and synonyms.
+              or paste / drag-drop any image. Your chosen AI ({providerConfig.label}) reads
+              the image and translates each word in context. Hover any word for its meaning,
+              pronunciation, and synonyms.
             </p>
             <div style={S.methods}>
               <div onClick={captureScreen}
@@ -7215,7 +7210,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 <span style={{ color: 'var(--c-purple)', fontSize: 20 }}>📁</span>
                 <span style={{ color: 'var(--c-purple)' }}>Upload File</span>
               </div>
-              <div style={{ ...S.methodCard, borderColor: 'rgba(24,169,87,0.2)' }}>
+              <div onClick={pasteImageFromClipboard}
+                style={{ ...S.methodCard, borderColor: 'rgba(24,169,87,0.2)', cursor: 'pointer' }}>
                 <span style={{ color: 'var(--c-success)', fontSize: 20 }}>📋</span>
                 <span style={{ color: 'var(--c-success)' }}>Ctrl+V Paste</span>
               </div>
