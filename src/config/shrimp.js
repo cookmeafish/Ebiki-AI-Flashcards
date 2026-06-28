@@ -56,6 +56,9 @@ export const SHRIMP = [
   { name: 'chill', file: '3542-chillshrimp.png', keywords: ['chill', 'relax', 'sofa', 'couch', 'calm', 'lazy', 'rest', 'movie', 'popcorn', 'netflix', 'weekend', 'tranquilo', 'descansar'] },
   { name: 'sleep', file: '93623-sleepshrimp.png', keywords: ['sleep', 'sleepy', 'tired', 'bed', 'nap', 'night', 'dream', 'zzz', 'bedtime', 'dormir', 'sueño', 'cansado'] },
   { name: 'party', file: '96324-partyshrimp.png', keywords: ['party', 'celebrate', 'celebration', 'birthday', 'confetti', 'dance', 'festive', 'fun', 'congrats', 'congratulations', 'fiesta', 'celebrar', '🎉'] },
+  { name: 'camera', file: 'camerashrimp.png', keywords: ['camera', 'photo', 'photograph', 'photography', 'picture', 'snapshot', 'selfie', 'capture', 'screenshot', 'lens', 'shutter', 'foto', 'cámara', 'fotografía'] },
+  { name: 'singer', file: 'singershrimp.png', keywords: ['sing', 'singer', 'singing', 'song', 'microphone', 'mic', 'karaoke', 'vocal', 'voice', 'podcast', 'announce', 'rap', 'choir', 'cantar', 'canción', 'micrófono', 'cantante'] },
+  { name: 'book', file: 'bookshrimp.png', keywords: ['book', 'read', 'reading', 'story', 'stories', 'tale', 'tales', 'novel', 'literature', 'library', 'chapter', 'textbook', 'fairy tale', 'fiction', 'leer', 'libro', 'cuento', 'lectura', 'historia'] },
 ]
 
 // Shared list for AI prompts + the parser, plus name→file lookup.
