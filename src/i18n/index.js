@@ -254,6 +254,8 @@ const es = {
   obModeNeedsKey: 'Añade una clave de API en el paso anterior para crear un modo ahora (o omítelo y hazlo más tarde).',
   obCreateMode: 'Crear modo',
   obDoneTitle: '¡Todo listo! 🎉', obDoneBody: 'Eso es todo: Ebi está listo para estudiar contigo. Puedes ajustar todo en Ajustes.',
+  createModePlaceholder: '¿Qué quieres aprender? (p. ej. Español, Security+, Química Orgánica)',
+  getKey: 'Obtener clave', customModel: 'Personalizado…', useList: 'Usar lista',
 
   aiSettings: 'Configuración de IA',
   aiModelsFor: 'Modelos de IA —',
@@ -403,6 +405,8 @@ const zh = {
   obModeNeedsKey: '在上一步添加 API 密钥即可立即创建模式（或跳过，稍后再做）。',
   obCreateMode: '创建模式',
   obDoneTitle: '一切就绪！🎉', obDoneBody: '就这样——Ebi 已准备好和你一起学习。你可以在设置中调整任何内容。',
+  createModePlaceholder: '你想学习什么？（例如：西班牙语、Security+、有机化学）',
+  getKey: '获取密钥', customModel: '自定义…', useList: '使用列表',
 
   aiSettings: 'AI 设置',
   aiModelsFor: 'AI 模型 —',
@@ -552,6 +556,8 @@ const ja = {
   obModeNeedsKey: '前のステップで API キーを追加すると、今すぐモードを作成できます（またはスキップして後で行えます）。',
   obCreateMode: 'モードを作成',
   obDoneTitle: '準備完了！🎉', obDoneBody: 'これで完了です——Ebi はあなたと学習する準備ができました。設定で何でも調整できます。',
+  createModePlaceholder: '何を学びたいですか？（例：スペイン語、Security+、有機化学）',
+  getKey: 'キーを取得', customModel: 'カスタム…', useList: 'リストを使う',
 
   aiSettings: 'AI 設定',
   aiModelsFor: 'AI モデル —',
