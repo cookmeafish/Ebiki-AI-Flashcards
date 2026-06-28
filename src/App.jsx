@@ -6243,9 +6243,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         {/* Empty state (hidden in overlay) */}
         {stage === 'idle' && !isOverlay && (
           <div style={S.emptyState}>
-            <div style={{ marginBottom: 18, width: 120, height: 120, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'radial-gradient(circle at 40% 30%, var(--c-surface), var(--c-surface-alt))', border: `1px solid ${C.border}`, boxShadow: SHADOW.md }}>
-              <img src={shrimpUrl(poseFile('camera'))} alt="Ebi" style={{ width: 84, height: 84, objectFit: 'contain', filter: 'drop-shadow(0 4px 10px rgba(223,37,64,.3))' }} />
-            </div>
+            <img src={shrimpUrl(poseFile('camera'))} alt="Ebi" style={{ width: 84, height: 84, objectFit: 'contain', marginBottom: 12, filter: 'drop-shadow(0 6px 16px rgba(223,37,64,.28))' }} />
             <h2 style={S.emptyTitle}>Capture, paste, drop, or upload</h2>
             <p style={S.emptyDesc}>
               Hit <kbd style={S.kbdInline}>Ctrl+Shift+S</kbd> to screenshot your display,
