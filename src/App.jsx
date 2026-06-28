@@ -426,7 +426,7 @@ export default function App() {
     discover: pc.questionModel, // learner profiling, suggestions, fact-checking
     chat: pc.model,           // the chat tab assistant
     help: pc.questionModel,   // Ebi's Help assistant
-    pose: pc.model,           // picks Ebi's mascot pose from context — cheapest/fastest
+    pose: pc.questionModel,   // picks Ebi's mascot pose from context — stronger model for better fit
   })
   // UI metadata for the AI Settings panel — order + labels + hints.
   const AI_ROLE_META = [
@@ -436,7 +436,7 @@ export default function App() {
     { role: 'discover', label: 'Discover', hint: 'learner profiling, new-item suggestions, fact-checking' },
     { role: 'chat', label: 'Chat', hint: 'the chat tab assistant' },
     { role: 'help', label: 'Help', hint: "Ebi's Help assistant" },
-    { role: 'pose', label: 'Mascot', hint: "picks Ebi's pose from context — use a cheap, fast model" },
+    { role: 'pose', label: 'Mascot', hint: "picks Ebi's pose from context — defaults to a stronger model for a better fit; set a cheaper one to save cost" },
     { role: 'general', label: 'General', hint: 'fallback + AI mode/config generation' },
   ]
   const resolveModel = (role, prov = aiStateRef.current.provider) => {
@@ -6042,7 +6042,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     </div>
                     {/* Ebi study companion — big, circle-less, reacts to the question; Ask Ebi opens Help */}
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, paddingTop: 8, flexShrink: 0 }}>
-                      <img src={shrimpUrl(studyMascot)} alt="Ebi" style={{ width: 132, height: 132, objectFit: 'contain', filter: 'drop-shadow(0 8px 18px rgba(223,37,64,.28))' }} />
+                      <img src={shrimpUrl(studyMascot)} alt="Ebi" draggable={false} style={{ width: 132, height: 132, objectFit: 'contain', filter: 'drop-shadow(0 8px 18px rgba(223,37,64,.28))' }} />
                       <button onClick={() => setAskEbiSignal((n) => n + 1)} style={{ ...S.ghostBtn, fontSize: 12, color: 'var(--c-brand)', borderColor: 'var(--c-brand-ring, rgba(223,37,64,.35))', fontWeight: 700, padding: '7px 16px', borderRadius: RADIUS.pill }}>
                         {t('askEbi')}
                       </button>
@@ -6934,6 +6934,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         button:hover:not(:disabled) { filter: brightness(1.04) saturate(1.03); }
         button:active:not(:disabled) { filter: brightness(.97); }
         button:disabled { cursor: not-allowed; opacity: .55; }
+
+        /* Images are decorative (mascot, icons) — never let them start a native drag, which would
+           otherwise trip the "Drop image here" file-drop overlay. The overlay is for OS file drags. */
+        img { -webkit-user-drag: none; -khtml-user-drag: none; user-select: none; }
 
         /* Duolingo-style 3D press: add className "btn-press" to primary CTAs */
         .btn-press:active:not(:disabled) { transform: translateY(2px); box-shadow: none !important; }
