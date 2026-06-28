@@ -5693,7 +5693,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           // Center vertically only on the pick phase; question/summary content can exceed viewport and must scroll from the top.
           ...(studyPhase === 'pick' ? { justifyContent: 'center' } : {}),
         }}>
-          <div style={{ maxWidth: 600, width: '100%', padding: '40px 20px' }}>
+          <div style={{ maxWidth: studyPhase === 'question' ? 820 : 600, width: '100%', padding: '40px 20px' }}>
 
             {/* Study start phase */}
             {studyPhase === 'pick' && (
@@ -5859,9 +5859,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     </div>
                   </div>
 
-                  {/* Current question — card front is HIDDEN */}
+                  {/* Current question — card front is HIDDEN. Ebi studies alongside, to the right. */}
                   {question ? (
+                    <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start', justifyContent: 'center', flexWrap: 'wrap' }}>
                     <div style={{
+                      flex: '1 1 480px', maxWidth: 620, minWidth: 0,
                       background: C.surface,
                       border: `1px solid ${C.border}`, borderRadius: 16,
                       padding: '22px 24px', boxShadow: SHADOW.lg,
@@ -5990,6 +5992,14 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       {studyWrappingUp && (
                         <div style={{ fontSize: 10, color: 'var(--c-warning)', marginTop: 4, textAlign: 'center' }}>Wrapping up — finishing current cards...</div>
                       )}
+                    </div>
+                    {/* Ebi study companion — big, circle-less, reacts to the question; Ask Ebi opens Help */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, paddingTop: 8, flexShrink: 0 }}>
+                      <img src={shrimpUrl(aiMascot)} alt="Ebi" style={{ width: 132, height: 132, objectFit: 'contain', filter: 'drop-shadow(0 8px 18px rgba(223,37,64,.28))', animation: 'floaty 4s ease-in-out infinite' }} />
+                      <button onClick={() => setAskEbiSignal((n) => n + 1)} style={{ ...S.ghostBtn, fontSize: 12, color: 'var(--c-brand)', borderColor: 'var(--c-brand-ring, rgba(223,37,64,.35))', fontWeight: 700, padding: '7px 16px', borderRadius: RADIUS.pill }}>
+                        {t('askEbi')}
+                      </button>
+                    </div>
                     </div>
                   ) : (
                     <div style={{ textAlign: 'center', color: 'var(--c-ink-dim)', fontSize: 12, padding: 20 }}>
@@ -6948,6 +6958,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         mascotFile={aiMascot}
         onAiReply={(text) => choosePose(text)}
         askEbiSignal={askEbiSignal}
+        hideButton={activeTab === 'study' && studyActive && studyPhase === 'question'}
         model={resolveModel('help')}
         onModelRetired={async (failedModel) => {
           const healed = await healRetiredModel('404 not_found', failedModel, 'help')
