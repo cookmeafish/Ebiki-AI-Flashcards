@@ -136,17 +136,23 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   saved session before the one-shot restore effect reads it. Cleared automatically when `studyActive` ends.
 - The overlay launch preference persists too (`overlayEnabled` in `config.json`, default ON, auto-launches once).
 
-## Card generator (shared engine) + Quick-Add
-- `generateCards(words)` (App.jsx) is the shared engine. **Language modes** → `SPANISH_CARD_PROMPT`
-  (exact Frente/Dorso format, one card per distinct meaning, surfaces misspelling `correction`);
-  **other modes** → `GENERIC_CARD_PROMPT` (AI-designed back per subject). `spanishCardToFrontBack` builds
-  the labeled back; `cardBackToHtml` bolds `Label:` prefixes + `<br>` for Anki. Sync via `ankiAddNote`
-  (+ `ankiCreateDeck`, `ankiSync`); duplicate pre-check via `ankiCanAddNote` (`canAddNotes`) — warns, never blocks.
+## Card generator (shared engine) + Quick-Add — LANGUAGE-AGNOSTIC
+- `generateCards(words)` (App.jsx) is the shared engine and works for ANY language/subject. **Language modes**
+  → `LANGUAGE_CARD_PROMPT` parameterized by `learnLangName()` (the learned language, from
+  `studyRules.studyLanguage` / app `language` / mode name) and `userLangName()` (`APP_LANG_NAME[appLanguage]`);
+  the model writes the back's labels IN the learned language (Spanish→Pronunciación…, German→Aussprache…,
+  Chinese→发音…). **Other modes** → `GENERIC_CARD_PROMPT` (AI-designed back per subject). The model returns
+  `{ front, back, tags, correction }` directly; `cardBackToHtml` bolds the leading `Label:` of each line in
+  ANY script (`^([^:\n]{1,30}):`). Sync via `ankiAddNote` (allowDuplicate:true for Quick Add) + `ankiSync`;
+  duplicate pre-check via `ankiCanAddNote` warns only.
+- **Accuracy guardrail (cards get MEMORIZED):** `verifyCards` runs a SECOND model pass that proofreads and
+  FIXES each generated card (nonexistent/misspelled words, wrong gender/translation/example) before the user
+  sees it. The card prompts + chat prompt also carry a "never invent words, verify, admit uncertainty" directive.
 - **Deck → ⚡ Quick Add** (`quickAdd*` state): paste many words → `generateCards` → a **review tray**
-  (per-card editable front/back/tags, ✓ accept toggle, per-card Sync, batch "Sync N approved", dup/correction
-  badges). Mirrors the existing recommendations-panel pattern.
-- **Chat** also emits cards: the chat system prompt tells the model the exact format (language vs subject)
-  and to split multi-meaning words; cards render as `<anki-card>` widgets; `chatTabSyncCard` HTML-formats + syncs.
+  (per-card editable front/back/tags + ONE include ✓/○ toggle; batch **"Add N to {deck}"**; dup/correction
+  badges). Header shows both the active **Mode** (tailors cards) and target **Deck**.
+- **Chat** also emits cards: the chat system prompt gives the language-agnostic format and splits multi-meaning
+  words; cards render as `<anki-card>` widgets; `chatTabSyncCard` HTML-formats + syncs.
 
 ## Chat — composer "+" menu (learning-focused)
 - The chat composer has a Claude-style **"+" menu**: attach photo, web search, per-mode **Focus** preset
@@ -162,6 +168,17 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
 - **Message layout:** each bubble is width-capped (~620px) with `overflow-wrap:anywhere` so long/unbroken
   strings wrap; assistant replies render a **larger Ebi (96px) to the right** of the bubble (its per-message
   `m.mascot` pose) using the open space. Only **assistant** content renders markdown; user text stays literal.
+- **Scroll (Claude-style):** sending pins the latest USER message to the TOP via `scrollChatToLatestTurn`,
+  which sizes `chatSpacerRef` (a bottom spacer) to `clientHeight − turnHeight` using **offsetTop** (layout px,
+  container is `position:relative`) so max-scroll lands exactly at the pin, no over-scroll. Spacer is recomputed
+  after paint (double-rAF effect) + on resize (ResizeObserver). The composer is NOT disabled while loading
+  (disabling blurs it); it's re-focused after send. Pose is chosen ONCE (awaited `choosePose`) so Ebi appears
+  with the message, no swap.
+- **Ebi pose chosen by AI:** `choosePose` is awaited before the message is shown so the AI-picked pose and the
+  text appear together. Em/en dashes are stripped from output (and the prompt forbids them — they read as AI).
+- **Offer-to-search instead of guessing:** when web search is OFF, the chat prompt tells the model to emit
+  `<offer-search>query</offer-search>` rather than guess; the UI shows **Yes/No** (`chatOfferSearchAccept`
+  runs `/api/web-search` then answers; `chatOfferSearchDecline` hides it).
 
 ## Chat — markdown rendering
 - Chat + Help messages render **markdown** via `src/components/Markdown.jsx` (`marked` + `DOMPurify`), themed
