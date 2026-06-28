@@ -459,6 +459,20 @@ export default function App() {
   const chatImageInputRef = useRef(null)
   const [chatTabStatus, setChatTabStatus] = useState(null) // null | 'searching' | 'thinking' | 'search-done' | 'search-empty' | 'search-failed'
   const chatTabScrollRef = useRef(null)
+  const chatSpacerRef = useRef(null) // bottom spacer so the latest turn can scroll to the top
+
+  // Claude-style scroll: pin the latest USER message near the top of the viewport (with a
+  // one-viewport spacer below) so the user mostly sees the most recent exchange and scrolls up
+  // for history — instead of stacking everything and showing Ebi repeated down the page.
+  const scrollChatToLatestTurn = () => {
+    const c = chatTabScrollRef.current
+    if (!c) return
+    if (chatSpacerRef.current) chatSpacerRef.current.style.height = c.clientHeight + 'px'
+    const users = c.querySelectorAll('[data-role="user"]')
+    const last = users[users.length - 1]
+    if (last) last.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    else c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' })
+  }
 
   // Load chat sessions from disk on mount, and restore the last-open session (persisted in
   // localStorage) so refreshing inside a chat keeps that chat instead of resetting to New Chat.
@@ -4757,7 +4771,7 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
     setChatTabImage(null)
     setChatPlusOpen(false)
     setChatTabLoading(true)
-    setTimeout(() => chatTabScrollRef.current?.scrollTo({ top: chatTabScrollRef.current.scrollHeight, behavior: 'smooth' }), 50)
+    setTimeout(scrollChatToLatestTurn, 60)
     try {
       let systemPrompt = `You are Ebi, a helpful study assistant. The user is studying with mode "${activeMode.name}".
 
@@ -4885,7 +4899,8 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       choosePose(cleanText).then((file) => {
         if (file) setChatTabMsgs((prev) => prev.map((m, i) => i === msgIdx ? { ...m, mascot: file } : m))
       })
-      setTimeout(() => chatTabScrollRef.current?.scrollTo({ top: chatTabScrollRef.current.scrollHeight, behavior: 'smooth' }), 50)
+      // Keep the user's message pinned near the top; the reply renders below it (don't jump to bottom).
+      setTimeout(scrollChatToLatestTurn, 60)
       // Auto-save to disk after each response
       const savedId = await chatTabSaveCurrent(updatedMsgs, chatTabSessionId)
       if (!chatTabSessionId) setChatTabSessionId(savedId)
@@ -4957,6 +4972,7 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       const msgs = (data.messages || []).map(m => ({ ...m, content: m.content || m.text }))
       setChatTabMsgs(msgs)
       setChatTabSessionId(session.id)
+      setTimeout(scrollChatToLatestTurn, 80)
     } catch {
       setChatTabMsgs([])
       setChatTabSessionId(session.id)
@@ -6242,7 +6258,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               {chatTabMsgs.map((m, i) => {
                 const isUser = m.role === 'user'
                 return (
-                <div key={i} style={{ marginBottom: 16, display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}>
+                <div key={i} data-role={m.role} style={{ marginBottom: 16, display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start' }}>
                   <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 14, maxWidth: '100%' }}>
                     {/* Content column — width-capped so long messages wrap and leave room for Ebi */}
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: isUser ? 'flex-end' : 'flex-start', minWidth: 0, maxWidth: 620 }}>
@@ -6316,6 +6332,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   </div>
                 </div>
               )}
+              {/* Spacer so the latest turn can scroll to the top (height set to one viewport
+                  in scrollChatToLatestTurn). Only when there are messages. */}
+              {chatTabMsgs.length > 0 && <div ref={chatSpacerRef} style={{ flexShrink: 0 }} />}
             </div>
 
             {/* Input bar */}
