@@ -67,12 +67,12 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
 - **Help mascot is decoupled from study** — the bottom-left button (`helpMascot`) only changes when the user
   talks to Ebi in the help chat; the study pose (`studyMascot`) never bleeds into it.
 
-## Ebi's Help floating button + chat (`src/components/HelpChat.jsx`)
-- **The button is NOT a circle** — it's the transparent Ebi PNG (80px) with a soft red glow that hugs the
-  shrimp's silhouette via the image's `drop-shadow` filter (no background/box-shadow disc). It's **flipped
-  to face right** by default (`.flipped` = `scaleX(-1)`) and **pops** (scales up) on hover. All transform
-  states share the same `scale() scaleX()` function list so transitions interpolate per-function (a
-  mismatched list falls back to matrix interpolation, which collapses the mirror to a 1px line).
+## Ebi's Help chat (`src/components/HelpChat.jsx`)
+- **The floating shrimp button is removed.** Help is opened from the **"Ask Ebi"** button in the header
+  (left nav, right after the Stats tab) which bumps `askEbiSignal`; `HelpChat` is rendered with
+  `hideButton={true}` so the FAB never shows. With no button, the panel docks bottom-left (`getChatStyle`).
+  The panel header shows the **hole-pose Ebi** (`IDLE_SHRIMP`) on the right of the "Ebi's Help" title as the
+  mascot identity. (The old FAB code path still exists in HelpChat behind `!hideButton` if ever re-enabled.)
 - The chat **scrolls to the bottom on open** so the latest message shows.
 - **FancyZones-style docking**: drag the chat header (⠿ grip) to snap to a zone, or click the dock (◣) button
   to be asked where — both show three labeled targets (**Dock left**, **Dock right**, **Under the question**)

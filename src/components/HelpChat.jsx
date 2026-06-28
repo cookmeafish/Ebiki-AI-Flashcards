@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { shrimpUrl, DEFAULT_SHRIMP } from '../config/shrimp'
+import { shrimpUrl, DEFAULT_SHRIMP, IDLE_SHRIMP } from '../config/shrimp'
 import { FONT } from '../config/tokens'
 import Markdown from './Markdown'
 
@@ -401,6 +401,8 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Ebi (hole pose) — the panel's mascot identity, on the right of the title line */}
+          <img src={shrimpUrl(IDLE_SHRIMP)} alt="Ebi" draggable={false} style={{ width: 26, height: 26, objectFit: 'contain', pointerEvents: 'none' }} />
           {isSidePanel ? (
             <span
               onMouseDown={(e) => e.stopPropagation()}
