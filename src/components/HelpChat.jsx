@@ -393,15 +393,16 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
             ...(pos.y !== null ? { top: pos.y } : { bottom: 20 }),
             width: 58, height: 58, borderRadius: '50%',
             background: 'radial-gradient(circle at 38% 30%, var(--c-surface), var(--c-surface-alt))',
-            border: open ? '2px solid var(--c-brand)' : '2px solid rgba(223,37,64,.45)',
+            border: 'none',
             padding: 0, overflow: 'hidden',
             cursor: dragging ? 'grabbing' : 'grab',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             zIndex: 10000,
+            // Soft glow instead of a hard ring (brighter when open)
             boxShadow: open
-              ? '0 0 0 4px rgba(223,37,64,.18), 0 10px 26px rgba(223,37,64,.4)'
-              : '0 6px 20px rgba(16,36,44,.18)',
-            fontFamily: 'inherit', transition: 'box-shadow .2s ease, border-color .2s ease',
+              ? '0 0 22px 6px rgba(223,37,64,.45), 0 10px 26px rgba(223,37,64,.3)'
+              : '0 0 16px 3px rgba(223,37,64,.30), 0 6px 18px rgba(16,36,44,.16)',
+            fontFamily: 'inherit', transition: 'box-shadow .25s ease',
           }}
           title="Ebi's Help — ask anything about Ebiki"
         >
