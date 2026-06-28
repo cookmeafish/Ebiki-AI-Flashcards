@@ -47,6 +47,7 @@ const en = {
   aiRole_discover: 'Discover',
   aiRole_chat: 'Chat',
   aiRole_help: 'Help',
+  aiRole_pose: 'Mascot',
   aiRole_general: 'General',
 
   // App language
@@ -194,6 +195,7 @@ const es = {
   aiRole_discover: 'Descubrir',
   aiRole_chat: 'Chat',
   aiRole_help: 'Ayuda',
+  aiRole_pose: 'Mascota',
   aiRole_general: 'General',
 
   appLanguage: 'Idioma de la app',
@@ -329,6 +331,7 @@ const zh = {
   aiRole_discover: '发现',
   aiRole_chat: '聊天',
   aiRole_help: '帮助',
+  aiRole_pose: '吉祥物',
   aiRole_general: '通用',
 
   appLanguage: '应用语言',
@@ -464,6 +467,7 @@ const ja = {
   aiRole_discover: '発見',
   aiRole_chat: 'チャット',
   aiRole_help: 'ヘルプ',
+  aiRole_pose: 'マスコット',
   aiRole_general: '一般',
 
   appLanguage: 'アプリの言語',

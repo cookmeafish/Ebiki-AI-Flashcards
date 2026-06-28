@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { pickShrimp, shrimpUrl, DEFAULT_SHRIMP, POSE_NAMES, poseFile } from '../config/shrimp'
+import { shrimpUrl, DEFAULT_SHRIMP } from '../config/shrimp'
 import { FONT } from '../config/tokens'
 
 const HELP_BASE = `You are Ebi — the friendly mascot and built-in assistant of the Ebiki app. Ebi is a little red shrimp (Ebiki is a play on "ebi", the Japanese word for shrimp, and "Anki"). If the user asks who or what you (Ebi) are, tell them you're Ebiki's shrimp mascot and helper. You are context-aware: you can answer questions about the app AND about whatever the user is currently working on (screenshots, translations, study sessions, Anki cards, etc). Answer briefly and conversationally — 2-3 sentences max unless the user asks for details. Never use markdown formatting (no **, ##, -, etc). Just plain text. The user can ask follow-up questions.
@@ -68,18 +68,16 @@ function buildSystemPrompt(appContext) {
   }
 
   parts.push('\nUse this context to give informed, specific answers. If the user asks about a word, translation, or card on screen, reference the actual data above.')
-  parts.push(`\nMASCOT POSE: At the very end of your reply, on its own line, output <pose>NAME</pose> where NAME is the single Ebi shrimp pose that best fits the topic, chosen ONLY from: ${POSE_NAMES.join(', ')}. Use "default" if none clearly fit. This tag controls Ebi's picture and is hidden from the user.`)
   return parts.join('\n')
 }
 
-export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-6', onModelRetired, mascotFile = DEFAULT_SHRIMP }) {
+export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-6', onModelRetired, mascotFile = DEFAULT_SHRIMP, onAiReply, askEbiSignal }) {
   const [open, setOpen] = useState(false)
   const [docked, setDocked] = useState(false) // side panel mode
   const [messages, setMessages] = useState([])
   const [sessionId, setSessionId] = useState(null)
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [posed, setPosed] = useState(null) // Ebi pose chosen by the AI's <pose> tag
   const [pos, setPos] = useState({ x: 20, y: null })
   const [dragging, setDragging] = useState(false)
   const dragOffset = useRef({ x: 0, y: 0 })
@@ -89,6 +87,12 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
   const msgTopRef = useRef(null)
   const btnRef = useRef(null)
   const inputRef = useRef(null)
+
+  // Open the chat when the host fires the "Ask Ebi" signal (e.g. the study companion button).
+  useEffect(() => {
+    if (askEbiSignal) { setOpen(true); setTimeout(() => inputRef.current?.focus(), 80) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [askEbiSignal])
 
   // Load the most recent help session on mount
   useEffect(() => {
@@ -236,12 +240,10 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
         if (!healed) throw err
         data = await callModel(healed)
       }
-      const raw = data.content[0].text
-      const pm = raw.match(/<pose>\s*([a-zA-Z]+)\s*<\/pose>/i)
-      if (pm) { const f = poseFile(pm[1]); if (f) setPosed(f) }
-      const replyText = raw.replace(/<pose>[\s\S]*?<\/pose>/gi, '').trim()
+      const replyText = data.content[0].text
       const updatedMsgs = [...newMsgs, { role: 'assistant', text: replyText }]
       setMessages(updatedMsgs)
+      onAiReply?.(replyText) // let the host pick Ebi's pose via the Mascot model
       const savedId = await saveMessages(updatedMsgs, sessionId)
       if (!sessionId) setSessionId(savedId)
     } catch (err) {
@@ -373,11 +375,8 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
     </>
   )
 
-  // While chatting with Ebi, the button reflects the help conversation; otherwise it
-  // shows the app-context pose passed in from App (study question, picture word, etc).
-  const buttonMascot = ((open || docked) && messages.length)
-    ? (posed || pickShrimp(messages.slice(-2).map(m => m.text).join(' ')))
-    : mascotFile
+  // The button always shows the global Ebi pose (set by the Mascot model via the host).
+  const buttonMascot = mascotFile
 
   return (
     <>
