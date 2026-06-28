@@ -16,6 +16,9 @@ import { ankiPing, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiFindCards, ank
 import { readBlob, writeBlob, DEFAULT_LEDGER } from './discover/storage'
 import { buildProfilePrompt, buildSuggestionPrompt, buildVerifyPrompt } from './discover/prompts'
 
+// App-language code → English name, for prompting the AI to reply in the user's language.
+const APP_LANG_NAME = { en: 'English', es: 'Spanish', zh: 'Chinese', ja: 'Japanese' }
+
 // Color-coded study feedback categories (used for all modes — language and general).
 const FEEDBACK_CATS = {
   praise:      { color: 'var(--c-success)', icon: '✓', label: 'What you got right' },
@@ -3575,14 +3578,15 @@ Rules:
   // quiz language. Lets a learner decode an unfamiliar word without revealing the answer.
   const lookupStudyWord = async (word, sentence) => {
     if (!apiKey || !word) return
-    const rules = activeMode.studyRules || defaultStudyRules
-    const studyLang = rules.studyLanguage || 'English'
+    // Explain in the USER's language (= the app language), since that's the language they
+    // speak and are learning from — not the quiz/study language.
+    const explainLang = APP_LANG_NAME[appLanguage] || 'English'
     setStudyWordLookup({ word, meaning: null, loading: true })
     try {
-      const prompt = `In the sentence below, what does the word "${word}" mean as used here? Reply in ${studyLang} with just a short definition or translation of "${word}" (a few words — no full-sentence translation, no extra commentary).
+      const prompt = `In the sentence below, what does the word "${word}" mean as used here? Reply in ${explainLang} with just a short definition or translation of "${word}" (a few words — no full-sentence translation, no extra commentary).
 
 Sentence: "${sentence}"`
-      const text = await aiCall(apiKey, `You are a concise bilingual dictionary. Given one word in a sentence, return only that word's contextual meaning, written in ${studyLang}.`, prompt, resolveModel('study'))
+      const text = await aiCall(apiKey, `You are a concise bilingual dictionary. Given one word in a sentence, return only that word's contextual meaning, written in ${explainLang}.`, prompt, resolveModel('study'))
       setStudyWordLookup({ word, meaning: text.trim(), loading: false })
     } catch {
       setStudyWordLookup({ word, meaning: 'Lookup failed — try again.', loading: false })
@@ -5725,7 +5729,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   </div>
                 </div>
 
-                {/* Language & grammar options */}
+                {/* Language & grammar options — language modes only (general modes quiz on concepts) */}
+                {activeMode.type === 'language' && (
                 <div style={{
                   display: 'inline-flex', alignItems: 'center', gap: 10, padding: '10px 20px',
                   background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 8, marginBottom: 16,
@@ -5745,8 +5750,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     {t('grammarFeedback')}
                   </label>
                 </div>
+                )}
 
-                {/* Study type dropdown */}
+                {/* Study type — Conjugations is language-only, so only offer it for language modes */}
+                {activeMode.type === 'language' && (
                 <div style={{
                   display: 'inline-flex', alignItems: 'center', gap: 10, padding: '10px 20px',
                   background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 8, marginTop: 8, marginBottom: 4,
@@ -5758,9 +5765,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     <option value="conjugations">{t('conjugations')}</option>
                   </select>
                 </div>
+                )}
 
                 <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 8 }}>
-                  <button onClick={() => beginStudy(studyDeck, studyMode)} disabled={!studyDeck || studyLoading}
+                  <button onClick={() => beginStudy(studyDeck, activeMode.type === 'language' ? studyMode : 'flashcards')} disabled={!studyDeck || studyLoading}
                     style={{ ...S.captureBtn, borderRadius: 6, padding: '10px 24px', fontSize: 13, opacity: !studyDeck || studyLoading ? 0.5 : 1 }}>
                     {studyLoading ? t('loading') : t('start')}
                   </button>
