@@ -185,16 +185,21 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   in `dataTransfer`, which used to falsely trip the "Drop image here" overlay. `handleDragOver` also guards
   on `dataTransfer.types` including `'Files'`.
 
-## AI providers (`src/config/providers.js`) — two model tiers each
-- Every provider exposes a **cheap `model`** (Haiku slot, used by the `general` role) and a **strong
-  `questionModel`** (Sonnet slot, used by picture/deck/study/discover/chat/help/pose). Defaults:
-  Anthropic `haiku`/`sonnet-4-6`; OpenAI `gpt-4o-mini`/`gpt-4o`; Gemini `2.0-flash`/`2.5-pro`; Grok
-  `grok-3-mini-fast`/`grok-4`. All `questionModel`s are **vision-capable** (the Picture role sends images).
+## AI providers (`src/config/providers.js`) — works on ALL providers
+- **Everything routes through `aiCall`** → `PROVIDERS[provider].call(...)`. No feature hardcodes a provider:
+  Chat, Study, Deck, Discover, Picture (vision), pose, AND **Ebi's Help** (HelpChat takes an `askAI` prop =
+  `aiCall(..., resolveModel('help'))`) all work on Anthropic / OpenAI / Gemini / Grok.
+- **Intelligence preset (global `intelligence` = `normal` | `max`, in `config.json`):** each provider has
+  `presets: { normal, max }` (Anthropic sonnet-4-6/opus-4-8; OpenAI gpt-4o/gpt-4.1; Gemini 2.5-flash/2.5-pro;
+  Grok grok-3/grok-4 — all vision-capable). `ROLE_DEFAULTS(pc, intel)` makes **every feature** default to that
+  one preset model (standardized, no per-role tiering) — EXCEPT `pose`, which always uses the `normal` preset
+  (it fires on every message; Max shouldn't blow up its cost/latency). Per-feature overrides in Settings still
+  win. Chosen in **onboarding** (after the provider step) and switchable in **Settings → AI models**.
 - **No forced JSON.** OpenAI/Gemini do NOT set `response_format`/`responseMimeType` — that would break
   free-form chat/help (OpenAI even errors unless the prompt says "json"). JSON roles rely on the prompt +
   `parseAiJson()`, exactly like Claude.
 - **Self-heal for ALL providers:** `discoverCurrentModel` (App.jsx) uses each provider's `listModels()` +
-  a role-tier family preference, so a stale/unavailable default id 404s → auto-switches to a current model.
+  a tier family preference, so a stale/unavailable default id 404s → auto-switches to a current model.
 
 ## Commits
 - The user prefers **no Claude attribution** in commit messages.

@@ -9,6 +9,8 @@ export const PROVIDERS = {
     billingUrl: 'https://console.anthropic.com/settings/plans',
     model: 'claude-haiku-4-5-20251001',
     questionModel: 'claude-sonnet-4-6',
+    // Intelligence presets — every feature uses one of these (Normal = balanced, Max = most capable).
+    presets: { normal: 'claude-sonnet-4-6', max: 'claude-opus-4-8' },
     // List the model ids currently offered by the provider (newest first).
     listModels: async (apiKey) => {
       const resp = await fetch('https://api.anthropic.com/v1/models?limit=1000', {
@@ -59,6 +61,7 @@ export const PROVIDERS = {
     billingUrl: 'https://platform.openai.com/settings/organization/billing',
     model: 'gpt-4o-mini',       // cheap/fast tier (vision-capable) — matches Claude's Haiku slot
     questionModel: 'gpt-4o',    // strong tier (vision-capable) — matches Claude's Sonnet slot
+    presets: { normal: 'gpt-4o', max: 'gpt-4.1' }, // both vision-capable
     // Only chat-capable models (skip embeddings, tts, whisper, image, moderation).
     listModels: async (apiKey) => {
       const resp = await fetch('https://api.openai.com/v1/models', {
@@ -113,6 +116,7 @@ export const PROVIDERS = {
     billingUrl: 'https://aistudio.google.com/apikey',
     model: 'gemini-2.0-flash',      // cheap/fast tier (vision-capable) — Haiku slot
     questionModel: 'gemini-2.5-pro', // strong tier (vision-capable) — Sonnet slot
+    presets: { normal: 'gemini-2.5-flash', max: 'gemini-2.5-pro' }, // both vision-capable
     // Models that support generateContent; strip the "models/" prefix.
     listModels: async (apiKey) => {
       const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}&pageSize=1000`)
@@ -162,6 +166,7 @@ export const PROVIDERS = {
     billingUrl: 'https://console.x.ai/',
     model: 'grok-3-mini-fast', // cheap/fast tier — Haiku slot
     questionModel: 'grok-4',   // strong tier (multimodal/vision) — Sonnet slot
+    presets: { normal: 'grok-3', max: 'grok-4' }, // grok-4 is multimodal
     listModels: async (apiKey) => {
       const resp = await fetch('https://api.x.ai/v1/models', {
         headers: { 'Authorization': `Bearer ${apiKey}` },

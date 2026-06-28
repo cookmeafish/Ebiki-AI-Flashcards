@@ -182,6 +182,9 @@ export default function App() {
   // Per-provider, per-role model overrides: { [provider]: { general, question, help } }.
   // Empty role falls back to the provider's built-in default (see resolveModel).
   const [aiModels, setAiModels] = useState({})
+  // Global intelligence preset: 'normal' (balanced, ~Sonnet) | 'max' (most capable, ~Opus, slower/pricier).
+  // Every feature defaults to this provider's preset model unless a per-feature override is set.
+  const [intelligence, setIntelligence] = useState('normal')
   // Transient toast shown when a retired model is auto-replaced.
   const [modelHealNotice, setModelHealNotice] = useState(null)
   // Persistent toast shown when an AI request fails (out of credits, rate-limited, bad key…).
@@ -519,19 +522,17 @@ export default function App() {
   // These helpers are called from memoized callbacks that don't list aiModels as
   // a dependency, so read the live values from a ref rather than a stale closure.
   const aiStateRef = useRef({})
-  aiStateRef.current = { provider, aiModels, apiKeys }
+  aiStateRef.current = { provider, aiModels, apiKeys, intelligence }
   // Per-feature model roles. Each app area can run its own model (and provider).
   // Defaults: cheap/fast model for high-volume areas, stronger model where quality matters.
-  const ROLE_DEFAULTS = (pc) => ({
-    general: pc.model,        // fallback + mode config generation
-    picture: pc.questionModel, // vision image reading + in-context translation (stronger model)
-    deck: pc.questionModel,   // Anki card generation, editing, analysis, dedup (stronger = better cards)
-    study: pc.questionModel,  // study question gen, evaluation, hints, insights, feedback
-    discover: pc.questionModel, // learner profiling, suggestions, fact-checking
-    chat: pc.questionModel,   // the chat tab assistant (stronger model for quality replies)
-    help: pc.questionModel,   // Ebi's Help assistant
-    pose: pc.questionModel,   // picks Ebi's mascot pose from context — stronger model for better fit
-  })
+  // Every feature defaults to the provider's selected intelligence preset (Normal/Max), so the
+  // whole app is one consistent tier. Exception: `pose` is a tiny classifier that fires on EVERY
+  // message — it always uses the cheaper Normal preset so Max mode doesn't blow up cost/latency.
+  const ROLE_DEFAULTS = (pc, intel = 'normal') => {
+    const m = pc.presets?.[intel] || pc.questionModel || pc.model
+    const normal = pc.presets?.normal || pc.questionModel || pc.model
+    return { general: m, picture: m, deck: m, study: m, discover: m, chat: m, help: m, pose: normal }
+  }
   // UI metadata for the AI Settings panel — order + labels + hints.
   const AI_ROLE_META = [
     { role: 'picture', label: 'Picture', hint: 'OCR translation, word explanations, tooltip lookups' },
@@ -546,7 +547,7 @@ export default function App() {
   const resolveModel = (role, prov = aiStateRef.current.provider) => {
     const pc = PROVIDERS[prov]
     const overrides = aiStateRef.current.aiModels[prov]
-    return (overrides && overrides[role]) || ROLE_DEFAULTS(pc)[role]
+    return (overrides && overrides[role]) || ROLE_DEFAULTS(pc, aiStateRef.current.intelligence)[role]
   }
 
   // Ask the provider for its current model list (used by the "Check for new models"
@@ -730,6 +731,7 @@ export default function App() {
       if (config.language) setLanguage(config.language)
       if (config.targetLang) setTargetLang(config.targetLang)
       if (config.showHighlights !== undefined) setShowHighlights(config.showHighlights)
+      if (config.intelligence) setIntelligence(config.intelligence)
       if (config.overlayEnabled !== undefined) setOverlayEnabled(config.overlayEnabled)
       if (config.onboarded) setOnboarded(true)
       setActiveTab(config.activeTab || 'picture')
@@ -893,9 +895,9 @@ export default function App() {
     fetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider, aiModels, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, overlayEnabled, onboarded, ...(activeTab ? { activeTab } : {}) }),
+      body: JSON.stringify({ provider, aiModels, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, intelligence, overlayEnabled, onboarded, ...(activeTab ? { activeTab } : {}) }),
     }).catch(() => {})
-  }, [provider, aiModels, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, overlayEnabled, onboarded, activeTab, configLoaded])
+  }, [provider, aiModels, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, intelligence, overlayEnabled, onboarded, activeTab, configLoaded])
 
   // Auto-launch the overlay once on startup when the persisted preference is ON (default).
   const overlayAutoLaunchedRef = useRef(false)
@@ -5466,6 +5468,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           apiKeys={apiKeys} apiKey={apiKey} setCurrentKey={setCurrentKey} providerConfig={providerConfig}
           createMode={createMode} modeCreating={modeCreating}
           aiModels={aiModels} setAiModels={setAiModels}
+          intelligence={intelligence} setIntelligence={setIntelligence}
         />
       )}
 
@@ -5486,6 +5489,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           AI_ROLE_META={AI_ROLE_META} ROLE_DEFAULTS={ROLE_DEFAULTS}
           aiModels={aiModels} setAiModels={setAiModels} availableModels={availableModels}
           refreshModels={refreshModels} modelsLoading={modelsLoading} modelsError={modelsError}
+          intelligence={intelligence} setIntelligence={setIntelligence}
           modes={modes} activeModeId={activeModeId} setActiveModeId={setActiveModeId} saveModes={saveModes}
           editingModeName={editingModeName} setEditingModeName={setEditingModeName} renameMode={renameMode}
           modeEditInput={modeEditInput} setModeEditInput={setModeEditInput} createMode={createMode}
@@ -6358,7 +6362,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       {/* Chat AI model — same override as Settings → AI models (aiModels[provider].chat). */}
                       <div style={labelStyle}>Chat model</div>
                       <select value={aiModels[provider]?.chat || ''} onChange={(e) => setAiModels((prev) => ({ ...prev, [provider]: { ...(prev[provider] || {}), chat: e.target.value } }))} style={selStyle}>
-                        <option value="">Default ({ROLE_DEFAULTS(providerConfig).chat})</option>
+                        <option value="">Default ({ROLE_DEFAULTS(providerConfig, intelligence).chat})</option>
                         {modelsLoading && !(availableModels[provider] || []).length && <option disabled>Loading…</option>}
                         {(availableModels[provider] || []).map((mid) => <option key={mid} value={mid}>{mid}</option>)}
                       </select>
@@ -7903,10 +7907,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         askEbiSignal={askEbiSignal}
         hideButton={true}
         model={resolveModel('help')}
-        onModelRetired={async (failedModel) => {
-          const healed = await healRetiredModel('404 not_found', failedModel, 'help')
-          return healed
-        }}
+        askAI={(sys, content) => aiCall(apiKey, sys, content, resolveModel('help'), { maxTokens: 600 })}
         appContext={{
         activeTab,
         activeMode: { name: activeMode.name, type: activeMode.type, ankiDeck: activeMode.ankiDeck },

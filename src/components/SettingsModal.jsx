@@ -20,7 +20,7 @@ export default function SettingsModal(p) {
     // AI Models (global)
     provider, setProvider, apiKeys, apiKey, setCurrentKey, providerConfig,
     AI_ROLE_META, ROLE_DEFAULTS, aiModels, setAiModels, availableModels,
-    refreshModels, modelsLoading, modelsError,
+    refreshModels, modelsLoading, modelsError, intelligence, setIntelligence,
     // Modes
     modes, activeModeId, setActiveModeId, saveModes, editingModeName, setEditingModeName,
     renameMode, modeEditInput, setModeEditInput, createMode, modeCreating, addDefaultMode, deleteMode,
@@ -209,8 +209,32 @@ export default function SettingsModal(p) {
           </div>
         </div>
         {modelsError && <div style={{ fontSize: 10, color: C.danger, marginBottom: 6 }}>{modelsError}</div>}
+
+        {/* Intelligence preset — one switch that sets every feature's default model tier. */}
+        <div style={{ marginBottom: 12, padding: '10px 12px', borderRadius: 8, background: 'var(--c-surface-sunken)', border: '1px solid var(--c-border)' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.ink, marginBottom: 2 }}>Intelligence preset</div>
+          <div style={{ fontSize: 10, color: C.inkDim, marginBottom: 8 }}>Sets the default model for every feature at once. Per-feature overrides below still win.</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {[
+              { key: 'normal', title: 'Normal', desc: `Balanced & fast (${providerConfig.presets?.normal || providerConfig.questionModel})` },
+              { key: 'max', title: 'More intelligent', desc: `Most capable, slower & more tokens (${providerConfig.presets?.max || providerConfig.questionModel})` },
+            ].map((opt) => {
+              const active = (intelligence || 'normal') === opt.key
+              return (
+                <button key={opt.key} onClick={() => setIntelligence(opt.key)}
+                  style={{ flex: 1, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', padding: '8px 10px', borderRadius: 7,
+                    border: `1px solid ${active ? C.brandRing : 'var(--c-border)'}`,
+                    background: active ? 'rgba(223,37,64,.10)' : 'transparent' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: active ? C.brand : C.ink }}>{active ? '● ' : '○ '}{opt.title}</div>
+                  <div style={{ fontSize: 9.5, color: C.inkDim, marginTop: 2 }}>{opt.desc}</div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
         {AI_ROLE_META.map(({ role }) => {
-          const def = ROLE_DEFAULTS(providerConfig)[role]
+          const def = ROLE_DEFAULTS(providerConfig, intelligence)[role]
           const current = aiModels[provider]?.[role] || ''
           const opts = Array.from(new Set([...(provModels.length ? provModels : []), def, current].filter(Boolean)))
           const isCustom = customRoles[role]
