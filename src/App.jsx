@@ -470,8 +470,14 @@ export default function App() {
     if (chatSpacerRef.current) chatSpacerRef.current.style.height = c.clientHeight + 'px'
     const users = c.querySelectorAll('[data-role="user"]')
     const last = users[users.length - 1]
-    if (last) last.scrollIntoView({ block: 'start', behavior: 'smooth' })
-    else c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' })
+    if (last) {
+      // Scroll ONLY this container (not the window — scrollIntoView would scroll the whole
+      // zoomed page and hide the app header). Bring the latest user message to the top.
+      const top = c.scrollTop + (last.getBoundingClientRect().top - c.getBoundingClientRect().top) - 12
+      c.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+    } else {
+      c.scrollTo({ top: c.scrollHeight, behavior: 'smooth' })
+    }
   }
 
   // Load chat sessions from disk on mount, and restore the last-open session (persisted in
