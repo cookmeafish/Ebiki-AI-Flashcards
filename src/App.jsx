@@ -3014,7 +3014,9 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       setAnkiConnected(connected)
       if (!connected) { setQuickAddError('Anki is not running — open Anki to add cards'); setQuickAddCards((prev) => prev.map((c, k) => k === i ? { ...c, syncing: false } : c)); return }
       if (!(await ankiGetDecks().catch(() => [])).includes(deck)) await ankiCreateDeck(deck)
-      await ankiAddNote(deck, card.front, cardBackToHtml(card.back), (card.tags && card.tags.length) ? card.tags : ['ebiki'], card.dup)
+      // allowDuplicate: true — Quick Add is an explicit "add these" action (the duplicate badge
+      // already warns), and multi-meaning words legitimately share a front (e.g. two "gato" cards).
+      await ankiAddNote(deck, card.front, cardBackToHtml(card.back), (card.tags && card.tags.length) ? card.tags : ['ebiki'], true)
       ankiSync().catch(() => {})
       setQuickAddCards((prev) => prev.map((c, k) => k === i ? { ...c, synced: true, syncing: false } : c))
       if (deck === deckBrowserDeck) loadDeckNotes(deck).catch(() => {})
@@ -5439,14 +5441,19 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             </>
           )}
 
-          {/* Mode quick-switcher (fast switch without opening Settings) */}
+          {/* Mode quick-switcher (fast switch without opening Settings); "+ Add mode" opens the
+              same Learning-modes panel in Settings used to create a mode. */}
           <select
             value={activeModeId}
-            onChange={(e) => { const id = parseInt(e.target.value); setActiveModeId(id); saveModes(modes, id); const nm = modes.find((m) => m.id === id); if (nm?.ankiDeck) setStudyDeck(nm.ankiDeck) }}
+            onChange={(e) => {
+              if (e.target.value === '__add__') { setSettingsCategory('modes'); setSettingsOpen(true); return }
+              const id = parseInt(e.target.value); setActiveModeId(id); saveModes(modes, id); const nm = modes.find((m) => m.id === id); if (nm?.ankiDeck) setStudyDeck(nm.ankiDeck)
+            }}
             title={t('settingsMode')}
             style={{ ...S.select, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)', background: 'rgba(223,37,64,.08)', fontWeight: 700 }}
           >
             {modes.map((m) => <option key={m.id} value={m.id}>{m.type === 'language' ? '\u{1F310}' : '\u{1F4DA}'} {m.name}</option>)}
+            <option value="__add__">{'➕'} Add mode…</option>
           </select>
 
           {/* Single Settings entry \u2014 opens the unified modal (right-most, like every tab) */}
@@ -5644,16 +5651,22 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             {quickAddOpen && (
               <div style={{ marginBottom: 12, border: '1px solid rgba(17,168,160,0.3)', borderRadius: 8, padding: 14, background: 'rgba(17,168,160,0.04)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <div style={{ fontSize: 12, color: 'var(--c-teal)', fontWeight: 700 }}>⚡ Quick Add → {deckBrowserDeck || activeMode.ankiDeck || 'pick a deck'}</div>
+                  <div style={{ fontSize: 12, color: 'var(--c-teal)', fontWeight: 700 }}>⚡ Quick Add</div>
                   <button onClick={closeQuickAdd} style={{ ...S.ghostBtn, fontSize: 11 }}>Close</button>
                 </div>
+                {/* Make the mode (tailors the card format/subject) AND the deck (where cards go) both
+                    explicit, so the user knows to configure each correctly. */}
+                <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 6, fontSize: 11 }}>
+                  <span style={{ color: 'var(--c-ink-dim)' }}>Mode (tailors cards): <b style={{ color: 'var(--c-brand)' }}>{activeMode.name}</b></span>
+                  <span style={{ color: 'var(--c-ink-dim)' }}>Deck (cards go here): <b style={{ color: 'var(--c-teal)' }}>{deckBrowserDeck || activeMode.ankiDeck || 'pick a deck above'}</b></span>
+                </div>
                 <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 6 }}>
-                  Paste words (one per line or comma-separated). {activeMode.type === 'language' ? 'Spanish cards use your Frente/Dorso format.' : `Cards are tailored for ${activeMode.name}.`}
+                  Paste words (one per line or comma-separated). {activeMode.type === 'language' ? 'Cards use your Frente/Dorso format.' : `Cards are tailored for ${activeMode.name}.`}
                 </div>
                 <textarea
                   value={quickAddInput}
                   onChange={(e) => setQuickAddInput(e.target.value)}
-                  placeholder={'surcar\nhuelga\nrendir cuentas'}
+                  placeholder={activeMode.type === 'language' ? 'surcar\nhuelga\nrendir cuentas' : 'one term per line…'}
                   rows={3}
                   style={{ width: '100%', boxSizing: 'border-box', fontSize: 12, fontFamily: 'inherit', padding: 8, borderRadius: 6, border: '1px solid var(--c-border)', background: 'var(--c-surface-sunken)', color: 'var(--c-ink)', resize: 'vertical' }}
                 />
@@ -5662,12 +5675,16 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     style={{ ...S.captureBtn, borderRadius: 5, fontSize: 11, opacity: (quickAddLoading || !quickAddInput.trim()) ? 0.5 : 1 }}>
                     {quickAddLoading ? 'Generating…' : 'Generate cards'}
                   </button>
-                  {quickAddCards.length > 0 && (
-                    <button onClick={syncQuickAddAccepted} disabled={!quickAddCards.some((c) => c.accepted && !c.synced)}
-                      style={{ background: 'rgba(24,169,87,0.14)', color: 'var(--c-success)', border: '1px solid rgba(24,169,87,0.35)', borderRadius: 5, padding: '7px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: quickAddCards.some((c) => c.accepted && !c.synced) ? 1 : 0.5 }}>
-                      Sync {quickAddCards.filter((c) => c.accepted && !c.synced).length} approved
-                    </button>
-                  )}
+                  {quickAddCards.length > 0 && (() => {
+                    const n = quickAddCards.filter((c) => c.accepted && !c.synced).length
+                    const deck = deckBrowserDeck || activeMode.ankiDeck || 'Anki'
+                    return (
+                      <button onClick={syncQuickAddAccepted} disabled={n === 0}
+                        style={{ background: 'rgba(24,169,87,0.14)', color: 'var(--c-success)', border: '1px solid rgba(24,169,87,0.35)', borderRadius: 5, padding: '7px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: n === 0 ? 0.5 : 1 }}>
+                        {n === 0 ? 'All added' : `Add ${n} to ${deck}`}
+                      </button>
+                    )
+                  })()}
                   {quickAddError && <span style={{ fontSize: 10, color: 'var(--c-danger)' }}>{quickAddError}</span>}
                 </div>
 
@@ -5695,17 +5712,17 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' }}>
                         {card.synced ? (
-                          <span style={{ fontSize: 10, color: 'var(--c-success)', fontWeight: 700 }}>✓ Synced</span>
-                        ) : (<>
+                          <span style={{ fontSize: 10, color: 'var(--c-success)', fontWeight: 700 }}>✓ Added</span>
+                        ) : card.syncing ? (
+                          <span style={{ fontSize: 10, color: 'var(--c-ink-dim)' }}>…</span>
+                        ) : (
+                          // One control: include/exclude this card from the batch "Add" button above.
                           <button onClick={() => setQuickAddCards((prev) => prev.map((c, k) => k === i ? { ...c, accepted: !c.accepted } : c))}
-                            title={card.accepted ? 'Approved' : 'Skipped'}
-                            style={{ width: 26, height: 26, borderRadius: 5, cursor: 'pointer', fontFamily: 'inherit', border: `1px solid ${card.accepted ? 'rgba(24,169,87,0.5)' : 'var(--c-border)'}`, background: card.accepted ? 'rgba(24,169,87,0.18)' : 'transparent', color: card.accepted ? 'var(--c-success)' : 'var(--c-ink-dim)' }}>✓</button>
-                          <button onClick={() => syncQuickAddCard(i)} disabled={card.syncing || !card.accepted}
-                            title="Sync this card to Anki"
-                            style={{ fontSize: 9, padding: '3px 6px', borderRadius: 4, cursor: 'pointer', fontFamily: 'inherit', border: '1px solid var(--c-border)', background: 'var(--c-surface-sunken)', color: 'var(--c-ink-dim)', opacity: (card.syncing || !card.accepted) ? 0.5 : 1 }}>
-                            {card.syncing ? '…' : 'Sync'}
+                            title={card.accepted ? 'Included — click to skip' : 'Skipped — click to include'}
+                            style={{ width: 28, height: 28, borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, border: `1px solid ${card.accepted ? 'rgba(24,169,87,0.5)' : 'var(--c-border)'}`, background: card.accepted ? 'rgba(24,169,87,0.18)' : 'transparent', color: card.accepted ? 'var(--c-success)' : 'var(--c-ink-faint)' }}>
+                            {card.accepted ? '✓' : '○'}
                           </button>
-                        </>)}
+                        )}
                       </div>
                     </div>
                   </div>
@@ -7719,6 +7736,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       <style>{`
         /* ── Theme palettes (flip via <html data-theme="dark">) ───────── */
         :root {
+          color-scheme: light; /* native controls (select popups, scrollbars) match light theme */
           --c-brand: #DF2540; --c-brand-dark: #C00A29; --c-brand-soft: #FF5468;
           --c-bg: #F2F5F8; --c-bg-grad1: rgba(223,37,64,.05); --c-bg-grad2: rgba(17,168,160,.045);
           --c-surface: #FFFFFF; --c-surface-alt: #EAEEF2; --c-surface-sunken: #F5F8FA;
@@ -7733,6 +7751,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           --sh-brand: 0 6px 18px rgba(223,37,64,.28);
         }
         [data-theme="dark"] {
+          color-scheme: dark; /* dark native select popups + scrollbars */
           --c-brand: #FF4D63; --c-brand-dark: #C81F38; --c-brand-soft: #FF6F80;
           --c-bg: #0E1419; --c-bg-grad1: rgba(255,77,99,.07); --c-bg-grad2: rgba(17,168,160,.06);
           --c-surface: #18222B; --c-surface-alt: #202C36; --c-surface-sunken: #131C24;
