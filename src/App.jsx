@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react'
 import Tesseract from 'tesseract.js'
 import { TRANSLATE_PROMPT, VISION_OCR_PROMPT, LANGUAGE_CARD_PROMPT, GENERIC_CARD_PROMPT, POS_COLORS, CATEGORY_COLORS } from './config/prompts'
 import { dataUrlToImagePart, downscaleDataUrl } from './utils/image'
@@ -3819,9 +3819,10 @@ Output ONLY raw JSON. No markdown, no backticks.`
     setStudyLoading(true)
     setAnkiError(null)
     try {
-      let cardIds = await ankiFindCards(`deck:"${deck}" is:due`)
-      if (!cardIds || cardIds.length === 0) cardIds = await ankiFindCards(`deck:"${deck}"`)
-      if (!cardIds || cardIds.length === 0) { setAnkiError('No cards found in this deck'); setStudyLoading(false); return }
+      // Only quiz what Anki would show right now: due reviews (respects the cooldown) + new cards.
+      // Do NOT fall back to all cards — that would re-quiz cards still on their Anki cooldown.
+      let cardIds = await ankiFindCards(`deck:"${deck}" (is:due OR is:new)`)
+      if (!cardIds || cardIds.length === 0) { setAnkiError('Nothing is due in this deck right now. Come back when Anki has cards waiting (or add new cards).'); setStudyLoading(false); return }
 
       const knowledgeRes = await fetch(`/api/modes/knowledge?mode=${encodeURIComponent(activeMode.name)}`).then(r => r.json()).catch(() => ({ content: null, fileCount: 0 }))
       setStudyKnowledge(knowledgeRes.content)
@@ -3983,6 +3984,19 @@ Output ONLY raw JSON. No markdown, no backticks.`
       setCurrentQuestion(getNextStudyQuestion())
     }
   }, [studyPhase, studyCardState])
+
+  // When the session is complete (all cards done + evaluated, pool exhausted), go straight to the
+  // per-card review. useLayoutEffect runs BEFORE paint, so the "All cards completed" intermediate
+  // never renders — no flash between the last answer and the Batch Results screen.
+  useLayoutEffect(() => {
+    if (!studyActive || studyPhase !== 'question' || studyCardState.length === 0) return
+    if (studyWrappingUpRef.current) return
+    if (!studyCardState.every(cs => cs.done) || !studyCardState.every(cs => !cs.evaluating)) return
+    const poolExhausted = studyMode === 'conjugations'
+      ? studyBatchIdx >= studyConjugationWords.length
+      : studyBatchIdx >= studyAllCards.length
+    if (poolExhausted) setStudyPhase('batchFeedback')
+  }, [studyActive, studyPhase, studyCardState, studyBatchIdx, studyMode, studyAllCards.length, studyConjugationWords.length])
 
   const submitStudyAnswer = async () => {
     if (!studyInput.trim() || studyLoading || !currentQuestion) return
@@ -4344,23 +4358,7 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
       })
       setStudyStats(prev => ({ ...prev, [label]: prev[label] + 1 }))
 
-      // Check if all cards are done and evaluated
-      setStudyCardState(prev => {
-        const allDone = prev.every(cs => cs.done)
-        const allEvaluated = prev.every(cs => !cs.evaluating)
-        if (allDone && allEvaluated && !studyWrappingUpRef.current) {
-          // All cards done — if no more in pool, show the per-card review (right/wrong, rating, and
-          // the correction chat). The "Finish Session" button there (nextBatch) then goes to summary.
-          const poolExhausted = studyMode === 'conjugations'
-            ? studyBatchIdx >= studyConjugationWords.length
-            : studyBatchIdx >= studyAllCards.length
-          if (poolExhausted) {
-            setTimeout(() => setStudyPhase('batchFeedback'), 100)
-          }
-        }
-        return prev
-      })
-
+      // (Completion → batchFeedback is handled by an effect below, so there's no transitional flash.)
       console.log('[Study] card evaluated:', cs.front, '→', label)
     } catch (err) {
       console.error('[Study] evaluation failed:', err.message)
@@ -4417,49 +4415,42 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
   // cards we actually submitted are marked synced (avoids a race where a card
   // that becomes done+ease between the filter and the setState gets marked
   // synced without being pushed to Anki).
-  const syncingRef = useRef(false)
-  const syncRatingsToAnki = async () => {
-    if (syncingRef.current) return { synced: 0, failed: 0, skipped: true }
-    const ratingsToSync = studyCardState.filter(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation)
-    if (ratingsToSync.length === 0) return { synced: 0, failed: 0 }
-    syncingRef.current = true
+  // Mirror studyCardState into a ref so a sync always reads the LATEST state (not a stale closure),
+  // which matters because syncs are serialized and a later one must see the earlier one's results.
+  const studyCardStateRef = useRef([])
+  useEffect(() => { studyCardStateRef.current = studyCardState }, [studyCardState])
+  // A promise chain that serializes ALL sync calls (the 15s auto-sync AND manual finish/exit) so they
+  // can never run concurrently (no double-answering a card in Anki) and the final one is never skipped.
+  const syncChainRef = useRef(Promise.resolve())
 
-    // Try each card individually so one bad card doesn't block the rest
+  const doSyncRatings = async () => {
+    // Read the latest state from the ref; only push cards rated + not yet synced.
+    const ratingsToSync = studyCardStateRef.current.filter(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation)
+    if (ratingsToSync.length === 0) return { synced: 0, failed: 0 }
     const synced = []
     const failed = []
-    try {
-      for (const cs of ratingsToSync) {
-        try {
-          console.log('[Anki sync] answering card', cs.cardId, 'ease', cs.ease, 'rating', cs.rating)
-          const result = await ankiAnswerCards([{ cardId: cs.cardId, ease: cs.ease }])
-          if (result === false) {
-            // answerCards returns false when ease is out of range for the card's current state
-            // (e.g. new card only has 3 buttons but we sent ease=4). Retry with capped ease.
-            console.warn('[Anki sync] answerCards returned false for card', cs.cardId, '— retrying with ease 3')
-            const retry = await ankiAnswerCards([{ cardId: cs.cardId, ease: Math.min(cs.ease, 3) }])
-            if (retry === false) {
-              console.error('[Anki sync] retry also failed for card', cs.cardId)
-              failed.push(cs)
-            } else {
-              console.log('[Anki sync] retry succeeded for card', cs.cardId)
-              synced.push(cs)
-            }
-          } else {
-            synced.push(cs)
-          }
-        } catch (err) {
-          console.error('[Anki sync] error for card', cs.cardId, err.message)
-          failed.push(cs)
+    for (const cs of ratingsToSync) {
+      try {
+        console.log('[Anki sync] answering card', cs.cardId, 'ease', cs.ease, 'rating', cs.rating)
+        let result = await ankiAnswerCards([{ cardId: cs.cardId, ease: cs.ease }])
+        // answerCards returns false when the ease is out of range (e.g. a new card with only 3 buttons
+        // but we sent ease=4). Retry once with a capped ease.
+        if (result === false) result = await ankiAnswerCards([{ cardId: cs.cardId, ease: Math.min(cs.ease, 3) }])
+        if (result === false) { failed.push(cs) }
+        else {
+          synced.push(cs)
+          // Mark synced in the REF immediately so the next queued sync won't re-answer (double) this card.
+          studyCardStateRef.current = studyCardStateRef.current.map(c => c.cardId === cs.cardId ? { ...c, synced: true } : c)
         }
+      } catch (err) {
+        console.error('[Anki sync] error for card', cs.cardId, err.message)
+        failed.push(cs)
       }
-    } finally {
-      syncingRef.current = false
     }
-
     if (synced.length > 0) {
       const syncedIds = new Set(synced.map(cs => cs.cardId))
       setStudyCardState(prev => prev.map(cs => syncedIds.has(cs.cardId) ? { ...cs, synced: true } : cs))
-      ankiSync().catch(() => {})
+      ankiSync().catch(() => {}) // push the new schedule to AnkiWeb so the desktop app + web stay in sync
       ankiGetDeckStats([studyDeck]).then(s => {
         const ds = Object.values(s)[0]
         if (ds) setStudyDeckStats(ds)
@@ -4469,22 +4460,20 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
     return { synced: synced.length, failed: failed.length, ...(failed.length > 0 ? { error: `${failed.length} card(s) failed` } : {}) }
   }
 
-  // Auto-sync: push newly-evaluated card ratings to Anki so partial progress is
-  // preserved if the tab closes, the browser crashes, or AnkiConnect disconnects.
-  // Debounced 15s so that if the user corrects a rating (e.g. AGAIN → EASY) shortly
-  // after, only the FINAL rating is sent — avoiding a stacked AGAIN+EASY review.
-  // A later correction re-marks the card unsynced and re-syncs (Anki's last answer wins).
-  useEffect(() => {
-    if (!studyActive) return
-    const hasUnsynced = studyCardState.some(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation)
-    if (!hasUnsynced) return
-    const t = setTimeout(() => {
-      syncRatingsToAnki().then(result => {
-        if (result?.failed > 0) console.error('[Anki auto-sync] failed cards:', result.failed, result.error)
-      })
-    }, 15000)
-    return () => clearTimeout(t)
-  }, [studyCardState, studyActive])
+  // Queue a sync onto the chain — never runs alongside another sync, never skipped. Await it to know
+  // the result (the manual finish/exit awaits this so all ratings are pushed before leaving).
+  const syncRatingsToAnki = () => {
+    const run = syncChainRef.current.then(doSyncRatings, doSyncRatings)
+    syncChainRef.current = run.catch(() => {})
+    return run
+  }
+
+  // NO mid-session auto-sync. Each card must be answered in Anki EXACTLY ONCE, with its FINAL rating.
+  // If we synced early (e.g. the AI's "again") and the user later corrected it (to "easy"), Anki would
+  // record "again" THEN "easy" — the "again" already lapses a mature card, so the later "easy" reschedules
+  // from the reset state (≈ days) instead of the original interval (≈ months), and that can't be cleanly
+  // undone. So ratings are pushed only once, on Finish Session / Exit (after all corrections), via
+  // syncRatingsToAnki(), which also calls ankiSync() so the Anki desktop app gets the same schedule.
 
   const nextBatch = async () => {
     await syncRatingsToAnki()
@@ -7015,19 +7004,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   {/* Completed cards — show feedback inline as they finish */}
                   {studyCardState.filter(cs => cs.done && cs.results.length > 0 && !cs.dismissed).length > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
-                      <button onClick={async () => {
-                        setStudySyncError(null)
-                        const result = await syncRatingsToAnki()
+                      {/* Just clears completed cards from this list — does NOT sync. Ratings are pushed
+                          to Anki only at the end (Finish/Exit) so each card is answered once, finally. */}
+                      <button onClick={() => {
                         setStudyCardState(prev => prev.map(cs => cs.done && cs.results.length > 0 ? { ...cs, dismissed: true } : cs))
-                        if (result.failed > 0) {
-                          setStudySyncError(`${result.failed} card(s) failed to sync — check browser console for details`)
-                          setTimeout(() => setStudySyncError(null), 8000)
-                        } else if (studyMode !== 'conjugations') {
-                          setStudySyncNotification(true)
-                          setTimeout(() => setStudySyncNotification(false), 3000)
-                        }
-                      }} style={{ ...S.ghostBtn, fontSize: 11, color: 'var(--c-success)', borderColor: 'rgba(24,169,87,.3)' }}>
-                        {studyMode === 'conjugations' ? t('close') : t('doneSyncToAnki')}
+                      }} style={{ ...S.ghostBtn, fontSize: 11, color: 'var(--c-ink-dim)' }}>
+                        {studyMode === 'conjugations' ? t('close') : 'Clear completed from list'}
                       </button>
                     </div>
                   )}
@@ -7118,9 +7100,27 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                       }}>
                         <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-ink)' }}>{cs.front}</span>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>
-                          {cs.rating?.toUpperCase()}
-                        </span>
+                        {cs.rating === 'deleted' ? (
+                          <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors.deleted }}>DELETED</span>
+                        ) : (
+                          // Editable rating — changing it re-answers the card in Anki with the new ease (synced:false).
+                          <select value={cs.rating || ''} onChange={(e) => {
+                            const newRating = e.target.value
+                            const easeMap = { easy: 4, good: 3, hard: 2, again: 1 }
+                            setStudyCardState(prev => {
+                              const updated = [...prev]
+                              const oldRating = updated[ci].rating
+                              updated[ci] = { ...updated[ci], rating: newRating, ease: easeMap[newRating] || 1, synced: false }
+                              setStudyStats(s => ({ ...s, [oldRating]: Math.max(0, (s[oldRating] || 0) - 1), [newRating]: (s[newRating] || 0) + 1 }))
+                              return updated
+                            })
+                          }} style={{ background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', color: ratingColors[cs.rating] || 'var(--c-ink-dim)', border: `1px solid ${ratingColors[cs.rating] || 'var(--c-border)'}44`, borderRadius: 4, fontSize: 11, fontWeight: 700, fontFamily: 'inherit', padding: '2px 6px', cursor: 'pointer' }}>
+                            <option value="easy" style={{ color: 'var(--c-success)' }}>EASY</option>
+                            <option value="good" style={{ color: 'var(--c-brand)' }}>GOOD</option>
+                            <option value="hard" style={{ color: 'var(--c-warning)' }}>HARD</option>
+                            <option value="again" style={{ color: 'var(--c-danger)' }}>AGAIN</option>
+                          </select>
+                        )}
                       </div>
                       {cs.questions.map((q, qi) => (
                         <div key={qi} style={{
