@@ -71,7 +71,7 @@ function buildSystemPrompt(appContext) {
   return parts.join('\n')
 }
 
-export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-6', onModelRetired, mascotFile = DEFAULT_SHRIMP, onAiReply, askEbiSignal }) {
+export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-6', onModelRetired, mascotFile = DEFAULT_SHRIMP, onAiReply, askEbiSignal, hideButton }) {
   const [open, setOpen] = useState(false)
   const [docked, setDocked] = useState(false) // side panel mode
   const [messages, setMessages] = useState([])
@@ -380,8 +380,8 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
 
   return (
     <>
-      {/* Floating help button — hidden when docked */}
-      {!docked && (
+      {/* Floating help button — hidden when docked, or when the host hides it (e.g. study Ebi is shown) */}
+      {!docked && !hideButton && (
         <button
           ref={btnRef}
           onMouseDown={handleMouseDown}

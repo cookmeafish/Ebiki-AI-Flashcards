@@ -85,6 +85,7 @@ const en = {
   overlayTransparentHint: 'When enabled, only the selected area stays frozen — the rest of the screen shows through live.',
   createModePlaceholder: 'What do you want to learn? (e.g. Spanish, Security+, Organic Chemistry)',
   defaultMode: 'Default Mode',
+  askEbi: 'Ask Ebi',
   aiRole_picture: 'Picture',
   aiRole_deck: 'Deck',
   aiRole_study: 'Study',
