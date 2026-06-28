@@ -4870,7 +4870,9 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
 
       const cleanText = text.replace(/<anki-card>.*?<\/anki-card>/gs, '').replace(/<progress-update>[\s\S]*?<\/progress-update>/g, '').replace(/<sources>[\s\S]*?<\/sources>/g, '').trim()
       const msgIdx = newMsgs.length // index of the assistant message we're appending
-      const assistantMsg = { role: 'assistant', content: cleanText, cards: parsedCards.length > 0 ? parsedCards : undefined, sources: sources || undefined }
+      // Seed an instant keyword pose so Ebi appears AT THE SAME TIME as the message text; the
+      // async Mascot-model call below then refines it (same <img>, so it doesn't re-pop).
+      const assistantMsg = { role: 'assistant', content: cleanText, mascot: pickShrimp(cleanText), cards: parsedCards.length > 0 ? parsedCards : undefined, sources: sources || undefined }
       const updatedMsgs = [...newMsgs, assistantMsg]
       setChatTabMsgs(updatedMsgs)
       // Pipe the reply into the Mascot model to pick Ebi's pose; tag this message with it.
