@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
+import { pickShrimp, shrimpUrl, DEFAULT_SHRIMP } from '../config/shrimp'
 
-const HELP_BASE = `You are the ScreenLens Assistant — a helpful, context-aware AI built into ScreenLens. You can answer questions about the app AND about whatever the user is currently working on (screenshots, translations, study sessions, Anki cards, etc). Answer briefly and conversationally — 2-3 sentences max unless the user asks for details. Never use markdown formatting (no **, ##, -, etc). Just plain text. The user can ask follow-up questions.
+const HELP_BASE = `You are Ebi — the friendly mascot and built-in assistant of the Ebiki app. Ebi is a little red shrimp (Ebiki is a play on "ebi", the Japanese word for shrimp, and "Anki"). If the user asks who or what you (Ebi) are, tell them you're Ebiki's shrimp mascot and helper. You are context-aware: you can answer questions about the app AND about whatever the user is currently working on (screenshots, translations, study sessions, Anki cards, etc). Answer briefly and conversationally — 2-3 sentences max unless the user asks for details. Never use markdown formatting (no **, ##, -, etc). Just plain text. The user can ask follow-up questions.
 
-About ScreenLens:
-ScreenLens is an AI-powered screen translation and learning app. It captures screenshots, detects text via OCR, translates it, and integrates with Anki for flashcard study.
+About Ebiki:
+Ebiki is an AI-powered screen translation and learning app whose mascot is Ebi, a red shrimp. It captures screenshots, detects text via OCR, translates it, and integrates with Anki for flashcard study.
 
 Key features:
 Capture button / Ctrl+Shift+S: takes a screenshot to analyze.
@@ -69,7 +70,7 @@ function buildSystemPrompt(appContext) {
   return parts.join('\n')
 }
 
-export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-6', onModelRetired }) {
+export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-6', onModelRetired, mascotFile = DEFAULT_SHRIMP }) {
   const [open, setOpen] = useState(false)
   const [docked, setDocked] = useState(false) // side panel mode
   const [messages, setMessages] = useState([])
@@ -79,6 +80,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
   const [pos, setPos] = useState({ x: 20, y: null })
   const [dragging, setDragging] = useState(false)
   const dragOffset = useRef({ x: 0, y: 0 })
+  const dragStart = useRef({ x: 0, y: 0 })
   const wasOpenBeforeDrag = useRef(false)
   const didDrag = useRef(false)
   const msgTopRef = useRef(null)
@@ -142,23 +144,46 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
     }, 50)
   }, [messages])
 
-  // Draggable
+  // Draggable. The page uses `body { zoom }`, so getBoundingClientRect/clientX are in
+  // VISUAL px while CSS left/top are in pre-zoom LAYOUT px. We measure the live zoom from
+  // the button itself (rect.width / offsetWidth) and convert, then clamp on-screen.
+  const getZoom = () => {
+    const btn = btnRef.current
+    if (!btn || !btn.offsetWidth) return 1
+    return btn.getBoundingClientRect().width / btn.offsetWidth || 1
+  }
   const handleMouseDown = (e) => {
     wasOpenBeforeDrag.current = open
     didDrag.current = false
+    const btn = btnRef.current
+    const rect = btn.getBoundingClientRect()
+    const zoom = getZoom()
+    // cursor position within the button, expressed in layout px
+    dragOffset.current = { x: (e.clientX - rect.left) / zoom, y: (e.clientY - rect.top) / zoom }
+    dragStart.current = { x: e.clientX, y: e.clientY }
     setDragging(true)
-    const rect = btnRef.current.getBoundingClientRect()
-    dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top }
     e.preventDefault()
   }
   useEffect(() => {
     if (!dragging) return
     const move = (e) => {
+      const btn = btnRef.current
+      if (!btn) return
+      // Require real movement before treating as a drag — so clicks / spam-clicks never fling it.
       if (!didDrag.current) {
+        if (Math.hypot(e.clientX - dragStart.current.x, e.clientY - dragStart.current.y) < 5) return
         didDrag.current = true
         if (wasOpenBeforeDrag.current) setOpen(false)
       }
-      setPos({ x: e.clientX - dragOffset.current.x, y: e.clientY - dragOffset.current.y })
+      const zoom = getZoom()
+      const size = btn.offsetWidth
+      const vw = window.innerWidth / zoom, vh = window.innerHeight / zoom
+      let x = e.clientX / zoom - dragOffset.current.x
+      let y = e.clientY / zoom - dragOffset.current.y
+      // Clamp so it can never leave the viewport
+      x = Math.max(4, Math.min(x, vw - size - 4))
+      y = Math.max(4, Math.min(y, vh - size - 4))
+      setPos({ x, y })
     }
     const up = () => {
       setDragging(false)
@@ -223,30 +248,30 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
     }
   }
 
-  // Position chat snug to button, opening toward available space
+  // Position chat snug to button, opening toward available space. All math is done in
+  // layout px (rect/innerWidth are visual → divide by zoom) since the popup uses CSS left/top.
   const getChatStyle = () => {
-    const rect = btnRef.current?.getBoundingClientRect()
+    const btn = btnRef.current
+    const rect = btn?.getBoundingClientRect()
     if (!rect) return {}
+    const zoom = getZoom()
+    const left = rect.left / zoom, right = rect.right / zoom
+    const top = rect.top / zoom, bottom = rect.bottom / zoom
+    const vw = window.innerWidth / zoom, vh = window.innerHeight / zoom
     const chatW = 340, chatH = 400
-    const btnCX = rect.left + rect.width / 2
-    const btnCY = rect.top + rect.height / 2
+    const btnCX = (left + right) / 2
+    const btnCY = (top + bottom) / 2
     const style = { position: 'fixed', width: chatW, maxHeight: chatH }
 
     // Horizontal: align left edge with button, or right-align if near right edge
-    if (btnCX < window.innerWidth / 2) {
-      style.left = rect.left
-    } else {
-      style.left = rect.right - chatW
-    }
-    style.left = Math.max(5, Math.min(style.left, window.innerWidth - chatW - 5))
+    style.left = btnCX < vw / 2 ? left : right - chatW
+    style.left = Math.max(5, Math.min(style.left, vw - chatW - 5))
 
     // Vertical: open above button if in bottom half, below if in top half
-    if (btnCY > window.innerHeight / 2) {
-      // Button is in bottom half — chat goes above, bottom edge snug to button top
-      style.bottom = window.innerHeight - rect.top + 8
+    if (btnCY > vh / 2) {
+      style.bottom = vh - top + 8
     } else {
-      // Button is in top half — chat goes below, top edge snug to button bottom
-      style.top = rect.bottom + 8
+      style.top = bottom + 8
     }
     return style
   }
@@ -254,14 +279,14 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
   const chatContent = (isSidePanel) => (
     <>
       {/* Header */}
-      <div style={{ padding: '10px 14px', borderBottom: '1px solid #2a3040', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+      <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#58a6ff' }}>ScreenLens Help</span>
+          <span style={{ fontSize: 12, fontWeight: 700, background: 'linear-gradient(90deg, #79c0ff, #d2a8ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Ebi's Help</span>
           {messages.length > 0 && (
             <span
               onClick={newChat}
               title="New chat"
-              style={{ cursor: 'pointer', color: '#7d8590', fontSize: 11, padding: '1px 6px', border: '1px solid #2a3040', borderRadius: 4, lineHeight: '16px' }}
+              style={{ cursor: 'pointer', color: '#7d8590', fontSize: 11, padding: '1px 6px', border: '1px solid rgba(255,255,255,.08)', borderRadius: 4, lineHeight: '16px' }}
             >+</span>
           )}
         </div>
@@ -287,7 +312,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
       <div ref={msgTopRef} style={{ flex: 1, overflow: 'auto', padding: '10px 14px' }}>
         {messages.length === 0 && (
           <div style={{ color: '#484f58', fontSize: 11, textAlign: 'center', padding: '30px 10px', lineHeight: 1.6 }}>
-            Ask anything about ScreenLens!<br />
+            Ask Ebi anything about Ebiki!<br />
             "What does Study do?"<br />
             "How do I use the overlay?"
           </div>
@@ -309,7 +334,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
       </div>
 
       {/* Input */}
-      <div style={{ padding: '8px 10px', borderTop: '1px solid #2a3040', display: 'flex', gap: 6, flexShrink: 0 }}>
+      <div style={{ padding: '8px 10px', borderTop: '1px solid rgba(255,255,255,.08)', display: 'flex', gap: 6, flexShrink: 0 }}>
         <input
           ref={inputRef}
           autoFocus
@@ -319,8 +344,8 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
           placeholder={apiKey ? (loading ? 'Thinking...' : 'Ask a question...') : 'Set API key first'}
           disabled={!apiKey}
           style={{
-            flex: 1, padding: '6px 10px', background: '#0e1117', color: '#e6edf3',
-            border: '1px solid #2a3040', borderRadius: 6, fontSize: 11,
+            flex: 1, padding: '7px 11px', background: 'rgba(0,0,0,.3)', color: '#e6edf3',
+            border: '1px solid rgba(255,255,255,.1)', borderRadius: 8, fontSize: 11,
             fontFamily: 'inherit', outline: 'none',
           }}
         />
@@ -328,9 +353,10 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
           onClick={sendMessage}
           disabled={!apiKey || loading || !input.trim()}
           style={{
-            padding: '6px 12px', background: '#58a6ff', color: '#0e1117',
-            border: 'none', borderRadius: 6, fontWeight: 700, fontSize: 11,
+            padding: '7px 14px', background: 'linear-gradient(135deg, #58a6ff, #7c5cff)', color: '#fff',
+            border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 11,
             fontFamily: 'inherit', cursor: 'pointer',
+            boxShadow: '0 3px 12px rgba(124,92,255,.35)',
             opacity: !apiKey || loading || !input.trim() ? 0.4 : 1,
           }}
         >
@@ -339,6 +365,12 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
       </div>
     </>
   )
+
+  // While chatting with Ebi, the button reflects the help conversation; otherwise it
+  // shows the app-context pose passed in from App (study question, picture word, etc).
+  const buttonMascot = ((open || docked) && messages.length)
+    ? pickShrimp(messages.slice(-2).map(m => m.text).join(' '))
+    : mascotFile
 
   return (
     <>
@@ -351,19 +383,29 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
           style={{
             position: 'fixed', left: pos.x,
             ...(pos.y !== null ? { top: pos.y } : { bottom: 20 }),
-            width: 44, height: 44, borderRadius: '50%',
-            background: open ? '#58a6ff' : '#1c2129',
-            border: '2px solid #58a6ff',
-            color: open ? '#0e1117' : '#58a6ff',
-            fontSize: 18, fontWeight: 700,
+            width: 56, height: 56, borderRadius: '50%',
+            background: open
+              ? 'radial-gradient(circle at 35% 30%, rgba(124,92,255,.35), rgba(20,16,33,.92))'
+              : 'radial-gradient(circle at 35% 30%, rgba(88,166,255,.22), rgba(16,20,27,.9))',
+            border: '1px solid rgba(124,92,255,.4)',
+            padding: 0, overflow: 'hidden',
             cursor: dragging ? 'grabbing' : 'grab',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 10000, boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-            fontFamily: 'inherit', transition: 'background 0.15s, color 0.15s',
+            zIndex: 10000,
+            boxShadow: open
+              ? '0 0 0 3px rgba(124,92,255,.35), 0 8px 26px rgba(124,92,255,.55)'
+              : '0 6px 20px rgba(0,0,0,.45)',
+            backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+            fontFamily: 'inherit', transition: 'box-shadow .2s ease, filter .2s ease',
           }}
-          title="Help — ask anything about ScreenLens"
+          title="Ebi's Help — ask anything about Ebiki"
         >
-          ?
+          <img
+            src={shrimpUrl(buttonMascot)}
+            alt="Ebi, the Ebiki mascot"
+            draggable={false}
+            style={{ width: '82%', height: '82%', objectFit: 'contain', pointerEvents: 'none', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,.4))' }}
+          />
         </button>
       )}
 
@@ -373,11 +415,14 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
         return (
           <div style={{
             ...chatStyle,
-            background: '#161b22', border: '1px solid #2a3040',
-            borderRadius: 10, overflow: 'hidden',
+            background: 'linear-gradient(180deg, rgba(26,31,40,.97), rgba(18,22,29,.97))',
+            backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+            border: '1px solid rgba(124,92,255,.25)',
+            borderRadius: 16, overflow: 'hidden',
             display: 'flex', flexDirection: 'column',
-            zIndex: 10000, boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+            zIndex: 10000, boxShadow: '0 20px 60px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.03)',
             fontFamily: "'JetBrains Mono', monospace",
+            animation: 'pop .18s cubic-bezier(.34,1.56,.64,1)',
           }}>
             {chatContent(false)}
           </div>
@@ -388,9 +433,11 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
       {docked && (
         <div style={{
           position: 'fixed', right: 0, top: 0, bottom: 0, width: 380,
-          background: '#161b22', borderLeft: '1px solid #2a3040',
+          background: 'linear-gradient(180deg, rgba(26,31,40,.98), rgba(16,20,27,.98))',
+          backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+          borderLeft: '1px solid rgba(124,92,255,.25)',
           display: 'flex', flexDirection: 'column',
-          zIndex: 10000, boxShadow: '-4px 0 20px rgba(0,0,0,0.4)',
+          zIndex: 10000, boxShadow: '-8px 0 40px rgba(0,0,0,.5)',
           fontFamily: "'JetBrains Mono', monospace",
         }}>
           {chatContent(true)}

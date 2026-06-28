@@ -1,6 +1,14 @@
-# ScreenLens — Feature Status & Roadmap
+# Ebiki — Feature Status & Roadmap
 
 ## Implemented Features
+
+### Branding & Identity ✅
+- Rebranded from ScreenLens → **Ebiki** (a play on *ebi* — Japanese for shrimp — and *Anki*)
+- Mascot **Ebi**, a red shrimp, lives in the bottom-left and is the built-in "Ebi's Help" assistant
+- Context-aware mascot: Ebi's pose changes to match the current study question / chat topic / picture word (34 poses), and reacts inline in chat
+- Modern UI pass: gradient/glass surfaces, soft borders, hover/press feedback, entrance animations, custom scrollbars
+- AI Settings: per-feature model dropdowns from the provider's live list, "Check for new models", app-language (en/es/zh/ja) UI translation
+- AI request errors (out of credits / rate limit / bad key) now surface a clear toast instead of failing silently
 
 ### Core Translation (Phase 1-3) ✅
 - Two-stage OCR + AI translation pipeline

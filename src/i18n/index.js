@@ -1,4 +1,4 @@
-// App-language i18n for ScreenLens UI chrome (everything outside flashcard content).
+// App-language i18n for Ebiki UI chrome (everything outside flashcard content).
 // t(key) returns the string for the active language, falling back to English, then
 // to the key itself. Flashcard front/back text is never translated here.
 
