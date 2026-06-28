@@ -24,7 +24,7 @@
 - **Plain "neutral" shrimp** (`shrimp.png`) is the default pose when nothing else fits (whole-word keyword matching avoids spurious matches)
 - Knowledge base is **per mode** (`modes/<mode>/knowledge/`), saved on upload, and gitignored so personal materials never reach git
 - "Ask Ebi" during study opens a compact bottom-docked chat (no longer full-screen)
-- **No-circle Help button**: the bottom-left Ebi is the bare transparent PNG (80px) with a soft red glow hugging its silhouette (drop-shadow, no disc), flipped to face right, with a gentle pop on hover. Empty-state mascots (Picture/Study) render glow-free
+- **No-circle Help button**: the bottom-left Ebi is the bare transparent PNG (80px) with a soft red glow hugging its silhouette (drop-shadow, no disc), flipped to face right, with a gentle pop on hover. All tab mascots (Picture/Study/Chat + study companion) render glow-free — only the Help button glows
 - **Dock Ebi's Help anywhere (FancyZones-style)**: drag the chat header or click the dock button to pick a zone — **Dock left**, **Dock right**, or **Under the question** — with previews that match exactly where it lands; drop in open space to free-float. The chat opens scrolled to the latest message
 - **Per-mode Chat starter prompts**: subject-specific suggestion chips generated with the mode (backfilled for older modes), plus an always-present "💬 Just chat with Ebi"
 - **Help mascot decoupled from study**; the study pose is precomputed per question so Ebi changes exactly once, with the question

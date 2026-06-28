@@ -5516,7 +5516,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             <div ref={chatTabScrollRef} style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
               {chatTabMsgs.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '52px 20px' }}>
-                  <img src={shrimpUrl(poseFile('singer'))} alt="Ebi" style={{ width: 76, height: 76, objectFit: 'contain', marginBottom: 10, filter: 'drop-shadow(0 6px 14px rgba(223,37,64,.28))' }} />
+                  <img src={shrimpUrl(poseFile('singer'))} alt="Ebi" style={{ width: 76, height: 76, objectFit: 'contain', marginBottom: 10 }} />
                   <div style={{ fontSize: 24, fontWeight: 800, marginBottom: 8, fontFamily: FONT.display, background: 'linear-gradient(90deg, var(--c-brand), var(--c-brand-dark))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Chat with Ebi</div>
                   <div style={{ fontSize: 12, color: 'var(--c-ink-dim)', marginBottom: 20, maxWidth: 420, margin: '0 auto 20px' }}>
                     Ask about your <strong>{activeMode.name}</strong> studies, have Ebi make Anki cards, quiz you — or just chat. Ebi knows what you're working on.
