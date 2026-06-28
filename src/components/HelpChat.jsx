@@ -160,6 +160,12 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
     }, 50)
   }, [messages])
 
+  // On open, jump to the bottom so the most recent message is visible (history loads scrolled up).
+  useEffect(() => {
+    if (!open) return
+    setTimeout(() => { if (msgTopRef.current) msgTopRef.current.scrollTop = msgTopRef.current.scrollHeight }, 60)
+  }, [open])
+
   // Draggable. The page uses `body { zoom }`, so getBoundingClientRect/clientX are in
   // VISUAL px while CSS left/top are in pre-zoom LAYOUT px. We measure the live zoom from
   // the button itself (rect.width / offsetWidth) and convert, then clamp on-screen.
