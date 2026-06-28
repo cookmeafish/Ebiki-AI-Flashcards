@@ -493,7 +493,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
           style={{
             position: 'fixed', left: pos.x,
             ...(pos.y !== null ? { top: pos.y } : { bottom: 20 }),
-            width: 96, height: 96,
+            width: 80, height: 80,
             // No circle, no background — just the transparent PNG. The glow lives on the image's
             // drop-shadow (below), which traces the shrimp's silhouette instead of a disc.
             background: 'transparent', border: 'none', boxShadow: 'none', borderRadius: 0,

@@ -4161,6 +4161,25 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
     }
   }
 
+  // Backfill per-mode chat suggestions for modes created before this feature (or imported). New modes
+  // get them at creation; this lazily generates + persists them the first time the user opens Chat.
+  const chatSuggestTriedRef = useRef(new Set())
+  useEffect(() => {
+    if (activeTab !== 'chat' || !apiKey) return
+    if (activeMode.chatSuggestions && activeMode.chatSuggestions.length) return
+    if (chatSuggestTriedRef.current.has(activeModeId)) return
+    chatSuggestTriedRef.current.add(activeModeId)
+    ;(async () => {
+      try {
+        const prompt = `Generate exactly 3 short example chat prompts (3-6 words each) a user could tap to start chatting with an AI tutor about this study mode. Mix a concept question, a "make a flashcard" request, and a "quiz me" request — all specific to the subject.\nMode name: "${activeMode.name}"\nSubject/description: "${activeMode.description || activeMode.name}"\nType: ${activeMode.type}\nOutput ONLY a raw JSON array of 3 strings. No markdown, no backticks.`
+        const text = await aiCall(apiKey, 'You suggest example chat prompts. Respond with valid JSON only.', prompt, resolveModel('general'), { silent: true })
+        const arr = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+        if (Array.isArray(arr) && arr.length) updateActiveMode({ chatSuggestions: arr.filter(Boolean).slice(0, 3).map(String) })
+      } catch { /* keep the generic defaults */ }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, activeModeId, apiKey])
+
   const sendChatTabMessage = async () => {
     const q = chatTabInput.trim()
     if (!q || !apiKey || chatTabLoading) return
@@ -4380,6 +4399,7 @@ Generate a JSON config for this study mode:
 - "backTemplate": card back using {fieldName} placeholders and \\n for newlines. Use descriptive labels before each placeholder.
 - "tagRules": instructions for AI tag generation. Include "screenlens" always. Add subject-specific categories. Tags should be lowercase, no spaces (use hyphens).
 - "questionPrompt": instructions for AI when generating study/quiz questions for flashcards in this mode. Describe what kinds of questions to ask (e.g. definitions, real-world scenarios, comparisons). Be specific to the subject matter.
+- "chatSuggestions": an array of exactly 3 short example prompts (3-6 words each) the user could tap to start chatting with Ebi about THIS subject — a natural mix like asking a concept question, requesting a flashcard, and asking to be quizzed. Make them specific to the subject (e.g. for Spanish: "Help me with verb conjugations", "Make a flashcard for 'correr'", "Quiz me on common phrases"; for Security+: "Explain subnetting", "Make a flashcard about DNS", "Quiz me on the OSI model").
 
 Output ONLY raw JSON. No markdown, no backticks.`
 
@@ -4404,6 +4424,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
           questionPrompt: config.questionPrompt || ((config.type || 'general') === 'language' ? defaultStudyRules : defaultGeneralStudyRules).questionPrompt,
           ratingRules: defaultStudyRules.ratingRules,
         },
+        chatSuggestions: Array.isArray(config.chatSuggestions) ? config.chatSuggestions.filter(Boolean).slice(0, 3).map(String) : [],
         ankiDeck: ankiDeckForMode || '',
       }
       saveModes([...modes, newMode], newId)
@@ -5480,16 +5501,23 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               {chatTabMsgs.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '52px 20px' }}>
                   <img src={shrimpUrl(poseFile('singer'))} alt="Ebi" style={{ width: 76, height: 76, objectFit: 'contain', marginBottom: 10, filter: 'drop-shadow(0 6px 14px rgba(223,37,64,.28))' }} />
-                  <div style={{ fontSize: 24, fontWeight: 800, marginBottom: 8, fontFamily: FONT.display, background: 'linear-gradient(90deg, var(--c-brand), var(--c-brand-dark))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Ask Ebi anything</div>
-                  <div style={{ fontSize: 12, color: 'var(--c-ink-dim)', marginBottom: 20, maxWidth: 400, margin: '0 auto 20px' }}>
-                    Ask questions, create Anki cards, or attach a deck for personalized tutoring.
+                  <div style={{ fontSize: 24, fontWeight: 800, marginBottom: 8, fontFamily: FONT.display, background: 'linear-gradient(90deg, var(--c-brand), var(--c-brand-dark))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Chat with Ebi</div>
+                  <div style={{ fontSize: 12, color: 'var(--c-ink-dim)', marginBottom: 20, maxWidth: 420, margin: '0 auto 20px' }}>
+                    Ask about your <strong>{activeMode.name}</strong> studies, have Ebi make Anki cards, quiz you — or just chat. Ebi knows what you're working on.
                   </div>
                   <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-                    {['Explain subnetting', 'Make me a flashcard about DNS', 'Help me with verb conjugations'].map(hint => (
+                    {((activeMode.chatSuggestions && activeMode.chatSuggestions.length)
+                      ? activeMode.chatSuggestions
+                      : ['Explain a key concept', 'Make me a flashcard', 'Quiz me on something']
+                    ).map(hint => (
                       <button key={hint} className="chip" onClick={() => { setChatTabInput(hint) }} style={{ ...S.ghostBtn, fontSize: 10, padding: '7px 14px', borderRadius: 20 }}>
                         <span className="chip-inner">{hint}</span>
                       </button>
                     ))}
+                    {/* Casual escape hatch — the user may just want to talk to Ebi. */}
+                    <button className="chip" onClick={() => { setChatTabInput('Hey Ebi! 🦐') }} style={{ ...S.ghostBtn, fontSize: 10, padding: '7px 14px', borderRadius: 20, borderColor: 'rgba(223,37,64,.35)' }}>
+                      <span className="chip-inner">💬 Just chat with Ebi</span>
+                    </button>
                   </div>
                 </div>
               )}
