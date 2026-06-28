@@ -4,7 +4,7 @@ A multi-tab learning app with AI chat, Anki-integrated study sessions, screen tr
 
 > **The name & the mascot.** *Ebiki* is a play on **ebi** (海老 — Japanese for *shrimp*) and **Anki**. The app's mascot and built-in helper is **Ebi**, a little red shrimp who lives in the bottom-left corner. Ebi's pose changes to match whatever you're doing (working, fighting a two-handed sword question, eating cheese, etc.), and the in-app assistant ("Ebi's Help") speaks as Ebi.
 >
-> **Look & feel.** Ebiki uses an **Ocean Light** theme built around Ebi's red (`#DF2540`) as the single focus color — Duolingo-style, where the brand color flows from the mascot. Rounded friendly type (Baloo 2 + Nunito), soft white cards, and playful press/hover motion. Design tokens live in `src/config/tokens.js`. To add a new Ebi pose, see `CLAUDE.md`.
+> **Look & feel.** Ebiki uses an **Ocean Light** theme built around Ebi's red (`#DF2540`) as the single focus color — Duolingo-style, where the brand color flows from the mascot. Rounded friendly type (Baloo 2 + Nunito), soft white cards, and playful press/hover motion. A **dark mode** is toggleable in Settings → Appearance (CSS-variable themed, persisted, no flash on load). Design tokens live in `src/config/tokens.js`. To add a new Ebi pose, see `CLAUDE.md`.
 
 ## Features
 

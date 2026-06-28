@@ -5,10 +5,13 @@
 ### Branding & Identity ✅
 - Rebranded from ScreenLens → **Ebiki** (a play on *ebi* — Japanese for shrimp — and *Anki*)
 - Mascot **Ebi**, a red shrimp, lives in the bottom-left and is the built-in "Ebi's Help" assistant
-- Context-aware mascot: Ebi's pose changes to match the current study question / chat topic / picture word (34 poses), and reacts inline in chat
-- Modern UI pass: gradient/glass surfaces, soft borders, hover/press feedback, entrance animations, custom scrollbars
+- Context-aware mascot: Ebi's pose changes to match the current study question / chat topic / picture word (37 poses), reacts inline on AI chat messages only, and uses a distinct default per tab (Picture→camera, Study→book, Chat→singer)
+- **Ocean Light** design system: mascot-red (`#DF2540`) focus color, Baloo 2 + Nunito rounded fonts, soft white cards, Duolingo-style 3D buttons; design tokens in `src/config/tokens.js`
+- **Dark mode**: toggleable in settings (Appearance), CSS-variable themed, persisted with a no-flash pre-paint script
+- Modern UI: gradient/glass surfaces, soft borders, hover/press feedback, entrance animations, custom scrollbars; geometry-safe button feedback; zoom-correct, clamped mascot drag
 - AI Settings: per-feature model dropdowns from the provider's live list, "Check for new models", app-language (en/es/zh/ja) UI translation
 - AI request errors (out of credits / rate limit / bad key) now surface a clear toast instead of failing silently
+- Switching tabs closes any open settings/mode panels
 
 ### Core Translation (Phase 1-3) ✅
 - Two-stage OCR + AI translation pipeline
