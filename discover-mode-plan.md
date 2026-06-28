@@ -137,7 +137,7 @@ Verified viable (researched 2026-06-14):
   notes/cards, not media — also safe.
 - Caveat: media is a separate sync channel; a forced one-way "download" sync follows normal
   Anki rules. Fine for single-user. AnkiConnect is desktop-only, so phones/AnkiWeb receive the
-  synced data but don't write it (non-issue — ScreenLens is desktop).
+  synced data but don't write it (non-issue — Ebiki is desktop).
 
 Add two thin wrappers to `src/utils/anki.js` (alongside the existing `ankiAddNote` etc.):
 - `ankiStoreMediaFile(filename, base64Data)` → AnkiConnect `storeMediaFile`.
