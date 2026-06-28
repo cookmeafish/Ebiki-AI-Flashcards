@@ -13,17 +13,22 @@
 - AI request errors (out of credits / rate limit / bad key) now surface a clear toast instead of failing silently
 - **Unified Settings modal**: one ⚙ entry with a scoped sidebar — **App settings** (General: appearance, app language, translation · AI models) vs **Mode settings** (Study · Cards & Anki · Knowledge · Overlay · Learning modes). Header keeps a quick mode-switcher. Replaces the old stacking banner panels
 - **Custom model entry**: pick any per-feature model from the provider's live list, or type a custom model id (emergency for future models), with a help link
-- **Configurable Mascot model**: a dedicated, cheap-by-default AI role picks Ebi's pose from each response/question (fixes context mismatches like the "ethereal→knife" bug); keyword matching is the instant fallback
+- **Configurable Mascot model**: a dedicated AI role picks Ebi's pose from each response/question (fixes context mismatches like the "ethereal→knife" bug); defaults to the stronger model (Sonnet on Anthropic) for a better fit, user-configurable; keyword matching is the instant fallback
 - **First-run onboarding**: Ebi-guided wizard (welcome → app language → light/dark → AI provider + key → first study mode), themed; re-runnable from Settings → General
 - **Study companion**: a big Ebi sits beside the question with an "Ask Ebi" button (the floating button hides during study)
 - Non-language modes (e.g. Security+) hide language-only study controls (quiz language, grammar feedback, conjugations) and quiz on concepts
-- Tapped-word definitions during study are written in the app language (the user's language), not the quiz language
+- Tapped-word definitions during study are written in the app language (the user's language), not the quiz language, and are **context-aware**: the in-context meaning (analyzed from the whole question) shows in the legend's correct-green, with other senses in word-choice-purple
 - Switching tabs closes the settings modal; all user config stays in gitignored local files (per-user)
 - **Mascot pose changes exactly once per AI output** (no keyword→AI flicker); Ebi keeps its prior pose until the Mascot model decides, then changes once
 - **"Ask AI" with a review step** in Cards & Anki and Study settings: the AI proposes changes shown as a before/after word-diff that you **✓ Accept / ✗ Deny / or refine** — nothing is applied without confirmation
-- **Plain "neutral" shrimp** (`shrimp.png`) is the default pose when nothing else fits (whole-word keyword matching avoids spurious matches); the floating Help button rests on the peeking hole shrimp with a soft glow (no ring)
+- **Plain "neutral" shrimp** (`shrimp.png`) is the default pose when nothing else fits (whole-word keyword matching avoids spurious matches)
 - Knowledge base is **per mode** (`modes/<mode>/knowledge/`), saved on upload, and gitignored so personal materials never reach git
 - "Ask Ebi" during study opens a compact bottom-docked chat (no longer full-screen)
+- **No-circle Help button**: the bottom-left Ebi is the bare transparent PNG (80px) with a soft red glow hugging its silhouette (drop-shadow, no disc), flipped to face right, with a gentle pop on hover. Empty-state mascots (Picture/Study) render glow-free
+- **Dock Ebi's Help anywhere (FancyZones-style)**: drag the chat header or click the dock button to pick a zone — **Dock left**, **Dock right**, or **Under the question** — with previews that match exactly where it lands; drop in open space to free-float. The chat opens scrolled to the latest message
+- **Per-mode Chat starter prompts**: subject-specific suggestion chips generated with the mode (backfilled for older modes), plus an always-present "💬 Just chat with Ebi"
+- **Help mascot decoupled from study**; the study pose is precomputed per question so Ebi changes exactly once, with the question
+- **Hover-shake fix**: float-up hover lifts live on an inner span so the hover hit-box never moves; images are non-draggable so dragging Ebi no longer trips the image-drop overlay
 
 ### Core Translation (Phase 1-3) ✅
 - Two-stage OCR + AI translation pipeline

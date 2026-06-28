@@ -5441,7 +5441,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       {activeTab === 'study' && !studyActive && (
         <main style={{ ...S.main, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
           <div style={{ maxWidth: 400, width: '100%', textAlign: 'center', padding: '40px 20px' }}>
-            <img src={shrimpUrl(poseFile('book'))} alt="Ebi" style={{ width: 84, height: 84, objectFit: 'contain', marginBottom: 12, filter: 'drop-shadow(0 6px 16px rgba(223,37,64,.28))' }} />
+            <img src={shrimpUrl(poseFile('book'))} alt="Ebi" style={{ width: 84, height: 84, objectFit: 'contain', marginBottom: 12 }} />
             <div style={{ fontSize: 26, fontWeight: 800, fontFamily: FONT.display, color: C.ink, marginBottom: 10 }}>{t('studyTitle')}</div>
             <div style={{ fontSize: 13, color: C.inkDim, marginBottom: 24, fontWeight: 600 }}>{t('studyTagline')}</div>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
@@ -6097,7 +6097,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     </div>
                     {/* Ebi study companion — big, circle-less, reacts to the question; Ask Ebi opens Help */}
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, paddingTop: 8, flexShrink: 0 }}>
-                      <img src={shrimpUrl(studyMascot)} alt="Ebi" draggable={false} style={{ width: 132, height: 132, objectFit: 'contain', filter: 'drop-shadow(0 8px 18px rgba(223,37,64,.28))' }} />
+                      <img src={shrimpUrl(studyMascot)} alt="Ebi" draggable={false} style={{ width: 132, height: 132, objectFit: 'contain' }} />
                       <button onClick={() => setAskEbiSignal((n) => n + 1)} style={{ ...S.ghostBtn, fontSize: 12, color: 'var(--c-brand)', borderColor: 'var(--c-brand-ring, rgba(223,37,64,.35))', fontWeight: 700, padding: '7px 16px', borderRadius: RADIUS.pill }}>
                         {t('askEbi')}
                       </button>
@@ -6298,7 +6298,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         {/* Empty state (hidden in overlay) */}
         {stage === 'idle' && !isOverlay && (
           <div style={S.emptyState}>
-            <img src={shrimpUrl(poseFile('camera'))} alt="Ebi" style={{ width: 84, height: 84, objectFit: 'contain', marginBottom: 12, filter: 'drop-shadow(0 6px 16px rgba(223,37,64,.28))' }} />
+            <img src={shrimpUrl(poseFile('camera'))} alt="Ebi" style={{ width: 84, height: 84, objectFit: 'contain', marginBottom: 12 }} />
             <h2 style={S.emptyTitle}>Capture, paste, drop, or upload</h2>
             <p style={S.emptyDesc}>
               Hit <kbd style={S.kbdInline}>Ctrl+Shift+S</kbd> to screenshot your display,
