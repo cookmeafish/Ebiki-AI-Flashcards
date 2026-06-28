@@ -65,6 +65,17 @@ export const SHRIMP = [
   { name: 'camera', file: 'camerashrimp.png', keywords: ['camera', 'photo', 'photograph', 'photography', 'picture', 'snapshot', 'selfie', 'capture', 'screenshot', 'lens', 'shutter', 'foto', 'cámara', 'fotografía'] },
   { name: 'singer', file: 'singershrimp.png', keywords: ['sing', 'singer', 'singing', 'song', 'microphone', 'mic', 'karaoke', 'vocal', 'voice', 'podcast', 'announce', 'rap', 'choir', 'cantar', 'canción', 'micrófono', 'cantante'] },
   { name: 'book', file: 'bookshrimp.png', keywords: ['book', 'read', 'reading', 'story', 'stories', 'tale', 'tales', 'novel', 'literature', 'library', 'chapter', 'textbook', 'fairy tale', 'fiction', 'leer', 'libro', 'cuento', 'lectura', 'historia'] },
+  // ── Emotion / reaction poses (great for Ebi reacting to the chat's tone) ──
+  { name: 'happy', file: 'shrimp-happy.png', keywords: ['happy', 'glad', 'joy', 'joyful', 'cheerful', 'delighted', 'pleased', 'content', 'excited', 'yay', 'great news', 'wonderful', 'feliz', 'contento', 'alegre', '😊'] },
+  { name: 'laughing', file: 'shrimp-laughing.png', keywords: ['laugh', 'laughing', 'lol', 'lmao', 'haha', 'hahaha', 'funny', 'hilarious', 'joke', 'joking', 'humor', 'comedy', 'rofl', 'giggle', 'jaja', 'reír', 'gracioso', 'chiste', '😂'] },
+  { name: 'love', file: 'shrimp-love.png', keywords: ['in love', 'crush', 'romantic', 'valentine', 'soulmate', 'sweetheart', 'darling', 'adore', 'affection', 'enamorado', 'cariño', 'amor'] },
+  { name: 'cool', file: 'shrimp-cool.png', keywords: ['cool', 'awesome', 'sunglasses', 'swag', 'slick', 'confident', 'badass', 'stylish', 'deal with it', 'epic', 'nailed it', 'genial', 'guay', 'chévere', '😎'] },
+  { name: 'surprised', file: 'shrimp-surprised.png', keywords: ['surprised', 'surprise', 'shocked', 'shock', 'wow', 'whoa', 'omg', 'astonished', 'amazed', 'unexpected', 'gasp', 'stunned', 'no way', 'sorprendido', 'sorpresa', 'vaya', '😮'] },
+  { name: 'idea', file: 'shrimp-idea.png', keywords: ['idea', 'eureka', 'aha', 'lightbulb', 'light bulb', 'insight', 'realize', 'brainstorm', 'clever', 'solution', 'inspiration', 'pro tip', 'good point', 'ocurrencia', 'bombilla', '💡'] },
+  { name: 'confused', file: 'shrimp-confused.png', keywords: ['confused', 'confusing', 'puzzled', 'unsure', "don't understand", 'dont understand', "don't get it", 'dont get it', "doesn't make sense", 'makes no sense', 'lost', 'huh', 'unclear', 'perplexed', 'what do you mean', 'baffled', 'confundido', 'no entiendo', '😕'] },
+  { name: 'shrug', file: 'shrimp-shrug.png', keywords: ['shrug', 'whatever', 'dunno', 'no idea', 'meh', 'indifferent', 'idk', 'not sure', 'who knows', 'up to you', 'ni idea', 'qué sé yo'] },
+  { name: 'sad', file: 'shrimp-sad.png', keywords: ['sad', 'unhappy', 'down', 'gloomy', 'sorrow', 'upset', 'disappointed', 'sorry', 'too bad', 'unfortunate', 'triste', 'deprimido', 'lo siento'] },
+  { name: 'crying', file: 'shrimp-crying.png', keywords: ['cry', 'crying', 'sob', 'sobbing', 'weep', 'weeping', 'tears', 'bawl', 'heartbroken', 'devastated', 'grief', 'miss you', 'llorar', 'lágrimas', '😭'] },
 ]
 
 // Shared list for AI prompts + the parser, plus name→file lookup.
