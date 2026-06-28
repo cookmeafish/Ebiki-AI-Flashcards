@@ -4,7 +4,7 @@ const lines = []
 export function ocrLog(msg, data) {
   const entry = data !== undefined ? `${msg} ${JSON.stringify(data)}` : msg
   lines.push(entry)
-  console.log(`[ScreenLens] ${entry}`)
+  console.log(`[Ebiki] ${entry}`)
 }
 
 export function ocrLogTable(label, rows) {
@@ -19,7 +19,7 @@ export function ocrLogTable(label, rows) {
       lines.push('  ' + keys.map((k) => String(row[k] ?? '')).join('\t'))
     }
   }
-  console.log(`[ScreenLens] ${label}:`)
+  console.log(`[Ebiki] ${label}:`)
   console.table(rows)
 }
 
@@ -33,7 +33,7 @@ export async function ocrLogFlush() {
       body: content,
     })
   } catch (e) {
-    console.warn('[ScreenLens] Failed to write log file:', e.message)
+    console.warn('[Ebiki] Failed to write log file:', e.message)
   }
   lines.length = 0
 }

@@ -1,6 +1,8 @@
-# ScreenLens — AI-Powered Learning & Study Platform
+# Ebiki — AI-Powered Learning & Study Platform
 
 A multi-tab learning app with AI chat, Anki-integrated study sessions, screen translation, and progress tracking. Supports multiple learning modes — from language learning to CompTIA certifications and beyond.
+
+> **The name & the mascot.** *Ebiki* is a play on **ebi** (海老 — Japanese for *shrimp*) and **Anki**. The app's mascot and built-in helper is **Ebi**, a little red shrimp who lives in the bottom-left corner. Ebi's pose changes to match whatever you're doing (working, fighting a two-handed sword question, eating cheese, etc.), and the in-app assistant ("Ebi's Help") speaks as Ebi.
 
 ## Features
 
@@ -125,7 +127,7 @@ Models below are the **defaults**; each feature (Picture / Deck / Study / Discov
 
 ## Learning Modes
 
-ScreenLens supports multiple learning modes. Each mode has its own:
+Ebiki supports multiple learning modes. Each mode has its own:
 - Anki card format (front/back templates, fields)
 - Tag generation rules
 - Study rules (question prompt, quiz language, grammar feedback, cards at once)

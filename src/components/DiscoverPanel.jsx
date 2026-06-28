@@ -70,7 +70,7 @@ export default function DiscoverPanel(props) {
 
       {/* ── Setup screen (before starting) ─────────────────────────────────── */}
       {!started && (
-        <div style={{ border: '1px solid #2a3040', borderRadius: 6, padding: '14px 16px' }}>
+        <div style={{ border: '1px solid rgba(255,255,255,.08)', borderRadius: 6, padding: '14px 16px' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>{t('d_whatSuggest')}</div>
 
           {isLanguage && (

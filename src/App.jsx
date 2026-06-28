@@ -4,6 +4,7 @@ import { TRANSLATE_PROMPT, POS_COLORS, CATEGORY_COLORS } from './config/prompts'
 import { PROVIDERS } from './config/providers'
 import { LANGS } from './config/languages'
 import { makeT, APP_LANGUAGES } from './i18n'
+import { pickShrimp, shrimpUrl, DEFAULT_SHRIMP } from './config/shrimp'
 import FormattedText from './components/FormattedText'
 import HelpChat from './components/HelpChat'
 import DiscoverPanel from './components/DiscoverPanel'
@@ -118,9 +119,16 @@ export default function App() {
   const [aiModels, setAiModels] = useState({})
   // Transient toast shown when a retired model is auto-replaced.
   const [modelHealNotice, setModelHealNotice] = useState(null)
+  // Persistent toast shown when an AI request fails (out of credits, rate-limited, bad key…).
+  const [aiErrorNotice, setAiErrorNotice] = useState(null)
   // App UI language ('en' | 'es' | 'zh' | 'ja' | ...). Translates chrome, not flashcards.
   const [appLanguage, setAppLanguage] = useState('en')
   const t = makeT(appLanguage)
+  // Ebi (the shrimp mascot) pose for the bottom-left button. Updated the instant any AI
+  // exchange fires (study question shown, chat/feedback message sent, picture word, etc.)
+  // so Ebi always matches what's happening. Ebi's Help chat overrides this with its own.
+  const [aiMascot, setAiMascot] = useState(DEFAULT_SHRIMP)
+  const flashMascot = (text) => { if (text) setAiMascot(pickShrimp(text)) }
   // Available model ids fetched from each provider's API: { [provider]: [ids] }.
   const [availableModels, setAvailableModels] = useState({})
   const [modelsLoading, setModelsLoading] = useState(false)
@@ -354,7 +362,7 @@ export default function App() {
   // Each provider exposes three roles. `general` = the everyday/cheap model
   // (translations, explanations, chat, card edits); `question` = the stronger
   // model for generating study/conjugation questions and assessments; `help` =
-  // the ScreenLens Help assistant. Resolve to the user's override, else the
+  // Ebi's Help assistant. Resolve to the user's override, else the
   // provider default baked into providers.js.
   // These helpers are called from memoized callbacks that don't list aiModels as
   // a dependency, so read the live values from a ref rather than a stale closure.
@@ -369,7 +377,7 @@ export default function App() {
     study: pc.questionModel,  // study question gen, evaluation, hints, insights, feedback
     discover: pc.questionModel, // learner profiling, suggestions, fact-checking
     chat: pc.model,           // the chat tab assistant
-    help: pc.questionModel,   // the ScreenLens Help assistant
+    help: pc.questionModel,   // Ebi's Help assistant
   })
   // UI metadata for the AI Settings panel — order + labels + hints.
   const AI_ROLE_META = [
@@ -378,7 +386,7 @@ export default function App() {
     { role: 'study', label: 'Study', hint: 'quiz/conjugation questions, answer grading, hints, insights, feedback' },
     { role: 'discover', label: 'Discover', hint: 'learner profiling, new-item suggestions, fact-checking' },
     { role: 'chat', label: 'Chat', hint: 'the chat tab assistant' },
-    { role: 'help', label: 'Help', hint: 'the ScreenLens Help assistant' },
+    { role: 'help', label: 'Help', hint: "Ebi's Help assistant" },
     { role: 'general', label: 'General', hint: 'fallback + AI mode/config generation' },
   ]
   const resolveModel = (role, prov = aiStateRef.current.provider) => {
@@ -437,6 +445,24 @@ export default function App() {
   // True when an error looks like "this model id no longer exists".
   const isRetiredModelError = (msg = '') => /\b404\b|not[_ ]?found|model.*(not found|does not exist|unavailable|retired|deprecated)/i.test(msg)
 
+  // Turn a raw AI/provider error into a clear, user-facing explanation (or null if it
+  // isn't a recognizable provider error — e.g. a JSON parse issue in the caller).
+  const describeAiError = (msg = '') => {
+    const m = String(msg).toLowerCase()
+    if (/insufficient|credit|quota|billing|exceeded|payment|balance|out of/.test(m)) return 'Your AI provider is out of credits/quota. Add credits, or switch provider/model in AI Settings.'
+    if (/\b429\b|rate.?limit|too many requests|overloaded/.test(m)) return 'The AI provider is rate-limiting requests. Wait a moment and try again.'
+    if (/\b401\b|\b403\b|invalid.*api.*key|invalid x-api-key|unauthor|authentication|permission/.test(m)) return 'Your AI API key was rejected. Check the key in AI Settings.'
+    if (/\b5\d\d\b|network|failed to fetch|timeout|econn|fetch failed/.test(m)) return 'Could not reach the AI provider. Check your connection and try again.'
+    if (/^api \d+/.test(m)) return `AI request failed (${msg}).`
+    return null
+  }
+  // Surface a provider error as a toast. Returns true if it was a recognizable AI error.
+  const reportAiError = (e) => {
+    const d = describeAiError(e?.message || e || '')
+    if (d) { setAiErrorNotice(d); return true }
+    return false
+  }
+
   // On a retired-model error, find a current model, persist it as the role's
   // override, toast the user, and return it so the caller can retry.
   const healRetiredModel = async (errMsg, failedModel, role) => {
@@ -457,10 +483,17 @@ export default function App() {
     const role = modelOverride ? 'question' : 'general'
     const model = modelOverride || resolveModel('general')
     try {
-      return await PROVIDERS[prov].call(key, systemPrompt, userContent, model)
+      const out = await PROVIDERS[prov].call(key, systemPrompt, userContent, model)
+      setAiErrorNotice((prev) => prev ? null : prev) // clear a stale error toast on success
+      return out
     } catch (e) {
       const healed = await healRetiredModel(e?.message || '', model, role)
-      if (healed) return await PROVIDERS[prov].call(key, systemPrompt, userContent, healed)
+      if (healed) {
+        try { return await PROVIDERS[prov].call(key, systemPrompt, userContent, healed) }
+        catch (e2) { reportAiError(e2); throw e2 }
+      }
+      // Surface out-of-credits / rate-limit / bad-key errors so failures aren't silent.
+      reportAiError(e)
       throw e
     }
   }
@@ -1389,7 +1422,7 @@ export default function App() {
         ))
       }
     } catch (err) {
-      console.warn('[ScreenLens] Lazy translate failed for index', idx, err)
+      console.warn('[Ebiki] Lazy translate failed for index', idx, err)
     }
   }, [apiKey, language, ocrWords, providerConfig])
 
@@ -2960,7 +2993,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
         {studyLegendOpen ? t('hideLegend') : t('colorLegend')}
       </button>
       {studyLegendOpen && (
-        <div style={{ position: 'absolute', right: 0, top: '110%', zIndex: 20, background: '#161b22', border: '1px solid #2a3040', borderRadius: 6, padding: '8px 10px', width: 230, boxShadow: '0 4px 16px rgba(0,0,0,.4)' }}>
+        <div style={{ position: 'absolute', right: 0, top: '110%', zIndex: 20, background: 'linear-gradient(180deg, #1a1f28, #14181f)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 6, padding: '8px 10px', width: 230, boxShadow: '0 4px 16px rgba(0,0,0,.4)' }}>
           <div style={{ fontSize: 10, color: '#7d8590', fontWeight: 700, marginBottom: 6 }}>Feedback colors</div>
           {FEEDBACK_CAT_ORDER.map((k) => (
             <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
@@ -3915,6 +3948,7 @@ Last updated: ${new Date().toISOString().split('T')[0]}
     const studyLang = (activeMode.studyRules || defaultStudyRules).studyLanguage || 'English'
     const newMessages = [...(chat.messages || []), { role: 'user', text: q }]
     setStudyFeedbackChat(prev => ({ ...prev, [cardIdx]: { ...chat, messages: newMessages, input: '', loading: true } }))
+    flashMascot(`${q} ${cs?.front || ''}`) // Ebi reacts to the feedback-chat topic as the reply starts
     try {
       const resultsContext = cs.questions.map((question, qi) =>
         `Q${qi+1}: ${getQuestionText(question)}\nAnswer: ${cs.answers[qi] || '(skipped)'}\nResult: ${cs.results[qi]?.correct ? 'Correct' : 'Incorrect'} — ${cs.results[qi]?.feedback}`
@@ -4000,6 +4034,7 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
         setStudyCardState(updatedStates)
       }
 
+      flashMascot(cleanText)
       setStudyFeedbackChat(prev => ({
         ...prev,
         [cardIdx]: { messages: [...newMessages, { role: 'assistant', text: cleanText }], input: '', loading: false }
@@ -4045,6 +4080,7 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
     setChatTabMsgs(newMsgs)
     setChatTabInput('')
     setChatTabLoading(true)
+    flashMascot(q) // Ebi reacts to the chat topic the moment the message is sent
     setTimeout(() => chatTabScrollRef.current?.scrollTo({ top: chatTabScrollRef.current.scrollHeight, behavior: 'smooth' }), 50)
     try {
       let systemPrompt = `You are a helpful study assistant. The user is studying with mode "${activeMode.name}".
@@ -4138,6 +4174,7 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       const cleanText = text.replace(/<anki-card>.*?<\/anki-card>/gs, '').replace(/<progress-update>[\s\S]*?<\/progress-update>/g, '').replace(/<sources>[\s\S]*?<\/sources>/g, '').trim()
       const assistantMsg = { role: 'assistant', content: cleanText, cards: parsedCards.length > 0 ? parsedCards : undefined, sources: sources || undefined }
       const updatedMsgs = [...newMsgs, assistantMsg]
+      flashMascot(cleanText)
       setChatTabMsgs(updatedMsgs)
       setTimeout(() => chatTabScrollRef.current?.scrollTo({ top: chatTabScrollRef.current.scrollHeight, behavior: 'smooth' }), 50)
       // Auto-save to disk after each response
@@ -4532,6 +4569,30 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
   const activeWord = activeIdx !== null ? ocrWords[activeIdx] : null
   const isPinned = pinnedIdx !== null
 
+  // Update Ebi's pose the instant the active AI context changes, so the shrimp always
+  // matches the current study question / picture word / discover suggestion.
+  useEffect(() => {
+    if (!studyActive || !currentQuestion) return
+    const cs = studyCardState[currentQuestion.cardIdx]
+    const q = cs?.questions?.[currentQuestion.questionIdx]
+    const qt = typeof q === 'string' ? q : (q?.question || '')
+    flashMascot([qt, cs?.front, cs?.back].filter(Boolean).join(' '))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentQuestion, studyActive])
+  useEffect(() => {
+    if (activeTab !== 'picture') return
+    const w = pinnedIdx !== null ? pinnedIdx : hoveredIdx
+    const word = w !== null ? ocrWords[w] : null
+    if (word) flashMascot([word.text, word.translation, word.definition].filter(Boolean).join(' '))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pinnedIdx, hoveredIdx, activeTab])
+  useEffect(() => {
+    if (activeTab === 'discover' && discoverSuggestion) {
+      flashMascot([discoverSuggestion.term, discoverSuggestion.translation, discoverSuggestion.draftMeaning].filter(Boolean).join(' '))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [discoverSuggestion, activeTab])
+
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <div
@@ -4578,12 +4639,13 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             <rect x="2" y="3" width="20" height="18" rx="2" stroke="#58a6ff" strokeWidth="2"/>
             <circle cx="18" cy="7" r="4" fill="#58a6ff"/>
           </svg>
-          <h1 style={S.title}>ScreenLens</h1>
+          <h1 style={S.title}>Ebiki</h1>
           <span style={S.badge}>{t('badge_local')}</span>
           <div style={S.tabBar}>
             {['chat', 'study', 'deck', 'discover', 'picture', 'stats'].map((tab) => (
               <button
                 key={tab}
+                className="ui-tab"
                 onClick={() => {
                   setActiveTab(tab)
                   setChatSidePanel(false)
@@ -4601,7 +4663,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             <button onClick={() => setShowHighlights(!showHighlights)} style={{
               ...S.ghostBtn,
               color: showHighlights ? '#d2a8ff' : '#7d8590',
-              borderColor: showHighlights ? 'rgba(210,168,255,0.25)' : '#2a3040',
+              borderColor: showHighlights ? 'rgba(210,168,255,0.25)' : 'rgba(255,255,255,.08)',
             }}>
               {showHighlights ? '● Highlights' : '○ Highlights'}
             </button>
@@ -4673,7 +4735,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               }} style={{
                 ...S.ghostBtn,
                 color: overlayRunning ? '#7ee787' : '#7d8590',
-                borderColor: overlayRunning ? 'rgba(126,231,135,0.3)' : '#2a3040',
+                borderColor: overlayRunning ? 'rgba(126,231,135,0.3)' : 'rgba(255,255,255,.08)',
                 background: overlayRunning ? 'rgba(126,231,135,0.08)' : 'transparent',
               }}>
                 {overlayRunning ? '\u25CF' : '\u25CB'} Overlay
@@ -4697,7 +4759,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               <button key={key} onClick={() => setProvider(key)} style={{
                 ...S.ghostBtn, fontSize: 11, padding: '4px 12px',
                 color: provider === key ? p.color : '#7d8590',
-                borderColor: provider === key ? `${p.color}66` : '#2a3040',
+                borderColor: provider === key ? `${p.color}66` : 'rgba(255,255,255,.08)',
                 background: provider === key ? `${p.color}11` : 'transparent',
               }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: apiKeys[key] ? '#7ee787' : '#484f58', display: 'inline-block', marginRight: 6 }} />
@@ -4721,7 +4783,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           {(() => {
             const provModels = availableModels[provider] || []
             return (
-          <div style={{ borderTop: '1px solid #2a3040', paddingTop: 8, marginTop: 2 }}>
+          <div style={{ borderTop: '1px solid rgba(255,255,255,.08)', paddingTop: 8, marginTop: 2 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, gap: 8, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: '#7d8590' }}>{t('aiModelsFor')} {providerConfig.label}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -4762,7 +4824,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           })()}
 
           {/* App language — translates all UI chrome (everything outside flashcard content) */}
-          <div style={{ borderTop: '1px solid #2a3040', paddingTop: 8, marginTop: 2 }}>
+          <div style={{ borderTop: '1px solid rgba(255,255,255,.08)', paddingTop: 8, marginTop: 2 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: '#7d8590', flexShrink: 0 }}>{t('appLanguage')}</span>
               <select
@@ -4806,7 +4868,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       padding: '4px 10px', borderRadius: 5, fontSize: 11, fontFamily: 'inherit', cursor: 'pointer',
                       background: m.id === activeModeId ? 'rgba(88,166,255,.2)' : 'rgba(125,133,144,.1)',
                       color: m.id === activeModeId ? '#58a6ff' : '#7d8590',
-                      border: m.id === activeModeId ? '1px solid rgba(88,166,255,.4)' : '1px solid #2a3040',
+                      border: m.id === activeModeId ? '1px solid rgba(88,166,255,.4)' : '1px solid rgba(255,255,255,.08)',
                       fontWeight: m.id === activeModeId ? 700 : 400,
                     }}
                   >
@@ -4874,8 +4936,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           {/* Language Settings */}
           {activeMode.type === 'language' && (
             <div style={{
-              padding: '8px 12px', borderRadius: 6,
-              background: 'rgba(88,166,255,.06)', border: '1px solid rgba(88,166,255,.25)',
+              padding: '10px 14px', borderRadius: 10,
+              background: 'linear-gradient(180deg, rgba(88,166,255,.09), rgba(88,166,255,.03))', border: '1px solid rgba(88,166,255,.22)',
+              boxShadow: '0 8px 24px -18px rgba(0,0,0,.8)',
             }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#58a6ff', marginBottom: 6 }}>Language Settings</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -4896,10 +4959,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           <button
             onClick={() => { setShowAnkiSection(!showAnkiSection); setSettingsSection(null) }}
             style={{
-              width: '100%', textAlign: 'left', padding: '8px 12px', borderRadius: 6,
+              width: '100%', textAlign: 'left', padding: '10px 14px', borderRadius: 10,
               fontSize: 12, fontFamily: 'inherit', cursor: 'pointer', fontWeight: 700,
-              background: showAnkiSection ? 'rgba(88,166,255,.15)' : 'rgba(88,166,255,.06)',
-              color: '#58a6ff', border: '1px solid rgba(88,166,255,.25)',
+              background: showAnkiSection ? 'linear-gradient(180deg, rgba(88,166,255,.2), rgba(88,166,255,.08))' : 'linear-gradient(180deg, rgba(88,166,255,.09), rgba(88,166,255,.03))',
+              color: '#58a6ff', border: '1px solid rgba(88,166,255,.22)',
             }}
           >
             {showAnkiSection ? '\u25BC' : '\u25B6'} Anki Settings {ankiConnected ? '' : ankiConnected === false ? '(offline)' : ''}
@@ -5039,8 +5102,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
 
           {/* Overlay Settings */}
           <div style={{
-            padding: '8px 12px', borderRadius: 6,
-            background: 'rgba(210,168,255,.06)', border: '1px solid rgba(210,168,255,.25)',
+            padding: '10px 14px', borderRadius: 10,
+            background: 'linear-gradient(180deg, rgba(210,168,255,.09), rgba(210,168,255,.03))', border: '1px solid rgba(210,168,255,.22)',
+            boxShadow: '0 8px 24px -18px rgba(0,0,0,.8)',
           }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: '#d2a8ff', marginBottom: 6 }}>Overlay Settings</div>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#c9d1d9', cursor: 'pointer' }}>
@@ -5060,10 +5124,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           <button
             onClick={() => { const opening = !showKnowledgeSection; setShowKnowledgeSection(opening); if (opening) loadKnowledgeFiles() }}
             style={{
-              width: '100%', textAlign: 'left', padding: '8px 12px', borderRadius: 6,
+              width: '100%', textAlign: 'left', padding: '10px 14px', borderRadius: 10,
               fontSize: 12, fontFamily: 'inherit', cursor: 'pointer', fontWeight: 700,
-              background: showKnowledgeSection ? 'rgba(126,231,135,.15)' : 'rgba(126,231,135,.06)',
-              color: '#7ee787', border: '1px solid rgba(126,231,135,.25)',
+              background: showKnowledgeSection ? 'linear-gradient(180deg, rgba(126,231,135,.2), rgba(126,231,135,.08))' : 'linear-gradient(180deg, rgba(126,231,135,.09), rgba(126,231,135,.03))',
+              color: '#7ee787', border: '1px solid rgba(126,231,135,.22)',
             }}
           >
             {showKnowledgeSection ? '\u25BC' : '\u25B6'} Knowledge Base
@@ -5082,7 +5146,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   onDrop={handleKnowledgeDrop}
                   style={{
                     padding: '16px', borderRadius: 6, textAlign: 'center', cursor: 'pointer',
-                    border: `2px dashed ${knowledgeDragging ? 'rgba(126,231,135,.5)' : '#2a3040'}`,
+                    border: `2px dashed ${knowledgeDragging ? 'rgba(126,231,135,.5)' : 'rgba(255,255,255,.08)'}`,
                     background: knowledgeDragging ? 'rgba(126,231,135,.06)' : 'transparent',
                     color: '#7d8590', fontSize: 11,
                   }}
@@ -5100,7 +5164,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       <div key={f.name} style={{
                         display: 'flex', alignItems: 'center', gap: 8, padding: '5px 10px',
                         background: f.disabled ? 'rgba(125,133,144,.04)' : 'rgba(126,231,135,.04)',
-                        border: `1px solid ${f.disabled ? '#2a3040' : 'rgba(126,231,135,.15)'}`,
+                        border: `1px solid ${f.disabled ? 'rgba(255,255,255,.08)' : 'rgba(126,231,135,.15)'}`,
                         borderRadius: 5, fontSize: 11,
                       }}>
                         <span style={{ flex: 1, color: f.disabled ? '#484f58' : '#c9d1d9', textDecoration: f.disabled ? 'line-through' : 'none' }}>
@@ -5134,7 +5198,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           <div style={{ maxWidth: 800, width: '100%', margin: '0 auto' }}>
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#e6edf3' }}>{t('deckBrowser')}</div>
+              <div style={{ fontSize: 16, fontWeight: 700, background: 'linear-gradient(90deg, #e6edf3, #9db4d6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{t('deckBrowser')}</div>
               <button
                 disabled={!ankiConnected}
                 onClick={() => { setDeckBrowserAddPanel(p => !p); setDeckBrowserAddName(''); setDeckBrowserAddPurpose('') }}
@@ -5143,7 +5207,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             </div>
 
             {deckBrowserAddPanel && (
-              <div style={{ background: '#161b22', border: '1px solid #2a3040', borderRadius: 8, padding: 12, marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ background: 'linear-gradient(180deg, #1a1f28, #14181f)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 8, padding: 12, marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <input
                   placeholder="Deck name"
                   value={deckBrowserAddName}
@@ -5332,7 +5396,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       const fieldNames = Object.keys(rec.recommendedFields)
                       return (
                         <div key={rec.noteId} style={{
-                          border: rec.accepted ? '1px solid rgba(126,231,135,0.4)' : '1px solid #2a3040',
+                          border: rec.accepted ? '1px solid rgba(126,231,135,0.4)' : '1px solid rgba(255,255,255,.08)',
                           borderRadius: 6, padding: 10,
                           background: rec.accepted ? 'rgba(126,231,135,0.06)' : '#0d1117',
                         }}>
@@ -5354,7 +5418,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                   style={{ ...S.keyInput, fontSize: 12, minHeight: 50, resize: 'vertical', width: '100%', boxSizing: 'border-box' }}
                                 />
                                 {changed && (
-                                  <div style={{ marginTop: 4, padding: '6px 8px', background: '#161b22', border: '1px solid #2a3040', borderRadius: 4, fontSize: 11, lineHeight: 1.55, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                                  <div style={{ marginTop: 4, padding: '6px 8px', background: 'linear-gradient(180deg, #1a1f28, #14181f)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 4, fontSize: 11, lineHeight: 1.55, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                                     <span style={{ fontSize: 9, color: '#7d8590', fontWeight: 600, display: 'block', marginBottom: 4 }}>
                                       Changes (<span style={{ color: '#f85149' }}>removed</span> / <span style={{ color: '#7ee787' }}>added</span>)
                                     </span>
@@ -5379,7 +5443,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               onKeyDown={(e) => { if (e.key === 'Enter') refineRec(idx) }}
                               placeholder='Tell AI different (e.g. "focus on the clock-hand meaning")'
                               disabled={rec.refining}
-                              style={{ flex: 1, background: '#161b22', color: '#e6edf3', border: '1px solid #2a3040', borderRadius: 4, padding: '5px 8px', fontSize: 11, fontFamily: 'inherit', outline: 'none' }}
+                              style={{ flex: 1, background: 'linear-gradient(180deg, #1a1f28, #14181f)', color: '#e6edf3', border: '1px solid rgba(255,255,255,.08)', borderRadius: 4, padding: '5px 8px', fontSize: 11, fontFamily: 'inherit', outline: 'none' }}
                             />
                             <button
                               onClick={() => refineRec(idx)}
@@ -5405,7 +5469,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                 ...S.ghostBtn,
                                 fontSize: 14, padding: '3px 12px',
                                 color: rec.accepted ? '#7ee787' : '#7d8590',
-                                borderColor: rec.accepted ? 'rgba(126,231,135,.5)' : '#2a3040',
+                                borderColor: rec.accepted ? 'rgba(126,231,135,.5)' : 'rgba(255,255,255,.08)',
                                 background: rec.accepted ? 'rgba(126,231,135,.12)' : 'transparent',
                               }}
                             >
@@ -5448,7 +5512,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       const fieldNames = Object.keys(group.mergedFields)
                       return (
                         <div key={group.noteIds.join('-')} style={{
-                          border: group.accepted ? '1px solid rgba(126,231,135,0.4)' : '1px solid #2a3040',
+                          border: group.accepted ? '1px solid rgba(126,231,135,0.4)' : '1px solid rgba(255,255,255,.08)',
                           borderRadius: 6, padding: 10,
                           background: group.accepted ? 'rgba(126,231,135,0.06)' : '#0d1117',
                         }}>
@@ -5463,7 +5527,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               const vals = Object.values(c.fields)
                               const expanded = !!deckDupExpanded[c.noteId]
                               return (
-                                <div key={c.noteId} style={{ fontSize: 10, color: '#7d8590', background: '#161b22', borderRadius: 4, overflow: 'hidden' }}>
+                                <div key={c.noteId} style={{ fontSize: 10, color: '#7d8590', background: 'linear-gradient(180deg, #1a1f28, #14181f)', borderRadius: 4, overflow: 'hidden' }}>
                                   <div onClick={() => toggleDupExpanded(c.noteId)} style={{ padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                                     <span style={{ color: '#7d8590', width: 8, flexShrink: 0 }}>{expanded ? '▾' : '▸'}</span>
                                     <span style={{ color: ci === 0 ? '#7ee787' : '#f85149', flexShrink: 0 }}>{ci === 0 ? 'KEEP' : 'DELETE'} #{c.noteId}</span>
@@ -5519,7 +5583,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                 ...S.ghostBtn,
                                 fontSize: 14, padding: '3px 12px',
                                 color: group.accepted ? '#7ee787' : '#7d8590',
-                                borderColor: group.accepted ? 'rgba(126,231,135,.5)' : '#2a3040',
+                                borderColor: group.accepted ? 'rgba(126,231,135,.5)' : 'rgba(255,255,255,.08)',
                                 background: group.accepted ? 'rgba(126,231,135,.12)' : 'transparent',
                               }}
                             >
@@ -5551,9 +5615,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     const isEditing = deckBrowserEditing === note.noteId
 
                     return (
-                      <div key={note.noteId} style={{
-                        border: '1px solid #2a3040', borderRadius: 6, overflow: 'hidden',
-                        background: isEditing ? '#1c2129' : 'transparent',
+                      <div key={note.noteId} className={isEditing ? '' : 'deck-row'} style={{
+                        border: '1px solid rgba(255,255,255,.07)', borderRadius: 8, overflow: 'hidden',
+                        background: isEditing
+                          ? 'linear-gradient(180deg, #1b212b, #161b23)'
+                          : 'linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,.008))',
+                        transition: 'border-color .15s ease, background .15s ease',
                       }}>
                         {isEditing ? (
                           <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -5573,7 +5640,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                 onChange={(e) => setDeckBrowserRefineInput(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') refineDeckBrowserCard() }}
                                 placeholder='e.g. "Say football instead of soccer"'
-                                style={{ flex: 1, background: '#161b22', color: '#e6edf3', border: '1px solid #2a3040', borderRadius: 4, padding: '5px 8px', fontSize: 11, fontFamily: 'inherit', outline: 'none' }}
+                                style={{ flex: 1, background: 'linear-gradient(180deg, #1a1f28, #14181f)', color: '#e6edf3', border: '1px solid rgba(255,255,255,.08)', borderRadius: 4, padding: '5px 8px', fontSize: 11, fontFamily: 'inherit', outline: 'none' }}
                               />
                               <button
                                 onClick={refineDeckBrowserCard}
@@ -5616,7 +5683,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       {activeTab === 'discover' && (
         <main style={{ ...S.main, display: 'flex', flexDirection: 'column', padding: 20 }}>
           <div style={{ maxWidth: 800, width: '100%', margin: '0 auto' }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#e6edf3', marginBottom: 12 }}>{t('discoverTitle')}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, background: 'linear-gradient(90deg, #e6edf3, #9db4d6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', marginBottom: 12 }}>{t('discoverTitle')}</div>
             {ankiConnected === false && (
               <div style={{ fontSize: 11, color: '#d29922', marginBottom: 12 }}>{t('ankiNotConnected')}</div>
             )}
@@ -5667,7 +5734,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       {activeTab === 'study' && !studyActive && (
         <main style={{ ...S.main, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
           <div style={{ maxWidth: 400, width: '100%', textAlign: 'center', padding: '40px 20px' }}>
-            <div style={{ fontSize: 20, fontWeight: 700, color: '#e6edf3', marginBottom: 16 }}>{t('studyTitle')}</div>
+            <div style={{ fontSize: 20, fontWeight: 700, background: 'linear-gradient(90deg, #e6edf3, #9db4d6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', marginBottom: 16 }}>{t('studyTitle')}</div>
             <div style={{ fontSize: 12, color: '#7d8590', marginBottom: 24 }}>{t('studyTagline')}</div>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
               <button
@@ -5692,16 +5759,18 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       {activeTab === 'chat' && (
         <main style={{ ...S.main, display: 'flex', padding: 0, overflow: 'hidden' }}>
           {/* Session sidebar */}
-          <div style={{ width: 200, borderRight: '1px solid #2a3040', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+          <div style={{ width: 200, borderRight: '1px solid rgba(255,255,255,.08)', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
             <button onClick={chatTabNewChat} style={{ ...S.captureBtn, margin: 8, borderRadius: 6, fontSize: 11, padding: '8px 12px' }}>
               {t('newChat')}
             </button>
             <div style={{ flex: 1, overflow: 'auto', padding: '0 8px 8px' }}>
               {chatTabSessions.map(s => (
-                <div key={s.id} onClick={() => chatTabLoadSession(s)} style={{
-                  padding: '6px 8px', borderRadius: 4, fontSize: 10, color: chatTabSessionId === s.id ? '#e6edf3' : '#7d8590',
-                  background: chatTabSessionId === s.id ? '#1c2129' : 'transparent',
-                  cursor: 'pointer', marginBottom: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                <div key={s.id} className="chat-session" onClick={() => chatTabLoadSession(s)} style={{
+                  padding: '7px 9px', borderRadius: 7, fontSize: 10, color: chatTabSessionId === s.id ? '#e6edf3' : '#8b95a3',
+                  background: chatTabSessionId === s.id ? 'linear-gradient(180deg, rgba(88,166,255,.18), rgba(88,166,255,.07))' : 'transparent',
+                  border: chatTabSessionId === s.id ? '1px solid rgba(88,166,255,.25)' : '1px solid transparent',
+                  cursor: 'pointer', marginBottom: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  transition: 'background .15s ease',
                 }}>
                   {chatTabEditingTitle === s.id ? (
                     <input
@@ -5710,7 +5779,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       onClick={(e) => e.stopPropagation()}
                       onKeyDown={(e) => { if (e.key === 'Enter') chatTabRenameSession(s.id, e.target.value); if (e.key === 'Escape') setChatTabEditingTitle(null) }}
                       onBlur={(e) => chatTabRenameSession(s.id, e.target.value)}
-                      style={{ background: '#161b22', color: '#e6edf3', border: '1px solid #2a3040', borderRadius: 3, fontSize: 10, padding: '2px 4px', width: '100%', fontFamily: 'inherit' }}
+                      style={{ background: 'linear-gradient(180deg, #1a1f28, #14181f)', color: '#e6edf3', border: '1px solid rgba(255,255,255,.08)', borderRadius: 3, fontSize: 10, padding: '2px 4px', width: '100%', fontFamily: 'inherit' }}
                     />
                   ) : (
                     <span onDoubleClick={(e) => { e.stopPropagation(); setChatTabEditingTitle(s.id) }} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
@@ -5729,7 +5798,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
             {/* Attached deck indicator */}
             {chatTabAttachedDeck && (
-              <div style={{ padding: '6px 16px', borderBottom: '1px solid #2a3040', display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#58a6ff' }}>
+              <div style={{ padding: '6px 16px', borderBottom: '1px solid rgba(255,255,255,.08)', display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#58a6ff' }}>
                 <span>Attached: {chatTabAttachedDeck.name} ({chatTabAttachedDeck.cards.length} cards)</span>
                 <span onClick={() => setChatTabAttachedDeck(null)} style={{ cursor: 'pointer', color: '#7d8590' }}>&times;</span>
               </div>
@@ -5739,13 +5808,13 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             <div ref={chatTabScrollRef} style={{ flex: 1, overflow: 'auto', padding: '16px 20px' }}>
               {chatTabMsgs.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: '#e6edf3', marginBottom: 8 }}>AI Study Assistant</div>
+                  <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 8, background: 'linear-gradient(90deg, #79c0ff, #d2a8ff)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>AI Study Assistant</div>
                   <div style={{ fontSize: 12, color: '#7d8590', marginBottom: 20, maxWidth: 400, margin: '0 auto 20px' }}>
                     Ask questions, create Anki cards, or attach a deck for personalized tutoring.
                   </div>
                   <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
                     {['Explain subnetting', 'Make me a flashcard about DNS', 'Help me with verb conjugations'].map(hint => (
-                      <button key={hint} onClick={() => { setChatTabInput(hint) }} style={{ ...S.ghostBtn, fontSize: 10, padding: '6px 12px' }}>
+                      <button key={hint} className="chip" onClick={() => { setChatTabInput(hint) }} style={{ ...S.ghostBtn, fontSize: 10, padding: '7px 14px', borderRadius: 20 }}>
                         {hint}
                       </button>
                     ))}
@@ -5754,10 +5823,14 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               )}
               {chatTabMsgs.map((m, i) => (
                 <div key={i} style={{ marginBottom: 12, display: 'flex', flexDirection: 'column', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                  {/* Contextual shrimp reaction — appears when a message matches a mascot pose */}
+                  {(() => { const ms = pickShrimp(m.content); return ms !== DEFAULT_SHRIMP ? (
+                    <img src={shrimpUrl(ms)} alt="" title="Ebi" style={{ width: 32, height: 32, objectFit: 'contain', marginBottom: 3, animation: 'pop .3s cubic-bezier(.34,1.56,.64,1)', filter: 'drop-shadow(0 2px 5px rgba(0,0,0,.45))' }} />
+                  ) : null })()}
                   <div style={{
-                    maxWidth: '80%', padding: '10px 14px', borderRadius: 10, fontSize: 13, lineHeight: 1.5,
-                    background: m.role === 'user' ? 'rgba(88,166,255,.12)' : '#1c2129',
-                    border: `1px solid ${m.role === 'user' ? 'rgba(88,166,255,.2)' : '#2a3040'}`,
+                    maxWidth: '80%', padding: '10px 14px', borderRadius: 12, fontSize: 13, lineHeight: 1.5,
+                    background: m.role === 'user' ? 'linear-gradient(135deg, rgba(88,166,255,.2), rgba(124,92,255,.12))' : 'linear-gradient(180deg, #1b212b, #161b23)',
+                    border: `1px solid ${m.role === 'user' ? 'rgba(88,166,255,.28)' : 'rgba(255,255,255,.07)'}`,
                     color: '#e6edf3', whiteSpace: 'pre-wrap',
                   }}>
                     {m.content}
@@ -5766,7 +5839,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   {m.cards?.map((card, ci) => (
                     <div key={ci} style={{
                       maxWidth: '80%', marginTop: 6, padding: '10px 14px', borderRadius: 8,
-                      background: '#161b22', border: '1px solid #2a3040',
+                      background: 'linear-gradient(180deg, #1a1f28, #14181f)', border: '1px solid rgba(255,255,255,.08)',
                     }}>
                       <div style={{ fontSize: 10, color: '#7d8590', fontWeight: 600, marginBottom: 4 }}>ANKI CARD</div>
                       <div style={{ fontSize: 12, fontWeight: 600, color: '#e6edf3', marginBottom: 4 }}>{card.front}</div>
@@ -5818,7 +5891,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             </div>
 
             {/* Input bar */}
-            <div style={{ padding: '12px 16px', borderTop: '1px solid #2a3040', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,.08)', display: 'flex', flexDirection: 'column', gap: 8 }}>
               {/* Attach deck row */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 {!chatTabAttachedDeck && ankiConnected && (
@@ -5839,7 +5912,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   title={chatTabWebSearch ? 'Web search enabled' : 'Enable web search'}
                   style={{
                     background: chatTabWebSearch ? 'rgba(88,166,255,.15)' : 'transparent',
-                    border: `1px solid ${chatTabWebSearch ? '#58a6ff' : '#2a3040'}`,
+                    border: `1px solid ${chatTabWebSearch ? '#58a6ff' : 'rgba(255,255,255,.08)'}`,
                     color: chatTabWebSearch ? '#58a6ff' : '#484f58',
                     borderRadius: 6, padding: '8px 10px', cursor: 'pointer',
                     fontSize: 14, lineHeight: 1, fontFamily: 'inherit',
@@ -5909,35 +5982,43 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         return (
         <main style={{ ...S.main, padding: 20 }}>
           <div style={{ maxWidth: 700, margin: '0 auto', width: '100%' }}>
-            <div style={{ fontSize: 20, fontWeight: 700, color: '#e6edf3', marginBottom: 20 }}>{t('statsTitle')}</div>
+            <div style={{ fontSize: 20, fontWeight: 700, background: 'linear-gradient(90deg, #e6edf3, #9db4d6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', marginBottom: 20 }}>{t('statsTitle')}</div>
 
             {/* Top row: streak + today */}
             <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
-              <div style={{ flex: 1, padding: '16px 20px', background: '#1c2129', border: '1px solid #2a3040', borderRadius: 8, textAlign: 'center' }}>
-                <div style={{ fontSize: 32, fontWeight: 700, color: '#ffa657' }}>{streak}</div>
-                <div style={{ fontSize: 11, color: '#7d8590' }}>{t('dayStreak')}</div>
-              </div>
-              <div style={{ flex: 1, padding: '16px 20px', background: '#1c2129', border: '1px solid #2a3040', borderRadius: 8, textAlign: 'center' }}>
-                <div style={{ fontSize: 32, fontWeight: 700, color: '#58a6ff' }}>{todayCards}</div>
-                <div style={{ fontSize: 11, color: '#7d8590' }}>{t('cardsToday')}</div>
-              </div>
-              <div style={{ flex: 1, padding: '16px 20px', background: '#1c2129', border: '1px solid #2a3040', borderRadius: 8, textAlign: 'center' }}>
-                <div style={{ fontSize: 32, fontWeight: 700, color: '#7ee787' }}>{todayTotal > 0 ? Math.round(todayCorrect / todayTotal * 100) : 0}%</div>
-                <div style={{ fontSize: 11, color: '#7d8590' }}>{t('accuracyToday')}</div>
-              </div>
+              {[
+                { val: streak, color: '#ffa657', label: t('dayStreak') },
+                { val: todayCards, color: '#58a6ff', label: t('cardsToday') },
+                { val: `${todayTotal > 0 ? Math.round(todayCorrect / todayTotal * 100) : 0}%`, color: '#7ee787', label: t('accuracyToday') },
+              ].map((s, i) => (
+                <div key={i} style={{
+                  flex: 1, padding: '18px 20px', position: 'relative', overflow: 'hidden',
+                  background: 'linear-gradient(180deg, #1b212b, #161b23)',
+                  border: '1px solid rgba(255,255,255,.08)', borderRadius: 12, textAlign: 'center',
+                  boxShadow: '0 8px 24px -18px rgba(0,0,0,.8)',
+                }}>
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, transparent, ${s.color}, transparent)`, opacity: .85 }} />
+                  <div style={{ fontSize: 34, fontWeight: 800, color: s.color, textShadow: `0 0 22px ${s.color}55` }}>{s.val}</div>
+                  <div style={{ fontSize: 11, color: '#8b95a3', marginTop: 2 }}>{s.label}</div>
+                </div>
+              ))}
             </div>
 
             {/* 14-day chart */}
-            <div style={{ padding: '16px 20px', background: '#1c2129', border: '1px solid #2a3040', borderRadius: 8, marginBottom: 20 }}>
+            <div style={{ padding: '16px 20px', background: 'linear-gradient(180deg, #1b212b, #161b23)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 8, marginBottom: 20 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#e6edf3', marginBottom: 12 }}>{t('last14Days')}</div>
               <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 100 }}>
                 {chartDays.map((day, i) => (
                   <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                     <div style={{ fontSize: 9, color: '#7d8590' }}>{day.cards || ''}</div>
                     <div style={{
-                      width: '100%', borderRadius: 2,
+                      width: '100%', borderRadius: '4px 4px 2px 2px',
                       height: Math.max(2, (day.cards / maxCards) * 80),
-                      background: day.date === today ? '#58a6ff' : day.cards > 0 ? 'rgba(88,166,255,.4)' : '#1a1f27',
+                      background: day.date === today
+                        ? 'linear-gradient(180deg, #79c0ff, #4b87e0)'
+                        : day.cards > 0 ? 'linear-gradient(180deg, rgba(121,192,255,.55), rgba(88,166,255,.25))' : 'rgba(255,255,255,.04)',
+                      boxShadow: day.date === today ? '0 0 12px rgba(88,166,255,.5)' : 'none',
+                      transition: 'height .3s ease',
                     }} />
                     <div style={{ fontSize: 8, color: '#484f58' }}>{day.label}</div>
                   </div>
@@ -5946,11 +6027,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             </div>
 
             {/* Per-deck breakdown */}
-            <div style={{ padding: '16px 20px', background: '#1c2129', border: '1px solid #2a3040', borderRadius: 8, marginBottom: 20 }}>
+            <div style={{ padding: '16px 20px', background: 'linear-gradient(180deg, #1b212b, #161b23)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 8, marginBottom: 20 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#e6edf3', marginBottom: 12 }}>{t('decks')}</div>
               {Object.keys(deckMap).length === 0 && <div style={{ fontSize: 11, color: '#484f58' }}>{t('noStudyHistory')}</div>}
               {Object.entries(deckMap).map(([deck, data]) => (
-                <div key={deck} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #2a3040', fontSize: 11 }}>
+                <div key={deck} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,.08)', fontSize: 11 }}>
                   <span style={{ color: '#e6edf3', fontWeight: 600 }}>{deck}</span>
                   <span style={{ color: '#7d8590' }}>{data.cards} {t('cardsLabel')} / {data.sessions} {t('sessionsLabel')} / {t('lastLabel')}: {data.lastDate}</span>
                 </div>
@@ -5958,11 +6039,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             </div>
 
             {/* Recent sessions */}
-            <div style={{ padding: '16px 20px', background: '#1c2129', border: '1px solid #2a3040', borderRadius: 8 }}>
+            <div style={{ padding: '16px 20px', background: 'linear-gradient(180deg, #1b212b, #161b23)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 8 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#e6edf3', marginBottom: 12 }}>{t('recentSessions')}</div>
               {history.length === 0 && <div style={{ fontSize: 11, color: '#484f58' }}>{t('noSessions')}</div>}
               {history.slice(0, 20).map((h, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #2a3040', fontSize: 11 }}>
+                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,.08)', fontSize: 11 }}>
                   <span style={{ color: '#7d8590' }}>{h.date}</span>
                   <span style={{ color: '#58a6ff' }}>{h.deck}</span>
                   <span style={{ color: '#e6edf3' }}>{h.cardsStudied} {t('cardsLabel')}</span>
@@ -5989,13 +6070,13 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
 
             {/* Study start phase */}
             {studyPhase === 'pick' && (
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 20, fontWeight: 700, color: '#e6edf3', marginBottom: 8 }}>{t('studySession')}</div>
+              <div style={{ textAlign: 'center', animation: 'slideUp .35s ease' }}>
+                <div style={{ fontSize: 20, fontWeight: 700, background: 'linear-gradient(90deg, #e6edf3, #9db4d6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', marginBottom: 8 }}>{t('studySession')}</div>
                 {/* Mode & Deck selectors */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center', marginBottom: 16 }}>
                   <div style={{
                     display: 'inline-flex', alignItems: 'center', gap: 10, padding: '10px 20px',
-                    background: '#1c2129', border: '1px solid #2a3040', borderRadius: 8,
+                    background: 'linear-gradient(180deg, #1b212b, #161b23)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 8,
                   }}>
                     <span style={{ fontSize: 12, color: '#7d8590' }}>{t('mode')}:</span>
                     <select value={activeModeId} onChange={(e) => {
@@ -6011,7 +6092,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   </div>
                   <div style={{
                     display: 'inline-flex', alignItems: 'center', gap: 10, padding: '10px 20px',
-                    background: '#1c2129', border: '1px solid #2a3040', borderRadius: 8,
+                    background: 'linear-gradient(180deg, #1b212b, #161b23)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 8,
                   }}>
                     <span style={{ fontSize: 12, color: '#7d8590' }}>{t('deck')}:</span>
                     <select value={studyDeck} onChange={(e) => { setStudyDeck(e.target.value); setAnkiDeck(e.target.value) }}
@@ -6024,7 +6105,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 {/* Language & grammar options */}
                 <div style={{
                   display: 'inline-flex', alignItems: 'center', gap: 10, padding: '10px 20px',
-                  background: '#1c2129', border: '1px solid #2a3040', borderRadius: 8, marginBottom: 16,
+                  background: 'linear-gradient(180deg, #1b212b, #161b23)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 8, marginBottom: 16,
                 }}>
                   <span style={{ fontSize: 12, color: '#7d8590' }}>{t('quizIn')}:</span>
                   <select value={activeMode.studyRules?.studyLanguage || 'English'}
@@ -6045,7 +6126,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 {/* Study type dropdown */}
                 <div style={{
                   display: 'inline-flex', alignItems: 'center', gap: 10, padding: '10px 20px',
-                  background: '#1c2129', border: '1px solid #2a3040', borderRadius: 8, marginTop: 8, marginBottom: 4,
+                  background: 'linear-gradient(180deg, #1b212b, #161b23)', border: '1px solid rgba(255,255,255,.08)', borderRadius: 8, marginTop: 8, marginBottom: 4,
                 }}>
                   <span style={{ fontSize: 12, color: '#7d8590' }}>{t('studyType')}:</span>
                   <select value={studyMode} onChange={(e) => setStudyMode(e.target.value)}
@@ -6068,8 +6149,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
 
             {/* Summary phase */}
             {studyPhase === 'summary' && (
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 20, fontWeight: 700, color: '#e6edf3', marginBottom: 16 }}>{t('sessionComplete')}</div>
+              <div style={{ textAlign: 'center', animation: 'pop .4s cubic-bezier(.34,1.56,.64,1)' }}>
+                <div style={{ fontSize: 20, fontWeight: 700, background: 'linear-gradient(90deg, #e6edf3, #9db4d6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', marginBottom: 16 }}>{t('sessionComplete')}</div>
                 <div style={{ fontSize: 14, color: '#7d8590', marginBottom: 24 }}>
                   {studyStats.easy + studyStats.good + studyStats.hard + studyStats.again} {t('cardsStudied')}
                 </div>
@@ -6149,7 +6230,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
 
                   {/* Current question — card front is HIDDEN */}
                   {question ? (
-                    <>
+                    <div style={{
+                      background: 'linear-gradient(180deg, rgba(32,38,48,.55), rgba(20,25,33,.55))',
+                      border: '1px solid rgba(255,255,255,.07)', borderRadius: 16,
+                      padding: '20px 22px', boxShadow: '0 18px 44px -26px rgba(0,0,0,.85)',
+                    }}>
                       {/* Conjugation mode: show the word being conjugated + option to add it to Anki */}
                       {studyMode === 'conjugations' && cs && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, padding: '6px 10px', background: 'rgba(88,166,255,.06)', border: '1px solid rgba(88,166,255,.2)', borderRadius: 6 }}>
@@ -6168,7 +6253,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         </div>
                       )}
 
-                      <div style={{ fontSize: 13, color: '#e6edf3', fontWeight: 600, marginBottom: studyWordLookup ? 6 : 8 }}>
+                      <div key={`q-${cq?.cardIdx}-${cq?.questionIdx}`} style={{ fontSize: 13, color: '#e6edf3', fontWeight: 600, marginBottom: studyWordLookup ? 6 : 8, animation: 'fadeUp .25s ease' }}>
                         {activeMode.type === 'language'
                           ? question.split(/(\s+)/).map((tok, ti) => {
                               const clean = tok.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '')
@@ -6177,9 +6262,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               const lookupable = clean.length > 1 && !/_{2,}/.test(tok) && !answers.includes(clean.toLowerCase())
                               if (!lookupable) return <span key={ti}>{tok}</span>
                               return (
-                                <span key={ti} onClick={() => lookupStudyWord(clean, question)}
+                                <span key={ti} className="study-word" onClick={() => lookupStudyWord(clean, question)}
                                   title={`What does "${clean}" mean?`}
-                                  style={{ cursor: 'pointer', borderBottom: '1px dotted rgba(121,192,255,.45)' }}>
+                                  style={{ cursor: 'pointer', display: 'inline-block', borderBottom: '1px dotted rgba(121,192,255,.45)' }}>
                                   {tok}
                                 </span>
                               )
@@ -6235,7 +6320,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           </button>
                           {studyMode === 'conjugations' && (
                             <button onClick={skipConjugationWord}
-                              style={{ ...S.ghostBtn, fontSize: 10, color: '#7d8590', borderColor: '#2a3040' }}>
+                              style={{ ...S.ghostBtn, fontSize: 10, color: '#7d8590', borderColor: 'rgba(255,255,255,.08)' }}>
                               {t('skipWord')}
                             </button>
                           )}
@@ -6245,12 +6330,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           </button>
                           {studyMode !== 'conjugations' && (
                             <button onClick={() => setStudyDeleteConfirm(cq.cardIdx)}
-                              style={{ ...S.ghostBtn, fontSize: 10, color: '#7d8590', borderColor: '#2a3040' }}>
+                              style={{ ...S.ghostBtn, fontSize: 10, color: '#7d8590', borderColor: 'rgba(255,255,255,.08)' }}>
                               {t('iKnowThisAlready')}
                             </button>
                           )}
                           {canUndo && (
-                            <button onClick={undoLastAnswer} style={{ ...S.ghostBtn, fontSize: 10, color: '#7d8590', borderColor: '#2a3040' }}>← {t('back')}</button>
+                            <button onClick={undoLastAnswer} style={{ ...S.ghostBtn, fontSize: 10, color: '#7d8590', borderColor: 'rgba(255,255,255,.08)' }}>← {t('back')}</button>
                           )}
                         </div>
                         <div style={{ display: 'flex', gap: 6 }}>
@@ -6274,7 +6359,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       {studyWrappingUp && (
                         <div style={{ fontSize: 10, color: '#d29922', marginTop: 4, textAlign: 'center' }}>Wrapping up — finishing current cards...</div>
                       )}
-                    </>
+                    </div>
                   ) : (
                     <div style={{ textAlign: 'center', color: '#7d8590', fontSize: 12, padding: 20 }}>
                       {studyCardState.some(cs => cs.evaluating) ? 'Evaluating remaining cards...' : 'All cards completed!'}
@@ -6313,8 +6398,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     const ci = studyCardState.indexOf(cs)
                     const ratingColors = { easy: '#7ee787', good: '#58a6ff', hard: '#d29922', again: '#f85149', deleted: '#7d8590' }
                     return (
-                      <div key={ci} style={{ marginTop: 16, border: '1px solid #2a3040', borderRadius: 8, overflow: 'hidden' }}>
-                        <div style={{ padding: '8px 12px', background: '#1c2129', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div key={ci} style={{ marginTop: 16, border: '1px solid rgba(255,255,255,.08)', borderRadius: 8, overflow: 'hidden' }}>
+                        <div style={{ padding: '8px 12px', background: 'linear-gradient(180deg, #1b212b, #161b23)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span style={{ fontSize: 13, fontWeight: 700, color: '#e6edf3' }}>{cs.front}</span>
                           {cs.evaluating ? (
                             <span style={{ fontSize: 11, color: '#7d8590' }}>Evaluating...</span>
@@ -6334,7 +6419,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                 }))
                                 return updated
                               })
-                            }} style={{ background: '#161b22', color: ratingColors[cs.rating] || '#7d8590', border: `1px solid ${ratingColors[cs.rating] || '#2a3040'}44`, borderRadius: 4, fontSize: 11, fontWeight: 700, fontFamily: 'inherit', padding: '2px 6px', cursor: 'pointer' }}>
+                            }} style={{ background: 'linear-gradient(180deg, #1a1f28, #14181f)', color: ratingColors[cs.rating] || '#7d8590', border: `1px solid ${ratingColors[cs.rating] || 'rgba(255,255,255,.08)'}44`, borderRadius: 4, fontSize: 11, fontWeight: 700, fontFamily: 'inherit', padding: '2px 6px', cursor: 'pointer' }}>
                               <option value="easy" style={{ color: '#7ee787' }}>EASY</option>
                               <option value="good" style={{ color: '#58a6ff' }}>GOOD</option>
                               <option value="hard" style={{ color: '#d29922' }}>HARD</option>
@@ -6343,7 +6428,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           )}
                         </div>
                         {cs.results.map((r, qi) => (
-                          <div key={qi} style={{ padding: '8px 12px', borderTop: '1px solid #2a3040', fontSize: 12, background: r.correct ? 'rgba(126,231,135,.03)' : 'rgba(248,81,73,.03)' }}>
+                          <div key={qi} style={{ padding: '8px 12px', borderTop: '1px solid rgba(255,255,255,.08)', fontSize: 12, background: r.correct ? 'rgba(126,231,135,.03)' : 'rgba(248,81,73,.03)' }}>
                             <div style={{ color: r.correct ? '#7ee787' : '#f85149', fontSize: 10, fontWeight: 700, marginBottom: 4 }}>
                               {r.correct ? '\u2713 CORRECT' : '\u2717 INCORRECT'}
                             </div>
@@ -6353,10 +6438,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                             {renderFeedbackNotes(r)}
                           </div>
                         ))}
-                        <div style={{ padding: '4px 12px', borderTop: '1px solid #2a3040', fontSize: 10, color: '#484f58' }}>{cs.back}</div>
+                        <div style={{ padding: '4px 12px', borderTop: '1px solid rgba(255,255,255,.08)', fontSize: 10, color: '#484f58' }}>{cs.back}</div>
                         {/* Feedback chat */}
                         {!cs.evaluating && (
-                          <div style={{ padding: '6px 12px', borderTop: '1px solid #2a3040' }}>
+                          <div style={{ padding: '6px 12px', borderTop: '1px solid rgba(255,255,255,.08)' }}>
                             {(studyFeedbackChat[ci]?.messages || []).map((m, mi) => (
                               <div key={mi} style={{ fontSize: 11, padding: '4px 8px', marginBottom: 4, borderRadius: 4, background: m.role === 'user' ? 'rgba(88,166,255,.08)' : 'rgba(126,231,135,.05)', color: m.role === 'user' ? '#c9d1d9' : '#7ee787' }}>{m.text}</div>
                             ))}
@@ -6384,9 +6469,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 {studyCardState.map((cs, ci) => {
                   const ratingColors = { easy: '#7ee787', good: '#58a6ff', hard: '#d29922', again: '#f85149', deleted: '#7d8590' }
                   return (
-                    <div key={ci} style={{ marginBottom: 16, border: '1px solid #2a3040', borderRadius: 8, overflow: 'hidden' }}>
+                    <div key={ci} style={{ marginBottom: 16, border: '1px solid rgba(255,255,255,.08)', borderRadius: 8, overflow: 'hidden' }}>
                       <div style={{
-                        padding: '8px 12px', background: '#1c2129',
+                        padding: '8px 12px', background: 'linear-gradient(180deg, #1b212b, #161b23)',
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                       }}>
                         <span style={{ fontSize: 13, fontWeight: 700, color: '#e6edf3' }}>{cs.front}</span>
@@ -6396,7 +6481,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       </div>
                       {cs.questions.map((q, qi) => (
                         <div key={qi} style={{
-                          padding: '8px 12px', borderTop: '1px solid #2a3040', fontSize: 12,
+                          padding: '8px 12px', borderTop: '1px solid rgba(255,255,255,.08)', fontSize: 12,
                           background: cs.results[qi]?.correct ? 'rgba(126,231,135,.03)' : 'rgba(248,81,73,.03)',
                         }}>
                           <div style={{ color: cs.results[qi]?.correct ? '#7ee787' : '#f85149', fontSize: 10, fontWeight: 700, marginBottom: 4 }}>
@@ -6419,11 +6504,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           {renderFeedbackNotes(cs.results[qi])}
                         </div>
                       ))}
-                      <div style={{ padding: '4px 12px', borderTop: '1px solid #2a3040', fontSize: 10, color: '#484f58' }}>
+                      <div style={{ padding: '4px 12px', borderTop: '1px solid rgba(255,255,255,.08)', fontSize: 10, color: '#484f58' }}>
                         {cs.back}
                       </div>
                       {/* Feedback chat — ask follow-up questions about this card */}
-                      <div style={{ padding: '6px 12px', borderTop: '1px solid #2a3040' }}>
+                      <div style={{ padding: '6px 12px', borderTop: '1px solid rgba(255,255,255,.08)' }}>
                         {(studyFeedbackChat[ci]?.messages || []).map((m, mi) => (
                           <div key={mi} style={{
                             fontSize: 11, padding: '4px 8px', marginBottom: 4, borderRadius: 4,
@@ -6470,10 +6555,16 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         {/* Empty state (hidden in overlay) */}
         {stage === 'idle' && !isOverlay && (
           <div style={S.emptyState}>
-            <div style={{ opacity: 0.15, marginBottom: 24 }}>
-              <svg width="72" height="72" viewBox="0 0 24 24" fill="none">
-                <rect x="2" y="3" width="20" height="18" rx="2" stroke="#7d8590" strokeWidth="1"/>
-                <path d="M9 12l2 2 4-4" stroke="#58a6ff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <div style={{ marginBottom: 24, opacity: 0.9, filter: 'drop-shadow(0 6px 20px rgba(88,166,255,.35))' }}>
+              <svg width="76" height="76" viewBox="0 0 24 24" fill="none">
+                <defs>
+                  <linearGradient id="elGrad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0" stopColor="#58a6ff"/>
+                    <stop offset="1" stopColor="#d2a8ff"/>
+                  </linearGradient>
+                </defs>
+                <rect x="2" y="3" width="20" height="18" rx="3" stroke="url(#elGrad)" strokeWidth="1.4" opacity="0.55"/>
+                <path d="M9 12l2 2 4-4" stroke="url(#elGrad)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
             <h2 style={S.emptyTitle}>Capture, paste, drop, or upload</h2>
@@ -6552,7 +6643,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             {loading && isOverlay && (
               <div style={{
                 position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)',
-                background: 'rgba(22,27,34,0.95)', border: '1px solid #2a3040',
+                background: 'rgba(22,27,34,0.95)', border: '1px solid rgba(255,255,255,.08)',
                 borderRadius: 8, padding: '8px 16px', zIndex: 9999,
                 display: 'flex', alignItems: 'center', gap: 8,
                 color: '#7d8590', fontSize: 11,
@@ -6678,13 +6769,13 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
 
       {/* ── Chat Side Panel (split-screen) ──────────────────────────────────── */}
       {false && (
-        <div style={{ position: 'fixed', right: 0, top: 0, bottom: 0, width: 380, background: '#0e1117', borderLeft: '1px solid #2a3040', zIndex: 9000, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '8px 12px', borderBottom: '1px solid #2a3040', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ position: 'fixed', right: 0, top: 0, bottom: 0, width: 380, background: '#0e1117', borderLeft: '1px solid rgba(255,255,255,.08)', zIndex: 9000, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: '#e6edf3' }}>Chat</span>
             <button onClick={() => setChatSidePanel(false)} style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 8px' }}>&times;</button>
           </div>
           {chatTabAttachedDeck && (
-            <div style={{ padding: '4px 12px', borderBottom: '1px solid #2a3040', fontSize: 10, color: '#58a6ff', display: 'flex', alignItems: 'center', gap: 4 }}>
+            <div style={{ padding: '4px 12px', borderBottom: '1px solid rgba(255,255,255,.08)', fontSize: 10, color: '#58a6ff', display: 'flex', alignItems: 'center', gap: 4 }}>
               Attached: {chatTabAttachedDeck.name} ({chatTabAttachedDeck.cards.length} cards)
               <span onClick={() => setChatTabAttachedDeck(null)} style={{ cursor: 'pointer', color: '#7d8590' }}>&times;</span>
             </div>
@@ -6693,11 +6784,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             {chatTabMsgs.length === 0 && <div style={{ textAlign: 'center', color: '#484f58', fontSize: 11, padding: 20 }}>Start a conversation...</div>}
             {chatTabMsgs.map((m, i) => (
               <div key={i} style={{ marginBottom: 8, display: 'flex', flexDirection: 'column', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                <div style={{ maxWidth: '90%', padding: '8px 12px', borderRadius: 8, fontSize: 12, lineHeight: 1.4, background: m.role === 'user' ? 'rgba(88,166,255,.12)' : '#1c2129', border: `1px solid ${m.role === 'user' ? 'rgba(88,166,255,.2)' : '#2a3040'}`, color: '#e6edf3', whiteSpace: 'pre-wrap' }}>
+                <div style={{ maxWidth: '90%', padding: '8px 12px', borderRadius: 8, fontSize: 12, lineHeight: 1.4, background: m.role === 'user' ? 'rgba(88,166,255,.12)' : '#1c2129', border: `1px solid ${m.role === 'user' ? 'rgba(88,166,255,.2)' : 'rgba(255,255,255,.08)'}`, color: '#e6edf3', whiteSpace: 'pre-wrap' }}>
                   {m.content}
                 </div>
                 {m.cards?.map((card, ci) => (
-                  <div key={ci} style={{ maxWidth: '90%', marginTop: 4, padding: '8px 10px', borderRadius: 6, background: '#161b22', border: '1px solid #2a3040', fontSize: 11 }}>
+                  <div key={ci} style={{ maxWidth: '90%', marginTop: 4, padding: '8px 10px', borderRadius: 6, background: 'linear-gradient(180deg, #1a1f28, #14181f)', border: '1px solid rgba(255,255,255,.08)', fontSize: 11 }}>
                     <div style={{ fontWeight: 600, color: '#e6edf3', marginBottom: 2 }}>{card.front}</div>
                     <div style={{ color: '#c9d1d9', whiteSpace: 'pre-line', marginBottom: 4 }}>{card.back}</div>
                     {card.synced ? <span style={{ fontSize: 9, color: '#7ee787' }}>Synced</span> : (
@@ -6711,7 +6802,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               {chatTabStatus === 'searching' ? 'Searching the web...' : chatTabStatus === 'search-done' ? 'Analyzing results...' : 'Thinking...'}
             </div>}
           </div>
-          <div style={{ padding: '8px 12px', borderTop: '1px solid #2a3040' }}>
+          <div style={{ padding: '8px 12px', borderTop: '1px solid rgba(255,255,255,.08)' }}>
             {!chatTabAttachedDeck && ankiConnected && (
               <select value="" onChange={(e) => { if (e.target.value) chatTabAttachDeck(e.target.value) }} style={{ ...S.select, fontSize: 9, padding: '2px 4px', marginBottom: 4, width: '100%' }}>
                 <option value="">Attach deck...</option>
@@ -6895,7 +6986,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           setAnkiEditing(true)
                         }
                       }}
-                      style={{ background: 'none', border: '1px solid #2a3040', color: ankiEditing ? '#7ee787' : '#7d8590', borderRadius: 4, padding: '2px 8px', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit' }}
+                      style={{ background: 'none', border: '1px solid rgba(255,255,255,.08)', color: ankiEditing ? '#7ee787' : '#7d8590', borderRadius: 4, padding: '2px 8px', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit' }}
                     >
                       {ankiEditing ? 'Save' : 'Edit'}
                     </button>
@@ -6904,7 +6995,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     <textarea
                       value={ankiEditFront}
                       onChange={(e) => setAnkiEditFront(e.target.value)}
-                      style={{ ...S.ttAnkiCardContent, width: '100%', minHeight: 36, resize: 'vertical', background: '#161b22', color: '#e6edf3', border: '1px solid #2a3040', borderRadius: 4, padding: '6px 8px', fontSize: 12, fontFamily: 'inherit', boxSizing: 'border-box' }}
+                      style={{ ...S.ttAnkiCardContent, width: '100%', minHeight: 36, resize: 'vertical', background: 'linear-gradient(180deg, #1a1f28, #14181f)', color: '#e6edf3', border: '1px solid rgba(255,255,255,.08)', borderRadius: 4, padding: '6px 8px', fontSize: 12, fontFamily: 'inherit', boxSizing: 'border-box' }}
                     />
                   ) : (
                     <div style={S.ttAnkiCardContent}>{ankiCard.front}</div>
@@ -6914,7 +7005,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     <textarea
                       value={ankiEditBack}
                       onChange={(e) => setAnkiEditBack(e.target.value)}
-                      style={{ ...S.ttAnkiCardContent, width: '100%', minHeight: 80, resize: 'vertical', background: '#161b22', color: '#e6edf3', border: '1px solid #2a3040', borderRadius: 4, padding: '6px 8px', fontSize: 12, fontFamily: 'inherit', whiteSpace: 'pre-line', boxSizing: 'border-box' }}
+                      style={{ ...S.ttAnkiCardContent, width: '100%', minHeight: 80, resize: 'vertical', background: 'linear-gradient(180deg, #1a1f28, #14181f)', color: '#e6edf3', border: '1px solid rgba(255,255,255,.08)', borderRadius: 4, padding: '6px 8px', fontSize: 12, fontFamily: 'inherit', whiteSpace: 'pre-line', boxSizing: 'border-box' }}
                     />
                   ) : (
                     <div style={{ ...S.ttAnkiCardContent, whiteSpace: 'pre-line', marginBottom: 4 }}>{ankiCard.back}</div>
@@ -6938,7 +7029,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         onChange={(e) => setAnkiRefineInput(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter') refineAnkiCard() }}
                         placeholder='e.g. "Say football instead of soccer"'
-                        style={{ flex: 1, background: '#161b22', color: '#e6edf3', border: '1px solid #2a3040', borderRadius: 4, padding: '4px 8px', fontSize: 11, fontFamily: 'inherit', outline: 'none' }}
+                        style={{ flex: 1, background: 'linear-gradient(180deg, #1a1f28, #14181f)', color: '#e6edf3', border: '1px solid rgba(255,255,255,.08)', borderRadius: 4, padding: '4px 8px', fontSize: 11, fontFamily: 'inherit', outline: 'none' }}
                       />
                       <button
                         onClick={refineAnkiCard}
@@ -6955,7 +7046,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       <select
                         value={ankiDeck}
                         onChange={(e) => setAnkiDeck(e.target.value)}
-                        style={{ background: '#161b22', color: '#58a6ff', border: '1px solid rgba(88,166,255,.3)', borderRadius: 4, padding: '2px 4px', fontSize: 10, fontFamily: 'inherit' }}
+                        style={{ background: 'linear-gradient(180deg, #1a1f28, #14181f)', color: '#58a6ff', border: '1px solid rgba(88,166,255,.3)', borderRadius: 4, padding: '2px 4px', fontSize: 10, fontFamily: 'inherit' }}
                       >
                         {ankiDecks.map((d) => <option key={d} value={d}>{d}</option>)}
                       </select>
@@ -7093,13 +7184,85 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           from { opacity: 0; }
           to { opacity: 1; }
         }
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(14px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pop {
+          0% { opacity: 0; transform: scale(.85); }
+          60% { transform: scale(1.04); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+        @keyframes shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        @keyframes floaty {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-5px); }
+        }
+        @keyframes glowPulse {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(88,166,255,0); }
+          50% { box-shadow: 0 0 18px 2px rgba(88,166,255,.28); }
+        }
+        @keyframes spin360 { to { transform: rotate(360deg); } }
+
+        /* ── Modern scrollbars ───────────────────────────────────────── */
+        * { scrollbar-width: thin; scrollbar-color: #2f3947 transparent; }
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb {
+          background: linear-gradient(180deg, #353f4f, #232a35);
+          border-radius: 8px; border: 2px solid transparent; background-clip: padding-box;
+        }
+        ::-webkit-scrollbar-thumb:hover { background: #44506310; background: #475164; background-clip: padding-box; }
+
+        ::selection { background: rgba(88,166,255,.35); color: #fff; }
+
+        /* ── Interactive polish — geometry-safe (no transform on click) ─ */
+        button { transition: box-shadow .18s ease, filter .18s ease, background .18s ease, border-color .18s ease, color .18s ease; }
+        button:hover:not(:disabled) { filter: brightness(1.08) saturate(1.04); }
+        button:active:not(:disabled) { filter: brightness(.94); }
+        button:disabled { cursor: not-allowed; }
+
+        /* Top navigation tabs: gentle float-up on hover (vertical only, no click shrink) */
+        .ui-tab { transition: transform .16s cubic-bezier(.34,1.56,.64,1), color .18s ease, background .18s ease, box-shadow .18s ease; }
+        .ui-tab:hover { transform: translateY(-2px); }
+
+        input, select, textarea { transition: border-color .16s ease, box-shadow .16s ease, background .16s ease; }
+        input:focus, select:focus, textarea:focus {
+          border-color: #58a6ff !important;
+          box-shadow: 0 0 0 3px rgba(88,166,255,.18);
+        }
+        input::placeholder, textarea::placeholder { color: #586173; }
+
+        a { transition: color .15s ease, filter .15s ease; }
+        a:hover { filter: brightness(1.12); }
+
+        /* Tappable words in study questions — lift + highlight on hover */
+        .study-word { transition: transform .14s cubic-bezier(.34,1.56,.64,1), color .14s ease, border-color .14s ease; }
+        .study-word:hover {
+          transform: translateY(-3px);
+          color: #a5d6ff;
+          border-bottom-color: rgba(121,192,255,.95) !important;
+        }
+
+        /* Deck browser rows — highlight on hover */
+        .deck-row:hover { border-color: rgba(88,166,255,.35) !important; background: rgba(88,166,255,.06) !important; }
+
+        /* Chat session sidebar items — highlight on hover */
+        .chat-session:hover { background: rgba(255,255,255,.05) !important; }
+
+        /* Suggestion / pill chips — lift + glow on hover */
+        .chip:hover { border-color: rgba(88,166,255,.5) !important; color: #c9d6e3 !important; transform: translateY(-1px); }
+        .chip { transition: transform .14s ease, border-color .16s ease, color .16s ease, background .16s ease; }
       `}</style>
 
       {/* Floating AI Help Button */}
       {modelHealNotice && (
         <div style={{
           position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 10001,
-          background: '#161b22', border: '1px solid rgba(126,231,135,.4)', borderRadius: 8,
+          background: 'linear-gradient(180deg, #1a1f28, #14181f)', border: '1px solid rgba(126,231,135,.4)', borderRadius: 8,
           padding: '8px 14px', fontSize: 11, color: '#7ee787', maxWidth: 420,
           boxShadow: '0 4px 16px rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', gap: 10,
         }}>
@@ -7108,9 +7271,25 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         </div>
       )}
 
+      {/* AI request error (out of credits / rate limit / bad key) — stays until dismissed */}
+      {aiErrorNotice && (
+        <div style={{
+          position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 10001,
+          background: 'linear-gradient(180deg, #2a1416, #1c0f12)', border: '1px solid rgba(248,81,73,.5)', borderRadius: 10,
+          padding: '10px 16px', fontSize: 12, color: '#ffb3ae', maxWidth: 460,
+          boxShadow: '0 8px 28px rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', gap: 10,
+          animation: 'slideUp .25s ease',
+        }}>
+          <span style={{ fontSize: 15 }}>⚠️</span>
+          <span style={{ flex: 1, lineHeight: 1.45 }}>{aiErrorNotice}</span>
+          <span onClick={() => setAiErrorNotice(null)} style={{ cursor: 'pointer', color: '#f8918b', fontSize: 15, lineHeight: 1 }}>×</span>
+        </div>
+      )}
+
       {!isOverlay && <HelpChat
         apiKey={apiKey}
         provider={provider}
+        mascotFile={aiMascot}
         model={resolveModel('help')}
         onModelRetired={async (failedModel) => {
           const healed = await healRetiredModel('404 not_found', failedModel, 'help')
