@@ -309,7 +309,7 @@ export default function SettingsModal(p) {
           </div>
           {isLanguage && (
             <div>
-              {fieldLabel(t('quizIn'))}
+              {fieldLabel('Learning')}
               <select value={activeMode.studyRules?.studyLanguage || 'English'}
                 onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), studyLanguage: e.target.value } })}
                 style={{ ...S.select, minWidth: 120 }}>
@@ -317,6 +317,14 @@ export default function SettingsModal(p) {
               </select>
             </div>
           )}
+          <div>
+            {fieldLabel(t('quizIn'))}
+            <select value={activeMode.studyRules?.quizLanguage || activeMode.studyRules?.studyLanguage || 'English'}
+              onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || (isLanguage ? defaultStudyRules : defaultGeneralStudyRules)), quizLanguage: e.target.value } })}
+              style={{ ...S.select, minWidth: 120 }}>
+              {LANGS.filter((l) => l.code !== 'auto').map((l) => <option key={l.code} value={l.label}>{l.label}</option>)}
+            </select>
+          </div>
           {isLanguage && (
             <div>
               {fieldLabel(t('grammarFeedback'))}
@@ -326,6 +334,25 @@ export default function SettingsModal(p) {
                 {activeMode.studyRules?.grammarFeedback ? t('on') : t('off')}
               </label>
             </div>
+          )}
+          {isLanguage && (
+            <div>
+              {fieldLabel('Word hints')}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: C.inkDim, cursor: 'pointer', paddingTop: 6 }}>
+                <input type="checkbox" checked={activeMode.studyRules?.wordHints || false}
+                  onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), wordHints: e.target.checked } })} />
+                {activeMode.studyRules?.wordHints ? t('on') : t('off')}
+              </label>
+            </div>
+          )}
+        </div>
+        <div style={{ fontSize: 11, color: C.inkFaint, marginTop: 8, display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 8, rowGap: 3, lineHeight: 1.4 }}>
+          {isLanguage ? (<>
+            <span style={{ color: C.inkDim, fontWeight: 700 }}>{t('studyLearning')}</span><span>{t('studyLearningDesc')}</span>
+            <span style={{ color: C.inkDim, fontWeight: 700 }}>{t('quizIn')}</span><span>{t('studyEbiSpeaksDesc')}</span>
+            <span style={{ color: C.inkDim, fontWeight: 700 }}>{t('studyWordHints')}</span><span>{t('studyWordHintsDesc')}</span>
+          </>) : (
+            <span style={{ gridColumn: '1 / -1' }}>{t('studyEbiOnlyDesc')}</span>
           )}
         </div>
       </div>

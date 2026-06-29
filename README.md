@@ -43,6 +43,8 @@ A multi-tab learning app with AI chat, Anki-integrated study sessions, screen tr
 - AI can auto-update progress observations when it discovers new struggles or improvements
 
 ### Study Tab
+- **Learning vs "Ebi speaks"** — for language modes, "Learning" is the language you answer in (always), while "Ebi speaks" is just the language Ebi phrases questions and feedback in. So learning Spanish with Ebi speaking English asks *"Translate to Spanish: umbrella"* and expects `paraguas`; switch Ebi to Spanish for an immersive session. General modes (history, certs) get "Ebi speaks" too, so Ebi can quiz you in any language
+- **Word hints** — an optional toggle that floats a small translation above every word you're *not* being tested on, so you can read a question in a language you're still learning. Bidirectional: it shows your language above target-language words, and target-language words above your-language words (vocabulary practice even from an English prompt). Never reveals the answer word
 - **Instant start** — first card appears immediately (one AI call), remaining cards generate in the background while you answer
 - **Smart question ordering** — Q1 is always blind recall (never names the target word), middle questions use guided recall/synonym contrast, last question is deep understanding (can name the subject). Scales to any questions-per-card setting
 - **Hint system** — wrong answer on a recall question shows a letter-count hint ("9 letters"); wrong again shows a first-letter hint ("starts with 'i'"). Button changes to "Try Again". Applies to any question type with multiple possible answers

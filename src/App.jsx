@@ -315,7 +315,9 @@ export default function App() {
   const defaultStudyRules = {
     questionsPerCard: 3,
     cardsAtOnce: 3,
-    studyLanguage: 'English',
+    studyLanguage: 'English',  // the LEARNED language (answer language); also drives card generation
+    quizLanguage: '',          // "Ebi speaks" — language Ebi phrases questions/feedback in. '' = same as learned
+    wordHints: false,          // show each non-tested word's translation above it (ruby-style)
     grammarFeedback: false,
     questionPrompt: 'You are quizzing a language learner on a flashcard.\n\nGenerate clear, specific questions that test whether the student truly knows this word/phrase. Mix question types:\n- Meaning and translation questions\n- Usage in context (give a scenario, ask them to fill in the word)\n- Synonyms, antonyms, or related words\n- Grammar questions (part of speech, conjugation, gender)\n\nRULES:\n- Questions must be precise and have ONE clear correct answer based on the card content\n- Never ask "what is the primary purpose" or "what is the main reason" — these are ambiguous\n- Never ask questions where multiple answers from the card could be valid\n- Each question must stand on its own — do not reference other questions\n- If the card has a list of points, ask about specific items, not "what is the primary one"',
     ratingRules: 'All correct = Easy, 1 wrong = AI judges Good or Hard based on answer quality, 2 wrong = Hard, All wrong = Again',
@@ -324,6 +326,8 @@ export default function App() {
     questionsPerCard: 3,
     cardsAtOnce: 3,
     studyLanguage: 'English',
+    quizLanguage: '',          // "Ebi speaks" — for general modes this is the whole interaction language
+    wordHints: false,
     grammarFeedback: false,
     questionPrompt: 'You are quizzing a student on a flashcard for their studies.\n\nGenerate clear, specific questions that test understanding of this concept. Mix question types:\n- Definition and explanation questions\n- Real-world application or scenario questions\n- Compare/contrast with related concepts\n- Why it matters or when you would use it\n\nRULES:\n- Questions must be precise and have ONE clear correct answer based on the card content\n- Never ask "what is the primary purpose" or "what is the main reason" — these are ambiguous\n- Never ask questions where multiple answers from the card could be valid\n- Each question must stand on its own — do not reference other questions\n- If the card has a list of points, ask about specific items, not "what is the primary one"\n- Questions should be answerable in 1-2 sentences',
     ratingRules: 'All correct = Easy, 1 wrong = AI judges Good or Hard based on answer quality, 2 wrong = Hard, All wrong = Again',
@@ -3678,14 +3682,24 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const questionPrompt = rules.questionPrompt || defaultStudyRules.questionPrompt
     const isLanguage = activeMode.type === 'language'
 
+    // Two DISTINCT languages — never conflate them:
+    //  learnLang = the language being LEARNED → the answer (and target-language sentences) are in it
+    //  quizLang  = "Ebi speaks" → the language Ebi PHRASES questions & feedback in
+    //  userLang  = the user's own language → what word-hint glosses are written in
+    const learnLang = studyLang || learnLangName()
+    const quizLang = rules.quizLanguage || studyLang || learnLang
+    const userLang = userLangName()
+    const sameLang = quizLang.toLowerCase() === learnLang.toLowerCase()
+    const wantHints = isLanguage && !!rules.wordHints
+
     const deepQ = isLanguage
-      ? `Q${n} (USAGE/DEPTH): Test deeper knowledge of the ${studyLang} word — usage in a short sentence, register (formal/informal), gender/conjugation, or distinguishing it from a close synonym. Stay within the everyday/general meaning unless the card explicitly indicates a specialized domain.`
+      ? `Q${n} (USAGE/DEPTH): Test deeper knowledge of the ${learnLang} word — usage in a short sentence, register (formal/informal), gender/conjugation, or distinguishing it from a close synonym. Stay within the everyday/general meaning unless the card explicitly indicates a specialized domain. Phrase the question in ${quizLang}.`
       : `Q${n} (DEEP UNDERSTANDING): May freely name the subject. Test HOW, WHY, WHEN, or process. E.g. "Explain how X works" or "What distinguishes X from Y?" Open-ended — student demonstrates conceptual depth.`
 
-    const q1Language = `Q1 (TRANSLATION PRODUCTION): Ask the student to translate the non-${studyLang} text on the card INTO ${studyLang}. Phrase it cleanly, e.g. "Translate to ${studyLang}: '<the non-${studyLang} text>'" or "How do you say '<the non-${studyLang} text>' in ${studyLang}?". The expected answer is the ${studyLang} word/phrase on the card. acceptedAnswers MUST be the ${studyLang} word(s), lowercase, with and without accents. Type MUST be "recall".
-  TRANSLATION AMBIGUITY CHECK (apply before finalizing Q1): does the source text have MULTIPLE common ${studyLang} translations, with the card's target word being only one of several synonyms? E.g. English "favorable" → "favorable", "propicio", "auspicioso"; "happy" → "feliz", "contento", "alegre". If YES, a bare translation prompt is UNFAIR — the student cannot know which synonym you want. You MUST add a disambiguating cue INSIDE the question that singles out the target word WITHOUT stating it: a sense/nuance gloss in ${studyLang} (e.g. "(en el sentido de 'que augura algo bueno')"), a register note (formal / literario / coloquial), a domain, and/or the first letter ("empieza con 'a'"). Only when the translation is genuinely one-to-one may you leave it as a plain translation prompt.`
+    const q1Language = `Q1 (TRANSLATION PRODUCTION): Ask the student to PRODUCE the ${learnLang} word for the card's meaning. Phrase the instruction in ${quizLang}${sameLang ? `, e.g. "¿Cómo se dice '<meaning>' en ${learnLang}?"-style natural ${learnLang}` : `, e.g. "Translate to ${learnLang}: '<the ${userLang} meaning>'" or "How do you say '<the ${userLang} meaning>' in ${learnLang}?"`}. The expected answer is ALWAYS the ${learnLang} word/phrase on the card (never the ${userLang} meaning). acceptedAnswers MUST be the ${learnLang} word(s), lowercase, with and without accents. Type MUST be "recall".
+  TRANSLATION AMBIGUITY CHECK (apply before finalizing Q1): does the meaning have MULTIPLE common ${learnLang} translations, with the card's target word being only one of several synonyms? E.g. English "favorable" → "favorable", "propicio", "auspicioso"; "happy" → "feliz", "contento", "alegre". If YES, a bare translation prompt is UNFAIR — the student cannot know which synonym you want. You MUST add a disambiguating cue INSIDE the question that singles out the target word WITHOUT stating it: a sense/nuance gloss, a register note (formal / literario / coloquial), a domain, and/or the first letter. Only when the translation is genuinely one-to-one may you leave it as a plain translation prompt.`
     const q1General = `Q1 (BLIND RECALL): Never name or hint at the target word/answer. Present a scenario, definition, or usage context that forces the student to produce the exact word. Example: "You need to X in situation Y — what word/tool/concept applies?"`
-    const q2Language = `Q2–Q${n - 1} (CONTEXTUAL USAGE): A fill-in-the-blank or short scenario where the target ${studyLang} word fits AND no other plausible ${studyLang} word fits. The SENTENCE ITSELF must contain a defining trait, action, or detail that is unique to the target word, so only it can fill the blank — NEVER rely on the hint (letter count / first letter / meaning hint) to disambiguate; the hint is optional help, not part of the puzzle. You may start from the card's example sentence, but blanking a natural sentence usually leaves it AMBIGUOUS (e.g. "Mi perro duerme todo el día" → "Mi ___ duerme todo el día" also fits gato, bebé, hijo). When that happens you MUST add a distinguishing detail that excludes the alternatives (e.g. "Mi ___ ladra y mueve la cola cuando llego a casa" → only perro fits, because cats/babies don't bark). Apply the AMBIGUITY SELF-CHECK below to EVERY such question. Each from a DIFFERENT angle.`
+    const q2Language = `Q2–Q${n - 1} (CONTEXTUAL USAGE): A fill-in-the-blank where the target ${learnLang} word fits AND no other plausible ${learnLang} word fits. The blanked SENTENCE itself stays in ${learnLang} (it must contain the ${learnLang} answer); the surrounding instruction is in ${quizLang}. The sentence ITSELF must contain a defining trait, action, or detail unique to the target word, so only it can fill the blank — NEVER rely on the hint to disambiguate. You may start from the card's example sentence, but blanking a natural sentence usually leaves it AMBIGUOUS (e.g. "Mi perro duerme todo el día" → "Mi ___ duerme todo el día" also fits gato, bebé, hijo). When that happens you MUST add a distinguishing detail that excludes the alternatives (e.g. "Mi ___ ladra y mueve la cola cuando llego a casa" → only perro fits, because cats/babies don't bark). Apply the AMBIGUITY SELF-CHECK below to EVERY such question. Each from a DIFFERENT angle.`
     const q2General = `Q2–Q${n - 1} (GUIDED RECALL): May reference related concepts, synonyms as contrast, or fill-in-the-blank. Must still require the EXACT target word. E.g. "Instead of [synonym], what [N]-letter word means...?" Each from a DIFFERENT angle.`
 
     const orderRules = n === 1
@@ -3697,9 +3711,9 @@ Output ONLY raw JSON. No markdown, no backticks.`
           deepQ,
         ].filter(Boolean).join('\n')
 
-    const languageBlock = isLanguage ? `\nLANGUAGE MODE — REQUIRED:\n- The student is learning ${studyLang}. The EXPECTED ANSWER is ALWAYS the ${studyLang} word/phrase on the card, regardless of which side it's on.\n- Identify which side (front or back) is written in ${studyLang} — that side is the answer. The other side is just the translation/hint.\n- "acceptedAnswers" MUST contain the ${studyLang} word (lowercase, plus close variants with/without accents). NEVER put the translation/non-${studyLang} word in acceptedAnswers.\n- Treat the word in its BROADEST everyday meaning. If the card text doesn't pin down a specific domain, do NOT restrict questions to specialized contexts (programming, medicine, law, military, etc.). Example: "puntero" alone could be a clock hand, laser pointer, finger, or mouse cursor — don't assume programming.\n- BUT if the card text explicitly indicates a domain (e.g. back says "Pointer (C/C++)", "syringe (medical)", tag mentions a field), quiz within that domain.\n` : ''
+    const languageBlock = isLanguage ? `\nLANGUAGE MODE — REQUIRED:\n- The student is LEARNING ${learnLang}. The EXPECTED ANSWER is ALWAYS the ${learnLang} word/phrase on the card, regardless of which side it's on.\n- Identify the ${learnLang} word on the card (the one NOT written in ${userLang}) — that is the answer. The ${userLang} side is just the meaning/hint.\n- "acceptedAnswers" MUST contain the ${learnLang} word (lowercase, plus close variants with/without accents). NEVER put the ${userLang} meaning in acceptedAnswers.\n- EBI SPEAKS ${quizLang}: write all instructions, question framing, and feedback in ${quizLang}.${sameLang ? '' : ` EXCEPTION: a fill-in-the-blank/example SENTENCE that must contain the ${learnLang} answer stays in ${learnLang} (you cannot blank a ${learnLang} word out of a ${quizLang} sentence) — only the wrapper instruction around it is in ${quizLang}.`}\n- Treat the word in its BROADEST everyday meaning. If the card text doesn't pin down a specific domain, do NOT restrict questions to specialized contexts (programming, medicine, law, military, etc.). Example: "puntero" alone could be a clock hand, laser pointer, finger, or mouse cursor — don't assume programming.\n- BUT if the card text explicitly indicates a domain (e.g. back says "Pointer (C/C++)", tag mentions a field), quiz within that domain.${wantHints ? `\n- WORD HINTS: for EACH question, also return a "glosses" object mapping every ${learnLang} content word that appears in the question text (EXCEPT the answer word and the blank) to a SHORT ${userLang} meaning. Skip bare punctuation. This lets a weak ${learnLang} reader understand the sentence.` : ''}\n` : ''
 
-    const prompt = `Card front: "${front}"\nCard back: "${back}"\n${languageBlock}\n${orderRules}\n\nCRITICAL RULES:\n- Questions must require the SPECIFIC answer on this card — synonyms are NOT acceptable for recall/fill_blank questions\n- NEVER construct a question whose only purpose is to directly name the answer (e.g. "what noun corresponds to adjective X?" when that noun IS the answer)\n- Each question must test a DIFFERENT angle\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question before finalizing): mentally substitute 2–3 plausible alternative ${studyLang} words into the question. If ANY of them fit the sentence/scenario as naturally as the target word, the question is too vague — REWRITE it with more specific cues that exclude the alternatives. Hints (letter count, first letter, meaning hint) DO NOT make an ambiguous question valid; the question text ALONE must point at exactly one word. A blank surrounded only by a GENERIC predicate that many words satisfy is always INVALID — the sentence must name a trait/action/detail that is true of the target word and FALSE of its closest alternatives.\n  - BAD example: "Mi ___ duerme todo el día." Target "perro" — but "gato", "bebé", "hijo" all sleep all day, so this is unfair. Rewrite needed.\n  - GOOD example: "Mi ___ ladra a los extraños y mueve la cola cuando llego a casa." — now only "perro" fits, because barking + tail-wagging excludes cats and babies.\n  - BAD example: "Necesito ir a ___ para tomar mi vuelo a Madrid." Target "terminal" — but "aeropuerto" fits just as well. Rewrite needed.\n  - GOOD example: "El edificio específico dentro del aeropuerto donde se abordan los aviones se llama la ___" — now only "terminal" fits because "aeropuerto" is excluded by being named in the question itself.\n- For language cards: test usage in sentences, grammatical properties, contextual usage\n- For conceptual cards: test application, process, comparison\n\n${questionPrompt}\n\nGenerate all questions in ${studyLang}.${knowledgeContext}\n\nReturn a JSON array of exactly ${n} objects:\n[\n  {\n    "question": "the question text",\n    "type": "recall" | "fill_blank" | "explanation",\n    "hint1": "N letters" (letter count of primary answer, null for explanation),\n    "hint2": "starts with 'X'" (first letter of primary answer, null for explanation),\n    "acceptedAnswers": ["answer1", "answer2"] (lowercase; exact words that are correct; empty for explanation),\n    "pose": one mascot pose name that best fits this question's topic, chosen ONLY from: ${POSE_NAMES.join(', ')} (use "default" if none fit)\n  }\n]\nOutput ONLY raw JSON array. No markdown, no backticks.`
+    const prompt = `Card front: "${front}"\nCard back: "${back}"\n${languageBlock}\n${orderRules}\n\nCRITICAL RULES:\n- Questions must require the SPECIFIC answer on this card — synonyms are NOT acceptable for recall/fill_blank questions\n- NEVER construct a question whose only purpose is to directly name the answer (e.g. "what noun corresponds to adjective X?" when that noun IS the answer)\n- Each question must test a DIFFERENT angle\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question before finalizing): mentally substitute 2–3 plausible alternative ${learnLang} words into the question. If ANY of them fit the sentence/scenario as naturally as the target word, the question is too vague — REWRITE it with more specific cues that exclude the alternatives. Hints (letter count, first letter, meaning hint) DO NOT make an ambiguous question valid; the question text ALONE must point at exactly one word. A blank surrounded only by a GENERIC predicate that many words satisfy is always INVALID — the sentence must name a trait/action/detail that is true of the target word and FALSE of its closest alternatives.\n  - BAD example: "Mi ___ duerme todo el día." Target "perro" — but "gato", "bebé", "hijo" all sleep all day, so this is unfair. Rewrite needed.\n  - GOOD example: "Mi ___ ladra a los extraños y mueve la cola cuando llego a casa." — now only "perro" fits, because barking + tail-wagging excludes cats and babies.\n  - BAD example: "Necesito ir a ___ para tomar mi vuelo a Madrid." Target "terminal" — but "aeropuerto" fits just as well. Rewrite needed.\n  - GOOD example: "El edificio específico dentro del aeropuerto donde se abordan los aviones se llama la ___" — now only "terminal" fits because "aeropuerto" is excluded by being named in the question itself.\n- For language cards: test usage in sentences, grammatical properties, contextual usage\n- For conceptual cards: test application, process, comparison\n\n${questionPrompt}\n\n${isLanguage ? `Phrase every question and its framing in ${quizLang} (target-language sentences that hold the ${learnLang} answer stay in ${learnLang}).` : `Write all questions in ${quizLang}.`}${knowledgeContext}\n\nReturn a JSON array of exactly ${n} objects:\n[\n  {\n    "question": "the question text",\n    "type": "recall" | "fill_blank" | "explanation",\n    "hint1": "N letters" (letter count of primary answer, null for explanation),\n    "hint2": "starts with 'X'" (first letter of primary answer, null for explanation),\n    "acceptedAnswers": ["answer1", "answer2"] (lowercase; exact words that are correct; empty for explanation),${wantHints ? `\n    "glosses": { "<non-answer ${learnLang} word in the question>": "<short ${userLang} meaning>" } (only ${learnLang} content words shown in the question, excluding the answer/blank; {} if none),` : ''}\n    "pose": one mascot pose name that best fits this question's topic, chosen ONLY from: ${POSE_NAMES.join(', ')} (use "default" if none fit)\n  }\n]\nOutput ONLY raw JSON array. No markdown, no backticks.`
 
     try {
       const text = await aiCall(apiKey, 'You generate structured flashcard quiz questions. Always respond with a valid JSON array of objects.', prompt, resolveModel('study'))
@@ -3711,6 +3725,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
         hint1: q.hint1 || null,
         hint2: q.hint2 || null,
         acceptedAnswers: Array.isArray(q.acceptedAnswers) ? q.acceptedAnswers.map(a => String(a).toLowerCase().trim()) : [],
+        glosses: (q && typeof q.glosses === 'object' && !Array.isArray(q.glosses)) ? q.glosses : null, // word-hint map (learnLang word → userLang meaning)
         pose: (typeof q === 'object' && q.pose) ? String(q.pose).toLowerCase().trim() : null, // precomputed mascot pose
       }))
     } catch {
@@ -4225,7 +4240,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const questionObj = cs.questions[questionIdx]
     const question = getQuestionText(questionObj)
     const rules = activeMode.studyRules || defaultStudyRules
-    const studyLang = rules.studyLanguage || 'English'
+    const studyLang = rules.quizLanguage || rules.studyLanguage || 'English'  // Ebi speaks → hint language
     setStudyMeaningHintLoading(true)
     try {
       const prompt = `Write your ENTIRE response in ${studyLang}. The student is studying in ${studyLang}, so the hint must be in ${studyLang} — not English (unless ${studyLang} is English).
@@ -4322,10 +4337,11 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
   const evaluateCardAnswers = async (cardIdx, cs) => {
     try {
       const rules = activeMode.studyRules || defaultStudyRules
-      const studyLang = rules.studyLanguage || 'English'
+      const studyLang = rules.quizLanguage || rules.studyLanguage || 'English'  // Ebi speaks → feedback language
+      const learnLang = rules.studyLanguage || 'English'                        // the language being learned → the answer language
       const grammarOn = rules.grammarFeedback || false
       const isLanguage = activeMode.type === 'language'
-      const modeType = isLanguage ? `The student is learning a FOREIGN LANGUAGE (${activeMode.name}). Typos in ${studyLang} should be marked CORRECT if the concept is understood.` : `The student is studying ${activeMode.name}. They answer in their own words to explain topics/situations.`
+      const modeType = isLanguage ? `The student is learning ${learnLang} (their answers are in ${learnLang}). Typos in ${learnLang} should be marked CORRECT if the concept is understood.` : `The student is studying ${activeMode.name}. They answer in their own words to explain topics/situations.`
       const notesInstruction = `\n\nFEEDBACK CATEGORIES: In addition to the one-line "feedback" summary, return a "notes" array of 0-4 short, categorized points (each written in ${studyLang}). Each note is {"type": <category>, "text": "...", "penalize": true/false}. Categories:\n- "praise": what the student got right / did well\n- "correction": what was wrong or a factual error\n- "grammar": grammar, spelling or accent issues\n- "terminology": word choice — using the precise/correct term\n- "detail": important information that was missing or incomplete\n- "tip": a concrete suggestion to improve\nUse the categories that apply (often just 1-2). ${grammarOn ? 'Include "grammar" notes when relevant; set "penalize": true ONLY when the grammar/accent error relates to what the card tests.' : 'Do NOT include "grammar" notes (grammar feedback is turned off).'} "penalize" defaults to false for all other categories.`
 
       const questionsAndAnswers = cs.questions.map((q, i) => {
@@ -4341,7 +4357,7 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
       }).join('\n\n')
 
       const gradingRules = isLanguage
-        ? `Grading rules by question type:\n- recall / fill_blank: mark CORRECT if the student's answer CONTAINS one of the "Accepted answers" — ignore a leading article (e.g. "una", "el") and extra function words, so "una huelga" is CORRECT for "huelga". Normalize for case, accents, and minor typos. Synonyms, related words, or different words with the same meaning are INCORRECT — mark them wrong and note the specific word this card tests. If no "Accepted answers" line is given, fall back to the ${studyLang} side of the card.\n- explanation: grade on conceptual understanding — accept any answer that correctly addresses the question.\nALWAYS note any grammar, spelling, or accent issues in the feedback (e.g. missing accent mark on brújula). These notes are educational, not penalizing.`
+        ? `Grading rules by question type:\n- recall / fill_blank: mark CORRECT if the student's answer CONTAINS one of the "Accepted answers" — ignore a leading article (e.g. "una", "el") and extra function words, so "una huelga" is CORRECT for "huelga". Normalize for case, accents, and minor typos. Synonyms, related words, or different words with the same meaning are INCORRECT — mark them wrong and note the specific word this card tests. If no "Accepted answers" line is given, fall back to the ${learnLang} side of the card.\n- explanation: grade on conceptual understanding — accept any answer that correctly addresses the question.\nALWAYS note any grammar, spelling, or accent issues in the feedback (e.g. missing accent mark on brújula). These notes are educational, not penalizing.`
         : `Grading rules:\n- This is NOT a vocabulary test. The student answers in their own words to explain concepts or situations. Grade EVERY question on conceptual understanding: mark CORRECT if the answer demonstrates correct understanding of the topic, even when phrased differently, with extra words, or not matching the reference answer exactly. Only mark WRONG if the answer is factually incorrect, off-topic, or empty. When useful, add a brief note in the feedback about anything they missed.`
 
       const prompt = `Evaluate ALL answers for this flashcard at once.\n\nCard front: "${cs.front}"\nCard back: "${cs.back}"\n\n${modeType}\n\n${questionsAndAnswers}\n\n${gradingRules}${notesInstruction}\n\nWrite ALL feedback text in ${studyLang}.\n\nReturn a JSON array of ${cs.questions.length} objects: [{"correct": true/false, "feedback": "one short summary sentence", "notes": [{"type": "praise|correction|grammar|terminology|detail|tip", "text": "...", "penalize": true/false}]}]\n\nOutput ONLY raw JSON. No markdown, no backticks.`
@@ -4428,6 +4444,54 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
   // which matters because syncs are serialized and a later one must see the earlier one's results.
   const studyCardStateRef = useRef([])
   useEffect(() => { studyCardStateRef.current = studyCardState }, [studyCardState])
+
+  // Word hints: lazily fetch per-word glosses for a question when missing (the question-gen model
+  // doesn't reliably return them). Stored on the question object so it's computed at most once.
+  const glossFetchRef = useRef(new Set())
+  const hasGlosses = (q) => q?.glosses && Object.keys(q.glosses).length > 0
+  const fetchGlossesForQuestion = async (cardIdx, qIdx) => {
+    if (!apiKey) return
+    const key = `${cardIdx}:${qIdx}`
+    if (glossFetchRef.current.has(key)) return
+    const cs = studyCardStateRef.current[cardIdx] || studyCardState[cardIdx]
+    const q = cs?.questions?.[qIdx]
+    if (!q || hasGlosses(q)) return
+    glossFetchRef.current.add(key)
+    try {
+      const rules = activeMode.studyRules || defaultStudyRules
+      const learnLang = rules.studyLanguage || 'English'
+      const userLang = userLangName()
+      const answers = q.acceptedAnswers || []
+      const qtext = getQuestionText(q)
+      const prompt = `Question: "${qtext}"\n\nThe learner speaks ${userLang} and is learning ${learnLang}. Return a JSON object giving a SHORT translation (1-3 words) for EACH content word in the question, to help them read it, translated into the OTHER of these two languages:\n- a word written in ${learnLang} -> translate it to ${userLang}\n- a word written in ${userLang} -> translate it to ${learnLang}\nEXCLUDE: the answer word(s) [${answers.join(', ') || 'none'}], any blank (___), AND any word whose translation would reveal the answer (e.g. the quoted source word in a "translate X" question). Skip punctuation, numbers, and proper names.\nKeys must be the words spelled EXACTLY as they appear in the question.\n\nOutput ONLY the raw JSON object, e.g. {"perro":"dog"}. No markdown.`
+      const text = await aiCall(apiKey, `You give short word-for-word translations between ${learnLang} and ${userLang}. Respond with a JSON object only.`, prompt, resolveModel('study'), { silent: true })
+      const parsed = parseAiJson(text)
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        setStudyCardState(prev => {
+          const updated = [...prev]
+          const c = updated[cardIdx]
+          if (c?.questions?.[qIdx]) {
+            const qs = [...c.questions]
+            qs[qIdx] = { ...qs[qIdx], glosses: parsed }
+            updated[cardIdx] = { ...c, questions: qs }
+          }
+          return updated
+        })
+      }
+    } catch (e) {
+      console.warn('[Study] gloss fetch failed:', e.message)
+    }
+  }
+
+  // When a question is shown with Word hints on and it has no glosses yet, fetch them.
+  useEffect(() => {
+    if (activeMode.type !== 'language' || !activeMode.studyRules?.wordHints) return
+    if (studyPhase !== 'question' || !currentQuestion) return
+    const { cardIdx, questionIdx } = currentQuestion
+    const q = studyCardState[cardIdx]?.questions?.[questionIdx]
+    if (q && !hasGlosses(q)) fetchGlossesForQuestion(cardIdx, questionIdx)
+  }, [currentQuestion, studyPhase, activeMode.studyRules?.wordHints, studyCardState])
+
   // A promise chain that serializes ALL sync calls (the 15s auto-sync AND manual finish/exit) so they
   // can never run concurrently (no double-answering a card in Anki) and the final one is never skipped.
   const syncChainRef = useRef(Promise.resolve())
@@ -4743,7 +4807,7 @@ Last updated: ${new Date().toISOString().split('T')[0]}
     const q = chat.input?.trim()
     if (!q || !apiKey || chat.loading) return
     const cs = studyCardState[cardIdx]
-    const studyLang = (activeMode.studyRules || defaultStudyRules).studyLanguage || 'English'
+    const studyLang = (activeMode.studyRules || defaultStudyRules).quizLanguage || (activeMode.studyRules || defaultStudyRules).studyLanguage || 'English'  // Ebi speaks
     const newMessages = [...(chat.messages || []), { role: 'user', text: q }]
     setStudyFeedbackChat(prev => ({ ...prev, [cardIdx]: { ...chat, messages: newMessages, input: '', loading: true } }))
     try {
@@ -6788,73 +6852,105 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 {/* Mode & Deck selectors */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center', marginBottom: 16 }}>
                   <div style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 10, padding: '10px 20px',
+                    display: 'inline-flex', flexDirection: 'column', gap: 5, padding: '10px 20px', textAlign: 'left',
                     background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 8,
                   }}>
-                    <span style={{ fontSize: 12, color: 'var(--c-ink-dim)' }}>{t('mode')}:</span>
-                    <select value={activeModeId} onChange={(e) => {
-                      const id = parseInt(e.target.value)
-                      setActiveModeId(id)
-                      saveModes(modes, id)
-                      // Load new mode's deck
-                      const newMode = modes.find((m) => m.id === id)
-                      if (newMode?.ankiDeck) setStudyDeck(newMode.ankiDeck)
-                    }} style={{ ...S.select, fontSize: 12, padding: '6px 10px', color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)' }}>
-                      {modes.map((m) => <option key={m.id} value={m.id}>{m.type === 'language' ? '\u{1F310}' : '\u{1F4DA}'} {m.name}</option>)}
-                    </select>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center' }}>
+                      <span style={{ fontSize: 12, color: 'var(--c-ink-dim)' }}>{t('mode')}:</span>
+                      <select value={activeModeId} onChange={(e) => {
+                        const id = parseInt(e.target.value)
+                        setActiveModeId(id)
+                        saveModes(modes, id)
+                        // Load new mode's deck
+                        const newMode = modes.find((m) => m.id === id)
+                        if (newMode?.ankiDeck) setStudyDeck(newMode.ankiDeck)
+                      }} style={{ ...S.select, fontSize: 12, padding: '6px 10px', color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)' }}>
+                        {modes.map((m) => <option key={m.id} value={m.id}>{m.type === 'language' ? '\u{1F310}' : '\u{1F4DA}'} {m.name}</option>)}
+                      </select>
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--c-ink-faint)' }}>{t('studyModeDesc')}</div>
                   </div>
                   <div style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 10, padding: '10px 20px',
+                    display: 'inline-flex', flexDirection: 'column', gap: 5, padding: '10px 20px', textAlign: 'left',
                     background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 8,
                   }}>
-                    <span style={{ fontSize: 12, color: 'var(--c-ink-dim)' }}>{t('deck')}:</span>
-                    <select value={studyDeck} onChange={(e) => { setStudyDeck(e.target.value); setAnkiDeck(e.target.value) }}
-                      style={{ ...S.select, fontSize: 12, padding: '6px 10px' }}>
-                      {ankiDecks.map((d) => <option key={d} value={d}>{d}</option>)}
-                    </select>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center' }}>
+                      <span style={{ fontSize: 12, color: 'var(--c-ink-dim)' }}>{t('deck')}:</span>
+                      <select value={studyDeck} onChange={(e) => { setStudyDeck(e.target.value); setAnkiDeck(e.target.value) }}
+                        style={{ ...S.select, fontSize: 12, padding: '6px 10px' }}>
+                        {ankiDecks.map((d) => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--c-ink-faint)' }}>{t('studyDeckDesc')}</div>
                   </div>
                 </div>
 
-                {/* Language & grammar options — language modes only (general modes quiz on concepts) */}
-                {activeMode.type === 'language' && (
-                <div style={{
-                  display: 'inline-flex', flexDirection: 'column', gap: 7, padding: '12px 20px',
-                  background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 8, marginBottom: 16, maxWidth: 520, textAlign: 'left',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-                    <span style={{ fontSize: 12, color: 'var(--c-ink-dim)' }}>{t('quizIn')}:</span>
-                    <select value={activeMode.studyRules?.studyLanguage || 'English'}
-                      onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), studyLanguage: e.target.value } })}
-                      style={{ ...S.select, fontSize: 11, padding: '4px 8px' }}>
-                      {LANGS.filter(l => l.code !== 'auto').map(l => (
-                        <option key={l.code} value={l.label}>{l.label}</option>
-                      ))}
-                    </select>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--c-ink-dim)', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={activeMode.studyRules?.grammarFeedback || false}
-                        onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), grammarFeedback: e.target.checked } })}
-                      />
-                      {t('grammarFeedback')}
-                    </label>
-                  </div>
-                  <div style={{ fontSize: 10, color: 'var(--c-ink-faint)', lineHeight: 1.45 }}>
-                    The language Ebi asks the questions and gives feedback in, like picking a teacher who speaks it. Ebi still quizzes you on this deck's flashcards; only the question/feedback language changes (e.g. quiz in Spanish to practice reading Spanish, or in English for an easier session).
-                  </div>
-                </div>
-                )}
+                {/* Ebi's languages + word hints. "Learning" = the answer language (always); "Ebi speaks" =
+                    the language Ebi asks & explains in. Shown for every mode; learning + hints are language-only. */}
+                {(() => {
+                  const isLang = activeMode.type === 'language'
+                  const sr = activeMode.studyRules || (isLang ? defaultStudyRules : defaultGeneralStudyRules)
+                  const learned = sr.studyLanguage || 'English'
+                  const speaks = sr.quizLanguage || learned
+                  const setSR = (patch) => updateActiveMode({ studyRules: { ...sr, ...patch } })
+                  const langOpts = LANGS.filter(l => l.code !== 'auto').map(l => <option key={l.code} value={l.label}>{l.label}</option>)
+                  return (
+                    <div style={{
+                      display: 'inline-flex', flexDirection: 'column', gap: 8, padding: '12px 20px',
+                      background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 8, marginBottom: 16, maxWidth: 560, textAlign: 'left',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
+                        {isLang && (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 12, color: 'var(--c-ink-dim)' }}>{t('studyLearning')}:</span>
+                            <select value={learned} onChange={(e) => setSR({ studyLanguage: e.target.value })} style={{ ...S.select, fontSize: 11, padding: '4px 8px' }}>{langOpts}</select>
+                          </span>
+                        )}
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 12, color: 'var(--c-ink-dim)' }}>{t('quizIn')}:</span>
+                          <select value={speaks} onChange={(e) => setSR({ quizLanguage: e.target.value })} style={{ ...S.select, fontSize: 11, padding: '4px 8px' }}>{langOpts}</select>
+                        </span>
+                      </div>
+                      {isLang && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', justifyContent: 'center' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--c-ink-dim)', cursor: 'pointer' }}>
+                            <input type="checkbox" checked={sr.grammarFeedback || false} onChange={(e) => setSR({ grammarFeedback: e.target.checked })} />
+                            {t('grammarFeedback')}
+                          </label>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--c-ink-dim)', cursor: 'pointer' }}>
+                            <input type="checkbox" checked={sr.wordHints || false} onChange={(e) => setSR({ wordHints: e.target.checked })} />
+                            {t('studyWordHints')}
+                          </label>
+                        </div>
+                      )}
+                      {isLang ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 8, rowGap: 3, fontSize: 10, color: 'var(--c-ink-faint)', lineHeight: 1.35 }}>
+                          <span style={{ color: 'var(--c-ink-dim)', fontWeight: 700 }}>{t('studyLearning')}</span><span>{t('studyLearningDesc')}</span>
+                          <span style={{ color: 'var(--c-ink-dim)', fontWeight: 700 }}>{t('quizIn')}</span><span>{t('studyEbiSpeaksDesc')}</span>
+                          <span style={{ color: 'var(--c-ink-dim)', fontWeight: 700 }}>{t('studyWordHints')}</span><span>{t('studyWordHintsDesc')}</span>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 10, color: 'var(--c-ink-faint)', lineHeight: 1.4 }}>{t('studyEbiOnlyDesc')}</div>
+                      )}
+                    </div>
+                  )
+                })()}
 
                 {/* Study type — Conjugations is language-only, so only offer it for language modes */}
                 {activeMode.type === 'language' && (
                 <div style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 10, padding: '10px 20px',
+                  display: 'inline-flex', flexDirection: 'column', gap: 5, padding: '10px 20px', textAlign: 'left',
                   background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 8, marginTop: 8, marginBottom: 4,
                 }}>
-                  <span style={{ fontSize: 12, color: 'var(--c-ink-dim)' }}>{t('studyType')}:</span>
-                  <select value={studyMode} onChange={(e) => setStudyMode(e.target.value)}
-                    style={{ ...S.select, fontSize: 12, padding: '6px 10px' }}>
-                    <option value="flashcards">{t('flashcards')}</option>
-                    <option value="conjugations">{t('conjugations')}</option>
-                  </select>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center' }}>
+                    <span style={{ fontSize: 12, color: 'var(--c-ink-dim)' }}>{t('studyType')}:</span>
+                    <select value={studyMode} onChange={(e) => setStudyMode(e.target.value)}
+                      style={{ ...S.select, fontSize: 12, padding: '6px 10px' }}>
+                      <option value="flashcards">{t('flashcards')}</option>
+                      <option value="conjugations">{t('conjugations')}</option>
+                    </select>
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--c-ink-faint)' }}>{t('studyTypeDesc')}</div>
                 </div>
                 )}
 
@@ -6977,24 +7073,46 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         </div>
                       )}
 
-                      <div key={`q-${cq?.cardIdx}-${cq?.questionIdx}`} style={{ fontSize: 13, color: 'var(--c-ink)', fontWeight: 600, marginBottom: studyWordLookup ? 6 : 8, animation: 'fadeUp .25s ease' }}>
-                        {activeMode.type === 'language'
-                          ? question.split(/(\s+)/).map((tok, ti) => {
+                      {(() => {
+                        if (activeMode.type !== 'language') {
+                          return <div key={`q-${cq?.cardIdx}-${cq?.questionIdx}`} style={{ fontSize: 13, color: 'var(--c-ink)', fontWeight: 600, marginBottom: studyWordLookup ? 6 : 8, animation: 'fadeUp .25s ease' }}>{question}</div>
+                        }
+                        const answers = questionObj?.acceptedAnswers || []
+                        // Word hints (ruby-style): map each non-answer word to its meaning, shown above it.
+                        const hintsOn = !!activeMode.studyRules?.wordHints
+                        const glossMap = {}
+                        if (hintsOn && questionObj?.glosses) {
+                          for (const k in questionObj.glosses) {
+                            const nk = String(k).toLowerCase().replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '')
+                            if (nk) glossMap[nk] = String(questionObj.glosses[k])
+                          }
+                        }
+                        const anyGloss = Object.keys(glossMap).length > 0
+                        return (
+                          <div key={`q-${cq?.cardIdx}-${cq?.questionIdx}`} style={{ fontSize: 13, color: 'var(--c-ink)', fontWeight: 600, marginBottom: studyWordLookup ? 6 : 8, animation: 'fadeUp .25s ease', lineHeight: anyGloss ? 2.4 : undefined }}>
+                            {question.split(/(\s+)/).map((tok, ti) => {
+                              if (/^\s+$/.test(tok) || tok === '') return <span key={ti}>{tok}</span>
                               const clean = tok.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '')
-                              const answers = questionObj?.acceptedAnswers || []
-                              // Skip whitespace, the blank placeholder, and the answer word itself
-                              const lookupable = clean.length > 1 && !/_{2,}/.test(tok) && !answers.includes(clean.toLowerCase())
-                              if (!lookupable) return <span key={ti}>{tok}</span>
+                              const cl = clean.toLowerCase()
+                              const isAnswer = answers.includes(cl)
+                              const lookupable = clean.length > 1 && !/_{2,}/.test(tok) && !isAnswer
+                              const gloss = (!isAnswer && glossMap[cl]) || null
+                              const word = lookupable
+                                ? <span className="study-word" onClick={() => lookupStudyWord(clean, question)} title={`What does "${clean}" mean?`} style={{ cursor: 'pointer', display: 'inline-block' }}><span className="study-word-inner" style={{ display: 'inline-block', borderBottom: '1px dotted rgba(223,37,64,.45)' }}>{tok}</span></span>
+                                : <span>{tok}</span>
+                              // When any word has a gloss, give EVERY word the same stacked layout (blank slot
+                              // above un-glossed words) so the whole line shares one baseline — no "floating".
+                              if (!anyGloss) return <span key={ti}>{word}</span>
                               return (
-                                <span key={ti} className="study-word" onClick={() => lookupStudyWord(clean, question)}
-                                  title={`What does "${clean}" mean?`}
-                                  style={{ cursor: 'pointer', display: 'inline-block' }}>
-                                  <span className="study-word-inner" style={{ display: 'inline-block', borderBottom: '1px dotted rgba(223,37,64,.45)' }}>{tok}</span>
+                                <span key={ti} style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', verticalAlign: 'bottom', lineHeight: 1.1 }}>
+                                  <span style={{ fontSize: 8.5, fontWeight: 700, color: 'var(--c-purple)', whiteSpace: 'nowrap', minHeight: '1.1em' }}>{gloss || ' '}</span>
+                                  {word}
                                 </span>
                               )
-                            })
-                          : question}
-                      </div>
+                            })}
+                          </div>
+                        )
+                      })()}
 
                       {activeMode.type === 'language' && studyWordLookup && (
                         <div style={{ fontSize: 11, background: 'rgba(223,37,64,.06)', border: '1px solid rgba(223,37,64,.2)', borderRadius: 5, padding: '5px 10px', marginBottom: 8, display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
