@@ -106,19 +106,19 @@ export default function OnboardingWizard(p) {
               <div style={{ maxWidth: 460, margin: '8px auto 0', textAlign: 'left' }}>
                 <div style={{ fontSize: 11, color: C.inkDim, marginBottom: 5 }}>{t('obCustomModelBody')} <a href={providerConfig.modelsUrl || providerConfig.url} target="_blank" rel="noopener noreferrer" style={{ color: C.brand }}>{providerConfig.label} ↗</a></div>
                 <input value={aiModels[provider]?.general || ''} onChange={(e) => setAiModels((prev) => ({ ...prev, [provider]: { ...(prev[provider] || {}), general: e.target.value } }))}
-                  placeholder="exact model id (e.g. claude-…)" spellCheck={false} style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box', fontSize: 12 }} />
+                  placeholder={t('obCustomModelPlaceholder')} spellCheck={false} style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box', fontSize: 12 }} />
               </div>
             )}
           </div>
         </>)
       case 'intelligence':
         return (<>
-          <div style={heading}>How smart should Ebi be?</div>
-          <div style={sub}>This sets the AI model used across the whole app for {providerConfig.label}.</div>
+          <div style={heading}>{t('obIntelTitle')}</div>
+          <div style={sub}>{t('obIntelBody')} ({providerConfig.label})</div>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 22, flexWrap: 'wrap' }}>
             {[
-              { key: 'normal', title: 'Normal', model: providerConfig.presets?.normal || providerConfig.questionModel, desc: 'Balanced and fast — great for everyday studying.' },
-              { key: 'max', title: 'More intelligent', model: providerConfig.presets?.max || providerConfig.questionModel, desc: 'Most capable answers, but slower and uses more tokens.' },
+              { key: 'normal', title: t('obIntelNormal'), model: providerConfig.presets?.normal || providerConfig.questionModel, desc: t('obIntelNormalDesc') },
+              { key: 'max', title: t('obIntelMax'), model: providerConfig.presets?.max || providerConfig.questionModel, desc: t('obIntelMaxDesc') },
             ].map((opt) => {
               const active = (intelligence || 'normal') === opt.key
               return (
@@ -135,8 +135,8 @@ export default function OnboardingWizard(p) {
               )
             })}
           </div>
-          <div style={{ fontSize: 12, color: C.inkFaint, marginTop: 16 }}>You can change this anytime in Settings → AI models.</div>
-          <div style={{ marginTop: 16 }}><button className="btn-press" style={bigBtn} onClick={next}>Continue</button></div>
+          <div style={{ fontSize: 12, color: C.inkFaint, marginTop: 16 }}>{t('obIntelNote')}</div>
+          <div style={{ marginTop: 16 }}><button className="btn-press" style={bigBtn} onClick={next}>{t('obContinue')}</button></div>
         </>)
       case 'mode':
         return (<>
