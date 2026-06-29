@@ -185,6 +185,10 @@ export default function App() {
   // Global intelligence preset: 'normal' (balanced, ~Sonnet) | 'max' (most capable, ~Opus, slower/pricier).
   // Every feature defaults to this provider's preset model unless a per-feature override is set.
   const [intelligence, setIntelligence] = useState('normal')
+  // Auto-sync study ratings to Anki N min after each card is graded (then lock it). When off, ratings
+  // only sync via the manual "Sync now" button or on Finish/Exit. Global settings (config.json).
+  const [studyAutoSync, setStudyAutoSync] = useState(true)
+  const [studyAutoSyncMinutes, setStudyAutoSyncMinutes] = useState(5)
   // Transient toast shown when a retired model is auto-replaced.
   const [modelHealNotice, setModelHealNotice] = useState(null)
   // Persistent toast shown when an AI request fails (out of credits, rate-limited, bad key…).
@@ -442,6 +446,9 @@ export default function App() {
   const [studyInsightsLoading, setStudyInsightsLoading] = useState(false)
   const [studySyncNotification, setStudySyncNotification] = useState(false)
   const [studySyncError, setStudySyncError] = useState(null)
+  const [studyShowGraded, setStudyShowGraded] = useState(false) // collapse the graded-cards list under one toggle
+  const [studySyncing, setStudySyncing] = useState(false)        // a manual/auto sync is in flight
+  const [studyNow, setStudyNow] = useState(Date.now())           // 1s ticker for the auto-sync countdown
 
   // ─── Chat Tab State ───────────────────────────────────────────────────────
   const [chatTabMsgs, setChatTabMsgs] = useState([]) // [{ role, content, cards? }]
@@ -779,6 +786,8 @@ export default function App() {
       if (config.targetLang) setTargetLang(config.targetLang)
       if (config.showHighlights !== undefined) setShowHighlights(config.showHighlights)
       if (config.intelligence) setIntelligence(config.intelligence)
+      if (typeof config.studyAutoSync === 'boolean') setStudyAutoSync(config.studyAutoSync)
+      if (Number.isFinite(config.studyAutoSyncMinutes)) setStudyAutoSyncMinutes(config.studyAutoSyncMinutes)
       if (config.overlayEnabled !== undefined) setOverlayEnabled(config.overlayEnabled)
       if (config.onboarded) setOnboarded(true)
       setActiveTab(config.activeTab || 'picture')
@@ -942,9 +951,9 @@ export default function App() {
     fetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider, aiModels, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, intelligence, overlayEnabled, onboarded, ...(activeTab ? { activeTab } : {}) }),
+      body: JSON.stringify({ provider, aiModels, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, intelligence, studyAutoSync, studyAutoSyncMinutes, overlayEnabled, onboarded, ...(activeTab ? { activeTab } : {}) }),
     }).catch(() => {})
-  }, [provider, aiModels, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, intelligence, overlayEnabled, onboarded, activeTab, configLoaded])
+  }, [provider, aiModels, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, intelligence, studyAutoSync, studyAutoSyncMinutes, overlayEnabled, onboarded, activeTab, configLoaded])
 
   // Auto-launch the overlay once on startup when the persisted preference is ON (default).
   const overlayAutoLaunchedRef = useRef(false)
@@ -3676,7 +3685,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const q1Language = `Q1 (TRANSLATION PRODUCTION): Ask the student to translate the non-${studyLang} text on the card INTO ${studyLang}. Phrase it cleanly, e.g. "Translate to ${studyLang}: '<the non-${studyLang} text>'" or "How do you say '<the non-${studyLang} text>' in ${studyLang}?". The expected answer is the ${studyLang} word/phrase on the card. acceptedAnswers MUST be the ${studyLang} word(s), lowercase, with and without accents. Type MUST be "recall".
   TRANSLATION AMBIGUITY CHECK (apply before finalizing Q1): does the source text have MULTIPLE common ${studyLang} translations, with the card's target word being only one of several synonyms? E.g. English "favorable" → "favorable", "propicio", "auspicioso"; "happy" → "feliz", "contento", "alegre". If YES, a bare translation prompt is UNFAIR — the student cannot know which synonym you want. You MUST add a disambiguating cue INSIDE the question that singles out the target word WITHOUT stating it: a sense/nuance gloss in ${studyLang} (e.g. "(en el sentido de 'que augura algo bueno')"), a register note (formal / literario / coloquial), a domain, and/or the first letter ("empieza con 'a'"). Only when the translation is genuinely one-to-one may you leave it as a plain translation prompt.`
     const q1General = `Q1 (BLIND RECALL): Never name or hint at the target word/answer. Present a scenario, definition, or usage context that forces the student to produce the exact word. Example: "You need to X in situation Y — what word/tool/concept applies?"`
-    const q2Language = `Q2–Q${n - 1} (CONTEXTUAL USAGE): A fill-in-the-blank or short scenario where the target ${studyLang} word fits AND no other plausible ${studyLang} word fits. If the card has an example/usage field, PREFER using that exact sentence (with the target word blanked) — it was authored for this word and is guaranteed unambiguous. If you must invent a context, apply the AMBIGUITY SELF-CHECK below rigorously. Each from a DIFFERENT angle.`
+    const q2Language = `Q2–Q${n - 1} (CONTEXTUAL USAGE): A fill-in-the-blank or short scenario where the target ${studyLang} word fits AND no other plausible ${studyLang} word fits. The SENTENCE ITSELF must contain a defining trait, action, or detail that is unique to the target word, so only it can fill the blank — NEVER rely on the hint (letter count / first letter / meaning hint) to disambiguate; the hint is optional help, not part of the puzzle. You may start from the card's example sentence, but blanking a natural sentence usually leaves it AMBIGUOUS (e.g. "Mi perro duerme todo el día" → "Mi ___ duerme todo el día" also fits gato, bebé, hijo). When that happens you MUST add a distinguishing detail that excludes the alternatives (e.g. "Mi ___ ladra y mueve la cola cuando llego a casa" → only perro fits, because cats/babies don't bark). Apply the AMBIGUITY SELF-CHECK below to EVERY such question. Each from a DIFFERENT angle.`
     const q2General = `Q2–Q${n - 1} (GUIDED RECALL): May reference related concepts, synonyms as contrast, or fill-in-the-blank. Must still require the EXACT target word. E.g. "Instead of [synonym], what [N]-letter word means...?" Each from a DIFFERENT angle.`
 
     const orderRules = n === 1
@@ -3690,7 +3699,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
 
     const languageBlock = isLanguage ? `\nLANGUAGE MODE — REQUIRED:\n- The student is learning ${studyLang}. The EXPECTED ANSWER is ALWAYS the ${studyLang} word/phrase on the card, regardless of which side it's on.\n- Identify which side (front or back) is written in ${studyLang} — that side is the answer. The other side is just the translation/hint.\n- "acceptedAnswers" MUST contain the ${studyLang} word (lowercase, plus close variants with/without accents). NEVER put the translation/non-${studyLang} word in acceptedAnswers.\n- Treat the word in its BROADEST everyday meaning. If the card text doesn't pin down a specific domain, do NOT restrict questions to specialized contexts (programming, medicine, law, military, etc.). Example: "puntero" alone could be a clock hand, laser pointer, finger, or mouse cursor — don't assume programming.\n- BUT if the card text explicitly indicates a domain (e.g. back says "Pointer (C/C++)", "syringe (medical)", tag mentions a field), quiz within that domain.\n` : ''
 
-    const prompt = `Card front: "${front}"\nCard back: "${back}"\n${languageBlock}\n${orderRules}\n\nCRITICAL RULES:\n- Questions must require the SPECIFIC answer on this card — synonyms are NOT acceptable for recall/fill_blank questions\n- NEVER construct a question whose only purpose is to directly name the answer (e.g. "what noun corresponds to adjective X?" when that noun IS the answer)\n- Each question must test a DIFFERENT angle\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question before finalizing): mentally substitute 2–3 plausible alternative ${studyLang} words into the question. If ANY of them fit the sentence/scenario as naturally as the target word, the question is too vague — REWRITE it with more specific cues that exclude the alternatives. Hints (letter count, first letter) DO NOT make an ambiguous question valid; the question itself must point at the target word.\n  - BAD example: "Necesito ir a ___ para tomar mi vuelo a Madrid." Target answer "terminal" — but "aeropuerto" fits just as well. Rewrite needed.\n  - GOOD example: "El edificio específico dentro del aeropuerto donde se abordan los aviones se llama la ___" — now only "terminal" fits because "aeropuerto" is excluded by being named in the question itself.\n- For language cards: test usage in sentences, grammatical properties, contextual usage\n- For conceptual cards: test application, process, comparison\n\n${questionPrompt}\n\nGenerate all questions in ${studyLang}.${knowledgeContext}\n\nReturn a JSON array of exactly ${n} objects:\n[\n  {\n    "question": "the question text",\n    "type": "recall" | "fill_blank" | "explanation",\n    "hint1": "N letters" (letter count of primary answer, null for explanation),\n    "hint2": "starts with 'X'" (first letter of primary answer, null for explanation),\n    "acceptedAnswers": ["answer1", "answer2"] (lowercase; exact words that are correct; empty for explanation),\n    "pose": one mascot pose name that best fits this question's topic, chosen ONLY from: ${POSE_NAMES.join(', ')} (use "default" if none fit)\n  }\n]\nOutput ONLY raw JSON array. No markdown, no backticks.`
+    const prompt = `Card front: "${front}"\nCard back: "${back}"\n${languageBlock}\n${orderRules}\n\nCRITICAL RULES:\n- Questions must require the SPECIFIC answer on this card — synonyms are NOT acceptable for recall/fill_blank questions\n- NEVER construct a question whose only purpose is to directly name the answer (e.g. "what noun corresponds to adjective X?" when that noun IS the answer)\n- Each question must test a DIFFERENT angle\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question before finalizing): mentally substitute 2–3 plausible alternative ${studyLang} words into the question. If ANY of them fit the sentence/scenario as naturally as the target word, the question is too vague — REWRITE it with more specific cues that exclude the alternatives. Hints (letter count, first letter, meaning hint) DO NOT make an ambiguous question valid; the question text ALONE must point at exactly one word. A blank surrounded only by a GENERIC predicate that many words satisfy is always INVALID — the sentence must name a trait/action/detail that is true of the target word and FALSE of its closest alternatives.\n  - BAD example: "Mi ___ duerme todo el día." Target "perro" — but "gato", "bebé", "hijo" all sleep all day, so this is unfair. Rewrite needed.\n  - GOOD example: "Mi ___ ladra a los extraños y mueve la cola cuando llego a casa." — now only "perro" fits, because barking + tail-wagging excludes cats and babies.\n  - BAD example: "Necesito ir a ___ para tomar mi vuelo a Madrid." Target "terminal" — but "aeropuerto" fits just as well. Rewrite needed.\n  - GOOD example: "El edificio específico dentro del aeropuerto donde se abordan los aviones se llama la ___" — now only "terminal" fits because "aeropuerto" is excluded by being named in the question itself.\n- For language cards: test usage in sentences, grammatical properties, contextual usage\n- For conceptual cards: test application, process, comparison\n\n${questionPrompt}\n\nGenerate all questions in ${studyLang}.${knowledgeContext}\n\nReturn a JSON array of exactly ${n} objects:\n[\n  {\n    "question": "the question text",\n    "type": "recall" | "fill_blank" | "explanation",\n    "hint1": "N letters" (letter count of primary answer, null for explanation),\n    "hint2": "starts with 'X'" (first letter of primary answer, null for explanation),\n    "acceptedAnswers": ["answer1", "answer2"] (lowercase; exact words that are correct; empty for explanation),\n    "pose": one mascot pose name that best fits this question's topic, chosen ONLY from: ${POSE_NAMES.join(', ')} (use "default" if none fit)\n  }\n]\nOutput ONLY raw JSON array. No markdown, no backticks.`
 
     try {
       const text = await aiCall(apiKey, 'You generate structured flashcard quiz questions. Always respond with a valid JSON array of objects.', prompt, resolveModel('study'))
@@ -4353,7 +4362,7 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
 
       setStudyCardState(prev => {
         const updated = [...prev]
-        updated[cardIdx] = { ...updated[cardIdx], results, rating: label, ease, evaluating: false }
+        updated[cardIdx] = { ...updated[cardIdx], results, rating: label, ease, evaluating: false, gradedAt: Date.now() }
         return updated
       })
       setStudyStats(prev => ({ ...prev, [label]: prev[label] + 1 }))
@@ -4364,7 +4373,7 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
       console.error('[Study] evaluation failed:', err.message)
       setStudyCardState(prev => {
         const updated = [...prev]
-        updated[cardIdx] = { ...updated[cardIdx], evaluating: false, results: cs.questions.map(() => ({ correct: false, feedback: 'Evaluation failed' })), rating: 'again', ease: 1 }
+        updated[cardIdx] = { ...updated[cardIdx], evaluating: false, results: cs.questions.map(() => ({ correct: false, feedback: 'Evaluation failed' })), rating: 'again', ease: 1, gradedAt: Date.now() }
         return updated
       })
     }
@@ -4453,9 +4462,12 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
           if (!cur || !cur.cardId) break          // queue exhausted
           const cs = wanted.get(cur.cardId)
           if (!cs) break                           // a card we didn't study is up next — stop, don't touch it
-          const buttons = cur.buttons || 4         // new/learning cards can show fewer than 4 buttons
-          const ease = Math.min(cs.ease, buttons)
-          console.log('[Anki sync] gui-answering card', cur.cardId, 'ease', ease, 'rating', cs.rating)
+          // guiCurrentCard returns `buttons` as an ARRAY of the valid ease values (e.g. [1,2,3] for a
+          // new/learning card, [1,2,3,4] for review) — NOT a count. Cap our ease to the highest available.
+          const validEases = Array.isArray(cur.buttons) ? cur.buttons.filter(n => typeof n === 'number') : []
+          const maxEase = validEases.length ? Math.max(...validEases) : 4
+          const ease = Math.min(cs.ease, maxEase)
+          console.log('[Anki sync] gui-answering card', cur.cardId, 'ease', ease, 'rating', cs.rating, 'buttons', cur.buttons)
           try {
             await ankiGuiShowAnswer()
             const ok = await ankiGuiAnswerCard(ease)
@@ -4472,15 +4484,16 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
     }
 
     // FALLBACK: any card the reviewer never presented (odd queue state) — try the direct path.
+    // answerCards returns an ARRAY of booleans (one per card), or throws "not at top of queue".
+    const ansOk = (r) => Array.isArray(r) ? r[0] !== false : r !== false
     const failed = []
     for (const cs of Array.from(wanted.values())) {
       try {
         console.log('[Anki sync] answering card (fallback)', cs.cardId, 'ease', cs.ease, 'rating', cs.rating)
         let result = await ankiAnswerCards([{ cardId: cs.cardId, ease: cs.ease }])
-        // answerCards returns false when the ease is out of range (e.g. a new card with only 3 buttons
-        // but we sent ease=4). Retry once with a capped ease.
-        if (result === false) result = await ankiAnswerCards([{ cardId: cs.cardId, ease: Math.min(cs.ease, 3) }])
-        if (result === false) { failed.push(cs) }
+        // Retry once with a capped ease in case it was out of range (a new card with only 3 buttons).
+        if (!ansOk(result)) result = await ankiAnswerCards([{ cardId: cs.cardId, ease: Math.min(cs.ease, 3) }])
+        if (!ansOk(result)) { failed.push(cs) }
         else markSynced(cs)
       } catch (err) {
         console.error('[Anki sync] error for card', cs.cardId, err.message)
@@ -4508,12 +4521,48 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
     return run
   }
 
-  // NO mid-session auto-sync. Each card must be answered in Anki EXACTLY ONCE, with its FINAL rating.
-  // If we synced early (e.g. the AI's "again") and the user later corrected it (to "easy"), Anki would
-  // record "again" THEN "easy" — the "again" already lapses a mature card, so the later "easy" reschedules
-  // from the reset state (≈ days) instead of the original interval (≈ months), and that can't be cleanly
-  // undone. So ratings are pushed only once, on Finish Session / Exit (after all corrections), via
-  // syncRatingsToAnki(), which also calls ankiSync() so the Anki desktop app gets the same schedule.
+  // Each card is answered in Anki EXACTLY ONCE, with its FINAL rating. The user gets a grace window
+  // (studyAutoSyncMinutes, default 5) after the AI grades a card to correct the rating; after that the
+  // card auto-syncs and is LOCKED (its rating can no longer change), so Anki never records "again" THEN
+  // "easy", which would lapse a mature card from months down to days and can't be cleanly undone. Manual
+  // "Sync now" and Finish/Exit flush immediately. All paths go through syncRatingsToAnki() (serialized).
+  const STUDY_SYNC_GRACE_MS = Math.max(0.5, studyAutoSyncMinutes || 5) * 60 * 1000
+
+  // Run a sync (manual button, auto-timer, or finish/exit) with shared in-flight + notification handling.
+  const syncGradedNow = async () => {
+    if (studySyncing) return { synced: 0, failed: 0 }
+    setStudySyncing(true); setStudySyncError(null)
+    try {
+      const r = await syncRatingsToAnki()
+      if (r.synced > 0) { setStudySyncNotification(true); setTimeout(() => setStudySyncNotification(false), 4000) }
+      if (r.failed > 0) setStudySyncError(`Could not sync ${r.failed} card${r.failed === 1 ? '' : 's'} to Anki${r.error ? ` (${r.error})` : ''}.`)
+      return r
+    } finally {
+      setStudySyncing(false)
+    }
+  }
+
+  // Auto-sync: fire when the OLDEST unsynced graded card crosses its 5-minute mark. Re-armed whenever the
+  // card state changes (a new grade, a correction). A full flush is robust (the Anki reviewer answers in
+  // queue order); cards graded in the final moments may commit slightly early, but none waits past 5 min.
+  useEffect(() => {
+    if (!studyAutoSync || !studyActive || studyPhase === 'summary') return
+    const pending = studyCardState.filter(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation && cs.gradedAt)
+    if (pending.length === 0) return
+    const oldest = Math.min(...pending.map(cs => cs.gradedAt))
+    const fireIn = Math.max(0, oldest + STUDY_SYNC_GRACE_MS - Date.now())
+    const timer = setTimeout(() => { syncGradedNow() }, fireIn)
+    return () => clearTimeout(timer)
+  }, [studyCardState, studyActive, studyPhase, studyAutoSync])
+
+  // 1s ticker so the "locks in M:SS" countdown updates while something is pending during study.
+  useEffect(() => {
+    if (!studyAutoSync || !studyActive || studyPhase === 'summary') return
+    const hasPending = studyCardState.some(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation && cs.gradedAt)
+    if (!hasPending) return
+    const id = setInterval(() => setStudyNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [studyAutoSync, studyActive, studyPhase, studyCardState])
 
   const nextBatch = async () => {
     await syncRatingsToAnki()
@@ -5041,9 +5090,14 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
     }
   }
 
+  // Where a chat card is added: the deck attached in the composer wins (the user explicitly chose it),
+  // otherwise the active mode's deck, otherwise the first deck / Default. Mirrored in the card widget
+  // so the button always shows exactly where it lands.
+  const chatCardDeck = () => chatTabAttachedDeck?.name || ankiDeck || ankiDecks[0] || 'Default'
+
   const chatTabSyncCard = async (card, msgIdx) => {
     if (!ankiConnected) return
-    const deck = ankiDeck || ankiDecks[0] || 'Default'
+    const deck = chatCardDeck()
     try {
       if (!(await ankiGetDecks().catch(() => [])).includes(deck)) await ankiCreateDeck(deck)
       // Bold the "Label:" prefixes so the formatted back renders cleanly in Anki.
@@ -5642,6 +5696,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           aiModels={aiModels} setAiModels={setAiModels} availableModels={availableModels}
           refreshModels={refreshModels} modelsLoading={modelsLoading} modelsError={modelsError}
           intelligence={intelligence} setIntelligence={setIntelligence}
+          studyAutoSync={studyAutoSync} setStudyAutoSync={setStudyAutoSync}
+          studyAutoSyncMinutes={studyAutoSyncMinutes} setStudyAutoSyncMinutes={setStudyAutoSyncMinutes}
           modes={modes} activeModeId={activeModeId} setActiveModeId={setActiveModeId} saveModes={saveModes}
           editingModeName={editingModeName} setEditingModeName={setEditingModeName} renameMode={renameMode}
           modeEditInput={modeEditInput} setModeEditInput={setModeEditInput} createMode={createMode}
@@ -6416,12 +6472,22 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         </div>
                       )}
                       {card.synced ? (
-                        <span style={{ fontSize: 10, color: 'var(--c-success)' }}>Synced to Anki</span>
+                        <span style={{ fontSize: 11, color: 'var(--c-success)', fontWeight: 600 }}>✓ Added to “{chatCardDeck()}”</span>
                       ) : (
-                        <button onClick={() => chatTabSyncCard(card, i)} disabled={!ankiConnected}
-                          style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 10px', color: 'var(--c-success)', borderColor: 'rgba(24,169,87,.3)', opacity: ankiConnected ? 1 : 0.4 }}>
-                          Sync to Anki
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 2 }}>
+                          <button onClick={() => chatTabSyncCard(card, i)} disabled={!ankiConnected} className="btn-press"
+                            style={{ fontSize: 12, fontWeight: 700, padding: '6px 14px', borderRadius: 8, border: 'none',
+                              background: ankiConnected ? 'var(--c-success)' : 'var(--c-surface-sunken)',
+                              color: ankiConnected ? '#fff' : 'var(--c-ink-dim)',
+                              cursor: ankiConnected ? 'pointer' : 'not-allowed', opacity: ankiConnected ? 1 : 0.6 }}>
+                            + Add to Anki
+                          </button>
+                          <span style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>
+                            {ankiConnected
+                              ? <>→ deck <b style={{ color: 'var(--c-teal)' }}>{chatCardDeck()}</b></>
+                              : 'Anki not connected'}
+                          </span>
+                        </div>
                       )}
                     </div>
                   ))}
@@ -6752,23 +6818,28 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 {/* Language & grammar options — language modes only (general modes quiz on concepts) */}
                 {activeMode.type === 'language' && (
                 <div style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 10, padding: '10px 20px',
-                  background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 8, marginBottom: 16,
+                  display: 'inline-flex', flexDirection: 'column', gap: 7, padding: '12px 20px',
+                  background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 8, marginBottom: 16, maxWidth: 520, textAlign: 'left',
                 }}>
-                  <span style={{ fontSize: 12, color: 'var(--c-ink-dim)' }}>{t('quizIn')}:</span>
-                  <select value={activeMode.studyRules?.studyLanguage || 'English'}
-                    onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), studyLanguage: e.target.value } })}
-                    style={{ ...S.select, fontSize: 11, padding: '4px 8px' }}>
-                    {LANGS.filter(l => l.code !== 'auto').map(l => (
-                      <option key={l.code} value={l.label}>{l.label}</option>
-                    ))}
-                  </select>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--c-ink-dim)', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={activeMode.studyRules?.grammarFeedback || false}
-                      onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), grammarFeedback: e.target.checked } })}
-                    />
-                    {t('grammarFeedback')}
-                  </label>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <span style={{ fontSize: 12, color: 'var(--c-ink-dim)' }}>{t('quizIn')}:</span>
+                    <select value={activeMode.studyRules?.studyLanguage || 'English'}
+                      onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), studyLanguage: e.target.value } })}
+                      style={{ ...S.select, fontSize: 11, padding: '4px 8px' }}>
+                      {LANGS.filter(l => l.code !== 'auto').map(l => (
+                        <option key={l.code} value={l.label}>{l.label}</option>
+                      ))}
+                    </select>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--c-ink-dim)', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={activeMode.studyRules?.grammarFeedback || false}
+                        onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), grammarFeedback: e.target.checked } })}
+                      />
+                      {t('grammarFeedback')}
+                    </label>
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--c-ink-faint)', lineHeight: 1.45 }}>
+                    The language Ebi asks the questions and gives feedback in, like picking a teacher who speaks it. Ebi still quizzes you on this deck's flashcards; only the question/feedback language changes (e.g. quiz in Spanish to practice reading Spanish, or in English for an easier session).
+                  </div>
                 </div>
                 )}
 
@@ -7041,25 +7112,50 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     </div>
                   )}
 
-                  {/* Completed cards — show feedback inline as they finish */}
-                  {studyCardState.filter(cs => cs.done && cs.results.length > 0 && !cs.dismissed).length > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
-                      {/* Just clears completed cards from this list — does NOT sync. Ratings are pushed
-                          to Anki only at the end (Finish/Exit) so each card is answered once, finally. */}
-                      <button onClick={() => {
-                        setStudyCardState(prev => prev.map(cs => cs.done && cs.results.length > 0 ? { ...cs, dismissed: true } : cs))
-                      }} style={{ ...S.ghostBtn, fontSize: 11, color: 'var(--c-ink-dim)' }}>
-                        {studyMode === 'conjugations' ? t('close') : 'Clear completed from list'}
-                      </button>
-                    </div>
-                  )}
-                  {studySyncNotification && (
-                    <div style={{ textAlign: 'center', marginTop: 8, fontSize: 11, color: 'var(--c-success)' }}>Synced to Anki</div>
-                  )}
-                  {studySyncError && (
-                    <div style={{ textAlign: 'center', marginTop: 8, fontSize: 11, color: 'var(--c-danger)', background: 'rgba(229,57,46,.06)', border: '1px solid rgba(229,57,46,.2)', borderRadius: 6, padding: '6px 12px' }}>{studySyncError}</div>
-                  )}
-                  {studyCardState.filter(cs => cs.done && cs.results.length > 0 && !cs.dismissed).map((cs, i) => {
+                  {/* Graded cards — consolidated behind a toggle, each tagged with its sync status */}
+                  {(() => {
+                    const graded = studyCardState.filter(cs => cs.done && cs.results.length > 0 && !cs.dismissed)
+                    if (graded.length === 0) return null
+                    const pending = graded.filter(cs => cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation)
+                    return (
+                      <div style={{ marginTop: 16 }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <button onClick={() => setStudyShowGraded(v => !v)} style={{ ...S.ghostBtn, fontSize: 11, fontWeight: 700 }}>
+                            {studyShowGraded ? '▾ Hide' : '▸ Show'} graded cards ({graded.length}{pending.length > 0 ? `, ${pending.length} unsynced` : ''})
+                          </button>
+                          {pending.length > 0 && ankiConnected && (
+                            <button onClick={() => syncGradedNow()} disabled={studySyncing} className="btn-press"
+                              style={{ fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 8, border: 'none', background: 'var(--c-success)', color: '#fff', cursor: studySyncing ? 'default' : 'pointer', opacity: studySyncing ? 0.6 : 1 }}>
+                              {studySyncing ? 'Syncing…' : `Sync ${pending.length} to Anki now`}
+                            </button>
+                          )}
+                        </div>
+                        {pending.length > 0 && (
+                          <div style={{ textAlign: 'center', fontSize: 10, color: 'var(--c-ink-faint)', marginTop: 5 }}>
+                            {studyAutoSync ? (() => {
+                              const oldest = Math.min(...pending.map(c => c.gradedAt || studyNow))
+                              const left = Math.max(0, oldest + STUDY_SYNC_GRACE_MS - studyNow)
+                              const mm = Math.floor(left / 60000), ssn = Math.floor((left % 60000) / 1000)
+                              return `Unsynced ratings lock into Anki in ${mm}:${String(ssn).padStart(2, '0')}. Correct them before then, or sync now.`
+                            })() : 'Auto-sync is off. Ratings sync when you press “Sync now” or finish the session.'}
+                          </div>
+                        )}
+                        {studySyncNotification && (
+                          <div style={{ textAlign: 'center', marginTop: 8, fontSize: 11, color: 'var(--c-success)' }}>✓ Synced to Anki</div>
+                        )}
+                        {studySyncError && (
+                          <div style={{ textAlign: 'center', marginTop: 8, fontSize: 11, color: 'var(--c-danger)', background: 'rgba(229,57,46,.06)', border: '1px solid rgba(229,57,46,.2)', borderRadius: 6, padding: '6px 12px' }}>{studySyncError}</div>
+                        )}
+                        {studyShowGraded && (
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
+                              <button onClick={() => {
+                                setStudyCardState(prev => prev.map(cs => cs.done && cs.results.length > 0 ? { ...cs, dismissed: true } : cs))
+                              }} style={{ ...S.ghostBtn, fontSize: 11, color: 'var(--c-ink-dim)' }}>
+                                {studyMode === 'conjugations' ? t('close') : 'Clear completed from list'}
+                              </button>
+                            </div>
+                  {[...graded].sort((a, b) => (b.gradedAt || 0) - (a.gradedAt || 0)).map((cs, i) => {
                     const ci = studyCardState.indexOf(cs)
                     const ratingColors = { easy: 'var(--c-success)', good: 'var(--c-brand)', hard: 'var(--c-warning)', again: 'var(--c-danger)', deleted: 'var(--c-ink-dim)' }
                     return (
@@ -7068,8 +7164,16 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-ink)' }}>{cs.front}</span>
                           {cs.evaluating ? (
                             <span style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>Evaluating...</span>
+                          ) : cs.synced ? (
+                            // Locked: this rating is committed to Anki and can no longer change (no again→easy lapse).
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{(cs.rating || '').toUpperCase()}</span>
+                              <span title="Synced to Anki — locked" style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-success)' }}>🔒 Synced</span>
+                            </span>
                           ) : (
-                            <select value={cs.rating || ''} onChange={(e) => {
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span title="Not yet committed to Anki — you can still change this rating" style={{ fontSize: 9, color: 'var(--c-warning)', fontWeight: 700 }}>● not synced</span>
+                              <select value={cs.rating || ''} onChange={(e) => {
                               const newRating = e.target.value
                               const easeMap = { easy: 4, good: 3, hard: 2, again: 1 }
                               setStudyCardState(prev => {
@@ -7090,6 +7194,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               <option value="hard" style={{ color: 'var(--c-warning)' }}>HARD</option>
                               <option value="again" style={{ color: 'var(--c-danger)' }}>AGAIN</option>
                             </select>
+                            </span>
                           )}
                         </div>
                         {cs.results.map((r, qi) => (
@@ -7120,6 +7225,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       </div>
                     )
                   })}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
                 </div>
               )
             })()}
@@ -7142,6 +7252,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-ink)' }}>{cs.front}</span>
                         {cs.rating === 'deleted' ? (
                           <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors.deleted }}>DELETED</span>
+                        ) : cs.synced ? (
+                          // Already committed to Anki — locked so a correction can't double-answer (again→easy lapse).
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{(cs.rating || '').toUpperCase()}</span>
+                            <span title="Synced to Anki — locked" style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-success)' }}>🔒 Synced</span>
+                          </span>
                         ) : (
                           // Editable rating — changing it re-answers the card in Anki with the new ease (synced:false).
                           <select value={cs.rating || ''} onChange={(e) => {
@@ -7502,8 +7618,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   <div key={ci} style={{ maxWidth: '90%', marginTop: 4, padding: '8px 10px', borderRadius: 6, background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', fontSize: 11 }}>
                     <div style={{ fontWeight: 600, color: 'var(--c-ink)', marginBottom: 2 }}>{card.front}</div>
                     <div style={{ color: 'var(--c-ink)', whiteSpace: 'pre-line', marginBottom: 4 }}>{card.back}</div>
-                    {card.synced ? <span style={{ fontSize: 9, color: 'var(--c-success)' }}>Synced</span> : (
-                      <button onClick={() => chatTabSyncCard(card, i)} style={{ ...S.ghostBtn, fontSize: 9, padding: '2px 8px', color: 'var(--c-success)', borderColor: 'rgba(24,169,87,.3)' }}>Sync to Anki</button>
+                    {card.synced ? <span style={{ fontSize: 9, color: 'var(--c-success)' }}>✓ Added to “{chatCardDeck()}”</span> : (
+                      <button onClick={() => chatTabSyncCard(card, i)} disabled={!ankiConnected}
+                        style={{ fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 6, border: 'none', background: ankiConnected ? 'var(--c-success)' : 'var(--c-surface-sunken)', color: ankiConnected ? '#fff' : 'var(--c-ink-dim)', cursor: ankiConnected ? 'pointer' : 'not-allowed' }}>
+                        + Add to “{chatCardDeck()}”
+                      </button>
                     )}
                   </div>
                 ))}

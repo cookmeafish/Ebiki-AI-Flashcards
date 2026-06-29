@@ -58,7 +58,7 @@ A multi-tab learning app with AI chat, Anki-integrated study sessions, screen tr
 - **Color-coded feedback** — each result's notes are categorized and colored: ✓ what you got right (green), ✗ incorrect/factual error (red), ✎ grammar/spelling/accents (orange), ◆ word choice/term (purple), + missing detail (teal), ➜ tip to improve (blue). Works for language *and* general modes. A **Color legend** button explains the colors
 - **Feedback chat** — after feedback is revealed, chat with AI to fix typos, flag out-of-scope questions, or request card updates. AI trusts student corrections, never argues, and replies in the quiz language
 - **Card updates from feedback** — AI can update Anki card content to add clarity
-- **Rating auto-sync (with a correction window)** — each card's rating is pushed to Anki ~15s after it's evaluated, so progress is preserved if the tab closes or AnkiConnect drops. The delay lets you correct a rating (e.g. AGAIN → EASY) first, so only the final rating is sent as a single review. Correcting after it has synced re-answers the card (Anki's last answer wins)
+- **Rating sync (with a correction window + lock)** — ratings reach Anki three ways: a **"Sync now"** button during study, a per-card **grace timer** (configurable in Settings → General → Anki auto-sync, default 5 min after the card is graded), and on **Finish/Exit**. Until a card syncs you can freely correct its rating (e.g. AGAIN → EASY); once synced it **locks** (🔒) so it's answered in Anki exactly once with its final rating, never "again then easy" (which would lapse a mature card). Syncing drives Anki's real reviewer so intervals are computed by Anki itself. The graded-cards list is collapsed behind a **"Show graded cards"** toggle, newest on top, each tagged ● not synced / 🔒 Synced
 - **"I know this already"** — delete cards you've mastered with AI confirmation
 - **Smart Wrap Up** — immediately drops all unstarted cards (0 answers), finishes only in-progress ones. Session ends as fast as possible without abandoning cards you already started
 - **End Now** — immediately end session with partial results
@@ -208,7 +208,7 @@ Card format is AI-generated per mode and fully customizable via the Card Format 
 6. Review feedback while continuing to answer other cards. Use the feedback chat to fix typos, dispute answers, or clarify cards
 7. New cards are pulled automatically as you complete them, keeping 10 active
 8. When done, click **View Summary** → **Generate Insights** for AI analysis + progress tracking
-9. Ratings sync to Anki only when you finish, after you've had a chance to review and correct
+9. Ratings sync to Anki via **Sync now**, an auto-sync grace timer (default 5 min after grading, configurable in Settings → General), or on finish — and lock once synced so each card is reviewed in Anki exactly once with its final rating
 
 Study features:
 - **Instant start** — only one AI call before the first question appears; rest load in background
