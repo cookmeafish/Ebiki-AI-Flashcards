@@ -4445,6 +4445,23 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
   const studyCardStateRef = useRef([])
   useEffect(() => { studyCardStateRef.current = studyCardState }, [studyCardState])
 
+  // HARD GUARANTEE for word hints: never reveal the tested word. Drop any gloss whose key OR translation
+  // shares a token with an accepted answer (the model ignores the prompt's exclusion sometimes, e.g.
+  // glossing the source word "umbrella" -> "paraguas", which IS the answer).
+  const glossNorm = (s) => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\p{L}\p{N}\s]/gu, '').trim()
+  const filterRevealingGlosses = (glosses, answers) => {
+    if (!glosses || typeof glosses !== 'object') return {}
+    const answerTokens = new Set()
+    for (const a of (answers || [])) for (const tk of glossNorm(a).split(/\s+/)) if (tk) answerTokens.add(tk)
+    const reveals = (s) => {
+      const toks = glossNorm(s).split(/\s+/).filter(Boolean)
+      return toks.length === 0 || toks.some(tk => answerTokens.has(tk))
+    }
+    const safe = {}
+    for (const k in glosses) if (!reveals(k) && !reveals(glosses[k])) safe[k] = glosses[k]
+    return safe
+  }
+
   // Word hints: lazily fetch per-word glosses for a question when missing (the question-gen model
   // doesn't reliably return them). Stored on the question object so it's computed at most once.
   const glossFetchRef = useRef(new Set())
@@ -4467,12 +4484,13 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
       const text = await aiCall(apiKey, `You give short word-for-word translations between ${learnLang} and ${userLang}. Respond with a JSON object only.`, prompt, resolveModel('study'), { silent: true })
       const parsed = parseAiJson(text)
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        const safe = filterRevealingGlosses(parsed, answers)
         setStudyCardState(prev => {
           const updated = [...prev]
           const c = updated[cardIdx]
           if (c?.questions?.[qIdx]) {
             const qs = [...c.questions]
-            qs[qIdx] = { ...qs[qIdx], glosses: parsed }
+            qs[qIdx] = { ...qs[qIdx], glosses: safe }
             updated[cardIdx] = { ...c, questions: qs }
           }
           return updated
@@ -7079,13 +7097,13 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         }
                         const answers = questionObj?.acceptedAnswers || []
                         // Word hints (ruby-style): map each non-answer word to its meaning, shown above it.
+                        // Filter again here so the answer can never leak (covers the question-gen gloss path too).
                         const hintsOn = !!activeMode.studyRules?.wordHints
+                        const safeGlosses = (hintsOn && questionObj?.glosses) ? filterRevealingGlosses(questionObj.glosses, answers) : {}
                         const glossMap = {}
-                        if (hintsOn && questionObj?.glosses) {
-                          for (const k in questionObj.glosses) {
-                            const nk = String(k).toLowerCase().replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '')
-                            if (nk) glossMap[nk] = String(questionObj.glosses[k])
-                          }
+                        for (const k in safeGlosses) {
+                          const nk = String(k).toLowerCase().replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '')
+                          if (nk) glossMap[nk] = String(safeGlosses[k])
                         }
                         const anyGloss = Object.keys(glossMap).length > 0
                         return (
