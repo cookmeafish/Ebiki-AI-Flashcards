@@ -2126,6 +2126,15 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
   // The language the active mode is teaching (Spanish, German, Chinese…) and the user's own language.
   const learnLangName = () => activeMode.studyRules?.studyLanguage || (LANGS.find((l) => l.code === language)?.label) || activeMode.name || 'the target language'
   const userLangName = () => APP_LANG_NAME[appLanguage] || 'English'
+  // The language Ebi SPEAKS in (questions, hints, feedback, tutor chat). NEVER static:
+  // - language modes → the "Ebi speaks" quizLanguage, falling back to the learned language;
+  // - general modes  → ALWAYS the user's app language. A general subject (Security+, chemistry,
+  //   history…) is never quizzed "in" a foreign language, even if a card's term happens to be one.
+  const interactionLangName = (rules) => {
+    const r = rules || activeMode.studyRules || defaultStudyRules
+    if (activeMode.type === 'language') return r.quizLanguage || r.studyLanguage || learnLangName()
+    return userLangName()
+  }
 
   // Second-pass proofreader: cards get MEMORIZED, so a wrong word/translation is unacceptable.
   // Sends the generated cards back to the model to find and FIX errors before the user sees them.
@@ -3686,9 +3695,11 @@ Output ONLY raw JSON. No markdown, no backticks.`
     //  learnLang = the language being LEARNED → the answer (and target-language sentences) are in it
     //  quizLang  = "Ebi speaks" → the language Ebi PHRASES questions & feedback in
     //  userLang  = the user's own language → what word-hint glosses are written in
-    const learnLang = studyLang || learnLangName()
-    const quizLang = rules.quizLanguage || studyLang || learnLang
     const userLang = userLangName()
+    // General modes are NEVER tied to a learned/quiz language — Ebi speaks the app language and the
+    // "answer language" concept doesn't apply. Only language modes use studyLang/quizLanguage.
+    const learnLang = isLanguage ? (studyLang || learnLangName()) : userLang
+    const quizLang = isLanguage ? (rules.quizLanguage || studyLang || learnLang) : userLang
     const sameLang = quizLang.toLowerCase() === learnLang.toLowerCase()
     const wantHints = isLanguage && !!rules.wordHints
 
@@ -3711,9 +3722,10 @@ Output ONLY raw JSON. No markdown, no backticks.`
           deepQ,
         ].filter(Boolean).join('\n')
 
+    const generalBlock = isLanguage ? '' : `\nGENERAL STUDY MODE — REQUIRED:\n- This is a general study mode for the subject "${activeMode.name}". It is NOT a language course.\n- Write EVERY question, instruction, and all framing in ${userLang}.\n- Do NOT generate language-learning questions: never ask the student to translate, never ask "how do you say X in <language>", never ask "in <language>, what word/noun/verb…", and never quiz a word's gender, article, or conjugation.\n- Even if a card's term is written in another language, test the underlying CONCEPT, fact, or meaning — not vocabulary translation. The expected answer is the term/concept exactly as it appears on the card.\n`
     const languageBlock = isLanguage ? `\nLANGUAGE MODE — REQUIRED:\n- The student is LEARNING ${learnLang}. The EXPECTED ANSWER is ALWAYS the ${learnLang} word/phrase on the card, regardless of which side it's on.\n- Identify the ${learnLang} word on the card (the one NOT written in ${userLang}) — that is the answer. The ${userLang} side is just the meaning/hint.\n- "acceptedAnswers" MUST contain the ${learnLang} word (lowercase, plus close variants with/without accents). NEVER put the ${userLang} meaning in acceptedAnswers.\n- EBI SPEAKS ${quizLang}: write all instructions, question framing, and feedback in ${quizLang}.${sameLang ? '' : ` EXCEPTION: a fill-in-the-blank/example SENTENCE that must contain the ${learnLang} answer stays in ${learnLang} (you cannot blank a ${learnLang} word out of a ${quizLang} sentence) — only the wrapper instruction around it is in ${quizLang}.`}\n- Treat the word in its BROADEST everyday meaning. If the card text doesn't pin down a specific domain, do NOT restrict questions to specialized contexts (programming, medicine, law, military, etc.). Example: "puntero" alone could be a clock hand, laser pointer, finger, or mouse cursor — don't assume programming.\n- BUT if the card text explicitly indicates a domain (e.g. back says "Pointer (C/C++)", tag mentions a field), quiz within that domain.${wantHints ? `\n- WORD HINTS: for EACH question, also return a "glosses" object mapping every ${learnLang} content word that appears in the question text (EXCEPT the answer word and the blank) to a SHORT ${userLang} meaning. Skip bare punctuation. This lets a weak ${learnLang} reader understand the sentence.` : ''}\n` : ''
 
-    const prompt = `Card front: "${front}"\nCard back: "${back}"\n${languageBlock}\n${orderRules}\n\nCRITICAL RULES:\n- Questions must require the SPECIFIC answer on this card — synonyms are NOT acceptable for recall/fill_blank questions\n- NEVER construct a question whose only purpose is to directly name the answer (e.g. "what noun corresponds to adjective X?" when that noun IS the answer)\n- Each question must test a DIFFERENT angle\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question before finalizing): mentally substitute 2–3 plausible alternative ${learnLang} words into the question. If ANY of them fit the sentence/scenario as naturally as the target word, the question is too vague — REWRITE it with more specific cues that exclude the alternatives. Hints (letter count, first letter, meaning hint) DO NOT make an ambiguous question valid; the question text ALONE must point at exactly one word. A blank surrounded only by a GENERIC predicate that many words satisfy is always INVALID — the sentence must name a trait/action/detail that is true of the target word and FALSE of its closest alternatives.\n  - BAD example: "Mi ___ duerme todo el día." Target "perro" — but "gato", "bebé", "hijo" all sleep all day, so this is unfair. Rewrite needed.\n  - GOOD example: "Mi ___ ladra a los extraños y mueve la cola cuando llego a casa." — now only "perro" fits, because barking + tail-wagging excludes cats and babies.\n  - BAD example: "Necesito ir a ___ para tomar mi vuelo a Madrid." Target "terminal" — but "aeropuerto" fits just as well. Rewrite needed.\n  - GOOD example: "El edificio específico dentro del aeropuerto donde se abordan los aviones se llama la ___" — now only "terminal" fits because "aeropuerto" is excluded by being named in the question itself.\n- For language cards: test usage in sentences, grammatical properties, contextual usage\n- For conceptual cards: test application, process, comparison\n\n${questionPrompt}\n\n${isLanguage ? `Phrase every question and its framing in ${quizLang} (target-language sentences that hold the ${learnLang} answer stay in ${learnLang}).` : `Write all questions in ${quizLang}.`}${knowledgeContext}\n\nReturn a JSON array of exactly ${n} objects:\n[\n  {\n    "question": "the question text",\n    "type": "recall" | "fill_blank" | "explanation",\n    "hint1": "N letters" (letter count of primary answer, null for explanation),\n    "hint2": "starts with 'X'" (first letter of primary answer, null for explanation),\n    "acceptedAnswers": ["answer1", "answer2"] (lowercase; exact words that are correct; empty for explanation),${wantHints ? `\n    "glosses": { "<non-answer ${learnLang} word in the question>": "<short ${userLang} meaning>" } (only ${learnLang} content words shown in the question, excluding the answer/blank; {} if none),` : ''}\n    "pose": one mascot pose name that best fits this question's topic, chosen ONLY from: ${POSE_NAMES.join(', ')} (use "default" if none fit)\n  }\n]\nOutput ONLY raw JSON array. No markdown, no backticks.`
+    const prompt = `Card front: "${front}"\nCard back: "${back}"\n${languageBlock}${generalBlock}\n${orderRules}\n\nCRITICAL RULES:\n- Questions must require the SPECIFIC answer on this card — synonyms are NOT acceptable for recall/fill_blank questions\n- NEVER construct a question whose only purpose is to directly name the answer (e.g. "what noun corresponds to adjective X?" when that noun IS the answer)\n- Each question must test a DIFFERENT angle\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question before finalizing): mentally substitute 2–3 plausible alternative ${learnLang} words into the question. If ANY of them fit the sentence/scenario as naturally as the target word, the question is too vague — REWRITE it with more specific cues that exclude the alternatives. Hints (letter count, first letter, meaning hint) DO NOT make an ambiguous question valid; the question text ALONE must point at exactly one word. A blank surrounded only by a GENERIC predicate that many words satisfy is always INVALID — the sentence must name a trait/action/detail that is true of the target word and FALSE of its closest alternatives.\n  - BAD example: "Mi ___ duerme todo el día." Target "perro" — but "gato", "bebé", "hijo" all sleep all day, so this is unfair. Rewrite needed.\n  - GOOD example: "Mi ___ ladra a los extraños y mueve la cola cuando llego a casa." — now only "perro" fits, because barking + tail-wagging excludes cats and babies.\n  - BAD example: "Necesito ir a ___ para tomar mi vuelo a Madrid." Target "terminal" — but "aeropuerto" fits just as well. Rewrite needed.\n  - GOOD example: "El edificio específico dentro del aeropuerto donde se abordan los aviones se llama la ___" — now only "terminal" fits because "aeropuerto" is excluded by being named in the question itself.\n- For language cards: test usage in sentences, grammatical properties, contextual usage\n- For conceptual cards: test application, process, comparison\n\n${questionPrompt}\n\n${isLanguage ? `Phrase every question and its framing in ${quizLang} (target-language sentences that hold the ${learnLang} answer stay in ${learnLang}).` : `Write all questions in ${quizLang}.`}${knowledgeContext}\n\nReturn a JSON array of exactly ${n} objects:\n[\n  {\n    "question": "the question text",\n    "type": "recall" | "fill_blank" | "explanation",\n    "hint1": "N letters" (letter count of primary answer, null for explanation),\n    "hint2": "starts with 'X'" (first letter of primary answer, null for explanation),\n    "acceptedAnswers": ["answer1", "answer2"] (lowercase; exact words that are correct; empty for explanation),${wantHints ? `\n    "glosses": { "<non-answer ${learnLang} word in the question>": "<short ${userLang} meaning>" } (only ${learnLang} content words shown in the question, excluding the answer/blank; {} if none),` : ''}\n    "pose": one mascot pose name that best fits this question's topic, chosen ONLY from: ${POSE_NAMES.join(', ')} (use "default" if none fit)\n  }\n]\nOutput ONLY raw JSON array. No markdown, no backticks.`
 
     try {
       const text = await aiCall(apiKey, 'You generate structured flashcard quiz questions. Always respond with a valid JSON array of objects.', prompt, resolveModel('study'))
@@ -3864,7 +3876,9 @@ Output ONLY raw JSON. No markdown, no backticks.`
 
       const rules = activeMode.studyRules || (activeMode.type === 'language' ? defaultStudyRules : defaultGeneralStudyRules)
       const cardsAtOnce = rules.cardsAtOnce || 3
-      const studyLang = rules.studyLanguage || 'English'
+      // Answer/target language — only used by language modes (general modes ignore it). Falls back
+      // to the resolved learned language, never a static 'English'.
+      const studyLang = rules.studyLanguage || learnLangName()
       const knowledgeContext = knowledgeRes.content ? `\n\nReference material:\n${knowledgeRes.content.substring(0, 4000)}\n\nUse this context to create more specific, contextual questions.` : ''
 
       if (mode === 'conjugations') {
@@ -4240,7 +4254,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const questionObj = cs.questions[questionIdx]
     const question = getQuestionText(questionObj)
     const rules = activeMode.studyRules || defaultStudyRules
-    const studyLang = rules.quizLanguage || rules.studyLanguage || 'English'  // Ebi speaks → hint language
+    const studyLang = interactionLangName(rules)  // Ebi speaks → hint language (app language for general modes)
     setStudyMeaningHintLoading(true)
     try {
       const prompt = `Write your ENTIRE response in ${studyLang}. The student is studying in ${studyLang}, so the hint must be in ${studyLang} — not English (unless ${studyLang} is English).
@@ -4272,7 +4286,11 @@ Rules:
     // Explain in the USER's language (= the app language), since that's the language they
     // speak and are learning from — not the quiz/study language.
     const explainLang = APP_LANG_NAME[appLanguage] || 'English'
-    const studyLang = (activeMode.studyRules || defaultStudyRules).studyLanguage || 'English'
+    // The language the QUESTION is written in: the learned language for language modes, the app
+    // language for general modes (general questions are never in a foreign language).
+    const studyLang = activeMode.type === 'language'
+      ? ((activeMode.studyRules || defaultStudyRules).studyLanguage || learnLangName())
+      : userLangName()
     setStudyWordLookup({ word, primary: null, alternatives: [], loading: true })
     try {
       // Disambiguate by the WHOLE question — the same word can mean different things in different
@@ -4337,10 +4355,10 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
   const evaluateCardAnswers = async (cardIdx, cs) => {
     try {
       const rules = activeMode.studyRules || defaultStudyRules
-      const studyLang = rules.quizLanguage || rules.studyLanguage || 'English'  // Ebi speaks → feedback language
-      const learnLang = rules.studyLanguage || 'English'                        // the language being learned → the answer language
-      const grammarOn = rules.grammarFeedback || false
       const isLanguage = activeMode.type === 'language'
+      const studyLang = interactionLangName(rules)                  // Ebi speaks → feedback language (app language for general modes)
+      const learnLang = isLanguage ? (rules.studyLanguage || learnLangName()) : userLangName()  // the language being learned → the answer language
+      const grammarOn = rules.grammarFeedback || false
       const modeType = isLanguage ? `The student is learning ${learnLang} (their answers are in ${learnLang}). Typos in ${learnLang} should be marked CORRECT if the concept is understood.` : `The student is studying ${activeMode.name}. They answer in their own words to explain topics/situations.`
       const notesInstruction = `\n\nFEEDBACK CATEGORIES: In addition to the one-line "feedback" summary, return a "notes" array of 0-4 short, categorized points (each written in ${studyLang}). Each note is {"type": <category>, "text": "...", "penalize": true/false}. Categories:\n- "praise": what the student got right / did well\n- "correction": what was wrong or a factual error\n- "grammar": grammar, spelling or accent issues\n- "terminology": word choice — using the precise/correct term\n- "detail": important information that was missing or incomplete\n- "tip": a concrete suggestion to improve\nUse the categories that apply (often just 1-2). ${grammarOn ? 'Include "grammar" notes when relevant; set "penalize": true ONLY when the grammar/accent error relates to what the card tests.' : 'Do NOT include "grammar" notes (grammar feedback is turned off).'} "penalize" defaults to false for all other categories.`
 
@@ -4400,7 +4418,7 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
     if (studyWrappingUpRef.current) return
 
     const rules = activeMode.studyRules || defaultStudyRules
-    const studyLang = rules.studyLanguage || 'English'
+    const studyLang = rules.studyLanguage || learnLangName()  // answer language (language modes only)
     const qpc = rules.questionsPerCard || 3
 
     if (studyMode === 'conjugations') {
@@ -4476,7 +4494,7 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
     glossFetchRef.current.add(key)
     try {
       const rules = activeMode.studyRules || defaultStudyRules
-      const learnLang = rules.studyLanguage || 'English'
+      const learnLang = rules.studyLanguage || learnLangName()
       const userLang = userLangName()
       const answers = q.acceptedAnswers || []
       const qtext = getQuestionText(q)
@@ -4825,7 +4843,7 @@ Last updated: ${new Date().toISOString().split('T')[0]}
     const q = chat.input?.trim()
     if (!q || !apiKey || chat.loading) return
     const cs = studyCardState[cardIdx]
-    const studyLang = (activeMode.studyRules || defaultStudyRules).quizLanguage || (activeMode.studyRules || defaultStudyRules).studyLanguage || 'English'  // Ebi speaks
+    const studyLang = interactionLangName()  // Ebi speaks (app language for general modes)
     const newMessages = [...(chat.messages || []), { role: 'user', text: q }]
     setStudyFeedbackChat(prev => ({ ...prev, [cardIdx]: { ...chat, messages: newMessages, input: '', loading: true } }))
     try {
