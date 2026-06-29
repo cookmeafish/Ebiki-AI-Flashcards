@@ -187,6 +187,15 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   stripped in `sendChatTabMessage` BEFORE the content reaches the renderer.
 
 ## Other notes
+- **Study → Anki sync (`doSyncRatings` in App.jsx)** records reviews by **driving Anki's real reviewer**,
+  NOT `answerCards`. `answerCards` only works on the card at the TOP of the scheduler queue — it throws
+  `"not at top of queue"` for any card out of order or a brand-new card, so ratings silently failed. Instead
+  `ankiGuiDeckReview(deck)` → loop `ankiGuiCurrentCard()` → `ankiGuiShowAnswer()` → `ankiGuiAnswerCard(ease)`,
+  matching each presented card to our rating by `cardId` (Anki's queue order ≠ our study order). Anki itself
+  computes the SM-2/FSRS interval, so easy-on-a-mature-card still goes out months. Ease is capped to
+  `cur.buttons`; `ankiGuiDeckBrowser()` returns Anki to the deck list. A direct-`answerCards` fallback covers
+  cards the reviewer never presented. Syncs are serialized (`syncChainRef`) and run **once on Finish/Exit**
+  with each card's FINAL rating (never mid-session) so a corrected "again→easy" can't lapse a mature card.
 - **Stats tab pulls live from Anki** when connected (effect on `activeTab==='stats'` → `ankiStats`):
   Cards Today (`getNumCardsReviewedToday`), 14-day chart + streak (`getNumCardsReviewedByDay`), and a
   stable accuracy = today's review-log pass-rate (`ankiGetTodayReviewStats`, cumulative so re-reviews
