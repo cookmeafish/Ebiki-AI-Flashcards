@@ -21,6 +21,7 @@ export default function SettingsModal(p) {
     provider, setProvider, apiKeys, apiKey, setCurrentKey, providerConfig,
     AI_ROLE_META, ROLE_DEFAULTS, aiModels, setAiModels, availableModels,
     refreshModels, modelsLoading, modelsError, intelligence, setIntelligence,
+    studyAutoSync, setStudyAutoSync, studyAutoSyncMinutes, setStudyAutoSyncMinutes,
     // Modes
     modes, activeModeId, setActiveModeId, saveModes, editingModeName, setEditingModeName,
     renameMode, modeEditInput, setModeEditInput, createMode, modeCreating, addDefaultMode, deleteMode,
@@ -163,6 +164,28 @@ export default function SettingsModal(p) {
           </select>
         </div>
         <div style={hint}>{t('translationHint')}</div>
+      </div>
+      <div style={card}>
+        {fieldLabel('Anki auto-sync')}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+          <input type="checkbox" checked={!!studyAutoSync} onChange={(e) => setStudyAutoSync(e.target.checked)}
+            style={{ width: 16, height: 16, accentColor: C.brand, cursor: 'pointer' }} />
+          <span style={{ fontSize: 12, color: C.ink, fontWeight: 600 }}>Auto-sync ratings to Anki after grading</span>
+        </label>
+        {studyAutoSync && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
+            <span style={{ fontSize: 12, color: C.inkDim }}>Grace window before a rating locks:</span>
+            <input type="number" min={1} max={120} step={1} value={studyAutoSyncMinutes}
+              onChange={(e) => { const v = Math.round(Number(e.target.value)); if (Number.isFinite(v)) setStudyAutoSyncMinutes(Math.min(120, Math.max(1, v))) }}
+              style={{ ...S.keyInput, width: 70, fontSize: 12, padding: '6px 8px', textAlign: 'center' }} />
+            <span style={{ fontSize: 12, color: C.inkDim }}>minutes</span>
+          </div>
+        )}
+        <div style={hint}>
+          {studyAutoSync
+            ? `During study, each graded card commits to Anki ${studyAutoSyncMinutes} minute${studyAutoSyncMinutes === 1 ? '' : 's'} after the AI grades it, then locks. You can still correct a rating before it locks, or use “Sync now”.`
+            : 'Off: ratings only reach Anki when you press “Sync now” during study, or when you finish / exit the session. Nothing auto-locks.'}
+        </div>
       </div>
       {onRunSetup && (
         <button onClick={onRunSetup} style={{ ...S.ghostBtn, fontSize: 12 }}>↻ {t('runSetupAgain')}</button>

@@ -152,7 +152,9 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   (per-card editable front/back/tags + ONE include ✓/○ toggle; batch **"Add N to {deck}"**; dup/correction
   badges). Header shows both the active **Mode** (tailors cards) and target **Deck**.
 - **Chat** also emits cards: the chat system prompt gives the language-agnostic format and splits multi-meaning
-  words; cards render as `<anki-card>` widgets; `chatTabSyncCard` HTML-formats + syncs.
+  words; cards render as `<anki-card>` widgets; `chatTabSyncCard` HTML-formats + syncs. The widget's button
+  shows the **target deck** (`chatCardDeck()` = composer "Attach deck" → `activeMode.ankiDeck` → first deck →
+  `Default`): a prominent green **"+ Add to Anki → deck «name»"**, then **"✓ Added to «name»"** once synced.
 
 ## Chat — composer "+" menu (learning-focused)
 - The chat composer has a Claude-style **"+" menu**: attach photo, web search, per-mode **Focus** preset
@@ -194,8 +196,20 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   matching each presented card to our rating by `cardId` (Anki's queue order ≠ our study order). Anki itself
   computes the SM-2/FSRS interval, so easy-on-a-mature-card still goes out months. Ease is capped to
   `cur.buttons`; `ankiGuiDeckBrowser()` returns Anki to the deck list. A direct-`answerCards` fallback covers
-  cards the reviewer never presented. Syncs are serialized (`syncChainRef`) and run **once on Finish/Exit**
-  with each card's FINAL rating (never mid-session) so a corrected "again→easy" can't lapse a mature card.
+  cards the reviewer never presented. Syncs are serialized (`syncChainRef`) and each card is answered EXACTLY
+  ONCE with its FINAL rating, so a corrected "again→easy" can't lapse a mature card.
+- **Study sync timing — grace window + lock.** A card is stamped `gradedAt` when the AI grades it. The user
+  gets a **grace window** (`studyAutoSyncMinutes`, default 5) to correct the rating; after that the card
+  auto-syncs and **locks** (the rating control is replaced by a `🔒 Synced` badge, so it can't be re-answered
+  with a different ease). Three triggers, all via `syncGradedNow()` → `syncRatingsToAnki()`: (1) the auto-timer
+  (re-armed to the OLDEST pending card's deadline; a full flush, robust vs. the queue-order reviewer), (2) the
+  manual **"Sync N to Anki now"** button, (3) Finish/Exit. The completed-cards list is consolidated behind a
+  **"▸ Show graded cards (N)"** toggle (`studyShowGraded`) under the question, **newest card on top**
+  (sorted by `gradedAt` desc); each card shows `● not synced` (editable) or `🔒 Synced` (locked). **Both are
+  global settings** (`studyAutoSync` on/off + `studyAutoSyncMinutes`, in `config.json`, default ON / 5 min,
+  Settings → General → "Anki auto-sync"); when OFF, ratings only sync via the manual button or on Finish/Exit
+  and nothing auto-locks. A 1s ticker (`studyNow`) drives the "locks in M:SS" countdown. NOTE: `guiCurrentCard`
+  returns `buttons` as an ARRAY of valid ease values (not a count) — cap ease to `Math.max(...buttons)`.
 - **Stats tab pulls live from Anki** when connected (effect on `activeTab==='stats'` → `ankiStats`):
   Cards Today (`getNumCardsReviewedToday`), 14-day chart + streak (`getNumCardsReviewedByDay`), and a
   stable accuracy = today's review-log pass-rate (`ankiGetTodayReviewStats`, cumulative so re-reviews
@@ -206,6 +220,11 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   It is **context-aware** (`lookupStudyWord` reads the whole question): returns the in-context meaning, shown
   in the legend's correct-green, plus other senses in the legend's word-choice-purple.
 - Non-language modes (e.g. Security+) hide language-only study controls and quiz on concepts.
+- **Question generation (`generateQuestionsForCard`) must be self-disambiguating.** A fill-in-the-blank's
+  SENTENCE alone must point at exactly one word — never rely on the hint. Blanking a card's example often
+  leaves it ambiguous ("Mi perro duerme todo el día" → "Mi ___ duerme todo el día" also fits gato/bebé), so
+  the prompt's AMBIGUITY SELF-CHECK requires adding a trait unique to the target ("Mi ___ ladra y mueve la
+  cola" → only perro). A blank around a generic predicate is always invalid.
 - AI failures (out of credits / rate limit / bad key) surface a toast; the secondary pose call is `silent`.
 - Images are non-draggable globally (`img { -webkit-user-drag: none }`): a dragged `<img>` reports `'Files'`
   in `dataTransfer`, which used to falsely trip the "Drop image here" overlay. `handleDragOver` also guards
