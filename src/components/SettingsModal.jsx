@@ -488,9 +488,14 @@ export default function SettingsModal(p) {
   const panes = { general: General, models: AIModels, study: Study, cards: Cards, knowledge: Knowledge, overlay: Overlay, modes: Modes }
 
   return (
-    <div style={S.backdrop} onClick={onClose}>
+    // The body has CSS zoom:1.35, which also scales this fixed backdrop — so 100vw/100vh
+    // render at 135% and its flex-centering lands off-screen (modal pushed right + clipped).
+    // Cancel the zoom on the backdrop so it overlays exactly one visual viewport, and divide
+    // the modal's viewport caps by 1.35 so it fits on small laptop screens. (Same /1.35
+    // convention as the app root in App.jsx.)
+    <div style={{ ...S.backdrop, width: 'calc(100vw / 1.35)', height: 'calc(100vh / 1.35)' }} onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()} style={{
-        display: 'flex', width: 'min(900px, 94vw)', height: 'min(640px, 86vh)',
+        display: 'flex', width: 'min(900px, calc(94vw / 1.35))', height: 'min(640px, calc(86vh / 1.35))',
         background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg,
         boxShadow: SHADOW.xl, overflow: 'hidden', animation: 'pop .18s cubic-bezier(.34,1.56,.64,1)', cursor: 'default',
       }}>
