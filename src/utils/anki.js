@@ -85,6 +85,34 @@ export async function ankiAnswerCards(answers) {
   return ankiRequest('answerCards', { answers })
 }
 
+// --- GUI reviewer actions ---------------------------------------------------
+// answerCards (above) only works on the card at the TOP of the scheduler queue;
+// it throws "not at top of queue" for anything else (e.g. a new card, or cards
+// answered out of order). To reliably record reviews with correct SM-2/FSRS
+// intervals we drive Anki's real reviewer: start a review, then for each card
+// the scheduler presents, show the answer and answer it with our rating.
+export async function ankiGuiDeckReview(name) {
+  ankiLog(`gui deck review: ${name}`)
+  return ankiRequest('guiDeckReview', { name })
+}
+
+export async function ankiGuiCurrentCard() {
+  return ankiRequest('guiCurrentCard')
+}
+
+export async function ankiGuiShowAnswer() {
+  return ankiRequest('guiShowAnswer')
+}
+
+export async function ankiGuiAnswerCard(ease) {
+  ankiLog(`gui answer card: ease ${ease}`)
+  return ankiRequest('guiAnswerCard', { ease })
+}
+
+export async function ankiGuiDeckBrowser() {
+  return ankiRequest('guiDeckBrowser')
+}
+
 export async function ankiGetDeckStats(decks) {
   ankiLog(`getting deck stats for: ${decks.join(', ')}`)
   return ankiRequest('getDeckStats', { decks })

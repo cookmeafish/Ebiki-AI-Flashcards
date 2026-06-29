@@ -15,7 +15,7 @@ import SettingsModal from './components/SettingsModal'
 import OnboardingWizard from './components/OnboardingWizard'
 import { S } from './styles/theme'
 import { ocrLog, ocrLogTable, ocrLogFlush } from './utils/logger'
-import { ankiPing, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiCanAddNote, ankiFindCards, ankiCardsInfo, ankiAnswerCards, ankiGetDeckStats, ankiFindNotes, ankiNotesInfo, ankiUpdateNote, ankiDeleteNotes, ankiSync, ankiGetNumCardsReviewedToday, ankiGetNumCardsReviewedByDay, ankiGetTodayReviewStats } from './utils/anki'
+import { ankiPing, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiCanAddNote, ankiFindCards, ankiCardsInfo, ankiAnswerCards, ankiGuiDeckReview, ankiGuiCurrentCard, ankiGuiShowAnswer, ankiGuiAnswerCard, ankiGuiDeckBrowser, ankiGetDeckStats, ankiFindNotes, ankiNotesInfo, ankiUpdateNote, ankiDeleteNotes, ankiSync, ankiGetNumCardsReviewedToday, ankiGetNumCardsReviewedByDay, ankiGetTodayReviewStats } from './utils/anki'
 import { readBlob, writeBlob, DEFAULT_LEDGER } from './discover/storage'
 import { buildProfilePrompt, buildSuggestionPrompt, buildVerifyPrompt } from './discover/prompts'
 
@@ -4427,21 +4427,61 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
     // Read the latest state from the ref; only push cards rated + not yet synced.
     const ratingsToSync = studyCardStateRef.current.filter(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation)
     if (ratingsToSync.length === 0) return { synced: 0, failed: 0 }
+
+    // Anki may queue these cards in a different order than we studied them, so look each
+    // presented card up by id rather than assuming an order.
+    const wanted = new Map(ratingsToSync.map(cs => [cs.cardId, cs]))
     const synced = []
+    const markSynced = (cs) => {
+      synced.push(cs)
+      // Mark synced in the REF immediately so a later queued sync won't re-answer (double) this card.
+      studyCardStateRef.current = studyCardStateRef.current.map(c => c.cardId === cs.cardId ? { ...c, synced: true } : c)
+      wanted.delete(cs.cardId)
+    }
+
+    // PRIMARY PATH: drive Anki's real reviewer. `answerCards` only works on the card at the TOP
+    // of the scheduler queue ("not at top of queue" otherwise, e.g. for a brand-new card), so we
+    // start a review on the deck and answer each card the scheduler presents with our rating. This
+    // also makes Anki compute the correct SM-2/FSRS interval for every rating.
+    try {
+      const started = await ankiGuiDeckReview(studyDeck)
+      if (started) {
+        let guard = ratingsToSync.length * 4 + 8
+        while (wanted.size > 0 && guard-- > 0) {
+          let cur
+          try { cur = await ankiGuiCurrentCard() } catch { cur = null }
+          if (!cur || !cur.cardId) break          // queue exhausted
+          const cs = wanted.get(cur.cardId)
+          if (!cs) break                           // a card we didn't study is up next — stop, don't touch it
+          const buttons = cur.buttons || 4         // new/learning cards can show fewer than 4 buttons
+          const ease = Math.min(cs.ease, buttons)
+          console.log('[Anki sync] gui-answering card', cur.cardId, 'ease', ease, 'rating', cs.rating)
+          try {
+            await ankiGuiShowAnswer()
+            const ok = await ankiGuiAnswerCard(ease)
+            if (ok !== false) markSynced(cs)
+            else break
+          } catch { break }
+        }
+      }
+    } catch (err) {
+      console.error('[Anki sync] gui review failed', err.message)
+    } finally {
+      // Leave Anki on the deck list rather than stuck mid-review.
+      try { await ankiGuiDeckBrowser() } catch {}
+    }
+
+    // FALLBACK: any card the reviewer never presented (odd queue state) — try the direct path.
     const failed = []
-    for (const cs of ratingsToSync) {
+    for (const cs of Array.from(wanted.values())) {
       try {
-        console.log('[Anki sync] answering card', cs.cardId, 'ease', cs.ease, 'rating', cs.rating)
+        console.log('[Anki sync] answering card (fallback)', cs.cardId, 'ease', cs.ease, 'rating', cs.rating)
         let result = await ankiAnswerCards([{ cardId: cs.cardId, ease: cs.ease }])
         // answerCards returns false when the ease is out of range (e.g. a new card with only 3 buttons
         // but we sent ease=4). Retry once with a capped ease.
         if (result === false) result = await ankiAnswerCards([{ cardId: cs.cardId, ease: Math.min(cs.ease, 3) }])
         if (result === false) { failed.push(cs) }
-        else {
-          synced.push(cs)
-          // Mark synced in the REF immediately so the next queued sync won't re-answer (double) this card.
-          studyCardStateRef.current = studyCardStateRef.current.map(c => c.cardId === cs.cardId ? { ...c, synced: true } : c)
-        }
+        else markSynced(cs)
       } catch (err) {
         console.error('[Anki sync] error for card', cs.cardId, err.message)
         failed.push(cs)
