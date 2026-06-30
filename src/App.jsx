@@ -13,9 +13,10 @@ import Markdown from './components/Markdown'
 import DiscoverPanel from './components/DiscoverPanel'
 import SettingsModal from './components/SettingsModal'
 import OnboardingWizard from './components/OnboardingWizard'
+import Dropdown from './components/Dropdown'
 import { S } from './styles/theme'
 import { ocrLog, ocrLogTable, ocrLogFlush } from './utils/logger'
-import { ankiPing, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiCanAddNote, ankiFindCards, ankiCardsInfo, ankiAnswerCards, ankiGuiDeckReview, ankiGuiCurrentCard, ankiGuiShowAnswer, ankiGuiAnswerCard, ankiGuiDeckBrowser, ankiGetDeckStats, ankiFindNotes, ankiNotesInfo, ankiUpdateNote, ankiDeleteNotes, ankiSync, ankiGetNumCardsReviewedToday, ankiGetNumCardsReviewedByDay, ankiGetTodayReviewStats } from './utils/anki'
+import { ankiPing, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiCanAddNote, ankiFindCards, ankiCardsInfo, ankiAnswerCards, ankiSetDueDate, ankiInsertReviews, ankiGuiDeckReview, ankiGuiCurrentCard, ankiGuiShowAnswer, ankiGuiAnswerCard, ankiGuiDeckBrowser, ankiGetDeckStats, ankiFindNotes, ankiNotesInfo, ankiUpdateNote, ankiDeleteNotes, ankiSync, ankiGetNumCardsReviewedToday, ankiGetNumCardsReviewedByDay, ankiGetTodayReviewStats } from './utils/anki'
 import { readBlob, writeBlob, DEFAULT_LEDGER } from './discover/storage'
 import { buildProfilePrompt, buildSuggestionPrompt, buildVerifyPrompt } from './discover/prompts'
 
@@ -4318,6 +4319,43 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
     }
   }
 
+  // Target deck for a card made from a tapped study word: prefer the mode's deck, then the deck
+  // being studied, then any connected deck. Never hardcoded to a language/topic.
+  const studyWordCardDeck = () => activeMode.ankiDeck || studyDeck || ankiDeck || ankiDecks[0] || 'Default'
+
+  // Make an Anki card from the tapped word. Uses the shared, language/topic-agnostic
+  // generateCards engine (it branches on activeMode.type + learnLangName), so it works for
+  // any subject or language the user is studying.
+  const studyWordMakeCard = async () => {
+    const wl = studyWordLookup
+    if (!wl?.word || !apiKey || wl.cardLoading || wl.card) return
+    setStudyWordLookup((prev) => (prev && prev.word === wl.word) ? { ...prev, cardLoading: true, cardError: null } : prev)
+    try {
+      const [card] = await generateCards([wl.word])
+      if (!card) throw new Error('no card')
+      setStudyWordLookup((prev) => (prev && prev.word === wl.word) ? { ...prev, cardLoading: false, card } : prev)
+    } catch {
+      setStudyWordLookup((prev) => (prev && prev.word === wl.word) ? { ...prev, cardLoading: false, cardError: 'Could not create a card — try again.' } : prev)
+    }
+  }
+
+  // Sync the freshly-made word card to Anki (✓). Mirrors chatTabSyncCard's add+sync flow.
+  const studyWordSyncCard = async () => {
+    const wl = studyWordLookup
+    if (!wl?.card || wl.cardSynced || wl.cardSyncing) return
+    if (!ankiConnected) { setStudyWordLookup((prev) => prev ? { ...prev, cardError: 'Anki is not connected.' } : prev); return }
+    const deck = studyWordCardDeck()
+    setStudyWordLookup((prev) => prev ? { ...prev, cardSyncing: true, cardError: null } : prev)
+    try {
+      if (!(await ankiGetDecks().catch(() => [])).includes(deck)) await ankiCreateDeck(deck)
+      await ankiAddNote(deck, wl.card.front, cardBackToHtml(wl.card.back), wl.card.tags || ['ebiki'])
+      ankiSync().catch(() => {})
+      setStudyWordLookup((prev) => (prev && prev.card === wl.card) ? { ...prev, cardSyncing: false, cardSynced: true, cardDeck: deck } : prev)
+    } catch {
+      setStudyWordLookup((prev) => prev ? { ...prev, cardSyncing: false, cardError: 'Sync failed — is Anki running?' } : prev)
+    }
+  }
+
   const undoLastAnswer = () => {
     if (studyAnswerHistory.length === 0) return
     const last = studyAnswerHistory[studyAnswerHistory.length - 1]
@@ -4586,6 +4624,9 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
     // FALLBACK: any card the reviewer never presented (odd queue state) — try the direct path.
     // answerCards returns an ARRAY of booleans (one per card), or throws "not at top of queue".
     const ansOk = (r) => Array.isArray(r) ? r[0] !== false : r !== false
+    // Map our 1-4 ease onto a due-date interval (days) for the last-resort path. Approximate, but it
+    // records SOMETHING so a brand-new card (the common "not at top of queue" case) still syncs.
+    const easeToDueDays = (ease) => ease >= 4 ? '4' : ease === 3 ? '2' : ease === 2 ? '1' : '0'
     const failed = []
     for (const cs of Array.from(wanted.values())) {
       try {
@@ -4593,11 +4634,27 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
         let result = await ankiAnswerCards([{ cardId: cs.cardId, ease: cs.ease }])
         // Retry once with a capped ease in case it was out of range (a new card with only 3 buttons).
         if (!ansOk(result)) result = await ankiAnswerCards([{ cardId: cs.cardId, ease: Math.min(cs.ease, 3) }])
-        if (!ansOk(result)) { failed.push(cs) }
-        else markSynced(cs)
+        if (ansOk(result)) { markSynced(cs); continue }
+        throw new Error('not at top of queue')
       } catch (err) {
-        console.error('[Anki sync] error for card', cs.cardId, err.message)
-        failed.push(cs)
+        // answerCards can't grade a card that isn't at the top of the scheduler queue (e.g. a brand-new
+        // card, or one out of order). Fall back to (1) rescheduling it directly by due date — works on
+        // ANY card — and (2) writing a revlog entry so the review actually COUNTS as studied today.
+        try {
+          const days = easeToDueDays(cs.ease)
+          const ease = Math.min(Math.max(cs.ease, 1), 4)
+          console.log('[Anki sync] setDueDate+insertReviews fallback', cs.cardId, 'days', days, 'ease', ease)
+          await ankiSetDueDate([cs.cardId], days)
+          // setDueDate reschedules but writes no revlog row, so Anki would show "0 studied". Add the
+          // revlog entry so the card counts in Cards Today / streak / accuracy. +i keeps the id unique.
+          const ivl = Math.max(0, parseInt(days, 10) || 0)
+          await ankiInsertReviews([[Date.now() + failed.length + synced.length, cs.cardId, -1, ease, ivl, 0, 2500, 0, 0]])
+            .catch((e) => console.warn('[Anki sync] insertReviews failed (rating still rescheduled):', e.message))
+          markSynced(cs)
+        } catch (err2) {
+          console.error('[Anki sync] fallback failed for card', cs.cardId, err2.message)
+          failed.push(cs)
+        }
       }
     }
     if (synced.length > 0) {
@@ -5742,18 +5799,20 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
 
           {/* Mode quick-switcher (fast switch without opening Settings); "+ Add mode" opens the
               same Learning-modes panel in Settings used to create a mode. */}
-          <select
+          <Dropdown
             value={activeModeId}
-            onChange={(e) => {
-              if (e.target.value === '__add__') { setSettingsCategory('modes'); setSettingsOpen(true); return }
-              const id = parseInt(e.target.value); setActiveModeId(id); saveModes(modes, id); const nm = modes.find((m) => m.id === id); if (nm?.ankiDeck) setStudyDeck(nm.ankiDeck)
+            getZoom={getZoom}
+            onChange={(val) => {
+              if (val === '__add__') { setSettingsCategory('modes'); setSettingsOpen(true); return }
+              const id = parseInt(val); setActiveModeId(id); saveModes(modes, id); const nm = modes.find((m) => m.id === id); if (nm?.ankiDeck) setStudyDeck(nm.ankiDeck)
             }}
             title={t('settingsMode')}
             style={{ ...S.select, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)', background: 'rgba(223,37,64,.08)', fontWeight: 700 }}
-          >
-            {modes.map((m) => <option key={m.id} value={m.id}>{m.type === 'language' ? '\u{1F310}' : '\u{1F4DA}'} {m.name}</option>)}
-            <option value="__add__">{'➕'} Add mode…</option>
-          </select>
+            options={[
+              ...modes.map((m) => ({ value: m.id, label: m.name, icon: m.type === 'language' ? '\u{1F310}' : '\u{1F4DA}', color: 'var(--c-brand)' })),
+              { value: '__add__', label: 'Add mode…', icon: '➕', color: 'var(--c-ink-dim)', divider: true },
+            ]}
+          />
 
           {/* Single Settings entry \u2014 opens the unified modal (right-most, like every tab) */}
           <button onClick={() => setSettingsOpen(true)} title={t('settingsTitle')} style={{ ...S.ghostBtn, position: 'relative', padding: '6px 10px' }}>
@@ -6893,16 +6952,15 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center' }}>
                       <span style={{ fontSize: 12, color: 'var(--c-ink-dim)' }}>{t('mode')}:</span>
-                      <select value={activeModeId} onChange={(e) => {
-                        const id = parseInt(e.target.value)
+                      <Dropdown value={activeModeId} getZoom={getZoom} onChange={(val) => {
+                        const id = parseInt(val)
                         setActiveModeId(id)
                         saveModes(modes, id)
                         // Load new mode's deck
                         const newMode = modes.find((m) => m.id === id)
                         if (newMode?.ankiDeck) setStudyDeck(newMode.ankiDeck)
-                      }} style={{ ...S.select, fontSize: 12, padding: '6px 10px', color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)' }}>
-                        {modes.map((m) => <option key={m.id} value={m.id}>{m.type === 'language' ? '\u{1F310}' : '\u{1F4DA}'} {m.name}</option>)}
-                      </select>
+                      }} style={{ ...S.select, fontSize: 12, padding: '6px 10px', color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)' }}
+                        options={modes.map((m) => ({ value: m.id, label: m.name, icon: m.type === 'language' ? '\u{1F310}' : '\u{1F4DA}', color: 'var(--c-brand)' }))} />
                     </div>
                     <div style={{ fontSize: 10, color: 'var(--c-ink-faint)' }}>{t('studyModeDesc')}</div>
                   </div>
@@ -6912,10 +6970,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center' }}>
                       <span style={{ fontSize: 12, color: 'var(--c-ink-dim)' }}>{t('deck')}:</span>
-                      <select value={studyDeck} onChange={(e) => { setStudyDeck(e.target.value); setAnkiDeck(e.target.value) }}
-                        style={{ ...S.select, fontSize: 12, padding: '6px 10px' }}>
-                        {ankiDecks.map((d) => <option key={d} value={d}>{d}</option>)}
-                      </select>
+                      <Dropdown value={studyDeck} getZoom={getZoom} onChange={(val) => { setStudyDeck(val); setAnkiDeck(val) }}
+                        style={{ ...S.select, fontSize: 12, padding: '6px 10px' }}
+                        options={ankiDecks.map((d) => ({ value: d, label: d }))} />
                     </div>
                     <div style={{ fontSize: 10, color: 'var(--c-ink-faint)' }}>{t('studyDeckDesc')}</div>
                   </div>
@@ -6929,7 +6986,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   const learned = sr.studyLanguage || 'English'
                   const speaks = sr.quizLanguage || learned
                   const setSR = (patch) => updateActiveMode({ studyRules: { ...sr, ...patch } })
-                  const langOpts = LANGS.filter(l => l.code !== 'auto').map(l => <option key={l.code} value={l.label}>{l.label}</option>)
+                  const langOpts = LANGS.filter(l => l.code !== 'auto').map(l => ({ value: l.label, label: l.label }))
                   return (
                     <div style={{
                       display: 'inline-flex', flexDirection: 'column', gap: 8, padding: '12px 20px',
@@ -6939,12 +6996,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         {isLang && (
                           <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             <span style={{ fontSize: 12, color: 'var(--c-ink-dim)' }}>{t('studyLearning')}:</span>
-                            <select value={learned} onChange={(e) => setSR({ studyLanguage: e.target.value })} style={{ ...S.select, fontSize: 11, padding: '4px 8px' }}>{langOpts}</select>
+                            <Dropdown value={learned} getZoom={getZoom} onChange={(val) => setSR({ studyLanguage: val })} style={{ ...S.select, fontSize: 11, padding: '4px 8px' }} options={langOpts} />
                           </span>
                         )}
                         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <span style={{ fontSize: 12, color: 'var(--c-ink-dim)' }}>{t('quizIn')}:</span>
-                          <select value={speaks} onChange={(e) => setSR({ quizLanguage: e.target.value })} style={{ ...S.select, fontSize: 11, padding: '4px 8px' }}>{langOpts}</select>
+                          <Dropdown value={speaks} getZoom={getZoom} onChange={(val) => setSR({ quizLanguage: val })} style={{ ...S.select, fontSize: 11, padding: '4px 8px' }} options={langOpts} />
                         </span>
                       </div>
                       {isLang && (
@@ -7151,22 +7208,63 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       })()}
 
                       {activeMode.type === 'language' && studyWordLookup && (
-                        <div style={{ fontSize: 11, background: 'rgba(223,37,64,.06)', border: '1px solid rgba(223,37,64,.2)', borderRadius: 5, padding: '5px 10px', marginBottom: 8, display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
-                          <span style={{ fontWeight: 700, color: 'var(--c-brand)' }}>{studyWordLookup.word}</span>
-                          <span style={{ color: 'var(--c-ink-dim)' }}>—</span>
-                          {studyWordLookup.loading ? (
-                            <span style={{ flex: 1, color: 'var(--c-ink-dim)' }}>Looking up…</span>
-                          ) : (
-                            <span style={{ flex: 1 }}>
-                              {/* In-context meaning in the legend's "correct" green */}
-                              <span style={{ color: 'var(--c-success)', fontWeight: 700 }}>{studyWordLookup.primary}</span>
-                              {/* Other senses in the legend's "word choice" purple */}
-                              {studyWordLookup.alternatives?.length > 0 && (
-                                <span style={{ color: 'var(--c-ink-faint)' }}> · also <span style={{ color: 'var(--c-purple)', fontWeight: 600 }}>{studyWordLookup.alternatives.join(', ')}</span></span>
+                        <div style={{ background: 'rgba(223,37,64,.06)', border: '1px solid rgba(223,37,64,.2)', borderRadius: 5, padding: '5px 10px', marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          {/* Row 1: the tapped word + its in-context meaning, and the × that backs out of everything */}
+                          <div style={{ fontSize: 11, display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+                            <span style={{ fontWeight: 700, color: 'var(--c-brand)' }}>{studyWordLookup.word}</span>
+                            <span style={{ color: 'var(--c-ink-dim)' }}>—</span>
+                            {studyWordLookup.loading ? (
+                              <span style={{ flex: 1, color: 'var(--c-ink-dim)' }}>Looking up…</span>
+                            ) : (
+                              <span style={{ flex: 1 }}>
+                                {/* In-context meaning in the legend's "correct" green */}
+                                <span style={{ color: 'var(--c-success)', fontWeight: 700 }}>{studyWordLookup.primary}</span>
+                                {/* Other senses in the legend's "word choice" purple */}
+                                {studyWordLookup.alternatives?.length > 0 && (
+                                  <span style={{ color: 'var(--c-ink-faint)' }}> · also <span style={{ color: 'var(--c-purple)', fontWeight: 600 }}>{studyWordLookup.alternatives.join(', ')}</span></span>
+                                )}
+                              </span>
+                            )}
+                            <span onClick={() => setStudyWordLookup(null)} title="Close" style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 13, lineHeight: 1 }}>×</span>
+                          </div>
+
+                          {/* Row 2: turn this word into an Anki card. generateCards is language/topic-agnostic. */}
+                          {!studyWordLookup.loading && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', borderTop: '1px solid rgba(223,37,64,.15)', paddingTop: 6 }}>
+                              {studyWordLookup.cardSynced ? (
+                                <span style={{ fontSize: 11, color: 'var(--c-success)', fontWeight: 700 }}>✓ Added to {studyWordLookup.cardDeck}</span>
+                              ) : studyWordLookup.card ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
+                                  {/* Front */}
+                                  <div style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>
+                                    New card — <span style={{ color: 'var(--c-ink)', fontWeight: 700 }}>{studyWordLookup.card.front}</span>
+                                  </div>
+                                  {/* Back (exactly what will be synced) so the user can verify before adding */}
+                                  <div style={{ fontSize: 11, color: 'var(--c-ink)', background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 5, padding: '6px 9px', lineHeight: 1.55, maxHeight: 150, overflowY: 'auto' }}
+                                    dangerouslySetInnerHTML={{ __html: cardBackToHtml(studyWordLookup.card.back) }} />
+                                  {/* If the proofreader corrected the word, surface it so the user knows why */}
+                                  {studyWordLookup.card.correction && (
+                                    <div style={{ fontSize: 10, color: 'var(--c-warning)' }}>⚠ {studyWordLookup.card.correction}</div>
+                                  )}
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+                                    <button onClick={studyWordSyncCard} disabled={studyWordLookup.cardSyncing || !ankiConnected}
+                                      title={ankiConnected ? `Add to ${studyWordCardDeck()}` : 'Anki not connected'}
+                                      style={{ ...S.ghostBtn, fontSize: 11, padding: '4px 12px', fontWeight: 700, color: 'var(--c-success)', borderColor: 'rgba(24,169,87,.45)', opacity: (studyWordLookup.cardSyncing || !ankiConnected) ? 0.5 : 1, cursor: (studyWordLookup.cardSyncing || !ankiConnected) ? 'default' : 'pointer' }}>
+                                      {studyWordLookup.cardSyncing ? 'Adding…' : `✓ Add to ${studyWordCardDeck()}`}
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : studyWordLookup.cardLoading ? (
+                                <span style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>Creating card…</span>
+                              ) : (
+                                <button onClick={studyWordMakeCard} disabled={!apiKey}
+                                  style={{ ...S.ghostBtn, fontSize: 11, padding: '3px 10px', fontWeight: 700, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.4)', opacity: apiKey ? 1 : 0.5, cursor: apiKey ? 'pointer' : 'default' }}>
+                                  ➕ Make Anki card
+                                </button>
                               )}
-                            </span>
+                              {studyWordLookup.cardError && <span style={{ fontSize: 10, color: 'var(--c-danger)' }}>{studyWordLookup.cardError}</span>}
+                            </div>
                           )}
-                          <span onClick={() => setStudyWordLookup(null)} style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 13, lineHeight: 1 }}>×</span>
                         </div>
                       )}
 

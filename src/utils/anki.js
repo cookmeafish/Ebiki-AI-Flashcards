@@ -85,6 +85,23 @@ export async function ankiAnswerCards(answers) {
   return ankiRequest('answerCards', { answers })
 }
 
+// Directly set a card's due date (days from today, e.g. "0", "3", "3-5"). Unlike answerCards this
+// works on ANY card regardless of queue position — used as the last-resort fallback to record a
+// rating for a brand-new / out-of-queue card the reviewer can't present.
+export async function ankiSetDueDate(cards, days) {
+  ankiLog(`setDueDate ${days} for ${cards.length} cards`, cards)
+  return ankiRequest('setDueDate', { cards, days: String(days) })
+}
+
+// Write review-log (revlog) entries directly. setDueDate only reschedules a card; it does NOT add a
+// revlog row, so Anki wouldn't count the card as "studied today". insertReviews adds the row so the
+// review counts in stats/streak. Each review is a 9-tuple matching Anki's revlog columns:
+//   [id(ms), cardId, usn(-1), ease(1-4), ivl(days), lastIvl(days), factor, timeMs, type(0 learn)]
+export async function ankiInsertReviews(reviews) {
+  ankiLog(`insertReviews x${reviews.length}`, reviews)
+  return ankiRequest('insertReviews', { reviews })
+}
+
 // --- GUI reviewer actions ---------------------------------------------------
 // answerCards (above) only works on the card at the TOP of the scheduler queue;
 // it throws "not at top of queue" for anything else (e.g. a new card, or cards
