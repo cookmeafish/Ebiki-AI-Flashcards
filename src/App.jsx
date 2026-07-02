@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react'
 import Tesseract from 'tesseract.js'
-import { TRANSLATE_PROMPT, VISION_OCR_PROMPT, LANGUAGE_CARD_PROMPT, GENERIC_CARD_PROMPT, POS_COLORS, CATEGORY_COLORS } from './config/prompts'
-import { dataUrlToImagePart, downscaleDataUrl } from './utils/image'
+import { TRANSLATE_PROMPT, VISION_OCR_PROMPT, WORDLIST_TRANSLATE_PROMPT, WORD_ENRICH_PROMPT, LANGUAGE_CARD_PROMPT, GENERIC_CARD_PROMPT, POS_COLORS, CATEGORY_COLORS } from './config/prompts'
+import { dataUrlToImagePart, downscaleDataUrl, estimateImageNoise } from './utils/image'
 import { PROVIDERS } from './config/providers'
 import { LANGS } from './config/languages'
 import { makeT, APP_LANGUAGES } from './i18n'
@@ -22,6 +22,19 @@ import { buildProfilePrompt, buildSuggestionPrompt, buildVerifyPrompt } from './
 
 // App-language code → English name, for prompting the AI to reply in the user's language.
 const APP_LANG_NAME = { en: 'English', es: 'Spanish', zh: 'Chinese', ja: 'Japanese' }
+
+// Short human name for a model id — used in UI labels like "Explain further (Opus)" so buttons
+// reflect the model the user actually configured (Settings → AI models), never a hardcoded name.
+const MODEL_NICKS = [
+  ['opus', 'Opus'], ['sonnet', 'Sonnet'], ['haiku', 'Haiku'], ['fable', 'Fable'],
+  ['gemini-2.5-pro', 'Gemini Pro'], ['gemini', 'Gemini'], ['grok', 'Grok'],
+  ['gpt-4.1', 'GPT-4.1'], ['gpt-4o', 'GPT-4o'], ['gpt', 'GPT'],
+]
+const modelNick = (id = '') => {
+  const m = String(id).toLowerCase()
+  const hit = MODEL_NICKS.find(([k]) => m.includes(k))
+  return hit ? hit[1] : (id || 'AI')
+}
 
 // Color-coded study feedback categories (used for all modes — language and general).
 const FEEDBACK_CATS = {
@@ -608,6 +621,15 @@ export default function App() {
     const overrides = aiStateRef.current.aiModels[prov]
     return (overrides && overrides[role]) || ROLE_DEFAULTS(pc, aiStateRef.current.intelligence)[role]
   }
+  // Like resolveModel, but for latency-sensitive roles: unless the user EXPLICITLY overrode the
+  // role in Settings → AI models, prefer the provider's fast "normal" preset even on Max
+  // intelligence (same rationale as the pose role). Used for the picture scan + word enrichment,
+  // which are read/translate work the normal preset does as well as Max, several times faster.
+  const resolveModelFast = (role, prov = aiStateRef.current.provider) => {
+    const pc = PROVIDERS[prov]
+    const overrides = aiStateRef.current.aiModels[prov]
+    return (overrides && overrides[role]) || pc?.presets?.normal || ROLE_DEFAULTS(pc, aiStateRef.current.intelligence)[role]
+  }
 
   // Ask the provider for its current model list (used by the "Check for new models"
   // button and an auto-fetch when the AI Settings panel opens). Stores per provider.
@@ -830,7 +852,7 @@ export default function App() {
       }).catch(err => console.error('[Overlay] Failed to load screenshot:', err))
     }
 
-    // Full-screen capture (Ctrl+Shift+S)
+    // Full-screen capture (Alt+Q)
     const handleOverlayCapture = () => {
       console.log('[Overlay] Full capture')
       window.__selectionMode = false
@@ -1158,6 +1180,7 @@ export default function App() {
   // ─── Analysis Pipeline ──────────────────────────────────────────────────────
   const analyzeImageTesseract = useCallback(async (dataUrl) => {
     if (!dataUrl) return
+    setHoveredIdx(null); setPinnedIdx(null) // clear any stale pin from the previous scan
     if (!apiKey) {
       setSettingsCategory('models'); setSettingsOpen(true)
       setError(`Set your ${providerConfig.label} API key first.`)
@@ -1612,6 +1635,10 @@ export default function App() {
     setError(null)
     setOcrWords([])
     setOcrLines([])
+    // A pin/hover from the PREVIOUS scan must not survive into the new word list — the stale
+    // index would land on an arbitrary new word and auto-open its popup without any click.
+    setHoveredIdx(null); setPinnedIdx(null)
+    enrichWordRef.current.clear() // word indices are reused across scans
     try {
       setProgress('Reading image…')
       // Real dimensions of the image we'll map boxes against.
@@ -1624,16 +1651,108 @@ export default function App() {
       // boxes are imprecise, so we snap its accurate text onto Tesseract's accurate boxes.
       const tessPromise = getTesseractBoxes(dataUrl)
 
+      // The active LANGUAGE mode drives the translation direction: "from" = the language being
+      // LEARNED (the mode's studyLanguage), "to" = the user's own language (app language). The
+      // global translation pair (Settings → General) is only the fallback for non-language modes.
+      const isLangMode = activeMode?.type === 'language'
+      const fromLabel = isLangMode
+        ? learnLangName()
+        : (language === 'auto' ? 'Auto-detect' : (LANGS.find((l) => l.code === language)?.label || 'Unknown'))
+      const toLabel = isLangMode
+        ? userLangName()
+        : (LANGS.find((l) => l.code === targetLang)?.label || 'English')
+
+      // ── Adaptive routing by VISUAL noise ────────────────────────────────────────────
+      // A visually CLEAN screenshot (flat UI, plain background) is Tesseract's sweet spot —
+      // the model never needs to see the image: translate Tesseract's word list with a cheap
+      // TEXT-only call. A visually BUSY image (game scene, photo, noisy background) keeps the
+      // full vision read, which is exactly what it's for. Guardrail: if Tesseract reads too
+      // little / too unconfidently off a "clean" image (stylized fonts), fall through to vision.
+      const noise = await estimateImageNoise(dataUrl)
+      if (cancelRef.current) return
+      if (noise < 0.06) {
+        try {
+          setProgress('Reading text…')
+          const tess = (await tessPromise) || []
+          if (cancelRef.current) return
+          const good = tess.filter((w) => w.confidence >= 70)
+          const avgConf = good.length ? good.reduce((s, w) => s + w.confidence, 0) / good.length : 0
+          ocrLog(`Image noise ${noise.toFixed(3)} → clean; Tesseract ${good.length} confident words @ ${Math.round(avgConf)}%`)
+          if (good.length >= 3 && avgConf >= 80) {
+            // Geometric reading-order lines (the vision model gives these semantically; here we
+            // infer them from boxes: new line when the vertical center jumps ~70% of word height).
+            const sorted = good.slice().sort((a, b) => (a.bbox.y0 - b.bbox.y0) || (a.bbox.x0 - b.bbox.x0))
+            let lineNo = 0, prev = null
+            for (const w of sorted) {
+              const cy = (w.bbox.y0 + w.bbox.y1) / 2, hgt = w.bbox.y1 - w.bbox.y0
+              if (prev && Math.abs(cy - prev.cy) > Math.max(hgt, prev.hgt) * 0.7) lineNo++
+              w._line = lineNo
+              prev = { cy, hgt }
+            }
+            setProgress('Translating…')
+            const listPayload = JSON.stringify({
+              words: sorted.map((w, i) => ({ i, w: w.text })),
+              from: fromLabel, to: toLabel,
+              context: sorted.map((w) => w.text).join(' '),
+            })
+            // Text-only word-list translation is cheap-tier work (no image involved); an
+            // explicit picture-role override in Settings still wins.
+            const listModel = (aiStateRef.current.aiModels[aiStateRef.current.provider] || {}).picture
+              || PROVIDERS[aiStateRef.current.provider]?.model || resolveModelFast('picture')
+            const listText = await aiCall(apiKey, WORDLIST_TRANSLATE_PROMPT, listPayload, listModel, { maxTokens: 8000 })
+            if (cancelRef.current) return
+            const listParsed = parseAiJson(listText)
+            if (Array.isArray(listParsed)) {
+              const byIdx = new Map(listParsed.filter((t) => t && typeof t === 'object').map((t) => [Number(t.i), t]))
+              const out = []
+              sorted.forEach((w, i) => {
+                const t = byIdx.get(i)
+                if (!t || t.c === 'skip') return
+                out.push({
+                  text: w.text, bbox: w.bbox, confidence: w.confidence,
+                  translation: t.t || w.text, synonyms: [],
+                  category: t.c || 'foreign', partOfSpeech: t.p || 'other',
+                  pronunciation: '', isEnglish: t.c === 'target', _untranslated: false,
+                  sense: '', alts: [], _needsEnrich: true,
+                  line: w._line, _globalIdx: out.length, _snapped: true,
+                })
+              })
+              if (out.length) {
+                const lineMap = new Map()
+                out.forEach((w, i) => {
+                  if (!lineMap.has(w.line)) lineMap.set(w.line, [])
+                  lineMap.get(w.line).push(i)
+                })
+                const lines = [...lineMap.entries()]
+                  .sort((a, b) => a[0] - b[0])
+                  .map(([line, idxs]) => ({ line, idxs: idxs.sort((x, y) => out[x].bbox.x0 - out[y].bbox.x0) }))
+                ocrLog(`Clean fast path complete: ${out.length} words, ${lines.length} lines (no vision call)`)
+                ocrLogFlush()
+                setOcrWords(out)
+                setOcrLines(lines)
+                setStage('done')
+                return
+              }
+            }
+            ocrLog('Clean fast path produced nothing usable — falling through to vision')
+          }
+        } catch (err) {
+          if (cancelRef.current) return
+          ocrLog(`Clean fast path failed (${err.message}) — falling through to vision`)
+        }
+      } else {
+        ocrLog(`Image noise ${noise.toFixed(3)} → busy; full vision read`)
+      }
+
+      setProgress('Reading image…')
       // Downscale before upload (faster/cheaper, within vision limits) — boxes stay normalized.
       const sendUrl = await downscaleDataUrl(dataUrl, 1500)
       const imagePart = dataUrlToImagePart(sendUrl)
       if (cancelRef.current) return
 
-      const fromLabel = language === 'auto' ? 'Auto-detect' : (LANGS.find((l) => l.code === language)?.label || 'Unknown')
-      const toLabel = LANGS.find((l) => l.code === targetLang)?.label || 'English'
       const payload = JSON.stringify({ from: fromLabel, to: toLabel, context: '' })
 
-      const text = await aiCall(apiKey, VISION_OCR_PROMPT, payload, resolveModel('picture'), { images: [imagePart], maxTokens: 8000 })
+      const text = await aiCall(apiKey, VISION_OCR_PROMPT, payload, resolveModelFast('picture'), { images: [imagePart], maxTokens: 8000 })
       if (cancelRef.current) return
       ocrLog(`Vision returned (${String(text).length} chars): ${String(text).slice(0, 1200)}`)
 
@@ -1669,13 +1788,15 @@ export default function App() {
             _untranslated: false,
             sense: it.sense || '',
             alts: Array.isArray(it.alts) ? it.alts.filter(Boolean).map(String).slice(0, 3) : [],
+            // Model omitted the rich fields (text-dense scan, SPEED RULE) — fetch on demand.
+            _needsEnrich: !it.sense && !it.r,
             line: Number.isFinite(Number(it.line)) ? Number(it.line) : idx,
             _globalIdx: idx,
           }
         })
 
       if (words.length === 0) {
-        setError('No readable text found. Try a clearer screenshot or a different language.')
+        setError('No readable text found in this image. Try a clearer screenshot.')
         setStage('captured')
         setLoading(false)
         return
@@ -1734,7 +1855,7 @@ export default function App() {
       setLoading(false)
       setProgress('')
     }
-  }, [apiKey, language, targetLang, analyzeImageTesseract])
+  }, [apiKey, language, targetLang, activeMode, appLanguage, analyzeImageTesseract])
 
   // Dispatcher: vision when a key is set (primary), otherwise prompt for one.
   const analyzeImage = useCallback(async (dataUrl) => {
@@ -1750,8 +1871,8 @@ export default function App() {
   // ─── Keyboard Shortcuts ─────────────────────────────────────────────────────
   useEffect(() => {
     const handler = (e) => {
-      // Ctrl+Shift+S → Screen capture
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 's') {
+      // Alt+Q → Screen capture
+      if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && e.key.toLowerCase() === 'q') {
         e.preventDefault()
         captureScreen()
       }
@@ -1954,6 +2075,49 @@ export default function App() {
     }
   }, [apiKey, language, ocrWords, providerConfig])
 
+  // ─── Lazy per-word enrichment (vision fast path) ─────────────────────────────
+  // On text-dense screens the vision scan returns only core fields (w/t/c/p/line/box) so it
+  // finishes fast; sense/alts/synonyms/pronunciation are fetched HERE the first time a word is
+  // hovered or clicked. Uses the provider's fast "normal" preset (same rationale as the pose
+  // role — it can fire on every hover); the picture-role override still governs the main scan.
+  const enrichWordRef = useRef(new Set())
+  const enrichWord = useCallback(async (idx) => {
+    const word = ocrWords[idx]
+    if (!word || !word._needsEnrich || !apiKey) return
+    if (enrichWordRef.current.has(idx)) return
+    enrichWordRef.current.add(idx)
+    try {
+      const isLangMode = activeMode?.type === 'language'
+      const fromLabel = isLangMode
+        ? learnLangName()
+        : (language === 'auto' ? 'Auto-detect' : (LANGS.find((l) => l.code === language)?.label || 'Unknown'))
+      const toLabel = isLangMode
+        ? userLangName()
+        : (LANGS.find((l) => l.code === targetLang)?.label || 'English')
+      const payload = JSON.stringify({
+        word: word.text, translation: word.translation,
+        from: fromLabel, to: toLabel, context: ocrWords.map((w) => w.text).join(' '),
+      })
+      const text = await aiCall(apiKey, WORD_ENRICH_PROMPT, payload, resolveModelFast('picture'))
+      const parsed = parseAiJson(text)
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        setOcrWords((prev) => prev.map((w, i) => i === idx
+          ? {
+              ...w,
+              sense: parsed.sense || w.sense,
+              alts: Array.isArray(parsed.alts) ? parsed.alts.filter(Boolean).map(String).slice(0, 3) : w.alts,
+              synonyms: Array.isArray(parsed.s) ? parsed.s : w.synonyms,
+              pronunciation: parsed.r || w.pronunciation,
+              _needsEnrich: false,
+            }
+          : w))
+      }
+    } catch (err) {
+      enrichWordRef.current.delete(idx) // allow a retry on the next hover
+      console.warn('[Ebiki] Word enrichment failed for index', idx, err)
+    }
+  }, [apiKey, ocrWords, activeMode, appLanguage, language, targetLang])
+
   // ─── Hover & Pin Handlers ───────────────────────────────────────────────────
   // The body has CSS zoom (1.35) in normal mode. position:fixed tooltips are sized/placed
   // in layout px, but getBoundingClientRect()/clientX report real px — divide by this to
@@ -1979,6 +2143,7 @@ export default function App() {
     x = Math.max(ttHalf, Math.min(vw - ttHalf, x))
     setTooltipPos({ x, y, anchor })
     if (ocrWords[idx]?._untranslated) lazyTranslate(idx)
+    if (ocrWords[idx]?._needsEnrich) enrichWord(idx)
   }
 
   const handleWordLeave = () => {
@@ -2019,6 +2184,7 @@ export default function App() {
       }
       // Lazy translate if in click mode and word hasn't been translated yet
       if (ocrWords[idx]?._untranslated) lazyTranslate(idx)
+      if (ocrWords[idx]?._needsEnrich) enrichWord(idx)
     }
   }
 
@@ -5793,7 +5959,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 {overlayRunning ? '\u25CF' : '\u25CB'} {t('overlay')}
               </button>
 
-              <kbd style={S.kbd}>Ctrl+Shift+S</kbd>
+              <kbd style={S.kbd}>Alt+Q</kbd>
             </>
           )}
 
@@ -7609,7 +7775,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             <img src={shrimpUrl(poseFile('camera'))} alt="Ebi" style={{ width: 84, height: 84, objectFit: 'contain', marginBottom: 12 }} />
             <h2 style={S.emptyTitle}>Capture, paste, drop, or upload</h2>
             <p style={S.emptyDesc}>
-              Hit <kbd style={S.kbdInline}>Ctrl+Shift+S</kbd> to screenshot your display,
+              Hit <kbd style={S.kbdInline}>Alt+Q</kbd> to screenshot your display,
               or paste / drag-drop any image. Your chosen AI ({providerConfig.label}) reads
               the image and translates each word in context. Hover any word for its meaning,
               pronunciation, and synonyms.
@@ -7913,11 +8079,16 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         const vw = (typeof window !== 'undefined' ? window.innerWidth : 1280) / ttZoom
         const vh = (typeof window !== 'undefined' ? window.innerHeight : 800) / ttZoom
         const maxH = Math.round(vh - 20)
+        // estH is only a guess — the real content (explanation + generated card) can be much
+        // taller. So besides clamping the top, cap maxHeight to the space BELOW the clamped top:
+        // the popup then always ends ≥10px above the screen edge and scrolls internally instead
+        // of getting cut off at the bottom.
+        const clampedTop = Math.max(10, Math.min(pinnedTooltipPos?.y ?? 10, vh - estH - 10))
         const pinnedStyle = isPinned && pinnedTooltipPos
           ? { ...S.tooltip, ...S.tooltipExpanded,
               left: Math.max(10, Math.min(pinnedTooltipPos.x, vw - estW - 10)),
-              top: Math.max(10, Math.min(pinnedTooltipPos.y, vh - estH - 10)),
-              transform: 'none', maxHeight: maxH, overflowY: 'auto',
+              top: clampedTop,
+              transform: 'none', maxHeight: Math.min(maxH, Math.round(vh - clampedTop - 10)), overflowY: 'auto',
               ...(hasExpanded ? { maxWidth: 900, width: 500 } : { maxWidth: 400, width: 'auto', minWidth: 300 }),
             }
           : isPinned
@@ -8043,7 +8214,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       disabled={deepExplaining}
                       style={{ ...S.ttDeepBtn, opacity: deepExplaining ? 0.5 : 1 }}
                     >
-                      {deepExplaining ? 'Thinking...' : 'Explain further (Sonnet)'}
+                      {deepExplaining ? 'Thinking...' : `Explain further (${modelNick(resolveModel('picture'))})`}
                     </button>
                   )}
                   {!wordStudy && (
@@ -8187,7 +8358,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               {deepExplaining && !deepExplanation && (
                 <div style={{ ...S.ttExplaining, marginTop: 8 }}>
                   <div style={S.ttExplainingDot} />
-                  Sonnet is thinking...
+                  {modelNick(resolveModel('picture'))} is thinking...
                 </div>
               )}
               {deepExplanation && (
