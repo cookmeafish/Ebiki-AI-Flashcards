@@ -10,7 +10,7 @@ let selectorWindow = null
 app.whenReady().then(() => {
   createOverlay()
   registerShortcuts()
-  console.log('[Overlay] Ready. Ctrl+Shift+S to capture, Ctrl+Shift+A to area-select.')
+  console.log('[Overlay] Ready. Alt+Q to capture, Ctrl+Shift+A to area-select.')
 })
 
 function createOverlay() {
@@ -59,7 +59,7 @@ function hideOverlay() {
 }
 
 function registerShortcuts() {
-  globalShortcut.register('CommandOrControl+Shift+S', async () => {
+  globalShortcut.register('Alt+Q', async () => {
     console.log('[Overlay] Capture triggered')
     if (overlayWindow.isVisible()) {
       hideOverlay()
