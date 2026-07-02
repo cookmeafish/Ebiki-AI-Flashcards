@@ -110,7 +110,7 @@ export const S = {
   // Empty state
   emptyState: {
     display: 'flex', flexDirection: 'column', alignItems: 'center',
-    justifyContent: 'center', minHeight: '65vh', textAlign: 'center',
+    justifyContent: 'center', flex: 1, minHeight: 'min-content', textAlign: 'center',
   },
   emptyTitle: {
     fontSize: 26, fontWeight: 800, margin: '0 0 10px', fontFamily: FONT.display,
