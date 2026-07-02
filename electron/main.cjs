@@ -4,13 +4,29 @@ const fs = require('fs')
 
 const VITE_URL = 'http://localhost:3000'
 const SCREENSHOT_FILE = path.resolve('electron/last-capture.png')
+const LOG_FILE = path.resolve('electron/overlay.log')
+const SHORTCUTS_FILE = path.resolve('electron/overlay-shortcuts.json')
 let overlayWindow = null
 let selectorWindow = null
 
+// Persistent logging: the overlay runs as a spawned child whose stdout is inherited by whatever
+// launched the dev server (not visible here), so mirror everything to a file we can inspect after a
+// crash. Include global crash handlers so a native/renderer crash is recorded instead of vanishing.
+function log(...args) {
+  const line = `[${new Date().toISOString()}] ${args.map((a) => a instanceof Error ? (a.stack || a.message) : typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')}\n`
+  try { fs.appendFileSync(LOG_FILE, line) } catch {}
+  console.log(...args)
+}
+process.on('uncaughtException', (e) => log('[Overlay] uncaughtException:', e))
+process.on('unhandledRejection', (e) => log('[Overlay] unhandledRejection:', e))
+app.on('child-process-gone', (_e, d) => log('[Overlay] child-process-gone:', d))
+app.on('gpu-process-gone', (_e, d) => log('[Overlay] gpu-process-gone:', d))
+
 app.whenReady().then(() => {
+  try { fs.writeFileSync(LOG_FILE, '') } catch {}
   createOverlay()
   registerShortcuts()
-  console.log('[Overlay] Ready. Ctrl+Shift+S to capture, Ctrl+Shift+A to area-select.')
+  log('[Overlay] Ready. Alt+Q to capture, Alt+A to area-select (auto-falls back if claimed).')
 })
 
 function createOverlay() {
@@ -36,8 +52,11 @@ function createOverlay() {
     hideOverlay()
   })
 
-  overlayWindow.webContents.on('console-message', (_, l, m) => console.log('[Renderer]', m))
-  overlayWindow.webContents.on('did-finish-load', () => console.log('[Overlay] Web app loaded'))
+  overlayWindow.webContents.on('console-message', (_, l, m) => log('[Renderer]', m))
+  overlayWindow.webContents.on('did-finish-load', () => log('[Overlay] Web app loaded'))
+  overlayWindow.webContents.on('render-process-gone', (_e, d) => log('[Overlay] render-process-gone:', d))
+  overlayWindow.webContents.on('did-fail-load', (_e, code, desc, url) => log('[Overlay] did-fail-load:', code, desc, url))
+  overlayWindow.webContents.on('unresponsive', () => log('[Overlay] webContents unresponsive'))
 }
 
 function showOverlay() {
@@ -59,8 +78,24 @@ function hideOverlay() {
 }
 
 function registerShortcuts() {
-  globalShortcut.register('CommandOrControl+Shift+S', async () => {
-    console.log('[Overlay] Capture triggered')
+  // Register the FIRST accelerator that Windows/other apps haven't already claimed. Ctrl+Shift+S is
+  // owned by the built-in screenshot tool on many laptops, so our registration silently fails and the
+  // key does nothing for us (Windows grabs it). Fall back to alternatives and log which one is live.
+  const bindShortcut = (accels, handler, label) => {
+    for (const acc of accels) {
+      let ok = false
+      try { ok = globalShortcut.register(acc, handler) } catch (e) { log(`[Overlay] ${label}: ${acc} threw`, e) }
+      if (ok && globalShortcut.isRegistered(acc)) { log(`[Overlay] ${label} → ${acc}`); return acc }
+      log(`[Overlay] ${label}: ${acc} unavailable (claimed by another app)`)
+    }
+    log(`[Overlay] ${label}: NO accelerator available`)
+    return null
+  }
+
+  const captureKey = bindShortcut(['Alt+Q', 'CommandOrControl+Shift+Q', 'CommandOrControl+Shift+Y', 'CommandOrControl+Shift+S'], async () => {
+    log('[Overlay] Capture triggered')
+    // Recreate the window if it was destroyed (a prior crash), so capture can't act on a dead window.
+    if (!overlayWindow || overlayWindow.isDestroyed()) { log('[Overlay] window missing — recreating'); createOverlay() }
     if (overlayWindow.isVisible()) {
       hideOverlay()
       await new Promise(r => setTimeout(r, 200))
@@ -68,13 +103,15 @@ function registerShortcuts() {
     await new Promise(r => setTimeout(r, 300))
 
     try {
+      log('[Overlay] getSources start; display size:', screen.getPrimaryDisplay().size)
       const sources = await desktopCapturer.getSources({
         types: ['screen'], thumbnailSize: screen.getPrimaryDisplay().size,
       })
-      if (!sources.length) return
+      log('[Overlay] getSources returned', sources.length, 'sources')
+      if (!sources.length) { showOverlay(); return }
 
       fs.writeFileSync(SCREENSHOT_FILE, sources[0].thumbnail.toPNG())
-      console.log('[Overlay] Screenshot saved')
+      log('[Overlay] Screenshot saved')
 
       // Hide page content so old screenshot doesn't flash, then show overlay
       await overlayWindow.webContents.executeJavaScript(`
@@ -87,12 +124,17 @@ function registerShortcuts() {
       overlayWindow.webContents.executeJavaScript(`
         window.__overlayScreenshot = '/api/overlay-screenshot?' + Date.now();
         window.dispatchEvent(new CustomEvent('overlay-capture'));
-      `)
-    } catch (e) { console.error('[Overlay] Error:', e) }
-  })
+      `).catch((e) => log('[Overlay] post-capture JS failed:', e))
+      log('[Overlay] Capture complete')
+    } catch (e) {
+      log('[Overlay] Capture Error:', e)
+      // Don't leave the overlay hidden on failure — bring it back so it doesn't look "turned off".
+      try { showOverlay() } catch (e2) { log('[Overlay] re-show failed:', e2) }
+    }
+  }, 'capture')
 
-  // Ctrl+Shift+A — lightweight transparent selector window for drawing
-  globalShortcut.register('CommandOrControl+Shift+A', async () => {
+  // Area-select — lightweight transparent selector window for drawing
+  const areaKey = bindShortcut(['Alt+A', 'CommandOrControl+Shift+U', 'CommandOrControl+Shift+D', 'CommandOrControl+Shift+A'], async () => {
     console.log('[Overlay] Area-select triggered')
     if (overlayWindow.isVisible()) {
       hideOverlay()
@@ -197,11 +239,16 @@ function registerShortcuts() {
           window.__areaSelectRect = ${JSON.stringify({ ...rect, pad, screenW: dispBounds.width, screenH: dispBounds.height })};
           window.dispatchEvent(new CustomEvent('overlay-area-captured'));
         `)
-      } catch (err) { console.error('[Overlay] Area-select error:', err) }
+      } catch (err) { log('[Overlay] Area-select error:', err) }
     })
 
     selectorWindow.on('closed', () => { selectorWindow = null })
-  })
+  }, 'area-select')
+
+  // Publish the accelerators that actually registered so the app can display the real keys (the
+  // primary can be claimed by another app — 1Password, Discord, the OS — and get skipped).
+  try { fs.writeFileSync(SHORTCUTS_FILE, JSON.stringify({ capture: captureKey, area: areaKey })) }
+  catch (e) { log('[Overlay] could not write shortcuts file:', e) }
 }
 
 ipcMain.on('overlay-dismiss', () => {
