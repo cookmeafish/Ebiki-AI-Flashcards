@@ -360,7 +360,50 @@ function apiPlugin() {
 
       // Launch overlay endpoint
       let overlayProcess = null
-      server.middlewares.use('/api/launch-overlay', (req, res) => {
+
+      // The Electron npm postinstall occasionally caches the download WITHOUT extracting it (seen on
+      // Windows), leaving node_modules/electron/dist/ with no binary — so every overlay launch crashes
+      // instantly with "Electron failed to install correctly" (the overlay appears to "turn off" right
+      // after turning on). Verify the real binary is present and, if it's missing/corrupt, self-heal by
+      // (re)downloading via @electron/get and extracting it ourselves — the reliable steps postinstall skipped.
+      const electronExeName = process.platform === 'win32'
+        ? 'electron.exe'
+        : process.platform === 'darwin' ? 'Electron.app/Contents/MacOS/Electron' : 'electron'
+      const electronDir = path.resolve('node_modules/electron')
+      const electronHealthy = () => {
+        try {
+          const version = JSON.parse(fs.readFileSync(path.join(electronDir, 'package.json'), 'utf-8')).version
+          const distVersion = fs.readFileSync(path.join(electronDir, 'dist', 'version'), 'utf-8').replace(/^v/, '').trim()
+          if (distVersion !== version) return false
+          if (fs.readFileSync(path.join(electronDir, 'path.txt'), 'utf-8').trim() !== electronExeName) return false
+          return fs.existsSync(path.join(electronDir, 'dist', electronExeName))
+        } catch { return false }
+      }
+      let electronRepairPromise = null
+      const ensureElectronBinary = async () => {
+        if (electronHealthy()) return true
+        if (!electronRepairPromise) {
+          electronRepairPromise = (async () => {
+            console.log('[Overlay API] Electron binary missing/corrupt — repairing…')
+            const getMod = await import('@electron/get')
+            const downloadArtifact = getMod.downloadArtifact || getMod.default?.downloadArtifact
+            const extractMod = await import('extract-zip')
+            const extractZip = extractMod.default || extractMod
+            const version = JSON.parse(fs.readFileSync(path.join(electronDir, 'package.json'), 'utf-8')).version
+            let checksums
+            try { checksums = JSON.parse(fs.readFileSync(path.join(electronDir, 'checksums.json'), 'utf-8')) } catch { checksums = undefined }
+            const zipPath = await downloadArtifact({ version, artifactName: 'electron', platform: process.platform, arch: process.arch, checksums })
+            await extractZip(zipPath, { dir: path.join(electronDir, 'dist') })
+            fs.writeFileSync(path.join(electronDir, 'path.txt'), electronExeName)
+            console.log('[Overlay API] Electron repaired:', electronHealthy())
+            return electronHealthy()
+          })().catch((e) => { console.error('[Overlay API] Electron repair failed:', e.message); return false })
+            .finally(() => { electronRepairPromise = null })
+        }
+        return electronRepairPromise
+      }
+
+      server.middlewares.use('/api/launch-overlay', async (req, res) => {
         console.log('[Overlay API] request:', req.method, req.url)
         if (req.method === 'POST') {
           res.setHeader('Content-Type', 'application/json')
@@ -376,6 +419,12 @@ function apiPlugin() {
             return
           }
           try {
+            // Self-heal a missing/corrupt Electron binary before spawning (avoids the instant-crash loop).
+            const ready = await ensureElectronBinary()
+            if (!ready) {
+              res.end(JSON.stringify({ error: 'Electron binary could not be installed. Check your internet connection and try again.' }))
+              return
+            }
             const mainScript = path.resolve('electron/main.cjs')
             console.log('[Overlay API] spawning:', process.execPath, electronCli, mainScript)
             overlayProcess = spawn(process.execPath, [electronCli, mainScript], {
@@ -432,6 +481,14 @@ function apiPlugin() {
           console.log('[Overlay API] hide requested')
           res.end('{"ok":true}')
         } else { res.statusCode = 405; res.end('') }
+      })
+
+      // Report the overlay's ACTIVE global shortcuts (written by the overlay process after it registers
+      // them). Lets the app show the real keys, since the primary may be claimed by another app and skipped.
+      server.middlewares.use('/api/overlay-shortcuts', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+        try { res.end(fs.readFileSync(path.resolve('electron/overlay-shortcuts.json'), 'utf-8')) }
+        catch { res.end(JSON.stringify({ capture: null, area: null })) }
       })
 
       server.middlewares.use('/api/overlay-screenshot', (req, res) => {

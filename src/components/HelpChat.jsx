@@ -9,13 +9,13 @@ About Ebiki:
 Ebiki is an AI-powered screen translation and learning app whose mascot is Ebi, a red shrimp. It captures screenshots, detects text via OCR, translates it, and integrates with Anki for flashcard study.
 
 Key features:
-Capture button / Ctrl+Shift+S: takes a screenshot to analyze.
+Capture button / Alt+Q: takes a screenshot to analyze.
 Upload / paste / drag-drop: alternative ways to load images.
 Mode button (toolbar): switch or create learning modes like "Language Learning" or "Security+". Each mode has its own settings.
 Gear icon: opens settings for the current mode (Anki deck, card format, tags, study rules, knowledge base).
 Study button: starts a quiz session using your Anki flashcards with AI-generated questions.
 Deck button: browse, edit, search, and delete Anki flashcards.
-Overlay button: launches an Electron overlay for translating game/app screens. Press Ctrl+Shift+S in-game, ESC to dismiss.
+Overlay button: launches an Electron overlay for translating game/app screens. Press Alt+Q in-game (Alt+A for area select), ESC to dismiss. If another app already uses those keys, the overlay auto-picks a free combo.
 Key Set: configure your AI provider API key.
 Knowledge Base (in settings): upload reference materials (.txt/.md) for smarter study questions.
 Grammar feedback: optional toggle in study settings for grammar correction during quizzes.

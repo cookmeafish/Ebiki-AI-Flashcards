@@ -287,6 +287,9 @@ export default function App() {
   const [language, setLanguage] = useState('auto')
   const [targetLang, setTargetLang] = useState('eng')
   const [overlayRunning, setOverlayRunning] = useState(false)
+  // The overlay's ACTUAL registered global shortcuts (Electron accelerator strings), reported by the
+  // overlay after it binds them. Null until known — hints fall back to the default combo.
+  const [overlayShortcuts, setOverlayShortcuts] = useState(null)
   // Persisted user preference: launch the screen overlay on startup. Defaults ON.
   const [overlayEnabled, setOverlayEnabled] = useState(true)
   const [selectionMode, setSelectionMode] = useState(false)
@@ -568,6 +571,7 @@ export default function App() {
   const fileInputRef = useRef(null)
   const containerRef = useRef(null)
   const cancelRef = useRef(false)
+  const analyzeImageRef = useRef(null) // late-bound to analyzeImage so earlier callbacks can auto-analyze
 
   const apiKey = apiKeys[provider] || ''
   const providerConfig = PROVIDERS[provider]
@@ -800,8 +804,12 @@ export default function App() {
       setKeysLoaded(true)
       setConfigLoaded(true)
     })
-    // Check overlay status immediately and poll
-    const checkOverlay = () => fetch('/api/launch-overlay').then(r => r.json()).then(d => setOverlayRunning(d.running)).catch(() => {})
+    // Check overlay status immediately and poll. Also fetch the ACTUAL registered shortcuts so the
+    // hints show the real keys (the overlay auto-falls back if a combo is claimed by another app).
+    const checkOverlay = () => {
+      fetch('/api/launch-overlay').then(r => r.json()).then(d => setOverlayRunning(d.running)).catch(() => {})
+      fetch('/api/overlay-shortcuts').then(r => r.json()).then(d => { if (d && (d.capture || d.area)) setOverlayShortcuts(d) }).catch(() => {})
+    }
     checkOverlay()
     const overlayPoll = setInterval(checkOverlay, 3000)
 
@@ -989,15 +997,18 @@ export default function App() {
   }, [keysLoaded, onboarded])
 
   // ─── Load Image Helper ──────────────────────────────────────────────────────
-  const loadImageFromDataUrl = useCallback((dataUrl) => {
+  const loadImageFromDataUrl = useCallback((dataUrl, autoAnalyze = false) => {
     const img = new Image()
     img.onload = () => {
       setImgDims({ w: img.naturalWidth, h: img.naturalHeight })
       setScreenshot(dataUrl)
-      setStage('captured')
       setOcrWords([])
       setExpanded(false)
       setError(null)
+      // Alt+Q means "capture and translate the whole screen" — go straight to analysis with no extra
+      // click. Other loaders (paste/drop/file) stay at 'captured' so the user can review first.
+      if (autoAnalyze && analyzeImageRef.current) analyzeImageRef.current(dataUrl)
+      else setStage('captured')
     }
     img.src = dataUrl
   }, [])
@@ -1031,8 +1042,10 @@ export default function App() {
   const captureScreen = useCallback(async () => {
     setError(null)
     try {
+      // Hint the whole monitor so the browser's picker defaults to full-screen (it still must show a
+      // picker — that's a browser security requirement; the Electron overlay is the no-prompt path).
       const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { mediaSource: 'screen' },
+        video: { displaySurface: 'monitor' },
       })
 
       const video = document.createElement('video')
@@ -1052,7 +1065,7 @@ export default function App() {
       video.remove()
 
       const dataUrl = canvas.toDataURL('image/png')
-      loadImageFromDataUrl(dataUrl)
+      loadImageFromDataUrl(dataUrl, true) // Alt+Q → capture + analyze automatically
     } catch (err) {
       if (err.name !== 'AbortError') {
         setError('Screen capture failed: ' + err.message)
@@ -1746,12 +1759,14 @@ export default function App() {
     }
     return analyzeImageVision(dataUrl)
   }, [apiKey, providerConfig, analyzeImageVision])
+  // Keep the ref current so earlier-defined callbacks (loadImageFromDataUrl) can auto-analyze.
+  analyzeImageRef.current = analyzeImage
 
   // ─── Keyboard Shortcuts ─────────────────────────────────────────────────────
   useEffect(() => {
     const handler = (e) => {
-      // Ctrl+Shift+S → Screen capture
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 's') {
+      // Alt+Q → Screen capture (single modifier, avoids the OS Ctrl+Shift+S / 1Password Ctrl+Shift+X)
+      if (e.altKey && !e.ctrlKey && !e.metaKey && e.code === 'KeyQ') {
         e.preventDefault()
         captureScreen()
       }
@@ -2127,6 +2142,9 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
   // The language the active mode is teaching (Spanish, German, Chinese…) and the user's own language.
   const learnLangName = () => activeMode.studyRules?.studyLanguage || (LANGS.find((l) => l.code === language)?.label) || activeMode.name || 'the target language'
   const userLangName = () => APP_LANG_NAME[appLanguage] || 'English'
+  // Human-readable label for the overlay's active capture shortcut (falls back to the default combo
+  // until the running overlay reports which accelerator actually registered).
+  const captureHint = () => String(overlayShortcuts?.capture || 'Alt+Q').replace(/CommandOrControl|CmdOrCtrl|Control/g, 'Ctrl')
   // The language Ebi SPEAKS in (questions, hints, feedback, tutor chat). NEVER static:
   // - language modes → the "Ebi speaks" quizLanguage, falling back to the learned language;
   // - general modes  → ALWAYS the user's app language. A general subject (Security+, chemistry,
@@ -5588,10 +5606,14 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
     }
 
     return ocrWords.map((word, i) => {
-      // Skip words we couldn't localize precisely (vision boxes are unreliable) — they live
-      // in the reading panel instead, so we never draw a misplaced overlay box.
-      if (word._approxBox) return null
       const box = boxes[i]
+      if (!box) return null
+      // Words Tesseract couldn't localize keep the vision model's approximate box. We used to skip
+      // drawing them entirely, which meant a screen where Tesseract reads little (stylized game
+      // fonts) showed NO highlights at all ("nothing happens"). Draw them too, but dashed + dimmer
+      // so it's clear the position is approximate. Skip only if the box is degenerate/empty.
+      const approx = word._approxBox
+      if (approx && (box.x1 - box.x0 < 2 || box.y1 - box.y0 < 2)) return null
       const x = (box.x0 / refW) * 100
       const y = (box.y0 / refH) * 100
       const w = Math.max(0, ((box.x1 - box.x0) / refW) * 100)
@@ -5624,9 +5646,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             border: isActive
               ? isPinned ? '2px solid rgba(88, 166, 255, 0.85)' : `2px solid ${wordColor.border}`
               : showHighlights && wordColor.border !== 'transparent'
-                ? `1px solid ${wordColor.border}`
+                ? `1px ${approx ? 'dashed' : 'solid'} ${wordColor.border}`
                 : '1px solid transparent',
             borderRadius: 2,
+            opacity: approx && !isActive ? 0.6 : 1,
             cursor: 'pointer',
             transition: 'background 0.1s, border 0.1s',
             zIndex: isActive ? 10 : 1,
@@ -5793,7 +5816,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 {overlayRunning ? '\u25CF' : '\u25CB'} {t('overlay')}
               </button>
 
-              <kbd style={S.kbd}>Ctrl+Shift+S</kbd>
+              <kbd style={S.kbd}>{captureHint()}</kbd>
             </>
           )}
 
@@ -5874,7 +5897,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       )}
 
       {/* ── Deck Browser ─────────────────────────────────────────────────────── */}
-      {activeTab === 'deck' && (
+      {!isOverlay && activeTab === 'deck' && (
         <main style={{ ...S.main, display: 'flex', flexDirection: 'column', padding: 20 }}>
           <div style={{ maxWidth: 800, width: '100%', margin: '0 auto' }}>
             {/* Header */}
@@ -6449,7 +6472,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       )}
 
       {/* ── Discover Tab ─────────────────────────────────────────────────────── */}
-      {activeTab === 'discover' && (
+      {!isOverlay && activeTab === 'discover' && (
         <main style={{ ...S.main, display: 'flex', flexDirection: 'column', padding: 20 }}>
           <div style={{ maxWidth: 800, width: '100%', margin: '0 auto' }}>
             <div style={{ fontSize: 16, fontWeight: 700, color: C.ink, fontFamily: FONT.display, marginBottom: 12 }}>{t('discoverTitle')}</div>
@@ -6500,7 +6523,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       )}
 
       {/* ── Study Tab Home (no active session) ─────────────────────────────── */}
-      {activeTab === 'study' && !studyActive && (
+      {!isOverlay && activeTab === 'study' && !studyActive && (
         <main style={{ ...S.main, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
           <div style={{ maxWidth: 400, width: '100%', textAlign: 'center', padding: '40px 20px' }}>
             <img src={shrimpUrl(poseFile('book'))} alt="Ebi" style={{ width: 84, height: 84, objectFit: 'contain', marginBottom: 12 }} />
@@ -6526,7 +6549,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       )}
 
       {/* ── Chat Tab ─────────────────────────────────────────────────────────── */}
-      {activeTab === 'chat' && (
+      {!isOverlay && activeTab === 'chat' && (
         <main style={{ ...S.main, display: 'flex', padding: 0, overflow: 'hidden' }}>
           {/* Session sidebar */}
           <div style={{ width: 200, borderRight: '1px solid var(--c-border)', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
@@ -6806,7 +6829,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       )}
 
       {/* ── Stats Tab ────────────────────────────────────────────────────────── */}
-      {activeTab === 'stats' && (() => {
+      {!isOverlay && activeTab === 'stats' && (() => {
         const history = (() => { try { return JSON.parse(localStorage.getItem('screenlens-study-history') || '[]') } catch { return [] } })()
         // Use LOCAL date strings (YYYY-MM-DD) so they line up with Anki's local review days.
         const today = new Date().toLocaleDateString('en-CA')
@@ -6929,7 +6952,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       })()}
 
       {/* ── Study Session ────────────────────────────────────────────────────── */}
-      {activeTab === 'study' && studyActive && (
+      {!isOverlay && activeTab === 'study' && studyActive && (
         <main style={{
           ...S.main,
           display: 'flex',
@@ -7609,7 +7632,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             <img src={shrimpUrl(poseFile('camera'))} alt="Ebi" style={{ width: 84, height: 84, objectFit: 'contain', marginBottom: 12 }} />
             <h2 style={S.emptyTitle}>Capture, paste, drop, or upload</h2>
             <p style={S.emptyDesc}>
-              Hit <kbd style={S.kbdInline}>Ctrl+Shift+S</kbd> to screenshot your display,
+              Hit <kbd style={S.kbdInline}>{captureHint()}</kbd> to screenshot your display,
               or paste / drag-drop any image. Your chosen AI ({providerConfig.label}) reads
               the image and translates each word in context. Hover any word for its meaning,
               pronunciation, and synonyms.

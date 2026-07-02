@@ -69,7 +69,7 @@ A multi-tab learning app with AI chat, Anki-integrated study sessions, screen tr
 - **Tap a word for context** — tap any word in a question (language modes) to get its meaning *as used in that question* (analyzed from the whole sentence), shown in the legend's correct-green, with other common senses in word-choice-purple. Definitions are written in your app language
 
 ### Picture Tab
-- **Screen capture** — `Ctrl+Shift+S` for full screen, `Ctrl+Shift+A` for area selection
+- **Screen capture** — `Alt+Q` for full screen, `Alt+A` for area selection (auto-falls back to another combo if the OS/another app has claimed it)
 - **Area selection** — transparent drawing window, screen not frozen during selection, only selected area captured
 - **Paste / Upload / Drag-drop** — Alternative image input methods
 - **Vision reading** — a vision model reads the image directly (accurate on busy/stylized game screens), translating each word in context; Tesseract runs alongside only to pin precise word boxes
@@ -288,8 +288,8 @@ npm install electron --save-optional
 1. Start the web app: `npm run dev`
 2. Go to the **Picture** tab and click **Overlay** (or run `npm run overlay`)
 3. Switch to your game or app
-4. **Ctrl+Shift+S** — full screen capture, overlay appears with frozen screenshot
-5. **Ctrl+Shift+A** — area selection: transparent drawing window appears, draw a rectangle, only that area is captured and frozen while the rest of the desktop stays interactive
+4. **Alt+Q** — full screen capture, overlay appears with frozen screenshot
+5. **Alt+A** — area selection: transparent drawing window appears, draw a rectangle, only that area is captured and frozen while the rest of the desktop stays interactive
 6. Hover words for translations, click to pin, all features available
 7. Press **ESC** to dismiss the overlay
 8. Click the green Overlay button to stop Electron

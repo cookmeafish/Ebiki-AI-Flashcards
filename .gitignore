@@ -10,6 +10,8 @@ decks/
 chats/
 /discover/
 electron/last-capture.png
+electron/overlay.log
+electron/overlay-shortcuts.json
 .claude/settings.local.json
 planned-features.md
 discover-mode-plan.md
