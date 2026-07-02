@@ -36,32 +36,78 @@ Output: [{"i":0,"w":"Sobre","t":"Overguard","s":["shield"],"c":"foreign","p":"no
 export const VISION_OCR_PROMPT = `You read text from an image for a language learner and translate it IN CONTEXT.
 
 You receive JSON: {"from":"Spanish","to":"English","context":"optional note"}
+"from" is the language the user is LEARNING. "to" is the language they already speak.
+(If "from" is "Auto-detect", detect the main non-"to" language in the image and use that.)
 
-Look at the image. Extract every meaningful word written in the SOURCE language ("from").
+Look at the image. Extract every meaningful readable word — in EITHER language. Translation is
+BIDIRECTIONAL, always toward the language the word is NOT in:
+- A word in the LEARNED language ("from") → translate it into "to" (classic reading help).
+- A word in the user's own language ("to") → translate it into the LEARNED language ("from"),
+  so ANY screen becomes vocabulary practice for the learner.
 Use the whole scene as context so each translation fits how the word is actually used.
 
 Return ONLY a raw JSON array (no markdown, no prose). One object PER WORD, in natural
-reading order (top-to-bottom, left-to-right):
+reading order (top-to-bottom, left-to-right), with EXACTLY these fields and NOTHING more —
+keep the output lean; richer detail (gloss/synonyms/pronunciation) is fetched separately:
 - "w": the exact word as written in the image (keep accents/punctuation-free form)
-- "t": its translation into the TARGET language ("to"), chosen for THIS context. If it is a
-  proper name keep it; if already in the target language keep it as-is.
-- "sense": a short (2-6 word) gloss of what the word means AS USED here
-- "alts": up to 3 other common meanings it has in OTHER contexts (a few words each; [] if none)
-- "s": 2-3 synonyms in the target language ([] for names/numbers/function words)
-- "c": category — "foreign" (needs translation) | "name" (proper noun/character/place/brand) |
-  "target" (already in the target language) | "number" (digits/stats)
+- "t": its translation into the OTHER language (per the bidirectional rule above), chosen for
+  THIS context. Proper names stay as-is.
+- "c": category — "foreign" (word was translated) | "name" (proper noun/character/place/brand) |
+  "target" (identical in both languages / nothing to translate) | "number" (digits/stats)
 - "p": part of speech — "noun"|"verb"|"adj"|"adv"|"prep"|"art"|"conj"|"pron"|"other"
-- "r": approximate pronunciation of the original word in simple English phonetics (e.g. "soor-KAR")
 - "line": integer line/sentence group. Words on the same visual line share the same number;
   increment for each new line, top to bottom.
-- "box": [x0,y0,x1,y1] the word's bounding box as fractions of image size (0..1), where x0,y0 is
-  the top-left and x1,y1 the bottom-right. Make boxes tight around the word.
+- "box": [x0,y0,x1,y1] the word's bounding box as fractions of image size (0..1, 3 decimal
+  places), x0,y0 = top-left, x1,y1 = bottom-right. Make boxes tight around the word.
 
 RULES:
+- ONE object per single word — NEVER merge several words into one object. "paste / drag-drop"
+  is TWO objects ("paste" and "drag-drop"); a hyphenated compound counts as one word. If words
+  form a phrase, still list each word separately and let "sense" reflect its meaning IN the phrase.
 - ONLY include real readable words. Do NOT invent text for textures, shapes, logos, icons or noise.
-- Skip pure UI chrome / HUD numbers / menu labels unless they are learnable source-language words.
-- If the image has no readable source-language text, return [].
+- Skip URLs, file paths, keyboard-shortcut codes, and meaningless fragments; real words in UI
+  labels/menus/buttons ARE learnable — include them.
+- If the image has no readable text at all, return [].
 - Output ONLY the JSON array.`
+
+// Clean-image fast path: on visually FLAT screenshots Tesseract reads the text reliably, so
+// the model never sees the image — it just translates Tesseract's word list (text-only call
+// on the cheap/fast tier). Bidirectional + mode-aware like the vision prompt.
+export const WORDLIST_TRANSLATE_PROMPT = `You translate a list of words OCR'd from a screen for a language learner.
+
+You receive JSON: {"words":[{"i":0,"w":"palabra"},...],"from":"Spanish","to":"English","context":"all words in reading order"}
+"from" is the language the user is LEARNING; "to" is the language they already speak.
+(If "from" is "Auto-detect", detect the main non-"to" language among the words and use that.)
+
+Translation is BIDIRECTIONAL, always toward the language the word is NOT in:
+- a word in the learned language ("from") → translate it into "to"
+- a word in the user's language ("to") → translate it into "from"
+Use the context so each translation fits how the word is actually used.
+
+Return ONLY a raw JSON array, one object per input word:
+- "i": the SAME index from the input (MUST match)
+- "t": the translation (proper names stay as-is)
+- "c": "foreign" (was translated) | "name" (proper noun/place/brand) | "target" (identical in
+  both languages / nothing to translate) | "number" (digits/stats) | "skip" (OCR junk: stray
+  letters, garbled fragments, URLs, file paths — not a real word)
+- "p": part of speech — "noun"|"verb"|"adj"|"adv"|"prep"|"art"|"conj"|"pron"|"other"
+No markdown, no commentary. Every output object MUST carry its input "i".`
+
+// Lazy per-word enrichment for the vision fast path: on text-dense screens the scan returns
+// only core fields; this fetches sense/alts/synonyms/pronunciation the first time a word is
+// hovered or clicked. One word per call — small, fast, cheap.
+export const WORD_ENRICH_PROMPT = `You enrich ONE word from an already-translated screen for a language learner.
+
+You receive JSON: {"word":"...","translation":"...","from":"Spanish","to":"English","context":"all text on the screen"}
+"from" is the language being LEARNED; "to" is the user's own language. The word may be in either
+language; its "translation" is in the other one.
+
+Return ONLY a raw JSON object (no markdown, no prose):
+- "sense": a short (2-6 word) gloss of what the word means AS USED in this context
+- "alts": up to 3 other common meanings it has in OTHER contexts (a few words each; [] if none)
+- "s": 2-3 synonyms of the translation, in the translation's language ([] for names/numbers/function words)
+- "r": approximate pronunciation in simple English phonetics of whichever side is in the LEARNED
+  "from" language — the word itself if it is a "from" word, otherwise its translation.`
 
 // Spanish flashcard generator — produces the user's exact Frente/Dorso format. Returns a
 // JSON ARRAY of card objects (one per distinct meaning; multiple = multi-meaning word).
