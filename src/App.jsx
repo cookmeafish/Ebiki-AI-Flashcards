@@ -3811,7 +3811,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
 
   // Render color-coded feedback notes for a study result (works for all modes).
   // Falls back to a legacy grammarNote if present (older in-memory results).
-  const renderFeedbackNotes = (r) => {
+  const renderFeedbackNotes = (r, source) => {
     const notes = [
       ...(Array.isArray(r?.notes) ? r.notes : []),
       ...(r?.grammarNote ? [{ type: 'grammar', text: r.grammarNote }] : []),
@@ -3820,10 +3820,90 @@ Output ONLY raw JSON. No markdown, no backticks.`
       const cat = FEEDBACK_CATS[n.type] || FEEDBACK_CATS.tip
       return (
         <div key={i} style={{ color: cat.color, fontSize: 10, marginTop: 2 }}>
-          <span style={{ fontWeight: 700 }}>{cat.icon}</span> {n.text}
+          <span style={{ fontWeight: 700 }}>{cat.icon}</span> {source ? renderTappableText(n.text, n.text, source) : n.text}
         </div>
       )
     })
+  }
+
+  // Make each meaningful word in a study string tap-to-look-up (+ turn into an Anki card), exactly
+  // like the question screen. Language modes only; `sentence` is the context sent to the lookup and
+  // `source` keys which inline popup shows (so the result appears next to the clicked word). Falls
+  // back to the raw text for general modes / empty strings.
+  const renderTappableText = (text, sentence, source) => {
+    if (activeMode.type !== 'language' || !text) return text
+    return String(text).split(/(\s+)/).map((tok, ti) => {
+      if (/^\s+$/.test(tok) || tok === '') return <span key={ti}>{tok}</span>
+      const clean = tok.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '')
+      if (clean.length < 2 || /_{2,}/.test(tok)) return <span key={ti}>{tok}</span>
+      return (
+        <span key={ti} className="study-word" onClick={() => lookupStudyWord(clean, sentence || text, source)}
+          title={`What does "${clean}" mean?`} style={{ cursor: 'pointer', display: 'inline-block' }}>
+          <span className="study-word-inner" style={{ display: 'inline-block', borderBottom: '1px dotted rgba(223,37,64,.35)' }}>{tok}</span>
+        </span>
+      )
+    })
+  }
+
+  // The tapped-word popup (in-context meaning + "Make Anki card") rendered inline wherever a word was
+  // tapped. `source` must match the value passed to lookupStudyWord, so only that spot shows the popup.
+  const renderWordLookupPopup = (source) => {
+    if (activeMode.type !== 'language' || !studyWordLookup || (studyWordLookup.source || 'question') !== source) return null
+    return (
+      <div style={{ background: 'rgba(223,37,64,.06)', border: '1px solid rgba(223,37,64,.2)', borderRadius: 5, padding: '5px 10px', margin: '6px 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {/* Row 1: the tapped word + its in-context meaning, and the × that backs out */}
+        <div style={{ fontSize: 11, display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+          <span style={{ fontWeight: 700, color: 'var(--c-brand)' }}>{studyWordLookup.word}</span>
+          <span style={{ color: 'var(--c-ink-dim)' }}>—</span>
+          {studyWordLookup.loading ? (
+            <span style={{ flex: 1, color: 'var(--c-ink-dim)' }}>Looking up…</span>
+          ) : (
+            <span style={{ flex: 1 }}>
+              <span style={{ color: 'var(--c-success)', fontWeight: 700 }}>{studyWordLookup.primary}</span>
+              {studyWordLookup.alternatives?.length > 0 && (
+                <span style={{ color: 'var(--c-ink-faint)' }}> · also <span style={{ color: 'var(--c-purple)', fontWeight: 600 }}>{studyWordLookup.alternatives.join(', ')}</span></span>
+              )}
+            </span>
+          )}
+          <span onClick={() => setStudyWordLookup(null)} title="Close" style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 13, lineHeight: 1 }}>×</span>
+        </div>
+
+        {/* Row 2: turn this word into an Anki card. generateCards is language/topic-agnostic. */}
+        {!studyWordLookup.loading && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', borderTop: '1px solid rgba(223,37,64,.15)', paddingTop: 6 }}>
+            {studyWordLookup.cardSynced ? (
+              <span style={{ fontSize: 11, color: 'var(--c-success)', fontWeight: 700 }}>✓ Added to {studyWordLookup.cardDeck}</span>
+            ) : studyWordLookup.card ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
+                <div style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>
+                  New card — <span style={{ color: 'var(--c-ink)', fontWeight: 700 }}>{studyWordLookup.card.front}</span>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--c-ink)', background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 5, padding: '6px 9px', lineHeight: 1.55, maxHeight: 150, overflowY: 'auto' }}
+                  dangerouslySetInnerHTML={{ __html: cardBackToHtml(studyWordLookup.card.back) }} />
+                {studyWordLookup.card.correction && (
+                  <div style={{ fontSize: 10, color: 'var(--c-warning)' }}>⚠ {studyWordLookup.card.correction}</div>
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+                  <button onClick={studyWordSyncCard} disabled={studyWordLookup.cardSyncing || !ankiConnected}
+                    title={ankiConnected ? `Add to ${studyWordCardDeck()}` : 'Anki not connected'}
+                    style={{ ...S.ghostBtn, fontSize: 11, padding: '4px 12px', fontWeight: 700, color: 'var(--c-success)', borderColor: 'rgba(24,169,87,.45)', opacity: (studyWordLookup.cardSyncing || !ankiConnected) ? 0.5 : 1, cursor: (studyWordLookup.cardSyncing || !ankiConnected) ? 'default' : 'pointer' }}>
+                    {studyWordLookup.cardSyncing ? 'Adding…' : `✓ Add to ${studyWordCardDeck()}`}
+                  </button>
+                </div>
+              </div>
+            ) : studyWordLookup.cardLoading ? (
+              <span style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>Creating card…</span>
+            ) : (
+              <button onClick={studyWordMakeCard} disabled={!apiKey}
+                style={{ ...S.ghostBtn, fontSize: 11, padding: '3px 10px', fontWeight: 700, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.4)', opacity: apiKey ? 1 : 0.5, cursor: apiKey ? 'pointer' : 'default' }}>
+                ➕ Make Anki card
+              </button>
+            )}
+            {studyWordLookup.cardError && <span style={{ fontSize: 10, color: 'var(--c-danger)' }}>{studyWordLookup.cardError}</span>}
+          </div>
+        )}
+      </div>
+    )
   }
 
   // Small legend popover explaining the feedback colors.
@@ -4448,7 +4528,7 @@ Rules:
 
   // Language study: look up what a single word in the question sentence means, in the
   // quiz language. Lets a learner decode an unfamiliar word without revealing the answer.
-  const lookupStudyWord = async (word, sentence) => {
+  const lookupStudyWord = async (word, sentence, source = 'question') => {
     if (!apiKey || !word) return
     // Explain in the USER's language (= the app language), since that's the language they
     // speak and are learning from — not the quiz/study language.
@@ -4458,7 +4538,7 @@ Rules:
     const studyLang = activeMode.type === 'language'
       ? ((activeMode.studyRules || defaultStudyRules).studyLanguage || learnLangName())
       : userLangName()
-    setStudyWordLookup({ word, primary: null, alternatives: [], loading: true })
+    setStudyWordLookup({ word, primary: null, alternatives: [], loading: true, source })
     try {
       // Disambiguate by the WHOLE question — the same word can mean different things in different
       // contexts. Return the in-context meaning (shown in the legend's "correct" green) plus other
@@ -4479,9 +4559,10 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
         primary: String(parsed.primary || '').trim() || '—',
         alternatives: Array.isArray(parsed.alternatives) ? parsed.alternatives.filter(Boolean).map(String).slice(0, 3) : [],
         loading: false,
+        source,
       })
     } catch {
-      setStudyWordLookup({ word, primary: 'Lookup failed — try again.', alternatives: [], loading: false })
+      setStudyWordLookup({ word, primary: 'Lookup failed — try again.', alternatives: [], loading: false, source })
     }
   }
 
@@ -7357,7 +7438,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               const lookupable = clean.length > 1 && !/_{2,}/.test(tok) && !isAnswer
                               const gloss = (!isAnswer && glossMap[cl]) || null
                               const word = lookupable
-                                ? <span className="study-word" onClick={() => lookupStudyWord(clean, question)} title={`What does "${clean}" mean?`} style={{ cursor: 'pointer', display: 'inline-block' }}><span className="study-word-inner" style={{ display: 'inline-block', borderBottom: '1px dotted rgba(223,37,64,.45)' }}>{tok}</span></span>
+                                ? <span className="study-word" onClick={() => lookupStudyWord(clean, question, 'question')} title={`What does "${clean}" mean?`} style={{ cursor: 'pointer', display: 'inline-block' }}><span className="study-word-inner" style={{ display: 'inline-block', borderBottom: '1px dotted rgba(223,37,64,.45)' }}>{tok}</span></span>
                                 : <span>{tok}</span>
                               // When any word has a gloss, give EVERY word the same stacked layout (blank slot
                               // above un-glossed words) so the whole line shares one baseline — no "floating".
@@ -7373,66 +7454,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         )
                       })()}
 
-                      {activeMode.type === 'language' && studyWordLookup && (
-                        <div style={{ background: 'rgba(223,37,64,.06)', border: '1px solid rgba(223,37,64,.2)', borderRadius: 5, padding: '5px 10px', marginBottom: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          {/* Row 1: the tapped word + its in-context meaning, and the × that backs out of everything */}
-                          <div style={{ fontSize: 11, display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
-                            <span style={{ fontWeight: 700, color: 'var(--c-brand)' }}>{studyWordLookup.word}</span>
-                            <span style={{ color: 'var(--c-ink-dim)' }}>—</span>
-                            {studyWordLookup.loading ? (
-                              <span style={{ flex: 1, color: 'var(--c-ink-dim)' }}>Looking up…</span>
-                            ) : (
-                              <span style={{ flex: 1 }}>
-                                {/* In-context meaning in the legend's "correct" green */}
-                                <span style={{ color: 'var(--c-success)', fontWeight: 700 }}>{studyWordLookup.primary}</span>
-                                {/* Other senses in the legend's "word choice" purple */}
-                                {studyWordLookup.alternatives?.length > 0 && (
-                                  <span style={{ color: 'var(--c-ink-faint)' }}> · also <span style={{ color: 'var(--c-purple)', fontWeight: 600 }}>{studyWordLookup.alternatives.join(', ')}</span></span>
-                                )}
-                              </span>
-                            )}
-                            <span onClick={() => setStudyWordLookup(null)} title="Close" style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 13, lineHeight: 1 }}>×</span>
-                          </div>
-
-                          {/* Row 2: turn this word into an Anki card. generateCards is language/topic-agnostic. */}
-                          {!studyWordLookup.loading && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', borderTop: '1px solid rgba(223,37,64,.15)', paddingTop: 6 }}>
-                              {studyWordLookup.cardSynced ? (
-                                <span style={{ fontSize: 11, color: 'var(--c-success)', fontWeight: 700 }}>✓ Added to {studyWordLookup.cardDeck}</span>
-                              ) : studyWordLookup.card ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
-                                  {/* Front */}
-                                  <div style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>
-                                    New card — <span style={{ color: 'var(--c-ink)', fontWeight: 700 }}>{studyWordLookup.card.front}</span>
-                                  </div>
-                                  {/* Back (exactly what will be synced) so the user can verify before adding */}
-                                  <div style={{ fontSize: 11, color: 'var(--c-ink)', background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 5, padding: '6px 9px', lineHeight: 1.55, maxHeight: 150, overflowY: 'auto' }}
-                                    dangerouslySetInnerHTML={{ __html: cardBackToHtml(studyWordLookup.card.back) }} />
-                                  {/* If the proofreader corrected the word, surface it so the user knows why */}
-                                  {studyWordLookup.card.correction && (
-                                    <div style={{ fontSize: 10, color: 'var(--c-warning)' }}>⚠ {studyWordLookup.card.correction}</div>
-                                  )}
-                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
-                                    <button onClick={studyWordSyncCard} disabled={studyWordLookup.cardSyncing || !ankiConnected}
-                                      title={ankiConnected ? `Add to ${studyWordCardDeck()}` : 'Anki not connected'}
-                                      style={{ ...S.ghostBtn, fontSize: 11, padding: '4px 12px', fontWeight: 700, color: 'var(--c-success)', borderColor: 'rgba(24,169,87,.45)', opacity: (studyWordLookup.cardSyncing || !ankiConnected) ? 0.5 : 1, cursor: (studyWordLookup.cardSyncing || !ankiConnected) ? 'default' : 'pointer' }}>
-                                      {studyWordLookup.cardSyncing ? 'Adding…' : `✓ Add to ${studyWordCardDeck()}`}
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : studyWordLookup.cardLoading ? (
-                                <span style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>Creating card…</span>
-                              ) : (
-                                <button onClick={studyWordMakeCard} disabled={!apiKey}
-                                  style={{ ...S.ghostBtn, fontSize: 11, padding: '3px 10px', fontWeight: 700, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.4)', opacity: apiKey ? 1 : 0.5, cursor: apiKey ? 'pointer' : 'default' }}>
-                                  ➕ Make Anki card
-                                </button>
-                              )}
-                              {studyWordLookup.cardError && <span style={{ fontSize: 10, color: 'var(--c-danger)' }}>{studyWordLookup.cardError}</span>}
-                            </div>
-                          )}
-                        </div>
-                      )}
+                      {renderWordLookupPopup('question')}
 
                       {studyCurrentHint && (
                         <div style={{ fontSize: 11, color: 'var(--c-warning)', background: 'rgba(232,147,12,.08)', border: '1px solid rgba(232,147,12,.2)', borderRadius: 5, padding: '5px 10px', marginBottom: 8 }}>
@@ -7441,10 +7463,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       )}
 
                       {studyMeaningHint && (
-                        <div style={{ fontSize: 11, color: 'var(--c-brand)', background: 'rgba(223,37,64,.06)', border: '1px solid rgba(223,37,64,.2)', borderRadius: 5, padding: '5px 10px', marginBottom: 8 }}>
-                          💡 {studyMeaningHint}
+                        <div style={{ fontSize: 11, color: 'var(--c-brand)', background: 'rgba(223,37,64,.06)', border: '1px solid rgba(223,37,64,.2)', borderRadius: 5, padding: '5px 10px', marginBottom: 8, lineHeight: 1.6 }}>
+                          💡 {renderTappableText(studyMeaningHint, studyMeaningHint, 'hint')}
                         </div>
                       )}
+                      {renderWordLookupPopup('hint')}
                       {studyMeaningHintLoading && (
                         <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 8 }}>Loading hint...</div>
                       )}
@@ -7615,17 +7638,22 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                             </span>
                           )}
                         </div>
-                        {cs.results.map((r, qi) => (
+                        {cs.results.map((r, qi) => {
+                          const gq = getQuestionText(cs.questions[qi])
+                          const src = `graded-${ci}-${qi}`
+                          return (
                           <div key={qi} style={{ padding: '8px 12px', borderTop: '1px solid var(--c-border)', fontSize: 12, background: r.correct ? 'rgba(24,169,87,.03)' : 'rgba(229,57,46,.03)' }}>
                             <div style={{ color: r.correct ? 'var(--c-success)' : 'var(--c-danger)', fontSize: 10, fontWeight: 700, marginBottom: 4 }}>
                               {r.correct ? '\u2713 CORRECT' : '\u2717 INCORRECT'}
                             </div>
-                            <div style={{ color: 'var(--c-ink-dim)', marginBottom: 3 }}><span style={{ fontWeight: 600 }}>Q:</span> {getQuestionText(cs.questions[qi])}</div>
+                            <div style={{ color: 'var(--c-ink-dim)', marginBottom: 3, lineHeight: 1.6 }}><span style={{ fontWeight: 600 }}>Q:</span> {renderTappableText(gq, gq, src)}</div>
                             <div style={{ color: 'var(--c-ink)', marginBottom: 4 }}><span style={{ fontWeight: 600 }}>Your answer:</span> {cs.answers[qi]}</div>
-                            <div style={{ color: r.correct ? 'var(--c-success)' : 'var(--c-warning)', lineHeight: 1.5, fontSize: 11 }}>{r.feedback}</div>
-                            {renderFeedbackNotes(r)}
+                            <div style={{ color: r.correct ? 'var(--c-success)' : 'var(--c-warning)', lineHeight: 1.6, fontSize: 11 }}>{renderTappableText(r.feedback, r.feedback, src)}</div>
+                            {renderFeedbackNotes(r, src)}
+                            {renderWordLookupPopup(src)}
                           </div>
-                        ))}
+                          )
+                        })}
                         <div style={{ padding: '4px 12px', borderTop: '1px solid var(--c-border)', fontSize: 10, color: 'var(--c-ink-faint)' }}>{cs.back}</div>
                         {/* Feedback chat */}
                         {!cs.evaluating && (
@@ -7696,7 +7724,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           </select>
                         )}
                       </div>
-                      {cs.questions.map((q, qi) => (
+                      {cs.questions.map((q, qi) => {
+                        const bq = getQuestionText(q)
+                        const bfb = cs.results[qi]?.feedback
+                        const src = `batch-${ci}-${qi}`
+                        return (
                         <div key={qi} style={{
                           padding: '8px 12px', borderTop: '1px solid var(--c-border)', fontSize: 12,
                           background: cs.results[qi]?.correct ? 'rgba(24,169,87,.03)' : 'rgba(229,57,46,.03)',
@@ -7704,8 +7736,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           <div style={{ color: cs.results[qi]?.correct ? 'var(--c-success)' : 'var(--c-danger)', fontSize: 10, fontWeight: 700, marginBottom: 4 }}>
                             {cs.results[qi]?.correct ? '\u2713 CORRECT' : '\u2717 INCORRECT'}
                           </div>
-                          <div style={{ color: 'var(--c-ink-dim)', marginBottom: 3 }}>
-                            <span style={{ fontWeight: 600 }}>Q:</span> {getQuestionText(q)}
+                          <div style={{ color: 'var(--c-ink-dim)', marginBottom: 3, lineHeight: 1.6 }}>
+                            <span style={{ fontWeight: 600 }}>Q:</span> {renderTappableText(bq, bq, src)}
                           </div>
                           {cs.questionAttempts?.[qi]?.length > 1 && (
                             <div style={{ color: 'var(--c-ink-faint)', fontSize: 10, marginBottom: 3 }}>
@@ -7715,12 +7747,14 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           <div style={{ color: 'var(--c-ink)', marginBottom: 4 }}>
                             <span style={{ fontWeight: 600 }}>Your answer:</span> {cs.answers[qi]}
                           </div>
-                          <div style={{ color: cs.results[qi]?.correct ? 'var(--c-success)' : 'var(--c-warning)', lineHeight: 1.5, fontSize: 11 }}>
-                            {cs.results[qi]?.feedback}
+                          <div style={{ color: cs.results[qi]?.correct ? 'var(--c-success)' : 'var(--c-warning)', lineHeight: 1.6, fontSize: 11 }}>
+                            {renderTappableText(bfb, bfb, src)}
                           </div>
-                          {renderFeedbackNotes(cs.results[qi])}
+                          {renderFeedbackNotes(cs.results[qi], src)}
+                          {renderWordLookupPopup(src)}
                         </div>
-                      ))}
+                        )
+                      })}
                       <div style={{ padding: '4px 12px', borderTop: '1px solid var(--c-border)', fontSize: 10, color: 'var(--c-ink-faint)' }}>
                         {cs.back}
                       </div>
