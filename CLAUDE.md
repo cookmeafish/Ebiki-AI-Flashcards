@@ -120,6 +120,11 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
 - **Picture UX:** the floating Ebi FAB is hidden on `activeTab==='picture' && stage==='done'` (inline
   **Ask Ebi** + **✕ Exit** in the toolbar instead); Esc exits the analysis; switching tabs clears
   pinned/hovered/expanded so the new tab is fully focused.
+- **Empty-state is truly vertically centered (resolution-independent).** `S.emptyState` uses `flex:1` +
+  `minHeight:'min-content'` (not a fixed `65vh`) and the Picture `<main>` becomes a flex column ONLY while
+  `stage==='idle'`, so the idle prompt centers in the real space between header and window bottom on any
+  monitor, and `main`'s `overflow:auto` lets it scroll instead of clipping on short screens. `emptyState` is
+  used only here, so this is safe to change globally.
 - **Tooltip positioning is zoom-aware.** Body has CSS `zoom:1.35` (non-overlay) which scales `position:fixed`
   tooltips; `getBoundingClientRect()`/`clientX` are real px while `left/top` are layout px. Divide by
   `getZoom()` everywhere a tooltip position is derived from a rect/cursor (hover, pin, drag), and clamp the
@@ -222,17 +227,31 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   It is **context-aware** (`lookupStudyWord` reads the whole question): returns the in-context meaning, shown
   in the legend's correct-green, plus other senses in the legend's word-choice-purple.
 - Non-language modes (e.g. Security+) hide language-only study controls and quiz on concepts.
-- **Question generation (`generateQuestionsForCard`) must be self-disambiguating.** A fill-in-the-blank's
-  SENTENCE alone must point at exactly one word — never rely on the hint. Blanking a card's example often
-  leaves it ambiguous ("Mi perro duerme todo el día" → "Mi ___ duerme todo el día" also fits gato/bebé), so
-  the prompt's AMBIGUITY SELF-CHECK requires adding a trait unique to the target ("Mi ___ ladra y mueve la
-  cola" → only perro). A blank around a generic predicate is always invalid.
+- **Question generation (`generateQuestionsForCard`) must pin exactly one answer via an INLINE cue.**
+  Synonym-rich targets (huir/correr/escapar, recíproca/mutua) make "engineer a perfectly disambiguating
+  sentence" unreliable — the model would emit the vague sentence anyway. So the AMBIGUITY SELF-CHECK now
+  MANDATES a compact parenthetical cue in `quizLang` placed right at the blank giving the target word's
+  precise sense/nuance, PLUS its first letter whenever a synonym would still fit ("la gacela ___ (escapar de
+  un peligro; empieza con «h») a toda velocidad" → pins "huye"; "atracción ___ (correspondida por ambos;
+  empieza con «r»)" → pins "recíproca"). The inline cue is part of the question TEXT (so "question text alone
+  points at one word" still holds); the on-demand hint1/hint2 fields do NOT count as disambiguation.
+  The **DEEP/USAGE question** (`deepQ`, last question in a language card) tests PRACTICAL command a learner
+  can actually produce (use in a sentence, pick over a synonym, right form for a stated subject/time,
+  opposite, collocation) and is explicitly forbidden from asking the student to EXPLAIN grammar/spelling
+  theory, orthographic/etymological rules, or use metalinguistic terminology ("explica qué cambio ortográfico
+  ocurre…" is banned — it's grammar-teacher level, not vocab).
 - **Learned language vs "Ebi speaks" (don't conflate).** In `generateQuestionsForCard`, `learnLang`
   (=`studyRules.studyLanguage`) is ALWAYS the answer language; `quizLang` (=`studyRules.quizLanguage ||
   studyLanguage`) is only how Ebi PHRASES things. So "Learning Spanish + Ebi speaks English" →
   *"Translate to Spanish: umbrella"* → answer `paraguas` (a fill-in-blank SENTENCE that holds the answer
   still stays in `learnLang`). `evaluateCardAnswers` uses `learnLang` for typo tolerance + the card's answer
-  side, but `quizLang` for feedback text; meaning-hint/feedback-chat also use `quizLang`. Card generation
+  side, but `quizLang` for feedback text; meaning-hint/feedback-chat also use `quizLang`. **Inflection
+  tolerance:** for fill_blank the grader treats a different grammatical FORM of the SAME lemma (verb
+  tense/mood/person, noun/adj gender/number) as the same word — NOT a synonym — and accepts any valid form
+  UNLESS the sentence has a marker forcing one (time adverb, explicit subject, agreement). So "huye" is
+  correct for a tense-less "la gacela ___ a toda velocidad" even if acceptedAnswers only listed "huyó".
+  Generation is told to supply that marker when it wants a specific conjugation, else list every valid form.
+  Card generation
   keeps using `learnLang`. The Study Session screen + Settings → Study expose both ("Learning" + "Ebi speaks"),
   shown for every mode (general modes only show "Ebi speaks"). All study-screen labels/descriptions are i18n
   keys (`study*`), so they follow the app language.
