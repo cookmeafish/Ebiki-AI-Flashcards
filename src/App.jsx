@@ -465,6 +465,7 @@ export default function App() {
   const [studySyncNotification, setStudySyncNotification] = useState(false)
   const [studySyncError, setStudySyncError] = useState(null)
   const [studyShowGraded, setStudyShowGraded] = useState(false) // collapse the graded-cards list under one toggle
+  const [studyGradedExpanded, setStudyGradedExpanded] = useState({}) // per-card accordion: { [cardIdx]: true } = expanded
   const [studySyncing, setStudySyncing] = useState(false)        // a manual/auto sync is in flight
   const [studyNow, setStudyNow] = useState(Date.now())           // 1s ticker for the auto-sync countdown
 
@@ -3906,6 +3907,33 @@ Output ONLY raw JSON. No markdown, no backticks.`
     )
   }
 
+  // "Help me remember this" — Ebi's memory-aid block for a graded card. Works for any subject.
+  const renderMnemonic = (cs, ci) => (
+    <div style={{ padding: '6px 12px', borderTop: '1px solid var(--c-border)' }}>
+      {cs.mnemonic ? (
+        <div style={{ fontSize: 11, color: 'var(--c-ink)', background: 'rgba(139,92,246,.08)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 6, padding: '8px 10px', lineHeight: 1.6 }}>
+          <div style={{ fontWeight: 700, color: 'var(--c-purple)', marginBottom: 3 }}>🧠 Ebi's memory hook</div>
+          {cs.mnemonic}
+          <div style={{ marginTop: 5 }}>
+            <button onClick={() => generateMnemonic(ci, cs)} disabled={cs.mnemonicLoading || !apiKey}
+              style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 8px', opacity: (cs.mnemonicLoading || !apiKey) ? 0.5 : 1 }}>
+              {cs.mnemonicLoading ? 'Thinking…' : '↻ Another hook'}
+            </button>
+          </div>
+        </div>
+      ) : cs.mnemonicLoading ? (
+        <div style={{ fontSize: 11, color: 'var(--c-purple)' }}>🧠 Ebi is thinking of a memory hook…</div>
+      ) : (
+        <button onClick={() => generateMnemonic(ci, cs)} disabled={!apiKey}
+          title={apiKey ? 'Let Ebi build a memory aid for this card' : 'Add an API key first'}
+          style={{ ...S.ghostBtn, fontSize: 11, padding: '4px 10px', fontWeight: 700, color: 'var(--c-purple)', borderColor: 'rgba(139,92,246,.4)', opacity: apiKey ? 1 : 0.5, cursor: apiKey ? 'pointer' : 'default' }}>
+          🧠 Help me remember this
+        </button>
+      )}
+      {cs.mnemonicError && <div style={{ fontSize: 10, color: 'var(--c-danger)', marginTop: 3 }}>{cs.mnemonicError}</div>}
+    </div>
+  )
+
   // Small legend popover explaining the feedback colors.
   const FeedbackLegend = () => (
     <div style={{ position: 'relative', display: 'inline-block' }}>
@@ -4600,6 +4628,35 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
       setStudyWordLookup((prev) => (prev && prev.card === wl.card) ? { ...prev, cardSyncing: false, cardSynced: true, cardDeck: deck } : prev)
     } catch {
       setStudyWordLookup((prev) => prev ? { ...prev, cardSyncing: false, cardError: 'Sync failed — is Anki running?' } : prev)
+    }
+  }
+
+  // Ebi teaches a memory aid for a graded card. SUBJECT-AGNOSTIC: the app studies anything (languages,
+  // CompTIA, music theory, etc.), so we pass the card + mode and let the model pick the technique that
+  // fits THIS material (sound-alike/imagery + cognate for vocab; acronym/story/association for concepts).
+  // The hook is written in the app language. `card` is passed in fresh from render to avoid stale reads.
+  const generateMnemonic = async (cardIdx, card) => {
+    const cs = card || studyCardState[cardIdx]
+    if (!cs || !apiKey) return
+    const isLanguage = activeMode.type === 'language'
+    const explainLang = APP_LANG_NAME[appLanguage] || 'English'
+    const learnLang = isLanguage ? ((activeMode.studyRules || defaultStudyRules).studyLanguage || learnLangName()) : null
+    setStudyCardState(prev => { const u = [...prev]; if (u[cardIdx]) u[cardIdx] = { ...u[cardIdx], mnemonicLoading: true, mnemonicError: null }; return u })
+    try {
+      const prompt = `You are Ebi, a warm study buddy. Help the learner MEMORIZE this flashcard with a vivid, concrete memory aid.
+
+Flashcard front: "${cs.front}"
+Flashcard back: "${cs.back}"
+Subject / study mode: "${activeMode.name}"${isLanguage ? `\nThis is a ${learnLang} vocabulary card: memorize the ${learnLang} word and its meaning.` : `\nThis is a general study card (NOT language learning): memorize the concept/fact itself, never treat it as a translation exercise.`}
+
+Choose whatever memory technique actually fits THIS material (do not force one): a sound-alike or imagery association, a cognate / word-origin hook, an acronym or initialism, a short vivid story, chunking, or a logical link. ${isLanguage ? 'For vocabulary, a sound-alike plus a mental image works well, e.g. Spanish "muelle" (dock): picture a stubborn MULE hauling cargo down at the dock (mule -> muelle).' : 'For facts/concepts, prefer a clear association, acronym, or a memorable concrete example that fits the subject.'}
+
+Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. Give ONE strong primary hook, then optionally a brief backup. Plain text only: no markdown headers, no em dashes.`
+      const text = await aiCall(apiKey, `You are Ebi, a friendly memory coach. Reply in ${explainLang} with a concise, concrete memory aid in plain text.`, prompt, resolveModel('study'))
+      const hook = String(text || '').trim()
+      setStudyCardState(prev => { const u = [...prev]; if (u[cardIdx]) u[cardIdx] = { ...u[cardIdx], mnemonic: hook || null, mnemonicLoading: false }; return u })
+    } catch {
+      setStudyCardState(prev => { const u = [...prev]; if (u[cardIdx]) u[cardIdx] = { ...u[cardIdx], mnemonicLoading: false, mnemonicError: 'Could not generate a memory aid — try again.' }; return u })
     }
   }
 
@@ -7589,20 +7646,19 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         )}
                         {studyShowGraded && (
                           <div>
-                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
-                              <button onClick={() => {
-                                setStudyCardState(prev => prev.map(cs => cs.done && cs.results.length > 0 ? { ...cs, dismissed: true } : cs))
-                              }} style={{ ...S.ghostBtn, fontSize: 11, color: 'var(--c-ink-dim)' }}>
-                                {studyMode === 'conjugations' ? t('close') : 'Clear completed from list'}
-                              </button>
-                            </div>
                   {[...graded].sort((a, b) => (b.gradedAt || 0) - (a.gradedAt || 0)).map((cs, i) => {
                     const ci = studyCardState.indexOf(cs)
                     const ratingColors = { easy: 'var(--c-success)', good: 'var(--c-brand)', hard: 'var(--c-warning)', again: 'var(--c-danger)', deleted: 'var(--c-ink-dim)' }
+                    const expanded = !!studyGradedExpanded[ci]
                     return (
                       <div key={ci} style={{ marginTop: 16, border: '1px solid var(--c-border)', borderRadius: 8, overflow: 'hidden' }}>
-                        <div style={{ padding: '8px 12px', background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-ink)' }}>{cs.front}</span>
+                        <div onClick={() => setStudyGradedExpanded(p => ({ ...p, [ci]: !p[ci] }))}
+                          title={expanded ? 'Collapse' : 'Expand'}
+                          style={{ padding: '8px 12px', background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
+                            <span style={{ fontSize: 10, color: 'var(--c-ink-dim)', width: 8, flexShrink: 0 }}>{expanded ? '▾' : '▸'}</span>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cs.front}</span>
+                          </span>
                           {cs.evaluating ? (
                             <span style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>Evaluating...</span>
                           ) : cs.synced ? (
@@ -7614,7 +7670,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           ) : (
                             <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                               <span title="Not yet committed to Anki — you can still change this rating" style={{ fontSize: 9, color: 'var(--c-warning)', fontWeight: 700 }}>● not synced</span>
-                              <select value={cs.rating || ''} onChange={(e) => {
+                              <select value={cs.rating || ''} onClick={(e) => e.stopPropagation()} onChange={(e) => {
                               const newRating = e.target.value
                               const easeMap = { easy: 4, good: 3, hard: 2, again: 1 }
                               setStudyCardState(prev => {
@@ -7638,6 +7694,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                             </span>
                           )}
                         </div>
+                        {expanded && (<>
                         {cs.results.map((r, qi) => {
                           const gq = getQuestionText(cs.questions[qi])
                           const src = `graded-${ci}-${qi}`
@@ -7655,6 +7712,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           )
                         })}
                         <div style={{ padding: '4px 12px', borderTop: '1px solid var(--c-border)', fontSize: 10, color: 'var(--c-ink-faint)' }}>{cs.back}</div>
+                        {!cs.evaluating && renderMnemonic(cs, ci)}
                         {/* Feedback chat */}
                         {!cs.evaluating && (
                           <div style={{ padding: '6px 12px', borderTop: '1px solid var(--c-border)' }}>
@@ -7668,9 +7726,18 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                             </div>
                           </div>
                         )}
+                        </>)}
                       </div>
                     )
                   })}
+                            {/* Clear lives at the very BOTTOM so it's not mistaken for a continue/sync action */}
+                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>
+                              <button onClick={() => {
+                                setStudyCardState(prev => prev.map(cs => cs.done && cs.results.length > 0 ? { ...cs, dismissed: true } : cs))
+                              }} style={{ ...S.ghostBtn, fontSize: 11, color: 'var(--c-ink-dim)' }}>
+                                {studyMode === 'conjugations' ? t('close') : 'Clear completed from list'}
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -7758,6 +7825,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       <div style={{ padding: '4px 12px', borderTop: '1px solid var(--c-border)', fontSize: 10, color: 'var(--c-ink-faint)' }}>
                         {cs.back}
                       </div>
+                      {cs.rating !== 'deleted' && renderMnemonic(cs, ci)}
                       {/* Feedback chat — ask follow-up questions about this card */}
                       <div style={{ padding: '6px 12px', borderTop: '1px solid var(--c-border)' }}>
                         {(studyFeedbackChat[ci]?.messages || []).map((m, mi) => (
