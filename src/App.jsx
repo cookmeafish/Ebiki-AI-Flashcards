@@ -3915,7 +3915,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     <button
       onClick={(e) => { e.stopPropagation(); setStudyGradedView(p => ({ ...p, [ci]: p[ci] === 'feedback' ? undefined : 'feedback' })) }}
       title="Show this card's questions and feedback"
-      style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 9px', fontWeight: 700, flexShrink: 0, whiteSpace: 'nowrap', color: active ? 'var(--c-brand)' : 'var(--c-ink-dim)', borderColor: active ? 'rgba(223,37,64,.45)' : 'var(--c-border)', background: active ? 'rgba(223,37,64,.06)' : undefined }}>
+      style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 9px', fontWeight: 700, flexShrink: 0, whiteSpace: 'nowrap', color: active ? 'var(--c-brand)' : 'var(--c-ink-dim)', borderColor: active ? 'rgba(223,37,64,.45)' : 'var(--c-border)', background: active ? 'rgba(223,37,64,.12)' : 'transparent' }}>
       {active ? '▾' : '▸'} Feedback
     </button>
   )
@@ -3929,7 +3929,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       }}
       disabled={!apiKey || cs.mnemonicLoading}
       title={apiKey ? 'Ebi builds a memory aid for this card' : 'Add an API key first'}
-      style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 9px', fontWeight: 700, flexShrink: 0, whiteSpace: 'nowrap', color: 'var(--c-purple)', borderColor: active ? 'rgba(139,92,246,.6)' : 'rgba(139,92,246,.4)', background: active ? 'rgba(139,92,246,.1)' : undefined, opacity: (apiKey && !cs.mnemonicLoading) ? 1 : 0.6, cursor: apiKey ? 'pointer' : 'default' }}>
+      style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 9px', fontWeight: 700, flexShrink: 0, whiteSpace: 'nowrap', color: 'var(--c-purple)', borderColor: active ? 'rgba(139,92,246,.6)' : 'rgba(139,92,246,.4)', background: active ? 'rgba(139,92,246,.16)' : 'transparent', opacity: (apiKey && !cs.mnemonicLoading) ? 1 : 0.6, cursor: apiKey ? 'pointer' : 'default' }}>
       🧠 {cs.mnemonicLoading ? 'Thinking…' : (cs.mnemonic ? 'Memory hook' : 'Help me remember')}
     </button>
   )
