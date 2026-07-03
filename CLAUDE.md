@@ -233,9 +233,10 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   (`batch-<ci>-<qi>`). Language modes only.
 - **Ebi's memory hook (`generateMnemonic(cardIdx, card)`) is SUBJECT-AGNOSTIC.** The trigger is the
   "🧠 Help me remember" header toggle (`renderMnemonicButton`); opening it sets `view='mnemonic'` (hiding
-  feedback) and generates on first open. The RESULT renders at the **TOP of the card body** via
-  `renderMnemonic` (display-only, right under the header) and is stored on the card
-  (`mnemonic`/`mnemonicLoading`/`mnemonicError`). The prompt branches on `activeMode.type`: language cards
+  feedback) and generates on first open. The RESULTS render at the **TOP of the card body** via
+  `renderMnemonic` (display-only). Hooks are an ARRAY (`cs.mnemonics`, + `mnemonicLoading`/`mnemonicError`):
+  **"↻ Another hook" APPENDS** a new one below (prior hooks are fed into the prompt so each is different),
+  it never replaces. The prompt branches on `activeMode.type`: language cards
   get sound-alike/imagery/cognate hooks (e.g. "muelle"→picture a MULE at the dock); general modes (CompTIA,
   music, etc.) get acronyms/associations/stories for the CONCEPT — never a translation. Written in the app
   language; "↻ Another hook" regenerates. NEVER hardcode language assumptions here.
