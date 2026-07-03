@@ -232,8 +232,8 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   sentence" unreliable — the model would emit the vague sentence anyway. So the AMBIGUITY SELF-CHECK now
   MANDATES a compact parenthetical cue in `quizLang` placed right at the blank giving the target word's
   precise sense/nuance, PLUS its first letter whenever a synonym would still fit ("la gacela ___ (escapar de
-  un peligro; empieza con «h») a toda velocidad" → pins "huye"; "atracción ___ (correspondida por ambos;
-  empieza con «r»)" → pins "recíproca"). The inline cue is part of the question TEXT (so "question text alone
+  un peligro; empieza con "h") a toda velocidad" → pins "huye"; "atracción ___ (correspondida por ambos;
+  empieza con "r")" → pins "recíproca"). The inline cue is part of the question TEXT (so "question text alone
   points at one word" still holds); the on-demand hint1/hint2 fields do NOT count as disambiguation.
   The **DEEP/USAGE question** (`deepQ`, last question in a language card) tests PRACTICAL command a learner
   can actually produce (use in a sentence, pick over a synonym, right form for a stated subject/time,
