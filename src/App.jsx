@@ -465,7 +465,7 @@ export default function App() {
   const [studySyncNotification, setStudySyncNotification] = useState(false)
   const [studySyncError, setStudySyncError] = useState(null)
   const [studyShowGraded, setStudyShowGraded] = useState(false) // collapse the graded-cards list under one toggle
-  const [studyGradedExpanded, setStudyGradedExpanded] = useState({}) // per-card accordion: { [cardIdx]: true } = expanded
+  const [studyGradedView, setStudyGradedView] = useState({}) // per-card view: { [cardIdx]: 'feedback' | 'mnemonic' } (absent = collapsed; the two are mutually exclusive)
   const [studySyncing, setStudySyncing] = useState(false)        // a manual/auto sync is in flight
   const [studyNow, setStudyNow] = useState(Date.now())           // 1s ticker for the auto-sync countdown
 
@@ -3907,19 +3907,29 @@ Output ONLY raw JSON. No markdown, no backticks.`
     )
   }
 
-  // Compact "🧠 Help me remember" trigger that lives on the card's clickable HEADER (reachable without
-  // expanding). `expandOnClick` opens the accordion so the generated hook (rendered by renderMnemonic in
-  // the body) becomes visible. stopPropagation so it doesn't toggle the header's collapse.
-  const renderMnemonicButton = (cs, ci, expandOnClick) => (
+  // The two mutually-exclusive header toggles for a graded card. Opening one closes the other (single
+  // `studyGradedView[ci]` value), and clicking the open one collapses the card. stopPropagation so a stray
+  // header handler can't double-fire.
+  // Feedback toggle — shows the questions/answers/feedback/chat.
+  const renderFeedbackToggle = (cs, ci, active) => (
+    <button
+      onClick={(e) => { e.stopPropagation(); setStudyGradedView(p => ({ ...p, [ci]: p[ci] === 'feedback' ? undefined : 'feedback' })) }}
+      title="Show this card's questions and feedback"
+      style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 9px', fontWeight: 700, flexShrink: 0, whiteSpace: 'nowrap', color: active ? 'var(--c-brand)' : 'var(--c-ink-dim)', borderColor: active ? 'rgba(223,37,64,.45)' : 'var(--c-border)', background: active ? 'rgba(223,37,64,.06)' : undefined }}>
+      {active ? '▾' : '▸'} Feedback
+    </button>
+  )
+  // "🧠 Help me remember" trigger — shows Ebi's memory hook (and generates it on first open).
+  const renderMnemonicButton = (cs, ci, active) => (
     <button
       onClick={(e) => {
         e.stopPropagation()
-        if (expandOnClick) setStudyGradedExpanded(p => ({ ...p, [ci]: true }))
+        setStudyGradedView(p => ({ ...p, [ci]: p[ci] === 'mnemonic' ? undefined : 'mnemonic' }))
         if (!cs.mnemonic && !cs.mnemonicLoading) generateMnemonic(ci, cs)
       }}
       disabled={!apiKey || cs.mnemonicLoading}
       title={apiKey ? 'Ebi builds a memory aid for this card' : 'Add an API key first'}
-      style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 9px', fontWeight: 700, color: 'var(--c-purple)', borderColor: 'rgba(139,92,246,.4)', flexShrink: 0, whiteSpace: 'nowrap', opacity: (apiKey && !cs.mnemonicLoading) ? 1 : 0.6, cursor: apiKey ? 'pointer' : 'default' }}>
+      style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 9px', fontWeight: 700, flexShrink: 0, whiteSpace: 'nowrap', color: 'var(--c-purple)', borderColor: active ? 'rgba(139,92,246,.6)' : 'rgba(139,92,246,.4)', background: active ? 'rgba(139,92,246,.1)' : undefined, opacity: (apiKey && !cs.mnemonicLoading) ? 1 : 0.6, cursor: apiKey ? 'pointer' : 'default' }}>
       🧠 {cs.mnemonicLoading ? 'Thinking…' : (cs.mnemonic ? 'Memory hook' : 'Help me remember')}
     </button>
   )
@@ -7664,56 +7674,54 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   {[...graded].sort((a, b) => (b.gradedAt || 0) - (a.gradedAt || 0)).map((cs, i) => {
                     const ci = studyCardState.indexOf(cs)
                     const ratingColors = { easy: 'var(--c-success)', good: 'var(--c-brand)', hard: 'var(--c-warning)', again: 'var(--c-danger)', deleted: 'var(--c-ink-dim)' }
-                    const expanded = !!studyGradedExpanded[ci]
+                    const view = studyGradedView[ci]
                     return (
                       <div key={ci} style={{ marginTop: 16, border: '1px solid var(--c-border)', borderRadius: 8, overflow: 'hidden' }}>
-                        <div onClick={() => setStudyGradedExpanded(p => ({ ...p, [ci]: !p[ci] }))}
-                          title={expanded ? 'Collapse' : 'Expand'}
-                          style={{ padding: '8px 12px', background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
-                            <span style={{ fontSize: 10, color: 'var(--c-ink-dim)', width: 8, flexShrink: 0 }}>{expanded ? '▾' : '▸'}</span>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cs.front}</span>
-                          </span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                          {renderMnemonicButton(cs, ci, true)}
+                        <div style={{ padding: '8px 12px', background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{cs.front}</span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                           {cs.evaluating ? (
                             <span style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>Evaluating...</span>
-                          ) : cs.synced ? (
-                            // Locked: this rating is committed to Anki and can no longer change (no again→easy lapse).
-                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{(cs.rating || '').toUpperCase()}</span>
-                              <span title="Synced to Anki — locked" style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-success)' }}>🔒 Synced</span>
-                            </span>
-                          ) : (
-                            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <span title="Not yet committed to Anki — you can still change this rating" style={{ fontSize: 9, color: 'var(--c-warning)', fontWeight: 700 }}>● not synced</span>
-                              <select value={cs.rating || ''} onClick={(e) => e.stopPropagation()} onChange={(e) => {
-                              const newRating = e.target.value
-                              const easeMap = { easy: 4, good: 3, hard: 2, again: 1 }
-                              setStudyCardState(prev => {
-                                const updated = [...prev]
-                                const oldRating = updated[ci].rating
-                                // synced:false so the corrected rating is pushed to Anki (re-answers the card with the new ease).
-                                updated[ci] = { ...updated[ci], rating: newRating, ease: easeMap[newRating] || 1, synced: false }
-                                setStudyStats(s => ({
-                                  ...s,
-                                  [oldRating]: Math.max(0, (s[oldRating] || 0) - 1),
-                                  [newRating]: (s[newRating] || 0) + 1,
-                                }))
-                                return updated
-                              })
-                            }} style={{ background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', color: ratingColors[cs.rating] || 'var(--c-ink-dim)', border: `1px solid ${ratingColors[cs.rating] || 'var(--c-border)'}44`, borderRadius: 4, fontSize: 11, fontWeight: 700, fontFamily: 'inherit', padding: '2px 6px', cursor: 'pointer' }}>
-                              <option value="easy" style={{ color: 'var(--c-success)' }}>EASY</option>
-                              <option value="good" style={{ color: 'var(--c-brand)' }}>GOOD</option>
-                              <option value="hard" style={{ color: 'var(--c-warning)' }}>HARD</option>
-                              <option value="again" style={{ color: 'var(--c-danger)' }}>AGAIN</option>
-                            </select>
-                            </span>
-                          )}
+                          ) : (<>
+                            {renderFeedbackToggle(cs, ci, view === 'feedback')}
+                            {renderMnemonicButton(cs, ci, view === 'mnemonic')}
+                            {cs.synced ? (
+                              // Locked: this rating is committed to Anki and can no longer change (no again→easy lapse).
+                              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{(cs.rating || '').toUpperCase()}</span>
+                                <span title="Synced to Anki — locked" style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-success)' }}>🔒 Synced</span>
+                              </span>
+                            ) : (
+                              <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span title="Not yet committed to Anki — you can still change this rating" style={{ fontSize: 9, color: 'var(--c-warning)', fontWeight: 700 }}>● not synced</span>
+                                <select value={cs.rating || ''} onChange={(e) => {
+                                const newRating = e.target.value
+                                const easeMap = { easy: 4, good: 3, hard: 2, again: 1 }
+                                setStudyCardState(prev => {
+                                  const updated = [...prev]
+                                  const oldRating = updated[ci].rating
+                                  // synced:false so the corrected rating is pushed to Anki (re-answers the card with the new ease).
+                                  updated[ci] = { ...updated[ci], rating: newRating, ease: easeMap[newRating] || 1, synced: false }
+                                  setStudyStats(s => ({
+                                    ...s,
+                                    [oldRating]: Math.max(0, (s[oldRating] || 0) - 1),
+                                    [newRating]: (s[newRating] || 0) + 1,
+                                  }))
+                                  return updated
+                                })
+                              }} style={{ background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', color: ratingColors[cs.rating] || 'var(--c-ink-dim)', border: `1px solid ${ratingColors[cs.rating] || 'var(--c-border)'}44`, borderRadius: 4, fontSize: 11, fontWeight: 700, fontFamily: 'inherit', padding: '2px 6px', cursor: 'pointer' }}>
+                                <option value="easy" style={{ color: 'var(--c-success)' }}>EASY</option>
+                                <option value="good" style={{ color: 'var(--c-brand)' }}>GOOD</option>
+                                <option value="hard" style={{ color: 'var(--c-warning)' }}>HARD</option>
+                                <option value="again" style={{ color: 'var(--c-danger)' }}>AGAIN</option>
+                              </select>
+                              </span>
+                            )}
+                          </>)}
                           </span>
                         </div>
-                        {expanded && (<>
-                        {!cs.evaluating && renderMnemonic(cs, ci)}
+                        {view === 'mnemonic' && renderMnemonic(cs, ci)}
+                        {view === 'feedback' && (<>
                         {cs.results.map((r, qi) => {
                           const gq = getQuestionText(cs.questions[qi])
                           const src = `graded-${ci}-${qi}`
@@ -7774,15 +7782,19 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 </div>
                 {studyCardState.map((cs, ci) => {
                   const ratingColors = { easy: 'var(--c-success)', good: 'var(--c-brand)', hard: 'var(--c-warning)', again: 'var(--c-danger)', deleted: 'var(--c-ink-dim)' }
+                  const view = cs.rating === 'deleted' ? null : studyGradedView[ci]
                   return (
                     <div key={ci} style={{ marginBottom: 16, border: '1px solid var(--c-border)', borderRadius: 8, overflow: 'hidden' }}>
                       <div style={{
                         padding: '8px 12px', background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))',
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
                       }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cs.front}</span>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                        {cs.rating !== 'deleted' && renderMnemonicButton(cs, ci, false)}
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{cs.front}</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                        {cs.rating !== 'deleted' && (<>
+                          {renderFeedbackToggle(cs, ci, view === 'feedback')}
+                          {renderMnemonicButton(cs, ci, view === 'mnemonic')}
+                        </>)}
                         {cs.rating === 'deleted' ? (
                           <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors.deleted }}>DELETED</span>
                         ) : cs.synced ? (
@@ -7812,7 +7824,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         )}
                         </span>
                       </div>
-                      {cs.rating !== 'deleted' && renderMnemonic(cs, ci)}
+                      {view === 'mnemonic' && renderMnemonic(cs, ci)}
+                      {view === 'feedback' && (<>
                       {cs.questions.map((q, qi) => {
                         const bq = getQuestionText(q)
                         const bfb = cs.results[qi]?.feedback
@@ -7876,6 +7889,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           </button>
                         </div>
                       </div>
+                      </>)}
                     </div>
                   )
                 })}
