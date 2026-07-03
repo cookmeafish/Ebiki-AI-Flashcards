@@ -217,11 +217,12 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   Settings → General → "Anki auto-sync"); when OFF, ratings only sync via the manual button or on Finish/Exit
   and nothing auto-locks. A 1s ticker (`studyNow`) drives the "locks in M:SS" countdown. NOTE: `guiCurrentCard`
   returns `buttons` as an ARRAY of valid ease values (not a count) — cap ease to `Math.max(...buttons)`.
-- **Graded cards are an accordion (`studyGradedExpanded` = `{ [cardIdx]: true }`).** Each card in the
-  Show-graded list AND the end-of-session Batch Results is **collapsed to just its header** (chevron ▸/▾ +
-  front + rating/synced badge); click the header to expand its questions/feedback/mnemonic/chat. The rating
-  `<select>` calls `stopPropagation` so changing a rating never toggles the accordion. **"Clear completed
-  from list" lives at the very BOTTOM** of the list (not the top) so it can't be mis-clicked as a
+- **The in-session graded-cards list is an accordion (`studyGradedExpanded` = `{ [cardIdx]: true }`).** Each
+  card is **collapsed to just its header** (chevron ▸/▾ + front + a 🧠 memory-hook button + rating/synced
+  badge); click the header to expand its questions/feedback/mnemonic/chat. The rating `<select>` and the 🧠
+  button call `stopPropagation` so they don't toggle the accordion. (The end-of-session **Batch Results**
+  stays fully expanded — it's the final review — but its cards carry the same header 🧠 button.) **"Clear
+  completed from list" lives at the very BOTTOM** of the list (not the top) so it can't be mis-clicked as a
   continue/sync button.
 - **Tap-a-word works on the feedback surfaces too, not just the question.** `renderTappableText(text,
   sentence, source)` + `renderWordLookupPopup(source)` (both near `renderFeedbackNotes`) reuse the exact
@@ -229,12 +230,14 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   stores the `source` so the popup renders next to the clicked word. Wired into: the 💡 Meaning Hint, the
   graded-cards list (Q text, feedback line, each note — sources `graded-<ci>-<qi>`), and Batch Results
   (`batch-<ci>-<qi>`). Language modes only.
-- **Ebi's memory hook (`generateMnemonic(cardIdx, card)` + `renderMnemonic(cs, ci)`) is SUBJECT-AGNOSTIC.**
-  A "🧠 Help me remember this" button on each graded card asks the model for a memory aid and stores it on
-  the card (`mnemonic`/`mnemonicLoading`/`mnemonicError`). The prompt branches on `activeMode.type`: language
-  cards get sound-alike/imagery/cognate hooks (e.g. "muelle"→picture a MULE at the dock); general modes
-  (CompTIA, music, etc.) get acronyms/associations/stories for the CONCEPT — never a translation. Written in
-  the app language; "↻ Another hook" regenerates. NEVER hardcode language assumptions here.
+- **Ebi's memory hook (`generateMnemonic(cardIdx, card)`) is SUBJECT-AGNOSTIC.** The trigger is a compact
+  "🧠 Help me remember" button on each card's **HEADER** (`renderMnemonicButton`, reachable without
+  expanding; `stopPropagation` + auto-expands the accordion). The RESULT renders at the **TOP of the card
+  body** via `renderMnemonic` (display-only, right under the header) and is stored on the card
+  (`mnemonic`/`mnemonicLoading`/`mnemonicError`). The prompt branches on `activeMode.type`: language cards
+  get sound-alike/imagery/cognate hooks (e.g. "muelle"→picture a MULE at the dock); general modes (CompTIA,
+  music, etc.) get acronyms/associations/stories for the CONCEPT — never a translation. Written in the app
+  language; "↻ Another hook" regenerates. NEVER hardcode language assumptions here.
 - **Stats tab pulls live from Anki** when connected (effect on `activeTab==='stats'` → `ankiStats`):
   Cards Today (`getNumCardsReviewedToday`), 14-day chart + streak (`getNumCardsReviewedByDay`), and a
   stable accuracy = today's review-log pass-rate (`ankiGetTodayReviewStats`, cumulative so re-reviews

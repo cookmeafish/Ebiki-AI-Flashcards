@@ -3907,32 +3907,47 @@ Output ONLY raw JSON. No markdown, no backticks.`
     )
   }
 
-  // "Help me remember this" — Ebi's memory-aid block for a graded card. Works for any subject.
-  const renderMnemonic = (cs, ci) => (
-    <div style={{ padding: '6px 12px', borderTop: '1px solid var(--c-border)' }}>
-      {cs.mnemonic ? (
-        <div style={{ fontSize: 11, color: 'var(--c-ink)', background: 'rgba(139,92,246,.08)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 6, padding: '8px 10px', lineHeight: 1.6 }}>
-          <div style={{ fontWeight: 700, color: 'var(--c-purple)', marginBottom: 3 }}>🧠 Ebi's memory hook</div>
-          {cs.mnemonic}
-          <div style={{ marginTop: 5 }}>
-            <button onClick={() => generateMnemonic(ci, cs)} disabled={cs.mnemonicLoading || !apiKey}
-              style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 8px', opacity: (cs.mnemonicLoading || !apiKey) ? 0.5 : 1 }}>
-              {cs.mnemonicLoading ? 'Thinking…' : '↻ Another hook'}
-            </button>
-          </div>
-        </div>
-      ) : cs.mnemonicLoading ? (
-        <div style={{ fontSize: 11, color: 'var(--c-purple)' }}>🧠 Ebi is thinking of a memory hook…</div>
-      ) : (
-        <button onClick={() => generateMnemonic(ci, cs)} disabled={!apiKey}
-          title={apiKey ? 'Let Ebi build a memory aid for this card' : 'Add an API key first'}
-          style={{ ...S.ghostBtn, fontSize: 11, padding: '4px 10px', fontWeight: 700, color: 'var(--c-purple)', borderColor: 'rgba(139,92,246,.4)', opacity: apiKey ? 1 : 0.5, cursor: apiKey ? 'pointer' : 'default' }}>
-          🧠 Help me remember this
-        </button>
-      )}
-      {cs.mnemonicError && <div style={{ fontSize: 10, color: 'var(--c-danger)', marginTop: 3 }}>{cs.mnemonicError}</div>}
-    </div>
+  // Compact "🧠 Help me remember" trigger that lives on the card's clickable HEADER (reachable without
+  // expanding). `expandOnClick` opens the accordion so the generated hook (rendered by renderMnemonic in
+  // the body) becomes visible. stopPropagation so it doesn't toggle the header's collapse.
+  const renderMnemonicButton = (cs, ci, expandOnClick) => (
+    <button
+      onClick={(e) => {
+        e.stopPropagation()
+        if (expandOnClick) setStudyGradedExpanded(p => ({ ...p, [ci]: true }))
+        if (!cs.mnemonic && !cs.mnemonicLoading) generateMnemonic(ci, cs)
+      }}
+      disabled={!apiKey || cs.mnemonicLoading}
+      title={apiKey ? 'Ebi builds a memory aid for this card' : 'Add an API key first'}
+      style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 9px', fontWeight: 700, color: 'var(--c-purple)', borderColor: 'rgba(139,92,246,.4)', flexShrink: 0, whiteSpace: 'nowrap', opacity: (apiKey && !cs.mnemonicLoading) ? 1 : 0.6, cursor: apiKey ? 'pointer' : 'default' }}>
+      🧠 {cs.mnemonicLoading ? 'Thinking…' : (cs.mnemonic ? 'Memory hook' : 'Help me remember')}
+    </button>
   )
+
+  // Ebi's memory-aid RESULT block, shown in the expanded card body. Display-only: the trigger is the
+  // header button (renderMnemonicButton). Renders nothing until generation has started.
+  const renderMnemonic = (cs, ci) => {
+    if (!cs.mnemonic && !cs.mnemonicLoading && !cs.mnemonicError) return null
+    return (
+      <div style={{ padding: '6px 12px', borderTop: '1px solid var(--c-border)' }}>
+        {cs.mnemonic ? (
+          <div style={{ fontSize: 11, color: 'var(--c-ink)', background: 'rgba(139,92,246,.08)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 6, padding: '8px 10px', lineHeight: 1.6 }}>
+            <div style={{ fontWeight: 700, color: 'var(--c-purple)', marginBottom: 3 }}>🧠 Ebi's memory hook</div>
+            {cs.mnemonic}
+            <div style={{ marginTop: 5 }}>
+              <button onClick={() => generateMnemonic(ci, cs)} disabled={cs.mnemonicLoading || !apiKey}
+                style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 8px', opacity: (cs.mnemonicLoading || !apiKey) ? 0.5 : 1 }}>
+                {cs.mnemonicLoading ? 'Thinking…' : '↻ Another hook'}
+              </button>
+            </div>
+          </div>
+        ) : cs.mnemonicLoading ? (
+          <div style={{ fontSize: 11, color: 'var(--c-purple)' }}>🧠 Ebi is thinking of a memory hook…</div>
+        ) : null}
+        {cs.mnemonicError && <div style={{ fontSize: 10, color: 'var(--c-danger)', marginTop: 3 }}>{cs.mnemonicError}</div>}
+      </div>
+    )
+  }
 
   // Small legend popover explaining the feedback colors.
   const FeedbackLegend = () => (
@@ -7659,6 +7674,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                             <span style={{ fontSize: 10, color: 'var(--c-ink-dim)', width: 8, flexShrink: 0 }}>{expanded ? '▾' : '▸'}</span>
                             <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cs.front}</span>
                           </span>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                          {renderMnemonicButton(cs, ci, true)}
                           {cs.evaluating ? (
                             <span style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>Evaluating...</span>
                           ) : cs.synced ? (
@@ -7693,8 +7710,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                             </select>
                             </span>
                           )}
+                          </span>
                         </div>
                         {expanded && (<>
+                        {!cs.evaluating && renderMnemonic(cs, ci)}
                         {cs.results.map((r, qi) => {
                           const gq = getQuestionText(cs.questions[qi])
                           const src = `graded-${ci}-${qi}`
@@ -7712,7 +7731,6 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           )
                         })}
                         <div style={{ padding: '4px 12px', borderTop: '1px solid var(--c-border)', fontSize: 10, color: 'var(--c-ink-faint)' }}>{cs.back}</div>
-                        {!cs.evaluating && renderMnemonic(cs, ci)}
                         {/* Feedback chat */}
                         {!cs.evaluating && (
                           <div style={{ padding: '6px 12px', borderTop: '1px solid var(--c-border)' }}>
@@ -7762,7 +7780,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         padding: '8px 12px', background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))',
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                       }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-ink)' }}>{cs.front}</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cs.front}</span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                        {cs.rating !== 'deleted' && renderMnemonicButton(cs, ci, false)}
                         {cs.rating === 'deleted' ? (
                           <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors.deleted }}>DELETED</span>
                         ) : cs.synced ? (
@@ -7790,7 +7810,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                             <option value="again" style={{ color: 'var(--c-danger)' }}>AGAIN</option>
                           </select>
                         )}
+                        </span>
                       </div>
+                      {cs.rating !== 'deleted' && renderMnemonic(cs, ci)}
                       {cs.questions.map((q, qi) => {
                         const bq = getQuestionText(q)
                         const bfb = cs.results[qi]?.feedback
@@ -7825,7 +7847,6 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       <div style={{ padding: '4px 12px', borderTop: '1px solid var(--c-border)', fontSize: 10, color: 'var(--c-ink-faint)' }}>
                         {cs.back}
                       </div>
-                      {cs.rating !== 'deleted' && renderMnemonic(cs, ci)}
                       {/* Feedback chat — ask follow-up questions about this card */}
                       <div style={{ padding: '6px 12px', borderTop: '1px solid var(--c-border)' }}>
                         {(studyFeedbackChat[ci]?.messages || []).map((m, mi) => (
