@@ -3924,7 +3924,10 @@ Output ONLY raw JSON. No markdown, no backticks.`
     <button
       onClick={(e) => {
         e.stopPropagation()
-        setStudyGradedView(p => ({ ...p, [ci]: p[ci] === 'mnemonic' ? undefined : 'mnemonic' }))
+        const hasContent = cs.mnemonics?.length || cs.mnemonicLoading
+        // If there's nothing to show yet, always OPEN (never collapse an empty panel while it generates).
+        // Only toggle closed once there's actual content to hide.
+        setStudyGradedView(p => (!hasContent ? { ...p, [ci]: 'mnemonic' } : { ...p, [ci]: p[ci] === 'mnemonic' ? undefined : 'mnemonic' }))
         if (!cs.mnemonics?.length && !cs.mnemonicLoading) generateMnemonic(ci, cs)
       }}
       disabled={!apiKey || cs.mnemonicLoading}
