@@ -3925,36 +3925,37 @@ Output ONLY raw JSON. No markdown, no backticks.`
       onClick={(e) => {
         e.stopPropagation()
         setStudyGradedView(p => ({ ...p, [ci]: p[ci] === 'mnemonic' ? undefined : 'mnemonic' }))
-        if (!cs.mnemonic && !cs.mnemonicLoading) generateMnemonic(ci, cs)
+        if (!cs.mnemonics?.length && !cs.mnemonicLoading) generateMnemonic(ci, cs)
       }}
       disabled={!apiKey || cs.mnemonicLoading}
       title={apiKey ? 'Ebi builds a memory aid for this card' : 'Add an API key first'}
       style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 9px', fontWeight: 700, flexShrink: 0, whiteSpace: 'nowrap', color: 'var(--c-purple)', borderColor: active ? 'rgba(139,92,246,.6)' : 'rgba(139,92,246,.4)', background: active ? 'rgba(139,92,246,.16)' : 'transparent', opacity: (apiKey && !cs.mnemonicLoading) ? 1 : 0.6, cursor: apiKey ? 'pointer' : 'default' }}>
-      🧠 {cs.mnemonicLoading ? 'Thinking…' : (cs.mnemonic ? 'Memory hook' : 'Help me remember')}
+      🧠 {cs.mnemonicLoading ? 'Thinking…' : (cs.mnemonics?.length ? 'Memory hook' : 'Help me remember')}
     </button>
   )
 
   // Ebi's memory-aid RESULT block, shown in the expanded card body. Display-only: the trigger is the
-  // header button (renderMnemonicButton). Renders nothing until generation has started.
+  // header button (renderMnemonicButton). Lists EVERY generated hook stacked (newest at the bottom);
+  // "Another hook" APPENDS a new one rather than replacing. Renders nothing until generation has started.
   const renderMnemonic = (cs, ci) => {
-    if (!cs.mnemonic && !cs.mnemonicLoading && !cs.mnemonicError) return null
+    const hooks = Array.isArray(cs.mnemonics) ? cs.mnemonics : []
+    if (!hooks.length && !cs.mnemonicLoading && !cs.mnemonicError) return null
     return (
-      <div style={{ padding: '6px 12px', borderTop: '1px solid var(--c-border)' }}>
-        {cs.mnemonic ? (
-          <div style={{ fontSize: 11, color: 'var(--c-ink)', background: 'rgba(139,92,246,.08)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 6, padding: '8px 10px', lineHeight: 1.6 }}>
-            <div style={{ fontWeight: 700, color: 'var(--c-purple)', marginBottom: 3 }}>🧠 Ebi's memory hook</div>
-            {cs.mnemonic}
-            <div style={{ marginTop: 5 }}>
-              <button onClick={() => generateMnemonic(ci, cs)} disabled={cs.mnemonicLoading || !apiKey}
-                style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 8px', opacity: (cs.mnemonicLoading || !apiKey) ? 0.5 : 1 }}>
-                {cs.mnemonicLoading ? 'Thinking…' : '↻ Another hook'}
-              </button>
-            </div>
+      <div style={{ padding: '6px 12px', borderTop: '1px solid var(--c-border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {hooks.map((hook, hi) => (
+          <div key={hi} style={{ fontSize: 11, color: 'var(--c-ink)', background: 'rgba(139,92,246,.08)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 6, padding: '8px 10px', lineHeight: 1.6 }}>
+            <div style={{ fontWeight: 700, color: 'var(--c-purple)', marginBottom: 3 }}>🧠 Ebi's memory hook{hooks.length > 1 ? ` #${hi + 1}` : ''}</div>
+            {hook}
           </div>
-        ) : cs.mnemonicLoading ? (
-          <div style={{ fontSize: 11, color: 'var(--c-purple)' }}>🧠 Ebi is thinking of a memory hook…</div>
-        ) : null}
-        {cs.mnemonicError && <div style={{ fontSize: 10, color: 'var(--c-danger)', marginTop: 3 }}>{cs.mnemonicError}</div>}
+        ))}
+        {cs.mnemonicLoading && <div style={{ fontSize: 11, color: 'var(--c-purple)' }}>🧠 Ebi is thinking of {hooks.length ? 'another' : 'a'} memory hook…</div>}
+        {cs.mnemonicError && <div style={{ fontSize: 10, color: 'var(--c-danger)' }}>{cs.mnemonicError}</div>}
+        <div>
+          <button onClick={() => generateMnemonic(ci, cs)} disabled={cs.mnemonicLoading || !apiKey}
+            style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 8px', background: 'transparent', opacity: (cs.mnemonicLoading || !apiKey) ? 0.5 : 1 }}>
+            {cs.mnemonicLoading ? 'Thinking…' : '↻ Another hook'}
+          </button>
+        </div>
       </div>
     )
   }
@@ -4660,12 +4661,15 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
   // CompTIA, music theory, etc.), so we pass the card + mode and let the model pick the technique that
   // fits THIS material (sound-alike/imagery + cognate for vocab; acronym/story/association for concepts).
   // The hook is written in the app language. `card` is passed in fresh from render to avoid stale reads.
+  // "Another hook" APPENDS a new aid below the existing ones (cs.mnemonics is an array), and the prompt
+  // is told the prior hooks so each one is genuinely different.
   const generateMnemonic = async (cardIdx, card) => {
     const cs = card || studyCardState[cardIdx]
     if (!cs || !apiKey) return
     const isLanguage = activeMode.type === 'language'
     const explainLang = APP_LANG_NAME[appLanguage] || 'English'
     const learnLang = isLanguage ? ((activeMode.studyRules || defaultStudyRules).studyLanguage || learnLangName()) : null
+    const prior = Array.isArray(cs.mnemonics) ? cs.mnemonics : []
     setStudyCardState(prev => { const u = [...prev]; if (u[cardIdx]) u[cardIdx] = { ...u[cardIdx], mnemonicLoading: true, mnemonicError: null }; return u })
     try {
       const prompt = `You are Ebi, a warm study buddy. Help the learner MEMORIZE this flashcard with a vivid, concrete memory aid.
@@ -4674,12 +4678,12 @@ Flashcard front: "${cs.front}"
 Flashcard back: "${cs.back}"
 Subject / study mode: "${activeMode.name}"${isLanguage ? `\nThis is a ${learnLang} vocabulary card: memorize the ${learnLang} word and its meaning.` : `\nThis is a general study card (NOT language learning): memorize the concept/fact itself, never treat it as a translation exercise.`}
 
-Choose whatever memory technique actually fits THIS material (do not force one): a sound-alike or imagery association, a cognate / word-origin hook, an acronym or initialism, a short vivid story, chunking, or a logical link. ${isLanguage ? 'For vocabulary, a sound-alike plus a mental image works well, e.g. Spanish "muelle" (dock): picture a stubborn MULE hauling cargo down at the dock (mule -> muelle).' : 'For facts/concepts, prefer a clear association, acronym, or a memorable concrete example that fits the subject.'}
+Choose whatever memory technique actually fits THIS material (do not force one): a sound-alike or imagery association, a cognate / word-origin hook, an acronym or initialism, a short vivid story, chunking, or a logical link. ${isLanguage ? 'For vocabulary, a sound-alike plus a mental image works well, e.g. Spanish "muelle" (dock): picture a stubborn MULE hauling cargo down at the dock (mule -> muelle).' : 'For facts/concepts, prefer a clear association, acronym, or a memorable concrete example that fits the subject.'}${prior.length ? `\n\nThe learner already has these memory aids for this card, so give a genuinely DIFFERENT one (new angle/technique, do not repeat them):\n${prior.map((m, i) => `${i + 1}. ${m}`).join('\n')}` : ''}
 
 Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. Give ONE strong primary hook, then optionally a brief backup. Plain text only: no markdown headers, no em dashes.`
       const text = await aiCall(apiKey, `You are Ebi, a friendly memory coach. Reply in ${explainLang} with a concise, concrete memory aid in plain text.`, prompt, resolveModel('study'))
       const hook = String(text || '').trim()
-      setStudyCardState(prev => { const u = [...prev]; if (u[cardIdx]) u[cardIdx] = { ...u[cardIdx], mnemonic: hook || null, mnemonicLoading: false }; return u })
+      setStudyCardState(prev => { const u = [...prev]; if (u[cardIdx]) u[cardIdx] = { ...u[cardIdx], mnemonics: [...(u[cardIdx].mnemonics || []), ...(hook ? [hook] : [])], mnemonicLoading: false }; return u })
     } catch {
       setStudyCardState(prev => { const u = [...prev]; if (u[cardIdx]) u[cardIdx] = { ...u[cardIdx], mnemonicLoading: false, mnemonicError: 'Could not generate a memory aid — try again.' }; return u })
     }
