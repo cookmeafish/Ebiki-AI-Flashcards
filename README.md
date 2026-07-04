@@ -28,7 +28,8 @@ A multi-tab learning app with AI chat, Anki-integrated study sessions, screen tr
 - **App language** — translate the entire UI (tabs, buttons, labels) into English, Spanish, Chinese, or Japanese; flashcard content is never translated
 - **Learning modes** — Create AI-configured modes for any subject (languages, Security+, Organic Chemistry, etc.)
 - **Anki integration** — Generate flashcards, sync to Anki, study with AI quizzes, browse/edit decks
-- **Knowledge base** — Upload .txt/.md reference materials per mode for smarter AI context
+- **Pronunciation audio** — real native-speaker recordings (Wiktionary/Wikimedia Commons, with credit) on study cards, the deck browser, and chat cards; ↻ cycles through different speakers; native audio is embedded into the Anki card (`[sound:…]`) so it plays in Anki on any device. Falls back to an optional local TTS server, then the browser voice — see **Pronunciation audio** below
+- **Knowledge base** — Upload .txt/.md/.pdf reference materials per mode; the content flows into study questions, grading, chat, card generation, Discover, and Ebi's Help. Whole books are navigated by their table of contents so only the relevant sections are used per task
 - **Progress tracking** — Per-deck progress observations saved to disk, AI tracks struggles and improvements across sessions
 - **Discover Mode** — Adaptive new-card suggestions calibrated to your level (CEFR / exam domains / tiers), web-verified, with cloud-synced learner profile stored as Anki media files
 - **18 languages** — Spanish, French, German, Japanese, Korean, Chinese, Russian, Arabic, etc.
@@ -67,7 +68,7 @@ A multi-tab learning app with AI chat, Anki-integrated study sessions, screen tr
 - **End Now** — immediately end session with partial results
 - **Spaced repetition insights** — AI analyzes session results and updates `decks/<deck>/progress-observations.md` with struggles, improvements, and mastered topics
 - **Multiple choice support** — AI can generate multiple choice questions when it makes sense, but prefers text-based answers
-- **Tap a word for context** — tap any word in a question (language modes) to get its meaning *as used in that question* (analyzed from the whole sentence), shown in the legend's correct-green, with other common senses in word-choice-purple. Definitions are written in your app language. This now works on the **Meaning Hint** and on the **graded-card feedback** too (the question text, the feedback line, and each note), so you can look up — and one-click make an Anki card for — any word Ebi used while explaining
+- **Tap a word for context** — tap any word in a question (language modes) to get its meaning *as used in that question* (analyzed from the whole sentence), shown in the legend's correct-green, with other common senses in word-choice-purple, plus **text phonetics** (`/rah-soh-NAH-bleh/`) and a **🔊 audio button** to hear it. Definitions are written in your app language. This now works on the **Meaning Hint** and on the **graded-card feedback** too (the question text, the feedback line, and each note), so you can look up — and one-click make an Anki card for — any word Ebi used while explaining
 - **Ebi's memory hook** — every graded card has a **🧠 Help me remember** button right on its header (no need to expand first). Ebi builds a memory aid tailored to whatever you're studying: sound-alike + imagery hooks for vocabulary (e.g. Spanish *muelle* "dock" → picture a stubborn **mule** hauling cargo down at the dock), and acronyms / associations / mini-stories for concepts in non-language modes (CompTIA, music theory, etc.). The hook appears at the top of the card, **"↻ Another hook" adds another one below** (each a different angle, they stack rather than replace), and they're written in your app language
 - **Collapsible results with two toggles** — each graded card (and each end-of-session Batch Result) collapses to a one-line header with a **▸ Feedback** button and the **🧠 Help me remember** button. They're mutually exclusive: opening Feedback shows the questions/answers/feedback, opening the memory hook shows just Ebi's mnemonic, and clicking the open one collapses the card — so a long review is a clean, scannable menu. **Clear completed from list** sits at the very bottom so it's never mistaken for a continue/sync button
 
@@ -266,14 +267,27 @@ How it works:
 
 ## Knowledge Base
 
-Each mode can have reference materials that the AI uses for context during study sessions and card generation.
+Each mode can have reference materials that the AI uses **app-wide**: study question generation, answer grading, chat, card generation, Discover's learner profile, and Ebi's Help all receive it as context.
 
 1. Click the gear icon → expand **Knowledge Base**
-2. Drag & drop `.txt` or `.md` files into the drop zone, or click to browse
+2. Drag & drop `.txt`, `.md`, or `.pdf` files into the drop zone, or click to browse (PDF text is extracted on upload and stored as `.txt`; scanned/image-only PDFs are rejected with a hint to OCR them first)
 3. Files are listed with size, enable/disable toggle, and delete button
 4. Enabled files are loaded automatically when starting a study session
 
+**Whole books.** When the knowledge base exceeds ~60k characters, Ebiki navigates it by its **table of contents** instead of truncating: headings are auto-detected (markdown `#`, "Chapter N", "1.2 Title"), or upload the book's TOC as its own file named `toc.txt` (one chapter/section title per line — page numbers are fine). A quick selector call then pulls only the sections relevant to each question, card, or chat message. A banner in Settings → Knowledge tells you whether the TOC was found (📖) or the base is too big with no headings (⚠️, with fixes).
+
 Files are stored in `modes/<mode-name>/knowledge/` and can be managed entirely from the settings UI.
+
+## Pronunciation audio
+
+Flashcards get real spoken pronunciation via a 4-tier, language-agnostic chain — no accounts, no paid APIs:
+
+1. **Your Anki card** — once a recording is embedded, it plays straight from Anki's media folder: instant, offline, works on every device your Anki syncs to
+2. **Wiktionary / Wikimedia Commons** — real native-speaker recordings (including Lingua Libre's), found via the word's dictionary pages **and** a Commons-wide search. Attribution (author · license) is mandatory and always shown; recordings of the *thing* rather than the word (a dog barking for "perro") are filtered out
+3. **Local TTS (optional, off by default)** — point Settings → Audio at an OpenAI-compatible server (e.g. Kokoro) on your own machine for near-human synthesized audio; leave empty and this tier costs nothing
+4. **Browser voice** — the built-in system voice as the last resort
+
+The 🔊 button appears on study graded cards, deck browser rows, chat card widgets, and the tap-a-word popup (language modes). **↻ cycles through different speakers** of the same word; the voice you pick replaces the card's embedded audio. Native recordings are automatically embedded into the Anki card (`[sound:…]` + a credit line, toggleable) — synthesized voices never are. Preferred accents per language (e.g. `en → us`, `es → mx`) are configurable in **Settings → Audio**.
 
 ## Overlay Mode (Optional)
 
@@ -343,6 +357,7 @@ src/
     FormattedText.jsx   ← Rich text formatting for AI explanations
     HelpChat.jsx        ← Context-aware floating/docked help assistant
     DiscoverPanel.jsx   ← Discover Mode UI (profile header, suggestion card, actions)
+    Pronunciation.jsx   ← 🔊 audio button (lazy resolve, source badge, attribution, ↻ speakers)
   config/
     languages.js       ← 18 supported languages
     prompts.js         ← Translation prompt + POS/category color maps
@@ -352,10 +367,19 @@ src/
   discover/
     storage.js         ← Discover profile/ledger store (Anki media files + local fallback)
     prompts.js         ← Discover prompt builders (profile, suggestion, web verify)
+  pronunciation/
+    index.js           ← 4-tier resolver chain (Anki media → Wiktionary/Commons → local TTS → browser voice)
+    wiktionary.js      ← native recordings: edition pages ∪ Commons search, attribution, ↻ variants
+    matcher.js         ← pure filename ranking/rejection (vitest-tested with live-captured fixtures)
+    ankimedia.js       ← plays audio already embedded in the Anki card (offline)
+    kokoro.js          ← opt-in local TTS tier (via the /api/tts proxy)
+    webspeech.js       ← browser SpeechSynthesis last resort
+    langcodes.js       ← language label → ISO code data
   styles/
     theme.js           ← GitHub Dark design system (~100 style objects)
   utils/
     anki.js            ← AnkiConnect API wrapper (ping, decks, cards, notes, sync, media files)
+    pdf.js             ← client-side PDF → text extraction for the knowledge base (lazy-loaded)
     logger.js          ← OCR pipeline logging
 electron/
   main.cjs             ← Electron main process (window, shortcuts, screenshot capture)

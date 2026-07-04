@@ -68,6 +68,10 @@ function buildSystemPrompt(appContext) {
     appContext.chatTabMsgs.forEach(m => parts.push(`  [${m.role}]: ${m.content}`))
   }
 
+  if (appContext.knowledge) {
+    parts.push(`\nKnowledge base for this mode (the user's own reference material — use it when answering subject questions):\n${appContext.knowledge}`)
+  }
+
   parts.push('\nUse this context to give informed, specific answers. If the user asks about a word, translation, or card on screen, reference the actual data above.')
   return parts.join('\n')
 }

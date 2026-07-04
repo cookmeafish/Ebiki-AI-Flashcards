@@ -37,7 +37,7 @@ Base the estimate on real evidence. Be honest — if there is little evidence, l
 // ─── Next suggestion ────────────────────────────────────────────────────────
 // Proposes ONE new item to learn, calibrated to the profile and never repeating
 // anything the learner already has / knows / declined.
-export function buildSuggestionPrompt({ profile, modeType, modeName, modeDescription, studyLanguage, excludeList, itemType, focus }) {
+export function buildSuggestionPrompt({ profile, modeType, modeName, modeDescription, studyLanguage, excludeList, itemType, focus, knowledge }) {
   const level = profile?.level || { scale: 'tiers', estimate: 'beginner' }
   const weak = (profile?.domains || []).filter((d) => d.status !== 'strong').map((d) => d.name)
   const isLang = modeType === 'language'
@@ -57,6 +57,7 @@ Learner level: ${level.scale} = ${level.estimate} (confidence ${profile?.level?.
 ${profile?.summary ? `Profile summary: ${profile.summary}` : ''}
 ${weak.length ? `Weak / under-covered areas to prioritize: ${weak.join(', ')}.` : ''}
 ${focus ? `\nThe learner specifically asked you to focus on: "${focus}". Honor this above all else — every suggestion must fit this request.` : ''}
+${knowledge ? `\nREFERENCE MATERIAL (the learner's own study material for this mode — prefer terms/concepts that appear in or align with it):\n${knowledge}\n` : ''}
 
 RULES:
 - Suggest exactly ONE item, appropriate for their level — slightly stretch them, never trivial.
