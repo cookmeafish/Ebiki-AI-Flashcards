@@ -43,6 +43,27 @@ first study mode (via `createMode`) → finish. Re-runnable from Settings → Ge
 ## Modes & knowledge base — per mode, fully gitignored, auto-generated
 Modes live in `modes/<mode name>/config.json`; knowledge files in `modes/<mode name>/knowledge/`
 (served by `/api/modes/knowledge` in `vite.config.js`, always scoped by `?mode=<activeMode.name>`).
+**The knowledge base flows APP-WIDE**, not just into study questions: `modeKnowledge` state (loaded on
+mode switch, refreshed by upload/delete/toggle) + the `knowledgeBlock(cap)` helper inject it into Chat,
+card generation (`generateCards`), answer grading (`evaluateCardAnswers`), Discover (profile evidence +
+suggestions), Ebi's Help (12k cap — 600-token replies), and Picture's click-to-explain (4k cap).
+Default cap = `KNOWLEDGE_CAP` (60,000 chars ≈ 15k tokens ≈ 20+ pages) — raised from the old 4k/2k.
+**Whole-book KBs — TOC-guided retrieval.** When content exceeds `KNOWLEDGE_CAP`, the server extracts an
+`outline` (returned by GET `/api/modes/knowledge`; sliced by GET `/api/knowledge-sections?sections=i,j`):
+markdown headings, "Chapter N…" lines, numbered "1.2 Title" lines — OR, overriding detection, a file whose
+NAME looks like a TOC (`toc.txt`, "table of contents.md"): its lines (page numbers/leaders stripped) are
+located in the other files. Client: `getKnowledgeContext(task, cap, cacheKey)` runs a selector call (TOC +
+task → `resolveModel('general')` → 1-4 section indices, cached in `knowledgeSelectRef` — question-gen and
+grading share `card:<front>` keys), fetches just those sections. Small KBs bypass it (full content, as
+before); big TOC-less KBs fall back to truncation and Settings → Knowledge shows a ⚠️ banner
+(`knowledgeStatus` prop, `knowledgeBigNoToc`/`knowledgeBigToc` i18n keys) telling the user to add headings
+or upload a `toc.txt`. Sync callers (`knowledgeBlock`/`knowledgeRaw`) give big navigable KBs their TOC text
+instead of a blind head-truncation (Discover profile does the same — chapter structure ≈ domain structure).
+**PDF upload:** knowledge accepts `.pdf` too — text is extracted CLIENT-side (`src/utils/pdf.js`,
+`pdfjs-dist` lazy-imported so it never loads unless a PDF is uploaded) and stored as `.txt`; the server
+stays plain-text only. Extraction rebuilds real LINES from item y-positions + `hasEOL` (headings must land
+on their own line for the outline extractor). Progress shows in the dropzone (`knowledgeBusy` prop,
+`pdfExtracting` i18n); a scanned/image-only PDF (no text layer) is rejected with a `pdfNoText` toast.
 The **entire `modes/` folder is gitignored** (it's all user-generated), so personal modes and knowledge
 never reach git. The app never breaks on a missing folder: `vite.config.js` `mkdirSync(MODES_DIR,
 {recursive})` on demand, and App falls back to an in-memory `defaultMode` when no modes load.
@@ -148,7 +169,9 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   → `LANGUAGE_CARD_PROMPT` parameterized by `learnLangName()` (the learned language, from
   `studyRules.studyLanguage` / app `language` / mode name) and `userLangName()` (`APP_LANG_NAME[appLanguage]`);
   the model writes the back's labels IN the learned language (Spanish→Pronunciación…, German→Aussprache…,
-  Chinese→发音…). **Other modes** → `GENERIC_CARD_PROMPT` (AI-designed back per subject). The model returns
+  Chinese→发音…). **Other modes** → `GENERIC_CARD_PROMPT`, which now receives the mode's OWN card design —
+  `description`, `backTemplate` (followed as a fixed format when it has `{placeholders}`) and `tagRules` —
+  so Quick-Add cards are consistent with the per-subject format `createMode` generated. The model returns
   `{ front, back, tags, correction }` directly; `cardBackToHtml` bolds the leading `Label:` of each line in
   ANY script (`^([^:\n]{1,30}):`). Sync via `ankiAddNote` (allowDuplicate:true for Quick Add) + `ankiSync`;
   duplicate pre-check via `ankiCanAddNote` warns only.
@@ -278,6 +301,11 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   keeps using `learnLang`. The Study Session screen + Settings → Study expose both ("Learning" + "Ebi speaks"),
   shown for every mode (general modes only show "Ebi speaks"). All study-screen labels/descriptions are i18n
   keys (`study*`), so they follow the app language.
+- **"Ebi speaks" works in GENERAL modes too.** `interactionLangName` and `generateQuestionsForCard` use
+  `quizLanguage || app language` for general modes, so a music-theory mode can be quizzed entirely in
+  Spanish. It only changes how Ebi PHRASES questions/hints/feedback — the general block still forbids
+  language-course questions, card terms stay untranslated, and the grader accepts answers in ANY language
+  (graded on understanding). `lookupStudyWord` treats the general question language as `quizLanguage` too.
 - **Word hints (`studyRules.wordHints`, ruby-style glosses).** When on (language modes), small translations
   float above each non-tested word in the question. The question-gen model is unreliable about returning a
   `glosses` map, so `fetchGlossesForQuestion` lazily fills it (an effect after `studyCardStateRef`, gated on
@@ -290,6 +318,64 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
 - Images are non-draggable globally (`img { -webkit-user-drag: none }`): a dragged `<img>` reports `'Files'`
   in `dataTransfer`, which used to falsely trip the "Drop image here" overlay. `handleDragOver` also guards
   on `dataTransfer.types` including `'Files'`.
+
+## Pronunciation audio (`src/pronunciation/`) — 4-tier, language-agnostic
+- `getPronunciation({word,lang,region,config,noteId?,cardId?})` (index.js) tries: **0) Anki media**
+  (`ankimedia.js` — the card's own embedded `[sound:…]` via `retrieveMediaFile`: instant, offline,
+  never re-hits Wikimedia; surfaces pass `noteId`/`cardId` when they know it) → **1) Wiktionary/
+  Commons** native recordings → **2) local TTS** (opt-in) → **3) browser SpeechSynthesis**. Result
+  `{kind:'url'|'speak', audioUrl?/speak?(), source, attribution?, fileName?}`; null = all declined.
+  Never throws. **Cache SUCCESSES only** — a null is usually transient (Wikimedia 429 on a click
+  burst, Anki closed, voices not loaded) so it is NEVER cached; the 🔇 icon stays CLICKABLE to retry.
+  Wikimedia calls go through `politeFetch` (~350ms spacing + one 2.5s-backoff retry on 429);
+  `webspeech.js` never caches an empty voice list (Chromium voices load async). Rendered by
+  `src/components/Pronunciation.jsx` (lazy resolve on FIRST CLICK — no network on card render;
+  🎙/🤖 source badge). The study tapped-word popup (`renderWordLookupPopup`) also mounts a 🔊 so a
+  learner can hear any word in the question.
+- **Tier 1 (wiktionary.js):** per-edition candidates = REST `media-list` **∪** `action=parse` wikitext
+  regex — VERIFIED LIVE (2026-07): es media-list returns 0 (template nesting) so wikitext is
+  load-bearing; en/犬 the reverse (CJK filename missed by regex, found by media-list); de/en agree.
+  **Source B — Commons direct search** (`searchCommonsFiles`, CirrusSearch `intitle:<word>
+  filetype:audio`): runs when every edition page linked nothing. Verified live: es "paraguas" links
+  no audio yet Commons holds `LL-Q1321 (spa)-…-paraguas.wav` — rescued by search. The matcher also
+  knows the bare `(spa)-Speaker-word` convention and REJECTS long recordings merely containing the
+  word (folk-tale fixture in tests). **Noise gate:** files with no language-convention evidence in
+  the name score below `STRONG_SCORE` — "Perro ladrando.ogg" (a BARK) is dropped outright, and a
+  bare "Perro.ogg" is only played if its Commons categories prove it's a pronunciation recording
+  (`looksLikePronunciationPage`); ↻ cycling uses ONLY the language-confirmed list (word-only files
+  first, then phrases) unless nothing better exists.
+  Edition priority `config.editions[iso1] || [iso1,'en']` (ja audio often lives on en). The pure
+  matcher (`matcher.js`, vitest-tested with REAL captured filenames) ranks: exact region (`en-us-…`) >
+  bare language (`De-Haus.ogg`) > Lingua Libre (`LL-Q1321 (spa)-user-word.wav`; Q-id-only LL kept low,
+  never rejected) > wrong region > bare word; files identifiably from ANOTHER language are rejected
+  (en.wiktionary "hola" page carries cat/nl/pol audio — only `Es-hola.oga` may win). Attribution via
+  Commons `imageinfo extmetadata` is MANDATORY (CC-BY-SA): no license metadata → file skipped.
+  All `w/api.php` calls need `origin=*` + `Api-User-Agent`; Wikimedia 429s hard on bursts — every
+  fetch fails soft to [].
+- **Tier 2 (kokoro.js): STRICTLY OPT-IN** — `pronunciation.ttsUrl` empty (default) ⇒ returns null
+  instantly (barebones-laptop guarantee; verified 404 in ~2ms). When set, browser → `/api/tts` vite
+  middleware (modeled on the Anki proxy) → OpenAI-compatible `/v1/audio/speech`, disk-cached in
+  `cache/tts/` (gitignored). Voice map = `DEFAULT_TTS_VOICES` (Kokoro-82M inventory) + config overrides.
+- **Tier 3 (webspeech.js):** SpeechSynthesis with the `onvoiceschanged` race handled; exact dialect →
+  base language → null. `kind:'speak'` (no URL exists for this tier).
+- **↻ Different speaker:** native results show a ↻ that cycles the ranked candidate list
+  (`resolveWiktionary({variant})`, wraps; a variant>0 request merges the Commons search in for more
+  voices; candidate list cached in `candidateCache`). Picking a voice calls `onNative(r, {replace:
+  true})` → the embed SWAPS our previous `[sound:ebiki-…]` + credit (never touches non-ebiki audio),
+  so the card keeps the voice the user chose. ↻ shows on EVERY native result (variantCount can
+  understate before the search merge); when a cycle wraps to the same file it does NOT replay,
+  flashes a floating "only one recording exists" tooltip (absolutely positioned — never pushes
+  layout), and retires. A null cycle result (transient 429) keeps the button for retry.
+- **Anki embed (native audio ONLY, never TTS):** `embedPronunciationInNote` (App.jsx) — on first play
+  from Study/Deck, fetch bytes → `ankiStoreMediaFile('ebiki-…')` → append `[sound:…]` + a small credit
+  line to the back via `ankiUpdateNote`. Idempotent (skips if back has `[sound:`), toggle
+  `pronunciation.embedInAnki` (default ON). Chat-widget playback never embeds (card not in Anki yet).
+- **Surfaces (language modes only):** study graded rows, Deck browser rows, chat `<anki-card>` widgets
+  (both layouts). `pronWord()` strips the "(pos)" suffix; region = `pronunciation.defaultRegions[iso1]`
+  (Settings → Audio, GLOBAL config; also editions/ttsUrl/ttsVoices/embed toggle there). Language data
+  in `pronunciation/langcodes.js` (label/Tesseract-code → iso1/iso3/bcp47) — per-language tuning is
+  config/data, never `if (lang === …)` branching.
+- **Tests:** `npm test` (vitest) → `matcher.test.js`, fixtures are REAL live-captured filenames.
 
 ## AI providers (`src/config/providers.js`) — works on ALL providers
 - **Everything routes through `aiCall`** → `PROVIDERS[provider].call(...)`. No feature hardcodes a provider:

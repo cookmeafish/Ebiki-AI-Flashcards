@@ -6,6 +6,7 @@ config.json
 ankiformat.json
 modes/
 logs/
+cache/
 decks/
 chats/
 /discover/

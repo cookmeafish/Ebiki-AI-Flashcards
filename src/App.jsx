@@ -8,6 +8,8 @@ import { makeT, APP_LANGUAGES } from './i18n'
 import { pickShrimp, shrimpUrl, DEFAULT_SHRIMP, IDLE_SHRIMP, POSE_NAMES, poseFile } from './config/shrimp'
 import { C, RADIUS, SHADOW, FONT } from './config/tokens'
 import FormattedText from './components/FormattedText'
+import Pronunciation from './components/Pronunciation'
+import { langInfo } from './pronunciation/langcodes'
 import HelpChat from './components/HelpChat'
 import Markdown from './components/Markdown'
 import DiscoverPanel from './components/DiscoverPanel'
@@ -16,12 +18,18 @@ import OnboardingWizard from './components/OnboardingWizard'
 import Dropdown from './components/Dropdown'
 import { S } from './styles/theme'
 import { ocrLog, ocrLogTable, ocrLogFlush } from './utils/logger'
-import { ankiPing, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiCanAddNote, ankiFindCards, ankiCardsInfo, ankiAnswerCards, ankiSetDueDate, ankiInsertReviews, ankiGuiDeckReview, ankiGuiCurrentCard, ankiGuiShowAnswer, ankiGuiAnswerCard, ankiGuiDeckBrowser, ankiGetDeckStats, ankiFindNotes, ankiNotesInfo, ankiUpdateNote, ankiDeleteNotes, ankiSync, ankiGetNumCardsReviewedToday, ankiGetNumCardsReviewedByDay, ankiGetTodayReviewStats } from './utils/anki'
+import { ankiPing, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiCanAddNote, ankiFindCards, ankiCardsInfo, ankiAnswerCards, ankiSetDueDate, ankiInsertReviews, ankiGuiDeckReview, ankiGuiCurrentCard, ankiGuiShowAnswer, ankiGuiAnswerCard, ankiGuiDeckBrowser, ankiGetDeckStats, ankiFindNotes, ankiNotesInfo, ankiUpdateNote, ankiDeleteNotes, ankiSync, ankiStoreMediaFile, ankiGetNumCardsReviewedToday, ankiGetNumCardsReviewedByDay, ankiGetTodayReviewStats } from './utils/anki'
 import { readBlob, writeBlob, DEFAULT_LEDGER } from './discover/storage'
 import { buildProfilePrompt, buildSuggestionPrompt, buildVerifyPrompt } from './discover/prompts'
 
 // App-language code → English name, for prompting the AI to reply in the user's language.
 const APP_LANG_NAME = { en: 'English', es: 'Spanish', zh: 'Chinese', ja: 'Japanese' }
+
+// Max characters of a mode's knowledge base injected into AI prompts (~15k tokens ≈ 20+ pages —
+// comfortably within every supported provider's context window). The knowledge base flows into
+// study question generation, answer grading, chat, help, card generation and Discover, so the
+// whole app shares the same reference material.
+const KNOWLEDGE_CAP = 60000
 
 // Short human name for a model id — used in UI labels like "Explain further (Opus)" so buttons
 // reflect the model the user actually configured (Settings → AI models), never a hardcoded name.
@@ -203,6 +211,9 @@ export default function App() {
   // only sync via the manual "Sync now" button or on Finish/Exit. Global settings (config.json).
   const [studyAutoSync, setStudyAutoSync] = useState(true)
   const [studyAutoSyncMinutes, setStudyAutoSyncMinutes] = useState(5)
+  // Pronunciation audio (GLOBAL, config.json): per-language default regions ("es"→"mx"),
+  // Wiktionary edition-priority overrides, opt-in local TTS url + voice map, Anki embed toggle.
+  const [pronunciationCfg, setPronunciationCfg] = useState({ defaultRegions: {}, editions: {}, ttsUrl: '', ttsVoices: {}, embedInAnki: true })
   // Transient toast shown when a retired model is auto-replaced.
   const [modelHealNotice, setModelHealNotice] = useState(null)
   // Persistent toast shown when an AI request fails (out of credits, rate-limited, bad key…).
@@ -383,6 +394,11 @@ export default function App() {
   const [studyKnowledgeCount, setStudyKnowledgeCount] = useState(0)
   const [knowledgeFiles, setKnowledgeFiles] = useState([])
   const [knowledgeDragging, setKnowledgeDragging] = useState(false)
+  // The active mode's knowledge base content, kept loaded so EVERY feature (chat, help, card
+  // generation, grading, Discover) can inject it as context — not just study question generation.
+  // `outline` = server-extracted headings/TOC, used to navigate knowledge bases too big to inline.
+  const [modeKnowledge, setModeKnowledge] = useState({ content: '', fileCount: 0, outline: [] })
+  const [knowledgeBusy, setKnowledgeBusy] = useState(null) // status text while extracting a PDF
 
   // Deck browser
   const [deckBrowserActive, setDeckBrowserActive] = useState(false)
@@ -817,6 +833,7 @@ export default function App() {
       if (typeof config.studyAutoSync === 'boolean') setStudyAutoSync(config.studyAutoSync)
       if (Number.isFinite(config.studyAutoSyncMinutes)) setStudyAutoSyncMinutes(config.studyAutoSyncMinutes)
       if (config.overlayEnabled !== undefined) setOverlayEnabled(config.overlayEnabled)
+      if (config.pronunciation) setPronunciationCfg((prev) => ({ ...prev, ...config.pronunciation }))
       if (config.onboarded) setOnboarded(true)
       setActiveTab(config.activeTab || 'picture')
       // ankiDeck is now per-mode (stored in mode config)
@@ -979,9 +996,9 @@ export default function App() {
     fetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider, aiModels, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, intelligence, studyAutoSync, studyAutoSyncMinutes, overlayEnabled, onboarded, ...(activeTab ? { activeTab } : {}) }),
+      body: JSON.stringify({ provider, aiModels, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, intelligence, studyAutoSync, studyAutoSyncMinutes, overlayEnabled, pronunciation: pronunciationCfg, onboarded, ...(activeTab ? { activeTab } : {}) }),
     }).catch(() => {})
-  }, [provider, aiModels, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, intelligence, studyAutoSync, studyAutoSyncMinutes, overlayEnabled, onboarded, activeTab, configLoaded])
+  }, [provider, aiModels, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, intelligence, studyAutoSync, studyAutoSyncMinutes, overlayEnabled, pronunciationCfg, onboarded, activeTab, configLoaded])
 
   // Auto-launch the overlay once on startup when the persisted preference is ON (default).
   const overlayAutoLaunchedRef = useRef(false)
@@ -2028,11 +2045,11 @@ export default function App() {
     const file = e.dataTransfer?.files?.[0]
     if (!file) return
     console.log('[App] drop event, file:', file.name, 'knowledgeOpen:', knowledgeOpen)
-    // Don't handle text files at app level — they're for knowledge base
-    if (file.name.match(/\.(txt|md)$/i)) {
+    // Don't handle text/PDF files at app level — they're for knowledge base
+    if (file.name.match(/\.(txt|md|pdf)$/i)) {
       // If knowledge section is open, forward the file there
       if (knowledgeOpen) {
-        console.log('[App] forwarding text file to knowledge upload')
+        console.log('[App] forwarding text/pdf file to knowledge upload')
         uploadKnowledgeFile(file)
       }
       return
@@ -2249,7 +2266,7 @@ Context: "${getContext()}"
 In 1-2 short sentences: what does "${word.text}" mean here and what part of speech is it? No markdown.`
         : `Term: "${word.text}"
 Context: "${getContext()}"
-Study subject: ${activeMode.description || activeMode.name}
+Study subject: ${activeMode.description || activeMode.name}${knowledgeBlock(4000)}
 
 In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.name}. No markdown.`
       const text = await aiCall(apiKey, activeMode.type === 'language' ? 'You are a concise language tutor. Answer in 1-2 sentences max.' : `You are a concise ${activeMode.name} tutor. Answer in 1-2 sentences max.`, prompt, resolveModel('picture'))
@@ -2296,12 +2313,13 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
   const userLangName = () => APP_LANG_NAME[appLanguage] || 'English'
   // The language Ebi SPEAKS in (questions, hints, feedback, tutor chat). NEVER static:
   // - language modes → the "Ebi speaks" quizLanguage, falling back to the learned language;
-  // - general modes  → ALWAYS the user's app language. A general subject (Security+, chemistry,
-  //   history…) is never quizzed "in" a foreign language, even if a card's term happens to be one.
+  // - general modes  → the "Ebi speaks" quizLanguage too (so music theory can be quizzed in
+  //   Spanish), falling back to the user's app language. General modes still never turn into a
+  //   language course — Ebi just PHRASES everything in that language.
   const interactionLangName = (rules) => {
     const r = rules || activeMode.studyRules || defaultStudyRules
     if (activeMode.type === 'language') return r.quizLanguage || r.studyLanguage || learnLangName()
-    return userLangName()
+    return r.quizLanguage || userLangName()
   }
 
   // Second-pass proofreader: cards get MEMORIZED, so a wrong word/translation is unacceptable.
@@ -2318,19 +2336,36 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
   }
 
   // Generate one or more cards per input word. Language modes use the language-agnostic prompt (the
-  // model writes labels in the learned language); other modes let the AI design a subject back.
+  // model writes labels in the learned language); other modes get the mode's OWN card design —
+  // description, back template and tag rules (all generated per-subject by createMode) — so every
+  // batch produces consistent cards instead of an AI-improvised format each time.
   // Every card is proofread (verifyCards) before return. Returns [{ front, back, tags, _rich }].
   const generateCards = async (words) => {
     const list = (Array.isArray(words) ? words : [words]).map((w) => String(w).trim()).filter(Boolean)
     if (!list.length) return []
     const isLang = activeMode.type === 'language'
-    const prompt = isLang
-      ? LANGUAGE_CARD_PROMPT.replace(/\{LEARN_LANG\}/g, learnLangName()).replace(/\{USER_LANG\}/g, userLangName())
-      : GENERIC_CARD_PROMPT.replace('{MODE}', activeMode.name).replace('{TYPE}', activeMode.type)
-    const text = await aiCall(apiKey, prompt, JSON.stringify({ words: list }), resolveModel('deck'))
+    let prompt
+    if (isLang) {
+      prompt = LANGUAGE_CARD_PROMPT.replace(/\{LEARN_LANG\}/g, learnLangName()).replace(/\{USER_LANG\}/g, userLangName())
+    } else {
+      const desc = activeMode.description ? `\nMode description: ${activeMode.description}` : ''
+      const backTpl = String(activeMode.backTemplate || '')
+      // A real template (has {placeholders}) locks the back's structure; otherwise the model designs it.
+      const format = backTpl.includes('{')
+        ? `\n  This mode has a FIXED card format — follow it. Fill each {placeholder} with content for the term, keep the labels and line order exactly (drop a line ONLY if it truly doesn't apply to that term):\n${backTpl.split('\n').map((l) => `    ${l}`).join('\n')}`
+        : ' Choose whatever labels best teach this subject, and keep them consistent across all cards.'
+      const tagRules = activeMode.tagRules ? `\n  TAG RULES for this mode:\n${activeMode.tagRules.split('\n').map((l) => `    ${l}`).join('\n')}` : ''
+      prompt = GENERIC_CARD_PROMPT
+        .replace('{MODE}', () => activeMode.name)
+        .replace('{TYPE}', () => activeMode.type)
+        .replace('{DESCRIPTION}', () => desc)
+        .replace('{FORMAT}', () => format)
+        .replace('{TAG_RULES}', () => tagRules)
+    }
+    const text = await aiCall(apiKey, prompt + await getKnowledgeContext(`Generating flashcards for these ${activeMode.name} terms: ${list.join(', ')}`), JSON.stringify({ words: list }), resolveModel('deck'))
     const parsed = parseAiJson(text)
     let arr = (Array.isArray(parsed) ? parsed : (parsed ? [parsed] : [])).filter((c) => c && (c.front || c.word))
-    arr = await verifyCards(arr, isLang ? learnLangName() : activeMode.name)
+    arr = await verifyCards(arr, isLang ? learnLangName() : (activeMode.description ? `${activeMode.name} (${activeMode.description})` : activeMode.name))
     return arr.filter((c) => c && (c.front || c.word)).map((c) => ({
       front: c.front || c.word || '',
       back: c.back || '',
@@ -3391,7 +3426,16 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       try {
         const d = await (await fetch(`/api/modes/knowledge?mode=${encodeURIComponent(activeMode.name)}`)).json()
         const names = (d.files || []).filter((f) => !f.disabled).map((f) => f.name)
-        if (names.length) knowledgeSummary = `Knowledge base files: ${names.join(', ')}`
+        // Full content (capped), not just file names — for cert modes this is what lets the
+        // profile enumerate the real exam objective domains. A whole-book KB contributes its
+        // TOC instead (the chapter structure IS the domain structure).
+        if (names.length) {
+          const body = !d.content ? ''
+            : d.content.length > KNOWLEDGE_CAP && (d.outline || []).length >= 4
+              ? `\nKnowledge base table of contents:\n${d.outline.map((h) => `${'  '.repeat(Math.max(0, (h.level || 1) - 1))}${h.title}`).join('\n').substring(0, KNOWLEDGE_CAP)}`
+              : `\nKnowledge base content:\n${d.content.substring(0, KNOWLEDGE_CAP)}`
+          knowledgeSummary = `Knowledge base files: ${names.join(', ')}${body}`
+        }
       } catch {}
 
       const cardList = cards.slice(0, 120).map((c) => `- ${c.front} -> ${c.back}`).join('\n')
@@ -3459,6 +3503,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         excludeList: discoverExcludeList(ledger),
         itemType: discoverConfig.itemType,
         focus: discoverConfig.focus.trim(),
+        knowledge: knowledgeRaw(KNOWLEDGE_CAP), // big books contribute their TOC
       })
       const text = await aiCall(apiKey, 'You suggest new study items. Always respond with valid JSON only.', prompt, resolveModel('discover'))
       let suggestion = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
@@ -3643,31 +3688,174 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     } catch { setKnowledgeFiles([]) }
   }
 
+  // Keep the active mode's knowledge content in state so every AI feature can use it without
+  // its own fetch. Refreshed on mode switch and after any knowledge file change.
+  const refreshModeKnowledge = async () => {
+    try {
+      const res = await fetch(`/api/modes/knowledge?mode=${encodeURIComponent(activeMode.name)}`).then(r => r.json())
+      setModeKnowledge({ content: res.content || '', fileCount: res.fileCount || 0, outline: res.outline || [] })
+    } catch { setModeKnowledge({ content: '', fileCount: 0, outline: [] }) }
+  }
+  useEffect(() => { refreshModeKnowledge() }, [activeModeId, activeMode.name]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The outline as an indented text TOC (empty string when the server found no headings).
+  const knowledgeOutlineText = () =>
+    (modeKnowledge.outline || []).map((h) => `${'  '.repeat(Math.max(0, (h.level || 1) - 1))}${h.title}`).join('\n')
+  // Whether the KB is too big to inline AND has a usable TOC to navigate by.
+  const knowledgeIsBig = () => modeKnowledge.content.length > KNOWLEDGE_CAP
+  const knowledgeHasToc = () => (modeKnowledge.outline || []).length >= 4
+  // Raw knowledge for a prompt: full content when it fits; the TOC when it's a big navigable
+  // book (so the model at least knows what the material covers); truncated head as last resort.
+  const knowledgeRaw = (cap = KNOWLEDGE_CAP) => {
+    const { content } = modeKnowledge
+    if (!content) return ''
+    if (content.length <= cap) return content
+    if (knowledgeHasToc()) return `TABLE OF CONTENTS of the user's study material (too large to include in full):\n${knowledgeOutlineText()}`.substring(0, cap)
+    return content.substring(0, cap)
+  }
+  // Uniform prompt block for injecting the mode's knowledge base into any AI call.
+  const knowledgeBlock = (cap = KNOWLEDGE_CAP) => {
+    const raw = knowledgeRaw(cap)
+    return raw ? `\n\nREFERENCE MATERIAL (the user's own knowledge base for "${activeMode.name}" — treat it as authoritative context for this subject):\n${raw}` : ''
+  }
+
+  // TOC-guided retrieval for HUGE knowledge bases (whole books): a quick selector call reads
+  // the TOC + the task, picks the relevant sections, and only those are fetched and injected.
+  // Small knowledge bases skip all of this (full content, exactly as before); giant TOC-less
+  // ones fall back to knowledgeBlock's truncation (Settings shows a warning for that case).
+  const knowledgeSelectRef = useRef(new Map()) // `${mode}|${cacheKey}` → picked section indices
+  const getKnowledgeContext = async (task, cap = KNOWLEDGE_CAP, cacheKey = null) => {
+    const { content, outline } = modeKnowledge
+    if (!content) return ''
+    if (content.length <= cap || !knowledgeHasToc()) return knowledgeBlock(cap)
+    try {
+      const key = `${activeMode.name}|${cacheKey || String(task).slice(0, 160)}`
+      let ids = knowledgeSelectRef.current.get(key)
+      if (!ids) {
+        const toc = outline.map((h, i) => `${i}. ${'  '.repeat(Math.max(0, (h.level || 1) - 1))}${h.title}`).join('\n')
+        const sel = await aiCall(apiKey,
+          'You route study tasks to the relevant sections of study material. Respond ONLY with a raw JSON array of section numbers.',
+          `TABLE OF CONTENTS:\n${toc}\n\nTASK:\n${task}\n\nReturn a JSON array with the numbers of the 1-4 sections most relevant to this task, most relevant first (e.g. [12,3]). ONLY the raw JSON array, no markdown.`,
+          resolveModel('general'))
+        const parsed = JSON.parse(sel.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+        ids = (Array.isArray(parsed) ? parsed : []).filter((n) => Number.isInteger(n) && n >= 0 && n < outline.length).slice(0, 4)
+        if (!ids.length) return knowledgeBlock(cap)
+        if (knowledgeSelectRef.current.size > 300) knowledgeSelectRef.current.clear()
+        knowledgeSelectRef.current.set(key, ids)
+      }
+      const res = await fetch(`/api/knowledge-sections?mode=${encodeURIComponent(activeMode.name)}&sections=${ids.join(',')}&cap=${cap}`).then((r) => r.json())
+      if (!res.content) return knowledgeBlock(cap)
+      return `\n\nREFERENCE MATERIAL (sections of the user's knowledge base for "${activeMode.name}" chosen as relevant to this task — treat as authoritative):\n${res.content}`
+    } catch { return knowledgeBlock(cap) }
+  }
+
+  // ─── Pronunciation audio ──────────────────────────────────────────────────
+  // Words are pronounced in the mode's LEARNED language (language modes only).
+  // Region preference = the user's per-language default (Settings → Audio).
+  const pronRegion = () => {
+    const info = langInfo(learnLangName())
+    return info ? (pronunciationCfg.defaultRegions?.[info.iso1] || '') : ''
+  }
+  // Strip the "(part of speech)" suffix our card fronts carry before an audio lookup.
+  const pronWord = (front) => String(front || '').replace(/\s*[(（].*$/, '').trim()
+
+  // Embed a native (Tier-1) recording into the Anki note: store the media file, append
+  // [sound:…] + the CC-BY-SA credit line to the back field. Idempotent — skips when the
+  // back already carries audio. With { replace: true } (user picked a DIFFERENT speaker
+  // via ↻) it swaps out OUR previous embed (only ebiki-prefixed sounds — a user's own
+  // audio is never touched). Best-effort: failures only log, never break the UI.
+  const embeddedAudioRef = useRef(new Set())
+  const embedPronunciationInNote = async (noteId, result, word, { replace = false } = {}) => {
+    if (!noteId || !result || result.source !== 'wiktionary' || pronunciationCfg.embedInAnki === false) return
+    if (embeddedAudioRef.current.has(noteId) && !replace) return
+    embeddedAudioRef.current.add(noteId)
+    try {
+      const note = (await ankiNotesInfo([noteId]))?.[0]
+      if (!note) return
+      const backName = Object.entries(note.fields).sort(([, a], [, b]) => a.order - b.order)[1]?.[0]
+      if (!backName) return
+      let backVal = note.fields[backName].value || ''
+      if (backVal.includes('[sound:')) {
+        if (!replace || !/\[sound:ebiki-/.test(backVal)) return // not ours to replace
+        backVal = backVal
+          .replace(/(<br>)?\[sound:ebiki-[^\]]+\]/g, '')
+          .replace(/<div[^>]*>🔊 <a[^>]*>[^<]*<\/a><\/div>/g, '')
+      }
+      const resp = await fetch(result.audioUrl)
+      if (!resp.ok) return
+      const bytes = new Uint8Array(await resp.arrayBuffer())
+      let bin = ''
+      for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000))
+      const ext = (result.fileName?.match(/\.(ogg|oga|wav|mp3|opus|flac)$/i)?.[1] || 'ogg').toLowerCase()
+      const mediaName = `ebiki-${String(word).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').slice(0, 40)}-${noteId}.${ext}`
+      await ankiStoreMediaFile(mediaName, btoa(bin))
+      // The CC-BY-SA credit must travel with the cached copy — it goes on the card itself.
+      const credit = result.attribution
+        ? `<div style="font-size:10px;color:#888;margin-top:6px">🔊 <a href="${result.attribution.sourceUrl}">${result.attribution.author} · ${result.attribution.license}</a></div>`
+        : ''
+      await ankiUpdateNote(noteId, { [backName]: `${backVal}<br>[sound:${mediaName}]${credit}` })
+      console.log('[Pronunciation] embedded native audio into note', noteId, mediaName)
+    } catch (err) {
+      console.warn('[Pronunciation] embed failed:', err.message)
+      embeddedAudioRef.current.delete(noteId) // allow a retry later
+    }
+  }
+  // Study rows only know the cardId — resolve it to the note first.
+  const embedPronunciationForCard = async (cardId, result, word, opts) => {
+    if (!cardId) return
+    try {
+      const noteId = (await ankiCardsInfo([cardId]))?.[0]?.note
+      await embedPronunciationInNote(noteId, result, word, opts)
+    } catch { /* best-effort */ }
+  }
+
   const uploadKnowledgeFile = async (file) => {
     console.log('[Knowledge] uploading file:', file.name, 'size:', file.size, 'type:', file.type)
     try {
-      const text = await file.text()
+      const isPdf = /\.pdf$/i.test(file.name) || file.type === 'application/pdf'
+      let text, filename = file.name
+      if (isPdf) {
+        // Extract text client-side (pdf.js, lazy-loaded) and store it as .txt — the server
+        // and the whole knowledge pipeline stay plain-text only.
+        setKnowledgeBusy(t('pdfExtracting').replace('{p}', '0').replace('{n}', '…'))
+        const { extractPdfText } = await import('./utils/pdf')
+        text = await extractPdfText(file, (p, n) => setKnowledgeBusy(t('pdfExtracting').replace('{p}', String(p)).replace('{n}', String(n))))
+        filename = file.name.replace(/\.pdf$/i, '') + '.txt'
+        if (!text.trim()) {
+          // Scanned/image-only PDF — no text layer to extract.
+          setAiErrorNotice(t('pdfNoText').replace('{file}', file.name))
+          return
+        }
+      } else {
+        text = await file.text()
+      }
       console.log('[Knowledge] file content length:', text.length)
       const res = await fetch(`/api/modes/knowledge?mode=${encodeURIComponent(activeMode.name)}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename: file.name, content: text }),
+        body: JSON.stringify({ filename, content: text }),
       })
       const data = await res.json()
       console.log('[Knowledge] upload result:', data)
       await loadKnowledgeFiles()
+      refreshModeKnowledge()
     } catch (err) {
       console.error('[Knowledge] upload failed:', err.message)
+      setAiErrorNotice(`${file.name}: ${err.message}`)
+    } finally {
+      setKnowledgeBusy(null)
     }
   }
 
   const deleteKnowledgeFile = async (fileName) => {
     await fetch(`/api/modes/knowledge?mode=${encodeURIComponent(activeMode.name)}&file=${encodeURIComponent(fileName)}`, { method: 'DELETE' })
     loadKnowledgeFiles()
+    refreshModeKnowledge()
   }
 
   const toggleKnowledgeFile = async (fileName) => {
     await fetch(`/api/modes/knowledge?mode=${encodeURIComponent(activeMode.name)}&file=${encodeURIComponent(fileName)}`, { method: 'PATCH' })
     loadKnowledgeFiles()
+    refreshModeKnowledge()
   }
 
   const handleKnowledgeDrop = (e) => {
@@ -3677,16 +3865,16 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     setDragging(false)
     const allFiles = Array.from(e.dataTransfer.files)
     console.log('[Knowledge] drop event, files:', allFiles.map(f => f.name))
-    const textFiles = allFiles.filter(f => f.name.match(/\.(txt|md)$/i))
+    const textFiles = allFiles.filter(f => f.name.match(/\.(txt|md|pdf)$/i))
     if (textFiles.length === 0) {
-      console.log('[Knowledge] no .txt/.md files in drop')
+      console.log('[Knowledge] no .txt/.md/.pdf files in drop')
       return
     }
     textFiles.forEach(uploadKnowledgeFile)
   }
 
   const handleKnowledgeFileInput = (e) => {
-    const files = Array.from(e.target.files).filter(f => f.name.match(/\.(txt|md)$/i))
+    const files = Array.from(e.target.files).filter(f => f.name.match(/\.(txt|md|pdf)$/i))
     files.forEach(uploadKnowledgeFile)
     e.target.value = ''
   }
@@ -3855,6 +4043,12 @@ Output ONLY raw JSON. No markdown, no backticks.`
         {/* Row 1: the tapped word + its in-context meaning, and the × that backs out */}
         <div style={{ fontSize: 11, display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
           <span style={{ fontWeight: 700, color: 'var(--c-brand)' }}>{studyWordLookup.word}</span>
+          {/* Hear the tapped word — covers "I don't know how to pronounce this word in the question" */}
+          <Pronunciation word={studyWordLookup.word} lang={learnLangName()} region={pronRegion()} config={pronunciationCfg} t={t} compact />
+          {/* …and read it: text phonetics in the same style as the card backs (pah-RAH-gwahs) */}
+          {studyWordLookup.pron && !studyWordLookup.loading && (
+            <span style={{ color: 'var(--c-ink-dim)', fontStyle: 'italic', fontWeight: 600 }}>/{studyWordLookup.pron}/</span>
+          )}
           <span style={{ color: 'var(--c-ink-dim)' }}>—</span>
           {studyWordLookup.loading ? (
             <span style={{ flex: 1, color: 'var(--c-ink-dim)' }}>Looking up…</span>
@@ -3991,6 +4185,12 @@ Output ONLY raw JSON. No markdown, no backticks.`
   const generateQuestionsForCard = async (card, rules, studyLang, knowledgeContext) => {
     const front = getCardFront(card)
     const back = getCardBack(card)
+    // Huge knowledge bases: replace the caller's static (truncated) context with the book
+    // sections relevant to THIS card, picked via the TOC. Small KBs keep the caller's string.
+    if (knowledgeIsBig()) {
+      const kctx = await getKnowledgeContext(`Generating quiz questions for the flashcard "${front}" — ${back.slice(0, 300)}`, KNOWLEDGE_CAP, `card:${front}`)
+      if (kctx) knowledgeContext = `${kctx}\n\nUse this context to create more specific, contextual questions.`
+    }
     const n = rules.questionsPerCard || 3
     const questionPrompt = rules.questionPrompt || defaultStudyRules.questionPrompt
     const isLanguage = activeMode.type === 'language'
@@ -4000,10 +4200,11 @@ Output ONLY raw JSON. No markdown, no backticks.`
     //  quizLang  = "Ebi speaks" → the language Ebi PHRASES questions & feedback in
     //  userLang  = the user's own language → what word-hint glosses are written in
     const userLang = userLangName()
-    // General modes are NEVER tied to a learned/quiz language — Ebi speaks the app language and the
-    // "answer language" concept doesn't apply. Only language modes use studyLang/quizLanguage.
+    // General modes have no LEARNED language (the "answer language" concept doesn't apply), but
+    // "Ebi speaks" (quizLanguage) still works: a music-theory mode can be quizzed in Spanish.
+    // It only changes how Ebi PHRASES things — never turns the mode into a language course.
     const learnLang = isLanguage ? (studyLang || learnLangName()) : userLang
-    const quizLang = isLanguage ? (rules.quizLanguage || studyLang || learnLang) : userLang
+    const quizLang = isLanguage ? (rules.quizLanguage || studyLang || learnLang) : (rules.quizLanguage || userLang)
     const sameLang = quizLang.toLowerCase() === learnLang.toLowerCase()
     const wantHints = isLanguage && !!rules.wordHints
 
@@ -4026,7 +4227,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
           deepQ,
         ].filter(Boolean).join('\n')
 
-    const generalBlock = isLanguage ? '' : `\nGENERAL STUDY MODE — REQUIRED:\n- This is a general study mode for the subject "${activeMode.name}". It is NOT a language course.\n- Write EVERY question, instruction, and all framing in ${userLang}.\n- Do NOT generate language-learning questions: never ask the student to translate, never ask "how do you say X in <language>", never ask "in <language>, what word/noun/verb…", and never quiz a word's gender, article, or conjugation.\n- Even if a card's term is written in another language, test the underlying CONCEPT, fact, or meaning — not vocabulary translation. The expected answer is the term/concept exactly as it appears on the card.\n`
+    const generalBlock = isLanguage ? '' : `\nGENERAL STUDY MODE — REQUIRED:\n- This is a general study mode for the subject "${activeMode.name}". It is NOT a language course.\n- Write EVERY question, instruction, and all framing in ${quizLang} (that is the language Ebi speaks to this student).\n- Do NOT generate language-learning questions: never ask the student to translate, never ask "how do you say X in <language>", never ask "in <language>, what word/noun/verb…", and never quiz a word's gender, article, or conjugation. Speaking ${quizLang} does not make this a ${quizLang} course — it is still purely about "${activeMode.name}".\n- Even if a card's term is written in another language, test the underlying CONCEPT, fact, or meaning — not vocabulary translation. The expected answer is the term/concept exactly as it appears on the card (subject terms/proper names stay as-is on the card, untranslated).\n`
     const languageBlock = isLanguage ? `\nLANGUAGE MODE — REQUIRED:\n- The student is LEARNING ${learnLang}. The EXPECTED ANSWER is ALWAYS the ${learnLang} word/phrase on the card, regardless of which side it's on.\n- Identify the ${learnLang} word on the card (the one NOT written in ${userLang}) — that is the answer. The ${userLang} side is just the meaning/hint.\n- "acceptedAnswers" MUST contain the ${learnLang} word (lowercase, plus close variants with/without accents). NEVER put the ${userLang} meaning in acceptedAnswers.\n- EBI SPEAKS ${quizLang}: write all instructions, question framing, and feedback in ${quizLang}.${sameLang ? '' : ` EXCEPTION: a fill-in-the-blank/example SENTENCE that must contain the ${learnLang} answer stays in ${learnLang} (you cannot blank a ${learnLang} word out of a ${quizLang} sentence) — only the wrapper instruction around it is in ${quizLang}.`}\n- LANGUAGE NAMES = ENDONYMS: whenever a question written in ${quizLang} names a language, use that language's OWN name (its endonym), NEVER the English name. So a Spanish question says "en español" (never "en Spanish"), a French one "en français", Japanese "日本語で", German "auf Deutsch". Do NOT drop English language names into non-English text.\n- Treat the word in its BROADEST everyday meaning. If the card text doesn't pin down a specific domain, do NOT restrict questions to specialized contexts (programming, medicine, law, military, etc.). Example: "puntero" alone could be a clock hand, laser pointer, finger, or mouse cursor — don't assume programming.\n- BUT if the card text explicitly indicates a domain (e.g. back says "Pointer (C/C++)", tag mentions a field), quiz within that domain.${wantHints ? `\n- WORD HINTS: for EACH question, also return a "glosses" object mapping every ${learnLang} content word that appears in the question text (EXCEPT the answer word and the blank) to a SHORT ${userLang} meaning. Skip bare punctuation. This lets a weak ${learnLang} reader understand the sentence.` : ''}\n` : ''
 
     const prompt = `Card front: "${front}"\nCard back: "${back}"\n${languageBlock}${generalBlock}\n${orderRules}\n\nCRITICAL RULES:\n- Questions must require the SPECIFIC answer on this card — synonyms are NOT acceptable for recall/fill_blank questions\n- NEVER construct a question whose only purpose is to directly name the answer (e.g. "what noun corresponds to adjective X?" when that noun IS the answer)\n- Each question must test a DIFFERENT angle\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question before finalizing): mentally substitute 2–3 plausible alternative ${learnLang} words — ESPECIALLY synonyms — into the question. If ANY of them still fit after reading the WHOLE question, it is INVALID and you MUST fix it. THE REQUIRED FIX: embed a compact parenthetical cue in ${quizLang} right at the blank that names the target word's precise meaning/nuance, and ADD its first letter whenever a synonym would otherwise survive. This inline cue is PART OF the question text and is mandatory for any word that has synonyms — a bare sentence is almost never enough. (The separate hint1/hint2 fields are revealed only on demand and do NOT count as disambiguation.) A blank surrounded only by a GENERIC predicate that many words satisfy is INVALID until you add the cue. Prefer a slightly over-specified question with a clear cue over an elegant but ambiguous one.\n  - BAD: "Al ver al depredador, la gacela ___ a toda velocidad para salvar su vida." Target "huye" — but "corre", "escapa", "salta" all fit. INVALID.\n  - GOOD: "Al ver al depredador, la gacela ___ (escapar de un peligro; empieza con "h") a toda velocidad para salvar su vida." — the cue pins "huye".\n  - BAD: "Sienten una atracción ___: él la quiere a ella y ella lo quiere a él por igual." Target "recíproca" — but "mutua" fits equally. INVALID.\n  - GOOD: "Sienten una atracción ___ (correspondida por ambos; empieza con "r"): él la quiere a ella y ella lo quiere a él por igual." — the cue pins "recíproca".\n- For language cards: test usage in sentences, grammatical properties, contextual usage\n- For conceptual cards: test application, process, comparison\n\n${questionPrompt}\n\n${isLanguage ? `Phrase every question and its framing in ${quizLang} (target-language sentences that hold the ${learnLang} answer stay in ${learnLang}).` : `Write all questions in ${quizLang}.`}${knowledgeContext}\n\nReturn a JSON array of exactly ${n} objects:\n[\n  {\n    "question": "the question text",\n    "type": "recall" | "fill_blank" | "explanation",\n    "hint1": "N letters" (letter count of primary answer, null for explanation),\n    "hint2": "starts with 'X'" (first letter of primary answer, null for explanation),\n    "acceptedAnswers": ["answer1", "answer2"] (lowercase; exact words that are correct; empty for explanation),${wantHints ? `\n    "glosses": { "<non-answer ${learnLang} word in the question>": "<short ${userLang} meaning>" } (only ${learnLang} content words shown in the question, excluding the answer/blank; {} if none),` : ''}\n    "pose": one mascot pose name that best fits this question's topic, chosen ONLY from: ${POSE_NAMES.join(', ')} (use "default" if none fit)\n  }\n]\nOutput ONLY raw JSON array. No markdown, no backticks.`
@@ -4183,7 +4384,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       // Answer/target language — only used by language modes (general modes ignore it). Falls back
       // to the resolved learned language, never a static 'English'.
       const studyLang = rules.studyLanguage || learnLangName()
-      const knowledgeContext = knowledgeRes.content ? `\n\nReference material:\n${knowledgeRes.content.substring(0, 4000)}\n\nUse this context to create more specific, contextual questions.` : ''
+      const knowledgeContext = knowledgeRes.content ? `\n\nReference material:\n${knowledgeRes.content.substring(0, KNOWLEDGE_CAP)}\n\nUse this context to create more specific, contextual questions.` : ''
 
       if (mode === 'conjugations') {
         // Build word pool — language is detected from deck name + card content, not assumed from active mode
@@ -4558,7 +4759,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const questionObj = cs.questions[questionIdx]
     const question = getQuestionText(questionObj)
     const rules = activeMode.studyRules || defaultStudyRules
-    const studyLang = interactionLangName(rules)  // Ebi speaks → hint language (app language for general modes)
+    const studyLang = interactionLangName(rules)  // Ebi speaks → hint language (all modes)
     setStudyMeaningHintLoading(true)
     try {
       const prompt = `Write your ENTIRE response in ${studyLang}. The student is studying in ${studyLang}, so the hint must be in ${studyLang} — not English (unless ${studyLang} is English).
@@ -4590,11 +4791,11 @@ Rules:
     // Explain in the USER's language (= the app language), since that's the language they
     // speak and are learning from — not the quiz/study language.
     const explainLang = APP_LANG_NAME[appLanguage] || 'English'
-    // The language the QUESTION is written in: the learned language for language modes, the app
-    // language for general modes (general questions are never in a foreign language).
+    // The language the QUESTION is written in: the learned language for language modes, the
+    // "Ebi speaks" language (falling back to the app language) for general modes.
     const studyLang = activeMode.type === 'language'
       ? ((activeMode.studyRules || defaultStudyRules).studyLanguage || learnLangName())
-      : userLangName()
+      : ((activeMode.studyRules || defaultGeneralStudyRules).quizLanguage || userLangName())
     setStudyWordLookup({ word, primary: null, alternatives: [], loading: true, source })
     try {
       // Disambiguate by the WHOLE question — the same word can mean different things in different
@@ -4607,7 +4808,8 @@ Question: "${sentence}"
 Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
 {
   "primary": "the meaning/translation of \\"${word}\\" AS USED in THIS question — the single best fit, a few words only",
-  "alternatives": ["up to 3 other common meanings the word can have in OTHER contexts, a few words each; use [] if it really only has one meaning"]
+  "alternatives": ["up to 3 other common meanings the word can have in OTHER contexts, a few words each; use [] if it really only has one meaning"],
+  "pron": "simplified phonetics of \\"${word}\\" for a ${explainLang} speaker, stressed syllable in CAPS (e.g. PREH-syoh) — same style as flashcard pronunciation lines; "" if it reads exactly as spelled"
 }`
       const text = await aiCall(apiKey, `You are a concise bilingual dictionary that disambiguates words by context. Output JSON only, written in ${explainLang}.`, prompt, resolveModel('study'))
       const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
@@ -4615,6 +4817,7 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
         word,
         primary: String(parsed.primary || '').trim() || '—',
         alternatives: Array.isArray(parsed.alternatives) ? parsed.alternatives.filter(Boolean).map(String).slice(0, 3) : [],
+        pron: String(parsed.pron || '').trim(),
         loading: false,
         source,
       })
@@ -4730,10 +4933,10 @@ Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. 
     try {
       const rules = activeMode.studyRules || defaultStudyRules
       const isLanguage = activeMode.type === 'language'
-      const studyLang = interactionLangName(rules)                  // Ebi speaks → feedback language (app language for general modes)
+      const studyLang = interactionLangName(rules)                  // Ebi speaks → feedback language (all modes)
       const learnLang = isLanguage ? (rules.studyLanguage || learnLangName()) : userLangName()  // the language being learned → the answer language
       const grammarOn = rules.grammarFeedback || false
-      const modeType = isLanguage ? `The student is learning ${learnLang} (their answers are in ${learnLang}). Typos in ${learnLang} should be marked CORRECT if the concept is understood.` : `The student is studying ${activeMode.name}. They answer in their own words to explain topics/situations.`
+      const modeType = isLanguage ? `The student is learning ${learnLang} (their answers are in ${learnLang}). Typos in ${learnLang} should be marked CORRECT if the concept is understood.` : `The student is studying ${activeMode.name}. They answer in their own words to explain topics/situations. Questions were asked in ${studyLang}; the student may answer in ${studyLang} OR any language they prefer — grade on understanding, never on which language they answered in.`
       const notesInstruction = `\n\nFEEDBACK CATEGORIES: In addition to the one-line "feedback" summary, return a "notes" array of 0-4 short, categorized points (each written in ${studyLang}). Each note is {"type": <category>, "text": "...", "penalize": true/false}. Categories:\n- "praise": what the student got right / did well\n- "correction": what was wrong or a factual error\n- "grammar": grammar, spelling or accent issues\n- "terminology": word choice — using the precise/correct term\n- "detail": important information that was missing or incomplete\n- "tip": a concrete suggestion to improve\nUse the categories that apply (often just 1-2). ${grammarOn ? 'Include "grammar" notes when relevant; set "penalize": true ONLY when the grammar/accent error relates to what the card tests.' : 'Do NOT include "grammar" notes (grammar feedback is turned off).'} "penalize" defaults to false for all other categories.`
 
       const questionsAndAnswers = cs.questions.map((q, i) => {
@@ -4752,7 +4955,10 @@ Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. 
         ? `Grading rules by question type:\n- recall / fill_blank: mark CORRECT if the student's answer CONTAINS one of the "Accepted answers" — ignore a leading article (e.g. "una", "el") and extra function words, so "una huelga" is CORRECT for "huelga". Normalize for case, accents, and minor typos. Synonyms, related words, or different words with the same meaning are INCORRECT — mark them wrong and note the specific word this card tests. If no "Accepted answers" line is given, fall back to the ${learnLang} side of the card.\n- INFLECTION TOLERANCE (fill_blank): a different grammatical FORM of the SAME target word (verb tense/mood/person, or noun/adjective gender/number) is the SAME word, NOT a synonym. If the sentence does NOT contain a clear marker forcing one specific form — a time adverb (ayer, mañana, siempre, ahora), an explicit subject, or grammatical agreement — then accept ANY grammatically correct form of the target lemma that fits the sentence, even if it differs from the accepted list (e.g. present "huye" is CORRECT when the list says preterite "huyó" but nothing in the sentence indicates past tense). Only require the exact inflection when the sentence unambiguously forces it; never invent a tense the sentence does not signal.\n- explanation: grade on conceptual understanding — accept any answer that correctly addresses the question.\nALWAYS note any grammar, spelling, or accent issues in the feedback (e.g. missing accent mark on brújula). These notes are educational, not penalizing.`
         : `Grading rules:\n- This is NOT a vocabulary test. The student answers in their own words to explain concepts or situations. Grade EVERY question on conceptual understanding: mark CORRECT if the answer demonstrates correct understanding of the topic, even when phrased differently, with extra words, or not matching the reference answer exactly. Only mark WRONG if the answer is factually incorrect, off-topic, or empty. When useful, add a brief note in the feedback about anything they missed.`
 
-      const prompt = `Evaluate ALL answers for this flashcard at once.\n\nCard front: "${cs.front}"\nCard back: "${cs.back}"\n\n${modeType}\n\n${questionsAndAnswers}\n\n${gradingRules}${notesInstruction}\n\nWrite ALL feedback text in ${studyLang}.\n\nReturn a JSON array of ${cs.questions.length} objects: [{"correct": true/false, "feedback": "one short summary sentence", "notes": [{"type": "praise|correction|grammar|terminology|detail|tip", "text": "...", "penalize": true/false}]}]\n\nOutput ONLY raw JSON. No markdown, no backticks.`
+      const knowledgeRef = !studyKnowledge ? '' : knowledgeIsBig()
+        ? await getKnowledgeContext(`Grading a student's answers about "${cs.front}" — ${String(cs.back).slice(0, 300)}`, KNOWLEDGE_CAP, `card:${cs.front}`)
+        : `\n\nREFERENCE MATERIAL (the user's knowledge base for this subject — authoritative when grading factual accuracy):\n${studyKnowledge.substring(0, KNOWLEDGE_CAP)}`
+      const prompt = `Evaluate ALL answers for this flashcard at once.\n\nCard front: "${cs.front}"\nCard back: "${cs.back}"\n\n${modeType}\n\n${questionsAndAnswers}\n\n${gradingRules}${notesInstruction}${knowledgeRef}\n\nWrite ALL feedback text in ${studyLang}.\n\nReturn a JSON array of ${cs.questions.length} objects: [{"correct": true/false, "feedback": "one short summary sentence", "notes": [{"type": "praise|correction|grammar|terminology|detail|tip", "text": "...", "penalize": true/false}]}]\n\nOutput ONLY raw JSON. No markdown, no backticks.`
 
       const text = await aiCall(apiKey, 'You evaluate flashcard answers. Always respond with valid JSON only.', prompt, resolveModel('study'))
       const results = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
@@ -4813,7 +5019,7 @@ Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. 
       const card = studyAllCards[studyBatchIdx]
       if (!card) return
       setStudyBatchIdx(prev => prev + 1)
-      const knowledgeContext = studyKnowledge ? `\n\nReference material:\n${studyKnowledge.substring(0, 2000)}` : ''
+      const knowledgeContext = studyKnowledge ? `\n\nReference material:\n${studyKnowledge.substring(0, KNOWLEDGE_CAP)}` : ''
       const questions = await generateQuestionsForCard(card, rules, studyLang, knowledgeContext)
       if (studyWrappingUpRef.current) return
       setStudyCardState(prev => [...prev, {
@@ -5236,7 +5442,7 @@ Last updated: ${new Date().toISOString().split('T')[0]}
     const q = chat.input?.trim()
     if (!q || !apiKey || chat.loading) return
     const cs = studyCardState[cardIdx]
-    const studyLang = interactionLangName()  // Ebi speaks (app language for general modes)
+    const studyLang = interactionLangName()  // Ebi speaks (all modes)
     const newMessages = [...(chat.messages || []), { role: 'user', text: q }]
     setStudyFeedbackChat(prev => ({ ...prev, [cardIdx]: { ...chat, messages: newMessages, input: '', loading: true } }))
     try {
@@ -5427,6 +5633,11 @@ ${activeMode.type === 'language' ? `   - LANGUAGE MODE (learning ${learnLangName
 3. For general questions: be concise and helpful. Explain concepts clearly.
 
 4. NEVER dump a wall of cards without asking first. Quality over quantity.`
+
+      // The mode's knowledge base rides along on every chat message, so Ebi always has the
+      // user's own study material as context (big books: only the sections relevant to the
+      // user's message, picked via the TOC).
+      systemPrompt += await getKnowledgeContext(q || `general chat about ${activeMode.name}`)
 
       // Web search if enabled
       let searchSources = null
@@ -6206,6 +6417,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           knowledgeFiles={knowledgeFiles} knowledgeDragging={knowledgeDragging} setKnowledgeDragging={setKnowledgeDragging}
           handleKnowledgeDrop={handleKnowledgeDrop} handleKnowledgeFileInput={handleKnowledgeFileInput}
           toggleKnowledgeFile={toggleKnowledgeFile} deleteKnowledgeFile={deleteKnowledgeFile}
+          knowledgeStatus={{ big: knowledgeIsBig(), hasToc: knowledgeHasToc(), chars: modeKnowledge.content.length, outlineCount: (modeKnowledge.outline || []).length }}
+          knowledgeBusy={knowledgeBusy}
+          pronunciationCfg={pronunciationCfg} setPronunciationCfg={setPronunciationCfg}
         />
       )}
 
@@ -6766,6 +6980,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           <div style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink)' }}>{front}</span>
+                              {activeMode.type === 'language' && (
+                                <Pronunciation word={pronWord(front)} lang={learnLangName()} region={pronRegion()} config={pronunciationCfg} t={t} compact noteId={note.noteId}
+                                  onNative={(r, opts) => embedPronunciationInNote(note.noteId, r, pronWord(front), opts)} />
+                              )}
                               <span style={{ fontSize: 11, color: 'var(--c-ink-dim)', marginLeft: 8 }}>{back.slice(0, 80)}{back.length > 80 ? '...' : ''}</span>
                             </div>
                             <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
@@ -6959,7 +7177,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)',
                     }}>
                       <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', fontWeight: 600, marginBottom: 4 }}>ANKI CARD</div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink)', marginBottom: 4 }}>{card.front}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink)', marginBottom: 4 }}>
+                        {card.front}
+                        {activeMode.type === 'language' && (
+                          <Pronunciation word={pronWord(card.front)} lang={learnLangName()} region={pronRegion()} config={pronunciationCfg} t={t} compact />
+                        )}
+                      </div>
                       <div style={{ fontSize: 11, color: 'var(--c-ink)', whiteSpace: 'pre-line', marginBottom: 6 }}>{card.back}</div>
                       {card.tags?.length > 0 && (
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 6 }}>
@@ -7685,7 +7908,13 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     return (
                       <div key={ci} style={{ marginTop: 16, border: '1px solid var(--c-border)', borderRadius: 8, overflow: 'hidden' }}>
                         <div style={{ padding: '8px 12px', background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{cs.front}</span>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            {cs.front}
+                            {activeMode.type === 'language' && (
+                              <Pronunciation word={pronWord(cs.front)} lang={learnLangName()} region={pronRegion()} config={pronunciationCfg} t={t} compact cardId={cs.cardId}
+                                onNative={(r, opts) => embedPronunciationForCard(cs.cardId, r, pronWord(cs.front), opts)} />
+                            )}
+                          </span>
                           <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                           {cs.evaluating ? (
                             <span style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>Evaluating...</span>
@@ -8178,7 +8407,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 </div>
                 {m.cards?.map((card, ci) => (
                   <div key={ci} style={{ maxWidth: '90%', marginTop: 4, padding: '8px 10px', borderRadius: 6, background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', fontSize: 11 }}>
-                    <div style={{ fontWeight: 600, color: 'var(--c-ink)', marginBottom: 2 }}>{card.front}</div>
+                    <div style={{ fontWeight: 600, color: 'var(--c-ink)', marginBottom: 2 }}>
+                      {card.front}
+                      {activeMode.type === 'language' && (
+                        <Pronunciation word={pronWord(card.front)} lang={learnLangName()} region={pronRegion()} config={pronunciationCfg} t={t} compact />
+                      )}
+                    </div>
                     <div style={{ color: 'var(--c-ink)', whiteSpace: 'pre-line', marginBottom: 4 }}>{card.back}</div>
                     {card.synced ? <span style={{ fontSize: 9, color: 'var(--c-success)' }}>✓ Added to “{chatCardDeck()}”</span> : (
                       <button onClick={() => chatTabSyncCard(card, i)} disabled={!ankiConnected}
@@ -8806,6 +9040,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         targetLang,
         screenshot: !!screenshot,
         stage,
+        // Smaller cap than elsewhere: help replies are capped at 600 tokens and fire often.
+        // Big books contribute their TOC so Ebi still knows what the material covers.
+        knowledge: knowledgeRaw(12000),
       }} />}
     </div>
   )

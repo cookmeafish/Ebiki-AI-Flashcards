@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { S } from '../styles/theme'
 import { C, RADIUS, SHADOW, FONT } from '../config/tokens'
 import { LANGS } from '../config/languages'
+import { langInfo } from '../pronunciation/langcodes'
 import { PROVIDERS } from '../config/providers'
 import { APP_LANGUAGES } from '../i18n'
 
@@ -31,7 +32,9 @@ export default function SettingsModal(p) {
     proposeModeEdit, acceptModeEdit, denyModeEdit, modeEditProposal, modeEditBusy, diffWords,
     // Knowledge
     knowledgeFiles, knowledgeDragging, setKnowledgeDragging, handleKnowledgeDrop,
-    handleKnowledgeFileInput, toggleKnowledgeFile, deleteKnowledgeFile,
+    handleKnowledgeFileInput, toggleKnowledgeFile, deleteKnowledgeFile, knowledgeStatus, knowledgeBusy,
+    // Pronunciation audio (global)
+    pronunciationCfg, setPronunciationCfg,
   } = p
 
   const isLanguage = (activeMode?.type || 'general') === 'language'
@@ -49,6 +52,7 @@ export default function SettingsModal(p) {
     { group: t('settingsApp'), items: [
       { id: 'general', label: t('setGeneral'), icon: '⚙' },
       { id: 'models', label: t('setAIModels'), icon: '🧠' },
+      { id: 'audio', label: t('setAudio'), icon: '🔊' },
     ] },
     { group: t('settingsMode'), items: [
       { id: 'study', label: t('setStudy'), icon: '📚' },
@@ -417,11 +421,23 @@ export default function SettingsModal(p) {
       {sectionTitle(t('setKnowledge'))}{modeBar}
       <div style={card}>
         <div style={{ fontSize: 12, color: C.inkDim, marginBottom: 10 }}>{t('knowledgeIntro')}</div>
+        {/* Big-KB status: warn when it's giant with no navigable TOC (Ebi can only see the first
+            slice); reassure when a TOC was found (Ebi navigates it section by section). */}
+        {knowledgeStatus?.big && !knowledgeStatus?.hasToc && (
+          <div style={{ padding: '8px 12px', marginBottom: 10, borderRadius: RADIUS.sm, background: 'rgba(232,147,12,.12)', border: '1px solid rgba(232,147,12,.35)', color: C.ink, fontSize: 11, lineHeight: 1.5 }}>
+            ⚠️ {t('knowledgeBigNoToc').replace('{kb}', Math.round(knowledgeStatus.chars / 1024).toLocaleString())}
+          </div>
+        )}
+        {knowledgeStatus?.big && knowledgeStatus?.hasToc && (
+          <div style={{ padding: '8px 12px', marginBottom: 10, borderRadius: RADIUS.sm, background: C.successTint, border: '1px solid rgba(24,169,87,.25)', color: C.inkDim, fontSize: 11, lineHeight: 1.5 }}>
+            📖 {t('knowledgeBigToc').replace('{kb}', Math.round(knowledgeStatus.chars / 1024).toLocaleString()).replace('{n}', String(knowledgeStatus.outlineCount))}
+          </div>
+        )}
         <div onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setKnowledgeDragging(true) }} onDragLeave={() => setKnowledgeDragging(false)} onDrop={handleKnowledgeDrop}
           onClick={() => document.getElementById('knowledge-file-input').click()}
           style={{ padding: 18, borderRadius: RADIUS.md, textAlign: 'center', cursor: 'pointer', border: `2px dashed ${knowledgeDragging ? C.brand : C.border}`, background: knowledgeDragging ? C.brandTint2 : C.surfaceSunken, color: C.inkDim, fontSize: 12 }}>
-          {knowledgeDragging ? t('dropHere') : t('dropZone')}
-          <input id="knowledge-file-input" type="file" accept=".txt,.md" multiple onChange={handleKnowledgeFileInput} style={{ display: 'none' }} />
+          {knowledgeBusy ? `⏳ ${knowledgeBusy}` : knowledgeDragging ? t('dropHere') : t('dropZone')}
+          <input id="knowledge-file-input" type="file" accept=".txt,.md,.pdf" multiple onChange={handleKnowledgeFileInput} style={{ display: 'none' }} />
         </div>
         {knowledgeFiles.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10 }}>
@@ -435,6 +451,47 @@ export default function SettingsModal(p) {
             ))}
           </div>
         ) : <div style={{ fontSize: 11, color: C.inkFaint, marginTop: 8 }}>{t('noFiles')}</div>}
+      </div>
+    </div>
+  )
+
+  // ── Audio (pronunciation) — GLOBAL ──
+  const pron = pronunciationCfg || { defaultRegions: {}, editions: {}, ttsUrl: '', ttsVoices: {}, embedInAnki: true }
+  const setPron = (patch) => setPronunciationCfg((prev) => ({ ...prev, ...patch }))
+  const audioLangs = LANGS.filter((l) => l.code !== 'auto').map((l) => ({ label: l.label, iso1: langInfo(l.label)?.iso1 })).filter((l) => l.iso1)
+  const Audio = (
+    <div>
+      {sectionTitle(t('setAudio'))}
+      <div style={card}>
+        <div style={{ fontSize: 12, color: C.inkDim, marginBottom: 4 }}>{t('audioIntro')}</div>
+      </div>
+      <div style={card}>
+        {fieldLabel(t('audioRegions'))}
+        <div style={{ fontSize: 11, color: C.inkFaint, marginBottom: 10, lineHeight: 1.5 }}>{t('audioRegionsDesc')}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 18px' }}>
+          {audioLangs.map((l) => (
+            <div key={l.iso1 + l.label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ flex: 1, fontSize: 12, color: C.ink }}>{l.label}</span>
+              <input value={pron.defaultRegions?.[l.iso1] || ''} placeholder={t('audioRegionAny')} maxLength={2}
+                onChange={(e) => setPron({ defaultRegions: { ...pron.defaultRegions, [l.iso1]: e.target.value.toLowerCase().replace(/[^a-z]/g, '') } })}
+                style={{ ...S.keyInput, width: 52, fontSize: 12, padding: '4px 8px', textAlign: 'center' }} />
+            </div>
+          ))}
+        </div>
+        <div style={hint}>{t('audioRegionsHint')}</div>
+      </div>
+      <div style={card}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: C.ink, fontWeight: 700 }}>
+          <input type="checkbox" checked={pron.embedInAnki !== false} onChange={(e) => setPron({ embedInAnki: e.target.checked })} />
+          {t('audioEmbed')}
+        </label>
+        <div style={hint}>{t('audioEmbedDesc')}</div>
+      </div>
+      <div style={card}>
+        {fieldLabel(t('audioTtsUrl'))}
+        <input value={pron.ttsUrl || ''} onChange={(e) => setPron({ ttsUrl: e.target.value })}
+          placeholder="http://localhost:8880" style={{ ...S.keyInput, width: '100%', fontSize: 12 }} />
+        <div style={hint}>{t('audioTtsUrlDesc')}</div>
       </div>
     </div>
   )
@@ -485,7 +542,7 @@ export default function SettingsModal(p) {
     </div>
   )
 
-  const panes = { general: General, models: AIModels, study: Study, cards: Cards, knowledge: Knowledge, overlay: Overlay, modes: Modes }
+  const panes = { general: General, models: AIModels, audio: Audio, study: Study, cards: Cards, knowledge: Knowledge, overlay: Overlay, modes: Modes }
 
   return (
     // The body has CSS zoom:1.35, which also scales this fixed backdrop — so 100vw/100vh

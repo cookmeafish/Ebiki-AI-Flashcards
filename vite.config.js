@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import fs from 'fs'
 import path from 'path'
 import http from 'http'
+import crypto from 'crypto'
 import { spawn } from 'child_process'
 
 const ENV_FILE = path.resolve('.env')
@@ -179,8 +180,149 @@ function apiPlugin() {
         }
       })
 
+      // ── Local TTS proxy + disk cache (pronunciation Tier 2) ─────────────
+      // POST /api/tts {input, voice, lang} → forwards to the OpenAI-compatible TTS
+      // server configured in config.json (pronunciation.ttsUrl). STRICTLY OPT-IN:
+      // no URL configured → 404 and the client tier falls through instantly, so
+      // machines without a local TTS server pay zero cost. The browser never talks
+      // to the TTS server directly (no CORS issues, URL stays server-side).
+      // Synthesized clips are disk-cached (TTS output has no redistribution limits).
+      server.middlewares.use('/api/tts', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end(''); return }
+        let raw = ''
+        req.on('data', (c) => { raw += c })
+        req.on('end', async () => {
+          try {
+            const { input, voice, lang } = JSON.parse(raw || '{}')
+            const ttsUrl = String(readConfig().pronunciation?.ttsUrl || '').trim().replace(/\/+$/, '')
+            if (!ttsUrl || !input || !voice) { res.statusCode = 404; res.end('tts not configured'); return }
+            const key = crypto.createHash('sha1').update(`${input}|${lang || ''}|${voice}`).digest('hex')
+            const cacheDir = path.resolve('cache', 'tts')
+            const cacheFile = path.join(cacheDir, key + '.mp3')
+            if (fs.existsSync(cacheFile)) {
+              res.setHeader('Content-Type', 'audio/mpeg')
+              res.end(fs.readFileSync(cacheFile))
+              return
+            }
+            const r = await fetch(`${ttsUrl}/v1/audio/speech`, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ model: 'kokoro', input, voice, response_format: 'mp3' }),
+            })
+            if (!r.ok) { res.statusCode = 502; res.end('tts server error ' + r.status); return }
+            const buf = Buffer.from(await r.arrayBuffer())
+            try { fs.mkdirSync(cacheDir, { recursive: true }); fs.writeFileSync(cacheFile, buf) } catch { /* cache is best-effort */ }
+            res.setHeader('Content-Type', 'audio/mpeg')
+            res.end(buf)
+          } catch (e) { res.statusCode = 500; res.end(String(e.message || e)) }
+        })
+      })
+
+      // ── Knowledge outline & section slicing ─────────────────────────────
+      // Huge knowledge bases (whole books) can't be prompt-stuffed, so we extract a
+      // navigable OUTLINE (headings) and serve individual sections on demand. A file
+      // whose NAME looks like a table of contents (toc.txt, "table of contents.md" …)
+      // overrides detection: each of its lines is treated as a chapter/section title
+      // and located in the other files — so a user can upload a book + its TOC and
+      // the AI navigates by TOC even when the book text has no markdown headings.
+      const TOC_NAME_RE = /(^|[^a-z])(toc|table[ _-]*of[ _-]*contents)([^a-z]|$)/i
+      const readKnowledgeFiles = (knowledgeDir) => {
+        if (!fs.existsSync(knowledgeDir)) return []
+        return fs.readdirSync(knowledgeDir)
+          .filter((f) => f.match(/\.(txt|md)$/i))
+          .map((f) => ({ name: f, text: fs.readFileSync(path.join(knowledgeDir, f), 'utf-8') }))
+      }
+      const detectHeadings = (file) => {
+        const out = []
+        const lines = file.text.split('\n')
+        let off = 0
+        for (const line of lines) {
+          const t = line.trim()
+          let m
+          if ((m = t.match(/^(#{1,6})\s+(.{2,120})$/))) {
+            out.push({ file: file.name, title: m[2].trim(), level: m[1].length, start: off })
+          } else if (t.match(/^(chapter|module|unit|part|section|lesson|domain|appendix)\s+\d+\b.{0,100}$/i)) {
+            out.push({ file: file.name, title: t.slice(0, 120), level: 1, start: off })
+          } else if (t.length <= 110 && t.match(/^\d+(\.\d+){0,3}[.)]?\s+[A-Za-z].{2,100}$/)) {
+            const num = t.match(/^(\d+(?:\.\d+)*)/)
+            out.push({ file: file.name, title: t.slice(0, 120), level: Math.min(4, num[1].split('.').length), start: off })
+          }
+          off += line.length + 1
+        }
+        return out
+      }
+      const extractOutline = (files) => {
+        const tocFiles = files.filter((f) => TOC_NAME_RE.test(f.name))
+        const contentFiles = files.filter((f) => !TOC_NAME_RE.test(f.name))
+        let outline = []
+        if (tocFiles.length && contentFiles.length) {
+          const titles = tocFiles.flatMap((f) => f.text.split('\n'))
+            .map((l) => l.trim()
+              .replace(/\.{3,}\s*\d+$/, '')   // dotted leaders + page number ("Title .... 123")
+              .replace(/\s+\d+$/, '')          // bare trailing page number
+              .replace(/^[-*•>\s]+/, '')       // list bullets
+              .trim())
+            .filter((t) => t.length >= 3 && t.length <= 120)
+          for (const title of titles) {
+            const num = title.match(/^(\d+(?:\.\d+)*)/)
+            const level = num ? Math.min(4, num[1].split('.').length) : 1
+            // Locate the title in the content files (case-insensitive; also try without numbering).
+            const needles = [title, title.replace(/^\d+(?:\.\d+)*[.)]?\s*/, '')].filter((n) => n.length >= 3)
+            let found = null
+            for (const f of contentFiles) {
+              const hay = f.text.toLowerCase()
+              for (const n of needles) {
+                const idx = hay.indexOf(n.toLowerCase())
+                if (idx !== -1) { found = { file: f.name, title, level, start: idx }; break }
+              }
+              if (found) break
+            }
+            if (found) outline.push(found)
+          }
+          outline.sort((a, b) => (a.file === b.file ? a.start - b.start : a.file.localeCompare(b.file)))
+        }
+        if (outline.length < 4) outline = contentFiles.flatMap(detectHeadings)
+        return outline
+      }
+      const sliceSections = (files, outline, ids, cap) => {
+        const byFile = Object.fromEntries(files.map((f) => [f.name, f.text]))
+        const parts = []
+        for (const id of ids) {
+          const h = outline[id]
+          const text = h && byFile[h.file]
+          if (!text) continue
+          // Section runs until the next heading in the same file at the same or higher level.
+          let end = text.length
+          for (let j = id + 1; j < outline.length; j++) {
+            const n = outline[j]
+            if (n.file !== h.file) break
+            if (n.level <= h.level) { end = n.start; break }
+          }
+          parts.push(`### ${h.title} (${h.file})\n${text.slice(h.start, end).trim()}`)
+        }
+        let joined = parts.join('\n\n')
+        if (joined.length > cap) joined = joined.slice(0, cap)
+        return joined
+      }
+
+      // GET /api/knowledge-sections?mode=X&sections=1,4&cap=60000 → slice the requested
+      // outline sections out of the mode's knowledge files. Indices match the `outline`
+      // array returned by GET /api/modes/knowledge (recomputed here from the same files).
+      server.middlewares.use('/api/knowledge-sections', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+        try {
+          const url = new URL(req.url, 'http://x')
+          const modeName = (url.searchParams.get('mode') || '').replace(/[<>:"/\\|?*]/g, '').replace(/\s+/g, ' ').trim()
+          const ids = (url.searchParams.get('sections') || '').split(',').map((s) => parseInt(s, 10)).filter((n) => Number.isInteger(n) && n >= 0).slice(0, 8)
+          const cap = Math.min(200000, parseInt(url.searchParams.get('cap'), 10) || 60000)
+          const all = readKnowledgeFiles(path.join(MODES_DIR, modeName, 'knowledge'))
+          const outline = extractOutline(all)
+          const content = sliceSections(all.filter((f) => !TOC_NAME_RE.test(f.name)), outline, ids, cap)
+          res.end(JSON.stringify({ content, titles: ids.map((i) => outline[i]?.title).filter(Boolean) }))
+        } catch (e) { res.end(JSON.stringify({ content: '', titles: [], error: e.message })) }
+      })
+
       // Knowledge base endpoint — MUST be before /api/modes (prefix matching)
-      // GET ?mode=X → list files + content
+      // GET ?mode=X → list files + content + outline (headings/TOC for big-KB navigation)
       // POST ?mode=X (JSON {filename, content}) → upload file
       // DELETE ?mode=X&file=Y → delete file
       // PATCH ?mode=X&file=Y → toggle enable/disable
@@ -208,8 +350,11 @@ function apiPlugin() {
               const text = fs.readFileSync(path.join(knowledgeDir, f), 'utf-8')
               return `--- ${f} ---\n${text}`
             }).join('\n\n')
-            res.end(JSON.stringify({ files, content: content || null, fileCount: enabledFiles.length }))
-          } catch { res.end(JSON.stringify({ files: [], content: null, fileCount: 0 })) }
+            // Outline (capped) so the client can offer TOC-guided section retrieval for big KBs.
+            const outline = extractOutline(readKnowledgeFiles(knowledgeDir)).slice(0, 400)
+              .map(({ file, title, level }) => ({ file, title, level }))
+            res.end(JSON.stringify({ files, content: content || null, fileCount: enabledFiles.length, outline }))
+          } catch { res.end(JSON.stringify({ files: [], content: null, fileCount: 0, outline: [] })) }
         } else if (req.method === 'POST') {
           const handleBody = (bodyStr) => {
             try {
