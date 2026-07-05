@@ -11,6 +11,9 @@ Mascot: **Ebi**, a red shrimp. Brand color = **#DF2540** (sampled from Ebi). Two
   config + localStorage, with a no-flash pre-paint script in `index.html`.
 - `src/styles/theme.js` — the `S.*` style objects, built from tokens. Most chrome imports `S`.
 - Primary CTAs get className `btn-press` (Duolingo press); tabs use `ui-tab`.
+- **Light-mode semantic colors run DEEPER than dark mode's** (success `#0E8746`, warning `#B36A00`,
+  danger `#D32F24`, purple `#7C4DEF`): at small text sizes on the light background, the old green
+  and amber shared the same luminance and visually blended. Keep this relationship if retuning.
 
 ## Settings (global vs per-mode — important)
 One **⚙ Settings** modal: `src/components/SettingsModal.jsx`. Sidebar split by scope:
@@ -145,6 +148,8 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
 - **FancyZones-style docking**: drag the chat header (⠿ grip) to snap to a zone, or click the dock (◣) button
   to be asked where — both show three labeled targets (**Dock left**, **Dock right**, **Under the question**)
   whose preview rectangles come from one shared `ZONE_RECTS` so they match exactly where the panel lands.
+  Dock sizes are VIEWPORT-RELATIVE (`clamp(250px, 24vw/1.35, 380px)` wide etc.) — never fixed px, which
+  ate half a laptop screen; the /1.35 divides out the body zoom.
   Drag-drop snaps on release; the dock button dims the screen + shows a banner and commits on click (Esc
   cancels). Dropping in open space free-floats. `snapZone` = `null` (anchored to button) | `left`/`right`/
   `bottom` (edge dock) | `free`. `×` closes and restores the floating button.
@@ -173,6 +178,13 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
    is localized (study screen is; deck browser is currently English). Leading emoji is fine (OS
    emoji font). Explanations go in an instant tooltip: `className="tip" data-tip="…"` on a ⓘ span —
    NEVER a bare `title` (1s delay reads as dead) — and no `overflow:hidden` on ancestors (clips it).
+6. **GOTCHA — never write `boxShadow: 'none'` on a hoverable control.** The global hover darken is
+   inset-shadow based; an inline shadow (even `'none'`) beats it and silently kills the hover
+   (this bit the appearance toggle). Declare shadows only where one actually exists:
+   `...(active ? { boxShadow: SHADOW.sm } : {})`.
+7. **Segmented controls** (theme toggle, provider chips, intelligence preset, Discover chips): the
+   SELECTED segment gets `className="ui-tab-current"` + `cursor: 'default'` so only unselected
+   options react to hover.
 
 ## ⭐ HOW TO ADD A NEW EBI EMOTE (when the user drops new shrimp images)
 1. **Place the file** in `public/assets/shrimp/` (any filename; `.png`/`.webp` both fine in `<img>`).
@@ -391,8 +403,20 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
 - **Question-phase chrome:** slim session progress bar in the header — total = completed + active +
   NOT-YET-PULLED pool cards, so the continuous pull system never moves the denominator; counter labeled
   "N/M cards" (cards, not questions — per-card question DOTS on the card show within-card progress from
-  `cs.questions.length`, hidden when 1 question). Wrap Up / End Now live in the HEADER with Exit Study;
-  the card row keeps only card-level actions. Question text is 15.5px.
+  `cs.questions.length`, hidden when 1 question). **Filled dots are CLICKABLE** (`jumpToCardQuestion`):
+  rewind the card to that question and re-answer — backwards only (answers are positional), clears the
+  rewound attempts/history. Wrap Up / End Now live in the HEADER with Exit Study; the card row keeps
+  only card-level actions. Question text is 15.5px.
+- **Graded/batch feedback views:** the card HEADER itself toggles feedback (`card-head` class — darkens
+  on hover only when not over an inner control; inner controls stopPropagation; no separate Feedback
+  button). Inside, each question is a COLLAPSED row (`renderQaRow`, shared by both views, keyed by
+  `studyQaOpen[src]`) with a tri-state indicator: ✓ green = correct with no non-praise notes, ✓✎ amber
+  = correct but has feedback, ✗ red = incorrect; expanded detail is 13.5px with hanging note icons
+  (icons sit in the left gutter so note text aligns with the other lines).
+- **Memory hooks are ONE engine, `generateMemoryHook(front, back, prior)`** (subject-agnostic, offers
+  rationalization/etymology too). Surfaces: study graded cards (`cs.mnemonics`), the Deck browser
+  expanded rows (`deckBrowserMnemonics` keyed by noteId, "Help me learn this"), and the tapped-word
+  popup (`studyWordMemoryHook` → hooks on `studyWordLookup`). Improve the prompt in ONE place.
 - **Study start screen = ONE sectioned card** (What to study / Language / Session format), fields as
   label-above-control in `repeat(auto-fit, minmax(180px,1fr))` grids with stretched controls; the verbose
   legends are `.tip` tooltips (an instant CSS tooltip class in the global style block — the native
@@ -404,6 +428,11 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   (NEW / learn / interval — green when mature ≥21d — and ⚠ when lapses ≥4). **Copy to / Move** per row:
   `ankiCopyNote` (new note, same model/fields/tags, allowDuplicate ON PURPOSE) or `ankiChangeDeck`
   (scheduling travels; row leaves the list), with an inline "New deck…" creator in the target picker.
+  **⟲ Reset progress** (edit view, red, confirm-gated): `ankiForgetCards` wipes scheduling so the card
+  becomes NEW again, content untouched — the user-facing remedy for inflated intervals. **Analyze for
+  ambiguous cards** and **Scan for duplicates** frame their prompts by mode kind: language decks use
+  the multi-meaning-word lens; general decks hunt underspecified CONCEPT cards / term-abbreviation
+  duplicates and never merge distinct concepts that merely look alike.
 - **Stats → Recent Sessions** renders a FIXED grid (82px | 1fr | 84px | 48px — flex space-between let
   columns drift with the deck-name width) and groups rows by (date, deck): every sync flush records its
   own "session" entry, so one sitting showed as many identical rows; cards sum, accuracy is card-weighted.
