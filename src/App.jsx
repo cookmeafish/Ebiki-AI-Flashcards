@@ -478,7 +478,8 @@ export default function App() {
   const [discoverCardLoading, setDiscoverCardLoading] = useState(false)
   const [discoverCardSaving, setDiscoverCardSaving] = useState(false)
   const [discoverStarted, setDiscoverStarted] = useState(false) // false = setup screen, true = suggestion loop
-  const [discoverConfig, setDiscoverConfig] = useState({ itemType: 'both', focus: '' }) // itemType: word|phrase|both
+  const [discoverConfig, setDiscoverConfig] = useState({ itemType: 'both', focus: '', difficulty: 'stretch' }) // itemType per mode kind; difficulty: easier|level|stretch
+  const [discoverDeck, setDiscoverDeck] = useState('') // '' = the mode's own deck; switchable in the panel
   const discoverInitRef = useRef(false)
   const discoverDeckTermsRef = useRef([]) // existing card fronts, to avoid re-suggesting them
   const [studyWrappingUp, setStudyWrappingUp] = useState(false)
@@ -3418,12 +3419,12 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
   // ─── Discover Mode ───────────────────────────────────────────────────────
   // Build (or refresh) the learner profile from cards, mastery stats, progress
   // observations and chat history. Persists to the Anki media store (+ local cache).
-  const buildLearnerProfile = async () => {
+  const buildLearnerProfile = async (deckArg) => {
     if (!apiKey) { setDiscoverError('API key required'); return null }
     setDiscoverProfileLoading(true)
     setDiscoverError(null)
     try {
-      const deck = ankiDeck
+      const deck = deckArg || discoverDeck || ankiDeck
       let cards = []
       let cardCount = 0
       let masterySummary = ''
@@ -3549,6 +3550,11 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         itemType: discoverConfig.itemType,
         focus: discoverConfig.focus.trim(),
         knowledge: knowledgeRaw(KNOWLEDGE_CAP), // big books contribute their TOC
+        difficulty: discoverConfig.difficulty || 'stretch',
+        // Subject-specific category (AI-generated per mode) — overrides the static type table
+        customKind: (activeMode.type || 'general') !== 'language'
+          ? (activeMode.discoverKinds || []).find((k) => k.key === discoverConfig.itemType) || null
+          : null,
       })
       const text = await aiCall(apiKey, 'You suggest new study items. Always respond with valid JSON only.', prompt, resolveModel('discover'))
       let suggestion = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
@@ -3627,14 +3633,15 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       const connected = await ankiPing()
       setAnkiConnected(connected)
       if (!connected) { setDiscoverError('Anki is not running — open Anki to save cards'); return }
-      if (ankiDeck && !(await ankiGetDecks().catch(() => [])).includes(ankiDeck)) {
-        await ankiCreateDeck(ankiDeck)
+      const targetDeck = discoverDeck || ankiDeck
+      if (targetDeck && !(await ankiGetDecks().catch(() => [])).includes(targetDeck)) {
+        await ankiCreateDeck(targetDeck)
       }
       const ankiBack = card.back.split('\n').map((line) => {
         const m = line.match(/^([A-Za-zÁÉÍÓÚáéíóúñÑ\s]+):(.*)$/)
         return m ? `<b>${m[1]}:</b>${m[2]}` : line
       }).join('<br>')
-      const noteId = await ankiAddNote(ankiDeck, card.front, ankiBack, card.tags)
+      const noteId = await ankiAddNote(targetDeck, card.front, ankiBack, card.tags)
       ankiSync().catch(() => {})
       discoverDeckTermsRef.current = [...discoverDeckTermsRef.current, card.front]
       const nextLedger = {
@@ -3653,12 +3660,51 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     }
   }
 
+  // Switch which deck Discover targets (evidence, exclusions, and where cards save).
+  // Returns to the setup screen and re-profiles against the new deck in the background.
+  const discoverSwitchDeck = (deck) => {
+    if (deck === (discoverDeck || ankiDeck)) return
+    setDiscoverDeck(deck)
+    setDiscoverStarted(false)
+    setDiscoverSuggestion(null)
+    setDiscoverCard(null)
+    setDiscoverSources(null)
+    discoverDeckTermsRef.current = []
+    buildLearnerProfile(deck)
+  }
+
+  // General modes: AI-generate 4-6 subject-specific discovery categories ONCE per mode
+  // (like chatSuggestions) — e.g. Security+ gets acronyms/attack types/ports, music theory
+  // gets scales/chords/cadences. The static term/acronym/comparison set is the fallback.
+  const ensureDiscoverKinds = async () => {
+    if ((activeMode.type || 'general') === 'language') return
+    if (Array.isArray(activeMode.discoverKinds) && activeMode.discoverKinds.length > 0) return
+    try {
+      const prompt = `Subject: "${activeMode.name}"${activeMode.description ? ` — ${activeMode.description}` : ''}
+
+Design 4-6 DISCOVERY CATEGORIES a tutor could draw from when suggesting new flashcard items for this subject. Categories must span genuinely DIFFERENT kinds of knowledge in THIS subject (e.g. core concepts, acronyms/notation, commonly-confused pairs, applied scenarios, formulas, key figures/dates — whatever actually fits it).
+
+Return ONLY a JSON array (no markdown):
+[{ "key": "short-kebab-slug", "label": "<chip label, 1-3 words, in ${APP_LANG_NAME[appLanguage] || 'English'}>", "rule": "<one imperative sentence telling the tutor exactly what kind of item to suggest and what to put in term/translation/explanation>" }]`
+      const text = await aiCall(apiKey, 'You design study-content category systems. Respond with valid JSON only.', prompt, resolveModel('discover'))
+      const kinds = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+      if (Array.isArray(kinds) && kinds.length > 0) {
+        const clean = kinds.filter((k) => k && k.key && k.label && k.rule).slice(0, 6)
+          .map((k) => ({ key: String(k.key), label: String(k.label), rule: String(k.rule) }))
+        if (clean.length > 0) updateActiveMode({ discoverKinds: clean })
+        console.log('[Discover] generated subject categories:', clean.map((k) => k.label).join(', '))
+      }
+    } catch (e) { console.warn('[Discover] category generation failed:', e.message) }
+  }
+
   // Initialize Discover when the user switches to it: load ledger + profile, then STOP
   // at the setup screen (no suggestion yet — the user picks options and clicks Start).
   const initDiscover = async () => {
     if (discoverInitRef.current || !apiKey) return
     discoverInitRef.current = true
     try {
+      ankiGetDecks().then(setAnkiDecks).catch(() => {}) // for the deck switcher
+      ensureDiscoverKinds() // fire-and-forget; chips appear when ready
       const ledger = (await readBlob('ledger', activeMode.name)) || DEFAULT_LEDGER
       setDiscoverLedger(ledger)
       let profile = await readBlob('profile', activeMode.name)
@@ -3704,7 +3750,8 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     setDiscoverError(null)
     setDiscoverSources(null)
     setDiscoverStarted(false)
-    setDiscoverConfig({ itemType: 'both', focus: '' })
+    setDiscoverConfig({ itemType: 'both', focus: '', difficulty: 'stretch' })
+    setDiscoverDeck('')
   }, [activeModeId])
 
   useEffect(() => {
@@ -7580,7 +7627,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               cardLoading={discoverCardLoading}
               cardSaving={discoverCardSaving}
               ledger={discoverLedger}
-              deck={ankiDeck}
+              deck={discoverDeck || ankiDeck}
+              decks={ankiDecks}
+              onDeckChange={discoverSwitchDeck}
+              customKinds={(activeMode.type || 'general') !== 'language' ? (activeMode.discoverKinds || null) : null}
               apiKey={apiKey}
               ankiConnected={ankiConnected}
               onReanalyze={reanalyzeDiscover}
