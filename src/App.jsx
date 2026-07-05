@@ -8232,10 +8232,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               <div style={{ textAlign: 'center', animation: 'slideUp .35s ease' }}>
                 <div style={{ fontSize: 20, fontWeight: 700, color: C.ink, fontFamily: FONT.display, marginBottom: 14 }}>{t('studySession')}</div>
 
+                {/* No overflow:hidden here — it would clip the ⓘ tooltips that extend past the card edge
+                    (nothing else paints outside; the sections only draw inset border lines). */}
                 <div style={{
                   display: 'inline-block', width: '100%', maxWidth: 520, textAlign: 'left',
                   background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))',
-                  border: '1px solid var(--c-border)', borderRadius: 12, boxShadow: SHADOW.lg, overflow: 'hidden',
+                  border: '1px solid var(--c-border)', borderRadius: 12, boxShadow: SHADOW.lg,
                 }}>
                   {/* ── What to study ── */}
                   {section(t('studySecWhat'), row(<>
