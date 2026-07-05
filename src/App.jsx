@@ -8417,7 +8417,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     return (<>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
                     <div style={{ display: 'flex', gap: 12, fontSize: 12, alignItems: 'baseline' }}>
-                      <span style={{ color: 'var(--c-ink)', fontWeight: 700 }}>{completedCount}<span style={{ color: 'var(--c-ink-dim)', fontWeight: 400 }}>/{totalCards}</span></span>
+                      <span style={{ color: 'var(--c-ink)', fontWeight: 700 }}>{completedCount}<span style={{ color: 'var(--c-ink-dim)', fontWeight: 400 }}>/{totalCards}</span> <span style={{ fontSize: 10, color: 'var(--c-ink-dim)', fontWeight: 400 }}>{t('cardsLabel')}</span></span>
                       <span style={{ color: 'var(--c-brand)' }}>{activeCount} <span style={{ fontSize: 10, color: 'var(--c-ink-dim)' }}>{t('active')}</span></span>
                       <span style={{ color: 'var(--c-ink-dim)', fontSize: 11 }}>{studyDeckStats.new_count || 0} {t('new')} / {studyDeckStats.learn_count || 0} {t('learn')} / {studyDeckStats.review_count || 0} {t('due')}</span>
                     </div>
