@@ -9179,7 +9179,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       <div key={ci} className="graded-card" style={{ marginTop: 16, border: '1px solid var(--c-border)', borderRadius: 8, overflow: 'hidden' }}>
                         {/* The whole header is the feedback toggle; only the HEADER highlights on hover
                             (an expanded body below must never tint). Right-side buttons stopPropagation. */}
-                        <div className="row-head" onClick={() => { if (!cs.evaluating) setStudyGradedView(p => ({ ...p, [ci]: p[ci] === 'feedback' ? undefined : 'feedback' })) }}
+                        <div className="card-head" onClick={() => { if (!cs.evaluating) setStudyGradedView(p => ({ ...p, [ci]: p[ci] === 'feedback' ? undefined : 'feedback' })) }}
                           style={{ padding: '8px 12px', background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
                           <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
                             <span style={{ fontSize: 9, color: 'var(--c-ink-faint)', flexShrink: 0 }}>{view === 'feedback' ? '▾' : '▸'}</span>
@@ -9288,7 +9288,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   return (
                     <div key={ci} className={cs.rating === 'deleted' ? undefined : 'graded-card'} style={{ marginBottom: 16, border: '1px solid var(--c-border)', borderRadius: 8, overflow: 'hidden' }}>
                       {/* Whole header toggles feedback; only the HEADER highlights on hover */}
-                      <div className={cs.rating === 'deleted' ? undefined : 'row-head'} onClick={() => { if (cs.rating !== 'deleted') setStudyGradedView(p => ({ ...p, [ci]: p[ci] === 'feedback' ? undefined : 'feedback' })) }}
+                      <div className={cs.rating === 'deleted' ? undefined : 'card-head'} onClick={() => { if (cs.rating !== 'deleted') setStudyGradedView(p => ({ ...p, [ci]: p[ci] === 'feedback' ? undefined : 'feedback' })) }}
                         style={{
                         padding: '8px 12px', background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))',
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, cursor: cs.rating === 'deleted' ? 'default' : 'pointer',
@@ -10165,15 +10165,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         /* Duolingo-style 3D press: add className "btn-press" to primary CTAs */
         .btn-press:active:not(:disabled) { transform: translateY(2px); box-shadow: none !important; }
 
-        /* Ghost/action buttons: obvious hover affordance in the button's OWN accent color —
-           border saturates to currentColor and a soft ring glows. GLOW ONLY, no movement. */
-        .ui-btn { transition: filter .12s ease, box-shadow .12s ease, border-color .12s ease; }
+        /* Ghost/action buttons: SUBTLE hover — the border gently deepens toward the button's own
+           accent color (half strength). No ring, no brightness, no movement. */
+        .ui-btn { transition: border-color .15s ease; }
         .ui-btn:not(:disabled):hover {
-          border-color: currentColor !important;
-          box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 6%, transparent);
-          filter: brightness(1.03);
+          border-color: color-mix(in srgb, currentColor 55%, transparent) !important;
         }
-        .ui-btn:not(:disabled):active { filter: brightness(1); }
 
         /* Wrong typed answer (hint retry) — the input row shakes once */
         @keyframes shake { 0%,100% { transform: translateX(0) } 20% { transform: translateX(-6px) } 40% { transform: translateX(6px) } 60% { transform: translateX(-4px) } 80% { transform: translateX(4px) } }
@@ -10226,13 +10223,13 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         /* Deck browser rows — highlight on hover */
         .deck-row:hover { border-color: rgba(223,37,64,.35) !important; background: rgba(223,37,64,.05) !important; }
 
-        /* Clickable HEADER rows (graded cards, per-question rows): the hover highlight stays on the
-           top-level row only — never floods an expanded body below it. The parent card's border
-           still glows via :has() so the whole unit reads as interactive. */
-        .row-head { transition: background .15s ease; }
-        .row-head:hover { background: rgba(223,37,64,.08) !important; }
+        /* Clickable rows: OUTLINE only, no background fill. Hovering a graded card's header
+           recolors the card's own border (via :has); hovering a per-question row draws a thin
+           inset outline around just that row. Expanded bodies never react. */
         .graded-card { transition: border-color .15s ease; }
-        .graded-card:has(.row-head:hover) { border-color: rgba(223,37,64,.35) !important; }
+        .graded-card:has(.card-head:hover) { border-color: rgba(223,37,64,.4) !important; }
+        .row-head { transition: box-shadow .15s ease; }
+        .row-head:hover { box-shadow: inset 0 0 0 1px rgba(223,37,64,.4); }
 
         /* Chat session sidebar items — highlight on hover */
         .chat-session:hover { background: rgba(223,37,64,.06) !important; }
