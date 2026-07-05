@@ -64,6 +64,15 @@ export async function ankiCopyNote(deckName, modelName, fields, tags = []) {
   })
 }
 
+// Replace a note's tags (remove the old set, add the new). Tags are space-separated in AnkiConnect.
+export async function ankiSetNoteTags(noteId, oldTags = [], newTags = []) {
+  ankiLog(`setting tags on note ${noteId}`, newTags)
+  const old = (oldTags || []).join(' ').trim()
+  const next = (newTags || []).join(' ').trim()
+  if (old) await ankiRequest('removeTags', { notes: [noteId], tags: old })
+  if (next) await ankiRequest('addTags', { notes: [noteId], tags: next })
+}
+
 // Reset cards to NEW — wipes scheduling (interval/ease/due) so they start over. The remedy for
 // a card whose interval was inflated by bad syncs.
 export async function ankiForgetCards(cardIds) {
