@@ -3725,17 +3725,45 @@ Return ONLY a JSON array (no markdown):
     }
   }
 
+  // Instant-paint cache: the last known profile/ledger per mode, in localStorage. The real
+  // blobs live in Anki media (async, network) — without this, every Discover entry flashes a
+  // bare header (no level badge, "0 made · 0 known") until the reads land.
+  const discoverCacheRef = useRef(null)
+  const readDiscoverCache = (name) => {
+    if (!discoverCacheRef.current) {
+      try { discoverCacheRef.current = JSON.parse(localStorage.getItem('ebiki-discover-cache') || '{}') } catch { discoverCacheRef.current = {} }
+    }
+    return discoverCacheRef.current[name] || {}
+  }
+  const writeDiscoverCache = (name, patch) => {
+    const all = discoverCacheRef.current || {}
+    all[name] = { ...(all[name] || {}), ...patch }
+    discoverCacheRef.current = all
+    try { localStorage.setItem('ebiki-discover-cache', JSON.stringify(all)) } catch {}
+  }
+  // Keep the cache current as the session mutates state. The mode-switch reset sets null /
+  // DEFAULT_LEDGER — both skipped, so a reset can never blank the new mode's cache.
+  useEffect(() => { if (discoverProfile) writeDiscoverCache(activeMode.name, { profile: discoverProfile }) }, [discoverProfile])
+  useEffect(() => { if (discoverLedger !== DEFAULT_LEDGER) writeDiscoverCache(activeMode.name, { ledger: discoverLedger }) }, [discoverLedger])
+
   // Initialize Discover when the user switches to it: load ledger + profile, then STOP
   // at the setup screen (no suggestion yet — the user picks options and clicks Start).
   const initDiscover = async () => {
     if (discoverInitRef.current || !apiKey) return
     discoverInitRef.current = true
     try {
+      // Paint the last known state immediately (same commit as the reset — no flash),
+      // then let the authoritative Anki-media blobs replace it when they arrive.
+      const cached = readDiscoverCache(activeMode.name)
+      if (cached.profile) setDiscoverProfile(cached.profile)
+      if (cached.ledger) setDiscoverLedger(cached.ledger)
+
       ankiGetDecks().then(setAnkiDecks).catch(() => {}) // for the deck switcher
       ensureDiscoverKinds() // fire-and-forget; chips appear when ready
-      const ledger = (await readBlob('ledger', activeMode.name)) || DEFAULT_LEDGER
+      const ledger = (await readBlob('ledger', activeMode.name)) || cached.ledger || DEFAULT_LEDGER
       setDiscoverLedger(ledger)
       let profile = await readBlob('profile', activeMode.name)
+      if (!profile && cached.profile) profile = cached.profile // blob unreachable (Anki offline) — keep the cache
       if (!profile) profile = await buildLearnerProfile()
       else setDiscoverProfile(profile)
     } catch (err) {
@@ -3782,7 +3810,9 @@ Return ONLY a JSON array (no markdown):
     setDiscoverDeck('')
   }, [activeModeId])
 
-  useEffect(() => {
+  // Layout effect: initDiscover's synchronous prefix paints the cached profile/ledger BEFORE
+  // the browser draws the frame, so entering the tab never flashes the bare header.
+  useLayoutEffect(() => {
     if (activeTab === 'discover' && ankiConnected && apiKey && !discoverInitRef.current) {
       initDiscover()
     }
