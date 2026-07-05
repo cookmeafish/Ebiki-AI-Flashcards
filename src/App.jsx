@@ -4242,7 +4242,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       return (
         <span key={ti} className="study-word" onClick={() => lookupStudyWord(clean, sentence || text, source)}
           title={`What does "${clean}" mean?`} style={{ cursor: 'pointer', display: 'inline-block' }}>
-          <span className="study-word-inner" style={{ display: 'inline-block', borderBottom: '1px dotted rgba(223,37,64,.35)' }}>{tok}</span>
+          <span className="study-word-inner" style={{ display: 'inline-block', borderBottom: '1px dotted var(--c-border-strong)' }}>{tok}</span>
         </span>
       )
     })
@@ -8981,7 +8981,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               const lookupable = clean.length > 1 && !/_{2,}/.test(tok) && !isAnswer
                               const gloss = (!isAnswer && glossMap[cl]) || null
                               const word = lookupable
-                                ? <span className="study-word" onClick={() => lookupStudyWord(clean, question, 'question')} title={`What does "${clean}" mean?`} style={{ cursor: 'pointer', display: 'inline-block' }}><span className="study-word-inner" style={{ display: 'inline-block', borderBottom: '1px dotted rgba(223,37,64,.45)' }}>{tok}</span></span>
+                                ? <span className="study-word" onClick={() => lookupStudyWord(clean, question, 'question')} title={`What does "${clean}" mean?`} style={{ cursor: 'pointer', display: 'inline-block' }}><span className="study-word-inner" style={{ display: 'inline-block', borderBottom: '1px dotted var(--c-border-strong)' }}>{tok}</span></span>
                                 : <span>{tok}</span>
                               // When any word has a gloss, give EVERY word the same stacked layout (blank slot
                               // above un-glossed words) so the whole line shares one baseline — no "floating".
