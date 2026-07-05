@@ -4242,7 +4242,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       return (
         <span key={ti} className="study-word" onClick={() => lookupStudyWord(clean, sentence || text, source)}
           title={`What does "${clean}" mean?`} style={{ cursor: 'pointer', display: 'inline-block' }}>
-          <span className="study-word-inner" style={{ display: 'inline-block', borderBottom: '1px dotted var(--c-border-strong)' }}>{tok}</span>
+          <span className="study-word-inner" style={{ display: 'inline-block' }}>{tok}</span>
         </span>
       )
     })
@@ -8981,7 +8981,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               const lookupable = clean.length > 1 && !/_{2,}/.test(tok) && !isAnswer
                               const gloss = (!isAnswer && glossMap[cl]) || null
                               const word = lookupable
-                                ? <span className="study-word" onClick={() => lookupStudyWord(clean, question, 'question')} title={`What does "${clean}" mean?`} style={{ cursor: 'pointer', display: 'inline-block' }}><span className="study-word-inner" style={{ display: 'inline-block', borderBottom: '1px dotted var(--c-border-strong)' }}>{tok}</span></span>
+                                ? <span className="study-word" onClick={() => lookupStudyWord(clean, question, 'question')} title={`What does "${clean}" mean?`} style={{ cursor: 'pointer', display: 'inline-block' }}><span className="study-word-inner" style={{ display: 'inline-block' }}>{tok}</span></span>
                                 : <span>{tok}</span>
                               // When any word has a gloss, give EVERY word the same stacked layout (blank slot
                               // above un-glossed words) so the whole line shares one baseline — no "floating".
@@ -10238,10 +10238,13 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         /* Tappable words in study questions — lift + highlight on hover. The lift lives on an
            inner span so the outer hit-box stays put (no mouseleave→enter shake at the edges). */
         .study-word-inner { transition: transform .14s cubic-bezier(.34,1.56,.64,1), color .14s ease, border-color .14s ease; }
+        /* Tappable words carry NO resting underline (a page of dotted red read like a spellchecker
+           meltdown) — the affordance appears on hover: lift, brand color, and the underline. */
         .study-word:hover .study-word-inner {
           transform: translateY(-3px);
           color: var(--c-brand);
-          border-bottom-color: rgba(223,37,64,.85) !important;
+          border-bottom: 1px dotted rgba(223,37,64,.85);
+          margin-bottom: -1px; /* the border must not shift the line's layout */
         }
 
         /* Deck browser rows — highlight on hover */
