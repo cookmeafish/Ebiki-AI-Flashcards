@@ -1,8 +1,10 @@
 import { useState } from 'react'
 
 // Interactive PBQ (performance-based question) — renders a compiled PBQ from src/pbq/engine.js.
-// Interaction is select-then-place (click a chip, then click where it belongs): robust with the
-// app's body zoom, keyboard-friendly, and no HTML5 drag quirks. Grading happens in the parent
+// Two interaction styles, both always available: select-then-place (click a chip, then click where
+// it belongs — keyboard/touch friendly) AND native drag-and-drop (chips drag between the pool and
+// the target boxes; ordering rows drag to reorder). Drops are element-hit-tested by the browser,
+// so the app's body zoom never skews them (no coordinate math). Grading happens in the parent
 // (deterministic, engine.gradePbq); pass `review` ({ assign, perItem }) to show the graded,
 // read-only state with the correct answers revealed.
 
@@ -16,10 +18,10 @@ const chipBase = {
   background: 'var(--c-surface)', color: 'var(--c-ink)', cursor: 'pointer', maxWidth: '100%',
 }
 
-const Chip = ({ text, selected, correct, onClick }) => (
-  <button onClick={onClick} disabled={!onClick} style={{
+const Chip = ({ text, selected, correct, onClick, dragProps }) => (
+  <button onClick={onClick} disabled={!onClick && !dragProps} {...(dragProps || {})} style={{
     ...chipBase,
-    cursor: onClick ? 'pointer' : 'default',
+    cursor: dragProps ? 'grab' : onClick ? 'pointer' : 'default',
     borderColor: correct === true ? 'var(--c-success)' : correct === false ? 'var(--c-danger)' : selected ? 'var(--c-brand)' : 'var(--c-border)',
     background: correct === true ? 'rgba(24,169,87,.10)' : correct === false ? 'rgba(229,57,46,.08)' : selected ? 'rgba(223,37,64,.08)' : 'var(--c-surface)',
     color: correct === false ? 'var(--c-danger)' : 'var(--c-ink)',
@@ -41,6 +43,9 @@ export default function PbqQuestion({ pbq, t, onSubmit, review = null }) {
   const [assign, setAssign] = useState(() => new Array(pool.length).fill(null))
   const [seq, setSeq] = useState(() => pool.map((_, i) => i)) // ordering: item indices in display order
   const [selected, setSelected] = useState(null)
+  const [dragIdx, setDragIdx] = useState(null)    // pool item index being dragged (matching/categorize)
+  const [dragOverT, setDragOverT] = useState(null) // target idx (or 'pool') currently hovered by a drag
+  const [dragRow, setDragRow] = useState(null)     // ordering: display position of the row being dragged
 
   const liveAssign = review ? review.assign : assign
   const per = review ? review.perItem : null
@@ -65,10 +70,26 @@ export default function PbqQuestion({ pbq, t, onSubmit, review = null }) {
           {shownSeq.map((itemIdx, pos) => {
             const p = per?.[itemIdx]
             return (
-              <div key={itemIdx} style={{
-                ...box, display: 'flex', alignItems: 'center', gap: 10,
-                borderColor: p ? (p.correct ? 'var(--c-success)' : 'var(--c-danger)') : 'var(--c-border)',
-              }}>
+              <div key={itemIdx}
+                draggable={!done}
+                onDragStart={!done ? (e) => { e.dataTransfer.setData('text/plain', pool[itemIdx]); e.dataTransfer.effectAllowed = 'move'; setDragRow(pos) } : undefined}
+                onDragEnd={!done ? () => setDragRow(null) : undefined}
+                onDragOver={!done ? (e) => {
+                  // live-reorder: sliding over another row moves the dragged row there
+                  if (dragRow === null || dragRow === pos) return
+                  e.preventDefault()
+                  const next = [...seq]
+                  const [moved] = next.splice(dragRow, 1)
+                  next.splice(pos, 0, moved)
+                  setSeq(next)
+                  setDragRow(pos)
+                } : undefined}
+                style={{
+                  ...box, display: 'flex', alignItems: 'center', gap: 10,
+                  borderColor: p ? (p.correct ? 'var(--c-success)' : 'var(--c-danger)') : 'var(--c-border)',
+                  cursor: done ? 'default' : 'grab',
+                  opacity: dragRow === pos ? 0.6 : 1,
+                }}>
                 <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--c-brand)', width: 22, flexShrink: 0 }}>{pos + 1}.</span>
                 <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--c-ink)', flex: 1, minWidth: 0 }}>{pool[itemIdx]}</span>
                 {p && !p.correct && <Expected text={p.expectedText} />}
@@ -96,20 +117,42 @@ export default function PbqQuestion({ pbq, t, onSubmit, review = null }) {
     )
   }
 
-  // ---- matching + categorize (shared select-then-place) -----------------
+  // ---- matching + categorize (select-then-place AND drag-and-drop) ------
   const targets = isMatching ? pbq.right : pbq.categories
   const unplaced = pool.map((_, i) => i).filter(i => liveAssign[i] === null || liveAssign[i] === undefined)
   const allPlaced = unplaced.length === 0
 
-  const place = (ti) => {
-    if (done || selected === null) return
-    setAssign(prev => prev.map((v, i) => (i === selected ? ti : v)))
-    setSelected(null)
+  const placeItem = (ii, ti) => {
+    if (done) return
+    setAssign(prev => prev.map((v, i) => (i === ii ? ti : v)))
+    setSelected(sel => (sel === ii ? null : sel))
   }
-  const unplace = (ii) => {
+  const unplaceItem = (ii, reselect = false) => {
     if (done) return
     setAssign(prev => prev.map((v, i) => (i === ii ? null : v)))
-    setSelected(ii)
+    setSelected(reselect ? ii : null)
+  }
+
+  const chipDragProps = (ii) => done ? undefined : {
+    draggable: true,
+    onDragStart: (e) => { e.dataTransfer.setData('text/plain', pool[ii]); e.dataTransfer.effectAllowed = 'move'; setDragIdx(ii) },
+    onDragEnd: () => { setDragIdx(null); setDragOverT(null) },
+  }
+  const dropZoneProps = (zone, onDropItem) => done ? {} : {
+    onDragOver: (e) => {
+      if (dragIdx === null) return
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'move'
+      if (dragOverT !== zone) setDragOverT(zone)
+    },
+    onDragLeave: () => setDragOverT(cur => (cur === zone ? null : cur)),
+    onDrop: (e) => {
+      if (dragIdx === null) return
+      e.preventDefault()
+      onDropItem(dragIdx)
+      setDragIdx(null)
+      setDragOverT(null)
+    },
   }
 
   return (
@@ -117,13 +160,18 @@ export default function PbqQuestion({ pbq, t, onSubmit, review = null }) {
       {!done && (
         <div style={{ fontSize: 11, color: 'var(--c-ink-dim)', marginBottom: 8 }}>{t('pbqSelectHint')}</div>
       )}
-      {/* pool of unplaced chips */}
+      {/* pool of unplaced chips — also a drop zone to take a placed item back */}
       {!done && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10, minHeight: 34, padding: '6px 8px', border: '1px dashed var(--c-border)', borderRadius: 10 }}>
+        <div {...dropZoneProps('pool', (ii) => unplaceItem(ii))} style={{
+          display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10, minHeight: 34, padding: '6px 8px',
+          border: `1px dashed ${dragOverT === 'pool' ? 'var(--c-brand)' : 'var(--c-border)'}`, borderRadius: 10,
+          background: dragOverT === 'pool' ? 'rgba(223,37,64,.05)' : 'transparent',
+        }}>
           {unplaced.length === 0
             ? <span style={{ fontSize: 11, color: 'var(--c-ink-faint)', alignSelf: 'center' }}>✓</span>
             : unplaced.map(ii => (
-              <Chip key={ii} text={pool[ii]} selected={selected === ii} onClick={() => setSelected(selected === ii ? null : ii)} />
+              <Chip key={ii} text={pool[ii]} selected={selected === ii} dragProps={chipDragProps(ii)}
+                onClick={() => setSelected(selected === ii ? null : ii)} />
             ))}
         </div>
       )}
@@ -131,12 +179,16 @@ export default function PbqQuestion({ pbq, t, onSubmit, review = null }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {targets.map((tg, ti) => {
           const placedHere = pool.map((_, i) => i).filter(i => liveAssign[i] === ti)
+          const droppable = !done && (dragIdx !== null || selected !== null)
           return (
-            <div key={ti} onClick={() => place(ti)} style={{
+            <div key={ti} onClick={() => { if (!done && selected !== null) placeItem(selected, ti) }}
+              {...dropZoneProps(ti, (ii) => placeItem(ii, ti))} style={{
               ...box,
               cursor: !done && selected !== null ? 'pointer' : 'default',
-              borderColor: !done && selected !== null ? 'var(--c-brand)' : 'var(--c-border)',
-              borderStyle: !done && selected !== null && (isMatching ? placedHere.length === 0 : true) ? 'dashed' : 'solid',
+              borderColor: dragOverT === ti ? 'var(--c-brand)' : droppable ? 'var(--c-brand)' : 'var(--c-border)',
+              borderStyle: droppable && dragOverT !== ti ? 'dashed' : 'solid',
+              background: dragOverT === ti ? 'rgba(223,37,64,.06)' : box.background,
+              boxShadow: dragOverT === ti ? '0 0 0 3px rgba(223,37,64,.12)' : 'none',
             }}>
               <div style={{ fontSize: isMatching ? 12 : 12.5, fontWeight: isMatching ? 500 : 800, color: isMatching ? 'var(--c-ink)' : 'var(--c-brand)', marginBottom: placedHere.length || !done ? 6 : 0, lineHeight: 1.5 }}>
                 {tg}
@@ -146,7 +198,8 @@ export default function PbqQuestion({ pbq, t, onSubmit, review = null }) {
                   const p = per?.[ii]
                   return (
                     <span key={ii} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: '100%' }}>
-                      <Chip text={pool[ii]} correct={p ? p.correct : undefined} onClick={!done ? () => unplace(ii) : undefined} />
+                      <Chip text={pool[ii]} correct={p ? p.correct : undefined} dragProps={chipDragProps(ii)}
+                        onClick={!done ? (e) => { e.stopPropagation(); unplaceItem(ii, true) } : undefined} />
                       {p && !p.correct && <Expected text={p.expectedText} />}
                     </span>
                   )
