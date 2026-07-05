@@ -3796,7 +3796,10 @@ Return ONLY a JSON array (no markdown):
 
   // Reset Discover state when the active mode (and thus deck/profile) changes.
   // Defined before the init effect so on a mode switch the reset runs first.
-  useEffect(() => {
+  // LAYOUT effect: must run in the same pre-paint flush as the init effect below —
+  // as a plain effect it would blank the panel AFTER the frame painted (visible blink)
+  // and after the init effect had already skipped this dep change.
+  useLayoutEffect(() => {
     discoverInitRef.current = false
     discoverDeckTermsRef.current = []
     setDiscoverProfile(null)
@@ -3810,12 +3813,17 @@ Return ONLY a JSON array (no markdown):
     setDiscoverDeck('')
   }, [activeModeId])
 
-  // Layout effect: initDiscover's synchronous prefix paints the cached profile/ledger BEFORE
-  // the browser draws the frame, so entering the tab never flashes the bare header.
+  // Layout effect, running right after the reset above in the same pre-paint flush:
+  // paint the cached profile/ledger IMMEDIATELY (even before Anki connects — the cache
+  // needs no network), then run the real init once the connection is up.
   useLayoutEffect(() => {
-    if (activeTab === 'discover' && ankiConnected && apiKey && !discoverInitRef.current) {
-      initDiscover()
+    if (activeTab !== 'discover' || !apiKey) return
+    if (!discoverInitRef.current) {
+      const cached = readDiscoverCache(activeMode.name)
+      if (cached.profile) setDiscoverProfile((p) => p || cached.profile)
+      if (cached.ledger) setDiscoverLedger((l) => (l === DEFAULT_LEDGER ? cached.ledger : l))
     }
+    if (ankiConnected && !discoverInitRef.current) initDiscover()
   }, [activeTab, ankiConnected, apiKey, activeModeId])
 
   // Auto-open the deck browser when the Deck tab is entered, sync edits back when leaving.
