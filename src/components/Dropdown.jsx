@@ -39,9 +39,11 @@ export default function Dropdown({ value, onChange, options, style = {}, menuAli
   }
 
   return (
-    <div ref={wrapRef} style={{ position: 'relative', display: 'inline-block' }}>
+    // A width passed in `style` must apply to the WRAPPER (the button's width:100% would be
+    // circular against an inline-block wrapper that shrink-wraps its content).
+    <div ref={wrapRef} style={{ position: 'relative', display: 'inline-block', width: style.width }}>
       <button ref={btnRef} type="button" onClick={toggle} title={title}
-        style={{ ...style, display: 'inline-flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
+        style={{ boxSizing: 'border-box', ...style, display: 'inline-flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
         <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {current ? `${current.icon ? current.icon + ' ' : ''}${current.label}` : ''}
         </span>
