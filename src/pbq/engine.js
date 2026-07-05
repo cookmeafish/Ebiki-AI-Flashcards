@@ -49,6 +49,26 @@ const shuffledIndices = (n, rng = Math.random) => {
 }
 
 // ---------------------------------------------------------------------------
+// icons: optional emoji per item/category, purely cosmetic. Rendered via the
+// OS emoji font (Segoe UI Emoji / Noto Color Emoji) — no assets. Keyed by
+// normalized item text; junk (letters/digits, over-long strings) is dropped.
+// NEVER part of grading, and studentView excludes them (blind solver is text-only).
+// ---------------------------------------------------------------------------
+const parseIcons = (raw) => {
+  const icons = {}
+  if (raw?.icons && typeof raw.icons === 'object' && !Array.isArray(raw.icons)) {
+    for (const [k, v] of Object.entries(raw.icons)) {
+      const key = norm(k)
+      const icon = String(v ?? '').trim()
+      if (key && icon && icon.length <= 10 && !/[\p{L}\p{N}]/u.test(icon)) icons[key] = icon
+    }
+  }
+  return icons
+}
+
+export const iconFor = (pbq, text) => pbq?.icons?.[norm(text)] || null
+
+// ---------------------------------------------------------------------------
 // compile: authoring JSON → validated, shuffled, index-based PBQ
 // ---------------------------------------------------------------------------
 export const compilePbq = (raw, rng = Math.random) => {
@@ -124,6 +144,7 @@ export const compilePbq = (raw, rng = Math.random) => {
   }
 
   if (errors.length || !pbq) return { ok: false, errors: errors.length ? errors : ['could not compile'] }
+  pbq.icons = parseIcons(raw)
   return { ok: true, pbq }
 }
 
@@ -256,6 +277,7 @@ HARD REQUIREMENTS:
 - EXACTLY ONE defensible answer key. No item may plausibly fit two right-hand matches or two categories; no two steps whose order could be argued either way. If the topic can't support that, pick a different format or angle within the same topic.
 - Every left item, right item, step, and category must be SHORT (≤ 12 words) and mutually distinct.
 - Do NOT reveal any answer inside the scenario or title.
+- OPTIONAL "icons": additionally return an object mapping item/category texts to ONE fitting emoji each, e.g. {"icons":{"Keyboard":"⌨️","Firewall":"🧱","Phishing":"🎣"}}. Only include entries where a standard emoji obviously depicts the item; omit the rest (an empty or missing map is fine). The emoji must depict the item ITSELF and must NEVER hint at its correct match, category, or position.
 - Write everything in ${lang}.
 ${knowledgeContext ? `- GROUND every fact in the reference material below and return "citations": 2-4 VERBATIM quotes (12+ chars each) copied from it that justify the answer key. Quotes must appear word-for-word in the material.\n\nREFERENCE MATERIAL:\n${knowledgeContext}` : '- Use only facts you are certain of; prefer textbook-standard content for this subject.'}
 ${priorFailure ? `\nYOUR PREVIOUS ATTEMPT WAS REJECTED: ${priorFailure}\nFix that specific problem — change the content, not just the wording.` : ''}
