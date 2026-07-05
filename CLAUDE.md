@@ -255,6 +255,31 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   advances state IMMEDIATELY and leaves a frozen `studyChoiceFlash` snapshot on screen for the green/red beat
   (no delayed-setState races); the batchFeedback layout-effect is gated on the flash so the last answer's
   colors aren't skipped. Keys 1–4 answer; the meaning-hint button hides (options make it moot).
+- **PBQs — verified performance-based questions (`studyMode = 'pbq'`, GENERAL modes only).** Study-type
+  option on the start screen (general modes get Flashcards|PBQ, language modes keep Flashcards|Conjugations;
+  a stale type from the other mode kind falls back to flashcards — `beginStudy` sanitizes too). Three
+  CompTIA-style interactive formats: **matching**, **ordering**, **categorize**, one exercise per card.
+  - `src/pbq/engine.js` (PURE, vitest-tested in `engine.test.js`): the generator authors in an INDEX-FREE
+    format (aligned `pairs` / correct-order `steps` / `groups`) because models are bad at index bookkeeping;
+    `compilePbq` validates (sizes, dupes, non-empty cats) and SHUFFLES presentation client-side, producing
+    index-based `{left,right,items,categories,answer[]}`. `gradePbq` grades deterministically (no AI while
+    studying); `studentView` strips the key; `parseSolverAnswer` maps a TEXT-based solver reply back to
+    indices (exact-normalized then unique-containment).
+  - **Verification pipeline (`generatePbqForCard`, App.jsx)** — generate → compile-validate → citation
+    check → BLIND SOLVE → adjudicate → repair(1)/discard: with a knowledge base, the generator must return
+    2-4 VERBATIM quotes and `checkCitations` string-matches them against the source (fabrications die
+    here); a solver call sees ONLY `studentView` and must independently reach the key (`compareToKey`);
+    on mismatch a judge rules `solver_wrong` (key stands) / `key_wrong` / `ambiguous` (both → the
+    discrepancy is fed back for ONE regeneration, then the candidate is DISCARDED — `pullNewCard` tries
+    up to 3 pool cards per slot via `pbqPullRef`, a sync-readable batch-idx mirror). ~3-5 model calls per
+    exercise, all at generation time.
+  - **UI:** `src/components/PbqQuestion.jsx` — select-then-place (tap item, tap target; no HTML5 drag —
+    robust with the body zoom) for matching/categorize, ▲▼ rows for ordering; `review` prop renders the
+    graded read-only state with ✓/✗ and "→ expected". Submit → `submitPbqAnswer` grades locally, advances
+    the session UNDERNEATH, and holds the graded exercise on screen (`studyPbqReview`) until **Continue**
+    (the batchFeedback layout-effect is gated on it, like the MC flash). Rating from fraction (1→easy,
+    ≥.7→good, ≥.4→hard, else again), same Good-cap + `noSync`/`practiceGradeAnki` checkbox semantics as MC
+    ("I don't know" routes to `evaluatePbqSkipped` → again). Scenario text renders under the title.
 - **Graded cards collapse to a header with TWO mutually-exclusive toggles (`studyGradedView` =
   `{ [cardIdx]: 'feedback' | 'mnemonic' }`; absent = collapsed).** Each header shows front + a **▸ Feedback**
   toggle (`renderFeedbackToggle`) + a **🧠 Help me remember** toggle (`renderMnemonicButton`) + rating/synced
