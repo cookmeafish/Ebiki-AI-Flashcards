@@ -4277,9 +4277,22 @@ Output ONLY raw JSON. No markdown, no backticks.`
                 ➕ Make Anki card
               </button>
             )}
+            {/* Memory hook for the TAPPED word (not the card being tested) — a quick "how do I
+                remember this one again?" without leaving the question. Same engine as everywhere. */}
+            <button onClick={studyWordMemoryHook} disabled={!apiKey || studyWordLookup.hookLoading}
+              title="Ebi builds a memory aid for this word"
+              style={{ ...S.ghostBtn, fontSize: 11, padding: '3px 10px', fontWeight: 700, color: 'var(--c-purple)', borderColor: 'rgba(139,92,246,.4)', opacity: (apiKey && !studyWordLookup.hookLoading) ? 1 : 0.5, cursor: apiKey ? 'pointer' : 'default' }}>
+              🧠 {studyWordLookup.hookLoading ? 'Thinking…' : (studyWordLookup.hooks?.length ? '↻ Another hook' : 'Memory hook')}
+            </button>
             {studyWordLookup.cardError && <span style={{ fontSize: 10, color: 'var(--c-danger)' }}>{studyWordLookup.cardError}</span>}
+            {studyWordLookup.hookError && <span style={{ fontSize: 10, color: 'var(--c-danger)' }}>{studyWordLookup.hookError}</span>}
           </div>
         )}
+        {(studyWordLookup.hooks || []).map((hook, hi) => (
+          <div key={hi} style={{ fontSize: 11, color: 'var(--c-ink)', background: 'rgba(139,92,246,.08)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 6, padding: '7px 10px', lineHeight: 1.6 }}>
+            <span style={{ fontWeight: 700, color: 'var(--c-purple)' }}>🧠 </span>{hook}
+          </div>
+        ))}
       </div>
     )
   }
@@ -5513,6 +5526,21 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
       })
     } catch {
       setStudyWordLookup({ word, primary: 'Lookup failed — try again.', alternatives: [], loading: false, source })
+    }
+  }
+
+  // Memory hook for the TAPPED word — the user just wants a reminder of how to remember this
+  // word even though it isn't the one being tested. Shares generateMemoryHook with study/deck.
+  const studyWordMemoryHook = async () => {
+    const wl = studyWordLookup
+    if (!wl?.word || !apiKey || wl.hookLoading || wl.loading) return
+    setStudyWordLookup((prev) => (prev && prev.word === wl.word) ? { ...prev, hookLoading: true, hookError: null } : prev)
+    try {
+      const back = [wl.primary, ...(wl.alternatives || [])].filter((x) => x && x !== '—').join(' · ') || wl.word
+      const hook = await generateMemoryHook(wl.word, back, wl.hooks || [])
+      setStudyWordLookup((prev) => (prev && prev.word === wl.word) ? { ...prev, hookLoading: false, hooks: [...(prev.hooks || []), ...(hook ? [hook] : [])] } : prev)
+    } catch {
+      setStudyWordLookup((prev) => (prev && prev.word === wl.word) ? { ...prev, hookLoading: false, hookError: 'Could not generate a memory hook — try again.' } : prev)
     }
   }
 
