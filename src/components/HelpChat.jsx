@@ -73,6 +73,9 @@ function buildSystemPrompt(appContext) {
     if (ss.gradedRecent?.length) parts.push(`Recently graded this session: ${ss.gradedRecent.map((g) => `"${g.front}" → ${g.rating}`).join(', ')}`)
     if (ss.questionPreferences?.length) parts.push(`Saved question-style preferences for this mode:\n${ss.questionPreferences.map((p) => `- ${p}`).join('\n')}`)
   }
+  if (appContext.progressObservations) {
+    parts.push(`\nLEARNER PROGRESS NOTES (AI-maintained memory across sessions — the user's struggles, improvements, goals and interests; use them to personalize your help):\n${appContext.progressObservations}`)
+  }
   if (appContext.deckBrowser) parts.push(`\nDeck browser open: deck "${appContext.deckBrowser.deck || '(none picked)'}" with ${appContext.deckBrowser.cards} cards listed`)
   if (appContext.discover) parts.push(`\nDiscover tab: ${appContext.discover.started ? 'actively suggesting new items' : 'on the setup screen'}, learner level=${appContext.discover.level || 'not analyzed yet'}, target deck="${appContext.discover.deck || '—'}"`)
 

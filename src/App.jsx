@@ -396,6 +396,10 @@ export default function App() {
   // Graded PBQ awaiting the user's "Continue" — like the choice flash, the session state has
   // already advanced underneath; this only keeps the reviewed exercise on screen.
   const [studyPbqReview, setStudyPbqReview] = useState(null)
+  // The mode deck's AI-maintained progress-observations.md — Ebi's long-term memory of the
+  // learner (struggles / improvements / goals). Fed to Ebi's Help + the Chat tab; updated by
+  // session Insights and by <progress-update> tags from chat.
+  const [deckProgressDoc, setDeckProgressDoc] = useState('')
   // Typed-answer feedback flash: { question, answer, kind: 'correct' | 'check' }. 'correct' =
   // locally verified against acceptedAnswers (green ✓, no AI); 'check' = recorded but only the
   // AI grader can judge it (amber ⏳ — explanation questions, general modes, hint-exhausted).
@@ -5358,6 +5362,18 @@ Output ONLY raw JSON. No markdown, no backticks.`
   // Close the "fix question" panel whenever the live question changes
   useEffect(() => { setStudyFixQ(null) }, [currentQuestion])
 
+  // Load the mode deck's progress observations so Ebi (Help + Chat) always knows the learner
+  useEffect(() => {
+    let cancelled = false
+    setDeckProgressDoc('')
+    if (!ankiDeck) return
+    fetch(`/api/deck-progress?deck=${encodeURIComponent(ankiDeck)}`)
+      .then((r) => r.json())
+      .then((d) => { if (!cancelled) setDeckProgressDoc(d.content || '') })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [ankiDeck])
+
   // Answer-option grid, used both live (onPick set) and frozen in the post-answer flash
   // (picked/answerIdx set → correct option green, a wrong pick red, the rest dimmed).
   const renderChoiceButtons = (choices, { picked = null, answerIdx = null, onPick = null } = {}) => {
@@ -6335,8 +6351,11 @@ Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. 
         existingProgress = d.content || ''
       } catch {}
 
-      const sessionSummary = studyCardState.filter(cs => cs.done).map(cs => {
-        const wrongQs = cs.results.filter(r => !r.correct).map((r, i) => cs.questions[i]).join('; ')
+      // NOTE: map over results with the ORIGINAL index (a filtered index misaligned questions and
+      // answers), extract question TEXT (questions are objects — they stringified as
+      // "[object Object]"), and skip cards without a rating (deleted / never graded → "undefined").
+      const sessionSummary = studyCardState.filter(cs => cs.done && cs.rating && cs.rating !== 'deleted').map(cs => {
+        const wrongQs = cs.results.map((r, i) => (!r?.correct ? getQuestionText(cs.questions[i]) : null)).filter(Boolean).join('; ')
         return `Card: "${cs.front}" → Rating: ${cs.rating}${wrongQs ? ` (struggled with: ${wrongQs})` : ''}`
       }).join('\n')
 
@@ -6364,7 +6383,12 @@ Last updated: ${new Date().toISOString().split('T')[0]}
 (items that were struggles but are getting better)
 
 ## Mastered (recently)
-(items no longer a problem)`
+(items no longer a problem)
+
+The file must MERGE the previous observations with this session: deduplicate overlapping items,
+move improved struggles to "Improving"/"Mastered", DROP stale or redundant lines, and stay concise
+(the file compresses understanding — it never just accumulates). Keep any durable notes about the
+learner's goals or interests that already exist.`
 
       const text = await aiCall(apiKey, 'You analyze study session results and track learning progress.', prompt, resolveModel('study'))
       const parts = text.split('---')
@@ -6381,6 +6405,7 @@ Last updated: ${new Date().toISOString().split('T')[0]}
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ deck: studyDeck, content: newProgress }),
           })
+          setDeckProgressDoc(newProgress) // keep Ebi's Help / Chat context current
           console.log('[Study] progress observations updated for:', studyDeck)
         } catch {}
       }
@@ -6703,7 +6728,11 @@ ${activeMode.type === 'language' ? `   - LANGUAGE MODE (learning ${learnLangName
 ${chatTabAttachedDeck.progress ? `Progress observations:\n${chatTabAttachedDeck.progress}\n` : ''}
 Card contents (all ${chatTabAttachedDeck.cards.length} cards):\n${cardSummary}
 
-Focus on their weak areas. If you discover new struggles or notice improvement, wrap observation updates in <progress-update>new content for the file</progress-update> tags.`
+Focus on their weak areas. If you discover new struggles or notice improvement, wrap observation updates in <progress-update>full revised content for the file</progress-update> tags — MERGE with the existing notes, deduplicate, keep it concise.`
+      } else if (ankiDeck) {
+        // No deck attached — Ebi still knows (and can update) the learner's long-term notes,
+        // so things said in casual chat ("I'm learning Spanish for a trip to Peru") STICK.
+        systemPrompt += `\n\nLEARNER PROGRESS NOTES for their "${ankiDeck}" deck (AI-maintained memory across sessions — struggles, improvements, goals, interests):\n${deckProgressDoc || '(none yet)'}\n\nIf the user shares something DURABLE about themselves (goals, interests, recurring struggles, clear improvements), update the notes: wrap the FULL revised file in <progress-update>...</progress-update> tags. Merge with the existing notes, deduplicate redundant lines, keep it concise. Do not update for trivial chit-chat.`
       }
 
       // Learning-focused composer prefs (per-mode "+" menu).
@@ -6730,17 +6759,20 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       const cardMatches = [...text.matchAll(/<anki-card>(.*?)<\/anki-card>/gs)]
       const parsedCards = cardMatches.map(m => { try { return JSON.parse(m[1]) } catch { return null } }).filter(Boolean)
 
-      // Parse progress updates
+      // Parse progress updates — the write target is the attached deck, or the mode's own deck
+      // when nothing is attached (so casual chat can still teach Ebi durable facts).
       const progressMatches = [...text.matchAll(/<progress-update>([\s\S]*?)<\/progress-update>/g)]
-      if (progressMatches.length > 0 && chatTabAttachedDeck) {
+      const progressDeck = chatTabAttachedDeck?.name || ankiDeck
+      if (progressMatches.length > 0 && progressDeck) {
         for (const pm of progressMatches) {
           try {
             await fetch('/api/deck-progress', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ deck: chatTabAttachedDeck.name, content: pm[1].trim() }),
+              body: JSON.stringify({ deck: progressDeck, content: pm[1].trim() }),
             })
             setChatTabAttachedDeck(prev => prev ? { ...prev, progress: pm[1].trim() } : prev)
+            if (progressDeck === ankiDeck) setDeckProgressDoc(pm[1].trim())
           } catch {}
         }
       }
@@ -8848,10 +8880,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   <div style={{
                     textAlign: 'left', marginBottom: 16, padding: '12px 16px', borderRadius: 8,
                     background: 'rgba(139,92,246,.06)', border: '1px solid rgba(139,92,246,.15)',
-                    fontSize: 12, color: 'var(--c-ink)', lineHeight: 1.6, whiteSpace: 'pre-wrap',
+                    fontSize: 12, color: 'var(--c-ink)', lineHeight: 1.6,
                   }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-purple)', marginBottom: 6 }}>Insights</div>
-                    {studyInsights}
+                    {/* Rendered as markdown — the model bolds card names (**brújula**) */}
+                    <Markdown text={studyInsights} />
                   </div>
                 )}
 
@@ -10429,6 +10462,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         } : null,
         deckBrowser: deckBrowserActive ? { deck: deckBrowserDeck, cards: deckBrowserNotes.length } : null,
         discover: activeTab === 'discover' ? { started: discoverStarted, level: discoverProfile?.level?.estimate || null, deck: discoverDeck || ankiDeck } : null,
+        // Long-term learner memory (AI-maintained progress-observations.md for the mode's deck)
+        progressObservations: (deckProgressDoc || '').slice(0, 2500),
         chatTabMsgs: chatTabMsgs.slice(-5).map(m => ({ role: m.role, content: m.content?.slice(0, 200) })),
         language,
         targetLang,
