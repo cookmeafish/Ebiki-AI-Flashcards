@@ -10177,11 +10177,13 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         select:not(:disabled):hover,
         input[type="checkbox"]:not(:disabled):hover {
           box-shadow: inset 0 0 0 999px rgba(0, 0, 0, .08);
+          filter: brightness(.97);
         }
         [data-theme="dark"] button:not(:disabled):not(.ui-tab-current):hover,
         [data-theme="dark"] select:not(:disabled):hover,
         [data-theme="dark"] input[type="checkbox"]:not(:disabled):hover {
           box-shadow: inset 0 0 0 999px rgba(0, 0, 0, .26);
+          filter: brightness(.92);
         }
 
         /* Ghost/action buttons: SUBTLE hover — the border gently deepens toward the button's own
