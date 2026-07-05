@@ -10165,6 +10165,21 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         /* Duolingo-style 3D press: add className "btn-press" to primary CTAs */
         .btn-press:active:not(:disabled) { transform: translateY(2px); box-shadow: none !important; }
 
+        /* Settings modal: every selectable control darkens slightly on hover — the standard
+           "this is clickable" cue — in BOTH themes. An inset overlay darkens whatever background
+           the control has (covers sidebar items, chips, toggles, selects, all panels at once).
+           Dark surfaces need a stronger black to register. */
+        .settings-modal button:not(:disabled):hover,
+        .settings-modal select:not(:disabled):hover,
+        .settings-modal input[type="checkbox"]:not(:disabled):hover {
+          box-shadow: inset 0 0 0 999px rgba(0, 0, 0, .08);
+        }
+        [data-theme="dark"] .settings-modal button:not(:disabled):hover,
+        [data-theme="dark"] .settings-modal select:not(:disabled):hover,
+        [data-theme="dark"] .settings-modal input[type="checkbox"]:not(:disabled):hover {
+          box-shadow: inset 0 0 0 999px rgba(0, 0, 0, .26);
+        }
+
         /* Ghost/action buttons: SUBTLE hover — the border gently deepens toward the button's own
            accent color (half strength). No ring, no brightness, no movement. */
         .ui-btn { transition: border-color .15s ease; }
