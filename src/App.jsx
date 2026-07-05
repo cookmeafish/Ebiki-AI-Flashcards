@@ -7252,7 +7252,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             {['chat', 'study', 'deck', 'discover', 'picture', 'stats'].map((tab) => (
               <button
                 key={tab}
-                className="ui-tab"
+                className={activeTab === tab ? 'ui-tab ui-tab-current' : 'ui-tab'}
                 onClick={() => {
                   setActiveTab(tab)
                   setChatSidePanel(false)
@@ -10200,6 +10200,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         .ui-tab { transition: color .18s ease, background .18s ease, box-shadow .18s ease; }
         .ui-tab-inner { display: inline-block; transition: transform .16s cubic-bezier(.34,1.56,.64,1); }
         .ui-tab:hover .ui-tab-inner { transform: translateY(-2px); }
+        /* The ACTIVE tab is already "chosen" — it must not invite a click by lifting on hover */
+        .ui-tab-current:hover .ui-tab-inner { transform: none; }
+        .ui-tab-current { cursor: default; }
 
         input, select, textarea { transition: border-color .16s ease, box-shadow .16s ease, background .16s ease; }
         input:focus, select:focus, textarea:focus {
