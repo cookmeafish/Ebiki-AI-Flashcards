@@ -4722,6 +4722,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     // A lingering study type from another mode kind is meaningless here — fall back to flashcards.
     if (activeMode.type === 'language' && mode === 'pbq') mode = 'flashcards'
     if (activeMode.type !== 'language' && mode === 'conjugations') mode = 'flashcards'
+    studySyncedIdsRef.current = new Set() // fresh session — reset the once-per-session answer guard
     setStudyMode(mode)
     setStudyLoading(true)
     setAnkiError(null)
@@ -5558,29 +5559,53 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
   // The hook is written in the app language. `card` is passed in fresh from render to avoid stale reads.
   // "Another hook" APPENDS a new aid below the existing ones (cs.mnemonics is an array), and the prompt
   // is told the prior hooks so each one is genuinely different.
-  const generateMnemonic = async (cardIdx, card) => {
-    const cs = card || studyCardState[cardIdx]
-    if (!cs || !apiKey) return
+  // Shared memory-hook engine (study graded cards AND the Deck browser). Subject-agnostic —
+  // the prompt branches on the mode type; `prior` hooks feed back so each new one differs.
+  const generateMemoryHook = async (front, back, prior = []) => {
     const isLanguage = activeMode.type === 'language'
     const explainLang = APP_LANG_NAME[appLanguage] || 'English'
     const learnLang = isLanguage ? ((activeMode.studyRules || defaultStudyRules).studyLanguage || learnLangName()) : null
+    const prompt = `You are Ebi, a warm study buddy. Help the learner MEMORIZE this flashcard with a vivid, concrete memory aid.
+
+Flashcard front: "${front}"
+Flashcard back: "${back}"
+Subject / study mode: "${activeMode.name}"${isLanguage ? `\nThis is a ${learnLang} vocabulary card: memorize the ${learnLang} word and its meaning.` : `\nThis is a general study card (NOT language learning): memorize the concept/fact itself, never treat it as a translation exercise.`}
+
+Choose whatever memory technique actually fits THIS material (do not force one): a sound-alike or imagery association, a cognate / word-origin hook, an acronym or initialism, a short vivid story, chunking, a logical link, or a brief RATIONALIZATION of why the answer makes sense (etymology, cause, or reasoning the learner can reconstruct on their own). ${isLanguage ? 'For vocabulary, a sound-alike plus a mental image works well, e.g. Spanish "muelle" (dock): picture a stubborn MULE hauling cargo down at the dock (mule -> muelle).' : 'For facts/concepts, prefer a clear association, acronym, or a memorable concrete example that fits the subject.'}${prior.length ? `\n\nThe learner already has these memory aids for this card, so give a genuinely DIFFERENT one (new angle/technique, do not repeat them):\n${prior.map((m, i) => `${i + 1}. ${m}`).join('\n')}` : ''}
+
+Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. Give ONE strong primary hook, then optionally a brief backup. Plain text only: no markdown headers, no em dashes.`
+    const text = await aiCall(apiKey, `You are Ebi, a friendly memory coach. Reply in ${explainLang} with a concise, concrete memory aid in plain text.`, prompt, resolveModel('study'))
+    return String(text || '').trim()
+  }
+
+  const generateMnemonic = async (cardIdx, card) => {
+    const cs = card || studyCardState[cardIdx]
+    if (!cs || !apiKey) return
     const prior = Array.isArray(cs.mnemonics) ? cs.mnemonics : []
     setStudyCardState(prev => { const u = [...prev]; if (u[cardIdx]) u[cardIdx] = { ...u[cardIdx], mnemonicLoading: true, mnemonicError: null }; return u })
     try {
-      const prompt = `You are Ebi, a warm study buddy. Help the learner MEMORIZE this flashcard with a vivid, concrete memory aid.
-
-Flashcard front: "${cs.front}"
-Flashcard back: "${cs.back}"
-Subject / study mode: "${activeMode.name}"${isLanguage ? `\nThis is a ${learnLang} vocabulary card: memorize the ${learnLang} word and its meaning.` : `\nThis is a general study card (NOT language learning): memorize the concept/fact itself, never treat it as a translation exercise.`}
-
-Choose whatever memory technique actually fits THIS material (do not force one): a sound-alike or imagery association, a cognate / word-origin hook, an acronym or initialism, a short vivid story, chunking, or a logical link. ${isLanguage ? 'For vocabulary, a sound-alike plus a mental image works well, e.g. Spanish "muelle" (dock): picture a stubborn MULE hauling cargo down at the dock (mule -> muelle).' : 'For facts/concepts, prefer a clear association, acronym, or a memorable concrete example that fits the subject.'}${prior.length ? `\n\nThe learner already has these memory aids for this card, so give a genuinely DIFFERENT one (new angle/technique, do not repeat them):\n${prior.map((m, i) => `${i + 1}. ${m}`).join('\n')}` : ''}
-
-Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. Give ONE strong primary hook, then optionally a brief backup. Plain text only: no markdown headers, no em dashes.`
-      const text = await aiCall(apiKey, `You are Ebi, a friendly memory coach. Reply in ${explainLang} with a concise, concrete memory aid in plain text.`, prompt, resolveModel('study'))
-      const hook = String(text || '').trim()
+      const hook = await generateMemoryHook(cs.front, cs.back, prior)
       setStudyCardState(prev => { const u = [...prev]; if (u[cardIdx]) u[cardIdx] = { ...u[cardIdx], mnemonics: [...(u[cardIdx].mnemonics || []), ...(hook ? [hook] : [])], mnemonicLoading: false }; return u })
     } catch {
       setStudyCardState(prev => { const u = [...prev]; if (u[cardIdx]) u[cardIdx] = { ...u[cardIdx], mnemonicLoading: false, mnemonicError: 'Could not generate a memory aid — try again.' }; return u })
+    }
+  }
+
+  // Deck-browser memory hooks, keyed by noteId (session-local, like study's cs.mnemonics)
+  const [deckBrowserMnemonics, setDeckBrowserMnemonics] = useState({})
+  const generateDeckMnemonic = async (note) => {
+    if (!apiKey) return
+    const id = note.noteId
+    const priorHooks = deckBrowserMnemonics[id]?.hooks || []
+    setDeckBrowserMnemonics(prev => ({ ...prev, [id]: { ...(prev[id] || { hooks: [] }), loading: true, error: null } }))
+    try {
+      const fields = Object.entries(note.fields).sort(([, a], [, b]) => a.order - b.order)
+      const front = stripHtml(fields[0]?.[1]?.value || '')
+      const back = backTextLines(fields[1]?.[1]?.value || '').join('\n')
+      const hook = await generateMemoryHook(front, back, priorHooks)
+      setDeckBrowserMnemonics(prev => { const e = prev[id] || { hooks: [] }; return { ...prev, [id]: { hooks: [...(e.hooks || []), ...(hook ? [hook] : [])], loading: false, error: null } } })
+    } catch {
+      setDeckBrowserMnemonics(prev => ({ ...prev, [id]: { ...(prev[id] || { hooks: [] }), loading: false, error: 'Could not generate a memory aid — try again.' } }))
     }
   }
 
@@ -5913,9 +5938,18 @@ Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. 
   // can never run concurrently (no double-answering a card in Anki) and the final one is never skipped.
   const syncChainRef = useRef(Promise.resolve())
 
+  // HARD once-per-session guard: card ids this session has ALREADY answered in Anki. The ref-mirror
+  // of studyCardState gets rebuilt from React state on every state change (the user keeps studying
+  // while a sync's awaits run), which could wipe in-flight `synced` flags and let a chained sync
+  // RE-ANSWER a card — learning cards are legitimately re-presented same-day by the reviewer, so a
+  // duplicate sync recorded a real extra review and intervals silently compounded (1d → years).
+  // This Set is written only here and cleared only on session start/exit — nothing can clobber it.
+  const studySyncedIdsRef = useRef(new Set())
+
   const doSyncRatings = async () => {
-    // Read the latest state from the ref; only push cards rated + not yet synced.
-    const ratingsToSync = studyCardStateRef.current.filter(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation && !cs.noSync)
+    // Read the latest state from the ref; only push cards rated + not yet synced (the Set is the
+    // authority — state/ref flags are for the UI).
+    const ratingsToSync = studyCardStateRef.current.filter(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation && !cs.noSync && !studySyncedIdsRef.current.has(cs.cardId))
     if (ratingsToSync.length === 0) return { synced: 0, failed: 0 }
 
     // Anki may queue these cards in a different order than we studied them, so look each
@@ -5924,6 +5958,7 @@ Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. 
     const synced = []
     const markSynced = (cs) => {
       synced.push(cs)
+      studySyncedIdsRef.current.add(cs.cardId) // clobber-proof: this card can never be answered again this session
       // Mark synced in the REF immediately so a later queued sync won't re-answer (double) this card.
       studyCardStateRef.current = studyCardStateRef.current.map(c => c.cardId === cs.cardId ? { ...c, synced: true } : c)
       wanted.delete(cs.cardId)
@@ -5972,6 +6007,19 @@ Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. 
     const easeToDueDays = (ease) => ease >= 4 ? '4' : ease === 3 ? '2' : ease === 2 ? '1' : '0'
     const failed = []
     for (const cs of Array.from(wanted.values())) {
+      // ANKI-SCHEDULE GUARD: never record a review for a card Anki does not consider due/new RIGHT
+      // NOW (most often: its review was already recorded earlier today). The reviewer path above is
+      // inherently schedule-respecting — this fallback wasn't, and force-recording off-schedule
+      // reviews is exactly how a week of studying compounded intervals into years. Act like Anki:
+      // only answer when it's actually time.
+      try {
+        const stillDue = await ankiFindCards(`cid:${cs.cardId} (is:due OR is:new)`)
+        if (Array.isArray(stillDue) && stillDue.length === 0) {
+          console.warn('[Anki sync] card', cs.cardId, `("${cs.front}") is not due in Anki — its review was already recorded. Skipping to protect the schedule.`)
+          markSynced(cs)
+          continue
+        }
+      } catch { /* if the check itself fails, continue — answerCards fails safely for non-top cards */ }
       try {
         console.log('[Anki sync] answering card (fallback)', cs.cardId, 'ease', cs.ease, 'rating', cs.rating)
         let result = await ankiAnswerCards([{ cardId: cs.cardId, ease: cs.ease }])
@@ -6111,6 +6159,7 @@ Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. 
     if (studyTypedFlashTimer.current) clearTimeout(studyTypedFlashTimer.current)
     setStudyTypedFlash(null)
     setStudyPbqReview(null)
+    studySyncedIdsRef.current = new Set()
   }
 
   // Generate spaced repetition insights + update progress observations
@@ -7873,6 +7922,26 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                     : `Studied ${note.stats.reps}× · ${note.stats.lapses} lapse${note.stats.lapses === 1 ? '' : 's'} · interval ${fmtInterval(note.stats.interval)} · last activity ${new Date(note.stats.mod * 1000).toLocaleDateString()}`}
                                 </div>
                               )}
+                              {/* Ebi's memory hooks — same engine as study's "Help me remember" */}
+                              <div style={{ marginTop: 8 }}>
+                                {(deckBrowserMnemonics[note.noteId]?.hooks || []).map((hook, hi) => (
+                                  <div key={hi} style={{ fontSize: 11, color: 'var(--c-ink)', background: 'rgba(139,92,246,.08)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 6, padding: '8px 10px', lineHeight: 1.6, marginBottom: 6 }}>
+                                    <div style={{ fontWeight: 700, color: 'var(--c-purple)', marginBottom: 3 }}>🧠 Ebi's memory hook{(deckBrowserMnemonics[note.noteId]?.hooks?.length || 0) > 1 ? ` #${hi + 1}` : ''}</div>
+                                    {hook}
+                                  </div>
+                                ))}
+                                {deckBrowserMnemonics[note.noteId]?.loading && (
+                                  <div style={{ fontSize: 11, color: 'var(--c-purple)', marginBottom: 6 }}>🧠 Ebi is thinking of {(deckBrowserMnemonics[note.noteId]?.hooks?.length || 0) ? 'another' : 'a'} memory hook…</div>
+                                )}
+                                {deckBrowserMnemonics[note.noteId]?.error && (
+                                  <div style={{ fontSize: 10, color: 'var(--c-danger)', marginBottom: 6 }}>{deckBrowserMnemonics[note.noteId].error}</div>
+                                )}
+                                <button onClick={() => generateDeckMnemonic(note)} disabled={!apiKey || deckBrowserMnemonics[note.noteId]?.loading}
+                                  title={apiKey ? 'Ebi builds a memory aid for this card (mnemonics, associations, why it makes sense)' : 'Add an API key first'}
+                                  style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 10px', fontWeight: 700, color: 'var(--c-purple)', borderColor: 'rgba(139,92,246,.4)', opacity: (apiKey && !deckBrowserMnemonics[note.noteId]?.loading) ? 1 : 0.6 }}>
+                                  🧠 {deckBrowserMnemonics[note.noteId]?.loading ? 'Thinking…' : (deckBrowserMnemonics[note.noteId]?.hooks?.length ? '↻ Another hook' : 'Help me learn this')}
+                                </button>
+                              </div>
                             </div>
                           )}
                           {deckBrowserCopying === note.noteId && (
