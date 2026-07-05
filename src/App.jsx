@@ -383,6 +383,14 @@ export default function App() {
   const [studyQueueIdx, setStudyQueueIdx] = useState(0)
   const [studyPhase, setStudyPhase] = useState('pick')       // 'pick' | 'question' | 'batchFeedback' | 'summary'
   const [studyMode, setStudyMode] = useState('flashcards')   // 'flashcards' | 'conjugations'
+  // Practice mode — 'typed' (classic recall) | 'choices' (multiple-choice, laid-back). Preference
+  // survives across sessions (localStorage); the per-session flags live on each card state (mc/noSync).
+  const [studyAnswerStyle, setStudyAnswerStyle] = useState(() => { try { return localStorage.getItem('ebiki-study-style') === 'choices' ? 'choices' : 'typed' } catch { return 'typed' } })
+  // Whether a multiple-choice session records its reviews in Anki (OFF by default — relaxed practice).
+  const [studyPracticeSync, setStudyPracticeSync] = useState(() => { try { return localStorage.getItem('ebiki-study-practice-sync') === '1' } catch { return false } })
+  // Frozen snapshot of the question just answered by a choice click, so the right/wrong colors can
+  // show briefly while the real state has already advanced underneath (no async state races).
+  const [studyChoiceFlash, setStudyChoiceFlash] = useState(null)
   const [studyConjugationWords, setStudyConjugationWords] = useState([]) // word pool for conjugation mode
   const [studyConjugationLanguage, setStudyConjugationLanguage] = useState('English') // language detected from deck content
   const [studyDeck, setStudyDeck] = useState('')
@@ -4182,7 +4190,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       )}
     </div>
   )
-  const generateQuestionsForCard = async (card, rules, studyLang, knowledgeContext) => {
+  const generateQuestionsForCard = async (card, rules, studyLang, knowledgeContext, wantChoices = false) => {
     const front = getCardFront(card)
     const back = getCardBack(card)
     // Huge knowledge bases: replace the caller's static (truncated) context with the book
@@ -4227,24 +4235,48 @@ Output ONLY raw JSON. No markdown, no backticks.`
           deepQ,
         ].filter(Boolean).join('\n')
 
+    // Multiple-choice practice session: every question must be answerable by picking ONE option.
+    // The distractor rules replace the inline-cue burden — options only need ONE defensible answer.
+    const choicesBlock = !wantChoices ? '' : `\nMULTIPLE-CHOICE SESSION — REQUIRED:\n- Every question will be answered by picking ONE option from a list, never by typing. Do NOT generate open "explain in your own words" questions: where a depth/usage question is called for, ask it as something with ONE selectable answer (e.g. "Which sentence uses the word correctly?", "Which statement about X is true?", "Which option means ...?"). Use type "recall" or "fill_blank" for every question.\n- For EACH question ALSO return:\n  "choices": exactly 4 options — 1 correct + 3 plausible but clearly WRONG distractors. Distractors must be the same kind of thing as the answer (same part of speech / same category / same level of detail), must fit the question grammatically, and must be tempting to someone who half-knows the material — but NEVER defensible as correct. NEVER include two options that could both be argued correct (no synonyms of the answer, no alternate spellings of it).\n  "answerIdx": the 0-based index of the correct option within "choices".\n- The correct option must be EXACTLY one of the acceptedAnswers (same casing rules aside).\n- Write the options in the same language as the expected answer${isLanguage ? ` (${learnLang})` : ''}; keep each option SHORT (a word, phrase, or one short sentence).\n- With options visible, first-letter cues would give the answer away — do NOT add "empieza con"-style letter cues to the question text; a sense/nuance cue is still fine.\n`
+
     const generalBlock = isLanguage ? '' : `\nGENERAL STUDY MODE — REQUIRED:\n- This is a general study mode for the subject "${activeMode.name}". It is NOT a language course.\n- Write EVERY question, instruction, and all framing in ${quizLang} (that is the language Ebi speaks to this student).\n- Do NOT generate language-learning questions: never ask the student to translate, never ask "how do you say X in <language>", never ask "in <language>, what word/noun/verb…", and never quiz a word's gender, article, or conjugation. Speaking ${quizLang} does not make this a ${quizLang} course — it is still purely about "${activeMode.name}".\n- Even if a card's term is written in another language, test the underlying CONCEPT, fact, or meaning — not vocabulary translation. The expected answer is the term/concept exactly as it appears on the card (subject terms/proper names stay as-is on the card, untranslated).\n`
     const languageBlock = isLanguage ? `\nLANGUAGE MODE — REQUIRED:\n- The student is LEARNING ${learnLang}. The EXPECTED ANSWER is ALWAYS the ${learnLang} word/phrase on the card, regardless of which side it's on.\n- Identify the ${learnLang} word on the card (the one NOT written in ${userLang}) — that is the answer. The ${userLang} side is just the meaning/hint.\n- "acceptedAnswers" MUST contain the ${learnLang} word (lowercase, plus close variants with/without accents). NEVER put the ${userLang} meaning in acceptedAnswers.\n- EBI SPEAKS ${quizLang}: write all instructions, question framing, and feedback in ${quizLang}.${sameLang ? '' : ` EXCEPTION: a fill-in-the-blank/example SENTENCE that must contain the ${learnLang} answer stays in ${learnLang} (you cannot blank a ${learnLang} word out of a ${quizLang} sentence) — only the wrapper instruction around it is in ${quizLang}.`}\n- LANGUAGE NAMES = ENDONYMS: whenever a question written in ${quizLang} names a language, use that language's OWN name (its endonym), NEVER the English name. So a Spanish question says "en español" (never "en Spanish"), a French one "en français", Japanese "日本語で", German "auf Deutsch". Do NOT drop English language names into non-English text.\n- Treat the word in its BROADEST everyday meaning. If the card text doesn't pin down a specific domain, do NOT restrict questions to specialized contexts (programming, medicine, law, military, etc.). Example: "puntero" alone could be a clock hand, laser pointer, finger, or mouse cursor — don't assume programming.\n- BUT if the card text explicitly indicates a domain (e.g. back says "Pointer (C/C++)", tag mentions a field), quiz within that domain.${wantHints ? `\n- WORD HINTS: for EACH question, also return a "glosses" object mapping every ${learnLang} content word that appears in the question text (EXCEPT the answer word and the blank) to a SHORT ${userLang} meaning. Skip bare punctuation. This lets a weak ${learnLang} reader understand the sentence.` : ''}\n` : ''
 
-    const prompt = `Card front: "${front}"\nCard back: "${back}"\n${languageBlock}${generalBlock}\n${orderRules}\n\nCRITICAL RULES:\n- Questions must require the SPECIFIC answer on this card — synonyms are NOT acceptable for recall/fill_blank questions\n- NEVER construct a question whose only purpose is to directly name the answer (e.g. "what noun corresponds to adjective X?" when that noun IS the answer)\n- Each question must test a DIFFERENT angle\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question before finalizing): mentally substitute 2–3 plausible alternative ${learnLang} words — ESPECIALLY synonyms — into the question. If ANY of them still fit after reading the WHOLE question, it is INVALID and you MUST fix it. THE REQUIRED FIX: embed a compact parenthetical cue in ${quizLang} right at the blank that names the target word's precise meaning/nuance, and ADD its first letter whenever a synonym would otherwise survive. This inline cue is PART OF the question text and is mandatory for any word that has synonyms — a bare sentence is almost never enough. (The separate hint1/hint2 fields are revealed only on demand and do NOT count as disambiguation.) A blank surrounded only by a GENERIC predicate that many words satisfy is INVALID until you add the cue. Prefer a slightly over-specified question with a clear cue over an elegant but ambiguous one.\n  - BAD: "Al ver al depredador, la gacela ___ a toda velocidad para salvar su vida." Target "huye" — but "corre", "escapa", "salta" all fit. INVALID.\n  - GOOD: "Al ver al depredador, la gacela ___ (escapar de un peligro; empieza con "h") a toda velocidad para salvar su vida." — the cue pins "huye".\n  - BAD: "Sienten una atracción ___: él la quiere a ella y ella lo quiere a él por igual." Target "recíproca" — but "mutua" fits equally. INVALID.\n  - GOOD: "Sienten una atracción ___ (correspondida por ambos; empieza con "r"): él la quiere a ella y ella lo quiere a él por igual." — the cue pins "recíproca".\n- For language cards: test usage in sentences, grammatical properties, contextual usage\n- For conceptual cards: test application, process, comparison\n\n${questionPrompt}\n\n${isLanguage ? `Phrase every question and its framing in ${quizLang} (target-language sentences that hold the ${learnLang} answer stay in ${learnLang}).` : `Write all questions in ${quizLang}.`}${knowledgeContext}\n\nReturn a JSON array of exactly ${n} objects:\n[\n  {\n    "question": "the question text",\n    "type": "recall" | "fill_blank" | "explanation",\n    "hint1": "N letters" (letter count of primary answer, null for explanation),\n    "hint2": "starts with 'X'" (first letter of primary answer, null for explanation),\n    "acceptedAnswers": ["answer1", "answer2"] (lowercase; exact words that are correct; empty for explanation),${wantHints ? `\n    "glosses": { "<non-answer ${learnLang} word in the question>": "<short ${userLang} meaning>" } (only ${learnLang} content words shown in the question, excluding the answer/blank; {} if none),` : ''}\n    "pose": one mascot pose name that best fits this question's topic, chosen ONLY from: ${POSE_NAMES.join(', ')} (use "default" if none fit)\n  }\n]\nOutput ONLY raw JSON array. No markdown, no backticks.`
+    const prompt = `Card front: "${front}"\nCard back: "${back}"\n${languageBlock}${generalBlock}${choicesBlock}\n${orderRules}\n\nCRITICAL RULES:\n- Questions must require the SPECIFIC answer on this card — synonyms are NOT acceptable for recall/fill_blank questions\n- NEVER construct a question whose only purpose is to directly name the answer (e.g. "what noun corresponds to adjective X?" when that noun IS the answer)\n- Each question must test a DIFFERENT angle\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question before finalizing): mentally substitute 2–3 plausible alternative ${learnLang} words — ESPECIALLY synonyms — into the question. If ANY of them still fit after reading the WHOLE question, it is INVALID and you MUST fix it. THE REQUIRED FIX: embed a compact parenthetical cue in ${quizLang} right at the blank that names the target word's precise meaning/nuance, and ADD its first letter whenever a synonym would otherwise survive. This inline cue is PART OF the question text and is mandatory for any word that has synonyms — a bare sentence is almost never enough. (The separate hint1/hint2 fields are revealed only on demand and do NOT count as disambiguation.) A blank surrounded only by a GENERIC predicate that many words satisfy is INVALID until you add the cue. Prefer a slightly over-specified question with a clear cue over an elegant but ambiguous one.\n  - BAD: "Al ver al depredador, la gacela ___ a toda velocidad para salvar su vida." Target "huye" — but "corre", "escapa", "salta" all fit. INVALID.\n  - GOOD: "Al ver al depredador, la gacela ___ (escapar de un peligro; empieza con "h") a toda velocidad para salvar su vida." — the cue pins "huye".\n  - BAD: "Sienten una atracción ___: él la quiere a ella y ella lo quiere a él por igual." Target "recíproca" — but "mutua" fits equally. INVALID.\n  - GOOD: "Sienten una atracción ___ (correspondida por ambos; empieza con "r"): él la quiere a ella y ella lo quiere a él por igual." — the cue pins "recíproca".\n- For language cards: test usage in sentences, grammatical properties, contextual usage\n- For conceptual cards: test application, process, comparison\n\n${questionPrompt}\n\n${isLanguage ? `Phrase every question and its framing in ${quizLang} (target-language sentences that hold the ${learnLang} answer stay in ${learnLang}).` : `Write all questions in ${quizLang}.`}${knowledgeContext}\n\nReturn a JSON array of exactly ${n} objects:\n[\n  {\n    "question": "the question text",\n    "type": "recall" | "fill_blank" | "explanation",\n    "hint1": "N letters" (letter count of primary answer, null for explanation),\n    "hint2": "starts with 'X'" (first letter of primary answer, null for explanation),\n    "acceptedAnswers": ["answer1", "answer2"] (lowercase; exact words that are correct; empty for explanation),${wantChoices ? `\n    "choices": ["option1", "option2", "option3", "option4"] (exactly 4; one correct + 3 plausible-but-wrong distractors),\n    "answerIdx": 0 (index of the correct option in "choices"),` : ''}${wantHints ? `\n    "glosses": { "<non-answer ${learnLang} word in the question>": "<short ${userLang} meaning>" } (only ${learnLang} content words shown in the question, excluding the answer/blank; {} if none),` : ''}\n    "pose": one mascot pose name that best fits this question's topic, chosen ONLY from: ${POSE_NAMES.join(', ')} (use "default" if none fit)\n  }\n]\nOutput ONLY raw JSON array. No markdown, no backticks.`
 
     try {
       const text = await aiCall(apiKey, 'You generate structured flashcard quiz questions. Always respond with a valid JSON array of objects.', prompt, resolveModel('study'))
       const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
       if (!Array.isArray(parsed)) throw new Error('not array')
-      return parsed.slice(0, n).map(q => ({
-        question: typeof q === 'string' ? q : (q.question || ''),
-        type: q.type || 'recall',
-        hint1: q.hint1 || null,
-        hint2: q.hint2 || null,
-        acceptedAnswers: Array.isArray(q.acceptedAnswers) ? q.acceptedAnswers.map(a => String(a).toLowerCase().trim()) : [],
-        glosses: (q && typeof q.glosses === 'object' && !Array.isArray(q.glosses)) ? q.glosses : null, // word-hint map (learnLang word → userLang meaning)
-        pose: (typeof q === 'object' && q.pose) ? String(q.pose).toLowerCase().trim() : null, // precomputed mascot pose
-      }))
+      return parsed.slice(0, n).map(q => {
+        // Multiple-choice: validate + SHUFFLE client-side (models bias the correct option's slot).
+        // A question that arrives without usable choices keeps choices:null — the UI falls back to
+        // typed input for it and the whole card is then graded by the AI path instead of locally.
+        let choices = null, answerIdx = null
+        if (wantChoices && q && Array.isArray(q.choices) && Number.isInteger(q.answerIdx) && q.answerIdx >= 0 && q.answerIdx < q.choices.length) {
+          const correctText = String(q.choices[q.answerIdx])
+          const opts = [...new Set(q.choices.map(c => String(c)))].slice(0, 4)
+          if (!opts.includes(correctText)) opts[opts.length - 1] = correctText
+          if (opts.length >= 2) {
+            for (let i = opts.length - 1; i > 0; i--) {
+              const j = Math.floor(Math.random() * (i + 1)); [opts[i], opts[j]] = [opts[j], opts[i]]
+            }
+            choices = opts
+            answerIdx = opts.indexOf(correctText)
+          }
+        }
+        return {
+          question: typeof q === 'string' ? q : (q.question || ''),
+          type: q.type || 'recall',
+          hint1: q.hint1 || null,
+          hint2: q.hint2 || null,
+          acceptedAnswers: Array.isArray(q.acceptedAnswers) ? q.acceptedAnswers.map(a => String(a).toLowerCase().trim()) : [],
+          glosses: (q && typeof q.glosses === 'object' && !Array.isArray(q.glosses)) ? q.glosses : null, // word-hint map (learnLang word → userLang meaning)
+          pose: (typeof q === 'object' && q.pose) ? String(q.pose).toLowerCase().trim() : null, // precomputed mascot pose
+          choices,
+          answerIdx,
+        }
+      })
     } catch {
       const fallback = [
         { question: `What concept relates to: ${back.slice(0, 30)}...?`, type: 'recall', hint1: `${back.split(/\s+/)[0].length} letters`, hint2: `starts with '${back[0]?.toUpperCase() || '?'}'`, acceptedAnswers: [back.toLowerCase().trim()] },
@@ -4424,12 +4456,16 @@ Output ONLY raw JSON. No markdown, no backticks.`
           console.log('[Study:conjugations] pool word ready:', w.word)
         })
       } else {
+        // Multiple-choice practice session? mc → questions carry 4 options and are graded locally;
+        // noSync → this is relaxed practice, its ratings are never pushed to Anki.
+        const mcSession = studyAnswerStyle === 'choices'
+        const mcFlags = mcSession ? { mc: true, ...(studyPracticeSync ? {} : { noSync: true }) } : {}
         // Generate card 0 first so the session starts immediately
         const firstCard = cards[0]
-        const firstQuestions = await generateQuestionsForCard(firstCard, rules, studyLang, knowledgeContext)
+        const firstQuestions = await generateQuestionsForCard(firstCard, rules, studyLang, knowledgeContext, mcSession)
         const firstCardState = {
           cardId: firstCard.cardId, front: getCardFront(firstCard), back: getCardBack(firstCard),
-          questions: firstQuestions, answers: [], results: [], done: false, questionIdx: 0, questionAttempts: [],
+          questions: firstQuestions, answers: [], results: [], done: false, questionIdx: 0, questionAttempts: [], ...mcFlags,
         }
 
         console.log('[Study] started with first card, generating rest in parallel')
@@ -4444,11 +4480,11 @@ Output ONLY raw JSON. No markdown, no backticks.`
         // Generate remaining pool cards in parallel — each joins the pool as soon as it's ready
         cards.slice(1, cardsAtOnce).forEach(async (card) => {
           if (studyWrappingUpRef.current) return
-          const questions = await generateQuestionsForCard(card, rules, studyLang, knowledgeContext)
+          const questions = await generateQuestionsForCard(card, rules, studyLang, knowledgeContext, mcSession)
           if (studyWrappingUpRef.current) return
           setStudyCardState(prev => [...prev, {
             cardId: card.cardId, front: getCardFront(card), back: getCardBack(card),
-            questions, answers: [], results: [], done: false, questionIdx: 0, questionAttempts: [],
+            questions, answers: [], results: [], done: false, questionIdx: 0, questionAttempts: [], ...mcFlags,
           }])
           console.log('[Study] pool card ready:', getCardFront(card))
         })
@@ -4494,6 +4530,8 @@ Output ONLY raw JSON. No markdown, no backticks.`
         setStudyStats(s.studyStats || { easy: 0, good: 0, hard: 0, again: 0 })
         setStudyDeck(s.studyDeck || '')
         setStudyMode(s.studyMode || 'flashcards')
+        if (s.studyAnswerStyle === 'typed' || s.studyAnswerStyle === 'choices') setStudyAnswerStyle(s.studyAnswerStyle)
+        if (typeof s.studyPracticeSync === 'boolean') setStudyPracticeSync(s.studyPracticeSync)
         setStudyConjugationWords(s.studyConjugationWords || [])
         setStudyConjugationLanguage(s.studyConjugationLanguage || 'English')
         setStudyAnswerHistory(s.studyAnswerHistory || [])
@@ -4514,12 +4552,13 @@ Output ONLY raw JSON. No markdown, no backticks.`
           studyActive: true, studyPhase, studyMode, studyAllCards, studyCardState,
           studyBatchIdx, studyQueue, studyQueueIdx, studyStats, studyDeck,
           currentQuestion, studyConjugationWords, studyConjugationLanguage, studyAnswerHistory,
+          studyAnswerStyle, studyPracticeSync,
         }))
       } else {
         localStorage.removeItem('ebiki-study-session')
       }
     } catch {}
-  }, [studyHydrated, studyActive, studyPhase, studyMode, studyAllCards, studyCardState, studyBatchIdx, studyQueue, studyQueueIdx, studyStats, studyDeck, currentQuestion, studyConjugationWords, studyConjugationLanguage, studyAnswerHistory])
+  }, [studyHydrated, studyActive, studyPhase, studyMode, studyAllCards, studyCardState, studyBatchIdx, studyQueue, studyQueueIdx, studyStats, studyDeck, currentQuestion, studyConjugationWords, studyConjugationLanguage, studyAnswerHistory, studyAnswerStyle, studyPracticeSync])
 
   // Pick first question when entering question phase
   useEffect(() => {
@@ -4534,12 +4573,15 @@ Output ONLY raw JSON. No markdown, no backticks.`
   useLayoutEffect(() => {
     if (!studyActive || studyPhase !== 'question' || studyCardState.length === 0) return
     if (studyWrappingUpRef.current) return
+    // Multiple-choice grades locally (synchronously), so without this guard the last answer's
+    // right/wrong flash would be skipped straight into Batch Results before it ever painted.
+    if (studyChoiceFlash) return
     if (!studyCardState.every(cs => cs.done) || !studyCardState.every(cs => !cs.evaluating)) return
     const poolExhausted = studyMode === 'conjugations'
       ? studyBatchIdx >= studyConjugationWords.length
       : studyBatchIdx >= studyAllCards.length
     if (poolExhausted) setStudyPhase('batchFeedback')
-  }, [studyActive, studyPhase, studyCardState, studyBatchIdx, studyMode, studyAllCards.length, studyConjugationWords.length])
+  }, [studyActive, studyPhase, studyCardState, studyBatchIdx, studyMode, studyAllCards.length, studyConjugationWords.length, studyChoiceFlash])
 
   const submitStudyAnswer = async () => {
     if (!studyInput.trim() || studyLoading || !currentQuestion) return
@@ -4670,7 +4712,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       } else {
         setCurrentQuestion(null)
       }
-      evaluateCardAnswers(cardIdx, newStates[cardIdx])
+      evaluateCard(cardIdx, newStates[cardIdx])
       pullNewCard()
     } else {
       setStudyCardState(newStates)
@@ -4685,6 +4727,116 @@ Output ONLY raw JSON. No markdown, no backticks.`
     }
   }
 
+  // Multiple-choice answer: grading is a plain comparison, so the state advances immediately —
+  // the flash snapshot (a frozen copy of the question + colored options) is all that lingers on
+  // screen for a moment, which avoids any delayed-setState races with background evaluations.
+  const studyChoiceFlashTimer = useRef(null)
+  const submitStudyChoice = (choiceIdx) => {
+    if (studyLoading || !currentQuestion || studyChoiceFlash) return
+    const { cardIdx, questionIdx } = currentQuestion
+    const cs = studyCardState[cardIdx]
+    const questionObj = cs?.questions?.[questionIdx]
+    if (!questionHasChoices(questionObj)) return
+    const answer = String(questionObj.choices[choiceIdx] ?? '')
+    if (!answer) return
+    const correct = choiceIdx === questionObj.answerIdx
+    const qpc = (activeMode.studyRules || defaultStudyRules).questionsPerCard || 3
+
+    setStudyChoiceFlash({ question: getQuestionText(questionObj), choices: questionObj.choices, picked: choiceIdx, answerIdx: questionObj.answerIdx })
+    if (studyChoiceFlashTimer.current) clearTimeout(studyChoiceFlashTimer.current)
+    studyChoiceFlashTimer.current = setTimeout(() => setStudyChoiceFlash(null), correct ? 700 : 1600)
+
+    setStudyHintLevel(0)
+    setStudyCurrentHint(null)
+    setStudyMeaningHint(null); setStudyWordLookup(null)
+
+    const newStates = [...studyCardState]
+    const newAttempts = [...(cs.questionAttempts || [])]
+    newAttempts[questionIdx] = [...(newAttempts[questionIdx] || []), answer]
+    newStates[cardIdx] = {
+      ...cs,
+      answers: [...cs.answers, answer],
+      questionIdx: cs.questionIdx + 1,
+      questionAttempts: newAttempts,
+    }
+    setStudyAnswerHistory(prev => [...prev, { cardIdx, questionIdx }])
+
+    if (newStates[cardIdx].questionIdx >= qpc) {
+      newStates[cardIdx].done = true
+      newStates[cardIdx].evaluating = true
+      setStudyCardState(newStates)
+      const remaining = newStates.filter(c => !c.done && c.questionIdx < c.questions.length)
+      if (remaining.length > 0) {
+        const nextActive = remaining[Math.floor(Math.random() * remaining.length)]
+        setCurrentQuestion({ cardIdx: newStates.indexOf(nextActive), questionIdx: nextActive.questionIdx })
+      } else {
+        setCurrentQuestion(null)
+      }
+      evaluateCard(cardIdx, newStates[cardIdx])
+      pullNewCard()
+    } else {
+      setStudyCardState(newStates)
+      const active = newStates.filter(c => !c.done && c.questionIdx < c.questions.length)
+      if (active.length > 0) {
+        const pick = active[Math.floor(Math.random() * active.length)]
+        setCurrentQuestion({ cardIdx: newStates.indexOf(pick), questionIdx: pick.questionIdx })
+      } else {
+        setCurrentQuestion(null)
+      }
+    }
+  }
+
+  // Keyboard shortcuts 1–4 pick a choice (no text input to focus in multiple-choice mode)
+  useEffect(() => {
+    if (studyPhase !== 'question' || !currentQuestion || studyChoiceFlash) return
+    const cs = studyCardState[currentQuestion.cardIdx]
+    const questionObj = cs?.questions?.[currentQuestion.questionIdx]
+    if (!questionHasChoices(questionObj)) return
+    const onKey = (e) => {
+      const tag = document.activeElement?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      const num = parseInt(e.key, 10)
+      if (num >= 1 && num <= questionObj.choices.length) submitStudyChoice(num - 1)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [studyPhase, currentQuestion, studyChoiceFlash, studyCardState])
+
+  // Answer-option grid, used both live (onPick set) and frozen in the post-answer flash
+  // (picked/answerIdx set → correct option green, a wrong pick red, the rest dimmed).
+  const renderChoiceButtons = (choices, { picked = null, answerIdx = null, onPick = null } = {}) => {
+    const letters = ['A', 'B', 'C', 'D', 'E', 'F']
+    const oneColumn = choices.some(c => String(c).length > 42)
+    const reveal = picked !== null
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: oneColumn ? '1fr' : '1fr 1fr', gap: 8 }}>
+        {choices.map((c, i) => {
+          const isCorrect = reveal && i === answerIdx
+          const isWrongPick = reveal && i === picked && i !== answerIdx
+          const accent = isCorrect ? 'var(--c-success)' : isWrongPick ? 'var(--c-danger)' : null
+          return (
+            <button key={i} onClick={onPick ? () => onPick(i) : undefined} disabled={!onPick}
+              className={onPick ? 'btn-press' : undefined}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 9, textAlign: 'left', padding: '10px 12px',
+                borderRadius: 10, border: `1.5px solid ${accent || 'var(--c-border)'}`,
+                background: isCorrect ? 'rgba(24,169,87,.12)' : isWrongPick ? 'rgba(229,57,46,.10)' : 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))',
+                color: 'var(--c-ink)', fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
+                cursor: onPick ? 'pointer' : 'default',
+                opacity: reveal && !isCorrect && !isWrongPick ? 0.55 : 1,
+              }}>
+              <span style={{
+                fontSize: 10, fontWeight: 800, flexShrink: 0, borderRadius: 6, padding: '2px 7px',
+                color: accent || 'var(--c-brand)', border: `1px solid ${accent || 'rgba(223,37,64,.35)'}`,
+              }}>{isCorrect ? '✓' : isWrongPick ? '✗' : letters[i]}</span>
+              <span style={{ minWidth: 0 }}>{c}</span>
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
+
   // "I Don't Know" — give up on the WHOLE card: skip every remaining question at
   // once, mark the card done (all skipped answers grade as wrong → Again), and send
   // it straight to the results so the user can sync to Anki.
@@ -4696,7 +4848,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
 
     // Giving up finalizes the whole card and the Again rating auto-syncs to Anki —
     // confirm so a misclick doesn't record a review you didn't mean.
-    if (!window.confirm(cs.isConjugation
+    if (!window.confirm((cs.isConjugation || cs.noSync)
       ? `Give up on "${cs.front}"? All remaining questions will be skipped and rated Again. Continue?`
       : `Give up on "${cs.front}"? All its questions will be marked wrong and the card rated Again — this records the review in Anki right away. Continue?`
     )) return
@@ -4727,7 +4879,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     } else {
       setCurrentQuestion(null)
     }
-    evaluateCardAnswers(cardIdx, newStates[cardIdx])
+    evaluateCard(cardIdx, newStates[cardIdx])
     pullNewCard()
   }
 
@@ -4929,6 +5081,44 @@ Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. 
   }
 
   // Evaluate all answers for a completed card (runs in background, no blocking)
+  // Multiple-choice cards are graded locally — the picked option either IS the correct one or it
+  // isn't, so no AI call (instant, free, and can't hallucinate). Falls back to the AI grader when
+  // any question arrived without usable choices (the model failed to supply them).
+  const questionHasChoices = (q) => q && Array.isArray(q.choices) && q.choices.length >= 2 &&
+    Number.isInteger(q.answerIdx) && q.answerIdx >= 0 && q.answerIdx < q.choices.length
+
+  const evaluateCardLocally = (cardIdx, cs) => {
+    const results = cs.questions.map((q, i) => {
+      const correctText = questionHasChoices(q) ? String(q.choices[q.answerIdx]) : ''
+      const correct = !!correctText && cs.answers[i] === correctText
+      return { correct, feedback: correct ? '' : (correctText ? `✓ ${correctText}` : '') }
+    })
+    const qpc = cs.questions.length
+    const wrongCount = results.filter(r => !r.correct).length
+    let ease, label
+    if (wrongCount === 0) { ease = 4; label = 'easy' }
+    else if (wrongCount === 1) { ease = 3; label = 'good' }
+    else if (wrongCount >= qpc) { ease = 1; label = 'again' }
+    else { ease = 2; label = 'hard' }
+    // Recognition (picking from options) is easier than recall — when this practice session DOES
+    // record reviews in Anki, cap the ease at Good so a mature card's interval can't inflate off
+    // a multiple-choice pass. Pure practice (noSync) keeps the honest label; it never reaches Anki.
+    if (!cs.noSync && ease > 3) { ease = 3; label = 'good' }
+    setStudyCardState(prev => {
+      const updated = [...prev]
+      updated[cardIdx] = { ...updated[cardIdx], results, rating: label, ease, evaluating: false, gradedAt: Date.now() }
+      return updated
+    })
+    setStudyStats(prev => ({ ...prev, [label]: prev[label] + 1 }))
+    console.log('[Study] card graded locally (multiple choice):', cs.front, '→', label)
+  }
+
+  // Route a completed card to the right grader: local for fully multiple-choice cards, AI otherwise.
+  const evaluateCard = (cardIdx, cs) => {
+    if (cs.mc && cs.questions.length > 0 && cs.questions.every(questionHasChoices)) return evaluateCardLocally(cardIdx, cs)
+    return evaluateCardAnswers(cardIdx, cs)
+  }
+
   const evaluateCardAnswers = async (cardIdx, cs) => {
     try {
       const rules = activeMode.studyRules || defaultStudyRules
@@ -4973,6 +5163,9 @@ Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. 
       else if (wrongCount === 1) { ease = 3; label = 'good' }
       else if (wrongCount >= qpc) { ease = 1; label = 'again' }
       else { ease = 2; label = 'hard' }
+      // Same recognition cap as evaluateCardLocally — a multiple-choice pass that syncs to Anki
+      // never rates above Good (this path handles mc cards whose choices partially failed to generate).
+      if (cs.mc && !cs.noSync && ease > 3) { ease = 3; label = 'good' }
 
       setStudyCardState(prev => {
         const updated = [...prev]
@@ -5019,12 +5212,14 @@ Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. 
       const card = studyAllCards[studyBatchIdx]
       if (!card) return
       setStudyBatchIdx(prev => prev + 1)
+      const mcSession = studyAnswerStyle === 'choices'
+      const mcFlags = mcSession ? { mc: true, ...(studyPracticeSync ? {} : { noSync: true }) } : {}
       const knowledgeContext = studyKnowledge ? `\n\nReference material:\n${studyKnowledge.substring(0, KNOWLEDGE_CAP)}` : ''
-      const questions = await generateQuestionsForCard(card, rules, studyLang, knowledgeContext)
+      const questions = await generateQuestionsForCard(card, rules, studyLang, knowledgeContext, mcSession)
       if (studyWrappingUpRef.current) return
       setStudyCardState(prev => [...prev, {
         cardId: card.cardId, front: getCardFront(card), back: getCardBack(card),
-        questions, answers: [], results: [], done: false, questionIdx: 0,
+        questions, answers: [], results: [], done: false, questionIdx: 0, ...mcFlags,
       }])
       console.log('[Study] pulled new card:', getCardFront(card))
     }
@@ -5114,7 +5309,7 @@ Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. 
 
   const doSyncRatings = async () => {
     // Read the latest state from the ref; only push cards rated + not yet synced.
-    const ratingsToSync = studyCardStateRef.current.filter(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation)
+    const ratingsToSync = studyCardStateRef.current.filter(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation && !cs.noSync)
     if (ratingsToSync.length === 0) return { synced: 0, failed: 0 }
 
     // Anki may queue these cards in a different order than we studied them, so look each
@@ -5246,7 +5441,7 @@ Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. 
   // queue order); cards graded in the final moments may commit slightly early, but none waits past 5 min.
   useEffect(() => {
     if (!studyAutoSync || !studyActive || studyPhase === 'summary') return
-    const pending = studyCardState.filter(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation && cs.gradedAt)
+    const pending = studyCardState.filter(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation && !cs.noSync && cs.gradedAt)
     if (pending.length === 0) return
     const oldest = Math.min(...pending.map(cs => cs.gradedAt))
     const fireIn = Math.max(0, oldest + STUDY_SYNC_GRACE_MS - Date.now())
@@ -5257,7 +5452,7 @@ Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. 
   // 1s ticker so the "locks in M:SS" countdown updates while something is pending during study.
   useEffect(() => {
     if (!studyAutoSync || !studyActive || studyPhase === 'summary') return
-    const hasPending = studyCardState.some(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation && cs.gradedAt)
+    const hasPending = studyCardState.some(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation && !cs.noSync && cs.gradedAt)
     if (!hasPending) return
     const id = setInterval(() => setStudyNow(Date.now()), 1000)
     return () => clearInterval(id)
@@ -5272,7 +5467,7 @@ Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. 
     // Last-line defense: try to flush any unsynced ratings before tearing down state.
     // If Anki is unreachable, ask the user whether to exit anyway (losing those ratings)
     // or stay so they can fix the connection and retry.
-    const unsynced = studyCardState.filter(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation)
+    const unsynced = studyCardState.filter(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation && !cs.noSync)
     if (unsynced.length > 0) {
       const result = await syncRatingsToAnki()
       if (result.failed > 0) {
@@ -5305,6 +5500,8 @@ Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. 
     setStudyMode('flashcards')
     setStudyConjugationWords([])
     setStudyConjugationLanguage('English')
+    if (studyChoiceFlashTimer.current) clearTimeout(studyChoiceFlashTimer.current)
+    setStudyChoiceFlash(null)
   }
 
   // Generate spaced repetition insights + update progress observations
@@ -7606,6 +7803,33 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 </div>
                 )}
 
+                {/* Answer style — typed recall (classic) vs multiple-choice practice (laid-back).
+                    Not offered for conjugation drills (they are inherently typed). */}
+                {(activeMode.type !== 'language' || studyMode !== 'conjugations') && (
+                <div style={{
+                  display: 'inline-flex', flexDirection: 'column', gap: 6, padding: '10px 20px', textAlign: 'center',
+                  background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 8, marginTop: 8, marginBottom: 4,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center' }}>
+                    <span style={{ fontSize: 12, color: 'var(--c-ink-dim)' }}>{t('answerStyle')}:</span>
+                    <select value={studyAnswerStyle} onChange={(e) => { setStudyAnswerStyle(e.target.value); try { localStorage.setItem('ebiki-study-style', e.target.value) } catch {} }}
+                      style={{ ...S.select, fontSize: 12, padding: '6px 10px' }}>
+                      <option value="typed">{t('answerTyped')}</option>
+                      <option value="choices">{t('answerChoices')}</option>
+                    </select>
+                  </div>
+                  {studyAnswerStyle === 'choices' && (
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--c-ink-dim)', cursor: 'pointer', justifyContent: 'center' }}>
+                      <input type="checkbox" checked={studyPracticeSync} onChange={(e) => { setStudyPracticeSync(e.target.checked); try { localStorage.setItem('ebiki-study-practice-sync', e.target.checked ? '1' : '0') } catch {} }} />
+                      {t('practiceGradeAnki')}
+                    </label>
+                  )}
+                  <div style={{ fontSize: 10, color: 'var(--c-ink-faint)', maxWidth: 340 }}>
+                    {studyAnswerStyle === 'choices' ? (studyPracticeSync ? t('practiceGradeAnkiDesc') : t('answerChoicesDesc')) : t('answerStyleDesc')}
+                  </div>
+                </div>
+                )}
+
                 <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 8 }}>
                   <button onClick={() => beginStudy(studyDeck, activeMode.type === 'language' ? studyMode : 'flashcards')} disabled={!studyDeck || studyLoading}
                     style={{ ...S.captureBtn, borderRadius: 6, padding: '10px 24px', fontSize: 13, opacity: !studyDeck || studyLoading ? 0.5 : 1 }}>
@@ -7699,7 +7923,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   </div>
 
                   {/* Current question — card front is HIDDEN. Ebi studies alongside, to the right. */}
-                  {question ? (
+                  {(question || studyChoiceFlash) ? (
                     <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start', justifyContent: 'center', flexWrap: 'wrap' }}>
                     <div style={{
                       flex: '1 1 480px', maxWidth: 620, minWidth: 0,
@@ -7707,6 +7931,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       border: `1px solid ${C.border}`, borderRadius: 16,
                       padding: '22px 24px', boxShadow: SHADOW.lg,
                     }}>
+                      {/* Multiple-choice flash: a frozen copy of the question just answered, showing the
+                          right/wrong colors for a beat while the live state has already moved on. */}
+                      {studyChoiceFlash ? (<>
+                        <div style={{ fontSize: 13, color: 'var(--c-ink)', fontWeight: 600, marginBottom: 10 }}>{studyChoiceFlash.question}</div>
+                        {renderChoiceButtons(studyChoiceFlash.choices, { picked: studyChoiceFlash.picked, answerIdx: studyChoiceFlash.answerIdx })}
+                      </>) : (<>
                       {/* Conjugation mode: show the word being conjugated + option to add it to Anki */}
                       {studyMode === 'conjugations' && cs && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, padding: '6px 10px', background: 'rgba(223,37,64,.06)', border: '1px solid rgba(223,37,64,.2)', borderRadius: 6 }}>
@@ -7784,6 +8014,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 8 }}>Loading hint...</div>
                       )}
 
+                      {questionHasChoices(questionObj) ? (
+                        renderChoiceButtons(questionObj.choices, { onPick: submitStudyChoice })
+                      ) : (
                       <div style={{ display: 'flex', gap: 8 }}>
                         <input
                           value={studyInput}
@@ -7798,6 +8031,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           {studyCurrentHint ? t('tryAgain') : t('submit')}
                         </button>
                       </div>
+                      )}
 
                       {/* Action buttons */}
                       <div style={{ display: 'flex', gap: 8, marginTop: 8, justifyContent: 'space-between' }}>
@@ -7812,10 +8046,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               {t('skipWord')}
                             </button>
                           )}
+                          {!questionHasChoices(questionObj) && (
                           <button onClick={fetchMeaningHint} disabled={studyMeaningHintLoading || !!studyMeaningHint}
                             style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.25)', opacity: (studyMeaningHintLoading || !!studyMeaningHint) ? 0.5 : 1 }}>
                             {studyMeaningHintLoading ? t('loading') : t('meaningHint')}
                           </button>
+                          )}
                           {studyMode !== 'conjugations' && (
                             <button onClick={() => setStudyDeleteConfirm(cq.cardIdx)}
                               style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-ink-dim)', borderColor: 'var(--c-border)' }}>
@@ -7847,6 +8083,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       {studyWrappingUp && (
                         <div style={{ fontSize: 10, color: 'var(--c-warning)', marginTop: 4, textAlign: 'center' }}>Wrapping up — finishing current cards...</div>
                       )}
+                      </>)}
                     </div>
                     {/* Ebi study companion — big, circle-less, reacts to the question; Ask Ebi opens Help */}
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, paddingTop: 8, flexShrink: 0 }}>
@@ -7869,7 +8106,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   {(() => {
                     const graded = studyCardState.filter(cs => cs.done && cs.results.length > 0 && !cs.dismissed)
                     if (graded.length === 0) return null
-                    const pending = graded.filter(cs => cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation)
+                    const pending = graded.filter(cs => cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation && !cs.noSync)
                     return (
                       <div style={{ marginTop: 16 }}>
                         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -7921,7 +8158,13 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           ) : (<>
                             {renderFeedbackToggle(cs, ci, view === 'feedback')}
                             {renderMnemonicButton(cs, ci, view === 'mnemonic')}
-                            {cs.synced ? (
+                            {cs.noSync ? (
+                              // Relaxed practice — this rating never reaches Anki, so there's nothing to correct or lock.
+                              <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{(cs.rating || '').toUpperCase()}</span>
+                                <span title="Practice only — not recorded in Anki" style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-purple)' }}>{t('practiceBadge')}</span>
+                              </span>
+                            ) : cs.synced ? (
                               // Locked: this rating is committed to Anki and can no longer change (no again→easy lapse).
                               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{(cs.rating || '').toUpperCase()}</span>
@@ -8033,6 +8276,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         </>)}
                         {cs.rating === 'deleted' ? (
                           <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors.deleted }}>DELETED</span>
+                        ) : cs.noSync ? (
+                          // Relaxed practice — never pushed to Anki, so no dropdown and no lock.
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{(cs.rating || '').toUpperCase()}</span>
+                            <span title="Practice only — not recorded in Anki" style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-purple)' }}>{t('practiceBadge')}</span>
+                          </span>
                         ) : cs.synced ? (
                           // Already committed to Anki — locked so a correction can't double-answer (again→easy lapse).
                           <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
