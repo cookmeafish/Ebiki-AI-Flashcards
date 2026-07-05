@@ -266,9 +266,18 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   `ankiGuiDeckReview(deck)` → loop `ankiGuiCurrentCard()` → `ankiGuiShowAnswer()` → `ankiGuiAnswerCard(ease)`,
   matching each presented card to our rating by `cardId` (Anki's queue order ≠ our study order). Anki itself
   computes the SM-2/FSRS interval, so easy-on-a-mature-card still goes out months. Ease is capped to
-  `cur.buttons`; `ankiGuiDeckBrowser()` returns Anki to the deck list. A direct-`answerCards` fallback covers
-  cards the reviewer never presented. Syncs are serialized (`syncChainRef`) and each card is answered EXACTLY
-  ONCE with its FINAL rating, so a corrected "again→easy" can't lapse a mature card.
+  `cur.buttons`; `ankiGuiDeckBrowser()` returns Anki to the deck list. Syncs are serialized (`syncChainRef`)
+  and each card is answered EXACTLY ONCE with its FINAL rating, so a corrected "again→easy" can't lapse a
+  mature card. **SYNC-INTEGRITY GUARANTEES (a week of duplicates once compounded 1d → 3.3y):**
+  (1) `studySyncedIdsRef` — a Set only `markSynced` writes and only session start/exit clears — filters
+  every sync; the `synced` flags in state/ref are UI-only and CAN be clobbered (the ref mirror rebuilds
+  from React state on any state change mid-sync), so never rely on them for the answer-once guarantee.
+  (2) The fallback for cards the reviewer never presented asks Anki FIRST (`cid:X (is:due OR is:new)`) —
+  not due → nothing is recorded. (3) The fallback must never override Anki's scheduling: NEW cards may
+  use the approximate setDueDate+insertReviews path (no history to corrupt), but REVIEW cards get a bare
+  `setDueDate "0"` nudge (due now, interval PRESERVED — no `!` suffix) and are answered through the REAL
+  reviewer so Anki computes the interval; if the reviewer presents a different card instead, the card is
+  reported failed with its schedule untouched — never force-rescheduled.
 - **Study sync timing — grace window + lock.** A card is stamped `gradedAt` when the AI grades it. The user
   gets a **grace window** (`studyAutoSyncMinutes`, default 5) to correct the rating; after that the card
   auto-syncs and **locks** (the rating control is replaced by a `🔒 Synced` badge, so it can't be re-answered
