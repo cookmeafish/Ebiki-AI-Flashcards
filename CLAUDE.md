@@ -240,6 +240,21 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   Settings → General → "Anki auto-sync"); when OFF, ratings only sync via the manual button or on Finish/Exit
   and nothing auto-locks. A 1s ticker (`studyNow`) drives the "locks in M:SS" countdown. NOTE: `guiCurrentCard`
   returns `buttons` as an ARRAY of valid ease values (not a count) — cap ease to `Math.max(...buttons)`.
+- **Multiple-choice practice mode (`studyAnswerStyle` = `'typed' | 'choices'`).** Picked on the study start
+  screen ("Answer style", all modes, hidden for conjugations), persisted in `localStorage('ebiki-study-style')`.
+  MC sessions default to NOT recording in Anki — the "Record reviews in Anki" checkbox (`studyPracticeSync`,
+  `localStorage('ebiki-study-practice-sync')`) opts in. `generateQuestionsForCard(..., wantChoices)` appends a
+  MULTIPLE-CHOICE block: 4 options + `answerIdx` per question, open "explain" questions forbidden (rephrased
+  as single-answer), NO first-letter cues (options would give them away); options are validated/deduped and
+  SHUFFLED client-side (models bias the correct slot). Card states carry `mc` (+ `noSync` when not recording);
+  `evaluateCard` routes fully-MC cards to `evaluateCardLocally` — instant, free, no AI call (feedback = `✓
+  correct-option`) — and falls back to the AI grader when any question arrived without usable choices. Ease is
+  CAPPED at Good whenever an MC card syncs (recognition < recall, so a mature interval can't inflate); `noSync`
+  cards are excluded from EVERY sync path (`!cs.noSync` in doSyncRatings/auto-sync/ticker/exitStudy/pending)
+  and show a purple PRACTICE badge instead of the rating dropdown/sync status. Answering: `submitStudyChoice`
+  advances state IMMEDIATELY and leaves a frozen `studyChoiceFlash` snapshot on screen for the green/red beat
+  (no delayed-setState races); the batchFeedback layout-effect is gated on the flash so the last answer's
+  colors aren't skipped. Keys 1–4 answer; the meaning-hint button hides (options make it moot).
 - **Graded cards collapse to a header with TWO mutually-exclusive toggles (`studyGradedView` =
   `{ [cardIdx]: 'feedback' | 'mnemonic' }`; absent = collapsed).** Each header shows front + a **▸ Feedback**
   toggle (`renderFeedbackToggle`) + a **🧠 Help me remember** toggle (`renderMnemonicButton`) + rating/synced
