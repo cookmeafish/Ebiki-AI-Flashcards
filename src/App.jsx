@@ -4323,6 +4323,9 @@ Output ONLY raw JSON. No markdown, no backticks.`
           resolveModel('study'))
         const raw = parsePbqJson(genText)
         if (!raw) { priorFailure = 'the response was not a single valid JSON object'; continue }
+        // Relevance gate: an off-subject card (e.g. a stray vocab card in a cert deck) is skipped
+        // outright — no retry, which would only pressure the model into inventing a connection.
+        if (raw.kind === 'skip') { console.log('[PBQ] card skipped as off-subject:', front, '—', raw.reason || ''); return null }
         const compiled = compilePbq(raw)
         if (!compiled.ok) { priorFailure = `structural problems: ${compiled.errors.join('; ')}`; continue }
         if (kctx) {

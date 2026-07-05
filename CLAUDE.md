@@ -265,8 +265,11 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
     index-based `{left,right,items,categories,answer[]}`. `gradePbq` grades deterministically (no AI while
     studying); `studentView` strips the key; `parseSolverAnswer` maps a TEXT-based solver reply back to
     indices (exact-normalized then unique-containment).
-  - **Verification pipeline (`generatePbqForCard`, App.jsx)** — generate → compile-validate → citation
-    check → BLIND SOLVE → adjudicate → repair(1)/discard: with a knowledge base, the generator must return
+  - **Verification pipeline (`generatePbqForCard`, App.jsx)** — RELEVANCE GATE → generate →
+    compile-validate → citation check → BLIND SOLVE → adjudicate → repair(1)/discard: the generator must
+    first return `{"kind":"skip"}` for an off-subject card (e.g. a stray Spanish vocab card in a Security+
+    deck — verification checks the KEY, not card-fidelity, so without the gate the model invents a
+    word-association exercise; skips discard immediately, NO retry). With a knowledge base, the generator must return
     2-4 VERBATIM quotes and `checkCitations` string-matches them against the source (fabrications die
     here); a solver call sees ONLY `studentView` and must independently reach the key (`compareToKey`);
     on mismatch a judge rules `solver_wrong` (key stands) / `key_wrong` / `ambiguous` (both → the

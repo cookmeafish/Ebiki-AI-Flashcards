@@ -260,7 +260,11 @@ export const buildGeneratorPrompt = ({ subject, front, back, lang, knowledgeCont
 Card front: "${front}"
 Card back: "${back}"
 
-Pick whichever ONE of these formats fits the topic best, and return EXACTLY that JSON shape:
+FIRST — RELEVANCE CHECK: is this card actually ABOUT "${subject}"? If it is off-subject (a foreign-language vocabulary card, a personal note, anything whose own topic is unrelated), do NOT invent a connection — return exactly:
+{"kind":"skip","reason":"one short sentence"}
+A word-association bridge is NOT relevance: a card teaching the Spanish word "sombrero" (hat) is a vocabulary card — it is NOT an invitation to write a hat-color-hacker exercise. The exercise must test what the CARD ITSELF teaches, within "${subject}".
+
+Otherwise pick whichever ONE of these formats fits the card's topic best, and return EXACTLY that JSON shape:
 
 1. matching — pair each item with its description/counterpart:
 {"kind":"matching","title":"...","scenario":"...","pairs":[["left item","its matching right item"], ...4-6 pairs...]${knowledgeContext ? ',"citations":[{"quote":"..."}]' : ''}}
