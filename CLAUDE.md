@@ -413,10 +413,18 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   `studyQaOpen[src]`) with a tri-state indicator: ✓ green = correct with no non-praise notes, ✓✎ amber
   = correct but has feedback, ✗ red = incorrect; expanded detail is 13.5px with hanging note icons
   (icons sit in the left gutter so note text aligns with the other lines).
-- **Memory hooks are ONE engine, `generateMemoryHook(front, back, prior)`** (subject-agnostic, offers
-  rationalization/etymology too). Surfaces: study graded cards (`cs.mnemonics`), the Deck browser
-  expanded rows (`deckBrowserMnemonics` keyed by noteId, "Help me learn this"), and the tapped-word
-  popup (`studyWordMemoryHook` → hooks on `studyWordLookup`). Improve the prompt in ONE place.
+- **Memory hooks are ONE engine, `generateMemoryHook(front, back, prior, method)`** (subject-agnostic),
+  with FOUR WaniKani-inspired methods in its `METHODS` map: `meaning` (decompose → one vivid image that
+  ends at the meaning), `sound` (language: reading-mnemonic sound-alike bridge walking syllables in
+  order; general: RECALL hook — acronym/anchor that reconstructs the exact term), `parts` ("Break it
+  down" — REAL morphology/components explained step by step, dar → darse → dárselo; understanding, not
+  imagery; ≤60 words), `story` (2-4 sentence mini story ending at the answer; ≤70 words; others ≤35).
+  The per-surface buttons come from ONE list, `hookMethodList()` (label + `.tip` tooltip + short label
+  for the narrow word popup). Surfaces: study graded cards (`generateMnemonic(ci, cs, method)` →
+  `cs.mnemonics`; opening the 🧠 toggle hydrates saved hooks but does NOT auto-generate — the panel
+  shows the four style buttons and the user picks), Deck browser expanded rows
+  (`generateDeckMnemonic(note, method)`, `deckBrowserMnemonics` keyed by noteId), and the tapped-word
+  popup (`studyWordMemoryHook(method)` → hooks on `studyWordLookup`). Improve the prompt in ONE place.
 - **Study start screen = ONE sectioned card** (What to study / Language / Session format), fields as
   label-above-control in `repeat(auto-fit, minmax(180px,1fr))` grids with stretched controls; the verbose
   legends are `.tip` tooltips (an instant CSS tooltip class in the global style block — the native
@@ -450,15 +458,16 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   stores the `source` so the popup renders next to the clicked word. Wired into: the 💡 Meaning Hint, the
   graded-cards list (Q text, feedback line, each note — sources `graded-<ci>-<qi>`), and Batch Results
   (`batch-<ci>-<qi>`). Language modes only.
-- **Ebi's memory hook (`generateMnemonic(cardIdx, card)`) is SUBJECT-AGNOSTIC.** The trigger is the
-  "🧠 Help me remember" header toggle (`renderMnemonicButton`); opening it sets `view='mnemonic'` (hiding
-  feedback) and generates on first open. The RESULTS render at the **TOP of the card body** via
-  `renderMnemonic` (display-only). Hooks are an ARRAY (`cs.mnemonics`, + `mnemonicLoading`/`mnemonicError`):
-  **"↻ Another hook" APPENDS** a new one below (prior hooks are fed into the prompt so each is different),
-  it never replaces. The prompt branches on `activeMode.type`: language cards
-  get sound-alike/imagery/cognate hooks (e.g. "muelle"→picture a MULE at the dock); general modes (CompTIA,
-  music, etc.) get acronyms/associations/stories for the CONCEPT — never a translation. Written in the app
-  language; "↻ Another hook" regenerates. NEVER hardcode language assumptions here.
+- **Ebi's memory hook (`generateMnemonic(cardIdx, card, method)`) is SUBJECT-AGNOSTIC.** The trigger is
+  the "🧠 Help me remember" header toggle (`renderMnemonicButton`); opening it sets `view='mnemonic'`
+  (hiding feedback) and hydrates saved hooks — generation waits for the user to pick one of the four
+  method buttons (🧠 Meaning / 🔊 Sound or 🔤 Recall / 🧩 Break it down / 📖 Story — see the
+  `generateMemoryHook` + `hookMethodList` entry above). RESULTS render at the **TOP of the card body**
+  via `renderMnemonic`. Hooks are an ARRAY (`cs.mnemonics`, + `mnemonicLoading`/`mnemonicError`): every
+  method button APPENDS a new hook below (prior hooks are fed into the prompt so each is different),
+  never replaces. The prompt branches on `activeMode.type`: language cards get sound-alike/imagery/
+  cognate hooks; general modes (CompTIA, music, etc.) get acronyms/associations/stories for the CONCEPT
+  — never a translation. Written in the app language. NEVER hardcode language assumptions here.
 - **Stats tab pulls live from Anki** when connected (effect on `activeTab==='stats'` → `ankiStats`):
   Cards Today (`getNumCardsReviewedToday`), 14-day chart + streak (`getNumCardsReviewedByDay`), and a
   stable accuracy = today's review-log pass-rate (`ankiGetTodayReviewStats`, cumulative so re-reviews

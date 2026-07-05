@@ -4332,13 +4332,17 @@ Output ONLY raw JSON. No markdown, no backticks.`
                 ➕ Make Anki card
               </button>
             )}
-            {/* Memory hook for the TAPPED word (not the card being tested) — a quick "how do I
-                remember this one again?" without leaving the question. Same engine as everywhere. */}
-            <button onClick={studyWordMemoryHook} disabled={!apiKey || studyWordLookup.hookLoading}
-              title="Ebi builds a memory aid for this word"
-              style={{ ...S.ghostBtn, fontSize: 11, padding: '3px 10px', fontWeight: 700, color: 'var(--c-purple)', borderColor: 'rgba(139,92,246,.4)', opacity: (apiKey && !studyWordLookup.hookLoading) ? 1 : 0.5, cursor: apiKey ? 'pointer' : 'default' }}>
-              🧠 {studyWordLookup.hookLoading ? 'Thinking…' : (studyWordLookup.hooks?.length ? '↻ Another hook' : 'Memory hook')}
-            </button>
+            {/* Memory hooks for the TAPPED word (not the card being tested) — a quick "how do I
+                remember this one again?" without leaving the question. Same engine as everywhere;
+                short labels because the popup is narrow. */}
+            {hookMethodList().map(([m, , tip, short]) => (
+              <button key={m} onClick={() => studyWordMemoryHook(m)} disabled={!apiKey || studyWordLookup.hookLoading}
+                className="tip" data-tip={apiKey ? tip : 'Add an API key first'}
+                style={{ ...S.ghostBtn, fontSize: 11, padding: '3px 10px', fontWeight: 700, color: 'var(--c-purple)', borderColor: 'rgba(139,92,246,.4)', opacity: (apiKey && !studyWordLookup.hookLoading) ? 1 : 0.5, cursor: apiKey ? 'pointer' : 'default' }}>
+                {short}
+              </button>
+            ))}
+            {studyWordLookup.hookLoading && <span style={{ fontSize: 11, color: 'var(--c-purple)' }}>Thinking…</span>}
             {studyWordLookup.cardError && <span style={{ fontSize: 10, color: 'var(--c-danger)' }}>{studyWordLookup.cardError}</span>}
             {studyWordLookup.hookError && <span style={{ fontSize: 10, color: 'var(--c-danger)' }}>{studyWordLookup.hookError}</span>}
           </div>
@@ -4447,10 +4451,10 @@ Output ONLY raw JSON. No markdown, no backticks.`
         // Only toggle closed once there's actual content to hide.
         setStudyGradedView(p => (!hasContent ? { ...p, [ci]: 'mnemonic' } : { ...p, [ci]: p[ci] === 'mnemonic' ? undefined : 'mnemonic' }))
         if (!cs.mnemonics?.length && !cs.mnemonicLoading) {
-          // Saved hooks first — only generate when the note has none stored
+          // Hydrate saved hooks; if the note has none, the open panel offers the four hook styles
+          // (no auto-generate — the user picks the method).
           const savedHooks = modeHooks[studyNoteId(cs)] || []
           if (savedHooks.length) setStudyCardState(prev => { const u = [...prev]; if (u[ci]) u[ci] = { ...u[ci], mnemonics: [...savedHooks] }; return u })
-          else generateMnemonic(ci, cs)
         }
       }}
       disabled={!apiKey || cs.mnemonicLoading}
@@ -4466,9 +4470,11 @@ Output ONLY raw JSON. No markdown, no backticks.`
   // "Another hook" APPENDS a new one rather than replacing. Renders nothing until generation has started.
   const renderMnemonic = (cs, ci) => {
     const hooks = Array.isArray(cs.mnemonics) ? cs.mnemonics : []
-    if (!hooks.length && !cs.mnemonicLoading && !cs.mnemonicError) return null
     return (
       <div style={{ padding: '6px 12px', borderTop: '1px solid var(--c-border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {!hooks.length && !cs.mnemonicLoading && !cs.mnemonicError && (
+          <div style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>Pick how Ebi should help you remember this:</div>
+        )}
         {hooks.map((hook, hi) => (
           <div key={hi} style={{ fontSize: 11, color: 'var(--c-ink)', background: 'rgba(139,92,246,.08)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 6, padding: '8px 10px', lineHeight: 1.6 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
@@ -4482,11 +4488,15 @@ Output ONLY raw JSON. No markdown, no backticks.`
         ))}
         {cs.mnemonicLoading && <div style={{ fontSize: 11, color: 'var(--c-purple)' }}>🧠 Ebi is thinking of {hooks.length ? 'another' : 'a'} memory hook…</div>}
         {cs.mnemonicError && <div style={{ fontSize: 10, color: 'var(--c-danger)' }}>{cs.mnemonicError}</div>}
-        <div>
-          <button onClick={() => generateMnemonic(ci, cs)} disabled={cs.mnemonicLoading || !apiKey}
-            style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 8px', background: 'transparent', opacity: (cs.mnemonicLoading || !apiKey) ? 0.5 : 1 }}>
-            {cs.mnemonicLoading ? 'Thinking…' : '↻ Another hook'}
-          </button>
+        {/* Four methods, WaniKani-style: image→meaning, sound/recall→form, real morphology, and a mini story */}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {hookMethodList().map(([m, label, tip]) => (
+            <button key={m} onClick={() => generateMnemonic(ci, cs, m)} disabled={cs.mnemonicLoading || !apiKey}
+              className="tip" data-tip={tip}
+              style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 9px', background: 'transparent', color: 'var(--c-purple)', borderColor: 'rgba(139,92,246,.35)', opacity: (cs.mnemonicLoading || !apiKey) ? 0.5 : 1 }}>
+              {label}
+            </button>
+          ))}
         </div>
       </div>
     )
@@ -5716,13 +5726,13 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
 
   // Memory hook for the TAPPED word — the user just wants a reminder of how to remember this
   // word even though it isn't the one being tested. Shares generateMemoryHook with study/deck.
-  const studyWordMemoryHook = async () => {
+  const studyWordMemoryHook = async (method = 'meaning') => {
     const wl = studyWordLookup
     if (!wl?.word || !apiKey || wl.hookLoading || wl.loading) return
     setStudyWordLookup((prev) => (prev && prev.word === wl.word) ? { ...prev, hookLoading: true, hookError: null } : prev)
     try {
       const back = [wl.primary, ...(wl.alternatives || [])].filter((x) => x && x !== '—').join(' · ') || wl.word
-      const hook = await generateMemoryHook(wl.word, back, wl.hooks || [])
+      const hook = await generateMemoryHook(wl.word, back, wl.hooks || [], method)
       setStudyWordLookup((prev) => (prev && prev.word === wl.word) ? { ...prev, hookLoading: false, hooks: [...(prev.hooks || []), ...(hook ? [hook] : [])] } : prev)
     } catch {
       setStudyWordLookup((prev) => (prev && prev.word === wl.word) ? { ...prev, hookLoading: false, hookError: 'Could not generate a memory hook — try again.' } : prev)
@@ -5772,38 +5782,70 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
   // The hook is written in the app language. `card` is passed in fresh from render to avoid stale reads.
   // "Another hook" APPENDS a new aid below the existing ones (cs.mnemonics is an array), and the prompt
   // is told the prior hooks so each one is genuinely different.
-  // Shared memory-hook engine (study graded cards AND the Deck browser). Subject-agnostic —
-  // the prompt branches on the mode type; `prior` hooks feed back so each new one differs.
-  const generateMemoryHook = async (front, back, prior = []) => {
+  // Shared memory-hook engine (study graded cards, Deck browser, tapped-word popup). Three
+  // METHODS, mirroring how WaniKani splits mnemonics (meaning mnemonic vs reading mnemonic,
+  // with "continue the story" as the connective tissue):
+  //   'meaning' — parts → one vivid image → the MEANING (recognition direction)
+  //   'sound'   — the learner knows the meaning and must PRODUCE the form (sound-alike bridge
+  //               walking the syllables in order; acronym/anchor for non-language modes)
+  //   'story'   — a tiny 2-4 sentence scene that carries meaning (and sound where natural)
+  // Subject-agnostic; `prior` hooks feed back so each new one differs.
+  // The four hook methods, shared by every surface (study card, deck browser, tapped-word popup):
+  // [method, button label, tooltip]. 'sound' becomes a RECALL hook in general modes.
+  const hookMethodList = () => {
+    const lang = activeMode.type === 'language'
+    return [
+      ['meaning', '🧠 Meaning hook', 'Parts fused into one vivid image that ends at the meaning', '🧠 Meaning'],
+      ['sound', lang ? '🔊 Sound hook' : '🔤 Recall hook', lang ? 'A sound-alike bridge that rebuilds the word syllable by syllable' : 'An acronym or anchor that reconstructs the exact term', lang ? '🔊 Sound' : '🔤 Recall'],
+      ['parts', '🧩 Break it down', lang ? 'What each part of the word means and how they combine (dar → darse → dárselo)' : 'What each component of the term/concept contributes', '🧩 Parts'],
+      ['story', '📖 Story hook', 'A tiny 2-4 sentence story that carries the meaning', '📖 Story'],
+    ]
+  }
+
+  const generateMemoryHook = async (front, back, prior = [], method = 'meaning') => {
     const isLanguage = activeMode.type === 'language'
     const explainLang = APP_LANG_NAME[appLanguage] || 'English'
     const learnLang = isLanguage ? ((activeMode.studyRules || defaultStudyRules).studyLanguage || learnLangName()) : null
+    const METHODS = {
+      meaning: `METHOD — MEANING HOOK (WaniKani meaning-mnemonic style; the learner SEES the item and must recall what it MEANS):
+DECOMPOSE the item into parts the learner likely already knows — morphemes/roots/pronouns for words (dár-se-lo = dar + se + lo), components for characters, expansions for acronyms, sub-steps for processes. Give each part ONE concrete image and fuse them into a single vivid, slightly absurd picture that ENDS at the meaning. When decomposition doesn't fit, use the strongest alternative: cognate/word-origin rationalization or a logical link the learner can re-derive.`,
+      sound: isLanguage
+        ? `METHOD — SOUND HOOK (WaniKani reading-mnemonic style; the learner KNOWS the meaning and must PRODUCE the ${learnLang} word):
+Build a sound-alike bridge in ${explainLang} whose sounds walk through the target word's syllables IN ORDER, tied to the meaning in one image — e.g. ${learnLang === 'Spanish' ? '"muelle" (dock): a stubborn MULE (mweh) saying "YEAH" at the dock → MU-EH-yeh → muelle' : 'a chain of ${explainLang} sound-alikes that rebuilds the word syllable by syllable'}. The bridge must let them reconstruct the ACTUAL pronunciation and spelling, not just gesture at it.`
+        : `METHOD — RECALL HOOK (the learner knows the concept and must produce the exact TERM):
+Build an acronym, first-letter anchor, number anchor, or word-shape cue that reconstructs the term PRECISELY (letter by letter or part by part), tied to the concept in one image.`,
+      story: `METHOD — STORY HOOK: write a tiny STORY (2-4 short sentences: a character, a want, a twist) that carries the meaning${isLanguage ? ` and, where natural, echoes the ${learnLang} word's sound` : ''}. Slightly absurd and emotional beats bland. The story must END at the answer, so retelling it yields the item.`,
+      parts: isLanguage
+        ? `METHOD — BREAK IT DOWN (understanding, not imagery — show the learner how the ${learnLang} word is BUILT): split the word into its REAL parts (root/stem, prefixes, suffixes, attached pronouns) and build the meaning up step by step, one short line per step — e.g. "dárselo": dar = to give → darse = adding "se" makes it "to someone" → dárselo = adding "lo" adds "it": to give IT to him/her. Real morphology only, never invented etymology; if the word truly has no parts, explain its origin or connect it to a related ${learnLang}/${explainLang} word the learner already knows.`
+        : `METHOD — BREAK IT DOWN (understanding, not imagery — show the learner how the term/concept is BUILT): split it into its real components (word roots, what each part of the acronym stands for, the stages of the process) and build the full meaning up step by step, one short line per part stating what it contributes. Real analysis only, never invented origins.`,
+    }
+    const lengthRule = method === 'story'
+      ? 'ONE story only — 2 to 4 short sentences, UNDER 70 WORDS total.'
+      : method === 'parts'
+        ? 'ONE compact step-by-step build-up — one short line per part, UNDER 60 WORDS total.'
+        : 'ONE hook only — 1 to 2 punchy sentences, UNDER 35 WORDS total, like a WaniKani mnemonic.'
     const prompt = `You are Ebi, a warm study buddy. Help the learner MEMORIZE this flashcard with a vivid, concrete memory aid.
 
 Flashcard front: "${front}"
 Flashcard back: "${back}"
 Subject / study mode: "${activeMode.name}"${isLanguage ? `\nThis is a ${learnLang} vocabulary card: memorize the ${learnLang} word and its meaning.` : `\nThis is a general study card (NOT language learning): memorize the concept/fact itself, never treat it as a translation exercise.`}
 
-METHOD (WaniKani-style, adapted to whatever this material actually is):
-1. DECOMPOSE — break the item into parts the learner likely already knows: morphemes/roots/pronouns for words (dár-se-lo = dar + se + lo), radicals/components for characters, expansions for acronyms, sub-steps for processes, intervals/patterns for music.
-2. STORY — weave the parts into ONE short, vivid, slightly absurd scene. Exaggeration, emotion, and sensory detail are what make it stick. The scene must END at the meaning, so recalling the story yields the answer.
-3. SOUND — if the parts alone don't carry the word's FORM, add a sound-alike bridge in the learner's own language (Spanish "muelle" (dock): a stubborn MULE hauling cargo down at the dock — mule → muelle) so they can rebuild the word itself, not just its meaning.
-When decomposition doesn't fit (an atomic fact), fall back to the strongest alternative: cognate/word-origin rationalization, an acronym, a number anchor, or a logical link the learner can re-derive.${activeMode.mnemonicHints ? `\n\nMODE-SPECIFIC HOOK GUIDANCE (configured for this subject — follow it): ${activeMode.mnemonicHints}` : ''}${prior.length ? `\n\nThe learner already has these memory aids for this card, so give a genuinely DIFFERENT one (new angle/technique, do not repeat them):\n${prior.map((m, i) => `${i + 1}. ${m}`).join('\n')}` : ''}
+${METHODS[method] || METHODS.meaning}${activeMode.mnemonicHints ? `\n\nMODE-SPECIFIC HOOK GUIDANCE (configured for this subject — follow it): ${activeMode.mnemonicHints}` : ''}${prior.length ? `\n\nThe learner already has these memory aids for this card, so give a genuinely DIFFERENT one (new angle, do not repeat them):\n${prior.map((m, i) => `${i + 1}. ${m}`).join('\n')}` : ''}
 
-QUALITY BAR: a good hook lets the learner RECONSTRUCT the answer from the hook alone — it must explicitly connect the FORM (sound, spelling, structure) to the MEANING. Mentally test yours: would someone who forgot this recover it from your hook? If not, choose a different technique. Never output a vague "just associate X with Y".
+QUALITY BAR: a good hook lets the learner RECONSTRUCT the answer from the hook alone. Mentally test yours: would someone who forgot this recover it from your hook? If not, try a different angle. Never output a vague "just associate X with Y".
 
-Write in ${explainLang}. ONE hook only — 1 to 2 punchy sentences, UNDER 35 WORDS total, like a WaniKani mnemonic. No backup hooks, no preamble, no explaining why the hook works — the learner can ask for "another hook" if this one doesn't land. Concrete and a little playful. Plain text only: no markdown headers, no em dashes.`
+Write in ${explainLang}. ${lengthRule} No backup hooks, no preamble, no explaining why the hook works. Concrete and a little playful. Plain text only: no markdown headers, no em dashes.`
     const text = await aiCall(apiKey, `You are Ebi, a friendly memory coach. Reply in ${explainLang} with a concise, concrete memory aid in plain text.`, prompt, resolveModel('study'))
     return String(text || '').trim()
   }
 
-  const generateMnemonic = async (cardIdx, card) => {
+  const generateMnemonic = async (cardIdx, card, method = 'meaning') => {
     const cs = card || studyCardState[cardIdx]
     if (!cs || !apiKey) return
     const prior = Array.isArray(cs.mnemonics) ? cs.mnemonics : []
     setStudyCardState(prev => { const u = [...prev]; if (u[cardIdx]) u[cardIdx] = { ...u[cardIdx], mnemonicLoading: true, mnemonicError: null }; return u })
     try {
-      const hook = await generateMemoryHook(cs.front, cs.back, prior)
+      const hook = await generateMemoryHook(cs.front, cs.back, prior, method)
       setStudyCardState(prev => { const u = [...prev]; if (u[cardIdx]) u[cardIdx] = { ...u[cardIdx], mnemonics: [...(u[cardIdx].mnemonics || []), ...(hook ? [hook] : [])], mnemonicLoading: false }; return u })
       const nid = studyNoteId(cs)
       if (nid && hook) addNoteHook(nid, hook) // persist — a good hook survives the session
@@ -5847,7 +5889,7 @@ Write in ${explainLang}. ONE hook only — 1 to 2 punchy sentences, UNDER 35 WOR
 
   // Deck-browser hook generation status, keyed by noteId (the hooks themselves live in modeHooks)
   const [deckBrowserMnemonics, setDeckBrowserMnemonics] = useState({})
-  const generateDeckMnemonic = async (note) => {
+  const generateDeckMnemonic = async (note, method = 'meaning') => {
     if (!apiKey) return
     const id = note.noteId
     const priorHooks = modeHooks[id] || []
@@ -5856,7 +5898,7 @@ Write in ${explainLang}. ONE hook only — 1 to 2 punchy sentences, UNDER 35 WOR
       const fields = Object.entries(note.fields).sort(([, a], [, b]) => a.order - b.order)
       const front = stripHtml(fields[0]?.[1]?.value || '')
       const back = backTextLines(fields[1]?.[1]?.value || '').join('\n')
-      const hook = await generateMemoryHook(front, back, priorHooks)
+      const hook = await generateMemoryHook(front, back, priorHooks, method)
       if (hook) addNoteHook(id, hook)
       setDeckBrowserMnemonics(prev => ({ ...prev, [id]: { loading: false, error: null } }))
     } catch {
@@ -8320,11 +8362,15 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                 {deckBrowserMnemonics[note.noteId]?.error && (
                                   <div style={{ fontSize: 10, color: 'var(--c-danger)', marginBottom: 6 }}>{deckBrowserMnemonics[note.noteId].error}</div>
                                 )}
-                                <button onClick={() => generateDeckMnemonic(note)} disabled={!apiKey || deckBrowserMnemonics[note.noteId]?.loading}
-                                  title={apiKey ? 'Ebi builds a memory aid for this card (mnemonics, associations, why it makes sense)' : 'Add an API key first'}
-                                  style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 10px', fontWeight: 700, color: 'var(--c-purple)', borderColor: 'rgba(139,92,246,.4)', opacity: (apiKey && !deckBrowserMnemonics[note.noteId]?.loading) ? 1 : 0.6 }}>
-                                  🧠 {deckBrowserMnemonics[note.noteId]?.loading ? 'Thinking…' : (modeHooks[note.noteId]?.length ? '↻ Another hook' : 'Help me learn this')}
-                                </button>
+                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                  {hookMethodList().map(([m, label, tip]) => (
+                                    <button key={m} onClick={() => generateDeckMnemonic(note, m)} disabled={!apiKey || deckBrowserMnemonics[note.noteId]?.loading}
+                                      className="tip" data-tip={apiKey ? tip : 'Add an API key first'}
+                                      style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 10px', fontWeight: 700, color: 'var(--c-purple)', borderColor: 'rgba(139,92,246,.4)', opacity: (apiKey && !deckBrowserMnemonics[note.noteId]?.loading) ? 1 : 0.6 }}>
+                                      {label}
+                                    </button>
+                                  ))}
+                                </div>
                               </div>
                             </div>
                           )}
