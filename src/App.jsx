@@ -7614,7 +7614,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   <option value="mastered">Mastered (longest interval)</option>
                 </select>
               )}
-              {/* Tag filter — usage tags (freq-*/region-*/register-*) make this a commonness filter */}
+              {/* Tag filter — the usage tags (freq-, region-, register-) make this a commonness filter */}
               {deckBrowserNotes.length > 0 && (() => {
                 const allTags = [...new Set(deckBrowserNotes.flatMap((n) => n.tags || []))].sort()
                 if (allTags.length === 0) return null
