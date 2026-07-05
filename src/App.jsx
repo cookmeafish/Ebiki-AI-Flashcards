@@ -4366,6 +4366,41 @@ Output ONLY raw JSON. No markdown, no backticks.`
     )
   }
 
+  // The card BACK as a collapsible row (same interaction language as the question rows) instead
+  // of a raw text blob pinned under the questions. Reads the ORIGINAL card HTML so the lines
+  // render with bold labels (cs.back was stripped at session start and its line breaks fused).
+  const renderCardBackRow = (cs, key) => {
+    if (!cs.back) return null
+    const open = !!studyQaOpen[key]
+    const card = studyAllCards.find((c) => c.cardId === cs.cardId)
+    const fields = card?.fields ? Object.entries(card.fields).sort(([, a], [, b]) => a.order - b.order) : []
+    const rawBack = fields[1]?.[1]?.value
+    const lines = rawBack ? backTextLines(rawBack) : String(cs.back).split('\n').map((l) => l.trim()).filter(Boolean)
+    return (
+      <div style={{ borderTop: '1px solid var(--c-border)' }}>
+        <div className="row-head" onClick={() => setStudyQaOpen((p) => ({ ...p, [key]: !p[key] }))}
+          title={t('studyCardBackDesc')}
+          style={{ padding: '7px 12px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+          <span style={{ fontSize: 11, minWidth: 24, flexShrink: 0 }}>🗂</span>
+          <span style={{ flex: 1, fontSize: 11, fontWeight: 700, color: 'var(--c-ink-dim)' }}>{t('studyCardBack')}</span>
+          <span style={{ fontSize: 9, color: 'var(--c-ink-faint)', flexShrink: 0 }}>{open ? '▾' : '▸'}</span>
+        </div>
+        {open && (
+          <div style={{ padding: '2px 14px 10px 44px', fontSize: 12.5, lineHeight: 1.7 }}>
+            {lines.map((ln, i) => {
+              const m = ln.match(/^([^:]{1,30}):\s*(.*)$/)
+              return (
+                <div key={i} style={{ color: 'var(--c-ink-dim)' }}>
+                  {m ? (<><span style={{ fontWeight: 700, color: 'var(--c-ink)' }}>{m[1]}:</span> {m[2]}</>) : ln}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   // The two mutually-exclusive header toggles for a graded card. Opening one closes the other (single
   // `studyGradedView[ci]` value), and clicking the open one collapses the card. stopPropagation so a stray
   // header handler can't double-fire.
@@ -9241,7 +9276,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         {view === 'mnemonic' && renderMnemonic(cs, ci)}
                         {view === 'feedback' && (<>
                         {cs.results.map((r, qi) => renderQaRow(cs, ci, qi, `graded-${ci}-${qi}`))}
-                        <div style={{ padding: '4px 12px', borderTop: '1px solid var(--c-border)', fontSize: 10, color: 'var(--c-ink-faint)' }}>{cs.back}</div>
+                        {renderCardBackRow(cs, `back-graded-${ci}`)}
                         {/* Feedback chat */}
                         {!cs.evaluating && (
                           <div style={{ padding: '6px 12px', borderTop: '1px solid var(--c-border)' }}>
@@ -9340,9 +9375,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       {view === 'mnemonic' && renderMnemonic(cs, ci)}
                       {view === 'feedback' && (<>
                       {cs.questions.map((q, qi) => renderQaRow(cs, ci, qi, `batch-${ci}-${qi}`, true))}
-                      <div style={{ padding: '4px 12px', borderTop: '1px solid var(--c-border)', fontSize: 10, color: 'var(--c-ink-faint)' }}>
-                        {cs.back}
-                      </div>
+                      {renderCardBackRow(cs, `back-batch-${ci}`)}
                       {/* Feedback chat — ask follow-up questions about this card */}
                       <div style={{ padding: '6px 12px', borderTop: '1px solid var(--c-border)' }}>
                         {(studyFeedbackChat[ci]?.messages || []).map((m, mi) => (
@@ -10255,6 +10288,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         .click-dim { transition: box-shadow .15s ease; }
         .click-dim:hover { box-shadow: inset 0 0 0 999px rgba(0, 0, 0, .08); }
         [data-theme="dark"] .click-dim:hover { box-shadow: inset 0 0 0 999px rgba(0, 0, 0, .26); }
+
+        /* Per-question / card-back rows inside a graded card: darken on DIRECT hover only
+           (hovering the card header never floods down to them). */
+        .row-head { transition: box-shadow .15s ease; }
+        .row-head:hover { box-shadow: inset 0 0 0 999px rgba(0, 0, 0, .08); }
+        [data-theme="dark"] .row-head:hover { box-shadow: inset 0 0 0 999px rgba(0, 0, 0, .26); }
 
         /* Graded-card TOP header only: slightly darker on hover (settings-style, theme-tuned).
            NOT while hovering a control inside it (memory hook / sound / rating select) — those
