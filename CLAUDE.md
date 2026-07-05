@@ -318,6 +318,21 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
     emoji font on chips/rows/category headers; engine-validated (letters/digits or over-long dropped),
     excluded from `studentView` (blind solver stays text-only), never part of grading, and the prompt
     forbids icons that hint at the answer.
+- **Question-style preferences (`studyRules.questionPreferences`, PER-MODE, max 12).** The user teaches
+  Ebi how to FORM questions without editing code: the study feedback chat's `question_preference` action
+  distills "this question was asked badly / ask differently" into one generalized imperative rule and
+  saves it on the mode (async completion → pinned `feedbackModeId` + `updateModeById`, never
+  updateActiveMode). Every rule is injected into `generateQuestionsForCard` as a USER'S QUESTION-STYLE
+  PREFERENCES block (style only — explicitly subordinate to the ambiguity/answer-leak safety rules).
+  Editable in Settings → Study (list with ✕ remove + add field). Essential because question form can't
+  be predicted across infinite subjects.
+- **Answer-leak guard (question + hint).** `questionAnswerLeak` (exact, accent-insensitive, whole-word,
+  ≥3 chars, explanation-type exempt; general modes exempt the FINAL deep question — it may name the
+  subject) and `hintRevealsAnswer` (FUZZY — catches plurals/inflected forms; over-scrubbing a hint is
+  harmless). Both flows are REGENERATE-FIRST: up to two rewrites with the violation named so the text
+  reads naturally; `scrubAnswerFromQuestion`/`scrubHint` (blank to `___`) fire only as the last-resort
+  can't-ship-a-leak net. The generation prompt also carries an explicit "answer must never appear in the
+  question text" rule (the "pergamino in the sense cue" failure).
 - **Typed-answer feedback (`studyTypedFlash`) — three states, because some answers only the AI can judge.**
   Green ✓ flash = locally matched acceptedAnswers (no AI); amber ⏳ "Ebi will check" flash = explanation
   questions, general modes, hint-exhausted answers (inflection tolerance may still accept them — a hard ✗

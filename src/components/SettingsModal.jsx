@@ -40,6 +40,7 @@ export default function SettingsModal(p) {
   const isLanguage = (activeMode?.type || 'general') === 'language'
   // Per-role "type a custom model" toggles (emergency: provider list empty / future models).
   const [customRoles, setCustomRoles] = useState({})
+  const [qPrefInput, setQPrefInput] = useState('') // Settings → Study: add a question-style preference
 
   // Esc closes the modal
   useEffect(() => {
@@ -369,6 +370,28 @@ export default function SettingsModal(p) {
           <input value={activeMode.studyRules?.ratingRules || defaultStudyRules.ratingRules}
             onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), ratingRules: e.target.value } })}
             style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box' }} />
+        </div>
+        {/* Question-style preferences — taught from the study feedback chat ("teach Ebi how to
+            ask") or added here; each is injected into question generation for THIS mode. */}
+        <div style={{ marginTop: 10 }}>
+          {fieldLabel(t('qPrefsTitle'))}
+          <div style={{ fontSize: 11, color: C.inkFaint, margin: '2px 0 6px', lineHeight: 1.5 }}>{t('qPrefsDesc')}</div>
+          {(activeMode.studyRules?.questionPreferences || []).map((pref, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <span style={{ flex: 1, fontSize: 12, color: C.inkDim, background: 'rgba(139,92,246,.07)', border: '1px solid rgba(139,92,246,.22)', borderRadius: 6, padding: '5px 9px', lineHeight: 1.5 }}>{pref}</span>
+              <button onClick={() => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), questionPreferences: (activeMode.studyRules?.questionPreferences || []).filter((_, k) => k !== i) } })}
+                title={t('qPrefsRemove')}
+                style={{ ...S.ghostBtn, fontSize: 10, padding: '4px 9px', color: C.danger, flexShrink: 0 }}>✕</button>
+            </div>
+          ))}
+          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+            <input value={qPrefInput} onChange={(e) => setQPrefInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && qPrefInput.trim()) { const v = qPrefInput.trim(); const sr = activeMode.studyRules || defaultStudyRules; const prev = Array.isArray(sr.questionPreferences) ? sr.questionPreferences : []; if (!prev.includes(v)) updateActiveMode({ studyRules: { ...sr, questionPreferences: [...prev, v].slice(-12) } }); setQPrefInput('') } }}
+              placeholder={t('qPrefsPlaceholder')} style={{ ...S.keyInput, flex: 1, fontSize: 12 }} />
+            <button onClick={() => { const v = qPrefInput.trim(); if (!v) return; const sr = activeMode.studyRules || defaultStudyRules; const prev = Array.isArray(sr.questionPreferences) ? sr.questionPreferences : []; if (!prev.includes(v)) updateActiveMode({ studyRules: { ...sr, questionPreferences: [...prev, v].slice(-12) } }); setQPrefInput('') }}
+              disabled={!qPrefInput.trim()}
+              style={{ ...S.ghostBtn, fontSize: 11, padding: '5px 12px', opacity: qPrefInput.trim() ? 1 : 0.5 }}>{t('qPrefsAdd')}</button>
+          </div>
         </div>
         {askAi('study', t('askAiStudyPlaceholder'))}
       </div>
