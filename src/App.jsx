@@ -18,7 +18,7 @@ import OnboardingWizard from './components/OnboardingWizard'
 import Dropdown from './components/Dropdown'
 import { S } from './styles/theme'
 import { ocrLog, ocrLogTable, ocrLogFlush } from './utils/logger'
-import { ankiPing, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiCanAddNote, ankiCopyNote, ankiChangeDeck, ankiForgetCards, ankiFindCards, ankiCardsInfo, ankiAnswerCards, ankiSetDueDate, ankiInsertReviews, ankiGuiDeckReview, ankiGuiCurrentCard, ankiGuiShowAnswer, ankiGuiAnswerCard, ankiGuiDeckBrowser, ankiGetDeckStats, ankiFindNotes, ankiNotesInfo, ankiUpdateNote, ankiDeleteNotes, ankiSync, ankiStoreMediaFile, ankiGetNumCardsReviewedToday, ankiGetNumCardsReviewedByDay, ankiGetTodayReviewStats } from './utils/anki'
+import { ankiPing, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiCanAddNote, ankiCopyNote, ankiChangeDeck, ankiForgetCards, ankiSetNoteTags, ankiFindCards, ankiCardsInfo, ankiAnswerCards, ankiSetDueDate, ankiInsertReviews, ankiGuiDeckReview, ankiGuiCurrentCard, ankiGuiShowAnswer, ankiGuiAnswerCard, ankiGuiDeckBrowser, ankiGetDeckStats, ankiFindNotes, ankiNotesInfo, ankiUpdateNote, ankiDeleteNotes, ankiSync, ankiStoreMediaFile, ankiGetNumCardsReviewedToday, ankiGetNumCardsReviewedByDay, ankiGetTodayReviewStats } from './utils/anki'
 import { readBlob, writeBlob, DEFAULT_LEDGER } from './discover/storage'
 import { buildProfilePrompt, buildSuggestionPrompt, buildVerifyPrompt } from './discover/prompts'
 import PbqQuestion from './components/PbqQuestion'
@@ -437,6 +437,8 @@ export default function App() {
   const [deckBrowserLoading, setDeckBrowserLoading] = useState(false)
   const [deckBrowserEditing, setDeckBrowserEditing] = useState(null) // noteId being edited
   const [deckBrowserEditFields, setDeckBrowserEditFields] = useState({})
+  const [deckBrowserEditTags, setDeckBrowserEditTags] = useState('') // space-separated tag editor
+  const [deckBrowserTagFilter, setDeckBrowserTagFilter] = useState('') // '' = all tags
   // Copy/move a card to another deck (e.g. a dedicated PBQ deck): noteId with the panel open,
   // the chosen target deck, and a transient status ('working' | 'copied' | 'moved' | 'error').
   const [deckBrowserCopying, setDeckBrowserCopying] = useState(null)
@@ -2723,6 +2725,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     })
     setDeckBrowserEditing(note.noteId)
     setDeckBrowserEditFields(fields)
+    setDeckBrowserEditTags((note.tags || []).join(' '))
     setDeckBrowserRefineInput('')
   }
 
@@ -2735,6 +2738,12 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     setDeckBrowserSaveStatus('saving')
     try {
       await ankiUpdateNote(noteId, htmlFields)
+      // Persist tag edits (space-separated input → tag array); skipped when unchanged
+      const note = deckBrowserNotes.find((n) => n.noteId === noteId)
+      const newTags = deckBrowserEditTags.split(/\s+/).map((s) => s.trim()).filter(Boolean)
+      if (note && newTags.join(' ') !== (note.tags || []).join(' ')) {
+        await ankiSetNoteTags(noteId, note.tags || [], newTags)
+      }
       ankiSync().catch(() => {})
       // Reload
       await loadDeckNotes(deckBrowserDeck)
@@ -7605,8 +7614,24 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   <option value="mastered">Mastered (longest interval)</option>
                 </select>
               )}
+              {/* Tag filter — usage tags (freq-*/region-*/register-*) make this a commonness filter */}
+              {deckBrowserNotes.length > 0 && (() => {
+                const allTags = [...new Set(deckBrowserNotes.flatMap((n) => n.tags || []))].sort()
+                if (allTags.length === 0) return null
+                return (
+                  <select value={deckBrowserTagFilter} onChange={(e) => setDeckBrowserTagFilter(e.target.value)}
+                    title="Filter by tag" style={{ ...S.select, minWidth: 130, fontSize: 12, color: deckBrowserTagFilter ? 'var(--c-purple)' : undefined, borderColor: deckBrowserTagFilter ? 'rgba(139,92,246,.4)' : undefined }}>
+                    <option value="">All tags</option>
+                    {allTags.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
+                  </select>
+                )
+              })()}
               {deckBrowserNotes.length > 0 && (
-                <span style={{ fontSize: 11, color: 'var(--c-ink-dim)', alignSelf: 'center' }}>{deckBrowserNotes.length} cards</span>
+                <span style={{ fontSize: 11, color: 'var(--c-ink-dim)', alignSelf: 'center' }}>
+                  {deckBrowserTagFilter
+                    ? `${deckBrowserNotes.filter((n) => (n.tags || []).includes(deckBrowserTagFilter)).length} of ${deckBrowserNotes.length} cards`
+                    : `${deckBrowserNotes.length} cards`}
+                </span>
               )}
             </div>
 
@@ -8014,6 +8039,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             {deckBrowserNotes.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {deckBrowserNotes
+                  .filter((n) => !deckBrowserTagFilter || (n.tags || []).includes(deckBrowserTagFilter))
                   .filter((n) => {
                     if (!deckBrowserSearch) return true
                     const s = deckBrowserSearch.toLowerCase()
@@ -8045,6 +8071,13 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                 />
                               </div>
                             ))}
+                            <div>
+                              <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 3, fontWeight: 600 }}>Tags <span style={{ fontWeight: 400, color: 'var(--c-ink-faint)' }}>(space-separated — e.g. freq-common region-argentina register-slang)</span></div>
+                              <input value={deckBrowserEditTags}
+                                onChange={(e) => setDeckBrowserEditTags(e.target.value)}
+                                placeholder="verb freq-common region-mexico …"
+                                style={{ ...S.keyInput, fontSize: 12, width: '100%', boxSizing: 'border-box' }} />
+                            </div>
                             <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                               <input
                                 type="text"

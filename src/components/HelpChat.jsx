@@ -320,7 +320,9 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
   // Fixed-position style for the panel given its current snap zone.
   const panelStyle = () => {
     if (ZONE_RECTS[snapZone]) return { position: 'fixed', ...ZONE_RECTS[snapZone] }
-    return { position: 'fixed', left: chatPos.x, top: chatPos.y, width: FREE_W, maxHeight: FREE_H } // 'free'
+    // FIXED height (viewport-capped), not maxHeight — the panel must open at full size, not
+    // start tiny and grow as the conversation lengthens.
+    return { position: 'fixed', left: chatPos.x, top: chatPos.y, width: FREE_W, height: `min(${FREE_H}px, calc(80vh / 1.35))` } // 'free'
   }
   const isEdgeZone = !!ZONE_RECTS[snapZone]
 
@@ -365,7 +367,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
     const rect = btn?.getBoundingClientRect()
     // No floating button to anchor to (e.g. opened via "Ask Ebi" during study): show a
     // normal chat panel docked to the bottom-left corner instead of filling the screen.
-    if (!rect) return { position: 'fixed', left: 20, bottom: 20, width: 360, maxHeight: 460 }
+    if (!rect) return { position: 'fixed', left: 20, bottom: 20, width: 360, height: 'min(460px, calc(80vh / 1.35))' }
     const zoom = getZoom()
     const left = rect.left / zoom, right = rect.right / zoom
     const top = rect.top / zoom, bottom = rect.bottom / zoom
@@ -373,7 +375,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
     const chatW = 340, chatH = 400
     const btnCX = (left + right) / 2
     const btnCY = (top + bottom) / 2
-    const style = { position: 'fixed', width: chatW, maxHeight: chatH }
+    const style = { position: 'fixed', width: chatW, height: `min(${chatH}px, calc(80vh / 1.35))` }
 
     // Horizontal: align left edge with button, or right-align if near right edge
     style.left = btnCX < vw / 2 ? left : right - chatW
