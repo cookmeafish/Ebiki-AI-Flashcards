@@ -4391,6 +4391,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       }}
       disabled={!apiKey || cs.mnemonicLoading}
       title={apiKey ? 'Ebi builds a memory aid for this card' : 'Add an API key first'}
+      className="hover-dim"
       style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 9px', fontWeight: 700, flexShrink: 0, whiteSpace: 'nowrap', color: 'var(--c-purple)', borderColor: active ? 'rgba(139,92,246,.6)' : 'rgba(139,92,246,.4)', background: active ? 'rgba(139,92,246,.16)' : 'transparent', opacity: (apiKey && !cs.mnemonicLoading) ? 1 : 0.6, cursor: apiKey ? 'pointer' : 'default' }}>
       🧠 {cs.mnemonicLoading ? 'Thinking…' : (cs.mnemonics?.length ? 'Memory hook' : 'Help me remember')}
     </button>
@@ -10240,6 +10241,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
 
         /* Deck browser rows — highlight on hover */
         .deck-row:hover { border-color: rgba(223,37,64,.35) !important; background: rgba(223,37,64,.05) !important; }
+
+        /* Reusable settings-style hover darken for individual controls (follows border-radius) */
+        .hover-dim { transition: box-shadow .15s ease; }
+        .hover-dim:not(:disabled):hover { box-shadow: inset 0 0 0 999px rgba(0, 0, 0, .08); }
+        [data-theme="dark"] .hover-dim:not(:disabled):hover { box-shadow: inset 0 0 0 999px rgba(0, 0, 0, .26); }
 
         /* Graded-card TOP header only: slightly darker on hover (settings-style, theme-tuned).
            NOT while hovering a control inside it (memory hook / sound / rating select) — those
