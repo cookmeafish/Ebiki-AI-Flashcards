@@ -55,6 +55,21 @@ export async function ankiAddNote(deckName, front, back, tags = [], allowDuplica
   return noteId
 }
 
+// Copy a note into another deck as a NEW note (same model, fields, tags). allowDuplicate is
+// intentional — the whole point of a copy is that it exists in both decks.
+export async function ankiCopyNote(deckName, modelName, fields, tags = []) {
+  ankiLog(`copying note into deck "${deckName}"`)
+  return ankiRequest('addNote', {
+    note: { deckName, modelName: modelName || 'Basic', fields, options: { allowDuplicate: true }, tags },
+  })
+}
+
+// Move cards to another deck — the scheduling state travels with them.
+export async function ankiChangeDeck(cardIds, deckName) {
+  ankiLog(`moving ${cardIds.length} card(s) to deck "${deckName}"`)
+  return ankiRequest('changeDeck', { cards: cardIds, deck: deckName })
+}
+
 // Duplicate pre-check. Returns true if the note can be added (no duplicate). On any error
 // (e.g. Anki not running) returns true so we never block adding on a flaky check.
 export async function ankiCanAddNote(deckName, front, back) {

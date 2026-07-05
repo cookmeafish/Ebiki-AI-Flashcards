@@ -18,7 +18,7 @@ import OnboardingWizard from './components/OnboardingWizard'
 import Dropdown from './components/Dropdown'
 import { S } from './styles/theme'
 import { ocrLog, ocrLogTable, ocrLogFlush } from './utils/logger'
-import { ankiPing, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiCanAddNote, ankiFindCards, ankiCardsInfo, ankiAnswerCards, ankiSetDueDate, ankiInsertReviews, ankiGuiDeckReview, ankiGuiCurrentCard, ankiGuiShowAnswer, ankiGuiAnswerCard, ankiGuiDeckBrowser, ankiGetDeckStats, ankiFindNotes, ankiNotesInfo, ankiUpdateNote, ankiDeleteNotes, ankiSync, ankiStoreMediaFile, ankiGetNumCardsReviewedToday, ankiGetNumCardsReviewedByDay, ankiGetTodayReviewStats } from './utils/anki'
+import { ankiPing, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiCanAddNote, ankiCopyNote, ankiChangeDeck, ankiFindCards, ankiCardsInfo, ankiAnswerCards, ankiSetDueDate, ankiInsertReviews, ankiGuiDeckReview, ankiGuiCurrentCard, ankiGuiShowAnswer, ankiGuiAnswerCard, ankiGuiDeckBrowser, ankiGetDeckStats, ankiFindNotes, ankiNotesInfo, ankiUpdateNote, ankiDeleteNotes, ankiSync, ankiStoreMediaFile, ankiGetNumCardsReviewedToday, ankiGetNumCardsReviewedByDay, ankiGetTodayReviewStats } from './utils/anki'
 import { readBlob, writeBlob, DEFAULT_LEDGER } from './discover/storage'
 import { buildProfilePrompt, buildSuggestionPrompt, buildVerifyPrompt } from './discover/prompts'
 import PbqQuestion from './components/PbqQuestion'
@@ -424,6 +424,11 @@ export default function App() {
   const [deckBrowserLoading, setDeckBrowserLoading] = useState(false)
   const [deckBrowserEditing, setDeckBrowserEditing] = useState(null) // noteId being edited
   const [deckBrowserEditFields, setDeckBrowserEditFields] = useState({})
+  // Copy/move a card to another deck (e.g. a dedicated PBQ deck): noteId with the panel open,
+  // the chosen target deck, and a transient status ('working' | 'copied' | 'moved' | 'error').
+  const [deckBrowserCopying, setDeckBrowserCopying] = useState(null)
+  const [deckBrowserCopyTarget, setDeckBrowserCopyTarget] = useState('')
+  const [deckBrowserCopyStatus, setDeckBrowserCopyStatus] = useState(null)
   const [deckBrowserSearch, setDeckBrowserSearch] = useState('')
   const [deckBrowserSort, setDeckBrowserSort] = useState('created-desc')
   const [deckBrowserRefineInput, setDeckBrowserRefineInput] = useState('')
@@ -2722,6 +2727,32 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       console.error('[Deck] refine failed:', err.message)
     } finally {
       setDeckBrowserRefining(false)
+    }
+  }
+
+  // Copy (new note in the target deck, same model/fields/tags) or move (cards change deck,
+  // scheduling state travels along) a browser card. Lets a user build a dedicated deck —
+  // e.g. one just for PBQ practice — out of existing cards.
+  const copyOrMoveNote = async (note, targetDeck, move = false) => {
+    if (!targetDeck || targetDeck === deckBrowserDeck) return
+    setDeckBrowserCopyStatus('working')
+    try {
+      if (move) {
+        const cardIds = await ankiFindCards(`nid:${note.noteId}`)
+        await ankiChangeDeck(cardIds, targetDeck)
+        setDeckBrowserNotes(prev => prev.filter(n => n.noteId !== note.noteId))
+      } else {
+        const fields = {}
+        Object.entries(note.fields).forEach(([name, f]) => { fields[name] = f.value })
+        await ankiCopyNote(targetDeck, note.modelName, fields, note.tags || [])
+      }
+      ankiSync().catch(() => {})
+      setDeckBrowserCopyStatus(move ? 'moved' : 'copied')
+      setTimeout(() => { setDeckBrowserCopyStatus(null); setDeckBrowserCopying(null) }, 1400)
+      console.log('[Deck] note', move ? 'moved' : 'copied', 'to:', targetDeck)
+    } catch (err) {
+      console.error('[Deck] copy/move failed:', err.message)
+      setDeckBrowserCopyStatus('error')
     }
   }
 
@@ -7386,6 +7417,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                             </div>
                           </div>
                         ) : (
+                          <>
                           <div style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink)' }}>{front}</span>
@@ -7397,10 +7429,52 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                             </div>
                             <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                               <button onClick={() => startEditNote(note)} style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 8px' }}>Edit</button>
+                              <button onClick={() => {
+                                if (deckBrowserCopying === note.noteId) { setDeckBrowserCopying(null); return }
+                                setDeckBrowserCopying(note.noteId)
+                                setDeckBrowserCopyStatus(null)
+                                setDeckBrowserCopyTarget(ankiDecks.find(d => d !== deckBrowserDeck) || '')
+                              }} style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 8px', color: 'var(--c-success)', borderColor: 'rgba(24,169,87,.3)' }}>{t('copyTo')}</button>
                               <button onClick={() => { if (confirm(`Delete "${front}"?`)) deleteNote(note.noteId) }}
                                 style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 8px', color: 'var(--c-danger)', borderColor: 'rgba(229,57,46,.25)' }}>Del</button>
                             </div>
                           </div>
+                          {deckBrowserCopying === note.noteId && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', padding: '7px 12px', borderTop: '1px solid var(--c-border)', background: 'rgba(24,169,87,.04)' }}>
+                              <span style={{ fontSize: 10, color: 'var(--c-ink-dim)', fontWeight: 700 }}>{t('copyTo')}:</span>
+                              <select value={deckBrowserCopyTarget} onChange={async (e) => {
+                                if (e.target.value === '__new__') {
+                                  const name = window.prompt(t('newDeckName'))
+                                  if (!name || !name.trim()) return
+                                  try {
+                                    await ankiCreateDeck(name.trim())
+                                    setAnkiDecks(prev => prev.includes(name.trim()) ? prev : [...prev, name.trim()])
+                                    setDeckBrowserCopyTarget(name.trim())
+                                  } catch (err) { console.error('[Deck] create failed:', err.message) }
+                                } else {
+                                  setDeckBrowserCopyTarget(e.target.value)
+                                }
+                              }} style={{ ...S.select, fontSize: 11, padding: '4px 8px' }}>
+                                {ankiDecks.filter(d => d !== deckBrowserDeck).map(d => <option key={d} value={d}>{d}</option>)}
+                                <option value="__new__">➕ {t('newDeck')}</option>
+                              </select>
+                              <button onClick={() => copyOrMoveNote(note, deckBrowserCopyTarget, false)} disabled={!deckBrowserCopyTarget || deckBrowserCopyStatus === 'working'}
+                                style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 10px', color: 'var(--c-success)', borderColor: 'rgba(24,169,87,.35)', opacity: (!deckBrowserCopyTarget || deckBrowserCopyStatus === 'working') ? 0.5 : 1 }}>
+                                {t('copyHere')}
+                              </button>
+                              <button onClick={() => copyOrMoveNote(note, deckBrowserCopyTarget, true)} disabled={!deckBrowserCopyTarget || deckBrowserCopyStatus === 'working'}
+                                title={t('moveHereDesc')}
+                                style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 10px', color: 'var(--c-warning)', borderColor: 'rgba(232,147,12,.35)', opacity: (!deckBrowserCopyTarget || deckBrowserCopyStatus === 'working') ? 0.5 : 1 }}>
+                                {t('moveHere')}
+                              </button>
+                              <button onClick={() => { setDeckBrowserCopying(null); setDeckBrowserCopyStatus(null) }} style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 8px' }}>{t('cancel')}</button>
+                              {deckBrowserCopyStatus === 'working' && <span style={{ fontSize: 10, color: 'var(--c-ink-dim)' }}>…</span>}
+                              {deckBrowserCopyStatus === 'copied' && <span style={{ fontSize: 10, color: 'var(--c-success)', fontWeight: 700 }}>✓ {t('copiedTo')} «{deckBrowserCopyTarget}»</span>}
+                              {deckBrowserCopyStatus === 'moved' && <span style={{ fontSize: 10, color: 'var(--c-success)', fontWeight: 700 }}>✓ {t('movedTo')} «{deckBrowserCopyTarget}»</span>}
+                              {deckBrowserCopyStatus === 'error' && <span style={{ fontSize: 10, color: 'var(--c-danger)' }}>{t('copyFailed')}</span>}
+                            </div>
+                          )}
+                          </>
                         )}
                       </div>
                     )
