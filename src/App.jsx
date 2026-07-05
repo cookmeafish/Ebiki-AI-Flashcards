@@ -9213,7 +9213,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         <PbqQuestion key={`pbq-${cq?.cardIdx}`} pbq={questionObj.pbq} t={t} onSubmit={submitPbqAnswer} />
                       ) : questionHasChoices(questionObj) ? (
                         renderChoiceButtons(questionObj.choices, { onPick: submitStudyChoice })
-                      ) : (
+                      ) : (<>
                       {/* Accent drill: correct answer, wrong/missing accents — type the accented form once */}
                       {studyAccentRetype && (
                         <div style={{ fontSize: 12, background: 'rgba(232,147,12,.08)', border: '1px solid rgba(232,147,12,.25)', borderRadius: 6, padding: '6px 10px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -9238,12 +9238,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           style={{ ...S.keyInput, flex: 1, fontSize: 14, padding: '10px 14px' }}
                           autoFocus
                         />
-                        <button onClick={submitStudyAnswer} disabled={!studyInput.trim()}
+                        <button onClick={() => submitStudyAnswer()} disabled={!studyInput.trim()}
                           style={{ ...S.captureBtn, borderRadius: 6, opacity: !studyInput.trim() ? 0.5 : 1 }}>
                           {studyCurrentHint ? t('tryAgain') : t('submit')}
                         </button>
                       </div>
-                      )}
+                      </>)}
 
                       {/* "Fix this question" — complaint input; regenerates the live question and
                           saves the distilled style preference to the mode */}
