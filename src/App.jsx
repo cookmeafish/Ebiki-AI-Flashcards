@@ -4219,7 +4219,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     return notes.map((n, i) => {
       const cat = FEEDBACK_CATS[n.type] || FEEDBACK_CATS.tip
       return (
-        <div key={i} style={{ color: cat.color, fontSize: 10, marginTop: 2 }}>
+        <div key={i} style={{ color: cat.color, fontSize: 12, marginTop: 3, lineHeight: 1.6 }}>
           <span style={{ fontWeight: 700 }}>{cat.icon}</span> {source ? renderTappableText(n.text, n.text, source) : n.text}
         </div>
       )
@@ -4342,19 +4342,19 @@ Output ONLY raw JSON. No markdown, no backticks.`
     return (
       <div key={qi} style={{ borderTop: '1px solid var(--c-border)' }}>
         <div onClick={() => setStudyQaOpen((p) => ({ ...p, [src]: !p[src] }))} title={meta.title}
-          style={{ padding: '7px 12px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', background: meta.bg }}>
-          <span style={{ fontSize: 11, fontWeight: 800, color: meta.color, minWidth: 24, flexShrink: 0 }}>{meta.icon}</span>
-          <span style={{ flex: 1, minWidth: 0, fontSize: 11, color: 'var(--c-ink-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{gq}</span>
-          <span style={{ fontSize: 9, color: 'var(--c-ink-faint)', flexShrink: 0 }}>{open ? '▾' : '▸'}</span>
+          style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', background: meta.bg }}>
+          <span style={{ fontSize: 12.5, fontWeight: 800, color: meta.color, minWidth: 26, flexShrink: 0 }}>{meta.icon}</span>
+          <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--c-ink-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{gq}</span>
+          <span style={{ fontSize: 10, color: 'var(--c-ink-faint)', flexShrink: 0 }}>{open ? '▾' : '▸'}</span>
         </div>
         {open && (
-          <div style={{ padding: '2px 12px 9px 44px', fontSize: 12, background: meta.bg }}>
-            <div style={{ color: 'var(--c-ink-dim)', marginBottom: 3, lineHeight: 1.6 }}><span style={{ fontWeight: 600 }}>Q:</span> {renderTappableText(gq, gq, src)}</div>
+          <div style={{ padding: '2px 14px 10px 46px', fontSize: 13.5, background: meta.bg, lineHeight: 1.65 }}>
+            <div style={{ color: 'var(--c-ink-dim)', marginBottom: 4 }}><span style={{ fontWeight: 600 }}>Q:</span> {renderTappableText(gq, gq, src)}</div>
             {showAttempts && cs.questionAttempts?.[qi]?.length > 1 && (
-              <div style={{ color: 'var(--c-ink-faint)', fontSize: 10, marginBottom: 3 }}>Previous attempts: {cs.questionAttempts[qi].slice(0, -1).join(', ')}</div>
+              <div style={{ color: 'var(--c-ink-faint)', fontSize: 11.5, marginBottom: 4 }}>Previous attempts: {cs.questionAttempts[qi].slice(0, -1).join(', ')}</div>
             )}
-            <div style={{ color: 'var(--c-ink)', marginBottom: 4 }}><span style={{ fontWeight: 600 }}>Your answer:</span> {cs.answers[qi]}</div>
-            <div style={{ color: r.correct ? 'var(--c-success)' : 'var(--c-warning)', lineHeight: 1.6, fontSize: 11 }}>{renderTappableText(r.feedback, r.feedback, src)}</div>
+            <div style={{ color: 'var(--c-ink)', marginBottom: 5 }}><span style={{ fontWeight: 600 }}>Your answer:</span> {cs.answers[qi]}</div>
+            <div style={{ color: r.correct ? 'var(--c-success)' : 'var(--c-warning)', fontSize: 12.5 }}>{renderTappableText(r.feedback, r.feedback, src)}</div>
             {renderFeedbackNotes(r, src)}
             {renderWordLookupPopup(src)}
           </div>
