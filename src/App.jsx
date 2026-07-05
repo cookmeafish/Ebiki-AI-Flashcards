@@ -5792,7 +5792,7 @@ When decomposition doesn't fit (an atomic fact), fall back to the strongest alte
 
 QUALITY BAR: a good hook lets the learner RECONSTRUCT the answer from the hook alone — it must explicitly connect the FORM (sound, spelling, structure) to the MEANING. Mentally test yours: would someone who forgot this recover it from your hook? If not, choose a different technique. Never output a vague "just associate X with Y".
 
-Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. Give ONE strong primary hook, then optionally a brief backup. Plain text only: no markdown headers, no em dashes.`
+Write in ${explainLang}. ONE hook only — 1 to 2 punchy sentences, UNDER 35 WORDS total, like a WaniKani mnemonic. No backup hooks, no preamble, no explaining why the hook works — the learner can ask for "another hook" if this one doesn't land. Concrete and a little playful. Plain text only: no markdown headers, no em dashes.`
     const text = await aiCall(apiKey, `You are Ebi, a friendly memory coach. Reply in ${explainLang} with a concise, concrete memory aid in plain text.`, prompt, resolveModel('study'))
     return String(text || '').trim()
   }
