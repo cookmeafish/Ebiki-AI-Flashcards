@@ -6056,26 +6056,53 @@ Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. 
         if (ansOk(result)) { markSynced(cs); continue }
         throw new Error('not at top of queue')
       } catch (err) {
-        // answerCards can't grade a card that isn't at the top of the scheduler queue (e.g. a brand-new
-        // card, or one out of order). Fall back to (1) rescheduling it directly by due date — works on
-        // ANY card — and (2) writing a revlog entry so the review actually COUNTS as studied today.
+        // answerCards can't grade a card that isn't at the top of the scheduler queue.
         try {
-          const days = easeToDueDays(cs.ease)
-          const ease = Math.min(Math.max(cs.ease, 1), 4)
-          console.log('[Anki sync] setDueDate+insertReviews fallback', cs.cardId, 'days', days, 'ease', ease)
-          await ankiSetDueDate([cs.cardId], days)
-          // setDueDate reschedules but writes no revlog row, so Anki would show "0 studied". Add the
-          // revlog entry so the card counts in Cards Today / streak / accuracy. +i keeps the id unique.
-          const ivl = Math.max(0, parseInt(days, 10) || 0)
-          await ankiInsertReviews([[Date.now() + failed.length + synced.length, cs.cardId, -1, ease, ivl, 0, 2500, 0, 0]])
-            .catch((e) => console.warn('[Anki sync] insertReviews failed (rating still rescheduled):', e.message))
-          markSynced(cs)
+          const isNew = await ankiFindCards(`cid:${cs.cardId} is:new`).then((r) => r.length > 0).catch(() => false)
+          if (isNew) {
+            // Brand-new card (the common "not at top of queue" case): approximate first interval +
+            // revlog row. There is no existing schedule to corrupt, so this is safe.
+            const days = easeToDueDays(cs.ease)
+            const ease = Math.min(Math.max(cs.ease, 1), 4)
+            console.log('[Anki sync] setDueDate+insertReviews fallback (new card)', cs.cardId, 'days', days, 'ease', ease)
+            await ankiSetDueDate([cs.cardId], days)
+            // setDueDate reschedules but writes no revlog row, so Anki would show "0 studied". Add the
+            // revlog entry so the card counts in Cards Today / streak / accuracy. +i keeps the id unique.
+            const ivl = Math.max(0, parseInt(days, 10) || 0)
+            await ankiInsertReviews([[Date.now() + failed.length + synced.length, cs.cardId, -1, ease, ivl, 0, 2500, 0, 0]])
+              .catch((e) => console.warn('[Anki sync] insertReviews failed (rating still rescheduled):', e.message))
+            markSynced(cs)
+            continue
+          }
+          // REVIEW card the reviewer didn't present: record a REAL review without touching the
+          // grading — a bare setDueDate "0" nudges the card due NOW but preserves its interval
+          // (only the "!" suffix would change it), then Anki's own reviewer answers it so the
+          // scheduler computes the next interval from the card's true history. The old behavior
+          // (force setDueDate 0-4 days + a synthetic revlog) is exactly what corrupted schedules.
+          console.log('[Anki sync] nudge-due + reviewer fallback (review card)', cs.cardId, 'ease', cs.ease)
+          await ankiSetDueDate([cs.cardId], '0')
+          const started2 = await ankiGuiDeckReview(studyDeck)
+          let cur2 = null
+          if (started2) { try { cur2 = await ankiGuiCurrentCard() } catch { cur2 = null } }
+          if (cur2?.cardId === cs.cardId) {
+            const validEases2 = Array.isArray(cur2.buttons) ? cur2.buttons.filter((n) => typeof n === 'number') : []
+            const maxEase2 = validEases2.length ? Math.max(...validEases2) : 4
+            await ankiGuiShowAnswer()
+            const ok2 = await ankiGuiAnswerCard(Math.min(cs.ease, maxEase2))
+            if (ok2 !== false) { markSynced(cs); continue }
+          }
+          // Another due card was ahead in the queue — do NOT touch this card's schedule any further;
+          // surface it as failed so the user can sync again (or it flushes on exit).
+          console.error('[Anki sync] reviewer presented a different card — leaving', cs.cardId, 'unrecorded, schedule untouched')
+          failed.push(cs)
         } catch (err2) {
           console.error('[Anki sync] fallback failed for card', cs.cardId, err2.message)
           failed.push(cs)
         }
       }
     }
+    // The nudge fallback may have left Anki mid-review — return it to the deck list.
+    try { await ankiGuiDeckBrowser() } catch {}
     if (synced.length > 0) {
       const syncedIds = new Set(synced.map(cs => cs.cardId))
       setStudyCardState(prev => prev.map(cs => syncedIds.has(cs.cardId) ? { ...cs, synced: true } : cs))
