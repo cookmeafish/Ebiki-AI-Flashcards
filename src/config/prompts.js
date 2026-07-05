@@ -132,7 +132,7 @@ distinct unrelated meanings — one card per meaning). Each card object:
   OMIT or "" if not needed.
 - "correction": if the input looks misspelled, set this to the suggested correct spelling and base the
   card on the corrected word; OMIT or "" otherwise.
-- "tags": array of useful tags (part of speech, level, topic). Always include "ebiki".
+- "tags": array of useful tags (part of speech, level, topic). Always include "ebiki". ALWAYS include exactly ONE frequency tag: "freq-core", "freq-common", "freq-uncommon" or "freq-rare"; add "region-<place>" when strongly regional and "register-<x>" when clearly non-neutral (literary/slang/formal/technical). Coarse and honest only.
 
 ACCURACY IS CRITICAL — the student will MEMORIZE these. Only use REAL, correctly-spelled Spanish words; never invent a word. Verify the gender, pronunciation, translation, and that the example sentence is natural and correct before outputting. If the input word does not exist, use the closest correct real word and set "correction".
 
@@ -170,8 +170,9 @@ For EACH input word/phrase, output one or more card objects (multiple ONLY for c
    • synonyms: similar {USER_LANG} words
    • definition: a simple definition written IN {LEARN_LANG}
    • example: one natural {LEARN_LANG} sentence, with its {USER_LANG} translation in parentheses
+   • usage: ONLY when noteworthy — one short line (label written in {LEARN_LANG}, e.g. Spanish "Uso:") on how common / where / what register the word is, e.g. "poco frecuente, tono literario" or "principalmente Argentina y Uruguay; en otros países se dice <alternative>". OMIT this line entirely for common, neutral, universal words — silence is the default.
 - "correction": if the input is misspelled or is NOT a real {LEARN_LANG} word, set this to the correct word and base the card on it; omit otherwise.
-- "tags": array including the part of speech, level, topic, and "ebiki".
+- "tags": array including the part of speech, level, topic, and "ebiki". ALWAYS include exactly ONE frequency tag for how often natives actually use the word: "freq-core" (top everyday vocabulary), "freq-common", "freq-uncommon", or "freq-rare". When usage is strongly regional add a "region-<place>" tag (lowercase-hyphens, e.g. "region-argentina", "region-spain"); when the register is clearly non-neutral add ONE "register-<x>" tag ("register-literary", "register-slang", "register-formal", "register-technical", "register-vulgar"). Never add region/register tags to universal neutral words. Be honest at this COARSE granularity — never invent precision.
 
 ACCURACY IS CRITICAL, the student will MEMORIZE these. Only use REAL, correctly-spelled {LEARN_LANG} words; never invent one. Verify gender, pronunciation, translation, and that the example is natural and correct. All non-{LEARN_LANG} text is in {USER_LANG}.
 Output ONLY the raw JSON array. No markdown, no backticks, no commentary.`

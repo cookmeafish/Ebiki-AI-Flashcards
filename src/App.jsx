@@ -4276,6 +4276,10 @@ Output ONLY raw JSON. No markdown, no backticks.`
               {studyWordLookup.alternatives?.length > 0 && (
                 <span style={{ color: 'var(--c-ink-faint)' }}> · also <span style={{ color: 'var(--c-purple)', fontWeight: 600 }}>{studyWordLookup.alternatives.join(', ')}</span></span>
               )}
+              {/* Commonness/region/register caveat — only present when the word is NOT plain-vanilla */}
+              {studyWordLookup.usage && (
+                <span style={{ color: 'var(--c-warning)', fontStyle: 'italic' }}> · {studyWordLookup.usage}</span>
+              )}
             </span>
           )}
           <span onClick={() => setStudyWordLookup(null)} title="Close" style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 13, lineHeight: 1 }}>×</span>
@@ -5633,7 +5637,8 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
 {
   "primary": "the meaning/translation of \\"${word}\\" AS USED in THIS question — the single best fit, a few words only",
   "alternatives": ["up to 3 other common meanings the word can have in OTHER contexts, a few words each; use [] if it really only has one meaning"],
-  "pron": "simplified phonetics of \\"${word}\\" for a ${explainLang} speaker, stressed syllable in CAPS (e.g. PREH-syoh) — same style as flashcard pronunciation lines; "" if it reads exactly as spelled"
+  "pron": "simplified phonetics of \\"${word}\\" for a ${explainLang} speaker, stressed syllable in CAPS (e.g. PREH-syoh) — same style as flashcard pronunciation lines; "" if it reads exactly as spelled",
+  "usage": "ONLY if noteworthy: a few ${explainLang} words on how common/where/what register (e.g. 'rare, literary', 'mainly Argentina — elsewhere: X', 'informal slang'); "" for common neutral universal words"
 }`
       const text = await aiCall(apiKey, `You are a concise bilingual dictionary that disambiguates words by context. Output JSON only, written in ${explainLang}.`, prompt, resolveModel('study'))
       const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
@@ -5642,6 +5647,7 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
         primary: String(parsed.primary || '').trim() || '—',
         alternatives: Array.isArray(parsed.alternatives) ? parsed.alternatives.filter(Boolean).map(String).slice(0, 3) : [],
         pron: String(parsed.pron || '').trim(),
+        usage: String(parsed.usage || '').trim(), // commonness/region/register caveat — '' when unremarkable
         loading: false,
         source,
       })
@@ -6198,23 +6204,49 @@ Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. 
           // REVIEW card the reviewer didn't present: record a REAL review without touching the
           // grading — a bare setDueDate "0" nudges the card due NOW but preserves its interval
           // (only the "!" suffix would change it), then Anki's own reviewer answers it so the
-          // scheduler computes the next interval from the card's true history. The old behavior
-          // (force setDueDate 0-4 days + a synthetic revlog) is exactly what corrupted schedules.
+          // scheduler computes the next interval from the card's true history.
+          // RELIABILITY (this used to fail in a loop): (1) leave the reviewer FIRST — after a
+          // failed pass Anki sits on a stale queue / congrats screen and re-calling guiDeckReview
+          // does not rebuild it; (2) give Anki a beat to apply the due-date change; (3) poll
+          // guiCurrentCard a few times instead of sampling once.
           console.log('[Anki sync] nudge-due + reviewer fallback (review card)', cs.cardId, 'ease', cs.ease)
+          const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
           await ankiSetDueDate([cs.cardId], '0')
+          try { await ankiGuiDeckBrowser() } catch {}
+          await sleep(350)
+          let answered = false
           const started2 = await ankiGuiDeckReview(studyDeck)
-          let cur2 = null
-          if (started2) { try { cur2 = await ankiGuiCurrentCard() } catch { cur2 = null } }
-          if (cur2?.cardId === cs.cardId) {
-            const validEases2 = Array.isArray(cur2.buttons) ? cur2.buttons.filter((n) => typeof n === 'number') : []
-            const maxEase2 = validEases2.length ? Math.max(...validEases2) : 4
-            await ankiGuiShowAnswer()
-            const ok2 = await ankiGuiAnswerCard(Math.min(cs.ease, maxEase2))
-            if (ok2 !== false) { markSynced(cs); continue }
+          if (started2) {
+            for (let poll = 0; poll < 3 && !answered; poll++) {
+              let cur2 = null
+              try { cur2 = await ankiGuiCurrentCard() } catch { cur2 = null }
+              if (cur2?.cardId === cs.cardId) {
+                const validEases2 = Array.isArray(cur2.buttons) ? cur2.buttons.filter((n) => typeof n === 'number') : []
+                const maxEase2 = validEases2.length ? Math.max(...validEases2) : 4
+                await ankiGuiShowAnswer()
+                const ok2 = await ankiGuiAnswerCard(Math.min(cs.ease, maxEase2))
+                if (ok2 !== false) { markSynced(cs); answered = true; break }
+              }
+              if (cur2?.cardId && cur2.cardId !== cs.cardId) break // a different card is genuinely ahead — polling won't change that
+              await sleep(300) // no card yet (queue still rebuilding) — try again
+            }
           }
-          // Another due card was ahead in the queue — do NOT touch this card's schedule any further;
-          // surface it as failed so the user can sync again (or it flushes on exit).
-          console.error('[Anki sync] reviewer presented a different card — leaving', cs.cardId, 'unrecorded, schedule untouched')
+          if (answered) continue
+          // Reviewer still would not present it (another card ahead, or a daily review limit is
+          // blocking the queue). LOW ratings may record approximately: Again/Hard mirrors a lapse
+          // (interval only ever gets SHORTER — nothing can inflate), so the struggle is never
+          // lost. Good/Easy must never be approximated on a review card (that is what inflated
+          // intervals to years) — those stay pending for the next sync attempt.
+          if (cs.ease <= 2) {
+            const days = cs.ease === 1 ? '0' : '1'
+            console.log('[Anki sync] conservative approximate fallback (low rating)', cs.cardId, 'days', days)
+            await ankiSetDueDate([cs.cardId], days)
+            await ankiInsertReviews([[Date.now() + failed.length + synced.length, cs.cardId, -1, cs.ease, parseInt(days, 10) || 0, 0, 2500, 0, 0]])
+              .catch((e) => console.warn('[Anki sync] insertReviews failed (rating still rescheduled):', e.message))
+            markSynced(cs)
+            continue
+          }
+          console.error('[Anki sync] could not present card', cs.cardId, '— Good/Easy left unrecorded, schedule untouched (will retry on next sync)')
           failed.push(cs)
         } catch (err2) {
           console.error('[Anki sync] fallback failed for card', cs.cardId, err2.message)
