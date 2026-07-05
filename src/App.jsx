@@ -2532,8 +2532,19 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     }
   }
 
+  // Always-current mirrors for async writers. A background task (chat-suggestion backfill,
+  // Discover category generation) that resolves AFTER a mode switch must never write with its
+  // stale closure: routing through saveModes used to re-assert the OLD activeModeId, flipping
+  // the app back to the previous mode — the "blinks through several configs" bug.
+  const modesRef = useRef(modes)
+  const activeModeIdRef = useRef(activeModeId)
+  useEffect(() => { modesRef.current = modes }, [modes])
+  useEffect(() => { activeModeIdRef.current = activeModeId }, [activeModeId])
+
   const saveModes = (modeList, activeId) => {
-    const id = activeId || activeModeId
+    const id = activeId || activeModeIdRef.current
+    modesRef.current = modeList
+    activeModeIdRef.current = id
     setModes(modeList)
     setActiveModeId(id)
     const payload = { modes: modeList, activeModeId: id }
@@ -2545,12 +2556,21 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     console.log('[Mode] saved', payload)
   }
 
-  const updateActiveMode = (updates) => {
-    const updated = modes.map((m) =>
-      m.id === activeModeId ? { ...m, ...updates } : m
-    )
-    saveModes(updated)
+  // Update ONE mode's config without ever touching which mode is active — safe to call from
+  // async completions. Reads/writes through the refs so late writers can't clobber changes
+  // made after their closure was captured.
+  const updateModeById = (modeId, updates) => {
+    const updated = modesRef.current.map((m) => (m.id === modeId ? { ...m, ...updates } : m))
+    modesRef.current = updated
+    setModes(updated)
+    fetch('/api/modes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ modes: updated, activeModeId: activeModeIdRef.current }),
+    }).catch(() => {})
   }
+
+  const updateActiveMode = (updates) => updateModeById(activeModeIdRef.current, updates)
 
   // Per-mode chat composer preferences (focus / level / explain language).
   const setChatPref = (k, v) => updateActiveMode({ chatPrefs: { ...(activeMode.chatPrefs || {}), [k]: v } })
@@ -3676,9 +3696,14 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
   // General modes: AI-generate 4-6 subject-specific discovery categories ONCE per mode
   // (like chatSuggestions) — e.g. Security+ gets acronyms/attack types/ports, music theory
   // gets scales/chords/cadences. The static term/acronym/comparison set is the fallback.
+  const discoverKindsGenRef = useRef(new Set()) // mode ids with generation in flight (no duplicates)
   const ensureDiscoverKinds = async () => {
     if ((activeMode.type || 'general') === 'language') return
     if (Array.isArray(activeMode.discoverKinds) && activeMode.discoverKinds.length > 0) return
+    // Pin the TARGET mode now — this resolves async and the user may have switched modes since.
+    const modeId = activeMode.id
+    if (discoverKindsGenRef.current.has(modeId)) return
+    discoverKindsGenRef.current.add(modeId)
     try {
       const prompt = `Subject: "${activeMode.name}"${activeMode.description ? ` — ${activeMode.description}` : ''}
 
@@ -3691,10 +3716,13 @@ Return ONLY a JSON array (no markdown):
       if (Array.isArray(kinds) && kinds.length > 0) {
         const clean = kinds.filter((k) => k && k.key && k.label && k.rule).slice(0, 6)
           .map((k) => ({ key: String(k.key), label: String(k.label), rule: String(k.rule) }))
-        if (clean.length > 0) updateActiveMode({ discoverKinds: clean })
+        if (clean.length > 0) updateModeById(modeId, { discoverKinds: clean })
         console.log('[Discover] generated subject categories:', clean.map((k) => k.label).join(', '))
       }
-    } catch (e) { console.warn('[Discover] category generation failed:', e.message) }
+    } catch (e) {
+      console.warn('[Discover] category generation failed:', e.message)
+      discoverKindsGenRef.current.delete(modeId) // allow a retry on the next visit
+    }
   }
 
   // Initialize Discover when the user switches to it: load ledger + profile, then STOP
@@ -6077,12 +6105,13 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
     if (activeMode.chatSuggestions && activeMode.chatSuggestions.length) return
     if (chatSuggestTriedRef.current.has(activeModeId)) return
     chatSuggestTriedRef.current.add(activeModeId)
+    const modeId = activeModeId // pin the target — this resolves async, the user may switch modes
     ;(async () => {
       try {
         const prompt = `Generate exactly 3 short example chat prompts (3-6 words each) a user could tap to start chatting with an AI tutor about this study mode. Mix a concept question, a "make a flashcard" request, and a "quiz me" request — all specific to the subject.\nMode name: "${activeMode.name}"\nSubject/description: "${activeMode.description || activeMode.name}"\nType: ${activeMode.type}\nOutput ONLY a raw JSON array of 3 strings. No markdown, no backticks.`
         const text = await aiCall(apiKey, 'You suggest example chat prompts. Respond with valid JSON only.', prompt, resolveModel('general'), { silent: true })
         const arr = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
-        if (Array.isArray(arr) && arr.length) updateActiveMode({ chatSuggestions: arr.filter(Boolean).slice(0, 3).map(String) })
+        if (Array.isArray(arr) && arr.length) updateModeById(modeId, { chatSuggestions: arr.filter(Boolean).slice(0, 3).map(String) })
       } catch { /* keep the generic defaults */ }
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
