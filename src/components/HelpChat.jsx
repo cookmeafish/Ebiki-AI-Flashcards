@@ -409,17 +409,19 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
               onMouseDown={(e) => e.stopPropagation()}
               onClick={() => { setSnapZone(null) }}
               title="Pop out to floating button"
-              style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 13, lineHeight: 1 }}
+              className="click-dim"
+              style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 13, lineHeight: 1, padding: '3px 5px', borderRadius: 5 }}
             >&#8599;</span>
           ) : (
             <span
               onMouseDown={(e) => e.stopPropagation()}
               onClick={() => { setChoosingZone(true) }}
               title="Dock… pick a spot"
-              style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 13, lineHeight: 1 }}
+              className="click-dim"
+              style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 13, lineHeight: 1, padding: '3px 5px', borderRadius: 5 }}
             >&#9699;</span>
           )}
-          <span onMouseDown={(e) => e.stopPropagation()} onClick={() => { setOpen(false); setSnapZone(null) }} style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 16, lineHeight: 1 }}>&times;</span>
+          <span onMouseDown={(e) => e.stopPropagation()} onClick={() => { setOpen(false); setSnapZone(null) }} className="click-dim" style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 16, lineHeight: 1, padding: '2px 5px', borderRadius: 5 }}>&times;</span>
         </div>
       </div>
 

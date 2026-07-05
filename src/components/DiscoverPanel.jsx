@@ -65,8 +65,8 @@ export default function DiscoverPanel(props) {
   const chipRow = (options, current, onPick) => (
     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', background: 'rgba(81,98,108,0.12)', borderRadius: 6, padding: 3, width: 'fit-content' }}>
       {options.map(([k, label]) => (
-        <button key={k} onClick={() => onPick(k)}
-          style={{ background: current === k ? 'rgba(223,37,64,0.18)' : 'transparent', color: current === k ? C.blue : C.dim, border: 'none', borderRadius: 4, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+        <button key={k} onClick={() => onPick(k)} className={current === k ? 'ui-tab-current' : undefined}
+          style={{ background: current === k ? 'rgba(223,37,64,0.18)' : 'transparent', color: current === k ? C.blue : C.dim, border: 'none', borderRadius: 4, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: current === k ? 'default' : 'pointer', fontFamily: 'inherit' }}>
           {label}
         </button>
       ))}

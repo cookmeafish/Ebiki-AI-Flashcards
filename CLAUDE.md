@@ -149,6 +149,31 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   cancels). Dropping in open space free-floats. `snapZone` = `null` (anchored to button) | `left`/`right`/
   `bottom` (edge dock) | `free`. `×` closes and restores the floating button.
 
+## ⭐ HOW TO ADD A BUTTON (follow the project's UI language exactly)
+1. **Pick the base style** (from `S` in `src/styles/theme.js`, spread then override):
+   - Ghost/action button (most buttons): `style={{ ...S.ghostBtn, fontSize: 10-12, color: <accent>,
+     borderColor: <accent at ~.3 alpha> }}` — accent is a semantic CSS var, never a hex:
+     `var(--c-danger)` destructive · `var(--c-warning)` session-level/caution · `var(--c-brand)` primary-ish ·
+     `var(--c-purple)` AI/insight features · `var(--c-success)` Anki/save · `var(--c-ink-dim)` neutral.
+   - Solid CTA (one per screen max): `style={{ ...S.captureBtn, borderRadius: 6-8 }}` + `className="btn-press"`.
+2. **Hover states are AUTOMATIC — do not add any.** A global rule darkens every non-disabled
+   `<button>`, `<select>` and checkbox on hover (theme-tuned inset overlay + slight brightness dim;
+   solid CTAs with inline shadows still dim via the brightness part). Only additions:
+   - clickable **`<div>`** → add `className="click-dim"` (divs aren't covered by the global rule);
+   - ghost buttons that should ALSO deepen their border toward their accent → add `className="ui-btn"`;
+   - nav tabs use `ui-tab` and the ACTIVE tab must carry `ui-tab-current` (exempt from lift + darken);
+   - clickable card headers use `card-head` (darkens only when NOT hovering a control inside — the
+     `:has(button:hover, select:hover)` guard) and every control inside them needs `stopPropagation`.
+   - (`.hover-dim` attributes still in the tree are legacy no-ops — the global rule superseded them.)
+3. **Never animate position on hover** (no translateY lifts — the user explicitly killed them);
+   `.btn-press` may translate on :active (press), that's the only movement allowed.
+4. **Disabled** = `opacity: .5` + `cursor: 'default'` inline, plus the real `disabled` attr (the
+   global hover rule keys off `:not(:disabled)`).
+5. **Labels**: `t('key')` with entries in ALL FOUR languages (`src/i18n/index.js`) when the surface
+   is localized (study screen is; deck browser is currently English). Leading emoji is fine (OS
+   emoji font). Explanations go in an instant tooltip: `className="tip" data-tip="…"` on a ⓘ span —
+   NEVER a bare `title` (1s delay reads as dead) — and no `overflow:hidden` on ancestors (clips it).
+
 ## ⭐ HOW TO ADD A NEW EBI EMOTE (when the user drops new shrimp images)
 1. **Place the file** in `public/assets/shrimp/` (any filename; `.png`/`.webp` both fine in `<img>`).
 2. **Register it** in `src/config/shrimp.js` → one entry in `SHRIMP`:

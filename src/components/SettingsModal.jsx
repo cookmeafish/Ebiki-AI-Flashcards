@@ -141,8 +141,8 @@ export default function SettingsModal(p) {
         {fieldLabel(t('appearance'))}
         <div style={{ display: 'flex', gap: 4, background: C.surfaceAlt, borderRadius: RADIUS.pill, padding: 3, width: 'fit-content' }}>
           {[['light', '☀️ ' + t('themeLight')], ['dark', '🌙 ' + t('themeDark')]].map(([val, label]) => (
-            <button key={val} onClick={() => setAppTheme(val)} style={{
-              border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, padding: '6px 16px', borderRadius: RADIUS.pill,
+            <button key={val} onClick={() => setAppTheme(val)} className={appTheme === val ? 'ui-tab-current' : undefined} style={{
+              border: 'none', cursor: appTheme === val ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, padding: '6px 16px', borderRadius: RADIUS.pill,
               background: appTheme === val ? C.surface : 'transparent', color: appTheme === val ? C.brand : C.inkDim, boxShadow: appTheme === val ? SHADOW.sm : 'none',
             }}>{label}</button>
           ))}
@@ -205,11 +205,12 @@ export default function SettingsModal(p) {
       <div style={card}>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
           {Object.entries(PROVIDERS).map(([key, pr]) => (
-            <button key={key} onClick={() => setProvider(key)} style={{
+            <button key={key} onClick={() => setProvider(key)} className={provider === key ? 'ui-tab-current' : undefined} style={{
               ...S.ghostBtn, fontSize: 12, padding: '5px 12px',
               color: provider === key ? pr.color : C.inkDim,
               borderColor: provider === key ? `${pr.color}66` : C.border,
               background: provider === key ? `${pr.color}14` : C.surface,
+              cursor: provider === key ? 'default' : 'pointer',
             }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: apiKeys[key] ? C.success : C.inkFaint, display: 'inline-block', marginRight: 6 }} />
               {pr.label}
@@ -249,8 +250,8 @@ export default function SettingsModal(p) {
             ].map((opt) => {
               const active = (intelligence || 'normal') === opt.key
               return (
-                <button key={opt.key} onClick={() => setIntelligence(opt.key)}
-                  style={{ flex: 1, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit', padding: '8px 10px', borderRadius: 7,
+                <button key={opt.key} onClick={() => setIntelligence(opt.key)} className={active ? 'ui-tab-current' : undefined}
+                  style={{ flex: 1, textAlign: 'left', cursor: active ? 'default' : 'pointer', fontFamily: 'inherit', padding: '8px 10px', borderRadius: 7,
                     border: `1px solid ${active ? C.brandRing : 'var(--c-border)'}`,
                     background: active ? 'rgba(223,37,64,.10)' : 'transparent' }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: active ? C.brand : C.ink }}>{active ? '● ' : '○ '}{opt.title}</div>
