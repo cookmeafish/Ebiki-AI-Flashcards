@@ -10,7 +10,7 @@ A multi-tab learning app with AI chat, Anki-integrated study sessions, screen tr
 
 ### Tabs
 - **Chat** — AI conversational assistant for learning, with inline Anki card generation, deck attachment for personalized tutoring, web search, and persistent conversation history
-- **Study** — Anki study sessions with AI-generated questions, deck browser, typo correction, feedback chat, "I know this" card deletion, "I Don't Know" skip, wrap up/end now controls, and spaced repetition insights
+- **Study** — Anki study sessions with AI-generated questions, a relaxed multiple-choice practice mode, verified PBQ exercises (match/order/sort) for certification subjects, deck browser, typo correction, feedback chat, "I know this" card deletion, "I Don't Know" skip, wrap up/end now controls, and spaced repetition insights
 - **Deck** — Browse/edit/search deck cards, add cards manually or with AI, analyze for ambiguous cards, scan for duplicates to merge
 - **Discover** — Adaptive suggestions for new cards calibrated to your level, with a setup screen and web verification (see below)
 - **Picture** — Screen capture/OCR/translation with pixel-accurate word overlays, overlay mode for games
@@ -67,7 +67,8 @@ A multi-tab learning app with AI chat, Anki-integrated study sessions, screen tr
 - **Smart Wrap Up** — immediately drops all unstarted cards (0 answers), finishes only in-progress ones. Session ends as fast as possible without abandoning cards you already started
 - **End Now** — immediately end session with partial results
 - **Spaced repetition insights** — AI analyzes session results and updates `decks/<deck>/progress-observations.md` with struggles, improvements, and mastered topics
-- **Multiple choice support** — AI can generate multiple choice questions when it makes sense, but prefers text-based answers
+- **Multiple-choice practice mode** — pick **Answer style: Multiple choice (relaxed)** on the session start screen for a laid-back session: every question comes with 4 shuffled options (keyboard 1–4 works), your pick is graded instantly with a green/red flash — no typing, no waiting on AI grading. By default nothing is recorded in Anki (cards show a PRACTICE badge); tick **Record reviews in Anki** to count them, capped at Good since recognizing an answer is easier than recalling it. If the AI fails to produce options for a question, that one gracefully falls back to typed input
+- **PBQ mode (general modes)** — non-language modes (Security+, music theory, …) get a **Performance questions (PBQ)** study type: interactive matching, step-ordering, and drag-into-category exercises like the PBQs at the start of a CompTIA exam, one per card, grounded in your knowledge base. Every exercise passes a verification pipeline before you see it — structural validation, verbatim-citation checks against your reference material, and a *blind solve* where a second AI pass must independently reach the same answer key (disagreements are adjudicated, repaired once, or discarded). Answering is tap-to-place (or arrows for ordering); after submitting, the graded exercise stays on screen with the correct answers until you hit Continue. Same practice semantics as multiple choice: Anki recording is opt-in and capped at Good
 - **Tap a word for context** — tap any word in a question (language modes) to get its meaning *as used in that question* (analyzed from the whole sentence), shown in the legend's correct-green, with other common senses in word-choice-purple, plus **text phonetics** (`/rah-soh-NAH-bleh/`) and a **🔊 audio button** to hear it. Definitions are written in your app language. This now works on the **Meaning Hint** and on the **graded-card feedback** too (the question text, the feedback line, and each note), so you can look up — and one-click make an Anki card for — any word Ebi used while explaining
 - **Ebi's memory hook** — every graded card has a **🧠 Help me remember** button right on its header (no need to expand first). Ebi builds a memory aid tailored to whatever you're studying: sound-alike + imagery hooks for vocabulary (e.g. Spanish *muelle* "dock" → picture a stubborn **mule** hauling cargo down at the dock), and acronyms / associations / mini-stories for concepts in non-language modes (CompTIA, music theory, etc.). The hook appears at the top of the card, **"↻ Another hook" adds another one below** (each a different angle, they stack rather than replace), and they're written in your app language
 - **Collapsible results with two toggles** — each graded card (and each end-of-session Batch Result) collapses to a one-line header with a **▸ Feedback** button and the **🧠 Help me remember** button. They're mutually exclusive: opening Feedback shows the questions/answers/feedback, opening the memory hook shows just Ebi's mnemonic, and clicking the open one collapses the card — so a long review is a clean, scannable menu. **Clear completed from list** sits at the very bottom so it's never mistaken for a continue/sync button
@@ -234,7 +235,8 @@ Study features:
 - **"I know this"** — delete mastered cards with confirmation
 - **Progress observations** — AI maintains `decks/<deck>/progress-observations.md` tracking struggles, improvements, and mastery
 - **Knowledge base context** — AI uses your uploaded reference materials for targeted questions
-- **Multiple choice** — AI can generate multiple choice when appropriate, prefers text answers
+- **Multiple choice practice** — optional relaxed answer style: 4 options per question, instant local grading, Anki recording opt-in (capped at Good)
+- **PBQ exercises** — general modes can study via verified match/order/sort exercises instead of typed questions
 
 ### Deck browser
 
@@ -358,6 +360,7 @@ src/
     HelpChat.jsx        ← Context-aware floating/docked help assistant
     DiscoverPanel.jsx   ← Discover Mode UI (profile header, suggestion card, actions)
     Pronunciation.jsx   ← 🔊 audio button (lazy resolve, source badge, attribution, ↻ speakers)
+    PbqQuestion.jsx     ← interactive PBQ renderer (tap-to-place matching/categorize, ▲▼ ordering, graded review)
   config/
     languages.js       ← 18 supported languages
     prompts.js         ← Translation prompt + POS/category color maps
@@ -367,6 +370,9 @@ src/
   discover/
     storage.js         ← Discover profile/ledger store (Anki media files + local fallback)
     prompts.js         ← Discover prompt builders (profile, suggestion, web verify)
+  pbq/
+    engine.js          ← pure PBQ logic: compile/validate/shuffle, deterministic grading, blind-solve comparison, prompts
+    engine.test.js     ← vitest suite for the engine (compile, citations, grading, solver parsing)
   pronunciation/
     index.js           ← 4-tier resolver chain (Anki media → Wiktionary/Commons → local TTS → browser voice)
     wiktionary.js      ← native recordings: edition pages ∪ Commons search, attribution, ↻ variants
