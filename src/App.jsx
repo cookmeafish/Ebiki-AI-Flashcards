@@ -4446,7 +4446,12 @@ Output ONLY raw JSON. No markdown, no backticks.`
         // If there's nothing to show yet, always OPEN (never collapse an empty panel while it generates).
         // Only toggle closed once there's actual content to hide.
         setStudyGradedView(p => (!hasContent ? { ...p, [ci]: 'mnemonic' } : { ...p, [ci]: p[ci] === 'mnemonic' ? undefined : 'mnemonic' }))
-        if (!cs.mnemonics?.length && !cs.mnemonicLoading) generateMnemonic(ci, cs)
+        if (!cs.mnemonics?.length && !cs.mnemonicLoading) {
+          // Saved hooks first — only generate when the note has none stored
+          const savedHooks = modeHooks[studyNoteId(cs)] || []
+          if (savedHooks.length) setStudyCardState(prev => { const u = [...prev]; if (u[ci]) u[ci] = { ...u[ci], mnemonics: [...savedHooks] }; return u })
+          else generateMnemonic(ci, cs)
+        }
       }}
       disabled={!apiKey || cs.mnemonicLoading}
       title={apiKey ? 'Ebi builds a memory aid for this card' : 'Add an API key first'}
@@ -4466,7 +4471,12 @@ Output ONLY raw JSON. No markdown, no backticks.`
       <div style={{ padding: '6px 12px', borderTop: '1px solid var(--c-border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {hooks.map((hook, hi) => (
           <div key={hi} style={{ fontSize: 11, color: 'var(--c-ink)', background: 'rgba(139,92,246,.08)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 6, padding: '8px 10px', lineHeight: 1.6 }}>
-            <div style={{ fontWeight: 700, color: 'var(--c-purple)', marginBottom: 3 }}>🧠 Ebi's memory hook{hooks.length > 1 ? ` #${hi + 1}` : ''}</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <div style={{ fontWeight: 700, color: 'var(--c-purple)', marginBottom: 3, flex: 1 }}>🧠 Ebi's memory hook{hooks.length > 1 ? ` #${hi + 1}` : ''}</div>
+              <span onClick={() => { if (deleteNoteHook(studyNoteId(cs), hook)) setStudyCardState(prev => { const u = [...prev]; if (u[ci]) u[ci] = { ...u[ci], mnemonics: (u[ci].mnemonics || []).filter((h) => h !== hook) }; return u }) }}
+                title="Delete this hook" className="click-dim"
+                style={{ cursor: 'pointer', color: 'var(--c-ink-faint)', fontSize: 13, lineHeight: 1, padding: '1px 5px', borderRadius: 4, flexShrink: 0 }}>×</span>
+            </div>
             {hook}
           </div>
         ))}
@@ -5774,7 +5784,13 @@ Flashcard front: "${front}"
 Flashcard back: "${back}"
 Subject / study mode: "${activeMode.name}"${isLanguage ? `\nThis is a ${learnLang} vocabulary card: memorize the ${learnLang} word and its meaning.` : `\nThis is a general study card (NOT language learning): memorize the concept/fact itself, never treat it as a translation exercise.`}
 
-Choose whatever memory technique actually fits THIS material (do not force one): a sound-alike or imagery association, a cognate / word-origin hook, an acronym or initialism, a short vivid story, chunking, a logical link, or a brief RATIONALIZATION of why the answer makes sense (etymology, cause, or reasoning the learner can reconstruct on their own). ${isLanguage ? 'For vocabulary, a sound-alike plus a mental image works well, e.g. Spanish "muelle" (dock): picture a stubborn MULE hauling cargo down at the dock (mule -> muelle).' : 'For facts/concepts, prefer a clear association, acronym, or a memorable concrete example that fits the subject.'}${prior.length ? `\n\nThe learner already has these memory aids for this card, so give a genuinely DIFFERENT one (new angle/technique, do not repeat them):\n${prior.map((m, i) => `${i + 1}. ${m}`).join('\n')}` : ''}
+METHOD (WaniKani-style, adapted to whatever this material actually is):
+1. DECOMPOSE — break the item into parts the learner likely already knows: morphemes/roots/pronouns for words (dár-se-lo = dar + se + lo), radicals/components for characters, expansions for acronyms, sub-steps for processes, intervals/patterns for music.
+2. STORY — weave the parts into ONE short, vivid, slightly absurd scene. Exaggeration, emotion, and sensory detail are what make it stick. The scene must END at the meaning, so recalling the story yields the answer.
+3. SOUND — if the parts alone don't carry the word's FORM, add a sound-alike bridge in the learner's own language (Spanish "muelle" (dock): a stubborn MULE hauling cargo down at the dock — mule → muelle) so they can rebuild the word itself, not just its meaning.
+When decomposition doesn't fit (an atomic fact), fall back to the strongest alternative: cognate/word-origin rationalization, an acronym, a number anchor, or a logical link the learner can re-derive.${activeMode.mnemonicHints ? `\n\nMODE-SPECIFIC HOOK GUIDANCE (configured for this subject — follow it): ${activeMode.mnemonicHints}` : ''}${prior.length ? `\n\nThe learner already has these memory aids for this card, so give a genuinely DIFFERENT one (new angle/technique, do not repeat them):\n${prior.map((m, i) => `${i + 1}. ${m}`).join('\n')}` : ''}
+
+QUALITY BAR: a good hook lets the learner RECONSTRUCT the answer from the hook alone — it must explicitly connect the FORM (sound, spelling, structure) to the MEANING. Mentally test yours: would someone who forgot this recover it from your hook? If not, choose a different technique. Never output a vague "just associate X with Y".
 
 Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. Give ONE strong primary hook, then optionally a brief backup. Plain text only: no markdown headers, no em dashes.`
     const text = await aiCall(apiKey, `You are Ebi, a friendly memory coach. Reply in ${explainLang} with a concise, concrete memory aid in plain text.`, prompt, resolveModel('study'))
@@ -5789,26 +5805,62 @@ Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. 
     try {
       const hook = await generateMemoryHook(cs.front, cs.back, prior)
       setStudyCardState(prev => { const u = [...prev]; if (u[cardIdx]) u[cardIdx] = { ...u[cardIdx], mnemonics: [...(u[cardIdx].mnemonics || []), ...(hook ? [hook] : [])], mnemonicLoading: false }; return u })
+      const nid = studyNoteId(cs)
+      if (nid && hook) addNoteHook(nid, hook) // persist — a good hook survives the session
     } catch {
       setStudyCardState(prev => { const u = [...prev]; if (u[cardIdx]) u[cardIdx] = { ...u[cardIdx], mnemonicLoading: false, mnemonicError: 'Could not generate a memory aid — try again.' }; return u })
     }
   }
 
-  // Deck-browser memory hooks, keyed by noteId (session-local, like study's cs.mnemonics)
+  // Memory hooks PERSIST per note (blob 'hooks' per mode → Anki media + local fallback, like the
+  // Discover profile) so a hook the user likes survives sessions and follows them across machines.
+  const [modeHooks, setModeHooks] = useState({}) // { [noteId]: [hook, ...] }
+  useEffect(() => {
+    let cancelled = false
+    setModeHooks({})
+    readBlob('hooks', activeMode.name).then((d) => { if (!cancelled && d && typeof d === 'object') setModeHooks(d) }).catch(() => {})
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeModeId])
+  const persistModeHooks = (next) => {
+    setModeHooks(next)
+    writeBlob('hooks', activeMode.name, next).catch(() => {})
+  }
+  const addNoteHook = (noteId, hook) => {
+    if (!noteId || !hook) return
+    const next = { ...modeHooks, [noteId]: [...(modeHooks[noteId] || []), hook] }
+    persistModeHooks(next)
+  }
+  // Delete by VALUE (indices can diverge between the session copy and the store)
+  const deleteNoteHook = (noteId, hook) => {
+    if (!window.confirm('Are you sure you want to delete this hook?')) return false
+    if (noteId) {
+      const list = (modeHooks[noteId] || []).filter((h) => h !== hook)
+      const next = { ...modeHooks }
+      if (list.length) next[noteId] = list; else delete next[noteId]
+      persistModeHooks(next)
+    }
+    return true
+  }
+  // The note behind a study card (study state stores cardId; hooks are keyed by noteId)
+  const studyNoteId = (cs) => studyAllCards.find((c) => c.cardId === cs?.cardId)?.note || null
+
+  // Deck-browser hook generation status, keyed by noteId (the hooks themselves live in modeHooks)
   const [deckBrowserMnemonics, setDeckBrowserMnemonics] = useState({})
   const generateDeckMnemonic = async (note) => {
     if (!apiKey) return
     const id = note.noteId
-    const priorHooks = deckBrowserMnemonics[id]?.hooks || []
-    setDeckBrowserMnemonics(prev => ({ ...prev, [id]: { ...(prev[id] || { hooks: [] }), loading: true, error: null } }))
+    const priorHooks = modeHooks[id] || []
+    setDeckBrowserMnemonics(prev => ({ ...prev, [id]: { loading: true, error: null } }))
     try {
       const fields = Object.entries(note.fields).sort(([, a], [, b]) => a.order - b.order)
       const front = stripHtml(fields[0]?.[1]?.value || '')
       const back = backTextLines(fields[1]?.[1]?.value || '').join('\n')
       const hook = await generateMemoryHook(front, back, priorHooks)
-      setDeckBrowserMnemonics(prev => { const e = prev[id] || { hooks: [] }; return { ...prev, [id]: { hooks: [...(e.hooks || []), ...(hook ? [hook] : [])], loading: false, error: null } } })
+      if (hook) addNoteHook(id, hook)
+      setDeckBrowserMnemonics(prev => ({ ...prev, [id]: { loading: false, error: null } }))
     } catch {
-      setDeckBrowserMnemonics(prev => ({ ...prev, [id]: { ...(prev[id] || { hooks: [] }), loading: false, error: 'Could not generate a memory aid — try again.' } }))
+      setDeckBrowserMnemonics(prev => ({ ...prev, [id]: { loading: false, error: 'Could not generate a memory aid — try again.' } }))
     }
   }
 
@@ -7049,6 +7101,8 @@ Generate a JSON config for this study mode:
 - "tagRules": instructions for AI tag generation. Include "screenlens" always. Add subject-specific categories. Tags should be lowercase, no spaces (use hyphens).
 - "questionPrompt": instructions for AI when generating study/quiz questions for flashcards in this mode. Describe what kinds of questions to ask (e.g. definitions, real-world scenarios, comparisons). Be specific to the subject matter.
 - "chatSuggestions": an array of exactly 3 short example prompts (3-6 words each) the user could tap to start chatting with Ebi about THIS subject — a natural mix like asking a concept question, requesting a flashcard, and asking to be quizzed. Make them specific to the subject (e.g. for Spanish: "Help me with verb conjugations", "Make a flashcard for 'correr'", "Quiz me on common phrases"; for Security+: "Explain subnetting", "Make a flashcard about DNS", "Quiz me on the OSI model").
+- "mnemonicHints": 2-3 sentences instructing a memory coach what KINDS of memory hooks work best for THIS subject — e.g. for a language: sound-alikes bridging to the learner's language plus vivid imagery, and morphology chunking for compound words; for a certification: acronym expansions, number anchors (ports, sizes), and real-world scenario associations; for music: interval patterns and reference songs. Be concrete and subject-specific.
+- "tagCategories": array of 6-12 lowercase tag strings that make USEFUL card filters for this subject — the part-of-speech names in the relevant language(s) exactly as the tag rules would produce them, the difficulty-level tags, and the 2-4 most important category tags or prefixes (a prefix ends with "-", e.g. "verbs-").
 
 Output ONLY raw JSON. No markdown, no backticks.`
 
@@ -7074,6 +7128,8 @@ Output ONLY raw JSON. No markdown, no backticks.`
           ratingRules: defaultStudyRules.ratingRules,
         },
         chatSuggestions: Array.isArray(config.chatSuggestions) ? config.chatSuggestions.filter(Boolean).slice(0, 3).map(String) : [],
+        mnemonicHints: typeof config.mnemonicHints === 'string' ? config.mnemonicHints.slice(0, 600) : '',
+        tagCategories: Array.isArray(config.tagCategories) ? config.tagCategories.filter(Boolean).slice(0, 12).map((s) => String(s).toLowerCase()) : [],
         ankiDeck: ankiDeckForMode || '',
       }
       saveModes([...modes, newMode], newId)
@@ -7661,14 +7717,22 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   Options are RESTRICTED to useful categories (part of speech / frequency / region /
                   register / level) — the deck's full topical tag soup made the dropdown unusable. */}
               {deckBrowserNotes.length > 0 && (() => {
-                const KEEP = [
-                  /^freq-/, /^region-/, /^register-/,
+                // Prefer the MODE's own filter categories (generated at mode creation — the right
+                // POS names for its language, its key topics); static whitelist covers older modes.
+                const modeCats = Array.isArray(activeMode.tagCategories) ? activeMode.tagCategories.filter(Boolean) : []
+                const STATIC = [
                   /^(noun|verb|adjective|adverb|pronoun|preposition|conjunction|expression|phrase|idiom)(-|$)/,
                   /^(sustantivo|verbo|adjetivo|adverbio|pronombre|preposici[oó]n|conjunci[oó]n|expresi[oó]n|frase)(-|$)/,
                   /^(beginner|intermediate|advanced|principiante|intermedio|avanzado)$/,
                 ]
+                const keepTag = (tag) => {
+                  const tl = String(tag).toLowerCase()
+                  if (/^(freq|region|register)-/.test(tl)) return true // usage tags always filterable
+                  if (modeCats.length) return modeCats.some((c) => (c.endsWith('-') ? tl.startsWith(c) : tl === c))
+                  return STATIC.some((re) => re.test(tl))
+                }
                 const allTags = [...new Set(deckBrowserNotes.flatMap((n) => n.tags || []))]
-                  .filter((tag) => KEEP.some((re) => re.test(String(tag).toLowerCase())))
+                  .filter(keepTag)
                   .sort()
                 if (allTags.length === 0) return null
                 return (
@@ -8238,16 +8302,20 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                     : `Studied ${note.stats.reps}× · ${note.stats.lapses} lapse${note.stats.lapses === 1 ? '' : 's'} · interval ${fmtInterval(note.stats.interval)} · last activity ${new Date(note.stats.mod * 1000).toLocaleDateString()}`}
                                 </div>
                               )}
-                              {/* Ebi's memory hooks — same engine as study's "Help me remember" */}
+                              {/* Ebi's memory hooks — persisted per note (survive sessions, sync via Anki media) */}
                               <div style={{ marginTop: 8 }}>
-                                {(deckBrowserMnemonics[note.noteId]?.hooks || []).map((hook, hi) => (
+                                {(modeHooks[note.noteId] || []).map((hook, hi) => (
                                   <div key={hi} style={{ fontSize: 11, color: 'var(--c-ink)', background: 'rgba(139,92,246,.08)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 6, padding: '8px 10px', lineHeight: 1.6, marginBottom: 6 }}>
-                                    <div style={{ fontWeight: 700, color: 'var(--c-purple)', marginBottom: 3 }}>🧠 Ebi's memory hook{(deckBrowserMnemonics[note.noteId]?.hooks?.length || 0) > 1 ? ` #${hi + 1}` : ''}</div>
+                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                                      <div style={{ fontWeight: 700, color: 'var(--c-purple)', marginBottom: 3, flex: 1 }}>🧠 Ebi's memory hook{(modeHooks[note.noteId]?.length || 0) > 1 ? ` #${hi + 1}` : ''}</div>
+                                      <span onClick={() => deleteNoteHook(note.noteId, hook)} title="Delete this hook" className="click-dim"
+                                        style={{ cursor: 'pointer', color: 'var(--c-ink-faint)', fontSize: 13, lineHeight: 1, padding: '1px 5px', borderRadius: 4, flexShrink: 0 }}>×</span>
+                                    </div>
                                     {hook}
                                   </div>
                                 ))}
                                 {deckBrowserMnemonics[note.noteId]?.loading && (
-                                  <div style={{ fontSize: 11, color: 'var(--c-purple)', marginBottom: 6 }}>🧠 Ebi is thinking of {(deckBrowserMnemonics[note.noteId]?.hooks?.length || 0) ? 'another' : 'a'} memory hook…</div>
+                                  <div style={{ fontSize: 11, color: 'var(--c-purple)', marginBottom: 6 }}>🧠 Ebi is thinking of {(modeHooks[note.noteId]?.length || 0) ? 'another' : 'a'} memory hook…</div>
                                 )}
                                 {deckBrowserMnemonics[note.noteId]?.error && (
                                   <div style={{ fontSize: 10, color: 'var(--c-danger)', marginBottom: 6 }}>{deckBrowserMnemonics[note.noteId].error}</div>
@@ -8255,7 +8323,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                 <button onClick={() => generateDeckMnemonic(note)} disabled={!apiKey || deckBrowserMnemonics[note.noteId]?.loading}
                                   title={apiKey ? 'Ebi builds a memory aid for this card (mnemonics, associations, why it makes sense)' : 'Add an API key first'}
                                   style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 10px', fontWeight: 700, color: 'var(--c-purple)', borderColor: 'rgba(139,92,246,.4)', opacity: (apiKey && !deckBrowserMnemonics[note.noteId]?.loading) ? 1 : 0.6 }}>
-                                  🧠 {deckBrowserMnemonics[note.noteId]?.loading ? 'Thinking…' : (deckBrowserMnemonics[note.noteId]?.hooks?.length ? '↻ Another hook' : 'Help me learn this')}
+                                  🧠 {deckBrowserMnemonics[note.noteId]?.loading ? 'Thinking…' : (modeHooks[note.noteId]?.length ? '↻ Another hook' : 'Help me learn this')}
                                 </button>
                               </div>
                             </div>
