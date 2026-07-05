@@ -396,6 +396,12 @@ export default function App() {
   // Graded PBQ awaiting the user's "Continue" — like the choice flash, the session state has
   // already advanced underneath; this only keeps the reviewed exercise on screen.
   const [studyPbqReview, setStudyPbqReview] = useState(null)
+  // Typed-answer feedback flash: { question, answer, kind: 'correct' | 'check' }. 'correct' =
+  // locally verified against acceptedAnswers (green ✓, no AI); 'check' = recorded but only the
+  // AI grader can judge it (amber ⏳ — explanation questions, general modes, hint-exhausted).
+  const [studyTypedFlash, setStudyTypedFlash] = useState(null)
+  // Bumped when a wrong answer keeps the question on screen (hint retry) — drives the ✗ shake.
+  const [studyInputShake, setStudyInputShake] = useState(0)
   const [studyConjugationWords, setStudyConjugationWords] = useState([]) // word pool for conjugation mode
   const [studyConjugationLanguage, setStudyConjugationLanguage] = useState('English') // language detected from deck content
   const [studyDeck, setStudyDeck] = useState('')
@@ -4851,14 +4857,14 @@ Output ONLY raw JSON. No markdown, no backticks.`
     if (studyWrappingUpRef.current) return
     // Multiple-choice grades locally (synchronously), so without this guard the last answer's
     // right/wrong flash would be skipped straight into Batch Results before it ever painted.
-    // Same for a graded PBQ awaiting its Continue click.
-    if (studyChoiceFlash || studyPbqReview) return
+    // Same for a graded PBQ awaiting its Continue click, and the typed-answer feedback flash.
+    if (studyChoiceFlash || studyPbqReview || studyTypedFlash) return
     if (!studyCardState.every(cs => cs.done) || !studyCardState.every(cs => !cs.evaluating)) return
     const poolExhausted = studyMode === 'conjugations'
       ? studyBatchIdx >= studyConjugationWords.length
       : studyBatchIdx >= studyAllCards.length
     if (poolExhausted) setStudyPhase('batchFeedback')
-  }, [studyActive, studyPhase, studyCardState, studyBatchIdx, studyMode, studyAllCards.length, studyConjugationWords.length, studyChoiceFlash, studyPbqReview])
+  }, [studyActive, studyPhase, studyCardState, studyBatchIdx, studyMode, studyAllCards.length, studyConjugationWords.length, studyChoiceFlash, studyPbqReview, studyTypedFlash])
 
   const submitStudyAnswer = async () => {
     if (!studyInput.trim() || studyLoading || !currentQuestion) return
@@ -4956,12 +4962,22 @@ Output ONLY raw JSON. No markdown, no backticks.`
         setStudyCurrentHint(nextHint)
         setStudyCardState(newStates)
         setStudyInput('')
+        setStudyInputShake((n) => n + 1) // definitively wrong right now → red ✗ shake, retry stays on screen
         return
       }
       // All remaining hints already satisfied — fall through and advance
     }
 
-    // Advance — correct, explanation type, or max hints exhausted
+    // Advance — correct, explanation type, or max hints exhausted.
+    // Feedback flash (frozen snapshot, state advances underneath — same pattern as the MC flash):
+    // green ✓ when the answer matched acceptedAnswers locally; amber ⏳ "Ebi will check" when only
+    // the AI grader can judge it (explanation questions, general modes, hint-exhausted answers —
+    // inflection tolerance can still accept those, so a hard ✗ would sometimes be a lie).
+    const flashKind = (isLanguageMode && !isExplanation && acceptedAnswers.length > 0 && isCorrect) ? 'correct' : 'check'
+    setStudyTypedFlash({ question: getQuestionText(questionObj), answer, kind: flashKind })
+    if (studyTypedFlashTimer.current) clearTimeout(studyTypedFlashTimer.current)
+    studyTypedFlashTimer.current = setTimeout(() => setStudyTypedFlash(null), flashKind === 'correct' ? 650 : 850)
+
     setStudyHintLevel(0)
     setStudyCurrentHint(null)
     setStudyMeaningHint(null); setStudyWordLookup(null)
@@ -5008,6 +5024,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
   // the flash snapshot (a frozen copy of the question + colored options) is all that lingers on
   // screen for a moment, which avoids any delayed-setState races with background evaluations.
   const studyChoiceFlashTimer = useRef(null)
+  const studyTypedFlashTimer = useRef(null)
   const submitStudyChoice = (choiceIdx) => {
     if (studyLoading || !currentQuestion || studyChoiceFlash) return
     const { cardIdx, questionIdx } = currentQuestion
@@ -5870,6 +5887,8 @@ Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. 
     setStudyConjugationLanguage('English')
     if (studyChoiceFlashTimer.current) clearTimeout(studyChoiceFlashTimer.current)
     setStudyChoiceFlash(null)
+    if (studyTypedFlashTimer.current) clearTimeout(studyTypedFlashTimer.current)
+    setStudyTypedFlash(null)
     setStudyPbqReview(null)
   }
 
@@ -8391,21 +8410,35 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     </div>
                   )}
 
-                  {/* Header */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <div style={{ display: 'flex', gap: 12, fontSize: 12 }}>
+                  {/* Header — session-level info + controls (Wrap Up / End Now live here, not on the card) */}
+                  {(() => {
+                    const poolRemaining = Math.max(0, (studyMode === 'conjugations' ? studyConjugationWords.length : studyAllCards.length) - studyBatchIdx)
+                    const totalCards = completedCount + activeCount + poolRemaining
+                    return (<>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+                    <div style={{ display: 'flex', gap: 12, fontSize: 12, alignItems: 'baseline' }}>
+                      <span style={{ color: 'var(--c-ink)', fontWeight: 700 }}>{completedCount}<span style={{ color: 'var(--c-ink-dim)', fontWeight: 400 }}>/{totalCards}</span></span>
                       <span style={{ color: 'var(--c-brand)' }}>{activeCount} <span style={{ fontSize: 10, color: 'var(--c-ink-dim)' }}>{t('active')}</span></span>
-                      <span style={{ color: 'var(--c-success)' }}>{completedCount} <span style={{ fontSize: 10, color: 'var(--c-ink-dim)' }}>{t('doneCount')}</span></span>
-                      <span style={{ color: 'var(--c-ink-dim)' }}>{studyDeckStats.new_count || 0} {t('new')} / {studyDeckStats.learn_count || 0} {t('learn')} / {studyDeckStats.review_count || 0} {t('due')}</span>
+                      <span style={{ color: 'var(--c-ink-dim)', fontSize: 11 }}>{studyDeckStats.new_count || 0} {t('new')} / {studyDeckStats.learn_count || 0} {t('learn')} / {studyDeckStats.review_count || 0} {t('due')}</span>
                     </div>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      {!studyWrappingUp && (
+                        <button onClick={studyWrapUp} style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-warning)', borderColor: 'rgba(232,147,12,.25)' }}>{t('wrapUp')}</button>
+                      )}
+                      <button onClick={studyEndNow} style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-danger)', borderColor: 'rgba(229,57,46,.25)' }}>{t('endNow')}</button>
                       <FeedbackLegend />
                       <button onClick={exitStudy} style={{ ...S.ghostBtn, fontSize: 10 }}>{t('exitStudy')}</button>
                     </div>
                   </div>
+                  {/* Session progress — cards completed out of everything this session will cover */}
+                  <div style={{ height: 3, borderRadius: 2, background: 'var(--c-border)', marginBottom: 14, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${totalCards ? Math.round((completedCount / totalCards) * 100) : 0}%`, background: 'var(--c-brand)', borderRadius: 2, transition: 'width .4s ease' }} />
+                  </div>
+                    </>)
+                  })()}
 
                   {/* Current question — card front is HIDDEN. Ebi studies alongside, to the right. */}
-                  {(question || studyChoiceFlash || studyPbqReview) ? (
+                  {(question || studyChoiceFlash || studyPbqReview || studyTypedFlash) ? (
                     <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start', justifyContent: 'center', flexWrap: 'wrap' }}>
                     <div style={{
                       flex: '1 1 480px', maxWidth: 620, minWidth: 0,
@@ -8416,7 +8449,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       {/* Multiple-choice flash: a frozen copy of the question just answered, showing the
                           right/wrong colors for a beat while the live state has already moved on. */}
                       {studyChoiceFlash ? (<>
-                        <div style={{ fontSize: 13, color: 'var(--c-ink)', fontWeight: 600, marginBottom: 10 }}>{studyChoiceFlash.question}</div>
+                        <div style={{ fontSize: 15.5, lineHeight: 1.6, color: 'var(--c-ink)', fontWeight: 600, marginBottom: 10 }}>{studyChoiceFlash.question}</div>
                         {renderChoiceButtons(studyChoiceFlash.choices, { picked: studyChoiceFlash.picked, answerIdx: studyChoiceFlash.answerIdx })}
                       </>) : studyPbqReview ? (<>
                         {/* Graded PBQ — stays until Continue so the student can study what was wrong */}
@@ -8429,6 +8462,23 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         <PbqQuestion pbq={studyPbqReview.pbq} t={t} onSubmit={() => {}} review={{ assign: studyPbqReview.assign, perItem: studyPbqReview.perItem }} />
                         <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
                           <button className="btn-press" onClick={() => setStudyPbqReview(null)} style={{ ...S.captureBtn, borderRadius: 8 }}>{t('pbqContinue')}</button>
+                        </div>
+                      </>) : studyTypedFlash ? (<>
+                        {/* Typed-answer feedback: green ✓ = locally verified; amber ⏳ = Ebi grades it later */}
+                        <div style={{ fontSize: 15.5, lineHeight: 1.6, color: 'var(--c-ink)', fontWeight: 600, marginBottom: 12 }}>{studyTypedFlash.question}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 10,
+                            fontSize: 14, fontWeight: 700, animation: 'pop .25s cubic-bezier(.34,1.56,.64,1)',
+                            border: `1.5px solid ${studyTypedFlash.kind === 'correct' ? 'var(--c-success)' : 'var(--c-warning)'}`,
+                            background: studyTypedFlash.kind === 'correct' ? 'rgba(24,169,87,.12)' : 'rgba(232,147,12,.10)',
+                            color: studyTypedFlash.kind === 'correct' ? 'var(--c-success)' : 'var(--c-warning)',
+                          }}>
+                            {studyTypedFlash.kind === 'correct' ? '✓' : '⏳'} {studyTypedFlash.answer}
+                          </span>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: studyTypedFlash.kind === 'correct' ? 'var(--c-success)' : 'var(--c-ink-dim)' }}>
+                            {studyTypedFlash.kind === 'correct' ? t('studyFlashCorrect') : t('studyFlashCheck')}
+                          </span>
                         </div>
                       </>) : (<>
                       {/* Conjugation mode: show the word being conjugated + option to add it to Anki */}
@@ -8449,9 +8499,24 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         </div>
                       )}
 
+                      {/* Question progress dots — which question of this card you're on */}
+                      {cs && cs.questions.length > 1 && (
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+                          <span className="tip" data-tip={`${t('studyQuestionOf')} ${Math.min(cs.questionIdx + 1, cs.questions.length)}/${cs.questions.length}`} style={{ display: 'inline-flex', gap: 5, alignItems: 'center', padding: 2 }}>
+                            {cs.questions.map((_, qi) => (
+                              <span key={qi} style={{
+                                width: 7, height: 7, borderRadius: '50%', boxSizing: 'border-box',
+                                background: qi < cs.questionIdx ? 'var(--c-brand)' : 'transparent',
+                                border: `1.5px solid ${qi <= cs.questionIdx ? 'var(--c-brand)' : 'var(--c-border)'}`,
+                              }} />
+                            ))}
+                          </span>
+                        </div>
+                      )}
+
                       {(() => {
                         if (activeMode.type !== 'language') {
-                          return <div key={`q-${cq?.cardIdx}-${cq?.questionIdx}`} style={{ fontSize: 13, color: 'var(--c-ink)', fontWeight: 600, marginBottom: studyWordLookup ? 6 : 8, animation: 'fadeUp .25s ease' }}>{question}</div>
+                          return <div key={`q-${cq?.cardIdx}-${cq?.questionIdx}`} style={{ fontSize: 15.5, lineHeight: 1.6, color: 'var(--c-ink)', fontWeight: 600, marginBottom: studyWordLookup ? 6 : 10, animation: 'fadeUp .25s ease' }}>{question}</div>
                         }
                         const answers = questionObj?.acceptedAnswers || []
                         // Word hints (ruby-style): map each non-answer word to its meaning, shown above it.
@@ -8465,7 +8530,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         }
                         const anyGloss = Object.keys(glossMap).length > 0
                         return (
-                          <div key={`q-${cq?.cardIdx}-${cq?.questionIdx}`} style={{ fontSize: 13, color: 'var(--c-ink)', fontWeight: 600, marginBottom: studyWordLookup ? 6 : 8, animation: 'fadeUp .25s ease', lineHeight: anyGloss ? 2.4 : undefined }}>
+                          <div key={`q-${cq?.cardIdx}-${cq?.questionIdx}`} style={{ fontSize: 15.5, color: 'var(--c-ink)', fontWeight: 600, marginBottom: studyWordLookup ? 6 : 10, animation: 'fadeUp .25s ease', lineHeight: anyGloss ? 2.4 : 1.6 }}>
                             {question.split(/(\s+)/).map((tok, ti) => {
                               if (/^\s+$/.test(tok) || tok === '') return <span key={ti}>{tok}</span>
                               const clean = tok.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '')
@@ -8518,13 +8583,17 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       ) : questionHasChoices(questionObj) ? (
                         renderChoiceButtons(questionObj.choices, { onPick: submitStudyChoice })
                       ) : (
-                      <div style={{ display: 'flex', gap: 8 }}>
+                      <div key={`shake-${studyInputShake}`} className={studyInputShake ? 'study-shake' : undefined} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        {/* Red ✗ while the missed attempt is on screen; typing clears it */}
+                        {studyCurrentHint && !studyInput && (
+                          <span style={{ color: 'var(--c-danger)', fontWeight: 800, fontSize: 17, flexShrink: 0 }}>✗</span>
+                        )}
                         <input
                           value={studyInput}
                           onChange={(e) => setStudyInput(e.target.value)}
                           onKeyDown={(e) => { if (e.key === 'Enter') submitStudyAnswer() }}
                           placeholder={studyCurrentHint ? t('tryAgain') + '...' : t('typeYourAnswer')}
-                          style={{ ...S.keyInput, flex: 1, fontSize: 13, padding: '10px 14px' }}
+                          style={{ ...S.keyInput, flex: 1, fontSize: 14, padding: '10px 14px' }}
                           autoFocus
                         />
                         <button onClick={submitStudyAnswer} disabled={!studyInput.trim()}
@@ -8563,12 +8632,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                             <button onClick={undoLastAnswer} style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-ink-dim)', borderColor: 'var(--c-border)' }}>← {t('back')}</button>
                           )}
                         </div>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          {!studyWrappingUp && (
-                            <button onClick={studyWrapUp} style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-warning)', borderColor: 'rgba(232,147,12,.25)' }}>{t('wrapUp')}</button>
-                          )}
-                          <button onClick={studyEndNow} style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-danger)', borderColor: 'rgba(229,57,46,.25)' }}>{t('endNow')}</button>
-                        </div>
+                        {/* Session-level Wrap Up / End Now moved to the header — only card actions live here */}
                       </div>
 
                       {studyDeleteConfirm === cq.cardIdx && (
@@ -9668,6 +9732,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
 
         /* Duolingo-style 3D press: add className "btn-press" to primary CTAs */
         .btn-press:active:not(:disabled) { transform: translateY(2px); box-shadow: none !important; }
+
+        /* Wrong typed answer (hint retry) — the input row shakes once */
+        @keyframes shake { 0%,100% { transform: translateX(0) } 20% { transform: translateX(-6px) } 40% { transform: translateX(6px) } 60% { transform: translateX(-4px) } 80% { transform: translateX(4px) } }
+        .study-shake { animation: shake .35s ease; }
 
         /* Instant hover tooltip (the native title attribute has a ~1s delay and reads as dead).
            Usage: <span className="tip" data-tip="explanation">ⓘ</span> */
