@@ -406,6 +406,10 @@ export default function App() {
   const [studyTypedFlash, setStudyTypedFlash] = useState(null)
   // Bumped when a wrong answer keeps the question on screen (hint retry) — drives the ✗ shake.
   const [studyInputShake, setStudyInputShake] = useState(0)
+  // Accent drill: the answer was CORRECT except for accents ("quimico" for "químico") — hold the
+  // advance and have the user type the accented form once. { canonical, original }. Grading is
+  // never affected (the card records the original answer); AI-graded questions never trigger it.
+  const [studyAccentRetype, setStudyAccentRetype] = useState(null)
   // "Fix this question" — complain about the LIVE question before answering; it regenerates in
   // place and the distilled preference is saved to the mode (same channel as the feedback chat).
   const [studyFixQ, setStudyFixQ] = useState(null) // null | { input, loading, error? }
@@ -2349,6 +2353,9 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
 
   // The language the active mode is teaching (Spanish, German, Chinese…) and the user's own language.
   const learnLangName = () => activeMode.studyRules?.studyLanguage || (LANGS.find((l) => l.code === language)?.label) || activeMode.name || 'the target language'
+  // Languages whose orthography uses diacritics a learner must TYPE — gates the accent-drill toggle.
+  const ACCENT_LANGS = new Set(['spanish', 'french', 'german', 'portuguese', 'italian', 'polish', 'vietnamese', 'czech', 'hungarian', 'romanian', 'turkish', 'swedish', 'norwegian', 'danish', 'finnish', 'icelandic', 'catalan', 'dutch', 'slovak', 'croatian'])
+  const langSupportsAccents = (name) => ACCENT_LANGS.has(String(name || '').toLowerCase())
   const userLangName = () => APP_LANG_NAME[appLanguage] || 'English'
   // The language Ebi SPEAKS in (questions, hints, feedback, tutor chat). NEVER static:
   // - language modes → the "Ebi speaks" quizLanguage, falling back to the learned language;
@@ -5099,9 +5106,9 @@ Output ONLY raw JSON. No markdown, no backticks.`
     if (poolExhausted) setStudyPhase('batchFeedback')
   }, [studyActive, studyPhase, studyCardState, studyBatchIdx, studyMode, studyAllCards.length, studyConjugationWords.length, studyChoiceFlash, studyPbqReview, studyTypedFlash])
 
-  const submitStudyAnswer = async () => {
-    if (!studyInput.trim() || studyLoading || !currentQuestion) return
-    const answer = studyInput.trim()
+  const submitStudyAnswer = async (overrideInput) => {
+    if (!String(overrideInput ?? studyInput).trim() || studyLoading || !currentQuestion) return
+    let answer = String(overrideInput ?? studyInput).trim()
     const { cardIdx, questionIdx } = currentQuestion
     const cs = studyCardState[cardIdx]
     const questionObj = cs.questions[questionIdx]
@@ -5121,6 +5128,23 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const stripArticles = (s) => s.replace(/^(el|la|los|las|un|una|unos|unas|lo|al|del|the|a|an|to)\s+/, '')
     const stripAccents = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '')
     const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+    // ACCENT DRILL resolution: a previous submit was correct except for accents and the advance
+    // is on hold. Accept only the properly-accented target (extra words around it are fine),
+    // then continue with the ORIGINAL answer so grading and records are unaffected.
+    let cameFromRetype = false
+    if (studyAccentRetype) {
+      const typedN = normalize(answer)
+      const canonN = normalize(studyAccentRetype.canonical)
+      const canonNoArtN = stripArticles(canonN)
+      const okRetype = typedN === canonN || stripArticles(typedN) === canonNoArtN ||
+        (canonNoArtN.length >= 3 && new RegExp(`(^|\\s)${escapeRe(canonNoArtN)}(\\s|$)`).test(stripArticles(typedN)))
+      if (!okRetype) { setStudyInput(''); setStudyInputShake((n) => n + 1); return }
+      answer = studyAccentRetype.original
+      cameFromRetype = true
+      setStudyAccentRetype(null)
+    }
+
     const ans = normalize(answer)
     const ansNoArt = stripArticles(ans)
     // Exact match (accent- and spelling-sensitive)
@@ -5152,18 +5176,32 @@ Output ONLY raw JSON. No markdown, no backticks.`
     // accented and un-accented variants, so we can't just check "was there an exact match" —
     // we compare the typed answer against the canonical (accented) spelling specifically.
     const grammarOn = (activeMode.studyRules || defaultStudyRules).grammarFeedback || false
-    if (isCorrect && grammarOn && isLanguageMode && !isExplanation && acceptedAnswers.length > 0) {
+    // Accent drill has its own per-mode toggle (default ON); a language without accented
+    // acceptedAnswers can never trigger it regardless.
+    const accentDrillOn = (activeMode.studyRules || defaultStudyRules).accentDrill !== false
+    if (isCorrect && !cameFromRetype && accentDrillOn && isLanguageMode && !isExplanation && acceptedAnswers.length > 0) {
       const matched = acceptedAnswers.filter(matchesLenient)
       // Canonical = a matched variant that actually carries accent marks (the spelling to teach)
       const canonical = matched.find(a => stripAccents(normalize(a)) !== normalize(a))
       if (canonical) {
         const canonNorm = normalize(canonical)
         const canonNoArt = stripArticles(canonNorm)
-        const typedExactly = canonNorm === ans || canonNoArt === ansNoArt || canonNorm === ansNoArt || canonNoArt === ans
+        const typedExactly = canonNorm === ans || canonNoArt === ansNoArt || canonNorm === ansNoArt || canonNoArt === ans ||
+          (canonNoArt.length >= 3 && new RegExp(`(^|\\s)${escapeRe(canonNoArt)}(\\s|$)`).test(ansNoArt))
         if (!typedExactly) {
-          if (studySpellingNoteTimer.current) clearTimeout(studySpellingNoteTimer.current)
-          setStudySpellingNote({ correct: canonical })
-          studySpellingNoteTimer.current = setTimeout(() => setStudySpellingNote(null), 10000)
+          // ACCENT DRILL: the answer is CORRECT but the accents are missing/wrong. Hold the
+          // advance and have the user type the accented form once — typing is how accents
+          // stick. Extra surrounding words ("el quimico dulce") don't matter: only the
+          // accepted answer itself is checked. Locally-verified questions only — anything the
+          // AI must grade never reaches this branch (isCorrect requires acceptedAnswers).
+          const held = [...studyCardState]
+          const heldAttempts = [...(cs.questionAttempts || [])]
+          heldAttempts[questionIdx] = allAttempts
+          held[cardIdx] = { ...cs, questionAttempts: heldAttempts }
+          setStudyCardState(held)
+          setStudyAccentRetype({ canonical, original: answer })
+          setStudyInput('')
+          return
         }
       }
     }
@@ -5372,8 +5410,8 @@ Output ONLY raw JSON. No markdown, no backticks.`
     pullNewCard()
   }
 
-  // Close the "fix question" panel whenever the live question changes
-  useEffect(() => { setStudyFixQ(null) }, [currentQuestion])
+  // Close the "fix question" panel + accent drill whenever the live question changes
+  useEffect(() => { setStudyFixQ(null); setStudyAccentRetype(null) }, [currentQuestion])
 
   // Load the mode deck's progress observations so Ebi (Help + Chat) always knows the learner
   useEffect(() => {
@@ -6376,6 +6414,7 @@ Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. 
     if (studyTypedFlashTimer.current) clearTimeout(studyTypedFlashTimer.current)
     setStudyTypedFlash(null)
     setStudyPbqReview(null)
+    setStudyAccentRetype(null)
     studySyncedIdsRef.current = new Set()
   }
 
@@ -7614,9 +7653,19 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   <option value="mastered">Mastered (longest interval)</option>
                 </select>
               )}
-              {/* Tag filter — the usage tags (freq-, region-, register-) make this a commonness filter */}
+              {/* Tag filter — the usage tags (freq-, region-, register-) make this a commonness filter.
+                  Options are RESTRICTED to useful categories (part of speech / frequency / region /
+                  register / level) — the deck's full topical tag soup made the dropdown unusable. */}
               {deckBrowserNotes.length > 0 && (() => {
-                const allTags = [...new Set(deckBrowserNotes.flatMap((n) => n.tags || []))].sort()
+                const KEEP = [
+                  /^freq-/, /^region-/, /^register-/,
+                  /^(noun|verb|adjective|adverb|pronoun|preposition|conjunction|expression|phrase|idiom)(-|$)/,
+                  /^(sustantivo|verbo|adjetivo|adverbio|pronombre|preposici[oó]n|conjunci[oó]n|expresi[oó]n|frase)(-|$)/,
+                  /^(beginner|intermediate|advanced|principiante|intermedio|avanzado)$/,
+                ]
+                const allTags = [...new Set(deckBrowserNotes.flatMap((n) => n.tags || []))]
+                  .filter((tag) => KEEP.some((re) => re.test(String(tag).toLowerCase())))
+                  .sort()
                 if (allTags.length === 0) return null
                 return (
                   <select value={deckBrowserTagFilter} onChange={(e) => setDeckBrowserTagFilter(e.target.value)}
@@ -8864,6 +8913,13 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           <input type="checkbox" checked={sr.wordHints || false} onChange={(e) => setSR({ wordHints: e.target.checked })} />
                           {t('studyWordHints')} <span className="tip" data-tip={t('studyWordHintsDesc')} style={{ color: 'var(--c-ink-faint)' }}>ⓘ</span>
                         </label>
+                        {/* Accent drill — only offered when the learned language actually uses diacritics */}
+                        {langSupportsAccents(learned) && (
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--c-ink-dim)', cursor: 'pointer' }}>
+                            <input type="checkbox" checked={sr.accentDrill !== false} onChange={(e) => setSR({ accentDrill: e.target.checked })} />
+                            {t('studyAccentDrill')} <span className="tip" data-tip={t('studyAccentDrillDesc')} style={{ color: 'var(--c-ink-faint)' }}>ⓘ</span>
+                          </label>
+                        )}
                       </div>
                     )}
                   </>))}
@@ -9158,6 +9214,17 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       ) : questionHasChoices(questionObj) ? (
                         renderChoiceButtons(questionObj.choices, { onPick: submitStudyChoice })
                       ) : (
+                      {/* Accent drill: correct answer, wrong/missing accents — type the accented form once */}
+                      {studyAccentRetype && (
+                        <div style={{ fontSize: 12, background: 'rgba(232,147,12,.08)', border: '1px solid rgba(232,147,12,.25)', borderRadius: 6, padding: '6px 10px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <span style={{ color: 'var(--c-success)', fontWeight: 700 }}>✓ {t('studyFlashCorrect')}</span>
+                          <span style={{ color: 'var(--c-warning)' }}>{t('studyAccentPrompt')} <b style={{ color: 'var(--c-ink)', fontSize: 13 }}>{studyAccentRetype.canonical}</b></span>
+                          <button onClick={() => submitStudyAnswer(studyAccentRetype.canonical)} className="ui-btn"
+                            style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 9px', marginLeft: 'auto', color: 'var(--c-ink-dim)' }}>
+                            {t('studyAccentSkip')}
+                          </button>
+                        </div>
+                      )}
                       <div key={`shake-${studyInputShake}`} className={studyInputShake ? 'study-shake' : undefined} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                         {/* Red ✗ while the missed attempt is on screen; typing clears it */}
                         {studyCurrentHint && !studyInput && (
@@ -9167,7 +9234,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           value={studyInput}
                           onChange={(e) => setStudyInput(e.target.value)}
                           onKeyDown={(e) => { if (e.key === 'Enter') submitStudyAnswer() }}
-                          placeholder={studyCurrentHint ? t('tryAgain') + '...' : t('typeYourAnswer')}
+                          placeholder={studyAccentRetype ? t('studyAccentPlaceholder') : studyCurrentHint ? t('tryAgain') + '...' : t('typeYourAnswer')}
                           style={{ ...S.keyInput, flex: 1, fontSize: 14, padding: '10px 14px' }}
                           autoFocus
                         />
