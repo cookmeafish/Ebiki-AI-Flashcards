@@ -4294,7 +4294,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
               )}
               {/* Commonness/region/register caveat — only present when the word is NOT plain-vanilla */}
               {studyWordLookup.usage && (
-                <span style={{ color: 'var(--c-warning)', fontStyle: 'italic' }}> · {studyWordLookup.usage}</span>
+                <span className="tip" data-tip="Usage: how common this word is, where it's used, and its register" style={{ color: 'var(--c-warning)', fontStyle: 'italic' }}> · 🌐 {studyWordLookup.usage}</span>
               )}
             </span>
           )}
