@@ -182,8 +182,8 @@ const en = {
   pbqSubmit: 'Submit answer',
   pbqContinue: 'Continue',
   pbqScoreLabel: 'Score',
-  pbqSelectHint: 'Tap an item, then tap where it belongs. Tap a placed item to take it back.',
-  pbqOrderHint: 'Use the arrows to put the steps in the correct order.',
+  pbqSelectHint: 'Drag an item where it belongs — or tap it, then tap its place. Tap or drag a placed item to take it back.',
+  pbqOrderHint: 'Drag the steps (or use the arrows) into the correct order.',
 
   // Study question screen
   active: 'Active',
@@ -423,8 +423,8 @@ const es = {
   pbqSubmit: 'Enviar respuesta',
   pbqContinue: 'Continuar',
   pbqScoreLabel: 'Puntuación',
-  pbqSelectHint: 'Toca un elemento y luego toca dónde va. Toca un elemento colocado para retirarlo.',
-  pbqOrderHint: 'Usa las flechas para poner los pasos en el orden correcto.',
+  pbqSelectHint: 'Arrastra cada elemento a su lugar, o tócalo y luego toca dónde va. Toca o arrastra un elemento colocado para retirarlo.',
+  pbqOrderHint: 'Arrastra los pasos (o usa las flechas) hasta el orden correcto.',
 
   active: 'Activas',
   doneCount: 'Hechas',
@@ -654,8 +654,8 @@ const zh = {
   pbqSubmit: '提交答案',
   pbqContinue: '继续',
   pbqScoreLabel: '得分',
-  pbqSelectHint: '点选一个条目，再点它应放置的位置。点已放置的条目可取回。',
-  pbqOrderHint: '使用箭头把步骤排成正确顺序。',
+  pbqSelectHint: '把条目拖到对应位置，或先点选再点放置处。点击或拖走已放置的条目可取回。',
+  pbqOrderHint: '拖动步骤（或使用箭头）排成正确顺序。',
 
   active: '进行中',
   doneCount: '已完成',
@@ -885,8 +885,8 @@ const ja = {
   pbqSubmit: '解答を送信',
   pbqContinue: '続ける',
   pbqScoreLabel: 'スコア',
-  pbqSelectHint: '項目をタップしてから、置き場所をタップ。置いた項目をタップすると戻せます。',
-  pbqOrderHint: '矢印で手順を正しい順序に並べてください。',
+  pbqSelectHint: '項目をドラッグして置き場所へ——またはタップしてから置き場所をタップ。置いた項目はタップかドラッグで戻せます。',
+  pbqOrderHint: '手順をドラッグ（または矢印）で正しい順序に並べてください。',
 
   active: '進行中',
   doneCount: '完了',
