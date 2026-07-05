@@ -10241,13 +10241,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         /* Deck browser rows — highlight on hover */
         .deck-row:hover { border-color: rgba(223,37,64,.35) !important; background: rgba(223,37,64,.05) !important; }
 
-        /* Clickable rows: OUTLINE only, no background fill. Hovering a graded card's header
-           recolors the card's own border (via :has); hovering a per-question row draws a thin
-           inset outline around just that row. Expanded bodies never react. */
-        .graded-card { transition: border-color .15s ease; }
-        .graded-card:has(.card-head:hover) { border-color: rgba(223,37,64,.4) !important; }
-        .row-head { transition: box-shadow .15s ease; }
-        .row-head:hover { box-shadow: inset 0 0 0 1px rgba(223,37,64,.4); }
+        /* Clickable rows (graded-card headers, per-question rows): slightly DARKER on hover —
+           same standard cue as the settings panels, theme-tuned. Only the hovered row darkens;
+           expanded bodies never react. */
+        .card-head, .row-head { transition: box-shadow .15s ease; }
+        .card-head:hover, .row-head:hover { box-shadow: inset 0 0 0 999px rgba(0, 0, 0, .08); }
+        [data-theme="dark"] .card-head:hover, [data-theme="dark"] .row-head:hover { box-shadow: inset 0 0 0 999px rgba(0, 0, 0, .26); }
 
         /* Chat session sidebar items — highlight on hover */
         .chat-session:hover { background: rgba(223,37,64,.06) !important; }
