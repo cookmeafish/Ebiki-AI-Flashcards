@@ -5819,11 +5819,12 @@ Build an acronym, first-letter anchor, number anchor, or word-shape cue that rec
         ? `METHOD — BREAK IT DOWN (understanding, not imagery — show the learner how the ${learnLang} word is BUILT): split the word into its REAL parts (root/stem, prefixes, suffixes, attached pronouns) and build the meaning up step by step, one short line per step — e.g. "dárselo": dar = to give → darse = adding "se" makes it "to someone" → dárselo = adding "lo" adds "it": to give IT to him/her. Real morphology only, never invented etymology; if the word truly has no parts, explain its origin or connect it to a related ${learnLang}/${explainLang} word the learner already knows.`
         : `METHOD — BREAK IT DOWN (understanding, not imagery — show the learner how the term/concept is BUILT): split it into its real components (word roots, what each part of the acronym stands for, the stages of the process) and build the full meaning up step by step, one short line per part stating what it contributes. Real analysis only, never invented origins.`,
     }
-    const lengthRule = method === 'story'
+    const lengthRule = (method === 'story'
       ? 'ONE story only — 2 to 4 short sentences, UNDER 70 WORDS total.'
       : method === 'parts'
         ? 'ONE compact step-by-step build-up — one short line per part, UNDER 60 WORDS total.'
-        : 'ONE hook only — 1 to 2 punchy sentences, UNDER 35 WORDS total, like a WaniKani mnemonic.'
+        : 'ONE hook only — 1 to 2 punchy sentences, UNDER 35 WORDS total, like a WaniKani mnemonic.')
+      + ' That cap is a CEILING, not a target: if fewer words recall the answer just as well, use fewer. Cut every word that does not carry the image or the answer.'
     const prompt = `You are Ebi, a warm study buddy. Help the learner MEMORIZE this flashcard with a vivid, concrete memory aid.
 
 Flashcard front: "${front}"
@@ -5832,7 +5833,7 @@ Subject / study mode: "${activeMode.name}"${isLanguage ? `\nThis is a ${learnLan
 
 ${METHODS[method] || METHODS.meaning}${activeMode.mnemonicHints ? `\n\nMODE-SPECIFIC HOOK GUIDANCE (configured for this subject — follow it): ${activeMode.mnemonicHints}` : ''}${prior.length ? `\n\nThe learner already has these memory aids for this card, so give a genuinely DIFFERENT one (new angle, do not repeat them):\n${prior.map((m, i) => `${i + 1}. ${m}`).join('\n')}` : ''}
 
-QUALITY BAR: a good hook lets the learner RECONSTRUCT the answer from the hook alone. Mentally test yours: would someone who forgot this recover it from your hook? If not, try a different angle. Never output a vague "just associate X with Y".
+QUALITY BAR: a good hook lets the learner RECONSTRUCT the answer from the hook alone. Mentally test yours: would someone who forgot this recover it from your hook? If not, try a different angle. Never output a vague "just associate X with Y". Then EDIT FOR ECONOMY: the best hook is the SHORTEST one that still passes that test — one sharp image beats three decorations, so delete scene-setting, filler adjectives, and anything the learner does not need to replay to reach the answer.
 
 Write in ${explainLang}. ${lengthRule} No backup hooks, no preamble, no explaining why the hook works. Concrete and a little playful. Plain text only: no markdown headers, no em dashes.`
     const text = await aiCall(apiKey, `You are Ebi, a friendly memory coach. Reply in ${explainLang} with a concise, concrete memory aid in plain text.`, prompt, resolveModel('study'))
