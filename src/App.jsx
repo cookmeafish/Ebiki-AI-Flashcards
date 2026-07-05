@@ -10166,15 +10166,14 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         .btn-press:active:not(:disabled) { transform: translateY(2px); box-shadow: none !important; }
 
         /* Ghost/action buttons: obvious hover affordance in the button's OWN accent color —
-           border saturates to currentColor, a soft ring glows, slight lift. */
-        .ui-btn { transition: transform .12s ease, filter .12s ease, box-shadow .12s ease, border-color .12s ease; }
+           border saturates to currentColor and a soft ring glows. GLOW ONLY, no movement. */
+        .ui-btn { transition: filter .12s ease, box-shadow .12s ease, border-color .12s ease; }
         .ui-btn:not(:disabled):hover {
           border-color: currentColor !important;
           box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 14%, transparent);
           filter: brightness(1.12);
-          transform: translateY(-1px);
         }
-        .ui-btn:not(:disabled):active { transform: translateY(0); filter: brightness(1); }
+        .ui-btn:not(:disabled):active { filter: brightness(1); }
 
         /* Wrong typed answer (hint retry) — the input row shakes once */
         @keyframes shake { 0%,100% { transform: translateX(0) } 20% { transform: translateX(-6px) } 40% { transform: translateX(6px) } 60% { transform: translateX(-4px) } 80% { transform: translateX(4px) } }
