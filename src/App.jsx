@@ -21,6 +21,8 @@ import { ocrLog, ocrLogTable, ocrLogFlush } from './utils/logger'
 import { ankiPing, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiCanAddNote, ankiFindCards, ankiCardsInfo, ankiAnswerCards, ankiSetDueDate, ankiInsertReviews, ankiGuiDeckReview, ankiGuiCurrentCard, ankiGuiShowAnswer, ankiGuiAnswerCard, ankiGuiDeckBrowser, ankiGetDeckStats, ankiFindNotes, ankiNotesInfo, ankiUpdateNote, ankiDeleteNotes, ankiSync, ankiStoreMediaFile, ankiGetNumCardsReviewedToday, ankiGetNumCardsReviewedByDay, ankiGetTodayReviewStats } from './utils/anki'
 import { readBlob, writeBlob, DEFAULT_LEDGER } from './discover/storage'
 import { buildProfilePrompt, buildSuggestionPrompt, buildVerifyPrompt } from './discover/prompts'
+import PbqQuestion from './components/PbqQuestion'
+import { compilePbq, checkCitations, studentView, parseSolverAnswer, gradePbq, compareToKey, PBQ_GEN_SYSTEM, PBQ_SOLVER_SYSTEM, PBQ_JUDGE_SYSTEM, buildGeneratorPrompt as buildPbqGeneratorPrompt, buildSolverPrompt as buildPbqSolverPrompt, buildJudgePrompt as buildPbqJudgePrompt } from './pbq/engine'
 
 // App-language code → English name, for prompting the AI to reply in the user's language.
 const APP_LANG_NAME = { en: 'English', es: 'Spanish', zh: 'Chinese', ja: 'Japanese' }
@@ -391,6 +393,9 @@ export default function App() {
   // Frozen snapshot of the question just answered by a choice click, so the right/wrong colors can
   // show briefly while the real state has already advanced underneath (no async state races).
   const [studyChoiceFlash, setStudyChoiceFlash] = useState(null)
+  // Graded PBQ awaiting the user's "Continue" — like the choice flash, the session state has
+  // already advanced underneath; this only keeps the reviewed exercise on screen.
+  const [studyPbqReview, setStudyPbqReview] = useState(null)
   const [studyConjugationWords, setStudyConjugationWords] = useState([]) // word pool for conjugation mode
   const [studyConjugationLanguage, setStudyConjugationLanguage] = useState('English') // language detected from deck content
   const [studyDeck, setStudyDeck] = useState('')
@@ -4287,6 +4292,65 @@ Output ONLY raw JSON. No markdown, no backticks.`
     }
   }
 
+  // ---------------------------------------------------------------------------------------------
+  // PBQ pipeline — generate ONE verified performance-based question for a card, or null (discard).
+  // Reliability comes from the pipeline, not the prompt: (1) the generator authors in an index-free
+  // format that `compilePbq` validates/shuffles deterministically; (2) with a knowledge base, every
+  // citation quote must appear VERBATIM in the source (string check — fabrications die here);
+  // (3) a BLIND SOLVER gets only the student view (never the key) and must independently reach the
+  // same answer; (4) on disagreement a judge adjudicates — only "solver_wrong" lets the key stand,
+  // anything else feeds the discrepancy back for ONE regeneration, then the candidate is discarded.
+  // Grading at answer time is deterministic (engine.gradePbq) — no AI in the loop while studying.
+  // ---------------------------------------------------------------------------------------------
+  const parsePbqJson = (text) => {
+    try { return JSON.parse(String(text).trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, '')) } catch { return null }
+  }
+
+  const generatePbqForCard = async (card, rules, knowledgeContext) => {
+    const front = getCardFront(card)
+    const back = getCardBack(card)
+    const lang = interactionLangName(rules)
+    let kctx = knowledgeContext || ''
+    if (knowledgeIsBig()) {
+      const k = await getKnowledgeContext(`Creating an interactive exam exercise about "${front}" — ${back.slice(0, 300)}`, KNOWLEDGE_CAP, `card:${front}`)
+      if (k) kctx = k
+    }
+    let priorFailure = null
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const genText = await aiCall(apiKey, PBQ_GEN_SYSTEM,
+          buildPbqGeneratorPrompt({ subject: activeMode.name, front, back, lang, knowledgeContext: kctx || null, priorFailure }),
+          resolveModel('study'))
+        const raw = parsePbqJson(genText)
+        if (!raw) { priorFailure = 'the response was not a single valid JSON object'; continue }
+        const compiled = compilePbq(raw)
+        if (!compiled.ok) { priorFailure = `structural problems: ${compiled.errors.join('; ')}`; continue }
+        if (kctx) {
+          const cc = checkCitations(raw, kctx)
+          if (!cc.ok) { priorFailure = `these citation quotes do NOT appear verbatim in the reference material: ${cc.missing.slice(0, 2).map(m => `"${m}"`).join(', ')}`; continue }
+        }
+        // Blind solve: an independent expert pass that never sees the answer key
+        const solverRaw = await aiCall(apiKey, PBQ_SOLVER_SYSTEM, buildPbqSolverPrompt(studentView(compiled.pbq), lang), resolveModel('study'))
+        const solved = parseSolverAnswer(compiled.pbq, parsePbqJson(solverRaw))
+        const cmp = compareToKey(compiled.pbq, solved)
+        if (cmp.match) { console.log('[PBQ] verified — blind solve matched:', compiled.pbq.title); return compiled.pbq }
+        // Adjudicate the disagreement
+        const judgeRaw = await aiCall(apiKey, PBQ_JUDGE_SYSTEM,
+          buildPbqJudgePrompt({ pbq: compiled.pbq, diffs: cmp.diffs, solverRaw, knowledgeContext: kctx || null }),
+          resolveModel('study'))
+        const verdict = parsePbqJson(judgeRaw)
+        if (verdict?.verdict === 'solver_wrong') { console.log('[PBQ] verified — judge upheld the key:', compiled.pbq.title); return compiled.pbq }
+        priorFailure = `an independent solver disagreed with your answer key (${cmp.diffs.slice(0, 3).join('; ')}); review verdict "${verdict?.verdict || 'unclear'}": ${verdict?.reason || 'no reason given'}. Build a DIFFERENT exercise on this topic with exactly one defensible key`
+        console.log('[PBQ] attempt', attempt + 1, 'rejected for', front, '—', verdict?.verdict, verdict?.reason || '')
+      } catch (err) {
+        console.error('[PBQ] pipeline error:', err.message)
+        // transient (rate limit / network) — plain retry without blaming the content
+      }
+    }
+    console.log('[PBQ] discarded after retries:', front)
+    return null
+  }
+
   // Build a pool of words to conjugate: verbs from the user's deck + AI-supplemented common verbs.
   // Language is inferred from the deck name + card content — never assumed from the active mode.
   const generateConjugationWordPool = async (cards, deckName) => {
@@ -4387,7 +4451,14 @@ Output ONLY raw JSON. No markdown, no backticks.`
     setStudyPhase('pick')
   }
 
+  // PBQ pool cursor — a sync-readable mirror of studyBatchIdx so sequential "try the next card"
+  // reservations inside one async pull can't double-consume a card (state reads would be stale).
+  const pbqPullRef = useRef(0)
+
   const beginStudy = async (deck, mode = 'flashcards') => {
+    // A lingering study type from another mode kind is meaningless here — fall back to flashcards.
+    if (activeMode.type === 'language' && mode === 'pbq') mode = 'flashcards'
+    if (activeMode.type !== 'language' && mode === 'conjugations') mode = 'flashcards'
     setStudyMode(mode)
     setStudyLoading(true)
     setAnkiError(null)
@@ -4454,6 +4525,50 @@ Output ONLY raw JSON. No markdown, no backticks.`
             questions, answers: [], results: [], done: false, questionIdx: 0, questionAttempts: [],
           }])
           console.log('[Study:conjugations] pool word ready:', w.word)
+        })
+      } else if (mode === 'pbq') {
+        // PBQ session — one verified interactive exercise per card. Generation is expensive
+        // (2-4 model calls each through the verify pipeline), so start with the first card that
+        // survives verification and fill the rest of the pool in the background.
+        const pbqFlags = { pbq: true, ...(studyPracticeSync ? {} : { noSync: true }) }
+        const makePbqState = (card, pbq) => ({
+          cardId: card.cardId, front: getCardFront(card), back: getCardBack(card),
+          questions: [{ question: pbq.title, type: 'pbq', pbq }],
+          answers: [], results: [], done: false, questionIdx: 0, questionAttempts: [], ...pbqFlags,
+        })
+        let firstState = null
+        let consumed = 0
+        while (consumed < Math.min(cards.length, 4) && !firstState) {
+          const card = cards[consumed]; consumed++
+          const pbq = await generatePbqForCard(card, rules, knowledgeContext)
+          if (pbq) firstState = makePbqState(card, pbq)
+        }
+        if (!firstState) {
+          setAnkiError('Could not generate a verified PBQ for these cards — try again, or check the AI settings.')
+          setStudyLoading(false)
+          return
+        }
+
+        const poolTargets = cards.slice(consumed, consumed + cardsAtOnce - 1)
+        consumed += poolTargets.length
+        pbqPullRef.current = consumed
+        setStudyCardState([firstState])
+        setStudyBatchIdx(consumed)
+        setStudyQueue([])
+        setStudyQueueIdx(0)
+        setStudyInput('')
+        setStudyLoading(false)
+        setStudyPhase('question')
+        console.log('[PBQ] session started with:', firstState.front)
+
+        poolTargets.forEach(async (card) => {
+          if (studyWrappingUpRef.current) return
+          const pbq = await generatePbqForCard(card, rules, knowledgeContext)
+          if (studyWrappingUpRef.current) return
+          if (pbq) {
+            setStudyCardState(prev => [...prev, makePbqState(card, pbq)])
+            console.log('[PBQ] pool exercise ready:', getCardFront(card))
+          }
         })
       } else {
         // Multiple-choice practice session? mc → questions carry 4 options and are graded locally;
@@ -4525,6 +4640,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
         setStudyAllCards(s.studyAllCards || [])
         setStudyCardState(s.studyCardState || [])
         setStudyBatchIdx(s.studyBatchIdx || 0)
+        pbqPullRef.current = s.studyBatchIdx || 0
         setStudyQueue(s.studyQueue || [])
         setStudyQueueIdx(s.studyQueueIdx || 0)
         setStudyStats(s.studyStats || { easy: 0, good: 0, hard: 0, again: 0 })
@@ -4575,13 +4691,14 @@ Output ONLY raw JSON. No markdown, no backticks.`
     if (studyWrappingUpRef.current) return
     // Multiple-choice grades locally (synchronously), so without this guard the last answer's
     // right/wrong flash would be skipped straight into Batch Results before it ever painted.
-    if (studyChoiceFlash) return
+    // Same for a graded PBQ awaiting its Continue click.
+    if (studyChoiceFlash || studyPbqReview) return
     if (!studyCardState.every(cs => cs.done) || !studyCardState.every(cs => !cs.evaluating)) return
     const poolExhausted = studyMode === 'conjugations'
       ? studyBatchIdx >= studyConjugationWords.length
       : studyBatchIdx >= studyAllCards.length
     if (poolExhausted) setStudyPhase('batchFeedback')
-  }, [studyActive, studyPhase, studyCardState, studyBatchIdx, studyMode, studyAllCards.length, studyConjugationWords.length, studyChoiceFlash])
+  }, [studyActive, studyPhase, studyCardState, studyBatchIdx, studyMode, studyAllCards.length, studyConjugationWords.length, studyChoiceFlash, studyPbqReview])
 
   const submitStudyAnswer = async () => {
     if (!studyInput.trim() || studyLoading || !currentQuestion) return
@@ -4801,6 +4918,49 @@ Output ONLY raw JSON. No markdown, no backticks.`
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [studyPhase, currentQuestion, studyChoiceFlash, studyCardState])
+
+  // PBQ submit — deterministic grading (engine.gradePbq), then the graded exercise stays on
+  // screen (`studyPbqReview`) until the user clicks Continue; the session advances underneath.
+  const submitPbqAnswer = (assign) => {
+    if (studyLoading || !currentQuestion || studyPbqReview) return
+    const { cardIdx } = currentQuestion
+    const cs = studyCardState[cardIdx]
+    const pbq = cs?.questions?.[0]?.pbq
+    if (!pbq) return
+
+    const g = gradePbq(pbq, assign)
+    const { ease, label } = pbqRatingFromFraction(g.fraction, !!cs.noSync)
+    const wrong = g.perItem.filter(p => !p.correct)
+    const feedback = wrong.length === 0
+      ? `${g.correct}/${g.total}`
+      : `${g.correct}/${g.total} — ${wrong.map(p => `${p.label} → ${p.expectedText}`).join(' · ')}`
+
+    const newStates = [...studyCardState]
+    newStates[cardIdx] = {
+      ...cs,
+      answers: [`${g.correct}/${g.total}`],
+      questionIdx: 1,
+      questionAttempts: [[`${g.correct}/${g.total}`]],
+      done: true,
+      evaluating: false,
+      results: [{ correct: g.fraction === 1, feedback }],
+      rating: label,
+      ease,
+      gradedAt: Date.now(),
+    }
+    setStudyCardState(newStates)
+    setStudyStats(prev => ({ ...prev, [label]: prev[label] + 1 }))
+    setStudyPbqReview({ pbq, assign, perItem: g.perItem, correct: g.correct, total: g.total, rating: label })
+
+    const remaining = newStates.filter(c => !c.done && c.questionIdx < c.questions.length)
+    if (remaining.length > 0) {
+      const nextActive = remaining[Math.floor(Math.random() * remaining.length)]
+      setCurrentQuestion({ cardIdx: newStates.indexOf(nextActive), questionIdx: nextActive.questionIdx })
+    } else {
+      setCurrentQuestion(null)
+    }
+    pullNewCard()
+  }
 
   // Answer-option grid, used both live (onPick set) and frozen in the post-answer flash
   // (picked/answerIdx set → correct option green, a wrong pick red, the rest dimmed).
@@ -5113,8 +5273,33 @@ Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. 
     console.log('[Study] card graded locally (multiple choice):', cs.front, '→', label)
   }
 
-  // Route a completed card to the right grader: local for fully multiple-choice cards, AI otherwise.
+  // PBQ rating from a deterministic grade. Same recognition cap as multiple choice when syncing.
+  const pbqRatingFromFraction = (fraction, noSync) => {
+    let ease, label
+    if (fraction >= 0.999) { ease = 4; label = 'easy' }
+    else if (fraction >= 0.7) { ease = 3; label = 'good' }
+    else if (fraction >= 0.4) { ease = 2; label = 'hard' }
+    else { ease = 1; label = 'again' }
+    if (!noSync && ease > 3) { ease = 3; label = 'good' }
+    return { ease, label }
+  }
+
+  // A PBQ card that reaches the generic grader was given up on ("I don't know") — grade as all wrong.
+  const evaluatePbqSkipped = (cardIdx, cs) => {
+    const pbq = cs.questions[0]?.pbq
+    const g = pbq ? gradePbq(pbq, null) : { correct: 0, total: 1, perItem: [] }
+    const results = [{ correct: false, feedback: `${g.correct}/${g.total} — ${g.perItem.map(p => `${p.label} → ${p.expectedText}`).join(' · ')}` }]
+    setStudyCardState(prev => {
+      const updated = [...prev]
+      updated[cardIdx] = { ...updated[cardIdx], results, rating: 'again', ease: 1, evaluating: false, gradedAt: Date.now() }
+      return updated
+    })
+    setStudyStats(prev => ({ ...prev, again: prev.again + 1 }))
+  }
+
+  // Route a completed card to the right grader: local for PBQs and fully multiple-choice cards, AI otherwise.
   const evaluateCard = (cardIdx, cs) => {
+    if (cs.pbq) return evaluatePbqSkipped(cardIdx, cs)
     if (cs.mc && cs.questions.length > 0 && cs.questions.every(questionHasChoices)) return evaluateCardLocally(cardIdx, cs)
     return evaluateCardAnswers(cardIdx, cs)
   }
@@ -5207,6 +5392,29 @@ Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. 
         questions, answers: [], results: [], done: false, questionIdx: 0, questionAttempts: [],
       }])
       console.log('[Study:conjugations] pulled new word:', w.word)
+    } else if (studyMode === 'pbq') {
+      // Keep trying pool cards until one yields a VERIFIED exercise (discards are expected).
+      // Reservation goes through pbqPullRef so sequential tries can't double-consume a card.
+      const pbqFlags = { pbq: true, ...(studyPracticeSync ? {} : { noSync: true }) }
+      for (let tries = 0; tries < 3; tries++) {
+        const bi = pbqPullRef.current
+        if (bi >= studyAllCards.length) return
+        pbqPullRef.current = bi + 1
+        setStudyBatchIdx(bi + 1)
+        const card = studyAllCards[bi]
+        const knowledgeContext = studyKnowledge ? `\n\nReference material:\n${studyKnowledge.substring(0, KNOWLEDGE_CAP)}` : ''
+        const pbq = await generatePbqForCard(card, rules, knowledgeContext)
+        if (studyWrappingUpRef.current) return
+        if (pbq) {
+          setStudyCardState(prev => [...prev, {
+            cardId: card.cardId, front: getCardFront(card), back: getCardBack(card),
+            questions: [{ question: pbq.title, type: 'pbq', pbq }],
+            answers: [], results: [], done: false, questionIdx: 0, questionAttempts: [], ...pbqFlags,
+          }])
+          console.log('[PBQ] pulled new exercise:', getCardFront(card))
+          return
+        }
+      }
     } else {
       if (studyBatchIdx >= studyAllCards.length) return
       const card = studyAllCards[studyBatchIdx]
@@ -5502,6 +5710,7 @@ Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. 
     setStudyConjugationLanguage('English')
     if (studyChoiceFlashTimer.current) clearTimeout(studyChoiceFlashTimer.current)
     setStudyChoiceFlash(null)
+    setStudyPbqReview(null)
   }
 
   // Generate spaced repetition insights + update progress observations
@@ -7785,27 +7994,44 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   )
                 })()}
 
-                {/* Study type — Conjugations is language-only, so only offer it for language modes */}
-                {activeMode.type === 'language' && (
+                {/* Study type — Conjugations is language-only; PBQ (performance-based exercises)
+                    is general-mode-only (concept subjects like Security+, music theory, …) */}
+                {(() => {
+                  const isLangMode = activeMode.type === 'language'
+                  // A study type left over from the other mode kind falls back to flashcards
+                  const shownMode = (isLangMode && studyMode === 'pbq') || (!isLangMode && studyMode === 'conjugations') ? 'flashcards' : studyMode
+                  return (
                 <div style={{
                   display: 'inline-flex', flexDirection: 'column', gap: 5, padding: '10px 20px', textAlign: 'left',
                   background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 8, marginTop: 8, marginBottom: 4,
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center' }}>
                     <span style={{ fontSize: 12, color: 'var(--c-ink-dim)' }}>{t('studyType')}:</span>
-                    <select value={studyMode} onChange={(e) => setStudyMode(e.target.value)}
+                    <select value={shownMode} onChange={(e) => setStudyMode(e.target.value)}
                       style={{ ...S.select, fontSize: 12, padding: '6px 10px' }}>
                       <option value="flashcards">{t('flashcards')}</option>
-                      <option value="conjugations">{t('conjugations')}</option>
+                      {isLangMode
+                        ? <option value="conjugations">{t('conjugations')}</option>
+                        : <option value="pbq">{t('pbqOption')}</option>}
                     </select>
                   </div>
-                  <div style={{ fontSize: 10, color: 'var(--c-ink-faint)' }}>{t('studyTypeDesc')}</div>
+                  {shownMode === 'pbq' && (
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--c-ink-dim)', cursor: 'pointer', justifyContent: 'center' }}>
+                      <input type="checkbox" checked={studyPracticeSync} onChange={(e) => { setStudyPracticeSync(e.target.checked); try { localStorage.setItem('ebiki-study-practice-sync', e.target.checked ? '1' : '0') } catch {} }} />
+                      {t('practiceGradeAnki')}
+                    </label>
+                  )}
+                  <div style={{ fontSize: 10, color: 'var(--c-ink-faint)', maxWidth: 360 }}>
+                    {shownMode === 'pbq' ? t('pbqTypeDesc') : isLangMode ? t('studyTypeDesc') : t('studyTypeDescGeneral')}
+                  </div>
                 </div>
-                )}
+                  )
+                })()}
 
                 {/* Answer style — typed recall (classic) vs multiple-choice practice (laid-back).
-                    Not offered for conjugation drills (they are inherently typed). */}
-                {(activeMode.type !== 'language' || studyMode !== 'conjugations') && (
+                    Not offered for conjugation drills (inherently typed) or PBQs (own interaction).
+                    A study type stale from the other mode kind counts as flashcards, so it shows. */}
+                {!(activeMode.type === 'language' && studyMode === 'conjugations') && !(activeMode.type !== 'language' && studyMode === 'pbq') && (
                 <div style={{
                   display: 'inline-flex', flexDirection: 'column', gap: 6, padding: '10px 20px', textAlign: 'center',
                   background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 8, marginTop: 8, marginBottom: 4,
@@ -7831,7 +8057,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 )}
 
                 <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 8 }}>
-                  <button onClick={() => beginStudy(studyDeck, activeMode.type === 'language' ? studyMode : 'flashcards')} disabled={!studyDeck || studyLoading}
+                  <button onClick={() => beginStudy(studyDeck, studyMode)} disabled={!studyDeck || studyLoading}
                     style={{ ...S.captureBtn, borderRadius: 6, padding: '10px 24px', fontSize: 13, opacity: !studyDeck || studyLoading ? 0.5 : 1 }}>
                     {studyLoading ? t('loading') : t('start')}
                   </button>
@@ -7923,7 +8149,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   </div>
 
                   {/* Current question — card front is HIDDEN. Ebi studies alongside, to the right. */}
-                  {(question || studyChoiceFlash) ? (
+                  {(question || studyChoiceFlash || studyPbqReview) ? (
                     <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start', justifyContent: 'center', flexWrap: 'wrap' }}>
                     <div style={{
                       flex: '1 1 480px', maxWidth: 620, minWidth: 0,
@@ -7936,6 +8162,18 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       {studyChoiceFlash ? (<>
                         <div style={{ fontSize: 13, color: 'var(--c-ink)', fontWeight: 600, marginBottom: 10 }}>{studyChoiceFlash.question}</div>
                         {renderChoiceButtons(studyChoiceFlash.choices, { picked: studyChoiceFlash.picked, answerIdx: studyChoiceFlash.answerIdx })}
+                      </>) : studyPbqReview ? (<>
+                        {/* Graded PBQ — stays until Continue so the student can study what was wrong */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 8 }}>
+                          <div style={{ fontSize: 13, color: 'var(--c-ink)', fontWeight: 600 }}>{studyPbqReview.pbq.title}</div>
+                          <span style={{ fontSize: 13, fontWeight: 800, flexShrink: 0, color: studyPbqReview.correct === studyPbqReview.total ? 'var(--c-success)' : 'var(--c-warning)' }}>
+                            {t('pbqScoreLabel')}: {studyPbqReview.correct}/{studyPbqReview.total}
+                          </span>
+                        </div>
+                        <PbqQuestion pbq={studyPbqReview.pbq} t={t} onSubmit={() => {}} review={{ assign: studyPbqReview.assign, perItem: studyPbqReview.perItem }} />
+                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
+                          <button className="btn-press" onClick={() => setStudyPbqReview(null)} style={{ ...S.captureBtn, borderRadius: 8 }}>{t('pbqContinue')}</button>
+                        </div>
                       </>) : (<>
                       {/* Conjugation mode: show the word being conjugated + option to add it to Anki */}
                       {studyMode === 'conjugations' && cs && (
@@ -7996,6 +8234,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         )
                       })()}
 
+                      {/* PBQ scenario — the exam-style framing under the instruction/title */}
+                      {questionObj?.type === 'pbq' && questionObj.pbq?.scenario && (
+                        <div style={{ fontSize: 12, color: 'var(--c-ink-dim)', lineHeight: 1.6, marginBottom: 10 }}>{questionObj.pbq.scenario}</div>
+                      )}
+
                       {renderWordLookupPopup('question')}
 
                       {studyCurrentHint && (
@@ -8014,7 +8257,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 8 }}>Loading hint...</div>
                       )}
 
-                      {questionHasChoices(questionObj) ? (
+                      {questionObj?.type === 'pbq' && questionObj.pbq ? (
+                        <PbqQuestion key={`pbq-${cq?.cardIdx}`} pbq={questionObj.pbq} t={t} onSubmit={submitPbqAnswer} />
+                      ) : questionHasChoices(questionObj) ? (
                         renderChoiceButtons(questionObj.choices, { onPick: submitStudyChoice })
                       ) : (
                       <div style={{ display: 'flex', gap: 8 }}>
@@ -8046,7 +8291,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               {t('skipWord')}
                             </button>
                           )}
-                          {!questionHasChoices(questionObj) && (
+                          {!questionHasChoices(questionObj) && questionObj?.type !== 'pbq' && (
                           <button onClick={fetchMeaningHint} disabled={studyMeaningHintLoading || !!studyMeaningHint}
                             style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.25)', opacity: (studyMeaningHintLoading || !!studyMeaningHint) ? 0.5 : 1 }}>
                             {studyMeaningHintLoading ? t('loading') : t('meaningHint')}
