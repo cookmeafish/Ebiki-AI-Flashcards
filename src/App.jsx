@@ -4396,6 +4396,32 @@ Output ONLY raw JSON. No markdown, no backticks.`
     return { ...q, question }
   }
 
+  // FUZZY variant for HINTS: also catches plural/gender/derived forms ("pergaminos" when the
+  // answer is "pergamino"). Questions keep the exact whole-word check (a fuzzy match could
+  // wrongly scrub legitimate context words from a fill-in-the-blank sentence); for a HINT,
+  // over-scrubbing is harmless and revealing the answer is fatal.
+  const hintTokenLeaks = (tok, na) =>
+    tok === na || (na.length >= 6 && tok.startsWith(na.slice(0, na.length - 2)) && tok.length <= na.length + 3)
+  const hintRevealsAnswer = (text, accepted) => {
+    const normText = leakNorm(text)
+    const toks = normText.split(/[^\p{L}\p{N}]+/u).filter(Boolean)
+    const answers = (accepted || []).map((a) => leakNorm(a).trim()).filter((a) => a.length >= 3)
+    return answers.some((na) => (na.includes(' ') ? normText.includes(na) : toks.some((tok) => hintTokenLeaks(tok, na))))
+  }
+  const scrubHint = (text, accepted) => {
+    const answers = (accepted || []).map((a) => leakNorm(a).trim()).filter((a) => a.length >= 3)
+    let out = String(text).split(/(\p{L}+)/u).map((tok) => {
+      if (!/\p{L}/u.test(tok)) return tok
+      const nt = leakNorm(tok)
+      return answers.some((na) => !na.includes(' ') && hintTokenLeaks(nt, na)) ? '___' : tok
+    }).join('')
+    for (const a of accepted || []) {
+      const raw = String(a).trim()
+      if (raw.includes(' ') && raw.length >= 3) out = out.replace(new RegExp(raw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '___')
+    }
+    return out
+  }
+
   const generateQuestionsForCard = async (card, rules, studyLang, knowledgeContext, wantChoices = false) => {
     const front = getCardFront(card)
     const back = getCardBack(card)
@@ -4430,7 +4456,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
   TRANSLATION AMBIGUITY CHECK (apply before finalizing Q1): does the meaning have MULTIPLE common ${learnLang} translations, with the card's target word being only one of several synonyms? E.g. English "favorable" → "favorable", "propicio", "auspicioso"; "happy" → "feliz", "contento", "alegre". If YES, a bare translation prompt is UNFAIR — the student cannot know which synonym you want. You MUST add a disambiguating cue INSIDE the question that singles out the target word WITHOUT stating it: a sense/nuance gloss, a register note (formal / literario / coloquial), a domain, and/or the first letter. Only when the translation is genuinely one-to-one may you leave it as a plain translation prompt.`
     const q1General = `Q1 (BLIND RECALL): Never name or hint at the target word/answer. Present a scenario, definition, or usage context that forces the student to produce the exact word. Example: "You need to X in situation Y — what word/tool/concept applies?"`
     const q2Language = `Q2–Q${n - 1} (CONTEXTUAL USAGE): A fill-in-the-blank where the target ${learnLang} word is the ONLY correct answer. The blanked SENTENCE itself stays in ${learnLang} (it must contain the ${learnLang} answer); the surrounding instruction is in ${quizLang}. Because synonyms almost always exist, do NOT rely on engineering a 'perfect' sentence — you MUST place a compact parenthetical cue in ${quizLang} directly at the blank that pins the EXACT target word by its precise sense/nuance, PLUS its first letter whenever a synonym would still fit. Example: "La gacela ___ (escapar de un depredador; empieza con "h") a toda velocidad" points only to "huye/huyó" (the verb huir), not "corre" or "escapa". The parenthetical cue is what GUARANTEES a single answer. INFLECTION: if the target is a verb or other inflected word, the sentence MUST supply the tense/aspect/person it expects (a time adverb like "ayer/ahora/mañana", an explicit subject, or agreement) so exactly ONE form is right — otherwise DO NOT require a specific conjugation, and list EVERY valid form (e.g. both "huye" and "huyó") in acceptedAnswers. Never demand a tense the sentence does not signal. Apply the AMBIGUITY SELF-CHECK below to EVERY such question. Each from a DIFFERENT angle.`
-    const q2General = `Q2–Q${n - 1} (GUIDED RECALL): May reference related concepts, synonyms as contrast, or fill-in-the-blank. Must still require the EXACT target word. E.g. "Instead of [synonym], what [N]-letter word means...?" Each from a DIFFERENT angle.`
+    const q2General = `Q2–Q${n - 1} (GUIDED RECALL / APPLICATION): May reference related concepts, synonyms as contrast, fill-in-the-blank, OR a short realistic scenario asking which concept/technique from this card applies (great for practical subjects — certifications, soft skills, procedures). Must still point at the card's EXACT term/concept as the answer. Each from a DIFFERENT angle.`
 
     const orderRules = n === 1
       ? (isLanguage ? q1Language : `Generate 1 question. It must be BLIND RECALL — never mention the target word/answer.`)
@@ -4445,16 +4471,17 @@ Output ONLY raw JSON. No markdown, no backticks.`
     // The distractor rules replace the inline-cue burden — options only need ONE defensible answer.
     const choicesBlock = !wantChoices ? '' : `\nMULTIPLE-CHOICE SESSION — REQUIRED:\n- Every question will be answered by picking ONE option from a list, never by typing. Do NOT generate open "explain in your own words" questions: where a depth/usage question is called for, ask it as something with ONE selectable answer (e.g. "Which sentence uses the word correctly?", "Which statement about X is true?", "Which option means ...?"). Use type "recall" or "fill_blank" for every question.\n- For EACH question ALSO return:\n  "choices": exactly 4 options — 1 correct + 3 plausible but clearly WRONG distractors. Distractors must be the same kind of thing as the answer (same part of speech / same category / same level of detail), must fit the question grammatically, and must be tempting to someone who half-knows the material — but NEVER defensible as correct. NEVER include two options that could both be argued correct (no synonyms of the answer, no alternate spellings of it).\n  "answerIdx": the 0-based index of the correct option within "choices".\n- The correct option must be EXACTLY one of the acceptedAnswers (same casing rules aside).\n- Write the options in the same language as the expected answer${isLanguage ? ` (${learnLang})` : ''}; keep each option SHORT (a word, phrase, or one short sentence).\n- With options visible, first-letter cues would give the answer away — do NOT add "empieza con"-style letter cues to the question text; a sense/nuance cue is still fine.\n`
 
-    const generalBlock = isLanguage ? '' : `\nGENERAL STUDY MODE — REQUIRED:\n- This is a general study mode for the subject "${activeMode.name}". It is NOT a language course.\n- Write EVERY question, instruction, and all framing in ${quizLang} (that is the language Ebi speaks to this student).\n- Do NOT generate language-learning questions: never ask the student to translate, never ask "how do you say X in <language>", never ask "in <language>, what word/noun/verb…", and never quiz a word's gender, article, or conjugation. Speaking ${quizLang} does not make this a ${quizLang} course — it is still purely about "${activeMode.name}".\n- Even if a card's term is written in another language, test the underlying CONCEPT, fact, or meaning — not vocabulary translation. The expected answer is the term/concept exactly as it appears on the card (subject terms/proper names stay as-is on the card, untranslated).\n`
+    const generalBlock = isLanguage ? '' : `\nGENERAL STUDY MODE — REQUIRED:\n- This is a general study mode for the subject "${activeMode.name}"${activeMode.description ? ` (${activeMode.description})` : ''}. It is NOT a language course.\n- Match the question style to what the subject actually IS: exam-style for certifications, applied "what would you do/use" for practical skills and procedures, notation/theory for music or math, cause/effect for science or history. The card and the subject decide — never force one template onto every subject.\n- Write EVERY question, instruction, and all framing in ${quizLang} (that is the language Ebi speaks to this student).\n- Do NOT generate language-learning questions: never ask the student to translate, never ask "how do you say X in <language>", never ask "in <language>, what word/noun/verb…", and never quiz a word's gender, article, or conjugation. Speaking ${quizLang} does not make this a ${quizLang} course — it is still purely about "${activeMode.name}".\n- Even if a card's term is written in another language, test the underlying CONCEPT, fact, or meaning — not vocabulary translation. The expected answer is the term/concept exactly as it appears on the card (subject terms/proper names stay as-is on the card, untranslated).\n`
     const languageBlock = isLanguage ? `\nLANGUAGE MODE — REQUIRED:\n- The student is LEARNING ${learnLang}. The EXPECTED ANSWER is ALWAYS the ${learnLang} word/phrase on the card, regardless of which side it's on.\n- Identify the ${learnLang} word on the card (the one NOT written in ${userLang}) — that is the answer. The ${userLang} side is just the meaning/hint.\n- "acceptedAnswers" MUST contain the ${learnLang} word (lowercase, plus close variants with/without accents). NEVER put the ${userLang} meaning in acceptedAnswers.\n- EBI SPEAKS ${quizLang}: write all instructions, question framing, and feedback in ${quizLang}.${sameLang ? '' : ` EXCEPTION: a fill-in-the-blank/example SENTENCE that must contain the ${learnLang} answer stays in ${learnLang} (you cannot blank a ${learnLang} word out of a ${quizLang} sentence) — only the wrapper instruction around it is in ${quizLang}.`}\n- LANGUAGE NAMES = ENDONYMS: whenever a question written in ${quizLang} names a language, use that language's OWN name (its endonym), NEVER the English name. So a Spanish question says "en español" (never "en Spanish"), a French one "en français", Japanese "日本語で", German "auf Deutsch". Do NOT drop English language names into non-English text.\n- Treat the word in its BROADEST everyday meaning. If the card text doesn't pin down a specific domain, do NOT restrict questions to specialized contexts (programming, medicine, law, military, etc.). Example: "puntero" alone could be a clock hand, laser pointer, finger, or mouse cursor — don't assume programming.\n- BUT if the card text explicitly indicates a domain (e.g. back says "Pointer (C/C++)", tag mentions a field), quiz within that domain.${wantHints ? `\n- WORD HINTS: for EACH question, also return a "glosses" object mapping every ${learnLang} content word that appears in the question text (EXCEPT the answer word and the blank) to a SHORT ${userLang} meaning. Skip bare punctuation. This lets a weak ${learnLang} reader understand the sentence.` : ''}\n` : ''
 
     const prompt = `Card front: "${front}"\nCard back: "${back}"\n${languageBlock}${generalBlock}${choicesBlock}\n${orderRules}\n\nCRITICAL RULES:\n- Questions must require the SPECIFIC answer on this card — synonyms are NOT acceptable for recall/fill_blank questions\n- NEVER construct a question whose only purpose is to directly name the answer (e.g. "what noun corresponds to adjective X?" when that noun IS the answer)\n- THE ANSWER MUST NEVER APPEAR IN THE QUESTION TEXT — not the target word, not ANY acceptedAnswers entry, not inside the parenthetical sense cue. Writing "(rollo antiguo de papel o pergamino…)" when the answer IS "pergamino" destroys the question. Describe the sense WITHOUT the word or its inflected forms; if you can't, take a different angle instead.\n- Each question must test a DIFFERENT angle\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question before finalizing): mentally substitute 2–3 plausible alternative ${learnLang} words — ESPECIALLY synonyms — into the question. If ANY of them still fit after reading the WHOLE question, it is INVALID and you MUST fix it. THE REQUIRED FIX: embed a compact parenthetical cue in ${quizLang} right at the blank that names the target word's precise meaning/nuance, and ADD its first letter whenever a synonym would otherwise survive. This inline cue is PART OF the question text and is mandatory for any word that has synonyms — a bare sentence is almost never enough. (The separate hint1/hint2 fields are revealed only on demand and do NOT count as disambiguation.) A blank surrounded only by a GENERIC predicate that many words satisfy is INVALID until you add the cue. Prefer a slightly over-specified question with a clear cue over an elegant but ambiguous one.\n  - BAD: "Al ver al depredador, la gacela ___ a toda velocidad para salvar su vida." Target "huye" — but "corre", "escapa", "salta" all fit. INVALID.\n  - GOOD: "Al ver al depredador, la gacela ___ (escapar de un peligro; empieza con "h") a toda velocidad para salvar su vida." — the cue pins "huye".\n  - BAD: "Sienten una atracción ___: él la quiere a ella y ella lo quiere a él por igual." Target "recíproca" — but "mutua" fits equally. INVALID.\n  - GOOD: "Sienten una atracción ___ (correspondida por ambos; empieza con "r"): él la quiere a ella y ella lo quiere a él por igual." — the cue pins "recíproca".\n- For language cards: test usage in sentences, grammatical properties, contextual usage\n- For conceptual cards: test application, process, comparison\n\n${questionPrompt}\n\n${isLanguage ? `Phrase every question and its framing in ${quizLang} (target-language sentences that hold the ${learnLang} answer stay in ${learnLang}).` : `Write all questions in ${quizLang}.`}${knowledgeContext}\n\nReturn a JSON array of exactly ${n} objects:\n[\n  {\n    "question": "the question text",\n    "type": "recall" | "fill_blank" | "explanation",\n    "hint1": "N letters" (letter count of primary answer, null for explanation),\n    "hint2": "starts with 'X'" (first letter of primary answer, null for explanation),\n    "acceptedAnswers": ["answer1", "answer2"] (lowercase; exact words that are correct; empty for explanation),${wantChoices ? `\n    "choices": ["option1", "option2", "option3", "option4"] (exactly 4; one correct + 3 plausible-but-wrong distractors),\n    "answerIdx": 0 (index of the correct option in "choices"),` : ''}${wantHints ? `\n    "glosses": { "<non-answer ${learnLang} word in the question>": "<short ${userLang} meaning>" } (only ${learnLang} content words shown in the question, excluding the answer/blank; {} if none),` : ''}\n    "pose": one mascot pose name that best fits this question's topic, chosen ONLY from: ${POSE_NAMES.join(', ')} (use "default" if none fit)\n  }\n]\nOutput ONLY raw JSON array. No markdown, no backticks.`
 
-    // Generate → leak-check → regenerate once with the violation named → scrub as a last resort.
-    // The prompt forbids the answer inside the question text, but prompts are advisory — this loop
-    // is the guarantee.
+    // Generate → leak-check → REGENERATE (up to twice, with the violation named) so the question
+    // reads naturally without the answer; the scrub is only the absolute last resort so a leak can
+    // never ship. The prompt forbids the answer inside the question text, but prompts are advisory —
+    // this loop is the guarantee.
     let leakRetryNote = ''
-    for (let attempt = 0; attempt < 2; attempt++) {
+    for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const text = await aiCall(apiKey, 'You generate structured flashcard quiz questions. Always respond with a valid JSON array of objects.', prompt + leakRetryNote, resolveModel('study'))
       const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
@@ -4489,18 +4516,22 @@ Output ONLY raw JSON. No markdown, no backticks.`
         }
       })
 
-      const leaked = [...new Set(questions.map((q) => questionAnswerLeak(q)).filter(Boolean))]
+      // General modes: the LAST question is deep-understanding and is ALLOWED to name the subject
+      // ("Explain how the OSI model works") — exempt it. Language deep questions test USAGE and
+      // must still never contain the answer.
+      const leakExempt = (qi) => !isLanguage && qi === questions.length - 1
+      const leaked = [...new Set(questions.map((q, qi) => (leakExempt(qi) ? null : questionAnswerLeak(q))).filter(Boolean))]
       if (leaked.length === 0) return questions
       console.warn(`[Study] answer leaked into question text (attempt ${attempt + 1}) for "${front}":`, leaked.join(', '))
-      if (attempt === 0) {
-        leakRetryNote = `\n\nYOUR PREVIOUS ATTEMPT WAS REJECTED: the answer itself appeared inside a question's text (${leaked.map((w) => `"${w}"`).join(', ')}). NEVER write the target word or ANY acceptedAnswers entry anywhere in the question text — not even inside the parenthetical sense cue. Describe the meaning WITHOUT the word.`
+      if (attempt < 2) {
+        leakRetryNote = `\n\nYOUR PREVIOUS ATTEMPT WAS REJECTED: the answer itself appeared inside a question's text (${leaked.map((w) => `"${w}"`).join(', ')}). Rewrite the questions from scratch so they read naturally WITHOUT the target word or ANY acceptedAnswers entry anywhere in the question text — not even inside the parenthetical sense cue. Describe the meaning in other words entirely.`
         continue
       }
-      // Regeneration leaked too — scrub so the leak can never reach the student.
-      console.warn('[Study] still leaking after retry — scrubbing the answer out of the question text')
-      return questions.map(scrubAnswerFromQuestion)
+      // Two regenerations still leaked — scrub so the leak can never reach the student.
+      console.warn('[Study] still leaking after two regenerations — scrubbing the answer out of the question text')
+      return questions.map((q, qi) => (leakExempt(qi) ? q : scrubAnswerFromQuestion(q)))
     } catch (err) {
-      if (attempt === 0) { console.warn('[Study] question generation failed, retrying:', err.message); continue }
+      if (attempt < 2) { console.warn('[Study] question generation failed, retrying:', err.message); continue }
     }
     }
     const fallback = [
@@ -5320,11 +5351,19 @@ Rules:
 - Do NOT include the answer word or any conjugated/inflected form of it
 - Do NOT give spelling hints or letter counts
 - Describe the concept, meaning, or context only`
-      const text = await aiCall(apiKey, `You give concise flashcard study hints written entirely in ${studyLang}. Never reveal the answer word or any of its forms.`, prompt, resolveModel('study'))
-      // Same hard guarantee as question generation: if the model wrote the answer into the hint
-      // anyway, blank it out — a "hint" containing the answer is a spoiler, not a hint.
-      const scrubbed = scrubAnswerFromQuestion({ question: text.trim(), type: 'recall', acceptedAnswers: questionObj?.acceptedAnswers || [] }).question
-      setStudyMeaningHint(scrubbed)
+      // Same guarantee as question generation, regenerate-first: a hint that reveals the answer
+      // (or a plural/inflected form — fuzzy check) is rejected and rewritten with the violation
+      // named, so the final hint reads naturally. The scrub is only the last-resort safety net.
+      const accepted = questionObj?.acceptedAnswers || []
+      let revealNote = ''
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const text = await aiCall(apiKey, `You give concise flashcard study hints written entirely in ${studyLang}. Never reveal the answer word or any of its forms.`, prompt + revealNote, resolveModel('study'))
+        const hint = text.trim()
+        if (!hintRevealsAnswer(hint, accepted)) { setStudyMeaningHint(hint); break }
+        console.warn(`[Study] meaning hint revealed the answer (attempt ${attempt + 1}) — regenerating`)
+        revealNote = `\n\nYOUR PREVIOUS HINT WAS REJECTED: it contained the answer word or a close form of it. Rewrite the hint from scratch WITHOUT the word, its plural, or any inflected/derived form — describe the concept in other words entirely.`
+        if (attempt === 2) setStudyMeaningHint(scrubHint(hint, accepted))
+      }
     } catch {
       setStudyMeaningHint(null); setStudyWordLookup(null)
     } finally {
