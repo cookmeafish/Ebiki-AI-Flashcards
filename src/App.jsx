@@ -4219,8 +4219,11 @@ Output ONLY raw JSON. No markdown, no backticks.`
     return notes.map((n, i) => {
       const cat = FEEDBACK_CATS[n.type] || FEEDBACK_CATS.tip
       return (
-        <div key={i} style={{ color: cat.color, fontSize: 12, marginTop: 3, lineHeight: 1.6 }}>
-          <span style={{ fontWeight: 700 }}>{cat.icon}</span> {source ? renderTappableText(n.text, n.text, source) : n.text}
+        // The category icon HANGS into the left gutter (the expanded row pads 46px left) so the
+        // note text starts in the same column as every other line instead of being pushed right.
+        <div key={i} style={{ color: cat.color, fontSize: 12, marginTop: 3, lineHeight: 1.6, display: 'flex' }}>
+          <span style={{ fontWeight: 700, width: 22, marginLeft: -22, flexShrink: 0 }}>{cat.icon}</span>
+          <span style={{ minWidth: 0 }}>{source ? renderTappableText(n.text, n.text, source) : n.text}</span>
         </div>
       )
     })
