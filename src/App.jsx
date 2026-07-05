@@ -10170,8 +10170,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         .ui-btn { transition: filter .12s ease, box-shadow .12s ease, border-color .12s ease; }
         .ui-btn:not(:disabled):hover {
           border-color: currentColor !important;
-          box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 9%, transparent);
-          filter: brightness(1.06);
+          box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 6%, transparent);
+          filter: brightness(1.03);
         }
         .ui-btn:not(:disabled):active { filter: brightness(1); }
 
