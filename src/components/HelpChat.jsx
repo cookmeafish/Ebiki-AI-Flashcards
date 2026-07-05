@@ -251,7 +251,12 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
   // ─── FancyZones-style chat snapping ──────────────────────────────────────
   // Grab the chat header and drag: edge zones light up, the panel previews into the
   // hovered zone, and dropping commits it (or 'free' if dropped in open space).
-  const ZONE_W = 360, ZONE_H = 320, FREE_W = 340, FREE_H = 440
+  // Docked panel size is VIEWPORT-RELATIVE (with px clamps) so it takes the same SHARE of the
+  // screen on a laptop as on a big monitor — a fixed 360px dock ate half a small display. The
+  // /1.35 divides out the body zoom (same convention as the app root / settings modal).
+  const ZONE_W = 'clamp(250px, calc(24vw / 1.35), 380px)'
+  const ZONE_H = 'clamp(220px, calc(38vh / 1.35), 340px)'
+  const FREE_W = 340, FREE_H = 440
   // The exact docked rectangle for each zone. Shared by the live panel AND the drop-zone preview
   // overlays so the preview outlines precisely where Ebi's Help will land.
   const ZONE_RECTS = {
