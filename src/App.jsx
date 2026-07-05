@@ -429,6 +429,7 @@ export default function App() {
   const [deckBrowserCopying, setDeckBrowserCopying] = useState(null)
   const [deckBrowserCopyTarget, setDeckBrowserCopyTarget] = useState('')
   const [deckBrowserCopyStatus, setDeckBrowserCopyStatus] = useState(null)
+  const [deckBrowserExpanded, setDeckBrowserExpanded] = useState(null) // noteId expanded to full view
   const [deckBrowserSearch, setDeckBrowserSearch] = useState('')
   const [deckBrowserSort, setDeckBrowserSort] = useState('created-desc')
   const [deckBrowserRefineInput, setDeckBrowserRefineInput] = useState('')
@@ -3996,6 +3997,18 @@ Output ONLY raw JSON. No markdown, no backticks.`
     return (tmp.textContent || tmp.innerText || '').trim()
   }
 
+  // One-line preview of a card back: HTML line breaks become " · " separators instead of
+  // silently fusing lines together ("som-BREH-rohTranslation: hat").
+  const backPreviewText = (html) => stripHtml(String(html || '').replace(/<(?:br|hr)[^>]*>|<\/(?:div|p|li|tr)>/gi, ' · '))
+    .replace(/(\s*·\s*)+/g, ' · ').replace(/^\s*·\s*|\s*·\s*$/g, '')
+
+  // Card-back HTML → clean text lines (for the expanded deck-browser view)
+  const backTextLines = (html) => stripHtml(String(html || '').replace(/<(?:br|hr)[^>]*>|<\/(?:div|p|li|tr)>/gi, '\n'))
+    .split('\n').map((l) => l.trim()).filter(Boolean)
+
+  // Days → compact interval label, Anki-style
+  const fmtInterval = (d) => d >= 365 ? `${Math.round(d / 36.5) / 10}y` : d >= 30 ? `${Math.round(d / 30)}mo` : `${d}d`
+
   // Word-level diff (LCS) between two strings. Returns tokens tagged
   // 'same' | 'del' | 'add' so a before/after can be rendered inline.
   const diffWords = (oldStr, newStr) => {
@@ -7370,7 +7383,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   .map((note) => {
                     const fields = Object.entries(note.fields).sort(([,a],[,b]) => a.order - b.order)
                     const front = stripHtml(fields[0]?.[1]?.value || '')
-                    const back = stripHtml(fields[1]?.[1]?.value || '')
+                    const back = backPreviewText(fields[1]?.[1]?.value || '')
                     const isEditing = deckBrowserEditing === note.noteId
 
                     return (
@@ -7418,16 +7431,40 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           </div>
                         ) : (
                           <>
-                          <div style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <div style={{ flex: 1, minWidth: 0 }}>
+                          {/* Row header — click anywhere (except the buttons) to expand the full card */}
+                          <div onClick={() => setDeckBrowserExpanded(deckBrowserExpanded === note.noteId ? null : note.noteId)}
+                            style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                            <span style={{ fontSize: 9, color: 'var(--c-ink-faint)', flexShrink: 0, width: 10 }}>{deckBrowserExpanded === note.noteId ? '▾' : '▸'}</span>
+                            <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink)' }}>{front}</span>
                               {activeMode.type === 'language' && (
-                                <Pronunciation word={pronWord(front)} lang={learnLangName()} region={pronRegion()} config={pronunciationCfg} t={t} compact noteId={note.noteId}
-                                  onNative={(r, opts) => embedPronunciationInNote(note.noteId, r, pronWord(front), opts)} />
+                                <span onClick={(e) => e.stopPropagation()}>
+                                  <Pronunciation word={pronWord(front)} lang={learnLangName()} region={pronRegion()} config={pronunciationCfg} t={t} compact noteId={note.noteId}
+                                    onNative={(r, opts) => embedPronunciationInNote(note.noteId, r, pronWord(front), opts)} />
+                                </span>
                               )}
-                              <span style={{ fontSize: 11, color: 'var(--c-ink-dim)', marginLeft: 8 }}>{back.slice(0, 80)}{back.length > 80 ? '...' : ''}</span>
+                              <span style={{ fontSize: 11, color: 'var(--c-ink-dim)', marginLeft: 8 }}>{back.slice(0, 100)}{back.length > 100 ? '...' : ''}</span>
                             </div>
-                            <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                            {/* Scheduling badges — from the per-card stats already loaded for sorting */}
+                            {note.stats && (
+                              <span style={{ display: 'flex', gap: 4, flexShrink: 0, alignItems: 'center' }}>
+                                {note.stats.reps === 0 ? (
+                                  <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--c-info, #3b82f6)', border: '1px solid rgba(59,130,246,.35)', borderRadius: 999, padding: '1px 7px' }}>NEW</span>
+                                ) : note.stats.interval > 0 ? (
+                                  <span title={`Interval: ${note.stats.interval} days — ${note.stats.interval >= 21 ? 'mature' : 'young'}`}
+                                    style={{ fontSize: 9, fontWeight: 800, color: note.stats.interval >= 21 ? 'var(--c-success)' : 'var(--c-ink-dim)', border: `1px solid ${note.stats.interval >= 21 ? 'rgba(24,169,87,.35)' : 'var(--c-border)'}`, borderRadius: 999, padding: '1px 7px' }}>
+                                    {fmtInterval(note.stats.interval)}
+                                  </span>
+                                ) : (
+                                  <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--c-warning)', border: '1px solid rgba(232,147,12,.35)', borderRadius: 999, padding: '1px 7px' }}>learn</span>
+                                )}
+                                {note.stats.lapses >= 4 && (
+                                  <span title={`${note.stats.lapses} lapses — a problem card`}
+                                    style={{ fontSize: 9, fontWeight: 800, color: 'var(--c-danger)', border: '1px solid rgba(229,57,46,.35)', borderRadius: 999, padding: '1px 7px' }}>⚠ {note.stats.lapses}</span>
+                                )}
+                              </span>
+                            )}
+                            <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                               <button onClick={() => startEditNote(note)} style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 8px' }}>Edit</button>
                               <button onClick={() => {
                                 if (deckBrowserCopying === note.noteId) { setDeckBrowserCopying(null); return }
@@ -7439,6 +7476,38 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                 style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 8px', color: 'var(--c-danger)', borderColor: 'rgba(229,57,46,.25)' }}>Del</button>
                             </div>
                           </div>
+                          {/* Expanded card — the full back with bold labels, tags, and scheduling info */}
+                          {deckBrowserExpanded === note.noteId && (
+                            <div style={{ padding: '10px 14px 10px 32px', borderTop: '1px solid var(--c-border)', background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))' }}>
+                              {fields.slice(1).map(([name, f]) => (
+                                <div key={name} style={{ marginBottom: 8 }}>
+                                  {fields.length > 2 && <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--c-ink-faint)', letterSpacing: '.05em', textTransform: 'uppercase', marginBottom: 3 }}>{name}</div>}
+                                  {backTextLines(f.value).map((ln, li) => {
+                                    const m = ln.match(/^([^:]{1,30}):\s*(.*)$/)
+                                    return (
+                                      <div key={li} style={{ fontSize: 12, color: 'var(--c-ink-dim)', lineHeight: 1.7 }}>
+                                        {m ? (<><span style={{ fontWeight: 700, color: 'var(--c-ink)' }}>{m[1]}:</span> {m[2]}</>) : ln}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              ))}
+                              {(note.tags || []).length > 0 && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
+                                  {note.tags.map((tag) => (
+                                    <span key={tag} style={{ fontSize: 9, fontWeight: 700, color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,.3)', borderRadius: 999, padding: '1px 7px' }}>{tag}</span>
+                                  ))}
+                                </div>
+                              )}
+                              {note.stats && (
+                                <div style={{ fontSize: 10, color: 'var(--c-ink-faint)' }}>
+                                  {note.stats.reps === 0
+                                    ? 'Never studied'
+                                    : `Studied ${note.stats.reps}× · ${note.stats.lapses} lapse${note.stats.lapses === 1 ? '' : 's'} · interval ${fmtInterval(note.stats.interval)} · last activity ${new Date(note.stats.mod * 1000).toLocaleDateString()}`}
+                                </div>
+                              )}
+                            </div>
+                          )}
                           {deckBrowserCopying === note.noteId && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', padding: '7px 12px', borderTop: '1px solid var(--c-border)', background: 'rgba(24,169,87,.04)' }}>
                               <span style={{ fontSize: 10, color: 'var(--c-ink-dim)', fontWeight: 700 }}>{t('copyTo')}:</span>
@@ -7956,14 +8025,35 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             <div style={{ padding: '16px 20px', background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 8 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-ink)', marginBottom: 12 }}>{t('recentSessions')}</div>
               {history.length === 0 && <div style={{ fontSize: 11, color: 'var(--c-ink-faint)' }}>{t('noSessions')}</div>}
-              {history.slice(0, 20).map((h, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--c-border)', fontSize: 11 }}>
-                  <span style={{ color: 'var(--c-ink-dim)' }}>{h.date}</span>
-                  <span style={{ color: 'var(--c-brand)' }}>{h.deck}</span>
-                  <span style={{ color: 'var(--c-ink)' }}>{h.cardsStudied} {t('cardsLabel')}</span>
-                  <span style={{ color: h.accuracy >= 80 ? 'var(--c-success)' : h.accuracy >= 50 ? 'var(--c-warning)' : 'var(--c-danger)' }}>{h.accuracy}%</span>
-                </div>
-              ))}
+              {(() => {
+                // Every sync flush records its own "session" entry, so one study sitting shows as
+                // many near-identical rows. Group by (date, deck) for display: cards sum, accuracy
+                // is card-weighted. Fixed grid columns so every row aligns (flex space-between let
+                // each column drift with the deck name's width).
+                const byKey = {}
+                const grouped = []
+                for (const h of history) {
+                  const k = `${h.date}|${h.deck}`
+                  if (byKey[k]) {
+                    byKey[k].cardsStudied += h.cardsStudied || 0
+                    byKey[k].accSum += (h.accuracy || 0) * (h.cardsStudied || 0)
+                  } else {
+                    byKey[k] = { date: h.date, deck: h.deck, cardsStudied: h.cardsStudied || 0, accSum: (h.accuracy || 0) * (h.cardsStudied || 0) }
+                    grouped.push(byKey[k])
+                  }
+                }
+                return grouped.slice(0, 20).map((g, i) => {
+                  const acc = g.cardsStudied > 0 ? Math.round(g.accSum / g.cardsStudied) : 0
+                  return (
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '82px minmax(0,1fr) 84px 48px', alignItems: 'center', columnGap: 10, padding: '6px 0', borderBottom: '1px solid var(--c-border)', fontSize: 11 }}>
+                      <span style={{ color: 'var(--c-ink-dim)' }}>{g.date}</span>
+                      <span style={{ color: 'var(--c-brand)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.deck}</span>
+                      <span style={{ color: 'var(--c-ink)', textAlign: 'right' }}>{g.cardsStudied} {g.cardsStudied === 1 ? t('cardLabelOne') : t('cardsLabel')}</span>
+                      <span style={{ textAlign: 'right', fontWeight: 700, color: acc >= 80 ? 'var(--c-success)' : acc >= 50 ? 'var(--c-warning)' : 'var(--c-danger)' }}>{acc}%</span>
+                    </div>
+                  )
+                })
+              })()}
             </div>
           </div>
         </main>

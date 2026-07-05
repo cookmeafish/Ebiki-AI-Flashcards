@@ -254,6 +254,7 @@ const en = {
   recentSessions: 'Recent Sessions',
   noSessions: 'No sessions yet. Complete a study session to see stats here.',
   cardsLabel: 'cards',
+  cardLabelOne: 'card',
   sessionsLabel: 'sessions',
   lastLabel: 'last',
 
@@ -495,6 +496,7 @@ const es = {
   recentSessions: 'Sesiones recientes',
   noSessions: 'Aún no hay sesiones. Completa una sesión de estudio para ver estadísticas aquí.',
   cardsLabel: 'tarjetas',
+  cardLabelOne: 'tarjeta',
   sessionsLabel: 'sesiones',
   lastLabel: 'última',
 
@@ -735,6 +737,7 @@ const zh = {
   recentSessions: '最近的会话',
   noSessions: '暂无会话。完成一次学习会话即可在此查看统计。',
   cardsLabel: '张卡片',
+  cardLabelOne: '张卡片',
   sessionsLabel: '次会话',
   lastLabel: '最近',
 
@@ -975,6 +978,7 @@ const ja = {
   recentSessions: '最近のセッション',
   noSessions: 'まだセッションがありません。学習セッションを完了するとここに統計が表示されます。',
   cardsLabel: '枚',
+  cardLabelOne: '枚',
   sessionsLabel: 'セッション',
   lastLabel: '最終',
 
