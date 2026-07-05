@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { iconFor } from '../pbq/engine'
 
 // Interactive PBQ (performance-based question) — renders a compiled PBQ from src/pbq/engine.js.
 // Two interaction styles, both always available: select-then-place (click a chip, then click where
@@ -18,7 +19,7 @@ const chipBase = {
   background: 'var(--c-surface)', color: 'var(--c-ink)', cursor: 'pointer', maxWidth: '100%',
 }
 
-const Chip = ({ text, selected, correct, onClick, dragProps }) => (
+const Chip = ({ text, icon, selected, correct, onClick, dragProps }) => (
   <button onClick={onClick} disabled={!onClick && !dragProps} {...(dragProps || {})} style={{
     ...chipBase,
     cursor: dragProps ? 'grab' : onClick ? 'pointer' : 'default',
@@ -29,6 +30,7 @@ const Chip = ({ text, selected, correct, onClick, dragProps }) => (
   }}>
     {correct === true && <span style={{ color: 'var(--c-success)' }}>✓</span>}
     {correct === false && <span>✗</span>}
+    {icon && <span style={{ fontSize: 14, lineHeight: 1 }}>{icon}</span>}
     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{text}</span>
   </button>
 )
@@ -91,7 +93,10 @@ export default function PbqQuestion({ pbq, t, onSubmit, review = null }) {
                   opacity: dragRow === pos ? 0.6 : 1,
                 }}>
                 <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--c-brand)', width: 22, flexShrink: 0 }}>{pos + 1}.</span>
-                <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--c-ink)', flex: 1, minWidth: 0 }}>{pool[itemIdx]}</span>
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--c-ink)', flex: 1, minWidth: 0 }}>
+                  {iconFor(pbq, pool[itemIdx]) && <span style={{ fontSize: 14, marginRight: 6 }}>{iconFor(pbq, pool[itemIdx])}</span>}
+                  {pool[itemIdx]}
+                </span>
                 {p && !p.correct && <Expected text={p.expectedText} />}
                 {!done && (
                   <span style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
@@ -170,7 +175,7 @@ export default function PbqQuestion({ pbq, t, onSubmit, review = null }) {
           {unplaced.length === 0
             ? <span style={{ fontSize: 11, color: 'var(--c-ink-faint)', alignSelf: 'center' }}>✓</span>
             : unplaced.map(ii => (
-              <Chip key={ii} text={pool[ii]} selected={selected === ii} dragProps={chipDragProps(ii)}
+              <Chip key={ii} text={pool[ii]} icon={iconFor(pbq, pool[ii])} selected={selected === ii} dragProps={chipDragProps(ii)}
                 onClick={() => setSelected(selected === ii ? null : ii)} />
             ))}
         </div>
@@ -191,6 +196,7 @@ export default function PbqQuestion({ pbq, t, onSubmit, review = null }) {
               boxShadow: dragOverT === ti ? '0 0 0 3px rgba(223,37,64,.12)' : 'none',
             }}>
               <div style={{ fontSize: isMatching ? 12 : 12.5, fontWeight: isMatching ? 500 : 800, color: isMatching ? 'var(--c-ink)' : 'var(--c-brand)', marginBottom: placedHere.length || !done ? 6 : 0, lineHeight: 1.5 }}>
+                {!isMatching && iconFor(pbq, tg) && <span style={{ fontSize: 14, marginRight: 6 }}>{iconFor(pbq, tg)}</span>}
                 {tg}
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
@@ -198,7 +204,7 @@ export default function PbqQuestion({ pbq, t, onSubmit, review = null }) {
                   const p = per?.[ii]
                   return (
                     <span key={ii} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: '100%' }}>
-                      <Chip text={pool[ii]} correct={p ? p.correct : undefined} dragProps={chipDragProps(ii)}
+                      <Chip text={pool[ii]} icon={iconFor(pbq, pool[ii])} correct={p ? p.correct : undefined} dragProps={chipDragProps(ii)}
                         onClick={!done ? (e) => { e.stopPropagation(); unplaceItem(ii, true) } : undefined} />
                       {p && !p.correct && <Expected text={p.expectedText} />}
                     </span>

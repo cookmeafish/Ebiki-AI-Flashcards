@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { compilePbq, checkCitations, studentView, parseSolverAnswer, gradePbq, compareToKey } from './engine.js'
+import { compilePbq, checkCitations, studentView, parseSolverAnswer, gradePbq, compareToKey, iconFor } from './engine.js'
 
 // Deterministic rng: identity shuffle (Fisher–Yates with rng()=0 swaps i with 0... use a
 // sequence that keeps order stable: rng returning values so j===i every time → rng = (i+? )
@@ -101,13 +101,46 @@ describe('checkCitations', () => {
 })
 
 describe('studentView', () => {
-  it('never leaks the answer key', () => {
+  it('never leaks the answer key (nor icons — the blind solver is text-only)', () => {
     for (const raw of [MATCHING, ORDERING, CATEGORIZE]) {
-      const { pbq } = compilePbq(raw)
+      const { pbq } = compilePbq({ ...raw, icons: { Phishing: '🎣' } })
       const v = studentView(pbq)
       expect(v.answer).toBeUndefined()
+      expect(v.icons).toBeUndefined()
       expect(JSON.stringify(v)).not.toContain('"answer"')
     }
+  })
+})
+
+describe('icons', () => {
+  it('keeps valid emoji keyed by normalized text, drops junk', () => {
+    const { pbq } = compilePbq({
+      ...MATCHING,
+      icons: {
+        'PHISHING': '🎣',                    // case-insensitive key
+        'Vishing': '📞',
+        'Whaling': 'not-an-emoji',           // letters → dropped
+        'Smishing': '🧑‍🤝‍🧑🧑‍🤝‍🧑🧑‍🤝‍🧑',  // over-long → dropped
+        'Unknown item': '❓',                // unknown key is kept in the map but never looked up
+      },
+    })
+    expect(iconFor(pbq, 'phishing')).toBe('🎣')
+    expect(iconFor(pbq, 'Vishing')).toBe('📞')
+    expect(iconFor(pbq, 'Whaling')).toBe(null)
+    expect(iconFor(pbq, 'Smishing')).toBe(null)
+  })
+
+  it('compiles fine with no icons at all', () => {
+    const { ok, pbq } = compilePbq(MATCHING)
+    expect(ok).toBe(true)
+    expect(iconFor(pbq, 'Phishing')).toBe(null)
+    expect(iconFor(null, 'x')).toBe(null)
+  })
+
+  it('icons never affect grading or solver matching', () => {
+    const { pbq } = compilePbq({ ...MATCHING, icons: { Phishing: '🎣' } })
+    const solved = { pairs: pbq.left.map((l, li) => [l, pbq.right[pbq.answer[li]]]) }
+    expect(compareToKey(pbq, parseSolverAnswer(pbq, solved)).match).toBe(true)
   })
 })
 
