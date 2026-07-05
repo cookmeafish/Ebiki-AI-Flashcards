@@ -64,6 +64,13 @@ export async function ankiCopyNote(deckName, modelName, fields, tags = []) {
   })
 }
 
+// Reset cards to NEW — wipes scheduling (interval/ease/due) so they start over. The remedy for
+// a card whose interval was inflated by bad syncs.
+export async function ankiForgetCards(cardIds) {
+  ankiLog(`resetting ${cardIds.length} card(s) to new`)
+  return ankiRequest('forgetCards', { cards: cardIds })
+}
+
 // Move cards to another deck — the scheduling state travels with them.
 export async function ankiChangeDeck(cardIds, deckName) {
   ankiLog(`moving ${cardIds.length} card(s) to deck "${deckName}"`)

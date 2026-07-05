@@ -18,7 +18,7 @@ import OnboardingWizard from './components/OnboardingWizard'
 import Dropdown from './components/Dropdown'
 import { S } from './styles/theme'
 import { ocrLog, ocrLogTable, ocrLogFlush } from './utils/logger'
-import { ankiPing, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiCanAddNote, ankiCopyNote, ankiChangeDeck, ankiFindCards, ankiCardsInfo, ankiAnswerCards, ankiSetDueDate, ankiInsertReviews, ankiGuiDeckReview, ankiGuiCurrentCard, ankiGuiShowAnswer, ankiGuiAnswerCard, ankiGuiDeckBrowser, ankiGetDeckStats, ankiFindNotes, ankiNotesInfo, ankiUpdateNote, ankiDeleteNotes, ankiSync, ankiStoreMediaFile, ankiGetNumCardsReviewedToday, ankiGetNumCardsReviewedByDay, ankiGetTodayReviewStats } from './utils/anki'
+import { ankiPing, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiCanAddNote, ankiCopyNote, ankiChangeDeck, ankiForgetCards, ankiFindCards, ankiCardsInfo, ankiAnswerCards, ankiSetDueDate, ankiInsertReviews, ankiGuiDeckReview, ankiGuiCurrentCard, ankiGuiShowAnswer, ankiGuiAnswerCard, ankiGuiDeckBrowser, ankiGetDeckStats, ankiFindNotes, ankiNotesInfo, ankiUpdateNote, ankiDeleteNotes, ankiSync, ankiStoreMediaFile, ankiGetNumCardsReviewedToday, ankiGetNumCardsReviewedByDay, ankiGetTodayReviewStats } from './utils/anki'
 import { readBlob, writeBlob, DEFAULT_LEDGER } from './discover/storage'
 import { buildProfilePrompt, buildSuggestionPrompt, buildVerifyPrompt } from './discover/prompts'
 import PbqQuestion from './components/PbqQuestion'
@@ -2791,6 +2791,23 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     }
   }
 
+  // Reset a card's STUDY PROGRESS (scheduling only — content untouched): forgetCards turns it
+  // back into a NEW card. The remedy for schedules inflated by the old duplicate-sync bug.
+  const resetNoteProgress = async (note, front) => {
+    if (!window.confirm(`Reset all study progress for "${front}"?\n\nThe card becomes NEW again — its interval and scheduling history are wiped (the card's content is not touched). This cannot be undone.`)) return
+    try {
+      const cardIds = await ankiFindCards(`nid:${note.noteId}`)
+      if (cardIds.length === 0) throw new Error('no cards found for this note')
+      await ankiForgetCards(cardIds)
+      ankiSync().catch(() => {})
+      await loadDeckNotes(deckBrowserDeck) // refresh the scheduling badges
+      console.log('[Deck] progress reset for note', note.noteId)
+    } catch (err) {
+      console.error('[Deck] progress reset failed:', err.message)
+      setDeckBrowserSaveStatus('error')
+    }
+  }
+
   const deleteNote = async (noteId) => {
     try {
       await ankiDeleteNotes([noteId])
@@ -2853,7 +2870,16 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       }))
 
       const frontFieldName = Object.keys(cards[0]?.fields || {})[0] || 'Front'
-      const prompt = `You are analyzing flashcards in a ${studyLang} learning deck. Find cards where the ${studyLang} word/phrase has MULTIPLE distinct everyday meanings that the card's current content does NOT disambiguate.\n\nFor each ambiguous card, propose updated field content that clarifies the intended meaning — e.g. specify the domain, add a usage example, or list the senses with a short note for each.\n\nDO NOT flag cards where:\n- The word has only one common meaning\n- The current content already disambiguates well\n- A learner would clearly understand from common usage\n\nCards (JSON):\n${JSON.stringify(cards)}\n\nReturn a JSON array — ONLY include cards that need fixing (skip the rest):\n[\n  {\n    "noteId": <number>,\n    "front": "<exact verbatim value of the card's "${frontFieldName}" field, copied character-for-character>",\n    "reason": "<one short sentence: what is ambiguous>",\n    "recommendedFields": { "<fieldName>": "<new content>", ... }\n  }\n]\n\nCRITICAL: "noteId" and "front" MUST identify the SAME card. Copy the "front" value verbatim from that exact card's data above — never paraphrase it, never use a different card's word, and double-check that the recommendedFields you write are for that same word. If you cannot be certain a noteId and its word match, omit that card.\n\nIn recommendedFields, include ONLY fields you're changing (typically just the back). Match each field's language (replace a ${studyLang} field with ${studyLang} content; replace an English field with English content). Use plain text with newlines for line breaks (no HTML, no <br>).\n\nOutput ONLY raw JSON. No markdown, no commentary.`
+      // Frame the analysis by what the deck actually IS: language decks look for words with multiple
+      // everyday meanings; any other subject looks for underspecified/ambiguous CONCEPT cards.
+      const isLangDeck = activeMode.type === 'language'
+      const analyzeFraming = isLangDeck
+        ? `You are analyzing flashcards in a ${studyLang} learning deck. Find cards where the ${studyLang} word/phrase has MULTIPLE distinct everyday meanings that the card's current content does NOT disambiguate.\n\nFor each ambiguous card, propose updated field content that clarifies the intended meaning — e.g. specify the domain, add a usage example, or list the senses with a short note for each.\n\nDO NOT flag cards where:\n- The word has only one common meaning\n- The current content already disambiguates well\n- A learner would clearly understand from common usage`
+        : `You are analyzing flashcards in a "${activeMode.name}" study deck${activeMode.description ? ` (${activeMode.description})` : ''}. Find cards that are AMBIGUOUS or UNDERSPECIFIED for this subject: a term whose intended sense isn't pinned down, a vague or incomplete definition, a front that several different concepts could answer, or missing context that makes the card hard to study.\n\nFor each such card, propose updated field content that pins the intended meaning — specify the domain/context, tighten the definition, or add a clarifying example that fits the subject.\n\nDO NOT flag cards where:\n- The content is already specific and unambiguous\n- A student of this subject would clearly understand it as written`
+      const fieldLangRule = isLangDeck
+        ? `Match each field's language (replace a ${studyLang} field with ${studyLang} content; replace an English field with English content).`
+        : `Keep each field in the language it is already written in.`
+      const prompt = `${analyzeFraming}\n\nCards (JSON):\n${JSON.stringify(cards)}\n\nReturn a JSON array — ONLY include cards that need fixing (skip the rest):\n[\n  {\n    "noteId": <number>,\n    "front": "<exact verbatim value of the card's "${frontFieldName}" field, copied character-for-character>",\n    "reason": "<one short sentence: what is ambiguous>",\n    "recommendedFields": { "<fieldName>": "<new content>", ... }\n  }\n]\n\nCRITICAL: "noteId" and "front" MUST identify the SAME card. Copy the "front" value verbatim from that exact card's data above — never paraphrase it, never use a different card's word, and double-check that the recommendedFields you write are for that same card. If you cannot be certain a noteId and its front match, omit that card.\n\nIn recommendedFields, include ONLY fields you're changing (typically just the back). ${fieldLangRule} Use plain text with newlines for line breaks (no HTML, no <br>).\n\nOutput ONLY raw JSON. No markdown, no commentary.`
 
       const text = await aiCall(apiKey, 'You analyze flashcard quality. Always respond with valid JSON only.', prompt, resolveModel('deck'))
       const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
@@ -3158,7 +3184,9 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
             cluster: ci,
             cards: ks.flatMap((k) => byKey.get(k).map((n) => ({ noteId: n.noteId, front: htmlToPlain(frontOf(n)) }))),
           }))
-          const prompt = `These are flashcard headwords that look similar (possible spelling/accent/typo variants of the SAME word). For each cluster, identify which cards are truly the SAME word and should be merged. Different words that merely look alike (e.g. "casa" vs "caza", "pero" vs "perro") must NOT be grouped.\n\nClusters (JSON):\n${JSON.stringify(forAI)}\n\nReturn ONLY a JSON array of the duplicate sets you confirm (omit anything that isn't a real duplicate):\n[ { "merge": [<noteId>, <noteId>, ...] }, ... ]\n\nEach "merge" set must have 2+ noteIds that are the same word. Output ONLY raw JSON, no markdown.`
+          const prompt = activeMode.type === 'language'
+            ? `These are flashcard headwords that look similar (possible spelling/accent/typo variants of the SAME word). For each cluster, identify which cards are truly the SAME word and should be merged. Different words that merely look alike (e.g. "casa" vs "caza", "pero" vs "perro") must NOT be grouped.\n\nClusters (JSON):\n${JSON.stringify(forAI)}\n\nReturn ONLY a JSON array of the duplicate sets you confirm (omit anything that isn't a real duplicate):\n[ { "merge": [<noteId>, <noteId>, ...] }, ... ]\n\nEach "merge" set must have 2+ noteIds that are the same word. Output ONLY raw JSON, no markdown.`
+            : `These are flashcard fronts from a "${activeMode.name}" study deck that look similar (possible duplicates: typo variants, an abbreviation vs its expansion, or the same term/concept written differently). For each cluster, identify which cards are truly the SAME term/concept and should be merged. DISTINCT concepts that merely look or sound similar (e.g. "encoding" vs "encryption", "TCP" vs "UDP") must NOT be grouped.\n\nClusters (JSON):\n${JSON.stringify(forAI)}\n\nReturn ONLY a JSON array of the duplicate sets you confirm (omit anything that isn't a real duplicate):\n[ { "merge": [<noteId>, <noteId>, ...] }, ... ]\n\nEach "merge" set must have 2+ noteIds that are the same term/concept. Output ONLY raw JSON, no markdown.`
           const text = await aiCall(apiKey, 'You confirm whether similar-looking flashcards are the same word. Always respond with valid JSON only.', prompt, resolveModel('deck'))
           const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
           if (Array.isArray(parsed)) {
@@ -4293,6 +4321,44 @@ Output ONLY raw JSON. No markdown, no backticks.`
             <span style={{ fontWeight: 700, color: 'var(--c-purple)' }}>🧠 </span>{hook}
           </div>
         ))}
+      </div>
+    )
+  }
+
+  // Per-question row in the feedback views (graded list + Batch Results): collapsed by default to
+  // a one-line header with a tri-state indicator — ✓ green = perfect with nothing to review,
+  // ✓✎ amber = correct but Ebi left feedback, ✗ red = incorrect. Click to expand the full detail.
+  const [studyQaOpen, setStudyQaOpen] = useState({})
+  const renderQaRow = (cs, ci, qi, src, showAttempts = false) => {
+    const r = cs.results[qi] || {}
+    const gq = getQuestionText(cs.questions[qi])
+    const open = !!studyQaOpen[src]
+    const st = !r.correct ? 'wrong' : ((r.notes || []).some((n) => n && n.type !== 'praise') ? 'noted' : 'clean')
+    const meta = st === 'wrong'
+      ? { icon: '✗', color: 'var(--c-danger)', bg: 'rgba(229,57,46,.05)', title: 'Incorrect — click for details' }
+      : st === 'noted'
+        ? { icon: '✓✎', color: 'var(--c-warning)', bg: 'rgba(232,147,12,.04)', title: 'Correct, but Ebi left feedback — click to read it' }
+        : { icon: '✓', color: 'var(--c-success)', bg: 'rgba(24,169,87,.03)', title: 'Perfect — nothing to review' }
+    return (
+      <div key={qi} style={{ borderTop: '1px solid var(--c-border)' }}>
+        <div onClick={() => setStudyQaOpen((p) => ({ ...p, [src]: !p[src] }))} title={meta.title}
+          style={{ padding: '7px 12px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', background: meta.bg }}>
+          <span style={{ fontSize: 11, fontWeight: 800, color: meta.color, minWidth: 24, flexShrink: 0 }}>{meta.icon}</span>
+          <span style={{ flex: 1, minWidth: 0, fontSize: 11, color: 'var(--c-ink-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{gq}</span>
+          <span style={{ fontSize: 9, color: 'var(--c-ink-faint)', flexShrink: 0 }}>{open ? '▾' : '▸'}</span>
+        </div>
+        {open && (
+          <div style={{ padding: '2px 12px 9px 44px', fontSize: 12, background: meta.bg }}>
+            <div style={{ color: 'var(--c-ink-dim)', marginBottom: 3, lineHeight: 1.6 }}><span style={{ fontWeight: 600 }}>Q:</span> {renderTappableText(gq, gq, src)}</div>
+            {showAttempts && cs.questionAttempts?.[qi]?.length > 1 && (
+              <div style={{ color: 'var(--c-ink-faint)', fontSize: 10, marginBottom: 3 }}>Previous attempts: {cs.questionAttempts[qi].slice(0, -1).join(', ')}</div>
+            )}
+            <div style={{ color: 'var(--c-ink)', marginBottom: 4 }}><span style={{ fontWeight: 600 }}>Your answer:</span> {cs.answers[qi]}</div>
+            <div style={{ color: r.correct ? 'var(--c-success)' : 'var(--c-warning)', lineHeight: 1.6, fontSize: 11 }}>{renderTappableText(r.feedback, r.feedback, src)}</div>
+            {renderFeedbackNotes(r, src)}
+            {renderWordLookupPopup(src)}
+          </div>
+        )}
       </div>
     )
   }
@@ -7898,6 +7964,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               <button onClick={() => { setDeckBrowserEditing(null); setDeckBrowserRefineInput(''); setDeckBrowserSaveStatus(null) }} style={{ ...S.ghostBtn, fontSize: 11 }}>Cancel</button>
                               {deckBrowserSaveStatus === 'error' && <span style={{ fontSize: 10, color: 'var(--c-danger)' }}>Save failed — is Anki open?</span>}
                               {deckBrowserSaveStatus === 'saved' && <span style={{ fontSize: 10, color: 'var(--c-success)' }}>Saved</span>}
+                              {/* Scheduling reset — content untouched; confirm guards the irreversible part */}
+                              <button onClick={() => resetNoteProgress(note, front)} disabled={!ankiConnected}
+                                title="Wipe this card's scheduling history — it becomes a NEW card again (content is kept)"
+                                style={{ marginLeft: 'auto', background: 'rgba(229,57,46,.12)', color: 'var(--c-danger)', border: '1px solid rgba(229,57,46,.4)', borderRadius: 5, padding: '5px 12px', fontSize: 11, fontWeight: 700, cursor: ankiConnected ? 'pointer' : 'default', fontFamily: 'inherit', opacity: ankiConnected ? 1 : 0.5 }}>
+                                ⟲ Reset progress
+                              </button>
                             </div>
                           </div>
                         ) : (
@@ -9159,22 +9231,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         </div>
                         {view === 'mnemonic' && renderMnemonic(cs, ci)}
                         {view === 'feedback' && (<>
-                        {cs.results.map((r, qi) => {
-                          const gq = getQuestionText(cs.questions[qi])
-                          const src = `graded-${ci}-${qi}`
-                          return (
-                          <div key={qi} style={{ padding: '8px 12px', borderTop: '1px solid var(--c-border)', fontSize: 12, background: r.correct ? 'rgba(24,169,87,.03)' : 'rgba(229,57,46,.03)' }}>
-                            <div style={{ color: r.correct ? 'var(--c-success)' : 'var(--c-danger)', fontSize: 10, fontWeight: 700, marginBottom: 4 }}>
-                              {r.correct ? '\u2713 CORRECT' : '\u2717 INCORRECT'}
-                            </div>
-                            <div style={{ color: 'var(--c-ink-dim)', marginBottom: 3, lineHeight: 1.6 }}><span style={{ fontWeight: 600 }}>Q:</span> {renderTappableText(gq, gq, src)}</div>
-                            <div style={{ color: 'var(--c-ink)', marginBottom: 4 }}><span style={{ fontWeight: 600 }}>Your answer:</span> {cs.answers[qi]}</div>
-                            <div style={{ color: r.correct ? 'var(--c-success)' : 'var(--c-warning)', lineHeight: 1.6, fontSize: 11 }}>{renderTappableText(r.feedback, r.feedback, src)}</div>
-                            {renderFeedbackNotes(r, src)}
-                            {renderWordLookupPopup(src)}
-                          </div>
-                          )
-                        })}
+                        {cs.results.map((r, qi) => renderQaRow(cs, ci, qi, `graded-${ci}-${qi}`))}
                         <div style={{ padding: '4px 12px', borderTop: '1px solid var(--c-border)', fontSize: 10, color: 'var(--c-ink-faint)' }}>{cs.back}</div>
                         {/* Feedback chat */}
                         {!cs.evaluating && (
@@ -9269,37 +9326,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       </div>
                       {view === 'mnemonic' && renderMnemonic(cs, ci)}
                       {view === 'feedback' && (<>
-                      {cs.questions.map((q, qi) => {
-                        const bq = getQuestionText(q)
-                        const bfb = cs.results[qi]?.feedback
-                        const src = `batch-${ci}-${qi}`
-                        return (
-                        <div key={qi} style={{
-                          padding: '8px 12px', borderTop: '1px solid var(--c-border)', fontSize: 12,
-                          background: cs.results[qi]?.correct ? 'rgba(24,169,87,.03)' : 'rgba(229,57,46,.03)',
-                        }}>
-                          <div style={{ color: cs.results[qi]?.correct ? 'var(--c-success)' : 'var(--c-danger)', fontSize: 10, fontWeight: 700, marginBottom: 4 }}>
-                            {cs.results[qi]?.correct ? '\u2713 CORRECT' : '\u2717 INCORRECT'}
-                          </div>
-                          <div style={{ color: 'var(--c-ink-dim)', marginBottom: 3, lineHeight: 1.6 }}>
-                            <span style={{ fontWeight: 600 }}>Q:</span> {renderTappableText(bq, bq, src)}
-                          </div>
-                          {cs.questionAttempts?.[qi]?.length > 1 && (
-                            <div style={{ color: 'var(--c-ink-faint)', fontSize: 10, marginBottom: 3 }}>
-                              Previous attempts: {cs.questionAttempts[qi].slice(0, -1).join(', ')}
-                            </div>
-                          )}
-                          <div style={{ color: 'var(--c-ink)', marginBottom: 4 }}>
-                            <span style={{ fontWeight: 600 }}>Your answer:</span> {cs.answers[qi]}
-                          </div>
-                          <div style={{ color: cs.results[qi]?.correct ? 'var(--c-success)' : 'var(--c-warning)', lineHeight: 1.6, fontSize: 11 }}>
-                            {renderTappableText(bfb, bfb, src)}
-                          </div>
-                          {renderFeedbackNotes(cs.results[qi], src)}
-                          {renderWordLookupPopup(src)}
-                        </div>
-                        )
-                      })}
+                      {cs.questions.map((q, qi) => renderQaRow(cs, ci, qi, `batch-${ci}-${qi}`, true))}
                       <div style={{ padding: '4px 12px', borderTop: '1px solid var(--c-border)', fontSize: 10, color: 'var(--c-ink-faint)' }}>
                         {cs.back}
                       </div>
