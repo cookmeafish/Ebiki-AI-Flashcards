@@ -7265,7 +7265,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             ))}
           </div>
           {/* Ask Ebi — opens Ebi's help chat (replaces the old floating shrimp button) */}
-          <button onClick={() => setAskEbiSignal((n) => n + 1)} title="Ask Ebi — your study helper"
+          <button onClick={() => setAskEbiSignal((n) => n + 1)} title="Ask Ebi — your study helper" className="ui-btn"
             style={{ ...S.ghostBtn, marginLeft: 8, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)', fontWeight: 700 }}>
             Ask Ebi
           </button>
@@ -7355,7 +7355,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           />
 
           {/* Single Settings entry \u2014 opens the unified modal (right-most, like every tab) */}
-          <button onClick={() => setSettingsOpen(true)} title={t('settingsTitle')} style={{ ...S.ghostBtn, position: 'relative', padding: '6px 10px' }}>
+          <button onClick={() => setSettingsOpen(true)} title={t('settingsTitle')} className="ui-btn" style={{ ...S.ghostBtn, position: 'relative', padding: '6px 10px', color: 'var(--c-ink-dim)' }}>
             {'\u2699\uFE0F'} {t('settingsTitle')}
             {!apiKey && <span style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: '50%', background: 'var(--c-danger)' }} />}
           </button>
