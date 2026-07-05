@@ -37,19 +37,42 @@ Base the estimate on real evidence. Be honest — if there is little evidence, l
 // ─── Next suggestion ────────────────────────────────────────────────────────
 // Proposes ONE new item to learn, calibrated to the profile and never repeating
 // anything the learner already has / knows / declined.
-export function buildSuggestionPrompt({ profile, modeType, modeName, modeDescription, studyLanguage, excludeList, itemType, focus, knowledge }) {
+export function buildSuggestionPrompt({ profile, modeType, modeName, modeDescription, studyLanguage, excludeList, itemType, focus, knowledge, difficulty, customKind }) {
   const level = profile?.level || { scale: 'tiers', estimate: 'beginner' }
   const weak = (profile?.domains || []).filter((d) => d.status !== 'strong').map((d) => d.name)
   const isLang = modeType === 'language'
 
-  // What kind of item to suggest (language modes only): single word, multi-word phrase, or either.
-  let itemTypeRule = ''
-  let itemKind = isLang ? 'word or phrase' : 'concept or term'
-  if (isLang) {
-    if (itemType === 'word') { itemKind = 'single word'; itemTypeRule = '- Suggest a SINGLE WORD (one token), not a multi-word phrase.' }
-    else if (itemType === 'phrase') { itemKind = 'phrase or expression'; itemTypeRule = '- Suggest a multi-word PHRASE, idiom or expression — not a single word.' }
-    else { itemTypeRule = '- It may be either a single word or a short phrase, whichever is most useful.' }
+  // What kind of item to suggest. [itemKind for the intro sentence, the concrete rule].
+  // 'both' = anything goes; unknown values fall back to it.
+  const LANG_TYPES = {
+    word: ['single word', '- Suggest a SINGLE WORD (one token), not a multi-word phrase.'],
+    phrase: ['phrase or expression', '- Suggest a multi-word PHRASE or everyday expression — not a single word.'],
+    idiom: ['idiom or saying', '- Suggest an IDIOM, proverb or colloquial expression native speakers actually use. The explanation gives its literal reading AND its real meaning.'],
+    verb: ['verb', '- Suggest a VERB in its infinitive/dictionary form — pick verbs with real everyday utility (irregular or pattern-defining verbs are welcome).'],
+    grammar: ['grammar pattern', '- Suggest a GRAMMAR PATTERN or construction (a tense use, connector, or structure). "term" is the pattern as a short skeleton (e.g. "si + imperfecto de subjuntivo"), and the explanation shows how to build it with ONE example sentence.'],
+    both: ['word or phrase', '- It may be a word, phrase, idiom, verb, or grammar pattern — whichever is most useful right now.'],
   }
+  const GEN_TYPES = {
+    term: ['key term or concept', '- Suggest a KEY TERM or concept from the subject.'],
+    acronym: ['acronym', '- Suggest an ACRONYM or abbreviation from the subject. "term" is the acronym itself, "translation" is its expansion, and the explanation says what it is and why it matters.'],
+    comparison: ['commonly-confused pair', '- Suggest a COMMONLY-CONFUSED PAIR as "X vs Y" (e.g. "symmetric vs asymmetric encryption"). The explanation contrasts them in one or two crisp sentences.'],
+    scenario: ['applied concept', '- Suggest a concept via an APPLIED SCENARIO: the explanation opens with a short realistic situation, then names the concept that answers it (exam-style application, not bare recall).'],
+    both: ['concept or term', '- It may be a term, acronym, commonly-confused pair, or applied-scenario concept — whichever is most useful right now.'],
+  }
+  const table = isLang ? LANG_TYPES : GEN_TYPES
+  let [itemKind, itemTypeRule] = table[itemType] || table.both
+  // Subject-specific category (AI-generated per mode) overrides the static table.
+  if (customKind?.rule) {
+    itemKind = customKind.label || itemKind
+    itemTypeRule = `- ${customKind.rule}`
+  }
+
+  // How hard to aim, relative to the assessed level.
+  const difficultyRule = difficulty === 'easier'
+    ? 'Aim slightly BELOW their assessed level — consolidation material they can win with quickly.'
+    : difficulty === 'level'
+      ? 'Aim squarely AT their assessed level — comfortable but not trivial.'
+      : 'Aim appropriate for their level — slightly stretch them, never trivial.'
 
   return `You are a tutor suggesting ONE new ${itemKind} for the learner to make a flashcard from. They are studying "${modeName}"${modeDescription ? ` (${modeDescription})` : ''}.
 
@@ -60,8 +83,8 @@ ${focus ? `\nThe learner specifically asked you to focus on: "${focus}". Honor t
 ${knowledge ? `\nREFERENCE MATERIAL (the learner's own study material for this mode — prefer terms/concepts that appear in or align with it):\n${knowledge}\n` : ''}
 
 RULES:
-- Suggest exactly ONE item, appropriate for their level — slightly stretch them, never trivial.
-${itemTypeRule ? itemTypeRule + '\n' : ''}- ${isLang ? `Do NOT suggest beginner vocabulary if they are intermediate or above (no "manzana" for a B1+ learner). For an advanced learner prefer nuanced/idiomatic/formal items.` : `Prefer a term from an under-covered exam domain or a gap in their knowledge.`}
+- Suggest exactly ONE item. ${difficultyRule}
+${itemTypeRule ? itemTypeRule + '\n' : ''}- ${isLang ? `${difficulty === 'easier' ? 'Even easier items must still be worth carding — no absolute-beginner filler unless they truly are a beginner.' : 'Do NOT suggest beginner vocabulary if they are intermediate or above (no "manzana" for a B1+ learner). For an advanced learner prefer nuanced/idiomatic/formal items.'}` : `Prefer a term from an under-covered exam domain or a gap in their knowledge.`}
 - ${focus ? 'Match the focus request above.' : 'Prefer the weak/under-covered areas listed above when sensible.'}
 - Do NOT suggest anything in this exclude list (already known, declined, or already a card):
 ${excludeList.length ? excludeList.map((t) => `  - ${t}`).join('\n') : '  (none yet)'}

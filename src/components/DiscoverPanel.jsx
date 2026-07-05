@@ -34,6 +34,7 @@ export default function DiscoverPanel(props) {
     ankiConnected, onReanalyze, onMakeCard, onSaveCard, onCancelCard, onKnow, onSkip,
     onNotInterested, onNext, setCard,
     started, config, setConfig, onStart, onAdjust, isLanguage, modeName, modeDescription,
+    decks = [], onDeckChange, customKinds = null,
   } = props
 
   if (!apiKey) {
@@ -47,6 +48,31 @@ export default function DiscoverPanel(props) {
     ? 'Optional: focus the AI, e.g. "cooking vocabulary", "past-tense verbs", "travel phrases"'
     : `Optional: tell the AI what to focus on for ${modeName}${modeDescription ? ` (${modeDescription})` : ''}, e.g. specific topics or the kind of cards you want`
 
+  // What kinds of items Discover can propose — richer than the old Words/Phrases/Both.
+  // General modes prefer their AI-generated subject-specific categories (customKinds, created
+  // once per mode); the static set is the fallback until those exist.
+  const typeOptions = isLanguage
+    ? [['word', t('d_words')], ['phrase', t('d_phrases')], ['idiom', t('d_idioms')], ['verb', t('d_verbs')], ['grammar', t('d_grammar')], ['both', t('d_any')]]
+    : (Array.isArray(customKinds) && customKinds.length > 0)
+      ? [...customKinds.map((k) => [k.key, k.label]), ['both', t('d_any')]]
+      : [['term', t('d_terms')], ['acronym', t('d_acronyms')], ['comparison', t('d_comparisons')], ['scenario', t('d_scenarios')], ['both', t('d_any')]]
+  const diffOptions = [['easier', t('d_diffEasier')], ['level', t('d_diffLevel')], ['stretch', t('d_diffStretch')]]
+  const itemType = config.itemType || 'both'
+  const difficulty = config.difficulty || 'stretch'
+  const typeLabel = (typeOptions.find(([k]) => k === itemType) || [])[1]
+  const diffLabel = (diffOptions.find(([k]) => k === difficulty) || [])[1]
+
+  const chipRow = (options, current, onPick) => (
+    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', background: 'rgba(81,98,108,0.12)', borderRadius: 6, padding: 3, width: 'fit-content' }}>
+      {options.map(([k, label]) => (
+        <button key={k} onClick={() => onPick(k)}
+          style={{ background: current === k ? 'rgba(223,37,64,0.18)' : 'transparent', color: current === k ? C.blue : C.dim, border: 'none', borderRadius: 4, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+
   return (
     <div>
       {/* Profile header */}
@@ -54,7 +80,19 @@ export default function DiscoverPanel(props) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: profile?.summary ? 8 : 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <LevelBadge profile={profile} t={t} />
-            <span style={{ fontSize: 11, color: C.dim }}>{t('deck')}: <strong style={{ color: C.text }}>{deck || '—'}</strong></span>
+            <span style={{ fontSize: 11, color: C.dim, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              {t('deck')}:
+              {onDeckChange && decks.length > 0 ? (
+                <select value={deck || ''} onChange={(e) => onDeckChange(e.target.value)}
+                  style={{ background: 'var(--c-surface)', color: C.text, border: '1px solid var(--c-border)', borderRadius: 5, padding: '3px 6px', fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', maxWidth: 200 }}>
+                  {!deck && <option value="">—</option>}
+                  {deck && !decks.includes(deck) && <option value={deck}>{deck}</option>}
+                  {decks.map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
+              ) : (
+                <strong style={{ color: C.text }}>{deck || '—'}</strong>
+              )}
+            </span>
             <span style={{ fontSize: 11, color: C.dim }}>{cardedCount} {t('d_made')} · {knownCount} {t('d_known')}</span>
           </div>
           <button onClick={onReanalyze} disabled={profileLoading}
@@ -73,19 +111,15 @@ export default function DiscoverPanel(props) {
         <div style={{ border: '1px solid var(--c-border)', borderRadius: 6, padding: '14px 16px' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>{t('d_whatSuggest')}</div>
 
-          {isLanguage && (
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 11, color: C.dim, marginBottom: 6, fontWeight: 600 }}>{t('d_suggest')}</div>
-              <div style={{ display: 'flex', gap: 4, background: 'rgba(81,98,108,0.12)', borderRadius: 6, padding: 3, width: 'fit-content' }}>
-                {[['word', t('d_words')], ['phrase', t('d_phrases')], ['both', t('d_both')]].map(([k, label]) => (
-                  <button key={k} onClick={() => setConfig({ ...config, itemType: k })}
-                    style={{ background: config.itemType === k ? 'rgba(223,37,64,0.18)' : 'transparent', color: config.itemType === k ? C.blue : C.dim, border: 'none', borderRadius: 4, padding: '5px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 11, color: C.dim, marginBottom: 6, fontWeight: 600 }}>{t('d_suggest')}</div>
+            {chipRow(typeOptions, itemType, (k) => setConfig({ ...config, itemType: k }))}
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 11, color: C.dim, marginBottom: 6, fontWeight: 600 }}>{t('d_difficulty')}</div>
+            {chipRow(diffOptions, difficulty, (k) => setConfig({ ...config, difficulty: k }))}
+          </div>
 
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 11, color: C.dim, marginBottom: 6, fontWeight: 600 }}>{t('d_focusOptional')}</div>
@@ -109,10 +143,18 @@ export default function DiscoverPanel(props) {
       {/* ── Suggestion loop (after starting) ───────────────────────────────── */}
       {started && (<>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: C.dim, cursor: 'pointer' }}>
-            <input type="checkbox" checked={webVerify} onChange={(e) => setWebVerify(e.target.checked)} />
-            {t('d_verifyWebShort')}
-          </label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: C.dim, cursor: 'pointer' }}>
+              <input type="checkbox" checked={webVerify} onChange={(e) => setWebVerify(e.target.checked)} />
+              {t('d_verifyWebShort')}
+            </label>
+            {/* Current setup at a glance — type · difficulty · focus */}
+            <span style={{ fontSize: 10, color: C.dim, border: '1px solid var(--c-border)', borderRadius: 999, padding: '2px 8px' }}>{typeLabel}</span>
+            <span style={{ fontSize: 10, color: C.dim, border: '1px solid var(--c-border)', borderRadius: 999, padding: '2px 8px' }}>{diffLabel}</span>
+            {config.focus?.trim() && (
+              <span title={config.focus} style={{ fontSize: 10, color: C.purple, border: '1px solid rgba(139,92,246,.3)', borderRadius: 999, padding: '2px 8px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🎯 {config.focus}</span>
+            )}
+          </div>
           <button onClick={onAdjust}
             style={{ background: 'transparent', color: C.dim, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 5, padding: '4px 10px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
             {t('d_adjust')}
