@@ -8211,7 +8211,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
                   <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--c-ink-dim)', letterSpacing: '.05em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 4 }}>
                     {label}
-                    {desc && <span title={desc} style={{ cursor: 'help', color: 'var(--c-ink-faint)', fontWeight: 400, textTransform: 'none' }}>ⓘ</span>}
+                    {desc && <span className="tip" data-tip={desc} style={{ color: 'var(--c-ink-faint)', fontWeight: 400, textTransform: 'none' }}>ⓘ</span>}
                   </span>
                   {control}
                 </div>
@@ -8273,9 +8273,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           <input type="checkbox" checked={sr.grammarFeedback || false} onChange={(e) => setSR({ grammarFeedback: e.target.checked })} />
                           {t('grammarFeedback')}
                         </label>
-                        <label title={t('studyWordHintsDesc')} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--c-ink-dim)', cursor: 'pointer' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--c-ink-dim)', cursor: 'pointer' }}>
                           <input type="checkbox" checked={sr.wordHints || false} onChange={(e) => setSR({ wordHints: e.target.checked })} />
-                          {t('studyWordHints')} <span style={{ color: 'var(--c-ink-faint)' }}>ⓘ</span>
+                          {t('studyWordHints')} <span className="tip" data-tip={t('studyWordHintsDesc')} style={{ color: 'var(--c-ink-faint)' }}>ⓘ</span>
                         </label>
                       </div>
                     )}
@@ -9666,6 +9666,24 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
 
         /* Duolingo-style 3D press: add className "btn-press" to primary CTAs */
         .btn-press:active:not(:disabled) { transform: translateY(2px); box-shadow: none !important; }
+
+        /* Instant hover tooltip (the native title attribute has a ~1s delay and reads as dead).
+           Usage: <span className="tip" data-tip="explanation">ⓘ</span> */
+        .tip { position: relative; cursor: help; }
+        .tip:hover::after {
+          content: attr(data-tip);
+          position: absolute; left: 50%; bottom: calc(100% + 7px); transform: translateX(-50%);
+          width: max-content; max-width: 240px; padding: 7px 10px; border-radius: 8px;
+          background: var(--c-ink); color: var(--c-bg);
+          font-size: 10.5px; font-weight: 600; line-height: 1.45;
+          text-transform: none; letter-spacing: 0; white-space: normal; text-align: left;
+          box-shadow: 0 4px 14px rgba(0,0,0,.35); z-index: 80; pointer-events: none;
+          animation: fadeIn .12s ease;
+        }
+        .tip:hover::before {
+          content: ''; position: absolute; left: 50%; bottom: calc(100% + 2px); transform: translateX(-50%);
+          border: 5px solid transparent; border-top-color: var(--c-ink); z-index: 80; pointer-events: none;
+        }
 
         /* Top navigation tabs: gentle float-up on hover (vertical only, no click shrink).
            The lift is on an INNER span, not the button, so the button's hover hit-box never
