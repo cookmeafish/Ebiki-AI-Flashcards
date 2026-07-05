@@ -122,6 +122,16 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   talks to Ebi in the help chat; the study pose (`studyMascot`) never bleeds into it.
 
 ## Ebi's Help chat (`src/components/HelpChat.jsx`)
+- **Help ALWAYS knows what the user is doing.** `appContext` (App.jsx, bottom) must be kept CURRENT when
+  features change: it carries the LIVE study question (built from `currentQuestion` + `studyCardState` —
+  NEVER from the legacy `studyQueue`, which is always empty in the continuous system and silently blinded
+  Help for months), full session state (`studySession`: type/answer style/progress/languages/preferences/
+  recent grades), plus `deckBrowser` and `discover` context. The current question's expected answer IS in
+  the context but marked SECRET — the prompt forbids revealing it unless the user explicitly asks.
+- **Help can ACT, not just explain:** replies may emit `<action>{"type":"question_preference",...}</action>`
+  tags — HelpChat parses/strips them in `sendMessage` and calls the `onAction` prop; App saves the rule to
+  the mode via pinned refs (`activeModeIdRef` + `updateModeById`). The CAPABILITIES block in
+  `buildSystemPrompt` tells Ebi about this, the ✎ Fix question button, and where settings live.
 - **The floating shrimp button is removed.** Help is opened from the **"Ask Ebi"** button in the header
   (left nav, right after the Stats tab) which bumps `askEbiSignal`; `HelpChat` is rendered with
   `hideButton={true}` so the FAB never shows. With no button, the panel docks bottom-left (`getChatStyle`).
@@ -325,7 +335,12 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   updateActiveMode). Every rule is injected into `generateQuestionsForCard` as a USER'S QUESTION-STYLE
   PREFERENCES block (style only — explicitly subordinate to the ambiguity/answer-leak safety rules).
   Editable in Settings → Study (list with ✕ remove + add field). Essential because question form can't
-  be predicted across infinite subjects.
+  be predicted across infinite subjects. THIRD entry point: the **✎ Fix question button** on the LIVE
+  question (`studyFixQ` state + `fixCurrentQuestion`) — obvious mistakes get corrected BEFORE answering:
+  a complaint input regenerates that ONE question in place (same slot type, MC options regenerated when
+  present, leak-checked/scrubbed, `glossFetchRef` key deleted so word hints refetch) and distills the
+  complaint into the same per-mode preference list (or saves nothing when the model judges it one-off).
+  Panel auto-closes on question change; hidden for PBQs.
 - **Answer-leak guard (question + hint).** `questionAnswerLeak` (exact, accent-insensitive, whole-word,
   ≥3 chars, explanation-type exempt; general modes exempt the FINAL deep question — it may name the
   subject) and `hintRevealsAnswer` (FUZZY — catches plurals/inflected forms; over-scrubbing a hint is
