@@ -2314,9 +2314,13 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
       const decks = await ankiGetDecks().catch(() => [])
       setAnkiDecks(decks)
       console.log('[Anki] connected, decks:', decks)
-      if (decks.length > 0 && !decks.includes(ankiDeck)) {
-        console.log('[Anki] saved deck not found, defaulting to:', decks[0])
-        setAnkiDeck(decks[0])
+      // NEVER auto-write a default deck into the mode config here. This used to persist decks[0]
+      // whenever the saved deck wasn't in the list — but on a fresh load this can run BEFORE the
+      // modes load (activeMode is still the placeholder with deck ''), permanently clobbering the
+      // user's chosen deck with whatever deck happens to be first. A missing/unset deck is handled
+      // non-persistently at session start (`ankiDeck || decks[0]`) and by the pickers.
+      if (decks.length > 0 && ankiDeck && !decks.includes(ankiDeck)) {
+        console.log('[Anki] saved deck not found in Anki (left unchanged):', ankiDeck)
       }
     } else {
       console.log('[Anki] not connected')
