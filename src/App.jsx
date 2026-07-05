@@ -4344,7 +4344,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
         : { icon: '✓', color: 'var(--c-success)', bg: 'rgba(24,169,87,.03)', title: 'Perfect — nothing to review' }
     return (
       <div key={qi} style={{ borderTop: '1px solid var(--c-border)' }}>
-        <div onClick={() => setStudyQaOpen((p) => ({ ...p, [src]: !p[src] }))} title={meta.title}
+        <div className="row-head" onClick={() => setStudyQaOpen((p) => ({ ...p, [src]: !p[src] }))} title={meta.title}
           style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', background: meta.bg }}>
           <span style={{ fontSize: 12.5, fontWeight: 800, color: meta.color, minWidth: 26, flexShrink: 0 }}>{meta.icon}</span>
           <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--c-ink-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{gq}</span>
@@ -4425,7 +4425,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
   // Small legend popover explaining the feedback colors.
   const FeedbackLegend = () => (
     <div style={{ position: 'relative', display: 'inline-block' }}>
-      <button onClick={() => setStudyLegendOpen(o => !o)}
+      <button onClick={() => setStudyLegendOpen(o => !o)} className="ui-btn"
         style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: studyLegendOpen ? 'rgba(139,92,246,0.2)' : 'rgba(139,92,246,0.12)', color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,0.45)', borderRadius: 6, padding: '5px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
         <span style={{ display: 'inline-flex', gap: 2 }}>
           {['var(--c-success)', 'var(--c-danger)', 'var(--c-warning)', 'var(--c-brand)'].map(c => (
@@ -8856,11 +8856,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     </div>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                       {!studyWrappingUp && (
-                        <button onClick={studyWrapUp} style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-warning)', borderColor: 'rgba(232,147,12,.25)' }}>{t('wrapUp')}</button>
+                        <button onClick={studyWrapUp} className="ui-btn" style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-warning)', borderColor: 'rgba(232,147,12,.25)' }}>{t('wrapUp')}</button>
                       )}
-                      <button onClick={studyEndNow} style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-danger)', borderColor: 'rgba(229,57,46,.25)' }}>{t('endNow')}</button>
+                      <button onClick={studyEndNow} className="ui-btn" style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-danger)', borderColor: 'rgba(229,57,46,.25)' }}>{t('endNow')}</button>
                       <FeedbackLegend />
-                      <button onClick={exitStudy} style={{ ...S.ghostBtn, fontSize: 10 }}>{t('exitStudy')}</button>
+                      <button onClick={exitStudy} className="ui-btn" style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-ink-dim)' }}>{t('exitStudy')}</button>
                     </div>
                   </div>
                   {/* Session progress — cards completed out of everything this session will cover */}
@@ -9067,37 +9067,37 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       {/* Action buttons */}
                       <div style={{ display: 'flex', gap: 8, marginTop: 8, justifyContent: 'space-between' }}>
                         <div style={{ display: 'flex', gap: 6 }}>
-                          <button onClick={skipStudyQuestion}
+                          <button onClick={skipStudyQuestion} className="ui-btn"
                             style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-danger)', borderColor: 'rgba(229,57,46,.25)' }}>
                             {t('iDontKnow')}
                           </button>
                           {studyMode === 'conjugations' && (
-                            <button onClick={skipConjugationWord}
+                            <button onClick={skipConjugationWord} className="ui-btn"
                               style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-ink-dim)', borderColor: 'var(--c-border)' }}>
                               {t('skipWord')}
                             </button>
                           )}
                           {!questionHasChoices(questionObj) && questionObj?.type !== 'pbq' && (
-                          <button onClick={fetchMeaningHint} disabled={studyMeaningHintLoading || !!studyMeaningHint}
+                          <button onClick={fetchMeaningHint} disabled={studyMeaningHintLoading || !!studyMeaningHint} className="ui-btn"
                             style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.25)', opacity: (studyMeaningHintLoading || !!studyMeaningHint) ? 0.5 : 1 }}>
                             {studyMeaningHintLoading ? t('loading') : t('meaningHint')}
                           </button>
                           )}
                           {studyMode !== 'conjugations' && (
-                            <button onClick={() => setStudyDeleteConfirm(cq.cardIdx)}
+                            <button onClick={() => setStudyDeleteConfirm(cq.cardIdx)} className="ui-btn"
                               style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-ink-dim)', borderColor: 'var(--c-border)' }}>
                               {t('iKnowThisAlready')}
                             </button>
                           )}
                           {questionObj?.type !== 'pbq' && (
-                            <button onClick={() => setStudyFixQ(studyFixQ ? null : { input: '', loading: false })}
+                            <button onClick={() => setStudyFixQ(studyFixQ ? null : { input: '', loading: false })} className="ui-btn"
                               title={t('fixQuestionDesc')}
                               style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-purple)', borderColor: studyFixQ ? 'rgba(139,92,246,.6)' : 'rgba(139,92,246,.3)', background: studyFixQ ? 'rgba(139,92,246,.12)' : 'transparent' }}>
                               ✎ {t('fixQuestion')}
                             </button>
                           )}
                           {canUndo && (
-                            <button onClick={undoLastAnswer} style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-ink-dim)', borderColor: 'var(--c-border)' }}>← {t('back')}</button>
+                            <button onClick={undoLastAnswer} className="ui-btn" style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-ink-dim)', borderColor: 'var(--c-border)' }}>← {t('back')}</button>
                           )}
                         </div>
                         {/* Session-level Wrap Up / End Now moved to the header — only card actions live here */}
@@ -9121,7 +9121,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     {/* Ebi study companion — big, circle-less, reacts to the question; Ask Ebi opens Help */}
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, paddingTop: 8, flexShrink: 0 }}>
                       <img src={shrimpUrl(studyMascot)} alt="Ebi" draggable={false} style={{ width: 132, height: 132, objectFit: 'contain' }} />
-                      <button onClick={() => setAskEbiSignal((n) => n + 1)} style={{ ...S.ghostBtn, fontSize: 12, color: 'var(--c-brand)', borderColor: 'var(--c-brand-ring, rgba(223,37,64,.35))', fontWeight: 700, padding: '7px 16px', borderRadius: RADIUS.pill }}>
+                      <button onClick={() => setAskEbiSignal((n) => n + 1)} className="ui-btn" style={{ ...S.ghostBtn, fontSize: 12, color: 'var(--c-brand)', borderColor: 'var(--c-brand-ring, rgba(223,37,64,.35))', fontWeight: 700, padding: '7px 16px', borderRadius: RADIUS.pill }}>
                         {t('askEbi')}
                       </button>
                     </div>
@@ -9143,7 +9143,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     return (
                       <div style={{ marginTop: 16 }}>
                         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                          <button onClick={() => setStudyShowGraded(v => !v)} style={{ ...S.ghostBtn, fontSize: 11, fontWeight: 700 }}>
+                          <button onClick={() => setStudyShowGraded(v => !v)} className="ui-btn" style={{ ...S.ghostBtn, fontSize: 11, fontWeight: 700, color: 'var(--c-ink-dim)' }}>
                             {studyShowGraded ? '▾ Hide' : '▸ Show'} graded cards ({graded.length}{pending.length > 0 ? `, ${pending.length} unsynced` : ''})
                           </button>
                           {pending.length > 0 && ankiConnected && (
@@ -9176,10 +9176,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     const ratingColors = { easy: 'var(--c-success)', good: 'var(--c-brand)', hard: 'var(--c-warning)', again: 'var(--c-danger)', deleted: 'var(--c-ink-dim)' }
                     const view = studyGradedView[ci]
                     return (
-                      <div key={ci} className="deck-row" style={{ marginTop: 16, border: '1px solid var(--c-border)', borderRadius: 8, overflow: 'hidden', transition: 'border-color .15s ease, background .15s ease' }}>
-                        {/* The whole header is the feedback toggle (deck-browser-style hover glow says so);
-                            the buttons on the right stopPropagation. */}
-                        <div onClick={() => { if (!cs.evaluating) setStudyGradedView(p => ({ ...p, [ci]: p[ci] === 'feedback' ? undefined : 'feedback' })) }}
+                      <div key={ci} className="graded-card" style={{ marginTop: 16, border: '1px solid var(--c-border)', borderRadius: 8, overflow: 'hidden' }}>
+                        {/* The whole header is the feedback toggle; only the HEADER highlights on hover
+                            (an expanded body below must never tint). Right-side buttons stopPropagation. */}
+                        <div className="row-head" onClick={() => { if (!cs.evaluating) setStudyGradedView(p => ({ ...p, [ci]: p[ci] === 'feedback' ? undefined : 'feedback' })) }}
                           style={{ padding: '8px 12px', background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
                           <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
                             <span style={{ fontSize: 9, color: 'var(--c-ink-faint)', flexShrink: 0 }}>{view === 'feedback' ? '▾' : '▸'}</span>
@@ -9262,7 +9262,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                             <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>
                               <button onClick={() => {
                                 setStudyCardState(prev => prev.map(cs => cs.done && cs.results.length > 0 ? { ...cs, dismissed: true } : cs))
-                              }} style={{ ...S.ghostBtn, fontSize: 11, color: 'var(--c-ink-dim)' }}>
+                              }} className="ui-btn" style={{ ...S.ghostBtn, fontSize: 11, color: 'var(--c-ink-dim)' }}>
                                 {studyMode === 'conjugations' ? t('close') : 'Clear completed from list'}
                               </button>
                             </div>
@@ -9286,9 +9286,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   const ratingColors = { easy: 'var(--c-success)', good: 'var(--c-brand)', hard: 'var(--c-warning)', again: 'var(--c-danger)', deleted: 'var(--c-ink-dim)' }
                   const view = cs.rating === 'deleted' ? null : studyGradedView[ci]
                   return (
-                    <div key={ci} className={cs.rating === 'deleted' ? undefined : 'deck-row'} style={{ marginBottom: 16, border: '1px solid var(--c-border)', borderRadius: 8, overflow: 'hidden', transition: 'border-color .15s ease, background .15s ease' }}>
-                      {/* Whole header toggles feedback (hover glow signals it); right-side controls stopPropagation */}
-                      <div onClick={() => { if (cs.rating !== 'deleted') setStudyGradedView(p => ({ ...p, [ci]: p[ci] === 'feedback' ? undefined : 'feedback' })) }}
+                    <div key={ci} className={cs.rating === 'deleted' ? undefined : 'graded-card'} style={{ marginBottom: 16, border: '1px solid var(--c-border)', borderRadius: 8, overflow: 'hidden' }}>
+                      {/* Whole header toggles feedback; only the HEADER highlights on hover */}
+                      <div className={cs.rating === 'deleted' ? undefined : 'row-head'} onClick={() => { if (cs.rating !== 'deleted') setStudyGradedView(p => ({ ...p, [ci]: p[ci] === 'feedback' ? undefined : 'feedback' })) }}
                         style={{
                         padding: '8px 12px', background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))',
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, cursor: cs.rating === 'deleted' ? 'default' : 'pointer',
@@ -10165,6 +10165,17 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         /* Duolingo-style 3D press: add className "btn-press" to primary CTAs */
         .btn-press:active:not(:disabled) { transform: translateY(2px); box-shadow: none !important; }
 
+        /* Ghost/action buttons: obvious hover affordance in the button's OWN accent color —
+           border saturates to currentColor, a soft ring glows, slight lift. */
+        .ui-btn { transition: transform .12s ease, filter .12s ease, box-shadow .12s ease, border-color .12s ease; }
+        .ui-btn:not(:disabled):hover {
+          border-color: currentColor !important;
+          box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 14%, transparent);
+          filter: brightness(1.12);
+          transform: translateY(-1px);
+        }
+        .ui-btn:not(:disabled):active { transform: translateY(0); filter: brightness(1); }
+
         /* Wrong typed answer (hint retry) — the input row shakes once */
         @keyframes shake { 0%,100% { transform: translateX(0) } 20% { transform: translateX(-6px) } 40% { transform: translateX(6px) } 60% { transform: translateX(-4px) } 80% { transform: translateX(4px) } }
         .study-shake { animation: shake .35s ease; }
@@ -10215,6 +10226,14 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
 
         /* Deck browser rows — highlight on hover */
         .deck-row:hover { border-color: rgba(223,37,64,.35) !important; background: rgba(223,37,64,.05) !important; }
+
+        /* Clickable HEADER rows (graded cards, per-question rows): the hover highlight stays on the
+           top-level row only — never floods an expanded body below it. The parent card's border
+           still glows via :has() so the whole unit reads as interactive. */
+        .row-head { transition: background .15s ease; }
+        .row-head:hover { background: rgba(223,37,64,.08) !important; }
+        .graded-card { transition: border-color .15s ease; }
+        .graded-card:has(.row-head:hover) { border-color: rgba(223,37,64,.35) !important; }
 
         /* Chat session sidebar items — highlight on hover */
         .chat-session:hover { background: rgba(223,37,64,.06) !important; }
