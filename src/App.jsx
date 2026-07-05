@@ -402,6 +402,9 @@ export default function App() {
   const [studyTypedFlash, setStudyTypedFlash] = useState(null)
   // Bumped when a wrong answer keeps the question on screen (hint retry) — drives the ✗ shake.
   const [studyInputShake, setStudyInputShake] = useState(0)
+  // "Fix this question" — complain about the LIVE question before answering; it regenerates in
+  // place and the distilled preference is saved to the mode (same channel as the feedback chat).
+  const [studyFixQ, setStudyFixQ] = useState(null) // null | { input, loading, error? }
   const [studyConjugationWords, setStudyConjugationWords] = useState([]) // word pool for conjugation mode
   const [studyConjugationLanguage, setStudyConjugationLanguage] = useState('English') // language detected from deck content
   const [studyDeck, setStudyDeck] = useState('')
@@ -5233,6 +5236,9 @@ Output ONLY raw JSON. No markdown, no backticks.`
     pullNewCard()
   }
 
+  // Close the "fix question" panel whenever the live question changes
+  useEffect(() => { setStudyFixQ(null) }, [currentQuestion])
+
   // Answer-option grid, used both live (onPick set) and frozen in the post-answer flash
   // (picked/answerIdx set → correct option green, a wrong pick red, the rest dimmed).
   const renderChoiceButtons = (choices, { picked = null, answerIdx = null, onPick = null } = {}) => {
@@ -5375,6 +5381,95 @@ Rules:
       setStudyMeaningHint(null); setStudyWordLookup(null)
     } finally {
       setStudyMeaningHintLoading(false)
+    }
+  }
+
+  // "Fix this question" — the student flags the LIVE question (obvious mistakes get corrected
+  // BEFORE answering, not after): ONE replacement question is generated honoring the complaint
+  // and swapped in place, and the complaint is distilled into a question-style preference saved
+  // on the mode (same channel the feedback chat uses).
+  const fixCurrentQuestion = async () => {
+    const complaint = studyFixQ?.input?.trim()
+    if (!complaint || !apiKey || studyFixQ?.loading || !currentQuestion) return
+    const { cardIdx, questionIdx } = currentQuestion
+    const cs = studyCardState[cardIdx]
+    const q = cs?.questions?.[questionIdx]
+    if (!q || q.type === 'pbq') return
+    const modeId = activeModeIdRef.current // async completion — pin the target mode
+    setStudyFixQ((p) => ({ ...p, loading: true, error: null }))
+    try {
+      const rules = activeMode.studyRules || defaultStudyRules
+      const isLanguage = activeMode.type === 'language'
+      const learnLang = isLanguage ? (rules.studyLanguage || learnLangName()) : userLangName()
+      const quizLang = interactionLangName(rules)
+      const wantChoices = Array.isArray(q.choices) && q.choices.length >= 2
+      const prompt = `You wrote a quiz question for a flashcard and the student flagged it BEFORE answering. Write ONE replacement question that fixes their complaint.
+
+Card front: "${cs.front}"
+Card back: "${cs.back}"
+Original question (JSON): ${JSON.stringify({ question: q.question, type: q.type, acceptedAnswers: q.acceptedAnswers, ...(wantChoices ? { choices: q.choices } : {}) })}
+Student's complaint: "${complaint}"
+
+RULES for the replacement:
+- Fix the complaint. Keep testing the SAME card, in the same slot type ("${q.type}").
+${isLanguage ? `- The expected answer stays the ${learnLang} word/phrase on the card; phrase the question in ${quizLang}. acceptedAnswers = the ${learnLang} answer(s), lowercase, with and without accents.` : `- Phrase the question in ${quizLang}; the expected answer is the card's term/concept.`}
+- THE ANSWER MUST NEVER APPEAR IN THE QUESTION TEXT — not even inside a parenthetical cue.
+- Exactly ONE defensible answer: add a compact sense cue right at the blank if a synonym would still fit.
+${wantChoices ? '- Also return "choices": exactly 4 options (1 correct — matching acceptedAnswers — + 3 plausible but clearly wrong) and "answerIdx" (index of the correct one).\n' : ''}ALSO distill the complaint into "preference": ONE concise imperative rule in English, GENERALIZED beyond this single card, that future question generation for this mode should follow — or null if the flaw was purely specific to this one question.
+
+Return ONLY raw JSON:
+{"question": {"question":"...","type":"${q.type}","hint1":"N letters","hint2":"starts with 'X'","acceptedAnswers":["..."]${wantChoices ? ',"choices":["...","...","...","..."],"answerIdx":0' : ''}}, "preference": "..." or null}`
+      const text = await aiCall(apiKey, 'You repair flashcard quiz questions. Always respond with a single valid JSON object.', prompt, resolveModel('study'))
+      const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+      const nq = parsed?.question
+      if (!nq?.question) throw new Error('no replacement question returned')
+      let newQ = {
+        question: String(nq.question),
+        type: nq.type || q.type,
+        hint1: nq.hint1 || null,
+        hint2: nq.hint2 || null,
+        acceptedAnswers: Array.isArray(nq.acceptedAnswers) && nq.acceptedAnswers.length ? nq.acceptedAnswers.map((a) => String(a).toLowerCase().trim()) : (q.acceptedAnswers || []),
+        glosses: null, // refetched lazily for the new text
+        pose: q.pose || null,
+        choices: null,
+        answerIdx: null,
+      }
+      if (wantChoices && Array.isArray(nq.choices) && Number.isInteger(nq.answerIdx) && nq.answerIdx >= 0 && nq.answerIdx < nq.choices.length) {
+        const correctText = String(nq.choices[nq.answerIdx])
+        const opts = [...new Set(nq.choices.map((c) => String(c)))].slice(0, 4)
+        if (!opts.includes(correctText)) opts[opts.length - 1] = correctText
+        for (let i = opts.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [opts[i], opts[j]] = [opts[j], opts[i]] }
+        newQ.choices = opts
+        newQ.answerIdx = opts.indexOf(correctText)
+      }
+      if (questionAnswerLeak(newQ)) newQ = scrubAnswerFromQuestion(newQ) // same hard guarantee
+      setStudyCardState((prev) => {
+        const updated = [...prev]
+        const c = updated[cardIdx]
+        if (!c) return prev
+        const questions = [...c.questions]
+        questions[questionIdx] = newQ
+        updated[cardIdx] = { ...c, questions }
+        return updated
+      })
+      glossFetchRef.current.delete(`${cardIdx}:${questionIdx}`) // word hints refetch for the new text
+      const pref = typeof parsed.preference === 'string' ? parsed.preference.trim().slice(0, 300) : ''
+      if (pref && pref.toLowerCase() !== 'null') {
+        const targetMode = modesRef.current.find((mm) => mm.id === modeId)
+        const sr = targetMode?.studyRules || {}
+        const prevPrefs = Array.isArray(sr.questionPreferences) ? sr.questionPreferences : []
+        if (!prevPrefs.includes(pref)) {
+          updateModeById(modeId, { studyRules: { ...sr, questionPreferences: [...prevPrefs, pref].slice(-12) } })
+          console.log('[Study] saved question-style preference (fix button):', pref)
+        }
+      }
+      setStudyFixQ(null)
+      setStudyHintLevel(0); setStudyCurrentHint(null)
+      setStudyMeaningHint(null); setStudyWordLookup(null)
+      setStudyInput('')
+    } catch (err) {
+      console.error('[Study] question fix failed:', err.message)
+      setStudyFixQ((p) => (p ? { ...p, loading: false, error: err.message } : p))
     }
   }
 
@@ -8750,6 +8845,26 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       </div>
                       )}
 
+                      {/* "Fix this question" — complaint input; regenerates the live question and
+                          saves the distilled style preference to the mode */}
+                      {studyFixQ && (
+                        <div style={{ marginTop: 8 }}>
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <input value={studyFixQ.input} autoFocus
+                              onChange={(e) => setStudyFixQ((p) => ({ ...p, input: e.target.value }))}
+                              onKeyDown={(e) => { if (e.key === 'Enter') fixCurrentQuestion() }}
+                              placeholder={t('fixQuestionPlaceholder')}
+                              style={{ ...S.keyInput, flex: 1, fontSize: 12, padding: '8px 12px', borderColor: 'rgba(139,92,246,.4)' }} />
+                            <button onClick={fixCurrentQuestion} disabled={!studyFixQ.input.trim() || studyFixQ.loading}
+                              style={{ ...S.ghostBtn, fontSize: 11, fontWeight: 700, color: 'var(--c-purple)', borderColor: 'rgba(139,92,246,.45)', opacity: (!studyFixQ.input.trim() || studyFixQ.loading) ? 0.5 : 1 }}>
+                              {studyFixQ.loading ? t('loading') : t('fixQuestionGo')}
+                            </button>
+                            <button onClick={() => setStudyFixQ(null)} style={{ ...S.ghostBtn, fontSize: 11, padding: '6px 9px' }}>✕</button>
+                          </div>
+                          {studyFixQ.error && <div style={{ fontSize: 10, color: 'var(--c-danger)', marginTop: 4 }}>{studyFixQ.error}</div>}
+                        </div>
+                      )}
+
                       {/* Action buttons */}
                       <div style={{ display: 'flex', gap: 8, marginTop: 8, justifyContent: 'space-between' }}>
                         <div style={{ display: 'flex', gap: 6 }}>
@@ -8773,6 +8888,13 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                             <button onClick={() => setStudyDeleteConfirm(cq.cardIdx)}
                               style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-ink-dim)', borderColor: 'var(--c-border)' }}>
                               {t('iKnowThisAlready')}
+                            </button>
+                          )}
+                          {questionObj?.type !== 'pbq' && (
+                            <button onClick={() => setStudyFixQ(studyFixQ ? null : { input: '', loading: false })}
+                              title={t('fixQuestionDesc')}
+                              style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-purple)', borderColor: studyFixQ ? 'rgba(139,92,246,.6)' : 'rgba(139,92,246,.3)', background: studyFixQ ? 'rgba(139,92,246,.12)' : 'transparent' }}>
+                              ✎ {t('fixQuestion')}
                             </button>
                           )}
                           {canUndo && (
@@ -10002,6 +10124,20 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         hideButton={true}
         model={resolveModel('help')}
         askAI={(sys, content) => aiCall(apiKey, sys, content, resolveModel('help'), { maxTokens: 600 })}
+        onAction={(action) => {
+          // Ebi's Help can make real adjustments: save a question-style preference to the mode.
+          if (action?.type === 'question_preference' && action.preference) {
+            const modeId = activeModeIdRef.current
+            const pref = String(action.preference).trim().slice(0, 300)
+            const targetMode = modesRef.current.find((mm) => mm.id === modeId)
+            const sr = targetMode?.studyRules || {}
+            const prevPrefs = Array.isArray(sr.questionPreferences) ? sr.questionPreferences : []
+            if (pref && !prevPrefs.includes(pref)) {
+              updateModeById(modeId, { studyRules: { ...sr, questionPreferences: [...prevPrefs, pref].slice(-12) } })
+              console.log('[Help] saved question-style preference:', pref)
+            }
+          }
+        }}
         appContext={{
         activeTab,
         activeMode: { name: activeMode.name, type: activeMode.type, ankiDeck: activeMode.ankiDeck },
@@ -10017,7 +10153,33 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         studyPhase,
         studyStats,
         studyDeckStats,
-        currentQuestion: studyActive && studyQueue[studyQueueIdx] ? { question: studyQueue[studyQueueIdx].question, cardFront: studyCardState[studyQueue[studyQueueIdx].cardIdx]?.front } : null,
+        // The LIVE question (the old lookup used the legacy studyQueue, which is always empty in
+        // the continuous system — Ebi's Help never saw what was on screen).
+        currentQuestion: (() => {
+          if (!studyActive || !currentQuestion) return null
+          const cs = studyCardState[currentQuestion.cardIdx]
+          const q = cs?.questions?.[currentQuestion.questionIdx]
+          if (!q) return null
+          return {
+            question: getQuestionText(q), type: q.type,
+            number: currentQuestion.questionIdx + 1, of: cs.questions.length,
+            cardFront: cs.front, cardBack: String(cs.back || '').slice(0, 300),
+            acceptedAnswers: q.acceptedAnswers || [],
+            choices: Array.isArray(q.choices) ? q.choices : undefined,
+          }
+        })(),
+        studySession: studyActive ? {
+          studyMode, answerStyle: studyAnswerStyle,
+          completed: studyCardState.filter((c) => c.done).length,
+          activeCards: studyCardState.filter((c) => !c.done).length,
+          poolRemaining: Math.max(0, (studyMode === 'conjugations' ? studyConjugationWords.length : studyAllCards.length) - studyBatchIdx),
+          learning: activeMode.studyRules?.studyLanguage || null,
+          ebiSpeaks: activeMode.studyRules?.quizLanguage || null,
+          questionPreferences: activeMode.studyRules?.questionPreferences || [],
+          gradedRecent: studyCardState.filter((c) => c.done && c.rating).slice(-5).map((c) => ({ front: c.front, rating: c.rating })),
+        } : null,
+        deckBrowser: deckBrowserActive ? { deck: deckBrowserDeck, cards: deckBrowserNotes.length } : null,
+        discover: activeTab === 'discover' ? { started: discoverStarted, level: discoverProfile?.level?.estimate || null, deck: discoverDeck || ankiDeck } : null,
         chatTabMsgs: chatTabMsgs.slice(-5).map(m => ({ role: m.role, content: m.content?.slice(0, 200) })),
         language,
         targetLang,

@@ -57,11 +57,29 @@ function buildSystemPrompt(appContext) {
   }
 
   if (appContext.studyActive) {
-    parts.push(`\nStudy session active: deck="${appContext.studyDeck}", phase=${appContext.studyPhase}`)
-    parts.push(`Study stats: easy=${appContext.studyStats?.easy}, good=${appContext.studyStats?.good}, hard=${appContext.studyStats?.hard}, again=${appContext.studyStats?.again}`)
-    if (appContext.studyDeckStats) parts.push(`Deck stats: new=${appContext.studyDeckStats.new_count}, learning=${appContext.studyDeckStats.learn_count}, review=${appContext.studyDeckStats.review_count}`)
-    if (appContext.currentQuestion) parts.push(`Current question: "${appContext.currentQuestion.question}" (card: "${appContext.currentQuestion.cardFront}")`)
+    const ss = appContext.studySession || {}
+    parts.push(`\nSTUDY SESSION ACTIVE: deck="${appContext.studyDeck}", phase=${appContext.studyPhase}, type=${ss.studyMode || 'flashcards'}, answer style=${ss.answerStyle || 'typed'}`)
+    parts.push(`Progress: ${ss.completed ?? 0} cards done, ${ss.activeCards ?? 0} active, ${ss.poolRemaining ?? 0} still waiting in the pool`)
+    if (ss.learning || ss.ebiSpeaks) parts.push(`Learning: ${ss.learning || '—'} · Ebi speaks: ${ss.ebiSpeaks || ss.learning || '—'}`)
+    parts.push(`Session ratings so far: easy=${appContext.studyStats?.easy}, good=${appContext.studyStats?.good}, hard=${appContext.studyStats?.hard}, again=${appContext.studyStats?.again}`)
+    if (appContext.studyDeckStats) parts.push(`Deck queue: new=${appContext.studyDeckStats.new_count}, learning=${appContext.studyDeckStats.learn_count}, review=${appContext.studyDeckStats.review_count}`)
+    if (appContext.currentQuestion) {
+      const cq = appContext.currentQuestion
+      parts.push(`\nQUESTION CURRENTLY ON SCREEN (question ${cq.number}/${cq.of}, type ${cq.type}) — card "${cq.cardFront}":\n"${cq.question}"`)
+      if (cq.choices?.length) parts.push(`Multiple-choice options shown: ${cq.choices.join(' | ')}`)
+      if (cq.acceptedAnswers?.length) parts.push(`Expected answer — SECRET: do NOT reveal it (nor spelling/letter clues) unless the user EXPLICITLY asks to be told the answer: ${cq.acceptedAnswers.join(', ')}`)
+      if (cq.cardBack) parts.push(`Card back (also secret while the question is unanswered): ${cq.cardBack}`)
+    }
+    if (ss.gradedRecent?.length) parts.push(`Recently graded this session: ${ss.gradedRecent.map((g) => `"${g.front}" → ${g.rating}`).join(', ')}`)
+    if (ss.questionPreferences?.length) parts.push(`Saved question-style preferences for this mode:\n${ss.questionPreferences.map((p) => `- ${p}`).join('\n')}`)
   }
+  if (appContext.deckBrowser) parts.push(`\nDeck browser open: deck "${appContext.deckBrowser.deck || '(none picked)'}" with ${appContext.deckBrowser.cards} cards listed`)
+  if (appContext.discover) parts.push(`\nDiscover tab: ${appContext.discover.started ? 'actively suggesting new items' : 'on the setup screen'}, learner level=${appContext.discover.level || 'not analyzed yet'}, target deck="${appContext.discover.deck || '—'}"`)
+
+  parts.push(`\nCAPABILITIES — you can make REAL adjustments, not just explain:
+- If the user asks to change HOW study questions are formed (style, wording, format, phrasing), include <action>{"type":"question_preference","preference":"<ONE concise imperative rule in English, generalized beyond a single card>"}</action> anywhere in your reply. It is saved to the current mode's settings and shapes every future question. Confirm in your reply what you saved.
+- To fix the QUESTION CURRENTLY ON SCREEN in place, tell them about the "✎ Fix question" button under the answer box — it regenerates that question and also remembers the preference.
+- Other study settings (deck, learning language, questions per card, saved preferences) live in ⚙ Settings → Study — direct them precisely.`)
 
   if (appContext.chatTabMsgs?.length) {
     parts.push(`\nRecent Chat tab messages:`)
@@ -76,7 +94,7 @@ function buildSystemPrompt(appContext) {
   return parts.join('\n')
 }
 
-export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-6', askAI, mascotFile = DEFAULT_SHRIMP, onAiReply, askEbiSignal, hideButton }) {
+export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-6', askAI, mascotFile = DEFAULT_SHRIMP, onAiReply, onAction, askEbiSignal, hideButton }) {
   const [open, setOpen] = useState(false)
   // FancyZones-style snapping. null = floating popup anchored to the button.
   // 'left'|'right'|'top'|'bottom' = snapped to that screen edge ('bottom' sits under the question).
@@ -310,7 +328,12 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
     try {
       const sys = buildSystemPrompt(appContext) + `\n\nYou run on the model "${model}". If the user asks what AI model powers you, just tell them — it's not a secret.`
       const convo = newMsgs.map(m => `${m.role === 'user' ? 'User' : 'Ebi'}: ${m.text}`).join('\n\n')
-      const replyText = (await askAI(sys, convo) || '').replace(/\s*[—–]\s*/g, ', ').trim() || '…'
+      const raw = (await askAI(sys, convo) || '')
+      // Execute any adjustment actions Ebi emitted (e.g. question_preference), then strip the tags.
+      for (const am of raw.matchAll(/<action>(.*?)<\/action>/gs)) {
+        try { onAction?.(JSON.parse(am[1])) } catch {}
+      }
+      const replyText = raw.replace(/<action>.*?<\/action>/gs, '').replace(/\s*[—–]\s*/g, ', ').trim() || '…'
       const updatedMsgs = [...newMsgs, { role: 'assistant', text: replyText }]
       setMessages(updatedMsgs)
       onAiReply?.(replyText) // let the host pick Ebi's pose via the Mascot model
