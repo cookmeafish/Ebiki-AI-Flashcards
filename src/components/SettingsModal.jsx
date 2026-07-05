@@ -143,7 +143,9 @@ export default function SettingsModal(p) {
           {[['light', '☀️ ' + t('themeLight')], ['dark', '🌙 ' + t('themeDark')]].map(([val, label]) => (
             <button key={val} onClick={() => setAppTheme(val)} className={appTheme === val ? 'ui-tab-current' : undefined} style={{
               border: 'none', cursor: appTheme === val ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, padding: '6px 16px', borderRadius: RADIUS.pill,
-              background: appTheme === val ? C.surface : 'transparent', color: appTheme === val ? C.brand : C.inkDim, boxShadow: appTheme === val ? SHADOW.sm : 'none',
+              // NOTE: no `boxShadow: 'none'` on the unselected side — an inline shadow (even
+              // 'none') beats the global hover-darken rule, which is inset-shadow based.
+              background: appTheme === val ? C.surface : 'transparent', color: appTheme === val ? C.brand : C.inkDim, ...(appTheme === val ? { boxShadow: SHADOW.sm } : {}),
             }}>{label}</button>
           ))}
         </div>
