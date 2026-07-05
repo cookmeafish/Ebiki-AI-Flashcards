@@ -9148,7 +9148,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                             {studyShowGraded ? '▾ Hide' : '▸ Show'} graded cards ({graded.length}{pending.length > 0 ? `, ${pending.length} unsynced` : ''})
                           </button>
                           {pending.length > 0 && ankiConnected && (
-                            <button onClick={() => syncGradedNow()} disabled={studySyncing} className="btn-press"
+                            <button onClick={() => syncGradedNow()} disabled={studySyncing} className="btn-press hover-dim"
                               style={{ fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 8, border: 'none', background: 'var(--c-success)', color: '#fff', cursor: studySyncing ? 'default' : 'pointer', opacity: studySyncing ? 0.6 : 1 }}>
                               {studySyncing ? 'Syncing…' : `Sync ${pending.length} to Anki now`}
                             </button>
@@ -9227,7 +9227,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                   }))
                                   return updated
                                 })
-                              }} style={{ background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', color: ratingColors[cs.rating] || 'var(--c-ink-dim)', border: `1px solid ${ratingColors[cs.rating] || 'var(--c-border)'}44`, borderRadius: 4, fontSize: 11, fontWeight: 700, fontFamily: 'inherit', padding: '2px 6px', cursor: 'pointer' }}>
+                              }} className="hover-dim" style={{ background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', color: ratingColors[cs.rating] || 'var(--c-ink-dim)', border: `1px solid ${ratingColors[cs.rating] || 'var(--c-border)'}44`, borderRadius: 4, fontSize: 11, fontWeight: 700, fontFamily: 'inherit', padding: '2px 6px', cursor: 'pointer' }}>
                                 <option value="easy" style={{ color: 'var(--c-success)' }}>EASY</option>
                                 <option value="good" style={{ color: 'var(--c-brand)' }}>GOOD</option>
                                 <option value="hard" style={{ color: 'var(--c-warning)' }}>HARD</option>
@@ -9328,7 +9328,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               setStudyStats(s => ({ ...s, [oldRating]: Math.max(0, (s[oldRating] || 0) - 1), [newRating]: (s[newRating] || 0) + 1 }))
                               return updated
                             })
-                          }} style={{ background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', color: ratingColors[cs.rating] || 'var(--c-ink-dim)', border: `1px solid ${ratingColors[cs.rating] || 'var(--c-border)'}44`, borderRadius: 4, fontSize: 11, fontWeight: 700, fontFamily: 'inherit', padding: '2px 6px', cursor: 'pointer' }}>
+                          }} className="hover-dim" style={{ background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', color: ratingColors[cs.rating] || 'var(--c-ink-dim)', border: `1px solid ${ratingColors[cs.rating] || 'var(--c-border)'}44`, borderRadius: 4, fontSize: 11, fontWeight: 700, fontFamily: 'inherit', padding: '2px 6px', cursor: 'pointer' }}>
                             <option value="easy" style={{ color: 'var(--c-success)' }}>EASY</option>
                             <option value="good" style={{ color: 'var(--c-brand)' }}>GOOD</option>
                             <option value="hard" style={{ color: 'var(--c-warning)' }}>HARD</option>
@@ -10084,7 +10084,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           --c-on-brand: #FFFFFF;
           --c-glass: rgba(255,255,255,.82); --c-glass-strong: rgba(255,255,255,.97);
           --c-teal: #11A8A0; --c-teal-dark: #0C857F;
-          --c-success: #18A957; --c-warning: #E8930C; --c-danger: #E5392E; --c-info: #2D86C9; --c-purple: #8B5CF6;
+          /* Light-mode semantic colors run DEEPER than dark mode's: at small sizes on the light
+             background, #18A957 green and #E8930C amber shared the same luminance and blended. */
+          --c-success: #0E8746; --c-warning: #B36A00; --c-danger: #D32F24; --c-info: #2D86C9; --c-purple: #7C4DEF;
           --sh-sm: 0 1px 2px rgba(16,36,44,.06); --sh-md: 0 4px 14px rgba(16,36,44,.08);
           --sh-lg: 0 12px 32px rgba(16,36,44,.10); --sh-xl: 0 24px 60px rgba(16,36,44,.16);
           --sh-brand: 0 6px 18px rgba(223,37,64,.28);
