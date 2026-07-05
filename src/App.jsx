@@ -8216,6 +8216,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   {control}
                 </div>
               )
+              // Fields share the row equally and their controls stretch — no dead space on the right
+              const row = (children) => (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>{children}</div>
+              )
+              const ctl = { ...S.select, fontSize: 12, padding: '7px 10px', width: '100%', boxSizing: 'border-box', textAlign: 'left' }
               const section = (title, children, first = false) => (
                 <div style={{ padding: '14px 18px', borderTop: first ? 'none' : '1px solid var(--c-border)' }}>
                   <div style={{ fontSize: 9.5, fontWeight: 800, color: 'var(--c-brand)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 10 }}>{title}</div>
@@ -8233,37 +8238,35 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   border: '1px solid var(--c-border)', borderRadius: 12, boxShadow: SHADOW.lg, overflow: 'hidden',
                 }}>
                   {/* ── What to study ── */}
-                  {section(t('studySecWhat'), (
-                    <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-                      {field(t('mode'), t('studyModeDesc'), (
-                        <Dropdown value={activeModeId} getZoom={getZoom} onChange={(val) => {
-                          const id = parseInt(val)
-                          setActiveModeId(id)
-                          saveModes(modes, id)
-                          // Load new mode's deck
-                          const newMode = modes.find((m) => m.id === id)
-                          if (newMode?.ankiDeck) setStudyDeck(newMode.ankiDeck)
-                        }} style={{ ...S.select, fontSize: 12, padding: '6px 10px', color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)' }}
-                          options={modes.map((m) => ({ value: m.id, label: m.name, icon: m.type === 'language' ? '\u{1F310}' : '\u{1F4DA}', color: 'var(--c-brand)' }))} />
-                      ))}
-                      {field(t('deck'), t('studyDeckDesc'), (
-                        <Dropdown value={studyDeck} getZoom={getZoom} onChange={(val) => { setStudyDeck(val); setAnkiDeck(val) }}
-                          style={{ ...S.select, fontSize: 12, padding: '6px 10px' }}
-                          options={ankiDecks.map((d) => ({ value: d, label: d }))} />
-                      ))}
-                    </div>
-                  ), true)}
+                  {section(t('studySecWhat'), row(<>
+                    {field(t('mode'), t('studyModeDesc'), (
+                      <Dropdown value={activeModeId} getZoom={getZoom} onChange={(val) => {
+                        const id = parseInt(val)
+                        setActiveModeId(id)
+                        saveModes(modes, id)
+                        // Load new mode's deck
+                        const newMode = modes.find((m) => m.id === id)
+                        if (newMode?.ankiDeck) setStudyDeck(newMode.ankiDeck)
+                      }} style={{ ...ctl, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)' }}
+                        options={modes.map((m) => ({ value: m.id, label: m.name, icon: m.type === 'language' ? '\u{1F310}' : '\u{1F4DA}', color: 'var(--c-brand)' }))} />
+                    ))}
+                    {field(t('deck'), t('studyDeckDesc'), (
+                      <Dropdown value={studyDeck} getZoom={getZoom} onChange={(val) => { setStudyDeck(val); setAnkiDeck(val) }}
+                        style={ctl}
+                        options={ankiDecks.map((d) => ({ value: d, label: d }))} />
+                    ))}
+                  </>), true)}
 
                   {/* ── Language ── */}
                   {section(t('studySecLang'), (<>
-                    <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+                    {row(<>
                       {isLang && field(t('studyLearning'), t('studyLearningDesc'), (
-                        <Dropdown value={learned} getZoom={getZoom} onChange={(val) => setSR({ studyLanguage: val })} style={{ ...S.select, fontSize: 12, padding: '6px 10px' }} options={langOpts} />
+                        <Dropdown value={learned} getZoom={getZoom} onChange={(val) => setSR({ studyLanguage: val })} style={ctl} options={langOpts} />
                       ))}
                       {field(t('quizIn'), isLang ? t('studyEbiSpeaksDesc') : t('studyEbiOnlyDesc'), (
-                        <Dropdown value={speaks} getZoom={getZoom} onChange={(val) => setSR({ quizLanguage: val })} style={{ ...S.select, fontSize: 12, padding: '6px 10px' }} options={langOpts} />
+                        <Dropdown value={speaks} getZoom={getZoom} onChange={(val) => setSR({ quizLanguage: val })} style={ctl} options={langOpts} />
                       ))}
-                    </div>
+                    </>)}
                     {isLang && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginTop: 10 }}>
                         <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--c-ink-dim)', cursor: 'pointer' }}>
@@ -8280,10 +8283,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
 
                   {/* ── Session format ── */}
                   {section(t('studySecFormat'), (<>
-                    <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+                    {row(<>
                       {field(t('studyType'), null, (
-                        <select value={shownMode} onChange={(e) => setStudyMode(e.target.value)}
-                          style={{ ...S.select, fontSize: 12, padding: '6px 10px' }}>
+                        <select value={shownMode} onChange={(e) => setStudyMode(e.target.value)} style={ctl}>
                           <option value="flashcards">{t('flashcards')}</option>
                           {isLang
                             ? <option value="conjugations">{t('conjugations')}</option>
@@ -8291,13 +8293,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         </select>
                       ))}
                       {showAnswerStyle && field(t('answerStyle'), null, (
-                        <select value={studyAnswerStyle} onChange={(e) => { setStudyAnswerStyle(e.target.value); try { localStorage.setItem('ebiki-study-style', e.target.value) } catch {} }}
-                          style={{ ...S.select, fontSize: 12, padding: '6px 10px' }}>
+                        <select value={studyAnswerStyle} onChange={(e) => { setStudyAnswerStyle(e.target.value); try { localStorage.setItem('ebiki-study-style', e.target.value) } catch {} }} style={ctl}>
                           <option value="typed">{t('answerTyped')}</option>
                           <option value="choices">{t('answerChoices')}</option>
                         </select>
                       ))}
-                    </div>
+                    </>)}
                     {showPracticeSync && (
                       <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--c-ink-dim)', cursor: 'pointer', marginTop: 10 }}>
                         <input type="checkbox" checked={studyPracticeSync} onChange={(e) => { setStudyPracticeSync(e.target.checked); try { localStorage.setItem('ebiki-study-practice-sync', e.target.checked ? '1' : '0') } catch {} }} />
