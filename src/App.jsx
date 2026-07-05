@@ -8189,167 +8189,136 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         }}>
           <div style={{ maxWidth: studyPhase === 'question' ? 820 : 600, width: '100%', padding: '40px 20px' }}>
 
-            {/* Study start phase */}
-            {studyPhase === 'pick' && (
+            {/* Study start phase — ONE sectioned card (What to study / Language / Session format)
+                with label-above-control fields and ⓘ tooltips instead of scattered boxes. */}
+            {studyPhase === 'pick' && (() => {
+              const isLang = activeMode.type === 'language'
+              const sr = activeMode.studyRules || (isLang ? defaultStudyRules : defaultGeneralStudyRules)
+              const learned = sr.studyLanguage || 'English'
+              const speaks = sr.quizLanguage || learned
+              const setSR = (patch) => updateActiveMode({ studyRules: { ...sr, ...patch } })
+              const langOpts = LANGS.filter(l => l.code !== 'auto').map(l => ({ value: l.label, label: l.label }))
+              // A study type left over from the other mode kind falls back to flashcards
+              const shownMode = (isLang && studyMode === 'pbq') || (!isLang && studyMode === 'conjugations') ? 'flashcards' : studyMode
+              const showAnswerStyle = shownMode === 'flashcards'
+              const showPracticeSync = shownMode === 'pbq' || (showAnswerStyle && studyAnswerStyle === 'choices')
+              const sessionCaption = shownMode === 'pbq' ? t('pbqTypeDesc')
+                : shownMode === 'conjugations' ? t('studyTypeDesc')
+                : studyAnswerStyle === 'choices' ? (studyPracticeSync ? t('practiceGradeAnkiDesc') : t('answerChoicesDesc'))
+                : t('answerStyleDesc')
+
+              const field = (label, desc, control) => (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
+                  <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--c-ink-dim)', letterSpacing: '.05em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    {label}
+                    {desc && <span title={desc} style={{ cursor: 'help', color: 'var(--c-ink-faint)', fontWeight: 400, textTransform: 'none' }}>ⓘ</span>}
+                  </span>
+                  {control}
+                </div>
+              )
+              const section = (title, children, first = false) => (
+                <div style={{ padding: '14px 18px', borderTop: first ? 'none' : '1px solid var(--c-border)' }}>
+                  <div style={{ fontSize: 9.5, fontWeight: 800, color: 'var(--c-brand)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 10 }}>{title}</div>
+                  {children}
+                </div>
+              )
+
+              return (
               <div style={{ textAlign: 'center', animation: 'slideUp .35s ease' }}>
-                <div style={{ fontSize: 20, fontWeight: 700, color: C.ink, fontFamily: FONT.display, marginBottom: 8 }}>{t('studySession')}</div>
-                {/* Mode & Deck selectors */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center', marginBottom: 16 }}>
-                  <div style={{
-                    display: 'inline-flex', flexDirection: 'column', gap: 5, padding: '10px 20px', textAlign: 'left',
-                    background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 8,
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center' }}>
-                      <span style={{ fontSize: 12, color: 'var(--c-ink-dim)' }}>{t('mode')}:</span>
-                      <Dropdown value={activeModeId} getZoom={getZoom} onChange={(val) => {
-                        const id = parseInt(val)
-                        setActiveModeId(id)
-                        saveModes(modes, id)
-                        // Load new mode's deck
-                        const newMode = modes.find((m) => m.id === id)
-                        if (newMode?.ankiDeck) setStudyDeck(newMode.ankiDeck)
-                      }} style={{ ...S.select, fontSize: 12, padding: '6px 10px', color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)' }}
-                        options={modes.map((m) => ({ value: m.id, label: m.name, icon: m.type === 'language' ? '\u{1F310}' : '\u{1F4DA}', color: 'var(--c-brand)' }))} />
-                    </div>
-                    <div style={{ fontSize: 10, color: 'var(--c-ink-faint)' }}>{t('studyModeDesc')}</div>
-                  </div>
-                  <div style={{
-                    display: 'inline-flex', flexDirection: 'column', gap: 5, padding: '10px 20px', textAlign: 'left',
-                    background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 8,
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center' }}>
-                      <span style={{ fontSize: 12, color: 'var(--c-ink-dim)' }}>{t('deck')}:</span>
-                      <Dropdown value={studyDeck} getZoom={getZoom} onChange={(val) => { setStudyDeck(val); setAnkiDeck(val) }}
-                        style={{ ...S.select, fontSize: 12, padding: '6px 10px' }}
-                        options={ankiDecks.map((d) => ({ value: d, label: d }))} />
-                    </div>
-                    <div style={{ fontSize: 10, color: 'var(--c-ink-faint)' }}>{t('studyDeckDesc')}</div>
-                  </div>
-                </div>
+                <div style={{ fontSize: 20, fontWeight: 700, color: C.ink, fontFamily: FONT.display, marginBottom: 14 }}>{t('studySession')}</div>
 
-                {/* Ebi's languages + word hints. "Learning" = the answer language (always); "Ebi speaks" =
-                    the language Ebi asks & explains in. Shown for every mode; learning + hints are language-only. */}
-                {(() => {
-                  const isLang = activeMode.type === 'language'
-                  const sr = activeMode.studyRules || (isLang ? defaultStudyRules : defaultGeneralStudyRules)
-                  const learned = sr.studyLanguage || 'English'
-                  const speaks = sr.quizLanguage || learned
-                  const setSR = (patch) => updateActiveMode({ studyRules: { ...sr, ...patch } })
-                  const langOpts = LANGS.filter(l => l.code !== 'auto').map(l => ({ value: l.label, label: l.label }))
-                  return (
-                    <div style={{
-                      display: 'inline-flex', flexDirection: 'column', gap: 8, padding: '12px 20px',
-                      background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 8, marginBottom: 16, maxWidth: 560, textAlign: 'left',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', justifyContent: 'center' }}>
-                        {isLang && (
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ fontSize: 12, color: 'var(--c-ink-dim)' }}>{t('studyLearning')}:</span>
-                            <Dropdown value={learned} getZoom={getZoom} onChange={(val) => setSR({ studyLanguage: val })} style={{ ...S.select, fontSize: 11, padding: '4px 8px' }} options={langOpts} />
-                          </span>
-                        )}
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <span style={{ fontSize: 12, color: 'var(--c-ink-dim)' }}>{t('quizIn')}:</span>
-                          <Dropdown value={speaks} getZoom={getZoom} onChange={(val) => setSR({ quizLanguage: val })} style={{ ...S.select, fontSize: 11, padding: '4px 8px' }} options={langOpts} />
-                        </span>
+                <div style={{
+                  display: 'inline-block', width: '100%', maxWidth: 520, textAlign: 'left',
+                  background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))',
+                  border: '1px solid var(--c-border)', borderRadius: 12, boxShadow: SHADOW.lg, overflow: 'hidden',
+                }}>
+                  {/* ── What to study ── */}
+                  {section(t('studySecWhat'), (
+                    <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+                      {field(t('mode'), t('studyModeDesc'), (
+                        <Dropdown value={activeModeId} getZoom={getZoom} onChange={(val) => {
+                          const id = parseInt(val)
+                          setActiveModeId(id)
+                          saveModes(modes, id)
+                          // Load new mode's deck
+                          const newMode = modes.find((m) => m.id === id)
+                          if (newMode?.ankiDeck) setStudyDeck(newMode.ankiDeck)
+                        }} style={{ ...S.select, fontSize: 12, padding: '6px 10px', color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)' }}
+                          options={modes.map((m) => ({ value: m.id, label: m.name, icon: m.type === 'language' ? '\u{1F310}' : '\u{1F4DA}', color: 'var(--c-brand)' }))} />
+                      ))}
+                      {field(t('deck'), t('studyDeckDesc'), (
+                        <Dropdown value={studyDeck} getZoom={getZoom} onChange={(val) => { setStudyDeck(val); setAnkiDeck(val) }}
+                          style={{ ...S.select, fontSize: 12, padding: '6px 10px' }}
+                          options={ankiDecks.map((d) => ({ value: d, label: d }))} />
+                      ))}
+                    </div>
+                  ), true)}
+
+                  {/* ── Language ── */}
+                  {section(t('studySecLang'), (<>
+                    <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+                      {isLang && field(t('studyLearning'), t('studyLearningDesc'), (
+                        <Dropdown value={learned} getZoom={getZoom} onChange={(val) => setSR({ studyLanguage: val })} style={{ ...S.select, fontSize: 12, padding: '6px 10px' }} options={langOpts} />
+                      ))}
+                      {field(t('quizIn'), isLang ? t('studyEbiSpeaksDesc') : t('studyEbiOnlyDesc'), (
+                        <Dropdown value={speaks} getZoom={getZoom} onChange={(val) => setSR({ quizLanguage: val })} style={{ ...S.select, fontSize: 12, padding: '6px 10px' }} options={langOpts} />
+                      ))}
+                    </div>
+                    {isLang && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginTop: 10 }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--c-ink-dim)', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={sr.grammarFeedback || false} onChange={(e) => setSR({ grammarFeedback: e.target.checked })} />
+                          {t('grammarFeedback')}
+                        </label>
+                        <label title={t('studyWordHintsDesc')} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--c-ink-dim)', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={sr.wordHints || false} onChange={(e) => setSR({ wordHints: e.target.checked })} />
+                          {t('studyWordHints')} <span style={{ color: 'var(--c-ink-faint)' }}>ⓘ</span>
+                        </label>
                       </div>
-                      {isLang && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', justifyContent: 'center' }}>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--c-ink-dim)', cursor: 'pointer' }}>
-                            <input type="checkbox" checked={sr.grammarFeedback || false} onChange={(e) => setSR({ grammarFeedback: e.target.checked })} />
-                            {t('grammarFeedback')}
-                          </label>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--c-ink-dim)', cursor: 'pointer' }}>
-                            <input type="checkbox" checked={sr.wordHints || false} onChange={(e) => setSR({ wordHints: e.target.checked })} />
-                            {t('studyWordHints')}
-                          </label>
-                        </div>
-                      )}
-                      {isLang ? (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 8, rowGap: 3, fontSize: 10, color: 'var(--c-ink-faint)', lineHeight: 1.35 }}>
-                          <span style={{ color: 'var(--c-ink-dim)', fontWeight: 700 }}>{t('studyLearning')}</span><span>{t('studyLearningDesc')}</span>
-                          <span style={{ color: 'var(--c-ink-dim)', fontWeight: 700 }}>{t('quizIn')}</span><span>{t('studyEbiSpeaksDesc')}</span>
-                          <span style={{ color: 'var(--c-ink-dim)', fontWeight: 700 }}>{t('studyWordHints')}</span><span>{t('studyWordHintsDesc')}</span>
-                        </div>
-                      ) : (
-                        <div style={{ fontSize: 10, color: 'var(--c-ink-faint)', lineHeight: 1.4 }}>{t('studyEbiOnlyDesc')}</div>
-                      )}
+                    )}
+                  </>))}
+
+                  {/* ── Session format ── */}
+                  {section(t('studySecFormat'), (<>
+                    <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+                      {field(t('studyType'), null, (
+                        <select value={shownMode} onChange={(e) => setStudyMode(e.target.value)}
+                          style={{ ...S.select, fontSize: 12, padding: '6px 10px' }}>
+                          <option value="flashcards">{t('flashcards')}</option>
+                          {isLang
+                            ? <option value="conjugations">{t('conjugations')}</option>
+                            : <option value="pbq">{t('pbqOption')}</option>}
+                        </select>
+                      ))}
+                      {showAnswerStyle && field(t('answerStyle'), null, (
+                        <select value={studyAnswerStyle} onChange={(e) => { setStudyAnswerStyle(e.target.value); try { localStorage.setItem('ebiki-study-style', e.target.value) } catch {} }}
+                          style={{ ...S.select, fontSize: 12, padding: '6px 10px' }}>
+                          <option value="typed">{t('answerTyped')}</option>
+                          <option value="choices">{t('answerChoices')}</option>
+                        </select>
+                      ))}
                     </div>
-                  )
-                })()}
-
-                {/* Study type — Conjugations is language-only; PBQ (performance-based exercises)
-                    is general-mode-only (concept subjects like Security+, music theory, …) */}
-                {(() => {
-                  const isLangMode = activeMode.type === 'language'
-                  // A study type left over from the other mode kind falls back to flashcards
-                  const shownMode = (isLangMode && studyMode === 'pbq') || (!isLangMode && studyMode === 'conjugations') ? 'flashcards' : studyMode
-                  return (
-                <div style={{
-                  display: 'inline-flex', flexDirection: 'column', gap: 5, padding: '10px 20px', textAlign: 'left',
-                  background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 8, marginTop: 8, marginBottom: 4,
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center' }}>
-                    <span style={{ fontSize: 12, color: 'var(--c-ink-dim)' }}>{t('studyType')}:</span>
-                    <select value={shownMode} onChange={(e) => setStudyMode(e.target.value)}
-                      style={{ ...S.select, fontSize: 12, padding: '6px 10px' }}>
-                      <option value="flashcards">{t('flashcards')}</option>
-                      {isLangMode
-                        ? <option value="conjugations">{t('conjugations')}</option>
-                        : <option value="pbq">{t('pbqOption')}</option>}
-                    </select>
-                  </div>
-                  {shownMode === 'pbq' && (
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--c-ink-dim)', cursor: 'pointer', justifyContent: 'center' }}>
-                      <input type="checkbox" checked={studyPracticeSync} onChange={(e) => { setStudyPracticeSync(e.target.checked); try { localStorage.setItem('ebiki-study-practice-sync', e.target.checked ? '1' : '0') } catch {} }} />
-                      {t('practiceGradeAnki')}
-                    </label>
-                  )}
-                  <div style={{ fontSize: 10, color: 'var(--c-ink-faint)', maxWidth: 360 }}>
-                    {shownMode === 'pbq' ? t('pbqTypeDesc') : isLangMode ? t('studyTypeDesc') : t('studyTypeDescGeneral')}
-                  </div>
+                    {showPracticeSync && (
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--c-ink-dim)', cursor: 'pointer', marginTop: 10 }}>
+                        <input type="checkbox" checked={studyPracticeSync} onChange={(e) => { setStudyPracticeSync(e.target.checked); try { localStorage.setItem('ebiki-study-practice-sync', e.target.checked ? '1' : '0') } catch {} }} />
+                        {t('practiceGradeAnki')}
+                      </label>
+                    )}
+                    <div style={{ fontSize: 10, color: 'var(--c-ink-faint)', lineHeight: 1.5, marginTop: 8 }}>{sessionCaption}</div>
+                  </>))}
                 </div>
-                  )
-                })()}
 
-                {/* Answer style — typed recall (classic) vs multiple-choice practice (laid-back).
-                    Not offered for conjugation drills (inherently typed) or PBQs (own interaction).
-                    A study type stale from the other mode kind counts as flashcards, so it shows. */}
-                {!(activeMode.type === 'language' && studyMode === 'conjugations') && !(activeMode.type !== 'language' && studyMode === 'pbq') && (
-                <div style={{
-                  display: 'inline-flex', flexDirection: 'column', gap: 6, padding: '10px 20px', textAlign: 'center',
-                  background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 8, marginTop: 8, marginBottom: 4,
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center' }}>
-                    <span style={{ fontSize: 12, color: 'var(--c-ink-dim)' }}>{t('answerStyle')}:</span>
-                    <select value={studyAnswerStyle} onChange={(e) => { setStudyAnswerStyle(e.target.value); try { localStorage.setItem('ebiki-study-style', e.target.value) } catch {} }}
-                      style={{ ...S.select, fontSize: 12, padding: '6px 10px' }}>
-                      <option value="typed">{t('answerTyped')}</option>
-                      <option value="choices">{t('answerChoices')}</option>
-                    </select>
-                  </div>
-                  {studyAnswerStyle === 'choices' && (
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--c-ink-dim)', cursor: 'pointer', justifyContent: 'center' }}>
-                      <input type="checkbox" checked={studyPracticeSync} onChange={(e) => { setStudyPracticeSync(e.target.checked); try { localStorage.setItem('ebiki-study-practice-sync', e.target.checked ? '1' : '0') } catch {} }} />
-                      {t('practiceGradeAnki')}
-                    </label>
-                  )}
-                  <div style={{ fontSize: 10, color: 'var(--c-ink-faint)', maxWidth: 340 }}>
-                    {studyAnswerStyle === 'choices' ? (studyPracticeSync ? t('practiceGradeAnkiDesc') : t('answerChoicesDesc')) : t('answerStyleDesc')}
-                  </div>
-                </div>
-                )}
-
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 8 }}>
-                  <button onClick={() => beginStudy(studyDeck, studyMode)} disabled={!studyDeck || studyLoading}
-                    style={{ ...S.captureBtn, borderRadius: 6, padding: '10px 24px', fontSize: 13, opacity: !studyDeck || studyLoading ? 0.5 : 1 }}>
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 16 }}>
+                  <button onClick={() => beginStudy(studyDeck, studyMode)} disabled={!studyDeck || studyLoading} className="btn-press"
+                    style={{ ...S.captureBtn, borderRadius: 8, padding: '10px 36px', fontSize: 13, opacity: !studyDeck || studyLoading ? 0.5 : 1 }}>
                     {studyLoading ? t('loading') : t('start')}
                   </button>
                   <button onClick={exitStudy} style={{ ...S.ghostBtn }}>{t('cancel')}</button>
                 </div>
                 {ankiError && <div style={{ color: 'var(--c-danger)', fontSize: 11, marginTop: 8 }}>{ankiError}</div>}
               </div>
-            )}
+              )
+            })()}
 
             {/* Summary phase */}
             {studyPhase === 'summary' && (
