@@ -9176,20 +9176,25 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     const ratingColors = { easy: 'var(--c-success)', good: 'var(--c-brand)', hard: 'var(--c-warning)', again: 'var(--c-danger)', deleted: 'var(--c-ink-dim)' }
                     const view = studyGradedView[ci]
                     return (
-                      <div key={ci} style={{ marginTop: 16, border: '1px solid var(--c-border)', borderRadius: 8, overflow: 'hidden' }}>
-                        <div style={{ padding: '8px 12px', background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <div key={ci} className="deck-row" style={{ marginTop: 16, border: '1px solid var(--c-border)', borderRadius: 8, overflow: 'hidden', transition: 'border-color .15s ease, background .15s ease' }}>
+                        {/* The whole header is the feedback toggle (deck-browser-style hover glow says so);
+                            the buttons on the right stopPropagation. */}
+                        <div onClick={() => { if (!cs.evaluating) setStudyGradedView(p => ({ ...p, [ci]: p[ci] === 'feedback' ? undefined : 'feedback' })) }}
+                          style={{ padding: '8px 12px', background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 9, color: 'var(--c-ink-faint)', flexShrink: 0 }}>{view === 'feedback' ? '▾' : '▸'}</span>
                             {cs.front}
                             {activeMode.type === 'language' && (
-                              <Pronunciation word={pronWord(cs.front)} lang={learnLangName()} region={pronRegion()} config={pronunciationCfg} t={t} compact cardId={cs.cardId}
-                                onNative={(r, opts) => embedPronunciationForCard(cs.cardId, r, pronWord(cs.front), opts)} />
+                              <span onClick={(e) => e.stopPropagation()}>
+                                <Pronunciation word={pronWord(cs.front)} lang={learnLangName()} region={pronRegion()} config={pronunciationCfg} t={t} compact cardId={cs.cardId}
+                                  onNative={(r, opts) => embedPronunciationForCard(cs.cardId, r, pronWord(cs.front), opts)} />
+                              </span>
                             )}
                           </span>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                          <span onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                           {cs.evaluating ? (
                             <span style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>Evaluating...</span>
                           ) : (<>
-                            {renderFeedbackToggle(cs, ci, view === 'feedback')}
                             {renderMnemonicButton(cs, ci, view === 'mnemonic')}
                             {cs.noSync ? (
                               // Relaxed practice — this rating never reaches Anki, so there's nothing to correct or lock.
@@ -9281,15 +9286,19 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   const ratingColors = { easy: 'var(--c-success)', good: 'var(--c-brand)', hard: 'var(--c-warning)', again: 'var(--c-danger)', deleted: 'var(--c-ink-dim)' }
                   const view = cs.rating === 'deleted' ? null : studyGradedView[ci]
                   return (
-                    <div key={ci} style={{ marginBottom: 16, border: '1px solid var(--c-border)', borderRadius: 8, overflow: 'hidden' }}>
-                      <div style={{
+                    <div key={ci} className={cs.rating === 'deleted' ? undefined : 'deck-row'} style={{ marginBottom: 16, border: '1px solid var(--c-border)', borderRadius: 8, overflow: 'hidden', transition: 'border-color .15s ease, background .15s ease' }}>
+                      {/* Whole header toggles feedback (hover glow signals it); right-side controls stopPropagation */}
+                      <div onClick={() => { if (cs.rating !== 'deleted') setStudyGradedView(p => ({ ...p, [ci]: p[ci] === 'feedback' ? undefined : 'feedback' })) }}
+                        style={{
                         padding: '8px 12px', background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))',
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, cursor: cs.rating === 'deleted' ? 'default' : 'pointer',
                       }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{cs.front}</span>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {cs.rating !== 'deleted' && <span style={{ fontSize: 9, color: 'var(--c-ink-faint)', flexShrink: 0 }}>{view === 'feedback' ? '▾' : '▸'}</span>}
+                          {cs.front}
+                        </span>
+                        <span onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                         {cs.rating !== 'deleted' && (<>
-                          {renderFeedbackToggle(cs, ci, view === 'feedback')}
                           {renderMnemonicButton(cs, ci, view === 'mnemonic')}
                         </>)}
                         {cs.rating === 'deleted' ? (
