@@ -5197,7 +5197,8 @@ Output ONLY raw JSON. No markdown, no backticks.`
           const held = [...studyCardState]
           const heldAttempts = [...(cs.questionAttempts || [])]
           heldAttempts[questionIdx] = allAttempts
-          held[cardIdx] = { ...cs, questionAttempts: heldAttempts }
+          // The slip COUNTS: a card with accent mistakes grades Good at best, never Easy.
+          held[cardIdx] = { ...cs, questionAttempts: heldAttempts, accentSlips: (cs.accentSlips || 0) + 1 }
           setStudyCardState(held)
           setStudyAccentRetype({ canonical, original: answer })
           setStudyInput('')
@@ -5976,6 +5977,9 @@ Write in ${explainLang}. 2 to 4 short sentences, concrete and a little playful. 
       // Same recognition cap as evaluateCardLocally — a multiple-choice pass that syncs to Anki
       // never rates above Good (this path handles mc cards whose choices partially failed to generate).
       if (cs.mc && !cs.noSync && ease > 3) { ease = 3; label = 'good' }
+      // Strict accents: perfect answers with accent slips (missing/misplaced tilde caught by the
+      // retype gate) grade Good at best — an obvious accent mistake is still a mistake.
+      if (ease === 4 && (cs.accentSlips || 0) > 0) { ease = 3; label = 'good' }
 
       setStudyCardState(prev => {
         const updated = [...prev]
