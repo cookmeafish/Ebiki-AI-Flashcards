@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { compilePbq, checkCitations, studentView, parseSolverAnswer, gradePbq, compareToKey, iconFor } from './engine.js'
+import { compilePbq, checkCitations, studentView, parseSolverAnswer, gradePbq, compareToKey, iconFor, buildGeneratorPrompt } from './engine.js'
 
 // Deterministic rng: identity shuffle (Fisher–Yates with rng()=0 swaps i with 0... use a
 // sequence that keeps order stable: rng returning values so j===i every time → rng = (i+? )
@@ -179,6 +179,15 @@ describe('parseSolverAnswer + compareToKey', () => {
     expect(compareToKey(pbq, parseSolverAnswer(pbq, { unrelated: true })).match).toBe(false)
     expect(compareToKey(pbq, parseSolverAnswer(pbq, null)).match).toBe(false)
     expect(compareToKey(pbq, null).match).toBe(false)
+  })
+})
+
+describe('buildGeneratorPrompt', () => {
+  it('always carries the relevance gate (off-subject cards must be skipped, never bridged)', () => {
+    const p = buildGeneratorPrompt({ subject: 'CompTIA Security+', front: 'sombrero', back: 'hat', lang: 'English', knowledgeContext: null, priorFailure: null })
+    expect(p).toContain('"kind":"skip"')
+    expect(p).toContain('RELEVANCE CHECK')
+    expect(p).toContain('word-association bridge')
   })
 })
 
