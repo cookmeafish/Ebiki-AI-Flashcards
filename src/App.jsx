@@ -9401,17 +9401,17 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               pronunciation, and synonyms.
             </p>
             <div style={S.methods}>
-              <div onClick={captureScreen}
+              <div onClick={captureScreen} className="click-dim"
                 style={{ ...S.methodCard, borderColor: 'rgba(223,37,64,0.2)', cursor: 'pointer' }}>
                 <span style={{ color: 'var(--c-brand)', fontSize: 20 }}>📸</span>
                 <span style={{ color: 'var(--c-brand)' }}>Capture Screen</span>
               </div>
-              <div onClick={() => fileInputRef.current?.click()}
+              <div onClick={() => fileInputRef.current?.click()} className="click-dim"
                 style={{ ...S.methodCard, borderColor: 'rgba(139,92,246,0.2)', cursor: 'pointer' }}>
                 <span style={{ color: 'var(--c-purple)', fontSize: 20 }}>📁</span>
                 <span style={{ color: 'var(--c-purple)' }}>Upload File</span>
               </div>
-              <div onClick={pasteImageFromClipboard}
+              <div onClick={pasteImageFromClipboard} className="click-dim"
                 style={{ ...S.methodCard, borderColor: 'rgba(24,169,87,0.2)', cursor: 'pointer' }}>
                 <span style={{ color: 'var(--c-success)', fontSize: 20 }}>📋</span>
                 <span style={{ color: 'var(--c-success)' }}>Ctrl+V Paste</span>
@@ -10168,18 +10168,19 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         /* Duolingo-style 3D press: add className "btn-press" to primary CTAs */
         .btn-press:active:not(:disabled) { transform: translateY(2px); box-shadow: none !important; }
 
-        /* Settings modal: every selectable control darkens slightly on hover — the standard
-           "this is clickable" cue — in BOTH themes. An inset overlay darkens whatever background
-           the control has (covers sidebar items, chips, toggles, selects, all panels at once).
+        /* GLOBAL: every selectable control darkens slightly on hover — the standard "this is
+           clickable" cue — in BOTH themes, every panel. An inset overlay darkens whatever
+           background the control has. Controls with an intentional inline box-shadow (solid
+           CTAs) keep it (inline wins), and the active nav tab is exempt (already selected).
            Dark surfaces need a stronger black to register. */
-        .settings-modal button:not(:disabled):hover,
-        .settings-modal select:not(:disabled):hover,
-        .settings-modal input[type="checkbox"]:not(:disabled):hover {
+        button:not(:disabled):not(.ui-tab-current):hover,
+        select:not(:disabled):hover,
+        input[type="checkbox"]:not(:disabled):hover {
           box-shadow: inset 0 0 0 999px rgba(0, 0, 0, .08);
         }
-        [data-theme="dark"] .settings-modal button:not(:disabled):hover,
-        [data-theme="dark"] .settings-modal select:not(:disabled):hover,
-        [data-theme="dark"] .settings-modal input[type="checkbox"]:not(:disabled):hover {
+        [data-theme="dark"] button:not(:disabled):not(.ui-tab-current):hover,
+        [data-theme="dark"] select:not(:disabled):hover,
+        [data-theme="dark"] input[type="checkbox"]:not(:disabled):hover {
           box-shadow: inset 0 0 0 999px rgba(0, 0, 0, .26);
         }
 
@@ -10244,10 +10245,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         /* Deck browser rows — highlight on hover */
         .deck-row:hover { border-color: rgba(223,37,64,.35) !important; background: rgba(223,37,64,.05) !important; }
 
-        /* Reusable settings-style hover darken for individual controls (follows border-radius) */
-        .hover-dim { transition: box-shadow .15s ease; }
-        .hover-dim:not(:disabled):hover { box-shadow: inset 0 0 0 999px rgba(0, 0, 0, .08); }
-        [data-theme="dark"] .hover-dim:not(:disabled):hover { box-shadow: inset 0 0 0 999px rgba(0, 0, 0, .26); }
+        /* Same darken for clickable NON-button elements (divs with onClick, e.g. the Picture
+           entry tiles) — opt in with this class. */
+        .click-dim { transition: box-shadow .15s ease; }
+        .click-dim:hover { box-shadow: inset 0 0 0 999px rgba(0, 0, 0, .08); }
+        [data-theme="dark"] .click-dim:hover { box-shadow: inset 0 0 0 999px rgba(0, 0, 0, .26); }
 
         /* Graded-card TOP header only: slightly darker on hover (settings-style, theme-tuned).
            NOT while hovering a control inside it (memory hook / sound / rating select) — those
