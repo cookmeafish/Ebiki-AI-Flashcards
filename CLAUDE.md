@@ -414,11 +414,13 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   = correct but has feedback, ✗ red = incorrect; expanded detail is 13.5px with hanging note icons
   (icons sit in the left gutter so note text aligns with the other lines).
 - **Memory hooks are ONE engine, `generateMemoryHook(front, back, prior, method)`** (subject-agnostic),
-  with FOUR WaniKani-inspired methods in its `METHODS` map: `meaning` (decompose → one vivid image that
+  with FIVE methods in its `METHODS` map: `meaning` (decompose → one vivid image that
   ends at the meaning), `sound` (language: reading-mnemonic sound-alike bridge walking syllables in
   order; general: RECALL hook — acronym/anchor that reconstructs the exact term), `parts` ("Break it
   down" — REAL morphology/components explained step by step, dar → darse → dárselo; understanding, not
-  imagery; ≤60 words), `story` (2-4 sentence mini story ending at the answer; ≤70 words; others ≤35).
+  imagery; ≤60 words), `confuse` ("Don't confuse it" — the 1-2 confusables a learner actually trips on
+  + ONE sharp discriminator each; ≤50 words; its quality test = pick the right one of the pair), `story`
+  (2-4 sentence mini story ending at the answer; ≤70 words; others ≤35).
   The per-surface buttons come from ONE list, `hookMethodList()` (label + `.tip` tooltip + short label
   for the narrow word popup). Surfaces: study graded cards (`generateMnemonic(ci, cs, method)` →
   `cs.mnemonics`; opening the 🧠 toggle hydrates saved hooks but does NOT auto-generate — the panel
@@ -460,8 +462,9 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   (`batch-<ci>-<qi>`). Language modes only.
 - **Ebi's memory hook (`generateMnemonic(cardIdx, card, method)`) is SUBJECT-AGNOSTIC.** The trigger is
   the "🧠 Help me remember" header toggle (`renderMnemonicButton`); opening it sets `view='mnemonic'`
-  (hiding feedback) and hydrates saved hooks — generation waits for the user to pick one of the four
-  method buttons (🧠 Meaning / 🔊 Sound or 🔤 Recall / 🧩 Break it down / 📖 Story — see the
+  (hiding feedback) and hydrates saved hooks — generation waits for the user to pick one of the five
+  method buttons (🧠 Meaning / 🔊 Sound or 🔤 Recall / 🧩 Break it down / ⚖️ Don't confuse it /
+  📖 Story — see the
   `generateMemoryHook` + `hookMethodList` entry above). RESULTS render at the **TOP of the card body**
   via `renderMnemonic`. Hooks are an ARRAY (`cs.mnemonics`, + `mnemonicLoading`/`mnemonicError`): every
   method button APPENDS a new hook below (prior hooks are fed into the prompt so each is different),

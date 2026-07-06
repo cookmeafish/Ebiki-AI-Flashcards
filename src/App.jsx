@@ -5798,6 +5798,7 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
       ['meaning', '🧠 Meaning hook', 'Parts fused into one vivid image that ends at the meaning', '🧠 Meaning'],
       ['sound', lang ? '🔊 Sound hook' : '🔤 Recall hook', lang ? 'A sound-alike bridge that rebuilds the word syllable by syllable' : 'An acronym or anchor that reconstructs the exact term', lang ? '🔊 Sound' : '🔤 Recall'],
       ['parts', '🧩 Break it down', lang ? 'What each part of the word means and how they combine (dar → darse → dárselo)' : 'What each component of the term/concept contributes', '🧩 Parts'],
+      ['confuse', "⚖️ Don't confuse it", lang ? 'The words you likely mix this up with, and one sharp difference each' : 'The sibling concepts you likely mix this up with, and one sharp difference each', '⚖️ Vs'],
       ['story', '📖 Story hook', 'A tiny 2-4 sentence story that carries the meaning', '📖 Story'],
     ]
   }
@@ -5818,12 +5819,17 @@ Build an acronym, first-letter anchor, number anchor, or word-shape cue that rec
       parts: isLanguage
         ? `METHOD — BREAK IT DOWN (understanding, not imagery — show the learner how the ${learnLang} word is BUILT): split the word into its REAL parts (root/stem, prefixes, suffixes, attached pronouns) and build the meaning up step by step, one short line per step — e.g. "dárselo": dar = to give → darse = adding "se" makes it "to someone" → dárselo = adding "lo" adds "it": to give IT to him/her. Real morphology only, never invented etymology; if the word truly has no parts, explain its origin or connect it to a related ${learnLang}/${explainLang} word the learner already knows.`
         : `METHOD — BREAK IT DOWN (understanding, not imagery — show the learner how the term/concept is BUILT): split it into its real components (word roots, what each part of the acronym stands for, the stages of the process) and build the full meaning up step by step, one short line per part stating what it contributes. Real analysis only, never invented origins.`,
+      confuse: isLanguage
+        ? `METHOD — DON'T CONFUSE IT (the learner knows this word but keeps mixing it up with a sibling): name the 1-2 ${learnLang} words MOST likely confused with this one (near-synonyms like huir/escapar, similar-sounding or same-root words, false friends with ${explainLang}) and give ONE sharp, memorable discriminator per pair — the precise nuance, register, or context where THIS word wins and the other loses, anchored in a tiny concrete cue or example. Pick the confusables a real learner actually trips on; if genuinely nothing is confusable with it, say so in one line and give the single closest word anyway.`
+        : `METHOD — DON'T CONFUSE IT (the learner knows this concept but keeps mixing it up with a sibling): name the 1-2 terms/concepts MOST likely confused with this one (sibling acronyms like IDS/IPS, adjacent concepts like authentication/authorization) and give ONE sharp, memorable discriminator per pair — the precise difference, anchored in a tiny concrete image or example (e.g. "IDS watches and yells; IPS stands in the doorway"). Pick confusables a real learner actually trips on; if genuinely nothing is confusable with it, say so in one line and give the single closest concept anyway.`,
     }
     const lengthRule = (method === 'story'
       ? 'ONE story only — 2 to 4 short sentences, UNDER 70 WORDS total.'
       : method === 'parts'
         ? 'ONE compact step-by-step build-up — one short line per part, UNDER 60 WORDS total.'
-        : 'ONE hook only — 1 to 2 punchy sentences, UNDER 35 WORDS total, like a WaniKani mnemonic.')
+        : method === 'confuse'
+          ? 'At most 2 confusable pairs — ONE short line per pair, UNDER 50 WORDS total.'
+          : 'ONE hook only — 1 to 2 punchy sentences, UNDER 35 WORDS total, like a WaniKani mnemonic.')
       + ' That cap is a CEILING, not a target: if fewer words recall the answer just as well, use fewer. Cut every word that does not carry the image or the answer — but NEVER cut a word the hook needs to work: effectiveness always outranks brevity.'
     const prompt = `You are Ebi, a warm study buddy. Help the learner MEMORIZE this flashcard with a vivid, concrete memory aid. TWIN GOALS, both required: the learner must actually LEARN (the hook reliably rebuilds the answer) and must NOT BE BORED (surprise, humor, or a striking image is what makes a hook stick — a dry correct hook is a failed hook too).
 
@@ -5833,7 +5839,7 @@ Subject / study mode: "${activeMode.name}"${isLanguage ? `\nThis is a ${learnLan
 
 ${METHODS[method] || METHODS.meaning}${activeMode.mnemonicHints ? `\n\nMODE-SPECIFIC HOOK GUIDANCE (configured for this subject — follow it): ${activeMode.mnemonicHints}` : ''}${prior.length ? `\n\nThe learner already has these memory aids for this card, so give a genuinely DIFFERENT one (new angle, do not repeat them):\n${prior.map((m, i) => `${i + 1}. ${m}`).join('\n')}` : ''}
 
-QUALITY BAR: a good hook lets the learner RECONSTRUCT the answer from the hook alone. Mentally test yours: would someone who forgot this recover it from your hook? If not, try a different angle. Never output a vague "just associate X with Y". Then EDIT FOR ECONOMY: the best hook is the SHORTEST one that STILL PASSES that test — one sharp image beats three decorations, so delete scene-setting, filler adjectives, and anything the learner does not need to replay to reach the answer. Trim FILLER, never PERSONALITY: the surprising, funny, vivid core is load-bearing — cutting it makes the hook forgettable. Re-run the test after trimming: if a cut makes the hook harder to recall, duller, or harder to reconstruct from, put the words back — a slightly longer hook that works beats a tight one that fails.
+QUALITY BAR: a good hook lets the learner RECONSTRUCT the answer from the hook alone${method === 'confuse' ? ' (for THIS method the test is: shown the confusable pair side by side, would the learner now pick the right one every time?)' : ''}. Mentally test yours: would someone who forgot this recover it from your hook? If not, try a different angle. Never output a vague "just associate X with Y". Then EDIT FOR ECONOMY: the best hook is the SHORTEST one that STILL PASSES that test — one sharp image beats three decorations, so delete scene-setting, filler adjectives, and anything the learner does not need to replay to reach the answer. Trim FILLER, never PERSONALITY: the surprising, funny, vivid core is load-bearing — cutting it makes the hook forgettable. Re-run the test after trimming: if a cut makes the hook harder to recall, duller, or harder to reconstruct from, put the words back — a slightly longer hook that works beats a tight one that fails.
 
 Write in ${explainLang}. ${lengthRule} No backup hooks, no preamble, no explaining why the hook works. Concrete and a little playful. Plain text only: no markdown headers, no em dashes.`
     const text = await aiCall(apiKey, `You are Ebi, a friendly memory coach. Reply in ${explainLang} with a concise, concrete memory aid in plain text.`, prompt, resolveModel('study'))
