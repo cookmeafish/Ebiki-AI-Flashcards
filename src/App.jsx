@@ -4470,7 +4470,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     return (
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         <button onClick={() => onPick('auto')} disabled={disabled}
-          className="tip tip-r" data-tip={apiKey ? 'Ebi picks the hook style that fits this best. Ask again and it tries a different style.' : 'Add an API key first'}
+          className="tip tip-r" data-tip={apiKey ? 'Ebi builds a memory aid to help you memorize this, picking whichever style fits it best. Ask again and it tries a different style.' : 'Add an API key first'}
           style={{ ...S.ghostBtn, fontSize: fs, padding: compact ? '3px 10px' : '2px 10px', fontWeight: 700, color: 'var(--c-purple)', background: 'rgba(139,92,246,.14)', borderColor: 'rgba(139,92,246,.5)', opacity: disabled ? 0.5 : 1 }}>
           🧠 Memory hook
         </button>
