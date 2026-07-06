@@ -220,6 +220,8 @@ export default function App() {
   const [modelHealNotice, setModelHealNotice] = useState(null)
   // Persistent toast shown when an AI request fails (out of credits, rate-limited, bad key…).
   const [aiErrorNotice, setAiErrorNotice] = useState(null)
+  // Transient green success toast (e.g. "mode created") — auto-dismisses.
+  const [successNotice, setSuccessNotice] = useState(null)
   // App UI language ('en' | 'es' | 'zh' | 'ja' | ...). Translates chrome, not flashcards.
   const [appLanguage, setAppLanguage] = useState('en')
   const t = makeT(appLanguage)
@@ -828,6 +830,13 @@ export default function App() {
     const t = setTimeout(() => setModelHealNotice(null), 7000)
     return () => clearTimeout(t)
   }, [modelHealNotice])
+
+  // Auto-dismiss the green success toast.
+  useEffect(() => {
+    if (!successNotice) return
+    const t = setTimeout(() => setSuccessNotice(null), 6000)
+    return () => clearTimeout(t)
+  }, [successNotice])
 
   // ─── Load Keys & Config from file on mount ─────────────────────────────────
   useEffect(() => {
@@ -7253,6 +7262,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       }
       saveModes([...modes, newMode], newId)
       console.log('[Mode] created:', newMode)
+      setSuccessNotice(`Created the "${newMode.name}" ${newMode.type === 'language' ? 'language' : 'study'} mode and switched to it. It's saved, you can close settings anytime.`)
     } catch (err) {
       console.error('[Mode] creation failed:', err.message)
       setAnkiError('Mode creation failed: ' + err.message)
@@ -10752,6 +10762,22 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         }}>
           <span style={{ flex: 1 }}>🔧 {modelHealNotice}</span>
           <span onClick={() => setModelHealNotice(null)} style={{ cursor: 'pointer', color: C.inkFaint }}>×</span>
+        </div>
+      )}
+
+      {/* Green success toast (mode created, etc.) — auto-dismisses. Above the settings modal
+          (z 10001 > backdrop 1000) so it's visible even while Settings is open. */}
+      {successNotice && (
+        <div style={{
+          position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 10001,
+          background: C.surface, border: `1px solid ${C.success}`, borderRadius: RADIUS.md,
+          padding: '12px 16px', fontSize: 13, color: C.success, maxWidth: 460, fontWeight: 600,
+          boxShadow: SHADOW.lg, display: 'flex', alignItems: 'center', gap: 10,
+          animation: 'slideUp .25s ease',
+        }}>
+          <span style={{ fontSize: 15 }}>✅</span>
+          <span style={{ flex: 1, lineHeight: 1.45 }}>{successNotice}</span>
+          <span onClick={() => setSuccessNotice(null)} style={{ cursor: 'pointer', color: C.success, fontSize: 15, lineHeight: 1 }}>×</span>
         </div>
       )}
 
