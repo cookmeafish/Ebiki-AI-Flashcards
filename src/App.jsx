@@ -2480,7 +2480,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
 
     console.log('[Anki] generating card with AI...')
     const text = await aiCall(apiKey, 'You generate Anki flashcard content. Always respond with valid JSON only.', prompt, resolveModel('deck'))
-    const cardData = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+    const cardData = parseAiJson(text)
     console.log('[Anki] AI card data:', cardData)
 
     // Dynamic template replacement
@@ -2559,7 +2559,7 @@ Return a JSON object with the updated card: { "front": "...", "back": "...", "ta
 Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown or backticks.`
 
       const text = await aiCall(apiKey, 'You edit Anki flashcard content. Always respond with valid JSON only.', prompt, resolveModel('deck'))
-      const updated = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+      const updated = parseAiJson(text)
       setAnkiCard({
         front: updated.front || ankiCard.front,
         back: updated.back || ankiCard.back,
@@ -2788,7 +2788,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       const prompt = `Here is an Anki flashcard:\n\n${fieldsDesc}\n\nThe user wants this change: "${instruction}"\n\nReturn a JSON object with the updated fields: { ${Object.keys(deckBrowserEditFields).map(k => `"${k}": "..."`).join(', ')} }\nKeep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown or backticks.`
 
       const text = await aiCall(apiKey, 'You edit Anki flashcard content. Always respond with valid JSON only.', prompt, resolveModel('deck'))
-      const updated = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+      const updated = parseAiJson(text)
       const newFields = { ...deckBrowserEditFields }
       Object.entries(updated).forEach(([k, v]) => { if (k in newFields) newFields[k] = String(v) })
       setDeckBrowserEditFields(newFields)
@@ -2934,7 +2934,9 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       const prompt = `${analyzeFraming}\n\nCards (JSON):\n${JSON.stringify(cards)}\n\nReturn a JSON array — ONLY include cards that need fixing (skip the rest):\n[\n  {\n    "noteId": <number>,\n    "front": "<exact verbatim value of the card's "${frontFieldName}" field, copied character-for-character>",\n    "reason": "<one short sentence: what is ambiguous>",\n    "recommendedFields": { "<fieldName>": "<new content>", ... }\n  }\n]\n\nCRITICAL: "noteId" and "front" MUST identify the SAME card. Copy the "front" value verbatim from that exact card's data above — never paraphrase it, never use a different card's word, and double-check that the recommendedFields you write are for that same card. If you cannot be certain a noteId and its front match, omit that card.\n\nIn recommendedFields, include ONLY fields you're changing (typically just the back). ${fieldLangRule} Use plain text with newlines for line breaks (no HTML, no <br>).\n\nOutput ONLY raw JSON. No markdown, no commentary.`
 
       const text = await aiCall(apiKey, 'You analyze flashcard quality. Always respond with valid JSON only.', prompt, resolveModel('deck'))
-      const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+      // parseAiJson, not bare JSON.parse: models sometimes append commentary after the array or
+      // truncate mid-row — the tolerant parser strips the noise and salvages complete objects.
+      const parsed = parseAiJson(text)
       if (!Array.isArray(parsed)) throw new Error('Response is not an array')
 
       // Front (first field by order) of a note, as normalized plain text — used to
@@ -3027,7 +3029,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       const fieldsDesc = Object.entries(rec.recommendedFields).map(([k, v]) => `${k}:\n${v}`).join('\n\n')
       const prompt = `Here is a flashcard recommendation:\n\n${fieldsDesc}\n\nThe user wants this change: "${rec.refineInput}"\n\nReturn a JSON object with the updated fields: { ${Object.keys(rec.recommendedFields).map((k) => `"${k}": "..."`).join(', ')} }\nKeep any fields the user didn't ask to change. Use plain text with newlines (no HTML). Output ONLY raw JSON, no markdown.`
       const text = await aiCall(apiKey, 'You edit Anki flashcard content. Always respond with valid JSON only.', prompt, resolveModel('deck'))
-      const updated = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+      const updated = parseAiJson(text)
       setDeckAnalyzeRecs((prev) => prev.map((r, i) => {
         if (i !== idx) return r
         const newFields = { ...r.recommendedFields }
@@ -3240,7 +3242,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
             ? `These are flashcard headwords that look similar (possible spelling/accent/typo variants of the SAME word). For each cluster, identify which cards are truly the SAME word and should be merged. Different words that merely look alike (e.g. "casa" vs "caza", "pero" vs "perro") must NOT be grouped.\n\nClusters (JSON):\n${JSON.stringify(forAI)}\n\nReturn ONLY a JSON array of the duplicate sets you confirm (omit anything that isn't a real duplicate):\n[ { "merge": [<noteId>, <noteId>, ...] }, ... ]\n\nEach "merge" set must have 2+ noteIds that are the same word. Output ONLY raw JSON, no markdown.`
             : `These are flashcard fronts from a "${activeMode.name}" study deck that look similar (possible duplicates: typo variants, an abbreviation vs its expansion, or the same term/concept written differently). For each cluster, identify which cards are truly the SAME term/concept and should be merged. DISTINCT concepts that merely look or sound similar (e.g. "encoding" vs "encryption", "TCP" vs "UDP") must NOT be grouped.\n\nClusters (JSON):\n${JSON.stringify(forAI)}\n\nReturn ONLY a JSON array of the duplicate sets you confirm (omit anything that isn't a real duplicate):\n[ { "merge": [<noteId>, <noteId>, ...] }, ... ]\n\nEach "merge" set must have 2+ noteIds that are the same term/concept. Output ONLY raw JSON, no markdown.`
           const text = await aiCall(apiKey, 'You confirm whether similar-looking flashcards are the same word. Always respond with valid JSON only.', prompt, resolveModel('deck'))
-          const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+          const parsed = parseAiJson(text)
           if (Array.isArray(parsed)) {
             fuzzyGroups = parsed.map((p) => {
               const ids = (p.merge || []).map((id) => (typeof id === 'string' ? Number(id) : id))
@@ -3291,7 +3293,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         const groupsForAI = dupNoteGroups.map((notes, i) => ({ group: i, headword: htmlToPlain(frontOf(notes[0])), cards: notes.map(plainFields) }))
         const prompt = `Each group below is a set of DUPLICATE flashcards that teach the same word. For EACH group, merge its cards into ONE card: keep the clearest front, and combine the backs so every distinct meaning, example, synonym and note is kept (remove only exact repeats).\n\nGroups (JSON):\n${JSON.stringify(groupsForAI)}\n\nReturn ONLY a JSON array, one object per group IN THE SAME ORDER:\n[ { "group": <number>, "headword": "<echo the same group's headword verbatim>", "mergedFields": { "<fieldName>": "<merged plain text>", ... } } ]\n\nThe "group" number, "headword", and "mergedFields" MUST all belong to the SAME group — never mix one group's content with another's.\n\nUse the SAME field names as the input. Plain text with newlines (no HTML, no <br>). Output ONLY raw JSON, no markdown.`
         const text = await aiCall(apiKey, 'You merge duplicate flashcards. Always respond with valid JSON only.', prompt, resolveModel('deck'))
-        const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+        const parsed = parseAiJson(text)
         if (Array.isArray(parsed)) parsed.forEach((p) => { if (typeof p.group === 'number' && p.mergedFields) aiMerges[p.group] = { fields: p.mergedFields, headword: p.headword || '' } })
       } catch (e) {
         console.warn('[Deck] AI merge failed, using naive merge:', e.message)
@@ -3614,7 +3616,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         evidence,
       })
       const text = await aiCall(apiKey, 'You assess learner proficiency. Always respond with valid JSON only.', prompt, resolveModel('discover'))
-      const profile = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+      const profile = parseAiJson(text)
       setDiscoverProfile(profile)
       writeBlob('profile', activeMode.name, profile).catch(() => {})
       console.log('[Discover] profile built:', profile)
@@ -3670,7 +3672,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
           : null,
       })
       const text = await aiCall(apiKey, 'You suggest new study items. Always respond with valid JSON only.', prompt, resolveModel('discover'))
-      let suggestion = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+      let suggestion = parseAiJson(text)
 
       // Web grounding: verify/correct facts against search results.
       if (discoverWebVerify && suggestion?.term) {
@@ -3805,7 +3807,7 @@ Design 4-6 DISCOVERY CATEGORIES a tutor could draw from when suggesting new flas
 Return ONLY a JSON array (no markdown):
 [{ "key": "short-kebab-slug", "label": "<chip label, 1-3 words, in ${APP_LANG_NAME[appLanguage] || 'English'}>", "rule": "<one imperative sentence telling the tutor exactly what kind of item to suggest and what to put in term/translation/explanation>" }]`
       const text = await aiCall(apiKey, 'You design study-content category systems. Respond with valid JSON only.', prompt, resolveModel('discover'))
-      const kinds = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+      const kinds = parseAiJson(text)
       if (Array.isArray(kinds) && kinds.length > 0) {
         const clean = kinds.filter((k) => k && k.key && k.label && k.rule).slice(0, 6)
           .map((k) => ({ key: String(k.key), label: String(k.label), rule: String(k.rule) }))
@@ -4165,7 +4167,7 @@ User request: "${instruction}"
 Return ONLY updated JSON with these exact keys: ${meta.map((f) => f.key).join(', ')}. Keep anything the user didn't ask to change identical to the current value.${scope === 'cards' ? ' "fields" is an object of {fieldName: boolean}.' : ''}
 Output ONLY raw JSON. No markdown, no backticks.`
       const text = await aiCall(apiKey, 'You modify study-mode settings. Respond with valid JSON only.', prompt, resolveModel('general'))
-      const cfg = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+      const cfg = parseAiJson(text)
       const changes = []
       for (const f of meta) {
         if (cfg[f.key] === undefined) continue
@@ -4705,7 +4707,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const text = await aiCall(apiKey, 'You generate structured flashcard quiz questions. Always respond with a valid JSON array of objects.', prompt + leakRetryNote, resolveModel('study'))
-      const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+      const parsed = parseAiJson(text)
       if (!Array.isArray(parsed)) throw new Error('not array')
       const questions = parsed.slice(0, n).map(q => {
         // Multiple-choice: validate + SHUFFLE client-side (models bias the correct option's slot).
@@ -4845,7 +4847,7 @@ Return a JSON object:
 Use up to 40 words total. No duplicates. Output ONLY raw JSON. No markdown, no backticks.`
     try {
       const text = await aiCall(apiKey, 'You help language learners practice verb conjugations. Respond with valid JSON only.', prompt, resolveModel('study'))
-      const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+      const parsed = parseAiJson(text)
       const language = (parsed.language && typeof parsed.language === 'string') ? parsed.language : 'English'
       const words = Array.isArray(parsed.words) ? parsed.words.filter(w => w.word && w.meaning) : []
       return { words, language }
@@ -4871,7 +4873,7 @@ Return JSON: [{"question": "...", "type": "recall", "hint1": "X letters", "hint2
 Output ONLY raw JSON. No markdown, no backticks.`
     try {
       const text = await aiCall(apiKey, 'You generate conjugation quiz questions. Always respond with a valid JSON array of objects.', prompt, resolveModel('study'))
-      const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+      const parsed = parseAiJson(text)
       if (!Array.isArray(parsed)) throw new Error('not array')
       return parsed.slice(0, n).map(q => ({
         question: typeof q === 'string' ? q : (q.question || ''),
@@ -5676,7 +5678,7 @@ ${wantChoices ? '- Also return "choices": exactly 4 options (1 correct — match
 Return ONLY raw JSON:
 {"question": {"question":"...","type":"${q.type}","hint1":"N letters","hint2":"starts with 'X'","acceptedAnswers":["..."]${wantChoices ? ',"choices":["...","...","...","..."],"answerIdx":0' : ''}}, "preference": "..." or null}`
       const text = await aiCall(apiKey, 'You repair flashcard quiz questions. Always respond with a single valid JSON object.', prompt, resolveModel('study'))
-      const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+      const parsed = parseAiJson(text)
       const nq = parsed?.question
       if (!nq?.question) throw new Error('no replacement question returned')
       let newQ = {
@@ -5758,7 +5760,7 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
   "usage": "ONLY if noteworthy: a few ${explainLang} words on how common/where/what register (e.g. 'rare, literary', 'mainly Argentina — elsewhere: X', 'informal slang'); "" for common neutral universal words"
 }`
       const text = await aiCall(apiKey, `You are a concise bilingual dictionary that disambiguates words by context. Output JSON only, written in ${explainLang}.`, prompt, resolveModel('study'))
-      const parsed = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+      const parsed = parseAiJson(text)
       setStudyWordLookup({
         word,
         primary: String(parsed.primary || '').trim() || '—',
@@ -6126,7 +6128,7 @@ Write in ${explainLang}. ${lengthRule} No backup hooks, no preamble, no explaini
       const prompt = `Evaluate ALL answers for this flashcard at once.\n\nCard front: "${cs.front}"\nCard back: "${cs.back}"\n\n${modeType}\n\n${questionsAndAnswers}\n\n${gradingRules}${notesInstruction}${knowledgeRef}\n\nWrite ALL feedback text in ${studyLang}.\n\nReturn a JSON array of ${cs.questions.length} objects: [{"correct": true/false, "feedback": "one short summary sentence", "notes": [{"type": "praise|correction|grammar|terminology|detail|tip", "text": "...", "penalize": true/false}]}]\n\nOutput ONLY raw JSON. No markdown, no backticks.`
 
       const text = await aiCall(apiKey, 'You evaluate flashcard answers. Always respond with valid JSON only.', prompt, resolveModel('study'))
-      const results = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+      const results = parseAiJson(text)
 
       if (!Array.isArray(results)) return
 
@@ -6883,7 +6885,7 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
       try {
         const prompt = `Generate exactly 3 short example chat prompts (3-6 words each) a user could tap to start chatting with an AI tutor about this study mode. Mix a concept question, a "make a flashcard" request, and a "quiz me" request — all specific to the subject.\nMode name: "${activeMode.name}"\nSubject/description: "${activeMode.description || activeMode.name}"\nType: ${activeMode.type}\nOutput ONLY a raw JSON array of 3 strings. No markdown, no backticks.`
         const text = await aiCall(apiKey, 'You suggest example chat prompts. Respond with valid JSON only.', prompt, resolveModel('general'), { silent: true })
-        const arr = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+        const arr = parseAiJson(text)
         if (Array.isArray(arr) && arr.length) updateModeById(modeId, { chatSuggestions: arr.filter(Boolean).slice(0, 3).map(String) })
       } catch { /* keep the generic defaults */ }
     })()
@@ -7222,7 +7224,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
         'You configure study modes for a learning app. Always respond with valid JSON only.',
         prompt, resolveModel('general')
       )
-      const config = JSON.parse(text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+      const config = parseAiJson(text)
 
       const newId = Math.max(0, ...modes.map((m) => m.id)) + 1
       const newMode = {
