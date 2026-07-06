@@ -4334,22 +4334,17 @@ Output ONLY raw JSON. No markdown, no backticks.`
             )}
             {/* Memory hooks for the TAPPED word (not the card being tested) — a quick "how do I
                 remember this one again?" without leaving the question. Same engine as everywhere;
-                short labels because the popup is narrow. */}
-            {hookMethodList().map(([m, , tip, short]) => (
-              <button key={m} onClick={() => studyWordMemoryHook(m)} disabled={!apiKey || studyWordLookup.hookLoading}
-                className="tip" data-tip={apiKey ? tip : 'Add an API key first'}
-                style={{ ...S.ghostBtn, fontSize: 11, padding: '3px 10px', fontWeight: 700, color: 'var(--c-purple)', borderColor: 'rgba(139,92,246,.4)', opacity: (apiKey && !studyWordLookup.hookLoading) ? 1 : 0.5, cursor: apiKey ? 'pointer' : 'default' }}>
-                {short}
-              </button>
-            ))}
+                compact (short labels) because the popup is narrow. */}
+            {renderHookButtons('word', (m) => studyWordMemoryHook(m), !apiKey || studyWordLookup.hookLoading, true)}
             {studyWordLookup.hookLoading && <span style={{ fontSize: 11, color: 'var(--c-purple)' }}>Thinking…</span>}
             {studyWordLookup.cardError && <span style={{ fontSize: 10, color: 'var(--c-danger)' }}>{studyWordLookup.cardError}</span>}
             {studyWordLookup.hookError && <span style={{ fontSize: 10, color: 'var(--c-danger)' }}>{studyWordLookup.hookError}</span>}
           </div>
         )}
         {(studyWordLookup.hooks || []).map((hook, hi) => (
-          <div key={hi} style={{ fontSize: 11, color: 'var(--c-ink)', background: 'rgba(139,92,246,.08)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 6, padding: '7px 10px', lineHeight: 1.6 }}>
-            <span style={{ fontWeight: 700, color: 'var(--c-purple)' }}>🧠 </span>{hook}
+          <div key={hi} style={{ fontSize: 11, color: 'var(--c-ink)', background: 'rgba(139,92,246,.08)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 6, padding: '7px 10px', lineHeight: 1.6, display: 'flex', gap: 6 }}>
+            <span style={{ fontWeight: 700, color: 'var(--c-purple)', flexShrink: 0 }}>🧠</span>
+            <Markdown text={hook} style={{ flex: 1, minWidth: 0 }} />
           </div>
         ))}
       </div>
@@ -4465,15 +4460,46 @@ Output ONLY raw JSON. No markdown, no backticks.`
     </button>
   )
 
+  // ONE hook-button row for every surface: a primary "✨ Ebi picks" (the model chooses the best
+  // method for this item and labels its choice) + the specific styles collapsed behind "Styles ▸"
+  // so the default path is a single obvious button, never five competing ones.
+  const [hookStylesOpen, setHookStylesOpen] = useState({}) // { [surfaceKey]: true }
+  const renderHookButtons = (surfaceKey, onPick, disabled, compact = false) => {
+    const open = !!hookStylesOpen[surfaceKey]
+    const fs = compact ? 11 : 10
+    return (
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        <button onClick={() => onPick('auto')} disabled={disabled}
+          className="tip" data-tip={apiKey ? 'Ebi chooses the most effective hook style for this one' : 'Add an API key first'}
+          style={{ ...S.ghostBtn, fontSize: fs, padding: compact ? '3px 10px' : '2px 10px', fontWeight: 700, color: 'var(--c-purple)', background: 'rgba(139,92,246,.14)', borderColor: 'rgba(139,92,246,.5)', opacity: disabled ? 0.5 : 1 }}>
+          ✨ Ebi picks
+        </button>
+        <button onClick={() => setHookStylesOpen(p => ({ ...p, [surfaceKey]: !open }))} disabled={disabled}
+          className="tip" data-tip="Choose a specific hook style yourself"
+          style={{ ...S.ghostBtn, fontSize: fs, padding: compact ? '3px 10px' : '2px 9px', background: 'transparent', color: 'var(--c-ink-dim)', borderColor: 'var(--c-border)', opacity: disabled ? 0.5 : 1 }}>
+          {open ? 'Styles ▾' : 'Styles ▸'}
+        </button>
+        {open && hookMethodList().map(([m, label, tip, short]) => (
+          <button key={m} onClick={() => onPick(m)} disabled={disabled}
+            className="tip" data-tip={tip}
+            style={{ ...S.ghostBtn, fontSize: fs, padding: compact ? '3px 10px' : '2px 9px', background: 'transparent', color: 'var(--c-purple)', borderColor: 'rgba(139,92,246,.35)', opacity: disabled ? 0.5 : 1 }}>
+            {compact ? short : label}
+          </button>
+        ))}
+      </div>
+    )
+  }
+
   // Ebi's memory-aid RESULT block, shown in the expanded card body. Display-only: the trigger is the
   // header button (renderMnemonicButton). Lists EVERY generated hook stacked (newest at the bottom);
-  // "Another hook" APPENDS a new one rather than replacing. Renders nothing until generation has started.
+  // every method button APPENDS a new one rather than replacing. Hooks render as markdown (**bold**
+  // key words + line breaks are part of the prompt's format contract).
   const renderMnemonic = (cs, ci) => {
     const hooks = Array.isArray(cs.mnemonics) ? cs.mnemonics : []
     return (
       <div style={{ padding: '6px 12px', borderTop: '1px solid var(--c-border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {!hooks.length && !cs.mnemonicLoading && !cs.mnemonicError && (
-          <div style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>Pick how Ebi should help you remember this:</div>
+          <div style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>Let Ebi pick the best way to remember this, or choose a style:</div>
         )}
         {hooks.map((hook, hi) => (
           <div key={hi} style={{ fontSize: 11, color: 'var(--c-ink)', background: 'rgba(139,92,246,.08)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 6, padding: '8px 10px', lineHeight: 1.6 }}>
@@ -4483,21 +4509,12 @@ Output ONLY raw JSON. No markdown, no backticks.`
                 title="Delete this hook" className="click-dim"
                 style={{ cursor: 'pointer', color: 'var(--c-ink-faint)', fontSize: 13, lineHeight: 1, padding: '1px 5px', borderRadius: 4, flexShrink: 0 }}>×</span>
             </div>
-            {hook}
+            <Markdown text={hook} />
           </div>
         ))}
         {cs.mnemonicLoading && <div style={{ fontSize: 11, color: 'var(--c-purple)' }}>🧠 Ebi is thinking of {hooks.length ? 'another' : 'a'} memory hook…</div>}
         {cs.mnemonicError && <div style={{ fontSize: 10, color: 'var(--c-danger)' }}>{cs.mnemonicError}</div>}
-        {/* Four methods, WaniKani-style: image→meaning, sound/recall→form, real morphology, and a mini story */}
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {hookMethodList().map(([m, label, tip]) => (
-            <button key={m} onClick={() => generateMnemonic(ci, cs, m)} disabled={cs.mnemonicLoading || !apiKey}
-              className="tip" data-tip={tip}
-              style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 9px', background: 'transparent', color: 'var(--c-purple)', borderColor: 'rgba(139,92,246,.35)', opacity: (cs.mnemonicLoading || !apiKey) ? 0.5 : 1 }}>
-              {label}
-            </button>
-          ))}
-        </div>
+        {renderHookButtons(`study-${ci}`, (m) => generateMnemonic(ci, cs, m), cs.mnemonicLoading || !apiKey)}
       </div>
     )
   }
@@ -5823,13 +5840,23 @@ Build an acronym, first-letter anchor, number anchor, or word-shape cue that rec
         ? `METHOD — DON'T CONFUSE IT (the learner knows this word but keeps mixing it up with a sibling): name the 1-2 ${learnLang} words MOST likely confused with this one (near-synonyms like huir/escapar, similar-sounding or same-root words, false friends with ${explainLang}) and give ONE sharp, memorable discriminator per pair — the precise nuance, register, or context where THIS word wins and the other loses, anchored in a tiny concrete cue or example. Pick the confusables a real learner actually trips on; if genuinely nothing is confusable with it, say so in one line and give the single closest word anyway.`
         : `METHOD — DON'T CONFUSE IT (the learner knows this concept but keeps mixing it up with a sibling): name the 1-2 terms/concepts MOST likely confused with this one (sibling acronyms like IDS/IPS, adjacent concepts like authentication/authorization) and give ONE sharp, memorable discriminator per pair — the precise difference, anchored in a tiny concrete image or example (e.g. "IDS watches and yells; IPS stands in the doorway"). Pick confusables a real learner actually trips on; if genuinely nothing is confusable with it, say so in one line and give the single closest concept anyway.`,
     }
+    // 'auto' = Ebi picks: the model sees every method and chooses the one this item's structure
+    // calls for, labeling its choice so the learner gradually learns which style fits what.
+    METHODS.auto = `METHOD — EBI PICKS: first choose the single MOST EFFECTIVE method below for THIS item, then write the hook with it.
+
+${['meaning', 'sound', 'parts', 'confuse', 'story'].map((k) => METHODS[k]).join('\n\n')}
+
+DECISION GUIDE: built from real parts (prefixes/pronouns/acronym letters/process steps) → BREAK IT DOWN. Easily mixed up with a near-synonym or sibling concept → DON'T CONFUSE IT. ${isLanguage ? 'Hard to pronounce or produce from memory → SOUND HOOK.' : 'Exact term hard to recall → RECALL HOOK.'} Abstract, or nothing else fits well → STORY HOOK. Otherwise → MEANING HOOK.
+Begin your reply with the chosen method name in bold followed by a colon, e.g. "**Break it down:** ", then the hook itself.`
     const lengthRule = (method === 'story'
       ? 'ONE story only — 2 to 4 short sentences, UNDER 70 WORDS total.'
       : method === 'parts'
         ? 'ONE compact step-by-step build-up — one short line per part, UNDER 60 WORDS total.'
         : method === 'confuse'
           ? 'At most 2 confusable pairs — ONE short line per pair, UNDER 50 WORDS total.'
-          : 'ONE hook only — 1 to 2 punchy sentences, UNDER 35 WORDS total, like a WaniKani mnemonic.')
+          : method === 'auto'
+            ? 'Obey the chosen method\'s cap: story UNDER 70 WORDS, break-it-down UNDER 60, don\'t-confuse-it UNDER 50, anything else UNDER 35.'
+            : 'ONE hook only — 1 to 2 punchy sentences, UNDER 35 WORDS total, like a WaniKani mnemonic.')
       + ' That cap is a CEILING, not a target: if fewer words recall the answer just as well, use fewer. Cut every word that does not carry the image or the answer — but NEVER cut a word the hook needs to work: effectiveness always outranks brevity.'
     const prompt = `You are Ebi, a warm study buddy. Help the learner MEMORIZE this flashcard with a vivid, concrete memory aid. TWIN GOALS, both required: the learner must actually LEARN (the hook reliably rebuilds the answer) and must NOT BE BORED (surprise, humor, or a striking image is what makes a hook stick — a dry correct hook is a failed hook too).
 
@@ -5841,8 +5868,8 @@ ${METHODS[method] || METHODS.meaning}${activeMode.mnemonicHints ? `\n\nMODE-SPEC
 
 QUALITY BAR: a good hook lets the learner RECONSTRUCT the answer from the hook alone${method === 'confuse' ? ' (for THIS method the test is: shown the confusable pair side by side, would the learner now pick the right one every time?)' : ''}. Mentally test yours: would someone who forgot this recover it from your hook? If not, try a different angle. Never output a vague "just associate X with Y". Then EDIT FOR ECONOMY: the best hook is the SHORTEST one that STILL PASSES that test — one sharp image beats three decorations, so delete scene-setting, filler adjectives, and anything the learner does not need to replay to reach the answer. Trim FILLER, never PERSONALITY: the surprising, funny, vivid core is load-bearing — cutting it makes the hook forgettable. Re-run the test after trimming: if a cut makes the hook harder to recall, duller, or harder to reconstruct from, put the words back — a slightly longer hook that works beats a tight one that fails.
 
-Write in ${explainLang}. ${lengthRule} No backup hooks, no preamble, no explaining why the hook works. Concrete and a little playful. Plain text only: no markdown headers, no em dashes.`
-    const text = await aiCall(apiKey, `You are Ebi, a friendly memory coach. Reply in ${explainLang} with a concise, concrete memory aid in plain text.`, prompt, resolveModel('study'))
+Write in ${explainLang}. ${lengthRule} No backup hooks, no preamble, no explaining why the hook works. Concrete and a little playful. FORMAT: short sentences; you MAY use **bold** on the few key words that carry the hook and a line break between steps/pairs — nothing else (no headers, no bullet symbols, no em dashes).`
+    const text = await aiCall(apiKey, `You are Ebi, a friendly memory coach. Reply in ${explainLang} with a concise, concrete memory aid.`, prompt, resolveModel('study'))
     return String(text || '').trim()
   }
 
@@ -8360,7 +8387,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                       <span onClick={() => deleteNoteHook(note.noteId, hook)} title="Delete this hook" className="click-dim"
                                         style={{ cursor: 'pointer', color: 'var(--c-ink-faint)', fontSize: 13, lineHeight: 1, padding: '1px 5px', borderRadius: 4, flexShrink: 0 }}>×</span>
                                     </div>
-                                    {hook}
+                                    <Markdown text={hook} />
                                   </div>
                                 ))}
                                 {deckBrowserMnemonics[note.noteId]?.loading && (
@@ -8369,15 +8396,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                 {deckBrowserMnemonics[note.noteId]?.error && (
                                   <div style={{ fontSize: 10, color: 'var(--c-danger)', marginBottom: 6 }}>{deckBrowserMnemonics[note.noteId].error}</div>
                                 )}
-                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                                  {hookMethodList().map(([m, label, tip]) => (
-                                    <button key={m} onClick={() => generateDeckMnemonic(note, m)} disabled={!apiKey || deckBrowserMnemonics[note.noteId]?.loading}
-                                      className="tip" data-tip={apiKey ? tip : 'Add an API key first'}
-                                      style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 10px', fontWeight: 700, color: 'var(--c-purple)', borderColor: 'rgba(139,92,246,.4)', opacity: (apiKey && !deckBrowserMnemonics[note.noteId]?.loading) ? 1 : 0.6 }}>
-                                      {label}
-                                    </button>
-                                  ))}
-                                </div>
+                                {renderHookButtons(`deck-${note.noteId}`, (m) => generateDeckMnemonic(note, m), !apiKey || deckBrowserMnemonics[note.noteId]?.loading)}
                               </div>
                             </div>
                           )}

@@ -420,13 +420,19 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   down" — REAL morphology/components explained step by step, dar → darse → dárselo; understanding, not
   imagery; ≤60 words), `confuse` ("Don't confuse it" — the 1-2 confusables a learner actually trips on
   + ONE sharp discriminator each; ≤50 words; its quality test = pick the right one of the pair), `story`
-  (2-4 sentence mini story ending at the answer; ≤70 words; others ≤35).
-  The per-surface buttons come from ONE list, `hookMethodList()` (label + `.tip` tooltip + short label
-  for the narrow word popup). Surfaces: study graded cards (`generateMnemonic(ci, cs, method)` →
-  `cs.mnemonics`; opening the 🧠 toggle hydrates saved hooks but does NOT auto-generate — the panel
-  shows the four style buttons and the user picks), Deck browser expanded rows
-  (`generateDeckMnemonic(note, method)`, `deckBrowserMnemonics` keyed by noteId), and the tapped-word
-  popup (`studyWordMemoryHook(method)` → hooks on `studyWordLookup`). Improve the prompt in ONE place.
+  (2-4 sentence mini story ending at the answer; ≤70 words; others ≤35). PLUS `auto` ("✨ Ebi picks"):
+  the prompt embeds all five methods + a decision guide and the model chooses the best fit for THIS
+  item, prefixing its reply with the chosen method name in bold — the anti-choice-overload default.
+  **UI is ONE shared row, `renderHookButtons(surfaceKey, onPick, disabled, compact)`**: a primary
+  "✨ Ebi picks" button + the five specific styles COLLAPSED behind a "Styles ▸" toggle
+  (`hookStylesOpen` keyed by surface) so users see one obvious button, not six. Labels/tooltips come
+  from `hookMethodList()` (label + `.tip` tooltip + short label used when `compact`). **Hooks render as
+  markdown** (`<Markdown text={hook}/>`; the prompt's format contract allows **bold** key words + line
+  breaks, nothing else). Surfaces: study graded cards (`generateMnemonic(ci, cs, method)` →
+  `cs.mnemonics`; opening the 🧠 toggle hydrates saved hooks but does NOT auto-generate), Deck browser
+  expanded rows (`generateDeckMnemonic(note, method)`, `deckBrowserMnemonics` keyed by noteId), and the
+  tapped-word popup (`studyWordMemoryHook(method)` → hooks on `studyWordLookup`, compact). Improve the
+  prompt in ONE place.
 - **Study start screen = ONE sectioned card** (What to study / Language / Session format), fields as
   label-above-control in `repeat(auto-fit, minmax(180px,1fr))` grids with stretched controls; the verbose
   legends are `.tip` tooltips (an instant CSS tooltip class in the global style block — the native
@@ -462,9 +468,9 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   (`batch-<ci>-<qi>`). Language modes only.
 - **Ebi's memory hook (`generateMnemonic(cardIdx, card, method)`) is SUBJECT-AGNOSTIC.** The trigger is
   the "🧠 Help me remember" header toggle (`renderMnemonicButton`); opening it sets `view='mnemonic'`
-  (hiding feedback) and hydrates saved hooks — generation waits for the user to pick one of the five
-  method buttons (🧠 Meaning / 🔊 Sound or 🔤 Recall / 🧩 Break it down / ⚖️ Don't confuse it /
-  📖 Story — see the
+  (hiding feedback) and hydrates saved hooks — generation waits for the user to click "✨ Ebi picks"
+  (default) or expand "Styles ▸" for a specific method (🧠 Meaning / 🔊 Sound or 🔤 Recall /
+  🧩 Break it down / ⚖️ Don't confuse it / 📖 Story — see the
   `generateMemoryHook` + `hookMethodList` entry above). RESULTS render at the **TOP of the card body**
   via `renderMnemonic`. Hooks are an ARRAY (`cs.mnemonics`, + `mnemonicLoading`/`mnemonicError`): every
   method button APPENDS a new hook below (prior hooks are fed into the prompt so each is different),
