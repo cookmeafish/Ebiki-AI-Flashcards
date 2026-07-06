@@ -424,13 +424,22 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   would sometimes lie); red ✗ + `.study-shake` on the input = wrong with a hint retry (no advance). Same
   frozen-snapshot pattern as `studyChoiceFlash`; the batchFeedback layout-effect gates on ALL THREE
   overlays (`studyChoiceFlash || studyPbqReview || studyTypedFlash`) so the last answer's feedback paints.
+  **The shake is TRANSIENT** (`studyShaking` bool via `triggerShake()`, cleared on `onAnimationEnd`) —
+  NOT keyed off the `studyInputShake` counter's truthiness, which stayed `>0` forever and re-shook every
+  time the input row remounted after a correct-answer flash (looked like the next question was wrong). The
+  counter is still bumped only to change the element `key` so a repeated wrong answer replays the anim.
 - **Question-phase chrome:** slim session progress bar in the header — total = completed + active +
   NOT-YET-PULLED pool cards, so the continuous pull system never moves the denominator; counter labeled
   "N/M cards" (cards, not questions — per-card question DOTS on the card show within-card progress from
-  `cs.questions.length`, hidden when 1 question). **Filled dots are CLICKABLE** (`jumpToCardQuestion`):
-  rewind the card to that question and re-answer — backwards only (answers are positional), clears the
-  rewound attempts/history. Wrap Up / End Now live in the HEADER with Exit Study; the card row keeps
-  only card-level actions. Question text is 15.5px.
+  `cs.questions.length`, hidden when 1 question). **Dots are CLICKABLE for NON-DESTRUCTIVE review**
+  (`viewCardQuestion`): answered dots AND the current one navigate to that question WITHOUT losing
+  progress — an answered question shows its previous answer PRE-FILLED (a ring marks the one you're
+  viewing), and clicking the frontier dot jumps straight back to where you were. Can't skip ahead of the
+  frontier (`qi > cs.questionIdx`; answers are positional). Editing a reviewed answer + Submit hits the
+  EDIT branch at the top of `submitStudyAnswer` (`questionIdx < cs.questionIdx`): it replaces
+  `answers[qi]` (attempts reset to just the new answer) and returns to the frontier — grading reads
+  `cs.answers`, so ONLY the new answer counts. Wrap Up / End Now live in the HEADER with Exit Study; the
+  card row keeps only card-level actions. Question text is 15.5px.
 - **Graded/batch feedback views:** the card HEADER itself toggles feedback (`card-head` class — darkens
   on hover only when not over an inner control; inner controls stopPropagation; no separate Feedback
   button). Inside, each question is a COLLAPSED row (`renderQaRow`, shared by both views, keyed by
@@ -465,7 +474,17 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   label-above-control in `repeat(auto-fit, minmax(180px,1fr))` grids with stretched controls; the verbose
   legends are `.tip` tooltips (an instant CSS tooltip class in the global style block — the native
   `title` attr has a ~1s delay; content via `data-tip`; do NOT put `overflow:hidden` on containers above
-  it). `Dropdown` honors `style.width` (applied to its wrapper — a button-only width is circular).
+  it). Spacing is kept COMPACT (small section padding / field gaps) so the whole card fits without
+  scrolling at the 1.35 body zoom on typical laptops. `Dropdown` honors `style.width` (applied to its
+  wrapper — a button-only width is circular).
+- **`Dropdown` menu is PORTALED to `document.body` and positioned `fixed`.** An absolutely-positioned
+  menu was clipped by the scroll container (items above the edge unreachable) AND mis-anchored when an
+  ancestor has a `transform` (the study card's `slideUp` animation makes `position:fixed` resolve against
+  the card, not the viewport — the menu jumped sideways). The portal escapes both. Coordinates are
+  computed in LAYOUT px = real px (getBoundingClientRect / innerW-H) ÷ body zoom — the same convention as
+  the pinned tooltips. It opens toward the roomier side, caps its height to the viewport (internal
+  scroll), and **closes on any page/ancestor scroll or resize** (native-select behavior; scrolls inside
+  the menu's own list are ignored). Every list is fully reachable at any screen size.
 - **Per-mode dialect (`studyRules.dialect`, language modes, Settings → Study).** Free text like
   "Latin American Spanish". `dialectName()`/`dialectRule()` (App.jsx, next to `learnLangName`) build
   ONE shared prompt line injected into EVERY generator: card generation + `verifyCards`, memory hooks,
@@ -549,6 +568,10 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   opposite, collocation) and is explicitly forbidden from asking the student to EXPLAIN grammar/spelling
   theory, orthographic/etymological rules, or use metalinguistic terminology ("explica qué cambio ortográfico
   ocurre…" is banned — it's grammar-teacher level, not vocab).
+- **The inline cue is rendered visually DISTINCT from the sentence.** In the study-question render, the text
+  is split on `/(\([^)]*\))/`; any `(...)` clue segment renders muted + italic (`var(--c-ink-dim)`) so the
+  reader instantly separates the HINT from the fill-in-the-blank sentence (they used to blend together).
+  Clue segments are never tappable/glossed. Applies to both language and general question rendering.
 - **Learned language vs "Ebi speaks" (don't conflate).** In `generateQuestionsForCard`, `learnLang`
   (=`studyRules.studyLanguage`) is ALWAYS the answer language; `quizLang` (=`studyRules.quizLanguage ||
   studyLanguage`) is only how Ebi PHRASES things. So "Learning Spanish + Ebi speaks English" →
