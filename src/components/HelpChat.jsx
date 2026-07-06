@@ -38,6 +38,7 @@ function buildSystemPrompt(appContext) {
     stats: 'the STATS screen (a study-statistics dashboard)',
   }[tab] || `the "${tab}" screen`
   parts.push(`\n>>> RIGHT NOW the user is looking at ${SCREEN}. When they ask "what's on my screen", "what is this", or "what am I looking at", answer about THIS screen. Never describe a different screen, and never claim a study question is on screen unless the STUDY screen is the one shown below. <<<`)
+  parts.push(`NOTE: the user navigates between screens as you talk, so THIS value always reflects where they are for the CURRENT message. If your earlier reply described a different screen, they simply moved, that is NOT a mistake on your part. Just answer for the current screen, do NOT apologize or say "I got that wrong."`)
 
   // Always-true background facts (independent of the visible screen).
   parts.push(`Mode: ${appContext.activeMode?.name || 'unknown'} (${appContext.activeMode?.type || ''})`)
