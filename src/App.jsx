@@ -4344,7 +4344,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
         {(studyWordLookup.hooks || []).map((hook, hi) => (
           <div key={hi} style={{ fontSize: 11, color: 'var(--c-ink)', background: 'rgba(139,92,246,.08)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 6, padding: '7px 10px', lineHeight: 1.6, display: 'flex', gap: 6 }}>
             <span style={{ fontWeight: 700, color: 'var(--c-purple)', flexShrink: 0 }}>🧠</span>
-            <Markdown text={hook} style={{ flex: 1, minWidth: 0 }} />
+            <div className="hook-md" style={{ flex: 1, minWidth: 0 }}><Markdown text={hook} /></div>
           </div>
         ))}
       </div>
@@ -4509,7 +4509,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
                 title="Delete this hook" className="click-dim"
                 style={{ cursor: 'pointer', color: 'var(--c-ink-faint)', fontSize: 13, lineHeight: 1, padding: '1px 5px', borderRadius: 4, flexShrink: 0 }}>×</span>
             </div>
-            <Markdown text={hook} />
+            <div className="hook-md"><Markdown text={hook} /></div>
           </div>
         ))}
         {cs.mnemonicLoading && <div style={{ fontSize: 11, color: 'var(--c-purple)' }}>🧠 Ebi is thinking of {hooks.length ? 'another' : 'a'} memory hook…</div>}
@@ -8391,7 +8391,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                       <span onClick={() => deleteNoteHook(note.noteId, hook)} title="Delete this hook" className="click-dim"
                                         style={{ cursor: 'pointer', color: 'var(--c-ink-faint)', fontSize: 13, lineHeight: 1, padding: '1px 5px', borderRadius: 4, flexShrink: 0 }}>×</span>
                                     </div>
-                                    <Markdown text={hook} />
+                                    <div className="hook-md"><Markdown text={hook} /></div>
                                   </div>
                                 ))}
                                 {deckBrowserMnemonics[note.noteId]?.loading && (
@@ -10564,6 +10564,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
            controls that sit near a left edge (the centered 240px box gets clipped there). */
         .tip-r:hover::after { left: 0; transform: none; }
         .tip-r:hover::before { left: 14px; transform: none; }
+
+        /* Memory-hook boxes: the **key words** must POP — at 11px Nunito, 700-vs-400 weight alone
+           is nearly invisible, so bold inside a hook also gets the purple accent. */
+        .hook-md .md-body strong { font-weight: 800; color: var(--c-purple); }
 
         /* Top navigation tabs: gentle float-up on hover (vertical only, no click shrink).
            The lift is on an INNER span, not the button, so the button's hover hit-box never
