@@ -442,6 +442,23 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   legends are `.tip` tooltips (an instant CSS tooltip class in the global style block — the native
   `title` attr has a ~1s delay; content via `data-tip`; do NOT put `overflow:hidden` on containers above
   it). `Dropdown` honors `style.width` (applied to its wrapper — a button-only width is circular).
+- **Per-mode dialect (`studyRules.dialect`, language modes, Settings → Study).** Free text like
+  "Latin American Spanish". `dialectName()`/`dialectRule()` (App.jsx, next to `learnLangName`) build
+  ONE shared prompt line injected into EVERY generator: card generation + `verifyCards`, memory hooks,
+  `lookupStudyWord` phonetics, `generateQuestionsForCard`, the Chat card format, and the bulk-edit
+  framing. Without it models default to the textbook region (Castilian "ga-THE-la"). Audio region is
+  separate (global `pronunciation.defaultRegions`, Settings → Audio).
+- **✨ Ebi bulk edit (deck browser) — free-text batch card editor.** `analyzeDeck(kind, instruction)`:
+  `kind='custom'` swaps the framing for "apply the owner's request; skip cards it doesn't apply to;
+  change only what it covers" and reuses the ENTIRE analyze pipeline — same JSON contract, same
+  noteId+front integrity guard, same before/after accept/deny review UI, same commit path — so
+  nothing writes to Anki until each card is accepted (that review IS the confirmation layer).
+  UI: "✨ Ebi bulk edit" toolbar button → instruction panel (`deckCustomEditOpen`/`deckCustomEditText`)
+  → "Preview changes". `deckAnalyzeKind` keeps button labels/empty-messages straight. SECOND entry
+  point: Ebi's Help emits `<action>{"type":"deck_edit","instruction":…}</action>` (CAPABILITIES block
+  tells it to refuse vague requests); App's onAction prefills+opens the panel, switches to the Deck
+  tab, and `pendingDeckEditRef` + an effect run the preview once notes load. NOTE: `analyzeDeck` is
+  called as `onClick={() => analyzeDeck()}` — passing the raw event would become `kind`.
 - **Deck browser rows:** one-line previews via `backPreviewText` (HTML breaks → " · " — plain stripHtml
   fuses lines); click-to-expand (`deckBrowserExpanded`) shows bold-labeled back lines, tag chips, and a
   studied/lapses/interval footer; scheduling badges from the `note.stats` already loaded for sorting

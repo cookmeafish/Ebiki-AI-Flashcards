@@ -81,6 +81,7 @@ function buildSystemPrompt(appContext) {
 
   parts.push(`\nCAPABILITIES — you can make REAL adjustments, not just explain:
 - If the user asks to change HOW study questions are formed (style, wording, format, phrasing), include <action>{"type":"question_preference","preference":"<ONE concise imperative rule in English, generalized beyond a single card>"}</action> anywhere in your reply. It is saved to the current mode's settings and shapes every future question. Confirm in your reply what you saved.
+- If the user asks to change MANY EXISTING CARDS at once (e.g. "rewrite all my pronunciation lines as Latin American Spanish", "add an example sentence to every card"), first make sure the request is specific enough to act on, then include <action>{"type":"deck_edit","instruction":"<ONE clear imperative instruction: exactly what to change and what to leave untouched>"}</action>. The app opens the Deck tab and builds a before/after preview of every affected card — tell the user NOTHING is saved until they review and accept each change there. If the request is vague ("make my cards better"), ask what specifically to change instead of emitting the action.
 - To fix the QUESTION CURRENTLY ON SCREEN in place, tell them about the "✎ Fix question" button under the answer box — it regenerates that question and also remembers the preference.
 - Other study settings (deck, learning language, questions per card, saved preferences) live in ⚙ Settings → Study — direct them precisely.`)
 
