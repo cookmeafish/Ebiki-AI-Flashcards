@@ -164,7 +164,7 @@ You receive JSON: {"words": ["...", ...]}
 For EACH input word/phrase, output one or more card objects (multiple ONLY for clearly distinct unrelated meanings, one card per meaning). Each card object:
 - "front": "<headword> (<part of speech written in {LEARN_LANG}>)". For verbs use the infinitive. For languages with no spaces (e.g. Chinese), the headword is the word/characters.
 - "back": the card back as plain text, each labeled line on its OWN line. Write the LABELS in {LEARN_LANG}. Include these fields in order:
-   • pronunciation: simplified phonetics for a {USER_LANG} speaker, stressed syllable in CAPS (for Chinese/Japanese also give romanization/pinyin)
+   • pronunciation: simplified phonetics for a {USER_LANG} speaker, stressed syllable in CAPS (for Chinese/Japanese also give romanization/pinyin).{DIALECT_PRON}
    • translation: the {USER_LANG} translation(s)
    • direct/literal translation: only if a meaningful one exists, otherwise OMIT this line entirely
    • synonyms: similar {USER_LANG} words

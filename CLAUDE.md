@@ -125,12 +125,19 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   talks to Ebi in the help chat; the study pose (`studyMascot`) never bleeds into it.
 
 ## Ebi's Help chat (`src/components/HelpChat.jsx`)
-- **Help ALWAYS knows what the user is doing.** `appContext` (App.jsx, bottom) must be kept CURRENT when
-  features change: it carries the LIVE study question (built from `currentQuestion` + `studyCardState` —
-  NEVER from the legacy `studyQueue`, which is always empty in the continuous system and silently blinded
-  Help for months), full session state (`studySession`: type/answer style/progress/languages/preferences/
-  recent grades), plus `deckBrowser` and `discover` context. The current question's expected answer IS in
-  the context but marked SECRET — the prompt forbids revealing it unless the user explicitly asks.
+- **Help ALWAYS knows what the user is doing — and screen context is GATED BY `activeTab`.**
+  `buildSystemPrompt` leads with a ">>> RIGHT NOW the user is looking at THE <tab> SCREEN <<<" banner,
+  then emits ONLY that screen's detail (picture/stats/deck/discover/study each in its own `if (tab===…)`).
+  **Critical:** `studyActive` stays true across tabs (resume feature), so the live question is presented
+  as "ON SCREEN" ONLY when `tab==='study'`; on any other tab a paused session is a labeled "Background
+  only, NOT on screen" note — otherwise Ebi answers about a study question while the user is on Stats (the
+  bug that prompted this). `appContext` (App.jsx, bottom) must be kept CURRENT when features change: it
+  carries the LIVE study question (built from `currentQuestion` + `studyCardState` — NEVER the legacy
+  `studyQueue`, always empty in the continuous system), full `studySession` state, plus `deckBrowser`,
+  `discover`, and `stats` (streak/cardsToday/accuracy/recentSessions, computed at the context site
+  mirroring the Stats render). When you add a NEW tab/screen, add its `SCREEN[...]` label AND a
+  tab-gated detail block. Expected answers are marked SECRET — the prompt forbids revealing them unless
+  the user explicitly asks.
 - **Help can ACT, not just explain:** replies may emit `<action>{...}</action>` tags — HelpChat
   parses/strips them in `sendMessage` and calls the `onAction` prop; App applies them via pinned refs
   (`activeModeIdRef` + `updateModeById`). THREE action types: `question_preference` (save a
@@ -141,6 +148,12 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   in `buildSystemPrompt` tells Ebi about these (incl. "refuse vague bulk requests"), the ✎ Fix question
   button, and where settings live. When adding a new action: CAPABILITIES text + `onAction` branch, and
   keep the composer wording action-y ("Ask or tell Ebi anything…", Send) — Ebi does things, not just Q&A.
+- **Verified change receipts.** `onAction` RETURNS a factual, app-authored "what changed + which systems
+  it affects" string ONLY when the change truly applied (null otherwise). `sendMessage` collects them and
+  appends a "✅ Confirmed changes (applied by the app)" block to the reply — ground truth the user can
+  trust over the model's own claim. CAPABILITIES tells Ebi this log is auto-appended, so keep its own
+  confirmation short and never claim a change it didn't emit an action for. New actions MUST return a
+  receipt string to participate.
 - **The floating shrimp button is removed.** Help is opened from the **"Talk to Ebi"** button in the header
   (left nav, right after the Stats tab) which bumps `askEbiSignal`; `HelpChat` is rendered with
   `hideButton={true}` so the FAB never shows. With no button, the panel docks bottom-left (`getChatStyle`).

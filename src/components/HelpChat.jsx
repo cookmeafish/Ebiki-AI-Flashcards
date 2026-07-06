@@ -25,41 +25,70 @@ function buildSystemPrompt(appContext) {
   if (!appContext) return HELP_BASE
   const parts = [HELP_BASE, '\n--- CURRENT APP STATE ---']
 
-  parts.push(`Active tab: ${appContext.activeTab || 'unknown'}`)
+  // === WHAT THE USER IS LOOKING AT RIGHT NOW =================================
+  // Lead with the visible screen. Screen-specific detail is gated to its own tab so a paused
+  // study session (studyActive stays true across tabs) can never be mistaken for what's on screen.
+  const tab = appContext.activeTab || 'unknown'
+  const SCREEN = {
+    chat: 'the CHAT screen (a text conversation with you, Ebi)',
+    study: 'the STUDY screen',
+    deck: 'the DECK BROWSER (browse / edit / bulk-edit Anki cards)',
+    discover: 'the DISCOVER screen (AI suggestions for new cards to add)',
+    picture: 'the PICTURE screen (translate text in an image via OCR)',
+    stats: 'the STATS screen (a study-statistics dashboard)',
+  }[tab] || `the "${tab}" screen`
+  parts.push(`\n>>> RIGHT NOW the user is looking at ${SCREEN}. When they ask "what's on my screen", "what is this", or "what am I looking at", answer about THIS screen. Never describe a different screen, and never claim a study question is on screen unless the STUDY screen is the one shown below. <<<`)
+
+  // Always-true background facts (independent of the visible screen).
   parts.push(`Mode: ${appContext.activeMode?.name || 'unknown'} (${appContext.activeMode?.type || ''})`)
-  parts.push(`Anki deck: ${appContext.activeMode?.ankiDeck || 'none set'}`)
+  parts.push(`Anki deck for this mode: ${appContext.activeMode?.ankiDeck || 'none set'}`)
   if (appContext.activeMode?.dialect) parts.push(`Dialect setting: ${appContext.activeMode.dialect} (all generation follows this variant)`)
   parts.push(`Anki connected: ${appContext.ankiConnected ? 'yes' : 'no'}`)
   if (appContext.ankiDecks?.length) parts.push(`Available Anki decks: ${appContext.ankiDecks.join(', ')}`)
-  parts.push(`Source language: ${appContext.language || 'auto'}, Target language: ${appContext.targetLang || 'eng'}`)
-  parts.push(`Screenshot loaded: ${appContext.screenshot ? 'yes' : 'no'}, Stage: ${appContext.stage || 'idle'}`)
 
-  if (appContext.ocrWords?.length) {
-    const words = appContext.ocrWords.filter(w => w.text).slice(0, 40)
-    parts.push(`\nDetected words (${appContext.ocrWords.length} total, showing up to 40):`)
-    parts.push(words.map(w => w.translation ? `${w.text} → ${w.translation}` : w.text).join(', '))
+  // --- PICTURE screen ---
+  if (tab === 'picture') {
+    parts.push(`\nON THE PICTURE SCREEN: source language ${appContext.language || 'auto'} → target ${appContext.targetLang || 'eng'}. Screenshot loaded: ${appContext.screenshot ? 'yes' : 'no'}. Stage: ${appContext.stage || 'idle'}.`)
+    if (appContext.ocrWords?.length) {
+      const words = appContext.ocrWords.filter(w => w.text).slice(0, 40)
+      parts.push(`Detected words (${appContext.ocrWords.length} total, up to 40 shown): ${words.map(w => w.translation ? `${w.text} → ${w.translation}` : w.text).join(', ')}`)
+    }
+    if (appContext.activeWord) {
+      const w = appContext.activeWord
+      parts.push(`Currently selected word: "${w.text}"${w.translation ? ` — ${w.translation}` : ''}${w.pronunciation ? ` (${w.pronunciation})` : ''}`)
+      if (w.definition) parts.push(`  Definition: ${w.definition}`)
+      if (w.example) parts.push(`  Example: ${w.example}`)
+    }
+    if (appContext.explanation) parts.push(`Word explanation shown: ${appContext.explanation.slice(0, 300)}`)
+    if (appContext.deepExplanation) parts.push(`Deep explanation shown: ${appContext.deepExplanation.slice(0, 500)}`)
+    if (appContext.ankiCard) parts.push(`Anki card being prepared: Front="${appContext.ankiCard.front}", Back="${appContext.ankiCard.back?.slice(0, 200)}"`)
   }
 
-  if (appContext.activeWord) {
-    const w = appContext.activeWord
-    parts.push(`\nCurrently selected word: "${w.text}"`)
-    if (w.translation) parts.push(`  Translation: ${w.translation}`)
-    if (w.pronunciation) parts.push(`  Pronunciation: ${w.pronunciation}`)
-    if (w.definition) parts.push(`  Definition: ${w.definition}`)
-    if (w.synonyms) parts.push(`  Synonyms: ${w.synonyms}`)
-    if (w.example) parts.push(`  Example: ${w.example}`)
+  // --- STATS screen ---
+  if (tab === 'stats' && appContext.stats) {
+    const s = appContext.stats
+    parts.push(`\nON THE STATS SCREEN (dashboard sourced from ${s.source}). The user is viewing their study statistics, NOT a card or question. What is shown:`)
+    parts.push(`- Day streak: ${s.streak}`)
+    parts.push(`- Cards studied today: ${s.cardsToday}`)
+    parts.push(`- Accuracy today: ${s.accuracyToday}%`)
+    parts.push(`- A "Last 14 days" reviews chart.`)
+    if (s.recentSessions?.length) parts.push(`- Recent sessions:\n${s.recentSessions.map(r => `   ${r.date} · ${r.deck} · ${r.cards} cards${r.accuracy != null ? ` · ${r.accuracy}% accuracy` : ''}`).join('\n')}`)
   }
 
-  if (appContext.explanation) parts.push(`\nWord explanation: ${appContext.explanation.slice(0, 300)}`)
-  if (appContext.deepExplanation) parts.push(`Deep explanation: ${appContext.deepExplanation.slice(0, 500)}`)
-
-  if (appContext.ankiCard) {
-    parts.push(`\nAnki card ready: Front="${appContext.ankiCard.front}", Back="${appContext.ankiCard.back?.slice(0, 200)}"`)
+  // --- DECK browser ---
+  if (tab === 'deck' && appContext.deckBrowser) {
+    parts.push(`\nON THE DECK BROWSER: deck "${appContext.deckBrowser.deck || '(none picked)'}" with ${appContext.deckBrowser.cards} cards listed. From here the user can add, edit, copy/move, reset, analyze, scan for duplicates, or bulk-edit cards.`)
   }
 
-  if (appContext.studyActive) {
-    const ss = appContext.studySession || {}
-    parts.push(`\nSTUDY SESSION ACTIVE: deck="${appContext.studyDeck}", phase=${appContext.studyPhase}, type=${ss.studyMode || 'flashcards'}, answer style=${ss.answerStyle || 'typed'}`)
+  // --- DISCOVER screen ---
+  if (tab === 'discover' && appContext.discover) {
+    parts.push(`\nON THE DISCOVER SCREEN: ${appContext.discover.started ? 'actively suggesting new items to add' : 'on the setup screen'}, learner level=${appContext.discover.level || 'not analyzed yet'}, target deck="${appContext.discover.deck || '—'}".`)
+  }
+
+  // --- STUDY screen: the question is "on screen" ONLY here ---
+  const ss = appContext.studySession || {}
+  if (tab === 'study' && appContext.studyActive) {
+    parts.push(`\nON THE STUDY SCREEN: deck="${appContext.studyDeck}", phase=${appContext.studyPhase}, type=${ss.studyMode || 'flashcards'}, answer style=${ss.answerStyle || 'typed'}`)
     parts.push(`Progress: ${ss.completed ?? 0} cards done, ${ss.activeCards ?? 0} active, ${ss.poolRemaining ?? 0} still waiting in the pool`)
     if (ss.learning || ss.ebiSpeaks) parts.push(`Learning: ${ss.learning || '—'} · Ebi speaks: ${ss.ebiSpeaks || ss.learning || '—'}`)
     parts.push(`Session ratings so far: easy=${appContext.studyStats?.easy}, good=${appContext.studyStats?.good}, hard=${appContext.studyStats?.hard}, again=${appContext.studyStats?.again}`)
@@ -72,20 +101,24 @@ function buildSystemPrompt(appContext) {
       if (cq.cardBack) parts.push(`Card back (also secret while the question is unanswered): ${cq.cardBack}`)
     }
     if (ss.gradedRecent?.length) parts.push(`Recently graded this session: ${ss.gradedRecent.map((g) => `"${g.front}" → ${g.rating}`).join(', ')}`)
-    if (ss.questionPreferences?.length) parts.push(`Saved question-style preferences for this mode:\n${ss.questionPreferences.map((p) => `- ${p}`).join('\n')}`)
+  } else if (appContext.studyActive) {
+    // A session exists but the user has navigated AWAY from the study screen. Do NOT present its
+    // question as on-screen — this is exactly the "Ebi answered about a study question while on Stats" bug.
+    parts.push(`\n(Background only, NOT on screen: a study session is paused on the Study tab — deck="${appContext.studyDeck}", ${ss.completed ?? 0} done / ${ss.activeCards ?? 0} active. The user is NOT looking at it right now. You may summarize it if asked, but do not say a question is currently on screen.)`)
   }
+  if (ss.questionPreferences?.length) parts.push(`Saved question-style preferences for this mode:\n${ss.questionPreferences.map((p) => `- ${p}`).join('\n')}`)
+
   if (appContext.progressObservations) {
     parts.push(`\nLEARNER PROGRESS NOTES (AI-maintained memory across sessions — the user's struggles, improvements, goals and interests; use them to personalize your help):\n${appContext.progressObservations}`)
   }
-  if (appContext.deckBrowser) parts.push(`\nDeck browser open: deck "${appContext.deckBrowser.deck || '(none picked)'}" with ${appContext.deckBrowser.cards} cards listed`)
-  if (appContext.discover) parts.push(`\nDiscover tab: ${appContext.discover.started ? 'actively suggesting new items' : 'on the setup screen'}, learner level=${appContext.discover.level || 'not analyzed yet'}, target deck="${appContext.discover.deck || '—'}"`)
 
   parts.push(`\nCAPABILITIES — you can make REAL adjustments, not just explain:
 - If the user asks to change HOW study questions are formed (style, wording, format, phrasing), include <action>{"type":"question_preference","preference":"<ONE concise imperative rule in English, generalized beyond a single card>"}</action> anywhere in your reply. It is saved to the current mode's settings and shapes every future question. Confirm in your reply what you saved.
 - If the user asks to change MANY EXISTING CARDS at once (e.g. "rewrite all my pronunciation lines as Latin American Spanish", "add an example sentence to every card"), first make sure the request is specific enough to act on, then include <action>{"type":"deck_edit","instruction":"<ONE clear imperative instruction: exactly what to change and what to leave untouched>"}</action>. The app opens the Deck tab and builds a before/after preview of every affected card — tell the user NOTHING is saved until they review and accept each change there. If the request is vague ("make my cards better"), ask what specifically to change instead of emitting the action.
 - If the user wants FUTURE generation geared to a regional language variant (e.g. "all new Spanish cards should use Latin American pronunciation"), include <action>{"type":"set_dialect","dialect":"<the variant, e.g. Latin American Spanish>"}</action>. This sets the mode's Dialect setting (Settings → Study → "Dialect / variant") and steers ALL generation from then on: new cards' pronunciation lines, memory hooks, tapped-word phonetics, and questions. Confirm what you set. It does NOT rewrite existing cards — offer the bulk edit (previous bullet) for those.
 - To fix the QUESTION CURRENTLY ON SCREEN in place, tell them about the "✎ Fix question" button under the answer box — it regenerates that question and also remembers the preference.
-- Other study settings (deck, learning language, questions per card, saved preferences) live in ⚙ Settings → Study — direct them precisely.`)
+- Other study settings (deck, learning language, questions per card, saved preferences) live in ⚙ Settings → Study — direct them precisely.
+- AFTER ANY ACTION: the app automatically appends a verified "Confirmed changes" list to your reply that states exactly what was changed and which systems it affects, so the user KNOWS it truly happened. So keep your own confirmation short and natural ("Done!") and NEVER claim you changed something you did not emit an action for. If you only explained something and changed nothing, do not imply anything was saved.`)
 
   if (appContext.chatTabMsgs?.length) {
     parts.push(`\nRecent Chat tab messages:`)
@@ -342,13 +375,18 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
       const sys = buildSystemPrompt(appContext) + `\n\nYou run on the model "${model}". If the user asks what AI model powers you, just tell them — it's not a secret.`
       const convo = newMsgs.map(m => `${m.role === 'user' ? 'User' : 'Ebi'}: ${m.text}`).join('\n\n')
       const raw = (await askAI(sys, convo) || '')
-      // Execute any adjustment actions Ebi emitted (e.g. question_preference), then strip the tags.
+      // Execute any adjustment actions Ebi emitted, and collect an APP-GENERATED receipt for each
+      // (onAction returns a factual "what changed + what it affects" string ONLY when the change
+      // truly applied). These are the ground truth the user can trust — not the model's own claim.
+      const receipts = []
       for (const am of raw.matchAll(/<action>(.*?)<\/action>/gs)) {
-        try { onAction?.(JSON.parse(am[1])) } catch {}
+        try { const r = onAction?.(JSON.parse(am[1])); if (r) receipts.push(r) } catch {}
       }
       // Strip shrimp/crustacean emoji as a hard guarantee (the prompt forbids them, but prompts leak):
       // Ebi's shrimp-ness is the mascot art, never an emoji in the text.
-      const replyText = raw.replace(/<action>.*?<\/action>/gs, '').replace(/\s*[—–]\s*/g, ', ').replace(/[🦐🦞🦀]️?/gu, '').replace(/[ \t]{2,}/g, ' ').trim() || '…'
+      let replyText = raw.replace(/<action>.*?<\/action>/gs, '').replace(/\s*[—–]\s*/g, ', ').replace(/[🦐🦞🦀]️?/gu, '').replace(/[ \t]{2,}/g, ' ').trim() || '…'
+      // Append the verified change log so the user can confirm, for a fact, what the app actually did.
+      if (receipts.length) replyText += `\n\n**✅ Confirmed changes (applied by the app):**\n` + receipts.map((r) => `- ${r}`).join('\n')
       const updatedMsgs = [...newMsgs, { role: 'assistant', text: replyText }]
       setMessages(updatedMsgs)
       onAiReply?.(replyText) // let the host pick Ebi's pose via the Mascot model

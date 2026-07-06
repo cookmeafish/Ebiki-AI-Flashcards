@@ -365,7 +365,7 @@ export default function App() {
     fields: { pronunciation: true, translation: true, synonyms: true, definition: true, example: true },
     frontTemplate: '{word} ({partOfSpeech})',
     backTemplate: 'Pronunciación: {pronunciation}\nTraducción: {translation}\nSinónimos: {synonyms}\nDefinición: {definition}\nEjemplo: {example}',
-    tagRules: 'Always include:\n- part of speech (e.g. verb, noun, adjective)\n- source language (e.g. spanish, french)\n- "screenlens"\n\nAlso include when relevant:\n- verb tense (e.g. present, past, subjunctive)\n- difficulty (e.g. common, intermediate, advanced)\n- topic (e.g. food, emotion, travel, nature)',
+    tagRules: 'Always include:\n- part of speech (e.g. verb, noun, adjective)\n- source language (e.g. spanish, french)\n- "ebiki"\n\nAlso include when relevant:\n- verb tense (e.g. present, past, subjunctive)\n- difficulty (e.g. common, intermediate, advanced)\n- topic (e.g. food, emotion, travel, nature)',
     studyRules: defaultStudyRules,
   }
   const [modes, setModes] = useState([defaultMode])
@@ -2407,7 +2407,11 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
     const isLang = activeMode.type === 'language'
     let prompt
     if (isLang) {
-      prompt = LANGUAGE_CARD_PROMPT.replace(/\{LEARN_LANG\}/g, learnLangName()).replace(/\{USER_LANG\}/g, userLangName()) + dialectRule()
+      // The dialect is injected BOTH at the pronunciation field (so the phonetic guide itself follows
+      // the variant) AND as a trailing directive (covers vocabulary/usage/definition/example choices).
+      const d = dialectName()
+      const dialectPron = d ? ` This learner studies ${d} — the pronunciation MUST reflect ${d} (${d.toLowerCase().includes('latin') && d.toLowerCase().includes('span') ? 'seseo: c before e/i and z sound like "s", never the Castilian "th"' : `use that region's sounds, not another variant's`}).` : ''
+      prompt = LANGUAGE_CARD_PROMPT.replace(/\{LEARN_LANG\}/g, learnLangName()).replace(/\{USER_LANG\}/g, userLangName()).replace(/\{DIALECT_PRON\}/g, dialectPron) + dialectRule()
     } else {
       const desc = activeMode.description ? `\nMode description: ${activeMode.description}` : ''
       const backTpl = String(activeMode.backTemplate || '')
@@ -2462,7 +2466,7 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
     // Add tag generation
     const tagInstruction = fmt.tagRules
       ? `"tags": array of tag strings. Rules:\n${fmt.tagRules}`
-      : `"tags": array of relevant lowercase tags (include "screenlens")`
+      : `"tags": array of relevant lowercase tags (include "ebiki")`
     fieldRequests.push(tagInstruction)
 
     const modeContext = activeMode.type === 'language'
@@ -2501,7 +2505,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       back = back.replace(re, String(val || ''))
     })
 
-    const tags = Array.isArray(aiTags) && aiTags.length > 0 ? aiTags : ['screenlens']
+    const tags = Array.isArray(aiTags) && aiTags.length > 0 ? aiTags : ['ebiki']
     console.log('[Anki] card generated', { front, back, tags })
     return { front, back, tags }
   }
@@ -3416,7 +3420,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         return m ? `<b>${m[1]}:</b>${m[2]}` : line
       }).join('<br>')
       const tags = deckAddTags.split(',').map((t) => t.trim()).filter(Boolean)
-      await ankiAddNote(deckBrowserDeck, front, ankiBack, tags.length ? tags : ['screenlens'])
+      await ankiAddNote(deckBrowserDeck, front, ankiBack, tags.length ? tags : ['ebiki'])
       ankiSync().catch(() => {})
       await loadDeckNotes(deckBrowserDeck)
       closeAddCard()
@@ -7213,7 +7217,7 @@ Generate a JSON config for this study mode:
 - "fields": object with field names as keys and true as values. These become the JSON keys the AI will fill when generating flashcards. For language modes use: { "pronunciation": true, "translation": true, "synonyms": true, "definition": true, "example": true }. For general modes, choose 3-5 fields appropriate to the subject (e.g. { "definition": true, "example": true, "category": true, "keyPoints": true }).
 - "frontTemplate": card front using {fieldName} placeholders. For language: "{word} ({partOfSpeech})". For general: "{term}" or similar.
 - "backTemplate": card back using {fieldName} placeholders and \\n for newlines. Use descriptive labels before each placeholder.
-- "tagRules": instructions for AI tag generation. Include "screenlens" always. Add subject-specific categories. Tags should be lowercase, no spaces (use hyphens).
+- "tagRules": instructions for AI tag generation. Include "ebiki" always. Add subject-specific categories. Tags should be lowercase, no spaces (use hyphens).
 - "questionPrompt": instructions for AI when generating study/quiz questions for flashcards in this mode. Describe what kinds of questions to ask (e.g. definitions, real-world scenarios, comparisons). Be specific to the subject matter.
 - "chatSuggestions": an array of exactly 3 short example prompts (3-6 words each) the user could tap to start chatting with Ebi about THIS subject — a natural mix like asking a concept question, requesting a flashcard, and asking to be quizzed. Make them specific to the subject (e.g. for Spanish: "Help me with verb conjugations", "Make a flashcard for 'correr'", "Quiz me on common phrases"; for Security+: "Explain subnetting", "Make a flashcard about DNS", "Quiz me on the OSI model").
 - "mnemonicHints": 2-3 sentences instructing a memory coach what KINDS of memory hooks work best for THIS subject — e.g. for a language: sound-alikes bridging to the learner's language plus vivid imagery, and morphology chunking for compound words; for a certification: acronym expansions, number anchors (ports, sizes), and real-world scenario associations; for music: interval patterns and reference songs. Be concrete and subject-specific.
@@ -7236,7 +7240,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
         fields: config.fields || { definition: true, example: true },
         frontTemplate: config.frontTemplate || '{term}',
         backTemplate: config.backTemplate || 'Definition: {definition}',
-        tagRules: config.tagRules || 'Include: screenlens',
+        tagRules: config.tagRules || 'Include: ebiki',
         studyRules: {
           questionsPerCard: 3,
           questionPrompt: config.questionPrompt || ((config.type || 'general') === 'language' ? defaultStudyRules : defaultGeneralStudyRules).questionPrompt,
@@ -8056,7 +8060,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   style={{ ...S.keyInput, fontSize: 12, minHeight: 70, resize: 'vertical', width: '100%', boxSizing: 'border-box', marginBottom: 8 }} />
                 <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 3, fontWeight: 600 }}>Tags (comma-separated)</div>
                 <input value={deckAddTags} onChange={(e) => setDeckAddTags(e.target.value)}
-                  placeholder="screenlens, noun, …"
+                  placeholder="ebiki, noun, …"
                   style={{ ...S.keyInput, fontSize: 12, width: '100%', boxSizing: 'border-box', marginBottom: 10 }} />
 
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -10776,7 +10780,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         model={resolveModel('help')}
         askAI={(sys, content) => aiCall(apiKey, sys, content, resolveModel('help'), { maxTokens: 600 })}
         onAction={(action) => {
-          // Ebi's Help can make real adjustments: save a question-style preference to the mode.
+          // Ebi's Help can make real adjustments. Each branch RETURNS a factual, app-authored
+          // receipt string ONLY when the change actually applied (null otherwise) — HelpChat shows
+          // these as a "✅ Confirmed changes" block so the user can trust what really happened,
+          // rather than the model's unverified claim.
           if (action?.type === 'question_preference' && action.preference) {
             const modeId = activeModeIdRef.current
             const pref = String(action.preference).trim().slice(0, 300)
@@ -10786,7 +10793,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             if (pref && !prevPrefs.includes(pref)) {
               updateModeById(modeId, { studyRules: { ...sr, questionPreferences: [...prevPrefs, pref].slice(-12) } })
               console.log('[Help] saved question-style preference:', pref)
+              return `Saved a question-style rule to the "${targetMode?.name || 'current'}" mode: "${pref}". Affects: how future study questions are worded (question generation). Nothing else changes; existing cards are untouched. See it in Settings, Study, Question-style preferences.`
             }
+            return pref ? `That question-style rule was already saved on the "${targetMode?.name || 'current'}" mode, so no change was needed.` : null
           } else if (action?.type === 'set_dialect' && typeof action.dialect === 'string') {
             // Gear ALL future generation (cards, hooks, phonetics, questions) to a regional variant.
             const modeId = activeModeIdRef.current
@@ -10795,7 +10804,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               const d = action.dialect.trim().slice(0, 80)
               updateModeById(modeId, { studyRules: { ...(targetMode.studyRules || {}), dialect: d } })
               console.log('[Help] set mode dialect:', d || '(cleared)')
+              return d
+                ? `Set the "${targetMode.name}" mode's Dialect to "${d}" (Settings, Study, Dialect / variant). Affects NEW generation only: card pronunciation lines, memory hooks, tapped-word phonetics, and study questions. Does NOT change your existing cards, use bulk edit for those.`
+                : `Cleared the "${targetMode.name}" mode's Dialect setting, so generation goes back to no regional preference.`
             }
+            return `Couldn't set a dialect: the current mode ("${targetMode?.name || '?'}") isn't a language mode, so it has no pronunciation to steer.`
           } else if (action?.type === 'deck_edit' && action.instruction) {
             // Bulk deck edit requested in chat: hand the instruction to the Deck tab's bulk-edit
             // pipeline. It only produces a PREVIEW — the user accepts/denies each card there.
@@ -10806,8 +10819,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               setDeckCustomEditOpen(true)
               setActiveTab('deck')
               console.log('[Help] deck_edit handed to Deck tab:', instr)
+              return `Opened the Deck tab and started a bulk-edit PREVIEW for: "${instr}". Nothing is saved to Anki yet, you review each card's before/after and accept the ones you want.`
             }
+            return null
           }
+          return null
         }}
         appContext={{
         activeTab,
@@ -10851,6 +10867,15 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         } : null,
         deckBrowser: deckBrowserActive ? { deck: deckBrowserDeck, cards: deckBrowserNotes.length } : null,
         discover: activeTab === 'discover' ? { started: discoverStarted, level: discoverProfile?.level?.estimate || null, deck: discoverDeck || ankiDeck } : null,
+        // Stats screen: what the dashboard actually shows, so Ebi can answer about it accurately.
+        stats: activeTab === 'stats' ? (() => {
+          const hist = (() => { try { return JSON.parse(localStorage.getItem('screenlens-study-history') || '[]') } catch { return [] } })()
+          const dayCount = (ds) => ankiStats ? (ankiStats.byDay?.[ds] || 0) : hist.filter((h) => h.date === ds).reduce((s, h) => s + (h.cardsStudied || 0), 0)
+          let streak = 0; const dd = new Date()
+          for (let i = 0; i < 365; i++) { const ds = dd.toLocaleDateString('en-CA'); if (dayCount(ds) > 0) { streak++; dd.setDate(dd.getDate() - 1) } else if (i === 0) { dd.setDate(dd.getDate() - 1) } else break }
+          const recent = hist.slice(-8).reverse().map((h) => ({ date: h.date, deck: h.deck, cards: h.cardsStudied || 0, accuracy: h.totalQuestions ? Math.round((h.correct / h.totalQuestions) * 100) : null }))
+          return { cardsToday: ankiStats ? ankiStats.today : 0, accuracyToday: ankiStats ? ankiStats.accuracy : 0, streak, recentSessions: recent, source: ankiStats ? 'Anki' : 'local history' }
+        })() : null,
         // Long-term learner memory (AI-maintained progress-observations.md for the mode's deck)
         progressObservations: (deckProgressDoc || '').slice(0, 2500),
         chatTabMsgs: chatTabMsgs.slice(-5).map(m => ({ role: m.role, content: m.content?.slice(0, 200) })),
