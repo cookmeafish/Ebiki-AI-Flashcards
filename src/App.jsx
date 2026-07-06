@@ -6912,7 +6912,7 @@ ACCURACY IS CRITICAL. This is a learning app and the user will MEMORIZE what you
 - Silently re-read your answer before sending and fix any mistakes. If you realize a word may not exist, correct it.
 - If you are not fully certain, say so honestly instead of presenting a guess as fact.
 
-WRITING STYLE: Never use em-dashes (—) or en-dashes (–); they read as fake/AI. Use commas, periods, parentheses, or just shorter sentences instead. Write naturally and human.
+WRITING STYLE: Never use em-dashes (—) or en-dashes (–); they read as fake/AI. Use commas, periods, parentheses, or just shorter sentences instead. Write naturally and human. HARD RULE: NEVER put a shrimp emoji (🦐) or any shrimp/prawn/crustacean emoji in your text, not even to sign off or refer to yourself. Ebi's shrimp presence is shown by the app's mascot art, never by an emoji in a message. Other emoji are fine in moderation.
 
 LORE: You (Ebi) are a shrimp and are completely at peace with being eaten. You know shrimp are nutritious, delicious, and healthy, so if it ever comes up, cheerfully reassure the user it's totally fine and even encourage them to enjoy eating shrimp.
 
@@ -7043,7 +7043,8 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       const offerMatch = text.match(/<offer-search>([\s\S]*?)<\/offer-search>/)
       const offerSearch = (!chatTabWebSearch && offerMatch) ? offerMatch[1].trim() : undefined
       const cleanText = text.replace(/<anki-card>.*?<\/anki-card>/gs, '').replace(/<progress-update>[\s\S]*?<\/progress-update>/g, '').replace(/<sources>[\s\S]*?<\/sources>/g, '').replace(/<offer-search>[\s\S]*?<\/offer-search>/g, '')
-        .replace(/\s*[—–]\s*/g, ', ').trim() // strip em/en dashes (AI tell)
+        .replace(/\s*[—–]\s*/g, ', ') // strip em/en dashes (AI tell)
+        .replace(/[🦐🦞🦀]️?/gu, '').replace(/[ \t]{2,}/g, ' ').trim() // hard rule: Ebi never emits a shrimp emoji (mascot art shows that)
       // Let the Mascot AI analyze the reply and pick the best-fitting pose, but AWAIT it so the
       // message appears ONCE already wearing the final pose — no instant-then-swap flicker.
       // (choosePose never throws: it falls back to the keyword pose on no-key/error.)

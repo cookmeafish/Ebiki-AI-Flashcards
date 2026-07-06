@@ -150,6 +150,11 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   HelpChat behind `!hideButton` if ever re-enabled.)
 - **Ebi stays in character:** the `HELP_BASE` persona speaks as Ebi and must NOT call itself a "mascot" or
   break the fourth wall — just "I'm Ebi, here to help."
+- **HARD RULE — Ebi NEVER emits a shrimp emoji.** Ebi's shrimp-ness is the mascot ART, never a 🦐 in the
+  text. Enforced BOTH in the prompt (HELP_BASE + the Chat-tab `systemPrompt` WRITING STYLE line) AND by a
+  code strip on every reply (`[🦐🦞🦀]️?` removed alongside the em-dash strip in HelpChat `sendMessage`
+  and the Chat-tab `cleanText`) — prompts leak, so the strip is the guarantee. Applies anywhere Ebi's
+  free text ships; other emoji are fine.
 - The chat **scrolls to the bottom on open** so the latest message shows.
 - **FancyZones-style docking**: drag the chat header (⠿ grip) to snap to a zone, or click the dock (◣) button
   to be asked where — both show three labeled targets (**Dock left**, **Dock right**, **Under the question**)
