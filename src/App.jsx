@@ -4456,7 +4456,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       title={apiKey ? 'Ebi builds a memory aid for this card' : 'Add an API key first'}
       className="hover-dim"
       style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 9px', fontWeight: 700, flexShrink: 0, whiteSpace: 'nowrap', color: 'var(--c-purple)', borderColor: active ? 'rgba(139,92,246,.6)' : 'rgba(139,92,246,.4)', background: active ? 'rgba(139,92,246,.16)' : 'transparent', opacity: (apiKey && !cs.mnemonicLoading) ? 1 : 0.6, cursor: apiKey ? 'pointer' : 'default' }}>
-      🧠 {cs.mnemonicLoading ? 'Thinking…' : (cs.mnemonics?.length ? 'Memory hook' : 'Help me remember')}
+      🧠 {cs.mnemonicLoading ? 'Thinking…' : 'Help me remember'}
     </button>
   )
 
@@ -4470,18 +4470,18 @@ Output ONLY raw JSON. No markdown, no backticks.`
     return (
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         <button onClick={() => onPick('auto')} disabled={disabled}
-          className="tip" data-tip={apiKey ? 'Ebi chooses the most effective hook style for this one' : 'Add an API key first'}
+          className="tip tip-r" data-tip={apiKey ? 'Ebi picks the hook style that fits this best. Ask again and it tries a different style.' : 'Add an API key first'}
           style={{ ...S.ghostBtn, fontSize: fs, padding: compact ? '3px 10px' : '2px 10px', fontWeight: 700, color: 'var(--c-purple)', background: 'rgba(139,92,246,.14)', borderColor: 'rgba(139,92,246,.5)', opacity: disabled ? 0.5 : 1 }}>
-          ✨ Ebi picks
+          🧠 Memory hook
         </button>
         <button onClick={() => setHookStylesOpen(p => ({ ...p, [surfaceKey]: !open }))} disabled={disabled}
-          className="tip" data-tip="Choose a specific hook style yourself"
+          className="tip tip-r" data-tip="Choose a specific hook style yourself"
           style={{ ...S.ghostBtn, fontSize: fs, padding: compact ? '3px 10px' : '2px 9px', background: 'transparent', color: 'var(--c-ink-dim)', borderColor: 'var(--c-border)', opacity: disabled ? 0.5 : 1 }}>
           {open ? 'Styles ▾' : 'Styles ▸'}
         </button>
         {open && hookMethodList().map(([m, label, tip, short]) => (
           <button key={m} onClick={() => onPick(m)} disabled={disabled}
-            className="tip" data-tip={tip}
+            className="tip tip-r" data-tip={tip}
             style={{ ...S.ghostBtn, fontSize: fs, padding: compact ? '3px 10px' : '2px 9px', background: 'transparent', color: 'var(--c-purple)', borderColor: 'rgba(139,92,246,.35)', opacity: disabled ? 0.5 : 1 }}>
             {compact ? short : label}
           </button>
@@ -5840,13 +5840,17 @@ Build an acronym, first-letter anchor, number anchor, or word-shape cue that rec
         ? `METHOD — DON'T CONFUSE IT (the learner knows this word but keeps mixing it up with a sibling): name the 1-2 ${learnLang} words MOST likely confused with this one (near-synonyms like huir/escapar, similar-sounding or same-root words, false friends with ${explainLang}) and give ONE sharp, memorable discriminator per pair — the precise nuance, register, or context where THIS word wins and the other loses, anchored in a tiny concrete cue or example. Pick the confusables a real learner actually trips on; if genuinely nothing is confusable with it, say so in one line and give the single closest word anyway.`
         : `METHOD — DON'T CONFUSE IT (the learner knows this concept but keeps mixing it up with a sibling): name the 1-2 terms/concepts MOST likely confused with this one (sibling acronyms like IDS/IPS, adjacent concepts like authentication/authorization) and give ONE sharp, memorable discriminator per pair — the precise difference, anchored in a tiny concrete image or example (e.g. "IDS watches and yells; IPS stands in the doorway"). Pick confusables a real learner actually trips on; if genuinely nothing is confusable with it, say so in one line and give the single closest concept anyway.`,
     }
-    // 'auto' = Ebi picks: the model sees every method and chooses the one this item's structure
-    // calls for, labeling its choice so the learner gradually learns which style fits what.
-    METHODS.auto = `METHOD — EBI PICKS: first choose the single MOST EFFECTIVE method below for THIS item, then write the hook with it.
+    // 'auto' = the default Memory hook button: the model sees the mnemonic methods and chooses the
+    // one this item's structure calls for, labeling its choice so the learner gradually learns which
+    // style fits what. 'confuse' is deliberately EXCLUDED from auto (a contrast lesson is not what
+    // someone clicking "Memory hook" is asking for — it stays manual-only under Styles). Repeat
+    // clicks must try a DIFFERENT method: a style that didn't stick won't stick rephrased.
+    METHODS.auto = `METHOD — AUTO-PICK: first choose the single MOST EFFECTIVE method below for THIS item, then write the hook with it.
 
-${['meaning', 'sound', 'parts', 'confuse', 'story'].map((k) => METHODS[k]).join('\n\n')}
+${['meaning', 'sound', 'parts', 'story'].map((k) => METHODS[k]).join('\n\n')}
 
-DECISION GUIDE: built from real parts (prefixes/pronouns/acronym letters/process steps) → BREAK IT DOWN. Easily mixed up with a near-synonym or sibling concept → DON'T CONFUSE IT. ${isLanguage ? 'Hard to pronounce or produce from memory → SOUND HOOK.' : 'Exact term hard to recall → RECALL HOOK.'} Abstract, or nothing else fits well → STORY HOOK. Otherwise → MEANING HOOK.
+DECISION GUIDE: built from real parts (prefixes/pronouns/acronym letters/process steps) → BREAK IT DOWN. ${isLanguage ? 'Hard to pronounce or produce from memory → SOUND HOOK.' : 'Exact term hard to recall → RECALL HOOK.'} Abstract, or nothing else fits well → STORY HOOK. Otherwise → MEANING HOOK.${prior.length ? `
+VARY THE METHOD: the learner asked again because the aids listed below did not stick (each may start with its method name in bold). STRONGLY prefer a method none of them used yet; only reuse a method once every one above has been tried, and then with a completely different angle.` : ''}
 Begin your reply with the chosen method name in bold followed by a colon, e.g. "**Break it down:** ", then the hook itself.`
     const lengthRule = (method === 'story'
       ? 'ONE story only — 2 to 4 short sentences, UNDER 70 WORDS total.'
@@ -5855,7 +5859,7 @@ Begin your reply with the chosen method name in bold followed by a colon, e.g. "
         : method === 'confuse'
           ? 'At most 2 confusable pairs — ONE short line per pair, UNDER 50 WORDS total.'
           : method === 'auto'
-            ? 'Obey the chosen method\'s cap: story UNDER 70 WORDS, break-it-down UNDER 60, don\'t-confuse-it UNDER 50, anything else UNDER 35.'
+            ? 'Obey the chosen method\'s cap: story UNDER 70 WORDS, break-it-down UNDER 60, anything else UNDER 35.'
             : 'ONE hook only — 1 to 2 punchy sentences, UNDER 35 WORDS total, like a WaniKani mnemonic.')
       + ' That cap is a CEILING, not a target: if fewer words recall the answer just as well, use fewer. Cut every word that does not carry the image or the answer — but NEVER cut a word the hook needs to work: effectiveness always outranks brevity.'
     const prompt = `You are Ebi, a warm study buddy. Help the learner MEMORIZE this flashcard with a vivid, concrete memory aid. TWIN GOALS, both required: the learner must actually LEARN (the hook reliably rebuilds the answer) and must NOT BE BORED (surprise, humor, or a striking image is what makes a hook stick — a dry correct hook is a failed hook too).
@@ -10556,6 +10560,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           content: ''; position: absolute; left: 50%; bottom: calc(100% + 2px); transform: translateX(-50%);
           border: 5px solid transparent; border-top-color: var(--c-ink); z-index: 80; pointer-events: none;
         }
+        /* Left-anchored variant: grows rightward from the control instead of centering, for
+           controls that sit near a left edge (the centered 240px box gets clipped there). */
+        .tip-r:hover::after { left: 0; transform: none; }
+        .tip-r:hover::before { left: 14px; transform: none; }
 
         /* Top navigation tabs: gentle float-up on hover (vertical only, no click shrink).
            The lift is on an INNER span, not the button, so the button's hover hit-box never
