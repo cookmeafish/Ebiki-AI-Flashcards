@@ -407,8 +407,13 @@ export default function App() {
   // locally verified against acceptedAnswers (green ✓, no AI); 'check' = recorded but only the
   // AI grader can judge it (amber ⏳ — explanation questions, general modes, hint-exhausted).
   const [studyTypedFlash, setStudyTypedFlash] = useState(null)
-  // Bumped when a wrong answer keeps the question on screen (hint retry) — drives the ✗ shake.
+  // Bumped when a wrong answer keeps the question on screen (hint retry) — the counter changes the
+  // shake element's key to replay the CSS animation. `studyShaking` is a TRANSIENT flag that actually
+  // applies the shake class and is cleared on animation end, so the class isn't left on permanently
+  // (which made the box re-shake every time the input row remounted after a correct-answer flash).
   const [studyInputShake, setStudyInputShake] = useState(0)
+  const [studyShaking, setStudyShaking] = useState(false)
+  const triggerShake = () => { setStudyShaking(true); setStudyInputShake((n) => n + 1) }
   // Accent drill: the answer was CORRECT except for accents ("quimico" for "químico") — hold the
   // advance and have the user type the accented form once. { canonical, original }. Grading is
   // never affected (the card records the original answer); AI-graded questions never trigger it.
@@ -5201,6 +5206,25 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const acceptedAnswers = questionObj?.acceptedAnswers || []
     const isLanguageMode = (activeMode.type || 'general') === 'language'
 
+    // EDIT MODE — the user rewound to an ALREADY-ANSWERED question (displayed index is behind the
+    // card's frontier) via a progress dot. Replace that answer in place, keep everything after it
+    // intact, and jump straight back to the question they were on. Grading later reads cs.answers, so
+    // ONLY this new answer is used — the old one is discarded. No hint/retry loop for an edit.
+    if (questionIdx < cs.questionIdx) {
+      setStudyCardState((prev) => {
+        const updated = [...prev]
+        const c = updated[cardIdx]
+        const answers = [...c.answers]; answers[questionIdx] = answer
+        const attempts = [...(c.questionAttempts || [])]; attempts[questionIdx] = [answer]
+        updated[cardIdx] = { ...c, answers, questionAttempts: attempts }
+        return updated
+      })
+      setCurrentQuestion({ cardIdx, questionIdx: cs.questionIdx })   // back to the frontier they were on
+      setStudyInput('')
+      setStudyHintLevel(0); setStudyCurrentHint(null); setStudyMeaningHint(null); setStudyWordLookup(null)
+      return
+    }
+
     // Track this attempt in questionAttempts
     const prevAttempts = cs.questionAttempts?.[questionIdx] || []
     const allAttempts = [...prevAttempts, answer]
@@ -5223,7 +5247,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       const canonNoArtN = stripArticles(canonN)
       const okRetype = typedN === canonN || stripArticles(typedN) === canonNoArtN ||
         (canonNoArtN.length >= 3 && new RegExp(`(^|\\s)${escapeRe(canonNoArtN)}(\\s|$)`).test(stripArticles(typedN)))
-      if (!okRetype) { setStudyInput(''); setStudyInputShake((n) => n + 1); return }
+      if (!okRetype) { setStudyInput(''); triggerShake(); return }
       answer = studyAccentRetype.original
       cameFromRetype = true
       setStudyAccentRetype(null)
@@ -5318,7 +5342,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
         setStudyCurrentHint(nextHint)
         setStudyCardState(newStates)
         setStudyInput('')
-        setStudyInputShake((n) => n + 1) // definitively wrong right now → red ✗ shake, retry stays on screen
+        triggerShake() // definitively wrong right now → red ✗ shake, retry stays on screen
         return
       }
       // All remaining hints already satisfied — fall through and advance
@@ -5991,25 +6015,18 @@ Write in ${explainLang}. ${lengthRule} No backup hooks, no preamble, no explaini
     }
   }
 
-  // Click an ANSWERED question dot to rewind the current card to that question and re-answer it
-  // (that answer and everything after it on THIS card is discarded). Backwards only — answers are
-  // stored positionally, so jumping ahead would misalign them.
-  const jumpToCardQuestion = (cardIdx, qi) => {
+  // Click a question dot to REVIEW / return to that question WITHOUT losing progress. Non-destructive:
+  // an already-answered question shows your previous answer pre-filled (edit it and Submit to replace it
+  // — only the new answer is graded), and you can click the dot of the question you were on to go right
+  // back. Can't skip ahead of the frontier (answers are positional, so future slots aren't filled yet).
+  const viewCardQuestion = (cardIdx, qi) => {
     const cs = studyCardState[cardIdx]
-    if (!cs || cs.done || cs.synced || qi >= cs.questionIdx) return
-    const newAttempts = [...(cs.questionAttempts || [])]
-    for (let k = qi; k < newAttempts.length; k++) newAttempts[k] = []
-    setStudyCardState((prev) => {
-      const updated = [...prev]
-      updated[cardIdx] = { ...updated[cardIdx], answers: updated[cardIdx].answers.slice(0, qi), questionIdx: qi, questionAttempts: newAttempts }
-      return updated
-    })
-    setStudyAnswerHistory((prev) => prev.filter((h) => !(h.cardIdx === cardIdx && h.questionIdx >= qi)))
+    if (!cs || cs.done || cs.synced || qi > cs.questionIdx) return
     setCurrentQuestion({ cardIdx, questionIdx: qi })
     setStudyHintLevel(0)
     setStudyCurrentHint(null)
     setStudyMeaningHint(null); setStudyWordLookup(null)
-    setStudyInput('')
+    setStudyInput(qi < cs.questionIdx ? String(cs.answers[qi] ?? '') : '')
   }
 
   const undoLastAnswer = () => {
@@ -9085,7 +9102,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 : t('answerStyleDesc')
 
               const field = (label, desc, control) => (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
                   <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--c-ink-dim)', letterSpacing: '.05em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 4 }}>
                     {label}
                     {desc && <span className="tip" data-tip={desc} style={{ color: 'var(--c-ink-faint)', fontWeight: 400, textTransform: 'none' }}>ⓘ</span>}
@@ -9095,19 +9112,19 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               )
               // Fields share the row equally and their controls stretch — no dead space on the right
               const row = (children) => (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>{children}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>{children}</div>
               )
-              const ctl = { ...S.select, fontSize: 12, padding: '7px 10px', width: '100%', boxSizing: 'border-box', textAlign: 'left' }
+              const ctl = { ...S.select, fontSize: 12, padding: '6px 10px', width: '100%', boxSizing: 'border-box', textAlign: 'left' }
               const section = (title, children, first = false) => (
-                <div style={{ padding: '14px 18px', borderTop: first ? 'none' : '1px solid var(--c-border)' }}>
-                  <div style={{ fontSize: 9.5, fontWeight: 800, color: 'var(--c-brand)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 10 }}>{title}</div>
+                <div style={{ padding: '9px 18px', borderTop: first ? 'none' : '1px solid var(--c-border)' }}>
+                  <div style={{ fontSize: 9.5, fontWeight: 800, color: 'var(--c-brand)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 6 }}>{title}</div>
                   {children}
                 </div>
               )
 
               return (
               <div style={{ textAlign: 'center', animation: 'slideUp .35s ease' }}>
-                <div style={{ fontSize: 20, fontWeight: 700, color: C.ink, fontFamily: FONT.display, marginBottom: 14 }}>{t('studySession')}</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: C.ink, fontFamily: FONT.display, marginBottom: 8 }}>{t('studySession')}</div>
 
                 {/* No overflow:hidden here — it would clip the ⓘ tooltips that extend past the card edge
                     (nothing else paints outside; the sections only draw inset border lines). */}
@@ -9147,7 +9164,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       ))}
                     </>)}
                     {isLang && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginTop: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginTop: 7 }}>
                         <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--c-ink-dim)', cursor: 'pointer' }}>
                           <input type="checkbox" checked={sr.grammarFeedback || false} onChange={(e) => setSR({ grammarFeedback: e.target.checked })} />
                           {t('grammarFeedback')}
@@ -9195,9 +9212,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   </>))}
                 </div>
 
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 16 }}>
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12 }}>
                   <button onClick={() => beginStudy(studyDeck, studyMode)} disabled={!studyDeck || studyLoading} className="btn-press"
-                    style={{ ...S.captureBtn, borderRadius: 8, padding: '10px 36px', fontSize: 13, opacity: !studyDeck || studyLoading ? 0.5 : 1 }}>
+                    style={{ ...S.captureBtn, borderRadius: 8, padding: '9px 36px', fontSize: 13, opacity: !studyDeck || studyLoading ? 0.5 : 1 }}>
                     {studyLoading ? t('loading') : t('start')}
                   </button>
                   <button onClick={exitStudy} style={{ ...S.ghostBtn }}>{t('cancel')}</button>
@@ -9365,22 +9382,28 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         </div>
                       )}
 
-                      {/* Question progress dots — which question of this card you're on. Filled
-                          (answered) dots are CLICKABLE: jump back and re-answer from there. */}
+                      {/* Question progress dots — which question of this card you're on. Answered dots AND
+                          the current one are CLICKABLE to review/return WITHOUT losing progress (the answer
+                          is pre-filled; editing it re-grades with the new answer). A ring marks the one
+                          you're viewing. */}
                       {cs && cs.questions.length > 1 && (
                         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
                           <span className="tip" data-tip={`${t('studyQuestionOf')} ${Math.min(cs.questionIdx + 1, cs.questions.length)}/${cs.questions.length}${cs.questionIdx > 0 ? ` — ${t('studyDotJump')}` : ''}`}
-                            style={{ display: 'inline-flex', gap: 5, alignItems: 'center', padding: 2 }}>
+                            style={{ display: 'inline-flex', gap: 6, alignItems: 'center', padding: 2 }}>
                             {cs.questions.map((_, qi) => {
                               const answered = qi < cs.questionIdx
+                              const clickable = qi <= cs.questionIdx && !cs.done && !cs.synced
+                              const viewing = currentQuestion && cq.cardIdx === currentQuestion.cardIdx && qi === currentQuestion.questionIdx
                               return (
-                                <button key={qi} disabled={!answered}
-                                  onClick={answered ? () => jumpToCardQuestion(cq.cardIdx, qi) : undefined}
+                                <button key={qi} disabled={!clickable}
+                                  onClick={clickable ? () => viewCardQuestion(cq.cardIdx, qi) : undefined}
+                                  title={answered ? t('studyDotJump') : undefined}
                                   style={{
                                     width: 8, height: 8, borderRadius: '50%', boxSizing: 'border-box', padding: 0,
                                     background: answered ? 'var(--c-brand)' : 'transparent',
                                     border: `1.5px solid ${qi <= cs.questionIdx ? 'var(--c-brand)' : 'var(--c-border)'}`,
-                                    cursor: answered ? 'pointer' : 'default',
+                                    cursor: clickable ? 'pointer' : 'default',
+                                    boxShadow: viewing ? '0 0 0 2px rgba(223,37,64,.35)' : 'none',
                                   }} />
                               )
                             })}
@@ -9389,8 +9412,18 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       )}
 
                       {(() => {
+                        // A parenthetical clue we inject into a question — "(...)" — is a HINT, not part of
+                        // the sentence. Render it muted + italic so the reader can instantly tell the clue
+                        // apart from the fill-in-the-blank sentence (they used to blend together).
+                        const cueStyle = { fontStyle: 'italic', fontWeight: 500, color: 'var(--c-ink-dim)', opacity: 0.92 }
+                        const splitCues = (s) => String(s).split(/(\([^)]*\))/).filter((p) => p !== '')
+                        const isCue = (p) => /^\([^)]*\)$/.test(p)
                         if (activeMode.type !== 'language') {
-                          return <div key={`q-${cq?.cardIdx}-${cq?.questionIdx}`} style={{ fontSize: 15.5, lineHeight: 1.6, color: 'var(--c-ink)', fontWeight: 600, marginBottom: studyWordLookup ? 6 : 10, animation: 'fadeUp .25s ease' }}>{question}</div>
+                          return <div key={`q-${cq?.cardIdx}-${cq?.questionIdx}`} style={{ fontSize: 15.5, lineHeight: 1.6, color: 'var(--c-ink)', fontWeight: 600, marginBottom: studyWordLookup ? 6 : 10, animation: 'fadeUp .25s ease' }}>
+                            {splitCues(question).map((part, pi) => isCue(part)
+                              ? <span key={pi} style={cueStyle}>{part}</span>
+                              : <span key={pi}>{part}</span>)}
+                          </div>
                         }
                         const answers = questionObj?.acceptedAnswers || []
                         // Word hints (ruby-style): map each non-answer word to its meaning, shown above it.
@@ -9405,25 +9438,29 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         const anyGloss = Object.keys(glossMap).length > 0
                         return (
                           <div key={`q-${cq?.cardIdx}-${cq?.questionIdx}`} style={{ fontSize: 15.5, color: 'var(--c-ink)', fontWeight: 600, marginBottom: studyWordLookup ? 6 : 10, animation: 'fadeUp .25s ease', lineHeight: anyGloss ? 2.4 : 1.6 }}>
-                            {question.split(/(\s+)/).map((tok, ti) => {
-                              if (/^\s+$/.test(tok) || tok === '') return <span key={ti}>{tok}</span>
-                              const clean = tok.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '')
-                              const cl = clean.toLowerCase()
-                              const isAnswer = answers.includes(cl)
-                              const lookupable = clean.length > 1 && !/_{2,}/.test(tok) && !isAnswer
-                              const gloss = (!isAnswer && glossMap[cl]) || null
-                              const word = lookupable
-                                ? <span className="study-word" onClick={() => lookupStudyWord(clean, question, 'question')} title={`What does "${clean}" mean?`} style={{ cursor: 'pointer', display: 'inline-block' }}><span className="study-word-inner" style={{ display: 'inline-block' }}>{tok}</span></span>
-                                : <span>{tok}</span>
-                              // When any word has a gloss, give EVERY word the same stacked layout (blank slot
-                              // above un-glossed words) so the whole line shares one baseline — no "floating".
-                              if (!anyGloss) return <span key={ti}>{word}</span>
-                              return (
-                                <span key={ti} style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', verticalAlign: 'bottom', lineHeight: 1.1 }}>
-                                  <span style={{ fontSize: 8.5, fontWeight: 700, color: 'var(--c-purple)', whiteSpace: 'nowrap', minHeight: '1.1em' }}>{gloss || ' '}</span>
-                                  {word}
-                                </span>
-                              )
+                            {splitCues(question).map((part, pi) => {
+                              // Clue segments render muted/italic (a hint, not the sentence) — never tappable/glossed.
+                              if (isCue(part)) return <span key={`c${pi}`} style={{ ...cueStyle, verticalAlign: anyGloss ? 'bottom' : undefined }}>{part}</span>
+                              return part.split(/(\s+)/).map((tok, ti) => {
+                                if (/^\s+$/.test(tok) || tok === '') return <span key={`${pi}-${ti}`}>{tok}</span>
+                                const clean = tok.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '')
+                                const cl = clean.toLowerCase()
+                                const isAnswer = answers.includes(cl)
+                                const lookupable = clean.length > 1 && !/_{2,}/.test(tok) && !isAnswer
+                                const gloss = (!isAnswer && glossMap[cl]) || null
+                                const word = lookupable
+                                  ? <span className="study-word" onClick={() => lookupStudyWord(clean, question, 'question')} title={`What does "${clean}" mean?`} style={{ cursor: 'pointer', display: 'inline-block' }}><span className="study-word-inner" style={{ display: 'inline-block' }}>{tok}</span></span>
+                                  : <span>{tok}</span>
+                                // When any word has a gloss, give EVERY word the same stacked layout (blank slot
+                                // above un-glossed words) so the whole line shares one baseline — no "floating".
+                                if (!anyGloss) return <span key={`${pi}-${ti}`}>{word}</span>
+                                return (
+                                  <span key={`${pi}-${ti}`} style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', verticalAlign: 'bottom', lineHeight: 1.1 }}>
+                                    <span style={{ fontSize: 8.5, fontWeight: 700, color: 'var(--c-purple)', whiteSpace: 'nowrap', minHeight: '1.1em' }}>{gloss || ' '}</span>
+                                    {word}
+                                  </span>
+                                )
+                              })
                             })}
                           </div>
                         )
@@ -9468,7 +9505,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           </button>
                         </div>
                       )}
-                      <div key={`shake-${studyInputShake}`} className={studyInputShake ? 'study-shake' : undefined} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <div key={`shake-${studyInputShake}`} className={studyShaking ? 'study-shake' : undefined} onAnimationEnd={() => setStudyShaking(false)} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                         {/* Red ✗ while the missed attempt is on screen; typing clears it */}
                         {studyCurrentHint && !studyInput && (
                           <span style={{ color: 'var(--c-danger)', fontWeight: 800, fontSize: 17, flexShrink: 0 }}>✗</span>
