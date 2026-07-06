@@ -7926,7 +7926,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 <textarea
                   value={deckCustomEditText}
                   onChange={(e) => setDeckCustomEditText(e.target.value)}
-                  placeholder={activeMode.type === 'language' ? 'e.g. Rewrite every pronunciation line to Latin American Spanish — seseo, never the Castilian "TH"' : 'e.g. Add a one-line real-world example to every definition-only card'}
+                  placeholder={activeMode.type === 'language' ? 'e.g. Add an example sentence to every card that has none' : 'e.g. Add a one-line real-world example to every definition-only card'}
                   rows={2}
                   style={{ width: '100%', boxSizing: 'border-box', fontSize: 12, fontFamily: 'inherit', padding: 8, borderRadius: 6, border: '1px solid var(--c-border)', background: 'var(--c-surface-sunken)', color: 'var(--c-ink)', resize: 'vertical' }}
                 />
