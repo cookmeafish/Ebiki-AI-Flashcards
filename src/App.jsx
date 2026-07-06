@@ -7586,10 +7586,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               </button>
             ))}
           </div>
-          {/* Ask Ebi — opens Ebi's help chat (replaces the old floating shrimp button) */}
-          <button onClick={() => setAskEbiSignal((n) => n + 1)} title="Ask Ebi — your study helper" className="ui-btn"
+          {/* Hey Ebi — opens Ebi's chat (replaces the old floating shrimp button). Not "Ask Ebi":
+              Ebi also ACTS on requests (bulk edits, dialect, preferences), not just answers. */}
+          <button onClick={() => setAskEbiSignal((n) => n + 1)} title="Talk to Ebi — ask anything, or tell it what to change" className="ui-btn"
             style={{ ...S.ghostBtn, marginLeft: 8, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)', fontWeight: 700 }}>
-            Ask Ebi
+            🦐 Hey Ebi
           </button>
         </div>
         <div style={S.headerRight}>
@@ -10785,6 +10786,15 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               updateModeById(modeId, { studyRules: { ...sr, questionPreferences: [...prevPrefs, pref].slice(-12) } })
               console.log('[Help] saved question-style preference:', pref)
             }
+          } else if (action?.type === 'set_dialect' && typeof action.dialect === 'string') {
+            // Gear ALL future generation (cards, hooks, phonetics, questions) to a regional variant.
+            const modeId = activeModeIdRef.current
+            const targetMode = modesRef.current.find((mm) => mm.id === modeId)
+            if (targetMode?.type === 'language') {
+              const d = action.dialect.trim().slice(0, 80)
+              updateModeById(modeId, { studyRules: { ...(targetMode.studyRules || {}), dialect: d } })
+              console.log('[Help] set mode dialect:', d || '(cleared)')
+            }
           } else if (action?.type === 'deck_edit' && action.instruction) {
             // Bulk deck edit requested in chat: hand the instruction to the Deck tab's bulk-edit
             // pipeline. It only produces a PREVIEW — the user accepts/denies each card there.
@@ -10800,7 +10810,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         }}
         appContext={{
         activeTab,
-        activeMode: { name: activeMode.name, type: activeMode.type, ankiDeck: activeMode.ankiDeck },
+        activeMode: { name: activeMode.name, type: activeMode.type, ankiDeck: activeMode.ankiDeck, dialect: dialectName() || undefined },
         ocrWords: ocrWords.map(w => ({ text: w.text, translation: w.translation })),
         activeWord: activeWord ? { text: activeWord.text, translation: activeWord.translation, pronunciation: activeWord.pronunciation, definition: activeWord.definition, synonyms: activeWord.synonyms, example: activeWord.example } : null,
         explanation,

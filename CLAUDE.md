@@ -131,11 +131,17 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   Help for months), full session state (`studySession`: type/answer style/progress/languages/preferences/
   recent grades), plus `deckBrowser` and `discover` context. The current question's expected answer IS in
   the context but marked SECRET — the prompt forbids revealing it unless the user explicitly asks.
-- **Help can ACT, not just explain:** replies may emit `<action>{"type":"question_preference",...}</action>`
-  tags — HelpChat parses/strips them in `sendMessage` and calls the `onAction` prop; App saves the rule to
-  the mode via pinned refs (`activeModeIdRef` + `updateModeById`). The CAPABILITIES block in
-  `buildSystemPrompt` tells Ebi about this, the ✎ Fix question button, and where settings live.
-- **The floating shrimp button is removed.** Help is opened from the **"Ask Ebi"** button in the header
+- **Help can ACT, not just explain:** replies may emit `<action>{...}</action>` tags — HelpChat
+  parses/strips them in `sendMessage` and calls the `onAction` prop; App applies them via pinned refs
+  (`activeModeIdRef` + `updateModeById`). THREE action types: `question_preference` (save a
+  question-style rule to the mode), `set_dialect` (set `studyRules.dialect` — gears all future
+  generation to a regional variant; language modes only), `deck_edit` (bulk-edit request → opens the
+  Deck tab, prefills the ✨ Ebi bulk edit panel, `pendingDeckEditRef` runs the PREVIEW once notes load —
+  the user still accepts/denies each card, so the action itself writes nothing). The CAPABILITIES block
+  in `buildSystemPrompt` tells Ebi about these (incl. "refuse vague bulk requests"), the ✎ Fix question
+  button, and where settings live. When adding a new action: CAPABILITIES text + `onAction` branch, and
+  keep the composer wording action-y ("Ask or tell Ebi anything…", Send) — Ebi does things, not just Q&A.
+- **The floating shrimp button is removed.** Help is opened from the **"🦐 Hey Ebi"** button in the header
   (left nav, right after the Stats tab) which bumps `askEbiSignal`; `HelpChat` is rendered with
   `hideButton={true}` so the FAB never shows. With no button, the panel docks bottom-left (`getChatStyle`).
   The panel header shows **Ebi on the right** of the "Ebi's Help" title; it uses the **context-aware pose**
@@ -447,14 +453,18 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   ONE shared prompt line injected into EVERY generator: card generation + `verifyCards`, memory hooks,
   `lookupStudyWord` phonetics, `generateQuestionsForCard`, the Chat card format, and the bulk-edit
   framing. Without it models default to the textbook region (Castilian "ga-THE-la"). Audio region is
-  separate (global `pronunciation.defaultRegions`, Settings → Audio).
+  separate (global `pronunciation.defaultRegions`, Settings → Audio). Ebi's Help can set it via the
+  `set_dialect` action ("all new cards should use Latin American pronunciation"); the current value
+  rides in `appContext.activeMode.dialect` so Ebi knows it.
 - **✨ Ebi bulk edit (deck browser) — free-text batch card editor.** `analyzeDeck(kind, instruction)`:
   `kind='custom'` swaps the framing for "apply the owner's request; skip cards it doesn't apply to;
   change only what it covers" and reuses the ENTIRE analyze pipeline — same JSON contract, same
   noteId+front integrity guard, same before/after accept/deny review UI, same commit path — so
   nothing writes to Anki until each card is accepted (that review IS the confirmation layer).
   UI: "✨ Ebi bulk edit" toolbar button → instruction panel (`deckCustomEditOpen`/`deckCustomEditText`)
-  → "Preview changes". `deckAnalyzeKind` keeps button labels/empty-messages straight. SECOND entry
+  → "Preview changes". The review header echoes the EXACT request that produced the suggestions
+  (`deckAnalyzeInstruction`) so the user can verify Ebi understood them before accepting anything.
+  `deckAnalyzeKind` keeps button labels/empty-messages straight. SECOND entry
   point: Ebi's Help emits `<action>{"type":"deck_edit","instruction":…}</action>` (CAPABILITIES block
   tells it to refuse vague requests); App's onAction prefills+opens the panel, switches to the Deck
   tab, and `pendingDeckEditRef` + an effect run the preview once notes load. NOTE: `analyzeDeck` is
@@ -625,6 +635,11 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
 - **No forced JSON.** OpenAI/Gemini do NOT set `response_format`/`responseMimeType` — that would break
   free-form chat/help (OpenAI even errors unless the prompt says "json"). JSON roles rely on the prompt +
   `parseAiJson()`, exactly like Claude.
+- **ALWAYS parse AI JSON replies with `parseAiJson(text)`, never bare `JSON.parse`.** Models append
+  commentary after the array or truncate mid-row; the strict strip-fences-then-parse pattern died on
+  "Unexpected non-whitespace character after JSON" (bulk-edit preview). `parseAiJson` strips noise,
+  repairs light slop, and salvages complete objects from truncated arrays — an 18-site sweep converted
+  every old call.
 - **Self-heal for ALL providers:** `discoverCurrentModel` (App.jsx) uses each provider's `listModels()` +
   a tier family preference, so a stale/unavailable default id 404s → auto-switches to a current model.
 

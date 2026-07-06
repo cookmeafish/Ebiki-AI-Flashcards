@@ -28,6 +28,7 @@ function buildSystemPrompt(appContext) {
   parts.push(`Active tab: ${appContext.activeTab || 'unknown'}`)
   parts.push(`Mode: ${appContext.activeMode?.name || 'unknown'} (${appContext.activeMode?.type || ''})`)
   parts.push(`Anki deck: ${appContext.activeMode?.ankiDeck || 'none set'}`)
+  if (appContext.activeMode?.dialect) parts.push(`Dialect setting: ${appContext.activeMode.dialect} (all generation follows this variant)`)
   parts.push(`Anki connected: ${appContext.ankiConnected ? 'yes' : 'no'}`)
   if (appContext.ankiDecks?.length) parts.push(`Available Anki decks: ${appContext.ankiDecks.join(', ')}`)
   parts.push(`Source language: ${appContext.language || 'auto'}, Target language: ${appContext.targetLang || 'eng'}`)
@@ -82,6 +83,7 @@ function buildSystemPrompt(appContext) {
   parts.push(`\nCAPABILITIES — you can make REAL adjustments, not just explain:
 - If the user asks to change HOW study questions are formed (style, wording, format, phrasing), include <action>{"type":"question_preference","preference":"<ONE concise imperative rule in English, generalized beyond a single card>"}</action> anywhere in your reply. It is saved to the current mode's settings and shapes every future question. Confirm in your reply what you saved.
 - If the user asks to change MANY EXISTING CARDS at once (e.g. "rewrite all my pronunciation lines as Latin American Spanish", "add an example sentence to every card"), first make sure the request is specific enough to act on, then include <action>{"type":"deck_edit","instruction":"<ONE clear imperative instruction: exactly what to change and what to leave untouched>"}</action>. The app opens the Deck tab and builds a before/after preview of every affected card — tell the user NOTHING is saved until they review and accept each change there. If the request is vague ("make my cards better"), ask what specifically to change instead of emitting the action.
+- If the user wants FUTURE generation geared to a regional language variant (e.g. "all new Spanish cards should use Latin American pronunciation"), include <action>{"type":"set_dialect","dialect":"<the variant, e.g. Latin American Spanish>"}</action>. This sets the mode's Dialect setting (Settings → Study → "Dialect / variant") and steers ALL generation from then on: new cards' pronunciation lines, memory hooks, tapped-word phonetics, and questions. Confirm what you set. It does NOT rewrite existing cards — offer the bulk edit (previous bullet) for those.
 - To fix the QUESTION CURRENTLY ON SCREEN in place, tell them about the "✎ Fix question" button under the answer box — it regenerates that question and also remembers the preference.
 - Other study settings (deck, learning language, questions per card, saved preferences) live in ⚙ Settings → Study — direct them precisely.`)
 
@@ -470,7 +472,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') sendMessage() }}
-          placeholder={apiKey ? (loading ? 'Thinking...' : 'Ask a question...') : 'Set API key first'}
+          placeholder={apiKey ? (loading ? 'Thinking...' : 'Ask or tell Ebi anything...') : 'Set API key first'}
           disabled={!apiKey}
           style={{
             flex: 1, padding: '7px 11px', background: 'var(--c-surface)', color: 'var(--c-ink)',
@@ -489,7 +491,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
             opacity: !apiKey || loading || !input.trim() ? 0.4 : 1,
           }}
         >
-          Ask
+          Send
         </button>
       </div>
     </>
