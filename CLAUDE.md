@@ -141,7 +141,7 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   in `buildSystemPrompt` tells Ebi about these (incl. "refuse vague bulk requests"), the ✎ Fix question
   button, and where settings live. When adding a new action: CAPABILITIES text + `onAction` branch, and
   keep the composer wording action-y ("Ask or tell Ebi anything…", Send) — Ebi does things, not just Q&A.
-- **The floating shrimp button is removed.** Help is opened from the **"🦐 Hey Ebi"** button in the header
+- **The floating shrimp button is removed.** Help is opened from the **"Talk to Ebi"** button in the header
   (left nav, right after the Stats tab) which bumps `askEbiSignal`; `HelpChat` is rendered with
   `hideButton={true}` so the FAB never shows. With no button, the panel docks bottom-left (`getChatStyle`).
   The panel header shows **Ebi on the right** of the "Ebi's Help" title; it uses the **context-aware pose**

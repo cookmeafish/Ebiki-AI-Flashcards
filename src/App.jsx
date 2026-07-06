@@ -7586,11 +7586,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               </button>
             ))}
           </div>
-          {/* Hey Ebi — opens Ebi's chat (replaces the old floating shrimp button). Not "Ask Ebi":
+          {/* Talk to Ebi — opens Ebi's chat (replaces the old floating shrimp button). Not "Ask Ebi":
               Ebi also ACTS on requests (bulk edits, dialect, preferences), not just answers. */}
           <button onClick={() => setAskEbiSignal((n) => n + 1)} title="Talk to Ebi — ask anything, or tell it what to change" className="ui-btn"
             style={{ ...S.ghostBtn, marginLeft: 8, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)', fontWeight: 700 }}>
-            🦐 Hey Ebi
+            Talk to Ebi
           </button>
         </div>
         <div style={S.headerRight}>
