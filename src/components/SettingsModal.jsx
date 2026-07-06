@@ -325,6 +325,15 @@ export default function SettingsModal(p) {
               </select>
             </div>
           )}
+          {isLanguage && (
+            <div>
+              {fieldLabel('Dialect / variant')}
+              <input type="text" value={activeMode.studyRules?.dialect || ''} placeholder="e.g. Latin American Spanish"
+                onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), dialect: e.target.value } })}
+                style={{ ...S.keyInput, width: 190 }} />
+              <div style={{ fontSize: 10, color: C.inkFaint, marginTop: 3 }}>Steers pronunciation guides, vocabulary and usage in generated cards, hints and hooks. Leave empty for no preference.</div>
+            </div>
+          )}
           <div>
             {fieldLabel(t('quizIn'))}
             <select value={activeMode.studyRules?.quizLanguage || activeMode.studyRules?.studyLanguage || 'English'}

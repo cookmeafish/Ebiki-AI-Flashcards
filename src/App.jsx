@@ -343,6 +343,7 @@ export default function App() {
     questionsPerCard: 3,
     cardsAtOnce: 3,
     studyLanguage: 'English',  // the LEARNED language (answer language); also drives card generation
+    dialect: '',               // regional variant, e.g. "Latin American Spanish" — steers phonetics/vocab/usage in ALL generation
     quizLanguage: '',          // "Ebi speaks" — language Ebi phrases questions/feedback in. '' = same as learned
     wordHints: false,          // show each non-tested word's translation above it (ruby-style)
     grammarFeedback: false,
@@ -475,6 +476,11 @@ export default function App() {
   const [deckAnalyzeError, setDeckAnalyzeError] = useState(null)
   const [deckAnalyzeEmpty, setDeckAnalyzeEmpty] = useState(false) // true when analyze completed with 0 recommendations
   const [deckAnalyzeSkipped, setDeckAnalyzeSkipped] = useState(0) // recs dropped because AI's noteId/front disagreed
+  const [deckAnalyzeKind, setDeckAnalyzeKind] = useState('ambiguous') // 'ambiguous' | 'custom' — what the last run was
+  const [deckAnalyzeInstruction, setDeckAnalyzeInstruction] = useState('') // the custom request behind the current suggestions (shown in the review header)
+  const [deckCustomEditOpen, setDeckCustomEditOpen] = useState(false) // "Ebi bulk edit" instruction panel
+  const [deckCustomEditText, setDeckCustomEditText] = useState('')
+  const pendingDeckEditRef = useRef(null) // instruction handed over from Ebi's Help (deck_edit action) — runs once notes load
   // Duplicate scan / merge
   const [deckDupLoading, setDeckDupLoading] = useState(false)
   const [deckDupGroups, setDeckDupGroups] = useState([]) // [{ noteIds, reason, cards:[{noteId,fields}], mergedFields, accepted }]
@@ -2353,6 +2359,15 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
 
   // The language the active mode is teaching (Spanish, German, Chinese…) and the user's own language.
   const learnLangName = () => activeMode.studyRules?.studyLanguage || (LANGS.find((l) => l.code === language)?.label) || activeMode.name || 'the target language'
+  // Regional variant the learner studies (per-mode, Settings → Study; language modes only).
+  const dialectName = () => (activeMode.type === 'language' ? String(activeMode.studyRules?.dialect || '').trim() : '')
+  // ONE shared prompt line so every generator speaks the same variant — cards, memory hooks,
+  // word-lookup phonetics, questions. Without it models default to the "textbook" region
+  // (Castilian for Spanish: "ga-THE-la"), which is wrong for e.g. a Latin-American learner.
+  const dialectRule = () => {
+    const d = dialectName()
+    return d ? `\nDIALECT: the learner is specifically studying ${d}. Every pronunciation guide / phonetic spelling, sound-alike, vocabulary choice and usage note MUST follow ${d}, never another region's variant (e.g. for Latin American Spanish c/z sound like "s" — seseo — never the Castilian "th").` : ''
+  }
   // Languages whose orthography uses diacritics a learner must TYPE — gates the accent-drill toggle.
   const ACCENT_LANGS = new Set(['spanish', 'french', 'german', 'portuguese', 'italian', 'polish', 'vietnamese', 'czech', 'hungarian', 'romanian', 'turkish', 'swedish', 'norwegian', 'danish', 'finnish', 'icelandic', 'catalan', 'dutch', 'slovak', 'croatian'])
   const langSupportsAccents = (name) => ACCENT_LANGS.has(String(name || '').toLowerCase())
@@ -2392,7 +2407,7 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
     const isLang = activeMode.type === 'language'
     let prompt
     if (isLang) {
-      prompt = LANGUAGE_CARD_PROMPT.replace(/\{LEARN_LANG\}/g, learnLangName()).replace(/\{USER_LANG\}/g, userLangName())
+      prompt = LANGUAGE_CARD_PROMPT.replace(/\{LEARN_LANG\}/g, learnLangName()).replace(/\{USER_LANG\}/g, userLangName()) + dialectRule()
     } else {
       const desc = activeMode.description ? `\nMode description: ${activeMode.description}` : ''
       const backTpl = String(activeMode.backTemplate || '')
@@ -2411,7 +2426,7 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
     const text = await aiCall(apiKey, prompt + await getKnowledgeContext(`Generating flashcards for these ${activeMode.name} terms: ${list.join(', ')}`), JSON.stringify({ words: list }), resolveModel('deck'))
     const parsed = parseAiJson(text)
     let arr = (Array.isArray(parsed) ? parsed : (parsed ? [parsed] : [])).filter((c) => c && (c.front || c.word))
-    arr = await verifyCards(arr, isLang ? learnLangName() : (activeMode.description ? `${activeMode.name} (${activeMode.description})` : activeMode.name))
+    arr = await verifyCards(arr, isLang ? (dialectName() ? `${learnLangName()} (specifically ${dialectName()} — pronunciation/usage must match that variant)` : learnLangName()) : (activeMode.description ? `${activeMode.name} (${activeMode.description})` : activeMode.name))
     return arr.filter((c) => c && (c.front || c.word)).map((c) => ({
       front: c.front || c.word || '',
       back: c.back || '',
@@ -2861,8 +2876,21 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     setDeckBrowserSearch('')
   }
 
+  // A deck_edit action from Ebi's Help arrives before the Deck tab's notes are loaded — run the
+  // bulk-edit preview once they are (skipped if other suggestions are already pending review).
+  useEffect(() => {
+    const instr = pendingDeckEditRef.current
+    if (!instr || activeTab !== 'deck' || deckBrowserNotes.length === 0 || deckAnalyzeLoading || deckAnalyzeRecs.length > 0 || !apiKey) return
+    pendingDeckEditRef.current = null
+    analyzeDeck('custom', instr)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, deckBrowserNotes, deckAnalyzeLoading, apiKey])
+
   // ─── Deck Analyze (find ambiguous cards, propose fixes) ────────────────
-  const analyzeDeck = async () => {
+  // Doubles as the "Ebi, edit my whole deck" engine: kind='custom' + a user instruction reuses the
+  // same propose → before/after review → accept-per-card pipeline, so NOTHING is written to Anki
+  // until the user approves each change — the confirmation layer bulk edits need.
+  const analyzeDeck = async (kind = 'ambiguous', instruction = '') => {
     if (deckBrowserNotes.length === 0 || !apiKey || deckAnalyzeLoading) return
     // Soft limit: very large decks may exceed the model's context or cost a lot. Confirm before proceeding.
     if (deckBrowserNotes.length > 200) {
@@ -2876,6 +2904,8 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     setDeckAnalyzeError(null)
     setDeckAnalyzeEmpty(false)
     setDeckAnalyzeSkipped(0)
+    setDeckAnalyzeKind(kind)
+    setDeckAnalyzeInstruction(kind === 'custom' ? instruction : '')
     try {
       const rules = activeMode.studyRules || defaultStudyRules
       const studyLang = rules.studyLanguage || 'English'
@@ -2893,7 +2923,9 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       // Frame the analysis by what the deck actually IS: language decks look for words with multiple
       // everyday meanings; any other subject looks for underspecified/ambiguous CONCEPT cards.
       const isLangDeck = activeMode.type === 'language'
-      const analyzeFraming = isLangDeck
+      const analyzeFraming = kind === 'custom'
+        ? `You are applying the deck owner's BULK EDIT REQUEST across their flashcards${isLangDeck ? ` in a ${studyLang} learning deck` : ` in a "${activeMode.name}" study deck${activeMode.description ? ` (${activeMode.description})` : ''}`}.${isLangDeck ? dialectRule() : ''}\n\nTHE OWNER'S REQUEST: "${instruction}"\n\nApply the request ONLY to cards it actually calls for changing — skip every card that already satisfies it or that the request does not apply to. Change ONLY what the request covers; leave every other line of the card untouched. In "reason", state in one short sentence what you changed on that card.`
+        : isLangDeck
         ? `You are analyzing flashcards in a ${studyLang} learning deck. Find cards where the ${studyLang} word/phrase has MULTIPLE distinct everyday meanings that the card's current content does NOT disambiguate.\n\nFor each ambiguous card, propose updated field content that clarifies the intended meaning — e.g. specify the domain, add a usage example, or list the senses with a short note for each.\n\nDO NOT flag cards where:\n- The word has only one common meaning\n- The current content already disambiguates well\n- A learner would clearly understand from common usage`
         : `You are analyzing flashcards in a "${activeMode.name}" study deck${activeMode.description ? ` (${activeMode.description})` : ''}. Find cards that are AMBIGUOUS or UNDERSPECIFIED for this subject: a term whose intended sense isn't pinned down, a vague or incomplete definition, a front that several different concepts could answer, or missing context that makes the card hard to study.\n\nFor each such card, propose updated field content that pins the intended meaning — specify the domain/context, tighten the definition, or add a clarifying example that fits the subject.\n\nDO NOT flag cards where:\n- The content is already specific and unambiguous\n- A student of this subject would clearly understand it as written`
       const fieldLangRule = isLangDeck
@@ -4661,7 +4693,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const choicesBlock = !wantChoices ? '' : `\nMULTIPLE-CHOICE SESSION — REQUIRED:\n- Every question will be answered by picking ONE option from a list, never by typing. Do NOT generate open "explain in your own words" questions: where a depth/usage question is called for, ask it as something with ONE selectable answer (e.g. "Which sentence uses the word correctly?", "Which statement about X is true?", "Which option means ...?"). Use type "recall" or "fill_blank" for every question.\n- For EACH question ALSO return:\n  "choices": exactly 4 options — 1 correct + 3 plausible but clearly WRONG distractors. Distractors must be the same kind of thing as the answer (same part of speech / same category / same level of detail), must fit the question grammatically, and must be tempting to someone who half-knows the material — but NEVER defensible as correct. NEVER include two options that could both be argued correct (no synonyms of the answer, no alternate spellings of it).\n  "answerIdx": the 0-based index of the correct option within "choices".\n- The correct option must be EXACTLY one of the acceptedAnswers (same casing rules aside).\n- Write the options in the same language as the expected answer${isLanguage ? ` (${learnLang})` : ''}; keep each option SHORT (a word, phrase, or one short sentence).\n- With options visible, first-letter cues would give the answer away — do NOT add "empieza con"-style letter cues to the question text; a sense/nuance cue is still fine.\n`
 
     const generalBlock = isLanguage ? '' : `\nGENERAL STUDY MODE — REQUIRED:\n- This is a general study mode for the subject "${activeMode.name}"${activeMode.description ? ` (${activeMode.description})` : ''}. It is NOT a language course.\n- Match the question style to what the subject actually IS: exam-style for certifications, applied "what would you do/use" for practical skills and procedures, notation/theory for music or math, cause/effect for science or history. The card and the subject decide — never force one template onto every subject.\n- Write EVERY question, instruction, and all framing in ${quizLang} (that is the language Ebi speaks to this student).\n- Do NOT generate language-learning questions: never ask the student to translate, never ask "how do you say X in <language>", never ask "in <language>, what word/noun/verb…", and never quiz a word's gender, article, or conjugation. Speaking ${quizLang} does not make this a ${quizLang} course — it is still purely about "${activeMode.name}".\n- Even if a card's term is written in another language, test the underlying CONCEPT, fact, or meaning — not vocabulary translation. The expected answer is the term/concept exactly as it appears on the card (subject terms/proper names stay as-is on the card, untranslated).\n`
-    const languageBlock = isLanguage ? `\nLANGUAGE MODE — REQUIRED:\n- The student is LEARNING ${learnLang}. The EXPECTED ANSWER is ALWAYS the ${learnLang} word/phrase on the card, regardless of which side it's on.\n- Identify the ${learnLang} word on the card (the one NOT written in ${userLang}) — that is the answer. The ${userLang} side is just the meaning/hint.\n- "acceptedAnswers" MUST contain the ${learnLang} word (lowercase, plus close variants with/without accents). NEVER put the ${userLang} meaning in acceptedAnswers.\n- EBI SPEAKS ${quizLang}: write all instructions, question framing, and feedback in ${quizLang}.${sameLang ? '' : ` EXCEPTION: a fill-in-the-blank/example SENTENCE that must contain the ${learnLang} answer stays in ${learnLang} (you cannot blank a ${learnLang} word out of a ${quizLang} sentence) — only the wrapper instruction around it is in ${quizLang}.`}\n- LANGUAGE NAMES = ENDONYMS: whenever a question written in ${quizLang} names a language, use that language's OWN name (its endonym), NEVER the English name. So a Spanish question says "en español" (never "en Spanish"), a French one "en français", Japanese "日本語で", German "auf Deutsch". Do NOT drop English language names into non-English text.\n- Treat the word in its BROADEST everyday meaning. If the card text doesn't pin down a specific domain, do NOT restrict questions to specialized contexts (programming, medicine, law, military, etc.). Example: "puntero" alone could be a clock hand, laser pointer, finger, or mouse cursor — don't assume programming.\n- BUT if the card text explicitly indicates a domain (e.g. back says "Pointer (C/C++)", tag mentions a field), quiz within that domain.${wantHints ? `\n- WORD HINTS: for EACH question, also return a "glosses" object mapping every ${learnLang} content word that appears in the question text (EXCEPT the answer word and the blank) to a SHORT ${userLang} meaning. Skip bare punctuation. This lets a weak ${learnLang} reader understand the sentence.` : ''}\n` : ''
+    const languageBlock = isLanguage ? `\nLANGUAGE MODE — REQUIRED:\n- The student is LEARNING ${learnLang}. The EXPECTED ANSWER is ALWAYS the ${learnLang} word/phrase on the card, regardless of which side it's on.\n- Identify the ${learnLang} word on the card (the one NOT written in ${userLang}) — that is the answer. The ${userLang} side is just the meaning/hint.\n- "acceptedAnswers" MUST contain the ${learnLang} word (lowercase, plus close variants with/without accents). NEVER put the ${userLang} meaning in acceptedAnswers.\n- EBI SPEAKS ${quizLang}: write all instructions, question framing, and feedback in ${quizLang}.${sameLang ? '' : ` EXCEPTION: a fill-in-the-blank/example SENTENCE that must contain the ${learnLang} answer stays in ${learnLang} (you cannot blank a ${learnLang} word out of a ${quizLang} sentence) — only the wrapper instruction around it is in ${quizLang}.`}\n- LANGUAGE NAMES = ENDONYMS: whenever a question written in ${quizLang} names a language, use that language's OWN name (its endonym), NEVER the English name. So a Spanish question says "en español" (never "en Spanish"), a French one "en français", Japanese "日本語で", German "auf Deutsch". Do NOT drop English language names into non-English text.\n- Treat the word in its BROADEST everyday meaning. If the card text doesn't pin down a specific domain, do NOT restrict questions to specialized contexts (programming, medicine, law, military, etc.). Example: "puntero" alone could be a clock hand, laser pointer, finger, or mouse cursor — don't assume programming.\n- BUT if the card text explicitly indicates a domain (e.g. back says "Pointer (C/C++)", tag mentions a field), quiz within that domain.${dialectRule()}${wantHints ? `\n- WORD HINTS: for EACH question, also return a "glosses" object mapping every ${learnLang} content word that appears in the question text (EXCEPT the answer word and the blank) to a SHORT ${userLang} meaning. Skip bare punctuation. This lets a weak ${learnLang} reader understand the sentence.` : ''}\n` : ''
 
     const prompt = `Card front: "${front}"\nCard back: "${back}"\n${languageBlock}${generalBlock}${choicesBlock}\n${orderRules}\n\nCRITICAL RULES:\n- Questions must require the SPECIFIC answer on this card — synonyms are NOT acceptable for recall/fill_blank questions\n- NEVER construct a question whose only purpose is to directly name the answer (e.g. "what noun corresponds to adjective X?" when that noun IS the answer)\n- THE ANSWER MUST NEVER APPEAR IN THE QUESTION TEXT — not the target word, not ANY acceptedAnswers entry, not inside the parenthetical sense cue. Writing "(rollo antiguo de papel o pergamino…)" when the answer IS "pergamino" destroys the question. Describe the sense WITHOUT the word or its inflected forms; if you can't, take a different angle instead.\n- Each question must test a DIFFERENT angle\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question before finalizing): mentally substitute 2–3 plausible alternative ${learnLang} words — ESPECIALLY synonyms — into the question. If ANY of them still fit after reading the WHOLE question, it is INVALID and you MUST fix it. THE REQUIRED FIX: embed a compact parenthetical cue in ${quizLang} right at the blank that names the target word's precise meaning/nuance, and ADD its first letter whenever a synonym would otherwise survive. This inline cue is PART OF the question text and is mandatory for any word that has synonyms — a bare sentence is almost never enough. (The separate hint1/hint2 fields are revealed only on demand and do NOT count as disambiguation.) A blank surrounded only by a GENERIC predicate that many words satisfy is INVALID until you add the cue. Prefer a slightly over-specified question with a clear cue over an elegant but ambiguous one.\n  - BAD: "Al ver al depredador, la gacela ___ a toda velocidad para salvar su vida." Target "huye" — but "corre", "escapa", "salta" all fit. INVALID.\n  - GOOD: "Al ver al depredador, la gacela ___ (escapar de un peligro; empieza con "h") a toda velocidad para salvar su vida." — the cue pins "huye".\n  - BAD: "Sienten una atracción ___: él la quiere a ella y ella lo quiere a él por igual." Target "recíproca" — but "mutua" fits equally. INVALID.\n  - GOOD: "Sienten una atracción ___ (correspondida por ambos; empieza con "r"): él la quiere a ella y ella lo quiere a él por igual." — the cue pins "recíproca".\n- For language cards: test usage in sentences, grammatical properties, contextual usage\n- For conceptual cards: test application, process, comparison\n\n${questionPrompt}${qPrefsBlock}\n\n${isLanguage ? `Phrase every question and its framing in ${quizLang} (target-language sentences that hold the ${learnLang} answer stay in ${learnLang}).` : `Write all questions in ${quizLang}.`}${knowledgeContext}\n\nReturn a JSON array of exactly ${n} objects:\n[\n  {\n    "question": "the question text",\n    "type": "recall" | "fill_blank" | "explanation",\n    "hint1": "N letters" (letter count of primary answer, null for explanation),\n    "hint2": "starts with 'X'" (first letter of primary answer, null for explanation),\n    "acceptedAnswers": ["answer1", "answer2"] (lowercase; exact words that are correct; empty for explanation),${wantChoices ? `\n    "choices": ["option1", "option2", "option3", "option4"] (exactly 4; one correct + 3 plausible-but-wrong distractors),\n    "answerIdx": 0 (index of the correct option in "choices"),` : ''}${wantHints ? `\n    "glosses": { "<non-answer ${learnLang} word in the question>": "<short ${userLang} meaning>" } (only ${learnLang} content words shown in the question, excluding the answer/blank; {} if none),` : ''}\n    "pose": one mascot pose name that best fits this question's topic, chosen ONLY from: ${POSE_NAMES.join(', ')} (use "default" if none fit)\n  }\n]\nOutput ONLY raw JSON array. No markdown, no backticks.`
 
@@ -5714,7 +5746,7 @@ Return ONLY raw JSON:
       // Disambiguate by the WHOLE question — the same word can mean different things in different
       // contexts. Return the in-context meaning (shown in the legend's "correct" green) plus other
       // common senses (shown in the legend's "word choice" purple).
-      const prompt = `A learner tapped the word "${word}" in this ${studyLang} study question. Read the ENTIRE question for context — the same word can have different meanings depending on context.
+      const prompt = `A learner tapped the word "${word}" in this ${studyLang} study question. Read the ENTIRE question for context — the same word can have different meanings depending on context.${dialectRule()}
 
 Question: "${sentence}"
 
@@ -5866,7 +5898,7 @@ Begin your reply with the chosen method name in bold followed by a colon, e.g. "
 
 Flashcard front: "${front}"
 Flashcard back: "${back}"
-Subject / study mode: "${activeMode.name}"${isLanguage ? `\nThis is a ${learnLang} vocabulary card: memorize the ${learnLang} word and its meaning.` : `\nThis is a general study card (NOT language learning): memorize the concept/fact itself, never treat it as a translation exercise.`}
+Subject / study mode: "${activeMode.name}"${isLanguage ? `\nThis is a ${learnLang} vocabulary card: memorize the ${learnLang} word and its meaning.${dialectRule()}` : `\nThis is a general study card (NOT language learning): memorize the concept/fact itself, never treat it as a translation exercise.`}
 
 ${METHODS[method] || METHODS.meaning}${activeMode.mnemonicHints ? `\n\nMODE-SPECIFIC HOOK GUIDANCE (configured for this subject — follow it): ${activeMode.mnemonicHints}` : ''}${prior.length ? `\n\nThe learner already has these memory aids for this card, so give a genuinely DIFFERENT one (new angle, do not repeat them):\n${prior.map((m, i) => `${i + 1}. ${m}`).join('\n')}` : ''}
 
@@ -6898,7 +6930,7 @@ IMPORTANT BEHAVIOR RULES:
 ${activeMode.type === 'language' ? `   - LANGUAGE MODE (learning ${learnLangName()}, user speaks ${userLangName()}) — use this back format, each label on its own line, with the LABELS WRITTEN IN ${learnLangName()}:
      front: "<word> (<part of speech written in ${learnLangName()}>)"
      back lines: pronunciation (phonetics for a ${userLangName()} speaker, stress in CAPS), translation (to ${userLangName()}), direct/literal translation (omit the line if none), synonyms (in ${userLangName()}), definition (written IN ${learnLangName()}), example (a natural ${learnLangName()} sentence with its ${userLangName()} translation in parentheses).
-     tags: include part of speech, level, topic, and "ebiki". Only use REAL, correctly-spelled ${learnLangName()} words.` : `   - Design a back that best teaches this subject (definition, key points, formula, example as fits). Always include an "ebiki" tag.`}
+     tags: include part of speech, level, topic, and "ebiki". Only use REAL, correctly-spelled ${learnLangName()} words.${dialectRule()}` : `   - Design a back that best teaches this subject (definition, key points, formula, example as fits). Always include an "ebiki" tag.`}
 
 3. For general questions: be concise and helpful. Explain concepts clearly.
 
@@ -7846,11 +7878,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 </button>
                 {deckBrowserNotes.length > 0 && (<>
                   <button
-                    onClick={analyzeDeck}
+                    onClick={() => analyzeDeck()}
                     disabled={deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0}
                     style={{ background: 'rgba(139,92,246,0.12)', color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: (deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0) ? 0.5 : 1 }}
                   >
-                    {deckAnalyzeLoading ? 'Analyzing...' : 'Analyze for ambiguous cards'}
+                    {deckAnalyzeLoading && deckAnalyzeKind === 'ambiguous' ? 'Analyzing...' : 'Analyze for ambiguous cards'}
                   </button>
                   <button
                     onClick={scanDuplicates}
@@ -7859,16 +7891,53 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   >
                     {deckDupLoading ? 'Scanning...' : 'Scan for duplicates'}
                   </button>
+                  <button
+                    onClick={() => setDeckCustomEditOpen((v) => !v)}
+                    disabled={!apiKey}
+                    className="tip tip-r" data-tip="Tell Ebi how to change the cards in this deck — you review every proposed change before anything is saved"
+                    style={{ background: 'rgba(139,92,246,0.12)', color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: !apiKey ? 0.5 : 1 }}
+                  >
+                    ✨ Ebi bulk edit
+                  </button>
                   {!apiKey && <span style={{ fontSize: 10, color: 'var(--c-ink-dim)' }}>(API key required)</span>}
                   {deckAnalyzeError && <span style={{ fontSize: 10, color: 'var(--c-danger)' }}>{deckAnalyzeError}</span>}
                   {deckDupError && <span style={{ fontSize: 10, color: 'var(--c-danger)' }}>{deckDupError}</span>}
                   {deckAnalyzeEmpty && !deckAnalyzeLoading && (
-                    <span style={{ fontSize: 10, color: 'var(--c-success)' }}>No ambiguous cards found — your deck looks clean.</span>
+                    <span style={{ fontSize: 10, color: 'var(--c-success)' }}>{deckAnalyzeKind === 'custom' ? 'Ebi found no cards that need that change.' : 'No ambiguous cards found — your deck looks clean.'}</span>
                   )}
                   {deckDupEmpty && !deckDupLoading && (
                     <span style={{ fontSize: 10, color: 'var(--c-success)' }}>No duplicates found — your deck looks clean.</span>
                   )}
                 </>)}
+              </div>
+            )}
+
+            {/* Ebi bulk edit — free-text instruction → AI proposes per-card changes → the SAME
+                before/after accept/deny review as Analyze. Nothing writes to Anki unapproved. */}
+            {deckCustomEditOpen && (
+              <div style={{ marginBottom: 12, border: '1px solid rgba(139,92,246,0.3)', borderRadius: 8, padding: 14, background: 'rgba(139,92,246,0.04)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <div style={{ fontSize: 12, color: 'var(--c-purple)', fontWeight: 700 }}>✨ Ebi bulk edit</div>
+                  <button onClick={() => setDeckCustomEditOpen(false)} style={{ ...S.ghostBtn, fontSize: 11 }}>Close</button>
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 6 }}>
+                  Describe ONE change to apply across «{deckBrowserDeck}». Ebi proposes the edits card by card and <b>nothing is saved until you review and accept each one</b>.
+                </div>
+                <textarea
+                  value={deckCustomEditText}
+                  onChange={(e) => setDeckCustomEditText(e.target.value)}
+                  placeholder={activeMode.type === 'language' ? 'e.g. Rewrite every pronunciation line to Latin American Spanish — seseo, never the Castilian "TH"' : 'e.g. Add a one-line real-world example to every definition-only card'}
+                  rows={2}
+                  style={{ width: '100%', boxSizing: 'border-box', fontSize: 12, fontFamily: 'inherit', padding: 8, borderRadius: 6, border: '1px solid var(--c-border)', background: 'var(--c-surface-sunken)', color: 'var(--c-ink)', resize: 'vertical' }}
+                />
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+                  <button onClick={() => analyzeDeck('custom', deckCustomEditText.trim())}
+                    disabled={deckAnalyzeLoading || !deckCustomEditText.trim() || deckAnalyzeRecs.length > 0}
+                    style={{ background: 'rgba(139,92,246,0.14)', color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,0.4)', borderRadius: 5, padding: '7px 12px', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: (deckAnalyzeLoading || !deckCustomEditText.trim() || deckAnalyzeRecs.length > 0) ? 0.5 : 1 }}>
+                    {deckAnalyzeLoading && deckAnalyzeKind === 'custom' ? 'Ebi is working…' : 'Preview changes'}
+                  </button>
+                  {deckAnalyzeRecs.length > 0 && <span style={{ fontSize: 10, color: 'var(--c-ink-dim)' }}>Review the suggestions below, then accept or dismiss them.</span>}
+                </div>
               </div>
             )}
 
@@ -8001,6 +8070,14 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               const acceptedCount = deckAnalyzeRecs.filter((r) => r.accepted).length
               return (
                 <div style={{ marginBottom: 16, border: '1px solid rgba(139,92,246,0.25)', borderRadius: 6, padding: '10px 12px', background: 'rgba(139,92,246,0.04)' }}>
+                  {/* Provenance: exactly which request produced these suggestions — the user must be
+                      able to verify Ebi understood them before accepting anything (esp. when the
+                      request arrived via Ebi's Help chat rather than the panel). */}
+                  {deckAnalyzeInstruction && (
+                    <div style={{ fontSize: 11, color: 'var(--c-ink-dim)', marginBottom: 8, lineHeight: 1.5 }}>
+                      ✨ Bulk edit request: <i style={{ color: 'var(--c-ink)' }}>"{deckAnalyzeInstruction}"</i> — nothing is saved until you accept changes and click Save.
+                    </div>
+                  )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
                     <div style={{ fontSize: 12, color: 'var(--c-purple)', fontWeight: 600 }}>
                       {deckAnalyzeRecs.length} suggestion{deckAnalyzeRecs.length === 1 ? '' : 's'} • {acceptedCount} accepted
@@ -10705,6 +10782,17 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             if (pref && !prevPrefs.includes(pref)) {
               updateModeById(modeId, { studyRules: { ...sr, questionPreferences: [...prevPrefs, pref].slice(-12) } })
               console.log('[Help] saved question-style preference:', pref)
+            }
+          } else if (action?.type === 'deck_edit' && action.instruction) {
+            // Bulk deck edit requested in chat: hand the instruction to the Deck tab's bulk-edit
+            // pipeline. It only produces a PREVIEW — the user accepts/denies each card there.
+            const instr = String(action.instruction).trim().slice(0, 500)
+            if (instr) {
+              pendingDeckEditRef.current = instr
+              setDeckCustomEditText(instr)
+              setDeckCustomEditOpen(true)
+              setActiveTab('deck')
+              console.log('[Help] deck_edit handed to Deck tab:', instr)
             }
           }
         }}
