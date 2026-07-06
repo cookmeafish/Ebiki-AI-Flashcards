@@ -578,6 +578,13 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   whose translation would reveal it. Render: every word in the line gets the same stacked column (blank slot
   above un-glossed words) so the baseline stays even.
 - AI failures (out of credits / rate limit / bad key) surface a toast; the secondary pose call is `silent`.
+- **Bottom-center toasts (three, all `position:fixed` bottom-center, z 10001 so they float ABOVE the
+  settings modal at z 1000):** `modelHealNotice` (blue-ish, model auto-switch, 7s), `aiErrorNotice` (red,
+  AI request failure, stays until dismissed), and `successNotice` (green ✅, transient 6s — reusable "done"
+  confirmation). `createMode` sets `successNotice` on success ("Created the … mode and switched to it") —
+  IMPORTANT: `createMode` runs on App, not the settings modal, so closing Settings mid-create does NOT
+  cancel it; `saveModes` persists the mode regardless. Prefer `successNotice` for any future
+  action-succeeded feedback rather than adding another toast state.
 - Images are non-draggable globally (`img { -webkit-user-drag: none }`): a dragged `<img>` reports `'Files'`
   in `dataTransfer`, which used to falsely trip the "Drop image here" overlay. `handleDragOver` also guards
   on `dataTransfer.types` including `'Files'`.
