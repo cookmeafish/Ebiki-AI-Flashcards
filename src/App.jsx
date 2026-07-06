@@ -7921,7 +7921,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   <button onClick={() => setDeckCustomEditOpen(false)} style={{ ...S.ghostBtn, fontSize: 11 }}>Close</button>
                 </div>
                 <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 6 }}>
-                  Describe ONE change to apply across «{deckBrowserDeck}». Ebi proposes the edits card by card and <b>nothing is saved until you review and accept each one</b>.
+                  Describe ONE change to apply across the <b style={{ color: 'var(--c-ink)' }}>{deckBrowserDeck}</b> deck. Ebi proposes the edits card by card and <b>nothing is saved until you review and accept each one</b>.
                 </div>
                 <textarea
                   value={deckCustomEditText}
