@@ -6229,7 +6229,7 @@ Write in ${explainLang}. ${lengthRule} No backup hooks, no preamble, no explaini
       }).join('\n\n')
 
       const gradingRules = isLanguage
-        ? `Grading rules by question type:\n- recall / fill_blank: mark CORRECT if the student's answer CONTAINS one of the "Accepted answers" — ignore a leading article (e.g. "una", "el") and extra function words, so "una huelga" is CORRECT for "huelga". Normalize for case, accents, and minor typos. Synonyms, related words, or different words with the same meaning are INCORRECT — mark them wrong and note the specific word this card tests. If no "Accepted answers" line is given, fall back to the ${learnLang} side of the card.\n- INFLECTION TOLERANCE (fill_blank): a different grammatical FORM of the SAME target word (verb tense/mood/person, or noun/adjective gender/number) is the SAME word, NOT a synonym. If the sentence does NOT contain a clear marker forcing one specific form — a time adverb (ayer, mañana, siempre, ahora), an explicit subject, or grammatical agreement — then accept ANY grammatically correct form of the target lemma that fits the sentence, even if it differs from the accepted list (e.g. present "huye" is CORRECT when the list says preterite "huyó" but nothing in the sentence indicates past tense). Only require the exact inflection when the sentence unambiguously forces it; never invent a tense the sentence does not signal.\n- explanation: grade on conceptual understanding — accept any answer that correctly addresses the question.\nALWAYS note any grammar, spelling, or accent issues in the feedback (e.g. missing accent mark on brújula). These notes are educational, not penalizing.`
+        ? `Grading rules by question type:\n- recall / fill_blank: mark CORRECT if the student's answer CONTAINS one of the "Accepted answers" — ignore a leading article (e.g. "una", "el") and extra function words, so "una huelga" is CORRECT for "huelga". Normalize for case, accents, and minor typos. Synonyms, related words, or different words with the same meaning are INCORRECT — mark them wrong and note the specific word this card tests. If no "Accepted answers" line is given, fall back to the ${learnLang} side of the card.\n- INFLECTION TOLERANCE (fill_blank): a different grammatical FORM of the SAME target word (verb tense/mood/person, or noun/adjective gender/number) is the SAME word, NOT a synonym. If the sentence does NOT contain a clear marker forcing one specific form — a time adverb (ayer, mañana, siempre, ahora), an explicit subject, or grammatical agreement — then accept ANY grammatically correct form of the target lemma that fits the sentence, even if it differs from the accepted list (e.g. present "huye" is CORRECT when the list says preterite "huyó" but nothing in the sentence indicates past tense). Only require the exact inflection when the sentence unambiguously forces it; never invent a tense the sentence does not signal.\n- explanation: grade on conceptual understanding — accept any answer that correctly addresses the question.\n- GENDER/ARTICLE questions: the definite/indefinite article ALREADY encodes the gender (el/un/los/unos = masculine; la/una/las/unas = feminine). So if a question asks for BOTH the gender AND the article and the student gives the correct article (e.g. "el"), that FULLY answers it — treat it as complete and do NOT add a note telling them to also state the gender explicitly (it is redundant). Likewise, giving the correct gender word ("masculine") answers the article implicitly.\nALWAYS note any grammar, spelling, or accent issues in the feedback (e.g. missing accent mark on brújula). These notes are educational, not penalizing.`
         : `Grading rules:\n- This is NOT a vocabulary test. The student answers in their own words to explain concepts or situations. Grade EVERY question on conceptual understanding: mark CORRECT if the answer demonstrates correct understanding of the topic, even when phrased differently, with extra words, or not matching the reference answer exactly. Only mark WRONG if the answer is factually incorrect, off-topic, or empty. When useful, add a brief note in the feedback about anything they missed.`
 
       const knowledgeRef = !studyKnowledge ? '' : knowledgeIsBig()
@@ -6519,7 +6519,9 @@ Write in ${explainLang}. ${lengthRule} No backup hooks, no preamble, no explaini
             const days = easeToDueDays(cs.ease)
             const ease = Math.min(Math.max(cs.ease, 1), 4)
             console.log('[Anki sync] setDueDate+insertReviews fallback (new card)', cs.cardId, 'days', days, 'ease', ease)
-            await ankiSetDueDate([cs.cardId], days)
+            // "!" also sets the interval (not just the due date) so the new card graduates with the
+            // right interval instead of staying ivl=0 (which Anki would then reschedule oddly).
+            await ankiSetDueDate([cs.cardId], days + '!')
             // setDueDate reschedules but writes no revlog row, so Anki would show "0 studied". Add the
             // revlog entry so the card counts in Cards Today / streak / accuracy. +i keeps the id unique.
             const ivl = Math.max(0, parseInt(days, 10) || 0)
@@ -6559,22 +6561,30 @@ Write in ${explainLang}. ${lengthRule} No backup hooks, no preamble, no explaini
             }
           }
           if (answered) continue
-          // Reviewer still would not present it (another card ahead, or a daily review limit is
-          // blocking the queue). LOW ratings may record approximately: Again/Hard mirrors a lapse
-          // (interval only ever gets SHORTER — nothing can inflate), so the struggle is never
-          // lost. Good/Easy must never be approximated on a review card (that is what inflated
-          // intervals to years) — those stay pending for the next sync attempt.
-          if (cs.ease <= 2) {
-            const days = cs.ease === 1 ? '0' : '1'
-            console.log('[Anki sync] conservative approximate fallback (low rating)', cs.cardId, 'days', days)
-            await ankiSetDueDate([cs.cardId], days)
-            await ankiInsertReviews([[Date.now() + failed.length + synced.length, cs.cardId, -1, cs.ease, parseInt(days, 10) || 0, 0, 2500, 0, 0]])
-              .catch((e) => console.warn('[Anki sync] insertReviews failed (rating still rescheduled):', e.message))
-            markSynced(cs)
-            continue
-          }
-          console.error('[Anki sync] could not present card', cs.cardId, '— Good/Easy left unrecorded, schedule untouched (will retry on next sync)')
-          failed.push(cs)
+          // Reviewer still would not present it (an UNRELATED due card is ahead of ours in the deck's
+          // queue, or a daily review limit blocks it — we must not touch cards we didn't study, so the
+          // reviewer can't reach ours). Record the review with a PROPER interval computed from the
+          // card's OWN current interval + ease factor: exactly ONE SM-2 step, the same math Anki uses.
+          // This is NOT the old arbitrary-constant approximation that inflated intervals to years — it
+          // grows by a single step from the card's REAL interval, and markSynced()/studySyncedIdsRef
+          // guarantee it runs at most once per card per session, so nothing can compound.
+          const info = await ankiCardsInfo([cs.cardId]).then((r) => r && r[0]).catch(() => null)
+          const curIvl = info && info.interval > 0 ? info.interval : 1
+          const factor = info && info.factor >= 1300 ? info.factor : 2500  // permille (2500 = 2.5x)
+          let newIvl
+          if (cs.ease === 1) newIvl = 0                                              // Again → relearn (due today)
+          else if (cs.ease === 2) newIvl = Math.max(1, Math.round(curIvl * 1.2))     // Hard
+          else if (cs.ease === 3) newIvl = Math.max(1, Math.round(curIvl * factor / 1000))        // Good
+          else newIvl = Math.max(1, Math.round(curIvl * factor / 1000 * 1.3))        // Easy (+ easy bonus)
+          newIvl = Math.min(newIvl, 36500)
+          console.log('[Anki sync] computed-interval fallback (reviewer blocked)', cs.cardId, 'ivl', curIvl, '→', newIvl, 'ease', cs.ease)
+          // "!" makes setDueDate ALSO set the interval (not just the due date), so the rating actually
+          // takes effect — otherwise an Easy barely moves the card and an Again keeps its long interval.
+          await ankiSetDueDate([cs.cardId], newIvl + '!')
+          await ankiInsertReviews([[Date.now() + failed.length + synced.length, cs.cardId, -1, cs.ease, newIvl, curIvl, factor, 0, 0]])
+            .catch((e) => console.warn('[Anki sync] insertReviews failed (rating still rescheduled):', e.message))
+          markSynced(cs)
+          continue
         } catch (err2) {
           console.error('[Anki sync] fallback failed for card', cs.cardId, err2.message)
           failed.push(cs)
