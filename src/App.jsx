@@ -2713,16 +2713,20 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     if (!ankiConnected) return
     const decks = await ankiGetDecks().catch(() => [])
     setAnkiDecks(decks)
-    const deck = ankiDeck || decks[0] || ''
+    // Respect the user's last-chosen deck (persisted in localStorage → deckBrowserDeck) if it still
+    // exists; only fall back to the mode deck / first deck when nothing valid is saved. Without this
+    // the browser reset to decks[0] ("Comptia Security+ Test") on every open, discarding the choice.
+    const deck = (deckBrowserDeck && decks.includes(deckBrowserDeck)) ? deckBrowserDeck : (ankiDeck || decks[0] || '')
     setDeckBrowserDeck(deck)
     setDeckBrowserActive(true)
     setDeckBrowserNotes([])
     if (deck) loadDeckNotes(deck)
   }
 
-  const loadDeckNotes = async (deck) => {
-    setDeckBrowserLoading(true)
-    setDeckBrowserEditing(null)
+  // `quiet` = a background refresh (re-entering the Deck tab): keep the current list on screen,
+  // don't flash the spinner, and don't cancel an in-progress edit — just fold in new/changed cards.
+  const loadDeckNotes = async (deck, { quiet = false } = {}) => {
+    if (!quiet) { setDeckBrowserLoading(true); setDeckBrowserEditing(null) }
     try {
       const noteIds = await ankiFindNotes(`deck:"${deck}"`)
       const notes = noteIds.length > 0 ? await ankiNotesInfo(noteIds) : []
@@ -2872,7 +2876,10 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     }
   }
 
-  const closeDeckBrowser = () => {
+  // Leaving the Deck tab no longer tears the browser down — we keep notes/search/expanded/scroll so
+  // returning is instant (was the "switching to Deck refreshes the page" bug). This only syncs any
+  // edits made in the browser back into a live study session; the state is left intact.
+  const syncDeckEditsToStudy = () => {
     // Sync any edited notes back into the active study session
     if (deckBrowserNotes.length > 0 && studyAllCards.length > 0) {
       const noteMap = {}
@@ -2888,10 +2895,6 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         return { ...cs, front: getCardFront(card), back: getCardBack(card) }
       }))
     }
-    setDeckBrowserActive(false)
-    setDeckBrowserNotes([])
-    setDeckBrowserEditing(null)
-    setDeckBrowserSearch('')
   }
 
   // A deck_edit action from Ebi's Help arrives before the Deck tab's notes are loaded — run the
@@ -3941,15 +3944,40 @@ Return ONLY a JSON array (no markdown):
 
   // Auto-open the deck browser when the Deck tab is entered, sync edits back when leaving.
   const prevTabRef = useRef(null)
+  // Preserve the Deck tab's scroll position across tab switches. The <main> unmounts when you leave
+  // the tab, so its scrollTop is lost; we stash it on scroll and restore it before paint on return.
+  const deckMainRef = useRef(null)
+  const deckScrollTopRef = useRef(0)
+  const deckLeftAtRef = useRef(0)   // when the Deck tab was last left — used to expire the saved scroll
   useEffect(() => {
-    if (activeTab === 'deck' && !deckBrowserActive && ankiConnected) {
-      openDeckBrowser()
+    if (activeTab === 'deck' && ankiConnected) {
+      if (!deckBrowserActive) {
+        openDeckBrowser()                       // first entry — full init
+      } else if (deckBrowserDeck) {
+        // Re-entry: keep the browser as-is but quietly pull in any cards added elsewhere
+        // (Quick Add, study, Anki itself) and pick up newly-created decks — no teardown/flash.
+        ankiGetDecks().then((d) => setAnkiDecks(d)).catch(() => {})
+        loadDeckNotes(deckBrowserDeck, { quiet: true })
+      }
     }
     if (prevTabRef.current === 'deck' && activeTab !== 'deck' && activeTab !== null) {
-      closeDeckBrowser()
+      syncDeckEditsToStudy()
+      deckLeftAtRef.current = Date.now()
     }
     prevTabRef.current = activeTab
   }, [activeTab, ankiConnected])
+
+  // Restore the Deck tab's scroll position on re-entry (notes persist across switches now, so the
+  // list is already laid out — set scrollTop before paint so there's no jump to the top).
+  useLayoutEffect(() => {
+    if (activeTab === 'deck' && deckMainRef.current) {
+      // After 3+ minutes away, drop the saved position and start at the top (a fresh visit);
+      // within the window, restore exactly where the user was.
+      const stale = deckLeftAtRef.current && (Date.now() - deckLeftAtRef.current > 3 * 60 * 1000)
+      if (stale) deckScrollTopRef.current = 0
+      deckMainRef.current.scrollTop = deckScrollTopRef.current
+    }
+  }, [activeTab])
 
   // ─── Knowledge Base Management ──────────────────────────────────────────
   const loadKnowledgeFiles = async () => {
@@ -4656,6 +4684,43 @@ Output ONLY raw JSON. No markdown, no backticks.`
     return out
   }
 
+  // ── First-letter cue guarantee (LANGUAGE-AGNOSTIC) ────────────────────────────────────────────
+  // A typed translation / fill-in-the-blank is only fair if the student can tell WHICH word is
+  // wanted — "hat" is sombrero OR gorra, "run" is correr OR huir. The generator is told to ALWAYS
+  // pin the target with a parenthetical cue that carries the answer's first letter, phrased in
+  // whatever language Ebi speaks. These are the deterministic safety net around the prompt, working
+  // for ANY learned language + ANY Ebi-speaks language:
+  //   • hasLetterCue  — detect a first-letter cue already present. Language-neutral: a single letter
+  //     inside quotes ('…"s"…', '…«s»…', '…「や」…') OR a letter-skeleton ("s···"). Covers the way the
+  //     model writes the cue in every language (the letter is always quoted), not English phrases.
+  //   • appendLetterCue — last resort: append a letter skeleton (first letter + a dot per remaining
+  //     letter), which needs NO natural language, so it is correct regardless of script/tongue.
+  const CUE_QUOTES = '"\'`«»‘’“”‹›「」『』'
+  const letterCueRe = new RegExp(`[${CUE_QUOTES}]\\s*\\p{L}\\s*[${CUE_QUOTES}]|\\p{L}[·_]{2,}`, 'u')
+  const hasLetterCue = (text) => letterCueRe.test(String(text || ''))
+  const cueAnswers = (q) => (q.acceptedAnswers || []).map((x) => String(x).trim()).filter(Boolean)
+  // Skeleton from the SHORTEST accepted answer (letters only): first letter + '·' per remaining letter.
+  const letterSkeleton = (q) => {
+    const ans = cueAnswers(q).map((a) => [...a].filter((c) => /\p{L}/u.test(c)))
+    const shortest = ans.filter((l) => l.length).sort((a, b) => a.length - b.length)[0]
+    if (!shortest || shortest.length < 2) return ''
+    return shortest[0] + '·'.repeat(shortest.length - 1)
+  }
+  const appendLetterCue = (q) => {
+    const skel = letterSkeleton(q)
+    if (!skel) return q
+    let text = String(q.question || '').trimEnd()
+    const m = text.match(/([?？!！.。]+)$/u) // keep trailing sentence punctuation after the cue
+    const cue = ` (${skel})`
+    text = m ? text.slice(0, text.length - m[1].length).trimEnd() + cue + m[1] : text + cue
+    return { ...q, question: text }
+  }
+  // Which questions MUST carry a first-letter cue: typed (non-MC) LANGUAGE recall/fill_blank that
+  // have a concrete word answer. Explanation questions and general-mode blind recall are exempt.
+  const needsLetterCue = (q, isLanguage, wantChoices) =>
+    isLanguage && !wantChoices && (q.type === 'recall' || q.type === 'fill_blank') &&
+    cueAnswers(q).length > 0 && !hasLetterCue(q.question)
+
   const generateQuestionsForCard = async (card, rules, studyLang, knowledgeContext, wantChoices = false) => {
     const front = getCardFront(card)
     const back = getCardBack(card)
@@ -4694,9 +4759,9 @@ Output ONLY raw JSON. No markdown, no backticks.`
       : `Q${n} (DEEP UNDERSTANDING): May freely name the subject. Test HOW, WHY, WHEN, or process. E.g. "Explain how X works" or "What distinguishes X from Y?" Open-ended — student demonstrates conceptual depth.`
 
     const q1Language = `Q1 (TRANSLATION PRODUCTION): Ask the student to PRODUCE the ${learnLang} word for the card's meaning. Phrase the instruction in ${quizLang}${sameLang ? `, e.g. "¿Cómo se dice '<meaning>'?"-style natural ${learnLang} (no need to name the language since you are already speaking it; if you DO name it, use its endonym, never the English name)` : `, e.g. "Translate to ${learnLang}: '<the ${userLang} meaning>'" or "How do you say '<the ${userLang} meaning>' in ${learnLang}?"`}. The expected answer is ALWAYS the ${learnLang} word/phrase on the card (never the ${userLang} meaning). acceptedAnswers MUST be the ${learnLang} word(s), lowercase, with and without accents. Type MUST be "recall".
-  TRANSLATION AMBIGUITY CHECK (apply before finalizing Q1): does the meaning have MULTIPLE common ${learnLang} translations, with the card's target word being only one of several synonyms? E.g. English "favorable" → "favorable", "propicio", "auspicioso"; "happy" → "feliz", "contento", "alegre". If YES, a bare translation prompt is UNFAIR — the student cannot know which synonym you want. You MUST add a disambiguating cue INSIDE the question that singles out the target word WITHOUT stating it: a sense/nuance gloss, a register note (formal / literario / coloquial), a domain, and/or the first letter. Only when the translation is genuinely one-to-one may you leave it as a plain translation prompt.`
+  TRANSLATION MUST BE UNAMBIGUOUS (apply before finalizing Q1): nearly EVERY meaning has more than one possible ${learnLang} word (English "hat" → sombrero, gorra; "happy" → feliz, contento, alegre; "run" → correr, huir). A bare translation prompt is therefore UNFAIR — the student cannot know WHICH word you want, and will be marked wrong for a perfectly good synonym. So you MUST ALWAYS pin the exact target with a compact parenthetical cue, written in ${quizLang}, that contains BOTH: (a) a distinguishing sense / feature / register note that rules out the common synonyms, AND (b) the answer's FIRST LETTER shown in quotes. Phrase (b) naturally in ${quizLang} (e.g. English 'starts with "s"', Spanish 'empieza con "s"', French 'commence par « s »', 日本語 「や」で始まる) using the answer's ACTUAL first character in its own script. Example (Ebi speaks English, learning Spanish): How do you say 'hat' (the wide-brimmed sun/dress hat, NOT a cap; starts with "s") in Spanish? — pins "sombrero" and excludes "gorra". The first-letter cue is REQUIRED on Q1 EVEN when you think the translation is one-to-one. NEVER write the answer word itself inside the cue.`
     const q1General = `Q1 (BLIND RECALL): Never name or hint at the target word/answer. Present a scenario, definition, or usage context that forces the student to produce the exact word. Example: "You need to X in situation Y — what word/tool/concept applies?"`
-    const q2Language = `Q2–Q${n - 1} (CONTEXTUAL USAGE): A fill-in-the-blank where the target ${learnLang} word is the ONLY correct answer. The blanked SENTENCE itself stays in ${learnLang} (it must contain the ${learnLang} answer); the surrounding instruction is in ${quizLang}. Because synonyms almost always exist, do NOT rely on engineering a 'perfect' sentence — you MUST place a compact parenthetical cue in ${quizLang} directly at the blank that pins the EXACT target word by its precise sense/nuance, PLUS its first letter whenever a synonym would still fit. Example: "La gacela ___ (escapar de un depredador; empieza con "h") a toda velocidad" points only to "huye/huyó" (the verb huir), not "corre" or "escapa". The parenthetical cue is what GUARANTEES a single answer. INFLECTION: if the target is a verb or other inflected word, the sentence MUST supply the tense/aspect/person it expects (a time adverb like "ayer/ahora/mañana", an explicit subject, or agreement) so exactly ONE form is right — otherwise DO NOT require a specific conjugation, and list EVERY valid form (e.g. both "huye" and "huyó") in acceptedAnswers. Never demand a tense the sentence does not signal. Apply the AMBIGUITY SELF-CHECK below to EVERY such question. Each from a DIFFERENT angle.`
+    const q2Language = `Q2–Q${n - 1} (CONTEXTUAL USAGE): A fill-in-the-blank where the target ${learnLang} word is the ONLY correct answer. The blanked SENTENCE itself stays in ${learnLang} (it must contain the ${learnLang} answer); the surrounding instruction is in ${quizLang}. Because synonyms almost always exist, do NOT rely on engineering a 'perfect' sentence — you MUST place a compact parenthetical cue in ${quizLang} directly at the blank that pins the EXACT target word by its precise sense/nuance, PLUS its first letter ALWAYS (show the letter in quotes, phrased naturally in ${quizLang} — 'empieza con "h"' / 'starts with "h"' / etc., using the answer's real first character). Example: "La gacela ___ (escapar de un depredador; empieza con "h") a toda velocidad" points only to "huye/huyó" (the verb huir), not "corre" or "escapa". The parenthetical cue is what GUARANTEES a single answer. INFLECTION: if the target is a verb or other inflected word, the sentence MUST supply the tense/aspect/person it expects (a time adverb like "ayer/ahora/mañana", an explicit subject, or agreement) so exactly ONE form is right — otherwise DO NOT require a specific conjugation, and list EVERY valid form (e.g. both "huye" and "huyó") in acceptedAnswers. Never demand a tense the sentence does not signal. Apply the AMBIGUITY SELF-CHECK below to EVERY such question. Each from a DIFFERENT angle.`
     const q2General = `Q2–Q${n - 1} (GUIDED RECALL / APPLICATION): May reference related concepts, synonyms as contrast, fill-in-the-blank, OR a short realistic scenario asking which concept/technique from this card applies (great for practical subjects — certifications, soft skills, procedures). Must still point at the card's EXACT term/concept as the answer. Each from a DIFFERENT angle.`
 
     const orderRules = n === 1
@@ -4715,7 +4780,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const generalBlock = isLanguage ? '' : `\nGENERAL STUDY MODE — REQUIRED:\n- This is a general study mode for the subject "${activeMode.name}"${activeMode.description ? ` (${activeMode.description})` : ''}. It is NOT a language course.\n- Match the question style to what the subject actually IS: exam-style for certifications, applied "what would you do/use" for practical skills and procedures, notation/theory for music or math, cause/effect for science or history. The card and the subject decide — never force one template onto every subject.\n- Write EVERY question, instruction, and all framing in ${quizLang} (that is the language Ebi speaks to this student).\n- Do NOT generate language-learning questions: never ask the student to translate, never ask "how do you say X in <language>", never ask "in <language>, what word/noun/verb…", and never quiz a word's gender, article, or conjugation. Speaking ${quizLang} does not make this a ${quizLang} course — it is still purely about "${activeMode.name}".\n- Even if a card's term is written in another language, test the underlying CONCEPT, fact, or meaning — not vocabulary translation. The expected answer is the term/concept exactly as it appears on the card (subject terms/proper names stay as-is on the card, untranslated).\n`
     const languageBlock = isLanguage ? `\nLANGUAGE MODE — REQUIRED:\n- The student is LEARNING ${learnLang}. The EXPECTED ANSWER is ALWAYS the ${learnLang} word/phrase on the card, regardless of which side it's on.\n- Identify the ${learnLang} word on the card (the one NOT written in ${userLang}) — that is the answer. The ${userLang} side is just the meaning/hint.\n- "acceptedAnswers" MUST contain the ${learnLang} word (lowercase, plus close variants with/without accents). NEVER put the ${userLang} meaning in acceptedAnswers.\n- EBI SPEAKS ${quizLang}: write all instructions, question framing, and feedback in ${quizLang}.${sameLang ? '' : ` EXCEPTION: a fill-in-the-blank/example SENTENCE that must contain the ${learnLang} answer stays in ${learnLang} (you cannot blank a ${learnLang} word out of a ${quizLang} sentence) — only the wrapper instruction around it is in ${quizLang}.`}\n- LANGUAGE NAMES = ENDONYMS: whenever a question written in ${quizLang} names a language, use that language's OWN name (its endonym), NEVER the English name. So a Spanish question says "en español" (never "en Spanish"), a French one "en français", Japanese "日本語で", German "auf Deutsch". Do NOT drop English language names into non-English text.\n- Treat the word in its BROADEST everyday meaning. If the card text doesn't pin down a specific domain, do NOT restrict questions to specialized contexts (programming, medicine, law, military, etc.). Example: "puntero" alone could be a clock hand, laser pointer, finger, or mouse cursor — don't assume programming.\n- BUT if the card text explicitly indicates a domain (e.g. back says "Pointer (C/C++)", tag mentions a field), quiz within that domain.${dialectRule()}${wantHints ? `\n- WORD HINTS: for EACH question, also return a "glosses" object mapping every ${learnLang} content word that appears in the question text (EXCEPT the answer word and the blank) to a SHORT ${userLang} meaning. Skip bare punctuation. This lets a weak ${learnLang} reader understand the sentence.` : ''}\n` : ''
 
-    const prompt = `Card front: "${front}"\nCard back: "${back}"\n${languageBlock}${generalBlock}${choicesBlock}\n${orderRules}\n\nCRITICAL RULES:\n- Questions must require the SPECIFIC answer on this card — synonyms are NOT acceptable for recall/fill_blank questions\n- NEVER construct a question whose only purpose is to directly name the answer (e.g. "what noun corresponds to adjective X?" when that noun IS the answer)\n- THE ANSWER MUST NEVER APPEAR IN THE QUESTION TEXT — not the target word, not ANY acceptedAnswers entry, not inside the parenthetical sense cue. Writing "(rollo antiguo de papel o pergamino…)" when the answer IS "pergamino" destroys the question. Describe the sense WITHOUT the word or its inflected forms; if you can't, take a different angle instead.\n- Each question must test a DIFFERENT angle\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question before finalizing): mentally substitute 2–3 plausible alternative ${learnLang} words — ESPECIALLY synonyms — into the question. If ANY of them still fit after reading the WHOLE question, it is INVALID and you MUST fix it. THE REQUIRED FIX: embed a compact parenthetical cue in ${quizLang} right at the blank that names the target word's precise meaning/nuance, and ADD its first letter whenever a synonym would otherwise survive. This inline cue is PART OF the question text and is mandatory for any word that has synonyms — a bare sentence is almost never enough. (The separate hint1/hint2 fields are revealed only on demand and do NOT count as disambiguation.) A blank surrounded only by a GENERIC predicate that many words satisfy is INVALID until you add the cue. Prefer a slightly over-specified question with a clear cue over an elegant but ambiguous one.\n  - BAD: "Al ver al depredador, la gacela ___ a toda velocidad para salvar su vida." Target "huye" — but "corre", "escapa", "salta" all fit. INVALID.\n  - GOOD: "Al ver al depredador, la gacela ___ (escapar de un peligro; empieza con "h") a toda velocidad para salvar su vida." — the cue pins "huye".\n  - BAD: "Sienten una atracción ___: él la quiere a ella y ella lo quiere a él por igual." Target "recíproca" — but "mutua" fits equally. INVALID.\n  - GOOD: "Sienten una atracción ___ (correspondida por ambos; empieza con "r"): él la quiere a ella y ella lo quiere a él por igual." — the cue pins "recíproca".\n- For language cards: test usage in sentences, grammatical properties, contextual usage\n- For conceptual cards: test application, process, comparison\n\n${questionPrompt}${qPrefsBlock}\n\n${isLanguage ? `Phrase every question and its framing in ${quizLang} (target-language sentences that hold the ${learnLang} answer stay in ${learnLang}).` : `Write all questions in ${quizLang}.`}${knowledgeContext}\n\nReturn a JSON array of exactly ${n} objects:\n[\n  {\n    "question": "the question text",\n    "type": "recall" | "fill_blank" | "explanation",\n    "hint1": "N letters" (letter count of primary answer, null for explanation),\n    "hint2": "starts with 'X'" (first letter of primary answer, null for explanation),\n    "acceptedAnswers": ["answer1", "answer2"] (lowercase; exact words that are correct; empty for explanation),${wantChoices ? `\n    "choices": ["option1", "option2", "option3", "option4"] (exactly 4; one correct + 3 plausible-but-wrong distractors),\n    "answerIdx": 0 (index of the correct option in "choices"),` : ''}${wantHints ? `\n    "glosses": { "<non-answer ${learnLang} word in the question>": "<short ${userLang} meaning>" } (only ${learnLang} content words shown in the question, excluding the answer/blank; {} if none),` : ''}\n    "pose": one mascot pose name that best fits this question's topic, chosen ONLY from: ${POSE_NAMES.join(', ')} (use "default" if none fit)\n  }\n]\nOutput ONLY raw JSON array. No markdown, no backticks.`
+    const prompt = `Card front: "${front}"\nCard back: "${back}"\n${languageBlock}${generalBlock}${choicesBlock}\n${orderRules}\n\nCRITICAL RULES:\n- Questions must require the SPECIFIC answer on this card — synonyms are NOT acceptable for recall/fill_blank questions\n- NEVER construct a question whose only purpose is to directly name the answer (e.g. "what noun corresponds to adjective X?" when that noun IS the answer)\n- THE ANSWER MUST NEVER APPEAR IN THE QUESTION TEXT — not the target word, not ANY acceptedAnswers entry, not inside the parenthetical sense cue. Writing "(rollo antiguo de papel o pergamino…)" when the answer IS "pergamino" destroys the question. Describe the sense WITHOUT the word or its inflected forms; if you can't, take a different angle instead.\n- Each question must test a DIFFERENT angle\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question before finalizing): mentally substitute 2–3 plausible alternative ${learnLang} words — ESPECIALLY synonyms — into the question. If ANY of them still fit after reading the WHOLE question, it is INVALID and you MUST fix it. THE REQUIRED FIX: embed a compact parenthetical cue in ${quizLang} right at the blank that names the target word's precise meaning/nuance, and ALWAYS ADD its first letter in quotes (phrased in ${quizLang}: 'empieza con "h"' / 'starts with "h"' / etc., using the answer's real first character). This inline cue is PART OF the question text and is mandatory for EVERY recall/fill_blank question — a bare sentence is never enough. (The separate hint1/hint2 fields are revealed only on demand and do NOT count as disambiguation.) A blank surrounded only by a GENERIC predicate that many words satisfy is INVALID until you add the cue. Prefer a slightly over-specified question with a clear cue over an elegant but ambiguous one.\n  - BAD: "Al ver al depredador, la gacela ___ a toda velocidad para salvar su vida." Target "huye" — but "corre", "escapa", "salta" all fit. INVALID.\n  - GOOD: "Al ver al depredador, la gacela ___ (escapar de un peligro; empieza con "h") a toda velocidad para salvar su vida." — the cue pins "huye".\n  - BAD: "Sienten una atracción ___: él la quiere a ella y ella lo quiere a él por igual." Target "recíproca" — but "mutua" fits equally. INVALID.\n  - GOOD: "Sienten una atracción ___ (correspondida por ambos; empieza con "r"): él la quiere a ella y ella lo quiere a él por igual." — the cue pins "recíproca".\n- For language cards: test usage in sentences, grammatical properties, contextual usage\n- For conceptual cards: test application, process, comparison\n\n${questionPrompt}${qPrefsBlock}\n\n${isLanguage ? `Phrase every question and its framing in ${quizLang} (target-language sentences that hold the ${learnLang} answer stay in ${learnLang}).` : `Write all questions in ${quizLang}.`}${knowledgeContext}\n\nReturn a JSON array of exactly ${n} objects:\n[\n  {\n    "question": "the question text",\n    "type": "recall" | "fill_blank" | "explanation",\n    "hint1": "N letters" (letter count of primary answer, null for explanation),\n    "hint2": "starts with 'X'" (first letter of primary answer, null for explanation),\n    "acceptedAnswers": ["answer1", "answer2"] (lowercase; exact words that are correct; empty for explanation),${wantChoices ? `\n    "choices": ["option1", "option2", "option3", "option4"] (exactly 4; one correct + 3 plausible-but-wrong distractors),\n    "answerIdx": 0 (index of the correct option in "choices"),` : ''}${wantHints ? `\n    "glosses": { "<non-answer ${learnLang} word in the question>": "<short ${userLang} meaning>" } (only ${learnLang} content words shown in the question, excluding the answer/blank; {} if none),` : ''}\n    "pose": one mascot pose name that best fits this question's topic, chosen ONLY from: ${POSE_NAMES.join(', ')} (use "default" if none fit)\n  }\n]\nOutput ONLY raw JSON array. No markdown, no backticks.`
 
     // Generate → leak-check → REGENERATE (up to twice, with the violation named) so the question
     // reads naturally without the answer; the scrub is only the absolute last resort so a leak can
@@ -4762,15 +4827,29 @@ Output ONLY raw JSON. No markdown, no backticks.`
       // must still never contain the answer.
       const leakExempt = (qi) => !isLanguage && qi === questions.length - 1
       const leaked = [...new Set(questions.map((q, qi) => (leakExempt(qi) ? null : questionAnswerLeak(q))).filter(Boolean))]
-      if (leaked.length === 0) return questions
-      console.warn(`[Study] answer leaked into question text (attempt ${attempt + 1}) for "${front}":`, leaked.join(', '))
+      // AMBIGUITY GUARANTEE: every typed language recall/fill_blank must carry a first-letter cue so
+      // the student can tell WHICH word is wanted (the "hat → sombrero vs gorra" failure). Works for
+      // any learned/Ebi-speaks language pair — the check is on the cue's presence, not its wording.
+      const missingCue = questions.map((q, qi) => (needsLetterCue(q, isLanguage, wantChoices) ? qi : -1)).filter((i) => i >= 0)
+      if (leaked.length === 0 && missingCue.length === 0) return questions
+
       if (attempt < 2) {
-        leakRetryNote = `\n\nYOUR PREVIOUS ATTEMPT WAS REJECTED: the answer itself appeared inside a question's text (${leaked.map((w) => `"${w}"`).join(', ')}). Rewrite the questions from scratch so they read naturally WITHOUT the target word or ANY acceptedAnswers entry anywhere in the question text — not even inside the parenthetical sense cue. Describe the meaning in other words entirely.`
+        if (leaked.length) console.warn(`[Study] answer leaked into question text (attempt ${attempt + 1}) for "${front}":`, leaked.join(', '))
+        if (missingCue.length) console.warn(`[Study] question(s) missing first-letter cue (attempt ${attempt + 1}) for "${front}":`, missingCue.map((i) => `Q${i + 1}`).join(', '))
+        leakRetryNote =
+          (leaked.length ? `\n\nYOUR PREVIOUS ATTEMPT WAS REJECTED: the answer itself appeared inside a question's text (${leaked.map((w) => `"${w}"`).join(', ')}). Rewrite the questions from scratch so they read naturally WITHOUT the target word or ANY acceptedAnswers entry anywhere in the question text — not even inside the parenthetical sense cue. Describe the meaning in other words entirely.` : '') +
+          (missingCue.length ? `\n\nYOUR PREVIOUS ATTEMPT WAS REJECTED: question(s) ${missingCue.map((i) => i + 1).join(', ')} do not pin a single word — a bare prompt is ambiguous (e.g. "hat" is sombrero OR gorra). For EVERY recall / fill-in-the-blank question you MUST include, inside the question text, a compact parenthetical cue phrased in ${quizLang} that contains BOTH a sense/feature note ruling out the synonyms AND the answer's FIRST LETTER shown in quotes (e.g. 'empieza con "s"' / 'starts with "s"', in ${quizLang}, using the answer's real first character). Never write the answer itself inside the cue.` : '')
         continue
       }
-      // Two regenerations still leaked — scrub so the leak can never reach the student.
-      console.warn('[Study] still leaking after two regenerations — scrubbing the answer out of the question text')
-      return questions.map((q, qi) => (leakExempt(qi) ? q : scrubAnswerFromQuestion(q)))
+      // Last resort after two regenerations: scrub any leak, and GUARANTEE the first-letter cue by
+      // appending a language-neutral letter skeleton — so no question can EVER ship ambiguous.
+      if (leaked.length) console.warn('[Study] still leaking after two regenerations — scrubbing the answer out of the question text')
+      if (missingCue.length) console.warn('[Study] still missing a first-letter cue after two regenerations — appending a language-neutral skeleton')
+      return questions.map((q, qi) => {
+        let out = leakExempt(qi) ? q : scrubAnswerFromQuestion(q)
+        if (needsLetterCue(out, isLanguage, wantChoices)) out = appendLetterCue(out)
+        return out
+      })
     } catch (err) {
       if (attempt < 2) { console.warn('[Study] question generation failed, retrying:', err.message); continue }
     }
@@ -5709,7 +5788,7 @@ RULES for the replacement:
 - Fix the complaint. Keep testing the SAME card, in the same slot type ("${q.type}").
 ${isLanguage ? `- The expected answer stays the ${learnLang} word/phrase on the card; phrase the question in ${quizLang}. acceptedAnswers = the ${learnLang} answer(s), lowercase, with and without accents.` : `- Phrase the question in ${quizLang}; the expected answer is the card's term/concept.`}
 - THE ANSWER MUST NEVER APPEAR IN THE QUESTION TEXT — not even inside a parenthetical cue.
-- Exactly ONE defensible answer: add a compact sense cue right at the blank if a synonym would still fit.
+- Exactly ONE defensible answer.${isLanguage && !wantChoices ? ` For this typed ${q.type} question you MUST include, in the question text, a compact cue phrased in ${quizLang} that pins the target word: a sense/feature note ruling out synonyms AND the answer's FIRST LETTER shown in quotes (e.g. 'empieza con "s"' / 'starts with "s"', in ${quizLang}, using the answer's real first character). Never write the answer itself inside the cue.` : ' Add a compact sense cue right at the blank if a synonym would still fit.'}
 ${wantChoices ? '- Also return "choices": exactly 4 options (1 correct — matching acceptedAnswers — + 3 plausible but clearly wrong) and "answerIdx" (index of the correct one).\n' : ''}ALSO distill the complaint into "preference": ONE concise imperative rule in English, GENERALIZED beyond this single card, that future question generation for this mode should follow — or null if the flaw was purely specific to this one question.
 
 Return ONLY raw JSON:
@@ -5738,6 +5817,7 @@ Return ONLY raw JSON:
         newQ.answerIdx = opts.indexOf(correctText)
       }
       if (questionAnswerLeak(newQ)) newQ = scrubAnswerFromQuestion(newQ) // same hard guarantee
+      if (needsLetterCue(newQ, isLanguage, wantChoices)) newQ = appendLetterCue(newQ) // and the first-letter cue guarantee
       setStudyCardState((prev) => {
         const updated = [...prev]
         const c = updated[cardIdx]
@@ -7773,7 +7853,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
 
       {/* ── Deck Browser ─────────────────────────────────────────────────────── */}
       {activeTab === 'deck' && (
-        <main style={{ ...S.main, display: 'flex', flexDirection: 'column', padding: 20 }}>
+        <main
+          ref={deckMainRef}
+          onScroll={(e) => { deckScrollTopRef.current = e.currentTarget.scrollTop }}
+          style={{ ...S.main, display: 'flex', flexDirection: 'column', padding: 20 }}
+        >
           <div style={{ maxWidth: 800, width: '100%', margin: '0 auto' }}>
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
@@ -8351,8 +8435,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   .filter((n) => !deckBrowserTagFilter || (n.tags || []).includes(deckBrowserTagFilter))
                   .filter((n) => {
                     if (!deckBrowserSearch) return true
-                    const s = deckBrowserSearch.toLowerCase()
-                    return Object.values(n.fields).some((f) => stripHtml(f.value).toLowerCase().includes(s))
+                    // Accent-insensitive: "darselo" matches "dárselo" (fold diacritics on both sides).
+                    const fold = (x) => x.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+                    const s = fold(deckBrowserSearch)
+                    return Object.values(n.fields).some((f) => fold(stripHtml(f.value)).includes(s))
                   })
                   .sort(deckNoteCompare(deckBrowserSort))
                   .map((note) => {
@@ -9088,7 +9174,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             {studyPhase === 'pick' && (() => {
               const isLang = activeMode.type === 'language'
               const sr = activeMode.studyRules || (isLang ? defaultStudyRules : defaultGeneralStudyRules)
-              const learned = sr.studyLanguage || 'English'
+              // Fallbacks MUST match generateQuestionsForCard (learnLangName / quizLang), or the
+              // picker shows a phantom language the generator ignores — the "picker says English,
+              // Ebi speaks Spanish" bug on a mode whose studyLanguage was never set.
+              const learned = sr.studyLanguage || learnLangName()
               const speaks = sr.quizLanguage || learned
               const setSR = (patch) => updateActiveMode({ studyRules: { ...sr, ...patch } })
               const langOpts = LANGS.filter(l => l.code !== 'auto').map(l => ({ value: l.label, label: l.label }))

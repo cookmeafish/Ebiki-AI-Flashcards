@@ -517,6 +517,20 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   ambiguous cards** and **Scan for duplicates** frame their prompts by mode kind: language decks use
   the multi-meaning-word lens; general decks hunt underspecified CONCEPT cards / term-abbreviation
   duplicates and never merge distinct concepts that merely look alike.
+- **Deck browser persists across tab switches — it does NOT re-fetch on every visit.** Leaving the Deck
+  tab used to `closeDeckBrowser()` (teardown: `deckBrowserActive=false`, empty notes, clear search) so
+  returning re-ran `openDeckBrowser()` from scratch — the "switching to Deck refreshes the page / loses my
+  place" bug. Now leaving only runs `syncDeckEditsToStudy()` (folds edits into a live study session, no
+  reset); re-entry keeps the mounted state and does a SILENT refresh — `loadDeckNotes(deck, {quiet:true})`
+  (no spinner flash, keeps the list on screen, doesn't cancel an in-progress edit) + a quiet `ankiGetDecks`
+  — so cards/decks added elsewhere (Quick Add, study, Anki) appear without a jarring rebuild. **Selected
+  deck is respected on open:** `openDeckBrowser` keeps the persisted `deckBrowserDeck` (localStorage
+  `ebiki-deck`) when it still exists, falling back to `ankiDeck || decks[0]` only otherwise — it no longer
+  clobbers the choice with `decks[0]` every time. **Scroll position** is stashed on scroll
+  (`deckScrollTopRef`) and restored before paint via a `useLayoutEffect` on the `<main>` (`deckMainRef`) —
+  but EXPIRES after 3 min away (`deckLeftAtRef`), so a quick Deck↔Study hop keeps the spot while a real
+  break opens at the top (a fresh session). **Card search is accent-insensitive** — both the query and
+  field text are folded (`toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')`) so "darselo" matches "dárselo".
 - **Stats → Recent Sessions** renders a FIXED grid (82px | 1fr | 84px | 48px — flex space-between let
   columns drift with the deck-name width) and groups rows by (date, deck): every sync flush records its
   own "session" entry, so one sitting showed as many identical rows; cards sum, accuracy is card-weighted.
@@ -556,13 +570,22 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   in the legend's correct-green, plus other senses in the legend's word-choice-purple.
 - Non-language modes (e.g. Security+) hide language-only study controls and quiz on concepts.
 - **Question generation (`generateQuestionsForCard`) must pin exactly one answer via an INLINE cue.**
-  Synonym-rich targets (huir/correr/escapar, recíproca/mutua) make "engineer a perfectly disambiguating
-  sentence" unreliable — the model would emit the vague sentence anyway. So the AMBIGUITY SELF-CHECK now
-  MANDATES a compact parenthetical cue in `quizLang` placed right at the blank giving the target word's
-  precise sense/nuance, PLUS its first letter whenever a synonym would still fit ("la gacela ___ (escapar de
-  un peligro; empieza con "h") a toda velocidad" → pins "huye"; "atracción ___ (correspondida por ambos;
-  empieza con "r")" → pins "recíproca"). The inline cue is part of the question TEXT (so "question text alone
-  points at one word" still holds); the on-demand hint1/hint2 fields do NOT count as disambiguation.
+  Synonym-rich targets (huir/correr/escapar, recíproca/mutua, hat→sombrero/gorra) make "engineer a perfectly
+  disambiguating sentence" unreliable — the model would emit the vague sentence anyway. So the AMBIGUITY
+  SELF-CHECK MANDATES a compact parenthetical cue in `quizLang` placed right at the blank giving the target
+  word's precise sense/nuance, PLUS its first letter — **ALWAYS**, not "if a synonym might fit" (that was
+  optional and shipped ambiguous "how do you say hat (…crown and brim)" → sombrero-OR-gorra questions). The
+  cue is part of the question TEXT (so "question text alone points at one word" still holds); the on-demand
+  hint1/hint2 fields do NOT count as disambiguation. **The first-letter cue is a DETERMINISTIC GUARANTEE, not
+  prompt-hope** (language-agnostic helpers near `scrubHint`): every typed (non-MC) language recall/fill_blank
+  runs through `needsLetterCue` after generation; a miss is fed back for regeneration (same 3-attempt loop as
+  the answer-leak check), and as a last resort `appendLetterCue` tacks on a language-NEUTRAL letter skeleton
+  (`sombrero`→`(s·······)` = first letter + a middle-dot per remaining letter — no natural language, so it's
+  correct for ANY learned×Ebi-speaks pair). `hasLetterCue` detects an existing cue by its FORM (a single
+  `\p{L}` inside any quote style — `"s"`, `«s»`, `「や」` — or a skeleton), never by English phrases.
+  Multiple-choice is EXEMPT (options disambiguate; a letter cue would leak). The **`fixCurrentQuestion`**
+  (✎ Fix question) path carries the same prompt rule + `appendLetterCue` guarantee. `generateConjugationQuestions`
+  needs none — it names the exact tense+subject, so the form is deterministic.
   The **DEEP/USAGE question** (`deepQ`, last question in a language card) tests PRACTICAL command a learner
   can actually produce (use in a sentence, pick over a synonym, right form for a stated subject/time,
   opposite, collocation) and is explicitly forbidden from asking the student to EXPLAIN grammar/spelling
@@ -572,6 +595,12 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   is split on `/(\([^)]*\))/`; any `(...)` clue segment renders muted + italic (`var(--c-ink-dim)`) so the
   reader instantly separates the HINT from the fill-in-the-blank sentence (they used to blend together).
   Clue segments are never tappable/glossed. Applies to both language and general question rendering.
+- **Study-start language pickers must default like the GENERATOR.** The start screen's "Learning" /
+  "Ebi speaks" dropdowns default an unset `studyLanguage` to `learnLangName()` (the mode name), NOT a
+  hardcoded `'English'` — otherwise a Spanish mode whose `studyLanguage` was never saved showed
+  "Ebi speaks: English" in the UI while `generateQuestionsForCard` computed `quizLang = Spanish` (mode name
+  fallback) and phrased every question in Spanish. Empty `quizLanguage` = "same as learned"; to get English
+  phrasing the user sets **Ebi speaks → English** (writes `quizLanguage`).
 - **Learned language vs "Ebi speaks" (don't conflate).** In `generateQuestionsForCard`, `learnLang`
   (=`studyRules.studyLanguage`) is ALWAYS the answer language; `quizLang` (=`studyRules.quizLanguage ||
   studyLanguage`) is only how Ebi PHRASES things. So "Learning Spanish + Ebi speaks English" →
