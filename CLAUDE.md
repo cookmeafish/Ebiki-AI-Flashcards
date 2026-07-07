@@ -334,11 +334,20 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   every sync; the `synced` flags in state/ref are UI-only and CAN be clobbered (the ref mirror rebuilds
   from React state on any state change mid-sync), so never rely on them for the answer-once guarantee.
   (2) The fallback for cards the reviewer never presented asks Anki FIRST (`cid:X (is:due OR is:new)`) —
-  not due → nothing is recorded. (3) The fallback must never override Anki's scheduling: NEW cards may
-  use the approximate setDueDate+insertReviews path (no history to corrupt), but REVIEW cards get a bare
-  `setDueDate "0"` nudge (due now, interval PRESERVED — no `!` suffix) and are answered through the REAL
-  reviewer so Anki computes the interval; if the reviewer presents a different card instead, the card is
-  reported failed with its schedule untouched — never force-rescheduled.
+  not due → nothing is recorded (the review was already logged; `markSynced` + skip). (3) The fallback
+  order for a card the reviewer can't reach: NEW cards use `setDueDate <days>!` + `insertReviews` (no
+  history to corrupt); REVIEW cards first get a bare `setDueDate "0"` nudge (interval PRESERVED, no `!`)
+  and are answered through the REAL reviewer so Anki computes the interval. If the reviewer STILL can't
+  present it (an unrelated due card is ahead in the queue, or a daily limit blocks it — we must not touch
+  cards we didn't study), the review is recorded with a **one-step SM-2 interval computed from the card's
+  OWN `interval × factor`** (`ankiCardsInfo`; +30% for Easy, ×1.2 for Hard, 0 for Again) via `setDueDate
+  <newIvl>!` + `insertReviews`. This is NOT the old arbitrary-constant approximation that inflated
+  intervals to years: it advances by exactly ONE step from the card's real interval, only when the card is
+  still due, and `studySyncedIdsRef` runs it at most once per card per session — so nothing compounds.
+  IMPORTANT: the `!` suffix on `setDueDate` is REQUIRED on the recording paths (it sets the INTERVAL, not
+  just the due date); without it an Easy barely moves the card and an Again keeps its long interval and
+  snaps back after one pass. The pre-reviewer `"0"` nudge deliberately OMITS `!` (preserve the interval so
+  the reviewer computes it).
 - **Study sync timing — grace window + lock.** A card is stamped `gradedAt` when the AI grades it. The user
   gets a **grace window** (`studyAutoSyncMinutes`, default 5) to correct the rating; after that the card
   auto-syncs and **locks** (the rating control is replaced by a `🔒 Synced` badge, so it can't be re-answered
@@ -612,6 +621,9 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   UNLESS the sentence has a marker forcing one (time adverb, explicit subject, agreement). So "huye" is
   correct for a tense-less "la gacela ___ a toda velocidad" even if acceptedAnswers only listed "huyó".
   Generation is told to supply that marker when it wants a specific conjugation, else list every valid form.
+  **Gender/article grading:** the article ALREADY encodes gender (el/un = masc, la/una = fem), so if a
+  question asks for BOTH gender and article, a correct article ("el") FULLY answers it — the grader must
+  NOT add a "state the gender explicitly" note (redundant), and giving "masculine" answers the article too.
   Card generation
   keeps using `learnLang`. The Study Session screen + Settings → Study expose both ("Learning" + "Ebi speaks"),
   shown for every mode (general modes only show "Ebi speaks"). All study-screen labels/descriptions are i18n
