@@ -392,7 +392,7 @@ export default function App() {
   // survives across sessions (localStorage); the per-session flags live on each card state (mc/noSync).
   const [studyAnswerStyle, setStudyAnswerStyle] = useState(() => { try { return localStorage.getItem('ebiki-study-style') === 'choices' ? 'choices' : 'typed' } catch { return 'typed' } })
   // Whether a multiple-choice session records its reviews in Anki (OFF by default — relaxed practice).
-  const [studyPracticeSync, setStudyPracticeSync] = useState(() => { try { return localStorage.getItem('ebiki-study-practice-sync') === '1' } catch { return false } })
+  const [studyPracticeSync, setStudyPracticeSync] = useState(() => { try { return localStorage.getItem('ebiki-study-practice-sync') !== '0' } catch { return true } })
   // Frozen snapshot of the question just answered by a choice click, so the right/wrong colors can
   // show briefly while the real state has already advanced underneath (no async state races).
   const [studyChoiceFlash, setStudyChoiceFlash] = useState(null)
@@ -9026,20 +9026,22 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
 
             {/* Input bar */}
             <div style={{ padding: '12px 16px', borderTop: '1px solid var(--c-border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {/* Attach deck row */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                {!chatTabAttachedDeck && ankiConnected && (
+              {/* Attach deck row — always shown; disabled with a note when Anki isn't open */}
+              {!chatTabAttachedDeck && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <select
                     value=""
+                    disabled={!ankiConnected}
                     onChange={(e) => { if (e.target.value) chatTabAttachDeck(e.target.value) }}
-                    style={{ ...S.select, fontSize: 10, padding: '3px 6px', color: 'var(--c-ink-dim)', maxWidth: 160 }}
+                    style={{ ...S.select, fontSize: 10, padding: '3px 6px', color: 'var(--c-ink-dim)', maxWidth: 160, ...(ankiConnected ? {} : { opacity: .5, cursor: 'default' }) }}
                   >
                     <option value="">Attach deck...</option>
-                    {ankiDecks.map(d => <option key={d} value={d}>{d}</option>)}
+                    {ankiConnected && ankiDecks.map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
-                )}
-                {chatTabAttachLoading && <span style={{ fontSize: 10, color: 'var(--c-ink-dim)' }}>Loading deck...</span>}
-              </div>
+                  {!ankiConnected && <span style={{ fontSize: 10, color: 'var(--c-ink-dim)' }}>Anki isn't open</span>}
+                  {chatTabAttachLoading && <span style={{ fontSize: 10, color: 'var(--c-ink-dim)' }}>Loading deck...</span>}
+                </div>
+              )}
               {/* Attached-image preview for the next message */}
               {chatTabImage && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>

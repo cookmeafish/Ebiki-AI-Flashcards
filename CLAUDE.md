@@ -287,6 +287,9 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   words; cards render as `<anki-card>` widgets; `chatTabSyncCard` HTML-formats + syncs. The widget's button
   shows the **target deck** (`chatCardDeck()` = composer "Attach deck" → `activeMode.ankiDeck` → first deck →
   `Default`): a prominent green **"+ Add to Anki → deck «name»"**, then **"✓ Added to «name»"** once synced.
+  The composer's **"Attach deck…" dropdown is ALWAYS rendered** (not gated on `ankiConnected`) — when Anki
+  isn't open it renders **disabled** with an "Anki isn't open" note beside it, so the control never silently
+  vanishes; it populates + enables once connected. Hidden only when a deck is already attached (a chip shows it).
 
 ## Chat — composer "+" menu (learning-focused)
 - The chat composer has a Claude-style **"+" menu**: attach photo, web search, per-mode **Focus** preset
@@ -362,8 +365,9 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   returns `buttons` as an ARRAY of valid ease values (not a count) — cap ease to `Math.max(...buttons)`.
 - **Multiple-choice practice mode (`studyAnswerStyle` = `'typed' | 'choices'`).** Picked on the study start
   screen ("Answer style", all modes, hidden for conjugations), persisted in `localStorage('ebiki-study-style')`.
-  MC sessions default to NOT recording in Anki — the "Record reviews in Anki" checkbox (`studyPracticeSync`,
-  `localStorage('ebiki-study-practice-sync')`) opts in. `generateQuestionsForCard(..., wantChoices)` appends a
+  The "Record reviews in Anki" checkbox (`studyPracticeSync`, `localStorage('ebiki-study-practice-sync')`)
+  now defaults to CHECKED (`!== '0'`; unchecking persists `'0'`) — a practice session records unless the user
+  opts out. `generateQuestionsForCard(..., wantChoices)` appends a
   MULTIPLE-CHOICE block: 4 options + `answerIdx` per question, open "explain" questions forbidden (rephrased
   as single-answer), NO first-letter cues (options would give them away); options are validated/deduped and
   SHUFFLED client-side (models bias the correct slot). Card states carry `mc` (+ `noSync` when not recording);
