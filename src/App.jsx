@@ -4778,9 +4778,9 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const choicesBlock = !wantChoices ? '' : `\nMULTIPLE-CHOICE SESSION — REQUIRED:\n- Every question will be answered by picking ONE option from a list, never by typing. Do NOT generate open "explain in your own words" questions: where a depth/usage question is called for, ask it as something with ONE selectable answer (e.g. "Which sentence uses the word correctly?", "Which statement about X is true?", "Which option means ...?"). Use type "recall" or "fill_blank" for every question.\n- For EACH question ALSO return:\n  "choices": exactly 4 options — 1 correct + 3 plausible but clearly WRONG distractors. Distractors must be the same kind of thing as the answer (same part of speech / same category / same level of detail), must fit the question grammatically, and must be tempting to someone who half-knows the material — but NEVER defensible as correct. NEVER include two options that could both be argued correct (no synonyms of the answer, no alternate spellings of it).\n  "answerIdx": the 0-based index of the correct option within "choices".\n- The correct option must be EXACTLY one of the acceptedAnswers (same casing rules aside).\n- Write the options in the same language as the expected answer${isLanguage ? ` (${learnLang})` : ''}; keep each option SHORT (a word, phrase, or one short sentence).\n- With options visible, first-letter cues would give the answer away — do NOT add "empieza con"-style letter cues to the question text; a sense/nuance cue is still fine.\n`
 
     const generalBlock = isLanguage ? '' : `\nGENERAL STUDY MODE — REQUIRED:\n- This is a general study mode for the subject "${activeMode.name}"${activeMode.description ? ` (${activeMode.description})` : ''}. It is NOT a language course.\n- Match the question style to what the subject actually IS: exam-style for certifications, applied "what would you do/use" for practical skills and procedures, notation/theory for music or math, cause/effect for science or history. The card and the subject decide — never force one template onto every subject.\n- Write EVERY question, instruction, and all framing in ${quizLang} (that is the language Ebi speaks to this student).\n- Do NOT generate language-learning questions: never ask the student to translate, never ask "how do you say X in <language>", never ask "in <language>, what word/noun/verb…", and never quiz a word's gender, article, or conjugation. Speaking ${quizLang} does not make this a ${quizLang} course — it is still purely about "${activeMode.name}".\n- Even if a card's term is written in another language, test the underlying CONCEPT, fact, or meaning — not vocabulary translation. The expected answer is the term/concept exactly as it appears on the card (subject terms/proper names stay as-is on the card, untranslated).\n`
-    const languageBlock = isLanguage ? `\nLANGUAGE MODE — REQUIRED:\n- The student is LEARNING ${learnLang}. The EXPECTED ANSWER is ALWAYS the ${learnLang} word/phrase on the card, regardless of which side it's on.\n- Identify the ${learnLang} word on the card (the one NOT written in ${userLang}) — that is the answer. The ${userLang} side is just the meaning/hint.\n- "acceptedAnswers" MUST contain the ${learnLang} word (lowercase, plus close variants with/without accents). NEVER put the ${userLang} meaning in acceptedAnswers.\n- EBI SPEAKS ${quizLang}: write all instructions, question framing, and feedback in ${quizLang}.${sameLang ? '' : ` EXCEPTION: a fill-in-the-blank/example SENTENCE that must contain the ${learnLang} answer stays in ${learnLang} (you cannot blank a ${learnLang} word out of a ${quizLang} sentence) — only the wrapper instruction around it is in ${quizLang}.`}\n- LANGUAGE NAMES = ENDONYMS: whenever a question written in ${quizLang} names a language, use that language's OWN name (its endonym), NEVER the English name. So a Spanish question says "en español" (never "en Spanish"), a French one "en français", Japanese "日本語で", German "auf Deutsch". Do NOT drop English language names into non-English text.\n- Treat the word in its BROADEST everyday meaning. If the card text doesn't pin down a specific domain, do NOT restrict questions to specialized contexts (programming, medicine, law, military, etc.). Example: "puntero" alone could be a clock hand, laser pointer, finger, or mouse cursor — don't assume programming.\n- BUT if the card text explicitly indicates a domain (e.g. back says "Pointer (C/C++)", tag mentions a field), quiz within that domain.${dialectRule()}${wantHints ? `\n- WORD HINTS: for EACH question, also return a "glosses" object mapping every ${learnLang} content word that appears in the question text (EXCEPT the answer word and the blank) to a SHORT ${userLang} meaning. Skip bare punctuation. This lets a weak ${learnLang} reader understand the sentence.` : ''}\n` : ''
+    const languageBlock = isLanguage ? `\nLANGUAGE MODE — REQUIRED:\n- The student is LEARNING ${learnLang}. The EXPECTED ANSWER is ALWAYS the ${learnLang} word/phrase on the card, regardless of which side it's on.\n- Identify the ${learnLang} word on the card (the one NOT written in ${userLang}) — that is the answer. The ${userLang} side is just the meaning/hint.\n- "acceptedAnswers" MUST contain the ${learnLang} word (lowercase, plus close variants with/without accents). NEVER put the ${userLang} meaning in acceptedAnswers.\n- EBI SPEAKS ${quizLang}: write all instructions, question framing, and feedback in ${quizLang}.${sameLang ? '' : ` EXCEPTION: a fill-in-the-blank/example SENTENCE that must contain the ${learnLang} answer stays in ${learnLang} (you cannot blank a ${learnLang} word out of a ${quizLang} sentence) — only the wrapper instruction around it is in ${quizLang}.`}\n- LANGUAGE NAMES = ENDONYMS: whenever a question written in ${quizLang} names a language, use that language's OWN name (its endonym), NEVER the English name. So a Spanish question says "en español" (never "en Spanish"), a French one "en français", Japanese "日本語で", German "auf Deutsch". Do NOT drop English language names into non-English text.\n- Treat the word in its BROADEST everyday meaning. If the card text doesn't pin down a specific domain, do NOT restrict questions to specialized contexts (programming, medicine, law, military, etc.). Example: "puntero" alone could be a clock hand, laser pointer, finger, or mouse cursor — don't assume programming.\n- BUT if the card text explicitly indicates a domain (e.g. back says "Pointer (C/C++)", tag mentions a field), quiz within that domain.${dialectRule()}${wantHints ? `\n- WORD HINTS: for EACH question, also return a "glosses" object giving a SHORT translation (1-3 words) for EVERY word shown in the question text — INCLUDING short function words (articles, pronouns, prepositions, conjunctions: "se", "el", "que", "y", "no", …) and the words inside any parenthetical (…) cue — EXCEPT ONLY the answer word, the blank, quoted single letters, and any word whose translation would reveal the answer: a ${learnLang} word gets a short ${userLang} meaning, a ${userLang} word gets its ${learnLang} equivalent. Every key must be ONE single word, spelled EXACTLY as it appears in the question (keep accents). Skip bare punctuation and numbers. Missing words leave the learner unable to read that part of the question — cover them ALL.` : ''}\n` : ''
 
-    const prompt = `Card front: "${front}"\nCard back: "${back}"\n${languageBlock}${generalBlock}${choicesBlock}\n${orderRules}\n\nCRITICAL RULES:\n- Questions must require the SPECIFIC answer on this card — synonyms are NOT acceptable for recall/fill_blank questions\n- NEVER construct a question whose only purpose is to directly name the answer (e.g. "what noun corresponds to adjective X?" when that noun IS the answer)\n- THE ANSWER MUST NEVER APPEAR IN THE QUESTION TEXT — not the target word, not ANY acceptedAnswers entry, not inside the parenthetical sense cue. Writing "(rollo antiguo de papel o pergamino…)" when the answer IS "pergamino" destroys the question. Describe the sense WITHOUT the word or its inflected forms; if you can't, take a different angle instead.\n- Each question must test a DIFFERENT angle\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question before finalizing): mentally substitute 2–3 plausible alternative ${learnLang} words — ESPECIALLY synonyms — into the question. If ANY of them still fit after reading the WHOLE question, it is INVALID and you MUST fix it. THE REQUIRED FIX: embed a compact parenthetical cue in ${quizLang} right at the blank that names the target word's precise meaning/nuance, and ALWAYS ADD its first letter in quotes (phrased in ${quizLang}: 'empieza con "h"' / 'starts with "h"' / etc., using the answer's real first character). This inline cue is PART OF the question text and is mandatory for EVERY recall/fill_blank question — a bare sentence is never enough. (The separate hint1/hint2 fields are revealed only on demand and do NOT count as disambiguation.) A blank surrounded only by a GENERIC predicate that many words satisfy is INVALID until you add the cue. Prefer a slightly over-specified question with a clear cue over an elegant but ambiguous one.\n  - BAD: "Al ver al depredador, la gacela ___ a toda velocidad para salvar su vida." Target "huye" — but "corre", "escapa", "salta" all fit. INVALID.\n  - GOOD: "Al ver al depredador, la gacela ___ (escapar de un peligro; empieza con "h") a toda velocidad para salvar su vida." — the cue pins "huye".\n  - BAD: "Sienten una atracción ___: él la quiere a ella y ella lo quiere a él por igual." Target "recíproca" — but "mutua" fits equally. INVALID.\n  - GOOD: "Sienten una atracción ___ (correspondida por ambos; empieza con "r"): él la quiere a ella y ella lo quiere a él por igual." — the cue pins "recíproca".\n- For language cards: test usage in sentences, grammatical properties, contextual usage\n- For conceptual cards: test application, process, comparison\n\n${questionPrompt}${qPrefsBlock}\n\n${isLanguage ? `Phrase every question and its framing in ${quizLang} (target-language sentences that hold the ${learnLang} answer stay in ${learnLang}).` : `Write all questions in ${quizLang}.`}${knowledgeContext}\n\nReturn a JSON array of exactly ${n} objects:\n[\n  {\n    "question": "the question text",\n    "type": "recall" | "fill_blank" | "explanation",\n    "hint1": "N letters" (letter count of primary answer, null for explanation),\n    "hint2": "starts with 'X'" (first letter of primary answer, null for explanation),\n    "acceptedAnswers": ["answer1", "answer2"] (lowercase; exact words that are correct; empty for explanation),${wantChoices ? `\n    "choices": ["option1", "option2", "option3", "option4"] (exactly 4; one correct + 3 plausible-but-wrong distractors),\n    "answerIdx": 0 (index of the correct option in "choices"),` : ''}${wantHints ? `\n    "glosses": { "<non-answer ${learnLang} word in the question>": "<short ${userLang} meaning>" } (only ${learnLang} content words shown in the question, excluding the answer/blank; {} if none),` : ''}\n    "pose": one mascot pose name that best fits this question's topic, chosen ONLY from: ${POSE_NAMES.join(', ')} (use "default" if none fit)\n  }\n]\nOutput ONLY raw JSON array. No markdown, no backticks.`
+    const prompt = `Card front: "${front}"\nCard back: "${back}"\n${languageBlock}${generalBlock}${choicesBlock}\n${orderRules}\n\nCRITICAL RULES:\n- Questions must require the SPECIFIC answer on this card — synonyms are NOT acceptable for recall/fill_blank questions\n- NEVER construct a question whose only purpose is to directly name the answer (e.g. "what noun corresponds to adjective X?" when that noun IS the answer)\n- THE ANSWER MUST NEVER APPEAR IN THE QUESTION TEXT — not the target word, not ANY acceptedAnswers entry, not inside the parenthetical sense cue. Writing "(rollo antiguo de papel o pergamino…)" when the answer IS "pergamino" destroys the question. Describe the sense WITHOUT the word or its inflected forms; if you can't, take a different angle instead.\n- Each question must test a DIFFERENT angle\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question before finalizing): mentally substitute 2–3 plausible alternative ${learnLang} words — ESPECIALLY synonyms — into the question. If ANY of them still fit after reading the WHOLE question, it is INVALID and you MUST fix it. THE REQUIRED FIX: embed a compact parenthetical cue in ${quizLang} right at the blank that names the target word's precise meaning/nuance, and ALWAYS ADD its first letter in quotes (phrased in ${quizLang}: 'empieza con "h"' / 'starts with "h"' / etc., using the answer's real first character). This inline cue is PART OF the question text and is mandatory for EVERY recall/fill_blank question — a bare sentence is never enough. (The separate hint1/hint2 fields are revealed only on demand and do NOT count as disambiguation.) A blank surrounded only by a GENERIC predicate that many words satisfy is INVALID until you add the cue. Prefer a slightly over-specified question with a clear cue over an elegant but ambiguous one.\n  - BAD: "Al ver al depredador, la gacela ___ a toda velocidad para salvar su vida." Target "huye" — but "corre", "escapa", "salta" all fit. INVALID.\n  - GOOD: "Al ver al depredador, la gacela ___ (escapar de un peligro; empieza con "h") a toda velocidad para salvar su vida." — the cue pins "huye".\n  - BAD: "Sienten una atracción ___: él la quiere a ella y ella lo quiere a él por igual." Target "recíproca" — but "mutua" fits equally. INVALID.\n  - GOOD: "Sienten una atracción ___ (correspondida por ambos; empieza con "r"): él la quiere a ella y ella lo quiere a él por igual." — the cue pins "recíproca".\n- For language cards: test usage in sentences, grammatical properties, contextual usage\n- For conceptual cards: test application, process, comparison\n\n${questionPrompt}${qPrefsBlock}\n\n${isLanguage ? `Phrase every question and its framing in ${quizLang} (target-language sentences that hold the ${learnLang} answer stay in ${learnLang}).` : `Write all questions in ${quizLang}.`}${knowledgeContext}\n\nReturn a JSON array of exactly ${n} objects:\n[\n  {\n    "question": "the question text",\n    "type": "recall" | "fill_blank" | "explanation",\n    "hint1": "N letters" (letter count of primary answer, null for explanation),\n    "hint2": "starts with 'X'" (first letter of primary answer, null for explanation),\n    "acceptedAnswers": ["answer1", "answer2"] (lowercase; exact words that are correct; empty for explanation),${wantChoices ? `\n    "choices": ["option1", "option2", "option3", "option4"] (exactly 4; one correct + 3 plausible-but-wrong distractors),\n    "answerIdx": 0 (index of the correct option in "choices"),` : ''}${wantHints ? `\n    "glosses": { "<non-answer word from the question>": "<short translation>" } (single-word keys exactly as written in the question, covering EVERY word incl. function words and cue words, excluding only the answer/blank; {} if none),` : ''}\n    "pose": one mascot pose name that best fits this question's topic, chosen ONLY from: ${POSE_NAMES.join(', ')} (use "default" if none fit)\n  }\n]\nOutput ONLY raw JSON array. No markdown, no backticks.`
 
     // Generate → leak-check → REGENERATE (up to twice, with the violation named) so the question
     // reads naturally without the answer; the scrub is only the absolute last resort so a leak can
@@ -5033,6 +5033,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     if (activeMode.type === 'language' && mode === 'pbq') mode = 'flashcards'
     if (activeMode.type !== 'language' && mode === 'conjugations') mode = 'flashcards'
     studySyncedIdsRef.current = new Set() // fresh session — reset the once-per-session answer guard
+    glossFetchRef.current = new Map(); glossBusyRef.current = new Set() // fresh word-hint attempt budget
     setStudyMode(mode)
     setStudyLoading(true)
     setAnkiError(null)
@@ -5827,7 +5828,8 @@ Return ONLY raw JSON:
         updated[cardIdx] = { ...c, questions }
         return updated
       })
-      glossFetchRef.current.delete(`${cardIdx}:${questionIdx}`) // word hints refetch for the new text
+      // (word hints refetch automatically — gloss attempt keys include the question TEXT, so the
+      // replacement question starts with a fresh budget; no manual ref surgery needed)
       const pref = typeof parsed.preference === 'string' ? parsed.preference.trim().slice(0, 300) : ''
       if (pref && pref.toLowerCase() !== 'null') {
         const targetMode = modesRef.current.find((mm) => mm.id === modeId)
@@ -6368,53 +6370,142 @@ Write in ${explainLang}. ${lengthRule} No backup hooks, no preamble, no explaini
     return safe
   }
 
-  // Word hints: lazily fetch per-word glosses for a question when missing (the question-gen model
-  // doesn't reliably return them). Stored on the question object so it's computed at most once.
-  const glossFetchRef = useRef(new Set())
-  const hasGlosses = (q) => q?.glosses && Object.keys(q.glosses).length > 0
+  // Cue "(…)" segments render muted/italic and are never tappable — but their words DO get
+  // glosses like everything else (the user reads the cue too; "empieza", "maúlla" etc. need
+  // hints as much as the sentence). Shared by the question renderer and the coverage check.
+  const splitCues = (s) => String(s).split(/(\([^)]*\))/).filter((p) => p !== '')
+  const isCue = (p) => /^\([^)]*\)$/.test(p)
+
+  // Accent/case folding for gloss KEY MATCHING only (display text is untouched): the model
+  // returns "como" for the on-screen "cómo" (or the reverse) often enough that exact-match
+  // lookups silently dropped hints — one of the "only some hints show" causes.
+  const glossFold = (s) => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  const glossTokenClean = (tok) => String(tok).replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '')
+
+  // Render-ready lookup: folded single-word keys → gloss text. Multiword keys ("se abre")
+  // attach to their first word so they still match the per-token render instead of vanishing.
+  const buildGlossMap = (glosses, answers) => {
+    const safe = filterRevealingGlosses(glosses, answers)
+    const map = {}
+    for (const k in safe) {
+      const g = String(safe[k]).trim()
+      if (!g) continue
+      const first = String(k).split(/\s+/).map((w) => glossFold(glossTokenClean(w))).find(Boolean)
+      if (first && !(first in map)) map[first] = g
+    }
+    return map
+  }
+
+  // The words of a question that MUST carry a hint: EVERY word — cue words and one-letter
+  // function words ("y", "a", "o") included — except blanks, the answer, and a quoted single
+  // letter (that's the first-letter cue, e.g. «empieza con "g"» — a letter has no translation).
+  const glossableTokens = (q, answers) => {
+    // Per-token answer set, matching filterRevealingGlosses — a word the filter would drop
+    // can never be covered, so it must not count toward "needs fetching" either.
+    const answerSet = new Set()
+    for (const a of (answers || [])) for (const tk of glossFold(a).split(/\s+/)) if (tk) answerSet.add(tk)
+    const toks = []
+    for (const tok of String(getQuestionText(q)).split(/\s+/)) {
+      if (/_{2,}/.test(tok)) continue
+      const clean = glossTokenClean(tok)
+      if (!clean) continue
+      if (clean.length === 1 && /["'«»‹›「」『』]/.test(tok)) continue // quoted first-letter cue
+      const f = glossFold(clean)
+      if (!answerSet.has(f)) toks.push(f)
+    }
+    return toks
+  }
+
+  // Word hints are MANDATORY when the setting is on: a question still needs a gloss fetch
+  // unless every glossable word has one (a single miss is tolerated — the quoted source word
+  // in "translate X" questions is deliberately unglossed because its translation IS the
+  // answer). The old gate ("has ANY gloss key") caused the "no hints at all" bug: a
+  // generation-time map that was emptied by the answer-leak filter / key-token mismatches
+  // still counted as "has glosses" and blocked the lazy fetch forever.
+  const glossesNeedFetch = (q) => {
+    if (!q || typeof q !== 'object' || q.type === 'pbq') return false
+    const answers = q.acceptedAnswers || []
+    const toks = glossableTokens(q, answers)
+    if (toks.length === 0) return false
+    const map = buildGlossMap(q.glosses, answers)
+    const uncovered = toks.filter((t) => !map[t]).length
+    return uncovered > Math.min(1, toks.length - 1)
+  }
+
+  // Word hints: fetch per-word glosses for a question (the question-gen model doesn't reliably
+  // return them, and when it does they often key the wrong words). Failure-tolerant: attempts
+  // are COUNTED (max 2), not latched — the old add-to-Set-before-the-call guard meant one
+  // transient AI error (rate limit, truncation) killed that question's hints for the whole
+  // session. A failed attempt auto-retries once after a short delay; results are MERGED over
+  // any good generation-time entries.
+  // Attempt keys are CONTENT-based (cardId + a fingerprint of the question text), NEVER the
+  // positional "cardIdx:qIdx" — positions restart at 0:0 every session while this ref lives for
+  // the whole app mount, so session 2's brand-new questions inherited session 1's spent attempts
+  // and were permanently blocked from fetching (THE "hints work, then a later session shows none"
+  // bug). Text-based keys also make a regenerated (✎ Fix) question automatically fresh.
+  const glossFetchRef = useRef(new Map()) // glossKey → attempts made
+  const glossBusyRef = useRef(new Set()) // in-flight guard
+  const GLOSS_MAX_ATTEMPTS = 3
+  const glossKey = (cs, qIdx, q) => `${cs?.cardId ?? 'c'}:${qIdx}:${glossFold(getQuestionText(q)).replace(/\s+/g, ' ').slice(0, 48)}`
   const fetchGlossesForQuestion = async (cardIdx, qIdx) => {
     if (!apiKey) return
-    const key = `${cardIdx}:${qIdx}`
-    if (glossFetchRef.current.has(key)) return
     const cs = studyCardStateRef.current[cardIdx] || studyCardState[cardIdx]
     const q = cs?.questions?.[qIdx]
-    if (!q || hasGlosses(q)) return
-    glossFetchRef.current.add(key)
+    if (!q || typeof q !== 'object' || !glossesNeedFetch(q)) return
+    const key = glossKey(cs, qIdx, q)
+    if (glossBusyRef.current.has(key)) return
+    if ((glossFetchRef.current.get(key) || 0) >= GLOSS_MAX_ATTEMPTS) return
+    glossFetchRef.current.set(key, (glossFetchRef.current.get(key) || 0) + 1)
+    glossBusyRef.current.add(key)
     try {
       const rules = activeMode.studyRules || defaultStudyRules
       const learnLang = rules.studyLanguage || learnLangName()
       const userLang = userLangName()
       const answers = q.acceptedAnswers || []
-      const qtext = getQuestionText(q)
-      const prompt = `Question: "${qtext}"\n\nThe learner speaks ${userLang} and is learning ${learnLang}. Return a JSON object giving a SHORT translation (1-3 words) for EACH content word in the question, to help them read it, translated into the OTHER of these two languages:\n- a word written in ${learnLang} -> translate it to ${userLang}\n- a word written in ${userLang} -> translate it to ${learnLang}\nEXCLUDE: the answer word(s) [${answers.join(', ') || 'none'}], any blank (___), AND any word whose translation would reveal the answer (e.g. the quoted source word in a "translate X" question). Skip punctuation, numbers, and proper names.\nKeys must be the words spelled EXACTLY as they appear in the question.\n\nOutput ONLY the raw JSON object, e.g. {"perro":"dog"}. No markdown.`
+      const qtext = String(getQuestionText(q)).replace(/\s+/g, ' ').trim()
+      if (!qtext) return
+      const prompt = `Question: "${qtext}"\n\nThe learner speaks ${userLang} and is learning ${learnLang}. Return a JSON object giving a SHORT translation (1-3 words) for EVERY word in the question — INCLUDING short function words (articles, pronouns, prepositions, conjunctions: "se", "el", "que", "y", "no", …) AND the words inside any parenthetical (…) cue — translated into the OTHER of these two languages:\n- a word written in ${learnLang} -> translate it to ${userLang}\n- a word written in ${userLang} -> translate it to ${learnLang}\nEXCLUDE ONLY: the answer word(s) [${answers.join(', ') || 'none'}], any blank (___), any quoted single letter (a first-letter cue), and any word whose translation would reveal the answer (e.g. the quoted source word in a "translate X" question). Skip bare punctuation and numbers.\nEvery key must be ONE single word, spelled EXACTLY as it appears in the question (keep its accents and capitalization). Cover EVERY word — do not stop early; a missing word means the learner cannot read that part.\n\nOutput ONLY the raw JSON object, e.g. {"perro":"dog","el":"the"}. No markdown.`
       const text = await aiCall(apiKey, `You give short word-for-word translations between ${learnLang} and ${userLang}. Respond with a JSON object only.`, prompt, resolveModel('study'), { silent: true })
       const parsed = parseAiJson(text)
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        const safe = filterRevealingGlosses(parsed, answers)
-        setStudyCardState(prev => {
-          const updated = [...prev]
-          const c = updated[cardIdx]
-          if (c?.questions?.[qIdx]) {
-            const qs = [...c.questions]
-            qs[qIdx] = { ...qs[qIdx], glosses: safe }
-            updated[cardIdx] = { ...c, questions: qs }
-          }
-          return updated
-        })
-      }
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('gloss reply was not a JSON object')
+      const safe = filterRevealingGlosses(parsed, answers)
+      setStudyCardState(prev => {
+        const updated = [...prev]
+        const c = updated[cardIdx]
+        const cur = c?.questions?.[qIdx]
+        if (cur && typeof cur === 'object') {
+          const qs = [...c.questions]
+          qs[qIdx] = { ...cur, glosses: { ...(cur.glosses || {}), ...safe } }
+          updated[cardIdx] = { ...c, questions: qs }
+        }
+        return updated
+      })
     } catch (e) {
       console.warn('[Study] gloss fetch failed:', e.message)
+      const attempts = glossFetchRef.current.get(key) || 0
+      if (attempts < GLOSS_MAX_ATTEMPTS) {
+        // Growing backoff — session start fires many AI calls at once (question gen ×cards,
+        // pose, glosses ×questions), so a rate-limited first try needs breathing room.
+        setTimeout(() => fetchGlossesForQuestion(cardIdx, qIdx), 2500 * attempts)
+      }
+    } finally {
+      glossBusyRef.current.delete(key)
     }
   }
 
-  // When a question is shown with Word hints on and it has no glosses yet, fetch them.
+  // Prefetch word hints for EVERY pending question as soon as its card exists — session start,
+  // parallel pool arrivals, pullNewCard, resume-after-refresh all funnel through studyCardState,
+  // so one effect covers them all. Hints used to be fetched only when a question was already ON
+  // SCREEN, so they popped in seconds late (read as "no hints"), and only if that one fetch
+  // succeeded on its single allowed try.
   useEffect(() => {
     if (activeMode.type !== 'language' || !activeMode.studyRules?.wordHints) return
-    if (studyPhase !== 'question' || !currentQuestion) return
-    const { cardIdx, questionIdx } = currentQuestion
-    const q = studyCardState[cardIdx]?.questions?.[questionIdx]
-    if (q && !hasGlosses(q)) fetchGlossesForQuestion(cardIdx, questionIdx)
-  }, [currentQuestion, studyPhase, activeMode.studyRules?.wordHints, studyCardState])
+    if (!studyActive) return
+    studyCardState.forEach((cs, ci) => {
+      if (!cs || cs.done || !Array.isArray(cs.questions)) return
+      cs.questions.forEach((q, qi) => { if (glossesNeedFetch(q)) fetchGlossesForQuestion(ci, qi) })
+    })
+  }, [studyCardState, studyActive, activeMode.studyRules?.wordHints])
 
   // A promise chain that serializes ALL sync calls (the 15s auto-sync AND manual finish/exit) so they
   // can never run concurrently (no double-answering a card in Anki) and the final one is never skipped.
@@ -6706,6 +6797,7 @@ Write in ${explainLang}. ${lengthRule} No backup hooks, no preamble, no explaini
     setStudyPbqReview(null)
     setStudyAccentRetype(null)
     studySyncedIdsRef.current = new Set()
+    glossFetchRef.current = new Map(); glossBusyRef.current = new Set()
   }
 
   // Generate spaced repetition insights + update progress observations
@@ -7639,6 +7731,23 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentQuestion, studyActive])
 
+  // Prominent "Anki isn't running" banner for every deck-dependent surface (Deck, Discover,
+  // Study). An 11px text line was invisible — users saw an empty deck list with no explanation.
+  // The Refresh button re-checks without forcing a trip to Settings.
+  const renderAnkiOfflineBanner = (style = {}) => (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderRadius: RADIUS.sm,
+      background: 'rgba(232,147,12,.12)', border: '1px solid rgba(232,147,12,.35)',
+      color: C.ink, fontSize: 12, fontWeight: 600, lineHeight: 1.5, textAlign: 'left', ...style,
+    }}>
+      <span>⚠️ {t('ankiNotConnected')}</span>
+      <button onClick={refreshAnkiConnection}
+        style={{ ...S.ghostBtn, fontSize: 11, color: 'var(--c-warning)', borderColor: 'rgba(232,147,12,.4)', marginLeft: 'auto', flexShrink: 0 }}>
+        {t('refresh')}
+      </button>
+    </div>
+  )
+
   // ─── Render ────────────────────────────────────────────────────────────────
   // Wait for config + modes before the first real paint so the saved tab/mode are already
   // applied — otherwise the UI briefly flashes the default mode/tab before load (the flicker).
@@ -7910,9 +8019,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               </div>
             )}
 
-            {ankiConnected === false && (
-              <div style={{ fontSize: 11, color: 'var(--c-warning)', marginBottom: 12 }}>{t('ankiNotConnected')}</div>
-            )}
+            {ankiConnected === false && renderAnkiOfflineBanner({ marginBottom: 12 })}
             {ankiConnected === null && (
               <div style={{ fontSize: 11, color: 'var(--c-ink-dim)', marginBottom: 12 }}>{t('checkingAnki')}</div>
             )}
@@ -8663,9 +8770,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         <main style={{ ...S.main, display: 'flex', flexDirection: 'column', padding: 20 }}>
           <div style={{ maxWidth: 800, width: '100%', margin: '0 auto' }}>
             <div style={{ fontSize: 16, fontWeight: 700, color: C.ink, fontFamily: FONT.display, marginBottom: 12 }}>{t('discoverTitle')}</div>
-            {ankiConnected === false && (
-              <div style={{ fontSize: 11, color: 'var(--c-warning)', marginBottom: 12 }}>{t('ankiNotConnected')}</div>
-            )}
+            {ankiConnected === false && renderAnkiOfflineBanner({ marginBottom: 12 })}
             {ankiConnected === null && (
               <div style={{ fontSize: 11, color: 'var(--c-ink-dim)', marginBottom: 12 }}>{t('checkingAnki')}</div>
             )}
@@ -8728,9 +8833,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 {studyLoading ? t('loading') : t('studyNow')}
               </button>
             </div>
-            {ankiConnected === false && (
-              <div style={{ fontSize: 11, color: 'var(--c-warning)', marginTop: 12 }}>{t('ankiNotConnected')}</div>
-            )}
+            {ankiConnected === false && renderAnkiOfflineBanner({ marginTop: 14 })}
             {ankiConnected === null && (
               <div style={{ fontSize: 11, color: 'var(--c-ink-dim)', marginTop: 12 }}>{t('checkingAnki')}</div>
             )}
@@ -9224,6 +9327,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               return (
               <div style={{ textAlign: 'center', animation: 'slideUp .35s ease' }}>
                 <div style={{ fontSize: 18, fontWeight: 700, color: C.ink, fontFamily: FONT.display, marginBottom: 8 }}>{t('studySession')}</div>
+                {/* Anki can go down between Study-home and here — without this the deck dropdown is just empty */}
+                {ankiConnected === false && (
+                  <div style={{ maxWidth: 520, margin: '0 auto 10px' }}>{renderAnkiOfflineBanner()}</div>
+                )}
 
                 {/* No overflow:hidden here — it would clip the ⓘ tooltips that extend past the card edge
                     (nothing else paints outside; the sections only draw inset border lines). */}
@@ -9515,8 +9622,6 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         // the sentence. Render it muted + italic so the reader can instantly tell the clue
                         // apart from the fill-in-the-blank sentence (they used to blend together).
                         const cueStyle = { fontStyle: 'italic', fontWeight: 500, color: 'var(--c-ink-dim)', opacity: 0.92 }
-                        const splitCues = (s) => String(s).split(/(\([^)]*\))/).filter((p) => p !== '')
-                        const isCue = (p) => /^\([^)]*\)$/.test(p)
                         if (activeMode.type !== 'language') {
                           return <div key={`q-${cq?.cardIdx}-${cq?.questionIdx}`} style={{ fontSize: 15.5, lineHeight: 1.6, color: 'var(--c-ink)', fontWeight: 600, marginBottom: studyWordLookup ? 6 : 10, animation: 'fadeUp .25s ease' }}>
                             {splitCues(question).map((part, pi) => isCue(part)
@@ -9526,36 +9631,34 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         }
                         const answers = questionObj?.acceptedAnswers || []
                         // Word hints (ruby-style): map each non-answer word to its meaning, shown above it.
-                        // Filter again here so the answer can never leak (covers the question-gen gloss path too).
+                        // buildGlossMap re-filters (the answer can never leak — covers the question-gen
+                        // gloss path too) and folds accents/case so model keys match on-screen tokens
+                        // ("como" vs "cómo" — a "some hints missing" cause).
                         const hintsOn = !!activeMode.studyRules?.wordHints
-                        const safeGlosses = (hintsOn && questionObj?.glosses) ? filterRevealingGlosses(questionObj.glosses, answers) : {}
-                        const glossMap = {}
-                        for (const k in safeGlosses) {
-                          const nk = String(k).toLowerCase().replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '')
-                          if (nk) glossMap[nk] = String(safeGlosses[k])
-                        }
+                        const glossMap = (hintsOn && questionObj?.glosses) ? buildGlossMap(questionObj.glosses, answers) : {}
                         const anyGloss = Object.keys(glossMap).length > 0
                         return (
                           <div key={`q-${cq?.cardIdx}-${cq?.questionIdx}`} style={{ fontSize: 15.5, color: 'var(--c-ink)', fontWeight: 600, marginBottom: studyWordLookup ? 6 : 10, animation: 'fadeUp .25s ease', lineHeight: anyGloss ? 2.4 : 1.6 }}>
                             {splitCues(question).map((part, pi) => {
-                              // Clue segments render muted/italic (a hint, not the sentence) — never tappable/glossed.
-                              if (isCue(part)) return <span key={`c${pi}`} style={{ ...cueStyle, verticalAlign: anyGloss ? 'bottom' : undefined }}>{part}</span>
+                              // Clue segments render muted/italic (a hint, not the sentence) and are never
+                              // tappable — but their words still get glosses like the rest of the line.
+                              const cue = isCue(part)
                               return part.split(/(\s+)/).map((tok, ti) => {
-                                if (/^\s+$/.test(tok) || tok === '') return <span key={`${pi}-${ti}`}>{tok}</span>
+                                if (/^\s+$/.test(tok) || tok === '') return <span key={`${pi}-${ti}`} style={cue ? cueStyle : undefined}>{tok}</span>
                                 const clean = tok.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '')
                                 const cl = clean.toLowerCase()
                                 const isAnswer = answers.includes(cl)
-                                const lookupable = clean.length > 1 && !/_{2,}/.test(tok) && !isAnswer
-                                const gloss = (!isAnswer && glossMap[cl]) || null
+                                const lookupable = !cue && clean.length > 1 && !/_{2,}/.test(tok) && !isAnswer
+                                const gloss = (!isAnswer && glossMap[glossFold(clean)]) || null
                                 const word = lookupable
                                   ? <span className="study-word" onClick={() => lookupStudyWord(clean, question, 'question')} title={`What does "${clean}" mean?`} style={{ cursor: 'pointer', display: 'inline-block' }}><span className="study-word-inner" style={{ display: 'inline-block' }}>{tok}</span></span>
-                                  : <span>{tok}</span>
+                                  : <span style={cue ? cueStyle : undefined}>{tok}</span>
                                 // When any word has a gloss, give EVERY word the same stacked layout (blank slot
                                 // above un-glossed words) so the whole line shares one baseline — no "floating".
                                 if (!anyGloss) return <span key={`${pi}-${ti}`}>{word}</span>
                                 return (
                                   <span key={`${pi}-${ti}`} style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', verticalAlign: 'bottom', lineHeight: 1.1 }}>
-                                    <span style={{ fontSize: 8.5, fontWeight: 700, color: 'var(--c-purple)', whiteSpace: 'nowrap', minHeight: '1.1em' }}>{gloss || ' '}</span>
+                                    <span style={{ fontSize: 8.5, fontWeight: 700, color: 'var(--c-purple)', whiteSpace: 'nowrap', minHeight: '1.1em', opacity: cue ? 0.85 : 1 }}>{gloss || ' '}</span>
                                     {word}
                                   </span>
                                 )
