@@ -8803,8 +8803,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               onSaveCard={saveDiscoverCard}
               onCancelCard={() => setDiscoverCard(null)}
               onKnow={() => discoverRecordAndNext('known')}
-              onSkip={() => discoverRecordAndNext('declined', 'skipped')}
-              onNotInterested={() => discoverRecordAndNext('declined', 'not interested')}
+              onSkip={() => discoverRecordAndNext('declined', 'not interested')}
               onNext={() => fetchNextSuggestion(discoverProfile, discoverLedger)}
               setCard={setDiscoverCard}
               started={discoverStarted}
