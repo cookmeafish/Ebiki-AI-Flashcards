@@ -2376,11 +2376,14 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
   // Regional variant the learner studies (per-mode, Settings → Study; language modes only).
   const dialectName = () => (activeMode.type === 'language' ? String(activeMode.studyRules?.dialect || '').trim() : '')
   // ONE shared prompt line so every generator speaks the same variant — cards, memory hooks,
-  // word-lookup phonetics, questions. Without it models default to the "textbook" region
-  // (Castilian for Spanish: "ga-THE-la"), which is wrong for e.g. a Latin-American learner.
+  // word-lookup phonetics, questions, chat, bulk edit. Without it models default to the "textbook"
+  // region (Castilian for Spanish: "ga-THE-la"), which is wrong for e.g. a Latin-American learner.
+  // LANGUAGE-AGNOSTIC and governs EVERY regional convention (not just pronunciation): the same
+  // safeguard makes British vs American English, European vs Brazilian Portuguese, etc. behave.
   const dialectRule = () => {
     const d = dialectName()
-    return d ? `\nDIALECT: the learner is specifically studying ${d}. Every pronunciation guide / phonetic spelling, sound-alike, vocabulary choice and usage note MUST follow ${d}, never another region's variant (e.g. for Latin American Spanish c/z sound like "s" — seseo — never the Castilian "th").` : ''
+    if (!d) return ''
+    return `\nDIALECT — the learner is specifically studying ${d}, so EVERY region-specific choice MUST follow ${d} and NEVER another variant of the same language. This governs ALL of these, not only pronunciation: phonetics and phonetic spelling; spelling and orthography; punctuation and quotation-mark conventions (e.g. Latin American Spanish normally writes quotes as "..." rather than Spain's «...»; British English writes colour/organise, American English color/organize); vocabulary and word choice (lift vs elevator, coche vs carro); grammar, agreement and preferred tenses; and register/formality (Latin America addresses a group as "ustedes", Spain as "vosotros"). Example: Latin American Spanish uses seseo — c before e/i and z sound like "s", never the Castilian "th". If a word or expression genuinely exists in only ONE region, use THAT region's norms for it even when they differ from ${d}, and never invent a form that isn't used in real ${d}. Whenever two variants disagree, ${d} wins.`
   }
   // Languages whose orthography uses diacritics a learner must TYPE — gates the accent-drill toggle.
   const ACCENT_LANGS = new Set(['spanish', 'french', 'german', 'portuguese', 'italian', 'polish', 'vietnamese', 'czech', 'hungarian', 'romanian', 'turkish', 'swedish', 'norwegian', 'danish', 'finnish', 'icelandic', 'catalan', 'dutch', 'slovak', 'croatian'])
@@ -5982,7 +5985,7 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
 DECOMPOSE the item into parts the learner likely already knows — morphemes/roots/pronouns for words (dár-se-lo = dar + se + lo), components for characters, expansions for acronyms, sub-steps for processes. Give each part ONE concrete image and fuse them into a single vivid, slightly absurd picture that ENDS at the meaning. When decomposition doesn't fit, use the strongest alternative: cognate/word-origin rationalization or a logical link the learner can re-derive.`,
       sound: isLanguage
         ? `METHOD — SOUND HOOK (WaniKani reading-mnemonic style; the learner KNOWS the meaning and must PRODUCE the ${learnLang} word):
-Build a sound-alike bridge in ${explainLang} whose sounds walk through the target word's syllables IN ORDER, tied to the meaning in one image — e.g. ${learnLang === 'Spanish' ? '"muelle" (dock): a stubborn MULE (mweh) saying "YEAH" at the dock → MU-EH-yeh → muelle' : 'a chain of ${explainLang} sound-alikes that rebuilds the word syllable by syllable'}. The bridge must let them reconstruct the ACTUAL pronunciation and spelling, not just gesture at it.`
+Work from the word's ACTUAL ${learnLang} pronunciation. Break it into its syllables IN ORDER, then build a sound-alike bridge in ${explainLang} where EVERY syllable — the LAST one included — is echoed by a ${explainLang} word or sound that genuinely sounds like it, in the same order, fused into ONE vivid image that lands on the meaning. NEVER smuggle the meaning word in as a fake sound-alike unless it truly matches that syllable's sound: mapping "outfit" onto "-endo" fools nobody and just confuses (that exact failure is why this rule exists). End with a recap that lines each syllable up with its bridge, e.g. "muelle (dock): a stubborn MULE (mweh) yelling YEAH at the dock → MU-EH-yeh → muelle". The learner must be able to reconstruct the real ${learnLang} pronunciation AND spelling from the bridge, not just gesture at the meaning.`
         : `METHOD — RECALL HOOK (the learner knows the concept and must produce the exact TERM):
 Build an acronym, first-letter anchor, number anchor, or word-shape cue that reconstructs the term PRECISELY (letter by letter or part by part), tied to the concept in one image.`,
       story: `METHOD — STORY HOOK: write a tiny STORY (2-4 short sentences: a character, a want, a twist) that carries the meaning${isLanguage ? ` and, where natural, echoes the ${learnLang} word's sound` : ''}. Slightly absurd and emotional beats bland. The story must END at the answer, so retelling it yields the item.`,

@@ -461,8 +461,11 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   (icons sit in the left gutter so note text aligns with the other lines).
 - **Memory hooks are ONE engine, `generateMemoryHook(front, back, prior, method)`** (subject-agnostic),
   with FIVE methods in its `METHODS` map: `meaning` (decompose → one vivid image that
-  ends at the meaning), `sound` (language: reading-mnemonic sound-alike bridge walking syllables in
-  order; general: RECALL hook — acronym/anchor that reconstructs the exact term), `parts` ("Break it
+  ends at the meaning), `sound` (language: reading-mnemonic sound-alike bridge that works from the
+  target word's REAL pronunciation and must echo EVERY syllable IN ORDER — the last one included —
+  with a same-language sound-alike, NEVER smuggling the meaning word in as a fake sound anchor (the
+  "atuendo → a tween's OUTFIT" failure: "-do" got dropped and "outfit"=the meaning masqueraded as
+  sound); general: RECALL hook — acronym/anchor that reconstructs the exact term), `parts` ("Break it
   down" — REAL morphology/components explained step by step, dar → darse → dárselo; understanding, not
   imagery; ≤60 words), `confuse` ("Don't confuse it" — the 1-2 confusables a learner actually trips on
   + ONE sharp discriminator each; ≤50 words; its quality test = pick the right one of the pair), `story`
@@ -502,10 +505,17 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   "Latin American Spanish". `dialectName()`/`dialectRule()` (App.jsx, next to `learnLangName`) build
   ONE shared prompt line injected into EVERY generator: card generation + `verifyCards`, memory hooks,
   `lookupStudyWord` phonetics, `generateQuestionsForCard`, the Chat card format, and the bulk-edit
-  framing. Without it models default to the textbook region (Castilian "ga-THE-la"). Audio region is
-  separate (global `pronunciation.defaultRegions`, Settings → Audio). Ebi's Help can set it via the
-  `set_dialect` action ("all new cards should use Latin American pronunciation"); the current value
-  rides in `appContext.activeMode.dialect` so Ebi knows it.
+  framing. Without it models default to the textbook region (Castilian "ga-THE-la"). **`dialectRule()`
+  governs EVERY region-specific convention, not just pronunciation — and is fully LANGUAGE-AGNOSTIC**
+  (the same safeguard makes Spain vs Latin American Spanish, British vs American English, European vs
+  Brazilian Portuguese, etc. all behave): phonetics, spelling/orthography, **punctuation & quotation
+  marks** (LatAm Spanish uses `"..."` not Spain's `«...»` — the bug that triggered this; British
+  `colour/organise` vs American `color/organize`), vocabulary, grammar/agreement/tense, and
+  register/formality (LatAm `ustedes` vs Spain `vosotros`). A form that genuinely exists in only ONE
+  region keeps THAT region's norms even when they differ from the studied variant; when variants
+  disagree, the studied variant wins. Audio region is separate (global `pronunciation.defaultRegions`,
+  Settings → Audio). Ebi's Help can set it via the `set_dialect` action ("all new cards should use
+  Latin American pronunciation"); the current value rides in `appContext.activeMode.dialect` so Ebi knows it.
 - **✨ Ebi bulk edit (deck browser) — free-text batch card editor.** `analyzeDeck(kind, instruction)`:
   `kind='custom'` swaps the framing for "apply the owner's request; skip cards it doesn't apply to;
   change only what it covers" and reuses the ENTIRE analyze pipeline — same JSON contract, same
