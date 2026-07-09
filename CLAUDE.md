@@ -607,7 +607,12 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
 - **The inline cue is rendered visually DISTINCT from the sentence.** In the study-question render, the text
   is split on `/(\([^)]*\))/`; any `(...)` clue segment renders muted + italic (`var(--c-ink-dim)`) so the
   reader instantly separates the HINT from the fill-in-the-blank sentence (they used to blend together).
-  Clue segments are never tappable/glossed. Applies to both language and general question rendering.
+  Applies to both language and general question rendering. **Cue words ARE tappable and glossed** like the
+  rest of the line (every word must be clickable to look it up) — the cue only changes styling, not
+  interactivity. Their muted resting color lives in the `.study-word-cue` CSS class, NOT inline: an inline
+  color would beat the `.study-word:hover` brand-red rule, so a cue word could never turn red on hover
+  (the italic/weight/opacity stay inline via `cueStyleNoColor`; the plain-`cueStyle` inline color is still
+  used for the NON-tappable general-mode render).
 - **Study-start language pickers must default like the GENERATOR.** The start screen's "Learning" /
   "Ebi speaks" dropdowns default an unset `studyLanguage` to `learnLangName()` (the mode name), NOT a
   hardcoded `'English'` — otherwise a Spanish mode whose `studyLanguage` was never saved showed

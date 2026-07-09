@@ -9624,6 +9624,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         // the sentence. Render it muted + italic so the reader can instantly tell the clue
                         // apart from the fill-in-the-blank sentence (they used to blend together).
                         const cueStyle = { fontStyle: 'italic', fontWeight: 500, color: 'var(--c-ink-dim)', opacity: 0.92 }
+                        // For TAPPABLE cue words the color lives in a CSS class (.study-word-cue) instead of
+                        // inline — an inline color would beat the .study-word:hover brand-red rule and the
+                        // word could never turn red on hover.
+                        const cueStyleNoColor = { fontStyle: 'italic', fontWeight: 500, opacity: 0.92 }
                         if (activeMode.type !== 'language') {
                           return <div key={`q-${cq?.cardIdx}-${cq?.questionIdx}`} style={{ fontSize: 15.5, lineHeight: 1.6, color: 'var(--c-ink)', fontWeight: 600, marginBottom: studyWordLookup ? 6 : 10, animation: 'fadeUp .25s ease' }}>
                             {splitCues(question).map((part, pi) => isCue(part)
@@ -9642,18 +9646,19 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         return (
                           <div key={`q-${cq?.cardIdx}-${cq?.questionIdx}`} style={{ fontSize: 15.5, color: 'var(--c-ink)', fontWeight: 600, marginBottom: studyWordLookup ? 6 : 10, animation: 'fadeUp .25s ease', lineHeight: anyGloss ? 2.4 : 1.6 }}>
                             {splitCues(question).map((part, pi) => {
-                              // Clue segments render muted/italic (a hint, not the sentence) and are never
-                              // tappable — but their words still get glosses like the rest of the line.
+                              // Clue segments render muted/italic (a hint, not the sentence) but their words
+                              // ARE tappable and glossed like the rest of the line — every word must be
+                              // clickable to look it up, so the cue only changes styling, not interactivity.
                               const cue = isCue(part)
                               return part.split(/(\s+)/).map((tok, ti) => {
                                 if (/^\s+$/.test(tok) || tok === '') return <span key={`${pi}-${ti}`} style={cue ? cueStyle : undefined}>{tok}</span>
                                 const clean = tok.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '')
                                 const cl = clean.toLowerCase()
                                 const isAnswer = answers.includes(cl)
-                                const lookupable = !cue && clean.length > 1 && !/_{2,}/.test(tok) && !isAnswer
+                                const lookupable = clean.length > 1 && !/_{2,}/.test(tok) && !isAnswer
                                 const gloss = (!isAnswer && glossMap[glossFold(clean)]) || null
                                 const word = lookupable
-                                  ? <span className="study-word" onClick={() => lookupStudyWord(clean, question, 'question')} title={`What does "${clean}" mean?`} style={{ cursor: 'pointer', display: 'inline-block' }}><span className="study-word-inner" style={{ display: 'inline-block' }}>{tok}</span></span>
+                                  ? <span className="study-word" onClick={() => lookupStudyWord(clean, question, 'question')} title={`What does "${clean}" mean?`} style={{ cursor: 'pointer', display: 'inline-block' }}><span className={cue ? 'study-word-inner study-word-cue' : 'study-word-inner'} style={{ display: 'inline-block', ...(cue ? cueStyleNoColor : {}) }}>{tok}</span></span>
                                   : <span style={cue ? cueStyle : undefined}>{tok}</span>
                                 // When any word has a gloss, give EVERY word the same stacked layout (blank slot
                                 // above un-glossed words) so the whole line shares one baseline — no "floating".
@@ -10930,6 +10935,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         .study-word-inner { transition: transform .14s cubic-bezier(.34,1.56,.64,1), color .14s ease, border-color .14s ease; }
         /* Tappable words carry NO resting underline (a page of dotted red read like a spellchecker
            meltdown) — the affordance appears on hover: lift, brand color, and the underline. */
+        /* Cue "(…)" words rest muted, but the :hover rule below still turns them brand-red — the
+           resting color is a class (not inline) so :hover's higher specificity can override it. */
+        .study-word-cue { color: var(--c-ink-dim); }
         .study-word:hover .study-word-inner {
           transform: translateY(-3px);
           color: var(--c-brand);
