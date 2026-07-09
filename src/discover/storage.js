@@ -33,9 +33,16 @@ export async function readBlob(kind, mode) {
   return null
 }
 
-// Write a blob to both Anki media (if available) and the local fallback, then trigger a
-// background AnkiWeb sync. Returns true if the Anki write succeeded.
-export async function writeBlob(kind, mode, obj) {
+// Write a blob to both Anki media (if available) and the local fallback. Returns true if the
+// Anki write succeeded.
+//
+// A FULL AnkiWeb sync is NOT triggered by default. Storing the media file already persists it in
+// Anki's local collection immediately; the blob (profile/ledger/hooks) is best-effort cross-machine
+// state and does not warrant a whole-collection sync every time a Discover suggestion is offered,
+// skipped, or marked known — that spammed an AnkiWeb sync on essentially every Discover card. Pass
+// { sync: true } only for a change worth pushing right away (and even then, carding already runs its
+// own ankiSync after adding the note, which carries the media file along).
+export async function writeBlob(kind, mode, obj, { sync = false } = {}) {
   const json = JSON.stringify(obj, null, 2)
   let ankiOk = false
   try {
@@ -51,6 +58,6 @@ export async function writeBlob(kind, mode, obj) {
       body: JSON.stringify({ content: json }),
     })
   } catch {}
-  if (ankiOk) ankiSync().catch((e) => console.warn('[Discover] sync after write failed:', e.message))
+  if (ankiOk && sync) ankiSync().catch((e) => console.warn('[Discover] sync after write failed:', e.message))
   return ankiOk
 }

@@ -101,6 +101,18 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   fires before the plain reset flips `discoverInitRef`). Cache writes skip `null`/`DEFAULT_LEDGER` so
   resets can't blank it; it doubles as the offline fallback (no needless AI re-profile when Anki is
   closed).
+- **`writeBlob` (`src/discover/storage.js`) does NOT force an AnkiWeb sync.** Storing the media file
+  (`ankiStoreMediaFile`) already persists profile/ledger/hooks in Anki's local collection; a full
+  collection sync must NOT fire just because a suggestion was offered/skipped/known (the ledger is
+  written on EVERY `fetchNextSuggestion`, so the old unconditional `ankiSync()` spammed a sync per
+  Discover card). Pass `{ sync: true }` only for a change worth pushing immediately — and even then
+  carding already runs its own `ankiSync` after `ankiAddNote`, which carries the media file along. So
+  **Anki only syncs when the user actually adds a card** (Make Card → `saveDiscoverCard`).
+- **Suggestion actions: Make Card / I Know This / Skip / Next.** `Skip` records `declined` (term goes
+  in the exclusion list, never re-offered) — it IS the old "Not Interested" (that button was removed;
+  Skip and Not Interested were always identical, both `discoverRecordAndNext('declined', …)`, the
+  `reason` string being cosmetic only). `Next` advances WITHOUT recording (re-offerable later).
+  `I Know This` → `known`. All go through `discoverExcludeList`.
 
 ## Ebi the mascot & poses
 - Pose PNGs in `public/assets/shrimp/`, registered in `src/config/shrimp.js` (`SHRIMP` array).

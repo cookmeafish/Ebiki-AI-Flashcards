@@ -32,7 +32,7 @@ export default function DiscoverPanel(props) {
     profile, profileLoading, suggestion, suggestionLoading, status, sources, error,
     webVerify, setWebVerify, card, cardLoading, cardSaving, ledger, deck, apiKey,
     ankiConnected, onReanalyze, onMakeCard, onSaveCard, onCancelCard, onKnow, onSkip,
-    onNotInterested, onNext, setCard,
+    onNext, setCard,
     started, config, setConfig, onStart, onAdjust, isLanguage, modeName, modeDescription,
     decks = [], onDeckChange, customKinds = null,
   } = props
@@ -226,10 +226,6 @@ export default function DiscoverPanel(props) {
                 <button onClick={onSkip} disabled={cardLoading}
                   style={{ background: 'transparent', color: C.dim, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 5, padding: '7px 14px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
                   {t('d_skip')}
-                </button>
-                <button onClick={onNotInterested} disabled={cardLoading}
-                  style={{ background: 'transparent', color: C.dim, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 5, padding: '7px 14px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  {t('d_notInterested')}
                 </button>
                 <button onClick={onNext} disabled={cardLoading} title="Skip without recording"
                   style={{ background: 'transparent', color: C.dim, border: 'none', borderRadius: 5, padding: '7px 10px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', marginLeft: 'auto' }}>
