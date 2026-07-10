@@ -4,7 +4,7 @@
 // lives in App.jsx; this is presentational.
 
 const C = {
-  blue: 'var(--c-brand)', purple: 'var(--c-purple)', green: 'var(--c-success)', orange: 'var(--c-warning)',
+  blue: 'var(--c-brand)', info: 'var(--c-info)', purple: 'var(--c-purple)', green: 'var(--c-success)', orange: 'var(--c-warning)',
   red: 'var(--c-danger)', dim: 'var(--c-ink-dim)', text: 'var(--c-ink)',
 }
 
@@ -216,7 +216,7 @@ export default function DiscoverPanel(props) {
             ) : (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', borderTop: '1px solid rgba(81,98,108,0.2)', paddingTop: 12, marginTop: 4 }}>
                 <button onClick={onMakeCard} disabled={cardLoading}
-                  style={{ background: 'rgba(223,37,64,0.15)', color: C.blue, border: '1px solid rgba(223,37,64,0.3)', borderRadius: 5, padding: '7px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', opacity: cardLoading ? 0.5 : 1 }}>
+                  style={{ background: 'rgba(45,134,201,0.15)', color: C.info, border: '1px solid rgba(45,134,201,0.35)', borderRadius: 5, padding: '7px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', opacity: cardLoading ? 0.5 : 1 }}>
                   {cardLoading ? t('d_building') : t('d_makeCard')}
                 </button>
                 <button onClick={onKnow} disabled={cardLoading}
