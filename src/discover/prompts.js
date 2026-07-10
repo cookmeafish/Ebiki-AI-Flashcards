@@ -37,7 +37,7 @@ Base the estimate on real evidence. Be honest — if there is little evidence, l
 // ─── Next suggestion ────────────────────────────────────────────────────────
 // Proposes ONE new item to learn, calibrated to the profile and never repeating
 // anything the learner already has / knows / declined.
-export function buildSuggestionPrompt({ profile, modeType, modeName, modeDescription, studyLanguage, excludeList, itemType, focus, knowledge, difficulty, customKind }) {
+export function buildSuggestionPrompt({ profile, modeType, modeName, modeDescription, studyLanguage, excludeList, itemType, focus, knowledge, difficulty, customKind, userLanguage = 'English' }) {
   const level = profile?.level || { scale: 'tiers', estimate: 'beginner' }
   const weak = (profile?.domains || []).filter((d) => d.status !== 'strong').map((d) => d.name)
   const isLang = modeType === 'language'
@@ -88,13 +88,13 @@ ${itemTypeRule ? itemTypeRule + '\n' : ''}- ${isLang ? `${difficulty === 'easier
 - ${focus ? 'Match the focus request above.' : 'Prefer the weak/under-covered areas listed above when sensible.'}
 - Do NOT suggest anything in this exclude list (already known, declined, or already a card):
 ${excludeList.length ? excludeList.map((t) => `  - ${t}`).join('\n') : '  (none yet)'}
-${isLang && studyLanguage ? `- The item must be in ${studyLanguage}. Provide its English translation.` : ''}
+${isLang && studyLanguage ? `- The item must be in ${studyLanguage}. Provide its ${userLanguage} translation.` : ''}
 
 Return ONLY a JSON object (no markdown, no commentary):
 {
   "term": "<the ${isLang ? 'word/phrase in the target language' : 'concept/term'}>",
   "partOfSpeech": "<part of speech if a word, else empty string>",
-  "translation": "<English translation/gloss, or short definition for non-language subjects>",
+  "translation": "<${userLanguage} translation/gloss, or short definition for non-language subjects>",
   "difficulty": "<level label, e.g. ${level.estimate}>",
   "domain": "<which topic/area this belongs to>",
   "why": "<one sentence: why this is a good next item for THIS learner>",
