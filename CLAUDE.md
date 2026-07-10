@@ -113,6 +113,15 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   Skip and Not Interested were always identical, both `discoverRecordAndNext('declined', …)`, the
   `reason` string being cosmetic only). `Next` advances WITHOUT recording (re-offerable later).
   `I Know This` → `known`. All go through `discoverExcludeList`.
+- **Discover carries the dialect + mode language like every other generator.** `fetchNextSuggestion`
+  appends `dialectRule()` to `buildSuggestionPrompt` (else a LatAm learner gets Spain-only vocab), and
+  `buildCardFields` (the Discover Make-Card AND Picture-tab card generator) injects `dialectRule()` and
+  derives `srcLang` from `learnLangName()` for language modes — NOT the global translation `language`
+  setting, which can differ from the mode's `studyLanguage`. `buildSuggestionPrompt` takes
+  `userLanguage` (= `userLangName()`) for the gloss language — never hardcode English. The verify pass
+  parses with `parseAiJson` (a bare `JSON.parse` here silently killed verification on any model
+  commentary), and `saveDiscoverCard` HTML-formats the back with the shared `cardBackToHtml` (any-script
+  label bolding), not a local Latin-only regex.
 
 ## Ebi the mascot & poses
 - Pose PNGs in `public/assets/shrimp/`, registered in `src/config/shrimp.js` (`SHRIMP` array).

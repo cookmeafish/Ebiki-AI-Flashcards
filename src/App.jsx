@@ -2458,7 +2458,9 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
   }
 
   const buildCardFields = async ({ term, partOfSpeech = '', translation = '', contextText = '' }) => {
-    const srcLang = LANGS.find((l) => l.code === language)?.label || 'the source language'
+    // The LEARNED language comes from the mode (studyRules.studyLanguage chain), NOT the global
+    // translation setting — they can differ, and this generator serves Discover + Picture cards.
+    const srcLang = activeMode.type === 'language' ? learnLangName() : (LANGS.find((l) => l.code === language)?.label || 'the source language')
     const tgtLang = LANGS.find((l) => l.code === targetLang)?.label || 'English'
     const fmt = ankiFormat
 
@@ -2497,7 +2499,7 @@ Context: "${contextText}"
 Return a JSON object with these fields:
 ${fieldRequests.map((f) => `- ${f}`).join('\n')}
 
-Output ONLY raw JSON. No markdown, no backticks.`
+Output ONLY raw JSON. No markdown, no backticks.${dialectRule()}`
 
     console.log('[Anki] generating card with AI...')
     const text = await aiCall(apiKey, 'You generate Anki flashcard content. Always respond with valid JSON only.', prompt, resolveModel('deck'))
@@ -3694,9 +3696,11 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         customKind: (activeMode.type || 'general') !== 'language'
           ? (activeMode.discoverKinds || []).find((k) => k.key === discoverConfig.itemType) || null
           : null,
-      })
+        userLanguage: userLangName(),
+      }) + dialectRule() // regional-variant safeguard — suggestions must fit the studied dialect
       const text = await aiCall(apiKey, 'You suggest new study items. Always respond with valid JSON only.', prompt, resolveModel('discover'))
       let suggestion = parseAiJson(text)
+      if (!suggestion?.term) throw new Error('the model returned an unusable suggestion — try again')
 
       // Web grounding: verify/correct facts against search results.
       if (discoverWebVerify && suggestion?.term) {
@@ -3708,7 +3712,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
             setDiscoverSources(searchData.results.slice(0, 4))
             setDiscoverStatus('verifying')
             const vText = await aiCall(apiKey, 'You verify facts and respond with valid JSON only.', buildVerifyPrompt({ suggestion, searchResults: searchData.results.slice(0, 5) }), resolveModel('discover'))
-            const v = JSON.parse(vText.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/, ''))
+            const v = parseAiJson(vText) // never bare JSON.parse on AI replies — commentary/truncation killed verification silently
             suggestion = { ...suggestion, translation: v.translation || suggestion.translation, draftMeaning: v.draftMeaning || suggestion.draftMeaning, verified: !!v.verified, verifyNote: v.note || '' }
           }
         } catch (e) { console.warn('[Discover] verify failed:', e.message) }
@@ -3776,11 +3780,9 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       if (targetDeck && !(await ankiGetDecks().catch(() => [])).includes(targetDeck)) {
         await ankiCreateDeck(targetDeck)
       }
-      const ankiBack = card.back.split('\n').map((line) => {
-        const m = line.match(/^([A-Za-zÁÉÍÓÚáéíóúñÑ\s]+):(.*)$/)
-        return m ? `<b>${m[1]}:</b>${m[2]}` : line
-      }).join('<br>')
-      const noteId = await ankiAddNote(targetDeck, card.front, ankiBack, card.tags)
+      // cardBackToHtml bolds the leading "Label:" of each line in ANY script (the old local
+      // regex was Latin-only, so Chinese/Japanese/Russian labels never bolded).
+      const noteId = await ankiAddNote(targetDeck, card.front, cardBackToHtml(card.back), card.tags)
       ankiSync().catch(() => {})
       discoverDeckTermsRef.current = [...discoverDeckTermsRef.current, card.front]
       const nextLedger = {
