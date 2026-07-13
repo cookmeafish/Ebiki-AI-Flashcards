@@ -202,7 +202,19 @@ export default function DiscoverPanel(props) {
                 <div style={{ fontSize: 10, color: C.dim, marginBottom: 4 }}>BACK</div>
                 <textarea value={card.back} onChange={(e) => setCard({ ...card, back: e.target.value })}
                   style={{ width: '100%', background: 'var(--c-surface)', color: C.text, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 4, padding: 8, fontSize: 12, fontFamily: 'inherit', resize: 'vertical', marginBottom: 8, boxSizing: 'border-box' }} rows={5} />
-                {card.tags?.length > 0 && <div style={{ fontSize: 10, color: C.dim, marginBottom: 10 }}>Tags: {card.tags.join(', ')}</div>}
+                {card.tags?.length > 0 && (
+                  <div style={{ fontSize: 10, color: C.dim, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                    Tags:
+                    {/* region-* first + highlighted, matching the App-side tag chips (green=global, amber=regional) */}
+                    {[...card.tags].sort((a, b) => (String(b).startsWith('region-') ? 1 : 0) - (String(a).startsWith('region-') ? 1 : 0)).map((tag, i) => (
+                      <span key={i} style={{ padding: '1px 6px', borderRadius: 3, background: 'rgba(81,98,108,0.12)', ...(String(tag).startsWith('region-')
+                        ? { fontWeight: 700, ...(tag === 'region-global'
+                            ? { background: 'rgba(24,169,87,.12)', color: C.green, border: '1px solid rgba(24,169,87,.35)' }
+                            : { background: 'rgba(232,147,12,.12)', color: C.orange, border: '1px solid rgba(232,147,12,.35)' }) }
+                        : {}) }}>{tag}</span>
+                    ))}
+                  </div>
+                )}
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <button onClick={onSaveCard} disabled={cardSaving || ankiConnected === false}
                     style={{ background: 'rgba(24,169,87,0.15)', color: C.green, border: '1px solid rgba(24,169,87,0.3)', borderRadius: 5, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', opacity: (cardSaving || ankiConnected === false) ? 0.5 : 1 }}>
