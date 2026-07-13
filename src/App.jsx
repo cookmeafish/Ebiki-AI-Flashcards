@@ -2385,6 +2385,23 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
     if (!d) return ''
     return `\nDIALECT — the learner is specifically studying ${d}, so EVERY region-specific choice MUST follow ${d} and NEVER another variant of the same language. This governs ALL of these, not only pronunciation: phonetics and phonetic spelling; spelling and orthography; punctuation and quotation-mark conventions (e.g. Latin American Spanish normally writes quotes as "..." rather than Spain's «...»; British English writes colour/organise, American English color/organize); vocabulary and word choice (lift vs elevator, coche vs carro); grammar, agreement and preferred tenses; and register/formality (Latin America addresses a group as "ustedes", Spain as "vosotros"). Example: Latin American Spanish uses seseo — c before e/i and z sound like "s", never the Castilian "th". If a word or expression genuinely exists in only ONE region, use THAT region's norms for it even when they differ from ${d}, and never invent a form that isn't used in real ${d}. Whenever two variants disagree, ${d} wins.`
   }
+  // Usage-scope tag — EVERY generated language card must state where the word (in the card's sense)
+  // is used: "region-global" (all regions of the language) or "region-<place>" tag(s) when it's
+  // country/region-specific (Spain vs Mexico, Brazil vs Portugal, UK vs US, …). LANGUAGE_CARD_PROMPT
+  // carries the same rule inline; this helper covers every other card generator (chat card format,
+  // buildCardFields for Discover/Picture). Language modes only.
+  const usageScopeTagRule = () => activeMode.type === 'language'
+    ? ` ALWAYS include a usage-scope tag: "region-global" when natives across ALL regions of ${learnLangName()} use and understand the word in this sense, or one or more "region-<place>" tags (lowercase-hyphens, e.g. "region-spain", "region-mexico", "region-latam", "region-brazil", "region-portugal", "region-uk", "region-us") when it is country/region-specific — tag the card's SENSE, not just the spelling. "region-global" is a positive claim you must be CONFIDENT in; when unsure whether every region uses it, do not guess "region-global" — tag only the region(s) you actually know use it, at whatever breadth you can honestly back (country < region < global).`
+    : ''
+  // Usage-scope tags LEAD the tag row and stand out on every tag-chip surface (chat card widget,
+  // Quick Add tray, deck browser rows, Picture widget): region tags sort FIRST (stable — other tags
+  // keep their order), and get a semantic highlight: green = region-global (safe everywhere),
+  // amber = region-specific (heads-up, regional usage).
+  const isRegionTag = (t) => String(t).startsWith('region-')
+  const sortTagsRegionFirst = (tags) => [...(tags || [])].sort((a, b) => (isRegionTag(b) ? 1 : 0) - (isRegionTag(a) ? 1 : 0))
+  const regionTagStyle = (t) => t === 'region-global'
+    ? { background: 'rgba(24,169,87,.12)', color: 'var(--c-success)', border: '1px solid rgba(24,169,87,.35)', fontWeight: 700 }
+    : { background: 'rgba(232,147,12,.12)', color: 'var(--c-warning)', border: '1px solid rgba(232,147,12,.35)', fontWeight: 700 }
   // Languages whose orthography uses diacritics a learner must TYPE — gates the accent-drill toggle.
   const ACCENT_LANGS = new Set(['spanish', 'french', 'german', 'portuguese', 'italian', 'polish', 'vietnamese', 'czech', 'hungarian', 'romanian', 'turkish', 'swedish', 'norwegian', 'danish', 'finnish', 'icelandic', 'catalan', 'dutch', 'slovak', 'croatian'])
   const langSupportsAccents = (name) => ACCENT_LANGS.has(String(name || '').toLowerCase())
@@ -2405,7 +2422,7 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
   const verifyCards = async (cards, subjectLabel) => {
     if (!cards.length) return cards
     try {
-      const prompt = `You are a meticulous ${subjectLabel} teacher proofreading flashcards a student will MEMORIZE. Accuracy is critical, a single error is harmful. For EACH card object, carefully verify and FIX any error: a headword that does NOT exist or is misspelled (replace it with the correct word), wrong part of speech or grammatical gender, incorrect pronunciation, wrong/missing translation, wrong synonyms, an incorrect or unnatural definition, and an example sentence that is wrong, unnatural, or mistranslated. Leave correct fields exactly as they are. Return the corrected JSON array with the SAME keys and structure. Output ONLY the JSON array, no commentary.`
+      const prompt = `You are a meticulous ${subjectLabel} teacher proofreading flashcards a student will MEMORIZE. Accuracy is critical, a single error is harmful. For EACH card object, carefully verify and FIX any error: a headword that does NOT exist or is misspelled (replace it with the correct word), wrong part of speech or grammatical gender, incorrect pronunciation, wrong/missing translation, wrong synonyms, an incorrect or unnatural definition, and an example sentence that is wrong, unnatural, or mistranslated. If the tags include a usage-scope tag, verify it is honest: "region-global" ONLY if you are confident natives across all regions use the word in this sense; otherwise the correct "region-<place>" tag(s) — when in doubt DEMOTE "region-global" to the region(s) actually known to use it (a too-narrow honest tag is fine, a false "global" is not); fix or add the tag if wrong or missing. Leave correct fields exactly as they are. Return the corrected JSON array with the SAME keys and structure. Output ONLY the JSON array, no commentary.`
       const text = await aiCall(apiKey, prompt, JSON.stringify(cards), resolveModel('deck'))
       const parsed = parseAiJson(text)
       const arr = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.cards) ? parsed.cards : null)
@@ -2482,10 +2499,10 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
       const hint = fieldDescriptions[field] || `${field} - provide relevant content for this field`
       fieldRequests.push(`"${field}": ${hint}`)
     })
-    // Add tag generation
-    const tagInstruction = fmt.tagRules
+    // Add tag generation (usage-scope tag appended for language modes even over custom rules)
+    const tagInstruction = (fmt.tagRules
       ? `"tags": array of tag strings. Rules:\n${fmt.tagRules}`
-      : `"tags": array of relevant lowercase tags (include "ebiki")`
+      : `"tags": array of relevant lowercase tags (include "ebiki")`) + usageScopeTagRule()
     fieldRequests.push(tagInstruction)
 
     const modeContext = activeMode.type === 'language'
@@ -2943,6 +2960,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         fields: Object.fromEntries(
           Object.entries(n.fields).map(([name, f]) => [name, htmlToPlain(f.value)])
         ),
+        tags: n.tags || [],
       }))
 
       const frontFieldName = Object.keys(cards[0]?.fields || {})[0] || 'Front'
@@ -2950,14 +2968,14 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       // everyday meanings; any other subject looks for underspecified/ambiguous CONCEPT cards.
       const isLangDeck = activeMode.type === 'language'
       const analyzeFraming = kind === 'custom'
-        ? `You are applying the deck owner's BULK EDIT REQUEST across their flashcards${isLangDeck ? ` in a ${studyLang} learning deck` : ` in a "${activeMode.name}" study deck${activeMode.description ? ` (${activeMode.description})` : ''}`}.${isLangDeck ? dialectRule() : ''}\n\nTHE OWNER'S REQUEST: "${instruction}"\n\nApply the request ONLY to cards it actually calls for changing — skip every card that already satisfies it or that the request does not apply to. Change ONLY what the request covers; leave every other line of the card untouched. In "reason", state in one short sentence what you changed on that card.`
+        ? `You are applying the deck owner's BULK EDIT REQUEST across their flashcards${isLangDeck ? ` in a ${studyLang} learning deck` : ` in a "${activeMode.name}" study deck${activeMode.description ? ` (${activeMode.description})` : ''}`}.${isLangDeck ? dialectRule() : ''}\n\nTHE OWNER'S REQUEST: "${instruction}"\n\nThe request may target the cards' FIELDS, their TAGS, or both — you can edit everything about a card's content. Apply the request ONLY to cards it actually calls for changing — skip every card that already satisfies it or that the request does not apply to. Change ONLY what the request covers; leave every other line of the card untouched. In "reason", state in one short sentence what you changed on that card.${isLangDeck ? `\n\nIf the request involves usage/region tags, follow the app's tagging convention:${usageScopeTagRule()}` : ''}`
         : isLangDeck
         ? `You are analyzing flashcards in a ${studyLang} learning deck. Find cards where the ${studyLang} word/phrase has MULTIPLE distinct everyday meanings that the card's current content does NOT disambiguate.\n\nFor each ambiguous card, propose updated field content that clarifies the intended meaning — e.g. specify the domain, add a usage example, or list the senses with a short note for each.\n\nDO NOT flag cards where:\n- The word has only one common meaning\n- The current content already disambiguates well\n- A learner would clearly understand from common usage`
         : `You are analyzing flashcards in a "${activeMode.name}" study deck${activeMode.description ? ` (${activeMode.description})` : ''}. Find cards that are AMBIGUOUS or UNDERSPECIFIED for this subject: a term whose intended sense isn't pinned down, a vague or incomplete definition, a front that several different concepts could answer, or missing context that makes the card hard to study.\n\nFor each such card, propose updated field content that pins the intended meaning — specify the domain/context, tighten the definition, or add a clarifying example that fits the subject.\n\nDO NOT flag cards where:\n- The content is already specific and unambiguous\n- A student of this subject would clearly understand it as written`
       const fieldLangRule = isLangDeck
         ? `Match each field's language (replace a ${studyLang} field with ${studyLang} content; replace an English field with English content).`
         : `Keep each field in the language it is already written in.`
-      const prompt = `${analyzeFraming}\n\nCards (JSON):\n${JSON.stringify(cards)}\n\nReturn a JSON array — ONLY include cards that need fixing (skip the rest):\n[\n  {\n    "noteId": <number>,\n    "front": "<exact verbatim value of the card's "${frontFieldName}" field, copied character-for-character>",\n    "reason": "<one short sentence: what is ambiguous>",\n    "recommendedFields": { "<fieldName>": "<new content>", ... }\n  }\n]\n\nCRITICAL: "noteId" and "front" MUST identify the SAME card. Copy the "front" value verbatim from that exact card's data above — never paraphrase it, never use a different card's word, and double-check that the recommendedFields you write are for that same card. If you cannot be certain a noteId and its front match, omit that card.\n\nIn recommendedFields, include ONLY fields you're changing (typically just the back). ${fieldLangRule} Use plain text with newlines for line breaks (no HTML, no <br>).\n\nOutput ONLY raw JSON. No markdown, no commentary.`
+      const prompt = `${analyzeFraming}\n\nCards (JSON):\n${JSON.stringify(cards)}\n\nReturn a JSON array — ONLY include cards that need fixing (skip the rest):\n[\n  {\n    "noteId": <number>,\n    "front": "<exact verbatim value of the card's "${frontFieldName}" field, copied character-for-character>",\n    "reason": "<one short sentence: what is ambiguous>",\n    "recommendedFields": { "<fieldName>": "<new content>", ... },\n    "recommendedTags": ["complete", "new", "tag-list"]\n  }\n]\n\nCRITICAL: "noteId" and "front" MUST identify the SAME card. Copy the "front" value verbatim from that exact card's data above — never paraphrase it, never use a different card's word, and double-check that the recommendedFields you write are for that same card. If you cannot be certain a noteId and its front match, omit that card.\n\nIn recommendedFields, include ONLY fields you're changing (typically just the back) — omit it entirely when only tags change. ${fieldLangRule} Use plain text with newlines for line breaks (no HTML, no <br>).\n\n"recommendedTags" is OPTIONAL — include it ONLY when the card's tags should change. When present it REPLACES the card's ENTIRE tag list, so copy over every existing tag you are not changing (dropping one silently DELETES it). Tags are lowercase, hyphenated, and contain no spaces.\n\nOutput ONLY raw JSON. No markdown, no commentary.`
 
       const text = await aiCall(apiKey, 'You analyze flashcard quality. Always respond with valid JSON only.', prompt, resolveModel('deck'))
       // parseAiJson, not bare JSON.parse: models sometimes append commentary after the array or
@@ -2974,7 +2992,9 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
 
       let mismatchDropped = 0
       const recs = parsed.map((r) => {
-        if (!r.recommendedFields || typeof r.recommendedFields !== 'object') return null
+        const hasFieldRec = r.recommendedFields && typeof r.recommendedFields === 'object'
+        const hasTagRec = Array.isArray(r.recommendedTags)
+        if (!hasFieldRec && !hasTagRec) return null
         const noteId = typeof r.noteId === 'string' ? Number(r.noteId) : r.noteId
         const byId = deckBrowserNotes.find((n) => n.noteId === noteId)
         const echoedFront = htmlToPlain(r.front || '').toLowerCase()
@@ -3009,11 +3029,17 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
           Object.entries(note.fields).map(([name, f]) => [name, htmlToPlain(f.value)])
         )
         const recommendedFields = { ...currentFields }
-        Object.entries(r.recommendedFields).forEach(([k, v]) => {
+        if (hasFieldRec) Object.entries(r.recommendedFields).forEach(([k, v]) => {
           if (k in recommendedFields) recommendedFields[k] = String(v ?? '')
         })
+        // Tags: the AI's list REPLACES the card's whole tag set (Anki tags are space-separated,
+        // so inner spaces become hyphens). No recommendedTags = tags unchanged.
+        const cleanTag = (tg) => String(tg).trim().replace(/\s+/g, '-')
+        const currentTags = note.tags || []
+        const recommendedTags = hasTagRec ? [...new Set(r.recommendedTags.map(cleanTag).filter(Boolean))] : [...currentTags]
+        const tagsChanged = [...recommendedTags].sort().join(' ') !== [...currentTags].sort().join(' ')
         // Skip if AI flagged the card but didn't actually propose any changes.
-        const hasChange = Object.keys(recommendedFields).some((k) => recommendedFields[k] !== currentFields[k])
+        const hasChange = tagsChanged || Object.keys(recommendedFields).some((k) => recommendedFields[k] !== currentFields[k])
         if (!hasChange) return null
         // Final assertion: noteId we will write to MUST be this resolved card's id.
         return {
@@ -3021,6 +3047,8 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
           reason: r.reason || '',
           currentFields,
           recommendedFields,
+          currentTags,
+          recommendedTags,
           refineInput: '',
           refining: false,
           accepted: false,
@@ -3043,6 +3071,19 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     setDeckAnalyzeRecs((prev) => prev.map((r, i) => i === idx ? { ...r, recommendedFields: { ...r.recommendedFields, [fieldName]: value } } : r))
   }
 
+  // The tags input edits free text (space/comma-separated); parsed back to a tag array on commit.
+  const updateRecTags = (idx, text) => {
+    setDeckAnalyzeRecs((prev) => prev.map((r, i) => i === idx ? { ...r, recommendedTagsText: text } : r))
+  }
+  const parseRecTags = (rec) => {
+    const src = rec.recommendedTagsText ?? (rec.recommendedTags || []).join(' ')
+    return [...new Set(String(src).split(/[\s,]+/).map((tg) => tg.trim()).filter(Boolean))]
+  }
+  const recTagsChanged = (rec) => {
+    const next = parseRecTags(rec)
+    return [...next].sort().join(' ') !== [...(rec.currentTags || [])].sort().join(' ')
+  }
+
   const setRecRefineInput = (idx, value) => {
     setDeckAnalyzeRecs((prev) => prev.map((r, i) => i === idx ? { ...r, refineInput: value } : r))
   }
@@ -3053,14 +3094,18 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     setDeckAnalyzeRecs((prev) => prev.map((r, i) => i === idx ? { ...r, refining: true } : r))
     try {
       const fieldsDesc = Object.entries(rec.recommendedFields).map(([k, v]) => `${k}:\n${v}`).join('\n\n')
-      const prompt = `Here is a flashcard recommendation:\n\n${fieldsDesc}\n\nThe user wants this change: "${rec.refineInput}"\n\nReturn a JSON object with the updated fields: { ${Object.keys(rec.recommendedFields).map((k) => `"${k}": "..."`).join(', ')} }\nKeep any fields the user didn't ask to change. Use plain text with newlines (no HTML). Output ONLY raw JSON, no markdown.`
+      const prompt = `Here is a flashcard recommendation:\n\n${fieldsDesc}\n\nTags: ${parseRecTags(rec).join(' ') || '(none)'}\n\nThe user wants this change: "${rec.refineInput}"\n\nReturn a JSON object with the updated fields: { ${Object.keys(rec.recommendedFields).map((k) => `"${k}": "..."`).join(', ')}, "tags": ["the", "complete", "tag-list"] }\nKeep any fields/tags the user didn't ask to change ("tags" is the FULL replacement list, so carry unchanged tags over). Use plain text with newlines (no HTML). Output ONLY raw JSON, no markdown.`
       const text = await aiCall(apiKey, 'You edit Anki flashcard content. Always respond with valid JSON only.', prompt, resolveModel('deck'))
       const updated = parseAiJson(text)
       setDeckAnalyzeRecs((prev) => prev.map((r, i) => {
         if (i !== idx) return r
         const newFields = { ...r.recommendedFields }
         Object.entries(updated).forEach(([k, v]) => { if (k in newFields) newFields[k] = String(v) })
-        return { ...r, recommendedFields: newFields, refineInput: '', refining: false }
+        const newTags = Array.isArray(updated.tags)
+          ? [...new Set(updated.tags.map((tg) => String(tg).trim().replace(/\s+/g, '-')).filter(Boolean))]
+          : null
+        // recommendedTagsText cleared so the refreshed tag list (not stale text) drives the input/commit
+        return { ...r, recommendedFields: newFields, ...(newTags ? { recommendedTags: newTags, recommendedTagsText: undefined } : {}), refineInput: '', refining: false }
       }))
     } catch (err) {
       console.error('[Deck] rec refine failed:', err.message)
@@ -3082,6 +3127,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
 
     // Build per-rec diff: only fields the user/AI actually changed get sent to Anki.
     // Unchanged fields are NOT sent, so original HTML markup (<b>, <img>, sound refs, etc.) is preserved.
+    // Tags travel separately (ankiSetNoteTags) and only when they actually changed.
     const updates = toCommit.map((rec) => {
       const changed = {}
       Object.keys(rec.recommendedFields).forEach((k) => {
@@ -3089,13 +3135,17 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         const oldVal = String(rec.currentFields[k] ?? '')
         if (newVal !== oldVal) changed[k] = newVal
       })
-      return { rec, changed }
+      const finalTags = parseRecTags(rec)
+      const tagsChanged = recTagsChanged(rec)
+      return { rec, changed, finalTags, tagsChanged }
     })
 
-    // Safety checks: refuse to wipe a previously-populated field; refuse no-op recs.
+    // Safety checks: refuse to wipe a previously-populated field or a card's ENTIRE tag list
+    // (removing some tags is a legitimate edit; ending at zero is almost always a model slip);
+    // refuse no-op recs.
     const issues = []
-    updates.forEach(({ rec, changed }) => {
-      if (Object.keys(changed).length === 0) {
+    updates.forEach(({ rec, changed, finalTags, tagsChanged }) => {
+      if (Object.keys(changed).length === 0 && !tagsChanged) {
         issues.push(`Card #${rec.noteId}: no changes from original`)
         return
       }
@@ -3105,6 +3155,9 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
           issues.push(`Card #${rec.noteId}: field "${k}" would be wiped`)
         }
       })
+      if (tagsChanged && finalTags.length === 0 && (rec.currentTags || []).length > 0) {
+        issues.push(`Card #${rec.noteId}: all tags would be removed`)
+      }
     })
     if (issues.length > 0) {
       setDeckAnalyzeError('Refusing to save: ' + issues.join('; '))
@@ -3112,8 +3165,8 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       return
     }
 
-    // Confirm with the user, listing exactly which cards + fields will change.
-    const summary = updates.map(({ rec, changed }) => `  • Card #${rec.noteId} (${Object.keys(changed).join(', ')})`).join('\n')
+    // Confirm with the user, listing exactly which cards + fields/tags will change.
+    const summary = updates.map(({ rec, changed, tagsChanged }) => `  • Card #${rec.noteId} (${[...Object.keys(changed), ...(tagsChanged ? ['tags'] : [])].join(', ')})`).join('\n')
     const ok = window.confirm(
       `Save ${toCommit.length} card update${toCommit.length === 1 ? '' : 's'} to Anki?\n\n${summary}\n\n` +
       `Only the listed fields will be modified. Untouched fields keep their original content and formatting. ` +
@@ -3126,13 +3179,16 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     const failures = []
     const successes = []
 
-    for (const { rec, changed } of updates) {
+    for (const { rec, changed, finalTags, tagsChanged } of updates) {
       try {
-        const htmlFields = {}
-        Object.entries(changed).forEach(([k, v]) => {
-          htmlFields[k] = String(v).replace(/\n/g, '<br>')
-        })
-        await ankiUpdateNote(rec.noteId, htmlFields)
+        if (Object.keys(changed).length > 0) {
+          const htmlFields = {}
+          Object.entries(changed).forEach(([k, v]) => {
+            htmlFields[k] = String(v).replace(/\n/g, '<br>')
+          })
+          await ankiUpdateNote(rec.noteId, htmlFields)
+        }
+        if (tagsChanged) await ankiSetNoteTags(rec.noteId, rec.currentTags || [], finalTags)
         successes.push(rec.noteId)
       } catch (err) {
         failures.push({ noteId: rec.noteId, error: err.message })
@@ -4401,6 +4457,13 @@ Output ONLY raw JSON. No markdown, no backticks.`
                 {studyWordLookup.card.correction && (
                   <div style={{ fontSize: 10, color: 'var(--c-warning)' }}>⚠ {studyWordLookup.card.correction}</div>
                 )}
+                {studyWordLookup.card.tags?.length > 0 && (
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    {sortTagsRegionFirst(studyWordLookup.card.tags).map((tag, ti) => (
+                      <span key={ti} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: 'rgba(125,133,144,.15)', color: 'var(--c-ink-dim)', ...(isRegionTag(tag) ? regionTagStyle(tag) : {}) }}>{tag}</span>
+                    ))}
+                  </div>
+                )}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
                   <button onClick={studyWordSyncCard} disabled={studyWordLookup.cardSyncing || !ankiConnected}
                     title={ankiConnected ? `Add to ${studyWordCardDeck()}` : 'Anki not connected'}
@@ -5372,8 +5435,18 @@ Output ONLY raw JSON. No markdown, no backticks.`
     // Accent drill has its own per-mode toggle (default ON); a language without accented
     // acceptedAnswers can never trigger it regardless.
     const accentDrillOn = (activeMode.studyRules || defaultStudyRules).accentDrill !== false
-    if (isCorrect && !cameFromRetype && accentDrillOn && isLanguageMode && !isExplanation && acceptedAnswers.length > 0) {
-      const matched = acceptedAnswers.filter(matchesLenient)
+    // The drill is NOT limited to locally-verified recall answers: thinking questions (explanation,
+    // "use it in a sentence" deepQ) drill too — but ONLY when the answer CONTAINS the target word
+    // with its exact base spelling and missing/misplaced accents ("la Miya es muy calida conmigo"
+    // → drill for cálida). A different inflection, a different word, or an answer that never
+    // mentions the word continues like normal, so accents are never enforced on an answer that
+    // doesn't even contain the word. Candidates include the card's OWN headword forms (front
+    // "cálido/cálida (adjetivo)" → cálido, cálida) because free-writing questions often ship
+    // empty acceptedAnswers — without them the sentence case could never be detected.
+    if (!cameFromRetype && accentDrillOn && isLanguageMode) {
+      const frontForms = String(cs.front || '').replace(/\s*\([^)]*\)\s*$/, '').split('/').map((s) => s.trim()).filter(Boolean)
+      const candidates = [...acceptedAnswers, ...frontForms]
+      const matched = candidates.filter(matchesLenient)
       // Canonical = a matched variant that actually carries accent marks (the spelling to teach)
       const canonical = matched.find(a => stripAccents(normalize(a)) !== normalize(a))
       if (canonical) {
@@ -5382,11 +5455,11 @@ Output ONLY raw JSON. No markdown, no backticks.`
         const typedExactly = canonNorm === ans || canonNoArt === ansNoArt || canonNorm === ansNoArt || canonNoArt === ans ||
           (canonNoArt.length >= 3 && new RegExp(`(^|\\s)${escapeRe(canonNoArt)}(\\s|$)`).test(ansNoArt))
         if (!typedExactly) {
-          // ACCENT DRILL: the answer is CORRECT but the accents are missing/wrong. Hold the
+          // ACCENT DRILL: the target word is present and correct except for accents. Hold the
           // advance and have the user type the accented form once — typing is how accents
-          // stick. Extra surrounding words ("el quimico dulce") don't matter: only the
-          // accepted answer itself is checked. Locally-verified questions only — anything the
-          // AI must grade never reaches this branch (isCorrect requires acceptedAnswers).
+          // stick. Extra surrounding words ("el quimico dulce", a whole sentence) don't
+          // matter: only the target word itself is checked, and after the retype the ORIGINAL
+          // answer continues to grading unchanged (cameFromRetype path above).
           const held = [...studyCardState]
           const heldAttempts = [...(cs.questionAttempts || [])]
           heldAttempts[questionIdx] = allAttempts
@@ -7149,7 +7222,7 @@ IMPORTANT BEHAVIOR RULES:
 ${activeMode.type === 'language' ? `   - LANGUAGE MODE (learning ${learnLangName()}, user speaks ${userLangName()}) — use this back format, each label on its own line, with the LABELS WRITTEN IN ${learnLangName()}:
      front: "<word> (<part of speech written in ${learnLangName()}>)"
      back lines: pronunciation (phonetics for a ${userLangName()} speaker, stress in CAPS), translation (to ${userLangName()}), direct/literal translation (omit the line if none), synonyms (in ${userLangName()}), definition (written IN ${learnLangName()}), example (a natural ${learnLangName()} sentence with its ${userLangName()} translation in parentheses).
-     tags: include part of speech, level, topic, and "ebiki". Only use REAL, correctly-spelled ${learnLangName()} words.${dialectRule()}` : `   - Design a back that best teaches this subject (definition, key points, formula, example as fits). Always include an "ebiki" tag.`}
+     tags: include part of speech, level, topic, and "ebiki".${usageScopeTagRule()} Only use REAL, correctly-spelled ${learnLangName()} words.${dialectRule()}` : `   - Design a back that best teaches this subject (definition, key points, formula, example as fits). Always include an "ebiki" tag.`}
 
 3. For general questions: be concise and helpful. Explain concepts clearly.
 
@@ -8241,7 +8314,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         )}
                         {card.tags?.length > 0 && (
                           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
-                            {card.tags.map((t, ti) => <span key={ti} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: 'rgba(125,133,144,.15)', color: 'var(--c-ink-dim)' }}>{t}</span>)}
+                            {sortTagsRegionFirst(card.tags).map((t, ti) => <span key={ti} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: 'rgba(125,133,144,.15)', color: 'var(--c-ink-dim)', ...(isRegionTag(t) ? regionTagStyle(t) : {}) }}>{t}</span>)}
                           </div>
                         )}
                       </div>
@@ -8386,6 +8459,41 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               </div>
                             )
                           })}
+
+                          {/* Tags — editable like the fields, with the same before/after treatment:
+                              removed tags struck through red, added tags green, kept tags gray. */}
+                          {(() => {
+                            const nextTags = parseRecTags(rec)
+                            const curTags = rec.currentTags || []
+                            const tChanged = recTagsChanged(rec)
+                            return (
+                              <div style={{ marginBottom: 6 }}>
+                                <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 3, fontWeight: 600 }}>Tags</div>
+                                <input
+                                  type="text"
+                                  value={rec.recommendedTagsText ?? (rec.recommendedTags || []).join(' ')}
+                                  onChange={(e) => updateRecTags(idx, e.target.value)}
+                                  placeholder="space-separated tags"
+                                  style={{ ...S.keyInput, fontSize: 12, width: '100%', boxSizing: 'border-box' }}
+                                />
+                                {tChanged && (
+                                  <div style={{ marginTop: 4, padding: '6px 8px', background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 4 }}>
+                                    <span style={{ fontSize: 9, color: 'var(--c-ink-dim)', fontWeight: 600, display: 'block', marginBottom: 4 }}>
+                                      Tag changes (<span style={{ color: 'var(--c-danger)' }}>removed</span> / <span style={{ color: 'var(--c-success)' }}>added</span>)
+                                    </span>
+                                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                                      {curTags.filter((tg) => !nextTags.includes(tg)).map((tg) => (
+                                        <span key={`del-${tg}`} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, color: 'var(--c-danger)', background: 'rgba(229,57,46,.15)', textDecoration: 'line-through' }}>{tg}</span>
+                                      ))}
+                                      {sortTagsRegionFirst(nextTags).map((tg) => curTags.includes(tg)
+                                        ? <span key={tg} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: 'rgba(125,133,144,.15)', color: 'var(--c-ink-dim)', ...(isRegionTag(tg) ? regionTagStyle(tg) : {}) }}>{tg}</span>
+                                        : <span key={tg} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, color: 'var(--c-success)', background: 'rgba(24,169,87,.15)', fontWeight: 700 }}>+ {tg}</span>)}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })()}
 
                           <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginTop: 6 }}>
                             <input
@@ -8690,8 +8798,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               ))}
                               {(note.tags || []).length > 0 && (
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
-                                  {note.tags.map((tag) => (
-                                    <span key={tag} style={{ fontSize: 9, fontWeight: 700, color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,.3)', borderRadius: 999, padding: '1px 7px' }}>{tag}</span>
+                                  {sortTagsRegionFirst(note.tags).map((tag) => (
+                                    <span key={tag} style={{ fontSize: 9, fontWeight: 700, color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,.3)', borderRadius: 999, padding: '1px 7px', ...(isRegionTag(tag) ? regionTagStyle(tag) : {}) }}>{tag}</span>
                                   ))}
                                 </div>
                               )}
@@ -8952,7 +9060,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       <div style={{ fontSize: 11, color: 'var(--c-ink)', whiteSpace: 'pre-line', marginBottom: 6 }}>{card.back}</div>
                       {card.tags?.length > 0 && (
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 6 }}>
-                          {card.tags.map((t, ti) => <span key={ti} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: 'rgba(125,133,144,.15)', color: 'var(--c-ink-dim)' }}>{t}</span>)}
+                          {sortTagsRegionFirst(card.tags).map((t, ti) => <span key={ti} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: 'rgba(125,133,144,.15)', color: 'var(--c-ink-dim)', ...(isRegionTag(t) ? regionTagStyle(t) : {}) }}>{t}</span>)}
                         </div>
                       )}
                       {card.synced ? (
@@ -10606,8 +10714,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     <div style={{ marginBottom: 6 }}>
                       <div style={S.ttAnkiCardLabel}>Tags</div>
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                        {ankiCard.tags.map((tag, i) => (
-                          <span key={i} style={{ fontSize: 10, padding: '2px 6px', borderRadius: 3, background: 'rgba(125,133,144,.15)', color: 'var(--c-ink)', border: '1px solid rgba(125,133,144,.2)' }}>{tag}</span>
+                        {sortTagsRegionFirst(ankiCard.tags).map((tag, i) => (
+                          <span key={i} style={{ fontSize: 10, padding: '2px 6px', borderRadius: 3, background: 'rgba(125,133,144,.15)', color: 'var(--c-ink)', border: '1px solid rgba(125,133,144,.2)', ...(isRegionTag(tag) ? regionTagStyle(tag) : {}) }}>{tag}</span>
                         ))}
                       </div>
                     </div>

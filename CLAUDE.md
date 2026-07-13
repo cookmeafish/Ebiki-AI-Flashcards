@@ -299,8 +299,31 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   ANY script (`^([^:\n]{1,30}):`). Sync via `ankiAddNote` (allowDuplicate:true for Quick Add) + `ankiSync`;
   duplicate pre-check via `ankiCanAddNote` warns only.
 - **Accuracy guardrail (cards get MEMORIZED):** `verifyCards` runs a SECOND model pass that proofreads and
-  FIXES each generated card (nonexistent/misspelled words, wrong gender/translation/example) before the user
-  sees it. The card prompts + chat prompt also carry a "never invent words, verify, admit uncertainty" directive.
+  FIXES each generated card (nonexistent/misspelled words, wrong gender/translation/example, dishonest
+  usage-scope tag) before the user sees it. The card prompts + chat prompt also carry a "never invent words,
+  verify, admit uncertainty" directive.
+- **Usage-scope tag — EVERY language card states where the word is used.** `region-global` when natives
+  across ALL regions of the language use/understand it (in the card's SENSE), else one or more
+  `region-<place>` tags (`region-spain`, `region-mexico`, `region-latam`, `region-brazil`,
+  `region-portugal`, `region-uk`, `region-us`, …). Language-agnostic (Spanish, Portuguese, English, …)
+  and mandatory — a universal word whose carded meaning is regional gets the region tag, never
+  `region-global`. The rule lives in TWO places: inline in `LANGUAGE_CARD_PROMPT`'s tags line (covers
+  `generateCards` → Quick Add, tapped-word cards, conjugation add) and the `usageScopeTagRule()` helper
+  in App.jsx next to `dialectRule()` (injected into the Chat `<anki-card>` format and `buildCardFields`
+  for Discover/Picture — appended even over custom `tagRules`). `verifyCards` checks the tag's honesty.
+  Keep both in sync when changing tag names. Distinct from the mode DIALECT: the dialect steers which
+  variant content is WRITTEN in; the scope tag records where the word is actually USED.
+  **`region-global` is a positive claim requiring confidence** — it's often genuinely hard to tell if a
+  word is used in EVERY country speaking the language, so when unsure the model must NOT guess global:
+  it tags only the region(s) it actually knows use it, at whatever breadth it can honestly back
+  (country < region < global); `verifyCards` demotes a doubtful "global" to the known region(s).
+  **Region tags render FIRST and highlighted on every tag surface** — `isRegionTag`/`sortTagsRegionFirst`/
+  `regionTagStyle` (App.jsx, next to `usageScopeTagRule`): stable sort puts `region-*` chips at the front,
+  colored green (`region-global` = safe everywhere) or amber (region-specific = heads-up). Applied to the
+  chat `<anki-card>` widget, Quick Add tray, deck browser rows, Picture widget, the tapped-word popup's
+  new-card preview (`renderWordLookupPopup` — one renderer, covers question/hint/graded/batch surfaces),
+  and (self-contained copy, keep visually in sync) the Discover card preview in `DiscoverPanel.jsx`.
+  New tag-chip surfaces must use these helpers.
 - **Deck → ⚡ Quick Add** (`quickAdd*` state): paste many words → `generateCards` → a **review tray**
   (per-card editable front/back/tags + ONE include ✓/○ toggle; batch **"Add N to {deck}"**; dup/correction
   badges). Header shows both the active **Mode** (tailors cards) and target **Deck**.
@@ -462,6 +485,16 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   NOT keyed off the `studyInputShake` counter's truthiness, which stayed `>0` forever and re-shook every
   time the input row remounted after a correct-answer flash (looked like the next question was wrong). The
   counter is still bumped only to change the element `key` so a repeated wrong answer replays the anim.
+- **Accent drill (`studyAccentRetype`, per-mode `studyRules.accentDrill`, default ON) fires by
+  CONTAINMENT, not question type.** Any typed answer — including thinking questions (explanation,
+  "use it in a sentence" deepQ) — drills when it CONTAINS a target word spelled with the exact base
+  letters but missing/misplaced accents ("la Miya es muy calida" → retype drill for cálida). A
+  different inflection ("calidas"), a different word, or an answer that never mentions the word
+  continues like normal — accents are never enforced on an answer that doesn't contain the word.
+  Candidates = `acceptedAnswers` ∪ the card's OWN headword forms (front "cálido/cálida (adjetivo)"
+  split on "/", "( … )" stripped) because free-writing questions often ship empty acceptedAnswers.
+  After the retype, the ORIGINAL full answer continues to grading unchanged (`cameFromRetype`), and
+  the slip caps the card at Good (`accentSlips`).
 - **Question-phase chrome:** slim session progress bar in the header — total = completed + active +
   NOT-YET-PULLED pool cards, so the continuous pull system never moves the denominator; counter labeled
   "N/M cards" (cards, not questions — per-card question DOTS on the card show within-card progress from
@@ -545,6 +578,18 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   UI: "✨ Ebi bulk edit" toolbar button → instruction panel (`deckCustomEditOpen`/`deckCustomEditText`)
   → "Preview changes". The review header echoes the EXACT request that produced the suggestions
   (`deckAnalyzeInstruction`) so the user can verify Ebi understood them before accepting anything.
+  **Bulk edit covers TAGS as well as fields** (a card's full editable content): the payload sends each
+  note's `tags`, the JSON contract has an OPTIONAL `recommendedTags` (the COMPLETE replacement list —
+  the prompt warns that dropping a tag silently deletes it; tags-only recs are valid, `recommendedFields`
+  may be omitted), and for language decks the custom framing embeds `usageScopeTagRule()` so
+  region-tag requests follow the app's exact convention. Review UI: an editable Tags input per rec
+  (free text, `recommendedTagsText`, parsed by `parseRecTags` on commit) + a before/after chip diff
+  (removed = struck-through red, added = green, kept = gray with region highlighting) — EVERY new
+  editable thing Ebi gains must get this same before/after review treatment. Per-card Refine can
+  adjust tags too (`"tags"` in its JSON contract, full-replacement semantics). Commit: fields via
+  `ankiUpdateNote` (diff-only), tags via `ankiSetNoteTags(noteId, currentTags, finalTags)` only when
+  actually changed; safety checks refuse a no-op AND wiping a card's ENTIRE tag list (partial removals
+  are legitimate); the confirm summary lists "tags" alongside changed fields.
   `deckAnalyzeKind` keeps button labels/empty-messages straight. SECOND entry
   point: Ebi's Help emits `<action>{"type":"deck_edit","instruction":…}</action>` (CAPABILITIES block
   tells it to refuse vague requests); App's onAction prefills+opens the panel, switches to the Deck
