@@ -485,8 +485,15 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   NOT keyed off the `studyInputShake` counter's truthiness, which stayed `>0` forever and re-shook every
   time the input row remounted after a correct-answer flash (looked like the next question was wrong). The
   counter is still bumped only to change the element `key` so a repeated wrong answer replays the anim.
-- **Accent drill (`studyAccentRetype`, per-mode `studyRules.accentDrill`, default ON) fires by
-  CONTAINMENT, not question type.** Any typed answer — including thinking questions (explanation,
+- **"I Don't Know" (`skipStudyQuestion`) is card-level ONLY on the first question.** With nothing
+  answered yet it keeps the confirm + whole-card give-up (every question '(skipped)', card done,
+  rated Again). Once ANY question of the card has been answered (`cs.questionIdx > 0`) it fails ONLY
+  the current question — records '(skipped)' as that answer and advances exactly like a submit
+  (same done/evaluate/pullNewCard flow), so a correct Q1 isn't forfeited by a blank Q2 and the card
+  still runs ALL its configured questionsPerCard. No confirm on the single-question path (nothing
+  irreversible happens). Reviewing an earlier question via a dot + I Don't Know replaces that answer
+  with '(skipped)' and returns to the frontier (edit-branch semantics). PBQ/conjugation skips are
+  separate (`evaluatePbqSkipped`, `skipConjugationWord`). Any typed answer — including thinking questions (explanation,
   "use it in a sentence" deepQ) — drills when it CONTAINS a target word spelled with the exact base
   letters but missing/misplaced accents ("la Miya es muy calida" → retype drill for cálida). A
   different inflection ("calidas"), a different word, or an answer that never mentions the word
