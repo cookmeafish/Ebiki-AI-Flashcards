@@ -5732,12 +5732,67 @@ Output ONLY raw JSON. No markdown, no backticks.`
   // it straight to the results so the user can sync to Anki.
   const skipStudyQuestion = () => {
     if (studyLoading || !currentQuestion) return
-    const { cardIdx } = currentQuestion
+    const { cardIdx, questionIdx } = currentQuestion
     const cs = studyCardState[cardIdx]
     const qpc = (activeMode.studyRules || defaultStudyRules).questionsPerCard || 3
 
-    // Giving up finalizes the whole card and the Again rating auto-syncs to Anki —
-    // confirm so a misclick doesn't record a review you didn't mean.
+    // "I Don't Know" is card-level ONLY on the first question (nothing answered yet — the user
+    // doesn't know this card at all): every question fails and the card rates Again. Once ANY
+    // question has been answered, it fails ONLY the current question and the card continues
+    // with its remaining questions (however many questionsPerCard is set to) — one blank must
+    // not forfeit the work already done (e.g. a correct Q1).
+    if (cs.questionIdx > 0) {
+      setStudyHintLevel(0); setStudyCurrentHint(null); setStudyMeaningHint(null); setStudyWordLookup(null)
+
+      // Reviewing an earlier question via a progress dot: replace THAT answer with the skip
+      // and return to the frontier — same semantics as the edit branch in submitStudyAnswer.
+      if (questionIdx < cs.questionIdx) {
+        setStudyCardState((prev) => {
+          const updated = [...prev]
+          const c = updated[cardIdx]
+          const answers = [...c.answers]; answers[questionIdx] = '(skipped)'
+          const attempts = [...(c.questionAttempts || [])]; attempts[questionIdx] = ['(skipped)']
+          updated[cardIdx] = { ...c, answers, questionAttempts: attempts }
+          return updated
+        })
+        setCurrentQuestion({ cardIdx, questionIdx: cs.questionIdx })
+        setStudyInput('')
+        return
+      }
+
+      // Frontier: record the skip as this question's answer and advance exactly like a submit.
+      const newStates = [...studyCardState]
+      newStates[cardIdx] = {
+        ...cs,
+        answers: [...cs.answers, '(skipped)'],
+        questionIdx: cs.questionIdx + 1,
+      }
+      setStudyAnswerHistory((prev) => [...prev, { cardIdx, questionIdx }])
+      setStudyInput('')
+      if (newStates[cardIdx].questionIdx >= qpc) {
+        newStates[cardIdx].done = true
+        newStates[cardIdx].evaluating = true
+        setStudyCardState(newStates)
+        const remaining = newStates.filter((c) => !c.done && c.questionIdx < c.questions.length)
+        if (remaining.length > 0) {
+          const nextActive = remaining[Math.floor(Math.random() * remaining.length)]
+          setCurrentQuestion({ cardIdx: newStates.indexOf(nextActive), questionIdx: nextActive.questionIdx })
+        } else {
+          setCurrentQuestion(null)
+        }
+        evaluateCard(cardIdx, newStates[cardIdx])
+        pullNewCard()
+      } else {
+        setStudyCardState(newStates)
+        const active = newStates.filter((c) => !c.done && c.questionIdx < c.questions.length)
+        const pick = active.length ? active[Math.floor(Math.random() * active.length)] : null
+        setCurrentQuestion(pick ? { cardIdx: newStates.indexOf(pick), questionIdx: pick.questionIdx } : null)
+      }
+      return
+    }
+
+    // First question — giving up finalizes the whole card and the Again rating auto-syncs to
+    // Anki — confirm so a misclick doesn't record a review you didn't mean.
     if (!window.confirm((cs.isConjugation || cs.noSync)
       ? `Give up on "${cs.front}"? All remaining questions will be skipped and rated Again. Continue?`
       : `Give up on "${cs.front}"? All its questions will be marked wrong and the card rated Again — this records the review in Anki right away. Continue?`
