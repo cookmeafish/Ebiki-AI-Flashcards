@@ -4447,6 +4447,23 @@ Output ONLY raw JSON. No markdown, no backticks.`
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', borderTop: '1px solid rgba(223,37,64,.15)', paddingTop: 6 }}>
             {studyWordLookup.cardSynced ? (
               <span style={{ fontSize: 11, color: 'var(--c-success)', fontWeight: 700 }}>✓ Added to {studyWordLookup.cardDeck}</span>
+            ) : studyWordLookup.existing ? (
+              /* The word is ALREADY a card in the target deck — show that card instead of
+                 offering a duplicate. No "add anyway": duplicates from this popup are never wanted. */
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
+                <div style={{ fontSize: 11, color: 'var(--c-success)', fontWeight: 700 }}>
+                  ✓ Already in {studyWordLookup.existing.deck} — <span style={{ color: 'var(--c-ink)' }}>{studyWordLookup.existing.front}</span>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--c-ink)', background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 5, padding: '6px 9px', lineHeight: 1.55, maxHeight: 150, overflowY: 'auto' }}
+                  dangerouslySetInnerHTML={{ __html: studyWordLookup.existing.backHtml }} />
+                {studyWordLookup.existing.tags?.length > 0 && (
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    {sortTagsRegionFirst(studyWordLookup.existing.tags).map((tag, ti) => (
+                      <span key={ti} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: 'rgba(125,133,144,.15)', color: 'var(--c-ink-dim)', ...(isRegionTag(tag) ? regionTagStyle(tag) : {}) }}>{tag}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
             ) : studyWordLookup.card ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
                 <div style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>
@@ -6049,11 +6066,50 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
   // Make an Anki card from the tapped word. Uses the shared, language/topic-agnostic
   // generateCards engine (it branches on activeMode.type + learnLangName), so it works for
   // any subject or language the user is studying.
+  // DUPLICATE-AWARE: before generating, the target deck is searched for a note whose HEADWORD
+  // already is this word (accent/case-insensitive; front format "word (pos)" or "worda/wordb (pos)").
+  // A hit shows THAT card (`wl.existing`) instead of offering a duplicate to add. Anki offline or
+  // the search failing falls through to normal generation — never blocks the feature.
+  const studyWordFindExisting = async (word) => {
+    if (!ankiConnected) return null
+    const deck = studyWordCardDeck()
+    const fold = (s) => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
+    const safe = String(word).replace(/["*_()\\:]/g, '')
+    if (!safe) return null
+    try {
+      let ids = await ankiFindNotes(`deck:"${deck}" "${safe}"`)
+      // Accent-variant fallback: Anki text search is accent-sensitive; the folded form catches
+      // a stored "pretérito" when the tapped token lost its accent (or vice versa).
+      if (!ids.length && fold(safe) !== safe.toLowerCase()) ids = await ankiFindNotes(`deck:"${deck}" "${fold(safe)}"`)
+      if (!ids.length) return null
+      const notes = await ankiNotesInfo(ids.slice(0, 50))
+      const match = notes.find((n) => {
+        const first = Object.values(n.fields).sort((a, b) => a.order - b.order)[0]
+        const head = stripHtml(first?.value || '').replace(/\s*\([^)]*\)\s*$/, '')
+        return head.split('/').some((h) => fold(h) === fold(word))
+      })
+      if (!match) return null
+      const fs = Object.values(match.fields).sort((a, b) => a.order - b.order)
+      return {
+        noteId: match.noteId,
+        front: stripHtml(fs[0]?.value || ''),
+        backHtml: String(fs[1]?.value || '').replace(/\[sound:[^\]]*\]/g, ''),
+        tags: match.tags || [],
+        deck,
+      }
+    } catch { return null } // search hiccup → treat as no duplicate, generation proceeds
+  }
+
   const studyWordMakeCard = async () => {
     const wl = studyWordLookup
-    if (!wl?.word || !apiKey || wl.cardLoading || wl.card) return
+    if (!wl?.word || !apiKey || wl.cardLoading || wl.card || wl.existing) return
     setStudyWordLookup((prev) => (prev && prev.word === wl.word) ? { ...prev, cardLoading: true, cardError: null } : prev)
     try {
+      const existing = await studyWordFindExisting(wl.word)
+      if (existing) {
+        setStudyWordLookup((prev) => (prev && prev.word === wl.word) ? { ...prev, cardLoading: false, existing } : prev)
+        return
+      }
       const [card] = await generateCards([wl.word])
       if (!card) throw new Error('no card')
       setStudyWordLookup((prev) => (prev && prev.word === wl.word) ? { ...prev, cardLoading: false, card } : prev)
