@@ -644,6 +644,12 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   stores the `source` so the popup renders next to the clicked word. Wired into: the 💡 Meaning Hint, the
   graded-cards list (Q text, feedback line, each note — sources `graded-<ci>-<qi>`), and Batch Results
   (`batch-<ci>-<qi>`). Language modes only.
+  **"Make Anki card" is DUPLICATE-AWARE:** `studyWordFindExisting` searches the target deck BEFORE
+  generating — a note whose HEADWORD matches the tapped word (accent/case-insensitive; front
+  "word (pos)" / "worda/wordb (pos)" split on "/", "(…)" stripped; accent-variant search fallback since
+  Anki text search is accent-sensitive) short-circuits to a "✓ Already in «deck»" view of THAT card
+  (front + back + tags, `wl.existing`) with NO add button — duplicates from this popup are never
+  wanted. Anki offline or a search error falls through to normal generation.
 - **Ebi's memory hook (`generateMnemonic(cardIdx, card, method)`) is SUBJECT-AGNOSTIC.** The trigger is
   the "🧠 Help me remember" header toggle (`renderMnemonicButton`); opening it sets `view='mnemonic'`
   (hiding feedback) and hydrates saved hooks — generation waits for the user to click "🧠 Memory hook"
