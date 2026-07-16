@@ -485,6 +485,19 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   NOT keyed off the `studyInputShake` counter's truthiness, which stayed `>0` forever and re-shook every
   time the input row remounted after a correct-answer flash (looked like the next question was wrong). The
   counter is still bumped only to change the element `key` so a repeated wrong answer replays the anim.
+- **"Learn it" moment (`studyLearnMoment`) — I-Don't-Know on Q1 teaches, not just fails.** After the
+  whole-card give-up records its honest Again, `openLearnMoment(cs)` holds the question card with a
+  teach panel: the card back (`cardBackToHtml`), pronunciation, an AUTO-generated memory hook
+  (more on demand — `learnMomentAnotherHook`), and a FOCUSED Ebi chat (`sendLearnChat` — explains
+  from zero in the app language, knowledgeBlock(4000) + dialectRule, em-dash/shrimp-emoji stripped)
+  for the "but why…" a hook can't answer. Exit gate = typing the headword once
+  (`learnMomentTypedOk` — exact incl. accents, any "/"-form; typing is how it sticks). The card is
+  re-queued ~2 cards ahead (`requeueForRelearn` inserts `{...card, _relearn:true}` into
+  `studyAllCards` at `studyBatchIdx+2`; `pullNewCard` maps `_relearn` → `noSync: true, relearn:
+  true`) as a PRACTICE pass — noSync guarantees the Again stays the card's ONLY Anki review. The
+  panel holds the screen like the MC/PBQ/typed flashes: it's in the batchFeedback layout-effect
+  gate AND the question-card render chain (first branch). Cleared on exitStudy + session start.
+  Flashcards mode only (conjugations keep their own skip; PBQs never reach this path).
 - **"I Don't Know" (`skipStudyQuestion`) is card-level ONLY on the first question.** With nothing
   answered yet it keeps the confirm + whole-card give-up (every question '(skipped)', card done,
   rated Again). Once ANY question of the card has been answered (`cs.questionIdx > 0`) it fails ONLY
@@ -747,6 +760,12 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   IMPORTANT: `createMode` runs on App, not the settings modal, so closing Settings mid-create does NOT
   cancel it; `saveModes` persists the mode regardless. Prefer `successNotice` for any future
   action-succeeded feedback rather than adding another toast state.
+- **NEVER use `window.confirm` — use `confirmDialog(message)`** (App.jsx, next to the toast states):
+  a promise-based in-app confirm modal (`appConfirm` state, rendered above the toasts at z 10002).
+  Native dialogs render tiny unstyleable text (the user complained) and can't be themed. Drop-in:
+  `if (!(await confirmDialog('…'))) return` — callers must be async. Backdrop/Esc = cancel, OK is
+  auto-focused (Enter confirms). All 8 former `window.confirm` sites were converted (give-up, reset
+  progress, bulk-edit commit, dup merge, big-deck analyze, hook delete, exit-with-unsynced, deck switch).
 - Images are non-draggable globally (`img { -webkit-user-drag: none }`): a dragged `<img>` reports `'Files'`
   in `dataTransfer`, which used to falsely trip the "Drop image here" overlay. `handleDragOver` also guards
   on `dataTransfer.types` including `'Files'`.

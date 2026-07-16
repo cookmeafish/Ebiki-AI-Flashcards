@@ -222,6 +222,11 @@ export default function App() {
   const [aiErrorNotice, setAiErrorNotice] = useState(null)
   // Transient green success toast (e.g. "mode created") — auto-dismisses.
   const [successNotice, setSuccessNotice] = useState(null)
+  // In-app confirm modal replacing window.confirm (native dialogs render tiny, unstyleable
+  // text). Promise-based drop-in: `await confirmDialog(msg)` resolves true (OK) / false (Cancel).
+  const [appConfirm, setAppConfirm] = useState(null) // { message, resolve }
+  const confirmDialog = (message) => new Promise((resolve) => setAppConfirm({ message, resolve }))
+  const resolveConfirm = (ok) => setAppConfirm((cur) => { cur?.resolve(ok); return null })
   // App UI language ('en' | 'es' | 'zh' | 'ja' | ...). Translates chrome, not flashcards.
   const [appLanguage, setAppLanguage] = useState('en')
   const t = makeT(appLanguage)
@@ -418,6 +423,10 @@ export default function App() {
   // advance and have the user type the accented form once. { canonical, original }. Grading is
   // never affected (the card records the original answer); AI-graded questions never trigger it.
   const [studyAccentRetype, setStudyAccentRetype] = useState(null)
+  // "Learn it" moment — shown after I-Don't-Know on a card's FIRST question (the user doesn't
+  // know it at all): card back + audio + auto memory hook + a focused Ebi chat, exited by typing
+  // the word once. The card is re-queued a few cards ahead as a practice pass (noSync).
+  const [studyLearnMoment, setStudyLearnMoment] = useState(null) // { front, back, typed, hooks, hookLoading, chat, chatInput, chatLoading, requeued }
   // "Fix this question" — complain about the LIVE question before answering; it regenerates in
   // place and the distilled preference is saved to the mode (same channel as the feedback chat).
   const [studyFixQ, setStudyFixQ] = useState(null) // null | { input, loading, error? }
@@ -2873,7 +2882,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
   // Reset a card's STUDY PROGRESS (scheduling only — content untouched): forgetCards turns it
   // back into a NEW card. The remedy for schedules inflated by the old duplicate-sync bug.
   const resetNoteProgress = async (note, front) => {
-    if (!window.confirm(`Reset all study progress for "${front}"?\n\nThe card becomes NEW again — its interval and scheduling history are wiped (the card's content is not touched). This cannot be undone.`)) return
+    if (!(await confirmDialog(`Reset all study progress for "${front}"?\n\nThe card becomes NEW again — its interval and scheduling history are wiped (the card's content is not touched). This cannot be undone.`))) return
     try {
       const cardIds = await ankiFindCards(`nid:${note.noteId}`)
       if (cardIds.length === 0) throw new Error('no cards found for this note')
@@ -2937,7 +2946,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     if (deckBrowserNotes.length === 0 || !apiKey || deckAnalyzeLoading) return
     // Soft limit: very large decks may exceed the model's context or cost a lot. Confirm before proceeding.
     if (deckBrowserNotes.length > 200) {
-      const ok = window.confirm(
+      const ok = await confirmDialog(
         `This deck has ${deckBrowserNotes.length} cards. Analyzing them all in one AI call may be slow ` +
         `or hit token limits. Continue anyway?`
       )
@@ -3167,7 +3176,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
 
     // Confirm with the user, listing exactly which cards + fields/tags will change.
     const summary = updates.map(({ rec, changed, tagsChanged }) => `  • Card #${rec.noteId} (${[...Object.keys(changed), ...(tagsChanged ? ['tags'] : [])].join(', ')})`).join('\n')
-    const ok = window.confirm(
+    const ok = await confirmDialog(
       `Save ${toCommit.length} card update${toCommit.length === 1 ? '' : 's'} to Anki?\n\n${summary}\n\n` +
       `Only the listed fields will be modified. Untouched fields keep their original content and formatting. ` +
       `You can undo individual changes with Ctrl+Z in Anki.`
@@ -3572,7 +3581,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
 
     const totalDeletes = toCommit.reduce((sum, g) => sum + (g.noteIds.length - 1), 0)
     const summary = toCommit.map((g) => `  • Keep #${g.noteIds[0]}, delete ${g.noteIds.slice(1).map((id) => `#${id}`).join(', ')}`).join('\n')
-    const ok = window.confirm(
+    const ok = await confirmDialog(
       `Merge ${toCommit.length} duplicate group${toCommit.length === 1 ? '' : 's'}?\n\n${summary}\n\n` +
       `This updates the kept card with the merged content and permanently deletes ${totalDeletes} duplicate card${totalDeletes === 1 ? '' : 's'} from Anki. This cannot be undone from here.`
     )
@@ -4670,7 +4679,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
           <div key={hi} style={{ fontSize: 11, color: 'var(--c-ink)', background: 'rgba(139,92,246,.08)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 6, padding: '8px 10px', lineHeight: 1.6 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
               <div style={{ fontWeight: 700, color: 'var(--c-purple)', marginBottom: 3, flex: 1 }}>🧠 Ebi's memory hook{hooks.length > 1 ? ` #${hi + 1}` : ''}</div>
-              <span onClick={() => { if (deleteNoteHook(studyNoteId(cs), hook)) setStudyCardState(prev => { const u = [...prev]; if (u[ci]) u[ci] = { ...u[ci], mnemonics: (u[ci].mnemonics || []).filter((h) => h !== hook) }; return u }) }}
+              <span onClick={async () => { if (await deleteNoteHook(studyNoteId(cs), hook)) setStudyCardState(prev => { const u = [...prev]; if (u[ci]) u[ci] = { ...u[ci], mnemonics: (u[ci].mnemonics || []).filter((h) => h !== hook) }; return u }) }}
                 title="Delete this hook" className="click-dim"
                 style={{ cursor: 'pointer', color: 'var(--c-ink-faint)', fontSize: 13, lineHeight: 1, padding: '1px 5px', borderRadius: 4, flexShrink: 0 }}>×</span>
             </div>
@@ -5351,14 +5360,15 @@ Output ONLY raw JSON. No markdown, no backticks.`
     if (studyWrappingUpRef.current) return
     // Multiple-choice grades locally (synchronously), so without this guard the last answer's
     // right/wrong flash would be skipped straight into Batch Results before it ever painted.
-    // Same for a graded PBQ awaiting its Continue click, and the typed-answer feedback flash.
-    if (studyChoiceFlash || studyPbqReview || studyTypedFlash) return
+    // Same for a graded PBQ awaiting its Continue click, the typed-answer feedback flash, and
+    // the "Learn it" moment (give-up teach panel) — all hold the screen until dismissed.
+    if (studyChoiceFlash || studyPbqReview || studyTypedFlash || studyLearnMoment) return
     if (!studyCardState.every(cs => cs.done) || !studyCardState.every(cs => !cs.evaluating)) return
     const poolExhausted = studyMode === 'conjugations'
       ? studyBatchIdx >= studyConjugationWords.length
       : studyBatchIdx >= studyAllCards.length
     if (poolExhausted) setStudyPhase('batchFeedback')
-  }, [studyActive, studyPhase, studyCardState, studyBatchIdx, studyMode, studyAllCards.length, studyConjugationWords.length, studyChoiceFlash, studyPbqReview, studyTypedFlash])
+  }, [studyActive, studyPhase, studyCardState, studyBatchIdx, studyMode, studyAllCards.length, studyConjugationWords.length, studyChoiceFlash, studyPbqReview, studyTypedFlash, studyLearnMoment])
 
   const submitStudyAnswer = async (overrideInput) => {
     if (!String(overrideInput ?? studyInput).trim() || studyLoading || !currentQuestion) return
@@ -5747,7 +5757,76 @@ Output ONLY raw JSON. No markdown, no backticks.`
   // "I Don't Know" — give up on the WHOLE card: skip every remaining question at
   // once, mark the card done (all skipped answers grade as wrong → Again), and send
   // it straight to the results so the user can sync to Anki.
-  const skipStudyQuestion = () => {
+  // ─── "Learn it" moment (I-Don't-Know on the FIRST question) ─────────────────
+  // Giving up on Q1 means "I don't know this word at all" — the moment of maximum curiosity.
+  // Instead of just failing + moving on, hold the screen and TEACH: the card back, audio, an
+  // auto-generated memory hook, and a focused Ebi chat for the "but WHY…" questions a hook can't
+  // answer. Exit gate = typing the word once (typing is how it sticks). The honest Again rating
+  // is untouched; the card is re-queued ~2 cards ahead as a PRACTICE pass (noSync — the Again
+  // stays the only Anki review) so the user retrieves it while it's still warm.
+  const requeueForRelearn = (cs) => {
+    if (studyMode !== 'flashcards' || !cs.cardId) return false
+    const card = studyAllCards.find((c) => c.cardId === cs.cardId)
+    if (!card) return false
+    setStudyAllCards((prev) => {
+      const idx = Math.min(studyBatchIdx + 2, prev.length)
+      return [...prev.slice(0, idx), { ...card, _relearn: true }, ...prev.slice(idx)]
+    })
+    return true
+  }
+
+  const openLearnMoment = (cs) => {
+    const requeued = requeueForRelearn(cs)
+    setStudyLearnMoment({ front: cs.front, back: cs.back, typed: '', hooks: [], hookLoading: !!apiKey, chat: [], chatInput: '', chatLoading: false, requeued })
+    // Auto-generate the first memory hook — this is the moment hooks exist for.
+    if (apiKey) {
+      generateMemoryHook(cs.front, cs.back, [], 'auto')
+        .then((hook) => setStudyLearnMoment((p) => (p && p.front === cs.front) ? { ...p, hooks: hook ? [hook] : [], hookLoading: false } : p))
+        .catch(() => setStudyLearnMoment((p) => (p && p.front === cs.front) ? { ...p, hookLoading: false } : p))
+    }
+  }
+
+  const learnMomentAnotherHook = async (method = 'auto') => {
+    const lm = studyLearnMoment
+    if (!lm || lm.hookLoading || !apiKey) return
+    setStudyLearnMoment((p) => p ? { ...p, hookLoading: true } : p)
+    try {
+      const hook = await generateMemoryHook(lm.front, lm.back, lm.hooks, method)
+      setStudyLearnMoment((p) => p ? { ...p, hooks: hook ? [...p.hooks, hook] : p.hooks, hookLoading: false } : p)
+    } catch {
+      setStudyLearnMoment((p) => p ? { ...p, hookLoading: false } : p)
+    }
+  }
+
+  const sendLearnChat = async () => {
+    const lm = studyLearnMoment
+    if (!lm || !lm.chatInput.trim() || lm.chatLoading || !apiKey) return
+    const userMsg = lm.chatInput.trim()
+    setStudyLearnMoment((p) => p ? { ...p, chat: [...p.chat, { role: 'user', content: userMsg }], chatInput: '', chatLoading: true } : p)
+    try {
+      const explainLang = APP_LANG_NAME[appLanguage] || 'English'
+      const history = [...lm.chat, { role: 'user', content: userMsg }]
+        .map((m) => `${m.role === 'user' ? 'Student' : 'Ebi'}: ${m.content}`).join('\n')
+      const sys = `You are Ebi, a warm, patient study buddy. The student just admitted they do NOT know this flashcard at all, so explain from zero — small words, concrete examples, no jargon. Reply in ${explainLang}, under 120 words, plain text with at most **bold** on key words. Never use em dashes.`
+      const prompt = `Flashcard the student doesn't know:\nFront: "${lm.front}"\nBack:\n${lm.back}\n${activeMode.type === 'language' ? `\nThey are learning ${learnLangName()}.${dialectRule()}` : `\nSubject: ${activeMode.name}`}${knowledgeBlock ? knowledgeBlock(4000) : ''}\n\nConversation so far:\n${history}\n\nAnswer the student's last message. Be concrete and encouraging; if they ask "why", give the real reason, not just a restatement.`
+      const text = await aiCall(apiKey, sys, prompt, resolveModel('study'))
+      const clean = String(text || '').replace(/\s*[—–]\s*/g, ', ').replace(/[🦐🦞🦀]️?/gu, '').trim()
+      setStudyLearnMoment((p) => p ? { ...p, chat: [...p.chat, { role: 'assistant', content: clean }], chatLoading: false } : p)
+    } catch {
+      setStudyLearnMoment((p) => p ? { ...p, chat: [...p.chat, { role: 'assistant', content: 'Hmm, that request failed. Try again in a moment.' }], chatLoading: false } : p)
+    }
+  }
+
+  // Exit gate: the typed word must match one of the card's headword forms EXACTLY (accents
+  // included — copying the correct spelling once is the point, like the accent drill).
+  const learnMomentTypedOk = (lm) => {
+    if (!lm) return false
+    const head = String(lm.front || '').replace(/\s*\([^)]*\)\s*$/, '')
+    const forms = head.split('/').map((s) => s.trim().toLowerCase()).filter(Boolean)
+    return forms.includes(lm.typed.trim().toLowerCase())
+  }
+
+  const skipStudyQuestion = async () => {
     if (studyLoading || !currentQuestion) return
     const { cardIdx, questionIdx } = currentQuestion
     const cs = studyCardState[cardIdx]
@@ -5810,10 +5889,10 @@ Output ONLY raw JSON. No markdown, no backticks.`
 
     // First question — giving up finalizes the whole card and the Again rating auto-syncs to
     // Anki — confirm so a misclick doesn't record a review you didn't mean.
-    if (!window.confirm((cs.isConjugation || cs.noSync)
+    if (!(await confirmDialog((cs.isConjugation || cs.noSync)
       ? `Give up on "${cs.front}"? All remaining questions will be skipped and rated Again. Continue?`
       : `Give up on "${cs.front}"? All its questions will be marked wrong and the card rated Again — this records the review in Anki right away. Continue?`
-    )) return
+    ))) return
 
     setStudyHintLevel(0)
     setStudyCurrentHint(null)
@@ -5843,6 +5922,9 @@ Output ONLY raw JSON. No markdown, no backticks.`
     }
     evaluateCard(cardIdx, newStates[cardIdx])
     pullNewCard()
+    // Teach what they just didn't know — the panel holds the screen while the session
+    // advances underneath (conjugation words have their own skip path; PBQs never reach here).
+    if (!cs.isConjugation) openLearnMoment(cs)
   }
 
   // Conjugation mode only — silently drop the current word and move on (no rating, no feedback)
@@ -6254,8 +6336,8 @@ Write in ${explainLang}. ${lengthRule} No backup hooks, no preamble, no explaini
     persistModeHooks(next)
   }
   // Delete by VALUE (indices can diverge between the session copy and the store)
-  const deleteNoteHook = (noteId, hook) => {
-    if (!window.confirm('Are you sure you want to delete this hook?')) return false
+  const deleteNoteHook = async (noteId, hook) => {
+    if (!(await confirmDialog('Are you sure you want to delete this hook?'))) return false
     if (noteId) {
       const list = (modeHooks[noteId] || []).filter((h) => h !== hook)
       const next = { ...modeHooks }
@@ -6518,12 +6600,15 @@ Write in ${explainLang}. ${lengthRule} No backup hooks, no preamble, no explaini
       setStudyBatchIdx(prev => prev + 1)
       const mcSession = studyAnswerStyle === 'choices'
       const mcFlags = mcSession ? { mc: true, ...(studyPracticeSync ? {} : { noSync: true }) } : {}
+      // Relearn pass (re-queued by the "Learn it" moment after an I-Don't-Know give-up): pure
+      // practice — noSync so the honest Again already recorded stays the card's ONLY Anki review.
+      const relearnFlags = card._relearn ? { noSync: true, relearn: true } : {}
       const knowledgeContext = studyKnowledge ? `\n\nReference material:\n${studyKnowledge.substring(0, KNOWLEDGE_CAP)}` : ''
       const questions = await generateQuestionsForCard(card, rules, studyLang, knowledgeContext, mcSession)
       if (studyWrappingUpRef.current) return
       setStudyCardState(prev => [...prev, {
         cardId: card.cardId, front: getCardFront(card), back: getCardBack(card),
-        questions, answers: [], results: [], done: false, questionIdx: 0, ...mcFlags,
+        questions, answers: [], results: [], done: false, questionIdx: 0, ...mcFlags, ...relearnFlags,
       }])
       console.log('[Study] pulled new card:', getCardFront(card))
     }
@@ -6950,7 +7035,7 @@ Write in ${explainLang}. ${lengthRule} No backup hooks, no preamble, no explaini
     if (unsynced.length > 0) {
       const result = await syncRatingsToAnki()
       if (result.failed > 0) {
-        const proceed = window.confirm(
+        const proceed = await confirmDialog(
           `Could not sync ${result.failed} card rating${result.failed === 1 ? '' : 's'} to Anki ` +
           `(${result.error || 'unknown error'}).\n\n` +
           `Exit anyway and lose those ratings? Click Cancel to stay and retry (e.g. make sure Anki is running with AnkiConnect).`
@@ -6959,6 +7044,7 @@ Write in ${explainLang}. ${lengthRule} No backup hooks, no preamble, no explaini
       }
     }
     setStudyActive(false)
+    setStudyLearnMoment(null)
     setStudyAllCards([])
     setStudyCardState([])
     setStudyQueue([])
@@ -6985,6 +7071,7 @@ Write in ${explainLang}. ${lengthRule} No backup hooks, no preamble, no explaini
     setStudyTypedFlash(null)
     setStudyPbqReview(null)
     setStudyAccentRetype(null)
+    setStudyLearnMoment(null)
     studySyncedIdsRef.current = new Set()
     glossFetchRef.current = new Map(); glossBusyRef.current = new Set()
   }
@@ -8215,9 +8302,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
 
             {/* Deck picker + search */}
             <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-              <select value={deckBrowserDeck} onChange={(e) => {
-                  if ((deckAnalyzeRecs.length > 0 || deckDupGroups.length > 0) && !window.confirm('Switching decks will discard the current suggestions. Continue?')) return
-                  setDeckBrowserDeck(e.target.value)
+              <select value={deckBrowserDeck} onChange={async (e) => {
+                  const nextDeck = e.target.value // capture before the await (event object may be stale after)
+                  if ((deckAnalyzeRecs.length > 0 || deckDupGroups.length > 0) && !(await confirmDialog('Switching decks will discard the current suggestions. Continue?'))) return
+                  setDeckBrowserDeck(nextDeck)
                   setDeckAnalyzeRecs([])
                   setDeckAnalyzeError(null)
                   setDeckAnalyzeEmpty(false)
@@ -9752,7 +9840,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   })()}
 
                   {/* Current question — card front is HIDDEN. Ebi studies alongside, to the right. */}
-                  {(question || studyChoiceFlash || studyPbqReview || studyTypedFlash) ? (
+                  {(question || studyChoiceFlash || studyPbqReview || studyTypedFlash || studyLearnMoment) ? (
                     <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start', justifyContent: 'center', flexWrap: 'wrap' }}>
                     <div style={{
                       flex: '1 1 480px', maxWidth: 620, minWidth: 0,
@@ -9762,7 +9850,76 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     }}>
                       {/* Multiple-choice flash: a frozen copy of the question just answered, showing the
                           right/wrong colors for a beat while the live state has already moved on. */}
-                      {studyChoiceFlash ? (<>
+                      {studyLearnMoment ? (() => {
+                        const lm = studyLearnMoment
+                        const typedOk = learnMomentTypedOk(lm)
+                        const headWord = String(lm.front || '').replace(/\s*\([^)]*\)\s*$/, '')
+                        return (<>
+                          {/* "Learn it" moment — teach what the user just gave up on. Session advances underneath. */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--c-brand)' }}>📖 Let's learn it</span>
+                            <span style={{ fontSize: 15.5, fontWeight: 700, color: 'var(--c-ink)' }}>{lm.front}</span>
+                            {activeMode.type === 'language' && (
+                              <Pronunciation word={pronWord(lm.front)} lang={learnLangName()} region={pronRegion()} config={pronunciationCfg} t={t} compact />
+                            )}
+                            {lm.requeued && <span className="tip" data-tip="This card comes back in a few cards as practice — the Again rating already recorded stays the only Anki review." style={{ fontSize: 10, color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,.3)', borderRadius: 999, padding: '2px 8px', fontWeight: 700 }}>↻ comes back soon</span>}
+                          </div>
+                          <div style={{ fontSize: 12.5, color: 'var(--c-ink)', background: 'var(--c-surface-sunken, var(--c-surface))', border: '1px solid var(--c-border)', borderRadius: 8, padding: '10px 12px', lineHeight: 1.65, maxHeight: 220, overflowY: 'auto', marginBottom: 10 }}
+                            dangerouslySetInnerHTML={{ __html: cardBackToHtml(lm.back) }} />
+                          {/* Memory hooks — first one auto-generates on open; more on demand */}
+                          {lm.hooks.map((hook, hi) => (
+                            <div key={hi} style={{ fontSize: 12, color: 'var(--c-ink)', background: 'rgba(139,92,246,.08)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 6, padding: '8px 10px', lineHeight: 1.6, display: 'flex', gap: 6, marginBottom: 6 }}>
+                              <span style={{ fontWeight: 700, color: 'var(--c-purple)', flexShrink: 0 }}>🧠</span>
+                              <div className="hook-md" style={{ flex: 1, minWidth: 0 }}><Markdown text={hook} /></div>
+                            </div>
+                          ))}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                            {lm.hookLoading
+                              ? <span style={{ fontSize: 11, color: 'var(--c-purple)' }}>🧠 Ebi is thinking of a memory hook…</span>
+                              : <button onClick={() => learnMomentAnotherHook('auto')} disabled={!apiKey} className="ui-btn"
+                                  style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-purple)', borderColor: 'rgba(139,92,246,.3)', opacity: apiKey ? 1 : 0.5 }}>
+                                  🧠 {lm.hooks.length ? 'Another hook' : 'Memory hook'}
+                                </button>}
+                          </div>
+                          {/* Focused Ebi chat — for the "but why…?" a hook can't answer */}
+                          {lm.chat.length > 0 && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8, maxHeight: 220, overflowY: 'auto' }}>
+                              {lm.chat.map((m, mi) => m.role === 'user'
+                                ? <div key={mi} style={{ alignSelf: 'flex-end', maxWidth: '85%', fontSize: 12, color: 'var(--c-ink)', background: 'rgba(223,37,64,.08)', border: '1px solid rgba(223,37,64,.2)', borderRadius: 8, padding: '6px 10px', whiteSpace: 'pre-wrap' }}>{m.content}</div>
+                                : <div key={mi} className="md-body" style={{ alignSelf: 'flex-start', maxWidth: '92%', fontSize: 12, color: 'var(--c-ink)', background: 'var(--c-surface-sunken, var(--c-surface))', border: '1px solid var(--c-border)', borderRadius: 8, padding: '6px 10px' }}><Markdown text={m.content} /></div>)}
+                              {lm.chatLoading && <span style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>Ebi is typing…</span>}
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+                            <input value={lm.chatInput}
+                              onChange={(e) => { const v = e.target.value; setStudyLearnMoment((p) => p ? { ...p, chatInput: v } : p) }}
+                              onKeyDown={(e) => { if (e.key === 'Enter') sendLearnChat() }}
+                              placeholder="Confused? Ask Ebi anything about it…" disabled={!apiKey || lm.chatLoading}
+                              style={{ flex: 1, background: 'var(--c-surface)', color: 'var(--c-ink)', border: '1px solid var(--c-border)', borderRadius: 6, padding: '7px 10px', fontSize: 12, fontFamily: 'inherit', outline: 'none', opacity: apiKey ? 1 : 0.5 }} />
+                            <button onClick={sendLearnChat} disabled={!apiKey || lm.chatLoading || !lm.chatInput.trim()} className="ui-btn"
+                              style={{ ...S.ghostBtn, fontSize: 11, fontWeight: 700, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.35)', opacity: (!apiKey || lm.chatLoading || !lm.chatInput.trim()) ? 0.5 : 1 }}>
+                              Ask
+                            </button>
+                          </div>
+                          {/* Exit gate: type the word once — typing is how it sticks */}
+                          <div style={{ borderTop: '1px solid var(--c-border)', paddingTop: 10 }}>
+                            <div style={{ fontSize: 11, color: 'var(--c-ink-dim)', marginBottom: 6 }}>
+                              Type <b style={{ color: 'var(--c-ink)' }}>{headWord}</b> once to continue:
+                            </div>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              <input value={lm.typed} autoFocus
+                                onChange={(e) => { const v = e.target.value; setStudyLearnMoment((p) => p ? { ...p, typed: v } : p) }}
+                                onKeyDown={(e) => { if (e.key === 'Enter' && typedOk) setStudyLearnMoment(null) }}
+                                placeholder="Type it here…"
+                                style={{ flex: 1, background: 'var(--c-surface)', color: 'var(--c-ink)', border: `1.5px solid ${typedOk ? 'var(--c-success)' : 'var(--c-border)'}`, borderRadius: 6, padding: '8px 10px', fontSize: 13, fontFamily: 'inherit', outline: 'none' }} />
+                              <button onClick={() => setStudyLearnMoment(null)} disabled={!typedOk} className="btn-press"
+                                style={{ ...S.captureBtn, borderRadius: 8, fontSize: 12, padding: '8px 18px', opacity: typedOk ? 1 : 0.5, cursor: typedOk ? 'pointer' : 'default' }}>
+                                Continue
+                              </button>
+                            </div>
+                          </div>
+                        </>)
+                      })() : studyChoiceFlash ? (<>
                         <div style={{ fontSize: 15.5, lineHeight: 1.6, color: 'var(--c-ink)', fontWeight: 600, marginBottom: 10 }}>{studyChoiceFlash.question}</div>
                         {renderChoiceButtons(studyChoiceFlash.choices, { picked: studyChoiceFlash.picked, answerIdx: studyChoiceFlash.answerIdx })}
                       </>) : studyPbqReview ? (<>
@@ -11223,6 +11380,33 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         .md-body table { border-collapse: collapse; margin: 6px 0; }
         .md-body th, .md-body td { border: 1px solid var(--c-border); padding: 4px 8px; }
       `}</style>
+
+      {/* In-app confirm modal (window.confirm replacement — native dialog text is tiny and
+          unstyleable). Promise resolved by confirmDialog/resolveConfirm. Backdrop click and
+          Esc cancel; the OK button is auto-focused so Enter confirms. z above everything. */}
+      {appConfirm && (
+        <div onClick={() => resolveConfirm(false)}
+          onKeyDown={(e) => { if (e.key === 'Escape') resolveConfirm(false) }}
+          style={{ position: 'fixed', inset: 0, zIndex: 10002, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn .12s ease' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg,
+            padding: '18px 20px', maxWidth: 440, width: 'calc(90vw / 1.35)', boxShadow: SHADOW.lg,
+            display: 'flex', flexDirection: 'column', gap: 14, animation: 'pop .18s cubic-bezier(.34,1.56,.64,1)',
+          }}>
+            <div style={{ fontSize: 14, color: 'var(--c-ink)', lineHeight: 1.6, whiteSpace: 'pre-wrap', fontWeight: 600 }}>{appConfirm.message}</div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => resolveConfirm(false)} className="ui-btn"
+                style={{ ...S.ghostBtn, fontSize: 12, padding: '7px 16px', color: 'var(--c-ink-dim)' }}>
+                {t('cancel')}
+              </button>
+              <button onClick={() => resolveConfirm(true)} autoFocus className="btn-press"
+                style={{ ...S.captureBtn, borderRadius: 8, fontSize: 12, padding: '7px 18px' }}>
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Floating AI Help Button */}
       {modelHealNotice && (
