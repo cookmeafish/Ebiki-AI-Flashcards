@@ -329,6 +329,25 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   new-card preview (`renderWordLookupPopup` — one renderer, covers question/hint/graded/batch surfaces),
   and (self-contained copy, keep visually in sync) the Discover card preview in `DiscoverPanel.jsx`.
   New tag-chip surfaces must use these helpers.
+- **Preferred-term honesty — a card must NEVER teach the headword as the everyday word for a meaning
+  a synonym dominates in the studied variant.** The "barro = mud" failure: barro is real, common and
+  global, and "mud" is a correct translation, so every existing check passed — yet everyday Latin
+  American Spanish says "lodo" for mud (barro leans clay/ceramic), so the learner memorized the wrong
+  default word. Distinct from the scope TAG (records WHERE a word is used) and the DIALECT rule
+  (which variant content is WRITTEN in): this asks, PER TRANSLATION, "is the headword what a speaker
+  of the variant actually says for THIS meaning?" Enforced in layers: `LANGUAGE_CARD_PROMPT` inline
+  (translations ordered by which senses the headword owns; the usage line is REQUIRED, even for
+  common universal words, whenever a listed sense is synonym-dominated, naming the preferred word);
+  `preferredTermRule()` (App.jsx, next to `dialectRule()`, dialect-aware) injected into
+  `generateCards`, `buildCardFields` (Discover/Picture), the Chat `<anki-card>` format, and
+  `lookupStudyWord` (whose `usage` field is REQUIRED when a more common word exists for the
+  in-context sense — tapping barro shows "everyday LatAm prefers lodo"); `verifyCards` ENFORCES it
+  as a second pass (adds/fixes the usage line, reorders translations — "technically true but
+  silently misleading" counts as wrong); the question generator's languageBlock forbids quizzing a
+  synonym-dominated sense as the word's identity. EXISTING decks retrofit via the Deck browser's
+  **🌎 Dialect audit** button (language modes): `analyzeDeck('custom', dialectAuditInstruction())`
+  reuses the entire bulk-edit pipeline, so every proposed fix goes through the before/after
+  accept/deny review and most cards are explicitly SKIPPED.
 - **Deck → ⚡ Quick Add** (`quickAdd*` state): paste many words → `generateCards` → a **review tray**
   (per-card editable front/back/tags + ONE include ✓/○ toggle; batch **"Add N to {deck}"**; dup/correction
   badges). Header shows both the active **Mode** (tailors cards) and target **Deck**.
@@ -644,6 +663,16 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   `ankiUpdateNote` (diff-only), tags via `ankiSetNoteTags(noteId, currentTags, finalTags)` only when
   actually changed; safety checks refuse a no-op AND wiping a card's ENTIRE tag list (partial removals
   are legitimate); the confirm summary lists "tags" alongside changed fields.
+  **Every analyze/audit/bulk-edit suggestion runs a VERIFY-AND-IMPROVE second pass**
+  (`verifyDeckRecs`, same guardrail as `verifyCards`/memory hooks — these edits get WRITTEN onto
+  cards): a skeptical reviewer checks truth (incl. regional/preferred-term honesty — never a
+  "slang-only" framing for a word some region genuinely uses literally, the cotorro failure), scope
+  (only what the request covers), and tag-list completeness, then ACTIVELY improves clarity even
+  when nothing failed; it can DROP a pointless suggestion. Results merge back strictly BY noteId
+  onto the existing recs (never re-resolves cards, so the identity guard is untouched); a rec the
+  reviewer reverts to the current card is removed as no-op. Per-rec **Refine verifies too**
+  (`refineRequest` rides along, `allowDrop: false` — the user explicitly asked for that change).
+  Fail-soft: any error keeps the first-pass suggestions. ~2 model calls per analyze run.
   `deckAnalyzeKind` keeps button labels/empty-messages straight. SECOND entry
   point: Ebi's Help emits `<action>{"type":"deck_edit","instruction":…}</action>` (CAPABILITIES block
   tells it to refuse vague requests); App's onAction prefills+opens the panel, switches to the Deck
