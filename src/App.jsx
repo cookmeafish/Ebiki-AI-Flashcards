@@ -691,7 +691,7 @@ export default function App() {
     { role: 'discover', label: 'Discover', hint: 'learner profiling, new-item suggestions, fact-checking' },
     { role: 'chat', label: 'Chat', hint: 'the chat tab assistant' },
     { role: 'help', label: 'Help', hint: "Ebi's Help assistant" },
-    { role: 'pose', label: 'Mascot', hint: "picks Ebi's pose from context — defaults to a stronger model for a better fit; set a cheaper one to save cost" },
+    { role: 'pose', label: 'Mascot', hint: "picks Ebi's pose from context. Defaults to a stronger model for a better fit; set a cheaper one to save cost" },
     { role: 'general', label: 'General', hint: 'fallback + AI mode/config generation' },
   ]
   const resolveModel = (role, prov = aiStateRef.current.provider) => {
@@ -806,7 +806,7 @@ export default function App() {
     const replacement = await discoverCurrentModel(role)
     if (!replacement || replacement === failedModel) return null
     setAiModels((prev) => ({ ...prev, [prov]: { ...(prev[prov] || {}), [role]: replacement } }))
-    setModelHealNotice(`${role} model "${failedModel}" was unavailable — switched to "${replacement}".`)
+    setModelHealNotice(`${role} model "${failedModel}" was unavailable. Switched to "${replacement}".`)
     return replacement
   }
 
@@ -2882,7 +2882,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
   // Reset a card's STUDY PROGRESS (scheduling only — content untouched): forgetCards turns it
   // back into a NEW card. The remedy for schedules inflated by the old duplicate-sync bug.
   const resetNoteProgress = async (note, front) => {
-    if (!(await confirmDialog(`Reset all study progress for "${front}"?\n\nThe card becomes NEW again — its interval and scheduling history are wiped (the card's content is not touched). This cannot be undone.`))) return
+    if (!(await confirmDialog(`Reset all study progress for "${front}"?\n\nThe card becomes NEW again. Its interval and scheduling history are wiped (the card's content is not touched). This cannot be undone.`))) return
     try {
       const cardIds = await ankiFindCards(`nid:${note.noteId}`)
       if (cardIds.length === 0) throw new Error('no cards found for this note')
@@ -3498,7 +3498,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     try {
       const connected = await ankiPing()
       setAnkiConnected(connected)
-      if (!connected) { setDeckAddError('Anki is not running — open Anki to add cards'); return }
+      if (!connected) { setDeckAddError('Anki is not running. Open Anki to add cards'); return }
       if (!(await ankiGetDecks().catch(() => [])).includes(deckBrowserDeck)) {
         await ankiCreateDeck(deckBrowserDeck)
       }
@@ -3528,7 +3528,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     setQuickAddError(null)
     try {
       const cards = await generateCards(words)
-      if (!cards.length) { setQuickAddError('No cards were generated — try again'); return }
+      if (!cards.length) { setQuickAddError('No cards were generated. Try again'); return }
       const deck = deckBrowserDeck || activeMode.ankiDeck || ''
       // Duplicate pre-check (best-effort; never blocks).
       const withDup = await Promise.all(cards.map(async (c) => ({
@@ -3552,7 +3552,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     try {
       const connected = await ankiPing()
       setAnkiConnected(connected)
-      if (!connected) { setQuickAddError('Anki is not running — open Anki to add cards'); setQuickAddCards((prev) => prev.map((c, k) => k === i ? { ...c, syncing: false } : c)); return }
+      if (!connected) { setQuickAddError('Anki is not running. Open Anki to add cards'); setQuickAddCards((prev) => prev.map((c, k) => k === i ? { ...c, syncing: false } : c)); return }
       if (!(await ankiGetDecks().catch(() => [])).includes(deck)) await ankiCreateDeck(deck)
       // allowDuplicate: true — Quick Add is an explicit "add these" action (the duplicate badge
       // already warns), and multi-meaning words legitimately share a front (e.g. two "gato" cards).
@@ -3765,7 +3765,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       }) + dialectRule() // regional-variant safeguard — suggestions must fit the studied dialect
       const text = await aiCall(apiKey, 'You suggest new study items. Always respond with valid JSON only.', prompt, resolveModel('discover'))
       let suggestion = parseAiJson(text)
-      if (!suggestion?.term) throw new Error('the model returned an unusable suggestion — try again')
+      if (!suggestion?.term) throw new Error('the model returned an unusable suggestion. Try again')
 
       // Web grounding: verify/correct facts against search results.
       if (discoverWebVerify && suggestion?.term) {
@@ -3840,7 +3840,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     try {
       const connected = await ankiPing()
       setAnkiConnected(connected)
-      if (!connected) { setDiscoverError('Anki is not running — open Anki to save cards'); return }
+      if (!connected) { setDiscoverError('Anki is not running. Open Anki to save cards'); return }
       const targetDeck = discoverDeck || ankiDeck
       if (targetDeck && !(await ankiGetDecks().catch(() => [])).includes(targetDeck)) {
         await ankiCreateDeck(targetDeck)
@@ -4291,7 +4291,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
           changes.push({ key: f.key, label: f.label, before: modeFieldValue(f.key), after: cfg[f.key] })
         }
       }
-      if (changes.length === 0) setAnkiError('Ebi proposed no changes — try rephrasing.')
+      if (changes.length === 0) setAnkiError('Ebi proposed no changes. Try rephrasing.')
       else setModeEditProposal({ scope, changes })
     } catch (e) {
       setAnkiError('AI edit failed: ' + e.message)
@@ -4535,10 +4535,10 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const open = !!studyQaOpen[src]
     const st = !r.correct ? 'wrong' : ((r.notes || []).some((n) => n && n.type !== 'praise') ? 'noted' : 'clean')
     const meta = st === 'wrong'
-      ? { icon: '✗', color: 'var(--c-danger)', bg: 'rgba(229,57,46,.05)', title: 'Incorrect — click for details' }
+      ? { icon: '✗', color: 'var(--c-danger)', bg: 'rgba(229,57,46,.05)', title: 'Incorrect. Click for details' }
       : st === 'noted'
-        ? { icon: '✓✎', color: 'var(--c-warning)', bg: 'rgba(232,147,12,.04)', title: 'Correct, but Ebi left feedback — click to read it' }
-        : { icon: '✓', color: 'var(--c-success)', bg: 'rgba(24,169,87,.03)', title: 'Perfect — nothing to review' }
+        ? { icon: '✓✎', color: 'var(--c-warning)', bg: 'rgba(232,147,12,.04)', title: 'Correct, but Ebi left feedback. Click to read it' }
+        : { icon: '✓', color: 'var(--c-success)', bg: 'rgba(24,169,87,.03)', title: 'Perfect. Nothing to review' }
     return (
       <div key={qi} style={{ borderTop: '1px solid var(--c-border)' }}>
         <div className="row-head" onClick={() => setStudyQaOpen((p) => ({ ...p, [src]: !p[src] }))} title={meta.title}
@@ -4622,7 +4622,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
         if (!cs.mnemonics?.length && !cs.mnemonicLoading) {
           // Hydrate saved hooks; if the note has none, the open panel offers the four hook styles
           // (no auto-generate — the user picks the method).
-          const savedHooks = modeHooks[studyNoteId(cs)] || []
+          const savedHooks = hooksForItem(studyNoteId(cs), cs.front)
           if (savedHooks.length) setStudyCardState(prev => { const u = [...prev]; if (u[ci]) u[ci] = { ...u[ci], mnemonics: [...savedHooks] }; return u })
         }
       }}
@@ -4679,7 +4679,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
           <div key={hi} style={{ fontSize: 11, color: 'var(--c-ink)', background: 'rgba(139,92,246,.08)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 6, padding: '8px 10px', lineHeight: 1.6 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
               <div style={{ fontWeight: 700, color: 'var(--c-purple)', marginBottom: 3, flex: 1 }}>🧠 Ebi's memory hook{hooks.length > 1 ? ` #${hi + 1}` : ''}</div>
-              <span onClick={async () => { if (await deleteNoteHook(studyNoteId(cs), hook)) setStudyCardState(prev => { const u = [...prev]; if (u[ci]) u[ci] = { ...u[ci], mnemonics: (u[ci].mnemonics || []).filter((h) => h !== hook) }; return u }) }}
+              <span onClick={async () => { if (await deleteNoteHook(studyNoteId(cs), hook, cs.front)) setStudyCardState(prev => { const u = [...prev]; if (u[ci]) u[ci] = { ...u[ci], mnemonics: (u[ci].mnemonics || []).filter((h) => h !== hook) }; return u }) }}
                 title="Delete this hook" className="click-dim"
                 style={{ cursor: 'pointer', color: 'var(--c-ink-faint)', fontSize: 13, lineHeight: 1, padding: '1px 5px', borderRadius: 4, flexShrink: 0 }}>×</span>
             </div>
@@ -5213,7 +5213,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
           if (pbq) firstState = makePbqState(card, pbq)
         }
         if (!firstState) {
-          setAnkiError('Could not generate a verified PBQ for these cards — try again, or check the AI settings.')
+          setAnkiError('Could not generate a verified PBQ for these cards. Try again, or check the AI settings.')
           setStudyLoading(false)
           return
         }
@@ -5675,7 +5675,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const wrong = g.perItem.filter(p => !p.correct)
     const feedback = wrong.length === 0
       ? `${g.correct}/${g.total}`
-      : `${g.correct}/${g.total} — ${wrong.map(p => `${p.label} → ${p.expectedText}`).join(' · ')}`
+      : `${g.correct}/${g.total}: ${wrong.map(p => `${p.label} → ${p.expectedText}`).join(' · ')}`
 
     const newStates = [...studyCardState]
     newStates[cardIdx] = {
@@ -5777,11 +5777,17 @@ Output ONLY raw JSON. No markdown, no backticks.`
 
   const openLearnMoment = (cs) => {
     const requeued = requeueForRelearn(cs)
-    setStudyLearnMoment({ front: cs.front, back: cs.back, typed: '', hooks: [], hookLoading: !!apiKey, chat: [], chatInput: '', chatLoading: false, requeued })
-    // Auto-generate the first memory hook — this is the moment hooks exist for.
-    if (apiKey) {
+    const nid = studyNoteId(cs)
+    const saved = hooksForItem(nid, cs.front) // hooks made on ANY surface for this item show instantly
+    setStudyLearnMoment({ front: cs.front, back: cs.back, noteId: nid, typed: '', hooks: saved, hookLoading: !saved.length && !!apiKey, chat: [], chatInput: '', chatLoading: false, requeued })
+    // Auto-generate the first memory hook — this is the moment hooks exist for. (Skipped when the
+    // item already has saved hooks: those ARE the memory aid, and another is one click away.)
+    if (apiKey && !saved.length) {
       generateMemoryHook(cs.front, cs.back, [], 'auto')
-        .then((hook) => setStudyLearnMoment((p) => (p && p.front === cs.front) ? { ...p, hooks: hook ? [hook] : [], hookLoading: false } : p))
+        .then((hook) => {
+          if (hook) addNoteHook(hookSaveKey(nid, cs.front), hook) // persist like every other surface
+          setStudyLearnMoment((p) => (p && p.front === cs.front) ? { ...p, hooks: hook ? [hook] : [], hookLoading: false } : p)
+        })
         .catch(() => setStudyLearnMoment((p) => (p && p.front === cs.front) ? { ...p, hookLoading: false } : p))
     }
   }
@@ -5792,6 +5798,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     setStudyLearnMoment((p) => p ? { ...p, hookLoading: true } : p)
     try {
       const hook = await generateMemoryHook(lm.front, lm.back, lm.hooks, method)
+      if (hook) addNoteHook(hookSaveKey(lm.noteId, lm.front), hook) // persist like every other surface
       setStudyLearnMoment((p) => p ? { ...p, hooks: hook ? [...p.hooks, hook] : p.hooks, hookLoading: false } : p)
     } catch {
       setStudyLearnMoment((p) => p ? { ...p, hookLoading: false } : p)
@@ -5891,7 +5898,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     // Anki — confirm so a misclick doesn't record a review you didn't mean.
     if (!(await confirmDialog((cs.isConjugation || cs.noSync)
       ? `Give up on "${cs.front}"? All remaining questions will be skipped and rated Again. Continue?`
-      : `Give up on "${cs.front}"? All its questions will be marked wrong and the card rated Again — this records the review in Anki right away. Continue?`
+      : `Give up on "${cs.front}"? All its questions will be marked wrong and the card rated Again. This records the review in Anki right away. Continue?`
     ))) return
 
     setStudyHintLevel(0)
@@ -6095,7 +6102,19 @@ Return ONLY raw JSON:
     const studyLang = activeMode.type === 'language'
       ? ((activeMode.studyRules || defaultStudyRules).studyLanguage || learnLangName())
       : ((activeMode.studyRules || defaultGeneralStudyRules).quizLanguage || userLangName())
-    setStudyWordLookup({ word, primary: null, alternatives: [], loading: true, source })
+    // Saved hooks show instantly: word-key hooks synchronously; hooks living under the word's NOTE
+    // (generated in study/deck/learn-moment) arrive via an async note resolution — fail-soft, never
+    // blocks the lookup, and records the noteId so a NEW hook from this popup saves onto the note.
+    setStudyWordLookup({ word, primary: null, alternatives: [], loading: true, source, hooks: hooksForItem(null, word) })
+    studyWordFindExisting(word).then((ex) => {
+      if (!ex) return
+      setStudyWordLookup((prev) => {
+        if (!prev || prev.word !== word) return prev
+        const merged = [...(prev.hooks || [])]
+        for (const h of hooksForItem(ex.noteId, ex.front)) if (!merged.includes(h)) merged.push(h)
+        return { ...prev, hookNoteId: ex.noteId, hooks: merged }
+      })
+    }).catch(() => {})
     try {
       // Disambiguate by the WHOLE question — the same word can mean different things in different
       // contexts. Return the in-context meaning (shown in the legend's "correct" green) plus other
@@ -6113,7 +6132,10 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
 }`
       const text = await aiCall(apiKey, `You are a concise bilingual dictionary that disambiguates words by context. Output JSON only, written in ${explainLang}.`, prompt, resolveModel('study'))
       const parsed = parseAiJson(text)
-      setStudyWordLookup({
+      // Functional + spread: the async note resolution above may already have attached
+      // hooks/hookNoteId — a plain object replacement would silently wipe them.
+      setStudyWordLookup((prev) => ({
+        ...(prev && prev.word === word ? prev : { hooks: hooksForItem(null, word) }),
         word,
         primary: String(parsed.primary || '').trim() || '—',
         alternatives: Array.isArray(parsed.alternatives) ? parsed.alternatives.filter(Boolean).map(String).slice(0, 3) : [],
@@ -6121,9 +6143,9 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
         usage: String(parsed.usage || '').trim(), // commonness/region/register caveat — '' when unremarkable
         loading: false,
         source,
-      })
+      }))
     } catch {
-      setStudyWordLookup({ word, primary: 'Lookup failed — try again.', alternatives: [], loading: false, source })
+      setStudyWordLookup((prev) => ({ ...(prev && prev.word === word ? prev : {}), word, primary: 'Lookup failed. Try again.', alternatives: [], loading: false, source }))
     }
   }
 
@@ -6136,9 +6158,12 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
     try {
       const back = [wl.primary, ...(wl.alternatives || [])].filter((x) => x && x !== '—').join(' · ') || wl.word
       const hook = await generateMemoryHook(wl.word, back, wl.hooks || [], method)
+      // Persist like every other surface: onto the word's note when it has one, else the word key
+      // (still surfaced everywhere via the hooksForItem merge, and on the note once a card exists).
+      if (hook) addNoteHook(wl.hookNoteId || wordHookKey(wl.word), hook)
       setStudyWordLookup((prev) => (prev && prev.word === wl.word) ? { ...prev, hookLoading: false, hooks: [...(prev.hooks || []), ...(hook ? [hook] : [])] } : prev)
     } catch {
-      setStudyWordLookup((prev) => (prev && prev.word === wl.word) ? { ...prev, hookLoading: false, hookError: 'Could not generate a memory hook — try again.' } : prev)
+      setStudyWordLookup((prev) => (prev && prev.word === wl.word) ? { ...prev, hookLoading: false, hookError: 'Could not generate a memory hook. Try again.' } : prev)
     }
   }
 
@@ -6197,7 +6222,7 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
       if (!card) throw new Error('no card')
       setStudyWordLookup((prev) => (prev && prev.word === wl.word) ? { ...prev, cardLoading: false, card } : prev)
     } catch {
-      setStudyWordLookup((prev) => (prev && prev.word === wl.word) ? { ...prev, cardLoading: false, cardError: 'Could not create a card — try again.' } : prev)
+      setStudyWordLookup((prev) => (prev && prev.word === wl.word) ? { ...prev, cardLoading: false, cardError: 'Could not create a card. Try again.' } : prev)
     }
   }
 
@@ -6214,7 +6239,7 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
       ankiSync().catch(() => {})
       setStudyWordLookup((prev) => (prev && prev.card === wl.card) ? { ...prev, cardSyncing: false, cardSynced: true, cardDeck: deck } : prev)
     } catch {
-      setStudyWordLookup((prev) => prev ? { ...prev, cardSyncing: false, cardError: 'Sync failed — is Anki running?' } : prev)
+      setStudyWordLookup((prev) => prev ? { ...prev, cardSyncing: false, cardError: 'Sync failed. Is Anki running?' } : prev)
     }
   }
 
@@ -6342,16 +6367,18 @@ Your output keeps: the same method, the same language (${explainLang}), the same
     try {
       const hook = await generateMemoryHook(cs.front, cs.back, prior, method)
       setStudyCardState(prev => { const u = [...prev]; if (u[cardIdx]) u[cardIdx] = { ...u[cardIdx], mnemonics: [...(u[cardIdx].mnemonics || []), ...(hook ? [hook] : [])], mnemonicLoading: false }; return u })
-      const nid = studyNoteId(cs)
-      if (nid && hook) addNoteHook(nid, hook) // persist — a good hook survives the session
+      if (hook) addNoteHook(hookSaveKey(studyNoteId(cs), cs.front), hook) // persist — a good hook survives the session
     } catch {
-      setStudyCardState(prev => { const u = [...prev]; if (u[cardIdx]) u[cardIdx] = { ...u[cardIdx], mnemonicLoading: false, mnemonicError: 'Could not generate a memory aid — try again.' }; return u })
+      setStudyCardState(prev => { const u = [...prev]; if (u[cardIdx]) u[cardIdx] = { ...u[cardIdx], mnemonicLoading: false, mnemonicError: 'Could not generate a memory aid. Try again.' }; return u })
     }
   }
 
-  // Memory hooks PERSIST per note (blob 'hooks' per mode → Anki media + local fallback, like the
+  // Memory hooks PERSIST per item (blob 'hooks' per mode → Anki media + local fallback, like the
   // Discover profile) so a hook the user likes survives sessions and follows them across machines.
-  const [modeHooks, setModeHooks] = useState({}) // { [noteId]: [hook, ...] }
+  // ONE store for EVERY surface that generates hooks (study graded cards, deck browser rows, the
+  // tapped-word popup, the Learn-it moment): keys are Anki noteIds when the item is a note, else
+  // 'word:<folded word>' for tapped words with no card yet (numeric noteId keys never collide).
+  const [modeHooks, setModeHooks] = useState({}) // { [noteId | 'word:<word>']: [hook, ...] }
   useEffect(() => {
     let cancelled = false
     setModeHooks({})
@@ -6359,24 +6386,46 @@ Your output keeps: the same method, the same language (${explainLang}), the same
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeModeId])
-  const persistModeHooks = (next) => {
-    setModeHooks(next)
-    writeBlob('hooks', activeMode.name, next).catch(() => {})
+  const foldHookWord = (s) => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
+  const wordHookKey = (w) => 'word:' + foldHookWord(w)
+  // "cálido/cálida (adjetivo)" → ['cálido', 'cálida'] — the headword forms a tapped word matches
+  const headwordForms = (front) => String(front || '').replace(/\s*\([^)]*\)\s*$/, '').split('/').map((f) => f.trim()).filter(Boolean)
+  // Every saved hook for an item, wherever it was generated: the note's own hooks (study/deck/
+  // learn-moment surfaces) UNIONED with word-key hooks for each headword form (tapped-word popup).
+  const hooksForItem = (noteId, front) => {
+    const list = [...(noteId ? modeHooks[noteId] || [] : [])]
+    for (const f of headwordForms(front)) for (const h of modeHooks[wordHookKey(f)] || []) if (!list.includes(h)) list.push(h)
+    return list
   }
-  const addNoteHook = (noteId, hook) => {
-    if (!noteId || !hook) return
-    const next = { ...modeHooks, [noteId]: [...(modeHooks[noteId] || []), hook] }
-    persistModeHooks(next)
+  // Save key: the note when known, else the first headword's word key — EVERY surface persists.
+  const hookSaveKey = (noteId, front) => noteId || (headwordForms(front)[0] ? wordHookKey(headwordForms(front)[0]) : null)
+  // Functional updates so async completions (hooks arrive seconds later) can't clobber each other.
+  const writeModeHooks = (updater) => {
+    setModeHooks((prev) => {
+      const next = updater(prev)
+      if (next !== prev) writeBlob('hooks', activeMode.name, next).catch(() => {})
+      return next
+    })
   }
-  // Delete by VALUE (indices can diverge between the session copy and the store)
-  const deleteNoteHook = async (noteId, hook) => {
+  const addNoteHook = (key, hook) => {
+    if (!key || !hook) return
+    writeModeHooks((prev) => (prev[key] || []).includes(hook) ? prev : { ...prev, [key]: [...(prev[key] || []), hook] })
+  }
+  // Delete by VALUE (indices can diverge between the session copy and the store); with `front`,
+  // also sweeps the headword word-keys so a hook shown via the merge is truly gone.
+  const deleteNoteHook = async (noteId, hook, front = '') => {
     if (!(await confirmDialog('Are you sure you want to delete this hook?'))) return false
-    if (noteId) {
-      const list = (modeHooks[noteId] || []).filter((h) => h !== hook)
-      const next = { ...modeHooks }
-      if (list.length) next[noteId] = list; else delete next[noteId]
-      persistModeHooks(next)
-    }
+    const keys = [noteId, ...headwordForms(front).map(wordHookKey)].filter(Boolean)
+    writeModeHooks((prev) => {
+      const next = { ...prev }
+      let changed = false
+      for (const k of keys) {
+        const before = next[k] || []
+        const list = before.filter((h) => h !== hook)
+        if (list.length !== before.length) { changed = true; if (list.length) next[k] = list; else delete next[k] }
+      }
+      return changed ? next : prev
+    })
     return true
   }
   // The note behind a study card (study state stores cardId; hooks are keyed by noteId)
@@ -6387,17 +6436,17 @@ Your output keeps: the same method, the same language (${explainLang}), the same
   const generateDeckMnemonic = async (note, method = 'meaning') => {
     if (!apiKey) return
     const id = note.noteId
-    const priorHooks = modeHooks[id] || []
     setDeckBrowserMnemonics(prev => ({ ...prev, [id]: { loading: true, error: null } }))
     try {
       const fields = Object.entries(note.fields).sort(([, a], [, b]) => a.order - b.order)
       const front = stripHtml(fields[0]?.[1]?.value || '')
       const back = backTextLines(fields[1]?.[1]?.value || '').join('\n')
+      const priorHooks = hooksForItem(id, front)
       const hook = await generateMemoryHook(front, back, priorHooks, method)
       if (hook) addNoteHook(id, hook)
       setDeckBrowserMnemonics(prev => ({ ...prev, [id]: { loading: false, error: null } }))
     } catch {
-      setDeckBrowserMnemonics(prev => ({ ...prev, [id]: { loading: false, error: 'Could not generate a memory aid — try again.' } }))
+      setDeckBrowserMnemonics(prev => ({ ...prev, [id]: { loading: false, error: 'Could not generate a memory aid. Try again.' } }))
     }
   }
 
@@ -6496,7 +6545,7 @@ Your output keeps: the same method, the same language (${explainLang}), the same
   const evaluatePbqSkipped = (cardIdx, cs) => {
     const pbq = cs.questions[0]?.pbq
     const g = pbq ? gradePbq(pbq, null) : { correct: 0, total: 1, perItem: [] }
-    const results = [{ correct: false, feedback: `${g.correct}/${g.total} — ${g.perItem.map(p => `${p.label} → ${p.expectedText}`).join(' · ')}` }]
+    const results = [{ correct: false, feedback: `${g.correct}/${g.total}: ${g.perItem.map(p => `${p.label} → ${p.expectedText}`).join(' · ')}` }]
     setStudyCardState(prev => {
       const updated = [...prev]
       updated[cardIdx] = { ...updated[cardIdx], results, rating: 'again', ease: 1, evaluating: false, gradedAt: Date.now() }
@@ -7304,7 +7353,7 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
             if (qi >= 0 && qi < updatedStates[cardIdx].results.length) {
               updatedStates[cardIdx] = { ...updatedStates[cardIdx] }
               updatedStates[cardIdx].results = [...updatedStates[cardIdx].results]
-              updatedStates[cardIdx].results[qi] = { ...updatedStates[cardIdx].results[qi], correct: true, feedback: action.feedback || `Typo corrected: "${action.correctedAnswer}" — Correct!` }
+              updatedStates[cardIdx].results[qi] = { ...updatedStates[cardIdx].results[qi], correct: true, feedback: action.feedback || `Typo corrected: "${action.correctedAnswer}". Correct!` }
               updatedStates[cardIdx].answers = [...updatedStates[cardIdx].answers]
               updatedStates[cardIdx].answers[qi] = action.correctedAnswer + ' (corrected)'
             }
@@ -7789,7 +7838,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       const connected = await ankiPing()
       setAnkiConnected(connected)
       if (!connected) {
-        const msg = 'Anki is not running — open Anki with AnkiConnect addon to sync'
+        const msg = 'Anki is not running. Open Anki with AnkiConnect addon to sync'
         console.log('[Anki] sync failed:', msg)
         setAnkiError(msg)
         return
@@ -8128,7 +8177,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           </div>
           {/* Talk to Ebi — opens Ebi's chat (replaces the old floating shrimp button). Not "Ask Ebi":
               Ebi also ACTS on requests (bulk edits, dialect, preferences), not just answers. */}
-          <button onClick={() => setAskEbiSignal((n) => n + 1)} title="Talk to Ebi — ask anything, or tell it what to change" className="ui-btn"
+          <button onClick={() => setAskEbiSignal((n) => n + 1)} title="Talk to Ebi: ask anything, or tell it what to change" className="ui-btn"
             style={{ ...S.ghostBtn, marginLeft: 8, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)', fontWeight: 700 }}>
             Talk to Ebi
           </button>
@@ -8308,7 +8357,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   autoFocus
                 />
                 <input
-                  placeholder="What is this deck for? (e.g. Security+, Spanish) — creates a matching mode"
+                  placeholder="What is this deck for? (e.g. Security+, Spanish). Creates a matching mode"
                   value={deckBrowserAddPurpose}
                   onChange={(e) => setDeckBrowserAddPurpose(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && deckBrowserAddName.trim() && !deckBrowserAddLoading) handleAddDeck() }}
@@ -8440,7 +8489,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   <button
                     onClick={() => setDeckCustomEditOpen((v) => !v)}
                     disabled={!apiKey}
-                    className="tip tip-r" data-tip="Tell Ebi how to change the cards in this deck — you review every proposed change before anything is saved"
+                    className="tip tip-r" data-tip="Tell Ebi how to change the cards in this deck. You review every proposed change before anything is saved"
                     style={{ background: 'rgba(139,92,246,0.12)', color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: !apiKey ? 0.5 : 1 }}
                   >
                     ✨ Ebi bulk edit
@@ -8449,7 +8498,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   {deckAnalyzeError && <span style={{ fontSize: 10, color: 'var(--c-danger)' }}>{deckAnalyzeError}</span>}
                   {deckDupError && <span style={{ fontSize: 10, color: 'var(--c-danger)' }}>{deckDupError}</span>}
                   {deckAnalyzeEmpty && !deckAnalyzeLoading && (
-                    <span style={{ fontSize: 10, color: 'var(--c-success)' }}>{deckAnalyzeKind === 'custom' ? 'Ebi found no cards that need that change.' : 'No ambiguous cards found — your deck looks clean.'}</span>
+                    <span style={{ fontSize: 10, color: 'var(--c-success)' }}>{deckAnalyzeKind === 'custom' ? 'Ebi found no cards that need that change.' : 'No ambiguous cards found. Your deck looks clean.'}</span>
                   )}
                   {deckDupEmpty && !deckDupLoading && (
                     <span style={{ fontSize: 10, color: 'var(--c-success)' }}>No duplicates found — your deck looks clean.</span>
@@ -8558,7 +8607,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         ) : (
                           // One control: include/exclude this card from the batch "Add" button above.
                           <button onClick={() => setQuickAddCards((prev) => prev.map((c, k) => k === i ? { ...c, accepted: !c.accepted } : c))}
-                            title={card.accepted ? 'Included — click to skip' : 'Skipped — click to include'}
+                            title={card.accepted ? 'Included. Click to skip' : 'Skipped. Click to include'}
                             style={{ width: 28, height: 28, borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, border: `1px solid ${card.accepted ? 'rgba(24,169,87,0.5)' : 'var(--c-border)'}`, background: card.accepted ? 'rgba(24,169,87,0.18)' : 'transparent', color: card.accepted ? 'var(--c-success)' : 'var(--c-ink-faint)' }}>
                             {card.accepted ? '✓' : '○'}
                           </button>
@@ -8629,7 +8678,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       {deckAnalyzeRecs.length} suggestion{deckAnalyzeRecs.length === 1 ? '' : 's'} • {acceptedCount} accepted
                       {deckAnalyzeSkipped > 0 && (
                         <span style={{ fontSize: 10, color: 'var(--c-warning)', fontWeight: 400, marginLeft: 8 }}
-                          title="These were discarded because the AI's card id and word did not match the same card — never shown to avoid mixing cards. Re-run to try again.">
+                          title="These were discarded because the AI's card id and word did not match the same card. Never shown to avoid mixing cards. Re-run to try again.">
                           ⚠ {deckAnalyzeSkipped} discarded (card mismatch)
                         </span>
                       )}
@@ -8749,14 +8798,14 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           <div style={{ display: 'flex', gap: 6, marginTop: 8, justifyContent: 'flex-end' }}>
                             <button
                               onClick={() => rejectRec(idx)}
-                              title="Reject — remove this suggestion"
+                              title="Reject: remove this suggestion"
                               style={{ ...S.ghostBtn, fontSize: 14, padding: '3px 12px', color: 'var(--c-danger)', borderColor: 'rgba(229,57,46,.25)' }}
                             >
                               ✗
                             </button>
                             <button
                               onClick={() => toggleAcceptRec(idx)}
-                              title={rec.accepted ? 'Click to un-accept' : 'Accept — will save when you click Save accepted'}
+                              title={rec.accepted ? 'Click to un-accept' : 'Accept: will save when you click Save accepted'}
                               style={{
                                 ...S.ghostBtn,
                                 fontSize: 14, padding: '3px 12px',
@@ -8856,7 +8905,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           <div style={{ display: 'flex', gap: 6, marginTop: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
                             <button
                               onClick={() => dismissDup(idx)}
-                              title="Do not merge — these are different words. Never suggest this again."
+                              title="Do not merge: these are different words. Never suggest this again."
                               style={{ ...S.ghostBtn, fontSize: 11, padding: '4px 10px', color: 'var(--c-warning)', borderColor: 'rgba(232,147,12,.3)' }}
                             >
                               Do not merge
@@ -8870,7 +8919,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                             </button>
                             <button
                               onClick={() => toggleAcceptDup(idx)}
-                              title={group.accepted ? 'Click to un-select' : 'Select — will merge when you click Merge selected'}
+                              title={group.accepted ? 'Click to un-select' : 'Select: will merge when you click Merge selected'}
                               style={{
                                 ...S.ghostBtn,
                                 fontSize: 14, padding: '3px 12px',
@@ -8959,7 +9008,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               {deckBrowserSaveStatus === 'saved' && <span style={{ fontSize: 10, color: 'var(--c-success)' }}>Saved</span>}
                               {/* Scheduling reset — content untouched; confirm guards the irreversible part */}
                               <button onClick={() => resetNoteProgress(note, front)} disabled={!ankiConnected}
-                                title="Wipe this card's scheduling history — it becomes a NEW card again (content is kept)"
+                                title="Wipe this card's scheduling history. It becomes a NEW card again (content is kept)"
                                 style={{ marginLeft: 'auto', background: 'rgba(229,57,46,.12)', color: 'var(--c-danger)', border: '1px solid rgba(229,57,46,.4)', borderRadius: 5, padding: '5px 12px', fontSize: 11, fontWeight: 700, cursor: ankiConnected ? 'pointer' : 'default', fontFamily: 'inherit', opacity: ankiConnected ? 1 : 0.5 }}>
                                 ⟲ Reset progress
                               </button>
@@ -8987,7 +9036,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                 {note.stats.reps === 0 ? (
                                   <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--c-info, #3b82f6)', border: '1px solid rgba(59,130,246,.35)', borderRadius: 999, padding: '1px 7px' }}>NEW</span>
                                 ) : note.stats.interval > 0 ? (
-                                  <span title={`Interval: ${note.stats.interval} days — ${note.stats.interval >= 21 ? 'mature' : 'young'}`}
+                                  <span title={`Interval: ${note.stats.interval} days (${note.stats.interval >= 21 ? 'mature' : 'young'})`}
                                     style={{ fontSize: 9, fontWeight: 800, color: note.stats.interval >= 21 ? 'var(--c-success)' : 'var(--c-ink-dim)', border: `1px solid ${note.stats.interval >= 21 ? 'rgba(24,169,87,.35)' : 'var(--c-border)'}`, borderRadius: 999, padding: '1px 7px' }}>
                                     {fmtInterval(note.stats.interval)}
                                   </span>
@@ -8995,7 +9044,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                   <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--c-warning)', border: '1px solid rgba(232,147,12,.35)', borderRadius: 999, padding: '1px 7px' }}>learn</span>
                                 )}
                                 {note.stats.lapses >= 4 && (
-                                  <span title={`${note.stats.lapses} lapses — a problem card`}
+                                  <span title={`${note.stats.lapses} lapses: a problem card`}
                                     style={{ fontSize: 9, fontWeight: 800, color: 'var(--c-danger)', border: '1px solid rgba(229,57,46,.35)', borderRadius: 999, padding: '1px 7px' }}>⚠ {note.stats.lapses}</span>
                                 )}
                               </span>
@@ -9044,18 +9093,18 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               )}
                               {/* Ebi's memory hooks — persisted per note (survive sessions, sync via Anki media) */}
                               <div style={{ marginTop: 8 }}>
-                                {(modeHooks[note.noteId] || []).map((hook, hi) => (
+                                {hooksForItem(note.noteId, front).map((hook, hi, arr) => (
                                   <div key={hi} style={{ fontSize: 11, color: 'var(--c-ink)', background: 'rgba(139,92,246,.08)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 6, padding: '8px 10px', lineHeight: 1.6, marginBottom: 6 }}>
                                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                                      <div style={{ fontWeight: 700, color: 'var(--c-purple)', marginBottom: 3, flex: 1 }}>🧠 Ebi's memory hook{(modeHooks[note.noteId]?.length || 0) > 1 ? ` #${hi + 1}` : ''}</div>
-                                      <span onClick={() => deleteNoteHook(note.noteId, hook)} title="Delete this hook" className="click-dim"
+                                      <div style={{ fontWeight: 700, color: 'var(--c-purple)', marginBottom: 3, flex: 1 }}>🧠 Ebi's memory hook{arr.length > 1 ? ` #${hi + 1}` : ''}</div>
+                                      <span onClick={() => deleteNoteHook(note.noteId, hook, front)} title="Delete this hook" className="click-dim"
                                         style={{ cursor: 'pointer', color: 'var(--c-ink-faint)', fontSize: 13, lineHeight: 1, padding: '1px 5px', borderRadius: 4, flexShrink: 0 }}>×</span>
                                     </div>
                                     <div className="hook-md"><Markdown text={hook} /></div>
                                   </div>
                                 ))}
                                 {deckBrowserMnemonics[note.noteId]?.loading && (
-                                  <div style={{ fontSize: 11, color: 'var(--c-purple)', marginBottom: 6 }}>🧠 Ebi is thinking of {(modeHooks[note.noteId]?.length || 0) ? 'another' : 'a'} memory hook…</div>
+                                  <div style={{ fontSize: 11, color: 'var(--c-purple)', marginBottom: 6 }}>🧠 Ebi is thinking of {hooksForItem(note.noteId, front).length ? 'another' : 'a'} memory hook…</div>
                                 )}
                                 {deckBrowserMnemonics[note.noteId]?.error && (
                                   <div style={{ fontSize: 10, color: 'var(--c-danger)', marginBottom: 6 }}>{deckBrowserMnemonics[note.noteId].error}</div>
@@ -9900,7 +9949,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                             {activeMode.type === 'language' && (
                               <Pronunciation word={pronWord(lm.front)} lang={learnLangName()} region={pronRegion()} config={pronunciationCfg} t={t} compact />
                             )}
-                            {lm.requeued && <span className="tip" data-tip="This card comes back in a few cards as practice — the Again rating already recorded stays the only Anki review." style={{ fontSize: 10, color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,.3)', borderRadius: 999, padding: '2px 8px', fontWeight: 700 }}>↻ comes back soon</span>}
+                            {lm.requeued && <span className="tip" data-tip="This card comes back in a few cards as practice. The Again rating already recorded stays the only Anki review." style={{ fontSize: 10, color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,.3)', borderRadius: 999, padding: '2px 8px', fontWeight: 700 }}>↻ comes back soon</span>}
                           </div>
                           <div style={{ fontSize: 12.5, color: 'var(--c-ink)', background: 'var(--c-surface-sunken, var(--c-surface))', border: '1px solid var(--c-border)', borderRadius: 8, padding: '10px 12px', lineHeight: 1.65, maxHeight: 220, overflowY: 'auto', marginBottom: 10 }}
                             dangerouslySetInnerHTML={{ __html: cardBackToHtml(lm.back) }} />
@@ -10014,7 +10063,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           you're viewing. */}
                       {cs && cs.questions.length > 1 && (
                         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
-                          <span className="tip" data-tip={`${t('studyQuestionOf')} ${Math.min(cs.questionIdx + 1, cs.questions.length)}/${cs.questions.length}${cs.questionIdx > 0 ? ` — ${t('studyDotJump')}` : ''}`}
+                          <span className="tip" data-tip={`${t('studyQuestionOf')} ${Math.min(cs.questionIdx + 1, cs.questions.length)}/${cs.questions.length}${cs.questionIdx > 0 ? ` · ${t('studyDotJump')}` : ''}`}
                             style={{ display: 'inline-flex', gap: 6, alignItems: 'center', padding: 2 }}>
                             {cs.questions.map((_, qi) => {
                               const answered = qi < cs.questionIdx
@@ -10308,17 +10357,17 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               // Relaxed practice — this rating never reaches Anki, so there's nothing to correct or lock.
                               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{(cs.rating || '').toUpperCase()}</span>
-                                <span title="Practice only — not recorded in Anki" style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-purple)' }}>{t('practiceBadge')}</span>
+                                <span title="Practice only: not recorded in Anki" style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-purple)' }}>{t('practiceBadge')}</span>
                               </span>
                             ) : cs.synced ? (
                               // Locked: this rating is committed to Anki and can no longer change (no again→easy lapse).
                               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{(cs.rating || '').toUpperCase()}</span>
-                                <span title="Synced to Anki — locked" style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-success)' }}>🔒 Synced</span>
+                                <span title="Synced to Anki: locked" style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-success)' }}>🔒 Synced</span>
                               </span>
                             ) : (
                               <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <span title="Not yet committed to Anki — you can still change this rating" style={{ fontSize: 9, color: 'var(--c-warning)', fontWeight: 700 }}>● not synced</span>
+                                <span title="Not yet committed to Anki: you can still change this rating" style={{ fontSize: 9, color: 'var(--c-warning)', fontWeight: 700 }}>● not synced</span>
                                 <select value={cs.rating || ''} onChange={(e) => {
                                 const newRating = e.target.value
                                 const easeMap = { easy: 4, good: 3, hard: 2, again: 1 }
@@ -10415,13 +10464,13 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           // Relaxed practice — never pushed to Anki, so no dropdown and no lock.
                           <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{(cs.rating || '').toUpperCase()}</span>
-                            <span title="Practice only — not recorded in Anki" style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-purple)' }}>{t('practiceBadge')}</span>
+                            <span title="Practice only: not recorded in Anki" style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-purple)' }}>{t('practiceBadge')}</span>
                           </span>
                         ) : cs.synced ? (
                           // Already committed to Anki — locked so a correction can't double-answer (again→easy lapse).
                           <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{(cs.rating || '').toUpperCase()}</span>
-                            <span title="Synced to Anki — locked" style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-success)' }}>🔒 Synced</span>
+                            <span title="Synced to Anki: locked" style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-success)' }}>🔒 Synced</span>
                           </span>
                         ) : (
                           // Editable rating — changing it re-answers the card in Anki with the new ease (synced:false).

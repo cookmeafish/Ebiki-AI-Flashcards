@@ -11,6 +11,11 @@ Mascot: **Ebi**, a red shrimp. Brand color = **#DF2540** (sampled from Ebi). Two
   config + localStorage, with a no-flash pre-paint script in `index.html`.
 - `src/styles/theme.js` — the `S.*` style objects, built from tokens. Most chrome imports `S`.
 - Primary CTAs get className `btn-press` (Duolingo press); tabs use `ui-tab`.
+- **NO EM DASHES in ANY user-facing text.** The user banned them everywhere a reader can see them:
+  static UI strings, i18n entries (all four languages), tooltips/`data-tip`, `title` attrs,
+  placeholders, confirm dialogs, toasts, error messages — not just Ebi's AI output (which was already
+  prompt-forbidden + code-stripped). Use `. ` / `: ` / ` · ` instead (zh: `，`, ja: `。`). A 2026-07
+  sweep removed every existing one; don't reintroduce them. Code comments are exempt.
 - **Light-mode semantic colors run DEEPER than dark mode's** (success `#0E8746`, warning `#B36A00`,
   danger `#D32F24`, purple `#7C4DEF`): at small text sizes on the light background, the old green
   and amber shared the same luminance and visually blended. Keep this relationship if retuning.
@@ -576,6 +581,19 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   expanded rows (`generateDeckMnemonic(note, method)`, `deckBrowserMnemonics` keyed by noteId), and the
   tapped-word popup (`studyWordMemoryHook(method)` → hooks on `studyWordLookup`, compact). Improve the
   prompt in ONE place.
+  **Every hook generated ANYWHERE is saved and accessible EVERYWHERE hooks exist — one per-mode store**
+  (`modeHooks`, blob `hooks` → Anki media + local fallback, loaded on mode switch): keys are Anki
+  noteIds for card-backed items, `word:<folded word>` for tapped words with no card (numeric keys never
+  collide). All FOUR surfaces (study graded cards, deck browser rows, tapped-word popup, Learn-it
+  moment) persist via `addNoteHook(hookSaveKey(noteId, front), hook)` and read via
+  `hooksForItem(noteId, front)`, which UNIONS the note's hooks with word-key hooks for each headword
+  form ("cálido/cálida (adjetivo)" → cálido, cálida) — so popup-made hooks show on the note surfaces
+  and vice versa, even for hooks saved before the word got a card. The popup hydrates word-key hooks
+  synchronously and resolves the word's note async (`studyWordFindExisting`, fail-soft) to merge its
+  hooks in and record `hookNoteId` so new popup hooks save onto the note. The Learn-it moment seeds
+  saved hooks and only auto-generates when none exist. `deleteNoteHook(noteId, hook, front)` deletes by
+  VALUE and sweeps noteId + headword word-keys so a merged-in hook is truly gone. Store writes are
+  FUNCTIONAL updates (`writeModeHooks`) — async hook completions can't clobber concurrent additions.
 - **Study start screen = ONE sectioned card** (What to study / Language / Session format), fields as
   label-above-control in `repeat(auto-fit, minmax(180px,1fr))` grids with stretched controls; the verbose
   legends are `.tip` tooltips (an instant CSS tooltip class in the global style block — the native

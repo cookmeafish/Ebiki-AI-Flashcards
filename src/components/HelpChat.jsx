@@ -573,7 +573,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
             zIndex: 10000,
             fontFamily: 'inherit',
           }}
-          title="Ebi's Help — ask anything about Ebiki"
+          title="Ebi's Help: ask anything about Ebiki"
         >
           {/* Transparent PNG with a soft red glow that hugs the shrimp's shape (drop-shadow follows
               the alpha channel), so there's no circle — just Ebi with a slight glow around it. */}
