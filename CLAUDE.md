@@ -498,6 +498,10 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   panel holds the screen like the MC/PBQ/typed flashes: it's in the batchFeedback layout-effect
   gate AND the question-card render chain (first branch). Cleared on exitStudy + session start.
   Flashcards mode only (conjugations keep their own skip; PBQs never reach this path).
+  **Per-mode toggle `studyRules.learnMoment`, DEFAULT ON** (`!== false`, accentDrill pattern) — a
+  "Learn-it moments" checkbox on the study start screen, shown for ALL modes (the checkbox row is
+  no longer language-gated; the grammar/word-hints/accents toggles inside it still are). i18n keys
+  `studyLearnMoment`/`studyLearnMomentDesc` in all four languages.
 - **"I Don't Know" (`skipStudyQuestion`) is card-level ONLY on the first question.** With nothing
   answered yet it keeps the confirm + whole-card give-up (every question '(skipped)', card done,
   rated Again). Once ANY question of the card has been answered (`cs.questionIdx > 0`) it fails ONLY
