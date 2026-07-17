@@ -6254,7 +6254,7 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
 DECOMPOSE the item into parts the learner likely already knows — morphemes/roots/pronouns for words (dár-se-lo = dar + se + lo), components for characters, expansions for acronyms, sub-steps for processes. Give each part ONE concrete image and fuse them into a single vivid, slightly absurd picture that ENDS at the meaning. When decomposition doesn't fit, use the strongest alternative: cognate/word-origin rationalization or a logical link the learner can re-derive.`,
       sound: isLanguage
         ? `METHOD — SOUND HOOK (WaniKani reading-mnemonic style; the learner KNOWS the meaning and must PRODUCE the ${learnLang} word):
-Work from the word's ACTUAL ${learnLang} pronunciation. Break it into its syllables IN ORDER, then build a sound-alike bridge in ${explainLang} where EVERY syllable — the LAST one included — is echoed by a ${explainLang} word or sound that genuinely sounds like it, in the same order, fused into ONE vivid image that lands on the meaning. NEVER smuggle the meaning word in as a fake sound-alike unless it truly matches that syllable's sound: mapping "outfit" onto "-endo" fools nobody and just confuses (that exact failure is why this rule exists). End with a recap that lines each syllable up with its bridge, e.g. "muelle (dock): a stubborn MULE (mweh) yelling YEAH at the dock → MU-EH-yeh → muelle". The learner must be able to reconstruct the real ${learnLang} pronunciation AND spelling from the bridge, not just gesture at the meaning.`
+Work from the word's ACTUAL ${learnLang} pronunciation. Break it into its syllables IN ORDER, then build a sound-alike bridge in ${explainLang} where EVERY syllable — the LAST one included — is echoed by a ${explainLang} word or sound that genuinely sounds like it, in the same order, fused into ONE vivid image that lands on the meaning. NEVER use a scene/meaning word as a fake sound-alike unless it truly matches that syllable's sound: mapping "outfit" onto "-endo", or "SNAIL" onto "ce-na" (snail = "sneyl" — shares one letter, zero syllables), fools nobody and just confuses; a vivid image that cannot rebuild the sounds is a FAILED sound hook. End with a PAIRWISE recap mapping each syllable to its bridge word, e.g. "muelle (dock): mu=MULE, e(ye)=YEAH → MU-EH-yeh → muelle" — write every pair out explicitly, SAY each pair aloud in your head, and if any pair doesn't genuinely sound alike, REPLACE that bridge word before answering. The learner must be able to reconstruct the real ${learnLang} pronunciation AND spelling from the bridge, not just gesture at the meaning.`
         : `METHOD — RECALL HOOK (the learner knows the concept and must produce the exact TERM):
 Build an acronym, first-letter anchor, number anchor, or word-shape cue that reconstructs the term PRECISELY (letter by letter or part by part), tied to the concept in one image.`,
       story: `METHOD — STORY HOOK: write a tiny STORY (2-4 short sentences: a character, a want, a twist) that carries the meaning${isLanguage ? ` and, where natural, echoes the ${learnLang} word's sound` : ''}. Slightly absurd and emotional beats bland. The story must END at the answer, so retelling it yields the item.`,
@@ -6299,7 +6299,39 @@ QUALITY BAR: a good hook lets the learner RECONSTRUCT the answer from the hook a
 
 Write in ${explainLang}. ${lengthRule} No backup hooks, no preamble, no explaining why the hook works. Concrete and a little playful. FORMAT: short sentences; you MAY use **bold** on the few key words that carry the hook and a line break between steps/pairs — nothing else (no headers, no bullet symbols, no em dashes).`
     const text = await aiCall(apiKey, `You are Ebi, a friendly memory coach. Reply in ${explainLang} with a concise, concrete memory aid.`, prompt, resolveModel('study'))
-    return String(text || '').trim()
+    const draft = String(text || '').trim()
+    if (!draft) return draft
+    // VERIFY-AND-IMPROVE pass (hooks get MEMORIZED, like cards → same guardrail as verifyCards):
+    // a second call plays skeptical learner + editor. It re-runs the reconstruction test, says the
+    // sound pairs aloud (the "SNAIL=ce-na" failure survived generation because nobody re-checked),
+    // and rewrites ONLY what fails — clearer wording where it helps understanding. Fail-soft: any
+    // error returns the draft unchanged (a decent hook now beats no hook).
+    try {
+      const reviewPrompt = `You are quality-checking a memory aid BEFORE a learner memorizes it. Judge it as the learner: someone who does NOT know this item yet.
+
+Flashcard front: "${front}"
+Flashcard back: "${back}"
+
+THE METHOD IT MUST FOLLOW:
+${METHODS[method] || METHODS.meaning}
+
+THE DRAFT MEMORY AID:
+${draft}
+
+CHECK, in order:
+1. RECONSTRUCTION: forgetting the answer, can you rebuild it from the aid alone? If not, it fails.
+2. SOUND PAIRS (if it uses sound-alikes): say each pair aloud — does the bridge word genuinely sound like its syllable? A scene word posing as a sound anchor ("SNAIL" for "ce-na") fails.
+3. TRUTH: real morphology/facts/usage only — any invented etymology, wrong fact, or grammatically broken example fails.
+4. CLARITY: one unambiguous chain from cue to answer; no negated/argued sound-alikes; would a confused learner UNDERSTAND every step on first read?
+
+THEN IMPROVE: even when nothing outright fails, actively look for ANY change that would make the aid CLEARER, easier to UNDERSTAND, or easier to MEMORIZE for this learner — and make it. Typical wins: replace an abstract or bland image with a sharper concrete one; simplify convoluted wording a confused learner would stumble on; make the cue→answer chain more direct; strengthen a weak sound pair; cut a step that adds nothing. Never break what already works, never trade memorability for brevity, and never rewrite for mere taste — every change must earn its place by helping understanding or recall. Output the draft VERBATIM only when you genuinely cannot improve it.
+
+Your output keeps: the same method, the same language (${explainLang}), the same format rules (bold key words + line breaks only, no em dashes), the same length cap (${lengthRule.split('.')[0]}), and a leading bold method label if the draft has one. Output ONLY the final memory aid text — no verdict, no commentary.`
+      const fixed = await aiCall(apiKey, `You are a meticulous, skeptical editor of memory aids. Output only the final memory aid text.`, reviewPrompt, resolveModel('study'), { silent: true })
+      const out = String(fixed || '').trim()
+      if (out) return out
+    } catch { /* review is best-effort */ }
+    return draft
   }
 
   const generateMnemonic = async (cardIdx, card, method = 'meaning') => {

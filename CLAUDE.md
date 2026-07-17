@@ -537,13 +537,25 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   `studyQaOpen[src]`) with a tri-state indicator: ✓ green = correct with no non-praise notes, ✓✎ amber
   = correct but has feedback, ✗ red = incorrect; expanded detail is 13.5px with hanging note icons
   (icons sit in the left gutter so note text aligns with the other lines).
-- **Memory hooks are ONE engine, `generateMemoryHook(front, back, prior, method)`** (subject-agnostic),
+- **Memory hooks are ONE engine, `generateMemoryHook(front, back, prior, method)`** (subject-agnostic).
+  **Every hook runs a VERIFY-AND-IMPROVE second pass** (hooks get MEMORIZED — same guardrail as
+  `verifyCards`): a skeptical-editor call re-runs the reconstruction test, says sound pairs aloud
+  (the "SNAIL=ce-na" failure survived generation because nobody re-checked), checks truth (real
+  morphology, correct modeled usage) and clarity — and then ACTIVELY IMPROVES: any change that makes
+  the aid clearer, easier to understand, or easier to memorize gets made even when nothing failed
+  (sharper images, simpler wording, more direct cue→answer chain), verbatim only when it genuinely
+  can't be improved; never a rewrite for mere taste (same method/language/format/length; keeps a
+  leading bold method label). Fail-soft + `silent: true` — any error returns the draft. ~2 calls
+  per hook, on-demand only. The engine has,
   with FIVE methods in its `METHODS` map: `meaning` (decompose → one vivid image that
   ends at the meaning), `sound` (language: reading-mnemonic sound-alike bridge that works from the
   target word's REAL pronunciation and must echo EVERY syllable IN ORDER — the last one included —
-  with a same-language sound-alike, NEVER smuggling the meaning word in as a fake sound anchor (the
-  "atuendo → a tween's OUTFIT" failure: "-do" got dropped and "outfit"=the meaning masqueraded as
-  sound); general: RECALL hook — acronym/anchor that reconstructs the exact term), `parts` ("Break it
+  with a genuine sound-alike, NEVER a scene/meaning word masquerading as a sound anchor (the
+  "atuendo → a tween's OUTFIT" failure: "-do" dropped, "outfit"=meaning-as-sound; the "cenagoso →
+  SNAIL" failure: snail="sneyl", shares one letter with "ce-na"). The recap must be PAIRWISE —
+  `syllable=BRIDGE` for every syllable — so a mismatched pair is visible to the model itself and
+  must be replaced before answering; general: RECALL hook — acronym/anchor that reconstructs the
+  exact term), `parts` ("Break it
   down" — REAL morphology/components explained step by step, dar → darse → dárselo; understanding, not
   imagery; ≤60 words), `confuse` ("Don't confuse it" — the 1-2 confusables a learner actually trips on
   + ONE sharp discriminator each; ≤50 words; its quality test = pick the right one of the pair), `story`
