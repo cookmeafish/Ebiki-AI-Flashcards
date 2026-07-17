@@ -101,9 +101,9 @@ export default function Pronunciation({ word, lang, region = '', config = {}, no
   if (!word || !lang) return null
   const isNative = result?.source === 'wiktionary' || result?.source === 'anki'
   const icon = state === 'loading' ? '⏳' : state === 'none' ? '🔇' : '🔊'
-  const title = state === 'none' ? `${t('pronNone')} — ${t('pronRetry')}`
+  const title = state === 'none' ? `${t('pronNone')} · ${t('pronRetry')}`
     : result?.source === 'anki' ? t('pronFromAnki')
-    : result?.source === 'wiktionary' ? `${t('pronNative')} — ${result.attribution?.author || ''} · ${result.attribution?.license || ''}`
+    : result?.source === 'wiktionary' ? `${t('pronNative')}: ${result.attribution?.author || ''} · ${result.attribution?.license || ''}`
     : result ? t('pronTts') : t('pronPlay')
   // Offer ↻ on ANY native result until a cycle attempt proves there's nothing else —
   // the initial play may not have merged the Commons-wide search yet, so variantCount
