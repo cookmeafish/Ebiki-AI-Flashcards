@@ -5924,7 +5924,8 @@ Output ONLY raw JSON. No markdown, no backticks.`
     pullNewCard()
     // Teach what they just didn't know — the panel holds the screen while the session
     // advances underneath (conjugation words have their own skip path; PBQs never reach here).
-    if (!cs.isConjugation) openLearnMoment(cs)
+    // Per-mode toggle `studyRules.learnMoment` (start-screen checkbox), DEFAULT ON.
+    if (!cs.isConjugation && (activeMode.studyRules || defaultStudyRules).learnMoment !== false) openLearnMoment(cs)
   }
 
   // Conjugation mode only — silently drop the current word and move on (no rating, no feedback)
@@ -9682,8 +9683,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         <Dropdown value={speaks} getZoom={getZoom} onChange={(val) => setSR({ quizLanguage: val })} style={ctl} options={langOpts} />
                       ))}
                     </>)}
-                    {isLang && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginTop: 7 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', marginTop: 7 }}>
+                      {isLang && (<>
                         <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--c-ink-dim)', cursor: 'pointer' }}>
                           <input type="checkbox" checked={sr.grammarFeedback || false} onChange={(e) => setSR({ grammarFeedback: e.target.checked })} />
                           {t('grammarFeedback')}
@@ -9699,8 +9700,13 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                             {t('studyAccentDrill')} <span className="tip" data-tip={t('studyAccentDrillDesc')} style={{ color: 'var(--c-ink-faint)' }}>ⓘ</span>
                           </label>
                         )}
-                      </div>
-                    )}
+                      </>)}
+                      {/* Learn-it moment — all modes (the give-up teach panel + practice re-encounter) */}
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--c-ink-dim)', cursor: 'pointer' }}>
+                        <input type="checkbox" checked={sr.learnMoment !== false} onChange={(e) => setSR({ learnMoment: e.target.checked })} />
+                        {t('studyLearnMoment')} <span className="tip" data-tip={t('studyLearnMomentDesc')} style={{ color: 'var(--c-ink-faint)' }}>ⓘ</span>
+                      </label>
+                    </div>
                   </>))}
 
                   {/* ── Session format ── */}
