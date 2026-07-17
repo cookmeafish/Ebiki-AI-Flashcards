@@ -2402,6 +2402,29 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
   const usageScopeTagRule = () => activeMode.type === 'language'
     ? ` ALWAYS include a usage-scope tag: "region-global" when natives across ALL regions of ${learnLangName()} use and understand the word in this sense, or one or more "region-<place>" tags (lowercase-hyphens, e.g. "region-spain", "region-mexico", "region-latam", "region-brazil", "region-portugal", "region-uk", "region-us") when it is country/region-specific — tag the card's SENSE, not just the spelling. "region-global" is a positive claim you must be CONFIDENT in; when unsure whether every region uses it, do not guess "region-global" — tag only the region(s) you actually know use it, at whatever breadth you can honestly back (country < region < global).`
     : ''
+  // Preferred-term honesty — the "barro = mud" failure: barro is a real, global word and "mud" is a
+  // correct translation, so every existing check passed — yet in the studied variant (Latin American
+  // Spanish) the everyday word for mud is "lodo", and a learner who memorizes barro↔mud walks away
+  // speaking unnaturally. The scope TAG can't catch this (it records WHERE a word is used, not
+  // whether it's the PREFERRED word for a sense) and the DIALECT rule can't either (it governs which
+  // variant content is WRITTEN in). This rule asks the per-sense question nobody else asks: "is the
+  // headword what a speaker of the variant actually says for THIS meaning?" Injected into every
+  // surface that presents a word's meaning: card generation (LANGUAGE_CARD_PROMPT carries the same
+  // test inline), verifyCards, the Chat card format, buildCardFields (Discover/Picture), the
+  // tapped-word lookup, and the Deck browser's 🌎 Dialect audit. Language modes only.
+  const preferredTermRule = () => {
+    if (activeMode.type !== 'language') return ''
+    const v = dialectName() || learnLangName()
+    return `\nPREFERRED-TERM HONESTY (mandatory): for EACH translation/meaning you present, ask yourself: is THIS word what a ${v} speaker actually reaches for in everyday speech for that meaning? When a DIFFERENT word is clearly more common in ${v} for one of the listed meanings (e.g. Spanish "barro" glossed as "mud": everyday Latin American speech prefers "lodo", while barro leans clay/ceramic material), you MUST say so explicitly in a usage note naming the more common word (in the usage line if the format has one, otherwise appended to the translation), and order the translations so the meanings this word IS the default term for come FIRST. Never present a headword as the normal word for a meaning that a synonym dominates.`
+  }
+  // 🌎 Dialect audit — retrofits preferred-term honesty onto EXISTING cards (cards generated before
+  // the rule, like the original barro card). A canned instruction through the ENTIRE custom
+  // bulk-edit pipeline: same JSON contract, same noteId+front integrity guard, same before/after
+  // accept/deny review — nothing writes to Anki until each card is approved.
+  const dialectAuditInstruction = () => {
+    const v = dialectName() || learnLangName()
+    return `Audit every card for preferred-term honesty in ${v}. For each card, check EACH translation/meaning on the back and ask: is the headword what a ${v} speaker actually says for that meaning in everyday speech? When a DIFFERENT word is clearly more common in ${v} for a listed meaning (e.g. "barro" glossed as "mud" when everyday ${v} prefers "lodo"), update that card: (1) add or extend the usage line (label written in the card's language, e.g. Spanish "Uso:") naming the more common word and what the headword usually means instead; (2) reorder the translation line so the meanings the headword IS the default term for come first. Also correct a region tag that is dishonest for the carded sense. SKIP every card whose headword is already the natural default term for all its listed meanings — most cards should be skipped. Change nothing else on any card.`
+  }
   // Usage-scope tags LEAD the tag row and stand out on every tag-chip surface (chat card widget,
   // Quick Add tray, deck browser rows, Picture widget): region tags sort FIRST (stable — other tags
   // keep their order), and get a semantic highlight: green = region-global (safe everywhere),
@@ -2431,7 +2454,7 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
   const verifyCards = async (cards, subjectLabel) => {
     if (!cards.length) return cards
     try {
-      const prompt = `You are a meticulous ${subjectLabel} teacher proofreading flashcards a student will MEMORIZE. Accuracy is critical, a single error is harmful. For EACH card object, carefully verify and FIX any error: a headword that does NOT exist or is misspelled (replace it with the correct word), wrong part of speech or grammatical gender, incorrect pronunciation, wrong/missing translation, wrong synonyms, an incorrect or unnatural definition, and an example sentence that is wrong, unnatural, or mistranslated. If the tags include a usage-scope tag, verify it is honest: "region-global" ONLY if you are confident natives across all regions use the word in this sense; otherwise the correct "region-<place>" tag(s) — when in doubt DEMOTE "region-global" to the region(s) actually known to use it (a too-narrow honest tag is fine, a false "global" is not); fix or add the tag if wrong or missing. Leave correct fields exactly as they are. Return the corrected JSON array with the SAME keys and structure. Output ONLY the JSON array, no commentary.`
+      const prompt = `You are a meticulous ${subjectLabel} teacher proofreading flashcards a student will MEMORIZE. Accuracy is critical, a single error is harmful. For EACH card object, carefully verify and FIX any error: a headword that does NOT exist or is misspelled (replace it with the correct word), wrong part of speech or grammatical gender, incorrect pronunciation, wrong/missing translation, wrong synonyms, an incorrect or unnatural definition, and an example sentence that is wrong, unnatural, or mistranslated. If the tags include a usage-scope tag, verify it is honest: "region-global" ONLY if you are confident natives across all regions use the word in this sense; otherwise the correct "region-<place>" tag(s) — when in doubt DEMOTE "region-global" to the region(s) actually known to use it (a too-narrow honest tag is fine, a false "global" is not); fix or add the tag if wrong or missing. Also enforce PREFERRED-TERM HONESTY, a check that is NOT about correctness: for EACH translation on a card, ask whether a DIFFERENT word is what natives of the studied variant more commonly say for that meaning in everyday speech. If so, the back MUST carry a usage line naming that more common word and what the headword usually means instead (add or fix the line — e.g. "barro" translated as "mud" needs a note that everyday Latin American Spanish prefers "lodo" and barro leans clay/ceramic), and the translation line must lead with the meanings the headword IS the default term for (reorder if needed). A card that silently teaches the headword as the everyday word for a synonym-dominated meaning is WRONG even when every fact on it is technically true. Leave correct fields exactly as they are. Return the corrected JSON array with the SAME keys and structure. Output ONLY the JSON array, no commentary.`
       const text = await aiCall(apiKey, prompt, JSON.stringify(cards), resolveModel('deck'))
       const parsed = parseAiJson(text)
       const arr = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.cards) ? parsed.cards : null)
@@ -2454,7 +2477,7 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
       // the variant) AND as a trailing directive (covers vocabulary/usage/definition/example choices).
       const d = dialectName()
       const dialectPron = d ? ` This learner studies ${d} — the pronunciation MUST reflect ${d} (${d.toLowerCase().includes('latin') && d.toLowerCase().includes('span') ? 'seseo: c before e/i and z sound like "s", never the Castilian "th"' : `use that region's sounds, not another variant's`}).` : ''
-      prompt = LANGUAGE_CARD_PROMPT.replace(/\{LEARN_LANG\}/g, learnLangName()).replace(/\{USER_LANG\}/g, userLangName()).replace(/\{DIALECT_PRON\}/g, dialectPron) + dialectRule()
+      prompt = LANGUAGE_CARD_PROMPT.replace(/\{LEARN_LANG\}/g, learnLangName()).replace(/\{USER_LANG\}/g, userLangName()).replace(/\{DIALECT_PRON\}/g, dialectPron) + dialectRule() + preferredTermRule()
     } else {
       const desc = activeMode.description ? `\nMode description: ${activeMode.description}` : ''
       const backTpl = String(activeMode.backTemplate || '')
@@ -2525,7 +2548,7 @@ Context: "${contextText}"
 Return a JSON object with these fields:
 ${fieldRequests.map((f) => `- ${f}`).join('\n')}
 
-Output ONLY raw JSON. No markdown, no backticks.${dialectRule()}`
+Output ONLY raw JSON. No markdown, no backticks.${dialectRule()}${preferredTermRule()}`
 
     console.log('[Anki] generating card with AI...')
     const text = await aiCall(apiKey, 'You generate Anki flashcard content. Always respond with valid JSON only.', prompt, resolveModel('deck'))
@@ -3064,15 +3087,66 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         }
       }).filter(Boolean)
 
-      setDeckAnalyzeRecs(recs)
+      // VERIFY-AND-IMPROVE second pass (same guardrail as verifyCards / memory hooks): a skeptical
+      // reviewer re-checks every suggestion BEFORE the user sees it and actively improves clarity;
+      // it can also DROP a suggestion that never should have been made. Fail-soft inside.
+      const verified = recs.length ? await verifyDeckRecs(recs, { kind, instruction }) : recs
+      setDeckAnalyzeRecs(verified)
       setDeckAnalyzeSkipped(mismatchDropped)
-      setDeckAnalyzeEmpty(recs.length === 0)
-      console.log('[Deck] analyzed,', recs.length, 'recommendations from', cards.length, 'cards', mismatchDropped ? `(${mismatchDropped} dropped for card-identity mismatch)` : '')
+      setDeckAnalyzeEmpty(verified.length === 0)
+      console.log('[Deck] analyzed,', verified.length, 'recommendations from', cards.length, 'cards', mismatchDropped ? `(${mismatchDropped} dropped for card-identity mismatch)` : '', recs.length !== verified.length ? `(${recs.length - verified.length} dropped by the verify pass)` : '')
     } catch (err) {
       console.error('[Deck] analyze failed:', err.message)
       setDeckAnalyzeError(err.message)
     } finally {
       setDeckAnalyzeLoading(false)
+    }
+  }
+
+  // VERIFY-AND-IMPROVE for deck-editor suggestions (analyze / dialect audit / bulk edit AND per-rec
+  // Refine) — the same second-pass guardrail as verifyCards and the memory hooks: these edits get
+  // WRITTEN onto the user's cards, so a skeptical reviewer re-checks every proposal before the user
+  // sees it. Checks truth (incl. regional/preferred-term honesty — never a "slang-only" framing for
+  // a word some region genuinely uses literally, the cotorro failure), scope (only what was asked),
+  // and tag completeness — then ACTIVELY IMPROVES clarity even when nothing failed. Results merge
+  // back strictly BY noteId onto the existing recs (never re-resolves cards, so the analyze
+  // integrity guard stays intact). Recs the reviewer marks "drop" — or that it reverts to the
+  // current card — are removed, unless allowDrop is false (the Refine path: the user explicitly
+  // asked for that change). Fail-soft: any error returns the first-pass recs unchanged.
+  const verifyDeckRecs = async (recs, { kind = 'custom', instruction = '', refineRequest = '', allowDrop = true } = {}) => {
+    if (!recs.length || !apiKey) return recs
+    try {
+      const isLangDeck = activeMode.type === 'language'
+      const studyLang = (activeMode.studyRules || defaultStudyRules).studyLanguage || 'English'
+      const payload = recs.map((r) => ({ noteId: r.noteId, currentFields: r.currentFields, currentTags: r.currentTags, proposedFields: r.recommendedFields, proposedTags: r.recommendedTags, reason: r.reason }))
+      const goal = refineRequest
+        ? `The deck owner just asked for this adjustment to the proposal: "${refineRequest}". The proposal must honor it — judge the content against that request.`
+        : kind === 'custom'
+          ? `The proposals were produced for this owner request: "${instruction}".`
+          : `The proposals fix ambiguous/underspecified cards.`
+      const prompt = `You are a skeptical senior reviewer double-checking ANOTHER model's proposed flashcard edits BEFORE the deck owner reviews them. These edits will be WRITTEN onto the owner's cards, so a wrong or sloppy proposal is harmful. ${isLangDeck ? `The deck teaches ${studyLang}.${dialectRule()}${preferredTermRule()}` : `The deck studies "${activeMode.name}"${activeMode.description ? ` (${activeMode.description})` : ''}.`}\n${goal}\n\nFor EACH proposal, check IN ORDER:\n1. TRUTH: every claim in proposedFields is factually correct${isLangDeck ? ` in ${studyLang} — including REGIONAL honesty: never say a word is "only slang/colloquial" or "only means X" when some region genuinely uses it for the literal sense too; state the per-region reality precisely` : ''}. Fix anything wrong.\n2. SCOPE: the change does what the goal asks and nothing more — restore any line it needlessly altered (compare against currentFields).\n3. TAGS: proposedTags is the COMPLETE replacement list; restore any existing tag that was dropped without reason (a missing tag silently deletes it).\n4. CLARITY (active improvement): even when nothing failed, make the proposed content clearer and easier to learn from — simpler wording, sharper examples, tighter phrasing — WITHOUT changing its meaning, scope, language, or line format. Keep text verbatim only when you genuinely cannot improve it.${allowDrop ? `\n\nIf a card never needed this change at all (the proposal is wrong or pointless), mark it with "drop": true instead of fixing it.` : ''}\n\nProposals (JSON):\n${JSON.stringify(payload)}\n\nReturn the SAME JSON array (same noteIds, same order) with "proposedFields"/"proposedTags"/"reason" corrected in place${allowDrop ? ' and "drop": true on proposals to discard' : ''}. NEVER change a noteId. Use plain text with newlines (no HTML). Output ONLY raw JSON.`
+      const text = await aiCall(apiKey, 'You review proposed flashcard edits. Always respond with valid JSON only.', prompt, resolveModel('deck'))
+      const parsed = parseAiJson(text)
+      if (!Array.isArray(parsed)) return recs
+      const byId = new Map(parsed.filter((p) => p && p.noteId != null).map((p) => [Number(p.noteId), p]))
+      const cleanTag = (tg) => String(tg).trim().replace(/\s+/g, '-')
+      return recs.map((r) => {
+        const v = byId.get(r.noteId)
+        if (!v) return r
+        if (allowDrop && v.drop === true) return null
+        const fields = { ...r.recommendedFields }
+        if (v.proposedFields && typeof v.proposedFields === 'object') Object.entries(v.proposedFields).forEach(([k, val]) => { if (k in fields) fields[k] = String(val ?? '') })
+        const tags = Array.isArray(v.proposedTags) ? [...new Set(v.proposedTags.map(cleanTag).filter(Boolean))] : r.recommendedTags
+        if (allowDrop) {
+          const tagsChanged = [...tags].sort().join(' ') !== [...(r.currentTags || [])].sort().join(' ')
+          const fieldsChanged = Object.keys(fields).some((k) => fields[k] !== r.currentFields[k])
+          if (!tagsChanged && !fieldsChanged) return null // reviewer reverted it to the current card = nothing to suggest
+        }
+        return { ...r, recommendedFields: fields, recommendedTags: tags, reason: (typeof v.reason === 'string' && v.reason.trim()) ? v.reason : r.reason }
+      }).filter(Boolean)
+    } catch (err) {
+      console.warn('[Deck] verify pass failed, keeping first-pass suggestions:', err.message)
+      return recs
     }
   }
 
@@ -3106,16 +3180,20 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       const prompt = `Here is a flashcard recommendation:\n\n${fieldsDesc}\n\nTags: ${parseRecTags(rec).join(' ') || '(none)'}\n\nThe user wants this change: "${rec.refineInput}"\n\nReturn a JSON object with the updated fields: { ${Object.keys(rec.recommendedFields).map((k) => `"${k}": "..."`).join(', ')}, "tags": ["the", "complete", "tag-list"] }\nKeep any fields/tags the user didn't ask to change ("tags" is the FULL replacement list, so carry unchanged tags over). Use plain text with newlines (no HTML). Output ONLY raw JSON, no markdown.`
       const text = await aiCall(apiKey, 'You edit Anki flashcard content. Always respond with valid JSON only.', prompt, resolveModel('deck'))
       const updated = parseAiJson(text)
-      setDeckAnalyzeRecs((prev) => prev.map((r, i) => {
-        if (i !== idx) return r
-        const newFields = { ...r.recommendedFields }
-        Object.entries(updated).forEach(([k, v]) => { if (k in newFields) newFields[k] = String(v) })
-        const newTags = Array.isArray(updated.tags)
-          ? [...new Set(updated.tags.map((tg) => String(tg).trim().replace(/\s+/g, '-')).filter(Boolean))]
-          : null
-        // recommendedTagsText cleared so the refreshed tag list (not stale text) drives the input/commit
-        return { ...r, recommendedFields: newFields, ...(newTags ? { recommendedTags: newTags, recommendedTagsText: undefined } : {}), refineInput: '', refining: false }
-      }))
+      const newFields = { ...rec.recommendedFields }
+      Object.entries(updated).forEach(([k, v]) => { if (k in newFields) newFields[k] = String(v) })
+      const newTags = Array.isArray(updated.tags)
+        ? [...new Set(updated.tags.map((tg) => String(tg).trim().replace(/\s+/g, '-')).filter(Boolean))]
+        : null
+      // VERIFY-AND-IMPROVE the refined result too (same reviewer as the analyze pass); the user's
+      // request rides along, and the reviewer may not drop the rec — the user explicitly asked for it.
+      let candidate = { ...rec, recommendedFields: newFields, recommendedTags: newTags || rec.recommendedTags }
+      candidate = (await verifyDeckRecs([candidate], { refineRequest: rec.refineInput.trim(), allowDrop: false }))[0] || candidate
+      const tagsUpdated = !!newTags || [...candidate.recommendedTags].sort().join(' ') !== [...rec.recommendedTags].sort().join(' ')
+      // recommendedTagsText cleared so the refreshed tag list (not stale text) drives the input/commit
+      setDeckAnalyzeRecs((prev) => prev.map((r, i) => i === idx
+        ? { ...r, recommendedFields: candidate.recommendedFields, ...(tagsUpdated ? { recommendedTags: candidate.recommendedTags, recommendedTagsText: undefined } : {}), refineInput: '', refining: false }
+        : r))
     } catch (err) {
       console.error('[Deck] rec refine failed:', err.message)
       setDeckAnalyzeRecs((prev) => prev.map((r, i) => i === idx ? { ...r, refining: false } : r))
@@ -4433,7 +4511,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
           {studyWordLookup.pron && !studyWordLookup.loading && (
             <span style={{ color: 'var(--c-ink-dim)', fontStyle: 'italic', fontWeight: 600 }}>/{studyWordLookup.pron}/</span>
           )}
-          <span style={{ color: 'var(--c-ink-dim)' }}>—</span>
+          <span style={{ color: 'var(--c-ink-dim)' }}>·</span>
           {studyWordLookup.loading ? (
             <span style={{ flex: 1, color: 'var(--c-ink-dim)' }}>Looking up…</span>
           ) : (
@@ -4444,7 +4522,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
               )}
               {/* Commonness/region/register caveat — only present when the word is NOT plain-vanilla */}
               {studyWordLookup.usage && (
-                <span className="tip" data-tip="Usage: how common this word is, where it's used, and its register" style={{ color: 'var(--c-warning)', fontStyle: 'italic' }}> · 🌐 {studyWordLookup.usage}</span>
+                <span className="tip" data-tip="Usage: how common this word is, where it's used, its register, and whether another word is more common for this meaning" style={{ color: 'var(--c-warning)', fontStyle: 'italic' }}> · 🌐 {studyWordLookup.usage}</span>
               )}
             </span>
           )}
@@ -4461,7 +4539,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
                  offering a duplicate. No "add anyway": duplicates from this popup are never wanted. */
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
                 <div style={{ fontSize: 11, color: 'var(--c-success)', fontWeight: 700 }}>
-                  ✓ Already in {studyWordLookup.existing.deck} — <span style={{ color: 'var(--c-ink)' }}>{studyWordLookup.existing.front}</span>
+                  ✓ Already in {studyWordLookup.existing.deck}: <span style={{ color: 'var(--c-ink)' }}>{studyWordLookup.existing.front}</span>
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--c-ink)', background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 5, padding: '6px 9px', lineHeight: 1.55, maxHeight: 150, overflowY: 'auto' }}
                   dangerouslySetInnerHTML={{ __html: studyWordLookup.existing.backHtml }} />
@@ -4476,7 +4554,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
             ) : studyWordLookup.card ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
                 <div style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>
-                  New card — <span style={{ color: 'var(--c-ink)', fontWeight: 700 }}>{studyWordLookup.card.front}</span>
+                  New card: <span style={{ color: 'var(--c-ink)', fontWeight: 700 }}>{studyWordLookup.card.front}</span>
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--c-ink)', background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 5, padding: '6px 9px', lineHeight: 1.55, maxHeight: 150, overflowY: 'auto' }}
                   dangerouslySetInnerHTML={{ __html: cardBackToHtml(studyWordLookup.card.back) }} />
@@ -4872,7 +4950,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const choicesBlock = !wantChoices ? '' : `\nMULTIPLE-CHOICE SESSION — REQUIRED:\n- Every question will be answered by picking ONE option from a list, never by typing. Do NOT generate open "explain in your own words" questions: where a depth/usage question is called for, ask it as something with ONE selectable answer (e.g. "Which sentence uses the word correctly?", "Which statement about X is true?", "Which option means ...?"). Use type "recall" or "fill_blank" for every question.\n- For EACH question ALSO return:\n  "choices": exactly 4 options — 1 correct + 3 plausible but clearly WRONG distractors. Distractors must be the same kind of thing as the answer (same part of speech / same category / same level of detail), must fit the question grammatically, and must be tempting to someone who half-knows the material — but NEVER defensible as correct. NEVER include two options that could both be argued correct (no synonyms of the answer, no alternate spellings of it).\n  "answerIdx": the 0-based index of the correct option within "choices".\n- The correct option must be EXACTLY one of the acceptedAnswers (same casing rules aside).\n- Write the options in the same language as the expected answer${isLanguage ? ` (${learnLang})` : ''}; keep each option SHORT (a word, phrase, or one short sentence).\n- With options visible, first-letter cues would give the answer away — do NOT add "empieza con"-style letter cues to the question text; a sense/nuance cue is still fine.\n`
 
     const generalBlock = isLanguage ? '' : `\nGENERAL STUDY MODE — REQUIRED:\n- This is a general study mode for the subject "${activeMode.name}"${activeMode.description ? ` (${activeMode.description})` : ''}. It is NOT a language course.\n- Match the question style to what the subject actually IS: exam-style for certifications, applied "what would you do/use" for practical skills and procedures, notation/theory for music or math, cause/effect for science or history. The card and the subject decide — never force one template onto every subject.\n- Write EVERY question, instruction, and all framing in ${quizLang} (that is the language Ebi speaks to this student).\n- Do NOT generate language-learning questions: never ask the student to translate, never ask "how do you say X in <language>", never ask "in <language>, what word/noun/verb…", and never quiz a word's gender, article, or conjugation. Speaking ${quizLang} does not make this a ${quizLang} course — it is still purely about "${activeMode.name}".\n- Even if a card's term is written in another language, test the underlying CONCEPT, fact, or meaning — not vocabulary translation. The expected answer is the term/concept exactly as it appears on the card (subject terms/proper names stay as-is on the card, untranslated).\n`
-    const languageBlock = isLanguage ? `\nLANGUAGE MODE — REQUIRED:\n- The student is LEARNING ${learnLang}. The EXPECTED ANSWER is ALWAYS the ${learnLang} word/phrase on the card, regardless of which side it's on.\n- Identify the ${learnLang} word on the card (the one NOT written in ${userLang}) — that is the answer. The ${userLang} side is just the meaning/hint.\n- "acceptedAnswers" MUST contain the ${learnLang} word (lowercase, plus close variants with/without accents). NEVER put the ${userLang} meaning in acceptedAnswers.\n- EBI SPEAKS ${quizLang}: write all instructions, question framing, and feedback in ${quizLang}.${sameLang ? '' : ` EXCEPTION: a fill-in-the-blank/example SENTENCE that must contain the ${learnLang} answer stays in ${learnLang} (you cannot blank a ${learnLang} word out of a ${quizLang} sentence) — only the wrapper instruction around it is in ${quizLang}.`}\n- LANGUAGE NAMES = ENDONYMS: whenever a question written in ${quizLang} names a language, use that language's OWN name (its endonym), NEVER the English name. So a Spanish question says "en español" (never "en Spanish"), a French one "en français", Japanese "日本語で", German "auf Deutsch". Do NOT drop English language names into non-English text.\n- Treat the word in its BROADEST everyday meaning. If the card text doesn't pin down a specific domain, do NOT restrict questions to specialized contexts (programming, medicine, law, military, etc.). Example: "puntero" alone could be a clock hand, laser pointer, finger, or mouse cursor — don't assume programming.\n- BUT if the card text explicitly indicates a domain (e.g. back says "Pointer (C/C++)", tag mentions a field), quiz within that domain.${dialectRule()}${wantHints ? `\n- WORD HINTS: for EACH question, also return a "glosses" object giving a SHORT translation (1-3 words) for EVERY word shown in the question text — INCLUDING short function words (articles, pronouns, prepositions, conjunctions: "se", "el", "que", "y", "no", …) and the words inside any parenthetical (…) cue — EXCEPT ONLY the answer word, the blank, quoted single letters, and any word whose translation would reveal the answer: a ${learnLang} word gets a short ${userLang} meaning, a ${userLang} word gets its ${learnLang} equivalent. Every key must be ONE single word, spelled EXACTLY as it appears in the question (keep accents). Skip bare punctuation and numbers. Missing words leave the learner unable to read that part of the question — cover them ALL.` : ''}\n` : ''
+    const languageBlock = isLanguage ? `\nLANGUAGE MODE — REQUIRED:\n- The student is LEARNING ${learnLang}. The EXPECTED ANSWER is ALWAYS the ${learnLang} word/phrase on the card, regardless of which side it's on.\n- Identify the ${learnLang} word on the card (the one NOT written in ${userLang}) — that is the answer. The ${userLang} side is just the meaning/hint.\n- "acceptedAnswers" MUST contain the ${learnLang} word (lowercase, plus close variants with/without accents). NEVER put the ${userLang} meaning in acceptedAnswers.\n- EBI SPEAKS ${quizLang}: write all instructions, question framing, and feedback in ${quizLang}.${sameLang ? '' : ` EXCEPTION: a fill-in-the-blank/example SENTENCE that must contain the ${learnLang} answer stays in ${learnLang} (you cannot blank a ${learnLang} word out of a ${quizLang} sentence) — only the wrapper instruction around it is in ${quizLang}.`}\n- LANGUAGE NAMES = ENDONYMS: whenever a question written in ${quizLang} names a language, use that language's OWN name (its endonym), NEVER the English name. So a Spanish question says "en español" (never "en Spanish"), a French one "en français", Japanese "日本語で", German "auf Deutsch". Do NOT drop English language names into non-English text.\n- Treat the word in its BROADEST everyday meaning. If the card text doesn't pin down a specific domain, do NOT restrict questions to specialized contexts (programming, medicine, law, military, etc.). Example: "puntero" alone could be a clock hand, laser pointer, finger, or mouse cursor — don't assume programming.\n- BUT if the card text explicitly indicates a domain (e.g. back says "Pointer (C/C++)", tag mentions a field), quiz within that domain.\n- PREFERRED-TERM AWARENESS: if the card's back notes that a DIFFERENT ${learnLang} word is more common for one of its meanings (a "Uso:"-style line naming a preferred synonym, e.g. barro's card noting that everyday speech prefers "lodo" for mud), do NOT build questions that present the headword as the default word for THAT meaning — quiz the meanings the headword IS the default term for instead, and let the cue's sense note reflect the word's own core sense.${dialectRule()}${wantHints ? `\n- WORD HINTS: for EACH question, also return a "glosses" object giving a SHORT translation (1-3 words) for EVERY word shown in the question text — INCLUDING short function words (articles, pronouns, prepositions, conjunctions: "se", "el", "que", "y", "no", …) and the words inside any parenthetical (…) cue — EXCEPT ONLY the answer word, the blank, quoted single letters, and any word whose translation would reveal the answer: a ${learnLang} word gets a short ${userLang} meaning, a ${userLang} word gets its ${learnLang} equivalent. Every key must be ONE single word, spelled EXACTLY as it appears in the question (keep accents). Skip bare punctuation and numbers. Missing words leave the learner unable to read that part of the question — cover them ALL.` : ''}\n` : ''
 
     const prompt = `Card front: "${front}"\nCard back: "${back}"\n${languageBlock}${generalBlock}${choicesBlock}\n${orderRules}\n\nCRITICAL RULES:\n- Questions must require the SPECIFIC answer on this card — synonyms are NOT acceptable for recall/fill_blank questions\n- NEVER construct a question whose only purpose is to directly name the answer (e.g. "what noun corresponds to adjective X?" when that noun IS the answer)\n- THE ANSWER MUST NEVER APPEAR IN THE QUESTION TEXT — not the target word, not ANY acceptedAnswers entry, not inside the parenthetical sense cue. Writing "(rollo antiguo de papel o pergamino…)" when the answer IS "pergamino" destroys the question. Describe the sense WITHOUT the word or its inflected forms; if you can't, take a different angle instead.\n- Each question must test a DIFFERENT angle\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question before finalizing): mentally substitute 2–3 plausible alternative ${learnLang} words — ESPECIALLY synonyms — into the question. If ANY of them still fit after reading the WHOLE question, it is INVALID and you MUST fix it. THE REQUIRED FIX: embed a compact parenthetical cue in ${quizLang} right at the blank that names the target word's precise meaning/nuance, and ALWAYS ADD its first letter in quotes (phrased in ${quizLang}: 'empieza con "h"' / 'starts with "h"' / etc., using the answer's real first character). This inline cue is PART OF the question text and is mandatory for EVERY recall/fill_blank question — a bare sentence is never enough. (The separate hint1/hint2 fields are revealed only on demand and do NOT count as disambiguation.) A blank surrounded only by a GENERIC predicate that many words satisfy is INVALID until you add the cue. Prefer a slightly over-specified question with a clear cue over an elegant but ambiguous one.\n  - BAD: "Al ver al depredador, la gacela ___ a toda velocidad para salvar su vida." Target "huye" — but "corre", "escapa", "salta" all fit. INVALID.\n  - GOOD: "Al ver al depredador, la gacela ___ (escapar de un peligro; empieza con "h") a toda velocidad para salvar su vida." — the cue pins "huye".\n  - BAD: "Sienten una atracción ___: él la quiere a ella y ella lo quiere a él por igual." Target "recíproca" — but "mutua" fits equally. INVALID.\n  - GOOD: "Sienten una atracción ___ (correspondida por ambos; empieza con "r"): él la quiere a ella y ella lo quiere a él por igual." — the cue pins "recíproca".\n- For language cards: test usage in sentences, grammatical properties, contextual usage\n- For conceptual cards: test application, process, comparison\n\n${questionPrompt}${qPrefsBlock}\n\n${isLanguage ? `Phrase every question and its framing in ${quizLang} (target-language sentences that hold the ${learnLang} answer stay in ${learnLang}).` : `Write all questions in ${quizLang}.`}${knowledgeContext}\n\nReturn a JSON array of exactly ${n} objects:\n[\n  {\n    "question": "the question text",\n    "type": "recall" | "fill_blank" | "explanation",\n    "hint1": "N letters" (letter count of primary answer, null for explanation),\n    "hint2": "starts with 'X'" (first letter of primary answer, null for explanation),\n    "acceptedAnswers": ["answer1", "answer2"] (lowercase; exact words that are correct; empty for explanation),${wantChoices ? `\n    "choices": ["option1", "option2", "option3", "option4"] (exactly 4; one correct + 3 plausible-but-wrong distractors),\n    "answerIdx": 0 (index of the correct option in "choices"),` : ''}${wantHints ? `\n    "glosses": { "<non-answer word from the question>": "<short translation>" } (single-word keys exactly as written in the question, covering EVERY word incl. function words and cue words, excluding only the answer/blank; {} if none),` : ''}\n    "pose": one mascot pose name that best fits this question's topic, chosen ONLY from: ${POSE_NAMES.join(', ')} (use "default" if none fit)\n  }\n]\nOutput ONLY raw JSON array. No markdown, no backticks.`
 
@@ -6128,8 +6206,8 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
   "primary": "the meaning/translation of \\"${word}\\" AS USED in THIS question — the single best fit, a few words only",
   "alternatives": ["up to 3 other common meanings the word can have in OTHER contexts, a few words each; use [] if it really only has one meaning"],
   "pron": "simplified phonetics of \\"${word}\\" for a ${explainLang} speaker, stressed syllable in CAPS (e.g. PREH-syoh) — same style as flashcard pronunciation lines; "" if it reads exactly as spelled",
-  "usage": "ONLY if noteworthy: a few ${explainLang} words on how common/where/what register (e.g. 'rare, literary', 'mainly Argentina — elsewhere: X', 'informal slang'); "" for common neutral universal words"
-}`
+  "usage": "REQUIRED whenever a DIFFERENT ${studyLang} word is what speakers more commonly say for THIS in-context meaning: name it and say what this word leans toward instead (e.g. for barro meaning mud: 'everyday Latin American speech prefers lodo; barro leans clay/pottery'). Otherwise only if noteworthy: a few ${explainLang} words on how common/where/what register (e.g. 'rare, literary', 'mainly Argentina — elsewhere: X', 'informal slang'); "" for words that ARE the natural default term and are otherwise unremarkable"
+}${preferredTermRule()}`
       const text = await aiCall(apiKey, `You are a concise bilingual dictionary that disambiguates words by context. Output JSON only, written in ${explainLang}.`, prompt, resolveModel('study'))
       const parsed = parseAiJson(text)
       // Functional + spread: the async note resolution above may already have attached
@@ -7502,7 +7580,7 @@ IMPORTANT BEHAVIOR RULES:
 ${activeMode.type === 'language' ? `   - LANGUAGE MODE (learning ${learnLangName()}, user speaks ${userLangName()}) — use this back format, each label on its own line, with the LABELS WRITTEN IN ${learnLangName()}:
      front: "<word> (<part of speech written in ${learnLangName()}>)"
      back lines: pronunciation (phonetics for a ${userLangName()} speaker, stress in CAPS), translation (to ${userLangName()}), direct/literal translation (omit the line if none), synonyms (in ${userLangName()}), definition (written IN ${learnLangName()}), example (a natural ${learnLangName()} sentence with its ${userLangName()} translation in parentheses).
-     tags: include part of speech, level, topic, and "ebiki".${usageScopeTagRule()} Only use REAL, correctly-spelled ${learnLangName()} words.${dialectRule()}` : `   - Design a back that best teaches this subject (definition, key points, formula, example as fits). Always include an "ebiki" tag.`}
+     tags: include part of speech, level, topic, and "ebiki".${usageScopeTagRule()} Only use REAL, correctly-spelled ${learnLangName()} words.${dialectRule()}${preferredTermRule()}` : `   - Design a back that best teaches this subject (definition, key points, formula, example as fits). Always include an "ebiki" tag.`}
 
 3. For general questions: be concise and helpful. Explain concepts clearly.
 
@@ -8486,6 +8564,16 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   >
                     {deckDupLoading ? 'Scanning...' : 'Scan for duplicates'}
                   </button>
+                  {activeMode.type === 'language' && (
+                    <button
+                      onClick={() => analyzeDeck('custom', dialectAuditInstruction())}
+                      disabled={deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0}
+                      className="tip tip-r" data-tip={`Checks every card's translations against ${dialectName() || learnLangName()}: when a different word is more common for one of a card's meanings (like lodo vs barro for "mud"), Ebi proposes a usage note and reordering. You review every change before anything is saved`}
+                      style={{ background: 'rgba(17,168,160,0.12)', color: 'var(--c-teal)', border: '1px solid rgba(17,168,160,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: (deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0) ? 0.5 : 1 }}
+                    >
+                      {deckAnalyzeLoading && deckAnalyzeKind === 'custom' && deckAnalyzeInstruction === dialectAuditInstruction() ? 'Auditing…' : '🌎 Dialect audit'}
+                    </button>
+                  )}
                   <button
                     onClick={() => setDeckCustomEditOpen((v) => !v)}
                     disabled={!apiKey}
