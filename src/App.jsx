@@ -7216,7 +7216,18 @@ Your output keeps: the same method, the same language (${explainLang}), the same
     try {
       const r = await syncRatingsToAnki()
       if (r.synced > 0) { setStudySyncNotification(true); setTimeout(() => setStudySyncNotification(false), 4000) }
-      if (r.failed > 0) setStudySyncError(`Could not sync ${r.failed} card${r.failed === 1 ? '' : 's'} to Anki${r.error ? ` (${r.error})` : ''}.`)
+      if (r.failed > 0) {
+        // Distinguish "sync genuinely failed" from "Anki simply isn't open": ping AnkiConnect.
+        // Unreachable → flip ankiConnected so the reconnect watcher takes over (it re-pings and
+        // auto-flushes when Anki is back) and show a calm note instead of a scary failure.
+        const up = await ankiPing().catch(() => false)
+        if (!up) {
+          setAnkiConnected(false)
+          setStudySyncError(`Anki isn't open. ${r.failed} rating${r.failed === 1 ? '' : 's'} will sync automatically when Anki reconnects.`)
+        } else {
+          setStudySyncError(`Could not sync ${r.failed} card${r.failed === 1 ? '' : 's'} to Anki${r.error ? ` (${r.error})` : ''}.`)
+        }
+      }
       return r
     } finally {
       setStudySyncing(false)
@@ -7228,13 +7239,32 @@ Your output keeps: the same method, the same language (${explainLang}), the same
   // queue order); cards graded in the final moments may commit slightly early, but none waits past 5 min.
   useEffect(() => {
     if (!studyAutoSync || !studyActive || studyPhase === 'summary') return
+    // Anki is known to be down — attempting would just fail and re-show the error. The reconnect
+    // watcher below flips ankiConnected when Anki is back, which re-runs this effect (dep) and
+    // flushes the overdue cards immediately (their grace window has long passed).
+    if (ankiConnected === false) return
     const pending = studyCardState.filter(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation && !cs.noSync && cs.gradedAt)
     if (pending.length === 0) return
     const oldest = Math.min(...pending.map(cs => cs.gradedAt))
     const fireIn = Math.max(0, oldest + STUDY_SYNC_GRACE_MS - Date.now())
     const timer = setTimeout(() => { syncGradedNow() }, fireIn)
     return () => clearTimeout(timer)
-  }, [studyCardState, studyActive, studyPhase, studyAutoSync])
+  }, [studyCardState, studyActive, studyPhase, studyAutoSync, ankiConnected])
+
+  // Anki reconnect watcher — a study session has unsynced ratings but Anki is unreachable (the
+  // sync-failure ping above set ankiConnected=false). Ping AnkiConnect every 10s; when Anki is
+  // back, clear the note and refresh the connection (decks + ankiConnected=true), which re-arms
+  // the auto-sync effect above so the pending ratings flush without the user doing anything.
+  useEffect(() => {
+    if (!studyActive || ankiConnected !== false) return
+    const hasPending = studyCardState.some(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation && !cs.noSync)
+    if (!hasPending) return
+    const id = setInterval(async () => {
+      const up = await ankiPing().catch(() => false)
+      if (up) { setStudySyncError(null); refreshAnkiConnection() }
+    }, 10000)
+    return () => clearInterval(id)
+  }, [studyActive, ankiConnected, studyCardState])
 
   // 1s ticker so the "locks in M:SS" countdown updates while something is pending during study.
   useEffect(() => {
@@ -10463,7 +10493,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         </div>
                         {pending.length > 0 && (
                           <div style={{ textAlign: 'center', fontSize: 10, color: 'var(--c-ink-faint)', marginTop: 5 }}>
-                            {studyAutoSync ? (() => {
+                            {ankiConnected === false ? 'Anki isn\'t open. Ratings sync automatically when it reconnects.'
+                              : studyAutoSync ? (() => {
                               const oldest = Math.min(...pending.map(c => c.gradedAt || studyNow))
                               const left = Math.max(0, oldest + STUDY_SYNC_GRACE_MS - studyNow)
                               const mm = Math.floor(left / 60000), ssn = Math.floor((left % 60000) / 1000)
