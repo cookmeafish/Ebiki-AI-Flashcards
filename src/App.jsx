@@ -5377,15 +5377,42 @@ Output ONLY raw JSON. No markdown, no backticks.`
 
   // ── Study session persistence — resume an in-progress session after a refresh ──────
   const [studyHydrated, setStudyHydrated] = useState(false)
+  const resumeReEvalRef = useRef(null) // cards whose AI grading was in flight at snapshot time
+  // A saved session is only worth resuming for a short gap (a refresh, a dev-server restart).
+  // After hours away it resumes DESYNCED: the async work it references is gone, grace timers are
+  // long expired, and the Anki collection has moved on — expire it instead.
+  const STUDY_SESSION_MAX_AGE_MS = 8 * 60 * 60 * 1000
   // Restore once after config loads (before the user can interact).
   useEffect(() => {
     if (!configLoaded || studyHydrated) return
     try {
       const raw = localStorage.getItem('ebiki-study-session')
       const s = raw ? JSON.parse(raw) : null
-      if (s && s.studyActive) {
+      // Snapshots from before savedAt existed count as stale (they may already be dead-ended).
+      if (s && s.studyActive && (!s.savedAt || Date.now() - s.savedAt > STUDY_SESSION_MAX_AGE_MS)) {
+        localStorage.removeItem('ebiki-study-session')
+        console.log('[Study] saved session expired — starting fresh')
+      } else if (s && s.studyActive) {
+        // SANITIZE — the page that took this snapshot had AI calls in flight (grading, card
+        // pulls) that died with it. Restore into a state that cannot dead-end:
+        const now = Date.now()
+        // Fresh grace window: a pre-reload gradedAt would auto-sync + lock ratings the instant
+        // the session resumes, before the user can review them.
+        const cards = (s.studyCardState || []).map(cs =>
+          (cs.done && cs.ease && !cs.synced && !cs.noSync && cs.gradedAt) ? { ...cs, gradedAt: now } : cs
+        )
+        // Cards stuck "evaluating" (their grading call is gone) get re-graded once state commits
+        // (effect next to evaluateCard) — without this the session can never finish.
+        const reEval = cards.map((cs, i) => (cs.evaluating ? i : -1)).filter(i => i >= 0)
+        resumeReEvalRef.current = reEval.length > 0 ? { indices: reEval, cards } : null
+        // currentQuestion must point at a live question on a live card, else let the picker choose.
+        let cq = s.currentQuestion || null
+        if (cq) {
+          const cs = cards[cq.cardIdx]
+          if (!cs || cs.done || !Array.isArray(cs.questions) || cq.questionIdx >= cs.questions.length) cq = null
+        }
         setStudyAllCards(s.studyAllCards || [])
-        setStudyCardState(s.studyCardState || [])
+        setStudyCardState(cards)
         setStudyBatchIdx(s.studyBatchIdx || 0)
         pbqPullRef.current = s.studyBatchIdx || 0
         setStudyQueue(s.studyQueue || [])
@@ -5398,7 +5425,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
         setStudyConjugationWords(s.studyConjugationWords || [])
         setStudyConjugationLanguage(s.studyConjugationLanguage || 'English')
         setStudyAnswerHistory(s.studyAnswerHistory || [])
-        setCurrentQuestion(s.currentQuestion || null)
+        setCurrentQuestion(cq)
         setStudyPhase(s.studyPhase || 'question')
         setStudyActive(true)
       }
@@ -5416,6 +5443,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
           studyBatchIdx, studyQueue, studyQueueIdx, studyStats, studyDeck,
           currentQuestion, studyConjugationWords, studyConjugationLanguage, studyAnswerHistory,
           studyAnswerStyle, studyPracticeSync,
+          savedAt: Date.now(), // restore expires after STUDY_SESSION_MAX_AGE_MS
         }))
       } else {
         localStorage.removeItem('ebiki-study-session')
@@ -6709,10 +6737,27 @@ Your output keeps: the same method, the same language (${explainLang}), the same
     }
   }
 
+  // Resume repair — re-run the AI grading that was in flight when the saved session snapshot
+  // was taken (that page is gone; without this the card would say "Evaluating..." forever and
+  // the session could never reach Batch Results).
+  useEffect(() => {
+    if (!studyHydrated) return
+    const r = resumeReEvalRef.current
+    if (!r) return
+    resumeReEvalRef.current = null
+    r.indices.forEach((i) => evaluateCard(i, r.cards[i]))
+  }, [studyHydrated])
+
   // Pull a new card/word from the pool to replace a completed one
+  const pullsInFlightRef = useRef(0)
   const pullNewCard = async () => {
     if (studyWrappingUpRef.current) return
-
+    // Counted so the stall-rescue effect below can tell "a replacement card is on its way"
+    // from "nothing is coming" (the case a resume or a failed generation lands in).
+    pullsInFlightRef.current++
+    try { await pullNewCardInner() } finally { pullsInFlightRef.current-- }
+  }
+  const pullNewCardInner = async () => {
     const rules = activeMode.studyRules || defaultStudyRules
     const studyLang = rules.studyLanguage || learnLangName()  // answer language (language modes only)
     const qpc = rules.questionsPerCard || 3
@@ -6776,6 +6821,24 @@ Your output keeps: the same method, the same language (${explainLang}), the same
 
   // startBatch is no longer used in the new system but keep for compatibility
   const startBatch = async () => {}
+
+  // Stall rescue — the question phase has NOTHING to show (no live question, nothing evaluating,
+  // no pull in flight) but the pool still has cards. Normally the answer flow pulls replacements;
+  // after a resumed session (or a generation that died) that in-flight pull no longer exists and
+  // the session would sit on "All cards completed!" with cards left in the pool. Pull one.
+  useEffect(() => {
+    if (!studyHydrated || !studyActive || studyPhase !== 'question') return
+    if (studyWrappingUpRef.current || pullsInFlightRef.current > 0) return
+    if (studyChoiceFlash || studyPbqReview || studyTypedFlash || studyLearnMoment) return
+    if (studyCardState.length === 0) return // session start — beginStudy seeds the first cards itself
+    if (studyCardState.some(cs => cs.evaluating)) return
+    if (studyCardState.some(cs => !cs.done && cs.questionIdx < cs.questions.length)) return
+    const poolExhausted = studyMode === 'conjugations'
+      ? studyBatchIdx >= studyConjugationWords.length
+      : studyBatchIdx >= studyAllCards.length
+    if (poolExhausted) return // the completion layout-effect takes it to batchFeedback
+    pullNewCard()
+  }, [studyHydrated, studyActive, studyPhase, studyCardState, studyBatchIdx, studyMode, studyAllCards.length, studyConjugationWords.length, studyChoiceFlash, studyPbqReview, studyTypedFlash, studyLearnMoment])
 
   // Sync all completed card ratings to Anki. Returns { synced, failed, error? }.
   // Safe to call repeatedly — only unsynced cards are submitted, and only the
