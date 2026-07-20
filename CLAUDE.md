@@ -290,6 +290,17 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
 - **Study resume:** a snapshot of the core study state (cards, queue, phase, stats, currentQuestion, …)
   is written whenever it changes, gated behind `studyHydrated` so the write effect never clobbers the
   saved session before the one-shot restore effect reads it. Cleared automatically when `studyActive` ends.
+  **Resume is EXPIRING and SELF-REPAIRING** (a stale restore used to dead-end — "still on the study
+  screen, nothing registers"): the snapshot carries `savedAt` and expires after `STUDY_SESSION_MAX_AGE_MS`
+  (8h — resuming is for refreshes/dev restarts, not overnight gaps; missing `savedAt` counts as stale).
+  A non-expired restore SANITIZES: (1) unsynced `gradedAt` re-stamped to now so ratings get a fresh
+  grace window instead of insta-locking; (2) cards stuck `evaluating: true` (their AI grading died with
+  the page) are re-graded via `resumeReEvalRef` → `evaluateCard` once state commits; (3) `currentQuestion`
+  is validated (live card, in-range question) else nulled for the picker. A **stall-rescue effect**
+  (next to `startBatch`, guarded by `pullsInFlightRef` — a counter `pullNewCard` wraps around
+  `pullNewCardInner`) pulls a new card whenever the question phase has nothing to show, nothing
+  evaluating, no pull in flight, and the pool still has cards — the in-flight pull a snapshot references
+  no longer exists after a reload.
 - The overlay launch preference persists too (`overlayEnabled` in `config.json`, default ON, auto-launches once).
 
 ## Card generator (shared engine) + Quick-Add — LANGUAGE-AGNOSTIC
