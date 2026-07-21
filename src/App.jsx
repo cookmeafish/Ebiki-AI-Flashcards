@@ -5382,12 +5382,16 @@ Output ONLY raw JSON. No markdown, no backticks.`
   const lastAskedCardRef = useRef(null)
   const studyWrappingUpRef = useRef(false)
 
-  // Pick a random active (not done) card — avoid same card twice in a row
-  const getNextStudyQuestion = () => {
-    const activeCards = studyCardState.map((cs, i) => ({ cs, i })).filter(({ cs }) => !cs.done && cs.questionIdx < cs.questions.length)
+  // Pick a random active (not done) card — NEVER the same card twice in a row unless it's the
+  // only one left. EVERY advance path must route through this (passing its freshly-built states
+  // array + the just-answered card index): the old inline `remaining[Math.random()]` pickers
+  // didn't exclude the current card, so with 2 active cards the same flashcard could come up
+  // 3+ times in a row.
+  const getNextStudyQuestion = (states = studyCardState, excludeIdx = lastAskedCardRef.current) => {
+    const activeCards = states.map((cs, i) => ({ cs, i })).filter(({ cs }) => !cs.done && cs.questionIdx < cs.questions.length)
     if (activeCards.length === 0) return null
-    // Exclude last asked card unless it's the only one
-    let candidates = activeCards.filter(({ i }) => i !== lastAskedCardRef.current)
+    // Exclude the just-asked card unless it's the only one (no dead end at the session tail)
+    let candidates = activeCards.filter(({ i }) => i !== excludeIdx)
     if (candidates.length === 0) candidates = activeCards
     const pick = candidates[Math.floor(Math.random() * candidates.length)]
     lastAskedCardRef.current = pick.i
@@ -5690,25 +5694,13 @@ Output ONLY raw JSON. No markdown, no backticks.`
       setStudyCardState(newStates)
       setStudyInput('')
 
-      const remaining = newStates.filter(cs => !cs.done && cs.questionIdx < cs.questions.length)
-      if (remaining.length > 0) {
-        const nextActive = remaining[Math.floor(Math.random() * remaining.length)]
-        setCurrentQuestion({ cardIdx: newStates.indexOf(nextActive), questionIdx: nextActive.questionIdx })
-      } else {
-        setCurrentQuestion(null)
-      }
+      setCurrentQuestion(getNextStudyQuestion(newStates, cardIdx))
       evaluateCard(cardIdx, newStates[cardIdx])
       pullNewCard()
     } else {
       setStudyCardState(newStates)
       setStudyInput('')
-      const nextQ = (() => {
-        const active = newStates.filter(cs => !cs.done && cs.questionIdx < cs.questions.length)
-        if (active.length === 0) return null
-        const pick = active[Math.floor(Math.random() * active.length)]
-        return { cardIdx: newStates.indexOf(pick), questionIdx: pick.questionIdx }
-      })()
-      setCurrentQuestion(nextQ)
+      setCurrentQuestion(getNextStudyQuestion(newStates, cardIdx))
     }
   }
 
@@ -5751,24 +5743,12 @@ Output ONLY raw JSON. No markdown, no backticks.`
       newStates[cardIdx].done = true
       newStates[cardIdx].evaluating = true
       setStudyCardState(newStates)
-      const remaining = newStates.filter(c => !c.done && c.questionIdx < c.questions.length)
-      if (remaining.length > 0) {
-        const nextActive = remaining[Math.floor(Math.random() * remaining.length)]
-        setCurrentQuestion({ cardIdx: newStates.indexOf(nextActive), questionIdx: nextActive.questionIdx })
-      } else {
-        setCurrentQuestion(null)
-      }
+      setCurrentQuestion(getNextStudyQuestion(newStates, cardIdx))
       evaluateCard(cardIdx, newStates[cardIdx])
       pullNewCard()
     } else {
       setStudyCardState(newStates)
-      const active = newStates.filter(c => !c.done && c.questionIdx < c.questions.length)
-      if (active.length > 0) {
-        const pick = active[Math.floor(Math.random() * active.length)]
-        setCurrentQuestion({ cardIdx: newStates.indexOf(pick), questionIdx: pick.questionIdx })
-      } else {
-        setCurrentQuestion(null)
-      }
+      setCurrentQuestion(getNextStudyQuestion(newStates, cardIdx))
     }
   }
 
@@ -5821,13 +5801,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     setStudyStats(prev => ({ ...prev, [label]: prev[label] + 1 }))
     setStudyPbqReview({ pbq, assign, perItem: g.perItem, correct: g.correct, total: g.total, rating: label })
 
-    const remaining = newStates.filter(c => !c.done && c.questionIdx < c.questions.length)
-    if (remaining.length > 0) {
-      const nextActive = remaining[Math.floor(Math.random() * remaining.length)]
-      setCurrentQuestion({ cardIdx: newStates.indexOf(nextActive), questionIdx: nextActive.questionIdx })
-    } else {
-      setCurrentQuestion(null)
-    }
+    setCurrentQuestion(getNextStudyQuestion(newStates, cardIdx))
     pullNewCard()
   }
 
@@ -6003,20 +5977,12 @@ Output ONLY raw JSON. No markdown, no backticks.`
         newStates[cardIdx].done = true
         newStates[cardIdx].evaluating = true
         setStudyCardState(newStates)
-        const remaining = newStates.filter((c) => !c.done && c.questionIdx < c.questions.length)
-        if (remaining.length > 0) {
-          const nextActive = remaining[Math.floor(Math.random() * remaining.length)]
-          setCurrentQuestion({ cardIdx: newStates.indexOf(nextActive), questionIdx: nextActive.questionIdx })
-        } else {
-          setCurrentQuestion(null)
-        }
+        setCurrentQuestion(getNextStudyQuestion(newStates, cardIdx))
         evaluateCard(cardIdx, newStates[cardIdx])
         pullNewCard()
       } else {
         setStudyCardState(newStates)
-        const active = newStates.filter((c) => !c.done && c.questionIdx < c.questions.length)
-        const pick = active.length ? active[Math.floor(Math.random() * active.length)] : null
-        setCurrentQuestion(pick ? { cardIdx: newStates.indexOf(pick), questionIdx: pick.questionIdx } : null)
+        setCurrentQuestion(getNextStudyQuestion(newStates, cardIdx))
       }
       return
     }
@@ -6047,13 +6013,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     setStudyInput('')
 
     // Move to the next active card (or none) and evaluate this one in the background.
-    const remaining = newStates.filter(c => !c.done && c.questionIdx < c.questions.length)
-    if (remaining.length > 0) {
-      const nextActive = remaining[Math.floor(Math.random() * remaining.length)]
-      setCurrentQuestion({ cardIdx: newStates.indexOf(nextActive), questionIdx: nextActive.questionIdx })
-    } else {
-      setCurrentQuestion(null)
-    }
+    setCurrentQuestion(getNextStudyQuestion(newStates, cardIdx))
     evaluateCard(cardIdx, newStates[cardIdx])
     pullNewCard()
     // Teach what they just didn't know — the panel holds the screen while the session
@@ -6073,13 +6033,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     setStudyHintLevel(0)
     setStudyCurrentHint(null)
     setStudyMeaningHint(null); setStudyWordLookup(null)
-    const remaining = newStates.filter(c => !c.done && c.questionIdx < c.questions.length)
-    if (remaining.length > 0) {
-      const next = remaining[Math.floor(Math.random() * remaining.length)]
-      setCurrentQuestion({ cardIdx: newStates.indexOf(next), questionIdx: next.questionIdx })
-    } else {
-      setCurrentQuestion(null)
-    }
+    setCurrentQuestion(getNextStudyQuestion(newStates, cardIdx))
     pullNewCard()
   }
 
