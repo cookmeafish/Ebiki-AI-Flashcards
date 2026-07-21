@@ -2050,36 +2050,35 @@ export default function App() {
     } catch {}
   }, [studyPhase, studyStats, studyCardState, studyDeck])
 
-  // ─── Pull LIVE review stats from Anki when the Stats tab is open ──────────
+  // ─── Pull LIVE review stats from Anki ────────────────────────────────────
   // The headline numbers (cards today, 14-day chart, streak) come straight from Anki's
   // review log so they always match Anki. Accuracy here is a pass-rate (% of today's
   // reviewed cards that weren't answered "Again"). Falls back to local history if offline.
+  // Extracted so a post-sync refresh can re-read it too (sync is bidirectional — after pushing
+  // our ratings, ankiSync also PULLS other devices' reviews, so the numbers must be re-read).
+  const refreshAnkiStats = async () => {
+    const connected = await ankiPing()
+    setAnkiConnected(connected)
+    // Keep the last-known (hydrated) numbers visible if Anki is momentarily unreachable —
+    // don't wipe to zero on a transient failure.
+    if (!connected) return
+    try {
+      const [today, byDayRaw, todayReviews] = await Promise.all([
+        ankiGetNumCardsReviewedToday().catch(() => 0),
+        ankiGetNumCardsReviewedByDay().catch(() => []),
+        ankiGetTodayReviewStats().catch(() => ({ reviews: 0, passed: 0 })),
+      ])
+      const byDay = {}
+      ;(byDayRaw || []).forEach((row) => { if (Array.isArray(row)) byDay[row[0]] = row[1] })
+      const accuracy = todayReviews.reviews > 0 ? Math.round(todayReviews.passed / todayReviews.reviews * 100) : 0
+      const stats = { today: today || 0, byDay, accuracy }
+      setAnkiStats(stats)
+      try { localStorage.setItem('ebiki-anki-stats', JSON.stringify(stats)) } catch {}
+    } catch { /* keep last-known numbers */ }
+  }
   useEffect(() => {
     if (activeTab !== 'stats') return
-    let cancelled = false
-    ;(async () => {
-      const connected = await ankiPing()
-      if (cancelled) return
-      setAnkiConnected(connected)
-      // Keep the last-known (hydrated) numbers visible if Anki is momentarily unreachable —
-      // don't wipe to zero on a transient failure.
-      if (!connected) return
-      try {
-        const [today, byDayRaw, todayReviews] = await Promise.all([
-          ankiGetNumCardsReviewedToday().catch(() => 0),
-          ankiGetNumCardsReviewedByDay().catch(() => []),
-          ankiGetTodayReviewStats().catch(() => ({ reviews: 0, passed: 0 })),
-        ])
-        if (cancelled) return
-        const byDay = {}
-        ;(byDayRaw || []).forEach((row) => { if (Array.isArray(row)) byDay[row[0]] = row[1] })
-        const accuracy = todayReviews.reviews > 0 ? Math.round(todayReviews.passed / todayReviews.reviews * 100) : 0
-        const stats = { today: today || 0, byDay, accuracy }
-        setAnkiStats(stats)
-        try { localStorage.setItem('ebiki-anki-stats', JSON.stringify(stats)) } catch {}
-      } catch { /* keep last-known numbers */ }
-    })()
-    return () => { cancelled = true }
+    refreshAnkiStats()
   }, [activeTab])
 
   // ─── Overlay auto-analyze ────────────────────────────────────────────────
@@ -5200,6 +5199,22 @@ Output ONLY raw JSON. No markdown, no backticks.`
   // reservations inside one async pull can't double-consume a card (state reads would be stale).
   const pbqPullRef = useRef(0)
 
+  // Trigger a full AnkiWeb sync and WAIT for it (time-boxed), so the local collection reflects
+  // reviews done on other devices before we read what's due. Never throws: an unconfigured or slow
+  // sync is caught and studying proceeds with local state. The underlying sync keeps running in Anki
+  // even if we stop waiting on the timeout.
+  const syncFromAnkiWeb = async () => {
+    if (!ankiConnected) return
+    try {
+      await Promise.race([
+        ankiSync(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('sync timed out')), 8000)),
+      ])
+    } catch (e) {
+      console.warn('[Anki] pre-session AnkiWeb sync skipped:', e.message)
+    }
+  }
+
   const beginStudy = async (deck, mode = 'flashcards') => {
     // A lingering study type from another mode kind is meaningless here — fall back to flashcards.
     if (activeMode.type === 'language' && mode === 'pbq') mode = 'flashcards'
@@ -5210,6 +5225,12 @@ Output ONLY raw JSON. No markdown, no backticks.`
     setStudyLoading(true)
     setAnkiError(null)
     try {
+      // Pull the latest schedule from AnkiWeb FIRST so reviews done on another device (phone, etc.)
+      // are reflected in what Anki considers due here — otherwise a fresh session could re-offer
+      // cards already studied elsewhere. Fail-soft + time-boxed so a hung or unconfigured sync never
+      // blocks studying; on a single machine with no AnkiWeb it's a near-instant no-op.
+      await syncFromAnkiWeb()
+
       // Only quiz what Anki would show right now: due reviews (respects the cooldown) + new cards.
       // Do NOT fall back to all cards — that would re-quiz cards still on their Anki cooldown.
       let cardIds = await ankiFindCards(`deck:"${deck}" (is:due OR is:new)`)
@@ -7022,6 +7043,16 @@ Your output keeps: the same method, the same language (${explainLang}), the same
     const ratingsToSync = studyCardStateRef.current.filter(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation && !cs.noSync && !studySyncedIdsRef.current.has(cs.cardId))
     if (ratingsToSync.length === 0) return { synced: 0, failed: 0 }
 
+    // Anki has to be RUNNING to record reviews. Probe live rather than trusting the (possibly stale)
+    // ankiConnected state: the auto-sync timer fires on a schedule and Anki may have been closed since
+    // the last grade. If it's not up, this is NOT a failure — leave every rating PENDING (never mark
+    // it failed or locked) so it syncs on the next trigger once Anki is back, and reflect the offline
+    // state in the UI so the manual button/banner update instead of a bogus "card(s) failed" error.
+    if (!(await ankiPing())) {
+      setAnkiConnected(false)
+      return { synced: 0, failed: 0, offline: true }
+    }
+
     // Anki may queue these cards in a different order than we studied them, so look each
     // presented card up by id rather than assuming an order.
     const wanted = new Map(ratingsToSync.map(cs => [cs.cardId, cs]))
@@ -7184,11 +7215,27 @@ Your output keeps: the same method, the same language (${explainLang}), the same
     if (synced.length > 0) {
       const syncedIds = new Set(synced.map(cs => cs.cardId))
       setStudyCardState(prev => prev.map(cs => syncedIds.has(cs.cardId) ? { ...cs, synced: true } : cs))
-      ankiSync().catch(() => {}) // push the new schedule to AnkiWeb so the desktop app + web stay in sync
-      ankiGetDeckStats([studyDeck]).then(s => {
-        const ds = Object.values(s)[0]
-        if (ds) setStudyDeckStats(ds)
-      }).catch(() => {})
+      // Sync is BIDIRECTIONAL: ankiSync pushes our new schedule to AnkiWeb AND pulls back anything
+      // other devices changed. Once it settles, re-read Anki so Ebiki's own views reflect what was
+      // pulled in (reviews done elsewhere, edits, reschedules) — not just what we just wrote. We do
+      // NOT re-pull the in-progress study card set here (that would yank cards mid-session); the
+      // safe live surfaces are the deck stats, the Stats numbers, and the deck browser if it's open.
+      ankiSync().then(() => {
+        refreshAnkiStats().catch(() => {})
+        ankiGetDeckStats([studyDeck]).then(s => {
+          const ds = Object.values(s)[0]
+          if (ds) setStudyDeckStats(ds)
+        }).catch(() => {})
+        if (deckBrowserActive && deckBrowserDeck) loadDeckNotes(deckBrowserDeck, { quiet: true }).catch(() => {})
+      }).catch(() => {
+        // Even if the AnkiWeb round-trip failed (offline / not configured), refresh from the LOCAL
+        // collection so our just-written ratings still surface in the on-screen numbers.
+        refreshAnkiStats().catch(() => {})
+        ankiGetDeckStats([studyDeck]).then(s => {
+          const ds = Object.values(s)[0]
+          if (ds) setStudyDeckStats(ds)
+        }).catch(() => {})
+      })
       console.log('[Anki sync] synced', synced.length, 'cards. Failed:', failed.length)
     }
     return { synced: synced.length, failed: failed.length, ...(failed.length > 0 ? { error: `${failed.length} card(s) failed` } : {}) }
@@ -7287,7 +7334,13 @@ Your output keeps: the same method, the same language (${explainLang}), the same
     const unsynced = studyCardState.filter(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation && !cs.noSync)
     if (unsynced.length > 0) {
       const result = await syncRatingsToAnki()
-      if (result.failed > 0) {
+      if (result.offline) {
+        const proceed = await confirmDialog(
+          `Anki is not open, so ${unsynced.length} rating${unsynced.length === 1 ? '' : 's'} could not be recorded.\n\n` +
+          `Exit anyway and lose ${unsynced.length === 1 ? 'it' : 'them'}? Click Cancel to stay, open Anki (with AnkiConnect), and sync.`
+        )
+        if (!proceed) return
+      } else if (result.failed > 0) {
         const proceed = await confirmDialog(
           `Could not sync ${result.failed} card rating${result.failed === 1 ? '' : 's'} to Anki ` +
           `(${result.error || 'unknown error'}).\n\n` +
@@ -10491,7 +10544,13 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                             </button>
                           )}
                         </div>
-                        {pending.length > 0 && (
+                        {pending.length > 0 && ankiConnected === false && (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, maxWidth: 460, margin: '8px auto 0', padding: '9px 14px', fontSize: 12.5, lineHeight: 1.35, color: 'var(--c-warning)', background: 'rgba(242,169,58,.10)', border: '1px solid rgba(242,169,58,.45)', borderLeft: '3px solid var(--c-warning)', borderRadius: 8, textAlign: 'left' }}>
+                            <span style={{ fontSize: 15, flexShrink: 0 }} aria-hidden="true">⏳</span>
+                            <span><strong>Anki is not open</strong> — your {pending.length} rating{pending.length === 1 ? '' : 's'} {pending.length === 1 ? 'is' : 'are'} saved and will sync automatically once Anki is back.</span>
+                          </div>
+                        )}
+                        {pending.length > 0 && ankiConnected !== false && (
                           <div style={{ textAlign: 'center', fontSize: 10, color: 'var(--c-ink-faint)', marginTop: 5 }}>
                             {ankiConnected === false ? 'Anki isn\'t open. Ratings sync automatically when it reconnects.'
                               : studyAutoSync ? (() => {
