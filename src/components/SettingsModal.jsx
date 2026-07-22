@@ -342,6 +342,16 @@ export default function SettingsModal(p) {
               {LANGS.filter((l) => l.code !== 'auto').map((l) => <option key={l.code} value={l.label}>{l.label}</option>)}
             </select>
           </div>
+          <div>
+            {fieldLabel('Memory hook language')}
+            <select value={activeMode.studyRules?.hookLanguage || ''}
+              onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || (isLanguage ? defaultStudyRules : defaultGeneralStudyRules)), hookLanguage: e.target.value } })}
+              style={{ ...S.select, minWidth: 140 }}>
+              <option value="">App language (default)</option>
+              {LANGS.filter((l) => l.code !== 'auto').map((l) => <option key={l.code} value={l.label}>{l.label}</option>)}
+            </select>
+            <div style={{ fontSize: 10, color: C.inkFaint, marginTop: 3 }}>The language Ebi writes memory hooks in, on every surface. A hook only works in a language you understand instantly. Default: the app language.</div>
+          </div>
           {isLanguage && (
             <div>
               {fieldLabel(t('grammarFeedback'))}

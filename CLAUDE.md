@@ -731,6 +731,18 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   stores the `source` so the popup renders next to the clicked word. Wired into: the 💡 Meaning Hint, the
   graded-cards list (Q text, feedback line, each note — sources `graded-<ci>-<qi>`), and Batch Results
   (`batch-<ci>-<qi>`). Language modes only.
+  **Memory hooks + the Learn-it panel are fully tappable too** via TWO siblings next to
+  `renderTappableText`: `renderTappableRich(text, source)` renders the hook format contract (**bold** +
+  line breaks — hooks NEVER go through `<Markdown>` anymore, whose HTML can't host the `.study-word`
+  spans; `.hook-md strong` carries the purple bold style) and `renderTappableBack(back, source)` is the
+  tappable sibling of `cardBackToHtml` (bold `Label:` lines). Wired into ALL hook surfaces (study graded
+  `mnemonic-<ci>`, deck browser `deck-hook-<noteId>`, tapped-word popup — inherits the popup's own source,
+  so a tap re-looks-up in place) and the whole Learn-it moment (back `learn-back`, hooks `learn-hook`,
+  chat `learn-chat`), each with its own `renderWordLookupPopup` mount. New hook/teach surfaces must use
+  these, not `<Markdown>`.
+  **`getCardBack` preserves line breaks** (`<br>`/block closers → `\n` BEFORE `stripHtml`) — a bare
+  stripHtml fused every back line ("seh-DAHLtraducción: fishing line…"), breaking label bolding, the
+  Learn-it panel, and every prompt that reads the back.
   **"Make Anki card" is DUPLICATE-AWARE:** `studyWordFindExisting` searches the target deck BEFORE
   generating — a note whose HEADWORD matches the tapped word (accent/case-insensitive; front
   "word (pos)" / "worda/wordb (pos)" split on "/", "(…)" stripped; accent-variant search fallback since
@@ -757,6 +769,22 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
 - Tapped-word lookup in study explains in the **app language** (`APP_LANG_NAME` map), not the quiz language.
   It is **context-aware** (`lookupStudyWord` reads the whole question): returns the in-context meaning, shown
   in the legend's correct-green, plus other senses in the legend's word-choice-purple.
+  **BIDIRECTIONAL (language modes), like word hints — never keyed to a specific language pair:** the
+  model first decides whether the tapped word is in the LEARNED language. If yes → explain it (as
+  above). If no (the question was phrased in whatever Ebi speaks) → flip: teach the learned-language
+  side ("sound" tapped while learning Spanish → sonido), alternatives = other learned-language words
+  per sense, usage = preferred-term honesty about the translation. The JSON gains a **`target`** field
+  (= the learned-language word the lookup teaches; the tapped word itself in the normal direction) and
+  EVERYTHING downstream keys on `wl.target || wl.word`: the popup header shows "sound → sonido",
+  `Pronunciation` (keyed remount) plays the target, **Make Anki card** generates/dup-checks the target,
+  and hooks save under `wordHookKey(target)` so they surface on the eventual card. A post-parse
+  resolution merges the target's word-key hooks + note (`studyWordFindExisting(target)`, fail-soft).
+  Lookup + memory hook outputs are **em-dash-stripped in code** (`deDash`) like chat/help replies.
+- **Memory hook language is a per-mode setting** (`studyRules.hookLanguage`, Settings → Study, ALL
+  modes, '' = default = the APP language). Deliberately NOT "Ebi speaks": a mnemonic only works in a
+  language the learner understands instantly, and `quizLanguage` defaults to the LEARNED language
+  (immersion) which a beginner can't parse — immersion learners opt in explicitly. Consumed in ONE
+  place: `generateMemoryHook`'s `explainLang` (all hook surfaces route through it).
 - Non-language modes (e.g. Security+) hide language-only study controls and quiz on concepts.
 - **Question generation (`generateQuestionsForCard`) must pin exactly one answer via an INLINE cue.**
   Synonym-rich targets (huir/correr/escapar, recíproca/mutua, hat→sombrero/gorra) make "engineer a perfectly
