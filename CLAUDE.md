@@ -442,6 +442,19 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   Settings → General → "Anki auto-sync"); when OFF, ratings only sync via the manual button or on Finish/Exit
   and nothing auto-locks. A 1s ticker (`studyNow`) drives the "locks in M:SS" countdown. NOTE: `guiCurrentCard`
   returns `buttons` as an ARRAY of valid ease values (not a count) — cap ease to `Math.max(...buttons)`.
+  **POST-LOCK CORRECTION (`correctSyncedRating`)** — the feedback chat can overturn a grade AFTER the
+  card synced ("that was a typo" on a 🔒Synced AGAIN). The old code set `synced:false`, which NEVER
+  re-syncs (`studySyncedIdsRef` filters it) and left a forever-pending ghost firing doomed auto-syncs.
+  Now: `synced` is never flipped back; instead the re-rate block calls `correctSyncedRating(cs, ease)`
+  (next to `syncRatingsToAnki`), which mirrors a real mis-tap recovery — the recorded review stays and
+  a FOLLOW-UP corrected review is added: interval = ONE SM-2 step (same formula as the reviewer-blocked
+  fallback) from the card's **PRE-SYNC interval** (`preSyncInfoRef`, a cardId→{interval,factor} map
+  snapshotted at the top of `doSyncRatings` via one batched `ankiCardsInfo`; cleared with
+  `studySyncedIdsRef`), applied via `setDueDate '<ivl>!'` + `insertReviews`. At most once per card
+  (`cs.ankiCorrected`, renders the badge as "🔒 Synced ✎"), serialized on `syncChainRef`, guarded to
+  real ease changes on non-noSync/non-conjugation cards. The app appends a factual receipt to the chat
+  reply ("✅ Anki corrected: …" / "⚠ … could not be updated"); the feedback prompt tells the model to
+  never claim it changed Anki itself. The re-rate block also applies the MC Good-cap to corrections.
 - **Multiple-choice practice mode (`studyAnswerStyle` = `'typed' | 'choices'`).** Picked on the study start
   screen ("Answer style", all modes, hidden for conjugations), persisted in `localStorage('ebiki-study-style')`.
   The "Record reviews in Anki" checkbox (`studyPracticeSync`, `localStorage('ebiki-study-practice-sync')`)
@@ -780,6 +793,13 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   and hooks save under `wordHookKey(target)` so they surface on the eventual card. A post-parse
   resolution merges the target's word-key hooks + note (`studyWordFindExisting(target)`, fail-soft).
   Lookup + memory hook outputs are **em-dash-stripped in code** (`deDash`) like chat/help replies.
+- **Grammar-slip log (`modeGrammarLog`, per-mode blob `grammar`, language modes).** Every `grammar`
+  note the grader writes (penalize or not — "knew estan, forgot the tilde" is the point) is persisted
+  via `addGrammarSlips(front, notes)` in `evaluateCardAnswers`: entries `{t, front, n, at}` dedupe by
+  folded text, repeats bump `n`/`at`, capped at 200. `grammarSlipBlock(limit)` renders the digest
+  (most-frequent first) into the Chat-tab system prompt, the Learn-it chat prompt, and Ebi's Help
+  (`appContext.grammarSlips` + a block in `buildSystemPrompt`) so "let's drill my weak points" works
+  from actual graded history. Same store pattern as `modeHooks` (Anki media + local fallback).
 - **Memory hook language is a per-mode setting** (`studyRules.hookLanguage`, Settings → Study, ALL
   modes, '' = default = the APP language). Deliberately NOT "Ebi speaks": a mnemonic only works in a
   language the learner understands instantly, and `quizLanguage` defaults to the LEARNED language

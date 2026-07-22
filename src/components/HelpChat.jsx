@@ -44,6 +44,7 @@ function buildSystemPrompt(appContext) {
   parts.push(`Mode: ${appContext.activeMode?.name || 'unknown'} (${appContext.activeMode?.type || ''})`)
   parts.push(`Anki deck for this mode: ${appContext.activeMode?.ankiDeck || 'none set'}`)
   if (appContext.activeMode?.dialect) parts.push(`Dialect setting: ${appContext.activeMode.dialect} (all generation follows this variant)`)
+  if (appContext.grammarSlips?.length) parts.push(`RECURRING GRAMMAR SLIPS (auto-collected from graded study answers — things the learner conceptually knows but keeps getting wrong, e.g. a missing tilde). Offer targeted practice on these when asked ("let's drill my weak points"), or a gentle reminder when one is relevant:\n${appContext.grammarSlips.map((s) => `- ${s}`).join('\n')}`)
   parts.push(`Anki connected: ${appContext.ankiConnected ? 'yes' : 'no'}`)
   if (appContext.ankiDecks?.length) parts.push(`Available Anki decks: ${appContext.ankiDecks.join(', ')}`)
 
