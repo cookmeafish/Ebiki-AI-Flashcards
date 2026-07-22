@@ -4495,6 +4495,41 @@ Output ONLY raw JSON. No markdown, no backticks.`
     })
   }
 
+  // Markdown-light + tap-to-lookup. Memory hooks and the Learn-it panel promise only **bold** +
+  // line breaks in their format contract, so render those directly with EVERY word tappable
+  // (language modes) exactly like the question text. <Markdown>'s HTML output can't host the
+  // .study-word spans — surfaces that must be tappable use this instead. Non-language modes get
+  // the same bold/line rendering with plain (non-clickable) words.
+  const renderTappableRich = (text, source) => {
+    return String(text || '').replace(/\r/g, '').split('\n').map((line, li) => {
+      if (!line.trim()) return <div key={li} style={{ height: 6 }} />
+      const ctx = line.replace(/\*\*/g, '')  // lookup context = the readable sentence, no markers
+      return (
+        <div key={li}>
+          {line.split(/(\*\*[^*]+\*\*)/g).filter(Boolean).map((seg, si) => {
+            const m = seg.match(/^\*\*([^*]+)\*\*$/)
+            return m
+              ? <strong key={si}>{renderTappableText(m[1], ctx, source)}</strong>
+              : <span key={si}>{renderTappableText(seg, ctx, source)}</span>
+          })}
+        </div>
+      )
+    })
+  }
+
+  // Card-back text lines with the usual bold "Label:" treatment (any script), every word tappable.
+  // The tappable sibling of cardBackToHtml — use it wherever a back renders on a lookup surface.
+  const renderTappableBack = (back, source) => String(back || '').split('\n').filter((l) => l.trim()).map((line, li) => {
+    const m = line.match(/^([^:\n]{1,30}):(.*)$/)
+    return (
+      <div key={li}>
+        {m
+          ? (<><b>{renderTappableText(m[1] + ':', line, source)}</b>{renderTappableText(m[2], line, source)}</>)
+          : renderTappableText(line, line, source)}
+      </div>
+    )
+  })
+
   // The tapped-word popup (in-context meaning + "Make Anki card") rendered inline wherever a word was
   // tapped. `source` must match the value passed to lookupStudyWord, so only that spot shows the popup.
   const renderWordLookupPopup = (source) => {
@@ -4503,9 +4538,16 @@ Output ONLY raw JSON. No markdown, no backticks.`
       <div style={{ background: 'rgba(223,37,64,.06)', border: '1px solid rgba(223,37,64,.2)', borderRadius: 5, padding: '5px 10px', margin: '6px 0', display: 'flex', flexDirection: 'column', gap: 6 }}>
         {/* Row 1: the tapped word + its in-context meaning, and the × that backs out */}
         <div style={{ fontSize: 11, display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
-          <span style={{ fontWeight: 700, color: 'var(--c-brand)' }}>{studyWordLookup.word}</span>
-          {/* Hear the tapped word — covers "I don't know how to pronounce this word in the question" */}
-          <Pronunciation word={studyWordLookup.word} lang={learnLangName()} region={pronRegion()} config={pronunciationCfg} t={t} compact />
+          <span style={{ fontWeight: 700, color: 'var(--c-brand)' }}>
+            {studyWordLookup.word}
+            {/* Reversed direction: the tapped word wasn't in the learned language — show what it maps to */}
+            {studyWordLookup.target && studyWordLookup.target !== studyWordLookup.word && (
+              <span> → {studyWordLookup.target}</span>
+            )}
+          </span>
+          {/* Hear the LEARNED-language word (the target — same as the tapped word except when reversed).
+              Keyed so the component remounts when the target arrives (its resolution is per-word). */}
+          <Pronunciation key={studyWordLookup.target || studyWordLookup.word} word={studyWordLookup.target || studyWordLookup.word} lang={learnLangName()} region={pronRegion()} config={pronunciationCfg} t={t} compact />
           {/* …and read it: text phonetics in the same style as the card backs (pah-RAH-gwahs) */}
           {studyWordLookup.pron && !studyWordLookup.loading && (
             <span style={{ color: 'var(--c-ink-dim)', fontStyle: 'italic', fontWeight: 600 }}>/{studyWordLookup.pron}/</span>
@@ -4595,7 +4637,8 @@ Output ONLY raw JSON. No markdown, no backticks.`
         {(studyWordLookup.hooks || []).map((hook, hi) => (
           <div key={hi} style={{ fontSize: 11, color: 'var(--c-ink)', background: 'rgba(139,92,246,.08)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 6, padding: '7px 10px', lineHeight: 1.6, display: 'flex', gap: 6 }}>
             <span style={{ fontWeight: 700, color: 'var(--c-purple)', flexShrink: 0 }}>🧠</span>
-            <div className="hook-md" style={{ flex: 1, minWidth: 0 }}><Markdown text={hook} /></div>
+            {/* Tapping a word here re-looks-up within this same popup (source is inherited) */}
+            <div className="hook-md" style={{ flex: 1, minWidth: 0 }}>{renderTappableRich(hook, studyWordLookup.source || 'question')}</div>
           </div>
         ))}
       </div>
@@ -4760,9 +4803,10 @@ Output ONLY raw JSON. No markdown, no backticks.`
                 title="Delete this hook" className="click-dim"
                 style={{ cursor: 'pointer', color: 'var(--c-ink-faint)', fontSize: 13, lineHeight: 1, padding: '1px 5px', borderRadius: 4, flexShrink: 0 }}>×</span>
             </div>
-            <div className="hook-md"><Markdown text={hook} /></div>
+            <div className="hook-md">{renderTappableRich(hook, `mnemonic-${ci}`)}</div>
           </div>
         ))}
+        {renderWordLookupPopup(`mnemonic-${ci}`)}
         {cs.mnemonicLoading && <div style={{ fontSize: 11, color: 'var(--c-purple)' }}>🧠 Ebi is thinking of {hooks.length ? 'another' : 'a'} memory hook…</div>}
         {cs.mnemonicError && <div style={{ fontSize: 10, color: 'var(--c-danger)' }}>{cs.mnemonicError}</div>}
         {renderHookButtons(`study-${ci}`, (m) => generateMnemonic(ci, cs, m), cs.mnemonicLoading || !apiKey)}
@@ -5183,7 +5227,11 @@ Output ONLY raw JSON. No markdown, no backticks.`
   const getCardBack = (card) => {
     const fields = card.fields ? Object.values(card.fields) : []
     const sorted = [...fields].sort((a, b) => a.order - b.order)
-    return stripHtml(sorted[1]?.value || card.answer || '')
+    // Convert HTML line breaks to real newlines BEFORE stripping tags — a bare stripHtml fuses
+    // every back line together ("seh-DAHLtraducción: fishing line…"), which breaks the label
+    // bolding, the Learn-it panel, and every prompt that reads the back.
+    return stripHtml(String(sorted[1]?.value || card.answer || '').replace(/<(?:br|hr)[^>]*>|<\/(?:div|p|li|tr)>/gi, '\n'))
+      .split('\n').map((l) => l.trim()).filter(Boolean).join('\n')
   }
 
   const startStudySession = async () => {
@@ -6200,31 +6248,76 @@ Return ONLY raw JSON:
       // Disambiguate by the WHOLE question — the same word can mean different things in different
       // contexts. Return the in-context meaning (shown in the legend's "correct" green) plus other
       // common senses (shown in the legend's "word choice" purple).
-      const prompt = `A learner tapped the word "${word}" in this ${studyLang} study question. Read the ENTIRE question for context — the same word can have different meanings depending on context.${dialectRule()}
+      // LANGUAGE MODES ARE BIDIRECTIONAL, like word hints: questions can mix the learned language
+      // with whatever language Ebi speaks, so a tapped word that is NOT in the learned language
+      // flips direction — the learner wants the learned-language side ("sound" tapped while
+      // learning Spanish → sonido), not a dictionary definition of a word they already know.
+      // The model detects the direction; nothing here is keyed to any specific language pair.
+      const isLang = activeMode.type === 'language'
+      const prompt = isLang ? `A learner studying ${studyLang} tapped the word "${word}" in a study question. Questions can mix ${studyLang} with other languages, so FIRST decide which language "${word}" belongs to AS USED HERE, then read the ENTIRE question for context (the same word can mean different things in different contexts).${dialectRule()}
 
 Question: "${sentence}"
 
-Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
+TWO CASES:
+A) "${word}" IS a ${studyLang} word here: "target" = "${word}" itself. "primary" = its meaning/translation in ${explainLang} AS USED in THIS question (the single best fit, a few words). "alternatives" = up to 3 other common meanings it has in OTHER contexts, in ${explainLang}.
+B) "${word}" is NOT a ${studyLang} word here: the learner wants the ${studyLang} side. "target" = the ${studyLang} word a native speaker would ACTUALLY use for "${word}" in THIS context (honor the dialect and preferred-term rules; never a technically-correct-but-uncommon word). "primary" = the in-context sense in ${explainLang}, a few words, so the learner knows WHICH sense got translated. "alternatives" = up to 3 other ${studyLang} words for the word's OTHER senses, each written as "<${studyLang} word> (<sense in ${explainLang}>)".
+
+Reply in ${explainLang} as JSON ONLY (no markdown, no extra text, never an em dash):
 {
-  "primary": "the meaning/translation of \\"${word}\\" AS USED in THIS question — the single best fit, a few words only",
+  "target": "the single ${studyLang} word this lookup teaches (case A: the tapped word; case B: the best translation), no leading article",
+  "primary": "see the cases above, a few words only",
+  "alternatives": ["see the cases above; [] if there is really only one"],
+  "pron": "simplified phonetics of the TARGET ${studyLang} word for a ${explainLang} speaker, stressed syllable in CAPS (e.g. PREH-syoh), same style as flashcard pronunciation lines; "" if it reads exactly as spelled",
+  "usage": "REQUIRED whenever a DIFFERENT ${studyLang} word is what speakers more commonly say for the target's in-context meaning: name it and say what the target leans toward instead (e.g. for barro meaning mud: 'everyday Latin American speech prefers lodo; barro leans clay/pottery'). Otherwise only if noteworthy: a few ${explainLang} words on how common/where/what register (e.g. 'rare, literary', 'informal slang'); "" for words that ARE the natural default term and are otherwise unremarkable"
+}${preferredTermRule()}` : `A learner tapped the word "${word}" in this ${studyLang} study question. Read the ENTIRE question for context — the same word can have different meanings depending on context.
+
+Question: "${sentence}"
+
+Reply in ${explainLang} as JSON ONLY (no markdown, no extra text, never an em dash):
+{
+  "primary": "the meaning of \\"${word}\\" AS USED in THIS question — the single best fit, a few words only",
   "alternatives": ["up to 3 other common meanings the word can have in OTHER contexts, a few words each; use [] if it really only has one meaning"],
-  "pron": "simplified phonetics of \\"${word}\\" for a ${explainLang} speaker, stressed syllable in CAPS (e.g. PREH-syoh) — same style as flashcard pronunciation lines; "" if it reads exactly as spelled",
-  "usage": "REQUIRED whenever a DIFFERENT ${studyLang} word is what speakers more commonly say for THIS in-context meaning: name it and say what this word leans toward instead (e.g. for barro meaning mud: 'everyday Latin American speech prefers lodo; barro leans clay/pottery'). Otherwise only if noteworthy: a few ${explainLang} words on how common/where/what register (e.g. 'rare, literary', 'mainly Argentina — elsewhere: X', 'informal slang'); "" for words that ARE the natural default term and are otherwise unremarkable"
-}${preferredTermRule()}`
-      const text = await aiCall(apiKey, `You are a concise bilingual dictionary that disambiguates words by context. Output JSON only, written in ${explainLang}.`, prompt, resolveModel('study'))
+  "pron": "simplified phonetics of \\"${word}\\" for a ${explainLang} speaker, stressed syllable in CAPS; "" if it reads exactly as spelled",
+  "usage": "only if noteworthy: a few ${explainLang} words on how common/where/what register; "" otherwise"
+}`
+      const text = await aiCall(apiKey, `You are a concise bilingual dictionary that disambiguates words by context. Output JSON only, written in ${explainLang}. Never use em dashes.`, prompt, resolveModel('study'))
       const parsed = parseAiJson(text)
+      // Em dashes are banned everywhere a reader can see — prompts leak, the strip is the guarantee.
+      const deDash = (s) => String(s || '').replace(/\s*[—–]\s*/g, ', ').trim()
+      const target = deDash(parsed.target).replace(/^["']+|["']+$/g, '') || word
       // Functional + spread: the async note resolution above may already have attached
       // hooks/hookNoteId — a plain object replacement would silently wipe them.
       setStudyWordLookup((prev) => ({
         ...(prev && prev.word === word ? prev : { hooks: hooksForItem(null, word) }),
         word,
-        primary: String(parsed.primary || '').trim() || '—',
-        alternatives: Array.isArray(parsed.alternatives) ? parsed.alternatives.filter(Boolean).map(String).slice(0, 3) : [],
-        pron: String(parsed.pron || '').trim(),
-        usage: String(parsed.usage || '').trim(), // commonness/region/register caveat — '' when unremarkable
+        target, // the learned-language word this lookup teaches — audio/card/hooks all key on it
+        primary: deDash(parsed.primary) || '?',
+        alternatives: Array.isArray(parsed.alternatives) ? parsed.alternatives.filter(Boolean).map(deDash).slice(0, 3) : [],
+        pron: deDash(parsed.pron),
+        usage: deDash(parsed.usage), // commonness/region/register caveat — '' when unremarkable
         loading: false,
         source,
       }))
+      // Case B (direction flipped): saved hooks and the existing-card note live under the TARGET
+      // word, not the tapped one — merge the target's word-key hooks and resolve its note
+      // (fail-soft), exactly like the initial prefetch did for the tapped word.
+      if (foldHookWord(target) !== foldHookWord(word)) {
+        setStudyWordLookup((prev) => {
+          if (!prev || prev.word !== word) return prev
+          const merged = [...(prev.hooks || [])]
+          for (const h of hooksForItem(null, target)) if (!merged.includes(h)) merged.push(h)
+          return { ...prev, hooks: merged }
+        })
+        studyWordFindExisting(target).then((ex) => {
+          if (!ex) return
+          setStudyWordLookup((prev) => {
+            if (!prev || prev.word !== word) return prev
+            const merged = [...(prev.hooks || [])]
+            for (const h of hooksForItem(ex.noteId, ex.front)) if (!merged.includes(h)) merged.push(h)
+            return { ...prev, hookNoteId: ex.noteId, hooks: merged }
+          })
+        }).catch(() => {})
+      }
     } catch {
       setStudyWordLookup((prev) => ({ ...(prev && prev.word === word ? prev : {}), word, primary: 'Lookup failed. Try again.', alternatives: [], loading: false, source }))
     }
@@ -6237,11 +6330,17 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
     if (!wl?.word || !apiKey || wl.hookLoading || wl.loading) return
     setStudyWordLookup((prev) => (prev && prev.word === wl.word) ? { ...prev, hookLoading: true, hookError: null } : prev)
     try {
-      const back = [wl.primary, ...(wl.alternatives || [])].filter((x) => x && x !== '—').join(' · ') || wl.word
-      const hook = await generateMemoryHook(wl.word, back, wl.hooks || [], method)
+      // Reversed lookup (tapped word wasn't in the learned language): the hook must teach the
+      // TARGET learned-language word — the tapped word IS its meaning.
+      const tgt = wl.target || wl.word
+      const reversed = foldHookWord(tgt) !== foldHookWord(wl.word)
+      const back = reversed
+        ? `${wl.word}${wl.primary && wl.primary !== '?' ? ` (${wl.primary})` : ''}`
+        : ([wl.primary, ...(wl.alternatives || [])].filter((x) => x && x !== '?' && x !== '—').join(' · ') || wl.word)
+      const hook = await generateMemoryHook(tgt, back, wl.hooks || [], method)
       // Persist like every other surface: onto the word's note when it has one, else the word key
       // (still surfaced everywhere via the hooksForItem merge, and on the note once a card exists).
-      if (hook) addNoteHook(wl.hookNoteId || wordHookKey(wl.word), hook)
+      if (hook) addNoteHook(wl.hookNoteId || wordHookKey(tgt), hook)
       setStudyWordLookup((prev) => (prev && prev.word === wl.word) ? { ...prev, hookLoading: false, hooks: [...(prev.hooks || []), ...(hook ? [hook] : [])] } : prev)
     } catch {
       setStudyWordLookup((prev) => (prev && prev.word === wl.word) ? { ...prev, hookLoading: false, hookError: 'Could not generate a memory hook. Try again.' } : prev)
@@ -6294,12 +6393,14 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
     if (!wl?.word || !apiKey || wl.cardLoading || wl.card || wl.existing) return
     setStudyWordLookup((prev) => (prev && prev.word === wl.word) ? { ...prev, cardLoading: true, cardError: null } : prev)
     try {
-      const existing = await studyWordFindExisting(wl.word)
+      // The card teaches the learned-language TARGET (sonido, not the tapped "sound").
+      const tgt = wl.target || wl.word
+      const existing = await studyWordFindExisting(tgt)
       if (existing) {
         setStudyWordLookup((prev) => (prev && prev.word === wl.word) ? { ...prev, cardLoading: false, existing } : prev)
         return
       }
-      const [card] = await generateCards([wl.word])
+      const [card] = await generateCards([tgt])
       if (!card) throw new Error('no card')
       setStudyWordLookup((prev) => (prev && prev.word === wl.word) ? { ...prev, cardLoading: false, card } : prev)
     } catch {
@@ -6353,7 +6454,11 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text):
 
   const generateMemoryHook = async (front, back, prior = [], method = 'meaning') => {
     const isLanguage = activeMode.type === 'language'
-    const explainLang = APP_LANG_NAME[appLanguage] || 'English'
+    // Hook language: per-mode override (Settings → Study → "Memory hook language"), else the APP
+    // language. Deliberately NOT "Ebi speaks": a mnemonic only works in a language the learner
+    // understands instantly, and quizLanguage defaults to the LEARNED language (immersion), which
+    // a beginner can't parse. Immersion learners opt in via the setting.
+    const explainLang = String(activeMode.studyRules?.hookLanguage || '').trim() || APP_LANG_NAME[appLanguage] || 'English'
     const learnLang = isLanguage ? ((activeMode.studyRules || defaultStudyRules).studyLanguage || learnLangName()) : null
     const METHODS = {
       meaning: `METHOD — MEANING HOOK (WaniKani meaning-mnemonic style; the learner SEES the item and must recall what it MEANS):
@@ -6405,7 +6510,9 @@ QUALITY BAR: a good hook lets the learner RECONSTRUCT the answer from the hook a
 
 Write in ${explainLang}. ${lengthRule} No backup hooks, no preamble, no explaining why the hook works. Concrete and a little playful. FORMAT: short sentences; you MAY use **bold** on the few key words that carry the hook and a line break between steps/pairs — nothing else (no headers, no bullet symbols, no em dashes).`
     const text = await aiCall(apiKey, `You are Ebi, a friendly memory coach. Reply in ${explainLang} with a concise, concrete memory aid.`, prompt, resolveModel('study'))
-    const draft = String(text || '').trim()
+    // Em dashes are banned in user-facing text — the prompt forbids them, the strip guarantees it.
+    const deDash = (s) => String(s || '').replace(/\s*[—–]\s*/g, ', ').trim()
+    const draft = deDash(text)
     if (!draft) return draft
     // VERIFY-AND-IMPROVE pass (hooks get MEMORIZED, like cards → same guardrail as verifyCards):
     // a second call plays skeptical learner + editor. It re-runs the reconstruction test, says the
@@ -6434,7 +6541,7 @@ THEN IMPROVE: even when nothing outright fails, actively look for ANY change tha
 
 Your output keeps: the same method, the same language (${explainLang}), the same format rules (bold key words + line breaks only, no em dashes), the same length cap (${lengthRule.split('.')[0]}), and a leading bold method label if the draft has one. Output ONLY the final memory aid text — no verdict, no commentary.`
       const fixed = await aiCall(apiKey, `You are a meticulous, skeptical editor of memory aids. Output only the final memory aid text.`, reviewPrompt, resolveModel('study'), { silent: true })
-      const out = String(fixed || '').trim()
+      const out = deDash(fixed)
       if (out) return out
     } catch { /* review is best-effort */ }
     return draft
@@ -9288,9 +9395,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                       <span onClick={() => deleteNoteHook(note.noteId, hook, front)} title="Delete this hook" className="click-dim"
                                         style={{ cursor: 'pointer', color: 'var(--c-ink-faint)', fontSize: 13, lineHeight: 1, padding: '1px 5px', borderRadius: 4, flexShrink: 0 }}>×</span>
                                     </div>
-                                    <div className="hook-md"><Markdown text={hook} /></div>
+                                    <div className="hook-md">{renderTappableRich(hook, `deck-hook-${note.noteId}`)}</div>
                                   </div>
                                 ))}
+                                {renderWordLookupPopup(`deck-hook-${note.noteId}`)}
                                 {deckBrowserMnemonics[note.noteId]?.loading && (
                                   <div style={{ fontSize: 11, color: 'var(--c-purple)', marginBottom: 6 }}>🧠 Ebi is thinking of {hooksForItem(note.noteId, front).length ? 'another' : 'a'} memory hook…</div>
                                 )}
@@ -10139,15 +10247,19 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                             )}
                             {lm.requeued && <span className="tip" data-tip="This card comes back in a few cards as practice. The Again rating already recorded stays the only Anki review." style={{ fontSize: 10, color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,.3)', borderRadius: 999, padding: '2px 8px', fontWeight: 700 }}>↻ comes back soon</span>}
                           </div>
-                          <div style={{ fontSize: 12.5, color: 'var(--c-ink)', background: 'var(--c-surface-sunken, var(--c-surface))', border: '1px solid var(--c-border)', borderRadius: 8, padding: '10px 12px', lineHeight: 1.65, maxHeight: 220, overflowY: 'auto', marginBottom: 10 }}
-                            dangerouslySetInnerHTML={{ __html: cardBackToHtml(lm.back) }} />
+                          {/* Every word tappable (translation + Make Anki card), same as question text */}
+                          <div style={{ fontSize: 12.5, color: 'var(--c-ink)', background: 'var(--c-surface-sunken, var(--c-surface))', border: '1px solid var(--c-border)', borderRadius: 8, padding: '10px 12px', lineHeight: 1.65, maxHeight: 220, overflowY: 'auto', marginBottom: 10 }}>
+                            {renderTappableBack(lm.back, 'learn-back')}
+                          </div>
+                          {renderWordLookupPopup('learn-back')}
                           {/* Memory hooks — first one auto-generates on open; more on demand */}
                           {lm.hooks.map((hook, hi) => (
                             <div key={hi} style={{ fontSize: 12, color: 'var(--c-ink)', background: 'rgba(139,92,246,.08)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 6, padding: '8px 10px', lineHeight: 1.6, display: 'flex', gap: 6, marginBottom: 6 }}>
                               <span style={{ fontWeight: 700, color: 'var(--c-purple)', flexShrink: 0 }}>🧠</span>
-                              <div className="hook-md" style={{ flex: 1, minWidth: 0 }}><Markdown text={hook} /></div>
+                              <div className="hook-md" style={{ flex: 1, minWidth: 0 }}>{renderTappableRich(hook, 'learn-hook')}</div>
                             </div>
                           ))}
+                          {renderWordLookupPopup('learn-hook')}
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                             {lm.hookLoading
                               ? <span style={{ fontSize: 11, color: 'var(--c-purple)' }}>🧠 Ebi is thinking of a memory hook…</span>
@@ -10160,11 +10272,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           {lm.chat.length > 0 && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8, maxHeight: 220, overflowY: 'auto' }}>
                               {lm.chat.map((m, mi) => m.role === 'user'
-                                ? <div key={mi} style={{ alignSelf: 'flex-end', maxWidth: '85%', fontSize: 12, color: 'var(--c-ink)', background: 'rgba(223,37,64,.08)', border: '1px solid rgba(223,37,64,.2)', borderRadius: 8, padding: '6px 10px', whiteSpace: 'pre-wrap' }}>{m.content}</div>
-                                : <div key={mi} className="md-body" style={{ alignSelf: 'flex-start', maxWidth: '92%', fontSize: 12, color: 'var(--c-ink)', background: 'var(--c-surface-sunken, var(--c-surface))', border: '1px solid var(--c-border)', borderRadius: 8, padding: '6px 10px' }}><Markdown text={m.content} /></div>)}
+                                ? <div key={mi} style={{ alignSelf: 'flex-end', maxWidth: '85%', fontSize: 12, color: 'var(--c-ink)', background: 'rgba(223,37,64,.08)', border: '1px solid rgba(223,37,64,.2)', borderRadius: 8, padding: '6px 10px' }}>{renderTappableRich(m.content, 'learn-chat')}</div>
+                                : <div key={mi} style={{ alignSelf: 'flex-start', maxWidth: '92%', fontSize: 12, color: 'var(--c-ink)', background: 'var(--c-surface-sunken, var(--c-surface))', border: '1px solid var(--c-border)', borderRadius: 8, padding: '6px 10px', lineHeight: 1.6 }}>{renderTappableRich(m.content, 'learn-chat')}</div>)}
                               {lm.chatLoading && <span style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>Ebi is typing…</span>}
                             </div>
                           )}
+                          {renderWordLookupPopup('learn-chat')}
                           <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
                             <input value={lm.chatInput}
                               onChange={(e) => { const v = e.target.value; setStudyLearnMoment((p) => p ? { ...p, chatInput: v } : p) }}
@@ -11570,7 +11683,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
 
         /* Memory-hook boxes: the **key words** must POP — at 11px Nunito, 700-vs-400 weight alone
            is nearly invisible, so bold inside a hook also gets the purple accent. */
-        .hook-md .md-body strong { font-weight: 800; color: var(--c-purple); }
+        .hook-md .md-body strong, .hook-md strong { font-weight: 800; color: var(--c-purple); }
 
         /* Top navigation tabs: gentle float-up on hover (vertical only, no click shrink).
            The lift is on an INNER span, not the button, so the button's hover hit-box never
