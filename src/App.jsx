@@ -5268,6 +5268,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     if (activeMode.type === 'language' && mode === 'pbq') mode = 'flashcards'
     if (activeMode.type !== 'language' && mode === 'conjugations') mode = 'flashcards'
     studySyncedIdsRef.current = new Set() // fresh session — reset the once-per-session answer guard
+    preSyncInfoRef.current = new Map() // fresh pre-review schedule snapshots (post-lock corrections)
     glossFetchRef.current = new Map(); glossBusyRef.current = new Set() // fresh word-hint attempt budget
     setStudyMode(mode)
     setStudyLoading(true)
@@ -5964,7 +5965,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       const history = [...lm.chat, { role: 'user', content: userMsg }]
         .map((m) => `${m.role === 'user' ? 'Student' : 'Ebi'}: ${m.content}`).join('\n')
       const sys = `You are Ebi, a warm, patient study buddy. The student just admitted they do NOT know this flashcard at all, so explain from zero — small words, concrete examples, no jargon. Reply in ${explainLang}, under 120 words, plain text with at most **bold** on key words. Never use em dashes.`
-      const prompt = `Flashcard the student doesn't know:\nFront: "${lm.front}"\nBack:\n${lm.back}\n${activeMode.type === 'language' ? `\nThey are learning ${learnLangName()}.${dialectRule()}` : `\nSubject: ${activeMode.name}`}${knowledgeBlock ? knowledgeBlock(4000) : ''}\n\nConversation so far:\n${history}\n\nAnswer the student's last message. Be concrete and encouraging; if they ask "why", give the real reason, not just a restatement.`
+      const prompt = `Flashcard the student doesn't know:\nFront: "${lm.front}"\nBack:\n${lm.back}\n${activeMode.type === 'language' ? `\nThey are learning ${learnLangName()}.${dialectRule()}` : `\nSubject: ${activeMode.name}`}${knowledgeBlock ? knowledgeBlock(4000) : ''}${grammarSlipBlock(8)}\n\nConversation so far:\n${history}\n\nAnswer the student's last message. Be concrete and encouraging; if they ask "why", give the real reason, not just a restatement.`
       const text = await aiCall(apiKey, sys, prompt, resolveModel('study'))
       const clean = String(text || '').replace(/\s*[—–]\s*/g, ', ').replace(/[🦐🦞🦀]️?/gu, '').trim()
       setStudyLearnMoment((p) => p ? { ...p, chat: [...p.chat, { role: 'assistant', content: clean }], chatLoading: false } : p)
@@ -6599,6 +6600,44 @@ Your output keeps: the same method, the same language (${explainLang}), the same
     if (!key || !hook) return
     writeModeHooks((prev) => (prev[key] || []).includes(hook) ? prev : { ...prev, [key]: [...(prev[key] || []), hook] })
   }
+
+  // ── Grammar-slip log — the OTHER thing grading discovers besides right/wrong ──────────────
+  // Every 'grammar' note the grader writes ("'están' lleva tilde", "'de el' → 'del'") is SAVED
+  // per mode (blob 'grammar' → Anki media + local fallback, same store pattern as hooks) so Ebi
+  // can later coach the recurring slips the learner conceptually KNOWS but keeps fumbling —
+  // exactly the mistakes flashcard ratings can't capture. Entries dedupe by folded text; a
+  // repeat bumps `n` and `at`, so both frequency and recency are visible. Fed to the Chat tab,
+  // Ebi's Help, and the Learn-it chat via grammarSlipBlock().
+  const [modeGrammarLog, setModeGrammarLog] = useState([]) // [{ t, front, n, at }]
+  useEffect(() => {
+    let cancelled = false
+    setModeGrammarLog([])
+    readBlob('grammar', activeMode.name).then((d) => { if (!cancelled && Array.isArray(d)) setModeGrammarLog(d) }).catch(() => {})
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeModeId])
+  const addGrammarSlips = (front, notes) => {
+    const fresh = (notes || []).filter((n) => n && n.type === 'grammar' && n.text)
+    if (!fresh.length) return
+    setModeGrammarLog((prev) => {
+      const next = (Array.isArray(prev) ? prev : []).map((e) => ({ ...e }))
+      for (const n of fresh) {
+        const key = foldHookWord(n.text)
+        const hit = next.find((e) => foldHookWord(e.t) === key)
+        if (hit) { hit.n = (hit.n || 1) + 1; hit.at = Date.now() }
+        else next.push({ t: String(n.text).slice(0, 200), front: String(front || '').slice(0, 80), n: 1, at: Date.now() })
+      }
+      const capped = next.slice(-200) // oldest entries age out; repeats survive via their bumped `at`
+      writeBlob('grammar', activeMode.name, capped).catch(() => {})
+      return capped
+    })
+  }
+  // Compact digest for prompts: most-frequent first, recency breaks ties.
+  const grammarSlipBlock = (limit = 15) => {
+    if (activeMode.type !== 'language' || !modeGrammarLog.length) return ''
+    const top = [...modeGrammarLog].sort((a, b) => ((b.n || 1) - (a.n || 1)) || ((b.at || 0) - (a.at || 0))).slice(0, limit)
+    return `\n\nLEARNER'S RECURRING GRAMMAR SLIPS (auto-collected from graded study answers — things they conceptually know but keep getting wrong, like a missing tilde; use them for targeted practice when asked, or a gentle reminder when one shows up again):\n${top.map((e) => `- ${e.t}${e.front ? ` (card: ${e.front})` : ''}${(e.n || 1) > 1 ? ` [seen ${e.n}x]` : ''}`).join('\n')}`
+  }
   // Delete by VALUE (indices can diverge between the session copy and the store); with `front`,
   // also sweeps the headword word-keys so a hook shown via the merge is truly gone.
   const deleteNoteHook = async (noteId, hook, front = '') => {
@@ -6806,6 +6845,10 @@ Your output keeps: the same method, the same language (${explainLang}), the same
         return updated
       })
       setStudyStats(prev => ({ ...prev, [label]: prev[label] + 1 }))
+
+      // Persist grammar slips for later coaching (language modes). The penalize flag is
+      // irrelevant here: "knew estan, forgot the tilde" is exactly what this log is FOR.
+      try { if (activeMode.type === 'language') results.forEach((r) => addGrammarSlips(cs.front, r?.notes)) } catch {}
 
       // (Completion → batchFeedback is handled by an effect below, so there's no transitional flash.)
       console.log('[Study] card evaluated:', cs.front, '→', label)
@@ -7097,12 +7140,24 @@ Your output keeps: the same method, the same language (${explainLang}), the same
   // duplicate sync recorded a real extra review and intervals silently compounded (1d → years).
   // This Set is written only here and cleared only on session start/exit — nothing can clobber it.
   const studySyncedIdsRef = useRef(new Set())
+  // PRE-REVIEW interval/factor per cardId, captured right before a sync records the review — a
+  // post-lock correction (feedback chat overturning a grade AFTER the sync locked) needs the
+  // interval the card had BEFORE the wrong review to compute the corrected one-step interval.
+  // Cleared with studySyncedIdsRef on session start/exit.
+  const preSyncInfoRef = useRef(new Map())
 
   const doSyncRatings = async () => {
     // Read the latest state from the ref; only push cards rated + not yet synced (the Set is the
     // authority — state/ref flags are for the UI).
     const ratingsToSync = studyCardStateRef.current.filter(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation && !cs.noSync && !studySyncedIdsRef.current.has(cs.cardId))
     if (ratingsToSync.length === 0) return { synced: 0, failed: 0 }
+
+    // Snapshot each card's PRE-REVIEW schedule before anything is recorded (post-lock corrections
+    // read it later; a failed fetch just means the correction falls back to live card info).
+    try {
+      const infos = await ankiCardsInfo(ratingsToSync.map((cs) => cs.cardId))
+      for (const inf of infos || []) if (inf && inf.cardId && !preSyncInfoRef.current.has(inf.cardId)) preSyncInfoRef.current.set(inf.cardId, { interval: inf.interval, factor: inf.factor })
+    } catch { /* fall back to live info at correction time */ }
 
     // Anki has to be RUNNING to record reviews. Probe live rather than trusting the (possibly stale)
     // ankiConnected state: the auto-sync timer fires on a schedule and Anki may have been closed since
@@ -7310,6 +7365,41 @@ Your output keeps: the same method, the same language (${explainLang}), the same
     return run
   }
 
+  // POST-LOCK RATING CORRECTION — the feedback chat overturned the grade of a card whose review
+  // is ALREADY locked into Anki ("that was a typo" after the AGAIN synced). The answer-once
+  // guarantee stays untouched: studySyncedIdsRef keeps the card and `synced` is NEVER flipped
+  // back (a synced card can't re-sync — the Set filters it — so the old `synced:false` only
+  // created a forever-pending ghost firing doomed auto-syncs). Instead this mirrors what a real
+  // mis-tap recovery looks like in Anki: the recorded review stays in history and a FOLLOW-UP
+  // corrected review is added — interval = ONE SM-2 step from the card's PRE-SYNC interval
+  // (captured at sync time; falls back to the card's live interval, which after a wrong Again
+  // UNDER-corrects but can never inflate). Same formula as the reviewer-blocked sync fallback.
+  // Serialized with syncs; the caller guarantees at-most-once per card (`ankiCorrected`).
+  const correctSyncedRating = (cs, ease) => {
+    const run = syncChainRef.current.then(async () => {
+      if (!cs.cardId) throw new Error('no card id')
+      const pre = preSyncInfoRef.current.get(cs.cardId)
+      const src = pre || await ankiCardsInfo([cs.cardId]).then((r) => r && r[0]).catch(() => null)
+      const curIvl = src && src.interval > 0 ? src.interval : 1
+      const factor = src && src.factor >= 1300 ? src.factor : 2500  // permille (2500 = 2.5x)
+      let newIvl
+      if (ease === 1) newIvl = 0                                                       // Again → relearn today
+      else if (ease === 2) newIvl = Math.max(1, Math.round(curIvl * 1.2))              // Hard
+      else if (ease === 3) newIvl = Math.max(1, Math.round(curIvl * factor / 1000))    // Good
+      else newIvl = Math.max(1, Math.round(curIvl * factor / 1000 * 1.3))              // Easy (+ bonus)
+      newIvl = Math.min(newIvl, 36500)
+      // "!" makes setDueDate ALSO set the interval (not just the due date) — without it the
+      // correction barely moves the card.
+      await ankiSetDueDate([cs.cardId], newIvl + '!')
+      await ankiInsertReviews([[Date.now(), cs.cardId, -1, Math.min(Math.max(ease, 1), 4), newIvl, curIvl, factor, 0, 0]])
+        .catch((e) => console.warn('[Anki correct] insertReviews failed (schedule still corrected):', e.message))
+      console.log('[Anki correct] post-lock correction', cs.cardId, 'pre-ivl', curIvl, '→', newIvl, 'ease', ease)
+      return newIvl
+    })
+    syncChainRef.current = run.catch(() => {})
+    return run
+  }
+
   // Each card is answered in Anki EXACTLY ONCE, with its FINAL rating. The user gets a grace window
   // (studyAutoSyncMinutes, default 5) after the AI grades a card to correct the rating; after that the
   // card auto-syncs and is LOCKED (its rating can no longer change), so Anki never records "again" THEN
@@ -7440,6 +7530,7 @@ Your output keeps: the same method, the same language (${explainLang}), the same
     setStudyAccentRetype(null)
     setStudyLearnMoment(null)
     studySyncedIdsRef.current = new Set()
+    preSyncInfoRef.current = new Map()
     glossFetchRef.current = new Map(); glossBusyRef.current = new Set()
   }
 
@@ -7614,7 +7705,7 @@ The student may:
 To mark ALL questions correct: <action>{"type":"mark_all_correct","reason":"brief reason","feedback":"short confirmation in ${studyLang}"}</action>
 To mark ONE question correct: <action>{"type":"fix_typo","questionIndex":N,"correctedAnswer":"...","shouldBeCorrect":true,"feedback":"short confirmation in ${studyLang}"}</action>
 
-Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the student is studying — not English, unless ${studyLang} is English). Always include the action tag when applicable. Never refuse a student's correction request.`
+Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the student is studying — not English, unless ${studyLang} is English). Always include the action tag when applicable. Never refuse a student's correction request. If the card's rating was already locked into Anki, the app corrects Anki itself after your action and appends a factual receipt to your reply — never claim you changed Anki yourself.`
       const fullPrompt = newMessages.map(m => `${m.role === 'user' ? 'User' : 'Tutor'}: ${m.text}`).join('\n')
       const text = await aiCall(apiKey, systemPrompt, fullPrompt, resolveModel('study'))
 
@@ -7669,6 +7760,7 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
       }
 
       // Re-rate the card if results were changed
+      let ankiReceipt = null
       if (updatedStates) {
         const qpc = updatedStates[cardIdx].results.length
         const grammarOn = (activeMode.studyRules || defaultStudyRules).grammarFeedback || false
@@ -7678,20 +7770,39 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
         else if (wrongCount === 1) label = 'good'
         else if (wrongCount >= qpc) label = 'again'
         else label = 'hard'
+        // Recognition cap parity with the graders: an MC card that records to Anki never rates
+        // above Good, corrections included.
+        let ease = { easy: 4, good: 3, hard: 2, again: 1 }[label] || 1
+        if (updatedStates[cardIdx].mc && !updatedStates[cardIdx].noSync && ease > 3) { ease = 3; label = 'good' }
         // Update stats: remove old rating, add new
         const oldRating = updatedStates[cardIdx].rating
+        const oldEase = updatedStates[cardIdx].ease
         if (oldRating && oldRating !== label) {
           setStudyStats(prev => ({ ...prev, [oldRating]: Math.max(0, prev[oldRating] - 1), [label]: prev[label] + 1 }))
         }
         updatedStates[cardIdx].rating = label
-        updatedStates[cardIdx].ease = { easy: 4, good: 3, hard: 2, again: 1 }[label] || 1
-        updatedStates[cardIdx].synced = false
+        updatedStates[cardIdx].ease = ease
+        // Grace window (not yet synced): nothing else to do — the pending path syncs the FINAL
+        // rating. ALREADY SYNCED: never flip `synced` back (a synced card can't re-sync, so that
+        // flag only created a forever-pending ghost) — correct Anki explicitly instead, once.
+        if (updatedStates[cardIdx].synced && ease !== oldEase
+            && !updatedStates[cardIdx].noSync && !updatedStates[cardIdx].isConjugation
+            && updatedStates[cardIdx].cardId && !updatedStates[cardIdx].ankiCorrected) {
+          updatedStates[cardIdx].ankiCorrected = true
+          try {
+            const ivl = await correctSyncedRating(updatedStates[cardIdx], ease)
+            ankiReceipt = `✅ Anki corrected: re-rated ${label.toUpperCase()}, next review ${ivl === 0 ? 'today (relearn)' : `in ~${ivl} day${ivl === 1 ? '' : 's'}`}.`
+          } catch (e) {
+            updatedStates[cardIdx].ankiCorrected = false
+            ankiReceipt = `⚠ The session shows the corrected grade, but Anki could not be updated (${e.message || 'Anki unreachable'}). The original rating stands in Anki.`
+          }
+        }
         setStudyCardState(updatedStates)
       }
 
       setStudyFeedbackChat(prev => ({
         ...prev,
-        [cardIdx]: { messages: [...newMessages, { role: 'assistant', text: cleanText }], input: '', loading: false }
+        [cardIdx]: { messages: [...newMessages, { role: 'assistant', text: cleanText + (ankiReceipt ? `\n\n${ankiReceipt}` : '') }], input: '', loading: false }
       }))
     } catch (err) {
       setStudyFeedbackChat(prev => ({
@@ -7839,6 +7950,10 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
         // so things said in casual chat ("I'm learning Spanish for a trip to Peru") STICK.
         systemPrompt += `\n\nLEARNER PROGRESS NOTES for their "${ankiDeck}" deck (AI-maintained memory across sessions — struggles, improvements, goals, interests):\n${deckProgressDoc || '(none yet)'}\n\nIf the user shares something DURABLE about themselves (goals, interests, recurring struggles, clear improvements), update the notes: wrap the FULL revised file in <progress-update>...</progress-update> tags. Merge with the existing notes, deduplicate redundant lines, keep it concise. Do not update for trivial chit-chat.`
       }
+
+      // Recurring grammar slips → Ebi can run targeted practice ("let's drill my weak points")
+      // and gently point out a slip it knows the user makes.
+      systemPrompt += grammarSlipBlock()
 
       // Learning-focused composer prefs (per-mode "+" menu).
       const prefs = activeMode.chatPrefs || {}
@@ -10671,7 +10786,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               // Locked: this rating is committed to Anki and can no longer change (no again→easy lapse).
                               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{(cs.rating || '').toUpperCase()}</span>
-                                <span title="Synced to Anki: locked" style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-success)' }}>🔒 Synced</span>
+                                <span title={cs.ankiCorrected ? 'Synced, then the rating was corrected in Anki after your feedback' : 'Synced to Anki: locked'} style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-success)' }}>🔒 Synced{cs.ankiCorrected ? ' ✎' : ''}</span>
                               </span>
                             ) : (
                               <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -10778,7 +10893,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           // Already committed to Anki — locked so a correction can't double-answer (again→easy lapse).
                           <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{(cs.rating || '').toUpperCase()}</span>
-                            <span title="Synced to Anki: locked" style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-success)' }}>🔒 Synced</span>
+                            <span title={cs.ankiCorrected ? 'Synced, then the rating was corrected in Anki after your feedback' : 'Synced to Anki: locked'} style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-success)' }}>🔒 Synced{cs.ankiCorrected ? ' ✎' : ''}</span>
                           </span>
                         ) : (
                           // Editable rating — changing it re-answers the card in Anki with the new ease (synced:false).
@@ -11905,6 +12020,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         appContext={{
         activeTab,
         activeMode: { name: activeMode.name, type: activeMode.type, ankiDeck: activeMode.ankiDeck, dialect: dialectName() || undefined },
+        // Recurring grammar slips from graded study answers — Ebi can coach or drill them on request.
+        grammarSlips: activeMode.type === 'language'
+          ? [...modeGrammarLog].sort((a, b) => ((b.n || 1) - (a.n || 1)) || ((b.at || 0) - (a.at || 0))).slice(0, 12).map((e) => `${e.t}${(e.n || 1) > 1 ? ` [seen ${e.n}x]` : ''}`)
+          : [],
         ocrWords: ocrWords.map(w => ({ text: w.text, translation: w.translation })),
         activeWord: activeWord ? { text: activeWord.text, translation: activeWord.translation, pronunciation: activeWord.pronunciation, definition: activeWord.definition, synonyms: activeWord.synonyms, example: activeWord.example } : null,
         explanation,
