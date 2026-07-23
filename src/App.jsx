@@ -813,6 +813,24 @@ export default function App() {
   // Wrapper around providerConfig.call that injects the configured model and
   // self-heals retired models. modelOverride (when given) is the question-tier
   // model; otherwise the general model is used.
+  // GLOBAL EM-DASH GUARANTEE: em/en dashes are banned in ALL AI-generated text (they read as
+  // AI-written; the per-surface strips kept missing generators — Discover was the latest leak).
+  // Prompts leak, so the strip lives HERE, at the single choke point every feature's call goes
+  // through. Numeric ranges keep a plain hyphen ("10–12" → "10-12"); prose dashes become ", ".
+  // Safe inside JSON replies (dashes only ever appear inside string values). Pipelines that
+  // VERBATIM-match model output against existing text (deck analyze/dup/merge echo-guards, PBQ
+  // citation checks + blind-solver text matching) pass opts.keepDashes and strip at their own
+  // display boundary instead.
+  const stripAiDashes = (s) => typeof s === 'string'
+    ? s.replace(/(\d)\s*[—–]\s*(\d)/g, '$1-$2').replace(/\s*[—–]\s*/g, ', ')
+    : s
+  const deepStripDashes = (v) => {
+    if (typeof v === 'string') return stripAiDashes(v)
+    if (Array.isArray(v)) return v.map(deepStripDashes)
+    if (v && typeof v === 'object') { const o = {}; for (const k of Object.keys(v)) o[k] = deepStripDashes(v[k]); return o }
+    return v
+  }
+
   const aiCall = async (key, systemPrompt, userContent, modelOverride, opts = {}) => {
     const prov = aiStateRef.current.provider
     const role = modelOverride ? 'question' : 'general'
@@ -821,14 +839,15 @@ export default function App() {
     // opts.maxTokens: optional output token budget (vision/long JSON needs more than the default).
     const images = opts.images
     const maxTokens = opts.maxTokens
+    const finish = (text) => opts.keepDashes ? text : stripAiDashes(text)
     try {
       const out = await PROVIDERS[prov].call(key, systemPrompt, userContent, model, images, maxTokens)
       setAiErrorNotice((prev) => prev ? null : prev) // clear a stale error toast on success
-      return out
+      return finish(out)
     } catch (e) {
       const healed = await healRetiredModel(e?.message || '', model, role)
       if (healed) {
-        try { return await PROVIDERS[prov].call(key, systemPrompt, userContent, healed, images, maxTokens) }
+        try { return finish(await PROVIDERS[prov].call(key, systemPrompt, userContent, healed, images, maxTokens)) }
         catch (e2) { if (!opts.silent) reportAiError(e2); throw e2 }
       }
       // Surface out-of-credits / rate-limit / bad-key errors so failures aren't silent.
@@ -3035,7 +3054,10 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         : `Keep each field in the language it is already written in.`
       const prompt = `${analyzeFraming}\n\nCards (JSON):\n${JSON.stringify(cards)}\n\nReturn a JSON array — ONLY include cards that need fixing (skip the rest):\n[\n  {\n    "noteId": <number>,\n    "front": "<exact verbatim value of the card's "${frontFieldName}" field, copied character-for-character>",\n    "reason": "<one short sentence: what is ambiguous>",\n    "recommendedFields": { "<fieldName>": "<new content>", ... },\n    "recommendedTags": ["complete", "new", "tag-list"]\n  }\n]\n\nCRITICAL: "noteId" and "front" MUST identify the SAME card. Copy the "front" value verbatim from that exact card's data above — never paraphrase it, never use a different card's word, and double-check that the recommendedFields you write are for that same card. If you cannot be certain a noteId and its front match, omit that card.\n\nIn recommendedFields, include ONLY fields you're changing (typically just the back) — omit it entirely when only tags change. ${fieldLangRule} Use plain text with newlines for line breaks (no HTML, no <br>).\n\n"recommendedTags" is OPTIONAL — include it ONLY when the card's tags should change. When present it REPLACES the card's ENTIRE tag list, so copy over every existing tag you are not changing (dropping one silently DELETES it). Tags are lowercase, hyphenated, and contain no spaces.\n\nOutput ONLY raw JSON. No markdown, no commentary.`
 
-      const text = await aiCall(apiKey, 'You analyze flashcard quality. Always respond with valid JSON only.', prompt, resolveModel('deck'))
+      // keepDashes: the integrity guard below matches the model's echoed `front` VERBATIM against
+      // the deck — the global dash strip would make any dash-containing front unmatchable and
+      // silently drop its rec. Suggestion CONTENT is stripped post-guard instead.
+      const text = await aiCall(apiKey, 'You analyze flashcard quality. Always respond with valid JSON only.', prompt, resolveModel('deck'), { keepDashes: true })
       // parseAiJson, not bare JSON.parse: models sometimes append commentary after the array or
       // truncate mid-row — the tolerant parser strips the noise and salvages complete objects.
       const parsed = parseAiJson(text)
@@ -3088,7 +3110,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         )
         const recommendedFields = { ...currentFields }
         if (hasFieldRec) Object.entries(r.recommendedFields).forEach(([k, v]) => {
-          if (k in recommendedFields) recommendedFields[k] = String(v ?? '')
+          if (k in recommendedFields) recommendedFields[k] = stripAiDashes(String(v ?? '')) // content is user-facing; only the echoed front stays verbatim
         })
         // Tags: the AI's list REPLACES the card's whole tag set (Anki tags are space-separated,
         // so inner spaces become hyphens). No recommendedTags = tags unchanged.
@@ -3102,7 +3124,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         // Final assertion: noteId we will write to MUST be this resolved card's id.
         return {
           noteId: note.noteId,
-          reason: r.reason || '',
+          reason: stripAiDashes(r.reason || ''),
           currentFields,
           recommendedFields,
           currentTags,
@@ -5130,9 +5152,12 @@ Output ONLY raw JSON. No markdown, no backticks.`
     let priorFailure = null
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
+        // keepDashes: checkCitations must match the generator's quotes VERBATIM against the
+        // knowledge text (which may legitimately contain em dashes), and the blind solver
+        // text-matches option strings. The verified pbq is deep-stripped at the return sites.
         const genText = await aiCall(apiKey, PBQ_GEN_SYSTEM,
           buildPbqGeneratorPrompt({ subject: activeMode.name, front, back, lang, knowledgeContext: kctx || null, priorFailure }),
-          resolveModel('study'))
+          resolveModel('study'), { keepDashes: true })
         const raw = parsePbqJson(genText)
         if (!raw) { priorFailure = 'the response was not a single valid JSON object'; continue }
         // Relevance gate: an off-subject card (e.g. a stray vocab card in a cert deck) is skipped
@@ -5145,16 +5170,17 @@ Output ONLY raw JSON. No markdown, no backticks.`
           if (!cc.ok) { priorFailure = `these citation quotes do NOT appear verbatim in the reference material: ${cc.missing.slice(0, 2).map(m => `"${m}"`).join(', ')}`; continue }
         }
         // Blind solve: an independent expert pass that never sees the answer key
-        const solverRaw = await aiCall(apiKey, PBQ_SOLVER_SYSTEM, buildPbqSolverPrompt(studentView(compiled.pbq), lang), resolveModel('study'))
+        const solverRaw = await aiCall(apiKey, PBQ_SOLVER_SYSTEM, buildPbqSolverPrompt(studentView(compiled.pbq), lang), resolveModel('study'), { keepDashes: true })
         const solved = parseSolverAnswer(compiled.pbq, parsePbqJson(solverRaw))
         const cmp = compareToKey(compiled.pbq, solved)
-        if (cmp.match) { console.log('[PBQ] verified — blind solve matched:', compiled.pbq.title); return compiled.pbq }
+        if (cmp.match) { console.log('[PBQ] verified — blind solve matched:', compiled.pbq.title); return deepStripDashes(compiled.pbq) }
         // Adjudicate the disagreement
         const judgeRaw = await aiCall(apiKey, PBQ_JUDGE_SYSTEM,
           buildPbqJudgePrompt({ pbq: compiled.pbq, diffs: cmp.diffs, solverRaw, knowledgeContext: kctx || null }),
           resolveModel('study'))
         const verdict = parsePbqJson(judgeRaw)
-        if (verdict?.verdict === 'solver_wrong') { console.log('[PBQ] verified — judge upheld the key:', compiled.pbq.title); return compiled.pbq }
+        // Display copy only — verification (citations, solver matching) already ran on the verbatim text.
+        if (verdict?.verdict === 'solver_wrong') { console.log('[PBQ] verified — judge upheld the key:', compiled.pbq.title); return deepStripDashes(compiled.pbq) }
         priorFailure = `an independent solver disagreed with your answer key (${cmp.diffs.slice(0, 3).join('; ')}); review verdict "${verdict?.verdict || 'unclear'}": ${verdict?.reason || 'no reason given'}. Build a DIFFERENT exercise on this topic with exactly one defensible key`
         console.log('[PBQ] attempt', attempt + 1, 'rejected for', front, '—', verdict?.verdict, verdict?.reason || '')
       } catch (err) {
