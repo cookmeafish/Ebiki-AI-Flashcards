@@ -881,8 +881,30 @@ export default function App() {
     ]).then(([keys, config, modesData, legacyFormat]) => {
       // Load modes from /api/modes (per-file storage)
       if (modesData && modesData.modes && modesData.modes.length > 0) {
-        setModes(modesData.modes)
+        // One-time dash sanitize: mode text saved BEFORE the global aiCall strip existed
+        // (descriptions, chat-suggestion chips, Discover category labels) still carries em
+        // dashes onto the UI — e.g. the Discover Focus placeholder embeds the description.
+        // Clean on load and persist only if something actually changed.
+        let dashDirty = false
+        const cleanedModes = modesData.modes.map((m) => {
+          const next = {
+            ...m,
+            description: stripAiDashes(m.description),
+            chatSuggestions: Array.isArray(m.chatSuggestions) ? m.chatSuggestions.map(stripAiDashes) : m.chatSuggestions,
+            discoverKinds: Array.isArray(m.discoverKinds) ? m.discoverKinds.map((k) => k && typeof k === 'object' ? { ...k, label: stripAiDashes(k.label) } : k) : m.discoverKinds,
+          }
+          if (!dashDirty && JSON.stringify(next) !== JSON.stringify(m)) dashDirty = true
+          return next
+        })
+        setModes(cleanedModes)
         if (modesData.activeModeId) setActiveModeId(modesData.activeModeId)
+        if (dashDirty) {
+          fetch('/api/modes', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ modes: cleanedModes, activeModeId: modesData.activeModeId || cleanedModes[0]?.id || 1 }),
+          }).catch(() => {})
+          console.log('[Mode] sanitized em dashes out of stored mode text')
+        }
       } else if (legacyFormat) {
         // Migrate from legacy ankiformat.json
         let migrated = null
