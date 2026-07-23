@@ -702,6 +702,12 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   tells it to refuse vague requests); App's onAction prefills+opens the panel, switches to the Deck
   tab, and `pendingDeckEditRef` + an effect run the preview once notes load. NOTE: `analyzeDeck` is
   called as `onClick={() => analyzeDeck()}` — passing the raw event would become `kind`.
+- **+ Add Deck has a one-click mode link:** `handleAddDeckForMode` ("⚡ Make it for this mode: <name>")
+  creates the deck (typed name, or the ACTIVE mode's name when empty) and links it via
+  `updateModeById(pinned id, { ankiDeck })` — mode id pinned BEFORE the awaits (async-writer rule), no
+  new mode created, purpose box ignored (plain quotes in its strings, not «guillemets» — user
+  preference). The typed-purpose path (`handleAddDeck`) still fuzzy-matches an existing mode or
+  `createMode`s a new one.
 - **Deck browser rows:** one-line previews via `backPreviewText` (HTML breaks → " · " — plain stripHtml
   fuses lines); click-to-expand (`deckBrowserExpanded`) shows bold-labeled back lines, tag chips, and a
   studied/lapses/interval footer; scheduling badges from the `note.stats` already loaded for sorting

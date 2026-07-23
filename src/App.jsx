@@ -2762,6 +2762,33 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     }
   }
 
+  // One-click "this deck IS for the current mode": create the deck (typed name, or the mode's
+  // name when empty) and link it as the ACTIVE mode's Anki deck — no new mode, no purpose text;
+  // the mode already says what the deck is for. Mode id pinned before the awaits so a mode
+  // switch mid-create can't retarget the link (the async-writer rule).
+  const handleAddDeckForMode = async () => {
+    const modeId = activeModeIdRef.current
+    const mode = modesRef.current.find((m) => m.id === modeId) || activeMode
+    const name = deckBrowserAddName.trim() || mode.name
+    setDeckBrowserAddLoading(true)
+    try {
+      await ankiCreateDeck(name) // idempotent: linking an existing deck is fine
+      const decks = await ankiGetDecks().catch(() => [])
+      setAnkiDecks(decks)
+      updateModeById(modeId, { ankiDeck: name })
+      setSuccessNotice(`Created "${name}" and set it as the ${mode.name} mode's deck`)
+      setDeckBrowserDeck(name)
+      loadDeckNotes(name)
+      setDeckBrowserAddPanel(false)
+      setDeckBrowserAddName('')
+      setDeckBrowserAddPurpose('')
+    } catch (e) {
+      window.alert('Failed to create deck: ' + (e.message || e))
+    } finally {
+      setDeckBrowserAddLoading(false)
+    }
+  }
+
   const openDeckBrowser = async () => {
     if (!ankiConnected) return
     const decks = await ankiGetDecks().catch(() => [])
@@ -8763,12 +8790,20 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   onKeyDown={(e) => { if (e.key === 'Enter' && deckBrowserAddName.trim() && !deckBrowserAddLoading) handleAddDeck() }}
                   style={{ ...S.keyInput, fontSize: 12 }}
                 />
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <button
                     onClick={handleAddDeck}
                     disabled={!deckBrowserAddName.trim() || deckBrowserAddLoading}
                     style={{ background: 'rgba(24,169,87,0.15)', color: 'var(--c-success)', border: '1px solid rgba(24,169,87,0.3)', borderRadius: 5, padding: '6px 14px', fontSize: 11, cursor: (!deckBrowserAddName.trim() || deckBrowserAddLoading) ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: (!deckBrowserAddName.trim() || deckBrowserAddLoading) ? 0.5 : 1 }}
                   >{deckBrowserAddLoading ? t('creating') : t('create')}</button>
+                  {/* One click: create + link as the ACTIVE mode's deck (typed name, or the mode's name) */}
+                  <button
+                    onClick={handleAddDeckForMode}
+                    disabled={deckBrowserAddLoading}
+                    className="ui-btn"
+                    style={{ ...S.ghostBtn, fontSize: 11, fontWeight: 700, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)', opacity: deckBrowserAddLoading ? 0.5 : 1, cursor: deckBrowserAddLoading ? 'default' : 'pointer' }}
+                  >⚡ Make it for this mode: {activeMode.name}</button>
+                  <span className="tip" data-tip={`Creates "${deckBrowserAddName.trim() || activeMode.name}" and links it as the ${activeMode.name} mode's Anki deck, so new cards, Quick Add and study target it. Uses the typed deck name, or the mode's name if empty. No separate mode is created and the purpose box is ignored.`} style={{ color: 'var(--c-ink-faint)', fontSize: 11 }}>ⓘ</span>
                   <button
                     onClick={() => { setDeckBrowserAddPanel(false); setDeckBrowserAddName(''); setDeckBrowserAddPurpose('') }}
                     style={{ ...S.ghostBtn, fontSize: 11 }}

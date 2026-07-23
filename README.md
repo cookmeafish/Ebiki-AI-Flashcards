@@ -251,6 +251,7 @@ Study features:
 ### Deck browser
 
 Go to the **Study** tab and click **Browse Deck** to:
+- **+ Add Deck** — create a deck by name; describe its purpose to spin up a matching mode, or hit **⚡ Make it for this mode** to create the deck (typed name, or the mode's name if left empty) and link it as the current mode's Anki deck in one click — no purpose text needed, the mode already says what it's for
 - View all flashcards in any deck — each row shows a clean one-line preview of the back, plus **scheduling badges**: `NEW`, `learn`, the review interval (green once the card is mature), and a ⚠ lapse warning for problem cards
 - **Click any row to expand it** — the full card back with bold labels, tag chips, and a scheduling footer (times studied, lapses, interval, last activity)
 - **Copy to / Move** — send any card to another deck (or create a new deck inline): Copy makes an independent duplicate (e.g. to build a dedicated PBQ practice deck), Move relocates the card with its review history intact
