@@ -298,6 +298,10 @@ export default function SettingsModal(p) {
     </div>
   )
 
+  // Unset "Ebi speaks" defaults: language modes → the learned language (immersion); general
+  // modes → the APP language (mirrors interactionLangName, so the picker never shows a phantom).
+  const appLangLabel = ({ en: 'English', es: 'Spanish', zh: 'Chinese', ja: 'Japanese' })[appLanguage] || 'English'
+
   const Study = (
     <div>
       {sectionTitle(t('setStudy'))}{modeBar}
@@ -336,7 +340,7 @@ export default function SettingsModal(p) {
           )}
           <div>
             {fieldLabel(t('quizIn'))}
-            <select value={activeMode.studyRules?.quizLanguage || activeMode.studyRules?.studyLanguage || 'English'}
+            <select value={activeMode.studyRules?.quizLanguage || (isLanguage ? (activeMode.studyRules?.studyLanguage || 'English') : appLangLabel)}
               onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || (isLanguage ? defaultStudyRules : defaultGeneralStudyRules)), quizLanguage: e.target.value } })}
               style={{ ...S.select, minWidth: 120 }}>
               {LANGS.filter((l) => l.code !== 'auto').map((l) => <option key={l.code} value={l.label}>{l.label}</option>)}
