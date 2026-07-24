@@ -849,6 +849,10 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   "Ebi speaks: English" in the UI while `generateQuestionsForCard` computed `quizLang = Spanish` (mode name
   fallback) and phrased every question in Spanish. Empty `quizLanguage` = "same as learned"; to get English
   phrasing the user sets **Ebi speaks → English** (writes `quizLanguage`).
+  **GENERAL modes: unset "Ebi speaks" defaults to the APP language** (`userLangName()` — what
+  `interactionLangName` actually uses), in BOTH the start-screen picker and Settings → Study
+  (`appLangLabel`); never `learnLangName()`, whose translation-language/mode-name fallback shows a
+  phantom the generator ignores. Picking any value writes `quizLanguage` and sticks per mode.
 - **Learned language vs "Ebi speaks" (don't conflate).** In `generateQuestionsForCard`, `learnLang`
   (=`studyRules.studyLanguage`) is ALWAYS the answer language; `quizLang` (=`studyRules.quizLanguage ||
   studyLanguage`) is only how Ebi PHRASES things. So "Learning Spanish + Ebi speaks English" →

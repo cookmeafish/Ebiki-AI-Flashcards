@@ -10179,8 +10179,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               // Fallbacks MUST match generateQuestionsForCard (learnLangName / quizLang), or the
               // picker shows a phantom language the generator ignores — the "picker says English,
               // Ebi speaks Spanish" bug on a mode whose studyLanguage was never set.
+              // General modes: the generator's unset-quizLanguage default is the APP language
+              // (userLangName), NOT learnLangName's translation-language/mode-name fallback — the
+              // picker must show the same. Picking any value writes quizLanguage (sticks per mode).
               const learned = sr.studyLanguage || learnLangName()
-              const speaks = sr.quizLanguage || learned
+              const speaks = sr.quizLanguage || (isLang ? learned : userLangName())
               const setSR = (patch) => updateActiveMode({ studyRules: { ...sr, ...patch } })
               const langOpts = LANGS.filter(l => l.code !== 'auto').map(l => ({ value: l.label, label: l.label }))
               // A study type left over from the other mode kind falls back to flashcards
