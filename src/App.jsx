@@ -6004,7 +6004,32 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const requeued = requeueForRelearn(cs)
     const nid = studyNoteId(cs)
     const saved = hooksForItem(nid, cs.front) // hooks made on ANY surface for this item show instantly
-    setStudyLearnMoment({ front: cs.front, back: cs.back, noteId: nid, typed: '', hooks: saved, hookLoading: !saved.length && !!apiKey, chat: [], chatInput: '', chatLoading: false, requeued })
+    // TYPE-TO-CONTINUE TARGET. Language cards: the headword (unchanged — typing the word with its
+    // accents IS the exercise). General cards: the front can be a whole PARAGRAPH ("Vocal Fry vs.
+    // Upspeak: two vocal habits that..."), so the gate types a short KEY TERM instead — instant
+    // deterministic guess (text before the first sentence break), then a silent AI pass picks the
+    // term actually worth typing, catered to this card + mode (fail-soft; both forms accepted).
+    const isLangMoment = activeMode.type === 'language'
+    const headNoParen = String(cs.front || '').replace(/\s*\([^)]*\)\s*$/, '').trim()
+    const keyFallback = isLangMoment ? headNoParen : (() => {
+      const first = headNoParen.split(/[:.?!\n]/)[0].trim()
+      if (first.length >= 3 && first.length <= 80) return first
+      return headNoParen.split(/\s+/).slice(0, 6).join(' ')
+    })()
+    setStudyLearnMoment({ front: cs.front, back: cs.back, noteId: nid, typed: '', keyTerm: keyFallback, keyTermAlt: keyFallback, hooks: saved, hookLoading: !saved.length && !!apiKey, chat: [], chatInput: '', chatLoading: false, requeued })
+    if (!isLangMoment && apiKey) {
+      aiCall(apiKey,
+        'You pick the single key term a learner should type once to cement a flashcard. Reply with the term only, nothing else.',
+        `Flashcard front: "${cs.front}"\nBack (excerpt): ${String(cs.back || '').slice(0, 400)}\nSubject: ${activeMode.name}${activeMode.description ? ` (${String(activeMode.description).slice(0, 120)})` : ''}\n\nReturn the ONE short name/term (2-6 words, taken verbatim from the card when possible) that best captures what this card teaches. The learner will type it once to lock it in. No quotes, no explanation.`,
+        resolveModel('study'), { silent: true })
+        .then((t) => {
+          const term = String(t || '').trim().replace(/^["'«»]+|["'«»]+$/g, '').split('\n')[0].trim()
+          if (term && term.length >= 2 && term.length <= 80) {
+            setStudyLearnMoment((p) => (p && p.front === cs.front) ? { ...p, keyTerm: term } : p)
+          }
+        })
+        .catch(() => {}) // the deterministic fallback stands
+    }
     // Auto-generate the first memory hook — this is the moment hooks exist for. (Skipped when the
     // item already has saved hooks: those ARE the memory aid, and another is one click away.)
     if (apiKey && !saved.length) {
@@ -6053,9 +6078,19 @@ Output ONLY raw JSON. No markdown, no backticks.`
   // included — copying the correct spelling once is the point, like the accent drill).
   const learnMomentTypedOk = (lm) => {
     if (!lm) return false
-    const head = String(lm.front || '').replace(/\s*\([^)]*\)\s*$/, '')
-    const forms = head.split('/').map((s) => s.trim().toLowerCase()).filter(Boolean)
-    return forms.includes(lm.typed.trim().toLowerCase())
+    // Language modes: unchanged — any "/"-form of the headword, accents required (typing the
+    // word correctly IS the exercise).
+    if (activeMode.type === 'language') {
+      const head = String(lm.front || '').replace(/\s*\([^)]*\)\s*$/, '')
+      const forms = head.split('/').map((s) => s.trim().toLowerCase()).filter(Boolean)
+      return forms.includes(lm.typed.trim().toLowerCase())
+    }
+    // General modes: the AI-chosen key term (or its deterministic fallback — either counts, so a
+    // late-arriving AI term can't invalidate what the user already typed). Case/spacing/trailing
+    // punctuation are forgiven: concept recall is the point, not typing discipline.
+    const norm = (s) => String(s || '').toLowerCase().replace(/[.?!]+$/g, '').replace(/\s+/g, ' ').trim()
+    const typed = norm(lm.typed)
+    return !!typed && (typed === norm(lm.keyTerm) || typed === norm(lm.keyTermAlt))
   }
 
   const skipStudyQuestion = async () => {
@@ -10437,17 +10472,26 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       {studyLearnMoment ? (() => {
                         const lm = studyLearnMoment
                         const typedOk = learnMomentTypedOk(lm)
-                        const headWord = String(lm.front || '').replace(/\s*\([^)]*\)\s*$/, '')
+                        // Language: headword (front minus the "(pos)" suffix). General: the AI-chosen
+                        // key term — a paragraph-length front must never be the headline or the gate.
+                        const headWord = activeMode.type === 'language'
+                          ? String(lm.front || '').replace(/\s*\([^)]*\)\s*$/, '')
+                          : (lm.keyTerm || String(lm.front || '').split(/[:.?!\n]/)[0].trim())
                         return (<>
                           {/* "Learn it" moment — teach what the user just gave up on. Session advances underneath. */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
                             <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--c-brand)' }}>📖 Let's learn it</span>
-                            <span style={{ fontSize: 15.5, fontWeight: 700, color: 'var(--c-ink)' }}>{lm.front}</span>
+                            <span style={{ fontSize: 15.5, fontWeight: 700, color: 'var(--c-ink)' }}>{headWord}</span>
                             {activeMode.type === 'language' && (
                               <Pronunciation word={pronWord(lm.front)} lang={learnLangName()} region={pronRegion()} config={pronunciationCfg} t={t} compact />
                             )}
                             {lm.requeued && <span className="tip" data-tip="This card comes back in a few cards as practice. The Again rating already recorded stays the only Anki review." style={{ fontSize: 10, color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,.3)', borderRadius: 999, padding: '2px 8px', fontWeight: 700 }}>↻ comes back soon</span>}
                           </div>
+                          {/* General cards: the headline shows the KEY TERM, so the full front paragraph
+                              (the concept statement) still needs to be readable — as prose, not a banner. */}
+                          {activeMode.type !== 'language' && String(lm.front || '').trim() !== headWord && (
+                            <div style={{ fontSize: 12.5, color: 'var(--c-ink)', lineHeight: 1.6, marginBottom: 10 }}>{lm.front}</div>
+                          )}
                           {/* Every word tappable (translation + Make Anki card), same as question text */}
                           <div style={{ fontSize: 12.5, color: 'var(--c-ink)', background: 'var(--c-surface-sunken, var(--c-surface))', border: '1px solid var(--c-border)', borderRadius: 8, padding: '10px 12px', lineHeight: 1.65, maxHeight: 220, overflowY: 'auto', marginBottom: 10 }}>
                             {renderTappableBack(lm.back, 'learn-back')}
