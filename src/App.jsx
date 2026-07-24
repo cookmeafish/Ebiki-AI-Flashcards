@@ -2972,7 +2972,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
   // Reset a card's STUDY PROGRESS (scheduling only — content untouched): forgetCards turns it
   // back into a NEW card. The remedy for schedules inflated by the old duplicate-sync bug.
   const resetNoteProgress = async (note, front) => {
-    if (!(await confirmDialog(`Reset all study progress for "${front}"?\n\nThe card becomes NEW again. Its interval and scheduling history are wiped (the card's content is not touched). This cannot be undone.`))) return
+    if (!(await confirmDialog(`Reset all study progress for "${shortFront(front)}"?\n\nThe card becomes NEW again. Its interval and scheduling history are wiped (the card's content is not touched). This cannot be undone.`))) return
     try {
       const cardIds = await ankiFindCards(`nid:${note.noteId}`)
       if (cardIds.length === 0) throw new Error('no cards found for this note')
@@ -5309,6 +5309,16 @@ Output ONLY raw JSON. No markdown, no backticks.`
       .split('\n').map((l) => l.trim()).filter(Boolean).join('\n')
   }
 
+  // Short display label for a card front quoted in dialogs/toasts. General cards can have a
+  // PARAGRAPH as their front ("Mirroring (Rapport-Building): subtly reflecting another
+  // person's…") — quote only the lead-in, never the essay. Language fronts are short already
+  // and pass through intact (minus a trailing "(pos)" suffix).
+  const shortFront = (front, max = 70) => {
+    const head = String(front || '').replace(/\s*\([^)]*\)\s*$/, '').trim()
+    const first = head.split(/[:.?!\n]/)[0].trim() || head
+    return first.length > max ? first.slice(0, max - 1).trimEnd() + '…' : first
+  }
+
   const startStudySession = async () => {
     if (!ankiConnected) { setAnkiError('Anki is not connected'); return }
     const decks = await ankiGetDecks().catch(() => [])
@@ -6149,8 +6159,8 @@ Output ONLY raw JSON. No markdown, no backticks.`
     // First question — giving up finalizes the whole card and the Again rating auto-syncs to
     // Anki — confirm so a misclick doesn't record a review you didn't mean.
     if (!(await confirmDialog((cs.isConjugation || cs.noSync)
-      ? `Give up on "${cs.front}"? All remaining questions will be skipped and rated Again. Continue?`
-      : `Give up on "${cs.front}"? All its questions will be marked wrong and the card rated Again. This records the review in Anki right away. Continue?`
+      ? `Give up on "${shortFront(cs.front)}"? All remaining questions will be skipped and rated Again. Continue?`
+      : `Give up on "${shortFront(cs.front)}"? All its questions will be marked wrong and the card rated Again. This records the review in Anki right away. Continue?`
     ))) return
 
     setStudyHintLevel(0)
