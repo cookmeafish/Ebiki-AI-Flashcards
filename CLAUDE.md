@@ -538,8 +538,16 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   teach panel: the card back (`cardBackToHtml`), pronunciation, an AUTO-generated memory hook
   (more on demand — `learnMomentAnotherHook`), and a FOCUSED Ebi chat (`sendLearnChat` — explains
   from zero in the app language, knowledgeBlock(4000) + dialectRule, em-dash/shrimp-emoji stripped)
-  for the "but why…" a hook can't answer. Exit gate = typing the headword once
-  (`learnMomentTypedOk` — exact incl. accents, any "/"-form; typing is how it sticks). The card is
+  for the "but why…" a hook can't answer. Exit gate = typing once (typing is how it sticks) —
+  `learnMomentTypedOk` branches by mode kind: LANGUAGE = the headword, exact incl. accents, any
+  "/"-form (unchanged — typing the word IS the exercise); GENERAL = a short **KEY TERM**, because
+  the front can be a whole paragraph ("Vocal Fry vs. Upspeak: two vocal habits that…" must never be
+  the gate or the headline). `openLearnMoment` derives it instantly (front text before the first
+  `:.?!` break, capped) then a silent AI call picks the term actually worth typing (sees front/back
+  + mode name/description — catered per card and mode; fail-soft; `keyTermAlt` keeps the fallback
+  accepted so a late AI term can't invalidate what the user already typed). General typing forgives
+  case/spacing/trailing punctuation. The panel headline shows `headWord` (headword / key term) and
+  general modes render the full front as a small paragraph above the back box. The card is
   re-queued ~2 cards ahead (`requeueForRelearn` inserts `{...card, _relearn:true}` into
   `studyAllCards` at `studyBatchIdx+2`; `pullNewCard` maps `_relearn` → `noSync: true, relearn:
   true`) as a PRACTICE pass — noSync guarantees the Again stays the card's ONLY Anki review. The
