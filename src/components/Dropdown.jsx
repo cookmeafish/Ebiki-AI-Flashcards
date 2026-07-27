@@ -41,7 +41,9 @@ export default function Dropdown({ value, onChange, options, style = {}, menuAli
     const maxH = Math.max(120, up ? above : below)
     let left = menuAlign === 'right' ? bRight - bWidth : bLeft
     left = Math.max(M, Math.min(left, vw - bWidth - M))
-    setMenu({ left, top: up ? undefined : bBottom + 4, bottom: up ? (vh - bTop + 4) : undefined, width: bWidth, maxH })
+    // maxW lets the menu grow past the button width for long option labels (mode
+    // names) without running off the right edge of the viewport.
+    setMenu({ left, top: up ? undefined : bBottom + 4, bottom: up ? (vh - bTop + 4) : undefined, width: bWidth, maxH, maxW: vw - left - M })
   }, [getZoom, menuAlign])
 
   const toggle = () => {
@@ -93,7 +95,8 @@ export default function Dropdown({ value, onChange, options, style = {}, menuAli
         <div ref={menuRef} role="listbox" style={{
           position: 'fixed', zIndex: 10000,
           left: menu.left, top: menu.top, bottom: menu.bottom,
-          width: menu.width, maxHeight: menu.maxH, overflowY: 'auto',
+          minWidth: menu.width, width: 'max-content', maxWidth: menu.maxW,
+          maxHeight: menu.maxH, overflowY: 'auto', overflowX: 'hidden',
           background: 'var(--c-surface)', border: '1px solid var(--c-border)',
           borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,.35)', padding: 4,
         }}>
@@ -104,6 +107,7 @@ export default function Dropdown({ value, onChange, options, style = {}, menuAli
                 onClick={() => { onChange(o.value); setOpen(false) }}
                 style={{
                   padding: '6px 10px', borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap', fontSize: 13,
+                  overflow: 'hidden', textOverflow: 'ellipsis',
                   fontWeight: selected ? 700 : 500, color: o.color || 'var(--c-ink)',
                   background: selected ? 'var(--c-brand-tint)' : 'transparent',
                   borderTop: o.divider ? '1px solid var(--c-border)' : undefined,
