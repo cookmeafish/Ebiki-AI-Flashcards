@@ -47,6 +47,21 @@ One **⚙ Settings** modal: `src/components/SettingsModal.jsx`. Sidebar split by
   first Chat visit (effect near `sendChatTabMessage`).
 - Header has a quick mode-switcher + the ⚙ button. Switching tabs closes the modal.
 
+## Data folder (optional shared data directory)
+All user data (config.json, ankiformat.json, modes/, decks/, chats/, discover/, cache/) resolves through
+`DATA_DIR` in `vite.config.js` — new server-side data paths MUST go through the `dataPath()` helper,
+never `path.resolve('…')`. Default = app root (single-computer, zero setup); overridden by the
+machine-local pointer `datadir.json` (gitignored) or the `EBIKI_DATA_DIR` env var, so several computers
+can run the app locally against ONE shared folder (e.g. an SMB share). `/api/datadir` GET/POST switches
+LIVE (no restart): mkdir → non-overwriting copy of `DATA_ENTRIES` into the target (a shared folder that
+already has data wins) → pointer write. ANTI-CONTAMINATION: leaving the app folder quarantines the local
+originals into `local-data-backup-<date>/` (renamed, never deleted) so exactly one live copy exists;
+returning to the app folder quarantines stale local leftovers BEFORE copying the shared state down.
+A shared folder is NEVER quarantined — another computer may be using it. UI = self-contained
+`DataFolderCard` in SettingsModal (fetches/POSTs `/api/datadir` directly; deliberately NOT on the
+config.json autosave path — config.json lives INSIDE the data folder). `.env` (API keys) and `logs/`
+stay machine-local on purpose. `/api/modes` re-derives `MODES_DIR` per request for the live switch.
+
 ## "Ask AI" mode edits (review flow)
 Cards and Study panes have an **Ask AI** box. It does NOT apply directly — `proposeModeEdit(instruction, scope)`
 (App.jsx) returns a proposal; the modal shows a **before/after word diff** (`diffWords`) with

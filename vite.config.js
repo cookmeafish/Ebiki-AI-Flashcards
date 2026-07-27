@@ -6,11 +6,32 @@ import http from 'http'
 import crypto from 'crypto'
 import { spawn } from 'child_process'
 
-const ENV_FILE = path.resolve('.env')
-const CONFIG_FILE = path.resolve('config.json')
-const ANKI_FORMAT_FILE = path.resolve('ankiformat.json')
-const MODES_DIR = path.resolve('modes')
-const LOG_DIR = path.resolve('logs')
+const ENV_FILE = path.resolve('.env')   // machine-local on purpose: API keys stay per computer
+const LOG_DIR = path.resolve('logs')    // machine-local on purpose: diagnostic logs
+const APP_ROOT = path.resolve('.')
+
+// ── Optional shared data directory ──────────────────────────────────────────
+// ALL user data (config.json, ankiformat.json, modes/, decks/, chats/,
+// discover/, cache/) lives under DATA_DIR. By default that is the app folder,
+// so a normal single-computer install needs no setup and behaves exactly as
+// before. Optionally (Settings > General > Data folder, or the EBIKI_DATA_DIR
+// env var) the user can point it at any folder — e.g. a mapped SMB share — so
+// several computers run the app locally but read/write the same data. The
+// pointer itself is machine-local (datadir.json, gitignored) because it
+// answers "where is my data?" per machine and cannot live inside the data.
+const DATA_DIR_POINTER = path.resolve('datadir.json')
+const DATA_ENTRIES = ['config.json', 'ankiformat.json', 'modes', 'decks', 'chats', 'discover', 'cache']
+function resolveDataDir() {
+  const env = (process.env.EBIKI_DATA_DIR || '').trim()
+  if (env) return path.resolve(env)
+  try {
+    const saved = String(JSON.parse(fs.readFileSync(DATA_DIR_POINTER, 'utf-8')).dataDir || '').trim()
+    if (saved) return path.resolve(saved)
+  } catch { /* no pointer file → app folder */ }
+  return APP_ROOT
+}
+let DATA_DIR = resolveDataDir()
+const dataPath = (...segs) => path.join(DATA_DIR, ...segs)
 
 function parseEnv() {
   if (!fs.existsSync(ENV_FILE)) return {}
@@ -44,14 +65,14 @@ function writeEnv(keys) {
 
 function readConfig() {
   try {
-    return fs.existsSync(CONFIG_FILE) ? JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8')) : {}
+    return fs.existsSync(dataPath('config.json')) ? JSON.parse(fs.readFileSync(dataPath('config.json'), 'utf-8')) : {}
   } catch { return {} }
 }
 
 function writeConfig(data) {
   const existing = readConfig()
   const merged = { ...existing, ...data }
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(merged, null, 2) + '\n', 'utf-8')
+  fs.writeFileSync(dataPath('config.json'), JSON.stringify(merged, null, 2) + '\n', 'utf-8')
 }
 
 function apiPlugin() {
@@ -151,15 +172,15 @@ function apiPlugin() {
         if (req.method === 'GET') {
           res.setHeader('Content-Type', 'application/json')
           try {
-            const data = fs.existsSync(ANKI_FORMAT_FILE)
-              ? fs.readFileSync(ANKI_FORMAT_FILE, 'utf-8')
+            const data = fs.existsSync(dataPath('ankiformat.json'))
+              ? fs.readFileSync(dataPath('ankiformat.json'), 'utf-8')
               : '{}'
             res.end(data)
           } catch { res.end('{}') }
         } else if (req.method === 'POST') {
           const handleBody = (bodyStr) => {
             try {
-              fs.writeFileSync(ANKI_FORMAT_FILE, bodyStr, 'utf-8')
+              fs.writeFileSync(dataPath('ankiformat.json'), bodyStr, 'utf-8')
               res.setHeader('Content-Type', 'application/json')
               res.end('{"ok":true}')
             } catch {
@@ -197,7 +218,7 @@ function apiPlugin() {
             const ttsUrl = String(readConfig().pronunciation?.ttsUrl || '').trim().replace(/\/+$/, '')
             if (!ttsUrl || !input || !voice) { res.statusCode = 404; res.end('tts not configured'); return }
             const key = crypto.createHash('sha1').update(`${input}|${lang || ''}|${voice}`).digest('hex')
-            const cacheDir = path.resolve('cache', 'tts')
+            const cacheDir = dataPath('cache', 'tts')
             const cacheFile = path.join(cacheDir, key + '.mp3')
             if (fs.existsSync(cacheFile)) {
               res.setHeader('Content-Type', 'audio/mpeg')
@@ -314,7 +335,7 @@ function apiPlugin() {
           const modeName = (url.searchParams.get('mode') || '').replace(/[<>:"/\\|?*]/g, '').replace(/\s+/g, ' ').trim()
           const ids = (url.searchParams.get('sections') || '').split(',').map((s) => parseInt(s, 10)).filter((n) => Number.isInteger(n) && n >= 0).slice(0, 8)
           const cap = Math.min(200000, parseInt(url.searchParams.get('cap'), 10) || 60000)
-          const all = readKnowledgeFiles(path.join(MODES_DIR, modeName, 'knowledge'))
+          const all = readKnowledgeFiles(dataPath('modes', modeName, 'knowledge'))
           const outline = extractOutline(all)
           const content = sliceSections(all.filter((f) => !TOC_NAME_RE.test(f.name)), outline, ids, cap)
           res.end(JSON.stringify({ content, titles: ids.map((i) => outline[i]?.title).filter(Boolean) }))
@@ -331,7 +352,7 @@ function apiPlugin() {
         const url = new URL(req.url, 'http://x')
         const modeName = url.searchParams.get('mode') || ''
         const sanitized = (modeName || '').replace(/[<>:"/\\|?*]/g, '').replace(/\s+/g, ' ').trim()
-        const knowledgeDir = path.join(MODES_DIR, sanitized, 'knowledge')
+        const knowledgeDir = dataPath('modes', sanitized, 'knowledge')
 
         if (!sanitized) { res.end(JSON.stringify({ files: [], content: null, fileCount: 0 })); return }
 
@@ -402,6 +423,7 @@ function apiPlugin() {
       // Each mode: modes/<sanitized-name>/config.json
       // Meta: modes/_meta.json
       server.middlewares.use('/api/modes', (req, res) => {
+        const MODES_DIR = dataPath('modes')   // resolved per request so a live data-dir switch takes effect
         if (!fs.existsSync(MODES_DIR)) fs.mkdirSync(MODES_DIR, { recursive: true })
         const metaFile = path.join(MODES_DIR, '_meta.json')
 
@@ -596,7 +618,7 @@ function apiPlugin() {
           const handleBody = (bodyStr) => {
             try {
               const { dir } = JSON.parse(bodyStr)
-              const full = path.resolve(dir)
+              const full = path.resolve(DATA_DIR, dir)
               if (!fs.existsSync(full)) fs.mkdirSync(full, { recursive: true })
               res.setHeader('Content-Type', 'application/json')
               res.end(JSON.stringify({ ok: true, path: full }))
@@ -607,6 +629,79 @@ function apiPlugin() {
           }
           if (req.body) { handleBody(typeof req.body === 'string' ? req.body : JSON.stringify(req.body)) }
           else { let b = ''; req.on('data', c => b += c); req.on('end', () => handleBody(b)) }
+        } else { res.statusCode = 405; res.end('') }
+      })
+
+      // ── Data folder endpoint (optional shared data directory) ───────────
+      // GET → where the data lives now and how that was decided.
+      // POST {dataDir} → switch LIVE (no restart): create the folder, copy any
+      //   data entry the target doesn't already have (never overwrites — a
+      //   shared folder that already has data wins), persist the machine-local
+      //   pointer. When leaving the APP FOLDER, the just-copied local originals
+      //   are quarantined into local-data-backup-<date>/ so a stale local copy
+      //   can never be silently read again (nothing is deleted). A shared
+      //   folder is NEVER quarantined — another computer may be using it;
+      //   switching back to local instead copies the current shared state down.
+      // POST {dataDir: ''} → back to the app folder (default).
+      server.middlewares.use('/api/datadir', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+        const envOverride = (process.env.EBIKI_DATA_DIR || '').trim()
+        if (req.method === 'GET') {
+          res.end(JSON.stringify({ dataDir: DATA_DIR, appRoot: APP_ROOT, isDefault: DATA_DIR === APP_ROOT, envOverride: !!envOverride }))
+        } else if (req.method === 'POST') {
+          let body = ''
+          req.on('data', (c) => { body += c })
+          req.on('end', () => {
+            try {
+              if (envOverride) { res.statusCode = 409; res.end(JSON.stringify({ error: 'The EBIKI_DATA_DIR environment variable is set and overrides this setting. Unset it to change the data folder here.' })); return }
+              const raw = String(JSON.parse(body || '{}').dataDir || '').trim()
+              const next = raw ? path.resolve(raw) : APP_ROOT
+              if (next === DATA_DIR) { res.end(JSON.stringify({ ok: true, dataDir: DATA_DIR, isDefault: DATA_DIR === APP_ROOT, copied: [], backedUpTo: null })); return }
+              fs.mkdirSync(next, { recursive: true })
+              const prev = DATA_DIR
+              // Quarantine the APP FOLDER's own live copies into a dated backup
+              // (never a shared folder — another computer may be using it).
+              const quarantineLocal = () => {
+                const backupDir = path.join(APP_ROOT, `local-data-backup-${new Date().toISOString().slice(0, 10)}`)
+                let moved = null
+                for (const entry of DATA_ENTRIES) {
+                  const from = path.join(APP_ROOT, entry)
+                  if (!fs.existsSync(from)) continue
+                  fs.mkdirSync(backupDir, { recursive: true })
+                  let dest = path.join(backupDir, entry)
+                  let n = 2
+                  while (fs.existsSync(dest)) dest = path.join(backupDir, `${entry}-${n++}`)
+                  fs.renameSync(from, dest)
+                  moved = backupDir
+                }
+                return moved
+              }
+              let backedUpTo = null
+              // Returning to the app folder: stale local leftovers must go BEFORE
+              // the copy, or they would shadow the current shared state.
+              if (next === APP_ROOT) backedUpTo = quarantineLocal()
+              const copied = []
+              for (const entry of DATA_ENTRIES) {
+                const from = path.join(prev, entry)
+                const to = path.join(next, entry)
+                if (fs.existsSync(from) && !fs.existsSync(to)) {
+                  fs.cpSync(from, to, { recursive: true })
+                  copied.push(entry)
+                }
+              }
+              // Leaving the app folder: quarantine the just-copied local originals
+              // so ONE live copy of the data exists from here on.
+              if (prev === APP_ROOT) backedUpTo = quarantineLocal()
+              if (next === APP_ROOT) {
+                if (fs.existsSync(DATA_DIR_POINTER)) fs.unlinkSync(DATA_DIR_POINTER)
+              } else {
+                fs.writeFileSync(DATA_DIR_POINTER, JSON.stringify({ dataDir: next }, null, 2) + '\n', 'utf-8')
+              }
+              DATA_DIR = next
+              console.log('[Data dir] switched to', next, copied.length ? `(copied: ${copied.join(', ')})` : '(target already had data)', backedUpTo ? `local originals moved to ${backedUpTo}` : '')
+              res.end(JSON.stringify({ ok: true, dataDir: next, isDefault: next === APP_ROOT, copied, backedUpTo }))
+            } catch (e) { res.statusCode = 400; res.end(JSON.stringify({ error: e.message })) }
+          })
         } else { res.statusCode = 405; res.end('') }
       })
 
@@ -639,7 +734,7 @@ function apiPlugin() {
           const url = new URL(req.url, 'http://localhost')
           const deck = url.searchParams.get('deck')
           if (!deck) { res.statusCode = 400; res.end(JSON.stringify({ error: 'deck required' })); return }
-          const file = path.resolve('decks', deck, 'progress-observations.md')
+          const file = dataPath('decks', deck, 'progress-observations.md')
           res.setHeader('Content-Type', 'application/json')
           if (fs.existsSync(file)) {
             res.end(JSON.stringify({ content: fs.readFileSync(file, 'utf8') }))
@@ -652,9 +747,9 @@ function apiPlugin() {
           req.on('end', () => {
             try {
               const { deck, content } = JSON.parse(body)
-              const dir = path.resolve('decks', deck)
+              const dir = dataPath('decks', deck)
               if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-              fs.writeFileSync(path.resolve(dir, 'progress-observations.md'), content, 'utf8')
+              fs.writeFileSync(path.join(dir, 'progress-observations.md'), content, 'utf8')
               console.log('[Deck Progress] saved for:', deck)
               res.setHeader('Content-Type', 'application/json')
               res.end(JSON.stringify({ ok: true }))
@@ -674,7 +769,7 @@ function apiPlugin() {
         const mode = (url.searchParams.get('mode') || '').replace(/[^a-zA-Z0-9._-]/g, '-')
         res.setHeader('Content-Type', 'application/json')
         if (!kind || !mode) { res.statusCode = 400; res.end(JSON.stringify({ error: 'kind and mode required' })); return }
-        const file = path.resolve('discover', `${kind}__${mode}.json`)
+        const file = dataPath('discover', `${kind}__${mode}.json`)
         if (req.method === 'GET') {
           if (fs.existsSync(file)) res.end(JSON.stringify({ content: fs.readFileSync(file, 'utf8') }))
           else res.end(JSON.stringify({ content: '' }))
@@ -684,7 +779,7 @@ function apiPlugin() {
           req.on('end', () => {
             try {
               const { content } = JSON.parse(body)
-              const dir = path.resolve('discover')
+              const dir = dataPath('discover')
               if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
               fs.writeFileSync(file, content, 'utf8')
               res.end(JSON.stringify({ ok: true }))
@@ -698,7 +793,7 @@ function apiPlugin() {
 
       // Chat sessions — saved to chats/ folder
       server.middlewares.use('/api/chats', (req, res) => {
-        const chatsDir = path.resolve('chats')
+        const chatsDir = dataPath('chats')
         if (!fs.existsSync(chatsDir)) fs.mkdirSync(chatsDir, { recursive: true })
 
         if (req.method === 'GET') {
@@ -753,7 +848,7 @@ function apiPlugin() {
         const url = new URL(req.url, 'http://localhost')
         const id = url.searchParams.get('id')
         if (!id) { res.statusCode = 400; res.end(JSON.stringify({ error: 'id required' })); return }
-        const file = path.resolve('chats', `${id}.json`)
+        const file = dataPath('chats', `${id}.json`)
         res.setHeader('Content-Type', 'application/json')
         if (fs.existsSync(file)) {
           res.end(fs.readFileSync(file, 'utf8'))
@@ -816,7 +911,7 @@ export default defineConfig({
       // vite.config.js must be ignored too: on this share the watcher fires a
       // phantom change event on it after every restart → infinite restart loop.
       // Config edits therefore require a manual dev-server restart.
-      ignored: ['**/.env', '**/config.json', '**/ankiformat.json', '**/vite.config.js', '**/modes/**', '**/decks/**', '**/chats/**'],
+      ignored: ['**/.env', '**/config.json', '**/ankiformat.json', '**/vite.config.js', '**/datadir.json', '**/modes/**', '**/decks/**', '**/chats/**', '**/local-data-backup-*/**'],
     },
   },
 })
