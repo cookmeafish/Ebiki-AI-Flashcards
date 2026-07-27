@@ -12,7 +12,7 @@ export default function OnboardingWizard(p) {
   const {
     t, onFinish,
     appLanguage, setAppLanguage, appTheme, setAppTheme,
-    provider, setProvider, apiKeys, apiKey, setCurrentKey, providerConfig,
+    provider, setProvider, apiKeys, apiKey, setCurrentKey, providerConfig, presetModel,
     createMode, modeCreating,
     aiModels, setAiModels,
     intelligence, setIntelligence,
@@ -117,8 +117,11 @@ export default function OnboardingWizard(p) {
           <div style={sub}>{t('obIntelBody')} ({providerConfig.label})</div>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 22, flexWrap: 'wrap' }}>
             {[
-              { key: 'normal', title: t('obIntelNormal'), model: providerConfig.presets?.normal || providerConfig.questionModel, desc: t('obIntelNormalDesc') },
-              { key: 'max', title: t('obIntelMax'), model: providerConfig.presets?.max || providerConfig.questionModel, desc: t('obIntelMaxDesc') },
+              // presetModel resolves to the newest model in the tier's family (adopted silently as
+              // soon as the key was entered on the previous step), so a new user is shown and put on
+              // current models instead of whatever constant providers.js shipped with.
+              { key: 'normal', title: t('obIntelNormal'), model: presetModel?.('normal') || providerConfig.presets?.normal || providerConfig.questionModel, desc: t('obIntelNormalDesc') },
+              { key: 'max', title: t('obIntelMax'), model: presetModel?.('max') || providerConfig.presets?.max || providerConfig.questionModel, desc: t('obIntelMaxDesc') },
             ].map((opt) => {
               const active = (intelligence || 'normal') === opt.key
               return (
