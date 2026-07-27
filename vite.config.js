@@ -813,7 +813,10 @@ export default defineConfig({
       // Native fs.watch fails on this drive (network/mapped volume) — poll instead
       usePolling: true,
       interval: 300,
-      ignored: ['**/.env', '**/config.json', '**/ankiformat.json', '**/modes/**', '**/decks/**', '**/chats/**'],
+      // vite.config.js must be ignored too: on this share the watcher fires a
+      // phantom change event on it after every restart → infinite restart loop.
+      // Config edits therefore require a manual dev-server restart.
+      ignored: ['**/.env', '**/config.json', '**/ankiformat.json', '**/vite.config.js', '**/modes/**', '**/decks/**', '**/chats/**'],
     },
   },
 })
