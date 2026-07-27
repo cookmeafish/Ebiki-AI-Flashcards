@@ -8,9 +8,12 @@ export const PROVIDERS = {
     modelsUrl: 'https://docs.anthropic.com/en/docs/about-claude/models/overview',
     billingUrl: 'https://console.anthropic.com/settings/plans',
     model: 'claude-haiku-4-5-20251001',
-    questionModel: 'claude-sonnet-4-6',
+    questionModel: 'claude-sonnet-5',
     // Intelligence presets — every feature uses one of these (Normal = balanced, Max = most capable).
-    presets: { normal: 'claude-sonnet-4-6', max: 'claude-opus-4-8' },
+    // These are only the FLOOR. modelPresets (App.jsx) overrides them with whatever the provider's
+    // live list says is newest in the same family, so a stale constant here can no longer pin the
+    // whole app to an old model the way claude-opus-4-8 did after claude-opus-5 shipped.
+    presets: { normal: 'claude-sonnet-5', max: 'claude-opus-5' },
     // List the model ids currently offered by the provider (newest first).
     listModels: async (apiKey) => {
       const resp = await fetch('https://api.anthropic.com/v1/models?limit=1000', {

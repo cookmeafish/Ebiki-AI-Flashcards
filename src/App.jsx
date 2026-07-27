@@ -3,6 +3,7 @@ import Tesseract from 'tesseract.js'
 import { TRANSLATE_PROMPT, VISION_OCR_PROMPT, WORDLIST_TRANSLATE_PROMPT, WORD_ENRICH_PROMPT, LANGUAGE_CARD_PROMPT, GENERIC_CARD_PROMPT, POS_COLORS, CATEGORY_COLORS } from './config/prompts'
 import { dataUrlToImagePart, downscaleDataUrl, estimateImageNoise } from './utils/image'
 import { PROVIDERS } from './config/providers'
+import { pickUpgrade, pickNewest } from './config/modelVersions'
 import { LANGS } from './config/languages'
 import { makeT, APP_LANGUAGES } from './i18n'
 import { pickShrimp, shrimpUrl, DEFAULT_SHRIMP, IDLE_SHRIMP, POSE_NAMES, poseFile } from './config/shrimp'
@@ -209,6 +210,19 @@ export default function App() {
   // Global intelligence preset: 'normal' (balanced, ~Sonnet) | 'max' (most capable, ~Opus, slower/pricier).
   // Every feature defaults to this provider's preset model unless a per-feature override is set.
   const [intelligence, setIntelligence] = useState('normal')
+  // ─── Live model currency (see the "Staying on current models" block near resolveModel) ─────
+  // Adopted newest-in-family models per provider+tier: { [provider]: { normal, max } }. These
+  // SHADOW providers.js `presets`, so adopting once heals EVERY feature at once (every role
+  // derives from a preset) rather than one role at a time.
+  const [modelPresets, setModelPresets] = useState({})
+  // Last model the user said "No" to, per provider+tier: { [provider]: { normal, max } }. Stored
+  // as an id, not a boolean, so a DECLINED release stays declined while a still-newer one can
+  // still surface later.
+  const [rejectedModels, setRejectedModels] = useState({})
+  // Epoch ms of the last provider model-list check. Gates the once-a-day poll.
+  const [lastModelCheck, setLastModelCheck] = useState(0)
+  // Pending "a newer model shipped" prompt: { provider, tier, from, to } or null.
+  const [modelUpgrade, setModelUpgrade] = useState(null)
   // Auto-sync study ratings to Anki N min after each card is graded (then lock it). When off, ratings
   // only sync via the manual "Sync now" button or on Finish/Exit. Global settings (config.json).
   const [studyAutoSync, setStudyAutoSync] = useState(true)
@@ -672,15 +686,24 @@ export default function App() {
   // These helpers are called from memoized callbacks that don't list aiModels as
   // a dependency, so read the live values from a ref rather than a stale closure.
   const aiStateRef = useRef({})
-  aiStateRef.current = { provider, aiModels, apiKeys, intelligence }
+  aiStateRef.current = { provider, aiModels, apiKeys, intelligence, modelPresets, rejectedModels }
+
+  // ─── Staying on current models ─────────────────────────────────────────────
+  // The tier a feature runs on is ALWAYS resolved through presetModel(), never straight off
+  // providers.js. That single indirection is what lets one adopted model heal the whole app:
+  // every role in ROLE_DEFAULTS derives from a preset, so replacing the preset replaces the model
+  // in Picture, Deck, Study, Discover, Chat, Help and General at once. Explicit per-role overrides
+  // in Settings still win over all of this. See `src/config/modelVersions.js` for the comparison.
+  const presetModel = (pc, prov, tier) =>
+    aiStateRef.current.modelPresets?.[prov]?.[tier] || pc?.presets?.[tier] || pc?.questionModel || pc?.model
   // Per-feature model roles. Each app area can run its own model (and provider).
   // Defaults: cheap/fast model for high-volume areas, stronger model where quality matters.
   // Every feature defaults to the provider's selected intelligence preset (Normal/Max), so the
   // whole app is one consistent tier. Exception: `pose` is a tiny classifier that fires on EVERY
   // message — it always uses the cheaper Normal preset so Max mode doesn't blow up cost/latency.
-  const ROLE_DEFAULTS = (pc, intel = 'normal') => {
-    const m = pc.presets?.[intel] || pc.questionModel || pc.model
-    const normal = pc.presets?.normal || pc.questionModel || pc.model
+  const ROLE_DEFAULTS = (pc, intel = 'normal', prov = aiStateRef.current.provider) => {
+    const m = presetModel(pc, prov, intel)
+    const normal = presetModel(pc, prov, 'normal')
     return { general: m, picture: m, deck: m, study: m, discover: m, chat: m, help: m, pose: normal }
   }
   // UI metadata for the AI Settings panel — order + labels + hints.
@@ -697,7 +720,7 @@ export default function App() {
   const resolveModel = (role, prov = aiStateRef.current.provider) => {
     const pc = PROVIDERS[prov]
     const overrides = aiStateRef.current.aiModels[prov]
-    return (overrides && overrides[role]) || ROLE_DEFAULTS(pc, aiStateRef.current.intelligence)[role]
+    return (overrides && overrides[role]) || ROLE_DEFAULTS(pc, aiStateRef.current.intelligence, prov)[role]
   }
   // Like resolveModel, but for latency-sensitive roles: unless the user EXPLICITLY overrode the
   // role in Settings → AI models, prefer the provider's fast "normal" preset even on Max
@@ -706,7 +729,7 @@ export default function App() {
   const resolveModelFast = (role, prov = aiStateRef.current.provider) => {
     const pc = PROVIDERS[prov]
     const overrides = aiStateRef.current.aiModels[prov]
-    return (overrides && overrides[role]) || pc?.presets?.normal || ROLE_DEFAULTS(pc, aiStateRef.current.intelligence)[role]
+    return (overrides && overrides[role]) || presetModel(pc, prov, 'normal') || ROLE_DEFAULTS(pc, aiStateRef.current.intelligence, prov)[role]
   }
 
   // Ask the provider for its current model list (used by the "Check for new models"
@@ -750,7 +773,9 @@ export default function App() {
     const strong = role !== 'general'
     // Per-provider family preference, ordered best→worst, for the strong vs cheap tier.
     const PREF = {
-      anthropic: strong ? ['sonnet', 'opus', 'haiku'] : ['haiku', 'sonnet', 'opus'],
+      // Strong tier leads with opus: this list used to start with 'sonnet', so healing the Max
+      // slot quietly dropped it to a Sonnet.
+      anthropic: strong ? ['opus', 'sonnet', 'haiku'] : ['haiku', 'sonnet', 'opus'],
       openai:    strong ? ['gpt-4o', 'gpt-4.1', 'gpt-4-turbo', 'gpt-4', 'gpt-4o-mini'] : ['gpt-4o-mini', 'gpt-4.1-mini', 'gpt-4o'],
       gemini:    strong ? ['2.5-pro', '1.5-pro', 'pro', '2.5-flash', '2.0-flash', 'flash'] : ['2.0-flash', '2.5-flash', 'flash', 'pro'],
       grok:      strong ? ['grok-4', 'grok-3', 'grok-2-vision', 'grok-2'] : ['grok-3-mini', 'grok-4-mini', 'grok-3', 'grok-4'],
@@ -805,10 +830,106 @@ export default function App() {
     const prov = aiStateRef.current.provider
     const replacement = await discoverCurrentModel(role)
     if (!replacement || replacement === failedModel) return null
-    setAiModels((prev) => ({ ...prev, [prov]: { ...(prev[prov] || {}), [role]: replacement } }))
-    setModelHealNotice(`${role} model "${failedModel}" was unavailable. Switched to "${replacement}".`)
+    // Heal at the widest scope that still matches what actually broke. If the dead id was a TIER
+    // (which is the usual case, since every role defaults to a preset), replace the preset so all
+    // eight roles recover from this one failure instead of erroring one by one. Only a model the
+    // user pinned to a single role is healed at role scope.
+    const pc = PROVIDERS[prov]
+    const healedTier = ['normal', 'max'].find((tier) => presetModel(pc, prov, tier) === failedModel)
+    if (healedTier && !(aiStateRef.current.aiModels[prov] || {})[role]) {
+      setModelPresets((prev) => ({ ...prev, [prov]: { ...(prev[prov] || {}), [healedTier]: replacement } }))
+    } else {
+      setAiModels((prev) => ({ ...prev, [prov]: { ...(prev[prov] || {}), [role]: replacement } }))
+    }
+    setModelHealNotice(t('modelHealed', { from: failedModel, to: replacement }))
     return replacement
   }
+
+  // ─── Daily "a newer model shipped" check ───────────────────────────────────
+  // The retirement heal above only fires on a 404, so a model that still WORKS but is a
+  // generation behind never moved. This poll is the other half: once a day, ask the active
+  // provider what exists now and compare against the tier we run.
+  const MODEL_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000
+
+  // Newest same-family model per tier, or null when we're already current.
+  // `respectRejections` is false during onboarding, where there is nothing to respect yet.
+  const findModelUpgrades = async (prov, { respectRejections = true } = {}) => {
+    const pc = PROVIDERS[prov]
+    const key = aiStateRef.current.apiKeys[prov]
+    if (!pc?.listModels || !key) return []
+    let ids = []
+    try { ids = await pc.listModels(key) } catch { return [] } // offline / bad key: try again tomorrow
+    if (!Array.isArray(ids) || !ids.length) return []
+
+    const found = []
+    for (const tier of ['normal', 'max']) {
+      const current = presetModel(pc, prov, tier)
+      const next = respectRejections
+        ? pickUpgrade(current, ids, aiStateRef.current.rejectedModels?.[prov]?.[tier])
+        : pickNewest(current, ids)
+      if (next) found.push({ provider: prov, tier, from: current, to: next })
+    }
+    return found
+  }
+
+  // Adopt a model for a tier. Writing the PRESET (not a role) is what makes this apply in every
+  // place the tier is used.
+  const adoptModel = ({ provider: prov, tier, to }) => {
+    setModelPresets((prev) => ({ ...prev, [prov]: { ...(prev[prov] || {}), [tier]: to } }))
+    setModelUpgrade(null)
+  }
+
+  // Remember the exact id the user declined. Anything at or below it is filtered out from now on;
+  // a release NEWER than it still gets to ask.
+  const declineModel = ({ provider: prov, tier, to }) => {
+    setRejectedModels((prev) => ({ ...prev, [prov]: { ...(prev[prov] || {}), [tier]: to } }))
+    setModelUpgrade(null)
+  }
+
+  // Poll once a day for the active provider only. Skipped entirely until onboarding is done: a new
+  // user is put straight onto the newest model (see the onboarding effect), so there is no older
+  // choice to reconcile and no version history to ask them about.
+  useEffect(() => {
+    if (!configLoaded || !keysLoaded || !onboarded) return
+    if (!apiKeys[provider] || modelUpgrade) return
+    if (Date.now() - (lastModelCheck || 0) < MODEL_CHECK_INTERVAL_MS) return
+    let cancelled = false
+    ;(async () => {
+      const upgrades = await findModelUpgrades(provider)
+      if (cancelled) return
+      setLastModelCheck(Date.now()) // stamp even when empty, so a current app polls once a day
+      if (upgrades.length) setModelUpgrade(upgrades[0])
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configLoaded, keysLoaded, onboarded, provider, apiKeys, lastModelCheck])
+
+  // ─── Onboarding: silently start on the newest models, never ask ────────────
+  // A brand-new user has no prior model to be attached to and no context to judge a version
+  // prompt, so asking "claude-opus-4-8 or claude-opus-5?" is noise. As soon as a key is entered
+  // (the provider step sits before the intelligence step) we resolve the newest model in each
+  // tier's family and adopt it outright. The intelligence step then RENDERS those ids, so the
+  // picker shows current models rather than whatever constant providers.js happened to ship with.
+  const onboardModelsRef = useRef({})
+  useEffect(() => {
+    if (!configLoaded || !keysLoaded || onboarded) return
+    const key = apiKeys[provider]
+    if (!key || onboardModelsRef.current[provider] === key) return
+    onboardModelsRef.current[provider] = key // one resolve per provider+key, not per keystroke
+    let cancelled = false
+    ;(async () => {
+      const newest = await findModelUpgrades(provider, { respectRejections: false })
+      if (cancelled || !newest.length) return
+      setModelPresets((prev) => {
+        const next = { ...(prev[provider] || {}) }
+        for (const u of newest) next[u.tier] = u.to
+        return { ...prev, [provider]: next }
+      })
+      setLastModelCheck(Date.now()) // already current, so don't re-poll on first launch
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configLoaded, keysLoaded, onboarded, provider, apiKeys])
 
   // Wrapper around providerConfig.call that injects the configured model and
   // self-heals retired models. modelOverride (when given) is the question-tier
@@ -932,6 +1053,9 @@ export default function App() {
       setApiKeys(keys)
       if (config.provider) setProvider(config.provider)
       if (config.aiModels) setAiModels(config.aiModels)
+      if (config.modelPresets) setModelPresets(config.modelPresets)
+      if (config.rejectedModels) setRejectedModels(config.rejectedModels)
+      if (Number.isFinite(config.lastModelCheck)) setLastModelCheck(config.lastModelCheck)
       if (config.availableModels) setAvailableModels(config.availableModels)
       if (config.appLanguage) setAppLanguage(config.appLanguage)
       if (config.appTheme) setAppTheme(config.appTheme)
@@ -1105,9 +1229,9 @@ export default function App() {
     fetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider, aiModels, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, intelligence, studyAutoSync, studyAutoSyncMinutes, overlayEnabled, pronunciation: pronunciationCfg, onboarded, ...(activeTab ? { activeTab } : {}) }),
+      body: JSON.stringify({ provider, aiModels, modelPresets, rejectedModels, lastModelCheck, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, intelligence, studyAutoSync, studyAutoSyncMinutes, overlayEnabled, pronunciation: pronunciationCfg, onboarded, ...(activeTab ? { activeTab } : {}) }),
     }).catch(() => {})
-  }, [provider, aiModels, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, intelligence, studyAutoSync, studyAutoSyncMinutes, overlayEnabled, pronunciationCfg, onboarded, activeTab, configLoaded])
+  }, [provider, aiModels, modelPresets, rejectedModels, lastModelCheck, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, intelligence, studyAutoSync, studyAutoSyncMinutes, overlayEnabled, pronunciationCfg, onboarded, activeTab, configLoaded])
 
   // Auto-launch the overlay once on startup when the persisted preference is ON (default).
   const overlayAutoLaunchedRef = useRef(false)
@@ -8803,6 +8927,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           appTheme={appTheme} setAppTheme={setAppTheme}
           provider={provider} setProvider={setProvider}
           apiKeys={apiKeys} apiKey={apiKey} setCurrentKey={setCurrentKey} providerConfig={providerConfig}
+          presetModel={(tier) => presetModel(providerConfig, provider, tier)}
           createMode={createMode} modeCreating={modeCreating}
           aiModels={aiModels} setAiModels={setAiModels}
           intelligence={intelligence} setIntelligence={setIntelligence}
@@ -8825,6 +8950,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           apiKeys={apiKeys} apiKey={apiKey} setCurrentKey={setCurrentKey} providerConfig={providerConfig}
           AI_ROLE_META={AI_ROLE_META} ROLE_DEFAULTS={ROLE_DEFAULTS}
           aiModels={aiModels} setAiModels={setAiModels} availableModels={availableModels}
+          presetModel={(tier) => presetModel(providerConfig, provider, tier)}
           refreshModels={refreshModels} modelsLoading={modelsLoading} modelsError={modelsError}
           intelligence={intelligence} setIntelligence={setIntelligence}
           studyAutoSync={studyAutoSync} setStudyAutoSync={setStudyAutoSync}
@@ -12052,6 +12178,43 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               <button onClick={() => resolveConfirm(true)} autoFocus className="btn-press"
                 style={{ ...S.captureBtn, borderRadius: 8, fontSize: 12, padding: '7px 18px' }}>
                 OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* "A newer model shipped" prompt. Only ever reaches an ONBOARDED user (new users are put
+          straight onto the newest model, silently). Yes adopts it for the whole tier; No records
+          the id so this exact release never asks again, while a later one still can. There is no
+          backdrop-dismiss and no Esc: an ignored prompt would re-fire tomorrow, so the user
+          answers once and we honour it. */}
+      {modelUpgrade && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 10002, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn .12s ease' }}>
+          <div style={{
+            background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg,
+            padding: '18px 20px', maxWidth: 460, width: 'calc(90vw / 1.35)', boxShadow: SHADOW.lg,
+            display: 'flex', flexDirection: 'column', gap: 12, animation: 'pop .18s cubic-bezier(.34,1.56,.64,1)',
+          }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--c-ink)', fontFamily: FONT.display }}>
+              ✨ {t('modelUpgradeTitle')}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--c-ink)', lineHeight: 1.6 }}>
+              {t('modelUpgradeBody', {
+                from: modelUpgrade.from,
+                to: modelUpgrade.to,
+                tier: modelUpgrade.tier === 'max' ? t('obIntelMax') : t('obIntelNormal'),
+              })}
+            </div>
+            <div style={{ fontSize: 11, color: C.inkDim, lineHeight: 1.5 }}>{t('modelUpgradeNote')}</div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <button onClick={() => declineModel(modelUpgrade)} className="ui-btn"
+                style={{ ...S.ghostBtn, fontSize: 12, padding: '7px 16px', color: 'var(--c-ink-dim)' }}>
+                {t('modelUpgradeNo', { from: modelUpgrade.from })}
+              </button>
+              <button onClick={() => adoptModel(modelUpgrade)} autoFocus className="btn-press"
+                style={{ ...S.captureBtn, borderRadius: 8, fontSize: 12, padding: '7px 18px' }}>
+                {t('modelUpgradeYes', { to: modelUpgrade.to })}
               </button>
             </div>
           </div>

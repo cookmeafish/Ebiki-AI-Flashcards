@@ -973,11 +973,14 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   Chat, Study, Deck, Discover, Picture (vision), pose, AND **Ebi's Help** (HelpChat takes an `askAI` prop =
   `aiCall(..., resolveModel('help'))`) all work on Anthropic / OpenAI / Gemini / Grok.
 - **Intelligence preset (global `intelligence` = `normal` | `max`, in `config.json`):** each provider has
-  `presets: { normal, max }` (Anthropic sonnet-4-6/opus-4-8; OpenAI gpt-4o/gpt-4.1; Gemini 2.5-flash/2.5-pro;
-  Grok grok-3/grok-4 — all vision-capable). `ROLE_DEFAULTS(pc, intel)` makes **every feature** default to that
-  one preset model (standardized, no per-role tiering) — EXCEPT `pose`, which always uses the `normal` preset
-  (it fires on every message; Max shouldn't blow up its cost/latency). Per-feature overrides in Settings still
-  win. Chosen in **onboarding** (after the provider step) and switchable in **Settings → AI models**.
+  `presets: { normal, max }` (Anthropic sonnet-5/opus-5; OpenAI gpt-4o/gpt-4.1; Gemini 2.5-flash/2.5-pro;
+  Grok grok-3/grok-4 — all vision-capable). `ROLE_DEFAULTS(pc, intel, prov)` makes **every feature** default to
+  that one preset model (standardized, no per-role tiering) — EXCEPT `pose`, which always uses the `normal`
+  preset (it fires on every message; Max shouldn't blow up its cost/latency). Per-feature overrides in Settings
+  still win. Chosen in **onboarding** (after the provider step) and switchable in **Settings → AI models**.
+  **NEVER read `pc.presets[tier]` directly — go through `presetModel(pc, prov, tier)`** (App.jsx, next to
+  `resolveModel`), which lets the live-model layer below shadow the constant. The providers.js values are a
+  FLOOR, not the truth.
 - **No forced JSON.** OpenAI/Gemini do NOT set `response_format`/`responseMimeType` — that would break
   free-form chat/help (OpenAI even errors unless the prompt says "json"). JSON roles rely on the prompt +
   `parseAiJson()`, exactly like Claude.
@@ -986,8 +989,29 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   "Unexpected non-whitespace character after JSON" (bulk-edit preview). `parseAiJson` strips noise,
   repairs light slop, and salvages complete objects from truncated arrays — an 18-site sweep converted
   every old call.
-- **Self-heal for ALL providers:** `discoverCurrentModel` (App.jsx) uses each provider's `listModels()` +
-  a tier family preference, so a stale/unavailable default id 404s → auto-switches to a current model.
+- **Staying on current models — TWO mechanisms, don't confuse them.** The old retirement heal was long
+  mistaken for "keeps us on the newest model"; it never was, which is how the app sat on `claude-opus-4-8`
+  for two generations after `claude-opus-5` shipped. A model that still WORKS never errors, so nothing ever
+  fired.
+  1. **Retirement heal (reactive).** `healRetiredModel` runs only from `aiCall`'s catch, only when
+     `isRetiredModelError` matches a 404/not-found, and uses `discoverCurrentModel` (each provider's
+     `listModels()` + a tier family preference). It now heals at **preset scope** when the dead id was a
+     tier — one failure fixes all eight roles, not just the one that happened to error.
+  2. **Daily currency check (proactive).** `findModelUpgrades` polls the ACTIVE provider's `listModels()`
+     at most once per 24h (`lastModelCheck`, persisted) and compares via `src/config/modelVersions.js`
+     (`parseModelId`/`compareModels`/`pickUpgrade`, vitest-covered in `modelVersions.test.js`). A strictly
+     newer model in the **same family** (opus→opus; never opus→haiku, never opus→fable, never a `-preview`
+     build) raises a Yes/No modal. **Yes** → `adoptModel` writes `modelPresets[prov][tier]`, which shadows
+     providers.js and so heals EVERY feature at once. **No** → `declineModel` records the rejected model
+     **id** (not a boolean) in `rejectedModels`, so that release never asks again but a still-newer one
+     may. Both persist in `config.json`.
+  - **Onboarding never asks.** A new user has no prior model to weigh, so as soon as the key is entered
+    the wizard silently resolves and adopts the newest in each tier (`pickNewest`) and the intelligence
+    step renders those ids. The daily check is gated behind `onboarded`.
+  - `src/config/modelVersions.js` is PURE and provider-agnostic (classifies id segments rather than
+    positionally parsing, so `claude-3-5-sonnet` and `claude-sonnet-4-6` share a family). Version arrays
+    compare left-to-right, so `[5]` beats `[4,8]`; a dateless alias and its dated snapshot compare EQUAL so
+    the app never nags a user onto a pinned build. Extend the tests when adding a provider id shape.
 
 ## Commits
 - The user prefers **no Claude attribution** in commit messages.

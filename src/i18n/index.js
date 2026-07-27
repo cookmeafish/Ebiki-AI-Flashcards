@@ -39,6 +39,12 @@ const en = {
   checkNewModels: 'Check for new models',
   checkingModels: 'Checking…',
   checkNewModelsHint: 'Fetch the latest available models from the provider.',
+  modelUpgradeTitle: 'A newer AI model is available',
+  modelUpgradeBody: 'Ebi uses {from} for the "{tier}" setting. {to} has been released since. Switch to it?',
+  modelUpgradeNote: 'If you say no, Ebi will not ask about this model again. It will only ask again when something newer than it comes out.',
+  modelUpgradeYes: 'Yes, use {to}',
+  modelUpgradeNo: 'No, keep {from}',
+  modelHealed: 'The model {from} was unavailable. Switched to {to}.',
   providerDefault: 'Provider default',
   keysStored: 'Keys stored locally only',
   // ── Settings modal (English; other languages fall back here) ──
@@ -422,6 +428,12 @@ const es = {
   checkNewModels: 'Buscar nuevos modelos',
   checkingModels: 'Buscando…',
   checkNewModelsHint: 'Obtener los últimos modelos disponibles del proveedor.',
+  modelUpgradeTitle: 'Hay un modelo de IA más nuevo',
+  modelUpgradeBody: 'Ebi usa {from} para la opción "{tier}". Desde entonces salió {to}. ¿Quieres cambiar?',
+  modelUpgradeNote: 'Si dices que no, Ebi no volverá a preguntar por este modelo. Solo preguntará cuando salga uno más nuevo que este.',
+  modelUpgradeYes: 'Sí, usar {to}',
+  modelUpgradeNo: 'No, seguir con {from}',
+  modelHealed: 'El modelo {from} no estaba disponible. Se cambió a {to}.',
   providerDefault: 'Predeterminado del proveedor',
   keysStored: 'Las claves se guardan solo en localStorage',
   aiRole_picture: 'Imagen',
@@ -700,6 +712,12 @@ const zh = {
   checkNewModels: '检查新模型',
   checkingModels: '检查中…',
   checkNewModelsHint: '从提供商获取最新可用模型。',
+  modelUpgradeTitle: '有更新的 AI 模型',
+  modelUpgradeBody: 'Ebi 的"{tier}"设置目前使用 {from}。之后已发布 {to}。要切换吗？',
+  modelUpgradeNote: '如果选择否，Ebi 不会再询问这个模型。只有出现比它更新的模型时才会再次询问。',
+  modelUpgradeYes: '好，使用 {to}',
+  modelUpgradeNo: '否，继续用 {from}',
+  modelHealed: '模型 {from} 不可用。已切换到 {to}。',
   providerDefault: '提供商默认',
   keysStored: '密钥仅保存在 localStorage 中',
   aiRole_picture: '图片',
@@ -978,6 +996,12 @@ const ja = {
   checkNewModels: '新しいモデルを確認',
   checkingModels: '確認中…',
   checkNewModelsHint: 'プロバイダーから最新の利用可能モデルを取得します。',
+  modelUpgradeTitle: '新しい AI モデルがあります',
+  modelUpgradeBody: 'Ebi は「{tier}」設定に {from} を使っています。その後 {to} がリリースされました。切り替えますか？',
+  modelUpgradeNote: 'いいえを選ぶと、Ebi はこのモデルについて二度と尋ねません。これより新しいモデルが出たときだけ再度尋ねます。',
+  modelUpgradeYes: 'はい、{to} を使う',
+  modelUpgradeNo: 'いいえ、{from} のまま',
+  modelHealed: 'モデル {from} は利用できませんでした。{to} に切り替えました。',
   providerDefault: 'プロバイダー既定',
   keysStored: 'キーは localStorage にのみ保存されます',
   aiRole_picture: '画像',
@@ -1162,7 +1186,13 @@ const ja = {
 const DICTS = { en, es, zh, ja }
 
 // Build a t() bound to a language. Falls back: lang → English → key.
+// Optional `vars` interpolates {placeholders}; an unknown placeholder is left as-is so a missing
+// value shows the token rather than "undefined". Callers that pass no vars are unaffected.
 export function makeT(lang) {
   const dict = DICTS[lang] || en
-  return (key) => (dict[key] != null ? dict[key] : (en[key] != null ? en[key] : key))
+  return (key, vars) => {
+    const raw = dict[key] != null ? dict[key] : (en[key] != null ? en[key] : key)
+    if (!vars) return raw
+    return String(raw).replace(/\{(\w+)\}/g, (m, k) => (vars[k] != null ? String(vars[k]) : m))
+  }
 }

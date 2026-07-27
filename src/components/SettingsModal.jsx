@@ -20,7 +20,7 @@ export default function SettingsModal(p) {
     language, setLanguage, targetLang, setTargetLang, onRunSetup,
     // AI Models (global)
     provider, setProvider, apiKeys, apiKey, setCurrentKey, providerConfig,
-    AI_ROLE_META, ROLE_DEFAULTS, aiModels, setAiModels, availableModels,
+    AI_ROLE_META, ROLE_DEFAULTS, aiModels, setAiModels, availableModels, presetModel,
     refreshModels, modelsLoading, modelsError, intelligence, setIntelligence,
     studyAutoSync, setStudyAutoSync, studyAutoSyncMinutes, setStudyAutoSyncMinutes,
     // Modes
@@ -247,8 +247,8 @@ export default function SettingsModal(p) {
           <div style={{ fontSize: 10, color: C.inkDim, marginBottom: 8 }}>Sets the default model for every feature at once. Per-feature overrides below still win.</div>
           <div style={{ display: 'flex', gap: 8 }}>
             {[
-              { key: 'normal', title: 'Normal', desc: `Balanced & fast (${providerConfig.presets?.normal || providerConfig.questionModel})` },
-              { key: 'max', title: 'More intelligent', desc: `Most capable, slower & more tokens (${providerConfig.presets?.max || providerConfig.questionModel})` },
+              { key: 'normal', title: 'Normal', desc: `Balanced & fast (${presetModel?.('normal') || providerConfig.presets?.normal || providerConfig.questionModel})` },
+              { key: 'max', title: 'More intelligent', desc: `Most capable, slower & more tokens (${presetModel?.('max') || providerConfig.presets?.max || providerConfig.questionModel})` },
             ].map((opt) => {
               const active = (intelligence || 'normal') === opt.key
               return (
