@@ -809,6 +809,11 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true,
-    watch: { ignored: ['**/.env', '**/config.json', '**/ankiformat.json', '**/modes/**', '**/decks/**', '**/chats/**'] },
+    watch: {
+      // Native fs.watch fails on this drive (network/mapped volume) — poll instead
+      usePolling: true,
+      interval: 300,
+      ignored: ['**/.env', '**/config.json', '**/ankiformat.json', '**/modes/**', '**/decks/**', '**/chats/**'],
+    },
   },
 })
