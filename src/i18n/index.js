@@ -156,6 +156,18 @@ const en = {
   themeDark: 'Dark',
   appLanguageHint: 'Translates the app interface (tabs, buttons, labels). Flashcard content is never changed.',
 
+  // Data folder (optional shared data directory)
+  dataFolder: 'Data folder',
+  dataFolderAppFolder: 'App folder on this computer (default)',
+  dataFolderPlaceholder: 'e.g. Z:\\ebiki-data or \\\\server\\share\\ebiki-data',
+  dataFolderApply: 'Use this folder',
+  dataFolderReset: 'Back to the app folder',
+  dataFolderSaved: 'Data folder updated. It applies immediately.',
+  dataFolderCopied: 'Copied over: {items}.',
+  dataFolderBackup: 'The old local copies were moved to {dir} (nothing is deleted).',
+  dataFolderEnvNote: 'The data folder is set by the EBIKI_DATA_DIR environment variable on this computer. Unset it to change the folder here.',
+  dataFolderHint: 'Optional. By default all your data (settings, learning modes, chats, knowledge files, progress notes) stays in the app folder on this computer and there is nothing to set up. To use the app from several computers with the same data: pick a folder every computer can reach (for example a network share mapped as a drive), then enter that same path here on each computer. Your existing data is copied over the first time. API keys and logs always stay on each computer.',
+
   // Study session setup
   studySession: 'Study Session',
   mode: 'Mode',
@@ -451,6 +463,18 @@ const es = {
   themeDark: 'Oscuro',
   appLanguageHint: 'Traduce la interfaz (pestañas, botones, etiquetas). El contenido de las tarjetas nunca cambia.',
 
+  // Carpeta de datos (directorio de datos compartido opcional)
+  dataFolder: 'Carpeta de datos',
+  dataFolderAppFolder: 'Carpeta de la app en este equipo (predeterminada)',
+  dataFolderPlaceholder: 'p. ej. Z:\\ebiki-datos o \\\\servidor\\recurso\\ebiki',
+  dataFolderApply: 'Usar esta carpeta',
+  dataFolderReset: 'Volver a la carpeta de la app',
+  dataFolderSaved: 'Carpeta de datos actualizada. Se aplica al instante.',
+  dataFolderCopied: 'Copiado: {items}.',
+  dataFolderBackup: 'Las copias locales antiguas se movieron a {dir} (no se borra nada).',
+  dataFolderEnvNote: 'La carpeta de datos la define la variable de entorno EBIKI_DATA_DIR en este equipo. Quítala para cambiarla aquí.',
+  dataFolderHint: 'Opcional. Por defecto todos tus datos (ajustes, modos, chats, archivos de conocimiento, notas de progreso) se quedan en la carpeta de la app de este equipo y no hay nada que configurar. Para usar la app desde varios equipos con los mismos datos: elige una carpeta accesible desde todos (por ejemplo un recurso de red montado como unidad) y escribe la misma ruta aquí en cada equipo. Tus datos se copian la primera vez. Las claves de API y los registros siempre se quedan en cada equipo.',
+
   studySession: 'Sesión de estudio',
   mode: 'Modo',
   deck: 'Mazo',
@@ -735,6 +759,18 @@ const zh = {
   themeDark: '深色',
   appLanguageHint: '翻译应用界面（标签、按钮、文字），卡片内容不会被更改。',
 
+  // 数据文件夹（可选的共享数据目录）
+  dataFolder: '数据文件夹',
+  dataFolderAppFolder: '本机应用文件夹（默认）',
+  dataFolderPlaceholder: '例如 Z:\\ebiki-data 或 \\\\server\\share\\ebiki-data',
+  dataFolderApply: '使用此文件夹',
+  dataFolderReset: '恢复为应用文件夹',
+  dataFolderSaved: '数据文件夹已更新，立即生效。',
+  dataFolderCopied: '已复制：{items}。',
+  dataFolderBackup: '旧的本地数据已移动到 {dir}（不会删除任何内容）。',
+  dataFolderEnvNote: '本机的数据文件夹由 EBIKI_DATA_DIR 环境变量指定。要在这里修改，请先取消该变量。',
+  dataFolderHint: '可选。默认情况下你的所有数据（设置、学习模式、聊天、知识库文件、进度笔记）都保存在本机的应用文件夹里，无需任何设置。想在多台电脑上使用同一份数据：选择一个所有电脑都能访问的文件夹（例如映射为盘符的网络共享），在每台电脑上填入同一路径。首次会自动复制现有数据。API 密钥和日志始终保留在各自电脑上。',
+
   studySession: '学习会话',
   mode: '模式',
   deck: '卡组',
@@ -1018,6 +1054,18 @@ const ja = {
   themeLight: 'ライト',
   themeDark: 'ダーク',
   appLanguageHint: 'アプリのUI（タブ・ボタン・ラベル）を翻訳します。カードの内容は変更されません。',
+
+  // データフォルダー（任意の共有データディレクトリ）
+  dataFolder: 'データフォルダー',
+  dataFolderAppFolder: 'このPCのアプリフォルダー（既定）',
+  dataFolderPlaceholder: '例: Z:\\ebiki-data または \\\\server\\share\\ebiki-data',
+  dataFolderApply: 'このフォルダーを使う',
+  dataFolderReset: 'アプリフォルダーに戻す',
+  dataFolderSaved: 'データフォルダーを更新しました。すぐに反映されます。',
+  dataFolderCopied: 'コピー済み: {items}。',
+  dataFolderBackup: '以前のローカルデータは {dir} に移動しました（削除はされません）。',
+  dataFolderEnvNote: 'このPCでは環境変数 EBIKI_DATA_DIR がデータフォルダーを指定しています。ここで変更するには変数を解除してください。',
+  dataFolderHint: '任意設定です。既定ではすべてのデータ（設定・学習モード・チャット・知識ファイル・進捗メモ）はこのPCのアプリフォルダーに保存され、設定は不要です。複数のPCで同じデータを使うには: すべてのPCからアクセスできるフォルダー（ドライブに割り当てたネットワーク共有など）を選び、各PCでここに同じパスを入力します。初回に既存データが自動でコピーされます。APIキーとログは各PCに残ります。',
 
   studySession: '学習セッション',
   mode: 'モード',

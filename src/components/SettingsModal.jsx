@@ -6,6 +6,70 @@ import { langInfo } from '../pronunciation/langcodes'
 import { PROVIDERS } from '../config/providers'
 import { APP_LANGUAGES } from '../i18n'
 
+// ── Data folder (optional shared data directory) ──
+// Self-contained: talks to /api/datadir directly. The data-folder pointer is
+// machine-local server plumbing (it says where THIS computer's data lives), so
+// it must not ride the config.json autosave — config.json itself lives inside
+// the data folder. Applies live; no restart needed.
+function DataFolderCard({ t, card, fieldLabel, hint }) {
+  const [info, setInfo] = useState(null)      // { dataDir, appRoot, isDefault, envOverride }
+  const [input, setInput] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState(null)  // { ok: message } | { error: message }
+  useEffect(() => {
+    fetch('/api/datadir').then((r) => r.json()).then(setInfo).catch(() => {})
+  }, [])
+  const apply = async (dir) => {
+    setBusy(true); setResult(null)
+    try {
+      const r = await fetch('/api/datadir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dataDir: dir }) })
+      const data = await r.json()
+      if (!data.ok) { setResult({ error: data.error || 'error' }); return }
+      setInfo((i) => ({ ...i, dataDir: data.dataDir, isDefault: data.isDefault }))
+      setInput('')
+      const parts = [t('dataFolderSaved')]
+      if (data.copied?.length) parts.push(t('dataFolderCopied', { items: data.copied.join(', ') }))
+      if (data.backedUpTo) parts.push(t('dataFolderBackup', { dir: data.backedUpTo }))
+      setResult({ ok: parts.join(' ') })
+    } catch (e) { setResult({ error: String(e.message || e) }) }
+    finally { setBusy(false) }
+  }
+  const canApply = !busy && input.trim()
+  return (
+    <div style={card}>
+      {fieldLabel(t('dataFolder'))}
+      <div style={{ fontSize: 12, color: C.ink, fontWeight: 600, marginBottom: 8, overflowWrap: 'anywhere' }}>
+        {info && !info.isDefault ? <>🔗 {info.dataDir}</> : <>📁 {t('dataFolderAppFolder')}</>}
+      </div>
+      {info?.envOverride ? (
+        <div style={hint}>{t('dataFolderEnvNote')}</div>
+      ) : (
+        <>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input value={input} onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && canApply) apply(input.trim()) }}
+              placeholder={t('dataFolderPlaceholder')} disabled={busy}
+              style={{ ...S.keyInput, flex: 1, fontSize: 12 }} />
+            <button onClick={() => canApply && apply(input.trim())} disabled={!canApply}
+              style={{ ...S.getKeyLink, opacity: canApply ? 1 : 0.5, cursor: canApply ? 'pointer' : 'default' }}>
+              {busy ? '…' : t('dataFolderApply')}
+            </button>
+          </div>
+          {info && !info.isDefault && (
+            <button onClick={() => apply('')} disabled={busy}
+              style={{ ...S.ghostBtn, fontSize: 11, marginTop: 8, opacity: busy ? 0.5 : 1, cursor: busy ? 'default' : 'pointer' }}>
+              ↩ {t('dataFolderReset')}
+            </button>
+          )}
+          {result?.ok && <div style={{ fontSize: 11, color: C.success, marginTop: 8, lineHeight: 1.5, overflowWrap: 'anywhere' }}>✓ {result.ok}</div>}
+          {result?.error && <div style={{ fontSize: 11, color: C.danger, marginTop: 8, lineHeight: 1.5, overflowWrap: 'anywhere' }}>⚠ {result.error}</div>}
+          <div style={hint}>{t('dataFolderHint')}</div>
+        </>
+      )}
+    </div>
+  )
+}
+
 // Unified Settings modal. Left sidebar = categories grouped by scope (APP vs MODE);
 // right pane = the selected category. All state/handlers come from App via `p`.
 //
@@ -194,6 +258,7 @@ export default function SettingsModal(p) {
             : 'Off: ratings only reach Anki when you press “Sync now” during study, or when you finish / exit the session. Nothing auto-locks.'}
         </div>
       </div>
+      <DataFolderCard t={t} card={card} fieldLabel={fieldLabel} hint={hint} />
       {onRunSetup && (
         <button onClick={onRunSetup} style={{ ...S.ghostBtn, fontSize: 12 }}>↻ {t('runSetupAgain')}</button>
       )}

@@ -140,6 +140,27 @@ Opens at `http://localhost:3000`. (Run the commands **inside** the `Ebiki-AI-Fla
 
 > **Display sizing:** the UI applies a default 1.35× zoom so the fixed pixel layout reads comfortably on typical Windows displays — view at 100% browser zoom. Overlay mode is exempt (it stays 1:1 with screen pixels so OCR boxes line up).
 
+## Sharing your data between computers (optional)
+
+By default all of your data — settings, learning modes, chats, knowledge files, progress notes and the TTS cache — lives inside the app folder on the computer you run it on. **If you only use one computer, there is nothing to set up and nothing changes.**
+
+If you use the app on several computers, you can point them all at one **shared data folder** so they read and write the same settings, modes and chats:
+
+1. **Pick a folder every computer can reach.** Typically a folder on one machine (or a NAS) shared over the network (SMB) and mapped to a drive letter on the others — e.g. `Z:\ebiki-data`. A folder inside a synced drive also works.
+2. **Run the app locally on each computer** (clone + `npm run dev`). The app itself should run from a local disk; only the data is shared.
+3. Open **Settings → General → Data folder**, enter the shared path (e.g. `Z:\ebiki-data` or `\\server\share\ebiki-data`) and click **Use this folder**. Repeat on each computer.
+
+What happens when you switch:
+
+- The change applies **immediately** — no restart needed.
+- The first computer to switch **copies its existing data into the shared folder**; computers that switch later adopt whatever the shared folder already contains (existing shared data is never overwritten).
+- The old local copies are moved into a dated `local-data-backup-…` folder inside the app folder — nothing is deleted, and the app can no longer accidentally read stale local data.
+- **API keys (`.env`) and diagnostic logs stay on each computer.** Every machine keeps its own keys.
+- The choice is stored per computer in `datadir.json` (gitignored). The `EBIKI_DATA_DIR` environment variable overrides it when set.
+- **Back to the app folder** in the same settings card returns to single-computer mode, copying the current shared state down to this machine.
+
+> **Tip:** avoid actively editing on two computers at the exact same moment — saves are whole-file, so simultaneous edits to the same mode or chat can drop one side's change. Taking turns is fine.
+
 ## Supported AI Providers
 
 Models below are the **defaults**; each feature (Picture / Deck / Study / Discover / Chat / Help / **Mascot** / General) is overridable per provider via dropdowns in AI Settings — or type a custom model id. The **Mascot** role picks Ebi's pose from each AI response and defaults to the cheapest model. Use **Check for new models** to refresh the list from the provider's API, and retired models auto-switch to a current one.
