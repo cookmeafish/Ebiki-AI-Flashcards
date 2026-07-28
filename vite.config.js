@@ -76,6 +76,33 @@ function sourceOnlySummary(from, to) {
   return { modes, decks, chats: chats.length, discover: discover.length, has: !!has }
 }
 
+// This computer's OWN data, stashed here while a shared folder is in use. It lets
+// "Back to the app folder" restore what this machine had before it joined a share
+// (rather than keeping a copy of the shared data). Gitignored, hidden by the dot.
+const LOCAL_HOME = path.join(APP_ROOT, '.local-home')
+const dataEntriesPresent = (dir) => DATA_ENTRIES.some((e) => fs.existsSync(path.join(dir, e)))
+// Move every data entry from `srcDir` into `destDir`. NEVER deletes: if `destDir`
+// already holds an entry, that existing copy is parked in a dated backup first.
+function moveDataEntries(srcDir, destDir) {
+  let moved = 0
+  for (const entry of DATA_ENTRIES) {
+    const from = path.join(srcDir, entry)
+    if (!fs.existsSync(from)) continue
+    const to = path.join(destDir, entry)
+    if (fs.existsSync(to)) {
+      const backupDir = path.join(APP_ROOT, `local-data-backup-${new Date().toISOString().slice(0, 10)}`)
+      fs.mkdirSync(backupDir, { recursive: true })
+      let dest = path.join(backupDir, entry); let n = 2
+      while (fs.existsSync(dest)) dest = path.join(backupDir, `${entry}-${n++}`)
+      fs.renameSync(to, dest)
+    }
+    fs.mkdirSync(path.dirname(to), { recursive: true })
+    fs.renameSync(from, to)
+    moved++
+  }
+  return moved
+}
+
 function parseEnv() {
   if (!fs.existsSync(ENV_FILE)) return {}
   const lines = fs.readFileSync(ENV_FILE, 'utf-8').split('\n')
@@ -677,20 +704,23 @@ function apiPlugin() {
 
       // ── Data folder endpoint (optional shared data directory) ───────────
       // GET → where the data lives now and how that was decided.
-      // POST {dataDir} → switch LIVE (no restart). If the target folder already
-      //   has data AND this computer has items the target lacks, the server
-      //   makes NO change and replies {needsChoice, sourceOnly} so the UI can
-      //   ask; the client re-POSTs with an explicit `merge`:
-      //     merge:true  → union this computer's data into the target (existing
-      //                   target files are NEVER overwritten — the shared copy
-      //                   wins), so local-only modes/chats/decks are added.
-      //     merge:false → adopt the target as-is; copy only entries it wholly
-      //                   lacks. This computer's extra items stay in the backup.
-      //   Either way, persist the machine-local pointer and (when leaving the
-      //   APP FOLDER) quarantine the local originals into local-data-backup-
-      //   <date>/ so exactly one live copy exists (nothing is deleted). A shared
-      //   folder is NEVER quarantined — another computer may be using it.
-      // POST {dataDir: ''} → back to the app folder (default); never prompts.
+      // POST {dataDir} → switch LIVE (no restart). Two directions, each offering
+      //   a merge choice the client resolves by re-POSTing with explicit `merge`:
+      //   • JOIN a shared folder (from the app folder or another share): if the
+      //     target already has data and this computer has items it lacks, reply
+      //     {needsChoice, context:'join', sourceOnly}. merge:true unions this
+      //     computer's data into the target (target files are NEVER overwritten);
+      //     merge:false adopts the target as-is. Joining FROM the app folder
+      //     stashes this computer's own data in .local-home/ so it can come back.
+      //   • RETURN to the app folder ({dataDir:''}): restore this computer's OWN
+      //     stashed data (what it had before it joined a share) — not a copy of
+      //     the shared data. If the share gained items the stash lacks, reply
+      //     {needsChoice, context:'return', sourceOnly}; merge:true also copies
+      //     those shared extras into this computer, merge:false restores the
+      //     stash only. With no stash (this machine only ever used a share), the
+      //     shared data is copied down so local isn't empty.
+      //   Nothing is ever deleted — collisions are parked in local-data-backup-
+      //   <date>/. A shared folder is only ever written to by an explicit merge:true.
       server.middlewares.use('/api/datadir', (req, res) => {
         res.setHeader('Content-Type', 'application/json')
         const envOverride = (process.env.EBIKI_DATA_DIR || '').trim()
@@ -706,66 +736,54 @@ function apiPlugin() {
               const raw = String(parsed.dataDir || '').trim()
               const merge = parsed.merge   // true | false | undefined (ask)
               const next = raw ? path.resolve(raw) : APP_ROOT
-              if (next === DATA_DIR) { res.end(JSON.stringify({ ok: true, dataDir: DATA_DIR, isDefault: DATA_DIR === APP_ROOT, copied: [], merged: 0, backedUpTo: null })); return }
+              if (next === DATA_DIR) { res.end(JSON.stringify({ ok: true, unchanged: true, dataDir: DATA_DIR, isDefault: DATA_DIR === APP_ROOT, copied: [], merged: 0, restored: false })); return }
               const prev = DATA_DIR
-              // Joining a NON-empty shared folder with local-only data, and the
-              // user hasn't chosen yet → ask instead of acting. (Never for the
-              // reset-to-app-folder case, which just copies the shared state down.)
-              if (next !== APP_ROOT && merge === undefined) {
-                const targetHasData = DATA_ENTRIES.some((e) => fs.existsSync(path.join(next, e)))
-                if (targetHasData) {
-                  const sourceOnly = sourceOnlySummary(prev, next)
-                  if (sourceOnly.has) { res.end(JSON.stringify({ needsChoice: true, dataDir: next, sourceOnly })); return }
-                }
-              }
-              fs.mkdirSync(next, { recursive: true })
-              // Quarantine the APP FOLDER's own live copies into a dated backup
-              // (never a shared folder — another computer may be using it).
-              const quarantineLocal = () => {
-                const backupDir = path.join(APP_ROOT, `local-data-backup-${new Date().toISOString().slice(0, 10)}`)
-                let moved = null
-                for (const entry of DATA_ENTRIES) {
-                  const from = path.join(APP_ROOT, entry)
-                  if (!fs.existsSync(from)) continue
-                  fs.mkdirSync(backupDir, { recursive: true })
-                  let dest = path.join(backupDir, entry)
-                  let n = 2
-                  while (fs.existsSync(dest)) dest = path.join(backupDir, `${entry}-${n++}`)
-                  fs.renameSync(from, dest)
-                  moved = backupDir
-                }
-                return moved
-              }
-              let backedUpTo = null
-              // Returning to the app folder: stale local leftovers must go BEFORE
-              // the copy, or they would shadow the current shared state.
-              if (next === APP_ROOT) backedUpTo = quarantineLocal()
-              const copied = []
-              let merged = 0
-              for (const entry of DATA_ENTRIES) {
-                const from = path.join(prev, entry)
-                const to = path.join(next, entry)
-                if (!fs.existsSync(from)) continue
-                if (merge === true) {
-                  // Union: add every file the target is missing (target wins).
-                  merged += mergeMissing(from, to)
-                } else if (!fs.existsSync(to)) {
-                  // Adopt / fresh target: copy only wholly-absent entries.
-                  fs.cpSync(from, to, { recursive: true })
-                  copied.push(entry)
-                }
-              }
-              // Leaving the app folder: quarantine the just-copied local originals
-              // so ONE live copy of the data exists from here on.
-              if (prev === APP_ROOT) backedUpTo = quarantineLocal()
+              let copied = []; let merged = 0; let restored = false
+
               if (next === APP_ROOT) {
+                // ── RETURN to the app folder: restore THIS computer's own data ──
+                if (dataEntriesPresent(LOCAL_HOME)) {
+                  // Before restoring, offer to also pull down anything the share
+                  // gained that this computer's stash doesn't have.
+                  if (prev !== APP_ROOT && merge === undefined) {
+                    const sourceOnly = sourceOnlySummary(prev, LOCAL_HOME)
+                    if (sourceOnly.has) { res.end(JSON.stringify({ needsChoice: true, context: 'return', dataDir: next, sourceOnly })); return }
+                  }
+                  moveDataEntries(LOCAL_HOME, APP_ROOT)   // restore home (parks any stray app-folder data)
+                  restored = true
+                  if (merge === true && prev !== APP_ROOT) {
+                    for (const entry of DATA_ENTRIES) merged += mergeMissing(path.join(prev, entry), path.join(APP_ROOT, entry))
+                  }
+                } else {
+                  // No stash (this machine only ever used a share): copy it down.
+                  for (const entry of DATA_ENTRIES) {
+                    const from = path.join(prev, entry)
+                    if (fs.existsSync(from) && !fs.existsSync(path.join(APP_ROOT, entry))) { fs.cpSync(from, path.join(APP_ROOT, entry), { recursive: true }); copied.push(entry) }
+                  }
+                }
                 if (fs.existsSync(DATA_DIR_POINTER)) fs.unlinkSync(DATA_DIR_POINTER)
               } else {
+                // ── JOIN a shared folder (from the app folder or another share) ──
+                if (merge === undefined && DATA_ENTRIES.some((e) => fs.existsSync(path.join(next, e)))) {
+                  const sourceOnly = sourceOnlySummary(prev, next)
+                  if (sourceOnly.has) { res.end(JSON.stringify({ needsChoice: true, context: 'join', dataDir: next, sourceOnly })); return }
+                }
+                fs.mkdirSync(next, { recursive: true })
+                for (const entry of DATA_ENTRIES) {
+                  const from = path.join(prev, entry)
+                  const to = path.join(next, entry)
+                  if (!fs.existsSync(from)) continue
+                  if (merge === true) merged += mergeMissing(from, to)          // union (target wins)
+                  else if (!fs.existsSync(to)) { fs.cpSync(from, to, { recursive: true }); copied.push(entry) }
+                }
+                // Coming FROM the app folder: stash this computer's own data so a
+                // later return restores it instead of the shared data.
+                if (prev === APP_ROOT) moveDataEntries(APP_ROOT, LOCAL_HOME)
                 fs.writeFileSync(DATA_DIR_POINTER, JSON.stringify({ dataDir: next }, null, 2) + '\n', 'utf-8')
               }
               DATA_DIR = next
-              console.log('[Data dir] switched to', next, merge === true ? `(merged ${merged} files in)` : copied.length ? `(copied: ${copied.join(', ')})` : '(target already had data)', backedUpTo ? `local originals moved to ${backedUpTo}` : '')
-              res.end(JSON.stringify({ ok: true, dataDir: next, isDefault: next === APP_ROOT, copied, merged, backedUpTo }))
+              console.log('[Data dir] switched to', next, restored ? "(restored this computer's data)" : merge === true ? `(merged ${merged} files)` : copied.length ? `(copied: ${copied.join(', ')})` : '')
+              res.end(JSON.stringify({ ok: true, dataDir: next, isDefault: next === APP_ROOT, copied, merged, restored }))
             } catch (e) { res.statusCode = 400; res.end(JSON.stringify({ error: e.message })) }
           })
         } else { res.statusCode = 405; res.end('') }
