@@ -33,23 +33,65 @@ function resolveDataDir() {
 let DATA_DIR = resolveDataDir()
 const dataPath = (...segs) => path.join(DATA_DIR, ...segs)
 
-// Recursively copy every file under `from` into `to` that `to` does NOT already
-// have. Existing files in `to` are never overwritten — the target/shared copy
-// always wins on a conflict; only genuinely missing files are added. Returns the
-// number of files added. This is the union-merge used when a computer joins a
-// shared folder that already has data.
-function mergeMissing(from, to) {
-  if (!fs.existsSync(from)) return 0
+// Deep-merge two parsed JSON values so BOTH sides are preserved: objects merge
+// key-by-key (recursively), arrays are unioned (dedup by value), and a scalar
+// that genuinely differs keeps the target's value (a single field can't hold two
+// values — this is the only non-additive case, and it's a preference, not lost
+// content). Used for settings/metadata/learner-progress JSON.
+const isPlainObject = (v) => v && typeof v === 'object' && !Array.isArray(v)
+function deepMergeJson(target, source) {
+  if (Array.isArray(target) && Array.isArray(source)) {
+    const seen = new Set(target.map((x) => JSON.stringify(x)))
+    for (const item of source) { const k = JSON.stringify(item); if (!seen.has(k)) { target.push(item); seen.add(k) } }
+    return target
+  }
+  if (isPlainObject(target) && isPlainObject(source)) {
+    for (const key of Object.keys(source)) target[key] = (key in target) ? deepMergeJson(target[key], source[key]) : source[key]
+    return target
+  }
+  return target
+}
+
+// TRUE merge of `from` into `to` — never an overwrite, nothing is dropped:
+//   • a file/folder only on the `from` side is added,
+//   • a JSON file present on both is DEEP-MERGED (arrays unioned, objects merged),
+//     so e.g. a mode on both computers becomes ONE mode carrying both machines'
+//     question preferences, chat suggestions, learner progress, etc.,
+//   • a NON-JSON file present on both with identical bytes is skipped, and if it
+//     DIFFERS both are kept — the incoming one written alongside as
+//     "name (from <label>).ext" — so no text/knowledge file is ever clobbered,
+//   • directories recurse.
+// `acc` accumulates { added, merged, keptBoth } across the whole tree.
+function deepMergeInto(from, to, label, acc) {
+  if (!fs.existsSync(from)) return acc
   if (fs.statSync(from).isDirectory()) {
     fs.mkdirSync(to, { recursive: true })
-    let added = 0
-    for (const name of fs.readdirSync(from)) added += mergeMissing(path.join(from, name), path.join(to, name))
-    return added
+    for (const name of fs.readdirSync(from)) deepMergeInto(path.join(from, name), path.join(to, name), label, acc)
+    return acc
   }
-  if (fs.existsSync(to)) return 0
-  fs.mkdirSync(path.dirname(to), { recursive: true })
-  fs.copyFileSync(from, to)
-  return 1
+  if (!fs.existsSync(to)) {
+    fs.mkdirSync(path.dirname(to), { recursive: true })
+    fs.copyFileSync(from, to)
+    acc.added++
+    return acc
+  }
+  // Both exist as files.
+  if (to.toLowerCase().endsWith('.json') && from.toLowerCase().endsWith('.json')) {
+    try {
+      const before = fs.readFileSync(to, 'utf-8')
+      const merged = deepMergeJson(JSON.parse(before), JSON.parse(fs.readFileSync(from, 'utf-8')))
+      const out = JSON.stringify(merged, null, 2) + '\n'
+      if (out !== before) { fs.writeFileSync(to, out, 'utf-8'); acc.merged++ }
+      return acc
+    } catch { /* not valid JSON on one side → fall through to keep-both */ }
+  }
+  try { if (fs.readFileSync(from).equals(fs.readFileSync(to))) return acc } catch { /* unreadable → keep both */ }
+  const ext = path.extname(to); const base = path.basename(to, ext); const dir = path.dirname(to)
+  let dest = path.join(dir, `${base} (from ${label})${ext}`); let n = 2
+  while (fs.existsSync(dest)) dest = path.join(dir, `${base} (from ${label} ${n++})${ext}`)
+  fs.copyFileSync(from, dest)
+  acc.keptBoth++
+  return acc
 }
 
 // What does `from` have that `to` is missing, at the granularity the user sees in
@@ -738,7 +780,8 @@ function apiPlugin() {
               const next = raw ? path.resolve(raw) : APP_ROOT
               if (next === DATA_DIR) { res.end(JSON.stringify({ ok: true, unchanged: true, dataDir: DATA_DIR, isDefault: DATA_DIR === APP_ROOT, copied: [], merged: 0, restored: false })); return }
               const prev = DATA_DIR
-              let copied = []; let merged = 0; let restored = false
+              let copied = []; let restored = false
+              const acc = { added: 0, merged: 0, keptBoth: 0 }   // deep-merge tallies
 
               if (next === APP_ROOT) {
                 // ── RETURN to the app folder: restore THIS computer's own data ──
@@ -752,7 +795,7 @@ function apiPlugin() {
                   moveDataEntries(LOCAL_HOME, APP_ROOT)   // restore home (parks any stray app-folder data)
                   restored = true
                   if (merge === true && prev !== APP_ROOT) {
-                    for (const entry of DATA_ENTRIES) merged += mergeMissing(path.join(prev, entry), path.join(APP_ROOT, entry))
+                    for (const entry of DATA_ENTRIES) deepMergeInto(path.join(prev, entry), path.join(APP_ROOT, entry), 'the shared folder', acc)
                   }
                 } else {
                   // No stash (this machine only ever used a share): copy it down.
@@ -773,7 +816,7 @@ function apiPlugin() {
                   const from = path.join(prev, entry)
                   const to = path.join(next, entry)
                   if (!fs.existsSync(from)) continue
-                  if (merge === true) merged += mergeMissing(from, to)          // union (target wins)
+                  if (merge === true) deepMergeInto(from, to, 'this computer', acc)   // true deep merge (nothing dropped)
                   else if (!fs.existsSync(to)) { fs.cpSync(from, to, { recursive: true }); copied.push(entry) }
                 }
                 // Coming FROM the app folder: stash this computer's own data so a
@@ -782,8 +825,10 @@ function apiPlugin() {
                 fs.writeFileSync(DATA_DIR_POINTER, JSON.stringify({ dataDir: next }, null, 2) + '\n', 'utf-8')
               }
               DATA_DIR = next
-              console.log('[Data dir] switched to', next, restored ? "(restored this computer's data)" : merge === true ? `(merged ${merged} files)` : copied.length ? `(copied: ${copied.join(', ')})` : '')
-              res.end(JSON.stringify({ ok: true, dataDir: next, isDefault: next === APP_ROOT, copied, merged, restored }))
+              const merged = acc.added + acc.merged   // items brought in or combined
+              const keptBoth = acc.keptBoth           // conflicting files kept as a second copy
+              console.log('[Data dir] switched to', next, restored ? "(restored this computer's data)" : '', merge === true ? `(added ${acc.added}, combined ${acc.merged}, kept-both ${acc.keptBoth})` : copied.length ? `(copied: ${copied.join(', ')})` : '')
+              res.end(JSON.stringify({ ok: true, dataDir: next, isDefault: next === APP_ROOT, copied, merged, keptBoth, restored }))
             } catch (e) { res.statusCode = 400; res.end(JSON.stringify({ error: e.message })) }
           })
         } else { res.statusCode = 405; res.end('') }
