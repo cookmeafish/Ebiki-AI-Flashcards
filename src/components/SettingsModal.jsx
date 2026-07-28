@@ -16,18 +16,32 @@ function DataFolderCard({ t, card, fieldLabel, hint }) {
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState(null)  // { ok: message } | { error: message }
+  const [choice, setChoice] = useState(null)  // { dir, sourceOnly } — the merge/skip prompt
   useEffect(() => {
-    fetch('/api/datadir').then((r) => r.json()).then(setInfo).catch(() => {})
+    fetch('/api/datadir').then((r) => r.json()).then((d) => {
+      setInfo(d)
+      // Show the active shared path in the field so what's saved is unmistakable
+      // (the default app folder leaves the field empty with its placeholder).
+      if (d && !d.isDefault && !d.envOverride) setInput(d.dataDir)
+    }).catch(() => {})
   }, [])
-  const apply = async (dir) => {
-    setBusy(true); setResult(null)
+  // dir: target path ('' = back to app folder). merge: undefined asks the server,
+  // true = add this computer's data, false = adopt the folder's data as-is.
+  const apply = async (dir, merge) => {
+    setBusy(true); setResult(null); setChoice(null)
     try {
-      const r = await fetch('/api/datadir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dataDir: dir }) })
+      const body = { dataDir: dir }
+      if (merge !== undefined) body.merge = merge
+      const r = await fetch('/api/datadir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const data = await r.json()
+      if (data.needsChoice) { setChoice({ dir, sourceOnly: data.sourceOnly }); return }
       if (!data.ok) { setResult({ error: data.error || 'error' }); return }
       setInfo((i) => ({ ...i, dataDir: data.dataDir, isDefault: data.isDefault }))
-      setInput('')
+      // Keep the field reflecting the now-current selection (empty for default).
+      setInput(data.isDefault ? '' : data.dataDir)
       const parts = [t('dataFolderSaved')]
+      if (data.merged) parts.push(t('dataFolderMergedNote', { count: data.merged }))
+      else if (merge === false) parts.push(t('dataFolderSkippedNote'))
       if (data.copied?.length) parts.push(t('dataFolderCopied', { items: data.copied.join(', ') }))
       if (data.backedUpTo) parts.push(t('dataFolderBackup', { dir: data.backedUpTo }))
       setResult({ ok: parts.join(' ') })
@@ -35,6 +49,16 @@ function DataFolderCard({ t, card, fieldLabel, hint }) {
     finally { setBusy(false) }
   }
   const canApply = !busy && input.trim()
+  // Human-readable list of what this computer has that the target lacks.
+  const summaryLines = (s) => {
+    const names = (arr) => { const shown = arr.slice(0, 4).join(', '); return arr.length > 4 ? `${shown} +${arr.length - 4}` : shown }
+    const out = []
+    if (s.modes?.length) out.push(t('dataFolderMergeModes', { names: names(s.modes) }))
+    if (s.chats) out.push(t('dataFolderMergeChats', { count: s.chats }))
+    if (s.decks?.length) out.push(t('dataFolderMergeDecks', { names: names(s.decks) }))
+    if (s.discover) out.push(t('dataFolderMergeDiscover', { count: s.discover }))
+    return out
+  }
   return (
     <div style={card}>
       {fieldLabel(t('dataFolder'))}
@@ -60,6 +84,23 @@ function DataFolderCard({ t, card, fieldLabel, hint }) {
               style={{ ...S.ghostBtn, fontSize: 11, marginTop: 8, opacity: busy ? 0.5 : 1, cursor: busy ? 'default' : 'pointer' }}>
               ↩ {t('dataFolderReset')}
             </button>
+          )}
+          {choice && (
+            <div style={{ marginTop: 10, border: `1px solid ${C.warningRing || C.border}`, borderRadius: RADIUS.md, padding: '12px 14px', background: C.warningTint || C.surfaceAlt }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: C.ink, marginBottom: 6 }}>{t('dataFolderMergeHeading')}</div>
+              <div style={{ fontSize: 11, color: C.inkDim, marginBottom: 8, lineHeight: 1.5 }}>{t('dataFolderMergeBody')}</div>
+              <ul style={{ margin: '0 0 10px 0', paddingLeft: 18, fontSize: 11, color: C.ink, lineHeight: 1.6 }}>
+                {summaryLines(choice.sourceOnly).map((line, i) => <li key={i}>{line}</li>)}
+              </ul>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button onClick={() => apply(choice.dir, true)} disabled={busy}
+                  style={{ ...S.getKeyLink, fontSize: 11, opacity: busy ? 0.5 : 1 }}>{t('dataFolderMergeInBtn')}</button>
+                <button onClick={() => apply(choice.dir, false)} disabled={busy}
+                  style={{ ...S.ghostBtn, fontSize: 11, opacity: busy ? 0.5 : 1 }}>{t('dataFolderMergeSkipBtn')}</button>
+                <button onClick={() => setChoice(null)} disabled={busy}
+                  style={{ ...S.ghostBtn, fontSize: 11, color: C.inkDim, opacity: busy ? 0.5 : 1 }}>{t('cancel')}</button>
+              </div>
+            </div>
           )}
           {result?.ok && <div style={{ fontSize: 11, color: C.success, marginTop: 8, lineHeight: 1.5, overflowWrap: 'anywhere' }}>✓ {result.ok}</div>}
           {result?.error && <div style={{ fontSize: 11, color: C.danger, marginTop: 8, lineHeight: 1.5, overflowWrap: 'anywhere' }}>⚠ {result.error}</div>}

@@ -33,6 +33,49 @@ function resolveDataDir() {
 let DATA_DIR = resolveDataDir()
 const dataPath = (...segs) => path.join(DATA_DIR, ...segs)
 
+// Recursively copy every file under `from` into `to` that `to` does NOT already
+// have. Existing files in `to` are never overwritten — the target/shared copy
+// always wins on a conflict; only genuinely missing files are added. Returns the
+// number of files added. This is the union-merge used when a computer joins a
+// shared folder that already has data.
+function mergeMissing(from, to) {
+  if (!fs.existsSync(from)) return 0
+  if (fs.statSync(from).isDirectory()) {
+    fs.mkdirSync(to, { recursive: true })
+    let added = 0
+    for (const name of fs.readdirSync(from)) added += mergeMissing(path.join(from, name), path.join(to, name))
+    return added
+  }
+  if (fs.existsSync(to)) return 0
+  fs.mkdirSync(path.dirname(to), { recursive: true })
+  fs.copyFileSync(from, to)
+  return 1
+}
+
+// What does `from` have that `to` is missing, at the granularity the user sees in
+// the app? Modes and decks are folders (report names); chats and discover are
+// flat files (report counts). Drives the merge/skip prompt; empty ⇒ no choice
+// to make. `cache` and the config files are intentionally omitted (silently
+// unioned when merging — cache is disposable, settings can't be meaningfully
+// merged so the shared folder's win).
+function sourceOnlySummary(from, to) {
+  const dirChildren = (base, sub, filter) => {
+    const d = path.join(base, sub)
+    if (!fs.existsSync(d)) return []
+    try { return fs.readdirSync(d).filter(filter) } catch { return [] }
+  }
+  const onlyIn = (sub, filter) => {
+    const src = dirChildren(from, sub, filter)
+    return src.filter((n) => !fs.existsSync(path.join(to, sub, n)))
+  }
+  const modes = onlyIn('modes', (n) => n !== '_meta.json' && !n.startsWith('.'))
+  const decks = onlyIn('decks', (n) => !n.startsWith('.'))
+  const chats = onlyIn('chats', (n) => n.endsWith('.json'))
+  const discover = onlyIn('discover', (n) => n.endsWith('.json'))
+  const has = modes.length || decks.length || chats.length || discover.length
+  return { modes, decks, chats: chats.length, discover: discover.length, has: !!has }
+}
+
 function parseEnv() {
   if (!fs.existsSync(ENV_FILE)) return {}
   const lines = fs.readFileSync(ENV_FILE, 'utf-8').split('\n')
@@ -634,15 +677,20 @@ function apiPlugin() {
 
       // ── Data folder endpoint (optional shared data directory) ───────────
       // GET → where the data lives now and how that was decided.
-      // POST {dataDir} → switch LIVE (no restart): create the folder, copy any
-      //   data entry the target doesn't already have (never overwrites — a
-      //   shared folder that already has data wins), persist the machine-local
-      //   pointer. When leaving the APP FOLDER, the just-copied local originals
-      //   are quarantined into local-data-backup-<date>/ so a stale local copy
-      //   can never be silently read again (nothing is deleted). A shared
-      //   folder is NEVER quarantined — another computer may be using it;
-      //   switching back to local instead copies the current shared state down.
-      // POST {dataDir: ''} → back to the app folder (default).
+      // POST {dataDir} → switch LIVE (no restart). If the target folder already
+      //   has data AND this computer has items the target lacks, the server
+      //   makes NO change and replies {needsChoice, sourceOnly} so the UI can
+      //   ask; the client re-POSTs with an explicit `merge`:
+      //     merge:true  → union this computer's data into the target (existing
+      //                   target files are NEVER overwritten — the shared copy
+      //                   wins), so local-only modes/chats/decks are added.
+      //     merge:false → adopt the target as-is; copy only entries it wholly
+      //                   lacks. This computer's extra items stay in the backup.
+      //   Either way, persist the machine-local pointer and (when leaving the
+      //   APP FOLDER) quarantine the local originals into local-data-backup-
+      //   <date>/ so exactly one live copy exists (nothing is deleted). A shared
+      //   folder is NEVER quarantined — another computer may be using it.
+      // POST {dataDir: ''} → back to the app folder (default); never prompts.
       server.middlewares.use('/api/datadir', (req, res) => {
         res.setHeader('Content-Type', 'application/json')
         const envOverride = (process.env.EBIKI_DATA_DIR || '').trim()
@@ -654,11 +702,23 @@ function apiPlugin() {
           req.on('end', () => {
             try {
               if (envOverride) { res.statusCode = 409; res.end(JSON.stringify({ error: 'The EBIKI_DATA_DIR environment variable is set and overrides this setting. Unset it to change the data folder here.' })); return }
-              const raw = String(JSON.parse(body || '{}').dataDir || '').trim()
+              const parsed = JSON.parse(body || '{}')
+              const raw = String(parsed.dataDir || '').trim()
+              const merge = parsed.merge   // true | false | undefined (ask)
               const next = raw ? path.resolve(raw) : APP_ROOT
-              if (next === DATA_DIR) { res.end(JSON.stringify({ ok: true, dataDir: DATA_DIR, isDefault: DATA_DIR === APP_ROOT, copied: [], backedUpTo: null })); return }
-              fs.mkdirSync(next, { recursive: true })
+              if (next === DATA_DIR) { res.end(JSON.stringify({ ok: true, dataDir: DATA_DIR, isDefault: DATA_DIR === APP_ROOT, copied: [], merged: 0, backedUpTo: null })); return }
               const prev = DATA_DIR
+              // Joining a NON-empty shared folder with local-only data, and the
+              // user hasn't chosen yet → ask instead of acting. (Never for the
+              // reset-to-app-folder case, which just copies the shared state down.)
+              if (next !== APP_ROOT && merge === undefined) {
+                const targetHasData = DATA_ENTRIES.some((e) => fs.existsSync(path.join(next, e)))
+                if (targetHasData) {
+                  const sourceOnly = sourceOnlySummary(prev, next)
+                  if (sourceOnly.has) { res.end(JSON.stringify({ needsChoice: true, dataDir: next, sourceOnly })); return }
+                }
+              }
+              fs.mkdirSync(next, { recursive: true })
               // Quarantine the APP FOLDER's own live copies into a dated backup
               // (never a shared folder — another computer may be using it).
               const quarantineLocal = () => {
@@ -681,10 +741,16 @@ function apiPlugin() {
               // the copy, or they would shadow the current shared state.
               if (next === APP_ROOT) backedUpTo = quarantineLocal()
               const copied = []
+              let merged = 0
               for (const entry of DATA_ENTRIES) {
                 const from = path.join(prev, entry)
                 const to = path.join(next, entry)
-                if (fs.existsSync(from) && !fs.existsSync(to)) {
+                if (!fs.existsSync(from)) continue
+                if (merge === true) {
+                  // Union: add every file the target is missing (target wins).
+                  merged += mergeMissing(from, to)
+                } else if (!fs.existsSync(to)) {
+                  // Adopt / fresh target: copy only wholly-absent entries.
                   fs.cpSync(from, to, { recursive: true })
                   copied.push(entry)
                 }
@@ -698,8 +764,8 @@ function apiPlugin() {
                 fs.writeFileSync(DATA_DIR_POINTER, JSON.stringify({ dataDir: next }, null, 2) + '\n', 'utf-8')
               }
               DATA_DIR = next
-              console.log('[Data dir] switched to', next, copied.length ? `(copied: ${copied.join(', ')})` : '(target already had data)', backedUpTo ? `local originals moved to ${backedUpTo}` : '')
-              res.end(JSON.stringify({ ok: true, dataDir: next, isDefault: next === APP_ROOT, copied, backedUpTo }))
+              console.log('[Data dir] switched to', next, merge === true ? `(merged ${merged} files in)` : copied.length ? `(copied: ${copied.join(', ')})` : '(target already had data)', backedUpTo ? `local originals moved to ${backedUpTo}` : '')
+              res.end(JSON.stringify({ ok: true, dataDir: next, isDefault: next === APP_ROOT, copied, merged, backedUpTo }))
             } catch (e) { res.statusCode = 400; res.end(JSON.stringify({ error: e.message })) }
           })
         } else { res.statusCode = 405; res.end('') }
