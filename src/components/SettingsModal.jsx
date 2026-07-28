@@ -16,7 +16,8 @@ function DataFolderCard({ t, card, fieldLabel, hint }) {
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState(null)  // { ok: message } | { error: message }
-  const [choice, setChoice] = useState(null)  // { dir, sourceOnly } — the merge/skip prompt
+  const [choice, setChoice] = useState(null)  // { dir, context, sourceOnly } — the merge/skip prompt
+  const [confirmMerge, setConfirmMerge] = useState(false)  // "are you sure?" step before a merge
   useEffect(() => {
     fetch('/api/datadir').then((r) => r.json()).then((d) => {
       setInfo(d)
@@ -28,7 +29,7 @@ function DataFolderCard({ t, card, fieldLabel, hint }) {
   // dir: target path ('' = back to app folder). merge: undefined asks the server,
   // true = add this computer's data, false = adopt the folder's data as-is.
   const apply = async (dir, merge) => {
-    setBusy(true); setResult(null); setChoice(null)
+    setBusy(true); setResult(null); setChoice(null); setConfirmMerge(false)
     try {
       const body = { dataDir: dir }
       if (merge !== undefined) body.merge = merge
@@ -49,6 +50,7 @@ function DataFolderCard({ t, card, fieldLabel, hint }) {
         if (data.merged) parts.push(t('dataFolderMergedNote', { count: data.merged }))
         else if (merge === false) parts.push(t('dataFolderSkippedNote'))
       }
+      if (data.keptBoth) parts.push(t('dataFolderKeptBothNote', { count: data.keptBoth }))
       if (data.copied?.length) parts.push(t('dataFolderCopied', { items: data.copied.join(', ') }))
       setResult({ ok: parts.join(' ') })
     } catch (e) { setResult({ error: String(e.message || e) }) }
@@ -98,14 +100,28 @@ function DataFolderCard({ t, card, fieldLabel, hint }) {
               <ul style={{ margin: '0 0 10px 0', paddingLeft: 18, fontSize: 11, color: C.ink, lineHeight: 1.6 }}>
                 {summaryLines(choice.sourceOnly).map((line, i) => <li key={i}>{line}</li>)}
               </ul>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <button onClick={() => apply(choice.dir, true)} disabled={busy}
-                  style={{ ...S.getKeyLink, fontSize: 11, opacity: busy ? 0.5 : 1 }}>{t(choice.context === 'return' ? 'dataFolderReturnMergeBtn' : 'dataFolderMergeInBtn')}</button>
-                <button onClick={() => apply(choice.dir, false)} disabled={busy}
-                  style={{ ...S.ghostBtn, fontSize: 11, opacity: busy ? 0.5 : 1 }}>{t(choice.context === 'return' ? 'dataFolderReturnSkipBtn' : 'dataFolderMergeSkipBtn')}</button>
-                <button onClick={() => setChoice(null)} disabled={busy}
-                  style={{ ...S.ghostBtn, fontSize: 11, color: C.inkDim, opacity: busy ? 0.5 : 1 }}>{t('cancel')}</button>
-              </div>
+              {confirmMerge ? (
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: C.ink, marginBottom: 8, lineHeight: 1.5 }}>
+                    {t(choice.context === 'return' ? 'dataFolderMergeConfirmReturn' : 'dataFolderMergeConfirmJoin')}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button onClick={() => apply(choice.dir, true)} disabled={busy}
+                      style={{ ...S.getKeyLink, fontSize: 11, opacity: busy ? 0.5 : 1 }}>{busy ? '…' : t('dataFolderMergeConfirmYes')}</button>
+                    <button onClick={() => setConfirmMerge(false)} disabled={busy}
+                      style={{ ...S.ghostBtn, fontSize: 11, color: C.inkDim, opacity: busy ? 0.5 : 1 }}>{t('cancel')}</button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button onClick={() => setConfirmMerge(true)} disabled={busy}
+                    style={{ ...S.getKeyLink, fontSize: 11, opacity: busy ? 0.5 : 1 }}>{t(choice.context === 'return' ? 'dataFolderReturnMergeBtn' : 'dataFolderMergeInBtn')}</button>
+                  <button onClick={() => apply(choice.dir, false)} disabled={busy}
+                    style={{ ...S.ghostBtn, fontSize: 11, opacity: busy ? 0.5 : 1 }}>{t(choice.context === 'return' ? 'dataFolderReturnSkipBtn' : 'dataFolderMergeSkipBtn')}</button>
+                  <button onClick={() => { setChoice(null); setConfirmMerge(false) }} disabled={busy}
+                    style={{ ...S.ghostBtn, fontSize: 11, color: C.inkDim, opacity: busy ? 0.5 : 1 }}>{t('cancel')}</button>
+                </div>
+              )}
             </div>
           )}
           {result?.ok && <div style={{ fontSize: 11, color: C.success, marginTop: 8, lineHeight: 1.5, overflowWrap: 'anywhere' }}>✓ {result.ok}</div>}

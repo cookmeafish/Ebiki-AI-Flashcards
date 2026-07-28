@@ -56,9 +56,14 @@ several computers run the app locally against ONE shared folder (e.g. an SMB sha
 GET/POST switches LIVE (no restart). **The app folder is this computer's HOME.** Two directions, each
 with a merge choice (`{needsChoice, context:'join'|'return', sourceOnly}` → client re-POSTs `merge:bool`):
 - **JOIN a share** (app folder or another share → share): if the target already has data and this computer
-  has items it lacks, prompt. `merge:true` = union this computer's data into the target via `mergeMissing`
-  (target files NEVER overwritten — shared copy wins); `merge:false` = adopt target as-is. Joining FROM
-  the app folder STASHES this computer's own data into `.local-home/` (gitignored) via `moveDataEntries`.
+  has items it lacks, prompt (client shows an "are you sure?" confirm before a merge writes to the shared
+  folder). `merge:true` = TRUE deep merge via `deepMergeInto` (nothing dropped): a file only on one side is
+  added; a JSON file on both is DEEP-MERGED (`deepMergeJson`: objects key-by-key, arrays unioned, scalar
+  conflicts keep target's) so a mode on both machines becomes ONE mode carrying both sides' question
+  preferences / suggestions / learner progress; a NON-JSON file that differs is KEPT-BOTH (incoming copy
+  written as `name (from <label>).ext`). `merge:false` = adopt target as-is. Joining FROM the app folder
+  STASHES this computer's own data into `.local-home/` (gitignored) via `moveDataEntries`. Response carries
+  `merged` (added+combined) and `keptBoth` counts.
 - **RETURN to the app folder** (`{dataDir:''}`): RESTORES `.local-home/` (what this computer had before it
   joined) — NOT a copy of the shared data. If the share gained items the stash lacks, prompt; `merge:true`
   also pulls those extras down, `merge:false` restores the stash only. No stash (machine only ever used a

@@ -168,7 +168,7 @@ const en = {
   dataFolderEnvNote: 'The data folder is set by the EBIKI_DATA_DIR environment variable on this computer. Unset it to change the folder here.',
   dataFolderHint: 'Optional. By default all your data (settings, learning modes, chats, knowledge files, progress notes) stays in the app folder on this computer and there is nothing to set up. To use the app from several computers with the same data: pick a folder every computer can reach (for example a network share mapped as a drive), then enter that same path here on each computer. Your existing data is copied over the first time. API keys and logs always stay on each computer.',
   dataFolderMergeHeading: 'This folder already has data',
-  dataFolderMergeBody: "This computer has items the folder does not. Add them to the folder, or use only the folder's data. Either way the folder's existing items are kept and nothing is deleted.",
+  dataFolderMergeBody: "This computer has items the folder does not. Add them to the folder (items on both sides are combined, never overwritten), or use only the folder's data. Nothing is ever deleted.",
   dataFolderMergeModes: 'Learning modes: {names}',
   dataFolderMergeChats: 'Saved chats: {count}',
   dataFolderMergeDecks: 'Deck notes: {names}',
@@ -184,6 +184,10 @@ const en = {
   dataFolderReturnBody: "This computer's own data will be restored. The shared folder has these items this computer does not:",
   dataFolderReturnMergeBtn: 'Add these to this computer',
   dataFolderReturnSkipBtn: 'Just restore my own data',
+  dataFolderKeptBothNote: 'Kept {count} item(s) that differed on both sides as a separate copy, so nothing was overwritten.',
+  dataFolderMergeConfirmJoin: "Are you sure? This adds this computer's items to the shared folder, so every computer that uses it will see them. Existing items are combined, never overwritten.",
+  dataFolderMergeConfirmReturn: "Are you sure? This copies the shared folder's items onto this computer. Nothing is overwritten.",
+  dataFolderMergeConfirmYes: 'Yes, merge',
 
   // Study session setup
   studySession: 'Study Session',
@@ -508,6 +512,10 @@ const es = {
   dataFolderReturnBody: 'Se restaurarán los datos propios de este equipo. La carpeta compartida tiene estos elementos que este equipo no tiene:',
   dataFolderReturnMergeBtn: 'Añadirlos a este equipo',
   dataFolderReturnSkipBtn: 'Solo restaurar mis datos',
+  dataFolderKeptBothNote: 'Se conservaron {count} elemento(s) que diferían en ambos lados como copia aparte, así no se sobrescribió nada.',
+  dataFolderMergeConfirmJoin: '¿Seguro? Esto añade los elementos de este equipo a la carpeta compartida, así que todos los equipos que la usen los verán. Los elementos existentes se combinan, nunca se sobrescriben.',
+  dataFolderMergeConfirmReturn: '¿Seguro? Esto copia los elementos de la carpeta compartida a este equipo. No se sobrescribe nada.',
+  dataFolderMergeConfirmYes: 'Sí, combinar',
 
   studySession: 'Sesión de estudio',
   mode: 'Modo',
@@ -821,6 +829,10 @@ const zh = {
   dataFolderReturnBody: '将恢复本机自己的数据。共享文件夹中有这些本机没有的项目：',
   dataFolderReturnMergeBtn: '把这些添加到本机',
   dataFolderReturnSkipBtn: '只恢复我自己的数据',
+  dataFolderKeptBothNote: '有 {count} 个在两边都存在但内容不同的项目，已各自保留为单独副本，因此没有覆盖任何内容。',
+  dataFolderMergeConfirmJoin: '确定吗？这会把本机的项目添加到共享文件夹，所有使用它的电脑都会看到。已有的项目会被合并，绝不会覆盖。',
+  dataFolderMergeConfirmReturn: '确定吗？这会把共享文件夹的项目复制到本机。不会覆盖任何内容。',
+  dataFolderMergeConfirmYes: '是，合并',
 
   studySession: '学习会话',
   mode: '模式',
@@ -1134,6 +1146,10 @@ const ja = {
   dataFolderReturnBody: 'このPC自身のデータを復元します。共有フォルダーには、このPCにない次の項目があります:',
   dataFolderReturnMergeBtn: 'これらをこのPCに追加',
   dataFolderReturnSkipBtn: '自分のデータだけ復元',
+  dataFolderKeptBothNote: '両方にあって内容が異なる項目を {count} 件、別コピーとして保持しました。上書きは一切していません。',
+  dataFolderMergeConfirmJoin: '本当によろしいですか？このPCの項目を共有フォルダーに追加します。それを使うすべてのPCに表示されます。既存の項目は結合され、上書きはされません。',
+  dataFolderMergeConfirmReturn: '本当によろしいですか？共有フォルダーの項目をこのPCにコピーします。上書きはされません。',
+  dataFolderMergeConfirmYes: 'はい、統合する',
 
   studySession: '学習セッション',
   mode: 'モード',
