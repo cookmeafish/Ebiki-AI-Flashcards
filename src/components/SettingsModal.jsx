@@ -34,16 +34,22 @@ function DataFolderCard({ t, card, fieldLabel, hint }) {
       if (merge !== undefined) body.merge = merge
       const r = await fetch('/api/datadir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const data = await r.json()
-      if (data.needsChoice) { setChoice({ dir, sourceOnly: data.sourceOnly }); return }
+      if (data.needsChoice) { setChoice({ dir, context: data.context, sourceOnly: data.sourceOnly }); return }
       if (!data.ok) { setResult({ error: data.error || 'error' }); return }
+      if (data.unchanged) { setResult({ ok: t('dataFolderAlready') }); return }
       setInfo((i) => ({ ...i, dataDir: data.dataDir, isDefault: data.isDefault }))
       // Keep the field reflecting the now-current selection (empty for default).
       setInput(data.isDefault ? '' : data.dataDir)
-      const parts = [t('dataFolderSaved')]
-      if (data.merged) parts.push(t('dataFolderMergedNote', { count: data.merged }))
-      else if (merge === false) parts.push(t('dataFolderSkippedNote'))
+      let parts
+      if (data.restored) {
+        parts = [t('dataFolderRestored')]
+        if (data.merged) parts.push(t('dataFolderPulledNote', { count: data.merged }))
+      } else {
+        parts = [t('dataFolderSaved')]
+        if (data.merged) parts.push(t('dataFolderMergedNote', { count: data.merged }))
+        else if (merge === false) parts.push(t('dataFolderSkippedNote'))
+      }
       if (data.copied?.length) parts.push(t('dataFolderCopied', { items: data.copied.join(', ') }))
-      if (data.backedUpTo) parts.push(t('dataFolderBackup', { dir: data.backedUpTo }))
       setResult({ ok: parts.join(' ') })
     } catch (e) { setResult({ error: String(e.message || e) }) }
     finally { setBusy(false) }
@@ -87,16 +93,16 @@ function DataFolderCard({ t, card, fieldLabel, hint }) {
           )}
           {choice && (
             <div style={{ marginTop: 10, border: `1px solid ${C.warningRing || C.border}`, borderRadius: RADIUS.md, padding: '12px 14px', background: C.warningTint || C.surfaceAlt }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: C.ink, marginBottom: 6 }}>{t('dataFolderMergeHeading')}</div>
-              <div style={{ fontSize: 11, color: C.inkDim, marginBottom: 8, lineHeight: 1.5 }}>{t('dataFolderMergeBody')}</div>
+              <div style={{ fontSize: 12, fontWeight: 800, color: C.ink, marginBottom: 6 }}>{t(choice.context === 'return' ? 'dataFolderReturnHeading' : 'dataFolderMergeHeading')}</div>
+              <div style={{ fontSize: 11, color: C.inkDim, marginBottom: 8, lineHeight: 1.5 }}>{t(choice.context === 'return' ? 'dataFolderReturnBody' : 'dataFolderMergeBody')}</div>
               <ul style={{ margin: '0 0 10px 0', paddingLeft: 18, fontSize: 11, color: C.ink, lineHeight: 1.6 }}>
                 {summaryLines(choice.sourceOnly).map((line, i) => <li key={i}>{line}</li>)}
               </ul>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <button onClick={() => apply(choice.dir, true)} disabled={busy}
-                  style={{ ...S.getKeyLink, fontSize: 11, opacity: busy ? 0.5 : 1 }}>{t('dataFolderMergeInBtn')}</button>
+                  style={{ ...S.getKeyLink, fontSize: 11, opacity: busy ? 0.5 : 1 }}>{t(choice.context === 'return' ? 'dataFolderReturnMergeBtn' : 'dataFolderMergeInBtn')}</button>
                 <button onClick={() => apply(choice.dir, false)} disabled={busy}
-                  style={{ ...S.ghostBtn, fontSize: 11, opacity: busy ? 0.5 : 1 }}>{t('dataFolderMergeSkipBtn')}</button>
+                  style={{ ...S.ghostBtn, fontSize: 11, opacity: busy ? 0.5 : 1 }}>{t(choice.context === 'return' ? 'dataFolderReturnSkipBtn' : 'dataFolderMergeSkipBtn')}</button>
                 <button onClick={() => setChoice(null)} disabled={busy}
                   style={{ ...S.ghostBtn, fontSize: 11, color: C.inkDim, opacity: busy ? 0.5 : 1 }}>{t('cancel')}</button>
               </div>

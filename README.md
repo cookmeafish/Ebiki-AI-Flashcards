@@ -153,11 +153,15 @@ If you use the app on several computers, you can point them all at one **shared 
 What happens when you switch:
 
 - The change applies **immediately** — no restart needed.
-- The first computer to switch **copies its existing data into the shared folder**; computers that switch later adopt whatever the shared folder already contains (existing shared data is never overwritten).
-- The old local copies are moved into a dated `local-data-backup-…` folder inside the app folder — nothing is deleted, and the app can no longer accidentally read stale local data.
+- **Joining a folder that already has data:** if this computer has learning modes, chats or decks the folder doesn't, the app asks whether to **add them to the folder** or **use only the folder's data**. Either way, the folder's existing items are never overwritten, and nothing is deleted.
+- The first computer to switch simply copies its data into the (empty) shared folder.
+- **Your computer keeps its own home.** When you point a computer at a shared folder, that computer's own data is set aside safely (in a hidden `.local-home/` folder), so it can come back later.
 - **API keys (`.env`) and diagnostic logs stay on each computer.** Every machine keeps its own keys.
 - The choice is stored per computer in `datadir.json` (gitignored). The `EBIKI_DATA_DIR` environment variable overrides it when set.
-- **Back to the app folder** in the same settings card returns to single-computer mode, copying the current shared state down to this machine.
+
+**Going back to using this computer on its own** — click **Back to the app folder**. This restores *this computer's own* data (what it had before it joined the share), **not** a copy of the shared data. If the shared folder gained modes or chats your computer doesn't have, the app offers to **bring those down too**, or to just restore your own data. The shared folder is left untouched, so your other computers keep everything.
+
+> **Nothing is ever deleted.** If two copies of something ever collide during a switch, the older one is parked in a dated `local-data-backup-…` folder inside the app folder rather than overwritten.
 
 > **Tip:** avoid actively editing on two computers at the exact same moment — saves are whole-file, so simultaneous edits to the same mode or chat can drop one side's change. Taking turns is fine.
 

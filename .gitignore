@@ -11,6 +11,7 @@ decks/
 chats/
 /discover/
 datadir.json
+.local-home/
 local-data-backup-*/
 electron/last-capture.png
 .claude/settings.local.json
