@@ -153,6 +153,7 @@ export default function SettingsModal(p) {
     // Modes
     modes, activeModeId, setActiveModeId, saveModes, editingModeName, setEditingModeName,
     renameMode, modeEditInput, setModeEditInput, createMode, modeCreating, addDefaultMode, deleteMode,
+    openModeStudio,
     // Mode config
     activeMode, updateActiveMode, defaultStudyRules, defaultGeneralStudyRules,
     ankiConnected, refreshAnkiConnection, ankiDecks, ankiDeck, setAnkiDeck, ankiFormat,
@@ -548,6 +549,12 @@ export default function SettingsModal(p) {
           </div>
         </div>
         {askAi('study', t('askAiStudyPlaceholder'))}
+        {openModeStudio && activeMode && (
+          <button onClick={() => openModeStudio({ kind: 'edit', focus: 'study', modeId: activeModeId })}
+            style={{ ...S.getKeyLink, fontSize: 12, marginTop: 10, color: C.purple, borderColor: 'rgba(124,77,239,.35)' }}>
+            {'✨'} {t('studioStudyEntry')}
+          </button>
+        )}
       </div>
     </div>
   )
@@ -572,6 +579,12 @@ export default function SettingsModal(p) {
       <div style={card}>
         {fieldLabel(t('cardFormat'))}
         {askAi('cards', t('aiEditPlaceholder'))}
+        {openModeStudio && activeMode && (
+          <button onClick={() => openModeStudio({ kind: 'edit', focus: 'cards', modeId: activeModeId })}
+            style={{ ...S.getKeyLink, fontSize: 12, marginTop: 10, color: C.purple, borderColor: 'rgba(124,77,239,.35)' }}>
+            {'✨'} {t('studioDeckEntry')}
+          </button>
+        )}
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', margin: '12px 0 10px' }}>
           {Object.entries(ankiFormat.fields || {}).map(([field, enabled]) => (
             <label key={field} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: enabled ? C.ink : C.inkDim, cursor: 'pointer' }}>
@@ -714,7 +727,21 @@ export default function SettingsModal(p) {
           <button onClick={() => { if (modeEditInput.trim()) { createMode(modeEditInput.trim()); setModeEditInput('') } }}
             disabled={modeCreating || !modeEditInput.trim()} style={{ ...S.keyDone, opacity: modeCreating || !modeEditInput.trim() ? 0.5 : 1 }}>{modeCreating ? t('creating') : t('create')}</button>
         </div>
-        <button onClick={addDefaultMode} style={{ ...S.ghostBtn, fontSize: 11, color: C.success, borderColor: 'rgba(24,169,87,.3)', marginTop: 10 }}>+ {t('defaultMode')}</button>
+        {openModeStudio && (
+          <button onClick={() => openModeStudio({ kind: 'create', focus: 'all' })}
+            style={{ ...S.getKeyLink, fontSize: 12, marginTop: 10, width: '100%', color: C.purple, borderColor: 'rgba(124,77,239,.35)' }}>
+            {'✨'} {t('studioCreateEntry')}
+          </button>
+        )}
+        <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+          <button onClick={addDefaultMode} style={{ ...S.ghostBtn, fontSize: 11, color: C.success, borderColor: 'rgba(24,169,87,.3)' }}>+ {t('defaultMode')}</button>
+          {openModeStudio && activeMode && (
+            <button onClick={() => openModeStudio({ kind: 'edit', focus: 'all', modeId: activeModeId })}
+              style={{ ...S.ghostBtn, fontSize: 11, color: C.purple, borderColor: 'rgba(124,77,239,.35)' }}>
+              {'✨'} {t('studioEditEntry', { name: activeMode.name })}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
