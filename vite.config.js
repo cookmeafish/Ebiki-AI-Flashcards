@@ -949,10 +949,10 @@ function apiPlugin() {
           req.on('data', c => body += c)
           req.on('end', () => {
             try {
-              const { id, title, messages, type } = JSON.parse(body)
+              const { id, title, messages, type, mode } = JSON.parse(body)
               const chatId = id || Date.now().toString()
               const file = path.join(chatsDir, `${chatId}.json`)
-              fs.writeFileSync(file, JSON.stringify({ title, messages, date: new Date().toISOString(), ...(type ? { type } : {}) }, null, 2), 'utf8')
+              fs.writeFileSync(file, JSON.stringify({ title, messages, date: new Date().toISOString(), ...(type ? { type } : {}), ...(mode ? { mode } : {}) }, null, 2), 'utf8')
               console.log('[Chat] saved:', chatId, '-', title)
               res.setHeader('Content-Type', 'application/json')
               res.end(JSON.stringify({ id: chatId, ok: true }))

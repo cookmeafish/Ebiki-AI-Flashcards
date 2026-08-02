@@ -24,26 +24,36 @@ export default function Dropdown({ value, onChange, options, style = {}, menuAli
 
   const current = options.find((o) => String(o.value) === String(value))
 
-  // Compute the menu box in LAYOUT px from the button's current viewport rect. getBoundingClientRect()
-  // and innerWidth/Height are REAL px; divide by the body zoom to get layout px (the space the fixed,
-  // body-zoomed menu is drawn in) — same convention as the pinned-tooltip code in App.jsx.
+  // Position the menu in REAL px. The menu is portaled to document.documentElement (the <html>,
+  // which is NOT zoomed — CSS zoom:1.35 lives on <body>) and scaled with transform:scale(z).
+  // WHY: a position:fixed element inside a zoomed ancestor has a broken hit-test region in Chromium
+  // (its clickable box is only 1/zoom of its visual box, top-anchored) so lower items are unclickable
+  // (the "can't select past the middle" bug). Escaping the zoom (portal to <html>) and using a CSS
+  // TRANSFORM to scale (transforms hit-test correctly, unlike zoom) makes every item clickable while
+  // still matching the app's visual scale. All geometry below is therefore in REAL px; the menu's
+  // INTRINSIC (pre-transform) sizes are the real space divided by z, since scale(z) multiplies them.
   const place = useCallback(() => {
     if (!btnRef.current) return
     const z = getZoom ? getZoom() : 1
     const r = btnRef.current.getBoundingClientRect()
-    const vw = window.innerWidth / z
-    const vh = window.innerHeight / z
+    const vw = window.innerWidth, vh = window.innerHeight
     const M = 8
-    const bTop = r.top / z, bBottom = r.bottom / z, bLeft = r.left / z, bRight = r.right / z, bWidth = r.width / z
-    const below = vh - bBottom - M
-    const above = bTop - M
+    const below = vh - r.bottom - M
+    const above = r.top - M
     const up = below < above
-    const maxH = Math.max(120, up ? above : below)
-    let left = menuAlign === 'right' ? bRight - bWidth : bLeft
-    left = Math.max(M, Math.min(left, vw - bWidth - M))
-    // maxW lets the menu grow past the button width for long option labels (mode
-    // names) without running off the right edge of the viewport.
-    setMenu({ left, top: up ? undefined : bBottom + 4, bottom: up ? (vh - bTop + 4) : undefined, width: bWidth, maxH, maxW: vw - left - M })
+    const avail = Math.max(160, up ? above : below)     // real px of vertical room
+    let left = menuAlign === 'right' ? (r.right - r.width) : r.left
+    left = Math.max(M, Math.min(left, vw - r.width - M))
+    // Intrinsic sizes = visual room / z (transform scales them back up to the room).
+    setMenu({
+      left,
+      top: up ? undefined : r.bottom + 4,
+      bottom: up ? (vh - r.top + 4) : undefined,
+      up, z,
+      minW: r.width / z,
+      maxW: (vw - left - M) / z,
+      maxH: avail / z,
+    })
   }, [getZoom, menuAlign])
 
   const toggle = () => {
@@ -92,10 +102,16 @@ export default function Dropdown({ value, onChange, options, style = {}, menuAli
         <span style={{ fontSize: 10, opacity: 0.8 }}>▾</span>
       </button>
       {open && createPortal(
+        // Portaled to document.documentElement (the <html>) — OUTSIDE the body's CSS zoom:1.35 — and
+        // scaled with transform:scale(z). A position:fixed element INSIDE the zoomed body has a broken
+        // hit-test box (only 1/zoom tall, top-anchored), so its lower items are unclickable (the
+        // "can't select past the middle of the mode list" bug). Escaping the zoom and scaling via a
+        // TRANSFORM (which hit-tests correctly) makes every item clickable at the right visual size.
         <div ref={menuRef} role="listbox" style={{
           position: 'fixed', zIndex: 10000,
           left: menu.left, top: menu.top, bottom: menu.bottom,
-          minWidth: menu.width, width: 'max-content', maxWidth: menu.maxW,
+          transform: `scale(${menu.z || 1})`, transformOrigin: menu.up ? 'bottom left' : 'top left',
+          minWidth: menu.minW, width: 'max-content', maxWidth: menu.maxW,
           maxHeight: menu.maxH, overflowY: 'auto', overflowX: 'hidden',
           background: 'var(--c-surface)', border: '1px solid var(--c-border)',
           borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,.35)', padding: 4,
@@ -120,7 +136,7 @@ export default function Dropdown({ value, onChange, options, style = {}, menuAli
             )
           })}
         </div>,
-        document.body
+        document.documentElement
       )}
     </div>
   )

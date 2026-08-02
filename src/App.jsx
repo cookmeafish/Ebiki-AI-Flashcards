@@ -1017,14 +1017,28 @@ export default function App() {
           if (!dashDirty && JSON.stringify(next) !== JSON.stringify(m)) dashDirty = true
           return next
         })
+        // Repair DUPLICATE mode ids (merging two shared-data folders can collide ids). Each mode must
+        // have a unique id, else the active-mode highlight matches several chips at once AND switching
+        // to a colliding mode silently fails (its id === activeModeId takes the rename branch). Keep
+        // the first occurrence's id; give any later duplicate a fresh id. Persist if anything changed.
+        let idDirty = false
+        {
+          const seen = new Set()
+          let maxId = Math.max(0, ...cleanedModes.map((m) => Number(m.id) || 0))
+          for (const m of cleanedModes) {
+            const id = Number(m.id)
+            if (!Number.isFinite(id) || seen.has(id)) { m.id = ++maxId; idDirty = true }
+            else seen.add(id)
+          }
+        }
         setModes(cleanedModes)
         if (modesData.activeModeId) setActiveModeId(modesData.activeModeId)
-        if (dashDirty) {
+        if (dashDirty || idDirty) {
           fetch('/api/modes', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ modes: cleanedModes, activeModeId: modesData.activeModeId || cleanedModes[0]?.id || 1 }),
           }).catch(() => {})
-          console.log('[Mode] sanitized em dashes out of stored mode text')
+          console.log(`[Mode] load repair: ${dashDirty ? 'sanitized em dashes; ' : ''}${idDirty ? 'reassigned duplicate ids' : ''}`)
         }
       } else if (legacyFormat) {
         // Migrate from legacy ankiformat.json
@@ -2653,6 +2667,7 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
       prompt = GENERIC_CARD_PROMPT
         .replace('{MODE}', () => activeMode.name)
         .replace('{TYPE}', () => activeMode.type)
+        .replace('{USER_LANG}', () => userLangName())
         .replace('{DESCRIPTION}', () => desc)
         .replace('{FORMAT}', () => format)
         .replace('{TAG_RULES}', () => tagRules)
@@ -2705,9 +2720,15 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
       ? `Source language: ${srcLang}${translation ? `\nTranslation: ${translation}` : ''}`
       : `Study subject: ${activeMode.description || activeMode.name}`
 
+    // General modes: write the card content in the app language so the learner studies (and later
+    // reviews in Anki) in their own language. Language modes already control this via srcLang/tgtLang.
+    const contentLangRule = activeMode.type === 'language'
+      ? ''
+      : `\nWrite all card content (definitions, explanations, examples, labels) in ${userLangName()}, keeping the front term, proper nouns, technical terms, code, and formulas in their original form.`
+
     const prompt = `Generate an Anki flashcard for the ${activeMode.type === 'language' ? 'word' : 'term'} "${term}" (${partOfSpeech || 'unknown'}).
 ${modeContext}
-Context: "${contextText}"
+Context: "${contextText}"${contentLangRule}
 
 Return a JSON object with these fields:
 ${fieldRequests.map((f) => `- ${f}`).join('\n')}
@@ -2921,7 +2942,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       setDeckBrowserAddName('')
       setDeckBrowserAddPurpose('')
     } catch (e) {
-      window.alert('Failed to create deck: ' + (e.message || e))
+      window.alert(t('deck_failedCreate', { msg: e.message || e }))
     } finally {
       setDeckBrowserAddLoading(false)
     }
@@ -2948,7 +2969,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       setDeckBrowserAddName('')
       setDeckBrowserAddPurpose('')
     } catch (e) {
-      window.alert('Failed to create deck: ' + (e.message || e))
+      window.alert(t('deck_failedCreate', { msg: e.message || e }))
     } finally {
       setDeckBrowserAddLoading(false)
     }
@@ -3096,7 +3117,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
   // Reset a card's STUDY PROGRESS (scheduling only — content untouched): forgetCards turns it
   // back into a NEW card. The remedy for schedules inflated by the old duplicate-sync bug.
   const resetNoteProgress = async (note, front) => {
-    if (!(await confirmDialog(`Reset all study progress for "${shortFront(front)}"?\n\nThe card becomes NEW again. Its interval and scheduling history are wiped (the card's content is not touched). This cannot be undone.`))) return
+    if (!(await confirmDialog(t('deck_resetConfirm', { front: shortFront(front) })))) return
     try {
       const cardIds = await ankiFindCards(`nid:${note.noteId}`)
       if (cardIds.length === 0) throw new Error('no cards found for this note')
@@ -3160,10 +3181,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     if (deckBrowserNotes.length === 0 || !apiKey || deckAnalyzeLoading) return
     // Soft limit: very large decks may exceed the model's context or cost a lot. Confirm before proceeding.
     if (deckBrowserNotes.length > 200) {
-      const ok = await confirmDialog(
-        `This deck has ${deckBrowserNotes.length} cards. Analyzing them all in one AI call may be slow ` +
-        `or hit token limits. Continue anyway?`
-      )
+      const ok = await confirmDialog(t('deck_bigDeckConfirm', { n: deckBrowserNotes.length }))
       if (!ok) return
     }
     setDeckAnalyzeLoading(true)
@@ -3941,7 +3959,10 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       let chatCount = 0
       try {
         const sessions = await (await fetch('/api/chats')).json()
-        const relevant = (sessions || []).filter((s) => s.type === 'study' || s.type === 'feedback' || !s.type)
+        // Scope chat history to the CURRENT mode only. A chat is relevant if it is tagged with this
+        // mode; untagged legacy chats (no mode field) are EXCLUDED so another mode's topics (e.g. a
+        // Security+ "DHCP" chat) never contaminate this deck's learner profile.
+        const relevant = (sessions || []).filter((s) => s.mode === activeMode.name)
         chatCount = relevant.length
         chatSummary = relevant.slice(0, 20).map((s) => `- ${s.title}`).join('\n')
       } catch {}
@@ -3977,9 +3998,12 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         modeName: activeMode.name,
         modeDescription: activeMode.description,
         evidence,
+        userLanguage: userLangName(),
       })
       const text = await aiCall(apiKey, 'You assess learner proficiency. Always respond with valid JSON only.', prompt, resolveModel('discover'))
       const profile = parseAiJson(text)
+      // The summary is AI free-text shown to the user, so strip em/en dashes like every other Ebi output.
+      if (profile && typeof profile.summary === 'string') profile.summary = profile.summary.replace(/\s*[—–]\s*/g, ', ').trim()
       setDiscoverProfile(profile)
       writeBlob('profile', activeMode.name, profile).catch(() => {})
       console.log('[Discover] profile built:', profile)
@@ -4055,6 +4079,9 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         } catch (e) { console.warn('[Discover] verify failed:', e.message) }
       }
 
+      // Strip em/en dashes from the user-facing AI free-text fields (matches deDash elsewhere).
+      { const dd = (s) => typeof s === 'string' ? s.replace(/\s*[—–]\s*/g, ', ').trim() : s
+        suggestion = { ...suggestion, why: dd(suggestion.why), draftMeaning: dd(suggestion.draftMeaning), translation: dd(suggestion.translation) } }
       setDiscoverSuggestion(suggestion)
       // Record as offered so it is never repeated.
       const nextLedger = { ...ledger, offered: [...new Set([...(ledger.offered || []), suggestion.term])] }
@@ -4850,10 +4877,10 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const open = !!studyQaOpen[src]
     const st = !r.correct ? 'wrong' : ((r.notes || []).some((n) => n && n.type !== 'praise') ? 'noted' : 'clean')
     const meta = st === 'wrong'
-      ? { icon: '✗', color: 'var(--c-danger)', bg: 'rgba(229,57,46,.05)', title: 'Incorrect. Click for details' }
+      ? { icon: '✗', color: 'var(--c-danger)', bg: 'rgba(229,57,46,.05)', title: t('study_qaIncorrect') }
       : st === 'noted'
-        ? { icon: '✓✎', color: 'var(--c-warning)', bg: 'rgba(232,147,12,.04)', title: 'Correct, but Ebi left feedback. Click to read it' }
-        : { icon: '✓', color: 'var(--c-success)', bg: 'rgba(24,169,87,.03)', title: 'Perfect. Nothing to review' }
+        ? { icon: '✓✎', color: 'var(--c-warning)', bg: 'rgba(232,147,12,.04)', title: t('study_qaHasFeedback') }
+        : { icon: '✓', color: 'var(--c-success)', bg: 'rgba(24,169,87,.03)', title: t('study_qaPerfect') }
     return (
       <div key={qi} style={{ borderTop: '1px solid var(--c-border)' }}>
         <div className="row-head" onClick={() => setStudyQaOpen((p) => ({ ...p, [src]: !p[src] }))} title={meta.title}
@@ -4864,11 +4891,11 @@ Output ONLY raw JSON. No markdown, no backticks.`
         </div>
         {open && (
           <div style={{ padding: '2px 14px 10px 46px', fontSize: 13.5, background: meta.bg, lineHeight: 1.65 }}>
-            <div style={{ color: 'var(--c-ink-dim)', marginBottom: 4 }}><span style={{ fontWeight: 600 }}>Q:</span> {renderTappableText(gq, gq, src)}</div>
+            <div style={{ color: 'var(--c-ink-dim)', marginBottom: 4 }}><span style={{ fontWeight: 600 }}>{t('study_qLabel')}</span> {renderTappableText(gq, gq, src)}</div>
             {showAttempts && cs.questionAttempts?.[qi]?.length > 1 && (
-              <div style={{ color: 'var(--c-ink-faint)', fontSize: 11.5, marginBottom: 4 }}>Previous attempts: {cs.questionAttempts[qi].slice(0, -1).join(', ')}</div>
+              <div style={{ color: 'var(--c-ink-faint)', fontSize: 11.5, marginBottom: 4 }}>{t('study_prevAttempts')} {cs.questionAttempts[qi].slice(0, -1).join(', ')}</div>
             )}
-            <div style={{ color: 'var(--c-ink)', marginBottom: 5 }}><span style={{ fontWeight: 600 }}>Your answer:</span> {cs.answers[qi]}</div>
+            <div style={{ color: 'var(--c-ink)', marginBottom: 5 }}><span style={{ fontWeight: 600 }}>{t('study_yourAnswer')}</span> {cs.answers[qi]}</div>
             <div style={{ color: r.correct ? 'var(--c-success)' : 'var(--c-warning)', fontSize: 12.5 }}>{renderTappableText(r.feedback, r.feedback, src)}</div>
             {renderFeedbackNotes(r, src)}
             {renderWordLookupPopup(src)}
@@ -4920,11 +4947,13 @@ Output ONLY raw JSON. No markdown, no backticks.`
   const renderFeedbackToggle = (cs, ci, active) => (
     <button
       onClick={(e) => { e.stopPropagation(); setStudyGradedView(p => ({ ...p, [ci]: p[ci] === 'feedback' ? undefined : 'feedback' })) }}
-      title="Show this card's questions and feedback"
+      title={t('study_feedbackToggleTip')}
       style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 9px', fontWeight: 700, flexShrink: 0, whiteSpace: 'nowrap', color: active ? 'var(--c-brand)' : 'var(--c-ink-dim)', borderColor: active ? 'rgba(223,37,64,.45)' : 'var(--c-border)', background: active ? 'rgba(223,37,64,.12)' : 'transparent' }}>
-      {active ? '▾' : '▸'} Feedback
+      {active ? '▾' : '▸'} {t('study_feedback')}
     </button>
   )
+  // Rating badge label. Localized names for easy/good/hard/again; falls back to the raw uppercased value.
+  const ratingLabel = (r) => ({ easy: t('study_rateEasy'), good: t('study_rateGood'), hard: t('study_rateHard'), again: t('study_rateAgain') }[r] || (r || '').toUpperCase())
   // "🧠 Help me remember" trigger — shows Ebi's memory hook (and generates it on first open).
   const renderMnemonicButton = (cs, ci, active) => (
     <button
@@ -4942,10 +4971,10 @@ Output ONLY raw JSON. No markdown, no backticks.`
         }
       }}
       disabled={!apiKey || cs.mnemonicLoading}
-      title={apiKey ? 'Ebi builds a memory aid for this card' : 'Add an API key first'}
+      title={apiKey ? t('study_helpRememberTip') : t('study_addApiKeyFirst')}
       className="hover-dim"
       style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 9px', fontWeight: 700, flexShrink: 0, whiteSpace: 'nowrap', color: 'var(--c-purple)', borderColor: active ? 'rgba(139,92,246,.6)' : 'rgba(139,92,246,.4)', background: active ? 'rgba(139,92,246,.16)' : 'transparent', opacity: (apiKey && !cs.mnemonicLoading) ? 1 : 0.6, cursor: apiKey ? 'pointer' : 'default' }}>
-      🧠 {cs.mnemonicLoading ? 'Thinking…' : 'Help me remember'}
+      🧠 {cs.mnemonicLoading ? t('study_thinking') : t('study_helpRemember')}
     </button>
   )
 
@@ -4959,14 +4988,14 @@ Output ONLY raw JSON. No markdown, no backticks.`
     return (
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         <button onClick={() => onPick('auto')} disabled={disabled}
-          className="tip tip-r" data-tip={apiKey ? 'Ebi builds a memory aid to help you memorize this, picking whichever style fits it best. Ask again and it tries a different style.' : 'Add an API key first'}
+          className="tip tip-r" data-tip={apiKey ? t('study_memoryHookTip') : t('study_addApiKeyFirst')}
           style={{ ...S.ghostBtn, fontSize: fs, padding: compact ? '3px 10px' : '2px 10px', fontWeight: 700, color: 'var(--c-purple)', background: 'rgba(139,92,246,.14)', borderColor: 'rgba(139,92,246,.5)', opacity: disabled ? 0.5 : 1 }}>
-          🧠 Memory hook
+          🧠 {t('study_memoryHook')}
         </button>
         <button onClick={() => setHookStylesOpen(p => ({ ...p, [surfaceKey]: !open }))} disabled={disabled}
-          className="tip tip-r" data-tip="Choose a specific hook style yourself"
+          className="tip tip-r" data-tip={t('study_chooseStyleTip')}
           style={{ ...S.ghostBtn, fontSize: fs, padding: compact ? '3px 10px' : '2px 9px', background: 'transparent', color: 'var(--c-ink-dim)', borderColor: 'var(--c-border)', opacity: disabled ? 0.5 : 1 }}>
-          {open ? 'Styles ▾' : 'Styles ▸'}
+          {open ? t('study_stylesOpen') : t('study_stylesClosed')}
         </button>
         {open && hookMethodList().map(([m, label, tip, short]) => (
           <button key={m} onClick={() => onPick(m)} disabled={disabled}
@@ -4988,21 +5017,21 @@ Output ONLY raw JSON. No markdown, no backticks.`
     return (
       <div style={{ padding: '6px 12px', borderTop: '1px solid var(--c-border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {!hooks.length && !cs.mnemonicLoading && !cs.mnemonicError && (
-          <div style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>Let Ebi pick the best way to remember this, or choose a style:</div>
+          <div style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>{t('study_hookPickPrompt')}</div>
         )}
         {hooks.map((hook, hi) => (
           <div key={hi} style={{ fontSize: 11, color: 'var(--c-ink)', background: 'rgba(139,92,246,.08)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 6, padding: '8px 10px', lineHeight: 1.6 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-              <div style={{ fontWeight: 700, color: 'var(--c-purple)', marginBottom: 3, flex: 1 }}>🧠 Ebi's memory hook{hooks.length > 1 ? ` #${hi + 1}` : ''}</div>
+              <div style={{ fontWeight: 700, color: 'var(--c-purple)', marginBottom: 3, flex: 1 }}>🧠 {t('study_ebisMemoryHook')}{hooks.length > 1 ? ` #${hi + 1}` : ''}</div>
               <span onClick={async () => { if (await deleteNoteHook(studyNoteId(cs), hook, cs.front)) setStudyCardState(prev => { const u = [...prev]; if (u[ci]) u[ci] = { ...u[ci], mnemonics: (u[ci].mnemonics || []).filter((h) => h !== hook) }; return u }) }}
-                title="Delete this hook" className="click-dim"
+                title={t('study_deleteHook')} className="click-dim"
                 style={{ cursor: 'pointer', color: 'var(--c-ink-faint)', fontSize: 13, lineHeight: 1, padding: '1px 5px', borderRadius: 4, flexShrink: 0 }}>×</span>
             </div>
             <div className="hook-md">{renderTappableRich(hook, `mnemonic-${ci}`)}</div>
           </div>
         ))}
         {renderWordLookupPopup(`mnemonic-${ci}`)}
-        {cs.mnemonicLoading && <div style={{ fontSize: 11, color: 'var(--c-purple)' }}>🧠 Ebi is thinking of {hooks.length ? 'another' : 'a'} memory hook…</div>}
+        {cs.mnemonicLoading && <div style={{ fontSize: 11, color: 'var(--c-purple)' }}>{hooks.length ? t('study_thinkingHookAnother') : t('study_thinkingHook')}</div>}
         {cs.mnemonicError && <div style={{ fontSize: 10, color: 'var(--c-danger)' }}>{cs.mnemonicError}</div>}
         {renderHookButtons(`study-${ci}`, (m) => generateMnemonic(ci, cs, m), cs.mnemonicLoading || !apiKey)}
       </div>
@@ -5023,7 +5052,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       </button>
       {studyLegendOpen && (
         <div style={{ position: 'absolute', right: 0, top: '110%', zIndex: 20, background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 6, padding: '8px 10px', width: 230, boxShadow: '0 4px 16px rgba(0,0,0,.4)' }}>
-          <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', fontWeight: 700, marginBottom: 6 }}>Feedback colors</div>
+          <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', fontWeight: 700, marginBottom: 6 }}>{t('study_feedbackColors')}</div>
           {FEEDBACK_CAT_ORDER.map((k) => (
             <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
               <span style={{ color: FEEDBACK_CATS[k].color, fontWeight: 700, width: 12, textAlign: 'center' }}>{FEEDBACK_CATS[k].icon}</span>
@@ -6802,7 +6831,7 @@ Your output keeps: the same method, the same language (${explainLang}), the same
       setStudyCardState(prev => { const u = [...prev]; if (u[cardIdx]) u[cardIdx] = { ...u[cardIdx], mnemonics: [...(u[cardIdx].mnemonics || []), ...(hook ? [hook] : [])], mnemonicLoading: false }; return u })
       if (hook) addNoteHook(hookSaveKey(studyNoteId(cs), cs.front), hook) // persist — a good hook survives the session
     } catch {
-      setStudyCardState(prev => { const u = [...prev]; if (u[cardIdx]) u[cardIdx] = { ...u[cardIdx], mnemonicLoading: false, mnemonicError: 'Could not generate a memory aid. Try again.' }; return u })
+      setStudyCardState(prev => { const u = [...prev]; if (u[cardIdx]) u[cardIdx] = { ...u[cardIdx], mnemonicLoading: false, mnemonicError: t('study_memoryAidError') }; return u })
     }
   }
 
@@ -6885,7 +6914,7 @@ Your output keeps: the same method, the same language (${explainLang}), the same
   // Delete by VALUE (indices can diverge between the session copy and the store); with `front`,
   // also sweeps the headword word-keys so a hook shown via the merge is truly gone.
   const deleteNoteHook = async (noteId, hook, front = '') => {
-    if (!(await confirmDialog('Are you sure you want to delete this hook?'))) return false
+    if (!(await confirmDialog(t('study_deleteHookConfirm')))) return false
     const keys = [noteId, ...headwordForms(front).map(wordHookKey)].filter(Boolean)
     writeModeHooks((prev) => {
       const next = { ...prev }
@@ -6917,7 +6946,7 @@ Your output keeps: the same method, the same language (${explainLang}), the same
       if (hook) addNoteHook(id, hook)
       setDeckBrowserMnemonics(prev => ({ ...prev, [id]: { loading: false, error: null } }))
     } catch {
-      setDeckBrowserMnemonics(prev => ({ ...prev, [id]: { loading: false, error: 'Could not generate a memory aid. Try again.' } }))
+      setDeckBrowserMnemonics(prev => ({ ...prev, [id]: { loading: false, error: t('study_memoryAidError') } }))
     }
   }
 
@@ -8142,7 +8171,7 @@ IMPORTANT BEHAVIOR RULES:
 ${activeMode.type === 'language' ? `   - LANGUAGE MODE (learning ${learnLangName()}, user speaks ${userLangName()}) — use this back format, each label on its own line, with the LABELS WRITTEN IN ${learnLangName()}:
      front: "<word> (<part of speech written in ${learnLangName()}>)"
      back lines: pronunciation (phonetics for a ${userLangName()} speaker, stress in CAPS), translation (to ${userLangName()}), direct/literal translation (omit the line if none), synonyms (in ${userLangName()}), definition (written IN ${learnLangName()}), example (a natural ${learnLangName()} sentence with its ${userLangName()} translation in parentheses).
-     tags: include part of speech, level, topic, and "ebiki".${usageScopeTagRule()} Only use REAL, correctly-spelled ${learnLangName()} words.${dialectRule()}${preferredTermRule()}` : `   - Design a back that best teaches this subject (definition, key points, formula, example as fits). Always include an "ebiki" tag.`}
+     tags: include part of speech, level, topic, and "ebiki".${usageScopeTagRule()} Only use REAL, correctly-spelled ${learnLangName()} words.${dialectRule()}${preferredTermRule()}` : `   - Design a back that best teaches this subject (definition, key points, formula, example as fits). Always include an "ebiki" tag. Write the back content in ${userLangName()} (keep the front term, proper nouns, technical terms, code, and formulas in their original form) so the learner studies in their own language, including when reviewing in Anki.`}
 
 3. For general questions: be concise and helpful. Explain concepts clearly.
 
@@ -8351,7 +8380,9 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       const res = await fetch('/api/chats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: sessionId || undefined, title: chatTitle, messages: msgs }),
+        // Tag the session with the mode it belongs to, so the Discover learner profile can scope
+        // chat history to the current mode (a Pilot-Training chat must not leak into an English profile).
+        body: JSON.stringify({ id: sessionId || undefined, title: chatTitle, messages: msgs, mode: activeMode.name }),
       })
       const data = await res.json()
       if (refreshList) {
@@ -8407,7 +8438,8 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       await fetch('/api/chats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, title: newTitle, messages: data.messages }),
+        // Preserve the session's existing type/mode tags so a rename doesn't strip them.
+        body: JSON.stringify({ id, title: newTitle, messages: data.messages, ...(data.type ? { type: data.type } : {}), ...(data.mode ? { mode: data.mode } : {}) }),
       })
       setChatTabSessions(prev => prev.map(s => s.id === id ? { ...s, title: newTitle } : s))
       setChatTabEditingTitle(null)
@@ -8420,6 +8452,8 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
     setModeCreating(true)
     try {
       const prompt = `The user wants to create a study mode for: "${description}"
+
+Write all human-readable, user-facing text in this config in ${userLangName()} (the app language) so the whole catered experience is in the learner's language: "chatSuggestions" MUST be in ${userLangName()}, and "questionPrompt" / "mnemonicHints" (instructions Ebi follows) should also be phrased in ${userLangName()}. Keep the mode "name", tag tokens ("tagRules"/"tagCategories", which stay lowercase-hyphen identifiers), template {placeholders}, and any proper nouns/acronyms in their original form. Do NOT use em dashes or en dashes anywhere.
 
 Generate a JSON config for this study mode:
 - "name": short name (2-3 words max, e.g. "Security+", "Spanish", "Organic Chemistry")
@@ -8788,7 +8822,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 stroke="var(--c-brand)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
             <p style={{ fontSize: 18, fontWeight: 600, color: 'var(--c-ink)', margin: '12px 0 0' }}>
-              Drop image here
+              {t('pic_dropHere')}
             </p>
           </div>
         </div>
@@ -8821,9 +8855,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           </div>
           {/* Talk to Ebi — opens Ebi's chat (replaces the old floating shrimp button). Not "Ask Ebi":
               Ebi also ACTS on requests (bulk edits, dialect, preferences), not just answers. */}
-          <button onClick={() => setAskEbiSignal((n) => n + 1)} title="Talk to Ebi: ask anything, or tell it what to change" className="ui-btn"
+          <button onClick={() => setAskEbiSignal((n) => n + 1)} title={t('hdr_talkToEbiTip')} className="ui-btn"
             style={{ ...S.ghostBtn, marginLeft: 8, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)', fontWeight: 700 }}>
-            Talk to Ebi
+            {t('hdr_talkToEbi')}
           </button>
         </div>
         <div style={S.headerRight}>
@@ -8834,19 +8868,19 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               color: showHighlights ? 'var(--c-purple)' : 'var(--c-ink-dim)',
               borderColor: showHighlights ? 'rgba(139,92,246,0.25)' : 'var(--c-border)',
             }}>
-              {showHighlights ? '● Highlights' : '○ Highlights'}
+              {(showHighlights ? '● ' : '○ ') + t('pic_highlights')}
             </button>
           )}
 
           {activeTab === 'picture' && stage !== 'idle' && <button onClick={reset} style={S.ghostBtn}>{t('pictureNew')}</button>}
 
           {activeTab === 'picture' && screenshot && !loading && stage === 'done' && (
-            <button onClick={() => analyzeImage(screenshot)} style={S.ghostBtn}>Re-analyze</button>
+            <button onClick={() => analyzeImage(screenshot)} style={S.ghostBtn}>{t('pic_reAnalyze')}</button>
           )}
 
           {/* Explicit exit — leaves the analysis and returns to the empty Picture state */}
           {activeTab === 'picture' && stage !== 'idle' && (
-            <button onClick={reset} style={{ ...S.ghostBtn, padding: '6px 9px' }} title="Exit picture analysis">✕</button>
+            <button onClick={reset} style={{ ...S.ghostBtn, padding: '6px 9px' }} title={t('pic_exitTip')}>✕</button>
           )}
 
           {/* Picture tab: Capture, Upload, Overlay (kept left of the mode + Settings cluster so
@@ -8995,7 +9029,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             {deckBrowserAddPanel && (
               <div style={{ background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 8, padding: 12, marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <input
-                  placeholder="Deck name"
+                  placeholder={t('deck_namePlaceholder')}
                   value={deckBrowserAddName}
                   onChange={(e) => setDeckBrowserAddName(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && deckBrowserAddName.trim() && !deckBrowserAddLoading) handleAddDeck() }}
@@ -9003,7 +9037,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   autoFocus
                 />
                 <input
-                  placeholder="What is this deck for? (e.g. Security+, Spanish). Creates a matching mode"
+                  placeholder={t('deck_purposePlaceholder')}
                   value={deckBrowserAddPurpose}
                   onChange={(e) => setDeckBrowserAddPurpose(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && deckBrowserAddName.trim() && !deckBrowserAddLoading) handleAddDeck() }}
@@ -9021,8 +9055,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     disabled={deckBrowserAddLoading}
                     className="ui-btn"
                     style={{ ...S.ghostBtn, fontSize: 11, fontWeight: 700, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)', opacity: deckBrowserAddLoading ? 0.5 : 1, cursor: deckBrowserAddLoading ? 'default' : 'pointer' }}
-                  >⚡ Make it for this mode: {activeMode.name}</button>
-                  <span className="tip" data-tip={`Creates "${deckBrowserAddName.trim() || activeMode.name}" and links it as the ${activeMode.name} mode's Anki deck, so new cards, Quick Add and study target it. Uses the typed deck name, or the mode's name if empty. No separate mode is created and the purpose box is ignored.`} style={{ color: 'var(--c-ink-faint)', fontSize: 11 }}>ⓘ</span>
+                  >{t('deck_makeForMode')} {activeMode.name}</button>
+                  <span className="tip" data-tip={t('deck_makeForModeTip', { deck: deckBrowserAddName.trim() || activeMode.name, mode: activeMode.name })} style={{ color: 'var(--c-ink-faint)', fontSize: 11 }}>ⓘ</span>
                   <button
                     onClick={() => { setDeckBrowserAddPanel(false); setDeckBrowserAddName(''); setDeckBrowserAddPurpose('') }}
                     style={{ ...S.ghostBtn, fontSize: 11 }}
@@ -9040,7 +9074,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
               <select value={deckBrowserDeck} onChange={async (e) => {
                   const nextDeck = e.target.value // capture before the await (event object may be stale after)
-                  if ((deckAnalyzeRecs.length > 0 || deckDupGroups.length > 0) && !(await confirmDialog('Switching decks will discard the current suggestions. Continue?'))) return
+                  if ((deckAnalyzeRecs.length > 0 || deckDupGroups.length > 0) && !(await confirmDialog(t('deck_switchDiscard')))) return
                   setDeckBrowserDeck(nextDeck)
                   setDeckAnalyzeRecs([])
                   setDeckAnalyzeError(null)
@@ -9052,26 +9086,26 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   if (e.target.value) loadDeckNotes(e.target.value)
                 }}
                 style={{ ...S.select, minWidth: 150 }}>
-                <option value="">Select deck...</option>
+                <option value="">{t('deck_selectDeck')}</option>
                 {ankiDecks.map((d) => <option key={d} value={d}>{d}</option>)}
               </select>
-              {deckBrowserLoading && <span style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>Loading...</span>}
+              {deckBrowserLoading && <span style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>{t('loading')}</span>}
               {deckBrowserNotes.length > 0 && (
                 <input value={deckBrowserSearch} onChange={(e) => setDeckBrowserSearch(e.target.value)}
-                  placeholder="Search cards..." style={{ ...S.keyInput, flex: 1, fontSize: 12 }} />
+                  placeholder={t('deck_searchCards')} style={{ ...S.keyInput, flex: 1, fontSize: 12 }} />
               )}
               {deckBrowserNotes.length > 0 && (
                 <select value={deckBrowserSort} onChange={(e) => setDeckBrowserSort(e.target.value)}
-                  title="Sort cards" style={{ ...S.select, minWidth: 170, fontSize: 12 }}>
-                  <option value="created-desc">Newest first</option>
-                  <option value="created-asc">Oldest first</option>
-                  <option value="alpha-asc">A → Z</option>
-                  <option value="alpha-desc">Z → A</option>
-                  <option value="studied-desc">Recently studied</option>
-                  <option value="studied-asc">Least recently studied</option>
-                  <option value="new-first">New / unstudied first</option>
-                  <option value="problem">Problem cards (most lapses)</option>
-                  <option value="mastered">Mastered (longest interval)</option>
+                  title={t('deck_sortTitle')} style={{ ...S.select, minWidth: 170, fontSize: 12 }}>
+                  <option value="created-desc">{t('deck_sortNewest')}</option>
+                  <option value="created-asc">{t('deck_sortOldest')}</option>
+                  <option value="alpha-asc">{t('deck_sortAZ')}</option>
+                  <option value="alpha-desc">{t('deck_sortZA')}</option>
+                  <option value="studied-desc">{t('deck_sortRecent')}</option>
+                  <option value="studied-asc">{t('deck_sortLeastRecent')}</option>
+                  <option value="new-first">{t('deck_sortNewFirst')}</option>
+                  <option value="problem">{t('deck_sortProblem')}</option>
+                  <option value="mastered">{t('deck_sortMastered')}</option>
                 </select>
               )}
               {/* Tag filter — the usage tags (freq-, region-, register-) make this a commonness filter.
@@ -9098,8 +9132,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 if (allTags.length === 0) return null
                 return (
                   <select value={deckBrowserTagFilter} onChange={(e) => setDeckBrowserTagFilter(e.target.value)}
-                    title="Filter by tag" style={{ ...S.select, minWidth: 130, fontSize: 12, color: deckBrowserTagFilter ? 'var(--c-purple)' : undefined, borderColor: deckBrowserTagFilter ? 'rgba(139,92,246,.4)' : undefined }}>
-                    <option value="">All tags</option>
+                    title={t('deck_filterTitle')} style={{ ...S.select, minWidth: 130, fontSize: 12, color: deckBrowserTagFilter ? 'var(--c-purple)' : undefined, borderColor: deckBrowserTagFilter ? 'rgba(139,92,246,.4)' : undefined }}>
+                    <option value="">{t('deck_allTags')}</option>
                     {allTags.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
                   </select>
                 )
@@ -9107,8 +9141,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               {deckBrowserNotes.length > 0 && (
                 <span style={{ fontSize: 11, color: 'var(--c-ink-dim)', alignSelf: 'center' }}>
                   {deckBrowserTagFilter
-                    ? `${deckBrowserNotes.filter((n) => (n.tags || []).includes(deckBrowserTagFilter)).length} of ${deckBrowserNotes.length} cards`
-                    : `${deckBrowserNotes.length} cards`}
+                    ? t('deck_countFiltered', { n: deckBrowserNotes.filter((n) => (n.tags || []).includes(deckBrowserTagFilter)).length, m: deckBrowserNotes.length })
+                    : t('deck_countAll', { n: deckBrowserNotes.length })}
                 </span>
               )}
             </div>
@@ -9118,12 +9152,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap' }}>
                 <button onClick={openAddCard} disabled={deckAddOpen}
                   style={{ background: 'rgba(223,37,64,0.12)', color: 'var(--c-brand)', border: '1px solid rgba(223,37,64,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: deckAddOpen ? 0.5 : 1 }}>
-                  + Add card
+                  {t('deck_addCard')}
                 </button>
                 <button onClick={() => setQuickAddOpen((v) => !v)} disabled={!apiKey}
-                  title="Paste many words → generate formatted cards → review → sync"
+                  title={t('deck_quickAddTip')}
                   style={{ background: 'rgba(17,168,160,0.12)', color: 'var(--c-teal)', border: '1px solid rgba(17,168,160,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: !apiKey ? 0.5 : 1 }}>
-                  ⚡ Quick Add
+                  {t('deck_quickAdd')}
                 </button>
                 {deckBrowserNotes.length > 0 && (<>
                   <button
@@ -9131,41 +9165,41 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     disabled={deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0}
                     style={{ background: 'rgba(139,92,246,0.12)', color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: (deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0) ? 0.5 : 1 }}
                   >
-                    {deckAnalyzeLoading && deckAnalyzeKind === 'ambiguous' ? 'Analyzing...' : 'Analyze for ambiguous cards'}
+                    {deckAnalyzeLoading && deckAnalyzeKind === 'ambiguous' ? t('deck_analyzing') : t('deck_analyze')}
                   </button>
                   <button
                     onClick={scanDuplicates}
                     disabled={deckDupLoading || !apiKey || deckDupGroups.length > 0}
                     style={{ background: 'rgba(232,147,12,0.12)', color: 'var(--c-warning)', border: '1px solid rgba(232,147,12,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: (deckDupLoading || !apiKey || deckDupGroups.length > 0) ? 0.5 : 1 }}
                   >
-                    {deckDupLoading ? 'Scanning...' : 'Scan for duplicates'}
+                    {deckDupLoading ? t('deck_scanning') : t('deck_scanDup')}
                   </button>
                   {activeMode.type === 'language' && (
                     <button
                       onClick={() => analyzeDeck('custom', dialectAuditInstruction())}
                       disabled={deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0}
-                      className="tip tip-r" data-tip={`Checks every card's translations against ${dialectName() || learnLangName()}: when a different word is more common for one of a card's meanings (like lodo vs barro for "mud"), Ebi proposes a usage note and reordering. You review every change before anything is saved`}
+                      className="tip tip-r" data-tip={t('deck_dialectAuditTip', { lang: dialectName() || learnLangName() })}
                       style={{ background: 'rgba(17,168,160,0.12)', color: 'var(--c-teal)', border: '1px solid rgba(17,168,160,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: (deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0) ? 0.5 : 1 }}
                     >
-                      {deckAnalyzeLoading && deckAnalyzeKind === 'custom' && deckAnalyzeInstruction === dialectAuditInstruction() ? 'Auditing…' : '🌎 Dialect audit'}
+                      {deckAnalyzeLoading && deckAnalyzeKind === 'custom' && deckAnalyzeInstruction === dialectAuditInstruction() ? t('deck_auditing') : t('deck_dialectAudit')}
                     </button>
                   )}
                   <button
                     onClick={() => setDeckCustomEditOpen((v) => !v)}
                     disabled={!apiKey}
-                    className="tip tip-r" data-tip="Tell Ebi how to change the cards in this deck. You review every proposed change before anything is saved"
+                    className="tip tip-r" data-tip={t('deck_bulkEditTip')}
                     style={{ background: 'rgba(139,92,246,0.12)', color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: !apiKey ? 0.5 : 1 }}
                   >
-                    ✨ Ebi bulk edit
+                    {t('deck_bulkEdit')}
                   </button>
-                  {!apiKey && <span style={{ fontSize: 10, color: 'var(--c-ink-dim)' }}>(API key required)</span>}
+                  {!apiKey && <span style={{ fontSize: 10, color: 'var(--c-ink-dim)' }}>{t('deck_apiKeyRequired')}</span>}
                   {deckAnalyzeError && <span style={{ fontSize: 10, color: 'var(--c-danger)' }}>{deckAnalyzeError}</span>}
                   {deckDupError && <span style={{ fontSize: 10, color: 'var(--c-danger)' }}>{deckDupError}</span>}
                   {deckAnalyzeEmpty && !deckAnalyzeLoading && (
-                    <span style={{ fontSize: 10, color: 'var(--c-success)' }}>{deckAnalyzeKind === 'custom' ? 'Ebi found no cards that need that change.' : 'No ambiguous cards found. Your deck looks clean.'}</span>
+                    <span style={{ fontSize: 10, color: 'var(--c-success)' }}>{deckAnalyzeKind === 'custom' ? t('deck_analyzeEmptyCustom') : t('deck_analyzeEmptyAmbiguous')}</span>
                   )}
                   {deckDupEmpty && !deckDupLoading && (
-                    <span style={{ fontSize: 10, color: 'var(--c-success)' }}>No duplicates found — your deck looks clean.</span>
+                    <span style={{ fontSize: 10, color: 'var(--c-success)' }}>{t('deck_dupEmpty')}</span>
                   )}
                 </>)}
               </div>
@@ -9176,16 +9210,16 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             {deckCustomEditOpen && (
               <div style={{ marginBottom: 12, border: '1px solid rgba(139,92,246,0.3)', borderRadius: 8, padding: 14, background: 'rgba(139,92,246,0.04)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <div style={{ fontSize: 12, color: 'var(--c-purple)', fontWeight: 700 }}>✨ Ebi bulk edit</div>
-                  <button onClick={() => setDeckCustomEditOpen(false)} style={{ ...S.ghostBtn, fontSize: 11 }}>Close</button>
+                  <div style={{ fontSize: 12, color: 'var(--c-purple)', fontWeight: 700 }}>{t('deck_bulkEdit')}</div>
+                  <button onClick={() => setDeckCustomEditOpen(false)} style={{ ...S.ghostBtn, fontSize: 11 }}>{t('close')}</button>
                 </div>
                 <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 6 }}>
-                  Describe ONE change to apply across the <b style={{ color: 'var(--c-ink)' }}>{deckBrowserDeck}</b> deck. Ebi proposes the edits card by card and <b>nothing is saved until you review and accept each one</b>.
+                  {t('deck_bulkEditDesc1')}<b style={{ color: 'var(--c-ink)' }}>{deckBrowserDeck}</b>{t('deck_bulkEditDesc2')}<b>{t('deck_bulkEditDescBold')}</b>.
                 </div>
                 <textarea
                   value={deckCustomEditText}
                   onChange={(e) => setDeckCustomEditText(e.target.value)}
-                  placeholder={activeMode.type === 'language' ? 'e.g. Add an example sentence to every card that has none' : 'e.g. Add a one-line real-world example to every definition-only card'}
+                  placeholder={activeMode.type === 'language' ? t('deck_bulkEditPlaceholderLang') : t('deck_bulkEditPlaceholderGeneral')}
                   rows={2}
                   style={{ width: '100%', boxSizing: 'border-box', fontSize: 12, fontFamily: 'inherit', padding: 8, borderRadius: 6, border: '1px solid var(--c-border)', background: 'var(--c-surface-sunken)', color: 'var(--c-ink)', resize: 'vertical' }}
                 />
@@ -9193,9 +9227,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   <button onClick={() => analyzeDeck('custom', deckCustomEditText.trim())}
                     disabled={deckAnalyzeLoading || !deckCustomEditText.trim() || deckAnalyzeRecs.length > 0}
                     style={{ background: 'rgba(139,92,246,0.14)', color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,0.4)', borderRadius: 5, padding: '7px 12px', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: (deckAnalyzeLoading || !deckCustomEditText.trim() || deckAnalyzeRecs.length > 0) ? 0.5 : 1 }}>
-                    {deckAnalyzeLoading && deckAnalyzeKind === 'custom' ? 'Ebi is working…' : 'Preview changes'}
+                    {deckAnalyzeLoading && deckAnalyzeKind === 'custom' ? t('deck_working') : t('deck_previewChanges')}
                   </button>
-                  {deckAnalyzeRecs.length > 0 && <span style={{ fontSize: 10, color: 'var(--c-ink-dim)' }}>Review the suggestions below, then accept or dismiss them.</span>}
+                  {deckAnalyzeRecs.length > 0 && <span style={{ fontSize: 10, color: 'var(--c-ink-dim)' }}>{t('deck_reviewSuggestions')}</span>}
                 </div>
               </div>
             )}
@@ -9204,29 +9238,29 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             {quickAddOpen && (
               <div style={{ marginBottom: 12, border: '1px solid rgba(17,168,160,0.3)', borderRadius: 8, padding: 14, background: 'rgba(17,168,160,0.04)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <div style={{ fontSize: 12, color: 'var(--c-teal)', fontWeight: 700 }}>⚡ Quick Add</div>
-                  <button onClick={closeQuickAdd} style={{ ...S.ghostBtn, fontSize: 11 }}>Close</button>
+                  <div style={{ fontSize: 12, color: 'var(--c-teal)', fontWeight: 700 }}>{t('deck_quickAdd')}</div>
+                  <button onClick={closeQuickAdd} style={{ ...S.ghostBtn, fontSize: 11 }}>{t('close')}</button>
                 </div>
                 {/* Make the mode (tailors the card format/subject) AND the deck (where cards go) both
                     explicit, so the user knows to configure each correctly. */}
                 <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 6, fontSize: 11 }}>
-                  <span style={{ color: 'var(--c-ink-dim)' }}>Mode (tailors cards): <b style={{ color: 'var(--c-brand)' }}>{activeMode.name}</b></span>
-                  <span style={{ color: 'var(--c-ink-dim)' }}>Deck (cards go here): <b style={{ color: 'var(--c-teal)' }}>{deckBrowserDeck || activeMode.ankiDeck || 'pick a deck above'}</b></span>
+                  <span style={{ color: 'var(--c-ink-dim)' }}>{t('deck_qaModeLabel')} <b style={{ color: 'var(--c-brand)' }}>{activeMode.name}</b></span>
+                  <span style={{ color: 'var(--c-ink-dim)' }}>{t('deck_qaDeckLabel')} <b style={{ color: 'var(--c-teal)' }}>{deckBrowserDeck || activeMode.ankiDeck || t('deck_pickDeckAbove')}</b></span>
                 </div>
                 <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 6 }}>
-                  Paste words (one per line or comma-separated). {activeMode.type === 'language' ? 'Cards use your Frente/Dorso format.' : `Cards are tailored for ${activeMode.name}.`}
+                  {t('deck_qaPasteHelp')} {activeMode.type === 'language' ? t('deck_qaPasteLang') : t('deck_qaPasteGeneral', { mode: activeMode.name })}
                 </div>
                 <textarea
                   value={quickAddInput}
                   onChange={(e) => setQuickAddInput(e.target.value)}
-                  placeholder={activeMode.type === 'language' ? 'surcar\nhuelga\nrendir cuentas' : 'one term per line…'}
+                  placeholder={activeMode.type === 'language' ? 'surcar\nhuelga\nrendir cuentas' : t('deck_qaPlaceholderGeneral')}
                   rows={3}
                   style={{ width: '100%', boxSizing: 'border-box', fontSize: 12, fontFamily: 'inherit', padding: 8, borderRadius: 6, border: '1px solid var(--c-border)', background: 'var(--c-surface-sunken)', color: 'var(--c-ink)', resize: 'vertical' }}
                 />
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
                   <button onClick={runQuickAdd} disabled={quickAddLoading || !quickAddInput.trim()}
                     style={{ ...S.captureBtn, borderRadius: 5, fontSize: 11, opacity: (quickAddLoading || !quickAddInput.trim()) ? 0.5 : 1 }}>
-                    {quickAddLoading ? 'Generating…' : 'Generate cards'}
+                    {quickAddLoading ? t('deck_generating') : t('deck_generateCards')}
                   </button>
                   {quickAddCards.length > 0 && (() => {
                     const n = quickAddCards.filter((c) => c.accepted && !c.synced).length
@@ -9234,7 +9268,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     return (
                       <button onClick={syncQuickAddAccepted} disabled={n === 0}
                         style={{ background: 'rgba(24,169,87,0.14)', color: 'var(--c-success)', border: '1px solid rgba(24,169,87,0.35)', borderRadius: 5, padding: '7px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: n === 0 ? 0.5 : 1 }}>
-                        {n === 0 ? 'All added' : `Add ${n} to ${deck}`}
+                        {n === 0 ? t('deck_allAdded') : t('deck_addNToDeck', { n, deck })}
                       </button>
                     )
                   })()}
@@ -9253,8 +9287,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           style={{ width: '100%', boxSizing: 'border-box', fontSize: 11, fontFamily: 'inherit', padding: '4px 6px', borderRadius: 4, border: '1px solid var(--c-border)', background: 'var(--c-surface-sunken)', color: 'var(--c-ink)', resize: 'vertical', lineHeight: 1.5 }} />
                         {(card.correction || card.dup) && (
                           <div style={{ marginTop: 4, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                            {card.correction && <span style={{ fontSize: 10, color: 'var(--c-warning)' }}>✎ corrected to “{card.correction}”</span>}
-                            {card.dup && <span style={{ fontSize: 10, color: 'var(--c-warning)' }}>⚠ already in deck — sync adds anyway</span>}
+                            {card.correction && <span style={{ fontSize: 10, color: 'var(--c-warning)' }}>{t('deck_correctedTo', { x: card.correction })}</span>}
+                            {card.dup && <span style={{ fontSize: 10, color: 'var(--c-warning)' }}>{t('deck_dupWarn')}</span>}
                           </div>
                         )}
                         {card.tags?.length > 0 && (
@@ -9265,13 +9299,13 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' }}>
                         {card.synced ? (
-                          <span style={{ fontSize: 10, color: 'var(--c-success)', fontWeight: 700 }}>✓ Added</span>
+                          <span style={{ fontSize: 10, color: 'var(--c-success)', fontWeight: 700 }}>{t('deck_added')}</span>
                         ) : card.syncing ? (
                           <span style={{ fontSize: 10, color: 'var(--c-ink-dim)' }}>…</span>
                         ) : (
                           // One control: include/exclude this card from the batch "Add" button above.
                           <button onClick={() => setQuickAddCards((prev) => prev.map((c, k) => k === i ? { ...c, accepted: !c.accepted } : c))}
-                            title={card.accepted ? 'Included. Click to skip' : 'Skipped. Click to include'}
+                            title={card.accepted ? t('deck_includedTip') : t('deck_skippedTip')}
                             style={{ width: 28, height: 28, borderRadius: 6, cursor: 'pointer', fontFamily: 'inherit', fontSize: 13, border: `1px solid ${card.accepted ? 'rgba(24,169,87,0.5)' : 'var(--c-border)'}`, background: card.accepted ? 'rgba(24,169,87,0.18)' : 'transparent', color: card.accepted ? 'var(--c-success)' : 'var(--c-ink-faint)' }}>
                             {card.accepted ? '✓' : '○'}
                           </button>
@@ -9287,37 +9321,37 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             {deckAddOpen && (
               <div style={{ marginBottom: 12, border: '1px solid rgba(223,37,64,0.25)', borderRadius: 6, padding: '12px', background: 'rgba(223,37,64,0.04)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <div style={{ fontSize: 12, color: 'var(--c-brand)', fontWeight: 600 }}>New card → {deckBrowserDeck}</div>
-                  <button onClick={closeAddCard} style={{ ...S.ghostBtn, fontSize: 11 }}>Cancel</button>
+                  <div style={{ fontSize: 12, color: 'var(--c-brand)', fontWeight: 600 }}>{t('deck_newCardTo', { deck: deckBrowserDeck })}</div>
+                  <button onClick={closeAddCard} style={{ ...S.ghostBtn, fontSize: 11 }}>{t('cancel')}</button>
                 </div>
 
                 {/* Optional AI generation from a word */}
                 <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
                   <input value={deckAddTerm} onChange={(e) => setDeckAddTerm(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter') generateAddCard() }}
-                    placeholder="Type a word, then Generate (optional)…"
+                    placeholder={t('deck_typeWordGen')}
                     style={{ ...S.keyInput, flex: 1, fontSize: 12 }} />
                   <button onClick={generateAddCard} disabled={deckAddGenerating || !deckAddTerm.trim() || !apiKey}
                     style={{ background: 'rgba(139,92,246,0.15)', color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', opacity: (deckAddGenerating || !deckAddTerm.trim() || !apiKey) ? 0.5 : 1 }}>
-                    {deckAddGenerating ? 'Generating…' : 'Generate with AI'}
+                    {deckAddGenerating ? t('deck_generating') : t('deck_generateWithAI')}
                   </button>
                 </div>
 
-                <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 3, fontWeight: 600 }}>Front</div>
+                <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 3, fontWeight: 600 }}>{t('deck_front')}</div>
                 <textarea value={deckAddFront} onChange={(e) => setDeckAddFront(e.target.value)}
                   style={{ ...S.keyInput, fontSize: 12, minHeight: 38, resize: 'vertical', width: '100%', boxSizing: 'border-box', marginBottom: 8 }} />
-                <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 3, fontWeight: 600 }}>Back</div>
+                <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 3, fontWeight: 600 }}>{t('deck_back')}</div>
                 <textarea value={deckAddBack} onChange={(e) => setDeckAddBack(e.target.value)}
                   style={{ ...S.keyInput, fontSize: 12, minHeight: 70, resize: 'vertical', width: '100%', boxSizing: 'border-box', marginBottom: 8 }} />
-                <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 3, fontWeight: 600 }}>Tags (comma-separated)</div>
+                <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 3, fontWeight: 600 }}>{t('deck_tagsComma')}</div>
                 <input value={deckAddTags} onChange={(e) => setDeckAddTags(e.target.value)}
-                  placeholder="ebiki, noun, …"
+                  placeholder={t('deck_tagsPlaceholder')}
                   style={{ ...S.keyInput, fontSize: 12, width: '100%', boxSizing: 'border-box', marginBottom: 10 }} />
 
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <button onClick={saveAddCard} disabled={deckAddSaving || !deckAddFront.trim() || !deckAddBack.trim()}
                     style={{ ...S.captureBtn, borderRadius: 5, fontSize: 12, padding: '6px 14px', opacity: (deckAddSaving || !deckAddFront.trim() || !deckAddBack.trim()) ? 0.5 : 1 }}>
-                    {deckAddSaving ? 'Saving…' : `Add to ${deckBrowserDeck}`}
+                    {deckAddSaving ? t('deck_saving') : t('deck_addToDeck', { deck: deckBrowserDeck })}
                   </button>
                   {deckAddError && <span style={{ fontSize: 10, color: 'var(--c-danger)' }}>{deckAddError}</span>}
                 </div>
@@ -9334,16 +9368,16 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       request arrived via Ebi's Help chat rather than the panel). */}
                   {deckAnalyzeInstruction && (
                     <div style={{ fontSize: 11, color: 'var(--c-ink-dim)', marginBottom: 8, lineHeight: 1.5 }}>
-                      ✨ Bulk edit request: <i style={{ color: 'var(--c-ink)' }}>"{deckAnalyzeInstruction}"</i> — nothing is saved until you accept changes and click Save.
+                      {t('deck_bulkRequestPre')}<i style={{ color: 'var(--c-ink)' }}>"{deckAnalyzeInstruction}"</i>{t('deck_bulkRequestPost')}
                     </div>
                   )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
                     <div style={{ fontSize: 12, color: 'var(--c-purple)', fontWeight: 600 }}>
-                      {deckAnalyzeRecs.length} suggestion{deckAnalyzeRecs.length === 1 ? '' : 's'} • {acceptedCount} accepted
+                      {t('deck_suggestionCount', { n: deckAnalyzeRecs.length, m: acceptedCount })}
                       {deckAnalyzeSkipped > 0 && (
                         <span style={{ fontSize: 10, color: 'var(--c-warning)', fontWeight: 400, marginLeft: 8 }}
-                          title="These were discarded because the AI's card id and word did not match the same card. Never shown to avoid mixing cards. Re-run to try again.">
-                          ⚠ {deckAnalyzeSkipped} discarded (card mismatch)
+                          title={t('deck_discardedTip')}>
+                          {t('deck_discarded', { n: deckAnalyzeSkipped })}
                         </span>
                       )}
                     </div>
@@ -9353,10 +9387,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         disabled={acceptedCount === 0 || deckAnalyzeCommitting}
                         style={{ ...S.captureBtn, borderRadius: 5, fontSize: 11, padding: '5px 12px', opacity: (acceptedCount === 0 || deckAnalyzeCommitting) ? 0.5 : 1 }}
                       >
-                        {deckAnalyzeCommitting ? 'Saving...' : `Save ${acceptedCount} accepted`}
+                        {deckAnalyzeCommitting ? t('deck_saving') : t('deck_saveAccepted', { n: acceptedCount })}
                       </button>
                       <button onClick={clearAnalyze} disabled={deckAnalyzeCommitting} style={{ ...S.ghostBtn, fontSize: 11 }}>
-                        Cancel all
+                        {t('deck_cancelAll')}
                       </button>
                     </div>
                   </div>
@@ -9371,8 +9405,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           background: rec.accepted ? 'rgba(24,169,87,0.06)' : 'var(--c-surface)',
                         }}>
                           <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 8 }}>
-                            <span style={{ color: 'var(--c-purple)' }}>Card #{rec.noteId}</span>
-                            {rec.reason && <span> — {rec.reason}</span>}
+                            <span style={{ color: 'var(--c-purple)' }}>{t('deck_cardNum', { id: rec.noteId })}</span>
+                            {rec.reason && <span> · {rec.reason}</span>}
                           </div>
 
                           {fieldNames.map((fieldName) => {
@@ -9390,7 +9424,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                 {changed && (
                                   <div style={{ marginTop: 4, padding: '6px 8px', background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 4, fontSize: 11, lineHeight: 1.55, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                                     <span style={{ fontSize: 9, color: 'var(--c-ink-dim)', fontWeight: 600, display: 'block', marginBottom: 4 }}>
-                                      Changes (<span style={{ color: 'var(--c-danger)' }}>removed</span> / <span style={{ color: 'var(--c-success)' }}>added</span>)
+                                      {t('deck_changesPre')}(<span style={{ color: 'var(--c-danger)' }}>{t('deck_diffRemoved')}</span> / <span style={{ color: 'var(--c-success)' }}>{t('deck_diffAdded')}</span>)
                                     </span>
                                     {diffWords(original, value).map((t, k) => (
                                       <span key={k} style={
@@ -9413,18 +9447,18 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                             const tChanged = recTagsChanged(rec)
                             return (
                               <div style={{ marginBottom: 6 }}>
-                                <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 3, fontWeight: 600 }}>Tags</div>
+                                <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 3, fontWeight: 600 }}>{t('deck_tags')}</div>
                                 <input
                                   type="text"
                                   value={rec.recommendedTagsText ?? (rec.recommendedTags || []).join(' ')}
                                   onChange={(e) => updateRecTags(idx, e.target.value)}
-                                  placeholder="space-separated tags"
+                                  placeholder={t('deck_spaceSepTags')}
                                   style={{ ...S.keyInput, fontSize: 12, width: '100%', boxSizing: 'border-box' }}
                                 />
                                 {tChanged && (
                                   <div style={{ marginTop: 4, padding: '6px 8px', background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 4 }}>
                                     <span style={{ fontSize: 9, color: 'var(--c-ink-dim)', fontWeight: 600, display: 'block', marginBottom: 4 }}>
-                                      Tag changes (<span style={{ color: 'var(--c-danger)' }}>removed</span> / <span style={{ color: 'var(--c-success)' }}>added</span>)
+                                      {t('deck_tagChangesPre')}(<span style={{ color: 'var(--c-danger)' }}>{t('deck_diffRemoved')}</span> / <span style={{ color: 'var(--c-success)' }}>{t('deck_diffAdded')}</span>)
                                     </span>
                                     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                                       {curTags.filter((tg) => !nextTags.includes(tg)).map((tg) => (
@@ -9446,7 +9480,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               value={rec.refineInput}
                               onChange={(e) => setRecRefineInput(idx, e.target.value)}
                               onKeyDown={(e) => { if (e.key === 'Enter') refineRec(idx) }}
-                              placeholder='Tell AI different (e.g. "focus on the clock-hand meaning")'
+                              placeholder={t('deck_refinePlaceholder')}
                               disabled={rec.refining}
                               style={{ flex: 1, background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', color: 'var(--c-ink)', border: '1px solid var(--c-border)', borderRadius: 4, padding: '5px 8px', fontSize: 11, fontFamily: 'inherit', outline: 'none' }}
                             />
@@ -9455,21 +9489,21 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               disabled={rec.refining || !rec.refineInput.trim()}
                               style={{ background: 'rgba(139,92,246,.15)', color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,.3)', borderRadius: 4, padding: '5px 10px', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit', opacity: (rec.refining || !rec.refineInput.trim()) ? 0.4 : 1 }}
                             >
-                              {rec.refining ? '…' : 'Refine'}
+                              {rec.refining ? '…' : t('deck_refine')}
                             </button>
                           </div>
 
                           <div style={{ display: 'flex', gap: 6, marginTop: 8, justifyContent: 'flex-end' }}>
                             <button
                               onClick={() => rejectRec(idx)}
-                              title="Reject: remove this suggestion"
+                              title={t('deck_rejectTip')}
                               style={{ ...S.ghostBtn, fontSize: 14, padding: '3px 12px', color: 'var(--c-danger)', borderColor: 'rgba(229,57,46,.25)' }}
                             >
                               ✗
                             </button>
                             <button
                               onClick={() => toggleAcceptRec(idx)}
-                              title={rec.accepted ? 'Click to un-accept' : 'Accept: will save when you click Save accepted'}
+                              title={rec.accepted ? t('deck_unacceptTip') : t('deck_acceptTip')}
                               style={{
                                 ...S.ghostBtn,
                                 fontSize: 14, padding: '3px 12px',
@@ -9496,7 +9530,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 <div style={{ marginBottom: 16, border: '1px solid rgba(232,147,12,0.25)', borderRadius: 6, padding: '10px 12px', background: 'rgba(232,147,12,0.04)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
                     <div style={{ fontSize: 12, color: 'var(--c-warning)', fontWeight: 600 }}>
-                      {deckDupGroups.length} duplicate group{deckDupGroups.length === 1 ? '' : 's'} • {acceptedCount} to merge
+                      {t('deck_dupGroupCount', { n: deckDupGroups.length, m: acceptedCount })}
                     </div>
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button
@@ -9504,10 +9538,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         disabled={acceptedCount === 0 || deckDupCommitting}
                         style={{ ...S.captureBtn, borderRadius: 5, fontSize: 11, padding: '5px 12px', opacity: (acceptedCount === 0 || deckDupCommitting) ? 0.5 : 1 }}
                       >
-                        {deckDupCommitting ? 'Merging...' : `Merge ${acceptedCount} selected`}
+                        {deckDupCommitting ? t('deck_merging') : t('deck_mergeSelected', { n: acceptedCount })}
                       </button>
                       <button onClick={clearDup} disabled={deckDupCommitting} style={{ ...S.ghostBtn, fontSize: 11 }}>
-                        Cancel all
+                        {t('deck_cancelAll')}
                       </button>
                     </div>
                   </div>
@@ -9522,8 +9556,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           background: group.accepted ? 'rgba(24,169,87,0.06)' : 'var(--c-surface)',
                         }}>
                           <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 8 }}>
-                            <span style={{ color: 'var(--c-warning)' }}>{group.noteIds.length} duplicates</span>
-                            {group.reason && <span> — {group.reason}</span>}
+                            <span style={{ color: 'var(--c-warning)' }}>{t('deck_dupCount', { n: group.noteIds.length })}</span>
+                            {group.reason && <span> · {group.reason}</span>}
                           </div>
 
                           {/* The cards being merged — click a row to expand its full content */}
@@ -9535,15 +9569,15 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                 <div key={c.noteId} style={{ fontSize: 10, color: 'var(--c-ink-dim)', background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', borderRadius: 4, overflow: 'hidden' }}>
                                   <div onClick={() => toggleDupExpanded(c.noteId)} style={{ padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                                     <span style={{ color: 'var(--c-ink-dim)', width: 8, flexShrink: 0 }}>{expanded ? '▾' : '▸'}</span>
-                                    <span style={{ color: ci === 0 ? 'var(--c-success)' : 'var(--c-danger)', flexShrink: 0 }}>{ci === 0 ? 'KEEP' : 'DELETE'} #{c.noteId}</span>
-                                    {!expanded && <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}> — {vals[0]} → {vals[1]}</span>}
+                                    <span style={{ color: ci === 0 ? 'var(--c-success)' : 'var(--c-danger)', flexShrink: 0 }}>{ci === 0 ? t('deck_keep') : t('deck_delete')} #{c.noteId}</span>
+                                    {!expanded && <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}> · {vals[0]} → {vals[1]}</span>}
                                   </div>
                                   {expanded && (
                                     <div style={{ padding: '2px 8px 8px 22px', display: 'flex', flexDirection: 'column', gap: 4 }}>
                                       {Object.entries(c.fields).map(([name, val]) => (
                                         <div key={name}>
                                           <div style={{ color: '#6e7681', fontWeight: 600 }}>{name}</div>
-                                          <div style={{ color: '#adbac7', whiteSpace: 'pre-wrap' }}>{val || '—'}</div>
+                                          <div style={{ color: '#adbac7', whiteSpace: 'pre-wrap' }}>{val || '·'}</div>
                                         </div>
                                       ))}
                                     </div>
@@ -9554,7 +9588,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           </div>
 
                           {/* Merged result (editable) */}
-                          <div style={{ fontSize: 10, color: 'var(--c-success)', fontWeight: 600, marginBottom: 4 }}>Merged card:</div>
+                          <div style={{ fontSize: 10, color: 'var(--c-success)', fontWeight: 600, marginBottom: 4 }}>{t('deck_mergedCard')}</div>
                           {fieldNames.map((fieldName) => (
                             <div key={fieldName} style={{ marginBottom: 6 }}>
                               <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 3, fontWeight: 600 }}>{fieldName}</div>
@@ -9569,21 +9603,21 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           <div style={{ display: 'flex', gap: 6, marginTop: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
                             <button
                               onClick={() => dismissDup(idx)}
-                              title="Do not merge: these are different words. Never suggest this again."
+                              title={t('deck_doNotMergeTip')}
                               style={{ ...S.ghostBtn, fontSize: 11, padding: '4px 10px', color: 'var(--c-warning)', borderColor: 'rgba(232,147,12,.3)' }}
                             >
-                              Do not merge
+                              {t('deck_doNotMerge')}
                             </button>
                             <button
                               onClick={() => rejectDup(idx)}
-                              title="Dismiss this group for now (may reappear on next scan)"
+                              title={t('deck_dismissTip')}
                               style={{ ...S.ghostBtn, fontSize: 14, padding: '3px 12px', color: 'var(--c-danger)', borderColor: 'rgba(229,57,46,.25)' }}
                             >
                               ✗
                             </button>
                             <button
                               onClick={() => toggleAcceptDup(idx)}
-                              title={group.accepted ? 'Click to un-select' : 'Select: will merge when you click Merge selected'}
+                              title={group.accepted ? t('deck_unselectTip') : t('deck_selectTip')}
                               style={{
                                 ...S.ghostBtn,
                                 fontSize: 14, padding: '3px 12px',
@@ -9642,10 +9676,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               </div>
                             ))}
                             <div>
-                              <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 3, fontWeight: 600 }}>Tags <span style={{ fontWeight: 400, color: 'var(--c-ink-faint)' }}>(space-separated — e.g. freq-common region-argentina register-slang)</span></div>
+                              <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 3, fontWeight: 600 }}>{t('deck_tags')} <span style={{ fontWeight: 400, color: 'var(--c-ink-faint)' }}>{t('deck_editTagsHint')}</span></div>
                               <input value={deckBrowserEditTags}
                                 onChange={(e) => setDeckBrowserEditTags(e.target.value)}
-                                placeholder="verb freq-common region-mexico …"
+                                placeholder={t('deck_editTagsPlaceholder')}
                                 style={{ ...S.keyInput, fontSize: 12, width: '100%', boxSizing: 'border-box' }} />
                             </div>
                             <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
@@ -9654,7 +9688,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                 value={deckBrowserRefineInput}
                                 onChange={(e) => setDeckBrowserRefineInput(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') refineDeckBrowserCard() }}
-                                placeholder='e.g. "Say football instead of soccer"'
+                                placeholder={t('deck_refineCardPlaceholder')}
                                 style={{ flex: 1, background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', color: 'var(--c-ink)', border: '1px solid var(--c-border)', borderRadius: 4, padding: '5px 8px', fontSize: 11, fontFamily: 'inherit', outline: 'none' }}
                               />
                               <button
@@ -9662,19 +9696,19 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                 disabled={deckBrowserRefining || !deckBrowserRefineInput.trim()}
                                 style={{ background: 'rgba(139,92,246,.15)', color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,.3)', borderRadius: 4, padding: '5px 10px', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit', opacity: (deckBrowserRefining || !deckBrowserRefineInput.trim()) ? 0.4 : 1 }}
                               >
-                                {deckBrowserRefining ? 'Refining...' : 'Refine with AI'}
+                                {deckBrowserRefining ? t('deck_refining') : t('deck_refineWithAI')}
                               </button>
                             </div>
                             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                              <button onClick={() => saveEditNote(note.noteId)} disabled={deckBrowserSaveStatus === 'saving'} style={{ ...S.captureBtn, borderRadius: 5, fontSize: 11, padding: '5px 12px', opacity: deckBrowserSaveStatus === 'saving' ? 0.6 : 1 }}>{deckBrowserSaveStatus === 'saving' ? 'Saving...' : 'Save'}</button>
-                              <button onClick={() => { setDeckBrowserEditing(null); setDeckBrowserRefineInput(''); setDeckBrowserSaveStatus(null) }} style={{ ...S.ghostBtn, fontSize: 11 }}>Cancel</button>
-                              {deckBrowserSaveStatus === 'error' && <span style={{ fontSize: 10, color: 'var(--c-danger)' }}>Save failed — is Anki open?</span>}
-                              {deckBrowserSaveStatus === 'saved' && <span style={{ fontSize: 10, color: 'var(--c-success)' }}>Saved</span>}
+                              <button onClick={() => saveEditNote(note.noteId)} disabled={deckBrowserSaveStatus === 'saving'} style={{ ...S.captureBtn, borderRadius: 5, fontSize: 11, padding: '5px 12px', opacity: deckBrowserSaveStatus === 'saving' ? 0.6 : 1 }}>{deckBrowserSaveStatus === 'saving' ? t('deck_saving') : t('save')}</button>
+                              <button onClick={() => { setDeckBrowserEditing(null); setDeckBrowserRefineInput(''); setDeckBrowserSaveStatus(null) }} style={{ ...S.ghostBtn, fontSize: 11 }}>{t('cancel')}</button>
+                              {deckBrowserSaveStatus === 'error' && <span style={{ fontSize: 10, color: 'var(--c-danger)' }}>{t('deck_saveFailedAnki')}</span>}
+                              {deckBrowserSaveStatus === 'saved' && <span style={{ fontSize: 10, color: 'var(--c-success)' }}>{t('deck_saved')}</span>}
                               {/* Scheduling reset — content untouched; confirm guards the irreversible part */}
                               <button onClick={() => resetNoteProgress(note, front)} disabled={!ankiConnected}
-                                title="Wipe this card's scheduling history. It becomes a NEW card again (content is kept)"
+                                title={t('deck_resetProgressTip')}
                                 style={{ marginLeft: 'auto', background: 'rgba(229,57,46,.12)', color: 'var(--c-danger)', border: '1px solid rgba(229,57,46,.4)', borderRadius: 5, padding: '5px 12px', fontSize: 11, fontWeight: 700, cursor: ankiConnected ? 'pointer' : 'default', fontFamily: 'inherit', opacity: ankiConnected ? 1 : 0.5 }}>
-                                ⟲ Reset progress
+                                {t('deck_resetProgress')}
                               </button>
                             </div>
                           </div>
@@ -9698,31 +9732,31 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                             {note.stats && (
                               <span style={{ display: 'flex', gap: 4, flexShrink: 0, alignItems: 'center' }}>
                                 {note.stats.reps === 0 ? (
-                                  <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--c-info, #3b82f6)', border: '1px solid rgba(59,130,246,.35)', borderRadius: 999, padding: '1px 7px' }}>NEW</span>
+                                  <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--c-info, #3b82f6)', border: '1px solid rgba(59,130,246,.35)', borderRadius: 999, padding: '1px 7px' }}>{t('deck_new')}</span>
                                 ) : note.stats.interval > 0 ? (
-                                  <span title={`Interval: ${note.stats.interval} days (${note.stats.interval >= 21 ? 'mature' : 'young'})`}
+                                  <span title={t('deck_intervalTip', { n: note.stats.interval, state: note.stats.interval >= 21 ? t('deck_mature') : t('deck_young') })}
                                     style={{ fontSize: 9, fontWeight: 800, color: note.stats.interval >= 21 ? 'var(--c-success)' : 'var(--c-ink-dim)', border: `1px solid ${note.stats.interval >= 21 ? 'rgba(24,169,87,.35)' : 'var(--c-border)'}`, borderRadius: 999, padding: '1px 7px' }}>
                                     {fmtInterval(note.stats.interval)}
                                   </span>
                                 ) : (
-                                  <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--c-warning)', border: '1px solid rgba(232,147,12,.35)', borderRadius: 999, padding: '1px 7px' }}>learn</span>
+                                  <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--c-warning)', border: '1px solid rgba(232,147,12,.35)', borderRadius: 999, padding: '1px 7px' }}>{t('deck_learn')}</span>
                                 )}
                                 {note.stats.lapses >= 4 && (
-                                  <span title={`${note.stats.lapses} lapses: a problem card`}
+                                  <span title={t('deck_lapsesTip', { n: note.stats.lapses })}
                                     style={{ fontSize: 9, fontWeight: 800, color: 'var(--c-danger)', border: '1px solid rgba(229,57,46,.35)', borderRadius: 999, padding: '1px 7px' }}>⚠ {note.stats.lapses}</span>
                                 )}
                               </span>
                             )}
                             <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                              <button onClick={() => startEditNote(note)} style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 8px' }}>Edit</button>
+                              <button onClick={() => startEditNote(note)} style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 8px' }}>{t('edit')}</button>
                               <button onClick={() => {
                                 if (deckBrowserCopying === note.noteId) { setDeckBrowserCopying(null); return }
                                 setDeckBrowserCopying(note.noteId)
                                 setDeckBrowserCopyStatus(null)
                                 setDeckBrowserCopyTarget(ankiDecks.find(d => d !== deckBrowserDeck) || '')
                               }} style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 8px', color: 'var(--c-success)', borderColor: 'rgba(24,169,87,.3)' }}>{t('copyTo')}</button>
-                              <button onClick={() => { if (confirm(`Delete "${front}"?`)) deleteNote(note.noteId) }}
-                                style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 8px', color: 'var(--c-danger)', borderColor: 'rgba(229,57,46,.25)' }}>Del</button>
+                              <button onClick={() => { if (confirm(t('deck_deleteConfirm', { front }))) deleteNote(note.noteId) }}
+                                style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 8px', color: 'var(--c-danger)', borderColor: 'rgba(229,57,46,.25)' }}>{t('deck_del')}</button>
                             </div>
                           </div>
                           {/* Expanded card — the full back with bold labels, tags, and scheduling info */}
@@ -9751,8 +9785,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               {note.stats && (
                                 <div style={{ fontSize: 10, color: 'var(--c-ink-faint)' }}>
                                   {note.stats.reps === 0
-                                    ? 'Never studied'
-                                    : `Studied ${note.stats.reps}× · ${note.stats.lapses} lapse${note.stats.lapses === 1 ? '' : 's'} · interval ${fmtInterval(note.stats.interval)} · last activity ${new Date(note.stats.mod * 1000).toLocaleDateString()}`}
+                                    ? t('deck_neverStudied')
+                                    : t('deck_studiedFooter', { reps: note.stats.reps, lapses: note.stats.lapses, interval: fmtInterval(note.stats.interval), date: new Date(note.stats.mod * 1000).toLocaleDateString() })}
                                 </div>
                               )}
                               {/* Ebi's memory hooks — persisted per note (survive sessions, sync via Anki media) */}
@@ -9760,8 +9794,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                 {hooksForItem(note.noteId, front).map((hook, hi, arr) => (
                                   <div key={hi} style={{ fontSize: 11, color: 'var(--c-ink)', background: 'rgba(139,92,246,.08)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 6, padding: '8px 10px', lineHeight: 1.6, marginBottom: 6 }}>
                                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                                      <div style={{ fontWeight: 700, color: 'var(--c-purple)', marginBottom: 3, flex: 1 }}>🧠 Ebi's memory hook{arr.length > 1 ? ` #${hi + 1}` : ''}</div>
-                                      <span onClick={() => deleteNoteHook(note.noteId, hook, front)} title="Delete this hook" className="click-dim"
+                                      <div style={{ fontWeight: 700, color: 'var(--c-purple)', marginBottom: 3, flex: 1 }}>🧠 {t('study_ebisMemoryHook')}{arr.length > 1 ? ` #${hi + 1}` : ''}</div>
+                                      <span onClick={() => deleteNoteHook(note.noteId, hook, front)} title={t('study_deleteHook')} className="click-dim"
                                         style={{ cursor: 'pointer', color: 'var(--c-ink-faint)', fontSize: 13, lineHeight: 1, padding: '1px 5px', borderRadius: 4, flexShrink: 0 }}>×</span>
                                     </div>
                                     <div className="hook-md">{renderTappableRich(hook, `deck-hook-${note.noteId}`)}</div>
@@ -9769,7 +9803,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                 ))}
                                 {renderWordLookupPopup(`deck-hook-${note.noteId}`)}
                                 {deckBrowserMnemonics[note.noteId]?.loading && (
-                                  <div style={{ fontSize: 11, color: 'var(--c-purple)', marginBottom: 6 }}>🧠 Ebi is thinking of {hooksForItem(note.noteId, front).length ? 'another' : 'a'} memory hook…</div>
+                                  <div style={{ fontSize: 11, color: 'var(--c-purple)', marginBottom: 6 }}>{hooksForItem(note.noteId, front).length ? t('study_thinkingHookAnother') : t('study_thinkingHook')}</div>
                                 )}
                                 {deckBrowserMnemonics[note.noteId]?.error && (
                                   <div style={{ fontSize: 10, color: 'var(--c-danger)', marginBottom: 6 }}>{deckBrowserMnemonics[note.noteId].error}</div>
@@ -9953,9 +9987,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               {chatTabMsgs.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '52px 20px' }}>
                   <img src={shrimpUrl(poseFile('singer'))} alt="Ebi" style={{ width: 76, height: 76, objectFit: 'contain', marginBottom: 10 }} />
-                  <div style={{ fontSize: 24, fontWeight: 800, marginBottom: 8, fontFamily: FONT.display, background: 'linear-gradient(90deg, var(--c-brand), var(--c-brand-dark))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Chat with Ebi</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, marginBottom: 8, fontFamily: FONT.display, background: 'linear-gradient(90deg, var(--c-brand), var(--c-brand-dark))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{t('chat_withEbi')}</div>
                   <div style={{ fontSize: 12, color: 'var(--c-ink-dim)', marginBottom: 20, maxWidth: 420, margin: '0 auto 20px' }}>
-                    Ask about your <strong>{activeMode.name}</strong> studies, have Ebi make Anki cards, quiz you — or just chat. Ebi knows what you're working on.
+                    {t('chat_introPre')}<strong>{activeMode.name}</strong>{t('chat_introPost')}
                   </div>
                   <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
                     {((activeMode.chatSuggestions && activeMode.chatSuggestions.length)
@@ -9968,7 +10002,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     ))}
                     {/* Casual escape hatch — the user may just want to talk to Ebi. */}
                     <button className="chip" onClick={() => { setChatTabInput('Hey Ebi! 🦐') }} style={{ ...S.ghostBtn, fontSize: 10, padding: '7px 14px', borderRadius: 20, borderColor: 'rgba(223,37,64,.35)' }}>
-                      <span className="chip-inner">💬 Just chat with Ebi</span>
+                      <span className="chip-inner">{t('chat_justChat')}</span>
                     </button>
                   </div>
                 </div>
@@ -10068,12 +10102,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '8px 0' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: chatTabStatus === 'searching' ? 'var(--c-brand)' : chatTabStatus === 'search-done' ? 'var(--c-success)' : chatTabStatus === 'search-empty' || chatTabStatus === 'search-failed' ? '#f0883e' : 'var(--c-ink-dim)', fontSize: 12 }}>
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: chatTabStatus === 'searching' ? 'var(--c-brand)' : chatTabStatus === 'thinking' ? 'var(--c-purple)' : 'var(--c-brand)', animation: 'pulse 1.5s ease infinite' }} />
-                    {chatTabStatus === 'searching' && 'Searching the web...'}
-                    {chatTabStatus === 'search-done' && 'Found results. Analyzing...'}
-                    {chatTabStatus === 'search-empty' && 'No results found. Answering from knowledge...'}
-                    {chatTabStatus === 'search-failed' && 'Search failed. Answering from knowledge...'}
-                    {chatTabStatus === 'thinking' && (chatTabWebSearch ? 'Generating response with search results...' : 'Thinking...')}
-                    {!chatTabStatus && 'Thinking...'}
+                    {chatTabStatus === 'searching' && t('chat_searchingWeb')}
+                    {chatTabStatus === 'search-done' && t('chat_foundAnalyzing')}
+                    {chatTabStatus === 'search-empty' && t('chat_noResults')}
+                    {chatTabStatus === 'search-failed' && t('chat_searchFailed')}
+                    {chatTabStatus === 'thinking' && (chatTabWebSearch ? t('chat_generatingWithSearch') : t('chat_thinking'))}
+                    {!chatTabStatus && t('chat_thinking')}
                   </div>
                 </div>
               )}
@@ -10093,11 +10127,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     onChange={(e) => { if (e.target.value) chatTabAttachDeck(e.target.value) }}
                     style={{ ...S.select, fontSize: 10, padding: '3px 6px', color: 'var(--c-ink-dim)', maxWidth: 160, ...(ankiConnected ? {} : { opacity: .5, cursor: 'default' }) }}
                   >
-                    <option value="">Attach deck...</option>
+                    <option value="">{t('chat_attachDeck')}</option>
                     {ankiConnected && ankiDecks.map(d => <option key={d} value={d}>{d}</option>)}
                   </select>
-                  {!ankiConnected && <span style={{ fontSize: 10, color: 'var(--c-ink-dim)' }}>Anki isn't open</span>}
-                  {chatTabAttachLoading && <span style={{ fontSize: 10, color: 'var(--c-ink-dim)' }}>Loading deck...</span>}
+                  {!ankiConnected && <span style={{ fontSize: 10, color: 'var(--c-ink-dim)' }}>{t('chat_ankiNotOpen')}</span>}
+                  {chatTabAttachLoading && <span style={{ fontSize: 10, color: 'var(--c-ink-dim)' }}>{t('chat_loadingDeck')}</span>}
                 </div>
               )}
               {/* Attached-image preview for the next message */}
@@ -10170,7 +10204,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   value={chatTabInput}
                   onChange={(e) => setChatTabInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatTabMessage() } }}
-                  placeholder={chatTabWebSearch ? 'Search the web and ask...' : 'Ask anything, or tell me to make a flashcard...'}
+                  placeholder={chatTabWebSearch ? t('chat_searchAndAsk') : t('chat_placeholder')}
                   style={{ ...S.keyInput, flex: 1, fontSize: 13, padding: '10px 14px' }}
                 />
                 <button
@@ -10178,7 +10212,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   disabled={chatTabLoading || (!chatTabInput.trim() && !chatTabImage)}
                   style={{ ...S.captureBtn, borderRadius: 6, opacity: chatTabLoading || (!chatTabInput.trim() && !chatTabImage) ? 0.5 : 1 }}
                 >
-                  Send
+                  {t('chat_send')}
                 </button>
               </div>
             </div>
@@ -10967,9 +11001,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     </div>
                   ) : (
                     <div style={{ textAlign: 'center', color: 'var(--c-ink-dim)', fontSize: 12, padding: 20 }}>
-                      {studyCardState.some(cs => cs.evaluating) ? 'Evaluating remaining cards...' : 'All cards completed!'}
+                      {studyCardState.some(cs => cs.evaluating) ? t('study_evaluatingRemaining') : t('study_allCompleted')}
                       {!studyCardState.some(cs => cs.evaluating) && (
-                        <button onClick={() => setStudyPhase('summary')} style={{ ...S.captureBtn, borderRadius: 6, marginTop: 12, display: 'block', margin: '12px auto 0' }}>View Summary</button>
+                        <button onClick={() => setStudyPhase('summary')} style={{ ...S.captureBtn, borderRadius: 6, marginTop: 12, display: 'block', margin: '12px auto 0' }}>{t('study_viewSummary')}</button>
                       )}
                     </div>
                   )}
@@ -10983,34 +11017,36 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       <div style={{ marginTop: 16 }}>
                         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                           <button onClick={() => setStudyShowGraded(v => !v)} className="ui-btn" style={{ ...S.ghostBtn, fontSize: 11, fontWeight: 700, color: 'var(--c-ink-dim)' }}>
-                            {studyShowGraded ? '▾ Hide' : '▸ Show'} graded cards ({graded.length}{pending.length > 0 ? `, ${pending.length} unsynced` : ''})
+                            {studyShowGraded
+                              ? t('study_gradedHide', { n: graded.length, extra: pending.length > 0 ? t('study_unsyncedSuffix', { n: pending.length }) : '' })
+                              : t('study_gradedShow', { n: graded.length, extra: pending.length > 0 ? t('study_unsyncedSuffix', { n: pending.length }) : '' })}
                           </button>
                           {pending.length > 0 && ankiConnected && (
                             <button onClick={() => syncGradedNow()} disabled={studySyncing} className="btn-press hover-dim"
                               style={{ fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 8, border: 'none', background: 'var(--c-success)', color: '#fff', cursor: studySyncing ? 'default' : 'pointer', opacity: studySyncing ? 0.6 : 1 }}>
-                              {studySyncing ? 'Syncing…' : `Sync ${pending.length} to Anki now`}
+                              {studySyncing ? t('study_syncing') : t('study_syncNow', { n: pending.length })}
                             </button>
                           )}
                         </div>
                         {pending.length > 0 && ankiConnected === false && (
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, maxWidth: 460, margin: '8px auto 0', padding: '9px 14px', fontSize: 12.5, lineHeight: 1.35, color: 'var(--c-warning)', background: 'rgba(242,169,58,.10)', border: '1px solid rgba(242,169,58,.45)', borderLeft: '3px solid var(--c-warning)', borderRadius: 8, textAlign: 'left' }}>
                             <span style={{ fontSize: 15, flexShrink: 0 }} aria-hidden="true">⏳</span>
-                            <span><strong>Anki is not open</strong> — your {pending.length} rating{pending.length === 1 ? '' : 's'} {pending.length === 1 ? 'is' : 'are'} saved and will sync automatically once Anki is back.</span>
+                            <span><strong>{t('study_ankiNotOpenBold')}</strong>{t('study_ankiNotOpenRest', { n: pending.length })}</span>
                           </div>
                         )}
                         {pending.length > 0 && ankiConnected !== false && (
                           <div style={{ textAlign: 'center', fontSize: 10, color: 'var(--c-ink-faint)', marginTop: 5 }}>
-                            {ankiConnected === false ? 'Anki isn\'t open. Ratings sync automatically when it reconnects.'
+                            {ankiConnected === false ? t('study_ankiReconnectNote')
                               : studyAutoSync ? (() => {
                               const oldest = Math.min(...pending.map(c => c.gradedAt || studyNow))
                               const left = Math.max(0, oldest + STUDY_SYNC_GRACE_MS - studyNow)
                               const mm = Math.floor(left / 60000), ssn = Math.floor((left % 60000) / 1000)
-                              return `Unsynced ratings lock into Anki in ${mm}:${String(ssn).padStart(2, '0')}. Correct them before then, or sync now.`
-                            })() : 'Auto-sync is off. Ratings sync when you press “Sync now” or finish the session.'}
+                              return t('study_lockCountdown', { time: `${mm}:${String(ssn).padStart(2, '0')}` })
+                            })() : t('study_autoSyncOff')}
                           </div>
                         )}
                         {studySyncNotification && (
-                          <div style={{ textAlign: 'center', marginTop: 8, fontSize: 11, color: 'var(--c-success)' }}>✓ Synced to Anki</div>
+                          <div style={{ textAlign: 'center', marginTop: 8, fontSize: 11, color: 'var(--c-success)' }}>{t('study_syncedToAnki')}</div>
                         )}
                         {studySyncError && (
                           <div style={{ textAlign: 'center', marginTop: 8, fontSize: 11, color: 'var(--c-danger)', background: 'rgba(229,57,46,.06)', border: '1px solid rgba(229,57,46,.2)', borderRadius: 6, padding: '6px 12px' }}>{studySyncError}</div>
@@ -11039,24 +11075,24 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           </span>
                           <span onClick={(e) => e.stopPropagation()} style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                           {cs.evaluating ? (
-                            <span style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>Evaluating...</span>
+                            <span style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>{t('study_evaluating')}</span>
                           ) : (<>
                             {renderMnemonicButton(cs, ci, view === 'mnemonic')}
                             {cs.noSync ? (
                               // Relaxed practice — this rating never reaches Anki, so there's nothing to correct or lock.
                               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{(cs.rating || '').toUpperCase()}</span>
-                                <span title="Practice only: not recorded in Anki" style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-purple)' }}>{t('practiceBadge')}</span>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{ratingLabel(cs.rating)}</span>
+                                <span title={t('study_practiceTip')} style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-purple)' }}>{t('practiceBadge')}</span>
                               </span>
                             ) : cs.synced ? (
                               // Locked: this rating is committed to Anki and can no longer change (no again→easy lapse).
                               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{(cs.rating || '').toUpperCase()}</span>
-                                <span title={cs.ankiCorrected ? 'Synced, then the rating was corrected in Anki after your feedback' : 'Synced to Anki: locked'} style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-success)' }}>🔒 Synced{cs.ankiCorrected ? ' ✎' : ''}</span>
+                                <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{ratingLabel(cs.rating)}</span>
+                                <span title={cs.ankiCorrected ? t('study_syncedCorrectedTip') : t('study_syncedLockedTip')} style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-success)' }}>{t('study_synced')}{cs.ankiCorrected ? ' ✎' : ''}</span>
                               </span>
                             ) : (
                               <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <span title="Not yet committed to Anki: you can still change this rating" style={{ fontSize: 9, color: 'var(--c-warning)', fontWeight: 700 }}>● not synced</span>
+                                <span title={t('study_notSyncedTip')} style={{ fontSize: 9, color: 'var(--c-warning)', fontWeight: 700 }}>{t('study_notSynced')}</span>
                                 <select value={cs.rating || ''} onChange={(e) => {
                                 const newRating = e.target.value
                                 const easeMap = { easy: 4, good: 3, hard: 2, again: 1 }
@@ -11073,10 +11109,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                   return updated
                                 })
                               }} className="hover-dim" style={{ background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', color: ratingColors[cs.rating] || 'var(--c-ink-dim)', border: `1px solid ${ratingColors[cs.rating] || 'var(--c-border)'}44`, borderRadius: 4, fontSize: 11, fontWeight: 700, fontFamily: 'inherit', padding: '2px 6px', cursor: 'pointer' }}>
-                                <option value="easy" style={{ color: 'var(--c-success)' }}>EASY</option>
-                                <option value="good" style={{ color: 'var(--c-brand)' }}>GOOD</option>
-                                <option value="hard" style={{ color: 'var(--c-warning)' }}>HARD</option>
-                                <option value="again" style={{ color: 'var(--c-danger)' }}>AGAIN</option>
+                                <option value="easy" style={{ color: 'var(--c-success)' }}>{t('study_rateEasy')}</option>
+                                <option value="good" style={{ color: 'var(--c-brand)' }}>{t('study_rateGood')}</option>
+                                <option value="hard" style={{ color: 'var(--c-warning)' }}>{t('study_rateHard')}</option>
+                                <option value="again" style={{ color: 'var(--c-danger)' }}>{t('study_rateAgain')}</option>
                               </select>
                               </span>
                             )}
@@ -11093,10 +11129,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                             {(studyFeedbackChat[ci]?.messages || []).map((m, mi) => (
                               <div key={mi} style={{ fontSize: 11, padding: '4px 8px', marginBottom: 4, borderRadius: 4, background: m.role === 'user' ? 'rgba(223,37,64,.08)' : 'rgba(24,169,87,.05)', color: m.role === 'user' ? 'var(--c-ink)' : 'var(--c-success)' }}>{m.text}</div>
                             ))}
-                            {studyFeedbackChat[ci]?.loading && <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', padding: '2px 8px' }}>Thinking...</div>}
+                            {studyFeedbackChat[ci]?.loading && <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', padding: '2px 8px' }}>{t('study_thinking')}</div>}
                             <div style={{ display: 'flex', gap: 4 }}>
-                              <input value={studyFeedbackChat[ci]?.input || ''} onChange={(e) => setStudyFeedbackChat(prev => ({ ...prev, [ci]: { ...(prev[ci] || { messages: [], loading: false }), input: e.target.value } }))} onKeyDown={(e) => { if (e.key === 'Enter') sendStudyFeedbackChat(ci) }} placeholder="Fix a typo, flag a bad question, or teach Ebi how to ask better..." style={{ ...S.keyInput, flex: 1, fontSize: 10, padding: '4px 8px' }} />
-                              <button onClick={() => sendStudyFeedbackChat(ci)} disabled={studyFeedbackChat[ci]?.loading || !(studyFeedbackChat[ci]?.input?.trim())} style={{ ...S.ghostBtn, fontSize: 9, padding: '4px 8px', opacity: (studyFeedbackChat[ci]?.loading || !(studyFeedbackChat[ci]?.input?.trim())) ? 0.4 : 1 }}>Reply</button>
+                              <input value={studyFeedbackChat[ci]?.input || ''} onChange={(e) => setStudyFeedbackChat(prev => ({ ...prev, [ci]: { ...(prev[ci] || { messages: [], loading: false }), input: e.target.value } }))} onKeyDown={(e) => { if (e.key === 'Enter') sendStudyFeedbackChat(ci) }} placeholder={t('study_feedbackChatPlaceholder')} style={{ ...S.keyInput, flex: 1, fontSize: 10, padding: '4px 8px' }} />
+                              <button onClick={() => sendStudyFeedbackChat(ci)} disabled={studyFeedbackChat[ci]?.loading || !(studyFeedbackChat[ci]?.input?.trim())} style={{ ...S.ghostBtn, fontSize: 9, padding: '4px 8px', opacity: (studyFeedbackChat[ci]?.loading || !(studyFeedbackChat[ci]?.input?.trim())) ? 0.4 : 1 }}>{t('study_reply')}</button>
                             </div>
                           </div>
                         )}
@@ -11109,7 +11145,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               <button onClick={() => {
                                 setStudyCardState(prev => prev.map(cs => cs.done && cs.results.length > 0 ? { ...cs, dismissed: true } : cs))
                               }} className="ui-btn" style={{ ...S.ghostBtn, fontSize: 11, color: 'var(--c-ink-dim)' }}>
-                                {studyMode === 'conjugations' ? t('close') : 'Clear completed from list'}
+                                {studyMode === 'conjugations' ? t('close') : t('study_clearCompleted')}
                               </button>
                             </div>
                           </div>
@@ -11125,7 +11161,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             {studyPhase === 'batchFeedback' && (
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--c-ink)' }}>Batch Results</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--c-ink)' }}>{t('study_batchResults')}</div>
                   <FeedbackLegend />
                 </div>
                 {studyCardState.map((cs, ci) => {
@@ -11148,18 +11184,18 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           {renderMnemonicButton(cs, ci, view === 'mnemonic')}
                         </>)}
                         {cs.rating === 'deleted' ? (
-                          <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors.deleted }}>DELETED</span>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors.deleted }}>{t('study_deleted')}</span>
                         ) : cs.noSync ? (
                           // Relaxed practice — never pushed to Anki, so no dropdown and no lock.
                           <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{(cs.rating || '').toUpperCase()}</span>
-                            <span title="Practice only: not recorded in Anki" style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-purple)' }}>{t('practiceBadge')}</span>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{ratingLabel(cs.rating)}</span>
+                            <span title={t('study_practiceTip')} style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-purple)' }}>{t('practiceBadge')}</span>
                           </span>
                         ) : cs.synced ? (
                           // Already committed to Anki — locked so a correction can't double-answer (again→easy lapse).
                           <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{(cs.rating || '').toUpperCase()}</span>
-                            <span title={cs.ankiCorrected ? 'Synced, then the rating was corrected in Anki after your feedback' : 'Synced to Anki: locked'} style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-success)' }}>🔒 Synced{cs.ankiCorrected ? ' ✎' : ''}</span>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{ratingLabel(cs.rating)}</span>
+                            <span title={cs.ankiCorrected ? t('study_syncedCorrectedTip') : t('study_syncedLockedTip')} style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-success)' }}>{t('study_synced')}{cs.ankiCorrected ? ' ✎' : ''}</span>
                           </span>
                         ) : (
                           // Editable rating — changing it re-answers the card in Anki with the new ease (synced:false).
@@ -11174,10 +11210,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               return updated
                             })
                           }} className="hover-dim" style={{ background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', color: ratingColors[cs.rating] || 'var(--c-ink-dim)', border: `1px solid ${ratingColors[cs.rating] || 'var(--c-border)'}44`, borderRadius: 4, fontSize: 11, fontWeight: 700, fontFamily: 'inherit', padding: '2px 6px', cursor: 'pointer' }}>
-                            <option value="easy" style={{ color: 'var(--c-success)' }}>EASY</option>
-                            <option value="good" style={{ color: 'var(--c-brand)' }}>GOOD</option>
-                            <option value="hard" style={{ color: 'var(--c-warning)' }}>HARD</option>
-                            <option value="again" style={{ color: 'var(--c-danger)' }}>AGAIN</option>
+                            <option value="easy" style={{ color: 'var(--c-success)' }}>{t('study_rateEasy')}</option>
+                            <option value="good" style={{ color: 'var(--c-brand)' }}>{t('study_rateGood')}</option>
+                            <option value="hard" style={{ color: 'var(--c-warning)' }}>{t('study_rateHard')}</option>
+                            <option value="again" style={{ color: 'var(--c-danger)' }}>{t('study_rateAgain')}</option>
                           </select>
                         )}
                         </span>
@@ -11198,20 +11234,20 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                           </div>
                         ))}
                         {studyFeedbackChat[ci]?.loading && (
-                          <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', padding: '2px 8px' }}>Thinking...</div>
+                          <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', padding: '2px 8px' }}>{t('study_thinking')}</div>
                         )}
                         <div style={{ display: 'flex', gap: 4 }}>
                           <input
                             value={studyFeedbackChat[ci]?.input || ''}
                             onChange={(e) => setStudyFeedbackChat(prev => ({ ...prev, [ci]: { ...(prev[ci] || { messages: [], loading: false }), input: e.target.value } }))}
                             onKeyDown={(e) => { if (e.key === 'Enter') sendStudyFeedbackChat(ci) }}
-                            placeholder="Fix a typo, flag a bad question, or teach Ebi how to ask better..."
+                            placeholder={t('study_feedbackChatPlaceholder')}
                             style={{ ...S.keyInput, flex: 1, fontSize: 10, padding: '4px 8px' }}
                           />
                           <button onClick={() => sendStudyFeedbackChat(ci)}
                             disabled={studyFeedbackChat[ci]?.loading || !(studyFeedbackChat[ci]?.input?.trim())}
                             style={{ ...S.ghostBtn, fontSize: 9, padding: '4px 8px', opacity: (studyFeedbackChat[ci]?.loading || !(studyFeedbackChat[ci]?.input?.trim())) ? 0.4 : 1 }}>
-                            Reply
+                            {t('study_reply')}
                           </button>
                         </div>
                       </div>
@@ -11221,7 +11257,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 })}
                 <div style={{ textAlign: 'center', marginTop: 8 }}>
                   <button onClick={nextBatch} style={{ ...S.captureBtn, borderRadius: 6 }}>
-                    {studyBatchIdx + (activeMode.studyRules?.cardsAtOnce || 3) >= (studyMode === 'conjugations' ? studyConjugationWords.length : studyAllCards.length) ? 'Finish Session' : 'Next Batch \u2192'}
+                    {studyBatchIdx + (activeMode.studyRules?.cardsAtOnce || 3) >= (studyMode === 'conjugations' ? studyConjugationWords.length : studyAllCards.length) ? t('study_finishSession') : t('study_nextBatch')}
                   </button>
                 </div>
               </div>
@@ -11236,28 +11272,25 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         {stage === 'idle' && !isOverlay && (
           <div style={S.emptyState}>
             <img src={shrimpUrl(poseFile('camera'))} alt="Ebi" style={{ width: 84, height: 84, objectFit: 'contain', marginBottom: 12 }} />
-            <h2 style={S.emptyTitle}>Capture, paste, drop, or upload</h2>
+            <h2 style={S.emptyTitle}>{t('pic_emptyTitle')}</h2>
             <p style={S.emptyDesc}>
-              Hit <kbd style={S.kbdInline}>Alt+Q</kbd> to screenshot your display,
-              or paste / drag-drop any image. Your chosen AI ({providerConfig.label}) reads
-              the image and translates each word in context. Hover any word for its meaning,
-              pronunciation, and synonyms.
+              {t('pic_emptyDescPre')}<kbd style={S.kbdInline}>Alt+Q</kbd>{t('pic_emptyDescPost', { provider: providerConfig.label })}
             </p>
             <div style={S.methods}>
               <div onClick={captureScreen} className="click-dim"
                 style={{ ...S.methodCard, borderColor: 'rgba(223,37,64,0.2)', cursor: 'pointer' }}>
                 <span style={{ color: 'var(--c-brand)', fontSize: 20 }}>📸</span>
-                <span style={{ color: 'var(--c-brand)' }}>Capture Screen</span>
+                <span style={{ color: 'var(--c-brand)' }}>{t('pic_capture')}</span>
               </div>
               <div onClick={() => fileInputRef.current?.click()} className="click-dim"
                 style={{ ...S.methodCard, borderColor: 'rgba(139,92,246,0.2)', cursor: 'pointer' }}>
                 <span style={{ color: 'var(--c-purple)', fontSize: 20 }}>📁</span>
-                <span style={{ color: 'var(--c-purple)' }}>Upload File</span>
+                <span style={{ color: 'var(--c-purple)' }}>{t('pic_upload')}</span>
               </div>
               <div onClick={pasteImageFromClipboard} className="click-dim"
                 style={{ ...S.methodCard, borderColor: 'rgba(24,169,87,0.2)', cursor: 'pointer' }}>
                 <span style={{ color: 'var(--c-success)', fontSize: 20 }}>📋</span>
-                <span style={{ color: 'var(--c-success)' }}>Ctrl+V Paste</span>
+                <span style={{ color: 'var(--c-success)' }}>{t('pic_paste')}</span>
               </div>
             </div>
           </div>
@@ -11515,19 +11548,19 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               </div>
             ))}
             {chatTabLoading && <div style={{ fontSize: 11, color: chatTabStatus === 'searching' ? 'var(--c-brand)' : 'var(--c-ink-dim)', padding: '4px 0' }}>
-              {chatTabStatus === 'searching' ? 'Searching the web...' : chatTabStatus === 'search-done' ? 'Analyzing results...' : 'Thinking...'}
+              {chatTabStatus === 'searching' ? t('chat_searchingWeb') : chatTabStatus === 'search-done' ? t('chat_analyzingResults') : t('chat_thinking')}
             </div>}
           </div>
           <div style={{ padding: '8px 12px', borderTop: '1px solid var(--c-border)' }}>
             {!chatTabAttachedDeck && ankiConnected && (
               <select value="" onChange={(e) => { if (e.target.value) chatTabAttachDeck(e.target.value) }} style={{ ...S.select, fontSize: 9, padding: '2px 4px', marginBottom: 4, width: '100%' }}>
-                <option value="">Attach deck...</option>
+                <option value="">{t('chat_attachDeck')}</option>
                 {ankiDecks.map(d => <option key={d} value={d}>{d}</option>)}
               </select>
             )}
             <div style={{ display: 'flex', gap: 4 }}>
-              <input value={chatTabInput} onChange={(e) => setChatTabInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatTabMessage() } }} placeholder="Ask anything..." style={{ ...S.keyInput, flex: 1, fontSize: 11, padding: '8px 10px' }} disabled={chatTabLoading} />
-              <button onClick={sendChatTabMessage} disabled={chatTabLoading || !chatTabInput.trim()} style={{ ...S.captureBtn, borderRadius: 4, fontSize: 10, opacity: chatTabLoading || !chatTabInput.trim() ? 0.5 : 1 }}>Send</button>
+              <input value={chatTabInput} onChange={(e) => setChatTabInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatTabMessage() } }} placeholder={t('chat_placeholderShort')} style={{ ...S.keyInput, flex: 1, fontSize: 11, padding: '8px 10px' }} disabled={chatTabLoading} />
+              <button onClick={sendChatTabMessage} disabled={chatTabLoading || !chatTabInput.trim()} style={{ ...S.captureBtn, borderRadius: 4, fontSize: 10, opacity: chatTabLoading || !chatTabInput.trim() ? 0.5 : 1 }}>{t('chat_send')}</button>
             </div>
           </div>
         </div>
@@ -12266,6 +12299,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       )}
 
       {!isOverlay && configLoaded && onboarded && <HelpChat
+        t={t}
         apiKey={apiKey}
         provider={provider}
         mascotFile={helpMascot}

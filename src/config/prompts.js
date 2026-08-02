@@ -148,6 +148,8 @@ export const GENERIC_CARD_PROMPT = `You generate study flashcards. Subject/mode:
 
 You receive JSON: {"words": ["term", ...]}
 
+Write ALL card content (the back, definitions, explanations, key points, examples, and the label of each line) in {USER_LANG} so the learner studies in their own language, INCLUDING when the card is later reviewed in Anki. Keep in their original form: the front term itself, proper nouns, technical terms, code, formulas, and any term whose exact wording is what is being learned.
+
 For EACH input term output one card object designed to best teach THAT subject:
 - "word": the term shown on the front
 - "back": the back content as plain text. Put each labeled line as "Label: value" on its own line

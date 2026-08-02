@@ -8,20 +8,20 @@ const C = {
   red: 'var(--c-danger)', dim: 'var(--c-ink-dim)', text: 'var(--c-ink)',
 }
 
-function StatusLine({ status }) {
-  const labels = { thinking: 'Thinking of a good suggestion…', searching: 'Searching the web to verify…', verifying: 'Checking the facts…' }
-  return <div style={{ fontSize: 12, color: C.dim, padding: '20px 0' }}>{labels[status] || 'Working…'}</div>
+function StatusLine({ status, t }) {
+  const labels = { thinking: t('d_statusThinking'), searching: t('d_statusSearching'), verifying: t('d_statusVerifying') }
+  return <div style={{ fontSize: 12, color: C.dim, padding: '20px 0' }}>{labels[status] || t('d_statusWorking')}</div>
 }
 
 function LevelBadge({ profile, t }) {
   if (!profile?.level) return null
   const { scale, estimate, confidence } = profile.level
   const label = scale === 'CEFR' ? estimate
-    : scale === 'domain-coverage' ? `${estimate || 'in progress'}`
+    : scale === 'domain-coverage' ? `${estimate || t('d_inProgress')}`
     : estimate
   return (
     <span style={{ fontSize: 11, color: C.blue, background: 'rgba(223,37,64,0.12)', border: '1px solid rgba(223,37,64,0.25)', borderRadius: 5, padding: '3px 8px', fontWeight: 600 }}>
-      {t('d_level')} {label}{typeof confidence === 'number' ? ` · ${Math.round(confidence * 100)}% sure` : ''}
+      {t('d_level')} {label}{typeof confidence === 'number' ? ` · ${t('d_sureSuffix', { pct: Math.round(confidence * 100) })}` : ''}
     </span>
   )
 }
@@ -45,8 +45,8 @@ export default function DiscoverPanel(props) {
   const knownCount = ledger?.known?.length || 0
 
   const focusPlaceholder = isLanguage
-    ? 'Optional: focus the AI, e.g. "cooking vocabulary", "past-tense verbs", "travel phrases"'
-    : `Optional: tell the AI what to focus on for ${modeName}${modeDescription ? ` (${modeDescription})` : ''}, e.g. specific topics or the kind of cards you want`
+    ? t('d_focusPlaceholderLang')
+    : t('d_focusPlaceholderGeneral', { mode: `${modeName}${modeDescription ? ` (${modeDescription})` : ''}` })
 
   // What kinds of items Discover can propose — richer than the old Words/Phrases/Both.
   // General modes prefer their AI-generated subject-specific categories (customKinds, created
@@ -85,12 +85,12 @@ export default function DiscoverPanel(props) {
               {onDeckChange && decks.length > 0 ? (
                 <select value={deck || ''} onChange={(e) => onDeckChange(e.target.value)}
                   style={{ background: 'var(--c-surface)', color: C.text, border: '1px solid var(--c-border)', borderRadius: 5, padding: '3px 6px', fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', maxWidth: 200 }}>
-                  {!deck && <option value="">—</option>}
+                  {!deck && <option value="">·</option>}
                   {deck && !decks.includes(deck) && <option value={deck}>{deck}</option>}
                   {decks.map((d) => <option key={d} value={d}>{d}</option>)}
                 </select>
               ) : (
-                <strong style={{ color: C.text }}>{deck || '—'}</strong>
+                <strong style={{ color: C.text }}>{deck || '·'}</strong>
               )}
             </span>
             <span style={{ fontSize: 11, color: C.dim }}>{cardedCount} {t('d_made')} · {knownCount} {t('d_known')}</span>
@@ -101,7 +101,7 @@ export default function DiscoverPanel(props) {
           </button>
         </div>
         {profile?.summary && <div style={{ fontSize: 11, color: C.dim, lineHeight: 1.5 }}>{profile.summary}</div>}
-        {profileLoading && !profile && <div style={{ fontSize: 12, color: C.dim }}>Analyzing your level from your cards and history…</div>}
+        {profileLoading && !profile && <div style={{ fontSize: 12, color: C.dim }}>{t('d_analyzingProfile')}</div>}
       </div>
 
       {error && <div style={{ fontSize: 11, color: C.red, marginBottom: 10 }}>{error}</div>}
@@ -155,17 +155,19 @@ export default function DiscoverPanel(props) {
               <span title={config.focus} style={{ fontSize: 10, color: C.purple, border: '1px solid rgba(139,92,246,.3)', borderRadius: 999, padding: '2px 8px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🎯 {config.focus}</span>
             )}
           </div>
-          <button onClick={onAdjust}
-            style={{ background: 'transparent', color: C.dim, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 5, padding: '4px 10px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+          {/* Prominent back-to-setup control: a faint ghost chip read as "just another tag", so the
+              only way back to the type/difficulty/focus screen was hidden. Brand-tinted + arrow. */}
+          <button onClick={onAdjust} className="btn-press"
+            style={{ background: 'rgba(223,37,64,0.15)', color: C.blue, border: '1px solid rgba(223,37,64,0.35)', borderRadius: 6, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
             {t('d_adjust')}
           </button>
         </div>
 
-        {(suggestionLoading || status) && !suggestion && <StatusLine status={status} />}
+        {(suggestionLoading || status) && !suggestion && <StatusLine status={status} t={t} />}
 
         {!suggestionLoading && !suggestion && (
           <div style={{ fontSize: 12, color: C.dim, padding: '12px 0' }}>
-            No suggestion. <button onClick={onNext} style={{ background: 'none', border: 'none', color: C.blue, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, padding: 0, textDecoration: 'underline' }}>Get one</button>
+            {t('d_noSuggestion')} <button onClick={onNext} style={{ background: 'none', border: 'none', color: C.blue, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, padding: 0, textDecoration: 'underline' }}>{t('d_getOne')}</button>
           </div>
         )}
 
@@ -176,7 +178,7 @@ export default function DiscoverPanel(props) {
               {suggestion.partOfSpeech && <span style={{ fontSize: 12, color: C.dim }}>({suggestion.partOfSpeech})</span>}
               {suggestion.difficulty && <span style={{ fontSize: 10, color: C.purple, background: 'rgba(139,92,246,0.12)', borderRadius: 4, padding: '2px 6px' }}>{suggestion.difficulty}</span>}
               {webVerify && 'verified' in suggestion && (
-                <span style={{ fontSize: 10, color: suggestion.verified ? C.green : C.orange }}>{suggestion.verified ? '✓ verified' : '⚠ unverified'}</span>
+                <span style={{ fontSize: 10, color: suggestion.verified ? C.green : C.orange }}>{suggestion.verified ? t('d_verified') : t('d_unverified')}</span>
               )}
             </div>
             {suggestion.translation && <div style={{ fontSize: 14, color: C.text, marginBottom: 6 }}>→ {suggestion.translation}</div>}
@@ -196,15 +198,15 @@ export default function DiscoverPanel(props) {
 
             {card ? (
               <div style={{ borderTop: '1px solid rgba(81,98,108,0.2)', paddingTop: 10, marginTop: 6 }}>
-                <div style={{ fontSize: 10, color: C.dim, marginBottom: 4 }}>FRONT</div>
+                <div style={{ fontSize: 10, color: C.dim, marginBottom: 4 }}>{t('d_front')}</div>
                 <textarea value={card.front} onChange={(e) => setCard({ ...card, front: e.target.value })}
                   style={{ width: '100%', background: 'var(--c-surface)', color: C.text, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 4, padding: 8, fontSize: 12, fontFamily: 'inherit', resize: 'vertical', marginBottom: 8, boxSizing: 'border-box' }} rows={1} />
-                <div style={{ fontSize: 10, color: C.dim, marginBottom: 4 }}>BACK</div>
+                <div style={{ fontSize: 10, color: C.dim, marginBottom: 4 }}>{t('d_back')}</div>
                 <textarea value={card.back} onChange={(e) => setCard({ ...card, back: e.target.value })}
                   style={{ width: '100%', background: 'var(--c-surface)', color: C.text, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 4, padding: 8, fontSize: 12, fontFamily: 'inherit', resize: 'vertical', marginBottom: 8, boxSizing: 'border-box' }} rows={5} />
                 {card.tags?.length > 0 && (
                   <div style={{ fontSize: 10, color: C.dim, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-                    Tags:
+                    {t('d_tagsLabel')}
                     {/* region-* first + highlighted, matching the App-side tag chips (green=global, amber=regional) */}
                     {[...card.tags].sort((a, b) => (String(b).startsWith('region-') ? 1 : 0) - (String(a).startsWith('region-') ? 1 : 0)).map((tag, i) => (
                       <span key={i} style={{ padding: '1px 6px', borderRadius: 3, background: 'rgba(81,98,108,0.12)', ...(String(tag).startsWith('region-')
@@ -239,7 +241,7 @@ export default function DiscoverPanel(props) {
                   style={{ background: 'transparent', color: C.dim, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 5, padding: '7px 14px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
                   {t('d_skip')}
                 </button>
-                <button onClick={onNext} disabled={cardLoading} title="Skip without recording"
+                <button onClick={onNext} disabled={cardLoading} title={t('d_skipNoRecord')}
                   style={{ background: 'transparent', color: C.dim, border: 'none', borderRadius: 5, padding: '7px 10px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', marginLeft: 'auto' }}>
                   {t('d_next')}
                 </button>

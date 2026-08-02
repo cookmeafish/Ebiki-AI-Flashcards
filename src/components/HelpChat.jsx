@@ -135,7 +135,7 @@ function buildSystemPrompt(appContext) {
   return parts.join('\n')
 }
 
-export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-6', askAI, mascotFile = DEFAULT_SHRIMP, onAiReply, onAction, askEbiSignal, hideButton }) {
+export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'claude-sonnet-4-6', askAI, mascotFile = DEFAULT_SHRIMP, onAiReply, onAction, askEbiSignal, hideButton }) {
   const [open, setOpen] = useState(false)
   // FancyZones-style snapping. null = floating popup anchored to the button.
   // 'left'|'right'|'top'|'bottom' = snapped to that screen edge ('bottom' sits under the question).
@@ -441,16 +441,16 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
       <div
         onMouseDown={startSnapDrag}
         style={{ padding: '10px 14px', borderBottom: '1px solid var(--c-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, cursor: snapDragging ? 'grabbing' : 'grab', userSelect: 'none' }}
-        title="Drag to move or snap the chat to a screen edge"
+        title={t('help_dragTip')}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ color: 'var(--c-ink-faint)', fontSize: 12, lineHeight: 1, letterSpacing: -1 }}>⠿</span>
-          <span style={{ fontSize: 12, fontWeight: 700, background: 'linear-gradient(90deg, var(--c-brand), var(--c-purple))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>Ebi's Help</span>
+          <span style={{ fontSize: 12, fontWeight: 700, background: 'linear-gradient(90deg, var(--c-brand), var(--c-purple))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{t('help_title')}</span>
           {messages.length > 0 && (
             <span
               onMouseDown={(e) => e.stopPropagation()}
               onClick={newChat}
-              title="New chat"
+              title={t('help_newChat')}
               style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 11, padding: '1px 6px', border: '1px solid var(--c-border)', borderRadius: 4, lineHeight: '16px' }}
             >+</span>
           )}
@@ -463,7 +463,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
             <span
               onMouseDown={(e) => e.stopPropagation()}
               onClick={() => { setSnapZone(null) }}
-              title="Pop out to floating button"
+              title={t('help_popOut')}
               className="click-dim"
               style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 13, lineHeight: 1, padding: '3px 5px', borderRadius: 5 }}
             >&#8599;</span>
@@ -471,7 +471,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
             <span
               onMouseDown={(e) => e.stopPropagation()}
               onClick={() => { setChoosingZone(true) }}
-              title="Dock… pick a spot"
+              title={t('help_dockPick')}
               className="click-dim"
               style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 13, lineHeight: 1, padding: '3px 5px', borderRadius: 5 }}
             >&#9699;</span>
@@ -484,9 +484,9 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
       <div ref={msgTopRef} style={{ flex: 1, overflow: 'auto', padding: '10px 14px' }}>
         {messages.length === 0 && (
           <div style={{ color: 'var(--c-ink-faint)', fontSize: 11, textAlign: 'center', padding: '30px 10px', lineHeight: 1.6 }}>
-            Ask Ebi anything about Ebiki!<br />
-            "What does Study do?"<br />
-            "How do I use the overlay?"
+            {t('help_emptyLine1')}<br />
+            {t('help_emptyEx1')}<br />
+            {t('help_emptyEx2')}
           </div>
         )}
         {messages.map((m, i) => (
@@ -502,7 +502,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
           </div>
         ))}
         {loading && (
-          <div style={{ fontSize: 11, color: 'var(--c-ink-dim)', padding: '4px 10px' }}>Thinking...</div>
+          <div style={{ fontSize: 11, color: 'var(--c-ink-dim)', padding: '4px 10px' }}>{t('help_thinking')}</div>
         )}
       </div>
 
@@ -514,7 +514,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') sendMessage() }}
-          placeholder={apiKey ? (loading ? 'Thinking...' : 'Ask or tell Ebi anything...') : 'Set API key first'}
+          placeholder={apiKey ? (loading ? t('help_thinking') : t('help_placeholder')) : t('help_placeholderNoKey')}
           disabled={!apiKey}
           style={{
             flex: 1, padding: '7px 11px', background: 'var(--c-surface)', color: 'var(--c-ink)',
@@ -533,7 +533,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
             opacity: !apiKey || loading || !input.trim() ? 0.4 : 1,
           }}
         >
-          Send
+          {t('help_send')}
         </button>
       </div>
     </>
@@ -574,7 +574,7 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
             zIndex: 10000,
             fontFamily: 'inherit',
           }}
-          title="Ebi's Help: ask anything about Ebiki"
+          title={t('help_fabTip')}
         >
           {/* Transparent PNG with a soft red glow that hugs the shrimp's shape (drop-shadow follows
               the alpha channel), so there's no circle — just Ebi with a slight glow around it. */}
@@ -646,13 +646,13 @@ export default function HelpChat({ apiKey, appContext, model = 'claude-sonnet-4-
                 position: 'fixed', top: 24, left: '50%', transform: 'translateX(-50%)',
                 background: 'var(--c-brand)', color: '#fff', fontFamily: FONT.body, fontSize: 13, fontWeight: 700,
                 padding: '8px 16px', borderRadius: 999, boxShadow: '0 8px 22px rgba(223,37,64,.35)',
-              }}>Where should Ebi's Help dock? Click a zone — Esc to cancel</div>
+              }}>{t('help_dockPrompt')}</div>
             </div>
           )}
           {[
-            { id: 'left', label: 'Dock left' },
-            { id: 'right', label: 'Dock right' },
-            { id: 'bottom', label: 'Under the question' },
+            { id: 'left', label: t('help_dockLeft') },
+            { id: 'right', label: t('help_dockRight') },
+            { id: 'bottom', label: t('help_dockUnder') },
           ].map(z => (
             <div key={z.id}
               onMouseEnter={() => choosingZone && setHoverZone(z.id)}
