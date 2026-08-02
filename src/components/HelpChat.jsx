@@ -390,8 +390,10 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
       // Append the verified change log so the user can confirm, for a fact, what the app actually did.
       if (receipts.length) replyText += `\n\n**✅ Confirmed changes (applied by the app):**\n` + receipts.map((r) => `- ${r}`).join('\n')
       const updatedMsgs = [...newMsgs, { role: 'assistant', text: replyText }]
+      // Pick Ebi's pose FIRST (awaited) so his face changes WITH the reply, not a beat after it. The
+      // Mascot model resolves the pose, then the message + new pose land together (Chat-tab parity).
+      await onAiReply?.(replyText)
       setMessages(updatedMsgs)
-      onAiReply?.(replyText) // let the host pick Ebi's pose via the Mascot model
       const savedId = await saveMessages(updatedMsgs, sessionId)
       if (!sessionId) setSessionId(savedId)
     } catch (err) {
