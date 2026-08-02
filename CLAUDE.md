@@ -371,6 +371,9 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   evaluating, no pull in flight, and the pool still has cards - the in-flight pull a snapshot references
   no longer exists after a reload.
 - The overlay launch preference persists too (`overlayEnabled` in `config.json`, default ON, auto-launches once).
+- **The capture shortcut is `Alt+Q` ONLY** (registered in `electron/main.cjs` + a web keydown handler). It opens the
+  overlay; you then drag to select an area (ESC dismisses). There is NO `Ctrl+Shift+A` binding anymore. The
+  `overlayTransparent` label (all 4 langs) and a code comment used to still say "Ctrl+Shift+A"; both now say Alt+Q.
 
 ## Card generator (shared engine) + Quick-Add - LANGUAGE-AGNOSTIC
 - `generateCards(words)` (App.jsx) is the shared engine and works for ANY language/subject. **Language modes**
@@ -445,7 +448,10 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   `Default`): a prominent green **"+ Add to Anki → deck «name»"**, then **"✓ Added to «name»"** once synced.
   The composer's **"Attach deck…" dropdown is ALWAYS rendered** (not gated on `ankiConnected`) - when Anki
   isn't open it renders **disabled** with an "Anki isn't open" note beside it, so the control never silently
-  vanishes; it populates + enables once connected. Hidden only when a deck is already attached (a chip shows it).
+  vanishes; it populates + enables once connected. Once a deck is attached, the "Attached: <deck> (<n> cards)"
+  chip renders **IN THE SAME SPOT** as the dropdown (in the input bar), replacing it in place. It used to render
+  at the TOP of the chat pane, so picking a deck read as "the button vanished and nothing happened" (the chip
+  was far from where you clicked). i18n: `chat_attached`/`chat_attachedOne` (singular/plural on card count).
 
 ## Chat - composer "+" menu (learning-focused)
 - The chat composer has a Claude-style **"+" menu**: attach photo, web search, per-mode **Focus** preset
