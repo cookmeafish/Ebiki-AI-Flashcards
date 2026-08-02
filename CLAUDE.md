@@ -46,6 +46,21 @@ One **⚙ Settings** modal: `src/components/SettingsModal.jsx`. Sidebar split by
   fallback), plus an always-present "💬 Just chat with Ebi" chip. Older modes are backfilled lazily on
   first Chat visit (effect near `sendChatTabMessage`).
 - Header has a quick mode-switcher + the ⚙ button. Switching tabs closes the modal.
+- **Mode ids are de-duplicated on load.** Merging two shared-data folders can collide mode ids; a
+  duplicate id makes the active-mode highlight match several chips AND makes switching to a colliding mode
+  silently fail (its `id === activeModeId` takes the rename branch). The modes-load effect reassigns fresh
+  ids to any duplicate (keeping the first occurrence) and persists, next to the em-dash sanitize pass.
+
+## i18n (app-language UI chrome)
+- UI chrome is localized via `t(key, vars)` from `src/i18n/index.js` (dicts `en`/`es`/`zh`/`ja`, `t`
+  falls back lang → en → key). A **missing key renders as the raw key name on screen**, so when adding
+  strings: add the key to ALL FOUR dicts FIRST, then wire `t()` (keys-first ordering). `{placeholder}`
+  interpolation is supported. **No em/en dashes in any language** (project-wide rule). Count labels need
+  singular/plural keys selected by `n` (e.g. `deck_countAll`/`deck_countAllOne`); zh/ja share one form.
+  Localized so far: tabs, header ("Talk to Ebi"), Chat empty state + composer, Picture empty state,
+  HelpChat, Settings (intelligence preset, memory-hook language), Discover panel. STILL English-fallback
+  (pending): the deck browser body, the Picture word-detail tooltip, and part of the study graded/batch
+  surface. Verify with a node script that greps `t('...')` refs against the dicts (missing must be 0).
 
 ## Data folder (optional shared data directory)
 All user data (config.json, ankiformat.json, modes/, decks/, chats/, discover/, cache/ = `DATA_ENTRIES`)
@@ -114,6 +129,16 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
 {recursive})` on demand, and App falls back to an in-memory `defaultMode` when no modes load.
 
 ## Discover tab - adaptive new-card engine (implementation notes)
+- **The learner profile is SCOPED TO THE CURRENT MODE.** `buildLearnerProfile` used to summarize chat
+  history from EVERY mode (a Security+ "DHCP" chat contaminated an English learner's profile). Chats are
+  now tagged with their mode on save (`chatTabSaveCurrent` sends `mode: activeMode.name`; the server
+  persists it; rename preserves it) and the profile only reads `s.mode === activeMode.name` chats;
+  untagged legacy chats are excluded (safe). Deck cards + knowledge base were already mode-scoped.
+- **Discover AI free-text is in the APP language and em-dash-stripped.** `buildProfilePrompt` and
+  `buildSuggestionPrompt` take `userLanguage` (= `userLangName()`) and write `summary`/domain names and
+  `why`/`draftMeaning`/`translation` in it; the parsed `summary` and suggestion fields are dash-stripped
+  in App.jsx (matching `deDash` elsewhere). The **Adjust** control (`onAdjust`, `DiscoverPanel`) is now a
+  prominent brand-colored `← Adjust` back button, not a faint chip.
 - **Suggestion types exist for EVERY mode, adaptively.** Language modes: word/phrase/idiom/verb/grammar/
   both (each with its own prompt rule in `buildSuggestionPrompt`, `src/discover/prompts.js`). General
   modes: AI-generated per-mode categories on `activeMode.discoverKinds` (`[{key,label,rule}]`), created
@@ -341,6 +366,14 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   `{ front, back, tags, correction }` directly; `cardBackToHtml` bolds the leading `Label:` of each line in
   ANY script (`^([^:\n]{1,30}):`). Sync via `ankiAddNote` (allowDuplicate:true for Quick Add) + `ankiSync`;
   duplicate pre-check via `ankiCanAddNote` warns only.
+- **GENERAL modes write card content in the APP language.** `LANGUAGE_CARD_PROMPT` already writes non-target
+  text in `{USER_LANG}` (= app language), but `GENERIC_CARD_PROMPT` had NO language directive and so always
+  defaulted to English (a Spanish user got English concept cards, incl. when reviewing in Anki). All three
+  general-mode generators now write the back/definitions/explanations/labels in `userLangName()`: the
+  `{USER_LANG}` placeholder in `GENERIC_CARD_PROMPT`, a `contentLangRule` in `buildCardFields`
+  (Discover/Picture), and the Chat `<anki-card>` general format. The front term, proper nouns, code,
+  formulas and tag tokens stay in their original form. `createMode` likewise writes user-facing catered
+  content (`chatSuggestions`, and the `questionPrompt`/`mnemonicHints` instructions) in `userLangName()`.
 - **Accuracy guardrail (cards get MEMORIZED):** `verifyCards` runs a SECOND model pass that proofreads and
   FIXES each generated card (nonexistent/misspelled words, wrong gender/translation/example, dishonest
   usage-scope tag) before the user sees it. The card prompts + chat prompt also carry a "never invent words,
@@ -679,14 +712,18 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   it). Spacing is kept COMPACT (small section padding / field gaps) so the whole card fits without
   scrolling at the 1.35 body zoom on typical laptops. `Dropdown` honors `style.width` (applied to its
   wrapper - a button-only width is circular).
-- **`Dropdown` menu is PORTALED to `document.body` and positioned `fixed`.** An absolutely-positioned
-  menu was clipped by the scroll container (items above the edge unreachable) AND mis-anchored when an
-  ancestor has a `transform` (the study card's `slideUp` animation makes `position:fixed` resolve against
-  the card, not the viewport - the menu jumped sideways). The portal escapes both. Coordinates are
-  computed in LAYOUT px = real px (getBoundingClientRect / innerW-H) ÷ body zoom - the same convention as
-  the pinned tooltips. It opens toward the roomier side, caps its height to the viewport (internal
-  scroll), and **closes on any page/ancestor scroll or resize** (native-select behavior; scrolls inside
-  the menu's own list are ignored). Every list is fully reachable at any screen size.
+- **`Dropdown` menu is PORTALED to `document.documentElement` (the `<html>`, OUTSIDE the body zoom) and
+  positioned `fixed` in REAL px, scaled to match the UI with `transform: scale(z)`.** An absolutely-
+  positioned menu was clipped by the scroll container AND mis-anchored under a `transform` ancestor, so
+  it was portaled out. But a `position:fixed` element INSIDE the `zoom:1.35` body has a BROKEN Chromium
+  hit-test box (clickable region only 1/zoom tall, top-anchored), so its lower items were unclickable and
+  clicks landed on higher items (the "can't select past the middle of the mode list / clicking
+  Spanish (LatAm) picks Pilot Training" bug). Fix: portal to `<html>` (zoom lives on `<body>`, so the
+  menu escapes it) and scale with a CSS TRANSFORM (transforms hit-test correctly, unlike `zoom`).
+  Geometry is REAL px; the menu's INTRINSIC sizes are the available room ÷ z (scale(z) multiplies them
+  back). `transformOrigin` flips to `bottom left` when opening upward. It opens toward the roomier side,
+  caps its height to the viewport (internal scroll), and **closes on any page/ancestor scroll or resize**.
+  Every item is clickable at any screen size and zoom.
 - **Per-mode dialect (`studyRules.dialect`, language modes, Settings → Study).** Free text like
   "Latin American Spanish". `dialectName()`/`dialectRule()` (App.jsx, next to `learnLangName`) build
   ONE shared prompt line injected into EVERY generator: card generation + `verifyCards`, memory hooks,
