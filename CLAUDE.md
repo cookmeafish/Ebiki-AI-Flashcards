@@ -1100,6 +1100,19 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
     compare left-to-right, so `[5]` beats `[4,8]`; a dateless alias and its dated snapshot compare EQUAL so
     the app never nags a user onto a pinned build. Extend the tests when adding a provider id shape.
 
+## README style (README.md)
+- **Be effective and tight. No filler, no fluff, no hype.** The README is USER-FACING: what the app is,
+  what each tab/feature does, how to set it up and use it. Every line must earn its place. When editing it,
+  cut words, not information.
+- **Keep developer-internal minutiae OUT of the README** - it belongs in this file (CLAUDE.md). No prompt
+  names (`VISION_OCR_PROMPT`), no internal function/variable names, no algorithm walkthroughs (card-identity
+  guards, two-stage dedup internals, snap-to-Tesseract steps), no exhaustive per-file trees. State the
+  user-visible behavior, not how it's implemented.
+- **Don't duplicate.** Describe a feature once. The old README listed Study features twice (a Study-tab
+  section AND a Study-sessions section) - that kind of repetition is the first thing to collapse.
+- **Keep it accurate.** No stale shortcuts, model versions, or removed features. When a fact drifts (e.g.
+  the capture shortcut, or a renamed button), fix it in the README while you're there.
+
 ## Commits
 - The user prefers **no Claude attribution** in commit messages.
 - Don't commit to `master` directly unless asked; work on feature branches (currently `ebiki-ocean-light`).

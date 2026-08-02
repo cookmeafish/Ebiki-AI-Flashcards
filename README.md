@@ -1,454 +1,158 @@
 # Ebiki - AI-Powered Learning & Study Platform
 
-A multi-tab learning app with AI chat, Anki-integrated study sessions, screen translation, and progress tracking. Supports multiple learning modes - from language learning to CompTIA certifications and beyond.
+A local-first study app with an AI tutor, Anki-integrated study sessions, screen translation, and progress tracking. Works for any subject: language learning, CompTIA certs, music theory, and beyond.
 
-> **The name & the mascot.** *Ebiki* is a play on **ebi** (海老 - Japanese for *shrimp*) and **Anki**. The app's helper is **Ebi**, a little red shrimp. Ebi's pose changes to match whatever you're doing (working, fighting a two-handed sword question, eating cheese, etc.), and the in-app assistant - opened from the **"Talk to Ebi"** button in the header - speaks as Ebi.
+> **Name & mascot.** *Ebiki* blends **ebi** (海老, Japanese for *shrimp*) and **Anki**. The helper is **Ebi**, a red shrimp whose pose reacts to what you're doing; the in-app assistant (the **"Talk to Ebi"** button in the header) speaks as Ebi.
 >
-> **Look & feel.** Ebiki uses an **Ocean Light** theme built around Ebi's red (`#DF2540`) as the single focus color - Duolingo-style, where the brand color flows from the mascot. Rounded friendly type (Baloo 2 + Nunito), soft white cards, and playful press/hover motion. A **dark mode** is toggleable in Settings → Appearance (CSS-variable themed, persisted, no flash on load). Design tokens live in `src/config/tokens.js`. To add a new Ebi pose, see `CLAUDE.md`.
+> **Look & feel.** An **Ocean Light** theme built around Ebi's red (`#DF2540`), with a toggleable **dark mode** (Settings → General). Rounded friendly type (Baloo 2 + Nunito) and Duolingo-style press motion.
 
-## Features
+## Tabs
 
-### Tabs
-- **Chat** - AI conversational assistant for learning, with inline Anki card generation, deck attachment for personalized tutoring, web search, and persistent conversation history
-- **Study** - Anki study sessions with AI-generated questions, a relaxed multiple-choice practice mode, verified PBQ exercises (match/order/sort) for certification subjects, deck browser, typo correction, feedback chat, "I know this" card deletion, "I Don't Know" skip, wrap up/end now controls, and spaced repetition insights
-- **Deck** - Browse/edit/search deck cards, add cards manually or with AI, analyze for ambiguous cards, scan for duplicates to merge
-- **Discover** - Adaptive suggestions for new cards calibrated to your level, with a setup screen and web verification (see below)
-- **Picture** - Screen capture/OCR/translation with pixel-accurate word overlays, overlay mode for games
-- **Stats** - Study streaks, accuracy trends, per-deck breakdown, and recent sessions
+- **Chat** - AI tutor with inline Anki-card generation, deck attachment for personalized tutoring, web search, and saved conversation history.
+- **Study** - Anki study sessions with AI-generated questions, a relaxed multiple-choice mode, verified PBQ exercises for cert subjects, spaced-repetition insights, and a full deck browser.
+- **Deck** - Browse, search, and edit cards; add cards manually or with AI; bulk-edit, analyze for ambiguity, and merge duplicates.
+- **Discover** - Adaptive suggestions for *new* cards, calibrated to your level and web-verified.
+- **Picture** - Screen capture, OCR, and in-context translation with pixel-accurate word overlays; plus a game overlay mode.
+- **Stats** - Streaks, accuracy trends, and per-deck breakdowns pulled live from Anki.
 
-### Core Features
-- **First-run onboarding** - an Ebi-guided wizard walks new users through app language → light/dark → AI provider + key → first study mode. Re-runnable anytime from Settings → General
-- **Unified Settings** - one ⚙ modal with a scoped sidebar: **App settings** (General - appearance, app language, translation · AI models) vs **Mode settings** (Study · Cards & Anki · Knowledge base · Screen overlay · Learning modes). A quick mode-switcher stays in the header
-- **Light & Dark themes** - Ocean Light by default, dark mode toggle in Settings → General (persisted, no flash on load)
-- **Multi-provider AI** - Claude, GPT, Gemini, and Grok
-- **Configurable models per feature** - each app area (Picture, Deck, Study, Discover, Chat, Help, **Mascot**, General) has its own model, chosen from a **dropdown** of the provider's live model list, **or type a custom model id** (future-proof). Blank = the provider's default, which is shown so you always see the model in use
-- **Check for new models** - a button fetches the latest models from the provider's API so new releases appear automatically; the list is cached and auto-fetched
-- **Self-healing models** - if a configured model has been retired (e.g. an API 404), the app queries the provider's models API, switches to a current model, retries, saves the choice, and shows a toast
-- **Ask AI to edit settings** - in Cards & Anki and Study, describe a change and the AI proposes it as a **before/after diff** you Accept / Deny / refine - nothing is applied without confirmation
-- **App language** - translate the entire UI (tabs, buttons, labels) into English, Spanish, Chinese, or Japanese; flashcard content is never translated
-- **Learning modes** - Create AI-configured modes for any subject (languages, Security+, Organic Chemistry, etc.)
-- **Anki integration** - Generate flashcards, sync to Anki, study with AI quizzes, browse/edit decks
-- **Pronunciation audio** - real native-speaker recordings (Wiktionary/Wikimedia Commons, with credit) on study cards, the deck browser, and chat cards; ↻ cycles through different speakers; native audio is embedded into the Anki card (`[sound:…]`) so it plays in Anki on any device. Falls back to an optional local TTS server, then the browser voice - see **Pronunciation audio** below
-- **Knowledge base** - Upload .txt/.md/.pdf reference materials per mode; the content flows into study questions, grading, chat, card generation, Discover, and Ebi's Help. Whole books are navigated by their table of contents so only the relevant sections are used per task
-- **Progress tracking** - Per-deck progress observations saved to disk, AI tracks struggles and improvements across sessions
-- **Discover Mode** - Adaptive new-card suggestions calibrated to your level (CEFR / exam domains / tiers), web-verified, with cloud-synced learner profile stored as Anki media files
-- **18 languages** - Spanish, French, German, Japanese, Korean, Chinese, Russian, Arabic, etc.
+## Highlights
 
-### Chat Tab
-- Full AI chatbot for explaining concepts and answering questions
-- Ask the AI to create Anki flashcards inline - cards appear with preview, edit, and sync controls
-- Attach an Anki deck for personalized tutoring - AI reads all cards + progress observations to focus on weak areas
-- **Web search** - toggle the globe button to search the internet before AI responds, with clickable source citations and live status indicators (searching, found results, analyzing, etc.)
-- **Per-mode starter prompts** - the empty state offers subject-specific suggestion chips (generated with the mode at creation, backfilled for older modes), plus an always-present "💬 Just chat with Ebi" for casual conversation
-- Conversation history persisted to disk (`chats/` directory) with session management sidebar
-- AI can auto-update progress observations when it discovers new struggles or improvements
-
-### Study Tab
-- **Learning vs "Ebi speaks"** - for language modes, "Learning" is the language you answer in (always), while "Ebi speaks" is just the language Ebi phrases questions and feedback in. So learning Spanish with Ebi speaking English asks *"Translate to Spanish: umbrella"* and expects `paraguas`; switch Ebi to Spanish for an immersive session. General modes (history, certs) get "Ebi speaks" too, so Ebi can quiz you in any language
-- **Word hints** - an optional toggle that floats a small translation above every word you're *not* being tested on, so you can read a question in a language you're still learning. Bidirectional: it shows your language above target-language words, and target-language words above your-language words (vocabulary practice even from an English prompt). Never reveals the answer word
-- **Instant answer feedback** - typed answers flash **✓ green** when they match the expected answer (checked locally, no AI wait), **⏳ amber "Ebi will check this one"** when only the AI grader can judge them (explanations, concept answers), and a **red ✗ shake** on a wrong attempt that gets a hint retry
-- **✎ Fix question** - spot a badly formed question *before* answering? Tell Ebi what's wrong and it regenerates that question in place - and remembers the preference so future questions avoid the same mistake
-- **Teach Ebi how to ask** - question style is steerable per mode without touching code: complain in the feedback chat under any graded card ("prefer scenario questions", "keep questions short") or ask Ebi's Help directly, and the rule is saved to the mode and injected into all future question generation. Saved rules are visible and editable in Settings → Study → Question style preferences
-- **The answer never leaks into the question** - a hard guarantee, not a prompt hope: every generated question (and Meaning Hint) is checked for the answer or its close forms; violations are regenerated with the mistake named, and a last-resort scrub blanks anything that slips through
-- **Progress you can see** - a session progress bar in the header ("3/6 cards", accounting for cards still waiting in the pool) plus per-card question dots showing which question of the card you're on. **Click any dot to review a question without losing your place** - an already-answered question shows your previous answer pre-filled, and you can click the dot of the question you were on to jump straight back. If you change a reviewed answer, only the new one is used for grading
-- **Scannable results** - graded cards open by clicking anywhere on their header, and each question inside collapses to one line with a tri-state indicator: ✓ perfect, ✓✎ correct but Ebi left feedback worth reading, ✗ incorrect - expand only what needs attention
-- **Memory hooks everywhere** - the same "help me remember" engine (five styles: meaning image, sound-alike/recall bridge, part-by-part breakdown, don't-confuse-it contrasts, mini story) is available on graded study cards, on any card in the deck browser, and on any word you tap mid-question
-- **Instant start** - first card appears immediately (one AI call), remaining cards generate in the background while you answer
-- **Smart question ordering** - Q1 is always blind recall (never names the target word), middle questions use guided recall/synonym contrast, last question is deep understanding (can name the subject). Scales to any questions-per-card setting
-- **Unambiguous fill-in-the-blank** - when a target word has synonyms (huir/correr, recíproca/mutua), the question embeds a small cue right at the blank - the word's precise sense plus its first letter when needed - so exactly one answer fits and you're never left guessing which synonym Ebi wants. The cue is shown in a muted italic style so it's clearly a *hint*, visually separate from the sentence you're completing. The final "depth" question tests *practical* usage (use it in a sentence, pick over a synonym, opposite) and never asks you to explain grammar or spelling rules
-- **Hint system** - wrong answer on a recall question shows a letter-count hint ("9 letters"); wrong again shows a first-letter hint ("starts with 'i'"). Button changes to "Try Again". Applies to any question type with multiple possible answers
-- **Back button** - undo your last answer and retry the question, as long as that card hasn't been synced to Anki yet
-- **10-card continuous system** - 10 cards active at once, questions randomly interleaved and **never the same flashcard twice in a row** (unless it's the only one left). When a card completes, a new one is pulled from the pool automatically
-- **Card front hidden** - questions don't reveal which card they belong to, preventing answer leakage
-- **Zero-delay answers** - answers recorded instantly with no AI call. Next question appears immediately
-- **Batch evaluation** - AI evaluates all answers for a card at once in the background, only after the last question is answered
-- **Inline feedback** - completed card feedback appears below the active question as evaluations finish, so you can review while continuing to answer other cards
-- **Previous attempts shown** - results view shows all retry attempts grayed out above the final answer
-- **Smart evaluation** - for language learning, typos in the response language (e.g. English typos when studying Spanish) don't count against you. A different valid form of the *same* word is also accepted - e.g. present "huye" is correct for a tense-less sentence even if the card expected preterite "huyó" - unless the sentence actually signals the tense (a time word, explicit subject, or agreement)
-- **I Don't Know** - on a card's *first* question it gives up the whole card (confirmation prompt, all questions marked wrong, rated Again); once you've answered anything on the card it fails only the *current* question and moves on, so a correct answer is never forfeited by a later blank
-- **"Learn it" moments** - giving up on a card's first question opens a teach panel instead of just failing: the card back, pronunciation, an auto-generated memory hook (more on demand), and a focused Ebi chat for questions. You type the word once to continue, and the card comes back a few cards later as practice (the honest Again stays its only Anki review). Toggleable per mode on the start screen
-- **Color-coded feedback** - each result's notes are categorized and colored: ✓ what you got right (green), ✗ incorrect/factual error (red), ✎ grammar/spelling/accents (orange), ◆ word choice/term (purple), + missing detail (teal), ➜ tip to improve (blue). Works for language *and* general modes. A **Color legend** button explains the colors
-- **Feedback chat** - after feedback is revealed, chat with AI to fix typos, flag out-of-scope questions, or request card updates. AI trusts student corrections, never argues, and replies in the quiz language
-- **Card updates from feedback** - AI can update Anki card content to add clarity
-- **Rating sync (with a correction window + lock)** - ratings reach Anki three ways: a **"Sync now"** button during study, a per-card **grace timer** (configurable in Settings → General → Anki auto-sync, default 5 min after the card is graded), and on **Finish/Exit**. Until a card syncs you can freely correct its rating (e.g. AGAIN → EASY); once synced it **locks** (🔒) so it's answered in Anki exactly once with its final rating, never "again then easy" (which would lapse a mature card). Syncing drives Anki's real reviewer so intervals are computed by Anki itself. The graded-cards list is collapsed behind a **"Show graded cards"** toggle, newest on top, each tagged ● not synced / 🔒 Synced. **Anki closed? No problem** - a failed sync checks whether Anki is actually running: if not, you get a calm note instead of an error, and a watcher pings every 10s and auto-flushes the pending ratings the moment Anki reconnects
-- **Sessions survive a refresh** - an in-progress study session is snapshotted continuously and resumes exactly where you were after a reload or dev-server restart, repairing anything that was mid-flight (a card being graded, the next card generating). Sessions older than 8 hours don't resume - you get a fresh start instead of a stale, desynced screen
-- **"I know this already"** - delete cards you've mastered with AI confirmation
-- **Smart Wrap Up** - immediately drops all unstarted cards (0 answers), finishes only in-progress ones. Session ends as fast as possible without abandoning cards you already started
-- **End Now** - immediately end session with partial results
-- **Spaced repetition insights** - AI analyzes session results and updates `decks/<deck>/progress-observations.md` with struggles, improvements, and mastered topics
-- **Multiple-choice practice mode** - pick **Answer style: Multiple choice (relaxed)** on the session start screen for a laid-back session: every question comes with 4 shuffled options (keyboard 1–4 works), your pick is graded instantly with a green/red flash - no typing, no waiting on AI grading. By default nothing is recorded in Anki (cards show a PRACTICE badge); tick **Record reviews in Anki** to count them, capped at Good since recognizing an answer is easier than recalling it. If the AI fails to produce options for a question, that one gracefully falls back to typed input
-- **PBQ mode (general modes)** - non-language modes (Security+, music theory, …) get a **Performance questions (PBQ)** study type: interactive matching, step-ordering, and drag-into-category exercises like the PBQs at the start of a CompTIA exam, one per card, grounded in your knowledge base. Every exercise passes a verification pipeline before you see it - structural validation, verbatim-citation checks against your reference material, and a *blind solve* where a second AI pass must independently reach the same answer key (disagreements are adjudicated, repaired once, or discarded). Answering is tap-to-place **or drag-and-drop** (arrows also work for ordering), with emoji icons on items where a standard one fits (💻 ⌨️ 🧱); after submitting, the graded exercise stays on screen with the correct answers until you hit Continue. Off-subject cards (say, a stray vocab card in a cert deck) are skipped rather than force-fitted. Same practice semantics as multiple choice: Anki recording is opt-in and capped at Good
-- **Tap a word for context** - tap any word in a question (language modes) to get its meaning *as used in that question* (analyzed from the whole sentence), shown in the legend's correct-green, with other common senses in word-choice-purple, plus **text phonetics** (`/rah-soh-NAH-bleh/`) and a **🔊 audio button** to hear it. Definitions are written in your app language. Works on the **Meaning Hint**, the **graded-card feedback** (question text, feedback line, each note), **memory hooks on every surface**, and the whole **"Learn it" panel** (card back, hooks, and the Ebi chat), so you can look up - and one-click make an Anki card for - any word Ebi used while explaining
-- **Tap-a-word is bidirectional** - works with any learned-language × "Ebi speaks" combination: tap a word in the *learned* language and it's explained in your language; tap a word in *any other* language (say an English word in an English-phrased question while learning Spanish) and it flips - you get the learned-language word a native would actually say for that sense ("sound → **sonido**"), other options for its other senses, and the 🔊 audio, **Make Anki card**, and memory hooks all target the learned-language word, so the card and hooks you make are the ones you actually need
-- **Ebi's memory hooks** - every graded card has a **🧠 Help me remember** button right on its header (no need to expand first). Opening it offers one obvious default - a **🧠 Memory hook** button where Ebi looks at the card, chooses the most effective mnemonic style for it (labeling which one it chose), and tries a *different* style each time you ask again - plus a **Styles ▸** toggle for choosing yourself among five: **🧠 Meaning hook** (the word's parts fused into one vivid image that ends at the meaning), **🔊 Sound hook** (a sound-alike bridge that rebuilds the word syllable by syllable - e.g. Spanish *muelle* "dock" → a stubborn **MULE** saying "YEAH" at the dock; in non-language modes this becomes a **🔤 Recall hook**: an acronym or anchor that reconstructs the exact term), **🧩 Break it down** (real morphology, not imagery - *dárselo*: **dar** "to give" → **darse** adds *se* "to someone" → **dárselo** adds *lo* "it"), **⚖️ Don't confuse it** (the 1-2 words or sibling concepts you most likely mix this up with - huir/escapar, IDS/IPS - with one sharp discriminator each), and **📖 Story hook** (a tiny 2-4 sentence story that carries the meaning). Each button adds another hook below (they stack rather than replace, each a different angle). Hooks are written in your app language by default - change it per mode in **Settings → Study → Memory hook language** (e.g. keep an immersion mode's hooks in the learned language)
-- **Collapsible results with two toggles** - each graded card (and each end-of-session Batch Result) collapses to a one-line header with a **▸ Feedback** button and the **🧠 Help me remember** button. They're mutually exclusive: opening Feedback shows the questions/answers/feedback, opening the memory hook shows just Ebi's mnemonic, and clicking the open one collapses the card - so a long review is a clean, scannable menu. **Clear completed from list** sits at the very bottom so it's never mistaken for a continue/sync button
-
-### Picture Tab
-- **Screen capture** - `Ctrl+Shift+S` for full screen, `Ctrl+Shift+A` for area selection
-- **Area selection** - transparent drawing window, screen not frozen during selection, only selected area captured
-- **Paste / Upload / Drag-drop** - Alternative image input methods
-- **Vision reading** - a vision model reads the image directly (accurate on busy/stylized game screens), translating each word in context; Tesseract runs alongside only to pin precise word boxes
-- **Pixel-accurate overlays + reading panel** - hover any word for translation, in-context meaning, pronunciation, synonyms, part of speech; a reading panel lists the transcribed text for tap-to-define
-- **Anki card generation** - Click a word, generate a card, edit/refine with AI, sync to Anki
-- **Draggable tooltip** - Pinned word tooltip can be dragged anywhere, position saved across sessions
-- **Overlay mode** - Fullscreen overlay on top of games/apps via Electron
-
-## Architecture
-
-```
-screenlens/
-  src/                 ← React web app (single App.jsx with tab routing)
-  electron/            ← Optional Electron overlay companion
-    main.cjs           ← Electron main process (overlay + area select)
-    preload.cjs        ← IPC bridge
-  modes/               ← All modes (gitignored, auto-generated per user)
-    <your modes>/      ← Each mode: config.json + knowledge/ (created on demand)
-  chats/               ← Persistent chat sessions (gitignored)
-  decks/               ← Per-deck progress tracking (auto-created)
-    <deck-name>/
-      progress-observations.md  ← AI-maintained struggle/improvement log
-  vite.config.js       ← Dev server + API endpoints
-```
-
-**Vision OCR pipeline (with Tesseract for localization):**
-1. **Vision read** - the image is sent to a vision model (`VISION_OCR_PROMPT`) which returns each learnable word with its in-context translation, sense, alternatives, pronunciation, part of speech and a normalized box. Far more accurate than OCR on stylized/cluttered game UI.
-2. **Tesseract localization** - runs in parallel purely to get pixel-accurate word boxes.
-3. **Snap** - each vision word is matched onto its Tesseract box; unmatched words show in the reading panel only (so a misplaced box is never drawn).
-4. **Fallback** - with no API key (or on a vision failure) the legacy Tesseract OCR + translation path still runs.
+- **First-run onboarding** - a short wizard sets app language, theme, AI provider + key, and your first mode. Re-runnable from Settings.
+- **Multi-provider AI** - Claude, GPT, Gemini, or Grok. Each feature (Picture, Deck, Study, Discover, Chat, Help, Mascot, General) can use its own model, or an **intelligence preset** (Normal / More intelligent) sets them all at once. The Mascot (pose) role stays on the cheapest model since it fires on every message. Retired models auto-heal to a current one; **Check for new models** refreshes the list.
+- **App language** - translate the whole UI into English, Spanish, Chinese, or Japanese. Flashcard *content* is never translated; catered content (suggestions, questions) is generated in your app language.
+- **Learning modes** - one app, many subjects. Each mode has its own card format, tag rules, study rules, Anki deck, and knowledge base, fully independent of the others.
+- **Ask AI to edit settings** - describe a change to your cards or study rules and Ebi proposes it as a before/after diff you Accept, Deny, or refine. Nothing applies without confirmation.
+- **Knowledge base** - upload `.txt`/`.md`/`.pdf` reference material per mode; it feeds study questions, grading, chat, card generation, Discover, and Help. Whole books are navigated by their table of contents so only relevant sections are used.
+- **Pronunciation audio** - real native-speaker recordings on study cards, deck rows, and chat cards, embedded into Anki so they play on any device.
 
 ## Setup
 
-**Prerequisite - install Node.js first.** This app runs on [Node.js](https://nodejs.org) (which includes `npm`). Install the **LTS** build (Node 18 or newer) before running anything below - `git`, `npm install`, and `npm run dev` all require it. Verify with `node -v` and `npm -v`.
+**Install [Node.js](https://nodejs.org) first** (LTS / v18+), then:
 
 ```bash
 git clone https://github.com/cookmeafish/Ebiki-AI-Flashcards.git
-cd Ebiki-AI-Flashcards   # the clone creates this folder - run everything from inside it
+cd Ebiki-AI-Flashcards
 npm install
 npm run dev
 ```
 
-Opens at `http://localhost:3000`. (Run the commands **inside** the `Ebiki-AI-Flashcards` folder - `npm run dev` fails with a "no package.json" error if you run it in the parent directory.)
+Opens at `http://localhost:3000`. Then open **AI Settings**, pick a provider, and enter your API key.
 
-## Configuration
+> The UI applies a 1.35× zoom for comfortable reading on typical displays. View at 100% browser zoom. (Overlay mode stays 1:1 so OCR boxes line up.)
 
-1. Click the **AI provider button** in the toolbar to open **AI Settings**
-2. Select your provider and enter your API key
-3. Pick a model per feature from the dropdowns (or leave "Provider default"); press **Check for new models** to pull the latest list from the provider
-4. Set the **App Language** to translate the interface
-5. Click the **gear icon** to configure language settings, Anki, and knowledge base
-6. Navigate between tabs: **Chat** for AI conversation, **Study** for Anki quizzes, **Deck** for browsing/editing, **Discover** for new-card suggestions, **Picture** for screen translation, **Stats** for progress
+## Learning modes
 
-> **Display sizing:** the UI applies a default 1.35× zoom so the fixed pixel layout reads comfortably on typical Windows displays - view at 100% browser zoom. Overlay mode is exempt (it stays 1:1 with screen pixels so OCR boxes line up).
+Each mode is fully independent - changing Security+ settings never touches Language Learning. Configs live in `modes/<mode-name>/config.json` (per-user, gitignored).
 
-## Sharing your data between computers (optional)
+**Create a mode** (Settings → Learning modes):
+- **Quick** - type what you want to learn ("CompTIA Security+", "Organic Chemistry") and click **Create**. The AI builds the whole config in one shot.
+- **Design with Ebi** (recommended) - a short chat where you describe a rough idea; Ebi asks one to three quick questions to tailor the mode to your level, goal, and how you want to be quizzed, then saves once you approve the plan.
 
-By default all of your data - settings, learning modes, chats, knowledge files, progress notes and the TTS cache - lives inside the app folder on the computer you run it on. **If you only use one computer, there is nothing to set up and nothing changes.**
+**Edit with Ebi** - the same conversational designer edits an existing mode, shapes how it builds cards (Cards & Anki pane), or changes how it quizzes you (Study pane), all in plain language with a review step before anything saves.
 
-If you use the app on several computers, you can point them all at one **shared data folder** so they read and write the same settings, modes and chats:
+## Anki integration
 
-1. **Pick a folder every computer can reach.** Typically a folder on one machine (or a NAS) shared over the network (SMB) and mapped to a drive letter on the others - e.g. `Z:\ebiki-data`. A folder inside a synced drive also works.
-2. **Run the app locally on each computer** (clone + `npm run dev`). The app itself should run from a local disk; only the data is shared.
-3. Open **Settings → General → Data folder**, enter the shared path (e.g. `Z:\ebiki-data` or `\\server\share\ebiki-data`) and click **Use this folder**. Repeat on each computer.
+1. Install [Anki](https://apps.ankiweb.net/) and the **[AnkiConnect](https://ankiweb.net/shared/info/2055492159)** add-on (code `2055492159`), then restart Anki.
+2. Generate cards from Chat, the Picture tab, Quick Add, or Discover. Card format is AI-generated per mode and customizable in settings.
+3. Study from the **Study** tab; ratings sync back to Anki (which computes the intervals).
 
-What happens when you switch:
+### Studying
 
-- The change applies **immediately** - no restart needed.
-- **Joining a folder that already has data:** if this computer has learning modes, chats or decks the folder doesn't, the app asks whether to **add them to the folder** or **use only the folder's data**. Either way, the folder's existing items are never overwritten, and nothing is deleted.
-- The first computer to switch simply copies its data into the (empty) shared folder.
-- **Your computer keeps its own home.** When you point a computer at a shared folder, that computer's own data is set aside safely (in a hidden `.local-home/` folder), so it can come back later.
-- **API keys (`.env`) and diagnostic logs stay on each computer.** Every machine keeps its own keys.
-- The choice is stored per computer in `datadir.json` (gitignored). The `EBIKI_DATA_DIR` environment variable overrides it when set.
-
-**Going back to using this computer on its own** - click **Back to the app folder**. This restores *this computer's own* data (what it had before it joined the share), **not** a copy of the shared data. If the shared folder gained modes or chats your computer doesn't have, the app offers to **bring those down too**, or to just restore your own data. The shared folder is left untouched, so your other computers keep everything.
-
-> **Nothing is ever deleted.** If two copies of something ever collide during a switch, the older one is parked in a dated `local-data-backup-…` folder inside the app folder rather than overwritten.
-
-> **Tip:** avoid actively editing on two computers at the exact same moment - saves are whole-file, so simultaneous edits to the same mode or chat can drop one side's change. Taking turns is fine.
-
-## Supported AI Providers
-
-Models below are the **defaults**; each feature (Picture / Deck / Study / Discover / Chat / Help / **Mascot** / General) is overridable per provider via dropdowns in AI Settings - or type a custom model id. The **Mascot** role picks Ebi's pose from each AI response and defaults to the cheapest model. Use **Check for new models** to refresh the list from the provider's API, and retired models auto-switch to a current one.
-
-| Provider | Default model | JSON Mode |
-|---|---|---|
-| **Anthropic (Claude)** | Claude Haiku 4.5 (general/mascot), Claude Sonnet 4.6 (questions/help) | Prompt-based |
-| **OpenAI (GPT)** | GPT-4o-mini | `response_format: json_object` |
-| **Google (Gemini)** | Gemini 2.0 Flash | `responseMimeType: application/json` |
-| **xAI (Grok)** | Grok 3 Mini Fast | Prompt-based |
-
-## Learning Modes
-
-Ebiki supports multiple learning modes. Each mode has its own:
-- Anki card format (front/back templates, fields)
-- Tag generation rules
-- Study rules (question prompt, quiz language, grammar feedback, cards at once)
-- Connected Anki deck
-- Knowledge base (reference materials)
-
-All settings are **per-mode** - changing Security+ settings doesn't affect Language Learning.
-
-### Creating a mode
-
-Two ways, both in **Settings → Learning modes**:
-
-- **Quick**: type what you want to learn (e.g., "CompTIA Security+", "Organic Chemistry") and click **Create**. The AI generates the full mode configuration (card format, tags, study questions) in one shot.
-- **Design in depth with Ebi** (recommended for a tailored mode): opens a short chat where you give Ebi a rough idea in a few words. Ebi expands it and asks one to three quick questions to cater the mode to you (your level and goal, the language you answer in, sub-topics to emphasize, how you want to be quizzed). When you like the plan Ebi shows, click **Create this mode** and it saves.
-
-Or click **+ Default Mode** to create a new Language Learning mode with defaults.
-
-### Editing a mode with Ebi
-
-The same conversational designer edits existing modes, so you never have to hand-tune raw templates:
-
-- **Edit this mode with Ebi** (Learning modes pane): change anything about the active mode in plain language.
-- **Design the deck prompt with Ebi** (Cards & Anki pane): shape how the mode builds its flashcards. The card-back layout, which fields to include, and how cards get tagged.
-- **Shape how it quizzes you with Ebi** (Study pane): change the question style, difficulty, or the languages Ebi uses.
-
-In every case Ebi proposes a change for you to review, and nothing is saved until you approve it. (The quick one-shot **Ask AI** boxes are still there for a fast single tweak with a before/after diff.)
-
-### Mode settings
-
-Click the **gear icon** next to the mode name. Use the dropdown to select which mode to configure:
-
-- **Anki Settings** - connection status, deck selection, card format, tag rules, study rules
-  - **Card Format** - AI edit input, field toggles, front/back templates with placeholders
-  - **Tag Rules** - instructions for AI tag generation per card
-  - **Study Rules** - questions per card, cards at once, quiz language, grammar feedback toggle, AI question generation prompt
-- **Knowledge Base** - drag & drop .txt/.md files, enable/disable/delete individual files
-
-Mode configurations are saved in `modes/<mode-name>/config.json`.
-
-### Mode storage
-
-```
-modes/                  ← gitignored; created on demand, never breaks if missing
-  Language Learning/    ← Your modes (per-user, local only)
-    config.json
-    knowledge/          ← Reference materials (optional)
-      vocab.txt
-  Security+/
-    config.json
-    knowledge/
-      chapter1.md
-```
-
-## Anki Integration
-
-### Setup
-
-1. Install [Anki](https://apps.ankiweb.net/) desktop app
-2. Open Anki → **Tools → Add-ons → Get Add-ons...**
-3. Paste the addon code: **`2055492159`** ([AnkiConnect](https://ankiweb.net/shared/info/2055492159))
-4. Click **OK** and restart Anki
-
-### Flashcard generation
-
-1. Click a translated word to pin it
-2. Click **Explain** for a brief explanation
-3. Click **Generate Anki Card** - AI creates a rich flashcard with pronunciation, definition, synonyms, and example sentence
-4. Select target deck from dropdown in card preview
-5. Click **Sync to Anki** - pushes to Anki and syncs to AnkiWeb automatically
-
-Card format is AI-generated per mode and fully customizable via the Card Format settings.
-
-### Study sessions
-
-1. Go to the **Study** tab and click **Study Now**
-2. Select mode, deck, quiz language - the first card appears immediately, rest generate in background. Enable Grammar feedback to get accent/spelling notes written in the quiz language
-3. Answer questions - Q1 is always blind recall (no target word in question). Wrong answers trigger progressive hints
-4. Use **← Back** to undo your last answer and retry (available until the card syncs to Anki)
-5. As each card completes, AI evaluates in the background and feedback appears inline
-6. Review feedback while continuing to answer other cards. Use the feedback chat to fix typos, dispute answers, or clarify cards
-7. New cards are pulled automatically as you complete them, keeping 10 active
-8. When done, click **View Summary** → **Generate Insights** for AI analysis + progress tracking
-9. Ratings sync to Anki via **Sync now**, an auto-sync grace timer (default 5 min after grading, configurable in Settings → General), or on finish - and lock once synced so each card is reviewed in Anki exactly once with its final rating
-
-Study features:
-- **Instant start** - only one AI call before the first question appears; rest load in background
-- **Ordered questions** - blind recall first, deep explanation last, guided recall in between
-- **Progressive hints** - letter count hint, then first-letter hint, then "Try Again"
-- **Back / undo** - undo last answer on any unsynced card
-- **10-card pool** - questions randomly interleaved across 10 active cards for natural spacing
-- **Hidden card fronts** - prevents answer leakage
-- **Smart language evaluation** - typos in your native language don't penalize you when studying a foreign language
-- **I Don't Know** - one-click skip marks the question wrong without typing; card rating still adjustable at the end
-- **Meaning Hint** - ask for a context hint at any time; AI describes what the answer means without revealing the word, any conjugations, or spelling
-- **Tap-a-word lookup (language modes)** - in a language study session, tap any underlined word in the question to see its contextual meaning, so you can decode an unfamiliar word in the sentence. Bidirectional: tapping a word that isn't in the learned language returns the learned-language word for it instead ("sound → sonido"). The blank placeholder and the answer word itself are never tappable, so it can't reveal the answer
-- **Grammar feedback** - when enabled, grammar and accent notes appear inline with each result, written in the quiz language
-- **Feedback chat** - dispute answers, fix typos, flag out-of-scope questions, update Anki cards. Use Reply to send corrections or context to the AI
-- **Smart Wrap Up** - drops unstarted cards immediately, finishes only what you've started
-- **End Now** - immediate session end with partial results
-- **"I know this"** - delete mastered cards with confirmation
-- **Progress observations** - AI maintains `decks/<deck>/progress-observations.md` tracking struggles, improvements, and mastery
-- **Knowledge base context** - AI uses your uploaded reference materials for targeted questions
-- **Multiple choice practice** - optional relaxed answer style: 4 options per question, instant local grading, Anki recording opt-in (capped at Good)
-- **PBQ exercises** - general modes can study via verified match/order/sort exercises instead of typed questions
+- **Instant start** - the first card appears after one AI call; the rest generate in the background while you answer.
+- **10-card pool** - ten cards stay active, questions interleaved and never the same card twice in a row, so spacing feels natural.
+- **Answer styles** - typed, **multiple choice** (relaxed, instant local grading), or **PBQ** (for general modes: verified match/order/categorize exercises like a CompTIA exam). Practice modes make Anki recording opt-in.
+- **Smart grading** - typos in your own language don't count against you, and a different valid form of the same word is accepted unless the sentence forces one. Feedback is color-coded (right / wrong / grammar / word-choice / missing / tip).
+- **Learning vs "Ebi speaks"** - you always answer in the learned language; "Ebi speaks" just sets the language Ebi phrases questions and feedback in (switch it for an immersive session).
+- **Steerable questions** - tell Ebi "prefer scenario questions" or "keep them short" (in feedback chat or Help) and the rule saves to the mode. Spot a bad question first? **✎ Fix question** regenerates it in place. The answer is guaranteed never to appear in the question.
+- **Word hints & tap-a-word** - optional glosses float above words you aren't tested on; tap any word for its in-context meaning, pronunciation, audio, and a one-click Anki card. Both are bidirectional.
+- **Memory hooks** - a **🧠 Help me remember** button on any graded card, deck row, or tapped word, with five styles (meaning image, sound-alike/recall, break-it-down, don't-confuse-it, story). Written in your app language (per-mode override in Settings → Study).
+- **"Learn it" moments** - giving up on a card's first question opens a teach panel (card back, audio, a memory hook, a focused Ebi chat); type the word once and the card returns later as practice.
+- **Rating sync with a correction window** - ratings reach Anki via a **Sync now** button, a per-card grace timer (default 5 min, configurable), or on Finish. Until synced you can freely correct a rating; once synced it **locks** so each card is reviewed in Anki exactly once. Anki closed? A calm note replaces the error and a watcher auto-flushes when it reconnects.
+- **Sessions survive a refresh** - an in-progress session snapshots continuously and resumes where you left off (sessions older than 8 hours start fresh).
+- **Wrap Up / End Now** - finish only started cards, or end immediately with partial results. **View Summary → Generate Insights** writes an AI analysis to each deck's progress log.
 
 ### Deck browser
 
-Go to the **Study** tab and click **Browse Deck** to:
-- **+ Add Deck** - create a deck by name; describe its purpose to spin up a matching mode, or hit **⚡ Make it for this mode** to create the deck (typed name, or the mode's name if left empty) and link it as the current mode's Anki deck in one click - no purpose text needed, the mode already says what it's for
-- View all flashcards in any deck - each row shows a clean one-line preview of the back, plus **scheduling badges**: `NEW`, `learn`, the review interval (green once the card is mature), and a ⚠ lapse warning for problem cards
-- **Click any row to expand it** - the full card back with bold labels, tag chips, and a scheduling footer (times studied, lapses, interval, last activity)
-- **Copy to / Move** - send any card to another deck (or create a new deck inline): Copy makes an independent duplicate (e.g. to build a dedicated PBQ practice deck), Move relocates the card with its review history intact
-- **⟲ Reset progress** - in the card editor: wipe a card's scheduling history (with confirmation) so it becomes new again, content untouched - the fix for a card whose interval got away from you
-- **🧠 Memory hooks** - expand any card and pick a hook style (Meaning image, Sound/Recall bridge, 🧩 part-by-part Break it down, ⚖️ Don't confuse it, or Story); each click stacks a different angle below the last
-- **✨ Ebi bulk edit** - describe one change in plain words ("rewrite every pronunciation line to Latin American Spanish") and Ebi applies it across the deck as a *proposal*: you see a before/after for every affected card, accept or dismiss each one, and a final confirmation lists exactly which cards and fields will be written. Cards Ebi can't identify unambiguously are discarded, changes that would wipe a filled field are refused, and untouched fields keep their original formatting. Also reachable by just asking Ebi in the Help chat - it hands the request to the Deck tab for the same review
-- **Dialect-aware generation** - set a per-mode "Dialect / variant" (Settings → Study, e.g. *Latin American Spanish*) and every generator follows it: new cards' pronunciation lines, memory-hook sound-alikes, tapped-word phonetics, and question phrasing (no more Castilian "ga-THE-la" when you're learning for Latin America). Or just tell Ebi - "all new cards should use Latin American pronunciation" - and it sets this for you
-- **Mode-aware tools** - Quick Add, ambiguity analysis, and duplicate scanning all adapt to the mode: language decks get vocabulary-lens analysis, other subjects get concept-clarity analysis and term/abbreviation duplicate detection
-- Search cards by content
-- **Sort cards** - order the list by Newest/Oldest (creation date), A→Z / Z→A (alphabetical), Recently / Least-recently studied, New-unstudied-first, Problem cards (most lapses), or Mastered (longest interval). Stat-based sorts use per-card Anki scheduling data loaded with the deck
-- **Add card** - create a new card manually (front/back/tags) or type a word and let the AI generate it from your mode's template, then save straight to the deck
-- Edit card fields inline with AI refine input ("Say football instead of soccer")
-- Delete cards with confirmation
-- **Analyze for ambiguous cards** - AI scans every card for words with multiple meanings and proposes clarifications to accept/edit/commit. Each suggestion shows an inline **before/after word diff** (removed text in red strikethrough, added text in green) that updates live as you edit. A card-identity guard verifies the AI's suggestion matches the exact card by both note id and headword - mismatches are discarded (shown as "⚠ N discarded (card mismatch)"), never displayed or saved, so one card's content can never be written onto another
-- **Scan for duplicates** - two-stage detection so unrelated words are never grouped: (1) code groups cards with the same headword ignoring accents/articles/parentheticals (catches `Oración` vs `Oracion`) and flags close spellings by edit distance; (2) the AI only *confirms* which close candidates are truly the same word (rejecting look-alikes like `casa`/`caza`), then merges the backs into one card combining all unique info. Expand any card in a group to inspect its full content before deciding. Review/edit the merge, then commit: the kept card is updated and the duplicates are deleted. A **Do not merge** button permanently remembers that a group is *not* a duplicate (stored per-deck, cloud-synced) so it's never suggested again
-- Save button shows live status (Saving → Saved / Save failed - is Anki open?)
-- Closing the browser syncs any edits back into your active study session immediately - no tab refresh needed
-- Changes auto-sync to AnkiWeb
+Study tab → **Browse Deck**:
 
-## Discover Mode
+- **Add / Copy / Move** cards between decks (Copy keeps an independent duplicate; Move keeps review history).
+- **Expand any row** for the full back, tags, and scheduling (interval, lapses, last studied). **⟲ Reset progress** wipes a card's scheduling so it's new again, content intact.
+- **✨ Ebi bulk edit** - describe one change ("rewrite every pronunciation line to Latin American Spanish") and Ebi proposes it card by card; you accept or dismiss each before anything is written.
+- **Analyze / Scan** - find ambiguous cards or duplicate concepts (with a card-identity guard so one card's content is never written onto another), each as a reviewable before/after.
+- **Dialect-aware** - set a per-mode variant (e.g. Latin American Spanish) and every generator follows it; or just tell Ebi.
+- Sort by date, alphabetical, recently studied, most lapses, or longest interval. Search is accent-insensitive.
 
-The **Discover** tab is an adaptive engine for finding **new** cards to make - calibrated to how advanced you already are. It never quizzes you on existing cards; every suggestion is something new.
+## Discover
 
-How it works:
-1. **Level analysis** - on open, the AI estimates your proficiency from your cards, Anki scheduling stats (mature/learning/lapsed counts, ease), progress observations, and study/feedback chat history. The scale adapts to the subject: **CEFR** (A1–C2) for languages, **exam-domain coverage** for certifications (e.g. Security+), and **beginner/intermediate/advanced** tiers for anything else.
-2. **Setup screen** - before suggesting anything, you choose what to look for. Every mode picks a **suggestion type**: language modes offer **Words / Phrases / Idioms / Verbs / Grammar patterns / Anything**, while other subjects get **AI-generated categories specific to that subject** (created once per mode - e.g. Security+ might offer acronyms, attack types, ports & protocols; falls back to Terms / Acronyms / X vs Y / Scenarios until generated). Every mode also picks a **difficulty bias** (Easier wins / At my level / Stretch me) and gets a **Focus** box (free text) for topics or the kind of cards you want. Hit **Start discovering** (and **⚙ Adjust** later to change it - your current type, difficulty, and focus show as chips while suggesting).
-   **Deck switcher:** the header's deck is a dropdown - point Discover at any deck (suggestions exclude that deck's cards, the learner profile re-analyzes against it, and Make Card saves there), not just the mode's default deck.
-3. **Suggestions** - it proposes one new word/concept at a time, honoring your focus, targeted slightly above your level and biased toward your weak areas. Nothing already in your deck, known, or declined is ever suggested again.
-4. **Web verification** (toggle, on by default) - confirms the facts of each suggestion via web search before showing it, with clickable source citations and a ✓ verified / ⚠ unverified badge, so you don't card a hallucination.
-5. **Actions** - **Make Card** (generates a card from your mode's template, editable, then saves to Anki), **I Know This** (skip + remember), **Skip**, **Not Interested**, or **Next**.
-6. **Re-analyze level** - recomputes your profile on demand.
+An adaptive engine for finding **new** cards, calibrated to how advanced you already are (it never quizzes you on existing cards).
 
-**Cloud-synced metrics.** Your learner profile and the ledger of made/known/declined items are stored as Anki **media files** (`_screenlens/profile__<mode>.json`, `_screenlens/ledger__<mode>.json`), which sync to AnkiWeb and follow you across machines. When Anki is offline they fall back to a local `discover/` cache. The `_` prefix keeps them from being touched by Anki's Check Media.
+1. **Level analysis** - estimates your proficiency from your cards, Anki scheduling, progress notes, and same-mode chat history. The scale adapts: CEFR for languages, exam-domain coverage for certs, tiers otherwise.
+2. **Setup** - pick a suggestion type (language modes: words / phrases / idioms / verbs / grammar; other subjects get AI-generated categories), a difficulty bias, and an optional focus. A deck switcher points Discover at any deck.
+3. **Suggestions** - one new item at a time, biased toward your weak areas, with optional web verification (✓ verified / ⚠ unverified). Actions: **Make Card**, **I Know This**, **Skip**, **Next**.
 
-## Knowledge Base
-
-Each mode can have reference materials that the AI uses **app-wide**: study question generation, answer grading, chat, card generation, Discover's learner profile, and Ebi's Help all receive it as context.
-
-1. Click the gear icon → expand **Knowledge Base**
-2. Drag & drop `.txt`, `.md`, or `.pdf` files into the drop zone, or click to browse (PDF text is extracted on upload and stored as `.txt`; scanned/image-only PDFs are rejected with a hint to OCR them first)
-3. Files are listed with size, enable/disable toggle, and delete button
-4. Enabled files are loaded automatically when starting a study session
-
-**Whole books.** When the knowledge base exceeds ~60k characters, Ebiki navigates it by its **table of contents** instead of truncating: headings are auto-detected (markdown `#`, "Chapter N", "1.2 Title"), or upload the book's TOC as its own file named `toc.txt` (one chapter/section title per line - page numbers are fine). A quick selector call then pulls only the sections relevant to each question, card, or chat message. A banner in Settings → Knowledge tells you whether the TOC was found (📖) or the base is too big with no headings (⚠️, with fixes).
-
-Files are stored in `modes/<mode-name>/knowledge/` and can be managed entirely from the settings UI.
+Your learner profile and made/known/declined ledger are stored as Anki media files, so they sync across machines (with a local fallback when Anki is offline).
 
 ## Pronunciation audio
 
-Flashcards get real spoken pronunciation via a 4-tier, language-agnostic chain - no accounts, no paid APIs:
+A 4-tier, language-agnostic chain (no accounts, no paid APIs):
 
-1. **Your Anki card** - once a recording is embedded, it plays straight from Anki's media folder: instant, offline, works on every device your Anki syncs to
-2. **Wiktionary / Wikimedia Commons** - real native-speaker recordings (including Lingua Libre's), found via the word's dictionary pages **and** a Commons-wide search. Attribution (author · license) is mandatory and always shown; recordings of the *thing* rather than the word (a dog barking for "perro") are filtered out
-3. **Local TTS (optional, off by default)** - point Settings → Audio at an OpenAI-compatible server (e.g. Kokoro) on your own machine for near-human synthesized audio; leave empty and this tier costs nothing
-4. **Browser voice** - the built-in system voice as the last resort
+1. **Your Anki card** - once embedded, plays offline from Anki on any device.
+2. **Wiktionary / Wikimedia Commons** - real native-speaker recordings with mandatory attribution.
+3. **Local TTS** (optional) - point Settings → Audio at an OpenAI-compatible server (e.g. Kokoro).
+4. **Browser voice** - last resort.
 
-The 🔊 button appears on study graded cards, deck browser rows, chat card widgets, and the tap-a-word popup (language modes). **↻ cycles through different speakers** of the same word; the voice you pick replaces the card's embedded audio. Native recordings are automatically embedded into the Anki card (`[sound:…]` + a credit line, toggleable) - synthesized voices never are. Preferred accents per language (e.g. `en → us`, `es → mx`) are configurable in **Settings → Audio**.
+The 🔊 button appears on study cards, deck rows, chat cards, and tapped words. **↻ cycles speakers**; the voice you pick replaces the card's embedded audio. Preferred accents per language are set in Settings → Audio.
 
-## Overlay Mode (Optional)
+## Overlay mode (optional)
 
-A fullscreen overlay that sits on top of games and apps for seamless screen translation. The overlay loads the same web app - all features (hover, pin, explain, Anki) work identically.
-
-### Setup
+A fullscreen overlay for translating games and apps in place - the same web app, all features working.
 
 ```bash
-# Install Electron (one-time, optional)
-npm install electron --save-optional
+npm install electron --save-optional   # one-time
 ```
 
-### Usage
+1. Run `npm run dev`, then Picture tab → **Overlay** (or `npm run overlay`).
+2. Switch to your game and press **Alt+Q** to capture. Drag to select just an area (the rest of the desktop stays interactive); press **ESC** to dismiss.
+3. Hover words for translations, click to pin, make Anki cards.
 
-1. Start the web app: `npm run dev`
-2. Go to the **Picture** tab and click **Overlay** (or run `npm run overlay`)
-3. Switch to your game or app
-4. **Ctrl+Shift+S** - full screen capture, overlay appears with frozen screenshot
-5. **Ctrl+Shift+A** - area selection: transparent drawing window appears, draw a rectangle, only that area is captured and frozen while the rest of the desktop stays interactive
-6. Hover words for translations, click to pin, all features available
-7. Press **ESC** to dismiss the overlay
-8. Click the green Overlay button to stop Electron
+Fullscreen-exclusive games may need borderless windowed mode. The overlay is purely optional - the app works fine in the browser.
 
-### How it works
+## Ebi's Help
 
-- Electron captures a screenshot via `desktopCapturer` and saves it as a PNG
-- The overlay window loads `localhost:3000?overlay=true` - the same web app with the header hidden
-- The web app auto-loads the screenshot and runs the full OCR/translation pipeline
-- The overlay covers the entire screen (including taskbar area) for a seamless frozen-screen illusion
-- ESC hides the overlay but Electron stays running for the next capture
+The **"Talk to Ebi"** button in the header opens a context-aware assistant that knows your current tab, mode, the exact study question on screen (it won't reveal the answer unless asked), and recent activity. It can also *act* - ask it mid-session to change how questions are asked and it saves the preference to your mode. Dock it left, right, or under the question, or let it float. Help chats are saved alongside your Chat history.
 
-### Notes
+## Sharing data between computers (optional)
 
-- The overlay shares the same Vite dev server - API keys, modes, Anki connection are all shared
-- The web app works independently in the browser - the overlay is purely optional
-- Fullscreen exclusive games may not work; use borderless windowed mode
-- The Overlay button toggles on/off and auto-detects if Electron is running
+By default all your data lives in the app folder on the computer you run it on. **One computer? Nothing to set up.**
 
-## Ebi's Help (AI assistant)
+To share across machines, point them at one **shared data folder** (e.g. a network drive):
 
-A floating **Ebi** in the bottom-left opens a context-aware AI assistant that knows the app and your current state. It's the transparent mascot with a soft red glow (no circle), facing right, with a little pop on hover.
+1. Run the app locally on each computer (the app runs from local disk; only data is shared).
+2. Settings → General → **Data folder**, enter the shared path, click **Use this folder**. Repeat per computer.
 
-- Click **Ebi** to open the help chat; drag the button anywhere on screen
-- **Context-aware** - always knows what you're doing: current tab, active mode, OCR words, selected word details, the **exact study question on screen** (it won't reveal the answer unless you explicitly ask), session progress, deck browser and Discover state, and recent chat messages
-- **Can make adjustments** - ask it mid-session to change how study questions are asked ("make them shorter", "use scenarios") and it saves the preference to your mode on the spot
-- **Opens at the bottom** so the most recent message is visible
-- **Dock anywhere (FancyZones-style)** - drag the chat header to snap it, or click the dock button to be asked where: three labeled targets light up - **Dock left**, **Dock right**, or **Under the question** - and the preview shows exactly where it lands. Drop in open space to free-float. Esc cancels; **×** restores the floating button
-- **Persistent history** - help chat sessions are saved to disk and appear in the Chat tab sidebar (marked with a blue ?)
-- **New chat** - click + to start a fresh help conversation; old ones remain accessible in the Chat tab
-- Ask anything: "What does this word mean?", "Help me with this study question", "How do I use the overlay?"
-- Uses your configured AI provider and API key
-- Hidden in overlay mode to avoid interfering with gameplay
+- Applies immediately, no restart.
+- Joining a folder that already has data asks whether to add your items or use only the folder's; the folder's existing items are never overwritten.
+- Each computer's own data is set aside safely and restored via **Back to the app folder**.
+- API keys (`.env`) and logs stay local to each machine.
+- **Nothing is ever deleted** - collisions are parked in a dated backup folder. Avoid editing the same item on two computers simultaneously (saves are whole-file).
 
 ## Requirements
 
 - Node.js 18+
-- API key for at least one supported provider
-- Chrome/Edge/Brave recommended (Firefox works but screen capture may be limited)
-- Anki + AnkiConnect addon (for flashcard and study features)
-- Electron (optional, for overlay mode only)
+- An API key for at least one supported provider
+- Chrome / Edge / Brave recommended (Firefox works, but screen capture may be limited)
+- Anki + AnkiConnect (for flashcard and study features)
+- Electron (optional, overlay mode only)
 
-## Project Structure
+## Project layout
 
 ```
-src/
-  App.jsx              ← Main application component
-  components/
-    FormattedText.jsx   ← Rich text formatting for AI explanations
-    HelpChat.jsx        ← Context-aware floating/docked help assistant
-    DiscoverPanel.jsx   ← Discover Mode UI (profile header, suggestion card, actions)
-    Pronunciation.jsx   ← 🔊 audio button (lazy resolve, source badge, attribution, ↻ speakers)
-    PbqQuestion.jsx     ← interactive PBQ renderer (tap-to-place matching/categorize, ▲▼ ordering, graded review)
-  config/
-    languages.js       ← 18 supported languages
-    prompts.js         ← Translation prompt + POS/category color maps
-    providers.js       ← AI provider implementations + model listing (Anthropic, OpenAI, Gemini, Grok)
-  i18n/
-    index.js           ← App-language dictionaries (en/es/zh/ja) + t() lookup
-  discover/
-    storage.js         ← Discover profile/ledger store (Anki media files + local fallback)
-    prompts.js         ← Discover prompt builders (profile, suggestion, web verify)
-  pbq/
-    engine.js          ← pure PBQ logic: compile/validate/shuffle, deterministic grading, blind-solve comparison, prompts
-    engine.test.js     ← vitest suite for the engine (compile, citations, grading, solver parsing)
-  pronunciation/
-    index.js           ← 4-tier resolver chain (Anki media → Wiktionary/Commons → local TTS → browser voice)
-    wiktionary.js      ← native recordings: edition pages ∪ Commons search, attribution, ↻ variants
-    matcher.js         ← pure filename ranking/rejection (vitest-tested with live-captured fixtures)
-    ankimedia.js       ← plays audio already embedded in the Anki card (offline)
-    kokoro.js          ← opt-in local TTS tier (via the /api/tts proxy)
-    webspeech.js       ← browser SpeechSynthesis last resort
-    langcodes.js       ← language label → ISO code data
-  styles/
-    theme.js           ← GitHub Dark design system (~100 style objects)
-  utils/
-    anki.js            ← AnkiConnect API wrapper (ping, decks, cards, notes, sync, media files)
-    pdf.js             ← client-side PDF → text extraction for the knowledge base (lazy-loaded)
-    logger.js          ← OCR pipeline logging
-electron/
-  main.cjs             ← Electron main process (window, shortcuts, screenshot capture)
-  preload.cjs          ← IPC bridge (contextBridge)
-modes/
-  Default/             ← Default Language Learning config template (committed)
-    config.json
-  <user modes>/        ← Custom modes with per-mode configs + knowledge (gitignored)
-vite.config.js         ← Vite dev server + API endpoints (keys, config, modes, knowledge, anki proxy, overlay, chats, web search, discover-store)
+src/            React app (App.jsx + components, config, i18n, discover, pbq, pronunciation, styles, utils)
+electron/       Optional overlay companion (main + preload)
+modes/          Per-user modes: config.json + knowledge/ (gitignored)
+decks/          Per-deck progress logs (auto-created)
+chats/          Saved chat sessions (gitignored)
+vite.config.js  Dev server + API endpoints
 ```
+
+Design tokens live in `src/config/tokens.js`; developer notes are in `CLAUDE.md`.
