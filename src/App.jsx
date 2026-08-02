@@ -1349,7 +1349,7 @@ export default function App() {
     }
   }, [loadImageFromDataUrl])
 
-  // ─── Area Selection (Ctrl+Shift+A) ──────────────────────────────────────────
+  // ─── Area Selection (drag inside the Alt+Q overlay) ─────────────────────────
   const selRectRef = useRef(null)
   const screenshotRef = useRef(screenshot)
   screenshotRef.current = screenshot
@@ -10042,13 +10042,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
 
           {/* Chat area */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            {/* Attached deck indicator */}
-            {chatTabAttachedDeck && (
-              <div style={{ padding: '6px 16px', borderBottom: '1px solid var(--c-border)', display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--c-brand)' }}>
-                <span>Attached: {chatTabAttachedDeck.name} ({chatTabAttachedDeck.cards.length} cards)</span>
-                <span onClick={() => setChatTabAttachedDeck(null)} style={{ cursor: 'pointer', color: 'var(--c-ink-dim)' }}>&times;</span>
-              </div>
-            )}
+            {/* (Attached-deck chip lives in the input bar, in place of the Attach-deck dropdown,
+                so picking a deck visibly registers where you clicked instead of the chip jumping
+                to the top of the pane and reading as "the button vanished, nothing happened".) */}
 
             {/* Messages */}
             <div ref={chatTabScrollRef} style={{ flex: 1, overflow: 'auto', padding: '16px 20px', position: 'relative' }}>
@@ -10186,8 +10182,14 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
 
             {/* Input bar */}
             <div style={{ padding: '12px 16px', borderTop: '1px solid var(--c-border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {/* Attach deck row — always shown; disabled with a note when Anki isn't open */}
-              {!chatTabAttachedDeck && (
+              {/* Attach deck row — the dropdown when nothing is attached, the confirmation chip in
+                  the SAME spot once a deck is attached (so the pick registers where you clicked). */}
+              {chatTabAttachedDeck ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--c-brand)' }}>
+                  <span>{t(chatTabAttachedDeck.cards.length === 1 ? 'chat_attachedOne' : 'chat_attached', { deck: chatTabAttachedDeck.name, n: chatTabAttachedDeck.cards.length })}</span>
+                  <span onClick={() => setChatTabAttachedDeck(null)} style={{ cursor: 'pointer', color: 'var(--c-ink-dim)' }}>&times;</span>
+                </div>
+              ) : (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <select
                     value=""
