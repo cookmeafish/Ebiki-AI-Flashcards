@@ -3667,31 +3667,29 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     const issues = []
     updates.forEach(({ rec, changed, finalTags, tagsChanged }) => {
       if (Object.keys(changed).length === 0 && !tagsChanged) {
-        issues.push(`Card #${rec.noteId}: no changes from original`)
+        issues.push(t('deck_issueNoChange', { id: rec.noteId }))
         return
       }
       Object.entries(changed).forEach(([k, v]) => {
         const wasPopulated = String(rec.currentFields[k] ?? '').trim() !== ''
         if (wasPopulated && String(v).trim() === '') {
-          issues.push(`Card #${rec.noteId}: field "${k}" would be wiped`)
+          issues.push(t('deck_issueFieldWiped', { id: rec.noteId, field: k }))
         }
       })
       if (tagsChanged && finalTags.length === 0 && (rec.currentTags || []).length > 0) {
-        issues.push(`Card #${rec.noteId}: all tags would be removed`)
+        issues.push(t('deck_issueAllTags', { id: rec.noteId }))
       }
     })
     if (issues.length > 0) {
-      setDeckAnalyzeError('Refusing to save: ' + issues.join('; '))
+      setDeckAnalyzeError(t('deck_refusingSave', { issues: issues.join('; ') }))
       console.error('[Deck] commit blocked by safety checks:', issues)
       return
     }
 
     // Confirm with the user, listing exactly which cards + fields/tags will change.
-    const summary = updates.map(({ rec, changed, tagsChanged }) => `  • Card #${rec.noteId} (${[...Object.keys(changed), ...(tagsChanged ? ['tags'] : [])].join(', ')})`).join('\n')
+    const summary = updates.map(({ rec, changed, tagsChanged }) => t('deck_saveSummaryLine', { id: rec.noteId, fields: [...Object.keys(changed), ...(tagsChanged ? [t('deck_tagsWord')] : [])].join(', ') })).join('\n')
     const ok = await confirmDialog(
-      `Save ${toCommit.length} card update${toCommit.length === 1 ? '' : 's'} to Anki?\n\n${summary}\n\n` +
-      `Only the listed fields will be modified. Untouched fields keep their original content and formatting. ` +
-      `You can undo individual changes with Ctrl+Z in Anki.`
+      t(toCommit.length === 1 ? 'deck_saveConfirmOne' : 'deck_saveConfirm', { n: toCommit.length, summary })
     )
     if (!ok) return
 
@@ -3724,8 +3722,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       const failedIds = new Set(failures.map((f) => f.noteId))
       setDeckAnalyzeRecs((prev) => prev.filter((r) => failedIds.has(r.noteId) || !r.accepted))
       setDeckAnalyzeError(
-        `Saved ${successes.length} / ${toCommit.length}. Failed: ` +
-        failures.map((f) => `#${f.noteId} (${f.error})`).join('; ')
+        t('deck_saveResult', { n: successes.length, m: toCommit.length, failures: failures.map((f) => `#${f.noteId} (${f.error})`).join('; ') })
       )
       // Refresh the loaded notes so successful changes show up in the list.
       if (successes.length > 0) await loadDeckNotes(deckBrowserDeck).catch(() => {})
@@ -3992,7 +3989,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       setDeckAddBack(card.back)
       setDeckAddTags((card.tags || []).join(', '))
     } catch (err) {
-      setDeckAddError('Generation failed: ' + err.message)
+      setDeckAddError(t('deck_genFailed', { err: err.message }))
     } finally {
       setDeckAddGenerating(false)
     }
@@ -4002,15 +3999,15 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
   const saveAddCard = async () => {
     const front = deckAddFront.trim()
     const back = deckAddBack.trim()
-    if (!front || !back) { setDeckAddError('Front and back are required'); return }
-    if (!deckBrowserDeck) { setDeckAddError('Select a deck first'); return }
+    if (!front || !back) { setDeckAddError(t('deck_frontBackRequired')); return }
+    if (!deckBrowserDeck) { setDeckAddError(t('deck_selectDeckFirst')); return }
     if (deckAddSaving) return
     setDeckAddSaving(true)
     setDeckAddError(null)
     try {
       const connected = await ankiPing()
       setAnkiConnected(connected)
-      if (!connected) { setDeckAddError('Anki is not running. Open Anki to add cards'); return }
+      if (!connected) { setDeckAddError(t('deck_ankiNotRunning')); return }
       if (!(await ankiGetDecks().catch(() => [])).includes(deckBrowserDeck)) {
         await ankiCreateDeck(deckBrowserDeck)
       }
@@ -4024,7 +4021,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       await loadDeckNotes(deckBrowserDeck)
       closeAddCard()
     } catch (err) {
-      setDeckAddError('Save failed: ' + err.message)
+      setDeckAddError(t('deck_saveFailed', { err: err.message }))
     } finally {
       setDeckAddSaving(false)
     }
@@ -4032,15 +4029,15 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
 
   // ── Quick-Add: batch-generate formatted cards into a review tray ───────────────
   const runQuickAdd = async () => {
-    if (!apiKey) { setQuickAddError('Set your API key first'); return }
+    if (!apiKey) { setQuickAddError(t('deck_setApiKeyFirst')); return }
     // Split on newlines or commas → distinct words/phrases.
     const words = quickAddInput.split(/[\n,]+/).map((w) => w.trim()).filter(Boolean)
-    if (!words.length) { setQuickAddError('Type one or more words first'); return }
+    if (!words.length) { setQuickAddError(t('deck_typeWordsFirst')); return }
     setQuickAddLoading(true)
     setQuickAddError(null)
     try {
       const cards = await generateCards(words)
-      if (!cards.length) { setQuickAddError('No cards were generated. Try again'); return }
+      if (!cards.length) { setQuickAddError(t('deck_noCardsGenerated')); return }
       const deck = deckBrowserDeck || activeMode.ankiDeck || ''
       // Duplicate pre-check (best-effort; never blocks).
       const withDup = await Promise.all(cards.map(async (c) => ({
@@ -4049,7 +4046,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       })))
       setQuickAddCards(withDup)
     } catch (err) {
-      setQuickAddError('Generation failed: ' + err.message)
+      setQuickAddError(t('deck_genFailed', { err: err.message }))
     } finally {
       setQuickAddLoading(false)
     }
@@ -4059,12 +4056,12 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     const card = quickAddCards[i]
     if (!card || card.synced || card.syncing) return
     const deck = deckBrowserDeck || activeMode.ankiDeck || ''
-    if (!deck) { setQuickAddError('Select a deck first'); return }
+    if (!deck) { setQuickAddError(t('deck_selectDeckFirst')); return }
     setQuickAddCards((prev) => prev.map((c, k) => k === i ? { ...c, syncing: true } : c))
     try {
       const connected = await ankiPing()
       setAnkiConnected(connected)
-      if (!connected) { setQuickAddError('Anki is not running. Open Anki to add cards'); setQuickAddCards((prev) => prev.map((c, k) => k === i ? { ...c, syncing: false } : c)); return }
+      if (!connected) { setQuickAddError(t('deck_ankiNotRunning')); setQuickAddCards((prev) => prev.map((c, k) => k === i ? { ...c, syncing: false } : c)); return }
       if (!(await ankiGetDecks().catch(() => [])).includes(deck)) await ankiCreateDeck(deck)
       // allowDuplicate: true — Quick Add is an explicit "add these" action (the duplicate badge
       // already warns), and multi-meaning words legitimately share a front (e.g. two "gato" cards).
@@ -4073,7 +4070,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       setQuickAddCards((prev) => prev.map((c, k) => k === i ? { ...c, synced: true, syncing: false } : c))
       if (deck === deckBrowserDeck) loadDeckNotes(deck).catch(() => {})
     } catch (err) {
-      setQuickAddError('Sync failed: ' + err.message)
+      setQuickAddError(t('deck_syncFailed', { err: err.message }))
       setQuickAddCards((prev) => prev.map((c, k) => k === i ? { ...c, syncing: false } : c))
     }
   }
@@ -4092,10 +4089,10 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     if (toCommit.length === 0 || deckDupCommitting) return
 
     const totalDeletes = toCommit.reduce((sum, g) => sum + (g.noteIds.length - 1), 0)
-    const summary = toCommit.map((g) => `  • Keep #${g.noteIds[0]}, delete ${g.noteIds.slice(1).map((id) => `#${id}`).join(', ')}`).join('\n')
+    const summary = toCommit.map((g) => t('deck_mergeSummaryLine', { keep: g.noteIds[0], ids: g.noteIds.slice(1).map((id) => `#${id}`).join(', ') })).join('\n')
+    const deletes = t(totalDeletes === 1 ? 'deck_mergeDeletesOne' : 'deck_mergeDeletes', { n: totalDeletes })
     const ok = await confirmDialog(
-      `Merge ${toCommit.length} duplicate group${toCommit.length === 1 ? '' : 's'}?\n\n${summary}\n\n` +
-      `This updates the kept card with the merged content and permanently deletes ${totalDeletes} duplicate card${totalDeletes === 1 ? '' : 's'} from Anki. This cannot be undone from here.`
+      t(toCommit.length === 1 ? 'deck_mergeConfirmOne' : 'deck_mergeConfirm', { n: toCommit.length, summary, deletes })
     )
     if (!ok) return
 
@@ -4122,7 +4119,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     if (merged > 0) ankiSync().catch(() => {})
 
     if (failures.length > 0) {
-      setDeckDupError(`Merged ${merged} / ${toCommit.length}. Failed: ` + failures.map((f) => `[${f.noteIds.join(',')}] (${f.error})`).join('; '))
+      setDeckDupError(t('deck_mergeResult', { n: merged, m: toCommit.length, failures: failures.map((f) => `[${f.noteIds.join(',')}] (${f.error})`).join('; ') }))
       await loadDeckNotes(deckBrowserDeck).catch(() => {})
       setDeckDupGroups((prev) => prev.filter((g) => !g.accepted || failures.some((f) => f.noteIds[0] === g.noteIds[0])))
     } else {
@@ -10443,7 +10440,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               {chatTabImage && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                   <img src={chatTabImage} alt="attached" style={{ height: 44, borderRadius: 6, border: '1px solid var(--c-border)' }} />
-                  <button onClick={() => setChatTabImage(null)} style={{ ...S.ghostBtn, fontSize: 10 }}>Remove image</button>
+                  <button onClick={() => setChatTabImage(null)} style={{ ...S.ghostBtn, fontSize: 10 }}>{t('removeImage')}</button>
                 </div>
               )}
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', position: 'relative' }}>
@@ -11611,20 +11608,20 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               {isCredit && (
                 <div style={S.errorActions}>
                   <a href={providerConfig.billingUrl} target="_blank" rel="noopener noreferrer" style={S.errorLink}>
-                    Add credits for {providerConfig.label}
+                    {t('pic_addCredits', { provider: providerConfig.label })}
                   </a>
-                  <span style={{ color: 'var(--c-ink-dim)', fontSize: 12 }}>or</span>
+                  <span style={{ color: 'var(--c-ink-dim)', fontSize: 12 }}>{t('pic_or')}</span>
                   {Object.entries(PROVIDERS)
                     .filter(([key]) => key !== provider && apiKeys[key])
                     .map(([key, p]) => (
                       <button key={key} onClick={() => { setProvider(key); setError(null) }} style={{ ...S.errorSwitchBtn, color: p.color, borderColor: `${p.color}44` }}>
-                        Switch to {p.label}
+                        {t('pic_switchTo', { provider: p.label })}
                       </button>
                     ))
                   }
                   {Object.entries(PROVIDERS).filter(([key]) => key !== provider && apiKeys[key]).length === 0 && (
                     <button onClick={() => { setSettingsCategory('models'); setSettingsOpen(true) }} style={S.errorSwitchBtn}>
-                      Set up another provider
+                      {t('pic_setupProvider')}
                     </button>
                   )}
                 </div>
@@ -11643,7 +11640,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 <span style={S.progressText}>{progress}</span>
                 <button onClick={() => { cancelRef.current = true; setLoading(false); setStage('captured') }}
                   style={{ background: 'none', border: '1px solid var(--c-ink-faint)', color: 'var(--c-ink-dim)', borderRadius: 4, padding: '2px 8px', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit' }}>
-                  Cancel
+                  {t('cancel')}
                 </button>
               </div>
             )}
@@ -11659,7 +11656,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--c-brand)', animation: 'pulse 1.5s ease infinite' }} />
                 {progress}
                 <span onClick={() => { cancelRef.current = true; setLoading(false); setStage('captured') }}
-                  style={{ cursor: 'pointer', color: 'var(--c-danger)', marginLeft: 4 }}>Cancel</span>
+                  style={{ cursor: 'pointer', color: 'var(--c-danger)', marginLeft: 4 }}>{t('cancel')}</span>
               </div>
             )}
 
@@ -11722,7 +11719,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/>
                       <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                     </svg>
-                    Analyze & Translate
+                    {t('pic_analyzeTranslate')}
                   </button>
                 </div>
               )}
@@ -11736,22 +11733,22 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"
                       stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
-                  Click to expand & hover words
+                  {t('pic_clickExpand')}
                 </div>
               )}
 
             {/* Stats bar */}
             {stage === 'done' && !isOverlay && (
               <div style={S.stats}>
-                <span style={S.stat}>{ocrWords.length} words</span>
+                <span style={S.stat}>{t('pic_words', { n: ocrWords.length })}</span>
                 <span style={{ ...S.stat, color: 'var(--c-purple)' }}>
                   {ocrWords.filter((w) => !w.isEnglish).length} {LANGS.find((l) => l.code === language)?.label}
                 </span>
                 <span style={{ ...S.stat, color: 'var(--c-success)' }}>
-                  {ocrWords.filter((w) => w.isEnglish).length} English
+                  {t('pic_englishWords', { n: ocrWords.filter((w) => w.isEnglish).length })}
                 </span>
                 <span style={S.stat}>
-                  avg confidence: {Math.round(ocrWords.reduce((a, w) => a + w.confidence, 0) / ocrWords.length)}%
+                  {t('pic_avgConfidence', { n: Math.round(ocrWords.reduce((a, w) => a + w.confidence, 0) / ocrWords.length) })}
                 </span>
               </div>
             )}
@@ -11765,7 +11762,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 borderRadius: 12, padding: '14px 16px', boxShadow: SHADOW.md,
               }}>
                 <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--c-ink-dim)', marginBottom: 10 }}>
-                  Reading — tap a word for its meaning here
+                  {t('pic_readingPanel')}
                 </div>
                 {ocrLines.map((ln, li) => (
                   <div key={li} style={{ marginBottom: 4, lineHeight: 2 }}>
@@ -11804,7 +11801,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
               <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
             </svg>
-            <span style={{ marginLeft: 6 }}>ESC to close</span>
+            <span style={{ marginLeft: 6 }}>{t('pic_escClose')}</span>
           </div>
           <div style={S.expandedWrap} onClick={(e) => e.stopPropagation()}>
             <img src={screenshot} alt="Expanded" style={S.expandedImg} />
@@ -11929,7 +11926,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 const catColor = CATEGORY_COLORS[activeWord.category]
                 const showCat = activeWord.category === 'name'
                 const tagColor = showCat ? catColor : posColor
-                const tagLabel = showCat ? 'Name' : posColor.label
+                const tagLabel = showCat ? t('pic_name') : posColor.label
                 return tagLabel ? (
                   <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: tagColor.text, background: tagColor.bg, border: `1px solid ${tagColor.border}`, padding: '2px 6px', borderRadius: 3 }}>
                     {tagLabel}
@@ -11952,18 +11949,18 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           )}
           {activeWord.alts?.length > 0 && (
             <div style={{ fontSize: 11, color: 'var(--c-purple)', marginBottom: 6 }}>
-              also: {activeWord.alts.join(' · ')}
+              {t('pic_also', { alts: activeWord.alts.join(' · ') })}
             </div>
           )}
           {activeWord.category === 'name' && (
-            <div style={{ fontSize: 11, color: 'var(--c-success)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>Name / Proper Noun</div>
+            <div style={{ fontSize: 11, color: 'var(--c-success)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>{t('pic_nameProperNoun')}</div>
           )}
           {activeWord.category === 'target' && (
-            <div style={S.ttEng}>{LANGS.find((l) => l.code === targetLang)?.label || 'Target Language'}</div>
+            <div style={S.ttEng}>{LANGS.find((l) => l.code === targetLang)?.label || t('pic_targetLanguage')}</div>
           )}
           {activeWord.synonyms?.length > 0 && (
             <div style={S.ttSynWrap}>
-              <div style={S.ttSynLabel}>Synonyms</div>
+              <div style={S.ttSynLabel}>{t('pic_synonyms')}</div>
               <div style={S.ttSynList}>
                 {activeWord.synonyms.map((s, i) => (
                   <span key={i} style={S.ttSynChip}>{s}</span>
@@ -11972,7 +11969,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             </div>
           )}
           {activeWord.confidence < 100 && (
-            <div style={S.ttConf}>OCR confidence: {Math.round(activeWord.confidence)}%</div>
+            <div style={S.ttConf}>{t('pic_ocrConfidence', { n: Math.round(activeWord.confidence) })}</div>
           )}
 
           {/* Pinned: actions */}
@@ -11986,7 +11983,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     disabled={explaining}
                     style={{ ...S.ttDeepBtn, opacity: explaining ? 0.5 : 1 }}
                   >
-                    {explaining ? 'Thinking...' : 'Explain'}
+                    {explaining ? t('pic_thinking') : t('pic_explain')}
                   </button>
                 )}
                 {!ankiCard && !ankiSynced[activeIdx] && (
@@ -11995,7 +11992,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     disabled={ankiGenerating}
                     style={{ ...S.ttAnkiBtn, opacity: ankiGenerating ? 0.5 : 1 }}
                   >
-                    {ankiGenerating ? 'Generating...' : 'Generate Anki Card'}
+                    {ankiGenerating ? t('pic_generating') : t('pic_generateCard')}
                   </button>
                 )}
               </div>
@@ -12004,7 +12001,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               {explaining && !explanation && (
                 <div style={S.ttExplaining}>
                   <div style={S.ttExplainingDot} />
-                  Thinking...
+                  {t('pic_thinking')}
                 </div>
               )}
               {explanation && (
@@ -12020,7 +12017,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       disabled={deepExplaining}
                       style={{ ...S.ttDeepBtn, opacity: deepExplaining ? 0.5 : 1 }}
                     >
-                      {deepExplaining ? 'Thinking...' : `Explain further (${modelNick(resolveModel('picture'))})`}
+                      {deepExplaining ? t('pic_thinking') : t('pic_explainFurther', { model: modelNick(resolveModel('picture')) })}
                     </button>
                   )}
                   {!wordStudy && (
@@ -12029,7 +12026,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       disabled={wordStudyLoading}
                       style={{ ...S.ttStudyBtn, opacity: wordStudyLoading ? 0.5 : 1 }}
                     >
-                      {wordStudyLoading ? 'Loading...' : `Study "${activeWord.text}"`}
+                      {wordStudyLoading ? t('loading') : t('pic_studyWord', { word: activeWord.text })}
                     </button>
                   )}
                   {!conjugation && (activeWord.partOfSpeech === 'verb' || activeWord.partOfSpeech === 'noun' || activeWord.partOfSpeech === 'adj') && (
@@ -12038,7 +12035,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       disabled={conjugationLoading}
                       style={{ ...S.ttDeepBtn, opacity: conjugationLoading ? 0.5 : 1, background: 'rgba(17,168,160,.12)', color: 'var(--c-teal)', borderColor: 'rgba(17,168,160,.25)' }}
                     >
-                      {conjugationLoading ? 'Loading...' : 'Conjugate'}
+                      {conjugationLoading ? t('loading') : t('pic_conjugate')}
                     </button>
                   )}
                 </div>
@@ -12048,7 +12045,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               {ankiGenerating && (
                 <div style={S.ttExplaining}>
                   <div style={S.ttExplainingDot} />
-                  Generating Anki card...
+                  {t('pic_generatingCard')}
                 </div>
               )}
 
@@ -12056,7 +12053,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               {ankiCard && !ankiSynced[activeIdx] && (
                 <div style={S.ttAnkiCard}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                    <div style={S.ttAnkiCardLabel}>Front</div>
+                    <div style={S.ttAnkiCardLabel}>{t('deck_front')}</div>
                     <button
                       onClick={() => {
                         if (ankiEditing) {
@@ -12070,7 +12067,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       }}
                       style={{ background: 'none', border: '1px solid var(--c-border)', color: ankiEditing ? 'var(--c-success)' : 'var(--c-ink-dim)', borderRadius: 4, padding: '2px 8px', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit' }}
                     >
-                      {ankiEditing ? 'Save' : 'Edit'}
+                      {ankiEditing ? t('save') : t('edit')}
                     </button>
                   </div>
                   {ankiEditing ? (
@@ -12082,7 +12079,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   ) : (
                     <div style={S.ttAnkiCardContent}>{ankiCard.front}</div>
                   )}
-                  <div style={S.ttAnkiCardLabel}>Back</div>
+                  <div style={S.ttAnkiCardLabel}>{t('deck_back')}</div>
                   {ankiEditing ? (
                     <textarea
                       value={ankiEditBack}
@@ -12094,7 +12091,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   )}
                   {ankiCard.tags?.length > 0 && (
                     <div style={{ marginBottom: 6 }}>
-                      <div style={S.ttAnkiCardLabel}>Tags</div>
+                      <div style={S.ttAnkiCardLabel}>{t('deck_tags')}</div>
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                         {sortTagsRegionFirst(ankiCard.tags).map((tag, i) => (
                           <span key={i} style={{ fontSize: 10, padding: '2px 6px', borderRadius: 3, background: 'rgba(125,133,144,.15)', color: 'var(--c-ink)', border: '1px solid rgba(125,133,144,.2)', ...(isRegionTag(tag) ? regionTagStyle(tag) : {}) }}>{tag}</span>
@@ -12110,7 +12107,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         value={ankiRefineInput}
                         onChange={(e) => setAnkiRefineInput(e.target.value)}
                         onKeyDown={(e) => { if (e.key === 'Enter') refineAnkiCard() }}
-                        placeholder='e.g. "Say football instead of soccer"'
+                        placeholder={t('pic_refinePlaceholder')}
                         style={{ flex: 1, background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', color: 'var(--c-ink)', border: '1px solid var(--c-border)', borderRadius: 4, padding: '4px 8px', fontSize: 11, fontFamily: 'inherit', outline: 'none' }}
                       />
                       <button
@@ -12118,12 +12115,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         disabled={ankiRefining || !ankiRefineInput.trim()}
                         style={{ background: 'rgba(139,92,246,.15)', color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,.3)', borderRadius: 4, padding: '4px 10px', fontSize: 10, cursor: 'pointer', fontFamily: 'inherit', opacity: (ankiRefining || !ankiRefineInput.trim()) ? 0.4 : 1 }}
                       >
-                        {ankiRefining ? 'Refining...' : 'Refine'}
+                        {ankiRefining ? t('deck_refining') : t('deck_refine')}
                       </button>
                     </div>
                   </div>
                   <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span>Deck:</span>
+                    <span>{t('pic_deckLabel')}</span>
                     {ankiDecks.length > 0 ? (
                       <select
                         value={ankiDeck}
@@ -12135,7 +12132,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     ) : (
                       <strong style={{ color: 'var(--c-brand)' }}>{ankiDeck}</strong>
                     )}
-                    {ankiConnected === false && <span style={{ color: 'var(--c-warning)' }}>(offline)</span>}
+                    {ankiConnected === false && <span style={{ color: 'var(--c-warning)' }}>{t('pic_offline')}</span>}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <button
@@ -12143,10 +12140,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       disabled={ankiSyncing || ankiConnected === false}
                       style={{ ...S.ttAnkiSyncBtn, opacity: (ankiSyncing || ankiConnected === false) ? 0.4 : 1 }}
                     >
-                      {ankiSyncing ? 'Syncing...' : 'Sync to Anki'}
+                      {ankiSyncing ? t('pic_syncing') : t('pic_syncToAnki')}
                     </button>
                     {ankiConnected === false && (
-                      <span style={{ fontSize: 10, color: 'var(--c-warning)' }}>Start Anki to sync</span>
+                      <span style={{ fontSize: 10, color: 'var(--c-warning)' }}>{t('pic_startAnki')}</span>
                     )}
                   </div>
                   {ankiError && (
@@ -12156,7 +12153,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               )}
               {ankiSynced[activeIdx] && (
                 <div style={{ ...S.ttAnkiCard, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={S.ttAnkiSynced}>Synced to Anki ({ankiDeck})</span>
+                  <span style={S.ttAnkiSynced}>{t('pic_syncedToAnki', { deck: ankiDeck })}</span>
                 </div>
               )}
 
@@ -12164,7 +12161,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               {deepExplaining && !deepExplanation && (
                 <div style={{ ...S.ttExplaining, marginTop: 8 }}>
                   <div style={S.ttExplainingDot} />
-                  {modelNick(resolveModel('picture'))} is thinking...
+                  {t('pic_modelThinking', { model: modelNick(resolveModel('picture')) })}
                 </div>
               )}
               {deepExplanation && (
@@ -12175,13 +12172,13 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               {wordStudyLoading && !wordStudy && (
                 <div style={{ ...S.ttExplaining, marginTop: 8 }}>
                   <div style={S.ttExplainingDot} />
-                  Loading word study...
+                  {t('pic_loadingWordStudy')}
                 </div>
               )}
               {wordStudy && (
                 <div style={S.ttWordStudy}>
                   <div style={S.ttWordStudyHeader}>
-                    Word Study: {activeWord.text}
+                    {t('pic_wordStudyTitle', { word: activeWord.text })}
                   </div>
                   <div style={S.ttWordStudyBody}>
                     <FormattedText text={wordStudy} accentColor="var(--c-success)" />
@@ -12193,13 +12190,13 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               {conjugationLoading && !conjugation && (
                 <div style={{ ...S.ttExplaining, marginTop: 8 }}>
                   <div style={S.ttExplainingDot} />
-                  Loading conjugations...
+                  {t('pic_loadingConjugations')}
                 </div>
               )}
               {conjugation && (
                 <div style={{ marginTop: 8, border: '1px solid rgba(17,168,160,.2)', borderRadius: 8, overflow: 'hidden' }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-teal)', background: 'rgba(17,168,160,.08)', padding: '8px 10px', borderBottom: '1px solid rgba(17,168,160,.15)' }}>
-                    Conjugations: {activeWord.text}
+                    {t('pic_conjugationsTitle', { word: activeWord.text })}
                   </div>
                   <div style={{ padding: '14px 16px', background: 'rgba(17,168,160,.03)' }}>
                     <FormattedText text={conjugation} accentColor="var(--c-teal)" />
@@ -12210,7 +12207,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               {/* Chat section */}
               {explanation && (
                 <div style={S.ttChatSection}>
-                  <div style={S.ttChatLabel}>Ask about this word</div>
+                  <div style={S.ttChatLabel}>{t('pic_askAboutWord')}</div>
                   {chatMessages.map((m, i) => (
                     <div key={i} style={m.role === 'user' ? S.ttChatUser : S.ttChatAssistant}>
                       {m.text}
@@ -12219,7 +12216,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   {chatLoading && (
                     <div style={{ ...S.ttExplaining, marginTop: 4 }}>
                       <div style={S.ttExplainingDot} />
-                      Typing...
+                      {t('pic_typing')}
                     </div>
                   )}
                   <div style={S.ttChatInputRow}>
@@ -12228,7 +12225,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') sendChat(activeWord) }}
-                      placeholder="e.g. How do I conjugate this?"
+                      placeholder={t('pic_chatPlaceholder')}
                       style={S.ttChatInput}
                     />
                     <button
@@ -12236,7 +12233,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       disabled={chatLoading || !chatInput.trim()}
                       style={{ ...S.ttChatSend, opacity: chatLoading || !chatInput.trim() ? 0.4 : 1 }}
                     >
-                      Send
+                      {t('pic_send')}
                     </button>
                   </div>
                 </div>
@@ -12245,7 +12242,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           )}
 
           {!isPinned && (
-            <div style={S.ttClickHint}>Click to pin & explore</div>
+            <div style={S.ttClickHint}>{t('pic_clickToPin')}</div>
           )}
         </div>
         </>
