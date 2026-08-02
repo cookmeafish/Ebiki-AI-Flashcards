@@ -13,7 +13,9 @@ export const PROVIDERS = {
     // These are only the FLOOR. modelPresets (App.jsx) overrides them with whatever the provider's
     // live list says is newest in the same family, so a stale constant here can no longer pin the
     // whole app to an old model the way claude-opus-4-8 did after claude-opus-5 shipped.
-    presets: { normal: 'claude-sonnet-5', max: 'claude-opus-5' },
+    // Three tiers. cheap = fast/low-cost (Haiku slot), normal = balanced, max = strongest. The
+    // Optimized intelligence preset assigns each role a tier (see ROLE_TIER in App.jsx).
+    presets: { cheap: 'claude-haiku-4-5', normal: 'claude-sonnet-5', max: 'claude-opus-5' },
     // List the model ids currently offered by the provider (newest first).
     listModels: async (apiKey) => {
       const resp = await fetch('https://api.anthropic.com/v1/models?limit=1000', {
@@ -64,7 +66,7 @@ export const PROVIDERS = {
     billingUrl: 'https://platform.openai.com/settings/organization/billing',
     model: 'gpt-4o-mini',       // cheap/fast tier (vision-capable) — matches Claude's Haiku slot
     questionModel: 'gpt-4o',    // strong tier (vision-capable) — matches Claude's Sonnet slot
-    presets: { normal: 'gpt-4o', max: 'gpt-4.1' }, // both vision-capable
+    presets: { cheap: 'gpt-4o-mini', normal: 'gpt-4o', max: 'gpt-4.1' }, // all vision-capable
     // Only chat-capable models (skip embeddings, tts, whisper, image, moderation).
     listModels: async (apiKey) => {
       const resp = await fetch('https://api.openai.com/v1/models', {
@@ -119,7 +121,7 @@ export const PROVIDERS = {
     billingUrl: 'https://aistudio.google.com/apikey',
     model: 'gemini-2.0-flash',      // cheap/fast tier (vision-capable) — Haiku slot
     questionModel: 'gemini-2.5-pro', // strong tier (vision-capable) — Sonnet slot
-    presets: { normal: 'gemini-2.5-flash', max: 'gemini-2.5-pro' }, // both vision-capable
+    presets: { cheap: 'gemini-2.0-flash', normal: 'gemini-2.5-flash', max: 'gemini-2.5-pro' }, // all vision-capable
     // Models that support generateContent; strip the "models/" prefix.
     listModels: async (apiKey) => {
       const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}&pageSize=1000`)
@@ -169,7 +171,7 @@ export const PROVIDERS = {
     billingUrl: 'https://console.x.ai/',
     model: 'grok-3-mini-fast', // cheap/fast tier — Haiku slot
     questionModel: 'grok-4',   // strong tier (multimodal/vision) — Sonnet slot
-    presets: { normal: 'grok-3', max: 'grok-4' }, // grok-4 is multimodal
+    presets: { cheap: 'grok-3-mini-fast', normal: 'grok-3', max: 'grok-4' }, // grok-4 is multimodal
     listModels: async (apiKey) => {
       const resp = await fetch('https://api.x.ai/v1/models', {
         headers: { 'Authorization': `Bearer ${apiKey}` },

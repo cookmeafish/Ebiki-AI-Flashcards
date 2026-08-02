@@ -120,6 +120,7 @@ export default function OnboardingWizard(p) {
               // presetModel resolves to the newest model in the tier's family (adopted silently as
               // soon as the key was entered on the previous step), so a new user is shown and put on
               // current models instead of whatever constant providers.js shipped with.
+              { key: 'optimized', title: t('obIntelOptimized'), model: t('obIntelOptimizedModel'), desc: t('obIntelOptimizedDesc') },
               { key: 'normal', title: t('obIntelNormal'), model: presetModel?.('normal') || providerConfig.presets?.normal || providerConfig.questionModel, desc: t('obIntelNormalDesc') },
               { key: 'max', title: t('obIntelMax'), model: presetModel?.('max') || providerConfig.presets?.max || providerConfig.questionModel, desc: t('obIntelMaxDesc') },
             ].map((opt) => {
