@@ -9141,8 +9141,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               {deckBrowserNotes.length > 0 && (
                 <span style={{ fontSize: 11, color: 'var(--c-ink-dim)', alignSelf: 'center' }}>
                   {deckBrowserTagFilter
-                    ? t('deck_countFiltered', { n: deckBrowserNotes.filter((n) => (n.tags || []).includes(deckBrowserTagFilter)).length, m: deckBrowserNotes.length })
-                    : t('deck_countAll', { n: deckBrowserNotes.length })}
+                    ? (() => { const fn = deckBrowserNotes.filter((n) => (n.tags || []).includes(deckBrowserTagFilter)).length, m = deckBrowserNotes.length; return t(m === 1 ? 'deck_countFilteredOne' : 'deck_countFiltered', { n: fn, m }) })()
+                    : t(deckBrowserNotes.length === 1 ? 'deck_countAllOne' : 'deck_countAll', { n: deckBrowserNotes.length })}
                 </span>
               )}
             </div>
