@@ -189,11 +189,22 @@ All settings are **per-mode** - changing Security+ settings doesn't affect Langu
 
 ### Creating a mode
 
-1. Click the mode button in the toolbar (e.g., "Language Learning")
-2. Type what you want to learn (e.g., "CompTIA Security+", "Organic Chemistry")
-3. Click **Create** - AI generates the full mode configuration (card format, tags, study questions)
-4. Click the **gear icon** to customize any settings
-5. Or click **+ Default Mode** to create a new Language Learning mode with defaults
+Two ways, both in **Settings → Learning modes**:
+
+- **Quick**: type what you want to learn (e.g., "CompTIA Security+", "Organic Chemistry") and click **Create**. The AI generates the full mode configuration (card format, tags, study questions) in one shot.
+- **Design in depth with Ebi** (recommended for a tailored mode): opens a short chat where you give Ebi a rough idea in a few words. Ebi expands it and asks one to three quick questions to cater the mode to you (your level and goal, the language you answer in, sub-topics to emphasize, how you want to be quizzed). When you like the plan Ebi shows, click **Create this mode** and it saves.
+
+Or click **+ Default Mode** to create a new Language Learning mode with defaults.
+
+### Editing a mode with Ebi
+
+The same conversational designer edits existing modes, so you never have to hand-tune raw templates:
+
+- **Edit this mode with Ebi** (Learning modes pane): change anything about the active mode in plain language.
+- **Design the deck prompt with Ebi** (Cards & Anki pane): shape how the mode builds its flashcards. The card-back layout, which fields to include, and how cards get tagged.
+- **Shape how it quizzes you with Ebi** (Study pane): change the question style, difficulty, or the languages Ebi uses.
+
+In every case Ebi proposes a change for you to review, and nothing is saved until you approve it. (The quick one-shot **Ask AI** boxes are still there for a fast single tweak with a before/after diff.)
 
 ### Mode settings
 
