@@ -371,12 +371,12 @@ export default function SettingsModal(p) {
 
         {/* Intelligence preset — one switch that sets every feature's default model tier. */}
         <div style={{ marginBottom: 12, padding: '10px 12px', borderRadius: 8, background: 'var(--c-surface-sunken)', border: '1px solid var(--c-border)' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: C.ink, marginBottom: 2 }}>Intelligence preset</div>
-          <div style={{ fontSize: 10, color: C.inkDim, marginBottom: 8 }}>Sets the default model for every feature at once. Per-feature overrides below still win.</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.ink, marginBottom: 2 }}>{t('set_intelPreset')}</div>
+          <div style={{ fontSize: 10, color: C.inkDim, marginBottom: 8 }}>{t('set_intelPresetDesc')}</div>
           <div style={{ display: 'flex', gap: 8 }}>
             {[
-              { key: 'normal', title: 'Normal', desc: `Balanced & fast (${presetModel?.('normal') || providerConfig.presets?.normal || providerConfig.questionModel})` },
-              { key: 'max', title: 'More intelligent', desc: `Most capable, slower & more tokens (${presetModel?.('max') || providerConfig.presets?.max || providerConfig.questionModel})` },
+              { key: 'normal', title: t('set_intelNormal'), desc: t('set_intelNormalDesc', { model: presetModel?.('normal') || providerConfig.presets?.normal || providerConfig.questionModel }) },
+              { key: 'max', title: t('set_intelMax'), desc: t('set_intelMaxDesc', { model: presetModel?.('max') || providerConfig.presets?.max || providerConfig.questionModel }) },
             ].map((opt) => {
               const active = (intelligence || 'normal') === opt.key
               return (
@@ -403,7 +403,7 @@ export default function SettingsModal(p) {
               <span style={{ fontSize: 11, color: C.inkDim, width: 70, flexShrink: 0, fontWeight: 600 }}>{t('aiRole_' + role)}</span>
               {isCustom ? (
                 <input value={current} onChange={(e) => setRole(e.target.value)} spellCheck={false}
-                  placeholder="exact model id (e.g. claude-…)" style={{ ...S.keyInput, flex: 1, fontSize: 11, padding: '6px 9px' }} />
+                  placeholder={t('set_customModelIdPlaceholder')} style={{ ...S.keyInput, flex: 1, fontSize: 11, padding: '6px 9px' }} />
               ) : (
                 <select value={current} onChange={(e) => { if (e.target.value === '__custom__') { setCustomRoles((c) => ({ ...c, [role]: true })) } else setRole(e.target.value) }}
                   style={{ ...S.select, flex: 1, fontSize: 11, padding: '6px 9px' }}>
@@ -475,14 +475,14 @@ export default function SettingsModal(p) {
             </select>
           </div>
           <div>
-            {fieldLabel('Memory hook language')}
+            {fieldLabel(t('set_hookLang'))}
             <select value={activeMode.studyRules?.hookLanguage || ''}
               onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || (isLanguage ? defaultStudyRules : defaultGeneralStudyRules)), hookLanguage: e.target.value } })}
               style={{ ...S.select, minWidth: 140 }}>
-              <option value="">App language (default)</option>
+              <option value="">{t('set_hookLangDefault')}</option>
               {LANGS.filter((l) => l.code !== 'auto').map((l) => <option key={l.code} value={l.label}>{l.label}</option>)}
             </select>
-            <div style={{ fontSize: 10, color: C.inkFaint, marginTop: 3 }}>The language Ebi writes memory hooks in, on every surface. A hook only works in a language you understand instantly. Default: the app language.</div>
+            <div style={{ fontSize: 10, color: C.inkFaint, marginTop: 3 }}>{t('set_hookLangDesc')}</div>
           </div>
           {isLanguage && (
             <div>

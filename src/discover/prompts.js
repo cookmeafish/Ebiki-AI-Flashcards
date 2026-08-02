@@ -8,11 +8,13 @@
 //   language  -> CEFR (A1..C2)
 //   cert/exam -> domain-coverage (track exam objective areas + how covered each is)
 //   other     -> generic tiers (beginner / intermediate / advanced)
-export function buildProfilePrompt({ modeType, modeName, modeDescription, evidence }) {
+export function buildProfilePrompt({ modeType, modeName, modeDescription, evidence, userLanguage = 'English' }) {
   return `You are assessing how advanced a learner is, so a tutor can suggest NEW material at the right difficulty.
 
-Subject mode: "${modeName}"${modeDescription ? ` — ${modeDescription}` : ''}
+Subject mode: "${modeName}"${modeDescription ? ` (${modeDescription})` : ''}
 Mode type: ${modeType}
+
+Write all human-readable text you output (the "summary" and every domain "name") in ${userLanguage}, so the learner reads their profile in their own language. Keep proper nouns, acronyms and technical terms in their original form. Do NOT use em dashes or en dashes anywhere.
 
 Choose the level scale that fits the subject:
 - If this is a LANGUAGE: use "CEFR" with an estimate of A1, A2, B1, B2, C1 or C2.
@@ -83,6 +85,7 @@ ${focus ? `\nThe learner specifically asked you to focus on: "${focus}". Honor t
 ${knowledge ? `\nREFERENCE MATERIAL (the learner's own study material for this mode — prefer terms/concepts that appear in or align with it):\n${knowledge}\n` : ''}
 
 RULES:
+- Write the "translation", "why" and "draftMeaning" fields in ${userLanguage} (the ${isLang ? '"term" stays in the target language' : '"term" stays in the subject\'s own wording'}). Keep proper nouns/acronyms/technical terms original. Do NOT use em dashes or en dashes.
 - Suggest exactly ONE item. ${difficultyRule}
 ${itemTypeRule ? itemTypeRule + '\n' : ''}- ${isLang ? `${difficulty === 'easier' ? 'Even easier items must still be worth carding — no absolute-beginner filler unless they truly are a beginner.' : 'Do NOT suggest beginner vocabulary if they are intermediate or above (no "manzana" for a B1+ learner). For an advanced learner prefer nuanced/idiomatic/formal items.'}` : `Prefer a term from an under-covered exam domain or a gap in their knowledge.`}
 - ${focus ? 'Match the focus request above.' : 'Prefer the weak/under-covered areas listed above when sensible.'}
