@@ -374,8 +374,9 @@ export default function SettingsModal(p) {
         <div style={{ marginBottom: 12, padding: '10px 12px', borderRadius: 8, background: 'var(--c-surface-sunken)', border: '1px solid var(--c-border)' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: C.ink, marginBottom: 2 }}>{t('set_intelPreset')}</div>
           <div style={{ fontSize: 10, color: C.inkDim, marginBottom: 8 }}>{t('set_intelPresetDesc')}</div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
             {[
+              { key: 'optimized', title: t('set_intelOptimized'), desc: t('set_intelOptimizedDesc') },
               { key: 'normal', title: t('set_intelNormal'), desc: t('set_intelNormalDesc', { model: presetModel?.('normal') || providerConfig.presets?.normal || providerConfig.questionModel }) },
               { key: 'max', title: t('set_intelMax'), desc: t('set_intelMaxDesc', { model: presetModel?.('max') || providerConfig.presets?.max || providerConfig.questionModel }) },
             ].map((opt) => {

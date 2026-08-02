@@ -703,9 +703,21 @@ export default function App() {
   // Every feature defaults to the provider's selected intelligence preset (Normal/Max), so the
   // whole app is one consistent tier. Exception: `pose` is a tiny classifier that fires on EVERY
   // message — it always uses the cheaper Normal preset so Max mode doesn't blow up cost/latency.
+  // The OPTIMIZED preset assigns each role a tier by STAKES x FREQUENCY: trivial/high-frequency roles
+  // run cheap, and only the roles whose output the learner MEMORIZES stay strong. Rationale is
+  // documented in CLAUDE.md ("HOW TO ADD A NEW AI ROLE"); keep this table and that doc in sync.
+  //   cheap   = pose (fires every message), help (short Q&A), discover (suggestions are reviewed)
+  //   normal  = chat, picture (vision), study (has answer-leak/cue guards), general
+  //   max     = deck (card generation gets MEMORIZED — never cheap out here)
+  const ROLE_TIER = { pose: 'cheap', help: 'cheap', discover: 'cheap', chat: 'normal', picture: 'normal', study: 'normal', general: 'normal', deck: 'max' }
   const ROLE_DEFAULTS = (pc, intel = 'normal', prov = aiStateRef.current.provider) => {
-    const m = presetModel(pc, prov, intel)
     const normal = presetModel(pc, prov, 'normal')
+    if (intel === 'optimized') {
+      const out = {}
+      for (const role of Object.keys(ROLE_TIER)) out[role] = presetModel(pc, prov, ROLE_TIER[role])
+      return out
+    }
+    const m = presetModel(pc, prov, intel) // 'normal' or 'max' → one model for every role
     return { general: m, picture: m, deck: m, study: m, discover: m, chat: m, help: m, pose: normal }
   }
   // UI metadata for the AI Settings panel — order + labels + hints.
@@ -864,7 +876,7 @@ export default function App() {
     if (!Array.isArray(ids) || !ids.length) return []
 
     const found = []
-    for (const tier of ['normal', 'max']) {
+    for (const tier of ['cheap', 'normal', 'max']) {
       const current = presetModel(pc, prov, tier)
       const next = respectRejections
         ? pickUpgrade(current, ids, aiStateRef.current.rejectedModels?.[prov]?.[tier])
@@ -4006,6 +4018,9 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       const profile = parseAiJson(text)
       // The summary is AI free-text shown to the user, so strip em/en dashes like every other Ebi output.
       if (profile && typeof profile.summary === 'string') profile.summary = profile.summary.replace(/\s*[—–]\s*/g, ', ').trim()
+      // Stamp a save time so init can keep the FRESHER of the Anki-media blob vs the local cache
+      // (a re-analyze whose blob write fails while Anki is offline must not be clobbered on reconnect).
+      if (profile) profile.savedAt = Date.now()
       setDiscoverProfile(profile)
       writeBlob('profile', activeMode.name, profile).catch(() => {})
       console.log('[Discover] profile built:', profile)
@@ -4249,8 +4264,19 @@ Return ONLY a JSON array (no markdown):
       ensureDiscoverKinds() // fire-and-forget; chips appear when ready
       const ledger = (await readBlob('ledger', activeMode.name)) || cached.ledger || DEFAULT_LEDGER
       setDiscoverLedger(ledger)
-      let profile = await readBlob('profile', activeMode.name)
-      if (!profile && cached.profile) profile = cached.profile // blob unreachable (Anki offline) — keep the cache
+      // Prefer the FRESHER of the Anki-media blob vs the local cache. A re-analyze always updates the
+      // local cache, but its blob write can silently fail (Anki offline) or the blob can predate the
+      // last analyze — blindly trusting the blob resurrected a stale, contaminated profile the moment
+      // Anki reconnected (the "it keeps reverting to the old summary" bug). If the cache is newer, keep
+      // it AND heal the blob so it stops reverting.
+      const blobProfile = await readBlob('profile', activeMode.name)
+      let profile = blobProfile
+      if (blobProfile && cached.profile && (cached.profile.savedAt || 0) > (blobProfile.savedAt || 0)) {
+        profile = cached.profile
+        writeBlob('profile', activeMode.name, cached.profile).catch(() => {})
+      } else if (!profile && cached.profile) {
+        profile = cached.profile // blob unreachable (Anki offline) — keep the cache
+      }
       if (!profile) profile = await buildLearnerProfile()
       else setDiscoverProfile(profile)
     } catch (err) {

@@ -1059,15 +1059,35 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
 - **Everything routes through `aiCall`** → `PROVIDERS[provider].call(...)`. No feature hardcodes a provider:
   Chat, Study, Deck, Discover, Picture (vision), pose, AND **Ebi's Help** (HelpChat takes an `askAI` prop =
   `aiCall(..., resolveModel('help'))`) all work on Anthropic / OpenAI / Gemini / Grok.
-- **Intelligence preset (global `intelligence` = `normal` | `max`, in `config.json`):** each provider has
-  `presets: { normal, max }` (Anthropic sonnet-5/opus-5; OpenAI gpt-4o/gpt-4.1; Gemini 2.5-flash/2.5-pro;
-  Grok grok-3/grok-4 - all vision-capable). `ROLE_DEFAULTS(pc, intel, prov)` makes **every feature** default to
-  that one preset model (standardized, no per-role tiering) - EXCEPT `pose`, which always uses the `normal`
-  preset (it fires on every message; Max shouldn't blow up its cost/latency). Per-feature overrides in Settings
-  still win. Chosen in **onboarding** (after the provider step) and switchable in **Settings → AI models**.
+- **Intelligence preset (global `intelligence` = `optimized` | `normal` | `max`, in `config.json`):** each
+  provider has THREE tiers `presets: { cheap, normal, max }` (Anthropic haiku-4-5/sonnet-5/opus-5; OpenAI
+  gpt-4o-mini/gpt-4o/gpt-4.1; Gemini 2.0-flash/2.5-flash/2.5-pro; Grok grok-3-mini-fast/grok-3/grok-4 - all
+  vision-capable). `ROLE_DEFAULTS(pc, intel, prov)` maps roles to models: **`normal`/`max`** put EVERY feature
+  on that one preset (pose always `normal`); **`optimized`** is PER-ROLE tiered via the `ROLE_TIER` map. Per-
+  feature overrides in Settings still win. Chosen in **onboarding** and switchable in **Settings → AI models**.
   **NEVER read `pc.presets[tier]` directly - go through `presetModel(pc, prov, tier)`** (App.jsx, next to
   `resolveModel`), which lets the live-model layer below shadow the constant. The providers.js values are a
-  FLOOR, not the truth.
+  FLOOR, not the truth. The daily currency check (`findModelUpgrades`) heals all three tiers (`cheap`/`normal`/`max`).
+- **The OPTIMIZED preset (`ROLE_TIER` in App.jsx) is token-optimal-with-least-intelligence-loss.** It assigns
+  each role a tier by **STAKES × FREQUENCY**: trivial/high-frequency roles run cheap; only roles whose output the
+  learner MEMORIZES stay strong. **This table is load-bearing - when you ADD a NEW AI role, give it a tier here
+  and keep this doc + `ROLE_TIER` in sync:**
+
+  | Role | Optimized tier | Why |
+  |---|---|---|
+  | `pose` | cheap | Trivial classifier, fires on EVERY message. Biggest single savings. |
+  | `help` | cheap | Short Q&A, low stakes. |
+  | `discover` | cheap | Suggestions are reviewed by the user; the verify pass catches errors. |
+  | `chat` | normal | Tutoring - users feel quality on "why" explanations. |
+  | `picture` | normal | Vision on busy/stylized screens needs a capable-ish model. |
+  | `study` | normal | Questions have deterministic guards (answer-leak, letter-cue); grading tolerable at mid. |
+  | `general` | normal | Mode creation matters but is rare. |
+  | `deck` | max | Card generation gets MEMORIZED - the ONE role Optimized must never cheap out on. |
+
+  **HOW TO ADD A NEW AI ROLE:** (1) add it to `AI_ROLE_META` (label + hint) and to `ROLE_DEFAULTS`'s uniform map;
+  (2) add it to `ROLE_TIER` with a tier chosen by the stakes×frequency rule above (memorized/graded content →
+  `max`; conversational/reviewed → `normal`; trivial/every-message → `cheap`); (3) call it via `resolveModel('yourRole')`
+  (or `resolveModelFast` for latency-sensitive read/translate work). Overrides + healing then work automatically.
 - **No forced JSON.** OpenAI/Gemini do NOT set `response_format`/`responseMimeType` - that would break
   free-form chat/help (OpenAI even errors unless the prompt says "json"). JSON roles rely on the prompt +
   `parseAiJson()`, exactly like Claude.
