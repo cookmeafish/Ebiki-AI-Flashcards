@@ -425,7 +425,7 @@ export default function SettingsModal(p) {
               ) : (
                 <select value={current} onChange={(e) => { if (e.target.value === '__custom__') { setCustomRoles((c) => ({ ...c, [role]: true })) } else setRole(e.target.value) }}
                   style={{ ...S.select, flex: 1, fontSize: 11, padding: '6px 9px' }}>
-                  <option value="">{t('providerDefault')} ({def})</option>
+                  <option value="">{t('providerDefault')} ({planDeciding && !current ? t('set_choosing') : def})</option>
                   {opts.map((m) => <option key={m} value={m}>{m}</option>)}
                   <option value="__custom__">✏️ {t('customModel')}</option>
                 </select>
