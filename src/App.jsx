@@ -15,6 +15,7 @@ import HelpChat from './components/HelpChat'
 import Markdown from './components/Markdown'
 import DiscoverPanel from './components/DiscoverPanel'
 import SettingsModal from './components/SettingsModal'
+import ModeStudio from './components/ModeStudio'
 import OnboardingWizard from './components/OnboardingWizard'
 import Dropdown from './components/Dropdown'
 import { S } from './styles/theme'
@@ -393,6 +394,7 @@ export default function App() {
   const [activeModeId, setActiveModeId] = useState(1)
   const [editingModeName, setEditingModeName] = useState(null)
   const [modeCreating, setModeCreating] = useState(false)
+  const [modeStudio, setModeStudio] = useState(null)  // Ebi Studio: { kind:'create'|'edit', focus:'all'|'cards'|'study', modeId? }
   const [modeEditInput, setModeEditInput] = useState('')
   const [modeEditProposal, setModeEditProposal] = useState(null) // { scope, changes:[{key,label,before,after}] }
   const [modeEditBusy, setModeEditBusy] = useState(false)
@@ -8506,6 +8508,56 @@ Output ONLY raw JSON. No markdown, no backticks.`
     }
   }
 
+  // Build a fully-compatible mode config from a spec the Ebi Studio conversation
+  // produced. `existing` (edit) is merged field-by-field so untouched values are
+  // kept; without it a brand-new mode is minted. Mirrors createMode's fallbacks.
+  const buildModeFromSpec = (spec, existing) => {
+    // On edit, keep the existing type (language vs general drive different study
+    // rules; a flip would be surprising). On create, take the model's choice.
+    const type = existing ? existing.type : (spec.type === 'language' ? 'language' : 'general')
+    const baseSR = type === 'language' ? defaultStudyRules : defaultGeneralStudyRules
+    const sr = { ...(existing?.studyRules || baseSR), ...(spec.studyRules && typeof spec.studyRules === 'object' ? spec.studyRules : {}) }
+    if (!sr.questionsPerCard) sr.questionsPerCard = 3
+    if (!sr.questionPrompt) sr.questionPrompt = baseSR.questionPrompt
+    if (!sr.ratingRules) sr.ratingRules = baseSR.ratingRules
+    if (Array.isArray(sr.questionPreferences)) sr.questionPreferences = sr.questionPreferences.filter(Boolean).map(String).slice(0, 12)
+    const arr3 = (v, fallback) => Array.isArray(v) ? v.filter(Boolean).slice(0, 3).map(String) : (fallback || [])
+    const built = {
+      ...(existing || {}),
+      name: (spec.name || existing?.name || String(spec.description || 'New mode').slice(0, 24)).slice(0, 40),
+      type,
+      description: typeof spec.description === 'string' ? spec.description : (existing?.description || ''),
+      fields: (spec.fields && typeof spec.fields === 'object') ? spec.fields : (existing?.fields || { definition: true, example: true }),
+      frontTemplate: spec.frontTemplate || existing?.frontTemplate || '{term}',
+      backTemplate: spec.backTemplate || existing?.backTemplate || 'Definition: {definition}',
+      tagRules: spec.tagRules || existing?.tagRules || 'Include: ebiki',
+      studyRules: sr,
+      chatSuggestions: arr3(spec.chatSuggestions, existing?.chatSuggestions),
+      mnemonicHints: typeof spec.mnemonicHints === 'string' ? spec.mnemonicHints.slice(0, 600) : (existing?.mnemonicHints || ''),
+      tagCategories: Array.isArray(spec.tagCategories) ? spec.tagCategories.filter(Boolean).slice(0, 12).map((s) => String(s).toLowerCase()) : (existing?.tagCategories || []),
+      discoverKinds: Array.isArray(spec.discoverKinds) ? spec.discoverKinds.filter((k) => k && k.key && k.label && k.rule).slice(0, 6) : (existing?.discoverKinds || []),
+    }
+    if (!existing) {
+      built.id = Math.max(0, ...modes.map((m) => m.id)) + 1
+      built.ankiDeck = built.ankiDeck || ''
+    }
+    return built
+  }
+  // Apply an Ebi Studio result: persist (new → saveModes+activate; edit →
+  // updateModeById+activate) and return the saved mode name for the UI receipt.
+  const applyStudioSpec = (spec) => {
+    const editing = modeStudio?.kind === 'edit'
+    const existing = editing ? modes.find((m) => m.id === modeStudio.modeId) : null
+    const built = buildModeFromSpec(spec, existing)
+    if (existing) {
+      updateModeById(built.id, built)
+      setActiveModeId(built.id)
+    } else {
+      saveModes([...modes, built], built.id)
+    }
+    return built.name
+  }
+
   const syncToAnki = async (idx) => {
     if (!ankiCard || ankiSyncing) return
     console.log('[Anki] syncing card to deck:', ankiDeck)
@@ -8993,6 +9045,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           editingModeName={editingModeName} setEditingModeName={setEditingModeName} renameMode={renameMode}
           modeEditInput={modeEditInput} setModeEditInput={setModeEditInput} createMode={createMode}
           modeCreating={modeCreating} addDefaultMode={addDefaultMode} deleteMode={deleteMode}
+          openModeStudio={(cfg) => setModeStudio(cfg)}
           activeMode={activeMode} updateActiveMode={updateActiveMode}
           defaultStudyRules={defaultStudyRules} defaultGeneralStudyRules={defaultGeneralStudyRules}
           ankiConnected={ankiConnected} refreshAnkiConnection={refreshAnkiConnection} ankiDecks={ankiDecks}
@@ -9005,6 +9058,21 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           knowledgeStatus={{ big: knowledgeIsBig(), hasToc: knowledgeHasToc(), chars: modeKnowledge.content.length, outlineCount: (modeKnowledge.outline || []).length }}
           knowledgeBusy={knowledgeBusy}
           pronunciationCfg={pronunciationCfg} setPronunciationCfg={setPronunciationCfg}
+        />
+      )}
+
+      {/* ── Ebi Studio (conversational mode create / edit / deck-prompt) ──────── */}
+      {modeStudio && (
+        <ModeStudio
+          t={t}
+          kind={modeStudio.kind}
+          focus={modeStudio.focus || 'all'}
+          existing={modeStudio.kind === 'edit' ? modes.find((m) => m.id === modeStudio.modeId) : null}
+          apiKey={apiKey}
+          parseAiJson={parseAiJson}
+          askAI={(sys, content) => aiCall(apiKey, sys, content, resolveModel('chat'), { maxTokens: 2000, keepDashes: false })}
+          onApply={(spec) => applyStudioSpec(spec)}
+          onClose={() => setModeStudio(null)}
         />
       )}
 

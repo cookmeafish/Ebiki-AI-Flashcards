@@ -95,6 +95,23 @@ Cards and Study panes have an **Ask AI** box. It does NOT apply directly - `prop
 **✓ Accept / ✗ Deny**, or type again to refine. `acceptModeEdit()` applies via `updateActiveMode`.
 Scopes: `cards` (fields/templates/tagRules) and `study` (questionPrompt/ratingRules).
 
+## Ebi Studio (conversational mode create / edit / deck prompt)
+`src/components/ModeStudio.jsx` is ONE conversational panel for three jobs, opened from SettingsModal via the
+`openModeStudio(cfg)` prop (App holds `modeStudio` state, renders `<ModeStudio>` near HelpChat):
+- `kind:'create'` (Learning modes pane, "Design in depth with Ebi"): build a brand-new mode from a brief.
+- `kind:'edit', focus:'all'` (Learning modes pane, "Edit this mode with Ebi"): edit the active mode.
+- `kind:'edit', focus:'cards'` (Cards pane, "Design the deck prompt with Ebi"): shape card generation.
+- `kind:'edit', focus:'study'` (Study pane): shape how it quizzes.
+Ebi (via `askAI` = `aiCall(..., resolveModel('chat'), {maxTokens:2000})`) expands the idea, asks 1-3 follow-ups,
+then replies with a short human summary PLUS a hidden `<mode>{json}</mode>` block. The panel parses that block
+(`parseAiJson`) into a review card; only on the user's **Apply** does `onApply` call `applyStudioSpec(spec)` (App.jsx)
+to persist it. `buildModeFromSpec(spec, existing)` (App.jsx, next to `createMode`) mirrors createMode's fallbacks and
+merges field-by-field so an EDIT keeps every value the user did not change (and never flips `type`); a CREATE mints
+a new id then `saveModes([...modes, built], id)`, an EDIT does `updateModeById + setActiveModeId`. The spec schema is
+the full mode config (name/type/description/fields/templates/tagRules/studyRules/chatSuggestions/mnemonicHints/
+tagCategories/discoverKinds), so a designed mode can pre-populate what createMode plus the lazy backfills produce.
+Distinct from `proposeModeEdit` above: that is a one-shot field diff; Ebi Studio is the multi-turn, guided superset.
+
 ## Onboarding
 First run (config has no `onboarded` flag) shows `src/components/OnboardingWizard.jsx`:
 welcome → app language → light/dark → AI provider + key (with an "Advanced" custom-model escape hatch) →
