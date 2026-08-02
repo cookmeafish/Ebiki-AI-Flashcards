@@ -929,6 +929,16 @@ export default function App() {
     setModelUpgrade(null)
   }
 
+  // MANUAL "Check for new models" click: refresh the list, then TELL the user the outcome. If a newer
+  // same-family model exists it opens the adopt prompt; otherwise a "you're on the latest" toast (the
+  // silent auto-fetch-on-open path stays quiet — this feedback is only for the explicit button).
+  const checkNewModels = async (prov = provider) => {
+    await refreshModels(prov)
+    const upgrades = await findModelUpgrades(prov, { respectRejections: false })
+    if (upgrades.length) setModelUpgrade(upgrades[0])
+    else setSuccessNotice(t('noNewModels'))
+  }
+
   // Poll once a day for the active provider only. Skipped entirely until onboarding is done: a new
   // user is put straight onto the newest model (see the onboarding effect), so there is no older
   // choice to reconcile and no version history to ask them about.
@@ -9273,7 +9283,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           AI_ROLE_META={AI_ROLE_META} ROLE_DEFAULTS={ROLE_DEFAULTS}
           aiModels={aiModels} setAiModels={setAiModels} availableModels={availableModels}
           presetModel={(tier) => presetModel(providerConfig, provider, tier)}
-          refreshModels={refreshModels} modelsLoading={modelsLoading} modelsError={modelsError}
+          refreshModels={refreshModels} checkNewModels={checkNewModels} modelsLoading={modelsLoading} modelsError={modelsError}
           intelligence={intelligence} setIntelligence={selectIntelligence}
           planDeciding={planDeciding} runConnectionTest={runConnectionTest} modelProbe={modelProbe}
           studyAutoSync={studyAutoSync} setStudyAutoSync={setStudyAutoSync}

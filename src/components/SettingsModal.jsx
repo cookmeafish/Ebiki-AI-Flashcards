@@ -148,7 +148,7 @@ export default function SettingsModal(p) {
     // AI Models (global)
     provider, setProvider, apiKeys, apiKey, setCurrentKey, providerConfig,
     AI_ROLE_META, ROLE_DEFAULTS, aiModels, setAiModels, availableModels, presetModel,
-    refreshModels, modelsLoading, modelsError, intelligence, setIntelligence,
+    refreshModels, checkNewModels, modelsLoading, modelsError, intelligence, setIntelligence,
     planDeciding, runConnectionTest, modelProbe,
     studyAutoSync, setStudyAutoSync, studyAutoSyncMinutes, setStudyAutoSyncMinutes,
     // Modes
@@ -302,25 +302,25 @@ export default function SettingsModal(p) {
         <div style={hint}>{t('translationHint')}</div>
       </div>
       <div style={card}>
-        {fieldLabel('Anki auto-sync')}
+        {fieldLabel(t('set_ankiAutoSync'))}
         <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
           <input type="checkbox" checked={!!studyAutoSync} onChange={(e) => setStudyAutoSync(e.target.checked)}
             style={{ width: 16, height: 16, accentColor: C.brand, cursor: 'pointer' }} />
-          <span style={{ fontSize: 12, color: C.ink, fontWeight: 600 }}>Auto-sync ratings to Anki after grading</span>
+          <span style={{ fontSize: 12, color: C.ink, fontWeight: 600 }}>{t('set_autoSyncLabel')}</span>
         </label>
         {studyAutoSync && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
-            <span style={{ fontSize: 12, color: C.inkDim }}>Grace window before a rating locks:</span>
+            <span style={{ fontSize: 12, color: C.inkDim }}>{t('set_graceWindow')}</span>
             <input type="number" min={1} max={120} step={1} value={studyAutoSyncMinutes}
               onChange={(e) => { const v = Math.round(Number(e.target.value)); if (Number.isFinite(v)) setStudyAutoSyncMinutes(Math.min(120, Math.max(1, v))) }}
               style={{ ...S.keyInput, width: 70, fontSize: 12, padding: '6px 8px', textAlign: 'center' }} />
-            <span style={{ fontSize: 12, color: C.inkDim }}>minutes</span>
+            <span style={{ fontSize: 12, color: C.inkDim }}>{t('set_minutes')}</span>
           </div>
         )}
         <div style={hint}>
           {studyAutoSync
-            ? `During study, each graded card commits to Anki ${studyAutoSyncMinutes} minute${studyAutoSyncMinutes === 1 ? '' : 's'} after the AI grades it, then locks. You can still correct a rating before it locks, or use “Sync now”.`
-            : 'Off: ratings only reach Anki when you press “Sync now” during study, or when you finish / exit the session. Nothing auto-locks.'}
+            ? t(studyAutoSyncMinutes === 1 ? 'set_autoSyncHintOne' : 'set_autoSyncHint', { n: studyAutoSyncMinutes })
+            : t('set_autoSyncOff')}
         </div>
       </div>
       <DataFolderCard t={t} card={card} fieldLabel={fieldLabel} hint={hint} />
@@ -360,7 +360,7 @@ export default function SettingsModal(p) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 8, flexWrap: 'wrap' }}>
           {fieldLabel(`${t('aiModelsFor')} ${providerConfig.label}`)}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <button onClick={() => refreshModels(provider)} disabled={modelsLoading || !apiKey} title={t('checkNewModelsHint')}
+            <button onClick={() => (checkNewModels || refreshModels)(provider)} disabled={modelsLoading || !apiKey} title={t('checkNewModelsHint')}
               style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 9px', color: C.brand, borderColor: C.brandRing, opacity: (modelsLoading || !apiKey) ? 0.5 : 1 }}>
               {modelsLoading ? t('checkingModels') : `↻ ${t('checkNewModels')}`}
             </button>
@@ -390,23 +390,36 @@ export default function SettingsModal(p) {
         <div style={{ marginBottom: 12, padding: '10px 12px', borderRadius: 8, background: 'var(--c-surface-sunken)', border: '1px solid var(--c-border)' }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: C.ink, marginBottom: 2 }}>{t('set_intelPreset')}</div>
           <div style={{ fontSize: 10, color: C.inkDim, marginBottom: 8 }}>{t('set_intelPresetDesc')}</div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'stretch' }}>
-            {[
-              { key: 'optimized', title: t('set_intelOptimized'), desc: t('set_intelOptimizedDesc') },
-              { key: 'normal', title: t('set_intelNormal'), desc: t('set_intelNormalDesc', { model: presetModel?.('normal') || providerConfig.presets?.normal || providerConfig.questionModel }) },
-              { key: 'max', title: t('set_intelMax'), desc: t('set_intelMaxDesc', { model: presetModel?.('max') || providerConfig.presets?.max || providerConfig.questionModel }) },
-            ].map((opt) => {
-              const active = (intelligence || 'normal') === opt.key
-              return (
-                <button key={opt.key} onClick={() => setIntelligence(opt.key)} className={active ? 'ui-tab-current' : undefined}
-                  style={{ flex: 1, textAlign: 'left', cursor: active ? 'default' : 'pointer', fontFamily: 'inherit', padding: '8px 10px', borderRadius: 7,
-                    border: `1px solid ${active ? C.brandRing : 'var(--c-border)'}`,
-                    background: active ? 'rgba(223,37,64,.10)' : 'transparent' }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: active ? C.brand : C.ink }}>{active ? '● ' : '○ '}{opt.title}</div>
-                  <div style={{ fontSize: 9.5, color: C.inkDim, marginTop: 2 }}>{opt.desc}</div>
-                </button>
-              )
-            })}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'stretch', flexWrap: 'wrap' }}>
+            {(() => {
+              // "Custom" auto-selects whenever the user has ANY per-feature override below. Clicking one
+              // of the three presets clears those overrides and reverts to that predetermined config, so
+              // it's obvious you've deviated and easy to get back.
+              const hasOverrides = aiModels[provider] && Object.keys(aiModels[provider]).length > 0
+              const activeKey = hasOverrides ? 'custom' : (intelligence || 'normal')
+              return [
+                { key: 'optimized', title: t('set_intelOptimized'), desc: t('set_intelOptimizedDesc') },
+                { key: 'normal', title: t('set_intelNormal'), desc: t('set_intelNormalDesc', { model: presetModel?.('normal') || providerConfig.presets?.normal || providerConfig.questionModel }) },
+                { key: 'max', title: t('set_intelMax'), desc: t('set_intelMaxDesc', { model: presetModel?.('max') || providerConfig.presets?.max || providerConfig.questionModel }) },
+                { key: 'custom', title: t('set_intelCustom'), desc: t('set_intelCustomDesc') },
+              ].map((opt) => {
+                const active = activeKey === opt.key
+                const onPick = () => {
+                  if (opt.key === 'custom') return // custom is entered by editing a per-feature dropdown below
+                  setAiModels((prev) => { const n = { ...prev }; delete n[provider]; return n }) // revert to predetermined
+                  setIntelligence(opt.key)
+                }
+                return (
+                  <button key={opt.key} onClick={onPick} className={active ? 'ui-tab-current' : undefined}
+                    style={{ flex: 1, minWidth: 150, textAlign: 'left', cursor: (active || opt.key === 'custom') ? 'default' : 'pointer', fontFamily: 'inherit', padding: '8px 10px', borderRadius: 7,
+                      border: `1px solid ${active ? C.brandRing : 'var(--c-border)'}`,
+                      background: active ? 'rgba(223,37,64,.10)' : 'transparent' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: active ? C.brand : C.ink }}>{active ? '● ' : '○ '}{opt.title}</div>
+                    <div style={{ fontSize: 9.5, color: C.inkDim, marginTop: 2 }}>{opt.desc}</div>
+                  </button>
+                )
+              })
+            })()}
           </div>
         </div>
 
