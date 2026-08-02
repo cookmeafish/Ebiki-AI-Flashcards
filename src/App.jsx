@@ -4460,9 +4460,11 @@ Return ONLY a JSON array (no markdown):
     discoverInitRef.current = true
     try {
       // Paint the last known state immediately (same commit as the reset — no flash),
-      // then let the authoritative Anki-media blobs replace it when they arrive.
+      // then let the authoritative Anki-media blobs replace it when they arrive. Profiles WITHOUT a
+      // savedAt were built BEFORE the mode-scoping/save-time fix (potentially cross-mode-contaminated,
+      // e.g. an English deck's profile talking about DHCP), so never paint them - rebuild instead.
       const cached = readDiscoverCache(activeMode.name)
-      if (cached.profile) setDiscoverProfile(cached.profile)
+      if (cached.profile?.savedAt) setDiscoverProfile(cached.profile)
       if (cached.ledger) setDiscoverLedger(cached.ledger)
 
       ankiGetDecks().then(setAnkiDecks).catch(() => {}) // for the deck switcher
@@ -4482,6 +4484,9 @@ Return ONLY a JSON array (no markdown):
       } else if (!profile && cached.profile) {
         profile = cached.profile // blob unreachable (Anki offline) — keep the cache
       }
+      // A profile with no savedAt predates the fix (possibly contaminated) — discard it and rebuild
+      // clean ONCE. The rebuild stamps savedAt, so it then persists and never reverts again.
+      if (profile && !profile.savedAt) profile = null
       if (!profile) profile = await buildLearnerProfile()
       else setDiscoverProfile(profile)
     } catch (err) {
@@ -4538,7 +4543,7 @@ Return ONLY a JSON array (no markdown):
     if (activeTab !== 'discover' || !apiKey) return
     if (!discoverInitRef.current) {
       const cached = readDiscoverCache(activeMode.name)
-      if (cached.profile) setDiscoverProfile((p) => p || cached.profile)
+      if (cached.profile?.savedAt) setDiscoverProfile((p) => p || cached.profile)
       if (cached.ledger) setDiscoverLedger((l) => (l === DEFAULT_LEDGER ? cached.ledger : l))
     }
     if (ankiConnected && !discoverInitRef.current) initDiscover()
@@ -9315,7 +9320,9 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           onScroll={(e) => { deckScrollTopRef.current = e.currentTarget.scrollTop }}
           style={{ ...S.main, display: 'flex', flexDirection: 'column', padding: 20 }}
         >
-          <div style={{ maxWidth: 800, width: '100%', margin: '0 auto' }}>
+          {/* Wider than the old 800px cap so the toolbar's row of actions fits on one line and the
+              horizontal space is actually used (the "Ebi bulk edit" button was wrapping needlessly). */}
+          <div style={{ maxWidth: 1040, width: '100%', margin: '0 auto' }}>
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <div style={{ fontSize: 16, fontWeight: 700, color: C.ink, fontFamily: FONT.display }}>{t('deckBrowser')}</div>
