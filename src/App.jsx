@@ -236,6 +236,11 @@ export default function App() {
   const [modelAvailability, setModelAvailability] = useState({})
   const [planDeciding, setPlanDeciding] = useState(false) // advisor is researching/deciding right now
   const [modelProbe, setModelProbe] = useState(null) // "Test connections" result: { loading, connectionError, working[], down[] }
+  // Runtime failover: a model that worked at plan-time but goes down mid-session is transparently
+  // substituted by a working one for the SESSION (keyed by model id, so it applies wherever that model
+  // is used), and auto-restored when it recovers. sessionSubs is in-memory only (a transient outage).
+  const [sessionSubs, setSessionSubs] = useState({}) // { [provider]: { [downModelId]: altModelId } }
+  const [modelFailover, setModelFailover] = useState(null) // prompt: { provider, down, alt } | null
   // Auto-sync study ratings to Anki N min after each card is graded (then lock it). When off, ratings
   // only sync via the manual "Sync now" button or on Finish/Exit. Global settings (config.json).
   const [studyAutoSync, setStudyAutoSync] = useState(true)
@@ -700,7 +705,7 @@ export default function App() {
   // These helpers are called from memoized callbacks that don't list aiModels as
   // a dependency, so read the live values from a ref rather than a stale closure.
   const aiStateRef = useRef({})
-  aiStateRef.current = { provider, aiModels, apiKeys, intelligence, modelPresets, rejectedModels, modelPlans, modelCards, modelAvailability }
+  aiStateRef.current = { provider, aiModels, apiKeys, intelligence, modelPresets, rejectedModels, modelPlans, modelCards, modelAvailability, sessionSubs }
 
   // ─── Staying on current models ─────────────────────────────────────────────
   // The tier a feature runs on is ALWAYS resolved through presetModel(), never straight off
@@ -993,7 +998,9 @@ export default function App() {
   const aiCall = async (key, systemPrompt, userContent, modelOverride, opts = {}) => {
     const prov = aiStateRef.current.provider
     const role = modelOverride ? 'question' : 'general'
-    const model = modelOverride || resolveModel('general')
+    const model0 = modelOverride || resolveModel('general')
+    // Route through any active runtime failover substitution (a mid-session outage swap).
+    const model = aiStateRef.current.sessionSubs?.[prov]?.[model0] || model0
     // opts.images: optional array of { mediaType, base64 } sent as vision content blocks.
     // opts.maxTokens: optional output token budget (vision/long JSON needs more than the default).
     const images = opts.images
@@ -1004,9 +1011,17 @@ export default function App() {
       setAiErrorNotice((prev) => prev ? null : prev) // clear a stale error toast on success
       return finish(out)
     } catch (e) {
-      const healed = await healRetiredModel(e?.message || '', model, role)
+      const msg = e?.message || ''
+      const healed = await healRetiredModel(msg, model, role)
       if (healed) {
         try { return finish(await PROVIDERS[prov].call(key, systemPrompt, userContent, healed, images, maxTokens)) }
+        catch (e2) { if (!opts.silent) reportAiError(e2); throw e2 }
+      }
+      // RUNTIME FAILOVER: the model worked at plan-time but is down NOW (403/overload/etc). Swap in a
+      // working model for the session and retry so the user's action isn't broken; auto-restored later.
+      const alt = await tryModelFailover(prov, model, msg)
+      if (alt && alt !== model) {
+        try { return finish(await PROVIDERS[prov].call(key, systemPrompt, userContent, alt, images, maxTokens)) }
         catch (e2) { if (!opts.silent) reportAiError(e2); throw e2 }
       }
       // Surface out-of-credits / rate-limit / bad-key errors so failures aren't silent.
@@ -1137,6 +1152,50 @@ export default function App() {
     setIntelligence(preset)
     ensurePresetPlan(aiStateRef.current.provider, preset)
   }
+  // Find a working replacement for a model that just failed AT CALL TIME (down/overloaded/forbidden),
+  // register a session substitution (keyed by the down model id), and surface a prompt. Returns the
+  // alternative id (so the caller retries on it) or null. Never throws.
+  const tryModelFailover = async (prov, downModel, msg) => {
+    try {
+      if (!downModel) return null
+      const existing = aiStateRef.current.sessionSubs?.[prov]?.[downModel]
+      if (existing) return existing // already substituted this session
+      const status = (String(msg).match(/API (\d{3})/) || [])[1]
+      const downish = ['403', '404', '429', '500', '502', '503', '529'].includes(status)
+        || /overload|unavailable|not.?found|does not exist|permission|capacity|no longer/i.test(String(msg))
+      if (!downish) return null // 400 param / 401 key errors are not a model outage
+      const pc = PROVIDERS[prov]
+      const pool = [...new Set([
+        presetModel(pc, prov, 'normal'), presetModel(pc, prov, 'cheap'), presetModel(pc, prov, 'max'),
+        ...Object.entries(aiStateRef.current.modelAvailability?.[prov] || {}).filter(([, v]) => v?.ok).map(([id]) => id),
+      ])].filter((c) => c && c !== downModel)
+      let alt = null
+      for (const c of pool) { if ((await probeModelCached(prov, c)) === true) { alt = c; break } }
+      if (!alt) return null
+      setSessionSubs((p) => ({ ...p, [prov]: { ...(p[prov] || {}), [downModel]: alt } }))
+      setModelFailover({ provider: prov, down: downModel, alt })
+      return alt
+    } catch { return null }
+  }
+  // Auto-restore: while any model is substituted, re-probe the down ones every minute; when one is
+  // back, drop its substitution and tell the user (so the app returns to the intended model on its own).
+  useEffect(() => {
+    const subs = sessionSubs[provider]
+    if (!subs || !Object.keys(subs).length) return
+    const iv = setInterval(async () => {
+      for (const downId of Object.keys(sessionSubs[provider] || {})) {
+        const ok = await probeModel(provider, downId, aiStateRef.current.apiKeys[provider])
+        if (ok === true) {
+          setSessionSubs((p) => { const n = { ...(p[provider] || {}) }; delete n[downId]; return { ...p, [provider]: n } })
+          setModelAvailability((p) => ({ ...p, [provider]: { ...(p[provider] || {}), [downId]: { ok: true, at: Date.now() } } }))
+          setSuccessNotice(t('fo_restored', { model: downId }))
+          if (modelFailover?.down === downId) setModelFailover(null)
+        }
+      }
+    }, 60000)
+    return () => clearInterval(iv)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionSubs, provider])
 
   // Auto-dismiss the model-heal toast after a few seconds.
   useEffect(() => {
@@ -12526,6 +12585,28 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           <span style={{ fontSize: 15 }}>✅</span>
           <span style={{ flex: 1, lineHeight: 1.45 }}>{successNotice}</span>
           <span onClick={() => setSuccessNotice(null)} style={{ cursor: 'pointer', color: C.success, fontSize: 15, lineHeight: 1 }}>×</span>
+        </div>
+      )}
+
+      {/* Runtime model failover: a model went down mid-session and Ebi switched to a working one. */}
+      {modelFailover && (
+        <div style={{
+          position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 10001,
+          background: C.surface, border: `1px solid var(--c-warning)`, borderRadius: RADIUS.md,
+          padding: '12px 16px', fontSize: 13, color: 'var(--c-warning)', maxWidth: 480, fontWeight: 600,
+          boxShadow: SHADOW.lg, display: 'flex', alignItems: 'center', gap: 10, animation: 'slideUp .25s ease',
+        }}>
+          <span style={{ fontSize: 15 }}>⚠</span>
+          <span style={{ flex: 1, lineHeight: 1.45 }}>{t('fo_body', { down: modelFailover.down, alt: modelFailover.alt })}</span>
+          <button className="ui-btn" onClick={async () => {
+            const prov = modelFailover.provider, down = modelFailover.down
+            const ok = await probeModel(prov, down, apiKeys[prov])
+            if (ok === true) {
+              setSessionSubs((p) => { const n = { ...(p[prov] || {}) }; delete n[down]; return { ...p, [prov]: n } })
+              setModelFailover(null)
+            }
+          }} style={{ ...S.ghostBtn, fontSize: 11, color: 'var(--c-warning)', borderColor: 'rgba(179,106,0,.35)' }}>{t('fo_retry')}</button>
+          <span onClick={() => setModelFailover(null)} style={{ cursor: 'pointer', color: 'var(--c-warning)', fontSize: 15, lineHeight: 1 }}>×</span>
         </div>
       )}
 

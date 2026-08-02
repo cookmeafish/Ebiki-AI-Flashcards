@@ -1096,9 +1096,15 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   model or break a call). Persisted in config.json (`modelPlans`/`modelCards`/`modelAvailability`). The **Test
   connections** button (`runConnectionTest`) probes the whole catalog and reports working/down per model; if NOTHING
   is reachable it reports a single connection error (not "every model disabled"). Decisions run on the provider's
-  own strongest model; `planDeciding` drives the "Ebi is choosing models" indicator. NOT YET DONE (next slice):
-  runtime failover with auto-restore (a model that works at plan-time but 403s mid-session → prompt to switch to an
-  available alternative, auto-restore when it recovers).
+  own strongest model; `planDeciding` drives the "Ebi is choosing models" indicator.
+- **Runtime failover with auto-restore.** A model that worked at plan-time but goes down MID-SESSION is handled at
+  the single `aiCall` choke point: the catch (after the retired-model heal) calls `tryModelFailover(prov, model, msg)`,
+  which on a down-ish error (403/404/429/5xx/overload) finds a probed-working replacement, registers a
+  `sessionSubs[prov][downModelId] = altId` substitution (aiCall routes `model0` through it, so it applies wherever
+  that model is used), retries the call on the alt so the user's action isn't broken, and surfaces a warning toast
+  (`modelFailover`, with a "Retry now" button). A 1-minute effect re-probes the down model while any sub is active
+  and, when it recovers, drops the sub and shows `fo_restored`. `sessionSubs` is in-memory only (a transient
+  outage), and everything is wrapped so failover can never throw or break a call.
 
   **HOW TO ADD A NEW AI ROLE:** (1) add it to `AI_ROLE_META` (label + hint) and to `ROLE_DEFAULTS`'s uniform map;
   (2) add it to `ROLE_TIER` with a tier chosen by the stakes×frequency rule above (memorized/graded content →
