@@ -1084,6 +1084,22 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   | `general` | normal | Mode creation matters but is rare. |
   | `deck` | max | Card generation gets MEMORIZED - the ONE role Optimized must never cheap out on. |
 
+- **Model Advisor - DYNAMIC per-preset selection (`src/config/modelAdvisor.js` + App.jsx).** Switching the
+  intelligence preset calls `selectIntelligence(preset)` → applies any CACHED decided plan instantly (ROLE_DEFAULTS
+  reads `modelPlans[prov][preset].plan`), then `ensurePresetPlan(prov, preset)` in the background: it re-lists the
+  provider's models, and IF new models appeared (or the preset was never decided) it (1) researches each model
+  (web-search + strongest working model → `modelCards[id]`), (2) has the strongest model DECIDE a role→model map
+  for THAT preset over ALL available models (older ones eligible on the intelligence-vs-token tradeoff), then (3)
+  PROBES the chosen models (`probeModel`: a 1-token call - catalog listing != real access; 403/404 = down) and
+  re-decides without any that are actually down. Nothing new + already decided → instant cached apply, no AI call.
+  Any failure keeps the tier-based `ROLE_DEFAULTS` (the advisor is purely additive and can never pick a fake/dead
+  model or break a call). Persisted in config.json (`modelPlans`/`modelCards`/`modelAvailability`). The **Test
+  connections** button (`runConnectionTest`) probes the whole catalog and reports working/down per model; if NOTHING
+  is reachable it reports a single connection error (not "every model disabled"). Decisions run on the provider's
+  own strongest model; `planDeciding` drives the "Ebi is choosing models" indicator. NOT YET DONE (next slice):
+  runtime failover with auto-restore (a model that works at plan-time but 403s mid-session → prompt to switch to an
+  available alternative, auto-restore when it recovers).
+
   **HOW TO ADD A NEW AI ROLE:** (1) add it to `AI_ROLE_META` (label + hint) and to `ROLE_DEFAULTS`'s uniform map;
   (2) add it to `ROLE_TIER` with a tier chosen by the stakes×frequency rule above (memorized/graded content →
   `max`; conversational/reviewed → `normal`; trivial/every-message → `cheap`); (3) call it via `resolveModel('yourRole')`

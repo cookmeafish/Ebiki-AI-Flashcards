@@ -3,7 +3,8 @@ import Tesseract from 'tesseract.js'
 import { TRANSLATE_PROMPT, VISION_OCR_PROMPT, WORDLIST_TRANSLATE_PROMPT, WORD_ENRICH_PROMPT, LANGUAGE_CARD_PROMPT, GENERIC_CARD_PROMPT, POS_COLORS, CATEGORY_COLORS } from './config/prompts'
 import { dataUrlToImagePart, downscaleDataUrl, estimateImageNoise } from './utils/image'
 import { PROVIDERS } from './config/providers'
-import { pickUpgrade, pickNewest } from './config/modelVersions'
+import { pickUpgrade, pickNewest, parseModelId, compareModels } from './config/modelVersions'
+import { buildModelResearchPrompt, buildPresetDecisionPrompt } from './config/modelAdvisor'
 import { LANGS } from './config/languages'
 import { makeT, APP_LANGUAGES } from './i18n'
 import { pickShrimp, shrimpUrl, DEFAULT_SHRIMP, IDLE_SHRIMP, POSE_NAMES, poseFile } from './config/shrimp'
@@ -224,6 +225,17 @@ export default function App() {
   const [lastModelCheck, setLastModelCheck] = useState(0)
   // Pending "a newer model shipped" prompt: { provider, tier, from, to } or null.
   const [modelUpgrade, setModelUpgrade] = useState(null)
+  // ─── Dynamic per-preset model plans (Model Advisor) ───────────────────────────────────────────
+  // When the user picks an intelligence preset, the strongest model DECIDES the best model per role
+  // for THAT preset, weighing all currently-available models by intelligence-vs-token cost.
+  //   modelPlans[provider][preset] = { plan: {role:modelId}, knownModels: [ids], decidedAt }
+  //   modelCards[modelId] = { strength, cost, vision, tokenVsPrev, pros, cons, summary, confidence }
+  //   modelAvailability[provider][modelId] = { ok, at }  (probe cache — catalog listing != real access)
+  const [modelPlans, setModelPlans] = useState({})
+  const [modelCards, setModelCards] = useState({})
+  const [modelAvailability, setModelAvailability] = useState({})
+  const [planDeciding, setPlanDeciding] = useState(false) // advisor is researching/deciding right now
+  const [modelProbe, setModelProbe] = useState(null) // "Test connections" result: { loading, connectionError, working[], down[] }
   // Auto-sync study ratings to Anki N min after each card is graded (then lock it). When off, ratings
   // only sync via the manual "Sync now" button or on Finish/Exit. Global settings (config.json).
   const [studyAutoSync, setStudyAutoSync] = useState(true)
@@ -688,7 +700,7 @@ export default function App() {
   // These helpers are called from memoized callbacks that don't list aiModels as
   // a dependency, so read the live values from a ref rather than a stale closure.
   const aiStateRef = useRef({})
-  aiStateRef.current = { provider, aiModels, apiKeys, intelligence, modelPresets, rejectedModels }
+  aiStateRef.current = { provider, aiModels, apiKeys, intelligence, modelPresets, rejectedModels, modelPlans, modelCards, modelAvailability }
 
   // ─── Staying on current models ─────────────────────────────────────────────
   // The tier a feature runs on is ALWAYS resolved through presetModel(), never straight off
@@ -712,13 +724,25 @@ export default function App() {
   const ROLE_TIER = { pose: 'cheap', help: 'cheap', discover: 'cheap', chat: 'normal', picture: 'normal', study: 'normal', general: 'normal', deck: 'max' }
   const ROLE_DEFAULTS = (pc, intel = 'normal', prov = aiStateRef.current.provider) => {
     const normal = presetModel(pc, prov, 'normal')
+    // Tier-based baseline (also the fallback for any role the advisor didn't decide).
+    let base
     if (intel === 'optimized') {
-      const out = {}
-      for (const role of Object.keys(ROLE_TIER)) out[role] = presetModel(pc, prov, ROLE_TIER[role])
-      return out
+      base = {}
+      for (const role of Object.keys(ROLE_TIER)) base[role] = presetModel(pc, prov, ROLE_TIER[role])
+    } else {
+      const m = presetModel(pc, prov, intel) // 'normal' or 'max' → one model for every role
+      base = { general: m, picture: m, deck: m, study: m, discover: m, chat: m, help: m, pose: normal }
     }
-    const m = presetModel(pc, prov, intel) // 'normal' or 'max' → one model for every role
-    return { general: m, picture: m, deck: m, study: m, discover: m, chat: m, help: m, pose: normal }
+    // A decided per-role plan (Model Advisor) OVERRIDES the baseline for the roles it covers. Only
+    // non-empty string ids apply, so a bad/partial plan can never blank a role (it falls back to base).
+    const plan = aiStateRef.current.modelPlans?.[prov]?.[intel]?.plan
+    if (plan && typeof plan === 'object') {
+      for (const role of Object.keys(base)) {
+        const id = plan[role]
+        if (typeof id === 'string' && id.trim()) base[role] = id
+      }
+    }
+    return base
   }
   // UI metadata for the AI Settings panel — order + labels + hints.
   const AI_ROLE_META = [
@@ -992,6 +1016,128 @@ export default function App() {
     }
   }
 
+  // ─── Model Advisor: dynamic per-preset selection + real-access probing ────────────────────────
+  // A model can be LISTED by the provider yet not usable on this key/plan (Opus disabled, tier-gated,
+  // temporarily down). Before trusting a model we send a 1-token test call. Returns true (works),
+  // false (definitively unavailable: 403/404/model-not-found), or null (unknown: 401/429/5xx/network,
+  // NOT the model's fault). `key` is passed so bursts don't re-read a stale ref.
+  const probeModel = async (prov, id, key) => {
+    if (!key || !id) return null
+    try { await PROVIDERS[prov].call(key, 'ping', 'hi', id, undefined, 4); return true }
+    catch (e) {
+      const msg = String(e?.message || ''); const status = (msg.match(/API (\d{3})/) || [])[1]
+      if (status === '403' || status === '404') return false
+      if (status === '400' && /model|not.?found|does not exist|unavailable|invalid/i.test(msg)) return false
+      return null
+    }
+  }
+  const PROBE_TTL_MS = 24 * 60 * 60 * 1000
+  const probeModelCached = async (prov, id) => {
+    const c = aiStateRef.current.modelAvailability?.[prov]?.[id]
+    if (c && typeof c.ok === 'boolean' && Date.now() - (c.at || 0) < PROBE_TTL_MS) return c.ok
+    const r = await probeModel(prov, id, aiStateRef.current.apiKeys[prov])
+    if (typeof r === 'boolean') setModelAvailability((p) => ({ ...p, [prov]: { ...(p[prov] || {}), [id]: { ok: r, at: Date.now() } } }))
+    return r
+  }
+  // Probe the WHOLE catalog (the "Test connections" button). If NOTHING is reachable it's a
+  // connection/key problem, not "every model is disabled" — surface a single connection error.
+  const probeAllModels = async (prov) => {
+    const key = aiStateRef.current.apiKeys[prov]; const pc = PROVIDERS[prov]
+    if (!key || !pc?.listModels) return { connectionError: true, working: [], down: [], unknown: [] }
+    let ids = []
+    try { ids = await pc.listModels(key) } catch { return { connectionError: true, working: [], down: [], unknown: [] } }
+    const working = [], down = [], unknown = [], avail = {}
+    for (const id of ids) {
+      const r = await probeModel(prov, id, key)
+      if (r === true) { working.push(id); avail[id] = { ok: true, at: Date.now() } }
+      else if (r === false) { down.push(id); avail[id] = { ok: false, at: Date.now() } }
+      else unknown.push(id)
+    }
+    setModelAvailability((p) => ({ ...p, [prov]: { ...(p[prov] || {}), ...avail } }))
+    return { connectionError: working.length === 0, working, down, unknown }
+  }
+  const runConnectionTest = async (prov = aiStateRef.current.provider) => {
+    setModelProbe({ loading: true, provider: prov })
+    const r = await probeAllModels(prov)
+    setModelProbe({ loading: false, provider: prov, ...r })
+  }
+  // The model that DOES the research + decision: strongest one that actually works, tiers down.
+  const getAdvisorModel = async (prov, ids) => {
+    const pc = PROVIDERS[prov]
+    for (const tier of ['max', 'normal', 'cheap']) {
+      const m = presetModel(pc, prov, tier)
+      if (m && ids.includes(m) && (await probeModelCached(prov, m)) !== false) return m
+    }
+    for (const id of ids) if ((await probeModelCached(prov, id)) === true) return id
+    return presetModel(pc, prov, 'max')
+  }
+  const priorInFamily = (id, ids) => {
+    const p = parseModelId(id); if (!p) return null
+    let best = null
+    for (const other of ids) { const o = parseModelId(other); if (o && o.family === p.family && compareModels(o, p) < 0 && (!best || compareModels(o, best) > 0)) best = o }
+    return best?.id || null
+  }
+  const researchModelCard = async (prov, id, advisor, ids) => {
+    if (aiStateRef.current.modelCards?.[id]) return
+    let results = []
+    try { results = ((await (await fetch(`/api/web-search?q=${encodeURIComponent(`${id} AI model pricing token usage capabilities`)}`)).json()).results) || [] } catch {}
+    try {
+      const txt = await aiCall(aiStateRef.current.apiKeys[prov], 'You research AI models. Respond with valid JSON only.',
+        buildModelResearchPrompt({ modelId: id, provider: prov, priorModelId: priorInFamily(id, ids), searchResults: results.slice(0, 5) }), advisor, { silent: true })
+      const card = parseAiJson(txt)
+      if (card && typeof card === 'object') setModelCards((p) => ({ ...p, [id]: card }))
+    } catch {}
+  }
+  const decidePresetPlan = async (prov, preset, availIds, advisor) => {
+    try {
+      const txt = await aiCall(aiStateRef.current.apiKeys[prov], 'You choose AI models for app features. Respond with valid JSON only.',
+        buildPresetDecisionPrompt({ preset, availableModels: availIds, modelCards: aiStateRef.current.modelCards || {} }), advisor, { silent: true })
+      const plan = parseAiJson(txt)
+      return (plan && typeof plan === 'object') ? plan : null
+    } catch { return null }
+  }
+  const sanitizePlan = (plan, okIds) => {
+    if (!plan) return {}
+    const out = {}
+    for (const role of Object.keys(plan)) if (typeof plan[role] === 'string' && okIds.includes(plan[role])) out[role] = plan[role]
+    return out
+  }
+  // Ensure a decided role->model plan exists for (provider, preset). Searches for new models first;
+  // applies the cached plan instantly when nothing is new; otherwise researches + Opus-decides over
+  // ALL available models (older ones eligible on the intelligence-vs-token tradeoff), then PROBES the
+  // chosen models and re-decides without any that are actually down. Any failure keeps tier defaults.
+  const ensurePresetPlan = async (prov, preset) => {
+    const key = aiStateRef.current.apiKeys[prov]; const pc = PROVIDERS[prov]
+    if (!key || !pc?.listModels) return
+    let ids = []
+    try { ids = await pc.listModels(key) } catch { return } // offline: keep cached plan / tier defaults
+    if (!ids.length) return
+    const cached = aiStateRef.current.modelPlans?.[prov]?.[preset]
+    const newModels = ids.filter((id) => !(cached?.knownModels || []).includes(id))
+    if (cached?.plan && newModels.length === 0) return // nothing new + already decided → cached plan already applies
+    setPlanDeciding(true)
+    try {
+      const advisor = await getAdvisorModel(prov, ids)
+      for (const id of ids.filter((x) => !aiStateRef.current.modelCards?.[x]).slice(0, 16)) await researchModelCard(prov, id, advisor, ids)
+      let plan = await decidePresetPlan(prov, preset, ids, advisor)
+      if (plan) {
+        const chosen = [...new Set(Object.values(plan).filter((x) => typeof x === 'string'))]
+        const bad = []
+        for (const id of chosen) if ((await probeModelCached(prov, id)) === false) bad.push(id)
+        if (bad.length) { const okIds = ids.filter((x) => !bad.includes(x)); plan = sanitizePlan(await decidePresetPlan(prov, preset, okIds, advisor), okIds) }
+        else plan = sanitizePlan(plan, ids)
+      }
+      setModelPlans((prev) => ({ ...prev, [prov]: { ...(prev[prov] || {}), [preset]: { plan: plan || {}, knownModels: ids, decidedAt: Date.now() } } }))
+    } catch (e) { console.warn('[ModelAdvisor] decide failed:', e?.message) }
+    finally { setPlanDeciding(false) }
+  }
+  // Switch preset: apply the cached plan INSTANTLY (ROLE_DEFAULTS reads it the moment intelligence
+  // flips), then refresh in the background only if new models appeared / it was never decided.
+  const selectIntelligence = (preset) => {
+    setIntelligence(preset)
+    ensurePresetPlan(aiStateRef.current.provider, preset)
+  }
+
   // Auto-dismiss the model-heal toast after a few seconds.
   useEffect(() => {
     if (!modelHealNotice) return
@@ -1083,6 +1229,9 @@ export default function App() {
       if (config.aiModels) setAiModels(config.aiModels)
       if (config.modelPresets) setModelPresets(config.modelPresets)
       if (config.rejectedModels) setRejectedModels(config.rejectedModels)
+      if (config.modelPlans) setModelPlans(config.modelPlans)
+      if (config.modelCards) setModelCards(config.modelCards)
+      if (config.modelAvailability) setModelAvailability(config.modelAvailability)
       if (Number.isFinite(config.lastModelCheck)) setLastModelCheck(config.lastModelCheck)
       if (config.availableModels) setAvailableModels(config.availableModels)
       if (config.appLanguage) setAppLanguage(config.appLanguage)
@@ -1257,9 +1406,9 @@ export default function App() {
     fetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider, aiModels, modelPresets, rejectedModels, lastModelCheck, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, intelligence, studyAutoSync, studyAutoSyncMinutes, overlayEnabled, pronunciation: pronunciationCfg, onboarded, ...(activeTab ? { activeTab } : {}) }),
+      body: JSON.stringify({ provider, aiModels, modelPresets, rejectedModels, modelPlans, modelCards, modelAvailability, lastModelCheck, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, intelligence, studyAutoSync, studyAutoSyncMinutes, overlayEnabled, pronunciation: pronunciationCfg, onboarded, ...(activeTab ? { activeTab } : {}) }),
     }).catch(() => {})
-  }, [provider, aiModels, modelPresets, rejectedModels, lastModelCheck, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, intelligence, studyAutoSync, studyAutoSyncMinutes, overlayEnabled, pronunciationCfg, onboarded, activeTab, configLoaded])
+  }, [provider, aiModels, modelPresets, rejectedModels, modelPlans, modelCards, modelAvailability, lastModelCheck, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, intelligence, studyAutoSync, studyAutoSyncMinutes, overlayEnabled, pronunciationCfg, onboarded, activeTab, configLoaded])
 
   // Auto-launch the overlay once on startup when the persisted preference is ON (default).
   const overlayAutoLaunchedRef = useRef(false)
@@ -9042,7 +9191,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           presetModel={(tier) => presetModel(providerConfig, provider, tier)}
           createMode={createMode} modeCreating={modeCreating}
           aiModels={aiModels} setAiModels={setAiModels}
-          intelligence={intelligence} setIntelligence={setIntelligence}
+          intelligence={intelligence} setIntelligence={selectIntelligence}
         />
       )}
 
@@ -9064,7 +9213,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           aiModels={aiModels} setAiModels={setAiModels} availableModels={availableModels}
           presetModel={(tier) => presetModel(providerConfig, provider, tier)}
           refreshModels={refreshModels} modelsLoading={modelsLoading} modelsError={modelsError}
-          intelligence={intelligence} setIntelligence={setIntelligence}
+          intelligence={intelligence} setIntelligence={selectIntelligence}
+          planDeciding={planDeciding} runConnectionTest={runConnectionTest} modelProbe={modelProbe}
           studyAutoSync={studyAutoSync} setStudyAutoSync={setStudyAutoSync}
           studyAutoSyncMinutes={studyAutoSyncMinutes} setStudyAutoSyncMinutes={setStudyAutoSyncMinutes}
           modes={modes} activeModeId={activeModeId} setActiveModeId={setActiveModeId} saveModes={saveModes}
