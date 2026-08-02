@@ -149,6 +149,7 @@ export default function SettingsModal(p) {
     provider, setProvider, apiKeys, apiKey, setCurrentKey, providerConfig,
     AI_ROLE_META, ROLE_DEFAULTS, aiModels, setAiModels, availableModels, presetModel,
     refreshModels, modelsLoading, modelsError, intelligence, setIntelligence,
+    planDeciding, runConnectionTest, modelProbe,
     studyAutoSync, setStudyAutoSync, studyAutoSyncMinutes, setStudyAutoSyncMinutes,
     // Modes
     modes, activeModeId, setActiveModeId, saveModes, editingModeName, setEditingModeName,
@@ -363,12 +364,27 @@ export default function SettingsModal(p) {
               style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 9px', color: C.brand, borderColor: C.brandRing, opacity: (modelsLoading || !apiKey) ? 0.5 : 1 }}>
               {modelsLoading ? t('checkingModels') : `↻ ${t('checkNewModels')}`}
             </button>
+            {runConnectionTest && (
+              <button onClick={() => runConnectionTest(provider)} disabled={modelProbe?.loading || !apiKey} title={t('set_testConnectionsHint')}
+                style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 9px', color: C.inkDim, opacity: (modelProbe?.loading || !apiKey) ? 0.5 : 1 }}>
+                {modelProbe?.loading ? t('set_testing') : t('set_testConnections')}
+              </button>
+            )}
             {aiModels[provider] && Object.keys(aiModels[provider]).length > 0 && (
               <button onClick={() => setAiModels((prev) => { const n = { ...prev }; delete n[provider]; return n })} style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 8px' }}>{t('resetToDefaults')}</button>
             )}
           </div>
         </div>
         {modelsError && <div style={{ fontSize: 10, color: C.danger, marginBottom: 6 }}>{modelsError}</div>}
+        {planDeciding && <div style={{ fontSize: 10, color: C.brand, marginBottom: 6 }}>{t('set_deciding')}</div>}
+        {modelProbe && !modelProbe.loading && modelProbe.provider === provider && (
+          modelProbe.connectionError
+            ? <div style={{ fontSize: 10, color: C.danger, marginBottom: 6 }}>{t('set_connError')}</div>
+            : <div style={{ fontSize: 10, color: C.inkDim, marginBottom: 6 }}>
+                {t('set_probeResult', { ok: modelProbe.working?.length || 0, down: modelProbe.down?.length || 0 })}
+                {modelProbe.down?.length ? `: ${modelProbe.down.join(', ')}` : ''}
+              </div>
+        )}
 
         {/* Intelligence preset — one switch that sets every feature's default model tier. */}
         <div style={{ marginBottom: 12, padding: '10px 12px', borderRadius: 8, background: 'var(--c-surface-sunken)', border: '1px solid var(--c-border)' }}>
