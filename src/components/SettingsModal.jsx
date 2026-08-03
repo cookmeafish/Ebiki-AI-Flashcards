@@ -18,6 +18,9 @@ function DataFolderCard({ t, card, fieldLabel, hint }) {
   const [result, setResult] = useState(null)  // { ok: message } | { error: message }
   const [choice, setChoice] = useState(null)  // { dir, context, sourceOnly } — the merge/skip prompt
   const [confirmMerge, setConfirmMerge] = useState(false)  // "are you sure?" step before a merge
+  const [backup, setBackup] = useState(null)   // { enabled, at, files, error }
+  const [backingUp, setBackingUp] = useState(false)
+  const refreshBackup = () => fetch('/api/sync-backup').then((r) => r.json()).then(setBackup).catch(() => {})
   useEffect(() => {
     fetch('/api/datadir').then((r) => r.json()).then((d) => {
       setInfo(d)
@@ -25,7 +28,23 @@ function DataFolderCard({ t, card, fieldLabel, hint }) {
       // (the default app folder leaves the field empty with its placeholder).
       if (d && !d.isDefault && !d.envOverride) setInput(d.dataDir)
     }).catch(() => {})
+    refreshBackup()
   }, [])
+  const backupNow = async () => {
+    setBackingUp(true)
+    try { const r = await fetch('/api/sync-backup', { method: 'POST' }); setBackup(await r.json()) } catch {}
+    finally { setBackingUp(false) }
+  }
+  // "3 min ago" style relative time from an ISO string (backup timestamps).
+  const relTime = (iso) => {
+    if (!iso) return null
+    const s = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000))
+    if (s < 60) return t('backupJustNow')
+    const m = Math.round(s / 60)
+    if (m < 60) return t('backupMinsAgo', { m })
+    const h = Math.round(m / 60)
+    return t('backupHrsAgo', { h })
+  }
   // dir: target path ('' = back to app folder). merge: undefined asks the server,
   // true = add this computer's data, false = adopt the folder's data as-is.
   const apply = async (dir, merge) => {
@@ -126,7 +145,18 @@ function DataFolderCard({ t, card, fieldLabel, hint }) {
           )}
           {result?.ok && <div style={{ fontSize: 11, color: C.success, marginTop: 8, lineHeight: 1.5, overflowWrap: 'anywhere' }}>✓ {result.ok}</div>}
           {result?.error && <div style={{ fontSize: 11, color: C.danger, marginTop: 8, lineHeight: 1.5, overflowWrap: 'anywhere' }}>⚠ {result.error}</div>}
-          <div style={hint}>{t('dataFolderHint')}</div>
+          {info && !info.isDefault && backup?.enabled && (
+            <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 11, color: C.inkDim, lineHeight: 1.5 }}>
+                {'💾'} {backup.at ? t('backupLast', { when: relTime(backup.at) }) : t('backupNone')}
+              </span>
+              <button onClick={backupNow} disabled={backingUp}
+                style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 9px', marginLeft: 'auto', opacity: backingUp ? 0.5 : 1 }}>
+                {backingUp ? '…' : t('backupNow')}
+              </button>
+            </div>
+          )}
+          <div style={hint}>{info && !info.isDefault ? t('dataFolderHintShared') : t('dataFolderHint')}</div>
         </>
       )}
     </div>

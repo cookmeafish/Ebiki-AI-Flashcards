@@ -135,6 +135,7 @@ To share across machines, point them at one **shared data folder** (e.g. a netwo
 - Each computer's own data is set aside safely and restored via **Back to the app folder**.
 - API keys (`.env`) and logs stay local to each machine.
 - **Nothing is ever deleted** - collisions are parked in a dated backup folder. Avoid editing the same item on two computers simultaneously (saves are whole-file).
+- **Automatic local backup.** While you use a shared folder, each computer also mirrors it to a local `.local-sync/` copy every 10 minutes (one-way, so it never conflicts). If the shared folder goes offline you always have a recent snapshot on this machine. The Data folder settings show the last backup time and a **Back up now** button.
 
 ## Requirements
 

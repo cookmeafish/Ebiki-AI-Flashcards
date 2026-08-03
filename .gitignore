@@ -12,6 +12,7 @@ chats/
 /discover/
 datadir.json
 .local-home/
+.local-sync/
 local-data-backup-*/
 electron/last-capture.png
 .claude/settings.local.json
