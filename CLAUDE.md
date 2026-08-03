@@ -89,6 +89,15 @@ only ever written by an explicit `merge:true`. UI = self-contained `DataFolderCa
 lives INSIDE the data folder; field pre-fills with the active shared path). `.env` (API keys) and `logs/`
 stay machine-local on purpose. `/api/modes` re-derives `MODES_DIR` per request for the live switch.
 
+**Auto-backup (one-way).** When `DATA_DIR` is a shared folder, a `configureServer` timer runs `runBackup()`
+every 10 minutes (plus once ~20s after start): `copyNewer` incrementally mirrors `BACKUP_ENTRIES`
+(= `DATA_ENTRIES` minus `cache`) from `DATA_DIR` into `.local-sync/` (gitignored, watch-ignored) by
+size+mtime. STRICTLY one-way (never writes to the share, so it can never conflict) and it SKIPS when the
+share is unreachable (`dataEntriesPresent(DATA_DIR)` false), so a dropped connection just leaves the last
+good snapshot. `.local-sync/` is the intended merge BASE for a future offline-edit reconcile. `/api/sync-backup`
+GET returns `{enabled, at, files, error}`; POST triggers a backup now. UI: a status line + "Back up now" in
+`DataFolderCard` (shown only on a shared folder), plus the shared-folder hint (`dataFolderHintShared`).
+
 ## "Ask AI" mode edits (review flow)
 Cards and Study panes have an **Ask AI** box. It does NOT apply directly - `proposeModeEdit(instruction, scope)`
 (App.jsx) returns a proposal; the modal shows a **before/after word diff** (`diffWords`) with

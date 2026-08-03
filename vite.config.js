@@ -145,6 +145,41 @@ function moveDataEntries(srcDir, destDir) {
   return moved
 }
 
+// ── Auto-backup: one-way mirror of the shared data folder down to this computer ──
+// When the data lives on a shared folder (e.g. an SMB share), a timer copies it
+// into .local-sync/ every few minutes so a recent snapshot always exists on this
+// machine even if the share goes offline. STRICTLY one-way (never writes back to
+// the share, so it can never conflict), incremental (copies only new/changed
+// files by size+mtime), and it skips silently when the share is unreachable so a
+// dropped connection just leaves the last good snapshot in place. `cache/` is
+// excluded (disposable, regenerates). This snapshot doubles as the merge BASE for
+// any future offline-edit reconcile.
+const BACKUP_DIR = path.join(APP_ROOT, '.local-sync')
+const BACKUP_ENTRIES = DATA_ENTRIES.filter((e) => e !== 'cache')
+let lastBackup = { at: null, files: 0, error: null }
+function copyNewer(from, to, acc) {
+  if (!fs.existsSync(from)) return
+  const st = fs.statSync(from)
+  if (st.isDirectory()) {
+    fs.mkdirSync(to, { recursive: true })
+    for (const name of fs.readdirSync(from)) copyNewer(path.join(from, name), path.join(to, name), acc)
+    return
+  }
+  let need = true
+  try { const d = fs.statSync(to); need = st.size !== d.size || st.mtimeMs > d.mtimeMs } catch { need = true }
+  if (need) { fs.mkdirSync(path.dirname(to), { recursive: true }); fs.copyFileSync(from, to); acc.n++ }
+}
+function runBackup() {
+  if (DATA_DIR === APP_ROOT) return { skipped: 'local' }          // data already lives on this computer
+  try {
+    if (!dataEntriesPresent(DATA_DIR)) { lastBackup = { ...lastBackup, error: 'source unreachable' }; return { skipped: 'unreachable' } }
+    const acc = { n: 0 }
+    for (const entry of BACKUP_ENTRIES) copyNewer(path.join(DATA_DIR, entry), path.join(BACKUP_DIR, entry), acc)
+    lastBackup = { at: new Date().toISOString(), files: acc.n, error: null }
+    return { ok: true, files: acc.n }
+  } catch (e) { lastBackup = { ...lastBackup, error: e.message }; return { error: e.message } }
+}
+
 function parseEnv() {
   if (!fs.existsSync(ENV_FILE)) return {}
   const lines = fs.readFileSync(ENV_FILE, 'utf-8').split('\n')
@@ -191,6 +226,21 @@ function apiPlugin() {
   return {
     name: 'api-plugin',
     configureServer(server) {
+      // Auto-backup timer: mirror the shared data folder to this computer every
+      // 10 minutes (and once ~20s after start). Unref'd so it never holds the
+      // process open; cleared when the dev server closes.
+      const backupTimer = setInterval(runBackup, 10 * 60 * 1000)
+      if (backupTimer.unref) backupTimer.unref()
+      setTimeout(runBackup, 20000)
+      server.httpServer?.once('close', () => clearInterval(backupTimer))
+
+      // Auto-backup status / manual trigger
+      server.middlewares.use('/api/sync-backup', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+        if (req.method === 'POST') { const r = runBackup(); res.end(JSON.stringify({ ...r, ...lastBackup, dir: BACKUP_DIR, enabled: DATA_DIR !== APP_ROOT })) }
+        else { res.end(JSON.stringify({ enabled: DATA_DIR !== APP_ROOT, dir: BACKUP_DIR, ...lastBackup })) }
+      })
+
       // API keys endpoint
       server.middlewares.use('/api/keys', (req, res) => {
         if (req.method === 'GET') {
@@ -1040,7 +1090,7 @@ export default defineConfig({
       // vite.config.js must be ignored too: on this share the watcher fires a
       // phantom change event on it after every restart → infinite restart loop.
       // Config edits therefore require a manual dev-server restart.
-      ignored: ['**/.env', '**/config.json', '**/ankiformat.json', '**/vite.config.js', '**/datadir.json', '**/modes/**', '**/decks/**', '**/chats/**', '**/local-data-backup-*/**'],
+      ignored: ['**/.env', '**/config.json', '**/ankiformat.json', '**/vite.config.js', '**/datadir.json', '**/modes/**', '**/decks/**', '**/chats/**', '**/local-data-backup-*/**', '**/.local-sync/**', '**/.local-home/**'],
     },
   },
 })
