@@ -319,6 +319,9 @@ export default function App() {
   const [modelsError, setModelsError] = useState(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsCategory, setSettingsCategory] = useState('general')
+  // Jump straight to Settings, AI models (used by the error toast, Help, and the Chat no-key prompt
+  // so a missing/invalid key is one click from being fixed).
+  const openAiSettings = () => { setSettingsCategory('models'); setSettingsOpen(true) }
   const [screenshot, setScreenshot] = useState(null)
   const [imgDims, setImgDims] = useState({ w: 0, h: 0 })
   const [ocrWords, setOcrWords] = useState([])
@@ -852,11 +855,11 @@ export default function App() {
   // isn't a recognizable provider error — e.g. a JSON parse issue in the caller).
   const describeAiError = (msg = '') => {
     const m = String(msg).toLowerCase()
-    if (/insufficient|credit|quota|billing|exceeded|payment|balance|out of/.test(m)) return 'Your AI provider is out of credits/quota. Add credits, or switch provider/model in AI Settings.'
-    if (/\b429\b|rate.?limit|too many requests|overloaded/.test(m)) return 'The AI provider is rate-limiting requests. Wait a moment and try again.'
-    if (/\b401\b|\b403\b|invalid.*api.*key|invalid x-api-key|unauthor|authentication|permission/.test(m)) return 'Your AI API key was rejected. Check the key in AI Settings.'
-    if (/\b5\d\d\b|network|failed to fetch|timeout|econn|fetch failed/.test(m)) return 'Could not reach the AI provider. Check your connection and try again.'
-    if (/^api \d+/.test(m)) return `AI request failed (${msg}).`
+    if (/insufficient|credit|quota|billing|exceeded|payment|balance|out of/.test(m)) return t('aiErr_credits')
+    if (/\b429\b|rate.?limit|too many requests|overloaded/.test(m)) return t('aiErr_rateLimit')
+    if (/\b401\b|\b403\b|invalid.*api.*key|invalid x-api-key|unauthor|authentication|permission/.test(m)) return t('aiErr_badKey')
+    if (/\b5\d\d\b|network|failed to fetch|timeout|econn|fetch failed/.test(m)) return t('aiErr_network')
+    if (/^api \d+/.test(m)) return t('aiErr_generic', { msg })
     return null
   }
   // Surface a provider error as a toast. Returns true if it was a recognizable AI error.
@@ -1495,6 +1498,15 @@ export default function App() {
   const setCurrentKey = (key) => {
     setApiKeys((prev) => ({ ...prev, [provider]: key }))
     if (key) setError(null)
+  }
+  // Lightweight live key check (used by the Paste button): a single 1-token ping on the provider's
+  // normal-tier model. true = the key works, false = it was rejected, null = couldn't tell (network,
+  // model-specific issue). Never throws.
+  const validateKey = async (prov, key) => {
+    const k = (key || '').trim(); const pc = PROVIDERS[prov]
+    if (!k || !pc) return null
+    const id = presetModel(pc, prov, 'normal') || pc.questionModel
+    return probeModel(prov, id, k)
   }
 
   // Gently nudge a returning (already-onboarded) user to add a key — ONCE on load, and never
@@ -9279,7 +9291,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           targetLang={targetLang} setTargetLang={setTargetLang}
           onRunSetup={() => { setSettingsOpen(false); setOnboarded(false) }}
           provider={provider} setProvider={setProvider}
-          apiKeys={apiKeys} apiKey={apiKey} setCurrentKey={setCurrentKey} providerConfig={providerConfig}
+          apiKeys={apiKeys} apiKey={apiKey} setCurrentKey={setCurrentKey} validateKey={validateKey} providerConfig={providerConfig}
           AI_ROLE_META={AI_ROLE_META} ROLE_DEFAULTS={ROLE_DEFAULTS}
           aiModels={aiModels} setAiModels={setAiModels} availableModels={availableModels}
           presetModel={(tier) => presetModel(providerConfig, provider, tier)}
@@ -10302,22 +10314,30 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   <img src={shrimpUrl(poseFile('singer'))} alt="Ebi" style={{ width: 76, height: 76, objectFit: 'contain', marginBottom: 10 }} />
                   <div style={{ fontSize: 24, fontWeight: 800, marginBottom: 8, fontFamily: FONT.display, background: 'linear-gradient(90deg, var(--c-brand), var(--c-brand-dark))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{t('chat_withEbi')}</div>
                   <div style={{ fontSize: 12, color: 'var(--c-ink-dim)', marginBottom: 20, maxWidth: 420, margin: '0 auto 20px' }}>
-                    {t('chat_introPre')}<strong>{activeMode.name}</strong>{t('chat_introPost')}
+                    {apiKey ? <>{t('chat_introPre')}<strong>{activeMode.name}</strong>{t('chat_introPost')}</> : t('chat_noKeyLine')}
                   </div>
-                  <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
-                    {((activeMode.chatSuggestions && activeMode.chatSuggestions.length)
-                      ? activeMode.chatSuggestions
-                      : ['Explain a key concept', 'Make me a flashcard', 'Quiz me on something']
-                    ).map(hint => (
-                      <button key={hint} className="chip" onClick={() => { setChatTabInput(hint) }} style={{ ...S.ghostBtn, fontSize: 10, padding: '7px 14px', borderRadius: 20 }}>
-                        <span className="chip-inner">{hint}</span>
+                  {apiKey ? (
+                    <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+                      {((activeMode.chatSuggestions && activeMode.chatSuggestions.length)
+                        ? activeMode.chatSuggestions
+                        : ['Explain a key concept', 'Make me a flashcard', 'Quiz me on something']
+                      ).map(hint => (
+                        <button key={hint} className="chip" onClick={() => { setChatTabInput(hint) }} style={{ ...S.ghostBtn, fontSize: 10, padding: '7px 14px', borderRadius: 20 }}>
+                          <span className="chip-inner">{hint}</span>
+                        </button>
+                      ))}
+                      {/* Casual escape hatch — the user may just want to talk to Ebi. */}
+                      <button className="chip" onClick={() => { setChatTabInput('Hey Ebi! 🦐') }} style={{ ...S.ghostBtn, fontSize: 10, padding: '7px 14px', borderRadius: 20, borderColor: 'rgba(223,37,64,.35)' }}>
+                        <span className="chip-inner">{t('chat_justChat')}</span>
                       </button>
-                    ))}
-                    {/* Casual escape hatch — the user may just want to talk to Ebi. */}
-                    <button className="chip" onClick={() => { setChatTabInput('Hey Ebi! 🦐') }} style={{ ...S.ghostBtn, fontSize: 10, padding: '7px 14px', borderRadius: 20, borderColor: 'rgba(223,37,64,.35)' }}>
-                      <span className="chip-inner">{t('chat_justChat')}</span>
-                    </button>
-                  </div>
+                    </div>
+                  ) : (
+                    // No API key: chat can't work, so send the user to Settings to add one.
+                    <button onClick={openAiSettings} className="btn-press" style={{
+                      border: 'none', background: 'var(--c-brand)', color: '#fff', fontWeight: 700, fontSize: 13,
+                      padding: '9px 18px', borderRadius: 8, cursor: 'pointer',
+                    }}>{t('chat_addKey')}</button>
+                  )}
                 </div>
               )}
               {chatTabMsgs.map((m, i) => {
@@ -12634,7 +12654,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           animation: 'slideUp .25s ease',
         }}>
           <span style={{ fontSize: 15 }}>⚠️</span>
-          <span style={{ flex: 1, lineHeight: 1.45 }}>{aiErrorNotice}</span>
+          {/* The body is clickable: most AI errors are a bad/missing key or a model choice, so tapping
+              the message jumps to Settings, AI models where the user can fix the key or switch model. */}
+          <span onClick={() => { openAiSettings(); setAiErrorNotice(null) }} className="click-dim"
+            style={{ flex: 1, lineHeight: 1.45, cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'color-mix(in srgb, var(--c-danger) 40%, transparent)' }}>{aiErrorNotice}</span>
           <span onClick={() => setAiErrorNotice(null)} style={{ cursor: 'pointer', color: C.danger, fontSize: 15, lineHeight: 1 }}>×</span>
         </div>
       )}
@@ -12647,6 +12670,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         onAiReply={(text) => choosePose(text, setHelpMascot)}
         askEbiSignal={askEbiSignal}
         hideButton={true}
+        onOpenSettings={openAiSettings}
         model={resolveModel('help')}
         askAI={(sys, content) => aiCall(apiKey, sys, content, resolveModel('help'), { maxTokens: 600 })}
         onAction={(action) => {

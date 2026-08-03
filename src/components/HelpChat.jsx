@@ -135,7 +135,7 @@ function buildSystemPrompt(appContext) {
   return parts.join('\n')
 }
 
-export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'claude-sonnet-4-6', askAI, mascotFile = DEFAULT_SHRIMP, onAiReply, onAction, askEbiSignal, hideButton }) {
+export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'claude-sonnet-4-6', askAI, mascotFile = DEFAULT_SHRIMP, onAiReply, onAction, askEbiSignal, hideButton, onOpenSettings }) {
   const [open, setOpen] = useState(false)
   // FancyZones-style snapping. null = floating popup anchored to the button.
   // 'left'|'right'|'top'|'bottom' = snapped to that screen edge ('bottom' sits under the question).
@@ -484,7 +484,17 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
 
       {/* Messages */}
       <div ref={msgTopRef} style={{ flex: 1, overflow: 'auto', padding: '10px 14px' }}>
-        {messages.length === 0 && (
+        {messages.length === 0 && !apiKey && (
+          // No API key: Ebi can't answer, so point the user straight at where to add one.
+          <div style={{ color: 'var(--c-ink-dim)', fontSize: 12, textAlign: 'center', padding: '28px 12px', lineHeight: 1.6 }}>
+            <div style={{ marginBottom: 12 }}>{t('help_noKeyLine')}</div>
+            <button onClick={() => onOpenSettings?.()} className="btn-press" style={{
+              border: 'none', background: 'var(--c-brand)', color: '#fff', fontWeight: 700, fontSize: 12,
+              padding: '8px 16px', borderRadius: 8, cursor: 'pointer',
+            }}>{t('help_addKey')}</button>
+          </div>
+        )}
+        {messages.length === 0 && apiKey && (
           <div style={{ color: 'var(--c-ink-faint)', fontSize: 11, textAlign: 'center', padding: '30px 10px', lineHeight: 1.6 }}>
             {t('help_emptyLine1')}<br />
             {t('help_emptyEx1')}<br />
