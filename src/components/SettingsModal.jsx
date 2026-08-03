@@ -371,11 +371,15 @@ export default function SettingsModal(p) {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {/* Visible while the user is typing THIS session so they can verify it; concealed once it
-              validates, or when it is a pre-existing saved key the user has not touched yet. */}
+              validates, or when it is a pre-existing saved key the user has not touched yet.
+              Paste (Ctrl+V or right-click) is captured via onPaste and auto-validated — this reads the
+              pasted text straight off the event, so it needs NO clipboard permission popup (unlike a
+              JS "Paste" button, which must call navigator.clipboard.readText() and forces one). */}
           <input type={(apiKey && (keyCheck?.state === 'valid' || !keyTouched)) ? 'password' : 'text'}
-            value={apiKey} onChange={(e) => { setKeyTouched(true); setKeyCheck(null); setCurrentKey(e.target.value) }} placeholder={providerConfig.placeholder} spellCheck={false} autoComplete="off" style={{ ...S.keyInput, flex: 1 }} />
-          <button onClick={async () => { try { const txt = ((await navigator.clipboard.readText()) || '').trim(); if (txt) setAndValidateKey(txt) } catch {} }}
-            title={t('pasteKeyHint')} style={{ ...S.getKeyLink, cursor: 'pointer' }}>{t('paste')}</button>
+            value={apiKey}
+            onPaste={(e) => { const txt = (e.clipboardData?.getData('text') || '').trim(); if (txt) { e.preventDefault(); setAndValidateKey(txt) } }}
+            onChange={(e) => { setKeyTouched(true); setKeyCheck(null); setCurrentKey(e.target.value) }}
+            placeholder={providerConfig.placeholder} spellCheck={false} autoComplete="off" style={{ ...S.keyInput, flex: 1 }} />
           <a href={providerConfig.url} target="_blank" rel="noopener noreferrer" style={S.getKeyLink}>{t('getKey')}</a>
         </div>
         {/* Live key check: prefix warning first, then the ping result (checking / valid / rejected). */}
@@ -385,7 +389,7 @@ export default function SettingsModal(p) {
           : keyCheck?.state === 'valid' ? <div style={{ ...hint, color: 'var(--c-success)', fontWeight: 700 }}>{t('keyValid')}</div>
           : keyCheck?.state === 'invalid' ? <div style={{ ...hint, color: 'var(--c-danger)', fontWeight: 700 }}>{t('keyInvalid')}</div>
           : keyCheck?.state === 'unknown' ? <div style={{ ...hint, color: 'var(--c-warning)' }}>{t('keyCheckUnknown')}</div>
-          : <div style={hint}>{t('keysStored')}</div>}
+          : <div style={hint}>{apiKey ? t('keysStored') : t('keyPasteHint')}</div>}
       </div>
 
       <div style={card}>
