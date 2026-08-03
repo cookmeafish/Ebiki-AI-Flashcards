@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { S } from '../styles/theme'
 import { C, RADIUS, SHADOW, FONT } from '../config/tokens'
 import { LANGS } from '../config/languages'
@@ -146,7 +146,7 @@ export default function SettingsModal(p) {
     appTheme, setAppTheme, appLanguage, setAppLanguage,
     language, setLanguage, targetLang, setTargetLang, onRunSetup,
     // AI Models (global)
-    provider, setProvider, apiKeys, apiKey, setCurrentKey, providerConfig,
+    provider, setProvider, apiKeys, apiKey, setCurrentKey, validateKey, providerConfig,
     AI_ROLE_META, ROLE_DEFAULTS, aiModels, setAiModels, availableModels, presetModel,
     refreshModels, checkNewModels, modelsLoading, modelsError, intelligence, setIntelligence,
     planDeciding, runConnectionTest, modelProbe,
@@ -170,6 +170,26 @@ export default function SettingsModal(p) {
   // Per-role "type a custom model" toggles (emergency: provider list empty / future models).
   const [customRoles, setCustomRoles] = useState({})
   const [qPrefInput, setQPrefInput] = useState('') // Settings → Study: add a question-style preference
+  // Live key-check status shown under the key field: { state: 'checking'|'valid'|'invalid'|'unknown' }.
+  const [keyCheck, setKeyCheck] = useState(null)
+  const [keyTouched, setKeyTouched] = useState(false) // did the user edit/paste the key THIS session
+  const keyCheckSeq = useRef(0) // guards against a stale validation resolving after a newer paste
+  // Set the key AND live-validate it (used by Paste and any explicit set). Offline prefix check first,
+  // then a real 1-token ping so the user is told whether the key actually works.
+  const setAndValidateKey = async (raw) => {
+    const key = (raw || '').trim()
+    const seq = ++keyCheckSeq.current
+    setKeyTouched(true)
+    setCurrentKey(key)
+    if (!key) { setKeyCheck(null); return }
+    if (providerConfig.keyPrefix && !key.startsWith(providerConfig.keyPrefix)) { setKeyCheck({ state: 'invalid' }); return }
+    if (!validateKey) { setKeyCheck(null); return }
+    setKeyCheck({ state: 'checking' })
+    let r = null
+    try { r = await validateKey(provider, key) } catch { r = null }
+    if (seq !== keyCheckSeq.current) return // a newer key was entered; ignore this result
+    setKeyCheck(r === true ? { state: 'valid' } : r === false ? { state: 'invalid' } : { state: 'unknown' })
+  }
 
   // Esc closes the modal
   useEffect(() => {
@@ -350,10 +370,22 @@ export default function SettingsModal(p) {
           ))}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <input type="password" value={apiKey} onChange={(e) => setCurrentKey(e.target.value)} placeholder={providerConfig.placeholder} style={{ ...S.keyInput, flex: 1 }} />
+          {/* Visible while the user is typing THIS session so they can verify it; concealed once it
+              validates, or when it is a pre-existing saved key the user has not touched yet. */}
+          <input type={(apiKey && (keyCheck?.state === 'valid' || !keyTouched)) ? 'password' : 'text'}
+            value={apiKey} onChange={(e) => { setKeyTouched(true); setKeyCheck(null); setCurrentKey(e.target.value) }} placeholder={providerConfig.placeholder} spellCheck={false} autoComplete="off" style={{ ...S.keyInput, flex: 1 }} />
+          <button onClick={async () => { try { const txt = ((await navigator.clipboard.readText()) || '').trim(); if (txt) setAndValidateKey(txt) } catch {} }}
+            title={t('pasteKeyHint')} style={{ ...S.getKeyLink, cursor: 'pointer' }}>{t('paste')}</button>
           <a href={providerConfig.url} target="_blank" rel="noopener noreferrer" style={S.getKeyLink}>{t('getKey')}</a>
         </div>
-        <div style={hint}>{t('keysStored')}</div>
+        {/* Live key check: prefix warning first, then the ping result (checking / valid / rejected). */}
+        {apiKey && providerConfig.keyPrefix && !apiKey.startsWith(providerConfig.keyPrefix)
+          ? <div style={{ ...hint, color: 'var(--c-warning)' }}>{t('keyPrefixWarn', { prefix: providerConfig.keyPrefix })}</div>
+          : keyCheck?.state === 'checking' ? <div style={{ ...hint, color: 'var(--c-ink-dim)' }}>{t('keyChecking')}</div>
+          : keyCheck?.state === 'valid' ? <div style={{ ...hint, color: 'var(--c-success)', fontWeight: 700 }}>{t('keyValid')}</div>
+          : keyCheck?.state === 'invalid' ? <div style={{ ...hint, color: 'var(--c-danger)', fontWeight: 700 }}>{t('keyInvalid')}</div>
+          : keyCheck?.state === 'unknown' ? <div style={{ ...hint, color: 'var(--c-warning)' }}>{t('keyCheckUnknown')}</div>
+          : <div style={hint}>{t('keysStored')}</div>}
       </div>
 
       <div style={card}>
