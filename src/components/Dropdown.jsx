@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import { FONT } from '../config/tokens'
 
 // A custom, always-scrollable dropdown to replace native <select> for lists that can grow long
 // (modes, languages, decks). Native popups are positioned by the OS and can push items off the top
@@ -115,6 +116,9 @@ export default function Dropdown({ value, onChange, options, style = {}, menuAli
           maxHeight: menu.maxH, overflowY: 'auto', overflowX: 'hidden',
           background: 'var(--c-surface)', border: '1px solid var(--c-border)',
           borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,.35)', padding: 4,
+          // Portaled to <html>, which is OUTSIDE the body's font-family, so set it
+          // explicitly or the menu falls back to the browser default (serif).
+          fontFamily: FONT.body,
         }}>
           {options.map((o) => {
             const selected = String(o.value) === String(value)
