@@ -98,6 +98,17 @@ good snapshot. `.local-sync/` is the intended merge BASE for a future offline-ed
 GET returns `{enabled, at, files, error}`; POST triggers a backup now. UI: a status line + "Back up now" in
 `DataFolderCard` (shown only on a shared folder), plus the shared-folder hint (`dataFolderHintShared`).
 
+**Unreachable-source guard (anti-clobber) - DO NOT REMOVE.** A disconnected mapped drive reads as EMPTY
+(`fs.existsSync` false), so a flaky `Y:` read used to look like "no data / first run": `/api/config` returned
+`{}`, the client defaulted `onboarded` to false, and the autosave then wrote that default back over the real
+file (this is how onboarding silently re-appeared). Now `/api/config` returns **503** `{unreachable:true}`
+whenever `!sourceReachable()` (= `DATA_DIR !== APP_ROOT && !dataEntriesPresent(DATA_DIR)`), for BOTH GET and
+POST. Client (App.jsx load): a 503/failed config fetch sets `dataUnreachable` and leaves `configHealthyRef`
+false; the config autosave bails on `!configHealthyRef.current` so it can NEVER overwrite the offline file,
+and a red top banner (`dataUnreachable` i18n) replaces the onboarding wizard. (Modes were already safe - their
+load only applies when `modes.length > 0`.) The planned offline mode - run from `.local-sync` when `Y:` is down
+and resync on reconnect - builds on this signal.
+
 ## "Ask AI" mode edits (review flow)
 Cards and Study panes have an **Ask AI** box. It does NOT apply directly - `proposeModeEdit(instruction, scope)`
 (App.jsx) returns a proposal; the modal shows a **before/after word diff** (`diffWords`) with

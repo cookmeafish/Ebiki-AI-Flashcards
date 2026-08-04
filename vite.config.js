@@ -123,6 +123,11 @@ function sourceOnlySummary(from, to) {
 // (rather than keeping a copy of the shared data). Gitignored, hidden by the dot.
 const LOCAL_HOME = path.join(APP_ROOT, '.local-home')
 const dataEntriesPresent = (dir) => DATA_ENTRIES.some((e) => fs.existsSync(path.join(dir, e)))
+// Is the data source actually readable? The app folder always is. A configured
+// SHARED folder that shows NO data entries is treated as unreachable (a mapped
+// drive that's disconnected reads as empty) — so callers must NOT interpret that
+// emptiness as "no data / first run" and overwrite the real (offline) files.
+const sourceReachable = () => DATA_DIR === APP_ROOT || dataEntriesPresent(DATA_DIR)
 // Move every data entry from `srcDir` into `destDir`. NEVER deletes: if `destDir`
 // already holds an entry, that existing copy is parked in a dated backup first.
 function moveDataEntries(srcDir, destDir) {
@@ -886,6 +891,16 @@ function apiPlugin() {
 
       // Config endpoint
       server.middlewares.use('/api/config', (req, res) => {
+        // If the shared data folder is unreachable, DON'T pretend the config is
+        // empty (that empty would clobber the real file on the next autosave) and
+        // DON'T accept a write. Signal 503 so the client keeps the last good data
+        // and shows an offline alert instead.
+        if (!sourceReachable()) {
+          res.statusCode = 503
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ unreachable: true, dataDir: DATA_DIR }))
+          return
+        }
         if (req.method === 'GET') {
           res.setHeader('Content-Type', 'application/json')
           res.end(JSON.stringify(readConfig()))
