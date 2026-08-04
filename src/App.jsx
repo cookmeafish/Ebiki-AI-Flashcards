@@ -204,6 +204,8 @@ export default function App() {
   const [chatSidePanel, setChatSidePanel] = useState(false) // split-screen chat alongside another tab
   const [provider, setProvider] = useState('anthropic')
   const [configLoaded, setConfigLoaded] = useState(false)
+  const [dataUnreachable, setDataUnreachable] = useState(false) // shared data folder (e.g. Y:) couldn't be read
+  const configHealthyRef = useRef(false)                        // true only when config loaded from a reachable source; gates autosave so a failed read never clobbers
   const [apiKeys, setApiKeys] = useState({})
   const [keysLoaded, setKeysLoaded] = useState(false)
   // Per-provider, per-role model overrides: { [provider]: { general, question, help } }.
@@ -1228,7 +1230,7 @@ export default function App() {
   useEffect(() => {
     Promise.all([
       fetch('/api/keys').then((r) => r.json()).catch(() => ({})),
-      fetch('/api/config').then((r) => r.json()).catch(() => ({})),
+      fetch('/api/config').then((r) => r.ok ? r.json().then((d) => ({ ...d, _reachable: true })) : { _reachable: false }).catch(() => ({ _reachable: false })),
       fetch('/api/modes').then((r) => r.json()).catch(() => null),
       fetch('/api/ankiformat').then((r) => r.json()).catch(() => null),
     ]).then(([keys, config, modesData, legacyFormat]) => {
@@ -1317,7 +1319,15 @@ export default function App() {
       if (config.overlayEnabled !== undefined) setOverlayEnabled(config.overlayEnabled)
       if (config.pronunciation) setPronunciationCfg((prev) => ({ ...prev, ...config.pronunciation }))
       if (config.onboarded) setOnboarded(true)
-      setActiveTab(config.activeTab || 'picture')
+      if (config.activeTab) setActiveTab(config.activeTab)
+      // If the data source (e.g. a shared Y:) was unreachable, the config came
+      // back empty NOT because there's no data but because the read failed. Mark
+      // it unhealthy so the autosave below never writes defaults over the real
+      // (offline) file, and surface an alert instead of the onboarding wizard.
+      const cfgReachable = config._reachable !== false
+      configHealthyRef.current = cfgReachable
+      if (!cfgReachable) setDataUnreachable(true)
+      else if (!config.activeTab) setActiveTab('picture')
       // ankiDeck is now per-mode (stored in mode config)
       setKeysLoaded(true)
       setConfigLoaded(true)
@@ -1474,7 +1484,10 @@ export default function App() {
 
   // ─── Save Config on change ────────────────────────────────────────────────
   useEffect(() => {
-    if (!configLoaded) return
+    // Never autosave when config didn't load from a reachable source: writing
+    // the current (possibly default) state would clobber the real offline file
+    // (this is what silently reset `onboarded` after a flaky Y: read).
+    if (!configLoaded || !configHealthyRef.current) return
     fetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -9262,8 +9275,16 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         </div>
       </header>}
 
+      {/* Data folder unreachable: alert instead of silently looking like a reset (and never clobber). */}
+      {!isOverlay && dataUnreachable && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 13000, background: 'var(--c-danger)', color: 'var(--c-on-brand)', padding: '10px 16px', fontSize: 13, fontWeight: 700, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span>⚠ {t('dataUnreachable')}</span>
+          <button onClick={() => window.location.reload()} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.5)', background: 'rgba(0,0,0,.15)' }}>{t('dataUnreachableRetry')}</button>
+        </div>
+      )}
+
       {/* ── First-run onboarding (Ebi-guided) ──────────────────────────────── */}
-      {!isOverlay && configLoaded && !onboarded && (
+      {!isOverlay && configLoaded && !onboarded && !dataUnreachable && (
         <OnboardingWizard
           t={t}
           onFinish={() => setOnboarded(true)}
