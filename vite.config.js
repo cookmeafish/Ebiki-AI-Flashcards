@@ -4,7 +4,7 @@ import fs from 'fs'
 import path from 'path'
 import http from 'http'
 import crypto from 'crypto'
-import { spawn } from 'child_process'
+import { spawn, execFile } from 'child_process'
 
 const ENV_FILE = path.resolve('.env')   // machine-local on purpose: API keys stay per computer
 const LOG_DIR = path.resolve('logs')    // machine-local on purpose: diagnostic logs
@@ -244,6 +244,39 @@ function apiPlugin() {
         res.setHeader('Content-Type', 'application/json')
         if (req.method === 'POST') { const r = runBackup(); res.end(JSON.stringify({ ...r, ...lastBackup, dir: BACKUP_DIR, enabled: DATA_DIR !== APP_ROOT })) }
         else { res.end(JSON.stringify({ enabled: DATA_DIR !== APP_ROOT, dir: BACKUP_DIR, ...lastBackup })) }
+      })
+
+      // ── App update (git) ────────────────────────────────────────────────
+      // GET  → is a newer version on the remote? (fast: local HEAD vs the remote
+      //        branch head via `git ls-remote`, no object download). reachable:
+      //        false when git is missing or the network is down.
+      // POST → git pull --ff-only, then npm install; report restartRequired.
+      // All git runs in APP_ROOT (wherever the app was installed), never a fixed
+      // path. `available:false` also covers "git not installed" so the UI degrades.
+      const git = (args, cb, timeout = 15000) => execFile('git', args, { cwd: APP_ROOT, timeout, windowsHide: true }, cb)
+      server.middlewares.use('/api/update', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+        // 'master' is the release branch we publish to; compare against it
+        // regardless of which local branch this clone happens to sit on.
+        if (req.method === 'GET') {
+          git(['rev-parse', 'HEAD'], (e1, local) => {
+            if (e1) { res.end(JSON.stringify({ ok: true, gitAvailable: false })); return }
+            git(['ls-remote', 'origin', 'master'], (e3, remoteOut) => {
+              if (e3) { res.end(JSON.stringify({ ok: true, gitAvailable: true, reachable: false })); return }
+              const localSha = (local || '').trim()
+              const remoteSha = ((remoteOut || '').trim().split(/\s+/)[0]) || ''
+              res.end(JSON.stringify({ ok: true, gitAvailable: true, reachable: true, updateAvailable: !!remoteSha && remoteSha !== localSha, current: localSha.slice(0, 7), remote: remoteSha.slice(0, 7) }))
+            }, 12000)
+          })
+        } else if (req.method === 'POST') {
+          git(['pull', '--ff-only', 'origin', 'master'], (e, out, err) => {
+            if (e) { res.end(JSON.stringify({ ok: false, error: String(err || e.message || 'git pull failed').slice(0, 600) })); return }
+            // Dependencies may have changed - run npm install (fast if nothing did).
+            execFile(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['install', '--no-audit', '--no-fund'], { cwd: APP_ROOT, timeout: 300000, windowsHide: true }, () => {
+              res.end(JSON.stringify({ ok: true, updated: true, restartRequired: true, output: String(out || '').slice(0, 600) }))
+            })
+          }, 120000)
+        } else { res.statusCode = 405; res.end('') }
       })
 
       // API keys endpoint

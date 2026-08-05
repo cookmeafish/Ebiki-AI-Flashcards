@@ -31,6 +31,19 @@ if (-not (Have-Node)) {
 }
 Ok "Node $(node -v), npm $(npm -v)"
 
+# 1b) Git (needed for the app's built-in update check) -----------------------
+Section 'Checking Git'
+if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+  if (Get-Command winget -ErrorAction SilentlyContinue) {
+    Warn 'Installing Git with winget...'
+    winget install -e --id Git.Git --accept-source-agreements --accept-package-agreements
+    $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
+  } else {
+    Warn 'Git not found and winget is unavailable. The app will still run, but the built-in update check needs Git (https://git-scm.com).'
+  }
+}
+if (Get-Command git -ErrorAction SilentlyContinue) { Ok "Git $((git --version) -replace 'git version ','')" }
+
 # 2) Dependencies (the npm environment) --------------------------------------
 Section 'Installing dependencies (npm install)'
 Warn 'This can take a few minutes the first time...'

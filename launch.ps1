@@ -1,20 +1,54 @@
 # Ebiki launcher (invoked hidden by launch-ebiki.vbs).
-# Starts the dev server if it isn't already running, then makes sure the browser
-# is on it. Only ever one instance: if port 3000 is already serving, it just
-# opens the tab instead of starting a second copy.
+# 1) If already running, just open the tab.
+# 2) Otherwise do a QUICK update check (skipped when snoozed or offline), offer
+#    to update, then start the dev server (which opens the browser itself).
 $app = $PSScriptRoot
 
-$running = Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyContinue
-if ($running) {
-  Start-Process 'http://localhost:3000'   # already up, just show it
+# Already running -> just show it (don't disrupt or re-check).
+if (Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyContinue) {
+  Start-Process 'http://localhost:3000'
   return
 }
 
-# Start the dev server hidden. It keeps running after this script exits, and its
-# own config (open:true) opens the browser once it is ready.
-Start-Process -FilePath 'cmd.exe' -ArgumentList '/c', 'npm run dev' -WorkingDirectory $app -WindowStyle Hidden
+# ── Quick, seamless update check ────────────────────────────────────────────
+function Check-Update {
+  $snooze = Join-Path $app '.update-snooze'
+  # Snoozed (user said "not now" within the last week)? Skip silently.
+  if (Test-Path $snooze) {
+    try { if ([datetime]::Parse((Get-Content $snooze -Raw)) -gt (Get-Date)) { return } } catch {}
+  }
+  if (-not (Get-Command git -ErrorAction SilentlyContinue)) { return }
+  $local = (& git -C $app rev-parse HEAD 2>$null)
+  if (-not $local) { return }
 
-# Wait for it to come up; if it never opens a tab within the window, open one.
+  # Compare against 'master' (the release branch), whatever local branch this
+  # clone is on. Look up just its remote head (fast, refs only) with a hard 6s
+  # timeout so a slow or offline network can never delay the launch.
+  $job = Start-Job { param($a) (& git -C $a ls-remote origin master 2>$null) } -ArgumentList $app
+  $line = $null
+  if (Wait-Job $job -Timeout 6) { $line = Receive-Job $job }
+  Remove-Job $job -Force -ErrorAction SilentlyContinue
+  if (-not $line) { return }                       # unreachable -> open normally
+  $remote = (($line | Select-Object -First 1) -split '\s+')[0]
+  if (-not $remote -or $remote -eq $local) { return }  # up to date -> open normally
+
+  # Update available -> ask. Auto-dismisses to "open normally" after 60s.
+  $ans = (New-Object -ComObject WScript.Shell).Popup(
+    "A new version of Ebiki is available.`n`nUpdate now? It only takes a few seconds.",
+    60, 'Ebiki update', 4 + 32)   # 4 = Yes/No, 32 = question icon
+  if ($ans -eq 6) {                                # Yes
+    & git -C $app pull --ff-only origin master 2>&1 | Out-Null
+    & cmd /c "cd /d ""$app"" && npm install" 2>&1 | Out-Null
+    Remove-Item $snooze -Force -ErrorAction SilentlyContinue
+  } elseif ($ans -eq 7) {                          # No -> don't ask again for a week
+    (Get-Date).AddDays(7).ToString('o') | Set-Content $snooze
+  }
+  # -1 (timed out) -> just open normally, ask again next time
+}
+try { Check-Update } catch {}
+
+# ── Start the dev server hidden (its own open:true opens the browser) ───────
+Start-Process -FilePath 'cmd.exe' -ArgumentList '/c', 'npm run dev' -WorkingDirectory $app -WindowStyle Hidden
 $deadline = (Get-Date).AddSeconds(60)
 do { Start-Sleep -Milliseconds 800 } until (
   (Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyContinue) -or ((Get-Date) -gt $deadline)

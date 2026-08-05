@@ -14,6 +14,7 @@ datadir.json
 .local-home/
 .local-sync/
 local-data-backup-*/
+.update-snooze
 electron/last-capture.png
 .claude/settings.local.json
 planned-features.md
