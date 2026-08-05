@@ -12,9 +12,20 @@ A one-time setup that installs everything the app needs and puts a launch shortc
 
 That's it. The installer will:
 
-- Install **Node.js** (the runtime the app needs) if it isn't already present, using Windows' built-in `winget`.
+- Install **Node.js** and **Git** (the prerequisites) if they aren't already present, using Windows' built-in `winget`.
 - Run **`npm install`** to set up the app's dependencies.
 - Create an **"Ebiki" shortcut on your Desktop** (and in the Start Menu).
+
+You can put the app folder anywhere you like; the installer and shortcut work from wherever it is.
+
+## Updates
+
+Opening the **Ebiki** shortcut does a quick check for a newer version:
+
+- If none (or you're offline), the app just opens normally, seamlessly.
+- If there's an update, it asks whether to install it. Choose **Yes** to update in place, or **No** to skip (it won't ask again for a week).
+
+You can also update anytime from **Settings → General → Updates → Check for updates**. After an update, close and reopen the app (via the shortcut) to finish applying it.
 
 ## Running the app
 

@@ -163,6 +163,56 @@ function DataFolderCard({ t, card, fieldLabel, hint }) {
   )
 }
 
+// ── Update card ──
+// Self-contained: talks to /api/update directly. GET checks (local HEAD vs the
+// remote branch head); POST runs git pull + npm install. Same code path as the
+// desktop shortcut's launch-time check, exposed as a button in the GUI.
+function UpdatesCard({ t, card, fieldLabel, hint }) {
+  const [state, setState] = useState('idle')   // idle | checking | uptodate | available | updating | done | error | nogit | offline
+  const [info, setInfo] = useState(null)
+  const [err, setErr] = useState(null)
+  const check = async () => {
+    setState('checking'); setErr(null)
+    try {
+      const d = await (await fetch('/api/update')).json()
+      if (!d.gitAvailable) { setState('nogit'); return }
+      if (!d.reachable) { setState('offline'); return }
+      setInfo(d)
+      setState(d.updateAvailable ? 'available' : 'uptodate')
+    } catch (e) { setState('error'); setErr(String(e.message || e)) }
+  }
+  const doUpdate = async () => {
+    setState('updating'); setErr(null)
+    try {
+      const d = await (await fetch('/api/update', { method: 'POST' })).json()
+      if (!d.ok) { setState('error'); setErr(d.error || 'update failed'); return }
+      setState('done')
+    } catch (e) { setState('error'); setErr(String(e.message || e)) }
+  }
+  return (
+    <div style={card}>
+      {fieldLabel(t('updatesTitle'))}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <button onClick={check} disabled={state === 'checking' || state === 'updating'}
+          style={{ ...S.getKeyLink, fontSize: 12, opacity: (state === 'checking' || state === 'updating') ? 0.5 : 1 }}>
+          {state === 'checking' ? t('updatesChecking') : t('updatesCheck')}
+        </button>
+        {state === 'available' && (
+          <button onClick={doUpdate} className="btn-press" style={{ ...S.keyDone, fontSize: 12 }}>{t('updatesUpdateNow')}</button>
+        )}
+      </div>
+      {state === 'uptodate' && <div style={{ fontSize: 11, color: C.success, marginTop: 8 }}>✓ {t('updatesUpToDate')}</div>}
+      {state === 'available' && <div style={{ fontSize: 11, color: C.brand, marginTop: 8 }}>{t('updatesAvailable')}</div>}
+      {state === 'updating' && <div style={{ fontSize: 11, color: C.inkDim, marginTop: 8 }}>{t('updatesUpdating')}</div>}
+      {state === 'done' && <div style={{ fontSize: 11, color: C.success, marginTop: 8, lineHeight: 1.5 }}>✓ {t('updatesDone')}</div>}
+      {state === 'nogit' && <div style={{ fontSize: 11, color: C.inkDim, marginTop: 8, lineHeight: 1.5 }}>{t('updatesNoGit')}</div>}
+      {state === 'offline' && <div style={{ fontSize: 11, color: C.inkDim, marginTop: 8 }}>{t('updatesOffline')}</div>}
+      {state === 'error' && <div style={{ fontSize: 11, color: C.danger, marginTop: 8, lineHeight: 1.5, overflowWrap: 'anywhere' }}>⚠ {err}</div>}
+      <div style={hint}>{t('updatesHint')}</div>
+    </div>
+  )
+}
+
 // Unified Settings modal. Left sidebar = categories grouped by scope (APP vs MODE);
 // right pane = the selected category. All state/handlers come from App via `p`.
 //
@@ -374,6 +424,7 @@ export default function SettingsModal(p) {
         </div>
       </div>
       <DataFolderCard t={t} card={card} fieldLabel={fieldLabel} hint={hint} />
+      <UpdatesCard t={t} card={card} fieldLabel={fieldLabel} hint={hint} />
       {onRunSetup && (
         <button onClick={onRunSetup} style={{ ...S.ghostBtn, fontSize: 12 }}>↻ {t('runSetupAgain')}</button>
       )}

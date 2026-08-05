@@ -109,6 +109,20 @@ and a red top banner (`dataUnreachable` i18n) replaces the onboarding wizard. (M
 load only applies when `modes.length > 0`.) The planned offline mode - run from `.local-sync` when `Y:` is down
 and resync on reconnect - builds on this signal.
 
+## Windows installer & in-app updates
+`install.bat` -> `install.ps1`: installs Node.js + Git via winget if missing, runs `npm install`, and creates
+Desktop + Start Menu shortcuts (to `launch-ebiki.vbs`) with the committed `ebiki.ico` (built from the hole-Ebi
+pose). `launch-ebiki.vbs` -> `launch.ps1` starts the dev server hidden (single instance: if 3000 already
+serves, it just opens the tab). EVERYTHING is path-relative (`$PSScriptRoot` / `%~dp0` / `APP_ROOT`) so it
+works wherever the repo is cloned - never hardcode a path. **Updates track the `master` release branch**
+(the clones sit on `shared-data-dir`, so compare against `origin/master`, NOT the current branch). Launch-time
+check in `launch.ps1`: skip if `.update-snooze` (gitignored) is in the future; else `git ls-remote origin master`
+(6s timeout job, so offline never blocks) vs local HEAD; if different, a `WScript.Shell.Popup` asks (Yes ->
+`git pull --ff-only origin master` + `npm install`; No -> snooze 7 days; 60s timeout -> open normally). In-GUI:
+self-contained `UpdatesCard` in SettingsModal General uses `/api/update` (GET = `ls-remote` vs HEAD, reports
+`gitAvailable`/`reachable`/`updateAvailable`; POST = pull + npm install, `restartRequired`). A code pull needs a
+manual app restart (the dev server can't reload `vite.config.js`/deps live).
+
 ## "Ask AI" mode edits (review flow)
 Cards and Study panes have an **Ask AI** box. It does NOT apply directly - `proposeModeEdit(instruction, scope)`
 (App.jsx) returns a proposal; the modal shows a **before/after word diff** (`diffWords`) with
