@@ -27,7 +27,9 @@ A local-first study app with an AI tutor, Anki-integrated study sessions, screen
 
 ## Setup
 
-**Install [Node.js](https://nodejs.org) first** (LTS / v18+), then:
+**Easiest (Windows):** clone the repo, then double-click **`install.bat`**. It installs Node.js if needed, runs `npm install`, and puts an **Ebiki** shortcut on your Desktop that launches the app. See [INSTALL.md](INSTALL.md).
+
+**Manual:** install [Node.js](https://nodejs.org) (LTS / v18+), then:
 
 ```bash
 git clone https://github.com/cookmeafish/Ebiki-AI-Flashcards.git
