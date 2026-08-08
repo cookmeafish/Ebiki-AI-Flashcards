@@ -5,4 +5,4 @@ Set sh  = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 appDir  = fso.GetParentFolderName(WScript.ScriptFullName)
 sh.CurrentDirectory = appDir
-sh.Run "powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File """ & appDir & "\launch.ps1""", 0, False
+sh.Run "powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File """ & appDir & "\scripts\launch.ps1""", 0, False
