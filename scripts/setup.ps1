@@ -38,18 +38,20 @@ $lad  = $env:LOCALAPPDATA
 $nodeDirs = @("$pf\nodejs", "$pfx\nodejs", "$lad\Programs\nodejs")
 $gitDirs  = @("$pf\Git\cmd", "$pfx\Git\cmd", "$lad\Programs\Git\cmd")
 
-# Anki does not reliably land on PATH, so look for anki.exe in the usual install
-# folders, then PATH, then the registry's uninstall entries (custom folders).
+$uninstallKeys = @('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
+                   'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*',
+                   'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*')
+
+# WHERE anki.exe is (or $null). Anki does not reliably land on PATH, so probe the
+# usual install folders, then PATH, then any uninstall entry that records its
+# InstallLocation. Only used to print a path - the app never launches Anki.
 function Find-Anki {
   foreach ($p in @("$pf\Anki\anki.exe", "$pfx\Anki\anki.exe", "$lad\Programs\Anki\anki.exe")) {
     if (Test-Path $p) { return $p }
   }
   $c = Get-Command anki -ErrorAction SilentlyContinue
   if ($c) { return $c.Source }
-  $keys = @('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
-            'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*',
-            'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*')
-  foreach ($k in $keys) {
+  foreach ($k in $uninstallKeys) {
     $e = Get-ItemProperty $k -ErrorAction SilentlyContinue |
          Where-Object { $_.DisplayName -like 'Anki*' -and $_.InstallLocation } | Select-Object -First 1
     if ($e) {
@@ -58,6 +60,20 @@ function Find-Anki {
     }
   }
   return $null
+}
+
+# WHETHER Anki is installed, which is a different question: the MSI build records
+# no InstallLocation, DisplayIcon or App Paths entry, so an Anki living in a
+# non-default folder is invisible to Find-Anki. Windows still lists it under
+# Uninstall, and that is enough to know we must NOT reinstall it.
+function Test-AnkiInstalled {
+  if (Find-Anki) { return $true }
+  foreach ($k in $uninstallKeys) {
+    $e = Get-ItemProperty $k -ErrorAction SilentlyContinue |
+         Where-Object { $_.DisplayName -match '^Anki(\s|$)' } | Select-Object -First 1
+    if ($e) { return $true }
+  }
+  return $false
 }
 
 # Find an installed AnkiConnect by its SIGNATURE, not by add-on code: several
@@ -134,14 +150,20 @@ try {
   # Anki itself and the add-on. Fail-soft on purpose: the app still runs (chat,
   # picture, mode design) without Anki, so nothing here throws.
   Section 'Checking Anki'
-  $anki = Find-Anki
-  if ($anki) {
-    Ok "Anki already installed ($anki)"
+  $ankiOk = Test-AnkiInstalled
+  if ($ankiOk) {
+    # Already there -> skip entirely, never hand it to winget.
+    $anki = Find-Anki
+    if ($anki) { Ok "Anki already installed ($anki)" } else { Ok 'Anki already installed.' }
   } else {
     Warn 'Anki is not installed.'
-    if (Install-With-Winget 'Anki.Anki' 'Anki') { $anki = Find-Anki }
-    if ($anki) { Ok "Anki installed ($anki)" }
-    else { Warn 'Could not install Anki automatically. Get it from https://apps.ankiweb.net, then run this installer again to add AnkiConnect.' }
+    if (Install-With-Winget 'Anki.Anki' 'Anki') { $ankiOk = Test-AnkiInstalled }
+    if ($ankiOk) {
+      $anki = Find-Anki
+      if ($anki) { Ok "Anki installed ($anki)" } else { Ok 'Anki installed.' }
+    } else {
+      Warn 'Could not install Anki automatically. Get it from https://apps.ankiweb.net, then run this installer again to add AnkiConnect.'
+    }
   }
 
   # AnkiConnect lives in Anki's add-on folder as plain files, so it can be
@@ -157,7 +179,7 @@ try {
     $label = if ($meta -and $meta.name) { $meta.name } else { $have.Name }
     Ok "$label is already installed (that is the add-on Ebiki talks to)."
     if ($meta -and $meta.disabled) { Warn 'It is currently DISABLED in Anki. Enable it under Tools > Add-ons.' }
-  } elseif (-not $anki) {
+  } elseif (-not $ankiOk) {
     Warn 'Skipped (install Anki first, then run this installer again).'
   } else {
     try {

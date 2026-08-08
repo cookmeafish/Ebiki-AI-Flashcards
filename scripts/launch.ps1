@@ -1,10 +1,43 @@
 # Ebiki launcher (invoked hidden by launch-ebiki.vbs).
-# 1) If already running, just open the tab.
-# 2) Otherwise do a QUICK update check (skipped when snoozed or offline), offer
+# 1) Make sure Anki is up (the app reads/writes every card through AnkiConnect).
+# 2) If the app is already running, just open the tab.
+# 3) Otherwise do a QUICK update check (skipped when snoozed or offline), offer
 #    to update, then start the dev server (which opens the browser itself).
 # Path-relative so it works wherever the app is installed; this script lives in
 # scripts/, so the app folder is one level up.
 $app = Split-Path $PSScriptRoot -Parent
+
+# ── Start Anki if it isn't up ───────────────────────────────────────────────
+# Ebiki talks to Anki through AnkiConnect on 127.0.0.1:8765, so without Anki
+# running the Deck / Study / Discover tabs sit on "Anki is not connected".
+# Started FIRST (before the dev server) so it boots in parallel and is usually
+# ready by the time the browser opens. Minimized: the user asked for Ebiki, not
+# for Anki's window. Fail-soft everywhere - the app still opens without it.
+function Start-AnkiIfNeeded {
+  # Anki is single-instance; a second launch just pops a dialog at the user.
+  if (Get-Process -Name anki -ErrorAction SilentlyContinue) { return }
+  $pf = $env:ProgramFiles; $pfx = ${env:ProgramFiles(x86)}; $lad = $env:LOCALAPPDATA
+  $exe = $null
+  foreach ($p in @("$pf\Anki\anki.exe", "$pfx\Anki\anki.exe", "$lad\Programs\Anki\anki.exe")) {
+    if (Test-Path $p) { $exe = $p; break }
+  }
+  if (-not $exe) {
+    $c = Get-Command anki -ErrorAction SilentlyContinue
+    if ($c) { $exe = $c.Source }
+  }
+  if (-not $exe) {
+    # Installed somewhere non-standard (the MSI records no path): the Start Menu
+    # shortcut Anki creates is the last thing that still knows where it lives.
+    foreach ($root in @([Environment]::GetFolderPath('Programs'), [Environment]::GetFolderPath('CommonPrograms'))) {
+      if (-not $root) { continue }
+      $lnk = Get-ChildItem $root -Filter 'Anki.lnk' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+      if ($lnk) { $exe = $lnk.FullName; break }
+    }
+  }
+  if (-not $exe) { return }   # Anki not installed -> nothing to do
+  Start-Process -FilePath $exe -WindowStyle Minimized
+}
+try { Start-AnkiIfNeeded } catch {}
 
 # Already running -> just show it (don't disrupt or re-check).
 if (Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyContinue) {

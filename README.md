@@ -27,7 +27,7 @@ A local-first study app with an AI tutor, Anki-integrated study sessions, screen
 
 ## Setup
 
-**Easiest (Windows):** clone the repo, then double-click **`Install Ebiki.bat`** (the only file you run). It installs Node.js, Anki and the AnkiConnect add-on if they are missing, runs `npm install`, and puts an **Ebiki** shortcut on your Desktop that launches the app. See [INSTALL.md](INSTALL.md).
+**Easiest (Windows):** clone the repo, then double-click **`Install Ebiki.bat`** (the only file you run). It installs Node.js, Anki and the AnkiConnect add-on if they are missing, runs `npm install`, and puts an **Ebiki** shortcut on your Desktop that launches the app (and Anki with it). See [INSTALL.md](INSTALL.md).
 
 **Manual:** install [Node.js](https://nodejs.org) (LTS / v18+), then:
 

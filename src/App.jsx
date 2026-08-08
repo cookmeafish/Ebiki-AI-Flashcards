@@ -8010,6 +8010,25 @@ Your output keeps: the same method, the same language (${explainLang}), the same
     return () => clearInterval(id)
   }, [studyActive, ankiConnected, studyCardState])
 
+  // Anki boot watcher — the Ebiki shortcut now starts Anki alongside the app, but Anki takes a
+  // few seconds to come up, so the first ping always loses that race and every Anki surface
+  // would sit on "Anki is not connected" until the user pressed Refresh by hand. Poll while
+  // disconnected (any tab, no study session required — that is the watcher above) and refresh
+  // the moment AnkiConnect answers. Fast for the first minute (the boot window), then slow, so
+  // a machine with Anki closed all day isn't pinging every few seconds forever.
+  useEffect(() => {
+    if (ankiConnected !== false) return
+    let tries = 0
+    let id
+    const tick = async () => {
+      tries += 1
+      if (await ankiPing().catch(() => false)) { refreshAnkiConnection(); return }
+      id = setTimeout(tick, tries < 15 ? 4000 : 20000)
+    }
+    id = setTimeout(tick, 4000)
+    return () => clearTimeout(id)
+  }, [ankiConnected])
+
   // 1s ticker so the "locks in M:SS" countdown updates while something is pending during study.
   useEffect(() => {
     if (!studyAutoSync || !studyActive || studyPhase === 'summary') return
