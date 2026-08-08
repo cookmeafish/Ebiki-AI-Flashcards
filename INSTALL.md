@@ -34,7 +34,7 @@ You can also update anytime from **Settings → General → Updates → Check fo
 
 Double-click the **Ebiki** shortcut. It starts the app in the background and opens it at `http://localhost:3000`. It only ever runs one copy: if it's already running, the shortcut just opens the tab.
 
-**Open Anki as well and leave it running.** Ebiki reads and writes your cards through it. If the app says "Anki is not connected", start Anki and press Refresh.
+**Anki starts with it.** The shortcut opens Anki minimized (only if it isn't already open), because that is where your cards live. Anki takes a few seconds to come up, so the app may briefly say "Anki is not connected"; it connects on its own as soon as Anki is ready. Leave Anki running while you use Ebiki.
 
 To stop it, close the browser tab and end the background `node` process (Task Manager), or just restart your computer.
 

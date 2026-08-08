@@ -129,9 +129,22 @@ check in `launch.ps1`: skip if `.update-snooze` (gitignored) is in the future; e
 self-contained `UpdatesCard` in SettingsModal General uses `/api/update` (GET = `ls-remote` vs HEAD, reports
 `gitAvailable`/`reachable`/`updateAvailable`; POST = pull + npm install, `restartRequired`). A code pull needs a
 manual app restart (the dev server can't reload `vite.config.js`/deps live).
+**The shortcut STARTS ANKI** (`Start-AnkiIfNeeded` in `launch.ps1`, before the port-3000 check so it also
+covers "app already running"): skipped when an `anki` process exists (Anki is single-instance and a second
+launch just pops a dialog), exe resolved via the usual folders -> PATH -> the Start Menu `Anki.lnk` (the MSI
+records no path anywhere), started MINIMIZED and fail-soft. Anki needs a few seconds to boot, so App.jsx has an
+**Anki boot watcher**: while `ankiConnected === false` it pings every 4s for the first minute then every 20s,
+and calls `refreshAnkiConnection` the moment AnkiConnect answers - so the "Anki is not connected" banner clears
+itself with no manual Refresh. (Distinct from the study reconnect watcher, which is scoped to a live session
+with unsynced ratings and also clears `studySyncError`.)
 **Anki + AnkiConnect are installed by the setup script, fail-soft** (the app still runs without them, so this
 section NEVER throws). Anki: `winget install -e --id Anki.Anki`, detected by `Find-Anki` (anki.exe in the usual
-install folders -> PATH -> registry uninstall entries, since Anki does not reliably land on PATH). AnkiConnect
+install folders -> PATH -> registry uninstall entries, since Anki does not reliably land on PATH). **"Is it
+installed" and "where is it" are SEPARATE questions** (`Test-AnkiInstalled` vs `Find-Anki`): the MSI build
+records no `InstallLocation`, no `DisplayIcon` and no App Paths entry, so an Anki in a non-default folder is
+invisible to path probing - only the Uninstall `DisplayName` proves it exists, and reinstalling over it would
+be wrong. Every step in this script is skip-if-present; nothing is handed to winget that is already there.
+AnkiConnect
 is installed WITHOUT driving Anki's UI: the `.ankiaddon` is a plain zip, fetched from the same endpoint Anki's
 own "Browse & Install" uses (`https://ankiweb.net/shared/download/2055492159?v=2.1&p=<point version>` - a bare
 `/shared/downloadFile/<id>` 404s now, and `p` must be numeric) and unpacked into
