@@ -2,8 +2,9 @@
 # 1) If already running, just open the tab.
 # 2) Otherwise do a QUICK update check (skipped when snoozed or offline), offer
 #    to update, then start the dev server (which opens the browser itself).
-# Path-relative ($PSScriptRoot) so it works wherever the app is installed.
-$app = $PSScriptRoot
+# Path-relative so it works wherever the app is installed; this script lives in
+# scripts/, so the app folder is one level up.
+$app = Split-Path $PSScriptRoot -Parent
 
 # Already running -> just show it (don't disrupt or re-check).
 if (Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyContinue) {
@@ -30,7 +31,7 @@ $hasNode = Ensure-OnPath 'npm' @("$pf\nodejs", "$pfx\nodejs", "$lad\Programs\nod
 if (-not $hasNode) {
   # Can't run without Node. Point the user at the installer rather than failing silently.
   [void](New-Object -ComObject WScript.Shell).Popup(
-    "Ebiki could not find Node.js.`n`nRun install.bat in the Ebiki folder, then sign out and back in once.",
+    "Ebiki could not find Node.js.`n`nRun 'Install Ebiki.bat' in the Ebiki folder, then sign out and back in once.",
     0, 'Ebiki', 16)   # 16 = stop icon
   return
 }

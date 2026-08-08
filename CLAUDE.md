@@ -110,9 +110,16 @@ load only applies when `modes.length > 0`.) The planned offline mode - run from 
 and resync on reconnect - builds on this signal.
 
 ## Windows installer & in-app updates
-`install.bat` -> `install.ps1`: installs Node.js + Git via winget if missing, runs `npm install`, and creates
-Desktop + Start Menu shortcuts (to `launch-ebiki.vbs`) with the committed `ebiki.ico` (built from the hole-Ebi
-pose). `launch-ebiki.vbs` -> `launch.ps1` starts the dev server hidden (single instance: if 3000 already
+**Exactly ONE file in the app root is user-runnable: `Install Ebiki.bat`.** The old layout had `install.bat`
+and `install.ps1` sitting side by side, both displaying as "install" in Explorer, so nobody could tell which
+to double-click. The PowerShell scripts now live in `scripts/` (`setup.ps1`, `launch.ps1`) and are named so
+they can't be mistaken for the entry point; both resolve the app folder as `Split-Path $PSScriptRoot -Parent`.
+`launch-ebiki.vbs` + `ebiki.ico` MUST stay in the root - existing Desktop shortcuts point at them by absolute
+path, so moving either breaks every already-installed shortcut.
+`Install Ebiki.bat` -> `scripts/setup.ps1`: installs Node.js + Git + **Anki** via winget if missing, installs
+the **AnkiConnect add-on**, runs `npm install`, and creates Desktop + Start Menu shortcuts (to
+`launch-ebiki.vbs`) with the committed `ebiki.ico` (built from the hole-Ebi pose). `launch-ebiki.vbs` ->
+`scripts/launch.ps1` starts the dev server hidden (single instance: if 3000 already
 serves, it just opens the tab). EVERYTHING is path-relative (`$PSScriptRoot` / `%~dp0` / `APP_ROOT`) so it
 works wherever the repo is cloned - never hardcode a path. **Updates track the `master` release branch**
 (the clones sit on `shared-data-dir`, so compare against `origin/master`, NOT the current branch). Launch-time
@@ -122,6 +129,18 @@ check in `launch.ps1`: skip if `.update-snooze` (gitignored) is in the future; e
 self-contained `UpdatesCard` in SettingsModal General uses `/api/update` (GET = `ls-remote` vs HEAD, reports
 `gitAvailable`/`reachable`/`updateAvailable`; POST = pull + npm install, `restartRequired`). A code pull needs a
 manual app restart (the dev server can't reload `vite.config.js`/deps live).
+**Anki + AnkiConnect are installed by the setup script, fail-soft** (the app still runs without them, so this
+section NEVER throws). Anki: `winget install -e --id Anki.Anki`, detected by `Find-Anki` (anki.exe in the usual
+install folders -> PATH -> registry uninstall entries, since Anki does not reliably land on PATH). AnkiConnect
+is installed WITHOUT driving Anki's UI: the `.ankiaddon` is a plain zip, fetched from the same endpoint Anki's
+own "Browse & Install" uses (`https://ankiweb.net/shared/download/2055492159?v=2.1&p=<point version>` - a bare
+`/shared/downloadFile/<id>` 404s now, and `p` must be numeric) and unpacked into
+`%APPDATA%\Anki2\addons21\2055492159` (honors `ANKI_BASE`), plus a seeded `meta.json` (no `config` key, so
+AnkiConnect's own 127.0.0.1:8765 defaults win - which is what the `/api/anki` vite proxy talks to; CORS is
+irrelevant because the request is server-side and carries no Origin). **Detection is by SIGNATURE, not add-on
+code** (`Find-AnkiConnect`: any `addons21/*` folder whose `config.json` mentions `webBindPort`): forks like
+"Anki Connect Plus" (code 2036732292) serve the same API and Anki marks them as CONFLICTING with 2055492159,
+so installing the original on top of one would break a working setup.
 
 ## "Ask AI" mode edits (review flow)
 Cards and Study panes have an **Ask AI** box. It does NOT apply directly - `proposeModeEdit(instruction, scope)`
