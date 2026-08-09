@@ -107,6 +107,15 @@ function Install-With-Winget($id, $label) {
   return $true
 }
 
+# Keep a transcript. When setup misbehaves on someone else's machine, "it didn't
+# install" is all the report you get; this file is the actual evidence. logs/ is
+# gitignored, and a failed transcript must never stop the install.
+$logFile = Join-Path $app 'logs\install.log'
+try {
+  New-Item -ItemType Directory -Force -Path (Split-Path $logFile) | Out-Null
+  Start-Transcript -Path $logFile -Append | Out-Null
+} catch { $logFile = $null }
+
 try {
   Write-Host 'Ebiki installer' -ForegroundColor Magenta
   Write-Host "App folder: $app"
@@ -162,7 +171,7 @@ try {
       $anki = Find-Anki
       if ($anki) { Ok "Anki installed ($anki)" } else { Ok 'Anki installed.' }
     } else {
-      Warn 'Could not install Anki automatically. Get it from https://apps.ankiweb.net, then run this installer again to add AnkiConnect.'
+      Warn 'Could not install Anki automatically. Get it from https://apps.ankiweb.net (the add-on below is still set up, so Anki will find it).'
     }
   }
 
@@ -179,9 +188,11 @@ try {
     $label = if ($meta -and $meta.name) { $meta.name } else { $have.Name }
     Ok "$label is already installed (that is the add-on Ebiki talks to)."
     if ($meta -and $meta.disabled) { Warn 'It is currently DISABLED in Anki. Enable it under Tools > Add-ons.' }
-  } elseif (-not $ankiOk) {
-    Warn 'Skipped (install Anki first, then run this installer again).'
   } else {
+    # Installed even when Anki itself is missing. The add-on is just files in
+    # %APPDATA%, and Anki reads that folder whenever it first starts, so a failed
+    # or skipped Anki install must not also cost the user the add-on.
+    if (-not $ankiOk) { Warn 'Anki is not here yet; installing the add-on anyway so it is ready when Anki is.' }
     try {
       Info 'Downloading AnkiConnect from AnkiWeb...'
       # Same endpoint Anki's own "Browse & Install" uses; p = client point version.
@@ -244,5 +255,8 @@ try {
 catch {
   Write-Host ''
   Write-Host "Setup could not finish: $($_.Exception.Message)" -ForegroundColor Red
+  if ($logFile) { Write-Host "Details were written to $logFile" -ForegroundColor Yellow }
+  try { Stop-Transcript | Out-Null } catch {}
   exit 1
 }
+try { Stop-Transcript | Out-Null } catch {}
