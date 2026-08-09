@@ -129,6 +129,15 @@ check in `launch.ps1`: skip if `.update-snooze` (gitignored) is in the future; e
 self-contained `UpdatesCard` in SettingsModal General uses `/api/update` (GET = `ls-remote` vs HEAD, reports
 `gitAvailable`/`reachable`/`updateAvailable`; POST = pull + npm install, `restartRequired`). A code pull needs a
 manual app restart (the dev server can't reload `vite.config.js`/deps live).
+**A ZIP download is converted into a clone (`Link-ToGit`).** GitHub's "Download ZIP" folder has no `.git`, so
+BOTH update paths (launch check + Settings > Updates) silently no-op and the user is frozen on whatever that
+ZIP contained - the failure mode that had a new machine reinstalling a pre-Anki installer and reporting "it
+doesn't install Anki". Setup detects a missing `.git` and does `init` -> `remote add` -> shallow `fetch
+master` -> `checkout -B master` -> **`git clean -fd`**. The clean is load-bearing twice over: it removes files
+the old ZIP shipped that the release renamed away (`install.bat`/`install.ps1`/`launch.ps1` would otherwise sit
+beside the new ones) AND it leaves the tree CLEAN, without which the `git pull --ff-only` behind in-app updates
+fails forever. No `-x`, so gitignored user data (config.json, modes/, decks/, .env, logs/) survives untouched.
+The section also prints the short SHA, so a screenshot of the installer window identifies the version.
 **The shortcut STARTS ANKI** (`Start-AnkiIfNeeded` in `launch.ps1`, before the port-3000 check so it also
 covers "app already running"): skipped when an `anki` process exists (Anki is single-instance and a second
 launch just pops a dialog), exe resolved via the usual folders -> PATH -> the Start Menu `Anki.lnk` (the MSI

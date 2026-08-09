@@ -8,6 +8,7 @@ A one-time setup that installs everything the app needs and puts a launch shortc
    ```
    git clone https://github.com/cookmeafish/Ebiki-AI-Flashcards.git
    ```
+   Downloading the ZIP from GitHub works too. A ZIP normally can't update itself, so the installer links the folder to the project on first run and updates it to the latest release. Your settings, modes and decks are left alone.
 2. **Double-click `Install Ebiki.bat`** in the app folder.
 
 That is the only file you run. Everything else in the folder belongs to the app.

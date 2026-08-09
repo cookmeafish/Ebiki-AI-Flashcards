@@ -98,6 +98,32 @@ function Get-AddonMeta($dir) {
   try { return (Get-Content (Join-Path $dir.FullName 'meta.json') -Raw | ConvertFrom-Json) } catch { return $null }
 }
 
+# A GitHub "Download ZIP" folder has no .git, so it can never update itself: the
+# launch-time check and Settings > Updates both need a repo, and the user silently
+# stays on whatever the ZIP happened to contain (which is how a copy predating a
+# feature keeps reinstalling itself). Turn that folder INTO a clone of the release
+# branch. Only ever run on a folder with no .git, so nothing local is at risk -
+# and user data (config.json, modes/, decks/, .env) is gitignored, so a checkout
+# never touches it.
+function Link-ToGit($dir, $repo) {
+  & git -C $dir init -q 2>&1 | Out-Null
+  & git -C $dir remote remove origin 2>&1 | Out-Null
+  & git -C $dir remote add origin $repo 2>&1 | Out-Null
+  & git -C $dir fetch --depth 1 origin master:refs/remotes/origin/master 2>&1 | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw 'could not reach GitHub' }
+  & git -C $dir checkout -B master refs/remotes/origin/master -f 2>&1 | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw 'could not check out the release branch' }
+  & git -C $dir branch --set-upstream-to=origin/master master 2>&1 | Out-Null
+  # Sweep files the old ZIP had that the release no longer ships (the renamed
+  # install.bat / install.ps1 / launch.ps1 would otherwise sit next to the new
+  # ones - the exact "which do I run?" mess this layout was meant to end). No -x,
+  # so gitignored user data (config.json, modes/, decks/, .env, logs/) is kept,
+  # and a leftover tree would also leave the folder permanently dirty, which
+  # breaks the `git pull --ff-only` that in-app updates rely on.
+  & git -C $dir clean -fd 2>&1 | Out-Null
+  return (& git -C $dir rev-parse --short HEAD)
+}
+
 function Have-Winget { [bool](Get-Command winget -ErrorAction SilentlyContinue) }
 function Install-With-Winget($id, $label) {
   if (-not (Have-Winget)) { return $false }
@@ -154,7 +180,28 @@ try {
     else { Warn 'Could not install Git automatically. The app will still run; get Git from https://git-scm.com to enable in-app updates.' }
   }
 
-  # 3) Anki + the AnkiConnect add-on (the card store Ebiki syncs with) -------
+  # 3) This copy of the app: is it updatable, and which version is it? --------
+  # Printed FIRST thing that matters, so "which installer am I even running" is
+  # answerable from a screenshot of this window.
+  Section 'Checking this copy of the app'
+  if (Test-Path (Join-Path $app '.git')) {
+    $sha = (& git -C $app rev-parse --short HEAD 2>$null)
+    if ($sha) { Ok "Version $sha. Updates work (Settings > General > Updates, and on launch)." }
+    else { Ok 'Git clone. Updates work.' }
+  } elseif ($git) {
+    Warn 'This folder came from a ZIP download, so it has no version and cannot update itself.'
+    Info 'Linking it to the project so updates work from now on...'
+    try {
+      $sha = Link-ToGit $app 'https://github.com/cookmeafish/Ebiki-AI-Flashcards.git'
+      Ok "Linked and updated to the latest release ($sha). Your settings, modes and decks were untouched."
+    } catch {
+      Warn "Could not link this folder ($($_.Exception.Message)). The app runs fine; to get updates later, clone with git instead of downloading the ZIP."
+    }
+  } else {
+    Warn 'ZIP download and no Git, so this copy cannot update itself. The app still runs.'
+  }
+
+  # 4) Anki + the AnkiConnect add-on (the card store Ebiki syncs with) -------
   # Ebiki reads/writes cards through AnkiConnect, so a fresh machine needs BOTH
   # Anki itself and the add-on. Fail-soft on purpose: the app still runs (chat,
   # picture, mode design) without Anki, so nothing here throws.
@@ -216,7 +263,7 @@ try {
     }
   }
 
-  # 4) Dependencies (the npm environment) ------------------------------------
+  # 5) Dependencies (the npm environment) ------------------------------------
   Section 'Installing dependencies (npm install)'
   Warn 'This can take a few minutes the first time...'
   Push-Location $app
@@ -227,7 +274,7 @@ try {
   if ($code -ne 0) { throw 'npm install failed. Check your internet connection and run "Install Ebiki.bat" again.' }
   Ok 'Dependencies installed.'
 
-  # 5) Shortcuts (Desktop + Start Menu) with the Ebi icon --------------------
+  # 6) Shortcuts (Desktop + Start Menu) with the Ebi icon --------------------
   Section 'Creating shortcuts'
   $icon   = Join-Path $app 'ebiki.ico'          # baked into the repo
   $target = Join-Path $app 'launch-ebiki.vbs'   # relative to wherever the app is
