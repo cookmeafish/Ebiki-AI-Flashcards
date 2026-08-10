@@ -11,8 +11,10 @@ $app = Split-Path $PSScriptRoot -Parent
 # Ebiki talks to Anki through AnkiConnect on 127.0.0.1:8765, so without Anki
 # running the Deck / Study / Discover tabs sit on "Anki is not connected".
 # Started FIRST (before the dev server) so it boots in parallel and is usually
-# ready by the time the browser opens. Minimized: the user asked for Ebiki, not
-# for Anki's window. Fail-soft everywhere - the app still opens without it.
+# ready by the time the browser opens. Opened in a normal window so the tandem
+# launch is visible: minimized, it went straight to the taskbar and people
+# assumed it had not started at all. Fail-soft everywhere - the app still opens
+# without it.
 function Start-AnkiIfNeeded {
   # Anki is single-instance; a second launch just pops a dialog at the user.
   if (Get-Process -Name anki -ErrorAction SilentlyContinue) { return }
@@ -35,7 +37,7 @@ function Start-AnkiIfNeeded {
     }
   }
   if (-not $exe) { return }   # Anki not installed -> nothing to do
-  Start-Process -FilePath $exe -WindowStyle Minimized
+  Start-Process -FilePath $exe
 }
 try { Start-AnkiIfNeeded } catch {}
 
