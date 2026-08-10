@@ -15,27 +15,78 @@ $app = Split-Path $PSScriptRoot -Parent
 # launch is visible: minimized, it went straight to the taskbar and people
 # assumed it had not started at all. Fail-soft everywhere - the app still opens
 # without it.
-function Start-AnkiIfNeeded {
-  # Anki is single-instance; a second launch just pops a dialog at the user.
-  if (Get-Process -Name anki -ErrorAction SilentlyContinue) { return }
+# Anki 25.x changed shape: the thing the website installs to
+# %LOCALAPPDATA%\Programs\Anki\anki.exe is only a LAUNCHER. It bootstraps the
+# real Anki (a uv-managed venv under %LOCALAPPDATA%\AnkiProgramFiles) and then
+# EXITS. Two consequences, both of which used to break this function:
+#   - "is anki.exe running?" is not the same question as "is Anki up?", because
+#     the process that survives is the venv one, not the launcher.
+#   - the real binary lives somewhere the old fixed path list never looked.
+# So test for Anki by what Ebiki actually needs (AnkiConnect answering), and
+# treat any Anki-owned process as "already starting".
+function Test-AnkiUp {
+  if (Get-NetTCPConnection -State Listen -LocalPort 8765 -ErrorAction SilentlyContinue) { return $true }
+  # Booting but not serving yet. anki/ankiw are Anki by name; pythonw is far too
+  # generic to trust, so it only counts when its image really is under Anki.
+  foreach ($n in 'anki', 'ankiw') {
+    if (Get-Process -Name $n -ErrorAction SilentlyContinue) { return $true }
+  }
+  foreach ($p in (Get-Process -Name 'pythonw' -ErrorAction SilentlyContinue)) {
+    try { if ($p.Path -like '*Anki*') { return $true } } catch {}   # Path throws on denied
+  }
+  return $false
+}
+
+# WHERE to launch from. Ordered by preference, not just by likelihood: the
+# launcher is the SUPPORTED entry point (it self-updates and picks the right
+# venv), so it wins when present; the venv binary is the fallback for machines
+# where only the older layout exists.
+function Find-AnkiExe {
   $pf = $env:ProgramFiles; $pfx = ${env:ProgramFiles(x86)}; $lad = $env:LOCALAPPDATA
-  $exe = $null
-  foreach ($p in @("$pf\Anki\anki.exe", "$pfx\Anki\anki.exe", "$lad\Programs\Anki\anki.exe")) {
-    if (Test-Path $p) { $exe = $p; break }
+  foreach ($p in @("$lad\Programs\Anki\anki.exe",            # 25.x launcher
+                   "$pf\Anki\anki.exe", "$pfx\Anki\anki.exe", # classic installs
+                   "$lad\AnkiProgramFiles\.venv\Scripts\anki.exe")) {
+    if ($p -and (Test-Path $p)) { return $p }
   }
-  if (-not $exe) {
-    $c = Get-Command anki -ErrorAction SilentlyContinue
-    if ($c) { $exe = $c.Source }
+  # Registered by some builds even when the folder layout is non-standard.
+  foreach ($h in 'HKLM:', 'HKCU:') {
+    $k = "$h\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\anki.exe"
+    try {
+      if (Test-Path $k) {
+        $v = (Get-ItemProperty $k -ErrorAction Stop).'(default)'
+        if ($v -and (Test-Path $v)) { return $v }
+      }
+    } catch {}
   }
-  if (-not $exe) {
-    # Installed somewhere non-standard (the MSI records no path): the Start Menu
-    # shortcut Anki creates is the last thing that still knows where it lives.
-    foreach ($root in @([Environment]::GetFolderPath('Programs'), [Environment]::GetFolderPath('CommonPrograms'))) {
-      if (-not $root) { continue }
-      $lnk = Get-ChildItem $root -Filter 'Anki.lnk' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-      if ($lnk) { $exe = $lnk.FullName; break }
+  $c = Get-Command anki -ErrorAction SilentlyContinue
+  if ($c) { return $c.Source }
+  # Uninstall entries record where it went, even for unusual install locations.
+  foreach ($k in @('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
+                   'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*',
+                   'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*')) {
+    foreach ($e in (Get-ItemProperty $k -ErrorAction SilentlyContinue |
+                    Where-Object { $_.DisplayName -match '^Anki' })) {
+      $dir = $e.InstallLocation
+      if (-not $dir -and $e.UninstallString) { $dir = Split-Path ($e.UninstallString -replace '"', '') -Parent }
+      if ($dir) {
+        $exe = Join-Path $dir 'anki.exe'
+        if (Test-Path $exe) { return $exe }
+      }
     }
   }
+  # Last resort: the Start Menu shortcut is the only thing left that knows.
+  foreach ($root in @([Environment]::GetFolderPath('Programs'), [Environment]::GetFolderPath('CommonPrograms'))) {
+    if (-not $root) { continue }
+    $lnk = Get-ChildItem $root -Filter 'Anki.lnk' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($lnk) { return $lnk.FullName }
+  }
+  return $null
+}
+
+function Start-AnkiIfNeeded {
+  # Anki is single-instance; a second launch just pops a dialog at the user.
+  if (Test-AnkiUp) { return }
+  $exe = Find-AnkiExe
   if (-not $exe) { return }   # Anki not installed -> nothing to do
   Start-Process -FilePath $exe
 }
