@@ -2,6 +2,7 @@
 // a setup screen (word/phrase choice for languages, a focus/chat box for any subject), then
 // proposes one new item at a time. Make a card, mark it known, skip, or move on. All logic
 // lives in App.jsx; this is presentational.
+import { sortTagsUsageFirst, usageTagStyle, usageTagTip } from '../tags/usage'
 
 const C = {
   blue: 'var(--c-brand)', info: 'var(--c-info)', purple: 'var(--c-purple)', green: 'var(--c-success)', orange: 'var(--c-warning)',
@@ -207,13 +208,12 @@ export default function DiscoverPanel(props) {
                 {card.tags?.length > 0 && (
                   <div style={{ fontSize: 10, color: C.dim, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                     {t('d_tagsLabel')}
-                    {/* region-* first + highlighted, matching the App-side tag chips (green=global, amber=regional) */}
-                    {[...card.tags].sort((a, b) => (String(b).startsWith('region-') ? 1 : 0) - (String(a).startsWith('region-') ? 1 : 0)).map((tag, i) => (
-                      <span key={i} style={{ padding: '1px 6px', borderRadius: 3, background: 'rgba(81,98,108,0.12)', ...(String(tag).startsWith('region-')
-                        ? { fontWeight: 700, ...(tag === 'region-global'
-                            ? { background: 'rgba(24,169,87,.12)', color: C.green, border: '1px solid rgba(24,169,87,.35)' }
-                            : { background: 'rgba(232,147,12,.12)', color: C.orange, border: '1px solid rgba(232,147,12,.35)' }) }
-                        : {}) }}>{tag}</span>
+                    {/* Usage tags (where · how often · what context) lead the row and are highlighted,
+                        via the SAME shared helpers the App-side chips use: green = safe to use,
+                        amber = heads-up. Tooltips explain what each one means for the learner. */}
+                    {sortTagsUsageFirst(card.tags).map((tag, i) => (
+                      <span key={i} className={usageTagTip(tag) ? 'tip' : undefined} data-tip={usageTagTip(tag) || undefined}
+                        style={{ padding: '1px 6px', borderRadius: 3, background: 'rgba(81,98,108,0.12)', ...usageTagStyle(tag) }}>{tag}</span>
                     ))}
                   </div>
                 )}
