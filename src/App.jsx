@@ -9,7 +9,7 @@ import { LANGS } from './config/languages'
 import { makeT, APP_LANGUAGES } from './i18n'
 import { pickShrimp, shrimpUrl, DEFAULT_SHRIMP, IDLE_SHRIMP, POSE_NAMES, poseFile } from './config/shrimp'
 import { C, RADIUS, SHADOW, FONT } from './config/tokens'
-import { FREQ_SCALE, REGISTERS, isUsageTag, sortTagsUsageFirst, normalizeUsageTags, reconcileUsageTags, usageTagStyle, usageTagTip } from './tags/usage'
+import { FREQ_SCALE, REGISTERS, isUsageTag, isRegionTag, sortTagsUsageFirst, normalizeUsageTags, collapseSpanningRegions, reconcileUsageTags, usageTagStyle, usageTagTip } from './tags/usage'
 import FormattedText from './components/FormattedText'
 import Pronunciation from './components/Pronunciation'
 import { langInfo } from './pronunciation/langcodes'
@@ -531,6 +531,7 @@ export default function App() {
   const [deckAnalyzeError, setDeckAnalyzeError] = useState(null)
   const [deckAnalyzeEmpty, setDeckAnalyzeEmpty] = useState(false) // true when analyze completed with 0 recommendations
   const [deckAnalyzeSkipped, setDeckAnalyzeSkipped] = useState(0) // recs dropped because AI's noteId/front disagreed
+  const [deckAnalyzeProgress, setDeckAnalyzeProgress] = useState(null) // {done,total} while batches run
   const [deckAnalyzeKind, setDeckAnalyzeKind] = useState('ambiguous') // 'ambiguous' | 'custom' — what the last run was
   const [deckAnalyzeInstruction, setDeckAnalyzeInstruction] = useState('') // the custom request behind the current suggestions (shown in the review header)
   const [deckCustomEditOpen, setDeckCustomEditOpen] = useState(false) // "Ebi bulk edit" instruction panel
@@ -2845,10 +2846,27 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
     const L = learnLangName()
     const v = dialectName()
     return ` USAGE TAGS (mandatory, they are part of what the card teaches — a learner who does not know where and how often a word is used will use it wrongly):
- • WHERE: "region-global" when natives across ALL regions of ${L} use and understand the word IN THIS SENSE, otherwise one or more "region-<place>" tags (lowercase-hyphens: "region-spain", "region-mexico", "region-latam", "region-argentina", "region-brazil", "region-portugal", "region-uk", "region-us", …). Tag the SENSE on the card, not just the spelling: a word everyone knows whose CARDED meaning is regional gets the region tag, never "region-global". "region-global" is a POSITIVE CLAIM you must be confident in; when you are not sure every region uses it, tag only the region(s) you can actually back, at whatever breadth is honest (country < region < global).
+ • WHERE: "region-global" when natives across ALL regions of ${L} use and understand the word IN THIS SENSE, otherwise one or more "region-<place>" tags (lowercase-hyphens: "region-spain", "region-mexico", "region-latam", "region-argentina", "region-brazil", "region-portugal", "region-uk", "region-us", …). Tag the SENSE on the card, not just the spelling: a word everyone knows whose CARDED meaning is regional gets the region tag, never "region-global". "region-global" is a POSITIVE CLAIM you must be confident in; when you are not sure every region uses it, tag only the region(s) you can actually back, at whatever breadth is honest (country < region < global). If the word is used BOTH in the language's original homeland AND across its other major regions, that IS "region-global": tag it global rather than listing the regions (e.g. for Spanish, "region-spain" plus "region-latam" together covers every Spanish-speaking country, so those two must never appear side by side).
  • HOW OFTEN: exactly ONE frequency tag for how often natives really reach for this word${v ? ` in ${v}` : ''}: "freq-core" (top everyday vocabulary, heard constantly), "freq-common" (ordinary everyday word), "freq-uncommon" (natives know it but rarely say it; they usually pick a different word), "freq-rare" (literature, specialized fields or older texts; would sound out of place in conversation). Judge the WORD IN THIS SENSE, and judge it against real speech, not against how obvious the word looks.
  • WHAT CONTEXT: add ONE register tag ONLY when the word is genuinely restricted to a context, from this exact list: ${REGISTERS.join(', ')}. Ordinary neutral words get NO register tag.
  THINK BEFORE YOU TAG: recall where you have actually seen or heard this word (everyday conversation, news, textbooks, novels, legal or medical texts, a specific country), and let that evidence pick the tags. Never infer frequency from the word's length or how "advanced" it looks, and never copy the tags of a similar word. Be honest at this COARSE granularity and never invent precision: if the evidence does not support a claim, choose the safer, broader-but-true tag instead of guessing.`
+  }
+  // Canonical tags for the CURRENT learned language: fold invented spellings, then collapse a
+  // region set that actually spans the whole language ("region-spain + region-latam" IS
+  // region-global, and shown as two amber chips it warns the learner off a perfectly universal
+  // word). Everything that produces usage tags goes through this.
+  const foldUsageTags = (tags) => collapseSpanningRegions(normalizeUsageTags(tags), learnLangName())
+  // Same fold for a reconciled {tags, unverified} pair. If the regions that collapsed were
+  // themselves unconfirmed, the resulting region-global inherits that doubt rather than being
+  // silently promoted to a confirmed claim.
+  const foldUsageResult = ({ tags, unverified }) => {
+    const folded = foldUsageTags(tags)
+    const doubtfulRegion = (unverified || []).some(isRegionTag)
+    return {
+      tags: folded,
+      unverified: folded.filter((tg) => (unverified || []).includes(tg)
+        || (tg === 'region-global' && !(tags || []).includes('region-global') && doubtfulRegion)),
+    }
   }
   // The same tag vocabulary phrased as a JSON-field contract, for the tapped-word lookup and its
   // INDEPENDENT verification pass. Both passes are asked in identical terms so their answers can be
@@ -2864,7 +2882,7 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
     const v = dialectName()
     return `
 USAGE TAG VOCABULARY (use these exact strings, nothing else):
- • WHERE (required): "region-global" when natives across ALL regions of ${L} use and understand it in this sense, otherwise one or more "region-<place>" tags ("region-spain", "region-mexico", "region-latam", "region-argentina", "region-uk", "region-us", …). "region-global" is a positive claim you must be confident in: when unsure, name only the region(s) you can actually back (country < region < global).
+ • WHERE (required): "region-global" when natives across ALL regions of ${L} use and understand it in this sense, otherwise one or more "region-<place>" tags ("region-spain", "region-mexico", "region-latam", "region-argentina", "region-uk", "region-us", …). "region-global" is a positive claim you must be confident in: when unsure, name only the region(s) you can actually back (country < region < global). If the word is used BOTH in the language's original homeland AND across its other major regions, that IS "region-global": tag it global rather than listing the regions (e.g. for Spanish, "region-spain" plus "region-latam" together covers every Spanish-speaking country, so those two must never appear side by side).
  • HOW OFTEN (required, exactly one): ${FREQ_SCALE.join(', ')} — "freq-core" = top everyday vocabulary heard constantly, "freq-common" = ordinary everyday word, "freq-uncommon" = natives know it but rarely say it and usually reach for a different word, "freq-rare" = literature, specialized fields or older texts, out of place in conversation.
  • WHAT CONTEXT (only when genuinely restricted): ONE of ${REGISTERS.join(', ')}. A neutral everyday word gets NO register tag.
 Judge the word IN THE SENSE USED HERE${v ? `, as ${v} speakers use it` : ''}, against real speech and writing — never from how long or advanced the word looks. If your evidence does not support a claim, pick the safer, broader-but-true tag instead of guessing.`
@@ -2966,7 +2984,7 @@ Judge the word IN THE SENSE USED HERE${v ? `, as ${v} speakers use it` : ''}, ag
       back: c.back || '',
       // Fold usage tags onto the closed vocabulary (region-usa → region-us, register-politics →
       // register-political) and drop invented ones, so what reaches Anki stays searchable.
-      tags: Array.isArray(c.tags) && c.tags.length ? normalizeUsageTags(c.tags) : ['ebiki'],
+      tags: Array.isArray(c.tags) && c.tags.length ? foldUsageTags(c.tags) : ['ebiki'],
       correction: c.correction || '',
       _rich: c,
     }))
@@ -3503,16 +3521,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       const fieldLangRule = isLangDeck
         ? `Match each field's language (replace a ${studyLang} field with ${studyLang} content; replace an English field with English content).`
         : `Keep each field in the language it is already written in.`
-      const prompt = `${analyzeFraming}\n\nCards (JSON):\n${JSON.stringify(cards)}\n\nReturn a JSON array — ONLY include cards that need fixing (skip the rest):\n[\n  {\n    "noteId": <number>,\n    "front": "<exact verbatim value of the card's "${frontFieldName}" field, copied character-for-character>",\n    "reason": "<one short sentence: what is ambiguous>",\n    "recommendedFields": { "<fieldName>": "<new content>", ... },\n    "recommendedTags": ["complete", "new", "tag-list"]\n  }\n]\n\nCRITICAL: "noteId" and "front" MUST identify the SAME card. Copy the "front" value verbatim from that exact card's data above — never paraphrase it, never use a different card's word, and double-check that the recommendedFields you write are for that same card. If you cannot be certain a noteId and its front match, omit that card.\n\nIn recommendedFields, include ONLY fields you're changing (typically just the back) — omit it entirely when only tags change. ${fieldLangRule} Use plain text with newlines for line breaks (no HTML, no <br>).\n\n"recommendedTags" is OPTIONAL — include it ONLY when the card's tags should change. When present it REPLACES the card's ENTIRE tag list, so copy over every existing tag you are not changing (dropping one silently DELETES it). Tags are lowercase, hyphenated, and contain no spaces.\n\nOutput ONLY raw JSON. No markdown, no commentary.`
-
-      // keepDashes: the integrity guard below matches the model's echoed `front` VERBATIM against
-      // the deck — the global dash strip would make any dash-containing front unmatchable and
-      // silently drop its rec. Suggestion CONTENT is stripped post-guard instead.
-      const text = await aiCall(apiKey, 'You analyze flashcard quality. Always respond with valid JSON only.', prompt, resolveModel('deck'), { keepDashes: true })
-      // parseAiJson, not bare JSON.parse: models sometimes append commentary after the array or
-      // truncate mid-row — the tolerant parser strips the noise and salvages complete objects.
-      const parsed = parseAiJson(text)
-      if (!Array.isArray(parsed)) throw new Error('Response is not an array')
+      const buildPrompt = (batch) => `${analyzeFraming}\n\nCards (JSON):\n${JSON.stringify(batch)}\n\nReturn a JSON array — ONLY include cards that need fixing (skip the rest):\n[\n  {\n    "noteId": <number>,\n    "front": "<exact verbatim value of the card's "${frontFieldName}" field, copied character-for-character>",\n    "reason": "<one short sentence: what is ambiguous>",\n    "recommendedFields": { "<fieldName>": "<new content>", ... },\n    "recommendedTags": ["complete", "new", "tag-list"]\n  }\n]\n\nCRITICAL: "noteId" and "front" MUST identify the SAME card. Copy the "front" value verbatim from that exact card's data above — never paraphrase it, never use a different card's word, and double-check that the recommendedFields you write are for that same card. If you cannot be certain a noteId and its front match, omit that card.\n\nIn recommendedFields, include ONLY fields you're changing (typically just the back) — omit it entirely when only tags change. ${fieldLangRule} Use plain text with newlines for line breaks (no HTML, no <br>).\n\n"recommendedTags" is OPTIONAL — include it ONLY when the card's tags should change. When present it REPLACES the card's ENTIRE tag list, so copy over every existing tag you are not changing (dropping one silently DELETES it). Tags are lowercase, hyphenated, and contain no spaces.\n\nOutput ONLY raw JSON. No markdown, no commentary.`
 
       // Front (first field by order) of a note, as normalized plain text — used to
       // verify the AI's recommendation actually belongs to the card it names.
@@ -3522,7 +3531,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       }
 
       let mismatchDropped = 0
-      const recs = parsed.map((r) => {
+      const mapRecs = (parsed) => parsed.map((r) => {
         const hasFieldRec = r.recommendedFields && typeof r.recommendedFields === 'object'
         const hasTagRec = Array.isArray(r.recommendedTags)
         if (!hasFieldRec && !hasTagRec) return null
@@ -3593,19 +3602,52 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         }
       }).filter(Boolean)
 
-      // VERIFY-AND-IMPROVE second pass (same guardrail as verifyCards / memory hooks): a skeptical
-      // reviewer re-checks every suggestion BEFORE the user sees it and actively improves clarity;
-      // it can also DROP a suggestion that never should have been made. Fail-soft inside.
-      const verified = recs.length ? await verifyDeckRecs(recs, { kind, instruction }) : recs
-      setDeckAnalyzeRecs(verified)
+      // BATCHED, so every card is actually looked at. One call carrying the whole deck was quietly
+      // lossy: the model has to echo a full rec per flagged card, so on a deck of any size the reply
+      // hit the output-token ceiling and got cut off mid-array. parseAiJson salvages the complete
+      // rows, so it LOOKED like a clean "only these cards need fixing" answer while the tail of the
+      // deck was never judged at all. Fixed-size batches keep every reply well inside the ceiling,
+      // and each batch's cards are all present in its own prompt. Sequential (not parallel) to stay
+      // within provider rate limits on a big deck; progress is reported per batch.
+      const BATCH = 20
+      const batches = []
+      for (let i = 0; i < cards.length; i += BATCH) batches.push(cards.slice(i, i + BATCH))
+      setDeckAnalyzeProgress({ done: 0, total: cards.length })
+      let all = []
+      let failedBatches = 0
+      for (let bi = 0; bi < batches.length; bi++) {
+        try {
+          // keepDashes: the integrity guard matches the model's echoed `front` VERBATIM against the
+          // deck — the global dash strip would make any dash-containing front unmatchable and
+          // silently drop its rec. Suggestion CONTENT is stripped post-guard instead.
+          const text = await aiCall(apiKey, 'You analyze flashcard quality. Always respond with valid JSON only.', buildPrompt(batches[bi]), resolveModel('deck'), { keepDashes: true, maxTokens: 8000 })
+          // parseAiJson, not bare JSON.parse: models sometimes append commentary after the array or
+          // truncate mid-row — the tolerant parser strips the noise and salvages complete objects.
+          const parsed = parseAiJson(text)
+          if (!Array.isArray(parsed)) throw new Error('Response is not an array')
+          const recs = mapRecs(parsed)
+          // Verify per batch: a bounded payload here too, for the same truncation reason.
+          all = [...all, ...(recs.length ? await verifyDeckRecs(recs, { kind, instruction }) : recs)]
+        } catch (err) {
+          // One bad batch must not throw away the batches that already succeeded.
+          failedBatches++
+          console.error(`[Deck] analyze batch ${bi + 1}/${batches.length} failed:`, err.message)
+        }
+        setDeckAnalyzeProgress({ done: Math.min((bi + 1) * BATCH, cards.length), total: cards.length })
+        setDeckAnalyzeRecs(all) // stream results in as they arrive rather than after the last batch
+      }
+      if (failedBatches === batches.length) throw new Error('Every batch failed. Check the AI connection and try again.')
+      setDeckAnalyzeRecs(all)
       setDeckAnalyzeSkipped(mismatchDropped)
-      setDeckAnalyzeEmpty(verified.length === 0)
-      console.log('[Deck] analyzed,', verified.length, 'recommendations from', cards.length, 'cards', mismatchDropped ? `(${mismatchDropped} dropped for card-identity mismatch)` : '', recs.length !== verified.length ? `(${recs.length - verified.length} dropped by the verify pass)` : '')
+      setDeckAnalyzeEmpty(all.length === 0)
+      if (failedBatches) setDeckAnalyzeError(t('deck_analyzePartial', { n: failedBatches * BATCH }))
+      console.log('[Deck] analyzed,', all.length, 'recommendations from', cards.length, 'cards in', batches.length, 'batches', mismatchDropped ? `(${mismatchDropped} dropped for card-identity mismatch)` : '', failedBatches ? `(${failedBatches} batch(es) failed)` : '')
     } catch (err) {
       console.error('[Deck] analyze failed:', err.message)
       setDeckAnalyzeError(err.message)
     } finally {
       setDeckAnalyzeLoading(false)
+      setDeckAnalyzeProgress(null)
     }
   }
 
@@ -3631,7 +3673,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
           ? `The proposals were produced for this owner request: "${instruction}".`
           : `The proposals fix ambiguous/underspecified cards.`
       const prompt = `You are a skeptical senior reviewer double-checking ANOTHER model's proposed flashcard edits BEFORE the deck owner reviews them. These edits will be WRITTEN onto the owner's cards, so a wrong or sloppy proposal is harmful. ${isLangDeck ? `The deck teaches ${studyLang}.${dialectRule()}${preferredTermRule()}` : `The deck studies "${activeMode.name}"${activeMode.description ? ` (${activeMode.description})` : ''}.`}\n${goal}\n\nFor EACH proposal, check IN ORDER:\n1. TRUTH: every claim in proposedFields is factually correct${isLangDeck ? ` in ${studyLang} — including REGIONAL honesty: never say a word is "only slang/colloquial" or "only means X" when some region genuinely uses it for the literal sense too; state the per-region reality precisely` : ''}. Fix anything wrong.\n2. SCOPE: the change does what the goal asks and nothing more — restore any line it needlessly altered (compare against currentFields).\n3. TAGS: proposedTags is the COMPLETE replacement list; restore any existing tag that was dropped without reason (a missing tag silently deletes it).${isLangDeck ? ` Verify every USAGE tag against where you have actually encountered that word rather than accepting the other model's claim: "region-global" only when you are confident every region uses it in this sense (otherwise demote it to the region(s) you can back), exactly one honest frequency tag ("freq-core" / "freq-common" / "freq-uncommon" / "freq-rare", choosing the LESS common level when it sits between two), and a register tag only for a word genuinely restricted to that context. Delete a usage tag you cannot back.` : ''}\n4. CLARITY (active improvement): even when nothing failed, make the proposed content clearer and easier to learn from — simpler wording, sharper examples, tighter phrasing — WITHOUT changing its meaning, scope, language, or line format. Keep text verbatim only when you genuinely cannot improve it.${allowDrop ? `\n\nIf a card never needed this change at all (the proposal is wrong or pointless), mark it with "drop": true instead of fixing it.` : ''}\n\nProposals (JSON):\n${JSON.stringify(payload)}\n\nReturn the SAME JSON array (same noteIds, same order) with "proposedFields"/"proposedTags"/"reason" corrected in place${allowDrop ? ' and "drop": true on proposals to discard' : ''}. NEVER change a noteId. Use plain text with newlines (no HTML). Output ONLY raw JSON.`
-      const text = await aiCall(apiKey, 'You review proposed flashcard edits. Always respond with valid JSON only.', prompt, resolveModel('deck'))
+      const text = await aiCall(apiKey, 'You review proposed flashcard edits. Always respond with valid JSON only.', prompt, resolveModel('deck'), { maxTokens: 8000 })
       const parsed = parseAiJson(text)
       if (!Array.isArray(parsed)) return recs
       const byId = new Map(parsed.filter((p) => p && p.noteId != null).map((p) => [Number(p.noteId), p]))
@@ -3913,7 +3955,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
           const prompt = activeMode.type === 'language'
             ? `These are flashcard headwords that look similar (possible spelling/accent/typo variants of the SAME word). For each cluster, identify which cards are truly the SAME word and should be merged. Different words that merely look alike (e.g. "casa" vs "caza", "pero" vs "perro") must NOT be grouped.\n\nClusters (JSON):\n${JSON.stringify(forAI)}\n\nReturn ONLY a JSON array of the duplicate sets you confirm (omit anything that isn't a real duplicate):\n[ { "merge": [<noteId>, <noteId>, ...] }, ... ]\n\nEach "merge" set must have 2+ noteIds that are the same word. Output ONLY raw JSON, no markdown.`
             : `These are flashcard fronts from a "${activeMode.name}" study deck that look similar (possible duplicates: typo variants, an abbreviation vs its expansion, or the same term/concept written differently). For each cluster, identify which cards are truly the SAME term/concept and should be merged. DISTINCT concepts that merely look or sound similar (e.g. "encoding" vs "encryption", "TCP" vs "UDP") must NOT be grouped.\n\nClusters (JSON):\n${JSON.stringify(forAI)}\n\nReturn ONLY a JSON array of the duplicate sets you confirm (omit anything that isn't a real duplicate):\n[ { "merge": [<noteId>, <noteId>, ...] }, ... ]\n\nEach "merge" set must have 2+ noteIds that are the same term/concept. Output ONLY raw JSON, no markdown.`
-          const text = await aiCall(apiKey, 'You confirm whether similar-looking flashcards are the same word. Always respond with valid JSON only.', prompt, resolveModel('deck'))
+          const text = await aiCall(apiKey, 'You confirm whether similar-looking flashcards are the same word. Always respond with valid JSON only.', prompt, resolveModel('deck'), { maxTokens: 8000 })
           const parsed = parseAiJson(text)
           if (Array.isArray(parsed)) {
             fuzzyGroups = parsed.map((p) => {
@@ -5066,22 +5108,27 @@ Output ONLY raw JSON. No markdown, no backticks.`
   // the Learn-it moment cannot drift apart. `unverified` marks tags the double-check could not
   // confirm (rendered gray-dashed with a "?" rather than hidden: a disagreement the learner cannot
   // see is its own dishonesty). `checking` shows while the second pass is still running.
+  // Renders the WHOLE tag set the word carries, not just the usage families: the learner sees the
+  // same row here that the finished card will have (part of speech, level, topic, ebiki), with the
+  // usage tags leading and highlighted. Tooltips come from the i18n dicts, so they follow the app
+  // language.
   const renderUsageTagChips = (tags, unverified = [], checking = false, size = 9) => {
     if (!tags?.length && !checking) return null
     return (
       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-        {sortTagsUsageFirst(tags || []).filter(isUsageTag).map((tag, ti) => {
-          const unconfirmed = (unverified || []).includes(tag)
+        {sortTagsUsageFirst(tags || []).map((tag, ti) => {
+          const unconfirmed = isUsageTag(tag) && (unverified || []).includes(tag)
+          const tip = usageTagTip(tag, { unverified: unconfirmed, t })
           return (
-            <span key={ti} className="tip tip-r" data-tip={usageTagTip(tag, { unverified: unconfirmed })}
-              style={{ fontSize: size, padding: '1px 5px', borderRadius: 3, cursor: 'help', ...usageTagStyle(tag, { unverified: unconfirmed }) }}>
+            <span key={ti} className={tip ? 'tip tip-r' : undefined} data-tip={tip || undefined}
+              style={{ fontSize: size, padding: '1px 5px', borderRadius: 3, background: 'rgba(125,133,144,.15)', color: 'var(--c-ink-dim)', ...(tip ? { cursor: 'help' } : {}), ...usageTagStyle(tag, { unverified: unconfirmed }) }}>
               {tag}{unconfirmed ? ' ?' : ''}
             </span>
           )
         })}
         {checking && (
-          <span className="tip tip-r" data-tip="Ebi is checking these against a second, independent read so a guessed tag cannot slip through"
-            style={{ fontSize: size, color: 'var(--c-ink-faint)', cursor: 'help' }}>double-checking…</span>
+          <span className="tip tip-r" data-tip={t('tag_checkingTip')}
+            style={{ fontSize: size, color: 'var(--c-ink-faint)', cursor: 'help' }}>{t('tag_checking')}</span>
         )}
       </div>
     )
@@ -5132,7 +5179,9 @@ Output ONLY raw JSON. No markdown, no backticks.`
             country-specific word as the everyday one. Shown here rather than only on the finished
             card, because the card is exactly the moment the wrong word gets locked in. Each chip's
             tooltip is left-anchored (tip-r) since the popup often sits near the screen edge. */}
-        {!studyWordLookup.loading && renderUsageTagChips(studyWordLookup.usageTags, studyWordLookup.usageUnverified, studyWordLookup.usageChecking)}
+        {!studyWordLookup.loading && renderUsageTagChips(
+          [...(studyWordLookup.usageTags || []), ...(studyWordLookup.otherTags || [])],
+          studyWordLookup.usageUnverified, studyWordLookup.usageChecking)}
 
         {/* Row 2: turn this word into an Anki card. generateCards is language/topic-agnostic. */}
         {!studyWordLookup.loading && (
@@ -6521,14 +6570,14 @@ Output ONLY raw JSON. No markdown, no backticks.`
       if (first.length >= 3 && first.length <= 80) return first
       return headNoParen.split(/\s+/).slice(0, 6).join(' ')
     })()
-    setStudyLearnMoment({ front: cs.front, back: cs.back, noteId: nid, typed: '', keyTerm: keyFallback, keyTermAlt: keyFallback, hooks: saved, hookLoading: !saved.length && !!apiKey, chat: [], chatInput: '', chatLoading: false, requeued, usageTags: [], usageUnverified: [], usageChecking: isLangMoment && !!apiKey })
+    setStudyLearnMoment({ front: cs.front, back: cs.back, noteId: nid, typed: '', keyTerm: keyFallback, keyTermAlt: keyFallback, hooks: saved, hookLoading: !saved.length && !!apiKey, chat: [], chatInput: '', chatLoading: false, requeued, usageTags: [], otherTags: [], usageUnverified: [], usageChecking: isLangMoment && !!apiKey })
     // Where it is used and how often natives say it — this panel is where the word is actually being
     // taught, so it is exactly where that belongs. Card's own tags when it has them, derived (and
     // double-checked) otherwise. Non-blocking and fail-soft: the lesson never waits on tags.
     if (isLangMoment && apiKey) {
       resolveCardUsageTags(nid, cs.front, cs.back)
-        .then(({ tags, unverified }) => setStudyLearnMoment((p) => (p && p.front === cs.front)
-          ? { ...p, usageTags: tags, usageUnverified: unverified, usageChecking: false } : p))
+        .then(({ tags, unverified, otherTags }) => setStudyLearnMoment((p) => (p && p.front === cs.front)
+          ? { ...p, usageTags: tags, otherTags: otherTags || [], usageUnverified: unverified, usageChecking: false } : p))
         .catch(() => setStudyLearnMoment((p) => (p && p.front === cs.front) ? { ...p, usageChecking: false } : p))
     }
     if (!isLangMoment && apiKey) {
@@ -6865,14 +6914,14 @@ Reply as JSON ONLY (no markdown, no extra text, never an em dash):
 ${usageTagsContract(`"${target}" in this sense`)}
 }${usageTagsVocab()}`
     const text = await aiCall(apiKey, `You are a precise ${L} usage expert. Output JSON only.`, prompt, resolveModel('study'), { silent: true })
-    return normalizeUsageTags(parseAiJson(text)?.usageTags || [])
+    return foldUsageTags(parseAiJson(text)?.usageTags || [])
   }
   const checkUsageTags = async (target, sense, sentence, proposed) => {
-    const first = normalizeUsageTags(proposed)
+    const first = foldUsageTags(proposed)
     try {
       const second = await askUsageTags(target, sense, sentence)
       if (!second.length) return { tags: first, unverified: first }
-      return reconcileUsageTags(first, second)
+      return foldUsageResult(reconcileUsageTags(first, second))
     } catch {
       return { tags: first, unverified: first }
     }
@@ -6883,7 +6932,7 @@ ${usageTagsContract(`"${target}" in this sense`)}
     try {
       const [a, b] = await Promise.all([askUsageTags(target, sense, ''), askUsageTags(target, sense, '')])
       if (!a.length && !b.length) return { tags: [], unverified: [] }
-      return reconcileUsageTags(a, b)
+      return foldUsageResult(reconcileUsageTags(a, b))
     } catch {
       return { tags: [], unverified: [] }
     }
@@ -6903,8 +6952,10 @@ ${usageTagsContract(`"${target}" in this sense`)}
     if (noteId && ankiConnected) {
       try {
         const [note] = await ankiNotesInfo([noteId])
-        const own = normalizeUsageTags((note?.tags || []).filter(isUsageTag))
-        if (own.length) result = { tags: own, unverified: [] }
+        const own = foldUsageTags((note?.tags || []).filter(isUsageTag))
+        // The card's non-usage tags (part of speech, level, topic) ride along so the panel shows the
+        // card's real, complete tag row.
+        if (own.length) result = { tags: own, unverified: [], otherTags: (note?.tags || []).filter((tg) => !isUsageTag(tg)) }
       } catch { /* Anki hiccup — fall through to deriving them */ }
     }
     if (!result) {
@@ -6964,7 +7015,8 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text, never an em da
   "alternatives": ["see the cases above; [] if there is really only one"],
   "pron": "simplified phonetics of the TARGET ${studyLang} word for a ${explainLang} speaker, stressed syllable in CAPS (e.g. PREH-syoh), same style as flashcard pronunciation lines; "" if it reads exactly as spelled",
   "usage": "REQUIRED whenever a DIFFERENT ${studyLang} word is what speakers more commonly say for the target's in-context meaning: name it and say what the target leans toward instead (e.g. for barro meaning mud: 'everyday Latin American speech prefers lodo; barro leans clay/pottery'). Otherwise only if noteworthy: a few ${explainLang} words on how common/where/what register (e.g. 'rare, literary', 'informal slang'); "" for words that ARE the natural default term and are otherwise unremarkable",
-${usageTagsContract('the TARGET word')}
+${usageTagsContract('the TARGET word')},
+  "otherTags": ["the rest of the tags a flashcard for the TARGET word would carry: its part of speech written in ${studyLang}, a level tag like level-b2, one or two topic tags, and \\"ebiki\\". Lowercase, hyphenated, no spaces"]
 }${usageTagsVocab()}${preferredTermRule()}` : `A learner tapped the word "${word}" in this ${studyLang} study question. Read the ENTIRE question for context — the same word can have different meanings depending on context.
 
 Question: "${sentence}"
@@ -6981,7 +7033,13 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text, never an em da
       // Em dashes are banned everywhere a reader can see — prompts leak, the strip is the guarantee.
       const deDash = (s) => String(s || '').replace(/\s*[—–]\s*/g, ', ').trim()
       const target = deDash(parsed.target).replace(/^["']+|["']+$/g, '') || word
-      const firstTags = normalizeUsageTags(parsed.usageTags || [])
+      const firstTags = foldUsageTags(parsed.usageTags || [])
+      // The rest of the tags the card would carry (part of speech, level, topic, ebiki). They are
+      // shown beside the usage tags so the popup previews the FULL tag row, but they are kept
+      // separate: only the usage families go through the double-check.
+      const otherTags = [...new Set((Array.isArray(parsed.otherTags) ? parsed.otherTags : [])
+        .map((tg) => String(tg).trim().toLowerCase().replace(/\s+/g, '-'))
+        .filter((tg) => tg && !isUsageTag(tg)))].slice(0, 6)
       // Functional + spread: the async note resolution above may already have attached
       // hooks/hookNoteId — a plain object replacement would silently wipe them.
       setStudyWordLookup((prev) => ({
@@ -6996,6 +7054,7 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text, never an em da
         // then confirmed (or corrected, or flagged) by the independent second pass below — the
         // meaning must never wait on tag verification.
         usageTags: firstTags,
+        otherTags,
         usageUnverified: firstTags, // nothing is confirmed until the check comes back
         usageChecking: isLang,
         loading: false,
@@ -7120,10 +7179,10 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text, never an em da
       // snapshot taken when the button was clicked.
       setStudyWordLookup((prev) => {
         if (!(prev && prev.word === wl.word)) return prev
-        const confirmed = (prev.usageTags || []).filter((t) => !(prev.usageUnverified || []).includes(t))
+        const confirmed = (prev.usageTags || []).filter((tg) => !(prev.usageUnverified || []).includes(tg))
         const tags = confirmed.length
-          ? [...confirmed, ...(card.tags || []).filter((t) => !isUsageTag(t))]
-          : normalizeUsageTags(card.tags || [])
+          ? [...confirmed, ...(card.tags || []).filter((tg) => !isUsageTag(tg))]
+          : foldUsageTags(card.tags || [])
         return { ...prev, cardLoading: false, card: { ...card, tags: sortTagsUsageFirst(tags) } }
       })
     } catch {
@@ -9738,6 +9797,13 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     {t('deck_bulkEdit')}
                   </button>
                   {!apiKey && <span style={{ fontSize: 10, color: 'var(--c-ink-dim)' }}>{t('deck_apiKeyRequired')}</span>}
+                  {/* Batched run: show how far through the deck it is, so a long pass on a big deck
+                      reads as progress rather than a stuck button. */}
+                  {deckAnalyzeProgress && (
+                    <span style={{ fontSize: 10, color: 'var(--c-ink-dim)' }}>
+                      {t('deck_analyzeProgress', { done: deckAnalyzeProgress.done, total: deckAnalyzeProgress.total })}
+                    </span>
+                  )}
                   {deckAnalyzeError && <span style={{ fontSize: 10, color: 'var(--c-danger)' }}>{deckAnalyzeError}</span>}
                   {deckDupError && <span style={{ fontSize: 10, color: 'var(--c-danger)' }}>{deckDupError}</span>}
                   {deckAnalyzeEmpty && !deckAnalyzeLoading && (
@@ -10325,7 +10391,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                   {/* Usage tags explain themselves on hover (what a region/frequency/
                                       register claim means for the learner); other tags are literal. */}
                                   {sortTagsUsageFirst(note.tags).map((tag) => (
-                                    <span key={tag} className={isUsageTag(tag) ? 'tip tip-r' : undefined} data-tip={usageTagTip(tag) || undefined}
+                                    <span key={tag} className={isUsageTag(tag) ? 'tip tip-r' : undefined} data-tip={usageTagTip(tag, { t }) || undefined}
                                       style={{ fontSize: 9, fontWeight: 700, color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,.3)', borderRadius: 999, padding: '1px 7px', ...(isUsageTag(tag) ? { cursor: 'help' } : {}), ...usageTagStyle(tag) }}>{tag}</span>
                                   ))}
                                 </div>
@@ -11220,7 +11286,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               word gets memorized as the everyday one. */}
                           {activeMode.type === 'language' && (
                             <div style={{ marginBottom: 10 }}>
-                              {renderUsageTagChips(lm.usageTags, lm.usageUnverified, lm.usageChecking, 9.5)}
+                              {renderUsageTagChips([...(lm.usageTags || []), ...(lm.otherTags || [])], lm.usageUnverified, lm.usageChecking, 9.5)}
                             </div>
                           )}
                           {/* General cards: the headline shows the KEY TERM, so the full front paragraph

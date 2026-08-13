@@ -111,6 +111,32 @@ export const normalizeUsageTags = (tags) => {
   return sortTagsUsageFirst(freq ? [...withoutGlobal, freq] : withoutGlobal)
 }
 
+// "region-spain + region-latam" is just region-global spelled the long way: between them those two
+// cover every country that speaks Spanish, so listing both tells the learner "watch out, this is
+// regional" about a word that is in fact universal — the opposite of the truth. Models do this
+// constantly because naming regions feels more careful than claiming global. DATA, not language
+// branching (same principle as pronunciation/langcodes.js): each entry is a set of regions that
+// together span a language, so adding a language is one line. Keyed by lowercased language name.
+export const REGION_SPANS = {
+  spanish: [['region-spain', 'region-latam']],
+  portuguese: [['region-portugal', 'region-brazil']],
+  english: [['region-uk', 'region-us']],
+  french: [['region-france', 'region-quebec']],
+  dutch: [['region-netherlands', 'region-belgium']],
+}
+// Collapse any spanning set down to region-global. Only fires on a set that FULLY spans: naming
+// Spain alone, or Spain plus Mexico, stays exactly as claimed.
+export const collapseSpanningRegions = (tags, language) => {
+  const spans = REGION_SPANS[String(language || '').trim().toLowerCase()]
+  if (!spans) return tags
+  const regions = (tags || []).filter(isRegionTag)
+  if (regions.length < 2) return tags
+  const spanned = spans.some((set) => set.every((r) => regions.includes(r)))
+  if (!spanned) return tags
+  const rest = (tags || []).filter((t) => !isRegionTag(t))
+  return sortTagsUsageFirst(['region-global', ...rest])
+}
+
 const regionsOf = (tags) => (tags || []).filter(isRegionTag)
 const freqOf = (tags) => (tags || []).find(isFreqTag) || null
 const registersOf = (tags) => (tags || []).filter(isRegisterTag)
@@ -192,43 +218,37 @@ export const usageTagStyle = (tag, opts = {}) => {
 }
 
 // Human explanation for the chip tooltip — the chip name alone ("freq-uncommon") does not tell a
-// learner what to DO with it. Language-neutral phrasing; no em dashes (project-wide rule).
-const FREQ_TIPS = {
-  'freq-core': 'Top everyday vocabulary. Natives use this constantly, so it is safe to use freely.',
-  'freq-common': 'Common in everyday speech. You can use this without sounding unusual.',
-  'freq-uncommon': 'Natives know it but rarely reach for it in everyday speech. Recognize it; prefer a more common word when speaking.',
-  'freq-rare': 'Rare. Mostly literature, specialized fields or older texts. Using it in conversation will sound out of place.',
+// learner what to DO with it. The text is LOCALIZED: every string lives in the i18n dicts (keys
+// `tag_*`, all four languages) and the caller passes its `t`, so the tooltips follow the app
+// language like the rest of the chrome. No English is duplicated here, so nothing can drift.
+// Without a `t` the tip is empty rather than a raw key name (a key on screen is worse than none).
+const FREQ_TIP_KEYS = {
+  'freq-core': 'tag_freqCore', 'freq-common': 'tag_freqCommon',
+  'freq-uncommon': 'tag_freqUncommon', 'freq-rare': 'tag_freqRare',
 }
-const REGISTER_TIPS = {
-  'register-formal': 'Formal contexts. Sounds stiff in casual conversation.',
-  'register-informal': 'Casual speech. Avoid in formal writing.',
-  'register-literary': 'Mostly literary and written. Would stand out in everyday conversation.',
-  'register-poetic': 'Poetic. Reserved for verse and elevated style.',
-  'register-slang': 'Slang. Very informal and can date quickly.',
-  'register-vulgar': 'Vulgar or offensive. Know it, but be careful using it.',
-  'register-childish': 'Child or baby talk.',
-  'register-archaic': 'Archaic. Found in older texts, not in current speech.',
-  'register-technical': 'Technical jargon within a specific field.',
-  'register-academic': 'Academic and scholarly writing.',
-  'register-legal': 'Legal language.',
-  'register-political': 'Political discourse and reporting.',
-  'register-medical': 'Medical language.',
-  'register-business': 'Business and commercial contexts.',
-  'register-journalistic': 'Press and news writing.',
-  'register-military': 'Military contexts.',
-  'register-religious': 'Religious contexts.',
+const REGISTER_LABEL_KEYS = {
+  'register-formal': 'tag_regFormal', 'register-informal': 'tag_regInformal',
+  'register-literary': 'tag_regLiterary', 'register-poetic': 'tag_regPoetic',
+  'register-slang': 'tag_regSlang', 'register-vulgar': 'tag_regVulgar',
+  'register-childish': 'tag_regChildish', 'register-archaic': 'tag_regArchaic',
+  'register-technical': 'tag_regTechnical', 'register-academic': 'tag_regAcademic',
+  'register-legal': 'tag_regLegal', 'register-political': 'tag_regPolitical',
+  'register-medical': 'tag_regMedical', 'register-business': 'tag_regBusiness',
+  'register-journalistic': 'tag_regJournalistic', 'register-military': 'tag_regMilitary',
+  'register-religious': 'tag_regReligious',
 }
 export const usageTagTip = (tag, opts = {}) => {
-  const t = clean(tag)
+  const t = opts.t
+  if (typeof t !== 'function') return ''
+  const tg = clean(tag)
   let base = ''
-  if (t === 'region-global') base = 'Used and understood by natives across every region of this language.'
-  else if (isRegionTag(t)) {
-    const place = t.slice('region-'.length).replace(/-/g, ' ')
-    base = `Used in ${place}. Speakers elsewhere may not use it or may say something different.`
-  } else if (isFreqTag(t)) base = FREQ_TIPS[t] || 'How often natives actually use this word.'
-  else if (isRegisterTag(t)) base = REGISTER_TIPS[t] || 'The context this word is restricted to.'
-  else return ''
-  return opts.unverified
-    ? `${base} · Not confirmed: two independent checks disagreed on this one, so treat it as a rough guide.`
-    : base
+  if (tg === 'region-global') base = t('tag_regionGlobal')
+  else if (isRegionTag(tg)) base = t('tag_regionPlace', { place: tg.slice('region-'.length).replace(/-/g, ' ') })
+  else if (isFreqTag(tg)) base = FREQ_TIP_KEYS[tg] ? t(FREQ_TIP_KEYS[tg]) : t('tag_freqGeneric')
+  else if (isRegisterTag(tg)) {
+    base = REGISTER_LABEL_KEYS[tg]
+      ? t('tag_registerTip', { context: t(REGISTER_LABEL_KEYS[tg]) })
+      : t('tag_registerGeneric')
+  } else return ''
+  return opts.unverified ? `${base} · ${t('tag_unconfirmed')}` : base
 }
