@@ -3514,6 +3514,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     setDeckAnalyzeError(null)
     setDeckAnalyzeEmpty(false)
     setDeckAnalyzeSkipped(0)
+    setDeckAnalyzeRecs([]) // results are APPENDED per batch now, so a run must start from empty
     setDeckAnalyzeKind(kind)
     setDeckAnalyzeInstruction(kind === 'custom' ? instruction : '')
     try {
@@ -3652,17 +3653,22 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
           if (!Array.isArray(parsed)) throw new Error('Response is not an array')
           const recs = mapRecs(parsed)
           // Verify per batch: a bounded payload here too, for the same truncation reason.
-          all = [...all, ...(recs.length ? await verifyDeckRecs(recs, { kind, instruction }) : recs)]
+          const batchRecs = recs.length ? await verifyDeckRecs(recs, { kind, instruction }) : recs
+          all = [...all, ...batchRecs]
+          // APPEND, never re-assert the whole list. The review rows are live while later batches
+          // are still running, and every user action on them (accept, edit the tags field, refine,
+          // dismiss) is a functional update on this same array — writing a local snapshot over it
+          // would silently revert whatever the user just did to an earlier batch. Appending also
+          // keeps existing rows at their index, which those position-keyed updates rely on.
+          if (batchRecs.length) setDeckAnalyzeRecs((prev) => [...prev, ...batchRecs])
         } catch (err) {
           // One bad batch must not throw away the batches that already succeeded.
           failedBatches++
           console.error(`[Deck] analyze batch ${bi + 1}/${batches.length} failed:`, err.message)
         }
         setDeckAnalyzeProgress({ done: Math.min((bi + 1) * BATCH, cards.length), total: cards.length })
-        setDeckAnalyzeRecs(all) // stream results in as they arrive rather than after the last batch
       }
       if (failedBatches === batches.length) throw new Error('Every batch failed. Check the AI connection and try again.')
-      setDeckAnalyzeRecs(all)
       setDeckAnalyzeSkipped(mismatchDropped)
       setDeckAnalyzeEmpty(all.length === 0)
       if (failedBatches) setDeckAnalyzeError(t('deck_analyzePartial', { n: failedBatches * BATCH }))
