@@ -510,6 +510,14 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   legacy card that has no tags yet; `resolveCardUsageTags` prefers the card's OWN Anki tags (already
   verified at generation) and caches per session in `usageTagCacheRef`. `studyWordMakeCard` carries
   the CONFIRMED tags onto the generated card so the card can't contradict what the learner just read.
+  **Region sets that SPAN the language collapse to `region-global`** - `collapseSpanningRegions` +
+  the `REGION_SPANS` data table (spanish = spain+latam, portuguese = portugal+brazil, english =
+  uk+us, …; DATA keyed by language, never `if (lang === …)`). "region-spain + region-latam" is
+  region-global spelled the long way, and shown as two amber chips it warns the learner off a
+  perfectly universal word. Models do this constantly because naming regions feels more careful than
+  claiming global, so the prompts forbid it AND `foldUsageTags` (= normalize + collapse, the funnel
+  EVERY tag producer goes through) fixes it after the fact. Display only: an existing card keeps its
+  tags until a reviewed Dialect audit / bulk edit rewrites them.
   **Rendering: `sortTagsUsageFirst` + `usageTagStyle` + `usageTagTip`, via `renderUsageTagChips`**
   (App.jsx) - stable sort puts region → freq → register first; green = safe to use (`region-global`,
   `freq-core`, `freq-common`), amber = heads-up (specific region, rare, context-bound), gray-dashed =
@@ -517,6 +525,12 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   the chat `<anki-card>` widget, Quick Add tray, deck browser rows, Picture widget, the tapped-word
   popup (live lookup chips AND the new/existing-card preview), the **Learn-it moment**, and the
   Discover card preview in `DiscoverPanel.jsx` (now IMPORTS the shared helpers, no longer a copy).
+  The popup and Learn-it panel show the **FULL tag row** the card will carry, not just the usage
+  families: the lookup returns `otherTags` (part of speech, level, topic, ebiki) alongside
+  `usageTags`, kept in separate state because only the usage families go through the double-check.
+  **Tooltips are i18n'd** (`tag_*` keys in all four dicts; `usageTagTip(tag, {unverified, t})` takes
+  the translator and returns '' without one, so a missing `t` shows no tooltip instead of a raw key).
+  `usage.test.js` asserts every tag resolves to real text in en/es/zh/ja.
   New tag-chip surfaces must use these helpers. `normalizeUsageTags` folds model-invented spellings
   (`region-usa` → `region-us`, `register-politics` → `register-political`) and drops junk on the way
   out of `generateCards` and into bulk-edit recs - but NEVER touches a tag a card already carries
@@ -893,6 +907,18 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   reviewer reverts to the current card is removed as no-op. Per-rec **Refine verifies too**
   (`refineRequest` rides along, `allowDrop: false` - the user explicitly asked for that change).
   Fail-soft: any error keeps the first-pass suggestions. ~2 model calls per analyze run.
+  **analyzeDeck is BATCHED (20 cards per call) - do not collapse it back into one call.** Sending
+  the whole deck in one prompt was quietly lossy: the model echoes a full rec per flagged card, so
+  the reply hit the output-token ceiling and was cut off mid-array; `parseAiJson` salvaged the
+  complete rows, so it LOOKED like a clean "only these need fixing" answer while the tail of the
+  deck was never judged (the "Ebi bulk edit misses cards" report). Batches are sequential (provider
+  rate limits), each with `maxTokens: 8000`, recs STREAM into the UI as batches land,
+  `deckAnalyzeProgress` {done,total} drives a "Checking N of M cards" line, and one failed batch
+  can't discard the others (only an all-batch failure throws; a partial run reports
+  `deck_analyzePartial`). Applies to all four buttons that route through it: Analyze for ambiguous
+  cards, Dialect audit, Ebi bulk edit, and the Help `deck_edit` action. The duplicate scanner is
+  NOT batched on purpose - it finds candidates locally across the whole deck first (exact +
+  edit-distance) and only sends candidate clusters to the AI.
   `deckAnalyzeKind` keeps button labels/empty-messages straight. SECOND entry
   point: Ebi's Help emits `<action>{"type":"deck_edit","instruction":…}</action>` (CAPABILITIES block
   tells it to refuse vague requests); App's onAction prefills+opens the panel, switches to the Deck

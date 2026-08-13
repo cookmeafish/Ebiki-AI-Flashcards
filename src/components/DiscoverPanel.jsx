@@ -212,7 +212,7 @@ export default function DiscoverPanel(props) {
                         via the SAME shared helpers the App-side chips use: green = safe to use,
                         amber = heads-up. Tooltips explain what each one means for the learner. */}
                     {sortTagsUsageFirst(card.tags).map((tag, i) => (
-                      <span key={i} className={usageTagTip(tag) ? 'tip' : undefined} data-tip={usageTagTip(tag) || undefined}
+                      <span key={i} className={usageTagTip(tag, { t }) ? 'tip' : undefined} data-tip={usageTagTip(tag, { t }) || undefined}
                         style={{ padding: '1px 6px', borderRadius: 3, background: 'rgba(81,98,108,0.12)', ...usageTagStyle(tag) }}>{tag}</span>
                     ))}
                   </div>
