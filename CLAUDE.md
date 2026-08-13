@@ -944,10 +944,17 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   `ankiCopyNote` (new note, same model/fields/tags, allowDuplicate ON PURPOSE) or `ankiChangeDeck`
   (scheduling travels; row leaves the list), with an inline "New deck…" creator in the target picker.
   **⟲ Reset progress** (edit view, red, confirm-gated): `ankiForgetCards` wipes scheduling so the card
-  becomes NEW again, content untouched - the user-facing remedy for inflated intervals. **Analyze for
-  ambiguous cards** and **Scan for duplicates** frame their prompts by mode kind: language decks use
-  the multi-meaning-word lens; general decks hunt underspecified CONCEPT cards / term-abbreviation
-  duplicates and never merge distinct concepts that merely look alike.
+  becomes NEW again, content untouched - the user-facing remedy for inflated intervals. **Check card
+  quality** (renamed from "Analyze for ambiguous cards" when its scope grew) flags FOUR failure modes
+  on language decks, not just polysemy: an unpinned sense, a MISSPELLED/nonexistent headword, a back
+  too thin to learn from (bare gloss, no definition/example/part of speech), and wrong or unnatural
+  content. The old prompt hunted multi-meaning words ONLY and ended with "DO NOT flag cards where the
+  word has only one common meaning", so a typo'd single-sense card ("erosionda -> Eroded/corroded")
+  was skipped BY INSTRUCTION - the reported "it didn't catch them all". General decks already had the
+  broader underspecified-CONCEPT lens; BOTH framings now also require the model to judge EVERY card in
+  the batch, and `buildPrompt` states the batch's card count. **Scan for duplicates** frames its prompt
+  by mode kind too: general decks hunt term-abbreviation duplicates and never merge distinct concepts
+  that merely look alike.
 - **Deck browser persists across tab switches - it does NOT re-fetch on every visit.** Leaving the Deck
   tab used to `closeDeckBrowser()` (teardown: `deckBrowserActive=false`, empty notes, clear search) so
   returning re-ran `openDeckBrowser()` from scratch - the "switching to Deck refreshes the page / loses my
