@@ -473,28 +473,54 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   FIXES each generated card (nonexistent/misspelled words, wrong gender/translation/example, dishonest
   usage-scope tag) before the user sees it. The card prompts + chat prompt also carry a "never invent words,
   verify, admit uncertainty" directive.
-- **Usage-scope tag - EVERY language card states where the word is used.** `region-global` when natives
-  across ALL regions of the language use/understand it (in the card's SENSE), else one or more
-  `region-<place>` tags (`region-spain`, `region-mexico`, `region-latam`, `region-brazil`,
-  `region-portugal`, `region-uk`, `region-us`, …). Language-agnostic (Spanish, Portuguese, English, …)
-  and mandatory - a universal word whose carded meaning is regional gets the region tag, never
-  `region-global`. The rule lives in TWO places: inline in `LANGUAGE_CARD_PROMPT`'s tags line (covers
-  `generateCards` → Quick Add, tapped-word cards, conjugation add) and the `usageScopeTagRule()` helper
-  in App.jsx next to `dialectRule()` (injected into the Chat `<anki-card>` format and `buildCardFields`
-  for Discover/Picture - appended even over custom `tagRules`). `verifyCards` checks the tag's honesty.
-  Keep both in sync when changing tag names. Distinct from the mode DIALECT: the dialect steers which
-  variant content is WRITTEN in; the scope tag records where the word is actually USED.
-  **`region-global` is a positive claim requiring confidence** - it's often genuinely hard to tell if a
-  word is used in EVERY country speaking the language, so when unsure the model must NOT guess global:
-  it tags only the region(s) it actually knows use it, at whatever breadth it can honestly back
-  (country < region < global); `verifyCards` demotes a doubtful "global" to the known region(s).
-  **Region tags render FIRST and highlighted on every tag surface** - `isRegionTag`/`sortTagsRegionFirst`/
-  `regionTagStyle` (App.jsx, next to `usageScopeTagRule`): stable sort puts `region-*` chips at the front,
-  colored green (`region-global` = safe everywhere) or amber (region-specific = heads-up). Applied to the
-  chat `<anki-card>` widget, Quick Add tray, deck browser rows, Picture widget, the tapped-word popup's
-  new-card preview (`renderWordLookupPopup` - one renderer, covers question/hint/graded/batch surfaces),
-  and (self-contained copy, keep visually in sync) the Discover card preview in `DiscoverPanel.jsx`.
-  New tag-chip surfaces must use these helpers.
+- **Usage tags (`src/tags/usage.js`) - WHERE a word is used, HOW OFTEN, and IN WHAT CONTEXT. A
+  definition alone is not enough to learn a word from:** shown only "anegada = flooded" a learner
+  memorizes it and says it out loud, never learning that natives mostly meet it in writing and
+  actually say "inundada", or that a word is Mexico-only. So three tag families ride on every
+  language card AND on the tapped-word lookup, in reading order:
+  - `region-*` - `region-global` when natives across ALL regions use/understand it (in the card's
+    SENSE), else `region-<place>` tags (`region-spain`, `region-mexico`, `region-latam`, …).
+  - `freq-*` - MANDATORY, exactly one, from `FREQ_SCALE`: `freq-core` (top everyday vocabulary) /
+    `freq-common` / `freq-uncommon` (known but rarely said; natives reach for another word) /
+    `freq-rare` (literature, specialized fields, older texts).
+  - `register-*` - only when genuinely restricted, from the CLOSED `REGISTERS` list (literary,
+    political, legal, medical, technical, academic, slang, archaic, …). A neutral word gets NONE.
+    Closed on purpose: free text mints `register-formal-literary-ish` and pollutes Anki's tag tree.
+  Language-agnostic and mandatory. Rule lives in TWO places: inline in `LANGUAGE_CARD_PROMPT`'s tags
+  line (covers `generateCards` → Quick Add, tapped-word cards, conjugation add) and `usageTagsRule()`
+  in App.jsx next to `dialectRule()` (Chat `<anki-card>` format, `buildCardFields` for
+  Discover/Picture, the bulk-edit framing - appended even over custom `tagRules`); `usageTagsContract()`
+  + `usageTagsVocab()` phrase the SAME vocabulary as a JSON contract for the lookup and its check.
+  Every prompt makes the model state `usageEvidence` (where it has actually encountered the word)
+  BEFORE the tags - committing to evidence first is what separates recall from a plausible guess.
+  Distinct from the mode DIALECT (which variant content is WRITTEN in). Keep all of it in sync.
+  **Over-claiming is the harmful direction** - a false "everyday/universal" makes the learner SAY the
+  word. When unsure the model must not guess: name only the regions it can back (country < region <
+  global) and pick the LESS common frequency level; `verifyCards`/`verifyDeckRecs` demote doubtful
+  claims and delete unbackable tags.
+  **THE DOUBLE-CHECK (anti-hallucination), lookup path.** Tags in the popup are never one model's
+  single answer: `checkUsageTags` runs a SECOND pass that answers from scratch and is deliberately
+  NOT shown the first pass's tags (a model asked to "check this" mostly agrees with itself), then
+  `reconcileUsageTags` (pure, in `src/tags/usage.js`, vitest-covered) merges them IN CODE - freq
+  resolves to the less common value (flagged when ≥2 steps apart), region takes the intersection
+  (`global` vs specific → the specific set, since global ⊇ specific means both back it; disjoint →
+  union, flagged), and a register tag survives ONLY if both passes named it. Unconfirmed tags still
+  RENDER, gray-dashed with a "?" and an explaining tooltip - hiding a disagreement is its own
+  dishonesty. Fail-soft everywhere. `deriveUsageTags` (two PARALLEL independent reads) covers a
+  legacy card that has no tags yet; `resolveCardUsageTags` prefers the card's OWN Anki tags (already
+  verified at generation) and caches per session in `usageTagCacheRef`. `studyWordMakeCard` carries
+  the CONFIRMED tags onto the generated card so the card can't contradict what the learner just read.
+  **Rendering: `sortTagsUsageFirst` + `usageTagStyle` + `usageTagTip`, via `renderUsageTagChips`**
+  (App.jsx) - stable sort puts region → freq → register first; green = safe to use (`region-global`,
+  `freq-core`, `freq-common`), amber = heads-up (specific region, rare, context-bound), gray-dashed =
+  unconfirmed. Tooltips say what each tag MEANS for the learner (chip names alone don't). Applied to
+  the chat `<anki-card>` widget, Quick Add tray, deck browser rows, Picture widget, the tapped-word
+  popup (live lookup chips AND the new/existing-card preview), the **Learn-it moment**, and the
+  Discover card preview in `DiscoverPanel.jsx` (now IMPORTS the shared helpers, no longer a copy).
+  New tag-chip surfaces must use these helpers. `normalizeUsageTags` folds model-invented spellings
+  (`region-usa` → `region-us`, `register-politics` → `register-political`) and drops junk on the way
+  out of `generateCards` and into bulk-edit recs - but NEVER touches a tag a card already carries
+  (that would silently delete the owner's own tag).
 - **Preferred-term honesty - a card must NEVER teach the headword as the everyday word for a meaning
   a synonym dominates in the studied variant.** The "barro = mud" failure: barro is real, common and
   global, and "mud" is a correct translation, so every existing check passed - yet everyday Latin
@@ -848,8 +874,8 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   **Bulk edit covers TAGS as well as fields** (a card's full editable content): the payload sends each
   note's `tags`, the JSON contract has an OPTIONAL `recommendedTags` (the COMPLETE replacement list -
   the prompt warns that dropping a tag silently deletes it; tags-only recs are valid, `recommendedFields`
-  may be omitted), and for language decks the custom framing embeds `usageScopeTagRule()` so
-  region-tag requests follow the app's exact convention. Review UI: an editable Tags input per rec
+  may be omitted), and for language decks the custom framing embeds `usageTagsRule()` so
+  usage-tag requests (region, frequency, register) follow the app's exact convention. Review UI: an editable Tags input per rec
   (free text, `recommendedTagsText`, parsed by `parseRecTags` on commit) + a before/after chip diff
   (removed = struck-through red, added = green, kept = gray with region highlighting) - EVERY new
   editable thing Ebi gains must get this same before/after review treatment. Per-card Refine can

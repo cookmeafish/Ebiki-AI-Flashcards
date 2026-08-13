@@ -9,6 +9,7 @@ import { LANGS } from './config/languages'
 import { makeT, APP_LANGUAGES } from './i18n'
 import { pickShrimp, shrimpUrl, DEFAULT_SHRIMP, IDLE_SHRIMP, POSE_NAMES, poseFile } from './config/shrimp'
 import { C, RADIUS, SHADOW, FONT } from './config/tokens'
+import { FREQ_SCALE, REGISTERS, isUsageTag, sortTagsUsageFirst, normalizeUsageTags, reconcileUsageTags, usageTagStyle, usageTagTip } from './tags/usage'
 import FormattedText from './components/FormattedText'
 import Pronunciation from './components/Pronunciation'
 import { langInfo } from './pronunciation/langcodes'
@@ -2829,14 +2830,45 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
     if (!d) return ''
     return `\nDIALECT — the learner is specifically studying ${d}, so EVERY region-specific choice MUST follow ${d} and NEVER another variant of the same language. This governs ALL of these, not only pronunciation: phonetics and phonetic spelling; spelling and orthography; punctuation and quotation-mark conventions (e.g. Latin American Spanish normally writes quotes as "..." rather than Spain's «...»; British English writes colour/organise, American English color/organize); vocabulary and word choice (lift vs elevator, coche vs carro); grammar, agreement and preferred tenses; and register/formality (Latin America addresses a group as "ustedes", Spain as "vosotros"). Example: Latin American Spanish uses seseo — c before e/i and z sound like "s", never the Castilian "th". If a word or expression genuinely exists in only ONE region, use THAT region's norms for it even when they differ from ${d}, and never invent a form that isn't used in real ${d}. Whenever two variants disagree, ${d} wins.`
   }
-  // Usage-scope tag — EVERY generated language card must state where the word (in the card's sense)
-  // is used: "region-global" (all regions of the language) or "region-<place>" tag(s) when it's
-  // country/region-specific (Spain vs Mexico, Brazil vs Portugal, UK vs US, …). LANGUAGE_CARD_PROMPT
-  // carries the same rule inline; this helper covers every other card generator (chat card format,
-  // buildCardFields for Discover/Picture). Language modes only.
-  const usageScopeTagRule = () => activeMode.type === 'language'
-    ? ` ALWAYS include a usage-scope tag: "region-global" when natives across ALL regions of ${learnLangName()} use and understand the word in this sense, or one or more "region-<place>" tags (lowercase-hyphens, e.g. "region-spain", "region-mexico", "region-latam", "region-brazil", "region-portugal", "region-uk", "region-us") when it is country/region-specific — tag the card's SENSE, not just the spelling. "region-global" is a positive claim you must be CONFIDENT in; when unsure whether every region uses it, do not guess "region-global" — tag only the region(s) you actually know use it, at whatever breadth you can honestly back (country < region < global).`
-    : ''
+  // Usage tags — a definition alone is NOT enough to learn a word from. A learner who is told only
+  // "anegada = flooded" memorizes it and says it out loud, never learning that natives mostly meet
+  // it in writing and actually say "inundada", or that a word is Mexico-only. So EVERY generated
+  // language card (and the tapped-word lookup) must answer three questions with tags:
+  //   WHERE   region-global, or region-<place> tag(s) when it is country/region-specific
+  //   HOW OFTEN  exactly one freq-* tag from the fixed scale
+  //   WHAT CONTEXT  a register-* tag when the word is restricted to one (literary, political, …)
+  // Vocabulary is CLOSED (src/tags/usage.js) so tags stay searchable in Anki instead of fragmenting.
+  // LANGUAGE_CARD_PROMPT carries the same rule inline; this helper covers every other generator
+  // (chat card format, buildCardFields for Discover/Picture, the bulk-edit framing). Language only.
+  const usageTagsRule = () => {
+    if (activeMode.type !== 'language') return ''
+    const L = learnLangName()
+    const v = dialectName()
+    return ` USAGE TAGS (mandatory, they are part of what the card teaches — a learner who does not know where and how often a word is used will use it wrongly):
+ • WHERE: "region-global" when natives across ALL regions of ${L} use and understand the word IN THIS SENSE, otherwise one or more "region-<place>" tags (lowercase-hyphens: "region-spain", "region-mexico", "region-latam", "region-argentina", "region-brazil", "region-portugal", "region-uk", "region-us", …). Tag the SENSE on the card, not just the spelling: a word everyone knows whose CARDED meaning is regional gets the region tag, never "region-global". "region-global" is a POSITIVE CLAIM you must be confident in; when you are not sure every region uses it, tag only the region(s) you can actually back, at whatever breadth is honest (country < region < global).
+ • HOW OFTEN: exactly ONE frequency tag for how often natives really reach for this word${v ? ` in ${v}` : ''}: "freq-core" (top everyday vocabulary, heard constantly), "freq-common" (ordinary everyday word), "freq-uncommon" (natives know it but rarely say it; they usually pick a different word), "freq-rare" (literature, specialized fields or older texts; would sound out of place in conversation). Judge the WORD IN THIS SENSE, and judge it against real speech, not against how obvious the word looks.
+ • WHAT CONTEXT: add ONE register tag ONLY when the word is genuinely restricted to a context, from this exact list: ${REGISTERS.join(', ')}. Ordinary neutral words get NO register tag.
+ THINK BEFORE YOU TAG: recall where you have actually seen or heard this word (everyday conversation, news, textbooks, novels, legal or medical texts, a specific country), and let that evidence pick the tags. Never infer frequency from the word's length or how "advanced" it looks, and never copy the tags of a similar word. Be honest at this COARSE granularity and never invent precision: if the evidence does not support a claim, choose the safer, broader-but-true tag instead of guessing.`
+  }
+  // The same tag vocabulary phrased as a JSON-field contract, for the tapped-word lookup and its
+  // INDEPENDENT verification pass. Both passes are asked in identical terms so their answers can be
+  // compared tag-for-tag in code (reconcileUsageTags) instead of by a third model's opinion.
+  // "usageEvidence" comes BEFORE the tags on purpose: the model has to commit to where it has
+  // actually met the word before it is allowed to label it, which is what separates a recalled fact
+  // from a plausible-sounding guess.
+  const usageTagsContract = (targetDesc) => `  "usageEvidence": "one short sentence naming the CONCRETE evidence behind your tags: where you have actually encountered ${targetDesc} (everyday conversation, news and media, textbooks, novels and literature, technical/legal/medical writing, political discourse, a specific country or region) and who uses it that way",
+  "usageTags": ["the usage tags for ${targetDesc} IN THIS SENSE, chosen from the fixed vocabulary below and justified by usageEvidence"]`
+  // The vocabulary itself, appended AFTER the JSON shape (never inside it).
+  const usageTagsVocab = () => {
+    const L = learnLangName()
+    const v = dialectName()
+    return `
+USAGE TAG VOCABULARY (use these exact strings, nothing else):
+ • WHERE (required): "region-global" when natives across ALL regions of ${L} use and understand it in this sense, otherwise one or more "region-<place>" tags ("region-spain", "region-mexico", "region-latam", "region-argentina", "region-uk", "region-us", …). "region-global" is a positive claim you must be confident in: when unsure, name only the region(s) you can actually back (country < region < global).
+ • HOW OFTEN (required, exactly one): ${FREQ_SCALE.join(', ')} — "freq-core" = top everyday vocabulary heard constantly, "freq-common" = ordinary everyday word, "freq-uncommon" = natives know it but rarely say it and usually reach for a different word, "freq-rare" = literature, specialized fields or older texts, out of place in conversation.
+ • WHAT CONTEXT (only when genuinely restricted): ONE of ${REGISTERS.join(', ')}. A neutral everyday word gets NO register tag.
+Judge the word IN THE SENSE USED HERE${v ? `, as ${v} speakers use it` : ''}, against real speech and writing — never from how long or advanced the word looks. If your evidence does not support a claim, pick the safer, broader-but-true tag instead of guessing.`
+  }
   // Preferred-term honesty — the "barro = mud" failure: barro is a real, global word and "mud" is a
   // correct translation, so every existing check passed — yet in the studied variant (Latin American
   // Spanish) the everyday word for mud is "lodo", and a learner who memorizes barro↔mud walks away
@@ -2860,15 +2892,11 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
     const v = dialectName() || learnLangName()
     return `Audit every card for preferred-term honesty in ${v}. For each card, check EACH translation/meaning on the back and ask: is the headword what a ${v} speaker actually says for that meaning in everyday speech? When a DIFFERENT word is clearly more common in ${v} for a listed meaning (e.g. "barro" glossed as "mud" when everyday ${v} prefers "lodo"), update that card: (1) add or extend the usage line (label written in the card's language, e.g. Spanish "Uso:") naming the more common word and what the headword usually means instead; (2) reorder the translation line so the meanings the headword IS the default term for come first. Also correct a region tag that is dishonest for the carded sense. SKIP every card whose headword is already the natural default term for all its listed meanings — most cards should be skipped. Change nothing else on any card.`
   }
-  // Usage-scope tags LEAD the tag row and stand out on every tag-chip surface (chat card widget,
-  // Quick Add tray, deck browser rows, Picture widget): region tags sort FIRST (stable — other tags
-  // keep their order), and get a semantic highlight: green = region-global (safe everywhere),
-  // amber = region-specific (heads-up, regional usage).
-  const isRegionTag = (t) => String(t).startsWith('region-')
-  const sortTagsRegionFirst = (tags) => [...(tags || [])].sort((a, b) => (isRegionTag(b) ? 1 : 0) - (isRegionTag(a) ? 1 : 0))
-  const regionTagStyle = (t) => t === 'region-global'
-    ? { background: 'rgba(24,169,87,.12)', color: 'var(--c-success)', border: '1px solid rgba(24,169,87,.35)', fontWeight: 700 }
-    : { background: 'rgba(232,147,12,.12)', color: 'var(--c-warning)', border: '1px solid rgba(232,147,12,.35)', fontWeight: 700 }
+  // Usage tags LEAD the tag row and stand out on every tag-chip surface (chat card widget, Quick Add
+  // tray, deck browser rows, Picture widget, tapped-word popup): region → freq → register sort FIRST
+  // (stable, other tags keep their order) and get a semantic highlight — green = safe to use
+  // (region-global / freq-core / freq-common), amber = heads-up (a specific region, rare, or
+  // context-bound). Helpers live in src/tags/usage.js so the pure logic is unit-tested.
   // Languages whose orthography uses diacritics a learner must TYPE — gates the accent-drill toggle.
   const ACCENT_LANGS = new Set(['spanish', 'french', 'german', 'portuguese', 'italian', 'polish', 'vietnamese', 'czech', 'hungarian', 'romanian', 'turkish', 'swedish', 'norwegian', 'danish', 'finnish', 'icelandic', 'catalan', 'dutch', 'slovak', 'croatian'])
   const langSupportsAccents = (name) => ACCENT_LANGS.has(String(name || '').toLowerCase())
@@ -2889,7 +2917,7 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
   const verifyCards = async (cards, subjectLabel) => {
     if (!cards.length) return cards
     try {
-      const prompt = `You are a meticulous ${subjectLabel} teacher proofreading flashcards a student will MEMORIZE. Accuracy is critical, a single error is harmful. For EACH card object, carefully verify and FIX any error: a headword that does NOT exist or is misspelled (replace it with the correct word), wrong part of speech or grammatical gender, incorrect pronunciation, wrong/missing translation, wrong synonyms, an incorrect or unnatural definition, and an example sentence that is wrong, unnatural, or mistranslated. If the tags include a usage-scope tag, verify it is honest: "region-global" ONLY if you are confident natives across all regions use the word in this sense; otherwise the correct "region-<place>" tag(s) — when in doubt DEMOTE "region-global" to the region(s) actually known to use it (a too-narrow honest tag is fine, a false "global" is not); fix or add the tag if wrong or missing. Also enforce PREFERRED-TERM HONESTY, a check that is NOT about correctness: for EACH translation on a card, ask whether a DIFFERENT word is what natives of the studied variant more commonly say for that meaning in everyday speech. If so, the back MUST carry a usage line naming that more common word and what the headword usually means instead (add or fix the line — e.g. "barro" translated as "mud" needs a note that everyday Latin American Spanish prefers "lodo" and barro leans clay/ceramic), and the translation line must lead with the meanings the headword IS the default term for (reorder if needed). A card that silently teaches the headword as the everyday word for a synonym-dominated meaning is WRONG even when every fact on it is technically true. Leave correct fields exactly as they are. Return the corrected JSON array with the SAME keys and structure. Output ONLY the JSON array, no commentary.`
+      const prompt = `You are a meticulous ${subjectLabel} teacher proofreading flashcards a student will MEMORIZE. Accuracy is critical, a single error is harmful. For EACH card object, carefully verify and FIX any error: a headword that does NOT exist or is misspelled (replace it with the correct word), wrong part of speech or grammatical gender, incorrect pronunciation, wrong/missing translation, wrong synonyms, an incorrect or unnatural definition, and an example sentence that is wrong, unnatural, or mistranslated. VERIFY THE USAGE TAGS CARD BY CARD — the learner reads them as fact and picks their words by them, so a guessed tag is worse than none. For EACH card, first recall where you have actually encountered that word (everyday conversation, news, textbooks, novels, technical or legal texts, one particular country) and then check each tag against that evidence, fixing or adding what is wrong or missing: (a) WHERE: "region-global" ONLY if you are confident natives across all regions use the word in this sense, otherwise the correct "region-<place>" tag(s) — when in doubt DEMOTE "region-global" to the region(s) actually known to use it (a too-narrow honest tag is fine, a false "global" is not); (b) HOW OFTEN: exactly one of "freq-core" (top everyday vocabulary), "freq-common", "freq-uncommon" (known but rarely said; natives usually pick another word), "freq-rare" (literature, specialized fields or older texts) — never infer this from how long or advanced the word looks, and when the honest answer sits between two levels choose the LESS common one; (c) WHAT CONTEXT: a register tag from ${REGISTERS.join(', ')} ONLY when the word is genuinely restricted to that context, and REMOVE any register tag on a word that is really neutral. Delete any usage tag you cannot actually back. Also enforce PREFERRED-TERM HONESTY, a check that is NOT about correctness: for EACH translation on a card, ask whether a DIFFERENT word is what natives of the studied variant more commonly say for that meaning in everyday speech. If so, the back MUST carry a usage line naming that more common word and what the headword usually means instead (add or fix the line — e.g. "barro" translated as "mud" needs a note that everyday Latin American Spanish prefers "lodo" and barro leans clay/ceramic), and the translation line must lead with the meanings the headword IS the default term for (reorder if needed). A card that silently teaches the headword as the everyday word for a synonym-dominated meaning is WRONG even when every fact on it is technically true. Leave correct fields exactly as they are. Return the corrected JSON array with the SAME keys and structure. Output ONLY the JSON array, no commentary.`
       const text = await aiCall(apiKey, prompt, JSON.stringify(cards), resolveModel('deck'))
       const parsed = parseAiJson(text)
       const arr = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.cards) ? parsed.cards : null)
@@ -2936,7 +2964,9 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
     return arr.filter((c) => c && (c.front || c.word)).map((c) => ({
       front: c.front || c.word || '',
       back: c.back || '',
-      tags: Array.isArray(c.tags) && c.tags.length ? c.tags : ['ebiki'],
+      // Fold usage tags onto the closed vocabulary (region-usa → region-us, register-politics →
+      // register-political) and drop invented ones, so what reaches Anki stays searchable.
+      tags: Array.isArray(c.tags) && c.tags.length ? normalizeUsageTags(c.tags) : ['ebiki'],
       correction: c.correction || '',
       _rich: c,
     }))
@@ -2970,7 +3000,7 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
     // Add tag generation (usage-scope tag appended for language modes even over custom rules)
     const tagInstruction = (fmt.tagRules
       ? `"tags": array of tag strings. Rules:\n${fmt.tagRules}`
-      : `"tags": array of relevant lowercase tags (include "ebiki")`) + usageScopeTagRule()
+      : `"tags": array of relevant lowercase tags (include "ebiki")`) + usageTagsRule()
     fieldRequests.push(tagInstruction)
 
     const modeContext = activeMode.type === 'language'
@@ -3466,7 +3496,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       // everyday meanings; any other subject looks for underspecified/ambiguous CONCEPT cards.
       const isLangDeck = activeMode.type === 'language'
       const analyzeFraming = kind === 'custom'
-        ? `You are applying the deck owner's BULK EDIT REQUEST across their flashcards${isLangDeck ? ` in a ${studyLang} learning deck` : ` in a "${activeMode.name}" study deck${activeMode.description ? ` (${activeMode.description})` : ''}`}.${isLangDeck ? dialectRule() : ''}\n\nTHE OWNER'S REQUEST: "${instruction}"\n\nThe request may target the cards' FIELDS, their TAGS, or both — you can edit everything about a card's content. Apply the request ONLY to cards it actually calls for changing — skip every card that already satisfies it or that the request does not apply to. Change ONLY what the request covers; leave every other line of the card untouched. In "reason", state in one short sentence what you changed on that card.${isLangDeck ? `\n\nIf the request involves usage/region tags, follow the app's tagging convention:${usageScopeTagRule()}` : ''}`
+        ? `You are applying the deck owner's BULK EDIT REQUEST across their flashcards${isLangDeck ? ` in a ${studyLang} learning deck` : ` in a "${activeMode.name}" study deck${activeMode.description ? ` (${activeMode.description})` : ''}`}.${isLangDeck ? dialectRule() : ''}\n\nTHE OWNER'S REQUEST: "${instruction}"\n\nThe request may target the cards' FIELDS, their TAGS, or both — you can edit everything about a card's content. Apply the request ONLY to cards it actually calls for changing — skip every card that already satisfies it or that the request does not apply to. Change ONLY what the request covers; leave every other line of the card untouched. In "reason", state in one short sentence what you changed on that card.${isLangDeck ? `\n\nIf the request involves usage tags (region, frequency or register), follow the app's tagging convention exactly:${usageTagsRule()}` : ''}`
         : isLangDeck
         ? `You are analyzing flashcards in a ${studyLang} learning deck. Find cards where the ${studyLang} word/phrase has MULTIPLE distinct everyday meanings that the card's current content does NOT disambiguate.\n\nFor each ambiguous card, propose updated field content that clarifies the intended meaning — e.g. specify the domain, add a usage example, or list the senses with a short note for each.\n\nDO NOT flag cards where:\n- The word has only one common meaning\n- The current content already disambiguates well\n- A learner would clearly understand from common usage`
         : `You are analyzing flashcards in a "${activeMode.name}" study deck${activeMode.description ? ` (${activeMode.description})` : ''}. Find cards that are AMBIGUOUS or UNDERSPECIFIED for this subject: a term whose intended sense isn't pinned down, a vague or incomplete definition, a front that several different concepts could answer, or missing context that makes the card hard to study.\n\nFor each such card, propose updated field content that pins the intended meaning — specify the domain/context, tighten the definition, or add a clarifying example that fits the subject.\n\nDO NOT flag cards where:\n- The content is already specific and unambiguous\n- A student of this subject would clearly understand it as written`
@@ -3537,7 +3567,14 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         // so inner spaces become hyphens). No recommendedTags = tags unchanged.
         const cleanTag = (tg) => String(tg).trim().replace(/\s+/g, '-')
         const currentTags = note.tags || []
-        const recommendedTags = hasTagRec ? [...new Set(r.recommendedTags.map(cleanTag).filter(Boolean))] : [...currentTags]
+        // A usage tag the model INVENTS (region-usa, register-politics, a second freq tag) is folded
+        // onto the closed vocabulary, and an unrecognizable one is dropped rather than written to the
+        // deck. A tag the card ALREADY carries is never touched: normalizing it away would silently
+        // delete the owner's own tag, the exact failure the full-replacement contract warns about.
+        const foldTag = (tg) => (currentTags.includes(tg) || !isUsageTag(tg) ? [tg] : normalizeUsageTags([tg]))
+        const recommendedTags = hasTagRec
+          ? [...new Set(r.recommendedTags.map(cleanTag).filter(Boolean).flatMap(foldTag))]
+          : [...currentTags]
         const tagsChanged = [...recommendedTags].sort().join(' ') !== [...currentTags].sort().join(' ')
         // Skip if AI flagged the card but didn't actually propose any changes.
         const hasChange = tagsChanged || Object.keys(recommendedFields).some((k) => recommendedFields[k] !== currentFields[k])
@@ -3593,7 +3630,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         : kind === 'custom'
           ? `The proposals were produced for this owner request: "${instruction}".`
           : `The proposals fix ambiguous/underspecified cards.`
-      const prompt = `You are a skeptical senior reviewer double-checking ANOTHER model's proposed flashcard edits BEFORE the deck owner reviews them. These edits will be WRITTEN onto the owner's cards, so a wrong or sloppy proposal is harmful. ${isLangDeck ? `The deck teaches ${studyLang}.${dialectRule()}${preferredTermRule()}` : `The deck studies "${activeMode.name}"${activeMode.description ? ` (${activeMode.description})` : ''}.`}\n${goal}\n\nFor EACH proposal, check IN ORDER:\n1. TRUTH: every claim in proposedFields is factually correct${isLangDeck ? ` in ${studyLang} — including REGIONAL honesty: never say a word is "only slang/colloquial" or "only means X" when some region genuinely uses it for the literal sense too; state the per-region reality precisely` : ''}. Fix anything wrong.\n2. SCOPE: the change does what the goal asks and nothing more — restore any line it needlessly altered (compare against currentFields).\n3. TAGS: proposedTags is the COMPLETE replacement list; restore any existing tag that was dropped without reason (a missing tag silently deletes it).\n4. CLARITY (active improvement): even when nothing failed, make the proposed content clearer and easier to learn from — simpler wording, sharper examples, tighter phrasing — WITHOUT changing its meaning, scope, language, or line format. Keep text verbatim only when you genuinely cannot improve it.${allowDrop ? `\n\nIf a card never needed this change at all (the proposal is wrong or pointless), mark it with "drop": true instead of fixing it.` : ''}\n\nProposals (JSON):\n${JSON.stringify(payload)}\n\nReturn the SAME JSON array (same noteIds, same order) with "proposedFields"/"proposedTags"/"reason" corrected in place${allowDrop ? ' and "drop": true on proposals to discard' : ''}. NEVER change a noteId. Use plain text with newlines (no HTML). Output ONLY raw JSON.`
+      const prompt = `You are a skeptical senior reviewer double-checking ANOTHER model's proposed flashcard edits BEFORE the deck owner reviews them. These edits will be WRITTEN onto the owner's cards, so a wrong or sloppy proposal is harmful. ${isLangDeck ? `The deck teaches ${studyLang}.${dialectRule()}${preferredTermRule()}` : `The deck studies "${activeMode.name}"${activeMode.description ? ` (${activeMode.description})` : ''}.`}\n${goal}\n\nFor EACH proposal, check IN ORDER:\n1. TRUTH: every claim in proposedFields is factually correct${isLangDeck ? ` in ${studyLang} — including REGIONAL honesty: never say a word is "only slang/colloquial" or "only means X" when some region genuinely uses it for the literal sense too; state the per-region reality precisely` : ''}. Fix anything wrong.\n2. SCOPE: the change does what the goal asks and nothing more — restore any line it needlessly altered (compare against currentFields).\n3. TAGS: proposedTags is the COMPLETE replacement list; restore any existing tag that was dropped without reason (a missing tag silently deletes it).${isLangDeck ? ` Verify every USAGE tag against where you have actually encountered that word rather than accepting the other model's claim: "region-global" only when you are confident every region uses it in this sense (otherwise demote it to the region(s) you can back), exactly one honest frequency tag ("freq-core" / "freq-common" / "freq-uncommon" / "freq-rare", choosing the LESS common level when it sits between two), and a register tag only for a word genuinely restricted to that context. Delete a usage tag you cannot back.` : ''}\n4. CLARITY (active improvement): even when nothing failed, make the proposed content clearer and easier to learn from — simpler wording, sharper examples, tighter phrasing — WITHOUT changing its meaning, scope, language, or line format. Keep text verbatim only when you genuinely cannot improve it.${allowDrop ? `\n\nIf a card never needed this change at all (the proposal is wrong or pointless), mark it with "drop": true instead of fixing it.` : ''}\n\nProposals (JSON):\n${JSON.stringify(payload)}\n\nReturn the SAME JSON array (same noteIds, same order) with "proposedFields"/"proposedTags"/"reason" corrected in place${allowDrop ? ' and "drop": true on proposals to discard' : ''}. NEVER change a noteId. Use plain text with newlines (no HTML). Output ONLY raw JSON.`
       const text = await aiCall(apiKey, 'You review proposed flashcard edits. Always respond with valid JSON only.', prompt, resolveModel('deck'))
       const parsed = parseAiJson(text)
       if (!Array.isArray(parsed)) return recs
@@ -5025,6 +5062,31 @@ Output ONLY raw JSON. No markdown, no backticks.`
     )
   })
 
+  // ONE renderer for the "where · how often · what context" chip row, so the tapped-word popup and
+  // the Learn-it moment cannot drift apart. `unverified` marks tags the double-check could not
+  // confirm (rendered gray-dashed with a "?" rather than hidden: a disagreement the learner cannot
+  // see is its own dishonesty). `checking` shows while the second pass is still running.
+  const renderUsageTagChips = (tags, unverified = [], checking = false, size = 9) => {
+    if (!tags?.length && !checking) return null
+    return (
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+        {sortTagsUsageFirst(tags || []).filter(isUsageTag).map((tag, ti) => {
+          const unconfirmed = (unverified || []).includes(tag)
+          return (
+            <span key={ti} className="tip tip-r" data-tip={usageTagTip(tag, { unverified: unconfirmed })}
+              style={{ fontSize: size, padding: '1px 5px', borderRadius: 3, cursor: 'help', ...usageTagStyle(tag, { unverified: unconfirmed }) }}>
+              {tag}{unconfirmed ? ' ?' : ''}
+            </span>
+          )
+        })}
+        {checking && (
+          <span className="tip tip-r" data-tip="Ebi is checking these against a second, independent read so a guessed tag cannot slip through"
+            style={{ fontSize: size, color: 'var(--c-ink-faint)', cursor: 'help' }}>double-checking…</span>
+        )}
+      </div>
+    )
+  }
+
   // The tapped-word popup (in-context meaning + "Make Anki card") rendered inline wherever a word was
   // tapped. `source` must match the value passed to lookupStudyWord, so only that spot shows the popup.
   const renderWordLookupPopup = (source) => {
@@ -5065,6 +5127,13 @@ Output ONLY raw JSON. No markdown, no backticks.`
           <span onClick={() => setStudyWordLookup(null)} title="Close" style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 13, lineHeight: 1 }}>×</span>
         </div>
 
+        {/* Row 1b: WHERE it is used · HOW OFTEN natives say it · WHAT CONTEXT it belongs to. This is
+            part of the definition, not decoration: without it a learner memorizes a literary or
+            country-specific word as the everyday one. Shown here rather than only on the finished
+            card, because the card is exactly the moment the wrong word gets locked in. Each chip's
+            tooltip is left-anchored (tip-r) since the popup often sits near the screen edge. */}
+        {!studyWordLookup.loading && renderUsageTagChips(studyWordLookup.usageTags, studyWordLookup.usageUnverified, studyWordLookup.usageChecking)}
+
         {/* Row 2: turn this word into an Anki card. generateCards is language/topic-agnostic. */}
         {!studyWordLookup.loading && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', borderTop: '1px solid rgba(223,37,64,.15)', paddingTop: 6 }}>
@@ -5081,8 +5150,8 @@ Output ONLY raw JSON. No markdown, no backticks.`
                   dangerouslySetInnerHTML={{ __html: studyWordLookup.existing.backHtml }} />
                 {studyWordLookup.existing.tags?.length > 0 && (
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                    {sortTagsRegionFirst(studyWordLookup.existing.tags).map((tag, ti) => (
-                      <span key={ti} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: 'rgba(125,133,144,.15)', color: 'var(--c-ink-dim)', ...(isRegionTag(tag) ? regionTagStyle(tag) : {}) }}>{tag}</span>
+                    {sortTagsUsageFirst(studyWordLookup.existing.tags).map((tag, ti) => (
+                      <span key={ti} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: 'rgba(125,133,144,.15)', color: 'var(--c-ink-dim)', ...usageTagStyle(tag) }}>{tag}</span>
                     ))}
                   </div>
                 )}
@@ -5099,8 +5168,8 @@ Output ONLY raw JSON. No markdown, no backticks.`
                 )}
                 {studyWordLookup.card.tags?.length > 0 && (
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                    {sortTagsRegionFirst(studyWordLookup.card.tags).map((tag, ti) => (
-                      <span key={ti} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: 'rgba(125,133,144,.15)', color: 'var(--c-ink-dim)', ...(isRegionTag(tag) ? regionTagStyle(tag) : {}) }}>{tag}</span>
+                    {sortTagsUsageFirst(studyWordLookup.card.tags).map((tag, ti) => (
+                      <span key={ti} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: 'rgba(125,133,144,.15)', color: 'var(--c-ink-dim)', ...usageTagStyle(tag) }}>{tag}</span>
                     ))}
                   </div>
                 )}
@@ -6452,7 +6521,16 @@ Output ONLY raw JSON. No markdown, no backticks.`
       if (first.length >= 3 && first.length <= 80) return first
       return headNoParen.split(/\s+/).slice(0, 6).join(' ')
     })()
-    setStudyLearnMoment({ front: cs.front, back: cs.back, noteId: nid, typed: '', keyTerm: keyFallback, keyTermAlt: keyFallback, hooks: saved, hookLoading: !saved.length && !!apiKey, chat: [], chatInput: '', chatLoading: false, requeued })
+    setStudyLearnMoment({ front: cs.front, back: cs.back, noteId: nid, typed: '', keyTerm: keyFallback, keyTermAlt: keyFallback, hooks: saved, hookLoading: !saved.length && !!apiKey, chat: [], chatInput: '', chatLoading: false, requeued, usageTags: [], usageUnverified: [], usageChecking: isLangMoment && !!apiKey })
+    // Where it is used and how often natives say it — this panel is where the word is actually being
+    // taught, so it is exactly where that belongs. Card's own tags when it has them, derived (and
+    // double-checked) otherwise. Non-blocking and fail-soft: the lesson never waits on tags.
+    if (isLangMoment && apiKey) {
+      resolveCardUsageTags(nid, cs.front, cs.back)
+        .then(({ tags, unverified }) => setStudyLearnMoment((p) => (p && p.front === cs.front)
+          ? { ...p, usageTags: tags, usageUnverified: unverified, usageChecking: false } : p))
+        .catch(() => setStudyLearnMoment((p) => (p && p.front === cs.front) ? { ...p, usageChecking: false } : p))
+    }
     if (!isLangMoment && apiKey) {
       aiCall(apiKey,
         'You pick the single key term a learner should type once to cement a flashcard. Reply with the term only, nothing else.',
@@ -6768,6 +6846,76 @@ Return ONLY raw JSON:
 
   // Language study: look up what a single word in the question sentence means, in the
   // quiz language. Lets a learner decode an unfamiliar word without revealing the answer.
+  // THE DOUBLE-CHECK. A confident-sounding "freq-core" on a word natives never say is worse than no
+  // tag at all: the learner trusts it and starts using the word. So the tags shown in the popup are
+  // never one model's single answer — a SECOND pass answers the same question from scratch, and is
+  // deliberately NOT shown the first pass's tags (a model told "here is the answer, check it" mostly
+  // agrees with itself). Their two answers are then reconciled in CODE by reconcileUsageTags, whose
+  // doctrine is conservative: over-claiming that a word is everyday or universal is the harmful
+  // direction. A tag only one pass believed either loses (register) or ships flagged as unconfirmed.
+  // Fail-soft: any error keeps the first pass's tags, marked unverified rather than silently trusted.
+  const askUsageTags = async (target, sense, sentence) => {
+    const L = learnLangName()
+    const prompt = `You are a ${L} usage expert. Judge how the word "${target}" is used, in the specific sense: "${sense}".${sentence ? `\n\nIt appeared here: "${sentence}"` : ''}${dialectRule()}
+
+Work from what you actually know about real ${L} usage: where you have encountered this word, who says it, in what kind of text or conversation, and how often it comes up compared with its synonyms. A learner will decide whether to SAY this word based on your answer, so an over-confident tag does real damage.
+
+Reply as JSON ONLY (no markdown, no extra text, never an em dash):
+{
+${usageTagsContract(`"${target}" in this sense`)}
+}${usageTagsVocab()}`
+    const text = await aiCall(apiKey, `You are a precise ${L} usage expert. Output JSON only.`, prompt, resolveModel('study'), { silent: true })
+    return normalizeUsageTags(parseAiJson(text)?.usageTags || [])
+  }
+  const checkUsageTags = async (target, sense, sentence, proposed) => {
+    const first = normalizeUsageTags(proposed)
+    try {
+      const second = await askUsageTags(target, sense, sentence)
+      if (!second.length) return { tags: first, unverified: first }
+      return reconcileUsageTags(first, second)
+    } catch {
+      return { tags: first, unverified: first }
+    }
+  }
+  // No first opinion to check (a legacy card with no usage tags): run the two reads in PARALLEL so
+  // neither can see the other, then reconcile them exactly the same way.
+  const deriveUsageTags = async (target, sense) => {
+    try {
+      const [a, b] = await Promise.all([askUsageTags(target, sense, ''), askUsageTags(target, sense, '')])
+      if (!a.length && !b.length) return { tags: [], unverified: [] }
+      return reconcileUsageTags(a, b)
+    } catch {
+      return { tags: [], unverified: [] }
+    }
+  }
+
+  // Usage tags for a CARD-backed surface (the Learn-it moment). The card's own Anki tags are the
+  // truth when it has them: they were verified when the card was generated, so nothing is re-run.
+  // A legacy card carded before usage tags existed has none, so they are derived through the same
+  // double-checked path — read-only, never written back to Anki behind the user's back. Cached per
+  // session so a relearned card does not pay for it twice.
+  const usageTagCacheRef = useRef(new Map())
+  const resolveCardUsageTags = async (noteId, front, back) => {
+    const key = noteId || `front:${String(front || '').toLowerCase()}`
+    const cached = usageTagCacheRef.current.get(key)
+    if (cached) return cached
+    let result = null
+    if (noteId && ankiConnected) {
+      try {
+        const [note] = await ankiNotesInfo([noteId])
+        const own = normalizeUsageTags((note?.tags || []).filter(isUsageTag))
+        if (own.length) result = { tags: own, unverified: [] }
+      } catch { /* Anki hiccup — fall through to deriving them */ }
+    }
+    if (!result) {
+      const head = String(front || '').replace(/\s*\([^)]*\)\s*$/, '').trim()
+      const sense = String(back || '').split('\n').slice(0, 3).join(' ').slice(0, 300)
+      result = await deriveUsageTags(head, sense)
+    }
+    usageTagCacheRef.current.set(key, result)
+    return result
+  }
+
   const lookupStudyWord = async (word, sentence, source = 'question') => {
     if (!apiKey || !word) return
     // Explain in the USER's language (= the app language), since that's the language they
@@ -6815,8 +6963,9 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text, never an em da
   "primary": "see the cases above, a few words only",
   "alternatives": ["see the cases above; [] if there is really only one"],
   "pron": "simplified phonetics of the TARGET ${studyLang} word for a ${explainLang} speaker, stressed syllable in CAPS (e.g. PREH-syoh), same style as flashcard pronunciation lines; "" if it reads exactly as spelled",
-  "usage": "REQUIRED whenever a DIFFERENT ${studyLang} word is what speakers more commonly say for the target's in-context meaning: name it and say what the target leans toward instead (e.g. for barro meaning mud: 'everyday Latin American speech prefers lodo; barro leans clay/pottery'). Otherwise only if noteworthy: a few ${explainLang} words on how common/where/what register (e.g. 'rare, literary', 'informal slang'); "" for words that ARE the natural default term and are otherwise unremarkable"
-}${preferredTermRule()}` : `A learner tapped the word "${word}" in this ${studyLang} study question. Read the ENTIRE question for context — the same word can have different meanings depending on context.
+  "usage": "REQUIRED whenever a DIFFERENT ${studyLang} word is what speakers more commonly say for the target's in-context meaning: name it and say what the target leans toward instead (e.g. for barro meaning mud: 'everyday Latin American speech prefers lodo; barro leans clay/pottery'). Otherwise only if noteworthy: a few ${explainLang} words on how common/where/what register (e.g. 'rare, literary', 'informal slang'); "" for words that ARE the natural default term and are otherwise unremarkable",
+${usageTagsContract('the TARGET word')}
+}${usageTagsVocab()}${preferredTermRule()}` : `A learner tapped the word "${word}" in this ${studyLang} study question. Read the ENTIRE question for context — the same word can have different meanings depending on context.
 
 Question: "${sentence}"
 
@@ -6832,6 +6981,7 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text, never an em da
       // Em dashes are banned everywhere a reader can see — prompts leak, the strip is the guarantee.
       const deDash = (s) => String(s || '').replace(/\s*[—–]\s*/g, ', ').trim()
       const target = deDash(parsed.target).replace(/^["']+|["']+$/g, '') || word
+      const firstTags = normalizeUsageTags(parsed.usageTags || [])
       // Functional + spread: the async note resolution above may already have attached
       // hooks/hookNoteId — a plain object replacement would silently wipe them.
       setStudyWordLookup((prev) => ({
@@ -6842,9 +6992,23 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text, never an em da
         alternatives: Array.isArray(parsed.alternatives) ? parsed.alternatives.filter(Boolean).map(deDash).slice(0, 3) : [],
         pron: deDash(parsed.pron),
         usage: deDash(parsed.usage), // commonness/region/register caveat — '' when unremarkable
+        // Where it's used / how often / in what context. Painted immediately from this first pass,
+        // then confirmed (or corrected, or flagged) by the independent second pass below — the
+        // meaning must never wait on tag verification.
+        usageTags: firstTags,
+        usageUnverified: firstTags, // nothing is confirmed until the check comes back
+        usageChecking: isLang,
         loading: false,
         source,
       }))
+      // Non-blocking: the definition is already on screen while the double-check runs.
+      if (isLang) {
+        checkUsageTags(target, deDash(parsed.primary) || word, sentence, firstTags).then(({ tags, unverified }) => {
+          setStudyWordLookup((prev) => (prev && prev.word === word)
+            ? { ...prev, usageTags: tags, usageUnverified: unverified, usageChecking: false }
+            : prev)
+        })
+      }
       // Case B (direction flipped): saved hooks and the existing-card note live under the TARGET
       // word, not the tapped one — merge the target's word-key hooks and resolve its note
       // (fail-soft), exactly like the initial prefetch did for the tapped word.
@@ -6949,7 +7113,19 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text, never an em da
       }
       const [card] = await generateCards([tgt])
       if (!card) throw new Error('no card')
-      setStudyWordLookup((prev) => (prev && prev.word === wl.word) ? { ...prev, cardLoading: false, card } : prev)
+      // The popup's usage tags already survived two independent reads. Carry the CONFIRMED ones onto
+      // the card rather than letting generation re-guess them: otherwise the card can contradict the
+      // tags the learner just read a centimetre above it. Non-usage tags (part of speech, level,
+      // topic) still come from generation. Functional update so this reads the CURRENT tags, not the
+      // snapshot taken when the button was clicked.
+      setStudyWordLookup((prev) => {
+        if (!(prev && prev.word === wl.word)) return prev
+        const confirmed = (prev.usageTags || []).filter((t) => !(prev.usageUnverified || []).includes(t))
+        const tags = confirmed.length
+          ? [...confirmed, ...(card.tags || []).filter((t) => !isUsageTag(t))]
+          : normalizeUsageTags(card.tags || [])
+        return { ...prev, cardLoading: false, card: { ...card, tags: sortTagsUsageFirst(tags) } }
+      })
     } catch {
       setStudyWordLookup((prev) => (prev && prev.word === wl.word) ? { ...prev, cardLoading: false, cardError: 'Could not create a card. Try again.' } : prev)
     }
@@ -8463,7 +8639,7 @@ IMPORTANT BEHAVIOR RULES:
 ${activeMode.type === 'language' ? `   - LANGUAGE MODE (learning ${learnLangName()}, user speaks ${userLangName()}) — use this back format, each label on its own line, with the LABELS WRITTEN IN ${learnLangName()}:
      front: "<word> (<part of speech written in ${learnLangName()}>)"
      back lines: pronunciation (phonetics for a ${userLangName()} speaker, stress in CAPS), translation (to ${userLangName()}), direct/literal translation (omit the line if none), synonyms (in ${userLangName()}), definition (written IN ${learnLangName()}), example (a natural ${learnLangName()} sentence with its ${userLangName()} translation in parentheses).
-     tags: include part of speech, level, topic, and "ebiki".${usageScopeTagRule()} Only use REAL, correctly-spelled ${learnLangName()} words.${dialectRule()}${preferredTermRule()}` : `   - Design a back that best teaches this subject (definition, key points, formula, example as fits). Always include an "ebiki" tag. Write the back content in ${userLangName()} (keep the front term, proper nouns, technical terms, code, and formulas in their original form) so the learner studies in their own language, including when reviewing in Anki.`}
+     tags: include part of speech, level, topic, and "ebiki".${usageTagsRule()} Only use REAL, correctly-spelled ${learnLangName()} words.${dialectRule()}${preferredTermRule()}` : `   - Design a back that best teaches this subject (definition, key points, formula, example as fits). Always include an "ebiki" tag. Write the back content in ${userLangName()} (keep the front term, proper nouns, technical terms, code, and formulas in their original form) so the learner studies in their own language, including when reviewing in Anki.`}
 
 3. For general questions: be concise and helpful. Explain concepts clearly.
 
@@ -9662,7 +9838,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         )}
                         {card.tags?.length > 0 && (
                           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
-                            {sortTagsRegionFirst(card.tags).map((t, ti) => <span key={ti} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: 'rgba(125,133,144,.15)', color: 'var(--c-ink-dim)', ...(isRegionTag(t) ? regionTagStyle(t) : {}) }}>{t}</span>)}
+                            {sortTagsUsageFirst(card.tags).map((t, ti) => <span key={ti} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: 'rgba(125,133,144,.15)', color: 'var(--c-ink-dim)', ...usageTagStyle(t) }}>{t}</span>)}
                           </div>
                         )}
                       </div>
@@ -9833,8 +10009,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                       {curTags.filter((tg) => !nextTags.includes(tg)).map((tg) => (
                                         <span key={`del-${tg}`} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, color: 'var(--c-danger)', background: 'rgba(229,57,46,.15)', textDecoration: 'line-through' }}>{tg}</span>
                                       ))}
-                                      {sortTagsRegionFirst(nextTags).map((tg) => curTags.includes(tg)
-                                        ? <span key={tg} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: 'rgba(125,133,144,.15)', color: 'var(--c-ink-dim)', ...(isRegionTag(tg) ? regionTagStyle(tg) : {}) }}>{tg}</span>
+                                      {sortTagsUsageFirst(nextTags).map((tg) => curTags.includes(tg)
+                                        ? <span key={tg} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: 'rgba(125,133,144,.15)', color: 'var(--c-ink-dim)', ...usageTagStyle(tg) }}>{tg}</span>
                                         : <span key={tg} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, color: 'var(--c-success)', background: 'rgba(24,169,87,.15)', fontWeight: 700 }}>+ {tg}</span>)}
                                     </div>
                                   </div>
@@ -10146,8 +10322,11 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               ))}
                               {(note.tags || []).length > 0 && (
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
-                                  {sortTagsRegionFirst(note.tags).map((tag) => (
-                                    <span key={tag} style={{ fontSize: 9, fontWeight: 700, color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,.3)', borderRadius: 999, padding: '1px 7px', ...(isRegionTag(tag) ? regionTagStyle(tag) : {}) }}>{tag}</span>
+                                  {/* Usage tags explain themselves on hover (what a region/frequency/
+                                      register claim means for the learner); other tags are literal. */}
+                                  {sortTagsUsageFirst(note.tags).map((tag) => (
+                                    <span key={tag} className={isUsageTag(tag) ? 'tip tip-r' : undefined} data-tip={usageTagTip(tag) || undefined}
+                                      style={{ fontSize: 9, fontWeight: 700, color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,.3)', borderRadius: 999, padding: '1px 7px', ...(isUsageTag(tag) ? { cursor: 'help' } : {}), ...usageTagStyle(tag) }}>{tag}</span>
                                   ))}
                                 </div>
                               )}
@@ -10413,7 +10592,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       <div style={{ fontSize: 11, color: 'var(--c-ink)', whiteSpace: 'pre-line', marginBottom: 6 }}>{card.back}</div>
                       {card.tags?.length > 0 && (
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 6 }}>
-                          {sortTagsRegionFirst(card.tags).map((t, ti) => <span key={ti} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: 'rgba(125,133,144,.15)', color: 'var(--c-ink-dim)', ...(isRegionTag(t) ? regionTagStyle(t) : {}) }}>{t}</span>)}
+                          {sortTagsUsageFirst(card.tags).map((t, ti) => <span key={ti} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: 'rgba(125,133,144,.15)', color: 'var(--c-ink-dim)', ...usageTagStyle(t) }}>{t}</span>)}
                         </div>
                       )}
                       {card.synced ? (
@@ -11036,6 +11215,14 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                             )}
                             {lm.requeued && <span className="tip" data-tip="This card comes back in a few cards as practice. The Again rating already recorded stays the only Anki review." style={{ fontSize: 10, color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,.3)', borderRadius: 999, padding: '2px 8px', fontWeight: 700 }}>↻ comes back soon</span>}
                           </div>
+                          {/* Where it is used · how often natives say it · what context it belongs to.
+                              Learning the word without these is how a literary or country-specific
+                              word gets memorized as the everyday one. */}
+                          {activeMode.type === 'language' && (
+                            <div style={{ marginBottom: 10 }}>
+                              {renderUsageTagChips(lm.usageTags, lm.usageUnverified, lm.usageChecking, 9.5)}
+                            </div>
+                          )}
                           {/* General cards: the headline shows the KEY TERM, so the full front paragraph
                               (the concept statement) still needs to be readable — as prose, not a banner. */}
                           {activeMode.type !== 'language' && String(lm.front || '').trim() !== headWord && (
@@ -12170,8 +12357,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     <div style={{ marginBottom: 6 }}>
                       <div style={S.ttAnkiCardLabel}>{t('deck_tags')}</div>
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                        {sortTagsRegionFirst(ankiCard.tags).map((tag, i) => (
-                          <span key={i} style={{ fontSize: 10, padding: '2px 6px', borderRadius: 3, background: 'rgba(125,133,144,.15)', color: 'var(--c-ink)', border: '1px solid rgba(125,133,144,.2)', ...(isRegionTag(tag) ? regionTagStyle(tag) : {}) }}>{tag}</span>
+                        {sortTagsUsageFirst(ankiCard.tags).map((tag, i) => (
+                          <span key={i} style={{ fontSize: 10, padding: '2px 6px', borderRadius: 3, background: 'rgba(125,133,144,.15)', color: 'var(--c-ink)', border: '1px solid rgba(125,133,144,.2)', ...usageTagStyle(tag) }}>{tag}</span>
                         ))}
                       </div>
                     </div>
