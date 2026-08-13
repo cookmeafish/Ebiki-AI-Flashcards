@@ -516,8 +516,15 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   region-global spelled the long way, and shown as two amber chips it warns the learner off a
   perfectly universal word. Models do this constantly because naming regions feels more careful than
   claiming global, so the prompts forbid it AND `foldUsageTags` (= normalize + collapse, the funnel
-  EVERY tag producer goes through) fixes it after the fact. Display only: an existing card keeps its
-  tags until a reviewed Dialect audit / bulk edit rewrites them.
+  EVERY tag producer goes through) fixes it after the fact. That fold is display-side, so the DECK
+  itself is repaired by the **🏷 Tag audit** button (deck browser, language modes, beside 🌎 Dialect
+  audit): `usageTagAuditInstruction()` runs the canned "fix every card's usage tags" request through
+  the ENTIRE custom bulk-edit pipeline (batched, verified, before/after chip diff, accept per card),
+  so cards made before usage tags existed get them and dishonest sets get corrected, with nothing
+  written to Anki unapproved. It is TAGS-ONLY (tells the model to omit `recommendedFields`) and must
+  carry over every non-usage tag, since `recommendedTags` replaces the whole list. `analyzeDeck` also
+  runs `collapseSpanningRegions` over any PROPOSED tag list - only when tags were proposed, so an
+  unrelated bulk edit never grows tag-only recs of its own.
   **Rendering: `sortTagsUsageFirst` + `usageTagStyle` + `usageTagTip`, via `renderUsageTagChips`**
   (App.jsx) - stable sort puts region → freq → register first; green = safe to use (`region-global`,
   `freq-core`, `freq-common`), amber = heads-up (specific region, rare, context-bound), gray-dashed =

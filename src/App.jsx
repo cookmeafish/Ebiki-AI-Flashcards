@@ -2902,6 +2902,27 @@ Judge the word IN THE SENSE USED HERE${v ? `, as ${v} speakers use it` : ''}, ag
     const v = dialectName() || learnLangName()
     return `\nPREFERRED-TERM HONESTY (mandatory): for EACH translation/meaning you present, ask yourself: is THIS word what a ${v} speaker actually reaches for in everyday speech for that meaning? When a DIFFERENT word is clearly more common in ${v} for one of the listed meanings (e.g. Spanish "barro" glossed as "mud": everyday Latin American speech prefers "lodo", while barro leans clay/ceramic material), you MUST say so explicitly in a usage note naming the more common word (in the usage line if the format has one, otherwise appended to the translation), and order the translations so the meanings this word IS the default term for come FIRST. Never present a headword as the normal word for a meaning that a synonym dominates.`
   }
+  // 🏷 Tag audit — retrofits USAGE TAGS onto EXISTING cards. Every card made before usage tags
+  // existed carries none, so the deck cannot tell the learner where a word is used or how often,
+  // and older cards can carry a dishonest set (the "region-spain + region-latam" pair, which is
+  // region-global written the long way). Collapsing that at DISPLAY time only papers over it: the
+  // deck itself, and Anki, still hold the wrong tags. This runs the canned request through the
+  // ENTIRE custom bulk-edit pipeline (batched, verified, before/after chip diff, accept per card),
+  // so the repair is reviewed and nothing is written behind the user's back.
+  const usageTagAuditInstruction = () => {
+    const L = learnLangName()
+    const v = dialectName()
+    return `Audit the USAGE TAGS on every card and correct them. Do not touch any field: this request is about TAGS ONLY, so return "recommendedTags" and omit "recommendedFields" entirely.
+
+For each card, work out how its headword is really used IN THE SENSE THIS CARD TEACHES${v ? `, as ${v} speakers use it` : ''}, then make its tag list carry exactly these:${usageTagsRule()}
+
+Rules for this audit:
+- Carry over EVERY existing tag that is not a usage tag (part of speech, level, topic, "ebiki", anything the owner added). "recommendedTags" replaces the whole list, so a tag you leave out is DELETED.
+- Add what is missing: a card with no frequency tag must get one, a card with no region tag must get one.
+- Fix what is wrong or dishonest, and REMOVE a usage tag that is not true of this card's sense: a "region-global" the word does not deserve, a frequency that flatters an uncommon word, a register tag on a plain neutral word, a second frequency tag.
+- Replace a region list that covers the whole ${L}-speaking world with "region-global" (for Spanish, "region-spain" plus "region-latam" together IS global and must never appear side by side).
+- SKIP a card whose usage tags are already complete and honest, and skip any card that is not a ${L} vocabulary card. Do not invent precision: when the truth sits between two frequency levels, choose the LESS common one.`
+  }
   // 🌎 Dialect audit — retrofits preferred-term honesty onto EXISTING cards (cards generated before
   // the rule, like the original barro card). A canned instruction through the ENTIRE custom
   // bulk-edit pipeline: same JSON contract, same noteId+front integrity guard, same before/after
@@ -3581,8 +3602,12 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         // deck. A tag the card ALREADY carries is never touched: normalizing it away would silently
         // delete the owner's own tag, the exact failure the full-replacement contract warns about.
         const foldTag = (tg) => (currentTags.includes(tg) || !isUsageTag(tg) ? [tg] : normalizeUsageTags([tg]))
+        // Whole-list canonicalization on top of the per-tag fold: a PROPOSED region set that spans
+        // the language collapses to region-global (see collapseSpanningRegions). Applied only when
+        // the model actually proposed tags, so an unrelated bulk edit never grows tag-only recs of
+        // its own; the user still accepts or denies the result like any other change.
         const recommendedTags = hasTagRec
-          ? [...new Set(r.recommendedTags.map(cleanTag).filter(Boolean).flatMap(foldTag))]
+          ? collapseSpanningRegions([...new Set(r.recommendedTags.map(cleanTag).filter(Boolean).flatMap(foldTag))], learnLangName())
           : [...currentTags]
         const tagsChanged = [...recommendedTags].sort().join(' ') !== [...currentTags].sort().join(' ')
         // Skip if AI flagged the card but didn't actually propose any changes.
@@ -9786,6 +9811,19 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       style={{ background: 'rgba(17,168,160,0.12)', color: 'var(--c-teal)', border: '1px solid rgba(17,168,160,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: (deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0) ? 0.5 : 1 }}
                     >
                       {deckAnalyzeLoading && deckAnalyzeKind === 'custom' && deckAnalyzeInstruction === dialectAuditInstruction() ? t('deck_auditing') : t('deck_dialectAudit')}
+                    </button>
+                  )}
+                  {/* Retrofits usage tags onto cards made before they existed (or tagged wrongly),
+                      through the same propose → review → accept pipeline: nothing is written until
+                      each card is approved. */}
+                  {activeMode.type === 'language' && (
+                    <button
+                      onClick={() => analyzeDeck('custom', usageTagAuditInstruction())}
+                      disabled={deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0}
+                      className="tip tip-r" data-tip={t('deck_tagAuditTip')}
+                      style={{ background: 'rgba(24,169,87,0.12)', color: 'var(--c-success)', border: '1px solid rgba(24,169,87,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: (deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0) ? 0.5 : 1 }}
+                    >
+                      {deckAnalyzeLoading && deckAnalyzeKind === 'custom' && deckAnalyzeInstruction === usageTagAuditInstruction() ? t('deck_tagAuditing') : t('deck_tagAudit')}
                     </button>
                   )}
                   <button
