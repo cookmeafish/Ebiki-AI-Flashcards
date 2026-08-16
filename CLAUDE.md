@@ -1283,6 +1283,20 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
     compare left-to-right, so `[5]` beats `[4,8]`; a dateless alias and its dated snapshot compare EQUAL so
     the app never nags a user onto a pinned build. Extend the tests when adding a provider id shape.
 
+## Testing - TWO halves, `npm test` is only the first
+- `npm test` (vitest) covers the PURE modules: the pronunciation matcher, the PBQ engine,
+  usage tags, modelVersions. It can say nothing about layout, modals, or a click path.
+- The second half is the **run-ebiki skill** (`.claude/skills/run-ebiki/`, COMMITTED so every
+  clone has it - it is tooling, never part of the app bundle): `npm run dev`, then `npm run drive`
+  drives the running app in headless Chrome/Chromium/Edge and prints screenshots + real console
+  errors. Zero setup on a fresh clone - `drive.mjs` installs `playwright-core` into
+  `~/.ebiki-drive` (OUTSIDE the repo, so `package.json` never gains the dependency) and uses a
+  browser the machine already has. `npm run drive -- --studio "brief"` also exercises Ebi Studio
+  and **spends API credits**; the bare smoke path makes no AI calls.
+- Verify a UI change THERE, not by reasoning about the JSX. Modal/overflow bugs in particular
+  come from `body { zoom: 1.35 }` scaling `position: fixed` boxes, which only measuring catches
+  (`panelBox()` in the driver). SKILL.md holds the rest of the traps; extend it when you hit a new one.
+
 ## README style (README.md)
 - **Be effective and tight. No filler, no fluff, no hype.** The README is USER-FACING: what the app is,
   what each tab/feature does, how to set it up and use it. Every line must earn its place. When editing it,

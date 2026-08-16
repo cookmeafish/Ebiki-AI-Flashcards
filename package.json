@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "drive": "node .claude/skills/run-ebiki/drive.mjs",
     "overlay": "electron electron/main.cjs",
     "overlay:dev": "electron electron/main.cjs --dev"
   },
