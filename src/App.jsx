@@ -9633,6 +9633,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           kind={modeStudio.kind}
           focus={modeStudio.focus || 'all'}
           existing={modeStudio.kind === 'edit' ? modes.find((m) => m.id === modeStudio.modeId) : null}
+          seed={modeStudio.seed || ''}
           apiKey={apiKey}
           parseAiJson={parseAiJson}
           askAI={(sys, content) => aiCall(apiKey, sys, content, resolveModel('chat'), { maxTokens: 2000, keepDashes: false })}

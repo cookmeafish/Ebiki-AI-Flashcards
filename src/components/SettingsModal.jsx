@@ -875,7 +875,9 @@ export default function SettingsModal(p) {
             disabled={modeCreating || !modeEditInput.trim()} style={{ ...S.keyDone, opacity: modeCreating || !modeEditInput.trim() ? 0.5 : 1 }}>{modeCreating ? t('creating') : t('create')}</button>
         </div>
         {openModeStudio && (
-          <button onClick={() => openModeStudio({ kind: 'create', focus: 'all' })}
+          // Whatever is already typed in the box above rides into the studio as the
+          // opening brief, so the two controls are one flow and not two dead ends.
+          <button onClick={() => openModeStudio({ kind: 'create', focus: 'all', seed: modeEditInput.trim() })}
             style={{ ...S.getKeyLink, fontSize: 12, marginTop: 10, width: '100%', color: C.purple, borderColor: 'rgba(124,77,239,.35)' }}>
             {'✨'} {t('studioCreateEntry')}
           </button>

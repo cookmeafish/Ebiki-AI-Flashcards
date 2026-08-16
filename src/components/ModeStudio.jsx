@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { S } from '../styles/theme'
+import Markdown from './Markdown'
 import { C, RADIUS, SHADOW, FONT } from '../config/tokens'
 
 // ── Ebi Studio ─────────────────────────────────────────────────────────────
@@ -13,7 +14,10 @@ import { C, RADIUS, SHADOW, FONT } from '../config/tokens'
 // Ebi replies with a short human summary plus a hidden <mode>{json}</mode>
 // block. When that block parses, a review card appears with an Apply button;
 // `onApply(spec)` (in App) builds/persists a fully compatible mode config.
-export default function ModeStudio({ t, kind = 'create', focus = 'all', existing = null, askAI, apiKey, parseAiJson, onApply, onClose }) {
+// `seed` is a brief already typed elsewhere (the Learning modes box): the panel
+// opens with it sent as the first message so Ebi answers it instead of asking
+// the user to type the same thing again.
+export default function ModeStudio({ t, kind = 'create', focus = 'all', existing = null, seed = '', askAI, apiKey, parseAiJson, onApply, onClose }) {
   const isEdit = kind === 'edit'
   const title = isEdit
     ? (focus === 'cards' ? t('studioTitleDeck') : t('studioTitleEdit', { name: existing?.name || '' }))
@@ -77,8 +81,10 @@ Do NOT include the <mode> block while you are still asking questions. Include it
     ].filter(Boolean).join('\n\n')
   }
 
-  const send = async () => {
-    const text = input.trim()
+  // `override` lets the seed send itself without going through the input. Callers
+  // must not hand this the click event, hence the string check.
+  const send = async (override) => {
+    const text = (typeof override === 'string' ? override : input).trim()
     if (!text || loading || !apiKey) return
     const next = [...messages, { role: 'user', text }]
     setMessages(next); setInput(''); setLoading(true); setError(null)
@@ -99,6 +105,17 @@ Do NOT include the <mode> block while you are still asking questions. Include it
       setMessages(next)
     } finally { setLoading(false) }
   }
+
+  // Send the seeded brief once, on open. Without a key nothing can be sent, so the
+  // brief goes into the composer instead of being silently dropped.
+  const seededRef = useRef(false)
+  useEffect(() => {
+    const s = String(seed || '').trim()
+    if (!s || seededRef.current) return
+    seededRef.current = true
+    if (apiKey) send(s)
+    else setInput(s)
+  }, [seed, apiKey])
 
   const apply = async () => {
     if (!spec) return
@@ -136,8 +153,11 @@ Do NOT include the <mode> block while you are still asking questions. Include it
             <div key={i} style={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '88%',
               background: m.role === 'user' ? C.brandTint : C.surfaceAlt, color: C.ink,
               border: `1px solid ${m.role === 'user' ? C.brandRing : C.border}`, borderRadius: RADIUS.md,
-              padding: '9px 12px', fontSize: 12.5, lineHeight: 1.55, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-              {m.text}
+              padding: '9px 12px', fontSize: 12.5, lineHeight: 1.55, overflowWrap: 'anywhere',
+              ...(m.role === 'user' ? { whiteSpace: 'pre-wrap' } : {}) }}>
+              {/* Only Ebi's side is parsed as markdown (same split as Chat and Help): the
+                  user's text stays literal so asterisks they typed are not eaten. */}
+              {m.role === 'user' ? m.text : <Markdown text={m.text} />}
             </div>
           ))}
           {loading && <div style={{ alignSelf: 'flex-start', fontSize: 12, color: C.inkFaint, fontStyle: 'italic' }}>{t('studioThinking')}</div>}
@@ -176,7 +196,7 @@ Do NOT include the <mode> block while you are still asking questions. Include it
               onKeyDown={(e) => { if (e.key === 'Enter') send() }}
               placeholder={apiKey ? t('studioPlaceholder') : t('studioNeedKey')} disabled={loading || !apiKey}
               style={{ ...S.keyInput, flex: 1, fontSize: 12.5 }} />
-            <button onClick={send} disabled={loading || !apiKey || !input.trim()} className="btn-press"
+            <button onClick={() => send()} disabled={loading || !apiKey || !input.trim()} className="btn-press"
               style={{ ...S.keyDone, opacity: (loading || !apiKey || !input.trim()) ? 0.5 : 1 }}>{t('studioSend')}</button>
           </div>
         )}
