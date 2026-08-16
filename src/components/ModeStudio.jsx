@@ -116,9 +116,13 @@ Do NOT include the <mode> block while you are still asking questions. Include it
   ) : null
 
   return (
+    // The body has CSS zoom:1.35, which also scales this fixed backdrop, so inset:0 covers 135%
+    // of the visual viewport and the flex-centered panel lands down and to the right, off-screen.
+    // Cancel the zoom on the backdrop and divide the panel's viewport cap by 1.35, the same
+    // convention SettingsModal and the app root use.
     <div onMouseDown={(e) => { if (e.target === e.currentTarget && !loading) onClose() }}
-      style={{ position: 'fixed', inset: 0, zIndex: 12000, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ width: 'min(560px, 100%)', maxHeight: '86vh', display: 'flex', flexDirection: 'column', background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, boxShadow: SHADOW.lg, overflow: 'hidden' }}>
+      style={{ position: 'fixed', top: 0, left: 0, width: 'calc(100vw / 1.35)', height: 'calc(100vh / 1.35)', zIndex: 12000, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ width: 'min(560px, 100%)', maxHeight: '100%', display: 'flex', flexDirection: 'column', background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, boxShadow: SHADOW.lg, overflow: 'hidden' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 16px', borderBottom: `1px solid ${C.border}` }}>
           <span style={{ fontSize: 16 }}>{'✨'}</span>

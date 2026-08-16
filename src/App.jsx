@@ -12873,7 +12873,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       {appConfirm && (
         <div onClick={() => resolveConfirm(false)}
           onKeyDown={(e) => { if (e.key === 'Escape') resolveConfirm(false) }}
-          style={{ position: 'fixed', inset: 0, zIndex: 10002, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn .12s ease' }}>
+          style={{ position: 'fixed', top: 0, left: 0, width: 'calc(100vw / 1.35)', height: 'calc(100vh / 1.35)', zIndex: 10002, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn .12s ease' }}>
           <div onClick={(e) => e.stopPropagation()} style={{
             background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg,
             padding: '18px 20px', maxWidth: 440, width: 'calc(90vw / 1.35)', boxShadow: SHADOW.lg,
@@ -12900,7 +12900,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           backdrop-dismiss and no Esc: an ignored prompt would re-fire tomorrow, so the user
           answers once and we honour it. */}
       {modelUpgrade && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 10002, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn .12s ease' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, width: 'calc(100vw / 1.35)', height: 'calc(100vh / 1.35)', zIndex: 10002, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn .12s ease' }}>
           <div style={{
             background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg,
             padding: '18px 20px', maxWidth: 460, width: 'calc(90vw / 1.35)', boxShadow: SHADOW.lg,
