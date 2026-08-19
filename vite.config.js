@@ -31,7 +31,9 @@ function resolveDataDir() {
   return APP_ROOT
 }
 let DATA_DIR = resolveDataDir()
-const dataPath = (...segs) => path.join(DATA_DIR, ...segs)
+// Reads/writes go to the OFFLINE working copy while the share is down (see the
+// offline-mode section below); everywhere else this is just DATA_DIR.
+const dataPath = (...segs) => path.join(offlineActive ? OFFLINE_DIR : DATA_DIR, ...segs)
 
 // Deep-merge two parsed JSON values so BOTH sides are preserved: objects merge
 // key-by-key (recursively), arrays are unioned (dedup by value), and a scalar
@@ -124,10 +126,10 @@ function sourceOnlySummary(from, to) {
 const LOCAL_HOME = path.join(APP_ROOT, '.local-home')
 const dataEntriesPresent = (dir) => DATA_ENTRIES.some((e) => fs.existsSync(path.join(dir, e)))
 // Is the data source actually readable? The app folder always is. A configured
-// SHARED folder that shows NO data entries is treated as unreachable (a mapped
-// drive that's disconnected reads as empty) — so callers must NOT interpret that
-// emptiness as "no data / first run" and overwrite the real (offline) files.
-const sourceReachable = () => DATA_DIR === APP_ROOT || dataEntriesPresent(DATA_DIR)
+// SHARED folder that shows NO data entries is unreachable (a disconnected mapped
+// drive reads as empty) — callers must NOT read that emptiness as "no data /
+// first run" and overwrite the real files. See shareReachable()/dataMode() below,
+// which add caching and the .local-offline fallback on top of this.
 // Move every data entry from `srcDir` into `destDir`. NEVER deletes: if `destDir`
 // already holds an entry, that existing copy is parked in a dated backup first.
 function moveDataEntries(srcDir, destDir) {
@@ -183,6 +185,136 @@ function runBackup() {
     lastBackup = { at: new Date().toISOString(), files: acc.n, error: null }
     return { ok: true, files: acc.n }
   } catch (e) { lastBackup = { ...lastBackup, error: e.message }; return { error: e.message } }
+}
+
+
+// ── Offline mode: run from the local snapshot while the share is down ────────
+// The auto-backup above keeps `.local-sync/` as a mirror of the shared folder.
+// This is the other half: when the share becomes unreachable, the app RUNS from
+// a local working copy instead of going dead, and the edits made offline are
+// reconciled back into the share on reconnect.
+//
+// THREE folders, three distinct jobs — do not collapse them:
+//   • DATA_DIR (e.g. Y:\)   the shared truth, written only by an explicit merge
+//   • .local-sync/          the BASE: last known state of the share, read-only here
+//   • .local-offline/       the offline WORKING copy, seeded from the base on entry
+// Keeping the base pristine is what makes the reconcile a real 3-way merge: for
+// every file we can tell "did I change it?" (offline vs base) apart from "did
+// someone else change it?" (share vs base), so a fast-forward never has to be
+// guessed at and a genuine conflict is never silently resolved.
+const OFFLINE_DIR = path.join(APP_ROOT, '.local-offline')
+const OFFLINE_META = path.join(OFFLINE_DIR, '.offline.json')
+let offlineActive = false
+let offlineSince = null
+
+// Probing a dead mapped drive is slow (SMB timeouts), and every data request asks.
+// Cache the answer briefly so a page load doesn't stack dozens of blocking probes.
+let reachCache = { at: 0, ok: false }
+const REACH_TTL_MS = 3000
+function shareReachable() {
+  if (DATA_DIR === APP_ROOT) return true
+  const now = Date.now()
+  if (now - reachCache.at < REACH_TTL_MS) return reachCache.ok
+  const ok = dataEntriesPresent(DATA_DIR)
+  reachCache = { at: now, ok }
+  return ok
+}
+
+// Seed (once) and activate the offline working copy. Returns false when there is
+// no snapshot to run from — a machine that joined a share and never completed a
+// backup has nothing local, and inventing empty data would be worse than an error.
+function enterOffline() {
+  if (offlineActive) return true
+  if (!dataEntriesPresent(BACKUP_DIR)) return false
+  try {
+    if (!fs.existsSync(OFFLINE_META)) {
+      fs.mkdirSync(OFFLINE_DIR, { recursive: true })
+      for (const entry of BACKUP_ENTRIES) {
+        const from = path.join(BACKUP_DIR, entry)
+        if (fs.existsSync(from)) fs.cpSync(from, path.join(OFFLINE_DIR, entry), { recursive: true })
+      }
+      fs.writeFileSync(OFFLINE_META, JSON.stringify({ since: new Date().toISOString(), dataDir: DATA_DIR }, null, 2) + '\n', 'utf-8')
+      console.log('[Offline] share unreachable. Running from a local copy in .local-offline')
+    }
+    offlineSince = JSON.parse(fs.readFileSync(OFFLINE_META, 'utf-8')).since || new Date().toISOString()
+    offlineActive = true
+    return true
+  } catch (e) { console.log('[Offline] could not start offline mode:', e.message); return false }
+}
+
+// The state every data endpoint branches on. Called per request (cheaply), so a
+// share that comes back mid-session is picked up without a restart: offline goes
+// false immediately, while `.local-offline/` STAYS on disk holding the offline
+// edits until the user reconciles or discards them.
+function dataMode() {
+  if (shareReachable()) { offlineActive = false; return 'online' }
+  return enterOffline() ? 'offline' : 'down'
+}
+
+// Walk the offline working copy against the base. `changed` = files this computer
+// actually touched while offline (new or differing bytes); anything identical to
+// the base is not an edit and is left out of the reconcile entirely.
+function offlineChangedFiles(rel = '', out = []) {
+  const here = path.join(OFFLINE_DIR, rel)
+  if (!fs.existsSync(here)) return out
+  for (const name of fs.readdirSync(here)) {
+    if (!rel && name === '.offline.json') continue
+    const r = rel ? path.join(rel, name) : name
+    const abs = path.join(OFFLINE_DIR, r)
+    if (fs.statSync(abs).isDirectory()) { offlineChangedFiles(r, out); continue }
+    const base = path.join(BACKUP_DIR, r)
+    let same = false
+    try { same = fs.existsSync(base) && fs.readFileSync(base).equals(fs.readFileSync(abs)) } catch { same = false }
+    if (!same) out.push(r)
+  }
+  return out
+}
+
+function offlineStatus() {
+  const has = fs.existsSync(OFFLINE_META)
+  return {
+    offline: offlineActive,
+    pending: has && !offlineActive,                    // edits waiting to go back to a share that is up again
+    since: has ? offlineSince : null,
+    changes: has ? offlineChangedFiles().length : 0,
+    dataDir: DATA_DIR,
+  }
+}
+
+// Push the offline edits back into the share, 3-way. Per changed file:
+//   • share missing, or share still identical to the base  → fast-forward (copy)
+//   • share ALSO moved since the base                      → true merge via
+//     deepMergeInto (JSON deep-merged, non-JSON kept-both), the same
+//     nothing-is-dropped rule the join/return merge uses.
+// Deletions made offline are deliberately NOT replayed: an absent file is
+// indistinguishable from one that was never synced, and re-deleting shared data
+// on someone else's behalf is the one unrecoverable move here.
+function reconcileOffline() {
+  const acc = { added: 0, merged: 0, keptBoth: 0 }
+  const fastForward = []
+  for (const rel of offlineChangedFiles()) {
+    const mine = path.join(OFFLINE_DIR, rel)
+    const base = path.join(BACKUP_DIR, rel)
+    const theirs = path.join(DATA_DIR, rel)
+    let shareMoved = false
+    if (fs.existsSync(theirs)) {
+      try { shareMoved = !(fs.existsSync(base) && fs.readFileSync(base).equals(fs.readFileSync(theirs))) } catch { shareMoved = true }
+    }
+    if (!fs.existsSync(theirs) || !shareMoved) {
+      fs.mkdirSync(path.dirname(theirs), { recursive: true })
+      fs.copyFileSync(mine, theirs)
+      fastForward.push(rel)
+    } else {
+      deepMergeInto(mine, theirs, 'this computer offline', acc)
+    }
+  }
+  fs.rmSync(OFFLINE_DIR, { recursive: true, force: true })
+  offlineActive = false
+  offlineSince = null
+  reachCache = { at: 0, ok: false }
+  runBackup()   // refresh the base so it matches the share we just wrote
+  console.log('[Offline] reconciled', fastForward.length, 'file(s) forward,', acc.merged, 'merged,', acc.keptBoth, 'kept-both')
+  return { ok: true, forwarded: fastForward.length, merged: acc.merged + acc.added, keptBoth: acc.keptBoth }
 }
 
 function parseEnv() {
@@ -244,6 +376,33 @@ function apiPlugin() {
         res.setHeader('Content-Type', 'application/json')
         if (req.method === 'POST') { const r = runBackup(); res.end(JSON.stringify({ ...r, ...lastBackup, dir: BACKUP_DIR, enabled: DATA_DIR !== APP_ROOT })) }
         else { res.end(JSON.stringify({ enabled: DATA_DIR !== APP_ROOT, dir: BACKUP_DIR, ...lastBackup })) }
+      })
+
+      // Offline mode status + reconcile. GET reports whether we're running from
+      // the local copy, or whether offline edits are waiting for a share that is
+      // back up. POST reconciles them into the share (or discards them) — the
+      // share is still only ever written by an explicit user action, exactly like
+      // the join/return merge.
+      server.middlewares.use('/api/offline', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+        if (req.method === 'GET') { dataMode(); res.end(JSON.stringify(offlineStatus())); return }
+        if (req.method !== 'POST') { res.statusCode = 405; res.end(''); return }
+        let body = ''
+        req.on('data', (c) => { body += c })
+        req.on('end', () => {
+          try {
+            const discard = !!JSON.parse(body || '{}').discard
+            if (!fs.existsSync(OFFLINE_META)) { res.end(JSON.stringify({ ok: true, nothing: true })); return }
+            if (discard) {
+              fs.rmSync(OFFLINE_DIR, { recursive: true, force: true })
+              offlineActive = false; offlineSince = null
+              res.end(JSON.stringify({ ok: true, discarded: true }))
+              return
+            }
+            if (!shareReachable()) { res.statusCode = 409; res.end(JSON.stringify({ error: 'The shared folder is still unreachable.' })); return }
+            res.end(JSON.stringify(reconcileOffline()))
+          } catch (e) { res.statusCode = 400; res.end(JSON.stringify({ error: e.message })) }
+        })
       })
 
       // ── App update (git) ────────────────────────────────────────────────
@@ -367,6 +526,37 @@ function apiPlugin() {
         }
       })
 
+
+      // ── Offline-share guard for every data-backed endpoint ──────────────────
+      // A disconnected mapped drive (Y:) reads as EMPTY, and worse, touching it
+      // THROWS (`UNKNOWN: unknown error, mkdir 'Y:\modes'`). Those handlers create
+      // their directory at the top, outside any try, so an unreachable share used
+      // to blow up as an uncaught middleware error — Vite's full-screen dev error
+      // overlay on top of the app, which reads as "the update broke everything".
+      // Answer 503 {unreachable:true} FIRST instead (same contract /api/config
+      // already uses): the client keeps its last good data, shows the offline
+      // banner, and never writes an empty default back over the real files.
+      // NOT guarded on purpose: /api/datadir (the way back to the app folder),
+      // /api/keys, /api/log, /api/anki, /api/update, /api/web-search, /api/tts.
+      const DATA_ROUTES = ['/config', '/ankiformat', '/modes', '/knowledge-sections', '/deck-progress', '/discover-store', '/chats', '/chat-load']
+      server.middlewares.use('/api', (req, res, next) => {
+        const p = (req.url || '').split('?')[0].replace(/\/+$/, '') || '/'
+        if (!DATA_ROUTES.some((r) => p === r || p.startsWith(r + '/'))) return next()
+        const mode = dataMode()
+        // 'down' = the share is gone AND there is no local snapshot to fall back
+        // on, the only case where the app truly cannot serve data.
+        if (mode === 'down') {
+          res.statusCode = 503
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ unreachable: true, dataDir: DATA_DIR }))
+          return
+        }
+        // Offline is a NORMAL serving state (reads and writes both hit
+        // .local-offline). The header rides along on every data response so the
+        // client can show the offline banner without a second request.
+        if (mode === 'offline') res.setHeader('X-Ebiki-Offline', '1')
+        next()
+      })
       // Anki format endpoint
       server.middlewares.use('/api/ankiformat', (req, res) => {
         if (req.method === 'GET') {
@@ -624,7 +814,8 @@ function apiPlugin() {
       // Meta: modes/_meta.json
       server.middlewares.use('/api/modes', (req, res) => {
         const MODES_DIR = dataPath('modes')   // resolved per request so a live data-dir switch takes effect
-        if (!fs.existsSync(MODES_DIR)) fs.mkdirSync(MODES_DIR, { recursive: true })
+        // Never let a failing mkdir escape as an uncaught middleware error (see the offline-share guard).
+        try { if (!fs.existsSync(MODES_DIR)) fs.mkdirSync(MODES_DIR, { recursive: true }) } catch { /* handled below: reads fall back to empty, writes report the error */ }
         const metaFile = path.join(MODES_DIR, '_meta.json')
 
         // Sanitize mode name for folder: remove invalid chars, trim, fallback to id
@@ -924,16 +1115,9 @@ function apiPlugin() {
 
       // Config endpoint
       server.middlewares.use('/api/config', (req, res) => {
-        // If the shared data folder is unreachable, DON'T pretend the config is
-        // empty (that empty would clobber the real file on the next autosave) and
-        // DON'T accept a write. Signal 503 so the client keeps the last good data
-        // and shows an offline alert instead.
-        if (!sourceReachable()) {
-          res.statusCode = 503
-          res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify({ unreachable: true, dataDir: DATA_DIR }))
-          return
-        }
+        // Unreachable-source handling lives in the shared data-route guard above
+        // (503 when there is nothing to serve, .local-offline when there is), so
+        // an empty read can never reach here and clobber the real file.
         if (req.method === 'GET') {
           res.setHeader('Content-Type', 'application/json')
           res.end(JSON.stringify(readConfig()))
@@ -1021,7 +1205,7 @@ function apiPlugin() {
       // Chat sessions — saved to chats/ folder
       server.middlewares.use('/api/chats', (req, res) => {
         const chatsDir = dataPath('chats')
-        if (!fs.existsSync(chatsDir)) fs.mkdirSync(chatsDir, { recursive: true })
+        try { if (!fs.existsSync(chatsDir)) fs.mkdirSync(chatsDir, { recursive: true }) } catch { /* see the offline-share guard */ }
 
         if (req.method === 'GET') {
           // List all chat sessions
@@ -1138,7 +1322,7 @@ export default defineConfig({
       // vite.config.js must be ignored too: on this share the watcher fires a
       // phantom change event on it after every restart → infinite restart loop.
       // Config edits therefore require a manual dev-server restart.
-      ignored: ['**/.env', '**/config.json', '**/ankiformat.json', '**/vite.config.js', '**/datadir.json', '**/modes/**', '**/decks/**', '**/chats/**', '**/local-data-backup-*/**', '**/.local-sync/**', '**/.local-home/**'],
+      ignored: ['**/.env', '**/config.json', '**/ankiformat.json', '**/vite.config.js', '**/datadir.json', '**/modes/**', '**/decks/**', '**/chats/**', '**/local-data-backup-*/**', '**/.local-sync/**', '**/.local-home/**', '**/.local-offline/**'],
     },
   },
 })

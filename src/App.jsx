@@ -205,7 +205,11 @@ export default function App() {
   const [chatSidePanel, setChatSidePanel] = useState(false) // split-screen chat alongside another tab
   const [provider, setProvider] = useState('anthropic')
   const [configLoaded, setConfigLoaded] = useState(false)
-  const [dataUnreachable, setDataUnreachable] = useState(false) // shared data folder (e.g. Y:) couldn't be read
+  const [dataUnreachable, setDataUnreachable] = useState(false) // shared data folder (e.g. Y:) couldn't be read AND no local copy to fall back on
+  const [dataOffline, setDataOffline] = useState(false)         // running from this computer's copy while the share is down
+  const [offlineBannerOff, setOfflineBannerOff] = useState(false)
+  const [offlinePending, setOfflinePending] = useState(0)       // offline edits waiting to merge into a share that is back up
+  const [offlineBusy, setOfflineBusy] = useState(false)
   const configHealthyRef = useRef(false)                        // true only when config loaded from a reachable source; gates autosave so a failed read never clobbers
   const [apiKeys, setApiKeys] = useState({})
   const [keysLoaded, setKeysLoaded] = useState(false)
@@ -261,6 +265,38 @@ export default function App() {
   // text). Promise-based drop-in: `await confirmDialog(msg)` resolves true (OK) / false (Cancel).
   const [appConfirm, setAppConfirm] = useState(null) // { message, resolve }
   const confirmDialog = (message) => new Promise((resolve) => setAppConfirm({ message, resolve }))
+
+  // ── Offline mode watch ───────────────────────────────────────────────────
+  // While the shared folder is down the server serves this computer's copy, and
+  // the moment the share is back it reports the offline edits as `pending`. We
+  // never push them automatically: a shared folder is only ever written by an
+  // explicit user action, so this just surfaces the choice.
+  useEffect(() => {
+    if (isOverlay || !configLoaded) return
+    let stop = false
+    const check = () => fetch('/api/offline').then((r) => r.json()).then((d) => {
+      if (stop) return
+      setDataOffline(!!d.offline)
+      setOfflinePending(d.pending ? (d.changes || 0) : 0)
+    }).catch(() => {})
+    check()
+    const id = setInterval(check, 30000)
+    return () => { stop = true; clearInterval(id) }
+  }, [isOverlay, configLoaded])
+
+  const resolveOffline = async (discard) => {
+    if (discard && !(await confirmDialog(t('offlineDiscardConfirm')))) return
+    setOfflineBusy(true)
+    try {
+      const r = await fetch('/api/offline', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ discard: !!discard }) })
+      const d = await r.json()
+      if (d.error) { setAiErrorNotice(t('offlineMergeFailed', { e: d.error })); return }
+      setOfflinePending(0)
+      setSuccessNotice(discard ? t('offlineDiscarded') : t('offlineMerged', { n: (d.forwarded || 0) + (d.merged || 0) + (d.keptBoth || 0) }))
+      if (!discard) setTimeout(() => window.location.reload(), 1200)   // re-read the freshly merged share
+    } catch (e) { setAiErrorNotice(t('offlineMergeFailed', { e: e.message })) }
+    finally { setOfflineBusy(false) }
+  }
   const resolveConfirm = (ok) => setAppConfirm((cur) => { cur?.resolve(ok); return null })
   // App UI language ('en' | 'es' | 'zh' | 'ja' | ...). Translates chrome, not flashcards.
   const [appLanguage, setAppLanguage] = useState('en')
@@ -1232,7 +1268,7 @@ export default function App() {
   useEffect(() => {
     Promise.all([
       fetch('/api/keys').then((r) => r.json()).catch(() => ({})),
-      fetch('/api/config').then((r) => r.ok ? r.json().then((d) => ({ ...d, _reachable: true })) : { _reachable: false }).catch(() => ({ _reachable: false })),
+      fetch('/api/config').then((r) => r.ok ? r.json().then((d) => ({ ...d, _reachable: true, _offline: r.headers.get('X-Ebiki-Offline') === '1' })) : { _reachable: false }).catch(() => ({ _reachable: false })),
       fetch('/api/modes').then((r) => r.json()).catch(() => null),
       fetch('/api/ankiformat').then((r) => r.json()).catch(() => null),
     ]).then(([keys, config, modesData, legacyFormat]) => {
@@ -1328,6 +1364,10 @@ export default function App() {
       // (offline) file, and surface an alert instead of the onboarding wizard.
       const cfgReachable = config._reachable !== false
       configHealthyRef.current = cfgReachable
+      // Offline is a HEALTHY state: the server served this computer's local copy
+      // and accepts writes into it, so the autosave must stay enabled — the edits
+      // are exactly what gets merged back when the share returns.
+      if (config._offline) setDataOffline(true)
       if (!cfgReachable) setDataUnreachable(true)
       else if (!config.activeTab) setActiveTab('picture')
       // ankiDeck is now per-mode (stored in mode config)
@@ -9436,6 +9476,36 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         </div>
       )}
 
+      {/* Shared-folder state. THREE distinct situations, don't merge them:
+          • red    - the share is gone and there is no local copy to run from, so
+                     nothing can be served and nothing may be written (the old
+                     "changes won't be saved" case, now the rare one);
+          • amber  - running from this computer's copy: fully usable, edits ARE
+                     saved locally and merge back later. Dismissable, since it is
+                     a working state and not an error;
+          • brand  - the share is back and offline edits are waiting on the user's
+                     decision (never pushed automatically). */}
+      {!isOverlay && dataUnreachable && (
+        <div style={{ flexShrink: 0, background: 'var(--c-danger)', color: 'var(--c-on-brand)', padding: '10px 16px', fontSize: 13, fontWeight: 700, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span>⚠ {t('dataUnreachable')}</span>
+          <button onClick={() => window.location.reload()} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.5)', background: 'rgba(0,0,0,.15)' }}>{t('dataUnreachableRetry')}</button>
+        </div>
+      )}
+
+      {!isOverlay && dataOffline && !dataUnreachable && !offlineBannerOff && (
+        <div style={{ flexShrink: 0, background: 'var(--c-warning)', color: 'var(--c-on-brand)', padding: '10px 16px', fontSize: 13, fontWeight: 700, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span>💾 {t('dataOffline')}</span>
+          <button onClick={() => setOfflineBannerOff(true)} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.5)', background: 'rgba(0,0,0,.15)' }}>{t('dataOfflineDismiss')}</button>
+        </div>
+      )}
+
+      {!isOverlay && !dataOffline && offlinePending > 0 && (
+        <div style={{ flexShrink: 0, background: 'var(--c-brand)', color: 'var(--c-on-brand)', padding: '10px 16px', fontSize: 13, fontWeight: 700, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span>🔄 {offlinePending === 1 ? t('offlinePendingOne') : t('offlinePending', { n: offlinePending })}</span>
+          <button className="btn-press" disabled={offlineBusy} onClick={() => resolveOffline(false)} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.6)', background: 'rgba(0,0,0,.18)', ...(offlineBusy ? { opacity: .5, cursor: 'default' } : {}) }}>{t('offlineMerge')}</button>
+          <button disabled={offlineBusy} onClick={() => resolveOffline(true)} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.35)', ...(offlineBusy ? { opacity: .5, cursor: 'default' } : {}) }}>{t('offlineDiscard')}</button>
+        </div>
+      )}
       {/* ── Header ───────────────────────────────────────────────────────────── */}
       {!isOverlay && <header style={S.header}>
         <div style={S.headerLeft}>
@@ -9559,14 +9629,6 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           </button>
         </div>
       </header>}
-
-      {/* Data folder unreachable: alert instead of silently looking like a reset (and never clobber). */}
-      {!isOverlay && dataUnreachable && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 13000, background: 'var(--c-danger)', color: 'var(--c-on-brand)', padding: '10px 16px', fontSize: 13, fontWeight: 700, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <span>⚠ {t('dataUnreachable')}</span>
-          <button onClick={() => window.location.reload()} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.5)', background: 'rgba(0,0,0,.15)' }}>{t('dataUnreachableRetry')}</button>
-        </div>
-      )}
 
       {/* ── First-run onboarding (Ebi-guided) ──────────────────────────────── */}
       {!isOverlay && configLoaded && !onboarded && !dataUnreachable && (
