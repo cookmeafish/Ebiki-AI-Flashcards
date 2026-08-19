@@ -94,20 +94,54 @@ every 10 minutes (plus once ~20s after start): `copyNewer` incrementally mirrors
 (= `DATA_ENTRIES` minus `cache`) from `DATA_DIR` into `.local-sync/` (gitignored, watch-ignored) by
 size+mtime. STRICTLY one-way (never writes to the share, so it can never conflict) and it SKIPS when the
 share is unreachable (`dataEntriesPresent(DATA_DIR)` false), so a dropped connection just leaves the last
-good snapshot. `.local-sync/` is the intended merge BASE for a future offline-edit reconcile. `/api/sync-backup`
+good snapshot. `.local-sync/` is the BASE for the offline-edit reconcile below. `/api/sync-backup`
 GET returns `{enabled, at, files, error}`; POST triggers a backup now. UI: a status line + "Back up now" in
 `DataFolderCard` (shown only on a shared folder), plus the shared-folder hint (`dataFolderHintShared`).
 
 **Unreachable-source guard (anti-clobber) - DO NOT REMOVE.** A disconnected mapped drive reads as EMPTY
 (`fs.existsSync` false), so a flaky `Y:` read used to look like "no data / first run": `/api/config` returned
 `{}`, the client defaulted `onboarded` to false, and the autosave then wrote that default back over the real
-file (this is how onboarding silently re-appeared). Now `/api/config` returns **503** `{unreachable:true}`
-whenever `!sourceReachable()` (= `DATA_DIR !== APP_ROOT && !dataEntriesPresent(DATA_DIR)`), for BOTH GET and
-POST. Client (App.jsx load): a 503/failed config fetch sets `dataUnreachable` and leaves `configHealthyRef`
-false; the config autosave bails on `!configHealthyRef.current` so it can NEVER overwrite the offline file,
-and a red top banner (`dataUnreachable` i18n) replaces the onboarding wizard. (Modes were already safe - their
-load only applies when `modes.length > 0`.) The planned offline mode - run from `.local-sync` when `Y:` is down
-and resync on reconnect - builds on this signal.
+file (this is how onboarding silently re-appeared). Worse, touching a dead drive doesn't just read empty, it
+THROWS (`UNKNOWN: unknown error, mkdir 'Y:\modes'`) - and the data handlers created their directory at the top
+OUTSIDE any try, so the throw escaped connect as an uncaught middleware error and Vite painted its full-screen
+dev error overlay over the app (reported as "the update broke everything"; the update was innocent, the
+restart just re-requested `/api/modes` against a dead share).
+So ONE guard now fronts every data-backed route (`DATA_ROUTES` = config, ankiformat, modes,
+knowledge-sections, deck-progress, discover-store, chats, chat-load) and branches on `dataMode()`:
+**`down`** (share gone AND no local snapshot) → **503** `{unreachable:true}`; **`offline`** → serve normally
+from the local copy plus an `X-Ebiki-Offline: 1` response header; **`online`** → pass through. NOT guarded on
+purpose: `/api/datadir` (the way back to the app folder must work when the share is dead), `/api/keys`,
+`/api/log`, `/api/anki`, `/api/update`, `/api/web-search`, `/api/tts`. The top-level `mkdirSync`s in
+`/api/modes` + `/api/chats` are also wrapped, so no future path can resurrect the overlay. Client (App.jsx
+load): a 503/failed config fetch sets `dataUnreachable` and leaves `configHealthyRef` false; the config
+autosave bails on `!configHealthyRef.current` so it can NEVER overwrite the offline file, and a red top banner
+(`dataUnreachable` i18n) replaces the onboarding wizard. (Modes were already safe - their load only applies
+when `modes.length > 0`.)
+
+**Offline mode - run from the local copy, reconcile on reconnect.** The other half of the auto-backup. When
+the share is unreachable the app does NOT go dead: it runs from `.local-offline/` (gitignored, watch-ignored),
+seeded once from `.local-sync/`. **THREE folders, three jobs - do not collapse them:** `DATA_DIR` = the shared
+truth (still only ever written by an explicit user action), `.local-sync/` = the BASE (last known share state,
+never written by offline mode), `.local-offline/` = the offline WORKING copy. Keeping the base pristine is what
+makes reconnect a real 3-WAY merge: per file we can tell "did I change it?" (offline vs base) apart from "did
+someone else?" (share vs base), so a fast-forward is never guessed and a real conflict is never silently
+resolved. `dataPath()` routes through `.local-offline` while `offlineActive`, so EVERY data endpoint follows
+with no per-endpoint changes. `dataMode()` is called per request (with a 3s `shareReachable()` cache, since
+probing a dead mapped drive blocks on SMB timeouts), so a share that returns mid-session is picked up with no
+restart: offline flips false while `.local-offline/` STAYS on disk holding the edits. `enterOffline()` returns
+false when there is no snapshot to run from (a machine that joined a share and never backed up) - that is the
+only remaining `down` case. **Reconcile** (`/api/offline`: GET `{offline, pending, since, changes}`, POST
+reconciles, POST `{discard:true}` throws the offline edits away) walks only files that actually differ from the
+base; share missing or share still == base → fast-forward copy; share ALSO moved → `deepMergeInto` (JSON
+deep-merged, non-JSON kept-both as `name (from this computer offline).ext`), i.e. the same nothing-is-dropped
+rule as the join/return merge, and a same-key scalar conflict keeps the SHARE's value. Then `.local-offline/`
+is removed and `runBackup()` refreshes the base. **Deletions made offline are deliberately NOT replayed** (an
+absent file is indistinguishable from one never synced, and re-deleting shared data on another machine's behalf
+is the one unrecoverable move). Client: the config fetch reads the `X-Ebiki-Offline` header (no extra request),
+a 30s poll of `/api/offline` drives an amber dismissable "working from this computer's copy" banner and, once
+the share is back, a brand-colored "N offline changes waiting · Merge them in / Discard" bar - never an
+automatic push. **All three banners render IN FLOW above `<header>`, never `position:fixed`** - a fixed top:0
+bar sits ON the header and eats its clicks (the Settings button was unreachable behind the red one).
 
 ## Windows installer & in-app updates
 **Exactly ONE file in the app root is user-runnable: `Install Ebiki.bat`.** The old layout had `install.bat`

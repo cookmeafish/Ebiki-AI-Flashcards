@@ -13,6 +13,7 @@ chats/
 datadir.json
 .local-home/
 .local-sync/
+.local-offline/
 local-data-backup-*/
 .update-snooze
 electron/last-capture.png
