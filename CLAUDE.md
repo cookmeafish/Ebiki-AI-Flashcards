@@ -86,8 +86,29 @@ with a merge choice (`{needsChoice, context:'join'|'return', sourceOnly}` → cl
 `moveDataEntries` NEVER deletes - collisions are parked in `local-data-backup-<date>/`. A shared folder is
 only ever written by an explicit `merge:true`. UI = self-contained `DataFolderCard` in SettingsModal
 (fetches/POSTs `/api/datadir` directly; deliberately NOT on the config.json autosave path - config.json
-lives INSIDE the data folder; field pre-fills with the active shared path). `.env` (API keys) and `logs/`
-stay machine-local on purpose. `/api/modes` re-derives `MODES_DIR` per request for the live switch.
+lives INSIDE the data folder; field pre-fills with the active shared path). `logs/` stays machine-local on
+purpose. `/api/modes` re-derives `MODES_DIR` per request for the live switch.
+
+**API keys: machine-local file, shared copy, and a self-healing backup.** The key used to be the ONE piece of
+user state with no copy anywhere - everything else is on the share or mirrored into `.local-sync`, while
+`.env` sat alone - so a single bad write erased it permanently (it did). Three layers now, all seamless (no
+user step anywhere):
+- `.env` stays the file the app reads. `.env.bak` holds the most recent content that HELD keys, mirrored by
+  `mirrorEnv()` on every read AND after every key-storing write, so the safety copy exists from the first
+  page load. If `.env` is ever found with no keys, `parseEnv` restores it from `.env.bak` and logs it.
+- `.env.cleared` records INTENT. Clearing the field in Settings posts that provider NAMED with an empty
+  value, which writes the marker so the self-heal does not undo a removal the user asked for; storing any
+  key deletes it again. Both files are machine-local and gitignored, like `.env`.
+- `keys.json` in `DATA_DIR` (and in `DATA_ENTRIES`, so the join/return merge and the local backup carry it)
+  is the SHARED copy, kept in step by `syncSharedKeys()` on `/api/keys` GET + POST and on the backup tick.
+  Strictly ADDITIVE both ways and it never overwrites: a key only on this computer is pushed up, a key only
+  on the share is pulled down, and when both hold one for the same provider NEITHER moves - the local key
+  always wins, so a shared copy can never replace the one you are actually using. **The one exception is a
+  key the user TYPED** (`setCurrentKey` sets `keyEditedRef`, the save posts `?source=user`, the server reads
+  it off `req.originalUrl` - connect rewrites `req.url` for a mounted middleware): that one REPLACES the
+  shared entry, because without it a bad key that once reached the share would be permanent, adopted by
+  every new computer with no way to correct it. A routine autosave is never authoritative. Skipped entirely
+  when no share is configured or the share is unreachable, so it can never block on a dead mapped drive.
 
 **Auto-backup (one-way).** When `DATA_DIR` is a shared folder, a `configureServer` timer runs `runBackup()`
 every 10 minutes (plus once ~20s after start): `copyNewer` incrementally mirrors `BACKUP_ENTRIES`
@@ -117,6 +138,22 @@ load): a 503/failed config fetch sets `dataUnreachable` and leaves `configHealth
 autosave bails on `!configHealthyRef.current` so it can NEVER overwrite the offline file, and a red top banner
 (`dataUnreachable` i18n) replaces the onboarding wizard. (Modes were already safe - their load only applies
 when `modes.length > 0`.)
+
+**NEVER WRITE BACK WHAT YOU FAILED TO READ - the clobber family.** The config guard above is one instance
+of a shape that has now bitten twice more, so treat it as a rule: an autosave that posts WHOLE state must
+not run on state that came from a failed read, and a server handler that treats "absent" as "delete" must
+refuse an empty payload.
+- **API keys (`.env`).** The load did `fetch('/api/keys').catch(() => ({}))`, so ANY failed read (a page
+  load during a server restart) put `apiKeys = {}` into the save effect, which wrote it straight back and
+  ERASED the user's key. The load now tags the read (`_ok`, stripped before use) and `keysHealthyRef` gates
+  the autosave exactly like `configHealthyRef`; typing a key (`setCurrentKey` - the single funnel for BOTH
+  onboarding and Settings) flips the guard back on, so a failed read still leaves a way to fix it. Server
+  side, `writeEnv` REFUSES a write that would erase every stored key while sending none. Clearing a key in
+  the UI still works: it posts that provider with an EMPTY VALUE, so a real clear is never an empty object.
+- **Modes.** `/api/modes` POST deletes every folder not named in the payload, so `{modes: []}` would erase
+  all modes AND their knowledge bases (`rmSync`, unrecoverable). The client holds an empty list only when
+  the modes read failed (it falls back to an in-memory `defaultMode`), and any deck picker (`setAnkiDeck`)
+  then posted that emptiness. `setAnkiDeck`, `saveModes` and the server all refuse an empty list now.
 
 **Offline mode - run from the local copy, reconcile on reconnect.** The other half of the auto-backup. When
 the share is unreachable the app does NOT go dead: it runs from `.local-offline/` (gitignored, watch-ignored),
@@ -163,6 +200,28 @@ check in `launch.ps1`: skip if `.update-snooze` (gitignored) is in the future; e
 self-contained `UpdatesCard` in SettingsModal General uses `/api/update` (GET = `ls-remote` vs HEAD, reports
 `gitAvailable`/`reachable`/`updateAvailable`; POST = pull + npm install, `restartRequired`). A code pull needs a
 manual app restart (the dev server can't reload `vite.config.js`/deps live).
+**ONE dev server per shortcut, and the TAB owns its lifetime.** The shortcut starts the server HIDDEN, so
+nothing on screen says it is running: closing the tab left it alive for days, still serving a
+`vite.config.js` from before the last update (that file is watch-ignored on purpose - a phantom change
+event on the share caused a restart loop - so Vite NEVER restarts itself when it changes). That is how an
+already-fixed crash kept reappearing. Both halves are scoped to SHORTCUT launches only:
+- `launch.ps1` runs everything from "is it already running?" through "start it" under a named mutex
+  (`Ebiki.Launcher.SingleInstance`), so double-clicking twice cannot race two `npm run dev` into existence:
+  the second launcher waits, sees port 3000 answering, and just opens a tab. It also sets
+  **`EBIKI_AUTO_EXIT=1`**, which additionally turns on `strictPort` (own 3000 or fail - never slide to 3001
+  as a second invisible instance).
+- `vite.config.js` then runs a lifetime timer. The app tab POSTs `/api/alive` every 5s and
+  `navigator.sendBeacon('/api/bye')` on `pagehide` (skipped when `e.persisted`: a bfcache Back is not a
+  close). A goodbye with no later beat, or 150s of silence, is only a SUSPICION - never an exit on its own:
+  the server first pings `ebiki:ping` down the HMR socket and waits 4s. A background tab throttled to one
+  timer tick a minute still answers a SOCKET MESSAGE instantly, so it survives; nobody answering means
+  nobody is there, and the server kills the overlay process TREE (`taskkill /F /T /PID`, never
+  `/IM electron.exe` - that would take down the user's other Electron apps) and exits. The OVERLAY page
+  never registers the heartbeat (`isOverlay` returns early), so it can never hold the server open by
+  itself. `GET /api/alive` is read-only and reports `{autoExit, lastBeatAgoMs}` - the first thing to check
+  when a server exits, or refuses to, unexpectedly. A manual `npm run dev` sets no flag: the endpoints
+  still answer 204, the timer never runs, and it lives until you stop it. That is the supported way to run
+  a second copy.
 **A ZIP download is converted into a clone (`Link-ToGit`).** GitHub's "Download ZIP" folder has no `.git`, so
 BOTH update paths (launch check + Settings > Updates) silently no-op and the user is frozen on whatever that
 ZIP contained - the failure mode that had a new machine reinstalling a pre-Anki installer and reporting "it

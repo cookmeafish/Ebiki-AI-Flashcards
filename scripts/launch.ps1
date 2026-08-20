@@ -92,6 +92,17 @@ function Start-AnkiIfNeeded {
 }
 try { Start-AnkiIfNeeded } catch {}
 
+# One dev server, ever, from the shortcut. Everything from "is it already
+# running?" through "start it" runs under a mutex, so double-clicking the
+# shortcut - or clicking it again while the first launch is still booting - can
+# never race two `npm run dev` into existence: the second launcher waits, then
+# sees port 3000 answering and just opens a tab. A manual `npm run dev` is
+# deliberately OUTSIDE this; it stays the way to run a second copy on purpose.
+$mutex = New-Object System.Threading.Mutex($false, 'Ebiki.Launcher.SingleInstance')
+$held = $false
+try { $held = $mutex.WaitOne(120000) } catch [System.Threading.AbandonedMutexException] { $held = $true }
+try {
+
 # Already running -> just show it (don't disrupt or re-check).
 if (Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyContinue) {
   Start-Process 'http://localhost:3000'
@@ -160,8 +171,23 @@ function Check-Update {
 try { Check-Update } catch {}
 
 # ── Start the dev server hidden (its own open:true opens the browser) ───────
+# EBIKI_AUTO_EXIT marks this as a SHORTCUT launch, which changes two things in
+# vite.config.js: the server shuts itself down once the last browser tab is gone
+# (nothing on screen says a hidden server is running, so closing the tab used to
+# leave it alive for days, still serving code from before the last update), and
+# it must own port 3000 or fail rather than quietly sliding to 3001 as a second
+# invisible instance. Inherited by the child process.
+$env:EBIKI_AUTO_EXIT = '1'
 Start-Process -FilePath 'cmd.exe' -ArgumentList '/c', 'npm run dev' -WorkingDirectory $app -WindowStyle Hidden
 $deadline = (Get-Date).AddSeconds(60)
 do { Start-Sleep -Milliseconds 800 } until (
   (Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyContinue) -or ((Get-Date) -gt $deadline)
 )
+
+}
+finally {
+  # Release only once the server is up (or gave up), so a second launcher that
+  # was waiting sees a listening port rather than deciding to start its own.
+  if ($held) { try { $mutex.ReleaseMutex() } catch {} }
+  $mutex.Dispose()
+}
