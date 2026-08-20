@@ -20,7 +20,7 @@ const APP_ROOT = path.resolve('.')
 // pointer itself is machine-local (datadir.json, gitignored) because it
 // answers "where is my data?" per machine and cannot live inside the data.
 const DATA_DIR_POINTER = path.resolve('datadir.json')
-const DATA_ENTRIES = ['config.json', 'ankiformat.json', 'modes', 'decks', 'chats', 'discover', 'cache']
+const DATA_ENTRIES = ['config.json', 'ankiformat.json', 'keys.json', 'modes', 'decks', 'chats', 'discover', 'cache']
 function resolveDataDir() {
   const env = (process.env.EBIKI_DATA_DIR || '').trim()
   if (env) return path.resolve(env)
@@ -317,23 +317,65 @@ function reconcileOffline() {
   return { ok: true, forwarded: fastForward.length, merged: acc.merged + acc.added, keptBoth: acc.keptBoth }
 }
 
-function parseEnv() {
-  if (!fs.existsSync(ENV_FILE)) return {}
-  const lines = fs.readFileSync(ENV_FILE, 'utf-8').split('\n')
-  const keys = {}
+// The API key is the ONE piece of the user's state with nowhere else to live:
+// everything else they own sits on the share or is mirrored into .local-sync,
+// while .env stays machine-local on purpose (a credential must never travel to
+// an SMB folder). That made a single bad write PERMANENT, which is exactly what
+// happened once. So the last content that HELD keys is kept beside it and a
+// .env that has lost its keys heals itself from that copy on the next read, with
+// no user step. Both files are machine-local and gitignored, like .env itself.
+const ENV_BAK = path.resolve('.env.bak')         // last content of .env that had keys
+const ENV_CLEARED = path.resolve('.env.cleared') // the user emptied it ON PURPOSE: never heal over that
+
+const readEnvFile = (file) => {
+  if (!fs.existsSync(file)) return {}
   const providers = { ANTHROPIC: 'anthropic', OPENAI: 'openai', GEMINI: 'gemini', GROK: 'grok' }
-  for (const line of lines) {
+  const keys = {}
+  for (const line of fs.readFileSync(file, 'utf-8').split('\n')) {
     const match = line.match(/^VITE_(\w+)_API_KEY=(.*)$/)
-    if (match) {
-      const provider = providers[match[1]]
-      if (provider) keys[provider] = match[2].trim()
-    }
+    if (match && providers[match[1]]) keys[providers[match[1]]] = match[2].trim()
   }
   return keys
+}
+const hasKeys = (keys) => Object.values(keys).some((v) => v)
+
+// Keep .env.bak as the most recent content that HELD keys. Mirroring on READ
+// (not only on write) means the safety copy exists from the first time the app
+// asks for the keys, instead of waiting for the user to change something.
+function mirrorEnv() {
+  try {
+    const a = fs.readFileSync(ENV_FILE, 'utf-8')
+    if (!fs.existsSync(ENV_BAK) || fs.readFileSync(ENV_BAK, 'utf-8') !== a) fs.writeFileSync(ENV_BAK, a, 'utf-8')
+  } catch { /* best effort */ }
+}
+
+function parseEnv() {
+  const keys = readEnvFile(ENV_FILE)
+  if (hasKeys(keys)) { mirrorEnv(); return keys }
+  // Nothing on disk. Deliberate, or an accident? Only the accident heals -
+  // otherwise a key the user removed on purpose would keep coming back.
+  if (fs.existsSync(ENV_CLEARED)) return keys
+  const backup = readEnvFile(ENV_BAK)
+  if (!hasKeys(backup)) return keys
+  try {
+    fs.copyFileSync(ENV_BAK, ENV_FILE)
+    console.log('[Keys] .env had lost its keys. Restored them from .env.bak')
+    return readEnvFile(ENV_FILE)
+  } catch { return backup }
 }
 
 function writeEnv(keys) {
   const providers = { anthropic: 'ANTHROPIC', openai: 'OPENAI', gemini: 'GEMINI', grok: 'GROK' }
+  // REFUSE a write that would erase every stored key while sending none. That is
+  // not something a user does, only something a BROKEN CLIENT does: the app posts
+  // its WHOLE key set on change, so a page that failed to read /api/keys (server
+  // restarting, request dropped) holds {} and writes that emptiness straight back,
+  // silently deleting the key. Clearing a key from the UI still works - it posts
+  // that provider with an empty value, so the object itself is not empty.
+  if (Object.keys(keys).length === 0 && hasKeys(parseEnv())) {
+    console.log('[Keys] refused an empty write that would have erased the stored API keys')
+    return { ok: false, refused: true }
+  }
   let existing = []
   if (fs.existsSync(ENV_FILE)) {
     existing = fs.readFileSync(ENV_FILE, 'utf-8').split('\n')
@@ -345,6 +387,74 @@ function writeEnv(keys) {
     .map(([k, v]) => `VITE_${providers[k] || k.toUpperCase()}_API_KEY=${v}`)
   const content = [...existing, ...keyLines].join('\n') + '\n'
   fs.writeFileSync(ENV_FILE, content, 'utf-8')
+  // Mirror only when the write STORED keys. A write that clears them leaves the
+  // previous snapshot alone - that is precisely the version worth keeping.
+  if (keyLines.length) mirrorEnv()
+  // Record INTENT so the self-heal in parseEnv can tell an empty .env that the
+  // user asked for (they cleared the field, so that provider arrives NAMED with
+  // an empty value) from one that lost its keys some other way.
+  try {
+    if (keyLines.length) fs.rmSync(ENV_CLEARED, { force: true })
+    else if (Object.keys(keys).length) fs.writeFileSync(ENV_CLEARED, new Date().toISOString() + '\n', 'utf-8')
+  } catch { /* best effort */ }
+  return { ok: true }
+}
+
+// ── API keys follow the shared folder ───────────────────────────────────────
+// .env stays machine-local (it is where the app reads keys from), but a copy
+// lives in the shared folder as keys.json so a second computer does not start
+// blank and a wiped .env has a source outside this machine. Strictly ADDITIVE,
+// in both directions, and it NEVER overwrites a key that already exists:
+//   • this computer has a key the share lacks  -> push it up
+//   • the share has a key this computer lacks  -> pull it down
+//   • both have one for the same provider      -> leave both alone
+// A key on THIS machine always wins, so a shared copy can never replace the one
+// you are actually using. Skipped entirely when no share is configured or the
+// share is unreachable, so it can never block or throw on a dead mapped drive.
+// `authoritative` = the user just TYPED this key, so it is the freshest thing in
+// the system and replaces the share's entry for that provider. Without it a bad
+// key that once reached the share would be permanent: every new computer would
+// adopt it and no correction could ever displace it. Background saves are never
+// authoritative, so a routine autosave can't clobber another machine's key.
+function syncSharedKeys(opts) {
+  const authoritative = !!(opts && opts.authoritative)
+  if (DATA_DIR === APP_ROOT) return { skipped: 'no share' }
+  if (!shareReachable()) return { skipped: 'unreachable' }
+  const file = path.join(DATA_DIR, 'keys.json')
+  try {
+    const local = readEnvFile(ENV_FILE)
+    let shared = {}
+    try { shared = JSON.parse(fs.readFileSync(file, 'utf-8')) || {} } catch { shared = {} }
+
+    // Pull down: only providers this computer has nothing for.
+    const merged = { ...local }
+    const pulled = []
+    for (const [prov, val] of Object.entries(shared)) {
+      if (val && typeof val === 'string' && !merged[prov]) { merged[prov] = val; pulled.push(prov) }
+    }
+    if (pulled.length) {
+      writeEnv(merged)
+      // Adopting a key from the share is a deliberate new key, so the
+      // "cleared on purpose" marker no longer applies.
+      try { fs.rmSync(ENV_CLEARED, { force: true }) } catch { /* best effort */ }
+      console.log('[Keys] adopted from the shared folder:', pulled.join(', '))
+    }
+
+    // Push up: only providers the share has nothing for.
+    const out = { ...shared }
+    const pushed = []
+    for (const [prov, val] of Object.entries(merged)) {
+      if (val && (!out[prov] || (authoritative && out[prov] !== val))) { out[prov] = val; pushed.push(prov) }
+    }
+    if (pushed.length) {
+      fs.writeFileSync(file, JSON.stringify(out, null, 2) + '\n', 'utf-8')
+      console.log('[Keys] saved to the shared folder:', pushed.join(', '))
+    }
+    return { pulled, pushed }
+  } catch (e) {
+    console.log('[Keys] shared-key sync skipped:', e.message)
+    return { error: e.message }
+  }
 }
 
 function readConfig() {
@@ -366,10 +476,101 @@ function apiPlugin() {
       // Auto-backup timer: mirror the shared data folder to this computer every
       // 10 minutes (and once ~20s after start). Unref'd so it never holds the
       // process open; cleared when the dev server closes.
-      const backupTimer = setInterval(runBackup, 10 * 60 * 1000)
+      const backupTimer = setInterval(() => { runBackup(); syncSharedKeys() }, 10 * 60 * 1000)
       if (backupTimer.unref) backupTimer.unref()
-      setTimeout(runBackup, 20000)
+      // Unref'd like the interval above: this hook also runs under vitest, where a
+      // live 20s handle kept the test process from exiting ("something prevents
+      // Vite server from exiting") and would mask a real hang from the timer below.
+      const firstBackup = setTimeout(() => { runBackup(); syncSharedKeys() }, 20000)
+      if (firstBackup.unref) firstBackup.unref()
       server.httpServer?.once('close', () => clearInterval(backupTimer))
+
+      // ── Shortcut launches own their lifetime (EBIKI_AUTO_EXIT=1) ──────────
+      // The Desktop / Start Menu shortcut starts this server HIDDEN, so nothing
+      // on screen says it is still running: closing the tab left it alive for
+      // days. That is how a server kept serving a vite.config.js from BEFORE an
+      // update (the config file is deliberately watch-ignored, see server.watch
+      // below, so Vite never restarts itself when it changes) and kept crashing
+      // on a bug that was already fixed on disk. So a shortcut-started server
+      // now shuts itself down once no browser tab is talking to it. A manual
+      // `npm run dev` sets no flag and lives until you stop it - that is the
+      // supported way to run a second copy on purpose.
+      //
+      // The tab announces itself; absence of the announcement ends the server.
+      // Both endpoints always exist (a manual run just ignores them); only the
+      // timer below is gated, so the client never needs to know which it is.
+      let lastBeat = 0        // last /api/alive from a real browser tab
+      let byeAt = 0           // last /api/bye beacon (a tab closing OR reloading)
+      server.middlewares.use('/api/alive', (req, res) => {
+        // GET is read-only on purpose: "is a tab actually checking in?" is the
+        // first question to ask when a server exits (or refuses to) unexpectedly.
+        if (req.method === 'GET') {
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ autoExit: process.env.EBIKI_AUTO_EXIT === '1', lastBeatAgoMs: lastBeat ? Date.now() - lastBeat : null }))
+          return
+        }
+        lastBeat = Date.now(); res.statusCode = 204; res.end()
+      })
+      // POST only: sendBeacon posts, and a stray GET (someone opening the URL)
+      // must not be able to announce that the app closed.
+      server.middlewares.use('/api/bye', (req, res) => { if (req.method === 'POST') byeAt = Date.now(); res.statusCode = 204; res.end() })
+      if (process.env.EBIKI_AUTO_EXIT === '1') {
+        // A BACKGROUND tab is throttled by the browser to roughly one beat per
+        // minute, so the silent-idle window has to be far longer than the 5s
+        // beat; the explicit goodbye beacon is what makes a real close fast.
+        const IDLE_MS = 150000     // no beat at all -> the tab is gone
+        const BYE_MS = 10000       // goodbye beacon -> wait for a reload to re-announce
+        // Generous: a first cold start has to transform a very large App.jsx
+        // before the tab it opened can run anything, and exiting under a browser
+        // that is still loading would look exactly like a broken app.
+        const STARTUP_MS = 300000  // the browser never connected at all
+        const startedAt = Date.now()
+        let exiting = false
+        const shutdown = (why) => {
+          if (exiting) return
+          exiting = true
+          console.log(`[Ebiki] ${why}. Shutting the dev server down (started by the shortcut).`)
+          // Kill the overlay TREE, never `taskkill /IM electron.exe` - that would
+          // take down every other Electron app on the machine.
+          try {
+            if (overlayProcess && !overlayProcess.killed) {
+              if (process.platform === 'win32') spawn('taskkill', ['/F', '/T', '/PID', String(overlayProcess.pid)], { shell: true })
+              else overlayProcess.kill()
+            }
+          } catch { /* best effort - we are leaving anyway */ }
+          setTimeout(() => process.exit(0), 1500)   // hard stop: close() can hang on a held socket
+          Promise.resolve(server.close()).then(() => process.exit(0)).catch(() => process.exit(0))
+        }
+        // NEVER leave on suspicion alone. Both signals below can be wrong about a
+        // tab that is still open: a goodbye may come from ONE of several tabs,
+        // and silence may just be a hidden tab whose timers the browser throttled
+        // to about one tick a minute. So a suspicion only starts a PROBE - a ping
+        // down Vite's HMR socket, which a throttled tab still answers at once
+        // (message handlers are not throttled the way timers are). Nobody answers,
+        // nobody is there. The overlay window never registers for this ping, so it
+        // can't hold the server open by itself.
+        const PROBE_MS = 4000
+        let probeAt = 0
+        const lifeTimer = setInterval(() => {
+          const now = Date.now()
+          if (!lastBeat) { if (now - startedAt > STARTUP_MS) shutdown('the browser never connected'); return }
+          // A goodbye only counts when no tab has checked in since: a RELOAD fires
+          // the same beacon and then immediately beats again from the new page.
+          const closed = byeAt > lastBeat && now - byeAt > BYE_MS
+          const silent = now - lastBeat > IDLE_MS
+          if (!closed && !silent) { probeAt = 0; return }
+          if (!probeAt) {
+            probeAt = now
+            try { (server.hot || server.ws).send({ type: 'custom', event: 'ebiki:ping' }) } catch { /* no client connected */ }
+            return
+          }
+          if (now - probeAt < PROBE_MS) return          // give them a moment to answer
+          if (lastBeat > probeAt) { probeAt = 0; return }  // someone answered: still in use
+          shutdown(closed ? 'the last tab was closed' : 'no browser tab left')
+        }, 2000)
+        if (lifeTimer.unref) lifeTimer.unref()
+        server.httpServer?.once('close', () => clearInterval(lifeTimer))
+      }
 
       // Auto-backup status / manual trigger
       server.middlewares.use('/api/sync-backup', (req, res) => {
@@ -441,6 +642,7 @@ function apiPlugin() {
       // API keys endpoint
       server.middlewares.use('/api/keys', (req, res) => {
         if (req.method === 'GET') {
+          syncSharedKeys()   // a page load is the moment a blank machine should adopt the shared key
           res.setHeader('Content-Type', 'application/json')
           res.end(JSON.stringify(parseEnv()))
         } else if (req.method === 'POST') {
@@ -448,9 +650,12 @@ function apiPlugin() {
           req.on('data', (chunk) => { body += chunk })
           req.on('end', () => {
             try {
-              writeEnv(JSON.parse(body))
+              const r = writeEnv(JSON.parse(body))
+              // ?source=user marks a key the person actually typed (see setCurrentKey);
+              // that one is allowed to replace the shared copy, a background save is not.
+              syncSharedKeys({ authoritative: /[?&]source=user/.test(req.originalUrl || req.url || '') })
               res.setHeader('Content-Type', 'application/json')
-              res.end('{"ok":true}')
+              res.end(JSON.stringify({ ok: true, ...r }))
             } catch {
               res.statusCode = 400
               res.end('{"error":"invalid json"}')
@@ -874,6 +1079,21 @@ function apiPlugin() {
           const handleBody = (bodyStr) => {
             try {
               const data = JSON.parse(bodyStr)
+              // REFUSE an empty modes write. The sweep below DELETES every folder
+              // not named in the payload, so `{modes: []}` would erase all of the
+              // user's modes AND their knowledge bases, unrecoverably. The client
+              // holds an empty list only when the modes READ failed (it falls back
+              // to an in-memory default mode), and any deck picker then posts that
+              // emptiness. A real "delete a mode" always sends the remaining ones,
+              // and the app never lets the last mode go, so a legitimate save is
+              // never empty. Same clobber shape as the /api/keys guard above.
+              if (Array.isArray(data.modes) && data.modes.length === 0) {
+                console.log('[Modes] refused an empty write that would have deleted every mode folder')
+                res.setHeader('Content-Type', 'application/json')
+                res.statusCode = 409
+                res.end(JSON.stringify({ error: 'refused: empty modes list' }))
+                return
+              }
               if (data.modes) {
                 // Track which folders should exist
                 const activeFolders = new Set(['_meta.json'])
@@ -1315,6 +1535,11 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true,
+    // A shortcut launch must own port 3000 or fail loudly: silently sliding to
+    // 3001 would leave a second, invisible instance behind the very tab the
+    // single-instance launcher just decided not to start. A manual `npm run dev`
+    // keeps the normal fallback so a deliberate second copy still works.
+    strictPort: process.env.EBIKI_AUTO_EXIT === '1',
     watch: {
       // Native fs.watch fails on this drive (network/mapped volume) — poll instead
       usePolling: true,

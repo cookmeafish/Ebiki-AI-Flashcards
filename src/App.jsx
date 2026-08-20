@@ -201,6 +201,41 @@ export default function App() {
     window.addEventListener('keydown', handleEsc, true)
     return () => window.removeEventListener('keydown', handleEsc, true)
   }, [isOverlay])
+
+  // Tell the dev server a real browser tab is here. The Desktop shortcut starts
+  // the server HIDDEN, so the tab IS the app's window: when it closes, a server
+  // started that way shuts itself down instead of lingering for days serving a
+  // build from before the last update. A manual `npm run dev` ignores both of
+  // these endpoints and keeps running, which is how you deliberately run a
+  // second copy. The overlay window is NOT a tab and must never keep the server
+  // alive by itself, so it stays out of this entirely.
+  useEffect(() => {
+    if (isOverlay) return
+    const beat = () => { fetch('/api/alive', { method: 'POST' }).catch(() => {}) }
+    beat()
+    const timer = setInterval(beat, 5000)
+    // Coming back to a throttled background tab: check in right away.
+    const onVisible = () => { if (document.visibilityState === 'visible') beat() }
+    // pagehide fires on close AND on reload. The server waits a few seconds for a
+    // beat from the reloaded page, so a refresh never takes the server down.
+    // `persisted` means the page went into the back/forward cache rather than
+    // away: navigating off and pressing Back must not read as "the app closed".
+    const bye = (e) => {
+      if (e && e.persisted) return
+      try { navigator.sendBeacon('/api/bye', '') } catch { /* the page is going away regardless */ }
+    }
+    // The server pings over the HMR socket before it acts on a goodbye or a
+    // silence, so a tab the browser has throttled still gets to say "I'm here".
+    if (import.meta.hot) import.meta.hot.on('ebiki:ping', beat)
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('pagehide', bye)
+    return () => {
+      clearInterval(timer)
+      if (import.meta.hot) import.meta.hot.off('ebiki:ping', beat)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('pagehide', bye)
+    }
+  }, [isOverlay])
   const [activeTab, setActiveTab] = useState(null) // 'chat' | 'study' | 'deck' | 'picture' | 'stats' — null until config loads
   const [chatSidePanel, setChatSidePanel] = useState(false) // split-screen chat alongside another tab
   const [provider, setProvider] = useState('anthropic')
@@ -211,6 +246,8 @@ export default function App() {
   const [offlinePending, setOfflinePending] = useState(0)       // offline edits waiting to merge into a share that is back up
   const [offlineBusy, setOfflineBusy] = useState(false)
   const configHealthyRef = useRef(false)                        // true only when config loaded from a reachable source; gates autosave so a failed read never clobbers
+  const keysHealthyRef = useRef(false)                          // same guard for .env: a FAILED key read must never be written back as "no keys"
+  const keyEditedRef = useRef(false)                            // the NEXT save came from the user typing a key, so it may replace the shared copy
   const [apiKeys, setApiKeys] = useState({})
   const [keysLoaded, setKeysLoaded] = useState(false)
   // Per-provider, per-role model overrides: { [provider]: { general, question, help } }.
@@ -723,6 +760,10 @@ export default function App() {
   const ankiFormat = activeMode
   const ankiDeck = activeMode.ankiDeck || ''
   const setAnkiDeck = (deck) => {
+    // An empty `modes` means the modes READ failed and the app is running on the
+    // in-memory default. Posting that would tell the server every mode folder is
+    // gone. Never write a deck choice out of a state we did not load.
+    if (!modes.length) return
     const updated = modes.map((m) => m.id === activeModeId ? { ...m, ankiDeck: deck } : m)
     setModes(updated)
     // Save immediately
@@ -1267,7 +1308,7 @@ export default function App() {
   // ─── Load Keys & Config from file on mount ─────────────────────────────────
   useEffect(() => {
     Promise.all([
-      fetch('/api/keys').then((r) => r.json()).catch(() => ({})),
+      fetch('/api/keys').then((r) => r.ok ? r.json().then((k) => ({ ...k, _ok: true })) : { _ok: false }).catch(() => ({ _ok: false })),
       fetch('/api/config').then((r) => r.ok ? r.json().then((d) => ({ ...d, _reachable: true, _offline: r.headers.get('X-Ebiki-Offline') === '1' })) : { _reachable: false }).catch(() => ({ _reachable: false })),
       fetch('/api/modes').then((r) => r.json()).catch(() => null),
       fetch('/api/ankiformat').then((r) => r.json()).catch(() => null),
@@ -1336,7 +1377,16 @@ export default function App() {
           console.log('[Mode] migrated from legacy ankiformat.json')
         }
       }
-      setApiKeys(keys)
+      // A FAILED /api/keys read is not "this computer has no API keys" — and the
+      // autosave below would happily write that emptiness straight back over
+      // .env, erasing the user's key (same clobber shape as the config guard
+      // below, and it really happened: one page load during a server restart
+      // wiped the key). `_ok` is stripped so it can never be posted as a
+      // provider entry. Typing a key in Settings flips the guard back on, so a
+      // failed read still leaves the user a way to fix it.
+      const { _ok: keysReadable, ...loadedKeys } = keys
+      keysHealthyRef.current = keysReadable === true
+      setApiKeys(loadedKeys)
       if (config.provider) setProvider(config.provider)
       if (config.aiModels) setAiModels(config.aiModels)
       if (config.modelPresets) setModelPresets(config.modelPresets)
@@ -1516,12 +1566,24 @@ export default function App() {
 
   // ─── Save Keys to .env on change ──────────────────────────────────────────
   useEffect(() => {
-    if (!keysLoaded) return
-    fetch('/api/keys', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(apiKeys),
-    }).catch(() => {})
+    if (!keysLoaded || !keysHealthyRef.current) return
+    // ?source=user marks a key the person actually typed. Only that is allowed to
+    // replace the copy in the shared folder; a routine save must never clobber
+    // another computer's key with whatever this one happens to hold.
+    const typed = keyEditedRef.current
+    // DEBOUNCED, because the key field fires on every keystroke. Without this a
+    // typed key is written character by character, and each partial is pushed to
+    // the shared folder where a computer that has no key yet could adopt a
+    // truncated one - and "never overwrite" would then make it permanent.
+    const t = setTimeout(() => {
+      keyEditedRef.current = false
+      fetch('/api/keys' + (typed ? '?source=user' : ''), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(apiKeys),
+      }).catch(() => {})
+    }, 600)
+    return () => clearTimeout(t)
   }, [apiKeys, keysLoaded])
 
   // ─── Save Config on change ────────────────────────────────────────────────
@@ -1551,6 +1613,8 @@ export default function App() {
   }, [configLoaded, overlayEnabled, overlayRunning, isOverlay])
 
   const setCurrentKey = (key) => {
+    keysHealthyRef.current = true   // the user is typing one: saving is now intended, even if the read had failed
+    keyEditedRef.current = true     // and it outranks the shared copy (see syncSharedKeys)
     setApiKeys((prev) => ({ ...prev, [provider]: key }))
     if (key) setError(null)
   }
@@ -3206,6 +3270,9 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
   useEffect(() => { activeModeIdRef.current = activeModeId }, [activeModeId])
 
   const saveModes = (modeList, activeId) => {
+    // See setAnkiDeck: an empty list is never a real save, it is a failed load.
+    // The server refuses it too; bailing here keeps local state honest as well.
+    if (!Array.isArray(modeList) || modeList.length === 0) { console.warn('[Mode] refused to save an empty mode list'); return }
     const id = activeId || activeModeIdRef.current
     modesRef.current = modeList
     activeModeIdRef.current = id

@@ -28,6 +28,19 @@ On Windows: `npx kill-port 3000`, or close the launcher window.
 Edits hot-reload. `vite.config.js` is watch-ignored on purpose, so a change
 there needs a manual restart.
 
+Never point a scratch server's `EBIKI_DATA_DIR` at a throwaway folder and leave
+it running: its auto-backup mirrors `DATA_DIR` into `.local-sync/` under the APP
+ROOT, so a fake share will overwrite the real base snapshot (this happened - a
+one-line `{}` config.json replaced the live one). Test data-folder behaviour in a
+copy of the repo, or repair `.local-sync/` afterwards.
+
+Start it with `npm run dev`, not the Ebiki shortcut. A SHORTCUT-launched server
+sets `EBIKI_AUTO_EXIT=1` and shuts itself down a few seconds after the last
+browser tab closes, so it will disappear when the driver's browser exits and
+look like a crash. `curl localhost:3000/api/alive` reports `{autoExit,
+lastBeatAgoMs}` if you need to tell the two apart. A `npm run dev` server never
+auto-exits.
+
 ## Drive
 
 ```bash
