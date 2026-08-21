@@ -88,7 +88,13 @@ function Start-AnkiIfNeeded {
   if (Test-AnkiUp) { return }
   $exe = Find-AnkiExe
   if (-not $exe) { return }   # Anki not installed -> nothing to do
-  Start-Process -FilePath $exe
+  # -WindowStyle Normal is REQUIRED, not cosmetic. launch-ebiki.vbs runs this
+  # script through `powershell -WindowStyle Hidden`, and a Start-Process with no
+  # style of its own passes that HIDDEN show-state down to the child. Anki then
+  # really does start - AnkiConnect answers on 8765 - but its window never
+  # appears (MainWindowHandle stays 0), so every deck action works while the user
+  # sees no Anki at all and reports that Ebiki never launched it.
+  Start-Process -FilePath $exe -WindowStyle Normal
 }
 try { Start-AnkiIfNeeded } catch {}
 
@@ -105,7 +111,9 @@ try {
 
 # Already running -> just show it (don't disrupt or re-check).
 if (Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyContinue) {
-  Start-Process 'http://localhost:3000'
+  # Normal for the same reason as Anki above: this script runs hidden, and a
+  # browser that is not already open would inherit that and start invisible.
+  Start-Process 'http://localhost:3000' -WindowStyle Normal
   return
 }
 

@@ -234,7 +234,15 @@ The section also prints the short SHA, so a screenshot of the installer window i
 **The shortcut STARTS ANKI** (`Start-AnkiIfNeeded` in `launch.ps1`, before the port-3000 check so it also
 covers "app already running"): skipped when an `anki` process exists (Anki is single-instance and a second
 launch just pops a dialog), exe resolved via the usual folders -> PATH -> the Start Menu `Anki.lnk` (the MSI
-records no path anywhere), started MINIMIZED and fail-soft. Anki needs a few seconds to boot, so App.jsx has an
+records no path anywhere), and fail-soft. **`Start-Process` MUST pass `-WindowStyle Normal` here - it is not
+cosmetic.** `launch-ebiki.vbs` runs this script through `powershell -WindowStyle Hidden`, and a `Start-Process`
+with no style of its own hands that HIDDEN show-state to the child: Anki then genuinely starts and AnkiConnect
+answers on 8765, but its window never appears (`MainWindowHandle` stays 0), so every deck action works while
+the user sees no Anki and reports that Ebiki never launched it. Measured both ways from a hidden parent: with
+no style, 0 visible windows; with `-WindowStyle Normal`, the "User 1 - Anki" window shows. The same `-WindowStyle
+Normal` is on the `Start-Process 'http://localhost:3000'` in the already-running branch, for the same reason.
+Vite's OWN `open: true` was checked against a browser that was not already running and opens visibly, so the
+hidden `cmd.exe` that runs `npm run dev` needs no change. Anki needs a few seconds to boot, so App.jsx has an
 **Anki boot watcher**: while `ankiConnected === false` it pings every 4s for the first minute then every 20s,
 and calls `refreshAnkiConnection` the moment AnkiConnect answers - so the "Anki is not connected" banner clears
 itself with no manual Refresh. (Distinct from the study reconnect watcher, which is scoped to a live session
