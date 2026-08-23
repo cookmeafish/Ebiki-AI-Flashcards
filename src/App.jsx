@@ -180,7 +180,7 @@ const WIN_CTRL_H = 30
 export default function App() {
   // ─── State ───────────────────────────────────────────────────────────────────
   const isOverlay = new URLSearchParams(window.location.search).has('overlay')
-  // Running inside electron/main.cjs's --app-window BrowserWindow (frame:false, no OS title bar
+  // Running inside electron/main.cjs's app-window BrowserWindow (its default mode; frame:false, no OS title bar
   // or window buttons), vs a normal browser tab. `window.ebikiWindow` is injected by
   // electron/preload-app.cjs before the page's own scripts run, so it's already set by the time
   // this line executes - never present in a real browser. Gates the drag handle and the
@@ -9671,7 +9671,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           real header content (Settings/language) - both this and the cluster's own width must
           stay in sync, which is why it's one constant instead of two guessed numbers. */}
       {!isOverlay && <header style={{ ...S.header, ...(isElectronApp ? { paddingRight: 20 + WIN_CTRL_W } : {}) }}>
-        {/* Drag handle for the Electron app window (electron/main.cjs --app-window, frame:false so
+        {/* Drag handle for the Electron app window (electron/main.cjs, frame:false so
             there is no native title bar left to grab or restore-from-maximized with). Sits INSIDE
             the header (position:relative) so it stays visually seamless (no separate colored
             strip - a flat var(--c-bg) strip behind the header's translucent C.glass/backdrop-blur

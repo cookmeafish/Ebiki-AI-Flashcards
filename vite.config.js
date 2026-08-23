@@ -1155,8 +1155,13 @@ function apiPlugin() {
           }
           try {
             const mainScript = path.resolve('electron/main.cjs')
-            console.log('[Overlay API] spawning:', process.execPath, electronCli, mainScript)
-            overlayProcess = spawn(process.execPath, [electronCli, mainScript], {
+            // --overlay is REQUIRED here, not optional - electron/main.cjs defaults to opening
+            // the main app window (a bare launch has to work for a naive taskbar pin that only
+            // remembers the exe path, see package.json's "main" field), so without this flag the
+            // overlay process would open a second full app window instead of the invisible
+            // Alt+Q capture helper.
+            console.log('[Overlay API] spawning:', process.execPath, electronCli, mainScript, '--overlay')
+            overlayProcess = spawn(process.execPath, [electronCli, mainScript, '--overlay'], {
               stdio: 'inherit', detached: false,
             })
             overlayProcess.on('exit', (code) => { console.log('[Overlay API] process exited, code:', code); overlayProcess = null })

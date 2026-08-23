@@ -7,8 +7,8 @@ const VITE_URL = 'http://localhost:3000'
 const SCREENSHOT_FILE = path.resolve('electron/last-capture.png')
 let overlayWindow = null
 
-// ── Main app window ("--app-window") ────────────────────────────────────────
-// A SEPARATE Electron process from the overlay above (the overlay is spawned
+// ── Main app window (the DEFAULT mode) ──────────────────────────────────────
+// A SEPARATE Electron process from the overlay below (the overlay is spawned
 // on demand by the vite dev server itself via /api/launch-overlay and keeps
 // running invisibly for Alt+Q; this one is spawned directly by
 // scripts/launch.ps1 / scripts/launch.sh in place of opening a browser tab).
@@ -19,10 +19,31 @@ let overlayWindow = null
 // browser). Maximized, not OS-fullscreen, so the taskbar stays visible and
 // it behaves like an ordinary maximized browser window - just without the
 // browser part. F11 still offers real fullscreen for anyone who wants it.
-const isAppWindow = process.argv.includes('--app-window')
+//
+// DEFAULT mode, not gated behind a flag - overlay mode is what needs the
+// explicit --overlay flag now (see the bottom of this file). This used to be
+// backwards (app-window needed --app-window, overlay was the default) until
+// a real Windows pin-to-taskbar exposed why that's wrong: "pin to taskbar"
+// on a running window whose process is a bare, unpackaged Ebiki.exe (no
+// registered shortcut with matching Arguments for Windows to fall back to)
+// only remembers the EXE PATH, not the command-line arguments it was
+// launched with - so double-clicking that pin re-invokes Ebiki.exe with NO
+// arguments at all, and Electron's own fallback for "no app given" is its
+// generic getting-started demo screen (reported as "still turns into
+// electron picture"). package.json's "main" field means a bare, argument-
+// less launch loads this same file too (Electron's own no-args behavior:
+// look for an app in the launch directory's package.json) - so the fix is
+// making that bare case resolve to the actually-useful mode by default.
+const isOverlayMode = process.argv.includes('--overlay')
 let appWindow = null
 
-if (isAppWindow) {
+if (isOverlayMode) {
+  app.whenReady().then(() => {
+    createOverlay()
+    registerShortcuts()
+    console.log('[Overlay] Ready. Alt+Q to capture.')
+  })
+} else {
   // Windows taskbar grouping/pinning/jump-list identity - without this an
   // Electron app launched from node_modules can be grouped under a generic
   // "Electron" identity instead of its own. Harmless on other platforms.
@@ -51,12 +72,6 @@ if (isAppWindow) {
     })
     app.on('window-all-closed', () => app.quit())
   }
-} else {
-  app.whenReady().then(() => {
-    createOverlay()
-    registerShortcuts()
-    console.log('[Overlay] Ready. Alt+Q to capture.')
-  })
 }
 
 // Waits for the dev server to actually answer before pointing the window at
