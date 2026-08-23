@@ -3745,10 +3745,15 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       const BATCH = 20
       const batches = []
       for (let i = 0; i < cards.length; i += BATCH) batches.push(cards.slice(i, i + BATCH))
-      setDeckAnalyzeProgress({ done: 0, total: cards.length })
       let all = []
       let failedBatches = 0
       for (let bi = 0; bi < batches.length; bi++) {
+        // Set progress BEFORE this batch's AI calls, not just after. Each batch is two SEQUENTIAL
+        // calls (analyze + verify) that can take 10-30s+, and the old code only advanced `done`
+        // once a batch finished — so the counter sat on the PREVIOUS batch's count that whole time,
+        // reading as stuck rather than working ("stuck at 0 of 141, then jumped straight to 20").
+        // batch/batches + stage let the UI say what's actually happening right now.
+        setDeckAnalyzeProgress({ done: bi * BATCH, total: cards.length, batch: bi + 1, batches: batches.length, stage: 'analyzing' })
         try {
           // keepDashes: the integrity guard matches the model's echoed `front` VERBATIM against the
           // deck — the global dash strip would make any dash-containing front unmatchable and
@@ -3759,7 +3764,10 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
           const parsed = parseAiJson(text)
           if (!Array.isArray(parsed)) throw new Error('Response is not an array')
           const recs = mapRecs(parsed)
-          // Verify per batch: a bounded payload here too, for the same truncation reason.
+          // Verify per batch: a bounded payload here too, for the same truncation reason. Second AI
+          // call, so flip the visible stage — otherwise "Analyzing" sits on screen through the
+          // verify pass too, which is its own several-second wait.
+          if (recs.length) setDeckAnalyzeProgress((p) => ({ ...p, stage: 'verifying' }))
           const batchRecs = recs.length ? await verifyDeckRecs(recs, { kind, instruction }) : recs
           all = [...all, ...batchRecs]
           // APPEND, never re-assert the whole list. The review rows are live while later batches
@@ -3773,7 +3781,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
           failedBatches++
           console.error(`[Deck] analyze batch ${bi + 1}/${batches.length} failed:`, err.message)
         }
-        setDeckAnalyzeProgress({ done: Math.min((bi + 1) * BATCH, cards.length), total: cards.length })
+        setDeckAnalyzeProgress((p) => ({ ...p, done: Math.min((bi + 1) * BATCH, cards.length) }))
       }
       if (failedBatches === batches.length) throw new Error('Every batch failed. Check the AI connection and try again.')
       setDeckAnalyzeSkipped(mismatchDropped)
@@ -9972,11 +9980,14 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     {t('deck_bulkEdit')}
                   </button>
                   {!apiKey && <span style={{ fontSize: 10, color: 'var(--c-ink-dim)' }}>{t('deck_apiKeyRequired')}</span>}
-                  {/* Batched run: show how far through the deck it is, so a long pass on a big deck
-                      reads as progress rather than a stuck button. */}
+                  {/* Batched run: name the batch + stage in progress, plus a spinner, so a long pass
+                      on a big deck reads as active work instead of a stuck button (each batch is two
+                      sequential AI calls that can take 10-30s+, and the raw card count used to sit
+                      still that whole time — reported as "stuck at 0 of 141, then jumped to 20"). */}
                   {deckAnalyzeProgress && (
-                    <span style={{ fontSize: 10, color: 'var(--c-ink-dim)' }}>
-                      {t('deck_analyzeProgress', { done: deckAnalyzeProgress.done, total: deckAnalyzeProgress.total })}
+                    <span style={{ fontSize: 10, color: 'var(--c-ink-dim)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ width: 9, height: 9, borderRadius: '50%', border: '1.5px solid var(--c-ink-dim)', borderTopColor: 'transparent', animation: 'spin360 0.7s linear infinite', flexShrink: 0 }} />
+                      {t(deckAnalyzeProgress.stage === 'verifying' ? 'deck_analyzeProgressVerifying' : 'deck_analyzeProgressAnalyzing', { batch: deckAnalyzeProgress.batch, batches: deckAnalyzeProgress.batches, done: deckAnalyzeProgress.done, total: deckAnalyzeProgress.total })}
                     </span>
                   )}
                   {deckAnalyzeError && <span style={{ fontSize: 10, color: 'var(--c-danger)' }}>{deckAnalyzeError}</span>}
