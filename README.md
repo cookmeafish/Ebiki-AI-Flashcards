@@ -29,6 +29,8 @@ A local-first study app with an AI tutor, Anki-integrated study sessions, screen
 
 **Easiest (Windows):** clone the repo, then double-click **`Install Ebiki.bat`** (the only file you run). It installs Node.js, Anki and the AnkiConnect add-on if they are missing, runs `npm install`, and puts an **Ebiki** shortcut on your Desktop that launches the app (and Anki with it). See [INSTALL.md](INSTALL.md).
 
+**Easiest (Linux):** clone the repo, then run `./install.sh`. It runs `npm install` and adds an **Ebiki** entry to your applications menu (and an optional Desktop icon) that launches the app. Anki and AnkiConnect are not auto-installed on Linux - install them yourself.
+
 **Manual:** install [Node.js](https://nodejs.org) (LTS / v18+), then:
 
 ```bash
@@ -39,6 +41,8 @@ npm run dev
 ```
 
 Opens at `http://localhost:3000`. Then open **AI Settings**, pick a provider, and enter your API key.
+
+**Launching from the shortcut/desktop entry** (`Install Ebiki.bat` / `install.sh`, not a manual `npm run dev`) opens Ebiki as its own chrome-free window - no tab strip, no address bar, own taskbar/app-switcher icon - via the `electron` optional dependency, maximized so your OS taskbar stays visible (F11 for true fullscreen). Falls back to a plain browser tab if Electron isn't installed. Your regular browser is untouched either way.
 
 > The UI applies a 1.35× zoom for comfortable reading on typical displays. View at 100% browser zoom. (Overlay mode stays 1:1 so OCR boxes line up.)
 

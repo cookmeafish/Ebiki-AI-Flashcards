@@ -1,8 +1,10 @@
 # Ebiki launcher (invoked hidden by launch-ebiki.vbs).
 # 1) Make sure Anki is up (the app reads/writes every card through AnkiConnect).
-# 2) If the app is already running, just open the tab.
+# 2) If the app is already running, just bring its window forward.
 # 3) Otherwise do a QUICK update check (skipped when snoozed or offline), offer
-#    to update, then start the dev server (which opens the browser itself).
+#    to update, then start the dev server and open Ebiki as its own window
+#    (Open-App below - a chrome-free Electron window when available, a plain
+#    browser tab as the fallback).
 # Path-relative so it works wherever the app is installed; this script lives in
 # scripts/, so the app folder is one level up.
 $app = Split-Path $PSScriptRoot -Parent
@@ -98,6 +100,24 @@ function Start-AnkiIfNeeded {
 }
 try { Start-AnkiIfNeeded } catch {}
 
+# ── Open Ebiki as its own chrome-free window ────────────────────────────────
+# electron is an OPTIONAL dependency (fail-soft, same philosophy as Anki above -
+# the app still works without it), so this only ever runs when `npm install`
+# actually got it. Falls back to a normal browser tab otherwise: a website-
+# looking tab beats no app at all.
+function Open-App {
+  $electronExe = Join-Path $app 'node_modules\electron\dist\electron.exe'
+  if (Test-Path $electronExe) {
+    # -WindowStyle Normal is REQUIRED here for the same reason it is for Anki
+    # above: this script runs hidden (via launch-ebiki.vbs), and Start-Process
+    # with no style of its own hands that hidden show-state to the child - the
+    # window would then genuinely open, just invisibly.
+    Start-Process -FilePath $electronExe -ArgumentList (Join-Path $app 'electron\main.cjs'), '--app-window' -WorkingDirectory $app -WindowStyle Normal
+  } else {
+    Start-Process 'http://localhost:3000' -WindowStyle Normal
+  }
+}
+
 # One dev server, ever, from the shortcut. Everything from "is it already
 # running?" through "start it" runs under a mutex, so double-clicking the
 # shortcut - or clicking it again while the first launch is still booting - can
@@ -109,11 +129,13 @@ $held = $false
 try { $held = $mutex.WaitOne(120000) } catch [System.Threading.AbandonedMutexException] { $held = $true }
 try {
 
-# Already running -> just show it (don't disrupt or re-check).
+# Already running -> just show it (don't disrupt or re-check). If it's already
+# open as an Electron app window, requestSingleInstanceLock in electron/main.cjs
+# means this just focuses that window instead of opening a second one - the
+# same "click the icon again -> it comes to front" behavior a real installed
+# app has, not a fresh browser tab piling up next to the old one.
 if (Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyContinue) {
-  # Normal for the same reason as Anki above: this script runs hidden, and a
-  # browser that is not already open would inherit that and start invisible.
-  Start-Process 'http://localhost:3000' -WindowStyle Normal
+  Open-App
   return
 }
 
@@ -178,19 +200,23 @@ function Check-Update {
 }
 try { Check-Update } catch {}
 
-# ── Start the dev server hidden (its own open:true opens the browser) ───────
-# EBIKI_AUTO_EXIT marks this as a SHORTCUT launch, which changes two things in
-# vite.config.js: the server shuts itself down once the last browser tab is gone
-# (nothing on screen says a hidden server is running, so closing the tab used to
-# leave it alive for days, still serving code from before the last update), and
-# it must own port 3000 or fail rather than quietly sliding to 3001 as a second
-# invisible instance. Inherited by the child process.
+# ── Start the dev server hidden, then open the app ourselves ────────────────
+# EBIKI_AUTO_EXIT marks this as a SHORTCUT launch, which changes THREE things in
+# vite.config.js: the server shuts itself down once the last browser tab (or, now,
+# the app window) is gone (nothing on screen says a hidden server is running, so
+# closing it used to leave it alive for days, still serving code from before the
+# last update); it must own port 3000 or fail rather than quietly sliding to 3001
+# as a second invisible instance; and Vite's own open:true is turned OFF, since
+# Open-App below opens the real app window/tab itself - leaving open:true on
+# would additionally pop a plain browser tab next to it. All inherited by the
+# child process via the environment.
 $env:EBIKI_AUTO_EXIT = '1'
 Start-Process -FilePath 'cmd.exe' -ArgumentList '/c', 'npm run dev' -WorkingDirectory $app -WindowStyle Hidden
 $deadline = (Get-Date).AddSeconds(60)
 do { Start-Sleep -Milliseconds 800 } until (
   (Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyContinue) -or ((Get-Date) -gt $deadline)
 )
+Open-App
 
 }
 finally {

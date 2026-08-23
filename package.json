@@ -10,7 +10,8 @@
     "test": "vitest run",
     "drive": "node .claude/skills/run-ebiki/drive.mjs",
     "overlay": "electron electron/main.cjs",
-    "overlay:dev": "electron electron/main.cjs --dev"
+    "overlay:dev": "electron electron/main.cjs --dev",
+    "app-window": "electron electron/main.cjs --app-window"
   },
   "dependencies": {
     "dompurify": "^3.4.11",
