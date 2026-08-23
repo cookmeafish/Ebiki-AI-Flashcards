@@ -106,13 +106,22 @@ try { Start-AnkiIfNeeded } catch {}
 # actually got it. Falls back to a normal browser tab otherwise: a website-
 # looking tab beats no app at all.
 function Open-App {
+  # Ebiki.exe (scripts/brand-electron-exe.mjs, runs on every `npm install` via postinstall) is a
+  # COPY of electron.exe with the Ebi icon baked into its own PE resources via rcedit - preferred
+  # because Windows resolves a PINNED taskbar icon from the running EXE FILE ITSELF, ignoring the
+  # BrowserWindow icon option entirely for a dev-run (unpackaged) Electron app. Without this, "pin
+  # to taskbar" showed the generic Electron logo instead of Ebi. Falls back to the plain
+  # electron.exe (still a proper chrome-free app window, just the wrong pinned icon) if branding
+  # failed for any reason - rcedit is itself optional, so this can never block the app opening.
+  $brandedExe = Join-Path $app 'node_modules\electron\dist\Ebiki.exe'
   $electronExe = Join-Path $app 'node_modules\electron\dist\electron.exe'
-  if (Test-Path $electronExe) {
+  $exe = if (Test-Path $brandedExe) { $brandedExe } else { $electronExe }
+  if (Test-Path $exe) {
     # -WindowStyle Normal is REQUIRED here for the same reason it is for Anki
     # above: this script runs hidden (via launch-ebiki.vbs), and Start-Process
     # with no style of its own hands that hidden show-state to the child - the
     # window would then genuinely open, just invisibly.
-    Start-Process -FilePath $electronExe -ArgumentList (Join-Path $app 'electron\main.cjs'), '--app-window' -WorkingDirectory $app -WindowStyle Normal
+    Start-Process -FilePath $exe -ArgumentList (Join-Path $app 'electron\main.cjs'), '--app-window' -WorkingDirectory $app -WindowStyle Normal
   } else {
     Start-Process 'http://localhost:3000' -WindowStyle Normal
   }
