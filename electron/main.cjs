@@ -95,6 +95,9 @@ function createAppWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      // Bridges minimize/maximize/close into the renderer (App.jsx renders the actual buttons,
+      // in its own header, styled to match the app - frame:false took the native ones with it).
+      preload: path.join(__dirname, 'preload-app.cjs'),
     },
   })
 
@@ -106,6 +109,21 @@ function createAppWindow() {
     appWindow.maximize()
     appWindow.show()
   })
+
+  // Window controls, driven from the renderer via preload-app.cjs - the ONLY thing this process
+  // exposes to it. Push the maximized state back so App.jsx's restore/maximize icon stays correct
+  // even when the state changes some other way (double-clicking the drag strip, Aero-snap, etc).
+  const sendMaximizedState = () => { if (appWindow) appWindow.webContents.send('app-window:maximized-changed', appWindow.isMaximized()) }
+  appWindow.on('maximize', sendMaximizedState)
+  appWindow.on('unmaximize', sendMaximizedState)
+  ipcMain.on('app-window:minimize', () => appWindow?.minimize())
+  ipcMain.on('app-window:toggle-maximize', () => {
+    if (!appWindow) return
+    if (appWindow.isMaximized()) appWindow.unmaximize()
+    else appWindow.maximize()
+  })
+  ipcMain.on('app-window:close', () => appWindow?.close())
+  ipcMain.handle('app-window:is-maximized', () => (appWindow ? appWindow.isMaximized() : false))
 
   appWindow.webContents.on('before-input-event', (event, input) => {
     if (input.type !== 'keyDown') return
