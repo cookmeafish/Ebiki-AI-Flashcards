@@ -560,6 +560,18 @@ export default function App() {
   const [knowledgeBusy, setKnowledgeBusy] = useState(null) // status text while extracting a PDF
 
   // Deck browser
+  // Synchronous re-entrancy guards for openDeckBrowser/loadDeckNotes. React 18 StrictMode (always on,
+  // and the app always runs in Vite dev mode — see the run notes) double-invokes effects on mount, so
+  // the Deck-tab auto-open effect can fire openDeckBrowser() TWICE back to back. Both calls saw
+  // `deckBrowserActive === false` (that flag is only flipped by an AWAITED state update, so it can't
+  // block a same-tick second call) and both raced independently: whichever call's setDeckBrowserNotes([])
+  // reset landed LAST could stomp the other call's already-loaded notes, leaving the list empty even
+  // though the deck genuinely has cards — "sometimes I refresh and see no cards". `deckBrowserOpenRef`
+  // is set the instant a call starts (no await in between, so a concurrent call sees it synchronously)
+  // and `deckNotesReqRef` tags every loadDeckNotes call with a generation id so a slower/older response
+  // can never overwrite a newer one's result.
+  const deckBrowserOpenRef = useRef(false)
+  const deckNotesReqRef = useRef(0)
   const [deckBrowserActive, setDeckBrowserActive] = useState(false)
   const [deckBrowserAddPanel, setDeckBrowserAddPanel] = useState(false)
   const [deckBrowserAddName, setDeckBrowserAddName] = useState('')
@@ -3410,25 +3422,48 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
   }
 
   const openDeckBrowser = async () => {
-    if (!ankiConnected) return
-    const decks = await ankiGetDecks().catch(() => [])
-    setAnkiDecks(decks)
-    // Respect the user's last-chosen deck (persisted in localStorage → deckBrowserDeck) if it still
-    // exists; only fall back to the mode deck / first deck when nothing valid is saved. Without this
-    // the browser reset to decks[0] ("Comptia Security+ Test") on every open, discarding the choice.
-    const deck = (deckBrowserDeck && decks.includes(deckBrowserDeck)) ? deckBrowserDeck : (ankiDeck || decks[0] || '')
-    setDeckBrowserDeck(deck)
-    setDeckBrowserActive(true)
-    setDeckBrowserNotes([])
-    if (deck) loadDeckNotes(deck)
+    if (!ankiConnected || deckBrowserOpenRef.current) return
+    deckBrowserOpenRef.current = true
+    try {
+      const decks = await ankiGetDecks().catch(() => [])
+      setAnkiDecks(decks)
+      // Respect the user's last-chosen deck (persisted in localStorage → deckBrowserDeck) if it still
+      // exists; only fall back to the mode deck / first deck when nothing valid is saved. Without this
+      // the browser reset to decks[0] ("Comptia Security+ Test") on every open, discarding the choice.
+      const deck = (deckBrowserDeck && decks.includes(deckBrowserDeck)) ? deckBrowserDeck : (ankiDeck || decks[0] || '')
+      setDeckBrowserDeck(deck)
+      setDeckBrowserActive(true)
+      setDeckBrowserNotes([])
+      if (deck) await loadDeckNotes(deck)
+    } finally {
+      deckBrowserOpenRef.current = false
+    }
   }
 
   // `quiet` = a background refresh (re-entering the Deck tab): keep the current list on screen,
   // don't flash the spinner, and don't cancel an in-progress edit — just fold in new/changed cards.
   const loadDeckNotes = async (deck, { quiet = false } = {}) => {
+    // Tag this call with a generation id: if a NEWER loadDeckNotes call starts before this one
+    // resolves, this one's result is stale and must not overwrite the newer call's (possibly still
+    // in-flight) result. See deckNotesReqRef's comment above for why overlapping calls happen.
+    const reqId = ++deckNotesReqRef.current
     if (!quiet) { setDeckBrowserLoading(true); setDeckBrowserEditing(null) }
     try {
-      const noteIds = await ankiFindNotes(`deck:"${deck}"`)
+      // AnkiConnect briefly refuses connections when several requests land on it at once — page
+      // load fires version/deckNames/media-file calls from several effects in close succession
+      // (worse under React StrictMode's double-invoked mount effects), and a real "Anki closed"
+      // failure and a few-hundred-ms connection-refused hiccup surface the IDENTICAL error, so a
+      // failed findNotes here is retried briefly before the deck is believed genuinely empty/
+      // unreachable — this transient burst was the actual cause of "refresh sometimes shows no
+      // cards" (verified live: the exact same query that failed here succeeded moments later).
+      let noteIds
+      for (let attempt = 0; ; attempt++) {
+        try { noteIds = await ankiFindNotes(`deck:"${deck}"`); break }
+        catch (err) {
+          if (attempt >= 2) throw err
+          await new Promise((r) => setTimeout(r, 400 * (attempt + 1)))
+        }
+      }
       const notes = noteIds.length > 0 ? await ankiNotesInfo(noteIds) : []
       // Fetch card-level scheduling stats so we can sort by studied/lapses/interval.
       // Aggregated per note across its cards; failures here don't block the listing.
@@ -3452,12 +3487,15 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       } catch (e) {
         console.warn('[Deck] card stats unavailable:', e.message)
       }
+      // A newer loadDeckNotes call started while this one was in flight — its result is authoritative
+      // (or still coming), so this stale response must not stomp it with fewer/zero notes.
+      if (reqId !== deckNotesReqRef.current) { console.log('[Deck] discarding stale load for:', deck); return }
       setDeckBrowserNotes(notes)
       console.log('[Deck] loaded', notes.length, 'notes from:', deck)
     } catch (err) {
       console.error('[Deck] load failed:', err.message)
     } finally {
-      setDeckBrowserLoading(false)
+      if (reqId === deckNotesReqRef.current) setDeckBrowserLoading(false)
     }
   }
 
