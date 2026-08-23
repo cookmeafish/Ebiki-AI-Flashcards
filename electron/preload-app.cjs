@@ -1,4 +1,4 @@
-// Preload for the main app window (electron/main.cjs --app-window). frame:false took the native
+// Preload for the main app window (electron/main.cjs's default mode). frame:false took the native
 // minimize/maximize/close buttons with it, so App.jsx renders its own in the drag strip; this is
 // the ONLY bridge they have into Electron (contextIsolation is on, nodeIntegration is off), kept
 // to exactly the three window actions plus maximized-state so the renderer can't do anything else.

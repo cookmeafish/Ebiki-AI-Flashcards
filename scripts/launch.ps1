@@ -120,8 +120,10 @@ function Open-App {
     # -WindowStyle Normal is REQUIRED here for the same reason it is for Anki
     # above: this script runs hidden (via launch-ebiki.vbs), and Start-Process
     # with no style of its own hands that hidden show-state to the child - the
-    # window would then genuinely open, just invisibly.
-    Start-Process -FilePath $exe -ArgumentList (Join-Path $app 'electron\main.cjs'), '--app-window' -WorkingDirectory $app -WindowStyle Normal
+    # window would then genuinely open, just invisibly. No --app-window flag -
+    # that's the default now (see electron/main.cjs); only --overlay switches
+    # modes, and this is never how the overlay gets launched.
+    Start-Process -FilePath $exe -ArgumentList (Join-Path $app 'electron\main.cjs') -WorkingDirectory $app -WindowStyle Normal
   } else {
     Start-Process 'http://localhost:3000' -WindowStyle Normal
   }

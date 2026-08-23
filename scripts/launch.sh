@@ -44,7 +44,7 @@ start_anki_if_needed || true
 open_app() {
   local electron_bin="$APP/node_modules/electron/dist/electron"
   if [ -x "$electron_bin" ]; then
-    nohup "$electron_bin" "$APP/electron/main.cjs" --app-window --class=Ebiki >/dev/null 2>&1 &
+    nohup "$electron_bin" "$APP/electron/main.cjs" --class=Ebiki >/dev/null 2>&1 &
     disown
   elif command -v xdg-open >/dev/null 2>&1; then
     xdg-open 'http://localhost:3000' >/dev/null 2>&1 &
