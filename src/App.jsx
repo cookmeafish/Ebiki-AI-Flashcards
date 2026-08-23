@@ -612,6 +612,7 @@ export default function App() {
   const pendingDeckEditRef = useRef(null) // instruction handed over from Ebi's Help (deck_edit action) — runs once notes load
   // Duplicate scan / merge
   const [deckDupLoading, setDeckDupLoading] = useState(false)
+  const [deckDupStage, setDeckDupStage] = useState('') // 'confirming' | 'merging' — which AI pass is running, for live feedback
   const [deckDupGroups, setDeckDupGroups] = useState([]) // [{ noteIds, reason, cards:[{noteId,fields}], mergedFields, accepted }]
   const [deckDupCommitting, setDeckDupCommitting] = useState(false)
   const [deckDupError, setDeckDupError] = useState(null)
@@ -4047,6 +4048,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
   const scanDuplicates = async () => {
     if (deckBrowserNotes.length === 0 || !apiKey || deckDupLoading) return
     setDeckDupLoading(true)
+    setDeckDupStage('grouping')
     setDeckDupError(null)
     setDeckDupEmpty(false)
     setDeckDupExpanded({})
@@ -4093,6 +4095,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       // Stage 2a: AI confirms which close candidates are truly the same word.
       let fuzzyGroups = []
       if (candidateClusters.length > 0) {
+        setDeckDupStage('confirming')
         try {
           const forAI = candidateClusters.map((ks, ci) => ({
             cluster: ci,
@@ -4148,6 +4151,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       }
 
       // Stage 2b: AI merges the backs of each confirmed group.
+      setDeckDupStage('merging')
       let aiMerges = {}
       try {
         const groupsForAI = dupNoteGroups.map((notes, i) => ({ group: i, headword: htmlToPlain(frontOf(notes[0])), cards: notes.map(plainFields) }))
@@ -4192,6 +4196,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       setDeckDupError(err.message)
     } finally {
       setDeckDupLoading(false)
+      setDeckDupStage('')
     }
   }
 
@@ -9988,6 +9993,15 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                     <span style={{ fontSize: 10, color: 'var(--c-ink-dim)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                       <span style={{ width: 9, height: 9, borderRadius: '50%', border: '1.5px solid var(--c-ink-dim)', borderTopColor: 'transparent', animation: 'spin360 0.7s linear infinite', flexShrink: 0 }} />
                       {t(deckAnalyzeProgress.stage === 'verifying' ? 'deck_analyzeProgressVerifying' : 'deck_analyzeProgressAnalyzing', { batch: deckAnalyzeProgress.batch, batches: deckAnalyzeProgress.batches, done: deckAnalyzeProgress.done, total: deckAnalyzeProgress.total })}
+                    </span>
+                  )}
+                  {/* Scan for duplicates isn't batched by card count (at most two AI calls total
+                      across the whole deck), but each of those calls can still take a while with
+                      nothing on screen to show for it — so name the stage instead of a raw count. */}
+                  {deckDupLoading && deckDupStage && (
+                    <span style={{ fontSize: 10, color: 'var(--c-ink-dim)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ width: 9, height: 9, borderRadius: '50%', border: '1.5px solid var(--c-ink-dim)', borderTopColor: 'transparent', animation: 'spin360 0.7s linear infinite', flexShrink: 0 }} />
+                      {t(deckDupStage === 'merging' ? 'deck_dupStageMerging' : deckDupStage === 'confirming' ? 'deck_dupStageConfirming' : 'deck_dupStageGrouping')}
                     </span>
                   )}
                   {deckAnalyzeError && <span style={{ fontSize: 10, color: 'var(--c-danger)' }}>{deckAnalyzeError}</span>}
