@@ -1,4 +1,4 @@
-const { app, BrowserWindow, globalShortcut, screen, desktopCapturer, ipcMain } = require('electron')
+const { app, BrowserWindow, globalShortcut, screen, desktopCapturer, ipcMain, Menu, MenuItem } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const http = require('http')
@@ -146,6 +146,29 @@ function createAppWindow() {
 
   appWindow.on('closed', () => { appWindow = null })
   appWindow.webContents.on('console-message', (_, l, m) => console.log('[Renderer]', m))
+
+  // A bare BrowserWindow has NO context menu at all by default - unlike a normal browser tab,
+  // where right-click Copy/Cut/Paste is built into the browser's own chrome, not something a
+  // webpage can rely on. Without this, right-clicking selected text (chat messages, card content,
+  // anything) did nothing at all. Built from webContents' own edit-state per right-click
+  // (params.editFlags/isEditable/selectionText) rather than a static menu, so items are only
+  // offered when they'd actually do something - Cut/Paste never appear over read-only text, and
+  // Select All is left out of the "just some text is selected" case to match normal OS behavior.
+  appWindow.webContents.on('context-menu', (_event, params) => {
+    const menu = new Menu()
+    if (params.isEditable) {
+      if (params.editFlags.canCut) menu.append(new MenuItem({ label: 'Cut', role: 'cut' }))
+      if (params.editFlags.canCopy) menu.append(new MenuItem({ label: 'Copy', role: 'copy' }))
+      if (params.editFlags.canPaste) menu.append(new MenuItem({ label: 'Paste', role: 'paste' }))
+      if (params.editFlags.canSelectAll) {
+        if (menu.items.length > 0) menu.append(new MenuItem({ type: 'separator' }))
+        menu.append(new MenuItem({ label: 'Select All', role: 'selectAll' }))
+      }
+    } else if (params.selectionText) {
+      menu.append(new MenuItem({ label: 'Copy', role: 'copy' }))
+    }
+    if (menu.items.length > 0) menu.popup()
+  })
 
   waitForServer(VITE_URL).then((up) => {
     if (!appWindow) return // window closed while waiting
