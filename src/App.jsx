@@ -7,7 +7,7 @@ import { pickUpgrade, pickNewest, parseModelId, compareModels } from './config/m
 import { buildModelResearchPrompt, buildPresetDecisionPrompt } from './config/modelAdvisor'
 import { LANGS } from './config/languages'
 import { makeT, APP_LANGUAGES } from './i18n'
-import { pickShrimp, shrimpUrl, DEFAULT_SHRIMP, IDLE_SHRIMP, POSE_NAMES, poseFile } from './config/shrimp'
+import { pickShrimp, shrimpUrl, DEFAULT_SHRIMP, IDLE_SHRIMP, POSE_NAMES, poseFile, SHRIMP } from './config/shrimp'
 import { C, RADIUS, SHADOW, FONT } from './config/tokens'
 import { FREQ_SCALE, REGISTERS, isUsageTag, isRegionTag, sortTagsUsageFirst, normalizeUsageTags, collapseSpanningRegions, reconcileUsageTags, usageTagStyle, usageTagTip } from './tags/usage'
 import FormattedText from './components/FormattedText'
@@ -382,9 +382,19 @@ export default function App() {
     .replace(/how (do you say|would you say)[^'"?:]*/gi, '')
     .replace(/translate[^'":]*:/gi, '')
     .trim() || String(text || '')
-  // System prompt for the dedicated, configurable "Mascot" model (cheap/fast). It reads the
-  // generated response/question and returns the single best Ebi pose name.
-  const POSE_SYS = `You pick a mascot pose for Ebi, a cute red shrimp, based on a piece of text. Reply with ONLY one pose name from this exact list and nothing else: ${POSE_NAMES.join(', ')}. Choose the one whose theme best fits the meaning of the text. If none clearly fit, reply "default".`
+  // System prompt for the dedicated, configurable "Mascot" model (cheap/fast - this role never
+  // runs above ROLE_TIER's "normal" tier even on the Max preset, since it fires on every
+  // message). It reads the generated response/question and returns the single best Ebi pose
+  // name. Each pose is described by a few of its own keywords (from SHRIMP in config/shrimp.js),
+  // not just a bare name - a fast/cheap model given ONLY the word "chainsaw" has no way to know
+  // it's themed for wood-chopping/lumberjack topics and will avoid it as sounding unrelated or
+  // violent, while "book" sounds like a safe universal match for "this is a lesson" - which is
+  // true of nearly every Ebiki reply, so without this the model converged on "book" for almost
+  // anything (the actual bug this fixed: a reply about "chopping wood" got "book" twice in a
+  // row, twice ignoring an Ebi-holding-a-chainsaw pose built exactly for that). The explicit
+  // "being a language lesson is never enough" line targets that specific failure mode directly.
+  const POSE_DESCRIPTIONS = SHRIMP.map((s) => `${s.name} (${s.keywords.slice(0, 4).join('/')})`).join(', ')
+  const POSE_SYS = `You pick a mascot pose for Ebi, a cute red shrimp, based on a piece of text. Each pose below is a costume/prop/theme Ebi is shown with, named followed by a few of its own keywords in parentheses so you know what it actually depicts:\n${POSE_DESCRIPTIONS}\n\nPick the pose that matches the most SPECIFIC, CONCRETE thing in the text - a particular object, action, food, animal, or topic named in it - not a vague overall vibe. Nearly every reply here is a language-tutoring reply, so "this is teaching/explaining something" is NEVER by itself a reason to pick "book" or any other pose - only pick a pose whose keywords genuinely connect to something concrete actually mentioned in the text (e.g. a reply about chopping wood should pick a pose about chopping/wood/axes, not a generic reading pose). Reply with ONLY one pose name from the list above and nothing else. If truly nothing concrete fits, reply "default".`
   // choosePose: pick Ebi's pose for some text. Sets the mascot EXACTLY ONCE so there is a
   // single change per AI output (no keyword→AI flicker). With a key, it waits for the Mascot
   // model and sets once; Ebi keeps its previous pose until then. Without a key (or on error),
@@ -13004,11 +13014,15 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           border-color: color-mix(in srgb, currentColor 55%, transparent) !important;
         }
 
-        /* Window controls (Electron app window only - see isElectronApp in App.jsx). WM-standard
-           hover: a light neutral tint for minimize/maximize, solid red + white icon for close -
-           deliberately overriding the generic button hover above (win-btn-close wins by coming
-           later in the cascade at equal specificity) so close reads as destructive at a glance,
-           the same convention every OS uses. */
+        /* Window controls (Electron app window only - see isElectronApp in App.jsx). Base
+           background/color live HERE, not as an inline style on the button (theme.js's winBtn
+           deliberately omits them) - an inline style always wins over a stylesheet rule of any
+           specificity short of !important, which would silently block win-btn-close:hover's red
+           from ever showing. WM-standard hover: a light neutral tint for minimize/maximize, solid
+           red + white icon for close - deliberately overriding the generic button hover above
+           (win-btn-close wins by coming later in the cascade at equal specificity) so close reads
+           as destructive at a glance, the same convention every OS uses. */
+        .win-btn { background: transparent; color: var(--c-ink-dim); }
         .win-btn:hover { background: var(--c-surface-alt); }
         .win-btn-close:hover { background: var(--c-danger); color: #fff; }
 
