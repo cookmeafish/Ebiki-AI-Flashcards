@@ -194,43 +194,13 @@ export default function App() {
   }, [isElectronApp])
   // The header's own flexWrap already drops headerRight (language/Settings) to a second line on
   // a narrow window (pre-existing behavior, not specific to Electron - the same thing happens in
-  // a narrow browser tab). What WAS Electron-specific and genuinely broken: the window-control
-  // cluster is position:absolute pinned to the header's own top edge, so once wrapping made the
-  // header taller, the buttons stayed parked at the top with a dead gap below them before the
-  // wrapped row started - floating and disconnected instead of looking like part of the toolbar.
-  // Detected by comparing the HEADER's total height against headerLeft's own natural height: an
-  // extra row's worth of height means something (headerRight) wrapped onto its own line.
-  // Deliberately NOT comparing headerRight's own position/box - once wrapped, headerRight is
-  // given width:'100%' below (so the button cluster's marginLeft:'auto' has real room to push
-  // into, flush to the row's true right edge) - a 100%-wide flex item can never again share a
-  // line with headerLeft no matter how wide the window gets, so measuring wrap state off
-  // headerRight's OWN box would get permanently stuck "wrapped" the very first time it wraps,
-  // never recovering when the window widens back out. headerLeft's own height is untouched by
-  // any of this and stays a reliable single-line baseline. Robust to zoom/locale/font-size,
-  // unlike hardcoding the pixel width where wrapping starts.
-  const headerRef = useRef(null)
-  const headerLeftRef = useRef(null)
-  const headerRightRef = useRef(null)
-  const [headerWrapped, setHeaderWrapped] = useState(false)
-  useEffect(() => {
-    if (!isElectronApp) return
-    const check = () => {
-      if (!headerRef.current || !headerLeftRef.current) return
-      const totalH = headerRef.current.getBoundingClientRect().height
-      const leftH = headerLeftRef.current.getBoundingClientRect().height
-      // Threshold calibrated by direct measurement, not guessed: a single row's diff is a
-      // constant ~28px (the header's own top+bottom padding) even when nothing has wrapped -
-      // NOT ~0 as you'd expect, since headerLeft (no padding of its own) is being compared
-      // against header's full padding-box height. Actually wrapping to 2 rows jumps this to
-      // ~85px. 50 sits with wide margin on both sides of that gap.
-      setHeaderWrapped(totalH - leftH > 50)
-    }
-    check()
-    const ro = new ResizeObserver(check)
-    if (headerRef.current) ro.observe(headerRef.current)
-    window.addEventListener('resize', check)
-    return () => { ro.disconnect(); window.removeEventListener('resize', check) }
-  }, [isElectronApp])
+  // a narrow browser tab). The window-control cluster below does NOT follow it there - like every
+  // native app, minimize/maximize/close stay pinned to the window's actual top-right corner no
+  // matter what the toolbar underneath does. (Two earlier attempts tried to have the buttons
+  // track the wrapped row instead - one left them floating disconnected with a dead gap below,
+  // the other stranded them in the middle of the window since the wrapped row has nothing pushing
+  // it right, and a naive fix for THAT permanently stuck the header two rows forever afterward.
+  // Never chasing the wrap in the first place sidesteps that whole bug class.)
 
   // Make body transparent for overlay mode so clip-path/transparent bg works
   useEffect(() => {
@@ -9700,23 +9670,21 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           Electron mode so the cluster (position:absolute, escaping that padding) never sits over
           real header content (Settings/language) - both this and the cluster's own width must
           stay in sync, which is why it's one constant instead of two guessed numbers. */}
-      {!isOverlay && <header ref={headerRef} style={{ ...S.header, ...(isElectronApp && !headerWrapped ? { paddingRight: 20 + WIN_CTRL_W } : {}) }}>
+      {!isOverlay && <header style={{ ...S.header, ...(isElectronApp ? { paddingRight: 20 + WIN_CTRL_W } : {}) }}>
         {/* Drag handle for the Electron app window (electron/main.cjs --app-window, frame:false so
             there is no native title bar left to grab or restore-from-maximized with). Sits INSIDE
             the header (position:relative) so it stays visually seamless (no separate colored
             strip - a flat var(--c-bg) strip behind the header's translucent C.glass/backdrop-blur
             background read as a mismatched bar). Deliberately just the LEFT portion of the top
-            edge (stops before the button cluster, when it's occupying the corner) at just the
-            header's own 10px top padding - the header is packed with buttons/dropdowns on every
-            tab, and covering any of them would make that control unclickable. Dragging from here
-            also RESTORES a maximized window (standard OS behavior for a title-bar-like drag
-            region), exposing resizable edges again. Once the header has wrapped, the button
-            cluster is no longer parked in this corner (see headerWrapped below), so the drag zone
-            can safely span the full width. */}
+            edge (stops before the button cluster, which always occupies the corner - see below)
+            at just the header's own 10px top padding - the header is packed with buttons/
+            dropdowns on every tab, and covering any of them would make that control unclickable.
+            Dragging from here also RESTORES a maximized window (standard OS behavior for a
+            title-bar-like drag region), exposing resizable edges again. */}
         {isElectronApp && (
-          <div style={{ position: 'absolute', top: 0, left: 0, right: headerWrapped ? 0 : WIN_CTRL_W, height: 10, WebkitAppRegion: 'drag' }} />
+          <div style={{ position: 'absolute', top: 0, left: 0, right: WIN_CTRL_W, height: 10, WebkitAppRegion: 'drag' }} />
         )}
-        <div ref={headerLeftRef} style={S.headerLeft}>
+        <div style={S.headerLeft}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <rect x="2" y="3" width="20" height="18" rx="2" stroke="var(--c-brand)" strokeWidth="2"/>
             <circle cx="18" cy="7" r="4" fill="var(--c-brand)"/>
@@ -9746,14 +9714,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             {t('hdr_talkToEbi')}
           </button>
         </div>
-        {/* Reserve room on the right for the button cluster (which is ALWAYS position:absolute,
-            never a flex child - see below) so Settings/language don't visually run underneath it
-            once wrapped. A bounded paddingRight, not width:'100%': width:100% on a flex item can
-            NEVER again share a line with headerLeft no matter how wide the window gets afterward,
-            which permanently stuck the header 2-row forever after the FIRST time it wrapped (the
-            actual bug this replaces) - padding only makes headerRight need a bit more room, which
-            stops mattering the moment the window is wide enough again. */}
-        <div ref={headerRightRef} style={{ ...S.headerRight, ...(isElectronApp && headerWrapped ? { paddingRight: WIN_CTRL_W } : {}) }}>
+        <div style={S.headerRight}>
           {/* Picture tab: context buttons */}
           {activeTab === 'picture' && stage === 'done' && (
             <button onClick={() => setShowHighlights(!showHighlights)} style={{
@@ -9843,38 +9804,25 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             {!apiKey && <span style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: '50%', background: 'var(--c-danger)' }} />}
           </button>
           {/* Minimize/maximize/close - frame:false took the native ones with it. ALWAYS
-              position:absolute, in BOTH layouts (never a normal flex child) - that's what makes
-              this safe: an absolute element is out of flow entirely, so it can never influence
-              headerRight's own natural wrapping the way an in-flow sibling (or worse, width:'100%'
-              on headerRight itself - tried and reverted, see below) would. Only `top`/`bottom`
-              switch between the two states:
-              - Normal (!headerWrapped): top:0, flush to the window's TRUE top-right corner. Fixed
-                compact WIN_CTRL_H, not the header's own ~60px height - stretching that tall read
-                as massive relative to the icons; not a normal flex child either - vertically
-                centered mid-row with padding above/below it read as oversized borders.
-              - Wrapped (headerWrapped): the header's PRE-EXISTING flexWrap already drops
-                headerRight to its own line on a narrow window (same in a narrow browser tab, not
-                Electron-specific). top:0 doesn't know that happened, so it stayed parked at the
-                very top with a dead gap below before the wrapped row even started - floating and
-                disconnected ("broken", the first bug this fixed). bottom:0 instead anchors it to
-                the header's bottom edge, which IS where the wrapped row (headerRight, the last
-                line) sits - lining it up with Settings/language without needing to know their
-                exact offset. (Tried making headerRight itself width:'100%' + marginLeft:'auto' on
-                this cluster to right-align within it instead - reverted: a 100%-wide flex item can
-                NEVER again share a line with headerLeft no matter how wide the window gets
-                afterward, so the header got PERMANENTLY stuck 2-row forever after the very first
-                time it wrapped. Staying absolute avoids that class of bug entirely.)
-              no-drag so they're clickable despite sitting inside the header's draggable band (only
-              relevant in the non-wrapped layout - see the drag handle above). WM-standard hover
-              (neutral tint for minimize/maximize, solid red + white icon for close) via CSS
-              classes (win-btn / win-btn-close in the global stylesheet), not inline handlers -
-              matches how every other hover state in this app works. */}
+              position:absolute, top:0, right:0 - flush to the window's actual top-right corner,
+              exactly like every native app, and NEVER moves regardless of what the header's
+              toolbar content does below/around it (the header's own flexWrap can drop headerRight
+              to a second line on a narrow window - pre-existing, not Electron-specific - but
+              window controls staying fixed in place through that is the whole point: they're
+              chrome, not toolbar content). Earlier attempts tried to have the buttons track the
+              wrapped row instead - one left them floating disconnected with a dead gap below, the
+              next stranded them in the middle of the window since the wrapped row has nothing
+              pushing it right, and a naive fix for THAT permanently stuck the header two rows
+              forever afterward. Pinning to the corner unconditionally sidesteps that whole bug
+              class AND matches actual OS convention, so it's simpler AND more correct. Fixed
+              compact WIN_CTRL_H, not the header's own ~60px height - stretching that tall read as
+              massive relative to the icons. no-drag so they're clickable despite sitting inside
+              the header's draggable band. WM-standard hover (neutral tint for minimize/maximize,
+              solid red + white icon for close) via CSS classes (win-btn / win-btn-close in the
+              global stylesheet), not inline handlers - matches how every other hover state in
+              this app works. */}
           {isElectronApp && (
-            <div style={{
-              position: 'absolute', right: 0, height: WIN_CTRL_H, width: WIN_CTRL_W,
-              display: 'flex', WebkitAppRegion: 'no-drag',
-              ...(headerWrapped ? { bottom: 0 } : { top: 0 }),
-            }}>
+            <div style={{ position: 'absolute', top: 0, right: 0, height: WIN_CTRL_H, width: WIN_CTRL_W, display: 'flex', WebkitAppRegion: 'no-drag' }}>
               <button onClick={() => window.ebikiWindow.minimize()} title={t('winMinimize')} className="win-btn" style={S.winBtn}>
                 <svg width="10" height="10" viewBox="0 0 10 10"><rect x="0" y="4.5" width="10" height="1" fill="currentColor"/></svg>
               </button>
