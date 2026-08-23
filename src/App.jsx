@@ -171,6 +171,11 @@ function parseAiJson(text) {
 export default function App() {
   // ─── State ───────────────────────────────────────────────────────────────────
   const isOverlay = new URLSearchParams(window.location.search).has('overlay')
+  // Running inside electron/main.cjs's --app-window BrowserWindow (frame:false, no OS title bar),
+  // vs a normal browser tab. Electron's UA always carries "Electron/<version>"; never true in a
+  // real browser. Used only to gate the drag strip below the header (frameless-window chrome), so
+  // getting this wrong is low-stakes either way.
+  const isElectronApp = /Electron/.test(navigator.userAgent)
 
   // Make body transparent for overlay mode so clip-path/transparent bg works
   useEffect(() => {
@@ -9623,6 +9628,19 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           <button className="btn-press" disabled={offlineBusy} onClick={() => resolveOffline(false)} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.6)', background: 'rgba(0,0,0,.18)', ...(offlineBusy ? { opacity: .5, cursor: 'default' } : {}) }}>{t('offlineMerge')}</button>
           <button disabled={offlineBusy} onClick={() => resolveOffline(true)} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.35)', ...(offlineBusy ? { opacity: .5, cursor: 'default' } : {}) }}>{t('offlineDiscard')}</button>
         </div>
+      )}
+      {/* Drag strip for the Electron app window (electron/main.cjs --app-window, frame:false so
+          there is no native title bar left to grab). -webkit-app-region is a no-op outside
+          Electron, so this is always safe to render, but it's gated on isElectronApp anyway to
+          keep normal browser-tab layout byte-for-byte unchanged. Dragging from here also RESTORES
+          a maximized window (standard OS behavior for a title-bar-like drag region), which is what
+          exposes resizable edges again - frame:false + the default resizable:true already allows
+          edge-resize once the window isn't maximized; there was just no way to get there without
+          this strip. Deliberately a blank strip above the header rather than making the header
+          itself draggable - the header is packed with buttons/dropdowns across every tab, and
+          missing even one when marking them all `no-drag` would make that control unclickable. */}
+      {!isOverlay && isElectronApp && (
+        <div style={{ height: 10, flexShrink: 0, background: 'var(--c-bg)', WebkitAppRegion: 'drag' }} />
       )}
       {/* ── Header ───────────────────────────────────────────────────────────── */}
       {!isOverlay && <header style={S.header}>

@@ -84,6 +84,11 @@ function createAppWindow() {
   appWindow = new BrowserWindow({
     show: false,
     frame: false,             // no tab strip, no address bar, no browser chrome at all
+    // frame:false means no native title bar - which is also what you'd normally drag to move/
+    // restore the window, so a drag strip is rendered in the app itself (App.jsx, gated on
+    // isElectronApp) to get that back. resizable is Electron's default already; explicit here
+    // because frame:false windows losing edge-resize is an easy thing to accidentally regress.
+    resizable: true,
     backgroundColor: '#F2F5F8', // matches the app's default light theme - avoids a white/black flash
     icon: fs.existsSync(iconPath) ? iconPath : undefined,
     title: 'Ebiki',
