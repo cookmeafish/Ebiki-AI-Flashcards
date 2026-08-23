@@ -168,6 +168,11 @@ function parseAiJson(text) {
   return null
 }
 
+// Width (px) reserved for the Electron app-window's minimize/maximize/close cluster, flush to the
+// header's true top-right corner. Shared between the header's extra padding and the cluster's own
+// width (App.jsx, isElectronApp) so they can never drift out of sync with each other.
+const WIN_CTRL_W = 96
+
 export default function App() {
   // ─── State ───────────────────────────────────────────────────────────────────
   const isOverlay = new URLSearchParams(window.location.search).has('overlay')
@@ -9637,22 +9642,54 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         </div>
       )}
       {/* ── Header ───────────────────────────────────────────────────────────── */}
-      {!isOverlay && <header style={S.header}>
+      {/* WIN_CTRL_W: reserved width (px) for the minimize/maximize/close cluster below, flush to
+          the header's true top-right corner. Header padding is widened by exactly this much in
+          Electron mode so the cluster (position:absolute, escaping that padding) never sits over
+          real header content (Settings/language) - both this and the cluster's own width must
+          stay in sync, which is why it's one constant instead of two guessed numbers. */}
+      {!isOverlay && <header style={{ ...S.header, ...(isElectronApp ? { paddingRight: 20 + WIN_CTRL_W } : {}) }}>
         {/* Drag handle for the Electron app window (electron/main.cjs --app-window, frame:false so
             there is no native title bar left to grab or restore-from-maximized with). Sits INSIDE
-            the header (which is already position:relative) rather than as its own colored strip
-            above it - a separate strip painted flat var(--c-bg) behind the header's translucent
-            C.glass/backdrop-blur background, so the seam between the two was visibly a mismatched
-            bar. This overlay is fully transparent and exactly matches the header's own 10px top
-            padding, so it's invisible - the header just gains a draggable top edge, nothing looks
-            different. -webkit-app-region is a no-op outside Electron, so it's harmless to always
-            render the div; gated on isElectronApp anyway so a plain browser tab's DOM is unchanged.
-            Deliberately just the padding strip, not the whole header - the header is packed with
-            buttons/dropdowns on every tab, and covering any of them would make that control
-            unclickable. Dragging from here also RESTORES a maximized window (standard OS behavior
-            for a title-bar-like drag region), which is what exposes resizable edges again. */}
+            the header (position:relative) so it stays visually seamless (no separate colored
+            strip - a flat var(--c-bg) strip behind the header's translucent C.glass/backdrop-blur
+            background read as a mismatched bar). Deliberately just the LEFT portion of the top
+            edge (stops before the button cluster) at just the header's own 10px top padding - the
+            header is packed with buttons/dropdowns on every tab, and covering any of them would
+            make that control unclickable. Dragging from here also RESTORES a maximized window
+            (standard OS behavior for a title-bar-like drag region), exposing resizable edges again. */}
         {isElectronApp && (
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 10, WebkitAppRegion: 'drag' }} />
+          <div style={{ position: 'absolute', top: 0, left: 0, right: WIN_CTRL_W, height: 10, WebkitAppRegion: 'drag' }} />
+        )}
+        {/* Minimize/maximize/close - frame:false took the native ones with it. Flush to the
+            header's TRUE top-right corner (position:absolute escaping the header's own padding on
+            all three sides, not a normal flex child of headerRight vertically centered mid-row
+            with padding above/below it - that read as oversized borders around undersized
+            buttons). no-drag so they're clickable despite sitting inside the header's draggable
+            band. WM-standard hover (neutral tint for minimize/maximize, solid red + white icon for
+            close) via CSS classes (win-btn / win-btn-close in the global stylesheet), not inline
+            handlers - matches how every other hover state in this app works. */}
+        {isElectronApp && (
+          <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: WIN_CTRL_W, display: 'flex', WebkitAppRegion: 'no-drag' }}>
+            <button onClick={() => window.ebikiWindow.minimize()} title={t('winMinimize')} className="win-btn" style={S.winBtn}>
+              <svg width="10" height="10" viewBox="0 0 10 10"><rect x="0" y="4.5" width="10" height="1" fill="currentColor"/></svg>
+            </button>
+            <button onClick={() => window.ebikiWindow.toggleMaximize()} title={appMaximized ? t('winRestore') : t('winMaximize')} className="win-btn" style={S.winBtn}>
+              {appMaximized ? (
+                <svg width="10" height="10" viewBox="0 0 10 10">
+                  <rect x="2.5" y="0.5" width="7" height="7" fill="none" stroke="currentColor" strokeWidth="1"/>
+                  <path d="M0.5 3v6.5H7" fill="none" stroke="currentColor" strokeWidth="1"/>
+                </svg>
+              ) : (
+                <svg width="10" height="10" viewBox="0 0 10 10"><rect x="0.5" y="0.5" width="9" height="9" fill="none" stroke="currentColor" strokeWidth="1"/></svg>
+              )}
+            </button>
+            <button onClick={() => window.ebikiWindow.close()} title={t('winClose')} className="win-btn win-btn-close" style={S.winBtn}>
+              <svg width="10" height="10" viewBox="0 0 10 10">
+                <line x1="0.5" y1="0.5" x2="9.5" y2="9.5" stroke="currentColor" strokeWidth="1.2"/>
+                <line x1="9.5" y1="0.5" x2="0.5" y2="9.5" stroke="currentColor" strokeWidth="1.2"/>
+              </svg>
+            </button>
+          </div>
         )}
         <div style={S.headerLeft}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -9773,36 +9810,6 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             {'\u2699\uFE0F'} {t('settingsTitle')}
             {!apiKey && <span style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: '50%', background: 'var(--c-danger)' }} />}
           </button>
-          {/* Minimize/maximize/close - frame:false took the native ones with it, so these are the
-              only way to manage the window. no-drag so they're clickable despite sitting right
-              next to (and, being flex items after, effectively part of) the header's drag padding
-              above. Hover via CSS classes (win-btn / win-btn-close below), not inline JS handlers -
-              matches how every other hover state in this app works (see the global button:hover
-              rule); win-btn-close overrides it with the WM-standard red so it reads instantly as
-              "close" rather than just another app button. */}
-          {isElectronApp && (
-            <div style={{ display: 'flex', marginLeft: 4, WebkitAppRegion: 'no-drag' }}>
-              <button onClick={() => window.ebikiWindow.minimize()} title={t('winMinimize')} className="win-btn" style={S.winBtn}>
-                <svg width="10" height="10" viewBox="0 0 10 10"><rect x="0" y="4.5" width="10" height="1" fill="currentColor"/></svg>
-              </button>
-              <button onClick={() => window.ebikiWindow.toggleMaximize()} title={appMaximized ? t('winRestore') : t('winMaximize')} className="win-btn" style={S.winBtn}>
-                {appMaximized ? (
-                  <svg width="10" height="10" viewBox="0 0 10 10">
-                    <rect x="2.5" y="0.5" width="7" height="7" fill="none" stroke="currentColor" strokeWidth="1"/>
-                    <path d="M0.5 3v6.5H7" fill="none" stroke="currentColor" strokeWidth="1"/>
-                  </svg>
-                ) : (
-                  <svg width="10" height="10" viewBox="0 0 10 10"><rect x="0.5" y="0.5" width="9" height="9" fill="none" stroke="currentColor" strokeWidth="1"/></svg>
-                )}
-              </button>
-              <button onClick={() => window.ebikiWindow.close()} title={t('winClose')} className="win-btn win-btn-close" style={S.winBtn}>
-                <svg width="10" height="10" viewBox="0 0 10 10">
-                  <line x1="0.5" y1="0.5" x2="9.5" y2="9.5" stroke="currentColor" strokeWidth="1.2"/>
-                  <line x1="9.5" y1="0.5" x2="0.5" y2="9.5" stroke="currentColor" strokeWidth="1.2"/>
-                </svg>
-              </button>
-            </div>
-          )}
         </div>
       </header>}
 
