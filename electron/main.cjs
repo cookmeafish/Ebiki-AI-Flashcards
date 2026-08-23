@@ -89,6 +89,16 @@ function createAppWindow() {
     // isElectronApp) to get that back. resizable is Electron's default already; explicit here
     // because frame:false windows losing edge-resize is an easy thing to accidentally regress.
     resizable: true,
+    // The header's tab bar (Chat/Study/Deck/Discover/Picture/Stats) has no wrap or shrink
+    // behavior of its own - it silently overflows the header's bounds and gets clipped by
+    // body{overflow-x:hidden} below ~820px (measured live via CDP), which is how "Stats" was
+    // disappearing entirely on a manually-shrunk window. 1000 gives real margin above that
+    // (translated tab labels run longer than English - Spanish "Estadísticas" vs "Stats" - and
+    // still leaves the window comfortably smaller than any real screen, unlike a much larger
+    // minWidth chosen just to avoid the header ever wrapping to two lines at all, which App.jsx's
+    // headerWrapped handles responsively instead). minHeight is a general "still usable" floor.
+    minWidth: 1000,
+    minHeight: 650,
     backgroundColor: '#F2F5F8', // matches the app's default light theme - avoids a white/black flash
     icon: fs.existsSync(iconPath) ? iconPath : undefined,
     title: 'Ebiki',
