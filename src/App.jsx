@@ -168,10 +168,14 @@ function parseAiJson(text) {
   return null
 }
 
-// Width (px) reserved for the Electron app-window's minimize/maximize/close cluster, flush to the
-// header's true top-right corner. Shared between the header's extra padding and the cluster's own
-// width (App.jsx, isElectronApp) so they can never drift out of sync with each other.
+// Width/height (px) of the Electron app-window's minimize/maximize/close cluster, flush to the
+// header's true top-right corner. WIN_CTRL_W is shared between the header's extra right padding
+// and the cluster's own width (App.jsx, isElectronApp) so they can never drift out of sync.
+// WIN_CTRL_H is a compact, native-title-bar-like height - NOT the header's own full height
+// (~60px): stretching the buttons that tall read as oversized relative to the icons inside them
+// ("massive"), rather than a slim title-bar strip merely flush to the top edge.
 const WIN_CTRL_W = 96
+const WIN_CTRL_H = 30
 
 export default function App() {
   // ─── State ───────────────────────────────────────────────────────────────────
@@ -9671,15 +9675,18 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           <div style={{ position: 'absolute', top: 0, left: 0, right: WIN_CTRL_W, height: 10, WebkitAppRegion: 'drag' }} />
         )}
         {/* Minimize/maximize/close - frame:false took the native ones with it. Flush to the
-            header's TRUE top-right corner (position:absolute escaping the header's own padding on
-            all three sides, not a normal flex child of headerRight vertically centered mid-row
-            with padding above/below it - that read as oversized borders around undersized
-            buttons). no-drag so they're clickable despite sitting inside the header's draggable
-            band. WM-standard hover (neutral tint for minimize/maximize, solid red + white icon for
-            close) via CSS classes (win-btn / win-btn-close in the global stylesheet), not inline
-            handlers - matches how every other hover state in this app works. */}
+            header's TRUE top-right corner (position:absolute escaping the header's own padding,
+            not a normal flex child of headerRight vertically centered mid-row with padding above/
+            below it - that read as oversized borders around undersized buttons). Fixed compact
+            WIN_CTRL_H, not bottom:0/stretch-to-header-height - stretching to the header's own
+            ~60px height made each button look massive relative to its icon; a real title bar is a
+            slim strip merely flush to the top, not the toolbar's full height. no-drag so they're
+            clickable despite sitting inside the header's draggable band. WM-standard hover
+            (neutral tint for minimize/maximize, solid red + white icon for close) via CSS classes
+            (win-btn / win-btn-close in the global stylesheet), not inline handlers - matches how
+            every other hover state in this app works. */}
         {isElectronApp && (
-          <div style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: WIN_CTRL_W, display: 'flex', WebkitAppRegion: 'no-drag' }}>
+          <div style={{ position: 'absolute', top: 0, right: 0, height: WIN_CTRL_H, width: WIN_CTRL_W, display: 'flex', WebkitAppRegion: 'no-drag' }}>
             <button onClick={() => window.ebikiWindow.minimize()} title={t('winMinimize')} className="win-btn" style={S.winBtn}>
               <svg width="10" height="10" viewBox="0 0 10 10"><rect x="0" y="4.5" width="10" height="1" fill="currentColor"/></svg>
             </button>
