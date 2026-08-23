@@ -59,9 +59,12 @@ export const S = {
   // Electron app-window minimize/maximize/close (App.jsx, isElectronApp). Square, not rounded -
   // these are meant to read as OS window chrome, not app UI, so they deliberately don't match
   // the rest of the app's rounded button language. Hover color via .win-btn/.win-btn-close in
-  // the global stylesheet, not here.
+  // the global stylesheet, not here. No explicit height - the parent cluster is a flex row with
+  // default (stretch) alignment, so each button fills its FULL height flush top-to-bottom, the
+  // way real window-control buttons sit edge to edge rather than centered with padding around
+  // them. Width is WIN_CTRL_W / 3 (App.jsx) - keep the two in sync if either changes.
   winBtn: {
-    width: 30, height: 26, padding: 0, background: 'transparent', border: 'none',
+    width: 32, flex: '1 0 auto', padding: 0, background: 'transparent', border: 'none',
     borderRadius: 0, color: C.inkDim, cursor: 'pointer',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
