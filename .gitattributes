@@ -1,0 +1,5 @@
+# Shell scripts must keep LF line endings no matter which machine commits them -
+# a CRLF shebang line ("#!/usr/bin/env bash\r") fails with "bad interpreter" on
+# Linux, and this repo has core.autocrlf=true on at least one contributor's
+# Windows machine.
+*.sh text eol=lf

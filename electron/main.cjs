@@ -1,16 +1,125 @@
 const { app, BrowserWindow, globalShortcut, screen, desktopCapturer, ipcMain } = require('electron')
 const path = require('path')
 const fs = require('fs')
+const http = require('http')
 
 const VITE_URL = 'http://localhost:3000'
 const SCREENSHOT_FILE = path.resolve('electron/last-capture.png')
 let overlayWindow = null
 
-app.whenReady().then(() => {
-  createOverlay()
-  registerShortcuts()
-  console.log('[Overlay] Ready. Alt+Q to capture.')
-})
+// ── Main app window ("--app-window") ────────────────────────────────────────
+// A SEPARATE Electron process from the overlay above (the overlay is spawned
+// on demand by the vite dev server itself via /api/launch-overlay and keeps
+// running invisibly for Alt+Q; this one is spawned directly by
+// scripts/launch.ps1 / scripts/launch.sh in place of opening a browser tab).
+// It gives Ebiki its own taskbar icon/identity and a completely chrome-free
+// window (no tab strip, no address bar - that chrome was the actual
+// complaint that started this: a plain browser tab always carries it, no
+// matter how it's launched, and hiding it isn't an option in a real
+// browser). Maximized, not OS-fullscreen, so the taskbar stays visible and
+// it behaves like an ordinary maximized browser window - just without the
+// browser part. F11 still offers real fullscreen for anyone who wants it.
+const isAppWindow = process.argv.includes('--app-window')
+let appWindow = null
+
+if (isAppWindow) {
+  // Windows taskbar grouping/pinning/jump-list identity - without this an
+  // Electron app launched from node_modules can be grouped under a generic
+  // "Electron" identity instead of its own. Harmless on other platforms.
+  app.setAppUserModelId('com.ebiki.app')
+
+  // Single instance for the WINDOW itself, on top of launch.ps1/launch.sh's
+  // own "one dev server ever" guard: without this, clicking the shortcut
+  // twice (or launching while unsure it's already open) could spawn a
+  // second Electron process with its own separate window and its own
+  // separate React state, silently diverging from the first - the exact
+  // "multiple instances open" problem the browser-tab approach had. Whoever
+  // gets the lock first wins; every later launch just focuses that window
+  // and exits immediately, so there is never more than one.
+  const gotLock = app.requestSingleInstanceLock()
+  if (!gotLock) {
+    app.quit()
+  } else {
+    app.on('second-instance', () => {
+      if (!appWindow) return
+      if (appWindow.isMinimized()) appWindow.restore()
+      appWindow.focus()
+    })
+    app.whenReady().then(() => {
+      createAppWindow()
+      console.log('[App window] Ready.')
+    })
+    app.on('window-all-closed', () => app.quit())
+  }
+} else {
+  app.whenReady().then(() => {
+    createOverlay()
+    registerShortcuts()
+    console.log('[Overlay] Ready. Alt+Q to capture.')
+  })
+}
+
+// Waits for the dev server to actually answer before pointing the window at
+// it - this process can be spawned at the same moment as `npm run dev`
+// (launch.ps1/launch.sh don't necessarily wait for the port before starting
+// Electron), and loadURL against a not-yet-listening port fails immediately
+// with no automatic retry.
+function waitForServer(url, timeoutMs = 60000) {
+  const deadline = Date.now() + timeoutMs
+  return new Promise((resolve) => {
+    const tryOnce = () => {
+      const req = http.get(url, (res) => { res.resume(); resolve(true) })
+      req.on('error', () => {
+        if (Date.now() > deadline) return resolve(false)
+        setTimeout(tryOnce, 500)
+      })
+      req.setTimeout(2000, () => req.destroy())
+    }
+    tryOnce()
+  })
+}
+
+function createAppWindow() {
+  const iconPath = path.join(__dirname, '..', 'ebiki.ico')
+  appWindow = new BrowserWindow({
+    show: false,
+    frame: false,             // no tab strip, no address bar, no browser chrome at all
+    backgroundColor: '#F2F5F8', // matches the app's default light theme - avoids a white/black flash
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
+    title: 'Ebiki',
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  })
+
+  // Maximized (taskbar stays visible, just like a maximized browser window),
+  // not OS-level fullscreen - that would cover the taskbar, which is
+  // explicitly not what was asked for. F11 below still offers real
+  // fullscreen for anyone who wants it.
+  appWindow.once('ready-to-show', () => {
+    appWindow.maximize()
+    appWindow.show()
+  })
+
+  appWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') return
+    if (input.key === 'F11') {
+      appWindow.setFullScreen(!appWindow.isFullScreen())
+    } else if (input.key === 'Escape' && appWindow.isFullScreen()) {
+      appWindow.setFullScreen(false)
+    }
+  })
+
+  appWindow.on('closed', () => { appWindow = null })
+  appWindow.webContents.on('console-message', (_, l, m) => console.log('[Renderer]', m))
+
+  waitForServer(VITE_URL).then((up) => {
+    if (!appWindow) return // window closed while waiting
+    if (!up) console.warn('[App window] Server never answered at', VITE_URL, '- loading anyway')
+    appWindow.loadURL(VITE_URL)
+  })
+}
 
 function createOverlay() {
   const { width, height } = screen.getPrimaryDisplay().bounds

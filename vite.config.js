@@ -1534,7 +1534,12 @@ export default defineConfig({
   plugins: [react(), apiPlugin()],
   server: {
     port: 3000,
-    open: true,
+    // A normal `npm run dev` still auto-opens a browser tab (handy while developing).
+    // A shortcut launch (EBIKI_AUTO_EXIT=1) does NOT — scripts/launch.ps1 / launch.sh
+    // open Ebiki as its own chrome-free Electron window instead of a browser tab, so
+    // Vite opening a tab too would leave a redundant "looks like a website" tab
+    // sitting alongside the actual app window.
+    open: process.env.EBIKI_AUTO_EXIT !== '1',
     // A shortcut launch must own port 3000 or fail loudly: silently sliding to
     // 3001 would leave a second, invisible instance behind the very tab the
     // single-instance launcher just decided not to start. A manual `npm run dev`
