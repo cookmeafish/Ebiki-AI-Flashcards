@@ -11,7 +11,8 @@
     "drive": "node .claude/skills/run-ebiki/drive.mjs",
     "overlay": "electron electron/main.cjs",
     "overlay:dev": "electron electron/main.cjs --dev",
-    "app-window": "electron electron/main.cjs --app-window"
+    "app-window": "electron electron/main.cjs --app-window",
+    "postinstall": "node scripts/brand-electron-exe.mjs"
   },
   "dependencies": {
     "dompurify": "^3.4.11",
@@ -29,6 +30,7 @@
     "vitest": "^4.1.9"
   },
   "optionalDependencies": {
-    "electron": "^33.4.11"
+    "electron": "^33.4.11",
+    "rcedit": "^5.0.2"
   }
 }
