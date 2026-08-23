@@ -424,6 +424,11 @@ const en = {
   // Header
   hdr_talkToEbi: 'Talk to Ebi',
   hdr_talkToEbiTip: 'Talk to Ebi: ask anything, or tell it what to change',
+  // Window controls (Electron app window only)
+  winMinimize: 'Minimize',
+  winMaximize: 'Maximize',
+  winRestore: 'Restore',
+  winClose: 'Close',
 
   // Chat tab
   chat_withEbi: 'Chat with Ebi',
@@ -1220,6 +1225,10 @@ const es = {
   // Header
   hdr_talkToEbi: 'Habla con Ebi',
   hdr_talkToEbiTip: 'Habla con Ebi: pregúntale lo que sea, o dile qué cambiar',
+  winMinimize: 'Minimizar',
+  winMaximize: 'Maximizar',
+  winRestore: 'Restaurar',
+  winClose: 'Cerrar',
 
   // Chat tab
   chat_withEbi: 'Chatea con Ebi',
@@ -2015,6 +2024,10 @@ const zh = {
   // Header
   hdr_talkToEbi: '与 Ebi 对话',
   hdr_talkToEbiTip: '与 Ebi 对话：问任何问题，或告诉它要改什么',
+  winMinimize: '最小化',
+  winMaximize: '最大化',
+  winRestore: '还原',
+  winClose: '关闭',
 
   // Chat tab
   chat_withEbi: '与 Ebi 聊天',
@@ -2810,6 +2823,10 @@ const ja = {
   // Header
   hdr_talkToEbi: 'エビと話す',
   hdr_talkToEbiTip: 'エビと話す。何でも聞いたり、変更したいことを伝えたりできます',
+  winMinimize: '最小化',
+  winMaximize: '最大化',
+  winRestore: '元に戻す',
+  winClose: '閉じる',
 
   // Chat tab
   chat_withEbi: 'エビとチャット',

@@ -171,11 +171,18 @@ function parseAiJson(text) {
 export default function App() {
   // ─── State ───────────────────────────────────────────────────────────────────
   const isOverlay = new URLSearchParams(window.location.search).has('overlay')
-  // Running inside electron/main.cjs's --app-window BrowserWindow (frame:false, no OS title bar),
-  // vs a normal browser tab. Electron's UA always carries "Electron/<version>"; never true in a
-  // real browser. Used only to gate the drag strip below the header (frameless-window chrome), so
-  // getting this wrong is low-stakes either way.
-  const isElectronApp = /Electron/.test(navigator.userAgent)
+  // Running inside electron/main.cjs's --app-window BrowserWindow (frame:false, no OS title bar
+  // or window buttons), vs a normal browser tab. `window.ebikiWindow` is injected by
+  // electron/preload-app.cjs before the page's own scripts run, so it's already set by the time
+  // this line executes - never present in a real browser. Gates the drag handle and the
+  // minimize/maximize/close buttons rendered in the header below.
+  const isElectronApp = typeof window !== 'undefined' && !!window.ebikiWindow
+  const [appMaximized, setAppMaximized] = useState(false)
+  useEffect(() => {
+    if (!isElectronApp) return
+    window.ebikiWindow.isMaximized().then(setAppMaximized).catch(() => {})
+    return window.ebikiWindow.onMaximizedChange(setAppMaximized)
+  }, [isElectronApp])
 
   // Make body transparent for overlay mode so clip-path/transparent bg works
   useEffect(() => {
@@ -9629,21 +9636,24 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           <button disabled={offlineBusy} onClick={() => resolveOffline(true)} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.35)', ...(offlineBusy ? { opacity: .5, cursor: 'default' } : {}) }}>{t('offlineDiscard')}</button>
         </div>
       )}
-      {/* Drag strip for the Electron app window (electron/main.cjs --app-window, frame:false so
-          there is no native title bar left to grab). -webkit-app-region is a no-op outside
-          Electron, so this is always safe to render, but it's gated on isElectronApp anyway to
-          keep normal browser-tab layout byte-for-byte unchanged. Dragging from here also RESTORES
-          a maximized window (standard OS behavior for a title-bar-like drag region), which is what
-          exposes resizable edges again - frame:false + the default resizable:true already allows
-          edge-resize once the window isn't maximized; there was just no way to get there without
-          this strip. Deliberately a blank strip above the header rather than making the header
-          itself draggable - the header is packed with buttons/dropdowns across every tab, and
-          missing even one when marking them all `no-drag` would make that control unclickable. */}
-      {!isOverlay && isElectronApp && (
-        <div style={{ height: 10, flexShrink: 0, background: 'var(--c-bg)', WebkitAppRegion: 'drag' }} />
-      )}
       {/* ── Header ───────────────────────────────────────────────────────────── */}
       {!isOverlay && <header style={S.header}>
+        {/* Drag handle for the Electron app window (electron/main.cjs --app-window, frame:false so
+            there is no native title bar left to grab or restore-from-maximized with). Sits INSIDE
+            the header (which is already position:relative) rather than as its own colored strip
+            above it - a separate strip painted flat var(--c-bg) behind the header's translucent
+            C.glass/backdrop-blur background, so the seam between the two was visibly a mismatched
+            bar. This overlay is fully transparent and exactly matches the header's own 10px top
+            padding, so it's invisible - the header just gains a draggable top edge, nothing looks
+            different. -webkit-app-region is a no-op outside Electron, so it's harmless to always
+            render the div; gated on isElectronApp anyway so a plain browser tab's DOM is unchanged.
+            Deliberately just the padding strip, not the whole header - the header is packed with
+            buttons/dropdowns on every tab, and covering any of them would make that control
+            unclickable. Dragging from here also RESTORES a maximized window (standard OS behavior
+            for a title-bar-like drag region), which is what exposes resizable edges again. */}
+        {isElectronApp && (
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 10, WebkitAppRegion: 'drag' }} />
+        )}
         <div style={S.headerLeft}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <rect x="2" y="3" width="20" height="18" rx="2" stroke="var(--c-brand)" strokeWidth="2"/>
@@ -9763,6 +9773,36 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             {'\u2699\uFE0F'} {t('settingsTitle')}
             {!apiKey && <span style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: '50%', background: 'var(--c-danger)' }} />}
           </button>
+          {/* Minimize/maximize/close - frame:false took the native ones with it, so these are the
+              only way to manage the window. no-drag so they're clickable despite sitting right
+              next to (and, being flex items after, effectively part of) the header's drag padding
+              above. Hover via CSS classes (win-btn / win-btn-close below), not inline JS handlers -
+              matches how every other hover state in this app works (see the global button:hover
+              rule); win-btn-close overrides it with the WM-standard red so it reads instantly as
+              "close" rather than just another app button. */}
+          {isElectronApp && (
+            <div style={{ display: 'flex', marginLeft: 4, WebkitAppRegion: 'no-drag' }}>
+              <button onClick={() => window.ebikiWindow.minimize()} title={t('winMinimize')} className="win-btn" style={S.winBtn}>
+                <svg width="10" height="10" viewBox="0 0 10 10"><rect x="0" y="4.5" width="10" height="1" fill="currentColor"/></svg>
+              </button>
+              <button onClick={() => window.ebikiWindow.toggleMaximize()} title={appMaximized ? t('winRestore') : t('winMaximize')} className="win-btn" style={S.winBtn}>
+                {appMaximized ? (
+                  <svg width="10" height="10" viewBox="0 0 10 10">
+                    <rect x="2.5" y="0.5" width="7" height="7" fill="none" stroke="currentColor" strokeWidth="1"/>
+                    <path d="M0.5 3v6.5H7" fill="none" stroke="currentColor" strokeWidth="1"/>
+                  </svg>
+                ) : (
+                  <svg width="10" height="10" viewBox="0 0 10 10"><rect x="0.5" y="0.5" width="9" height="9" fill="none" stroke="currentColor" strokeWidth="1"/></svg>
+                )}
+              </button>
+              <button onClick={() => window.ebikiWindow.close()} title={t('winClose')} className="win-btn win-btn-close" style={S.winBtn}>
+                <svg width="10" height="10" viewBox="0 0 10 10">
+                  <line x1="0.5" y1="0.5" x2="9.5" y2="9.5" stroke="currentColor" strokeWidth="1.2"/>
+                  <line x1="9.5" y1="0.5" x2="0.5" y2="9.5" stroke="currentColor" strokeWidth="1.2"/>
+                </svg>
+              </button>
+            </div>
+          )}
         </div>
       </header>}
 
@@ -12956,6 +12996,14 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         .ui-btn:not(:disabled):hover {
           border-color: color-mix(in srgb, currentColor 55%, transparent) !important;
         }
+
+        /* Window controls (Electron app window only - see isElectronApp in App.jsx). WM-standard
+           hover: a light neutral tint for minimize/maximize, solid red + white icon for close -
+           deliberately overriding the generic button hover above (win-btn-close wins by coming
+           later in the cascade at equal specificity) so close reads as destructive at a glance,
+           the same convention every OS uses. */
+        .win-btn:hover { background: var(--c-surface-alt); }
+        .win-btn-close:hover { background: var(--c-danger); color: #fff; }
 
         /* Wrong typed answer (hint retry) — the input row shakes once */
         @keyframes shake { 0%,100% { transform: translateX(0) } 20% { transform: translateX(-6px) } 40% { transform: translateX(6px) } 60% { transform: translateX(-4px) } 80% { transform: translateX(4px) } }

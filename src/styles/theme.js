@@ -56,6 +56,15 @@ export const S = {
     border: `1px solid ${C.border}`, borderRadius: RADIUS.md, fontWeight: 700,
     fontSize: 12, fontFamily: FONT.body, cursor: 'pointer',
   },
+  // Electron app-window minimize/maximize/close (App.jsx, isElectronApp). Square, not rounded -
+  // these are meant to read as OS window chrome, not app UI, so they deliberately don't match
+  // the rest of the app's rounded button language. Hover color via .win-btn/.win-btn-close in
+  // the global stylesheet, not here.
+  winBtn: {
+    width: 30, height: 26, padding: 0, background: 'transparent', border: 'none',
+    borderRadius: 0, color: C.inkDim, cursor: 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
   captureGroup: { display: 'flex', gap: 0, borderRadius: RADIUS.md, boxShadow: SHADOW.brand },
   captureBtn: {
     padding: '8px 15px', background: C.brand, color: C.white,
