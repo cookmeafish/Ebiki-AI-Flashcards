@@ -273,12 +273,22 @@ Ebiki, so Anki belongs on the taskbar, not on top of the app (it opened Normal u
 existed, because otherwise nothing on screen said the launch was happening at all). `-WindowStyle Minimized`
 alone is not enough: what the Anki website installs is a LAUNCHER that boots the real Anki out of a venv and
 exits, so the show-state never reaches the window that second process creates. `scripts/minimize-anki.ps1`
-enforces it - spawned DETACHED (its own hidden process, so it outlives `launch.ps1`; Anki can take longer to
-paint than the whole launch takes), it polls for an Anki-owned window and calls `ShowWindow(hwnd,
-SW_SHOWMINNOACTIVE)` - 7, not `SW_MINIMIZE`, which would activate the next window and pull focus off Ebiki.
-Bounded twice (90s to see anything, then 8s of follow-up, since a profile picker can precede the main window)
-so it can not fight a user who deliberately restores Anki. Verified live: "User 1 - Anki" minimized within 3s
-and the watchdog exited on its own. **NEVER give that `Start-Process` no window style at all:**
+is the fallback for exactly that, spawned DETACHED (its own hidden process, so it outlives `launch.ps1`).
+Measured on a classic install: the main window appears ALREADY minimized ~1s in, so the watchdog normally
+changes nothing - which is why it is written to do as little as possible. **ONE window, ONE time, 25s cap.**
+It enumerates Anki's visible top-level windows itself and acts only on the MAIN one (title `* - Anki`), then
+exits at the FIRST sighting whether or not it had to do anything. Both rules are bug fixes, not caution:
+- **Never `Process.MainWindowHandle`.** It returns the first VISIBLE top-level window, and by the time it is
+  asked the real main window is already minimized - so it hands back one of the transient windows Anki paints
+  on the way up (a `Syncing...` progress dialog, a small `Anki` window). Minimizing a sync dialog is what the
+  user saw as "it flashes a screen for a frame and then minimizes". Those windows are Anki's own and close
+  themselves in a few seconds; leave them alone.
+- **Never keep watching.** A watchdog still alive when the user clicks Anki BECAUSE THEY WANT ANKI puts it
+  straight back down, which is infuriating and was the second half of the same report.
+`ShowWindow(hwnd, SW_SHOWMINNOACTIVE)` - 7, not `SW_MINIMIZE`, which activates the next window in the z-order
+and pulls focus off Ebiki. Verified live with a 100ms window-state trace: main window minimized at 1.96s,
+watchdog gone by 2.15s, Anki's own `Syncing...` window left untouched, and a restore at 12s STAYED restored.
+**NEVER give that `Start-Process` no window style at all:**
 `launch-ebiki.vbs` runs this script through `powershell -WindowStyle Hidden`, and a child with no style of its
 own inherits that HIDDEN state - Anki then genuinely starts and AnkiConnect answers on 8765, but no window
 ever appears (`MainWindowHandle` stays 0), so every deck action works while the user sees no Anki and reports
