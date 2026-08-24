@@ -49,10 +49,11 @@ function Wait-AppReady($proc) {
 # Ebiki talks to Anki through AnkiConnect on 127.0.0.1:8765, so without Anki
 # running the Deck / Study / Discover tabs sit on "Anki is not connected".
 # Started FIRST (before the dev server) so it boots in parallel and is usually
-# ready by the time the browser opens. Opened in a normal window so the tandem
-# launch is visible: minimized, it went straight to the taskbar and people
-# assumed it had not started at all. Fail-soft everywhere - the app still opens
-# without it.
+# ready by the time the browser opens, and MINIMIZED (see Start-AnkiIfNeeded):
+# you clicked Ebiki, so Anki belongs on the taskbar, not on top of it. That used
+# to be a normal window because otherwise nothing on screen said the launch was
+# happening at all - the start-up splash covers that now. Fail-soft everywhere -
+# the app still opens without it.
 # Anki 25.x changed shape: the thing the website installs to
 # %LOCALAPPDATA%\Programs\Anki\anki.exe is only a LAUNCHER. It bootstraps the
 # real Anki (a uv-managed venv under %LOCALAPPDATA%\AnkiProgramFiles) and then
@@ -126,13 +127,26 @@ function Start-AnkiIfNeeded {
   if (Test-AnkiUp) { return }
   $exe = Find-AnkiExe
   if (-not $exe) { return }   # Anki not installed -> nothing to do
-  # -WindowStyle Normal is REQUIRED, not cosmetic. launch-ebiki.vbs runs this
-  # script through `powershell -WindowStyle Hidden`, and a Start-Process with no
-  # style of its own passes that HIDDEN show-state down to the child. Anki then
-  # really does start - AnkiConnect answers on 8765 - but its window never
-  # appears (MainWindowHandle stays 0), so every deck action works while the user
-  # sees no Anki at all and reports that Ebiki never launched it.
-  Start-Process -FilePath $exe -WindowStyle Normal
+  # MINIMIZED, not hidden and not normal. Ebiki needs Anki running (every card
+  # goes through AnkiConnect), but you clicked EBIKI - Anki taking the screen is
+  # just in the way. It used to open Normal so the launch was visibly happening
+  # at all; the start-up splash says that now, so Anki can go straight to the
+  # taskbar. NEVER give this Start-Process no window style: launch-ebiki.vbs
+  # runs this script through `powershell -WindowStyle Hidden`, and a child with
+  # no style of its own inherits that HIDDEN state - Anki then really does start
+  # and AnkiConnect answers on 8765, but no window ever appears (MainWindowHandle
+  # stays 0) and the user reports that Ebiki never launched Anki.
+  Start-Process -FilePath $exe -WindowStyle Minimized
+  # Asking is not enough: what the website installs is a LAUNCHER that boots the
+  # real Anki out of a venv and exits, and the show-state never reaches the
+  # window that second process creates. minimize-anki.ps1 watches for the window
+  # and puts it away. Detached (its own hidden process) so it outlives this
+  # script - Anki can take longer to paint than the whole launch takes.
+  $minimizer = Join-Path $PSScriptRoot 'minimize-anki.ps1'
+  if (Test-Path $minimizer) {
+    Start-Process -FilePath 'powershell' -WindowStyle Hidden -ArgumentList @(
+      '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $minimizer)
+  }
 }
 try { Start-AnkiIfNeeded } catch {}
 

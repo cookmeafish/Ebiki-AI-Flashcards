@@ -192,11 +192,75 @@ function createAppWindow() {
     if (menu.items.length > 0) menu.popup()
   })
 
-  waitForServer(VITE_URL).then((up) => {
-    if (!appWindow) return // window closed while waiting
-    if (!up) console.warn('[App window] Server never answered at', VITE_URL, '- loading anyway')
-    appWindow.loadURL(VITE_URL)
+  // Load the app, and KEEP TRYING. A dev server that is not answering used to
+  // leave a blank white window sitting there forever ("I opened Ebiki and it
+  // was just white"): waitForServer gave up after its timeout, loadURL was
+  // called once anyway, the failed load painted nothing, and nothing ever
+  // retried - so even starting the server a second later did not fix the window
+  // already on screen. Now a failed load shows an honest holding page and
+  // retries until the server answers, so the window heals itself the moment the
+  // shortcut (or a manual `npm run dev`) brings the server back.
+  let loaded = false
+  let retrying = false
+
+  const HOLDING_PAGE = 'data:text/html;charset=utf-8,' + encodeURIComponent(`<!doctype html>
+<meta charset="utf-8">
+<style>
+  html, body { height: 100%; margin: 0; }
+  body { background: #F2F5F8; color: #16232E; display: flex; align-items: center;
+         justify-content: center; font-family: "Segoe UI", system-ui, sans-serif; }
+  .card { text-align: center; }
+  .t { font-size: 20px; font-weight: 700; }
+  .s { font-size: 13px; color: #62717F; margin-top: 6px; }
+  .track { width: 220px; height: 6px; border-radius: 4px; background: #E2E8EE;
+           overflow: hidden; margin: 16px auto 0; position: relative; }
+  .bar { position: absolute; top: 0; left: -40%; width: 38%; height: 6px;
+         border-radius: 4px; background: #DF2540; animation: s 1.15s ease-in-out infinite; }
+  @keyframes s { from { left: -40%; } to { left: 102%; } }
+</style>
+<div class="card">
+  <div class="t">Waiting for Ebiki's server</div>
+  <div class="s">It starts a few seconds after the app. This page loads by itself.</div>
+  <div class="track"><div class="bar"></div></div>
+</div>`)
+
+  // Reloading the same holding page on every failed attempt would flicker it.
+  const showHolding = () => {
+    if (!appWindow) return
+    if (appWindow.webContents.getURL().startsWith('data:text/html')) return
+    appWindow.loadURL(HOLDING_PAGE)
+  }
+
+  const tryLoad = () => {
+    if (!appWindow) return
+    retrying = false
+    waitForServer(VITE_URL, 15000).then((up) => {
+      if (!appWindow) return   // window closed while waiting
+      if (up) return appWindow.loadURL(VITE_URL)
+      console.warn('[App window] Server not answering at', VITE_URL, '- holding')
+      if (!loaded) showHolding()
+      scheduleRetry()
+    })
+  }
+
+  const scheduleRetry = () => {
+    if (retrying || !appWindow) return
+    retrying = true
+    setTimeout(tryLoad, 1500)
+  }
+
+  appWindow.webContents.on('did-finish-load', () => {
+    if (appWindow && appWindow.webContents.getURL().startsWith(VITE_URL)) loaded = true
   })
+  // Covers a server that dies between waitForServer answering and the load.
+  appWindow.webContents.on('did-fail-load', (_e, _code, _desc, url, isMainFrame) => {
+    if (!isMainFrame || !url || !url.startsWith(VITE_URL)) return
+    loaded = false
+    showHolding()
+    scheduleRetry()
+  })
+
+  tryLoad()
 }
 
 function createOverlay() {

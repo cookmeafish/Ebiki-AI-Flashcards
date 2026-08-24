@@ -215,6 +215,17 @@ The window is MEASURED, never assumed: `fitWindow()` lays the content out at its
 fits the window to it, centred on the work area, so it stays correct on any resolution or Windows
 scaling factor. Ebi is 221x126, so the pose gets a width and a free height (a square box squashed it).
 
+**A white window means the dev server is not answering - the app window HEALS ITSELF now.** `electron/main.cjs`
+used to call `waitForServer` once, then `loadURL` regardless of the answer, and never retry: a window opened
+while port 3000 was down (the server auto-exited, a launch raced it, `npm run dev` died) painted nothing and
+stayed blank forever, so even starting the server a second later did not fix the window already on screen
+("I opened Ebiki and it was just white"). The load is now a loop: 15s per `waitForServer` attempt, a themed
+"Waiting for Ebiki's server" holding page in between (`showHolding`, guarded so it can not reload itself into
+a flicker), `did-fail-load` on the main frame feeding back into the same retry, and `did-finish-load` marking
+the real page as loaded. Verified live: started with no server -> holding page; started the server -> the
+window loaded the app by itself, no reload, no second window.
+
+
 **Updates track the `master` release branch**
 (the clones sit on `shared-data-dir`, so compare against `origin/master`, NOT the current branch). Launch-time
 check in `launch.ps1`: skip if `.update-snooze` (gitignored) is in the future; else `git ls-remote origin master`
@@ -257,13 +268,22 @@ The section also prints the short SHA, so a screenshot of the installer window i
 **The shortcut STARTS ANKI** (`Start-AnkiIfNeeded` in `launch.ps1`, before the port-3000 check so it also
 covers "app already running"): skipped when an `anki` process exists (Anki is single-instance and a second
 launch just pops a dialog), exe resolved via the usual folders -> PATH -> the Start Menu `Anki.lnk` (the MSI
-records no path anywhere), and fail-soft. **`Start-Process` MUST pass `-WindowStyle Normal` here - it is not
-cosmetic.** `launch-ebiki.vbs` runs this script through `powershell -WindowStyle Hidden`, and a `Start-Process`
-with no style of its own hands that HIDDEN show-state to the child: Anki then genuinely starts and AnkiConnect
-answers on 8765, but its window never appears (`MainWindowHandle` stays 0), so every deck action works while
-the user sees no Anki and reports that Ebiki never launched it. Measured both ways from a hidden parent: with
-no style, 0 visible windows; with `-WindowStyle Normal`, the "User 1 - Anki" window shows. The same `-WindowStyle
-Normal` is on the `Start-Process 'http://localhost:3000'` in the already-running branch, for the same reason.
+records no path anywhere), and fail-soft. **It starts MINIMIZED, and that takes TWO steps.** You clicked
+Ebiki, so Anki belongs on the taskbar, not on top of the app (it opened Normal until the start-up splash
+existed, because otherwise nothing on screen said the launch was happening at all). `-WindowStyle Minimized`
+alone is not enough: what the Anki website installs is a LAUNCHER that boots the real Anki out of a venv and
+exits, so the show-state never reaches the window that second process creates. `scripts/minimize-anki.ps1`
+enforces it - spawned DETACHED (its own hidden process, so it outlives `launch.ps1`; Anki can take longer to
+paint than the whole launch takes), it polls for an Anki-owned window and calls `ShowWindow(hwnd,
+SW_SHOWMINNOACTIVE)` - 7, not `SW_MINIMIZE`, which would activate the next window and pull focus off Ebiki.
+Bounded twice (90s to see anything, then 8s of follow-up, since a profile picker can precede the main window)
+so it can not fight a user who deliberately restores Anki. Verified live: "User 1 - Anki" minimized within 3s
+and the watchdog exited on its own. **NEVER give that `Start-Process` no window style at all:**
+`launch-ebiki.vbs` runs this script through `powershell -WindowStyle Hidden`, and a child with no style of its
+own inherits that HIDDEN state - Anki then genuinely starts and AnkiConnect answers on 8765, but no window
+ever appears (`MainWindowHandle` stays 0), so every deck action works while the user sees no Anki and reports
+that Ebiki never launched it. `-WindowStyle Normal` is on the `Start-Process 'http://localhost:3000'` in the
+already-running branch for that same reason.
 Vite's OWN `open: true` was checked against a browser that was not already running and opens visibly, so the
 hidden `cmd.exe` that runs `npm run dev` needs no change. Anki needs a few seconds to boot, so App.jsx has an
 **Anki boot watcher**: while `ankiConnected === false` it pings every 4s for the first minute then every 20s,
