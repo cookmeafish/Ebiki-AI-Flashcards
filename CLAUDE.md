@@ -192,7 +192,30 @@ the **AnkiConnect add-on**, runs `npm install`, and creates Desktop + Start Menu
 `launch-ebiki.vbs`) with the committed `ebiki.ico` (built from the hole-Ebi pose). `launch-ebiki.vbs` ->
 `scripts/launch.ps1` starts the dev server hidden (single instance: if 3000 already
 serves, it just opens the tab). EVERYTHING is path-relative (`$PSScriptRoot` / `%~dp0` / `APP_ROOT`) so it
-works wherever the repo is cloned - never hardcode a path. **Updates track the `master` release branch**
+works wherever the repo is cloned - never hardcode a path.
+
+**The click must show something IMMEDIATELY (start-up splash).** Every step of a shortcut launch is
+invisible (VBS -> hidden PowerShell -> hidden `npm run dev` -> Electron), and nothing the shell starts
+ever opens a window, so there was not even a busy cursor: the app "did nothing and then randomly opened a
+little bit afterwards". `launch-ebiki.vbs` now pops `scripts/splash.hta` through `mshta.exe` (on screen in
+under a second, with its own taskbar button) BEFORE it starts `launch.ps1`. It closes on a FILE HANDSHAKE:
+the splash polls for `<app>\.app-ready` (gitignored), and `electron/main.cjs` touches that file from its
+`ready-to-show` handler - the only moment that honestly means "the app is on screen", since the launcher
+can only see that it spawned a process. `launch.ps1` (`Signal-AppReady`/`Wait-AppReady`) covers every path
+that never gets there: the browser fallback, the missing-Node popup, an early return, a crash - its
+`finally` always signals - and `Wait-AppReady` also gives up when the Electron process it just started
+exits (a second launch quits right after focusing the window that is already open). A 3 min cap inside the
+HTA is the last resort (an update accepted at launch runs `npm install` first), and the VBS
+deletes a stale marker before showing the splash so a leftover can never close it instantly.
+**The HTA must stay in LEGACY rendering mode:** adding
+`<meta http-equiv="x-ua-compatible" content="ie=edge">` silently stops `caption="no"` / `border="none"`
+from applying and the title bar plus window buttons come back (measured both ways), so the progress bar is
+stepped in JavaScript instead of `@keyframes`, and the `xmlns:hta` declaration on `<html>` stays.
+The window is MEASURED, never assumed: `fitWindow()` lays the content out at its natural size and
+fits the window to it, centred on the work area, so it stays correct on any resolution or Windows
+scaling factor. Ebi is 221x126, so the pose gets a width and a free height (a square box squashed it).
+
+**Updates track the `master` release branch**
 (the clones sit on `shared-data-dir`, so compare against `origin/master`, NOT the current branch). Launch-time
 check in `launch.ps1`: skip if `.update-snooze` (gitignored) is in the future; else `git ls-remote origin master`
 (6s timeout job, so offline never blocks) vs local HEAD; if different, a `WScript.Shell.Popup` asks (Yes ->

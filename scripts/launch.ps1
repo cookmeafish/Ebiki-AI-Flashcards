@@ -9,6 +9,42 @@
 # scripts/, so the app folder is one level up.
 $app = Split-Path $PSScriptRoot -Parent
 
+# ── Splash handshake ────────────────────────────────────────────────────────
+# launch-ebiki.vbs pops scripts/splash.hta the instant the shortcut is clicked,
+# because everything this script does is INVISIBLE (hidden PowerShell, hidden
+# dev server, Anki booting), so the click looked like nothing had happened at
+# all until the window appeared seconds later. The splash watches for this
+# marker file and closes the moment it appears, so it has to be touched exactly
+# when the app is really on screen: electron/main.cjs does that from its
+# ready-to-show handler, and every path here that never gets that far (no
+# Electron, missing Node, a crash) does it below. The VBS deletes any leftover
+# marker before showing the splash, so a stale one can not close it instantly.
+$readyFile = Join-Path $app '.app-ready'
+function Signal-AppReady {
+  try { New-Item -ItemType File -Path $readyFile -Force | Out-Null } catch {}
+}
+# Hold the splash until the window Electron just spawned actually paints (it
+# writes the marker itself). Bounded by that process exiting - a second launch
+# quits immediately after focusing the window that is already open - and by a
+# hard cap, so the splash can never outlive the launch it belongs to.
+function Wait-AppReady($proc) {
+  if (-not $proc) { return }
+  $start = Get-Date
+  $deadline = $start.AddSeconds(45)
+  while ((Get-Date) -lt $deadline) {
+    if (Test-Path $readyFile) { return }
+    try { if ($proc.HasExited) { return } } catch { return }
+    # Belt and braces: if the marker never arrives (a future edit breaks the
+    # write, the app folder turns read-only), a window that has existed for ten
+    # seconds is proof enough that the app came up - better a splash that
+    # retires a moment early than one that hangs for the full deadline.
+    if (((Get-Date) - $start).TotalSeconds -gt 10) {
+      try { $proc.Refresh(); if ($proc.MainWindowHandle -ne 0) { return } } catch {}
+    }
+    Start-Sleep -Milliseconds 250
+  }
+}
+
 # ── Start Anki if it isn't up ───────────────────────────────────────────────
 # Ebiki talks to Anki through AnkiConnect on 127.0.0.1:8765, so without Anki
 # running the Deck / Study / Discover tabs sit on "Anki is not connected".
@@ -123,9 +159,13 @@ function Open-App {
     # window would then genuinely open, just invisibly. No --app-window flag -
     # that's the default now (see electron/main.cjs); only --overlay switches
     # modes, and this is never how the overlay gets launched.
-    Start-Process -FilePath $exe -ArgumentList (Join-Path $app 'electron\main.cjs') -WorkingDirectory $app -WindowStyle Normal
+    return Start-Process -FilePath $exe -ArgumentList (Join-Path $app 'electron\main.cjs') -WorkingDirectory $app -WindowStyle Normal -PassThru
   } else {
+    # Nothing writes the ready marker on this path (there is no Electron
+    # window to report itself) and a browser tab is its own visible feedback,
+    # so the splash is retired right here.
     Start-Process 'http://localhost:3000' -WindowStyle Normal
+    Signal-AppReady
   }
 }
 
@@ -146,7 +186,7 @@ try {
 # same "click the icon again -> it comes to front" behavior a real installed
 # app has, not a fresh browser tab piling up next to the old one.
 if (Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyContinue) {
-  Open-App
+  Wait-AppReady (Open-App)
   return
 }
 
@@ -227,10 +267,14 @@ $deadline = (Get-Date).AddSeconds(60)
 do { Start-Sleep -Milliseconds 800 } until (
   (Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyContinue) -or ((Get-Date) -gt $deadline)
 )
-Open-App
+Wait-AppReady (Open-App)
 
 }
 finally {
+  # Whatever happened above (an early return, the Node popup, a crash), the
+  # splash must never be left sitting on screen. Idempotent - on the normal
+  # path Electron already wrote the marker itself.
+  Signal-AppReady
   # Release only once the server is up (or gave up), so a second launcher that
   # was waiting sees a listening port rather than deciding to start its own.
   if ($held) { try { $mutex.ReleaseMutex() } catch {} }
