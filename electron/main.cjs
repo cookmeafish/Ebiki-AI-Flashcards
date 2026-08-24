@@ -133,6 +133,13 @@ function createAppWindow() {
   appWindow.once('ready-to-show', () => {
     appWindow.maximize()
     appWindow.show()
+    // Retire the start-up splash (scripts/splash.hta, opened by
+    // launch-ebiki.vbs the moment the shortcut is clicked). It watches for this
+    // marker file, and THIS is the only moment that honestly means "the app is
+    // on screen" - the launcher can only see that it spawned a process, which
+    // is still seconds away from a visible window. Fail-soft: a splash that is
+    // never told also closes itself, just later.
+    try { fs.writeFileSync(path.join(__dirname, '..', '.app-ready'), '') } catch {}
   })
 
   // Window controls, driven from the renderer via preload-app.cjs - the ONLY thing this process

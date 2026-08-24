@@ -1557,7 +1557,7 @@ export default defineConfig({
       // vite.config.js must be ignored too: on this share the watcher fires a
       // phantom change event on it after every restart → infinite restart loop.
       // Config edits therefore require a manual dev-server restart.
-      ignored: ['**/.env', '**/config.json', '**/ankiformat.json', '**/vite.config.js', '**/datadir.json', '**/modes/**', '**/decks/**', '**/chats/**', '**/local-data-backup-*/**', '**/.local-sync/**', '**/.local-home/**', '**/.local-offline/**'],
+      ignored: ['**/.env', '**/config.json', '**/ankiformat.json', '**/vite.config.js', '**/datadir.json', '**/.app-ready', '**/modes/**', '**/decks/**', '**/chats/**', '**/local-data-backup-*/**', '**/.local-sync/**', '**/.local-home/**', '**/.local-offline/**'],
     },
   },
 })
