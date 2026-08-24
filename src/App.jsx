@@ -243,6 +243,13 @@ export default function App() {
     if (isOverlay) return
     const beat = () => { fetch('/api/alive', { method: 'POST' }).catch(() => {}) }
     beat()
+    // Say what kind of front end this page is, so a LIVE launch-mode switch can tell when the new
+    // window/tab is really up. The page being replaced polls for this and only then closes itself:
+    // tearing it down first would look to the server's auto-exit like everybody left.
+    fetch('/api/launchmode/hello', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: window.ebikiWindow ? 'app' : 'browser' }),
+    }).catch(() => {})
     const timer = setInterval(beat, 5000)
     // Coming back to a throttled background tab: check in right away.
     const onVisible = () => { if (document.visibilityState === 'visible') beat() }
@@ -537,6 +544,10 @@ export default function App() {
 
   const [studyActive, setStudyActive] = useState(false)
   const [studyAllCards, setStudyAllCards] = useState([])     // all cards to study
+  // Usage tags (region / freq / register) for the session's cards, keyed by noteId, so the LIVE
+  // question can show them as context. Anki's cardsInfo does NOT return tags, so they are fetched
+  // once per session in ONE batched notesInfo (see loadStudyCardTags) rather than per card.
+  const [studyCardTags, setStudyCardTags] = useState({})
   const [studyBatchIdx, setStudyBatchIdx] = useState(0)      // which batch we're on
   // Per-card tracking: { cardId, front, back, questions: [], answers: [], results: [], done: false }
   const [studyCardState, setStudyCardState] = useState([])
@@ -3168,6 +3179,16 @@ Rules for this audit:
     }))
   }
 
+  // Tidy what an empty template substitution leaves behind: "word ()" / "word []" -> "word".
+  // Deliberately narrow - an empty pair only, never a pair with content in it - and whitespace-only
+  // counts as empty. Newlines survive (the back is multi-line); only runs of spaces/tabs collapse.
+  const cleanTemplateGaps = (v) => String(v || '')
+    .replace(/\s*\(\s*\)/g, '')
+    .replace(/\s*\[\s*\]/g, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .split('\n').map((line) => line.replace(/[ \t]+$/, '')).join('\n')
+    .trim()
+
   const buildCardFields = async ({ term, partOfSpeech = '', translation = '', contextText = '' }) => {
     // The LEARNED language comes from the mode (studyRules.studyLanguage chain), NOT the global
     // translation setting — they can differ, and this generator serves Discover + Picture cards.
@@ -3193,6 +3214,17 @@ Rules for this audit:
       const hint = fieldDescriptions[field] || `${field} - provide relevant content for this field`
       fieldRequests.push(`"${field}": ${hint}`)
     })
+    // The front template is "{word} ({partOfSpeech})" by default, yet NOTHING in this prompt asked
+    // for a part of speech - so every caller that does not already know one (the deck browser's
+    // "+ Add card" > Generate with AI passes none) produced a front reading "arremedando ()". Ask
+    // for it whenever a template actually references it and the caller left it blank. Written in the
+    // LEARNED language for language modes, matching what existing cards carry ("obra (sustantivo
+    // femenino)"), never a hardcoded English label.
+    const templateWantsPos = /\{partOfSpeech\}/.test(`${fmt.frontTemplate || ''}${fmt.backTemplate || ''}`)
+    if (templateWantsPos && !partOfSpeech) {
+      fieldRequests.push(`"partOfSpeech": the part of speech${activeMode.type === 'language' ? `, written in ${srcLang} as a learner's dictionary would label it (include gender for nouns)` : ''}. Use "" if it does not apply.`)
+    }
+
     // Add tag generation (usage-scope tag appended for language modes even over custom rules)
     const tagInstruction = (fmt.tagRules
       ? `"tags": array of tag strings. Rules:\n${fmt.tagRules}`
@@ -3240,6 +3272,12 @@ Output ONLY raw JSON. No markdown, no backticks.${dialectRule()}${preferredTermR
       front = front.replace(re, String(val || ''))
       back = back.replace(re, String(val || ''))
     })
+    // A placeholder that resolves to nothing leaves its punctuation behind, and the card ships with
+    // a hollow "arremedando ()" the learner has to edit by hand. Asking for a part of speech above
+    // fixes the common cause; this is the GUARANTEE, because any optional field can come back empty
+    // and templates are user-editable.
+    front = cleanTemplateGaps(front)
+    back = cleanTemplateGaps(back)
 
     const tags = Array.isArray(aiTags) && aiTags.length > 0 ? aiTags : ['ebiki']
     console.log('[Anki] card generated', { front, back, tags })
@@ -6155,6 +6193,8 @@ Output ONLY raw JSON. No markdown, no backticks.`
       const cards = await ankiCardsInfo(shuffled.slice(0, 100))
       console.log('[Study] loaded', cards.length, 'cards from deck:', deck)
       setStudyAllCards(cards)
+      setStudyCardTags({})
+      loadStudyCardTags(cards)   // fire-and-forget: chips fill in, the session never waits
       setStudyStats({ easy: 0, good: 0, hard: 0, again: 0 })
 
       const rules = activeMode.studyRules || (activeMode.type === 'language' ? defaultStudyRules : defaultGeneralStudyRules)
@@ -6344,6 +6384,9 @@ Output ONLY raw JSON. No markdown, no backticks.`
           if (!cs || cs.done || !Array.isArray(cs.questions) || cq.questionIdx >= cs.questions.length) cq = null
         }
         setStudyAllCards(s.studyAllCards || [])
+        // A restored session has the cards but not their tags (the snapshot stores study state, not
+        // Anki metadata), so re-read them the same one-batch way.
+        loadStudyCardTags(s.studyAllCards || [])
         setStudyCardState(cards)
         setStudyBatchIdx(s.studyBatchIdx || 0)
         pbqPullRef.current = s.studyBatchIdx || 0
@@ -7194,6 +7237,42 @@ ${usageTagsContract(`"${target}" in this sense`)}
     }
     usageTagCacheRef.current.set(key, result)
     return result
+  }
+
+  // Usage tags for a whole study session, in ONE Anki round trip. The live question shows a card's
+  // region / frequency / register as guessing context ("politics-only and rare" narrows a blank a
+  // lot), and paying for that per card would mean one notesInfo per question. Anki's cardsInfo -
+  // what beginStudy loads the session from - does not carry tags at all, so this is the only place
+  // they can come from.
+  //
+  // Deliberately NO derivation fallback (unlike resolveCardUsageTags, which is allowed to spend two
+  // AI calls on a legacy card for the Learn-it panel). This runs on the question path, so it shows
+  // ONLY what a card genuinely already carries: a card tagged before usage tags existed shows no
+  // chips rather than stalling the question behind two model calls. The Tag audit in the deck
+  // browser is the way to give those cards real tags.
+  //
+  // Fail-soft and fire-and-forget: no session ever waits on it, and Anki being closed just means no
+  // chips. Also warms usageTagCacheRef so the Learn-it moment does not re-fetch what we just read.
+  const loadStudyCardTags = async (cards) => {
+    try {
+      const noteIds = [...new Set((cards || []).map((c) => c.note).filter(Boolean))]
+      if (!noteIds.length) return
+      const notes = await ankiNotesInfo(noteIds)
+      const next = {}
+      for (const n of notes || []) {
+        if (!n?.noteId) continue
+        const own = foldUsageTags((n.tags || []).filter(isUsageTag))
+        if (own.length) {
+          next[n.noteId] = own
+          if (!usageTagCacheRef.current.has(n.noteId)) {
+            usageTagCacheRef.current.set(n.noteId, { tags: own, unverified: [], otherTags: (n.tags || []).filter((tg) => !isUsageTag(tg)) })
+          }
+        }
+      }
+      setStudyCardTags((prev) => ({ ...prev, ...next }))
+    } catch (e) {
+      console.warn('[Study] usage tags unavailable:', e.message)
+    }
   }
 
   const lookupStudyWord = async (word, sentence, source = 'question') => {
@@ -11742,12 +11821,27 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         </div>
                       )}
 
-                      {/* Question progress dots — which question of this card you're on. Answered dots AND
+                      {/* Card meta row: usage tags (left) + question progress dots (right).
+                          USAGE TAGS ON THE LIVE QUESTION are guessing CONTEXT, not a giveaway: knowing a
+                          word is rare and politics-only points at a register the way a native's intuition
+                          would, which is exactly the information a definition alone withholds. Safe to
+                          show because a usage tag never contains the headword (no letter leak) - and it is
+                          scoped to the usage families ONLY (isUsageTag, filtered in loadStudyCardTags), so
+                          a topic tag like "tema-naturaleza" can never hand over the answer.
+                          Free to render: the tags were read once per session, not per question.
+
+                          Question progress dots — which question of this card you're on. Answered dots AND
                           the current one are CLICKABLE to review/return WITHOUT losing progress (the answer
                           is pre-filled; editing it re-grades with the new answer). A ring marks the one
                           you're viewing. */}
-                      {cs && cs.questions.length > 1 && (
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
+                      {(() => {
+                        const qTags = studyCardTags[studyNoteId(cs)] || []
+                        const showDots = !!(cs && cs.questions.length > 1)
+                        if (!qTags.length && !showDots) return null
+                        return (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'space-between', marginBottom: 4 }}>
+                          <div style={{ minWidth: 0 }}>{renderUsageTagChips(qTags)}</div>
+                          {showDots && (
                           <span className="tip" data-tip={`${t('studyQuestionOf')} ${Math.min(cs.questionIdx + 1, cs.questions.length)}/${cs.questions.length}${cs.questionIdx > 0 ? ` · ${t('studyDotJump')}` : ''}`}
                             style={{ display: 'inline-flex', gap: 6, alignItems: 'center', padding: 2 }}>
                             {cs.questions.map((_, qi) => {
@@ -11768,8 +11862,10 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                               )
                             })}
                           </span>
+                          )}
                         </div>
-                      )}
+                        )
+                      })()}
 
                       {(() => {
                         // A parenthetical clue we inject into a question — "(...)" — is a HINT, not part of

@@ -20,6 +20,19 @@ const APP_ROOT = path.resolve('.')
 // pointer itself is machine-local (datadir.json, gitignored) because it
 // answers "where is my data?" per machine and cannot live inside the data.
 const DATA_DIR_POINTER = path.resolve('datadir.json')
+// How THIS computer opens Ebiki: 'app' = the chrome-free Electron window, 'browser' = a normal tab.
+// MACHINE-LOCAL on purpose, exactly like datadir.json and logs/: two computers sharing one data
+// folder should be free to disagree (a single-monitor laptop wants the browser tab so it can
+// multitask, a desktop with room wants the app window), and config.json cannot serve this at all -
+// it lives INSIDE the data folder, which may be an unreachable share, and scripts/launch.ps1 has to
+// read this BEFORE the dev server it would ask exists.
+const LAUNCH_MODE_POINTER = path.resolve('launchmode.json')
+const readLaunchMode = () => {
+  try {
+    const m = JSON.parse(fs.readFileSync(LAUNCH_MODE_POINTER, 'utf-8'))?.mode
+    return m === 'browser' ? 'browser' : 'app'
+  } catch { return 'app' }   // unset/corrupt = the current default, the app window
+}
 const DATA_ENTRIES = ['config.json', 'ankiformat.json', 'keys.json', 'modes', 'decks', 'chats', 'discover', 'cache']
 function resolveDataDir() {
   const env = (process.env.EBIKI_DATA_DIR || '').trim()
@@ -1138,6 +1151,104 @@ function apiPlugin() {
 
       // Launch overlay endpoint
       let overlayProcess = null
+      // How this computer opens Ebiki: the chrome-free app window, or a browser tab.
+      // NOT in DATA_ROUTES on purpose (same reasoning as /api/datadir): the pointer is machine-local
+      // and must stay switchable when the shared data folder is down.
+      // Handoff state for a LIVE switch. The old page must not tear itself down until the new one is
+      // actually on screen and beating (see the auto-exit note in the POST below), and the new page
+      // is the only thing that can honestly report that. Each page says hello on mount with what it
+      // is ('app' = Electron window, 'browser' = tab); a hello that matches the pending target AND
+      // arrived after the request is the proof. The old page's own hello predates the request, and a
+      // stray HMR remount of it reports the OLD kind, so neither can satisfy the handoff by mistake.
+      let handoffPending = null   // { at, mode } | null
+      let handoffReady = false
+      server.middlewares.use('/api/launchmode', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+        const sub = (req.url || '').split('?')[0].replace(/\/+$/, '') || '/'
+        if (sub === '/hello') {
+          if (req.method === 'POST') {
+            let b = ''
+            req.on('data', (c) => { b += c })
+            req.on('end', () => {
+              try {
+                const kind = JSON.parse(b || '{}').kind === 'app' ? 'app' : 'browser'
+                if (handoffPending && kind === handoffPending.mode && Date.now() >= handoffPending.at) {
+                  handoffReady = true
+                  console.log('[Launch mode] handoff complete:', kind, 'is up')
+                }
+              } catch { /* a malformed hello just means no handoff proof */ }
+              res.statusCode = 204; res.end()
+            })
+            return
+          }
+          res.statusCode = 405; res.end(JSON.stringify({ error: 'method' })); return
+        }
+        // Whether the app window is even possible here - electron is an OPTIONAL dependency, so a
+        // clone that never got it can only ever run in the browser and the UI must say so rather
+        // than offering a choice that silently does nothing.
+        const electronAvailable = ['node_modules/electron/dist/Ebiki.exe', 'node_modules/electron/dist/electron.exe', 'node_modules/electron/dist/electron', 'node_modules/electron/cli.js']
+          .some((rel) => fs.existsSync(path.resolve(rel)))
+        if (req.method === 'GET') {
+          res.end(JSON.stringify({ mode: readLaunchMode(), electronAvailable, handoffReady, handoffPending: !!handoffPending }))
+          return
+        }
+        if (req.method !== 'POST') { res.statusCode = 405; res.end(JSON.stringify({ error: 'method' })); return }
+        let body = ''
+        req.on('data', (c) => { body += c })
+        req.on('end', () => {
+          try {
+            const parsed = JSON.parse(body || '{}')
+            const mode = parsed.mode === 'browser' ? 'browser' : 'app'
+            fs.writeFileSync(LAUNCH_MODE_POINTER, JSON.stringify({ mode }, null, 2), 'utf-8')
+            console.log('[Launch mode] set to', mode)
+            // switchNow = open the OTHER front end right now instead of waiting for the next launch.
+            // The old window/tab is deliberately NOT closed from here: the dev server's auto-exit
+            // watches for the last heartbeat, so tearing the old page down before the new one is up
+            // and beating would look exactly like "everybody left" and take the server with it. The
+            // client closes itself only once the new page reports in (see the handoff below).
+            let launched = false
+            let launchError = null
+            if (parsed.switchNow) {
+              handoffPending = { at: Date.now(), mode }
+              handoffReady = false
+              try {
+                if (mode === 'browser') {
+                  const url = 'http://localhost:3000?handoff=1'
+                  if (process.platform === 'win32') spawn('cmd', ['/c', 'start', '', url], { detached: true, stdio: 'ignore' }).unref()
+                  else if (process.platform === 'darwin') spawn('open', [url], { detached: true, stdio: 'ignore' }).unref()
+                  else spawn('xdg-open', [url], { detached: true, stdio: 'ignore' }).unref()
+                } else {
+                  // Prefer the branded Ebiki.exe for the same reason scripts/launch.ps1 does: Windows
+                  // resolves a PINNED taskbar icon from the running EXE itself, so the plain
+                  // electron.exe would pin the generic Electron logo.
+                  const exe = ['node_modules/electron/dist/Ebiki.exe', 'node_modules/electron/dist/electron.exe', 'node_modules/electron/dist/electron']
+                    .map((rel) => path.resolve(rel)).find((f) => fs.existsSync(f))
+                  const mainScript = path.resolve('electron/main.cjs')
+                  // --from-launcher: this server obviously exists, so the window must NOT run the
+                  // bare-launch bootstrap in main.cjs (that path is for a taskbar pin of the exe,
+                  // where nothing has started a server).
+                  if (exe) spawn(exe, [mainScript, '--from-launcher'], { cwd: APP_ROOT, detached: true, stdio: 'ignore' }).unref()
+                  else {
+                    const cli = path.resolve('node_modules/electron/cli.js')
+                    if (!fs.existsSync(cli)) throw new Error('Electron is not installed')
+                    spawn(process.execPath, [cli, mainScript, '--from-launcher'], { cwd: APP_ROOT, detached: true, stdio: 'ignore' }).unref()
+                  }
+                }
+                launched = true
+              } catch (e) {
+                launchError = e.message
+                handoffPending = null
+                console.warn('[Launch mode] switch-now failed:', e.message)
+              }
+            }
+            res.end(JSON.stringify({ ok: true, mode, launched, launchError }))
+          } catch (e) {
+            res.statusCode = 400
+            res.end(JSON.stringify({ error: e.message }))
+          }
+        })
+      })
+
       server.middlewares.use('/api/launch-overlay', (req, res) => {
         console.log('[Overlay API] request:', req.method, req.url)
         if (req.method === 'POST') {

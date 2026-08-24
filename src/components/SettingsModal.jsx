@@ -5,6 +5,7 @@ import { LANGS } from '../config/languages'
 import { langInfo } from '../pronunciation/langcodes'
 import { PROVIDERS } from '../config/providers'
 import { APP_LANGUAGES } from '../i18n'
+import { LaunchModeCard } from './LaunchModeChoice'
 
 // ── Data folder (optional shared data directory) ──
 // Self-contained: talks to /api/datadir directly. The data-folder pointer is
@@ -423,6 +424,7 @@ export default function SettingsModal(p) {
             : t('set_autoSyncOff')}
         </div>
       </div>
+      <LaunchModeCard t={t} card={card} fieldLabel={fieldLabel} hint={hint} />
       <DataFolderCard t={t} card={card} fieldLabel={fieldLabel} hint={hint} />
       <UpdatesCard t={t} card={card} fieldLabel={fieldLabel} hint={hint} />
       {onRunSetup && (

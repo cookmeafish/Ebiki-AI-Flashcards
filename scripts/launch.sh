@@ -41,10 +41,28 @@ start_anki_if_needed || true
 # looking tab beats no app at all. --class=Ebiki sets the X11 WM_CLASS so
 # desktop environments group/icon it using scripts/setup.sh's .desktop entry
 # (StartupWMClass=Ebiki) instead of a generic "Electron" identity.
+# How THIS computer opens Ebiki: 'app' = the chrome-free Electron window,
+# 'browser' = an ordinary tab. Machine-local (launchmode.json, gitignored) for
+# the same reasons as datadir.json: two computers sharing one data folder may
+# want different answers, and config.json cannot serve this - it lives inside
+# the data folder, and this runs before the dev server exists. Anything missing
+# or unreadable means 'app', today's default. No jq dependency: a plain grep.
+launch_mode() {
+  if [ -f "$APP/launchmode.json" ] && grep -q '"browser"' "$APP/launchmode.json" 2>/dev/null; then
+    echo browser
+  else
+    echo app
+  fi
+}
+
 open_app() {
   local electron_bin="$APP/node_modules/electron/dist/electron"
-  if [ -x "$electron_bin" ]; then
-    nohup "$electron_bin" "$APP/electron/main.cjs" --class=Ebiki >/dev/null 2>&1 &
+  # The user's choice wins, but only where it can be honored: 'browser' always
+  # works, 'app' still falls back to a tab when electron is missing.
+  if [ "$(launch_mode)" != browser ] && [ -x "$electron_bin" ]; then
+    # --from-launcher tells electron/main.cjs the dev server is handled out here;
+    # a bare launch (a dock/taskbar pin of the binary itself) has to bootstrap it.
+    nohup "$electron_bin" "$APP/electron/main.cjs" --class=Ebiki --from-launcher >/dev/null 2>&1 &
     disown
   elif command -v xdg-open >/dev/null 2>&1; then
     xdg-open 'http://localhost:3000' >/dev/null 2>&1 &

@@ -180,6 +180,51 @@ the share is back, a brand-colored "N offline changes waiting · Merge them in /
 automatic push. **All three banners render IN FLOW above `<header>`, never `position:fixed`** - a fixed top:0
 bar sits ON the header and eats its clicks (the Settings button was unreachable behind the red one).
 
+## How Ebiki opens: app window vs browser tab (per computer)
+The chrome-free app window removed the browser, and with it the thing the browser was quietly good
+at: **a second tab to research a word in and come straight back**. On one monitor, Alt+Tab between
+two apps (Anki is running too) is worse than Ctrl+Tab between two tabs, so the fix is not to build a
+browser inside Ebiki, it is to let the user choose which shape Ebiki takes.
+- **The choice is MACHINE-LOCAL** (`launchmode.json`, gitignored, `{mode:'app'|'browser'}`), not
+  `config.json`: two computers on one shared data folder should be free to disagree, and the
+  launcher must read it BEFORE the dev server that would answer for it exists. Anything missing or
+  unreadable means `'app'` (today's default). **FOUR readers must stay in sync** - `readLaunchMode`
+  in `vite.config.js`, `Get-LaunchMode` in `scripts/launch.ps1`, `launch_mode` in `scripts/launch.sh`,
+  and `readLaunchMode` in `electron/main.cjs`.
+- `/api/launchmode` GET/POST is **NOT in `DATA_ROUTES`**, same reasoning as `/api/datadir`: a
+  machine-local pointer must stay switchable when the share is down. UI is the self-contained
+  `LaunchModeCard` (Settings > General) plus an onboarding step, both rendering the shared
+  `LaunchModeOptions` from `src/components/LaunchModeChoice.jsx` so the tradeoff is worded once.
+- **A live switch is a HANDOFF, never a swap.** POST `{switchNow:true}` spawns the other front end;
+  the page being replaced then polls until the new one reports in via `/api/launchmode/hello`
+  (`{kind:'app'|'browser'}`, sent by every page on mount) and only THEN closes itself. Closing first
+  would look to the dev server's auto-exit like the last page had left and take the server down with
+  it. A browser tab cannot close itself (script may only close a tab it opened), so it says so
+  instead. `electron/main.cjs` also says hello from its `second-instance` handler: switching
+  browser -> app when a window is ALREADY open ends by focusing that window, whose renderer never
+  loads a page, and without this the waiting tab would time out while Ebiki sat there open.
+  A page that has handed over RETIRES its own Switch now button (`handedOver`): "does the saved
+  choice match the front end I am?" can never become true for the tab that just handed over (a tab
+  cannot turn into the app window), so the button sat there offering a switch that had already
+  happened. Re-picking a tile clears the flag, which is also the way back if the window it handed
+  over to has since been closed.
+- **EVERY entry path honors the choice, including the taskbar pin.** Pinning the running Electron
+  window pins the exe PATH ONLY - no arguments, no launcher, no dev server. So `main.cjs` treats a
+  launch WITHOUT `--from-launcher` as bare and (a) hands off to the launcher when the mode is
+  `browser`, and (b) starts the launcher when nothing is answering on 3000, which also fixes the
+  pre-existing "pinned icon opens a window that holds forever" hole. `launch.ps1`/`launch.sh` pass
+  `--from-launcher`, as does the switch-now spawn. No recursion is possible: browser mode never
+  launches Electron, and a launcher-started Electron loses the single-instance lock and quits.
+
+**External links open the REAL browser, never a window we made.** `electron/main.cjs` had no
+`setWindowOpenHandler`, so Electron's default sent every `target="_blank"` (Get an API key, chat and
+Discover sources, the Wiktionary audio credit) into a bare child BrowserWindow with no address bar
+and no back button - a strictly worse browser than the user's own, and useless for the one thing
+that link has to do (log in, use a password manager, keep the tab). The handler now denies the child
+window and hands the URL to `shell.openExternal`; a `will-navigate` guard does the same one level
+down, so a plain link can never navigate the chrome-free window off the app. **http(s) only** -
+`openExternal` will launch other protocol handlers and a page must not get to choose one.
+
 ## Windows installer & in-app updates
 **Exactly ONE file in the app root is user-runnable: `Install Ebiki.bat`.** The old layout had `install.bat`
 and `install.ps1` sitting side by side, both displaying as "install" in Explorer, so nobody could tell which
@@ -623,6 +668,15 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   (Discover/Picture), and the Chat `<anki-card>` general format. The front term, proper nouns, code,
   formulas and tag tokens stay in their original form. `createMode` likewise writes user-facing catered
   content (`chatSuggestions`, and the `questionPrompt`/`mnemonicHints` instructions) in `userLangName()`.
+- **A template placeholder that resolves to empty must never ship its punctuation.** `frontTemplate`
+  defaults to `{word} ({partOfSpeech})`, but `buildCardFields`'s prompt never ASKED for a part of
+  speech, so any caller that doesn't supply one (the deck browser's "+ Add card" > Generate with AI)
+  produced a front reading `arremedando ()`. Two layers: the prompt now requests `partOfSpeech` when
+  a template references it and the caller left it blank (in the LEARNED language for language modes,
+  matching `obra (sustantivo femenino)`), and `cleanTemplateGaps` strips EMPTY bracket pairs from
+  front and back afterwards as the guarantee - any optional field can come back empty and templates
+  are user-editable. Narrow on purpose: an empty pair only, so real parentheses (an example's
+  translation) survive.
 - **Accuracy guardrail (cards get MEMORIZED):** `verifyCards` runs a SECOND model pass that proofreads and
   FIXES each generated card (nonexistent/misspelled words, wrong gender/translation/example, dishonest
   usage-scope tag) before the user sees it. The card prompts + chat prompt also carry a "never invent words,
@@ -692,6 +746,15 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   **Tooltips are i18n'd** (`tag_*` keys in all four dicts; `usageTagTip(tag, {unverified, t})` takes
   the translator and returns '' without one, so a missing `t` shows no tooltip instead of a raw key).
   `usage.test.js` asserts every tag resolves to real text in en/es/zh/ja.
+  **The LIVE study question shows the card's usage tags too** (left of the question-progress dots):
+  knowing a word is rare and politics-only is real guessing context, the kind of intuition a
+  definition alone withholds. Safe because a usage tag never contains the headword, and the row is
+  filtered to the usage families ONLY (`isUsageTag`), so a topic tag can never hand over the answer.
+  `cardsInfo` - what `beginStudy` loads a session from - does NOT return tags, so `loadStudyCardTags`
+  reads them in ONE batched `notesInfo` per session (also warming `usageTagCacheRef`) rather than one
+  per question. Deliberately NO derivation fallback on this path: a card tagged before usage tags
+  existed shows no chips instead of stalling the question behind two AI calls. The Tag audit is the
+  way to give those cards real tags.
   New tag-chip surfaces must use these helpers. `normalizeUsageTags` folds model-invented spellings
   (`region-usa` → `region-us`, `register-politics` → `register-political`) and drops junk on the way
   out of `generateCards` and into bulk-edit recs - but NEVER touches a tag a card already carries

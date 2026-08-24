@@ -1,7 +1,56 @@
-const { app, BrowserWindow, globalShortcut, screen, desktopCapturer, ipcMain, Menu, MenuItem } = require('electron')
+const { app, BrowserWindow, globalShortcut, screen, desktopCapturer, ipcMain, Menu, MenuItem, shell } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const http = require('http')
+const { spawn } = require('child_process')
+
+const APP_ROOT = path.join(__dirname, '..')
+
+// How this computer opens Ebiki - 'app' (this chrome-free window) or 'browser' (an ordinary tab).
+// Machine-local and read straight off disk because the branch below happens BEFORE there is a dev
+// server to ask. Kept in step with readLaunchMode in vite.config.js and Get-LaunchMode in
+// scripts/launch.ps1; anything missing or unreadable means 'app', today's default.
+function readLaunchMode() {
+  try {
+    const m = JSON.parse(fs.readFileSync(path.join(APP_ROOT, 'launchmode.json'), 'utf-8'))?.mode
+    return m === 'browser' ? 'browser' : 'app'
+  } catch { return 'app' }
+}
+
+// Hand the launch back to the real launcher (scripts/launch.ps1 / launch.sh), the ONLY thing that
+// knows how to start Anki, run the update check and bring the dev server up. Used by the bare-launch
+// branch below. Cannot recurse: in browser mode the launcher opens a tab and never Electron, and in
+// app mode the Electron it starts carries --from-launcher and loses the single-instance lock to us.
+// Tell the dev server that an app window is up (see /api/launchmode/hello in vite.config.js). The
+// renderer does this on mount; the main process needs it for the focus-an-existing-window case
+// below, where no page ever loads. Fail-soft in every direction: no server, no handoff, no problem.
+function sayHello() {
+  try {
+    const body = JSON.stringify({ kind: 'app' })
+    const req = http.request(VITE_URL + '/api/launchmode/hello', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+    }, (res) => res.resume())
+    req.on('error', () => {})
+    req.setTimeout(2000, () => req.destroy())
+    req.end(body)
+  } catch { /* nothing depends on this succeeding */ }
+}
+
+function delegateToLauncher() {
+  try {
+    if (process.platform === 'win32') {
+      // The VBS, not the .ps1 directly: it also pops the start-up splash, so a pinned-icon click
+      // shows something immediately instead of looking like it did nothing.
+      spawn('wscript.exe', [path.join(APP_ROOT, 'launch-ebiki.vbs')], { cwd: APP_ROOT, detached: true, stdio: 'ignore' }).unref()
+    } else {
+      spawn('bash', [path.join(APP_ROOT, 'scripts', 'launch.sh')], { cwd: APP_ROOT, detached: true, stdio: 'ignore' }).unref()
+    }
+    return true
+  } catch (e) {
+    console.error('[App window] could not hand off to the launcher:', e.message)
+    return false
+  }
+}
 
 const VITE_URL = 'http://localhost:3000'
 const SCREENSHOT_FILE = path.resolve('electron/last-capture.png')
@@ -57,6 +106,24 @@ if (isOverlayMode) {
   // "multiple instances open" problem the browser-tab approach had. Whoever
   // gets the lock first wins; every later launch just focuses that window
   // and exits immediately, so there is never more than one.
+  // ── BARE LAUNCH (no --from-launcher): the taskbar pin of Ebiki.exe itself ──
+  // Pinning a RUNNING unpackaged Electron window pins the exe PATH and nothing else - no arguments,
+  // no launcher, no dev server (see the header comment above). That has two consequences this
+  // branch exists to fix:
+  //   1. The user's launch-mode choice lives in launchmode.json, which only the launcher reads. A
+  //      pin click would ignore it and always open the app window, so "browser mode" would silently
+  //      not apply to the one shortcut people use most.
+  //   2. Nothing starts `npm run dev` on this path, so the window could only ever sit on its
+  //      holding page until the user happened to start a server by hand.
+  // Handing back to the launcher fixes both at once, and it is what the pin was always meant to do.
+  const fromLauncher = process.argv.includes('--from-launcher')
+  if (!fromLauncher && readLaunchMode() === 'browser') {
+    console.log('[App window] launch mode is "browser" - handing off to the launcher')
+    delegateToLauncher()
+    app.quit()
+    return
+  }
+
   const gotLock = app.requestSingleInstanceLock()
   if (!gotLock) {
     app.quit()
@@ -65,9 +132,26 @@ if (isOverlayMode) {
       if (!appWindow) return
       if (appWindow.isMinimized()) appWindow.restore()
       appWindow.focus()
+      // Also report in for a live launch-mode switch. Switching browser -> app while an app window
+      // is ALREADY open ends here: the new process loses the single-instance lock and quits without
+      // ever loading a page, so the renderer's own hello never fires - and the browser tab waiting
+      // to hand over would sit there until it timed out, even though Ebiki is now on screen exactly
+      // as asked. Focusing an existing window IS the switch completing, so say so.
+      sayHello()
     })
     app.whenReady().then(() => {
       createAppWindow()
+      // Same bare-launch hole, app-mode half: nothing started the dev server, so without this the
+      // window would hold forever. Only when the port is genuinely not answering, and only on a
+      // bare launch - a launcher-started window already has one coming. createAppWindow's retry
+      // loop then picks the server up by itself the moment it answers.
+      if (!fromLauncher) {
+        waitForServer(VITE_URL, 1200).then((up) => {
+          if (up) return
+          console.log('[App window] no dev server on a bare launch - starting one via the launcher')
+          delegateToLauncher()
+        })
+      }
       console.log('[App window] Ready.')
     })
     app.on('window-all-closed', () => app.quit())
@@ -164,6 +248,36 @@ function createAppWindow() {
     } else if (input.key === 'Escape' && appWindow.isFullScreen()) {
       appWindow.setFullScreen(false)
     }
+  })
+
+  // ── External links go to the REAL browser, never to a window we open ────────
+  // Ebiki is not a browser and must never pretend to be one. With no handler at all, Electron's
+  // default for target="_blank" is to open a CHILD BrowserWindow - and every external link in the
+  // app (Get an API key, chat and Discover sources, the Wiktionary audio credit) landed in a bare
+  // Electron window with no address bar, no back button and no way to recover if the link
+  // redirected. That is a strictly worse browser than the one the user already has, and it is the
+  // opposite of what "get an API key" means: that link has to land somewhere they can log in, use
+  // their password manager, and keep the tab.
+  //
+  // So: deny the child window, hand the URL to the OS default browser. Only http(s) is forwarded -
+  // openExternal will happily launch other protocol handlers, and a page should not get to choose
+  // one.
+  const openExternally = (url) => {
+    if (!/^https?:\/\//i.test(url || '')) return
+    shell.openExternal(url).catch((e) => console.warn('[App window] openExternal failed:', e.message))
+  }
+  appWindow.webContents.setWindowOpenHandler(({ url }) => {
+    openExternally(url)
+    return { action: 'deny' }
+  })
+  // The same thing one level down: a plain link with no target would NAVIGATE this window off the
+  // app (no chrome, so there is no way back - it would look like Ebiki had died). The app itself
+  // only ever lives on the dev server, so anything else is an outbound link. The holding page is a
+  // data: URL, hence the explicit allowance.
+  appWindow.webContents.on('will-navigate', (event, url) => {
+    if (url.startsWith(VITE_URL) || url.startsWith('data:text/html')) return
+    event.preventDefault()
+    openExternally(url)
   })
 
   appWindow.on('closed', () => { appWindow = null })
