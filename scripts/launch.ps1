@@ -155,7 +155,37 @@ try { Start-AnkiIfNeeded } catch {}
 # the app still works without it), so this only ever runs when `npm install`
 # actually got it. Falls back to a normal browser tab otherwise: a website-
 # looking tab beats no app at all.
+function Get-LaunchMode {
+  # How THIS computer opens Ebiki: 'app' = the chrome-free Electron window,
+  # 'browser' = an ordinary tab. Machine-local (launchmode.json, gitignored)
+  # for the same reasons as datadir.json: two computers sharing one data folder
+  # may legitimately want different answers, and config.json cannot serve this
+  # at all - it lives inside the data folder, which may be an unreachable
+  # share, and this runs BEFORE the dev server that would answer for it exists.
+  # Anything missing or unreadable means 'app', today's default.
+  try {
+    $f = Join-Path $app 'launchmode.json'
+    if (Test-Path $f) {
+      $m = (Get-Content $f -Raw | ConvertFrom-Json).mode
+      if ($m -eq 'browser') { return 'browser' }
+    }
+  } catch {}
+  return 'app'
+}
+
 function Open-App {
+  # The user's choice wins over what is installed - but only in the direction
+  # that can actually be honored. 'browser' always works; 'app' still falls
+  # back to a tab when electron is missing (it is an OPTIONAL dependency).
+  if ((Get-LaunchMode) -eq 'browser') {
+    # -WindowStyle Normal for the same reason as everywhere else in this script:
+    # we run hidden, and a child with no style of its own inherits that.
+    Start-Process 'http://localhost:3000' -WindowStyle Normal
+    # No Electron window will report itself on this path, and a browser tab is
+    # its own visible feedback, so the splash is retired right here.
+    Signal-AppReady
+    return $null
+  }
   # Ebiki.exe (scripts/brand-electron-exe.mjs, runs on every `npm install` via postinstall) is a
   # COPY of electron.exe with the Ebi icon baked into its own PE resources via rcedit - preferred
   # because Windows resolves a PINNED taskbar icon from the running EXE FILE ITSELF, ignoring the
@@ -173,7 +203,11 @@ function Open-App {
     # window would then genuinely open, just invisibly. No --app-window flag -
     # that's the default now (see electron/main.cjs); only --overlay switches
     # modes, and this is never how the overlay gets launched.
-    return Start-Process -FilePath $exe -ArgumentList (Join-Path $app 'electron\main.cjs') -WorkingDirectory $app -WindowStyle Normal -PassThru
+    # --from-launcher tells electron/main.cjs that the dev server is being taken
+    # care of out here. Without it, a bare launch (the taskbar pin of the running
+    # Ebiki.exe, which remembers only the exe path - no arguments, no launcher)
+    # has to bootstrap the server itself. See the bare-launch branch in main.cjs.
+    return Start-Process -FilePath $exe -ArgumentList (Join-Path $app 'electron\main.cjs'), '--from-launcher' -WorkingDirectory $app -WindowStyle Normal -PassThru
   } else {
     # Nothing writes the ready marker on this path (there is no Electron
     # window to report itself) and a browser tab is its own visible feedback,

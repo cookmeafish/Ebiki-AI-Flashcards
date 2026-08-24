@@ -4,6 +4,7 @@ import { C, RADIUS, SHADOW, FONT } from '../config/tokens'
 import { PROVIDERS } from '../config/providers'
 import { APP_LANGUAGES } from '../i18n'
 import { shrimpUrl, poseFile, DEFAULT_SHRIMP } from '../config/shrimp'
+import { LaunchModeOptions } from './LaunchModeChoice'
 
 // First-run, Ebi-guided onboarding. Hand-holds a new user through:
 // language → appearance → AI provider+key → first study mode → done.
@@ -33,7 +34,7 @@ export default function OnboardingWizard(p) {
   }, [poseUrls])
   const ebi = poseUrls[step]
 
-  const steps = ['welcome', 'language', 'appearance', 'provider', 'intelligence', 'mode', 'finish']
+  const steps = ['welcome', 'language', 'appearance', 'launch', 'provider', 'intelligence', 'mode', 'finish']
   const last = steps.length - 1
   const next = () => setStep((s) => Math.min(s + 1, last))
   const back = () => setStep((s) => Math.max(s - 1, 0))
@@ -46,6 +47,24 @@ export default function OnboardingWizard(p) {
     border: `2px solid ${active ? C.brand : C.border}`, background: active ? C.brandTint : C.surface,
     color: active ? C.brand : C.ink, transition: 'all .15s ease',
   })
+
+  // How Ebiki opens on this computer. Machine-local (launchmode.json via /api/launchmode), NOT part
+  // of config.json - see LaunchModeChoice.jsx. Asked here because it is a screen-layout decision a
+  // new user can answer immediately, and the one they are most likely to regret discovering late.
+  // Nothing is switched live during onboarding; the choice applies from the next launch on.
+  const [launchMode, setLaunchMode] = useState('app')
+  const [launchElectron, setLaunchElectron] = useState(true)
+  useEffect(() => {
+    fetch('/api/launchmode').then((r) => r.json()).then((d) => {
+      setLaunchMode(d.mode || 'app'); setLaunchElectron(d.electronAvailable !== false)
+    }).catch(() => {})
+  }, [])
+  const pickLaunchMode = (m) => {
+    setLaunchMode(m)
+    fetch('/api/launchmode', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: m }),
+    }).catch(() => {})   // fail-soft: a lost write just leaves the default, changeable in Settings
+  }
 
   const createFirstMode = async () => {
     if (!modeInput.trim()) { next(); return }
@@ -84,6 +103,15 @@ export default function OnboardingWizard(p) {
               </div>
             ))}
           </div>
+        </>)
+      case 'launch':
+        return (<>
+          <div style={heading}>{t('obLaunchTitle')}</div>
+          <div style={sub}>{t('obLaunchBody')}</div>
+          <div style={{ marginTop: 22 }}>
+            <LaunchModeOptions t={t} mode={launchMode} onPick={pickLaunchMode} electronAvailable={launchElectron} />
+          </div>
+          {!launchElectron && <div style={{ fontSize: 11.5, color: C.inkDim, marginTop: 14 }}>{t('lm_noElectron')}</div>}
         </>)
       case 'provider':
         return (<>
