@@ -12,7 +12,19 @@
   opened a little bit afterwards" and in the meantime nothing said it was
   loading (not even the busy cursor other apps get). This window is that
   missing feedback: mshta.exe paints it in a few hundred ms, long before
-  anything else exists, and it also puts an "Ebiki" button on the taskbar.
+  anything else exists.
+
+  showintaskbar="no" is deliberate. mshta.exe is its own process, so a splash
+  with showintaskbar="yes" gets WS_EX_APPWINDOW (measured) and Windows gives it
+  a SECOND Ebiki button beside the pinned one - two identical icons for one
+  app, which reads as "it opened something else". It cannot be made to share
+  the pinned button instead: the taskbar groups by AppUserModelID, and setting
+  one needs SetCurrentProcessExplicitAppUserModelID before the window exists,
+  which an HTA has no way to call. So the duplicate is removed, not merged.
+  Nothing is lost - the window itself is the feedback, and it opens focused and
+  centred. NOTE: every attribute below has to stay a bare attribute; an HTML
+  comment inside that tag is invalid and silently stops them applying, exactly
+  like the ie=edge trap described further down.
 
   It closes as soon as the app window is actually on screen: electron/main.cjs
   touches <app>\.app-ready in its ready-to-show handler, and scripts/launch.ps1
@@ -29,7 +41,7 @@
   sysmenu="no"
   maximizebutton="no"
   minimizebutton="no"
-  showintaskbar="yes"
+  showintaskbar="no"
   innerborder="no"
   scroll="no"
   selection="no"
@@ -132,8 +144,16 @@ function tick() {
   waited += STEP;
   try { if (fso.FileExists(readyFile)) return done(); } catch (e) {}
   if (waited > LIMIT) return done();
-  // A first run installs/updates things; say so instead of looking stuck.
-  if (waited === 12000) document.getElementById('sub').innerHTML = 'Almost there. The first start takes a little longer.';
+  // Say something instead of looking stuck. Deliberately names NO single cause:
+  // this used to claim "the first start takes a little longer", which is wrong
+  // every time the wait is just a slower computer (or a busy one, or a cold
+  // disk) rather than a first run. Re-fit afterwards - fitWindow() ran once at
+  // load, against the SHORTER opening line, and body{overflow:hidden} would
+  // quietly clip a message that now wraps to a second line.
+  if (waited === 12000) {
+    document.getElementById('sub').innerHTML = 'Almost there. First starts and slower computers take a bit longer.';
+    fitWindow();
+  }
   window.setTimeout(tick, STEP);
 }
 window.setTimeout(tick, STEP);

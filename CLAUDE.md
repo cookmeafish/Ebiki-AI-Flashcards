@@ -243,7 +243,15 @@ works wherever the repo is cloned - never hardcode a path.
 invisible (VBS -> hidden PowerShell -> hidden `npm run dev` -> Electron), and nothing the shell starts
 ever opens a window, so there was not even a busy cursor: the app "did nothing and then randomly opened a
 little bit afterwards". `launch-ebiki.vbs` now pops `scripts/splash.hta` through `mshta.exe` (on screen in
-under a second, with its own taskbar button) BEFORE it starts `launch.ps1`. It closes on a FILE HANDSHAKE:
+under a second) BEFORE it starts `launch.ps1`. **`showintaskbar="no"` is deliberate:** mshta.exe is
+its own process, so `"yes"` gives the splash `WS_EX_APPWINDOW` (measured) and Windows adds a SECOND
+Ebiki button beside the pinned one - two identical icons for one app, which reads as a different app
+opening. It CANNOT share the pinned button instead: the taskbar groups by AppUserModelID, and setting
+one needs `SetCurrentProcessExplicitAppUserModelID` before the window exists, which an HTA cannot
+call. The window itself is the feedback. Also note every `<hta:application>` attribute must stay a
+bare attribute - an HTML comment inside that tag is invalid and silently stops the whole block
+applying (the title bar comes back), the same class of trap as the ie=edge one below.
+It closes on a FILE HANDSHAKE:
 the splash polls for `<app>\.app-ready` (gitignored), and `electron/main.cjs` touches that file from its
 `ready-to-show` handler - the only moment that honestly means "the app is on screen", since the launcher
 can only see that it spawned a process. `launch.ps1` (`Signal-AppReady`/`Wait-AppReady`) covers every path
