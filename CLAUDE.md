@@ -1524,6 +1524,40 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   (2) add it to `ROLE_TIER` with a tier chosen by the stakes×frequency rule above (memorized/graded content →
   `max`; conversational/reviewed → `normal`; trivial/every-message → `cheap`); (3) call it via `resolveModel('yourRole')`
   (or `resolveModelFast` for latency-sensitive read/translate work). Overrides + healing then work automatically.
+- **CROSS-PROVIDER REQUEST COMPATIBILITY - every model must just work, on every provider.**
+  This is where "Claude works but OpenAI 400s on Discover" came from: OpenAI RETIRED `max_tokens`
+  for its newer models (o-series and everything gpt-5 and up reject it outright, `Unsupported
+  parameter: 'max_tokens' ... Use 'max_completion_tokens' instead`), and the app was still sending
+  it - so the moment the model advisor picked a current model, EVERY role broke at once. Since all
+  eight roles (the pickers in Settings > AI models) funnel through `aiCall` ->
+  `PROVIDERS[prov].call()`, this layer is the ONE place that decides model compatibility, and the
+  one place to fix it. **OpenAI and Grok share `openAiCompatibleCall`** - same dialect, same code,
+  so a fix can never land on one and miss the other. Four failure modes are handled, all
+  self-healing rather than table-driven (a hardcoded per-model table is what goes stale):
+  1. **Token parameter.** Send `max_completion_tokens` - verified live across gpt-3.5-turbo, gpt-4,
+     gpt-4o-mini, gpt-4.1, o1, o3-mini, o4-mini, gpt-5.4, gpt-5.6; every one accepts it, while
+     `max_tokens` fails on everything gpt-5 and newer. A 400 naming the new parameter falls back to
+     the old one, which is what keeps xAI and any local/third-party endpoint working.
+  2. **Reasoning budget exhausted, ERROR form.** A reasoning model spends the SAME budget on hidden
+     reasoning first. Measured: o4-mini with no system message returns 200 + `content:""` +
+     `finish_reason:"length"`, but the identical call WITH a system message (i.e. every call Ebiki
+     makes) returns `400 ... output limit was reached. Please try again with higher max_tokens`.
+     **Both forms must be handled** - covering only the 200 form leaves every real feature broken.
+  3. **Reasoning budget exhausted, SILENT form.** The 200 + empty + `length` case. No error, so it
+     reads as a broken feature rather than an API problem. Gemini's thinking models (2.5+) do the
+     same thing with `finishReason:"MAX_TOKENS"`, and get the same retry.
+  4. **Anthropic per-model output cap.** Anthropic caps `max_tokens` PER MODEL and rejects anything
+     over it (`max_tokens: 8000 > 4096, which is the maximum allowed ... for claude-3-haiku`). The
+     vision/long-JSON roles ask for 8000, fine on current Claude models but over the cap on an older
+     one a user picks in Settings. The cap is stated IN the error, so the request is retried at the
+     number the API itself named. Note this goes DOWN, the opposite direction from #2.
+  **`MIN_CONTENT_BUDGET` (64) keeps `probeModel` out of every retry** - it calls with `maxTokens: 4`
+  just to see whether a model answers, and "Test connections" probes the WHOLE catalog (71 models on
+  a real account), so an unguarded retry would fire a second 4000-token call per reasoning model.
+  Error strings keep the `API <status>: <body>` shape, which `healRetiredModel`, `tryModelFailover`
+  and `probeModel` all parse the status back out of. Covered by `providers.test.js` (stubbed fetch,
+  so the Anthropic/Gemini/Grok paths are testable with no key). **When adding a provider or touching
+  a request body, add a case there.**
 - **No forced JSON.** OpenAI/Gemini do NOT set `response_format`/`responseMimeType` - that would break
   free-form chat/help (OpenAI even errors unless the prompt says "json"). JSON roles rely on the prompt +
   `parseAiJson()`, exactly like Claude.
