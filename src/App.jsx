@@ -22,7 +22,7 @@ import OnboardingWizard from './components/OnboardingWizard'
 import Dropdown from './components/Dropdown'
 import { S } from './styles/theme'
 import { ocrLog, ocrLogTable, ocrLogFlush } from './utils/logger'
-import { ankiPing, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiCanAddNote, ankiCopyNote, ankiChangeDeck, ankiForgetCards, ankiSetNoteTags, ankiFindCards, ankiCardsInfo, ankiAnswerCards, ankiSetDueDate, ankiInsertReviews, ankiGuiDeckReview, ankiGuiCurrentCard, ankiGuiShowAnswer, ankiGuiAnswerCard, ankiGuiDeckBrowser, ankiGetDeckStats, ankiFindNotes, ankiNotesInfo, ankiUpdateNote, ankiDeleteNotes, ankiSync, ankiStoreMediaFile, ankiGetNumCardsReviewedToday, ankiGetNumCardsReviewedByDay, ankiGetTodayReviewStats } from './utils/anki'
+import { ankiPing, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiCanAddNote, ankiCopyNote, ankiChangeDeck, ankiForgetCards, ankiSetNoteTags, ankiFindCards, ankiCardsInfo, ankiAnswerCards, ankiSetDueDate, ankiInsertReviews, ankiGuiDeckReview, ankiGuiCurrentCard, ankiGuiShowAnswer, ankiGuiAnswerCard, ankiGuiDeckBrowser, ankiGetDeckStats, ankiFindNotes, ankiNotesInfo, ankiUpdateNote, ankiDeleteNotes, ankiSync, ankiSyncSoon, ankiStoreMediaFile, ankiGetNumCardsReviewedToday, ankiGetNumCardsReviewedByDay, ankiGetTodayReviewStats } from './utils/anki'
 import { readBlob, writeBlob, DEFAULT_LEDGER } from './discover/storage'
 import { buildProfilePrompt, buildSuggestionPrompt, buildVerifyPrompt } from './discover/prompts'
 import PbqQuestion from './components/PbqQuestion'
@@ -3604,7 +3604,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       if (note && newTags.join(' ') !== (note.tags || []).join(' ')) {
         await ankiSetNoteTags(noteId, note.tags || [], newTags)
       }
-      ankiSync().catch(() => {})
+      ankiSyncSoon()
       // Reload
       await loadDeckNotes(deckBrowserDeck)
       setDeckBrowserEditing(null)
@@ -3654,7 +3654,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         Object.entries(note.fields).forEach(([name, f]) => { fields[name] = f.value })
         await ankiCopyNote(targetDeck, note.modelName, fields, note.tags || [])
       }
-      ankiSync().catch(() => {})
+      ankiSyncSoon()
       setDeckBrowserCopyStatus(move ? 'moved' : 'copied')
       setTimeout(() => { setDeckBrowserCopyStatus(null); setDeckBrowserCopying(null) }, 1400)
       console.log('[Deck] note', move ? 'moved' : 'copied', 'to:', targetDeck)
@@ -3672,7 +3672,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       const cardIds = await ankiFindCards(`nid:${note.noteId}`)
       if (cardIds.length === 0) throw new Error('no cards found for this note')
       await ankiForgetCards(cardIds)
-      ankiSync().catch(() => {})
+      ankiSyncSoon()
       await loadDeckNotes(deckBrowserDeck) // refresh the scheduling badges
       console.log('[Deck] progress reset for note', note.noteId)
     } catch (err) {
@@ -3684,7 +3684,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
   const deleteNote = async (noteId) => {
     try {
       await ankiDeleteNotes([noteId])
-      ankiSync().catch(() => {})
+      ankiSyncSoon()
       setDeckBrowserNotes((prev) => prev.filter((n) => n.noteId !== noteId))
       console.log('[Deck] note deleted:', noteId)
     } catch (err) {
@@ -4092,7 +4092,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       }
     }
 
-    if (successes.length > 0) ankiSync().catch(() => {})
+    if (successes.length > 0) ankiSyncSoon()
 
     if (failures.length > 0) {
       // Keep failed recs in the queue so the user can retry. Drop successfully-saved ones.
@@ -4398,7 +4398,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       }).join('<br>')
       const tags = deckAddTags.split(',').map((t) => t.trim()).filter(Boolean)
       await ankiAddNote(deckBrowserDeck, front, ankiBack, tags.length ? tags : ['ebiki'])
-      ankiSync().catch(() => {})
+      ankiSyncSoon()
       await loadDeckNotes(deckBrowserDeck)
       closeAddCard()
     } catch (err) {
@@ -4447,7 +4447,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       // allowDuplicate: true — Quick Add is an explicit "add these" action (the duplicate badge
       // already warns), and multi-meaning words legitimately share a front (e.g. two "gato" cards).
       await ankiAddNote(deck, card.front, cardBackToHtml(card.back), (card.tags && card.tags.length) ? card.tags : ['ebiki'], true)
-      ankiSync().catch(() => {})
+      ankiSyncSoon()
       setQuickAddCards((prev) => prev.map((c, k) => k === i ? { ...c, synced: true, syncing: false } : c))
       if (deck === deckBrowserDeck) loadDeckNotes(deck).catch(() => {})
     } catch (err) {
@@ -4497,7 +4497,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       }
     }
 
-    if (merged > 0) ankiSync().catch(() => {})
+    if (merged > 0) ankiSyncSoon()
 
     if (failures.length > 0) {
       setDeckDupError(t('deck_mergeResult', { n: merged, m: toCommit.length, failures: failures.map((f) => `[${f.noteIds.join(',')}] (${f.error})`).join('; ') }))
@@ -4750,7 +4750,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       // cardBackToHtml bolds the leading "Label:" of each line in ANY script (the old local
       // regex was Latin-only, so Chinese/Japanese/Russian labels never bolded).
       const noteId = await ankiAddNote(targetDeck, card.front, cardBackToHtml(card.back), card.tags)
-      ankiSync().catch(() => {})
+      ankiSyncSoon()
       discoverDeckTermsRef.current = [...discoverDeckTermsRef.current, card.front]
       const nextLedger = {
         ...discoverLedger,
@@ -7508,7 +7508,7 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text, never an em da
     try {
       if (!(await ankiGetDecks().catch(() => [])).includes(deck)) await ankiCreateDeck(deck)
       await ankiAddNote(deck, wl.card.front, cardBackToHtml(wl.card.back), wl.card.tags || ['ebiki'])
-      ankiSync().catch(() => {})
+      ankiSyncSoon()
       setStudyWordLookup((prev) => (prev && prev.card === wl.card) ? { ...prev, cardSyncing: false, cardSynced: true, cardDeck: deck } : prev)
     } catch {
       setStudyWordLookup((prev) => prev ? { ...prev, cardSyncing: false, cardError: 'Sync failed. Is Anki running?' } : prev)
@@ -8760,7 +8760,7 @@ learner's goals or interests that already exist.`
       const card = studyAllCards.find(c => c.cardId === cs.cardId)
       if (card) {
         await ankiDeleteNotes([card.note])
-        ankiSync().catch(() => {})
+        ankiSyncSoon()
       }
       // Mark as done + deleted, skip remaining questions
       const newStates = [...studyCardState]
@@ -8850,7 +8850,7 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
               if (fields[0]) updates[fields[0][0]] = (action.newFront || '').replace(/\n/g, '<br>')
               if (fields[1]) updates[fields[1][0]] = (action.newBack || '').replace(/\n/g, '<br>')
               await ankiUpdateNote(card.note, updates)
-              ankiSync().catch(() => {})
+              ankiSyncSoon()
             }
           } else if (action.type === 'question_preference' && action.preference) {
             // Teach Ebi how to ask: persist a concise style rule on THIS mode. It feeds every
@@ -9196,7 +9196,7 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       if (!(await ankiGetDecks().catch(() => [])).includes(deck)) await ankiCreateDeck(deck)
       // Bold the "Label:" prefixes so the formatted back renders cleanly in Anki.
       await ankiAddNote(deck, card.front, cardBackToHtml(card.back), card.tags || ['ebiki'])
-      ankiSync().catch(() => {})
+      ankiSyncSoon()
       // Mark card as synced in the message
       setChatTabMsgs(prev => prev.map((m, i) => {
         if (i !== msgIdx || !m.cards) return m
@@ -9428,7 +9428,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       const noteId = await ankiAddNote(ankiDeck, ankiCard.front, ankiBack, ankiCard.tags)
       console.log('[Anki] card synced successfully, noteId:', noteId, 'deck:', ankiDeck)
       // Sync to AnkiWeb
-      ankiSync().catch((err) => console.warn('[Anki] AnkiWeb sync failed:', err.message))
+      ankiSyncSoon()
       setAnkiSynced((prev) => ({ ...prev, [idx]: true }))
     } catch (err) {
       console.error('[Anki] sync error:', err.message)

@@ -377,6 +377,54 @@ Cards and Study panes have an **Ask AI** box. It does NOT apply directly - `prop
 **✓ Accept / ✗ Deny**, or type again to refine. `acceptModeEdit()` applies via `updateActiveMode`.
 Scopes: `cards` (fields/templates/tagRules) and `study` (questionPrompt/ratingRules).
 
+## Anki's sync toast (why it stopped covering the app)
+Anki pops a small **"Collection sync complete."** popup for a second or two after a collection sync,
+and it floats on top of Ebiki. **Read from the installed source (Anki 25.09.4), not guessed:**
+- `aqt/sync.py:123` - `tooltip(parent=mw, msg=tr.sync_collection_complete())`, fired whenever a
+  collection sync finishes with `out.required == out.NO_CHANGES` (the ordinary case).
+- `aqt/utils.py::tooltip()` - builds a `QLabel` and calls `lab.setWindowFlags(Qt.WindowType.ToolTip)`.
+  **`Qt::ToolTip` is always-on-top by definition**, which is the entire cause; natively that is class
+  `Qt691QWindowToolTipSaveBits` with `ex=0x88` (`WS_EX_TOOLWINDOW|WS_EX_TOPMOST`), as measured.
+  `period=3000` (3s), and `parent=mw` is passed EXPLICITLY, so it is always positioned at
+  `mw.mapToGlobal(0, mw.height() - 100)` - the bottom of Anki's MAIN window - no matter what has
+  focus. (An earlier note here claimed `aw` fell back to `mw` via `app.activeWindow()`; wrong path,
+  same result - `parent=mw` means `activeWindow()` is never consulted for this toast.)
+- **WHO SYNCS. Both of these reach that same line, so a fix must not assume either one:**
+  Anki itself, via `maybe_auto_sync_on_open_close` (`aqt/main.py`) on profile OPEN and CLOSE when
+  `auto_syncing_enabled()` - and Ebiki's launcher starts Anki, so that fires on launch; AND Ebiki,
+  via AnkiConnect's `sync` action, which is literally `self.window().onSync()`. The 5-minute
+  `on_periodic_sync_timer` is **media-only** (`media_syncer.start(True)`) and does NOT produce this
+  toast. Being a tool window it is not in the taskbar or Alt+Tab either.
+Open upstream bug (`ankitects/anki#4188`), no Anki setting disables it. Two fixes:
+- **Fewer syncs (helps, but is NOT the whole cause).** Ebiki fired a sync from ~16 places (every card
+  add, edit, tag change, deck move, merge), so one Quick Add batch threw a burst of toasts. That is
+  worth fixing on its own, but it only covers the syncs WE trigger - Anki's own open/close auto-sync
+  produces the toast with Ebiki not involved at all. `ankiSyncSoon()` (`src/utils/anki.js`) now
+  COALESCES them: each call restarts an 8s quiet timer, with a 90s max-wait so a steady drip of edits
+  can't starve it forever. Fire-and-forget, never throws. **Use `ankiSync()` directly ONLY where the
+  result is needed before continuing** - the awaited pre-session AnkiWeb pull (`syncFromAnkiWeb`) and
+  the post-ratings sync whose `.then` re-reads Anki are the only two such callers. Same lesson as the
+  `writeBlob` sync spam before it.
+- **Demote whatever still appears.** `scripts/anki-toast-behind.ps1`, spawned by the dev server on
+  Windows (NOT by Electron - it must cover BOTH launch modes, and the server is what they share) and
+  killed with it. `SetWindowPos(toast, ankiMainWindow, SWP_NOACTIVATE)` re-inserts the popup directly
+  above Anki's main window; passing a NON-topmost `hWndInsertAfter` is what strips `WS_EX_TOPMOST`,
+  which is the part that matters (`HWND_BOTTOM` alone leaves it inside the topmost band, still over
+  Ebiki). Anchoring to the main window is not arbitrary - it is where `parent=mw` already puts it, so
+  the popup keeps Anki's own intended position and only loses the always-on-top. This half is what
+  actually fixes the reported problem, because it works no matter who triggered the sync.
+  Measured: demoted in under 30ms, 0.6% of one core at a 100ms poll.
+  **THREE RULES, all load-bearing - do not relax them:** (1) it only ever touches windows whose class
+  contains `QWindowToolTip` AND that are topmost, so Anki's main window/browser/editor/dialogs are
+  unreachable by construction; (2) it does NOTHING while Anki is the FOREGROUND app, because that
+  same class covers Anki's ordinary hover tooltips and demoting one you are reading would be a real
+  regression (verified: 47/47 samples left topmost with Anki in front); (3) it demotes, never
+  minimizes or hides - the Anki minimizer already had to learn that fighting the user's windows is
+  infuriating. Class matching is on the version-independent substring: the real `Qt691` prefix is the
+  Qt version and moves on every Anki upgrade.
+  **It is skipped under `VITEST`** and `unref()`'d: a live child process there stops the test runner
+  from ever exiting.
+
 ## Ebi Studio (conversational mode create / edit / deck prompt)
 `src/components/ModeStudio.jsx` is ONE conversational panel for three jobs, opened from SettingsModal via the
 `openModeStudio(cfg)` prop (App holds `modeStudio` state, renders `<ModeStudio>` near HelpChat):
