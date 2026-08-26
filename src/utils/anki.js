@@ -221,6 +221,49 @@ export async function ankiSync() {
   ankiLog('sync complete')
 }
 
+// ─── Coalesced sync (use this for anything that is not a blocking pre-read) ──
+// Anki shows a "Collection sync complete." toast on EVERY sync, and on Windows that toast is a
+// FRAMELESS ALWAYS-ON-TOP window: it floats over whatever you are actually doing, Ebiki included,
+// and it does not go away when you switch apps. That is an open upstream bug
+// (ankitects/anki#4188), and Anki's maintainers answer requests to silence it with "Anki doesn't
+// natively support background syncing - reduce the frequency of the add-on doing that".
+//
+// Here that add-on is US. Ebiki fired a sync from ~16 places (every card add, edit, tag change,
+// deck move, merge), so one Quick Add batch or a run of Discover cards threw a burst of toasts
+// across the screen. Fighting the window from outside would mean an always-on watchdog polling
+// fast enough to catch a 3-second popup - the same shape as the Anki minimizer that already had to
+// be taught to stop interfering. Removing the CAUSE is the honest fix.
+//
+// So a burst becomes ONE sync: every call restarts a quiet-period timer, and the sync runs once
+// things settle. MAX_WAIT stops a steady drip of edits from starving it forever (a card every 15s
+// would otherwise never reach a quiet period). Fire-and-forget: never awaited, never throws.
+//
+// Use ankiSync() directly ONLY where the result is needed before continuing - the pre-session
+// AnkiWeb pull in App.jsx is the one such caller, and it must stay immediate and awaited.
+const SYNC_QUIET_MS = 8000     // wait for things to go quiet
+const SYNC_MAX_WAIT_MS = 90000 // ...but never postpone a pending sync longer than this
+let syncTimer = null
+let syncFirstRequestedAt = 0
+
+function runCoalescedSync() {
+  syncTimer = null
+  syncFirstRequestedAt = 0
+  ankiSync().catch((e) => ankiLog(`coalesced sync failed: ${e.message}`))
+}
+
+export function ankiSyncSoon() {
+  const now = Date.now()
+  if (!syncFirstRequestedAt) syncFirstRequestedAt = now
+  // Already waited as long as we are willing to: go now rather than restarting the timer again.
+  if (now - syncFirstRequestedAt >= SYNC_MAX_WAIT_MS) {
+    if (syncTimer) { clearTimeout(syncTimer); syncTimer = null }
+    runCoalescedSync()
+    return
+  }
+  if (syncTimer) clearTimeout(syncTimer)
+  syncTimer = setTimeout(runCoalescedSync, SYNC_QUIET_MS)
+}
+
 // ─── Media files (used as a cloud-synced key/value store) ───────────────────
 // Files prefixed with "_" are ignored by Anki's "Check Media" and never garbage
 // collected, but still sync to AnkiWeb — the documented way to store config data.

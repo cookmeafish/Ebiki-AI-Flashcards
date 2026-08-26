@@ -5,7 +5,7 @@
 // so the learner profile + ledger follow the user across machines. When Anki is offline we
 // read/write the same JSON via /api/discover-store (cached under discover/ in the repo).
 
-import { ankiStoreMediaFile, ankiRetrieveMediaFile, ankiSync } from '../utils/anki'
+import { ankiStoreMediaFile, ankiRetrieveMediaFile, ankiSyncSoon } from '../utils/anki'
 
 // UTF-8 safe base64 (btoa only handles latin1)
 const b64encode = (str) => btoa(unescape(encodeURIComponent(str)))
@@ -58,6 +58,6 @@ export async function writeBlob(kind, mode, obj, { sync = false } = {}) {
       body: JSON.stringify({ content: json }),
     })
   } catch {}
-  if (ankiOk && sync) ankiSync().catch((e) => console.warn('[Discover] sync after write failed:', e.message))
+  if (ankiOk && sync) ankiSyncSoon()   // coalesced: see the toast note on ankiSyncSoon
   return ankiOk
 }

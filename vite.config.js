@@ -498,6 +498,51 @@ function apiPlugin() {
       if (firstBackup.unref) firstBackup.unref()
       server.httpServer?.once('close', () => clearInterval(backupTimer))
 
+      // ── Keep Anki's sync toast off the top of Ebiki (Windows) ─────────────
+      // Anki pops a frameless ALWAYS-ON-TOP "Collection sync complete." popup after every sync,
+      // which floats over Ebiki for a second or two. It is an open upstream bug
+      // (ankitects/anki#4188) with no Anki setting to turn it off, so a tiny helper demotes the
+      // popup out of the topmost band as it appears. See scripts/anki-toast-behind.ps1 for the
+      // safety rules - it can only ever touch Qt TOOLTIP windows, and it does nothing at all while
+      // Anki is the foreground app.
+      //
+      // Owned by the DEV SERVER rather than by Electron because it has to cover BOTH launch modes:
+      // the app window and the browser tab. The server is the only thing both share, and its
+      // lifetime is already the app's lifetime.
+      let toastGuard = null
+      const stopToastGuard = () => {
+        if (!toastGuard || toastGuard.killed) return
+        try {
+          if (process.platform === 'win32') spawn('taskkill', ['/F', '/T', '/PID', String(toastGuard.pid)], { shell: true })
+          else toastGuard.kill()
+        } catch { /* best effort */ }
+        toastGuard = null
+      }
+      // VITEST runs the whole config too, and a live child process there keeps the test runner from
+      // ever exiting ("something prevents Vite server from exiting"). Nothing under test wants a
+      // window watchdog, so it is skipped outright - and unref()'d below in any case, so it can
+      // never be the reason a Node process stays alive.
+      if (process.platform === 'win32' && !process.env.VITEST) {
+        try {
+          const guardScript = path.resolve('scripts/anki-toast-behind.ps1')
+          if (fs.existsSync(guardScript)) {
+            toastGuard = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', guardScript], {
+              stdio: 'ignore', windowsHide: true,
+            })
+            toastGuard.unref()
+            toastGuard.on('exit', () => { toastGuard = null })
+            toastGuard.on('error', (e) => { console.warn('[Anki toast] guard could not start:', e.message); toastGuard = null })
+            console.log('[Anki toast] guard running, pid', toastGuard.pid)
+          }
+        } catch (e) {
+          console.warn('[Anki toast] guard could not start:', e.message)   // never fatal
+        }
+        // Covers Ctrl+C on a manual `npm run dev` as well as the auto-exit path below.
+        process.on('exit', stopToastGuard)
+        process.on('SIGINT', () => { stopToastGuard(); process.exit(0) })
+        process.on('SIGTERM', () => { stopToastGuard(); process.exit(0) })
+      }
+
       // ── Shortcut launches own their lifetime (EBIKI_AUTO_EXIT=1) ──────────
       // The Desktop / Start Menu shortcut starts this server HIDDEN, so nothing
       // on screen says it is still running: closing the tab left it alive for
@@ -551,6 +596,7 @@ function apiPlugin() {
               else overlayProcess.kill()
             }
           } catch { /* best effort - we are leaving anyway */ }
+          stopToastGuard()
           setTimeout(() => process.exit(0), 1500)   // hard stop: close() can hang on a held socket
           Promise.resolve(server.close()).then(() => process.exit(0)).catch(() => process.exit(0))
         }
