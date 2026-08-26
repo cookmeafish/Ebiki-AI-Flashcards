@@ -1618,5 +1618,20 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   the capture shortcut, or a renamed button), fix it in the README while you're there.
 
 ## Commits
-- The user prefers **no Claude attribution** in commit messages.
-- Don't commit to `master` directly unless asked; work on feature branches (currently `ebiki-ocean-light`).
+- **NEVER name the AI assistant that wrote the code, anywhere that reaches git or GitHub.** The
+  repo is PUBLIC. Not in commit subjects or bodies, not in PR titles/descriptions/comments, not in
+  issues, not in branch names, not in new code comments. This is WIDER than the attribution
+  trailers (`Co-Authored-By`, `Generated with ...`) - those are banned too, but so is naming the
+  vendor in passing as a technical detail: a commit describing a provider bug says "another
+  provider" / "one provider", never the name. **Grep every commit message for
+  `claude|anthropic|co-authored|generated with` BEFORE committing** - checking only for the
+  trailers is what let a "worked on Claude" line reach master and need a force-push to remove.
+- **The ban is on ATTRIBUTION, not on the PRODUCT.** Ebiki integrates Anthropic as one of its four
+  AI providers, so ~100 mentions across 15 committed files are FUNCTIONAL and must never be
+  "cleaned up": the `Anthropic (Claude)` provider label, `api.anthropic.com`, every `claude-*`
+  model id, the model-family parsing in `modelVersions.js`, and the `.claude/skills/run-ebiki`
+  path that `package.json`'s `drive` script depends on. Removing those breaks the app. The test is
+  simple: does this text describe a PROVIDER THE APP TALKS TO (keep), or WHO WROTE THE COMMIT
+  (remove)?
+- Don't commit to `master` directly unless asked. (Clones used to sit on `shared-data-dir`; this
+  machine now works on `master` itself, and the user asks for pushes to `master` explicitly.)
