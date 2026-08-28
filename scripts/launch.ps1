@@ -1,7 +1,8 @@
 # Ebiki launcher (invoked hidden by launch-ebiki.vbs).
 # 1) Make sure Anki is up (the app reads/writes every card through AnkiConnect).
 # 2) If the app is already running, just bring its window forward.
-# 3) Otherwise do a QUICK update check (skipped when snoozed or offline), offer
+# 3) Otherwise do a QUICK update check (every launch; skipped only when offline
+#    or git is missing), offer
 #    to update, then start the dev server and open Ebiki as its own window
 #    (Open-App below - a chrome-free Electron window when available, a plain
 #    browser tab as the fallback).
@@ -323,14 +324,17 @@ if (-not $hasNode) {
 
 # ── Quick, seamless update check ────────────────────────────────────────────
 function Check-Update {
+  # ALWAYS check. There is deliberately no snooze on this path any more: it used
+  # to skip the check entirely for a week after a single "not now", which is how
+  # someone stayed on a build with an already-fixed bug without the app ever
+  # mentioning it again. Opening the shortcut is the one moment we know the user
+  # is present and the app is not yet in the way, so it is the right moment to
+  # ask, every time. Saying no is free (it just opens), and the check itself is a
+  # refs-only lookup behind a 6s timeout, so this can never slow a launch down.
   $snooze = Join-Path $app '.update-snooze'
-  # Snoozed (the user said "not now" recently)? Skip silently. Deliberately
-  # SHORT (2 days, it used to be 7): this popup is no longer the only offer -
-  # the running app carries an update banner of its own - but a week of total
-  # silence at launch is still how an update goes unnoticed for a fortnight.
-  if (Test-Path $snooze) {
-    try { if ([datetime]::Parse((Get-Content $snooze -Raw)) -gt (Get-Date)) { return } } catch {}
-  }
+  # Sweep the marker older versions left behind, so nothing can silently suppress
+  # a future check.
+  Remove-Item $snooze -Force -ErrorAction SilentlyContinue
   if (-not (Get-Command git -ErrorAction SilentlyContinue)) { return }
   $local = (& git -C $app rev-parse HEAD 2>$null)
   if (-not $local) { return }
@@ -366,13 +370,11 @@ function Check-Update {
     & git -C $app pull --ff-only origin master 2>&1 | Out-Null
     Set-Status 'Installing the update. Almost done.'
     & cmd /c "cd /d ""$app"" && npm install --no-fund --no-audit" 2>&1 | Out-Null
-    Remove-Item $snooze -Force -ErrorAction SilentlyContinue
-  } elseif ($ans -eq 'no') {                       # stay quiet for a couple of days
-    (Get-Date).AddDays(2).ToString('o') | Set-Content $snooze
   }
-  # 'timeout' (nobody was at the computer) -> open normally. Nothing is lost: the
-  # app itself carries the same offer as a banner once it is up, and keeps
-  # bringing it back, which is the guarantee this question alone never gave.
+  # 'no' -> just open. Nothing is recorded, so the next launch asks again.
+  # 'timeout' (nobody was at the computer) -> open normally. Nothing is lost
+  # either way: the app itself carries the same offer as a banner once it is up,
+  # and keeps bringing it back.
   Set-Status 'Starting the study server.'
 }
 try { Check-Update } catch {}

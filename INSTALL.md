@@ -27,11 +27,11 @@ You can put the app folder anywhere you like; the installer and shortcut work fr
 Opening the **Ebiki** shortcut does a quick check for a newer version:
 
 - If none (or you're offline), the app just opens normally, seamlessly.
-- If there's an update, the start-up window asks right there: **Update now** or **Not now**. The start-up window also tells you what it's doing while it works, so a longer start says why.
+- If there's an update, the start-up window asks right there: **Update now** or **Not now**. It checks every single time you open the shortcut, so saying no just opens the app and you'll be asked again next time. The start-up window also tells you what it's doing while it works, so a longer start says why.
 
 If you skip it, or walk away and the question times out, the app itself shows an **update banner** across the top once it opens, with **Update now**. **Later** hides it for a few hours, not forever, so an update never goes unnoticed. After updating, use **Restart now** in the banner (or close and reopen the shortcut) to finish applying it.
 
-You can also update anytime from **Settings → General → Updates**.
+You can also update anytime from **Settings → General → Updates**, which shows which version you're on.
 
 ## Backing up your cards (AnkiWeb)
 

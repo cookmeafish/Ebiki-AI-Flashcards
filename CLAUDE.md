@@ -281,8 +281,10 @@ window loaded the app by itself, no reload, no second window.
 
 **Updates track the `master` release branch, and the offer must be IMPOSSIBLE TO MISS.**
 (the clones sit on `shared-data-dir`, so compare against `origin/master`, NOT the current branch). Launch-time
-check in `launch.ps1`: skip if `.update-snooze` (gitignored) is in the future; else `git ls-remote origin master`
-(6s timeout job, so offline never blocks) vs local HEAD.
+check in `launch.ps1`: `git ls-remote origin master` (6s timeout job, so offline never blocks) vs local HEAD,
+run on EVERY shortcut launch. There is deliberately NO snooze left on this path - a single "not now" used
+to skip the check for a week, which is how an update goes unnoticed for a fortnight; both launchers now
+sweep any `.update-snooze` an older version left behind. Saying no just opens the app.
 **The whole design here is a bug fix, so do not simplify it back.** The offer used to be a single
 `WScript.Shell.Popup` from `launch.ps1` - a second window, in a second process, shown AFTER the splash, so it
 opened UNDERNEATH it. Three failures compounded: the question was invisible; the launch then sat frozen for the
@@ -316,7 +318,10 @@ already fixed, for weeks. Four parts now, and each covers a different way of mis
   Offered only when `canRestart` (win32 + `EBIKI_AUTO_EXIT` + the launcher files exist) AND `isElectronApp` -
   a browser tab can't close itself, so it gets the "close and reopen" wording instead.
 In-GUI: self-contained `UpdatesCard` in SettingsModal General uses `/api/update` (GET = `ls-remote` vs HEAD,
-reports `gitAvailable`/`reachable`/`updateAvailable`/`canRestart`; POST = pull + npm install, `restartRequired`,
+reports `gitAvailable`/`reachable`/`updateAvailable`/`canRestart` plus `current`/`currentDate`, which the
+card renders as a plain "you are on version <sha>, from <date>" line - a sha alone answers nothing a person
+can act on, and `setInfo` runs BEFORE the early returns so the version still shows when the check itself
+could not run; POST = pull + npm install, `restartRequired`,
 and clears `.update-snooze` so the launcher can't re-offer what was just installed). It checks on open rather
 than waiting for a button press.
 **ONE dev server per shortcut, and the TAB owns its lifetime.** The shortcut starts the server HIDDEN, so

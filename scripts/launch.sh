@@ -2,7 +2,8 @@
 # Ebiki launcher (Linux). Mirrors scripts/launch.ps1's behavior:
 # 1) Make sure Anki is up (the app reads/writes every card through AnkiConnect).
 # 2) If the app is already running, just bring its window forward.
-# 3) Otherwise do a QUICK update check (skipped when snoozed or offline), offer
+# 3) Otherwise do a QUICK update check (every launch; skipped only when offline
+#    or git is missing), offer
 #    to update, then start the dev server and open Ebiki as its own window
 #    (open_app below - a chrome-free Electron window when available, a plain
 #    browser tab as the fallback).
@@ -103,12 +104,10 @@ fi
 
 # ── Quick, seamless update check ────────────────────────────────────────────
 check_update() {
-  local snooze="$APP/.update-snooze"
-  if [ -f "$snooze" ]; then
-    local until_ts
-    until_ts="$(date -d "$(cat "$snooze")" +%s 2>/dev/null || echo 0)"
-    [ "$until_ts" -gt "$(date +%s)" ] 2>/dev/null && return
-  fi
+  # ALWAYS check - no snooze on this path. A single "not now" used to buy a week
+  # of total silence, which is how an update goes unnoticed for a fortnight. The
+  # check is a refs-only lookup behind a 6s timeout, so it never slows a launch.
+  rm -f "$APP/.update-snooze"   # sweep the marker older versions left behind
   command -v git >/dev/null 2>&1 || return
   local local_head
   local_head="$(git -C "$APP" rev-parse HEAD 2>/dev/null)"
@@ -135,14 +134,9 @@ check_update() {
   if [ "$answer" = yes ]; then
     git -C "$APP" pull --ff-only origin master >/dev/null 2>&1
     (cd "$APP" && npm install --no-fund --no-audit >/dev/null 2>&1)
-    rm -f "$snooze"
-  elif [ "$answer" = no ]; then
-    # 2 days, not a week: this prompt is no longer the only offer (the running app
-    # carries an update banner that comes back on its own), but a week of silence
-    # at launch is still how an update goes unnoticed for a fortnight.
-    date -d '+2 days' -Iseconds > "$snooze" 2>/dev/null || date -v+2d -Iseconds > "$snooze" 2>/dev/null
   fi
-  # timeout -> just open normally; the app's own update banner picks it up from there
+  # no / timeout -> just open; nothing is recorded, so the next launch asks again,
+  # and the app's own update banner carries the offer in the meantime
 }
 check_update || true
 
