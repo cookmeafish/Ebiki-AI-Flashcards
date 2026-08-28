@@ -108,7 +108,13 @@ function Link-ToGit($dir, $repo) {
   & git -C $dir init -q 2>&1 | Out-Null
   & git -C $dir remote remove origin 2>&1 | Out-Null
   & git -C $dir remote add origin $repo 2>&1 | Out-Null
-  & git -C $dir fetch --depth 1 origin master:refs/remotes/origin/master 2>&1 | Out-Null
+  # FULL history, not --depth 1. A shallow repo can pull, but it is a stub for
+  # every other purpose: `git log` shows one commit, `git diff` against anything
+  # earlier is impossible, and there is nothing to roll back to. Measured against
+  # this repo it costs about 8.7 MB and one second - nothing beside the npm
+  # install this same script runs - so a ZIP user gets the same real repository a
+  # git user has, and can pull, log, diff and revert by hand like anyone else.
+  & git -C $dir fetch origin master:refs/remotes/origin/master 2>&1 | Out-Null
   if ($LASTEXITCODE -ne 0) { throw 'could not reach GitHub' }
   & git -C $dir checkout -B master refs/remotes/origin/master -f 2>&1 | Out-Null
   if ($LASTEXITCODE -ne 0) { throw 'could not check out the release branch' }
@@ -121,6 +127,22 @@ function Link-ToGit($dir, $repo) {
   # breaks the `git pull --ff-only` that in-app updates rely on.
   & git -C $dir clean -fd 2>&1 | Out-Null
   return (& git -C $dir rev-parse --short HEAD)
+}
+
+# Is this a repository a person could actually use - not merely a folder with a
+# .git in it? The difference matters because Link-ToGit is several steps and any
+# of them can fail (no network mid-fetch, a killed installer), and what it leaves
+# behind then is a .git with no commit and no upstream. The old check was a bare
+# `Test-Path .git`, so that wreckage read as "already a clone" forever after: the
+# folder could never re-link itself, and setup cheerfully reported it was fine.
+# All three things are required for `git pull` to work with no arguments, which is
+# the whole point of linking the folder in the first place.
+function Test-GitHealthy($dir) {
+  if (-not (Test-Path (Join-Path $dir '.git'))) { return $false }
+  if (-not (& git -C $dir rev-parse HEAD 2>$null)) { return $false }              # no commit checked out
+  if (-not (& git -C $dir remote get-url origin 2>$null)) { return $false }       # nowhere to pull from
+  if (-not (& git -C $dir rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>$null)) { return $false }  # no upstream
+  return $true
 }
 
 function Have-Winget { [bool](Get-Command winget -ErrorAction SilentlyContinue) }
@@ -183,16 +205,31 @@ try {
   # Printed FIRST thing that matters, so "which installer am I even running" is
   # answerable from a screenshot of this window.
   Section 'Checking this copy of the app'
-  if (Test-Path (Join-Path $app '.git')) {
+  if (Test-GitHealthy $app) {
     $sha = (& git -C $app rev-parse --short HEAD 2>$null)
+    # An earlier installer linked ZIP folders SHALLOW, which leaves a repo that can
+    # pull but cannot show history or roll anything back. Deepen it once, so those
+    # machines end up with the same real repository as everyone else. Fail-soft:
+    # offline just leaves it as it was, and the next run tries again.
+    if (Test-Path (Join-Path $app '.git\shallow')) {
+      Info 'Filling in this copy''s history so git works normally here...'
+      & git -C $app fetch --unshallow 2>&1 | Out-Null
+      if ($LASTEXITCODE -eq 0) { Ok 'History restored.' } else { Warn 'Could not fetch the full history right now; updates still work.' }
+    }
     if ($sha) { Ok "Version $sha. Updates work (Settings > General > Updates, and on launch)." }
     else { Ok 'Git clone. Updates work.' }
+    Info "You can also update by hand from this folder: git pull"
   } elseif ($git) {
-    Warn 'This folder came from a ZIP download, so it has no version and cannot update itself.'
+    if (Test-Path (Join-Path $app '.git')) {
+      Warn 'This folder has a half-finished repository (an earlier link was interrupted). Repairing it...'
+    } else {
+      Warn 'This folder came from a ZIP download, so it has no version and cannot update itself.'
+    }
     Info 'Linking it to the project so updates work from now on...'
     try {
       $sha = Link-ToGit $app 'https://github.com/cookmeafish/Ebiki-AI-Flashcards.git'
       Ok "Linked and updated to the latest release ($sha). Your settings, modes and decks were untouched."
+      Ok 'This folder is now a normal git checkout: "git pull" here works by hand.'
       # START OVER with the files we just downloaded. THIS IS THE POINT OF THE WHOLE BLOCK.
       # Linking updates the FOLDER, but the script already running is still the one that came
       # out of the ZIP - so everything after this line behaved like whatever old release that

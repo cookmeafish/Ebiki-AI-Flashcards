@@ -196,14 +196,28 @@ function UpdatesCard({ t, card, fieldLabel, hint }) {
   // should not have to press a button to be told there is one waiting - and the
   // whole failure this guards against is an update nobody was told about.
   useEffect(() => { check() }, [])   // eslint-disable-line react-hooks/exhaustive-deps
-  // A sha alone answers nothing a person can act on, so the date rides along: it is
-  // what you compare against "when did you push that fix". Shown in the viewer's own
-  // locale rather than an ISO string.
+  // A bare commit sha ("you are on version 0a84d36") is an identifier, not a
+  // version: it does not say how old the copy is and two of them cannot be
+  // compared by eye. Ebiki ships from master with no tags, so the release DATE is
+  // the version - written the machine-independent way round (2026.08.28), which
+  // sorts, reads the same in every locale, and is instantly comparable to "when
+  // did you push that fix". The build number and sha go underneath in small type,
+  // for when an exact answer is actually wanted.
   const versionLine = () => {
     if (state === 'checking' && !info) return null
     if (info?.current) {
-      const date = info.currentDate ? new Date(info.currentDate).toLocaleDateString() : ''
-      return <div style={{ ...hint, marginTop: 0, marginBottom: 8, fontWeight: 700, color: 'var(--c-ink-dim)' }}>{t('updatesVersion', { sha: info.current, date })}</div>
+      const d = info.currentDate ? new Date(info.currentDate) : null
+      const version = d && !isNaN(d)
+        ? `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
+        : info.current
+      return (
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--c-ink)' }}>{t('updatesVersion', { version })}</div>
+          <div style={{ ...hint, marginTop: 2, fontFamily: 'monospace', fontSize: 10.5 }}>
+            {info.build ? t('updatesVersionBuild', { build: info.build, sha: info.current }) : t('updatesVersionNoBuild', { sha: info.current })}
+          </div>
+        </div>
+      )
     }
     if (state === 'nogit' || (info && !info.gitAvailable)) {
       return <div style={{ ...hint, marginTop: 0, marginBottom: 8 }}>{t('updatesVersionUnknown')}</div>

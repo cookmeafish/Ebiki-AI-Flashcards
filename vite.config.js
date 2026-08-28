@@ -708,18 +708,28 @@ function apiPlugin() {
         // 'master' is the release branch we publish to; compare against it
         // regardless of which local branch this clone happens to sit on.
         if (req.method === 'GET') {
-          // sha AND date in one call: "which version am I on" is unanswerable from a
-          // sha alone, and the date is what a person can actually compare against
-          // "when did you push that fix".
+          // What a PERSON can read. A bare commit sha ("you are on version 0a84d36")
+          // is an identifier, not a version: it does not say how old the copy is,
+          // and two of them cannot be compared by eye. This project ships from
+          // master with no tags, so the release date IS the version, and the commit
+          // count is a build number that only ever goes up. The sha stays alongside
+          // for the times an exact answer is wanted.
+          // Counted only when the history is real: an older installer linked ZIP
+          // folders with --depth 1, and a shallow repo would report "build 1".
           git(['log', '-1', '--format=%H|%cI'], (e1, local) => {
             if (e1) { res.end(JSON.stringify({ ok: true, gitAvailable: false })); return }
             const [headSha, headDate] = String(local || '').trim().split('|')
-            git(['ls-remote', 'origin', 'master'], (e3, remoteOut) => {
-              if (e3) { res.end(JSON.stringify({ ok: true, gitAvailable: true, reachable: false, current: (headSha || '').slice(0, 7), currentDate: headDate || '' })); return }
-              const localSha = (headSha || '').trim()
-              const remoteSha = ((remoteOut || '').trim().split(/\s+/)[0]) || ''
-              res.end(JSON.stringify({ ok: true, gitAvailable: true, reachable: true, updateAvailable: !!remoteSha && remoteSha !== localSha, current: localSha.slice(0, 7), currentDate: headDate || '', remote: remoteSha.slice(0, 7), canRestart: canSelfRestart() }))
-            }, 12000)
+            const shallow = fs.existsSync(path.join(APP_ROOT, '.git', 'shallow'))
+            git(['rev-list', '--count', 'HEAD'], (e2, countOut) => {
+              const build = (!shallow && !e2) ? parseInt(String(countOut || '').trim(), 10) || null : null
+              const base = { current: (headSha || '').slice(0, 7), currentDate: headDate || '', build }
+              git(['ls-remote', 'origin', 'master'], (e3, remoteOut) => {
+                if (e3) { res.end(JSON.stringify({ ok: true, gitAvailable: true, reachable: false, ...base })); return }
+                const localSha = (headSha || '').trim()
+                const remoteSha = ((remoteOut || '').trim().split(/\s+/)[0]) || ''
+                res.end(JSON.stringify({ ok: true, gitAvailable: true, reachable: true, updateAvailable: !!remoteSha && remoteSha !== localSha, ...base, remote: remoteSha.slice(0, 7), canRestart: canSelfRestart() }))
+              }, 12000)
+            })
           })
         } else if (req.method === 'POST') {
           git(['pull', '--ff-only', 'origin', 'master'], (e, out, err) => {
