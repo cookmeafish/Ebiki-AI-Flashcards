@@ -318,10 +318,7 @@ already fixed, for weeks. Four parts now, and each covers a different way of mis
   Offered only when `canRestart` (win32 + `EBIKI_AUTO_EXIT` + the launcher files exist) AND `isElectronApp` -
   a browser tab can't close itself, so it gets the "close and reopen" wording instead.
 In-GUI: self-contained `UpdatesCard` in SettingsModal General uses `/api/update` (GET = `ls-remote` vs HEAD,
-reports `gitAvailable`/`reachable`/`updateAvailable`/`canRestart` plus `current`/`currentDate`, which the
-card renders as a plain "you are on version <sha>, from <date>" line - a sha alone answers nothing a person
-can act on, and `setInfo` runs BEFORE the early returns so the version still shows when the check itself
-could not run; POST = pull + npm install, `restartRequired`,
+reports `gitAvailable`/`reachable`/`updateAvailable`/`canRestart` plus `current`/`currentDate`/`build`; POST = pull + npm install, `restartRequired`,
 and clears `.update-snooze` so the launcher can't re-offer what was just installed). It checks on open rather
 than waiting for a button press.
 **ONE dev server per shortcut, and the TAB owns its lifetime.** The shortcut starts the server HIDDEN, so
@@ -346,6 +343,21 @@ already-fixed crash kept reappearing. Both halves are scoped to SHORTCUT launche
   when a server exits, or refuses to, unexpectedly. A manual `npm run dev` sets no flag: the endpoints
   still answer 204, the timer never runs, and it lives until you stop it. That is the supported way to run
   a second copy.
+**THE VERSION IS DERIVED FROM GIT, never stored - so there is nothing to bump on a push.** A commit sha
+alone ("version 0a84d36") is an identifier, not a version: it says nothing about how old a copy is and two
+of them cannot be compared by eye. Ebiki ships from `master` with no tags, so the version shown in Settings
+is computed at request time from the commit itself: `git log -1 --format=%H|%cI` gives the sha and date,
+`git rev-list --count HEAD` gives a build number that only ever rises. Rendered as **`Ebiki 2026.08.28`**
+with `Build 424 · 0a84d36` under it in small monospace. The date is written year-first on purpose - it
+sorts, reads identically in every locale, and is directly comparable to "when did you push that fix".
+**`package.json`'s `"version": "1.0.0"` is deliberately NOT used** and must not be: a stored number is the
+one that needs remembering on every push and goes stale the first time it is forgotten, whereas a derived
+one is correct by construction on every machine, forever, with no release step. **The build count is only
+sent when the history is real** (`.git/shallow` absent) - an older installer linked ZIP folders with
+`--depth 1`, and a shallow repo would proudly report "build 1". `setInfo` runs BEFORE the early returns in
+`UpdatesCard.check`, so the version still shows when the update check itself could not run, which is exactly
+when someone is asking what version they are on.
+
 **A ZIP install must be IDENTICAL to a git install, and that needs a re-exec.** `Link-ToGit` updates
 the FOLDER, but the script already running is still the one that came out of the ZIP - so everything
 after that line behaved like whatever old release the ZIP contained, while the folder afterwards looks
@@ -357,8 +369,17 @@ an unknown env var whereas an unknown switch would stop it starting at all.
 **A ZIP download is converted into a clone (`Link-ToGit`).** GitHub's "Download ZIP" folder has no `.git`, so
 BOTH update paths (launch check + Settings > Updates) silently no-op and the user is frozen on whatever that
 ZIP contained - the failure mode that had a new machine reinstalling a pre-Anki installer and reporting "it
-doesn't install Anki". Setup detects a missing `.git` and does `init` -> `remote add` -> shallow `fetch
-master` -> `checkout -B master` -> **`git clean -fd`**. The clean is load-bearing twice over: it removes files
+doesn't install Anki". Setup detects an unusable repo and does `init` -> `remote add` -> `fetch
+master` -> `checkout -B master` -> `branch --set-upstream-to` -> **`git clean -fd`**, leaving a folder a
+person can use git in BY HAND (`git pull` with no arguments works, and so do `log`, `diff` and `revert`).
+**Not `--depth 1`.** A shallow repo can pull but is a stub for everything else - one commit of history,
+nothing to diff or roll back to - and it costs about 8.7 MB and one second to do properly, nothing beside
+the `npm install` in the same script. An existing shallow clone from the older installer is deepened with
+`fetch --unshallow`. **The trigger is `Test-GitHealthy`, not `Test-Path .git`**: linking is several steps
+and any of them can fail, and what that leaves behind is a `.git` with no commit and no upstream - which the
+old bare existence check read as "already a clone" FOREVER, so the folder could never repair itself and
+setup reported it was fine. Healthy now means all three of: a checked-out commit, an `origin` remote, and
+upstream tracking. The clean is load-bearing twice over: it removes files
 the old ZIP shipped that the release renamed away (`install.bat`/`install.ps1`/`launch.ps1` would otherwise sit
 beside the new ones) AND it leaves the tree CLEAN, without which the `git pull --ff-only` behind in-app updates
 fails forever. No `-x`, so gitignored user data (config.json, modes/, decks/, .env, logs/) survives untouched.

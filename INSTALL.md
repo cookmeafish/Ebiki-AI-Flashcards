@@ -31,7 +31,11 @@ Opening the **Ebiki** shortcut does a quick check for a newer version:
 
 If you skip it, or walk away and the question times out, the app itself shows an **update banner** across the top once it opens, with **Update now**. **Later** hides it for a few hours, not forever, so an update never goes unnoticed. After updating, use **Restart now** in the banner (or close and reopen the shortcut) to finish applying it.
 
-You can also update anytime from **Settings → General → Updates**, which shows which version you're on.
+You can also update anytime from **Settings → General → Updates**, which shows which version you're on
+(for example `Ebiki 2026.08.28`).
+
+If you installed from a ZIP, the installer turns the folder into a normal Git checkout of the project, so
+`git pull` in that folder works by hand too. Your settings, learning modes and decks are left alone.
 
 ## Backing up your cards (AnkiWeb)
 
