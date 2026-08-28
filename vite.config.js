@@ -708,13 +708,17 @@ function apiPlugin() {
         // 'master' is the release branch we publish to; compare against it
         // regardless of which local branch this clone happens to sit on.
         if (req.method === 'GET') {
-          git(['rev-parse', 'HEAD'], (e1, local) => {
+          // sha AND date in one call: "which version am I on" is unanswerable from a
+          // sha alone, and the date is what a person can actually compare against
+          // "when did you push that fix".
+          git(['log', '-1', '--format=%H|%cI'], (e1, local) => {
             if (e1) { res.end(JSON.stringify({ ok: true, gitAvailable: false })); return }
+            const [headSha, headDate] = String(local || '').trim().split('|')
             git(['ls-remote', 'origin', 'master'], (e3, remoteOut) => {
-              if (e3) { res.end(JSON.stringify({ ok: true, gitAvailable: true, reachable: false })); return }
-              const localSha = (local || '').trim()
+              if (e3) { res.end(JSON.stringify({ ok: true, gitAvailable: true, reachable: false, current: (headSha || '').slice(0, 7), currentDate: headDate || '' })); return }
+              const localSha = (headSha || '').trim()
               const remoteSha = ((remoteOut || '').trim().split(/\s+/)[0]) || ''
-              res.end(JSON.stringify({ ok: true, gitAvailable: true, reachable: true, updateAvailable: !!remoteSha && remoteSha !== localSha, current: localSha.slice(0, 7), remote: remoteSha.slice(0, 7), canRestart: canSelfRestart() }))
+              res.end(JSON.stringify({ ok: true, gitAvailable: true, reachable: true, updateAvailable: !!remoteSha && remoteSha !== localSha, current: localSha.slice(0, 7), currentDate: headDate || '', remote: remoteSha.slice(0, 7), canRestart: canSelfRestart() }))
             }, 12000)
           })
         } else if (req.method === 'POST') {

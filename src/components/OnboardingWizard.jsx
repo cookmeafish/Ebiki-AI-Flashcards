@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { S } from '../styles/theme'
 import { C, RADIUS, SHADOW, FONT } from '../config/tokens'
 import { PROVIDERS } from '../config/providers'
@@ -13,7 +13,7 @@ export default function OnboardingWizard(p) {
   const {
     t, onFinish,
     appLanguage, setAppLanguage, appTheme, setAppTheme,
-    provider, setProvider, apiKeys, apiKey, setCurrentKey, providerConfig, presetModel,
+    provider, setProvider, apiKeys, apiKey, setCurrentKey, providerConfig, presetModel, validateKey,
     createMode, modeCreating,
     aiModels, setAiModels,
     intelligence, setIntelligence,
@@ -23,6 +23,41 @@ export default function OnboardingWizard(p) {
   const [modeInput, setModeInput] = useState('')
   const [creatingFirst, setCreatingFirst] = useState(false)
   const [advanced, setAdvanced] = useState(false) // emergency: custom model entry
+
+  // ── Is the key any good? ────────────────────────────────────────────────────
+  // Onboarding used to accept whatever was pasted without a word, so a typo, a
+  // half-copied key or a key from the wrong provider sailed through - and the
+  // first sign of trouble was the NEXT step failing to build the user's first
+  // study mode, which reads as "the app is broken" rather than "that key is
+  // wrong". Settings has checked keys for real for a while; this is the same
+  // check (prefix first, then a real one-token call via validateKey) at the
+  // moment the key is actually entered.
+  const [keyCheck, setKeyCheck] = useState(null)   // { state: 'checking'|'valid'|'invalid'|'unknown' }
+  const keyCheckSeq = useRef(0)                    // a stale result must never overwrite a newer paste
+  useEffect(() => {
+    const key = (apiKey || '').trim()
+    const seq = ++keyCheckSeq.current
+    if (!key) { setKeyCheck(null); return }
+    // Free and instant: the wrong provider's key can be rejected without a call.
+    if (providerConfig?.keyPrefix && !key.startsWith(providerConfig.keyPrefix)) { setKeyCheck({ state: 'invalid' }); return }
+    if (!validateKey) { setKeyCheck(null); return }
+    setKeyCheck({ state: 'checking' })
+    // Debounced, because this input is bound on every keystroke: someone typing a
+    // key by hand must not fire a request per character.
+    const timer = setTimeout(async () => {
+      let r = null
+      try { r = await validateKey(provider, key) } catch { r = null }
+      if (seq !== keyCheckSeq.current) return   // a newer key was entered while this was in flight
+      setKeyCheck(r === true ? { state: 'valid' } : r === false ? { state: 'invalid' } : { state: 'unknown' })
+    }, 700)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiKey, provider])
+  // 'unknown' means the check itself could not run (offline, a provider hiccup), so it must never
+  // read as a verdict on the key.
+  const keyStateColor = keyCheck?.state === 'valid' ? C.success
+    : keyCheck?.state === 'invalid' ? C.danger
+      : keyCheck?.state === 'unknown' ? C.warning : null
 
   // ONE pose per step, and the list must stay the same length as `steps` below: it used to be
   // one entry SHORT, so the final screen asked for poseUrls[7] === undefined and the <img> kept
@@ -127,10 +162,16 @@ export default function OnboardingWizard(p) {
             ))}
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', maxWidth: 460, margin: '16px auto 0' }}>
-            <input type="password" value={apiKey} onChange={(e) => setCurrentKey(e.target.value)} placeholder={providerConfig.placeholder} style={{ ...S.keyInput, flex: 1 }} />
+            <input type="password" value={apiKey} onChange={(e) => setCurrentKey(e.target.value)} placeholder={providerConfig.placeholder}
+              style={{ ...S.keyInput, flex: 1, ...(keyStateColor ? { borderColor: keyStateColor } : {}) }} />
             <a href={providerConfig.url} target="_blank" rel="noopener noreferrer" style={S.getKeyLink}>{t('getKey')}</a>
           </div>
-          <div style={{ fontSize: 12, color: C.inkFaint, marginTop: 8 }}>{t('obProviderNote')}</div>
+          {/* The verdict sits where the reassurance used to, so it cannot be missed. */}
+          {keyCheck?.state === 'checking' ? <div style={{ fontSize: 12, color: C.inkDim, marginTop: 8 }}>{t('keyChecking')}</div>
+            : keyCheck?.state === 'valid' ? <div style={{ fontSize: 12, color: C.success, fontWeight: 700, marginTop: 8 }}>{t('keyValid')}</div>
+              : keyCheck?.state === 'invalid' ? <div style={{ fontSize: 12, color: C.danger, fontWeight: 700, marginTop: 8 }}>{t('keyInvalid')}</div>
+                : keyCheck?.state === 'unknown' ? <div style={{ fontSize: 12, color: C.warning, marginTop: 8 }}>{t('keyCheckUnknown')}</div>
+                  : <div style={{ fontSize: 12, color: C.inkFaint, marginTop: 8 }}>{t('obProviderNote')}</div>}
           <div style={{ marginTop: 10 }}>
             <span onClick={() => setAdvanced((a) => !a)} style={{ fontSize: 11, color: C.brand, cursor: 'pointer' }}>{advanced ? '▾' : '▸'} {t('obAdvanced')}</span>
             {advanced && (

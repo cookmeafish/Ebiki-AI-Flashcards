@@ -176,9 +176,11 @@ function UpdatesCard({ t, card, fieldLabel, hint }) {
     setState('checking'); setErr(null)
     try {
       const d = await (await fetch('/api/update')).json()
+      setInfo(d)   // BEFORE the early returns: the version line is worth showing even when
+                   // the check itself could not run, which is exactly when someone is asking
+                   // "what version is this machine actually on?"
       if (!d.gitAvailable) { setState('nogit'); return }
       if (!d.reachable) { setState('offline'); return }
-      setInfo(d)
       setState(d.updateAvailable ? 'available' : 'uptodate')
     } catch (e) { setState('error'); setErr(String(e.message || e)) }
   }
@@ -194,9 +196,24 @@ function UpdatesCard({ t, card, fieldLabel, hint }) {
   // should not have to press a button to be told there is one waiting - and the
   // whole failure this guards against is an update nobody was told about.
   useEffect(() => { check() }, [])   // eslint-disable-line react-hooks/exhaustive-deps
+  // A sha alone answers nothing a person can act on, so the date rides along: it is
+  // what you compare against "when did you push that fix". Shown in the viewer's own
+  // locale rather than an ISO string.
+  const versionLine = () => {
+    if (state === 'checking' && !info) return null
+    if (info?.current) {
+      const date = info.currentDate ? new Date(info.currentDate).toLocaleDateString() : ''
+      return <div style={{ ...hint, marginTop: 0, marginBottom: 8, fontWeight: 700, color: 'var(--c-ink-dim)' }}>{t('updatesVersion', { sha: info.current, date })}</div>
+    }
+    if (state === 'nogit' || (info && !info.gitAvailable)) {
+      return <div style={{ ...hint, marginTop: 0, marginBottom: 8 }}>{t('updatesVersionUnknown')}</div>
+    }
+    return null
+  }
   return (
     <div style={card}>
       {fieldLabel(t('updatesTitle'))}
+      {versionLine()}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <button onClick={check} disabled={state === 'checking' || state === 'updating'}
           style={{ ...S.getKeyLink, fontSize: 12, opacity: (state === 'checking' || state === 'updating') ? 0.5 : 1 }}>

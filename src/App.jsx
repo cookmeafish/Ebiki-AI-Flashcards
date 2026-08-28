@@ -1839,11 +1839,33 @@ export default function App() {
   // Lightweight live key check (used by the Paste button): a single 1-token ping on the provider's
   // normal-tier model. true = the key works, false = it was rejected, null = couldn't tell (network,
   // model-specific issue). Never throws.
+  // Is this KEY good? true = accepted, false = REJECTED, null = could not tell.
+  //
+  // Deliberately NOT probeModel, which this used to delegate to. That answers a
+  // different question - "is this MODEL available?" - so it reads 403/404 as "the
+  // model is gone" and collapses everything else, INCLUDING a 401, into "unknown".
+  // A 401 is the one unambiguous "this key is wrong" signal there is, so wired to
+  // key checking it could never actually reject a bad key: a rejected key came back
+  // as "could not verify the key right now, check your connection", which sends
+  // someone off to debug a network that is working. The two classifications also
+  // disagree in the other direction - a renamed or missing MODEL says nothing at
+  // all about the key, and must not be reported as a bad one.
   const validateKey = async (prov, key) => {
     const k = (key || '').trim(); const pc = PROVIDERS[prov]
     if (!k || !pc) return null
     const id = presetModel(pc, prov, 'normal') || pc.questionModel
-    return probeModel(prov, id, k)
+    try {
+      await pc.call(k, 'ping', 'hi', id, undefined, 4)
+      return true
+    } catch (e) {
+      const msg = String(e?.message || '')
+      const status = (msg.match(/API (\d{3})/) || [])[1]
+      if (status === '401') return false                          // refused outright
+      if (status === '403' && !/model/i.test(msg)) return false    // a 403 about the model is the model's problem
+      // Providers word it differently and do not all use the same status.
+      if (/invalid[_ -]?api[_ -]?key|invalid x-api-key|unauthorized|authentication|api key not valid|incorrect api key|permission denied/i.test(msg)) return false
+      return null   // rate limit, 5xx, a missing model, no connection: says nothing about the key
+    }
   }
 
   // Gently nudge a returning (already-onboarded) user to add a key — ONCE on load, and never
@@ -10160,6 +10182,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           appTheme={appTheme} setAppTheme={setAppTheme}
           provider={provider} setProvider={setProvider}
           apiKeys={apiKeys} apiKey={apiKey} setCurrentKey={setCurrentKey} providerConfig={providerConfig}
+          validateKey={validateKey}
           presetModel={(tier) => presetModel(providerConfig, provider, tier)}
           createMode={createMode} modeCreating={modeCreating}
           aiModels={aiModels} setAiModels={setAiModels}
