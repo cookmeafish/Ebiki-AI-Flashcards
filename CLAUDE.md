@@ -279,14 +279,46 @@ the real page as loaded. Verified live: started with no server -> holding page; 
 window loaded the app by itself, no reload, no second window.
 
 
-**Updates track the `master` release branch**
+**Updates track the `master` release branch, and the offer must be IMPOSSIBLE TO MISS.**
 (the clones sit on `shared-data-dir`, so compare against `origin/master`, NOT the current branch). Launch-time
 check in `launch.ps1`: skip if `.update-snooze` (gitignored) is in the future; else `git ls-remote origin master`
-(6s timeout job, so offline never blocks) vs local HEAD; if different, a `WScript.Shell.Popup` asks (Yes ->
-`git pull --ff-only origin master` + `npm install`; No -> snooze 7 days; 60s timeout -> open normally). In-GUI:
-self-contained `UpdatesCard` in SettingsModal General uses `/api/update` (GET = `ls-remote` vs HEAD, reports
-`gitAvailable`/`reachable`/`updateAvailable`; POST = pull + npm install, `restartRequired`). A code pull needs a
-manual app restart (the dev server can't reload `vite.config.js`/deps live).
+(6s timeout job, so offline never blocks) vs local HEAD.
+**The whole design here is a bug fix, so do not simplify it back.** The offer used to be a single
+`WScript.Shell.Popup` from `launch.ps1` - a second window, in a second process, shown AFTER the splash, so it
+opened UNDERNEATH it. Three failures compounded: the question was invisible; the launch then sat frozen for the
+full 60s timeout, which reads as "this app is just incredibly slow" (measured on a real user, who never once
+saw the dialog); and when it timed out or was answered No, NOTHING ever brought it up again (7-day snooze, and
+the app's only other update surface was a manual button buried in Settings). He ran a build with a bug that was
+already fixed, for weeks. Four parts now, and each covers a different way of missing it:
+- **The question is asked INSIDE the splash** (`Ask-InSplash` in `launch.ps1` <-> `showPrompt`/`answer` in
+  `scripts/splash.hta`). One window, already on screen, focused and branded, so there is nothing left for it to
+  hide behind. Handshake files, all gitignored and cleared by `launch-ebiki.vbs` + launch.ps1's `finally`:
+  `.app-splash` (written by the HTA on load = proof there is a window to ask in; without it `Ask-InSplash`
+  returns `nosplash` and the launcher falls back to a topmost `MB_SYSTEMMODAL|MB_SETFOREGROUND` popup),
+  `.app-status` holding `PROMPT|<question>`, and `.app-answer` holding `yes`/`no`. The splash IGNORES a
+  `PROMPT|` whose text it already answered (`answeredPrompt`) - the status file still holds the question for a
+  moment after the click, and without that guard the question re-appears.
+- **The splash SAYS what the launcher is doing** (`Set-Status` -> `.app-status` -> the splash's `sub` line):
+  "Checking for updates.", "Updating Ebiki...", "Installing the update...". A slow launch now always says WHY
+  it is slow, which is the half of the report that was not about updates at all. The splash's 3-minute cap
+  measures SILENCE (any new status resets it), so an update installed at launch can take as long as it needs,
+  and a pending question holds the window open indefinitely.
+- **The running app carries the SAME offer as a banner** (App.jsx, next to the offline banners): polls
+  `/api/update` 4s after load and every 30 min, renders a brand-colored IN-FLOW bar above `<header>` (never
+  `position:fixed` - it would eat the header's clicks), and walks idle -> updating -> done -> restarting/error.
+  **"Later" hides it for 6 HOURS (`localStorage('ebiki-update-later')`), never forever** - that is the whole
+  point. Anything past `idle` ignores the snooze so a user-started update can't vanish mid-flight. The launch
+  snooze dropped 7 days -> 2 for the same reason.
+- **The app can RESTART ITSELF**, because an update nobody restarts for never happened (the dev server can't
+  reload `vite.config.js` or new deps live). `POST /api/update/restart` spawns DETACHED `scripts/relaunch.ps1`,
+  which waits for port 3000 to go quiet and then runs the ordinary `launch-ebiki.vbs`; the client closes its
+  own window (`window.ebikiWindow.close()`), which is what makes the auto-exit server die and free the port.
+  Offered only when `canRestart` (win32 + `EBIKI_AUTO_EXIT` + the launcher files exist) AND `isElectronApp` -
+  a browser tab can't close itself, so it gets the "close and reopen" wording instead.
+In-GUI: self-contained `UpdatesCard` in SettingsModal General uses `/api/update` (GET = `ls-remote` vs HEAD,
+reports `gitAvailable`/`reachable`/`updateAvailable`/`canRestart`; POST = pull + npm install, `restartRequired`,
+and clears `.update-snooze` so the launcher can't re-offer what was just installed). It checks on open rather
+than waiting for a button press.
 **ONE dev server per shortcut, and the TAB owns its lifetime.** The shortcut starts the server HIDDEN, so
 nothing on screen says it is running: closing the tab left it alive for days, still serving a
 `vite.config.js` from before the last update (that file is watch-ignored on purpose - a phantom change
@@ -309,6 +341,14 @@ already-fixed crash kept reappearing. Both halves are scoped to SHORTCUT launche
   when a server exits, or refuses to, unexpectedly. A manual `npm run dev` sets no flag: the endpoints
   still answer 204, the timer never runs, and it lives until you stop it. That is the supported way to run
   a second copy.
+**A ZIP install must be IDENTICAL to a git install, and that needs a re-exec.** `Link-ToGit` updates
+the FOLDER, but the script already running is still the one that came out of the ZIP - so everything
+after that line behaved like whatever old release the ZIP contained, while the folder afterwards looks
+perfectly current. That is how a ZIP user got no AnkiConnect from an installer that visibly succeeded,
+and why re-running it would have fixed it (nobody re-runs an installer that said it was done). setup.ps1
+now re-execs itself once from the freshly downloaded files and exits, guarded by `EBIKI_SETUP_RELINKED`
+- an ENV VAR, not a `-Switch`, because the script being started is the new one and an older copy ignores
+an unknown env var whereas an unknown switch would stop it starting at all.
 **A ZIP download is converted into a clone (`Link-ToGit`).** GitHub's "Download ZIP" folder has no `.git`, so
 BOTH update paths (launch check + Settings > Updates) silently no-op and the user is frozen on whatever that
 ZIP contained - the failure mode that had a new machine reinstalling a pre-Anki installer and reporting "it
@@ -371,6 +411,38 @@ code** (`Find-AnkiConnect`: any `addons21/*` folder whose `config.json` mentions
 "Anki Connect Plus" (code 2036732292) serve the same API and Anki marks them as CONFLICTING with 2055492159,
 so installing the original on top of one would break a working setup.
 
+## Anki setup: the add-on, and the AnkiWeb account
+Two DIFFERENT problems that both used to surface as one unhelpful "Anki is not connected" line.
+- **The AnkiConnect add-on.** Ebiki reads and writes every card through it, so a machine with Anki
+  but no add-on is not "disconnected", it is broken, and telling that user to start Anki or press
+  Refresh sends them to do the one thing that cannot help. `/api/ankiconnect` GET reports
+  `{installed, addon, base, canInstall}` (detected by SIGNATURE - a `config.json` carrying
+  `webBindPort` - never by add-on code, so a fork like "Anki Connect Plus" reads as installed and is
+  never offered a conflicting second copy); POST installs it. `renderAnkiOfflineBanner` branches on
+  that and offers **Install it for me**, then "close and reopen Anki" (add-ons load at startup only).
+  **`scripts/install-ankiconnect.ps1` is the ONE implementation**, dot-sourced by `setup.ps1` (define
+  only) and run with `-Install` by the server (prints one JSON line). Two sources with a fallback -
+  AnkiWeb, then the GitHub repo whose zip nests the files under `<repo>-master/plugin/`, so the
+  payload folder is LOCATED, never assumed - staged in TEMP and only copied into place once the
+  `webBindPort` signature is verified, so an HTML error page renamed `.zip` cannot pass. The old code
+  trusted one download and one `Test-Path __init__.py`, and a failure was a yellow line in a console
+  nobody reads. setup.ps1 now also states the end result outright either way.
+- **The AnkiWeb account.** Optional (everything works against the local collection), but until they
+  sign in the cards live on exactly one computer with no backup and nothing said so. Detected via
+  `ankiSyncAuthState()`: AnkiConnect's `sync` checks `mw.pm.sync_auth()` FIRST and raises
+  `"sync: auth not configured"` before touching anything, so the probe is FREE when signed out and a
+  normal sync when signed in - and App.jsx probes ONCE per machine (a `signed-in` answer is
+  remembered in `localStorage('ebiki-ankiweb')` and never re-probed, so that costs one sync ever).
+  Banner is an offer, never an error: create an account (opens AnkiWeb in the real browser), **Sign
+  in inside Anki**, I've signed in, Not now.
+  **Ebiki NEVER handles an AnkiWeb password, and must not start.** AnkiConnect exposes no login
+  action, and adding one would mean collecting a password in Ebiki and forwarding it - the one thing
+  a password must not go through. Anki's own Sync dialog is the secure path; all Ebiki does is remove
+  the part people actually get stuck on, which is finding the Anki window (`scripts/focus-anki.ps1`
+  via `/api/anki-focus`: main window only, title `* - Anki`, SW_RESTORE + SetForegroundWindow, same
+  never-touch-the-transient-windows rule as the Anki minimizer). The banner says so out loud.
+- Neither route is in `DATA_ROUTES` (machine-local, must work when the share is down).
+
 ## "Ask AI" mode edits (review flow)
 Cards and Study panes have an **Ask AI** box. It does NOT apply directly - `proposeModeEdit(instruction, scope)`
 (App.jsx) returns a proposal; the modal shows a **before/after word diff** (`diffWords`) with
@@ -379,7 +451,7 @@ Scopes: `cards` (fields/templates/tagRules) and `study` (questionPrompt/ratingRu
 
 ## Anki's sync toast (why it stopped covering the app)
 Anki pops a small **"Collection sync complete."** popup for a second or two after a collection sync,
-and it floats on top of Ebiki. **Read from the installed source (Anki 25.09.4), not guessed:**
+and it floats on top of Ebiki. **Read from the installed source (Anki 25.09.4; this machine now runs 26.5), not guessed:**
 - `aqt/sync.py:123` - `tooltip(parent=mw, msg=tr.sync_collection_complete())`, fired whenever a
   collection sync finishes with `out.required == out.NO_CHANGES` (the ordinary case).
 - `aqt/utils.py::tooltip()` - builds a `QLabel` and calls `lab.setWindowFlags(Qt.WindowType.ToolTip)`.

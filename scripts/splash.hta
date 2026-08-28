@@ -82,17 +82,32 @@
     position: absolute; top: 0; left: 0; height: 6px; width: 38%;
     border-radius: 4px; background: #DF2540;
   }
+  /* The update question lives HERE, not in a separate dialog. A WScript popup
+     opened UNDERNEATH this window (it is a different process, and this one is
+     shown first), so the launch just looked frozen for the whole timeout while
+     an unseen question waited for an answer. One window, one thing to look at. */
+  #ask { display: none; margin-top: 4px; }
+  body.asking { cursor: default; }
+  #ask button {
+    font-family: inherit; font-size: 12.5px; font-weight: 700;
+    padding: 7px 16px; margin-right: 8px; border-radius: 6px; cursor: pointer;
+  }
+  #ask .yes { background: #DF2540; color: #fff; border: 1px solid #C41F37; }
+  #ask .no  { background: #fff; color: #62717F; border: 1px solid #DCE3EA; }
 </style>
 </head>
 <body>
   <div class="wrap" id="wrap">
     <div class="row">
       <div class="ebi"><img src="../public/assets/shrimp/6820-holeshrimp.png" alt=""></div>
-      <div class="title">Starting Ebiki</div>
+      <div class="title" id="title">Starting Ebiki</div>
       <div class="sub" id="sub">Waking up Anki and the study server.</div>
+      <div id="ask">
+        <button class="yes" onclick="answer('yes')">Update now</button><button class="no" onclick="answer('no')">Not now</button>
+      </div>
     </div>
     <div class="clear"></div>
-    <div class="track"><div class="bar" id="bar"></div></div>
+    <div class="track" id="track"><div class="bar" id="bar"></div></div>
   </div>
 
 <script type="text/javascript">
@@ -133,10 +148,83 @@ var fso = new ActiveXObject('Scripting.FileSystemObject');
 var htaPath = unescape(location.href).replace(/^file:\/+/, '').replace(/\//g, String.fromCharCode(92));
 var appDir = fso.GetParentFolderName(fso.GetParentFolderName(htaPath));
 var readyFile = fso.BuildPath(appDir, '.app-ready');
+// scripts/launch.ps1 writes a one-line description of whatever it is doing right
+// now into this file. Showing it is the whole point: a launch that pauses to
+// check for an update, waits on the update question, or spends a minute running
+// npm install is INDISTINGUISHABLE from an app that is just slow - which is
+// exactly how someone sat through long start-ups for weeks without ever
+// realising an update was waiting for him.
+var statusFile = fso.BuildPath(appDir, '.app-status');
+var lastStatus = '';
+
+// The update question is ASKED IN HERE. It used to be a WScript.Shell popup from
+// launch.ps1, which is a separate process shown after this window - so it opened
+// UNDERNEATH the splash and the launch looked frozen for the whole timeout while
+// an invisible question waited for an answer, which is exactly how people ended
+// up running old builds for weeks. Two files carry the conversation:
+//   .app-splash  - written here on load, so the launcher knows there is a window
+//                  to ask in and can fall back to its own dialog if there isn't;
+//   .app-answer  - written on click ('yes' / 'no'), which the launcher polls for.
+var answerFile = fso.BuildPath(appDir, '.app-answer');
+try { fso.CreateTextFile(fso.BuildPath(appDir, '.app-splash'), true).Close(); } catch (e) {}
+var prompting = false;
+var answeredPrompt = null;   // the question already answered: the status file still
+                             // holds it for a moment after the click, and without
+                             // this the next poll would ask it all over again
+
+function answer(v) {
+  if (!prompting) return;
+  answeredPrompt = document.getElementById('sub').innerText;
+  try { var f = fso.CreateTextFile(answerFile, true); f.Write(v); f.Close(); } catch (e) {}
+  prompting = false;
+  document.getElementById('ask').style.display = 'none';
+  document.getElementById('track').style.display = 'block';
+  document.getElementById('title').innerText = 'Starting Ebiki';
+  document.body.className = '';
+  lastStatus = '';   // so the launcher's next status line is shown even if it repeats
+  showStatus(v === 'yes' ? 'Updating Ebiki. This can take a minute, please wait.' : 'Starting Ebiki.');
+}
+
+function showPrompt(txt) {
+  if (prompting) return;
+  prompting = true;
+  document.getElementById('title').innerText = 'Update available';
+  document.getElementById('sub').innerText = txt;
+  document.getElementById('ask').style.display = 'block';
+  document.getElementById('track').style.display = 'none';
+  document.body.className = 'asking';
+  fitWindow();
+  try { window.focus(); } catch (e) {}
+}
+
+function readStatus() {
+  try {
+    if (!fso.FileExists(statusFile)) return '';
+    var f = fso.OpenTextFile(statusFile, 1);
+    var txt = f.AtEndOfStream ? '' : f.ReadLine();
+    f.Close();
+    return txt.replace(/^\s+|\s+$/g, '');
+  } catch (e) { return ''; }   // being written to right now - try again next tick
+}
+
+function showStatus(txt) {
+  if (txt === lastStatus) return;
+  lastStatus = txt;
+  // Fresh news means the launcher is alive and working, so the give-up timer
+  // below measures SILENCE rather than total time. Without this, a launch that
+  // legitimately takes longer than the cap (the update question, then a pull and
+  // an npm install) would lose its splash halfway through and look like a crash.
+  waited = 0;
+  document.getElementById('sub').innerText = txt;
+  // The window was fitted to the OPENING line; a longer message wraps, and
+  // body{overflow:hidden} would quietly clip it.
+  fitWindow();
+}
 
 var waited = 0;
-var STEP = 250, LIMIT = 180000;  // never linger past 3 min, whatever happened (an
-                                 // update offered at launch runs npm install first)
+var STEP = 250, LIMIT = 180000;  // give up after 3 min of SILENCE (see showStatus:
+                                 // any new status line resets this), so an update
+                                 // installed at launch can take as long as it needs
 
 function done() { try { window.close(); } catch (e) {} }
 
@@ -144,15 +232,25 @@ function tick() {
   waited += STEP;
   try { if (fso.FileExists(readyFile)) return done(); } catch (e) {}
   if (waited > LIMIT) return done();
+  // A prompt holds the window open for as long as it takes: a question nobody
+  // has answered yet must never be closed out from under the person reading it.
+  if (prompting) { waited = 0; window.setTimeout(tick, STEP); return; }
+  var status = readStatus();
+  if (status.substring(0, 7) === 'PROMPT|') {
+    var question = status.substring(7);
+    if (question !== answeredPrompt) showPrompt(question);
+  } else if (status) showStatus(status);
   // Say something instead of looking stuck. Deliberately names NO single cause:
   // this used to claim "the first start takes a little longer", which is wrong
   // every time the wait is just a slower computer (or a busy one, or a cold
   // disk) rather than a first run. Re-fit afterwards - fitWindow() ran once at
   // load, against the SHORTER opening line, and body{overflow:hidden} would
   // quietly clip a message that now wraps to a second line.
-  if (waited === 12000) {
-    document.getElementById('sub').innerHTML = 'Almost there. First starts and slower computers take a bit longer.';
-    fitWindow();
+  // Only when the launcher has not said anything more specific - a real status
+  // (checking for updates, installing one, waiting on the update question)
+  // always beats a generic "hang on".
+  if (waited >= 12000 && !status) {
+    showStatus('Almost there. First starts and slower computers take a bit longer.');
   }
   window.setTimeout(tick, STEP);
 }
