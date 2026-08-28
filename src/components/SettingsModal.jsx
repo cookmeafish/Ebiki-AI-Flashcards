@@ -190,6 +190,10 @@ function UpdatesCard({ t, card, fieldLabel, hint }) {
       setState('done')
     } catch (e) { setState('error'); setErr(String(e.message || e)) }
   }
+  // Check as soon as this pane is opened. Someone who came looking for updates
+  // should not have to press a button to be told there is one waiting - and the
+  // whole failure this guards against is an update nobody was told about.
+  useEffect(() => { check() }, [])   // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div style={card}>
       {fieldLabel(t('updatesTitle'))}

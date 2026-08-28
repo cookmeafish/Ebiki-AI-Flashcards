@@ -24,15 +24,11 @@ export default function OnboardingWizard(p) {
   const [creatingFirst, setCreatingFirst] = useState(false)
   const [advanced, setAdvanced] = useState(false) // emergency: custom model entry
 
-  const poses = ['default', 'book', 'artist', 'science', 'science', 'book', 'party']
+  // ONE pose per step, and the list must stay the same length as `steps` below: it used to be
+  // one entry SHORT, so the final screen asked for poseUrls[7] === undefined and the <img> kept
+  // painting the previous step's pose.
+  const poses = ['default', 'book', 'artist', 'science', 'science', 'book', 'artist', 'party']
   const poseUrls = useMemo(() => poses.map((n) => shrimpUrl(poseFile(n) || DEFAULT_SHRIMP)), [])
-  // Preload + decode every step's pose on mount. Swapping an <img src> keeps painting the OLD
-  // bitmap until the new file is fetched and decoded, so Ebi visibly lagged a beat behind the
-  // text of the next step. Warmed in cache, the swap lands in the same paint as the new copy.
-  useEffect(() => {
-    poseUrls.forEach((u) => { const im = new Image(); im.src = u; im.decode?.().catch(() => {}) })
-  }, [poseUrls])
-  const ebi = poseUrls[step]
 
   const steps = ['welcome', 'language', 'appearance', 'launch', 'provider', 'intelligence', 'mode', 'finish']
   const last = steps.length - 1
@@ -212,7 +208,18 @@ export default function OnboardingWizard(p) {
         background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg,
         boxShadow: SHADOW.xl, padding: '34px 30px 26px', animation: 'pop .2s cubic-bezier(.34,1.56,.64,1)',
       }}>
-        <img src={ebi} alt="Ebi" decoding="sync" style={{ width: 96, height: 96, objectFit: 'contain', animation: 'floaty 4s ease-in-out infinite' }} />
+        {/* EVERY pose is mounted at once and only its visibility flips, so Ebi changes in the SAME
+            paint as the step's text. Swapping a single <img src> could not do that even with the
+            file preloaded: the new bitmap still has to be decoded for THAT element, so the old
+            pose stayed on screen for a frame or two after the copy had already changed. Mounted
+            images are decoded and painted once, up front, and `visibility` costs no decode at all.
+            The floaty animation lives on the wrapper so it never restarts mid-swap. */}
+        <div style={{ position: 'relative', width: 96, height: 96, margin: '0 auto', animation: 'floaty 4s ease-in-out infinite' }}>
+          {poseUrls.map((u, i) => (
+            <img key={u + i} src={u} alt={i === step ? 'Ebi' : ''} decoding="sync" aria-hidden={i !== step}
+              style={{ position: 'absolute', inset: 0, width: 96, height: 96, objectFit: 'contain', visibility: i === step ? 'visible' : 'hidden' }} />
+          ))}
+        </div>
         <Body />
         {/* Footer nav (hidden on welcome/finish which have their own primary button) */}
         {step > 0 && step < last && (

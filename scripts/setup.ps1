@@ -76,23 +76,22 @@ function Test-AnkiInstalled {
   return $false
 }
 
-# Find an installed AnkiConnect by its SIGNATURE, not by add-on code: several
-# forks expose the same API (e.g. "Anki Connect Plus", code 2036732292) and
-# Anki flags them as CONFLICTING with the original, so installing 2055492159 on
-# top of one would break a working setup. Every variant ships a config.json with
-# webBindPort, which is the thing Ebiki actually talks to.
-function Find-AnkiConnect($base) {
-  $dir = Join-Path $base 'addons21'
-  if (-not (Test-Path $dir)) { return $null }
-  foreach ($d in (Get-ChildItem $dir -Directory -ErrorAction SilentlyContinue)) {
-    $cfg = Join-Path $d.FullName 'config.json'
-    if ((Test-Path (Join-Path $d.FullName '__init__.py')) -and (Test-Path $cfg)) {
-      $txt = Get-Content $cfg -Raw -ErrorAction SilentlyContinue
-      if ($txt -and $txt -match 'webBindPort') { return $d }
-    }
-  }
-  return $null
+# Finding and installing AnkiConnect lives in ONE place, shared with the dev
+# server's in-app repair button (see scripts/install-ankiconnect.ps1). Dot-sourced
+# without -Install, so this only defines Find-AnkiConnect / Install-AnkiConnect.
+# The installer and the repair button drifting apart is exactly how one of them
+# ends up subtly broken while the other looks fine.
+# Guarded: the Anki section is fail-soft on purpose (the app runs without Anki),
+# so a missing helper must degrade to a warning rather than dot-sourcing at top
+# level, throwing outside every try, and killing an otherwise fine install.
+$acHelper = Join-Path $PSScriptRoot 'install-ankiconnect.ps1'
+if (Test-Path $acHelper) {
+  . $acHelper
+} else {
+  function Find-AnkiConnect($base) { return $null }
+  function Install-AnkiConnect($addonDir) { throw 'scripts/install-ankiconnect.ps1 is missing from this copy' }
 }
+
 # meta.json holds the display name and the enabled flag Anki manages.
 function Get-AddonMeta($dir) {
   try { return (Get-Content (Join-Path $dir.FullName 'meta.json') -Raw | ConvertFrom-Json) } catch { return $null }
@@ -194,6 +193,24 @@ try {
     try {
       $sha = Link-ToGit $app 'https://github.com/cookmeafish/Ebiki-AI-Flashcards.git'
       Ok "Linked and updated to the latest release ($sha). Your settings, modes and decks were untouched."
+      # START OVER with the files we just downloaded. THIS IS THE POINT OF THE WHOLE BLOCK.
+      # Linking updates the FOLDER, but the script already running is still the one that came
+      # out of the ZIP - so everything after this line behaved like whatever old release that
+      # ZIP happened to contain, while the folder afterwards looks perfectly up to date. That is
+      # how a ZIP user got no Anki/AnkiConnect step from an installer that visibly "succeeded",
+      # and why re-running the installer would have fixed it (nobody re-runs an installer that
+      # said it was done). Re-exec once so a ZIP install and a git install run IDENTICAL code.
+      # Guarded by an environment variable rather than a parameter: the script being started is
+      # the freshly downloaded one, and an env var an older copy does not know about is simply
+      # ignored, whereas an unknown -Switch would make it fail to start at all.
+      if ($env:EBIKI_SETUP_RELINKED -ne '1') {
+        Section 'Restarting setup with the updated files'
+        Info 'So this install is identical to a git one.'
+        $env:EBIKI_SETUP_RELINKED = '1'
+        try { Stop-Transcript | Out-Null } catch {}
+        & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $app 'scripts\setup.ps1')
+        exit $LASTEXITCODE
+      }
     } catch {
       Warn "Could not link this folder ($($_.Exception.Message)). The app runs fine; to get updates later, clone with git instead of downloading the ZIP."
     }
@@ -241,27 +258,20 @@ try {
     # or skipped Anki install must not also cost the user the add-on.
     if (-not $ankiOk) { Warn 'Anki is not here yet; installing the add-on anyway so it is ready when Anki is.' }
     try {
-      Info 'Downloading AnkiConnect from AnkiWeb...'
-      # Same endpoint Anki's own "Browse & Install" uses; p = client point version.
-      $url = 'https://ankiweb.net/shared/download/2055492159?v=2.1&p=250600'
-      $zip = Join-Path $env:TEMP 'ebiki-ankiconnect.zip'   # must end in .zip for Expand-Archive
-      try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
-      Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
-      New-Item -ItemType Directory -Force -Path $addonDir | Out-Null
-      Expand-Archive -Path $zip -DestinationPath $addonDir -Force
-      Remove-Item $zip -Force -ErrorAction SilentlyContinue
-      if (-not (Test-Path (Join-Path $addonDir '__init__.py'))) { throw 'the downloaded add-on looked empty' }
-      # Anki writes this itself on first load; seeding it just makes the add-on
-      # list show a real name. No "config" key, so AnkiConnect's own defaults win
-      # (127.0.0.1:8765 - which is exactly what Ebiki's server talks to).
-      '{ "name": "AnkiConnect", "mod": 0, "disabled": false }' | Set-Content (Join-Path $addonDir 'meta.json') -Encoding UTF8
-      Ok 'AnkiConnect installed.'
+      $from = Install-AnkiConnect $addonDir
+      Ok "AnkiConnect installed from $from into $addonDir"
       if ($ankiRunning) { Warn 'Anki is running right now: close and reopen it so the add-on loads.' }
     } catch {
       Warn "Could not install AnkiConnect automatically ($($_.Exception.Message))."
-      Warn 'Add it by hand in Anki: Tools > Add-ons > Get Add-ons, code 2055492159.'
+      Warn 'Ebiki can install it for you later: open Ebiki and use the button on the "Anki is not connected" notice.'
+      Warn 'Or add it by hand in Anki: Tools > Add-ons > Get Add-ons, code 2055492159.'
     }
   }
+  # State the end result plainly, whatever happened above. A success that was only
+  # implied is what made "it did not install AnkiConnect" impossible to confirm
+  # from the installer window or from logs/install.log afterwards.
+  if (Find-AnkiConnect $ankiBase) { Ok 'Verified: the add-on Ebiki talks to is in place.' }
+  else { Warn 'AnkiConnect is still NOT installed. Open Ebiki and use the button on the "Anki is not connected" notice to install it.' }
 
   # 5) Dependencies (the npm environment) ------------------------------------
   Section 'Installing dependencies (npm install)'

@@ -23,6 +23,64 @@ $readyFile = Join-Path $app '.app-ready'
 function Signal-AppReady {
   try { New-Item -ItemType File -Path $readyFile -Force | Out-Null } catch {}
 }
+# The splash also SAYS what is happening. Everything this script does is
+# invisible, so a launch that stops to check for an update, or that spends a
+# minute running `npm install` for one, looked exactly like an app that was
+# simply slow - which is how a user sat through a long start every single day
+# without ever learning there was an update waiting that would have fixed his
+# problem. The splash polls this file and shows whatever is in it, so a slow
+# launch always says WHY it is slow. Best effort: a status that fails to write
+# just leaves the generic opening line on screen.
+$statusFile = Join-Path $app '.app-status'
+function Set-Status($text) {
+  # ASCII on purpose: the splash reads this with FileSystemObject, which would
+  # render a UTF-8 BOM as visible junk at the start of the line. Every message
+  # here is plain ASCII, so nothing is lost.
+  try { Set-Content -Path $statusFile -Value $text -Encoding ASCII -ErrorAction Stop } catch {}
+}
+function Clear-Status {
+  try { Remove-Item $statusFile -Force -ErrorAction SilentlyContinue } catch {}
+}
+
+# Ask a yes/no question INSIDE the splash, instead of popping a second window.
+# This is the whole fix for the missed update: a WScript.Shell popup is its own
+# window in its own process, shown AFTER the splash, so it opened underneath the
+# splash - the launch simply appeared to freeze for the timeout while an
+# invisible question waited for an answer, and when it timed out nothing ever
+# mentioned the update again. The splash is already on screen, focused and
+# branded, so the question belongs there. Two files carry it: the splash writes
+# .app-splash when it loads (proof there is a window to ask in), and .app-answer
+# when a button is clicked.
+# Returns 'yes' | 'no' | 'timeout' | 'nosplash'.
+$splashMarker = Join-Path $app '.app-splash'
+$answerFile = Join-Path $app '.app-answer'
+function Ask-InSplash($text, $timeoutSec) {
+  try { Remove-Item $answerFile -Force -ErrorAction SilentlyContinue } catch {}
+  # The splash is started a fraction of a second before this script and paints in
+  # a few hundred ms, but never assume it: give it a moment to announce itself and
+  # otherwise report back so the caller can use its own dialog.
+  $wait = (Get-Date).AddSeconds(3)
+  while (-not (Test-Path $splashMarker) -and (Get-Date) -lt $wait) { Start-Sleep -Milliseconds 150 }
+  if (-not (Test-Path $splashMarker)) { return 'nosplash' }
+  Set-Status "PROMPT|$text"
+  $deadline = (Get-Date).AddSeconds($timeoutSec)
+  while ((Get-Date) -lt $deadline) {
+    if (Test-Path $answerFile) {
+      $v = ''
+      try { $v = (Get-Content $answerFile -Raw -ErrorAction Stop).Trim() } catch {}
+      if ($v) {
+        try { Remove-Item $answerFile -Force -ErrorAction SilentlyContinue } catch {}
+        # Take the question back down straight away. The splash guards against
+        # re-asking an answered question too, but leaving PROMPT| sitting in the
+        # status file is asking for it to be shown again by some later reader.
+        Set-Status 'Starting Ebiki.'
+        if ($v -eq 'yes') { return 'yes' } else { return 'no' }
+      }
+    }
+    Start-Sleep -Milliseconds 200
+  }
+  return 'timeout'
+}
 # Hold the splash until the window Electron just spawned actually paints (it
 # writes the marker itself). Bounded by that process exiting - a second launch
 # quits immediately after focusing the window that is already open - and by a
@@ -148,6 +206,7 @@ function Start-AnkiIfNeeded {
       '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $minimizer)
   }
 }
+Set-Status 'Waking up Anki and the study server.'
 try { Start-AnkiIfNeeded } catch {}
 
 # ── Open Ebiki as its own chrome-free window ────────────────────────────────
@@ -265,13 +324,17 @@ if (-not $hasNode) {
 # ── Quick, seamless update check ────────────────────────────────────────────
 function Check-Update {
   $snooze = Join-Path $app '.update-snooze'
-  # Snoozed (user said "not now" within the last week)? Skip silently.
+  # Snoozed (the user said "not now" recently)? Skip silently. Deliberately
+  # SHORT (2 days, it used to be 7): this popup is no longer the only offer -
+  # the running app carries an update banner of its own - but a week of total
+  # silence at launch is still how an update goes unnoticed for a fortnight.
   if (Test-Path $snooze) {
     try { if ([datetime]::Parse((Get-Content $snooze -Raw)) -gt (Get-Date)) { return } } catch {}
   }
   if (-not (Get-Command git -ErrorAction SilentlyContinue)) { return }
   $local = (& git -C $app rev-parse HEAD 2>$null)
   if (-not $local) { return }
+  Set-Status 'Checking for updates.'
 
   # Compare against 'master' (the release branch), whatever local branch this
   # clone is on. Look up just its remote head (fast, refs only) with a hard 6s
@@ -284,18 +347,33 @@ function Check-Update {
   $remote = (($line | Select-Object -First 1) -split '\s+')[0]
   if (-not $remote -or $remote -eq $local) { return }  # up to date -> open normally
 
-  # Update available -> ask. Auto-dismisses to "open normally" after 60s.
-  $ans = (New-Object -ComObject WScript.Shell).Popup(
-    "A new version of Ebiki is available.`n`nUpdate now? It only takes a few seconds.",
-    60, 'Ebiki update', 4 + 32)   # 4 = Yes/No, 32 = question icon
-  if ($ans -eq 6) {                                # Yes
+  # Update available -> ask IN THE SPLASH (see Ask-InSplash). One window, already
+  # on screen and in front, so there is nothing left for the question to hide
+  # behind.
+  $msg = 'A new version of Ebiki is ready. Updating usually takes under a minute, and Ebiki opens straight after.'
+  $ans = Ask-InSplash $msg 90
+  if ($ans -eq 'nosplash') {
+    # No splash to ask in (mshta missing, or this script run on its own). Fall back
+    # to a dialog - TOPMOST (4096 = MB_SYSTEMMODAL) and brought to the front
+    # (65536 = MB_SETFOREGROUND) so at least it cannot end up behind something.
+    $r = (New-Object -ComObject WScript.Shell).Popup(
+      "$msg`n`nUpdate now?",
+      60, 'Ebiki update', 4 + 32 + 4096 + 65536)   # 4 = Yes/No, 32 = question icon
+    $ans = if ($r -eq 6) { 'yes' } elseif ($r -eq 7) { 'no' } else { 'timeout' }
+  }
+  if ($ans -eq 'yes') {
+    Set-Status 'Updating Ebiki. This can take a minute, please wait.'
     & git -C $app pull --ff-only origin master 2>&1 | Out-Null
+    Set-Status 'Installing the update. Almost done.'
     & cmd /c "cd /d ""$app"" && npm install --no-fund --no-audit" 2>&1 | Out-Null
     Remove-Item $snooze -Force -ErrorAction SilentlyContinue
-  } elseif ($ans -eq 7) {                          # No -> don't ask again for a week
-    (Get-Date).AddDays(7).ToString('o') | Set-Content $snooze
+  } elseif ($ans -eq 'no') {                       # stay quiet for a couple of days
+    (Get-Date).AddDays(2).ToString('o') | Set-Content $snooze
   }
-  # -1 (timed out) -> just open normally, ask again next time
+  # 'timeout' (nobody was at the computer) -> open normally. Nothing is lost: the
+  # app itself carries the same offer as a banner once it is up, and keeps
+  # bringing it back, which is the guarantee this question alone never gave.
+  Set-Status 'Starting the study server.'
 }
 try { Check-Update } catch {}
 
@@ -310,11 +388,13 @@ try { Check-Update } catch {}
 # would additionally pop a plain browser tab next to it. All inherited by the
 # child process via the environment.
 $env:EBIKI_AUTO_EXIT = '1'
+Set-Status 'Starting the study server.'
 Start-Process -FilePath 'cmd.exe' -ArgumentList '/c', 'npm run dev' -WorkingDirectory $app -WindowStyle Hidden
 $deadline = (Get-Date).AddSeconds(60)
 do { Start-Sleep -Milliseconds 800 } until (
   (Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyContinue) -or ((Get-Date) -gt $deadline)
 )
+Set-Status 'Opening Ebiki.'
 Wait-AppReady (Open-App)
 
 }
@@ -323,6 +403,9 @@ finally {
   # splash must never be left sitting on screen. Idempotent - on the normal
   # path Electron already wrote the marker itself.
   Signal-AppReady
+  Clear-Status
+  try { Remove-Item $answerFile -Force -ErrorAction SilentlyContinue } catch {}
+  try { Remove-Item $splashMarker -Force -ErrorAction SilentlyContinue } catch {}
   # Release only once the server is up (or gave up), so a second launcher that
   # was waiting sees a listening port rather than deciding to start its own.
   if ($held) { try { $mutex.ReleaseMutex() } catch {} }

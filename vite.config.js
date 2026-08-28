@@ -4,6 +4,7 @@ import fs from 'fs'
 import path from 'path'
 import http from 'http'
 import crypto from 'crypto'
+import os from 'os'
 import { spawn, execFile } from 'child_process'
 
 const ENV_FILE = path.resolve('.env')   // machine-local on purpose: API keys stay per computer
@@ -673,8 +674,37 @@ function apiPlugin() {
       // All git runs in APP_ROOT (wherever the app was installed), never a fixed
       // path. `available:false` also covers "git not installed" so the UI degrades.
       const git = (args, cb, timeout = 15000) => execFile('git', args, { cwd: APP_ROOT, timeout, windowsHide: true }, cb)
+      // Can this machine restart ITSELF after an update? An update only really lands on a
+      // restart (the dev server can't reload vite.config.js or new deps live), and "close and
+      // reopen it yourself" is exactly the step a non-technical user skips, so the app offers
+      // to do it. Only possible when the shortcut owns the server's lifetime (EBIKI_AUTO_EXIT,
+      // so it exits with the last page and frees port 3000) and the launcher is there to start
+      // the new one. Anything else falls back to the manual wording.
+      const RELAUNCH_VBS = path.join(APP_ROOT, 'launch-ebiki.vbs')
+      const RELAUNCH_PS1 = path.join(APP_ROOT, 'scripts', 'relaunch.ps1')
+      const canSelfRestart = () => process.platform === 'win32' && process.env.EBIKI_AUTO_EXIT === '1' &&
+        fs.existsSync(RELAUNCH_VBS) && fs.existsSync(RELAUNCH_PS1)
       server.middlewares.use('/api/update', (req, res) => {
         res.setHeader('Content-Type', 'application/json')
+        const sub = (req.url || '').split('?')[0].replace(/\/+$/, '') || '/'
+        // POST /api/update/restart — hand the relaunch to a DETACHED helper and answer at once.
+        // It can't be done in-process: this server is what has to die first, so the thing that
+        // starts the next one must outlive it. relaunch.ps1 waits for port 3000 to go quiet
+        // (the client closes its window as soon as this responds) and then runs the ordinary
+        // launcher, so the restart is the same code path as a normal shortcut click.
+        if (sub === '/restart') {
+          if (req.method !== 'POST') { res.statusCode = 405; res.end(JSON.stringify({ error: 'method' })); return }
+          if (!canSelfRestart()) { res.end(JSON.stringify({ ok: false, error: 'restart not available here' })); return }
+          try {
+            spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', RELAUNCH_PS1],
+              { cwd: APP_ROOT, detached: true, stdio: 'ignore', windowsHide: true }).unref()
+            console.log('[Update] relaunch helper spawned')
+            res.end(JSON.stringify({ ok: true }))
+          } catch (e) {
+            res.end(JSON.stringify({ ok: false, error: String(e.message || e).slice(0, 300) }))
+          }
+          return
+        }
         // 'master' is the release branch we publish to; compare against it
         // regardless of which local branch this clone happens to sit on.
         if (req.method === 'GET') {
@@ -684,7 +714,7 @@ function apiPlugin() {
               if (e3) { res.end(JSON.stringify({ ok: true, gitAvailable: true, reachable: false })); return }
               const localSha = (local || '').trim()
               const remoteSha = ((remoteOut || '').trim().split(/\s+/)[0]) || ''
-              res.end(JSON.stringify({ ok: true, gitAvailable: true, reachable: true, updateAvailable: !!remoteSha && remoteSha !== localSha, current: localSha.slice(0, 7), remote: remoteSha.slice(0, 7) }))
+              res.end(JSON.stringify({ ok: true, gitAvailable: true, reachable: true, updateAvailable: !!remoteSha && remoteSha !== localSha, current: localSha.slice(0, 7), remote: remoteSha.slice(0, 7), canRestart: canSelfRestart() }))
             }, 12000)
           })
         } else if (req.method === 'POST') {
@@ -692,10 +722,108 @@ function apiPlugin() {
             if (e) { res.end(JSON.stringify({ ok: false, error: String(err || e.message || 'git pull failed').slice(0, 600) })); return }
             // Dependencies may have changed - run npm install (fast if nothing did).
             execFile(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['install', '--no-audit', '--no-fund'], { cwd: APP_ROOT, timeout: 300000, windowsHide: true }, () => {
-              res.end(JSON.stringify({ ok: true, updated: true, restartRequired: true, output: String(out || '').slice(0, 600) }))
+              // The launch-time popup must not re-offer an update the app just installed.
+              try { fs.rmSync(path.join(APP_ROOT, '.update-snooze'), { force: true }) } catch { /* nothing to clear */ }
+              res.end(JSON.stringify({ ok: true, updated: true, restartRequired: true, canRestart: canSelfRestart(), output: String(out || '').slice(0, 600) }))
             })
           }, 120000)
         } else { res.statusCode = 405; res.end('') }
+      })
+
+
+      // ── AnkiConnect: is the add-on there, and put it there if not ────────
+      // Ebiki reads and writes every card through AnkiConnect, so a machine with
+      // Anki but no add-on shows nothing but "Anki is not connected" and reads as
+      // Ebiki being broken. The installer sets it up, but an installer only runs
+      // once and can miss (a ZIP download running an older setup script, a
+      // download blocked by a proxy or antivirus, someone who installed Anki
+      // afterwards), and nobody re-runs an installer that said it was finished.
+      // So the APP can check and repair it, which is the only path that does not
+      // depend on the install having gone right.
+      // NOT in DATA_ROUTES on purpose, same as /api/datadir and /api/launchmode:
+      // this is machine-local and has to work when the shared folder is down.
+      const ankiBaseDir = () => process.env.ANKI_BASE || (
+        process.platform === 'win32' ? path.join(process.env.APPDATA || '', 'Anki2')
+          : process.platform === 'darwin' ? path.join(os.homedir(), 'Library', 'Application Support', 'Anki2')
+            : path.join(os.homedir(), '.local', 'share', 'Anki2'))
+      // By SIGNATURE (a config.json carrying webBindPort), never by add-on code:
+      // forks like "Anki Connect Plus" serve the same API and Anki marks them as
+      // CONFLICTING with the original, so a machine running one must be reported
+      // as already having it rather than offered a second, conflicting copy.
+      const findAnkiConnect = () => {
+        try {
+          const dir = path.join(ankiBaseDir(), 'addons21')
+          for (const name of fs.readdirSync(dir)) {
+            const d = path.join(dir, name)
+            const cfg = path.join(d, 'config.json')
+            if (!fs.existsSync(path.join(d, '__init__.py')) || !fs.existsSync(cfg)) continue
+            if (!/webBindPort/.test(fs.readFileSync(cfg, 'utf-8'))) continue
+            let meta = {}
+            try { meta = JSON.parse(fs.readFileSync(path.join(d, 'meta.json'), 'utf-8')) } catch { /* Anki writes it on first load */ }
+            return { dir: d, name: meta.name || name, disabled: !!meta.disabled }
+          }
+        } catch { /* no Anki folder yet = not installed */ }
+        return null
+      }
+      server.middlewares.use('/api/ankiconnect', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+        const script = path.join(APP_ROOT, 'scripts', 'install-ankiconnect.ps1')
+        if (req.method === 'GET') {
+          const found = findAnkiConnect()
+          res.end(JSON.stringify({
+            ok: true,
+            installed: !!found,
+            addon: found,
+            base: ankiBaseDir(),
+            // Whether we can do anything about it from here. The installer script
+            // is PowerShell, so on any other platform the UI must give
+            // instructions instead of a button that cannot work.
+            canInstall: process.platform === 'win32' && fs.existsSync(script),
+          }))
+          return
+        }
+        if (req.method !== 'POST') { res.statusCode = 405; res.end(JSON.stringify({ error: 'method' })); return }
+        if (process.platform !== 'win32' || !fs.existsSync(script)) {
+          res.end(JSON.stringify({ ok: false, error: 'automatic install is only available on Windows' }))
+          return
+        }
+        // The SAME script the installer uses (scripts/install-ankiconnect.ps1), so
+        // the two can never drift. It prints one JSON line; anything else it wrote
+        // is console noise.
+        execFile('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script, '-Install'],
+          { cwd: APP_ROOT, timeout: 120000, windowsHide: true }, (err, stdout, stderr) => {
+            const line = String(stdout || '').trim().split(/\r?\n/).filter(Boolean).pop()
+            let parsed = null
+            try { parsed = JSON.parse(line) } catch { /* fall through to the error below */ }
+            if (!parsed) {
+              console.warn('[AnkiConnect] install produced no result:', String(stderr || err || '').slice(0, 300))
+              res.end(JSON.stringify({ ok: false, error: String(stderr || (err && err.message) || 'the install did not report a result').slice(0, 400) }))
+              return
+            }
+            console.log('[AnkiConnect] install:', line)
+            res.end(JSON.stringify(parsed))
+          })
+      })
+
+
+      // Bring Anki's window forward. Ebiki never handles an AnkiWeb password (see
+      // scripts/focus-anki.ps1), so signing in happens in Anki's own dialog - this
+      // just removes the part people actually get stuck on, which is finding the
+      // Anki window. Machine-local, so not in DATA_ROUTES.
+      server.middlewares.use('/api/anki-focus', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+        if (req.method !== 'POST') { res.statusCode = 405; res.end(JSON.stringify({ error: 'method' })); return }
+        const script = path.join(APP_ROOT, 'scripts', 'focus-anki.ps1')
+        if (process.platform !== 'win32' || !fs.existsSync(script)) {
+          res.end(JSON.stringify({ ok: false, reason: 'unsupported' }))
+          return
+        }
+        execFile('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script],
+          { cwd: APP_ROOT, timeout: 15000, windowsHide: true }, (err, stdout) => {
+            const line = String(stdout || '').trim().split(/\r?\n/).filter(Boolean).pop()
+            try { res.end(JSON.stringify(JSON.parse(line))) }
+            catch { res.end(JSON.stringify({ ok: false, reason: 'no-window' })) }
+          })
       })
 
       // API keys endpoint
@@ -801,7 +929,8 @@ function apiPlugin() {
       // already uses): the client keeps its last good data, shows the offline
       // banner, and never writes an empty default back over the real files.
       // NOT guarded on purpose: /api/datadir (the way back to the app folder),
-      // /api/keys, /api/log, /api/anki, /api/update, /api/web-search, /api/tts.
+      // /api/keys, /api/log, /api/anki, /api/update, /api/ankiconnect, /api/anki-focus,
+      // /api/web-search, /api/tts.
       const DATA_ROUTES = ['/config', '/ankiformat', '/modes', '/knowledge-sections', '/deck-progress', '/discover-store', '/chats', '/chat-load']
       server.middlewares.use('/api', (req, res, next) => {
         const p = (req.url || '').split('?')[0].replace(/\/+$/, '') || '/'

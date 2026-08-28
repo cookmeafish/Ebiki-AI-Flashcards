@@ -24,4 +24,7 @@ planned-features.md
 discover-mode-plan.md
 .claude/worktrees/
 .app-ready
+.app-status
+.app-answer
+.app-splash
 launchmode.json

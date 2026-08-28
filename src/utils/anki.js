@@ -215,6 +215,36 @@ export async function ankiDeleteNotes(notes) {
   return ankiRequest('deleteNotes', { notes })
 }
 
+// ─── Is Anki signed in to AnkiWeb? ──────────────────────────────────────────
+// Signing in is OPTIONAL for Ebiki (everything works against the local
+// collection), but a user who never signs in has no backup and no phone, and
+// nothing anywhere told them so - Anki just silently keeps the cards on one
+// computer. Worse, when Ebiki triggers a sync for a signed-out user, Anki throws
+// and the failure surfaces as a generic error the user cannot act on.
+//
+// AnkiConnect's `sync` action checks `mw.pm.sync_auth()` FIRST and raises
+// "sync: auth not configured" before touching anything, so this is the
+// officially-supported way to ask, and it is FREE when the answer is "signed
+// out". When the answer is "signed in" it performs a real sync, which is the
+// thing the user wants anyway - and App.jsx only ever probes once per machine
+// (see ankiWebAuth), so that costs exactly one sync, ever.
+export function isAnkiAuthError(err) {
+  return /auth not configured/i.test(String((err && err.message) || err || ''))
+}
+
+// 'signed-in' | 'signed-out' | 'unknown' (Anki closed, add-on missing, or a real
+// sync error - never guess in that case, the UI must stay quiet).
+export async function ankiSyncAuthState() {
+  try {
+    await ankiRequest('sync')
+    return 'signed-in'
+  } catch (err) {
+    if (isAnkiAuthError(err)) return 'signed-out'
+    ankiLog(`sync auth probe inconclusive: ${err.message}`)
+    return 'unknown'
+  }
+}
+
 export async function ankiSync() {
   ankiLog('triggering sync to AnkiWeb...')
   await ankiRequest('sync')

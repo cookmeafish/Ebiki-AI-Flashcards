@@ -137,9 +137,12 @@ check_update() {
     (cd "$APP" && npm install --no-fund --no-audit >/dev/null 2>&1)
     rm -f "$snooze"
   elif [ "$answer" = no ]; then
-    date -d '+7 days' -Iseconds > "$snooze" 2>/dev/null || date -v+7d -Iseconds > "$snooze" 2>/dev/null
+    # 2 days, not a week: this prompt is no longer the only offer (the running app
+    # carries an update banner that comes back on its own), but a week of silence
+    # at launch is still how an update goes unnoticed for a fortnight.
+    date -d '+2 days' -Iseconds > "$snooze" 2>/dev/null || date -v+2d -Iseconds > "$snooze" 2>/dev/null
   fi
-  # timeout -> just open normally, ask again next time
+  # timeout -> just open normally; the app's own update banner picks it up from there
 }
 check_update || true
 

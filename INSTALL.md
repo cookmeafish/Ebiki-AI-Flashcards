@@ -27,9 +27,24 @@ You can put the app folder anywhere you like; the installer and shortcut work fr
 Opening the **Ebiki** shortcut does a quick check for a newer version:
 
 - If none (or you're offline), the app just opens normally, seamlessly.
-- If there's an update, it asks whether to install it. Choose **Yes** to update in place, or **No** to skip (it won't ask again for a week).
+- If there's an update, the start-up window asks right there: **Update now** or **Not now**. The start-up window also tells you what it's doing while it works, so a longer start says why.
 
-You can also update anytime from **Settings → General → Updates → Check for updates**. After an update, close and reopen the app (via the shortcut) to finish applying it.
+If you skip it, or walk away and the question times out, the app itself shows an **update banner** across the top once it opens, with **Update now**. **Later** hides it for a few hours, not forever, so an update never goes unnoticed. After updating, use **Restart now** in the banner (or close and reopen the shortcut) to finish applying it.
+
+You can also update anytime from **Settings → General → Updates**.
+
+## Backing up your cards (AnkiWeb)
+
+Ebiki works straight away without an account: your cards live in Anki on this computer. A free
+**AnkiWeb** account backs them up and lets you review on your phone, so Ebiki offers it once with a
+banner across the top of the app.
+
+You sign in **inside Anki**, not in Ebiki: click **Sync** in Anki's toolbar and enter your AnkiWeb
+email and password there. Ebiki never sees that password. Its "Sign in inside Anki" button only
+brings the Anki window to the front for you.
+
+If Ebiki says the **AnkiConnect add-on** is missing, use the **Install it for me** button on that
+notice, then close Anki and open it again. (Add-ons only load when Anki starts.)
 
 ## Running the app
 

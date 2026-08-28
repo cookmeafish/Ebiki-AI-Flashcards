@@ -22,7 +22,7 @@ import OnboardingWizard from './components/OnboardingWizard'
 import Dropdown from './components/Dropdown'
 import { S } from './styles/theme'
 import { ocrLog, ocrLogTable, ocrLogFlush } from './utils/logger'
-import { ankiPing, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiCanAddNote, ankiCopyNote, ankiChangeDeck, ankiForgetCards, ankiSetNoteTags, ankiFindCards, ankiCardsInfo, ankiAnswerCards, ankiSetDueDate, ankiInsertReviews, ankiGuiDeckReview, ankiGuiCurrentCard, ankiGuiShowAnswer, ankiGuiAnswerCard, ankiGuiDeckBrowser, ankiGetDeckStats, ankiFindNotes, ankiNotesInfo, ankiUpdateNote, ankiDeleteNotes, ankiSync, ankiSyncSoon, ankiStoreMediaFile, ankiGetNumCardsReviewedToday, ankiGetNumCardsReviewedByDay, ankiGetTodayReviewStats } from './utils/anki'
+import { ankiPing, ankiSyncAuthState, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiCanAddNote, ankiCopyNote, ankiChangeDeck, ankiForgetCards, ankiSetNoteTags, ankiFindCards, ankiCardsInfo, ankiAnswerCards, ankiSetDueDate, ankiInsertReviews, ankiGuiDeckReview, ankiGuiCurrentCard, ankiGuiShowAnswer, ankiGuiAnswerCard, ankiGuiDeckBrowser, ankiGetDeckStats, ankiFindNotes, ankiNotesInfo, ankiUpdateNote, ankiDeleteNotes, ankiSync, ankiSyncSoon, ankiStoreMediaFile, ankiGetNumCardsReviewedToday, ankiGetNumCardsReviewedByDay, ankiGetTodayReviewStats } from './utils/anki'
 import { readBlob, writeBlob, DEFAULT_LEDGER } from './discover/storage'
 import { buildProfilePrompt, buildSuggestionPrompt, buildVerifyPrompt } from './discover/prompts'
 import PbqQuestion from './components/PbqQuestion'
@@ -371,6 +371,72 @@ export default function App() {
     } catch (e) { setAiErrorNotice(t('offlineMergeFailed', { e: e.message })) }
     finally { setOfflineBusy(false) }
   }
+  // ── Update watch (the app's own, unmissable half) ─────────────────────────
+  // The launcher offers updates too, but that offer is easy to MISS: it is a small
+  // native dialog that opened behind the start-up splash, it auto-dismisses if
+  // nobody answers, and a "not now" bought a whole week of silence. So someone ran
+  // an old build for weeks, sat through the slow update-checking start every single
+  // day thinking the app was just slow, and never learned that the bug he was
+  // hitting had already been fixed. The running app therefore carries the SAME
+  // offer as a banner, re-checks while it runs, and brings it back on its own:
+  // "Later" hides it for a few hours, never forever.
+  const [updateReady, setUpdateReady] = useState(null)    // { current, remote, canRestart } once one is available
+  const [updateState, setUpdateState] = useState('idle')  // idle | updating | done | restarting | error
+  const [updateError, setUpdateError] = useState('')
+  const updateStateRef = useRef('idle')                   // read from the poll, which must not close over a stale state
+  updateStateRef.current = updateState
+  const UPDATE_SNOOZE_MS = 6 * 60 * 60 * 1000             // "Later" is a few hours, not a week
+  const [updateSnoozedUntil, setUpdateSnoozedUntil] = useState(() => {
+    try { return Number(localStorage.getItem('ebiki-update-later') || 0) } catch { return 0 }
+  })
+  useEffect(() => {
+    if (isOverlay || !configLoaded) return
+    let stop = false
+    const check = () => fetch('/api/update').then((r) => r.json()).then((d) => {
+      if (stop) return
+      if (d?.updateAvailable) { setUpdateReady({ current: d.current, remote: d.remote, canRestart: !!d.canRestart }); return }
+      // Up to date (or git/network unavailable, which reports no update either):
+      // drop a stale offer, but never yank the banner out from under an update
+      // that is mid-flight or waiting for the restart that finishes it.
+      if (updateStateRef.current === 'idle') setUpdateReady(null)
+    }).catch(() => {})
+    const first = setTimeout(check, 4000)          // let the app finish loading before a git call
+    const id = setInterval(check, 30 * 60 * 1000)  // and keep looking, so a release lands the same day
+    return () => { stop = true; clearTimeout(first); clearInterval(id) }
+  }, [isOverlay, configLoaded])
+
+  const runUpdate = async () => {
+    setUpdateState('updating'); setUpdateError('')
+    try {
+      const d = await (await fetch('/api/update', { method: 'POST' })).json()
+      if (!d.ok) { setUpdateState('error'); setUpdateError(d.error || 'update failed'); return }
+      setUpdateReady((u) => ({ ...(u || {}), canRestart: !!d.canRestart }))
+      setUpdateState('done')
+    } catch (e) { setUpdateState('error'); setUpdateError(String(e.message || e)) }
+  }
+  // Restarting is PART of the update, not a chore handed back to the user: the dev
+  // server cannot reload vite.config.js or newly installed dependencies live, so an
+  // update nobody restarts for is an update that never happened. The server spawns a
+  // detached relauncher that waits for this server to exit; closing our own window is
+  // what makes it exit (the auto-exit heartbeat sees the last page leave).
+  const restartApp = async () => {
+    setUpdateState('restarting')
+    const giveUp = () => { setUpdateState('done'); setUpdateReady((u) => ({ ...(u || {}), canRestart: false })) }
+    try {
+      const d = await (await fetch('/api/update/restart', { method: 'POST' })).json()
+      if (!d.ok) { giveUp(); return }
+      setTimeout(() => { try { window.ebikiWindow?.close() } catch { /* fall through to the manual wording */ } }, 600)
+    } catch { giveUp() }
+  }
+  const snoozeUpdate = () => {
+    const until = Date.now() + UPDATE_SNOOZE_MS
+    try { localStorage.setItem('ebiki-update-later', String(until)) } catch { /* private mode: hidden for this session only */ }
+    setUpdateSnoozedUntil(until)
+  }
+  const dismissUpdateBanner = () => { setUpdateState('idle'); setUpdateReady(null) }
+  // Anything past 'idle' is a state the user started, so it stays on screen regardless of a snooze.
+  const showUpdateBanner = !!updateReady && (updateState !== 'idle' || updateSnoozedUntil < Date.now())
+
   const resolveConfirm = (ok) => setAppConfirm((cur) => { cur?.resolve(ok); return null })
   // App UI language ('en' | 'es' | 'zh' | 'ja' | ...). Translates chrome, not flashcards.
   const [appLanguage, setAppLanguage] = useState('en')
@@ -488,6 +554,94 @@ export default function App() {
   const [areaSelectBounds, setAreaSelectBounds] = useState(null) // original small window bounds to restore on dismiss
   const selStartRef = useRef(null)
   const [ankiConnected, setAnkiConnected] = useState(null)
+
+  // ── Anki setup: the add-on, and the AnkiWeb account ───────────────────────
+  // Two DIFFERENT problems that both used to surface as one unhelpful "Anki is not
+  // connected" line, and both of which stranded a non-technical user:
+  //   1. The AnkiConnect ADD-ON is missing. Ebiki reads and writes every card
+  //      through it, so without it nothing works and the app looks broken rather
+  //      than disconnected. The installer sets it up, but an installer runs once
+  //      and can miss (a ZIP download running an older setup script, a blocked
+  //      download, Anki installed afterwards) and nobody re-runs one that said it
+  //      had finished. So the app checks and can install it itself.
+  //   2. Anki is not signed in to ANKIWEB. Optional (everything works locally),
+  //      but until they sign in the cards exist on exactly one computer with no
+  //      backup, and nothing anywhere said so.
+  const [ankiAddon, setAnkiAddon] = useState(null)        // { installed, canInstall, addon } from /api/ankiconnect
+  const [addonState, setAddonState] = useState('idle')    // idle | installing | done | error
+  const [addonMsg, setAddonMsg] = useState('')
+  const [ankiWebAuth, setAnkiWebAuth] = useState(null)    // 'signed-in' | 'signed-out' | null (unknown)
+  const [ankiWebHint, setAnkiWebHint] = useState('')      // inline instruction after a button press
+  const [ankiWebLater, setAnkiWebLater] = useState(() => {
+    try { return localStorage.getItem('ebiki-ankiweb-later') === '1' } catch { return false }
+  })
+  const ankiWebProbedRef = useRef(false)
+
+  // Is the add-on on disk? Asked whenever Anki is NOT answering, because that is
+  // the only time the answer changes anything: connected means it is obviously
+  // there. Re-checked on reconnect attempts through the same effect.
+  useEffect(() => {
+    if (isOverlay || !configLoaded || ankiConnected !== false) return
+    let stop = false
+    fetch('/api/ankiconnect').then((r) => r.json()).then((d) => { if (!stop) setAnkiAddon(d) }).catch(() => {})
+    return () => { stop = true }
+  }, [isOverlay, configLoaded, ankiConnected])
+
+  // Signed in to AnkiWeb? Probed ONCE per machine, and only while Anki is
+  // answering. A 'signed-in' answer is remembered so the probe (which performs a
+  // real sync in that case) never runs again; a 'signed-out' answer is not
+  // remembered, so it is re-asked next launch until they either sign in or say
+  // "not now". See ankiSyncAuthState for why this is free when signed out.
+  useEffect(() => {
+    if (isOverlay || !configLoaded || !ankiConnected || ankiWebProbedRef.current) return
+    try { if (localStorage.getItem('ebiki-ankiweb') === 'signed-in') { ankiWebProbedRef.current = true; return } } catch { /* private mode: probe every time */ }
+    ankiWebProbedRef.current = true
+    let stop = false
+    ankiSyncAuthState().then((state) => {
+      if (stop || state === 'unknown') return
+      setAnkiWebAuth(state)
+      if (state === 'signed-in') { try { localStorage.setItem('ebiki-ankiweb', 'signed-in') } catch { /* nothing to remember it with */ } }
+    }).catch(() => {})
+    return () => { stop = true }
+  }, [isOverlay, configLoaded, ankiConnected])
+
+  const installAnkiAddon = async () => {
+    setAddonState('installing'); setAddonMsg('')
+    try {
+      const d = await (await fetch('/api/ankiconnect', { method: 'POST' })).json()
+      if (!d.ok) { setAddonState('error'); setAddonMsg(d.error || ''); return }
+      setAddonState('done')
+      setAddonMsg(d.ankiRunning ? t('ankiAddonDone') : t('ankiAddonDoneNoAnki'))
+      setAnkiAddon((a) => ({ ...(a || {}), installed: true }))
+    } catch (e) { setAddonState('error'); setAddonMsg(String(e.message || e)) }
+  }
+  // Ebiki never handles an AnkiWeb password: AnkiConnect has no login action, and
+  // adding one would mean collecting a password here and forwarding it, which is
+  // the one thing a password must not go through. So this only brings Anki's
+  // window forward and says exactly which button to press in it.
+  const openAnkiForSignIn = async () => {
+    setAnkiWebHint(t('ankiWebHow'))
+    try {
+      const d = await (await fetch('/api/anki-focus', { method: 'POST' })).json()
+      if (!d.ok) setAnkiWebHint(t('ankiWebNoWindow'))
+    } catch { setAnkiWebHint(t('ankiWebNoWindow')) }
+  }
+  const recheckAnkiWeb = async () => {
+    const state = await ankiSyncAuthState().catch(() => 'unknown')
+    if (state === 'signed-in') {
+      try { localStorage.setItem('ebiki-ankiweb', 'signed-in') } catch { /* nothing to remember it with */ }
+      setAnkiWebAuth('signed-in')
+      setSuccessNotice(t('ankiWebThanks'))
+    } else if (state === 'signed-out') {
+      setAnkiWebHint(t('ankiWebStillOut'))
+    }
+  }
+  const dismissAnkiWeb = () => {
+    try { localStorage.setItem('ebiki-ankiweb-later', '1') } catch { /* hidden for this session only */ }
+    setAnkiWebLater(true)
+  }
+  const showAnkiWebBanner = ankiWebAuth === 'signed-out' && !ankiWebLater && ankiConnected
+
   // Live review stats from Anki for the Stats tab. Hydrated from localStorage on mount so the
   // numbers show instantly (and don't flash to zero) on a page refresh, then re-fetched from Anki.
   const [ankiStats, setAnkiStats] = useState(() => {
@@ -9655,19 +9809,42 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
   // Prominent "Anki isn't running" banner for every deck-dependent surface (Deck, Discover,
   // Study). An 11px text line was invisible — users saw an empty deck list with no explanation.
   // The Refresh button re-checks without forcing a trip to Settings.
-  const renderAnkiOfflineBanner = (style = {}) => (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderRadius: RADIUS.sm,
-      background: 'rgba(232,147,12,.12)', border: '1px solid rgba(232,147,12,.35)',
-      color: C.ink, fontSize: 12, fontWeight: 600, lineHeight: 1.5, textAlign: 'left', ...style,
-    }}>
-      <span>⚠️ {t('ankiNotConnected')}</span>
-      <button onClick={refreshAnkiConnection}
-        style={{ ...S.ghostBtn, fontSize: 11, color: 'var(--c-warning)', borderColor: 'rgba(232,147,12,.4)', marginLeft: 'auto', flexShrink: 0 }}>
-        {t('refresh')}
-      </button>
-    </div>
-  )
+  //
+  // It also tells the two causes APART. "Anki is not connected" is the right words
+  // for a closed Anki, but it is misleading when the real problem is that the
+  // AnkiConnect ADD-ON was never installed: no amount of starting Anki or pressing
+  // Refresh fixes that, so the user is stuck being told to do the one thing that
+  // cannot work. When the add-on is genuinely absent the banner says so and offers
+  // to install it, which the app can actually do (see /api/ankiconnect).
+  const renderAnkiOfflineBanner = (style = {}) => {
+    const missing = ankiAddon && !ankiAddon.installed
+    const btn = { ...S.ghostBtn, fontSize: 11, color: 'var(--c-warning)', borderColor: 'rgba(232,147,12,.4)', flexShrink: 0 }
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderRadius: RADIUS.sm,
+        background: 'rgba(232,147,12,.12)', border: '1px solid rgba(232,147,12,.35)',
+        color: C.ink, fontSize: 12, fontWeight: 600, lineHeight: 1.5, textAlign: 'left', flexWrap: 'wrap', ...style,
+      }}>
+        <span>⚠️ {missing ? t('ankiAddonMissing') : t('ankiNotConnected')}</span>
+        {missing && addonState === 'idle' && ankiAddon.canInstall && (
+          <button className="btn-press" onClick={installAnkiAddon} style={{ ...btn, marginLeft: 'auto' }}>{t('ankiAddonInstall')}</button>
+        )}
+        {addonState === 'installing' && <span style={{ marginLeft: 'auto', color: C.inkDim, fontWeight: 600 }}>{t('ankiAddonInstalling')}</span>}
+        {addonState === 'done' && <span style={{ marginLeft: 'auto', color: 'var(--c-success)', fontWeight: 700 }}>✓ {addonMsg}</span>}
+        {addonState === 'error' && (
+          <span style={{ width: '100%', color: 'var(--c-danger)', fontWeight: 600 }}>
+            {t('ankiAddonFailed')} {t('ankiAddonManual')}
+          </span>
+        )}
+        {(!missing || !ankiAddon?.canInstall) && addonState === 'idle' && (
+          <button onClick={refreshAnkiConnection} style={{ ...btn, marginLeft: 'auto' }}>{t('refresh')}</button>
+        )}
+        {missing && !ankiAddon.canInstall && (
+          <span style={{ width: '100%', color: C.inkDim, fontWeight: 600 }}>{t('ankiAddonManual')}</span>
+        )}
+      </div>
+    )
+  }
 
   // ─── Render ────────────────────────────────────────────────────────────────
   // Wait for config + modes before the first real paint so the saved tab/mode are already
@@ -9741,6 +9918,54 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           <span>🔄 {offlinePending === 1 ? t('offlinePendingOne') : t('offlinePending', { n: offlinePending })}</span>
           <button className="btn-press" disabled={offlineBusy} onClick={() => resolveOffline(false)} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.6)', background: 'rgba(0,0,0,.18)', ...(offlineBusy ? { opacity: .5, cursor: 'default' } : {}) }}>{t('offlineMerge')}</button>
           <button disabled={offlineBusy} onClick={() => resolveOffline(true)} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.35)', ...(offlineBusy ? { opacity: .5, cursor: 'default' } : {}) }}>{t('offlineDiscard')}</button>
+        </div>
+      )}
+      {/* An update is waiting. IN FLOW above the header like the other banners (a
+          position:fixed bar sits ON the header and eats its clicks), and the whole
+          point of it is that it cannot be missed: the launch-time popup can be
+          dismissed by accident or simply time out, so this is the offer that keeps
+          coming back until the update is actually installed. */}
+      {!isOverlay && showUpdateBanner && (
+        <div style={{ flexShrink: 0, background: 'var(--c-brand)', color: 'var(--c-on-brand)', padding: '10px 16px', fontSize: 13, fontWeight: 700, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
+          {updateState === 'idle' && (<>
+            <span>⬆ {t('updateBanner')}</span>
+            <button className="btn-press" onClick={runUpdate} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.6)', background: 'rgba(0,0,0,.18)' }}>{t('updateBannerNow')}</button>
+            <button onClick={snoozeUpdate} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.35)' }}>{t('updateBannerLater')}</button>
+          </>)}
+          {updateState === 'updating' && <span>⏳ {t('updateBannerUpdating')}</span>}
+          {updateState === 'restarting' && <span>⏳ {t('updateBannerRestarting')}</span>}
+          {updateState === 'done' && (<>
+            <span>✓ {(updateReady?.canRestart && isElectronApp) ? t('updateBannerDone') : t('updateBannerManual')}</span>
+            {updateReady?.canRestart && isElectronApp && (
+              <button className="btn-press" onClick={restartApp} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.6)', background: 'rgba(0,0,0,.18)' }}>{t('updateBannerRestart')}</button>
+            )}
+            <button onClick={dismissUpdateBanner} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.35)' }}>{t('dataOfflineDismiss')}</button>
+          </>)}
+          {updateState === 'error' && (<>
+            <span>⚠ {t('updateBannerFailed')} {updateError}</span>
+            <button className="btn-press" onClick={runUpdate} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.6)', background: 'rgba(0,0,0,.18)' }}>{t('updateBannerRetry')}</button>
+            <button onClick={dismissUpdateBanner} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.35)' }}>{t('dataOfflineDismiss')}</button>
+          </>)}
+        </div>
+      )}
+      {/* Signing in to AnkiWeb is OPTIONAL, so this is an offer and never an error:
+          brand-colored like the update bar, in flow above the header, dismissable
+          for good. Ebiki cannot sign in on the user's behalf and does not try -
+          the password is typed into Anki itself, which is the whole reason the
+          "Sign in inside Anki" button only raises Anki's window. */}
+      {!isOverlay && showAnkiWebBanner && (
+        <div style={{ flexShrink: 0, background: 'var(--c-brand)', color: 'var(--c-on-brand)', padding: '10px 16px', fontSize: 13, fontWeight: 700, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span>☁ {t('ankiWebTitle')} <span style={{ fontWeight: 600, opacity: .92 }}>{t('ankiWebWhy')}</span></span>
+          <a href="https://ankiweb.net/account/signup" target="_blank" rel="noreferrer" className="btn-press"
+            style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.6)', background: 'rgba(0,0,0,.18)', textDecoration: 'none' }}>
+            {t('ankiWebCreate')}
+          </a>
+          <button onClick={openAnkiForSignIn} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.5)' }}>{t('ankiWebOpenAnki')}</button>
+          <button onClick={recheckAnkiWeb} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.35)' }}>{t('ankiWebDone')}</button>
+          <button onClick={dismissAnkiWeb} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.25)' }}>{t('ankiWebLater')}</button>
+          <span style={{ width: '100%', fontSize: 11.5, fontWeight: 600, opacity: .9 }}>
+            {ankiWebHint || t('ankiWebSafe')}
+          </span>
         </div>
       )}
       {/* ── Header ───────────────────────────────────────────────────────────── */}

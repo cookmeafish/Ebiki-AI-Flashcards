@@ -17,6 +17,12 @@ sh.CurrentDirectory = appDir
 On Error Resume Next
 readyFile = appDir & "\.app-ready"
 If fso.FileExists(readyFile) Then fso.DeleteFile readyFile, True
+' Same for the files that carry the splash's status line and the update question
+' it now asks (see scripts/splash.hta): a leftover would open the splash on a
+' stale message, or make the launcher think a question was already answered.
+For Each leftover In Array("\.app-status", "\.app-answer", "\.app-splash")
+  If fso.FileExists(appDir & leftover) Then fso.DeleteFile appDir & leftover, True
+Next
 
 mshta = sh.ExpandEnvironmentStrings("%SystemRoot%\System32\mshta.exe")
 splash = appDir & "\scripts\splash.hta"
