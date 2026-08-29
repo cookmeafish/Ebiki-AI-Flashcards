@@ -338,6 +338,13 @@ function Check-Update {
   if (-not (Get-Command git -ErrorAction SilentlyContinue)) { return }
   $local = (& git -C $app rev-parse HEAD 2>$null)
   if (-not $local) { return }
+  # Updates come from master, always. A clone parked on another branch would
+  # compare its HEAD against origin/master forever - offered an update on every
+  # single launch that then cannot apply, because pulling master into another
+  # branch is not a fast-forward. Say nothing on those; whoever checked out a
+  # branch knows how to update it.
+  $branch = (& git -C $app rev-parse --abbrev-ref HEAD 2>$null)
+  if ($branch -and $branch -ne 'master') { return }
   Set-Status 'Checking for updates.'
 
   # Compare against 'master' (the release branch), whatever local branch this

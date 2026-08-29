@@ -169,28 +169,64 @@ function DataFolderCard({ t, card, fieldLabel, hint }) {
 // remote branch head); POST runs git pull + npm install. Same code path as the
 // desktop shortcut's launch-time check, exposed as a button in the GUI.
 function UpdatesCard({ t, card, fieldLabel, hint }) {
-  const [state, setState] = useState('idle')   // idle | checking | uptodate | available | updating | done | error | nogit | offline
+  const [state, setState] = useState('idle')   // idle | checking | uptodate | available | updating | done | error | nogit | offline | down | branch | busy
   const [info, setInfo] = useState(null)
   const [err, setErr] = useState(null)
-  const check = async () => {
+  // React StrictMode runs mount effects TWICE in dev, and the retry below can double
+  // that again: four `git ls-remote` calls for one opened pane, with the slowest
+  // reply free to overwrite the newest. One in-flight check at a time, and a
+  // sequence number so a late answer can never win over a newer one.
+  const checking = useRef(false)
+  const checkSeq = useRef(0)
+  // attempt: a network-level failure here is NOT about GitHub - it means Ebiki's own
+  // background service did not answer (it restarted after an update, or the launch is
+  // still coming up). That deserves a retry rather than a dead end, and it deserves
+  // wording a person can act on: the browser's own "Failed to fetch" was reaching the
+  // screen, which names neither what failed nor what to do about it.
+  const check = async (attempt = 0) => {
+    if (attempt === 0) {
+      if (checking.current) return
+      checking.current = true
+    }
+    const seq = ++checkSeq.current
     setState('checking'); setErr(null)
     try {
       const d = await (await fetch('/api/update')).json()
+      if (seq !== checkSeq.current) return
       setInfo(d)   // BEFORE the early returns: the version line is worth showing even when
                    // the check itself could not run, which is exactly when someone is asking
                    // "what version is this machine actually on?"
       if (!d.gitAvailable) { setState('nogit'); return }
+      // Updates come from master; a copy parked on another branch can never apply one,
+      // so say which branch rather than offering an update that would fail.
+      if (d.branch && !d.onMaster) { setState('branch'); return }
       if (!d.reachable) { setState('offline'); return }
       setState(d.updateAvailable ? 'available' : 'uptodate')
-    } catch (e) { setState('error'); setErr(String(e.message || e)) }
+    } catch (e) {
+      if (seq !== checkSeq.current) return
+      if (attempt === 0) {
+        await new Promise((r) => setTimeout(r, 1500))
+        return check(1)
+      }
+      setState('down')   // err stays null: the message is ours, not the browser's
+    } finally {
+      checking.current = false
+    }
   }
   const doUpdate = async () => {
     setState('updating'); setErr(null)
     try {
       const d = await (await fetch('/api/update', { method: 'POST' })).json()
+      if (d.busy) { setState('busy'); return }
+      if (d.wrongBranch) { setInfo((i) => ({ ...(i || {}), branch: d.wrongBranch, onMaster: false })); setState('branch'); return }
       if (!d.ok) { setState('error'); setErr(d.error || 'update failed'); return }
       setState('done')
-    } catch (e) { setState('error'); setErr(String(e.message || e)) }
+    } catch (e) {
+      // Same reasoning as check(): a dropped connection is our service, not the
+      // update itself, so it must not surface as the browser's raw wording.
+      setState('error')
+      setErr(/failed to fetch|networkerror|load failed/i.test(String(e.message || e)) ? null : String(e.message || e))
+    }
   }
   // Check as soon as this pane is opened. Someone who came looking for updates
   // should not have to press a button to be told there is one waiting - and the
@@ -243,7 +279,20 @@ function UpdatesCard({ t, card, fieldLabel, hint }) {
       {state === 'done' && <div style={{ fontSize: 11, color: C.success, marginTop: 8, lineHeight: 1.5 }}>✓ {t('updatesDone')}</div>}
       {state === 'nogit' && <div style={{ fontSize: 11, color: C.inkDim, marginTop: 8, lineHeight: 1.5 }}>{t('updatesNoGit')}</div>}
       {state === 'offline' && <div style={{ fontSize: 11, color: C.inkDim, marginTop: 8 }}>{t('updatesOffline')}</div>}
-      {state === 'error' && <div style={{ fontSize: 11, color: C.danger, marginTop: 8, lineHeight: 1.5, overflowWrap: 'anywhere' }}>⚠ {err}</div>}
+      {state === 'branch' && <div style={{ fontSize: 11, color: C.warning, marginTop: 8, lineHeight: 1.5 }}>⚠ {t('updatesWrongBranch', { branch: info?.branch || '?' })}</div>}
+      {state === 'busy' && <div style={{ fontSize: 11, color: C.inkDim, marginTop: 8 }}>{t('updatesBusy')}</div>}
+      {state === 'down' && (
+        <div style={{ marginTop: 8 }}>
+          <div style={{ fontSize: 11, color: C.warning, lineHeight: 1.5 }}>⚠ {t('updatesServerDown')}</div>
+          <button onClick={() => check()} style={{ ...S.getKeyLink, fontSize: 11, marginTop: 6 }}>{t('updatesRetry')}</button>
+        </div>
+      )}
+      {state === 'error' && (
+        <div style={{ marginTop: 8 }}>
+          <div style={{ fontSize: 11, color: C.danger, lineHeight: 1.5, overflowWrap: 'anywhere' }}>⚠ {err || t('updatesServerDown')}</div>
+          <button onClick={() => check()} style={{ ...S.getKeyLink, fontSize: 11, marginTop: 6 }}>{t('updatesRetry')}</button>
+        </div>
+      )}
       <div style={hint}>{t('updatesHint')}</div>
     </div>
   )

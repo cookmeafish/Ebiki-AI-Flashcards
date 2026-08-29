@@ -317,6 +317,21 @@ already fixed, for weeks. Four parts now, and each covers a different way of mis
   own window (`window.ebikiWindow.close()`), which is what makes the auto-exit server die and free the port.
   Offered only when `canRestart` (win32 + `EBIKI_AUTO_EXIT` + the launcher files exist) AND `isElectronApp` -
   a browser tab can't close itself, so it gets the "close and reopen" wording instead.
+**EVERY update path targets `origin master` EXPLICITLY, never the current branch** (both launchers, both
+`/api/update` methods, `Link-ToGit`). The matching trap is the LOCAL side: a clone parked on another branch
+compares its HEAD against origin/master forever, so it is offered an update on every launch that can never
+apply (master into another branch is not a fast-forward). All three surfaces now check `rev-parse
+--abbrev-ref HEAD` first: the launchers stay silent, the banner offers nothing, and Settings names the
+branch. `/api/update` GET returns `branch`/`onMaster` for that.
+**Robustness rules for this endpoint, each one a bug that happened:** GET has a `send()` watchdog so it
+ALWAYS answers (a request that never completes surfaces as the browser's bare "Failed to fetch", which names
+neither what failed nor what to do, and leaves the card dead); git runs with `GIT_TERMINAL_PROMPT=0` +
+`GCM_INTERACTIVE=never` so a credential prompt can never hang it invisibly; POST holds a `updateRunning`
+lock (two entry points reach it now, and two `git pull` + `npm install` runs on top of each other is a
+broken checkout) and its own watchdog that releases that lock; the client retries a network-level failure
+ONCE and then shows `updatesServerDown` rather than the browser's wording, and `UpdatesCard` keeps an
+in-flight guard plus a sequence number (StrictMode runs mount effects twice, which with the retry made FOUR
+`ls-remote` calls per opened pane and let the slowest reply overwrite the newest).
 In-GUI: self-contained `UpdatesCard` in SettingsModal General uses `/api/update` (GET = `ls-remote` vs HEAD,
 reports `gitAvailable`/`reachable`/`updateAvailable`/`canRestart` plus `current`/`currentDate`/`build`; POST = pull + npm install, `restartRequired`,
 and clears `.update-snooze` so the launcher can't re-offer what was just installed). It checks on open rather

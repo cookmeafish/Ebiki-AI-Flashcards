@@ -673,13 +673,22 @@ function apiPlugin() {
       // POST → git pull --ff-only, then npm install; report restartRequired.
       // All git runs in APP_ROOT (wherever the app was installed), never a fixed
       // path. `available:false` also covers "git not installed" so the UI degrades.
-      const git = (args, cb, timeout = 15000) => execFile('git', args, { cwd: APP_ROOT, timeout, windowsHide: true }, cb)
+      // git must never be able to BLOCK this request, and there are two ways it can.
+      // A credential prompt: Git Credential Manager opens a GUI and waits forever,
+      // and nothing here would ever see it - on a machine where that fires the
+      // request simply never comes back. And a network that neither answers nor
+      // refuses, which the per-call timeout covers. Both are shut off explicitly
+      // rather than hoped about, because the symptom (a request that hangs) is
+      // indistinguishable from the app being broken.
+      const GIT_ENV = { ...process.env, GIT_TERMINAL_PROMPT: '0', GCM_INTERACTIVE: 'never', GIT_ASKPASS: 'echo', SSH_ASKPASS: 'echo' }
+      const git = (args, cb, timeout = 15000) => execFile('git', args, { cwd: APP_ROOT, timeout, windowsHide: true, env: GIT_ENV }, cb)
       // Can this machine restart ITSELF after an update? An update only really lands on a
       // restart (the dev server can't reload vite.config.js or new deps live), and "close and
       // reopen it yourself" is exactly the step a non-technical user skips, so the app offers
       // to do it. Only possible when the shortcut owns the server's lifetime (EBIKI_AUTO_EXIT,
       // so it exits with the last page and frees port 3000) and the launcher is there to start
       // the new one. Anything else falls back to the manual wording.
+      let updateRunning = false   // one `git pull` + `npm install` at a time (see the POST below)
       const RELAUNCH_VBS = path.join(APP_ROOT, 'launch-ebiki.vbs')
       const RELAUNCH_PS1 = path.join(APP_ROOT, 'scripts', 'relaunch.ps1')
       const canSelfRestart = () => process.platform === 'win32' && process.env.EBIKI_AUTO_EXIT === '1' &&
@@ -708,6 +717,19 @@ function apiPlugin() {
         // 'master' is the release branch we publish to; compare against it
         // regardless of which local branch this clone happens to sit on.
         if (req.method === 'GET') {
+          // ANSWER, whatever happens. A request that never completes is worse than
+          // one that fails: the browser eventually rejects the fetch with a bare
+          // "Failed to fetch", which says nothing a user can act on and leaves the
+          // card dead. Every exit below goes through send(), and the watchdog wins
+          // if some future git call finds a way to hang anyway.
+          let answered = false
+          const send = (payload) => {
+            if (answered) return
+            answered = true
+            clearTimeout(watchdog)
+            res.end(JSON.stringify(payload))
+          }
+          const watchdog = setTimeout(() => send({ ok: true, gitAvailable: true, reachable: false }), 25000)
           // What a PERSON can read. A bare commit sha ("you are on version 0a84d36")
           // is an identifier, not a version: it does not say how old the copy is,
           // and two of them cannot be compared by eye. This project ships from
@@ -717,30 +739,63 @@ function apiPlugin() {
           // Counted only when the history is real: an older installer linked ZIP
           // folders with --depth 1, and a shallow repo would report "build 1".
           git(['log', '-1', '--format=%H|%cI'], (e1, local) => {
-            if (e1) { res.end(JSON.stringify({ ok: true, gitAvailable: false })); return }
+            if (e1) { send({ ok: true, gitAvailable: false }); return }
             const [headSha, headDate] = String(local || '').trim().split('|')
             const shallow = fs.existsSync(path.join(APP_ROOT, '.git', 'shallow'))
             git(['rev-list', '--count', 'HEAD'], (e2, countOut) => {
               const build = (!shallow && !e2) ? parseInt(String(countOut || '').trim(), 10) || null : null
-              const base = { current: (headSha || '').slice(0, 7), currentDate: headDate || '', build }
-              git(['ls-remote', 'origin', 'master'], (e3, remoteOut) => {
-                if (e3) { res.end(JSON.stringify({ ok: true, gitAvailable: true, reachable: false, ...base })); return }
-                const localSha = (headSha || '').trim()
-                const remoteSha = ((remoteOut || '').trim().split(/\s+/)[0]) || ''
-                res.end(JSON.stringify({ ok: true, gitAvailable: true, reachable: true, updateAvailable: !!remoteSha && remoteSha !== localSha, ...base, remote: remoteSha.slice(0, 7), canRestart: canSelfRestart() }))
-              }, 12000)
+              // Which branch this clone sits on. Updates ALWAYS track master, so a
+              // copy parked on anything else compares its HEAD against origin/master
+              // forever: permanently "an update is available", and permanently unable
+              // to apply it, because a fast-forward from another branch is not a
+              // thing. Naming the branch is what lets the UI say so instead of
+              // offering an update that cannot work.
+              git(['rev-parse', '--abbrev-ref', 'HEAD'], (e4, branchOut) => {
+                const branch = e4 ? '' : String(branchOut || '').trim()
+                const base = { current: (headSha || '').slice(0, 7), currentDate: headDate || '', build, branch, onMaster: branch === 'master' }
+                git(['ls-remote', 'origin', 'master'], (e3, remoteOut) => {
+                  if (e3) { send({ ok: true, gitAvailable: true, reachable: false, ...base }); return }
+                  const localSha = (headSha || '').trim()
+                  const remoteSha = ((remoteOut || '').trim().split(/\s+/)[0]) || ''
+                  send({ ok: true, gitAvailable: true, reachable: true, updateAvailable: !!remoteSha && remoteSha !== localSha, ...base, remote: remoteSha.slice(0, 7), canRestart: canSelfRestart() })
+                }, 12000)
+              })
             })
           })
         } else if (req.method === 'POST') {
-          git(['pull', '--ff-only', 'origin', 'master'], (e, out, err) => {
-            if (e) { res.end(JSON.stringify({ ok: false, error: String(err || e.message || 'git pull failed').slice(0, 600) })); return }
-            // Dependencies may have changed - run npm install (fast if nothing did).
-            execFile(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['install', '--no-audit', '--no-fund'], { cwd: APP_ROOT, timeout: 300000, windowsHide: true }, () => {
-              // The launch-time popup must not re-offer an update the app just installed.
-              try { fs.rmSync(path.join(APP_ROOT, '.update-snooze'), { force: true }) } catch { /* nothing to clear */ }
-              res.end(JSON.stringify({ ok: true, updated: true, restartRequired: true, canRestart: canSelfRestart(), output: String(out || '').slice(0, 600) }))
-            })
-          }, 120000)
+          // ONE update at a time. There are two buttons that reach here now (the
+          // banner and the Settings card) plus a page that may be open twice, and
+          // two `git pull` + `npm install` runs on top of each other is a broken
+          // checkout, not a slow one.
+          if (updateRunning) { res.end(JSON.stringify({ ok: false, busy: true })); return }
+          let done = false
+          const finish = (payload) => {
+            if (done) return
+            done = true
+            updateRunning = false
+            clearTimeout(guard2)
+            res.end(JSON.stringify(payload))
+          }
+          // npm install can legitimately take minutes, so this is generous - it exists
+          // only so a wedged child can never leave the request (and the lock) hanging.
+          const guard2 = setTimeout(() => finish({ ok: false, error: 'the update took too long and was stopped' }), 400000)
+          updateRunning = true
+          // Updates track master. Pulling master into some other branch is not a
+          // fast-forward, so git would refuse with something the user cannot act on;
+          // say which branch it is instead, and change nothing.
+          git(['rev-parse', '--abbrev-ref', 'HEAD'], (eb, branchOut) => {
+            const branch = eb ? '' : String(branchOut || '').trim()
+            if (branch && branch !== 'master') { finish({ ok: false, wrongBranch: branch }); return }
+            git(['pull', '--ff-only', 'origin', 'master'], (e, out, err) => {
+              if (e) { finish({ ok: false, error: String(err || e.message || 'git pull failed').slice(0, 600) }); return }
+              // Dependencies may have changed - run npm install (fast if nothing did).
+              execFile(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['install', '--no-audit', '--no-fund'], { cwd: APP_ROOT, timeout: 300000, windowsHide: true }, () => {
+                // The launch-time popup must not re-offer an update the app just installed.
+                try { fs.rmSync(path.join(APP_ROOT, '.update-snooze'), { force: true }) } catch { /* nothing to clear */ }
+                finish({ ok: true, updated: true, restartRequired: true, canRestart: canSelfRestart(), output: String(out || '').slice(0, 600) })
+              })
+            }, 120000)
+          })
         } else { res.statusCode = 405; res.end('') }
       })
 
