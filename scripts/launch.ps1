@@ -195,7 +195,20 @@ function Start-AnkiIfNeeded {
   # no style of its own inherits that HIDDEN state - Anki then really does start
   # and AnkiConnect answers on 8765, but no window ever appears (MainWindowHandle
   # stays 0) and the user reports that Ebiki never launched Anki.
-  Start-Process -FilePath $exe -WindowStyle Minimized
+  # MINIMIZED only once Anki is actually set up. A first run does not go straight
+  # to the main window: Anki asks for a language and creates a profile, and until
+  # somebody answers that dialog it never finishes starting, so AnkiConnect never
+  # loads and Ebiki sits on "not connected" forever. Starting that minimized hides
+  # the one thing the user has to act on - it was a dialog waiting, unnoticed,
+  # behind everything. So: no profile database yet = show it and let them finish.
+  $ankiBase = if ($env:ANKI_BASE) { $env:ANKI_BASE } else { Join-Path $env:APPDATA 'Anki2' }
+  $configured = Test-Path (Join-Path $ankiBase 'prefs21.db')
+  Start-Process -FilePath $exe -WindowStyle $(if ($configured) { 'Minimized' } else { 'Normal' })
+  if (-not $configured) {
+    # And do not let the watchdog put that dialog away either.
+    Set-Status 'Finish setting up Anki in the window that just opened.'
+    return
+  }
   # Asking is not enough: what the website installs is a LAUNCHER that boots the
   # real Anki out of a venv and exits, and the show-state never reaches the
   # window that second process creates. minimize-anki.ps1 watches for the window
@@ -332,6 +345,19 @@ if (-not $hasNode) {
 }
 
 # ── Quick, seamless update check ────────────────────────────────────────────
+# Write down every update decision. "It updated without me clicking yes" is a
+# serious claim and used to be unanswerable: nothing recorded who asked, what was
+# answered, or whether the checkout actually moved. This makes it evidence instead
+# of an argument, and it costs one line of text. logs/ is gitignored and stays on
+# this computer.
+function Write-UpdateLog($text) {
+  try {
+    $dir = Join-Path $app 'logs'
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+    Add-Content -Path (Join-Path $dir 'update.log') -Value ("{0}  {1}" -f (Get-Date).ToString('s'), $text) -Encoding UTF8
+  } catch {}
+}
+
 function Check-Update {
   param([switch]$AlreadyRunning)
   # ALWAYS check. There is deliberately no snooze on this path any more: it used
@@ -390,6 +416,7 @@ function Check-Update {
       60, 'Ebiki update', 4 + 32 + 4096 + 65536)   # 4 = Yes/No, 32 = question icon
     $ans = if ($r -eq 6) { 'yes' } elseif ($r -eq 7) { 'no' } else { 'timeout' }
   }
+  Write-UpdateLog ("launcher: update available ({0} -> {1}); answer='{2}'{3}" -f $local.Substring(0,7), $remote.Substring(0,7), $ans, $(if ($AlreadyRunning) { ' (app already running)' } else { '' }))
   if ($ans -eq 'yes') {
     Set-Status 'Updating Ebiki. This can take a minute, please wait.'
     # MATCH master, do not merely move toward it. `pull --ff-only` is only correct
@@ -415,6 +442,9 @@ function Check-Update {
     # (the dev server cannot reload vite.config.js or new dependencies live), so
     # say the one thing that finishes the job rather than pretending it is done.
     if ($AlreadyRunning) { Set-Status 'Update installed. Close Ebiki and open it again to finish.'; Start-Sleep -Seconds 4 }
+    Write-UpdateLog ("launcher: applied, now at {0}" -f (& git -C $app rev-parse --short HEAD 2>$null))
+  } else {
+    Write-UpdateLog 'launcher: nothing changed'
   }
   # 'no' -> just open. Nothing is recorded, so the next launch asks again.
   # 'timeout' (nobody was at the computer) -> open normally. Nothing is lost

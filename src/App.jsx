@@ -9885,16 +9885,22 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
     // states are distinguished by what the server can actually see: the add-on on
     // disk (/api/ankiconnect) and whether an Anki process exists.
     const a = ankiAddon
+    // Anki NOT SET UP outranks everything: its first-run dialog blocks start-up, so
+    // the add-on can never load and reinstalling it changes nothing. Nothing used
+    // to say that, and the dialog itself was easy to miss (the launcher started
+    // Anki minimized, so it sat waiting behind everything).
     const state = !a ? 'unknown'
-      : !a.installed ? 'missing'
-        : a.addon?.disabled ? 'disabled'
-          : a.ankiRunning === false ? 'notRunning'
-            : 'notLoaded'   // on disk, Anki up (or unknowable), still not answering
-    const message = state === 'missing' ? t('ankiAddonMissing')
-      : state === 'disabled' ? t('ankiAddonDisabled')
-        : state === 'notRunning' ? t('ankiAddonStartAnki')
-          : state === 'notLoaded' ? t('ankiAddonNotLoaded')
-            : t('ankiNotConnected')
+      : a.configured === false ? 'setup'
+        : !a.installed ? 'missing'
+          : a.addon?.disabled ? 'disabled'
+            : a.ankiRunning === false ? 'notRunning'
+              : 'notLoaded'   // on disk, Anki up (or unknowable), still not answering
+    const message = state === 'setup' ? t('ankiSetupNeeded')
+      : state === 'missing' ? t('ankiAddonMissing')
+        : state === 'disabled' ? t('ankiAddonDisabled')
+          : state === 'notRunning' ? t('ankiAddonStartAnki')
+            : state === 'notLoaded' ? t('ankiAddonNotLoaded')
+              : t('ankiNotConnected')
     const btn = { ...S.ghostBtn, fontSize: 11, color: 'var(--c-warning)', borderColor: 'rgba(232,147,12,.4)', flexShrink: 0 }
     const busy = addonState === 'installing'
     return (
@@ -9918,7 +9924,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 Anki folder, and a dead end is worse than a redundant button. The
                 script itself is idempotent: it never overwrites an add-on that is
                 already there, it reports it. */}
-            {a?.canInstall && (
+            {a?.canInstall && state !== 'setup' && (
               <button className="btn-press" onClick={installAnkiAddon} style={btn}>
                 {state === 'missing' ? t('ankiAddonInstall') : t('ankiAddonRepair')}
               </button>
@@ -9933,6 +9939,16 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         )}
         {state === 'missing' && a && !a.canInstall && (
           <span style={{ width: '100%', color: C.inkDim, fontWeight: 600 }}>{t('ankiAddonManual')}</span>
+        )}
+        {/* Numbered, because this is a task with an order and the sign-in half is
+            the part people skip - and skipping it means the cards only ever exist
+            on this computer. */}
+        {state === 'setup' && (
+          <span style={{ width: '100%', color: C.ink, fontWeight: 600, display: 'flex', flexDirection: 'column', gap: 2, marginTop: 2 }}>
+            <span>{t('ankiSetupStep1')}</span>
+            <span>{t('ankiSetupStep2')}</span>
+            <span>{t('ankiSetupStep3')}</span>
+          </span>
         )}
       </div>
     )

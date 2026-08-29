@@ -486,6 +486,14 @@ so installing the original on top of one would break a working setup.
 
 ## Anki setup: the add-on, and the AnkiWeb account
 Two DIFFERENT problems that both used to surface as one unhelpful "Anki is not connected" line.
+- **Anki NOT SET UP outranks every other state.** Anki's first run asks for a language and creates a
+  profile, and until that dialog is answered Anki never finishes starting - so the add-on never loads,
+  reinstalling it changes nothing, and every message about add-ons is beside the point. Detected by
+  `prefs21.db` missing from the Anki base (`configured:false` from `/api/ankiconnect`), shown as
+  numbered steps that END on signing in to AnkiWeb, because that is the half people skip and skipping
+  it means the cards only ever exist on one computer. **`launch.ps1` starts a first-run Anki NORMAL,
+  not minimized** - the minimizer is right for a configured Anki and actively harmful here, since it
+  hid the one dialog the user had to act on behind everything else.
 - **The AnkiConnect add-on. FOUR states, four sentences - never one.** The banner used to say
   "Anki is not connected. Start Anki with AnkiConnect addon." with nothing but Refresh, whatever the
   real cause was, so somebody whose Anki was already open and whose add-on was already installed was
@@ -1771,6 +1779,13 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   section AND a Study-sessions section) - that kind of repetition is the first thing to collapse.
 - **Keep it accurate.** No stale shortcuts, model versions, or removed features. When a fact drifts (e.g.
   the capture shortcut, or a renamed button), fix it in the README while you're there.
+
+**Every update decision is written to `logs/update.log`** (machine-local, gitignored): who asked, what was
+answered, and whether the checkout actually moved. "It updated without me clicking yes" is a serious claim
+and used to be unanswerable. Proven by test (`answer='no'` and `'timeout'` leave HEAD untouched, only
+`'yes'` moves it): **the ONLY path that changes app code without a Yes is the installer's `Link-ToGit`**,
+which force-checks-out the release when the folder is not a healthy clone - reasonable for an installer, and
+it now warns before doing it rather than after.
 
 ## Commits
 - **Bump `package.json`'s `version` in every commit that changes what the app does** (patch for a fix,
