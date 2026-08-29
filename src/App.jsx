@@ -241,7 +241,21 @@ export default function App() {
   // alive by itself, so it stays out of this entirely.
   useEffect(() => {
     if (isOverlay) return
-    const beat = () => { fetch('/api/alive', { method: 'POST' }).catch(() => {}) }
+    // The heartbeat already knows whether the server is there; it just used to throw
+    // that away. When the dev server stops (it exits on its own once it believes the
+    // last page has gone, and a crash looks the same), the window stays on screen
+    // looking perfectly normal while every save and every request fails silently -
+    // which is how "Ebiki's background service didn't answer" kept coming back with
+    // nothing on screen to explain it. Three misses in a row (~15s) is the server,
+    // not a blip. And when it answers again the page reloads itself, because after
+    // an update-and-restart the running page is the OLD build.
+    let misses = 0
+    const beat = () => fetch('/api/alive', { method: 'POST' })
+      .then(() => {
+        misses = 0
+        setServerDown((was) => { if (was) window.location.reload(); return false })
+      })
+      .catch(() => { if (++misses >= 3) setServerDown(true) })
     beat()
     // Say what kind of front end this page is, so a LIVE launch-mode switch can tell when the new
     // window/tab is really up. The page being replaced polls for this and only then closes itself:
@@ -277,6 +291,7 @@ export default function App() {
   const [chatSidePanel, setChatSidePanel] = useState(false) // split-screen chat alongside another tab
   const [provider, setProvider] = useState('anthropic')
   const [configLoaded, setConfigLoaded] = useState(false)
+  const [serverDown, setServerDown] = useState(false)            // the dev server itself stopped answering
   const [dataUnreachable, setDataUnreachable] = useState(false) // shared data folder (e.g. Y:) couldn't be read AND no local copy to fall back on
   const [dataOffline, setDataOffline] = useState(false)         // running from this computer's copy while the share is down
   const [offlineBannerOff, setOfflineBannerOff] = useState(false)
@@ -10007,6 +10022,16 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                      a working state and not an error;
           • brand  - the share is back and offline edits are waiting on the user's
                      decision (never pushed automatically). */}
+      {/* The server itself is gone. This outranks every other banner - none of the
+          others can even be true without it - and it is the one case where the
+          window on screen is a photograph of an app that is no longer running. */}
+      {!isOverlay && serverDown && (
+        <div style={{ flexShrink: 0, background: 'var(--c-danger)', color: 'var(--c-on-brand)', padding: '10px 16px', fontSize: 13, fontWeight: 700, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span>⚠ {t('serverDown')}</span>
+          <button className="btn-press" onClick={() => window.location.reload()} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.6)', background: 'rgba(0,0,0,.18)' }}>{t('serverDownReload')}</button>
+        </div>
+      )}
+
       {!isOverlay && dataUnreachable && (
         <div style={{ flexShrink: 0, background: 'var(--c-danger)', color: 'var(--c-on-brand)', padding: '10px 16px', fontSize: 13, fontWeight: 700, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
           <span>⚠ {t('dataUnreachable')}</span>

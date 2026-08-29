@@ -1780,6 +1780,19 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
 - **Keep it accurate.** No stale shortcuts, model versions, or removed features. When a fact drifts (e.g.
   the capture shortcut, or a renamed button), fix it in the README while you're there.
 
+**ORDER MATTERS IN `launch.ps1`: resolve PATH BEFORE the already-running branch.** A shortcut launch
+inherits Explorer's PATH, which is stale right after an install - the entire reason `Ensure-OnPath` exists.
+The already-running branch used to run `Check-Update -AlreadyRunning` before that repair, so on exactly
+those machines `Get-Command git` found nothing and the check returned in silence: "I start the app and it
+never offers the update", with nothing on screen and nothing in any log. Every skip in `Check-Update` now
+writes its reason (no git, not a checkout, wrong branch, GitHub unreachable, already latest).
+**The app notices when its own server dies.** The dev server exits on its own once it believes the last
+page has gone, and a crash looks identical; the window then stays on screen looking normal while every
+request fails - which is how "Ebiki's background service didn't answer" kept reappearing with nothing to
+explain it. The `/api/alive` heartbeat already knew and was throwing the answer away: three consecutive
+misses (~15s) raises a red banner above every other one, and a beat that succeeds again RELOADS the page,
+because after an update-and-restart the page on screen is the old build. Measured: banner at 15.4s, reload
+on recovery.
 **Every update decision is written to `logs/update.log`** (machine-local, gitignored): who asked, what was
 answered, and whether the checkout actually moved. "It updated without me clicking yes" is a serious claim
 and used to be unanswerable. Proven by test (`answer='no'` and `'timeout'` leave HEAD untouched, only
