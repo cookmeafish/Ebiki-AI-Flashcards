@@ -358,20 +358,25 @@ already-fixed crash kept reappearing. Both halves are scoped to SHORTCUT launche
   when a server exits, or refuses to, unexpectedly. A manual `npm run dev` sets no flag: the endpoints
   still answer 204, the timer never runs, and it lives until you stop it. That is the supported way to run
   a second copy.
-**THE VERSION IS DERIVED FROM GIT, never stored - so there is nothing to bump on a push.** A commit sha
-alone ("version 0a84d36") is an identifier, not a version: it says nothing about how old a copy is and two
-of them cannot be compared by eye. Ebiki ships from `master` with no tags, so the version shown in Settings
-is computed at request time from the commit itself: `git log -1 --format=%H|%cI` gives the sha and date,
-`git rev-list --count HEAD` gives a build number that only ever rises. Rendered as **`Ebiki 2026.08.28`**
-with `Build 424 · 0a84d36` under it in small monospace. The date is written year-first on purpose - it
-sorts, reads identically in every locale, and is directly comparable to "when did you push that fix".
-**`package.json`'s `"version": "1.0.0"` is deliberately NOT used** and must not be: a stored number is the
-one that needs remembering on every push and goes stale the first time it is forgotten, whereas a derived
-one is correct by construction on every machine, forever, with no release step. **The build count is only
-sent when the history is real** (`.git/shallow` absent) - an older installer linked ZIP folders with
-`--depth 1`, and a shallow repo would proudly report "build 1". `setInfo` runs BEFORE the early returns in
-`UpdatesCard.check`, so the version still shows when the update check itself could not run, which is exactly
-when someone is asking what version they are on.
+**⭐ VERSION: bump `package.json` on every behaviour change, AND the build identity is derived.** Two
+different things, both wanted, and they cover each other's weakness.
+- **Declared** (`package.json` `version`, e.g. `1.1.0`) is the headline in Settings: a number a person can
+  say out loud and ask someone else about. **BUMP IT IN EVERY COMMIT THAT CHANGES WHAT THE APP DOES** -
+  patch for a fix, minor for a feature. This rule lives here because a rule nobody is reminded of is a rule
+  that gets forgotten; a docs-only or comment-only commit does not need one.
+- **Derived** (the small line under it) is `<date> · build <n> · <sha>`, computed from the commit at request
+  time: `git log -1 --date=format:%Y.%m.%d --format=%H|%cI|%cd` and `git rev-list --count HEAD`. Nobody
+  maintains it and it cannot go stale, so a FORGOTTEN BUMP IS NEVER INVISIBLE: two builds that both claim
+  1.1.0 still differ by date, build number and sha. This is the safety net that makes the manual half safe.
+**`--date=format:` renders the COMMIT's own timezone, so every machine shows the same string.** The version
+used to be assembled on the client with `new Date().getFullYear()/getMonth()/getDate()` - LOCAL-time methods
+- so the identical commit read as `2026.08.28` in Los Angeles and `2026.08.29` in UTC, and two people on one
+build could not agree on what they were running (measured both ways). Never `--date=format-local:`, which is
+the one that converts to the viewer. Year-first on purpose: it sorts and reads the same in every locale.
+**The build count is only sent when the history is real** (`.git/shallow` absent) - an older installer
+linked ZIP folders with `--depth 1`, and a shallow repo would proudly report "build 1". `setInfo` runs
+BEFORE the early returns in `UpdatesCard.check`, so the version still shows when the update check itself
+could not run, which is exactly when someone is asking what version they are on.
 
 **A ZIP install must be IDENTICAL to a git install, and that needs a re-exec.** `Link-ToGit` updates
 the FOLDER, but the script already running is still the one that came out of the ZIP - so everything
@@ -1731,6 +1736,9 @@ never reach git. The app never breaks on a missing folder: `vite.config.js` `mkd
   the capture shortcut, or a renamed button), fix it in the README while you're there.
 
 ## Commits
+- **Bump `package.json`'s `version` in every commit that changes what the app does** (patch for a fix,
+  minor for a feature). See the VERSION block in the updates section: the date/build/sha line underneath is
+  derived and catches a forgotten bump, but the declared number is the one people quote at each other.
 - **NEVER name the AI assistant that wrote the code, anywhere that reaches git or GitHub.** The
   repo is PUBLIC. Not in commit subjects or bodies, not in PR titles/descriptions/comments, not in
   issues, not in branch names, not in new code comments. This is WIDER than the attribution
