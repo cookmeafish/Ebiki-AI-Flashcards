@@ -280,7 +280,36 @@ function createAppWindow() {
     openExternally(url)
   })
 
-  appWindow.on('closed', () => { appWindow = null })
+  // ── The window itself is the heartbeat ───────────────────────────────────
+  // The dev server shuts itself down when it believes the last page has gone, and
+  // its only evidence was the RENDERER's heartbeat. A renderer is throttled the
+  // moment its window is minimized or fully covered - that is normal Chromium
+  // behaviour, not a fault - and if the HMR socket is also asleep the fallback ping
+  // never lands either. So the server would exit WHILE THE APP WAS STILL OPEN,
+  // leaving a window that looks completely normal and cannot save, load, check for
+  // updates or reach Anki: every "Ebiki's background service didn't answer" report
+  // comes from here, and no amount of clicking inside that window can fix it.
+  //
+  // The main process is never throttled and is the only thing that actually knows
+  // whether a window exists, so it is what should be answering. It beats for as
+  // long as the window is open and says goodbye once, when it closes.
+  const beat = (pathname) => {
+    try {
+      const req = http.request({ hostname: '127.0.0.1', port: 3000, path: pathname, method: 'POST', timeout: 3000 })
+      req.on('error', () => {})      // server not up yet, or already gone: nothing to do
+      req.on('timeout', () => req.destroy())
+      req.end()
+    } catch { /* never let a heartbeat take the window down */ }
+  }
+  const beatTimer = setInterval(() => beat('/api/alive'), 5000)
+  beat('/api/alive')
+
+  appWindow.on('closed', () => {
+    appWindow = null
+    clearInterval(beatTimer)
+    // The renderer sends this too, but only if it was alive enough to run script.
+    beat('/api/bye')
+  })
   appWindow.webContents.on('console-message', (_, l, m) => console.log('[Renderer]', m))
 
   // A bare BrowserWindow has NO context menu at all by default - unlike a normal browser tab,

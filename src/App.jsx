@@ -386,6 +386,27 @@ export default function App() {
     } catch (e) { setAiErrorNotice(t('offlineMergeFailed', { e: e.message })) }
     finally { setOfflineBusy(false) }
   }
+  // An update REPORTED as failed while having actually applied is worse than a plain
+// failure: the user is told to retry something already done. It happens because the
+// update runs `npm install` inside the request, which rewrites package-lock.json and
+// node_modules - enough to take the dev server down with the response still open. The
+// connection dies, the browser says "Failed to fetch", and the checkout has already
+// moved. So a dropped connection is NOT a verdict: wait for the server to come back
+// and ask the repository what actually happened. The commit sha is the truth here,
+// not the socket.
+async function confirmUpdateApplied(beforeSha, ms = 180000) {
+  const deadline = Date.now() + ms
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 3000))
+    try {
+      const d = await (await fetch('/api/update')).json()
+      if (d?.current && d.current !== beforeSha) return d   // it moved: the update landed
+      if (d?.current && d.current === beforeSha && d.reachable && !d.updateAvailable) return d
+    } catch { /* still restarting; keep waiting */ }
+  }
+  return null
+}
+
   // ── Update watch (the app's own, unmissable half) ─────────────────────────
   // The launcher offers updates too, but that offer is easy to MISS: it is a small
   // native dialog that opened behind the start-up splash, it auto-dismisses if
@@ -445,6 +466,7 @@ export default function App() {
 
   const runUpdate = async () => {
     if (updateStateRef.current === 'updating') return   // double-click, or both entry points at once
+    const beforeSha = updateReady?.current || null
     setUpdateState('updating'); setUpdateError('')
     try {
       const d = await (await fetch('/api/update', { method: 'POST' })).json()
@@ -455,10 +477,24 @@ export default function App() {
       setUpdateReady((u) => ({ ...(u || {}), canRestart: !!d.canRestart }))
       setUpdateState('done')
     } catch (e) {
-      // A dropped connection is Ebiki's own service, not the update: never put the
-      // browser's raw "Failed to fetch" in front of a user.
+      // A dropped connection here usually means the update WORKED and took the server
+      // down with it (the npm install inside the request replaces node_modules). Saying
+      // "it failed" then is the worst outcome: the user retries something already done.
+      // Ask the repository what actually happened instead of trusting the socket.
+      if (/failed to fetch|networkerror|load failed/i.test(String(e.message || e))) {
+        setUpdateState('verifying')
+        const d = await confirmUpdateApplied(beforeSha)
+        if (d && beforeSha && d.current !== beforeSha) {
+          setUpdateReady((u) => ({ ...(u || {}), canRestart: !!d.canRestart }))
+          setUpdateState('done')
+          return
+        }
+        setUpdateState('error')
+        setUpdateError(t('updatesServerDown'))
+        return
+      }
       setUpdateState('error')
-      setUpdateError(/failed to fetch|networkerror|load failed/i.test(String(e.message || e)) ? t('updatesServerDown') : String(e.message || e))
+      setUpdateError(String(e.message || e))
     }
   }
   // Restarting is PART of the update, not a chore handed back to the user: the dev
@@ -10066,6 +10102,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
             <button onClick={snoozeUpdate} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.35)' }}>{t('updateBannerLater')}</button>
           </>)}
           {updateState === 'updating' && <span>⏳ {t('updateBannerUpdating')}</span>}
+          {updateState === 'verifying' && <span>⏳ {t('updatesVerifying')}</span>}
           {updateState === 'restarting' && <span>⏳ {t('updateBannerRestarting')}</span>}
           {updateState === 'done' && (<>
             <span>✓ {(updateReady?.canRestart && isElectronApp) ? t('updateBannerDone') : t('updateBannerManual')}</span>

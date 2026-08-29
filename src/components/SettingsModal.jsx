@@ -168,6 +168,27 @@ function DataFolderCard({ t, card, fieldLabel, hint }) {
 // Self-contained: talks to /api/update directly. GET checks (local HEAD vs the
 // remote branch head); POST runs git pull + npm install. Same code path as the
 // desktop shortcut's launch-time check, exposed as a button in the GUI.
+// An update REPORTED as failed while having actually applied is worse than a plain
+// failure: the user is told to retry something already done. It happens because the
+// update runs `npm install` inside the request, which rewrites package-lock.json and
+// node_modules - enough to take the dev server down with the response still open. The
+// connection dies, the browser says "Failed to fetch", and the checkout has already
+// moved. So a dropped connection is NOT a verdict: wait for the server to come back
+// and ask the repository what actually happened. The commit sha is the truth here,
+// not the socket.
+async function confirmUpdateApplied(beforeSha, ms = 180000) {
+  const deadline = Date.now() + ms
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 3000))
+    try {
+      const d = await (await fetch('/api/update')).json()
+      if (d?.current && d.current !== beforeSha) return d   // it moved: the update landed
+      if (d?.current && d.current === beforeSha && d.reachable && !d.updateAvailable) return d
+    } catch { /* still restarting; keep waiting */ }
+  }
+  return null
+}
+
 function UpdatesCard({ t, card, fieldLabel, hint }) {
   const [state, setState] = useState('idle')   // idle | checking | uptodate | available | updating | done | error | nogit | offline | down | branch | busy | remoteMissing | dirty
   const [info, setInfo] = useState(null)
@@ -217,6 +238,7 @@ function UpdatesCard({ t, card, fieldLabel, hint }) {
     }
   }
   const doUpdate = async () => {
+    const beforeSha = info?.current || null
     setState('updating'); setErr(null)
     try {
       const d = await (await fetch('/api/update', { method: 'POST' })).json()
@@ -226,10 +248,18 @@ function UpdatesCard({ t, card, fieldLabel, hint }) {
       if (!d.ok) { setState('error'); setErr(d.error || 'update failed'); return }
       setState('done')
     } catch (e) {
-      // Same reasoning as check(): a dropped connection is our service, not the
-      // update itself, so it must not surface as the browser's raw wording.
+      // A dropped connection here usually means the update WORKED and took the server
+      // down with it (npm install replaced node_modules). Go and look instead of guessing.
+      if (/failed to fetch|networkerror|load failed/i.test(String(e.message || e))) {
+        setState('verifying')
+        const d = await confirmUpdateApplied(beforeSha)
+        if (d && beforeSha && d.current !== beforeSha) { setInfo(d); setState('done'); return }
+        if (d) { setInfo(d); setState(d.updateAvailable ? 'available' : 'uptodate'); return }
+        setState('down')
+        return
+      }
       setState('error')
-      setErr(/failed to fetch|networkerror|load failed/i.test(String(e.message || e)) ? null : String(e.message || e))
+      setErr(String(e.message || e))
     }
   }
   // Check as soon as this pane is opened. Someone who came looking for updates
@@ -286,6 +316,7 @@ function UpdatesCard({ t, card, fieldLabel, hint }) {
       {state === 'uptodate' && <div style={{ fontSize: 11, color: C.success, marginTop: 8 }}>✓ {t('updatesUpToDate')}</div>}
       {state === 'available' && <div style={{ fontSize: 11, color: C.brand, marginTop: 8 }}>{t('updatesAvailable')}</div>}
       {state === 'updating' && <div style={{ fontSize: 11, color: C.inkDim, marginTop: 8 }}>{t('updatesUpdating')}</div>}
+      {state === 'verifying' && <div style={{ fontSize: 11, color: C.inkDim, marginTop: 8 }}>{t('updatesVerifying')}</div>}
       {state === 'done' && <div style={{ fontSize: 11, color: C.success, marginTop: 8, lineHeight: 1.5 }}>✓ {t('updatesDone')}</div>}
       {state === 'nogit' && <div style={{ fontSize: 11, color: C.inkDim, marginTop: 8, lineHeight: 1.5 }}>{t('updatesNoGit')}</div>}
       {state === 'offline' && <div style={{ fontSize: 11, color: C.inkDim, marginTop: 8 }}>{t('updatesOffline')}</div>}
