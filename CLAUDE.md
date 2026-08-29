@@ -1786,6 +1786,21 @@ The already-running branch used to run `Check-Update -AlreadyRunning` before tha
 those machines `Get-Command git` found nothing and the check returned in silence: "I start the app and it
 never offers the update", with nothing on screen and nothing in any log. Every skip in `Check-Update` now
 writes its reason (no git, not a checkout, wrong branch, GitHub unreachable, already latest).
+**A DROPPED CONNECTION DURING AN UPDATE IS NOT A FAILURE - go and look.** The update runs `npm install`
+INSIDE the request, which replaces `node_modules` and rewrites `package-lock.json`, and that is enough to
+take the dev server down with the response still open. The browser then reports "Failed to fetch" for an
+update that has ALREADY APPLIED - reported as "it updates but says it can't", and the worst possible
+outcome, because the user retries something already done. `confirmUpdateApplied()` (in both App.jsx and
+SettingsModal) polls `/api/update` for up to 3 min and compares the commit sha: moved = it worked. The
+commit is the truth, never the socket.
+**The ELECTRON MAIN PROCESS heartbeats, not just the renderer.** The server exits when it believes the last
+page has gone, and its only evidence was the renderer's `/api/alive`. A renderer is throttled the moment
+its window is minimized or fully covered (normal Chromium behaviour), and if the HMR socket is asleep the
+fallback ping never lands either - so the server exited WHILE THE APP WAS OPEN, leaving a window that looks
+normal and can do nothing: every "background service didn't answer" report starts here, and no click inside
+that window can fix it. `electron/main.cjs` beats every 5s for as long as `appWindow` exists and says
+goodbye on `closed`. The main process is never throttled and is the only thing that truly knows whether a
+window is open.
 **The app notices when its own server dies.** The dev server exits on its own once it believes the last
 page has gone, and a crash looks identical; the window then stays on screen looking normal while every
 request fails - which is how "Ebiki's background service didn't answer" kept reappearing with nothing to
