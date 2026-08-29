@@ -301,6 +301,28 @@ $held = $false
 try { $held = $mutex.WaitOne(120000) } catch [System.Threading.AbandonedMutexException] { $held = $true }
 try {
 
+# ── Make sure Node/Git are findable ─────────────────────────────────────────
+# Right after install, Explorer's PATH can be stale (the registry has Node but
+# this process inherited the old PATH), so a shortcut launch might not see npm.
+# Refresh PATH from the registry and add the standard install folders if present.
+function Ensure-OnPath($cmd, $candidates) {
+  if (Get-Command $cmd -ErrorAction SilentlyContinue) { return $true }
+  $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
+  foreach ($dir in $candidates) {
+    if ($dir -and (Test-Path $dir) -and ($env:Path -notlike "*$dir*")) { $env:Path = "$dir;$env:Path" }
+  }
+  return [bool](Get-Command $cmd -ErrorAction SilentlyContinue)
+}
+$pf = $env:ProgramFiles; $pfx = ${env:ProgramFiles(x86)}; $lad = $env:LOCALAPPDATA
+$hasNode = Ensure-OnPath 'npm' @("$pf\nodejs", "$pfx\nodejs", "$lad\Programs\nodejs")
+[void](Ensure-OnPath 'git' @("$pf\Git\cmd", "$pfx\Git\cmd", "$lad\Programs\Git\cmd"))
+
+# NOTE ON ORDER: the PATH repair above MUST come before this branch. The update
+# check needs git, and a shortcut launch inherits Explorer's PATH, which is stale
+# right after an install - which is the whole reason Ensure-OnPath exists. With
+# this branch running first, `Get-Command git` found nothing on exactly those
+# machines and Check-Update returned in silence: "I start the app and it never
+# offers the update", with nothing on screen and nothing in any log.
 # Already running -> show it. If it's already open as an Electron app window,
 # requestSingleInstanceLock in electron/main.cjs means this just focuses that
 # window instead of opening a second one - the same "click the icon again -> it
@@ -319,22 +341,6 @@ if (Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyCont
   Wait-AppReady (Open-App)
   return
 }
-
-# ── Make sure Node/Git are findable ─────────────────────────────────────────
-# Right after install, Explorer's PATH can be stale (the registry has Node but
-# this process inherited the old PATH), so a shortcut launch might not see npm.
-# Refresh PATH from the registry and add the standard install folders if present.
-function Ensure-OnPath($cmd, $candidates) {
-  if (Get-Command $cmd -ErrorAction SilentlyContinue) { return $true }
-  $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
-  foreach ($dir in $candidates) {
-    if ($dir -and (Test-Path $dir) -and ($env:Path -notlike "*$dir*")) { $env:Path = "$dir;$env:Path" }
-  }
-  return [bool](Get-Command $cmd -ErrorAction SilentlyContinue)
-}
-$pf = $env:ProgramFiles; $pfx = ${env:ProgramFiles(x86)}; $lad = $env:LOCALAPPDATA
-$hasNode = Ensure-OnPath 'npm' @("$pf\nodejs", "$pfx\nodejs", "$lad\Programs\nodejs")
-[void](Ensure-OnPath 'git' @("$pf\Git\cmd", "$pfx\Git\cmd", "$lad\Programs\Git\cmd"))
 
 if (-not $hasNode) {
   # Can't run without Node. Point the user at the installer rather than failing silently.
@@ -371,16 +377,16 @@ function Check-Update {
   # Sweep the marker older versions left behind, so nothing can silently suppress
   # a future check.
   Remove-Item $snooze -Force -ErrorAction SilentlyContinue
-  if (-not (Get-Command git -ErrorAction SilentlyContinue)) { return }
+  if (-not (Get-Command git -ErrorAction SilentlyContinue)) { Write-UpdateLog 'skipped: git is not on PATH'; return }
   $local = (& git -C $app rev-parse HEAD 2>$null)
-  if (-not $local) { return }
+  if (-not $local) { Write-UpdateLog 'skipped: this folder is not a git checkout'; return }
   # Updates come from master, always. A clone parked on another branch would
   # compare its HEAD against origin/master forever - offered an update on every
   # single launch that then cannot apply, because pulling master into another
   # branch is not a fast-forward. Say nothing on those; whoever checked out a
   # branch knows how to update it.
   $branch = (& git -C $app rev-parse --abbrev-ref HEAD 2>$null)
-  if ($branch -and $branch -ne 'master') { return }
+  if ($branch -and $branch -ne 'master') { Write-UpdateLog "skipped: on branch '$branch', updates track master"; return }
   # An older installer linked ZIP folders with --depth 1. That clone can pull, but
   # it has no history to diff or roll back through, and it reports "build 1" so the
   # version line has to hide the build number entirely. Deepen it once, quietly, the
@@ -398,9 +404,9 @@ function Check-Update {
   $line = $null
   if (Wait-Job $job -Timeout 6) { $line = Receive-Job $job }
   Remove-Job $job -Force -ErrorAction SilentlyContinue
-  if (-not $line) { return }                       # unreachable -> open normally
+  if (-not $line) { Write-UpdateLog 'skipped: could not reach GitHub within 6s'; return }   # open normally
   $remote = (($line | Select-Object -First 1) -split '\s+')[0]
-  if (-not $remote -or $remote -eq $local) { return }  # up to date -> open normally
+  if (-not $remote -or $remote -eq $local) { Write-UpdateLog 'no update: already on the latest release'; return }
 
   # Update available -> ask IN THE SPLASH (see Ask-InSplash). One window, already
   # on screen and in front, so there is nothing left for the question to hide
