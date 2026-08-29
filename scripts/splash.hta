@@ -66,6 +66,14 @@
      predates it. */
   .ebi { float: left; width: 100px; margin: 0 16px 0 0; }
   .ebi img { width: 100px; }
+  /* The text is a COLUMN beside Ebi, not text flowing around him. A float only
+     pushes lines aside while they are level with it: the moment the message grew
+     past Ebi's height the next line wrapped back to the full width and started
+     under his tail, so a two-line message came out with its last line hanging off
+     to the left. Reserving the float's width (100 + 16) keeps every line in the
+     same column, however long the message gets - and messages here are written by
+     the launcher, so their length is not something this file can predict. */
+  .col { margin-left: 116px; }
   .title { font-size: 21px; font-weight: 700; letter-spacing: .2px; padding-top: 6px; }
   .sub { font-size: 12.5px; color: #62717F; margin-top: 4px; }
   .clear { clear: both; height: 18px; }
@@ -100,10 +108,12 @@
   <div class="wrap" id="wrap">
     <div class="row">
       <div class="ebi"><img src="../public/assets/shrimp/6820-holeshrimp.png" alt=""></div>
-      <div class="title" id="title">Starting Ebiki</div>
-      <div class="sub" id="sub">Waking up Anki and the study server.</div>
-      <div id="ask">
-        <button class="yes" onclick="answer('yes')">Update now</button><button class="no" onclick="answer('no')">Not now</button>
+      <div class="col">
+        <div class="title" id="title">Starting Ebiki</div>
+        <div class="sub" id="sub">Waking up Anki and the study server.</div>
+        <div id="ask">
+          <button class="yes" onclick="answer('yes')">Update now</button><button class="no" onclick="answer('no')">Not now</button>
+        </div>
       </div>
     </div>
     <div class="clear"></div>

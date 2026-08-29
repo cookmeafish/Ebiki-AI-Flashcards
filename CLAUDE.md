@@ -251,6 +251,12 @@ one needs `SetCurrentProcessExplicitAppUserModelID` before the window exists, wh
 call. The window itself is the feedback. Also note every `<hta:application>` attribute must stay a
 bare attribute - an HTML comment inside that tag is invalid and silently stops the whole block
 applying (the title bar comes back), the same class of trap as the ie=edge one below.
+**The splash's text is a COLUMN (`.col`, `margin-left:116px`), never text flowing around the float.** A
+float only pushes lines aside while they are level with it, so the moment a message grew past Ebi's height
+the next line wrapped back to full width and started under his tail - a two-line message came out with its
+last line hanging off to the left. The launcher writes these messages, so their length is not something the
+HTA can predict; reserving the float's width keeps every line in one column at any length (measured:
+title/sub/buttons all at left=116).
 It closes on a FILE HANDSHAKE:
 the splash polls for `<app>\.app-ready` (gitignored), and `electron/main.cjs` touches that file from its
 `ready-to-show` handler - the only moment that honestly means "the app is on screen", since the launcher
@@ -1818,8 +1824,12 @@ INSIDE the request, which replaces `node_modules` and rewrites `package-lock.jso
 take the dev server down with the response still open. The browser then reports "Failed to fetch" for an
 update that has ALREADY APPLIED - reported as "it updates but says it can't", and the worst possible
 outcome, because the user retries something already done. `confirmUpdateApplied()` (in both App.jsx and
-SettingsModal) polls `/api/update` for up to 3 min and compares the commit sha: moved = it worked. The
-commit is the truth, never the socket.
+SettingsModal) polls `/api/update` and compares the commit sha: moved = it worked. The commit is the truth,
+never the socket. **ONE answer from the server settles it, whichever way it goes** - it used to return only
+when the sha had MOVED, so the common case (service back, update did NOT apply) matched nothing and the
+loop polled in silence for three minutes behind "Finishing up...", which is a hang shown to the one user
+most in need of a straight answer. The deadline (45s) now covers only "never came back", which is the case
+that genuinely cannot be answered and ends in the restart offer.
 **The ELECTRON MAIN PROCESS heartbeats, not just the renderer.** The server exits when it believes the last
 page has gone, and its only evidence was the renderer's `/api/alive`. A renderer is throttled the moment
 its window is minimized or fully covered (normal Chromium behaviour), and if the HMR socket is asleep the
