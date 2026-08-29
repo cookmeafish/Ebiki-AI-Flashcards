@@ -288,12 +288,21 @@ $held = $false
 try { $held = $mutex.WaitOne(120000) } catch [System.Threading.AbandonedMutexException] { $held = $true }
 try {
 
-# Already running -> just show it (don't disrupt or re-check). If it's already
-# open as an Electron app window, requestSingleInstanceLock in electron/main.cjs
-# means this just focuses that window instead of opening a second one - the
-# same "click the icon again -> it comes to front" behavior a real installed
-# app has, not a fresh browser tab piling up next to the old one.
+# Already running -> show it. If it's already open as an Electron app window,
+# requestSingleInstanceLock in electron/main.cjs means this just focuses that
+# window instead of opening a second one - the same "click the icon again -> it
+# comes to front" behavior a real installed app has, not a fresh browser tab
+# piling up next to the old one.
+#
+# It STILL CHECKS FOR UPDATES here, and that is the fix for "I exited the app and
+# reopened it and it never offered the update". Closing the window does not stop
+# the dev server immediately: it leaves on a goodbye beacon plus a grace period,
+# and up to 150s of silence if that beacon never arrived. So reopening within
+# that window found port 3000 still answering and took this branch, which used to
+# return without checking anything at all - the one moment the user is plainly
+# present and asking for the app, and it was the one path that stayed silent.
 if (Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyContinue) {
+  try { Check-Update -AlreadyRunning } catch {}
   Wait-AppReady (Open-App)
   return
 }
@@ -324,6 +333,7 @@ if (-not $hasNode) {
 
 # ── Quick, seamless update check ────────────────────────────────────────────
 function Check-Update {
+  param([switch]$AlreadyRunning)
   # ALWAYS check. There is deliberately no snooze on this path any more: it used
   # to skip the check entirely for a week after a single "not now", which is how
   # someone stayed on a build with an already-fixed bug without the app ever
@@ -345,6 +355,14 @@ function Check-Update {
   # branch knows how to update it.
   $branch = (& git -C $app rev-parse --abbrev-ref HEAD 2>$null)
   if ($branch -and $branch -ne 'master') { return }
+  # An older installer linked ZIP folders with --depth 1. That clone can pull, but
+  # it has no history to diff or roll back through, and it reports "build 1" so the
+  # version line has to hide the build number entirely. Deepen it once, quietly, the
+  # first time we are here with a working network. Fail-soft: offline just leaves it.
+  if (Test-Path (Join-Path $app '.git\shallow')) {
+    Set-Status 'Filling in this copy''s history. One time only.'
+    & git -C $app fetch --unshallow 2>&1 | Out-Null
+  }
   Set-Status 'Checking for updates.'
 
   # Compare against 'master' (the release branch), whatever local branch this
@@ -393,6 +411,10 @@ function Check-Update {
     }
     Set-Status 'Installing the update. Almost done.'
     & cmd /c "cd /d ""$app"" && npm install --no-fund --no-audit" 2>&1 | Out-Null
+    # When the app was already up, the running copy is still serving the OLD code
+    # (the dev server cannot reload vite.config.js or new dependencies live), so
+    # say the one thing that finishes the job rather than pretending it is done.
+    if ($AlreadyRunning) { Set-Status 'Update installed. Close Ebiki and open it again to finish.'; Start-Sleep -Seconds 4 }
   }
   # 'no' -> just open. Nothing is recorded, so the next launch asks again.
   # 'timeout' (nobody was at the computer) -> open normally. Nothing is lost

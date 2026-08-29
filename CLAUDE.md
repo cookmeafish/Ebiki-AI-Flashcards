@@ -337,6 +337,19 @@ developer's work is safe (reported as `dirty`). Covered live against real repos 
 rewritten, rewound-by-many, local-edits-present, and master deleted upstream. `ls-remote` returning nothing
 means master itself is gone (renamed/removed) and is reported as `remoteMissing` rather than the lie that
 you are up to date.
+**THE ALREADY-RUNNING LAUNCH PATH MUST CHECK TOO.** Closing the window does not stop the dev server at
+once (it leaves on a `/api/bye` beacon plus a grace ping, and up to 150s of silence when that beacon never
+arrives), so reopening within that window finds port 3000 answering and takes `launch.ps1`'s already-running
+branch - which used to `return` without checking anything. That is the one moment the user is plainly
+present and asking for the app, and it was the only path that stayed silent: "I exited the app and reopened
+it and it never offered the update". It now runs `Check-Update -AlreadyRunning`, which offers the update as
+usual and, because the running server is still serving the OLD code afterwards, ends on "close Ebiki and
+open it again to finish" rather than pretending it is live. The banner covers the same gap from the client
+side: it re-checks on `focus`/`visibilitychange` (throttled to once a minute) as well as every 30 min,
+because reopening can land on the SAME still-running server and the SAME already-loaded page, where nothing
+else would fire for half an hour. `launch.ps1` also `fetch --unshallow`s a shallow clone once, so a copy
+from the older `--depth 1` installer heals without re-running setup (a shallow repo also has to hide the
+build number, since it would say "build 1").
 **Robustness rules for this endpoint, each one a bug that happened:** GET has a `send()` watchdog so it
 ALWAYS answers (a request that never completes surfaces as the browser's bare "Failed to fetch", which names
 neither what failed nor what to do, and leaves the card dead); git runs with `GIT_TERMINAL_PROMPT=0` +
