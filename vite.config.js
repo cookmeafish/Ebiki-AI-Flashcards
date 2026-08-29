@@ -818,6 +818,14 @@ function apiPlugin() {
             git(['fetch', 'origin', 'master'], (ef, fo, fe) => {
               if (ef) { finish({ ok: false, error: String(fe || ef.message || 'could not reach GitHub').slice(0, 600) }); return }
               const afterMove = (out) => {
+                // Same audit trail as the launcher (see Write-UpdateLog): every update
+                // that actually moves this checkout says so, in one line, on this
+                // computer. An in-app update only ever starts from a button press.
+                try {
+                  const dir = path.join(APP_ROOT, 'logs')
+                  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+                  fs.appendFileSync(path.join(dir, 'update.log'), `${new Date().toISOString()}  app: update requested from the UI\n`)
+                } catch { /* logging must never break an update */ }
                 // Dependencies may have changed - run npm install (fast if nothing did).
                 execFile(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['install', '--no-audit', '--no-fund'], { cwd: APP_ROOT, timeout: 300000, windowsHide: true }, () => {
                   // The launch-time popup must not re-offer an update the app just installed.
@@ -894,10 +902,17 @@ function apiPlugin() {
         const script = path.join(APP_ROOT, 'scripts', 'install-ankiconnect.ps1')
         if (req.method === 'GET') {
           const found = findAnkiConnect()
+          // Has Anki ever been SET UP? Its profile database only appears once the
+          // first-run dialog (choose a language) has been answered. Without that,
+          // Anki never finishes starting, so the add-on never loads and no amount of
+          // reinstalling it changes anything - the user has to finish Anki's own
+          // setup first, and nothing used to say so.
+          const configured = fs.existsSync(path.join(ankiBaseDir(), 'prefs21.db'))
           const payload = {
             ok: true,
             installed: !!found,
             addon: found,
+            configured,
             base: ankiBaseDir(),
             // Whether we can do anything about it from here. The installer script
             // is PowerShell, so on any other platform the UI must give

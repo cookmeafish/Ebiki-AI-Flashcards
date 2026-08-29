@@ -225,6 +225,11 @@ try {
     } else {
       Warn 'This folder came from a ZIP download, so it has no version and cannot update itself.'
     }
+    # Say it BEFORE doing it. This path replaces the app's own files with the
+    # current release without asking - reasonable for an installer, but it is the
+    # only update anywhere that is not gated on a Yes, so it must not be a surprise
+    # ("I ran the installer and it updated itself"). User data is untouched.
+    Warn 'This will also update the app files to the latest release. Your settings, learning modes and decks are not touched.'
     Info 'Linking it to the project so updates work from now on...'
     try {
       $sha = Link-ToGit $app 'https://github.com/cookmeafish/Ebiki-AI-Flashcards.git'
