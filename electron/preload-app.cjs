@@ -8,6 +8,11 @@ contextBridge.exposeInMainWorld('ebikiWindow', {
   minimize: () => ipcRenderer.send('app-window:minimize'),
   toggleMaximize: () => ipcRenderer.send('app-window:toggle-maximize'),
   close: () => ipcRenderer.send('app-window:close'),
+  // Restart the whole app. This exists because the ONE moment a restart is most
+  // needed is the moment the dev server is gone: installing an update replaces
+  // node_modules and can take the server down with it, and the restart endpoint
+  // lives ON that server. Going through Electron instead needs nothing running.
+  restart: () => ipcRenderer.send('app-window:restart'),
   isMaximized: () => ipcRenderer.invoke('app-window:is-maximized'),
   onMaximizedChange: (cb) => {
     const listener = (_event, isMaximized) => cb(isMaximized)

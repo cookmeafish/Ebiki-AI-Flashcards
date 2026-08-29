@@ -1786,6 +1786,21 @@ The already-running branch used to run `Check-Update -AlreadyRunning` before tha
 those machines `Get-Command git` found nothing and the check returned in silence: "I start the app and it
 never offers the update", with nothing on screen and nothing in any log. Every skip in `Check-Update` now
 writes its reason (no git, not a checkout, wrong branch, GitHub unreachable, already latest).
+**THE HOLDING PAGE MUST REVIVE THE SERVER, NOT JUST WAIT FOR IT.** `createAppWindow`'s retry loop
+retried forever against a port nothing would ever open again (the server exits on its own, or an update's
+npm install takes it down), so the window sat on "Waiting for Ebiki's server" indefinitely - reported as a
+frozen white screen, and correctly so. It now calls `delegateToLauncher()` after the first failed attempt,
+once per outage (`revived` resets only on a real page load, so a broken machine cannot spawn launchers in
+a loop). For the same reason the server-down banner's button RESTARTS the app rather than reloading:
+reloading throws the working page away and lands on that holding page, which is how Reconnect made things
+worse.
+**Restarting must work with NO SERVER RUNNING.** `/api/update/restart` lives on the very service an update
+kills, so `window.ebikiWindow.restart()` (preload -> `app-window:restart` -> `app.relaunch()`) is the
+fallback: the new process starts bare and the bare-launch path starts the launcher. Server endpoint first
+(it waits for the port properly), Electron second, manual wording last.
+**"Later" IS SESSION-ONLY and is never persisted.** Opening the app is when the user is present and the
+update is cheapest to take, so every fresh open asks again; a snooze that survived a restart meant someone
+could open Ebiki all day and never once be told. A marker persisted by an older build is cleared on sight.
 **A DROPPED CONNECTION DURING AN UPDATE IS NOT A FAILURE - go and look.** The update runs `npm install`
 INSIDE the request, which replaces `node_modules` and rewrites `package-lock.json`, and that is enough to
 take the dev server down with the response still open. The browser then reports "Failed to fetch" for an
