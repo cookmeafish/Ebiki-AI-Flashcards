@@ -405,7 +405,27 @@ export default function App() {
     }).catch(() => {})
     const first = setTimeout(check, 4000)          // let the app finish loading before a git call
     const id = setInterval(check, 30 * 60 * 1000)  // and keep looking, so a release lands the same day
-    return () => { stop = true; clearTimeout(first); clearInterval(id) }
+    // AND whenever the user comes back to the window. Closing Ebiki does not always
+    // stop the dev server (it leaves on a beacon plus a grace period), so reopening
+    // can land on the SAME still-running server and the same already-loaded page -
+    // in which case nothing above would fire again for up to half an hour, and
+    // "I exited and reopened it and it never offered the update" is exactly right.
+    // Coming back to the window is the clearest signal there is that someone is
+    // present, so it re-checks then, throttled so alt-tabbing costs nothing.
+    let lastAt = 0
+    const onWake = () => {
+      if (document.visibilityState === 'hidden') return
+      if (Date.now() - lastAt < 60000) return
+      lastAt = Date.now()
+      check()
+    }
+    window.addEventListener('focus', onWake)
+    document.addEventListener('visibilitychange', onWake)
+    return () => {
+      stop = true; clearTimeout(first); clearInterval(id)
+      window.removeEventListener('focus', onWake)
+      document.removeEventListener('visibilitychange', onWake)
+    }
   }, [isOverlay, configLoaded])
 
   const runUpdate = async () => {
