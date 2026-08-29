@@ -394,6 +394,9 @@ export default function App() {
     let stop = false
     const check = () => fetch('/api/update').then((r) => r.json()).then((d) => {
       if (stop) return
+      // A copy on another branch can never apply a master update, so it must not be
+      // offered one - it would fail every time and the banner would never go away.
+      if (d?.branch && !d.onMaster) { setUpdateReady(null); return }
       if (d?.updateAvailable) { setUpdateReady({ current: d.current, remote: d.remote, canRestart: !!d.canRestart }); return }
       // Up to date (or git/network unavailable, which reports no update either):
       // drop a stale offer, but never yank the banner out from under an update
@@ -406,13 +409,21 @@ export default function App() {
   }, [isOverlay, configLoaded])
 
   const runUpdate = async () => {
+    if (updateStateRef.current === 'updating') return   // double-click, or both entry points at once
     setUpdateState('updating'); setUpdateError('')
     try {
       const d = await (await fetch('/api/update', { method: 'POST' })).json()
-      if (!d.ok) { setUpdateState('error'); setUpdateError(d.error || 'update failed'); return }
+      if (d.busy) { setUpdateState('error'); setUpdateError(t('updatesBusy')); return }
+      if (d.wrongBranch) { setUpdateState('error'); setUpdateError(t('updatesWrongBranch', { branch: d.wrongBranch })); return }
+      if (!d.ok) { setUpdateState('error'); setUpdateError(d.error || t('updateBannerFailed')); return }
       setUpdateReady((u) => ({ ...(u || {}), canRestart: !!d.canRestart }))
       setUpdateState('done')
-    } catch (e) { setUpdateState('error'); setUpdateError(String(e.message || e)) }
+    } catch (e) {
+      // A dropped connection is Ebiki's own service, not the update: never put the
+      // browser's raw "Failed to fetch" in front of a user.
+      setUpdateState('error')
+      setUpdateError(/failed to fetch|networkerror|load failed/i.test(String(e.message || e)) ? t('updatesServerDown') : String(e.message || e))
+    }
   }
   // Restarting is PART of the update, not a chore handed back to the user: the dev
   // server cannot reload vite.config.js or newly installed dependencies live, so an

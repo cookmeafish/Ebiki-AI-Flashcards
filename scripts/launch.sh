@@ -112,6 +112,12 @@ check_update() {
   local local_head
   local_head="$(git -C "$APP" rev-parse HEAD 2>/dev/null)"
   [ -z "$local_head" ] && return
+  # Updates come from master, always. A clone on another branch would be offered an
+  # update every launch that could never apply (master into another branch is not a
+  # fast-forward), so leave those alone.
+  local branch
+  branch="$(git -C "$APP" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+  [ -n "$branch" ] && [ "$branch" != master ] && return
 
   local line remote
   line="$(timeout 6 git -C "$APP" ls-remote origin master 2>/dev/null | head -n1)"
