@@ -723,13 +723,24 @@ function apiPlugin() {
           // card dead. Every exit below goes through send(), and the watchdog wins
           // if some future git call finds a way to hang anyway.
           let answered = false
+          // Whatever has been learned so far. The watchdog used to answer with just
+          // `{gitAvailable, reachable:false}` - no sha, no version - so a caller that
+          // needed to know WHICH commit this is (the post-update verification, and
+          // the version line) got a reply carrying nothing it could use, and kept
+          // asking. Local facts are known long before the network is; send them.
+          let known = {}
           const send = (payload) => {
             if (answered) return
             answered = true
             clearTimeout(watchdog)
             res.end(JSON.stringify(payload))
           }
-          const watchdog = setTimeout(() => send({ ok: true, gitAvailable: true, reachable: false }), 25000)
+          const watchdog = setTimeout(() => send({ ok: true, gitAvailable: true, reachable: false, ...known }), 25000)
+          // ?local=1 skips the network entirely. Verifying an update only needs to
+          // know which commit is checked out NOW, and asking GitHub for that costs a
+          // round trip that can take 25s on a bad connection - which is what turned
+          // "Checking whether the update landed..." into a freeze.
+          const localOnly = /[?&]local=1/.test(req.originalUrl || req.url || '')
           // What a PERSON can read. A bare commit sha ("you are on version 0a84d36")
           // is an identifier, not a version: it does not say how old the copy is,
           // and two of them cannot be compared by eye. This project ships from
@@ -771,6 +782,8 @@ function apiPlugin() {
                 let appVersion = ''
                 try { appVersion = JSON.parse(fs.readFileSync(path.join(APP_ROOT, 'package.json'), 'utf-8')).version || '' } catch { /* no package.json = no declared version */ }
                 const base = { current: (headSha || '').slice(0, 7), currentDate: headDate || '', version: headVersion || '', appVersion, build, branch, onMaster: branch === 'master' }
+                known = base
+                if (localOnly) { send({ ok: true, gitAvailable: true, reachable: null, ...base }); return }
                 git(['ls-remote', 'origin', 'master'], (e3, remoteOut) => {
                   if (e3) { send({ ok: true, gitAvailable: true, reachable: false, ...base }); return }
                   const localSha = (headSha || '').trim()
