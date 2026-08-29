@@ -9966,13 +9966,19 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
     // the add-on can never load and reinstalling it changes nothing. Nothing used
     // to say that, and the dialog itself was easy to miss (the launcher started
     // Anki minimized, so it sat waiting behind everything).
+    // Anki STOPPED ON A QUESTION beats everything, including "not set up": it is the
+    // only state where the fix is a window already on the user's screen, and where
+    // restarting or reinstalling anything actively wastes their time.
     const state = !a ? 'unknown'
-      : a.configured === false ? 'setup'
+      : a.ankiAwaitingInput ? 'waiting'
+        : a.configured === false ? 'setup'
         : !a.installed ? 'missing'
           : a.addon?.disabled ? 'disabled'
             : a.ankiRunning === false ? 'notRunning'
               : 'notLoaded'   // on disk, Anki up (or unknowable), still not answering
-    const message = state === 'setup' ? t('ankiSetupNeeded')
+    const message = state === 'waiting'
+      ? (a.ankiDialogs?.length ? t('ankiWaiting', { what: a.ankiDialogs[0] }) : t('ankiWaitingGeneric'))
+      : state === 'setup' ? t('ankiSetupNeeded')
       : state === 'missing' ? t('ankiAddonMissing')
         : state === 'disabled' ? t('ankiAddonDisabled')
           : state === 'notRunning' ? t('ankiAddonStartAnki')
@@ -10001,7 +10007,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 Anki folder, and a dead end is worse than a redundant button. The
                 script itself is idempotent: it never overwrites an add-on that is
                 already there, it reports it. */}
-            {a?.canInstall && state !== 'setup' && (
+            {a?.canInstall && state !== 'setup' && state !== 'waiting' && (
               <button className="btn-press" onClick={installAnkiAddon} style={btn}>
                 {state === 'missing' ? t('ankiAddonInstall') : t('ankiAddonRepair')}
               </button>
@@ -10020,7 +10026,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
         {/* Numbered, because this is a task with an order and the sign-in half is
             the part people skip - and skipping it means the cards only ever exist
             on this computer. */}
-        {state === 'setup' && (
+        {(state === 'setup' || state === 'waiting') && (
           <span style={{ width: '100%', color: C.ink, fontWeight: 600, display: 'flex', flexDirection: 'column', gap: 2, marginTop: 2 }}>
             <span>{t('ankiSetupStep1')}</span>
             <span>{t('ankiSetupStep2')}</span>

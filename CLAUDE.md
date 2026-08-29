@@ -486,10 +486,22 @@ so installing the original on top of one would break a working setup.
 
 ## Anki setup: the add-on, and the AnkiWeb account
 Two DIFFERENT problems that both used to surface as one unhelpful "Anki is not connected" line.
+- **EBIKI CAN SEE WHAT ANKI IS WAITING FOR** (`scripts/anki-state.ps1`, reported by `/api/ankiconnect`
+  as `ankiRunning`/`ankiMainWindow`/`ankiAwaitingInput`/`ankiDialogs`). Anki's MAIN window is titled
+  `"<something> - Anki"` and only exists once a profile is open; its first-run dialogs are titled plain
+  `"Anki"`. So a running Anki with a visible plain-"Anki" window and NO main window is an Anki
+  **stopped on a question** - the one state where restarting or reinstalling anything is pure wasted
+  effort, because the fix is a window already on screen. It outranks every other state and names the
+  dialog it is showing.
 - **Anki NOT SET UP outranks every other state.** Anki's first run asks for a language and creates a
   profile, and until that dialog is answered Anki never finishes starting - so the add-on never loads,
-  reinstalling it changes nothing, and every message about add-ons is beside the point. Detected by
-  `prefs21.db` missing from the Anki base (`configured:false` from `/api/ankiconnect`), shown as
+  reinstalling it changes nothing, and every message about add-ons is beside the point. Detected by NO
+  `<profile>/collection.anki2` under the Anki base (`configured:false` from `/api/ankiconnect`). **NOT by
+  `prefs21.db`** - read Anki's `profiles.py`: `_loadMeta` does `firstTime = not os.path.exists(prefs21.db)`
+  and then creates that file immediately, so it exists from the first moments of start-up, long before the
+  language dialog is answered. Testing it reported "configured" for an Anki that was still asking its first
+  question, which is how the app told someone to restart Anki while Anki sat waiting on a dialog. A
+  collection is only written once a profile actually opens. Shown as
   numbered steps that END on signing in to AnkiWeb, because that is the half people skip and skipping
   it means the cards only ever exist on one computer. **`launch.ps1` starts a first-run Anki NORMAL,
   not minimized** - the minimizer is right for a configured Anki and actively harmful here, since it

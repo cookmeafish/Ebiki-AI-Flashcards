@@ -902,12 +902,21 @@ function apiPlugin() {
         const script = path.join(APP_ROOT, 'scripts', 'install-ankiconnect.ps1')
         if (req.method === 'GET') {
           const found = findAnkiConnect()
-          // Has Anki ever been SET UP? Its profile database only appears once the
-          // first-run dialog (choose a language) has been answered. Without that,
-          // Anki never finishes starting, so the add-on never loads and no amount of
-          // reinstalling it changes anything - the user has to finish Anki's own
-          // setup first, and nothing used to say so.
-          const configured = fs.existsSync(path.join(ankiBaseDir(), 'prefs21.db'))
+          // Has Anki ever finished SETUP? Read from Anki's own source rather than
+          // guessed: prefs21.db is the WRONG file to test - `_loadMeta` does
+          // `firstTime = not os.path.exists(prefs21.db)` and then creates it
+          // immediately, so it exists from the first moments of start-up, long
+          // before the language dialog is answered. Testing it reported "configured"
+          // for an Anki that was still asking its first question, which is how the
+          // app ended up telling someone to restart Anki while Anki sat waiting on a
+          // dialog. A profile's collection.anki2 is only written once a profile is
+          // actually opened, i.e. once setup is genuinely done.
+          const configured = (() => {
+            try {
+              return fs.readdirSync(ankiBaseDir(), { withFileTypes: true })
+                .some((d) => d.isDirectory() && fs.existsSync(path.join(ankiBaseDir(), d.name, 'collection.anki2')))
+            } catch { return false }
+          })()
           const payload = {
             ok: true,
             installed: !!found,
@@ -919,19 +928,24 @@ function apiPlugin() {
             // instructions instead of a button that cannot work.
             canInstall: process.platform === 'win32' && fs.existsSync(script),
           }
-          // Is Anki ITSELF running? This is what separates the two situations that
-          // used to be told as one useless sentence. Add-on on disk + Anki NOT
-          // running = start Anki. Add-on on disk + Anki running but not answering =
-          // Anki was already open when the add-on was put there, and add-ons only
-          // load at startup, so it has to be closed and opened again. Telling that
-          // second person to "start Anki with the AnkiConnect addon" is advice they
-          // have already followed.
-          if (process.platform !== 'win32') { res.end(JSON.stringify(payload)); return }
-          execFile('tasklist', ['/fo', 'csv', '/nh'], { timeout: 8000, windowsHide: true }, (e, out) => {
-            const list = String(out || '').toLowerCase()
-            payload.ankiRunning = /"anki\.exe"|"ankiw\.exe"/.test(list) || (/"pythonw\.exe"/.test(list) && !!found)
-            res.end(JSON.stringify(payload))
-          })
+          // WHAT IS ANKI DOING? Its own windows say so (scripts/anki-state.ps1):
+          // whether it is running, whether its MAIN window exists, and whether it is
+          // stopped on a dialog waiting to be answered. That last one is the state no
+          // amount of restarting or reinstalling can clear, and the one Ebiki could
+          // never see before - so it told people to do things that could not work.
+          const stateScript = path.join(APP_ROOT, 'scripts', 'anki-state.ps1')
+          if (process.platform !== 'win32' || !fs.existsSync(stateScript)) { res.end(JSON.stringify(payload)); return }
+          execFile('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', stateScript],
+            { timeout: 12000, windowsHide: true }, (e, out) => {
+              try {
+                const st = JSON.parse(String(out || '').trim().split(/\r?\n/).filter(Boolean).pop())
+                payload.ankiRunning = !!st.running
+                payload.ankiMainWindow = !!st.mainWindow
+                payload.ankiAwaitingInput = !!st.awaitingInput
+                payload.ankiDialogs = Array.isArray(st.dialogs) ? st.dialogs.slice(0, 3) : []
+              } catch { /* could not look: leave the fields undefined rather than guess */ }
+              res.end(JSON.stringify(payload))
+            })
           return
         }
         if (req.method !== 'POST') { res.statusCode = 405; res.end(JSON.stringify({ error: 'method' })); return }
