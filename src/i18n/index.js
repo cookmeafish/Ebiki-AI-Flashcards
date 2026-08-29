@@ -424,7 +424,10 @@ const en = {
   ankiWaiting: 'Anki is open and waiting for an answer. Switch to the Anki window and finish the question it is showing ({what}).',
   ankiWaitingGeneric: 'Anki is open and waiting for an answer. Switch to the Anki window and finish what it is asking.',
   // AnkiWeb sign-in. Optional, so this is an offer and never an error.
-  ankiWebTitle: 'Your cards are only on this computer.',
+  // FUTURE tense on purpose: this is shown to someone who has just installed Ebiki
+  // and may have no cards at all yet, so "your cards are only here" describes a
+  // collection they do not have. It is a warning about what happens next.
+  ankiWebTitle: 'Your cards will only be on this computer.',
   ankiWebWhy: 'A free AnkiWeb account backs them up and lets you study on your phone.',
   ankiWebCreate: 'Create a free account',
   ankiWebOpenAnki: 'Sign in inside Anki',
@@ -1296,7 +1299,7 @@ const es = {
   ankiSetupTitle: 'Termina de configurar Anki',
   ankiWaiting: 'Anki está abierto y espera una respuesta. Ve a la ventana de Anki y responde lo que te pregunta ({what}).',
   ankiWaitingGeneric: 'Anki está abierto y espera una respuesta. Ve a la ventana de Anki y responde lo que te pregunta.',
-  ankiWebTitle: 'Tus tarjetas solo están en esta computadora.',
+  ankiWebTitle: 'Tus tarjetas solo estarán en esta computadora.',
   ankiWebWhy: 'Una cuenta gratuita de AnkiWeb las respalda y te deja estudiar en el teléfono.',
   ankiWebCreate: 'Crear una cuenta gratis',
   ankiWebOpenAnki: 'Iniciar sesión en Anki',
@@ -2162,7 +2165,7 @@ const zh = {
   ankiSetupTitle: '完成 Anki 的设置',
   ankiWaiting: 'Anki 已打开并在等待你的回答。请切换到 Anki 窗口，完成它正在询问的内容（{what}）。',
   ankiWaitingGeneric: 'Anki 已打开并在等待你的回答。请切换到 Anki 窗口，完成它正在询问的内容。',
-  ankiWebTitle: '你的卡片只保存在这台电脑上。',
+  ankiWebTitle: '你的卡片将只保存在这台电脑上。',
   ankiWebWhy: '免费的 AnkiWeb 账号可以备份卡片，还能在手机上学习。',
   ankiWebCreate: '注册免费账号',
   ankiWebOpenAnki: '在 Anki 中登录',
@@ -3028,7 +3031,7 @@ const ja = {
   ankiSetupTitle: 'Anki の設定を終える',
   ankiWaiting: 'Anki が開いていて、回答を待っています。Anki のウィンドウに切り替えて、表示されている質問（{what}）に答えてください。',
   ankiWaitingGeneric: 'Anki が開いていて、回答を待っています。Anki のウィンドウに切り替えて、表示されている内容に答えてください。',
-  ankiWebTitle: 'カードはこのパソコンの中だけにあります。',
+  ankiWebTitle: 'カードはこのパソコンの中だけに保存されます。',
   ankiWebWhy: '無料の AnkiWeb アカウントがあれば、バックアップもスマホでの学習もできます。',
   ankiWebCreate: '無料アカウントを作る',
   ankiWebOpenAnki: 'Anki でログインする',
