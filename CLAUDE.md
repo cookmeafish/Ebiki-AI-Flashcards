@@ -311,7 +311,12 @@ already fixed, for weeks. Four parts now, and each covers a different way of mis
   it is slow, which is the half of the report that was not about updates at all. The splash's 3-minute cap
   measures SILENCE (any new status resets it), so an update installed at launch can take as long as it needs,
   and a pending question holds the window open indefinitely.
-- **The running app carries the SAME offer as a banner** (App.jsx, next to the offline banners): polls
+- **There is NO in-app update banner** (removed deliberately): the launcher asks on EVERY launch, cold
+  and already-running alike, so a second prompt inside the app asked the same question twice in the place
+  a nag is least welcome. Settings > General > Updates is the only in-app surface, and it now carries the
+  RESTART too - restarting is the step an update ends on, so it belongs with the update rather than in a
+  separate banner. The background poll went with the banner; nothing rendered its answer any more.
+- (historical, removed) **The running app carried the SAME offer as a banner** (App.jsx, next to the offline banners): polls
   `/api/update` 4s after load and every 30 min, renders a brand-colored IN-FLOW bar above `<header>` (never
   `position:fixed` - it would eat the header's clicks), and walks idle -> updating -> done -> restarting/error.
   **"Later" hides it for 6 HOURS (`localStorage('ebiki-update-later')`), never forever** - that is the whole
@@ -1823,8 +1828,11 @@ could open Ebiki all day and never once be told. A marker persisted by an older 
 INSIDE the request, which replaces `node_modules` and rewrites `package-lock.json`, and that is enough to
 take the dev server down with the response still open. The browser then reports "Failed to fetch" for an
 update that has ALREADY APPLIED - reported as "it updates but says it can't", and the worst possible
-outcome, because the user retries something already done. `confirmUpdateApplied()` (in both App.jsx and
-SettingsModal) polls `/api/update` and compares the commit sha: moved = it worked. The commit is the truth,
+outcome, because the user retries something already done. `confirmUpdateApplied()` (SettingsModal) polls **`/api/update?local=1`** - a local-only
+answer that skips `ls-remote` entirely, because verification only needs to know which commit is checked
+out NOW and asking GitHub for that can cost a 25s round trip on a bad connection, which is what turned
+"Checking whether the update landed..." into a freeze (measured: 0.1s vs up to 25s). The GET watchdog also
+carries the local facts it already knows, so a timed-out reply is still usable instead of empty. It compares and compares the commit sha: moved = it worked. The commit is the truth,
 never the socket. **ONE answer from the server settles it, whichever way it goes** - it used to return only
 when the sha had MOVED, so the common case (service back, update did NOT apply) matched nothing and the
 loop polled in silence for three minutes behind "Finishing up...", which is a hang shown to the one user

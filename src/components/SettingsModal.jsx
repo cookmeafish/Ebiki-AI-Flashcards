@@ -181,7 +181,10 @@ async function confirmUpdateApplied(beforeSha, ms = 45000) {
   while (Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, 3000))
     try {
-      const d = await (await fetch('/api/update')).json()
+      // ?local=1: only the checked-out commit matters here, and asking GitHub for it
+      // can cost a 25s round trip on a bad connection - which is what made this look
+      // frozen. This answers as fast as git can read HEAD.
+      const d = await (await fetch('/api/update?local=1')).json()
       // ONE answer from the server settles it, whichever way it goes. This used to
       // return only when the sha had MOVED, so the common case where the service
       // came back and the update had NOT applied matched nothing and the loop kept
@@ -195,7 +198,7 @@ async function confirmUpdateApplied(beforeSha, ms = 45000) {
 }
 
 function UpdatesCard({ t, card, fieldLabel, hint }) {
-  const [state, setState] = useState('idle')   // idle | checking | uptodate | available | updating | done | error | nogit | offline | down | branch | busy | remoteMissing | dirty
+  const [state, setState] = useState('idle')   // idle | checking | uptodate | available | updating | verifying | done | restarting | error | nogit | offline | down | branch | busy | remoteMissing | dirty
   const [info, setInfo] = useState(null)
   const [err, setErr] = useState(null)
   // React StrictMode runs mount effects TWICE in dev, and the retry below can double
@@ -241,6 +244,18 @@ function UpdatesCard({ t, card, fieldLabel, hint }) {
     } finally {
       checking.current = false
     }
+  }
+  // Restarting belongs with the update that needs it. Two ways, because the service
+  // an update just replaced is often gone: the server's own relauncher first (it
+  // waits for the port properly), then Electron, which needs nothing running.
+  const restartNow = async () => {
+    setState('restarting')
+    try {
+      const d = await (await fetch('/api/update/restart', { method: 'POST' })).json()
+      if (d.ok) { setTimeout(() => { try { window.ebikiWindow?.close() } catch { /* the relauncher is waiting */ } }, 600); return }
+    } catch { /* the service is gone: that is exactly why the fallback exists */ }
+    if (window.ebikiWindow?.restart) { window.ebikiWindow.restart(); return }
+    setState('done')   // a browser tab cannot restart itself; the wording says so
   }
   const doUpdate = async () => {
     const beforeSha = info?.current || null
@@ -324,7 +339,15 @@ function UpdatesCard({ t, card, fieldLabel, hint }) {
       {state === 'available' && <div style={{ fontSize: 11, color: C.brand, marginTop: 8 }}>{t('updatesAvailable')}</div>}
       {state === 'updating' && <div style={{ fontSize: 11, color: C.inkDim, marginTop: 8 }}>{t('updatesUpdating')}</div>}
       {state === 'verifying' && <div style={{ fontSize: 11, color: C.inkDim, marginTop: 8 }}>{t('updatesVerifying')}</div>}
-      {state === 'done' && <div style={{ fontSize: 11, color: C.success, marginTop: 8, lineHeight: 1.5 }}>✓ {t('updatesDone')}</div>}
+      {state === 'done' && (
+        <div style={{ marginTop: 8 }}>
+          <div style={{ fontSize: 11, color: C.success, fontWeight: 700, lineHeight: 1.5 }}>✓ {t('updateBannerNeedsRestart')}</div>
+          {window.ebikiWindow
+            ? <button className="btn-press" onClick={restartNow} style={{ ...S.keyDone, fontSize: 12, marginTop: 6 }}>{t('updateBannerRestart')}</button>
+            : <div style={{ ...hint, marginTop: 4 }}>{t('updateBannerManual')}</div>}
+        </div>
+      )}
+      {state === 'restarting' && <div style={{ fontSize: 11, color: C.inkDim, marginTop: 8 }}>{t('updateBannerRestarting')}</div>}
       {state === 'nogit' && <div style={{ fontSize: 11, color: C.inkDim, marginTop: 8, lineHeight: 1.5 }}>{t('updatesNoGit')}</div>}
       {state === 'offline' && <div style={{ fontSize: 11, color: C.inkDim, marginTop: 8 }}>{t('updatesOffline')}</div>}
       {state === 'branch' && <div style={{ fontSize: 11, color: C.warning, marginTop: 8, lineHeight: 1.5 }}>⚠ {t('updatesWrongBranch', { branch: info?.branch || '?' })}</div>}
@@ -334,7 +357,12 @@ function UpdatesCard({ t, card, fieldLabel, hint }) {
       {state === 'down' && (
         <div style={{ marginTop: 8 }}>
           <div style={{ fontSize: 11, color: C.warning, lineHeight: 1.5 }}>⚠ {t('updatesServerDown')}</div>
-          <button onClick={() => check()} style={{ ...S.getKeyLink, fontSize: 11, marginTop: 6 }}>{t('updatesRetry')}</button>
+          <div style={{ display: 'flex', gap: 8, marginTop: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* Restarting is what actually fixes this, and it is the step an update
+                ends on anyway - so offer it here rather than only re-checking. */}
+            {window.ebikiWindow && <button className="btn-press" onClick={restartNow} style={{ ...S.keyDone, fontSize: 12 }}>{t('updateBannerRestart')}</button>}
+            <button onClick={() => check()} style={{ ...S.getKeyLink, fontSize: 11 }}>{t('updatesRetry')}</button>
+          </div>
         </div>
       )}
       {state === 'error' && (
