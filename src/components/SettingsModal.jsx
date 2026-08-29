@@ -197,7 +197,7 @@ async function confirmUpdateApplied(beforeSha, ms = 45000) {
   return null   // never came back: it cannot be asked, so the caller must offer a restart
 }
 
-function UpdatesCard({ t, card, fieldLabel, hint }) {
+function UpdatesCard({ t, card, fieldLabel, hint, serverDown }) {
   const [state, setState] = useState('idle')   // idle | checking | uptodate | available | updating | verifying | done | restarting | error | nogit | offline | down | branch | busy | remoteMissing | dirty
   const [info, setInfo] = useState(null)
   const [err, setErr] = useState(null)
@@ -288,6 +288,10 @@ function UpdatesCard({ t, card, fieldLabel, hint }) {
   // should not have to press a button to be told there is one waiting - and the
   // whole failure this guards against is an update nobody was told about.
   useEffect(() => { check() }, [])   // eslint-disable-line react-hooks/exhaustive-deps
+  // Arriving here BECAUSE the service died: show that immediately instead of
+  // spending a check to rediscover it. The notice that sent them here says to fix
+  // it in Settings, so the repair has to be visible the moment Settings opens.
+  useEffect(() => { if (serverDown) setState('down') }, [serverDown])
   // A bare commit sha ("you are on version 0a84d36") is an identifier, not a
   // version: it does not say how old the copy is and two of them cannot be
   // compared by eye. Ebiki ships from master with no tags, so the release DATE is
@@ -393,6 +397,7 @@ export default function SettingsModal(p) {
     AI_ROLE_META, ROLE_DEFAULTS, aiModels, setAiModels, availableModels, presetModel,
     refreshModels, checkNewModels, modelsLoading, modelsError, intelligence, setIntelligence,
     planDeciding, runConnectionTest, modelProbe,
+    serverDown,
     studyAutoSync, setStudyAutoSync, studyAutoSyncMinutes, setStudyAutoSyncMinutes,
     // Modes
     modes, activeModeId, setActiveModeId, saveModes, editingModeName, setEditingModeName,
@@ -588,7 +593,7 @@ export default function SettingsModal(p) {
       </div>
       <LaunchModeCard t={t} card={card} fieldLabel={fieldLabel} hint={hint} />
       <DataFolderCard t={t} card={card} fieldLabel={fieldLabel} hint={hint} />
-      <UpdatesCard t={t} card={card} fieldLabel={fieldLabel} hint={hint} />
+      <UpdatesCard t={t} card={card} fieldLabel={fieldLabel} hint={hint} serverDown={serverDown} />
       {onRunSetup && (
         <button onClick={onRunSetup} style={{ ...S.ghostBtn, fontSize: 12 }}>↻ {t('runSetupAgain')}</button>
       )}

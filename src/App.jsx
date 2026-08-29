@@ -455,6 +455,10 @@ export default function App() {
   // Jump straight to Settings, AI models (used by the error toast, Help, and the Chat no-key prompt
   // so a missing/invalid key is one click from being fixed).
   const openAiSettings = () => { setSettingsCategory('models'); setSettingsOpen(true) }
+  // Where a dead background service gets fixed. Restarting is the repair and it
+  // lives in Settings > Updates, so the notice points there instead of holding its
+  // own button. Settings is pure client state, so it still opens with no service.
+  const openConnectionSettings = () => { setSettingsCategory('general'); setSettingsOpen(true) }
   const [screenshot, setScreenshot] = useState(null)
   const [imgDims, setImgDims] = useState({ w: 0, h: 0 })
   const [ocrWords, setOcrWords] = useState([])
@@ -9925,13 +9929,19 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                      a working state and not an error;
           • brand  - the share is back and offline edits are waiting on the user's
                      decision (never pushed automatically). */}
-      {/* The server itself is gone. This outranks every other banner - none of the
-          others can even be true without it - and it is the one case where the
-          window on screen is a photograph of an app that is no longer running. */}
+      {/* The service is gone. Something MUST say so: every save is failing silently
+          while the window looks perfectly normal, which is the mystery that took a
+          whole session to chase down. But it is a QUIET line now, not the
+          full-width red alarm it was - a big "nothing can be saved" bar reads as a
+          crash, and the app has not crashed, it just cannot reach its own service.
+          The repair (restart) lives in Settings > Updates beside the update that
+          usually caused it, so this only points there rather than carrying a second
+          copy of the button. openConnectionSettings replaces the old recoverServer,
+          which was defined inside the update-banner block and went with it. */}
       {!isOverlay && serverDown && (
-        <div style={{ flexShrink: 0, background: 'var(--c-danger)', color: 'var(--c-on-brand)', padding: '10px 16px', fontSize: 13, fontWeight: 700, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <span>⚠ {t('serverDown')}</span>
-          <button className="btn-press" onClick={recoverServer} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.6)', background: 'rgba(0,0,0,.18)' }}>{t('serverDownReload')}</button>
+        <div style={{ flexShrink: 0, background: 'rgba(232,147,12,.14)', borderBottom: '1px solid rgba(232,147,12,.35)', color: C.ink, padding: '7px 16px', fontSize: 12, fontWeight: 600, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span>⚠️ {t('serverDown')}</span>
+          <button onClick={openConnectionSettings} style={{ ...S.ghostBtn, fontSize: 11, padding: '3px 10px', color: 'var(--c-warning)', borderColor: 'rgba(232,147,12,.45)' }}>{t('serverDownReload')}</button>
         </div>
       )}
 
@@ -10176,6 +10186,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           refreshModels={refreshModels} checkNewModels={checkNewModels} modelsLoading={modelsLoading} modelsError={modelsError}
           intelligence={intelligence} setIntelligence={selectIntelligence}
           planDeciding={planDeciding} runConnectionTest={runConnectionTest} modelProbe={modelProbe}
+          serverDown={serverDown}
           studyAutoSync={studyAutoSync} setStudyAutoSync={setStudyAutoSync}
           studyAutoSyncMinutes={studyAutoSyncMinutes} setStudyAutoSyncMinutes={setStudyAutoSyncMinutes}
           modes={modes} activeModeId={activeModeId} setActiveModeId={setActiveModeId} saveModes={saveModes}

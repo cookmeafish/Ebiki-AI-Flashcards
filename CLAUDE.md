@@ -1846,6 +1846,13 @@ normal and can do nothing: every "background service didn't answer" report start
 that window can fix it. `electron/main.cjs` beats every 5s for as long as `appWindow` exists and says
 goodbye on `closed`. The main process is never throttled and is the only thing that truly knows whether a
 window is open.
+**The dead-service notice is QUIET, and its repair is in Settings.** Something must say so - every save
+fails silently while the window looks perfectly normal - but a full-width red "nothing can be saved" bar
+reads as a crash, and the app has not crashed: it is running and cannot reach its own service. So it is one
+amber line whose button opens Settings > General, where `UpdatesCard` shows the `down` state on arrival
+(driven by the `serverDown` prop, so it does not spend a check rediscovering what sent the user there) and
+offers **Restart now** - the same two-path restart as after an update, since restarting IS the repair.
+Settings is pure client state, so it still opens with no service running.
 **The app notices when its own server dies.** The dev server exits on its own once it believes the last
 page has gone, and a crash looks identical; the window then stays on screen looking normal while every
 request fails - which is how "Ebiki's background service didn't answer" kept reappearing with nothing to
