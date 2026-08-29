@@ -394,17 +394,22 @@ export default function App() {
 // moved. So a dropped connection is NOT a verdict: wait for the server to come back
 // and ask the repository what actually happened. The commit sha is the truth here,
 // not the socket.
-async function confirmUpdateApplied(beforeSha, ms = 180000) {
+async function confirmUpdateApplied(beforeSha, ms = 45000) {
   const deadline = Date.now() + ms
   while (Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, 3000))
     try {
       const d = await (await fetch('/api/update')).json()
-      if (d?.current && d.current !== beforeSha) return d   // it moved: the update landed
-      if (d?.current && d.current === beforeSha && d.reachable && !d.updateAvailable) return d
-    } catch { /* still restarting; keep waiting */ }
+      // ONE answer from the server settles it, whichever way it goes. This used to
+      // return only when the sha had MOVED, so the common case where the service
+      // came back and the update had NOT applied matched nothing and the loop kept
+      // polling in silence for three minutes behind "Finishing up..." - a hang, and
+      // for the one user most in need of a straight answer. The repository is the
+      // truth: if it can be read at all, it has already answered.
+      if (d?.current) return d
+    } catch { /* the service is still down; that is what the deadline is for */ }
   }
-  return null
+  return null   // never came back: it cannot be asked, so the caller must offer a restart
 }
 
   // ── Update watch (the app's own, unmissable half) ─────────────────────────
@@ -490,6 +495,14 @@ async function confirmUpdateApplied(beforeSha, ms = 180000) {
         if (d && beforeSha && d.current !== beforeSha) {
           setUpdateReady((u) => ({ ...(u || {}), canRestart: !!d.canRestart }))
           setUpdateState('done')
+          return
+        }
+        // The service answered and nothing moved: the update really did not apply
+        // (most often the service was already gone before the request left). Say so
+        // now rather than waiting out a deadline that cannot change the answer.
+        if (d) {
+          setUpdateState('error')
+          setUpdateError(t('updatesServerDown'))
           return
         }
         // The service never came back, so it cannot be ASKED what happened. That is
