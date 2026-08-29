@@ -422,9 +422,12 @@ async function confirmUpdateApplied(beforeSha, ms = 180000) {
   const updateStateRef = useRef('idle')                   // read from the poll, which must not close over a stale state
   updateStateRef.current = updateState
   const UPDATE_SNOOZE_MS = 6 * 60 * 60 * 1000             // "Later" is a few hours, not a week
-  const [updateSnoozedUntil, setUpdateSnoozedUntil] = useState(() => {
-    try { return Number(localStorage.getItem('ebiki-update-later') || 0) } catch { return 0 }
-  })
+  // "Later" lasts for THIS SESSION ONLY - deliberately not persisted. Opening the
+  // app is the moment the user is present and the update is cheapest to take, so
+  // every fresh open asks again; a snooze that survived a restart meant someone
+  // could open Ebiki all day and never once be told. Within a session it still
+  // shuts up, which is all "Later" was ever asked to do.
+  const [updateSnoozedUntil, setUpdateSnoozedUntil] = useState(0)
   useEffect(() => {
     if (isOverlay || !configLoaded) return
     let stop = false
@@ -489,8 +492,13 @@ async function confirmUpdateApplied(beforeSha, ms = 180000) {
           setUpdateState('done')
           return
         }
-        setUpdateState('error')
-        setUpdateError(t('updatesServerDown'))
+        // The service never came back, so it cannot be ASKED what happened. That is
+        // not a failure though - it is the ordinary shape of a successful update,
+        // because installing one replaces node_modules and takes the service down.
+        // Restarting is required either way, and the version line after the restart
+        // is the honest answer about what landed. Reporting "it failed" here was the
+        // bug: the update had applied and the user was told to do it again.
+        setUpdateState('needsRestart')
         return
       }
       setUpdateState('error')
@@ -504,19 +512,37 @@ async function confirmUpdateApplied(beforeSha, ms = 180000) {
   // what makes it exit (the auto-exit heartbeat sees the last page leave).
   const restartApp = async () => {
     setUpdateState('restarting')
-    const giveUp = () => { setUpdateState('done'); setUpdateReady((u) => ({ ...(u || {}), canRestart: false })) }
+    // TWO ways, and the order matters. The server's relauncher is the nicer one (it
+    // waits for the old server to let go of the port), but it lives on the very
+    // service an update tends to kill - so when that is unreachable, go through
+    // Electron, which needs nothing running: it relaunches itself, and a bare launch
+    // starts the launcher when nothing answers on 3000.
     try {
       const d = await (await fetch('/api/update/restart', { method: 'POST' })).json()
-      if (!d.ok) { giveUp(); return }
-      setTimeout(() => { try { window.ebikiWindow?.close() } catch { /* fall through to the manual wording */ } }, 600)
-    } catch { giveUp() }
+      if (d.ok) {
+        setTimeout(() => { try { window.ebikiWindow?.close() } catch { /* the relauncher is already waiting */ } }, 600)
+        return
+      }
+    } catch { /* the service is gone: that is exactly why the fallback exists */ }
+    if (window.ebikiWindow?.restart) { window.ebikiWindow.restart(); return }
+    setUpdateState('needsRestart')   // a browser tab cannot restart itself; say so
+    setUpdateReady((u) => ({ ...(u || {}), canRestart: false }))
   }
   const snoozeUpdate = () => {
-    const until = Date.now() + UPDATE_SNOOZE_MS
-    try { localStorage.setItem('ebiki-update-later', String(until)) } catch { /* private mode: hidden for this session only */ }
-    setUpdateSnoozedUntil(until)
+    // Nothing written to disk: see the state above. Clear any marker an older build
+    // persisted, so a copy upgrading from one is not silenced for hours afterwards.
+    try { localStorage.removeItem('ebiki-update-later') } catch { /* nothing to clear */ }
+    setUpdateSnoozedUntil(Date.now() + UPDATE_SNOOZE_MS)
   }
   const dismissUpdateBanner = () => { setUpdateState('idle'); setUpdateReady(null) }
+  // Reconnecting when the service is DEAD must not simply reload: the page would be
+  // thrown away and replaced by the app window's "Waiting for Ebiki's server"
+  // holding page, which is where the frozen white screen came from. Restart the app
+  // instead - that starts a server. A browser tab has no such power, so it reloads.
+  const recoverServer = () => {
+    if (window.ebikiWindow?.restart) { window.ebikiWindow.restart(); return }
+    window.location.reload()
+  }
   // Anything past 'idle' is a state the user started, so it stays on screen regardless of a snooze.
   const showUpdateBanner = !!updateReady && (updateState !== 'idle' || updateSnoozedUntil < Date.now())
 
@@ -10064,7 +10090,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
       {!isOverlay && serverDown && (
         <div style={{ flexShrink: 0, background: 'var(--c-danger)', color: 'var(--c-on-brand)', padding: '10px 16px', fontSize: 13, fontWeight: 700, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
           <span>⚠ {t('serverDown')}</span>
-          <button className="btn-press" onClick={() => window.location.reload()} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.6)', background: 'rgba(0,0,0,.18)' }}>{t('serverDownReload')}</button>
+          <button className="btn-press" onClick={recoverServer} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.6)', background: 'rgba(0,0,0,.18)' }}>{t('serverDownReload')}</button>
         </div>
       )}
 
@@ -10103,6 +10129,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           </>)}
           {updateState === 'updating' && <span>⏳ {t('updateBannerUpdating')}</span>}
           {updateState === 'verifying' && <span>⏳ {t('updatesVerifying')}</span>}
+          {updateState === 'needsRestart' && (<>
+            <span>✓ {t('updateBannerNeedsRestart')}</span>
+            {isElectronApp
+              ? <button className="btn-press" onClick={restartApp} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.6)', background: 'rgba(0,0,0,.18)' }}>{t('updateBannerRestart')}</button>
+              : <span style={{ fontWeight: 600 }}>{t('updateBannerManual')}</span>}
+          </>)}
           {updateState === 'restarting' && <span>⏳ {t('updateBannerRestarting')}</span>}
           {updateState === 'done' && (<>
             <span>✓ {(updateReady?.canRestart && isElectronApp) ? t('updateBannerDone') : t('updateBannerManual')}</span>

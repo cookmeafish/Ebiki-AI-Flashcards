@@ -239,6 +239,14 @@ function createAppWindow() {
     else appWindow.maximize()
   })
   ipcMain.on('app-window:close', () => appWindow?.close())
+  // Restart with NOTHING running: relaunch ourselves and quit. The new process
+  // starts bare (no --from-launcher), and the bare-launch path in this file starts
+  // the launcher when nothing answers on 3000 - so a dead dev server is started
+  // fresh, on the newly installed code, which is exactly what an update needs.
+  ipcMain.on('app-window:restart', () => {
+    try { app.relaunch() } catch (e) { console.warn('[Restart] relaunch failed:', e.message) }
+    app.quit()
+  })
   ipcMain.handle('app-window:is-maximized', () => (appWindow ? appWindow.isMaximized() : false))
 
   appWindow.webContents.on('before-input-event', (event, input) => {
@@ -374,14 +382,28 @@ function createAppWindow() {
     appWindow.loadURL(HOLDING_PAGE)
   }
 
+  // Waiting is not enough when NOBODY IS COMING. This loop used to retry forever
+  // against a port that nothing would ever open again: the dev server exits on its
+  // own (or an update's npm install takes it down), and from then on the window sat
+  // on "Waiting for Ebiki's server" indefinitely - reported as a frozen white
+  // screen, and correctly so, because no amount of waiting could fix it. The
+  // launcher is what starts a server, and this process can call it, so after the
+  // first failed attempt it does. Once per outage: `revived` only resets after a
+  // real page load, so a genuinely broken machine cannot spawn launchers in a loop.
+  let revived = false
   const tryLoad = () => {
     if (!appWindow) return
     retrying = false
     waitForServer(VITE_URL, 15000).then((up) => {
       if (!appWindow) return   // window closed while waiting
-      if (up) return appWindow.loadURL(VITE_URL)
+      if (up) { revived = false; return appWindow.loadURL(VITE_URL) }
       console.warn('[App window] Server not answering at', VITE_URL, '- holding')
       if (!loaded) showHolding()
+      if (!revived) {
+        revived = true
+        console.log('[App window] nothing is serving - asking the launcher to start one')
+        try { delegateToLauncher() } catch (e) { console.warn('[App window] could not start a server:', e.message) }
+      }
       scheduleRetry()
     })
   }
