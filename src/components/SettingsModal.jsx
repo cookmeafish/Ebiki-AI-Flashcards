@@ -242,15 +242,21 @@ function UpdatesCard({ t, card, fieldLabel, hint }) {
   const versionLine = () => {
     if (state === 'checking' && !info) return null
     if (info?.current) {
-      const d = info.currentDate ? new Date(info.currentDate) : null
-      const version = d && !isNaN(d)
-        ? `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
-        : info.current
+      // Headline = the DECLARED version (package.json), the one a person can say out
+      // loud. Detail = the DERIVED build identity, which nobody has to maintain and
+      // which stays correct even when a bump is forgotten. Dates come from the
+      // server already formatted from the commit's own timezone - deriving one here
+      // with new Date() used the viewer's LOCAL clock, so the same commit read as a
+      // different version depending on where you were sitting.
+      const headline = info.appVersion || info.version || info.current
+      const date = info.version || ''
       return (
         <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--c-ink)' }}>{t('updatesVersion', { version })}</div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--c-ink)' }}>{t('updatesVersion', { version: headline })}</div>
           <div style={{ ...hint, marginTop: 2, fontFamily: 'monospace', fontSize: 10.5 }}>
-            {info.build ? t('updatesVersionBuild', { build: info.build, sha: info.current }) : t('updatesVersionNoBuild', { sha: info.current })}
+            {info.build
+              ? t('updatesVersionBuild', { date, build: info.build, sha: info.current })
+              : t('updatesVersionNoBuild', { date, sha: info.current })}
           </div>
         </div>
       )

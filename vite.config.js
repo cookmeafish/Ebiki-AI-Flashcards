@@ -738,9 +738,17 @@ function apiPlugin() {
           // for the times an exact answer is wanted.
           // Counted only when the history is real: an older installer linked ZIP
           // folders with --depth 1, and a shallow repo would report "build 1".
-          git(['log', '-1', '--format=%H|%cI'], (e1, local) => {
+          // %cd with --date=format: renders the commit's OWN stored timezone, so it is
+          // the same string on every machine. The version used to be assembled on the
+          // client with new Date().getFullYear()/getMonth()/getDate(), which are
+          // LOCAL-time methods: the identical commit then showed as 2026.08.28 here
+          // and 2026.08.29 to anyone far enough east, so two people on the same build
+          // could not agree on what they were running. Measured both ways.
+          // (--date=format-local: is the one that converts to the viewer; never use it
+          // here.) %cI is still sent for anything that wants the precise instant.
+          git(['log', '-1', '--date=format:%Y.%m.%d', '--format=%H|%cI|%cd'], (e1, local) => {
             if (e1) { send({ ok: true, gitAvailable: false }); return }
-            const [headSha, headDate] = String(local || '').trim().split('|')
+            const [headSha, headDate, headVersion] = String(local || '').trim().split('|')
             const shallow = fs.existsSync(path.join(APP_ROOT, '.git', 'shallow'))
             git(['rev-list', '--count', 'HEAD'], (e2, countOut) => {
               const build = (!shallow && !e2) ? parseInt(String(countOut || '').trim(), 10) || null : null
@@ -752,7 +760,17 @@ function apiPlugin() {
               // offering an update that cannot work.
               git(['rev-parse', '--abbrev-ref', 'HEAD'], (e4, branchOut) => {
                 const branch = e4 ? '' : String(branchOut || '').trim()
-                const base = { current: (headSha || '').slice(0, 7), currentDate: headDate || '', build, branch, onMaster: branch === 'master' }
+                // TWO different things, and both are wanted. `appVersion` is the DECLARED
+                // version from package.json - a number a person can say out loud and ask
+                // someone else about. The rest is the DERIVED build identity, which is
+                // correct by construction on every machine and needs nobody to remember
+                // anything. Keeping both means a forgotten bump is never invisible: two
+                // builds that wrongly claim the same 1.1.0 still differ by date, build
+                // number and sha. Read per request, so a pull is reflected without a
+                // restart of this file's own logic.
+                let appVersion = ''
+                try { appVersion = JSON.parse(fs.readFileSync(path.join(APP_ROOT, 'package.json'), 'utf-8')).version || '' } catch { /* no package.json = no declared version */ }
+                const base = { current: (headSha || '').slice(0, 7), currentDate: headDate || '', version: headVersion || '', appVersion, build, branch, onMaster: branch === 'master' }
                 git(['ls-remote', 'origin', 'master'], (e3, remoteOut) => {
                   if (e3) { send({ ok: true, gitAvailable: true, reachable: false, ...base }); return }
                   const localSha = (headSha || '').trim()
