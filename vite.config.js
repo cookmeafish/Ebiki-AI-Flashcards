@@ -894,7 +894,7 @@ function apiPlugin() {
         const script = path.join(APP_ROOT, 'scripts', 'install-ankiconnect.ps1')
         if (req.method === 'GET') {
           const found = findAnkiConnect()
-          res.end(JSON.stringify({
+          const payload = {
             ok: true,
             installed: !!found,
             addon: found,
@@ -903,7 +903,20 @@ function apiPlugin() {
             // is PowerShell, so on any other platform the UI must give
             // instructions instead of a button that cannot work.
             canInstall: process.platform === 'win32' && fs.existsSync(script),
-          }))
+          }
+          // Is Anki ITSELF running? This is what separates the two situations that
+          // used to be told as one useless sentence. Add-on on disk + Anki NOT
+          // running = start Anki. Add-on on disk + Anki running but not answering =
+          // Anki was already open when the add-on was put there, and add-ons only
+          // load at startup, so it has to be closed and opened again. Telling that
+          // second person to "start Anki with the AnkiConnect addon" is advice they
+          // have already followed.
+          if (process.platform !== 'win32') { res.end(JSON.stringify(payload)); return }
+          execFile('tasklist', ['/fo', 'csv', '/nh'], { timeout: 8000, windowsHide: true }, (e, out) => {
+            const list = String(out || '').toLowerCase()
+            payload.ankiRunning = /"anki\.exe"|"ankiw\.exe"/.test(list) || (/"pythonw\.exe"/.test(list) && !!found)
+            res.end(JSON.stringify(payload))
+          })
           return
         }
         if (req.method !== 'POST') { res.statusCode = 405; res.end(JSON.stringify({ error: 'method' })); return }

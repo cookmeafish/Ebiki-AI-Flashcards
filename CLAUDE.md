@@ -486,9 +486,19 @@ so installing the original on top of one would break a working setup.
 
 ## Anki setup: the add-on, and the AnkiWeb account
 Two DIFFERENT problems that both used to surface as one unhelpful "Anki is not connected" line.
-- **The AnkiConnect add-on.** Ebiki reads and writes every card through it, so a machine with Anki
-  but no add-on is not "disconnected", it is broken, and telling that user to start Anki or press
-  Refresh sends them to do the one thing that cannot help. `/api/ankiconnect` GET reports
+- **The AnkiConnect add-on. FOUR states, four sentences - never one.** The banner used to say
+  "Anki is not connected. Start Anki with AnkiConnect addon." with nothing but Refresh, whatever the
+  real cause was, so somebody whose Anki was already open and whose add-on was already installed was
+  told to do the two things they had just done, with no way forward. `/api/ankiconnect` GET reports
+  the add-on on disk AND `ankiRunning` (tasklist), which separates them: **missing** -> "Install it
+  for me"; **on disk but Anki running and not answering** -> Anki was already open when the files
+  were put there and add-ons only load at startup, so "close Anki completely and open it again";
+  **on disk, Anki not running** -> "start Anki"; **disabled in meta.json** -> "enable it under Tools
+  > Add-ons". Every state carries buttons: **Open Anki** (`/api/anki-focus`, since the fix always
+  lives over in Anki and finding its window is where people stall) and an install that doubles as a
+  **repair** when detection may be pointed at the wrong Anki folder - a dead end is worse than a
+  redundant button, and the install script is idempotent (it reports an existing add-on, never
+  overwrites one, so a fork like Anki Connect Plus is safe). `/api/ankiconnect` GET reports
   `{installed, addon, base, canInstall}` (detected by SIGNATURE - a `config.json` carrying
   `webBindPort` - never by add-on code, so a fork like "Anki Connect Plus" reads as installed and is
   never offered a conflicting second copy); POST installs it. `renderAnkiOfflineBanner` branches on

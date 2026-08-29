@@ -637,6 +637,12 @@ export default function App() {
     return () => { stop = true }
   }, [isOverlay, configLoaded, ankiConnected])
 
+  // Bring Anki's window forward. The fix for "not running" and "not loaded" both
+  // live over in Anki, and finding its window is the part people actually stall on.
+  const openAnkiWindow = async () => {
+    try { await fetch('/api/anki-focus', { method: 'POST' }) } catch { /* nothing to focus */ }
+    refreshAnkiConnection()
+  }
   const installAnkiAddon = async () => {
     setAddonState('installing'); setAddonMsg('')
     try {
@@ -644,7 +650,7 @@ export default function App() {
       if (!d.ok) { setAddonState('error'); setAddonMsg(d.error || ''); return }
       setAddonState('done')
       setAddonMsg(d.ankiRunning ? t('ankiAddonDone') : t('ankiAddonDoneNoAnki'))
-      setAnkiAddon((a) => ({ ...(a || {}), installed: true }))
+      setAnkiAddon((a) => ({ ...(a || {}), installed: true, ankiRunning: d.ankiRunning }))
     } catch (e) { setAddonState('error'); setAddonMsg(String(e.message || e)) }
   }
   // Ebiki never handles an AnkiWeb password: AnkiConnect has no login action, and
@@ -9871,29 +9877,61 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
   // cannot work. When the add-on is genuinely absent the banner says so and offers
   // to install it, which the app can actually do (see /api/ankiconnect).
   const renderAnkiOfflineBanner = (style = {}) => {
-    const missing = ankiAddon && !ankiAddon.installed
+    // FOUR different situations, and they need four different sentences. This used
+    // to be one line - "Anki is not connected. Start Anki with AnkiConnect addon."
+    // - shown with nothing but a Refresh button no matter which one it was, so
+    // somebody whose Anki was already open and whose add-on was already installed
+    // was told to do the two things they had just done, with no way forward. The
+    // states are distinguished by what the server can actually see: the add-on on
+    // disk (/api/ankiconnect) and whether an Anki process exists.
+    const a = ankiAddon
+    const state = !a ? 'unknown'
+      : !a.installed ? 'missing'
+        : a.addon?.disabled ? 'disabled'
+          : a.ankiRunning === false ? 'notRunning'
+            : 'notLoaded'   // on disk, Anki up (or unknowable), still not answering
+    const message = state === 'missing' ? t('ankiAddonMissing')
+      : state === 'disabled' ? t('ankiAddonDisabled')
+        : state === 'notRunning' ? t('ankiAddonStartAnki')
+          : state === 'notLoaded' ? t('ankiAddonNotLoaded')
+            : t('ankiNotConnected')
     const btn = { ...S.ghostBtn, fontSize: 11, color: 'var(--c-warning)', borderColor: 'rgba(232,147,12,.4)', flexShrink: 0 }
+    const busy = addonState === 'installing'
     return (
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderRadius: RADIUS.sm,
         background: 'rgba(232,147,12,.12)', border: '1px solid rgba(232,147,12,.35)',
         color: C.ink, fontSize: 12, fontWeight: 600, lineHeight: 1.5, textAlign: 'left', flexWrap: 'wrap', ...style,
       }}>
-        <span>⚠️ {missing ? t('ankiAddonMissing') : t('ankiNotConnected')}</span>
-        {missing && addonState === 'idle' && ankiAddon.canInstall && (
-          <button className="btn-press" onClick={installAnkiAddon} style={{ ...btn, marginLeft: 'auto' }}>{t('ankiAddonInstall')}</button>
-        )}
-        {addonState === 'installing' && <span style={{ marginLeft: 'auto', color: C.inkDim, fontWeight: 600 }}>{t('ankiAddonInstalling')}</span>}
-        {addonState === 'done' && <span style={{ marginLeft: 'auto', color: 'var(--c-success)', fontWeight: 700 }}>✓ {addonMsg}</span>}
+        <span>⚠️ {message}</span>
+        <span style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          {busy && <span style={{ color: C.inkDim, fontWeight: 600 }}>{t('ankiAddonInstalling')}</span>}
+          {addonState === 'done' && <span style={{ color: 'var(--c-success)', fontWeight: 700 }}>✓ {addonMsg}</span>}
+          {!busy && addonState !== 'done' && (<>
+            {/* Bring Anki forward: the fix for both "not running" and "not loaded" is
+                over in Anki, and hunting for its window is the part people stall on. */}
+            {state !== 'missing' && (
+              <button onClick={openAnkiWindow} style={btn}>{t('ankiAddonOpenAnki')}</button>
+            )}
+            {/* Installing is ALWAYS offered once we know the add-on is absent, and is
+                offered as a repair otherwise - detection can be pointed at the wrong
+                Anki folder, and a dead end is worse than a redundant button. The
+                script itself is idempotent: it never overwrites an add-on that is
+                already there, it reports it. */}
+            {a?.canInstall && (
+              <button className="btn-press" onClick={installAnkiAddon} style={btn}>
+                {state === 'missing' ? t('ankiAddonInstall') : t('ankiAddonRepair')}
+              </button>
+            )}
+            <button onClick={refreshAnkiConnection} style={btn}>{t('refresh')}</button>
+          </>)}
+        </span>
         {addonState === 'error' && (
           <span style={{ width: '100%', color: 'var(--c-danger)', fontWeight: 600 }}>
             {t('ankiAddonFailed')} {t('ankiAddonManual')}
           </span>
         )}
-        {(!missing || !ankiAddon?.canInstall) && addonState === 'idle' && (
-          <button onClick={refreshAnkiConnection} style={{ ...btn, marginLeft: 'auto' }}>{t('refresh')}</button>
-        )}
-        {missing && !ankiAddon.canInstall && (
+        {state === 'missing' && a && !a.canInstall && (
           <span style={{ width: '100%', color: C.inkDim, fontWeight: 600 }}>{t('ankiAddonManual')}</span>
         )}
       </div>
