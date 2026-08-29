@@ -169,7 +169,7 @@ function DataFolderCard({ t, card, fieldLabel, hint }) {
 // remote branch head); POST runs git pull + npm install. Same code path as the
 // desktop shortcut's launch-time check, exposed as a button in the GUI.
 function UpdatesCard({ t, card, fieldLabel, hint }) {
-  const [state, setState] = useState('idle')   // idle | checking | uptodate | available | updating | done | error | nogit | offline | down | branch | busy
+  const [state, setState] = useState('idle')   // idle | checking | uptodate | available | updating | done | error | nogit | offline | down | branch | busy | remoteMissing | dirty
   const [info, setInfo] = useState(null)
   const [err, setErr] = useState(null)
   // React StrictMode runs mount effects TWICE in dev, and the retry below can double
@@ -201,6 +201,9 @@ function UpdatesCard({ t, card, fieldLabel, hint }) {
       // so say which branch rather than offering an update that would fail.
       if (d.branch && !d.onMaster) { setState('branch'); return }
       if (!d.reachable) { setState('offline'); return }
+      // Reachable, but the release branch is gone (renamed or removed upstream).
+      // Saying "you're up to date" here would hide it indefinitely.
+      if (d.remoteMissing) { setState('remoteMissing'); return }
       setState(d.updateAvailable ? 'available' : 'uptodate')
     } catch (e) {
       if (seq !== checkSeq.current) return
@@ -218,6 +221,7 @@ function UpdatesCard({ t, card, fieldLabel, hint }) {
     try {
       const d = await (await fetch('/api/update', { method: 'POST' })).json()
       if (d.busy) { setState('busy'); return }
+      if (d.dirty) { setState('dirty'); return }
       if (d.wrongBranch) { setInfo((i) => ({ ...(i || {}), branch: d.wrongBranch, onMaster: false })); setState('branch'); return }
       if (!d.ok) { setState('error'); setErr(d.error || 'update failed'); return }
       setState('done')
@@ -287,6 +291,8 @@ function UpdatesCard({ t, card, fieldLabel, hint }) {
       {state === 'offline' && <div style={{ fontSize: 11, color: C.inkDim, marginTop: 8 }}>{t('updatesOffline')}</div>}
       {state === 'branch' && <div style={{ fontSize: 11, color: C.warning, marginTop: 8, lineHeight: 1.5 }}>⚠ {t('updatesWrongBranch', { branch: info?.branch || '?' })}</div>}
       {state === 'busy' && <div style={{ fontSize: 11, color: C.inkDim, marginTop: 8 }}>{t('updatesBusy')}</div>}
+      {state === 'remoteMissing' && <div style={{ fontSize: 11, color: C.warning, marginTop: 8, lineHeight: 1.5 }}>⚠ {t('updatesRemoteMissing')}</div>}
+      {state === 'dirty' && <div style={{ fontSize: 11, color: C.warning, marginTop: 8, lineHeight: 1.5 }}>⚠ {t('updatesDirty')}</div>}
       {state === 'down' && (
         <div style={{ marginTop: 8 }}>
           <div style={{ fontSize: 11, color: C.warning, lineHeight: 1.5 }}>⚠ {t('updatesServerDown')}</div>
