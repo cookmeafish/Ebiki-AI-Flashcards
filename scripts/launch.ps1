@@ -374,7 +374,23 @@ function Check-Update {
   }
   if ($ans -eq 'yes') {
     Set-Status 'Updating Ebiki. This can take a minute, please wait.'
-    & git -C $app pull --ff-only origin master 2>&1 | Out-Null
+    # MATCH master, do not merely move toward it. `pull --ff-only` is only correct
+    # while master goes forwards; a maintainer who retracts a bad release moves it
+    # BACKWARDS, and with the local commit ahead that pull exits 0 saying "Already
+    # up to date" while changing nothing - so the launcher would offer the same
+    # update at every start, report success every time, and never move a file.
+    & git -C $app fetch origin master 2>&1 | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+      # Ancestor = master moved forward, so fast-forward. Otherwise it was rewound
+      # or rewritten, and the only way back to what master IS is to match it - which
+      # is refused if any TRACKED file was modified, so nobody's edits are lost.
+      & git -C $app merge-base --is-ancestor HEAD FETCH_HEAD 2>&1 | Out-Null
+      if ($LASTEXITCODE -eq 0) {
+        & git -C $app merge --ff-only FETCH_HEAD 2>&1 | Out-Null
+      } elseif (-not (& git -C $app status --porcelain --untracked-files=no 2>$null)) {
+        & git -C $app reset --hard FETCH_HEAD 2>&1 | Out-Null
+      }
+    }
     Set-Status 'Installing the update. Almost done.'
     & cmd /c "cd /d ""$app"" && npm install --no-fund --no-audit" 2>&1 | Out-Null
   }

@@ -1,6 +1,6 @@
 {
   "name": "ebiki",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "type": "module",
   "// main": "Electron's own fallback for a bare, argument-less launch (e.g. a naive taskbar pin that only remembers the exe path, not its arguments) is to look for an app via THIS field - without it, that launch shows Electron's generic getting-started demo screen instead of Ebiki. electron/main.cjs treats a bare launch as the app window (its own default now); only --overlay switches modes.",

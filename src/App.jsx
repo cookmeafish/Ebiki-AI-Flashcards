@@ -414,6 +414,7 @@ export default function App() {
     try {
       const d = await (await fetch('/api/update', { method: 'POST' })).json()
       if (d.busy) { setUpdateState('error'); setUpdateError(t('updatesBusy')); return }
+      if (d.dirty) { setUpdateState('error'); setUpdateError(t('updatesDirty')); return }
       if (d.wrongBranch) { setUpdateState('error'); setUpdateError(t('updatesWrongBranch', { branch: d.wrongBranch })); return }
       if (!d.ok) { setUpdateState('error'); setUpdateError(d.error || t('updateBannerFailed')); return }
       setUpdateReady((u) => ({ ...(u || {}), canRestart: !!d.canRestart }))

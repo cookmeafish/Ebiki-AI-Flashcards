@@ -323,6 +323,20 @@ compares its HEAD against origin/master forever, so it is offered an update on e
 apply (master into another branch is not a fast-forward). All three surfaces now check `rev-parse
 --abbrev-ref HEAD` first: the launchers stay silent, the banner offers nothing, and Settings names the
 branch. `/api/update` GET returns `branch`/`onMaster` for that.
+**MATCH master, never merely move toward it - a release can be RETRACTED.** `git pull --ff-only origin
+master` is only correct while master goes forwards. When a maintainer force-pushes master BACKWARDS to pull
+a bad release, the local commit is AHEAD, and that pull exits **0 saying "Already up to date" while changing
+nothing** (measured) - so the app reported an update forever, claimed every attempt succeeded, and never
+moved a file: a silent permanent loop, far worse than a visible failure. All three update paths (POST,
+`launch.ps1`, `launch.sh`) now do `fetch origin master` then branch on
+`merge-base --is-ancestor HEAD FETCH_HEAD`: ancestor -> `merge --ff-only FETCH_HEAD` (master moved forward);
+otherwise master was rewound or rewritten -> `reset --hard FETCH_HEAD` to match it exactly. **The reset is
+refused when any TRACKED file is modified** (`status --porcelain --untracked-files=no`), so nobody's edits
+are destroyed - user data is gitignored, i.e. untracked, so a normal install is always clean here and a
+developer's work is safe (reported as `dirty`). Covered live against real repos for: forward, retracted,
+rewritten, rewound-by-many, local-edits-present, and master deleted upstream. `ls-remote` returning nothing
+means master itself is gone (renamed/removed) and is reported as `remoteMissing` rather than the lie that
+you are up to date.
 **Robustness rules for this endpoint, each one a bug that happened:** GET has a `send()` watchdog so it
 ALWAYS answers (a request that never completes surfaces as the browser's bare "Failed to fetch", which names
 neither what failed nor what to do, and leaves the card dead); git runs with `GIT_TERMINAL_PROMPT=0` +

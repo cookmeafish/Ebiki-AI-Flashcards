@@ -138,7 +138,17 @@ check_update() {
   fi
 
   if [ "$answer" = yes ]; then
-    git -C "$APP" pull --ff-only origin master >/dev/null 2>&1
+    # MATCH master, do not merely move toward it: `pull --ff-only` is only correct
+    # while master goes forwards, and with the local commit AHEAD (a retracted
+    # release) it exits 0 saying "Already up to date" while changing nothing.
+    if git -C "$APP" fetch origin master >/dev/null 2>&1; then
+      if git -C "$APP" merge-base --is-ancestor HEAD FETCH_HEAD >/dev/null 2>&1; then
+        git -C "$APP" merge --ff-only FETCH_HEAD >/dev/null 2>&1
+      elif [ -z "$(git -C "$APP" status --porcelain --untracked-files=no 2>/dev/null)" ]; then
+        # rewound or rewritten upstream, and nothing of ours would be lost
+        git -C "$APP" reset --hard FETCH_HEAD >/dev/null 2>&1
+      fi
+    fi
     (cd "$APP" && npm install --no-fund --no-audit >/dev/null 2>&1)
   fi
   # no / timeout -> just open; nothing is recorded, so the next launch asks again,

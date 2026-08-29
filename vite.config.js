@@ -775,6 +775,9 @@ function apiPlugin() {
                   if (e3) { send({ ok: true, gitAvailable: true, reachable: false, ...base }); return }
                   const localSha = (headSha || '').trim()
                   const remoteSha = ((remoteOut || '').trim().split(/\s+/)[0]) || ''
+                  // Reachable, but master is not there: the branch was renamed or removed.
+                  // Reporting "no update" would be a lie that hides it forever.
+                  if (!remoteSha) { send({ ok: true, gitAvailable: true, reachable: true, remoteMissing: true, updateAvailable: false, ...base }); return }
                   send({ ok: true, gitAvailable: true, reachable: true, updateAvailable: !!remoteSha && remoteSha !== localSha, ...base, remote: remoteSha.slice(0, 7), canRestart: canSelfRestart() })
                 }, 12000)
               })
@@ -804,13 +807,47 @@ function apiPlugin() {
           git(['rev-parse', '--abbrev-ref', 'HEAD'], (eb, branchOut) => {
             const branch = eb ? '' : String(branchOut || '').trim()
             if (branch && branch !== 'master') { finish({ ok: false, wrongBranch: branch }); return }
-            git(['pull', '--ff-only', 'origin', 'master'], (e, out, err) => {
-              if (e) { finish({ ok: false, error: String(err || e.message || 'git pull failed').slice(0, 600) }); return }
-              // Dependencies may have changed - run npm install (fast if nothing did).
-              execFile(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['install', '--no-audit', '--no-fund'], { cwd: APP_ROOT, timeout: 300000, windowsHide: true }, () => {
-                // The launch-time popup must not re-offer an update the app just installed.
-                try { fs.rmSync(path.join(APP_ROOT, '.update-snooze'), { force: true }) } catch { /* nothing to clear */ }
-                finish({ ok: true, updated: true, restartRequired: true, canRestart: canSelfRestart(), output: String(out || '').slice(0, 600) })
+            // MATCH master, do not merely move toward it. `git pull --ff-only` is only
+            // correct while master goes forwards, and a maintainer who retracts a bad
+            // release moves it BACKWARDS. Measured: with the local commit ahead of the
+            // rewound master, that pull exits 0 saying "Already up to date" and changes
+            // nothing - so the app reported an update forever, claimed every attempt
+            // succeeded, and never moved a single file. A silent permanent loop, which
+            // is far worse than a visible failure.
+            // So: fetch, then work out which way master actually went.
+            git(['fetch', 'origin', 'master'], (ef, fo, fe) => {
+              if (ef) { finish({ ok: false, error: String(fe || ef.message || 'could not reach GitHub').slice(0, 600) }); return }
+              const afterMove = (out) => {
+                // Dependencies may have changed - run npm install (fast if nothing did).
+                execFile(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['install', '--no-audit', '--no-fund'], { cwd: APP_ROOT, timeout: 300000, windowsHide: true }, () => {
+                  // The launch-time popup must not re-offer an update the app just installed.
+                  try { fs.rmSync(path.join(APP_ROOT, '.update-snooze'), { force: true }) } catch { /* nothing to clear */ }
+                  finish({ ok: true, updated: true, restartRequired: true, canRestart: canSelfRestart(), output: String(out || '').slice(0, 600) })
+                })
+              }
+              // Is our commit an ancestor of the fetched one? Yes = master moved forward
+              // and a fast-forward is exactly right. No = it was rewound or rewritten.
+              git(['merge-base', '--is-ancestor', 'HEAD', 'FETCH_HEAD'], (eAnc) => {
+                if (!eAnc) {
+                  git(['merge', '--ff-only', 'FETCH_HEAD'], (e, out, err) => {
+                    if (e) { finish({ ok: false, error: String(err || e.message || 'git merge failed').slice(0, 600) }); return }
+                    afterMove(out)
+                  }, 120000)
+                  return
+                }
+                // Rewound or diverged. The only way back to what master IS now is to
+                // match it exactly - but never at the cost of somebody's own edits, so
+                // this is refused outright if any TRACKED file has been modified. User
+                // data (config.json, modes/, decks/, .env) is gitignored, i.e. untracked,
+                // so a normal install is always clean here and a developer's work is safe.
+                git(['status', '--porcelain', '--untracked-files=no'], (eSt, stOut) => {
+                  if (!eSt && String(stOut || '').trim()) { finish({ ok: false, dirty: true }); return }
+                  git(['reset', '--hard', 'FETCH_HEAD'], (eR, rOut, rErr) => {
+                    if (eR) { finish({ ok: false, error: String(rErr || eR.message || 'could not match the released version').slice(0, 600) }); return }
+                    console.log('[Update] master had moved backwards or been rewritten; matched it exactly')
+                    afterMove(rOut)
+                  }, 120000)
+                })
               })
             }, 120000)
           })
