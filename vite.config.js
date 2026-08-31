@@ -6,8 +6,22 @@ import http from 'http'
 import crypto from 'crypto'
 import os from 'os'
 import { spawn, execFile } from 'child_process'
+import { fileURLToPath } from 'url'
 
-const ENV_FILE = path.resolve('.env')   // machine-local on purpose: API keys stay per computer
+// THIS FILE's own folder. `path.resolve('.')` answers "wherever this process was
+// started from", which is not the same question: a launch whose working
+// directory is the SHARED data folder would resolve .env to the share and write
+// an API key onto an SMB volume - a credential leaving this machine, and one
+// computer's key silently landing in another's app folder. The credential files
+// are pinned here so they are ALWAYS beside the code, whatever the cwd.
+const SELF_DIR = path.dirname(fileURLToPath(import.meta.url))
+
+// Everything credential-related lives in ONE directory, pinned to the code above.
+// EBIKI_ENV_DIR exists so the tests can exercise the real read/write/merge logic
+// against a temp folder instead of the developer's own .env - a test that has to
+// touch the real key file is a test nobody dares run.
+const ENV_DIR = process.env.EBIKI_ENV_DIR ? path.resolve(process.env.EBIKI_ENV_DIR) : SELF_DIR
+const ENV_FILE = path.join(ENV_DIR, '.env')   // machine-local on purpose: API keys stay per computer
 const LOG_DIR = path.resolve('logs')    // machine-local on purpose: diagnostic logs
 const APP_ROOT = path.resolve('.')
 
@@ -338,28 +352,68 @@ function reconcileOffline() {
 // happened once. So the last content that HELD keys is kept beside it and a
 // .env that has lost its keys heals itself from that copy on the next read, with
 // no user step. Both files are machine-local and gitignored, like .env itself.
-const ENV_BAK = path.resolve('.env.bak')         // last content of .env that had keys
-const ENV_CLEARED = path.resolve('.env.cleared') // the user emptied it ON PURPOSE: never heal over that
+const ENV_BAK = path.join(ENV_DIR, '.env.bak')         // last content of .env that had keys
+const ENV_CLEARED = path.join(ENV_DIR, '.env.cleared') // the user emptied it ON PURPOSE: never heal over that
+const KEY_LOG = path.join(ENV_DIR, 'logs', 'keys.log')  // an audit trail for every key write
+
+const ENV_PROVIDERS = { ANTHROPIC: 'anthropic', OPENAI: 'openai', GEMINI: 'gemini', GROK: 'grok' }
+const ENV_VAR = { anthropic: 'ANTHROPIC', openai: 'OPENAI', gemini: 'GEMINI', grok: 'GROK' }
 
 const readEnvFile = (file) => {
   if (!fs.existsSync(file)) return {}
-  const providers = { ANTHROPIC: 'anthropic', OPENAI: 'openai', GEMINI: 'gemini', GROK: 'grok' }
   const keys = {}
   for (const line of fs.readFileSync(file, 'utf-8').split('\n')) {
     const match = line.match(/^VITE_(\w+)_API_KEY=(.*)$/)
-    if (match && providers[match[1]]) keys[providers[match[1]]] = match[2].trim()
+    if (match && ENV_PROVIDERS[match[1]]) keys[ENV_PROVIDERS[match[1]]] = match[2].trim()
   }
   return keys
 }
 const hasKeys = (keys) => Object.values(keys).some((v) => v)
 
-// Keep .env.bak as the most recent content that HELD keys. Mirroring on READ
-// (not only on write) means the safety copy exists from the first time the app
-// asks for the keys, instead of waiting for the user to change something.
-function mirrorEnv() {
+// Rewrite `file` so its API-key lines are exactly `keys`, preserving every OTHER
+// line the file already had (it is a real .env and may hold unrelated settings).
+function renderEnvFile(file, keys) {
+  let existing = []
+  if (fs.existsSync(file)) {
+    existing = fs.readFileSync(file, 'utf-8').split('\n')
+      .filter((l) => !l.match(/^VITE_\w+_API_KEY=/))
+      .filter((l) => l.trim() !== '')
+  }
+  const keyLines = Object.entries(keys)
+    .filter(([, v]) => v)
+    .map(([k, v]) => `VITE_${ENV_VAR[k] || k.toUpperCase()}_API_KEY=${v}`)
+  return { content: [...existing, ...keyLines].join('\n') + '\n', keyLines }
+}
+
+// An audit trail for every key write. Updates get logs/update.log for exactly
+// this reason - "it changed on its own" has to be answerable afterwards - and a
+// vanished API key was the one event with no record at all, so a real report
+// ("my Anthropic key is gone since I rejoined the share") could not be traced to
+// the write that did it. PROVIDER NAMES ONLY: a key value must never reach a log.
+function logKeys(action, detail) {
   try {
-    const a = fs.readFileSync(ENV_FILE, 'utf-8')
-    if (!fs.existsSync(ENV_BAK) || fs.readFileSync(ENV_BAK, 'utf-8') !== a) fs.writeFileSync(ENV_BAK, a, 'utf-8')
+    fs.mkdirSync(path.dirname(KEY_LOG), { recursive: true })
+    fs.appendFileSync(KEY_LOG, `${new Date().toISOString()}  ${action}  ${detail}\n`, 'utf-8')
+  } catch { /* best effort: a log must never break a save */ }
+}
+
+// Keep .env.bak as the safety copy. Mirroring on READ (not only on write) means
+// it exists from the first time the app asks for the keys.
+// It only ever GROWS. It used to be a straight copy of .env, so a write that
+// dropped a provider promptly overwrote the backup with the reduced set - the
+// safety net destroyed by the very accident it exists to catch (measured on a
+// real machine: .env.bak reduced to a single provider and byte-identical to
+// .env, leaving nothing to restore from). It now holds the UNION of the backup
+// and what is on disk, so a key can only leave it when the user CLEARS that
+// provider on purpose, which is the one case that must not come back.
+function mirrorEnv(clearedProviders) {
+  try {
+    const union = { ...readEnvFile(ENV_BAK), ...readEnvFile(ENV_FILE) }
+    for (const prov of clearedProviders || []) delete union[prov]
+    const { content } = renderEnvFile(ENV_BAK, union)
+    let before = null
+    try { before = fs.readFileSync(ENV_BAK, 'utf-8') } catch { /* no backup yet */ }
+    if (before !== content) fs.writeFileSync(ENV_BAK, content, 'utf-8')
   } catch { /* best effort */ }
 }
 
@@ -374,44 +428,56 @@ function parseEnv() {
   try {
     fs.copyFileSync(ENV_BAK, ENV_FILE)
     console.log('[Keys] .env had lost its keys. Restored them from .env.bak')
+    logKeys('restored', `from .env.bak: ${Object.keys(backup).join(', ')}`)
     return readEnvFile(ENV_FILE)
   } catch { return backup }
 }
 
-function writeEnv(keys) {
-  const providers = { anthropic: 'ANTHROPIC', openai: 'OPENAI', gemini: 'GEMINI', grok: 'GROK' }
-  // REFUSE a write that would erase every stored key while sending none. That is
-  // not something a user does, only something a BROKEN CLIENT does: the app posts
-  // its WHOLE key set on change, so a page that failed to read /api/keys (server
-  // restarting, request dropped) holds {} and writes that emptiness straight back,
-  // silently deleting the key. Clearing a key from the UI still works - it posts
-  // that provider with an empty value, so the object itself is not empty.
-  if (Object.keys(keys).length === 0 && hasKeys(parseEnv())) {
-    console.log('[Keys] refused an empty write that would have erased the stored API keys')
-    return { ok: false, refused: true }
+// MERGE, never replace. `keys` is what the caller is ASSERTING, not the complete
+// desired state of the file: a provider it does not mention is left alone, and a
+// provider is deleted ONLY when it arrives NAMED with an empty value (which is
+// exactly how the Settings field clears one).
+//
+// This used to rebuild every VITE_*_API_KEY line out of the argument, so any
+// provider missing from the payload was silently erased. The only guard was a
+// completely empty object, which meant `{openai: "sk-..."}` - non-empty, so it
+// walked straight past the refusal - deleted the user's Anthropic key and left
+// no .env.cleared marker behind. That really happened, and because .env.bak was
+// a straight copy the backup went with it. A caller holding a partial picture of
+// the keys (a page that read them before the other provider was added, a shared
+// -folder sync that saw a short read) can no longer destroy what it did not know
+// about. Deleting a key now requires SAYING SO.
+function writeEnv(keys, opts) {
+  const source = (opts && opts.source) || 'api'
+  const payload = (keys && typeof keys === 'object') ? keys : {}
+  const disk = parseEnv()
+  const merged = { ...disk }
+  const stored = []
+  const cleared = []
+  for (const [prov, val] of Object.entries(payload)) {
+    if (typeof val !== 'string') continue          // never let a stray non-string delete a key
+    const v = val.trim()
+    if (v) { if (merged[prov] !== v) stored.push(prov); merged[prov] = v }
+    else if (merged[prov]) { cleared.push(prov); delete merged[prov] }
   }
-  let existing = []
-  if (fs.existsSync(ENV_FILE)) {
-    existing = fs.readFileSync(ENV_FILE, 'utf-8').split('\n')
-      .filter((l) => !l.match(/^VITE_\w+_API_KEY=/))
-      .filter((l) => l.trim() !== '')
+  if (!stored.length && !cleared.length) {
+    // Nothing asserted that we did not already have. The old code would have
+    // rewritten the file anyway; a no-op write is the moment a bug gets to
+    // truncate something, so it simply does not happen now.
+    return { ok: true, unchanged: true }
   }
-  const keyLines = Object.entries(keys)
-    .filter(([, v]) => v)
-    .map(([k, v]) => `VITE_${providers[k] || k.toUpperCase()}_API_KEY=${v}`)
-  const content = [...existing, ...keyLines].join('\n') + '\n'
+  const { content, keyLines } = renderEnvFile(ENV_FILE, merged)
   fs.writeFileSync(ENV_FILE, content, 'utf-8')
-  // Mirror only when the write STORED keys. A write that clears them leaves the
-  // previous snapshot alone - that is precisely the version worth keeping.
-  if (keyLines.length) mirrorEnv()
+  logKeys('write', `source=${source} stored=[${stored.join(' ')}] cleared=[${cleared.join(' ')}] now=[${Object.keys(merged).join(' ')}]`)
+  // Mirror whatever survives, minus anything the user just cleared on purpose.
+  if (keyLines.length || cleared.length) mirrorEnv(cleared)
   // Record INTENT so the self-heal in parseEnv can tell an empty .env that the
-  // user asked for (they cleared the field, so that provider arrives NAMED with
-  // an empty value) from one that lost its keys some other way.
+  // user asked for from one that lost its keys some other way.
   try {
     if (keyLines.length) fs.rmSync(ENV_CLEARED, { force: true })
-    else if (Object.keys(keys).length) fs.writeFileSync(ENV_CLEARED, new Date().toISOString() + '\n', 'utf-8')
+    else if (cleared.length) fs.writeFileSync(ENV_CLEARED, new Date().toISOString() + '\n', 'utf-8')
   } catch { /* best effort */ }
-  return { ok: true }
+  return { ok: true, stored, cleared }
 }
 
 // ── API keys follow the shared folder ───────────────────────────────────────
@@ -436,7 +502,13 @@ function syncSharedKeys(opts) {
   if (!shareReachable()) return { skipped: 'unreachable' }
   const file = path.join(DATA_DIR, 'keys.json')
   try {
-    const local = readEnvFile(ENV_FILE)
+    // parseEnv(), NOT readEnvFile(): this function WRITES what it reads, so it
+    // must read through the .env.bak self-heal. Reading the raw file meant a
+    // short read here became a short WRITE below - the "never write back what
+    // you failed to read" shape, in the one function the guard list missed. The
+    // empty-write refusal could not catch it either, because `merged` carries
+    // the key just pulled from the share and so is never empty.
+    const local = parseEnv()
     let shared = {}
     try { shared = JSON.parse(fs.readFileSync(file, 'utf-8')) || {} } catch { shared = {} }
 
@@ -447,7 +519,12 @@ function syncSharedKeys(opts) {
       if (val && typeof val === 'string' && !merged[prov]) { merged[prov] = val; pulled.push(prov) }
     }
     if (pulled.length) {
-      writeEnv(merged)
+      // Only the ADOPTED providers are asserted. writeEnv merges, so naming just
+      // these can never disturb a key this computer already holds, whatever this
+      // function believed it read a moment ago.
+      const adopted = {}
+      for (const prov of pulled) adopted[prov] = merged[prov]
+      writeEnv(adopted, { source: 'shared-folder-pull' })
       // Adopting a key from the share is a deliberate new key, so the
       // "cleared on purpose" marker no longer applies.
       try { fs.rmSync(ENV_CLEARED, { force: true }) } catch { /* best effort */ }
@@ -461,8 +538,14 @@ function syncSharedKeys(opts) {
       if (val && (!out[prov] || (authoritative && out[prov] !== val))) { out[prov] = val; pushed.push(prov) }
     }
     if (pushed.length) {
-      fs.writeFileSync(file, JSON.stringify(out, null, 2) + '\n', 'utf-8')
-      console.log('[Keys] saved to the shared folder:', pushed.join(', '))
+      // Never publish a set SMALLER than what the share already holds: keys.json
+      // is another computer's only copy of its own key. `out` starts from
+      // `shared` so it can only grow, but assert it rather than trust it.
+      if (Object.keys(out).length >= Object.keys(shared).length) {
+        fs.writeFileSync(file, JSON.stringify(out, null, 2) + '\n', 'utf-8')
+        logKeys('share-push', `providers=[${pushed.join(' ')}]`)
+        console.log('[Keys] saved to the shared folder:', pushed.join(', '))
+      }
     }
     return { pulled, pushed }
   } catch (e) {
@@ -1016,10 +1099,11 @@ function apiPlugin() {
           req.on('data', (chunk) => { body += chunk })
           req.on('end', () => {
             try {
-              const r = writeEnv(JSON.parse(body))
               // ?source=user marks a key the person actually typed (see setCurrentKey);
               // that one is allowed to replace the shared copy, a background save is not.
-              syncSharedKeys({ authoritative: /[?&]source=user/.test(req.originalUrl || req.url || '') })
+              const typed = /[?&]source=user/.test(req.originalUrl || req.url || '')
+              const r = writeEnv(JSON.parse(body), { source: typed ? 'user-typed' : 'app-autosave' })
+              syncSharedKeys({ authoritative: typed })
               res.setHeader('Content-Type', 'application/json')
               res.end(JSON.stringify({ ok: true, ...r }))
             } catch {
@@ -2026,3 +2110,6 @@ export default defineConfig({
     },
   },
 })
+
+// Exported for the key-safety tests only; Vite consumes the default export above.
+export { readEnvFile, parseEnv, writeEnv, mirrorEnv, ENV_FILE, ENV_BAK, ENV_CLEARED }

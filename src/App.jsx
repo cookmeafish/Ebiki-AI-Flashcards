@@ -296,7 +296,7 @@ export default function App() {
   const [dataOffline, setDataOffline] = useState(false)         // running from this computer's copy while the share is down
   const [offlineBannerOff, setOfflineBannerOff] = useState(false)
   const [offlinePending, setOfflinePending] = useState(0)       // offline edits waiting to merge into a share that is back up
-  const [offlineBusy, setOfflineBusy] = useState(false)
+  const [offlineBusy, setOfflineBusy] = useState(null)   // null | 'merge' | 'discard' - the action running, so the banner can NAME it
   const configHealthyRef = useRef(false)                        // true only when config loaded from a reachable source; gates autosave so a failed read never clobbers
   const keysHealthyRef = useRef(false)                          // same guard for .env: a FAILED key read must never be written back as "no keys"
   const keyEditedRef = useRef(false)                            // the NEXT save came from the user typing a key, so it may replace the shared copy
@@ -372,6 +372,27 @@ export default function App() {
     const id = setInterval(check, 30000)
     return () => { stop = true; clearInterval(id) }
   }, [isOverlay, configLoaded])
+
+  // Merge the offline edits into the share (or throw them away). This was lost in
+  // the commit that removed the in-app update banner - it sat directly above that
+  // block and went out with it - so BOTH banner buttons called an undefined
+  // function and every click threw a ReferenceError: nothing moved, nothing was
+  // said, and the only reading left to the user was that the app had frozen.
+  // The reconcile walks the share over SMB and can genuinely take a while, so the
+  // banner SAYS what it is doing rather than only dimming its buttons.
+  const resolveOffline = async (discard) => {
+    if (discard && !(await confirmDialog(t('offlineDiscardConfirm')))) return
+    setOfflineBusy(discard ? 'discard' : 'merge')
+    try {
+      const r = await fetch('/api/offline', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ discard: !!discard }) })
+      const d = await r.json()
+      if (d.error) { setAiErrorNotice(t('offlineMergeFailed', { e: d.error })); return }
+      setOfflinePending(0)
+      setSuccessNotice(discard ? t('offlineDiscarded') : t('offlineMerged', { n: (d.forwarded || 0) + (d.merged || 0) + (d.keptBoth || 0) }))
+      if (!discard) setTimeout(() => window.location.reload(), 1200)   // re-read the freshly merged share
+    } catch (e) { setAiErrorNotice(t('offlineMergeFailed', { e: e.message })) }
+    finally { setOfflineBusy(null) }
+  }
 
 
   // NO in-app update banner, on purpose. The launcher asks on EVERY launch - cold
@@ -951,6 +972,19 @@ export default function App() {
 
   const apiKey = apiKeys[provider] || ''
   const providerConfig = PROVIDERS[provider]
+  // Does the SELECTED provider actually have a key on this computer, and if not,
+  // is there another one that does? Drives the mismatch banner below. Purely
+  // derived and NEVER persisted: the selected provider is the user's choice and
+  // only the user changes it (same non-persistent-fallback rule as ankiDeck).
+  // Provider-agnostic BY CONSTRUCTION: both sides read Object.keys(PROVIDERS) and
+  // every name shown comes from the provider's own `label`, so a provider added to
+  // providers.js is covered here with no change. Trimmed on purpose - a key that is
+  // only whitespace fails every request exactly like a missing one, so it must not
+  // be what silences the banner explaining why nothing works.
+  const providerKeyMissing = !apiKey.trim() && Object.keys(PROVIDERS).includes(provider)
+  const providerWithKey = providerKeyMissing
+    ? Object.keys(PROVIDERS).find((p) => p !== provider && (apiKeys[p] || '').trim())
+    : null
 
   // ─── Configurable AI models + self-healing on retired models ───────────────
   // Each provider exposes three roles. `general` = the everyday/cheap model
@@ -1263,6 +1297,24 @@ export default function App() {
 
   const aiCall = async (key, systemPrompt, userContent, modelOverride, opts = {}) => {
     const prov = aiStateRef.current.provider
+    // THE PROVIDER AND THE KEY MUST COME FROM THE SAME MOMENT. `prov` is read
+    // from the live ref, but `key` is handed in by the caller and is very often
+    // captured in a closure (`apiKey` = apiKeys[provider] at render time). Swap
+    // providers between that render and this call and the request goes out to
+    // the NEW provider carrying the OLD provider's key - which comes back as a
+    // bogus "your API key is invalid" for a key that is perfectly fine, and
+    // sends a credential to a company it does not belong to. Detected exactly:
+    // a key that is literally ANOTHER provider's stored key is stale by
+    // definition (a freshly typed key being validated matches nothing, so key
+    // checking still works untouched).
+    const liveKeys = aiStateRef.current.apiKeys || {}
+    if (key && key !== liveKeys[prov]) {
+      const owner = Object.keys(liveKeys).find((p) => liveKeys[p] && liveKeys[p] === key)
+      if (owner && owner !== prov) {
+        console.warn(`[AI] dropped a stale ${owner} key on a ${prov} call; using the ${prov} key`)
+        key = liveKeys[prov] || ''
+      }
+    }
     const role = modelOverride ? 'question' : 'general'
     const model0 = modelOverride || resolveModel('general')
     // Route through any active runtime failover substitution (a mid-session outage swap).
@@ -9961,9 +10013,33 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
 
       {!isOverlay && !dataOffline && offlinePending > 0 && (
         <div style={{ flexShrink: 0, background: 'var(--c-brand)', color: 'var(--c-on-brand)', padding: '10px 16px', fontSize: 13, fontWeight: 700, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <span>🔄 {offlinePending === 1 ? t('offlinePendingOne') : t('offlinePending', { n: offlinePending })}</span>
-          <button className="btn-press" disabled={offlineBusy} onClick={() => resolveOffline(false)} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.6)', background: 'rgba(0,0,0,.18)', ...(offlineBusy ? { opacity: .5, cursor: 'default' } : {}) }}>{t('offlineMerge')}</button>
-          <button disabled={offlineBusy} onClick={() => resolveOffline(true)} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.35)', ...(offlineBusy ? { opacity: .5, cursor: 'default' } : {}) }}>{t('offlineDiscard')}</button>
+          <span>{offlineBusy ? '⏳ ' : '🔄 '}{offlineBusy === 'merge' ? t('offlineMerging') : offlineBusy === 'discard' ? t('offlineDiscarding') : offlinePending === 1 ? t('offlinePendingOne') : t('offlinePending', { n: offlinePending })}</span>
+          <button className="btn-press" disabled={!!offlineBusy} onClick={() => resolveOffline(false)} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.6)', background: 'rgba(0,0,0,.18)', ...(offlineBusy ? { opacity: .5, cursor: 'default' } : {}) }}>{t('offlineMerge')}</button>
+          <button disabled={!!offlineBusy} onClick={() => resolveOffline(true)} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.35)', ...(offlineBusy ? { opacity: .5, cursor: 'default' } : {}) }}>{t('offlineDiscard')}</button>
+        </div>
+      )}
+      {/* THE PROVIDER IN USE MUST BE THE ONE SETTINGS SELECTS - and when it cannot
+          be, SAY SO instead of rendering an empty key box. `provider` lives in
+          config.json, which lives INSIDE the data folder, while the keys live in
+          this computer's own .env. So joining a shared folder hands this machine
+          the OTHER computer's provider choice, and if no key for it was ever
+          typed here every AI feature fails with nothing on screen to explain it
+          (reported as "it lost my API key" - the key was fine, the provider had
+          changed underneath it). Deliberately NOT an auto-switch: silently using
+          a provider other than the selected one is the very thing being guarded
+          against, so this offers the swap and lets the user choose. Picking one
+          is a normal provider change and persists like any other. */}
+      {!isOverlay && configLoaded && onboarded && !dataUnreachable && providerKeyMissing && (
+        <div style={{ flexShrink: 0, background: 'rgba(232,147,12,.14)', borderBottom: '1px solid rgba(232,147,12,.35)', color: C.ink, padding: '7px 16px', fontSize: 12, fontWeight: 600, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span>⚠️ {t('providerNoKey', { prov: PROVIDERS[provider]?.label || provider })}</span>
+          {providerWithKey && (
+            <button onClick={() => setProvider(providerWithKey)} style={{ ...S.ghostBtn, fontSize: 11, padding: '3px 10px', color: 'var(--c-warning)', borderColor: 'rgba(232,147,12,.45)' }}>
+              {t('providerUseOther', { other: PROVIDERS[providerWithKey]?.label || providerWithKey })}
+            </button>
+          )}
+          <button onClick={() => { setSettingsCategory('models'); setSettingsOpen(true) }} style={{ ...S.ghostBtn, fontSize: 11, padding: '3px 10px', color: 'var(--c-warning)', borderColor: 'rgba(232,147,12,.45)' }}>
+            {t('providerAddKey', { prov: PROVIDERS[provider]?.label || provider })}
+          </button>
         </div>
       )}
       {/* ── Header ───────────────────────────────────────────────────────────── */}

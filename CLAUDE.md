@@ -93,9 +93,27 @@ purpose. `/api/modes` re-derives `MODES_DIR` per request for the live switch.
 user state with no copy anywhere - everything else is on the share or mirrored into `.local-sync`, while
 `.env` sat alone - so a single bad write erased it permanently (it did). Three layers now, all seamless (no
 user step anywhere):
-- `.env` stays the file the app reads. `.env.bak` holds the most recent content that HELD keys, mirrored by
-  `mirrorEnv()` on every read AND after every key-storing write, so the safety copy exists from the first
-  page load. If `.env` is ever found with no keys, `parseEnv` restores it from `.env.bak` and logs it.
+- `.env` stays the file the app reads, and its path is pinned to the CODE's own folder (`SELF_DIR`, from
+  `import.meta.url`), never `path.resolve('.')`: a launch whose cwd is the shared data folder would
+  otherwise write the key onto the SMB volume, which is both a credential leaving the machine and one
+  computer's key landing in another's app folder. (`EBIKI_ENV_DIR` overrides it for the tests ONLY, so the
+  real read/write/merge logic can be exercised against a temp folder.)
+- **`writeEnv` MERGES, it does not replace.** Its argument is what the caller is ASSERTING, not the desired
+  final state: a provider it does not mention is left alone, and a provider is deleted ONLY when it arrives
+  NAMED with an empty value. It used to rebuild every `VITE_*_API_KEY` line out of the argument, guarded
+  only against a COMPLETELY empty object - so `{openai: '...'}` was non-empty, walked straight past the
+  refusal, and silently erased the user's Anthropic key without even leaving a `.env.cleared` marker. That
+  really happened. **Deleting a key must require SAYING SO**; do not reintroduce whole-state semantics here.
+- `.env.bak` is the safety copy, mirrored on every read AND after every key-storing write, so it exists from
+  the first page load. If `.env` is ever found with no keys, `parseEnv` restores it from `.env.bak` and logs
+  it. **It only ever GROWS** (it holds the UNION of itself and `.env`, minus anything just cleared on
+  purpose): it used to be a straight COPY, so the write that dropped a provider immediately overwrote the
+  backup with the reduced set, destroying the safety net with the very accident it exists to catch. A key
+  can only leave the backup when the user clears that provider deliberately.
+- **`logs/keys.log` records every key write** (machine-local, gitignored): source, which providers were
+  stored, which were cleared, and what remains. PROVIDER NAMES ONLY, never a value. Updates already had
+  `update.log` for exactly this reason, and a vanished API key was the one event with no record at all, so
+  "my key disappeared" could not be traced to the write that did it.
 - `.env.cleared` records INTENT. Clearing the field in Settings posts that provider NAMED with an empty
   value, which writes the marker so the self-heal does not undo a removal the user asked for; storing any
   key deletes it again. Both files are machine-local and gitignored, like `.env`.
@@ -148,8 +166,26 @@ refuse an empty payload.
   ERASED the user's key. The load now tags the read (`_ok`, stripped before use) and `keysHealthyRef` gates
   the autosave exactly like `configHealthyRef`; typing a key (`setCurrentKey` - the single funnel for BOTH
   onboarding and Settings) flips the guard back on, so a failed read still leaves a way to fix it. Server
-  side, `writeEnv` REFUSES a write that would erase every stored key while sending none. Clearing a key in
-  the UI still works: it posts that provider with an EMPTY VALUE, so a real clear is never an empty object.
+  side, `writeEnv` MERGES rather than replacing (see above), so a partial or empty payload can no longer
+  delete anything it did not name. Clearing a key in the UI still works: it posts that provider with an
+  EMPTY VALUE, which is the explicit "say so" a delete now requires.
+- **`syncSharedKeys` reads through `parseEnv()`, never `readEnvFile()` directly.** This function WRITES what
+  it reads, so it has to read through the `.env.bak` self-heal: reading the raw file meant a short read here
+  became a short WRITE, and the empty-write refusal could never catch it because `merged` carries the key
+  just pulled from the share and so is never empty. It also asserts it never publishes a `keys.json` smaller
+  than the one already on the share, which is another computer's only copy of its own key.
+- **`aiCall` will not send one provider's request with another provider's key.** The provider comes from the
+  live `aiStateRef` while the key is passed in by the caller, usually captured in a closure (`apiKey =
+  apiKeys[provider]` at render time), so a provider switch between that render and the call crossed them.
+  A key that is literally ANOTHER provider's stored key is stale by definition and is swapped for the live
+  one; a freshly typed key being validated matches nothing, so key checking is untouched.
+- **The selected provider and the usable provider can legitimately disagree, and the app SAYS SO.**
+  `provider` lives in `config.json` (inside the shared data folder) while keys live in this machine's own
+  `.env`, so joining a share hands this computer the OTHER computer's provider choice. With no key for it,
+  every AI feature failed behind an empty key box (reported as "it lost my API key"; the key was fine, the
+  provider had changed underneath it). An in-flow amber banner names the mismatch and offers both ways out.
+  Deliberately NOT an auto-switch: silently using a provider other than the selected one is the exact thing
+  being guarded against, and the fallback is never persisted back to the shared config.
 - **Modes.** `/api/modes` POST deletes every folder not named in the payload, so `{modes: []}` would erase
   all modes AND their knowledge bases (`rmSync`, unrecoverable). The client holds an empty list only when
   the modes read failed (it falls back to an in-memory `defaultMode`), and any deck picker (`setAnkiDeck`)
@@ -179,6 +215,16 @@ a 30s poll of `/api/offline` drives an amber dismissable "working from this comp
 the share is back, a brand-colored "N offline changes waiting · Merge them in / Discard" bar - never an
 automatic push. **All three banners render IN FLOW above `<header>`, never `position:fixed`** - a fixed top:0
 bar sits ON the header and eats its clicks (the Settings button was unreachable behind the red one).
+**A BANNER'S BUTTON AND ITS HANDLER MUST BE DELETED TOGETHER.** `resolveOffline` (the merge/discard
+handler) sat directly above the in-app update block and went out WITH IT when that block was removed, while
+both buttons stayed on screen: every click threw a bare `ReferenceError` into the console, nothing moved and
+nothing was said, so the only reading left was that the app had frozen mid-merge - on the one action that
+writes this computer's work back to the share. Nothing catches this class (JSX has no compile step to miss a
+name, and the banner only renders when a share is actually back with edits pending, so no smoke path reaches
+it) - so when removing a block of UI, grep every handler it names for OTHER callers first. The banner also
+NAMES what it is doing now (`offlineBusy` holds `'merge'`/`'discard'`, not a bool: `offlineMerging` /
+`offlineDiscarding`) rather than only dimming its buttons - the reconcile walks the share over SMB and can
+genuinely take seconds, which is indistinguishable from a freeze when the text never changes.
 
 ## How Ebiki opens: app window vs browser tab (per computer)
 The chrome-free app window removed the browser, and with it the thing the browser was quietly good
