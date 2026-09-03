@@ -8,6 +8,17 @@ import os from 'os'
 import { spawn, execFile } from 'child_process'
 import { fileURLToPath } from 'url'
 
+// libuv's threadpool (default 4 workers) is where every ASYNC fs call actually
+// runs, including the bounded dead-share probe below (dataEntriesPresentAsync) -
+// that is the whole point, since it keeps the main thread free to answer other
+// requests while a worker sits stuck on a dead network path. But a worker stuck
+// on the network still occupies its slot until the OS gives up on it, and with
+// only 4 of them, a few concurrent probes (the DATA_ROUTES guard, /api/keys,
+// the backup timer) can exhaust the pool and start queuing unrelated async fs
+// work behind them. Raised here, before any fs call runs — libuv reads this
+// lazily on first use, so setting it this early still takes effect.
+if (!process.env.UV_THREADPOOL_SIZE) process.env.UV_THREADPOOL_SIZE = '8'
+
 // THIS FILE's own folder. `path.resolve('.')` answers "wherever this process was
 // started from", which is not the same question: a launch whose working
 // directory is the SHARED data folder would resolve .env to the share and write
@@ -158,6 +169,43 @@ const dataEntriesPresent = (dir) => DATA_ENTRIES.some((e) => fs.existsSync(path.
 // drive reads as empty) — callers must NOT read that emptiness as "no data /
 // first run" and overwrite the real files. See shareReachable()/dataMode() below,
 // which add caching and the .local-offline fallback on top of this.
+//
+// dataEntriesPresent() ABOVE IS SYNCHRONOUS AND MUST NEVER BE CALLED AGAINST
+// DATA_DIR (a possibly-networked path) — only against a local path (BACKUP_DIR,
+// LOCAL_HOME). A mapped drive that is unreachable in the "hangs" sense (the
+// remote host stopped answering, as opposed to one that was cleanly unmapped)
+// does not fail fast: fs.existsSync blocks on the OS/SMB connection attempt,
+// which can run into tens of seconds. Node is single-threaded, so ONE such call
+// freezes every request the server is holding, not only the one that triggered
+// it — reproduced live: the dev server kept accepting TCP connections (so a
+// window already showing the app looked merely "stuck", not crashed or closed)
+// while every HTTP request, including /api/alive, timed out with zero bytes for
+// as long as the probe was wedged. That is what a launch that "doesn't fix
+// itself when reopened" actually was: reopening reconnects to the very same
+// share, which is still unreachable the same way, so the identical freeze
+// reproduces on the very first request. The dev server has no other CPU thread,
+// so a synchronous DATA_DIR probe reachable from ANY request handler is a
+// standing freeze waiting for a bad network moment to trigger it.
+function dataEntriesPresentAsync(dir, timeoutMs = 1500) {
+  return new Promise((resolve) => {
+    let settled = false
+    const finish = (ok) => { if (!settled) { settled = true; resolve(ok) } }
+    // fs.access's ASYNC form runs on libuv's threadpool, off the main thread —
+    // a worker can still sit stuck on the network call, but the event loop
+    // stays free to answer every OTHER request in the meantime. Bounded on top
+    // of that so a single check is never the thing a request waits on forever;
+    // an abandoned probe just finishes late in the background and is ignored.
+    const timer = setTimeout(() => finish(false), timeoutMs)
+    if (timer.unref) timer.unref()
+    let remaining = DATA_ENTRIES.length
+    for (const e of DATA_ENTRIES) {
+      fs.access(path.join(dir, e), fs.constants.F_OK, (err) => {
+        if (!err) { clearTimeout(timer); finish(true); return }
+        if (--remaining === 0) { clearTimeout(timer); finish(false) }
+      })
+    }
+  })
+}
 // Move every data entry from `srcDir` into `destDir`. NEVER deletes: if `destDir`
 // already holds an entry, that existing copy is parked in a dated backup first.
 function moveDataEntries(srcDir, destDir) {
@@ -204,10 +252,10 @@ function copyNewer(from, to, acc) {
   try { const d = fs.statSync(to); need = st.size !== d.size || st.mtimeMs > d.mtimeMs } catch { need = true }
   if (need) { fs.mkdirSync(path.dirname(to), { recursive: true }); fs.copyFileSync(from, to); acc.n++ }
 }
-function runBackup() {
+async function runBackup() {
   if (DATA_DIR === APP_ROOT) return { skipped: 'local' }          // data already lives on this computer
   try {
-    if (!dataEntriesPresent(DATA_DIR)) { lastBackup = { ...lastBackup, error: 'source unreachable' }; return { skipped: 'unreachable' } }
+    if (!(await dataEntriesPresentAsync(DATA_DIR))) { lastBackup = { ...lastBackup, error: 'source unreachable' }; return { skipped: 'unreachable' } }
     const acc = { n: 0 }
     for (const entry of BACKUP_ENTRIES) copyNewer(path.join(DATA_DIR, entry), path.join(BACKUP_DIR, entry), acc)
     lastBackup = { at: new Date().toISOString(), files: acc.n, error: null }
@@ -236,14 +284,23 @@ let offlineActive = false
 let offlineSince = null
 
 // Probing a dead mapped drive is slow (SMB timeouts), and every data request asks.
-// Cache the answer briefly so a page load doesn't stack dozens of blocking probes.
+// Cache the answer briefly so a page load doesn't stack dozens of probes. The
+// cache window is ASYMMETRIC on purpose: once the share is known unreachable,
+// hold that answer longer (15s) rather than re-probing every 3s — each probe
+// still occupies a threadpool worker for up to its own timeout even though it
+// no longer blocks the server, and there is no reason to spend four of them
+// re-confirming what a request 3 seconds ago already established. A share
+// that comes back is still picked up within 15s, well inside the client's own
+// 30s /api/offline poll.
 let reachCache = { at: 0, ok: false }
-const REACH_TTL_MS = 3000
-function shareReachable() {
+const REACH_TTL_ONLINE_MS = 3000
+const REACH_TTL_OFFLINE_MS = 15000
+async function shareReachable() {
   if (DATA_DIR === APP_ROOT) return true
   const now = Date.now()
-  if (now - reachCache.at < REACH_TTL_MS) return reachCache.ok
-  const ok = dataEntriesPresent(DATA_DIR)
+  const ttl = reachCache.ok ? REACH_TTL_ONLINE_MS : REACH_TTL_OFFLINE_MS
+  if (now - reachCache.at < ttl) return reachCache.ok
+  const ok = await dataEntriesPresentAsync(DATA_DIR)
   reachCache = { at: now, ok }
   return ok
 }
@@ -274,8 +331,8 @@ function enterOffline() {
 // share that comes back mid-session is picked up without a restart: offline goes
 // false immediately, while `.local-offline/` STAYS on disk holding the offline
 // edits until the user reconciles or discards them.
-function dataMode() {
-  if (shareReachable()) { offlineActive = false; return 'online' }
+async function dataMode() {
+  if (await shareReachable()) { offlineActive = false; return 'online' }
   return enterOffline() ? 'offline' : 'down'
 }
 
@@ -317,7 +374,7 @@ function offlineStatus() {
 // Deletions made offline are deliberately NOT replayed: an absent file is
 // indistinguishable from one that was never synced, and re-deleting shared data
 // on someone else's behalf is the one unrecoverable move here.
-function reconcileOffline() {
+async function reconcileOffline() {
   const acc = { added: 0, merged: 0, keptBoth: 0 }
   const fastForward = []
   for (const rel of offlineChangedFiles()) {
@@ -340,7 +397,7 @@ function reconcileOffline() {
   offlineActive = false
   offlineSince = null
   reachCache = { at: 0, ok: false }
-  runBackup()   // refresh the base so it matches the share we just wrote
+  await runBackup()   // refresh the base so it matches the share we just wrote
   console.log('[Offline] reconciled', fastForward.length, 'file(s) forward,', acc.merged, 'merged,', acc.keptBoth, 'kept-both')
   return { ok: true, forwarded: fastForward.length, merged: acc.merged + acc.added, keptBoth: acc.keptBoth }
 }
@@ -496,10 +553,10 @@ function writeEnv(keys, opts) {
 // key that once reached the share would be permanent: every new computer would
 // adopt it and no correction could ever displace it. Background saves are never
 // authoritative, so a routine autosave can't clobber another machine's key.
-function syncSharedKeys(opts) {
+async function syncSharedKeys(opts) {
   const authoritative = !!(opts && opts.authoritative)
   if (DATA_DIR === APP_ROOT) return { skipped: 'no share' }
-  if (!shareReachable()) return { skipped: 'unreachable' }
+  if (!(await shareReachable())) return { skipped: 'unreachable' }
   const file = path.join(DATA_DIR, 'keys.json')
   try {
     // parseEnv(), NOT readEnvFile(): this function WRITES what it reads, so it
@@ -573,12 +630,12 @@ function apiPlugin() {
       // Auto-backup timer: mirror the shared data folder to this computer every
       // 10 minutes (and once ~20s after start). Unref'd so it never holds the
       // process open; cleared when the dev server closes.
-      const backupTimer = setInterval(() => { runBackup(); syncSharedKeys() }, 10 * 60 * 1000)
+      const backupTimer = setInterval(() => { runBackup().catch(() => {}); syncSharedKeys().catch(() => {}) }, 10 * 60 * 1000)
       if (backupTimer.unref) backupTimer.unref()
       // Unref'd like the interval above: this hook also runs under vitest, where a
       // live 20s handle kept the test process from exiting ("something prevents
       // Vite server from exiting") and would mask a real hang from the timer below.
-      const firstBackup = setTimeout(() => { runBackup(); syncSharedKeys() }, 20000)
+      const firstBackup = setTimeout(() => { runBackup().catch(() => {}); syncSharedKeys().catch(() => {}) }, 20000)
       if (firstBackup.unref) firstBackup.unref()
       server.httpServer?.once('close', () => clearInterval(backupTimer))
 
@@ -716,9 +773,9 @@ function apiPlugin() {
       }
 
       // Auto-backup status / manual trigger
-      server.middlewares.use('/api/sync-backup', (req, res) => {
+      server.middlewares.use('/api/sync-backup', async (req, res) => {
         res.setHeader('Content-Type', 'application/json')
-        if (req.method === 'POST') { const r = runBackup(); res.end(JSON.stringify({ ...r, ...lastBackup, dir: BACKUP_DIR, enabled: DATA_DIR !== APP_ROOT })) }
+        if (req.method === 'POST') { const r = await runBackup(); res.end(JSON.stringify({ ...r, ...lastBackup, dir: BACKUP_DIR, enabled: DATA_DIR !== APP_ROOT })) }
         else { res.end(JSON.stringify({ enabled: DATA_DIR !== APP_ROOT, dir: BACKUP_DIR, ...lastBackup })) }
       })
 
@@ -727,13 +784,13 @@ function apiPlugin() {
       // back up. POST reconciles them into the share (or discards them) — the
       // share is still only ever written by an explicit user action, exactly like
       // the join/return merge.
-      server.middlewares.use('/api/offline', (req, res) => {
+      server.middlewares.use('/api/offline', async (req, res) => {
         res.setHeader('Content-Type', 'application/json')
-        if (req.method === 'GET') { dataMode(); res.end(JSON.stringify(offlineStatus())); return }
+        if (req.method === 'GET') { await dataMode(); res.end(JSON.stringify(offlineStatus())); return }
         if (req.method !== 'POST') { res.statusCode = 405; res.end(''); return }
         let body = ''
         req.on('data', (c) => { body += c })
-        req.on('end', () => {
+        req.on('end', async () => {
           try {
             const discard = !!JSON.parse(body || '{}').discard
             if (!fs.existsSync(OFFLINE_META)) { res.end(JSON.stringify({ ok: true, nothing: true })); return }
@@ -743,8 +800,8 @@ function apiPlugin() {
               res.end(JSON.stringify({ ok: true, discarded: true }))
               return
             }
-            if (!shareReachable()) { res.statusCode = 409; res.end(JSON.stringify({ error: 'The shared folder is still unreachable.' })); return }
-            res.end(JSON.stringify(reconcileOffline()))
+            if (!(await shareReachable())) { res.statusCode = 409; res.end(JSON.stringify({ error: 'The shared folder is still unreachable.' })); return }
+            res.end(JSON.stringify(await reconcileOffline()))
           } catch (e) { res.statusCode = 400; res.end(JSON.stringify({ error: e.message })) }
         })
       })
@@ -1091,7 +1148,10 @@ function apiPlugin() {
       // API keys endpoint
       server.middlewares.use('/api/keys', (req, res) => {
         if (req.method === 'GET') {
-          syncSharedKeys()   // a page load is the moment a blank machine should adopt the shared key
+          // Fire-and-forget on purpose: the read below must never wait on it. It is
+          // async and bounded now (see shareReachable), so a dead share delays this
+          // background call by at most its own probe timeout, never the response.
+          syncSharedKeys().catch(() => {})   // a page load is the moment a blank machine should adopt the shared key
           res.setHeader('Content-Type', 'application/json')
           res.end(JSON.stringify(parseEnv()))
         } else if (req.method === 'POST') {
@@ -1103,7 +1163,7 @@ function apiPlugin() {
               // that one is allowed to replace the shared copy, a background save is not.
               const typed = /[?&]source=user/.test(req.originalUrl || req.url || '')
               const r = writeEnv(JSON.parse(body), { source: typed ? 'user-typed' : 'app-autosave' })
-              syncSharedKeys({ authoritative: typed })
+              syncSharedKeys({ authoritative: typed }).catch(() => {})
               res.setHeader('Content-Type', 'application/json')
               res.end(JSON.stringify({ ok: true, ...r }))
             } catch {
@@ -1195,10 +1255,10 @@ function apiPlugin() {
       // /api/keys, /api/log, /api/anki, /api/update, /api/ankiconnect, /api/anki-focus,
       // /api/web-search, /api/tts.
       const DATA_ROUTES = ['/config', '/ankiformat', '/modes', '/knowledge-sections', '/deck-progress', '/discover-store', '/chats', '/chat-load']
-      server.middlewares.use('/api', (req, res, next) => {
+      server.middlewares.use('/api', async (req, res, next) => {
         const p = (req.url || '').split('?')[0].replace(/\/+$/, '') || '/'
         if (!DATA_ROUTES.some((r) => p === r || p.startsWith(r + '/'))) return next()
-        const mode = dataMode()
+        const mode = await dataMode()
         // 'down' = the share is gone AND there is no local snapshot to fall back
         // on, the only case where the app truly cannot serve data.
         if (mode === 'down') {

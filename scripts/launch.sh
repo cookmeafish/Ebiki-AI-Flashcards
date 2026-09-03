@@ -85,14 +85,60 @@ port_listening() {
   return 1
 }
 
+# A bare TCP connect above is not the same question as "is the server actually
+# ANSWERING?" - a wedged Node process (measured cause on the Windows side of
+# this project: a synchronous filesystem check against an unreachable network
+# mount, which blocks Node's one event-loop thread on the OS-level connection
+# attempt instead of failing fast) still accepts new connections while every
+# real request hangs forever. Reopening Ebiki against exactly that kind of
+# freeze used to just reconnect to the same dead service - a real HTTP round
+# trip with a hard timeout tells the difference. Self-contained in a subshell
+# so fd 3 never leaks into the rest of the script.
+server_healthy() {
+  (
+    exec 3<>/dev/tcp/127.0.0.1/3000 2>/dev/null || exit 1
+    printf 'GET /api/alive HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3
+    IFS= read -r -t 4 status <&3 || exit 1
+    case "$status" in
+      HTTP/1.?\ 2*|HTTP/1.?\ 3*) exit 0 ;;
+      *) exit 1 ;;
+    esac
+  ) 2>/dev/null
+}
+
+# Only ever the process actually holding port 3000 - never anything else on
+# the machine.
+stop_stale_server() {
+  local pids=""
+  if command -v fuser >/dev/null 2>&1; then
+    pids="$(fuser 3000/tcp 2>/dev/null)"
+  elif command -v lsof >/dev/null 2>&1; then
+    pids="$(lsof -ti tcp:3000 2>/dev/null)"
+  fi
+  for pid in $pids; do
+    kill -9 "$pid" 2>/dev/null
+  done
+  local deadline
+  deadline=$(( $(date +%s) + 5 ))
+  while port_listening && [ "$(date +%s)" -lt "$deadline" ]; do sleep 0.2; done
+}
+
 # Already running -> just show it (don't disrupt or re-check). If it's already
 # open as an Electron app window, requestSingleInstanceLock in electron/main.cjs
 # means this just focuses that window instead of opening a second one - the
 # same "click the icon again -> it comes to front" behavior a real installed
 # app has, not a fresh browser tab piling up next to the old one.
 if port_listening; then
-  open_app
-  exit 0
+  if server_healthy; then
+    open_app
+    exit 0
+  fi
+  # Listening but not answering: a wedged server from an earlier session, not
+  # a working one. Stop it and fall through to the normal fresh-start path
+  # below instead of exiting.
+  mkdir -p "$APP/logs" 2>/dev/null
+  printf '%s  launcher: port 3000 was listening but not answering - stopped the stale server and starting fresh\n' "$(date '+%Y-%m-%dT%H:%M:%S')" >> "$APP/logs/update.log" 2>/dev/null || true
+  stop_stale_server
 fi
 
 if ! command -v npm >/dev/null 2>&1; then

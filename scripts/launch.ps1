@@ -336,10 +336,59 @@ $hasNode = Ensure-OnPath 'npm' @("$pf\nodejs", "$pfx\nodejs", "$lad\Programs\nod
 # that window found port 3000 still answering and took this branch, which used to
 # return without checking anything at all - the one moment the user is plainly
 # present and asking for the app, and it was the one path that stayed silent.
+# A port that ACCEPTS a connection is not the same question as "is the server
+# actually answering requests?" - a wedged Node process (measured cause: a
+# synchronous filesystem check against an unreachable shared/mapped drive,
+# which blocks Node's single event loop thread on the OS-level connection
+# attempt instead of failing fast) still shows up here as LISTENING while
+# every real request hangs forever. The old check trusted the bare listen
+# state alone, so reopening Ebiki after exactly that kind of freeze just
+# reconnected to the same dead service - "I closed it and reopened it and
+# it's still stuck", with nothing here ever noticing or fixing it. A real
+# HTTP round trip with a short timeout tells the difference.
+function Test-ServerHealthy {
+  try {
+    $r = Invoke-WebRequest -Uri 'http://localhost:3000/api/alive' -Method Get -TimeoutSec 4 -UseBasicParsing -ErrorAction Stop
+    return $r.StatusCode -ge 200 -and $r.StatusCode -lt 500
+  } catch { return $false }
+}
+# Only ever the process actually holding port 3000 - never anything else on the
+# machine. -T sweeps its child tree too (the vite/node process runs under the
+# hidden cmd.exe wrapper this same script started it with).
+function Stop-StaleServer {
+  $owners = Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyContinue |
+    Select-Object -ExpandProperty OwningProcess -Unique
+  foreach ($ownerPid in $owners) {
+    try { & taskkill /PID $ownerPid /T /F 2>&1 | Out-Null } catch {}
+  }
+  # Give Windows a moment to actually release the socket before the normal
+  # fresh-start path below immediately re-checks this same port.
+  $deadline = (Get-Date).AddSeconds(5)
+  while ((Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) {
+    Start-Sleep -Milliseconds 200
+  }
+}
+
 if (Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyContinue) {
-  try { Check-Update -AlreadyRunning } catch {}
-  Wait-AppReady (Open-App)
-  return
+  if (Test-ServerHealthy) {
+    try { Check-Update -AlreadyRunning } catch {}
+    Wait-AppReady (Open-App)
+    return
+  }
+  # Something is listening on 3000 but not actually answering: a wedged server
+  # from an earlier session, not a working one. Reusing it would just reproduce
+  # the exact freeze the user is trying to escape by reopening the app, so stop
+  # it and fall through to the normal fresh-start path below instead of
+  # returning. Logged directly (Write-UpdateLog is defined further down, after
+  # this point in a top-to-bottom script) so this decision is traceable exactly
+  # like every other one on this path.
+  try {
+    $logDir = Join-Path $app 'logs'
+    if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Force -Path $logDir | Out-Null }
+    Add-Content -Path (Join-Path $logDir 'update.log') -Value ("{0}  launcher: port 3000 was listening but not answering - stopped the stale server and starting fresh" -f (Get-Date).ToString('s')) -Encoding UTF8
+  } catch {}
+  Set-Status "Ebiki's server stopped responding. Restarting it."
+  Stop-StaleServer
 }
 
 if (-not $hasNode) {
