@@ -291,6 +291,22 @@ export default function App() {
   const [chatSidePanel, setChatSidePanel] = useState(false) // split-screen chat alongside another tab
   const [provider, setProvider] = useState('anthropic')
   const [configLoaded, setConfigLoaded] = useState(false)
+  // Belt-and-braces on top of the try/catch around the config-load effect below:
+  // if configLoaded is STILL false after a generous wait, something hung rather
+  // than errored (a promise that never settles at all isn't caught by any
+  // .catch). Without this the blank pre-paint div - deliberately bare, since it
+  // is meant to be on screen for a fraction of a second - was the only thing a
+  // genuinely stuck launch ever showed, forever, with no error and nothing to
+  // click. This does not diagnose WHY (the actual cause here was a server that
+  // could not answer any request while a dead shared drive was configured - see
+  // shareReachable() in vite.config.js), it only guarantees the user is never
+  // left looking at an unexplained blank screen with no way forward.
+  const [startupStuck, setStartupStuck] = useState(false)
+  useEffect(() => {
+    if (configLoaded) return
+    const t = setTimeout(() => setStartupStuck(true), 20000)
+    return () => clearTimeout(t)
+  }, [configLoaded])
   const [serverDown, setServerDown] = useState(false)            // the dev server itself stopped answering
   const [dataUnreachable, setDataUnreachable] = useState(false) // shared data folder (e.g. Y:) couldn't be read AND no local copy to fall back on
   const [dataOffline, setDataOffline] = useState(false)         // running from this computer's copy while the share is down
@@ -1647,6 +1663,21 @@ export default function App() {
       // ankiDeck is now per-mode (stored in mode config)
       setKeysLoaded(true)
       setConfigLoaded(true)
+    }).catch((e) => {
+      // This handler gates the app's ENTIRE first paint (see the `!configLoaded`
+      // blank-div return below) and used to have no catch at all: a single thrown
+      // exception anywhere in the 100+ lines above (a bad mode/config shape, a
+      // future edit's bug) rejected silently and left the app on that blank div
+      // FOREVER, with nothing in the UI to explain why and no way to recover
+      // short of knowing to open devtools - reported as "a white screen that is
+      // stuck" and "doesn't fix itself when reopened", since reopening replays
+      // the exact same data through the exact same code path. Getting the user
+      // INTO the app (even with some settings unloaded) beats leaving them on an
+      // unexplained blank screen, so this still unblocks first paint and says so.
+      console.error('[Startup] failed to finish loading config/modes:', e)
+      setKeysLoaded(true)
+      setConfigLoaded(true)
+      setAiErrorNotice(`Ebiki had trouble loading your settings and started with defaults. (${e?.message || e})`)
     })
     // Check overlay status immediately and poll
     const checkOverlay = () => fetch('/api/launch-overlay').then(r => r.json()).then(d => setOverlayRunning(d.running)).catch(() => {})
@@ -9932,7 +9963,29 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
   // Wait for config + modes before the first real paint so the saved tab/mode are already
   // applied — otherwise the UI briefly flashes the default mode/tab before load (the flicker).
   if (!isOverlay && !configLoaded) {
-    return <div style={{ minHeight: '100vh', background: 'var(--c-bg)' }} />
+    // Normally on screen for a fraction of a second, so it stays bare. Past the
+    // stuck threshold it earns a real message and a way out - see startupStuck
+    // above for why this exists at all. isElectronApp / window.ebikiWindow are
+    // both safe to read this early: neither depends on any state set later in
+    // this component.
+    return (
+      <div style={{ minHeight: '100vh', background: 'var(--c-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {startupStuck && (
+          <div style={{ textAlign: 'center', maxWidth: 360, padding: 24, fontFamily: FONT.body }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--c-ink)', marginBottom: 6 }}>Ebiki is taking longer than usual to start</div>
+            <div style={{ fontSize: 12.5, color: 'var(--c-ink-dim)', marginBottom: 16 }}>
+              This can happen when its background service isn't answering. Reloading usually fixes it.
+            </div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+              {window.ebikiWindow?.restart && (
+                <button className="btn-press" onClick={() => window.ebikiWindow.restart()} style={{ ...S.captureBtn, fontSize: 12.5, padding: '7px 16px' }}>Restart Ebiki</button>
+              )}
+              <button onClick={() => window.location.reload()} style={{ ...S.ghostBtn, fontSize: 12.5, padding: '7px 16px', color: C.ink }}>Reload</button>
+            </div>
+          </div>
+        )}
+      </div>
+    )
   }
   return (
     <div
