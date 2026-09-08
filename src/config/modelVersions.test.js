@@ -32,6 +32,18 @@ describe('parseModelId', () => {
     expect(parseModelId('models/gemini-2.5-pro')).toMatchObject({ family: 'gemini-pro', version: [2, 5] })
   })
 
+  it('treats an OpenAI-style YYYY-MM-DD snapshot as a date, not three version components', () => {
+    // The exact bug: gpt-4o-2024-11-20 used to parse as version [4, 2024, 11, 20], which
+    // permanently outranked the dateless "gpt-4o" alias (missing slots compare as 0) - so a
+    // ~2-year-old pinned snapshot endlessly looked "newer" and re-prompted the user forever.
+    expect(parseModelId('gpt-4o-2024-11-20')).toMatchObject({
+      family: 'gpt-o', version: [4], date: 20241120,
+    })
+    expect(parseModelId('gpt-4o-mini-2024-07-18')).toMatchObject({
+      family: 'gpt-o-mini', version: [4], date: 20240718,
+    })
+  })
+
   it('returns null for junk rather than throwing', () => {
     for (const bad of [null, undefined, '', '   ', 42, {}]) expect(parseModelId(bad)).toBeNull()
   })
@@ -52,6 +64,11 @@ describe('compareModels', () => {
 
   it('uses the date only when both ids carry one', () => {
     expect(compareModels('claude-haiku-4-5-20251001', 'claude-haiku-4-5-20240101')).toBe(1)
+  })
+
+  it('treats an OpenAI dateless alias and its YYYY-MM-DD dated snapshot as equal', () => {
+    expect(compareModels('gpt-4o', 'gpt-4o-2024-11-20')).toBe(0)
+    expect(compareModels('gpt-4o-2024-11-20', 'gpt-4o')).toBe(0)
   })
 
   it('is 0 for identical ids and for unparseable input', () => {
@@ -105,6 +122,17 @@ describe('pickUpgrade', () => {
     expect(pickUpgrade('grok-3', ['grok-4', 'grok-3'])).toBe('grok-4')
     // Embeddings/audio models in an OpenAI list are a different family and must be ignored.
     expect(pickUpgrade('gpt-4o', ['text-embedding-3-large', 'whisper-1', 'tts-1'])).toBeNull()
+  })
+
+  it('never proposes an OpenAI dated snapshot of the model already running (the reported bug)', () => {
+    // A live OpenAI /v1/models response lists the dateless alias alongside every dated
+    // snapshot that ever backed it. Before the fix, EVERY one of these looked newer than
+    // "gpt-4o" - so the very first dated snapshot in the list would win and re-prompt on
+    // every check, forever, regardless of how old it actually was.
+    const OPENAI = ['gpt-4o', 'gpt-4o-2024-05-13', 'gpt-4o-2024-08-06', 'gpt-4o-2024-11-20']
+    expect(pickUpgrade('gpt-4o', OPENAI)).toBeNull()
+    // A real newer generation must still surface normally.
+    expect(pickUpgrade('gpt-4o', [...OPENAI, 'gpt-5o'])).toBe('gpt-5o')
   })
 })
 

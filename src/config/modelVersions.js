@@ -25,6 +25,7 @@ const PRERELEASE = /(preview|experimental|nightly|alpha|beta|snapshot|latest|-ex
  *   claude-haiku-4-5-20251001  → { family: 'claude-haiku', version: [4, 5], date: 20251001 }
  *   claude-3-5-sonnet-20241022 → { family: 'claude-sonnet',version: [3, 5], date: 20241022 }
  *   gpt-4o-mini                → { family: 'gpt-o-mini',   version: [4],    date: null }
+ *   gpt-4o-2024-11-20          → { family: 'gpt-o',        version: [4],    date: 20241120 }
  *   o3-mini                    → { family: 'o-mini',       version: [3],    date: null }
  *   gemini-2.5-pro             → { family: 'gemini-pro',   version: [2, 5], date: null }
  *
@@ -35,13 +36,38 @@ export function parseModelId(id) {
   const raw = id.trim()
   // Gemini's REST list returns "models/gemini-2.5-pro"; compare on the bare id.
   const bare = raw.replace(/^models\//, '').toLowerCase()
+  const rawSegs = bare.split(/[-_.]/).filter(Boolean)
 
   const words = []
   const version = []
   let date = null
 
-  for (const seg of bare.split(/[-_.]/)) {
-    if (!seg) continue
+  // OpenAI's dated snapshots split the date across THREE separate hyphen segments
+  // (gpt-4o-2024-11-20 → "2024","11","20"), unlike Anthropic's single 8-digit block
+  // (claude-haiku-4-5-20251001 → "20251001", caught by the /^\d{8}$/ check below).
+  // Detected and pulled out of the segment list BEFORE the per-segment loop, which
+  // otherwise has no way to tell a YYYY/MM/DD triple apart from three ordinary
+  // version numbers — and folded them straight into `version`, where they
+  // permanently outrank a dateless alias (whose missing version slots compare as
+  // 0 — see compareModels). That made EVERY dated OpenAI snapshot look infinitely
+  // newer than the model it is a pinned build OF, no matter how old the snapshot
+  // actually is: reproduced live, a 2024-11-20 build endlessly flagged as "newer"
+  // than the "gpt-4o" alias, re-prompting on every check because the id it was
+  // being compared against never changed. Segments are consumed positionally so
+  // this can only match once, at the position a real snapshot date would appear.
+  const segs = []
+  for (let i = 0; i < rawSegs.length; i++) {
+    const y = rawSegs[i], m = rawSegs[i + 1], d = rawSegs[i + 2]
+    if (date == null && /^(19|20)\d{2}$/.test(y) && m && d &&
+        /^(0?[1-9]|1[0-2])$/.test(m) && /^(0?[1-9]|[12]\d|3[01])$/.test(d)) {
+      date = Number(y) * 10000 + Number(m) * 100 + Number(d)
+      i += 2
+      continue
+    }
+    segs.push(rawSegs[i])
+  }
+
+  for (const seg of segs) {
     // 8-digit snapshot date (20251001) — a tiebreak, never a version component.
     if (/^\d{8}$/.test(seg)) { date = Number(seg); continue }
     if (/^\d+$/.test(seg)) { version.push(Number(seg)); continue }
