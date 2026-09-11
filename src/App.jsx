@@ -22,6 +22,7 @@ import OnboardingWizard from './components/OnboardingWizard'
 import Dropdown from './components/Dropdown'
 import { S } from './styles/theme'
 import { ocrLog, ocrLogTable, ocrLogFlush } from './utils/logger'
+import { answerLetterCounts, countAnswerLetters, correctLetterHint } from './utils/studyHints'
 import { ankiPing, ankiSyncAuthState, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiCanAddNote, ankiCopyNote, ankiChangeDeck, ankiForgetCards, ankiSetNoteTags, ankiFindCards, ankiCardsInfo, ankiAnswerCards, ankiSetDueDate, ankiInsertReviews, ankiGuiDeckReview, ankiGuiCurrentCard, ankiGuiShowAnswer, ankiGuiAnswerCard, ankiGuiDeckBrowser, ankiGetDeckStats, ankiFindNotes, ankiNotesInfo, ankiUpdateNote, ankiDeleteNotes, ankiSync, ankiSyncSoon, ankiStoreMediaFile, ankiGetNumCardsReviewedToday, ankiGetNumCardsReviewedByDay, ankiGetTodayReviewStats } from './utils/anki'
 import { readBlob, writeBlob, DEFAULT_LEDGER } from './discover/storage'
 import { buildProfilePrompt, buildSuggestionPrompt, buildVerifyPrompt } from './discover/prompts'
@@ -6801,20 +6802,20 @@ Output ONLY raw JSON. No markdown, no backticks.`
 
     // If wrong on a hintable question and hints remain — show the next hint the user doesn't already satisfy
     if (!isExplanation && acceptedAnswers.length > 0 && !isCorrect && studyHintLevel < 2) {
-      const hintSatisfied = (hint) => {
+      const hintSatisfied = (hint, level) => {
         if (!hint) return true
-        const a = ans.replace(/\s/g, '')
-        const lettersMatch = hint.match(/^(\d+)\s+letters?$/i)
-        if (lettersMatch) return a.length === parseInt(lettersMatch[1])
+        if (level === 1 && /^\s*\d+/.test(hint)) {
+          return answerLetterCounts(acceptedAnswers).includes(countAnswerLetters(ans))
+        }
         const startsMatch = hint.match(/starts with ['"]?([^\s'"]+)['"]?/i)
         if (startsMatch) return ansNoArt.startsWith(startsMatch[1].toLowerCase())
         return false
       }
-      const allHints = [questionObj.hint1, questionObj.hint2]
+      const allHints = [correctLetterHint(questionObj.hint1, acceptedAnswers), questionObj.hint2]
       let nextLevel = null, nextHint = null
       for (let level = studyHintLevel + 1; level <= 2; level++) {
         const candidate = allHints[level - 1]
-        if (!hintSatisfied(candidate)) { nextLevel = level; nextHint = candidate; break }
+        if (!hintSatisfied(candidate, level)) { nextLevel = level; nextHint = candidate; break }
       }
       if (nextLevel !== null) {
         setStudyHintLevel(nextLevel)
