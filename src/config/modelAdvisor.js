@@ -43,17 +43,17 @@ ${priorModelId ? `Previous model in its family: "${priorModelId}" (compare token
 Web search results:
 ${results}
 
-Return ONLY a JSON object (no markdown, no commentary):
-{
-  "tokenVsPrev": "more" | "less" | "same" | "unknown",   // token usage vs the previous model in its family, for the same work
-  "strength": 1-5,        // reasoning/quality tier (1 weakest, 5 strongest) relative to this provider's current lineup
-  "cost": 1-5,            // relative price per token (1 cheapest, 5 priciest)
-  "vision": true | false, // can it read images
-  "pros": ["short phrase", ...],   // 2-4 items
-  "cons": ["short phrase", ...],   // 1-3 items
-  "summary": "<one plain-language sentence a non-technical person understands>",
-  "confidence": 0.0-1.0
-}`
+Fields:
+- tokenVsPrev: token usage versus the previous model in its family for the same work: "more", "less", "same" or "unknown".
+- strength: reasoning/quality tier from 1 (weakest) to 5 (strongest), relative to this provider's current lineup.
+- cost: relative price per token from 1 (cheapest) to 5 (priciest).
+- vision: true if it can read images, else false.
+- pros: 2-4 short phrases. cons: 1-3 short phrases.
+- summary: one plain-language sentence a non-technical person understands.
+- confidence: 0.0 to 1.0.
+
+Return ONLY a JSON object with exactly those keys (no markdown, no commentary, NO comments inside the JSON), for example:
+{"tokenVsPrev": "less", "strength": 4, "cost": 2, "vision": true, "pros": ["fast"], "cons": ["weaker at math"], "summary": "...", "confidence": 0.6}`
 }
 
 // Ask the strongest model to assign one model id to each app ROLE for the chosen preset, given the

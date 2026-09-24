@@ -418,6 +418,8 @@ const en = {
   // Add-on IS on disk but Anki is not answering. Two different situations, and the
   // old single sentence ("start Anki with the AnkiConnect addon") was useless advice
   // to anyone who had already started it.
+  ankiLauncherStuck: "Anki's updater got stuck on an error, so Anki never started. Click Open Anki and Ebiki will fix it and start Anki.",
+  ankiStarting: 'Starting Anki. It can take a few seconds.',
   ankiAddonNotLoaded: "AnkiConnect is installed, but the running Anki hasn't loaded it. Close Anki completely and open it again.",
   ankiAddonStartAnki: 'Anki is not running. Start Anki, then press Refresh.',
   ankiAddonDisabled: 'AnkiConnect is turned off in Anki. Enable it under Tools > Add-ons, then restart Anki.',
@@ -1301,6 +1303,8 @@ const es = {
   ankiAddonDoneNoAnki: 'Complemento instalado. Estará listo la próxima vez que abras Anki.',
   ankiAddonFailed: 'No se pudo instalar el complemento automáticamente.',
   ankiAddonManual: 'En Anki: Herramientas > Complementos > Obtener complementos, y pega el código 2055492159.',
+  ankiLauncherStuck: 'El actualizador de Anki se quedó atascado en un error, así que Anki no llegó a abrirse. Pulsa Abrir Anki y Ebiki lo arreglará y abrirá Anki.',
+  ankiStarting: 'Abriendo Anki. Puede tardar unos segundos.',
   ankiAddonNotLoaded: 'AnkiConnect está instalado, pero el Anki abierto no lo ha cargado. Cierra Anki por completo y ábrelo de nuevo.',
   ankiAddonStartAnki: 'Anki no está abierto. Abre Anki y pulsa Actualizar.',
   ankiAddonDisabled: 'AnkiConnect está desactivado en Anki. Actívalo en Herramientas > Complementos y reinicia Anki.',
@@ -2172,6 +2176,8 @@ const zh = {
   ankiAddonDoneNoAnki: '插件已安装。下次启动 Anki 时即可使用。',
   ankiAddonFailed: '无法自动安装插件。',
   ankiAddonManual: '在 Anki 中：工具 > 插件 > 获取插件，粘贴代码 2055492159。',
+  ankiLauncherStuck: 'Anki 的更新程序卡在了一个错误上，所以 Anki 没有启动。点击“打开 Anki”，Ebiki 会修复它并启动 Anki。',
+  ankiStarting: '正在启动 Anki，可能需要几秒钟。',
   ankiAddonNotLoaded: 'AnkiConnect 已安装，但正在运行的 Anki 没有加载它。请完全关闭 Anki 再重新打开。',
   ankiAddonStartAnki: 'Anki 没有运行。请启动 Anki，然后点击刷新。',
   ankiAddonDisabled: 'AnkiConnect 在 Anki 中被停用了。请在工具 > 插件中启用，然后重启 Anki。',
@@ -3043,6 +3049,8 @@ const ja = {
   ankiAddonDoneNoAnki: 'アドオンを入れました。次に Anki を起動したときから使えます。',
   ankiAddonFailed: 'アドオンを自動で入れられませんでした。',
   ankiAddonManual: 'Anki で: ツール > アドオン > アドオンを取得 に、コード 2055492159 を貼り付けてください。',
+  ankiLauncherStuck: 'Anki のアップデーターがエラーで止まったため、Anki が起動していません。「Anki を開く」を押すと、Ebiki が直して Anki を起動します。',
+  ankiStarting: 'Anki を起動しています。数秒かかることがあります。',
   ankiAddonNotLoaded: 'AnkiConnect は入っていますが、起動中の Anki が読み込んでいません。Anki を完全に閉じてから開き直してください。',
   ankiAddonStartAnki: 'Anki が起動していません。Anki を開いてから「更新」を押してください。',
   ankiAddonDisabled: 'AnkiConnect が Anki で無効になっています。ツール > アドオン で有効にして、Anki を再起動してください。',

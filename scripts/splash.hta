@@ -112,7 +112,7 @@
         <div class="title" id="title">Starting Ebiki</div>
         <div class="sub" id="sub">Waking up Anki and the study server.</div>
         <div id="ask">
-          <button class="yes" onclick="answer('yes')">Update now</button><button class="no" onclick="answer('no')">Not now</button>
+          <button class="yes" id="yesBtn" onclick="answer('yes')">Update now</button><button class="no" onclick="answer('no')">Not now</button>
         </div>
       </div>
     </div>
@@ -192,19 +192,25 @@ function answer(v) {
   document.getElementById('title').innerText = 'Starting Ebiki';
   document.body.className = '';
   lastStatus = '';   // so the launcher's next status line is shown even if it repeats
-  showStatus(v === 'yes' ? 'Updating Ebiki. This can take a minute, please wait.' : 'Starting Ebiki.');
+  showStatus(v === 'yes' ? (promptYesText || 'Updating Ebiki. This can take a minute, please wait.') : 'Starting Ebiki.');
 }
 
-function showPrompt(txt) {
+// title / yesText are optional (the ASK| form): the Anki update asks in this same window with its
+// own heading and its own "working on it" line. Without them the original Ebiki wording is used.
+var promptYesText = '';
+function showPrompt(txt, title, yesText) {
   if (prompting) return;
   prompting = true;
-  document.getElementById('title').innerText = 'Update available';
+  promptYesText = yesText || '';
+  document.getElementById('title').innerText = title || 'Update available';
   document.getElementById('sub').innerText = txt;
   document.getElementById('ask').style.display = 'block';
   document.getElementById('track').style.display = 'none';
   document.body.className = 'asking';
   fitWindow();
   try { window.focus(); } catch (e) {}
+  // "Update now" is the preselected answer, so Enter takes the recommended (latest) choice.
+  try { document.getElementById('yesBtn').focus(); } catch (e) {}
 }
 
 function readStatus() {
@@ -249,6 +255,11 @@ function tick() {
   if (status.substring(0, 7) === 'PROMPT|') {
     var question = status.substring(7);
     if (question !== answeredPrompt) showPrompt(question);
+  } else if (status.substring(0, 4) === 'ASK|') {
+    // ASK|<title>|<status after Yes>|<question> (the question may itself contain no '|')
+    var parts = status.substring(4).split('|');
+    var q = parts.slice(2).join('|');
+    if (parts.length >= 3 && q !== answeredPrompt) showPrompt(q, parts[0], parts[1]);
   } else if (status) showStatus(status);
   // Say something instead of looking stuck. Deliberately names NO single cause:
   // this used to claim "the first start takes a little longer", which is wrong

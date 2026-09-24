@@ -603,6 +603,58 @@ Two DIFFERENT problems that both used to surface as one unhelpful "Anki is not c
   never-touch-the-transient-windows rule as the Anki minimizer). The banner says so out loud.
 - Neither route is in `DATA_ROUTES` (machine-local, must work when the share is down).
 
+## Anki updates are Ebiki's job, not Anki's console (`scripts/anki-update.ps1`)
+What the Anki website installs (`%LOCALAPPDATA%\Programs\Anki\anki.exe`) is a LAUNCHER; the real
+Anki is a uv venv in `%LOCALAPPDATA%\AnkiProgramFiles`, pinned by that folder's `pyproject.toml`.
+When an install is pending (no `.sync_complete` marker, or a `.want-launcher` trigger, which Anki's
+own "update available" dialog writes) the launcher opens a TERMINAL menu - no place for an end user,
+and it DEAD-ENDS: "Latest" takes its version from `aqt` on PyPI and pins `anki-release` to the same
+number. Measured 2026-09: aqt/anki at 26.9.3, anki-release stopped at 26.5, so "Latest" pinned an
+uninstallable set, `uv sync` failed, the marker was never written, and EVERY Anki start fell back
+into the same failing console. A second trap on top: the older launcher writes
+`requires-python = ">=3.9"`, uv resolves for EVERY allowed Python, and anki 26.x needs 3.10+, so no
+26.x release could install through that template at all ("anki==26.5 depends on Python>=3.10").
+So `launch.ps1`'s `Start-AnkiIfNeeded` dot-sources `anki-update.ps1` and runs `Update-AnkiIfOffered`
+BEFORE starting Anki (it cannot be updated while running):
+- **Target = newest INSTALLABLE**: newest stable `anki-release` on PyPI, confirmed to exist for `aqt`
+  too. Never the newest `aqt`. Betas/rc never offered.
+- **Asked in the splash** via `Ask-InSplash $text $timeout $title $yesStatus` -> the `ASK|title|yes
+  status|question` status form (`PROMPT|` stays the Ebiki-update form). "Update now" is FOCUSED, so
+  Enter takes the latest. A declined version is remembered in `.anki-update-declined` (gitignored) and
+  not re-asked until a NEWER one ships; a timeout records nothing.
+- **Installs silently** with the launcher's own command (`uv sync --upgrade --no-config
+  --managed-python --python <.python-version>`, cwd = the root, `UV_CACHE_DIR`/`UV_PYTHON_INSTALL_DIR`
+  = the root's `cache`/`python`), pyproject written UTF-8 WITHOUT a BOM and with `requires-python`
+  taken from `.python-version` (see the trap above), splash status every 10s, hard 15 min cap, uv
+  output in `logs/anki-update-uv.*.log`, every decision in `logs/anki-update.log`.
+- **Never leaves Anki broken**: success = `aqt-<ver>.dist-info` present, then `.sync_complete` is
+  touched AFTER the pyproject (the launcher treats a newer pyproject as pending). ANY failure re-pins
+  the installed version, re-syncs (near-instant from cache; also heals a half-done venv) and sets the
+  marker even if that sync cannot run offline (the venv was working). A STUCK launcher (marker
+  missing) is repaired the same way when nothing is offered or the user says Not now.
+- Skipped entirely (Anki starts exactly as before): classic non-launcher installs (no `uv.exe`),
+  no venv yet (the launcher's own first run), a `mirror` file (China mirror users), offline.
+- Anki's OWN in-app update dialog still restarts straight into the launcher console (that path never
+  passes through Ebiki); if it fails there, the next Ebiki launch repairs it.
+- **A STUCK launcher console is not "Anki starting".** The start-up logic lives in
+  `scripts/anki-start.ps1` (dot-sourced by `launch.ps1`; also run with `-Start` by `/api/anki-start`).
+  A failed update leaves `anki.exe` + `anki-console.exe` waiting on "Press enter to close" for hours,
+  and because an `anki` process existed, `Test-AnkiUp` said "already starting" and NOTHING ever
+  started Anki (the reported "it's not opening Anki by itself"), while the banner said "close Anki and
+  reopen it". `Get-StuckAnkiLauncher` = an `anki-console` at least 15s old, AnkiConnect not listening, no
+  real Anki (python under `*Anki*`), and no `uv` running (an install in progress is never touched).
+  `Start-AnkiIfNeeded` closes it first, then updates/repairs and starts. `anki-state.ps1` reports it
+  (`launcherStuck` -> `ankiLauncherStuck`), the banner shows `ankiLauncherStuck` above every other
+  state, and **Open Anki STARTS Anki** (`/api/anki-start`, detached, answered at once) whenever there
+  is no window to focus - it used to only focus, so on a closed Anki it silently did nothing.
+  Verified on the real stuck machine: console closed, launcher repaired, AnkiConnect up in 13s.
+- **The Anki step runs ONE AT A TIME** (`Start-AnkiIfNeeded` holds the named mutex
+  `Ebiki.Anki.Start`; the body is `Start-AnkiIfNeededLocked`). It runs BEFORE `launch.ps1`'s own
+  single-instance mutex, which only covers the dev server. Measured: two launches arriving together
+  both read the ONE "Update now" click, both ran `uv sync` on the same venv, and both started Anki a
+  second apart ("Anki is already running" dialog). The second caller now waits, finds Anki up, and
+  does nothing; the wait is capped at 20 min (question + install caps).
+
 ## "Ask AI" mode edits (review flow)
 Cards and Study panes have an **Ask AI** box. It does NOT apply directly - `proposeModeEdit(instruction, scope)`
 (App.jsx) returns a proposal; the modal shows a **before/after word diff** (`diffWords`) with
@@ -1891,7 +1943,10 @@ fallback ping never lands either - so the server exited WHILE THE APP WAS OPEN, 
 normal and can do nothing: every "background service didn't answer" report starts here, and no click inside
 that window can fix it. `electron/main.cjs` beats every 5s for as long as `appWindow` exists and says
 goodbye on `closed`. The main process is never throttled and is the only thing that truly knows whether a
-window is open.
+window is open. **Talk to the dev server as `localhost`, NEVER `127.0.0.1`:** Vite binds to whatever
+`localhost` resolves to FIRST, which on current Node/Windows is IPv6 `::1` only (measured: LISTENING on
+`[::1]:3000`, `127.0.0.1:3000` refused). This heartbeat was aimed at `127.0.0.1` and so never landed at
+all; `launch.sh`'s `/dev/tcp` checks had the same flaw (macOS resolves `::1` first too).
 **The dead-service notice is QUIET, and its repair is in Settings.** Something must say so - every save
 fails silently while the window looks perfectly normal - but a full-width red "nothing can be saved" bar
 reads as a crash, and the app has not crashed: it is running and cannot reach its own service. So it is one

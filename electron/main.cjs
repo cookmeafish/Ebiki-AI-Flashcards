@@ -303,7 +303,11 @@ function createAppWindow() {
   // long as the window is open and says goodbye once, when it closes.
   const beat = (pathname) => {
     try {
-      const req = http.request({ hostname: '127.0.0.1', port: 3000, path: pathname, method: 'POST', timeout: 3000 })
+      // 'localhost', NEVER '127.0.0.1': Vite binds to whatever localhost resolves to FIRST, which on
+      // current Node/Windows is IPv6 ::1 ONLY (measured: LISTENING on [::1]:3000, 127.0.0.1 refused).
+      // Aimed at 127.0.0.1, every one of these beats was refused, so this heartbeat, the thing
+      // that keeps a shortcut-started server alive while the window is minimized, never landed.
+      const req = http.request({ hostname: 'localhost', port: 3000, path: pathname, method: 'POST', timeout: 3000 })
       req.on('error', () => {})      // server not up yet, or already gone: nothing to do
       req.on('timeout', () => req.destroy())
       req.end()
@@ -428,6 +432,16 @@ function createAppWindow() {
   tryLoad()
 }
 
+// The capture must be taken at the display's REAL pixel size. getPrimaryDisplay().size is in
+// scaled (DIP) units, so on a 150% display a 2560x1440 screen was captured at 1707x960 and OCR
+// read a blurred copy of the text. Every crop that uses this image scales by
+// image-size / screen-size, so a sharper capture needs no other change.
+function capturePixelSize() {
+  const d = screen.getPrimaryDisplay()
+  const f = d.scaleFactor || 1
+  return { width: Math.round(d.size.width * f), height: Math.round(d.size.height * f) }
+}
+
 function createOverlay() {
   const { width, height } = screen.getPrimaryDisplay().bounds
   overlayWindow = new BrowserWindow({
@@ -484,7 +498,7 @@ function registerShortcuts() {
 
     try {
       const sources = await desktopCapturer.getSources({
-        types: ['screen'], thumbnailSize: screen.getPrimaryDisplay().size,
+        types: ['screen'], thumbnailSize: capturePixelSize(),
       })
       if (!sources.length) return
 
@@ -522,7 +536,7 @@ ipcMain.on('resize-overlay', (_, bounds) => {
 ipcMain.handle('capture-screenshot', async () => {
   try {
     const sources = await desktopCapturer.getSources({
-      types: ['screen'], thumbnailSize: screen.getPrimaryDisplay().size,
+      types: ['screen'], thumbnailSize: capturePixelSize(),
     })
     if (!sources.length) return null
     fs.writeFileSync(SCREENSHOT_FILE, sources[0].thumbnail.toPNG())

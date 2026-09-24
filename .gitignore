@@ -26,5 +26,9 @@ discover-mode-plan.md
 .app-ready
 .app-status
 .app-answer
+.anki-update-declined
 .app-splash
 launchmode.json
+
+# Local scratch space for tooling/test runs (never committed)
+.scratch/

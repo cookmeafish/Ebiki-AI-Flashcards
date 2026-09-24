@@ -627,6 +627,16 @@ function apiPlugin() {
   return {
     name: 'api-plugin',
     configureServer(server) {
+      // Decode every /api request body as UTF-8 BEFORE any handler reads it. The handlers below
+      // build their body with `body += chunk`, which decodes each network chunk on its own, so a
+      // multi-byte character (é, ñ, 日) that straddles a chunk boundary turned into U+FFFD and was
+      // then SAVED that way: into chats, mode configs, knowledge files and notes sent to Anki.
+      // Measured: a 600 KB body of accented text came through with 7 corrupted characters.
+      // setEncoding routes the stream through a StringDecoder, which carries a split character
+      // over to the next chunk. Every handler reads text, so nothing here wants raw bytes.
+      // Registered FIRST so it runs ahead of every /api handler.
+      server.middlewares.use('/api', (req, _res, next) => { try { req.setEncoding('utf8') } catch { /* already consumed */ } next() })
+
       // Auto-backup timer: mirror the shared data folder to this computer every
       // 10 minutes (and once ~20s after start). Unref'd so it never holds the
       // process open; cleared when the dev server closes.
@@ -637,7 +647,7 @@ function apiPlugin() {
       // Vite server from exiting") and would mask a real hang from the timer below.
       const firstBackup = setTimeout(() => { runBackup().catch(() => {}); syncSharedKeys().catch(() => {}) }, 20000)
       if (firstBackup.unref) firstBackup.unref()
-      server.httpServer?.once('close', () => clearInterval(backupTimer))
+      server.httpServer?.once('close', () => { clearInterval(backupTimer); clearTimeout(firstBackup) })
 
       // ── Keep Anki's sync toast off the top of Ebiki (Windows) ─────────────
       // Anki pops a frameless ALWAYS-ON-TOP "Collection sync complete." popup after every sync,
@@ -1096,6 +1106,10 @@ function apiPlugin() {
                 payload.ankiMainWindow = !!st.mainWindow
                 payload.ankiAwaitingInput = !!st.awaitingInput
                 payload.ankiDialogs = Array.isArray(st.dialogs) ? st.dialogs.slice(0, 3) : []
+                // Anki's own launcher left in its console (a failed update waiting on "Press enter to
+                // close"). An `anki` process exists, so this used to read as "running but hasn't loaded
+                // the add-on" and told the user to restart Anki, which cannot help.
+                payload.ankiLauncherStuck = !!st.launcherStuck
               } catch { /* could not look: leave the fields undefined rather than guess */ }
               res.end(JSON.stringify(payload))
             })
@@ -1143,6 +1157,33 @@ function apiPlugin() {
             try { res.end(JSON.stringify(JSON.parse(line))) }
             catch { res.end(JSON.stringify({ ok: false, reason: 'no-window' })) }
           })
+      })
+
+      // Start Anki when it is not open at all (the "Open Anki" button when there is no window to bring
+      // forward). Runs scripts/anki-start.ps1 -Start: the SAME start-up the shortcut uses, so it also
+      // closes a launcher console stuck on a failed update, offers/applies an Anki update (a topmost
+      // dialog stands in for the splash) and repairs a launcher left mid-install. DETACHED and
+      // answered at once: an update question can wait for minutes, and the client already notices
+      // AnkiConnect coming up through its Anki boot watcher. One run at a time. Machine-local, so
+      // not in DATA_ROUTES.
+      let ankiStarting = 0
+      server.middlewares.use('/api/anki-start', (req, res) => {
+        res.setHeader('Content-Type', 'application/json')
+        if (req.method !== 'POST') { res.statusCode = 405; res.end(JSON.stringify({ error: 'method' })); return }
+        const script = path.join(APP_ROOT, 'scripts', 'anki-start.ps1')
+        if (process.platform !== 'win32' || !fs.existsSync(script)) { res.end(JSON.stringify({ ok: false, reason: 'unsupported' })); return }
+        if (Date.now() - ankiStarting < 60000) { res.end(JSON.stringify({ ok: true, alreadyStarting: true })); return }
+        ankiStarting = Date.now()
+        try {
+          const child = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', script, '-Start'],
+            { cwd: APP_ROOT, detached: true, stdio: 'ignore', windowsHide: true })
+          child.on('exit', () => { ankiStarting = 0 })
+          child.unref()
+          res.end(JSON.stringify({ ok: true, started: true }))
+        } catch (e) {
+          ankiStarting = 0
+          res.end(JSON.stringify({ ok: false, error: String(e.message || e).slice(0, 300) }))
+        }
       })
 
       // API keys endpoint
@@ -1211,6 +1252,9 @@ function apiPlugin() {
               { hostname: '127.0.0.1', port: 8765, method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) } },
               (ankiRes) => {
                 let data = ''
+                // Same split-character hazard as request bodies (see the /api decoder at the top):
+                // a notesInfo reply for a whole deck spans many chunks and is full of accents.
+                ankiRes.setEncoding('utf8')
                 ankiRes.on('data', (chunk) => { data += chunk })
                 ankiRes.on('end', () => {
                   console.log('[Anki proxy] response:', data.substring(0, 200))
@@ -1334,6 +1378,7 @@ function apiPlugin() {
             const r = await fetch(`${ttsUrl}/v1/audio/speech`, {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ model: 'kokoro', input, voice, response_format: 'mp3' }),
+              signal: AbortSignal.timeout(20000), // a hung local TTS server must not hold the 🔊 button forever
             })
             if (!r.ok) { res.statusCode = 502; res.end('tts server error ' + r.status); return }
             const buf = Buffer.from(await r.arrayBuffer())
@@ -1801,13 +1846,17 @@ function apiPlugin() {
           res.setHeader('Content-Type', 'application/json')
           console.log('[Overlay API] stopping all electron processes')
           try {
-            if (overlayProcess) {
-              overlayProcess.kill()
-              overlayProcess = null
-            }
-            // Force kill ALL electron processes on Windows
             if (process.platform === 'win32') {
-              spawn('taskkill', ['/F', '/IM', 'electron.exe'], { shell: true })
+              // Only OUR overlay, never `taskkill /IM electron.exe`: that also takes down every other
+              // Electron app on the machine (and an unbranded app window). The tracked process is
+              // node running electron's cli.js, whose electron.exe is a CHILD, hence the tree kill.
+              if (overlayProcess?.pid) spawn('taskkill', ['/F', '/T', '/PID', String(overlayProcess.pid)], { windowsHide: true, stdio: 'ignore' })
+              // An overlay left behind by an earlier server is untracked; it is still identifiable
+              // exactly by its command line (electron.exe ... main.cjs --overlay).
+              const orphanKill = "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'electron.exe' -and $_.CommandLine -like '*main.cjs*' -and $_.CommandLine -like '*--overlay*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
+              spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', orphanKill], { windowsHide: true, stdio: 'ignore' })
+            } else if (overlayProcess) {
+              overlayProcess.kill()
             }
           } catch (e) { console.error('[Overlay API] kill error:', e.message) }
           overlayProcess = null
@@ -2044,9 +2093,14 @@ function apiPlugin() {
         if (req.method === 'GET') {
           // List all chat sessions
           try {
-            const files = fs.readdirSync(chatsDir).filter(f => f.endsWith('.json')).sort((a, b) => {
-              return fs.statSync(path.join(chatsDir, b)).mtimeMs - fs.statSync(path.join(chatsDir, a)).mtimeMs
-            })
+            // One stat per file, not two per COMPARISON: the comparator used to stat inside the sort,
+            // which is O(n log n) disk hits on a folder that may live on a network share.
+            const mtime = new Map()
+            for (const f of fs.readdirSync(chatsDir)) {
+              if (!f.endsWith('.json')) continue
+              try { mtime.set(f, fs.statSync(path.join(chatsDir, f)).mtimeMs) } catch { /* vanished mid-list */ }
+            }
+            const files = [...mtime.keys()].sort((a, b) => mtime.get(b) - mtime.get(a))
             const sessions = files.map(f => {
               try {
                 const data = JSON.parse(fs.readFileSync(path.join(chatsDir, f), 'utf8'))
@@ -2112,7 +2166,10 @@ function apiPlugin() {
         try {
           const ddgUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`
           const resp = await fetch(ddgUrl, {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+            // Bounded: with no timeout a stalled response left the chat on "Searching..." forever.
+            // A timeout lands in the catch below, which the chat already reports as a failed search.
+            signal: AbortSignal.timeout(12000),
           })
           const html = await resp.text()
           // Parse results from DuckDuckGo HTML
@@ -2146,6 +2203,8 @@ function apiPlugin() {
 
 export default defineConfig({
   plugins: [react(), apiPlugin()],
+  // vitest: never collect tests from the local scratch folder (tooling copies of src land there).
+  test: { exclude: ['**/node_modules/**', '**/.scratch/**'] },
   server: {
     port: 3000,
     // A normal `npm run dev` still auto-opens a browser tab (handy while developing).
@@ -2166,7 +2225,7 @@ export default defineConfig({
       // vite.config.js must be ignored too: on this share the watcher fires a
       // phantom change event on it after every restart → infinite restart loop.
       // Config edits therefore require a manual dev-server restart.
-      ignored: ['**/.env', '**/config.json', '**/ankiformat.json', '**/vite.config.js', '**/datadir.json', '**/.app-ready', '**/modes/**', '**/decks/**', '**/chats/**', '**/local-data-backup-*/**', '**/.local-sync/**', '**/.local-home/**', '**/.local-offline/**'],
+      ignored: ['**/.env', '**/config.json', '**/ankiformat.json', '**/vite.config.js', '**/datadir.json', '**/.app-ready', '**/modes/**', '**/decks/**', '**/chats/**', '**/local-data-backup-*/**', '**/.local-sync/**', '**/.local-home/**', '**/.local-offline/**', '**/.scratch/**'],
     },
   },
 })

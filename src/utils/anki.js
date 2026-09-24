@@ -1,7 +1,17 @@
 // AnkiConnect API wrapper — communicates via Vite proxy at /api/anki
 
+// Logged payloads are capped. Every request AND response used to be stringified in full, which for
+// a whole-deck notesInfo reply or a base64 audio upload meant serializing megabytes on each call just
+// to print them, and the DevTools console keeps every one of those strings alive for the session.
+const LOG_MAX = 400
 function ankiLog(msg, data) {
-  const entry = data !== undefined ? `${msg} ${JSON.stringify(data)}` : msg
+  let entry = msg
+  if (data !== undefined) {
+    let s
+    try { s = JSON.stringify(data) } catch { s = String(data) }
+    if (s && s.length > LOG_MAX) s = `${s.slice(0, LOG_MAX)}… (${s.length} chars)`
+    entry = `${msg} ${s}`
+  }
   console.log(`[Anki] ${entry}`)
 }
 

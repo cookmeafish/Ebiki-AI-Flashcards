@@ -331,7 +331,9 @@ function UpdatesCard({ t, card, fieldLabel, hint, serverDown }) {
       {fieldLabel(t('updatesTitle'))}
       {versionLine()}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <button onClick={check} disabled={state === 'checking' || state === 'updating'}
+        {/* Arrow, never onClick={check}: the click event would arrive as `attempt`, which skipped
+            both the in-flight guard and the one retry. */}
+        <button onClick={() => check()} disabled={state === 'checking' || state === 'updating'}
           style={{ ...S.getKeyLink, fontSize: 12, opacity: (state === 'checking' || state === 'updating') ? 0.5 : 1 }}>
           {state === 'checking' ? t('updatesChecking') : t('updatesCheck')}
         </button>
