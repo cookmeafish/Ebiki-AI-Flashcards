@@ -57,7 +57,13 @@ $main = @($titles | Where-Object { $_ -like '* - Anki' })
 # dialog, which is why "waiting" is only reported when the main window is absent.
 $dialogs = @($titles | Where-Object { $_ -notlike '* - Anki' })
 
+# Anki's launcher left in its console (an update that failed and waits on "Press enter to close").
+# Same definition the launcher uses to close it (scripts/anki-start.ps1), so the banner and the fix
+# can never disagree about what "stuck" means.
+$launcherStuck = $false
+try { . (Join-Path $PSScriptRoot 'anki-start.ps1'); $launcherStuck = (@(Get-StuckAnkiLauncher).Count -gt 0) } catch {}
 $state = @{
+  launcherStuck = $launcherStuck
   running     = ($pids.Count -gt 0)
   mainWindow  = ($main.Count -gt 0)
   dialogs     = $dialogs

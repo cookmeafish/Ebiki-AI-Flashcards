@@ -55,7 +55,10 @@ function Clear-Status {
 # Returns 'yes' | 'no' | 'timeout' | 'nosplash'.
 $splashMarker = Join-Path $app '.app-splash'
 $answerFile = Join-Path $app '.app-answer'
-function Ask-InSplash($text, $timeoutSec) {
+# $title / $yesStatus are optional: without them the splash shows its original Ebiki-update wording
+# (PROMPT|). With them it uses ASK|<title>|<status shown after Yes>|<question>, which is how the
+# Anki update (scripts/anki-update.ps1) asks its own question in the same window.
+function Ask-InSplash($text, $timeoutSec, $title, $yesStatus) {
   try { Remove-Item $answerFile -Force -ErrorAction SilentlyContinue } catch {}
   # The splash is started a fraction of a second before this script and paints in
   # a few hundred ms, but never assume it: give it a moment to announce itself and
@@ -63,7 +66,8 @@ function Ask-InSplash($text, $timeoutSec) {
   $wait = (Get-Date).AddSeconds(3)
   while (-not (Test-Path $splashMarker) -and (Get-Date) -lt $wait) { Start-Sleep -Milliseconds 150 }
   if (-not (Test-Path $splashMarker)) { return 'nosplash' }
-  Set-Status "PROMPT|$text"
+  if ($title) { Set-Status ("ASK|{0}|{1}|{2}" -f ($title -replace '\|', '/'), ($yesStatus -replace '\|', '/'), $text) }
+  else { Set-Status "PROMPT|$text" }
   $deadline = (Get-Date).AddSeconds($timeoutSec)
   while ((Get-Date) -lt $deadline) {
     if (Test-Path $answerFile) {
@@ -105,123 +109,15 @@ function Wait-AppReady($proc) {
 }
 
 # ── Start Anki if it isn't up ───────────────────────────────────────────────
-# Ebiki talks to Anki through AnkiConnect on 127.0.0.1:8765, so without Anki
-# running the Deck / Study / Discover tabs sit on "Anki is not connected".
-# Started FIRST (before the dev server) so it boots in parallel and is usually
-# ready by the time the browser opens, and MINIMIZED (see Start-AnkiIfNeeded):
-# you clicked Ebiki, so Anki belongs on the taskbar, not on top of it. That used
-# to be a normal window because otherwise nothing on screen said the launch was
-# happening at all - the start-up splash covers that now. Fail-soft everywhere -
-# the app still opens without it.
-# Anki 25.x changed shape: the thing the website installs to
-# %LOCALAPPDATA%\Programs\Anki\anki.exe is only a LAUNCHER. It bootstraps the
-# real Anki (a uv-managed venv under %LOCALAPPDATA%\AnkiProgramFiles) and then
-# EXITS. Two consequences, both of which used to break this function:
-#   - "is anki.exe running?" is not the same question as "is Anki up?", because
-#     the process that survives is the venv one, not the launcher.
-#   - the real binary lives somewhere the old fixed path list never looked.
-# So test for Anki by what Ebiki actually needs (AnkiConnect answering), and
-# treat any Anki-owned process as "already starting".
-function Test-AnkiUp {
-  if (Get-NetTCPConnection -State Listen -LocalPort 8765 -ErrorAction SilentlyContinue) { return $true }
-  # Booting but not serving yet. anki/ankiw are Anki by name; pythonw is far too
-  # generic to trust, so it only counts when its image really is under Anki.
-  foreach ($n in 'anki', 'ankiw') {
-    if (Get-Process -Name $n -ErrorAction SilentlyContinue) { return $true }
-  }
-  foreach ($p in (Get-Process -Name 'pythonw' -ErrorAction SilentlyContinue)) {
-    try { if ($p.Path -like '*Anki*') { return $true } } catch {}   # Path throws on denied
-  }
-  return $false
-}
-
-# WHERE to launch from. Ordered by preference, not just by likelihood: the
-# launcher is the SUPPORTED entry point (it self-updates and picks the right
-# venv), so it wins when present; the venv binary is the fallback for machines
-# where only the older layout exists.
-function Find-AnkiExe {
-  $pf = $env:ProgramFiles; $pfx = ${env:ProgramFiles(x86)}; $lad = $env:LOCALAPPDATA
-  foreach ($p in @("$lad\Programs\Anki\anki.exe",            # 25.x launcher
-                   "$pf\Anki\anki.exe", "$pfx\Anki\anki.exe", # classic installs
-                   "$lad\AnkiProgramFiles\.venv\Scripts\anki.exe")) {
-    if ($p -and (Test-Path $p)) { return $p }
-  }
-  # Registered by some builds even when the folder layout is non-standard.
-  foreach ($h in 'HKLM:', 'HKCU:') {
-    $k = "$h\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\anki.exe"
-    try {
-      if (Test-Path $k) {
-        $v = (Get-ItemProperty $k -ErrorAction Stop).'(default)'
-        if ($v -and (Test-Path $v)) { return $v }
-      }
-    } catch {}
-  }
-  $c = Get-Command anki -ErrorAction SilentlyContinue
-  if ($c) { return $c.Source }
-  # Uninstall entries record where it went, even for unusual install locations.
-  foreach ($k in @('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
-                   'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*',
-                   'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*')) {
-    foreach ($e in (Get-ItemProperty $k -ErrorAction SilentlyContinue |
-                    Where-Object { $_.DisplayName -match '^Anki' })) {
-      $dir = $e.InstallLocation
-      if (-not $dir -and $e.UninstallString) { $dir = Split-Path ($e.UninstallString -replace '"', '') -Parent }
-      if ($dir) {
-        $exe = Join-Path $dir 'anki.exe'
-        if (Test-Path $exe) { return $exe }
-      }
-    }
-  }
-  # Last resort: the Start Menu shortcut is the only thing left that knows.
-  foreach ($root in @([Environment]::GetFolderPath('Programs'), [Environment]::GetFolderPath('CommonPrograms'))) {
-    if (-not $root) { continue }
-    $lnk = Get-ChildItem $root -Filter 'Anki.lnk' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($lnk) { return $lnk.FullName }
-  }
-  return $null
-}
-
-function Start-AnkiIfNeeded {
-  # Anki is single-instance; a second launch just pops a dialog at the user.
-  if (Test-AnkiUp) { return }
-  $exe = Find-AnkiExe
-  if (-not $exe) { return }   # Anki not installed -> nothing to do
-  # MINIMIZED, not hidden and not normal. Ebiki needs Anki running (every card
-  # goes through AnkiConnect), but you clicked EBIKI - Anki taking the screen is
-  # just in the way. It used to open Normal so the launch was visibly happening
-  # at all; the start-up splash says that now, so Anki can go straight to the
-  # taskbar. NEVER give this Start-Process no window style: launch-ebiki.vbs
-  # runs this script through `powershell -WindowStyle Hidden`, and a child with
-  # no style of its own inherits that HIDDEN state - Anki then really does start
-  # and AnkiConnect answers on 8765, but no window ever appears (MainWindowHandle
-  # stays 0) and the user reports that Ebiki never launched Anki.
-  # MINIMIZED only once Anki is actually set up. A first run does not go straight
-  # to the main window: Anki asks for a language and creates a profile, and until
-  # somebody answers that dialog it never finishes starting, so AnkiConnect never
-  # loads and Ebiki sits on "not connected" forever. Starting that minimized hides
-  # the one thing the user has to act on - it was a dialog waiting, unnoticed,
-  # behind everything. So: no profile database yet = show it and let them finish.
-  $ankiBase = if ($env:ANKI_BASE) { $env:ANKI_BASE } else { Join-Path $env:APPDATA 'Anki2' }
-  $configured = Test-Path (Join-Path $ankiBase 'prefs21.db')
-  Start-Process -FilePath $exe -WindowStyle $(if ($configured) { 'Minimized' } else { 'Normal' })
-  if (-not $configured) {
-    # And do not let the watchdog put that dialog away either.
-    Set-Status 'Finish setting up Anki in the window that just opened.'
-    return
-  }
-  # Asking is not enough: what the website installs is a LAUNCHER that boots the
-  # real Anki out of a venv and exits, and the show-state never reaches the
-  # window that second process creates. minimize-anki.ps1 watches for the window
-  # and puts it away. Detached (its own hidden process) so it outlives this
-  # script - Anki can take longer to paint than the whole launch takes.
-  $minimizer = Join-Path $PSScriptRoot 'minimize-anki.ps1'
-  if (Test-Path $minimizer) {
-    Start-Process -FilePath 'powershell' -WindowStyle Hidden -ArgumentList @(
-      '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $minimizer)
-  }
-}
+# Ebiki talks to Anki through AnkiConnect, so without Anki running the Deck / Study / Discover
+# tabs sit on "Anki is not connected". Started FIRST (before the dev server) so it boots in
+# parallel. The logic lives in scripts/anki-start.ps1 (shared with the in-app "Open Anki"
+# button): it closes a launcher console left stuck on its own error, offers and applies Anki
+# updates in the splash (scripts/anki-update.ps1), then starts Anki minimized. Fail-soft - the
+# app still opens without it.
+. (Join-Path $PSScriptRoot 'anki-start.ps1')
 Set-Status 'Waking up Anki and the study server.'
-try { Start-AnkiIfNeeded } catch {}
+try { $null = Start-AnkiIfNeeded } catch {}
 
 # ── Open Ebiki as its own chrome-free window ────────────────────────────────
 # electron is an OPTIONAL dependency (fail-soft, same philosophy as Anki above -

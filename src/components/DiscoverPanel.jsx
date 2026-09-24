@@ -189,7 +189,10 @@ export default function DiscoverPanel(props) {
             {sources?.length > 0 && (
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
                 {sources.map((s, i) => (
-                  <a key={i} href={s.url} target="_blank" rel="noreferrer"
+                  // The search proxy returns scheme-less urls ("en.wiktionary.org/wiki/..."), which as a
+                  // bare href resolved RELATIVE to the app and opened a blank localhost page. Same guard
+                  // as the Chat tab's sources (it also turns any non-http scheme into a harmless https url).
+                  <a key={i} href={/^https?:\/\//i.test(s.url || '') ? s.url : `https://${s.url || ''}`} target="_blank" rel="noopener noreferrer"
                     style={{ fontSize: 10, color: C.blue, background: 'rgba(223,37,64,0.1)', borderRadius: 4, padding: '2px 6px', textDecoration: 'none', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {s.title || s.url}
                   </a>

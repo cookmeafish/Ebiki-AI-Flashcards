@@ -80,8 +80,10 @@ LOCK_FILE="$APP/.launcher.lock"
 exec 200>"$LOCK_FILE"
 flock -w 120 200 || true
 
+# localhost, not 127.0.0.1: Vite binds to what localhost resolves to first, which can be IPv6 ::1
+# only (macOS, current Node on Windows). bash tries every address localhost resolves to.
 port_listening() {
-  (exec 3<>/dev/tcp/127.0.0.1/3000) 2>/dev/null && { exec 3>&-; return 0; }
+  (exec 3<>/dev/tcp/localhost/3000) 2>/dev/null && { exec 3>&-; return 0; }
   return 1
 }
 
@@ -96,7 +98,7 @@ port_listening() {
 # so fd 3 never leaks into the rest of the script.
 server_healthy() {
   (
-    exec 3<>/dev/tcp/127.0.0.1/3000 2>/dev/null || exit 1
+    exec 3<>/dev/tcp/localhost/3000 2>/dev/null || exit 1
     printf 'GET /api/alive HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3
     IFS= read -r -t 4 status <&3 || exit 1
     case "$status" in
