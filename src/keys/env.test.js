@@ -58,6 +58,14 @@ describe('writeEnv merges instead of replacing', () => {
     expect(readEnvFile(ENV_FILE)).toEqual({ openai: OAI })
   })
 
+  it('reads and rewrites a .env with Windows (CRLF) line endings', () => {
+    seed(`SOME_OTHER=1\r\nVITE_ANTHROPIC_API_KEY=${ANT}\r\nVITE_OPENAI_API_KEY=${OAI}\r\n`)
+    expect(readEnvFile(ENV_FILE)).toEqual({ anthropic: ANT, openai: OAI })
+    writeEnv({ openai: 'sk-proj-dddddddddddddddddddd' })
+    expect(readEnvFile(ENV_FILE)).toEqual({ anthropic: ANT, openai: 'sk-proj-dddddddddddddddddddd' })
+    expect(fs.readFileSync(ENV_FILE, 'utf-8')).toContain('SOME_OTHER=1')
+  })
+
   it('preserves unrelated lines in the file', () => {
     seed(`SOME_OTHER=1\nVITE_OPENAI_API_KEY=${OAI}\n`)
     writeEnv({ anthropic: ANT })

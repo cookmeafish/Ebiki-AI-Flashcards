@@ -22,9 +22,13 @@ async function ankiRequest(action, params = {}) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action, version: 6, params }),
   })
-  const data = await res.json()
+  // A reply cut off mid-stream (Anki closed while answering) is not JSON; say that instead of
+  // surfacing the parser's "Unexpected end of JSON input" to the user.
+  let data
+  try { data = await res.json() } catch { throw new Error('Anki sent an incomplete reply. Check that Anki is open, then try again.') }
   ankiLog(`response: ${action}`, data)
-  if (data.error) throw new Error(data.error)
+  if (data && data.error) throw new Error(data.error)
+  if (!data) throw new Error('Anki sent an empty reply. Check that Anki is open, then try again.')
   return data.result
 }
 
@@ -74,13 +78,28 @@ export async function ankiCopyNote(deckName, modelName, fields, tags = []) {
   })
 }
 
-// Replace a note's tags (remove the old set, add the new). Tags are space-separated in AnkiConnect.
+// Replace a note's tags with newTags. Tags are space-separated in AnkiConnect.
+// It used to remove EVERY old tag and then add the new set, so a failure between the two calls
+// (Anki closed, a dialog, the proxy timeout) left the card with no tags at all. Now only the
+// difference moves, and the adds go first: a failure part-way leaves extra tags, never none.
+// Anki matches tags case-insensitively, so a case-only change is a remove + re-add, and removing
+// "a" also removes its children ("a::b"), so any wanted child of a removed tag is added back after.
 export async function ankiSetNoteTags(noteId, oldTags = [], newTags = []) {
   ankiLog(`setting tags on note ${noteId}`, newTags)
-  const old = (oldTags || []).join(' ').trim()
-  const next = (newTags || []).join(' ').trim()
-  if (old) await ankiRequest('removeTags', { notes: [noteId], tags: old })
-  if (next) await ankiRequest('addTags', { notes: [noteId], tags: next })
+  const clean = (a) => [...new Set((a || []).map((t) => String(t).trim()).filter(Boolean))]
+  const oldList = clean(oldTags)
+  const newList = clean(newTags)
+  const lower = (t) => t.toLowerCase()
+  const newLower = new Set(newList.map(lower))
+  const removed = oldList.filter((t) => !newLower.has(lower(t)) || !newList.includes(t))
+  const removedLower = removed.map(lower)
+  const hitByRemove = (t) => removedLower.some((r) => lower(t) === r || lower(t).startsWith(`${r}::`))
+  const added = newList.filter((t) => !oldList.includes(t))
+  const addFirst = added.filter((t) => !hitByRemove(t))
+  if (addFirst.length) await ankiRequest('addTags', { notes: [noteId], tags: addFirst.join(' ') })
+  if (removed.length) await ankiRequest('removeTags', { notes: [noteId], tags: removed.join(' ') })
+  const addAfter = newList.filter(hitByRemove)
+  if (addAfter.length) await ankiRequest('addTags', { notes: [noteId], tags: addAfter.join(' ') })
 }
 
 // Reset cards to NEW — wipes scheduling (interval/ease/due) so they start over. The remedy for

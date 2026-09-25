@@ -190,7 +190,8 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
       const res = await fetch('/api/chats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: sid || undefined, title, messages: msgs, type: 'help' }),
+        // keepTitle: a Help chat renamed from the Chat tab's list keeps its name (see /api/chats POST).
+        body: JSON.stringify({ id: sid || undefined, title, messages: msgs, type: 'help', keepTitle: true }),
       })
       const data = await res.json().catch(() => null)
       return (res.ok && data?.id) || sid
