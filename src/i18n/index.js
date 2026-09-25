@@ -643,6 +643,9 @@ const en = {
   study_syncFailed: "Could not sync {n} cards to Anki.",
   study_syncFailedOne: "Could not sync 1 card to Anki.",
   study_evalFailed: "Evaluation failed. Pick a rating for this card yourself.",
+  study_poolFailed: 'Could not build a list of verbs to conjugate from this deck. Try again.',
+  study_pbqFailed: 'Could not make a verified exercise from these cards. Try again, or check the AI settings.',
+  study_startFailed: 'Study failed to start: {msg}',
   study_nothingDue: "Nothing is due in this deck right now. Come back when Anki has cards waiting (or add new cards).",
   study_evaluatingRemaining: 'Evaluating remaining cards...',
   study_allCompleted: 'All cards completed!',
@@ -824,6 +827,10 @@ const en = {
   d_back: 'BACK',
   d_tagsLabel: 'Tags:',
   d_skipNoRecord: 'Skip without recording',
+  d_errSuggest: 'Could not get a suggestion: {msg}',
+  d_errCard: 'Card generation failed: {msg}',
+  d_errSave: 'Save failed: {msg}',
+  d_errAnkiClosed: 'Anki is not running. Open Anki to save cards.',
 
   // Help chat (Ebi's Help)
   help_title: "Ebi's Help",
@@ -1535,6 +1542,9 @@ const es = {
   study_syncFailed: "No se pudieron sincronizar {n} tarjetas con Anki.",
   study_syncFailedOne: "No se pudo sincronizar 1 tarjeta con Anki.",
   study_evalFailed: "La evaluación falló. Elige tú una calificación para esta tarjeta.",
+  study_poolFailed: 'No se pudo crear una lista de verbos para conjugar con este mazo. Inténtalo de nuevo.',
+  study_pbqFailed: 'No se pudo crear un ejercicio verificado con estas tarjetas. Inténtalo de nuevo o revisa los ajustes de IA.',
+  study_startFailed: 'No se pudo iniciar el estudio: {msg}',
   study_nothingDue: "No hay nada pendiente en este mazo ahora mismo. Vuelve cuando Anki tenga tarjetas esperando (o añade tarjetas nuevas).",
   study_evaluatingRemaining: 'Evaluando las tarjetas restantes...',
   study_allCompleted: '¡Todas las tarjetas completadas!',
@@ -1716,6 +1726,10 @@ const es = {
   d_back: 'DORSO',
   d_tagsLabel: 'Etiquetas:',
   d_skipNoRecord: 'Omitir sin registrar',
+  d_errSuggest: 'No se pudo obtener una sugerencia: {msg}',
+  d_errCard: 'No se pudo crear la tarjeta: {msg}',
+  d_errSave: 'No se pudo guardar: {msg}',
+  d_errAnkiClosed: 'Anki no está abierto. Abre Anki para guardar tarjetas.',
 
   // Help chat (Ebi's Help)
   help_title: 'Ayuda de Ebi',
@@ -2426,6 +2440,9 @@ const zh = {
   study_syncFailed: "无法将 {n} 张卡片同步到 Anki。",
   study_syncFailedOne: "无法将 1 张卡片同步到 Anki。",
   study_evalFailed: "评分失败。请自己为这张卡片选择评分。",
+  study_poolFailed: '无法从这个牌组生成要变位的动词列表。请重试。',
+  study_pbqFailed: '无法用这些卡片生成经过验证的练习。请重试，或检查 AI 设置。',
+  study_startFailed: '无法开始学习：{msg}',
   study_nothingDue: "这个牌组现在没有需要复习的卡片。等 Anki 有待复习的卡片时再来（或添加新卡片）。",
   study_evaluatingRemaining: '正在评估剩余的卡片...',
   study_allCompleted: '所有卡片已完成！',
@@ -2607,6 +2624,10 @@ const zh = {
   d_back: '背面',
   d_tagsLabel: '标签：',
   d_skipNoRecord: '跳过且不记录',
+  d_errSuggest: '无法获取建议：{msg}',
+  d_errCard: '卡片生成失败：{msg}',
+  d_errSave: '保存失败：{msg}',
+  d_errAnkiClosed: 'Anki 未运行。请打开 Anki 以保存卡片。',
 
   // Help chat (Ebi's Help)
   help_title: 'Ebi 帮助',
@@ -3317,6 +3338,9 @@ const ja = {
   study_syncFailed: "{n} 枚のカードを Anki に同期できませんでした。",
   study_syncFailedOne: "1 枚のカードを Anki に同期できませんでした。",
   study_evalFailed: "採点に失敗しました。このカードの評価を自分で選んでください。",
+  study_poolFailed: 'このデッキから活用する動詞のリストを作れませんでした。もう一度お試しください。',
+  study_pbqFailed: 'これらのカードから検証済みの練習問題を作れませんでした。もう一度試すか、AI 設定を確認してください。',
+  study_startFailed: '学習を開始できませんでした：{msg}',
   study_nothingDue: "今このデッキに復習するカードはありません。Anki にカードがたまったらまた来てください（または新しいカードを追加してください）。",
   study_evaluatingRemaining: '残りのカードを評価中...',
   study_allCompleted: 'すべてのカードが完了しました！',
@@ -3498,6 +3522,10 @@ const ja = {
   d_back: '裏',
   d_tagsLabel: 'タグ：',
   d_skipNoRecord: '記録せずにスキップ',
+  d_errSuggest: '提案を取得できませんでした：{msg}',
+  d_errCard: 'カードを作成できませんでした：{msg}',
+  d_errSave: '保存できませんでした：{msg}',
+  d_errAnkiClosed: 'Anki が起動していません。カードを保存するには Anki を開いてください。',
 
   // Help chat (Ebi's Help)
   help_title: 'Ebi のヘルプ',

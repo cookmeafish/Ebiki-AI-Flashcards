@@ -1,4 +1,9 @@
-export default function FormattedText({ text, accentColor = '#58a6ff' }) {
+import { C } from '../config/tokens'
+
+// Colors come from the theme tokens. The hardcoded dark-theme grays (#c9d1d9 text) were nearly
+// invisible on the light theme's pale tooltip, and a CSS-variable accent + "33" made an invalid
+// border color, so the section rule never showed.
+export default function FormattedText({ text, accentColor = C.brand }) {
   if (!text) return null
   const lines = text.split('\n')
   const sections = []
@@ -37,12 +42,12 @@ export default function FormattedText({ text, accentColor = '#58a6ff' }) {
             <div style={{
               fontSize: 13, fontWeight: 700, textTransform: 'uppercase',
               letterSpacing: '.08em', color: accentColor, marginBottom: 6,
-              paddingBottom: 4, borderBottom: `1px solid ${accentColor}33`,
+              paddingBottom: 4, borderBottom: `1px solid ${C.border}`,
             }}>
               {section.title}
             </div>
           )}
-          <div style={{ fontSize: 14, color: '#c9d1d9', lineHeight: 1.8 }}>
+          <div style={{ fontSize: 14, color: C.ink, lineHeight: 1.8 }}>
             {section.lines.map((line, j) => {
               if (!line) return <div key={j} style={{ height: 6 }} />
               const isBullet = /^[-•–]/.test(line)
@@ -51,7 +56,7 @@ export default function FormattedText({ text, accentColor = '#58a6ff' }) {
                 <div key={j} style={{
                   paddingLeft: isBullet ? 12 : 0,
                   fontStyle: isExample ? 'italic' : 'normal',
-                  color: isExample ? '#8b949e' : '#c9d1d9',
+                  color: isExample ? C.inkDim : C.ink,
                   marginBottom: 2,
                 }}>
                   {line}

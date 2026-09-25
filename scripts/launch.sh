@@ -68,7 +68,32 @@ open_app() {
   elif command -v xdg-open >/dev/null 2>&1; then
     xdg-open 'http://localhost:3000' >/dev/null 2>&1 &
     disown
+  elif command -v open >/dev/null 2>&1; then
+    open 'http://localhost:3000' >/dev/null 2>&1   # macOS has no xdg-open
   fi
+}
+
+# `timeout` is GNU coreutils: macOS has none, so the update check below found no remote and was
+# silently skipped on every launch there. gtimeout (Homebrew coreutils) or a portable fallback.
+run_with_timeout() {
+  local secs="$1"; shift
+  if command -v timeout >/dev/null 2>&1; then timeout "$secs" "$@"; return; fi
+  if command -v gtimeout >/dev/null 2>&1; then gtimeout "$secs" "$@"; return; fi
+  "$@" &
+  local pid=$!
+  # The watcher's output goes nowhere: holding the caller's $(...) pipe open would make every
+  # launch wait the full timeout.
+  ( sleep "$secs"; kill "$pid" 2>/dev/null ) >/dev/null 2>&1 &
+  local watcher=$!
+  wait "$pid"; local rc=$?
+  kill "$watcher" 2>/dev/null
+  return $rc
+}
+
+# Every update decision goes to logs/update.log, as on Windows (launch.ps1).
+log_update() {
+  mkdir -p "$APP/logs" 2>/dev/null
+  printf '%s  launcher: %s\n' "$(date '+%Y-%m-%dT%H:%M:%S')" "$1" >> "$APP/logs/update.log" 2>/dev/null || true
 }
 
 # One dev server, ever, from the shortcut/desktop entry. flock (not a fixed
@@ -168,7 +193,7 @@ check_update() {
   [ -n "$branch" ] && [ "$branch" != master ] && return
 
   local line remote
-  line="$(timeout 6 git -C "$APP" ls-remote origin master 2>/dev/null | head -n1)"
+  line="$(run_with_timeout 6 git -C "$APP" ls-remote origin master 2>/dev/null | head -n1)"
   [ -z "$line" ] && return            # unreachable -> open normally
   remote="$(echo "$line" | awk '{print $1}')"
   [ -z "$remote" ] && return
@@ -185,6 +210,7 @@ check_update() {
     return   # no GUI prompt available - never auto-update without asking
   fi
 
+  log_update "update offered ($local_head -> $remote), answer: $answer"
   if [ "$answer" = yes ]; then
     # MATCH master, do not merely move toward it: `pull --ff-only` is only correct
     # while master goes forwards, and with the local commit AHEAD (a retracted
@@ -197,10 +223,24 @@ check_update() {
         git -C "$APP" reset --hard FETCH_HEAD >/dev/null 2>&1
       fi
     fi
-    (cd "$APP" && npm install --no-fund --no-audit >/dev/null 2>&1)
+    # Only a HEAD that actually moved is an update. A Yes that changed nothing (no network, a
+    # hand-edited tracked file, a refused merge) used to run npm install and say nothing.
+    local new_head
+    new_head="$(git -C "$APP" rev-parse HEAD 2>/dev/null)"
+    if [ -n "$new_head" ] && [ "$new_head" != "$local_head" ]; then
+      log_update "update applied ($local_head -> $new_head)"
+      (cd "$APP" && npm install --no-fund --no-audit >/dev/null 2>&1)
+    else
+      log_update "update FAILED: HEAD did not move"
+      if command -v zenity >/dev/null 2>&1; then
+        zenity --warning --title="Ebiki update" --text="Ebiki could not update this time. It will open the current version and ask again next launch." --timeout=15 2>/dev/null
+      elif command -v kdialog >/dev/null 2>&1; then
+        kdialog --sorry "Ebiki could not update this time. It will open the current version and ask again next launch." 2>/dev/null
+      fi
+    fi
   fi
   # no / timeout -> just open; nothing is recorded, so the next launch asks again,
-  # and the app's own update banner carries the offer in the meantime
+  # and Settings > General > Updates carries the offer in the meantime
 }
 check_update || true
 

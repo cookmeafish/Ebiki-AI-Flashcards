@@ -444,7 +444,9 @@ const ENV_VAR = { anthropic: 'ANTHROPIC', openai: 'OPENAI', gemini: 'GEMINI', gr
 const readEnvFile = (file) => {
   if (!fs.existsSync(file)) return {}
   const keys = {}
-  for (const line of fs.readFileSync(file, 'utf-8').split('\n')) {
+  // CRLF too (a .env saved from Notepad): with a "\r" left on each line, `(.*)$` could not reach the
+  // end of the line, so every stored key read as missing.
+  for (const line of fs.readFileSync(file, 'utf-8').split(/\r?\n/)) {
     const match = line.match(/^VITE_(\w+)_API_KEY=(.*)$/)
     if (match && ENV_PROVIDERS[match[1]]) keys[ENV_PROVIDERS[match[1]]] = match[2].trim()
   }
@@ -457,7 +459,7 @@ const hasKeys = (keys) => Object.values(keys).some((v) => v)
 function renderEnvFile(file, keys) {
   let existing = []
   if (fs.existsSync(file)) {
-    existing = fs.readFileSync(file, 'utf-8').split('\n')
+    existing = fs.readFileSync(file, 'utf-8').split(/\r?\n/)
       .filter((l) => !l.match(/^VITE_\w+_API_KEY=/))
       .filter((l) => l.trim() !== '')
   }
@@ -677,7 +679,7 @@ function writeModeFolders(modesDir, modes, activeModeId) {
       }
     }
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-    fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify(mode, null, 2), 'utf-8')
+    writeFileAtomic(path.join(dir, 'config.json'), JSON.stringify(mode, null, 2))
   })
   for (const d of fs.readdirSync(modesDir)) {
     if (!keep.has(folderKey(d)) && isDir(d)) fs.rmSync(path.join(modesDir, d), { recursive: true, force: true })
@@ -725,14 +727,11 @@ function readConfig() {
   return r.ok ? r.data : {}
 }
 
-function writeConfig(data) {
-  const existing = readConfig()
-  const merged = { ...existing, ...data }
-  const file = dataPath('config.json')
-  const text = JSON.stringify(merged, null, 2) + '\n'
-  // Write-then-rename so a reader (possibly another computer on the shared folder) never sees a
-  // half-written file. If the rename is refused (antivirus/indexer lock on Windows), fall back to
-  // the plain write this used to do.
+// Write-then-rename so a reader (possibly another computer on the shared folder) never sees a
+// half-written file, and an interrupted write (share dropped, app closed) cannot leave a truncated
+// one behind. If the rename is refused (antivirus/indexer lock on Windows), fall back to a plain write.
+// Used for every whole-file data write: config, chats, mode configs, deck notes, Discover blobs.
+function writeFileAtomic(file, text) {
   const tmp = `${file}.${process.pid}.tmp`
   try {
     fs.writeFileSync(tmp, text, 'utf-8')
@@ -741,6 +740,12 @@ function writeConfig(data) {
     try { fs.rmSync(tmp, { force: true }) } catch { /* nothing to clean */ }
     fs.writeFileSync(file, text, 'utf-8')
   }
+}
+
+function writeConfig(data) {
+  const existing = readConfig()
+  const merged = { ...existing, ...data }
+  writeFileAtomic(dataPath('config.json'), JSON.stringify(merged, null, 2) + '\n')
 }
 
 // May this request reach an /api route? Every handler parses its body as JSON whatever the
@@ -1719,7 +1724,14 @@ function apiPlugin() {
               if (!fs.existsSync(knowledgeDir)) fs.mkdirSync(knowledgeDir, { recursive: true })
               const { filename, content } = JSON.parse(bodyStr)
               const safeName = (filename || 'file.txt').replace(/[<>:"/\\|?*]/g, '')
+              // Only what GET will list back (.txt/.md), never "." / ".." (the folder itself).
+              if (!/\.(txt|md)$/i.test(safeName) || /^\.+$/.test(safeName)) throw new Error('only .txt, .md or .pdf files can be added')
               fs.writeFileSync(path.join(knowledgeDir, safeName), content, 'utf-8')
+              // Re-uploading a file the user had switched off left BOTH copies: the list showed the
+              // name twice, and switching the old one back on renamed it over the new upload. The
+              // upload replaces the file of that name, the switched-off copy included.
+              const staleDisabled = path.join(knowledgeDir, safeName + '.disabled')
+              if (fs.existsSync(staleDisabled)) fs.rmSync(staleDisabled, { force: true })
               res.end(JSON.stringify({ ok: true, filename: safeName }))
             } catch (e) { res.statusCode = 400; res.end(JSON.stringify({ error: e.message })) }
           }
@@ -2222,7 +2234,7 @@ function apiPlugin() {
               const { deck, content } = JSON.parse(body)
               const dir = dataPath('decks', deckDirName(deck))
               if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-              fs.writeFileSync(path.join(dir, 'progress-observations.md'), content, 'utf8')
+              writeFileAtomic(path.join(dir, 'progress-observations.md'), content)
               console.log('[Deck Progress] saved for:', deck)
               res.setHeader('Content-Type', 'application/json')
               res.end(JSON.stringify({ ok: true }))
@@ -2254,7 +2266,7 @@ function apiPlugin() {
               const { content } = JSON.parse(body)
               const dir = dataPath('discover')
               if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-              fs.writeFileSync(file, content, 'utf8')
+              writeFileAtomic(file, content)
               res.end(JSON.stringify({ ok: true }))
             } catch (e) {
               res.statusCode = 400
@@ -2298,11 +2310,22 @@ function apiPlugin() {
           req.on('data', c => body += c)
           req.on('end', () => {
             try {
-              const { id, title, messages, type, mode } = JSON.parse(body)
+              const { id, messages, mode, keepTitle } = JSON.parse(body)
+              let { title, type } = JSON.parse(body)
               const chatId = id || Date.now().toString()
               if (!isSafeChatId(String(chatId))) { res.statusCode = 400; res.end(JSON.stringify({ error: 'bad id' })); return }
               const file = path.join(chatsDir, `${chatId}.json`)
-              fs.writeFileSync(file, JSON.stringify({ title, messages, date: new Date().toISOString(), ...(type ? { type } : {}), ...(mode ? { mode } : {}) }, null, 2), 'utf8')
+              // An ordinary save of an existing chat sends its first message as the title, which undid a
+              // rename on the very next message. keepTitle: a title already on disk wins.
+              if (keepTitle && id) {
+                try {
+                  const prev = JSON.parse(fs.readFileSync(file, 'utf8'))
+                  if (prev && typeof prev.title === 'string' && prev.title) title = prev.title
+                  // A Help chat continued from the Chat tab (which sends no type) stays a Help chat.
+                  if (!type && prev && typeof prev.type === 'string') type = prev.type
+                } catch { /* new or unreadable: use what was sent */ }
+              }
+              writeFileAtomic(file, JSON.stringify({ title, messages, date: new Date().toISOString(), ...(type ? { type } : {}), ...(mode ? { mode } : {}) }, null, 2))
               console.log('[Chat] saved:', chatId, '-', title)
               res.setHeader('Content-Type', 'application/json')
               res.end(JSON.stringify({ id: chatId, ok: true }))
@@ -2360,6 +2383,23 @@ function apiPlugin() {
             .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ')
             .replace(/&amp;/g, '&')
           const text = (h) => decode(h.replace(/<[^>]+>/g, '')).trim()
+          // The result__url text is a DISPLAY address ("www.site.com/page", no scheme), so the Sources
+          // links were relative and did not open. The real target is in the title link's redirect
+          // (//duckduckgo.com/l/?uddg=<encoded url>); the display address with https:// is the fallback.
+          const resultUrl = (block, display) => {
+            const href = (block.match(/class="result__a"[^>]*href="([^"]+)"/) || block.match(/href="([^"]+)"[^>]*class="result__a"/) || [])[1]
+            if (href) {
+              const h = decode(href)
+              try {
+                const u = new URL(h, 'https://duckduckgo.com')
+                const real = u.searchParams.get('uddg')
+                if (real && /^https?:\/\//i.test(real)) return real
+                if (/^https?:$/.test(u.protocol) && !/duckduckgo\.com$/i.test(u.hostname)) return u.href
+              } catch { /* fall through to the display address */ }
+            }
+            const d = String(display || '').trim().replace(/\s+/g, '')
+            return !d ? '' : /^https?:\/\//i.test(d) ? d : `https://${d}`
+          }
           const results = []
           const resultBlocks = html.split('result__body"')
           for (let i = 1; i < resultBlocks.length && results.length < 5; i++) {
@@ -2371,7 +2411,7 @@ function apiPlugin() {
               results.push({
                 title: text(titleMatch[1]),
                 snippet: snippetMatch ? text(snippetMatch[1]) : '',
-                url: urlMatch ? text(urlMatch[1]) : '',
+                url: resultUrl(block, urlMatch ? text(urlMatch[1]) : ''),
               })
             }
           }

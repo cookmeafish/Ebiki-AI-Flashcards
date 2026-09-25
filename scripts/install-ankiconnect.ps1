@@ -78,7 +78,10 @@ function Install-AnkiConnect($addonDir) {
       # Anki writes this itself on first load; seeding it just makes the add-on
       # list show a real name. No "config" key, so AnkiConnect's own defaults win
       # (127.0.0.1:8765 - which is exactly what Ebiki's server talks to).
-      '{ "name": "AnkiConnect", "mod": 0, "disabled": false }' | Set-Content (Join-Path $addonDir 'meta.json') -Encoding UTF8
+      # Written WITHOUT a byte-order mark: Windows PowerShell's -Encoding UTF8 adds one, and Anki
+      # reads meta.json with a plain utf8 decode, so json.load rejected the file ("Unexpected UTF-8
+      # BOM") and the seeded name was ignored.
+      [IO.File]::WriteAllText((Join-Path $addonDir 'meta.json'), '{ "name": "AnkiConnect", "mod": 0, "disabled": false }', (New-Object System.Text.UTF8Encoding $false))
       return $src.name
     } catch {
       $errors += "$($src.name): $($_.Exception.Message)"

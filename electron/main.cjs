@@ -261,7 +261,12 @@ function createAppWindow() {
   // the launcher when nothing answers on 3000 - so a dead dev server is started
   // fresh, on the newly installed code, which is exactly what an update needs.
   ipcMain.on('app-window:restart', () => {
-    try { app.relaunch() } catch (e) { console.warn('[Restart] relaunch failed:', e.message) }
+    // relaunch() with no options reuses this process's arguments, and a launcher-started window
+    // carries --from-launcher, so the "bare" relaunch was not bare: it skipped the launch-mode check
+    // and never started a server, leaving the window on the holding page until the retry loop's
+    // own revive kicked in.
+    const args = process.argv.slice(1).filter((a) => a !== '--from-launcher')
+    try { app.relaunch({ args }) } catch (e) { console.warn('[Restart] relaunch failed:', e.message) }
     app.quit()
   })
   ipcMain.handle('app-window:is-maximized', () => (appWindow ? appWindow.isMaximized() : false))
@@ -435,8 +440,11 @@ function createAppWindow() {
     if (appWindow && appWindow.webContents.getURL().startsWith(VITE_URL)) loaded = true
   })
   // Covers a server that dies between waitForServer answering and the load.
-  appWindow.webContents.on('did-fail-load', (_e, _code, _desc, url, isMainFrame) => {
+  appWindow.webContents.on('did-fail-load', (_e, code, _desc, url, isMainFrame) => {
     if (!isMainFrame || !url || !url.startsWith(VITE_URL)) return
+    // -3 (ERR_ABORTED) is a load replaced by a newer navigation (a reload, a data-folder switch),
+    // not a dead server; answering it with the holding page covered the page that was loading.
+    if (code === -3) return
     loaded = false
     showHolding()
     scheduleRetry()
@@ -449,6 +457,14 @@ function createAppWindow() {
 // scaled (DIP) units, so on a 150% display a 2560x1440 screen was captured at 1707x960 and OCR
 // read a blurred copy of the text. Every crop that uses this image scales by
 // image-size / screen-size, so a sharper capture needs no other change.
+// The overlay covers the PRIMARY display, so the capture must be of that display too. sources[0]
+// is whichever screen the OS lists first, which on a multi-monitor setup can be another monitor:
+// the user dragged a box over one screen and got the text from a different one.
+function primaryScreenSource(sources) {
+  const id = String(screen.getPrimaryDisplay().id)
+  return sources.find((s) => s.display_id === id) || sources[0]
+}
+
 function capturePixelSize() {
   const d = screen.getPrimaryDisplay()
   const f = d.scaleFactor || 1
@@ -530,7 +546,7 @@ function registerShortcuts() {
       })
       if (!sources.length) return
 
-      fs.writeFileSync(SCREENSHOT_FILE, sources[0].thumbnail.toPNG())
+      fs.writeFileSync(SCREENSHOT_FILE, primaryScreenSource(sources).thumbnail.toPNG())
       console.log('[Overlay] Screenshot saved')
 
       // Hide page content so old screenshot doesn't flash, then show overlay
@@ -567,7 +583,7 @@ ipcMain.handle('capture-screenshot', async () => {
       types: ['screen'], thumbnailSize: capturePixelSize(),
     })
     if (!sources.length) return null
-    fs.writeFileSync(SCREENSHOT_FILE, sources[0].thumbnail.toPNG())
+    fs.writeFileSync(SCREENSHOT_FILE, primaryScreenSource(sources).thumbnail.toPNG())
     console.log('[Overlay] Screenshot captured on demand')
     return '/api/overlay-screenshot?' + Date.now()
   } catch (e) {
