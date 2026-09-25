@@ -9,16 +9,16 @@ A local-first study app with an AI tutor, Anki-integrated study sessions, screen
 ## Tabs
 
 - **Chat** - AI tutor with inline Anki-card generation, deck attachment for personalized tutoring, web search, and saved conversation history.
-- **Study** - Anki study sessions with AI-generated questions, a relaxed multiple-choice mode, verified PBQ exercises for cert subjects, spaced-repetition insights, and a full deck browser.
-- **Deck** - Browse, search, and edit cards; add cards manually or with AI; bulk-edit, analyze for ambiguity, and merge duplicates.
+- **Study** - Anki study sessions with AI-generated questions, a relaxed multiple-choice mode, verified PBQ exercises for cert subjects, and spaced-repetition insights.
+- **Deck** - Browse, search, and edit cards; add cards manually or with AI; bulk-edit, check card quality, and merge duplicates.
 - **Discover** - Adaptive suggestions for *new* cards, calibrated to your level and web-verified.
 - **Picture** - Screen capture, OCR, and in-context translation with pixel-accurate word overlays; plus a game overlay mode.
 - **Stats** - Streaks, accuracy trends, and per-deck breakdowns pulled live from Anki.
 
 ## Highlights
 
-- **First-run onboarding** - a short wizard sets app language, theme, AI provider + key, and your first mode. Re-runnable from Settings.
-- **Multi-provider AI** - Claude, GPT, Gemini, or Grok. Each feature (Picture, Deck, Study, Discover, Chat, Help, Mascot, General) can use its own model, or an **intelligence preset** (Normal / More intelligent) sets them all at once. The Mascot (pose) role stays on the cheapest model since it fires on every message. Retired models auto-heal to a current one; **Check for new models** refreshes the list.
+- **First-run onboarding** - a short wizard sets app language, theme, how Ebiki opens, AI provider + key, intelligence preset, and your first mode. Re-runnable from Settings.
+- **Multi-provider AI** - Claude, GPT, Gemini, or Grok. Each feature (Picture, Deck, Study, Discover, Chat, Help, Mascot, General) can use its own model, or an **intelligence preset** sets them all at once: **Optimized** (cheap models for simple tasks, strong ones only for card making), **Normal**, or **More intelligent**. Retired models auto-heal to a current one; **Check for new models** refreshes the list.
 - **App language** - translate the whole UI into English, Spanish, Chinese, or Japanese. Flashcard *content* is never translated; catered content (suggestions, questions) is generated in your app language.
 - **Learning modes** - one app, many subjects. Each mode has its own card format, tag rules, study rules, Anki deck, and knowledge base, fully independent of the others.
 - **Ask AI to edit settings** - describe a change to your cards or study rules and Ebi proposes it as a before/after diff you Accept, Deny, or refine. Nothing applies without confirmation.
@@ -27,7 +27,7 @@ A local-first study app with an AI tutor, Anki-integrated study sessions, screen
 
 ## Setup
 
-**Easiest (Windows):** clone the repo, then double-click **`Install Ebiki.bat`** (the only file you run). It installs Node.js, Anki and the AnkiConnect add-on if they are missing, runs `npm install`, and puts an **Ebiki** shortcut on your Desktop that launches the app (and Anki with it). See [INSTALL.md](INSTALL.md).
+**Easiest (Windows):** clone the repo, then double-click **`Install Ebiki.bat`** (the only file you run). It installs Node.js, Git, Anki and the AnkiConnect add-on if they are missing, runs `npm install`, and puts an **Ebiki** shortcut on your Desktop that launches the app (and Anki with it). See [INSTALL.md](INSTALL.md).
 
 **Easiest (Linux):** clone the repo, then run `./install.sh`. It runs `npm install` and adds an **Ebiki** entry to your applications menu (and an optional Desktop icon) that launches the app. Anki and AnkiConnect are not auto-installed on Linux - install them yourself.
 
@@ -40,9 +40,9 @@ npm install
 npm run dev
 ```
 
-Opens at `http://localhost:3000`. Then open **AI Settings**, pick a provider, and enter your API key.
+Opens at `http://localhost:3000`. The first-run wizard asks for an AI provider and API key.
 
-**Launching from the shortcut/desktop entry** (`Install Ebiki.bat` / `install.sh`, not a manual `npm run dev`) opens Ebiki as its own chrome-free window - no tab strip, no address bar, own taskbar/app-switcher icon - via the `electron` optional dependency, maximized so your OS taskbar stays visible (F11 for true fullscreen). Falls back to a plain browser tab if Electron isn't installed. Your regular browser is untouched either way.
+**Launching from the shortcut/desktop entry** (not a manual `npm run dev`) opens Ebiki either as its own chrome-free window (no tab strip or address bar, own taskbar icon, maximized; F11 for fullscreen) or as a tab in your browser, which makes it easy to look a word up in another tab. Choose per computer in onboarding or Settings → General. The window needs the `electron` optional dependency and falls back to a browser tab without it.
 
 > The UI applies a 1.35× zoom for comfortable reading on typical displays. View at 100% browser zoom. (Overlay mode stays 1:1 so OCR boxes line up.)
 
@@ -79,12 +79,10 @@ Each mode is fully independent - changing Security+ settings never touches Langu
 
 ### Deck browser
 
-Study tab → **Browse Deck**:
-
 - **Add / Copy / Move** cards between decks (Copy keeps an independent duplicate; Move keeps review history).
 - **Expand any row** for the full back, tags, and scheduling (interval, lapses, last studied). **⟲ Reset progress** wipes a card's scheduling so it's new again, content intact.
 - **✨ Ebi bulk edit** - describe one change ("rewrite every pronunciation line to Latin American Spanish") and Ebi proposes it card by card; you accept or dismiss each before anything is written.
-- **Analyze / Scan** - find ambiguous cards or duplicate concepts (with a card-identity guard so one card's content is never written onto another), each as a reviewable before/after.
+- **Check card quality / Scan for duplicates** - flag ambiguous, misspelled, too-thin or wrong cards, or duplicate concepts, each as a reviewable before/after. Language decks also get a **Dialect audit** and a **Tag audit** (where, how often and in what register a word is used).
 - **Dialect-aware** - set a per-mode variant (e.g. Latin American Spanish) and every generator follows it; or just tell Ebi.
 - Sort by date, alphabetical, recently studied, most lapses, or longest interval. Search is accent-insensitive.
 
@@ -136,7 +134,7 @@ To share across machines, point them at one **shared data folder** (e.g. a netwo
 1. Run the app locally on each computer (the app runs from local disk; only data is shared).
 2. Settings → General → **Data folder**, enter the shared path, click **Use this folder**. Repeat per computer.
 
-- Applies immediately, no restart.
+- Applies immediately: the app reloads itself onto the new folder, no restart.
 - Joining a folder that already has data asks whether to add your items or use only the folder's; the folder's existing items are never overwritten.
 - Each computer's own data is set aside safely and restored via **Back to the app folder**.
 - API keys (`.env`) and logs stay local to each machine.

@@ -611,16 +611,102 @@ async function syncSharedKeys(opts) {
   }
 }
 
-function readConfig() {
+// A config.json that EXISTS but cannot be read or parsed (a half-written file, a lock, a short SMB read)
+// is NOT an empty config. Reporting it as {} made the client think this was a first run: onboarding came
+// back and the autosave wrote defaults over the real file. `ok: false` lets the GET answer 503 instead,
+// which the client already treats as "unreachable" (autosave off, banner shown, file left alone).
+function readConfigChecked() {
+  const file = dataPath('config.json')
+  if (!fs.existsSync(file)) return { ok: true, data: {} }
+  try { return { ok: true, data: JSON.parse(fs.readFileSync(file, 'utf-8')) } }
+  catch (e) { return { ok: false, error: e.message, corrupt: e instanceof SyntaxError } }
+}
+
+// What the GET serves. A failed read is retried for about a second first: another computer on the
+// share (an older build writes in place) may be mid-write, which settles on its own. After that:
+//   • still an IO error (lock, short read) → not ok, the GET answers 503 and a reload recovers;
+//   • the file really is not JSON → it is moved aside as config.json.corrupt-<stamp> (kept, never
+//     deleted) and the app continues as a fresh config. Without this, one bad file would lock the
+//     app behind the "unreachable" banner on every launch with no way out.
+async function readConfigSettled() {
+  let r = readConfigChecked()
+  for (let i = 0; i < 4 && !r.ok; i++) {
+    await new Promise((ok) => setTimeout(ok, 250))
+    r = readConfigChecked()
+  }
+  if (r.ok || !r.corrupt) return r
+  const file = dataPath('config.json')
+  const kept = `${file}.corrupt-${new Date().toISOString().replace(/[:.]/g, '-')}`
   try {
-    return fs.existsSync(dataPath('config.json')) ? JSON.parse(fs.readFileSync(dataPath('config.json'), 'utf-8')) : {}
-  } catch { return {} }
+    fs.renameSync(file, kept)
+    console.log('[Config] config.json was not valid JSON; kept it as', path.basename(kept), 'and started fresh:', r.error)
+    return { ok: true, data: {} }
+  } catch (e) {
+    return { ok: false, error: `${r.error} (could not set it aside: ${e.message})` }
+  }
+}
+
+function readConfig() {
+  const r = readConfigChecked()
+  return r.ok ? r.data : {}
 }
 
 function writeConfig(data) {
   const existing = readConfig()
   const merged = { ...existing, ...data }
-  fs.writeFileSync(dataPath('config.json'), JSON.stringify(merged, null, 2) + '\n', 'utf-8')
+  const file = dataPath('config.json')
+  const text = JSON.stringify(merged, null, 2) + '\n'
+  // Write-then-rename so a reader (possibly another computer on the shared folder) never sees a
+  // half-written file. If the rename is refused (antivirus/indexer lock on Windows), fall back to
+  // the plain write this used to do.
+  const tmp = `${file}.${process.pid}.tmp`
+  try {
+    fs.writeFileSync(tmp, text, 'utf-8')
+    fs.renameSync(tmp, file)
+  } catch {
+    try { fs.rmSync(tmp, { force: true }) } catch { /* nothing to clean */ }
+    fs.writeFileSync(file, text, 'utf-8')
+  }
+}
+
+// May this request reach an /api route? Every handler parses its body as JSON whatever the
+// Content-Type says, so a web page on ANY site could send a "simple" text/plain POST to
+// localhost:3000 with no CORS preflight: it cannot read the reply, but the side effect happens
+// (a /api/modes POST naming one mode deletes every other mode folder; /api/datadir repoints the
+// data folder). And plugin middlewares run BEFORE Vite's own allowedHosts check, so a DNS-rebound
+// domain pointing at 127.0.0.1 would reach them too. Two rules, neither of which any real caller
+// breaks: the page and the overlay are same-origin, and the Electron main process, the launch
+// scripts and curl send no Origin at all.
+//   1. Host must be a loopback name (the server listens on loopback only).
+//   2. An Origin, when present, must be this same host. 'null' (sandboxed frames, file pages) fails.
+const LOOPBACK_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]'])
+// Chat ids are Date.now() strings. Anything else (a "../" in particular) is refused rather than
+// joined into a path, so a bad id can never read, write or delete a file outside chats/.
+const isSafeChatId = (id) => typeof id === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(id)
+
+// Folder name for a deck's progress log. Anki subdecks are named "Parent::Child", and ":" is not allowed
+// in a Windows file name, so the progress log of every subdeck failed to save (mkdir ENOENT) and
+// "Generate Insights" silently did nothing for it. "::" becomes "--", other characters Windows refuses
+// become "_", trailing dots/spaces go. A name that was already valid maps to ITSELF, so existing
+// folders are found exactly as before. Also can never climb out of decks/ (no separators, no "..").
+const deckDirName = (deck) => {
+  const n = String(deck || '').replace(/::/g, '--').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').replace(/[. ]+$/, '')
+  return !n || n === '.' || n === '..' ? '_' : n
+}
+
+function apiRequestAllowed(headers = {}) {
+  const host = String(headers.host || '')
+  if (host) {
+    let name = ''
+    try { name = new URL(`http://${host}`).hostname } catch { /* malformed Host */ }
+    if (!LOOPBACK_HOSTNAMES.has(name)) return false
+  }
+  const origin = headers.origin
+  if (origin === undefined) return true
+  try {
+    const o = new URL(String(origin))
+    return (o.protocol === 'http:' || o.protocol === 'https:') && !!host && o.host === host
+  } catch { return false }
 }
 
 function apiPlugin() {
@@ -635,6 +721,15 @@ function apiPlugin() {
       // setEncoding routes the stream through a StringDecoder, which carries a split character
       // over to the next chunk. Every handler reads text, so nothing here wants raw bytes.
       // Registered FIRST so it runs ahead of every /api handler.
+      server.middlewares.use('/api', (req, res, next) => {
+        if (!apiRequestAllowed(req.headers)) {
+          console.log('[API] refused a cross-site request:', req.method, req.originalUrl || req.url, 'origin=', req.headers.origin, 'host=', req.headers.host)
+          res.statusCode = 403
+          res.end('{"error":"forbidden"}')
+          return
+        }
+        next()
+      })
       server.middlewares.use('/api', (req, _res, next) => { try { req.setEncoding('utf8') } catch { /* already consumed */ } next() })
 
       // Auto-backup timer: mirror the shared data folder to this computer every
@@ -1263,10 +1358,22 @@ function apiPlugin() {
                 })
               }
             )
+            // AnkiConnect answers on Anki's UI thread, so while Anki sits on a modal dialog (a sync
+            // conflict, the profile picker, an update prompt) a request is never answered at all. With
+            // no timeout here the caller waited forever: a deck or study screen spun with no message,
+            // and every boot-watcher ping left another open socket behind. Only a collection sync can
+            // legitimately take minutes (a first full download), so it gets a much longer allowance.
+            let action = ''
+            try { action = String(JSON.parse(bodyStr).action || '') } catch { /* forwarded as-is */ }
+            const limitMs = action === 'sync' ? 15 * 60 * 1000 : 2 * 60 * 1000
+            ankiReq.setTimeout(limitMs, () => ankiReq.destroy(new Error(`timed out after ${limitMs / 1000}s (${action || 'request'})`)))
             ankiReq.on('error', (err) => {
               console.log('[Anki proxy] error:', err.message)
+              if (res.headersSent || res.writableEnded) return
               res.setHeader('Content-Type', 'application/json')
-              res.end(JSON.stringify({ error: 'Anki is not running or AnkiConnect is not installed' }))
+              res.end(JSON.stringify({ error: /timed out/.test(err.message)
+                ? 'Anki did not answer. If Anki is showing a window or a question, answer it, then try again.'
+                : 'Anki is not running or AnkiConnect is not installed' }))
             })
             ankiReq.write(bodyStr)
             ankiReq.end()
@@ -1792,6 +1899,21 @@ function apiPlugin() {
         })
       })
 
+      let overlayCheck = { at: 0, running: false, pending: null }
+      const untrackedOverlayRunning = () => {
+        if (Date.now() - overlayCheck.at < 15000) return Promise.resolve(overlayCheck.running)
+        if (overlayCheck.pending) return overlayCheck.pending
+        overlayCheck.pending = new Promise((resolve) => {
+          const q = "@(Get-CimInstance Win32_Process -Filter \"Name='electron.exe'\" | Where-Object { $_.CommandLine -like '*main.cjs*' -and $_.CommandLine -like '*--overlay*' }).Count"
+          const ps = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', q], { windowsHide: true })
+          let out = ''
+          ps.stdout.on('data', (d) => { out += d })
+          const done = (running) => { overlayCheck = { at: Date.now(), running, pending: null }; resolve(running) }
+          ps.on('close', () => done(parseInt(String(out).trim(), 10) > 0))
+          ps.on('error', () => done(false))
+        })
+        return overlayCheck.pending
+      }
       server.middlewares.use('/api/launch-overlay', (req, res) => {
         console.log('[Overlay API] request:', req.method, req.url)
         if (req.method === 'POST') {
@@ -1821,6 +1943,7 @@ function apiPlugin() {
             overlayProcess.on('exit', (code) => { console.log('[Overlay API] process exited, code:', code); overlayProcess = null })
             overlayProcess.on('error', (err) => { console.error('[Overlay API] process error:', err.message); overlayProcess = null })
             console.log('[Overlay API] Electron process launched, pid:', overlayProcess.pid)
+            overlayCheck = { at: 0, running: false, pending: null }
             res.end(JSON.stringify({ ok: true, status: 'launched' }))
           } catch (e) {
             console.error('[Overlay] Launch failed:', e.message)
@@ -1832,13 +1955,13 @@ function apiPlugin() {
           if (overlayProcess && !overlayProcess.killed) {
             res.end(JSON.stringify({ running: true }))
           } else if (process.platform === 'win32') {
-            const check = spawn('tasklist', ['/FI', 'IMAGENAME eq electron.exe', '/NH'], { shell: true })
-            let output = ''
-            check.stdout.on('data', d => output += d)
-            check.on('close', () => {
-              const running = output.includes('electron.exe')
-              res.end(JSON.stringify({ running }))
-            })
+            // An overlay this server did not start (left by an earlier server) is found by its
+            // command line, exactly like the DELETE branch below. This used to ask whether ANY
+            // electron.exe was running, which is always true in app-window mode (the app window is
+            // Electron) and whenever VS Code, Slack or Discord is open, so the header showed the
+            // overlay as ON when it was off. The page polls this every 3s, so the answer is cached
+            // for 15s instead of spawning a process on every poll.
+            untrackedOverlayRunning().then((running) => res.end(JSON.stringify({ running })))
           } else {
             res.end(JSON.stringify({ running: false }))
           }
@@ -1860,6 +1983,7 @@ function apiPlugin() {
             }
           } catch (e) { console.error('[Overlay API] kill error:', e.message) }
           overlayProcess = null
+          overlayCheck = { at: Date.now(), running: false, pending: null }
           res.end(JSON.stringify({ ok: true, status: 'stopped' }))
         } else { res.statusCode = 405; res.end('') }
       })
@@ -1876,7 +2000,7 @@ function apiPlugin() {
       })
 
       server.middlewares.use('/api/overlay-screenshot', (req, res) => {
-        const file = path.resolve('electron/last-capture.png')
+        const file = path.join(SELF_DIR, 'electron', 'last-capture.png') // same file main.cjs writes (next to itself)
         if (fs.existsSync(file)) {
           res.setHeader('Content-Type', 'image/png')
           res.end(fs.readFileSync(file))
@@ -1886,25 +2010,6 @@ function apiPlugin() {
         }
       })
 
-      // Ensure directory endpoint
-      server.middlewares.use('/api/ensure-dir', (req, res) => {
-        if (req.method === 'POST') {
-          const handleBody = (bodyStr) => {
-            try {
-              const { dir } = JSON.parse(bodyStr)
-              const full = path.resolve(DATA_DIR, dir)
-              if (!fs.existsSync(full)) fs.mkdirSync(full, { recursive: true })
-              res.setHeader('Content-Type', 'application/json')
-              res.end(JSON.stringify({ ok: true, path: full }))
-            } catch (e) {
-              res.statusCode = 400
-              res.end(JSON.stringify({ error: e.message }))
-            }
-          }
-          if (req.body) { handleBody(typeof req.body === 'string' ? req.body : JSON.stringify(req.body)) }
-          else { let b = ''; req.on('data', c => b += c); req.on('end', () => handleBody(b)) }
-        } else { res.statusCode = 405; res.end('') }
-      })
 
       // ── Data folder endpoint (optional shared data directory) ───────────
       // GET → where the data lives now and how that was decided.
@@ -1997,13 +2102,20 @@ function apiPlugin() {
       })
 
       // Config endpoint
-      server.middlewares.use('/api/config', (req, res) => {
+      server.middlewares.use('/api/config', async (req, res) => {
         // Unreachable-source handling lives in the shared data-route guard above
         // (503 when there is nothing to serve, .local-offline when there is), so
         // an empty read can never reach here and clobber the real file.
         if (req.method === 'GET') {
           res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify(readConfig()))
+          const r = await readConfigSettled()
+          if (!r.ok) {
+            console.log('[Config] config.json exists but could not be read; refusing to serve it as empty:', r.error)
+            res.statusCode = 503
+            res.end(JSON.stringify({ unreadable: true, error: r.error }))
+            return
+          }
+          res.end(JSON.stringify(r.data))
         } else if (req.method === 'POST') {
           let body = ''
           req.on('data', (chunk) => { body += chunk })
@@ -2028,7 +2140,14 @@ function apiPlugin() {
           const url = new URL(req.url, 'http://localhost')
           const deck = url.searchParams.get('deck')
           if (!deck) { res.statusCode = 400; res.end(JSON.stringify({ error: 'deck required' })); return }
-          const file = dataPath('decks', deck, 'progress-observations.md')
+          let file = dataPath('decks', deckDirName(deck), 'progress-observations.md')
+          // A folder saved under the raw name before deckDirName existed (possible on macOS/Linux,
+          // which allow ":"): read it if the new one does not exist yet. Only a name with no path
+          // separators or ".." is tried.
+          if (!fs.existsSync(file) && !/[\\/]|^\.\.?$/.test(deck)) {
+            const legacy = dataPath('decks', deck, 'progress-observations.md')
+            try { if (fs.existsSync(legacy)) file = legacy } catch { /* not a valid path here */ }
+          }
           res.setHeader('Content-Type', 'application/json')
           if (fs.existsSync(file)) {
             res.end(JSON.stringify({ content: fs.readFileSync(file, 'utf8') }))
@@ -2041,7 +2160,7 @@ function apiPlugin() {
           req.on('end', () => {
             try {
               const { deck, content } = JSON.parse(body)
-              const dir = dataPath('decks', deck)
+              const dir = dataPath('decks', deckDirName(deck))
               if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
               fs.writeFileSync(path.join(dir, 'progress-observations.md'), content, 'utf8')
               console.log('[Deck Progress] saved for:', deck)
@@ -2121,6 +2240,7 @@ function apiPlugin() {
             try {
               const { id, title, messages, type, mode } = JSON.parse(body)
               const chatId = id || Date.now().toString()
+              if (!isSafeChatId(String(chatId))) { res.statusCode = 400; res.end(JSON.stringify({ error: 'bad id' })); return }
               const file = path.join(chatsDir, `${chatId}.json`)
               fs.writeFileSync(file, JSON.stringify({ title, messages, date: new Date().toISOString(), ...(type ? { type } : {}), ...(mode ? { mode } : {}) }, null, 2), 'utf8')
               console.log('[Chat] saved:', chatId, '-', title)
@@ -2134,7 +2254,7 @@ function apiPlugin() {
         } else if (req.method === 'DELETE') {
           const url = new URL(req.url, 'http://localhost')
           const id = url.searchParams.get('id')
-          if (!id) { res.statusCode = 400; res.end(JSON.stringify({ error: 'id required' })); return }
+          if (!isSafeChatId(id)) { res.statusCode = 400; res.end(JSON.stringify({ error: 'id required' })); return }
           const file = path.join(chatsDir, `${id}.json`)
           if (fs.existsSync(file)) fs.unlinkSync(file)
           res.setHeader('Content-Type', 'application/json')
@@ -2146,7 +2266,7 @@ function apiPlugin() {
       server.middlewares.use('/api/chat-load', (req, res) => {
         const url = new URL(req.url, 'http://localhost')
         const id = url.searchParams.get('id')
-        if (!id) { res.statusCode = 400; res.end(JSON.stringify({ error: 'id required' })); return }
+        if (!isSafeChatId(id)) { res.statusCode = 400; res.end(JSON.stringify({ error: 'id required' })); return }
         const file = dataPath('chats', `${id}.json`)
         res.setHeader('Content-Type', 'application/json')
         if (fs.existsSync(file)) {
@@ -2172,7 +2292,14 @@ function apiPlugin() {
             signal: AbortSignal.timeout(12000),
           })
           const html = await resp.text()
-          // Parse results from DuckDuckGo HTML
+          // Parse results from DuckDuckGo HTML. Text comes out of HTML, so its entities must be decoded:
+          // raw, the model and the source links saw "It&#x27;s" and "Q&amp;A" instead of the text.
+          const decode = (t) => t
+            .replace(/&#x([0-9a-f]+);/gi, (_, h) => { try { return String.fromCodePoint(parseInt(h, 16)) } catch { return _ } })
+            .replace(/&#(\d+);/g, (_, d) => { try { return String.fromCodePoint(Number(d)) } catch { return _ } })
+            .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ')
+            .replace(/&amp;/g, '&')
+          const text = (h) => decode(h.replace(/<[^>]+>/g, '')).trim()
           const results = []
           const resultBlocks = html.split('result__body"')
           for (let i = 1; i < resultBlocks.length && results.length < 5; i++) {
@@ -2182,11 +2309,20 @@ function apiPlugin() {
             const urlMatch = block.match(/class="result__url"[^>]*>(.*?)<\/a>/s)
             if (titleMatch) {
               results.push({
-                title: titleMatch[1].replace(/<[^>]+>/g, '').trim(),
-                snippet: snippetMatch ? snippetMatch[1].replace(/<[^>]+>/g, '').trim() : '',
-                url: urlMatch ? urlMatch[1].replace(/<[^>]+>/g, '').trim() : '',
+                title: text(titleMatch[1]),
+                snippet: snippetMatch ? text(snippetMatch[1]) : '',
+                url: urlMatch ? text(urlMatch[1]) : '',
               })
             }
+          }
+          // DuckDuckGo answers a bot check (HTTP 202, an "anomaly" page) instead of results when it
+          // decides to block a client. Parsed, that is simply zero results, so the chat said it found
+          // nothing when it never searched at all. Report it as the failure it is.
+          if (!results.length && (resp.status !== 200 || /anomaly|captcha/i.test(html))) {
+            console.log('[Web Search] blocked by DuckDuckGo (status', resp.status + ') for:', query)
+            res.statusCode = 502
+            res.end(JSON.stringify({ error: 'The web search service is blocking requests right now. Try again later.', results: [] }))
+            return
           }
           console.log('[Web Search]', query, '-', results.length, 'results')
           res.end(JSON.stringify({ results }))
@@ -2225,10 +2361,10 @@ export default defineConfig({
       // vite.config.js must be ignored too: on this share the watcher fires a
       // phantom change event on it after every restart → infinite restart loop.
       // Config edits therefore require a manual dev-server restart.
-      ignored: ['**/.env', '**/config.json', '**/ankiformat.json', '**/vite.config.js', '**/datadir.json', '**/.app-ready', '**/modes/**', '**/decks/**', '**/chats/**', '**/local-data-backup-*/**', '**/.local-sync/**', '**/.local-home/**', '**/.local-offline/**', '**/.scratch/**'],
+      ignored: ['**/.env', '**/config.json', '**/config.json.*', '**/ankiformat.json', '**/vite.config.js', '**/datadir.json', '**/.app-ready', '**/modes/**', '**/decks/**', '**/chats/**', '**/local-data-backup-*/**', '**/.local-sync/**', '**/.local-home/**', '**/.local-offline/**', '**/.scratch/**'],
     },
   },
 })
 
 // Exported for the key-safety tests only; Vite consumes the default export above.
-export { readEnvFile, parseEnv, writeEnv, mirrorEnv, ENV_FILE, ENV_BAK, ENV_CLEARED }
+export { readEnvFile, parseEnv, writeEnv, mirrorEnv, ENV_FILE, ENV_BAK, ENV_CLEARED, readConfigChecked, readConfigSettled, writeConfig, apiRequestAllowed, deckDirName }

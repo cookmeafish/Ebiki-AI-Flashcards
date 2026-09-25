@@ -53,8 +53,11 @@ function delegateToLauncher() {
 }
 
 const VITE_URL = 'http://localhost:3000'
-const SCREENSHOT_FILE = path.resolve('electron/last-capture.png')
+// Anchored to this file, never the working directory: the server reads it back from the app folder.
+const SCREENSHOT_FILE = path.join(__dirname, 'last-capture.png')
 let overlayWindow = null
+let appQuitting = false
+app.on('before-quit', () => { appQuitting = true })
 
 // ── Main app window (the DEFAULT mode) ──────────────────────────────────────
 // A SEPARATE Electron process from the overlay below (the overlay is spawned
@@ -178,6 +181,20 @@ function waitForServer(url, timeoutMs = 60000) {
   })
 }
 
+// Is this URL the app itself? Compared by ORIGIN, never with startsWith: "http://localhost:3000@evil.example/"
+// starts with VITE_URL (everything before "@" is a user name) and would have navigated the chrome-free
+// window, which has no address bar to give it away, to someone else's page.
+const isAppUrl = (url) => {
+  try { return new URL(url).origin === VITE_URL } catch { return false }
+}
+
+// Hand an outbound link to the OS browser. http(s) only: openExternal will launch other protocol
+// handlers too, and a page must not get to choose one. Shared by the app window and the overlay.
+const openExternally = (url) => {
+  if (!/^https?:\/\//i.test(url || '')) return
+  shell.openExternal(url).catch((e) => console.warn('[Ebiki] openExternal failed:', e.message))
+}
+
 function createAppWindow() {
   const iconPath = path.join(__dirname, '..', 'ebiki.ico')
   appWindow = new BrowserWindow({
@@ -270,10 +287,6 @@ function createAppWindow() {
   // So: deny the child window, hand the URL to the OS default browser. Only http(s) is forwarded -
   // openExternal will happily launch other protocol handlers, and a page should not get to choose
   // one.
-  const openExternally = (url) => {
-    if (!/^https?:\/\//i.test(url || '')) return
-    shell.openExternal(url).catch((e) => console.warn('[App window] openExternal failed:', e.message))
-  }
   appWindow.webContents.setWindowOpenHandler(({ url }) => {
     openExternally(url)
     return { action: 'deny' }
@@ -283,7 +296,7 @@ function createAppWindow() {
   // only ever lives on the dev server, so anything else is an outbound link. The holding page is a
   // data: URL, hence the explicit allowance.
   appWindow.webContents.on('will-navigate', (event, url) => {
-    if (url.startsWith(VITE_URL) || url.startsWith('data:text/html')) return
+    if (isAppUrl(url) || url.startsWith('data:text/html')) return
     event.preventDefault()
     openExternally(url)
   })
@@ -458,9 +471,24 @@ function createOverlay() {
   })
 
   overlayWindow.loadURL(VITE_URL + '?overlay=true')
+  // Same link rules as the app window (see createAppWindow): the overlay runs the same web app, and
+  // without these a link opened a bare child window from a transparent always-on-top overlay, or
+  // navigated the overlay itself off the app.
+  overlayWindow.webContents.setWindowOpenHandler(({ url }) => {
+    openExternally(url)
+    return { action: 'deny' }
+  })
+  overlayWindow.webContents.on('will-navigate', (event, url) => {
+    if (isAppUrl(url)) return
+    event.preventDefault()
+    openExternally(url)
+  })
 
-  // ESC / window.close() → hide instead of closing
+  // ESC / window.close() → hide instead of closing. Only while the app is NOT quitting: preventing
+  // every close also blocked app.quit(), a plain SIGTERM (how the server stops the overlay off
+  // Windows) and a Windows shutdown/sign-out ("this app is preventing shutdown").
   overlayWindow.on('close', (e) => {
+    if (appQuitting) return
     e.preventDefault()
     hideOverlay()
   })

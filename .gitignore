@@ -32,3 +32,4 @@ launchmode.json
 
 # Local scratch space for tooling/test runs (never committed)
 .scratch/
+config.json.*

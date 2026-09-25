@@ -25,7 +25,7 @@ import { S } from './styles/theme'
 import { ocrLog, ocrLogTable, ocrLogFlush } from './utils/logger'
 import { answerLetterCounts, countAnswerLetters, correctLetterHint } from './utils/studyHints'
 import { ankiPing, ankiSyncAuthState, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiCanAddNote, ankiCopyNote, ankiChangeDeck, ankiForgetCards, ankiSetNoteTags, ankiFindCards, ankiCardsInfo, ankiAnswerCards, ankiSetDueDate, ankiInsertReviews, ankiGuiDeckReview, ankiGuiCurrentCard, ankiGuiShowAnswer, ankiGuiAnswerCard, ankiGuiDeckBrowser, ankiGetDeckStats, ankiFindNotes, ankiNotesInfo, ankiUpdateNote, ankiDeleteNotes, ankiSync, ankiSyncSoon, ankiStoreMediaFile, ankiGetNumCardsReviewedToday, ankiGetNumCardsReviewedByDay, ankiGetTodayReviewStats } from './utils/anki'
-import { readBlob, writeBlob, DEFAULT_LEDGER } from './discover/storage'
+import { readBlob, readBlobChecked, writeBlob, DEFAULT_LEDGER } from './discover/storage'
 import { buildProfilePrompt, buildSuggestionPrompt, buildVerifyPrompt } from './discover/prompts'
 import PbqQuestion from './components/PbqQuestion'
 import { compilePbq, checkCitations, studentView, parseSolverAnswer, gradePbq, compareToKey, PBQ_GEN_SYSTEM, PBQ_SOLVER_SYSTEM, PBQ_JUDGE_SYSTEM, buildGeneratorPrompt as buildPbqGeneratorPrompt, buildSolverPrompt as buildPbqSolverPrompt, buildJudgePrompt as buildPbqJudgePrompt } from './pbq/engine'
@@ -330,6 +330,12 @@ export default function App() {
   const [offlineBusy, setOfflineBusy] = useState(null)   // null | 'merge' | 'discard' - the action running, so the banner can NAME it
   const configHealthyRef = useRef(false)                        // true only when config loaded from a reachable source; gates autosave so a failed read never clobbers
   const keysHealthyRef = useRef(false)                          // same guard for .env: a FAILED key read must never be written back as "no keys"
+  // Set the moment the server confirms a data-folder switch. Everything in memory came from the
+  // PREVIOUS folder, and /api/modes POST deletes every mode folder its payload does not name, so one
+  // routine save before the reload (a deck pick, a hook) would erase the new folder's other modes
+  // and their knowledge bases, and the config autosave would overwrite its settings. All data
+  // writers bail while this is set; the page reloads and reads the new folder.
+  const dataSwitchingRef = useRef(false)
   const keyEditedRef = useRef(false)                            // the NEXT save came from the user typing a key, so it may replace the shared copy
   const [apiKeys, setApiKeys] = useState({})
   const [keysLoaded, setKeysLoaded] = useState(false)
@@ -388,6 +394,9 @@ export default function App() {
   // Same modal with a text field: resolves the typed string, or null on cancel. window.prompt is
   // not an option: Electron does not implement it (it throws), so in the app window it did nothing.
   const promptDialog = (message) => new Promise((resolve) => setAppConfirm({ message, resolve, input: true, value: '' }))
+  // Same modal as a plain notice (OK only): the replacement for window.alert, whose tiny native box
+  // is the reason confirmDialog exists at all.
+  const alertDialog = (message) => new Promise((resolve) => setAppConfirm({ message, resolve, notice: true }))
 
   // ── Offline mode watch ───────────────────────────────────────────────────
   // While the shared folder is down the server serves this computer's copy, and
@@ -863,6 +872,7 @@ export default function App() {
   const [discoverProfile, setDiscoverProfile] = useState(null)
   const [discoverProfileLoading, setDiscoverProfileLoading] = useState(false)
   const [discoverLedger, setDiscoverLedger] = useState(DEFAULT_LEDGER)
+  const discoverLedgerWritableRef = useRef(false) // the ledger was read (or cached): safe to write back
   const [discoverSuggestion, setDiscoverSuggestion] = useState(null)
   const [discoverSuggestionLoading, setDiscoverSuggestionLoading] = useState(false)
   const [discoverError, setDiscoverError] = useState(null)
@@ -1004,7 +1014,7 @@ export default function App() {
     // An empty `modes` means the modes READ failed and the app is running on the
     // in-memory default. Posting that would tell the server every mode folder is
     // gone. Never write a deck choice out of a state we did not load.
-    if (!modes.length) return
+    if (!modes.length || dataSwitchingRef.current) return
     const updated = modes.map((m) => m.id === activeModeId ? { ...m, ankiDeck: deck } : m)
     setModes(updated)
     // Save immediately
@@ -1918,7 +1928,7 @@ export default function App() {
     // Never autosave when config didn't load from a reachable source: writing
     // the current (possibly default) state would clobber the real offline file
     // (this is what silently reset `onboarded` after a flaky Y: read).
-    if (!configLoaded || !configHealthyRef.current) return
+    if (!configLoaded || !configHealthyRef.current || dataSwitchingRef.current) return
     fetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -3678,6 +3688,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     // See setAnkiDeck: an empty list is never a real save, it is a failed load.
     // The server refuses it too; bailing here keeps local state honest as well.
     if (!Array.isArray(modeList) || modeList.length === 0) { console.warn('[Mode] refused to save an empty mode list'); return }
+    if (dataSwitchingRef.current) return // data folder just switched: see dataSwitchingRef
     const id = activeId || activeModeIdRef.current
     modesRef.current = modeList
     activeModeIdRef.current = id
@@ -3696,6 +3707,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
   // async completions. Reads/writes through the refs so late writers can't clobber changes
   // made after their closure was captured.
   const updateModeById = (modeId, updates) => {
+    if (dataSwitchingRef.current) return // data folder just switched: see dataSwitchingRef
     const updated = modesRef.current.map((m) => (m.id === modeId ? { ...m, ...updates } : m))
     modesRef.current = updated
     setModes(updated)
@@ -3724,7 +3736,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     // Check for name conflict
     const conflict = modes.find((m) => m.id !== id && m.name.toLowerCase() === trimmed.toLowerCase())
     if (conflict) {
-      alert(`A mode named "${trimmed}" already exists.`)
+      alertDialog(t('modeNameTaken', { name: trimmed }))
       setEditingModeName(null)
       return
     }
@@ -3780,7 +3792,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       setDeckBrowserAddName('')
       setDeckBrowserAddPurpose('')
     } catch (e) {
-      window.alert(t('deck_failedCreate', { msg: e.message || e }))
+      alertDialog(t('deck_failedCreate', { msg: e.message || e }))
     } finally {
       setDeckBrowserAddLoading(false)
     }
@@ -3807,7 +3819,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       setDeckBrowserAddName('')
       setDeckBrowserAddPurpose('')
     } catch (e) {
-      window.alert(t('deck_failedCreate', { msg: e.message || e }))
+      alertDialog(t('deck_failedCreate', { msg: e.message || e }))
     } finally {
       setDeckBrowserAddLoading(false)
     }
@@ -4490,7 +4502,11 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     setDeckDupExpanded({})
     try {
       // Load the per-deck "do not merge" ignore list (cloud-synced via Anki media).
-      const ignoreData = (await readBlob('dupignore', deckBrowserDeck)) || { pairs: [] }
+      const ignoreRead = await readBlobChecked('dupignore', deckBrowserDeck)
+      // "Do not merge" REPLACES the stored list, so it may only be written back from a real read;
+      // from a failed one, the first dismissal would erase every earlier decision.
+      dupIgnoreReadOkRef.current = ignoreRead.ok
+      const ignoreData = ignoreRead.value || { pairs: [] }
       const ignoreSet = new Set(ignoreData.pairs || [])
       setDeckDupIgnore(ignoreData.pairs || [])
       const htmlToPlain = (v) => String(v || '').replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').trim()
@@ -4654,13 +4670,15 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
 
   // "Do not merge" — remember these cards are NOT duplicates so they're never
   // suggested again, and remove the group from view. Persisted per-deck (cloud-synced).
+  const dupIgnoreReadOkRef = useRef(false)
   const dismissDup = async (idx) => {
     const group = deckDupGroups[idx]
     if (!group) return
     const newPairs = [...new Set([...deckDupIgnore, ...pairsOf(group.noteIds)])]
     setDeckDupIgnore(newPairs)
     setDeckDupGroups((prev) => prev.filter((_, i) => i !== idx))
-    writeBlob('dupignore', deckBrowserDeck, { pairs: newPairs }).catch((e) => console.warn('[Deck] dupignore save failed:', e.message))
+    if (dupIgnoreReadOkRef.current) writeBlob('dupignore', deckBrowserDeck, { pairs: newPairs }).catch((e) => console.warn('[Deck] dupignore save failed:', e.message))
+    else console.warn('[Deck] "do not merge" kept for this session only: the saved list could not be read')
   }
 
   const clearDup = () => {
@@ -4751,9 +4769,17 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     }
   }
 
+  // Cards being added right now, by index. `card.syncing` alone could not stop a double add: it is
+  // read from the render-time closure, so two quick clicks on "Add N" each saw syncing:false and added
+  // every card twice (Quick Add allows duplicates, so Anki did not stop it). A ref updates at once.
+  const quickAddInFlightRef = useRef(new Set())
   const syncQuickAddCard = async (i) => {
     const card = quickAddCards[i]
-    if (!card || card.synced || card.syncing) return
+    if (!card || card.synced || card.syncing || quickAddInFlightRef.current.has(i)) return
+    quickAddInFlightRef.current.add(i)
+    try { await syncQuickAddCardInner(i, card) } finally { quickAddInFlightRef.current.delete(i) }
+  }
+  const syncQuickAddCardInner = async (i, card) => {
     const deck = deckBrowserDeck || activeMode.ankiDeck || ''
     if (!deck) { setQuickAddError(t('deck_selectDeckFirst')); return }
     setQuickAddCards((prev) => prev.map((c, k) => k === i ? { ...c, syncing: true } : c))
@@ -4774,10 +4800,15 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     }
   }
 
+  const quickAddBatchRef = useRef(false)
   const syncQuickAddAccepted = async () => {
-    for (let i = 0; i < quickAddCards.length; i++) {
-      if (quickAddCards[i].accepted && !quickAddCards[i].synced) await syncQuickAddCard(i)
-    }
+    if (quickAddBatchRef.current) return // one "Add N" run at a time (see quickAddInFlightRef)
+    quickAddBatchRef.current = true
+    try {
+      for (let i = 0; i < quickAddCards.length; i++) {
+        if (quickAddCards[i].accepted && !quickAddCards[i].synced) await syncQuickAddCard(i)
+      }
+    } finally { quickAddBatchRef.current = false }
   }
 
   const closeQuickAdd = () => { setQuickAddOpen(false); setQuickAddInput(''); setQuickAddCards([]); setQuickAddError(null) }
@@ -5007,7 +5038,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       // Record as offered so it is never repeated.
       const nextLedger = { ...ledger, offered: [...new Set([...(ledger.offered || []), suggestion.term])] }
       setDiscoverLedger(nextLedger)
-      writeBlob('ledger', activeMode.name, nextLedger).catch(() => {})
+      if (discoverLedgerWritableRef.current) writeBlob('ledger', activeMode.name, nextLedger).catch(() => {})
     } catch (err) {
       console.error('[Discover] suggestion failed:', err.message)
       setDiscoverError('Could not get a suggestion: ' + err.message)
@@ -5024,7 +5055,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     const entry = { term: s.term, ts: new Date().toISOString(), ...(reason ? { reason } : {}) }
     const nextLedger = { ...discoverLedger, [kind]: [...(discoverLedger[kind] || []), entry] }
     setDiscoverLedger(nextLedger)
-    writeBlob('ledger', activeMode.name, nextLedger).catch(() => {})
+    if (discoverLedgerWritableRef.current) writeBlob('ledger', activeMode.name, nextLedger).catch(() => {})
     // "I know this" is mild evidence the learner is above this item — nudge confidence.
     fetchNextSuggestion(discoverProfile, nextLedger)
   }
@@ -5076,7 +5107,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         offered: [...new Set([...(discoverLedger.offered || []), s.term])],
       }
       setDiscoverLedger(nextLedger)
-      writeBlob('ledger', activeMode.name, nextLedger).catch(() => {})
+      if (discoverLedgerWritableRef.current) writeBlob('ledger', activeMode.name, nextLedger).catch(() => {})
       setDiscoverCard(null)
       fetchNextSuggestion(discoverProfile, nextLedger)
     } catch (err) {
@@ -5168,14 +5199,19 @@ Return ONLY a JSON array (no markdown):
 
       ankiGetDecks().then(setAnkiDecks).catch(() => {}) // for the deck switcher
       ensureDiscoverKinds() // fire-and-forget; chips appear when ready
-      const ledger = (await readBlob('ledger', activeMode.name)) || cached.ledger || DEFAULT_LEDGER
+      const ledgerRead = await readBlobChecked('ledger', activeMode.name, { siblings: modesRef.current.map((m) => m.name) })
+      const ledger = ledgerRead.value || cached.ledger || DEFAULT_LEDGER
+      // Every ledger write REPLACES the stored one. Starting from an empty default because the read
+      // failed would wipe the whole known/declined/carded history on the first suggestion.
+      discoverLedgerWritableRef.current = ledgerRead.ok || !!cached.ledger
+      if (!discoverLedgerWritableRef.current) console.warn('[Discover] ledger could not be read; not saving ledger changes this session')
       setDiscoverLedger(ledger)
       // Prefer the FRESHER of the Anki-media blob vs the local cache. A re-analyze always updates the
       // local cache, but its blob write can silently fail (Anki offline) or the blob can predate the
       // last analyze — blindly trusting the blob resurrected a stale, contaminated profile the moment
       // Anki reconnected (the "it keeps reverting to the old summary" bug). If the cache is newer, keep
       // it AND heal the blob so it stops reverting.
-      const blobProfile = await readBlob('profile', activeMode.name)
+      const blobProfile = await readBlob('profile', activeMode.name, { siblings: modesRef.current.map((m) => m.name) })
       let profile = blobProfile
       if (blobProfile && cached.profile && (cached.profile.savedAt || 0) > (blobProfile.savedAt || 0)) {
         profile = cached.profile
@@ -5560,9 +5596,13 @@ Output ONLY raw JSON. No markdown, no backticks.`
       const hit = STRIP_HTML_CACHE.get(html)
       if (hit !== undefined) return hit
     }
-    const tmp = document.createElement('div')
-    tmp.innerHTML = html
-    const out = (tmp.textContent || tmp.innerText || '').trim()
+    // DOMParser, never `innerHTML` on an element of THIS document: that element is live even when it
+    // is never attached, so <img src=x onerror=...> in a card field (a shared deck, an AI reply)
+    // loaded and RAN its handler inside the app, which can call every /api route as the app itself.
+    // A parsed document is inert (no loads, no handlers) and yields the same text (verified in Chromium).
+    // Same coercion as innerHTML: null → '', anything else via String().
+    const doc = new DOMParser().parseFromString(html === null ? '' : String(html), 'text/html')
+    const out = (doc.documentElement.textContent || '').trim()
     if (typeof html === 'string') {
       if (STRIP_HTML_CACHE.size >= 20000) STRIP_HTML_CACHE.clear()
       STRIP_HTML_CACHE.set(html, out)
@@ -7110,16 +7150,32 @@ Output ONLY raw JSON. No markdown, no backticks.`
   // Close the "fix question" panel + accent drill whenever the live question changes
   useEffect(() => { setStudyFixQ(null); setStudyAccentRetype(null) }, [currentQuestion])
 
+  // A deck's progress notes, and whether they were actually READ. Every writer replaces the WHOLE
+  // file with a model-merged version of what it read, so a failed read (share offline: 503, a
+  // network blip) must never look like "no notes yet": the model would write a fresh file and every
+  // earlier observation would be gone. A missing file is a real, empty read (the server says so).
+  const readDeckProgress = async (deck) => {
+    try {
+      const r = await fetch(`/api/deck-progress?deck=${encodeURIComponent(deck)}`)
+      const d = await r.json()
+      return r.ok && typeof d?.content === 'string' ? { ok: true, content: d.content } : { ok: false, content: '' }
+    } catch { return { ok: false, content: '' } }
+  }
+  const deckProgressOkRef = useRef(false) // did the mode deck's notes (deckProgressDoc) load for real?
+
   // Load the mode deck's progress observations so Ebi (Help + Chat) always knows the learner
   useEffect(() => {
     let cancelled = false
     setDeckProgressDoc('')
+    deckProgressOkRef.current = false
     if (!ankiDeck) return
-    fetch(`/api/deck-progress?deck=${encodeURIComponent(ankiDeck)}`)
-      .then((r) => r.json())
-      .then((d) => { if (!cancelled) setDeckProgressDoc(d.content || '') })
-      .catch(() => {})
+    readDeckProgress(ankiDeck).then(({ ok, content }) => {
+      if (cancelled) return
+      deckProgressOkRef.current = ok
+      setDeckProgressDoc(content)
+    })
     return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ankiDeck])
 
   // Answer-option grid, used both live (onPick set) and frozen in the post-answer flash
@@ -8053,11 +8109,31 @@ Your output keeps: the same method, the same language (${explainLang}), the same
   // ONE store for EVERY surface that generates hooks (study graded cards, deck browser rows, the
   // tapped-word popup, the Learn-it moment): keys are Anki noteIds when the item is a note, else
   // 'word:<folded word>' for tapped words with no card yet (numeric noteId keys never collide).
+  const hooksReadyRef = useRef(false)   // this mode's stored hooks were read (see writeModeHooks)
+  const hooksPendingRef = useRef(false) // hooks were added before that read finished
   const [modeHooks, setModeHooks] = useState({}) // { [noteId | 'word:<word>']: [hook, ...] }
   useEffect(() => {
     let cancelled = false
     setModeHooks({})
-    readBlob('hooks', activeMode.name).then((d) => { if (!cancelled && d && typeof d === 'object') setModeHooks(d) }).catch(() => {})
+    hooksReadyRef.current = false
+    hooksPendingRef.current = false
+    const modeName = activeMode.name
+    readBlobChecked('hooks', modeName, { siblings: modesRef.current.map((m) => m.name) }).then(({ ok, value }) => {
+      if (cancelled) return
+      if (!ok) { console.warn('[Hooks] stored hooks could not be read; new hooks are kept for this session only'); return }
+      hooksReadyRef.current = true
+      const stored = value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+      // Hooks made before this read finished are MERGED in, never dropped, then saved together.
+      setModeHooks((prev) => {
+        const merged = { ...stored }
+        for (const [k, list] of Object.entries(prev || {})) {
+          merged[k] = [...(merged[k] || [])]
+          for (const h of list || []) if (!merged[k].includes(h)) merged[k].push(h)
+        }
+        if (hooksPendingRef.current) { hooksPendingRef.current = false; writeBlob('hooks', modeName, merged).catch(() => {}) }
+        return merged
+      })
+    }).catch(() => {})
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeModeId])
@@ -8075,10 +8151,15 @@ Your output keeps: the same method, the same language (${explainLang}), the same
   // Save key: the note when known, else the first headword's word key — EVERY surface persists.
   const hookSaveKey = (noteId, front) => noteId || (headwordForms(front)[0] ? wordHookKey(headwordForms(front)[0]) : null)
   // Functional updates so async completions (hooks arrive seconds later) can't clobber each other.
+  // Written to storage only once this mode's stored hooks have been READ: the write replaces the
+  // stored set, so writing before (or after a failed) read would erase every other saved hook.
   const writeModeHooks = (updater) => {
     setModeHooks((prev) => {
       const next = updater(prev)
-      if (next !== prev) writeBlob('hooks', activeMode.name, next).catch(() => {})
+      if (next !== prev) {
+        if (hooksReadyRef.current) writeBlob('hooks', activeMode.name, next).catch(() => {})
+        else hooksPendingRef.current = true
+      }
       return next
     })
   }
@@ -8094,11 +8175,33 @@ Your output keeps: the same method, the same language (${explainLang}), the same
   // exactly the mistakes flashcard ratings can't capture. Entries dedupe by folded text; a
   // repeat bumps `n` and `at`, so both frequency and recency are visible. Fed to the Chat tab,
   // Ebi's Help, and the Learn-it chat via grammarSlipBlock().
+  const grammarReadyRef = useRef(false)   // this mode's stored grammar log was read
+  const grammarPendingRef = useRef(false) // slips were logged before that read finished
   const [modeGrammarLog, setModeGrammarLog] = useState([]) // [{ t, front, n, at }]
   useEffect(() => {
     let cancelled = false
     setModeGrammarLog([])
-    readBlob('grammar', activeMode.name).then((d) => { if (!cancelled && Array.isArray(d)) setModeGrammarLog(d) }).catch(() => {})
+    grammarReadyRef.current = false
+    grammarPendingRef.current = false
+    const modeName = activeMode.name
+    readBlobChecked('grammar', modeName, { siblings: modesRef.current.map((m) => m.name) }).then(({ ok, value }) => {
+      if (cancelled) return
+      if (!ok) { console.warn('[Grammar] log could not be read; new slips are kept for this session only'); return }
+      grammarReadyRef.current = true
+      const stored = Array.isArray(value) ? value : []
+      // Slips graded before this read finished are merged in (same dedupe as addGrammarSlips).
+      setModeGrammarLog((prev) => {
+        const merged = stored.map((e) => ({ ...e }))
+        for (const e of prev || []) {
+          const hit = merged.find((m) => foldHookWord(m.t) === foldHookWord(e.t))
+          if (hit) { hit.n = (hit.n || 1) + (e.n || 1); hit.at = Math.max(hit.at || 0, e.at || 0) }
+          else merged.push({ ...e })
+        }
+        const capped = merged.slice(-200)
+        if (grammarPendingRef.current) { grammarPendingRef.current = false; writeBlob('grammar', modeName, capped).catch(() => {}) }
+        return capped
+      })
+    }).catch(() => {})
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeModeId])
@@ -8114,7 +8217,9 @@ Your output keeps: the same method, the same language (${explainLang}), the same
         else next.push({ t: String(n.text).slice(0, 200), front: String(front || '').slice(0, 80), n: 1, at: Date.now() })
       }
       const capped = next.slice(-200) // oldest entries age out; repeats survive via their bumped `at`
-      writeBlob('grammar', activeMode.name, capped).catch(() => {})
+      // Same rule as writeModeHooks: never replace a stored log that has not been read yet.
+      if (grammarReadyRef.current) writeBlob('grammar', activeMode.name, capped).catch(() => {})
+      else grammarPendingRef.current = true
       return capped
     })
   }
@@ -9040,21 +9145,18 @@ Your output keeps: the same method, the same language (${explainLang}), the same
     // Last-line defense: try to flush any unsynced ratings before tearing down state.
     // If Anki is unreachable, ask the user whether to exit anyway (losing those ratings)
     // or stay so they can fix the connection and retry.
+    // Answered cards whose AI grade has not come back yet have no rating, so nothing below counts
+    // them, and exiting dropped them (and the reviews they earned) without a word.
+    const grading = studyCardState.filter(cs => cs.done && cs.evaluating && !cs.noSync && !cs.isConjugation).length
+    if (grading > 0 && !(await confirmDialog(t(grading === 1 ? 'study_exitGradingOne' : 'study_exitGrading', { n: grading })))) return
     const unsynced = studyCardState.filter(cs => cs.done && cs.ease && cs.rating !== 'deleted' && !cs.synced && !cs.isConjugation && !cs.noSync)
     if (unsynced.length > 0) {
       const result = await syncRatingsToAnki()
       if (result.offline) {
-        const proceed = await confirmDialog(
-          `Anki is not open, so ${unsynced.length} rating${unsynced.length === 1 ? '' : 's'} could not be recorded.\n\n` +
-          `Exit anyway and lose ${unsynced.length === 1 ? 'it' : 'them'}? Click Cancel to stay, open Anki (with AnkiConnect), and sync.`
-        )
+        const proceed = await confirmDialog(t(unsynced.length === 1 ? 'study_exitOfflineOne' : 'study_exitOffline', { n: unsynced.length }))
         if (!proceed) return
       } else if (result.failed > 0) {
-        const proceed = await confirmDialog(
-          `Could not sync ${result.failed} card rating${result.failed === 1 ? '' : 's'} to Anki ` +
-          `(${result.error || 'unknown error'}).\n\n` +
-          `Exit anyway and lose those ratings? Click Cancel to stay and retry (e.g. make sure Anki is running with AnkiConnect).`
-        )
+        const proceed = await confirmDialog(t(result.failed === 1 ? 'study_exitFailedOne' : 'study_exitFailed', { n: result.failed, err: result.error || '?' }))
         if (!proceed) return
       }
     }
@@ -9098,13 +9200,8 @@ Your output keeps: the same method, the same language (${explainLang}), the same
     if (!apiKey || studyInsightsLoading || studyCardState.length === 0) return
     setStudyInsightsLoading(true)
     try {
-      // Load existing progress observations
-      let existingProgress = ''
-      try {
-        const r = await fetch(`/api/deck-progress?deck=${encodeURIComponent(studyDeck)}`)
-        const d = await r.json()
-        existingProgress = d.content || ''
-      } catch {}
+      // Load existing progress observations (existingOk: see readDeckProgress)
+      const { ok: existingOk, content: existingProgress } = await readDeckProgress(studyDeck)
 
       // NOTE: map over results with the ORIGINAL index (a filtered index misaligned questions and
       // answers), extract question TEXT (questions are objects — they stringified as
@@ -9152,8 +9249,10 @@ learner's goals or interests that already exist.`
 
       setStudyInsights(insight)
 
-      // Save updated progress observations
-      if (newProgress) {
+      // Save updated progress observations. Never over notes that could not be read: this file
+      // REPLACES them, and the prompt was told there were none.
+      if (newProgress && !existingOk) console.warn('[Study] progress update not saved: the existing notes could not be read')
+      if (newProgress && existingOk) {
         try {
           await fetch('/api/deck-progress', {
             method: 'POST',
@@ -9385,14 +9484,9 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
         const fields = Object.values(n.fields).sort((a, b) => a.order - b.order)
         return { front: stripHtml(fields[0]?.value || ''), back: stripHtml(fields[1]?.value || '') }
       })
-      // Load progress observations
-      let progress = ''
-      try {
-        const r = await fetch(`/api/deck-progress?deck=${encodeURIComponent(deckName)}`)
-        const d = await r.json()
-        progress = d.content || ''
-      } catch {}
-      setChatTabAttachedDeck({ name: deckName, cards, progress })
+      // Load progress observations (progressOk: see readDeckProgress)
+      const { ok: progressOk, content: progress } = await readDeckProgress(deckName)
+      setChatTabAttachedDeck({ name: deckName, cards, progress, progressOk })
     } catch (err) {
       console.error('[Chat] attach deck failed:', err)
     } finally {
@@ -9477,12 +9571,17 @@ ${activeMode.type === 'language' ? `   - LANGUAGE MODE (learning ${learnLangName
         // No web access right now: rather than guess, offer to look it up.
         systemPrompt += `\n\nWEB ACCESS IS OFF. If you genuinely do not know something, or are unsure of a CURRENT/factual detail you cannot verify (recent events, prices, live data, niche facts), do NOT guess or make something up. Briefly say you're not certain, and offer to look it up by adding the tag <offer-search>a concise web search query</offer-search> to your reply. Only offer search when it would actually help — for things you reliably know (common vocabulary, grammar, basic concepts), just answer.`
       }
-      if (chatTabWebSearch) {
+      // An image sent with no text has nothing to search FOR (the server rejects an empty query), so
+      // it is answered without a search instead of reporting a failed one.
+      if (chatTabWebSearch && q) {
         setChatTabStatus('searching')
         systemPrompt += '\n\n5. You have WEB SEARCH capability. Search results from the internet are provided below. You MUST use them to answer the user\'s question. Do NOT say you cannot search the internet — the search has already been performed for you. You MUST cite your sources inline using [Source Title](URL) format for every claim based on search results.'
         try {
           const searchRes = await fetch(`/api/web-search?q=${encodeURIComponent(q)}`)
           const searchData = await searchRes.json()
+          // A search that never ran (the service blocked it, a network error) is a FAILURE, not "found
+          // nothing": Ebi must say it could not search rather than claim the web had no answer.
+          if (!searchRes.ok || searchData.error) throw new Error(searchData.error || `search ${searchRes.status}`)
           if (searchData.results?.length > 0) {
             searchSources = searchData.results
             setChatTabStatus('search-done')
@@ -9545,7 +9644,10 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       // when nothing is attached (so casual chat can still teach Ebi durable facts).
       const progressMatches = [...text.matchAll(/<progress-update>([\s\S]*?)<\/progress-update>/g)]
       const progressDeck = chatTabAttachedDeck?.name || ankiDeck
-      if (progressMatches.length > 0 && progressDeck) {
+      // Only over notes that were really read: the reply REPLACES the file (see readDeckProgress).
+      const progressReadOk = chatTabAttachedDeck ? chatTabAttachedDeck.progressOk === true : deckProgressOkRef.current
+      if (progressMatches.length > 0 && progressDeck && !progressReadOk) console.warn('[Chat] progress update skipped: the existing notes could not be read, so writing would erase them')
+      if (progressMatches.length > 0 && progressDeck && progressReadOk) {
         for (const pm of progressMatches) {
           try {
             await fetch('/api/deck-progress', {
@@ -9610,11 +9712,19 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
     const baseMsgs = chatTabMsgs
     try {
       let results = []
-      try { results = (await (await fetch(`/api/web-search?q=${encodeURIComponent(query)}`)).json()).results || [] } catch {}
+      let searchFailed = false // the search never ran (blocked, offline): not the same as "found nothing"
+      try {
+        const sr = await fetch(`/api/web-search?q=${encodeURIComponent(query)}`)
+        const sd = await sr.json()
+        if (!sr.ok || sd.error) searchFailed = true
+        else results = sd.results || []
+      } catch { searchFailed = true }
       setChatTabStatus('thinking')
       const sys = results.length
         ? `You are Ebi, a study assistant. Web search results for "${query}":\n` + results.map((r, i) => `${i + 1}. ${r.title}\n   URL: ${r.url}\n   ${r.snippet}`).join('\n\n') + `\n\nAnswer the user's question using these results. Cite sources at the end inside <sources>Title | URL</sources> tags. Never use em-dashes (—).`
-        : `You are Ebi. A web search for "${query}" returned nothing. Briefly tell the user you couldn't find it. Never use em-dashes (—).`
+        : searchFailed
+          ? `You are Ebi. A web search for "${query}" could not be run right now (the search service did not answer). Briefly tell the user the search did not work, then answer from your own knowledge if you can, saying it is not verified. Never use em-dashes (—).`
+          : `You are Ebi. A web search for "${query}" returned nothing. Briefly tell the user you couldn't find it. Never use em-dashes (—).`
       const convo = baseMsgs.map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n\n')
       const text = (await aiCall(apiKey, sys, convo, resolveModel('chat'), { maxTokens: 1500 }) || '').replace(/\s*[—–]\s*/g, ', ')
       const sm = text.match(/<sources>([\s\S]*?)<\/sources>/)
@@ -9643,8 +9753,12 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
   // so the button always shows exactly where it lands.
   const chatCardDeck = () => chatTabAttachedDeck?.name || ankiDeck || ankiDecks[0] || 'Default'
 
+  // Cards being added right now. A double-click used to add the card twice (chat cards allow
+  // duplicates, so Anki does not catch it).
+  const chatCardsAddingRef = useRef(new Set())
   const chatTabSyncCard = async (card, msgIdx) => {
-    if (!ankiConnected) return
+    if (!ankiConnected || card.synced || chatCardsAddingRef.current.has(card)) return
+    chatCardsAddingRef.current.add(card)
     const deck = chatCardDeck()
     try {
       if (!(await ankiGetDecks().catch(() => [])).includes(deck)) await ankiCreateDeck(deck)
@@ -9658,6 +9772,10 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       }))
     } catch (err) {
       console.error('[Chat] sync card failed:', err)
+      // It used to fail silently: the button just did nothing.
+      alertDialog(t('chat_addCardFailed', { msg: err?.message || String(err) }))
+    } finally {
+      chatCardsAddingRef.current.delete(card)
     }
   }
 
@@ -9686,6 +9804,10 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
   }
 
   const chatTabNewChat = async () => {
+    // Not while a reply is on its way: it lands in the conversation it was asked in, and switching
+    // under it put that conversation on screen under the NEW chat's id (the next save then wrote it
+    // over the other chat).
+    if (chatTabLoading) return
     // Save current session if it has messages
     if (chatTabMsgs.length > 0) {
       await chatTabSaveCurrent(chatTabMsgs, chatTabSessionId)
@@ -9695,20 +9817,24 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
   }
 
   const chatTabLoadSession = async (session) => {
+    if (chatTabLoading) return // see chatTabNewChat
     // Save current first (don't refresh list — avoid reordering)
     if (chatTabMsgs.length > 0 && chatTabSessionId !== session.id) {
       await chatTabSaveCurrent(chatTabMsgs, chatTabSessionId, undefined, { refreshList: false })
     }
     // Load full messages from disk
+    // A chat that could not be READ must not be opened as an empty one: its id would then take the
+    // next save, which writes the new (short) conversation over the real one.
     try {
-      const data = await fetch(`/api/chat-load?id=${encodeURIComponent(session.id)}`).then(r => r.json())
-      const msgs = (data.messages || []).map(m => ({ ...m, content: m.content || m.text }))
+      const r = await fetch(`/api/chat-load?id=${encodeURIComponent(session.id)}`)
+      const data = await r.json()
+      if (!r.ok || !Array.isArray(data?.messages)) throw new Error(data?.error || `load ${r.status}`)
+      const msgs = data.messages.map(m => ({ ...m, content: m.content || m.text }))
       setChatTabMsgs(msgs)
       setChatTabSessionId(session.id)
       setTimeout(scrollChatToLatestTurn, 80)
-    } catch {
-      setChatTabMsgs([])
-      setChatTabSessionId(session.id)
+    } catch (e) {
+      console.warn('[Chat] could not open that chat, staying on the current one:', e.message)
     }
   }
 
@@ -9723,7 +9849,10 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
   const chatTabRenameSession = async (id, newTitle) => {
     // Load the session, update title, save back
     try {
-      const data = await fetch(`/api/chat-load?id=${encodeURIComponent(id)}`).then(r => r.json())
+      const r = await fetch(`/api/chat-load?id=${encodeURIComponent(id)}`)
+      const data = await r.json()
+      // Renaming re-saves the whole chat: from a failed read it would save it with NO messages.
+      if (!r.ok || !Array.isArray(data?.messages)) throw new Error(data?.error || `load ${r.status}`)
       await fetch('/api/chats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -10333,6 +10462,27 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           </button>
         </div>
       )}
+      {/* Signing in to AnkiWeb is OPTIONAL, so this is an offer and never an error:
+          brand-colored, in flow above the header, dismissable for good. Ebiki cannot
+          sign in on the user's behalf and does not try - the password is typed into
+          Anki itself, which is the whole reason the "Sign in inside Anki" button only
+          raises Anki's window. (Removed by accident along with the update banner in
+          8404a95; the probe kept running with nothing to show its answer.) */}
+      {!isOverlay && showAnkiWebBanner && (
+        <div style={{ flexShrink: 0, background: 'var(--c-brand)', color: 'var(--c-on-brand)', padding: '10px 16px', fontSize: 13, fontWeight: 700, textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <span>☁ {t('ankiWebTitle')} <span style={{ fontWeight: 600, opacity: .92 }}>{t('ankiWebWhy')}</span></span>
+          <a href="https://ankiweb.net/account/signup" target="_blank" rel="noreferrer" className="btn-press"
+            style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.6)', background: 'rgba(0,0,0,.18)', textDecoration: 'none' }}>
+            {t('ankiWebCreate')}
+          </a>
+          <button onClick={openAnkiForSignIn} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.5)' }}>{t('ankiWebOpenAnki')}</button>
+          <button onClick={recheckAnkiWeb} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.35)' }}>{t('ankiWebDone')}</button>
+          <button onClick={dismissAnkiWeb} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px', color: 'var(--c-on-brand)', borderColor: 'rgba(255,255,255,.25)' }}>{t('ankiWebLater')}</button>
+          <span style={{ width: '100%', fontSize: 11.5, fontWeight: 600, opacity: .9 }}>
+            {ankiWebHint || t('ankiWebSafe')}
+          </span>
+        </div>
+      )}
       {/* ── Header ───────────────────────────────────────────────────────────── */}
       {/* WIN_CTRL_W: reserved width (px) for the minimize/maximize/close cluster below, flush to
           the header's true top-right corner. Header padding is widened by exactly this much in
@@ -10432,8 +10582,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                   try {
                     const r = await fetch('/api/launch-overlay', { method: 'POST' })
                     const d = await r.json()
-                    if (d.error) { alert(d.error) } else { setOverlayRunning(true) }
-                  } catch (err) { alert('Failed to launch overlay: ' + err.message) }
+                    if (d.error) { alertDialog(d.error) } else { setOverlayRunning(true) }
+                  } catch (err) { alertDialog('Failed to launch overlay: ' + err.message) }
                 } else {
                   try { await fetch('/api/launch-overlay', { method: 'DELETE' }); setOverlayRunning(false) } catch {}
                 }
@@ -10545,6 +10695,8 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
           language={language} setLanguage={setLanguage}
           targetLang={targetLang} setTargetLang={setTargetLang}
           onRunSetup={() => { setSettingsOpen(false); setOnboarded(false) }}
+          confirmDialog={confirmDialog}
+          onDataFolderChanged={() => { dataSwitchingRef.current = true; configHealthyRef.current = false; setTimeout(() => window.location.reload(), 1500) }}
           provider={provider} setProvider={setProvider}
           apiKeys={apiKeys} apiKey={apiKey} setCurrentKey={setCurrentKey} validateKey={validateKey} providerConfig={providerConfig}
           AI_ROLE_META={AI_ROLE_META} ROLE_DEFAULTS={ROLE_DEFAULTS}
@@ -11376,7 +11528,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                                 setDeckBrowserCopyStatus(null)
                                 setDeckBrowserCopyTarget(ankiDecks.find(d => d !== deckBrowserDeck) || '')
                               }} style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 8px', color: 'var(--c-success)', borderColor: 'rgba(24,169,87,.3)' }}>{t('copyTo')}</button>
-                              <button onClick={() => { if (confirm(t('deck_deleteConfirm', { front }))) deleteNote(note.noteId) }}
+                              <button onClick={async () => { if (await confirmDialog(t('deck_deleteConfirm', { front }))) deleteNote(note.noteId) }}
                                 style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 8px', color: 'var(--c-danger)', borderColor: 'rgba(229,57,46,.25)' }}>{t('deck_del')}</button>
                             </div>
                           </div>
@@ -12253,7 +12405,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                         <button onClick={studyWrapUp} className="ui-btn" style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-warning)', borderColor: 'rgba(232,147,12,.25)' }}>{t('wrapUp')}</button>
                       )}
                       <button onClick={studyEndNow} className="ui-btn" style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-danger)', borderColor: 'rgba(229,57,46,.25)' }}>{t('endNow')}</button>
-                      <FeedbackLegend />
+                      {FeedbackLegend()}
                       <button onClick={exitStudy} className="ui-btn" style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-ink-dim)' }}>{t('exitStudy')}</button>
                     </div>
                   </div>
@@ -12403,7 +12555,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       {studyMode === 'conjugations' && cs && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, padding: '6px 10px', background: 'rgba(223,37,64,.06)', border: '1px solid rgba(223,37,64,.2)', borderRadius: 6 }}>
                           <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-brand)' }}>{cs.front}</span>
-                          {cs.back && <span style={{ fontSize: 12, color: 'var(--c-ink-dim)' }}>— <em>{cs.back}</em></span>}
+                          {cs.back && <span style={{ fontSize: 12, color: 'var(--c-ink-dim)' }}>· <em>{cs.back}</em></span>}
                           <div style={{ marginLeft: 'auto' }}>
                             {cs.addedToAnki ? (
                               <span style={{ fontSize: 11, color: 'var(--c-success)' }}>✓ Added to deck</span>
@@ -12648,7 +12800,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                       )}
 
                       {studyWrappingUp && (
-                        <div style={{ fontSize: 10, color: 'var(--c-warning)', marginTop: 4, textAlign: 'center' }}>Wrapping up — finishing current cards...</div>
+                        <div style={{ fontSize: 10, color: 'var(--c-warning)', marginTop: 4, textAlign: 'center' }}>{t('study_wrappingUp')}</div>
                       )}
                       </>)}
                     </div>
@@ -12809,7 +12961,7 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                   <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--c-ink)' }}>{t('study_batchResults')}</div>
-                  <FeedbackLegend />
+                  {FeedbackLegend()}
                 </div>
                 {studyCardState.map((cs, ci) => {
                   const ratingColors = { easy: 'var(--c-success)', good: 'var(--c-brand)', hard: 'var(--c-warning)', again: 'var(--c-danger)', deleted: 'var(--c-ink-dim)' }
@@ -13860,10 +14012,12 @@ Rules: Answer in 1-2 short sentences. Be direct. No filler, no repetition, no ov
                 style={{ ...S.keyInput, fontSize: 13, width: '100%', boxSizing: 'border-box' }} />
             )}
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button onClick={() => resolveConfirm(false)} className="ui-btn"
-                style={{ ...S.ghostBtn, fontSize: 12, padding: '7px 16px', color: 'var(--c-ink-dim)' }}>
-                {t('cancel')}
-              </button>
+              {!appConfirm.notice && (
+                <button onClick={() => resolveConfirm(false)} className="ui-btn"
+                  style={{ ...S.ghostBtn, fontSize: 12, padding: '7px 16px', color: 'var(--c-ink-dim)' }}>
+                  {t('cancel')}
+                </button>
+              )}
               <button onClick={() => resolveConfirm(true)} autoFocus={!appConfirm.input} className="btn-press"
                 style={{ ...S.captureBtn, borderRadius: 8, fontSize: 12, padding: '7px 18px' }}>
                 OK
