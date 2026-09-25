@@ -99,6 +99,8 @@ Do NOT include the <mode> block while you are still asking questions. Include it
         if (parsed && typeof parsed === 'object' && parsed.name) { setSpec(parsed); setApplied(null) }
         display = display.replace(/<mode>[\s\S]*?<\/mode>/i, '').trim()
       }
+      // Same hard guarantee as Chat and Help: the prompt forbids dashes and shrimp emoji, prompts leak.
+      display = display.replace(/\s*[—–]\s*/g, ', ').replace(/[🦐🦞🦀]️?/gu, '')
       setMessages([...next, { role: 'assistant', text: display || t('studioProposed') }])
     } catch (e) {
       setError(String(e?.message || e))
@@ -117,14 +119,18 @@ Do NOT include the <mode> block while you are still asking questions. Include it
     else setInput(s)
   }, [seed, apiKey])
 
+  // A ref, not `loading`: two quick clicks both read loading=false from the same render and a
+  // create ran twice (two modes with one name).
+  const applyingRef = useRef(false)
   const apply = async () => {
-    if (!spec) return
+    if (!spec || applyingRef.current) return
+    applyingRef.current = true
     setLoading(true); setError(null)
     try {
       const name = await onApply(spec)
       setApplied(name || spec.name || 'mode')
     } catch (e) { setError(String(e?.message || e)) }
-    finally { setLoading(false) }
+    finally { applyingRef.current = false; setLoading(false) }
   }
 
   const card = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.md, padding: '12px 14px', boxShadow: SHADOW.sm }

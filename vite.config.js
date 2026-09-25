@@ -79,17 +79,28 @@ const dataPath = (...segs) => path.join(offlineActive ? OFFLINE_DIR : DATA_DIR, 
 // that genuinely differs keeps the target's value (a single field can't hold two
 // values — this is the only non-additive case, and it's a preference, not lost
 // content). Used for settings/metadata/learner-progress JSON.
+//
+// With a BASE (the offline reconcile knows what both sides started from), a scalar conflict is only a
+// real conflict when BOTH sides changed it. A value only the source changed (the target still equals
+// the base) takes the source's value; without this, a setting changed offline was silently thrown
+// away whenever another computer had touched anything else in the same file meanwhile.
 const isPlainObject = (v) => v && typeof v === 'object' && !Array.isArray(v)
-function deepMergeJson(target, source) {
+const NO_BASE = Symbol('no base')
+const sameJson = (a, b) => JSON.stringify(a) === JSON.stringify(b)
+function deepMergeJson(target, source, base = NO_BASE) {
   if (Array.isArray(target) && Array.isArray(source)) {
     const seen = new Set(target.map((x) => JSON.stringify(x)))
     for (const item of source) { const k = JSON.stringify(item); if (!seen.has(k)) { target.push(item); seen.add(k) } }
     return target
   }
   if (isPlainObject(target) && isPlainObject(source)) {
-    for (const key of Object.keys(source)) target[key] = (key in target) ? deepMergeJson(target[key], source[key]) : source[key]
+    for (const key of Object.keys(source)) {
+      const sub = base !== NO_BASE && isPlainObject(base) && key in base ? base[key] : NO_BASE
+      target[key] = (key in target) ? deepMergeJson(target[key], source[key], sub) : source[key]
+    }
     return target
   }
+  if (base !== NO_BASE && sameJson(target, base) && !sameJson(source, base)) return source
   return target
 }
 
@@ -102,8 +113,9 @@ function deepMergeJson(target, source) {
 //     DIFFERS both are kept — the incoming one written alongside as
 //     "name (from <label>).ext" — so no text/knowledge file is ever clobbered,
 //   • directories recurse.
-// `acc` accumulates { added, merged, keptBoth } across the whole tree.
-function deepMergeInto(from, to, label, acc) {
+// `acc` accumulates { added, merged, keptBoth } across the whole tree. `basePath` (optional, a single
+// file) is the common ancestor for a JSON file on both sides (see deepMergeJson).
+function deepMergeInto(from, to, label, acc, basePath = null) {
   if (!fs.existsSync(from)) return acc
   if (fs.statSync(from).isDirectory()) {
     fs.mkdirSync(to, { recursive: true })
@@ -120,7 +132,9 @@ function deepMergeInto(from, to, label, acc) {
   if (to.toLowerCase().endsWith('.json') && from.toLowerCase().endsWith('.json')) {
     try {
       const before = fs.readFileSync(to, 'utf-8')
-      const merged = deepMergeJson(JSON.parse(before), JSON.parse(fs.readFileSync(from, 'utf-8')))
+      let base = NO_BASE
+      if (basePath) { try { base = JSON.parse(fs.readFileSync(basePath, 'utf-8')) } catch { base = NO_BASE } }
+      const merged = deepMergeJson(JSON.parse(before), JSON.parse(fs.readFileSync(from, 'utf-8')), base)
       const out = JSON.stringify(merged, null, 2) + '\n'
       if (out !== before) { fs.writeFileSync(to, out, 'utf-8'); acc.merged++ }
       return acc
@@ -308,9 +322,18 @@ async function shareReachable() {
 // Seed (once) and activate the offline working copy. Returns false when there is
 // no snapshot to run from — a machine that joined a share and never completed a
 // backup has nothing local, and inventing empty data would be worse than an error.
+// The data folder a pending offline copy was made from (null when there is none or it is unreadable).
+function offlineCopyDataDir() {
+  try { const d = JSON.parse(fs.readFileSync(OFFLINE_META, 'utf-8')).dataDir; return d ? path.resolve(d) : null } catch { return null }
+}
+
 function enterOffline() {
   if (offlineActive) return true
   if (!dataEntriesPresent(BACKUP_DIR)) return false
+  // An offline copy left from ANOTHER data folder (the user switched folders with edits pending) is
+  // not this folder's data: serving it would show, and then save, one share's files as another's.
+  const owner = fs.existsSync(OFFLINE_META) ? offlineCopyDataDir() : null
+  if (owner && owner !== DATA_DIR) { console.log('[Offline] the pending offline copy belongs to', owner, '; not using it for', DATA_DIR); return false }
   try {
     if (!fs.existsSync(OFFLINE_META)) {
       fs.mkdirSync(OFFLINE_DIR, { recursive: true })
@@ -357,7 +380,9 @@ function offlineChangedFiles(rel = '', out = []) {
 
 function offlineStatus() {
   const has = fs.existsSync(OFFLINE_META)
+  const owner = has ? offlineCopyDataDir() : null
   return {
+    otherFolder: !!(owner && owner !== DATA_DIR) ? owner : null, // edits made to a different data folder
     offline: offlineActive,
     pending: has && !offlineActive,                    // edits waiting to go back to a share that is up again
     since: has ? offlineSince : null,
@@ -390,7 +415,7 @@ async function reconcileOffline() {
       fs.copyFileSync(mine, theirs)
       fastForward.push(rel)
     } else {
-      deepMergeInto(mine, theirs, 'this computer offline', acc)
+      deepMergeInto(mine, theirs, 'this computer offline', acc, fs.existsSync(base) ? base : null)
     }
   }
   fs.rmSync(OFFLINE_DIR, { recursive: true, force: true })
@@ -609,6 +634,55 @@ async function syncSharedKeys(opts) {
     console.log('[Keys] shared-key sync skipped:', e.message)
     return { error: e.message }
   }
+}
+
+// ── Mode folders (modes/<name>/config.json + knowledge/) ─────────────────────────────────────────
+// The folder a mode lives in. Windows silently drops trailing dots and spaces from folder names, so
+// "Intro to C." was written into "Intro to C" and the save's sweep (which removes every folder the
+// payload does not name) then deleted it, knowledge base included. "." and ".." resolved outside the
+// mode's own folder (".." wrote a mode config over the data folder's config.json). Device names
+// (CON, NUL, COM1...) cannot be folders on Windows. Every name that was already valid maps to itself.
+const WIN_RESERVED_NAME = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i
+function modeFolderName(name, id) {
+  let clean = String(name || '').replace(/[<>:"/\\|?*\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().replace(/[. ]+$/, '')
+  if (WIN_RESERVED_NAME.test(clean)) clean += '_'
+  return clean || (id !== undefined && id !== null ? `mode-${id}` : '')
+}
+
+// Windows and macOS folders are case-insensitive: "spanish" and "Spanish" are one folder there.
+const folderKey = (d) => (process.platform === 'linux' ? d : d.toLowerCase())
+
+// Persist the whole modes list: one folder per mode, and every other folder removed (a deleted mode).
+//   • A RENAMED mode keeps its folder (it is moved to the new name, found by id among the folders
+//     about to be removed). Writing the config under the new name and sweeping the old folder used
+//     to delete the mode's knowledge base.
+//   • Names are compared the way the file system compares them, so a case-only rename on Windows no
+//     longer writes into the existing folder and then deletes it as "not named".
+function writeModeFolders(modesDir, modes, activeModeId) {
+  const isDir = (d) => { try { return fs.statSync(path.join(modesDir, d)).isDirectory() } catch { return false } }
+  const targets = modes.map((m) => modeFolderName(m.name, m.id))
+  const keep = new Set(['_meta.json', 'Default', ...targets].map(folderKey))
+  const idOf = (d) => { try { return JSON.parse(fs.readFileSync(path.join(modesDir, d, 'config.json'), 'utf-8')).id } catch { return undefined } }
+  const leaving = new Map(fs.readdirSync(modesDir).filter((d) => !keep.has(folderKey(d)) && isDir(d)).map((d) => [d, idOf(d)]))
+  modes.forEach((mode, i) => {
+    const dir = path.join(modesDir, targets[i])
+    if (!fs.existsSync(dir) && mode.id !== undefined && mode.id !== null) {
+      const prev = [...leaving].find(([, id]) => id === mode.id)?.[0]
+      if (prev !== undefined) {
+        try {
+          fs.renameSync(path.join(modesDir, prev), dir)
+          leaving.delete(prev)
+          console.log('[Modes] renamed folder', JSON.stringify(prev), '→', JSON.stringify(targets[i]))
+        } catch (e) { console.log('[Modes] could not move the renamed mode\'s folder:', e.message) }
+      }
+    }
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify(mode, null, 2), 'utf-8')
+  })
+  for (const d of fs.readdirSync(modesDir)) {
+    if (!keep.has(folderKey(d)) && isDir(d)) fs.rmSync(path.join(modesDir, d), { recursive: true, force: true })
+  }
+  fs.writeFileSync(path.join(modesDir, '_meta.json'), JSON.stringify({ activeModeId }), 'utf-8')
 }
 
 // A config.json that EXISTS but cannot be read or parsed (a half-written file, a lock, a short SMB read)
@@ -906,6 +980,10 @@ function apiPlugin() {
               return
             }
             if (!(await shareReachable())) { res.statusCode = 409; res.end(JSON.stringify({ error: 'The shared folder is still unreachable.' })); return }
+            // Merging edits made to one share into ANOTHER folder (the user switched data folders with
+            // offline edits pending) would write that share's files into the wrong place.
+            const owner = offlineCopyDataDir()
+            if (owner && owner !== DATA_DIR) { res.statusCode = 409; res.end(JSON.stringify({ error: `These offline changes were made to ${owner}, not the current data folder. Switch back to that folder to merge them, or discard them.` })); return }
             res.end(JSON.stringify(await reconcileOffline()))
           } catch (e) { res.statusCode = 400; res.end(JSON.stringify({ error: e.message })) }
         })
@@ -1590,7 +1668,8 @@ function apiPlugin() {
         res.setHeader('Content-Type', 'application/json')
         try {
           const url = new URL(req.url, 'http://x')
-          const modeName = (url.searchParams.get('mode') || '').replace(/[<>:"/\\|?*]/g, '').replace(/\s+/g, ' ').trim()
+          const modeName = modeFolderName(url.searchParams.get('mode'))
+          if (!modeName) { res.end(JSON.stringify({ content: '', titles: [] })); return }
           const ids = (url.searchParams.get('sections') || '').split(',').map((s) => parseInt(s, 10)).filter((n) => Number.isInteger(n) && n >= 0).slice(0, 8)
           const cap = Math.min(200000, parseInt(url.searchParams.get('cap'), 10) || 60000)
           const all = readKnowledgeFiles(dataPath('modes', modeName, 'knowledge'))
@@ -1609,7 +1688,7 @@ function apiPlugin() {
         res.setHeader('Content-Type', 'application/json')
         const url = new URL(req.url, 'http://x')
         const modeName = url.searchParams.get('mode') || ''
-        const sanitized = (modeName || '').replace(/[<>:"/\\|?*]/g, '').replace(/\s+/g, ' ').trim()
+        const sanitized = modeFolderName(modeName)
         const knowledgeDir = dataPath('modes', sanitized, 'knowledge')
 
         if (!sanitized) { res.end(JSON.stringify({ files: [], content: null, fileCount: 0 })); return }
@@ -1686,11 +1765,7 @@ function apiPlugin() {
         try { if (!fs.existsSync(MODES_DIR)) fs.mkdirSync(MODES_DIR, { recursive: true }) } catch { /* handled below: reads fall back to empty, writes report the error */ }
         const metaFile = path.join(MODES_DIR, '_meta.json')
 
-        // Sanitize mode name for folder: remove invalid chars, trim, fallback to id
-        const sanitizeName = (name, id) => {
-          const clean = (name || '').replace(/[<>:"/\\|?*]/g, '').replace(/\s+/g, ' ').trim()
-          return clean || `mode-${id}`
-        }
+        const sanitizeName = modeFolderName
 
         if (req.method === 'GET') {
           res.setHeader('Content-Type', 'application/json')
@@ -1757,26 +1832,7 @@ function apiPlugin() {
                 res.end(JSON.stringify({ error: 'refused: empty modes list' }))
                 return
               }
-              if (data.modes) {
-                // Track which folders should exist
-                const activeFolders = new Set(['_meta.json'])
-                for (const mode of data.modes) {
-                  const folderName = sanitizeName(mode.name, mode.id)
-                  activeFolders.add(folderName)
-                  const dir = path.join(MODES_DIR, folderName)
-                  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-                  fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify(mode, null, 2), 'utf-8')
-                }
-                // Remove folders for deleted/renamed modes
-                fs.readdirSync(MODES_DIR).forEach((d) => {
-                  const full = path.join(MODES_DIR, d)
-                  if (d !== 'Default' && fs.statSync(full).isDirectory() && !activeFolders.has(d)) {
-                    fs.rmSync(full, { recursive: true, force: true })
-                  }
-                })
-                // Save meta
-                fs.writeFileSync(metaFile, JSON.stringify({ activeModeId: data.activeModeId }), 'utf-8')
-              }
+              if (Array.isArray(data.modes)) writeModeFolders(MODES_DIR, data.modes, data.activeModeId)
               res.setHeader('Content-Type', 'application/json')
               res.end('{"ok":true}')
             } catch (e) {
@@ -2092,6 +2148,10 @@ function apiPlugin() {
                 fs.writeFileSync(DATA_DIR_POINTER, JSON.stringify({ dataDir: next }, null, 2) + '\n', 'utf-8')
               }
               DATA_DIR = next
+              // The offline routing and the reachability answer described the OLD folder: left in place,
+              // dataPath() kept serving the old share's offline copy as the new folder's data (up to 15s).
+              offlineActive = false
+              reachCache = { at: 0, ok: false }
               const merged = acc.added + acc.merged   // items brought in or combined
               const keptBoth = acc.keptBoth           // conflicting files kept as a second copy
               console.log('[Data dir] switched to', next, restored ? "(restored this computer's data)" : '', merge === true ? `(added ${acc.added}, combined ${acc.merged}, kept-both ${acc.keptBoth})` : copied.length ? `(copied: ${copied.join(', ')})` : '')
@@ -2367,4 +2427,4 @@ export default defineConfig({
 })
 
 // Exported for the key-safety tests only; Vite consumes the default export above.
-export { readEnvFile, parseEnv, writeEnv, mirrorEnv, ENV_FILE, ENV_BAK, ENV_CLEARED, readConfigChecked, readConfigSettled, writeConfig, apiRequestAllowed, deckDirName }
+export { readEnvFile, parseEnv, writeEnv, mirrorEnv, ENV_FILE, ENV_BAK, ENV_CLEARED, readConfigChecked, readConfigSettled, writeConfig, apiRequestAllowed, deckDirName, modeFolderName, writeModeFolders, deepMergeJson }

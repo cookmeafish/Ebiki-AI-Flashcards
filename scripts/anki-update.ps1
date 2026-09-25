@@ -53,6 +53,7 @@ function Get-AnkiLauncherState($ankiExe) {
   return [pscustomobject]@{
     Root = $root; Uv = $uv; PyVersion = $pyVer; Installed = $installed
     Marker = (Test-Path (Join-Path $root '.sync_complete'))
+    WantLauncher = (Test-Path (Join-Path $root '.want-launcher'))
     Mirror = (Test-Path (Join-Path $root 'mirror'))
     NoCache = (Test-Path (Join-Path $root 'nocache'))
   }
@@ -158,7 +159,10 @@ function Update-AnkiIfOffered($ankiExe) {
   $state = Get-AnkiLauncherState $ankiExe
   if (-not $state) { return }
   if ($state.Mirror) { Write-AnkiUpdateLog 'skipped: a download mirror is configured in the Anki launcher'; return }
-  $stuck = -not $state.Marker   # the launcher would open its console instead of Anki
+  # Either one makes the launcher open its console instead of Anki: a missing marker, or the
+  # .want-launcher trigger Anki's own update dialog leaves (only checking the marker let that one
+  # through, so declining here still dropped the next Anki start into the console menu).
+  $stuck = (-not $state.Marker) -or $state.WantLauncher
 
   Set-Status 'Checking for Anki updates.'
   $latest = Get-AnkiLatestInstallable

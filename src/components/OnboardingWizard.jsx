@@ -22,6 +22,7 @@ export default function OnboardingWizard(p) {
   const [step, setStep] = useState(0)
   const [modeInput, setModeInput] = useState('')
   const [creatingFirst, setCreatingFirst] = useState(false)
+  const [modeFailed, setModeFailed] = useState(false)
   const [advanced, setAdvanced] = useState(false) // emergency: custom model entry
 
   // ── Is the key any good? ────────────────────────────────────────────────────
@@ -100,8 +101,12 @@ export default function OnboardingWizard(p) {
   const createFirstMode = async () => {
     if (!modeInput.trim()) { next(); return }
     setCreatingFirst(true)
-    try { await createMode(modeInput.trim()) } catch {}
+    setModeFailed(false)
+    let ok = null
+    try { ok = await createMode(modeInput.trim()) } catch { ok = false }
     setCreatingFirst(false)
+    // Stay on this step when it failed (the finish screen then read as if the mode existed).
+    if (ok === false) { setModeFailed(true); return }
     next()
   }
 
@@ -224,6 +229,7 @@ export default function OnboardingWizard(p) {
               placeholder={t('createModePlaceholder')} style={{ ...S.keyInput, flex: 1 }} disabled={creatingFirst || modeCreating} />
           </div>
           {!apiKey && <div style={{ fontSize: 12, color: C.warning, marginTop: 10 }}>{t('obModeNeedsKey')}</div>}
+          {modeFailed && <div style={{ fontSize: 12, color: C.danger, marginTop: 10 }}>{t('obModeFailed')}</div>}
           <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 18 }}>
             <button className="btn-press" style={{ ...bigBtn, opacity: (!modeInput.trim() || !apiKey || creatingFirst) ? 0.5 : 1 }}
               disabled={!modeInput.trim() || !apiKey || creatingFirst} onClick={createFirstMode}>
