@@ -64,6 +64,10 @@ export function downscaleDataUrl(dataUrl, maxEdge = 1500, mimeType = 'image/jpeg
         c.width = Math.round(img.naturalWidth * scale)
         c.height = Math.round(img.naturalHeight * scale)
         const ctx = c.getContext('2d')
+        // JPEG has no alpha, so transparent pixels came out BLACK: a big pasted PNG of dark text on a
+        // transparent background became dark text on black, and the vision model read nothing. Paint a
+        // white page first. An opaque image (every screenshot) covers it completely, so it is unchanged.
+        if (!/png|webp|gif/i.test(mimeType)) { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height) }
         ctx.drawImage(img, 0, 0, c.width, c.height)
         try { resolve(c.toDataURL(mimeType, quality)) }
         catch { resolve(dataUrl) }

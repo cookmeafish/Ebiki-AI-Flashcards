@@ -29,33 +29,72 @@ export const storageKey = (name) => {
 }
 const mediaName = (kind, key) => `_screenlens/${kind}__${key}.json`
 
-async function readKey(kind, key) {
+// { ok, value }. ok:false means the stored blob could NOT be read (as opposed to "nothing stored"):
+// every writer replaces the whole blob with what it loaded plus its change, so a caller that writes
+// after a failed read overwrites everything stored (all of a mode's memory hooks, say) with one item.
+// Anki answers `false` for a missing file and THROWS when it cannot answer; the local store answers
+// 200 {content:''} for missing and 503 when the shared folder is down. A blob that is not valid JSON
+// counts as read (nothing to keep), so a damaged one can be replaced rather than blocking writes forever.
+async function readKeyChecked(kind, key) {
+  let ankiFailed = false
   try {
     const b64 = await ankiRetrieveMediaFile(mediaName(kind, key))
-    if (b64 && b64 !== false) return JSON.parse(b64decode(b64))
+    if (b64 && b64 !== false) {
+      try { return { ok: true, value: JSON.parse(b64decode(b64)) } } catch { return { ok: true, value: null } }
+    }
   } catch (err) {
+    ankiFailed = true
     console.warn(`[Discover] media read failed for ${kind}, trying local`, err.message)
   }
   try {
     const r = await fetch(`/api/discover-store?kind=${kind}&mode=${encodeURIComponent(key)}`)
     const d = await r.json()
-    if (d && d.content) return JSON.parse(d.content)
-  } catch {}
-  return null
+    if (!r.ok) throw new Error(`local store ${r.status}`)
+    if (d && d.content) {
+      try { return { ok: true, value: JSON.parse(d.content) } } catch { return { ok: true, value: null } }
+    }
+    // Nothing locally. That is only a true "nothing stored" if Anki also answered.
+    return { ok: !ankiFailed, value: null }
+  } catch {
+    return { ok: false, value: null }
+  }
+}
+async function readKey(kind, key) {
+  return (await readKeyChecked(kind, key)).value
 }
 
 export const DEFAULT_LEDGER = { known: [], declined: [], carded: [], offered: [] }
 
-// Read a blob. Tries Anki media first, then the local fallback. Returns the parsed
-// object, or null if nothing is stored anywhere.
-export async function readBlob(kind, mode) {
+// May a name with nothing under its hashed key read the pre-hash LEGACY key? Only when that key can
+// have been written by this name alone. A legacy key with no letter or digit left ("日本語" and
+// "韓国語" both became "---") is shared by every same-length name in another script, so reading it
+// would hand a NEW mode another mode's profile, hooks and grammar log (and the next functional hook
+// write would save them under the new key for good). `siblings` (the other names in use, e.g. every
+// mode name) lets such a key through when no sibling maps to it.
+export const legacyFallbackAllowed = (name, siblings) => {
+  const legacy = legacyKey(name)
+  if (legacy === storageKey(name)) return false // ASCII name: the legacy key IS its key
+  if (/[a-zA-Z0-9]/.test(legacy)) return true
+  if (!Array.isArray(siblings)) return false
+  return !siblings.some((s) => s !== name && legacyKey(s) === legacy)
+}
+
+// Read a blob and say whether the read actually worked: { ok, value } (see readKeyChecked). Callers
+// that WRITE the blob back must not write when ok is false.
+export async function readBlobChecked(kind, mode, { siblings } = {}) {
   const key = storageKey(mode)
-  const found = await readKey(kind, key)
-  if (found !== null) return found
+  const found = await readKeyChecked(kind, key)
+  if (found.value !== null && found.value !== undefined) return found
+  if (!found.ok) return found
   // A non-ASCII name saved before the hashed key existed: its data is still under the legacy key.
   // The next write moves it to the new key.
-  const legacy = legacyKey(mode)
-  return legacy !== key ? readKey(kind, legacy) : null
+  return legacyFallbackAllowed(mode, siblings) ? readKeyChecked(kind, legacyKey(mode)) : { ok: true, value: null }
+}
+
+// Read a blob. Tries Anki media first, then the local fallback. Returns the parsed
+// object, or null if nothing is stored anywhere (or it could not be read).
+export async function readBlob(kind, mode, opts = {}) {
+  return (await readBlobChecked(kind, mode, opts)).value
 }
 
 // Write a blob to both Anki media (if available) and the local fallback. Returns true if the

@@ -20,7 +20,9 @@ const cache = new Map()
 export async function getPronunciation({ word, lang, region = '', config = {}, noteId = null, cardId = null, variant = 0 }) {
   const w = String(word || '').trim()
   if (!w || !lang) return null
-  const key = `${w.toLowerCase()}|${lang}|${region}|v${variant}`.toLowerCase()
+  // The card's identity is part of the key because tier 0 answers per CARD: a voice picked with ↻
+  // is embedded into that card, and a word-only key kept replaying the old default voice for it.
+  const key = `${w.toLowerCase()}|${lang}|${region}|v${variant}|${noteId || cardId || ''}`.toLowerCase()
   if (cache.has(key)) return cache.get(key)
   let result = null
   if (variant > 0) {
@@ -39,6 +41,12 @@ export async function getPronunciation({ word, lang, region = '', config = {}, n
   if (result) {
     if (cache.size > 500) cache.clear()
     cache.set(key, result)
+    // A different speaker was just chosen (and gets embedded into the card), so the word's cached
+    // FIRST-choice answers are stale: drop them and let the next play ask the card again.
+    if (variant > 0) {
+      const prefix = `${w.toLowerCase()}|${lang}|${region}|v0|`.toLowerCase()
+      for (const k of [...cache.keys()]) if (k.startsWith(prefix)) cache.delete(k)
+    }
   }
   return result
 }

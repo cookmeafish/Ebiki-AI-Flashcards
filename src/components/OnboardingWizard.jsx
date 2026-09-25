@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, Fragment } from 'react'
 import { S } from '../styles/theme'
 import { C, RADIUS, SHADOW, FONT } from '../config/tokens'
 import { PROVIDERS } from '../config/providers'
@@ -261,7 +261,11 @@ export default function OnboardingWizard(p) {
               style={{ position: 'absolute', inset: 0, width: 96, height: 96, objectFit: 'contain', visibility: i === step ? 'visible' : 'hidden' }} />
           ))}
         </div>
-        <Body />
+        {/* Called, never rendered as <Body />: a component declared inside this one is a NEW type on
+            every render, so React remounted the whole step on each keystroke and the API key and
+            custom-model fields lost focus after every character. Keyed by step so each step still
+            mounts fresh (autoFocus on the mode field keeps working). */}
+        <Fragment key={step}>{Body()}</Fragment>
         {/* Footer nav (hidden on welcome/finish which have their own primary button) */}
         {step > 0 && step < last && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 26 }}>

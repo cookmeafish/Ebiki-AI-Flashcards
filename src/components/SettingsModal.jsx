@@ -12,7 +12,7 @@ import { LaunchModeCard } from './LaunchModeChoice'
 // machine-local server plumbing (it says where THIS computer's data lives), so
 // it must not ride the config.json autosave — config.json itself lives inside
 // the data folder. Applies live; no restart needed.
-function DataFolderCard({ t, card, fieldLabel, hint }) {
+function DataFolderCard({ t, card, fieldLabel, hint, onChanged }) {
   const [info, setInfo] = useState(null)      // { dataDir, appRoot, isDefault, envOverride }
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
@@ -72,7 +72,11 @@ function DataFolderCard({ t, card, fieldLabel, hint }) {
       }
       if (data.keptBoth) parts.push(t('dataFolderKeptBothNote', { count: data.keptBoth }))
       if (data.copied?.length) parts.push(t('dataFolderCopied', { items: data.copied.join(', ') }))
+      if (onChanged) parts.push(t('dataFolderReloading'))
       setResult({ ok: parts.join(' ') })
+      // The page still holds the OLD folder's modes and settings; the host freezes its writers and
+      // reloads so nothing from here is written into the new folder (see dataSwitchingRef in App).
+      onChanged?.()
     } catch (e) { setResult({ error: String(e.message || e) }) }
     finally { setBusy(false) }
   }
@@ -390,7 +394,7 @@ function UpdatesCard({ t, card, fieldLabel, hint, serverDown }) {
 //   MODE (activeMode → modes/<name>): Study, Cards & Anki, Knowledge, Overlay, Manage Modes
 export default function SettingsModal(p) {
   const {
-    t, category, setCategory, onClose,
+    t, category, setCategory, onClose, onDataFolderChanged, confirmDialog,
     // General (global)
     appTheme, setAppTheme, appLanguage, setAppLanguage,
     language, setLanguage, targetLang, setTargetLang, onRunSetup,
@@ -594,7 +598,7 @@ export default function SettingsModal(p) {
         </div>
       </div>
       <LaunchModeCard t={t} card={card} fieldLabel={fieldLabel} hint={hint} />
-      <DataFolderCard t={t} card={card} fieldLabel={fieldLabel} hint={hint} />
+      <DataFolderCard t={t} card={card} fieldLabel={fieldLabel} hint={hint} onChanged={onDataFolderChanged} />
       <UpdatesCard t={t} card={card} fieldLabel={fieldLabel} hint={hint} serverDown={serverDown} />
       {onRunSetup && (
         <button onClick={onRunSetup} style={{ ...S.ghostBtn, fontSize: 12 }}>↻ {t('runSetupAgain')}</button>
@@ -954,7 +958,7 @@ export default function SettingsModal(p) {
                 <span style={{ flex: 1, color: f.disabled ? C.inkFaint : C.ink, textDecoration: f.disabled ? 'line-through' : 'none' }}>{f.name}</span>
                 <span style={{ color: C.inkFaint, fontSize: 10 }}>{(f.size / 1024).toFixed(1)}KB</span>
                 <button onClick={() => toggleKnowledgeFile(f.name)} style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 7px' }}>{f.disabled ? t('enable') : t('disable')}</button>
-                <button onClick={() => { if (confirm(`Delete "${f.name}"?`)) deleteKnowledgeFile(f.name) }} style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 7px', color: C.danger, borderColor: 'rgba(229,57,46,.25)' }}>{t('delete')}</button>
+                <button onClick={async () => { if (await confirmDialog(t('deck_deleteConfirm', { front: f.name }))) deleteKnowledgeFile(f.name) }} style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 7px', color: C.danger, borderColor: 'rgba(229,57,46,.25)' }}>{t('delete')}</button>
               </div>
             ))}
           </div>
@@ -1033,7 +1037,7 @@ export default function SettingsModal(p) {
                 {m.type === 'language' ? '\u{1F310}' : '\u{1F4DA}'} {m.name}
               </button>
               {modes.length > 1 && (
-                <span onClick={() => { if (confirm(`Delete mode "${m.name}"?`)) deleteMode(m.id) }} style={{ cursor: 'pointer', color: C.inkFaint, fontSize: 14, padding: '0 2px' }}>&times;</span>
+                <span onClick={async () => { if (await confirmDialog(t('modeDeleteConfirm', { name: m.name }))) deleteMode(m.id) }} style={{ cursor: 'pointer', color: C.inkFaint, fontSize: 14, padding: '0 2px' }}>&times;</span>
               )}
             </div>
           ))}

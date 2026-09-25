@@ -29,10 +29,9 @@ Opening the **Ebiki** shortcut does a quick check for a newer version:
 - If none (or you're offline), the app just opens normally, seamlessly.
 - If there's an update, the start-up window asks right there: **Update now** or **Not now**. It checks every single time you open the shortcut, so saying no just opens the app and you'll be asked again next time. The start-up window also tells you what it's doing while it works, so a longer start says why.
 
-If you skip it, or walk away and the question times out, the app itself shows an **update banner** across the top once it opens, with **Update now**. **Later** hides it for a few hours, not forever, so an update never goes unnoticed. After updating, use **Restart now** in the banner (or close and reopen the shortcut) to finish applying it.
-
 You can also update anytime from **Settings → General → Updates**, which shows which version you're on
-(for example `Ebiki 2026.08.28`).
+(for example `Ebiki 1.5.0`, with the release date and build underneath) and offers **Restart now** to
+finish applying an update.
 
 If you installed from a ZIP, the installer turns the folder into a normal Git checkout of the project, so
 `git pull` in that folder works by hand too. Your settings, learning modes and decks are left alone.
@@ -52,11 +51,11 @@ notice, then close Anki and open it again. (Add-ons only load when Anki starts.)
 
 ## Running the app
 
-Double-click the **Ebiki** shortcut. It starts the app in the background and opens it as its own window - not a browser tab: no address bar, no tab strip, its own taskbar icon, maximized (so your taskbar stays visible; press F11 for true fullscreen). It only ever runs one copy: if it's already running, the shortcut just brings that window to the front.
+Double-click the **Ebiki** shortcut. A small start-up window appears at once and says what it is doing, then the app opens as its own window (no address bar or tab strip, maximized; F11 for fullscreen) or, if you chose it, as a browser tab. Change this per computer in Settings → General. It only ever runs one copy: if it's already running, the shortcut just brings it to the front.
 
-**Anki starts with it**, in a normal (not minimized) window so you can see it came up, because that is where your cards live. Anki takes a few seconds to come up, so the app may briefly say "Anki is not connected"; it connects on its own as soon as Anki is ready. Leave Anki running while you use Ebiki.
+**Anki starts with it**, minimized to the taskbar, because that is where your cards live (the very first time, it opens normally so you can answer its setup questions). If an Anki update is available, the start-up window offers it first. Anki takes a few seconds to come up, so the app may briefly say "Anki is not connected"; it connects on its own as soon as Anki is ready. Leave Anki running while you use Ebiki.
 
-To stop it, close the Ebiki window and end the background `node` process (Task Manager), or just restart your computer.
+To stop it, close the Ebiki window; the background server shuts itself down shortly after.
 
 ## Notes
 
