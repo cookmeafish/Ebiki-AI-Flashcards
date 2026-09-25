@@ -387,20 +387,30 @@ function Check-Update {
         & git -C $app reset --hard FETCH_HEAD 2>&1 | Out-Null
       }
     }
-    Set-Status 'Installing the update. Almost done.'
-    & cmd /c "cd /d ""$app"" && npm install --no-fund --no-audit" 2>&1 | Out-Null
-    # When the app was already up, the running copy is still serving the OLD code
-    # (the dev server cannot reload vite.config.js or new dependencies live), so
-    # say the one thing that finishes the job rather than pretending it is done.
-    if ($AlreadyRunning) { Set-Status 'Update installed. Close Ebiki and open it again to finish.'; Start-Sleep -Seconds 4 }
-    Write-UpdateLog ("launcher: applied, now at {0}" -f (& git -C $app rev-parse --short HEAD 2>$null))
+    $now = (& git -C $app rev-parse HEAD 2>$null)
+    if ($now -eq $local) {
+      # Nothing moved: the fetch failed, a hand-edited tracked file blocked matching master, or
+      # git refused the merge. Carrying on as if it worked told the user "Update installed" and
+      # logged "applied" while the old version kept running.
+      Set-Status 'The update could not be installed this time. Opening your current version.'
+      Start-Sleep -Seconds 3
+      Write-UpdateLog ("launcher: update FAILED, still at {0}" -f $local.Substring(0,7))
+    } else {
+      Set-Status 'Installing the update. Almost done.'
+      & cmd /c "cd /d ""$app"" && npm install --no-fund --no-audit" 2>&1 | Out-Null
+      # When the app was already up, the running copy is still serving the OLD code
+      # (the dev server cannot reload vite.config.js or new dependencies live), so
+      # say the one thing that finishes the job rather than pretending it is done.
+      if ($AlreadyRunning) { Set-Status 'Update installed. Close Ebiki and open it again to finish.'; Start-Sleep -Seconds 4 }
+      Write-UpdateLog ("launcher: applied, now at {0}" -f (& git -C $app rev-parse --short HEAD 2>$null))
+    }
   } else {
     Write-UpdateLog 'launcher: nothing changed'
   }
   # 'no' -> just open. Nothing is recorded, so the next launch asks again.
   # 'timeout' (nobody was at the computer) -> open normally. Nothing is lost
-  # either way: the app itself carries the same offer as a banner once it is up,
-  # and keeps bringing it back.
+  # either way: the next launch asks again, and Settings > General > Updates
+  # offers it inside the app.
   Set-Status 'Starting the study server.'
 }
 try { Check-Update } catch {}

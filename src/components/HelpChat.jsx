@@ -163,15 +163,20 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [askEbiSignal])
 
-  // Load the most recent help session on mount
+  // Load the most recent help session on mount. The session id is adopted only TOGETHER with its
+  // messages: adopting it when the load failed (share down, a damaged file) made the next message
+  // save a 2-message chat over that id, erasing the stored conversation. Skipped once the user has
+  // already started typing a conversation (the late load would replace it on screen).
+  const userStartedRef = useRef(false)
   useEffect(() => {
-    fetch('/api/chats').then(r => r.json()).then(sessions => {
-      const helpSessions = sessions.filter(s => s.type === 'help')
+    fetch('/api/chats').then(r => (r.ok ? r.json() : [])).then(sessions => {
+      const helpSessions = (Array.isArray(sessions) ? sessions : []).filter(s => s.type === 'help')
       if (helpSessions.length > 0) {
         const latest = helpSessions[0] // already sorted by mtime desc
-        setSessionId(latest.id)
-        fetch(`/api/chat-load?id=${encodeURIComponent(latest.id)}`).then(r => r.json()).then(data => {
-          if (data?.messages?.length) setMessages(data.messages)
+        fetch(`/api/chat-load?id=${encodeURIComponent(latest.id)}`).then(r => (r.ok ? r.json() : null)).then(data => {
+          if (!Array.isArray(data?.messages) || userStartedRef.current) return
+          setSessionId(latest.id)
+          setMessages(data.messages)
         }).catch(() => {})
       }
     }).catch(() => {})
@@ -187,13 +192,16 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: sid || undefined, title, messages: msgs, type: 'help' }),
       })
-      const data = await res.json()
-      return data.id
+      const data = await res.json().catch(() => null)
+      return (res.ok && data?.id) || sid
     } catch { return sid }
   }
 
   // New chat — save current, start fresh
   const newChat = async () => {
+    // A reply in flight lands in the conversation it was asked in; starting a new chat under it put
+    // the old conversation back on screen with no id, so the next message duplicated it.
+    if (loading) return
     if (messages.length > 0) {
       await saveMessages(messages, sessionId)
     }
@@ -363,6 +371,7 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
   const sendMessage = async () => {
     if (!input.trim() || loading || !apiKey || !askAI) return
     const userMsg = input.trim()
+    userStartedRef.current = true
     setInput('')
     const newMsgs = [...messages, { role: 'user', text: userMsg }]
     setMessages(newMsgs)

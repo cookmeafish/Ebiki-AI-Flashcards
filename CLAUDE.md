@@ -151,9 +151,22 @@ An autosave that posts WHOLE state must not run on state from a failed read, and
 - **Deck progress notes** are read with `readDeckProgress` (`{ok, content}`; a missing file is a real empty
   read). Chat `<progress-update>` and "Generate Insights" REPLACE the file, so both write only over notes that
   were actually read (`deckProgressOkRef`, `chatTabAttachedDeck.progressOk`, `existingOk`).
-- **Chat sessions**: a chat that fails to load is NOT opened empty (its id would take the next save);
-  rename refuses to re-save from a failed read; switching or starting a chat is ignored while a reply is
-  pending (the reply lands in the conversation it was asked in).
+- **Chat sessions** (Chat tab AND Ebi's Help): a chat that fails to load is NOT opened empty (its id would take
+  the next save), including the restore-on-refresh and Help's load-on-mount; rename refuses to re-save from a
+  failed read; switching or starting a chat is ignored while a reply is pending (the reply lands in the
+  conversation it was asked in). A failed save keeps the old id (undefined made the next save a new chat).
+- **An async result lands only where it was asked, and never writes back a whole array copied before the
+  await.** Capture a token when the work starts and drop the result if it moved: `discoverGenRef` (mode or
+  Discover deck switch), `scanGenRef` (Picture scan; word indices are reused across scans), `pinGenRef`
+  (pinned Picture word), `stillOnQuestion` (meaning hint, Fix question), the grader's `stillGrading` ("Back"
+  undid the card), `studySessionRef`. A reply that changes ONE item merges it into the live list with a
+  functional update (the study feedback chat used to write back the whole card list it copied at send time,
+  reverting every grade that landed meanwhile; those cards then sat on "Evaluating" forever).
+- **A grading reply must cover every question** (`complete` in `evaluateCardAnswers`): `parseAiJson` salvages
+  the complete rows of a truncated array, and counting wrong answers over those rows alone rated a card Easy.
+- **Bulk-edit saves re-read the cards first** (`commitAcceptedRecs`): a suggestion replaces the fields/tags it
+  names as they were when the check ran, so a card edited since (deck browser or Anki) is skipped with
+  `deck_changedSinceSuggest`. Fields that had bold `Label:` lines are written back through `cardBackToHtml`.
 - **A config.json that EXISTS but will not parse is not "no config".** `readConfigSettled` (the GET) retries
   ~1s (another computer mid-write); an IO failure then answers 503 (client: unreachable, autosave off); a file
   that truly is not JSON is RENAMED to `config.json.corrupt-<stamp>` (kept, never deleted) and served as
@@ -172,8 +185,16 @@ offline working copy. The pristine base makes reconnect a real 3-way merge (my c
   snapshot (the only `down` case).
 - **Reconcile** (`/api/offline`: GET `{offline, pending, since, changes}`, POST reconciles, POST
   `{discard:true}` drops edits): only files differing from base; share missing or unchanged → fast-forward;
-  share also moved → `deepMergeInto` (non-JSON kept-both as `name (from this computer offline).ext`; scalar
-  conflicts keep the SHARE's value). Then `.local-offline/` is removed and `runBackup()` refreshes the base.
+  share also moved → `deepMergeInto(..., basePath)` (non-JSON kept-both as `name (from this computer
+  offline).ext`). **JSON merges against the base** (`deepMergeJson(theirs, mine, base)`): a value only this
+  computer changed wins; only a value BOTH sides changed keeps the share's. Without the base, a setting changed
+  offline was lost whenever another computer touched anything else in that file. Join/return merges pass no
+  base (scalar conflicts keep the target, as before). Tests: `merge3.test.js`. Then `.local-offline/` is
+  removed and `runBackup()` refreshes the base.
+- **The offline copy belongs to one data folder** (`.offline.json` `dataDir`, `offlineCopyDataDir()`):
+  `enterOffline` won't serve another folder's copy, reconcile refuses to merge it into another folder (409),
+  and a data-folder switch resets `offlineActive` + `reachCache` (dataPath kept routing the new folder
+  through the old share's offline copy for up to 15s).
   **Offline deletions are NOT replayed** (indistinguishable from never-synced; re-deleting shared data is
   unrecoverable).
 - Client: config fetch reads `X-Ebiki-Offline`; a 30s `/api/offline` poll drives an amber dismissable banner
@@ -289,7 +310,9 @@ week, so a user ran a fixed bug for weeks). Don't simplify it back.
   returned. Every skip in `Check-Update` logs its reason (no git, not a checkout, wrong branch, unreachable,
   already latest).
 - **Every update decision is logged to `logs/update.log`** (who asked, answer, whether HEAD moved). Tested:
-  only `'yes'` moves HEAD. The only path that changes code without a Yes is the installer's `Link-ToGit`, which
+  only `'yes'` moves HEAD. A Yes that did NOT move HEAD (fetch failed, a hand-edited tracked file, a refused
+  merge) says so in the splash and logs `update FAILED`, and skips npm install (it used to say "Update
+  installed" and log "applied"). The only path that changes code without a Yes is the installer's `Link-ToGit`, which
   warns first.
 - **`/api/update` robustness** (each was a real bug): GET has a `send()` watchdog so it ALWAYS answers (the
   timeout reply still carries the local facts); git runs with `GIT_TERMINAL_PROMPT=0` + `GCM_INTERACTIVE=never`;
@@ -428,7 +451,8 @@ aqt 26.9.3, anki-release 26.5), and older launchers write `requires-python = ">=
   → `logs/anki-update-uv.*.log`, decisions → `logs/anki-update.log`.
 - **Never leaves Anki broken**: success = `aqt-<ver>.dist-info` exists, then touch `.sync_complete` AFTER the
   pyproject. Any failure re-pins the installed version, re-syncs, and sets the marker. A stuck launcher (marker
-  missing) is repaired the same way when nothing is offered or the user declines.
+  missing, OR a `.want-launcher` trigger left by Anki's own update dialog) is repaired the same way when
+  nothing is offered or the user declines.
 - Skipped: classic installs (no `uv.exe`), no venv yet, a `mirror` file, offline.
 - Anki's own in-app update still restarts into the launcher console; the next Ebiki launch repairs failures.
 - **Stuck launcher console** (`scripts/anki-start.ps1`, dot-sourced by `launch.ps1`, run with `-Start` by
@@ -491,6 +515,20 @@ components.
 - `modes/<name>/config.json`; knowledge in `modes/<name>/knowledge/`, served by `/api/modes/knowledge`
   (always `?mode=<activeMode.name>`). The whole `modes/` folder is gitignored. Missing folders never break:
   `mkdirSync(MODES_DIR, {recursive})` on demand; App falls back to an in-memory `defaultMode`.
+- **Mode folders: `modeFolderName` + `writeModeFolders` (vite.config.js), used by `/api/modes` AND the
+  knowledge endpoints.** The POST removes every folder the list does not name, so: a RENAME moves the old
+  folder (found by id among the folders about to be removed; writing the new name and sweeping the old one
+  deleted the knowledge base); names compare case-insensitively on Windows/macOS (a case-only rename deleted
+  the mode); trailing dots/spaces are stripped (Windows drops them, so "Intro to C." was swept), "."/".."
+  can't escape (".." wrote a mode over config.json), device names get "_". Tests: `mode-folders.test.js`.
+- **Mode names are unique** (`uniqueModeName`, " 2" suffix on create/Studio; rename refuses a clash via
+  `modeNameKey`): two modes with one name share one folder. **Name-keyed stores follow a rename**
+  (`migrateModeStores`: hooks, grammar, profile, ledger, instant cache; only into an empty store, only from a
+  real read). **Modes POSTs are serialized** (`postModes`, whole-list writes could land out of order) and
+  knowledge reads await `modesSaveRef` (a rename's folder move must land first). Every modes write goes
+  through the live refs, never the render-time `modes` (`setAnkiDeck`, `createMode` after its AI call).
+  Config saves are serialized the same way (`configSaveRef`). `createMode` returns true/false (onboarding
+  stays on its step on false).
 - **The knowledge base flows APP-WIDE**: `modeKnowledge` (loaded on mode switch, refreshed on
   upload/delete/toggle) + `knowledgeBlock(cap)` inject it into Chat, `generateCards`, `evaluateCardAnswers`,
   Discover (profile + suggestions), Help (12k cap), Picture click-to-explain (4k cap). Default
@@ -947,6 +985,10 @@ hardcoded.
   note's hooks with word-key hooks for each headword form. The popup hydrates word-key hooks synchronously, then
   resolves the note async (`studyWordFindExisting`) and records `hookNoteId`. `deleteNoteHook(noteId, hook,
   front)` deletes by VALUE across noteId + word keys. Writes are functional (`writeModeHooks`).
+  **A write goes to the mode the in-memory list belongs to** (`hooksModeIdRef` / `grammarModeIdRef`, name
+  resolved by id at write time), never the caller's `activeMode.name`: a hook finishing after a mode switch
+  saved the new mode's hooks over the old mode's blob. Hooks/slips started in another mode are not filed
+  under the new one (`hookModeId`, `gradeModeId`).
 
 ## Study start screen and Dropdown
 - **One sectioned card** (What to study / Language / Session format), label-above-control fields in
@@ -1044,8 +1086,10 @@ Help can set it (`set_dialect`); it rides in `appContext.activeMode.dialect`.
   pass rate (`ankiGetTodayReviewStats`, cumulative). Persisted to `localStorage('ebiki-anki-stats')` and
   hydrated on mount; offline falls back to `screenlens-study-history`. Dates are LOCAL `YYYY-MM-DD`
   (`toLocaleDateString('en-CA')`) to match Anki days.
-- **Recent Sessions**: FIXED grid (82px | 1fr | 84px | 48px), rows grouped by (date, deck) since every sync flush
-  records a session; cards summed, accuracy card-weighted.
+- **Recent Sessions**: FIXED grid (82px | 1fr | 84px | 48px), rows grouped by (date, deck); cards summed,
+  accuracy card-weighted. **One history entry per session** (`runId` = `studyRunIdRef`, minted in
+  `beginStudy`, carried through a resume, upserted): the summary effect re-runs on every change (re-rate, hook,
+  sync) and used to ADD an entry each time, multiplying the offline numbers.
 
 ## Grammar-slip log (`modeGrammarLog`, per-mode blob `grammar`, language modes)
 Every `grammar` note the grader writes (penalized or not) is saved via `addGrammarSlips(front, notes)` in
@@ -1110,9 +1154,14 @@ Every word gets the same stacked column (blank slot when unglossed) so the basel
   modal (`appConfirm`, z 10002). `if (!(await confirmDialog('…'))) return` (callers async). Backdrop/Esc cancel,
   OK auto-focused. `alertDialog` is the same modal with `notice: true` (OK only); `promptDialog` adds a text field
   (`window.prompt` throws in Electron).
+- **Answer submits are claimed once per question state** (`claimSubmit`: session, card, question, answers
+  and attempts count, answer text; cleared by "Back"): a double Enter or double tap on a card's last question
+  graded it twice. PBQ submits use `pbqSubmittedRef`.
 - **Adding cards is guarded against double clicks with REFS, not state** (a state flag read from the
   render-time closure lets two quick clicks both pass): `chatCardsAddingRef` (chat cards),
-  `quickAddInFlightRef` + `quickAddBatchRef` (Quick Add). Both paths allow duplicates, so Anki does not catch it.
+  `quickAddInFlightRef` + `quickAddBatchRef` (Quick Add), `pictureAddingRef` (Picture), `discoverSavingRef` +
+  `discoverActedRef` (Discover), `modeCreatingRef` and Studio's `applyingRef` (modes). Card paths allow
+  duplicates, so Anki does not catch it.
 - **Exiting study warns about cards still being graded** (`study_exitGrading`): they have no rating yet, so the
   unsynced check never saw them and they were dropped silently.
 - Images are non-draggable globally (`img { -webkit-user-drag: none }`) and `handleDragOver` requires
@@ -1185,7 +1234,8 @@ Every word gets the same stacked column (blank slot when unglossed) so the basel
   instantly (`modelPlans[prov][preset].plan`), then `ensurePresetPlan(prov, preset)` in the background re-lists
   models; only if new models appeared (or never decided) it researches them (web search + strongest model →
   `modelCards[id]`), has the strongest model decide a role→model map over ALL available models, then PROBES
-  the picks (`probeModel`, 1-token call; 403/404 = down) and re-decides without dead ones. Any failure keeps
+  the picks (`probeModel`, 1-token call; 403/404 = down, but a KEY error, incl. a 400 saying API_KEY_INVALID,
+  is unknown, never down: it used to cache every model as down for a day) and re-decides without dead ones. Any failure keeps
   tier `ROLE_DEFAULTS`. Persisted: `modelPlans`/`modelCards`/`modelAvailability`. `planDeciding` drives "Ebi is
   choosing models". **Test connections** (`runConnectionTest`) probes the whole catalog; if NOTHING answers it
   reports one connection error.
