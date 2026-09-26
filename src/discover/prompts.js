@@ -108,7 +108,7 @@ Return ONLY a JSON object (no markdown, no commentary):
 // ─── Web verification ───────────────────────────────────────────────────────
 // Given a draft suggestion + search results, confirm or correct the facts so we
 // don't card a hallucination.
-export function buildVerifyPrompt({ suggestion, searchResults }) {
+export function buildVerifyPrompt({ suggestion, searchResults, userLanguage }) {
   return `Verify the facts of this proposed flashcard item against the web search results. Correct it if wrong.
 
 Proposed item:
@@ -118,7 +118,7 @@ Proposed item:
 
 Web search results:
 ${searchResults.map((r, i) => `${i + 1}. ${r.title}\n   ${r.url}\n   ${r.snippet}`).join('\n\n')}
-
+${userLanguage ? `\nWrite "translation", "draftMeaning" and "note" in ${userLanguage}, the language the proposed item is already written in. Web results are often in another language: correct the FACTS, keep the language.\n` : ''}
 Return ONLY a JSON object (no markdown):
 {
   "verified": true | false,

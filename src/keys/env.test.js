@@ -12,14 +12,14 @@ import path from 'path'
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'ebiki-keys-'))
 process.env.EBIKI_ENV_DIR = DIR
 
-const { readEnvFile, parseEnv, writeEnv, ENV_FILE, ENV_BAK, ENV_CLEARED } = await import('../../vite.config.js')
+const { readEnvFile, parseEnv, writeEnv, ENV_FILE, ENV_BAK, ENV_CLEARED, ENV_DECLINED, readDeclined } = await import('../../vite.config.js')
 
 const ANT = 'sk-ant-aaaaaaaaaaaaaaaaaaaa'
 const OAI = 'sk-proj-bbbbbbbbbbbbbbbbbbbb'
 
 const seed = (content) => fs.writeFileSync(ENV_FILE, content, 'utf-8')
 const wipe = () => {
-  for (const f of [ENV_FILE, ENV_BAK, ENV_CLEARED]) fs.rmSync(f, { force: true })
+  for (const f of [ENV_FILE, ENV_BAK, ENV_CLEARED, ENV_DECLINED]) fs.rmSync(f, { force: true })
 }
 
 beforeEach(wipe)
@@ -103,5 +103,24 @@ describe('.env.bak only ever grows', () => {
     writeEnv({ anthropic: '' })                  // user cleared the only key
     expect(fs.existsSync(ENV_CLEARED)).toBe(true)
     expect(parseEnv()).toEqual({})
+  })
+})
+
+describe('a provider cleared on purpose is remembered per provider', () => {
+  // The shared-folder pull skips declined providers; without this record, clearing
+  // a key on a share was undone by the very next sync.
+  it('clearing one provider declines it and leaves the other alone', () => {
+    seed(`VITE_ANTHROPIC_API_KEY=${ANT}\nVITE_OPENAI_API_KEY=${OAI}\n`)
+    writeEnv({ anthropic: '' })
+    expect(readDeclined()).toEqual(['anthropic'])
+    expect(readEnvFile(ENV_FILE)).toEqual({ openai: OAI })
+  })
+
+  it('storing a key again lifts the decline', () => {
+    seed(`VITE_ANTHROPIC_API_KEY=${ANT}\n`)
+    writeEnv({ anthropic: '' })
+    writeEnv({ anthropic: ANT })
+    expect(readDeclined()).toEqual([])
+    expect(fs.existsSync(ENV_DECLINED)).toBe(false)
   })
 })

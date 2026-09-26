@@ -40,7 +40,10 @@ export async function getPronunciation({ word, lang, region = '', config = {}, n
   }
   if (result) {
     if (cache.size > 500) cache.clear()
-    cache.set(key, result)
+    // Only REAL recordings are remembered. A synthesized voice usually answers because a recording
+    // lookup just failed (rate limit, offline); caching it kept the word robot-voiced, and never
+    // embedded, for the whole session.
+    if (result.source === 'wiktionary' || result.source === 'anki') cache.set(key, result)
     // A different speaker was just chosen (and gets embedded into the card), so the word's cached
     // FIRST-choice answers are stale: drop them and let the next play ask the card again.
     if (variant > 0) {

@@ -74,7 +74,7 @@ function Get-AnkiPids {
   # pythonw is far too generic to trust by name; it counts only when the image
   # really is Anki's (25.x runs the app out of a venv).
   foreach ($p in (Get-Process -Name 'pythonw' -ErrorAction SilentlyContinue)) {
-    try { if ($p.Path -like '*Anki*') { [void]$pids.Add([uint32]$p.Id) } } catch {}
+    try { if ($p.Path -match '[\\/](Anki|AnkiProgramFiles)[\\/]') { [void]$pids.Add([uint32]$p.Id) } } catch {}
   }
   $pids
 }

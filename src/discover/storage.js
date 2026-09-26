@@ -27,7 +27,13 @@ export const storageKey = (name) => {
   const legacy = legacyKey(name)
   return /[^\x20-\x7E]/.test(String(name || '')) ? `${legacy}-${fnv1a(name)}` : legacy
 }
-const mediaName = (kind, key) => `_screenlens/${kind}__${key}.json`
+// Anki media names cannot contain "/". With the old `_screenlens/...` name AnkiConnect read the
+// basename while its store step deleted the name WITH the slash (matching nothing), so every write
+// after the first became a new hash-suffixed copy and every read returned the FIRST version ever
+// saved (measured: 138 orphan copies; hooks read back as a months-old 1-hook file). Flat name now,
+// "_" prefix kept so Check Media leaves it alone. The legacy name is read once as a migration source.
+const mediaName = (kind, key) => `_ebiki_${kind}__${key}.json`
+const legacyMediaName = (kind, key) => `_screenlens/${kind}__${key}.json`
 
 // { ok, value }. ok:false means the stored blob could NOT be read (as opposed to "nothing stored"):
 // every writer replaces the whole blob with what it loaded plus its change, so a caller that writes
@@ -35,7 +41,35 @@ const mediaName = (kind, key) => `_screenlens/${kind}__${key}.json`
 // Anki answers `false` for a missing file and THROWS when it cannot answer; the local store answers
 // 200 {content:''} for missing and 503 when the shared folder is down. A blob that is not valid JSON
 // counts as read (nothing to keep), so a damaged one can be replaced rather than blocking writes forever.
+// A write that reached the local store but NOT Anki (AnkiConnect down, or stuck behind a dialog) left
+// Anki holding the OLDER copy, and reads try Anki first, so the next read returned the old blob and
+// the next write replaced the newer one with it: hooks and grammar slips vanished. Such a write marks
+// the key "local is newer" (per browser), reads prefer the local copy while the mark stands, and the
+// next successful Anki write clears it.
+const dirtyKey = (kind, key) => `ebiki-blob-local-newer:${kind}:${key}`
+const isLocalNewer = (kind, key) => { try { return localStorage.getItem(dirtyKey(kind, key)) === '1' } catch { return false } }
+const setLocalNewer = (kind, key, on) => { try { on ? localStorage.setItem(dirtyKey(kind, key), '1') : localStorage.removeItem(dirtyKey(kind, key)) } catch {} }
+// Writes per key in this page. The read's push-back clears the mark only if no write happened meanwhile:
+// a write that failed to reach Anki DURING the push re-set the mark, and the older push then wiped it.
+const writeSeq = new Map()
+
 async function readKeyChecked(kind, key) {
+  if (isLocalNewer(kind, key)) {
+    try {
+      const r = await fetch(`/api/discover-store?kind=${kind}&mode=${encodeURIComponent(key)}`)
+      const d = await r.json()
+      if (r.ok && d && d.content) {
+        let value = null
+        try { value = JSON.parse(d.content) } catch { value = null }
+        // Put the newer copy back into Anki so other computers get it too (fail-soft).
+        const seq = writeSeq.get(dirtyKey(kind, key)) || 0
+        ankiStoreMediaFile(mediaName(kind, key), b64encode(d.content))
+          .then(() => { if ((writeSeq.get(dirtyKey(kind, key)) || 0) === seq) setLocalNewer(kind, key, false) })
+          .catch(() => {})
+        return { ok: true, value }
+      }
+    } catch { /* fall through to the normal order */ }
+  }
   let ankiFailed = false
   try {
     const b64 = await ankiRetrieveMediaFile(mediaName(kind, key))
@@ -53,7 +87,14 @@ async function readKeyChecked(kind, key) {
     if (d && d.content) {
       try { return { ok: true, value: JSON.parse(d.content) } } catch { return { ok: true, value: null } }
     }
-    // Nothing locally. That is only a true "nothing stored" if Anki also answered.
+    // Nothing under the new name or locally: migrate from the legacy (frozen, first-version) Anki
+    // file if one exists. Only a true "nothing stored" if Anki also answered.
+    if (!ankiFailed) {
+      const old = await ankiRetrieveMediaFile(legacyMediaName(kind, key)).catch(() => null)
+      if (old && old !== false) {
+        try { return { ok: true, value: JSON.parse(b64decode(old)) } } catch { /* damaged: nothing to keep */ }
+      }
+    }
     return { ok: !ankiFailed, value: null }
   } catch {
     return { ok: false, value: null }
@@ -109,6 +150,7 @@ export async function readBlob(kind, mode, opts = {}) {
 export async function writeBlob(kind, mode, obj, { sync = false } = {}) {
   const json = JSON.stringify(obj, null, 2)
   const key = storageKey(mode)
+  writeSeq.set(dirtyKey(kind, key), (writeSeq.get(dirtyKey(kind, key)) || 0) + 1)
   let ankiOk = false
   try {
     await ankiStoreMediaFile(mediaName(kind, key), b64encode(json))
@@ -116,13 +158,17 @@ export async function writeBlob(kind, mode, obj, { sync = false } = {}) {
   } catch (err) {
     console.warn(`[Discover] media write failed for ${kind}`, err.message)
   }
+  let localOk = false
   try {
-    await fetch(`/api/discover-store?kind=${kind}&mode=${encodeURIComponent(key)}`, {
+    const r = await fetch(`/api/discover-store?kind=${kind}&mode=${encodeURIComponent(key)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: json }),
     })
+    localOk = r.ok
   } catch {}
+  if (ankiOk) setLocalNewer(kind, key, false)
+  else if (localOk) setLocalNewer(kind, key, true)
   if (ankiOk && sync) ankiSyncSoon()   // coalesced: see the toast note on ankiSyncSoon
   return ankiOk
 }

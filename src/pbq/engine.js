@@ -45,6 +45,10 @@ const shuffledIndices = (n, rng = Math.random) => {
   for (let i = n - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1)); [idx[i], idx[j]] = [idx[j], idx[i]]
   }
+  // Never the identity in real use: an ordering then showed ALREADY SOLVED (Submit without moving
+  // anything scored full marks, 1 in 24 for four steps) and matching chips lined up with their boxes.
+  // Rotating by one keeps it random and moves every item. Injected test rngs are left exact.
+  if (rng === Math.random && n > 1 && idx.every((v, i) => v === i)) idx.push(idx.shift())
   return idx
 }
 
@@ -114,7 +118,13 @@ export const compilePbq = (raw, rng = Math.random) => {
       const d = dupes(steps)
       if (d.length) errors.push(`duplicate/empty steps: ${d.join(', ')}`)
       if (!errors.length) {
-        const order = shuffledIndices(steps.length, rng)          // order[pos] = correct-seq idx shown at pos
+        let order = shuffledIndices(steps.length, rng)          // order[pos] = correct-seq idx shown at pos
+        // Rows start in the shown order, so steps already in place score on an untouched Submit: a quarter of
+        // 4-5 step exercises then rated Hard (not Again) with nothing moved. Real use reshuffles until under
+        // 40% sit in place (an untouched Submit then stays below Hard). Injected test rngs are left exact.
+        for (let tries = 0; rng === Math.random && tries < 50 && order.filter((ci, pos) => ci === pos).length / order.length >= 0.4; tries++) {
+          order = shuffledIndices(steps.length, rng)
+        }
         const items = order.map(ci => steps[ci])
         pbq = { kind, title, scenario, items, answer: order.map(ci => ci) } // answer[i] = item i's correct position
       }
@@ -130,6 +140,9 @@ export const compilePbq = (raw, rng = Math.random) => {
       errors.push(`categorize needs ${LIMITS.categorize.minItems}-${LIMITS.categorize.maxItems} items total, got ${items.length}`)
     } else if (catItems.some(list => list.length === 0)) {
       errors.push('every category needs at least one item')
+    } else if (Math.max(...catItems.map(list => list.length)) / items.length > 0.6) {
+      // Lopsided (7 + 1): dropping EVERY item into the big category scored 7/8, a Good synced to Anki.
+      errors.push('categories are too lopsided: no category may hold more than 60% of the items')
     } else {
       const dc = dupes(categories), di = dupes(items)
       if (dc.length) errors.push(`duplicate/empty categories: ${dc.join(', ')}`)
@@ -274,7 +287,7 @@ Otherwise pick whichever ONE of these formats fits the card's topic best, and re
 
 3. categorize — sort items into the correct buckets:
 {"kind":"categorize","title":"...","scenario":"...","groups":{"Category A":["item",...],"Category B":["item",...]}${knowledgeContext ? ',"citations":[{"quote":"..."}]' : ''}}
-(2-3 categories, 5-8 items total, every category non-empty)
+(2-3 categories, 5-8 items total, every category non-empty, no category holding more than 60% of the items)
 
 HARD REQUIREMENTS:
 - "scenario" = 1-3 sentences of realistic exam framing (a situation, not a definition dump). "title" = a short imperative instruction ("Match each attack to its description").

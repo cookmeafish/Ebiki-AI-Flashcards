@@ -37,7 +37,13 @@ export default function ModeStudio({ t, kind = 'create', focus = 'all', existing
   const inputRef = useRef(null)
 
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape' && !loading) onClose() }
+    // Not an Esc a dialog above already took (declining "end study?" closed Studio too); and it is marked
+    // handled, so Settings underneath stays open.
+    const onKey = (e) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || document.querySelector('[data-app-dialog]')) return
+      e.preventDefault()
+      if (!loading) onClose()
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose, loading])
@@ -62,6 +68,9 @@ export default function ModeStudio({ t, kind = 'create', focus = 'all', existing
     return [
       `You are Ebi, a warm, sharp learning-design partner helping the user ${isEdit ? 'refine an existing' : 'design a new'} study mode for a flashcard learning app. Ebi speaks in the first person as Ebi and never calls itself a mascot or an AI.`,
       isEdit && cur ? `CURRENT MODE CONFIG (JSON):\n${JSON.stringify(cur, null, 2)}` : '',
+      // The proposal under review. Its <mode> block is stripped from the chat history, so without this a
+      // revision ("just make the tags lowercase") rebuilt the whole spec blind and the rest drifted.
+      spec ? `YOUR LATEST PROPOSAL, which the user is reviewing (JSON). When revising, start from THIS and keep everything the user did not ask to change exactly as it is:\n${JSON.stringify(spec, null, 2)}` : '',
       focusLine,
       `HOW TO BEHAVE:
 - Expand the user's idea, then ask AT MOST 1 to 3 focused follow-up questions that genuinely change the design (their level and goal, the language they answer in for language modes, sub-topics to emphasize, how they want to be quizzed, card layout preferences). Ask only what matters. Never interrogate.
@@ -97,7 +106,15 @@ Do NOT include the <mode> block while you are still asking questions. Include it
       if (m) {
         const parsed = parseAiJson(m[1])
         if (parsed && typeof parsed === 'object' && parsed.name) { setSpec(parsed); setApplied(null) }
+        // A proposal that cannot be read must not leave the PREVIOUS one's Apply under this reply.
+        else { setSpec(null); setError(t('studioCutOff')) }
         display = display.replace(/<mode>[\s\S]*?<\/mode>/i, '').trim()
+      } else if (/<mode>/i.test(display)) {
+        // Cut off inside the proposal: never show its half-written JSON, and never leave an OLDER proposal's
+        // Apply under a reply that looks new.
+        display = display.replace(/<mode>[\s\S]*$/i, '').trim()
+        setSpec(null)
+        setError(t('studioCutOff'))
       }
       // Same hard guarantee as Chat and Help: the prompt forbids dashes and shrimp emoji, prompts leak.
       display = display.replace(/\s*[—–]\s*/g, ', ').replace(/[🦐🦞🦀]️?/gu, '')
@@ -128,14 +145,18 @@ Do NOT include the <mode> block while you are still asking questions. Include it
     setLoading(true); setError(null)
     try {
       const name = await onApply(spec)
-      setApplied(name || spec.name || 'mode')
+      setApplied(name || asText(spec.name) || 'mode')
     } catch (e) { setError(String(e?.message || e)) }
     finally { applyingRef.current = false; setLoading(false) }
   }
 
   const card = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.md, padding: '12px 14px', boxShadow: SHADOW.sm }
-  const specLine = (label, val) => val ? (
-    <div style={{ fontSize: 11, lineHeight: 1.5, marginTop: 4 }}><span style={{ color: C.inkDim, fontWeight: 700 }}>{label}: </span><span style={{ color: C.ink }}>{val}</span></div>
+  // The review card renders the model's proposal BEFORE Apply shapes it: a list or object value (tagRules
+  // as a list, name as an object) threw "Objects are not valid as a React child" and took the app down.
+  const asText = (v) => (v == null ? '' : typeof v === 'string' ? v : Array.isArray(v) ? v.map(asText).filter(Boolean).join('\n')
+    : typeof v === 'object' ? Object.entries(v).map(([k, x]) => `${k}: ${asText(x)}`).join('\n') : String(v))
+  const specLine = (label, val) => asText(val) ? (
+    <div style={{ fontSize: 11, lineHeight: 1.5, marginTop: 4, whiteSpace: 'pre-wrap' }}><span style={{ color: C.inkDim, fontWeight: 700 }}>{label}: </span><span style={{ color: C.ink }}>{asText(val)}</span></div>
   ) : null
 
   return (
@@ -143,7 +164,7 @@ Do NOT include the <mode> block while you are still asking questions. Include it
     // of the visual viewport and the flex-centered panel lands down and to the right, off-screen.
     // Cancel the zoom on the backdrop and divide the panel's viewport cap by 1.35, the same
     // convention SettingsModal and the app root use.
-    <div onMouseDown={(e) => { if (e.target === e.currentTarget && !loading) onClose() }}
+    <div data-top-overlay="1" onMouseDown={(e) => { if (e.target === e.currentTarget && !loading) onClose() }}
       style={{ position: 'fixed', top: 0, left: 0, width: 'calc(100vw / 1.35)', height: 'calc(100vh / 1.35)', zIndex: 12000, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <div style={{ width: 'min(560px, 100%)', maxHeight: '100%', display: 'flex', flexDirection: 'column', background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, boxShadow: SHADOW.lg, overflow: 'hidden' }}>
         {/* Header */}
@@ -172,7 +193,7 @@ Do NOT include the <mode> block while you are still asking questions. Include it
           {spec && !applied && (
             <div style={{ ...card, borderColor: C.brandRing, background: C.brandTint2 || C.surface }}>
               <div style={{ fontSize: 11, fontWeight: 800, color: C.brand, letterSpacing: '.03em', marginBottom: 6 }}>{t('studioPlan')}</div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>{spec.type === 'language' ? '\u{1F310}' : '\u{1F4DA}'} {spec.name}</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>{spec.type === 'language' ? '\u{1F310}' : '\u{1F4DA}'} {asText(spec.name)}</div>
               {specLine(t('studioLblGoal'), spec.description)}
               {focus !== 'study' && specLine(t('studioLblBack'), spec.backTemplate)}
               {focus !== 'study' && specLine(t('studioLblTags'), spec.tagRules)}
@@ -199,7 +220,7 @@ Do NOT include the <mode> block while you are still asking questions. Include it
         {!applied && (
           <div style={{ display: 'flex', gap: 8, padding: 12, borderTop: `1px solid ${C.border}` }}>
             <input ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') send() }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) send() }}
               placeholder={apiKey ? t('studioPlaceholder') : t('studioNeedKey')} disabled={loading || !apiKey}
               style={{ ...S.keyInput, flex: 1, fontSize: 12.5 }} />
             <button onClick={() => send()} disabled={loading || !apiKey || !input.trim()} className="btn-press"

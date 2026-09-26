@@ -250,7 +250,22 @@ function tick() {
   if (waited > LIMIT) return done();
   // A prompt holds the window open for as long as it takes: a question nobody
   // has answered yet must never be closed out from under the person reading it.
-  if (prompting) { waited = 0; window.setTimeout(tick, STEP); return; }
+  // ...UNLESS the launcher has stopped asking. It waits a fixed time for an answer and then
+  // carries on (writing its next status line); leaving the buttons up let a returning user
+  // click "Update now", see "Updating Ebiki...", and get the old build with nothing updated.
+  if (prompting) {
+    var pending = readStatus();
+    if (!pending || pending.substring(0, 7) === 'PROMPT|' || pending.substring(0, 4) === 'ASK|') {
+      waited = 0; window.setTimeout(tick, STEP); return;
+    }
+    answeredPrompt = document.getElementById('sub').innerText;   // never re-ask this one
+    prompting = false;
+    document.getElementById('ask').style.display = 'none';
+    document.getElementById('track').style.display = 'block';
+    document.getElementById('title').innerText = 'Starting Ebiki';
+    document.body.className = '';
+    lastStatus = '';
+  }
   var status = readStatus();
   if (status.substring(0, 7) === 'PROMPT|') {
     var question = status.substring(7);

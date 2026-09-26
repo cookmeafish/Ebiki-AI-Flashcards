@@ -106,9 +106,12 @@ export function pickShrimp(text) {
   for (const s of SHRIMP) {
     let score = 0
     for (const kw of s.keywords) {
-      if (kw.length <= 2) { if (t.includes(kw)) score += 1; continue } // short tokens / emoji
-      // whole-word (or whole-phrase) match only — no substring matching
-      const re = new RegExp(`(^|[^a-z])${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z]|$)`, 'i')
+      // Substring match only for emoji / symbols; short WORDS ("té", "ok") need word boundaries too.
+      if (!/\p{L}/u.test(kw)) { if (t.includes(kw)) score += 1; continue }
+      // whole-word (or whole-phrase) match only — no substring matching. Boundaries are any-script
+      // letters: with [^a-z], accented letters counted as boundaries, so "sinónimo" matched "sin"
+      // and "artículo" matched "art".
+      const re = new RegExp(`(^|[^\\p{L}\\p{N}])${kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^\\p{L}\\p{N}]|$)`, 'iu')
       if (re.test(t)) score += 1
     }
     if (score > bestScore) { bestScore = score; best = [s] }

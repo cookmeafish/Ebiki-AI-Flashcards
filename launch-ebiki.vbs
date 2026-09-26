@@ -15,18 +15,31 @@ sh.CurrentDirectory = appDir
 ' The splash watches for this file, so a leftover from the previous run would
 ' close it instantly. Never fatal - a splash is a nicety, the launch is not.
 On Error Resume Next
+' ANOTHER launch is still running (its splash or status line was touched in the last 3 minutes: an update
+' question, npm install). Clearing its files and opening a second splash made its question unanswerable
+' (the update was skipped). So: leave its files alone, no second splash, and tell launch.ps1 to stay quiet
+' too; it waits for the other launcher's lock and then just opens the app.
+follower = False
+For Each busyFile In Array("\.app-splash", "\.app-status")
+  If fso.FileExists(appDir & busyFile) Then
+    If DateDiff("s", fso.GetFile(appDir & busyFile).DateLastModified, Now) < 180 Then follower = True
+  End If
+Next
+If follower Then sh.Environment("PROCESS")("EBIKI_LAUNCH_FOLLOWER") = "1"
 readyFile = appDir & "\.app-ready"
-If fso.FileExists(readyFile) Then fso.DeleteFile readyFile, True
+If Not follower And fso.FileExists(readyFile) Then fso.DeleteFile readyFile, True
 ' Same for the files that carry the splash's status line and the update question
 ' it now asks (see scripts/splash.hta): a leftover would open the splash on a
 ' stale message, or make the launcher think a question was already answered.
-For Each leftover In Array("\.app-status", "\.app-answer", "\.app-splash")
-  If fso.FileExists(appDir & leftover) Then fso.DeleteFile appDir & leftover, True
-Next
+If Not follower Then
+  For Each leftover In Array("\.app-status", "\.app-answer", "\.app-splash")
+    If fso.FileExists(appDir & leftover) Then fso.DeleteFile appDir & leftover, True
+  Next
+End If
 
 mshta = sh.ExpandEnvironmentStrings("%SystemRoot%\System32\mshta.exe")
 splash = appDir & "\scripts\splash.hta"
-If fso.FileExists(mshta) And fso.FileExists(splash) Then
+If Not follower And fso.FileExists(mshta) And fso.FileExists(splash) Then
   sh.Run """" & mshta & """ """ & splash & """", 1, False
 End If
 On Error Goto 0

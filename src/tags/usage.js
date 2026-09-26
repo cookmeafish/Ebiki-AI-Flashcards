@@ -95,7 +95,8 @@ export const normalizeUsageTag = (tag) => {
 export const normalizeUsageTags = (tags) => {
   const out = []
   let freq = null
-  for (const raw of tags || []) {
+  // A string or object (a model slip) was iterated letter by letter into one-letter tags, or threw.
+  for (const raw of (Array.isArray(tags) ? tags : [])) {
     const t = normalizeUsageTag(raw)
     if (!t) continue
     if (isFreqTag(t)) {

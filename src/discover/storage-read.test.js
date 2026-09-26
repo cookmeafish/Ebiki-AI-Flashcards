@@ -3,13 +3,13 @@
 // erases what was stored.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-const anki = { retrieve: null }
+const anki = { retrieve: null, store: async () => true }
 vi.mock('../utils/anki', () => ({
   ankiRetrieveMediaFile: (...a) => anki.retrieve(...a),
-  ankiStoreMediaFile: async () => true,
+  ankiStoreMediaFile: (...a) => anki.store(...a),
   ankiSyncSoon: () => {},
 }))
-const { readBlobChecked } = await import('./storage')
+const { readBlobChecked, writeBlob } = await import('./storage')
 
 const b64 = (obj) => Buffer.from(JSON.stringify(obj), 'utf8').toString('base64')
 let local
@@ -53,5 +53,31 @@ describe('readBlobChecked', () => {
   it('a damaged blob counts as read, so it can be replaced instead of blocking writes forever', async () => {
     anki.retrieve = async () => Buffer.from('{not json', 'utf8').toString('base64')
     expect(await readBlobChecked('hooks', 'Spanish')).toEqual({ ok: true, value: null })
+  })
+})
+
+describe('"local is newer" mark', () => {
+  const mem = new Map()
+  beforeEach(() => {
+    mem.clear()
+    globalThis.localStorage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) }
+  })
+  afterEach(() => { delete globalThis.localStorage; anki.store = async () => true })
+
+  it("a read's push-back never clears the mark set by a write that failed to reach Anki meanwhile", async () => {
+    local = reply(200, { content: JSON.stringify({ v: 1 }) })
+    anki.store = async () => { throw new Error('Anki is not running') }
+    await writeBlob('hooks', 'Spanish', { v: 1 })             // local only: marked newer
+    let release
+    anki.store = () => new Promise((r) => { release = r })     // the read's push-back hangs
+    anki.retrieve = async () => b64({ v: 0 })
+    expect((await readBlobChecked('hooks', 'Spanish')).value).toEqual({ v: 1 })
+    const pushBack = release
+    anki.store = async () => { throw new Error('Anki is not running') }
+    await writeBlob('hooks', 'Spanish', { v: 2 })             // fails to reach Anki again
+    local = reply(200, { content: JSON.stringify({ v: 2 }) })
+    pushBack(true); await new Promise((r) => setTimeout(r, 0)) // the older push lands
+    anki.store = async () => true
+    expect((await readBlobChecked('hooks', 'Spanish')).value).toEqual({ v: 2 })
   })
 })

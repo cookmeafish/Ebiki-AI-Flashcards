@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld('ebikiWindow', {
   // lives ON that server. Going through Electron instead needs nothing running.
   restart: () => ipcRenderer.send('app-window:restart'),
   isMaximized: () => ipcRenderer.invoke('app-window:is-maximized'),
+  // Screenshot of the primary screen with this window stepped out of the way (see main.cjs).
+  capture: () => ipcRenderer.invoke('app-window:capture'),
   onMaximizedChange: (cb) => {
     const listener = (_event, isMaximized) => cb(isMaximized)
     ipcRenderer.on('app-window:maximized-changed', listener)

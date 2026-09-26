@@ -97,8 +97,15 @@ async function openAiCompatibleCall({ endpoint, apiKey, systemPrompt, userConten
   // so without this the feature just looks broken.
   if (!content && finish === 'length' && budget >= MIN_CONTENT_BUDGET && roomier > budget) {
     const retry = await post(tokenParam, roomier)
-    if (retry.ok) content = read(retry.text).content
+    // A failed or still-empty retry is an ERROR, not "": returned empty, chat saved a blank Ebi bubble.
+    if (!retry.ok) throw new Error(`API ${retry.status}: ${retry.text.slice(0, 200)}`)
+    content = read(retry.text).content
+    if (!content) throw new Error('API 200: empty (output limit reached)')
   }
+  // A content-filtered reply is 200 with no text. Returned as "", chat showed and SAVED a blank Ebi
+  // bubble and other features read it as "no result". Status 200 in the message keeps it out of the
+  // retired-model heal and the failover (the model answered; the request was refused).
+  if (!content && finish === 'content_filter') throw new Error('API 200: blocked (content_filter)')
   return content
 }
 
@@ -170,9 +177,12 @@ export const PROVIDERS = {
         if (cap > 0) r = await post(cap)
       }
       if (!r.ok) throw new Error(`API ${r.status}: ${r.text.slice(0, 200)}`)
-      try {
-        return JSON.parse(r.text).content?.map((c) => (c.type === 'text' ? c.text : '')).join('') || ''
-      } catch { return '' }
+      let body = null
+      try { body = JSON.parse(r.text) } catch { return '' }
+      const out = body?.content?.map((c) => (c.type === 'text' ? c.text : '')).join('') || ''
+      // A refusal is 200 + stop_reason "refusal" and no text (see the OpenAI note above).
+      if (!out && body?.stop_reason === 'refusal') throw new Error('API 200: blocked (refusal)')
+      return out
     },
   },
   openai: {
@@ -251,15 +261,16 @@ export const PROVIDERS = {
       }
       const read = (raw) => {
         try {
-          const c = JSON.parse(raw).candidates?.[0]
-          return { text: c?.content?.parts?.map((p) => p.text).join('') || '', finish: c?.finishReason }
+          const j = JSON.parse(raw)
+          const c = j.candidates?.[0]
+          return { text: c?.content?.parts?.map((p) => p.text || '').join('') || '', finish: c?.finishReason, blocked: j.promptFeedback?.blockReason }
         } catch { return { text: '', finish: null } }
       }
 
       const budget = maxTokens || 0
       let r = await post(budget)
       if (!r.ok) throw new Error(`API ${r.status}: ${r.text.slice(0, 200)}`)
-      let { text, finish } = read(r.text)
+      let { text, finish, blocked } = read(r.text)
       // Gemini's THINKING models (2.5 and later) spend maxOutputTokens on thinking before they
       // write anything, exactly like OpenAI's reasoning models - so a tight budget comes back
       // finishReason:"MAX_TOKENS" with no text and no error. Same bounded one-shot retry, same
@@ -268,8 +279,15 @@ export const PROVIDERS = {
         const bigger = Math.min(Math.max(budget * 4, 4000), 32000)
         if (bigger > budget) {
           const retry = await post(bigger)
-          if (retry.ok) text = read(retry.text).text
+          if (!retry.ok) throw new Error(`API ${retry.status}: ${retry.text.slice(0, 200)}`) // see openAiCompatibleCall
+          text = read(retry.text).text
+          if (!text) throw new Error('API 200: empty (output limit reached)')
         }
+      }
+      // Safety blocks are 200 with no text: a blocked PROMPT has no candidates (promptFeedback.blockReason),
+      // a blocked ANSWER has finishReason SAFETY/RECITATION/... (see the OpenAI note above).
+      if (!text && (blocked || /^(SAFETY|RECITATION|PROHIBITED_CONTENT|BLOCKLIST|SPII|IMAGE_SAFETY)$/.test(String(finish || '')))) {
+        throw new Error(`API 200: blocked (${blocked || finish})`)
       }
       return text
     },
@@ -285,6 +303,7 @@ export const PROVIDERS = {
     model: 'grok-3-mini-fast', // cheap/fast tier — Haiku slot
     questionModel: 'grok-4',   // strong tier (multimodal/vision) — Sonnet slot
     presets: { cheap: 'grok-3-mini-fast', normal: 'grok-3', max: 'grok-4' }, // grok-4 is multimodal
+    visionTier: 'max', // only the max preset reads images; aiCall moves image requests there
     listModels: async (apiKey) => {
       const resp = await fetch('https://api.x.ai/v1/models', {
         headers: { 'Authorization': `Bearer ${apiKey}` },

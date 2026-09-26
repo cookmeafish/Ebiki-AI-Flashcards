@@ -138,11 +138,27 @@ function Link-ToGit($dir, $repo) {
 # All three things are required for `git pull` to work with no arguments, which is
 # the whole point of linking the folder in the first place.
 function Test-GitHealthy($dir) {
+  # No git at all: calling it would throw CommandNotFoundException, and inside setup's main try
+  # that is TERMINATING - a machine without Git aborted the whole install right here instead of
+  # carrying on with the "app still runs without Git" path the Git section promises.
+  if (-not (Get-Command git -ErrorAction SilentlyContinue)) { return $false }
   if (-not (Test-Path (Join-Path $dir '.git'))) { return $false }
-  if (-not (& git -C $dir rev-parse HEAD 2>$null)) { return $false }              # no commit checked out
+  # --verify -q: in a repo with NO commit yet (a ZIP link cut off before its fetch), plain "rev-parse HEAD"
+  # still prints the word HEAD, which read as a checked-out commit, and the folder was never linked again.
+  if (-not (& git -C $dir rev-parse --verify -q HEAD 2>$null)) { return $false }              # no commit checked out
   if (-not (& git -C $dir remote get-url origin 2>$null)) { return $false }       # nowhere to pull from
   if (-not (& git -C $dir rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>$null)) { return $false }  # no upstream
   return $true
+}
+
+# A REAL clone (a commit checked out AND an origin) that merely lacks upstream tracking - a
+# developer's local branch, say. Link-ToGit is for ZIP folders and interrupted links only: it
+# force-checks-out master and runs `clean -fd`, which on a real clone destroys uncommitted
+# changes and untracked files. Such a folder is left alone (repaired in place when on master).
+function Test-RealClone($dir) {
+  if (-not (Get-Command git -ErrorAction SilentlyContinue)) { return $false }
+  if (-not (Test-Path (Join-Path $dir '.git'))) { return $false }
+  return [bool]((& git -C $dir rev-parse --verify -q HEAD 2>$null) -and (& git -C $dir remote get-url origin 2>$null))
 }
 
 function Have-Winget { [bool](Get-Command winget -ErrorAction SilentlyContinue) }
@@ -219,6 +235,16 @@ try {
     if ($sha) { Ok "Version $sha. Updates work (Settings > General > Updates, and on launch)." }
     else { Ok 'Git clone. Updates work.' }
     Info "You can also update by hand from this folder: git pull"
+  } elseif ($git -and (Test-RealClone $app)) {
+    $branch = (& git -C $app rev-parse --abbrev-ref HEAD 2>$null)
+    if ($branch -eq 'master') {
+      & git -C $app fetch origin master:refs/remotes/origin/master 2>&1 | Out-Null
+      & git -C $app branch --set-upstream-to=origin/master master 2>&1 | Out-Null
+      if ($LASTEXITCODE -eq 0) { Ok 'Git clone. Updates work (tracking repaired).' }
+      else { Warn 'Git clone without upstream tracking, and it could not be repaired right now. The app runs fine.' }
+    } else {
+      Info "Git clone on branch '$branch'. Left as it is; in-app updates follow master only."
+    }
   } elseif ($git) {
     if (Test-Path (Join-Path $app '.git')) {
       Warn 'This folder has a half-finished repository (an earlier link was interrupted). Repairing it...'

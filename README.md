@@ -18,6 +18,7 @@ A local-first study app: an AI tutor, Anki study sessions, screen translation an
 ## Highlights
 
 - **Onboarding** - a short wizard sets app language, theme, how Ebiki opens, AI provider and key, intelligence preset, and your first mode. Re-run it from Settings.
+- **Save tokens: reuse questions** (off unless you turn it on, in onboarding or Settings → AI & cost) - Ebi saves the study questions it writes for each card, with that card's deck, and once a card has your chosen number (10 by default) asks saved ones again instead of writing new ones. Edited cards get fresh questions. **Clear saved questions** starts a deck over. Turning it off stops all saving and reusing.
 - **Any of four AI providers** - Claude, GPT, Gemini or Grok. Each feature (Picture, Deck, Study, Discover, Chat, Help, Mascot, General) can use its own model, or a preset sets them all: **Optimized** (cheap models for simple tasks, strong ones for card making), **Normal** or **More intelligent**. Retired models are replaced automatically; **Check for new models** refreshes the list.
 - **App language** - English, Spanish, Chinese or Japanese. Card *content* is never translated; generated suggestions and questions use your app language.
 - **Learning modes** - one mode per subject, each with its own card format, tag rules, study rules, Anki deck and knowledge base.
@@ -102,10 +103,10 @@ Four sources, tried in order, for any language (no accounts, no paid APIs):
 
 1. **The Anki card** - once embedded, plays offline on any device.
 2. **Wiktionary / Wikimedia Commons** - native-speaker recordings, always credited.
-3. **Local TTS** (optional) - an OpenAI-compatible server such as Kokoro, set in Settings → Audio.
+3. **Local TTS** (optional) - an OpenAI-compatible server such as Kokoro, set in Settings → Anki & audio.
 4. **Browser voice** - last resort.
 
-🔊 appears on study cards, deck rows, chat cards and tapped words. **↻** switches speaker, and the voice you pick replaces the card's embedded audio. Set preferred accents per language in Settings → Audio.
+🔊 appears on study cards, deck rows, chat cards and tapped words. **↻** switches speaker, and the voice you pick replaces the card's embedded audio. Set preferred accents per language in Settings → Anki & audio.
 
 ## Overlay (optional)
 
@@ -127,7 +128,7 @@ Data lives in the app folder. **One computer? Nothing to set up.**
 To share, point each computer at one **shared data folder** (e.g. a network drive):
 
 1. Install and run the app locally on each computer; only the data is shared.
-2. Settings → General → **Data folder**: enter the path, click **Use this folder**.
+2. Settings → Data & updates → **Data folder**: enter the path, click **Use this folder**.
 
 - The app reloads onto the new folder at once.
 - Joining a folder that has data asks whether to add your items or use only the folder's; its existing items are never overwritten.

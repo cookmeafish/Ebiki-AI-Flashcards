@@ -68,12 +68,15 @@ export function LaunchModeCard({ t, card, fieldLabel, hint }) {
     // Picking a tile is a fresh decision, so it un-does a previous hand-off and brings the button
     // back. That is also the way back if the window this page handed over to has since been closed.
     if (!switchNow) setHandedOver(false)
+    const prevMode = mode
     setMode(next)
     try {
       const d = await (await fetch('/api/launchmode', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode: next, switchNow: !!switchNow }),
       })).json()
+      // Not saved (a read-only or locked folder): say so and show the choice that is really in effect.
+      if (!d || d.error || d.ok === false) { setMode(prevMode); setNote({ kind: 'warn', text: String(d?.error || t('lm_switchError')) }); setBusy(false); return }
       if (!switchNow) { setNote({ kind: 'ok', text: t('lm_saved') }); setBusy(false); return }
       if (!d.launched) { setNote({ kind: 'warn', text: t('lm_switchError') }); setBusy(false); return }
       // Wait for the NEW front end to report in before tearing this one down. Closing first would

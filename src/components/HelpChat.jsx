@@ -132,6 +132,10 @@ function buildSystemPrompt(appContext) {
 
 export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'claude-sonnet-4-6', askAI, parseAiObject, mascotFile = DEFAULT_SHRIMP, onAiReply, onAction, askEbiSignal, hideButton, onOpenSettings }) {
   const [open, setOpen] = useState(false)
+  // The LIVE handler: a reply lands seconds after Send, and the send-time render's onAction judged Anki,
+  // the open deck and a running check from before the wait (its receipt could say the opposite of what happened).
+  const onActionRef = useRef(onAction)
+  onActionRef.current = onAction
   // FancyZones-style snapping. null = floating popup anchored to the button.
   // 'left'|'right'|'top'|'bottom' = snapped to that screen edge ('bottom' sits under the question).
   // 'free' = detached panel at chatPos.
@@ -176,13 +180,18 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
         fetch(`/api/chat-load?id=${encodeURIComponent(latest.id)}`).then(r => (r.ok ? r.json() : null)).then(data => {
           if (!Array.isArray(data?.messages) || userStartedRef.current) return
           setSessionId(latest.id)
-          setMessages(data.messages)
+          // Normalize: a Help chat continued from the Chat tab stores `content`, never `text`, and those
+          // messages rendered as blank bubbles and reached the model as "undefined".
+          setMessages(data.messages.map((m) => ({ ...m, text: m.text ?? m.content ?? '' })))
         }).catch(() => {})
       }
     }).catch(() => {})
   }, [])
 
   // Save help chat to disk
+  // Did the LAST save reach disk? "New chat" re-saves only then (a failed save, e.g. a 503 while the
+  // share is down, left the latest turn only in this panel).
+  const lastSaveOkRef = useRef(true)
   const saveMessages = async (msgs, sid) => {
     if (!msgs || msgs.length === 0) return sid
     const title = msgs[0]?.text?.slice(0, 40) || 'Help Chat'
@@ -194,8 +203,9 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
         body: JSON.stringify({ id: sid || undefined, title, messages: msgs, type: 'help', keepTitle: true }),
       })
       const data = await res.json().catch(() => null)
+      lastSaveOkRef.current = !!(res.ok && data?.id)
       return (res.ok && data?.id) || sid
-    } catch { return sid }
+    } catch { lastSaveOkRef.current = false; return sid }
   }
 
   // New chat — save current, start fresh
@@ -203,7 +213,10 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
     // A reply in flight lands in the conversation it was asked in; starting a new chat under it put
     // the old conversation back on screen with no id, so the next message duplicated it.
     if (loading) return
-    if (messages.length > 0) {
+    // A chat with an id is already saved (every reply saves it). Re-posting the panel's copy made a
+    // truncated duplicate when the chat had been continued in the Chat tab (the server forks a save
+    // that is not a prefix of the file). Only a never-saved chat is saved here.
+    if (messages.length > 0 && (!sessionId || !lastSaveOkRef.current)) {
       await saveMessages(messages, sessionId)
     }
     setMessages([])
@@ -232,9 +245,11 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
   // While choosing a dock spot, Esc cancels.
   useEffect(() => {
     if (!choosingZone) return
-    const onKey = (e) => { if (e.key === 'Escape') { setChoosingZone(false); setHoverZone(null) } }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    // Capture phase + preventDefault: this Esc is used up here (App's Esc handler skips a handled Esc,
+    // which otherwise also threw away a finished Picture analysis).
+    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); setChoosingZone(false); setHoverZone(null) } }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   }, [choosingZone])
 
   // On open, jump to the bottom so the most recent message is visible (history loads scrolled up).
@@ -374,13 +389,43 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
     const userMsg = input.trim()
     userStartedRef.current = true
     setInput('')
-    const newMsgs = [...messages, { role: 'user', text: userMsg }]
-    setMessages(newMsgs)
     setLoading(true)
+    // The same Help chat can be opened and continued in the Chat tab, so what is on disk may be
+    // NEWER than this panel's copy: saving the panel's copy erased the Chat-tab turns (and a chat
+    // deleted from the Chat list came back). Re-read it first and build on the disk version; a chat
+    // that no longer exists starts a new one. A failed read (network) keeps the panel's copy.
+    let sid = sessionId
+    let base = messages
+    if (sid) {
+      try {
+        const r = await fetch(`/api/chat-load?id=${encodeURIComponent(sid)}`)
+        // While OFFLINE the server reads the local copy (last backup), which may predate this chat: that
+        // 404 does not mean "deleted", and treating it so wiped the conversation from the panel.
+        if (r.status === 404 && !r.headers.get('X-Ebiki-Offline')) { sid = null; base = []; setSessionId(null) }
+        else if (r.ok) {
+          const data = await r.json()
+          if (Array.isArray(data?.messages)) base = data.messages.map((m) => ({ ...m, text: m.text ?? m.content ?? '' }))
+        }
+      } catch { /* keep the panel's copy */ }
+    }
+    const newMsgs = [...base, { role: 'user', text: userMsg }]
+    setMessages(newMsgs)
 
+    // The mode this question was ASKED in: the panel stays open across mode switches, and an action
+    // in the reply ("use Latin American Spanish") belongs to the mode the conversation was about.
+    const modeIdAtSend = appContext?.activeMode?.id
     try {
       const sys = buildSystemPrompt(appContext) + `\n\nYou run on the model "${model}". If the user asks what AI model powers you, just tell them — it's not a secret.`
-      const convo = newMsgs.map(m => `${m.role === 'user' ? 'User' : 'Ebi'}: ${m.text}`).join('\n\n')
+      // Bounded history (see the Chat tab): newest turns up to ~60k characters plus the opening message,
+      // so a long Help chat can't grow past the model's context and fail on every later message.
+      const convoLines = newMsgs.map(m => `${m.role === 'user' ? 'User' : 'Ebi'}: ${m.text}`)
+      let kept = [], used = 0
+      for (let i = convoLines.length - 1; i >= 0; i--) {
+        if (kept.length && used + convoLines[i].length > 60000) break
+        kept.unshift(convoLines[i]); used += convoLines[i].length
+      }
+      if (kept.length < convoLines.length) kept = [convoLines[0], '(earlier messages omitted)', ...kept]
+      const convo = kept.join('\n\n')
       const raw = (await askAI(sys, convo) || '')
       // Execute any adjustment actions Ebi emitted, and collect an APP-GENERATED receipt for each
       // (onAction returns a factual "what changed + what it affects" string ONLY when the change
@@ -391,7 +436,7 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
           // Tolerant parse (the host's parseAiObject when given): a stray character inside the tag
           // used to drop the action silently while Ebi's reply claimed the change was made.
           const action = parseAiObject ? parseAiObject(am[1]) : JSON.parse(am[1])
-          const r = action ? onAction?.(action) : null
+          const r = action ? onActionRef.current?.(action, { modeId: modeIdAtSend }) : null
           if (r) receipts.push(r)
         } catch {}
       }
@@ -399,19 +444,19 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
       // Ebi's shrimp-ness is the mascot art, never an emoji in the text.
       let replyText = raw.replace(/<action>.*?<\/action>/gs, '').replace(/\s*[—–]\s*/g, ', ').replace(/[🦐🦞🦀]️?/gu, '').replace(/[ \t]{2,}/g, ' ').trim() || '…'
       // Append the verified change log so the user can confirm, for a fact, what the app actually did.
-      if (receipts.length) replyText += `\n\n**✅ Confirmed changes (applied by the app):**\n` + receipts.map((r) => `- ${r}`).join('\n')
+      if (receipts.length) replyText += `\n\n**✅ Checked by the app (what really happened):**\n` + receipts.map((r) => `- ${r}`).join('\n')
       const updatedMsgs = [...newMsgs, { role: 'assistant', text: replyText }]
       // Pick Ebi's pose FIRST (awaited) so his face changes WITH the reply, not a beat after it. The
       // Mascot model resolves the pose, then the message + new pose land together (Chat-tab parity).
       await onAiReply?.(replyText)
       setMessages(updatedMsgs)
-      const savedId = await saveMessages(updatedMsgs, sessionId)
-      if (!sessionId) setSessionId(savedId)
+      const savedId = await saveMessages(updatedMsgs, sid)
+      if (savedId !== sid) setSessionId(savedId) // new, or a copy the server made (changed on another computer)
     } catch (err) {
       const updatedMsgs = [...newMsgs, { role: 'assistant', text: 'Error: ' + err.message }]
       setMessages(updatedMsgs)
-      const savedId = await saveMessages(updatedMsgs, sessionId)
-      if (!sessionId) setSessionId(savedId)
+      const savedId = await saveMessages(updatedMsgs, sid)
+      if (savedId !== sid) setSessionId(savedId)
     } finally {
       setLoading(false)
       setTimeout(() => inputRef.current?.focus(), 50)
@@ -536,7 +581,7 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
           autoFocus
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') sendMessage() }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) sendMessage() }}
           placeholder={apiKey ? (loading ? t('help_thinking') : t('help_placeholder')) : t('help_placeholderNoKey')}
           disabled={!apiKey}
           style={{

@@ -22,7 +22,7 @@ function Write-AnkiStartLog($text) {
 function Get-RealAnkiProcess {
   foreach ($n in 'pythonw', 'python') {
     foreach ($p in (Get-Process -Name $n -ErrorAction SilentlyContinue)) {
-      try { if ($p.Path -like '*Anki*') { return $p } } catch {}   # Path throws on denied
+      try { if ($p.Path -match '[\\/](Anki|AnkiProgramFiles)[\\/]') { return $p } } catch {}   # Path throws on denied
     }
   }
   return $null
@@ -185,7 +185,7 @@ function Start-AnkiIfNeededLocked {
   $minimizer = Join-Path $PSScriptRoot 'minimize-anki.ps1'
   if (Test-Path $minimizer) {
     Start-Process -FilePath 'powershell' -WindowStyle Hidden -ArgumentList @(
-      '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $minimizer)
+      '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $minimizer + '"'))   # quoted: PS 5.1 joins -ArgumentList unquoted, so a path with a space split in two
   }
   return 'started'
 }

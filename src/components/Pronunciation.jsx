@@ -38,6 +38,10 @@ export default function Pronunciation({ word, lang, region = '', config = {}, no
   }
   const liveKeyRef = useRef(propKey)
   liveKeyRef.current = propKey
+  // One fetch at a time, decided by a REF: `state === 'loading'` is read from the render-time closure,
+  // so two quick ↻ clicks both passed, both fetched, and both swapped their recording into the card
+  // (one file with the other's credit line, or two recordings). Released on any exit.
+  const busyRef = useRef(null) // the word key being fetched; another word is not blocked
 
   const playResult = async (r) => {
     try {
@@ -50,12 +54,13 @@ export default function Pronunciation({ word, lang, region = '', config = {}, no
   }
 
   const play = async () => {
-    if (state === 'loading') return
+    if (state === 'loading' || busyRef.current === liveKeyRef.current) return
     let r = result
     if (!r) {
       const myKey = liveKeyRef.current
       setState('loading')
-      r = await getPronunciation({ word, lang, region, config, noteId, cardId })
+      busyRef.current = myKey
+      try { r = await getPronunciation({ word, lang, region, config, noteId, cardId }) } finally { if (busyRef.current === myKey) busyRef.current = null }
       if (liveKeyRef.current !== myKey) return // word changed mid-fetch — drop the stale result
       if (!r) { setState('none'); return }
       setResult(r)
@@ -70,10 +75,12 @@ export default function Pronunciation({ word, lang, region = '', config = {}, no
   // The first ↻ click also widens the candidate pool (merges the Commons-wide search in),
   // so more voices can APPEAR here than the initial play knew about.
   const nextVoice = async () => {
-    if (state === 'loading') return
+    if (state === 'loading' || busyRef.current === liveKeyRef.current) return
     const myKey = liveKeyRef.current
     setState('loading')
-    const r = await getPronunciation({ word, lang, region, config, variant: variant + 1 })
+    busyRef.current = myKey
+    let r
+    try { r = await getPronunciation({ word, lang, region, config, variant: variant + 1 }) } finally { if (busyRef.current === myKey) busyRef.current = null }
     if (liveKeyRef.current !== myKey) return
     if (!r) {
       // Likely transient (rate limit) — tell the user and KEEP the button for a retry.

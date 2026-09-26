@@ -67,9 +67,15 @@ export function parseModelId(id) {
     segs.push(rawSegs[i])
   }
 
-  for (const seg of segs) {
+  for (let si = 0; si < segs.length; si++) {
+    const seg = segs[si]
     // 8-digit snapshot date (20251001) — a tiebreak, never a version component.
     if (/^\d{8}$/.test(seg)) { date = Number(seg); continue }
+    // Trailing 4-digit MMDD snapshot (xAI's grok-4-0709). As a version component it read as
+    // [4, 709], so the pinned build of grok-4 was offered as an "upgrade" over grok-4 itself, and
+    // once adopted it outranked every real grok-4-x after it. Only the LAST segment, only after a
+    // version number, and only a valid month+day.
+    if (si === segs.length - 1 && version.length && date == null && /^(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])$/.test(seg)) { date = Number(seg); continue }
     if (/^\d+$/.test(seg)) { version.push(Number(seg)); continue }
     // "4o" → version 4, family word "o"
     const digitFirst = /^(\d+)([a-z]+)$/.exec(seg)

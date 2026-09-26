@@ -22,7 +22,7 @@ export const LANG_CODES = {
   'English':               { iso1: 'en', iso3: ['eng'], bcp47: 'en' },
   'Catalan':               { iso1: 'ca', iso3: ['cat'], bcp47: 'ca' },
   'Swedish':               { iso1: 'sv', iso3: ['swe'], bcp47: 'sv' },
-  'Norwegian':             { iso1: 'no', iso3: ['nor', 'nob'], bcp47: 'no' },
+  'Norwegian':             { iso1: 'no', iso3: ['nor', 'nob', 'nno'], bcp47: 'no' },
   'Danish':                { iso1: 'da', iso3: ['dan'], bcp47: 'da' },
   'Finnish':               { iso1: 'fi', iso3: ['fin'], bcp47: 'fi' },
   'Czech':                 { iso1: 'cs', iso3: ['ces', 'cze'], bcp47: 'cs' },

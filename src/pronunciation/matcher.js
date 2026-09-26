@@ -30,11 +30,21 @@ const fold = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-
 // sorted best-first; empty array when nothing plausible matches.
 export function pickAudioFiles(files, { iso1, iso3 = [], region = '', word }) {
   const w = fold(word)
+  // Accents can make a DIFFERENT word (schön "beautiful" vs schon "already", papá vs papa "potato"),
+  // and the fold above made them score identically, so the wrong word's recording could win and be
+  // embedded in the card. A file whose name carries the word WITH its exact accents is preferred; one
+  // that matches only once accents are folded away is penalized, and dropped when an exact one exists.
+  const exact = String(word || '').toLowerCase().normalize('NFC')
+  const accentExact = (file) => file.replace(AUDIO_EXT_RE, '').toLowerCase().normalize('NFC').includes(exact)
   const reg = fold(region)
   // How well the word part matches: exact > variant suffix ("schön2", "haus fcm") > phrase.
+  // Both looser forms need a WORD boundary: a plain prefix/substring test scored recordings of other
+  // words as strong matches ("sol" took soldado, sola, girasol; "pa" took papá) and embedded them.
+  const esc = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const asWord = new RegExp(`(^|[^\\p{L}])${esc}([^\\p{L}]|$)`, 'u')
   const wordPts = (rest) => rest === w ? 30
-    : (rest.startsWith(w) && rest.length <= w.length + 4) ? 20
-    : rest.includes(w) ? 10 : null
+    : (rest.startsWith(w) && rest.length <= w.length + 4 && !/^\p{L}/u.test(rest.slice(w.length))) ? 20
+    : (w && asWord.test(rest)) ? 10 : null
 
   const out = []
   for (const raw of files || []) {
@@ -51,7 +61,7 @@ export function pickAudioFiles(files, { iso1, iso3 = [], region = '', word }) {
     if (ll || paren) {
       const m = ll || paren
       const l3 = m[1] || null
-      if (l3 && !iso3.includes(l3) && KNOWN_ISO3.has(l3)) continue // identifiably another language
+      if (l3 && !iso3.includes(l3)) continue // an explicit (xxx) always names the language: another one, even outside our list (glg, ast)
       const langPts = l3 && iso3.includes(l3) ? 110 : 55 // no (xxx): language hides in the Q-id — keep low
       const wp = wordPts(m[2])
       if (wp !== null) best = langPts + wp
@@ -74,9 +84,13 @@ export function pickAudioFiles(files, { iso1, iso3 = [], region = '', word }) {
       if (wp !== null && wp >= 20) best = wp
     }
 
-    if (best !== null) out.push({ file, score: best })
+    if (best !== null) {
+      const ok = accentExact(file)
+      out.push({ file, score: ok ? best : best - 40, accentOk: ok })
+    }
   }
-  return out.sort((a, b) => b.score - a.score)
+  const anyExact = out.some((c) => c.accentOk)
+  return out.filter((c) => c.accentOk || !anyExact).map(({ file, score }) => ({ file, score })).sort((a, b) => b.score - a.score)
 }
 
 // Candidates below this score have NO language-convention evidence in the filename

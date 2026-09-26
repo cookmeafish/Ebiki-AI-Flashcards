@@ -31,7 +31,7 @@ foreach ($n in 'anki', 'ankiw') {
 # The real Anki runs out of a venv on modern installs, so the surviving process can
 # be pythonw - too generic a name to trust on its own, hence the path check.
 foreach ($p in (Get-Process -Name 'pythonw' -ErrorAction SilentlyContinue)) {
-  try { if ($p.Path -like '*Anki*') { $pids += [int]$p.Id } } catch {}   # Path throws on denied
+  try { if ($p.Path -match '[\\/](Anki|AnkiProgramFiles)[\\/]') { $pids += [int]$p.Id } } catch {}   # Path throws on denied
 }
 
 $titles = New-Object System.Collections.ArrayList

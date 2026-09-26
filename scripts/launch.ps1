@@ -21,7 +21,12 @@ $app = Split-Path $PSScriptRoot -Parent
 # Electron, missing Node, a crash) does it below. The VBS deletes any leftover
 # marker before showing the splash, so a stale one can not close it instantly.
 $readyFile = Join-Path $app '.app-ready'
+# A FOLLOWER (set by launch-ebiki.vbs when another launch is mid-way, e.g. asking about an update) owns
+# no splash and must not touch the handshake files: its status line replaced the other launch's question,
+# and its .app-ready closed the other splash. It waits on the launcher lock, then opens the app.
+$follower = $env:EBIKI_LAUNCH_FOLLOWER -eq '1'
 function Signal-AppReady {
+  if ($follower) { return }
   try { New-Item -ItemType File -Path $readyFile -Force | Out-Null } catch {}
 }
 # The splash also SAYS what is happening. Everything this script does is
@@ -33,13 +38,37 @@ function Signal-AppReady {
 # launch always says WHY it is slow. Best effort: a status that fails to write
 # just leaves the generic opening line on screen.
 $statusFile = Join-Path $app '.app-status'
+# npm install with a HEARTBEAT on the splash: the splash gives up after 3 minutes without a NEW status, and
+# a dependency-heavy update on a slow line took longer, so the splash closed mid-install and a second click
+# then looked like a fresh launch. Returns npm's exit code.
+function Invoke-NpmInstall($label) {
+  try {
+    $p = Start-Process -FilePath 'cmd.exe' -ArgumentList '/d', '/c', 'npm install --no-fund --no-audit' -WorkingDirectory $app -WindowStyle Hidden -PassThru
+    $null = $p.Handle # keeps ExitCode readable after exit (Windows PowerShell quirk)
+    $started = Get-Date
+    while (-not $p.WaitForExit(10000)) {
+      $secs = [int]((Get-Date) - $started).TotalSeconds
+      Set-Status ("{0} ({1}s so far, please wait)" -f $label, $secs)
+    }
+    return $p.ExitCode
+  } catch { return 1 }
+}
+
 function Set-Status($text) {
+  if ($follower) { return }
   # ASCII on purpose: the splash reads this with FileSystemObject, which would
   # render a UTF-8 BOM as visible junk at the start of the line. Every message
   # here is plain ASCII, so nothing is lost.
-  try { Set-Content -Path $statusFile -Value $text -Encoding ASCII -ErrorAction Stop } catch {}
+  # RETRIED: the splash reads this file four times a second and its FileSystemObject read handle does
+  # not share write access, so a write landing on a read failed ("being used by another process").
+  # Measured at ~1.7% per write - enough that the update QUESTION was sometimes never shown and the
+  # launch sat on "Checking for updates." for the whole answer timeout.
+  for ($i = 0; $i -lt 20; $i++) {
+    try { Set-Content -Path $statusFile -Value $text -Encoding ASCII -ErrorAction Stop; return } catch { Start-Sleep -Milliseconds 25 }
+  }
 }
 function Clear-Status {
+  if ($follower) { return }
   try { Remove-Item $statusFile -Force -ErrorAction SilentlyContinue } catch {}
 }
 
@@ -59,6 +88,7 @@ $answerFile = Join-Path $app '.app-answer'
 # (PROMPT|). With them it uses ASK|<title>|<status shown after Yes>|<question>, which is how the
 # Anki update (scripts/anki-update.ps1) asks its own question in the same window.
 function Ask-InSplash($text, $timeoutSec, $title, $yesStatus) {
+  if ($follower) { return 'nosplash' } # the splash on screen belongs to the other launch (see $follower)
   try { Remove-Item $answerFile -Force -ErrorAction SilentlyContinue } catch {}
   # The splash is started a fraction of a second before this script and paints in
   # a few hundred ms, but never assume it: give it a moment to announce itself and
@@ -84,6 +114,9 @@ function Ask-InSplash($text, $timeoutSec, $title, $yesStatus) {
     }
     Start-Sleep -Milliseconds 200
   }
+  # Nobody answered: say we moved on, so the splash takes its buttons down (a click after this
+  # would otherwise read as "updating" while nothing is listening for it).
+  Set-Status 'Starting Ebiki.'
   return 'timeout'
 }
 # Hold the splash until the window Electron just spawned actually paints (it
@@ -176,7 +209,7 @@ function Open-App {
     # care of out here. Without it, a bare launch (the taskbar pin of the running
     # Ebiki.exe, which remembers only the exe path - no arguments, no launcher)
     # has to bootstrap the server itself. See the bare-launch branch in main.cjs.
-    return Start-Process -FilePath $exe -ArgumentList (Join-Path $app 'electron\main.cjs'), '--from-launcher' -WorkingDirectory $app -WindowStyle Normal -PassThru
+    return Start-Process -FilePath $exe -ArgumentList ('"' + (Join-Path $app 'electron\main.cjs') + '"'), '--from-launcher' -WorkingDirectory $app -WindowStyle Normal -PassThru
   } else {
     # Nothing writes the ready marker on this path (there is no Electron
     # window to report itself) and a browser tab is its own visible feedback,
@@ -194,7 +227,16 @@ function Open-App {
 # deliberately OUTSIDE this; it stays the way to run a second copy on purpose.
 $mutex = New-Object System.Threading.Mutex($false, 'Ebiki.Launcher.SingleInstance')
 $held = $false
-try { $held = $mutex.WaitOne(120000) } catch [System.Threading.AbandonedMutexException] { $held = $true }
+# Wait for the other launcher as long as it can legitimately take (an update question, then fetch
+# and npm install). Giving up after 2 minutes and carrying on unlocked ran a second update check,
+# git and npm install in the same folder, or started the server on a half-installed node_modules.
+try { $held = $mutex.WaitOne(1200000) } catch [System.Threading.AbandonedMutexException] { $held = $true }
+if (-not $held) {
+  # Still busy after 20 minutes: do not update or start anything. Open whatever is serving, if anything.
+  try { if (Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyContinue) { Open-App } } catch {}
+  Signal-AppReady
+  return
+}
 try {
 
 # ── Make sure Node/Git are findable ─────────────────────────────────────────
@@ -242,11 +284,24 @@ $hasNode = Ensure-OnPath 'npm' @("$pf\nodejs", "$pfx\nodejs", "$lad\Programs\nod
 # reconnected to the same dead service - "I closed it and reopened it and
 # it's still stuck", with nothing here ever noticing or fixing it. A real
 # HTTP round trip with a short timeout tells the difference.
+# THREE tries before "wedged": the shared-folder backup (runBackup) is synchronous and can hold the
+# event loop for several seconds on a big share, and a single 4s miss killed a perfectly healthy
+# server in the middle of that, cutting whatever the open window was doing. A real wedge hangs
+# forever, so it still fails all three.
 function Test-ServerHealthy {
-  try {
-    $r = Invoke-WebRequest -Uri 'http://localhost:3000/api/alive' -Method Get -TimeoutSec 4 -UseBasicParsing -ErrorAction Stop
-    return $r.StatusCode -ge 200 -and $r.StatusCode -lt 500
-  } catch { return $false }
+  for ($i = 0; $i -lt 3; $i++) {
+    try {
+      $r = Invoke-WebRequest -Uri 'http://localhost:3000/api/alive' -Method Get -TimeoutSec 4 -UseBasicParsing -ErrorAction Stop
+      if ($r.StatusCode -ge 200 -and $r.StatusCode -lt 500) { return $true }
+    } catch {
+      # Windows PowerShell THROWS on any 4xx, so the check above never saw one: a server that
+      # answered at all (another app on 3000 saying 404) counted as wedged and was killed.
+      # Any HTTP reply means the process is alive; only no reply is a wedge.
+      try { if ($_.Exception.Response) { return $true } } catch {}
+    }
+    if ($i -lt 2) { Start-Sleep -Seconds 3 }
+  }
+  return $false
 }
 # Only ever the process actually holding port 3000 - never anything else on the
 # machine. -T sweeps its child tree too (the vite/node process runs under the
@@ -255,6 +310,11 @@ function Stop-StaleServer {
   $owners = Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyContinue |
     Select-Object -ExpandProperty OwningProcess -Unique
   foreach ($ownerPid in $owners) {
+    # Only OUR server: a process whose command line names this app folder. Another program that
+    # happens to listen on 3000 is left alone (its port conflict is reported by npm run dev instead).
+    $cmdLine = $null
+    try { $cmdLine = (Get-CimInstance Win32_Process -Filter "ProcessId=$ownerPid" -ErrorAction Stop).CommandLine } catch {}
+    if (-not $cmdLine -or ($cmdLine.IndexOf($app, [StringComparison]::OrdinalIgnoreCase) -lt 0)) { continue }
     try { & taskkill /PID $ownerPid /T /F 2>&1 | Out-Null } catch {}
   }
   # Give Windows a moment to actually release the socket before the normal
@@ -263,36 +323,6 @@ function Stop-StaleServer {
   while ((Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) {
     Start-Sleep -Milliseconds 200
   }
-}
-
-if (Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyContinue) {
-  if (Test-ServerHealthy) {
-    try { Check-Update -AlreadyRunning } catch {}
-    Wait-AppReady (Open-App)
-    return
-  }
-  # Something is listening on 3000 but not actually answering: a wedged server
-  # from an earlier session, not a working one. Reusing it would just reproduce
-  # the exact freeze the user is trying to escape by reopening the app, so stop
-  # it and fall through to the normal fresh-start path below instead of
-  # returning. Logged directly (Write-UpdateLog is defined further down, after
-  # this point in a top-to-bottom script) so this decision is traceable exactly
-  # like every other one on this path.
-  try {
-    $logDir = Join-Path $app 'logs'
-    if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Force -Path $logDir | Out-Null }
-    Add-Content -Path (Join-Path $logDir 'update.log') -Value ("{0}  launcher: port 3000 was listening but not answering - stopped the stale server and starting fresh" -f (Get-Date).ToString('s')) -Encoding UTF8
-  } catch {}
-  Set-Status "Ebiki's server stopped responding. Restarting it."
-  Stop-StaleServer
-}
-
-if (-not $hasNode) {
-  # Can't run without Node. Point the user at the installer rather than failing silently.
-  [void](New-Object -ComObject WScript.Shell).Popup(
-    "Ebiki could not find Node.js.`n`nRun 'Install Ebiki.bat' in the Ebiki folder, then sign out and back in once.",
-    0, 'Ebiki', 16)   # 16 = stop icon
-  return
 }
 
 # ── Quick, seamless update check ────────────────────────────────────────────
@@ -397,7 +427,15 @@ function Check-Update {
       Write-UpdateLog ("launcher: update FAILED, still at {0}" -f $local.Substring(0,7))
     } else {
       Set-Status 'Installing the update. Almost done.'
-      & cmd /c "cd /d ""$app"" && npm install --no-fund --no-audit" 2>&1 | Out-Null
+      # A failed install (network hiccup, files locked by the running server) was never retried: HEAD
+      # now matches master, so no later launch ran npm install and the new code ran on the old
+      # dependencies for good. The marker makes the next fresh start install first. Written BEFORE the
+      # install and cleared on success, so an install cut off midway (window closed, reboot) counts too.
+      $npmMarker = Join-Path $app '.npm-install-pending'
+      try { Set-Content -Path $npmMarker -Value (Get-Date).ToString('s') -Encoding ASCII } catch {}
+      $npmExit = Invoke-NpmInstall 'Installing the update'
+      if ($npmExit -eq 0) { Remove-Item -Force $npmMarker -ErrorAction SilentlyContinue }
+      else { Write-UpdateLog ("launcher: npm install failed (exit {0}); will retry on the next start" -f $npmExit) }
       # When the app was already up, the running copy is still serving the OLD code
       # (the dev server cannot reload vite.config.js or new dependencies live), so
       # say the one thing that finishes the job rather than pretending it is done.
@@ -413,6 +451,37 @@ function Check-Update {
   # offers it inside the app.
   Set-Status 'Starting the study server.'
 }
+
+# ORDER: Write-UpdateLog and Check-Update MUST be defined above this branch.
+# PowerShell only defines a function once execution reaches it, so when they
+# sat further down, `Check-Update -AlreadyRunning` below threw "not recognized"
+# and the surrounding catch swallowed it: reopening Ebiki while its server was
+# still alive never offered the update and never logged why.
+if (Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyContinue) {
+  if (Test-ServerHealthy) {
+    try { Check-Update -AlreadyRunning } catch {}
+    Wait-AppReady (Open-App)
+    return
+  }
+  # Something is listening on 3000 but not actually answering: a wedged server
+  # from an earlier session, not a working one. Reusing it would just reproduce
+  # the exact freeze the user is trying to escape by reopening the app, so stop
+  # it and fall through to the normal fresh-start path below instead of
+  # returning. Logged so this decision is traceable exactly like every other one
+  # on this path.
+  Write-UpdateLog 'launcher: port 3000 was listening but not answering - stopped the stale server and starting fresh'
+  Set-Status "Ebiki's server stopped responding. Restarting it."
+  Stop-StaleServer
+}
+
+if (-not $hasNode) {
+  # Can't run without Node. Point the user at the installer rather than failing silently.
+  [void](New-Object -ComObject WScript.Shell).Popup(
+    "Ebiki could not find Node.js.`n`nRun 'Install Ebiki.bat' in the Ebiki folder, then sign out and back in once.",
+    0, 'Ebiki', 16)   # 16 = stop icon
+  return
+}
+
 try { Check-Update } catch {}
 
 # ── Start the dev server hidden, then open the app ourselves ────────────────
@@ -426,6 +495,14 @@ try { Check-Update } catch {}
 # would additionally pop a plain browser tab next to it. All inherited by the
 # child process via the environment.
 $env:EBIKI_AUTO_EXIT = '1'
+# An update whose npm install failed (here or from Settings) finishes now, before the server starts.
+$pendingInstall = Join-Path $app '.npm-install-pending'
+if (Test-Path $pendingInstall) {
+  Set-Status 'Finishing the last update.'
+  $npmExit = Invoke-NpmInstall 'Finishing the last update'
+  if ($npmExit -eq 0) { Remove-Item -Force $pendingInstall -ErrorAction SilentlyContinue; Write-UpdateLog 'launcher: finished the pending npm install' }
+  else { Write-UpdateLog ("launcher: pending npm install failed again (exit {0})" -f $npmExit) }
+}
 Set-Status 'Starting the study server.'
 Start-Process -FilePath 'cmd.exe' -ArgumentList '/c', 'npm run dev' -WorkingDirectory $app -WindowStyle Hidden
 $deadline = (Get-Date).AddSeconds(60)
@@ -442,8 +519,10 @@ finally {
   # path Electron already wrote the marker itself.
   Signal-AppReady
   Clear-Status
-  try { Remove-Item $answerFile -Force -ErrorAction SilentlyContinue } catch {}
-  try { Remove-Item $splashMarker -Force -ErrorAction SilentlyContinue } catch {}
+  if (-not $follower) {
+    try { Remove-Item $answerFile -Force -ErrorAction SilentlyContinue } catch {}
+    try { Remove-Item $splashMarker -Force -ErrorAction SilentlyContinue } catch {}
+  }
   # Release only once the server is up (or gave up), so a second launcher that
   # was waiting sees a listening port rather than deciding to start its own.
   if ($held) { try { $mutex.ReleaseMutex() } catch {} }

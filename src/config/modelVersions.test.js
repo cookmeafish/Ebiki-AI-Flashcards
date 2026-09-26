@@ -141,3 +141,15 @@ describe('pickNewest', () => {
     expect(pickNewest('claude-opus-4-8', ANTHROPIC)).toBe('claude-opus-5')
   })
 })
+
+describe('trailing MMDD snapshots (xAI)', () => {
+  it('reads grok-4-0709 as grok-4 with a date, not version [4, 709]', () => {
+    expect(parseModelId('grok-4-0709')).toMatchObject({ family: 'grok', version: [4], date: 709 })
+  })
+  it('never offers the pinned snapshot as an upgrade over its own alias', () => {
+    expect(pickUpgrade('grok-4', ['grok-4', 'grok-4-0709'])).toBe(null)
+  })
+  it('a real newer version still wins over the snapshot', () => {
+    expect(pickUpgrade('grok-4-0709', ['grok-4-0709', 'grok-4-1'])).toBe('grok-4-1')
+  })
+})

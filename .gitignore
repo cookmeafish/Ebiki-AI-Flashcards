@@ -4,6 +4,9 @@ dist
 .env.local
 .env.bak
 .env.cleared
+.env.declined
+keys.json
+keys.json.*
 config.json
 ankiformat.json
 modes/
@@ -33,3 +36,4 @@ launchmode.json
 # Local scratch space for tooling/test runs (never committed)
 .scratch/
 config.json.*
+.npm-install-pending
