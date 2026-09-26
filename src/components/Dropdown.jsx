@@ -70,7 +70,8 @@ export default function Dropdown({ value, onChange, options, style = {}, menuAli
       if (menuRef.current && menuRef.current.contains(e.target)) return
       setOpen(false)
     }
-    const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
+    // preventDefault marks this Esc as HANDLED, so the modal around the menu (Settings) stays open.
+    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); setOpen(false) } }
     // Scrolling the PAGE (or any ancestor) while open closes the menu — the standard select behavior,
     // and it avoids the menu appearing to float around as the page moves under it. Scrolls that
     // originate INSIDE the menu's own list (paging through the options) are ignored. Resize closes too.

@@ -75,3 +75,96 @@ describe('writeModeFolders', () => {
     expect(fs.existsSync(path.join(MODES, 'B', 'knowledge', 'notes.txt'))).toBe(true)
   })
 })
+
+describe('explicit deletes (deletedIds)', () => {
+  // A shared folder: another computer created "Music" after this one loaded its list. This
+  // computer's next save does not name Music, and must not delete it.
+  it('a mode missing from the list is kept when deletedIds is sent', () => {
+    writeModeFolders(MODES, [{ id: 1, name: 'Spanish' }, { id: 2, name: 'Music' }], 1)
+    addKnowledge('Music')
+    writeModeFolders(MODES, [{ id: 1, name: 'Spanish' }], 1, [])
+    expect(folders()).toEqual(['Music', 'Spanish'])
+    expect(fs.existsSync(path.join(MODES, 'Music', 'knowledge', 'notes.txt'))).toBe(true)
+  })
+
+  it('only the named mode is deleted', () => {
+    writeModeFolders(MODES, [{ id: 1, name: 'Spanish' }, { id: 2, name: 'Music' }, { id: 3, name: 'Art' }], 1)
+    writeModeFolders(MODES, [{ id: 1, name: 'Spanish' }], 1, [2])
+    expect(folders()).toEqual(['Art', 'Spanish'])
+  })
+
+  it('a rename still moves the folder and keeps the knowledge base', () => {
+    writeModeFolders(MODES, [{ id: 1, name: 'Spanish' }], 1)
+    addKnowledge('Spanish')
+    writeModeFolders(MODES, [{ id: 1, name: 'Español' }], 1, [])
+    expect(folders()).toEqual(['Español'])
+    expect(fs.existsSync(path.join(MODES, 'Español', 'knowledge', 'notes.txt'))).toBe(true)
+  })
+})
+
+describe('renaming a mode re-tags its chats', () => {
+  const CHATS = path.join(DIR, 'chats')
+  const chat = (id, mode) => fs.writeFileSync(path.join(CHATS, `${id}.json`), JSON.stringify({ title: id, messages: [], ...(mode ? { mode } : {}) }))
+  const modeOf = (id) => JSON.parse(fs.readFileSync(path.join(CHATS, `${id}.json`), 'utf-8')).mode
+  it('moves chats tagged with the old name, leaves every other chat alone', () => {
+    fs.rmSync(CHATS, { recursive: true, force: true }); fs.mkdirSync(CHATS, { recursive: true })
+    writeModeFolders(MODES, [{ id: 1, name: 'Spanish' }, { id: 2, name: 'Music' }], 1, [])
+    chat('a', 'Spanish'); chat('b', 'Music'); chat('c')
+    writeModeFolders(MODES, [{ id: 1, name: 'Español' }, { id: 2, name: 'Music' }], 1, [])
+    expect(modeOf('a')).toBe('Español')
+    expect(modeOf('b')).toBe('Music')
+    expect(modeOf('c')).toBeUndefined()
+  })
+  it('a case-only rename re-tags too', () => {
+    fs.rmSync(CHATS, { recursive: true, force: true }); fs.mkdirSync(CHATS, { recursive: true })
+    writeModeFolders(MODES, [{ id: 1, name: 'spanish' }], 1, [])
+    chat('a', 'spanish')
+    writeModeFolders(MODES, [{ id: 1, name: 'Spanish' }], 1, [])
+    expect(modeOf('a')).toBe('Spanish')
+  })
+  it('the duplicate-id repair is not a rename (two folders shared id 5)', () => {
+    fs.rmSync(CHATS, { recursive: true, force: true }); fs.mkdirSync(CHATS, { recursive: true })
+    for (const name of ['French', 'Spanish']) {
+      fs.mkdirSync(path.join(MODES, name), { recursive: true })
+      fs.writeFileSync(path.join(MODES, name, 'config.json'), JSON.stringify({ id: 5, name }))
+    }
+    chat('f', 'French'); chat('s', 'Spanish')
+    writeModeFolders(MODES, [{ id: 5, name: 'French' }, { id: 6, name: 'Spanish' }], 5, [])
+    expect(modeOf('f')).toBe('French')
+    expect(modeOf('s')).toBe('Spanish')
+    expect(folders()).toEqual(['French', 'Spanish'])
+  })
+
+  it("never overwrites a folder that holds a mode this list does not know (another computer made it)", () => {
+    writeModeFolders(MODES, [{ id: 200, name: 'Chem' }], 200, [])
+    addKnowledge('Chem')
+    // A second computer that loaded before "Chem" existed saves its own new mode named "Chem".
+    const r = writeModeFolders(MODES, [{ id: 1, name: 'Spanish' }, { id: 300, name: 'Chem' }], 1, [])
+    expect(JSON.parse(fs.readFileSync(path.join(MODES, 'Chem', 'config.json'), 'utf8')).id).toBe(200)
+    expect(r.conflicts).toEqual([{ id: 300, name: 'Chem', suggested: 'Chem 2' }])
+    expect(fs.existsSync(path.join(MODES, 'Chem', 'knowledge', 'notes.txt'))).toBe(true)
+  })
+
+  it("treats a string id on disk as the same mode as the number the client sends", () => {
+    fs.mkdirSync(path.join(MODES, 'X'), { recursive: true })
+    fs.writeFileSync(path.join(MODES, 'X', 'config.json'), JSON.stringify({ id: '5', name: 'X' }))
+    addKnowledge('X')
+    const r = writeModeFolders(MODES, [{ id: 5, name: 'X' }], 5, [])
+    expect(r.conflicts).toEqual([])
+    expect(JSON.parse(fs.readFileSync(path.join(MODES, 'X', 'config.json'), 'utf8')).id).toBe(5)
+    // and a rename still carries the knowledge base along
+    writeModeFolders(MODES, [{ id: 5, name: 'Y' }], 5, [])
+    expect(folders()).toEqual(['Y'])
+    expect(fs.existsSync(path.join(MODES, 'Y', 'knowledge', 'notes.txt'))).toBe(true)
+  })
+
+  it('a rename of a mode saved with a string id re-tags its chats too', () => {
+    fs.rmSync(CHATS, { recursive: true, force: true }); fs.mkdirSync(CHATS, { recursive: true })
+    fs.mkdirSync(path.join(MODES, 'Old'), { recursive: true })
+    fs.writeFileSync(path.join(MODES, 'Old', 'config.json'), JSON.stringify({ id: '7', name: 'Old' }))
+    chat('o', 'Old')
+    writeModeFolders(MODES, [{ id: 7, name: 'New' }], 7, [])
+    expect(folders()).toEqual(['New'])
+    expect(modeOf('o')).toBe('New')
+  })
+})

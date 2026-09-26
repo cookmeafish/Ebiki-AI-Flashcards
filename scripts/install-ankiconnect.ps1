@@ -108,7 +108,12 @@ if ($Install) {
       $result = @{ ok = $true; installedFrom = $from; dir = (Join-Path $base 'addons21\2055492159'); base = $base }
     }
     # Anki loads add-ons at startup only, so a running Anki has to be restarted.
-    $result.ankiRunning = [bool](Get-Process -Name 'anki', 'ankiw' -ErrorAction SilentlyContinue)
+    # Website installs run the real Anki as python/pythonw out of the Anki folders (the launcher exits):
+    # only counting anki/ankiw said "not running" with Anki open, and the banner told the user to start it.
+    $pyAnki = @(Get-Process -Name 'pythonw', 'python' -ErrorAction SilentlyContinue | Where-Object {
+      try { $_.Path -match '[\\/](Anki|AnkiProgramFiles)[\\/]' } catch { $false }
+    })
+    $result.ankiRunning = [bool](Get-Process -Name 'anki', 'ankiw' -ErrorAction SilentlyContinue) -or ($pyAnki.Count -gt 0)
   } catch {
     $result = @{ ok = $false; error = $_.Exception.Message; base = $base }
   }

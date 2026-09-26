@@ -52,17 +52,26 @@ export function estimateImageNoise(dataUrl, sample = 96) {
 // data URL unchanged when it's already small enough (or on any failure).
 // Vision models (Claude ~1568px, others similar) gain nothing from larger inputs,
 // and smaller payloads upload faster and cost fewer tokens.
+// Formats every provider accepts in an image part. Anything else the browser can decode (BMP, AVIF, SVG,
+// ICO) is re-encoded even when small: sent as-is it got a 400 from every provider, and because the chat
+// re-attaches recent images, every later message in that chat failed too.
+// JPEG and PNG only: GIF is not a Gemini type, xAI takes jpg/png only, and OpenAI refuses an animated
+// GIF, so GIF/WebP are re-encoded (first frame) like any other format.
+const PORTABLE_IMAGE = /^data:image\/(jpeg|jpg|png)[;,]/i
 export function downscaleDataUrl(dataUrl, maxEdge = 1500, mimeType = 'image/jpeg', quality = 0.9) {
   return new Promise((resolve) => {
     try {
       const img = new Image()
       img.onload = () => {
-        const longEdge = Math.max(img.naturalWidth, img.naturalHeight)
-        if (!longEdge || longEdge <= maxEdge) { resolve(dataUrl); return }
-        const scale = maxEdge / longEdge
+        const portable = PORTABLE_IMAGE.test(String(dataUrl || ''))
+        let longEdge = Math.max(img.naturalWidth, img.naturalHeight)
+        if (portable && (!longEdge || longEdge <= maxEdge)) { resolve(dataUrl); return }
+        let w0 = img.naturalWidth, h0 = img.naturalHeight
+        if (!longEdge) { w0 = h0 = longEdge = 1024 } // an SVG with no intrinsic size
+        const scale = Math.min(1, maxEdge / longEdge)
         const c = document.createElement('canvas')
-        c.width = Math.round(img.naturalWidth * scale)
-        c.height = Math.round(img.naturalHeight * scale)
+        c.width = Math.max(1, Math.round(w0 * scale))
+        c.height = Math.max(1, Math.round(h0 * scale))
         const ctx = c.getContext('2d')
         // JPEG has no alpha, so transparent pixels came out BLACK: a big pasted PNG of dark text on a
         // transparent background became dark text on black, and the vision model read nothing. Paint a

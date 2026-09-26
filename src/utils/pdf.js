@@ -12,7 +12,14 @@ export async function extractPdfText(file, onProgress) {
   const pdfjs = await import('pdfjs-dist')
   pdfjs.GlobalWorkerOptions.workerSrc = (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default
   const data = await file.arrayBuffer()
-  const doc = await pdfjs.getDocument({ data }).promise
+  // Adobe's predefined CMaps: a Chinese/Japanese PDF whose font relies on one (UniJIS-UCS2-H...) came back
+  // with NO text and was reported as a scanned PDF. Served by the dev server from the installed package.
+  const doc = await pdfjs.getDocument({
+    data,
+    cMapUrl: '/node_modules/pdfjs-dist/cmaps/',
+    cMapPacked: true,
+    standardFontDataUrl: '/node_modules/pdfjs-dist/standard_fonts/',
+  }).promise
   const pages = []
   try {
     for (let p = 1; p <= doc.numPages; p++) {
@@ -21,25 +28,35 @@ export async function extractPdfText(file, onProgress) {
       const lines = []
       let line = []
       let lastY = null
-      const flush = () => { if (line.length) { lines.push(line.join('').replace(/\s+$/, '')); line = [] } }
-      const push = (s) => {
+      let lastH = 0
+      let prevEnd = null // x where the previous run ended (null = unknown)
+      const flush = () => { if (line.length) { lines.push(line.join('').replace(/\s+$/, '')); line = [] } prevEnd = null }
+      const push = (s, gap) => {
         if (!s) return
-        // pdf.js splits a visual line into many items; add a space between items when
-        // neither side carries one, so words don't fuse ("HelloWorld"). Except between two
-        // Chinese/Japanese characters: those scripts put no spaces between words, and pdf.js often
-        // splits them into short runs, so the rule turned "日本語の" into "日 本 語 の" (and broke
-        // the heading detection the outline relies on). Hangul uses spaces, so it keeps the rule.
+        // pdf.js splits a visual line into many items and emits its own " " item for a real gap. Between
+        // two runs with no space on either side, a space goes in only when they are APART on the page:
+        // a word whose font changes midway ("C" + "HAPTER 3" in small caps, bold "Impor" + "tant") is one
+        // word (it came out "C HAPTER 3" and the outline lost its chapters). Without positions, the old
+        // rule (always a space) stands. Never between two Chinese/Japanese characters ("日本語の" became
+        // "日 本 語 の"); Hangul uses spaces, so it keeps the rule.
         const prev = line.length ? line[line.length - 1] : ''
-        if (line.length && !/\s$/.test(prev) && !/^\s/.test(s) && !(CJK_END.test(prev) && CJK_START.test(s))) line.push(' ')
+        if (line.length && !/\s$/.test(prev) && !/^\s/.test(s) && !(CJK_END.test(prev) && CJK_START.test(s)) && gap !== false) line.push(' ')
         line.push(s)
       }
       for (const item of tc.items) {
         if (typeof item.str !== 'string') continue
-        const y = Array.isArray(item.transform) ? Math.round(item.transform[5]) : null
-        if (lastY !== null && y !== null && Math.abs(y - lastY) > 2) flush()
-        push(item.str)
+        const tr = Array.isArray(item.transform) ? item.transform : null
+        const y = tr ? Math.round(tr[5]) : null
+        const h = Math.abs(Number(item.height) || (tr ? Number(tr[3]) || Number(tr[0]) : 0) || 0)
+        // A new LINE only past a real line step: superscripts, subscripts and footnote marks sit a few
+        // units off the baseline and cut "E = mc²" into three lines.
+        if (lastY !== null && y !== null && Math.abs(y - lastY) > Math.max(2, 0.7 * Math.max(lastH, h))) flush()
+        const x = tr ? Number(tr[4]) : NaN
+        const gap = (prevEnd === null || !Number.isFinite(x)) ? undefined : (x - prevEnd > 0.2 * (h || lastH || 10))
+        push(item.str, gap)
+        prevEnd = Number.isFinite(x) && Number.isFinite(Number(item.width)) ? x + Number(item.width) : null
         if (item.hasEOL) flush()
-        if (y !== null) lastY = y
+        if (y !== null) { lastY = y; lastH = h || lastH }
       }
       flush()
       pages.push(lines.join('\n'))

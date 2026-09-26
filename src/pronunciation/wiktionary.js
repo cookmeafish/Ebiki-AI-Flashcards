@@ -97,15 +97,21 @@ const fetchFileInfo = async (fileName, edition) => {
 // `includedSearch` marks whether the Commons direct search was already merged in.
 const candidateCache = new Map()
 
-const gatherEditionCandidates = async (editions, titles) => {
+// Stops at the first edition whose audio actually RANKS for this language (`usable`), not the first
+// with any audio: es.wiktionary pages often carry only another language's recording, which the matcher
+// rejects, and stopping there never tried the en edition that had the Spanish file.
+const gatherEditionCandidates = async (editions, titles, usable = (c) => c.length > 0) => {
+  let fallback = { files: [], edition: null }
   for (const edition of editions) {
     for (const title of titles) {
       const [ml, wt] = await Promise.all([fetchMediaList(edition, title), fetchWikitextFiles(edition, title)])
       const candidates = unionCandidates(ml, wt)
-      if (candidates.length) return { files: candidates, edition }
+      if (!candidates.length) continue
+      if (usable(candidates)) return { files: candidates, edition }
+      if (!fallback.files.length) fallback = { files: candidates, edition }
     }
   }
-  return { files: [], edition: null }
+  return fallback
 }
 
 // `variant` picks the n-th ranked recording (wrapping), so a user can cycle through
@@ -122,12 +128,13 @@ export async function resolveWiktionary({ word, lang, region = '', config = {}, 
   const cacheKey = `${word.trim().toLowerCase()}|${info.iso1}|${region}`.toLowerCase()
   let entry = candidateCache.get(cacheKey)
   if (!entry || (variant > 0 && !entry.includedSearch)) {
-    const base = entry?.gathered ? { files: entry.raw, edition: entry.edition } : await gatherEditionCandidates(editions, titles)
+    const rankOf = (files) => pickAudioFiles(files, { iso1: info.iso1, iso3: info.iso3, region, word })
+    const base = entry?.gathered ? { files: entry.raw, edition: entry.edition } : await gatherEditionCandidates(editions, titles, (c) => rankOf(c).length > 0)
     let raw = base.files
     let includedSearch = entry?.includedSearch || false
-    // Source B: merge the Commons-wide search when the pages had nothing — or when the
-    // user asks for alternate voices (more speakers live outside the dictionary pages).
-    if (!raw.length || variant > 0) {
+    // Source B: merge the Commons-wide search when the pages had nothing USABLE (audio that is all in
+    // another language counts as nothing) — or when the user asks for alternate voices.
+    if (!rankOf(raw).length || variant > 0) {
       raw = unionCandidates(raw, await searchCommonsFiles(word.trim()))
       includedSearch = true
     }
@@ -137,9 +144,21 @@ export async function resolveWiktionary({ word, lang, region = '', config = {}, 
     // Weak no-language-info candidates are kept ONLY when nothing better exists, and
     // they must additionally pass the pronunciation-category gate below.
     const strong = ranked.filter((c) => c.score >= STRONG_SCORE)
-    entry = { files: strong.length ? strong : ranked, raw, edition: base.edition, includedSearch, gathered: true }
-    if (candidateCache.size > 200) candidateCache.clear()
-    candidateCache.set(cacheKey, entry)
+    let files = strong.length ? strong : ranked
+    // Widening a list the user is already cycling (the first ↻ merges the search): the voices they have
+    // heard keep their places and new ones go AFTER them. A re-rank put a search hit first, so variant 1
+    // became the file already playing and ↻ said "only one recording" and retired.
+    if (entry?.files?.length) {
+      const had = new Set(entry.files.map((f) => f.file))
+      files = [...entry.files, ...files.filter((f) => !had.has(f.file))]
+    }
+    entry = { files, raw, edition: base.edition, includedSearch, gathered: true }
+    // An empty result is not cached: every fetch helper turns a network error or a second 429 into [],
+    // so a rate-limited burst (🔊 down a deck list) became a miss for the rest of the session.
+    if (entry.files.length) {
+      if (candidateCache.size > 200) candidateCache.clear()
+      candidateCache.set(cacheKey, entry)
+    }
   }
 
   const files = entry.files

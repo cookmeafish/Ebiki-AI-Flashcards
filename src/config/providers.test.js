@@ -83,6 +83,13 @@ describe('reasoning models that spend the whole budget on thinking', () => {
     expect(calls[1].body.max_completion_tokens).toBeGreaterThan(600)
   })
 
+  it('throws (never returns "") when the bigger-budget retry fails or is still empty', async () => {
+    stub((n) => (n === 1 ? okOpenAi('', 'length') : new Response('rate limited', { status: 429 })))
+    await expect(PROVIDERS.openai.call('k', 'sys', 'user', 'o4-mini', undefined, 600)).rejects.toThrow(/^API 429/)
+    stub(() => okOpenAi('', 'length'))
+    await expect(PROVIDERS.openai.call('k', 'sys', 'user', 'o4-mini', undefined, 600)).rejects.toThrow(/^API 200: empty/)
+  })
+
   it('retries when the budget is exhausted as a 400 instead of an empty 200', async () => {
     // Measured live: o4-mini with NO system message returns 200 + content:"" + finish:"length",
     // but the SAME call WITH a system message - which is every call Ebiki makes - returns a 400
@@ -145,6 +152,11 @@ describe('Gemini thinking models', () => {
   const okGem = (text, finish = 'STOP') =>
     new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text }] }, finishReason: finish }] }), { status: 200 })
 
+  it('throws when the thinking retry fails instead of returning empty text', async () => {
+    stub((n) => (n === 1 ? okGem('', 'MAX_TOKENS') : new Response('overloaded', { status: 503 })))
+    await expect(PROVIDERS.gemini.call('k', 'sys', 'user', 'gemini-2.5-pro', undefined, 600)).rejects.toThrow(/^API 503/)
+  })
+
   it('retries once when thinking consumed maxOutputTokens', async () => {
     const calls = stub((n) => (n === 1 ? okGem('', 'MAX_TOKENS') : okGem('answer')))
     const out = await PROVIDERS.gemini.call('k', 'sys', 'user', 'gemini-2.5-pro', undefined, 600)
@@ -191,5 +203,27 @@ describe('every provider handles the shared call contract', () => {
       const out = await PROVIDERS[prov].call('k', 'sys', 'u', null, undefined, 100)
       expect(typeof out, `${prov} returned a non-string`).toBe('string')
     }
+  })
+})
+
+describe('blocked or refused replies', () => {
+  // A safety block is 200 with no text. Returned as "", chat showed and saved a blank Ebi bubble.
+  it('throws a 200 "blocked" error on all four instead of returning empty text', async () => {
+    const blocked = {
+      anthropic: () => new Response(JSON.stringify({ content: [], stop_reason: 'refusal' }), { status: 200 }),
+      gemini: () => new Response(JSON.stringify({ promptFeedback: { blockReason: 'SAFETY' } }), { status: 200 }),
+      openai: () => okOpenAi('', 'content_filter'),
+      grok: () => okOpenAi('', 'content_filter'),
+    }
+    for (const prov of Object.keys(PROVIDERS)) {
+      vi.unstubAllGlobals()
+      stub(blocked[prov])
+      await expect(PROVIDERS[prov].call('k', 'sys', 'u', null, undefined, 100), prov).rejects.toThrow(/^API 200: blocked/)
+    }
+  })
+
+  it('treats a Gemini answer stopped for SAFETY as blocked', async () => {
+    stub(() => new Response(JSON.stringify({ candidates: [{ finishReason: 'SAFETY' }] }), { status: 200 }))
+    await expect(PROVIDERS.gemini.call('k', 'sys', 'u', 'gemini-2.5-pro', undefined, 100)).rejects.toThrow(/blocked \(SAFETY\)/)
   })
 })

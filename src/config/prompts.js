@@ -55,6 +55,7 @@ keep the output lean; richer detail (gloss/synonyms/pronunciation) is fetched se
 - "c": category — "foreign" (word was translated) | "name" (proper noun/character/place/brand) |
   "target" (identical in both languages / nothing to translate) | "number" (digits/stats)
 - "p": part of speech — "noun"|"verb"|"adj"|"adv"|"prep"|"art"|"conj"|"pron"|"other"
+- "o": true ONLY for a word in the user's OWN language ("to"), translated INTO the learned language; omit otherwise
 - "line": integer line/sentence group. Words on the same visual line share the same number;
   increment for each new line, top to bottom.
 - "box": [x0,y0,x1,y1] the word's bounding box as fractions of image size (0..1, 3 decimal
@@ -91,6 +92,7 @@ Return ONLY a raw JSON array, one object per input word:
   both languages / nothing to translate) | "number" (digits/stats) | "skip" (OCR junk: stray
   letters, garbled fragments, URLs, file paths — not a real word)
 - "p": part of speech — "noun"|"verb"|"adj"|"adv"|"prep"|"art"|"conj"|"pron"|"other"
+- "o": true ONLY for a word in the user's OWN language ("to"), translated INTO "from"; omit otherwise
 No markdown, no commentary. Every output object MUST carry its input "i".`
 
 // Lazy per-word enrichment for the vision fast path: on text-dense screens the scan returns

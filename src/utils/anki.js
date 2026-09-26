@@ -1,4 +1,5 @@
 // AnkiConnect API wrapper — communicates via Vite proxy at /api/anki
+import DOMPurify from 'dompurify'
 
 // Logged payloads are capped. Every request AND response used to be stringified in full, which for
 // a whole-deck notesInfo reply or a base64 audio upload meant serializing megabytes on each call just
@@ -54,17 +55,114 @@ export async function ankiCreateDeck(deckName) {
   return ankiRequest('createDeck', { deck: deckName })
 }
 
+// Anki names its built-in note types in the language the COLLECTION was created in: a Spanish
+// install has "Básico" with "Anverso"/"Reverso", so a hardcoded 'Basic'/'Front'/'Back' failed every
+// add with "model was not found". 'Basic' stays the fast path (English collections, and any
+// collection that has it); only on that error do we find the collection's own two-field basic
+// type once, cache it, and fill its fields by ORDER (front first).
+let basicModelCache = null
+const isMissingModelError = (e) => /model was not found|model.*not.?found/i.test(String(e?.message || e))
+async function resolveBasicModel() {
+  if (basicModelCache) return basicModelCache
+  const names = (await ankiRequest('modelNames', {})) || []
+  const candidates = []
+  for (const name of names) {
+    if (/cloze|reverse|revers|inver|type in|escrib|typing/i.test(name)) continue
+    const fields = await ankiRequest('modelFieldNames', { modelName: name }).catch(() => null)
+    if (Array.isArray(fields) && fields.length === 2) candidates.push({ name, fields })
+  }
+  if (!candidates.length) throw new Error('No two-field note type (like "Basic") exists in this Anki collection.')
+  basicModelCache = candidates.find((c) => /basic|b[aá]sico|basique|einfach|基本|基础|базов/i.test(c.name)) || candidates[0]
+  return basicModelCache
+}
+// Try 'Basic' first; on a missing-model error, retry against the collection's own basic type.
+// The "Basic" type's REAL field names, read once: a Basic whose fields were renamed ("Word"/"Meaning")
+// silently dropped Front/Back, so every add failed with "cannot create note because it is empty" and
+// every Quick Add card looked like a duplicate. Not cached on a failed read (Anki offline): retried.
+let basicFieldsCache
+async function basicFieldNames() {
+  if (basicFieldsCache === undefined) {
+    try {
+      const f = await ankiRequest('modelFieldNames', { modelName: 'Basic' })
+      basicFieldsCache = Array.isArray(f) && f.length >= 2 ? f.slice(0, 2) : null
+    } catch (e) {
+      if (isMissingModelError(e)) basicFieldsCache = null
+      else return ['Front', 'Back']
+    }
+  }
+  return basicFieldsCache || ['Front', 'Back']
+}
+async function withBasicModel(run) {
+  try {
+    return await run({ modelName: 'Basic', fieldNames: await basicFieldNames() })
+  } catch (e) {
+    if (!isMissingModelError(e)) throw e
+    const m = await resolveBasicModel()
+    return run({ modelName: m.name, fieldNames: m.fields })
+  }
+}
+
+// Plain text that contains "<" (code: "#include <stdio.h>", "vector<int>", "a < b") was written to
+// Anki as HTML, where "<stdio.h>" parses as a tag and disappears from the card. Every "<" that does NOT
+// open a real HTML element (or a comment) is escaped on the way in, so the app's own markup (<b>,
+// <br>, <div>, the audio credit <a>) and any HTML already on a card pass through untouched.
+const HTML_TAGS = new Set(('a abbr address area article aside audio b base bdi bdo big blockquote body br button canvas caption ' +
+  'center cite code col colgroup data dd del details dfn dialog div dl dt em embed fieldset figcaption figure font footer form ' +
+  'h1 h2 h3 h4 h5 h6 head header hr html i iframe img input ins kbd label legend li link main map mark math meta meter nav ' +
+  'noscript object ol optgroup option output p param picture pre progress q rp rt ruby s samp script section select small ' +
+  'source span strike strong style sub summary sup svg table tbody td template textarea tfoot th thead time title tr track tt u ul var video wbr ' +
+  // ruby (furigana). NOT generic SVG/MathML names: "<path>", "<text>", "<line>" are everyday code
+  // placeholders ("git add <path>"), and only NEW text reaches this function now (ankiUpdateNote writes
+  // existing card HTML as given).
+  'rb rtc nobr').split(' '))
+export const escapeStrayLt = (html) => {
+  const text = String(html ?? '')
+  // A hyphenated name is a custom element only when the text also CLOSES it (<anki-mathjax>…</anki-mathjax>);
+  // on its own it is a placeholder ("git checkout <branch-name>") and must stay visible.
+  const closed = new Set([...text.matchAll(/<\/([a-zA-Z][\w-]*-[\w-]*)\s*>/g)].map((m) => m[1].toLowerCase()))
+  // Kept as markup only when it really is a tag: a known name FOLLOWED by whitespace, "/", ">" or the end
+  // ("a<b && c>d" and "j<i;" are code, not <b>/<i>), not a lone uppercase letter (the generics in
+  // "PhantomData<S>", "fn f<A, B>"), and "<!" only for a comment ("List<?> items" lost its "<?>" to the
+  // HTML parser's bogus-comment rule, "<?php ... ?>" vanished).
+  return text.replace(/<(?!!--)(\/?)([a-zA-Z][\w-]*)?/g, (m, slash, name, offset) => {
+    const next = text.charAt(offset + m.length)
+    // With attributes, what follows must READ as attributes up to the ">" ("<b && c>" is code).
+    const attrsOk = !/\s/.test(next) || /^(\s+[a-zA-Z_:][\w:.-]*(\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+))?)*\s*\/?>/.test(text.slice(offset + m.length))
+    // A real tag CLOSES: ">" or "/>" right after the name, or attributes up to ">" (attrsOk). At the END of the
+    // text or before a bare "/" it is not one ("True when a<b", "if a<b/2 then c"): kept as markup, the HTML
+    // parser threw away everything from there.
+    const real = name && (next === '>' || text.startsWith('/>', offset + m.length) || /\s/.test(next)) && attrsOk && !/^[A-Z]$/.test(name)
+      && (HTML_TAGS.has(name.toLowerCase()) || (name.includes('-') && closed.has(name.toLowerCase())))
+    return real ? m : '&lt;' + slash + (name || '')
+  })
+}
+
+// NEW card content (AI-written, or typed) as safe card HTML. Anki's reviewer RUNS script in a card, and
+// AnkiWeb carries the card to every device, so text a web-search result, a knowledge file or an
+// attached deck smuggled into a model reply ("<img src=x onerror=…>") would execute on every review.
+// Script-capable markup goes; formatting, [sound:…] and ordinary inline styles stay. Never applied to
+// HTML read back from an existing card (copies, the audio embed): that is the user's own content.
+const CARD_FORBID = ['script', 'iframe', 'frame', 'object', 'embed', 'style', 'link', 'meta', 'base', 'form', 'input', 'textarea', 'select', 'button']
+export const sanitizeCardHtml = (html) => {
+  const s = escapeStrayLt(html)
+  try { return (DOMPurify && DOMPurify.isSupported) ? DOMPurify.sanitize(s, { FORBID_TAGS: CARD_FORBID }) : s } catch { return s }
+}
+
 export async function ankiAddNote(deckName, front, back, tags = [], allowDuplicate = false) {
+  front = sanitizeCardHtml(front)
+  back = sanitizeCardHtml(back)
+  // One tag per entry: Anki splits a tag on whitespace, so "machine learning" became two tags (machine, learning).
+  tags = [...new Set((Array.isArray(tags) ? tags : []).map((tg) => String(tg ?? '').trim().split(/\s+/).join('-')).filter(Boolean))]
   ankiLog(`adding note to deck "${deckName}"`, { front, back, tags })
-  const noteId = await ankiRequest('addNote', {
+  const noteId = await withBasicModel(({ modelName, fieldNames }) => ankiRequest('addNote', {
     note: {
       deckName,
-      modelName: 'Basic',
-      fields: { Front: front, Back: back },
+      modelName,
+      fields: { [fieldNames[0]]: front, [fieldNames[1]]: back },
       options: { allowDuplicate },
       tags,
     },
-  })
+  }))
   ankiLog(`note added, id: ${noteId}`)
   return noteId
 }
@@ -119,9 +217,10 @@ export async function ankiChangeDeck(cardIds, deckName) {
 // (e.g. Anki not running) returns true so we never block adding on a flaky check.
 export async function ankiCanAddNote(deckName, front, back) {
   try {
-    const res = await ankiRequest('canAddNotes', {
-      notes: [{ deckName, modelName: 'Basic', fields: { Front: front, Back: back }, tags: [] }],
-    })
+    const res = await withBasicModel(({ modelName, fieldNames }) => ankiRequest('canAddNotes', {
+      // The SAME text ankiAddNote stores: checked raw, "vector<int>" compared as "vector" and never matched.
+      notes: [{ deckName, modelName, fields: { [fieldNames[0]]: sanitizeCardHtml(front), [fieldNames[1]]: sanitizeCardHtml(back) }, tags: [] }],
+    }))
     return Array.isArray(res) ? res[0] !== false : true
   } catch {
     return true
@@ -213,15 +312,44 @@ export async function ankiGetTodayReviewStats() {
   const midnight = new Date(); midnight.setHours(0, 0, 0, 0)
   const startID = midnight.getTime() // revlog ids are unix-ms timestamps
   let reviews = 0, passed = 0
+  const all = []
   for (const deck of decks) {
-    let rows = []
-    try { rows = await ankiRequest('cardReviews', { deck, startID }) } catch { continue }
-    for (const r of (rows || [])) {
-      reviews++
-      if (Number(r[3]) >= 2) passed++ // r[3] = button pressed: 1 Again, 2 Hard, 3 Good, 4 Easy
+    try { all.push(...((await ankiRequest('cardReviews', { deck, startID })) || [])) } catch { continue }
+  }
+  // A post-lock CORRECTION's row (see markCorrectionReview) is not a second answer: it replaces the
+  // card's earlier outcome instead of adding one (it counted as an extra review, and a corrected
+  // Again → Good as one fail plus one pass).
+  const corrections = correctionReviewIds()
+  const lastPass = new Map() // cardId -> outcome of its latest counted row
+  all.sort((a, b) => Number(a[0]) - Number(b[0]))
+  for (const r of all) {
+    // Button 0 = a MANUAL row (setDueDate, forgetCards: Ebiki's own sync fallbacks, corrections and
+    // "Reset progress"), not an answer. Counted, each was a phantom failed review in today's accuracy.
+    if (!(Number(r[3]) >= 1)) continue
+    const pass = Number(r[3]) >= 2 // r[3] = button pressed: 1 Again, 2 Hard, 3 Good, 4 Easy
+    const cid = r[1]
+    if (corrections.has(Number(r[0]))) {
+      if (lastPass.has(cid) && lastPass.get(cid) !== pass) passed += pass ? 1 : -1
+      if (lastPass.has(cid)) lastPass.set(cid, pass)
+      continue
     }
+    reviews++
+    if (pass) passed++
+    lastPass.set(cid, pass)
   }
   return { reviews, passed }
+}
+
+// Revlog ids (unix ms) of the rows Ebiki inserted as post-lock corrections, kept on this computer.
+const CORRECTION_KEY = 'ebiki-correction-revlog'
+function correctionReviewIds() {
+  try { return new Set((JSON.parse(localStorage.getItem(CORRECTION_KEY) || '[]') || []).map(Number)) } catch { return new Set() }
+}
+export function markCorrectionReview(id) {
+  try {
+    const keep = [...correctionReviewIds()].filter((x) => x > Date.now() - 3 * 86400000)
+    localStorage.setItem(CORRECTION_KEY, JSON.stringify([...keep, Number(id)].slice(-200)))
+  } catch { /* stats only */ }
 }
 
 export async function ankiFindNotes(query) {
@@ -234,6 +362,9 @@ export async function ankiNotesInfo(notes) {
   return ankiRequest('notesInfo', { notes })
 }
 
+// Fields are written AS GIVEN: callers send either HTML read back from Anki (the audio embed re-sends
+// the whole back, and escaping there garbled tags like <rb> or <svg> children on a card nobody edited)
+// or plain text they have already escaped. A caller writing raw AI text runs escapeStrayLt itself.
 export async function ankiUpdateNote(id, fields) {
   ankiLog(`updating note ${id}`, fields)
   return ankiRequest('updateNoteFields', { note: { id, fields } })
@@ -269,6 +400,9 @@ export async function ankiSyncAuthState() {
     return 'signed-in'
   } catch (err) {
     if (isAnkiAuthError(err)) return 'signed-out'
+    // Signed in, but the first sync after signing in needs a full upload/download ("Sync status ... not one
+    // of ..."): auth exists, which is all this asks.
+    if (/sync status/i.test(String(err?.message || ''))) return 'signed-in'
     ankiLog(`sync auth probe inconclusive: ${err.message}`)
     return 'unknown'
   }
@@ -336,3 +470,9 @@ export async function ankiRetrieveMediaFile(filename) {
   ankiLog(`retrieving media file "${filename}"`)
   return ankiRequest('retrieveMediaFile', { filename })
 }
+
+// A deck search term with the deck name ESCAPED. Inside Anki's search syntax `_` matches any one
+// character and `*` any run, so `deck:"Unit_1"` also matched "Unit 1" and "Unit-1" - and a study
+// session then pulled another deck's cards, which the reviewer never presents, so they fell to the
+// setDueDate fallback and had reviews recorded that nobody made. Subdecks still match (Parent::*).
+export const ankiDeckTerm = (deck) => `deck:"${String(deck || '').replace(/[\\"*_]/g, (c) => '\\' + c)}"`

@@ -30,7 +30,7 @@ start_anki_if_needed() {
     exe="flatpak run net.ankiweb.Anki"
   fi
   [ -z "$exe" ] && return   # Anki not installed -> nothing to do
-  nohup $exe >/dev/null 2>&1 &
+  nohup $exe >/dev/null 2>&1 200>&- &
   disown
 }
 start_anki_if_needed || true
@@ -58,12 +58,16 @@ launch_mode() {
 
 open_app() {
   local electron_bin="$APP/node_modules/electron/dist/electron"
+  # macOS installs an app bundle instead; without this, "app window" mode always opened a browser tab.
+  [ -x "$electron_bin" ] || electron_bin="$APP/node_modules/electron/dist/Electron.app/Contents/MacOS/Electron"
   # The user's choice wins, but only where it can be honored: 'browser' always
   # works, 'app' still falls back to a tab when electron is missing.
   if [ "$(launch_mode)" != browser ] && [ -x "$electron_bin" ]; then
     # --from-launcher tells electron/main.cjs the dev server is handled out here;
     # a bare launch (a dock/taskbar pin of the binary itself) has to bootstrap it.
-    nohup "$electron_bin" "$APP/electron/main.cjs" --class=Ebiki --from-launcher >/dev/null 2>&1 &
+    # 200>&- : long-lived children must not inherit the launcher lock (the window held it for its whole
+    # life, so the next click, or the window's own revive, waited 20 minutes and then did nothing).
+    nohup "$electron_bin" "$APP/electron/main.cjs" --class=Ebiki --from-launcher >/dev/null 2>&1 200>&- &
     disown
   elif command -v xdg-open >/dev/null 2>&1; then
     xdg-open 'http://localhost:3000' >/dev/null 2>&1 &
@@ -103,7 +107,10 @@ log_update() {
 # lock; it stays the way to run a second copy on purpose.
 LOCK_FILE="$APP/.launcher.lock"
 exec 200>"$LOCK_FILE"
-flock -w 120 200 || true
+# Wait as long as a first launcher can legitimately take (an update question, then npm install);
+# carrying on after 2 minutes ran a second update and npm install in the same folder. Still busy
+# after 20 minutes: start nothing. (No flock at all, as on stock macOS: no lock, as before.)
+if command -v flock >/dev/null 2>&1; then flock -w 1200 200 || exit 0; fi
 
 # localhost, not 127.0.0.1: Vite binds to what localhost resolves to first, which can be IPv6 ::1
 # only (macOS, current Node on Windows). bash tries every address localhost resolves to.
@@ -121,13 +128,22 @@ port_listening() {
 # freeze used to just reconnect to the same dead service - a real HTTP round
 # trip with a hard timeout tells the difference. Self-contained in a subshell
 # so fd 3 never leaks into the rest of the script.
+# Three tries before "wedged" (see Test-ServerHealthy in launch.ps1: a synchronous backup pass on a
+# big share can hold the event loop for seconds, and one miss killed a healthy server).
 server_healthy() {
+  server_healthy_once && return 0
+  sleep 3; server_healthy_once && return 0
+  sleep 3; server_healthy_once
+}
+server_healthy_once() {
   (
     exec 3<>/dev/tcp/localhost/3000 2>/dev/null || exit 1
     printf 'GET /api/alive HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3
     IFS= read -r -t 4 status <&3 || exit 1
+    # ANY HTTP reply means the process is alive (only no reply is a wedge): a 404 from another app
+    # on port 3000 used to count as wedged, and that app was killed.
     case "$status" in
-      HTTP/1.?\ 2*|HTTP/1.?\ 3*) exit 0 ;;
+      HTTP/1.?\ *) exit 0 ;;
       *) exit 1 ;;
     esac
   ) 2>/dev/null
@@ -137,13 +153,19 @@ server_healthy() {
 # the machine.
 stop_stale_server() {
   local pids=""
-  if command -v fuser >/dev/null 2>&1; then
+  # lsof first: macOS ships a fuser that only takes file paths, so "fuser 3000/tcp" printed nothing
+  # there and the wedged server was never stopped.
+  if command -v lsof >/dev/null 2>&1; then
+    pids="$(lsof -ti tcp:3000 -sTCP:LISTEN 2>/dev/null)"
+  fi
+  if [ -z "$pids" ] && command -v fuser >/dev/null 2>&1; then
     pids="$(fuser 3000/tcp 2>/dev/null)"
-  elif command -v lsof >/dev/null 2>&1; then
-    pids="$(lsof -ti tcp:3000 2>/dev/null)"
   fi
   for pid in $pids; do
-    kill -9 "$pid" 2>/dev/null
+    # Only OUR server (its command line names this app folder); another program on 3000 is left alone.
+    case "$(ps -o command= -p "$pid" 2>/dev/null)" in
+      *"$APP"*) kill -9 "$pid" 2>/dev/null ;;
+    esac
   done
   local deadline
   deadline=$(( $(date +%s) + 5 ))
@@ -157,6 +179,7 @@ stop_stale_server() {
 # app has, not a fresh browser tab piling up next to the old one.
 if port_listening; then
   if server_healthy; then
+    flock -u 200 2>/dev/null || true # nothing left to guard; release before the window opens
     open_app
     exit 0
   fi
@@ -206,7 +229,17 @@ check_update() {
   elif command -v kdialog >/dev/null 2>&1; then
     kdialog --yesno "A new version of Ebiki is available.\n\nUpdate now?" 2>/dev/null
     [ $? -eq 0 ] && answer=yes || answer=no
+  elif command -v osascript >/dev/null 2>&1; then
+    # macOS has neither zenity nor kdialog, so every update there was skipped without a word.
+    local out
+    out="$(osascript -e 'display dialog "A new version of Ebiki is available." & return & return & "Update now? It only takes a few seconds." buttons {"Not now", "Update now"} default button "Update now" with title "Ebiki update" giving up after 60' 2>/dev/null)"
+    case "$out" in
+      *"gave up:true"*) answer=timeout ;;
+      *"Update now"*) answer=yes ;;
+      *) answer=no ;;
+    esac
   else
+    log_update "update available ($local_head -> $remote) but skipped: no GUI prompt available"
     return   # no GUI prompt available - never auto-update without asking
   fi
 
@@ -229,7 +262,11 @@ check_update() {
     new_head="$(git -C "$APP" rev-parse HEAD 2>/dev/null)"
     if [ -n "$new_head" ] && [ "$new_head" != "$local_head" ]; then
       log_update "update applied ($local_head -> $new_head)"
-      (cd "$APP" && npm install --no-fund --no-audit >/dev/null 2>&1)
+      # A failed install is retried on the next start (it was never retried: HEAD already matched master).
+      # The marker goes down FIRST and is cleared on success, so an install cut off midway counts too.
+      date > "$APP/.npm-install-pending"
+      if (cd "$APP" && npm install --no-fund --no-audit >/dev/null 2>&1); then rm -f "$APP/.npm-install-pending"
+      else log_update "npm install failed; will retry on the next start"; fi
     else
       log_update "update FAILED: HEAD did not move"
       if command -v zenity >/dev/null 2>&1; then
@@ -253,7 +290,17 @@ check_update || true
 # itself - leaving open:true on would additionally pop a plain browser tab
 # next to it.
 export EBIKI_AUTO_EXIT=1
-nohup npm run dev >/tmp/ebiki-dev.log 2>&1 &
+if [ -f "$APP/.npm-install-pending" ]; then
+  if (cd "$APP" && npm install --no-fund --no-audit >/dev/null 2>&1); then
+    rm -f "$APP/.npm-install-pending"; log_update "finished the pending npm install"
+  else
+    log_update "pending npm install failed again"
+  fi
+fi
+# In the app folder, not a shared /tmp path: a second user account on the machine could not write the first
+# one's /tmp/ebiki-dev.log, and bash then never started the server.
+mkdir -p "$APP/logs"
+nohup npm run dev >"$APP/logs/dev.log" 2>&1 200>&- &
 disown
 
 deadline=$(( $(date +%s) + 60 ))

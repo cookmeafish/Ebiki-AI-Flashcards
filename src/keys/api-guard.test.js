@@ -32,3 +32,24 @@ describe('apiRequestAllowed', () => {
     expect(apiRequestAllowed({ host: 'evil.example:3000' })).toBe(false)
   })
 })
+
+describe('Sec-Fetch-Site', () => {
+  // An <img> or <script> tag on another site sends NO Origin, but the browser still labels it.
+  it('refuses a cross-site or same-site request that carries no Origin', () => {
+    expect(apiRequestAllowed({ host: 'localhost:3000', 'sec-fetch-site': 'cross-site' })).toBe(false)
+    expect(apiRequestAllowed({ host: 'localhost:3000', 'sec-fetch-site': 'same-site' })).toBe(false) // localhost:5173 -> :3000
+  })
+  it('lets the app itself and a typed URL through', () => {
+    expect(apiRequestAllowed({ host: 'localhost:3000', 'sec-fetch-site': 'same-origin' })).toBe(true)
+    expect(apiRequestAllowed({ host: 'localhost:3000', 'sec-fetch-site': 'none' })).toBe(true)
+  })
+})
+
+describe('same-origin subresources', () => {
+  it('refuses an <img>/<audio> pointed at the API from inside the app, keeps fetch and typed URLs', () => {
+    expect(apiRequestAllowed({ host: 'localhost:3000', 'sec-fetch-site': 'same-origin', 'sec-fetch-dest': 'image' })).toBe(false)
+    expect(apiRequestAllowed({ host: 'localhost:3000', 'sec-fetch-site': 'same-origin', 'sec-fetch-dest': 'audio' })).toBe(false)
+    expect(apiRequestAllowed({ host: 'localhost:3000', 'sec-fetch-site': 'same-origin', 'sec-fetch-dest': 'empty' })).toBe(true)
+    expect(apiRequestAllowed({ host: 'localhost:3000', 'sec-fetch-site': 'none', 'sec-fetch-dest': 'document' })).toBe(true)
+  })
+})

@@ -36,7 +36,23 @@ function sayHello() {
   } catch { /* nothing depends on this succeeding */ }
 }
 
+// When this process last asked the launcher for a server. The bare-launch path and the holding
+// page's revive can both fire within seconds of each other; a second launcher run started a second
+// splash (clearing the first one's update question) for a server that was already on its way.
+let lastDelegatedAt = 0
+// A launcher is still at work (its splash is up or it wrote a status recently; launch.ps1 removes both
+// files when it finishes). It can legitimately take minutes on an update question plus npm install, and
+// a second launcher started then cleared the first one's handshake files and covered its question with
+// a buttonless splash. Recent = touched in the last 3 minutes, so a file left by a crash can't block
+// the revive forever.
+function launcherBusy() {
+  for (const f of ['.app-status', '.app-splash']) {
+    try { if (Date.now() - fs.statSync(path.join(APP_ROOT, f)).mtimeMs < 180000) return true } catch { /* absent */ }
+  }
+  return false
+}
 function delegateToLauncher() {
+  lastDelegatedAt = Date.now()
   try {
     if (process.platform === 'win32') {
       // The VBS, not the .ps1 directly: it also pops the start-up splash, so a pinned-icon click
@@ -121,8 +137,13 @@ if (isOverlayMode) {
   // Handing back to the launcher fixes both at once, and it is what the pin was always meant to do.
   const fromLauncher = process.argv.includes('--from-launcher')
   if (!fromLauncher && readLaunchMode() === 'browser') {
-    console.log('[App window] launch mode is "browser" - handing off to the launcher')
-    delegateToLauncher()
+    // Not while a launcher is busy (asking about an update, installing): a second launcher cleared the
+    // first one's splash handshake files, so its question could no longer be answered and was skipped.
+    // The busy launcher opens the browser itself when it is done.
+    if (!launcherBusy()) {
+      console.log('[App window] launch mode is "browser" - handing off to the launcher')
+      delegateToLauncher()
+    } else console.log('[App window] launch mode is "browser", a launcher is already busy - leaving it to that one')
     app.quit()
     return
   }
@@ -150,7 +171,7 @@ if (isOverlayMode) {
       // loop then picks the server up by itself the moment it answers.
       if (!fromLauncher) {
         waitForServer(VITE_URL, 1200).then((up) => {
-          if (up) return
+          if (up || launcherBusy()) return // a busy launcher is already bringing the server up (see above)
           console.log('[App window] no dev server on a bare launch - starting one via the launcher')
           delegateToLauncher()
         })
@@ -231,6 +252,15 @@ function createAppWindow() {
   // not OS-level fullscreen - that would cover the taskbar, which is
   // explicitly not what was asked for. F11 below still offers real
   // fullscreen for anyone who wants it.
+  // The Picture tab's Capture button uses getDisplayMedia, which Electron REJECTS ("Not supported")
+  // unless the main process answers the request. The same primary screen Alt+Q captures.
+  try {
+    appWindow.webContents.session.setDisplayMediaRequestHandler((_req, cb) => {
+      desktopCapturer.getSources({ types: ['screen'] })
+        .then((sources) => cb(sources.length ? { video: primaryScreenSource(sources) } : {}))
+        .catch(() => cb({}))
+    })
+  } catch (e) { console.warn('[App window] no display-media handler:', e.message) }
   appWindow.once('ready-to-show', () => {
     appWindow.maximize()
     appWindow.show()
@@ -240,7 +270,9 @@ function createAppWindow() {
     // on screen" - the launcher can only see that it spawned a process, which
     // is still seconds away from a visible window. Fail-soft: a splash that is
     // never told also closes itself, just later.
-    try { fs.writeFileSync(path.join(__dirname, '..', '.app-ready'), '') } catch {}
+    // NOT written here any more: the first ready-to-show can be the "Waiting for the server"
+    // holding page, and retiring the splash then closed it with the launcher's update question
+    // still unanswered. did-finish-load writes it once the REAL app page is on screen.
   })
 
   // Window controls, driven from the renderer via preload-app.cjs - the ONLY thing this process
@@ -270,6 +302,27 @@ function createAppWindow() {
     app.quit()
   })
   ipcMain.handle('app-window:is-maximized', () => (appWindow ? appWindow.isMaximized() : false))
+  // The Picture tab's Capture button in THIS window. getDisplayMedia answered with the primary screen at
+  // once, and that screen is covered by Ebiki's own maximized window, so every "capture" was a picture
+  // of Ebiki (then sent for a paid vision scan). Step out of the way first: minimize, let the minimize
+  // animation finish, grab the primary screen, then come back. Returns a PNG data URL, or null.
+  ipcMain.handle('app-window:capture', async () => {
+    if (!appWindow) return null
+    const wasMax = appWindow.isMaximized()
+    try {
+      appWindow.minimize()
+      await new Promise((r) => setTimeout(r, 450))
+      const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: capturePixelSize() })
+      const src = sources.length ? primaryScreenSource(sources) : null
+      if (!src || src.thumbnail.isEmpty()) return null
+      return src.thumbnail.toDataURL()
+    } catch (e) {
+      console.warn('[App window] capture failed:', e.message)
+      return null
+    } finally {
+      try { appWindow.restore(); if (wasMax) appWindow.maximize(); appWindow.focus() } catch { /* window gone */ }
+    }
+  })
 
   appWindow.webContents.on('before-input-event', (event, input) => {
     if (input.type !== 'keyDown') return
@@ -375,6 +428,9 @@ function createAppWindow() {
   // shortcut (or a manual `npm run dev`) brings the server back.
   let loaded = false
   let retrying = false
+  // .app-ready once per process: every later reload of an OPEN window (Vite reload, crash recovery) wrote it
+  // too, and closed a second launch's splash in the middle of its update question.
+  let readySignaled = false
 
   const HOLDING_PAGE = 'data:text/html;charset=utf-8,' + encodeURIComponent(`<!doctype html>
 <meta charset="utf-8">
@@ -421,7 +477,7 @@ function createAppWindow() {
       if (up) { revived = false; return appWindow.loadURL(VITE_URL) }
       console.warn('[App window] Server not answering at', VITE_URL, '- holding')
       if (!loaded) showHolding()
-      if (!revived) {
+      if (!revived && Date.now() - lastDelegatedAt > 60000 && !launcherBusy()) {
         revived = true
         console.log('[App window] nothing is serving - asking the launcher to start one')
         try { delegateToLauncher() } catch (e) { console.warn('[App window] could not start a server:', e.message) }
@@ -437,7 +493,10 @@ function createAppWindow() {
   }
 
   appWindow.webContents.on('did-finish-load', () => {
-    if (appWindow && appWindow.webContents.getURL().startsWith(VITE_URL)) loaded = true
+    if (appWindow && appWindow.webContents.getURL().startsWith(VITE_URL)) {
+      loaded = true
+      if (!readySignaled) { readySignaled = true; try { fs.writeFileSync(path.join(__dirname, '..', '.app-ready'), '') } catch {} } // retire the start-up splash (see ready-to-show)
+    }
   })
   // Covers a server that dies between waitForServer answering and the load.
   appWindow.webContents.on('did-fail-load', (_e, code, _desc, url, isMainFrame) => {
@@ -445,6 +504,15 @@ function createAppWindow() {
     // -3 (ERR_ABORTED) is a load replaced by a newer navigation (a reload, a data-folder switch),
     // not a dead server; answering it with the holding page covered the page that was loading.
     if (code === -3) return
+    loaded = false
+    showHolding()
+    scheduleRetry()
+  })
+  // A crashed renderer fires no did-fail-load: the frameless window stayed blank with its window buttons
+  // gone (they are in the page), while this process kept the server alive. Reload through the same loop.
+  appWindow.webContents.on('render-process-gone', (_e, details) => {
+    console.warn('[App window] renderer gone:', details && details.reason)
+    if (!appWindow || appQuitting || (details && details.reason === 'clean-exit')) return
     loaded = false
     showHolding()
     scheduleRetry()
@@ -511,6 +579,13 @@ function createOverlay() {
 
   overlayWindow.webContents.on('console-message', (_, l, m) => console.log('[Renderer]', m))
   overlayWindow.webContents.on('did-finish-load', () => console.log('[Overlay] Web app loaded'))
+  // A crashed overlay page never showed again on Alt+Q (its script ran in a dead frame). Reload it hidden.
+  overlayWindow.webContents.on('render-process-gone', (_e, details) => {
+    console.warn('[Overlay] renderer gone:', details && details.reason)
+    if (!overlayWindow || appQuitting || (details && details.reason === 'clean-exit')) return
+    hideOverlay()
+    try { overlayWindow.webContents.reload() } catch (e) { console.warn('[Overlay] reload failed:', e.message) }
+  })
 }
 
 function showOverlay() {
@@ -545,8 +620,12 @@ function registerShortcuts() {
         types: ['screen'], thumbnailSize: capturePixelSize(),
       })
       if (!sources.length) return
+      // An EMPTY thumbnail (it happens) wrote a 0-byte PNG the overlay could not decode, leaving the
+      // invisible full-screen overlay swallowing every click. Never show the overlay for one.
+      const shot = primaryScreenSource(sources).thumbnail
+      if (!shot || shot.isEmpty()) { console.warn('[Overlay] empty capture, overlay not shown'); return }
 
-      fs.writeFileSync(SCREENSHOT_FILE, primaryScreenSource(sources).thumbnail.toPNG())
+      fs.writeFileSync(SCREENSHOT_FILE, shot.toPNG())
       console.log('[Overlay] Screenshot saved')
 
       // Hide page content so old screenshot doesn't flash, then show overlay
@@ -583,7 +662,9 @@ ipcMain.handle('capture-screenshot', async () => {
       types: ['screen'], thumbnailSize: capturePixelSize(),
     })
     if (!sources.length) return null
-    fs.writeFileSync(SCREENSHOT_FILE, primaryScreenSource(sources).thumbnail.toPNG())
+    const shot = primaryScreenSource(sources).thumbnail
+    if (!shot || shot.isEmpty()) return null // see the Alt+Q path: never an undecodable file
+    fs.writeFileSync(SCREENSHOT_FILE, shot.toPNG())
     console.log('[Overlay] Screenshot captured on demand')
     return '/api/overlay-screenshot?' + Date.now()
   } catch (e) {

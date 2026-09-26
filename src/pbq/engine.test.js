@@ -213,3 +213,12 @@ describe('gradePbq', () => {
     expect(g.fraction).toBe(0)
   })
 })
+
+describe('real shuffles never show the exercise already solved', () => {
+  it('an ordering is never presented in the correct order', () => {
+    for (let i = 0; i < 500; i++) {
+      const { pbq } = compilePbq(ORDERING)
+      expect(gradePbq(pbq, pbq.items.map((_, k) => k)).correct).toBeLessThan(pbq.items.length)
+    }
+  })
+})

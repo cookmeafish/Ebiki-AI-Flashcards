@@ -64,6 +64,10 @@ describe('pickAudioFiles — wrong-language rejection (en.wiktionary/hola fixtur
     expect(names).not.toContain('LL-Q7026 (cat)-Unjoanqualsevol-hola.wav')
     expect(names).not.toContain('LL-Q809 (pol)-Olaf-hola.wav')
   })
+  it('rejects a Lingua Libre code outside the known-language list (Galician, Asturian)', () => {
+    const ranked = pickAudioFiles(['LL-Q9307 (glg)-Xx-casa.wav', 'LL-Q29507 (ast)-Y-casa.wav', '(glg)-Z-casa.wav'], { ...ES, region: '', word: 'casa' })
+    expect(ranked).toEqual([])
+  })
   it('keeps the bare-word file only as a last resort', () => {
     const ranked = pickAudioFiles(files, { ...ES, region: '', word: 'hola' })
     expect(ranked[ranked.length - 1].file).toBe('Hola.ogg')
@@ -167,5 +171,34 @@ describe('unionCandidates — media-list ∪ wikitext (live discrepancy both dir
       ['Medium:De-Haus.ogg', 'File:LL-Q7026_(cat)-Unjoanqualsevol-hola.wav'],
       ['De-Haus.ogg', 'LL-Q7026 (cat)-Unjoanqualsevol-hola.wav'])
     expect(u).toEqual(['De-Haus.ogg', 'LL-Q7026 (cat)-Unjoanqualsevol-hola.wav'])
+  })
+})
+
+describe('accents that make a different word', () => {
+  it('prefers the accent-exact file and drops the folded-only one', () => {
+    const r = pickAudioFiles(['De-schon.ogg', 'De-schön.ogg'], { iso1: 'de', iso3: ['deu'], word: 'schön' })
+    expect(r.map((x) => x.file)).toEqual(['De-schön.ogg'])
+  })
+  it('does not let papa (potato) outrank papá', () => {
+    const r = pickAudioFiles(['Es-papa.ogg', 'LL-Q1321 (spa)-B-papá.wav'], { iso1: 'es', iso3: ['spa'], word: 'papá' })
+    expect(r[0].file).toBe('LL-Q1321 (spa)-B-papá.wav')
+    expect(r.some((x) => x.file === 'Es-papa.ogg')).toBe(false)
+  })
+  it('still falls back to a folded match when nothing exact exists', () => {
+    const r = pickAudioFiles(['Es-cafe.ogg'], { iso1: 'es', iso3: ['spa'], word: 'café' })
+    expect(r.length).toBe(1)
+  })
+})
+
+describe('pickAudioFiles — other words that START WITH or CONTAIN the word', () => {
+  it('rejects recordings of different words (sol vs soldado/sola/girasol, pa vs papá)', () => {
+    const sol = pickAudioFiles(['LL-Q1321 (spa)-A-soldado.wav', 'Es-solamente.ogg', 'LL-(spa)-C-sola.wav', 'LL-Q1321 (spa)-B-girasol.wav'], { ...ES, word: 'sol' })
+    expect(sol).toEqual([])
+    expect(pickAudioFiles(['LL-Q1321 (spa)-X-papá.wav'], { ...ES, word: 'pa' })).toEqual([])
+  })
+  it('still takes the exact word, a numbered variant, and a phrase holding the whole word', () => {
+    expect(pickAudioFiles(['Es-sol.ogg'], { ...ES, word: 'sol' })[0]?.file).toBe('Es-sol.ogg')
+    expect(pickAudioFiles(['De-schön2.ogg'], { ...DE, word: 'schön' }).length).toBe(1)
+    expect(pickAudioFiles(['Es-el sol.ogg'], { ...ES, word: 'sol' }).length).toBe(1)
   })
 })

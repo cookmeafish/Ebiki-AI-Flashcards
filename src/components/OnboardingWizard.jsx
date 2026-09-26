@@ -17,6 +17,7 @@ export default function OnboardingWizard(p) {
     createMode, modeCreating,
     aiModels, setAiModels,
     intelligence, setIntelligence,
+    questionReuse, setQuestionReuse,
   } = p
 
   const [step, setStep] = useState(0)
@@ -217,6 +218,18 @@ export default function OnboardingWizard(p) {
             })}
           </div>
           <div style={{ fontSize: 12, color: C.inkFaint, marginTop: 16 }}>{t('obIntelNote')}</div>
+          {/* Question reuse: opt-in only, unticked unless the user ticks it (also in Settings > AI & cost). */}
+          {setQuestionReuse && (
+            <label style={{ display: 'inline-flex', alignItems: 'flex-start', gap: 8, marginTop: 14, maxWidth: 480, textAlign: 'left', cursor: 'pointer' }}>
+              <input type="checkbox" checked={!!questionReuse?.enabled}
+                onChange={(e) => setQuestionReuse((prev) => ({ maxPerCard: 10, ...(prev || {}), enabled: e.target.checked }))}
+                style={{ width: 16, height: 16, marginTop: 2, accentColor: C.brand, cursor: 'pointer' }} />
+              <span>
+                <span style={{ fontSize: 13, color: C.ink, fontWeight: 700 }}>{t('obReuseToggle')}</span>
+                <span style={{ display: 'block', fontSize: 11, color: C.inkFaint, marginTop: 2 }}>{t('obReuseDesc')}</span>
+              </span>
+            </label>
+          )}
           <div style={{ marginTop: 16 }}><button className="btn-press" style={bigBtn} onClick={next}>{t('obContinue')}</button></div>
         </>)
       case 'mode':
@@ -225,7 +238,7 @@ export default function OnboardingWizard(p) {
           <div style={sub}>{t('obModeBody')}</div>
           <div style={{ display: 'flex', gap: 8, maxWidth: 480, margin: '20px auto 0' }}>
             <input value={modeInput} onChange={(e) => setModeInput(e.target.value)} autoFocus
-              onKeyDown={(e) => { if (e.key === 'Enter' && modeInput.trim() && apiKey && !creatingFirst) createFirstMode() }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing && modeInput.trim() && apiKey && !creatingFirst) createFirstMode() }}
               placeholder={t('createModePlaceholder')} style={{ ...S.keyInput, flex: 1 }} disabled={creatingFirst || modeCreating} />
           </div>
           {!apiKey && <div style={{ fontSize: 12, color: C.warning, marginTop: 10 }}>{t('obModeNeedsKey')}</div>}
@@ -249,9 +262,11 @@ export default function OnboardingWizard(p) {
   }
 
   return (
-    <div style={{ ...S.backdrop, cursor: 'default' }}>
+    // Sized for body{zoom:1.35} like SettingsModal: a bare inset:0 backdrop covered 135% of the window,
+    // pushing the panel down-right so tall steps hid their Next/Back footer during first run.
+    <div style={{ ...S.backdrop, cursor: 'default', width: 'calc(100vw / 1.35)', height: 'calc(100vh / 1.35)' }}>
       <div style={{
-        width: 'min(620px, 94vw)', maxHeight: '90vh', overflowY: 'auto', textAlign: 'center',
+        width: 'min(620px, calc(94vw / 1.35))', maxHeight: 'calc(90vh / 1.35)', overflowY: 'auto', textAlign: 'center',
         background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg,
         boxShadow: SHADOW.xl, padding: '34px 30px 26px', animation: 'pop .2s cubic-bezier(.34,1.56,.64,1)',
       }}>

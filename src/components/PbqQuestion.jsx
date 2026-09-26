@@ -187,6 +187,10 @@ export default function PbqQuestion({ pbq, t, onSubmit, review = null }) {
           const droppable = !done && (dragIdx !== null || selected !== null)
           return (
             <div key={ti} onClick={() => { if (!done && selected !== null) placeItem(selected, ti) }}
+              // Keyboard: a chip is picked with Tab + Enter, and the box must be reachable the same way, or a
+              // keyboard-only user could never finish (Submit needs every item placed).
+              tabIndex={done ? -1 : 0} role="button" aria-label={String(tg)}
+              onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ') && !done && selected !== null) { e.preventDefault(); placeItem(selected, ti) } }}
               {...dropZoneProps(ti, (ii) => placeItem(ii, ti))} style={{
               ...box,
               cursor: !done && selected !== null ? 'pointer' : 'default',
