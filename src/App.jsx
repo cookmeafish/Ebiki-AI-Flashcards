@@ -15225,11 +15225,15 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
           <div style={{ maxWidth: 1040, width: '100%', margin: '0 auto' }}>
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: C.ink, fontFamily: FONT.display }}>{t('deckBrowser')}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <img src={shrimpUrl(poseFile('book'))} alt="" style={{ width: 56, height: 56, objectFit: 'contain' }} />
+                <div className="duo-title" style={{ fontSize: 26 }}>{t('deckBrowser')}</div>
+              </div>
               <button
                 disabled={!ankiConnected}
                 onClick={() => { setDeckBrowserAddPanel(p => !p); setDeckBrowserAddName(''); setDeckBrowserAddPurpose('') }}
-                style={{ background: deckBrowserAddPanel ? 'rgba(24,169,87,0.25)' : 'rgba(24,169,87,0.12)', color: 'var(--c-success)', border: '1px solid rgba(24,169,87,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: ankiConnected ? 1 : 0.5 }}
+                className={`duo-cta green btn-press${deckBrowserAddPanel ? ' ui-tab-current' : ''}`}
+                style={{ fontSize: 12.5, padding: '8px 18px', borderRadius: 12 }}
               >{t('addDeck')}</button>
             </div>
 
@@ -16173,15 +16177,16 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
       {/* ── Study Tab Home (no active session) ─────────────────────────────── */}
       {activeTab === 'study' && !studyActive && (
         <main style={{ ...S.main, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-          <div style={{ maxWidth: 400, width: '100%', textAlign: 'center', padding: '40px 20px' }}>
-            <img src={shrimpUrl(poseFile('book'))} alt="Ebi" style={{ width: 84, height: 84, objectFit: 'contain', marginBottom: 12 }} />
-            <div style={{ fontSize: 26, fontWeight: 800, fontFamily: FONT.display, color: C.ink, marginBottom: 10 }}>{t('studyTitle')}</div>
-            <div style={{ fontSize: 13, color: C.inkDim, marginBottom: 24, fontWeight: 600 }}>{t('studyTagline')}</div>
+          <div style={{ maxWidth: 460, width: '100%', textAlign: 'center', padding: '40px 20px' }}>
+            <img src={shrimpUrl(poseFile('book'))} alt="Ebi" style={{ width: 132, height: 132, objectFit: 'contain', marginBottom: 6 }} />
+            <div className="duo-title" style={{ fontSize: 34, marginBottom: 12 }}>{t('studyTitle')}</div>
+            <div className="duo-bubble" style={{ marginBottom: 26 }}>{t('studyTagline')}</div>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
               <button
                 onClick={startStudySession}
                 disabled={studyLoading || ankiConnected === false}
-                style={{ ...S.captureBtn, borderRadius: 8, fontSize: 13, padding: '10px 24px', opacity: (studyLoading || ankiConnected === false) ? 0.5 : 1 }}
+                className="duo-cta green btn-press"
+                style={{ minWidth: 220 }}
               >
                 {studyLoading ? t('loading') : t('studyNow')}
               </button>
@@ -16244,24 +16249,24 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
             <div ref={chatTabScrollRef} style={{ flex: 1, overflow: 'auto', padding: '16px 20px', position: 'relative' }}>
               {chatTabMsgs.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '52px 20px' }}>
-                  <img src={shrimpUrl(poseFile('singer'))} alt="Ebi" style={{ width: 76, height: 76, objectFit: 'contain', marginBottom: 10 }} />
-                  <div style={{ fontSize: 24, fontWeight: 800, marginBottom: 8, fontFamily: FONT.display, background: 'linear-gradient(90deg, var(--c-brand), var(--c-brand-dark))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{t('chat_withEbi')}</div>
-                  <div style={{ fontSize: 12, color: 'var(--c-ink-dim)', marginBottom: 20, maxWidth: 420, margin: '0 auto 20px' }}>
+                  <img src={shrimpUrl(poseFile('singer'))} alt="Ebi" style={{ width: 120, height: 120, objectFit: 'contain', marginBottom: 6 }} />
+                  <div className="duo-title" style={{ fontSize: 30, marginBottom: 12 }}>{t('chat_withEbi')}</div>
+                  <div className="duo-bubble" style={{ fontSize: 13.5, maxWidth: 480, margin: '0 auto 22px' }}>
                     {apiKey ? <>{t('chat_introPre')}<strong>{activeMode.name}</strong>{t('chat_introPost')}</> : t('chat_noKeyLine')}
                   </div>
                   {apiKey ? (
-                    <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 10, maxWidth: 640, margin: '0 auto' }}>
                       {((activeMode.chatSuggestions && activeMode.chatSuggestions.length)
                         ? activeMode.chatSuggestions
                         : [t('chat_starterExplain'), t('chat_starterCard'), t('chat_starterQuiz')]
                       ).map(hint => (
-                        <button key={hint} className="chip" onClick={() => { setChatTabInput(hint) }} style={{ ...S.ghostBtn, fontSize: 10, padding: '7px 14px', borderRadius: 20 }}>
-                          <span className="chip-inner">{hint}</span>
+                        <button key={hint} className="duo-tile btn-press" onClick={() => { setChatTabInput(hint) }} style={{ flex: '1 1 170px', maxWidth: 240, minWidth: 0 }}>
+                          💡 {hint}
                         </button>
                       ))}
                       {/* Casual escape hatch — the user may just want to talk to Ebi. */}
-                      <button className="chip" onClick={() => { setChatTabInput(t('chat_hello')) }} style={{ ...S.ghostBtn, fontSize: 10, padding: '7px 14px', borderRadius: 20, borderColor: 'rgba(223,37,64,.35)' }}>
-                        <span className="chip-inner">{t('chat_justChat')}</span>
+                      <button className="duo-tile brand btn-press" onClick={() => { setChatTabInput(t('chat_hello')) }} style={{ flex: '1 1 170px', maxWidth: 240, minWidth: 0 }}>
+                        {t('chat_justChat')}
                       </button>
                     </div>
                   ) : (
@@ -18502,6 +18507,17 @@ ${PALETTE_CSS}
         /* Suggestion / pill chips — lift + glow on hover (lift on inner span; see .ui-tab note) */
         .chip:hover { border-color: rgba(223,37,64,.45) !important; color: var(--c-brand) !important; }
         .chip { transition: border-color .16s ease, color .16s ease, background .16s ease; }
+        .duo-cta { font-family: 'Nunito', system-ui, sans-serif; font-weight: 800; font-size: 15px; letter-spacing: .04em; text-transform: uppercase;
+          color: var(--c-on-brand, #fff); background: var(--c-brand); border: 2px solid var(--c-brand-dark); border-bottom-width: 5px;
+          border-radius: 14px; padding: 12px 30px; cursor: pointer; }
+        .duo-cta.green { background: var(--c-success); border-color: color-mix(in srgb, var(--c-success) 75%, black); }
+        .duo-cta:disabled { opacity: .5; cursor: default; }
+        .duo-tile { font-family: inherit; text-align: left; background: var(--c-surface); color: var(--c-ink); font-weight: 700; font-size: 13px;
+          border: 2px solid var(--c-border); border-bottom-width: 4px; border-radius: 14px; padding: 12px 16px; cursor: pointer; line-height: 1.35; }
+        .duo-tile.brand { border-color: color-mix(in srgb, var(--c-brand) 45%, var(--c-border)); }
+        .duo-title { font-family: 'Baloo 2', 'Nunito', system-ui, sans-serif; font-weight: 800; color: var(--c-ink); line-height: 1.15; }
+        .duo-bubble { position: relative; background: var(--c-surface); border: 2px solid var(--c-border); border-radius: 16px; padding: 12px 16px;
+          color: var(--c-ink); font-weight: 600; font-size: 14px; line-height: 1.45; }
         .chip-inner { display: inline-block; transition: transform .14s ease; }
         .chip:hover .chip-inner { transform: translateY(-1px); }
 
