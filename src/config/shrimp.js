@@ -14,7 +14,9 @@ export const DEFAULT_SHRIMP = 'shrimp.png'
 // Resting image for the floating Help button before any context (the peeking hole shrimp).
 export const IDLE_SHRIMP = '6820-holeshrimp.png'
 
-export const shrimpUrl = (file) => `/assets/shrimp/${file}`
+// Served resized (at most 512 px, WebP) by the dev server from the original in public/assets/shrimp/
+// (src/server/ebi-images.js). Add pictures there in any size or format; the original is used if resizing fails.
+export const shrimpUrl = (file) => `/assets/ebi/${encodeURIComponent(file)}`
 
 // ⭐ ADDING A NEW EMOTE (when the user drops new shrimp PNGs):
 //   1. Put the PNG in public/assets/shrimp/ (keep its filename).

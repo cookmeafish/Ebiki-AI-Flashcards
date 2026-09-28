@@ -50,3 +50,5 @@ config.json.*
 # Feature data (src/features/server.js): players live in the data folder; player.json names this computer
 /players/
 player.json
+# Resized copies of Ebi's pictures (made automatically, machine-local)
+/.cache/
