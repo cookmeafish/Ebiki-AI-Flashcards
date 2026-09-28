@@ -76,6 +76,9 @@ export function parseModelId(id) {
     // once adopted it outranked every real grok-4-x after it. Only the LAST segment, only after a
     // version number, and only a valid month+day.
     if (si === segs.length - 1 && version.length && date == null && /^(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])$/.test(seg)) { date = Number(seg); continue }
+    // Trailing zero-padded build number (gemini-2.0-flash-001): a pinned build of the same model, not version
+    // [2,0,1]. Read as a version, every user on it was offered "-001" as a newer model each day.
+    if (si === segs.length - 1 && version.length && date == null && /^0\d{2}$/.test(seg)) { date = Number(seg); continue }
     if (/^\d+$/.test(seg)) { version.push(Number(seg)); continue }
     // "4o" → version 4, family word "o"
     const digitFirst = /^(\d+)([a-z]+)$/.exec(seg)

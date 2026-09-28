@@ -30,7 +30,8 @@ export async function extractPdfText(file, onProgress) {
       let lastY = null
       let lastH = 0
       let prevEnd = null // x where the previous run ended (null = unknown)
-      const flush = () => { if (line.length) { lines.push(line.join('').replace(/\s+$/, '')); line = [] } prevEnd = null }
+      let prevStart = null // x where it started
+      const flush = () => { if (line.length) { lines.push(line.join('').replace(/\s+$/, '')); line = [] } prevEnd = null; prevStart = null }
       const push = (s, gap) => {
         if (!s) return
         // pdf.js splits a visual line into many items and emits its own " " item for a real gap. Between
@@ -52,9 +53,16 @@ export async function extractPdfText(file, onProgress) {
         // units off the baseline and cut "E = mc²" into three lines.
         if (lastY !== null && y !== null && Math.abs(y - lastY) > Math.max(2, 0.7 * Math.max(lastH, h))) flush()
         const x = tr ? Number(tr[4]) : NaN
-        const gap = (prevEnd === null || !Number.isFinite(x)) ? undefined : (x - prevEnd > 0.2 * (h || lastH || 10))
+        // Apart on EITHER side: past the previous run's end, or (right-to-left text, runs drawn out of order)
+        // ending well before its start. A run that touches either edge, or sits back over the previous one (an
+        // accent drawn over its letter, kerning), is the same word.
+        const w = Number(item.width)
+        const thr = 0.2 * (h || lastH || 10)
+        const gap = (prevEnd === null || !Number.isFinite(x)) ? undefined
+          : (x - prevEnd > thr || (prevStart !== null && Number.isFinite(w) && prevStart - (x + w) > thr))
         push(item.str, gap)
-        prevEnd = Number.isFinite(x) && Number.isFinite(Number(item.width)) ? x + Number(item.width) : null
+        prevEnd = Number.isFinite(x) && Number.isFinite(w) ? x + w : null
+        prevStart = Number.isFinite(x) ? x : null
         if (item.hasEOL) flush()
         if (y !== null) { lastY = y; lastH = h || lastH }
       }

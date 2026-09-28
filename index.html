@@ -16,12 +16,15 @@
         overflow: hidden;
       }
       #root { min-height: 100vh; display: flex; flex-direction: column; }
+      html[data-theme="dark"] body { background: #0E1419; color: #E8EEF2; }
     </style>
   </head>
   <body>
     <script>
       // Apply saved theme before paint to avoid a flash of the wrong theme.
       try { document.documentElement.setAttribute('data-theme', localStorage.getItem('ebiki-theme') || 'light'); } catch (e) {}
+      // The page language (fonts pick CJK glyph forms by lang; screen readers pick a voice).
+      try { var l = localStorage.getItem('ebiki-app-language'); if (l) document.documentElement.lang = l; } catch (e) {}
     </script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>

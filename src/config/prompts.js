@@ -7,9 +7,11 @@ Return a JSON array. For each input word, return an object:
 - "w": the SAME original word from the input (MUST match)
 - "t": translation in the TARGET language. If a name, keep the original. If already in target language, keep as-is.
 - "s": 2-3 synonyms in the target language (empty array for articles/prepositions/names/numbers)
-- "c": category — one of: "foreign" (needs translation), "name" (proper noun/character/place/brand), "target" (already in target language), "number" (digits/stats)
-- "p": part of speech — one of: "noun", "verb", "adj", "adv", "prep", "art", "conj", "pron", "other"
-- "r": approximate pronunciation guide for the original word (e.g. "kreh-EE-ahn" for "creían"). Use simple English phonetics.
+- "c": category: one of: "foreign" (needs translation), "name" (proper noun/character/place/brand), "target" (already in target language), "number" (digits/stats)
+- "p": part of speech: one of: "noun", "verb", "adj", "adv", "prep", "art", "conj", "pron", "other"
+- "r": approximate pronunciation guide for the original word (e.g. "kreh-EE-ahn" for "creían"), spelled for a speaker of the "to" language.
+
+If the payload has "bidirectional": true ("from" is the language the user is LEARNING, "to" the one they speak), a word already in the "to" language is translated INTO "from" instead: its "t" is the "from" word, its "c" is "foreign", "r" is the pronunciation of that "from" word, and it carries "o": true. Omit "o" otherwise.
 
 OCR FRAGMENT DETECTION: The input comes from OCR which sometimes splits one word into fragments (e.g. "Sobre" + "guardia" = "Sobreguardia", or "Hab" + "ilidad" = "Habilidad"). If you detect that consecutive words are fragments of a single word, add "m" (merge) to the FIRST fragment's object:
 - "m": array of indices to merge together (e.g. [3,4] means words at index 3 and 4 are one word)
@@ -17,7 +19,7 @@ Only the first fragment gets "m". The other fragments should still be returned n
 
 CRITICAL: Every output object MUST include "i" and "w" copied exactly from the input. Always return valid JSON array. Never add commentary.
 
-Words with punctuation attached (e.g. "púas,") — translate the word part, ignore punctuation.
+Words with punctuation attached (e.g. "púas,"): translate the word part, ignore punctuation.
 
 Output ONLY the raw JSON array. No markdown, no backticks, no explanation.
 
@@ -39,7 +41,7 @@ You receive JSON: {"from":"Spanish","to":"English","context":"optional note"}
 "from" is the language the user is LEARNING. "to" is the language they already speak.
 (If "from" is "Auto-detect", detect the main non-"to" language in the image and use that.)
 
-Look at the image. Extract every meaningful readable word — in EITHER language. Translation is
+Look at the image. Extract every meaningful readable word: in EITHER language. Translation is
 BIDIRECTIONAL, always toward the language the word is NOT in:
 - A word in the LEARNED language ("from") → translate it into "to" (classic reading help).
 - A word in the user's own language ("to") → translate it into the LEARNED language ("from"),
@@ -47,14 +49,14 @@ BIDIRECTIONAL, always toward the language the word is NOT in:
 Use the whole scene as context so each translation fits how the word is actually used.
 
 Return ONLY a raw JSON array (no markdown, no prose). One object PER WORD, in natural
-reading order (top-to-bottom, left-to-right), with EXACTLY these fields and NOTHING more —
+reading order (top-to-bottom, left-to-right), with EXACTLY these fields and NOTHING more: 
 keep the output lean; richer detail (gloss/synonyms/pronunciation) is fetched separately:
 - "w": the exact word as written in the image (keep accents/punctuation-free form)
 - "t": its translation into the OTHER language (per the bidirectional rule above), chosen for
   THIS context. Proper names stay as-is.
-- "c": category — "foreign" (word was translated) | "name" (proper noun/character/place/brand) |
+- "c": category: "foreign" (word was translated) | "name" (proper noun/character/place/brand) |
   "target" (identical in both languages / nothing to translate) | "number" (digits/stats)
-- "p": part of speech — "noun"|"verb"|"adj"|"adv"|"prep"|"art"|"conj"|"pron"|"other"
+- "p": part of speech: "noun"|"verb"|"adj"|"adv"|"prep"|"art"|"conj"|"pron"|"other"
 - "o": true ONLY for a word in the user's OWN language ("to"), translated INTO the learned language; omit otherwise
 - "line": integer line/sentence group. Words on the same visual line share the same number;
   increment for each new line, top to bottom.
@@ -62,12 +64,12 @@ keep the output lean; richer detail (gloss/synonyms/pronunciation) is fetched se
   places), x0,y0 = top-left, x1,y1 = bottom-right. Make boxes tight around the word.
 
 RULES:
-- ONE object per single word — NEVER merge several words into one object. "paste / drag-drop"
+- ONE object per single word: NEVER merge several words into one object. "paste / drag-drop"
   is TWO objects ("paste" and "drag-drop"); a hyphenated compound counts as one word. If words
   form a phrase, still list each word separately and let "sense" reflect its meaning IN the phrase.
 - ONLY include real readable words. Do NOT invent text for textures, shapes, logos, icons or noise.
 - Skip URLs, file paths, keyboard-shortcut codes, and meaningless fragments; real words in UI
-  labels/menus/buttons ARE learnable — include them.
+  labels/menus/buttons ARE learnable: include them.
 - If the image has no readable text at all, return [].
 - Output ONLY the JSON array.`
 
@@ -90,8 +92,8 @@ Return ONLY a raw JSON array, one object per input word:
 - "t": the translation (proper names stay as-is)
 - "c": "foreign" (was translated) | "name" (proper noun/place/brand) | "target" (identical in
   both languages / nothing to translate) | "number" (digits/stats) | "skip" (OCR junk: stray
-  letters, garbled fragments, URLs, file paths — not a real word)
-- "p": part of speech — "noun"|"verb"|"adj"|"adv"|"prep"|"art"|"conj"|"pron"|"other"
+  letters, garbled fragments, URLs, file paths: not a real word)
+- "p": part of speech: "noun"|"verb"|"adj"|"adv"|"prep"|"art"|"conj"|"pron"|"other"
 - "o": true ONLY for a word in the user's OWN language ("to"), translated INTO "from"; omit otherwise
 No markdown, no commentary. Every output object MUST carry its input "i".`
 
@@ -105,11 +107,11 @@ You receive JSON: {"word":"...","translation":"...","from":"Spanish","to":"Engli
 language; its "translation" is in the other one.
 
 Return ONLY a raw JSON object (no markdown, no prose):
-- "sense": a short (2-6 word) gloss of what the word means AS USED in this context
-- "alts": up to 3 other common meanings it has in OTHER contexts (a few words each; [] if none)
+- "sense": a short (2-6 word) gloss, written in the "to" language, of what the word means AS USED in this context
+- "alts": up to 3 other common meanings it has in OTHER contexts, in the "to" language (a few words each; [] if none)
 - "s": 2-3 synonyms of the translation, in the translation's language ([] for names/numbers/function words)
-- "r": approximate pronunciation in simple English phonetics of whichever side is in the LEARNED
-  "from" language — the word itself if it is a "from" word, otherwise its translation.`
+- "r": approximate pronunciation, spelled for a speaker of the "to" language, of whichever side is in the LEARNED
+  "from" language: the word itself if it is a "from" word, otherwise its translation.`
 
 // Spanish flashcard generator — produces the user's exact Frente/Dorso format. Returns a
 // JSON ARRAY of card objects (one per distinct meaning; multiple = multi-meaning word).
@@ -118,7 +120,7 @@ export const SPANISH_CARD_PROMPT = `You generate Spanish-learning flashcards for
 You receive JSON: {"words": ["surcar", ...], "deck": "Español"}
 
 For EACH input word/phrase, output one or more card objects (multiple ONLY if it has clearly
-distinct unrelated meanings — one card per meaning). Each card object:
+distinct unrelated meanings: one card per meaning). Each card object:
 - "word": the headword shown on the front. For verbs use the INFINITIVE.
 - "pos": part of speech in SPANISH (e.g. "sustantivo masculino", "sustantivo femenino", "verbo",
   "adjetivo", "adverbio", "expresión").
@@ -136,7 +138,7 @@ distinct unrelated meanings — one card per meaning). Each card object:
   card on the corrected word; OMIT or "" otherwise.
 - "tags": array of useful tags (part of speech, level, topic). Always include "ebiki". ALWAYS include exactly ONE frequency tag: "freq-core", "freq-common", "freq-uncommon" or "freq-rare"; add "region-<place>" when strongly regional and "register-<x>" when clearly non-neutral (literary/slang/formal/technical). Coarse and honest only.
 
-ACCURACY IS CRITICAL — the student will MEMORIZE these. Only use REAL, correctly-spelled Spanish words; never invent a word. Verify the gender, pronunciation, translation, and that the example sentence is natural and correct before outputting. If the input word does not exist, use the closest correct real word and set "correction".
+ACCURACY IS CRITICAL: the student will MEMORIZE these. Only use REAL, correctly-spelled Spanish words; never invent a word. Verify the gender, pronunciation, translation, and that the example sentence is natural and correct before outputting. If the input word does not exist, use the closest correct real word and set "correction".
 
 All English is American English. Definitions stay concise and in Spanish; examples natural.
 Output ONLY the raw JSON array. No markdown, no backticks, no commentary.`
@@ -174,9 +176,9 @@ For EACH input word/phrase, output one or more card objects (multiple ONLY for c
    • synonyms: similar {USER_LANG} words
    • definition: a simple definition written IN {LEARN_LANG}
    • example: one natural {LEARN_LANG} sentence, with its {USER_LANG} translation in parentheses
-   • usage: one short line, label written in {LEARN_LANG} (e.g. Spanish "Uso:"). REQUIRED whenever a DIFFERENT {LEARN_LANG} word is what natives more commonly say for one of the translations listed — name that more common word and what the headword usually means instead (PER-SENSE test, applied even to common universal words: e.g. a Spanish card for "barro" translated as "mud" MUST note that everyday Latin American speech prefers "lodo" and that barro leans clay/ceramic material — barro passes every "is it real/common/global" check yet is NOT the word a learner should reach for). ALSO include when commonness/region/register is noteworthy, e.g. "poco frecuente, tono literario" or "principalmente Argentina y Uruguay; en otros países se dice <alternative>". OMIT this line entirely ONLY when the headword is the natural default term for every translation listed AND nothing else is noteworthy.
+   • usage: one short line, label written in {LEARN_LANG} (e.g. Spanish "Uso:"). REQUIRED whenever a DIFFERENT {LEARN_LANG} word is what natives more commonly say for one of the translations listed: name that more common word and what the headword usually means instead (PER-SENSE test, applied even to common universal words: e.g. a Spanish card for "barro" translated as "mud" MUST note that everyday Latin American speech prefers "lodo" and that barro leans clay/ceramic material: barro passes every "is it real/common/global" check yet is NOT the word a learner should reach for). ALSO include when commonness/region/register is noteworthy, e.g. "poco frecuente, tono literario" or "principalmente Argentina y Uruguay; en otros países se dice <alternative>". OMIT this line entirely ONLY when the headword is the natural default term for every translation listed AND nothing else is noteworthy.
 - "correction": if the input is misspelled or is NOT a real {LEARN_LANG} word, set this to the correct word and base the card on it; omit otherwise.
-- "tags": array including the part of speech, level, topic, and "ebiki". ALWAYS include exactly ONE frequency tag for how often natives actually use the word: "freq-core" (top everyday vocabulary), "freq-common", "freq-uncommon", or "freq-rare". ALWAYS include a usage-scope tag stating WHERE this word (in THIS card's sense) is actually used: "region-global" when natives across ALL regions of {LEARN_LANG} use and understand it, OR one or more "region-<place>" tags (lowercase-hyphens, e.g. "region-spain", "region-mexico", "region-latam", "region-argentina", "region-brazil", "region-portugal", "region-uk", "region-us") when it is country/region-specific — tag the SENSE on the card, not just the spelling (a universal word whose carded meaning is regional gets the region tag, never "region-global"). "region-global" is a POSITIVE CLAIM you must be confident in — it is often hard to tell whether a word is truly used in every country that speaks the language, and when you are NOT sure, do not guess "region-global": tag only the region(s) you are actually confident use it (e.g. "region-latam" when you know Latin America uses it but are unsure about Spain), at whatever breadth you can honestly back (country < region < global). When the word is genuinely restricted to one context add ONE register tag from this exact list: register-formal, register-informal, register-literary, register-poetic, register-slang, register-vulgar, register-childish, register-archaic, register-technical, register-academic, register-legal, register-political, register-medical, register-business, register-journalistic, register-military, register-religious. Never add a register tag to an ordinary neutral word, and never invent a register outside this list. THINK BEFORE YOU TAG: recall where you have actually encountered this word (everyday conversation, news, textbooks, novels, technical/legal/medical writing, political discourse, a specific country) and let that evidence pick the frequency, region and register tags — never infer frequency from how long or advanced the word looks, and never copy a similar word's tags. These tags tell the learner whether to actually SAY the word, so be honest at this COARSE granularity and never invent precision: when the truth sits between two frequency levels, choose the LESS common one.
+- "tags": array including the part of speech, level, topic, and "ebiki". ALWAYS include exactly ONE frequency tag for how often natives actually use the word: "freq-core" (top everyday vocabulary), "freq-common", "freq-uncommon", or "freq-rare". ALWAYS include a usage-scope tag stating WHERE this word (in THIS card's sense) is actually used: "region-global" when natives across ALL regions of {LEARN_LANG} use and understand it, OR one or more "region-<place>" tags (lowercase-hyphens, e.g. "region-spain", "region-mexico", "region-latam", "region-argentina", "region-brazil", "region-portugal", "region-uk", "region-us") when it is country/region-specific: tag the SENSE on the card, not just the spelling (a universal word whose carded meaning is regional gets the region tag, never "region-global"). "region-global" is a POSITIVE CLAIM you must be confident in: it is often hard to tell whether a word is truly used in every country that speaks the language, and when you are NOT sure, do not guess "region-global": tag only the region(s) you are actually confident use it (e.g. "region-latam" when you know Latin America uses it but are unsure about Spain), at whatever breadth you can honestly back (country < region < global). When the word is genuinely restricted to one context add ONE register tag from this exact list: register-formal, register-informal, register-literary, register-poetic, register-slang, register-vulgar, register-childish, register-archaic, register-technical, register-academic, register-legal, register-political, register-medical, register-business, register-journalistic, register-military, register-religious. Never add a register tag to an ordinary neutral word, and never invent a register outside this list. THINK BEFORE YOU TAG: recall where you have actually encountered this word (everyday conversation, news, textbooks, novels, technical/legal/medical writing, political discourse, a specific country) and let that evidence pick the frequency, region and register tags: never infer frequency from how long or advanced the word looks, and never copy a similar word's tags. These tags tell the learner whether to actually SAY the word, so be honest at this COARSE granularity and never invent precision: when the truth sits between two frequency levels, choose the LESS common one.
 
 ACCURACY IS CRITICAL, the student will MEMORIZE these. Only use REAL, correctly-spelled {LEARN_LANG} words; never invent one. Verify gender, pronunciation, translation, and that the example is natural and correct. All non-{LEARN_LANG} text is in {USER_LANG}.
 Output ONLY the raw JSON array. No markdown, no backticks, no commentary.`

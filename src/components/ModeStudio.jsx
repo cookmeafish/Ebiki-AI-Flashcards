@@ -17,7 +17,7 @@ import { C, RADIUS, SHADOW, FONT } from '../config/tokens'
 // `seed` is a brief already typed elsewhere (the Learning modes box): the panel
 // opens with it sent as the first message so Ebi answers it instead of asking
 // the user to type the same thing again.
-export default function ModeStudio({ t, kind = 'create', focus = 'all', existing = null, seed = '', askAI, apiKey, parseAiJson, onApply, onClose }) {
+export default function ModeStudio({ t, kind = 'create', focus = 'all', existing = null, seed = '', askAI, apiKey, parseAiJson, onApply, onClose, userLang = 'English', describeError }) {
   const isEdit = kind === 'edit'
   const title = isEdit
     ? (focus === 'cards' ? t('studioTitleDeck') : t('studioTitleEdit', { name: existing?.name || '' }))
@@ -50,6 +50,8 @@ export default function ModeStudio({ t, kind = 'create', focus = 'all', existing
 
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, [messages, spec, loading])
   useEffect(() => { inputRef.current?.focus() }, [])
+  // The input is disabled while Ebi answers, which blurs it: every follow-up needed a click first.
+  useEffect(() => { if (!loading && !applied) inputRef.current?.focus() }, [loading, applied])
 
   // A trimmed view of the current mode so the prompt stays small but complete.
   const compactExisting = () => {
@@ -63,7 +65,7 @@ export default function ModeStudio({ t, kind = 'create', focus = 'all', existing
     const focusLine = focus === 'cards'
       ? 'FOCUS: the user mainly wants to shape how this mode MAKES FLASHCARDS (the deck/card prompt): fields, frontTemplate, backTemplate, tagRules, and the description that drives card content. You may touch other fields only if they ask.'
       : focus === 'study'
-        ? 'FOCUS: the user mainly wants to shape how this mode QUIZZES them: studyRules.questionPrompt, ratingRules, questionPreferences, difficulty and languages.'
+        ? 'FOCUS: the user mainly wants to shape how this mode QUIZZES them: studyRules.questionPrompt, questionPreferences, difficulty and languages.'
         : ''
     return [
       `You are Ebi, a warm, sharp learning-design partner helping the user ${isEdit ? 'refine an existing' : 'design a new'} study mode for a flashcard learning app. Ebi speaks in the first person as Ebi and never calls itself a mascot or an AI.`,
@@ -75,14 +77,17 @@ export default function ModeStudio({ t, kind = 'create', focus = 'all', existing
       `HOW TO BEHAVE:
 - Expand the user's idea, then ask AT MOST 1 to 3 focused follow-up questions that genuinely change the design (their level and goal, the language they answer in for language modes, sub-topics to emphasize, how they want to be quizzed, card layout preferences). Ask only what matters. Never interrogate.
 - The instant you have enough to propose something strong, or the user says just make it, STOP asking and propose.
-- Keep every message short and friendly. Never use an em dash. Never use a shrimp emoji.`,
+- Keep every message short and friendly. Never use an em dash. Never use a shrimp emoji.
+- Reply in the language the user writes in (the app is set to ${userLang}).`,
+      // Same rule as createMode: the catered text reads in the learner's language, identifiers stay as they are.
+      `Write the config's user-facing text in ${userLang} (the app language): "chatSuggestions" MUST be in ${userLang}, and "questionPrompt" / "mnemonicHints" should be phrased in ${userLang} too. Keep "name", tag tokens ("tagRules"/"tagCategories", lowercase-hyphen identifiers), template {placeholders} and proper nouns as they are.`,
       `WHEN YOU PROPOSE, and every time you revise after feedback: write 2 to 4 short plain-language lines describing the mode, THEN append the full machine config as ONE block exactly like:
 <mode>{ ...json... }</mode>
 Do NOT include the <mode> block while you are still asking questions. Include it every time you have a concrete proposal.`,
       `The JSON MUST use these keys:
-- name (string, 24 chars max), type ("language" only when learning a human language, otherwise "general"), description (1 to 3 rich sentences capturing the subject, goal and level; this text drives card generation, so make it specific).
+- name (string, short; when EDITING an existing mode keep its current name exactly unless the user asks to rename it), type ("language" only when learning a human language, otherwise "general"), description (1 to 3 rich sentences capturing the subject, goal and level; this text drives card generation, so make it specific).
 - fields (object of {fieldName: true}), frontTemplate (e.g. "{term}"), backTemplate (the card-back layout using {placeholders} that match the fields), tagRules (one line).
-- studyRules: { questionsPerCard (1 to 5), cardsAtOnce (1 to 6), studyLanguage (the language answers are written in and content is generated in), quizLanguage ("" = same as studyLanguage, else the language Ebi phrases questions in), ${'dialect (language modes only, else omit), '}wordHints (boolean), grammarFeedback (boolean), questionPrompt (a strong, subject-appropriate instruction for how to form quiz questions), ratingRules (string), questionPreferences (array of short style rules, may be []) }.
+- studyRules: { questionsPerCard (1 to 5), cardsAtOnce (1 to 6), studyLanguage (the language answers are written in and content is generated in), quizLanguage ("" = same as studyLanguage, else the language Ebi phrases questions in), ${'dialect (language modes only, else omit), '}wordHints (boolean), grammarFeedback (boolean), questionPrompt (a strong, subject-appropriate instruction for how to form quiz questions), questionPreferences (array of short style rules, may be []) }.
 - chatSuggestions (exactly 3 short starter prompts), mnemonicHints (short string or ""), tagCategories (lowercase array), and for GENERAL modes discoverKinds (array of 3 to 6 objects {key, label, rule}).`,
       isEdit
         ? 'Keep every current value the user did not ask to change EXACTLY as it is. Only alter what the conversation calls for.'
@@ -92,9 +97,13 @@ Do NOT include the <mode> block while you are still asking questions. Include it
 
   // `override` lets the seed send itself without going through the input. Callers
   // must not hand this the click event, hence the string check.
+  // A ref as well as `loading`: a double Enter read loading=false twice from one render, paid for two
+  // replies, and the second (built on the same history) replaced the first.
+  const sendingRef = useRef(false)
   const send = async (override) => {
     const text = (typeof override === 'string' ? override : input).trim()
-    if (!text || loading || !apiKey) return
+    if (!text || loading || !apiKey || sendingRef.current) return
+    sendingRef.current = true
     const next = [...messages, { role: 'user', text }]
     setMessages(next); setInput(''); setLoading(true); setError(null)
     try {
@@ -117,12 +126,13 @@ Do NOT include the <mode> block while you are still asking questions. Include it
         setError(t('studioCutOff'))
       }
       // Same hard guarantee as Chat and Help: the prompt forbids dashes and shrimp emoji, prompts leak.
-      display = display.replace(/\s*[—–]\s*/g, ', ').replace(/[🦐🦞🦀]️?/gu, '')
+      display = display.replace(/(^|\n)[ \t]*[—–][ \t]*/g, '$1').replace(/[ \t]*[—–][ \t]*(?=\n|$)/g, '').replace(/[ \t]*[—–][ \t]*/g, ', ').replace(/[🦐🦞🦀]️?/gu, '') // line-aware (never joins lines)
       setMessages([...next, { role: 'assistant', text: display || t('studioProposed') }])
     } catch (e) {
-      setError(String(e?.message || e))
+      // In words ("out of credits", "the key was refused"), not the provider's raw "API 429: {...}" body.
+      setError((describeError && describeError(e)) || String(e?.message || e))
       setMessages(next)
-    } finally { setLoading(false) }
+    } finally { sendingRef.current = false; setLoading(false) }
   }
 
   // Send the seeded brief once, on open. Without a key nothing can be sent, so the

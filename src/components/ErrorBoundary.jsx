@@ -1,4 +1,8 @@
 import React from 'react'
+import { makeT } from '../i18n'
+
+// The last language this browser used (App keeps it in localStorage): the crash screen has no App state to read.
+const crashT = () => { let l = 'en'; try { l = localStorage.getItem('ebiki-app-language') || 'en' } catch { /* storage unavailable */ } return makeT(l) }
 
 // Last line of defence for a RENDER crash. With no boundary, one exception thrown while rendering
 // blanked the whole window, and when the data that caused it was saved (a chat, a study session, a
@@ -58,17 +62,17 @@ export default class ErrorBoundary extends React.Component {
       }
       window.location.reload()
     }
+    const t = crashT()
     return (
       <div style={{ minHeight: '100vh', background: c.bg, color: c.ink, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: 'Nunito, system-ui, sans-serif' }}>
         <div style={{ maxWidth: 480, width: '100%', background: c.card, border: `1px solid ${c.border}`, borderRadius: 12, padding: 24 }}>
-          <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 8 }}>Something went wrong on this screen</div>
+          <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 8 }}>{t('crash_title')}</div>
           <div style={{ fontSize: 14, color: c.dim, lineHeight: 1.5, marginBottom: 16 }}>
-            Ebiki hit an error while showing it. Your saved data is safe. Reload to continue. If the same
-            thing happens again, reload without the saved study session and open chat.
+            {t('crash_body')}
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button style={{ ...btn, background: '#DF2540', color: '#fff', border: 'none' }} onClick={() => reload(false)}>Reload</button>
-            <button style={btn} onClick={() => reload(true)}>Reload without the saved session</button>
+            <button style={{ ...btn, background: '#DF2540', color: '#fff', border: 'none' }} onClick={() => reload(false)}>{t('start_reload')}</button>
+            <button style={btn} onClick={() => reload(true)}>{t('crash_reloadClean')}</button>
           </div>
           <div style={{ fontSize: 12, color: c.dim, marginTop: 16, wordBreak: 'break-word' }}>{String(this.state.error?.message || this.state.error)}</div>
         </div>

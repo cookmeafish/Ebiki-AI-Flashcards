@@ -7,6 +7,15 @@ import crypto from 'crypto'
 import os from 'os'
 import { spawn, execFile } from 'child_process'
 import { fileURLToPath } from 'url'
+import { mergeConfigPatch } from './src/utils/configDiff.js'
+
+// Text files a person may have edited by hand (config.json, a mode's config, .env, datadir.json) can start
+// with a UTF-8 byte-order mark: Windows PowerShell 5.1 writes one, and so did older Notepad. JSON.parse
+// rejects it, so a valid config.json was set aside as "corrupt" and the app started over from onboarding,
+// and the first key of such a .env was never found. Every text read that is parsed goes through here.
+function readUtf8(file) {
+  return fs.readFileSync(file, 'utf-8').replace(/^\uFEFF/, '')
+}
 
 // libuv's threadpool (default 4 workers) is where every ASYNC fs call actually
 // runs, including the bounded dead-share probe below (dataEntriesPresentAsync) -
@@ -55,7 +64,7 @@ const DATA_DIR_POINTER = path.resolve('datadir.json')
 const LAUNCH_MODE_POINTER = path.resolve('launchmode.json')
 const readLaunchMode = () => {
   try {
-    const m = JSON.parse(fs.readFileSync(LAUNCH_MODE_POINTER, 'utf-8'))?.mode
+    const m = JSON.parse(readUtf8(LAUNCH_MODE_POINTER))?.mode
     return m === 'browser' ? 'browser' : 'app'
   } catch { return 'app' }   // unset/corrupt = the current default, the app window
 }
@@ -64,7 +73,7 @@ function resolveDataDir() {
   const env = (process.env.EBIKI_DATA_DIR || '').trim()
   if (env) return path.resolve(env)
   try {
-    const saved = String(JSON.parse(fs.readFileSync(DATA_DIR_POINTER, 'utf-8')).dataDir || '').trim()
+    const saved = String(JSON.parse(readUtf8(DATA_DIR_POINTER)).dataDir || '').trim()
     if (saved) return path.resolve(saved)
   } catch { /* no pointer file → app folder */ }
   return APP_ROOT
@@ -89,14 +98,29 @@ const NO_BASE = Symbol('no base')
 const sameJson = (a, b) => JSON.stringify(a) === JSON.stringify(b)
 function deepMergeJson(target, source, base = NO_BASE) {
   if (Array.isArray(target) && Array.isArray(source)) {
+    // With a base (offline reconcile), a list only ONE side changed is that side's list: the union brought
+    // back an item deleted offline and kept an edited item twice (old and new). Both changed: union.
+    if (base !== NO_BASE) {
+      if (sameJson(source, base)) return target
+      if (sameJson(target, base)) return source
+    }
     const seen = new Set(target.map((x) => JSON.stringify(x)))
     for (const item of source) { const k = JSON.stringify(item); if (!seen.has(k)) { target.push(item); seen.add(k) } }
     return target
   }
   if (isPlainObject(target) && isPlainObject(source)) {
+    const hasBase = base !== NO_BASE && isPlainObject(base)
     for (const key of Object.keys(source)) {
-      const sub = base !== NO_BASE && isPlainObject(base) && key in base ? base[key] : NO_BASE
-      target[key] = (key in target) ? deepMergeJson(target[key], source[key], sub) : source[key]
+      const sub = hasBase && key in base ? base[key] : NO_BASE
+      if (key in target) target[key] = deepMergeJson(target[key], source[key], sub)
+      // The TARGET deleted it and the source never changed it: stays deleted (a removed model override or
+      // hook came back whenever the other side touched anything else in the file).
+      else if (hasBase && key in base && sameJson(source[key], base[key])) continue
+      else target[key] = source[key]
+    }
+    // The SOURCE deleted it and the target never changed it: deleted here too (it stayed forever).
+    if (hasBase) for (const key of Object.keys(target)) {
+      if (!(key in source) && key in base && sameJson(target[key], base[key])) delete target[key]
     }
     return target
   }
@@ -120,6 +144,7 @@ function deepMergeInto(from, to, label, acc, basePath = null) {
   if (fs.statSync(from).isDirectory()) {
     fs.mkdirSync(to, { recursive: true })
     for (const name of fs.readdirSync(from)) {
+      if (/\.\d+\.tmp$/.test(name)) continue // another computer's half-written temp file, not data
       // One odd entry (a folder on one side where the other has a FILE of the same name) used to throw
       // and abort the whole merge partway, so every later sibling was never copied. Contain it.
       try { deepMergeInto(path.join(from, name), path.join(to, name), label, acc) }
@@ -129,7 +154,7 @@ function deepMergeInto(from, to, label, acc, basePath = null) {
   }
   if (!fs.existsSync(to)) {
     fs.mkdirSync(path.dirname(to), { recursive: true })
-    fs.copyFileSync(from, to)
+    writeFileAtomic(to, fs.readFileSync(from)) // atomic: `to` can be the share (a dropped copy left a truncated file)
     acc.added++
     return acc
   }
@@ -142,10 +167,10 @@ function deepMergeInto(from, to, label, acc, basePath = null) {
   const isChat = path.basename(chatDir).toLowerCase() === 'chats' && path.basename(path.dirname(chatDir)).toLowerCase() !== 'modes'
   if (!isChat && to.toLowerCase().endsWith('.json') && from.toLowerCase().endsWith('.json')) {
     try {
-      const before = fs.readFileSync(to, 'utf-8')
+      const before = readUtf8(to)
       let base = NO_BASE
-      if (basePath) { try { base = JSON.parse(fs.readFileSync(basePath, 'utf-8')) } catch { base = NO_BASE } }
-      const merged = deepMergeJson(JSON.parse(before), JSON.parse(fs.readFileSync(from, 'utf-8')), base)
+      if (basePath) { try { base = JSON.parse(readUtf8(basePath)) } catch { base = NO_BASE } }
+      const merged = deepMergeJson(JSON.parse(before), JSON.parse(readUtf8(from)), base)
       const out = JSON.stringify(merged, null, 2) + '\n'
       if (out !== before) { writeFileAtomic(to, out); acc.merged++ } // atomic: this can be the share
       return acc
@@ -158,7 +183,7 @@ function deepMergeInto(from, to, label, acc, basePath = null) {
   // really diverge are kept as both.
   if (isChat) {
     try {
-      const a = JSON.parse(fs.readFileSync(to, 'utf-8')), b = JSON.parse(fs.readFileSync(from, 'utf-8'))
+      const a = JSON.parse(readUtf8(to)), b = JSON.parse(readUtf8(from))
       const ma = Array.isArray(a?.messages) ? a.messages : null, mb = Array.isArray(b?.messages) ? b.messages : null
       if (ma && mb) {
         const key = (m) => JSON.stringify([m?.role, m?.content ?? m?.text ?? ''])
@@ -181,7 +206,7 @@ function deepMergeInto(from, to, label, acc, basePath = null) {
     dest = path.join(dir, `${base} (from ${label})${ext}`)
     while (fs.existsSync(dest)) dest = path.join(dir, `${base} (from ${label} ${n++})${ext}`)
   }
-  fs.copyFileSync(from, dest)
+  writeFileAtomic(dest, fs.readFileSync(from)) // atomic, like every write that can land on the share
   acc.keptBoth++
   return acc
 }
@@ -292,19 +317,72 @@ const BACKUP_DIR = path.join(APP_ROOT, '.local-sync')
 const BACKUP_ENTRIES = DATA_ENTRIES.filter((e) => e !== 'cache')
 let lastBackup = { at: null, files: 0, error: null }
 function copyNewer(from, to, acc) {
-  if (!fs.existsSync(from)) return
-  const st = fs.statSync(from)
+  // Another computer's in-progress atomic write (`<file>.<pid>.tmp`) is not data: copying it put a stray
+  // file into the merge base, and when it was renamed away between the listing and the stat, the ENOENT
+  // aborted the WHOLE backup (every later file skipped until the next tick).
+  if (/\.\d+\.tmp$/.test(from)) return
+  let st
+  try { st = fs.statSync(from) } catch (e) { if (e.code === 'ENOENT') return; throw e } // vanished mid-walk
   if (st.isDirectory()) {
     fs.mkdirSync(to, { recursive: true })
-    for (const name of fs.readdirSync(from)) copyNewer(path.join(from, name), path.join(to, name), acc)
+    const names = fs.readdirSync(from)
+    for (const name of names) copyNewer(path.join(from, name), path.join(to, name), acc)
+    // A MIRROR: a mode renamed or deleted on the share stayed in the base, came back in offline mode (with a
+    // duplicate id) and was written back to the share on reconcile. Only from a listing that has entries: a
+    // dying share can read as an empty folder, and that must never empty the base.
+    if (names.length) {
+      // Names compare like the file system does (case-blind on Windows/macOS): after a case-only rename on the
+      // share ("Spanish" -> "spanish") the copy above wrote INTO the old-cased folder, which was then deleted.
+      const fold = (n) => (process.platform === 'win32' || process.platform === 'darwin' ? n.toLowerCase() : n)
+      const keep = new Set(names.map(fold))
+      let mine = []
+      try { mine = fs.readdirSync(to) } catch { mine = [] }
+      for (const name of mine) {
+        if (keep.has(fold(name)) || /\.\d+\.tmp$/.test(name)) continue
+        try { fs.rmSync(path.join(to, name), { recursive: true, force: true }); acc.n++ } catch { /* next run */ }
+      }
+    }
     return
   }
   let need = true
   try { const d = fs.statSync(to); need = st.size !== d.size || st.mtimeMs > d.mtimeMs } catch { need = true }
-  if (need) { fs.mkdirSync(path.dirname(to), { recursive: true }); fs.copyFileSync(from, to); acc.n++ }
+  if (!need) return
+  fs.mkdirSync(path.dirname(to), { recursive: true })
+  // Via a temp copy + rename: this folder is the offline merge BASE, and a copy cut off midway (shutdown,
+  // share dropped) left a truncated file there that the next 3-way merge read as the common ancestor.
+  const tmp = `${to}.${process.pid}.tmp`
+  try {
+    fs.copyFileSync(from, tmp)
+    fs.renameSync(tmp, to)
+  } catch (e) {
+    try { fs.rmSync(tmp, { force: true }) } catch { /* nothing to clean */ }
+    if (e.code === 'ENOENT') return // the source was renamed away mid-copy: picked up next time
+    // One file that can't be read (held open on the share, no permission) is skipped and reported; rethrown,
+    // it stopped every backup at that file, so later files were never refreshed.
+    acc.failed = (acc.failed || 0) + 1
+    if (!acc.firstError) acc.firstError = `${path.basename(from)}: ${e.code || e.message}`
+    return
+  }
+  acc.n++
 }
+// Which data folder `.local-sync` mirrors. Without it, after a switch from share A to share B the base still
+// held A's files, and B going down before the next backup ran offline mode on A's modes and chats as B's
+// (merged into B on reconnect). A snapshot of ANOTHER folder is parked in `.previous` (kept, never deleted)
+// before a backup of this one; a base with no stamp (older builds) is taken as this folder's, as before.
+const BACKUP_SOURCE = path.join(BACKUP_DIR, '.source.json')
+function backupSource() {
+  try { const d = JSON.parse(readUtf8(BACKUP_SOURCE)).dataDir; return typeof d === 'string' && d ? d : null } catch { return null }
+}
+function backupIsForOtherFolder() {
+  const src = backupSource()
+  return !!(src && !sameFolder(src, DATA_DIR))
+}
+
 async function runBackup() {
-  if (DATA_DIR === APP_ROOT) return { skipped: 'local' }          // data already lives on this computer
+  // The folder is read ONCE: a data-folder switch during the reachability probe made the rest of the run park
+  // the old share's snapshot and back up the NEW folder (or run synchronously against a dead share).
+  const dir = DATA_DIR
+  if (dir === APP_ROOT) return { skipped: 'local' }          // data already lives on this computer
   // Never while offline edits wait to be merged: .local-sync IS the 3-way merge base. Refreshing it to
   // the share's current state made every file the other computer changed look like "changed by me",
   // and "Merge them in" then fast-forwarded the stale offline copy over their work (reproduced).
@@ -312,14 +390,30 @@ async function runBackup() {
   // Recorded so the GET reports WHY the snapshot is getting old (it used to show the last success only).
   if (fs.existsSync(OFFLINE_META)) { lastBackup = { ...lastBackup, skipped: 'offline-pending' }; return { skipped: 'offline-pending' } }
   try {
-    if (!(await dataEntriesPresentAsync(DATA_DIR))) { lastBackup = { ...lastBackup, error: 'source unreachable', skipped: 'unreachable' }; return { skipped: 'unreachable' } }
+    if (!(await dataEntriesPresentAsync(dir))) { lastBackup = { ...lastBackup, error: 'source unreachable', skipped: 'unreachable' }; return { skipped: 'unreachable' } }
     // Offline mode may have started DURING that probe (seeded from this very base): refreshing it now made the
     // other computer's changes look like this one's (see above).
     if (offlineActive || fs.existsSync(OFFLINE_META)) { lastBackup = { ...lastBackup, skipped: 'offline-pending' }; return { skipped: 'offline-pending' } }
+    if (DATA_DIR !== dir) return { skipped: 'switched' } // the folder changed during the probe: the next run covers the new one
+    if (backupIsForOtherFolder()) {
+      const parked = path.join(BACKUP_DIR, '.previous')
+      fs.rmSync(parked, { recursive: true, force: true })
+      fs.mkdirSync(parked, { recursive: true })
+      for (const entry of BACKUP_ENTRIES) {
+        const from = path.join(BACKUP_DIR, entry)
+        if (fs.existsSync(from)) fs.renameSync(from, path.join(parked, entry))
+      }
+      console.log('[Backup] the snapshot belonged to', backupSource(), '; parked in .local-sync/.previous')
+      // Stamped NOW: from here the base holds only this folder's files. Stamped after the copy, one unreadable
+      // file left the old stamp, and the next run deleted the parked snapshot and parked the partial copy.
+      writeFileAtomic(BACKUP_SOURCE, JSON.stringify({ dataDir: dir }, null, 2) + '\n')
+    }
     const acc = { n: 0 }
-    for (const entry of BACKUP_ENTRIES) copyNewer(path.join(DATA_DIR, entry), path.join(BACKUP_DIR, entry), acc)
-    lastBackup = { at: new Date().toISOString(), files: acc.n, error: null, skipped: null }
-    return { ok: true, files: acc.n }
+    for (const entry of BACKUP_ENTRIES) copyNewer(path.join(dir, entry), path.join(BACKUP_DIR, entry), acc)
+    writeFileAtomic(BACKUP_SOURCE, JSON.stringify({ dataDir: dir }, null, 2) + '\n')
+    const error = acc.failed ? `${acc.failed} file(s) could not be copied (${acc.firstError})` : null
+    lastBackup = { at: new Date().toISOString(), files: acc.n, error, skipped: null }
+    return { ok: true, files: acc.n, ...(error ? { error } : {}) }
   } catch (e) { lastBackup = { ...lastBackup, error: e.message }; return { error: e.message } }
 }
 
@@ -341,6 +435,10 @@ async function runBackup() {
 const OFFLINE_DIR = path.join(APP_ROOT, '.local-offline')
 const OFFLINE_META = path.join(OFFLINE_DIR, '.offline.json')
 let offlineActive = false
+let datadirSwitching = false
+let datadirSwitchedAt = 0 // when the last switch finished (see the DATA_ROUTES guard)
+let offlineReconciling = false
+let ankiConnectInstallWaiters = null // /api/ankiconnect POST: responses waiting on the running install // /api/offline POST (merge or discard) in progress // /api/datadir POST in progress (one switch at a time)
 let offlineSince = null
 
 // Probing a dead mapped drive is slow (SMB timeouts), and every data request asks.
@@ -360,7 +458,10 @@ async function shareReachable() {
   const now = Date.now()
   const ttl = reachCache.ok ? REACH_TTL_ONLINE_MS : REACH_TTL_OFFLINE_MS
   if (now - reachCache.at < ttl) return reachCache.ok
-  const ok = await dataEntriesPresentAsync(DATA_DIR)
+  const dir = DATA_DIR
+  const ok = await dataEntriesPresentAsync(dir)
+  // A probe of the PREVIOUS folder finishing after a switch must not answer for the new one.
+  if (DATA_DIR !== dir) return shareReachable()
   reachCache = { at: now, ok }
   return ok
 }
@@ -370,7 +471,7 @@ async function shareReachable() {
 // backup has nothing local, and inventing empty data would be worse than an error.
 // The data folder a pending offline copy was made from (null when there is none or it is unreadable).
 function offlineCopyDataDir() {
-  try { const d = JSON.parse(fs.readFileSync(OFFLINE_META, 'utf-8')).dataDir; return d ? path.resolve(d) : null } catch { return null }
+  try { const d = JSON.parse(readUtf8(OFFLINE_META)).dataDir; return d ? path.resolve(d) : null } catch { return null }
 }
 // A pending offline copy made from a DIFFERENT data folder: never served, merged or discarded here.
 // It stays on disk until the user switches back to the folder it belongs to.
@@ -389,6 +490,8 @@ function offlineCopyIsForeign() {
 function enterOffline() {
   if (offlineActive) return true
   if (!dataEntriesPresent(BACKUP_DIR)) return false
+  // A snapshot of ANOTHER data folder is not this one's data (see backupSource): unreachable is honest.
+  if (!fs.existsSync(OFFLINE_META) && backupIsForOtherFolder()) { console.log('[Offline] the local snapshot belongs to', backupSource(), '; not using it for', DATA_DIR); return false }
   // An offline copy left from ANOTHER data folder (the user switched folders with edits pending) is
   // not this folder's data: serving it would show, and then save, one share's files as another's.
   const owner = fs.existsSync(OFFLINE_META) ? offlineCopyDataDir() : null
@@ -400,10 +503,10 @@ function enterOffline() {
         const from = path.join(BACKUP_DIR, entry)
         if (fs.existsSync(from)) fs.cpSync(from, path.join(OFFLINE_DIR, entry), { recursive: true })
       }
-      fs.writeFileSync(OFFLINE_META, JSON.stringify({ since: new Date().toISOString(), dataDir: DATA_DIR }, null, 2) + '\n', 'utf-8')
+      writeFileAtomic(OFFLINE_META, JSON.stringify({ since: new Date().toISOString(), dataDir: DATA_DIR }, null, 2) + '\n')
       console.log('[Offline] share unreachable. Running from a local copy in .local-offline')
     }
-    offlineSince = JSON.parse(fs.readFileSync(OFFLINE_META, 'utf-8')).since || new Date().toISOString()
+    offlineSince = JSON.parse(readUtf8(OFFLINE_META)).since || new Date().toISOString()
     offlineActive = true
     return true
   } catch (e) { console.log('[Offline] could not start offline mode:', e.message); return false }
@@ -421,14 +524,33 @@ async function dataMode() {
 // Walk the offline working copy against the base. `changed` = files this computer
 // actually touched while offline (new or differing bytes); anything identical to
 // the base is not an edit and is left out of the reconcile entirely.
+// Files an earlier, PARTIAL merge already applied (recorded in .offline.json). Merged again on the retry, a kept
+// copy was written once more per retry ("-copy2", "-copy3") and a value changed online since was put back to the
+// offline one. They no longer count as pending either.
+// Keyed by the content hash it had when merged: edited again offline since (the share dropped a second time),
+// it is pending again.
+const offlineFileHash = (rel) => { try { return crypto.createHash('sha1').update(fs.readFileSync(path.join(OFFLINE_DIR, rel))).digest('hex') } catch { return null } }
+function offlineApplied() {
+  try { const a = JSON.parse(readUtf8(OFFLINE_META)).applied; return a && typeof a === 'object' && !Array.isArray(a) ? a : {} } catch { return {} }
+}
+function offlinePendingFiles() {
+  const applied = offlineApplied()
+  return offlineChangedFiles().filter((r) => !(applied[r] && applied[r] === offlineFileHash(r)))
+}
 function offlineChangedFiles(rel = '', out = []) {
   const here = path.join(OFFLINE_DIR, rel)
   if (!fs.existsSync(here)) return out
   for (const name of fs.readdirSync(here)) {
     if (!rel && name === '.offline.json') continue
+    if (!rel && name === 'cache') continue // never backed up (so every cached clip read as a "change" and paused backups)
+    if (/\.\d+\.tmp$/.test(name)) continue // a crashed write's temp file is not a change (it blocked the zero-change cleanup, and Merge copied it to the share)
     const r = rel ? path.join(rel, name) : name
     const abs = path.join(OFFLINE_DIR, r)
-    if (fs.statSync(abs).isDirectory()) { offlineChangedFiles(r, out); continue }
+    // A dangling link or an entry removed mid-walk threw, and the /api/offline GET never answered: counted as a
+    // change instead (never a silent drop).
+    let isDir = false
+    try { isDir = fs.statSync(abs).isDirectory() } catch { out.push(r); continue }
+    if (isDir) { offlineChangedFiles(r, out); continue }
     const base = path.join(BACKUP_DIR, r)
     let same = false
     try { same = fs.existsSync(base) && fs.readFileSync(base).equals(fs.readFileSync(abs)) } catch { same = false }
@@ -447,7 +569,7 @@ function offlineStatus() {
     // banner would offer "Merge them in" and write one share's edits into a different one.
     pending: has && !offlineActive && !(owner && !sameFolder(owner, DATA_DIR)),
     since: has ? offlineSince : null,
-    changes: has ? offlineChangedFiles().length : 0,
+    changes: has ? offlinePendingFiles().length : 0,
     dataDir: DATA_DIR,
   }
 }
@@ -461,12 +583,93 @@ function offlineStatus() {
 // indistinguishable from one that was never synced, and re-deleting shared data
 // on someone else's behalf is the one unrecoverable move here.
 async function reconcileOffline() {
-  if (offlineCopyIsForeign()) return { ok: false, error: 'These offline changes belong to a different shared folder. Switch back to it to merge them.' }
+  if (offlineCopyIsForeign()) return { ok: false, code: 'otherFolder', error: 'These offline changes belong to a different shared folder. Switch back to it to merge them.' }
   const acc = { added: 0, merged: 0, keptBoth: 0 }
   const fastForward = []
-  for (const rel of offlineChangedFiles()) {
-    const mine = path.join(OFFLINE_DIR, rel)
-    const base = path.join(BACKUP_DIR, rel)
+  // A mode folder that no longer exists on the share under this name, whose mode (same id) lives in another
+  // folder there: renamed by another computer. The offline edit goes into THAT folder; copied as it was, it
+  // recreated the old folder and the load repair turned it into a ghost duplicate mode (rename undone).
+  const modeHomeOnShare = new Map()
+  // Ids another computer DELETED (writeModeFolders' tombstones): an offline edit of such a mode re-created its
+  // folder on the share, and the mode came back on every computer. Its files are skipped (recorded as applied).
+  let shareTombs = null
+  const tombstoned = (id) => {
+    if (shareTombs === null) {
+      shareTombs = new Set()
+      try { const t = JSON.parse(readUtf8(path.join(DATA_DIR, 'modes', '.deleted.json'))); if (Array.isArray(t)) t.forEach((x) => { if (x && x.id !== undefined && x.id !== null) shareTombs.add(String(x.id)) }) } catch { /* none */ }
+    }
+    return id !== undefined && id !== null && shareTombs.has(String(id))
+  }
+  const offlineIdOf = (dir) => { try { return JSON.parse(readUtf8(path.join(OFFLINE_DIR, 'modes', dir, 'config.json'))).id } catch { return undefined } }
+  // The share folder of the offline mode's id, wherever it is now (another computer renamed it), or null.
+  const homeOf = (dir) => {
+    if (!modeHomeOnShare.has(dir)) {
+      let home = null
+      const id = offlineIdOf(dir)
+      if (id !== undefined && id !== null) {
+        try {
+          for (const d of fs.readdirSync(path.join(DATA_DIR, 'modes'))) {
+            try { if (String(JSON.parse(readUtf8(path.join(DATA_DIR, 'modes', d, 'config.json'))).id) === String(id)) { home = d; break } } catch { /* not a mode */ }
+          }
+        } catch { /* no modes folder */ }
+      }
+      modeHomeOnShare.set(dir, home)
+    }
+    return modeHomeOnShare.get(dir)
+  }
+  // A folder the share ALSO has, holding ANOTHER mode (both computers made a "Chemistry"): deep-merged, the two
+  // unrelated modes fused (the share's id won, fields and templates unioned, knowledge mixed). The offline mode
+  // goes to a free folder name instead, and its config gets that name (as an online save's conflict would).
+  const clashTarget = new Map() // dir -> the free name used for a clashing offline mode
+  const idsClash = (dir) => {
+    try {
+      const mineId = offlineIdOf(dir)
+      const theirId = JSON.parse(readUtf8(path.join(DATA_DIR, 'modes', dir, 'config.json'))).id
+      return mineId !== undefined && mineId !== null && theirId !== undefined && theirId !== null && String(mineId) !== String(theirId)
+    } catch { return false } // no config on one side: the usual merge
+  }
+  const freeClashName = (dir) => {
+    if (!clashTarget.has(dir)) {
+      const taken = new Set(fs.readdirSync(path.join(DATA_DIR, 'modes')).map(folderKey))
+      let target = null
+      for (let n = 2; n < 1000 && !target; n++) if (!taken.has(folderKey(`${dir} ${n}`))) target = `${dir} ${n}`
+      clashTarget.set(dir, target)
+    }
+    return clashTarget.get(dir)
+  }
+  // Where an offline mode-folder file goes, checked in this order for EVERY case: the mode's own folder on the
+  // share (moved by a rename elsewhere, even when its old name now holds another mode), nowhere if another
+  // computer deleted it, a free "<name> N" for a same-name clash, else where it was.
+  const redirect = (rel) => {
+    const m = rel.match(/^modes[\\/]([^\\/]+)[\\/](.+)$/) // both separators: rel is built with path.join (backslashes on Windows)
+    if (!m) return rel
+    const dir = m[1]
+    const onShare = fs.existsSync(path.join(DATA_DIR, 'modes', dir))
+    const clash = onShare && idsClash(dir)
+    if (onShare && !clash) return rel // the same mode (or no config to tell): the usual merge
+    // Not on the share and not in the BASE: a folder new in the offline copy (a rename or create made HERE);
+    // redirecting it into the old folder silently undid that rename.
+    const baseHad = fs.existsSync(path.join(BACKUP_DIR, 'modes', dir))
+    if (clash || baseHad) {
+      const home = homeOf(dir)
+      if (home) return path.join('modes', home, m[2])
+    }
+    if (tombstoned(offlineIdOf(dir))) return null // deleted on another computer: not revived
+    if (clash) { const to = freeClashName(dir); return to ? path.join('modes', to, m[2]) : rel }
+    return rel
+  }
+  // Per file: one file that could not be written (read-only on the share, locked by another client, unreadable
+  // here) stopped the whole merge at that file, on every retry, and only Discard (losing every edit) got out.
+  // The rest is merged now; the offline copy stays until everything went through, and the files already merged are
+  // recorded (offlineApplied) so a retry merges only what failed.
+  const failed = []
+  const applied = {}
+  for (const rel0 of offlinePendingFiles()) {
+    try {
+    const rel = redirect(rel0)
+    if (rel === null) { applied[rel0] = offlineFileHash(rel0); console.log('[Offline] not reviving', rel0, '(its mode was deleted on another computer)'); continue }
+    const mine = path.join(OFFLINE_DIR, rel0)
+    const base = path.join(BACKUP_DIR, rel0)
     const theirs = path.join(DATA_DIR, rel)
     let shareMoved = false
     if (fs.existsSync(theirs)) {
@@ -474,11 +677,29 @@ async function reconcileOffline() {
     }
     if (!fs.existsSync(theirs) || !shareMoved) {
       fs.mkdirSync(path.dirname(theirs), { recursive: true })
-      fs.copyFileSync(mine, theirs)
+      // Atomic: this writes the SHARE's real file; a copy cut off by a dropped connection left a truncated
+      // config.json there, which every other computer then set aside as corrupt (back to onboarding).
+      let bytes = fs.readFileSync(mine)
+      // A clashing mode moved to a free folder carries that folder's name (else it was the same name twice).
+      const cm = rel0.match(/^modes[\\/]([^\\/]+)[\\/]config\.json$/)
+      if (cm && clashTarget.get(cm[1])) {
+        try { const c = JSON.parse(bytes.toString('utf8').replace(/^\uFEFF/, '')); bytes = Buffer.from(JSON.stringify({ ...c, name: clashTarget.get(cm[1]) }, null, 2)) } catch { /* copied as is */ }
+      }
+      writeFileAtomic(theirs, bytes)
       fastForward.push(rel)
     } else {
       deepMergeInto(mine, theirs, 'this computer offline', acc, fs.existsSync(base) ? base : null)
     }
+    applied[rel0] = offlineFileHash(rel0)
+    } catch (e) { failed.push(`${rel0} (${e.code || e.message})`) }
+  }
+  if (failed.length) {
+    try {
+      const meta = JSON.parse(readUtf8(OFFLINE_META))
+      writeFileAtomic(OFFLINE_META, JSON.stringify({ ...meta, applied: { ...offlineApplied(), ...applied } }, null, 2) + '\n')
+    } catch (e) { console.log('[Offline] could not record the files already merged:', e.message) }
+    console.log('[Offline] could not merge', failed.length, 'file(s):', failed.join(', '))
+    throw new Error(`${failed.length} file(s) could not be merged yet and are kept on this computer: ${failed.slice(0, 5).join(', ')}${failed.length > 5 ? ', ...' : ''}. Everything else was merged. Try again once they can be written.`)
   }
   fs.rmSync(OFFLINE_DIR, { recursive: true, force: true })
   offlineActive = false
@@ -505,7 +726,7 @@ const ENV_CLEARED = path.join(ENV_DIR, '.env.cleared') // the user emptied it ON
 // itself is left alone (it never shrinks - it may be another computer's copy).
 const ENV_DECLINED = path.join(ENV_DIR, '.env.declined')
 function readDeclined() {
-  try { const a = JSON.parse(fs.readFileSync(ENV_DECLINED, 'utf-8')); return Array.isArray(a) ? a : [] } catch { return [] }
+  try { const a = JSON.parse(readUtf8(ENV_DECLINED)); return Array.isArray(a) ? a : [] } catch { return [] }
 }
 function writeDeclined(list) {
   try {
@@ -523,7 +744,7 @@ const readEnvFile = (file) => {
   const keys = {}
   // CRLF too (a .env saved from Notepad): with a "\r" left on each line, `(.*)$` could not reach the
   // end of the line, so every stored key read as missing.
-  for (const line of fs.readFileSync(file, 'utf-8').split(/\r?\n/)) {
+  for (const line of readUtf8(file).split(/\r?\n/)) {
     const match = line.match(/^VITE_(\w+)_API_KEY=(.*)$/)
     if (match && ENV_PROVIDERS[match[1]]) keys[ENV_PROVIDERS[match[1]]] = match[2].trim()
   }
@@ -536,7 +757,7 @@ const hasKeys = (keys) => Object.values(keys).some((v) => v)
 function renderEnvFile(file, keys) {
   let existing = []
   if (fs.existsSync(file)) {
-    existing = fs.readFileSync(file, 'utf-8').split(/\r?\n/)
+    existing = readUtf8(file).split(/\r?\n/)
       .filter((l) => !l.match(/^VITE_\w+_API_KEY=/))
       .filter((l) => l.trim() !== '')
   }
@@ -574,7 +795,7 @@ function mirrorEnv(clearedProviders) {
     const { content } = renderEnvFile(ENV_BAK, union)
     let before = null
     try { before = fs.readFileSync(ENV_BAK, 'utf-8') } catch { /* no backup yet */ }
-    if (before !== content) fs.writeFileSync(ENV_BAK, content, 'utf-8')
+    if (before !== content) writeFileAtomic(ENV_BAK, content)
   } catch { /* best effort */ }
 }
 
@@ -628,7 +849,7 @@ function writeEnv(keys, opts) {
     return { ok: true, unchanged: true }
   }
   const { content, keyLines } = renderEnvFile(ENV_FILE, merged)
-  fs.writeFileSync(ENV_FILE, content, 'utf-8')
+  writeFileAtomic(ENV_FILE, content) // atomic: a cut-off write left half a key, which is not "no key", so the backup never healed it
   logKeys('write', `source=${source} stored=[${stored.join(' ')}] cleared=[${cleared.join(' ')}] now=[${Object.keys(merged).join(' ')}]`)
   // Mirror whatever survives, minus anything the user just cleared on purpose.
   if (keyLines.length || cleared.length) mirrorEnv(cleared)
@@ -685,7 +906,7 @@ async function syncSharedKeys(opts) {
     // not JSON after that is set aside as keys.json.corrupt-<stamp> (kept, never deleted) so sharing can
     // heal; refusing forever meant a new computer never received keys again. An IO error just skips.
     let shared = {}
-    const readShared = () => JSON.parse(fs.readFileSync(file, 'utf-8')) || {}
+    const readShared = () => JSON.parse(readUtf8(file)) || {}
     try { shared = readShared() } catch (e) {
       if (e && e.code === 'ENOENT') shared = {}
       else {
@@ -759,6 +980,20 @@ function modeFolderName(name, id) {
   return clean || (id !== undefined && id !== null ? `mode-${id}` : '')
 }
 
+// The folder of a mode known only by NAME (the knowledge endpoints). A name with nothing usable in it
+// ("???", "...") is saved under mode-<id>, but by name alone it resolved to '' and that mode's knowledge
+// base could never be used. Only then, the folder whose saved config carries exactly this name.
+function modeFolderForName(modesDir, name) {
+  const direct = modeFolderName(name)
+  if (direct || !name) return direct
+  try {
+    for (const d of fs.readdirSync(modesDir)) {
+      try { if (JSON.parse(readUtf8(path.join(modesDir, d, 'config.json')))?.name === name) return d } catch { /* not a mode folder */ }
+    }
+  } catch { /* no modes folder */ }
+  return ''
+}
+
 // Windows and macOS folders are case-insensitive: "spanish" and "Spanish" are one folder there.
 const folderKey = (d) => (process.platform === 'linux' ? d : d.toLowerCase())
 
@@ -777,14 +1012,24 @@ const folderKey = (d) => (process.platform === 'linux' ? d : d.toLowerCase())
 // folder called Default made such a mode vanish on the next load, settings and knowledge base included.
 function isDefaultTemplate(modesDir, d) {
   if (String(d).toLowerCase() !== 'default') return false
-  try { const c = JSON.parse(fs.readFileSync(path.join(modesDir, d, 'config.json'), 'utf-8')); return c?.id === undefined || c?.id === null } catch { return true }
+  try { const c = JSON.parse(readUtf8(path.join(modesDir, d, 'config.json'))); return c?.id === undefined || c?.id === null } catch (e) { return e?.code === 'ENOENT' } // unreadable for a moment (SMB lock, a write in flight): not the template, so the listing retries it instead of hiding a real mode
 }
 
-function writeModeFolders(modesDir, modes, activeModeId, deletedIds) {
+// `changedIds` (optional): the modes this save CHANGED. Only those are written; the rest of the list is context
+// (conflict checks, what to keep). A whole-list write from one computer put its stale copy of every OTHER mode
+// back over what a second computer on the shared folder had just changed (and moved a renamed folder back),
+// on every keystroke in Settings. No list = every mode is written, as before (create, delete, rename, repair).
+// `renamedIds` (optional): the modes this save RENAMES. With the list present, a mode whose folder is missing
+// is moved from its same-id folder ONLY when named here: a stale list still showing the old name (another
+// computer renamed it since) moved the folder BACK and undid that rename. It is reported with the folder's
+// current name instead, which the client adopts. No list (an older client) = the old behaviour.
+function writeModeFolders(modesDir, modes, activeModeId, deletedIds, changedIds, renamedIds) {
+  const renamed = Array.isArray(renamedIds) ? new Set(renamedIds.map((x) => (x === undefined || x === null ? undefined : String(x)))) : null
+  const changed = Array.isArray(changedIds) ? new Set(changedIds.map((v) => (v === undefined || v === null ? undefined : String(v)))) : null
   const isDir = (d) => { try { return fs.statSync(path.join(modesDir, d)).isDirectory() } catch { return false } }
   const targets = modes.map((m) => modeFolderName(m.name, m.id))
   const keep = new Set(['_meta.json', ...fs.readdirSync(modesDir).filter((d) => isDefaultTemplate(modesDir, d)), ...targets].map(folderKey))
-  const idOf = (d) => { try { return JSON.parse(fs.readFileSync(path.join(modesDir, d, 'config.json'), 'utf-8')).id } catch { return undefined } }
+  const idOf = (d) => { try { return JSON.parse(readUtf8(path.join(modesDir, d, 'config.json'))).id } catch { return undefined } }
   // Ids compared as TEXT: a config holding "5" (hand edit, an older merge) is the same mode the client now
   // sends as 5 (the load repair converts it). Strictly, "5" !== 5 looked like ANOTHER computer's folder: a
   // conflict, a rename to "X 2" that left the knowledge base behind, and one more copy on every launch.
@@ -799,7 +1044,7 @@ function writeModeFolders(modesDir, modes, activeModeId, deletedIds) {
   for (const d of fs.readdirSync(modesDir)) {
     if (!isDir(d)) continue
     try {
-      const c = JSON.parse(fs.readFileSync(path.join(modesDir, d, 'config.json'), 'utf-8'))
+      const c = JSON.parse(readUtf8(path.join(modesDir, d, 'config.json')))
       if (c && idKey(c.id) !== undefined && typeof c.name === 'string') { const k = idKey(c.id); if (nameBefore.has(k)) idSeenTwice.add(k); nameBefore.set(k, c.name) }
     } catch { /* not a mode folder */ }
   }
@@ -810,11 +1055,43 @@ function writeModeFolders(modesDir, modes, activeModeId, deletedIds) {
   // this one took over its knowledge base. Reported with a free name; the client renames and saves again.
   const conflicts = []
   const takenKeys = new Set([...fs.readdirSync(modesDir), ...targets].map(folderKey))
-  const skipped = new Set() // modes NOT written (a name owned by another computer's mode)
+  const skipped = new Set() // modes NOT written (a name owned by another computer's mode, or a failed folder move)
+  const renameFailed = []
+  // Ids deleted on purpose (`.deleted.json`, written by the delete sweep below). A second computer still holding
+  // a deleted mode re-created its folder on its next save of that mode (a deck pick, a hook), and the mode came
+  // back everywhere. Such a mode is not written again; the client drops it (`deletedElsewhere`). New ids are
+  // minted from the clock (`mintModeId`), so a real create never hits a tombstone.
+  const tombFile = path.join(modesDir, '.deleted.json')
+  let tombs = []
+  // Only a MISSING file is "none yet". A read that failed otherwise (an SMB lock while another computer renames
+  // its temp file) is retried once; still unreadable, no tombstone is written this time (writing the new one alone
+  // would erase every earlier one). A damaged (unparsable) file is replaced, as before.
+  let tombsReadable = true
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const t = JSON.parse(readUtf8(tombFile)); if (Array.isArray(t)) tombs = t.filter((x) => x && idKey(x.id) !== undefined)
+      tombsReadable = true; break
+    } catch (e) {
+      tombsReadable = e?.code === 'ENOENT' || e instanceof SyntaxError
+      if (tombsReadable) break
+    }
+  }
+  const tombIds = new Set(tombs.map((x) => idKey(x.id)))
+  const deletedElsewhere = []
+  const untouched = new Set() // modes this save did not change: never written, moved or re-tagged
   modes.forEach((mode, i) => {
+    if (changed && !changed.has(idKey(mode.id))) { untouched.add(idKey(mode.id)); return }
     const dir = path.join(modesDir, targets[i])
     const owner = fs.existsSync(dir) ? idOf(targets[i]) : undefined
-    if (idKey(owner) !== undefined && idKey(owner) !== idKey(mode.id) && !keptIds.has(idKey(owner))) {
+    // Foreign also when the owner is in the list but NOT being written (a one-mode save): another computer
+    // renamed that mode INTO this name, and writing here took over its folder and knowledge base.
+    // And in a WHOLE-list save (no changedIds: create, delete, repair) ANY other mode's folder is foreign: a
+    // stale list still naming that mode by its old name wrote over it (knowledge base and all). Only a save
+    // that changes BOTH modes (a real swap) may move one into the other's folder.
+    // Two names of one payload that map to ONE folder ("CON" and "CON_") are a conflict for the later one.
+    const dupTarget = targets.findIndex((t2, j) => j < i && folderKey(t2) === folderKey(targets[i])) >= 0
+    if (dupTarget || (idKey(owner) !== undefined && idKey(owner) !== idKey(mode.id) && (!keptIds.has(idKey(owner)) || (!changed && !idSeenTwice.has(idKey(owner))) || (changed && !changed.has(idKey(owner)))))) {
+      // (An id held by TWO folders is the load repair re-iding one of them: that folder is its own.)
       let suggested = null
       for (let n = 2; n < 1000 && !suggested; n++) {
         const cand = `${mode.name} ${n}`
@@ -826,18 +1103,79 @@ function writeModeFolders(modesDir, modes, activeModeId, deletedIds) {
       skipped.add(idKey(mode.id))
       return
     }
+    // The target exists but holds NO mode (the old id-less "Default" template, a folder a knowledge upload made,
+    // a config set aside as corrupt): the renamed mode's own folder must still move in, or its knowledge base
+    // stayed behind in the old folder. The id-less folder is parked beside it, never deleted.
+    if (fs.existsSync(dir) && idKey(owner) === undefined && idKey(mode.id) !== undefined) {
+      const same = [...leaving].filter(([, id]) => idKey(id) === idKey(mode.id))
+      if (same.length === 1) {
+        const parked = `${targets[i]} (parked ${new Date().toISOString().slice(0, 10)} ${Date.now() % 100000})`
+        try {
+          fs.renameSync(dir, path.join(modesDir, parked)); keep.add(folderKey(parked))
+          // Its id-less config set aside too: listed, it came back as a ghost mode on every launch (re-id'd, and
+          // its conflict pushed the user's real mode of that name to "... 3").
+          // Only a config that READ as id-less: one that could not be read (locked on the share) may be another
+          // computer's mode, and setting it aside would hide that mode everywhere.
+          const pc = path.join(modesDir, parked, 'config.json')
+          let idless = false
+          try { const c = JSON.parse(readUtf8(pc)); idless = !c || c.id === undefined || c.id === null } catch { idless = false }
+          if (idless) fs.renameSync(pc, pc + '.parked')
+        } catch (e) { console.log('[Modes] could not park', JSON.stringify(targets[i]), e.message) }
+      }
+    }
     if (!fs.existsSync(dir) && mode.id !== undefined && mode.id !== null) {
       // Only an UNAMBIGUOUS rename: two folders sharing this id (modes made on two computers by an older
       // build) cannot tell which one this is, and guessing overwrote the other mode.
       const sameId = [...leaving].filter(([, id]) => idKey(id) !== undefined && idKey(id) === idKey(mode.id))
       const prev = sameId.length === 1 ? sameId[0][0] : undefined
+      let prevName = prev
+      if (prev !== undefined) { try { prevName = JSON.parse(readUtf8(path.join(modesDir, prev, 'config.json'))).name || prev } catch { /* the folder name */ } }
+      // A folder whose own config already names THIS target is only misnamed (a rename whose config write failed,
+      // a hand rename, an older build's folder rule): it is moved as before. "Adopting" its name, which is the
+      // mode's current name, repeated the same conflict on every save and the mode was never written again.
+      const misnamed = prev !== undefined && folderKey(modeFolderName(prevName, mode.id)) === folderKey(targets[i])
+      if (prev !== undefined && renamed && !renamed.has(idKey(mode.id)) && !misnamed) {
+        keep.add(folderKey(prev)); leaving.delete(prev)
+        conflicts.push({ id: mode.id, name: mode.name, suggested: prevName, adopt: true }) // this same mode, renamed elsewhere
+        skipped.add(idKey(mode.id))
+        return
+      }
       if (prev !== undefined) {
         try {
           fs.renameSync(path.join(modesDir, prev), dir)
           leaving.delete(prev)
           console.log('[Modes] renamed folder', JSON.stringify(prev), '→', JSON.stringify(targets[i]))
-        } catch (e) { console.log('[Modes] could not move the renamed mode\'s folder:', e.message) }
+        } catch (e) {
+          // The move failed (Windows refuses while a file inside is open: an editor, antivirus, a share
+          // lock). Writing the new folder anyway left TWO folders with this id (a ghost copy of the mode,
+          // the knowledge base on only one), and without explicit deletes the old one was swept with its
+          // knowledge base. Leave this mode exactly as it was and report it; the client restores the name.
+          console.log('[Modes] could not move the renamed mode\'s folder:', e.message)
+          keep.add(folderKey(prev)); leaving.delete(prev)
+          renameFailed.push({ id: mode.id, name: mode.name, previous: nameBefore.get(idKey(mode.id)) ?? null })
+          skipped.add(idKey(mode.id))
+          return
+        }
       }
+    }
+    // This mode already lives in ANOTHER folder that stays (another computer renamed it; this list is older):
+    // creating this one made a second folder with the same id and no knowledge base. Reported with the
+    // folder's current name, which the client adopts.
+    if (!fs.existsSync(dir) && idKey(mode.id) !== undefined) {
+      const home = fs.readdirSync(modesDir).find((d) => folderKey(d) !== folderKey(targets[i]) && keep.has(folderKey(d)) && isDir(d) && idKey(idOf(d)) === idKey(mode.id))
+      if (home) {
+        let homeName = home
+        try { homeName = JSON.parse(readUtf8(path.join(modesDir, home, 'config.json'))).name || home } catch { /* the folder name */ }
+        conflicts.push({ id: mode.id, name: mode.name, suggested: homeName, adopt: true })
+        skipped.add(idKey(mode.id))
+        return
+      }
+    }
+    if (!fs.existsSync(dir) && tombIds.has(idKey(mode.id))) {
+      console.log('[Modes] not re-creating deleted mode', JSON.stringify(mode.name), mode.id)
+      deletedElsewhere.push({ id: mode.id, name: mode.name })
+      skipped.add(idKey(mode.id))
+      return
     }
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
     writeFileAtomic(path.join(dir, 'config.json'), JSON.stringify(mode, null, 2))
@@ -848,8 +1186,13 @@ function writeModeFolders(modesDir, modes, activeModeId, deletedIds) {
     if (explicit) {
       const id = idOf(d)
       if (idKey(id) === undefined || !explicit.has(idKey(id)) || keptIds.has(idKey(id))) continue
+      if (!tombIds.has(idKey(id))) { tombIds.add(idKey(id)); tombs.push({ id, at: Date.now() }) }
     }
     fs.rmSync(path.join(modesDir, d), { recursive: true, force: true })
+  }
+  if (!tombsReadable) console.log('[Modes] deleted-mode record unreadable; not updated this time')
+  if (explicit && tombs.length && tombsReadable) {
+    try { writeFileAtomic(tombFile, JSON.stringify(tombs.slice(-500))) } catch (e) { console.log('[Modes] could not record deleted ids:', e.message) }
   }
   writeFileAtomic(path.join(modesDir, '_meta.json'), JSON.stringify({ activeModeId })) // atomic: a torn read failed another computer's whole modes load
   // A renamed mode keeps its chats: they are tagged with the mode NAME, the Discover learner profile reads
@@ -859,7 +1202,7 @@ function writeModeFolders(modesDir, modes, activeModeId, deletedIds) {
     // A name still used by a mode in this list keeps its chats (a swap, or the repair case above).
     const namesNow = new Set(modes.map((m) => m.name))
     // Not a rename that was REFUSED (the name belongs to another computer's mode): its chats moved to that mode.
-    const renames = modes.filter((m) => !skipped.has(idKey(m.id)) && nameBefore.has(idKey(m.id)) && nameBefore.get(idKey(m.id)) !== m.name && !namesNow.has(nameBefore.get(idKey(m.id)))).map((m) => [nameBefore.get(idKey(m.id)), m.name])
+    const renames = modes.filter((m) => !skipped.has(idKey(m.id)) && !untouched.has(idKey(m.id)) && nameBefore.has(idKey(m.id)) && nameBefore.get(idKey(m.id)) !== m.name && !namesNow.has(nameBefore.get(idKey(m.id)))).map((m) => [nameBefore.get(idKey(m.id)), m.name])
     const chatsDir = path.join(path.dirname(modesDir), 'chats')
     if (renames.length && fs.existsSync(chatsDir)) {
       const map = new Map(renames)
@@ -867,13 +1210,13 @@ function writeModeFolders(modesDir, modes, activeModeId, deletedIds) {
         if (!f.endsWith('.json')) continue
         try {
           const file = path.join(chatsDir, f)
-          const chat = JSON.parse(fs.readFileSync(file, 'utf-8'))
+          const chat = JSON.parse(readUtf8(file))
           if (chat && typeof chat.mode === 'string' && map.has(chat.mode)) writeFileAtomic(file, JSON.stringify({ ...chat, mode: map.get(chat.mode) }, null, 2))
         } catch { /* one unreadable chat must not stop the rest */ }
       }
     }
   } catch (e) { console.log('[Modes] could not re-tag chats after a rename:', e.message) }
-  return { conflicts }
+  return { conflicts, renameFailed, deletedElsewhere }
 }
 
 // A config.json that EXISTS but cannot be read or parsed (a half-written file, a lock, a short SMB read)
@@ -883,7 +1226,7 @@ function writeModeFolders(modesDir, modes, activeModeId, deletedIds) {
 function readConfigChecked() {
   const file = dataPath('config.json')
   if (!fs.existsSync(file)) return { ok: true, data: {} }
-  try { return { ok: true, data: JSON.parse(fs.readFileSync(file, 'utf-8')) } }
+  try { return { ok: true, data: JSON.parse(readUtf8(file)) } }
   catch (e) { return { ok: false, error: e.message, corrupt: e instanceof SyntaxError } }
 }
 
@@ -936,11 +1279,30 @@ function writeFileAtomic(file, text) {
 
 // Merges over what is on disk, so it must never merge over a FAILED read: readConfig's {} fallback
 // made a torn or locked file look empty, and the save then replaced it with just the new keys.
+// Is HEAD on PUBLISHED history? (Same rule as launch.ps1 Test-HeadPublished / launch.sh head_published.)
+// Published = on ANY value origin/master has had (its reflog): an earlier fetch (the launcher's, a try refused
+// as dirty) already moved the ref, and checking only its last value refused forever. Plus every commit HEAD was
+// set to FROM the remote (a clone does not log origin/master's first value). `extra`: one more remote value.
+function headPublished(git, extra, cb) {
+  git(['reflog', 'show', '--format=%H', 'refs/remotes/origin/master'], (eRl, rlOut) => {
+    git(['reflog', 'show', '--format=%H %gs', 'HEAD'], (eHl, hlOut) => {
+      const fromRemote = eHl ? [] : String(hlOut || '').split(/\r?\n/).slice(0, 500)
+        .filter((l) => /^[0-9a-f]+ (clone:|reset: moving to FETCH_HEAD\s*$|(pull[^:]*|merge [0-9a-f]{7,}): Fast-forward\s*$)/.test(l)).map((l) => l.split(' ')[0])
+      const cands = [...new Set([...(eRl ? [] : String(rlOut || '').split(/\s+/).slice(0, 200)), ...fromRemote, extra].filter(Boolean))]
+      const tryNext = (i) => {
+        if (i >= cands.length) { cb(false); return }
+        git(['merge-base', '--is-ancestor', 'HEAD', cands[i]], (ePub) => { if (ePub) tryNext(i + 1); else cb(true) })
+      }
+      tryNext(0)
+    })
+  })
+}
+
 function writeConfig(data) {
   const r = readConfigChecked()
   if (!r.ok) throw new Error(`config.json could not be read (${r.error}); not overwriting it`)
-  const existing = r.data
-  const merged = { ...existing, ...data }
+  // Nested per-provider / per-model maps merge one level deep (see src/utils/configDiff.js).
+  const merged = mergeConfigPatch(r.data, data)
   writeFileAtomic(dataPath('config.json'), JSON.stringify(merged, null, 2) + '\n')
 }
 
@@ -1000,6 +1362,12 @@ function apiPlugin() {
   return {
     name: 'api-plugin',
     configureServer(server) {
+      // A rejected promise nobody handled (an async middleware throwing outside its try) is FATAL on current
+      // Node: the dev server exited and every window lost its backend. Logged instead; registered once.
+      if (!globalThis.__ebikiRejectionGuard) {
+        globalThis.__ebikiRejectionGuard = true
+        process.on('unhandledRejection', (err) => console.error('[Server] unhandled rejection (kept running):', err?.stack || err))
+      }
       // Decode every /api request body as UTF-8 BEFORE any handler reads it. The handlers below
       // build their body with `body += chunk`, which decodes each network chunk on its own, so a
       // multi-byte character (é, ñ, 日) that straddles a chunk boundary turned into U+FFFD and was
@@ -1083,6 +1451,8 @@ function apiPlugin() {
         process.on('SIGTERM', () => { stopToastGuard(); process.exit(0) })
       }
 
+      // Set to the auto-exit shutdown when the shortcut owns this server (a restart request uses it).
+      let requestShutdown = null
       // ── Shortcut launches own their lifetime (EBIKI_AUTO_EXIT=1) ──────────
       // The Desktop / Start Menu shortcut starts this server HIDDEN, so nothing
       // on screen says it is still running: closing the tab left it alive for
@@ -1104,7 +1474,9 @@ function apiPlugin() {
         // first question to ask when a server exits (or refuses to) unexpectedly.
         if (req.method === 'GET') {
           res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify({ autoExit: process.env.EBIKI_AUTO_EXIT === '1', lastBeatAgoMs: lastBeat ? Date.now() - lastBeat : null }))
+          // updateRunning: the launchers skip their own update check while Settings is updating (two npm installs
+          // in one node_modules could break it).
+          res.end(JSON.stringify({ autoExit: process.env.EBIKI_AUTO_EXIT === '1', lastBeatAgoMs: lastBeat ? Date.now() - lastBeat : null, updateRunning }))
           return
         }
         lastBeat = Date.now(); res.statusCode = 204; res.end()
@@ -1157,8 +1529,12 @@ function apiPlugin() {
         // can't hold the server open by itself.
         const PROBE_MS = 4000
         let probeAt = 0
+        requestShutdown = shutdown
         const lifeTimer = setInterval(() => {
           const now = Date.now()
+          // Never mid-update: closing the window during one killed git (a left-behind index.lock broke every
+          // later update) or orphaned npm. The update's own watchdog bounds this; the check resumes after.
+          if (updateRunning) { probeAt = 0; return }
           if (!lastBeat) { if (now - startedAt > STARTUP_MS) shutdown('the browser never connected'); return }
           // A goodbye only counts when no tab has checked in since: a RELOAD fires
           // the same beacon and then immediately beats again from the new page.
@@ -1193,23 +1569,29 @@ function apiPlugin() {
       server.middlewares.use('/api/offline', async (req, res) => {
         res.setHeader('Content-Type', 'application/json')
         if (req.method === 'GET') {
+          try {
           await dataMode()
           let st = offlineStatus()
           // Share back and the offline copy holds NO edits (a slow probe entered offline mode, nothing was
           // changed): nothing to merge, so it goes. Left in place it paused backups for good (runBackup skips
           // while it exists) and the UI had no Merge/Discard to offer for 0 changes. offlineChangedFiles counts
           // an unreadable file as changed, so an error never makes this drop real edits.
-          if (st.pending && st.changes === 0) {
+          if (st.pending && st.changes === 0 && !offlineReconciling) { // never under a running merge
             try { fs.rmSync(OFFLINE_DIR, { recursive: true, force: true }); offlineSince = null; runBackup().catch(() => {}) } catch { /* next poll */ } // backups resume now, not in 10 min
             st = offlineStatus()
           }
           res.end(JSON.stringify(st))
+          } catch (e) { res.statusCode = 500; res.end(JSON.stringify({ error: e.message })) } // always an answer
           return
         }
         if (req.method !== 'POST') { res.statusCode = 405; res.end(''); return }
         let body = ''
         req.on('data', (c) => { body += c })
         req.on('end', async () => {
+          // One reconcile at a time: a double click (or the bar in two windows) merged the same offline copy
+          // into the share twice at once, and a Discard could delete it mid-merge.
+          if (offlineReconciling) { res.statusCode = 409; res.end(JSON.stringify({ code: 'busy', error: 'The offline changes are already being merged. Wait for it to finish.' })); return }
+          offlineReconciling = true
           try {
             const discard = !!JSON.parse(body || '{}').discard
             // A foreign copy (another share's pending edits) is neither merged nor discarded from here.
@@ -1221,13 +1603,14 @@ function apiPlugin() {
               res.end(JSON.stringify({ ok: true, discarded: true }))
               return
             }
-            if (!(await shareReachable())) { res.statusCode = 409; res.end(JSON.stringify({ error: 'The shared folder is still unreachable.' })); return }
+            if (!(await shareReachable())) { res.statusCode = 409; res.end(JSON.stringify({ code: 'unreachable', error: 'The shared folder is still unreachable.' })); return }
             // Merging edits made to one share into ANOTHER folder (the user switched data folders with
             // offline edits pending) would write that share's files into the wrong place.
             const owner = offlineCopyDataDir()
-            if (owner && !sameFolder(owner, DATA_DIR)) { res.statusCode = 409; res.end(JSON.stringify({ error: `These offline changes were made to ${owner}, not the current data folder. Switch back to that folder to merge them, or discard them.` })); return }
+            if (owner && !sameFolder(owner, DATA_DIR)) { res.statusCode = 409; res.end(JSON.stringify({ code: 'otherFolder', error: `These offline changes were made to ${owner}, not the current data folder. Switch back to that folder to merge them, or discard them.` })); return }
             res.end(JSON.stringify(await reconcileOffline()))
           } catch (e) { res.statusCode = 400; res.end(JSON.stringify({ error: e.message })) }
+          finally { offlineReconciling = false }
         })
       })
 
@@ -1274,6 +1657,9 @@ function apiPlugin() {
               { cwd: APP_ROOT, detached: true, stdio: 'ignore', windowsHide: true }).on('error', (e) => console.warn('[Update] relaunch helper failed:', e.message)).unref()
             console.log('[Update] relaunch helper spawned')
             res.end(JSON.stringify({ ok: true }))
+            // Leave by ourselves: another window or tab still beating kept this (old) server alive, so the
+            // helper gave up and the launcher reopened the OLD code (and skipped the pending npm install).
+            if (requestShutdown) setTimeout(() => requestShutdown('a restart was requested'), 1500)
           } catch (e) {
             res.end(JSON.stringify({ ok: false, error: String(e.message || e).slice(0, 300) }))
           }
@@ -1322,6 +1708,9 @@ function apiPlugin() {
           // could not agree on what they were running. Measured both ways.
           // (--date=format-local: is the one that converts to the viewer; never use it
           // here.) %cI is still sent for anything that wants the precise instant.
+          // Ebiki's OWN checkout only: a ZIP copy with no .git inside another repository (a home-folder
+          // dotfiles repo) reported and "updated" THAT repository. Same guard in both launchers.
+          if (!fs.existsSync(path.join(APP_ROOT, '.git'))) { send({ ok: true, gitAvailable: false }); return }
           git(['log', '-1', '--date=format:%Y.%m.%d', '--format=%H|%cI|%cd'], (e1, local) => {
             if (e1) { send({ ok: true, gitAvailable: false }); return }
             const [headSha, headDate, headVersion] = String(local || '').trim().split('|')
@@ -1345,18 +1734,25 @@ function apiPlugin() {
                 // number and sha. Read per request, so a pull is reflected without a
                 // restart of this file's own logic.
                 let appVersion = ''
-                try { appVersion = JSON.parse(fs.readFileSync(path.join(APP_ROOT, 'package.json'), 'utf-8')).version || '' } catch { /* no package.json = no declared version */ }
+                try { appVersion = JSON.parse(readUtf8(path.join(APP_ROOT, 'package.json'))).version || '' } catch { /* no package.json = no declared version */ }
                 const base = { current: (headSha || '').slice(0, 7), currentDate: headDate || '', version: headVersion || '', appVersion, build, branch, onMaster: branch === 'master' }
                 known = base
                 if (localOnly) { send({ ok: true, gitAvailable: true, reachable: null, ...base }); return }
-                git(['ls-remote', 'origin', 'master'], (e3, remoteOut) => {
+                git(['ls-remote', 'origin', 'refs/heads/master'], (e3, remoteOut) => { // exact ref: "master" also matches "*/master"
                   if (e3) { send({ ok: true, gitAvailable: true, reachable: false, ...base }); return }
                   const localSha = (headSha || '').trim()
                   const remoteSha = ((remoteOut || '').trim().split(/\s+/)[0]) || ''
                   // Reachable, but master is not there: the branch was renamed or removed.
                   // Reporting "no update" would be a lie that hides it forever.
                   if (!remoteSha) { send({ ok: true, gitAvailable: true, reachable: true, remoteMissing: true, updateAvailable: false, ...base }); return }
-                  send({ ok: true, gitAvailable: true, reachable: true, updateAvailable: !!remoteSha && remoteSha !== localSha, ...base, remote: remoteSha.slice(0, 7), canRestart: canSelfRestart() })
+                  const answer = (available, more = {}) => send({ ok: true, gitAvailable: true, reachable: true, updateAvailable: available, ...base, remote: remoteSha.slice(0, 7), canRestart: canSelfRestart(), ...more })
+                  if (remoteSha === localSha) { answer(false); return }
+                  // This copy has its own (never published) commits on master: the update is always refused
+                  // (localCommits), yet Settings offered it forever. Not only when AHEAD: once master moves on, the
+                  // copy has DIVERGED. The current origin/master counts as published. A retracted release is offered.
+                  git(['rev-parse', '-q', '--verify', 'refs/remotes/origin/master'], (eO, oOut) => {
+                    headPublished(git, eO ? '' : String(oOut || '').trim(), (pub) => answer(pub, pub ? {} : { localCommits: true }))
+                  })
                 }, 12000)
               })
             })
@@ -1384,6 +1780,7 @@ function apiPlugin() {
           // Updates track master. Pulling master into some other branch is not a
           // fast-forward, so git would refuse with something the user cannot act on;
           // say which branch it is instead, and change nothing.
+          if (!fs.existsSync(path.join(APP_ROOT, '.git'))) { finish({ ok: false, error: 'this folder is not a git checkout of Ebiki' }); return } // see the GET
           git(['rev-parse', '--abbrev-ref', 'HEAD'], (eb, branchOut) => {
             const branch = eb ? '' : String(branchOut || '').trim()
             if (branch && branch !== 'master') { finish({ ok: false, wrongBranch: branch }); return }
@@ -1395,6 +1792,9 @@ function apiPlugin() {
             // succeeded, and never moved a single file. A silent permanent loop, which
             // is far worse than a visible failure.
             // So: fetch, then work out which way master actually went.
+            // Where master WAS before this fetch (see the reset below).
+            git(['rev-parse', '-q', '--verify', 'refs/remotes/origin/master'], (eOld, oldOut) => {
+            const oldOrigin = eOld ? '' : String(oldOut || '').trim()
             git(['fetch', 'origin', 'master'], (ef, fo, fe) => {
               if (ef) { finish({ ok: false, error: String(fe || ef.message || 'could not reach GitHub').slice(0, 600) }); return }
               const afterMove = (out) => {
@@ -1433,8 +1833,20 @@ function apiPlugin() {
                 // master, and the new code ran on old dependencies for good.
                 const npmPending = path.join(APP_ROOT, '.npm-install-pending')
                 try { fs.writeFileSync(npmPending, new Date().toISOString()) } catch { /* best effort */ }
-                try { execFile(npmCmd, npmArgs, { cwd: APP_ROOT, timeout: 300000, windowsHide: true }, onNpm) }
-                catch (spawnErr) { onNpm(spawnErr, '', '') }
+                // Our own timeout that kills the whole TREE: execFile's kills only cmd.exe, npm's node.exe kept
+                // installing, and the next start's pending install then ran beside it (a broken node_modules).
+                let npmChild = null
+                const npmTimer = setTimeout(() => {
+                  try {
+                    if (process.platform === 'win32' && npmChild?.pid) spawn('taskkill', ['/F', '/T', '/PID', String(npmChild.pid)], { windowsHide: true, stdio: 'ignore' }).on('error', () => {})
+                    else npmChild?.kill()
+                  } catch { /* it is being reported as failed either way */ }
+                }, 300000)
+                try { npmChild = execFile(npmCmd, npmArgs, { cwd: APP_ROOT, windowsHide: true, maxBuffer: 16 * 1024 * 1024 }, (...a) => { clearTimeout(npmTimer); onNpm(...a) }) }
+                catch (spawnErr) { clearTimeout(npmTimer); onNpm(spawnErr, '', '') }
+                // The install's PID goes into the marker: when it takes this server down it keeps running (an
+                // orphan), and the launcher waits for it before its own pending install (two in one node_modules).
+                try { if (npmChild?.pid) fs.writeFileSync(npmPending, JSON.stringify({ at: new Date().toISOString(), pid: npmChild.pid })) } catch { /* the plain marker stays */ }
               }
               // Is our commit an ancestor of the fetched one? Yes = master moved forward
               // and a fast-forward is exactly right. No = it was rewound or rewritten.
@@ -1453,14 +1865,18 @@ function apiPlugin() {
                 // so a normal install is always clean here and a developer's work is safe.
                 git(['status', '--porcelain', '--untracked-files=no'], (eSt, stOut) => {
                   if (!eSt && String(stOut || '').trim()) { finish({ ok: false, dirty: true }); return }
-                  git(['reset', '--hard', 'FETCH_HEAD'], (eR, rOut, rErr) => {
+                  // Only a checkout on PUBLISHED history is reset (a retracted release). Commits made on master
+                  // here were never published: "not an ancestor" looked the same, and the reset threw them away.
+                  const doReset = () => git(['reset', '--hard', 'FETCH_HEAD'], (eR, rOut, rErr) => {
                     if (eR) { finish({ ok: false, error: String(rErr || eR.message || 'could not match the released version').slice(0, 600) }); return }
                     console.log('[Update] master had moved backwards or been rewritten; matched it exactly')
                     afterMove(rOut)
                   }, 120000)
+                  headPublished(git, oldOrigin, (pub) => { if (pub) doReset(); else finish({ ok: false, localCommits: true }) })
                 })
               })
             }, 120000)
+            })
           })
         } else { res.statusCode = 405; res.end('') }
       })
@@ -1480,7 +1896,7 @@ function apiPlugin() {
       const ankiBaseDir = () => process.env.ANKI_BASE || (
         process.platform === 'win32' ? path.join(process.env.APPDATA || '', 'Anki2')
           : process.platform === 'darwin' ? path.join(os.homedir(), 'Library', 'Application Support', 'Anki2')
-            : path.join(os.homedir(), '.local', 'share', 'Anki2'))
+            : path.join(process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share'), 'Anki2')) // Anki honors XDG (Flatpak)
       // By SIGNATURE (a config.json carrying webBindPort), never by add-on code:
       // forks like "Anki Connect Plus" serve the same API and Anki marks them as
       // CONFLICTING with the original, so a machine running one must be reported
@@ -1494,7 +1910,7 @@ function apiPlugin() {
             if (!fs.existsSync(path.join(d, '__init__.py')) || !fs.existsSync(cfg)) continue
             if (!/webBindPort/.test(fs.readFileSync(cfg, 'utf-8'))) continue
             let meta = {}
-            try { meta = JSON.parse(fs.readFileSync(path.join(d, 'meta.json'), 'utf-8')) } catch { /* Anki writes it on first load */ }
+            try { meta = JSON.parse(readUtf8(path.join(d, 'meta.json'))) } catch { /* Anki writes it on first load */ }
             return { dir: d, name: meta.name || name, disabled: !!meta.disabled }
           }
         } catch { /* no Anki folder yet = not installed */ }
@@ -1550,6 +1966,7 @@ function apiPlugin() {
                 // close"). An `anki` process exists, so this used to read as "running but hasn't loaded
                 // the add-on" and told the user to restart Anki, which cannot help.
                 payload.ankiLauncherStuck = !!st.launcherStuck
+                payload.ankiListening = !!st.listening // port open but silent = Anki is on a modal dialog
               } catch { /* could not look: leave the fields undefined rather than guess */ }
               res.end(JSON.stringify(payload))
             })
@@ -1560,6 +1977,11 @@ function apiPlugin() {
           res.end(JSON.stringify({ ok: false, error: 'automatic install is only available on Windows' }))
           return
         }
+        // One install at a time: a double click (or the banner in two windows) ran two installers into the
+        // same add-on folder, each seeing it missing. A second request gets the running install's answer.
+        if (ankiConnectInstallWaiters) { ankiConnectInstallWaiters.push(res); return }
+        ankiConnectInstallWaiters = [res]
+        const answerAll = (payload) => { const all = ankiConnectInstallWaiters || []; ankiConnectInstallWaiters = null; for (const r of all) { try { r.end(payload) } catch { /* client gone */ } } }
         // The SAME script the installer uses (scripts/install-ankiconnect.ps1), so
         // the two can never drift. It prints one JSON line; anything else it wrote
         // is console noise.
@@ -1570,11 +1992,11 @@ function apiPlugin() {
             try { parsed = JSON.parse(line) } catch { /* fall through to the error below */ }
             if (!parsed) {
               console.warn('[AnkiConnect] install produced no result:', String(stderr || err || '').slice(0, 300))
-              res.end(JSON.stringify({ ok: false, error: String(stderr || (err && err.message) || 'the install did not report a result').slice(0, 400) }))
+              answerAll(JSON.stringify({ ok: false, error: String(stderr || (err && err.message) || 'the install did not report a result').slice(0, 400) }))
               return
             }
             console.log('[AnkiConnect] install:', line)
-            res.end(JSON.stringify(parsed))
+            answerAll(JSON.stringify(parsed))
           })
       })
 
@@ -1675,6 +2097,11 @@ function apiPlugin() {
               const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
               const logFile = path.join(LOG_DIR, `ocr-${timestamp}.log`)
               fs.writeFileSync(logFile, body, 'utf-8')
+              // Newest 50 only: one file per scan, each holding the text read off the screen, piled up forever.
+              try {
+                const old = fs.readdirSync(LOG_DIR).filter((f) => /^ocr-.*\.log$/.test(f)).sort().slice(0, -50)
+                for (const f of old) fs.rmSync(path.join(LOG_DIR, f), { force: true })
+              } catch { /* pruning is housekeeping only */ }
               res.setHeader('Content-Type', 'application/json')
               res.end(JSON.stringify({ ok: true, file: logFile }))
             } catch (e) {
@@ -1686,6 +2113,62 @@ function apiPlugin() {
           res.statusCode = 405
           res.end('')
         }
+      })
+
+      // Token usage totals for THIS computer (machine-local like the logs, never on a shared data folder: each
+      // computer's key pays its own bill). GET = the totals; POST {add:[{provider, model, input, output}]} adds
+      // (the app window, a browser tab and the overlay all report here); POST {reset:true} starts over.
+      server.middlewares.use('/api/usage', (req, res) => {
+        const file = path.join(LOG_DIR, 'token-usage.json')
+        const read = () => {
+          try { const j = JSON.parse(readUtf8(file)); if (j && typeof j === 'object' && j.byModel && typeof j.byModel === 'object') return j } catch { /* none yet or damaged: start over */ }
+          return { since: new Date().toISOString(), byModel: {} }
+        }
+        const send = (code, obj) => { res.statusCode = code; res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(obj)) }
+        if (req.method === 'GET') { send(200, read()); return }
+        if (req.method !== 'POST') { send(405, { error: 'method' }); return }
+        const handle = (bodyStr) => {
+          try {
+            const body = JSON.parse(bodyStr || '{}')
+            if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true })
+            // Prices the user typed for models the app has no price for ({provider, model, price: [in, out] | null}).
+            // Kept in the same file, and kept across a reset (a reset clears the counts, not the prices).
+            if (body.setPrice && typeof body.setPrice === 'object') {
+              const { provider, model, price } = body.setPrice
+              if (typeof provider !== 'string' || !/^[a-z]{2,20}$/.test(provider)) { send(400, { error: 'provider' }); return }
+              const key = `${provider}|${String(model || '').slice(0, 120)}`
+              const cur = read()
+              const prices = { ...(cur.prices && typeof cur.prices === 'object' ? cur.prices : {}) }
+              if (price === null) delete prices[key]
+              else if (Array.isArray(price) && price.length === 2 && price.every((v) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v < 10000)) prices[key] = price
+              else { send(400, { error: 'price' }); return }
+              const next = { ...cur, prices }
+              writeFileAtomic(file, JSON.stringify(next, null, 2))
+              send(200, next); return
+            }
+            if (body.reset === true) {
+              const old = read()
+              const fresh = { since: new Date().toISOString(), byModel: {}, ...(old.prices ? { prices: old.prices } : {}) }
+              writeFileAtomic(file, JSON.stringify(fresh, null, 2))
+              send(200, fresh); return
+            }
+            const cur = read()
+            const n = (v) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Math.round(Number(v)) : 0)
+            for (const u of (Array.isArray(body.add) ? body.add : []).slice(0, 5000)) {
+              if (!u || typeof u.provider !== 'string' || !/^[a-z]{2,20}$/.test(u.provider)) continue
+              const model = String(u.model || '').slice(0, 120)
+              const key = `${u.provider}|${model}`
+              const r = cur.byModel[key] || { provider: u.provider, model, input: 0, output: 0, calls: 0 }
+              cur.byModel[key] = { ...r, input: r.input + n(u.input), output: r.output + n(u.output), calls: r.calls + 1 }
+            }
+            writeFileAtomic(file, JSON.stringify(cur, null, 2))
+            send(200, cur)
+          } catch (e) { send(500, { error: e.message }) }
+        }
+        if (req.body) { handle(typeof req.body === 'string' ? req.body : JSON.stringify(req.body)); return }
+        let body = ''
+        req.on('data', (chunk) => { body += chunk })
+        req.on('end', () => handle(body))
       })
 
       // AnkiConnect proxy endpoint
@@ -1713,7 +2196,7 @@ function apiPlugin() {
                 ankiRes.on('close', () => {
                   if (ankiRes.complete || res.headersSent || res.writableEnded) return
                   res.setHeader('Content-Type', 'application/json')
-                  res.end(JSON.stringify({ error: 'Anki closed the connection before answering. Check that Anki is still open, then try again.' }))
+                  res.end(JSON.stringify({ code: 'closed', error: 'Anki closed the connection before answering. Check that Anki is still open, then try again.' }))
                 })
               }
             )
@@ -1730,8 +2213,14 @@ function apiPlugin() {
               console.log('[Anki proxy] error:', err.message)
               if (res.headersSent || res.writableEnded) return
               res.setHeader('Content-Type', 'application/json')
-              res.end(JSON.stringify({ error: /timed out/.test(err.message)
-                ? 'Anki did not answer. If Anki is showing a window or a question, answer it, then try again.'
+              // A request Anki could not answer in time is still QUEUED there and runs once Anki is free, so a
+              // change (a card add, tags, a review) must not be retried blindly: that made duplicate cards.
+              const changes = /^(add|remove|update|insert|replace|delete|set|forget|change|answer|store)/i.test(String(action || ''))
+              // `code` lets the page show the message in the app language (the English text is the fallback).
+              res.end(JSON.stringify({ timedOut: /timed out/.test(err.message) || undefined, code: /timed out/.test(err.message) ? (changes ? 'timeoutChange' : 'timeout') : 'notRunning', error: /timed out/.test(err.message)
+                ? (changes
+                  ? 'Anki did not answer in time. If Anki is showing a window or a question, answer it. The change may still be applied once Anki is free, so check Anki before trying again.'
+                  : 'Anki did not answer. If Anki is showing a window or a question, answer it, then try again.')
                 : 'Anki is not running or AnkiConnect is not installed' }))
             })
             ankiReq.write(bodyStr)
@@ -1768,6 +2257,14 @@ function apiPlugin() {
       server.middlewares.use('/api', async (req, res, next) => {
         const p = (req.url || '').split('?')[0].replace(/\/+$/, '') || '/'
         if (!DATA_ROUTES.some((r) => p === r || p.startsWith(r + '/'))) return next()
+        // A folder switch runs synchronously for seconds; writes the page sent meanwhile were handled right after it,
+        // in the NEW folder, before the page froze its writers. Refused for a short window after the switch.
+        if (req.method !== 'GET' && Date.now() - datadirSwitchedAt < 3000) {
+          res.statusCode = 503
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify({ error: 'The data folder just changed. Try again.' }))
+          return
+        }
         const mode = await dataMode()
         // 'down' = the share is gone AND there is no local snapshot to fall back
         // on, the only case where the app truly cannot serve data.
@@ -1856,7 +2353,9 @@ function apiPlugin() {
             // Not audio: an error, so the client falls through to browser speech (answered as a 200
             // "audio/mpeg" it was an unplayable success and the 🔊 button just failed).
             if (buf.length < 200 || !isAudio) { res.statusCode = 502; res.end('tts server returned no audio'); return }
-            try { fs.mkdirSync(cacheDir, { recursive: true }); fs.writeFileSync(cacheFile, buf) } catch { /* cache is best-effort */ }
+            // Atomic: a play of the same word while this was writing read a half-written file (over 200 bytes,
+            // so it counted as cached) and a cut-off write stayed cached for good.
+            try { fs.mkdirSync(cacheDir, { recursive: true }); writeFileAtomic(cacheFile, buf) } catch { /* cache is best-effort */ }
             res.setHeader('Content-Type', 'audio/mpeg')
             res.end(buf)
           } catch (e) { res.statusCode = 500; res.end(String(e.message || e)) }
@@ -1875,7 +2374,10 @@ function apiPlugin() {
         if (!fs.existsSync(knowledgeDir)) return []
         return fs.readdirSync(knowledgeDir)
           .filter((f) => f.match(/\.(txt|md)$/i))
-          .map((f) => ({ name: f, text: fs.readFileSync(path.join(knowledgeDir, f), 'utf-8') }))
+          // A file listed but already gone (another computer removed it; SMB lists it ~10s longer) is skipped:
+          // thrown, the whole knowledge GET answered 500 and sections came back empty.
+          .map((f) => { try { return { name: f, text: fs.readFileSync(path.join(knowledgeDir, f), 'utf-8') } } catch (e) { if (e && e.code === 'ENOENT') return null; throw e } })
+          .filter(Boolean)
       }
       // Chapter words in the languages Ebiki is used with, plus CJK "第N章/課/节" forms. English-only
       // matching missed "Capítulo 3" / "第1章", merged their content into a neighbour and pushed a
@@ -1932,7 +2434,14 @@ function apiPlugin() {
         if (!m || !chapterNumOk(m[2])) return null
         // A separator after the number ("Chapter 1: the basics", "Chapter 3 · the basics") marks a title.
         const restCh = t.slice(m[0].indexOf(m[2]) + m[2].length)
-        if (!/[.:)]$/.test(m[2]) && !/^\s*[:·\-–—.|]/.test(restCh) && proseAfterNumber(restCh)) return null
+        // A SENTENCE that opens with a chapter word ("Part 2 explains this later.", "Chapter 5 covers routing.")
+        // is prose: as a heading it cut the real chapter short at that line.
+        // Only WITHOUT a separator, and only a period: "Chapter 1: What is a Network?" is a real title.
+        const sepCh = /[.:)]$/.test(m[2]) || /^\s*[:·\-–—.|]/.test(restCh)
+        // ...and only when the text after the number starts LOWERCASE ("Chapter 7 The End." and "Chapter 3 Life in
+        // the U.S." are titles) and the period is not an ellipsis ("What Comes Next...").
+        if (!sepCh && /(?<!\.)[.。]$/.test(t) && /^\p{Ll}/u.test(restCh.trim()) && restCh.trim().split(/\s+/).length >= 2) return null
+        if (!sepCh && proseAfterNumber(restCh)) return null
         if (PART_WORDS.test(m[1])) return 0
         // "Lesson 1" is a top-level unit (its "1.1 Vocabulary" sits below it); "Section 1.2" nests by its dots.
         if (SUB_WORDS.test(m[1])) return Math.min(3, m[2].replace(/[.:)]$/, '').split('.').length)
@@ -1942,6 +2451,8 @@ function apiPlugin() {
       const CJK_CHAPTER_RE = /^(第\s*[\d０-９一二三四五六七八九十百]+\s*[章課课节節回部編编]|제\s*[\d０-９]+\s*[장과부편]).{0,100}$/u
       // Level by the unit character, like the chapter words: 部/編/编/부/편 (part) 0, 章/課/课/回/장/과 1,
       // 节/節 (section) 2. All level 1 made picking 第一章 return only its intro before 第一节.
+      // A CJK chapter line that ends like a sentence (第三章介绍了…。) is prose, as above.
+      const cjkHead = (t) => CJK_CHAPTER_RE.test(t) && !/[。.]$/.test(t) // 第一章 什么是网络？ is a title
       const cjkLevel = (t) => {
         const m = t.match(/^(?:第\s*[\d０-９一二三四五六七八九十百]+\s*([章課课节節回部編编])|제\s*[\d０-９]+\s*([장과부편]))/u)
         if (!m) return null
@@ -1953,16 +2464,24 @@ function apiPlugin() {
         const lines = file.text.split('\n')
         // Lines inside ``` / ~~~ fences are code: a "# install deps" comment there is not a heading.
         const inFence = []
-        let fence = false
+        // A fence closes only on its OWN marker: a ~~~ inside a ``` block toggled it, and the rest of the file
+        // (every heading after it) was taken for code.
+        let fence = ''
         for (const line of lines) {
           const t = line.trim()
-          if (/^(```|~~~)/.test(t)) { inFence.push(true); fence = !fence; continue }
-          inFence.push(fence)
+          const mk = (t.match(/^(```|~~~)/) || [])[1]
+          if (mk && (!fence || fence === mk)) { inFence.push(true); fence = fence ? '' : mk; continue }
+          inFence.push(!!fence)
         }
         // A file with markdown headings has its structure in them. Numbered and chapter-word lines
         // there are body text (a "1. HTTP uses port 80" list became three level-1 sections and the
         // last one swallowed the next real section).
-        const hasMarkdown = lines.some((line, i) => !inFence[i] && /^#{1,6}\s+\S/.test(line.trim()))
+        // Trusted in a .md file; in a .txt (every PDF upload) one stray "# of hosts" or indented code comment
+        // switched the whole book to markdown mode and threw its chapter outline away, so a .txt needs 3+
+        // such lines and no chapter-word / CJK chapter lines.
+        const mdLines = lines.filter((line, i) => !inFence[i] && /^#{1,6}\s+\S/.test(line.trim())).length
+        const hasMarkdown = mdLines > 0 && (/\.(md|markdown)$/i.test(file.name || '') ||
+          (mdLines >= 3 && !lines.some((l, i) => !inFence[i] && (chapterLevel(l.trim()) !== null || cjkHead(l.trim())))))
         // "1. Introduction" is a chapter heading in plenty of PDF text; it is a list item when the line
         // right above or below is another "N." item (headings are separated by body text).
         const listMarker = (l) => /^\d+[.)]\s/.test(String(l || '').trim())
@@ -1974,8 +2493,8 @@ function apiPlugin() {
           if (inFence[i]) { /* code */ }
           else if ((m = t.match(/^(#{1,6})\s+(.{2,120})$/))) {
             out.push({ file: file.name, title: m[2].trim(), level: m[1].length, start: off, md: true })
-          } else if (!hasMarkdown && (chapterLevel(t) !== null || CJK_CHAPTER_RE.test(t))) {
-            out.push({ file: file.name, title: t.slice(0, 120), level: CJK_CHAPTER_RE.test(t) ? cjkLevel(t) : chapterLevel(t), start: off })
+          } else if (!hasMarkdown && (chapterLevel(t) !== null || cjkHead(t))) {
+            out.push({ file: file.name, title: t.slice(0, 120), level: cjkHead(t) ? cjkLevel(t) : chapterLevel(t), start: off })
           } else if (!hasMarkdown && t.length <= 110 && /^\d+(\.\d+){0,3}[.)]?\s+\p{L}.{2,100}$/u.test(t)
             // Title-like only: a sentence ("2024 was the year it changed.") ends in a period, and a
             // bare "1. " / "1) " is a list marker, not "1.2 Title" numbering.
@@ -1991,9 +2510,20 @@ function apiPlugin() {
         // chosen chapter came back as one page. A detected title that repeats 3+ times (page numbers set
         // aside) keeps only its FIRST occurrence, the chapter's real start. Markdown headings are left
         // alone: a repeated "## Summary" there is a real section each time.
-        const headKey = (h) => h.title.toLowerCase().replace(/^\d+\s+/, '').replace(/\s+\d+$/, '').trim()
-        const counts = new Map()
-        for (const h of out) if (!h.md) counts.set(headKey(h), (counts.get(headKey(h)) || 0) + 1)
+        // A bare "Chapter 7" (nothing after the number) keeps its number: stripped, all chapters of a book
+        // laid out "CHAPTER N" / title-on-the-next-line folded into ONE key and only the first survived.
+        const headKey = (h) => {
+          const t = h.title.toLowerCase()
+          const m = t.match(CHAPTER_RE)
+          if (m && !t.slice(m[0].indexOf(m[2]) + m[2].length).trim()) return t.trim()
+          return t.replace(/^\d+\s+/, '').replace(/(?<!\s)\s+\d+$/, '').trim()
+        }
+        // Keys once, indices grouped by key: filtering the whole outline per repeated title cost 2 s on a
+        // 1500-section book, on every knowledge read.
+        const keys = out.map(headKey)
+        const byKey = new Map()
+        out.forEach((h, i) => { if (!h.md) { if (!byKey.has(keys[i])) byKey.set(keys[i], []); byKey.get(keys[i]).push(i) } })
+        const counts = new Map([...byKey].map(([k, v]) => [k, v.length]))
         // Which copy is the REAL chapter start: the one followed by the most text before the next heading.
         // Keeping simply the first kept the contents-page line ("Chapter 2 Routing 20"), whose "section"
         // is that one line.
@@ -2001,11 +2531,11 @@ function apiPlugin() {
         // A copy with a TRAILING page number ("Chapter 2 Switching 47") is a running head or a contents
         // line; the real start has none. Measured by gap alone, the true start (followed at once by its
         // "2.1" subsection) lost to a running head a page later. Gap only decides among equals.
-        const pageTail = (h) => /\s+\d+$/.test(h.title)
+        const pageTail = (h) => /(?<!\s)\s+\d+$/.test(h.title)
         const best = new Map()
         out.forEach((h, i) => {
-          if (h.md || (counts.get(headKey(h)) || 0) < 3) return
-          const k = headKey(h)
+          if (h.md || (counts.get(keys[i]) || 0) < 3) return
+          const k = keys[i]
           if (!best.has(k)) { best.set(k, i); return }
           const cur = out[best.get(k)]
           if (pageTail(cur) && !pageTail(h)) { best.set(k, i); return }
@@ -2021,17 +2551,21 @@ function apiPlugin() {
         const tailNum = (h) => (h.title.match(/\s+(\d+)$/) || [])[1]
         const pureRunningHead = new Set()
         for (const k of best.keys()) {
-          const copies = out.filter((h) => !h.md && headKey(h) === k)
+          const copies = (byKey.get(k) || []).map((i) => out[i])
           // Leading numbers only: trailing-number heads ("Chapter 2 Switching 47") can be the only trace
           // of a chapter whose own heading line was not detected, so they keep their best copy.
           // ...unless one copy is a numbered CHAPTER: the copy followed by its own "3.1" section is the real
           // "3 Routing", and the others ("48 Routing", "50 Routing") are its verso running heads.
-          const realAt = out.findIndex((h, i) => !h.md && headKey(h) === k && leadNum(h) && out[i + 1] && out[i + 1].title.startsWith(leadNum(h) + '.'))
+          const realAt = (byKey.get(k) || []).find((i) => leadNum(out[i]) && out[i + 1] && out[i + 1].title.startsWith(leadNum(out[i]) + '.')) ?? -1
           if (realAt >= 0) { best.set(k, realAt); continue }
           const nums = copies.map(leadNum)
           if (nums.every(Boolean) && !copies.some(tailNum) && new Set(nums).size > 1) pureRunningHead.add(k)
         }
-        return out.filter((h, i) => h.md || (counts.get(headKey(h)) || 0) < 3 || (best.get(headKey(h)) === i && !pureRunningHead.has(headKey(h))))
+        // Seen fewer than 3 times, WITH and WITHOUT a trailing page number: the numbered copy is the contents
+        // line ("Chapter 2 Routing 20"), whose section is that one line. Only the real start is kept.
+        const hasPlain = new Set(out.map((h, i) => (!h.md && !pageTail(h) ? keys[i] : null)).filter((k) => k !== null))
+        const contentsCopy = (h, i) => !h.md && pageTail(h) && (counts.get(keys[i]) || 0) < 3 && hasPlain.has(keys[i])
+        return out.filter((h, i) => h.md || ((counts.get(keys[i]) || 0) < 3 ? !contentsCopy(h, i) : (best.get(keys[i]) === i && !pureRunningHead.has(keys[i]))))
           .map(({ md, ...h }) => h)
       }
       // A TOC entry or content line reduced to comparable text: lowercase, no list bullet, no dotted
@@ -2044,10 +2578,12 @@ function apiPlugin() {
       // whole server (26 dots = 24 s, per knowledge load). Roman page numbers (front matter) count too.
       // A ROMAN page number only after a real leader (4+ leader characters): prose ellipses are 3 dots or one
       // "…", and "Ready, Set... Mix" / "Vitamins ... c" lost their last word (the heading then never matched).
-      const TOC_LEADER_RE = /\s*(?:[.·…_]\s*){2,}\d+$|…+\s*\d+$|\s*(?:[.·…_]\s*){4,}[ivxlcdm]+$/i
+      // Each alternative starts only where a leader run STARTS (lookbehind): starting inside a long run made
+      // every position try the rest of it (30,000 dots took 2.4 s, on every knowledge load).
+      const TOC_LEADER_RE = /(?<![.·…_\s])\s*(?:[.·…_]\s*){2,}\d+$|(?<!…)…+\s*\d+$|(?<![.·…_\s])\s*(?:[.·…_]\s*){4,}[ivxlcdm]+$/i
       const tocNorm = (l, keepNum) => {
         let t = String(l).trim().replace(/^[-*•>\s]+/, '').replace(TOC_LEADER_RE, '')
-        if (!keepNum) t = t.replace(/\s+\d+$/, '')
+        if (!keepNum) t = t.replace(/(?<!\s)\s+\d+$/, '') // (?<!\s): each whitespace run is tried ONCE (unanchored, a 5000-space run inside a line was quadratic)
         return t.trim().toLowerCase()
       }
       const extractOutline = (files) => {
@@ -2065,13 +2601,27 @@ function apiPlugin() {
           for (const f of contentFiles) {
             let off = 0
             for (const line of f.text.split('\n')) {
-              lines.push({ file: f.name, start: off, raw: tocNorm(line, true), bare: tocNorm(line, false) })
+              lines.push({ file: f.name, start: off, leader: TOC_LEADER_RE.test(line.trim()), raw: tocNorm(line, true), bare: tocNorm(line, false) })
               off += line.length + 1
             }
           }
           const unnumbered = (s) => s.replace(/^\d+(?:\.\d+)*[.)]?\s*/, '')
-          const sameLine = (ln, t) => ln.raw === t.raw || (!!ln.bare && ln.bare === t.bare)
-            || (unnumbered(ln.bare).length >= 3 && unnumbered(ln.bare) === unnumbered(t.bare))
+          for (const ln of lines) ln.un = unnumbered(ln.bare)
+          // Number-stripped forms compare only when at most ONE side had a trailing number: "Chapter 1" matched the
+          // line "Chapter 2" (both stripped to "chapter"), and every later entry landed a chapter late.
+          const numOk = (ln, t) => ln.raw === ln.bare || t.raw === t.bare
+          const sameLine = (ln, t) => ln.raw === t.raw || (!!ln.bare && ln.bare === t.bare && numOk(ln, t))
+            || (ln.un.length >= 3 && ln.un === unnumbered(t.bare) && numOk(ln, t))
+          // Lines indexed by each comparable form: an entry that matched nothing scanned the whole book with two
+          // regex replaces per line (800 entries x 50k lines = 2 s per knowledge load).
+          const index = new Map()
+          const addIdx = (k, i) => { if (!k) return; const a = index.get(k); if (a) a.push(i); else index.set(k, [i]) }
+          lines.forEach((ln, i) => { addIdx('r:' + ln.raw, i); addIdx(ln.bare ? 'b:' + ln.bare : '', i); addIdx(ln.un.length >= 3 ? 'u:' + ln.un : '', i) })
+          const candidatesFrom = (t, from) => {
+            const tu = unnumbered(t.bare)
+            const all = [...(index.get('r:' + t.raw) || []), ...(index.get('b:' + t.bare) || []), ...(tu.length >= 3 ? index.get('u:' + tu) || [] : [])]
+            return [...new Set(all)].filter((i) => i >= from).sort((x, y) => x - y)
+          }
           // WHOLE LINES, searched IN ORDER from after the previous match. First-substring-anywhere matched
           // every entry to the book's own contents page ("Introduction 1"), a mention in earlier prose, or
           // (for a repeated "Summary") the first chapter's copy every time.
@@ -2089,7 +2639,7 @@ function apiPlugin() {
           let cursor = 0
           titles.forEach((t, ti) => {
             const next = titles[ti + 1]
-            for (let i = cursor; i < lines.length; i++) {
+            for (const i of candidatesFrom(t, cursor)) {
               if (!sameLine(lines[i], t)) continue
               // A contents page lists the NEXT entries right below this one: that is the list, not the chapter.
               // Only when the line carries a page number or TWO following entries line up in a row: a real
@@ -2101,15 +2651,19 @@ function apiPlugin() {
                 while (k < lines.length && !lines[k].bare) k++
                 const next2 = titles[ti + 2]
                 const listed = next2 && k < lines.length && sameLine(lines[k], next2)
-                if (lines[i].raw !== lines[i].bare || listed) continue
+                // A contents line has a dotted leader, or it AND the next line end in page numbers; a heading
+                // "Chapter 1" followed by "1.1 Intro" is the real start (it was skipped as a contents line).
+                // Numbers the toc entries THEMSELVES end in ("Chapter 1" / "1.1 Installing Windows 11") are titles.
+                const titleNums = lines[i].raw === t.raw && lines[j].raw === next.raw
+                if (lines[i].leader || (!titleNums && lines[i].raw !== lines[i].bare && lines[j].raw !== lines[j].bare) || listed) continue
               }
               const num = t.bare.match(/^(\d+(?:\.\d+)*)/)
-              outline.push({ file: lines[i].file, title: (lines[i].raw === t.raw ? t.shown : t.shown.replace(/\s+\d+$/, '')).slice(0, 120), level: tocLevel(t, num), start: lines[i].start })
+              outline.push({ file: lines[i].file, title: (lines[i].raw === t.raw ? t.shown : t.shown.replace(/(?<!\s)\s+\d+$/, '')).slice(0, 120), level: tocLevel(t, num), start: lines[i].start })
               cursor = i + 1
               break
             }
           })
-          outline.sort((a, b) => (a.file === b.file ? a.start - b.start : a.file.localeCompare(b.file)))
+          outline.sort((a, b) => (a.file === b.file ? a.start - b.start : a.file.localeCompare(b.file, undefined, { numeric: true }))) // natural order: ch2 before ch10
         }
         if (outline.length < 4) outline = contentFiles.flatMap(detectHeadings)
         return outline
@@ -2142,7 +2696,7 @@ function apiPlugin() {
         res.setHeader('Content-Type', 'application/json')
         try {
           const url = new URL(req.url, 'http://x')
-          const modeName = modeFolderName(url.searchParams.get('mode'))
+          const modeName = modeFolderForName(dataPath('modes'), url.searchParams.get('mode') || '')
           if (!modeName) { res.end(JSON.stringify({ content: '', titles: [] })); return }
           const ids = (url.searchParams.get('sections') || '').split(',').map((s) => parseInt(s, 10)).filter((n) => Number.isInteger(n) && n >= 0).slice(0, 8)
           const cap = Math.min(200000, parseInt(url.searchParams.get('cap'), 10) || 60000)
@@ -2162,7 +2716,7 @@ function apiPlugin() {
         res.setHeader('Content-Type', 'application/json')
         const url = new URL(req.url, 'http://x')
         const modeName = url.searchParams.get('mode') || ''
-        const sanitized = modeFolderName(modeName)
+        const sanitized = modeFolderForName(dataPath('modes'), modeName)
         const knowledgeDir = dataPath('modes', sanitized, 'knowledge')
 
         if (!sanitized) { res.end(JSON.stringify({ files: [], content: null, fileCount: 0 })); return }
@@ -2171,17 +2725,23 @@ function apiPlugin() {
           try {
             if (!fs.existsSync(knowledgeDir)) { res.end(JSON.stringify({ files: [], content: null, fileCount: 0 })); return }
             const allFiles = fs.readdirSync(knowledgeDir)
+            // A file listed but already gone (another computer deleted or toggled it; the SMB directory cache
+            // lists it ~10s longer) is skipped, never the whole answer: one ENOENT used to report "no files" and
+            // ran every AI call without the knowledge base.
+            const gone = (e) => e && e.code === 'ENOENT'
             const files = allFiles.filter(f => f.match(/\.(txt|md)(\.disabled)?$/i)).map(f => {
               const disabled = f.endsWith('.disabled')
               const name = disabled ? f.replace(/\.disabled$/, '') : f
-              const size = fs.statSync(path.join(knowledgeDir, f)).size
+              let size
+              try { size = fs.statSync(path.join(knowledgeDir, f)).size } catch (e) { if (gone(e)) return null; throw e }
               return { name, disabled, size }
-            })
+            }).filter(Boolean)
             const enabledFiles = allFiles.filter(f => f.match(/\.(txt|md)$/i))
             const content = enabledFiles.map(f => {
-              const text = fs.readFileSync(path.join(knowledgeDir, f), 'utf-8')
+              let text
+              try { text = fs.readFileSync(path.join(knowledgeDir, f), 'utf-8') } catch (e) { if (gone(e)) return null; throw e }
               return `--- ${f} ---\n${text}`
-            }).join('\n\n')
+            }).filter((x) => x !== null).join('\n\n')
             // Outline (capped) so the client can offer TOC-guided section retrieval for big KBs.
             // Over the cap, keep the TOP levels of the whole book rather than the first 400 entries:
             // a straight slice made every chapter after entry 400 unreachable. Each entry carries its
@@ -2190,21 +2750,41 @@ function apiPlugin() {
             for (let maxLevel = 3; full.length > 400 && maxLevel >= 1; maxLevel--) full = full.filter((h) => h.level <= maxLevel)
             const outline = full.slice(0, 400).map(({ file, title, level, i }) => ({ file, title, level, i }))
             res.end(JSON.stringify({ files, content: content || null, fileCount: enabledFiles.length, outline }))
-          } catch { res.end(JSON.stringify({ files: [], content: null, fileCount: 0, outline: [] })) }
+          } catch (e) {
+            // A read that FAILED is not an empty knowledge base: answered as one (200, no files), the list showed
+            // "No files" and every AI call dropped the material. The client keeps what it has on a non-OK answer.
+            res.statusCode = 500
+            res.end(JSON.stringify({ error: e.message }))
+          }
         } else if (req.method === 'POST') {
           const handleBody = (bodyStr) => {
             try {
               if (!fs.existsSync(knowledgeDir)) fs.mkdirSync(knowledgeDir, { recursive: true })
-              const { filename, content } = JSON.parse(bodyStr)
+              const { filename, content, replace } = JSON.parse(bodyStr)
               const safeName = (filename || 'file.txt').replace(/[<>:"/\\|?*]/g, '')
               // Only what GET will list back (.txt/.md), never "." / ".." (the folder itself).
               if (!/\.(txt|md)$/i.test(safeName) || /^\.+$/.test(safeName)) throw new Error('only .txt, .md or .pdf files can be added')
-              fs.writeFileSync(path.join(knowledgeDir, safeName), content, 'utf-8')
+              // A file of that name (any case: one file on Windows/macOS), on or switched off, is replaced
+              // only when the client says so: "Book.pdf" is stored as book.txt and silently overwrote the
+              // user's own book.txt.
+              const lower = safeName.toLowerCase()
+              const clash = fs.readdirSync(knowledgeDir).find((f) => f.toLowerCase() === lower || f.toLowerCase() === lower + '.disabled')
+              if (clash && !replace) { res.statusCode = 409; res.end(JSON.stringify({ exists: true, filename: clash.replace(/\.disabled$/i, '') })); return }
+              writeFileAtomic(path.join(knowledgeDir, safeName), content) // a cut-off write left a truncated book that every AI call then read
               // Re-uploading a file the user had switched off left BOTH copies: the list showed the
               // name twice, and switching the old one back on renamed it over the new upload. The
               // upload replaces the file of that name, the switched-off copy included.
               const staleDisabled = path.join(knowledgeDir, safeName + '.disabled')
               if (fs.existsSync(staleDisabled)) fs.rmSync(staleDisabled, { force: true })
+              // A case-sensitive file system (Linux) kept "Notes.txt" beside the replacing "notes.txt": the text was
+              // there twice. Removed only when it is really ANOTHER file (on Windows/macOS it is the same one).
+              if (replace) {
+                const mine = fs.statSync(path.join(knowledgeDir, safeName))
+                for (const f of fs.readdirSync(knowledgeDir)) {
+                  if (f === safeName || (f.toLowerCase() !== lower && f.toLowerCase() !== lower + '.disabled')) continue
+                  try { const st = fs.statSync(path.join(knowledgeDir, f)); if (st.ino !== mine.ino || st.dev !== mine.dev) fs.rmSync(path.join(knowledgeDir, f), { force: true }) } catch { /* gone already */ }
+                }
+              }
               res.end(JSON.stringify({ ok: true, filename: safeName }))
             } catch (e) { res.statusCode = 400; res.end(JSON.stringify({ error: e.message })) }
           }
@@ -2234,6 +2814,22 @@ function apiPlugin() {
             if (/^[.\s]*$/.test(safeName)) { res.statusCode = 400; res.end('{"error":"bad file name"}'); return }
             const filePath = path.join(knowledgeDir, safeName)
             const disabledPath = filePath + '.disabled'
+            // `disabled=1|0`: the state the user asked for (a flip undid a double click, and re-enabled a file
+            // another computer had just disabled). Already there = done. No parameter = the old flip.
+            const want = new URL(req.url, 'http://x').searchParams.get('disabled')
+            if (want === '1' && fs.existsSync(disabledPath) && !fs.existsSync(filePath)) { res.end(JSON.stringify({ ok: true, disabled: true })); return }
+            if (want === '0' && fs.existsSync(filePath) && !fs.existsSync(disabledPath)) { res.end(JSON.stringify({ ok: true, disabled: false })); return }
+            // BOTH copies exist (another computer, an offline merge): the flip renamed the switched-off copy over the
+            // live one. With a wanted state nothing is overwritten: the copy in the way is kept beside it, switched off.
+            if ((want === '0' || want === '1') && fs.existsSync(filePath) && fs.existsSync(disabledPath)) {
+              const ext = path.extname(safeName)
+              const kept = path.join(knowledgeDir, `${safeName.slice(0, safeName.length - ext.length)} (kept ${new Date().toISOString().slice(0, 10)} ${Date.now() % 100000})${ext}.disabled`)
+              // want=1: the STALE switched-off copy is the one set aside, then the live file is switched off under
+              // the real name (the other way round, re-enabling later brought back the old text).
+              fs.renameSync(disabledPath, kept)
+              if (want === '1') { fs.renameSync(filePath, disabledPath); res.end(JSON.stringify({ ok: true, disabled: true })); return }
+              res.end(JSON.stringify({ ok: true, disabled: false })); return
+            }
             if (fs.existsSync(disabledPath)) {
               fs.renameSync(disabledPath, filePath)
               res.end(JSON.stringify({ ok: true, disabled: false }))
@@ -2264,7 +2860,7 @@ function apiPlugin() {
             // A torn or broken _meta.json only loses the active id (the client then picks the first mode); it
             // must not fail the whole read.
             let meta = {}
-            try { meta = fs.existsSync(metaFile) ? (JSON.parse(fs.readFileSync(metaFile, 'utf-8')) || {}) : {} } catch { meta = {} }
+            try { meta = fs.existsSync(metaFile) ? (JSON.parse(readUtf8(metaFile)) || {}) : {} } catch { meta = {} }
 
             // Migrate legacy numbered folders/files
             const entries = fs.readdirSync(MODES_DIR)
@@ -2273,11 +2869,16 @@ function apiPlugin() {
               // Legacy flat file: 1.json → read, create named folder
               if (entry.match(/^\d+\.json$/)) {
                 try {
-                  const mode = JSON.parse(fs.readFileSync(full, 'utf-8'))
+                  const mode = JSON.parse(readUtf8(full))
                   const folderName = sanitizeName(mode.name, mode.id)
                   const newDir = path.join(MODES_DIR, folderName)
+                  const target = path.join(newDir, 'config.json')
+                  // Never over a mode that already has a folder (an old copy restored into a shared folder, a
+                  // merge that kept both): that silently replaced the current config with the old one. The
+                  // legacy file is kept aside instead, never deleted.
+                  if (fs.existsSync(target)) { fs.renameSync(full, full + '.migrated'); continue }
                   if (!fs.existsSync(newDir)) fs.mkdirSync(newDir, { recursive: true })
-                  fs.writeFileSync(path.join(newDir, 'config.json'), JSON.stringify(mode, null, 2), 'utf-8')
+                  writeFileAtomic(target, JSON.stringify(mode, null, 2))
                   fs.unlinkSync(full)
                 } catch {}
               }
@@ -2286,7 +2887,7 @@ function apiPlugin() {
                 const cfgFile = path.join(full, 'config.json')
                 if (fs.existsSync(cfgFile)) {
                   try {
-                    const mode = JSON.parse(fs.readFileSync(cfgFile, 'utf-8'))
+                    const mode = JSON.parse(readUtf8(cfgFile))
                     const folderName = sanitizeName(mode.name, mode.id)
                     if (folderName !== entry) {
                       const newDir = path.join(MODES_DIR, folderName)
@@ -2310,7 +2911,7 @@ function apiPlugin() {
             // failing every launch on it locked mode saves for good.
             const readCfg = (d) => {
               let text
-              try { text = fs.readFileSync(path.join(MODES_DIR, d, 'config.json'), 'utf-8') } catch (e) { return e && e.code === 'ENOENT' ? { gone: true } : { io: e } }
+              try { text = readUtf8(path.join(MODES_DIR, d, 'config.json')) } catch (e) { return e && e.code === 'ENOENT' ? { gone: true } : { io: e } }
               try { return { mode: JSON.parse(text) } } catch { return { mode: null, torn: true, dir: d } }
             }
             let results = listDirs().map(readCfg)
@@ -2359,9 +2960,9 @@ function apiPlugin() {
                 res.end(JSON.stringify({ error: 'refused: empty modes list' }))
                 return
               }
-              const written = Array.isArray(data.modes) ? writeModeFolders(MODES_DIR, data.modes, data.activeModeId, data.deletedIds) : null
+              const written = Array.isArray(data.modes) ? writeModeFolders(MODES_DIR, data.modes, data.activeModeId, data.deletedIds, data.changedIds, data.renamedIds) : null
               res.setHeader('Content-Type', 'application/json')
-              res.end(JSON.stringify({ ok: true, conflicts: written?.conflicts || [] }))
+              res.end(JSON.stringify({ ok: true, conflicts: written?.conflicts || [], renameFailed: written?.renameFailed || [], deletedElsewhere: written?.deletedElsewhere || [] }))
             } catch (e) {
               res.statusCode = 400
               res.end(JSON.stringify({ error: e.message }))
@@ -2432,7 +3033,7 @@ function apiPlugin() {
           try {
             const parsed = JSON.parse(body || '{}')
             const mode = parsed.mode === 'browser' ? 'browser' : 'app'
-            fs.writeFileSync(LAUNCH_MODE_POINTER, JSON.stringify({ mode }, null, 2), 'utf-8')
+            writeFileAtomic(LAUNCH_MODE_POINTER, JSON.stringify({ mode }, null, 2))
             console.log('[Launch mode] set to', mode)
             // switchNow = open the OTHER front end right now instead of waiting for the next launch.
             // The old window/tab is deliberately NOT closed from here: the dev server's auto-exit
@@ -2511,6 +3112,7 @@ function apiPlugin() {
       // Launch POSTs run one at a time: two at once (a toggle click plus the page's auto-launch) both passed
       // the untracked-overlay check and spawned two overlays.
       let overlayLaunchChain = Promise.resolve()
+      let overlayWanted = 0 // bumped by every stop: a launch still checking when the user switched it off must not spawn
       server.middlewares.use('/api/launch-overlay', async (req, res) => {
         console.log('[Overlay API] request:', req.method, req.url)
         if (req.method === 'POST') {
@@ -2522,6 +3124,7 @@ function apiPlugin() {
           // closes: a page reload mid-check freed the lock early and the next POST spawned a second overlay.
           const endLaunch = res.end.bind(res)
           res.end = (...args) => { releaseLaunch(); return endLaunch(...args) }
+          const wantedAt = overlayWanted
           await prevLaunch
           if (overlayStopping) { try { await overlayStopping } catch { /* stopped either way */ } }
           if (overlayProcess && !overlayProcess.killed) {
@@ -2539,6 +3142,7 @@ function apiPlugin() {
               return
             }
           }
+          if (wantedAt !== overlayWanted) { res.end(JSON.stringify({ ok: true, status: 'cancelled' })); return } // stopped meanwhile
           const electronCli = path.resolve('node_modules/electron/cli.js')
           console.log('[Overlay API] electron cli path:', electronCli, 'exists:', fs.existsSync(electronCli))
           if (!fs.existsSync(electronCli)) {
@@ -2586,6 +3190,7 @@ function apiPlugin() {
           }
         } else if (req.method === 'DELETE') {
           res.setHeader('Content-Type', 'application/json')
+          overlayWanted++
           console.log('[Overlay API] stopping the overlay process')
           try {
             if (process.platform === 'win32') {
@@ -2597,7 +3202,9 @@ function apiPlugin() {
               // exactly by its command line (electron.exe ... main.cjs --overlay).
               const orphanKill = "Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'electron.exe' -and $_.CommandLine -like '*main.cjs*' -and $_.CommandLine -like '*--overlay*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
               const sweep = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', orphanKill], { windowsHide: true, stdio: 'ignore' })
-              const stopping = new Promise((resolve) => { sweep.on('close', resolve); sweep.on('error', resolve); setTimeout(resolve, 10000) })
+              // At the cap the sweep is STOPPED, not just waited out: still running, it killed the overlay a
+              // quick off/on had just launched (by the same command line).
+              const stopping = new Promise((resolve) => { sweep.on('close', resolve); sweep.on('error', resolve); setTimeout(() => { try { sweep.kill() } catch { /* gone */ } resolve() }, 10000) })
               overlayStopping = stopping
               stopping.then(() => { if (overlayStopping === stopping) overlayStopping = null })
             } else if (overlayProcess) {
@@ -2661,8 +3268,12 @@ function apiPlugin() {
           let body = ''
           req.on('data', (c) => { body += c })
           req.on('end', async () => {
+            // One switch at a time: the switch awaits a reachability probe halfway, and two requests
+            // (a double click, two windows) both started from the same folder and moved/merged its data twice.
+            if (datadirSwitching) { res.statusCode = 409; res.end(JSON.stringify({ code: 'switching', error: 'A data folder change is already running. Wait for it to finish.' })); return }
+            datadirSwitching = true
             try {
-              if (envOverride) { res.statusCode = 409; res.end(JSON.stringify({ error: 'The EBIKI_DATA_DIR environment variable is set and overrides this setting. Unset it to change the data folder here.' })); return }
+              if (envOverride) { res.statusCode = 409; res.end(JSON.stringify({ code: 'envOverride', error: 'The EBIKI_DATA_DIR environment variable is set and overrides this setting. Unset it to change the data folder here.' })); return }
               const parsed = JSON.parse(body || '{}')
               const raw = String(parsed.dataDir || '').trim()
               const merge = parsed.merge   // true | false | undefined (ask)
@@ -2680,7 +3291,7 @@ function apiPlugin() {
               if (next !== APP_ROOT && relToApp && !relToApp.startsWith('..') && !path.isAbsolute(relToApp)) {
                 const first = relToApp.split(/[\\/]/)[0]
                 if (DATA_ENTRIES.some((e) => e.toLowerCase() === first.toLowerCase()) || first.startsWith('.local-')) {
-                  res.statusCode = 400; res.end(JSON.stringify({ error: "That folder is inside this computer's own Ebiki data. Pick a folder outside it." })); return
+                  res.statusCode = 400; res.end(JSON.stringify({ code: 'insideData', error: "That folder is inside this computer's own Ebiki data. Pick a folder outside it." })); return
                 }
               }
               if (next === DATA_DIR) { res.end(JSON.stringify({ ok: true, unchanged: true, dataDir: DATA_DIR, isDefault: DATA_DIR === APP_ROOT, copied: [], merged: 0, restored: false })); return }
@@ -2708,10 +3319,16 @@ function apiPlugin() {
                     for (const entry of DATA_ENTRIES) deepMergeInto(path.join(prev, entry), path.join(APP_ROOT, entry), 'the shared folder', acc)
                   }
                 } else {
-                  // No stash (this machine only ever used a share): copy it down (if it can be read).
-                  if (prevReachable) for (const entry of DATA_ENTRIES) {
-                    const from = path.join(prev, entry)
-                    if (fs.existsSync(from) && !fs.existsSync(path.join(APP_ROOT, entry))) { fs.cpSync(from, path.join(APP_ROOT, entry), { recursive: true }); copied.push(entry) }
+                  // No stash (this machine only ever used a share): copy it down (if it can be read). With the
+                  // share DOWN nothing was copied and the app opened empty (onboarding, then defaults saved)
+                  // although this computer holds copies of it: the offline working copy (newest, when it
+                  // belongs to that share) or else the last backup.
+                  const src = prevReachable ? prev
+                    : (dataEntriesPresent(OFFLINE_DIR) && sameFolder(offlineCopyDataDir() || '', prev)) ? OFFLINE_DIR
+                      : dataEntriesPresent(BACKUP_DIR) ? BACKUP_DIR : null
+                  if (src) for (const entry of DATA_ENTRIES) {
+                    const from = path.join(src, entry)
+                    if (fs.existsSync(from) && !fs.existsSync(path.join(APP_ROOT, entry))) { fs.cpSync(from, path.join(APP_ROOT, entry), { recursive: true, filter: (x) => !/\.\d+\.tmp$/.test(x) }); copied.push(entry) }
                   }
                 }
                 if (fs.existsSync(DATA_DIR_POINTER)) fs.unlinkSync(DATA_DIR_POINTER)
@@ -2725,6 +3342,9 @@ function apiPlugin() {
                   if (sourceOnly.has) { res.end(JSON.stringify({ needsChoice: true, context: 'join', dataDir: next, sourceOnly })); return }
                 }
                 fs.mkdirSync(next, { recursive: true })
+                // A new EMPTY folder (starting fresh after the old share died): with no data entry it never
+                // counted as reachable, every data route answered 503 and nothing could ever be saved there.
+                if (!prevReachable && !DATA_ENTRIES.some((e) => fs.existsSync(path.join(next, e)))) fs.mkdirSync(path.join(next, 'modes'), { recursive: true })
                 if (prevReachable) for (const entry of DATA_ENTRIES) {
                   const from = path.join(prev, entry)
                   const to = path.join(next, entry)
@@ -2733,23 +3353,34 @@ function apiPlugin() {
                   // merge:false = "use only the folder's data": nothing of this computer's goes onto the share
                   // (it used to copy every entry the share lacked, chats and decks included, then said
                   // "kept only the folder's data"). Seeding an empty share (no prompt, merge undefined) still copies.
-                  else if (merge !== false && !fs.existsSync(to)) { fs.cpSync(from, to, { recursive: true }); copied.push(entry) }
+                  else if (merge !== false && !fs.existsSync(to)) { fs.cpSync(from, to, { recursive: true, filter: (x) => !/\.\d+\.tmp$/.test(x) }); copied.push(entry) }
                 }
+                // The switch is recorded FIRST, then this computer's data is stashed. The other order left
+                // the app on its own folder with that folder's data already moved out whenever the pointer
+                // write failed (permissions, a lock): it came up empty, onboarding and all, and saved
+                // defaults. A stash that fails now only leaves local data where it was (nothing is lost).
+                writeFileAtomic(DATA_DIR_POINTER, JSON.stringify({ dataDir: next }, null, 2) + '\n') // atomic: a torn pointer reads as "no shared folder" and the app ran on local data
                 // Coming FROM the app folder: stash this computer's own data so a
                 // later return restores it instead of the shared data.
-                if (prev === APP_ROOT) moveDataEntries(APP_ROOT, LOCAL_HOME)
-                fs.writeFileSync(DATA_DIR_POINTER, JSON.stringify({ dataDir: next }, null, 2) + '\n', 'utf-8')
+                if (prev === APP_ROOT) {
+                  try { moveDataEntries(APP_ROOT, LOCAL_HOME) } catch (e) { console.log('[Data dir] could not stash local data (left in place):', e.message) }
+                }
               }
               DATA_DIR = next
+              datadirSwitchedAt = Date.now() // only a REAL switch (a needsChoice answer or a failure changed nothing)
               // The offline routing and the reachability answer described the OLD folder: left in place,
               // dataPath() kept serving the old share's offline copy as the new folder's data (up to 15s).
               offlineActive = false
               reachCache = { at: 0, ok: false }
+              // A snapshot of the NEW folder at once: waiting for the 10-minute timer left the old folder's
+              // snapshot as the only one if the new share went down meanwhile.
+              if (next !== APP_ROOT) setTimeout(() => { runBackup().catch(() => {}) }, 2000)
               const merged = acc.added + acc.merged   // items brought in or combined
               const keptBoth = acc.keptBoth           // conflicting files kept as a second copy
               console.log('[Data dir] switched to', next, restored ? "(restored this computer's data)" : '', merge === true ? `(added ${acc.added}, combined ${acc.merged}, kept-both ${acc.keptBoth})` : copied.length ? `(copied: ${copied.join(', ')})` : '')
               res.end(JSON.stringify({ ok: true, dataDir: next, isDefault: next === APP_ROOT, copied, merged, keptBoth, restored }))
             } catch (e) { res.statusCode = 400; res.end(JSON.stringify({ error: e.message })) }
+            finally { datadirSwitching = false }
           })
         } else { res.statusCode = 405; res.end('') }
       })
@@ -2809,7 +3440,11 @@ function apiPlugin() {
           }
           res.setHeader('Content-Type', 'application/json')
           try {
-            res.end(JSON.stringify({ content: fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '' }))
+            // Only a MISSING file is "no notes yet": existsSync answers false on ANY error (a share dropping, a
+            // denied folder), and that empty reply let Insights write a fresh file over the real notes.
+            let content = ''
+            try { content = readUtf8(file) } catch (e) { if (e.code !== 'ENOENT') throw e }
+            res.end(JSON.stringify({ content })) // BOM-free: the client JSON.parses it, and a BOM read as "nothing stored"
           } catch (e) { res.statusCode = 500; res.end(JSON.stringify({ error: e.message })) }
         } else if (req.method === 'POST') {
           let body = ''
@@ -2817,6 +3452,8 @@ function apiPlugin() {
           req.on('end', () => {
             try {
               const { deck, content } = JSON.parse(body)
+              // Both required: a missing deck wrote into decks/_, and missing content saved the text "undefined".
+              if (typeof deck !== 'string' || !deck.trim() || typeof content !== 'string') { res.statusCode = 400; res.end(JSON.stringify({ error: 'deck and content required' })); return }
               const dir = dataPath('decks', deckDirName(deck))
               if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
               writeFileAtomic(path.join(dir, 'progress-observations.md'), content)
@@ -2842,7 +3479,14 @@ function apiPlugin() {
         const file = dataPath('discover', `${kind}__${mode}.json`)
         if (req.method === 'GET') {
           try {
-            res.end(JSON.stringify({ content: fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '' }))
+            // Only a MISSING file is "no notes yet": existsSync answers false on ANY error (a share dropping, a
+            // denied folder), and that empty reply let Insights write a fresh file over the real notes.
+            let content = ''
+            try { content = readUtf8(file) } catch (e) { if (e.code !== 'ENOENT') throw e }
+            // `shared`: the store lives in a data folder other computers write too. Every computer writes each blob
+            // here AND to its own Anki, so this copy is the freshest; its Anki only catches up through AnkiWeb, and
+            // reading Anki first let a lagging copy win (the next write then dropped the other computer's hooks).
+            res.end(JSON.stringify({ content, shared: !sameFolder(DATA_DIR, APP_ROOT) })) // BOM-free: the client JSON.parses it, and a BOM read as "nothing stored"
           } catch (e) { res.statusCode = 500; res.end(JSON.stringify({ error: e.message })) }
         } else if (req.method === 'POST') {
           let body = ''
@@ -2883,9 +3527,10 @@ function apiPlugin() {
           if (!noteOk) { res.statusCode = 400; res.end(JSON.stringify({ error: 'note required' })); return }
           try {
             const file = path.join(qDir, `${note}.json`)
-            if (!fs.existsSync(file)) { res.end(JSON.stringify({ bank: null })); return }
+            // Only a MISSING file is "nothing saved": existsSync said false on any stat error (a share blip), and the
+            // next save replaced every saved set with one.
             let bank = null
-            try { bank = JSON.parse(fs.readFileSync(file, 'utf-8')) } catch (e) { if (e instanceof SyntaxError) bank = null; else throw e } // damaged = nothing saved
+            try { bank = JSON.parse(readUtf8(file)) } catch (e) { if (e && (e.code === 'ENOENT' || e instanceof SyntaxError)) bank = null; else throw e } // damaged = nothing saved
             res.end(JSON.stringify({ bank }))
           } catch (e) { res.statusCode = 500; res.end(JSON.stringify({ error: e.message })) }
         } else if (req.method === 'POST') {
@@ -2905,9 +3550,13 @@ function apiPlugin() {
           try {
             const decksRoot = dataPath('decks')
             let removed = 0
-            const dirs = fs.existsSync(decksRoot)
-              ? fs.readdirSync(decksRoot).filter((d) => folderKey(d) === folderKey(deckDir) || folderKey(d).startsWith(folderKey(deckDir) + '--'))
-              : []
+            // exact=1: the client names the deck and each real subdeck (Anki's list). The folder-name prefix
+            // can't be reversed ("::" and a literal "--" map alike, trailing dots are stripped): clearing
+            // "Grammar" also cleared a separate deck "Grammar--Advanced", and "Vol. 1."'s subdecks were missed.
+            const exact = url.searchParams.get('exact') === '1'
+            const wanted = new Set([deckDir, ...url.searchParams.getAll('also').filter((n) => n.trim()).map(deckDirName)].map(folderKey))
+            const dirs = !fs.existsSync(decksRoot) ? []
+              : fs.readdirSync(decksRoot).filter((d) => (exact ? wanted.has(folderKey(d)) : (folderKey(d) === folderKey(deckDir) || folderKey(d).startsWith(folderKey(deckDir) + '--'))))
             for (const d of dirs) {
               const dir = path.join(decksRoot, d, 'questions')
               if (!fs.existsSync(dir)) continue
@@ -2937,7 +3586,7 @@ function apiPlugin() {
             const files = [...mtime.keys()].sort((a, b) => mtime.get(b) - mtime.get(a))
             const sessions = files.map(f => {
               try {
-                const data = JSON.parse(fs.readFileSync(path.join(chatsDir, f), 'utf8'))
+                const data = JSON.parse(readUtf8(path.join(chatsDir, f)))
                 return { id: f.replace('.json', ''), ...data, messages: undefined, messageCount: data.messages?.length || 0 }
               } catch { return null }
             }).filter(Boolean)
@@ -2953,10 +3602,18 @@ function apiPlugin() {
           req.on('data', c => body += c)
           req.on('end', () => {
             try {
-              const { id, messages, keepTitle } = JSON.parse(body)
+              const { id, keepTitle } = JSON.parse(body)
+              let { messages } = JSON.parse(body) // let: a save of the same turns keeps per-card state from disk (below)
               let { mode } = JSON.parse(body)
               let { title, type } = JSON.parse(body)
-              let chatId = id || Date.now().toString()
+              // A save with no message list wrote a chat with none (a blank entry in the list), and on an
+              // existing id it could only fork a pointless copy.
+              if (!Array.isArray(messages)) { res.statusCode = 400; res.end(JSON.stringify({ error: 'messages required' })); return }
+              if (typeof title !== 'string') title = ''
+              // A NEW id is the time in ms, and two computers on one shared folder (or a fork in the same ms)
+              // could pick the same one: the second save replaced the first chat. Step until the name is free.
+              const freshChatId = () => { let n = Date.now(); while (fs.existsSync(path.join(chatsDir, `${n}.json`))) n++; return String(n) }
+              let chatId = id || freshChatId()
               if (!isSafeChatId(String(chatId))) { res.statusCode = 400; res.end(JSON.stringify({ error: 'bad id' })); return }
               let file = path.join(chatsDir, `${chatId}.json`)
               const origFile = file // a fork's copy takes its title, type and mode from the chat it copies
@@ -2964,25 +3621,64 @@ function apiPlugin() {
               // messages do not start with what is already on disk would erase the other computer's turns.
               // It is saved as a COPY under a new id instead (the client adopts the id it gets back).
               let forked = false
+              // Read what is on disk STRICTLY: only a missing file is "new". A busy/locked file (another computer
+              // mid-write on the share) or a torn read used to count as new too, and this save replaced the chat
+              // (the other computer's turns lost, a rename undone). One retry, then refuse (the client keeps its id).
+              let onDiskChat = null
               if (id) {
+                for (let attempt = 0; ; attempt++) {
+                  try { onDiskChat = JSON.parse(readUtf8(file)); break }
+                  catch (e) {
+                    if (e && e.code === 'ENOENT') break
+                    if (attempt >= 1) {
+                      // Truly unparseable (not a busy file): kept aside, and this save becomes the chat, like config.json.
+                      // A 503 here refused every later save of this chat forever.
+                      if (e instanceof SyntaxError) {
+                        try { fs.renameSync(file, `${file}.corrupt-${Date.now()}`) } catch { /* left in place; the write below replaces it */ }
+                        break
+                      }
+                      res.statusCode = 503; res.end(JSON.stringify({ error: 'The chat file could not be read right now. Try again.' })); return
+                    }
+                    const until = Date.now() + 300; while (Date.now() < until) { /* short wait for the other writer */ }
+                  }
+                }
+              }
+              if (id && onDiskChat) {
                 try {
-                  const onDisk = JSON.parse(fs.readFileSync(file, 'utf8'))
+                  const onDisk = onDiskChat
                   const key = (m) => `${(m && m.role) || ''}\u0000${String((m && (m.content ?? m.text)) ?? '')}`
-                  const had = Array.isArray(onDisk && onDisk.messages) ? onDisk.messages : []
-                  const inc = Array.isArray(messages) ? messages : []
+                  // Error bubbles never count (Help drops them from its saves, the Chat tab used to keep them): one saved by
+                  // one surface made the other's next save a fork. They are left out of the saved copy too.
+                  const had = (Array.isArray(onDisk && onDisk.messages) ? onDisk.messages : []).filter((m) => !(m && m.error))
+                  const inc = (Array.isArray(messages) ? messages : []).filter((m) => !(m && m.error))
                   if (had.length > inc.length || had.some((m, i) => key(m) !== key(inc[i]))) {
-                    chatId = `${Date.now()}`
+                    chatId = freshChatId()
                     file = path.join(chatsDir, `${chatId}.json`)
                     forked = true
                     console.log('[Chat] chat', id, 'changed on disk since it was loaded; saved as a copy', chatId)
+                  } else if (Array.isArray(messages)) {
+                    // Same turns: keep what another window recorded on them since (a chat card ADDED to Anki). A
+                    // stale window's save reset it to "+ Add", and a second click made a duplicate note.
+                    had.forEach((m, i) => {
+                      const hadCards = Array.isArray(m && m.cards) ? m.cards : []
+                      if (!hadCards.some((c) => c && c.synced) || !inc[i] || !Array.isArray(inc[i].cards)) return
+                      inc[i] = { ...inc[i], cards: inc[i].cards.map((c, j) => {
+                        // The SAME card (position, front and back): a multi-meaning word's cards share one front, and
+                        // matching by front alone marked an unadded meaning "Added".
+                        const d = hadCards[j]
+                        const done = c && !c.synced && d && d.synced && d.front === c.front && d.back === c.back && d
+                        return done ? { ...c, synced: true, ...(done.addedTo ? { addedTo: done.addedTo } : {}) } : c
+                      }) }
+                    })
+                    messages = inc
                   }
-                } catch { /* new or unreadable: save as sent */ }
+                } catch { /* an odd shape on disk: save as sent */ }
               }
               // An ordinary save of an existing chat sends its first message as the title, which undid a
               // rename on the very next message. keepTitle: a title already on disk wins.
-              if (keepTitle && id) {
+              if (keepTitle && id && onDiskChat) {
                 try {
-                  const prev = JSON.parse(fs.readFileSync(origFile, 'utf8'))
+                  const prev = onDiskChat
                   if (prev && typeof prev.title === 'string' && prev.title) title = prev.title
                   // A Help chat continued from the Chat tab (which sends no type) stays a Help chat.
                   if (!type && prev && typeof prev.type === 'string') type = prev.type
@@ -3034,7 +3730,10 @@ function apiPlugin() {
 
       // Web search proxy — uses DuckDuckGo HTML lite
       server.middlewares.use('/api/web-search', async (req, res) => {
-        const url = new URL(req.url, 'http://localhost')
+        // Guarded: this handler is ASYNC, so a throw here ("//?q=x" is an invalid URL) was an unhandled
+        // rejection that took the dev server down, where the sync handlers just answer 500.
+        let url
+        try { url = new URL(req.url, 'http://localhost') } catch { res.statusCode = 400; res.end(JSON.stringify({ error: 'bad request' })); return }
         const query = url.searchParams.get('q')
         if (!query) { res.statusCode = 400; res.end(JSON.stringify({ error: 'q required' })); return }
         res.setHeader('Content-Type', 'application/json')
@@ -3076,6 +3775,10 @@ function apiPlugin() {
           const resultBlocks = html.split('result__body"')
           for (let i = 1; i < resultBlocks.length && results.length < 5; i++) {
             const block = resultBlocks[i]
+            // Ads: their class sits BEFORE the split marker, and their link is DuckDuckGo's y.js ad redirect
+            // (no uddg). They came back as the top results, with the display text as a made-up URL, and
+            // chat cited them as sources.
+            if (/result--ad\b/.test(resultBlocks[i - 1].slice(-400)) || /duckduckgo\.com\/y\.js/.test(block.slice(0, 1500))) continue
             const titleMatch = block.match(/class="result__a"[^>]*>(.*?)<\/a>/s)
             const snippetMatch = block.match(/class="result__snippet"[^>]*>(.*?)<\/a>/s) || block.match(/class="result__snippet"[^>]*>(.*?)<\/td>/s)
             const urlMatch = block.match(/class="result__url"[^>]*>(.*?)<\/a>/s)
@@ -3139,10 +3842,11 @@ export default defineConfig({
       // vite.config.js must be ignored too: on this share the watcher fires a
       // phantom change event on it after every restart → infinite restart loop.
       // Config edits therefore require a manual dev-server restart.
-      ignored: ['**/.env', '**/config.json', '**/config.json.*', '**/ankiformat.json', '**/vite.config.js', '**/datadir.json', '**/.app-ready', '**/modes/**', '**/decks/**', '**/chats/**', '**/local-data-backup-*/**', '**/.local-sync/**', '**/.local-home/**', '**/.local-offline/**', '**/.scratch/**'],
+      // *.tmp: writeFileAtomic's temp files (e.g. .env.<pid>.tmp next to the app files).
+      ignored: ['**/.env', '**/config.json', '**/config.json.*', '**/ankiformat.json', '**/vite.config.js', '**/datadir.json', '**/.app-ready', '**/modes/**', '**/decks/**', '**/chats/**', '**/local-data-backup-*/**', '**/.local-sync/**', '**/.local-home/**', '**/.local-offline/**', '**/.scratch/**', '**/*.tmp'],
     },
   },
 })
 
 // Exported for the key-safety tests only; Vite consumes the default export above.
-export { readEnvFile, parseEnv, writeEnv, mirrorEnv, ENV_FILE, ENV_BAK, ENV_CLEARED, ENV_DECLINED, readDeclined, readConfigChecked, readConfigSettled, writeConfig, apiRequestAllowed, deckDirName, modeFolderName, writeModeFolders, deepMergeJson }
+export { readEnvFile, parseEnv, writeEnv, mirrorEnv, ENV_FILE, ENV_BAK, ENV_CLEARED, ENV_DECLINED, readDeclined, readConfigChecked, readConfigSettled, writeConfig, apiRequestAllowed, deckDirName, modeFolderName, modeFolderForName, writeModeFolders, deepMergeJson }

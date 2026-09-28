@@ -24,11 +24,59 @@
 // as "the feature is broken" rather than as an API problem. Measured: o4-mini at
 // a 16-token cap spent all 16 on reasoning and returned "". One bounded retry on
 // a bigger budget covers it, and only ever runs in that case.
+// The provider's own error code goes FIRST in the message (`API 429: [RESOURCE_EXHAUSTED] ...`): the body is
+// cut to 200 characters, and the code that tells one provider's per-minute limit apart from another's
+// empty balance ("insufficient_quota", both worded "You exceeded your current quota") sat past the cut,
+// so a rate limit that clears on its own was reported as "out of credits".
+function errText(text) {
+  const body = String(text || '')
+  let tag = ''
+  try { const e = JSON.parse(body)?.error; const c = e && (e.status || e.code || e.type); if (typeof c === 'string' && c) tag = `[${c}] ` } catch { /* not JSON */ }
+  return tag + body.slice(0, 200)
+}
 const OPENAI_COMPAT_DEFAULT_TOKENS = 4000
+// Every request is bounded. With no limit a stalled connection never answered: the Chat sat on "typing"
+// for good (its send lock held, so switching chats was refused too) and a model-list read kept the model
+// choice "in flight" until a reload. Generous for real answers (a 20-card deck batch on a slow reasoning
+// model takes minutes); an abort lands in the caller's catch like any other failed call.
+const CALL_TIMEOUT_MS = 5 * 60 * 1000
+const LIST_TIMEOUT_MS = 30 * 1000
+const timeoutSignal = (ms) => (typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(ms) : undefined)
 // Below this, a request is a liveness probe rather than a real answer - see the retry guard.
 const MIN_CONTENT_BUDGET = 64
 
-async function openAiCompatibleCall({ endpoint, apiKey, systemPrompt, userContent, model, images, maxTokens }) {
+// TOKEN USAGE. Every successful request's usage block is reported to ONE listener (the app's token tracker), so
+// every feature on every provider is counted without any caller knowing: retries and probes are real spend too.
+// Each provider names the counts differently; thinking/reasoning tokens are billed as output everywhere.
+let usageListener = null
+export const setUsageListener = (fn) => { usageListener = typeof fn === 'function' ? fn : null }
+export function readUsage(provider, raw) {
+  let j = null
+  try { j = typeof raw === 'string' ? JSON.parse(raw) : raw } catch { return null }
+  if (!j || typeof j !== 'object') return null
+  const n = (v) => (Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : 0)
+  let input = 0, output = 0
+  if (provider === 'anthropic') {
+    const u = j.usage || {}
+    input = n(u.input_tokens) + n(u.cache_creation_input_tokens) + n(u.cache_read_input_tokens)
+    output = n(u.output_tokens)
+  } else if (provider === 'gemini') {
+    const u = j.usageMetadata || {}
+    input = n(u.promptTokenCount)
+    output = n(u.candidatesTokenCount) + n(u.thoughtsTokenCount)
+  } else {
+    const u = j.usage || {} // OpenAI and xAI: reasoning is already inside completion_tokens
+    input = n(u.prompt_tokens ?? u.input_tokens)
+    output = n(u.completion_tokens ?? u.output_tokens)
+  }
+  return input || output ? { input, output } : null
+}
+function reportUsage(provider, model, raw) {
+  if (!usageListener) return
+  try { const u = readUsage(provider, raw); if (u) usageListener({ provider, model: String(model || ''), ...u }) } catch { /* never breaks a call */ }
+}
+
+async function openAiCompatibleCall({ provider = 'openai', endpoint, apiKey, systemPrompt, userContent, model, images, maxTokens }) {
   const userMsg = (images && images.length)
     ? [
         { type: 'text', text: userContent },
@@ -42,14 +90,16 @@ async function openAiCompatibleCall({ endpoint, apiKey, systemPrompt, userConten
 
   const post = async (tokenParam, budget) => {
     const resp = await fetch(endpoint, {
-      method: 'POST',
+      method: 'POST', signal: timeoutSignal(CALL_TIMEOUT_MS),
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       // No forced response_format: JSON-expecting prompts already say "output JSON" and
       // parseAiJson() extracts it - while forcing json_object breaks free-form chat/help
       // (and errors unless the prompt contains the word "json"). Mirrors Claude's behavior.
       body: JSON.stringify({ model, [tokenParam]: budget, messages }),
     })
-    return { ok: resp.ok, status: resp.status, text: await resp.text() }
+    const text = await resp.text()
+    if (resp.ok) reportUsage(provider, model, text)
+    return { ok: resp.ok, status: resp.status, text }
   }
 
   const budget = maxTokens || OPENAI_COMPAT_DEFAULT_TOKENS
@@ -59,11 +109,14 @@ async function openAiCompatibleCall({ endpoint, apiKey, systemPrompt, userConten
   let r = await post(tokenParam, budget)
 
   // An endpoint that predates the rename (xAI, a local server) rejects the new name.
-  if (!r.ok && r.status === 400 && /max_completion_tokens/.test(r.text)) {
+  // Only when the NAME is refused: "max_completion_tokens is too large ... at most 4096" also names it, and the
+  // retry with max_tokens failed the same way (and hid the real error on newer models).
+  if (!r.ok && r.status === 400 && /max_completion_tokens/.test(r.text) && /unsupported|unrecognized|unknown|not supported|extra (inputs|fields)|not permitted/i.test(r.text)) {
     tokenParam = 'max_tokens'
     r = await post(tokenParam, budget)
   }
 
+  let sent = budget // the budget of the request that produced `r`
   // BUDGET EXHAUSTED, ERROR FORM. The same underlying situation as the empty-content case below,
   // but OpenAI reports it two different ways depending on the request - measured live: o4-mini with
   // no system message returns 200 + content:"" + finish:"length", while the SAME call WITH a system
@@ -75,18 +128,20 @@ async function openAiCompatibleCall({ endpoint, apiKey, systemPrompt, userConten
   if (!r.ok && r.status === 400 && /output limit was reached|higher max_tokens/i.test(r.text)
       && budget >= MIN_CONTENT_BUDGET && roomier > budget) {
     r = await post(tokenParam, roomier)
+    sent = roomier
   }
   // Error text keeps the `API <status>: <body>` shape on purpose - healRetiredModel,
   // tryModelFailover and probeModel all read the status back out of this message.
-  if (!r.ok) throw new Error(`API ${r.status}: ${r.text.slice(0, 200)}`)
+  if (!r.ok) throw new Error(`API ${r.status}: ${errText(r.text)}`)
 
   const read = (raw) => {
     try {
       const choice = JSON.parse(raw).choices?.[0]
-      return { content: choice?.message?.content || '', finish: choice?.finish_reason }
-    } catch { return { content: '', finish: null } }
+      const refusal = typeof choice?.message?.refusal === 'string' ? choice.message.refusal.trim() : ''
+      return { content: choice?.message?.content || '', finish: choice?.finish_reason, refusal }
+    } catch { return { content: '', finish: null, refusal: '' } }
   }
-  let { content, finish } = read(r.text)
+  let { content, finish, refusal } = read(r.text)
 
   // MIN_CONTENT_BUDGET keeps probeModel out of this. It calls with maxTokens=4 purely to see
   // whether a model answers at all, and "Test connections" probes the ENTIRE catalog (71 models on
@@ -95,19 +150,31 @@ async function openAiCompatibleCall({ endpoint, apiKey, systemPrompt, userConten
   // fewer than 64 tokens.
   // BUDGET EXHAUSTED, SILENT FORM: 200 OK, finish_reason "length", content "". No error at all,
   // so without this the feature just looks broken.
-  if (!content && finish === 'length' && budget >= MIN_CONTENT_BUDGET && roomier > budget) {
+  // Against the budget actually SENT: after the error-form retry above, comparing with the original budget
+  // posted the identical roomier request a second time (up to 32k more reasoning tokens) and then failed anyway.
+  if (!content && finish === 'length' && budget >= MIN_CONTENT_BUDGET && roomier > sent) {
     const retry = await post(tokenParam, roomier)
     // A failed or still-empty retry is an ERROR, not "": returned empty, chat saved a blank Ebi bubble.
-    if (!retry.ok) throw new Error(`API ${retry.status}: ${retry.text.slice(0, 200)}`)
+    if (!retry.ok) throw new Error(`API ${retry.status}: ${errText(retry.text)}`)
     content = read(retry.text).content
     if (!content) throw new Error('API 200: empty (output limit reached)')
   }
+  // Still empty at the largest budget (the error-form retry already sent it): an error, never "".
+  if (!content && finish === 'length' && budget >= MIN_CONTENT_BUDGET) throw new Error('API 200: empty (output limit reached)')
   // A content-filtered reply is 200 with no text. Returned as "", chat showed and SAVED a blank Ebi
   // bubble and other features read it as "no result". Status 200 in the message keeps it out of the
   // retired-model heal and the failover (the model answered; the request was refused).
   if (!content && finish === 'content_filter') throw new Error('API 200: blocked (content_filter)')
+  // A REFUSAL is the other empty-200 form: content null, a `refusal` message, finish_reason "stop".
+  if (!content && refusal) throw new Error(`API 200: blocked (refusal: ${refusal.slice(0, 120)})`)
   return content
 }
+
+// A key that carries ANOTHER provider's longer prefix ("sk-ant-" also starts with OpenAI's "sk-"): pasted in the
+// wrong tab it passed the prefix check and went to that provider's API, and was stored under it.
+// Returns that provider's config (for its label), or null.
+export const keyOfOtherProvider = (providerConfig, key) => Object.values(PROVIDERS).find((p) => p !== providerConfig && p.keyPrefix
+  && p.keyPrefix.length > String(providerConfig?.keyPrefix || '').length && String(key || '').startsWith(p.keyPrefix)) || null
 
 export const PROVIDERS = {
   anthropic: {
@@ -130,9 +197,10 @@ export const PROVIDERS = {
     // List the model ids currently offered by the provider (newest first).
     listModels: async (apiKey) => {
       const resp = await fetch('https://api.anthropic.com/v1/models?limit=1000', {
+        signal: timeoutSignal(LIST_TIMEOUT_MS),
         headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
       })
-      if (!resp.ok) throw new Error(`API ${resp.status}: ${(await resp.text()).slice(0, 200)}`)
+      if (!resp.ok) throw new Error(`API ${resp.status}: ${errText(await resp.text())}`)
       const data = await resp.json()
       return (data.data || []).map((m) => m.id).filter(Boolean)
     },
@@ -146,7 +214,7 @@ export const PROVIDERS = {
         : userContent
       const post = async (budget) => {
         const r = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
+          method: 'POST', signal: timeoutSignal(CALL_TIMEOUT_MS),
           headers: {
             'Content-Type': 'application/json',
             'x-api-key': apiKey,
@@ -160,7 +228,9 @@ export const PROVIDERS = {
             messages: [{ role: 'user', content }],
           }),
         })
-        return { ok: r.ok, status: r.status, text: await r.text() }
+        const text = await r.text()
+        if (r.ok) reportUsage('anthropic', modelOverride || 'claude-haiku-4-5-20251001', text)
+        return { ok: r.ok, status: r.status, text }
       }
 
       // Anthropic caps max_tokens PER MODEL and rejects anything over it with
@@ -174,9 +244,12 @@ export const PROVIDERS = {
       let r = await post(maxTokens || 4000)
       if (!r.ok && r.status === 400 && /max_tokens/.test(r.text)) {
         const cap = Number((r.text.match(/>\s*(\d+)/) || [])[1])
-        if (cap > 0) r = await post(cap)
+        // Only DOWN: the context-overflow error also names max_tokens ("195000 + 8000 > 200000") and its
+        // number is the context size, so retrying at it asked for 200000 output tokens and showed a
+        // confusing cap error instead of the real "input too long" one.
+        if (cap > 0 && cap < (maxTokens || 4000)) r = await post(cap)
       }
-      if (!r.ok) throw new Error(`API ${r.status}: ${r.text.slice(0, 200)}`)
+      if (!r.ok) throw new Error(`API ${r.status}: ${errText(r.text)}`)
       let body = null
       try { body = JSON.parse(r.text) } catch { return '' }
       const out = body?.content?.map((c) => (c.type === 'text' ? c.text : '')).join('') || ''
@@ -199,9 +272,10 @@ export const PROVIDERS = {
     // Only chat-capable models (skip embeddings, tts, whisper, image, moderation).
     listModels: async (apiKey) => {
       const resp = await fetch('https://api.openai.com/v1/models', {
+        signal: timeoutSignal(LIST_TIMEOUT_MS),
         headers: { 'Authorization': `Bearer ${apiKey}` },
       })
-      if (!resp.ok) throw new Error(`API ${resp.status}: ${(await resp.text()).slice(0, 200)}`)
+      if (!resp.ok) throw new Error(`API ${resp.status}: ${errText(await resp.text())}`)
       const data = await resp.json()
       return (data.data || []).map((m) => m.id)
         .filter((id) => (/^(gpt|chatgpt|o\d)/.test(id)) && !/(embedding|audio|tts|whisper|image|realtime|moderation|transcribe|search|dall)/.test(id))
@@ -227,8 +301,8 @@ export const PROVIDERS = {
     presets: { cheap: 'gemini-2.0-flash', normal: 'gemini-2.5-flash', max: 'gemini-2.5-pro' }, // all vision-capable
     // Models that support generateContent; strip the "models/" prefix.
     listModels: async (apiKey) => {
-      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}&pageSize=1000`)
-      if (!resp.ok) throw new Error(`API ${resp.status}: ${(await resp.text()).slice(0, 200)}`)
+      const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}&pageSize=1000`, { signal: timeoutSignal(LIST_TIMEOUT_MS) })
+      if (!resp.ok) throw new Error(`API ${resp.status}: ${errText(await resp.text())}`)
       const data = await resp.json()
       return (data.models || [])
         .filter((m) => (m.supportedGenerationMethods || []).includes('generateContent'))
@@ -246,7 +320,7 @@ export const PROVIDERS = {
         const r = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
           {
-            method: 'POST',
+            method: 'POST', signal: timeoutSignal(CALL_TIMEOUT_MS),
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               system_instruction: { parts: [{ text: systemPrompt }] },
@@ -257,7 +331,9 @@ export const PROVIDERS = {
             }),
           }
         )
-        return { ok: r.ok, status: r.status, text: await r.text() }
+        const text = await r.text()
+        if (r.ok) reportUsage('gemini', model, text)
+        return { ok: r.ok, status: r.status, text }
       }
       const read = (raw) => {
         try {
@@ -269,7 +345,7 @@ export const PROVIDERS = {
 
       const budget = maxTokens || 0
       let r = await post(budget)
-      if (!r.ok) throw new Error(`API ${r.status}: ${r.text.slice(0, 200)}`)
+      if (!r.ok) throw new Error(`API ${r.status}: ${errText(r.text)}`)
       let { text, finish, blocked } = read(r.text)
       // Gemini's THINKING models (2.5 and later) spend maxOutputTokens on thinking before they
       // write anything, exactly like OpenAI's reasoning models - so a tight budget comes back
@@ -279,10 +355,10 @@ export const PROVIDERS = {
         const bigger = Math.min(Math.max(budget * 4, 4000), 32000)
         if (bigger > budget) {
           const retry = await post(bigger)
-          if (!retry.ok) throw new Error(`API ${retry.status}: ${retry.text.slice(0, 200)}`) // see openAiCompatibleCall
+          if (!retry.ok) throw new Error(`API ${retry.status}: ${errText(retry.text)}`) // see openAiCompatibleCall
           text = read(retry.text).text
           if (!text) throw new Error('API 200: empty (output limit reached)')
-        }
+        } else throw new Error('API 200: empty (output limit reached)') // already at the largest budget
       }
       // Safety blocks are 200 with no text: a blocked PROMPT has no candidates (promptFeedback.blockReason),
       // a blocked ANSWER has finishReason SAFETY/RECITATION/... (see the OpenAI note above).
@@ -306,9 +382,10 @@ export const PROVIDERS = {
     visionTier: 'max', // only the max preset reads images; aiCall moves image requests there
     listModels: async (apiKey) => {
       const resp = await fetch('https://api.x.ai/v1/models', {
+        signal: timeoutSignal(LIST_TIMEOUT_MS),
         headers: { 'Authorization': `Bearer ${apiKey}` },
       })
-      if (!resp.ok) throw new Error(`API ${resp.status}: ${(await resp.text()).slice(0, 200)}`)
+      if (!resp.ok) throw new Error(`API ${resp.status}: ${errText(await resp.text())}`)
       const data = await resp.json()
       return (data.data || []).map((m) => m.id).filter((id) => id.includes('grok')).sort()
     },
@@ -317,6 +394,7 @@ export const PROVIDERS = {
     // the old one.
     call: async (apiKey, systemPrompt, userContent, modelOverride, images, maxTokens) =>
       openAiCompatibleCall({
+        provider: 'grok',
         endpoint: 'https://api.x.ai/v1/chat/completions',
         apiKey, systemPrompt, userContent, images, maxTokens,
         model: modelOverride || 'grok-3-mini-fast',

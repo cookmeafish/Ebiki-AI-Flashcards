@@ -69,3 +69,16 @@ describe('writeConfig', () => {
     expect(readConfigChecked()).toEqual({ ok: true, data: { onboarded: true } })
   })
 })
+
+describe('a file saved with a UTF-8 byte-order mark', () => {
+  // Windows PowerShell 5.1 and older Notepad write one. JSON.parse rejects it, so a perfectly valid
+  // config.json was renamed aside as "corrupt" and the app started over from onboarding.
+  it('reads normally and is never set aside', async () => {
+    fs.writeFileSync(FILE, '﻿{"onboarded": true, "appLanguage": "es"}', 'utf-8')
+    expect(readConfigChecked()).toEqual({ ok: true, data: { onboarded: true, appLanguage: 'es' } })
+    const settled = await readConfigSettled()
+    expect(settled.ok).toBe(true)
+    expect(settled.data.appLanguage).toBe('es')
+    expect(fs.readdirSync(DIR).filter((f) => f.startsWith('config.json.corrupt'))).toEqual([])
+  })
+})

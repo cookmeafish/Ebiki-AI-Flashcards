@@ -62,7 +62,11 @@ $dialogs = @($titles | Where-Object { $_ -notlike '* - Anki' })
 # can never disagree about what "stuck" means.
 $launcherStuck = $false
 try { . (Join-Path $PSScriptRoot 'anki-start.ps1'); $launcherStuck = (@(Get-StuckAnkiLauncher).Count -gt 0) } catch {}
+# AnkiConnect's port open: the add-on IS loaded (a silent port means Anki's UI thread is on a dialog).
+$listening = $false
+try { $listening = [bool](Get-NetTCPConnection -State Listen -LocalPort 8765 -ErrorAction SilentlyContinue) } catch {}
 $state = @{
+  listening   = $listening
   launcherStuck = $launcherStuck
   running     = ($pids.Count -gt 0)
   mainWindow  = ($main.Count -gt 0)

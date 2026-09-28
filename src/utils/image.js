@@ -7,7 +7,8 @@
 export function dataUrlToImagePart(dataUrl) {
   const m = /^data:([^;,]+)?(?:;[^,]*)?,(.*)$/s.exec(dataUrl || '')
   if (!m) return { mediaType: 'image/png', base64: '' }
-  const mediaType = m[1] || 'image/png'
+  // "image/jpg" is not a registered type and providers reject it; it is the same bytes as image/jpeg.
+  const mediaType = (m[1] || 'image/png').toLowerCase().replace(/^image\/jpg$/, 'image/jpeg')
   // Strip any whitespace that can sneak into base64 payloads.
   const base64 = (m[2] || '').replace(/\s/g, '')
   return { mediaType, base64 }

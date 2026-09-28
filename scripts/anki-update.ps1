@@ -50,9 +50,30 @@ function Get-AnkiLauncherState($ankiExe) {
   foreach ($f in @((Join-Path $root '.python-version'), (Join-Path $installDir '.python-version'))) {
     if (Test-Path $f) { $v = (Get-Content $f -Raw -ErrorAction SilentlyContinue); if ($v -and $v.Trim()) { $pyVer = $v.Trim(); break } }
   }
+  # The Python the LAUNCHER itself ships (what its "Latest" uses): an install made before 25.6 keeps "3.9" at the
+  # root, and no current Anki installs on 3.9, so an update pinned to the root version failed every time.
+  $launcherPy = $null
+  $lpf = Join-Path $installDir '.python-version'
+  if (Test-Path $lpf) { $v = (Get-Content $lpf -Raw -ErrorAction SilentlyContinue); if ($v -and $v.Trim()) { $launcherPy = $v.Trim() } }
+  $pyproject = Join-Path $root 'pyproject.toml'
+  $markerFile = Join-Path $root '.sync_complete'
+  # The launcher opens its console when pyproject.toml is NEWER than the marker (whole seconds), not only when
+  # the marker is missing: an update cut off mid-sync left an old marker and a new pyproject, and Anki opened into
+  # its console on every start while this looked "not stuck".
+  $pyNewer = $false
+  try {
+    if ((Test-Path $pyproject) -and (Test-Path $markerFile)) {
+      $pyNewer = [math]::Floor((Get-Item $pyproject).LastWriteTimeUtc.Subtract([datetime]'1970-01-01').TotalSeconds) -gt [math]::Floor((Get-Item $markerFile).LastWriteTimeUtc.Subtract([datetime]'1970-01-01').TotalSeconds)
+    }
+  } catch {}
+  # The files as they are NOW, so a failed update can put them back exactly (see Restore-AnkiInstalled).
+  $origPyproject = $null; $origPyVersion = $null
+  try { if (Test-Path $pyproject) { $origPyproject = [IO.File]::ReadAllBytes($pyproject) } } catch {}
+  try { $rpf = Join-Path $root '.python-version'; if (Test-Path $rpf) { $origPyVersion = [IO.File]::ReadAllBytes($rpf) } } catch {}
   return [pscustomobject]@{
-    Root = $root; Uv = $uv; PyVersion = $pyVer; Installed = $installed
-    Marker = (Test-Path (Join-Path $root '.sync_complete'))
+    Root = $root; Uv = $uv; PyVersion = $pyVer; LauncherPy = $launcherPy; Installed = $installed
+    OrigPyproject = $origPyproject; OrigPyVersion = $origPyVersion; PyprojectNewer = $pyNewer
+    Marker = (Test-Path $markerFile)
     WantLauncher = (Test-Path (Join-Path $root '.want-launcher'))
     Mirror = (Test-Path (Join-Path $root 'mirror'))
     NoCache = (Test-Path (Join-Path $root 'nocache'))
@@ -93,6 +114,7 @@ function Get-AnkiLatestInstallable {
 # in use always satisfies its own version. UTF-8 WITHOUT a BOM: the launcher and uv both parse this
 # file, and Windows PowerShell's -Encoding UTF8 would prepend one.
 function Set-AnkiPin($state, $version) {
+  try { Remove-Item (Join-Path $state.Root '.sync_complete') -Force -ErrorAction SilentlyContinue } catch {}
   $py = '3.10'
   if ("$($state.PyVersion)" -match '^(\d+)\.(\d+)') { $py = "$($Matches[1]).$($Matches[2])" }
   $toml = "[project]`nname = `"anki-launcher`"`nversion = `"1.0.0`"`ndescription = `"UV-based launcher for Anki.`"`nrequires-python = `">=$py`"`ndependencies = [`n  `"anki-release==$version`",`n  `"anki==$version`",`n  `"aqt==$version`",`n]`n"
@@ -116,9 +138,14 @@ function Invoke-AnkiSync($state, $maxSeconds) {
   $out = Join-Path $logDir 'anki-update-uv.out.log'
   $err = Join-Path $logDir 'anki-update-uv.err.log'
   $saved = @{}
-  $envs = @{ UV_CACHE_DIR = (Join-Path $state.Root 'cache'); UV_PYTHON_INSTALL_DIR = (Join-Path $state.Root 'python'); UV_HTTP_TIMEOUT = '180' }
-  if ($state.NoCache) { $envs['UV_NO_CACHE'] = '1' }
-  foreach ($k in $envs.Keys) { $saved[$k] = [Environment]::GetEnvironmentVariable($k, 'Process'); [Environment]::SetEnvironmentVariable($k, $envs[$k], 'Process') }
+  # The launcher's environment (its uv_command): every inherited UV_* and VIRTUAL_ENV cleared (a developer's
+  # global UV_INDEX_URL or UV_PROJECT_ENVIRONMENT sent the sync elsewhere), and the Windows certificate store
+  # (UV_NATIVE_TLS): behind a TLS-inspecting proxy uv's own roots failed while PyPI answered this script fine,
+  # so every update rolled back and was offered again.
+  $envs = @{ UV_PYTHON_INSTALL_DIR = (Join-Path $state.Root 'python'); UV_HTTP_TIMEOUT = '180'; UV_NATIVE_TLS = '1'; VIRTUAL_ENV = $null }
+  if ($state.NoCache) { $envs['UV_NO_CACHE'] = '1' } else { $envs['UV_CACHE_DIR'] = (Join-Path $state.Root 'cache') }
+  foreach ($k in @(Get-ChildItem Env: | Where-Object { $_.Name -like 'UV_*' } | ForEach-Object { $_.Name })) { if (-not $envs.ContainsKey($k)) { $envs[$k] = $null } }
+  foreach ($k in @($envs.Keys)) { $saved[$k] = [Environment]::GetEnvironmentVariable($k, 'Process'); [Environment]::SetEnvironmentVariable($k, $envs[$k], 'Process') }
   try {
     $p = Start-Process -FilePath $state.Uv -ArgumentList @('sync', '--upgrade', '--no-config', '--managed-python', '--python', $state.PyVersion) `
       -WorkingDirectory $state.Root -WindowStyle Hidden -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
@@ -146,13 +173,26 @@ function Invoke-AnkiSync($state, $maxSeconds) {
 # Put Anki back on the version that is installed and working, and make sure the launcher starts it.
 function Restore-AnkiInstalled($state) {
   if (-not $state.Installed) { return }
-  Set-AnkiPin $state $state.Installed
+  $vInst = ConvertTo-AnkiVersion $state.Installed
+  if ($vInst -and $vInst -lt [version]'25.6' -and $state.OrigPyproject) {
+    # No anki-release exists for this version (it starts at 25.6), so a fresh pin could never resolve: the files
+    # the launcher itself wrote go back byte for byte instead.
+    try { Remove-Item (Join-Path $state.Root '.sync_complete') -Force -ErrorAction SilentlyContinue } catch {}
+    [IO.File]::WriteAllBytes((Join-Path $state.Root 'pyproject.toml'), $state.OrigPyproject)
+    if ($state.OrigPyVersion) { [IO.File]::WriteAllBytes((Join-Path $state.Root '.python-version'), $state.OrigPyVersion) }
+  } else {
+    Set-AnkiPin $state $state.Installed
+  }
   # Normally near-instant (everything is already installed and cached); it also heals a venv an
   # interrupted install left half-done. If it cannot run (offline), the venv was working before, so
   # completing the marker is still right: the launcher then starts it directly.
   $ok = Invoke-AnkiSync $state 180
-  Complete-AnkiSync $state
-  Write-AnkiUpdateLog ("kept Anki {0} (verify sync {1})" -f $state.Installed, $(if ($ok) { 'ok' } else { 'skipped/failed, marker set anyway' }))
+  # The marker only over a venv that really holds that Anki: an update that changed Python recreated .venv
+  # before failing offline, and the marker then started Anki from an empty venv. Without it the launcher
+  # shows its own installer on the next start, which can repair it.
+  $has = Get-ChildItem (Join-Path $state.Root '.venv\Lib\site-packages') -Directory -Filter "aqt-$($state.Installed).dist-info" -ErrorAction SilentlyContinue
+  if ($has) { Complete-AnkiSync $state }
+  Write-AnkiUpdateLog ("kept Anki {0} (verify sync {1}, {2})" -f $state.Installed, $(if ($ok) { 'ok' } else { 'skipped/failed' }), $(if ($has) { 'marker set' } else { 'NOT installed: marker left unset' }))
 }
 
 function Update-AnkiIfOffered($ankiExe) {
@@ -162,7 +202,7 @@ function Update-AnkiIfOffered($ankiExe) {
   # Either one makes the launcher open its console instead of Anki: a missing marker, or the
   # .want-launcher trigger Anki's own update dialog leaves (only checking the marker let that one
   # through, so declining here still dropped the next Anki start into the console menu).
-  $stuck = (-not $state.Marker) -or $state.WantLauncher
+  $stuck = (-not $state.Marker) -or $state.WantLauncher -or $state.PyprojectNewer
 
   Set-Status 'Checking for Anki updates.'
   $latest = Get-AnkiLatestInstallable
@@ -173,7 +213,9 @@ function Update-AnkiIfOffered($ankiExe) {
   $vLatest = ConvertTo-AnkiVersion $latest
   $vInstalled = ConvertTo-AnkiVersion $state.Installed
   $vDeclined = ConvertTo-AnkiVersion $declined
-  $offer = $vLatest -and $vInstalled -and ($vLatest -gt $vInstalled) -and (-not $vDeclined -or $vLatest -gt $vDeclined)
+  # A .want-launcher is Anki's own "take me to the update/version menu": an earlier "not now" given in Ebiki
+  # must not throw that request away (the repair below deletes the trigger on every launch).
+  $offer = $vLatest -and $vInstalled -and ($vLatest -gt $vInstalled) -and ($state.WantLauncher -or -not $vDeclined -or $vLatest -gt $vDeclined)
 
   if ($offer) {
     # Short on purpose: the title names ANKI (asked in Ebiki's own splash, so the app being updated must
@@ -186,11 +228,19 @@ function Update-AnkiIfOffered($ankiExe) {
     }
     Write-AnkiUpdateLog ("offered Anki {0} (installed {1}); answer='{2}'" -f $latest, $state.Installed, $ans)
     if ($ans -eq 'yes') {
+      # Opened while the question was up: uv would replace files the running Anki has loaded (Windows refuses
+      # those deletes), leaving a half-replaced install.
+      if ((Get-Command Test-AnkiUp -ErrorAction SilentlyContinue) -and (Test-AnkiUp)) { Write-AnkiUpdateLog 'Anki opened meanwhile; update skipped'; Set-Status 'Anki is open, so its update was skipped. Close Anki before starting Ebiki to update it.'; return }
       Set-Status 'Updating Anki. This can take a minute or two, please wait.'
+      $rootPy = $state.PyVersion
+      if ($state.LauncherPy) { $state.PyVersion = $state.LauncherPy }
       Set-AnkiPin $state $latest
       $ok = Invoke-AnkiSync $state 900
+      $state.PyVersion = $rootPy
       $nowDist = Get-ChildItem (Join-Path $state.Root '.venv\Lib\site-packages') -Directory -Filter "aqt-$latest.dist-info" -ErrorAction SilentlyContinue
       if ($ok -and $nowDist) {
+        # The venv now runs on the launcher's Python: record it where the launcher reads it.
+        if ($state.LauncherPy) { try { [IO.File]::WriteAllText((Join-Path $state.Root '.python-version'), $state.LauncherPy, (New-Object Text.UTF8Encoding $false)) } catch {} }
         Complete-AnkiSync $state
         try { Remove-Item $declinedFile -Force -ErrorAction SilentlyContinue } catch {}
         Write-AnkiUpdateLog "updated Anki to $latest"
@@ -208,6 +258,7 @@ function Update-AnkiIfOffered($ankiExe) {
   # Declined, nothing newer, or offline: if the launcher is stuck mid-install, put it back on the
   # working version so Anki opens instead of the console.
   if ($stuck) {
+    if ((Get-Command Test-AnkiUp -ErrorAction SilentlyContinue) -and (Test-AnkiUp)) { Write-AnkiUpdateLog 'Anki is open; launcher repair skipped'; return }
     Set-Status 'Repairing the Anki launcher.'
     Restore-AnkiInstalled $state
   }

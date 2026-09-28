@@ -86,6 +86,22 @@ export function replaceQuestion(bank, setId, qi, question) {
   return { v: 2, sets: setsOf(bank).map((s) => (s.id === setId && qi >= 0 && qi < s.questions.length ? { ...s, questions: s.questions.map((q, i) => (i === qi ? question : q)) } : s)) }
 }
 
+// Word-hint glosses fetched after a question was asked go into its saved copy too, or every reuse would pay
+// for the same lookup again. Only onto the SAME question text (a Fix may have replaced it meanwhile).
+export function mergeGlosses(bank, setId, qi, questionText, glosses) {
+  const norm = (t) => String(t ?? '').replace(/\s+/g, ' ').trim()
+  if (!glosses || typeof glosses !== 'object' || Array.isArray(glosses) || !Object.keys(glosses).length) return null
+  let changed = false
+  const sets = setsOf(bank).map((s) => {
+    if (s.id !== setId || qi < 0 || qi >= s.questions.length) return s
+    const cur = s.questions[qi]
+    if (!cur || typeof cur !== 'object' || norm(cur.question) !== norm(questionText)) return s
+    changed = true
+    return { ...s, questions: s.questions.map((x, i) => (i === qi ? { ...cur, glosses: { ...(cur.glosses || {}), ...glosses } } : x)) }
+  })
+  return changed ? { v: 2, sets } : null
+}
+
 // Saved copies carry what the card state needs to ask them again, never session state (answers, grades).
 export const storableQuestion = (q) => {
   if (!q || typeof q !== 'object') return q
@@ -126,10 +142,32 @@ export async function saveBank(deck, noteId, bank) {
   } catch { return false }
 }
 
+// Read-modify-write of ONE card's file, one at a time per card. "Fix question" and the word-hint saves each
+// read the file and wrote it back whole; two landing together (a fix while hints were saving) kept only the
+// later write, and the fixed question came back unfixed on its next reuse. fn(bank) returns the new bank,
+// or null to write nothing. A failed read writes nothing. Resolves true when a write succeeded.
+const bankChains = new Map()
+const bankChainKey = (deck, noteId) => `${deck} ${noteId}`
+export function updateBank(deck, noteId, fn, { load = loadBank, save = saveBank, allowMissing = false } = {}) {
+  const k = bankChainKey(deck, noteId)
+  const run = (bankChains.get(k) || Promise.resolve()).then(async () => {
+    const r = await load(deck, noteId)
+    if (!r.ok || (!r.bank && !allowMissing)) return false // allowMissing: a first set creates the file
+    const next = fn(r.bank || { v: 2, sets: [] })
+    return next ? save(deck, noteId, next) : false
+  }).catch(() => false)
+  bankChains.set(k, run)
+  run.then(() => { if (bankChains.get(k) === run) bankChains.delete(k) })
+  return run
+}
+
 // One deck's saved questions, its subdecks included. { ok, removed }.
-export async function clearBank(deck) {
+// subdecks: the exact names of the deck's subdecks (from Anki), or null when unknown (the server then matches
+// folder names by prefix).
+export async function clearBank(deck, subdecks = null) {
   try {
-    const r = await fetch(`/api/question-bank?${qs(deck)}`, { method: 'DELETE' })
+    const extra = Array.isArray(subdecks) ? `&exact=1${subdecks.map((n) => `&also=${encodeURIComponent(n)}`).join('')}` : ''
+    const r = await fetch(`/api/question-bank?${qs(deck)}${extra}`, { method: 'DELETE' })
     const d = await r.json().catch(() => null)
     return r.ok && d ? { ok: true, removed: d.removed || 0 } : { ok: false }
   } catch { return { ok: false } }
@@ -152,20 +190,28 @@ export function createQuestionReuse({ getSettings, getEpoch = () => 0, load = lo
     const epoch = getEpoch()
     const mayWrite = () => on() && getEpoch() === epoch
     const isPbq = sigParts?.kind === 'pbq'
+    // A write for this card still in flight (the previous set's save) lands first, so this read sees it; capped,
+    // since a hung save must not hold the question up.
+    const pending = bankChains.get(bankChainKey(deck, noteId))
+    if (pending) await Promise.race([pending, new Promise((r) => setTimeout(r, 3000))])
     const read = await load(deck, noteId)
     if (read.ok && on()) {
       const set = pickSavedSet(read.bank, key, setSize, cfg.maxPerCard)
       if (set) {
-        if (mayWrite()) save(deck, noteId, markAsked(read.bank, set.id)) // rotation only; fail-soft
+        // Through updateBank (re-read, serialized per card): a whole-file save from this read reverted a Fix or a
+        // clear made meanwhile (another window or computer). Rotation only; fail-soft.
+        if (mayWrite()) updateBank(deck, noteId, (b) => (mayWrite() ? markAsked(b, set.id) : null), { load, save })
         log('reuse', noteId)
         return set.questions.map((q, qi) => ({ ...(isPbq ? q : reshuffleChoices(q)), _bank: { noteId, deck, setId: set.id, qi } }))
       }
     }
     const fresh = await generate()
     if (!read.ok || !Array.isArray(fresh) || !fresh.length || fresh.some((q) => q?._fallback) || !mayWrite()) return fresh
-    const bank = addSet(read.bank, key, isPbq ? fresh : fresh.map(storableQuestion)) // a PBQ is saved whole
-    const setId = bank.sets[bank.sets.length - 1].id
-    save(deck, noteId, bank)
+    // The new set is added to a FRESH read (updateBank), never to the copy read before generating: that save
+    // replaced a Fix, a gloss save or a clear made during the seconds the generation took.
+    const newSet = addSet(null, key, isPbq ? fresh : fresh.map(storableQuestion)).sets[0] // a PBQ is saved whole
+    const setId = newSet.id
+    updateBank(deck, noteId, (b) => (mayWrite() ? { v: 2, sets: [...setsOf(b).filter((s) => s.text === key.text), newSet].slice(-MAX_SETS_PER_CARD) } : null), { load, save, allowMissing: true })
     return fresh.map((q, qi) => ({ ...q, _bank: { noteId, deck, setId, qi } }))
   }
 }

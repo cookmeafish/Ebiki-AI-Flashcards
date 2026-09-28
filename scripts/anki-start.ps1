@@ -154,6 +154,9 @@ function Start-AnkiIfNeededLocked {
     try { . $ankiUpdater; Update-AnkiIfOffered $exe } catch { Write-AnkiStartLog "update check failed: $($_.Exception.Message)" }
     Set-Status 'Waking up Anki and the study server.'
   }
+  # Opened by hand while the update question was up (the update then skips itself): starting it again
+  # popped Anki's single-instance dialog and minimized the window the user had just opened.
+  if (Test-AnkiUp) { Write-AnkiStartLog 'Anki was opened meanwhile; not starting it again'; return 'running' }
   # MINIMIZED, not hidden and not normal. Ebiki needs Anki running (every card goes through
   # AnkiConnect), but you clicked EBIKI - Anki taking the screen is just in the way. NEVER give this
   # Start-Process no window style: launch-ebiki.vbs runs the launcher through

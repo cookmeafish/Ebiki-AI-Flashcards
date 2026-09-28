@@ -13,8 +13,11 @@ export async function resolveAnkiMedia({ noteId, cardId }) {
     if (!nid) return null
     const note = (await ankiNotesInfo([nid]))?.[0]
     if (!note) return null
-    const allFields = Object.values(note.fields || {}).map((f) => f.value).join('\n')
-    const m = allFields.match(/\[sound:([^\]]+)\]/)
+    // Ours first ([sound:ebiki-...], always this word), then the BACK field, then any field: the first sound
+    // anywhere could be a sentence or the other side's audio, played as "the card's".
+    const fields = Object.values(note.fields || {}).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((f) => String(f.value || ''))
+    const all = fields.join('\n')
+    const m = all.match(/\[sound:(ebiki-[^\]]+)\]/) || (fields[1] || '').match(/\[sound:([^\]]+)\]/) || all.match(/\[sound:([^\]]+)\]/)
     if (!m) return null
     const b64 = await ankiRetrieveMediaFile(m[1])
     if (!b64 || typeof b64 !== 'string') return null

@@ -10,8 +10,14 @@ Brand color **#DF2540**. Themes **Ocean Light** + **Dark**. Fonts Baloo 2 (displ
 - `src/styles/theme.js`: `S.*` style objects built from tokens.
 - Primary CTAs: className `btn-press`. Tabs: `ui-tab`.
 - **NO EM DASHES in ANY user-facing text**: UI strings, i18n (all four languages), `data-tip`, `title`,
-  placeholders, dialogs, toasts, errors, AI output (forbidden in prompts, stripped in code). Use `. ` / `: ` /
+  placeholders, dialogs, toasts, errors, AI output (forbidden in prompts, stripped in code).
+  `aiCall` also turns any em dash in the SYSTEM prompt into ": " except the "(—)" naming the banned character (the
+  user content is left as written). Use `. ` / `: ` /
   ` · ` (zh `，`, ja `。`). Code comments are exempt.
+  `stripAiDashes` (every reply, in `aiCall`) and the Help/Studio strips are LINE-AWARE: a dash starting or ending a
+  line (or a `\n` escape in JSON) is dropped, only one inside a line becomes ", "; `\s*` there joined lines.
+  The prompt LITERALS in App.jsx are dash-free too (a 2026-09 rewrite: ", " or ": " after an ALL-CAPS heading,
+  "Q2 to Q3", "2 to 3"); left: console logs, the "(—)" naming the character, the palette CSS. Write new prompts so.
 - **Light-mode semantic colors are DEEPER than dark mode's** (success `#0E8746`, warning `#B36A00`, danger
   `#D32F24`, purple `#7C4DEF`) so green and amber stay distinct at small sizes. Keep that when retuning.
 
@@ -38,6 +44,8 @@ One **⚙ Settings** modal, `src/components/SettingsModal.jsx`:
   `modesRef`/`activeModeIdRef` are the live mirrors.
 - **Mode-list edits read `modesRef.current`, never render-time `modes`** (`deleteMode`, `renameMode`,
   `addDefaultMode`, `handleAddDeck` after its awaits): a whole-list save from a stale copy reverts async writes.
+  SettingsModal's rule removal builds from `getActiveMode()` (live rules) after its confirm; Enter-renames mark the
+  box so the unmount blur doesn't rename (and alert) twice.
 - **Every active-mode change goes through `switchActiveMode` / `endStudyForModeSwitch`** (header switcher, Settings
   mode bar + chips via the `switchMode` prop, deleting the active mode, `createMode`, Studio create): a live study
   session is ended first (confirm → `exitStudy`), else the session kept running with the other mode's rules/deck.
@@ -64,9 +72,11 @@ One **⚙ Settings** modal, `src/components/SettingsModal.jsx`:
   key renders as the raw key name**: add it to ALL FOUR dicts, then wire `t()`. `{placeholder}` interpolation. No
   em/en dashes. Count labels need singular/plural keys (`deck_countAll` / `deck_countAllOne`); zh/ja share one
   form. **No duplicate keys** in a dict: the later one silently wins.
-- Still English-only: deck browser body, Picture word-detail tooltip, part of the study graded/batch surface, and
-  the start-up messages shown before settings load. (The tapped-word popup, Chat's search offer, the delete-card
-  question and Picture progress ARE localized now.)
+- Nothing on screen is English-only any more (a 2026-09 scan). Screens shown BEFORE the config loads (slow start,
+  failed settings read) and the crash screen (`ErrorBoundary`) use the last language this browser saw
+  (`localStorage('ebiki-app-language')`, written whenever `appLanguage` changes). Keep it that way: new text
+  goes through `t()` from day one, including app-written messages (errors, receipts, tooltips). Inside memoized
+  callbacks use `tLiveRef.current` (a callback holds the `t` of the render that created it).
 - Verify with a node script that greps `t('...')` refs against the dicts (missing must be 0).
 
 ## Data folder (optional shared data directory)
@@ -92,6 +102,8 @@ never `path.resolve('…')`. Default = app root; overridden by machine-local `da
   after a merge, erasing the other computer's modes). On success `DataFolderCard` calls `onDataFolderChanged`: App
   sets `dataSwitchingRef` (`setAnkiDeck`, `saveModes`, `updateModeById` and the config autosave bail on it),
   clears `configHealthyRef`, and reloads 1.5s later. New data writers must honor `dataSwitchingRef`.
+  Chat delete (after its dialog), knowledge delete/toggle (after `modesSaveRef`) and the knowledge upload POST check
+  it too. The server refuses non-GET `DATA_ROUTES` writes for 3s after a switch (`datadirSwitchedAt`).
 
 ### API keys: local file, shared copy, self-healing backup
 - `.env` is pinned to the CODE folder (`SELF_DIR` from `import.meta.url`), never `path.resolve('.')`, so a launch
@@ -113,13 +125,26 @@ never `path.resolve('…')`. Default = app root; overridden by machine-local `da
   `keyEditedRef` holds the typed providers, sent as `&providers=`, and only those may overwrite (typing one key
   used to push every stale local key over another computer's fix). Skipped when there's no
   share or it's unreachable.
+  **A typed key gets that authority only after `validateKey` says it works** (true or 'noCredit'); a refused key is
+  saved locally only, an unchecked one is re-queued (`keyCheckRetryRef`, 5 x 30s), and a superseded save
+  (`keySaveSeqRef`) yields to the newer one. A clear (empty value) keeps its authority.
+  The save takes the typed providers PLUS any re-queued since its effect ran; a save that yields to a newer one
+  re-arms a save (`setKeySaveRetry`). `keyMisfits` (wrong prefix / another provider's longer prefix) makes
+  `validateKey` answer false and `refreshModels`/`findModelUpgrades` skip, WITHOUT sending the key.
+  A yielding save sets `keyYieldedRef` (one follow-up after the newest save gets past its checks,
+  `keySaveDoneSeqRef`); it never starts a save itself (two chains superseded each other forever).
 
 ### Auto-backup (one-way)
 With a shared `DATA_DIR`, a `configureServer` timer runs `runBackup()` every 10 min (and ~20s after start):
 `copyNewer` mirrors `BACKUP_ENTRIES` (`DATA_ENTRIES` minus `cache`) into `.local-sync/` (gitignored,
 watch-ignored) by size+mtime. Never writes to the share; skips an unreachable share (`dataEntriesPresent`).
-`.local-sync/` is the BASE for offline reconcile. `/api/sync-backup` GET `{enabled, at, files, error}`, POST =
+`.local-sync/` is the BASE for offline reconcile. `copyNewer` MIRRORS (a folder listing with entries removes
+what the share no longer has; an empty listing never empties the base). `runBackup` reads `DATA_DIR` once
+(a switch mid-probe skips the run). `/api/sync-backup` GET `{enabled, at, files, error}`, POST =
 back up now. UI in `DataFolderCard` (shared folder only).
+A file `copyNewer` can't copy is skipped and counted (`lastBackup.error`), never rethrown; a switch stamps
+`.source.json` right after parking (else a failed run deleted the parked snapshot). JOIN of an EMPTY folder
+while the old share is dead creates `modes/` so the new folder counts as reachable.
 
 ### Unreachable-source guard (anti-clobber) - DO NOT REMOVE
 A dead mapped drive reads as EMPTY (autosave wrote defaults back; onboarding reappeared), and touching it THROWS
@@ -153,6 +178,10 @@ the local copy + `X-Ebiki-Offline: 1`; **`online`** → pass through. Deliberate
   keeps images in cards written to Anki.
   The inline-style hook drops any style with a backslash or `/*` (escapes and comments disguise the rest) or
   `url(`, `image-set`, `@import`, `expression(`, `position: fixed|absolute|sticky`.
+  `dialog` is forbidden too (`<dialog open>` is positioned by the browser's own stylesheet), and the popover attributes.
+  `renderTappableBack` strips `[sound:]` (the Learn-it panel showed it as text).
+  Every OTHER attribute holding `url(`/`image-set` is dropped unless it is a local `url(#id)` (SVG filter, mask,
+  fill, marker...), and `href` survives only on `<a>` or as `#id` (gradients, patterns, textPath loaded remote URLs).
 
 ### NEVER WRITE BACK WHAT YOU FAILED TO READ (the clobber family)
 An autosave that posts WHOLE state must not run on state from a failed read; a handler that treats "absent" as
@@ -179,16 +208,43 @@ An autosave that posts WHOLE state must not run on state from a failed read; a h
   A write that reached the local store but NOT Anki marks the key "local is newer" (localStorage
   `ebiki-blob-local-newer:*`): reads prefer the local copy while it stands and push it back to Anki (Anki's older
   copy used to win the next read, and the next write then lost the newer data). The read's push-back clears the mark only if no write
-  happened meanwhile (`writeSeq`).
+  happened meanwhile (`writeSeq`). Writes of one blob (and the push-back) are QUEUED per key (`blobChains`), newest content
+  wins (`blobLatest`): parallel writes landed out of order and stored the older copy.
+  `writeBlob` returns false while `setBlobWritesPaused(true)` (set with every `dataSwitchingRef.current = true`).
+  Mode names whose blob key (`storageKey`) collides clash (`modeNamesClash`: "Spanish 1" vs "Spanish-1").
+  The pause is re-checked inside the queued run, before the Anki store and before the local-store fetch (a write
+  queued or waiting on Anki before the freeze went out after it).
+  With the mark set, a REFUSED local read (503) is a failed read, never Anki's older copy.
+  **With a SHARED data folder the store is read FIRST** (`/api/discover-store` GET answers `shared`): every computer
+  writes it on every write, while each Anki only catches up through AnkiWeb (a lagging Anki copy won the read and
+  the next write dropped the other computer's items). Anki is the fallback, and first again while the per-browser
+  `ebiki-blob-anki-newer:*` mark says the store write failed. App-folder installs keep Anki first.
 - **Deck progress notes** are read with `readDeckProgress` (`{ok, content}`; a missing file is a real empty read).
   Chat `<progress-update>` and "Generate Insights" REPLACE the file, so both write only over notes actually read
   (`deckProgressOkRef`, `chatTabAttachedDeck.progressOk`, `existingOk`).
+  Both also RE-READ before writing and write only if the file still equals what the prompt saw
+  (`progressDocAtSend`, `existingProgress`); Insights honors `dataSwitchingRef`. The deck-progress and
+  discover-store GETs treat only ENOENT as empty (any other read error is a 500).
 - **`ankiSetNoteTags` moves only the difference, adds first.** It removed every old tag, then added the new set, so
   a failure between the calls left no tags. Case-only changes are remove + re-add (Anki matches tags
   case-insensitively); wanted children of a removed tag (`a::b` under `a`) are re-added afterwards.
+- **A failed config save retries** (`cfgSaveRetry`, like `keySaveRetry`). "Run setup again" is LOCAL
+  (`rerunSetup`), never `onboarded:false` in the shared config. A TYPED key in Settings is validated (debounced).
 - **The config autosave posts only CHANGED keys** (`lastSentCfgRef`; a failed save un-marks only ITS keys, never
   the whole ref, or the next save posted everything): a whole-config post
   from one computer reverted settings another computer had just changed in the shared `config.json`.
+  The per-provider / per-model maps (`NESTED_CONFIG_KEYS`: aiModels, modelPresets, rejectedModels, modelPlans,
+  modelCards, modelAvailability, availableModels, pronunciation) are diffed TWO LEVELS DOWN (`aiModels.gemini.chat`, `pronunciation.defaultRegions.es`; `src/utils/configDiff.js`,
+  shared by App and `writeConfig`): only changed entries post, removed ones go in `__unset` as paths, the server merges.
+  The load SEEDS `lastSentCfgRef` with what the file holds (an ignored unknown provider seeds the local
+  default), so the first autosave after launch posts only real changes (it used to post everything).
+  An entry under a map that went away is still returned in `paths` (not `__unset`), so the App forgets it: kept as
+  "sent", the same value picked again posted an empty map.
+- **The chat save reads the disk copy STRICTLY**: only ENOENT is "new"; a locked/torn read retries once, then
+  503 (it overwrote the other computer's turns). A same-turns save keeps `synced`/`addedTo` of chat cards
+  already on disk (a stale window reset "Added" and invited a duplicate note).
+  Error bubbles (`error: true`) are left out of the prefix compare and the saved copy (the Chat tab kept them, Help
+  dropped them: forks). Same-turns card state carries over by POSITION + front + back (one-meaning-per-card fronts repeat).
 - **A chat save whose disk copy is not a prefix of the incoming messages FORKS** (server returns a new id +
   `forked:true`; the client adopts it only while that chat is still open): two windows continuing one chat used to
   overwrite each other. Help re-reads its chat (`/api/chat-load`) before sending.
@@ -199,7 +255,10 @@ An autosave that posts WHOLE state must not run on state from a failed read; a h
   send `keepTitle` (Chat tab and Help): the server keeps the title on disk, so a rename survives the next message,
   and a save that sends no `type` keeps the file's (a Help chat continued in the Chat tab stays a Help chat).
   Switching / New chat re-saves the open chat only when its list differs from the last saved or loaded one
-  (`chatSavedMsgsRef`): an unchanged stale copy forked a truncated duplicate.
+  (`chatSavedMsgsRef`): an unchanged stale copy forked a truncated duplicate. If that save FAILS
+  (`chatLastSaveOkRef`), leaving asks first (`chat_leaveUnsaved`). A send WAITS for a photo still being read or
+  re-encoded (`chatImagePendingRef`, counted from before the FileReader via `attachChatImageFile`), then reads
+  it from `chatTabImageRef`.
 - **An async result lands only where it was asked, and never writes back a whole array copied before the await.**
   Capture a token at the start; drop the result if it moved: `discoverGenRef` (mode or Discover deck switch),
   `scanGenRef` (Picture scan; indices are reused across scans), `pinGenRef` (pinned Picture word),
@@ -211,6 +270,8 @@ An autosave that posts WHOLE state must not run on state from a failed read; a h
   live list with a functional update (the study feedback chat once wrote back the card list copied at send time,
   reverting grades that landed meanwhile; those cards sat on "Evaluating" forever). A list copied for write-back
   must also drop what the action just cleared (accepting a search offer re-added its buttons).
+  A mode switch closes the lookup popup and bumps `pinGenRef` + `resetPinBusy()`. `startStudySession` takes the LIVE
+  mode's deck after its read. `markDeckEdited` off the Deck tab syncs to study at once (`syncDeckEditsToStudyRef`).
 - **Memoized callbacks list what their prompt reads.** `useCallback` deps include the mode and knowledge they use
   (`autoExplain` explained in the previous mode's subject) and every language (`lazyTranslate` ignored a new
   `targetLang`). Models are safe: `resolveModel`/`aiCall` read `aiStateRef`.
@@ -219,8 +280,25 @@ An autosave that posts WHOLE state must not run on state from a failed read; a h
   `mark_all_correct`/`fix_typo` apply only while the card is still GRADED with the same answers
   (`stillGraded`: after Back, "all correct" over zero results rated it Easy); End Now clears rating/ease on the
   cards it skips. A study memory hook lands only on the same card in the same session.
+  The feedback chat's `update_card` re-reads the note, keeps images, `[sound:]` and its credit, and refuses a field
+  with `hasUnkeepableMarkup` (`fbr_cardKeepsMarkup`). Marking correct also clears `penalize`. A failed post-lock
+  correction puts the OLD rating/ease back (else the retry saw no change), and stats move only after it succeeds
+  and never for `relearn` copies (also in `rateGradedCard`).
+  After a successful `update_card` the session takes the note's NEW fields (a second edit wrote over the first).
+  `fix_typo`'s `shouldBeCorrect` is parsed like `aiFlag`; marking correct also sets a PBQ's `score` to 1.
+- **Answer handlers write ONE card into the live list** (`commitCard(states, cardIdx)`), never the render-time
+  array: a grade or pull landing in between was reverted. A post-lock correction needs `preSyncInfoRef` (no
+  live-interval or 1-day guess; `fbr_noPreSchedule`).
+- **Only the NEWEST grading of a card lands** (`evalTokenRef`, keyed session:card, checked in `stillGrading`
+  AND the catch): Back + the same answers started a second grading, and the first one's failure wiped it.
+  Accent slips are per question (`accentSlipQs`); Back and an abandoned drill remove them
+  (`dropQuestionAttempts`). Answer matching composes to NFC first.
+  Back to ANOTHER card also cleans the drill's card (the question on screen), not only the undone one. A one-question
+  card's grading reply may be a lone object (wrapped as the one row).
 - **A grading reply must cover every question** (`complete` in `evaluateCardAnswers`): `parseAiJson` salvages the
   complete rows of a truncated array, and counting wrong answers over those alone rated a card Easy.
+  One question: a lone ROW object (`correct` in it) or a wrapper's single list counts; any other object is unreadable.
+  A wrapper's list counts only when every entry is a row with `correct`.
 - **Bulk-edit saves re-read the cards first** (`commitAcceptedRecs`): a suggestion replaces the fields/tags it names
   as they were when the check ran, so a card edited since (deck browser or Anki) is skipped with
   `deck_changedSinceSuggest`. Fields that had bold `Label:` lines go back through `cardBackToHtml`.
@@ -232,6 +310,9 @@ An autosave that posts WHOLE state must not run on state from a failed read; a h
   mode configs, deck progress and Discover blobs: readers never see a half-written file, and an interrupted write
   can't truncate one. A failed TEMP write throws and leaves the real file alone (the plain-write fallback is
   only for a refused rename; falling back on a full disk truncated config.json to 0 bytes).
+- **Every parsed text read in vite.config.js goes through `readUtf8`** (strips a UTF-8 BOM, which PowerShell
+  5.1 and older Notepad write): with one, a valid config.json was renamed `.corrupt-*` (back to onboarding) and
+  a `.env`'s first key was never found. `electron/main.cjs` strips it for launchmode.json too.
 - **Every `spawn()` in vite.config.js has an `'error'` listener**: ENOENT/EACCES arrive as an event, and an
   unhandled one is an uncaught exception that kills the dev server.
 
@@ -244,11 +325,14 @@ copy. The pristine base makes reconnect a real 3-way merge.
   per request with a 3s `shareReachable()` cache (dead SMB probes block). A returning share ends offline mode
   without a restart; `.local-offline/` stays until reconciled. `enterOffline()` returns false with no snapshot (the
   only `down` case).
+  A probe that finishes after `DATA_DIR` changed is not cached (it answered for the old folder).
 - **Reconcile** (`/api/offline`: GET `{offline, pending, since, changes}`, POST reconciles, POST `{discard:true}`
   drops edits): only files differing from base; share missing or unchanged → fast-forward; share also moved →
   `deepMergeInto(..., basePath)` (non-JSON kept as both, `name (from this computer offline).ext`). **JSON merges against the base** (`deepMergeJson(theirs, mine, base)`): a value only this computer changed wins; only a value
   BOTH sides changed keeps the share's (without the base, an offline setting was lost whenever another computer
-  touched anything else in the file). Join/return merges pass no base (scalar conflicts keep the target). Tests:
+  touched anything else in the file). Key DELETIONS merge the same way: a key one side deleted and the other left
+  equal to the base stays deleted. `offlineChangedFiles` skips `cache/` and counts an unstat-able entry as a
+  change; `deepMergeInto` and the join/return `cpSync`s skip `*.<pid>.tmp`. Join/return merges pass no base (scalar conflicts keep the target). Tests:
   `merge3.test.js`. A kept-both CHAT copy is named `<id>-copy.json` (its file name is its id and must pass
   `isSafeChatId`); "a chat" = a file DIRECTLY in `chats/` (not a path merely containing that word). The
   `/api/offline` GET removes an offline copy with ZERO changes once the share is back (it
@@ -256,6 +340,16 @@ copy. The pristine base makes reconnect a real 3-way merge.
   Chats whose messages are a PREFIX of the other side's (continued, or only re-saved) merge into the longer one
   (target's title/type/mode); only diverged histories are kept as `<id>-copy`. `runBackup` re-checks offline state
   AFTER its reachability probe; Discard and the zero-change cleanup trigger a backup.
+  Reconcile goes PER FILE: failures are collected, the rest is merged, and the offline copy stays (the error names
+  the files) until all went through.
+  Merged files are recorded in `.offline.json` `applied` (path -> content hash); a retry merges only the rest
+  (re-merging duplicated kept copies and reverted online edits). `offlinePendingFiles()` is the pending count.
+- **`.local-sync` records its folder** (`.local-sync/.source.json`, `backupIsForOtherFolder`): a backup of a
+  different folder first parks the old snapshot in `.local-sync/.previous`; `enterOffline` refuses a snapshot of
+  another folder; a folder switch starts a backup 2s later. The 3-way merge takes a LIST only one side changed
+  from that side (the union revived deleted items). Reconcile and `deepMergeInto` write with `writeFileAtomic`;
+  `offlineChangedFiles` skips `*.<pid>.tmp`. RETURN with the share down and no stash seeds the app folder from the
+  offline copy (if it is that share's) or `.local-sync`.
 - **The offline copy belongs to one data folder** (`.offline.json` `dataDir`, `offlineCopyDataDir()`):
   `enterOffline` won't serve another folder's copy, reconcile refuses to merge it elsewhere (409), and a
   data-folder switch resets `offlineActive` + `reachCache` (else the new folder routed through the old share's
@@ -267,9 +361,17 @@ copy. The pristine base makes reconnect a real 3-way merge.
   `sameFolder` (case-insensitive on Windows/macOS). JOIN with `merge:false` copies NOTHING onto the share.
 - **Offline deletions are NOT replayed** (indistinguishable from never-synced; re-deleting shared data is
   unrecoverable).
+  Deletions made ELSEWHERE are honored: an offline edit of a mode tombstoned in the share's `modes/.deleted.json`
+  is skipped (recorded as applied). A share folder of the same name holding ANOTHER id is never merged into: the
+  offline mode goes to `<name> N` (`clashDir`) and its config takes that name.
+  `redirect` order for every offline `modes/<dir>/` file: the id's current share folder (`homeOf`), then the
+  tombstone (skip), then a same-name clash (`freeClashName`), else as is.
+  The `modes/<dir>/` patterns take BOTH separators (`[\\/]`): `rel` comes from `path.join` (backslashes on Windows);
+  a `[\/]` class matched only "/" and none of these rules ran on Windows.
 - Client: the config fetch reads `X-Ebiki-Offline`; a 30s `/api/offline` poll drives an amber dismissable banner
   and, once the share is back, an "N offline changes waiting · Merge / Discard" bar. Never an automatic push.
   `offlineBusy` holds `'merge'`/`'discard'` so the bar names what it's doing (SMB reconcile can take seconds).
+  The poll acts only on a real status (`typeof d.offline === 'boolean'`): a 500 read as "share back" and froze writers.
 
 **Banners render IN FLOW above `<header>`, never `position:fixed`** (a fixed bar covers the header and eats its
 clicks).
@@ -306,6 +408,19 @@ for plain links; both on the app window AND the overlay (shared `openExternally`
 `isAppUrl` (ORIGIN equality), never `startsWith(VITE_URL)`: `http://localhost:3000@evil.example/` passes a prefix
 test. The overlay's `close` handler hides instead of closing ONLY while `!appQuitting` (set on `before-quit`), else
 it blocks app.quit, SIGTERM and Windows shutdown.
+Both windows' `will-navigate` follow only `isAppPage` (the root, or `?overlay=true`); another app path is blocked. The
+Markdown hook gives SVG `<a>` (lowercase tagName) `target=_blank` too.
+
+**The overlay's global Esc is held only while it is visible AND focused** (`registerOverlayEsc`, dropped on
+`blur`): a shrunken overlay beside another app swallowed that app's Esc. A failed `Alt+Q` registration exits the
+overlay (`app.exit(2)`) so it isn't reported as running; a failed page load (`overlayPageOk`) makes Alt+Q
+reload instead of showing an invisible full-screen window. Every `spawn` in main.cjs has an `'error'` listener.
+The overlay runs on its OWN profile (`userData/overlay`): Chromium locks a profile's storage to one process, and
+the second of the two lost all localStorage. A capture with no server answering shows nothing. The launcher
+revive guard (`revived`) resets only on `did-finish-load`; `window-all-closed` waits 500ms so the goodbye leaves.
+A `did-fail-load` sets `navFailed`/`overlayNavFailed`, and `did-finish-load` is ignored until a main-frame
+navigation TO the app (`isAppUrl`) starts: the error page keeps the app URL, and the holding page's own
+navigation must not clear the flag.
 
 **Captures use the PRIMARY display's source** (`primaryScreenSource`, by `display_id`), which the overlay covers;
 `sources[0]` could be another monitor.
@@ -355,7 +470,13 @@ ran a fixed bug for weeks). Don't simplify it back.
   touched in the last 3 min, keeps those files, opens no splash and sets `EBIKI_LAUNCH_FOLLOWER=1`; in
   `launch.ps1` that makes `Set-Status`/`Clear-Status`/`Signal-AppReady` no-ops, `Ask-InSplash` answer `nosplash`
   and the `finally` keep the handshake files. `main.cjs` bare launches don't delegate while `launcherBusy()`.
+  The flag is for ONE launch: `launch.ps1` removes it from its environment, and the VBS sets it to "0" for a
+  leader (inherited, it made a relaunch a silent follower under its own splash).
   (A second launcher cleared the first one's update question, and the update was skipped.)
+- **The VBS leader writes `.app-status` itself** before starting mshta (a double click made two leaders, and the
+  second re-asked the update). The splash deletes `.app-splash` whenever it closes (`dropSplashMarker`,
+  `onbeforeunload`), and `Ask-InSplash` returns `nosplash` when the marker vanishes mid-question. Every
+  launcher popup that can happen with the splash up takes it down first and uses `4096 + 65536`.
 - **The splash says what the launcher is doing** (`Set-Status` → `.app-status` → `sub` line). Its 3-minute cap
   measures SILENCE (any new status resets it); a pending question holds it open indefinitely.
   Long `npm install`s go through `Invoke-NpmInstall`, which re-posts a status with elapsed seconds every 10s so
@@ -377,6 +498,14 @@ ran a fixed bug for weeks). Don't simplify it back.
   `pull --ff-only` exits 0 "Already up to date" forever. All update paths (POST, `launch.ps1`, `launch.sh`): `fetch origin master`, then `merge-base --is-ancestor HEAD FETCH_HEAD` → ancestor: `merge --ff-only FETCH_HEAD`; else
   `reset --hard FETCH_HEAD`. **The reset is refused if any TRACKED file is modified** (`status --porcelain --untracked-files=no`, reported `dirty`); user data is untracked, so normal installs are clean. Empty
   `ls-remote` = master deleted upstream → `remoteMissing`.
+  **A reset only for a checkout on PUBLISHED history**: HEAD must be an ancestor of some value origin/master HAD
+  (its reflog, plus its value read before the fetch) or of a commit HEAD took FROM the remote (HEAD reflog entries
+  `clone:`, `reset: moving to FETCH_HEAD`, `pull...: Fast-forward` or `merge <sha>: Fast-forward` (git logs the sha,
+  not FETCH_HEAD) (a merging or rebasing
+  pull records LOCAL commits); a clone does not log origin/master's first
+  value, and any earlier fetch moves the ref); commits made on master and never published are kept and the update refused
+  (`localCommits` → `updatesLocalCommits`; launchers log it). Fetches carry `http.lowSpeedLimit/Time`; the
+  launcher's unshallow runs only after `ls-remote` answered; `Invoke-NpmInstall` tree-kills after 15 min.
 - **The already-running launch path checks too** (`Check-Update -AlreadyRunning`): closing the window doesn't stop
   the server at once (`/api/bye` + grace ping, up to 150s), so a quick reopen lands here. After updating it says
   "close Ebiki and open it again to finish" (the running server has old code). `launch.ps1` also
@@ -386,7 +515,15 @@ ran a fixed bug for weeks). Don't simplify it back.
   didn't move HEAD is reported and skips `npm install`, and the tab fallback uses `open` where there's no
   `xdg-open`. The question uses zenity → kdialog → `osascript` (macOS has neither of the first two, so updates
   were skipped silently); none of them = logged skip. `open_app` also finds macOS's
-  `dist/Electron.app/Contents/MacOS/Electron`.
+  `dist/Electron.app/Contents/MacOS/Electron`. Without `flock` (stock macOS) it takes a `mkdir` lock
+  (`.launcher.lock.d`, stale after 20 min or a dead owner pid; `release_lock`). The already-running branch runs
+  `check_update` too. `APP` is `pwd -P` (the server's command line holds the physical path), Anki starts from
+  an argv ARRAY, every update skip is logged, and `launch_mode` greps the `"mode"` key only.
+- **Updates only touch Ebiki's OWN checkout, never prompt, never twice.** `Check-Update` requires an EMPTY
+  `rev-parse --show-cdup` (never a path compare: git prints UTF-8, the hidden 5.1 console decodes OEM, so an
+  accented user folder never matched and never updated) (`launch.sh`/`/api/update`: `.git` in the app folder): a ZIP copy
+  inside another repository updated THAT one. Git runs with `GIT_TERMINAL_PROMPT=0`/`GCM_INTERACTIVE=never`
+  (a sign-in window hung the launch). A FOLLOWER launch skips `Check-Update` (it re-asked right after "Not now").
 - **In `launch.ps1`, resolve PATH (`Ensure-OnPath`) BEFORE the already-running branch.** Shortcut launches inherit
   Explorer's stale PATH after an install, so `git` wasn't found and the check silently returned. Every skip in
   `Check-Update` logs its reason (no git, not a checkout, wrong branch, unreachable, already latest).
@@ -394,6 +531,13 @@ ran a fixed bug for weeks). Don't simplify it back.
   `'yes'` moves HEAD. A Yes that did NOT move HEAD (fetch failed, hand-edited tracked file, refused merge) says so in
   the splash, logs `update FAILED` and skips npm install (it used to say "Update installed"). The only path that
   changes code without a Yes is the installer's `Link-ToGit`, which warns first.
+  A master checkout only AHEAD of origin with unpublished commits is not offered an update (`Test-HeadPublished` /
+  `head_published` / `headPublished`, one rule in three places). The already-running launch skips its check while
+  `/api/alive` says `updateRunning`. launch.sh: a launch that WAITED on the lock skips the question, npm install
+  runs under `run_with_timeout 900`, and `release_lock` clears the EXIT trap.
+  Now ANY unpublished HEAD (ahead or diverged) is not offered, with the current origin/master as the extra
+  candidate; `/api/update` GET answers `localCommits` and UpdatesCard shows it. A failed install inside
+  `Check-Update`/`check_update` is not retried in the same launch (`npmTriedThisRun` / `NPM_TRIED`).
 - **Never `execFile` a `.cmd`/`.bat` without a shell**: current Node throws EINVAL synchronously (CVE-2024-27980),
   and inside a callback that kills the server. `/api/update` runs `cmd /d /s /c "npm install ..."` on Windows.
 - **A failed post-update `npm install` leaves `.npm-install-pending`** (gitignored; written by `launch.ps1`, `launch.sh`
@@ -415,6 +559,16 @@ ran a fixed bug for weeks). Don't simplify it back.
   (`guard2`, 660s) stays above the sum of its step timeouts. `findModelUpgrades` returns `null` when the model list
   can't be read (never "you are on the latest"). The auto-sync minutes box commits on blur (`ClampedNumber
   commitOnBlur`) and the timer re-arms on a new grace window.
+  `/api/update` writes the install's `pid` into the marker; both launchers wait (15 min cap) while that process
+  lives before their own pending install (an install that took the server down keeps running).
+  They wait only for a node/npm process that STARTED before the marker (a reused PID held the launch 15 minutes).
+  launch.sh reads `etimes`, else parses `etime` (macOS has no `etimes`: the wait never ran there).
+  The name check takes the basename's first word (npm sets its title to "npm install").
+- **`{ok:false, updated:true}` (code moved, npm install failed) is `done` + `updatesDepsPending`**: the restart runs the
+  pending install; a Retry would say "up to date". `doUpdate` bumps `checkSeq`, and Check is disabled while
+  verifying/restarting (a late check replaced the restart offer). Offline-merge refusals carry `code`
+  (`busy`/`unreachable`/`otherFolder`) mapped to `offlineErr*` keys; `DataFolderCard` stays locked after a
+  successful switch until the reload.
 - **A dropped connection during an update is not a failure.** `npm install` inside the request can take the server
   down after the update applied ("Failed to fetch"). `confirmUpdateApplied()` polls **`/api/update?local=1`**
   (local-only, skips `ls-remote`: 0.1s vs up to 25s) and compares the commit sha. ONE answer settles it; the 45s
@@ -435,6 +589,10 @@ caused a restart loop), so a forgotten server keeps serving stale config. SHORTC
 - **Talk to the dev server as `localhost`, NEVER `127.0.0.1`**: Vite binds what `localhost` resolves to first, IPv6
   `::1` on current Node/Windows (and macOS for `launch.sh`).
 - Manual `npm run dev` sets no flag: the endpoints answer 204, no timer. That's how to run a second copy.
+- **No auto-exit while `updateRunning`** (a killed git left `index.lock`). The update's npm install has its own
+  300s timer that tree-kills (`taskkill /T`), never execFile's timeout (it killed only cmd.exe). A restart POST
+  calls `requestShutdown` itself 1.5s after answering (another open tab kept the old server alive). The overlay
+  sweep is killed at its 10s cap. Update checks use `ls-remote origin refs/heads/master` (all three paths).
 - **The app notices its server dying**: 3 missed `/api/alive` beats (~15s) show a QUIET amber line whose button
   opens Settings > Data & updates (`openConnectionSettings`), where `UpdatesCard` shows the `down` state (`serverDown` prop) and offers **Restart
   now** (same two-path restart). A beat that succeeds again reloads the page (it may be an old build).
@@ -461,6 +619,9 @@ caused a restart loop), so a forgotten server keeps serving stale config. SHORTC
   would destroy uncommitted and untracked work, so it is left alone (upstream repaired in place when on master).
   Both functions return false with no git on PATH: calling a missing `git` inside setup's main `try` is a
   TERMINATING error and used to abort the whole install.
+- **ANY checked-out commit is a real clone** (`Test-RealClone` no longer needs `origin`): a clone whose remote
+  had another name was sent to `Link-ToGit` and lost its work (reproduced). Setup requires Node 18+ (vite) and
+  upgrades an older one; the seeded AnkiConnect `meta.json` carries `mod` = install time (0 looked outdated).
 - **"Has a commit" = `rev-parse --verify -q HEAD`** (prints nothing on an unborn HEAD); plain `rev-parse HEAD`
   echoes "HEAD", so an interrupted `Link-ToGit` looked healthy and was never repaired.
 - **Re-exec after linking**: the running script is the old ZIP copy, so `setup.ps1` re-execs once from the fresh
@@ -485,6 +646,7 @@ caused a restart loop), so a forgotten server keeps serving stale config. SHORTC
   session with unsynced ratings and clears `studySyncError`.)
   It also re-fetches `/api/ankiconnect` every other tick (not in the overlay), else the banner stayed on a state
   (dialog open) the user had already fixed.
+  Its one-ping guard is a ref (`reconnectPingBusyRef`): the effect re-runs on every card change.
 
 ## Anki + AnkiConnect install (setup, fail-soft, never throws)
 - Anki: `winget install -e --id Anki.Anki`. **"Is it installed" (`Test-AnkiInstalled`, Uninstall `DisplayName`) and
@@ -520,6 +682,8 @@ Every state has **Open Anki** (`/api/anki-focus`; with no window it STARTS Anki 
 visible dialog when there is no main window. `installAnkiAddon` shows `ankiAddonAlready` for `alreadyInstalled`.
 `ankiSyncAuthState` counts a "Sync status ..." error as signed in (first full sync pending).
 an install that doubles as a repair.
+`ankiListening` (8765 open but silent) + running = `waiting` (a modal dialog), before `notLoaded`; an UNKNOWN
+`ankiRunning` (non-Windows, failed probe) shows the neutral `ankiNotConnected`. Linux base honors `XDG_DATA_HOME`.
 - **AnkiWeb account** (optional; until signed in, cards live on one computer). `ankiSyncAuthState()`: AnkiConnect's
   `sync` checks `mw.pm.sync_auth()` first and raises `"sync: auth not configured"`, so the probe is free when
   signed out and a normal sync when signed in. Probed ONCE per machine (`signed-in` kept in
@@ -529,10 +693,18 @@ an install that doubles as a repair.
   through Ebiki). It only raises Anki's window (`scripts/focus-anki.ps1`: main window only, SW_RESTORE +
   SetForegroundWindow) and says which button to press. The banner says so.
 - Neither route is in `DATA_ROUTES`.
-- **The `/api/anki` proxy times out** (2 min; 15 min for `sync`). AnkiConnect answers on Anki's UI thread, so a
+- **Duplicate checks are scoped to the target deck** (`duplicateScope: 'deck'` + `checkChildren` in `ankiAddNote`
+  and `ankiCanAddNote`; unscoped, Anki checks the whole collection). `ankiSetNoteTags` escapes `\ * _` in
+  removals (Anki matches them as patterns). The audio embed writes the name `storeMediaFile` RETURNS.
+- **The `/api/anki` proxy times out** (2 min; 15 min for `sync`). A timed-out CHANGE is still queued in Anki, so
+  its reply says to check before retrying (`timedOut: true`). AnkiConnect answers on Anki's UI thread, so a
   modal dialog in Anki means NO answer; without the timeout, callers waited forever and boot-watcher pings piled
   up. The timeout reply tells the user to answer Anki's window. `ankiRequest` turns a cut-off (non-JSON) reply into
   a readable error.
+  Its own errors carry `code` (`notRunning`/`timeout`/`timeoutChange`/`closed`), shown by `ankiRequest` in the app
+  language (`anki_err*`); a failed fetch is `anki_errNoServer`.
+  `ankiRequest` puts the proxy's `code` on the Error (`timeoutChange` = still queued): Quick Add stops its batch and
+  unticks that card; Copy/Move shows the reason. A failed `ankiGetDecks` never empties `ankiDecks` (null, not []).
 
 ## Anki updates are Ebiki's job (`scripts/anki-update.ps1`)
 The website install (`%LOCALAPPDATA%\Programs\Anki\anki.exe`) is a LAUNCHER; real Anki is a uv venv in
@@ -550,8 +722,14 @@ a `.want-launcher` trigger from Anki's own update dialog) the launcher opens a t
   <.python-version>`, cwd = root, `UV_CACHE_DIR`/`UV_PYTHON_INSTALL_DIR` = root's `cache`/`python`. pyproject
   written UTF-8 without BOM, `requires-python` from `.python-version`. Status every 10s, 15-min cap. uv output →
   `logs/anki-update-uv.*.log`, decisions → `logs/anki-update.log`.
+- **Mirrors the launcher's own rules** (checked against `qt/launcher/src/main.rs`): stuck also = pyproject NEWER
+  than `.sync_complete` (whole seconds); `Set-AnkiPin` deletes the marker first; uv runs with every inherited
+  `UV_*`/`VIRTUAL_ENV` cleared and `UV_NATIVE_TLS=1` (no `UV_CACHE_DIR` with `nocache`); an update uses the
+  LAUNCHER's `.python-version` (a pre-25.6 root says 3.9) and records it on success; a pre-25.6 restore writes
+  the original files back (no `anki-release` exists for it). No update or repair while Anki is up
+  (`Test-AnkiUp`). `.want-launcher` overrides a previous decline.
 - **Never leaves Anki broken**: success = `aqt-<ver>.dist-info` exists; then touch `.sync_complete` AFTER the
-  pyproject. Any failure re-pins the installed version, re-syncs and sets the marker. A stuck launcher (marker
+  pyproject. A restore sets the marker only when the installed version's dist-info really exists. Any failure re-pins the installed version, re-syncs and sets the marker. A stuck launcher (marker
   missing, OR a leftover `.want-launcher`) is repaired the same way when nothing is offered or the user declines.
 - Skipped: classic installs (no `uv.exe`), no venv yet, a `mirror` file, offline.
 - Anki's own in-app update still restarts into the launcher console; the next Ebiki launch repairs failures.
@@ -567,6 +745,7 @@ a `.want-launcher` trigger from Anki's own update dialog) the launcher opens a t
 Cards and Study panes have an **Ask AI** box. `proposeModeEdit(instruction, scope)` returns a proposal shown as a
 before/after word diff (`diffWords`) with ✓ Accept / ✗ Deny (or refine). `acceptModeEdit()` applies via
 `updateActiveMode`. Scopes: `cards` (fields/templates/tagRules), `study` (questionPrompt/ratingRules).
+Proposals are shaped (`shapeModeEditValue`) before they are shown, so the review is exactly what Accept saves.
 
 ## Anki's "Collection sync complete." toast
 From Anki's source (checked on 25.09.4; this machine runs 26.5): after a no-changes collection sync `aqt/sync.py`
@@ -600,13 +779,33 @@ renders `<ModeStudio>` near HelpChat):
   (name/type/description/fields/templates/tagRules/studyRules/chatSuggestions/mnemonicHints/tagCategories/
   discoverKinds).
 - vs `proposeModeEdit`: that's a one-shot field diff; Studio is the multi-turn superset.
+- **Rating is fixed in code** (0 wrong Easy, 1 Good, more Hard, all Again; MC capped at Good). `ratingRules` is not
+  editable anywhere (Settings shows `set_ratingFixed`; not in `MODE_EDIT_SCOPES` or the Studio prompt): a box nothing
+  reads is a lie. Knowledge Enable/Disable PATCHes `&disabled=1|0` (idempotent), one request per file
+  (`knowledgeBusyRef`); a failed list read keeps the list.
+- An EDIT keeps the mode's name unless the spec names a different one (`modeNameKey`); creates refuse while
+  `dataSwitchingRef` is set. Callers that await an AI call use `endStudyForModeSwitchRef.current` (a stale
+  closure missed a session started meanwhile).
+  A Studio CREATE awaits `saveModes` and rolls back on `saveOk === false` (like `createMode`); it returns the saved name.
 
 ## Onboarding
 No `onboarded` flag → `src/components/OnboardingWizard.jsx`: welcome → app language → light/dark → how Ebiki opens
 → AI provider + key ("Advanced" custom model) → intelligence preset → first mode (`createMode`) → finish.
-Re-runnable from Settings → General. The step body is CALLED (`{Body()}` in a Fragment keyed by step), never
+Re-runnable from Settings → General. `createMode` AWAITS `saveModes` (postModes' result carries `saveOk`); a
+failed first-run save returns false and removes the unsaved mode. `validateKey` answers `'noCredit'` (own message
+`keyNoCredit`) and confirms a key through `listModels` when the model 404s. While `wizardShown` the header is
+`inert` and Alt+Q waits; the panel takes focus per step; a re-run closes on Esc/✕. Finish stamps `lastModelCheck`. A startup load that THREW is not a first run (`startupFailed` keeps the
+wizard shut; `modesLoadedRef` drops while the list is still the placeholder). A first run's placeholder mode is
+replaced by the first real mode (`modesReadEmptyRef`/`modesToAddTo`), not saved beside it. That identity check needs ONE
+`defaultMode` object: `defaultMode`/`defaultStudyRules`/`defaultGeneralStudyRules` live at MODULE scope (inside
+App they were rebuilt every render and the placeholder was saved). `uniqueModeName` ignores the placeholder, and
+a mode replacing it is always made active. "Run setup again" with an unchanged provider/key adopts no models.
+A failed or unreachable start still opens a tab; theme and `lang` are applied in `useLayoutEffect`. `createMode` saves
+`studyRules.studyLanguage` for language modes (else it was guessed from the NAME). Choice tiles use
+`choiceProps` (role radio, Tab + Enter/Space). The step body is CALLED (`{Body()}` in a Fragment keyed by step), never
 rendered as `<Body />`: a component declared inside another is a new type every render, so React remounted the step
 on each keystroke and the key field lost focus. Same rule everywhere: no components declared inside components.
+  The wizard traps Tab (capture keydown), and the overlay auto-launch waits for `onboarded`.
 
 ## Modes & knowledge base (per mode, gitignored)
 - `modes/<name>/config.json`; knowledge in `modes/<name>/knowledge/`, served by `/api/modes/knowledge` (always
@@ -619,11 +818,25 @@ on each keystroke and the key field lost focus. Same rule everywhere: no compone
 - **Study completion counts in-flight generations** (`pullsInFlightRef` + the `studyPullTick` state): pulls AND the
   cards `beginStudy` generates in the background (`trackStudyGen`). Completion waits for 0; the tick re-runs the
   completion and stall-rescue effects when a generation ends without adding a card.
+  The count is PER SESSION: `exitStudy` zeroes it and a pull decrements only while `studySessionRef` is unchanged.
+  Every pull (flashcards, conjugations, PBQ) reserves its pool index from `pbqPullRef` synchronously (set at every
+  cursor reset); relearn copies insert relative to it and none are queued during Wrap Up. A failed grading sets
+  `gradeFailed` (its placeholder "wrong" results are left out of accuracy and insights). A give-up or skipped
+  conjugation word clears `studyAnswerHistory` (Back reopened the previous card).
+- **One-mode edits write ONE mode** (`changedIds` in the modes POST; `updateModeById` and `setAnkiDeck` send it,
+  `writeModeFolders` writes, moves and re-tags only those; the rest of the list is context). A whole-list save
+  from a stale copy undid another computer's rename or edits on every Settings keystroke. `saveModes` (create,
+  delete, rename, repair) still writes the whole list.
 - **Explicit mode deletes.** The client ALWAYS sends `deletedIds` (usually empty) with a modes save, and then
   `writeModeFolders` removes ONLY those modes' folders; a mode merely missing from the list is kept (a second
   computer on a shared folder with an older list used to delete modes it had not seen). No `deletedIds` (an
   older build) keeps the old "absent = deleted" rule. The modes LOAD must `setModes(cleanedModes)`: 1.5.3 lost that
   line and ran every launch on the in-memory default mode.
+  Deleted ids are tombstoned in `modes/.deleted.json`: `writeModeFolders` never re-creates a missing folder for one
+  (a second computer's stale save of that mode) and reports `deletedElsewhere`; the client drops it (not the active
+  one) with `mode_deletedElsewhere`. Real creates use clock ids (`mintModeId`), so they never hit a tombstone.
+  `.deleted.json` is read strictly: only ENOENT (or a damaged file) is empty; any other read error is retried once,
+  then no tombstone is written that time.
 - **Mode folders: `modeFolderName` + `writeModeFolders` (vite.config.js), used by `/api/modes` AND the knowledge
   endpoints.** The POST removes every folder the list doesn't name, so: a RENAME moves the old folder (found by id
   among the folders about to be removed; writing the new name and sweeping the old deleted the knowledge base);
@@ -634,9 +847,25 @@ on each keystroke and the key field lost focus. Same rule everywhere: no compone
   id-less `Default` folder (the old template) is hidden (`isDefaultTemplate`); a mode NAMED Default is real.
   Tests: `mode-folders.test.js`.
   **Ids compare as strings (`idKey`)**: a mode whose id was saved as "5" was taken for another computer's mode.
+  In a WHOLE-list save any other mode's folder is foreign (only a save changing both may swap; a folder whose
+  id is held TWICE is the load repair's own); a mode whose id
+  already lives in another kept folder is reported with that folder's name (`suggested`), never re-created; a
+  rename into an id-less folder parks it first; duplicate targets in one payload conflict. `modeNameKey` (client)
+  applies the same device-name rule as `modeFolderName`. Offline reconcile redirects `modes/<old>/` edits to the
+  share folder holding the same id, only when the BASE had `<old>` (else it is a rename made offline).
+- **A rename whose folder move FAILS (Windows: a file inside is open) leaves that mode untouched** and answers
+  `renameFailed`; `postModes` puts the old name back (`mode_renameFailed`). Writing on used to leave two
+  folders with one id. Any non-OK modes save shows `mode_saveFailed`. The legacy `<n>.json` migration never
+  overwrites an existing mode (kept aside as `.migrated`). Knowledge endpoints resolve a name with no usable
+  characters to its `mode-<id>` folder (`modeFolderForName`).
 - **`writeModeFolders` never writes into a folder owned by a mode the payload doesn't know** (another computer's,
   made after this one loaded): it returns `conflicts` with a free `suggested` name, the POST passes them on, and
   `postModes` renames ours via `updateModeById` + `mode_nameTakenElsewhere`. `migrateModeStores` MERGES into a
+  **Create/delete send `changedIds` too** (only the new mode; `[]` + `deletedIds` for a delete): as whole-list saves
+  from a stale list they moved another computer's renamed folder back. **`renamedIds`** (renameMode, and
+  `updateModeById` when the name changes): a missing folder is MOVED from its same-id folder only for those ids;
+  otherwise the server reports the folder's current name (`suggested`) and the client adopts it. `isDefaultTemplate`
+  hides a "Default" folder only on ENOENT or an id-less config (a locked read hid a real mode).
   destination that already has data (`mergeModeStore`: hooks per key, grammar by folded text, ledger union, newer
   profile), so renaming back to an old name keeps what was added since. Knowledge delete/toggle go through
   `knowledgeFileRequest` (awaits `modesSaveRef`, name resolved by id).
@@ -644,6 +873,12 @@ on each keystroke and the key field lost focus. Same rule everywhere: no compone
   is ignored; a config that fails to READ is retried once, then the GET answers 500 (never a partial list).
   A mode `config.json` that still fails to PARSE after the retry is renamed `config.json.corrupt-<stamp>` and
   skipped (500 only for IO errors; ENOENT = folder gone, folders re-listed on the retry).
+  `postModes` ALWAYS sends `renamedIds` (default `[]`; a missing list is an older client and moved folders back).
+  A conflict for this same mode renamed elsewhere carries `adopt: true` and shows `mode_renamedElsewhere`.
+  A folder whose own config already names the target is only MISNAMED and is moved (no adopt: that looped
+  forever); the client also skips an adopt equal to the live name.
+  A parked id-less Default folder's `config.json` becomes `config.json.parked` (only when it READ as id-less), else it
+  was listed as a ghost mode on every launch.
 - **New mode ids come from `mintModeId(list)`** (max of `Date.now()` and the largest id + 1): two creates in one
   millisecond, or a list holding a future id from another computer, collided.
 - **Model-written mode config goes through `modeText`/`modeFields`/`modeType`/`clampRule`** (top of App.jsx) in
@@ -663,6 +898,16 @@ on each keystroke and the key field lost focus. Same rule everywhere: no compone
   **Every rename (Settings, Ebi Studio) moves stores through `migrateAfterSave`**: after the save answers, only if
   the live name is still the target; `storesAtRef` keeps the name the stores really live under across quick
   double renames.
+  A save that FAILED (`saveOk === false`) moves nothing: `storesAtRef` keeps the saved name.
+  A rename whose save FAILED puts the name on disk back on screen (local only; it kept showing the unsaved name).
+- **An upload never silently replaces a file**: the POST answers 409 `{exists}` for a name already there (any
+  case, or its `.disabled` copy) unless `replace:true`; the client asks (`kb_replaceConfirm`). A PDF becomes
+  `<name>.txt`, so it collided with the user's own file.
+  A `replace` removes a case-different old copy only when it is another file (inode), for Linux.
+  With Settings > Knowledge open, `handleDrop` hands the whole drop to `handleKnowledgeDrop` (any spot in the pane).
+- **Outline**: a bare "CHAPTER N" line keeps its number in `headKey` (else every chapter folded into one running
+  head); markdown mode (`hasMarkdown`) is trusted in `.md` files, and in `.txt` only with 3+ `#` lines and no
+  chapter-word/CJK chapter lines (one "# comment" in PDF text dropped the book's outline).
 - **Knowledge uploads report failure** (`!res.ok || !data.ok` → error toast; it looked like success). The server
   takes only `.txt`/`.md` names, and an upload replaces a switched-off `<name>.disabled` copy (both used to exist:
   listed twice, and re-enabling the old one renamed it over the upload).
@@ -671,6 +916,9 @@ on each keystroke and the key field lost focus. Same rule everywhere: no compone
   (profile + suggestions), Help (12k cap), Picture click-to-explain (4k cap). Default `KNOWLEDGE_CAP` = 60,000
   chars (~15k tokens).
   An `activeModeId` change clears `modeKnowledge` at once (the reload waits for the switch's mode save).
+  The knowledge GET skips files that vanished mid-read (ENOENT) and answers 500 on any other failure; the client
+  keeps what it has on a non-OK answer. Section picks are cached by the WHOLE task; an empty answer drops the pick
+  and re-reads the outline.
 - **Whole-book KBs: TOC-guided retrieval.** Above the cap the server extracts an `outline` (GET
   `/api/modes/knowledge`; sections via GET `/api/knowledge-sections?sections=i,j`) from markdown headings, "Chapter
   N" lines, numbered "1.2 Title" lines, OR a file NAMED like a TOC (`toc.txt`, "table of contents.md") whose lines
@@ -684,6 +932,15 @@ on each keystroke and the key field lost focus. Same rule everywhere: no compone
 - **`TOC_LEADER_RE` must stay linear**: each whitespace run has ONE owner (`\s*(?:[.·…_]\s*){2,}`); the old
   `(?:\s*[.]\s*){2,}` backtracked 2^n on "Preface . . . . xi" and froze the server on every knowledge load. It also
   strips roman page numbers. Test any regex that runs over whole books against a 5000-char adversarial line.
+  Each alternative carries a lookbehind so a match STARTS only where a leader run starts (quadratic otherwise).
+  toc.txt matching looks lines up in an index (`candidatesFrom`), never a scan per entry. Chapter-word/CJK lines
+  ending in a PERIOD (not an ellipsis), with no separator and a LOWERCASE start after the number, are prose (questions and "Chapter 1: ..." stay titles); a heading seen twice with and without a page number keeps the plain copy;
+  fences close only on their own marker. Text uploads decode UTF-16 by BOM.
+  A toc line is a contents-page line only with a dotted leader or when it AND the next end in numbers; number-stripped
+  forms compare only when one side had a number ("Chapter 1" matched "Chapter 2"). `detectHeadings` computes
+  `headKey` once and groups by key (it was titles x entries per knowledge read).
+  Numbers the toc entries THEMSELVES end in ("1.1 Installing Windows 11") are titles, not page numbers (`titleNums`).
+  The page-number strips use `(?<!\s)\s+\d+$` (unanchored, a long space run inside a line was quadratic).
 - **Outline heuristics** (`detectHeadings`): PDF text has no paragraph breaks, so a numbered or chapter-word line
   whose text after the number starts lowercase is wrapped PROSE (`proseAfterNumber`), never a heading. Running heads:
   the copy without a trailing page number wins; a title whose every copy has a different LEADING page number is the
@@ -701,7 +958,8 @@ on each keystroke and the key field lost focus. Same rule everywhere: no compone
   Chinese/Japanese items (`CJK_END`/`CJK_START`); Hangul keeps spaces.
   `extractPdfText` passes `cMapUrl`/`standardFontDataUrl` (`/node_modules/pdfjs-dist/...`, served by the dev
   server) so CJK PDFs with predefined CMaps have text; a space goes between runs only when they are APART
-  (`x - prevEnd > 0.2 * size`), and a new line needs `|dy| > max(2, 0.7 * size)` (superscripts stay inline).
+  (past the previous run's end, or ending before its start: `prevStart`), and a new line needs `|dy| > max(2, 0.7 * size)` (superscripts stay inline).
+  Both sides count: right-to-left runs apart are separate words; a run back over the previous one (an accent) is glued.
 
 ## Discover tab (adaptive new-card engine)
 - **The learner profile is per mode.** Chats are tagged with `mode` on save (`chatTabSaveCurrent`; the server
@@ -726,6 +984,8 @@ on each keystroke and the key field lost focus. Same rule everywhere: no compone
   live in Anki media (async). **The mode-switch reset effect and the init effect must BOTH be `useLayoutEffect`**
   in one pre-paint flush (reset → cached paint → init); only one brings back the blink and breaks re-init
   (`discoverInitRef`). Cache writes skip `null`/`DEFAULT_LEDGER`. Doubles as the offline fallback.
+  A cached ledger enables ledger WRITES only when `ledgerVerified` (cached while this session could write): a
+  ledger kept after a failed read held only that session's entries and later replaced the stored history.
 - **Anki media names are FLAT: `_ebiki_<kind>__<key>.json`.** A name with "/" (the old `_screenlens/...`) is
   unwritable in place: AnkiConnect reads the basename but its delete-before-store matches nothing, so every write
   became a hash-suffixed copy and every read returned the FIRST version. The legacy name is read once as a
@@ -735,6 +995,15 @@ on each keystroke and the key field lost focus. Same rule everywhere: no compone
   when the user adds a card (`saveDiscoverCard`).
 - **Saving** goes to `discoverDeck || ankiDeck || ankiDecks[0] || 'Default'` (non-persistent fallback; an
   unset deck made the add fail). Errors are i18n'd (`d_err*`).
+- `discoverDeckRef` is the live switched deck (reset and init share a commit); ledgers are shape-checked on read
+  (`shapeLedger`); the final dup check includes `discoverDeckTermsRef`.
+  `buildLearnerProfile` reads `deckKey || ankiDecks[0]` (a mode with no deck saves into the first deck) but stores
+  the profile under `deckKey`. The web-verify search checks `live()` after its await.
+  `ankiDecksRef` is the live deck list (init runs on the render Anki connected, before `ankiDecks` arrived); init
+  awaits `ankiGetDecks` for a deckless mode. A cache-painted ledger keeps its `ledgerVerified` (`discoverCachedLedgerRef`).
+- **Discover async guards**: the full duplicate set loads under a MODE + DECK-SWITCH token (Adjust bumping
+  `discoverGenRef` left it empty); the cache paint runs only on the mode deck; a save retired by Adjust says so
+  (`d_saveCancelled`). partOfSpeech/difficulty/domain-coverage estimates are asked in the app language.
 - **Actions**: Make Card / I Know This (`known`) / Skip (`declined`: excluded forever) / Next (advance, nothing
   recorded). All via `discoverExcludeList`.
 - **Dialect + mode language**: `fetchNextSuggestion` appends `dialectRule()`; `buildCardFields` (Discover + Picture
@@ -755,7 +1024,9 @@ on each keystroke and the key field lost focus. Same rule everywhere: no compone
 
 ## Ebi's Help chat (`src/components/HelpChat.jsx`)
 - **Screen context is GATED BY `activeTab`.** `buildSystemPrompt` opens with ">>> RIGHT NOW the user is looking at
-  THE <tab> SCREEN <<<" and emits only that screen's detail. `studyActive` stays true across tabs, so the live
+  THE <tab> SCREEN <<<" and emits only that screen's detail. The live question's card FRONT is SECRET like
+  its answer (on a language card it IS the answer). `questionPreferences` and the Picture direction
+  (`pictureFrom`/`pictureTo`) are top-level in `appContext` (preferences used to exist only mid-session). `studyActive` stays true across tabs, so the live
   question is "ON SCREEN" only when `tab==='study'`; elsewhere it's a "Background only" note. `appContext` (bottom
   of App.jsx) must stay CURRENT: live study question (from `currentQuestion` + `studyCardState`, NEVER the legacy
   always-empty `studyQueue`), `studySession`, `deckBrowser`, `discover`, `stats`. **New tab → add its
@@ -765,9 +1036,11 @@ on each keystroke and the key field lost focus. Same rule everywhere: no compone
   question-style rule), `set_dialect` (`studyRules.dialect`, language modes), `deck_edit` (opens Deck, prefills ✨
   Ebi bulk edit, `pendingDeckEditRef` runs the PREVIEW once notes load; writes nothing itself). New action =
   CAPABILITIES text in `buildSystemPrompt` + an `onAction` branch + a receipt. Keep composer wording action-y.
+  Action values must be STRINGS (`question_preference`, `deck_edit`, like `set_dialect`): an object became "[object Object]".
 - **Verified receipts**: `onAction` returns an app-authored string saying what really happened: the change and what
   it affects, or plainly that it was NOT applied (mode deleted, Anki not connected, mode switched). `sendMessage`
-  appends them under "✅ Checked by the app (what really happened)". Gate "saved" wording on
+  appends them under "✅ Checked by the app (what really happened)" (`hr_header`). Receipts are i18n keys (`hr_*`;
+  the study feedback chat's are `fbr_*`), never hardcoded English. Gate "saved" wording on
   `updateModeById`'s return (false when it bailed). New actions MUST return a receipt. `deck_edit` bumps
   `pendingDeckEditTick` (already on the Deck tab, nothing else re-ran the pending-edit effect).
   `updateModeById` returns false when the modes read failed (nothing is saved), and Studio Apply throws
@@ -778,10 +1051,24 @@ on each keystroke and the key field lost focus. Same rule everywhere: no compone
   remains behind `!hideButton`). The header shows Ebi (~46px, negative margins) right of the title, using
   `helpMascot` (default `IDLE_SHRIMP`).
 - **In character**: `HELP_BASE` speaks as Ebi; never calls itself a "mascot".
+- A Learn-it lesson or PBQ result on screen sends `learnMoment` and NO `currentQuestion` (it was already the next
+  card's); `gradedRecent` leaves out the live card's front.
+  `currentQuestion` is also null off the question phase (summary), during a choice/typed flash, and for a done
+  card. Action values the app saves or echoes go through `helpText` (dash + shrimp strip). A Help `deck_edit`
+  records `deckNotesReqRef` and runs only on a note load that started after it (`deckNotesLoadedReqRef`). A send after a FAILED save keeps the panel's turns
+  when the disk copy is only their prefix.
+  Its receipt names the deck `openDeckBrowser` will open (mode deck only if it exists); an empty fresh load drops
+  the pending edit.
+  `grammarSlips` leave out slips logged on the live question's card (or revealing its answers).
+- Help's saves honor `dataSwitchingRef` through the `canSave` prop (and skip the pre-send re-read while frozen).
 - **HARD RULE: Ebi NEVER emits a shrimp emoji.** Forbidden in prompts (HELP_BASE + Chat `systemPrompt`) AND
   code-stripped (`[🦐🦞🦀]️?` next to the em-dash strip in HelpChat `sendMessage`, Chat `cleanText`, and the
   search-offer answer). Other emoji are fine.
 - Scrolls to the bottom on open.
+- The dock (`snapZone`, `chatPos`) is remembered in localStorage (`ebiki-help-dock`/`ebiki-help-pos`) and kept on
+  close; docking/undocking re-scrolls to the bottom; a drag out of an edge zone clamps the grab offset to the free
+  size; the chooser overlay is above the panel while choosing. Every `<action>` yields a receipt: one that applied
+  nothing adds `hr_notApplied`. Esc closes the panel when focus is inside it. `newChat` sets `userStartedRef`.
 - **Docking**: drag the header (⠿) or click ◣ to pick **Dock left** / **Dock right** / **Under the question**;
   previews come from one shared `ZONE_RECTS`. Sizes are viewport-relative (`clamp(250px, 24vw/1.35, 380px)`; /1.35
   undoes the body zoom). Esc cancels; dropping in open space floats. `snapZone` = `null` | `left` | `right` |
@@ -836,6 +1123,10 @@ on each keystroke and the key field lost focus. Same rule everywhere: no compone
   `buildCardFields` explains in `userLangName()`. Vision/word-list rows carry `o: true` for a word in the user's own
   language (`_own`): its card is made for the TRANSLATION. The clean fast path keeps words missing from a cut-off
   reply as `_untranslated`. The overlap clamp skips `_approxBox` words.
+  "Generate card" is disabled on an untranslated word in language modes (its direction is unknown). An unsaved
+  `targetLang` defaults to the APP language (general modes translate into it), and follows an app-language change
+  while it still equals the old language's default (`targetLangAppRef`; onboarding picks the language after load).
+  The config load sets `targetLangAppRef` first, so the load's own language change is not a switch.
 - **Reading panel** (`ocrLines`, grouped by `line`) below the image; chips share `hoveredIdx`/`pinnedIdx` with the
   overlay. A click shows `sense` (green) + `alts` (purple). JSON via `parseAiJson` (+ `salvageJsonObjects`).
 - UX: inline **Ask Ebi** + **✕ Exit** in the toolbar when done; Esc exits; switching tabs clears
@@ -849,6 +1140,21 @@ on each keystroke and the key field lost focus. Same rule everywhere: no compone
   `ankiSynced` and bumps `pinGenRef`. Drop/paste of an image on another tab switches to Picture first (like Alt+Q).
   Overlay auto-analyze timers are gated on `scanGenRef`, and `overlay-reset` clears `window.__autoAnalyze`.
   Progress lines are i18n'd (`pic_prog*`) through `tLiveRef` (memoized callbacks hold an old `t`).
+- **Every `pinGenRef` bump calls `resetPinBusy()`** and each word action's `finally` clears its busy flag only
+  while its pin is current: word A's in-flight card/explain/conjugation/chat kept word B's buttons busy.
+  "Add to Anki" and Refine use the EDITOR's text while it is open (Add dropped unsaved edits; Save reverted a
+  refinement).
+- **OCR input is opaque**: `preprocessForOCR` paints white first and forces alpha 255 (a transparent
+  background read as black and was inverted with its text). The clean fast path is taken only when few words
+  fell below 70% confidence (they were silently left out). An untranslated word's `translation` is `''`, never
+  a stored "Loading…". Stats labels are `pic_toTranslate`/`pic_ownWords` (no language names).
+  `preprocessForOCR` resolves the ORIGINAL when the canvas can't be read (tainted SVG, 0x0): it hung forever.
+- **Tesseract fallback translation** parses with `parseAiJson` (`maxTokens: 8000`), checks `stale()` around every
+  chunk, and retries at most 12 missed words in the background. Popup fields and Picture cards go through
+  `dashText`/`stripDashes`. Reading-panel lines keep the model's order (never sorted by x0: RTL). `imageLoadSeqRef`:
+  the newest picture wins. A refine lands only if `ankiCardVerRef` is unchanged.
+  `loadImageFromDataUrl` retires the running scan only in `onload` (an undecodable HEIC killed it); drops use the
+  first IMAGE file and never switch tabs for a non-image; the overlay ignores paste (it has no Analyze button).
 - **Zoom-aware tooltips**: body has `zoom:1.35` (non-overlay); rects/`clientX` are real px, `left/top` layout px, so
   divide by `getZoom()` and clamp pinned popups to the zoom-adjusted viewport.
 
@@ -864,6 +1170,9 @@ on each keystroke and the key field lost focus. Same rule everywhere: no compone
   (`studyLoading`) counts as live for `endStudyForModeSwitch`. "Back" never reopens a `rating: 'deleted'` card;
   "Yes, delete" is claimed once (`studyDeletingRef`). The post-sync refresh reads `deckBrowserDeckRef` /
   `studyDeckLiveRef`, never the queuing render's deck.
+- **The Study START screen is not a live session**: the deck-follow effect runs for `studyPhase === 'pick'`, the
+  snapshot re-saves on `activeModeId`, and a restored pick screen never switches the mode back. A snapshot
+  write that FAILS removes the stored one (a stale copy re-answered cards in Anki after a reload).
 - **Study resume** (only after a SUCCESSFUL modes read, `modesLoadedRef`; else the snapshot is left untouched): snapshot written on change, gated by `studyHydrated` (can't clobber before the one-shot
   restore), cleared when `studyActive` ends. **Expires** after `STUDY_SESSION_MAX_AGE_MS` (8h; missing `savedAt` =
   stale). A valid restore SANITIZES: unsynced `gradedAt` re-stamped to now; cards stuck `evaluating: true`
@@ -872,6 +1181,7 @@ on each keystroke and the key field lost focus. Same rule everywhere: no compone
   question phase has nothing to show, nothing evaluating, no pull in flight, and cards left.
   The snapshot stores `studyAllCards` through `snapshotCard` (no css/nextReviews/<style>): full cardsInfo blew the
   storage quota.
+  The rescue also runs when the restore was skipped (`configLoaded && !modesLoadedRef.current`).
 - `overlayEnabled` (config, default ON, auto-launches once).
 - **Capture shortcut: `Alt+Q` only** (`electron/main.cjs` + a web keydown handler): opens the overlay, drag to
   select, Esc dismisses. No `Ctrl+Shift+A`. It switches to the Picture tab first (a capture on another tab was
@@ -881,6 +1191,8 @@ on each keystroke and the key field lost focus. Same rule everywhere: no compone
   it loads once at startup, often before onboarding set a key. Launch POSTs are serialized
   (`overlayLaunchChain`); the toggle sets `overlayAutoLaunchedRef`. Both windows reload on
   `render-process-gone`.
+  It re-reads the deck list too, and the auto-analyze waits for that refresh (`overlaySettingsReadyRef`, 5s cap).
+  The header toggle acts on `overlayRunning` (what the dot shows), not the saved preference.
 
 ## Card generator (shared, language-agnostic) + Quick Add
 - `generateCards(words)` works for any language/subject. **Language modes** → `LANGUAGE_CARD_PROMPT` with
@@ -900,6 +1212,18 @@ on each keystroke and the key field lost focus. Same rule everywhere: no compone
 - **An empty template placeholder must not ship its punctuation** (default `frontTemplate` `{word} ({partOfSpeech})` → `word ()`). `buildCardFields` asks for `partOfSpeech` when a template needs it and the caller
   left it blank (in the learned language for language modes); `cleanTemplateGaps` strips EMPTY bracket pairs (only
   empty ones) from front and back.
+- **`generateCards` is BATCHED** (8 words per call, `maxTokens: 8000`, each batch proofread): 30 pasted words
+  hit the output limit and the salvaged reply silently lost cards. A short `verifyCards` reply is a cut-off
+  prefix (the unreached cards stay unverified). "Add N" stops when a new tray arrives (`quickAddTrayRef`).
+  A failed or unreadable batch is counted (`missedWords` on the result, `deck_genPartial`), never fatal unless
+  every batch failed. Quick Add drops a result after a mode switch or Close (errors too), disables Generate
+  while "Add N" runs (`quickAddBatching`), and added/adding tray cards are read-only.
+  `verifyCards`' short-reply tail keeps only rows whose headword is still under-represented (never a checked card twice). Quick Add's
+  duplicate check uses `deckBrowserDeckRef` after the generation and drops the tray if the deck changed.
+  A reply cut off mid-list (does not end in `]`/`}`) re-queues each batch word no card covers, once; a second miss counts.
+  Only the words AFTER the last batch word a card visibly covers are re-sent (earlier ones were answered, maybe under
+  another headword).
+  Cards are kept once per run by their FULL front (`madeFronts`, sense label kept).
 - **Accuracy guardrail (cards get MEMORIZED)**: `verifyCards`, a second pass, fixes nonexistent/misspelled words,
   wrong gender/translation/example, dishonest usage tags. Card + chat prompts say "never invent words, verify,
   admit uncertainty".
@@ -941,6 +1265,8 @@ lookup + check). Every prompt makes the model state `usageEvidence` BEFORE the t
   (batched, verified, chip diff, accept per card). TAGS-ONLY (no `recommendedFields`); must carry over every
   non-usage tag (`recommendedTags` replaces the whole list).
   Enforced in code (`keepAuditContract` in `analyzeDeck`): non-usage tags are always kept and fields never change.
+  Refine reads `deckAnalyzeTagsOnly` (recorded at run time), never a rebuilt `usageTagAuditInstruction()` (it
+  changes with the dialect/learned language).
 - **Rendering**: `renderUsageTagChips` (App.jsx) with `sortTagsUsageFirst` (region → freq → register first),
   `usageTagStyle` (green = safe: `region-global`/`freq-core`/`freq-common`; amber = heads-up; gray-dashed =
   unconfirmed), `usageTagTip`. Used by chat `<anki-card>`, the Quick Add tray, deck rows, the Picture widget, the
@@ -958,6 +1284,8 @@ lookup + check). Every prompt makes the model state `usageEvidence` BEFORE the t
 - `normalizeUsageTags` folds invented spellings (`region-usa` → `region-us`, `register-politics` →
   `register-political`) and drops junk from `generateCards` output and bulk-edit recs, but NEVER touches a tag a
   card already carries.
+  `mapRecs`/`verifyDeckRecs` fold and collapse only in LANGUAGE modes; Refine folds its AI tags itself (its reviewer is
+  fail-soft).
 
 ### Preferred-term honesty
 A card must never teach the headword as the everyday word for a meaning a synonym dominates in the studied variant
@@ -996,6 +1324,11 @@ Per translation: is this what a speaker actually says for THIS meaning?
   `attachChatImage` (refuses what can't become jpeg/png/gif/webp: HEIC/TIFF), and the send drops any part outside
   `PORTABLE_IMAGE_TYPES` (one bad image used to fail every later message). Portable = JPEG/PNG ONLY (Gemini has no
   GIF, xAI takes jpg/png, OpenAI refuses animated GIF); `downscaleDataUrl` re-encodes everything else.
+  A paste into a text field on Chat keeps its TEXT when the clipboard has `text/plain` (Excel/Word add a PNG).
+- **Chat honors the writer freeze** (`dataSwitchingRef`: saves, progress notes, rename, delete). Delete asks
+  (`chat_deleteConfirm`) and waits for card-add saves (`chatCardSavesRef`). Re-clicking the open chat does
+  nothing (it reloaded over unsaved turns). `chatTabMsgsRef` is set the moment a reply lands. Only the last 4
+  USER messages' photos ride along. `stripDashes` (module scope) keeps digit ranges and cleans chat cards too.
 - **Chat switches block sends** (`chatSwitchingRef` during New chat / open; `chatSendingRef` during a send; the
   restore-on-mount yields to a chat already started). History for every AI call goes through `boundChatHistory`
   (60k chars), incl. the search-offer answer. An EMPTY `<progress-update>` is ignored (it erased the notes).
@@ -1010,10 +1343,26 @@ Per translation: is this what a speaker actually says for THIS meaning?
 - **Chat reply parsing**: `<sources>` lines go through `parseCitedSources` (URL = the last http(s) part; titles
   hold pipes). A reply cut off mid-tag has the trailing unclosed block stripped. Chat cards go to Anki as PLAIN
   text (`escapePlainHtml` on front and each back line), like the widget shows them.
+- **Web search skips DuckDuckGo ads** (`result--ad` before the block, or a `duckduckgo.com/y.js` link): they
+  came back as the top "sources" with made-up URLs. The dev server logs an unhandled rejection instead of
+  exiting (`__ebikiRejectionGuard`): an async middleware that throws outside its try killed the backend.
+- **The "cite the results below" rule is added only WITH results** (a failed or empty search made the model invent
+  citations). A mode switch clears the attached deck (`chatAttachSeqRef` bumped). Older modes' chip backfill writes
+  text only (`cardText`) and only while the live mode still has no chips.
 - **A search that never ran is a FAILURE, not "no results".** `/api/web-search` scrapes DuckDuckGo's HTML (entities
   decoded; each result's real URL from the `uddg` redirect param, else `https://` + the display address). A bot
   check instead of results (HTTP 202, "anomaly" page) returns 502 `{error}`, and both chat paths say the search
   failed, not that the web had no answer.
+- **Chat history carries the assistant's cards** (`<anki-card>` JSON appended per turn in `boundChatHistory`).
+  The reply cleanup never collapses whitespace (code indentation) and never lets a dash join lines. A failed or
+  empty search keeps its status line. `<sources>` keep only URLs the search returned (`keepRealSources`). The send
+  builds on `chatTabMsgsRef.current` after the photo wait. Renames ignore empty/unchanged titles
+  (`chatRenamingRef`). A progress update over changed notes is skipped and the chat ADOPTS the current notes.
+- Renaming the OPEN chat waits while a reply or card add is in flight (`chat_renameBusy`); delete compares with
+  `chatTabSessionIdRef`. A chat tagged with ANOTHER mode (`chatOwnMode`) adds cards to that mode's deck and shows no
+  audio. Card tags render through `normalizeChatCard`. The last photo picked wins (`chatImageSeqRef`). The "+" menu
+  closes on Esc and on a tab change.
+A card-add save that FORKS adds a list row for the new id with the original's mode (`chatOwnMode` looks the id up).
 - **Markdown**: `src/components/Markdown.jsx` (`marked` + `DOMPurify`), themed by `.md-body`. Assistant only; user
   text is literal (`pre-wrap`). `<anki-card>`/`<sources>`/`<progress-update>` are stripped first.
 
@@ -1033,14 +1382,32 @@ matched by `cardId`. Anki computes the interval. `guiCurrentCard().buttons` is a
    (no `!`, interval preserved) and answer via the real reviewer. If still blocked (an unrelated due card ahead,
    daily limit), record a **one-step SM-2 interval from the card's own `interval × factor`** (`ankiCardsInfo`;
    Easy +30%, Hard ×1.2, Again 0) via `setDueDate <newIvl>!` + `insertReviews`. At most once per card per session.
+**A reviewer answer call that THROWS is not retried by the fallback in that run** (`uncertain` → `failed`): Anki may
+have recorded it, and a fresh learning card still reads as due. The fallback's `answerCards` (any throw but "not at top of queue") and the
+nudge's reviewer answer follow the same rule, and `uncertainSyncRef` is saved in the session snapshot
+(`uncertainSync`), written at once by `markUncertain` → `persistSyncGuards` (like `markSynced`). Re-rate and Back
+refuse a card in `uncertainSyncRef`. An EXPIRED snapshot with unsynced ratings reopens on its summary instead of being dropped.
+A correction loops on `syncChainRef` until it stops growing and `syncInFlightIdsRef` lacks the card. Finish uses
+`syncGradedNow`. A card skipped as not-due loses its
+`preSyncInfoRef` entry (a later correction would add a review to it). A second overturn of an already
+corrected card keeps Anki's grade (`fbr_alreadyCorrected`). `rateGradedCard` refuses cards in
+`syncInFlightIdsRef`. A failed run backs the auto-sync off 60s (`lastSyncFailAtRef`, re-armed via `studyPullTick`).
 **The `!` suffix is REQUIRED on recording paths** (it sets the interval, not just the due date); the `"0"` nudge
 deliberately omits it.
+   The uncertain-answer re-check counts only real answers (`ease >= 1`): the nudge's setDueDate writes a button-0 row.
+   A card it finds recorded is locked with ANKI's grade (the row's ease). The feedback chat refuses a re-grade of a
+   card in `uncertainSyncRef` (`fbr_ankiPending`), like `rateGradedCard` and Back.
+   Every answer call is marked uncertain BEFORE it is sent (`markUncertain(id, Date.now())`) and cleared on a definite
+   outcome (`markSynced` deletes it; a clean refusal calls `clearUncertain`): a page closed mid-call left Anki's
+   recorded answer invisible to the restored session.
 
 **The computed-interval fallback and post-lock corrections step from `preSyncInfoRef`** (the pre-review schedule,
 also saved in the session snapshot as `preSyncInfo`); with no schedule at all the fallback THROWS (retry later),
 never assumes interval 1. End Now marks unfinished cards `skipped`, never an unsyncable Again.
 
-**Stats count ANSWERS**: "Cards Today" and today's chart bar come from `ankiGetTodayReviewStats` (button ≥ 1); the
+**Stats count ANSWERS**: "Cards Today" comes from `ankiGetTodayReviewStats` (button ≥ 1; the chart keeps Anki's own
+per-day counts, which follow its rollover hour). It returns the `day` it measured (a read across midnight is
+dropped) and null when any deck read fails (last-known numbers stay).
 A post-lock correction's inserted row is recorded (`markCorrectionReview`, localStorage) and REPLACES that card's
 earlier outcome in `ankiGetTodayReviewStats` instead of adding a review. Session history accuracy skips
 `relearn` copies.
@@ -1084,6 +1451,8 @@ earlier outcome in `ankiGetTodayReviewStats` instead of adding a review. Session
   path (`!cs.noSync` in doSyncRatings/auto-sync/ticker/exitStudy/pending) and show a purple PRACTICE badge.
 - `submitStudyChoice` advances state immediately and leaves a frozen `studyChoiceFlash` snapshot for the green/red
   beat. Keys 1-4 answer; the meaning hint is hidden.
+  Options are deduped by the same `norm()` they are matched with (the model's correct option survives). Keys 1-4
+  wait while "delete this card?" (`studyDeleteConfirm`) is open.
 
 ### PBQs (`studyMode = 'pbq'`, GENERAL modes only)
 - Start screen: general modes get Flashcards|PBQ, language modes Flashcards|Conjugations; a stale type falls back
@@ -1103,8 +1472,16 @@ earlier outcome in `ankiGetTodayReviewStats` instead of adding a review. Session
   `review` prop = graded read-only. `submitPbqAnswer` grades locally, advances underneath, and holds the result
   (`studyPbqReview`) until **Continue**. Rating from the fraction (1 → easy, ≥.7 good, ≥.4 hard, else again);
   same Good-cap/`noSync`/`practiceGradeAnki` semantics as MC; "I don't know" → `evaluatePbqSkipped` (again).
+  The rating uses `pbqRatingScore` (engine): categorize is CHANCE-CORRECTED against dumping every item in the
+  biggest group (that alone scored 40-60%, a passing Hard). A reused exercise gets `reshufflePbq` (new layout,
+  same key). With a pull in flight the empty question area says `study_preparingNext` and hides View summary.
+- Item identity (`itemKey`) keeps symbols ("C++" ≠ "C"); `norm` is only the loose fallback. Numbered steps are
+  stripped (`STEP_MARK`) when nearly all carry a marker, CJK/full-width forms too ("1、", "１．", "①", "第一步："),
+  never a decimal ("1.5") or "e.g.". Matching boxes are one-to-one; the ordering arrows use
+  `aria-disabled` so focus stays.
 - Optional emoji icons (`raw.icons` → `pbq.icons`, `iconFor`): validated, excluded from `studentView`, never
   graded, must not hint at the answer.
+- A verified exercise goes through `strippedPbqOk`: after the dash strip an empty or duplicate item rebuilds it.
 
 ### Question-style preferences (`studyRules.questionPreferences`, per mode, max 12)
 The feedback chat's `question_preference` action distills "ask this differently" into one generalized imperative
@@ -1115,11 +1492,37 @@ Editable in Settings → Study. Also fed by the **✎ Fix question** button on t
 leak-checked, `glossFetchRef` key deleted so hints refetch) and saves a preference unless the model judges it
 one-off. Auto-closes on question change; hidden for PBQs.
 
+### Slash answers (`expandSlashAnswers`)
+One-letter endings expand ("bonito/-a" → bonito, bonita; "niño/a" → niña). An article slash beside a phrase
+expands on the side it stands: before the phrase it replaces the FIRST word ("el/la estudiante" → la
+estudiante), after it the LAST ("hace frío/sol" → hace sol); a bare article never passes.
+`answerLetterCounts` counts the expanded forms (split pieces only as a fallback, minus 1-letter endings; whole
+1-character answers like 雨 still count).
+A slash ENDING inside a phrase expands word by word, genders aligned ("compañero/a de clase" -> compañero de clase,
+compañera de clase; "los/las alumnos/as" -> los alumnos, las alumnas); never a phrase starting with a bare ending.
+`isSlashEnding` also takes a one-letter a/o ending after a 3-letter vowel-final base (tío/a) and a plural "/s"
+after a vowel. The Learn-it gate adds `expandSlashAnswers([head])` (the ONLY source for an ending inside a phrase).
+An accented final vowel keeps its accent and the ending is appended (fatigué/e = fatiguée). An unslashed gendered
+article (`GENDERED_ARTICLES`) fixes the gender: "el médico/a" expands to "el médico" only.
+Spelled endings are a table (`SLASH_SPELLED`): heureux/se, lavar/se, actif/ve, bon/ne, gentil/le, aquel/la,
+premier/ère, chanteur/euse, acteur/rice; each needs its base shape, so a bare "se"/"la" never passes alone. French
+bases ending in i/u keep the vowel (ami/e = amie, "un/une ami/e" = un ami, une amie). A plural ending beside
+another slash ("el/la joven/es") keeps only the singular (it made "la jovenes"). A fraction ("1/2 taza") is never
+split.
+
 ### Answer-leak guard (question + hint)
 `questionAnswerLeak` (exact, accent-insensitive, whole-word, ≥3 chars; explanation type exempt; general modes
 exempt the final deep question) and `hintRevealsAnswer` (FUZZY: plurals/inflections). Both REGENERATE first (up to
 two rewrites naming the violation); `scrubAnswerFromQuestion`/`scrubHint` (blank to `___`) are the last-resort
 net. The prompt also says the answer must never appear in the question (incl. the sense cue).
+`leakNorm` folds apostrophe forms. An answer holding any non-letter ("aujourd'hui", "week-end") is matched as a
+BOUNDED substring in hints (never inside "puisqu'il"); the scrubs accept any apostrophe form. A question still
+leaking after its scrub is DROPPED (never shipped; only a blank the scrub made counts for `blankedSubject`),
+and Fix question refuses it. `letterSkeleton` never builds from a Han-first answer (it showed half the word);
+a quoted LATIN letter cues a Han answer only through a pinyin/romaji answer.
+The guard's answers are `leakAnswers(q)`: accepted + the CORRECT choice, unless a distractor is named in the question
+too ("True or false"). `blankedSubject` is component-level: Fix question refuses a scrub that blanked the subject.
+When another option is named, accepted answers that ARE a choice are left out too ("True or false" shipped blanked).
 
 ### Typed-answer feedback (`studyTypedFlash`), three states
 Green ✓ = matched `acceptedAnswers` locally; amber ⏳ "Ebi will check" = explanation questions, general modes,
@@ -1139,11 +1542,20 @@ stripped).
   `:.?!`, capped), then a silent AI call picks a better term (fail-soft; `keyTermAlt` keeps the fallback
   accepted). General typing forgives case, spacing and trailing punctuation. The headline shows `headWord`;
   general modes show the full front as a paragraph.
+- **Apostrophes are folded** in the gate (`’‘ʼ\`´` → `'`): a curly-apostrophe front could never be typed.
+  The give-up dialog SHOWS the card front (`study_giveUpCard`): the owner wants to peek before deciding, even though on a language card it is the answer; meaning-hint words are tap-checked
+  like question words (`source === 'hint'`).
 - **Gate forms**: a short piece is a FRAGMENT, expanded against its neighbour ("el/la estudiante" → "el estudiante";
   "niño/a" → "niña"); a single letter never passes alone; 2+ letter words still do when no phrase is involved ("ir/ser").
   Spaces incl. NBSP are normalized. No key term at all = the gate is open.
   A single-letter ending anywhere (bueno/a/os/as) makes EVERY short later piece an ending: "os" alone never
   passes; it expands against the nearest full word ("buenos").
+  Multi-letter endings share ONE helper with `expandSlashAnswers` (`isSlashEnding`/`expandSlashEnding`, top of
+  App.jsx): "nosotros/as" → nosotras, "trabajador/ora" → trabajadora, "bonito/-a" → bonita; the ending never
+  passes (or grades) alone. Needs a 4+ letter base, so "nos/os" stays two words.
+  Endings include `esa(s)`/`ana(s)`/`ona(s)`/`ina(s)`, overlap is compared without accents, and an appended ending
+  drops the base's final-syllable accent (alemán/a = alemana). A 3+ letter ending must echo the base's last two
+  letters (`isSlashEnding`): "esta/esa", "hermano/ana" are two words.
 - Re-queued ~2 cards ahead (`requeueForRelearn` inserts `{...card, _relearn:true}` into `studyAllCards` at
   `studyBatchIdx+2`; `pullNewCard` maps it to `noSync: true, relearn: true`), so the Again stays the card's only
   Anki review.
@@ -1153,11 +1565,29 @@ stripped).
   modes (the grammar/word-hints/accents toggles in that row stay language-only). i18n
   `studyLearnMoment`/`studyLearnMomentDesc`.
 
+### Session end
+The summary shows unsynced ratings + `studySyncError` with a "Sync N now" button. "Clear completed" never dismisses
+a card still waiting for Anki. End Now sets `studyEndedRef` (pulls and background generations stop; grading still
+lands); `beginStudy`/`exitStudy` clear it. `exitStudy` resets `studyQaOpen`/`studyShowGraded`; the study TYPE is
+remembered (`ebiki-study-type`). `startStudySession` refuses only `ankiConnected === false` and keeps the deck list
+when the read fails (error shown on the Study home).
+End Now also clears `studyLearnMoment` and `studyPbqReview` (Help kept describing them).
+
 ### Session start (`beginStudy`)
 DUE cards first, then new cards capped at Anki's `new_count` for today, each group shuffled, ONLY when the session
 records reviews (not conjugations, not unrecorded MC/PBQ practice); no deck stats = the old single shuffled pool.
 One card per NOTE (reversed siblings read the same fields). `startStudySession` and `switchActiveMode` pick a deck
 that still exists in Anki.
+The knowledge fetch starts before the AnkiWeb pull, and deck stats + due cards are read together.
+**Split first card** (flashcards, `questionsPerCard > 1`): `generateQuestionsForCard(..., onFirst)` generates Q1
+ALONE (`generateQuestionsFresh(..., {part:'first'})`), hands it over, then the rest with Q1 in the prompt
+(`part:'rest'`, `firstQuestion`: no repeat, Q2 to Qn order) and returns the whole set (question reuse saves it
+whole). The session opens on Q1; the card carries `pendingRest` + `expectedCount` until the rest lands
+(`cardQuestionCount` counts the expected total, the done checks skip a pending card, dots past the written ones
+are not clickable). The merge (in `trackStudyGen`) keeps the on-screen Q1 (Fix question), decides "finished" from
+`studyCardStateRef.current` (an updater may run later), and a card whose rest failed with Q1 answered is graded
+then. The next question stays random (`getNextStudyQuestion`), so Q2 may come from card 2. A restore drops the
+flag. Not live-tested with a real deck (needs Anki and spends credits): verify on first real use.
 
 ### "I Don't Know" (`skipStudyQuestion`)
 Card-level ONLY on the first question (confirm → every question '(skipped)', rated Again). Once any question is
@@ -1175,6 +1605,12 @@ forms (front split on "/", "(…)" stripped). After the retype the ORIGINAL answ
 **Conjugation drills skip it and match EXACTLY** (`matchesExact` only; the grader gets `conjugationGradeRule`):
 an accent can be the tense ("hable" vs "hablé"). Fix question is hidden for them; a restore re-queues unasked
 `conjWords`.
+Conjugation sessions read the deck's non-suspended cards (not only due ones: nothing is recorded), grade and add
+words in `studyConjugationLanguage` (the deck's language; `buildCardFields({language})`), and the fallback pool
+is headwords once each.
+`matchesExact` strips no articles/pronouns for them ("lo hablo" is the drilled form).
+The drill shows the card's own spelling of the canonical (answers are stored lowercase; German nouns).
+The canonical is the matched variant with the MOST accent marks (a half-accented "ñandu" listed first was taught).
 
 ### Question-phase chrome
 - Header progress bar: total = completed + active + not-yet-pulled pool cards (the denominator never moves);
@@ -1208,6 +1644,11 @@ must be understood instantly), consumed only here via `explainLang`. Never hardc
 - **`auto`** (default "🧠 Memory hook"): the model picks the best method and prefixes it in **bold**. Excludes
   `confuse` (manual only). With prior hooks it prefers a method none used (prior hooks are fed in so each is
   different; every click APPENDS).
+- **The verify pass can answer ABOUT the draft**: its "Improved version:"/fence wrappers are stripped, and a
+  verdict ("no changes needed"), a lost bold label or a 2.5x longer rewrite falls back to the draft.
+- **Hooks survive reloads and deletes**: a restore clears `mnemonicLoading`; saved hooks hydrate at the START
+  of a generation and the completion adds only the new hook. `deDash` keeps digit ranges as hyphens. Grammar
+  slips dedupe on `grammarSlipKey` (case/space only; accents are the point), in the rename merge too.
 - **Every hook gets a VERIFY-AND-IMPROVE pass** (hooks get memorized): re-runs the reconstruction test, says sound
   pairs aloud, checks truth and clarity, and improves wording/imagery even when nothing failed (never a rewrite for
   taste; same method/language/format/length; keeps the bold label). Fail-soft + `silent: true`. ~2 calls per hook,
@@ -1230,6 +1671,10 @@ must be understood instantly), consumed only here via `explainLang`. Never hardc
   in-memory list belongs to** (`hooksModeIdRef` / `grammarModeIdRef`, name resolved by id at write time), never
   the caller's `activeMode.name`: a hook finishing after a mode switch saved the new mode's hooks over the old
   mode's blob. Hooks/slips started in another mode are not filed under the new one (`hookModeId`, `gradeModeId`).
+  The owner name is `storeOwnerName(id)` (`storesAtRef` first): during a rename, the old name until the save answers.
+  A failed word lookup (`failed`) offers no hook buttons (the hook was built from the error text).
+  The hooks/grammar LOADS read from `storeOwnerName` too (reading the new name and writing the old one lost hooks).
+  A failed lookup also offers no "Make Anki card" (its front or correction could show the live answer).
 
 ## Study start screen and Dropdown
 - **One sectioned card** (What to study / Language / Session format), label-above-control fields in
@@ -1276,6 +1721,10 @@ otherwise the studied variant wins. Audio region is separate (`pronunciation.def
   Recs are deduped by noteId; the reviewer may change tags only when the first pass proposed tags or a refine asked;
   a new dup scan clears the old groups first; a Refine lands only on a rec still `refining`; a fuzzy dup set must
   lie in one cluster (`clusterOf`) and an AI merge must echo the headword.
+  Every AI field value (first pass, verify, Refine, merges) goes through `cardText`. Dup scan: bare fronts beside 2+
+  senses form their own group; a fuzzy set holding two different senses of one key is dropped.
+  The two-sense check runs again on the groups `unionGroups` joined (two sets bridged by a bare front).
+  The front echo matches as plain text too (`echoedPlain`): parsed as HTML, "<div> element" matched nothing.
 - **BATCHED, 20 cards per call - don't collapse it.** One whole-deck call hit the output limit and `parseAiJson`
   salvaged a truncated array that looked complete. Sequential batches, `maxTokens: 8000`, recs stream in,
   `deckAnalyzeProgress` {done,total} → "Checking N of M cards"; a failed batch doesn't discard the others (partial
@@ -1299,8 +1748,13 @@ otherwise the studied variant wins. Audio region is separate (`pronunciation.def
   into newlines (Anki's editor writes lines as `<div>`s; stripping them fused the lines, and a save wrote that
   back). Only changed fields are written. **Duplicate merges** write a field through `cardBackToHtml` when the
   originals had bold `Label:` lines. One converter, `fieldHtmlToPlain` (App.jsx top), serves the editor, the AI
-  payloads and the changed-since checks (it also decodes basic entities). Merges re-read their notes first and skip a
+  payloads and the changed-since checks. It breaks lines at block STARTS after text too, removes only real tags
+  (`isHtmlTagName`, anki.js: "<stdio.h>" survives) and decodes every entity through an inert DOMParser
+  (`decodeEntities`). `keepFieldImages` restores a flattened "[sound:x]🔊 credit" (same or next line) IN PLACE as the original
+  sound + credit link, leaves real HTML byte-identical (an untouched field is never rewritten), and collapses to
+  one recording only with `{oneSound}` (merge, changed field). Dup scan: exact groups are split by "(sense)"; dup actions go by `dupGroupKey`, never list index. Merges re-read their notes first and skip a
   changed group; a save/merge removes ONLY what it wrote from the suggestion list.
+  "Do not merge" lists of ancestor and sub decks are read (read-only) and also filter the scan.
 - **Text vs HTML on the way into Anki.** Plain text such as `#include <stdio.h>` lost its `<...>` to Anki's
   HTML parser. `ankiAddNote` runs `escapeStrayLt` (a `<` that does not open a real HTML element, a hyphenated
   custom element or a comment is escaped). `ankiUpdateNote` writes fields AS GIVEN, because the audio embed
@@ -1318,6 +1772,10 @@ otherwise the studied variant wins. Audio region is separate (`pronunciation.def
   before a bare `/` is text ("a<b"). `ankiCanAddNote` checks the sanitized fields `ankiAddNote` stores, and
   `ankiAddNote` hyphenates spaces in tags. `parseAiJson`/salvage escape raw control characters inside strings.
   A back template's literal `\n` separators become real line breaks (`buildCardFields`, `generateCards`).
+  `cardBackToHtml` never bolds a cloze (`{{`), MathJax, a clock time, a URL or a `🔊` credit line. A flattened credit is
+  restored only from an original that HAS its link. `hasUnkeepableMarkup` also refuses a link (`<a>`) other than
+  the audio credit. `fieldHtmlToPlain` folds runs of block tags (lists, nested divs) into one break.
+  Credit markup is matched loosely (`&nbsp;` after the speaker, a trailing `<br>`) in `fieldSounds` and the refusal.
 - **A render crash shows a recovery screen, not a blank window**: `src/components/ErrorBoundary.jsx` wraps
   `<App/>` in `main.jsx`. Self-contained colours (App's `<style>` unmounts with it), Reload and "Reload without
   the saved session" (clears `ebiki-study-session` + `ebiki-chat-session`, the usual re-crash source), and it
@@ -1331,10 +1789,22 @@ otherwise the studied variant wins. Audio region is separate (`pronunciation.def
   changes (never emptying one) and carry images that live only on a duplicate. The editor applies only the
   user's tag additions/removals (`deckEditOrigTagsRef`) onto the re-read tags. A failed load of ANOTHER deck
   clears the list (`deckNotesDeckRef`, `deck_loadFailed`); Quick Add's loop reads `quickAddCardsRef`.
+- **A duplicate merge moves the deleted notes' memory hooks onto the survivor** (hooks are keyed by note id).
+  A deck SWITCH clears the listed notes at once (a scan started during the load filed the old deck's groups and
+  "do not merge" pairs under the new deck). Copy/Move compares deck names case-insensitively, like Anki.
+  Hooks are COPIED to the survivor before `ankiDeleteNotes`; the old keys go only after it succeeds.
+- **`keepFieldImages` also keeps audio**: a `[sound:...]` the new text lacks comes back with its credit `<div>` link.
+  The audio embed patches `deckBrowserNotes` (the editor opened on a stale back and every save was refused);
+  a `deck_changedSinceEdit` refusal reloads the list. Refine lands on the LIVE editor fields. "+ Add Deck"
+  links an existing mode only on an EXACT normalized name, and both add paths use Anki's spelling of the deck.
+- **Deck commits and merges reload QUIETLY** (`{ quiet: true }`): a normal load closes the card editor and
+  lost its unsaved text. The editor's save builds the written HTML from the FRESH re-read (`buildHtml(fresh)`),
+  so an image added in Anki after the list loaded survives.
 - **The card editor re-reads the note before saving**: a changed field whose Anki copy moved since the editor opened
   (audio embedded by a 🔊 play) is refused with `deck_changedSinceEdit`. Reloads after an await pass
   `deckBrowserDeckRef.current`, never the render-time deck. Label checks accept `:` and `：`.
   `saveEditNote` snapshots `deckEditOrigRef`/`deckEditOrigTagsRef` BEFORE its awaits (another card may open).
+  A field whose fresh copy already equals the edited text is skipped (`already`), never "moved".
 - **Check card quality** judges EVERY card in the batch (`buildPrompt` states the count) for: unpinned sense,
   misspelled/nonexistent headword, a back too thin to learn from, wrong/unnatural content. General decks look for
   underspecified concepts. **Scan for duplicates** is framed per mode kind (general: term vs abbreviation; never
@@ -1344,6 +1814,14 @@ otherwise the studied variant wins. Audio region is separate (`pronunciation.def
   `openDeckBrowser` keeps the persisted `deckBrowserDeck` (`ebiki-deck`) when it still exists. Scroll is stashed
   (`deckScrollTopRef`) and restored before paint (`useLayoutEffect` on `deckMainRef`), expiring after 3 min away
   (`deckLeftAtRef`).
+- **Leaving the Deck tab pushes only notes SAVED there** (`deckEditedIdsRef`: editor, bulk commit, merge) into a live
+  session, with functional setters. "Select a deck" bumps `deckNotesReqRef`. Copy/Move results land only on their own
+  panel (`deckBrowserCopyingRef`). Rows of a deck owned by ANOTHER mode get no audio (`deckOwnedElsewhere`, per row by `note.deckName`: a parent
+  deck lists its subdecks' notes). Row text
+  drops `[sound:]` (`SOUND_TAG_RE`) and bolds `:`/`：` labels. Anki helper errors are translated via `setAnkiTranslator`.
+  Card text strips dashes with `stripDashesInline` (never across lines). PBQs carry `iconKeys: 'item'`.
+  Nor memory hooks (`noteOwnedElsewhere(note)`: the row says `deck_hookOtherMode`; `generateDeckMnemonic` refuses).
+  The Dialect/Tag audit review header names the audit, never the raw English instruction.
 - **Card search is accent-insensitive** (query and fields folded with
   `toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')`).
 
@@ -1359,6 +1837,12 @@ otherwise the studied variant wins. Audio region is separate (`pronunciation.def
 - **`getCardBack` preserves line breaks** (`<br>`/block closers → `\n` BEFORE `stripHtml`).
 - Explains in the APP language (`APP_LANG_NAME`), context-aware: in-context meaning (green) + other senses
   (purple).
+- **On the LIVE question a lookup never shows the answer**: target/meaning/alternatives are checked with
+  `hintRevealsAnswer` against the question's accepted answers (and the correct choice); a hit shows
+  `lookup_wouldReveal` (`blocked`: no audio, no card row) and is never cached. Word hints use the same fuzzy check.
+  The check covers `usage` too; saved hooks are filtered (`safeHooks`) and never merged into a blocked popup; the
+  popup render hides card backs and hooks that leak (`leaks`). "The answers" everywhere = `questionAnswers(q)`
+  (accepted + the correct MC choice), also for word hints.
 - **Bidirectional (language modes), never pair-specific**: if the tapped word isn't in the learned language, it
   flips and teaches the learned-language side ("sound" → sonido). JSON field **`target`** (= the learned-language
   word; the tapped word in the normal direction); everything downstream keys on `wl.target || wl.word` (header
@@ -1369,6 +1853,7 @@ otherwise the studied variant wins. Audio region is separate (`pronunciation.def
   HEADWORD matches (accent/case-insensitive; front split on "/", "(…)" stripped; accent-variant search fallback
   since Anki search is accent-sensitive) shows "✓ Already in «deck»" (`wl.existing`) with NO add button. Anki
   offline or search errors fall through to generation.
+  The head match keeps ACCENTS (case folded): té is not te. Word hook keys (`wordHookKey`) keep accents too.
 
 ## Stats
 - **Live from Anki** when connected (effect on `activeTab==='stats'` → `ankiStats`): Cards Today
@@ -1376,6 +1861,18 @@ otherwise the studied variant wins. Audio region is separate (`pronunciation.def
   pass rate (`ankiGetTodayReviewStats`, cumulative). Persisted to `localStorage('ebiki-anki-stats')` and hydrated on
   mount; offline falls back to `screenlens-study-history`. Dates are LOCAL `YYYY-MM-DD`
   (`toLocaleDateString('en-CA')`) to match Anki days. Chart weekday labels use the app language.
+- **Every session reaches history**: `recordSessionHistory` runs from the summary effect AND `exitStudy` (Exit
+  Study / a mode switch never reached the summary). Cards Wrap Up / End Now set aside unasked (`skipped`, no
+  rating) are not listed in Batch Results and `rateGradedCard` refuses them (a rating was sent to Anki).
+  "Generate Insights" needs a rated card; its failure is `studyInsightsError`, so the button stays.
+- Stats refreshes are sequenced (`ankiStatsSeqRef`); unknown accuracy is `null` (local history shown); chart and
+  streak take the per-day MAX of Anki's count and local history; PBQ results carry `score` (fraction) for history
+  accuracy; history rows need a string `date`.
+  No graded answer (a session, or today with 0 reviews) is accuracy `null`, never 0; Recent Sessions weights only
+  entries that have one (`accW`). A failed read keeps today's earlier count. Insights skip `gradeFailed` cards.
+  The tile and Help's `accuracyToday` stay null (shown `·`) with nothing answered today. A chat `<progress-update>`
+  written to the mode deck sets `deckProgressOkRef` (the file now holds exactly that).
+  Cards Today (tile and Help) is the larger of Anki's answers and today's history, like the chart (practice-only days).
 - **Recent Sessions**: FIXED grid (82px | 1fr | 84px | 48px), rows grouped by (date, deck); cards summed, accuracy
   card-weighted. **One history entry per session** (`runId` = `studyRunIdRef`, minted in `beginStudy`, carried
   through a resume, upserted): the summary effect re-runs on every change (re-rate, hook, sync) and used to ADD an
@@ -1385,7 +1882,8 @@ otherwise the studied variant wins. Audio region is separate (`pronunciation.def
 
 ## Grammar-slip log (`modeGrammarLog`, per-mode blob `grammar`, language modes)
 Every `grammar` note the grader writes (penalized or not) is saved via `addGrammarSlips(front, notes)` in
-`evaluateCardAnswers`: `{t, front, n, at}`, deduped by folded text (repeats bump `n`/`at`), capped at 200.
+`evaluateCardAnswers`: `{t, front, n, at}`, deduped by folded text (repeats bump `n`/`at`), capped at 200 by
+LAST SEEN (sorted on `at` first; a repeat kept its early array slot and was cut first).
 `grammarSlipBlock(limit)` (most frequent first) feeds the Chat system prompt, the Learn-it chat, and Help
 (`appContext.grammarSlips`). Same store pattern as `modeHooks`.
 
@@ -1407,11 +1905,18 @@ off**: `createQuestionReuse` calls `generate()` and nothing else (no read, no wr
   on the next save; other `sig`s are KEPT (one deck studied from two modes), newest 40 sets per card.
   **Question-style preferences are deliberately NOT in the signature** (added often; each would retire every saved
   question); clearing a deck applies them.
+  A language mode learning the APP language uses kind `flash-lang` (else it matched a general mode's signature).
 - Writes re-check the live setting (turned off mid-generation = not saved) and the clear counter (a clear during a
   generation isn't undone by it). Never saved: after a FAILED read, the give-up fallback (`_fallback`), relearn
   copies, cards without a deck. PBQs are saved whole (one exercise = one question).
+  Nothing is saved while `dataSwitchingRef` is set (`getEpoch` answers NaN). A clear sends `exact=1` plus each real
+  subdeck name from Anki (`also=`); only with Anki's list unknown does the server fall back to folder prefixes.
+  The GET treats only ENOENT (or a damaged file) as "nothing saved" (`existsSync` was false on any stat error).
+  New sets and the asked-rotation are written through `updateBank` (fresh re-read; `allowMissing` for a first set),
+  and a reuse read first waits (3s cap) for that card's pending write.
 - Returned questions carry `_bank {noteId, deck, setId, qi}`; **✎ Fix question** writes the fix into the saved set
-  (only while reuse is on). `storableQuestion` strips session state.
+  (only while reuse is on). `storableQuestion` strips session state. Fix and the word-hint save go through
+  `updateBank` (read-modify-write serialized per card; two whole-file writes at once lost one of them).
 
 ## Question generation (`generateQuestionsForCard`)
 - Non-language modes hide language-only controls and quiz on concepts.
@@ -1422,8 +1927,15 @@ off**: `createQuestionReuse` calls `generate()` and nothing else (no read, no wr
   recall/fill_blank goes through `needsLetterCue`; a miss is regenerated (same 3-attempt loop as the leak check),
   and as a last resort `appendLetterCue` adds a language-neutral skeleton (`sombrero` → `(s·······)`).
   `hasLetterCue` detects a cue by FORM (a single `\p{L}` in any quote style, or a skeleton), never by English
-  phrases. MC is exempt (a cue would leak). `fixCurrentQuestion` has the same guarantee.
+  phrases, AND only when that letter starts an accepted answer (or one of its words, split on spaces, "/" and
+  apostrophes: "l'arbre" is cued by a; a Han answer also takes a quoted kana or Latin pinyin initial): a quoted one-character meaning (“雨”) or kana before a blank (で___) read as a cue.
+  MC is exempt (a cue would leak). `fixCurrentQuestion` has the same guarantee. The general-mode leak exemption
+  (`leakExempt`) covers the last question only when all `n` came back and `n > 1`; a last-resort scrub that
+  blanks a whole quoted subject ("Translate: '___'", same-spelling words) drops that question.
   `generateConjugationQuestions` needs none (tense + subject pin the form).
+  Cue quotes include German/Polish `„“` and `‚‘`.
+  The give-up set's answers go through `expandSlashAnswers`; when the final attempt throws, the last parsed set gets
+  the last-resort pass (`lastResort`) instead of the give-up set.
 - **Deep/usage question** (`deepQ`, the last question on a language card) tests practical command (use in a
   sentence, pick over a synonym, the right form for a stated subject/time, opposite, collocation). Never asks to
   EXPLAIN grammar/spelling/etymology or use metalinguistic terms.
@@ -1441,7 +1953,10 @@ off**: `createQuestionReuse` calls `generate()` and nothing else (no read, no wr
 - **Language names resolve through `langFromName`** (`src/config/languages.js`: exact label, whole-word label,
   then the `LANG_ALIASES` data table: "Mandarin", "Chinese", "Inglés", "日本語"...). Used by `learnLangName`, the
   Settings/start-screen pickers (shown as OPTION labels; zh app language = "Chinese (Simplified)") and
-  `tesseractLang()` (LANGS codes are Tesseract codes; a language mode OCRs its learned language + eng). The
+  `tesseractLang()` (LANGS codes are Tesseract codes; a language mode OCRs its learned language + eng).
+  **Spoken varieties that share a script stay themselves** (`isDistinctSpoken`: Cantonese, Hokkien...): never
+  folded into "Chinese (Traditional)" by `learnLangName`, `langInfo`, `createMode`/`buildModeFromSpec` or the
+  pickers (Mandarin audio went onto Cantonese cards). OCR still maps them through `langFromName`. The
   defaults' `studyLanguage` is `''` (derived): 'English' there was written into any mode on its first study edit.
   Ask AI Accept (`acceptModeEdit`) shapes values with `modeFields`/`modeText` like createMode.
 - **Start-screen pickers default like the GENERATOR**: unset `studyLanguage` → `learnLangName()` (mode name), never
@@ -1456,15 +1971,21 @@ off**: `createQuestionReuse` calls `generate()` and nothing else (no read, no wr
 - **Inflection tolerance** (fill_blank): another form of the SAME lemma (tense/mood/person, gender/number) is
   accepted unless the sentence has a marker forcing one (time adverb, explicit subject, agreement). Generation adds
   that marker when it wants a specific form, else lists every valid form.
+- The local matcher's `normalize` drops Arabic/Hebrew vowel marks and a leading French/Italian elided article (`l'`,
+  `un'` only: `all'`/`dell'` are prepositions a blank tests), never in `stripAccents` (the accent drill must not demand harakat).
 - **Gender/article**: the article encodes gender, so a correct article fully answers "gender and article"; no
   "state the gender" note (and "masculine" answers the article too).
+  AGREEMENT WITH NO FIXED REFERENT (grader rule): with no stated person/thing ("alguien", a generic "you"), any
+  agreeing form is correct and no agreement note is written (it also landed in the grammar-slip log).
 
 ## Word hints (`studyRules.wordHints`, ruby-style glosses)
 Small translations above each non-tested word (language modes). The question model rarely returns `glosses`, so
 `fetchGlossesForQuestion` fills them lazily (effect after `studyCardStateRef`, gated on
 `currentQuestion`/`wordHints`, fires when missing OR empty, `glossFetchRef` de-dupes). **Bidirectional**:
 `learnLang` word → `userLang`, `userLang` word → `learnLang`. Excludes the answer and anything revealing it. Every
-word gets the same stacked column (a blank slot when unglossed) so the baseline stays even.
+word gets the same stacked column (a blank slot when unglossed) so the baseline stays even. Glosses are
+filtered with the fuzzy `hintRevealsAnswer` too; `glossesNeedFetch` measures coverage on the UNFILTERED map (a
+withheld gloss is answered, else it re-fetched forever).
 
 ## Notices and dialogs
 - AI failures (credits / rate limit / bad key) show a toast; the secondary pose call is `silent`.
@@ -1484,6 +2005,7 @@ word gets the same stacked column (a blank slot when unglossed) so the baseline 
   `data-app-dialog`; Ebi Studio carries `data-top-overlay`. SettingsModal ignores Esc while either exists, Studio
   ignores Esc while a dialog is up and marks its own Esc handled. Toasts sit at z 12001 (above Studio 12000,
   under the dialog 12002). Every Enter handler skips IME composition (`e.nativeEvent?.isComposing`).
+  Settings' Esc (close, rename cancel) skips IME composition too (`isComposing` / keyCode 229).
 - **The toasts share ONE fixed bottom-center flex column** (`pointerEvents:'none'`, each toast `'auto'`); a new
   toast goes inside it, never at its own fixed position (they covered each other).
 - **Esc handlers respect `e.defaultPrevented`**: a nested Esc (Help's dock chooser, capture phase) prevents default
@@ -1502,6 +2024,11 @@ word gets the same stacked column (a blank slot when unglossed) so the baseline 
   `dataTransfer.types` to include `'Files'` (a dragged `<img>` tripped the drop overlay).
 
 ## Pronunciation audio (`src/pronunciation/`, 4 tiers, language-agnostic)
+- **Embed**: download FIRST, then re-read the note and write (an edit saved during the download was overwritten);
+  the audio fetch times out (20s). An accented word matched only without its accents is `approximate`: it plays,
+  never embeds. Tier 0 prefers `[sound:ebiki-...]`, then the back field. One `Audio` plays at a time
+  (`playingAudio`), paused on word change/unmount. `langInfo` falls back to `langFromName` (free-text names).
+  A fetch still running when the popup closes never plays (`mountedRef`); its Anki embed still happens.
 - `getPronunciation({word,lang,region,config,noteId?,cardId?})` tries: **0) Anki media** (`ankimedia.js`, the
   card's own `[sound:…]` via `retrieveMediaFile`; pass `noteId`/`cardId` when known) → **1) Wiktionary/Commons** →
   **2) local TTS** (opt-in) → **3) browser SpeechSynthesis**. Returns `{kind:'url'|'speak', audioUrl?/speak?(),
@@ -1521,6 +2048,10 @@ word gets the same stacked column (a blank slot when unglossed) so the baseline 
   rejects files identifiably in ANOTHER language. Also knows `(spa)-Speaker-word`.
 - **Attribution is mandatory** (CC-BY-SA, via Commons `imageinfo extmetadata`); no license → skipped. All
   `w/api.php` calls need `origin=*` + `Api-User-Agent`; every fetch fails soft to [].
+- **Matcher word boundaries** count combining MARKS as part of a word (`[\p{L}\p{M}]`); `approx` is set for ANY
+  accent-only match (either direction); a file needs a LICENSE to play; compact players show a linked ⓘ credit;
+  one voice at a time includes browser speech (`stopSpeech`).
+  Accent-exactness is a WORD-bounded test (`exactRe`): a substring found "e" in a Lingua Libre speaker's name.
 - **Matcher word boundaries**: a variant suffix may not start with a letter, and a phrase match needs the whole
   word ("sol" never takes soldado/girasol). Empty candidate lists are never cached (a rate limit is not a miss), only
   recordings (anki/wiktionary) enter the `getPronunciation` cache, editions are skipped until one has audio that RANKS,
@@ -1529,6 +2060,7 @@ word gets the same stacked column (a blank slot when unglossed) so the baseline 
   When set: browser → `/api/tts` middleware → OpenAI-compatible `/v1/audio/speech`, cached in `cache/tts/`. Voices =
   `DEFAULT_TTS_VOICES` (Kokoro-82M) + overrides.
 - **Tier 3 (`webspeech.js`)**: handles the `onvoiceschanged` race; exact dialect → base language → null.
+  `VOICE_NOT_BASE` (zh-HK/zh-MO/yue) never stands in for the base on the fallback (Mandarin read in Cantonese).
 - **↻ Different speaker** on every native result: cycles the ranked list (`resolveWiktionary({variant})`, wraps;
   variant>0 merges the Commons search; `candidateCache`), using only language-confirmed files when possible.
   Picking calls `onNative(r, {replace: true})`, which swaps OUR previous `[sound:ebiki-…]` + credit (never other
@@ -1536,12 +2068,16 @@ word gets the same stacked column (a blank slot when unglossed) so the baseline 
   tooltip and retires. A null result keeps the button. Widening the list for ↻ (merging the search) keeps the
   voices already ranked in their places and appends new ones (a re-rank made variant 1 the file already playing).
   `/api/tts` answers 502 for a non-audio reply so the browser-speech tier runs.
+  The replace removes the credit as loosely as `fieldSounds` (`&nbsp;`, trailing `<br>`).
 - **Anki embed (native audio only, never TTS)**: `embedPronunciationInNote` on first play from Study/Deck: fetch →
   `ankiStoreMediaFile('ebiki-…')` → append `[sound:…]` + credit via `ankiUpdateNote`. Idempotent (skips if the back
   has `[sound:`); toggle `pronunciation.embedInAnki` (default ON). Chat widgets never embed.
 - **Surfaces** (language modes): study graded rows, deck rows, chat `<anki-card>` widgets. `pronWord()` strips
   "(pos)". Region = `pronunciation.defaultRegions[iso1]` (Settings → Anki & audio, global; also editions/ttsUrl/
   ttsVoices/embed). Language data lives in `langcodes.js`; per-language tuning is data, never `if (lang === …)`.
+  `pronWord` goes through `expandSlashAnswers` ("el/la estudiante" -> "el estudiante", never "el"). Two or more
+  different sense suffixes (`en-us-live-verb`/`-adj`) make those files `approx` (play, never embed).
+  Its fallback keeps a front whole only for a one-letter UNIT after a word (`km/h`), never an ending (tío/a, mi/s).
 
 ## AI providers (`src/config/providers.js`): everything works on every provider
 - **Everything routes through `aiCall`** → `PROVIDERS[provider].call(...)`: Chat, Study, Deck, Discover, Picture
@@ -1551,6 +2087,12 @@ word gets the same stacked column (a blank slot when unglossed) so the baseline 
   `presets: { cheap, normal, max }` (all vision-capable). `ROLE_DEFAULTS(pc, intel, prov)`: `normal`/`max` put
   every role on that preset (pose always `normal`); `optimized` goes per role via `ROLE_TIER`. Per-feature
   overrides in Settings win. Chosen in onboarding, switchable in Settings → AI & cost.
+- **Settings key and model inputs**: a pasted key loses ALL whitespace and cancels a pending typing check; a
+  custom model id commits on blur/Enter (every keystroke was used by background calls); the per-feature
+  `<details>` opens itself only on mount (bound to `hasModelOverrides` it snapped shut on the last reset).
+- **A `config.provider` this build doesn't know is ignored** (`PROVIDERS[...]` check at load and in the overlay
+  refresh): a newer computer on the share crashed every screen. "Custom" preset = an override on a REAL role
+  (`AI_ROLE_META`), not any key in `aiModels[prov]`. Typed keys lose all whitespace (Gemini's key is in the URL).
 - **Never read `pc.presets[tier]` directly; use `presetModel(pc, prov, tier)`** (next to `resolveModel`), so the
   live-model layer can shadow the constant. providers.js values are a FLOOR.
 - **`ROLE_TIER` (optimized preset) = stakes × frequency. Load-bearing: keep this table and the code in sync.**
@@ -1588,6 +2130,10 @@ word gets the same stacked column (a blank slot when unglossed) so the baseline 
   `aiCall` follows the sub CHAIN (A→B→C, max 3 hops). A retired model PINNED for a role heals at that role's
   `ROLE_TIER`, never at the strongest tier. A reasoning-budget retry that fails or is still empty THROWS
   (`API <status>` / `API 200: empty`), never returns "".
+  The heal runs for the FAILING call's provider (`healRetiredModel(..., prov)`), tries the dead model's own family
+  first (newest listed, below any higher tier's model: `ceiling`), and repoints `sessionSubs` that targeted it.
+  Model-list requests triggered by a typed key are debounced (700ms). `keyOfOtherProvider` (providers.js) marks
+  a key with another provider's longer prefix invalid. The overlay refresh also reads `modelPlans`/`rejectedModels`.
 - **Cross-provider request compatibility** lives ONLY in this layer. **OpenAI and Grok share
   `openAiCompatibleCall`.** Self-healing, not table-driven:
   1. **Token parameter**: send `max_completion_tokens` (accepted by every OpenAI model tested; `max_tokens` fails on
@@ -1602,6 +2148,8 @@ word gets the same stacked column (a blank slot when unglossed) so the baseline 
   models). Errors keep the `API <status>: <body>` shape (`healRetiredModel`, `tryModelFailover`, `probeModel` parse
   it). Covered by `providers.test.js` (stubbed fetch). **Add a case there when adding a provider or touching a
   request body.**
+- **Every provider request carries a timeout** (`CALL_TIMEOUT_MS` 5 min, `LIST_TIMEOUT_MS` 30s; Wiktionary 15s):
+  a stalled connection left Chat "typing" forever with its send lock held. Tested in `providers.test.js`.
 - **A blocked/refused reply THROWS `API 200: blocked (<reason>)`** (OpenAI/xAI `content_filter`, Anthropic
   `stop_reason: refusal`, Gemini `promptFeedback.blockReason` or a SAFETY-family `finishReason`, each only with no
   text): as "" it became a saved blank chat bubble. Status 200 keeps it out of the heal and failover;
@@ -1612,11 +2160,14 @@ word gets the same stacked column (a blank slot when unglossed) so the baseline 
   prompt says "json").
 - **ALWAYS parse AI JSON with `parseAiJson(text)`, never bare `JSON.parse`** (strips noise, repairs slop, salvages
   complete objects from truncated arrays).
+  Stage 2b escapes unescaped quotes inside values (`escapeInnerQuotes`: a quote closes a string only before `, : } ]`
+  or the end), after the strict stages and before salvage.
 - **Staying current: two different mechanisms.** A model that still works never errors, so the heal alone never
   upgrades.
   1. **Retirement heal (reactive)**: `healRetiredModel`, only from `aiCall`'s catch on `isRetiredModelError`
      (404/not-found), via `discoverCurrentModel` (`listModels()` + tier family preference). Heals at PRESET scope
      when the dead id was a tier.
+     `isRetiredModelError` is never true for a 429/5xx (an "overloaded" 503 with status UNAVAILABLE matched the words).
   2. **Daily currency check (proactive)**: `findModelUpgrades` polls the active provider's `listModels()` at most
      once per 24h (`lastModelCheck`), compared via `src/config/modelVersions.js`
      (`parseModelId`/`compareModels`/`pickUpgrade`, `modelVersions.test.js`). A strictly newer model in the SAME
@@ -1631,6 +2182,25 @@ word gets the same stacked column (a blank slot when unglossed) so the baseline 
   - `modelVersions.js` is pure and provider-agnostic (it classifies id segments, so `claude-3-5-sonnet` and
     `claude-sonnet-4-6` share a family). Versions compare left to right (`[5]` > `[4,8]`); a dateless alias and its
     dated snapshot compare EQUAL. Extend the tests for new id shapes.
+
+## Token and cost counter (`src/utils/tokenUsage.js`, `src/components/TokenUsageMeter.jsx`)
+- **Counting lives in the provider layer**: `setUsageListener` (providers.js) receives every SUCCESSFUL request's
+  usage (`readUsage`: Anthropic `usage` incl. cache tokens, OpenAI/xAI `usage`, Gemini `usageMetadata` with
+  `thoughtsTokenCount` as output), retries and probes included. App registers `recordUsage` once; tracking always
+  runs, the setting only shows the counter. A new provider must call `reportUsage` in its request helper.
+- Totals are MACHINE-LOCAL: `/api/usage` (GET, POST `{add:[...]}` / `{reset:true}`) keeps `logs/token-usage.json`
+  (gitignored, not in `DATA_ROUTES`), so the app window, a browser tab and the overlay add to one total. The client
+  batches reports (3s) and keeps a failed batch for the next flush. The pill shows this window's session.
+- Global `showTokenUsage` (config.json, default OFF), toggle in Settings > AI & cost. The counter is portaled to its
+  own host under `<html>` (outside the body zoom, scaled by transform like Dropdown); never in the overlay.
+- **Prices are estimates and never guessed**: `PRICE_TABLE` (USD per million, first match wins, specific before
+  family). A model it does not know shows tokens only and is listed as unpriced. Opus prices changed between
+  versions, so only known Opus versions are priced. Tests: `tokenUsage.test.js` (all four providers).
+- **"Set price"** (by-model rows in the panel): the user types a model's price (USD per million, in and out);
+  stored in `token-usage.json` `prices` (`{setPrice:{provider, model, price|null}}`, kept across a reset) and
+  winning over `PRICE_TABLE` (`priceFor(..., prices)`). This is how the newest models get a cost: never add a
+  table price that isn't published.
+
 
 ## Testing (two halves; `npm test` is only the first)
 - `npm test` (vitest) covers pure modules: pronunciation matcher, PBQ engine, usage tags, modelVersions,

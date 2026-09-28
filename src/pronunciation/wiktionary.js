@@ -4,7 +4,7 @@
 // wikitext regex can miss CJK/odd names that media-list reports). Attribution is fetched
 // from the Commons imageinfo API and is MANDATORY — a file with no license metadata is
 // skipped (CC-BY-SA: no credit, no playback).
-import { langInfo } from './langcodes'
+import { langInfo, LANG_CODES } from './langcodes'
 import { pickAudioFiles, unionCandidates, normalizeFileName, STRONG_SCORE, looksLikePronunciationPage } from './matcher'
 
 // Filenames in wikitext: letters of any script, digits, spaces, parens, hyphens…
@@ -19,11 +19,14 @@ const politeFetch = async (url) => {
   const wait = Math.max(0, nextSlot - Date.now())
   nextSlot = Date.now() + wait + 350
   if (wait) await sleep(wait)
-  let r = await fetch(url, { headers: API_HEADERS })
+  // Bounded: a stalled Wikimedia request left the 🔊 button loading for good. Every caller fails soft,
+  // so a timeout just moves on to the next audio source.
+  const timed = () => fetch(url, { headers: API_HEADERS, ...(typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? { signal: AbortSignal.timeout(15000) } : {}) })
+  let r = await timed()
   if (r.status === 429) {
     await sleep(2500)
     nextSlot = Date.now() + 350
-    r = await fetch(url, { headers: API_HEADERS })
+    r = await timed()
   }
   return r
 }
@@ -84,7 +87,7 @@ const fetchFileInfo = async (fileName, edition) => {
   const meta = info.extmetadata || {}
   const author = stripHtml(meta.Artist?.value)
   const license = stripHtml(meta.LicenseShortName?.value || meta.License?.value)
-  if (!author && !license) return null // no attribution → do not play (hard requirement)
+  if (!license) return null // no license → do not play (hard requirement: an author alone is not a license)
   return {
     url: info.url,
     categories: hit.categories || [],
@@ -117,6 +120,9 @@ const gatherEditionCandidates = async (editions, titles, usable = (c) => c.lengt
 // `variant` picks the n-th ranked recording (wrapping), so a user can cycle through
 // DIFFERENT SPEAKERS of the same word. variant 0 = the best match (original behavior);
 // any variant>0 request also merges the Commons search results in for a richer list.
+// Other English names Commons categories use for a language ("Mandarin pronunciation"). Data, not branching.
+const COMMONS_LANG_NAMES = { zh: ['Mandarin'], no: ['Norwegian Bokmål', 'Norwegian Nynorsk', 'Bokmål', 'Nynorsk'], fa: ['Persian', 'Farsi'] }
+
 export async function resolveWiktionary({ word, lang, region = '', config = {}, variant = 0 }) {
   const info = langInfo(lang)
   if (!info || !word) return null
@@ -163,6 +169,12 @@ export async function resolveWiktionary({ word, lang, region = '', config = {}, 
 
   const files = entry.files
   if (!files.length) return null
+  // The asked language for the category gate: its ISO-639-3 codes and English names (the app's labels for
+  // that ISO-639-1 code, plus a data table of the names Commons also uses).
+  const gateLang = {
+    iso3: info.iso3,
+    names: [...new Set([...Object.entries(LANG_CODES).filter(([, v]) => v.iso1 === info.iso1).map(([k]) => k.replace(/\s*\(.*\)$/, '')), ...(COMMONS_LANG_NAMES[info.iso1] || [])])],
+  }
   const start = ((variant % files.length) + files.length) % files.length
   // Try from the requested variant onward until one has usable attribution.
   for (let i = 0; i < files.length; i++) {
@@ -172,11 +184,12 @@ export async function resolveWiktionary({ word, lang, region = '', config = {}, 
     if (!fileInfo) continue
     // Filename gave no language evidence (bare "Perro.ogg" could be a BARK, not a person
     // saying "perro") → its Commons categories must prove it's a pronunciation recording.
-    if (cand.score < STRONG_SCORE && !looksLikePronunciationPage(fileInfo.categories)) continue
+    if (cand.score < STRONG_SCORE && !looksLikePronunciationPage(fileInfo.categories, gateLang)) continue
     return {
       kind: 'url', source: 'wiktionary', audioUrl: fileInfo.url,
       fileName: normalizeFileName(cand.file), attribution: fileInfo.attribution,
       variant: idx, variantCount: files.length,
+      ...(cand.approx ? { approximate: true } : {}), // see pickAudioFiles: never written into a card
     }
   }
   return null

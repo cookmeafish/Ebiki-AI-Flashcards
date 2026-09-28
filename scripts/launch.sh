@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Ebiki launcher (Linux). Mirrors scripts/launch.ps1's behavior:
+# Ebiki launcher (Linux and macOS). Mirrors scripts/launch.ps1's behavior:
 # 1) Make sure Anki is up (the app reads/writes every card through AnkiConnect).
 # 2) If the app is already running, just bring its window forward.
 # 3) Otherwise do a QUICK update check (every launch; skipped only when offline
@@ -10,7 +10,9 @@
 # Path-relative so it works wherever the app is cloned; this script lives in
 # scripts/, so the app folder is one level up.
 set -u
-APP="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# -P: the PHYSICAL path, which is what the server's command line holds (through a symlinked folder, or
+# macOS's /tmp -> /private/tmp, stop_stale_server never recognised our own wedged server).
+APP="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 cd "$APP"
 
 # ── Start Anki if it isn't up ───────────────────────────────────────────────
@@ -24,13 +26,23 @@ anki_up() {
 }
 start_anki_if_needed() {
   anki_up && return
+  # An array: a path with spaces ("~/My Apps/bin/anki") was split into words and Anki never started.
   local exe=""
+  local -a cmd=()
   exe="$(command -v anki 2>/dev/null || true)"
+  [ -n "$exe" ] && cmd=("$exe")
   if [ -z "$exe" ] && [ -x /var/lib/flatpak/exports/bin/net.ankiweb.Anki ]; then
-    exe="flatpak run net.ankiweb.Anki"
+    exe="flatpak"; cmd=(flatpak run net.ankiweb.Anki)
+  fi
+  # macOS: Anki is an app bundle with no command on PATH, so it was never started there. -g keeps it in
+  # the background (like launch.ps1's minimized start); `open` on an already-running Anki is harmless.
+  if [ -z "$exe" ] && command -v open >/dev/null 2>&1; then
+    for app in "/Applications/Anki.app" "$HOME/Applications/Anki.app"; do
+      if [ -d "$app" ]; then open -g "$app" >/dev/null 2>&1 200>&- || true; return; fi
+    done
   fi
   [ -z "$exe" ] && return   # Anki not installed -> nothing to do
-  nohup $exe >/dev/null 2>&1 200>&- &
+  nohup "${cmd[@]}" >/dev/null 2>&1 200>&- &
   disown
 }
 start_anki_if_needed || true
@@ -49,7 +61,8 @@ start_anki_if_needed || true
 # the data folder, and this runs before the dev server exists. Anything missing
 # or unreadable means 'app', today's default. No jq dependency: a plain grep.
 launch_mode() {
-  if [ -f "$APP/launchmode.json" ] && grep -q '"browser"' "$APP/launchmode.json" 2>/dev/null; then
+  # The "mode" key only, like the other three readers (any "browser" anywhere in the file used to count).
+  if [ -f "$APP/launchmode.json" ] && grep -Eq '"mode"[[:space:]]*:[[:space:]]*"browser"' "$APP/launchmode.json" 2>/dev/null; then
     echo browser
   else
     echo app
@@ -72,8 +85,8 @@ open_app() {
   elif command -v xdg-open >/dev/null 2>&1; then
     xdg-open 'http://localhost:3000' >/dev/null 2>&1 &
     disown
-  elif command -v open >/dev/null 2>&1; then
-    open 'http://localhost:3000' >/dev/null 2>&1   # macOS has no xdg-open
+  elif [ "$(uname)" = Darwin ] && command -v open >/dev/null 2>&1; then
+    open 'http://localhost:3000' >/dev/null 2>&1   # macOS has no xdg-open (on Linux `open` is openvt)
   fi
 }
 
@@ -110,7 +123,38 @@ exec 200>"$LOCK_FILE"
 # Wait as long as a first launcher can legitimately take (an update question, then npm install);
 # carrying on after 2 minutes ran a second update and npm install in the same folder. Still busy
 # after 20 minutes: start nothing. (No flock at all, as on stock macOS: no lock, as before.)
-if command -v flock >/dev/null 2>&1; then flock -w 1200 200 || exit 0; fi
+# No flock (stock macOS): a mkdir lock instead, so a double click can't run two updates, two npm installs
+# and two servers in one folder. Stale after 20 minutes or when its owner is gone.
+LOCK_DIR="$APP/.launcher.lock.d"
+HAVE_MKDIR_LOCK=0
+# WAITED=1: another launcher held the lock (a double click). Like launch.ps1's follower, this one then skips
+# the update question: the first one just asked it, and "Not now" was followed by the same question again.
+WAITED=0
+if command -v flock >/dev/null 2>&1; then
+  if ! flock -n 200; then WAITED=1; flock -w 1200 200 || exit 0; fi
+else
+  lock_deadline=$(( $(date +%s) + 1200 ))
+  while ! mkdir "$LOCK_DIR" 2>/dev/null; do
+    WAITED=1
+    owner="$(cat "$LOCK_DIR/pid" 2>/dev/null)"
+    # No pid yet may just be the owner between its mkdir and writing it: look once more before calling it stale.
+    [ -z "$owner" ] && { sleep 1; owner="$(cat "$LOCK_DIR/pid" 2>/dev/null)"; }
+    if [ -z "$owner" ] || ! kill -0 "$owner" 2>/dev/null || [ -n "$(find "$LOCK_DIR" -maxdepth 0 -mmin +20 2>/dev/null)" ]; then
+      rm -rf "$LOCK_DIR" 2>/dev/null; continue
+    fi
+    [ "$(date +%s)" -gt "$lock_deadline" ] && exit 0
+    sleep 1
+  done
+  echo $$ > "$LOCK_DIR/pid"
+  HAVE_MKDIR_LOCK=1
+  trap 'rm -rf "$LOCK_DIR" 2>/dev/null' EXIT
+fi
+release_lock() {
+  flock -u 200 2>/dev/null || true
+  # The EXIT trap goes too: left set, it deleted the lock a waiting launcher had taken since.
+  [ "$HAVE_MKDIR_LOCK" = 1 ] && { rm -rf "$LOCK_DIR" 2>/dev/null; trap - EXIT; }
+  HAVE_MKDIR_LOCK=0
+}
 
 # localhost, not 127.0.0.1: Vite binds to what localhost resolves to first, which can be IPv6 ::1
 # only (macOS, current Node on Windows). bash tries every address localhost resolves to.
@@ -134,6 +178,17 @@ server_healthy() {
   server_healthy_once && return 0
   sleep 3; server_healthy_once && return 0
   sleep 3; server_healthy_once
+}
+# Is the running app installing an update itself (Settings > Data & updates)? Then the launcher's own check is
+# skipped: a Yes ran a second npm install in the same node_modules.
+server_updating() {
+  (
+    exec 3<>/dev/tcp/localhost/3000 2>/dev/null || exit 1
+    printf 'GET /api/alive HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3
+    body=''
+    IFS= read -r -t 4 -d '' body <&3
+    case "$body" in *'"updateRunning":true'*) exit 0 ;; *) exit 1 ;; esac
+  ) 2>/dev/null
 }
 server_healthy_once() {
   (
@@ -172,24 +227,6 @@ stop_stale_server() {
   while port_listening && [ "$(date +%s)" -lt "$deadline" ]; do sleep 0.2; done
 }
 
-# Already running -> just show it (don't disrupt or re-check). If it's already
-# open as an Electron app window, requestSingleInstanceLock in electron/main.cjs
-# means this just focuses that window instead of opening a second one - the
-# same "click the icon again -> it comes to front" behavior a real installed
-# app has, not a fresh browser tab piling up next to the old one.
-if port_listening; then
-  if server_healthy; then
-    flock -u 200 2>/dev/null || true # nothing left to guard; release before the window opens
-    open_app
-    exit 0
-  fi
-  # Listening but not answering: a wedged server from an earlier session, not
-  # a working one. Stop it and fall through to the normal fresh-start path
-  # below instead of exiting.
-  mkdir -p "$APP/logs" 2>/dev/null
-  printf '%s  launcher: port 3000 was listening but not answering - stopped the stale server and starting fresh\n' "$(date '+%Y-%m-%dT%H:%M:%S')" >> "$APP/logs/update.log" 2>/dev/null || true
-  stop_stale_server
-fi
 
 if ! command -v npm >/dev/null 2>&1; then
   echo "Ebiki could not find Node.js/npm. Install Node.js (e.g. via your distro's package manager or nodejs.org), then run scripts/setup.sh again." >&2
@@ -199,28 +236,56 @@ if ! command -v npm >/dev/null 2>&1; then
 fi
 
 # ── Quick, seamless update check ────────────────────────────────────────────
+UPDATED=0
+# Is HEAD on PUBLISHED history? Published = on ANY value origin/master has had (its reflog), not only the last
+# one (an earlier fetch already moved the ref, and that refused forever), plus every commit HEAD was set to FROM
+# the remote (a clone does not log origin/master's first value). $1: one more known remote value (optional).
+head_published() {
+  local c
+  for c in $( { git -C "$APP" reflog show --format=%H refs/remotes/origin/master 2>/dev/null | head -n 200
+                git -C "$APP" reflog show --format='%H %gs' HEAD 2>/dev/null | head -n 500 | grep -E '^[0-9a-f]+ (clone:|reset: moving to FETCH_HEAD$|(pull[^:]*|merge [0-9a-f]{7,}): Fast-forward$)' | cut -d' ' -f1
+                echo "$1"; } | awk 'NF && !seen[$0]++' ); do
+    if git -C "$APP" merge-base --is-ancestor HEAD "$c" >/dev/null 2>&1; then return 0; fi
+  done
+  return 1
+}
+
+NPM_TRIED=0 # set by check_update's install (never inherited from the environment)
 check_update() {
   # ALWAYS check - no snooze on this path. A single "not now" used to buy a week
   # of total silence, which is how an update goes unnoticed for a fortnight. The
   # check is a refs-only lookup behind a 6s timeout, so it never slows a launch.
   rm -f "$APP/.update-snooze"   # sweep the marker older versions left behind
-  command -v git >/dev/null 2>&1 || return
+  # Every skip is logged (as in launch.ps1): "it never updates" left no trace otherwise.
+  command -v git >/dev/null 2>&1 || { log_update "skipped: git not found"; return; }
   local local_head
+  # Ebiki's OWN checkout only (a copy without .git inside another repository updated THAT repository), and
+  # never a credential prompt (it hung the launch; /api/update and launch.ps1 set the same).
+  [ -e "$APP/.git" ] || { log_update "skipped: $APP is not its own git checkout"; return; }
+  export GIT_TERMINAL_PROMPT=0 GCM_INTERACTIVE=never GIT_ASKPASS=echo
   local_head="$(git -C "$APP" rev-parse HEAD 2>/dev/null)"
-  [ -z "$local_head" ] && return
+  [ -z "$local_head" ] && { log_update "skipped: HEAD unreadable"; return; }
   # Updates come from master, always. A clone on another branch would be offered an
   # update every launch that could never apply (master into another branch is not a
   # fast-forward), so leave those alone.
   local branch
   branch="$(git -C "$APP" rev-parse --abbrev-ref HEAD 2>/dev/null)"
-  [ -n "$branch" ] && [ "$branch" != master ] && return
-
+  [ -n "$branch" ] && [ "$branch" != master ] && { log_update "skipped: on branch $branch, not master"; return; }
   local line remote
-  line="$(run_with_timeout 6 git -C "$APP" ls-remote origin master 2>/dev/null | head -n1)"
-  [ -z "$line" ] && return            # unreachable -> open normally
+  line="$(run_with_timeout 6 git -C "$APP" ls-remote origin refs/heads/master 2>/dev/null | head -n1)"
+  [ -z "$line" ] && { log_update "skipped: origin unreachable (or master missing)"; return; }   # open normally
+  # A shallow clone can't show its build number or be diffed: deepened once, like launch.ps1, and only once
+  # the remote answered (offline, every launch spent 60s here), giving up on a stalled transfer.
+  [ -f "$APP/.git/shallow" ] && run_with_timeout 60 git -C "$APP" -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=20 fetch --unshallow >/dev/null 2>&1
   remote="$(echo "$line" | awk '{print $1}')"
   [ -z "$remote" ] && return
-  [ "$remote" = "$local_head" ] && return   # up to date -> open normally
+  [ "$remote" = "$local_head" ] && { log_update "already latest ($local_head)"; return; }   # open normally
+  # This copy has its own (never published) commits on master: the update is always refused (to keep them), yet
+  # every launch asked. Not only when AHEAD: once master moves on the copy has DIVERGED (asked forever). The
+  # current origin/master counts as published. A retracted release (HEAD published) still asks.
+  if ! head_published "$(git -C "$APP" rev-parse -q --verify refs/remotes/origin/master 2>/dev/null)"; then
+    log_update "no update: this copy has its own commits on master"; return
+  fi
 
   local answer=""
   if command -v zenity >/dev/null 2>&1; then
@@ -248,12 +313,19 @@ check_update() {
     # MATCH master, do not merely move toward it: `pull --ff-only` is only correct
     # while master goes forwards, and with the local commit AHEAD (a retracted
     # release) it exits 0 saying "Already up to date" while changing nothing.
-    if git -C "$APP" fetch origin master >/dev/null 2>&1; then
+    # Where master WAS: a reset only for a checkout on published history (never-published commits are kept).
+    local old_origin
+    old_origin="$(git -C "$APP" rev-parse -q --verify refs/remotes/origin/master 2>/dev/null)"
+    if git -C "$APP" -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=20 fetch origin master >/dev/null 2>&1; then
       if git -C "$APP" merge-base --is-ancestor HEAD FETCH_HEAD >/dev/null 2>&1; then
         git -C "$APP" merge --ff-only FETCH_HEAD >/dev/null 2>&1
       elif [ -z "$(git -C "$APP" status --porcelain --untracked-files=no 2>/dev/null)" ]; then
-        # rewound or rewritten upstream, and nothing of ours would be lost
-        git -C "$APP" reset --hard FETCH_HEAD >/dev/null 2>&1
+        if head_published "$old_origin"; then
+          # rewound or rewritten upstream, and nothing of ours would be lost
+          git -C "$APP" reset --hard FETCH_HEAD >/dev/null 2>&1
+        else
+          log_update "refused: this copy has commits on master that were never published (kept)"
+        fi
       fi
     fi
     # Only a HEAD that actually moved is an update. A Yes that changed nothing (no network, a
@@ -262,10 +334,12 @@ check_update() {
     new_head="$(git -C "$APP" rev-parse HEAD 2>/dev/null)"
     if [ -n "$new_head" ] && [ "$new_head" != "$local_head" ]; then
       log_update "update applied ($local_head -> $new_head)"
+      UPDATED=1
       # A failed install is retried on the next start (it was never retried: HEAD already matched master).
       # The marker goes down FIRST and is cleared on success, so an install cut off midway counts too.
       date > "$APP/.npm-install-pending"
-      if (cd "$APP" && npm install --no-fund --no-audit >/dev/null 2>&1); then rm -f "$APP/.npm-install-pending"
+      NPM_TRIED=1   # a failure is retried on the NEXT start, not straight away (see the pending block)
+      if (cd "$APP" && run_with_timeout 900 npm install --no-fund --no-audit >/dev/null 2>&1); then rm -f "$APP/.npm-install-pending"
       else log_update "npm install failed; will retry on the next start"; fi
     else
       log_update "update FAILED: HEAD did not move"
@@ -273,13 +347,42 @@ check_update() {
         zenity --warning --title="Ebiki update" --text="Ebiki could not update this time. It will open the current version and ask again next launch." --timeout=15 2>/dev/null
       elif command -v kdialog >/dev/null 2>&1; then
         kdialog --sorry "Ebiki could not update this time. It will open the current version and ask again next launch." 2>/dev/null
+      elif command -v osascript >/dev/null 2>&1; then
+        # macOS (the question above used osascript too, so the failure must be told the same way)
+        osascript -e 'display dialog "Ebiki could not update this time. It will open the current version and ask again next launch." buttons {"OK"} default button "OK" with title "Ebiki update" giving up after 15' >/dev/null 2>&1
       fi
     fi
   fi
   # no / timeout -> just open; nothing is recorded, so the next launch asks again,
-  # and Settings > General > Updates carries the offer in the meantime
+  # and Settings > Data & updates carries the offer in the meantime
 }
-check_update || true
+# Already running -> show it. If it's already open as an Electron app window, requestSingleInstanceLock in
+# electron/main.cjs means this just focuses that window instead of opening a second one. The update check
+# runs here too, like launch.ps1 (Check-Update -AlreadyRunning): a server kept alive by the auto-exit grace
+# (up to 150s after closing) made every quick reopen skip the offer.
+if port_listening; then
+  if server_healthy; then
+    if server_updating; then log_update "skipped: the running app is installing an update"
+    elif [ "$WAITED" != 1 ]; then check_update || true; fi
+    if [ "$UPDATED" = 1 ]; then
+      msg="Ebiki was updated. Close Ebiki and open it again to finish (the running copy still has the old version)."
+      if command -v zenity >/dev/null 2>&1; then zenity --info --title="Ebiki update" --text="$msg" --timeout=30 2>/dev/null
+      elif command -v kdialog >/dev/null 2>&1; then kdialog --msgbox "$msg" 2>/dev/null
+      elif command -v osascript >/dev/null 2>&1; then osascript -e "display dialog \"$msg\" buttons {\"OK\"} default button \"OK\" with title \"Ebiki update\" giving up after 30" >/dev/null 2>&1
+      fi
+    fi
+    release_lock # nothing left to guard; release before the window opens
+    open_app
+    exit 0
+  fi
+  # Listening but not answering: a wedged server from an earlier session, not
+  # a working one. Stop it and fall through to the normal fresh-start path
+  # below instead of exiting.
+  log_update "port 3000 was listening but not answering - stopped the stale server and starting fresh"
+  stop_stale_server
+fi
+
+[ "$WAITED" = 1 ] || check_update || true
 
 # ── Start the dev server in the background, then open the app ourselves ────
 # EBIKI_AUTO_EXIT marks this as a shortcut launch, which changes THREE things
@@ -290,8 +393,29 @@ check_update || true
 # itself - leaving open:true on would additionally pop a plain browser tab
 # next to it.
 export EBIKI_AUTO_EXIT=1
-if [ -f "$APP/.npm-install-pending" ]; then
-  if (cd "$APP" && npm install --no-fund --no-audit >/dev/null 2>&1); then
+# Not when this launch's update just tried (and failed): a second 15-minute attempt held the lock for half an hour.
+if [ -f "$APP/.npm-install-pending" ] && [ "${NPM_TRIED:-0}" != 1 ]; then
+  # An install started by Settings can outlive the server it took down: wait for it (PID in the marker, 15 min cap).
+  npid=$(grep -o '"pid":[0-9]*' "$APP/.npm-install-pending" 2>/dev/null | grep -o '[0-9]*$')
+  if [ -n "$npid" ]; then
+    waited=0
+    # Only the install itself: named node/npm and started no later than the marker was written (a reused PID after
+    # a reboot held the launch for 15 minutes). Unknown ages (no etimes, no stat) do not wait.
+    mark_t=$(stat -c %Y "$APP/.npm-install-pending" 2>/dev/null || stat -f %m "$APP/.npm-install-pending" 2>/dev/null)
+    started_ok() {
+      age=$(ps -p "$npid" -o etimes= 2>/dev/null | tr -d ' ')
+      # macOS ps has no etimes: parse etime ([[dd-]hh:]mm:ss).
+      if [ -z "$age" ]; then
+        et=$(ps -p "$npid" -o etime= 2>/dev/null | tr -d ' ')
+        [ -n "$et" ] && age=$(printf '%s\n' "$et" | awk -F'[-:]' '{ s = 0; if (NF == 4) s = $1 * 86400 + $2 * 3600 + $3 * 60 + $4; else if (NF == 3) s = $1 * 3600 + $2 * 60 + $3; else s = $1 * 60 + $2; print s }')
+      fi
+      [ -n "$age" ] && [ -n "$mark_t" ] && [ $(( $(date +%s) - age )) -le $(( mark_t + 5 )) ]
+    }
+    while [ "$waited" -lt 900 ] && kill -0 "$npid" 2>/dev/null && ps -p "$npid" -o comm= 2>/dev/null | sed 's#.*/##' | grep -Eq '^(node|npm)( |$)' && started_ok; do
+      sleep 5; waited=$((waited + 5))
+    done
+  fi
+  if (cd "$APP" && run_with_timeout 900 npm install --no-fund --no-audit >/dev/null 2>&1); then
     rm -f "$APP/.npm-install-pending"; log_update "finished the pending npm install"
   else
     log_update "pending npm install failed again"
@@ -310,4 +434,4 @@ while ! port_listening; do
 done
 open_app
 
-flock -u 200
+release_lock

@@ -9,7 +9,7 @@ marked.setOptions({ breaks: true, gfm: true })
 
 // Open all rendered links in a new tab (added once at module load).
 DOMPurify.addHook('afterSanitizeAttributes', (node) => {
-  if (node.tagName === 'A') {
+  if (String(node.nodeName).toLowerCase() === 'a') { // SVG <a> too (lowercase tagName): it navigated the window itself
     node.setAttribute('target', '_blank')
     node.setAttribute('rel', 'noopener noreferrer')
   }
@@ -26,10 +26,19 @@ DOMPurify.addHook('afterSanitizeAttributes', (node) => {
 // process) from inside the app. No reply or looked-up card needs media rendered, so media is dropped.
 // (Render-only: cards WRITTEN to Anki go through sanitizeCardHtml, which keeps their images.)
 const FORBID_TAGS = ['style', 'link', 'meta', 'base', 'form', 'input', 'textarea', 'select', 'button', 'option', 'iframe', 'frame', 'object', 'embed',
-  'img', 'picture', 'source', 'video', 'audio', 'track', 'image', 'use', 'feimage']
-const FORBID_ATTR = ['background', 'poster', 'srcset', 'ping', 'formaction', 'xlink:href']
-DOMPurify.addHook('uponSanitizeAttribute', (_node, data) => {
-  if (data.attrName !== 'style') return
+  'img', 'picture', 'source', 'video', 'audio', 'track', 'image', 'use', 'feimage',
+  'dialog'] // <dialog open> is position:absolute by the browser's own stylesheet: a full-window fake screen the style hook never saw
+const FORBID_ATTR = ['background', 'poster', 'srcset', 'ping', 'formaction', 'xlink:href', 'popover', 'popovertarget', 'popovertargetaction']
+DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
+  // SVG presentation attributes take url() too (filter, mask, clip-path, fill, stroke, marker-*), and gradients,
+  // patterns and textPath take an href: each loaded a remote URL the moment a reply rendered (checked in Chromium).
+  // Only a LOCAL reference ("url(#grad)", href="#id") stays; a link's href on <a> is untouched.
+  if (data.attrName !== 'style') {
+    const v = String(data.attrValue || '')
+    if (/url\s*\(|image-set/i.test(v) && !/^\s*url\(\s*['"]?#[^)]*\)\s*$/i.test(v)) data.keepAttr = false
+    if (data.attrName === 'href' && String(node.nodeName).toLowerCase() !== 'a' && !/^\s*#/.test(v)) data.keepAttr = false
+    return
+  }
   const v = String(data.attrValue || '')
   // Also refused: CSS escapes and comments (they disguise the rest: "position:/**/fixed", "\75rl(") and
   // image-set(), which loads a URL given as a plain string, without url(.

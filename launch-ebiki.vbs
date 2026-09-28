@@ -25,7 +25,7 @@ For Each busyFile In Array("\.app-splash", "\.app-status")
     If DateDiff("s", fso.GetFile(appDir & busyFile).DateLastModified, Now) < 180 Then follower = True
   End If
 Next
-If follower Then sh.Environment("PROCESS")("EBIKI_LAUNCH_FOLLOWER") = "1"
+If follower Then sh.Environment("PROCESS")("EBIKI_LAUNCH_FOLLOWER") = "1" Else sh.Environment("PROCESS")("EBIKI_LAUNCH_FOLLOWER") = "0"
 readyFile = appDir & "\.app-ready"
 If Not follower And fso.FileExists(readyFile) Then fso.DeleteFile readyFile, True
 ' Same for the files that carry the splash's status line and the update question
@@ -35,6 +35,11 @@ If Not follower Then
   For Each leftover In Array("\.app-status", "\.app-answer", "\.app-splash")
     If fso.FileExists(appDir & leftover) Then fso.DeleteFile appDir & leftover, True
   Next
+  ' Claim the launch NOW: the splash and launch.ps1 create their files only after a moment, so a double
+  ' click made two leaders, and the second asked the update question again right after "Not now".
+  Set claim = fso.CreateTextFile(appDir & "\.app-status", True)
+  claim.WriteLine "Starting Ebiki."
+  claim.Close
 End If
 
 mshta = sh.ExpandEnvironmentStrings("%SystemRoot%\System32\mshta.exe")

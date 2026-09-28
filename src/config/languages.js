@@ -49,6 +49,12 @@ const hasWord = (text, w) => (/^[\p{Script=Latin}\s]+$/u.test(w)
   ? new RegExp(`(^|[^\\p{L}])${escRe(w)}([^\\p{L}]|$)`, 'iu').test(text)
   : text.includes(w))
 
+// Spoken languages that share a SCRIPT (and so an OCR code) with another language but not its sounds:
+// "Cantonese" resolves to Chinese (Traditional) for text recognition, yet its audio and its name as a studied
+// language must stay Cantonese (Mandarin recordings were embedded into Cantonese cards).
+export const DISTINCT_SPOKEN = ['cantonese', '粤语', '粵語', '廣東話', '广东话', 'hokkien', 'taiwanese', 'shanghainese']
+export const isDistinctSpoken = (name) => { const n = String(name || '').toLowerCase(); return DISTINCT_SPOKEN.some((w) => n.includes(w)) }
+
 // The LANGS entry a free-text language or mode name refers to, or null.
 export function langFromName(name) {
   const n = String(name || '').trim().toLowerCase()

@@ -124,3 +124,14 @@ describe('a provider cleared on purpose is remembered per provider', () => {
     expect(fs.existsSync(ENV_DECLINED)).toBe(false)
   })
 })
+
+describe('a .env saved with a UTF-8 byte-order mark', () => {
+  it('still finds the first key, and a save does not duplicate it', () => {
+    seed(`﻿VITE_ANTHROPIC_API_KEY=${ANT}\nVITE_OPENAI_API_KEY=${OAI}\n`)
+    expect(readEnvFile(ENV_FILE)).toMatchObject({ anthropic: ANT, openai: OAI })
+    writeEnv({ openai: 'sk-proj-newnewnewnewnewnew' })
+    const text = fs.readFileSync(ENV_FILE, 'utf-8')
+    expect(text.match(/VITE_ANTHROPIC_API_KEY=/g)).toHaveLength(1)
+    expect(readEnvFile(ENV_FILE)).toMatchObject({ anthropic: ANT, openai: 'sk-proj-newnewnewnewnewnew' })
+  })
+})

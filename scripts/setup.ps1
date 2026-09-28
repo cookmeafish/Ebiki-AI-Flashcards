@@ -151,14 +151,16 @@ function Test-GitHealthy($dir) {
   return $true
 }
 
-# A REAL clone (a commit checked out AND an origin) that merely lacks upstream tracking - a
-# developer's local branch, say. Link-ToGit is for ZIP folders and interrupted links only: it
-# force-checks-out master and runs `clean -fd`, which on a real clone destroys uncommitted
-# changes and untracked files. Such a folder is left alone (repaired in place when on master).
+# A REAL clone (a commit checked out) that is not fully linked - a developer's local branch, or a
+# clone whose remote has another name ("git clone -o upstream") or none. Link-ToGit is for ZIP folders
+# and interrupted links only: it force-checks-out master and runs `clean -fd`, which on a real clone
+# destroys uncommitted changes and untracked files. Such a folder is left alone (repaired in place
+# when on master). Any checked-out commit counts: requiring an "origin" sent a clone with a
+# differently named remote to Link-ToGit, which wiped its work (reproduced).
 function Test-RealClone($dir) {
   if (-not (Get-Command git -ErrorAction SilentlyContinue)) { return $false }
   if (-not (Test-Path (Join-Path $dir '.git'))) { return $false }
-  return [bool]((& git -C $dir rev-parse --verify -q HEAD 2>$null) -and (& git -C $dir remote get-url origin 2>$null))
+  return [bool](& git -C $dir rev-parse --verify -q HEAD 2>$null)
 }
 
 function Have-Winget { [bool](Get-Command winget -ErrorAction SilentlyContinue) }
@@ -199,6 +201,19 @@ try {
     }
     Ok "Node installed ($(& $node.Source -v))"
   }
+  # Too OLD is as bad as missing: the dev server (vite) needs Node 18+, so an old Node passed this step,
+  # "All set" was printed, and the app then failed to start on every launch with nothing to repair it.
+  $nodeMajor = 0
+  try { $nodeMajor = [int](((& $node.Source -v) -replace '^v', '') -split '\.')[0] } catch { $nodeMajor = 0 }
+  if ($nodeMajor -gt 0 -and $nodeMajor -lt 18) {
+    Warn "Node.js v$nodeMajor is too old for Ebiki (it needs 18 or newer). Installing the current LTS..."
+    if (Install-With-Winget 'OpenJS.NodeJS.LTS' 'Node.js LTS') { $node = Resolve-Tool 'node' $nodeDirs }
+    try { $nodeMajor = [int](((& $node.Source -v) -replace '^v', '') -split '\.')[0] } catch { $nodeMajor = 0 }
+    if ($nodeMajor -gt 0 -and $nodeMajor -lt 18) {
+      throw 'Node.js is too old for Ebiki (it needs version 18 or newer). Install the current LTS from https://nodejs.org, then run "Install Ebiki.bat" again.'
+    }
+    Ok "Node updated ($(& $node.Source -v))"
+  }
   # npm ships with Node; resolve it from the same folder so version prints work.
   $npm = Resolve-Tool 'npm' $nodeDirs
   if ($npm) { Ok "npm $(& $npm.Source -v)" } else { Warn 'npm was not found next to Node; the app may still run if npm appears after a restart.' }
@@ -232,7 +247,7 @@ try {
       & git -C $app fetch --unshallow 2>&1 | Out-Null
       if ($LASTEXITCODE -eq 0) { Ok 'History restored.' } else { Warn 'Could not fetch the full history right now; updates still work.' }
     }
-    if ($sha) { Ok "Version $sha. Updates work (Settings > General > Updates, and on launch)." }
+    if ($sha) { Ok "Version $sha. Updates work (Settings > Data & updates, and on launch)." }
     else { Ok 'Git clone. Updates work.' }
     Info "You can also update by hand from this folder: git pull"
   } elseif ($git -and (Test-RealClone $app)) {
@@ -313,7 +328,12 @@ try {
   Section 'Checking the AnkiConnect add-on'
   $ankiBase = if ($env:ANKI_BASE) { $env:ANKI_BASE } else { Join-Path $env:APPDATA 'Anki2' }
   $addonDir = Join-Path $ankiBase 'addons21\2055492159'
-  $ankiRunning = [bool](Get-Process -Name anki -ErrorAction SilentlyContinue)
+  # Website installs run the real Anki as python/pythonw out of the Anki folders (same test as
+  # install-ankiconnect.ps1): counting only "anki" skipped the "close and reopen Anki" advice with Anki open.
+  $pyAnki = @(Get-Process -Name 'pythonw', 'python' -ErrorAction SilentlyContinue | Where-Object {
+    try { $_.Path -match '[\\/](Anki|AnkiProgramFiles)[\\/]' } catch { $false }
+  })
+  $ankiRunning = [bool](Get-Process -Name 'anki', 'ankiw' -ErrorAction SilentlyContinue) -or ($pyAnki.Count -gt 0)
   $have = Find-AnkiConnect $ankiBase
   if ($have) {
     $meta = Get-AddonMeta $have

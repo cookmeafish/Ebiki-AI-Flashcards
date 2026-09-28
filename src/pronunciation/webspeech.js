@@ -4,6 +4,15 @@
 // utterance truncation limit, so no chunking is needed.
 import { langInfo } from './langcodes'
 
+// Voice lang tags that differ from the language's own code (data, not per-language branches):
+// browsers ship Norwegian as nb/nn, and some still report Hebrew/Indonesian by their old codes.
+const VOICE_ALIASES = { no: ['nb', 'nn'], he: ['iw'], id: ['in'] }
+// A bare code whose first "starts with" match could be another variety (zh-HK is Cantonese).
+const BARE_DEFAULT = { zh: 'zh-CN', no: 'nb-NO' }
+// Voices under a base code that speak ANOTHER language and must never stand in for it on the fallback (a Hong Kong
+// Windows install has only zh-HK voices: every Mandarin word was read in Cantonese). Picked only when asked for exactly.
+const VOICE_NOT_BASE = { zh: ['zh-hk', 'zh-mo', 'yue'] }
+
 let voicesPromise = null
 const loadVoices = () => {
   if (voicesPromise) return voicesPromise
@@ -36,11 +45,12 @@ export async function resolveWebSpeech({ word, lang, region = '' }) {
   const voices = await loadVoices()
   if (!voices.length) return null
   const base = info.bcp47.split('-')[0].toLowerCase()
-  const wanted = region ? `${base}-${String(region).toUpperCase()}` : info.bcp47
+  const wanted = (region ? `${base}-${String(region).toUpperCase()}` : (BARE_DEFAULT[info.bcp47.toLowerCase()] || info.bcp47)).toLowerCase()
   const norm = (t) => String(t || '').replace(/_/g, '-').toLowerCase()
-  const voice = voices.find((v) => norm(v.lang) === wanted.toLowerCase())
-    || voices.find((v) => norm(v.lang).startsWith(base + '-'))
-    || voices.find((v) => norm(v.lang) === base)
+  const bases = [base, ...(VOICE_ALIASES[base] || [])]
+  const notBase = (v) => (VOICE_NOT_BASE[base] || []).some((t) => norm(v.lang) === t || norm(v.lang).startsWith(t + '-'))
+  const voice = voices.find((v) => norm(v.lang) === wanted)
+    || bases.map((b) => voices.find((v) => norm(v.lang).startsWith(b + '-') && !notBase(v)) || voices.find((v) => norm(v.lang) === b)).find(Boolean)
   if (!voice) return null
   return {
     kind: 'speak', source: 'webspeech',

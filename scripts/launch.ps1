@@ -25,6 +25,9 @@ $readyFile = Join-Path $app '.app-ready'
 # no splash and must not touch the handshake files: its status line replaced the other launch's question,
 # and its .app-ready closed the other splash. It waits on the launcher lock, then opens the app.
 $follower = $env:EBIKI_LAUNCH_FOLLOWER -eq '1'
+# Not passed on: a server or window started from here inherited it, and a relaunch it spawned ran as a silent
+# follower under its own splash (no update check, handshake files never cleared).
+Remove-Item Env:EBIKI_LAUNCH_FOLLOWER -ErrorAction SilentlyContinue
 function Signal-AppReady {
   if ($follower) { return }
   try { New-Item -ItemType File -Path $readyFile -Force | Out-Null } catch {}
@@ -48,6 +51,9 @@ function Invoke-NpmInstall($label) {
     $started = Get-Date
     while (-not $p.WaitForExit(10000)) {
       $secs = [int]((Get-Date) - $started).TotalSeconds
+      # A ceiling: its heartbeat keeps the splash open, so a wedged install (a stuck download, a locked file)
+      # held the splash and the launcher lock forever. .npm-install-pending makes the next start retry.
+      if ($secs -gt 900) { & taskkill /T /F /PID $p.Id 2>&1 | Out-Null; return 1 }
       Set-Status ("{0} ({1}s so far, please wait)" -f $label, $secs)
     }
     return $p.ExitCode
@@ -112,6 +118,9 @@ function Ask-InSplash($text, $timeoutSec, $title, $yesStatus) {
         if ($v -eq 'yes') { return 'yes' } else { return 'no' }
       }
     }
+    # The splash closed meanwhile (its silence cap, Alt+F4) and took its marker with it: nobody can answer in
+    # there, so the caller's own dialog asks instead of this waiting out the timeout invisibly.
+    if (-not (Test-Path $splashMarker)) { Set-Status 'Starting Ebiki.'; return 'nosplash' }
     Start-Sleep -Milliseconds 200
   }
   # Nobody answered: say we moved on, so the splash takes its buttons down (a click after this
@@ -339,6 +348,21 @@ function Write-UpdateLog($text) {
   } catch {}
 }
 
+# Is HEAD on PUBLISHED history? Published = on ANY value origin/master has had (its reflog): an earlier fetch
+# (the unshallow, an attempt refused as dirty) already moved the ref, and checking only its last value refused
+# forever. Plus every commit HEAD was set to FROM the remote (clone, pull, a fast-forward or reset to
+# FETCH_HEAD): a clone does not log origin/master's first value. $extra: one more known remote value.
+function Test-HeadPublished($app, $extra) {
+  $fromRemote = @(& git -C $app reflog show --format='%H %gs' HEAD 2>$null | Select-Object -First 500 |
+    Where-Object { $_ -match '^[0-9a-f]+ (clone:|reset: moving to FETCH_HEAD\s*$|(pull[^:]*|merge [0-9a-f]{7,}): Fast-forward\s*$)' } | ForEach-Object { ($_ -split ' ')[0] })
+  $cands = @(& git -C $app reflog show --format=%H refs/remotes/origin/master 2>$null | Select-Object -First 200) + $fromRemote + @($extra)
+  foreach ($c in ($cands | Where-Object { $_ } | Select-Object -Unique)) {
+    & git -C $app merge-base --is-ancestor HEAD $c 2>&1 | Out-Null
+    if ($LASTEXITCODE -eq 0) { return $true }
+  }
+  return $false
+}
+
 function Check-Update {
   param([switch]$AlreadyRunning)
   # ALWAYS check. There is deliberately no snooze on this path any more: it used
@@ -353,8 +377,19 @@ function Check-Update {
   # a future check.
   Remove-Item $snooze -Force -ErrorAction SilentlyContinue
   if (-not (Get-Command git -ErrorAction SilentlyContinue)) { Write-UpdateLog 'skipped: git is not on PATH'; return }
+  # Never a sign-in window: when GitHub answers "authentication required" (the repository moved, an
+  # authenticating proxy), Git Credential Manager opened a login dialog, and the foreground fetches below
+  # waited on it with no timeout, so the launch hung behind the splash. /api/update sets the same.
+  $env:GIT_TERMINAL_PROMPT = '0'; $env:GCM_INTERACTIVE = 'never'; $env:GIT_ASKPASS = 'echo'
   $local = (& git -C $app rev-parse HEAD 2>$null)
   if (-not $local) { Write-UpdateLog 'skipped: this folder is not a git checkout'; return }
+  # The checkout must be Ebiki's OWN: a ZIP install without .git inside another repository (a home-folder
+  # dotfiles repo) read THAT repo's HEAD, offered its changes as an Ebiki update, and a Yes reset it.
+  # --show-cdup prints NOTHING at the top of a checkout ("../" deeper in someone else's). No path compare: git
+  # prints paths as UTF-8 while this hidden console decodes with the OEM code page, so an app folder under
+  # C:\Users\Jose-with-an-accent never matched and was never offered an update.
+  $cdup = (& git -C $app rev-parse --show-cdup 2>$null)
+  if ($LASTEXITCODE -ne 0 -or "$cdup".Trim()) { Write-UpdateLog "skipped: $app is not the top of its own git checkout"; return }
   # Updates come from master, always. A clone parked on another branch would
   # compare its HEAD against origin/master forever - offered an update on every
   # single launch that then cannot apply, because pulling master into another
@@ -366,22 +401,31 @@ function Check-Update {
   # it has no history to diff or roll back through, and it reports "build 1" so the
   # version line has to hide the build number entirely. Deepen it once, quietly, the
   # first time we are here with a working network. Fail-soft: offline just leaves it.
-  if (Test-Path (Join-Path $app '.git\shallow')) {
-    Set-Status 'Filling in this copy''s history. One time only.'
-    & git -C $app fetch --unshallow 2>&1 | Out-Null
-  }
   Set-Status 'Checking for updates.'
 
   # Compare against 'master' (the release branch), whatever local branch this
   # clone is on. Look up just its remote head (fast, refs only) with a hard 6s
   # timeout so a slow or offline network can never delay the launch.
-  $job = Start-Job { param($a) (& git -C $a ls-remote origin master 2>$null) } -ArgumentList $app
+  $job = Start-Job { param($a) (& git -C $a ls-remote origin refs/heads/master 2>$null) } -ArgumentList $app
   $line = $null
   if (Wait-Job $job -Timeout 6) { $line = Receive-Job $job }
   Remove-Job $job -Force -ErrorAction SilentlyContinue
   if (-not $line) { Write-UpdateLog 'skipped: could not reach GitHub within 6s'; return }   # open normally
+  # Only now that GitHub answered (offline, it cost the full network timeout on every launch), and with a
+  # low-speed limit: a stalled transfer hung here with the launcher lock held.
+  if (Test-Path (Join-Path $app '.git\shallow')) {
+    Set-Status 'Filling in this copy''s history. One time only.'
+    & git -C $app -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=20 fetch --unshallow 2>&1 | Out-Null
+    Set-Status 'Checking for updates.'
+  }
   $remote = (($line | Select-Object -First 1) -split '\s+')[0]
   if (-not $remote -or $remote -eq $local) { Write-UpdateLog 'no update: already on the latest release'; return }
+  # This copy has its own (never published) commits on master: an update can never apply (it is refused to keep
+  # them), and every launch asked anyway. Not only when AHEAD: once master moves on, the copy has DIVERGED and was
+  # asked on every launch forever. The current origin/master counts as published (an expired reflog). A retracted
+  # release (HEAD published) still asks.
+  $originNow = (& git -C $app rev-parse -q --verify refs/remotes/origin/master 2>$null)
+  if (-not (Test-HeadPublished $app $originNow)) { Write-UpdateLog 'no update: this copy has its own commits on master'; return }
 
   # Update available -> ask IN THE SPLASH (see Ask-InSplash). One window, already
   # on screen and in front, so there is nothing left for the question to hide
@@ -405,7 +449,10 @@ function Check-Update {
     # BACKWARDS, and with the local commit ahead that pull exits 0 saying "Already
     # up to date" while changing nothing - so the launcher would offer the same
     # update at every start, report success every time, and never move a file.
-    & git -C $app fetch origin master 2>&1 | Out-Null
+    # Where master WAS before this fetch: a reset is only for a checkout that sits on published history
+    # (a retracted release). Local commits on master were never published, and a reset threw them away.
+    $oldOrigin = (& git -C $app rev-parse -q --verify refs/remotes/origin/master 2>$null)
+    & git -C $app -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=20 fetch origin master 2>&1 | Out-Null
     if ($LASTEXITCODE -eq 0) {
       # Ancestor = master moved forward, so fast-forward. Otherwise it was rewound
       # or rewritten, and the only way back to what master IS is to match it - which
@@ -414,7 +461,8 @@ function Check-Update {
       if ($LASTEXITCODE -eq 0) {
         & git -C $app merge --ff-only FETCH_HEAD 2>&1 | Out-Null
       } elseif (-not (& git -C $app status --porcelain --untracked-files=no 2>$null)) {
-        & git -C $app reset --hard FETCH_HEAD 2>&1 | Out-Null
+        if (Test-HeadPublished $app $oldOrigin) { & git -C $app reset --hard FETCH_HEAD 2>&1 | Out-Null }
+        else { Write-UpdateLog 'refused: this copy has commits on master that were never published (kept)' }
       }
     }
     $now = (& git -C $app rev-parse HEAD 2>$null)
@@ -434,6 +482,7 @@ function Check-Update {
       $npmMarker = Join-Path $app '.npm-install-pending'
       try { Set-Content -Path $npmMarker -Value (Get-Date).ToString('s') -Encoding ASCII } catch {}
       $npmExit = Invoke-NpmInstall 'Installing the update'
+      $script:npmTriedThisRun = $true   # a failure is retried on the NEXT start, not straight away (see below)
       if ($npmExit -eq 0) { Remove-Item -Force $npmMarker -ErrorAction SilentlyContinue }
       else { Write-UpdateLog ("launcher: npm install failed (exit {0}); will retry on the next start" -f $npmExit) }
       # When the app was already up, the running copy is still serving the OLD code
@@ -447,7 +496,7 @@ function Check-Update {
   }
   # 'no' -> just open. Nothing is recorded, so the next launch asks again.
   # 'timeout' (nobody was at the computer) -> open normally. Nothing is lost
-  # either way: the next launch asks again, and Settings > General > Updates
+  # either way: the next launch asks again, and Settings > Data & updates
   # offers it inside the app.
   Set-Status 'Starting the study server.'
 }
@@ -459,7 +508,14 @@ function Check-Update {
 # still alive never offered the update and never logged why.
 if (Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyContinue) {
   if (Test-ServerHealthy) {
-    try { Check-Update -AlreadyRunning } catch {}
+    # Not in a FOLLOWER (a second click while the first launch was busy): the first launch just asked, and
+    # re-asking popped a second "Update now?" right after the user answered "Not now" in the splash.
+    # Nor while the running app is updating itself (Settings > Data & updates): a Yes here ran a second
+    # npm install in the same node_modules.
+    $appUpdating = $false
+    try { $appUpdating = [bool]((Invoke-RestMethod -Uri 'http://localhost:3000/api/alive' -TimeoutSec 4).updateRunning) } catch {}
+    if ($appUpdating) { Write-UpdateLog 'skipped: the running app is installing an update' }
+    elseif (-not $follower) { try { Check-Update -AlreadyRunning } catch {} }
     Wait-AppReady (Open-App)
     return
   }
@@ -476,13 +532,16 @@ if (Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyCont
 
 if (-not $hasNode) {
   # Can't run without Node. Point the user at the installer rather than failing silently.
+  # Splash down FIRST and the dialog on top (system-modal + foreground): opened under the splash with no timeout,
+  # it was never seen, and it held the launcher lock, so every later click waited on it and opened nothing.
+  Signal-AppReady; Clear-Status
   [void](New-Object -ComObject WScript.Shell).Popup(
     "Ebiki could not find Node.js.`n`nRun 'Install Ebiki.bat' in the Ebiki folder, then sign out and back in once.",
-    0, 'Ebiki', 16)   # 16 = stop icon
+    300, 'Ebiki', 16 + 4096 + 65536)   # stop icon + MB_SYSTEMMODAL + MB_SETFOREGROUND; 5 min cap
   return
 }
 
-try { Check-Update } catch {}
+if (-not $follower) { try { Check-Update } catch {} } # see the already-running branch
 
 # ── Start the dev server hidden, then open the app ourselves ────────────────
 # EBIKI_AUTO_EXIT marks this as a SHORTCUT launch, which changes THREE things in
@@ -497,7 +556,25 @@ try { Check-Update } catch {}
 $env:EBIKI_AUTO_EXIT = '1'
 # An update whose npm install failed (here or from Settings) finishes now, before the server starts.
 $pendingInstall = Join-Path $app '.npm-install-pending'
-if (Test-Path $pendingInstall) {
+# Not when this launch's update just tried (and failed): a second 15-minute attempt held the splash and the launcher
+# lock for half an hour. The marker stays, so the next start retries.
+if ((Test-Path $pendingInstall) -and -not $script:npmTriedThisRun) {
+  # An install started by Settings can outlive the server it took down: wait for that one (its PID is in the
+  # marker) before running another in the same node_modules. Capped at 15 minutes.
+  try {
+    $mark = Get-Content -Raw -LiteralPath $pendingInstall -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop
+    if ($mark.pid) {
+      $waitUntil = (Get-Date).AddMinutes(15); $t0 = Get-Date
+      while ((Get-Date) -lt $waitUntil) {
+        $p = Get-Process -Id ([int]$mark.pid) -ErrorAction SilentlyContinue
+        if (-not $p -or @('cmd', 'node', 'npm') -notcontains $p.ProcessName.ToLower()) { break }
+        # A reused PID (a reboot, days later) is a process that started AFTER the marker: not the install.
+        try { if ($mark.at -and $p.StartTime -gt ([datetime]$mark.at).AddSeconds(5)) { break } } catch { break }
+        Set-Status ("Waiting for the last update to finish installing ({0}s)." -f [int]((Get-Date) - $t0).TotalSeconds)
+        Start-Sleep -Seconds 5
+      }
+    }
+  } catch { }
   Set-Status 'Finishing the last update.'
   $npmExit = Invoke-NpmInstall 'Finishing the last update'
   if ($npmExit -eq 0) { Remove-Item -Force $pendingInstall -ErrorAction SilentlyContinue; Write-UpdateLog 'launcher: finished the pending npm install' }

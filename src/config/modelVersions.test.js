@@ -153,3 +153,10 @@ describe('trailing MMDD snapshots (xAI)', () => {
     expect(pickUpgrade('grok-4-0709', ['grok-4-0709', 'grok-4-1'])).toBe('grok-4-1')
   })
 })
+
+describe('zero-padded build numbers', () => {
+  it('reads gemini-2.0-flash-001 as a build of gemini-2.0-flash, not a newer model', () => {
+    expect(parseModelId('gemini-2.0-flash-001').version).toEqual([2, 0])
+    expect(pickUpgrade('gemini-2.0-flash', ['gemini-2.0-flash', 'gemini-2.0-flash-001'])).toBeNull()
+  })
+})

@@ -1,3 +1,4 @@
+import { langFromName, isDistinctSpoken } from '../config/languages.js'
 // Language code data for the pronunciation system. Pure DATA, not branching —
 // per the design rule, any per-language tuning lives in config/data tables.
 // Keys are the English labels used across the app (LANGS labels, studyRules.studyLanguage).
@@ -52,5 +53,9 @@ export function langInfo(labelOrCode) {
     if (info.iso3.includes(lower)) return info
   }
   if (lower.startsWith('chi_')) return LANG_CODES['Chinese']
+  // A free-text name ("Mandarin Chinese", "Latin American Spanish", "Español"): the app's own resolver, so a
+  // mode named that way still gets audio.
+  const named = isDistinctSpoken(s) ? null : langFromName(s)
+  if (named && named.label !== s) return langInfo(named.label) || langInfo(named.code)
   return null
 }

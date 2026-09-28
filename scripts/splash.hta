@@ -242,7 +242,11 @@ var STEP = 250, LIMIT = 180000;  // give up after 3 min of SILENCE (see showStat
                                  // any new status line resets this), so an update
                                  // installed at launch can take as long as it needs
 
-function done() { try { window.close(); } catch (e) {} }
+// The marker says "a window is listening": left behind after the silence cap (or Alt+F4), the launcher's
+// next question went to a closed window, waited its full timeout invisibly, and the update was skipped.
+function dropSplashMarker() { try { fso.DeleteFile(fso.BuildPath(appDir, '.app-splash'), true); } catch (e) {} }
+window.onbeforeunload = dropSplashMarker;
+function done() { dropSplashMarker(); try { window.close(); } catch (e) {} }
 
 function tick() {
   waited += STEP;
