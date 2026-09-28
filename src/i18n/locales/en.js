@@ -1047,6 +1047,12 @@ export default {
   tag_checking: 'double-checking...',
   tag_checkingTip: 'Ebi is checking these against a second, independent read, so a guessed tag cannot slip through.',
 
+  // Image descriptions (read by screen readers)
+  img_attached: 'Attached photo',
+  img_selection: 'Selected area',
+  img_screenshot: 'Screenshot',
+  img_expanded: 'Enlarged picture',
+
   // ── Shared practice kit (quiz runner, talk button, rule cards) (src/features/kit/) ──
   kit_check: 'Check',
   kit_continue: 'Continue',

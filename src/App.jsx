@@ -16259,7 +16259,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                     color: 'var(--c-ink)', overflowWrap: 'anywhere', wordBreak: 'break-word',
                     ...(m.role === 'user' ? { whiteSpace: 'pre-wrap' } : {}),
                   }}>
-                    {m.image && <img src={m.image} alt="attached" style={{ display: 'block', maxWidth: 220, maxHeight: 160, borderRadius: 8, marginBottom: m.content && m.content !== '(image)' ? 8 : 0 }} />}
+                    {m.image && <img src={m.image} alt={t('img_attached')} style={{ display: 'block', maxWidth: 220, maxHeight: 160, borderRadius: 8, marginBottom: m.content && m.content !== '(image)' ? 8 : 0 }} />}
                     {m.role === 'user' ? (m.content === '(image)' ? '' : m.content) : <Markdown text={m.content} />}
                   </div>
                   {/* Inline Anki card previews */}
@@ -16382,7 +16382,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
               {/* Attached-image preview for the next message */}
               {chatTabImage && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                  <img src={chatTabImage} alt="attached" style={{ height: 44, borderRadius: 6, border: '1px solid var(--c-border)' }} />
+                  <img src={chatTabImage} alt={t('img_attached')} style={{ height: 44, borderRadius: 6, border: '1px solid var(--c-border)' }} />
                   <button onClick={() => setChatTabImage(null)} style={{ ...S.ghostBtn, fontSize: 10 }}>{t('removeImage')}</button>
                 </div>
               )}
@@ -17681,7 +17681,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                 border: '2px solid rgba(223,37,64,0.4)',
                 boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
               }}>
-                <img src={selectionCrop.dataUrl} alt="Selection" style={{
+                <img src={selectionCrop.dataUrl} alt={t('img_selection')} style={{
                   display: 'block', width: '100%', height: '100%', objectFit: 'fill',
                 }} />
                 {/* Word overlays positioned within the crop */}
@@ -17708,7 +17708,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                 : S.imageContainer}
               onClick={() => !isOverlay && stage === 'done' && ocrWords.length > 0 && setExpanded(true)}
             >
-              <img src={screenshot} alt="Screenshot" style={isOverlay
+              <img src={screenshot} alt={t('img_screenshot')} style={isOverlay
                 ? { display: 'block', width: '100%', height: '100%', objectFit: 'fill' }
                 : S.mainImage} />
 
@@ -17818,7 +17818,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
             <span style={{ marginLeft: 6 }}>{t('pic_escClose')}</span>
           </div>
           <div style={S.expandedWrap} onClick={(e) => e.stopPropagation()}>
-            <img src={screenshot} alt="Expanded" style={S.expandedImg} />
+            <img src={screenshot} alt={t('img_expanded')} style={S.expandedImg} />
             <div style={S.overlayLayer}>{renderWordOverlays()}</div>
           </div>
         </div>

@@ -988,6 +988,12 @@ export default {
   tag_checking: '再確認中...',
   tag_checkingTip: 'Ebi が二回目の独立した確認でこれらのタグを検証し、あて推量のタグが混ざらないようにしています。',
 
+  // Image descriptions (read by screen readers)
+  img_attached: '添付した写真',
+  img_selection: '選択した範囲',
+  img_screenshot: 'スクリーンショット',
+  img_expanded: '拡大した画像',
+
   // ── Shared practice kit (quiz runner, talk button, rule cards) (src/features/kit/) ──
   kit_check: 'チェック',
   kit_continue: '続ける',

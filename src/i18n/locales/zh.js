@@ -988,6 +988,12 @@ export default {
   tag_checking: '正在复核...',
   tag_checkingTip: 'Ebi 正在用第二次独立判断复核这些标签，避免凭空猜测的标签混入。',
 
+  // Image descriptions (read by screen readers)
+  img_attached: '附加的照片',
+  img_selection: '选中的区域',
+  img_screenshot: '屏幕截图',
+  img_expanded: '放大的图片',
+
   // ── Shared practice kit (quiz runner, talk button, rule cards) (src/features/kit/) ──
   kit_check: '检查',
   kit_continue: '继续',
