@@ -12,7 +12,7 @@ const APP_ROOT = path.join(__dirname, '..')
 // scripts/launch.ps1; anything missing or unreadable means 'app', today's default.
 function readLaunchMode() {
   try {
-    const m = JSON.parse(fs.readFileSync(path.join(APP_ROOT, 'launchmode.json'), 'utf-8'))?.mode
+    const m = JSON.parse(fs.readFileSync(path.join(APP_ROOT, 'launchmode.json'), 'utf-8').replace(/^\uFEFF/, ''))?.mode // a BOM (hand edit in PowerShell 5.1) must not reset the choice
     return m === 'browser' ? 'browser' : 'app'
   } catch { return 'app' }
 }
@@ -57,9 +57,11 @@ function delegateToLauncher() {
     if (process.platform === 'win32') {
       // The VBS, not the .ps1 directly: it also pops the start-up splash, so a pinned-icon click
       // shows something immediately instead of looking like it did nothing.
-      spawn('wscript.exe', [path.join(APP_ROOT, 'launch-ebiki.vbs')], { cwd: APP_ROOT, detached: true, stdio: 'ignore' }).unref()
+      spawn('wscript.exe', [path.join(APP_ROOT, 'launch-ebiki.vbs')], { cwd: APP_ROOT, detached: true, stdio: 'ignore' })
+        .on('error', (e) => console.error('[App window] launcher spawn failed:', e.message)).unref() // an EVENT, not a throw: unhandled it crashed the main process
     } else {
-      spawn('bash', [path.join(APP_ROOT, 'scripts', 'launch.sh')], { cwd: APP_ROOT, detached: true, stdio: 'ignore' }).unref()
+      spawn('bash', [path.join(APP_ROOT, 'scripts', 'launch.sh')], { cwd: APP_ROOT, detached: true, stdio: 'ignore' })
+        .on('error', (e) => console.error('[App window] launcher spawn failed:', e.message)).unref()
     }
     return true
   } catch (e) {
@@ -72,6 +74,7 @@ const VITE_URL = 'http://localhost:3000'
 // Anchored to this file, never the working directory: the server reads it back from the app folder.
 const SCREENSHOT_FILE = path.join(__dirname, 'last-capture.png')
 let overlayWindow = null
+let overlayPageOk = false // the overlay's app page really loaded (see did-fail-load)
 let appQuitting = false
 app.on('before-quit', () => { appQuitting = true })
 
@@ -106,6 +109,10 @@ const isOverlayMode = process.argv.includes('--overlay')
 let appWindow = null
 
 if (isOverlayMode) {
+  // Its OWN browser profile: the app window and the overlay both ran on %APPDATA%\ebiki, and Chromium locks a
+  // profile's storage to ONE process, so whichever started second saved no localStorage at all (study session,
+  // chat session, stats cache were silently lost after a quick reopen). The overlay stores nothing of its own.
+  try { app.setPath('userData', path.join(app.getPath('userData'), 'overlay')) } catch (e) { console.warn('[Overlay] own profile:', e.message) }
   app.whenReady().then(() => {
     createOverlay()
     registerShortcuts()
@@ -178,7 +185,9 @@ if (isOverlayMode) {
       }
       console.log('[App window] Ready.')
     })
-    app.on('window-all-closed', () => app.quit())
+    // A moment for the main process's goodbye (sent on 'closed') to leave: quitting at once dropped it, and the
+    // server then waited 150s of silence whenever the renderer was too broken to send its own.
+    app.on('window-all-closed', () => setTimeout(() => app.quit(), 500))
   }
 }
 
@@ -207,6 +216,12 @@ function waitForServer(url, timeoutMs = 60000) {
 // window, which has no address bar to give it away, to someone else's page.
 const isAppUrl = (url) => {
   try { return new URL(url).origin === VITE_URL } catch { return false }
+}
+// The app's own PAGE (the root, or the overlay's), the only thing a window may navigate to by itself. Any other
+// same-origin path ("/api/keys" from an SVG link in rendered content) left the frameless window on raw JSON with
+// no controls and no way back.
+const isAppPage = (url) => {
+  try { const u = new URL(url); return u.origin === VITE_URL && u.pathname === '/' && (u.search === '' || u.search === '?overlay=true') } catch { return false }
 }
 
 // Hand an outbound link to the OS browser. http(s) only: openExternal will launch other protocol
@@ -351,12 +366,13 @@ function createAppWindow() {
   })
   // The same thing one level down: a plain link with no target would NAVIGATE this window off the
   // app (no chrome, so there is no way back - it would look like Ebiki had died). The app itself
-  // only ever lives on the dev server, so anything else is an outbound link. The holding page is a
-  // data: URL, hence the explicit allowance.
+  // only ever lives on the dev server, so anything else is an outbound link. No data: allowance: the
+  // holding page is loaded by THIS process (loadURL fires no will-navigate), and allowing any
+  // data:text/html let a link in rendered content turn this address-bar-less window into another page.
   appWindow.webContents.on('will-navigate', (event, url) => {
-    if (isAppUrl(url) || url.startsWith('data:text/html')) return
+    if (isAppPage(url)) return
     event.preventDefault()
-    openExternally(url)
+    if (!isAppUrl(url)) openExternally(url) // another path of the app itself: simply not followed
   })
 
   // ── The window itself is the heartbeat ───────────────────────────────────
@@ -474,7 +490,7 @@ function createAppWindow() {
     retrying = false
     waitForServer(VITE_URL, 15000).then((up) => {
       if (!appWindow) return   // window closed while waiting
-      if (up) { revived = false; return appWindow.loadURL(VITE_URL) }
+      if (up) return appWindow.loadURL(VITE_URL) // `revived` resets only on a REAL load (did-finish-load)
       console.warn('[App window] Server not answering at', VITE_URL, '- holding')
       if (!loaded) showHolding()
       if (!revived && Date.now() - lastDelegatedAt > 60000 && !launcherBusy()) {
@@ -492,18 +508,27 @@ function createAppWindow() {
     setTimeout(tryLoad, 1500)
   }
 
+  // A load that FAILED may still be followed by did-finish-load for Chromium's error page, which keeps the app's
+  // URL: counting it as a real load stopped the retry loop on an error page. Cleared by the next navigation.
+  let navFailed = false
+  // Only a navigation TO the app clears it: showHolding's own navigation started before the error page's
+  // did-finish-load arrived and cleared it too early.
+  appWindow.webContents.on('did-start-navigation', (_e, url, inPlace, isMainFrame) => { if (isMainFrame && !inPlace && isAppUrl(url)) navFailed = false })
   appWindow.webContents.on('did-finish-load', () => {
-    if (appWindow && appWindow.webContents.getURL().startsWith(VITE_URL)) {
+    if (navFailed) return
+    if (appWindow && isAppUrl(appWindow.webContents.getURL())) { // origin, never a prefix (see isAppUrl)
       loaded = true
+      revived = false // a server that answers the probe but whose page never loads must not re-launch every minute
       if (!readySignaled) { readySignaled = true; try { fs.writeFileSync(path.join(__dirname, '..', '.app-ready'), '') } catch {} } // retire the start-up splash (see ready-to-show)
     }
   })
   // Covers a server that dies between waitForServer answering and the load.
   appWindow.webContents.on('did-fail-load', (_e, code, _desc, url, isMainFrame) => {
-    if (!isMainFrame || !url || !url.startsWith(VITE_URL)) return
+    if (!isMainFrame || !url || !isAppUrl(url)) return
     // -3 (ERR_ABORTED) is a load replaced by a newer navigation (a reload, a data-folder switch),
     // not a dead server; answering it with the holding page covered the page that was loading.
     if (code === -3) return
+    navFailed = true
     loaded = false
     showHolding()
     scheduleRetry()
@@ -554,6 +579,7 @@ function createOverlay() {
     },
   })
 
+  overlayPageOk = false
   overlayWindow.loadURL(VITE_URL + '?overlay=true')
   // Same link rules as the app window (see createAppWindow): the overlay runs the same web app, and
   // without these a link opened a bare child window from a transparent always-on-top overlay, or
@@ -563,9 +589,9 @@ function createOverlay() {
     return { action: 'deny' }
   })
   overlayWindow.webContents.on('will-navigate', (event, url) => {
-    if (isAppUrl(url)) return
+    if (isAppPage(url)) return
     event.preventDefault()
-    openExternally(url)
+    if (!isAppUrl(url)) openExternally(url) // another path of the app itself: simply not followed
   })
 
   // ESC / window.close() → hide instead of closing. Only while the app is NOT quitting: preventing
@@ -577,11 +603,21 @@ function createOverlay() {
     hideOverlay()
   })
 
+  overlayWindow.on('blur', () => { if (globalShortcut.isRegistered('Escape')) globalShortcut.unregister('Escape') })
+  overlayWindow.on('focus', () => { if (overlayWindow.isVisible()) registerOverlayEsc() })
   overlayWindow.webContents.on('console-message', (_, l, m) => console.log('[Renderer]', m))
-  overlayWindow.webContents.on('did-finish-load', () => console.log('[Overlay] Web app loaded'))
+  let overlayNavFailed = false // see navFailed in createAppWindow: an error page's did-finish-load is not a load
+  overlayWindow.webContents.on('did-start-navigation', (_e, url, inPlace, isMainFrame) => { if (isMainFrame && !inPlace && isAppUrl(url)) overlayNavFailed = false })
+  overlayWindow.webContents.on('did-finish-load', () => { if (overlayNavFailed) return; overlayPageOk = true; console.log('[Overlay] Web app loaded') })
+  // A failed load leaves Chromium's error page, which keeps the app's URL: Alt+Q then showed a transparent,
+  // click-eating window over the whole screen with nothing listening. runCapture reloads instead.
+  overlayWindow.webContents.on('did-fail-load', (_e, code, _desc, _url, isMainFrame) => {
+    if (isMainFrame && code !== -3) { overlayNavFailed = true; overlayPageOk = false; console.warn('[Overlay] page failed to load:', code) }
+  })
   // A crashed overlay page never showed again on Alt+Q (its script ran in a dead frame). Reload it hidden.
   overlayWindow.webContents.on('render-process-gone', (_e, details) => {
     console.warn('[Overlay] renderer gone:', details && details.reason)
+    overlayPageOk = false
     if (!overlayWindow || appQuitting || (details && details.reason === 'clean-exit')) return
     hideOverlay()
     try { overlayWindow.webContents.reload() } catch (e) { console.warn('[Overlay] reload failed:', e.message) }
@@ -594,9 +630,16 @@ function showOverlay() {
   overlayWindow.show()
   overlayWindow.setAlwaysOnTop(true, 'screen-saver')
   overlayWindow.focus()
-  // Register ESC only while overlay is visible so it doesn't steal ESC from other apps
+  registerOverlayEsc()
+}
+
+// The global Esc is held only while the overlay is visible AND focused: after a selection the overlay shrinks
+// and stays on top, the user clicks into another app, and every Esc pressed there was swallowed (and hid the
+// overlay). The page's own Esc handler covers the focused case too.
+function registerOverlayEsc() {
+  if (globalShortcut.isRegistered('Escape')) return
   globalShortcut.register('Escape', () => {
-    console.log('[Overlay] ESC — hiding')
+    console.log('[Overlay] ESC, hiding')
     hideOverlay()
   })
 }
@@ -606,42 +649,62 @@ function hideOverlay() {
   if (overlayWindow) overlayWindow.hide()
 }
 
+// One capture at a time: a held Alt+Q auto-repeats, and overlapping captures raced on the same screenshot
+// file and showed the overlay twice.
+let captureRunning = false
 function registerShortcuts() {
-  globalShortcut.register('Alt+Q', async () => {
-    console.log('[Overlay] Capture triggered')
-    if (overlayWindow.isVisible()) {
-      hideOverlay()
-      await new Promise(r => setTimeout(r, 200))
-    }
-    await new Promise(r => setTimeout(r, 300))
-
-    try {
-      const sources = await desktopCapturer.getSources({
-        types: ['screen'], thumbnailSize: capturePixelSize(),
-      })
-      if (!sources.length) return
-      // An EMPTY thumbnail (it happens) wrote a 0-byte PNG the overlay could not decode, leaving the
-      // invisible full-screen overlay swallowing every click. Never show the overlay for one.
-      const shot = primaryScreenSource(sources).thumbnail
-      if (!shot || shot.isEmpty()) { console.warn('[Overlay] empty capture, overlay not shown'); return }
-
-      fs.writeFileSync(SCREENSHOT_FILE, shot.toPNG())
-      console.log('[Overlay] Screenshot saved')
-
-      // Hide page content so old screenshot doesn't flash, then show overlay
-      await overlayWindow.webContents.executeJavaScript(`
-        document.body.style.opacity = '0';
-        window.dispatchEvent(new CustomEvent('overlay-reset'));
-      `)
-
-      showOverlay()
-
-      overlayWindow.webContents.executeJavaScript(`
-        window.__overlayScreenshot = '/api/overlay-screenshot?' + Date.now();
-        window.dispatchEvent(new CustomEvent('overlay-capture'));
-      `)
-    } catch (e) { console.error('[Overlay] Error:', e) }
+  const ok = globalShortcut.register('Alt+Q', async () => {
+    if (captureRunning || !overlayWindow || overlayWindow.isDestroyed()) return
+    captureRunning = true
+    try { await runCapture() } finally { captureRunning = false }
   })
+  // Another program holding Alt+Q made this fail silently while the overlay kept running (the header showed
+  // it on, and Alt+Q did nothing). Exiting lets the server report it as not running.
+  if (!ok) { console.error('[Overlay] Alt+Q is taken by another program; overlay not started'); app.exit(2) }
+}
+
+async function runCapture() {
+  console.log('[Overlay] Capture triggered')
+  // An overlay whose server is gone (a crash left it orphaned) showed an empty full-screen window that ate
+  // every click: with no server answering, nothing is shown (never quit on one slow answer: Alt+Q would be gone).
+  if (!(await waitForServer(VITE_URL, 5000))) { console.warn('[Overlay] the server is not answering; capture skipped'); return }
+  if (!overlayPageOk) {
+    console.warn('[Overlay] page not loaded; reloading instead of showing an empty overlay')
+    try { overlayWindow.webContents.loadURL(VITE_URL + '?overlay=true').catch(() => {}) } catch (e) { console.warn('[Overlay] reload failed:', e.message) }
+    return
+  }
+  if (overlayWindow.isVisible()) {
+    hideOverlay()
+    await new Promise(r => setTimeout(r, 200))
+  }
+  await new Promise(r => setTimeout(r, 300))
+
+  try {
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'], thumbnailSize: capturePixelSize(),
+    })
+    if (!sources.length) return
+    // An EMPTY thumbnail (it happens) wrote a 0-byte PNG the overlay could not decode, leaving the
+    // invisible full-screen overlay swallowing every click. Never show the overlay for one.
+    const shot = primaryScreenSource(sources).thumbnail
+    if (!shot || shot.isEmpty()) { console.warn('[Overlay] empty capture, overlay not shown'); return }
+
+    fs.writeFileSync(SCREENSHOT_FILE, shot.toPNG())
+    console.log('[Overlay] Screenshot saved')
+
+    // Hide page content so old screenshot doesn't flash, then show overlay
+    await overlayWindow.webContents.executeJavaScript(`
+      document.body.style.opacity = '0';
+      window.dispatchEvent(new CustomEvent('overlay-reset'));
+    `)
+
+    showOverlay()
+
+    await overlayWindow.webContents.executeJavaScript(`
+      window.__overlayScreenshot = '/api/overlay-screenshot?' + Date.now();
+      window.dispatchEvent(new CustomEvent('overlay-capture'));
+    `)
+  } catch (e) { console.error('[Overlay] Error:', e) }
 }
 
 ipcMain.on('overlay-dismiss', () => {
@@ -649,10 +712,16 @@ ipcMain.on('overlay-dismiss', () => {
 })
 
 ipcMain.on('resize-overlay', (_, bounds) => {
-  if (overlayWindow) {
-    overlayWindow.setBounds(bounds)
+  if (!overlayWindow || overlayWindow.isDestroyed()) return
+  // Whole numbers only: setBounds THROWS on a fractional or missing value (a zoomed page measures in
+  // fractions), and a throw in an IPC listener is an uncaught exception in the main process.
+  const b = bounds && typeof bounds === 'object' ? bounds : {}
+  const n = (v) => (Number.isFinite(Number(v)) ? Math.round(Number(v)) : undefined)
+  const clean = Object.fromEntries(['x', 'y', 'width', 'height'].map((k) => [k, n(b[k])]).filter(([, v]) => v !== undefined))
+  try {
+    overlayWindow.setBounds(clean)
     overlayWindow.setAlwaysOnTop(true, 'screen-saver')
-  }
+  } catch (e) { console.error('[Overlay] resize failed:', e.message) }
 })
 
 // React requests a screenshot capture (for area-select: capture after drawing)

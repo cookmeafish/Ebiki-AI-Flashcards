@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { S } from '../styles/theme'
 import { C, RADIUS, SHADOW, FONT } from '../config/tokens'
-import { LANGS, langFromName } from '../config/languages'
+import { LANGS, langFromName, isDistinctSpoken } from '../config/languages'
 import { langInfo } from '../pronunciation/langcodes'
-import { PROVIDERS } from '../config/providers'
+import { PROVIDERS, keyOfOtherProvider } from '../config/providers'
 import { APP_LANGUAGES } from '../i18n'
 import { LaunchModeCard } from './LaunchModeChoice'
 
@@ -48,15 +48,23 @@ function DataFolderCard({ t, card, fieldLabel, hint, onChanged }) {
   }
   // dir: target path ('' = back to app folder). merge: undefined asks the server,
   // true = add this computer's data, false = adopt the folder's data as-is.
+  // A ref as well as `busy`: two quick clicks (or Enter then a click) both read busy=false from one
+  // render and sent two folder switches at once, each moving and merging the same data on the server.
+  const applyingRef = useRef(false)
   const apply = async (dir, merge) => {
+    if (applyingRef.current) return
+    applyingRef.current = true
     setBusy(true); setResult(null); setChoice(null); setConfirmMerge(false)
+    let switched = false
     try {
       const body = { dataDir: dir }
       if (merge !== undefined) body.merge = merge
       const r = await fetch('/api/datadir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const data = await r.json()
       if (data.needsChoice) { setChoice({ dir, context: data.context, sourceOnly: data.sourceOnly }); return }
-      if (!data.ok) { setResult({ error: data.error || 'error' }); return }
+      // Known refusals by code (the server's text is English); anything else is framed in the app language.
+      const ERR = { switching: 'dataFolderErrSwitching', insideData: 'dataFolderErrInside', envOverride: 'dataFolderErrEnv' }
+      if (!data.ok) { setResult({ error: ERR[data.code] ? t(ERR[data.code]) : t('dataFolderErrOther', { msg: data.error || r.status }) }); return }
       if (data.unchanged) { setResult({ ok: t('dataFolderAlready') }); return }
       setInfo((i) => ({ ...i, dataDir: data.dataDir, isDefault: data.isDefault }))
       // Keep the field reflecting the now-current selection (empty for default).
@@ -77,8 +85,11 @@ function DataFolderCard({ t, card, fieldLabel, hint, onChanged }) {
       // The page still holds the OLD folder's modes and settings; the host freezes its writers and
       // reloads so nothing from here is written into the new folder (see dataSwitchingRef in App).
       onChanged?.()
-    } catch (e) { setResult({ error: String(e.message || e) }) }
-    finally { setBusy(false) }
+      // The page reloads in a moment: stay locked until then (a second switch started here was cut off by the
+      // reload mid-request or mid-prompt).
+      if (onChanged) switched = true
+    } catch (e) { setResult({ error: t('dataFolderErrOther', { msg: String(e.message || e) }) }) }
+    finally { if (!switched) { applyingRef.current = false; setBusy(false) } }
   }
   const canApply = !busy && input.trim()
   // Human-readable list of what this computer has that the target lacks.
@@ -159,7 +170,7 @@ function DataFolderCard({ t, card, fieldLabel, hint, onChanged }) {
                   (or "runs automatically"), and "Back up now" looked like it did nothing. */}
               {(backup.skipped === 'offline-pending' || backup.error) && (
                 <span style={{ fontSize: 11, color: C.warning, lineHeight: 1.5, flexBasis: '100%' }}>
-                  ⚠ {backup.skipped === 'offline-pending' ? t('backupPausedOffline') : t('backupFailed', { e: backup.error })}
+                  ⚠ {backup.skipped === 'offline-pending' ? t('backupPausedOffline') : (backup.skipped === 'unreachable' ? t('backupSourceUnreachable') : t('backupFailed', { e: backup.error }))}
                 </span>
               )}
               <button onClick={backupNow} disabled={backingUp}
@@ -244,6 +255,7 @@ function UpdatesCard({ t, card, fieldLabel, hint, serverDown }) {
       // Reachable, but the release branch is gone (renamed or removed upstream).
       // Saying "you're up to date" here would hide it indefinitely.
       if (d.remoteMissing) { setState('remoteMissing'); return }
+      if (d.localCommits) { setState('localCommits'); return } // own commits on master: an update would be refused
       setState(d.updateAvailable ? 'available' : 'uptodate')
     } catch (e) {
       if (seq !== checkSeq.current) return
@@ -275,12 +287,17 @@ function UpdatesCard({ t, card, fieldLabel, hint, serverDown }) {
   const doUpdate = async () => {
     const beforeSha = info?.current || null
     setState('updating'); setErr(null)
+    ++checkSeq.current   // a check still in flight must not land over this update's result
     try {
       const d = await (await fetch('/api/update', { method: 'POST' })).json()
       if (d.busy) { setState('busy'); return }
       if (d.dirty) { setState('dirty'); return }
+      if (d.localCommits) { setState('localCommits'); return }
       if (d.wrongBranch) { setInfo((i) => ({ ...(i || {}), branch: d.wrongBranch, onMaster: false })); setState('branch'); return }
-      if (!d.ok) { setState('error'); setErr(d.error || 'update failed'); return }
+      // The code moved but npm install failed: a restart is exactly what finishes it (the launcher installs
+      // the pending dependencies), and a Retry would only report "up to date".
+      if (d.updated && !d.ok) { setState('done'); setErr(t('updatesDepsPending')); return }
+      if (!d.ok) { setState('error'); setErr(t('updatesErrOther', { msg: d.error || '?' })); return }
       setState('done')
     } catch (e) {
       // A dropped connection here usually means the update WORKED and took the server
@@ -299,7 +316,7 @@ function UpdatesCard({ t, card, fieldLabel, hint, serverDown }) {
         return
       }
       setState('error')
-      setErr(String(e.message || e))
+      setErr(t('updatesErrOther', { msg: String(e.message || e) }))
     }
   }
   // Check as soon as this pane is opened. Someone who came looking for updates
@@ -344,6 +361,8 @@ function UpdatesCard({ t, card, fieldLabel, hint, serverDown }) {
     }
     return null
   }
+  // Also while an update is verified or restarting: a check landing then replaced the restart offer.
+  const checkBlocked = ['checking', 'updating', 'verifying', 'restarting'].includes(state)
   return (
     <div style={card}>
       {fieldLabel(t('updatesTitle'))}
@@ -351,8 +370,8 @@ function UpdatesCard({ t, card, fieldLabel, hint, serverDown }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         {/* Arrow, never onClick={check}: the click event would arrive as `attempt`, which skipped
             both the in-flight guard and the one retry. */}
-        <button onClick={() => check()} disabled={state === 'checking' || state === 'updating'}
-          style={{ ...S.getKeyLink, fontSize: 12, opacity: (state === 'checking' || state === 'updating') ? 0.5 : 1 }}>
+        <button onClick={() => check()} disabled={checkBlocked}
+          style={{ ...S.getKeyLink, fontSize: 12, opacity: checkBlocked ? 0.5 : 1 }}>
           {state === 'checking' ? t('updatesChecking') : t('updatesCheck')}
         </button>
         {state === 'available' && (
@@ -366,6 +385,7 @@ function UpdatesCard({ t, card, fieldLabel, hint, serverDown }) {
       {state === 'done' && (
         <div style={{ marginTop: 8 }}>
           <div style={{ fontSize: 11, color: C.success, fontWeight: 700, lineHeight: 1.5 }}>✓ {t('updateBannerNeedsRestart')}</div>
+          {err && <div style={{ ...hint, marginTop: 4 }}>{err}</div>}
           {window.ebikiWindow
             ? <button className="btn-press" onClick={restartNow} style={{ ...S.keyDone, fontSize: 12, marginTop: 6 }}>{t('updateBannerRestart')}</button>
             : <div style={{ ...hint, marginTop: 4 }}>{t('updateBannerManual')}</div>}
@@ -379,6 +399,7 @@ function UpdatesCard({ t, card, fieldLabel, hint, serverDown }) {
       {state === 'busy' && <div style={{ fontSize: 11, color: C.inkDim, marginTop: 8 }}>{t('updatesBusy')}</div>}
       {state === 'remoteMissing' && <div style={{ fontSize: 11, color: C.warning, marginTop: 8, lineHeight: 1.5 }}>⚠ {t('updatesRemoteMissing')}</div>}
       {state === 'dirty' && <div style={{ fontSize: 11, color: C.warning, marginTop: 8, lineHeight: 1.5 }}>⚠ {t('updatesDirty')}</div>}
+      {state === 'localCommits' && <div style={{ fontSize: 11, color: C.warning, marginTop: 8, lineHeight: 1.5 }}>⚠ {t('updatesLocalCommits')}</div>}
       {state === 'down' && (
         <div style={{ marginTop: 8 }}>
           <div style={{ fontSize: 11, color: C.warning, lineHeight: 1.5 }}>⚠ {t('updatesServerDown')}</div>
@@ -418,6 +439,16 @@ function ClampedNumber({ value, min, max, onCommit, style, commitOnBlur = false 
   const [text, setText] = useState(String(value))
   useEffect(() => { setText(String(value)) }, [value])
   const valid = (v) => { const n = Number(v); return v !== '' && Number.isInteger(n) && n >= min && n <= max ? n : null }
+  // commitOnBlur: closing Settings (or switching panes) while the box still has focus unmounts it with NO
+  // blur, so a typed value was silently dropped. A pending valid value is committed on unmount too.
+  const pendingRef = useRef(null)
+  pendingRef.current = { text, value, onCommit, valid }
+  useEffect(() => () => {
+    if (!commitOnBlur) return
+    const { text: tx, value: v, onCommit: commit, valid: ok } = pendingRef.current
+    const n = ok(tx)
+    if (n !== null && n !== v) commit(n)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <input type="number" min={min} max={max} step={1} value={text} style={style}
       onChange={(e) => {
@@ -436,7 +467,7 @@ function ClampedNumber({ value, min, max, onCommit, style, commitOnBlur = false 
 
 export default function SettingsModal(p) {
   const {
-    t, category, setCategory, onClose, onDataFolderChanged, confirmDialog, learnLangDefault,
+    t, category, setCategory, onClose, onDataFolderChanged, confirmDialog, alertDialog, knowledgeBusyFiles, learnLangDefault,
     // General (global)
     appTheme, setAppTheme, appLanguage, setAppLanguage,
     language, setLanguage, targetLang, setTargetLang, onRunSetup,
@@ -447,7 +478,8 @@ export default function SettingsModal(p) {
     planDeciding, runConnectionTest, modelProbe,
     serverDown,
     studyAutoSync, setStudyAutoSync, studyAutoSyncMinutes, setStudyAutoSyncMinutes,
-    questionReuse, setQuestionReuse, clearSavedQuestions,
+    questionReuse, setQuestionReuse, clearSavedQuestions, getActiveModeId, getActiveMode,
+    showTokenUsage, setShowTokenUsage,
     // Modes
     modes, activeModeId, setActiveModeId, saveModes, editingModeName, setEditingModeName,
     renameMode, modeEditInput, setModeEditInput, createMode, modeCreating, addDefaultMode, deleteMode,
@@ -476,24 +508,34 @@ export default function SettingsModal(p) {
   const [keyCheck, setKeyCheck] = useState(null)
   const [keyTouched, setKeyTouched] = useState(false) // did the user edit/paste the key THIS session
   const keyCheckSeq = useRef(0) // guards against a stale validation resolving after a newer paste
+  const backdropDownRef = useRef(false) // see the backdrop's onClick
+  const keyTypeTimerRef = useRef(null) // debounced check of a TYPED key (see checkKey)
   // A verdict belongs to ONE provider's key: switching the provider tab showed "Key works" under a key
   // that was never checked (or an empty field). A check still running for the old provider is dropped.
-  useEffect(() => { setKeyCheck(null); setKeyTouched(false); keyCheckSeq.current++ }, [provider])
+  useEffect(() => { setKeyCheck(null); setKeyTouched(false); keyCheckSeq.current++; clearTimeout(keyTypeTimerRef.current) }, [provider])
+  useEffect(() => () => clearTimeout(keyTypeTimerRef.current), [])
   // Set the key AND live-validate it (used by Paste and any explicit set). Offline prefix check first,
   // then a real 1-token ping so the user is told whether the key actually works.
   const setAndValidateKey = async (raw) => {
-    const key = (raw || '').trim()
-    const seq = ++keyCheckSeq.current
+    // A typing check still waiting would fire after this and throw the paste's verdict away.
+    clearTimeout(keyTypeTimerRef.current)
+    const key = (raw || '').replace(/\s+/g, '') // a key wrapped across lines (email, PDF) held a newline and corrupted .env
     setKeyTouched(true)
     setCurrentKey(key)
+    await checkKey(key)
+  }
+  // The check alone. TYPING is checked too (debounced, like onboarding): a stray keystroke in the masked field
+  // saved a broken key, the hint still said "stored", and it then replaced the shared copy on every computer.
+  const checkKey = async (key) => {
+    const seq = ++keyCheckSeq.current
     if (!key) { setKeyCheck(null); return }
-    if (providerConfig.keyPrefix && !key.startsWith(providerConfig.keyPrefix)) { setKeyCheck({ state: 'invalid' }); return }
+    if ((providerConfig.keyPrefix && !key.startsWith(providerConfig.keyPrefix)) || keyOfOtherProvider(providerConfig, key)) { setKeyCheck({ state: 'invalid' }); return }
     if (!validateKey) { setKeyCheck(null); return }
     setKeyCheck({ state: 'checking' })
     let r = null
     try { r = await validateKey(provider, key) } catch { r = null }
     if (seq !== keyCheckSeq.current) return // a newer key was entered; ignore this result
-    setKeyCheck(r === true ? { state: 'valid' } : r === false ? { state: 'invalid' } : { state: 'unknown' })
+    setKeyCheck(r === true ? { state: 'valid' } : r === false ? { state: 'invalid' } : r === 'noCredit' ? { state: 'noCredit' } : { state: 'unknown' })
   }
 
   // Esc closes the modal
@@ -502,7 +544,8 @@ export default function SettingsModal(p) {
     // delete with Esc used to close the whole Settings modal too.
     // Nor while a window opened ON TOP of Settings is up (Ebi Studio, a dialog): its Esc is its own, and this
     // listener, registered first, ran first and closed Settings underneath.
-    const onKey = (e) => { if (e.key === 'Escape' && !e.defaultPrevented && !document.querySelector('[data-top-overlay], [data-app-dialog]')) onClose() }
+    // An Esc that only cancels an IME composition (Chinese/Japanese typing) is not a close: it lost the typed text.
+    const onKey = (e) => { if (e.key === 'Escape' && !e.isComposing && e.keyCode !== 229 && !e.defaultPrevented && !document.querySelector('[data-top-overlay], [data-app-dialog]')) onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
@@ -540,7 +583,7 @@ export default function SettingsModal(p) {
   const modeBar = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
       <span style={{ fontSize: 12, color: C.inkDim, fontWeight: 700 }}>{t('configuring')}</span>
-      <select value={activeModeId} onChange={(e) => { const id = parseInt(e.target.value); if (p.switchMode) p.switchMode(id); else { setActiveModeId(id); saveModes(modes, id) } }}
+      <select value={activeModeId} onChange={(e) => { const id = parseInt(e.target.value); if (p.switchMode) p.switchMode(id); else { setActiveModeId(id); saveModes(modes, id, { changedIds: [] }) } }}
         style={{ ...S.select, color: C.brand, borderColor: C.brandRing, background: C.brandTint }}>
         {modes.map((m) => <option key={m.id} value={m.id}>{m.type === 'language' ? '\u{1F310}' : '\u{1F4DA}'} {m.name}</option>)}
       </select>
@@ -548,13 +591,13 @@ export default function SettingsModal(p) {
         <input autoFocus defaultValue={activeMode.name}
           onBlur={(e) => { if (e.target.dataset.cancel !== '1') renameMode(activeModeId, e.target.value || activeMode.name) }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.nativeEvent?.isComposing) renameMode(activeModeId, e.target.value || activeMode.name)
+            if (e.key === 'Enter' && !e.nativeEvent?.isComposing) { e.currentTarget.dataset.cancel = '1'; renameMode(activeModeId, e.target.value || activeMode.name) } // the unmount blur must not rename again
             // Esc cancels: marked first, so a blur fired as the box unmounts can't save the typed name.
-            else if (e.key === 'Escape') { e.preventDefault(); e.currentTarget.dataset.cancel = '1'; setEditingModeName(null) }
+            else if (e.key === 'Escape' && !e.nativeEvent?.isComposing && e.keyCode !== 229) { e.preventDefault(); e.currentTarget.dataset.cancel = '1'; setEditingModeName(null) }
           }}
           style={{ ...S.keyInput, width: 140, fontSize: 12, padding: '4px 8px' }} />
       ) : (
-        <span onClick={() => setEditingModeName(activeModeId)} style={{ cursor: 'pointer', color: C.inkFaint, fontSize: 11 }} title="Rename">{t('rename')}</span>
+        <button type="button" onClick={() => setEditingModeName(activeModeId)} style={{ cursor: 'pointer', color: C.inkFaint, fontSize: 11, background: 'none', border: 'none', padding: 0, fontFamily: 'inherit' }}>{t('rename')}</button>
       )}
     </div>
   )
@@ -570,7 +613,7 @@ export default function SettingsModal(p) {
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing && modeEditInput.trim() && !modeEditBusy) { proposeModeEdit(modeEditInput.trim(), scope); } }}
             placeholder={placeholder} style={{ ...S.keyInput, flex: 1, fontSize: 12 }} disabled={modeEditBusy} />
           <button onClick={() => { if (modeEditInput.trim()) proposeModeEdit(modeEditInput.trim(), scope) }}
-            disabled={modeEditBusy || !modeEditInput.trim()} style={{ ...S.getKeyLink, opacity: modeEditBusy ? 0.5 : 1 }}>
+            disabled={modeEditBusy || !modeEditInput.trim()} style={{ ...S.getKeyLink, opacity: (modeEditBusy || !modeEditInput.trim()) ? 0.5 : 1, cursor: (modeEditBusy || !modeEditInput.trim()) ? 'default' : 'pointer' }}>
             {modeEditBusy ? '…' : t('askAi')}
           </button>
         </div>
@@ -592,7 +635,7 @@ export default function SettingsModal(p) {
               </div>
             ))}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <button onClick={() => { acceptModeEdit(); setModeEditInput('') }} style={{ ...S.keyDone, fontSize: 12, padding: '7px 16px' }}>✓ {t('accept')}</button>
+              <button onClick={() => { if (acceptModeEdit()) setModeEditInput('') }} style={{ ...S.keyDone, fontSize: 12, padding: '7px 16px' }}>✓ {t('accept')}</button>
               <button onClick={denyModeEdit} style={{ ...S.ghostBtn, fontSize: 12, padding: '7px 14px', color: C.danger, borderColor: 'rgba(229,57,46,.3)' }}>✗ {t('deny')}</button>
               <span style={{ fontSize: 11, color: C.inkFaint, marginLeft: 4 }}>{t('orModify')}</span>
             </div>
@@ -651,7 +694,9 @@ export default function SettingsModal(p) {
   const provModels = availableModels[provider] || []
   // Any per-feature override = the "Custom" preset. The per-feature list opens by itself then, so the
   // choices that made it Custom are on screen.
-  const hasModelOverrides = !!aiModels[provider] && Object.values(aiModels[provider]).some(Boolean) // '' = back on the default, not an override
+  // Real roles only ('' = back on the default): an older build's retired 'question' key showed "Custom" as the
+  // active preset while every role ran the preset's models.
+  const hasModelOverrides = !!aiModels[provider] && AI_ROLE_META.some(({ role }) => aiModels[provider][role])
   const reuse = questionReuse || { enabled: false, maxPerCard: 10 }
   // "Clear saved questions" deck: the user's pick, else the mode's deck, else the first one.
   const clearDeckValue = ankiDecks.includes(clearDeck) ? clearDeck : (ankiDecks.includes(ankiDeck) ? ankiDeck : (ankiDecks[0] || ''))
@@ -681,17 +726,28 @@ export default function SettingsModal(p) {
               JS "Paste" button, which must call navigator.clipboard.readText() and forces one). */}
           <input type={(apiKey && (keyCheck?.state === 'valid' || !keyTouched)) ? 'password' : 'text'}
             value={apiKey}
-            onPaste={(e) => { const txt = (e.clipboardData?.getData('text') || '').trim(); if (txt) { e.preventDefault(); setAndValidateKey(txt) } }}
-            onChange={(e) => { setKeyTouched(true); setKeyCheck(null); setCurrentKey(e.target.value) }}
+            onPaste={(e) => { const txt = (e.clipboardData?.getData('text') || '').replace(/\s+/g, ''); if (txt) { e.preventDefault(); setAndValidateKey(txt) } }}
+            onChange={(e) => {
+              // Keys hold no whitespace: a trailing space (autofill, drag and drop) passed the trimmed check, but
+              // was stored and sent as is, and one provider's key rides in the URL ("API key not valid").
+              const v = e.target.value.replace(/\s+/g, '')
+              setKeyTouched(true); setKeyCheck(null); setCurrentKey(v)
+              keyCheckSeq.current++ // an older check still running must not report on this text
+              clearTimeout(keyTypeTimerRef.current)
+              keyTypeTimerRef.current = setTimeout(() => { checkKey(v.trim()) }, 700)
+            }}
             placeholder={providerConfig.placeholder} spellCheck={false} autoComplete="off" style={{ ...S.keyInput, flex: 1 }} />
           <a href={providerConfig.url} target="_blank" rel="noopener noreferrer" style={S.getKeyLink}>{t('getKey')}</a>
         </div>
         {/* Live key check: prefix warning first, then the ping result (checking / valid / rejected). */}
-        {apiKey && providerConfig.keyPrefix && !apiKey.startsWith(providerConfig.keyPrefix)
+        {apiKey && keyOfOtherProvider(providerConfig, apiKey)
+          ? <div style={{ ...hint, color: 'var(--c-warning)' }}>{t('keyOtherProviderWarn', { provider: keyOfOtherProvider(providerConfig, apiKey).label, current: providerConfig.label })}</div>
+          : apiKey && providerConfig.keyPrefix && !apiKey.startsWith(providerConfig.keyPrefix)
           ? <div style={{ ...hint, color: 'var(--c-warning)' }}>{t('keyPrefixWarn', { prefix: providerConfig.keyPrefix })}</div>
           : keyCheck?.state === 'checking' ? <div style={{ ...hint, color: 'var(--c-ink-dim)' }}>{t('keyChecking')}</div>
           : keyCheck?.state === 'valid' ? <div style={{ ...hint, color: 'var(--c-success)', fontWeight: 700 }}>{t('keyValid')}</div>
           : keyCheck?.state === 'invalid' ? <div style={{ ...hint, color: 'var(--c-danger)', fontWeight: 700 }}>{t('keyInvalid')}</div>
+          : keyCheck?.state === 'noCredit' ? <div style={{ ...hint, color: 'var(--c-warning)' }}>{t('keyNoCredit')}</div>
           : keyCheck?.state === 'unknown' ? <div style={{ ...hint, color: 'var(--c-warning)' }}>{t('keyCheckUnknown')}</div>
           : <div style={hint}>{apiKey ? t('keysStored') : t('keyPasteHint')}</div>}
       </div>
@@ -719,7 +775,7 @@ export default function SettingsModal(p) {
                 setIntelligence(opt.key)
               }
               return (
-                <button key={opt.key} onClick={onPick} className={active ? 'ui-tab-current' : undefined}
+                <button key={opt.key} onClick={onPick} className={active ? 'ui-tab-current' : undefined} aria-disabled={opt.key === 'custom' || undefined}
                   style={{ flex: 1, minWidth: 150, textAlign: 'left', cursor: (active || opt.key === 'custom') ? 'default' : 'pointer', fontFamily: 'inherit', padding: '8px 10px', borderRadius: 7,
                     border: `1px solid ${active ? C.brandRing : 'var(--c-border)'}`,
                     background: active ? 'rgba(223,37,64,.10)' : 'transparent' }}>
@@ -731,6 +787,16 @@ export default function SettingsModal(p) {
           })()}
         </div>
         {planDeciding && <div style={{ fontSize: 10, color: C.brand, marginTop: 8 }}>{t('set_deciding')}</div>}
+      </div>
+
+      {/* Token and cost counter: OFF unless the user turns it on here. */}
+      <div style={card}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+          <input type="checkbox" checked={!!showTokenUsage} onChange={(e) => setShowTokenUsage?.(e.target.checked)}
+            style={{ width: 16, height: 16, accentColor: C.brand, cursor: 'pointer' }} />
+          <span style={{ fontSize: 12, color: C.ink, fontWeight: 600 }}>{t('usage_setting')}</span>
+        </label>
+        <div style={{ fontSize: 11, color: C.inkDim, marginTop: 6, lineHeight: 1.5 }}>{t('usage_settingDesc')}</div>
       </div>
 
       {/* Question reuse: OFF unless the user turns it on here (or ticks it in onboarding). */}
@@ -769,7 +835,9 @@ export default function SettingsModal(p) {
       </div>
 
       {/* Per-feature models (advanced). */}
-      <details key={provider} open={hasModelOverrides || undefined} style={card}>
+      {/* Opens itself when an override exists, but only on mount: bound to it, the section snapped shut
+          under the pointer when the last override was reset. */}
+      <details key={provider} ref={(el) => { if (el && !el.dataset.init) { el.dataset.init = '1'; if (hasModelOverrides) el.open = true } }} style={card}>
         <summary style={{ cursor: 'pointer', fontSize: 13, fontWeight: 800, color: C.ink, listStyle: 'revert' }}>
           {t('set_modelsPerFeature')} <span style={{ fontWeight: 600, color: C.inkDim, fontSize: 12 }}>({providerConfig.label})</span>
         </summary>
@@ -781,9 +849,9 @@ export default function SettingsModal(p) {
                 {modelsLoading ? t('checkingModels') : `↻ ${t('checkNewModels')}`}
               </button>
               {runConnectionTest && (
-                <button onClick={() => runConnectionTest(provider)} disabled={modelProbe?.loading || !apiKey} title={t('set_testConnectionsHint')}
-                  style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 9px', color: C.inkDim, opacity: (modelProbe?.loading || !apiKey) ? 0.5 : 1 }}>
-                  {modelProbe?.loading ? t('set_testing') : t('set_testConnections')}
+                <button onClick={() => runConnectionTest(provider)} disabled={(modelProbe?.loading && modelProbe.provider === provider) || !apiKey} className="tip" data-tip={t('set_testConnectionsHint')}
+                  style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 9px', color: C.inkDim, opacity: ((modelProbe?.loading && modelProbe.provider === provider) || !apiKey) ? 0.5 : 1 }}>
+                  {modelProbe?.loading && modelProbe.provider === provider ? t('set_testing') : t('set_testConnections')}
                 </button>
               )}
               {aiModels[provider] && Object.values(aiModels[provider]).some(Boolean) && (
@@ -791,13 +859,14 @@ export default function SettingsModal(p) {
               )}
             </div>
           </div>
-          {modelsError && <div style={{ fontSize: 10, color: C.danger, marginBottom: 6 }}>{modelsError}</div>}
+          {modelsError?.provider === provider && <div style={{ fontSize: 10, color: C.danger, marginBottom: 6 }}>{modelsError.msg}</div>}
           {modelProbe && !modelProbe.loading && modelProbe.provider === provider && (
             modelProbe.connectionError
               ? <div style={{ fontSize: 10, color: C.danger, marginBottom: 6 }}>{t('set_connError')}</div>
               : <div style={{ fontSize: 10, color: C.inkDim, marginBottom: 6 }}>
                   {t('set_probeResult', { ok: modelProbe.working?.length || 0, down: modelProbe.down?.length || 0 })}
                   {modelProbe.down?.length ? `: ${modelProbe.down.join(', ')}` : ''}
+                  {modelProbe.unknown?.length ? ` · ${t('set_probeUnknown', { n: modelProbe.unknown.length })}` : ''}
                 </div>
           )}
 
@@ -811,7 +880,11 @@ export default function SettingsModal(p) {
               <div key={role} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                 <span style={{ fontSize: 11, color: C.inkDim, width: 70, flexShrink: 0, fontWeight: 600 }}>{t('aiRole_' + role)}</span>
                 {isCustom ? (
-                  <input value={current} onChange={(e) => setRole(e.target.value)} spellCheck={false}
+                  // Committed on blur / Enter: every keystroke was saved and USED at once ("gpt-5" half typed),
+                  // and a background call's retired-model heal then rewrote the box while typing.
+                  <input key={`${provider}:${role}:${current}`} defaultValue={current} spellCheck={false}
+                    onBlur={(e) => { const v = e.target.value.replace(/\s+/g, ''); if (v !== current) setRole(v) }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) e.currentTarget.blur() }}
                     placeholder={t('set_customModelIdPlaceholder')} style={{ ...S.keyInput, flex: 1, fontSize: 11, padding: '6px 9px' }} />
                 ) : (
                   <select value={current} onChange={(e) => { if (e.target.value === '__custom__') { setCustomRoles((c) => ({ ...c, [role]: true })) } else setRole(e.target.value) }}
@@ -844,7 +917,9 @@ export default function SettingsModal(p) {
   // learnLangName(): the mode name, e.g. "Spanish (LatAm)"), mapped onto this list. Defaulting to
   // 'English' here showed "Learning: English" while every question came out in Spanish.
   // Also other names ("Mandarin Chinese", "Inglés", Studio's free text): see langFromName.
-  const langOption = (name) => langFromName(name)?.label || 'English'
+  // A language outside the list (Swedish, Hebrew...) is shown as itself: shown as "English", the picker hid the
+  // mode's real language, and "correcting" it switched the mode to English.
+  const langOption = (name) => (isDistinctSpoken(name) ? String(name).trim() : langFromName(name)?.label) || String(name || '').trim() || 'English' // Cantonese stays Cantonese
   const learnedLabel = langOption(activeMode.studyRules?.studyLanguage || learnLangDefault)
 
   const studyRulesBase = activeMode.studyRules || (isLanguage ? defaultStudyRules : defaultGeneralStudyRules)
@@ -853,7 +928,10 @@ export default function SettingsModal(p) {
   const addQPref = () => {
     const v = qPrefInput.trim()
     if (!v) return
-    if (!qPrefs.includes(v)) setStudyRule({ questionPreferences: [...qPrefs, v].slice(-12) })
+    if (qPrefs.includes(v)) { setQPrefInput(''); return }
+    // Full: say so (the oldest rule used to vanish without a word). The text stays in the box.
+    if (qPrefs.length >= 12) { alertDialog(t('qPrefsFull')); return }
+    setStudyRule({ questionPreferences: [...qPrefs, v] })
     setQPrefInput('')
   }
   const toggleRow = (checked, onChange, label) => (
@@ -864,6 +942,7 @@ export default function SettingsModal(p) {
   )
   const langSelect = (value, onChange, extraFirst) => (
     <select value={value} onChange={(e) => onChange(e.target.value)} style={{ ...S.select, width: '100%' }}>
+      {value && !LANGS.some((l) => l.label === value) && <option value={value}>{value}</option>}
       {extraFirst}
       {LANGS.filter((l) => l.code !== 'auto').map((l) => <option key={l.code} value={l.label}>{l.label}</option>)}
     </select>
@@ -879,13 +958,13 @@ export default function SettingsModal(p) {
           <div>
             {fieldLabel(t('questionsPerCard'))}
             <ClampedNumber min={1} max={10} value={activeMode.studyRules?.questionsPerCard || 3}
-              onCommit={(n) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), questionsPerCard: n } })}
+              onCommit={(n) => updateActiveMode({ studyRules: { ...studyRulesBase, questionsPerCard: n } })}
               style={{ ...S.keyInput, flex: 'none', minWidth: 0, width: 70 }} />
           </div>
           <div>
             {fieldLabel(t('cardsAtOnce'))}
             <ClampedNumber min={1} max={10} value={activeMode.studyRules?.cardsAtOnce || 3}
-              onCommit={(n) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), cardsAtOnce: n } })}
+              onCommit={(n) => updateActiveMode({ studyRules: { ...studyRulesBase, cardsAtOnce: n } })}
               style={{ ...S.keyInput, flex: 'none', minWidth: 0, width: 70 }} />
           </div>
         </div>
@@ -897,12 +976,14 @@ export default function SettingsModal(p) {
           {isLanguage && (
             <div>
               {fieldLabel(t('studyLearning'))}
-              {langSelect(learnedLabel, (v) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), studyLanguage: v } }))}
+              {langSelect(learnedLabel, (v) => updateActiveMode({ studyRules: { ...studyRulesBase, studyLanguage: v } }))}
             </div>
           )}
           <div>
             {fieldLabel(t('quizIn'))}
-            {langSelect(activeMode.studyRules?.quizLanguage ? langOption(activeMode.studyRules.quizLanguage) : (isLanguage ? learnedLabel : appLangLabel), (v) => setStudyRule({ quizLanguage: v }))}
+            {/* '' = follow the learned language (general modes: the app language). It could not be chosen again once
+                a language was picked, so the mode stayed on that language after the learned one changed. */}
+            {langSelect(activeMode.studyRules?.quizLanguage ? langOption(activeMode.studyRules.quizLanguage) : '', (v) => setStudyRule({ quizLanguage: v }), <option value="">{t('set_quizDefault', { lang: isLanguage ? learnedLabel : appLangLabel })}</option>)}
           </div>
           <div>
             {fieldLabel(t('set_hookLang'))}
@@ -913,7 +994,7 @@ export default function SettingsModal(p) {
             <div>
               {fieldLabel(t('set_dialect'))}
               <input type="text" value={activeMode.studyRules?.dialect || ''} placeholder={t('set_dialectPlaceholder')}
-                onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), dialect: e.target.value } })}
+                onChange={(e) => updateActiveMode({ studyRules: { ...studyRulesBase, dialect: e.target.value } })}
                 style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box' }} />
               <div style={{ fontSize: 10, color: C.inkFaint, marginTop: 3 }}>{t('set_dialectDesc')}</div>
             </div>
@@ -933,9 +1014,9 @@ export default function SettingsModal(p) {
         <div style={card}>
           {cardTitle(t('set_studyFeedback'))}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {toggleRow(!!activeMode.studyRules?.grammarFeedback, (v) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), grammarFeedback: v } }), t('grammarFeedback'))}
+            {toggleRow(!!activeMode.studyRules?.grammarFeedback, (v) => updateActiveMode({ studyRules: { ...studyRulesBase, grammarFeedback: v } }), t('grammarFeedback'))}
             <div>
-              {toggleRow(!!activeMode.studyRules?.wordHints, (v) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), wordHints: v } }), t('studyWordHints'))}
+              {toggleRow(!!activeMode.studyRules?.wordHints, (v) => updateActiveMode({ studyRules: { ...studyRulesBase, wordHints: v } }), t('studyWordHints'))}
               <div style={{ ...hint, marginTop: 3, marginLeft: 23 }}>{t('studyWordHintsDesc')}</div>
             </div>
           </div>
@@ -951,8 +1032,8 @@ export default function SettingsModal(p) {
         {qPrefs.map((pref, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
             <span style={{ flex: 1, fontSize: 12, color: C.inkDim, background: 'rgba(139,92,246,.07)', border: '1px solid rgba(139,92,246,.22)', borderRadius: 6, padding: '5px 9px', lineHeight: 1.5 }}>{pref}</span>
-            <button onClick={() => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), questionPreferences: qPrefs.filter((_, k) => k !== i) } })}
-              title={t('qPrefsRemove')}
+            <button onClick={async () => { const id = activeModeId; if (!(await confirmDialog(t('qPrefsRemoveConfirm', { rule: pref })))) return; if (getActiveModeId && getActiveModeId() !== id) return /* another mode became active during the confirm (a create finished): this mode's rules would overwrite it */; const live = getActiveMode?.()?.studyRules /* rules and dialect saved while the dialog was open (Fix question, a chat action) stay */; updateActiveMode({ studyRules: { ...studyRulesBase, ...(live || {}), questionPreferences: (live?.questionPreferences || qPrefs).filter((x) => x !== pref) } }) }}
+              aria-label={t('qPrefsRemove')} className="tip" data-tip={t('qPrefsRemove')}
               style={{ ...S.ghostBtn, fontSize: 10, padding: '4px 9px', color: C.danger, flexShrink: 0 }}>✕</button>
           </div>
         ))}
@@ -979,12 +1060,12 @@ export default function SettingsModal(p) {
         {fieldLabel(t('questionPrompt'))}
         <textarea value={activeMode.studyRules?.questionPrompt ?? (isLanguage ? defaultStudyRules : defaultGeneralStudyRules).questionPrompt}
           placeholder={(isLanguage ? defaultStudyRules : defaultGeneralStudyRules).questionPrompt}
-          onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), questionPrompt: e.target.value } })}
+          onChange={(e) => updateActiveMode({ studyRules: { ...studyRulesBase, questionPrompt: e.target.value } })}
           style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box', minHeight: 110, resize: 'vertical' }} />
+        {/* How a card is rated is fixed in the app (evaluateCardAnswers): the editable text here was never read,
+            so a changed rule silently did nothing. Shown as what it really is. */}
         <div style={{ marginTop: 10 }}>{fieldLabel(t('ratingRules'))}
-          <input value={activeMode.studyRules?.ratingRules ?? defaultStudyRules.ratingRules} placeholder={defaultStudyRules.ratingRules}
-            onChange={(e) => updateActiveMode({ studyRules: { ...(activeMode.studyRules || defaultStudyRules), ratingRules: e.target.value } })}
-            style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box' }} />
+          <div style={{ ...hint, lineHeight: 1.6 }}>{t('set_ratingFixed')}</div>
         </div>
       </details>
     </div>
@@ -1027,9 +1108,9 @@ export default function SettingsModal(p) {
           ))}
         </div>
         {fieldLabel(t('frontTemplate'))}
-        <input value={ankiFormat.frontTemplate} onChange={(e) => updateActiveMode({ frontTemplate: e.target.value })} style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box', fontSize: 12, marginBottom: 8 }} />
+        <input value={ankiFormat.frontTemplate || ''} onChange={(e) => updateActiveMode({ frontTemplate: e.target.value })} style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box', fontSize: 12, marginBottom: 8 }} />
         {fieldLabel(t('backTemplate'))}
-        <textarea value={ankiFormat.backTemplate} onChange={(e) => updateActiveMode({ backTemplate: e.target.value })} style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box', fontSize: 12, minHeight: 70, resize: 'vertical' }} />
+        <textarea value={ankiFormat.backTemplate || ''} onChange={(e) => updateActiveMode({ backTemplate: e.target.value })} style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box', fontSize: 12, minHeight: 70, resize: 'vertical' }} />
         <div style={hint}>{t('set_placeholders')} {'{word} {term} {partOfSpeech} {pronunciation} {translation} {synonyms} {definition} {example}'}</div>
       </div>
       <div style={card}>
@@ -1079,8 +1160,9 @@ export default function SettingsModal(p) {
               <div key={f.name} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: f.disabled ? C.surfaceSunken : C.successTint, border: `1px solid ${f.disabled ? C.border : 'rgba(24,169,87,.2)'}`, borderRadius: RADIUS.sm, fontSize: 12 }}>
                 <span style={{ flex: 1, color: f.disabled ? C.inkFaint : C.ink, textDecoration: f.disabled ? 'line-through' : 'none' }}>{f.name}</span>
                 <span style={{ color: C.inkFaint, fontSize: 10 }}>{(f.size / 1024).toFixed(1)}KB</span>
-                <button onClick={() => toggleKnowledgeFile(f.name)} style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 7px' }}>{f.disabled ? t('enable') : t('disable')}</button>
-                <button onClick={async () => { if (await confirmDialog(t('deck_deleteConfirm', { front: f.name }))) deleteKnowledgeFile(f.name) }} style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 7px', color: C.danger, borderColor: 'rgba(229,57,46,.25)' }}>{t('delete')}</button>
+                <button onClick={() => toggleKnowledgeFile(f.name, !f.disabled)} disabled={knowledgeBusyFiles?.has?.(f.name)}
+                  style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 7px', ...(knowledgeBusyFiles?.has?.(f.name) ? { opacity: 0.5, cursor: 'default' } : {}) }}>{f.disabled ? t('enable') : t('disable')}</button>
+                <button onClick={async () => { const id = activeModeId; if (!(await confirmDialog(t('deck_deleteConfirm', { front: f.name })))) return; if (getActiveModeId && getActiveModeId() !== id) return /* the file belongs to the mode that was active when asked */; deleteKnowledgeFile(f.name) }} style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 7px', color: C.danger, borderColor: 'rgba(229,57,46,.25)' }}>{t('delete')}</button>
               </div>
             ))}
           </div>
@@ -1092,7 +1174,10 @@ export default function SettingsModal(p) {
   // ── Audio (pronunciation) — GLOBAL ──
   const pron = pronunciationCfg || { defaultRegions: {}, editions: {}, ttsUrl: '', ttsVoices: {}, embedInAnki: true }
   const setPron = (patch) => setPronunciationCfg((prev) => ({ ...prev, ...patch }))
-  const audioLangs = LANGS.filter((l) => l.code !== 'auto').map((l) => ({ label: l.label, iso1: langInfo(l.label)?.iso1 })).filter((l) => l.iso1)
+  // One row per language CODE: "Chinese (Simplified)" and "(Traditional)" are both zh, one setting, and two rows
+  // edited each other. Labelled with the base name.
+  const audioLangs = LANGS.filter((l) => l.code !== 'auto').map((l) => ({ label: l.label.replace(/\s*\(.*\)$/, ''), iso1: langInfo(l.label)?.iso1 }))
+    .filter((l, i, all) => l.iso1 && all.findIndex((x) => x.iso1 === l.iso1) === i)
   const AnkiAudio = (
     <div>
       {sectionTitle(t('setAnkiAudio'))}
@@ -1129,7 +1214,7 @@ export default function SettingsModal(p) {
               <span style={{ flex: 1, fontSize: 12, color: C.ink }}>{l.label}</span>
               <input value={pron.defaultRegions?.[l.iso1] || ''} placeholder={t('audioRegionAny')} maxLength={2}
                 onChange={(e) => setPron({ defaultRegions: { ...pron.defaultRegions, [l.iso1]: e.target.value.toLowerCase().replace(/[^a-z]/g, '') } })}
-                style={{ ...S.keyInput, width: 52, fontSize: 12, padding: '4px 8px', textAlign: 'center' }} />
+                style={{ ...S.keyInput, flex: 'none', minWidth: 0, width: 52, fontSize: 12, padding: '4px 8px', textAlign: 'center' }} />
             </div>
           ))}
         </div>
@@ -1172,12 +1257,12 @@ export default function SettingsModal(p) {
                 <input autoFocus defaultValue={m.name}
                   onBlur={(e) => { if (e.target.dataset.cancel !== '1') renameMode(m.id, e.target.value || m.name) }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.nativeEvent?.isComposing) renameMode(m.id, e.target.value || m.name)
-                    else if (e.key === 'Escape') { e.preventDefault(); e.currentTarget.dataset.cancel = '1'; setEditingModeName(null) } // see the mode bar
+                    if (e.key === 'Enter' && !e.nativeEvent?.isComposing) { e.currentTarget.dataset.cancel = '1'; renameMode(m.id, e.target.value || m.name) } // see the mode bar
+                    else if (e.key === 'Escape' && !e.nativeEvent?.isComposing && e.keyCode !== 229) { e.preventDefault(); e.currentTarget.dataset.cancel = '1'; setEditingModeName(null) } // see the mode bar
                   }}
                   style={{ ...S.keyInput, width: 160, fontSize: 12, padding: '4px 8px' }} />
               ) : (
-              <button onClick={() => { if (m.id === activeModeId) setEditingModeName(m.id); else if (p.switchMode) p.switchMode(m.id); else { setActiveModeId(m.id); saveModes(modes, m.id) } }}
+              <button onClick={() => { if (m.id === activeModeId) setEditingModeName(m.id); else if (p.switchMode) p.switchMode(m.id); else { setActiveModeId(m.id); saveModes(modes, m.id, { changedIds: [] }) } }}
                 title={`${m.description || m.name}`}
                 style={{ padding: '5px 12px', borderRadius: RADIUS.pill, fontSize: 12, fontFamily: 'inherit', cursor: 'pointer',
                   background: m.id === activeModeId ? C.brandTint : C.surfaceAlt, color: m.id === activeModeId ? C.brand : C.inkDim,
@@ -1186,7 +1271,7 @@ export default function SettingsModal(p) {
               </button>
               )}
               {modes.length > 1 && (
-                <span onClick={async () => { if (await confirmDialog(t('modeDeleteConfirm', { name: m.name }))) deleteMode(m.id) }} style={{ cursor: 'pointer', color: C.inkFaint, fontSize: 14, padding: '0 2px' }}>&times;</span>
+                <button type="button" aria-label={t('modeDelete', { name: m.name })} onClick={async () => { if (await confirmDialog(t('modeDeleteConfirm', { name: m.name }))) deleteMode(m.id) }} style={{ cursor: 'pointer', color: C.inkFaint, fontSize: 14, padding: '0 2px', background: 'none', border: 'none', fontFamily: 'inherit' }}>&times;</button>
               )}
             </div>
           ))}
@@ -1227,7 +1312,11 @@ export default function SettingsModal(p) {
     // Cancel the zoom on the backdrop so it overlays exactly one visual viewport, and divide
     // the modal's viewport caps by 1.35 so it fits on small laptop screens. (Same /1.35
     // convention as the app root in App.jsx.)
-    <div style={{ ...S.backdrop, width: 'calc(100vw / 1.35)', height: 'calc(100vh / 1.35)' }} onClick={onClose}>
+    // Closes only on a click that STARTED on the backdrop: selecting text in a field and releasing over the
+    // backdrop is a click there too, and it closed Settings mid-edit.
+    <div style={{ ...S.backdrop, width: 'calc(100vw / 1.35)', height: 'calc(100vh / 1.35)' }}
+      onMouseDown={(e) => { backdropDownRef.current = e.target === e.currentTarget }}
+      onClick={(e) => { if (backdropDownRef.current && e.target === e.currentTarget) onClose(); backdropDownRef.current = false }}>
       <div onClick={(e) => e.stopPropagation()} className="settings-modal" style={{
         display: 'flex', width: 'min(900px, calc(94vw / 1.35))', height: 'min(640px, calc(86vh / 1.35))',
         background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg,

@@ -6,9 +6,11 @@
 // and the orchestrator doesn't cache them, so a retry gets a fresh chance.
 // Native results also get a ↻ "different speaker" button that cycles through the other
 // ranked recordings of the word; picking one re-embeds it into the Anki card (replace).
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { getPronunciation } from '../pronunciation'
 import { FONT } from '../config/tokens'
+
+let playingAudio = null // the one Audio element playing now (see playResult)
 
 export default function Pronunciation({ word, lang, region = '', config = {}, noteId = null, cardId = null, t = (k) => k, onNative, compact = false, style }) {
   const [state, setState] = useState('idle') // idle | loading | ready | none (none = retryable)
@@ -18,6 +20,20 @@ export default function Pronunciation({ word, lang, region = '', config = {}, no
   const [notice, setNotice] = useState(null) // transient inline note ("only one recording")
   const audioRef = useRef(null)
   const noticeTimer = useRef(null)
+  // Browser speech too: it kept talking over the next word, or over a recording started elsewhere.
+  const stopSpeech = () => { try { window.speechSynthesis?.cancel() } catch { /* no speech */ } }
+  // A fetch still running when the popup closed played its audio afterwards (nothing left to stop it): playback
+  // happens only while mounted. The Anki embed still goes through (the user asked for that voice).
+  const mountedRef = useRef(true)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      try { audioRef.current?.pause() } catch { /* nothing playing */ }
+      stopSpeech()
+      if (noticeTimer.current) clearTimeout(noticeTimer.current)
+    }
+  }, []) // closing a popup / leaving a card stops it
   const flashNotice = (text) => {
     setNotice(text)
     if (noticeTimer.current) clearTimeout(noticeTimer.current)
@@ -30,6 +46,8 @@ export default function Pronunciation({ word, lang, region = '', config = {}, no
   const [prevKey, setPrevKey] = useState(null)
   const propKey = `${word}|${lang}|${region}|${noteId}|${cardId}`
   if (propKey !== prevKey) {
+    try { audioRef.current?.pause() } catch { /* nothing playing */ } // the old word stops with it
+    stopSpeech()
     setPrevKey(propKey)
     setState('idle')
     setResult(null)
@@ -44,9 +62,17 @@ export default function Pronunciation({ word, lang, region = '', config = {}, no
   const busyRef = useRef(null) // the word key being fetched; another word is not blocked
 
   const playResult = async (r) => {
+    if (!mountedRef.current) return
     try {
-      if (r.kind === 'speak') { r.speak() } else {
+      if (r.kind === 'speak') {
+        if (playingAudio) { try { playingAudio.pause() } catch { /* gone */ } } // one voice at a time, speech included
+        r.speak()
+      } else {
+        stopSpeech()
         if (!audioRef.current) audioRef.current = new Audio()
+        // One recording at a time across the app: two rows' 🔊 overlapped, and a long clip played on into the next card.
+        if (playingAudio && playingAudio !== audioRef.current) { try { playingAudio.pause() } catch { /* gone */ } }
+        playingAudio = audioRef.current
         audioRef.current.src = r.audioUrl
         await audioRef.current.play()
       }
@@ -88,7 +114,10 @@ export default function Pronunciation({ word, lang, region = '', config = {}, no
       flashNotice(t('pronRetry'))
       return
     }
-    if (r.fileName && result?.fileName === r.fileName) {
+    // Card audio Ebiki embedded (`ebiki-…`) IS a Commons recording under another name: with only one
+    // recording in existence, the wrap lands on that same voice, and swapping it in rewrote the card for nothing.
+    const sameAsEmbedded = result?.source === 'anki' && /^ebiki-/.test(result.fileName || '') && (r.variantCount || 1) <= 1
+    if ((r.fileName && result?.fileName === r.fileName) || sameAsEmbedded) {
       // Wrapped straight back to the same recording — this word has only one voice.
       // Just say so; do NOT replay the audio the user was trying to get away from.
       setNoMoreVoices(true)
@@ -143,6 +172,13 @@ export default function Pronunciation({ word, lang, region = '', config = {}, no
           color: 'var(--c-ink-dim)', background: 'var(--c-surface)', border: '1px solid var(--c-border)',
           borderRadius: 4, padding: '2px 7px', boxShadow: '0 2px 8px rgba(0,0,0,.25)', pointerEvents: 'none',
         }}>{notice}</span>
+      )}
+      {/* Compact surfaces (every one in the app) showed the CC-BY-SA credit only in a bare title with no link. */}
+      {result && compact && result.source === 'wiktionary' && result.attribution?.sourceUrl && (
+        <a href={result.attribution.sourceUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
+          className="tip" data-tip={`🎙 ${result.attribution.author}${result.attribution.license ? ` · ${result.attribution.license}` : ''}`}
+          aria-label={`${result.attribution.author} · ${result.attribution.license || ''}`}
+          style={{ fontSize: 9, color: 'var(--c-ink-faint)', textDecoration: 'none', lineHeight: 1 }}>ⓘ</a>
       )}
       {result && !compact && (
         <span style={{ fontSize: 9, color: 'var(--c-ink-faint)', fontFamily: FONT.body, lineHeight: 1.2 }}>

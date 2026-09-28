@@ -45,3 +45,49 @@ describe('deepMergeJson with a base (offline reconcile)', () => {
     expect(deepMergeJson({ n: 'theirs' }, { n: 'mine' }, {})).toEqual({ n: 'theirs' })
   })
 })
+
+describe('deepMergeJson: lists with a base', () => {
+  const base = { prefs: ['a', 'b', 'c'], other: 1 }
+  it('an item deleted offline stays deleted when the share changed something else', () => {
+    const theirs = { prefs: ['a', 'b', 'c'], other: 2 }
+    const mine = { prefs: ['a', 'c'], other: 1 }
+    expect(deepMergeJson(theirs, mine, base)).toEqual({ prefs: ['a', 'c'], other: 2 })
+  })
+  it('an item edited offline is not kept twice', () => {
+    const b = { kinds: [{ key: 'x', label: 'Old' }] }
+    const theirs = { kinds: [{ key: 'x', label: 'Old' }] }
+    const mine = { kinds: [{ key: 'x', label: 'New' }] }
+    expect(deepMergeJson(theirs, mine, b)).toEqual({ kinds: [{ key: 'x', label: 'New' }] })
+  })
+  it('a list both sides changed is still unioned', () => {
+    const theirs = { prefs: ['a', 'b', 'c', 'd'] }
+    const mine = { prefs: ['a', 'b', 'c', 'e'] }
+    expect(deepMergeJson(theirs, mine, { prefs: ['a', 'b', 'c'] }).prefs).toEqual(['a', 'b', 'c', 'd', 'e'])
+  })
+  it('without a base (join/return) lists are unioned as before', () => {
+    expect(deepMergeJson({ p: ['a'] }, { p: ['b'] })).toEqual({ p: ['a', 'b'] })
+  })
+})
+
+describe('deepMergeJson: keys deleted on one side (with a base)', () => {
+  it('a key the share deleted stays deleted when this computer only changed something else', () => {
+    const base = { aiModels: { openai: { chat: 'gpt-x' } }, theme: 'light' }
+    const theirs = { aiModels: { openai: {} }, theme: 'light' }
+    const mine = { aiModels: { openai: { chat: 'gpt-x' } }, theme: 'dark' }
+    expect(deepMergeJson(theirs, mine, base)).toEqual({ aiModels: { openai: {} }, theme: 'dark' })
+  })
+  it('a key deleted offline is deleted on the share too when the share did not change it', () => {
+    const base = { hooks: { 1: ['a'], 2: ['b'] }, n: 1 }
+    const theirs = { hooks: { 1: ['a'], 2: ['b'] }, n: 2 }
+    const mine = { hooks: { 1: ['a'] }, n: 1 }
+    expect(deepMergeJson(theirs, mine, base)).toEqual({ hooks: { 1: ['a'] }, n: 2 })
+  })
+  it('a key deleted on one side but CHANGED on the other is kept', () => {
+    const base = { k: { v: 1 } }
+    expect(deepMergeJson({}, { k: { v: 2 } }, base)).toEqual({ k: { v: 2 } })
+    expect(deepMergeJson({ k: { v: 3 } }, {}, base)).toEqual({ k: { v: 3 } })
+  })
+  it('without a base nothing is deleted (join/return merges)', () => {
+    expect(deepMergeJson({ a: 1 }, { b: 2 })).toEqual({ a: 1, b: 2 })
+  })
+})

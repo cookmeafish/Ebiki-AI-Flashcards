@@ -103,6 +103,20 @@ describe('reasoning models that spend the whole budget on thinking', () => {
     expect(calls[1].body.max_completion_tokens).toBeGreaterThan(600)
   })
 
+  it('throws (never returns "") when the roomier retry after the 400 is still empty', async () => {
+    const calls = stub((n) => (n === 1
+      ? badRequest('Could not finish the message because max_tokens or model output limit was reached.')
+      : okOpenAi('', 'length')))
+    await expect(PROVIDERS.openai.call('k', 'Be terse.', 'question', 'o4-mini', undefined, 8000)).rejects.toThrow(/API 200: empty/)
+    expect(calls).toHaveLength(2)
+  })
+
+  it('keeps max_completion_tokens when the error is a size cap, not an unknown parameter', async () => {
+    const calls = stub(() => badRequest('max_completion_tokens is too large: 8000. This model supports at most 4096 completion tokens.'))
+    await expect(PROVIDERS.openai.call('k', 'Be terse.', 'question', 'gpt-3.5-turbo', undefined, 8000)).rejects.toThrow(/API 400/)
+    expect(calls).toHaveLength(1)
+  })
+
   it('does NOT retry the exhaustion 400 for a liveness probe', async () => {
     const calls = stub(() => badRequest('Could not finish the message because max_tokens or model output limit was reached.'))
     await expect(PROVIDERS.openai.call('k', 'ping', 'hi', 'o4-mini', undefined, 4)).rejects.toThrow(/API 400/)
@@ -222,8 +236,67 @@ describe('blocked or refused replies', () => {
     }
   })
 
+  it('treats an OpenAI-style refusal (content null + refusal text) as blocked, not an empty answer', async () => {
+    const refusal = () => new Response(JSON.stringify({ choices: [{ message: { content: null, refusal: "I can't help with that." }, finish_reason: 'stop' }] }), { status: 200 })
+    for (const prov of ['openai', 'grok']) {
+      vi.unstubAllGlobals()
+      stub(refusal)
+      await expect(PROVIDERS[prov].call('k', 'sys', 'u', null, undefined, 100), prov).rejects.toThrow(/^API 200: blocked \(refusal/)
+    }
+  })
+
   it('treats a Gemini answer stopped for SAFETY as blocked', async () => {
     stub(() => new Response(JSON.stringify({ candidates: [{ finishReason: 'SAFETY' }] }), { status: 200 }))
     await expect(PROVIDERS.gemini.call('k', 'sys', 'u', 'gemini-2.5-pro', undefined, 100)).rejects.toThrow(/blocked \(SAFETY\)/)
+  })
+})
+
+describe('every request is bounded by a timeout', () => {
+  // A stalled connection with no limit never answered: the Chat stayed on "typing" for good.
+  const capture = (response) => {
+    const inits = []
+    vi.stubGlobal('fetch', async (url, init) => { inits.push(init || {}); return response() })
+    return inits
+  }
+  it('sends an abort signal on every provider call', async () => {
+    for (const prov of ['openai', 'grok']) {
+      const inits = capture(() => okOpenAi('hi'))
+      await PROVIDERS[prov].call('k', 'sys', 'user', undefined, undefined, 100)
+      expect(inits[0].signal).toBeInstanceOf(AbortSignal)
+    }
+    let inits = capture(() => new Response(JSON.stringify({ content: [{ type: 'text', text: 'hi' }], stop_reason: 'end_turn' }), { status: 200 }))
+    await PROVIDERS.anthropic.call('k', 'sys', 'user', undefined, undefined, 100)
+    expect(inits[0].signal).toBeInstanceOf(AbortSignal)
+    inits = capture(() => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: 'hi' }] }, finishReason: 'STOP' }] }), { status: 200 }))
+    await PROVIDERS.gemini.call('k', 'sys', 'user', undefined, undefined, 100)
+    expect(inits[0].signal).toBeInstanceOf(AbortSignal)
+  })
+  it('sends an abort signal when listing models', async () => {
+    for (const prov of ['anthropic', 'openai', 'gemini', 'grok']) {
+      const inits = capture(() => new Response(JSON.stringify({ data: [], models: [] }), { status: 200 }))
+      await PROVIDERS[prov].listModels('k')
+      expect(inits[0].signal).toBeInstanceOf(AbortSignal)
+    }
+  })
+})
+
+describe('error messages lead with the provider code', () => {
+  // The body is cut to 200 characters; the code that tells a per-minute limit from an empty balance
+  // sat past the cut, so a rate limit was reported as "out of credits".
+  it('keeps insufficient_quota and RESOURCE_EXHAUSTED visible', async () => {
+    const long = 'You exceeded your current quota, please check your plan and billing details. '.repeat(4)
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ error: { message: long, type: 'insufficient_quota', code: 'insufficient_quota' } }), { status: 429 }))
+    await expect(PROVIDERS.openai.call('k', 'sys', 'user', 'gpt-4o', undefined, 100)).rejects.toThrow(/^API 429: \[insufficient_quota\]/)
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ error: { code: 429, message: long, status: 'RESOURCE_EXHAUSTED' } }), { status: 429 }))
+    await expect(PROVIDERS.gemini.call('k', 'sys', 'user', 'gemini-2.5-flash', undefined, 100)).rejects.toThrow(/^API 429: \[RESOURCE_EXHAUSTED\]/)
+  })
+})
+
+describe('keyOfOtherProvider', () => {
+  it('flags a key carrying another provider\'s longer prefix', async () => {
+    const { PROVIDERS, keyOfOtherProvider } = await import('./providers.js')
+    expect(keyOfOtherProvider(PROVIDERS.openai, 'sk-ant-api03-xyz')).toBe(PROVIDERS.anthropic)
+    expect(keyOfOtherProvider(PROVIDERS.openai, 'sk-proj-xyz')).toBe(null)
+    expect(keyOfOtherProvider(PROVIDERS.anthropic, 'sk-ant-api03-xyz')).toBe(null)
   })
 })

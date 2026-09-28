@@ -187,6 +187,7 @@ describe('accents that make a different word', () => {
   it('still falls back to a folded match when nothing exact exists', () => {
     const r = pickAudioFiles(['Es-cafe.ogg'], { iso1: 'es', iso3: ['spa'], word: 'café' })
     expect(r.length).toBe(1)
+    expect(r[0].approx).toBe(true) // playable, but never embedded (it could be another word: papá/papa)
   })
 })
 
@@ -200,5 +201,67 @@ describe('pickAudioFiles — other words that START WITH or CONTAIN the word', (
     expect(pickAudioFiles(['Es-sol.ogg'], { ...ES, word: 'sol' })[0]?.file).toBe('Es-sol.ogg')
     expect(pickAudioFiles(['De-schön2.ogg'], { ...DE, word: 'schön' }).length).toBe(1)
     expect(pickAudioFiles(['Es-el sol.ogg'], { ...ES, word: 'sol' }).length).toBe(1)
+  })
+})
+
+describe('language-aware gate for weak candidates', () => {
+  it('a Q-id-only Lingua Libre file is WEAK (must prove its language)', () => {
+    const r = pickAudioFiles(['LL-Q9186-Luilui6666-犬.wav'], { ...JA, region: '', word: '犬' })
+    expect(r[0].score).toBeLessThan(STRONG_SCORE)
+  })
+  const ja = { iso3: ['jpn'], names: ['Japanese'] }
+  const es = { iso3: ['spa'], names: ['Spanish'] }
+  it('another language\'s category does not pass', () => {
+    expect(looksLikePronunciationPage(['Category:Lingua Libre pronunciation-yue'], ja)).toBe(false)
+    expect(looksLikePronunciationPage(['Category:Cantonese pronunciation'], ja)).toBe(false)
+    expect(looksLikePronunciationPage(['Category:French pronunciation'], es)).toBe(false)
+  })
+  it('our own language\'s category passes', () => {
+    expect(looksLikePronunciationPage(['Category:Lingua Libre pronunciation-jpn'], ja)).toBe(true)
+    expect(looksLikePronunciationPage(['Category:Spanish pronunciation'], es)).toBe(true)
+    expect(looksLikePronunciationPage(['Category:Latin American Spanish pronunciation'], es)).toBe(true)
+    expect(looksLikePronunciationPage(['Category:Mandarin pronunciation'], { iso3: ['cmn'], names: ['Chinese', 'Mandarin'] })).toBe(true)
+  })
+  it('a category naming no language keeps the old rule', () => {
+    expect(looksLikePronunciationPage(['Category:Pronunciation recordings'], es)).toBe(true)
+    expect(looksLikePronunciationPage(['Category:Dog barks'], es)).toBe(false)
+  })
+})
+
+describe('word boundaries with combining marks, and accents both ways', () => {
+  it('a word ending in a vowel sign never takes a longer word', () => {
+    expect(pickAudioFiles(['Hi-कमी.ogg'], { iso1: 'hi', iso3: ['hin'], word: 'कम' })).toEqual([])
+  })
+  it('an unaccented word matched to an accented file is approximate (never embedded)', () => {
+    expect(pickAudioFiles(['Es-papá.ogg'], { iso1: 'es', iso3: ['spa'], word: 'papa' })[0].approx).toBe(true)
+  })
+  it('curly apostrophes match straight ones', () => {
+    expect(pickAudioFiles(["Fr-l'eau.ogg"], { iso1: 'fr', iso3: ['fra'], word: 'l’eau' })[0].file).toBe("Fr-l'eau.ogg")
+  })
+})
+
+describe('pickAudioFiles: words with two pronunciations', () => {
+  it('marks sense-split recordings approximate (played, never embedded)', () => {
+    const live = pickAudioFiles(['en-us-live-verb.ogg', 'en-us-live-adj.ogg'], { iso1: 'en', iso3: ['eng'], word: 'live' })
+    expect(live.length).toBe(2)
+    expect(live.every((c) => c.approx)).toBe(true)
+    expect(pickAudioFiles(['En-us-wind-air.ogg', 'en-us-wind-turn.ogg'], { iso1: 'en', iso3: ['eng'], word: 'wind' }).every((c) => c.approx)).toBe(true)
+  })
+  it('prefers a plain recording over sense-split ones, and leaves one suffixed file alone', () => {
+    const r = pickAudioFiles(['en-us-live-verb.ogg', 'en-us-live-adj.ogg', 'En-us-live.ogg'], { iso1: 'en', iso3: ['eng'], word: 'live' })
+    expect(r.map((c) => c.file)).toEqual(['En-us-live.ogg'])
+    expect(pickAudioFiles(['De-Haus-2.ogg'], { iso1: 'de', iso3: ['deu'], word: 'Haus' })[0]?.approx).toBeUndefined()
+  })
+})
+
+describe('accent-exact means the WORD, not any letters in the name', () => {
+  const PT = { iso1: 'pt', iso3: ['por'] }
+  it('a speaker name holding the letters never makes a recording of another word "exact"', () => {
+    const r = pickAudioFiles(['LL-Q5146 (por)-Pedrohenrique-é.wav'], { ...PT, word: 'e' })
+    expect(r.length).toBeGreaterThan(0)
+    expect(r.every((c) => c.approx)).toBe(true) // plays, never embeds
+  })
+  it('the real word still counts as exact', () => {
+    expect(pickAudioFiles(['LL-Q5146 (por)-Pedrohenrique-é.wav'], { ...PT, word: 'é' })[0]?.approx).toBeUndefined()
   })
 })

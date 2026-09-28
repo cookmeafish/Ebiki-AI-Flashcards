@@ -26,7 +26,7 @@ const Chip = ({ text, icon, selected, correct, onClick, dragProps }) => (
     borderColor: correct === true ? 'var(--c-success)' : correct === false ? 'var(--c-danger)' : selected ? 'var(--c-brand)' : 'var(--c-border)',
     background: correct === true ? 'rgba(24,169,87,.10)' : correct === false ? 'rgba(229,57,46,.08)' : selected ? 'rgba(223,37,64,.08)' : 'var(--c-surface)',
     color: correct === false ? 'var(--c-danger)' : 'var(--c-ink)',
-    boxShadow: selected ? '0 0 0 3px rgba(223,37,64,.15)' : 'none',
+    ...(selected ? { boxShadow: '0 0 0 3px rgba(223,37,64,.15)' } : {}), // never 'none': it would block the global hover shadow
   }}>
     {correct === true && <span style={{ color: 'var(--c-success)' }}>✓</span>}
     {correct === false && <span>✗</span>}
@@ -78,14 +78,19 @@ export default function PbqQuestion({ pbq, t, onSubmit, review = null }) {
                 onDragEnd={!done ? () => setDragRow(null) : undefined}
                 onDragOver={!done ? (e) => {
                   // live-reorder: sliding over another row moves the dragged row there
-                  if (dragRow === null || dragRow === pos) return
+                  if (dragRow === null) return
+                  // Accept the drop on EVERY row, the dragged row's own slot included: a refused drop made
+                  // the browser animate the row "snapping back" although the reorder had already happened.
                   e.preventDefault()
+                  e.dataTransfer.dropEffect = 'move'
+                  if (dragRow === pos) return
                   const next = [...seq]
                   const [moved] = next.splice(dragRow, 1)
                   next.splice(pos, 0, moved)
                   setSeq(next)
                   setDragRow(pos)
                 } : undefined}
+                onDrop={!done ? (e) => { if (dragRow !== null) { e.preventDefault(); setDragRow(null) } } : undefined}
                 style={{
                   ...box, display: 'flex', alignItems: 'center', gap: 10,
                   borderColor: p ? (p.correct ? 'var(--c-success)' : 'var(--c-danger)') : 'var(--c-border)',
@@ -100,8 +105,10 @@ export default function PbqQuestion({ pbq, t, onSubmit, review = null }) {
                 {p && !p.correct && <Expected text={p.expectedText} />}
                 {!done && (
                   <span style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                    <button onClick={() => move(pos, -1)} disabled={pos === 0} style={{ ...chipBase, padding: '3px 9px', opacity: pos === 0 ? 0.35 : 1 }}>▲</button>
-                    <button onClick={() => move(pos, +1)} disabled={pos === shownSeq.length - 1} style={{ ...chipBase, padding: '3px 9px', opacity: pos === shownSeq.length - 1 ? 0.35 : 1 }}>▼</button>
+                    {/* aria-disabled, not disabled: the focused arrow travels with its row, and a disabled one at the
+                        end dropped keyboard focus to the page (Tab all the way back for every step). */}
+                    <button onClick={() => { if (pos > 0) move(pos, -1) }} aria-disabled={pos === 0} style={{ ...chipBase, padding: '3px 9px', opacity: pos === 0 ? 0.35 : 1, cursor: pos === 0 ? 'default' : 'pointer' }}>▲</button>
+                    <button onClick={() => { if (pos < shownSeq.length - 1) move(pos, +1) }} aria-disabled={pos === shownSeq.length - 1} style={{ ...chipBase, padding: '3px 9px', opacity: pos === shownSeq.length - 1 ? 0.35 : 1, cursor: pos === shownSeq.length - 1 ? 'default' : 'pointer' }}>▼</button>
                   </span>
                 )}
               </div>
@@ -129,7 +136,9 @@ export default function PbqQuestion({ pbq, t, onSubmit, review = null }) {
 
   const placeItem = (ii, ti) => {
     if (done) return
-    setAssign(prev => prev.map((v, i) => (i === ii ? ti : v)))
+    // Matching is one-to-one: a box already holding an item gives it back to the pool (several chips stacked on
+    // one answer and Submit was allowed).
+    setAssign(prev => prev.map((v, i) => (i === ii ? ti : (isMatching && v === ti ? null : v))))
     setSelected(sel => (sel === ii ? null : sel))
   }
   const unplaceItem = (ii, reselect = false) => {

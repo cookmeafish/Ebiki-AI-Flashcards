@@ -54,6 +54,18 @@ describe('readBlobChecked', () => {
     anki.retrieve = async () => Buffer.from('{not json', 'utf8').toString('base64')
     expect(await readBlobChecked('hooks', 'Spanish')).toEqual({ ok: true, value: null })
   })
+
+  it('a SHARED data folder copy wins over this computer\'s Anki (which lags behind through AnkiWeb)', async () => {
+    anki.retrieve = async () => b64({ '1': ['old'] })
+    local = reply(200, { content: JSON.stringify({ '1': ['old', 'from the other computer'] }), shared: true })
+    expect(await readBlobChecked('hooks', 'Spanish')).toEqual({ ok: true, value: { '1': ['old', 'from the other computer'] } })
+  })
+
+  it('an app-folder (not shared) store still reads Anki first', async () => {
+    anki.retrieve = async () => b64({ '1': ['synced'] })
+    local = reply(200, { content: JSON.stringify({ '1': ['stale'] }), shared: false })
+    expect(await readBlobChecked('hooks', 'Spanish')).toEqual({ ok: true, value: { '1': ['synced'] } })
+  })
 })
 
 describe('"local is newer" mark', () => {
@@ -64,6 +76,15 @@ describe('"local is newer" mark', () => {
   })
   afterEach(() => { delete globalThis.localStorage; anki.store = async () => true })
 
+  it("with the newer copy only local, a refused local read is a FAILED read (never Anki's older copy)", async () => {
+    local = reply(200, { ok: true })
+    anki.store = async () => { throw new Error('Anki is not running') }
+    await writeBlob('grammar', 'French', { v: 1 })            // local only: marked newer
+    local = reply(503, { unreachable: true })                 // the share is down
+    anki.retrieve = async () => b64({ v: 0 })
+    expect(await readBlobChecked('grammar', 'French')).toEqual({ ok: false, value: null })
+  })
+
   it("a read's push-back never clears the mark set by a write that failed to reach Anki meanwhile", async () => {
     local = reply(200, { content: JSON.stringify({ v: 1 }) })
     anki.store = async () => { throw new Error('Anki is not running') }
@@ -72,12 +93,23 @@ describe('"local is newer" mark', () => {
     anki.store = () => new Promise((r) => { release = r })     // the read's push-back hangs
     anki.retrieve = async () => b64({ v: 0 })
     expect((await readBlobChecked('hooks', 'Spanish')).value).toEqual({ v: 1 })
+    await new Promise((r) => setTimeout(r, 0))                // the push-back starts and hangs
     const pushBack = release
     anki.store = async () => { throw new Error('Anki is not running') }
-    await writeBlob('hooks', 'Spanish', { v: 2 })             // fails to reach Anki again
+    const w = writeBlob('hooks', 'Spanish', { v: 2 })         // queued behind the push; fails to reach Anki
     local = reply(200, { content: JSON.stringify({ v: 2 }) })
-    pushBack(true); await new Promise((r) => setTimeout(r, 0)) // the older push lands
+    pushBack(true)                                            // the older push lands first
+    await w
     anki.store = async () => true
     expect((await readBlobChecked('hooks', 'Spanish')).value).toEqual({ v: 2 })
+  })
+  it('two quick writes of one blob store the NEWER one last', async () => {
+    const stored = []
+    let slow = true
+    anki.store = async (name, data) => { if (slow) { slow = false; await new Promise((r) => setTimeout(r, 20)) } stored.push(data) }
+    const a = writeBlob('hooks', 'French', { v: 1 })
+    const b = writeBlob('hooks', 'French', { v: 2 })
+    await Promise.all([a, b])
+    expect(JSON.parse(Buffer.from(stored[stored.length - 1], 'base64').toString())).toEqual({ v: 2 })
   })
 })

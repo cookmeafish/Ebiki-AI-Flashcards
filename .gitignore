@@ -37,3 +37,10 @@ launchmode.json
 .scratch/
 config.json.*
 .npm-install-pending
+
+# writeFileAtomic temp files left by an interrupted write
+*.tmp
+
+# launch.sh lock (flock file; mkdir lock where flock is missing)
+.launcher.lock
+.launcher.lock.d/

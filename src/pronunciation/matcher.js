@@ -24,7 +24,8 @@ export function normalizeFileName(raw) {
 }
 
 // Case/accent-insensitive fold for word comparison ("schön" ≈ "schon", "Hola" ≈ "hola").
-const fold = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+// Curly apostrophes fold to "'" (a typed l’eau never matched Fr-l'eau.ogg).
+const fold = (s) => String(s || '').toLowerCase().replace(/[’‘ʼ]/g, "'").normalize('NFD').replace(/[̀-ͯ]/g, '')
 
 // Rank candidate audio files for (language, region, word). Returns [{ file, score }]
 // sorted best-first; empty array when nothing plausible matches.
@@ -34,16 +35,22 @@ export function pickAudioFiles(files, { iso1, iso3 = [], region = '', word }) {
   // and the fold above made them score identically, so the wrong word's recording could win and be
   // embedded in the card. A file whose name carries the word WITH its exact accents is preferred; one
   // that matches only once accents are folded away is penalized, and dropped when an exact one exists.
-  const exact = String(word || '').toLowerCase().normalize('NFC')
-  const accentExact = (file) => file.replace(AUDIO_EXT_RE, '').toLowerCase().normalize('NFC').includes(exact)
+  const exact = String(word || '').toLowerCase().replace(/[’‘ʼ]/g, "'").normalize('NFC')
+  // On a WORD boundary: a plain substring test found "e" inside a Lingua Libre speaker's name
+  // ("LL-Q5146 (por)-Pedrohenrique-é.wav"), so the recording of "é" counted as accent-exact for "e" and was embedded.
+  const exactRe = exact ? new RegExp(`(^|[^\\p{L}\\p{M}])${exact.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=[^\\p{L}\\p{M}]|$)`, 'u') : null
+  const accentExact = (file) => !!exactRe && exactRe.test(file.replace(AUDIO_EXT_RE, '').toLowerCase().replace(/[’‘ʼ]/g, "'").normalize('NFC'))
+  const wordHasMarks = /\p{M}/u.test(String(word || '').normalize('NFD'))
   const reg = fold(region)
   // How well the word part matches: exact > variant suffix ("schön2", "haus fcm") > phrase.
   // Both looser forms need a WORD boundary: a plain prefix/substring test scored recordings of other
   // words as strong matches ("sol" took soldado, sola, girasol; "pa" took papá) and embedded them.
   const esc = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const asWord = new RegExp(`(^|[^\\p{L}])${esc}([^\\p{L}]|$)`, 'u')
+  // A combining MARK is part of the word too (Hindi/Thai vowel signs, a dakuten): as a boundary, "कम" took
+  // "कमी" (another word) and "は" took "ば", scored strong, played and embedded.
+  const asWord = new RegExp(`(^|[^\\p{L}\\p{M}])${esc}([^\\p{L}\\p{M}]|$)`, 'u')
   const wordPts = (rest) => rest === w ? 30
-    : (rest.startsWith(w) && rest.length <= w.length + 4 && !/^\p{L}/u.test(rest.slice(w.length))) ? 20
+    : (rest.startsWith(w) && rest.length <= w.length + 4 && !/^[\p{L}\p{M}]/u.test(rest.slice(w.length))) ? 20
     : (w && asWord.test(rest)) ? 10 : null
 
   const out = []
@@ -62,7 +69,10 @@ export function pickAudioFiles(files, { iso1, iso3 = [], region = '', word }) {
       const m = ll || paren
       const l3 = m[1] || null
       if (l3 && !iso3.includes(l3)) continue // an explicit (xxx) always names the language: another one, even outside our list (glg, ast)
-      const langPts = l3 && iso3.includes(l3) ? 110 : 55 // no (xxx): language hides in the Q-id — keep low
+      // No (xxx): the language hides in the Q-id (Q9186 is Cantonese), so it must stay BELOW STRONG_SCORE and
+      // prove its language through its Commons categories. At 55 (+30 for the word) it counted as strong and a
+      // Cantonese recording was played, and embedded, for a Japanese word.
+      const langPts = l3 && iso3.includes(l3) ? 110 : 20
       const wp = wordPts(m[2])
       if (wp !== null) best = langPts + wp
     } else if (classic && (classic[1] === iso1 || iso3.includes(classic[1]))) {
@@ -86,19 +96,47 @@ export function pickAudioFiles(files, { iso1, iso3 = [], region = '', word }) {
 
     if (best !== null) {
       const ok = accentExact(file)
-      out.push({ file, score: ok ? best : best - 40, accentOk: ok })
+      // A sense suffix right after the word ("en-us-live-verb", "En-us-wind-air"): see senseSplit below.
+      const sense = (base.match(new RegExp(`${esc}-([a-z]{2,})$`)) || [])[1] || null
+      out.push({ file, score: ok ? best : best - 40, accentOk: ok, sense })
     }
   }
-  const anyExact = out.some((c) => c.accentOk)
-  return out.filter((c) => c.accentOk || !anyExact).map(({ file, score }) => ({ file, score })).sort((a, b) => b.score - a.score)
+  // Two or more DIFFERENT sense suffixes for one word = a word with two pronunciations (live verb /laɪv/ vs
+  // adjective /lɪv/, wind air vs turn): the card's sense can't be told from the file, so those files still play
+  // but are never embedded (approx), like the papa/papá rule. Numbered or speaker variants are not senses.
+  const senseSplit = new Set(out.map((c) => c.sense).filter(Boolean)).size >= 2
+  for (const c of out) c.sure = c.accentOk && !(senseSplit && c.sense)
+  const anyExact = out.some((c) => c.sure)
+  // `approx`: an accented word matched only WITHOUT its accents. Often just an unaccented file name (Es-cafe
+  // for café), but it can be another word (papá/papa, schön/schon): playable, never embedded into the card.
+  // Both directions: an UNaccented word matched to an accented file ("papa" to Es-papá, "schon" to De-schön) is
+  // just as likely another word, so it is never embedded either.
+  void wordHasMarks
+  return out.filter((c) => c.sure || !anyExact).map(({ file, score, sure }) => ({ file, score, ...(!sure ? { approx: true } : {}) })).sort((a, b) => b.score - a.score)
 }
 
 // Candidates below this score have NO language-convention evidence in the filename
 // (bare "Perro.ogg" could as easily be a bark as a pronunciation) — they must prove
 // themselves via their Commons page categories before being played.
 export const STRONG_SCORE = 80
-export const looksLikePronunciationPage = (categories) =>
-  /pronunciation|pronunciación|prononciation|aussprache|lingua libre/i.test((categories || []).join(' '))
+// With `lang` ({ iso3, names }), a category that NAMES a language must name ours: "Lingua Libre
+// pronunciation-yue" or "Cantonese pronunciation" no longer passes for a Japanese or Mandarin word, nor
+// "French pronunciation" for a Spanish one. Categories that name no language keep the old rule.
+export const looksLikePronunciationPage = (categories, lang = null) => {
+  const cats = (categories || []).map((c) => String(c))
+  if (!/pronunciation|pronunciación|prononciation|aussprache|lingua libre/i.test(cats.join(' '))) return false
+  if (!lang) return true
+  const iso3 = (lang.iso3 || []).map((x) => String(x).toLowerCase())
+  const names = (lang.names || []).map((n) => String(n).toLowerCase())
+  let named = false, ours = false
+  for (const c of cats) {
+    const ll = c.match(/lingua libre pronunciation-([a-z]{3})/i)
+    if (ll) { named = true; if (iso3.includes(ll[1].toLowerCase())) ours = true; continue }
+    const en = c.match(/^(?:category:)?\s*(.+?)\s+pronunciation$/i)
+    if (en && names.length) { named = true; const x = en[1].toLowerCase(); if (names.some((n) => x.includes(n))) ours = true }
+  }
+  return !named || ours
+}
 
 // Union + dedupe candidates from the two Wiktionary sources (media-list ∪ wikitext).
 // Live probes showed each source misses files the other finds, direction varies by edition.

@@ -14,12 +14,19 @@ function StatusLine({ status, t }) {
   return <div style={{ fontSize: 12, color: C.dim, padding: '20px 0' }}>{labels[status] || t('d_statusWorking')}</div>
 }
 
+// The profile prompt answers tiers as fixed English words; they are shown in the app language.
+const TIERS = ['beginner', 'intermediate', 'advanced']
+const tierLabel = (v, t) => (TIERS.includes(String(v || '').toLowerCase().trim()) ? t(`d_tier_${String(v).toLowerCase().trim()}`) : v)
+
 function LevelBadge({ profile, t }) {
   if (!profile?.level) return null
-  const { scale, estimate, confidence } = profile.level
+  const { scale, estimate } = profile.level
+  let confidence = Number(profile.level.confidence)
+  if (!Number.isFinite(confidence) || profile.level.confidence === '' || profile.level.confidence == null) confidence = null
+  else { if (confidence > 1) confidence /= 100; confidence = Math.max(0, Math.min(1, confidence)) }
   const label = scale === 'CEFR' ? estimate
     : scale === 'domain-coverage' ? `${estimate || t('d_inProgress')}`
-    : estimate
+    : tierLabel(estimate, t)
   return (
     <span style={{ fontSize: 11, color: C.blue, background: 'rgba(223,37,64,0.12)', border: '1px solid rgba(223,37,64,0.25)', borderRadius: 5, padding: '3px 8px', fontWeight: 600 }}>
       {t('d_level')} {label}{typeof confidence === 'number' ? ` · ${t('d_sureSuffix', { pct: Math.round(confidence * 100) })}` : ''}
@@ -31,7 +38,7 @@ export default function DiscoverPanel(props) {
   const {
     t = (k) => k,
     profile, profileLoading, suggestion, suggestionLoading, status, sources, error,
-    webVerify, setWebVerify, card, cardLoading, cardSaving, ledger, deck, apiKey,
+    webVerify, setWebVerify, card, cardLoading, cardSaving, ledger, deck, saveDeck, apiKey,
     ankiConnected, onReanalyze, onMakeCard, onSaveCard, onCancelCard, onKnow, onSkip,
     onNext, setCard,
     started, config, setConfig, onStart, onAdjust, isLanguage, modeName, modeDescription,
@@ -112,6 +119,7 @@ export default function DiscoverPanel(props) {
         <div style={{ border: '1px solid var(--c-border)', borderRadius: 6, padding: '14px 16px' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>{t('d_whatSuggest')}</div>
 
+          <fieldset disabled={profileLoading} style={{ border: 0, padding: 0, margin: 0, minWidth: 0, opacity: profileLoading ? 0.6 : 1 }}>
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 11, color: C.dim, marginBottom: 6, fontWeight: 600 }}>{t('d_suggest')}</div>
             {chipRow(typeOptions, itemType, (k) => setConfig({ ...config, itemType: k }))}
@@ -133,6 +141,7 @@ export default function DiscoverPanel(props) {
             <input type="checkbox" checked={webVerify} onChange={(e) => setWebVerify(e.target.checked)} />
             {t('d_verifyWeb')}
           </label>
+          </fieldset>
 
           <button onClick={onStart} disabled={profileLoading}
             style={{ background: 'rgba(223,37,64,0.15)', color: C.blue, border: '1px solid rgba(223,37,64,0.3)', borderRadius: 5, padding: '8px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', opacity: profileLoading ? 0.5 : 1 }}>
@@ -166,7 +175,8 @@ export default function DiscoverPanel(props) {
 
         {(suggestionLoading || status) && !suggestion && <StatusLine status={status} t={t} />}
 
-        {!suggestionLoading && !suggestion && (
+        {/* Not while Re-analyze rebuilds the profile: a fetch started here raced the one Re-analyze starts. */}
+        {!suggestionLoading && !suggestion && !profileLoading && (
           <div style={{ fontSize: 12, color: C.dim, padding: '12px 0' }}>
             {t('d_noSuggestion')} <button onClick={onNext} style={{ background: 'none', border: 'none', color: C.blue, cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, padding: 0, textDecoration: 'underline' }}>{t('d_getOne')}</button>
           </div>
@@ -175,9 +185,9 @@ export default function DiscoverPanel(props) {
         {suggestion && (
           <div style={{ border: '1px solid rgba(24,169,87,0.2)', borderRadius: 6, padding: '14px 16px', background: 'rgba(24,169,87,0.03)' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
-              <span style={{ fontSize: 18, fontWeight: 700, color: C.text }}>{suggestion.term}</span>
+              <span style={{ fontSize: 18, fontWeight: 700, color: C.text, overflowWrap: 'anywhere', minWidth: 0 }}>{suggestion.term}</span>
               {suggestion.partOfSpeech && <span style={{ fontSize: 12, color: C.dim }}>({suggestion.partOfSpeech})</span>}
-              {suggestion.difficulty && <span style={{ fontSize: 10, color: C.purple, background: 'rgba(139,92,246,0.12)', borderRadius: 4, padding: '2px 6px' }}>{suggestion.difficulty}</span>}
+              {suggestion.difficulty && <span style={{ fontSize: 10, color: C.purple, background: 'rgba(139,92,246,0.12)', borderRadius: 4, padding: '2px 6px' }}>{tierLabel(suggestion.difficulty, t)}</span>}
               {webVerify && 'verified' in suggestion && (
                 <span style={{ fontSize: 10, color: suggestion.verified ? C.green : C.orange }}>{suggestion.verified ? t('d_verified') : t('d_unverified')}</span>
               )}
@@ -203,10 +213,10 @@ export default function DiscoverPanel(props) {
             {card ? (
               <div style={{ borderTop: '1px solid rgba(81,98,108,0.2)', paddingTop: 10, marginTop: 6 }}>
                 <div style={{ fontSize: 10, color: C.dim, marginBottom: 4 }}>{t('d_front')}</div>
-                <textarea value={card.front} onChange={(e) => setCard({ ...card, front: e.target.value })}
+                <textarea value={card.front} readOnly={cardSaving} onChange={(e) => setCard({ ...card, front: e.target.value })}
                   style={{ width: '100%', background: 'var(--c-surface)', color: C.text, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 4, padding: 8, fontSize: 12, fontFamily: 'inherit', resize: 'vertical', marginBottom: 8, boxSizing: 'border-box' }} rows={1} />
                 <div style={{ fontSize: 10, color: C.dim, marginBottom: 4 }}>{t('d_back')}</div>
-                <textarea value={card.back} onChange={(e) => setCard({ ...card, back: e.target.value })}
+                <textarea value={card.back} readOnly={cardSaving} onChange={(e) => setCard({ ...card, back: e.target.value })}
                   style={{ width: '100%', background: 'var(--c-surface)', color: C.text, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 4, padding: 8, fontSize: 12, fontFamily: 'inherit', resize: 'vertical', marginBottom: 8, boxSizing: 'border-box' }} rows={5} />
                 {card.tags?.length > 0 && (
                   <div style={{ fontSize: 10, color: C.dim, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
@@ -220,10 +230,10 @@ export default function DiscoverPanel(props) {
                     ))}
                   </div>
                 )}
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <button onClick={onSaveCard} disabled={cardSaving || ankiConnected === false}
-                    style={{ background: 'rgba(24,169,87,0.15)', color: C.green, border: '1px solid rgba(24,169,87,0.3)', borderRadius: 5, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', opacity: (cardSaving || ankiConnected === false) ? 0.5 : 1 }}>
-                    {cardSaving ? t('d_saving') : `${t('d_saveTo')} ${deck || 'Anki'}`}
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button onClick={onSaveCard} disabled={cardSaving || ankiConnected === false || !String(card.front || '').trim()}
+                    style={{ background: 'rgba(24,169,87,0.15)', color: C.green, border: '1px solid rgba(24,169,87,0.3)', borderRadius: 5, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: (cardSaving || ankiConnected === false || !String(card.front || '').trim()) ? 0.5 : 1 }}>
+                    {cardSaving ? t('d_saving') : `${t('d_saveTo')} ${saveDeck || deck || 'Anki'}`}
                   </button>
                   <button onClick={onCancelCard} disabled={cardSaving}
                     style={{ background: 'transparent', color: C.dim, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 5, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>{t('cancel')}</button>

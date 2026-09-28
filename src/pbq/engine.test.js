@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { compilePbq, checkCitations, studentView, parseSolverAnswer, gradePbq, compareToKey, iconFor, buildGeneratorPrompt } from './engine.js'
+import { compilePbq, checkCitations, studentView, parseSolverAnswer, gradePbq, compareToKey, iconFor, buildGeneratorPrompt, pbqRatingScore, reshufflePbq } from './engine.js'
 
 // Deterministic rng: identity shuffle (Fisher–Yates with rng()=0 swaps i with 0... use a
 // sequence that keeps order stable: rng returning values so j===i every time → rng = (i+? )
@@ -220,5 +220,73 @@ describe('real shuffles never show the exercise already solved', () => {
       const { pbq } = compilePbq(ORDERING)
       expect(gradePbq(pbq, pbq.items.map((_, k) => k)).correct).toBeLessThan(pbq.items.length)
     }
+  })
+})
+
+describe('pbqRatingScore / reshufflePbq', () => {
+  it('chance-corrects categorize so dumping everything in the biggest group rates Again', () => {
+    const pbq = { kind: 'categorize', categories: ['A', 'B'], items: ['1', '2', '3', '4', '5'], answer: [0, 0, 0, 1, 1] }
+    const dump = gradePbq(pbq, [0, 0, 0, 0, 0])
+    expect(dump.fraction).toBeCloseTo(0.6)
+    expect(pbqRatingScore(pbq, dump.fraction)).toBe(0)
+    expect(pbqRatingScore(pbq, 1)).toBe(1)
+    expect(pbqRatingScore({ kind: 'ordering', answer: [1, 0] }, 0.5)).toBe(0.5)
+  })
+  it('reshuffles a saved exercise without changing its key', () => {
+    const m = { kind: 'matching', left: ['a', 'b', 'c', 'd'], right: ['C', 'A', 'D', 'B'], answer: [1, 3, 0, 2] }
+    const r = reshufflePbq(m)
+    m.left.forEach((l, i) => expect(r.right[r.answer[i]]).toBe(m.right[m.answer[i]]))
+    const o = { kind: 'ordering', items: ['s3', 's1', 's4', 's2'], answer: [2, 0, 3, 1] }
+    const ro = reshufflePbq(o)
+    ro.items.forEach((it, i) => expect(ro.answer[i]).toBe(o.answer[o.items.indexOf(it)]))
+    const c = { kind: 'categorize', categories: ['X', 'Y'], items: ['p', 'q', 'r'], answer: [0, 1, 0] }
+    const rc = reshufflePbq(c)
+    rc.items.forEach((it, i) => expect(rc.answer[i]).toBe(c.answer[c.items.indexOf(it)]))
+  })
+})
+
+describe('item identity keeps symbols; numbered steps', () => {
+  it('C++, C# and C are three different items', () => {
+    const r = compilePbq({ kind: 'matching', title: 't', scenario: 's', pairs: [['C++', 'a'], ['C#', 'b'], ['C', 'c'], ['Go', 'd']] })
+    expect(r.ok).toBe(true)
+  })
+  it('symbol-only categories are not empty', () => {
+    const r = compilePbq({ kind: 'categorize', title: 't', scenario: 's', groups: [{ name: '<', items: ['1 < 2', '3 < 9'] }, { name: '>', items: ['5 > 2', '9 > 1'] }] })
+    expect(r.errors || []).not.toContain('duplicate/empty categories: (empty), (empty)')
+  })
+  it('strips step numbers that give the order away', () => {
+    const r = compilePbq({ kind: 'ordering', title: 't', scenario: 's', steps: ['1. Identify', '2. Theory', '3. Test', '4. Plan'] })
+    expect(r.ok).toBe(true)
+    expect(r.pbq.items.every((x) => !/^\d/.test(x))).toBe(true)
+  })
+  it('strips CJK and space-less numbering too', () => {
+    for (const steps of [['1、识别问题', '2、收集信息', '3、制定方案', '4、实施方案'], ['1.识别问题', '2.收集信息', '3.制定方案', '4.实施方案'],
+      ['１．問題を特定', '２．情報を集める', '３．案を作る', '４．実行する'], ['①問題を特定', '②情報を集める', '③案を作る', '④実行する'],
+      ['第一步：识别问题', '第二步：收集信息', '第三步：制定方案', '第四步：实施方案'], ['1)Identify', '2)Theory', '3)Test', '4)Plan']]) {
+      const r = compilePbq({ kind: 'ordering', title: 't', scenario: 's', steps })
+      expect(r.ok).toBe(true)
+      expect(r.pbq.items.every((x) => !/^[\d０-９①-⑳第]/.test(x))).toBe(true)
+    }
+  })
+  it('keeps decimals and "e.g." intact', () => {
+    const r = compilePbq({ kind: 'ordering', title: 't', scenario: 's', steps: ['1.5 cups flour', '2.5 ml oil', 'e.g. mix', 'Bake'] })
+    expect(r.ok).toBe(true)
+    expect(r.pbq.items).toEqual(expect.arrayContaining(['1.5 cups flour', '2.5 ml oil', 'e.g. mix']))
+  })
+})
+
+describe('item identity across scripts and icons', () => {
+  it('keeps vowel signs: two Hindi words are not duplicates', () => {
+    const r = compilePbq({ kind: 'matching', title: 't', scenario: 's', pairs: [['कम', 'less'], ['काम', 'work'], ['नाम', 'name'], ['घर', 'house']] })
+    expect(r.ok).toBe(true)
+  })
+  it('a new exercise never lends "C" its icon to "C++"', () => {
+    const r = compilePbq({ kind: 'matching', title: 't', scenario: 's', pairs: [['C', 'a'], ['C++', 'b'], ['Go', 'c'], ['Rust', 'd']], icons: { C: '🅲' } })
+    expect(r.ok).toBe(true)
+    expect(iconFor(r.pbq, 'C')).toBe('🅲')
+    expect(iconFor(r.pbq, 'C++')).toBe(null)
+  })
+  it('an exercise saved before item keys still finds its loose-keyed icons', () => {
+    expect(iconFor({ icons: { firewall: '🧱' } }, 'Firewall.')).toBe('🧱')
   })
 })

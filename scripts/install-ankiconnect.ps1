@@ -81,7 +81,10 @@ function Install-AnkiConnect($addonDir) {
       # Written WITHOUT a byte-order mark: Windows PowerShell's -Encoding UTF8 adds one, and Anki
       # reads meta.json with a plain utf8 decode, so json.load rejected the file ("Unexpected UTF-8
       # BOM") and the seeded name was ignored.
-      [IO.File]::WriteAllText((Join-Path $addonDir 'meta.json'), '{ "name": "AnkiConnect", "mod": 0, "disabled": false }', (New-Object System.Text.UTF8Encoding $false))
+      # "mod" is the install time Anki compares with AnkiWeb's: 0 made the fresh add-on look out of date, so
+      # Anki's "updates available" dialog could pop up (behind a minimized Anki) right after install.
+      $mod = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+      [IO.File]::WriteAllText((Join-Path $addonDir 'meta.json'), ('{ "name": "AnkiConnect", "mod": ' + $mod + ', "disabled": false }'), (New-Object System.Text.UTF8Encoding $false))
       return $src.name
     } catch {
       $errors += "$($src.name): $($_.Exception.Message)"

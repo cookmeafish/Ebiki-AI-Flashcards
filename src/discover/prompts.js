@@ -27,13 +27,13 @@ ${evidence}
 Return ONLY a JSON object (no markdown, no commentary):
 {
   "updatedAt": "${new Date().toISOString().split('T')[0]}",
-  "level": { "scale": "CEFR" | "domain-coverage" | "tiers", "estimate": "<value>", "confidence": 0.0-1.0 },
+  "level": { "scale": "CEFR" | "domain-coverage" | "tiers", "estimate": "<value: a CEFR level or a tier word exactly as listed; for domain-coverage a short phrase in ${userLanguage}>", "confidence": 0.0-1.0 },
   "domains": [ { "name": "<topic/area>", "coverage": 0.0-1.0, "status": "weak" | "developing" | "strong" } ],
   "summary": "<2-3 sentences: what they know well and where the gaps are>",
   "evidenceCounts": { "cards": <int>, "sessions": <int>, "feedbackChats": <int> }
 }
 
-Base the estimate on real evidence. Be honest — if there is little evidence, lower the confidence. The "domains" should reflect what the learner is weak in or has not covered, so suggestions can target gaps.`
+Base the estimate on real evidence. Be honest: if there is little evidence, lower the confidence. The "domains" should reflect what the learner is weak in or has not covered, so suggestions can target gaps.`
 }
 
 // ─── Next suggestion ────────────────────────────────────────────────────────
@@ -48,18 +48,18 @@ export function buildSuggestionPrompt({ profile, modeType, modeName, modeDescrip
   // 'both' = anything goes; unknown values fall back to it.
   const LANG_TYPES = {
     word: ['single word', '- Suggest a SINGLE WORD (one token), not a multi-word phrase.'],
-    phrase: ['phrase or expression', '- Suggest a multi-word PHRASE or everyday expression — not a single word.'],
+    phrase: ['phrase or expression', '- Suggest a multi-word PHRASE or everyday expression: not a single word.'],
     idiom: ['idiom or saying', '- Suggest an IDIOM, proverb or colloquial expression native speakers actually use. The explanation gives its literal reading AND its real meaning.'],
-    verb: ['verb', '- Suggest a VERB in its infinitive/dictionary form — pick verbs with real everyday utility (irregular or pattern-defining verbs are welcome).'],
+    verb: ['verb', '- Suggest a VERB in its infinitive/dictionary form: pick verbs with real everyday utility (irregular or pattern-defining verbs are welcome).'],
     grammar: ['grammar pattern', '- Suggest a GRAMMAR PATTERN or construction (a tense use, connector, or structure). "term" is the pattern as a short skeleton (e.g. "si + imperfecto de subjuntivo"), and the explanation shows how to build it with ONE example sentence.'],
-    both: ['word or phrase', '- It may be a word, phrase, idiom, verb, or grammar pattern — whichever is most useful right now.'],
+    both: ['word or phrase', '- It may be a word, phrase, idiom, verb, or grammar pattern: whichever is most useful right now.'],
   }
   const GEN_TYPES = {
     term: ['key term or concept', '- Suggest a KEY TERM or concept from the subject.'],
     acronym: ['acronym', '- Suggest an ACRONYM or abbreviation from the subject. "term" is the acronym itself, "translation" is its expansion, and the explanation says what it is and why it matters.'],
     comparison: ['commonly-confused pair', '- Suggest a COMMONLY-CONFUSED PAIR as "X vs Y" (e.g. "symmetric vs asymmetric encryption"). The explanation contrasts them in one or two crisp sentences.'],
     scenario: ['applied concept', '- Suggest a concept via an APPLIED SCENARIO: the explanation opens with a short realistic situation, then names the concept that answers it (exam-style application, not bare recall).'],
-    both: ['concept or term', '- It may be a term, acronym, commonly-confused pair, or applied-scenario concept — whichever is most useful right now.'],
+    both: ['concept or term', '- It may be a term, acronym, commonly-confused pair, or applied-scenario concept: whichever is most useful right now.'],
   }
   const table = isLang ? LANG_TYPES : GEN_TYPES
   let [itemKind, itemTypeRule] = table[itemType] || table.both
@@ -71,23 +71,23 @@ export function buildSuggestionPrompt({ profile, modeType, modeName, modeDescrip
 
   // How hard to aim, relative to the assessed level.
   const difficultyRule = difficulty === 'easier'
-    ? 'Aim slightly BELOW their assessed level — consolidation material they can win with quickly.'
+    ? 'Aim slightly BELOW their assessed level: consolidation material they can win with quickly.'
     : difficulty === 'level'
-      ? 'Aim squarely AT their assessed level — comfortable but not trivial.'
-      : 'Aim appropriate for their level — slightly stretch them, never trivial.'
+      ? 'Aim squarely AT their assessed level: comfortable but not trivial.'
+      : 'Aim appropriate for their level: slightly stretch them, never trivial.'
 
   return `You are a tutor suggesting ONE new ${itemKind} for the learner to make a flashcard from. They are studying "${modeName}"${modeDescription ? ` (${modeDescription})` : ''}.
 
 Learner level: ${level.scale} = ${level.estimate} (confidence ${profile?.level?.confidence ?? 'unknown'}).
 ${profile?.summary ? `Profile summary: ${profile.summary}` : ''}
 ${weak.length ? `Weak / under-covered areas to prioritize: ${weak.join(', ')}.` : ''}
-${focus ? `\nThe learner specifically asked you to focus on: "${focus}". Honor this above all else — every suggestion must fit this request.` : ''}
-${knowledge ? `\nREFERENCE MATERIAL (the learner's own study material for this mode — prefer terms/concepts that appear in or align with it):\n${knowledge}\n` : ''}
+${focus ? `\nThe learner specifically asked you to focus on: "${focus}". Honor this above all else: every suggestion must fit this request.` : ''}
+${knowledge ? `\nREFERENCE MATERIAL (the learner's own study material for this mode: prefer terms/concepts that appear in or align with it):\n${knowledge}\n` : ''}
 
 RULES:
 - Write the "translation", "why" and "draftMeaning" fields in ${userLanguage} (the ${isLang ? '"term" stays in the target language' : '"term" stays in the subject\'s own wording'}). Keep proper nouns/acronyms/technical terms original. Do NOT use em dashes or en dashes.
 - Suggest exactly ONE item. ${difficultyRule}
-${itemTypeRule ? itemTypeRule + '\n' : ''}- ${isLang ? `${difficulty === 'easier' ? 'Even easier items must still be worth carding — no absolute-beginner filler unless they truly are a beginner.' : 'Do NOT suggest beginner vocabulary if they are intermediate or above (no "manzana" for a B1+ learner). For an advanced learner prefer nuanced/idiomatic/formal items.'}` : `Prefer a term from an under-covered exam domain or a gap in their knowledge.`}
+${itemTypeRule ? itemTypeRule + '\n' : ''}- ${isLang ? `${difficulty === 'easier' ? 'Even easier items must still be worth carding: no absolute-beginner filler unless they truly are a beginner.' : 'Do NOT suggest beginner vocabulary if they are intermediate or above (no "manzana" for a B1+ learner). For an advanced learner prefer nuanced/idiomatic/formal items.'}` : `Prefer a term from an under-covered exam domain or a gap in their knowledge.`}
 - ${focus ? 'Match the focus request above.' : 'Prefer the weak/under-covered areas listed above when sensible.'}
 - Do NOT suggest anything in this exclude list (already known, declined, or already a card):
 ${excludeList.length ? excludeList.map((t) => `  - ${t}`).join('\n') : '  (none yet)'}
@@ -96,9 +96,9 @@ ${isLang && studyLanguage ? `- The item must be in ${studyLanguage}. Provide its
 Return ONLY a JSON object (no markdown, no commentary):
 {
   "term": "<the ${isLang ? 'word/phrase in the target language' : 'concept/term'}>",
-  "partOfSpeech": "<part of speech if a word, else empty string>",
+  "partOfSpeech": "<part of speech in ${userLanguage} if a word, else empty string>",
   "translation": "<${userLanguage} translation/gloss, or short definition for non-language subjects>",
-  "difficulty": "<level label, e.g. ${level.estimate}>",
+  "difficulty": "<level label in ${userLanguage}, e.g. ${level.estimate}>",
   "domain": "<which topic/area this belongs to>",
   "why": "<one sentence: why this is a good next item for THIS learner>",
   "draftMeaning": "<1-2 sentence explanation of the item's meaning/usage>"

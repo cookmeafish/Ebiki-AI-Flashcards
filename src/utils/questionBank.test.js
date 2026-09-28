@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { reuseSettings, questionSignature, cardTextKey, pickSavedSet, addSet, markAsked, replaceQuestion, savedQuestionCount, storableQuestion, reshuffleChoices, createQuestionReuse } from './questionBank'
+import { reuseSettings, questionSignature, cardTextKey, pickSavedSet, addSet, markAsked, replaceQuestion, savedQuestionCount, storableQuestion, reshuffleChoices, createQuestionReuse, updateBank } from './questionBank'
 
 const q = (text) => ({ question: text, type: 'recall', acceptedAnswers: ['x'] })
 const parts = { front: 'perro', back: 'dog', learnLang: 'Spanish', quizLang: 'English', perCard: 3 }
@@ -172,5 +172,34 @@ describe('createQuestionReuse', () => {
     await h.reuse(card, { ...parts, kind: 'pbq' }, 1, async () => [pbq])
     const again = await h.reuse(card, { ...parts, kind: 'pbq' }, 1, async () => { throw new Error('should reuse') })
     expect(again[0]).toMatchObject(pbq)
+  })
+})
+
+describe('mergeGlosses', () => {
+  it('adds fetched glosses to the saved question with the same text only', async () => {
+    const { mergeGlosses } = await import('./questionBank')
+    const bank = addSet(null, key, [q('El perro ___ (s)'), q('b')], 1)
+    const id = bank.sets[0].id
+    const next = mergeGlosses(bank, id, 0, ' El  perro ___ (s) ', { perro: 'dog' })
+    expect(next.sets[0].questions[0].glosses).toEqual({ perro: 'dog' })
+    expect(mergeGlosses(bank, id, 0, 'a different question', { perro: 'dog' })).toBe(null)
+    expect(mergeGlosses(bank, id, 0, 'El perro ___ (s)', {})).toBe(null)
+  })
+})
+
+describe('updateBank', () => {
+  it('two edits to one card land one after the other, neither lost', async () => {
+    let disk = { sets: [{ id: 's', questions: ['a', 'b'] }] }
+    const load = async () => { const copy = JSON.parse(JSON.stringify(disk)); await new Promise((r) => setTimeout(r, 5)); return { ok: true, bank: copy } }
+    const save = async (d, n, bank) => { await new Promise((r) => setTimeout(r, 5)); disk = bank; return true }
+    const edit = (qi, v) => (bank) => ({ ...bank, sets: bank.sets.map((st) => ({ ...st, questions: st.questions.map((q, i) => (i === qi ? v : q)) })) })
+    await Promise.all([updateBank('D', 1, edit(0, 'A'), { load, save }), updateBank('D', 1, edit(1, 'B'), { load, save })])
+    expect(disk.sets[0].questions).toEqual(['A', 'B'])
+  })
+  it('a failed read or a null result writes nothing', async () => {
+    const save = vi.fn(async () => true)
+    expect(await updateBank('D', 2, () => ({ sets: [] }), { load: async () => ({ ok: false }), save })).toBe(false)
+    expect(await updateBank('D', 2, () => null, { load: async () => ({ ok: true, bank: { sets: [] } }), save })).toBe(false)
+    expect(save).not.toHaveBeenCalled()
   })
 })

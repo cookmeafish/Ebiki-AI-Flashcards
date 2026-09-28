@@ -18,20 +18,34 @@ function ankiLog(msg, data) {
 
 async function ankiRequest(action, params = {}) {
   ankiLog(`request: ${action}`, params)
-  const res = await fetch('/api/anki', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action, version: 6, params }),
-  })
+  let res
+  try {
+    res = await fetch('/api/anki', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, version: 6, params }),
+    })
+  } catch { throw new Error(ankiText('anki_errNoServer', "Ebiki's background service did not answer, so Anki could not be reached.")) } // "Failed to fetch" was English
   // A reply cut off mid-stream (Anki closed while answering) is not JSON; say that instead of
   // surfacing the parser's "Unexpected end of JSON input" to the user.
   let data
-  try { data = await res.json() } catch { throw new Error('Anki sent an incomplete reply. Check that Anki is open, then try again.') }
+  try { data = await res.json() } catch { throw new Error(ankiText('anki_errIncomplete', 'Anki sent an incomplete reply. Check that Anki is open, then try again.')) }
   ankiLog(`response: ${action}`, data)
-  if (data && data.error) throw new Error(data.error)
-  if (!data) throw new Error('Anki sent an empty reply. Check that Anki is open, then try again.')
+  // The proxy's own messages carry a code: shown in the app language. AnkiConnect's errors pass through as written.
+  const PROXY_ERR = { notRunning: 'anki_errNotRunning', timeout: 'anki_errTimeout', timeoutChange: 'anki_errTimeoutChange', closed: 'anki_errClosed' }
+  if (data && data.error) {
+    const e = new Error(PROXY_ERR[data.code] ? ankiText(PROXY_ERR[data.code], data.error) : data.error)
+    if (data.code) e.code = data.code // 'timeoutChange' = the change is still queued in Anki: a retry would repeat it
+    throw e
+  }
+  if (!data) throw new Error(ankiText('anki_errEmpty', 'Anki sent an empty reply. Check that Anki is open, then try again.'))
   return data.result
 }
+
+// App-written error text in the app language: App.jsx installs its t() (these reach the screen as {msg}).
+let ankiTranslate = null
+export const setAnkiTranslator = (fn) => { ankiTranslate = typeof fn === 'function' ? fn : null }
+const ankiText = (key, en) => { try { const v = ankiTranslate?.(key); return v && v !== key ? v : en } catch { return en } }
 
 export async function ankiPing() {
   try {
@@ -71,7 +85,7 @@ async function resolveBasicModel() {
     const fields = await ankiRequest('modelFieldNames', { modelName: name }).catch(() => null)
     if (Array.isArray(fields) && fields.length === 2) candidates.push({ name, fields })
   }
-  if (!candidates.length) throw new Error('No two-field note type (like "Basic") exists in this Anki collection.')
+  if (!candidates.length) throw new Error(ankiText('anki_errNoBasic', 'No two-field note type (like "Basic") exists in this Anki collection.'))
   basicModelCache = candidates.find((c) => /basic|b[aá]sico|basique|einfach|基本|基础|базов/i.test(c.name)) || candidates[0]
   return basicModelCache
 }
@@ -115,6 +129,8 @@ const HTML_TAGS = new Set(('a abbr address area article aside audio b base bdi b
   // placeholders ("git add <path>"), and only NEW text reaches this function now (ankiUpdateNote writes
   // existing card HTML as given).
   'rb rtc nobr').split(' '))
+// A real HTML tag name (for turning card HTML into plain text without eating "<stdio.h>" or "a < b").
+export const isHtmlTagName = (name) => !!name && (HTML_TAGS.has(String(name).toLowerCase()) || String(name).includes('-'))
 export const escapeStrayLt = (html) => {
   const text = String(html ?? '')
   // A hyphenated name is a custom element only when the text also CLOSES it (<anki-mathjax>…</anki-mathjax>);
@@ -159,7 +175,9 @@ export async function ankiAddNote(deckName, front, back, tags = [], allowDuplica
       deckName,
       modelName,
       fields: { [fieldNames[0]]: front, [fieldNames[1]]: back },
-      options: { allowDuplicate },
+      // Duplicates are judged within the TARGET deck (and its subdecks): without a scope Anki checks the
+      // whole collection, so "Firewall" in one mode's deck blocked adding it to another mode's deck.
+      options: { allowDuplicate, duplicateScope: 'deck', duplicateScopeOptions: { deckName, checkChildren: true } },
       tags,
     },
   }))
@@ -184,7 +202,9 @@ export async function ankiCopyNote(deckName, modelName, fields, tags = []) {
 // "a" also removes its children ("a::b"), so any wanted child of a removed tag is added back after.
 export async function ankiSetNoteTags(noteId, oldTags = [], newTags = []) {
   ankiLog(`setting tags on note ${noteId}`, newTags)
-  const clean = (a) => [...new Set((a || []).map((t) => String(t).trim()).filter(Boolean))]
+  // One tag per entry, as in ankiAddNote: tags travel space-separated, so a proposed "machine learning"
+  // arrived as two tags (and, being "new", was added again on every later save).
+  const clean = (a) => [...new Set((a || []).map((t) => String(t).trim().split(/\s+/).join('-')).filter(Boolean))]
   const oldList = clean(oldTags)
   const newList = clean(newTags)
   const lower = (t) => t.toLowerCase()
@@ -195,7 +215,9 @@ export async function ankiSetNoteTags(noteId, oldTags = [], newTags = []) {
   const added = newList.filter((t) => !oldList.includes(t))
   const addFirst = added.filter((t) => !hitByRemove(t))
   if (addFirst.length) await ankiRequest('addTags', { notes: [noteId], tags: addFirst.join(' ') })
-  if (removed.length) await ankiRequest('removeTags', { notes: [noteId], tags: removed.join(' ') })
+  // Anki matches removals as PATTERNS ("_" = any one character, "*" = any run), so removing "Lesson_1"
+  // also stripped "Lesson-1". Escaped, each removal names only its own tag.
+  if (removed.length) await ankiRequest('removeTags', { notes: [noteId], tags: removed.map((t) => t.replace(/[\\*_]/g, '\\$&')).join(' ') })
   const addAfter = newList.filter(hitByRemove)
   if (addAfter.length) await ankiRequest('addTags', { notes: [noteId], tags: addAfter.join(' ') })
 }
@@ -219,7 +241,8 @@ export async function ankiCanAddNote(deckName, front, back) {
   try {
     const res = await withBasicModel(({ modelName, fieldNames }) => ankiRequest('canAddNotes', {
       // The SAME text ankiAddNote stores: checked raw, "vector<int>" compared as "vector" and never matched.
-      notes: [{ deckName, modelName, fields: { [fieldNames[0]]: sanitizeCardHtml(front), [fieldNames[1]]: sanitizeCardHtml(back) }, tags: [] }],
+      notes: [{ deckName, modelName, fields: { [fieldNames[0]]: sanitizeCardHtml(front), [fieldNames[1]]: sanitizeCardHtml(back) }, tags: [],
+        options: { duplicateScope: 'deck', duplicateScopeOptions: { deckName, checkChildren: true } } }], // like ankiAddNote
     }))
     return Array.isArray(res) ? res[0] !== false : true
   } catch {
@@ -311,10 +334,14 @@ export async function ankiGetTodayReviewStats() {
   const decks = await ankiRequest('deckNames')
   const midnight = new Date(); midnight.setHours(0, 0, 0, 0)
   const startID = midnight.getTime() // revlog ids are unix-ms timestamps
+  // The day these numbers are FOR: a slow read that crossed midnight stamped yesterday's total as today's.
+  const day = midnight.toLocaleDateString('en-CA')
   let reviews = 0, passed = 0
   const all = []
   for (const deck of decks) {
-    try { all.push(...((await ankiRequest('cardReviews', { deck, startID })) || [])) } catch { continue }
+    // A deck that could not be read makes the whole answer unknown (null keeps the last-known numbers): skipped,
+    // a lower count and accuracy were shown and cached as complete.
+    try { all.push(...((await ankiRequest('cardReviews', { deck, startID })) || [])) } catch { return null }
   }
   // A post-lock CORRECTION's row (see markCorrectionReview) is not a second answer: it replaces the
   // card's earlier outcome instead of adding one (it counted as an extra review, and a corrected
@@ -337,7 +364,7 @@ export async function ankiGetTodayReviewStats() {
     if (pass) passed++
     lastPass.set(cid, pass)
   }
-  return { reviews, passed }
+  return { reviews, passed, day }
 }
 
 // Revlog ids (unix ms) of the rows Ebiki inserted as post-lock corrections, kept on this computer.
@@ -350,6 +377,11 @@ export function markCorrectionReview(id) {
     const keep = [...correctionReviewIds()].filter((x) => x > Date.now() - 3 * 86400000)
     localStorage.setItem(CORRECTION_KEY, JSON.stringify([...keep, Number(id)].slice(-200)))
   } catch { /* stats only */ }
+}
+
+// { cardId: [{ id (unix ms), ease, ... }] } for each card: whether Anki recorded an answer since a moment.
+export async function ankiGetReviewsOfCards(cardIds) {
+  return ankiRequest('getReviewsOfCards', { cards: cardIds })
 }
 
 export async function ankiFindNotes(query) {
@@ -455,6 +487,17 @@ export function ankiSyncSoon() {
   }
   if (syncTimer) clearTimeout(syncTimer)
   syncTimer = setTimeout(runCoalescedSync, SYNC_QUIET_MS)
+}
+
+// A sync still waiting for its quiet period when the window closes would never run: cards added in the
+// last seconds stayed on this computer until the next sync from somewhere else. Hand it to the server as
+// a beacon (survives the page going away; the /api/anki proxy reads any body as JSON).
+if (typeof window !== 'undefined' && typeof navigator !== 'undefined' && navigator.sendBeacon) {
+  window.addEventListener('pagehide', (e) => {
+    if (e.persisted || !syncTimer) return
+    clearTimeout(syncTimer); syncTimer = null; syncFirstRequestedAt = 0
+    try { navigator.sendBeacon('/api/anki', JSON.stringify({ action: 'sync', version: 6, params: {} })) } catch { /* best effort */ }
+  })
 }
 
 // ─── Media files (used as a cloud-synced key/value store) ───────────────────

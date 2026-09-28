@@ -12,7 +12,7 @@ Where things are (describe ONLY these; never invent a button):
 - Tabs across the top: Chat (talk with Ebi, make cards, attach a deck), Study (AI quiz sessions on your Anki cards), Deck (browse, edit, search, add, Quick Add, copy/move, check card quality, scan for duplicates, Ebi bulk edit), Discover (AI suggestions for new cards at your level), Picture (capture, upload, paste or drop an image to translate its words), Stats (streak, cards today, accuracy, 14-day chart).
 - "Talk to Ebi" button in the header: opens this help chat.
 - Mode switcher in the header: switch between learning modes like "Spanish" or "Security+". Each mode has its own deck, card format and study rules.
-- Settings (the gear button, top right). App settings: General (theme, app language, data folder, updates), AI models (provider, API key, intelligence preset, per-feature models), Audio. Mode settings: Study, Cards & Anki, Knowledge base (upload .txt, .md or .pdf reference material), Screen overlay, Learning modes (create, rename, delete, or design one with Ebi).
+- Settings (the gear button, top right). App settings: General (theme, app language, translation languages, how Ebiki opens, run setup again), AI & cost (provider, API key, intelligence preset, "Save tokens: reuse questions" which is off unless the user turns it on and is cleared per deck, per-feature models under "Choose a model per feature"), Anki & audio (Anki auto-sync and its grace window, pronunciation audio), Data & updates (shared data folder, updates and restart). Mode settings: Learning modes (create, rename, delete, or design one with Ebi), Study (session size, languages, feedback, how Ebi asks questions, and an Advanced section), Cards & Anki (deck, card format, tags, and the screen capture transparency switch), Knowledge base (upload .txt, .md or .pdf reference material).
 - Alt+Q: screen capture; with the overlay running it works over games and other apps. ESC dismisses it.
 - Anki integration needs Anki desktop running with the AnkiConnect add-on (code 2055492159). If it is missing, the app offers to install it.`
 
@@ -39,20 +39,20 @@ function buildSystemPrompt(appContext) {
   parts.push(`Mode: ${appContext.activeMode?.name || 'unknown'} (${appContext.activeMode?.type || ''})`)
   parts.push(`Anki deck for this mode: ${appContext.activeMode?.ankiDeck || 'none set'}`)
   if (appContext.activeMode?.dialect) parts.push(`Dialect setting: ${appContext.activeMode.dialect} (all generation follows this variant)`)
-  if (appContext.grammarSlips?.length) parts.push(`RECURRING GRAMMAR SLIPS (auto-collected from graded study answers — things the learner conceptually knows but keeps getting wrong, e.g. a missing tilde). Offer targeted practice on these when asked ("let's drill my weak points"), or a gentle reminder when one is relevant:\n${appContext.grammarSlips.map((s) => `- ${s}`).join('\n')}`)
+  if (appContext.grammarSlips?.length) parts.push(`RECURRING GRAMMAR SLIPS (auto-collected from graded study answers: things the learner conceptually knows but keeps getting wrong, e.g. a missing tilde). Offer targeted practice on these when asked ("let's drill my weak points"), or a gentle reminder when one is relevant:\n${appContext.grammarSlips.map((s) => `- ${s}`).join('\n')}`)
   parts.push(`Anki connected: ${appContext.ankiConnected ? 'yes' : 'no'}`)
   if (appContext.ankiDecks?.length) parts.push(`Available Anki decks: ${appContext.ankiDecks.join(', ')}`)
 
   // --- PICTURE screen ---
   if (tab === 'picture') {
-    parts.push(`\nON THE PICTURE SCREEN: source language ${appContext.language || 'auto'} → target ${appContext.targetLang || 'eng'}. Screenshot loaded: ${appContext.screenshot ? 'yes' : 'no'}. Stage: ${appContext.stage || 'idle'}.`)
+    parts.push(`\nON THE PICTURE SCREEN: source language ${appContext.pictureFrom || appContext.language || 'auto'} → target ${appContext.pictureTo || appContext.targetLang || 'eng'}. Screenshot loaded: ${appContext.screenshot ? 'yes' : 'no'}. Stage: ${appContext.stage || 'idle'}.`)
     if (appContext.ocrWords?.length) {
       const words = appContext.ocrWords.filter(w => w.text).slice(0, 40)
       parts.push(`Detected words (${appContext.ocrWords.length} total, up to 40 shown): ${words.map(w => w.translation ? `${w.text} → ${w.translation}` : w.text).join(', ')}`)
     }
     if (appContext.activeWord) {
       const w = appContext.activeWord
-      parts.push(`Currently selected word: "${w.text}"${w.translation ? ` — ${w.translation}` : ''}${w.pronunciation ? ` (${w.pronunciation})` : ''}`)
+      parts.push(`Currently selected word: "${w.text}"${w.translation ? `: ${w.translation}` : ''}${w.pronunciation ? ` (${w.pronunciation})` : ''}`)
       if (w.definition) parts.push(`  Definition: ${w.definition}`)
       if (w.example) parts.push(`  Example: ${w.example}`)
     }
@@ -67,7 +67,7 @@ function buildSystemPrompt(appContext) {
     parts.push(`\nON THE STATS SCREEN (dashboard sourced from ${s.source}). The user is viewing their study statistics, NOT a card or question. What is shown:`)
     parts.push(`- Day streak: ${s.streak}`)
     parts.push(`- Cards studied today: ${s.cardsToday}`)
-    parts.push(`- Accuracy today: ${s.accuracyToday}%`)
+    parts.push(`- Accuracy today: ${s.accuracyToday == null ? (s.cardsToday ? 'unknown' : 'unknown (nothing answered today)') : `${s.accuracyToday}%`}`)
     parts.push(`- A "Last 14 days" reviews chart.`)
     if (s.recentSessions?.length) parts.push(`- Recent sessions:\n${s.recentSessions.map(r => `   ${r.date} · ${r.deck} · ${r.cards} cards${r.accuracy != null ? ` · ${r.accuracy}% accuracy` : ''}`).join('\n')}`)
   }
@@ -79,7 +79,7 @@ function buildSystemPrompt(appContext) {
 
   // --- DISCOVER screen ---
   if (tab === 'discover' && appContext.discover) {
-    parts.push(`\nON THE DISCOVER SCREEN: ${appContext.discover.started ? 'actively suggesting new items to add' : 'on the setup screen'}, learner level=${appContext.discover.level || 'not analyzed yet'}, target deck="${appContext.discover.deck || '—'}".`)
+    parts.push(`\nON THE DISCOVER SCREEN: ${appContext.discover.started ? 'actively suggesting new items to add' : 'on the setup screen'}, learner level=${appContext.discover.level || 'not analyzed yet'}, target deck="${appContext.discover.deck || 'none'}".`)
   }
 
   // --- STUDY screen: the question is "on screen" ONLY here ---
@@ -87,35 +87,40 @@ function buildSystemPrompt(appContext) {
   if (tab === 'study' && appContext.studyActive) {
     parts.push(`\nON THE STUDY SCREEN: deck="${appContext.studyDeck}", phase=${appContext.studyPhase}, type=${ss.studyMode || 'flashcards'}, answer style=${ss.answerStyle || 'typed'}`)
     parts.push(`Progress: ${ss.completed ?? 0} cards done, ${ss.activeCards ?? 0} active, ${ss.poolRemaining ?? 0} still waiting in the pool`)
-    if (ss.learning || ss.ebiSpeaks) parts.push(`Learning: ${ss.learning || '—'} · Ebi speaks: ${ss.ebiSpeaks || ss.learning || '—'}`)
+    if (ss.learning || ss.ebiSpeaks) parts.push(`Learning: ${ss.learning || 'not set'} · Ebi speaks: ${ss.ebiSpeaks || ss.learning || 'not set'}`)
     parts.push(`Session ratings so far: easy=${appContext.studyStats?.easy}, good=${appContext.studyStats?.good}, hard=${appContext.studyStats?.hard}, again=${appContext.studyStats?.again}`)
     if (appContext.studyDeckStats) parts.push(`Deck queue: new=${appContext.studyDeckStats.new_count}, learning=${appContext.studyDeckStats.learn_count}, review=${appContext.studyDeckStats.review_count}`)
     if (appContext.currentQuestion) {
       const cq = appContext.currentQuestion
-      parts.push(`\nQUESTION CURRENTLY ON SCREEN (question ${cq.number}/${cq.of}, type ${cq.type}) — card "${cq.cardFront}":\n"${cq.question}"`)
+      parts.push(`\nQUESTION CURRENTLY ON SCREEN (question ${cq.number}/${cq.of}, type ${cq.type}):\n"${cq.question}"`)
       if (cq.choices?.length) parts.push(`Multiple-choice options shown: ${cq.choices.join(' | ')}`)
-      if (cq.acceptedAnswers?.length) parts.push(`Expected answer — SECRET: do NOT reveal it (nor spelling/letter clues) unless the user EXPLICITLY asks to be told the answer: ${cq.acceptedAnswers.join(', ')}`)
+      if (cq.acceptedAnswers?.length) parts.push(`Expected answer (SECRET): do NOT reveal it (nor spelling/letter clues) unless the user EXPLICITLY asks to be told the answer: ${cq.acceptedAnswers.join(', ')}`)
+      // The FRONT is secret too: on a language card it is the headword, i.e. the answer ("which card is this?"
+      // was answered with it).
+      if (cq.cardFront) parts.push(`Card front (also SECRET while the question is unanswered, it may BE the answer): ${cq.cardFront}`)
       if (cq.cardBack) parts.push(`Card back (also secret while the question is unanswered): ${cq.cardBack}`)
     }
+    if (appContext.learnMoment) parts.push(`\nON SCREEN: a "Learn it" lesson for the card "${appContext.learnMoment.front}" (the learner gave up on it; it is being TAUGHT, so it is not secret)${appContext.learnMoment.back ? `. Card back: ${appContext.learnMoment.back}` : ''}. The learner must type it once to continue.`)
     if (ss.gradedRecent?.length) parts.push(`Recently graded this session: ${ss.gradedRecent.map((g) => `"${g.front}" → ${g.rating}`).join(', ')}`)
   } else if (appContext.studyActive) {
     // A session exists but the user has navigated AWAY from the study screen. Do NOT present its
     // question as on-screen — this is exactly the "Ebi answered about a study question while on Stats" bug.
-    parts.push(`\n(Background only, NOT on screen: a study session is paused on the Study tab — deck="${appContext.studyDeck}", ${ss.completed ?? 0} done / ${ss.activeCards ?? 0} active. The user is NOT looking at it right now. You may summarize it if asked, but do not say a question is currently on screen.)`)
+    parts.push(`\n(Background only, NOT on screen: a study session is paused on the Study tab: deck="${appContext.studyDeck}", ${ss.completed ?? 0} done / ${ss.activeCards ?? 0} active. The user is NOT looking at it right now. You may summarize it if asked, but do not say a question is currently on screen.)`)
   }
-  if (ss.questionPreferences?.length) parts.push(`Saved question-style preferences for this mode:\n${ss.questionPreferences.map((p) => `- ${p}`).join('\n')}`)
+  const prefs = appContext.questionPreferences || ss.questionPreferences
+  if (prefs?.length) parts.push(`Saved question-style preferences for this mode:\n${prefs.map((p) => `- ${p}`).join('\n')}`)
 
   if (appContext.progressObservations) {
-    parts.push(`\nLEARNER PROGRESS NOTES (AI-maintained memory across sessions — the user's struggles, improvements, goals and interests; use them to personalize your help):\n${appContext.progressObservations}`)
+    parts.push(`\nLEARNER PROGRESS NOTES (AI-maintained memory across sessions: the user's struggles, improvements, goals and interests; use them to personalize your help):\n${appContext.progressObservations}`)
   }
 
-  parts.push(`\nCAPABILITIES — you can make REAL adjustments, not just explain:
+  parts.push(`\nCAPABILITIES: you can make REAL adjustments, not just explain:
 - If the user asks to change HOW study questions are formed (style, wording, format, phrasing), include <action>{"type":"question_preference","preference":"<ONE concise imperative rule in English, generalized beyond a single card>"}</action> anywhere in your reply. It is saved to the current mode's settings and shapes every future question. Confirm in your reply what you saved.
-- If the user asks to change MANY EXISTING CARDS at once (e.g. "rewrite all my pronunciation lines as Latin American Spanish", "add an example sentence to every card"), first make sure the request is specific enough to act on, then include <action>{"type":"deck_edit","instruction":"<ONE clear imperative instruction: exactly what to change and what to leave untouched>"}</action>. The app opens the Deck tab and builds a before/after preview of every affected card — tell the user NOTHING is saved until they review and accept each change there. If the request is vague ("make my cards better"), ask what specifically to change instead of emitting the action.
-- If the user wants FUTURE generation geared to a regional language variant (e.g. "all new Spanish cards should use Latin American pronunciation"), include <action>{"type":"set_dialect","dialect":"<the variant, e.g. Latin American Spanish>"}</action>. This sets the mode's Dialect setting (Settings → Study → "Dialect / variant") and steers ALL generation from then on: new cards' pronunciation lines, memory hooks, tapped-word phonetics, and questions. Confirm what you set. It does NOT rewrite existing cards — offer the bulk edit (previous bullet) for those.
-- To fix the QUESTION CURRENTLY ON SCREEN in place, tell them about the "✎ Fix question" button under the answer box — it regenerates that question and also remembers the preference.
-- Other study settings (deck, learning language, questions per card, saved preferences) live in ⚙ Settings → Study — direct them precisely.
-- AFTER ANY ACTION: the app automatically appends a verified "Confirmed changes" list to your reply that states exactly what was changed and which systems it affects, so the user KNOWS it truly happened. So keep your own confirmation short and natural ("Done!") and NEVER claim you changed something you did not emit an action for. If you only explained something and changed nothing, do not imply anything was saved.`)
+- If the user asks to change MANY EXISTING CARDS at once (e.g. "rewrite all my pronunciation lines as Latin American Spanish", "add an example sentence to every card"), first make sure the request is specific enough to act on, then include <action>{"type":"deck_edit","instruction":"<ONE clear imperative instruction: exactly what to change and what to leave untouched>"}</action>. The app opens the Deck tab and builds a before/after preview of every affected card: tell the user NOTHING is saved until they review and accept each change there. If the request is vague ("make my cards better"), ask what specifically to change instead of emitting the action.
+- If the user wants FUTURE generation geared to a regional language variant (e.g. "all new Spanish cards should use Latin American pronunciation"), include <action>{"type":"set_dialect","dialect":"<the variant, e.g. Latin American Spanish>"}</action>. This sets the mode's Dialect setting (Settings → Study → "Dialect / variant") and steers ALL generation from then on: new cards' pronunciation lines, memory hooks, tapped-word phonetics, and questions. Confirm what you set. It does NOT rewrite existing cards: offer the bulk edit (previous bullet) for those.
+- To fix the QUESTION CURRENTLY ON SCREEN in place, tell them about the "✎ Fix question" button under the answer box: it regenerates that question and also remembers the preference.
+- Other study settings (deck, learning language, questions per card, saved preferences) live in ⚙ Settings → Study: direct them precisely.
+- AFTER ANY ACTION: the app automatically appends a verified "Checked by the app" list to your reply that states exactly what was changed and which systems it affects, so the user KNOWS it truly happened. So keep your own confirmation short and natural ("Done!") and NEVER claim you changed something you did not emit an action for. If you only explained something and changed nothing, do not imply anything was saved.`)
 
   if (appContext.chatTabMsgs?.length) {
     parts.push(`\nRecent Chat tab messages:`)
@@ -123,14 +128,14 @@ function buildSystemPrompt(appContext) {
   }
 
   if (appContext.knowledge) {
-    parts.push(`\nKnowledge base for this mode (the user's own reference material — use it when answering subject questions):\n${appContext.knowledge}`)
+    parts.push(`\nKnowledge base for this mode (the user's own reference material: use it when answering subject questions):\n${appContext.knowledge}`)
   }
 
   parts.push('\nUse this context to give informed, specific answers. If the user asks about a word, translation, or card on screen, reference the actual data above.')
   return parts.join('\n')
 }
 
-export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'claude-sonnet-4-6', askAI, parseAiObject, mascotFile = DEFAULT_SHRIMP, onAiReply, onAction, askEbiSignal, hideButton, onOpenSettings }) {
+export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'claude-sonnet-4-6', askAI, parseAiObject, mascotFile = DEFAULT_SHRIMP, onAiReply, onAction, askEbiSignal, hideButton, onOpenSettings, canSave }) {
   const [open, setOpen] = useState(false)
   // The LIVE handler: a reply lands seconds after Send, and the send-time render's onAction judged Anki,
   // the open deck and a running check from before the wait (its receipt could say the opposite of what happened).
@@ -139,8 +144,11 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
   // FancyZones-style snapping. null = floating popup anchored to the button.
   // 'left'|'right'|'top'|'bottom' = snapped to that screen edge ('bottom' sits under the question).
   // 'free' = detached panel at chatPos.
-  const [snapZone, setSnapZone] = useState(null)
-  const [chatPos, setChatPos] = useState({ x: 80, y: 80 }) // free-float position (layout px)
+  // Remembered (per browser): the dock choice was thrown away on every close and reload.
+  const [snapZone, setSnapZone] = useState(() => { try { const z = localStorage.getItem('ebiki-help-dock'); return ['left', 'right', 'bottom', 'free'].includes(z) ? z : null } catch { return null } })
+  const [chatPos, setChatPos] = useState(() => { try { const p = JSON.parse(localStorage.getItem('ebiki-help-pos') || 'null'); return p && Number.isFinite(p.x) && Number.isFinite(p.y) ? p : { x: 80, y: 80 } } catch { return { x: 80, y: 80 } } }) // free-float position (layout px)
+  useEffect(() => { try { if (snapZone) localStorage.setItem('ebiki-help-dock', snapZone); else localStorage.removeItem('ebiki-help-dock') } catch { /* private window */ } }, [snapZone])
+  useEffect(() => { try { localStorage.setItem('ebiki-help-pos', JSON.stringify(chatPos)) } catch { /* private window */ } }, [chatPos])
   const [snapDragging, setSnapDragging] = useState(false)
   const [choosingZone, setChoosingZone] = useState(false) // dock button → pick a zone by clicking
   const [hoverZone, setHoverZone] = useState(null) // zone highlighted under the cursor while dragging/choosing
@@ -192,8 +200,12 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
   // Did the LAST save reach disk? "New chat" re-saves only then (a failed save, e.g. a 503 while the
   // share is down, left the latest turn only in this panel).
   const lastSaveOkRef = useRef(true)
-  const saveMessages = async (msgs, sid) => {
+  const saveMessages = async (msgsIn, sid) => {
+    const msgs = (msgsIn || []).filter((m) => !m.error) // the app's error bubbles are never saved (see sendMessage)
     if (!msgs || msgs.length === 0) return sid
+    // Frozen while the data folder switches (or the share just came back): the server already points at the
+    // OTHER folder, so this chat would be written there under its old id. Kept unsaved (lastSaveOkRef).
+    if (canSave && !canSave()) { lastSaveOkRef.current = false; return sid }
     const title = msgs[0]?.text?.slice(0, 40) || 'Help Chat'
     try {
       const res = await fetch('/api/chats', {
@@ -212,15 +224,21 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
   const newChat = async () => {
     // A reply in flight lands in the conversation it was asked in; starting a new chat under it put
     // the old conversation back on screen with no id, so the next message duplicated it.
-    if (loading) return
-    // A chat with an id is already saved (every reply saves it). Re-posting the panel's copy made a
-    // truncated duplicate when the chat had been continued in the Chat tab (the server forks a save
-    // that is not a prefix of the file). Only a never-saved chat is saved here.
-    if (messages.length > 0 && (!sessionId || !lastSaveOkRef.current)) {
-      await saveMessages(messages, sessionId)
-    }
-    setMessages([])
-    setSessionId(null)
+    // sendingRef is held across the save: a double click saved a never-saved chat twice (two copies), and a
+    // message sent during the await was wiped by the reset below.
+    if (loading || sendingRef.current) return
+    sendingRef.current = true
+    userStartedRef.current = true // a slow history load must not bring the old chat back over the new one
+    try {
+      // A chat with an id is already saved (every reply saves it). Re-posting the panel's copy made a
+      // truncated duplicate when the chat had been continued in the Chat tab (the server forks a save
+      // that is not a prefix of the file). Only a never-saved chat is saved here.
+      if (messages.length > 0 && (!sessionId || !lastSaveOkRef.current)) {
+        await saveMessages(messages, sessionId)
+      }
+      setMessages([])
+      setSessionId(null)
+    } finally { sendingRef.current = false }
   }
 
   // Scroll: user messages → scroll to bottom; assistant messages → scroll to start of reply
@@ -252,6 +270,24 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
     return () => window.removeEventListener('keydown', onKey, true)
   }, [choosingZone])
 
+  // Docking / undocking renders another panel element, which started scrolled to the OLDEST message.
+  useEffect(() => {
+    if (!open) return
+    setTimeout(() => { if (msgTopRef.current) msgTopRef.current.scrollTop = msgTopRef.current.scrollHeight }, 60)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!snapZone])
+  // Esc closes the panel (not while its dock chooser, a dialog or another overlay has it).
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || choosingZone || e.isComposing || e.keyCode === 229) return // an IME composition's Esc cancels only that
+      if (document.querySelector('[data-app-dialog],[data-top-overlay]')) return
+      if (!panelRef.current?.contains(document.activeElement)) return // only when the user is IN the panel
+      e.preventDefault(); setOpen(false)
+    }
+    window.addEventListener('keydown', onKey, true) // capture: first, so the Picture tab's Esc sees it handled
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [open, choosingZone])
   // On open, jump to the bottom so the most recent message is visible (history loads scrolled up).
   useEffect(() => {
     if (!open) return
@@ -263,7 +299,8 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
   // the button itself (rect.width / offsetWidth) and convert, then clamp on-screen.
   const getZoom = () => {
     const el = btnRef.current || panelRef.current
-    if (!el || !el.offsetWidth) return 1
+    // Closed panel, no button: the BODY's zoom (1 here put a restored position off a smaller window).
+    if (!el || !el.offsetWidth) { try { return parseFloat(getComputedStyle(document.body).zoom) || 1 } catch { return 1 } }
     return el.getBoundingClientRect().width / el.offsetWidth || 1
   }
   const handleMouseDown = (e) => {
@@ -324,6 +361,23 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
     right: { right: 0, top: 0, bottom: 0, width: ZONE_W },
     bottom: { bottom: 0, left: 0, right: 0, height: ZONE_H },
   }
+  // Keeps the WHOLE free panel on screen: only its top 60px were kept in view, so a drop low on a short
+  // window hid the composer below the edge. Height mirrors panelStyle's min(FREE_H, 80vh / 1.35).
+  const clampFree = (x, y) => {
+    const zoom = getZoom()
+    const vw = window.innerWidth / zoom, vh = window.innerHeight / zoom
+    const h = Math.min(FREE_H, (window.innerHeight * 0.8) / 1.35)
+    return { x: Math.max(5, Math.min(x, vw - FREE_W - 5)), y: Math.max(5, Math.min(y, vh - h - 5)) }
+  }
+  // A window made smaller later (or a laptop screen after an external monitor) re-clamps it too.
+  useEffect(() => {
+    if (snapZone !== 'free') return
+    const onResize = () => setChatPos((p) => { const c = clampFree(p.x, p.y); return c.x === p.x && c.y === p.y ? p : c })
+    onResize()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snapZone, open]) // open: measured again once the panel exists
   const snapDragStart = useRef({ x: 0, y: 0 })
   const didSnapDrag = useRef(false)
   const startSnapDrag = (e) => {
@@ -333,6 +387,9 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
     snapDragOffset.current = rect
       ? { x: (e.clientX - rect.left) / zoom, y: (e.clientY - rect.top) / zoom }
       : { x: 40, y: 16 }
+    // From an edge zone the panel shrinks to the free size: an offset measured on the wide docked rect put the
+    // floating panel far from the cursor (a Bottom dock grabbed on the right landed at the left edge).
+    if (snapZone && snapZone !== 'free') snapDragOffset.current = { x: Math.min(snapDragOffset.current.x, FREE_W - 40), y: Math.min(snapDragOffset.current.y, 40) }
     snapDragStart.current = { x: e.clientX, y: e.clientY }
     didSnapDrag.current = false
     setSnapDragging(true)
@@ -355,12 +412,9 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
       hoverZoneRef.current = zone
       setHoverZone(zone)
       const zoom = getZoom()
-      const vw = window.innerWidth / zoom, vh = window.innerHeight / zoom
-      let x = e.clientX / zoom - snapDragOffset.current.x
-      let y = e.clientY / zoom - snapDragOffset.current.y
-      x = Math.max(5, Math.min(x, vw - FREE_W - 5))
-      y = Math.max(5, Math.min(y, vh - 60))
-      setChatPos({ x, y })
+      const x = e.clientX / zoom - snapDragOffset.current.x
+      const y = e.clientY / zoom - snapDragOffset.current.y
+      setChatPos(clampFree(x, y))
       setSnapZone(zone || 'free') // live preview
     }
     const up = () => {
@@ -384,8 +438,12 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
   const isEdgeZone = !!ZONE_RECTS[snapZone]
 
   // Routed through the host's aiCall (askAI) so Help works on ANY provider, not just Anthropic.
+  // A ref as well as `loading`: a double Enter read loading=false twice (the chat re-read below awaits), and
+  // both sends ran on the same history.
+  const sendingRef = useRef(false)
   const sendMessage = async () => {
-    if (!input.trim() || loading || !apiKey || !askAI) return
+    if (!input.trim() || loading || !apiKey || !askAI || sendingRef.current) return
+    sendingRef.current = true
     const userMsg = input.trim()
     userStartedRef.current = true
     setInput('')
@@ -396,7 +454,8 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
     // that no longer exists starts a new one. A failed read (network) keeps the panel's copy.
     let sid = sessionId
     let base = messages
-    if (sid) {
+    // Frozen (data folder switching): the re-read would come from the new folder, where a 404 says nothing.
+    if (sid && (!canSave || canSave())) {
       try {
         const r = await fetch(`/api/chat-load?id=${encodeURIComponent(sid)}`)
         // While OFFLINE the server reads the local copy (last backup), which may predate this chat: that
@@ -404,7 +463,15 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
         if (r.status === 404 && !r.headers.get('X-Ebiki-Offline')) { sid = null; base = []; setSessionId(null) }
         else if (r.ok) {
           const data = await r.json()
-          if (Array.isArray(data?.messages)) base = data.messages.map((m) => ({ ...m, text: m.text ?? m.content ?? '' }))
+          if (Array.isArray(data?.messages)) {
+            const disk = data.messages.map((m) => ({ ...m, text: m.text ?? m.content ?? '' }))
+            // The panel's last save FAILED and the disk copy is just its older prefix: the panel holds turns that
+            // never reached disk, and adopting the disk copy threw them away for good.
+            const key = (m) => `${m.role}\u0000${m.text ?? m.content ?? ''}`
+            const saved = messages.filter((m) => !m.error) // error bubbles are never saved
+            const isPrefix = disk.length <= saved.length && disk.every((m, i) => key(m) === key(saved[i]))
+            if (!(lastSaveOkRef.current === false && isPrefix)) base = disk
+          }
         }
       } catch { /* keep the panel's copy */ }
     }
@@ -415,16 +482,19 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
     // in the reply ("use Latin American Spanish") belongs to the mode the conversation was about.
     const modeIdAtSend = appContext?.activeMode?.id
     try {
-      const sys = buildSystemPrompt(appContext) + `\n\nYou run on the model "${model}". If the user asks what AI model powers you, just tell them — it's not a secret.`
+      const sys = buildSystemPrompt(appContext) + `\n\nYou run on the model "${model}". If the user asks what AI model powers you, just tell them: it's not a secret.`
       // Bounded history (see the Chat tab): newest turns up to ~60k characters plus the opening message,
       // so a long Help chat can't grow past the model's context and fail on every later message.
-      const convoLines = newMsgs.map(m => `${m.role === 'user' ? 'User' : 'Ebi'}: ${m.text}`)
+      const convoLines = newMsgs.filter((m) => !m.error).map(m => `${m.role === 'user' ? 'User' : 'Ebi'}: ${m.text}`)
       let kept = [], used = 0
       for (let i = convoLines.length - 1; i >= 0; i--) {
         if (kept.length && used + convoLines[i].length > 60000) break
         kept.unshift(convoLines[i]); used += convoLines[i].length
       }
-      if (kept.length < convoLines.length) kept = [convoLines[0], '(earlier messages omitted)', ...kept]
+      // The opening message comes back capped (see the Chat tab's boundChatHistory): a huge first paste
+      // rode along in full on every send and kept the chat over the model's limit.
+      const first = convoLines[0] && convoLines[0].length > 4000 ? convoLines[0].slice(0, 4000) + ' …(cut)' : convoLines[0]
+      if (kept.length < convoLines.length) kept = [first, '(earlier messages omitted)', ...kept]
       const convo = kept.join('\n\n')
       const raw = (await askAI(sys, convo) || '')
       // Execute any adjustment actions Ebi emitted, and collect an APP-GENERATED receipt for each
@@ -432,19 +502,25 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
       // truly applied). These are the ground truth the user can trust — not the model's own claim.
       const receipts = []
       for (const am of raw.matchAll(/<action>(.*?)<\/action>/gs)) {
+        let r = null
         try {
           // Tolerant parse (the host's parseAiObject when given): a stray character inside the tag
           // used to drop the action silently while Ebi's reply claimed the change was made.
           const action = parseAiObject ? parseAiObject(am[1]) : JSON.parse(am[1])
-          const r = action ? onActionRef.current?.(action, { modeId: modeIdAtSend }) : null
-          if (r) receipts.push(r)
-        } catch {}
+          r = action ? onActionRef.current?.(action, { modeId: modeIdAtSend }) : null
+        } catch { r = null }
+        // Unreadable, unknown or missing its value: nothing changed, and the reply's own claim must not stand alone.
+        receipts.push(r || t('hr_notApplied'))
       }
       // Strip shrimp/crustacean emoji as a hard guarantee (the prompt forbids them, but prompts leak):
       // Ebi's shrimp-ness is the mascot art, never an emoji in the text.
-      let replyText = raw.replace(/<action>.*?<\/action>/gs, '').replace(/\s*[—–]\s*/g, ', ').replace(/[🦐🦞🦀]️?/gu, '').replace(/[ \t]{2,}/g, ' ').trim() || '…'
+      // A reply cut off inside an <action> tag (the 600-token cap) showed the raw JSON, and the change it
+      // described never ran: strip it and say so.
+      const cutAction = /<action>(?![\s\S]*<\/action>)[\s\S]*$/.test(raw)
+      if (cutAction) receipts.push(t('hr_cutOff'))
+      let replyText = raw.replace(/<action>.*?<\/action>/gs, '').replace(/<action>[\s\S]*$/, '').replace(/(\d)[ \t]*[—–][ \t]*(\d)/g, '$1-$2').replace(/(^|\n)[ \t]*[—–][ \t]*/g, '$1').replace(/[ \t]*[—–][ \t]*(?=\n|$)/g, '').replace(/[ \t]*[—–][ \t]*/g, ', ').replace(/([ \t]?)(?:[🦐🦞🦀]️?)+([ \t]?)/gu, (m, a, b) => (a || b ? ' ' : '')).trim() || '…' // line-aware; indentation kept (nested list items, code)
       // Append the verified change log so the user can confirm, for a fact, what the app actually did.
-      if (receipts.length) replyText += `\n\n**✅ Checked by the app (what really happened):**\n` + receipts.map((r) => `- ${r}`).join('\n')
+      if (receipts.length) replyText += `\n\n**${t('hr_header')}**\n` + receipts.map((r) => `- ${r}`).join('\n')
       const updatedMsgs = [...newMsgs, { role: 'assistant', text: replyText }]
       // Pick Ebi's pose FIRST (awaited) so his face changes WITH the reply, not a beat after it. The
       // Mascot model resolves the pose, then the message + new pose land together (Chat-tab parity).
@@ -453,11 +529,13 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
       const savedId = await saveMessages(updatedMsgs, sid)
       if (savedId !== sid) setSessionId(savedId) // new, or a copy the server made (changed on another computer)
     } catch (err) {
-      const updatedMsgs = [...newMsgs, { role: 'assistant', text: 'Error: ' + err.message }]
-      setMessages(updatedMsgs)
-      const savedId = await saveMessages(updatedMsgs, sid)
+      // Shown, translated, but NOT saved as Ebi's turn: a saved "Error: ..." went back to the model as
+      // something Ebi had said, in every later message of that chat. The question itself is saved.
+      setMessages([...newMsgs, { role: 'assistant', text: t('chat_replyError', { msg: String(err?.message || '').slice(0, 160) }), error: true }])
+      const savedId = await saveMessages(newMsgs, sid)
       if (savedId !== sid) setSessionId(savedId)
     } finally {
+      sendingRef.current = false
       setLoading(false)
       setTimeout(() => inputRef.current?.focus(), 50)
     }
@@ -534,7 +612,7 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
               style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 13, lineHeight: 1, padding: '3px 5px', borderRadius: 5 }}
             >&#9699;</span>
           )}
-          <span onMouseDown={(e) => e.stopPropagation()} onClick={() => { setOpen(false); setSnapZone(null) }} className="click-dim" style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 16, lineHeight: 1, padding: '2px 5px', borderRadius: 5 }}>&times;</span>
+          <span onMouseDown={(e) => e.stopPropagation()} onClick={() => { setOpen(false); setChoosingZone(false); setHoverZone(null) }} role="button" tabIndex={0} aria-label={t('close')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(false); setChoosingZone(false); setHoverZone(null) } }} className="click-dim" style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 16, lineHeight: 1, padding: '2px 5px', borderRadius: 5 }}>&times;</span>
         </div>
       </div>
 
@@ -648,7 +726,7 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
               the alpha channel), so there's no circle — just Ebi with a slight glow around it. */}
           <img
             src={shrimpUrl(buttonMascot)}
-            alt="Ebi, the Ebiki mascot"
+            alt="Ebi"
             draggable={false}
             className="ebi-fab-img flipped"
             style={{
@@ -703,7 +781,7 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
           dock button (CHOOSING — click a zone to dock). Each overlay uses the SAME rectangle the
           panel docks into (ZONE_RECTS) so the preview is exactly where it lands. */}
       {(snapDragging || choosingZone) && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 9998, pointerEvents: choosingZone ? 'auto' : 'none' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: choosingZone ? 10001 : 9998, pointerEvents: choosingZone ? 'auto' : 'none' }}>
           {/* Dimmed backdrop + instruction when choosing (clicking it cancels). */}
           {choosingZone && (
             <div

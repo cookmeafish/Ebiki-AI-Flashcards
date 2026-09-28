@@ -56,13 +56,16 @@ Return ONLY a JSON object with exactly those keys (no markdown, no commentary, N
 {"tokenVsPrev": "less", "strength": 4, "cost": 2, "vision": true, "pros": ["fast"], "cons": ["weaker at math"], "summary": "...", "confidence": 0.6}`
 }
 
+// Research replies sometimes answer booleans as strings ("false"), which a bare truthiness test read as yes.
+const visionText = (v) => (v === true || /^(true|yes)$/i.test(String(v)) ? 'yes' : v === false || /^(false|no)$/i.test(String(v)) ? 'no' : 'unknown')
+
 // Ask the strongest model to assign one model id to each app ROLE for the chosen preset, given the
 // live available models and their researched cards.
 export function buildPresetDecisionPrompt({ preset, availableModels = [], modelCards = {} }) {
   const cards = availableModels.map((id) => {
     const c = modelCards[id]
     return c
-      ? `- ${id}: strength ${c.strength ?? '?'}/5, cost ${c.cost ?? '?'}/5, vision ${c.vision ? 'yes' : 'no'}. ${c.summary || ''}`
+      ? `- ${id}: strength ${c.strength ?? '?'}/5, cost ${c.cost ?? '?'}/5, vision ${visionText(c.vision)}. ${typeof c.summary === 'string' ? c.summary : ''}`
       : `- ${id}: (no info gathered)`
   }).join('\n')
   const roles = ROLE_STAKES.map((r) => `- ${r.role}: ${r.text}`).join('\n')

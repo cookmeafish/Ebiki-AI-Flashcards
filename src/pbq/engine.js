@@ -38,6 +38,15 @@ export const norm = (s) => String(s ?? '')
   .trim()
 
 const clean = (s) => String(s ?? '').replace(/\s+/g, ' ').trim()
+// Identity of an item: case, accents and spacing aside, SYMBOLS KEPT. `norm` drops them, so "C++", "C#" and "C"
+// were one "duplicate" (every programming/operator exercise was rejected) and "<" / ">" were both empty.
+// Only the Latin combining accents (like norm): Devanagari/Thai vowel signs are marks too, and "कम"/"काम" became one.
+export const itemKey = (s) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim()
+// A step the model numbered ("1. Identify", "Step 2: Test", "b) Plan") gives its position away: the numbers are
+// stripped when (nearly) every step carries one.
+// Digits need no space after the mark and may be full-width or CJK ("1、", "1.识别", "１．", "①", "第一步："); letter
+// marks still need one, so "e.g." is never touched.
+const STEP_MARK = /^\s*(?:step\s*|第\s*)?(?:(?:\d{1,2}|[０-９]{1,2}|[一二三四五六七八九十]{1,3})\s*(?:[.):．）：、]|步\s*[：:、]?)(?!\d)\s*|[a-h]\s*[.):]\s+|[ivx]{1,4}\s*[.):]\s+|[①-⑳]\s*)/i
 
 // Fisher–Yates over index array; injectable rng for deterministic tests
 const shuffledIndices = (n, rng = Math.random) => {
@@ -62,7 +71,7 @@ const parseIcons = (raw) => {
   const icons = {}
   if (raw?.icons && typeof raw.icons === 'object' && !Array.isArray(raw.icons)) {
     for (const [k, v] of Object.entries(raw.icons)) {
-      const key = norm(k)
+      const key = itemKey(k) // by identity (see itemKey): "C" and "C++" have their own icons
       const icon = String(v ?? '').trim()
       if (key && icon && icon.length <= 10 && !/[\p{L}\p{N}]/u.test(icon)) icons[key] = icon
     }
@@ -70,7 +79,15 @@ const parseIcons = (raw) => {
   return icons
 }
 
-export const iconFor = (pbq, text) => pbq?.icons?.[norm(text)] || null
+// The loose `norm` key only for exercises saved before itemKey (all their keys are norm-shaped): on a new one
+// "C++" took the icon meant for "C".
+// New exercises carry `iconKeys: 'item'`; only an exercise saved without it uses the loose key.
+const legacyIcons = (pbq) => pbq?.iconKeys !== 'item'
+export const iconFor = (pbq, text) => {
+  const icons = pbq?.icons
+  if (!icons) return null
+  return icons[itemKey(text)] || (legacyIcons(pbq) ? icons[norm(text)] : null) || null
+}
 
 // ---------------------------------------------------------------------------
 // compile: authoring JSON → validated, shuffled, index-based PBQ
@@ -78,7 +95,7 @@ export const iconFor = (pbq, text) => pbq?.icons?.[norm(text)] || null
 export const compilePbq = (raw, rng = Math.random) => {
   const errors = []
   if (!raw || typeof raw !== 'object') return { ok: false, errors: ['not an object'] }
-  const kind = String(raw.kind || '').toLowerCase()
+  const kind = String(raw.kind || '').trim().toLowerCase() // "matching " cost a whole generation attempt
   if (!PBQ_KINDS.includes(kind)) return { ok: false, errors: [`unknown kind "${raw.kind}"`] }
   const title = clean(raw.title)
   const scenario = clean(raw.scenario)
@@ -87,7 +104,7 @@ export const compilePbq = (raw, rng = Math.random) => {
 
   const dupes = (arr) => {
     const seen = new Set(); const d = []
-    for (const x of arr) { const n = norm(x); if (!n) { d.push('(empty)') } else if (seen.has(n)) d.push(x); else seen.add(n) }
+    for (const x of arr) { const n = itemKey(x); if (!n) { d.push('(empty)') } else if (seen.has(n)) d.push(x); else seen.add(n) }
     return d
   }
 
@@ -111,7 +128,8 @@ export const compilePbq = (raw, rng = Math.random) => {
       }
     }
   } else if (kind === 'ordering') {
-    const steps = Array.isArray(raw.steps) ? raw.steps.map(clean) : []
+    let steps = Array.isArray(raw.steps) ? raw.steps.map(clean) : []
+    if (steps.length && steps.filter((s) => STEP_MARK.test(s)).length >= steps.length - 1) steps = steps.map((s) => clean(s.replace(STEP_MARK, '')))
     if (steps.length < LIMITS.ordering.min || steps.length > LIMITS.ordering.max) {
       errors.push(`ordering needs ${LIMITS.ordering.min}-${LIMITS.ordering.max} steps, got ${steps.length}`)
     } else {
@@ -158,6 +176,7 @@ export const compilePbq = (raw, rng = Math.random) => {
 
   if (errors.length || !pbq) return { ok: false, errors: errors.length ? errors : ['could not compile'] }
   pbq.icons = parseIcons(raw)
+  pbq.iconKeys = 'item' // icons keyed by itemKey (iconFor)
   return { ok: true, pbq }
 }
 
@@ -189,10 +208,17 @@ export const studentView = (pbq) => {
 // Resolve a free-text mention against a list; exact normalized equality first,
 // then unique containment either way (solvers sometimes echo abbreviated text).
 const resolveText = (text, list) => {
+  // Symbols kept first ("C" is not "C++"; "<" is a real item), then the loose form.
+  const k = itemKey(text)
+  if (!k) return -1
+  const byKey = list.findIndex(x => itemKey(x) === k)
+  if (byKey !== -1) return byKey
   const n = norm(text)
   if (!n) return -1
-  const exact = list.findIndex(x => norm(x) === n)
-  if (exact !== -1) return exact
+  // Loose matches must be UNIQUE: "C" and "C++" both norm to "c", and the first one won silently.
+  const exact = list.map((x, i) => (norm(x) === n ? i : -1)).filter((i) => i !== -1)
+  if (exact.length === 1) return exact[0]
+  if (exact.length > 1) return -1
   const contains = list.map((x, i) => ({ i, n: norm(x) })).filter(e => e.n.includes(n) || n.includes(e.n))
   return contains.length === 1 ? contains[0].i : -1
 }
@@ -253,6 +279,39 @@ export const gradePbq = (pbq, assign) => {
   return { perItem, correct, total: perItem.length, fraction: perItem.length ? correct / perItem.length : 0 }
 }
 
+// The score a RATING is based on. Categorize is chance-corrected: dropping every item into the biggest
+// category already scored 40-60% (a passing Hard synced to Anki for a card the learner didn't know), so the
+// score counts only what beats that dump. Matching and ordering: a dump already scores near zero.
+export const pbqRatingScore = (pbq, fraction) => {
+  if (pbq?.kind !== 'categorize' || !Array.isArray(pbq.answer) || !pbq.answer.length) return fraction
+  const counts = {}
+  for (const c of pbq.answer) counts[c] = (counts[c] || 0) + 1
+  const base = Math.max(...Object.values(counts)) / pbq.answer.length
+  if (base >= 1) return fraction
+  return Math.max(0, (fraction - base) / (1 - base))
+}
+
+// A saved (reused) exercise gets a NEW layout each time it is asked: the same shuffled order let the learner
+// remember the moves ("bottom row to the top") instead of the content. Same guards as compilePbq.
+export const reshufflePbq = (pbq, rng = Math.random) => {
+  if (!pbq || !Array.isArray(pbq.answer)) return pbq
+  const n = pbq.answer.length
+  if (pbq.kind === 'matching' && Array.isArray(pbq.right) && pbq.right.length === n) {
+    let order = shuffledIndices(n, rng) // order[newPos] = oldPos
+    // The NEW key is the identity whenever order equals the saved key: every chip lined up with its box.
+    for (let t = 0; rng === Math.random && t < 50 && pbq.answer.every((op, i) => op === order[i]); t++) order = shuffledIndices(n, rng)
+    const newPosOf = []; order.forEach((op, np) => { newPosOf[op] = np })
+    return { ...pbq, right: order.map((op) => pbq.right[op]), answer: pbq.answer.map((op) => newPosOf[op]) }
+  }
+  if ((pbq.kind === 'ordering' || pbq.kind === 'categorize') && Array.isArray(pbq.items) && pbq.items.length === n) {
+    let order = shuffledIndices(n, rng) // order[newPos] = oldPos
+    const inPlace = (o) => o.filter((op, np) => pbq.answer[op] === np).length / n
+    for (let tries = 0; pbq.kind === 'ordering' && rng === Math.random && tries < 50 && inPlace(order) >= 0.4; tries++) order = shuffledIndices(n, rng)
+    return { ...pbq, items: order.map((op) => pbq.items[op]), answer: order.map((op) => pbq.answer[op]) }
+  }
+  return pbq
+}
+
 export const compareToKey = (pbq, assign) => {
   if (!Array.isArray(assign)) return { match: false, diffs: ['solver answer missing or unparseable'] }
   const { perItem, fraction } = gradePbq(pbq, assign)
@@ -268,24 +327,24 @@ export const PBQ_GEN_SYSTEM = 'You author performance-based exam questions (PBQs
 export const PBQ_SOLVER_SYSTEM = 'You are an expert taking an exam. Solve the exercise using only what is shown. Always respond with a single valid JSON object. No markdown, no backticks.'
 export const PBQ_JUDGE_SYSTEM = 'You adjudicate disagreements about exam answer keys. Always respond with a single valid JSON object. No markdown, no backticks.'
 
-export const buildGeneratorPrompt = ({ subject, front, back, lang, knowledgeContext, priorFailure }) => `Create ONE performance-based question (PBQ) — the interactive exercise style used at the start of CompTIA exams — for the subject "${subject}", exercising this flashcard's topic:
+export const buildGeneratorPrompt = ({ subject, front, back, lang, knowledgeContext, priorFailure }) => `Create ONE performance-based question (PBQ), the interactive exercise style used at the start of CompTIA exams, for the subject "${subject}", exercising this flashcard's topic:
 
 Card front: "${front}"
 Card back: "${back}"
 
-FIRST — RELEVANCE CHECK: is this card actually ABOUT "${subject}"? If it is off-subject (a foreign-language vocabulary card, a personal note, anything whose own topic is unrelated), do NOT invent a connection — return exactly:
+FIRST, RELEVANCE CHECK: is this card actually ABOUT "${subject}"? If it is off-subject (a foreign-language vocabulary card, a personal note, anything whose own topic is unrelated), do NOT invent a connection. Return exactly:
 {"kind":"skip","reason":"one short sentence"}
-A word-association bridge is NOT relevance: a card teaching the Spanish word "sombrero" (hat) is a vocabulary card — it is NOT an invitation to write a hat-color-hacker exercise. The exercise must test what the CARD ITSELF teaches, within "${subject}".
+A word-association bridge is NOT relevance: a card teaching the Spanish word "sombrero" (hat) is a vocabulary card. It is NOT an invitation to write a hat-color-hacker exercise. The exercise must test what the CARD ITSELF teaches, within "${subject}".
 
 Otherwise pick whichever ONE of these formats fits the card's topic best, and return EXACTLY that JSON shape:
 
-1. matching — pair each item with its description/counterpart:
+1. matching: pair each item with its description/counterpart:
 {"kind":"matching","title":"...","scenario":"...","pairs":[["left item","its matching right item"], ...4-6 pairs...]${knowledgeContext ? ',"citations":[{"quote":"..."}]' : ''}}
 
-2. ordering — put steps of a process in the correct sequence:
-{"kind":"ordering","title":"...","scenario":"...","steps":["first step","second step", ...4-6 steps IN CORRECT ORDER...]${knowledgeContext ? ',"citations":[{"quote":"..."}]' : ''}}
+2. ordering: put steps of a process in the correct sequence:
+{"kind":"ordering","title":"...","scenario":"...","steps":["first step","second step", ...4-6 steps IN CORRECT ORDER, never numbered or lettered...]${knowledgeContext ? ',"citations":[{"quote":"..."}]' : ''}}
 
-3. categorize — sort items into the correct buckets:
+3. categorize: sort items into the correct buckets:
 {"kind":"categorize","title":"...","scenario":"...","groups":{"Category A":["item",...],"Category B":["item",...]}${knowledgeContext ? ',"citations":[{"quote":"..."}]' : ''}}
 (2-3 categories, 5-8 items total, every category non-empty, no category holding more than 60% of the items)
 
@@ -297,7 +356,7 @@ HARD REQUIREMENTS:
 - OPTIONAL "icons": additionally return an object mapping item/category texts to ONE fitting emoji each, e.g. {"icons":{"Keyboard":"⌨️","Firewall":"🧱","Phishing":"🎣"}}. Only include entries where a standard emoji obviously depicts the item; omit the rest (an empty or missing map is fine). The emoji must depict the item ITSELF and must NEVER hint at its correct match, category, or position.
 - Write everything in ${lang}.
 ${knowledgeContext ? `- GROUND every fact in the reference material below and return "citations": 2-4 VERBATIM quotes (12+ chars each) copied from it that justify the answer key. Quotes must appear word-for-word in the material.\n\nREFERENCE MATERIAL:\n${knowledgeContext}` : '- Use only facts you are certain of; prefer textbook-standard content for this subject.'}
-${priorFailure ? `\nYOUR PREVIOUS ATTEMPT WAS REJECTED: ${priorFailure}\nFix that specific problem — change the content, not just the wording.` : ''}
+${priorFailure ? `\nYOUR PREVIOUS ATTEMPT WAS REJECTED: ${priorFailure}\nFix that specific problem: change the content, not just the wording.` : ''}
 Output ONLY the raw JSON object.`
 
 export const buildSolverPrompt = (view, lang) => {

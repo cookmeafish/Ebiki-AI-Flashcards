@@ -14,6 +14,18 @@ import { C, RADIUS } from '../config/tokens'
 // screen to studying but makes looking something up alongside it awkward on a single monitor, which
 // is precisely why the choice exists.
 
+// A clickable choice tile as a keyboard-usable radio: Tab reaches it, Enter/Space picks it. As a plain <div
+// onClick> the app language, theme and launch mode could not be chosen without a mouse (setup, Settings).
+export const choiceProps = (active, onPick, off = false) => ({
+  role: 'radio',
+  'aria-checked': !!active,
+  'aria-disabled': off || undefined,
+  tabIndex: off ? -1 : 0,
+  onKeyDown: off ? undefined : (e) => {
+    if ((e.key === 'Enter' || e.key === ' ') && !e.nativeEvent?.isComposing) { e.preventDefault(); onPick() }
+  },
+})
+
 // The two option tiles. Presentational: the caller owns the value and the saving.
 export function LaunchModeOptions({ t, mode, onPick, disabled, electronAvailable = true }) {
   const tile = (val, icon, label, desc) => {
@@ -22,7 +34,7 @@ export function LaunchModeOptions({ t, mode, onPick, disabled, electronAvailable
     const off = disabled || (val === 'app' && !electronAvailable)
     return (
       <div key={val} className={off ? undefined : 'click-dim'}
-        onClick={off ? undefined : () => onPick(val)}
+        onClick={off ? undefined : () => onPick(val)} {...choiceProps(active, () => onPick(val), off)}
         style={{
           flex: '1 1 220px', maxWidth: 300, textAlign: 'left', padding: '13px 15px', borderRadius: RADIUS.md,
           border: `2px solid ${active ? C.brand : C.border}`, background: active ? C.brandTint : C.surface,
@@ -76,7 +88,7 @@ export function LaunchModeCard({ t, card, fieldLabel, hint }) {
         body: JSON.stringify({ mode: next, switchNow: !!switchNow }),
       })).json()
       // Not saved (a read-only or locked folder): say so and show the choice that is really in effect.
-      if (!d || d.error || d.ok === false) { setMode(prevMode); setNote({ kind: 'warn', text: String(d?.error || t('lm_switchError')) }); setBusy(false); return }
+      if (!d || d.error || d.ok === false) { setMode(prevMode); setNote({ kind: 'warn', text: t('lm_switchError') }) /* the server's detail is English */; setBusy(false); return }
       if (!switchNow) { setNote({ kind: 'ok', text: t('lm_saved') }); setBusy(false); return }
       if (!d.launched) { setNote({ kind: 'warn', text: t('lm_switchError') }); setBusy(false); return }
       // Wait for the NEW front end to report in before tearing this one down. Closing first would
@@ -97,7 +109,8 @@ export function LaunchModeCard({ t, card, fieldLabel, hint }) {
       }
       setTimeout(poll, 1000)
     } catch (e) {
-      setNote({ kind: 'err', text: String(e.message || e) })
+      setMode(prevMode) // not saved: the tile goes back (it showed a choice that was not in effect)
+      setNote({ kind: 'err', text: t('lm_switchError') })
       setBusy(false)
     }
   }

@@ -47,26 +47,56 @@ const legacyMediaName = (kind, key) => `_screenlens/${kind}__${key}.json`
 // the key "local is newer" (per browser), reads prefer the local copy while the mark stands, and the
 // next successful Anki write clears it.
 const dirtyKey = (kind, key) => `ebiki-blob-local-newer:${kind}:${key}`
+// The opposite case, only needed with a SHARED data folder (where the store is read first): the store write
+// failed while Anki took it, so Anki holds the newer copy here. Cleared by the next write that reaches the store.
+const ankiNewerKey = (kind, key) => `ebiki-blob-anki-newer:${kind}:${key}`
+const isAnkiNewer = (kind, key) => { try { return localStorage.getItem(ankiNewerKey(kind, key)) === '1' } catch { return false } }
+const setAnkiNewer = (kind, key, on) => { try { on ? localStorage.setItem(ankiNewerKey(kind, key), '1') : localStorage.removeItem(ankiNewerKey(kind, key)) } catch {} }
 const isLocalNewer = (kind, key) => { try { return localStorage.getItem(dirtyKey(kind, key)) === '1' } catch { return false } }
 const setLocalNewer = (kind, key, on) => { try { on ? localStorage.setItem(dirtyKey(kind, key), '1') : localStorage.removeItem(dirtyKey(kind, key)) } catch {} }
 // Writes per key in this page. The read's push-back clears the mark only if no write happened meanwhile:
 // a write that failed to reach Anki DURING the push re-set the mark, and the older push then wiped it.
 const writeSeq = new Map()
+// Per-blob write queue (see writeBlob).
+const blobChains = new Map()   // dirty key -> promise of the last queued write
+const blobLatest = new Map()   // dirty key -> { json, seq } of the newest write asked for
 
 async function readKeyChecked(kind, key) {
   if (isLocalNewer(kind, key)) {
     try {
       const r = await fetch(`/api/discover-store?kind=${kind}&mode=${encodeURIComponent(key)}`)
+      // The newer copy lives ONLY here and the store refused (a 503 share): Anki's copy is known to be older, and
+      // returned as a good read its next write replaced the newer items (and cleared this mark). Not readable.
+      if (!r.ok) return { ok: false, value: null }
       const d = await r.json()
       if (r.ok && d && d.content) {
         let value = null
         try { value = JSON.parse(d.content) } catch { value = null }
-        // Put the newer copy back into Anki so other computers get it too (fail-soft).
-        const seq = writeSeq.get(dirtyKey(kind, key)) || 0
-        ankiStoreMediaFile(mediaName(kind, key), b64encode(d.content))
-          .then(() => { if ((writeSeq.get(dirtyKey(kind, key)) || 0) === seq) setLocalNewer(kind, key, false) })
-          .catch(() => {})
+        // Put the newer copy back into Anki so other computers get it too (fail-soft). In the blob's write
+        // queue, and only while no write came after this read: pushed on its own, it could land AFTER a newer
+        // write and put this older copy back in Anki with the "local is newer" mark already cleared.
+        const dk = dirtyKey(kind, key)
+        const seq = writeSeq.get(dk) || 0
+        const push = (blobChains.get(dk) || Promise.resolve()).catch(() => false).then(async () => {
+          if ((writeSeq.get(dk) || 0) !== seq) return null
+          await ankiStoreMediaFile(mediaName(kind, key), b64encode(d.content))
+          if ((writeSeq.get(dk) || 0) === seq) setLocalNewer(kind, key, false)
+          return true
+        }).catch(() => false)
+        blobChains.set(dk, push)
+        push.finally(() => { if (blobChains.get(dk) === push) blobChains.delete(dk) }).catch(() => {})
         return { ok: true, value }
+      }
+    } catch { /* fall through to the normal order */ }
+  }
+  // Shared data folder: the store copy is the freshest (see /api/discover-store `shared`), so it wins when it
+  // holds something. Anki (synced through AnkiWeb, minutes or days behind) is only the fallback.
+  if (!isAnkiNewer(kind, key)) {
+    try {
+      const r = await fetch(`/api/discover-store?kind=${kind}&mode=${encodeURIComponent(key)}`)
+      const d = r.ok ? await r.json() : null
+      if (d && d.shared && d.content) {
+        try { return { ok: true, value: JSON.parse(d.content) } } catch { return { ok: true, value: null } }
       }
     } catch { /* fall through to the normal order */ }
   }
@@ -147,11 +177,41 @@ export async function readBlob(kind, mode, opts = {}) {
 // skipped, or marked known — that spammed an AnkiWeb sync on essentially every Discover card. Pass
 // { sync: true } only for a change worth pushing right away (and even then, carding already runs its
 // own ankiSync after adding the note, which carries the media file along).
+// Writes of ONE blob run one at a time, newest content first-class: two quick writes (two hooks saved a
+// moment apart) went out in parallel, and when the older one landed last (Anki and the local store each
+// take their own time) the stored blob went BACK to it, losing the newer hook. A write that finds a newer
+// one queued behind it skips straight to that content.
+// Writer freeze (the shared folder came back after offline mode, or a data-folder switch is
+// reloading the page): this page still holds the OLD copy of every blob, and each write replaces the
+// whole stored blob, so a hook or a Discover "Skip" here overwrote what another computer had added.
+let writesPaused = false
+export const setBlobWritesPaused = (on) => { writesPaused = !!on }
+
 export async function writeBlob(kind, mode, obj, { sync = false } = {}) {
+  if (writesPaused) return false
   const json = JSON.stringify(obj, null, 2)
   const key = storageKey(mode)
-  writeSeq.set(dirtyKey(kind, key), (writeSeq.get(dirtyKey(kind, key)) || 0) + 1)
+  const dk = dirtyKey(kind, key)
+  const seq = (writeSeq.get(dk) || 0) + 1
+  writeSeq.set(dk, seq)
+  blobLatest.set(dk, { json, seq })
+  const run = (blobChains.get(dk) || Promise.resolve()).catch(() => false).then(async () => {
+    if (writesPaused) return false // frozen while queued (the check at entry came before the freeze)
+    const latest = blobLatest.get(dk)
+    if (!latest || latest.seq !== seq) return null // superseded: the newer write carries this content forward
+    return writeBlobNow(kind, key, latest.json, sync)
+  })
+  blobChains.set(dk, run)
+  run.finally(() => { if (blobChains.get(dk) === run) { blobChains.delete(dk); blobLatest.delete(dk) } }).catch(() => {})
+  const r = await run
+  // Superseded: report the outcome of the write that stored the newer content.
+  if (r !== null) return r
+  const after = blobChains.get(dk)
+  return after ? ((await after.catch(() => false)) !== false) : true
+}
+async function writeBlobNow(kind, key, json, sync) {
   let ankiOk = false
+  if (writesPaused) return false
   try {
     await ankiStoreMediaFile(mediaName(kind, key), b64encode(json))
     ankiOk = true
@@ -159,6 +219,8 @@ export async function writeBlob(kind, mode, obj, { sync = false } = {}) {
     console.warn(`[Discover] media write failed for ${kind}`, err.message)
   }
   let localOk = false
+  // Frozen during the Anki call (up to its 2-minute timeout): the store now points at the other folder.
+  if (writesPaused) return false
   try {
     const r = await fetch(`/api/discover-store?kind=${kind}&mode=${encodeURIComponent(key)}`, {
       method: 'POST',
@@ -169,6 +231,8 @@ export async function writeBlob(kind, mode, obj, { sync = false } = {}) {
   } catch {}
   if (ankiOk) setLocalNewer(kind, key, false)
   else if (localOk) setLocalNewer(kind, key, true)
+  if (localOk) setAnkiNewer(kind, key, false)
+  else if (ankiOk) setAnkiNewer(kind, key, true)
   if (ankiOk && sync) ankiSyncSoon()   // coalesced: see the toast note on ankiSyncSoon
   return ankiOk
 }
