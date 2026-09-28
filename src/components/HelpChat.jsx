@@ -101,7 +101,7 @@ function buildSystemPrompt(appContext) {
       if (cq.cardFront) parts.push(`Card front (also SECRET while the question is unanswered, it may BE the answer): ${cq.cardFront}`)
       if (cq.cardBack) parts.push(`Card back (also secret while the question is unanswered): ${cq.cardBack}`)
     }
-    if (appContext.learnMoment) parts.push(`\nON SCREEN: a "Learn it" lesson for the card "${appContext.learnMoment.front}" (the learner gave up on it; it is being TAUGHT, so it is not secret)${appContext.learnMoment.back ? `. Card back: ${appContext.learnMoment.back}` : ''}. The learner must type it once to continue.`)
+    if (appContext.learnMoment) parts.push(`\nON SCREEN: a "Learn it" lesson for the card "${appContext.learnMoment.front}" (${appContext.learnMoment.intro ? 'a NEW card, taught before its questions' : 'the learner gave up on it'}; it is being TAUGHT, so it is not secret)${appContext.learnMoment.back ? `. Card back: ${appContext.learnMoment.back}` : ''}. The learner must type it once to continue.`)
     if (ss.gradedRecent?.length) parts.push(`Recently graded this session: ${ss.gradedRecent.map((g) => `"${g.front}" → ${g.rating}`).join(', ')}`)
   } else if (appContext.studyActive) {
     // A session exists but the user has navigated AWAY from the study screen. Do NOT present its
