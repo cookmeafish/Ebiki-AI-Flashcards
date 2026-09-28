@@ -5,6 +5,7 @@ import { LANGS, langFromName, isDistinctSpoken } from '../config/languages'
 import { langInfo } from '../pronunciation/langcodes'
 import { PROVIDERS, keyOfOtherProvider } from '../config/providers'
 import { APP_LANGUAGES, langMeta } from '../i18n'
+import { ADAPTIVE_STRUGGLE_LAPSES } from '../config/study'
 import { LaunchModeCard } from './LaunchModeChoice'
 import { apiFetch } from '../platform'
 
@@ -970,6 +971,10 @@ export default function SettingsModal(p) {
               onCommit={(n) => updateActiveMode({ studyRules: { ...studyRulesBase, cardsAtOnce: n } })}
               style={{ ...S.keyInput, flex: 'none', minWidth: 0, width: 70 }} />
           </div>
+        </div>
+        <div style={{ marginTop: 12 }}>
+          {toggleRow(activeMode.studyRules?.adaptive === true, (v) => updateActiveMode({ studyRules: { ...studyRulesBase, adaptive: v } }), t('studyAdaptive'))}
+          <div style={{ ...hint, marginTop: 3, marginLeft: 23 }}>{t('studyAdaptiveDesc', { n: ADAPTIVE_STRUGGLE_LAPSES })}</div>
         </div>
       </div>
 

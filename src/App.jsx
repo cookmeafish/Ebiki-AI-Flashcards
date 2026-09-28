@@ -11,6 +11,7 @@ import { pickUpgrade, pickNewest, parseModelId, compareModels } from './config/m
 import { buildModelResearchPrompt, buildPresetDecisionPrompt } from './config/modelAdvisor'
 import { LANGS, langFromName, isDistinctSpoken } from './config/languages'
 import { makeT, APP_LANGUAGES, LANGUAGES, langMeta } from './i18n'
+import { ADAPTIVE_STRUGGLE_LAPSES } from './config/study'
 import { pickShrimp, shrimpUrl, DEFAULT_SHRIMP, IDLE_SHRIMP, POSE_NAMES, poseFile, SHRIMP } from './config/shrimp'
 import { C, RADIUS, SHADOW, FONT } from './config/tokens'
 import { FREQ_SCALE, REGISTERS, isUsageTag, isRegionTag, sortTagsUsageFirst, normalizeUsageTags, collapseSpanningRegions, reconcileUsageTags, usageTagStyle, usageTagTip } from './tags/usage'
@@ -9043,6 +9044,17 @@ Output ONLY raw JSON. No markdown, no backticks.`
   }
   // Which questions MUST carry a first-letter cue: typed (non-MC) LANGUAGE recall/fill_blank that
   // have a concrete word answer. Explanation questions and general-mode blind recall are exempt.
+  // ADAPTIVE CARDS (per mode, studyRules.adaptive, default OFF; flashcards only). A NEW card opens with the
+  // Learn-it lesson first, then its questions; new and STRUGGLING cards (ADAPTIVE_STRUGGLE_LAPSES+ lapses) are
+  // asked multiple choice in a typed session (recorded in Anki like any MC card: capped at Good). Relearn
+  // copies are left alone (they are practice already).
+  const adaptivePlan = (card, rules, mcSession) => {
+    if (!rules?.adaptive || studyMode !== 'flashcards' || !card || card._relearn) return { mc: false, flags: {} }
+    const isNew = Number(card.type) === 0 || Number(card.queue) === 0
+    const struggling = Number(card.lapses) >= ADAPTIVE_STRUGGLE_LAPSES
+    const mc = !mcSession && (isNew || struggling)
+    return { mc, flags: { ...(mc ? { mc: true, adaptiveMc: true } : {}), ...(isNew ? { learnFirst: true } : {}) } }
+  }
   const needsLetterCue = (q, isLanguage, wantChoices) =>
     isLanguage && !wantChoices && (q.type === 'recall' || q.type === 'fill_blank') &&
     cueAnswers(q).length > 0 && !hasLetterCue(q)
@@ -9791,14 +9803,15 @@ Output ONLY raw JSON. No markdown, no backticks.`
         const perCard = rules.questionsPerCard || 3
         let resolveFirst = null
         const firstP = new Promise((res) => { resolveFirst = res })
-        const fullP = generateQuestionsForCard(firstCard, rules, studyLang, knowledgeContext, mcSession, (q1) => resolveFirst(q1))
+        const firstPlan = adaptivePlan(firstCard, rules, mcSession)
+        const fullP = generateQuestionsForCard(firstCard, rules, studyLang, knowledgeContext, mcSession || firstPlan.mc, (q1) => resolveFirst(q1))
         fullP.catch(() => {}) // awaited below; a rejection here must not be unhandled
         const early = await Promise.race([fullP.then((qs) => ({ full: qs })), firstP.then((q1) => ({ first: q1 }))])
         const splitStart = !!early.first && Array.isArray(early.first) && early.first.length > 0 && perCard > 1
         const firstQuestions = splitStart ? early.first : (early.full || await fullP)
         const firstCardState = {
           cardId: firstCard.cardId, front: getCardFront(firstCard), back: getCardBack(firstCard),
-          questions: firstQuestions, answers: [], results: [], done: false, questionIdx: 0, questionAttempts: [], ...mcFlags,
+          questions: firstQuestions, answers: [], results: [], done: false, questionIdx: 0, questionAttempts: [], ...mcFlags, ...firstPlan.flags,
           ...(splitStart ? { pendingRest: true, expectedCount: perCard } : {}),
         }
 
@@ -9843,11 +9856,12 @@ Output ONLY raw JSON. No markdown, no backticks.`
         // Generate remaining pool cards in parallel — each joins the pool as soon as it's ready
         cards.slice(1, cardsAtOnce).forEach((card) => trackStudyGen(async () => {
           if (!stillThisSession()) return
-          const questions = await generateQuestionsForCard(card, rules, studyLang, knowledgeContext, mcSession)
+          const plan = adaptivePlan(card, rules, mcSession)
+          const questions = await generateQuestionsForCard(card, rules, studyLang, knowledgeContext, mcSession || plan.mc)
           if (!stillThisSession()) return
           setStudyCardState(prev => [...prev, {
             cardId: card.cardId, front: getCardFront(card), back: getCardBack(card),
-            questions, answers: [], results: [], done: false, questionIdx: 0, questionAttempts: [], ...mcFlags,
+            questions, answers: [], results: [], done: false, questionIdx: 0, questionAttempts: [], ...mcFlags, ...plan.flags,
           }])
           console.log('[Study] pool card ready:', getCardFront(card))
         }))
@@ -10622,8 +10636,10 @@ Output ONLY raw JSON. No markdown, no backticks.`
     return true
   }
 
-  const openLearnMoment = (cs) => {
-    const requeued = requeueForRelearn(cs)
+  // intro: the adaptive "learn it first" lesson for a NEW card, before its questions (nothing failed, nothing
+  // re-queued; closing it goes on to the card's first question).
+  const openLearnMoment = (cs, { intro = false } = {}) => {
+    const requeued = intro ? false : requeueForRelearn(cs)
     const nid = studyNoteId(cs)
     const saved = hooksForItem(nid, cs.front) // hooks made on ANY surface for this item show instantly
     // TYPE-TO-CONTINUE TARGET. Language cards: the headword (unchanged — typing the word with its
@@ -10638,7 +10654,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       if (first.length >= 3 && first.length <= 80) return first
       return headNoParen.split(/\s+/).slice(0, 6).join(' ')
     })()
-    setStudyLearnMoment({ front: cs.front, back: cs.back, noteId: nid, typed: '', keyTerm: keyFallback, keyTermAlt: keyFallback, hooks: saved, hookLoading: !saved.length && !!apiKey, chat: [], chatInput: '', chatLoading: false, requeued, usageTags: [], otherTags: [], usageUnverified: [], usageChecking: isLangMoment && !!apiKey })
+    setStudyLearnMoment({ intro, front: cs.front, back: cs.back, noteId: nid, typed: '', keyTerm: keyFallback, keyTermAlt: keyFallback, hooks: saved, hookLoading: !saved.length && !!apiKey, chat: [], chatInput: '', chatLoading: false, requeued, usageTags: [], otherTags: [], usageUnverified: [], usageChecking: isLangMoment && !!apiKey })
     // Where it is used and how often natives say it — this panel is where the word is actually being
     // taught, so it is exactly where that belongs. Card's own tags when it has them, derived (and
     // double-checked) otherwise. Non-blocking and fail-soft: the lesson never waits on tags.
@@ -12321,15 +12337,27 @@ Your output keeps: the same method, the same language (${explainLang}), the same
       // practice — noSync so the honest Again already recorded stays the card's ONLY Anki review.
       const relearnFlags = card._relearn ? { noSync: true, relearn: true } : {}
       const knowledgeContext = studyKnowledge ? `\n\nReference material:\n${studyKnowledge.substring(0, KNOWLEDGE_CAP)}` : ''
-      const questions = await generateQuestionsForCard(card, rules, studyLang, knowledgeContext, mcSession)
+      const plan = adaptivePlan(card, rules, mcSession)
+      const questions = await generateQuestionsForCard(card, rules, studyLang, knowledgeContext, mcSession || plan.mc)
       if (stale()) return
       setStudyCardState(prev => [...prev, {
         cardId: card.cardId, front: getCardFront(card), back: getCardBack(card),
-        questions, answers: [], results: [], done: false, questionIdx: 0, ...mcFlags, ...relearnFlags,
+        questions, answers: [], results: [], done: false, questionIdx: 0, ...mcFlags, ...plan.flags, ...relearnFlags,
       }])
       console.log('[Study] pulled new card:', getCardFront(card))
     }
   }
+
+  // Adaptive "learn it first": the first time a new card's first question comes up, teach the card, then ask.
+  useEffect(() => {
+    if (!studyActive || studyPhase !== 'question' || !currentQuestion || studyLearnMoment) return
+    if (studyChoiceFlash || studyPbqReview || studyTypedFlash) return
+    const ci = currentQuestion.cardIdx
+    const cs = studyCardState[ci]
+    if (!cs || !cs.learnFirst || cs.introShown || cs.done || cs.questionIdx > 0 || currentQuestion.questionIdx !== 0) return
+    setStudyCardState((prev) => prev.map((c, i) => (i === ci && c.cardId === cs.cardId ? { ...c, introShown: true } : c)))
+    openLearnMoment(cs, { intro: true })
+  }, [currentQuestion, studyActive, studyPhase, studyCardState, studyLearnMoment, studyChoiceFlash, studyPbqReview, studyTypedFlash]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // startBatch is no longer used in the new system but keep for compatibility
   const startBatch = async () => {}
@@ -16766,6 +16794,11 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                         <input type="checkbox" checked={sr.learnMoment !== false} onChange={(e) => setSR({ learnMoment: e.target.checked })} />
                         {t('studyLearnMoment')} <span className="tip" data-tip={t('studyLearnMomentDesc')} style={{ color: 'var(--c-ink-faint)' }}>ⓘ</span>
                       </label>
+                      {/* Adaptive cards — all modes, flashcards (new cards: lesson first; new + struggling: multiple choice) */}
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--c-ink-dim)', cursor: 'pointer' }}>
+                        <input type="checkbox" checked={sr.adaptive === true} onChange={(e) => setSR({ adaptive: e.target.checked })} />
+                        {t('studyAdaptive')} <span className="tip" data-tip={t('studyAdaptiveDesc', { n: ADAPTIVE_STRUGGLE_LAPSES })} style={{ color: 'var(--c-ink-faint)' }}>ⓘ</span>
+                      </label>
                     </div>
                   </>))}
 
@@ -16952,11 +16985,12 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                         return (<>
                           {/* "Learn it" moment — teach what the user just gave up on. Session advances underneath. */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--c-brand)' }}>📖 {t('learnIt_title')}</span>
+                            <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--c-brand)' }}>{lm.intro ? `✨ ${t('learnIt_newTitle')}` : `📖 ${t('learnIt_title')}`}</span>
                             <span style={{ fontSize: 15.5, fontWeight: 700, color: 'var(--c-ink)' }}>{headWord}</span>
                             {activeMode.type === 'language' && (
                               <Pronunciation word={pronWord(lm.front)} lang={learnLangName()} region={pronRegion()} config={pronunciationCfg} t={t} compact />
                             )}
+                            {lm.intro && <span style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>{t('learnIt_newSub')}</span>}
                             {lm.requeued && <span className="tip" data-tip={t('learnIt_requeuedTip')} style={{ fontSize: 10, color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,.3)', borderRadius: 999, padding: '2px 8px', fontWeight: 700 }}>↻ {t('learnIt_requeued')}</span>}
                           </div>
                           {/* Where it is used · how often natives say it · what context it belongs to.
@@ -18765,7 +18799,7 @@ ${PALETTE_CSS}
         // the continuous system — Ebi's Help never saw what was on screen).
         // A Learn-it lesson or a PBQ result holds the screen while currentQuestion is ALREADY the next card's:
         // Help was told that card was on screen (and revealed its answer on "just tell me").
-        learnMoment: studyActive && studyLearnMoment ? { front: studyLearnMoment.front, back: String(stripHtml(studyLearnMoment.back || '')).slice(0, 300) } : null,
+        learnMoment: studyActive && studyLearnMoment ? { intro: !!studyLearnMoment.intro, front: studyLearnMoment.front, back: String(stripHtml(studyLearnMoment.back || '')).slice(0, 300) } : null,
         currentQuestion: (() => {
           // Not on the summary (End Now / View summary keep currentQuestion) and not during an answer's
           // flash (currentQuestion is already the NEXT card's): Help described a question not on screen.

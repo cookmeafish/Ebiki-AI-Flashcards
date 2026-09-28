@@ -21,6 +21,11 @@ import { speak } from '../../speech'
 const MAX_W = 640
 const POSE = { right: 'happy', wrong: 'confused', done: 'party' }
 const CHOICE_KEYS = ['1', '2', '3', '4', '5', '6']
+// A spoken line that never reports its end (a voice that silently fails) must not lock the replay button:
+// the button frees itself after a generous reading time.
+const PLAY_BASE_MS = 2500
+const PLAY_PER_CHAR_MS = 110
+const PLAY_MAX_MS = 20000
 
 export default function QuizRunner({ questions, t, ai, subject, onAnswer, onFinish, onExit, title, confirm, ctx, feedbackExtra }) {
   const [idx, setIdx] = useState(0)
@@ -35,6 +40,10 @@ export default function QuizRunner({ questions, t, ai, subject, onAnswer, onFini
   const q = questions[idx]
   const total = questions.length
   useFocusHold(phase !== 'done') // no pop-ups while answering
+  // The pose pictures are big: load them up front so the feedback strip never shows an empty gap.
+  useEffect(() => { for (const p of Object.values(POSE)) { const f = poseFile(p); if (f) { const im = new Image(); im.src = shrimpUrl(f) } } }, [])
+  const playCapRef = useRef(null)
+  useEffect(() => () => clearTimeout(playCapRef.current), [])
 
   const play = () => {
     if (!q?.audio?.text || !ctx) return
@@ -42,7 +51,10 @@ export default function QuizRunner({ questions, t, ai, subject, onAnswer, onFini
     const h = speak(ctx, q.audio.text, { lang: q.audio.lang || '' })
     audioRef.current = h
     setPlaying(true)
-    Promise.resolve(h.done).catch(() => {}).finally(() => { if (audioRef.current === h) setPlaying(false) })
+    const release = () => { if (audioRef.current === h) setPlaying(false) }
+    clearTimeout(playCapRef.current)
+    playCapRef.current = setTimeout(release, Math.min(PLAY_MAX_MS, PLAY_BASE_MS + q.audio.text.length * PLAY_PER_CHAR_MS))
+    Promise.resolve(h.done).catch(() => {}).finally(release)
   }
   useEffect(() => {
     setPicked(null); setText(''); setVerdict(null); setPhase('answer'); setTimeout(() => inputRef.current?.focus(), 30)

@@ -34,6 +34,7 @@ export default function ListenScreen({ onExit }) {
       const qs = sanitizeQuestions((j?.questions || []).map((q) => ({
         ...q, question: ai.clean(q.question), explanation: ai.clean(q.explanation), say: ai.clean(q.say || ''),
         speak: q.speak === true && !!engines.stt, // no way to listen → typed instead
+        open: q.open === true && q.speak === true && !q.say, // only "explain out loud" is open; a dictation has one answer
       })), { audioLang: voiceLang, speakLang: subject.isLanguage ? subject.learnLangIso : '' })
       if (qs.length < MIN_QUESTIONS) throw new Error(t('ls_badWorkout'))
       setQuestions(qs); setPhase('run')

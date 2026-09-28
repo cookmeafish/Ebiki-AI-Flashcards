@@ -1738,6 +1738,15 @@ are not clickable). The merge (in `trackStudyGen`) keeps the on-screen Q1 (Fix q
 then. The next question stays random (`getNextStudyQuestion`), so Q2 may come from card 2. A restore drops the
 flag. Not live-tested with a real deck (needs Anki and spends credits): verify on first real use.
 
+### Adaptive cards (`studyRules.adaptive`, per mode, default OFF, flashcards only)
+`adaptivePlan(card, rules, mcSession)` (next to `needsLetterCue`) runs at every card-state creation (first card,
+start-up pool, `pullNewCardInner`). NEW cards (`type`/`queue` 0) get `learnFirst`: an effect opens
+`openLearnMoment(cs, { intro: true })` the first time their Q1 comes up (no requeue, heading `learnIt_newTitle`,
+marks `introShown`). New and STRUGGLING cards (`lapses >= ADAPTIVE_STRUGGLE_LAPSES`, `src/config/study.js`) are
+generated multiple choice in a typed session (`mc` + `adaptiveMc`): graded locally, recorded in Anki, capped at
+Good like every synced MC card. Relearn copies are left alone. Toggles: study start screen and Settings > Study >
+Session. Help sees `learnMoment.intro`.
+
 ### "I Don't Know" (`skipStudyQuestion`)
 Card-level ONLY on the first question (confirm → every question '(skipped)', rated Again). Once any question is
 answered (`cs.questionIdx > 0`) it fails only the current question and advances like a submit (no confirm), so a
