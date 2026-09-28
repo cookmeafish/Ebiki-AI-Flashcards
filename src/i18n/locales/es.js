@@ -988,6 +988,12 @@ export default {
   tag_checking: 'comprobando...',
   tag_checkingTip: 'Ebi está comprobando estas etiquetas con una segunda lectura independiente, para que no se cuele una etiqueta inventada.',
 
+  // Image descriptions (read by screen readers)
+  img_attached: 'Foto adjunta',
+  img_selection: 'Área seleccionada',
+  img_screenshot: 'Captura de pantalla',
+  img_expanded: 'Imagen ampliada',
+
   // ── Shared practice kit (quiz runner, talk button, rule cards) (src/features/kit/) ──
   kit_check: 'Comprobar',
   kit_continue: 'Continuar',
