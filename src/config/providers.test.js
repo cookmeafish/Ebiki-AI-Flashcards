@@ -114,7 +114,8 @@ describe('reasoning models that spend the whole budget on thinking', () => {
   it('keeps max_completion_tokens when the error is a size cap, not an unknown parameter', async () => {
     const calls = stub(() => badRequest('max_completion_tokens is too large: 8000. This model supports at most 4096 completion tokens.'))
     await expect(PROVIDERS.openai.call('k', 'Be terse.', 'question', 'gpt-3.5-turbo', undefined, 8000)).rejects.toThrow(/API 400/)
-    expect(calls).toHaveLength(1)
+    // Retried at the named cap (see "per-model output cap"), but never under the old parameter name.
+    expect(calls.map((c) => [c.body.max_completion_tokens, 'max_tokens' in c.body])).toEqual([[8000, false], [4096, false]])
   })
 
   it('does NOT retry the exhaustion 400 for a liveness probe', async () => {
@@ -134,6 +135,21 @@ describe('reasoning models that spend the whole budget on thinking', () => {
   it('does not retry when the model simply answered nothing without hitting the cap', async () => {
     const calls = stub(() => okOpenAi('', 'stop'))
     await PROVIDERS.openai.call('k', 'sys', 'user', 'gpt-4o', undefined, 600)
+    expect(calls).toHaveLength(1)
+  })
+})
+
+describe('OpenAI-compatible per-model output cap', () => {
+  it('retries once at the cap the error names when the budget is over a model limit', async () => {
+    const calls = stub((n) => (n === 1
+      ? badRequest('max_tokens is too large: 6000. This model supports at most 4096 completion tokens, whereas you provided 6000.')
+      : okOpenAi('fine')))
+    expect(await PROVIDERS.openai.call('k', 'sys', 'user', 'gpt-4-0613', undefined, 6000)).toBe('fine')
+    expect(calls.map((c) => c.body.max_completion_tokens)).toEqual([6000, 4096])
+  })
+  it('does not retry a 400 that names no cap', async () => {
+    const calls = stub(() => badRequest('Invalid value for messages'))
+    await expect(PROVIDERS.openai.call('k', 'sys', 'user', 'gpt-4o', undefined, 6000)).rejects.toThrow(/API 400/)
     expect(calls).toHaveLength(1)
   })
 })

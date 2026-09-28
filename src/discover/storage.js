@@ -5,7 +5,8 @@
 // so the learner profile + ledger follow the user across machines. When Anki is offline we
 // read/write the same JSON via /api/discover-store (cached under discover/ in the repo).
 
-import { ankiStoreMediaFile, ankiRetrieveMediaFile, ankiSyncSoon } from '../utils/anki'
+import { srs } from '../cards'
+import { apiFetch } from '../platform'
 
 // UTF-8 safe base64 (btoa only handles latin1)
 const b64encode = (str) => btoa(unescape(encodeURIComponent(str)))
@@ -64,7 +65,7 @@ const blobLatest = new Map()   // dirty key -> { json, seq } of the newest write
 async function readKeyChecked(kind, key) {
   if (isLocalNewer(kind, key)) {
     try {
-      const r = await fetch(`/api/discover-store?kind=${kind}&mode=${encodeURIComponent(key)}`)
+      const r = await apiFetch(`/api/discover-store?kind=${kind}&mode=${encodeURIComponent(key)}`)
       // The newer copy lives ONLY here and the store refused (a 503 share): Anki's copy is known to be older, and
       // returned as a good read its next write replaced the newer items (and cleared this mark). Not readable.
       if (!r.ok) return { ok: false, value: null }
@@ -79,7 +80,7 @@ async function readKeyChecked(kind, key) {
         const seq = writeSeq.get(dk) || 0
         const push = (blobChains.get(dk) || Promise.resolve()).catch(() => false).then(async () => {
           if ((writeSeq.get(dk) || 0) !== seq) return null
-          await ankiStoreMediaFile(mediaName(kind, key), b64encode(d.content))
+          await srs.storeFile(mediaName(kind, key), b64encode(d.content))
           if ((writeSeq.get(dk) || 0) === seq) setLocalNewer(kind, key, false)
           return true
         }).catch(() => false)
@@ -93,7 +94,7 @@ async function readKeyChecked(kind, key) {
   // holds something. Anki (synced through AnkiWeb, minutes or days behind) is only the fallback.
   if (!isAnkiNewer(kind, key)) {
     try {
-      const r = await fetch(`/api/discover-store?kind=${kind}&mode=${encodeURIComponent(key)}`)
+      const r = await apiFetch(`/api/discover-store?kind=${kind}&mode=${encodeURIComponent(key)}`)
       const d = r.ok ? await r.json() : null
       if (d && d.shared && d.content) {
         try { return { ok: true, value: JSON.parse(d.content) } } catch { return { ok: true, value: null } }
@@ -102,7 +103,7 @@ async function readKeyChecked(kind, key) {
   }
   let ankiFailed = false
   try {
-    const b64 = await ankiRetrieveMediaFile(mediaName(kind, key))
+    const b64 = await srs.readFile(mediaName(kind, key))
     if (b64 && b64 !== false) {
       try { return { ok: true, value: JSON.parse(b64decode(b64)) } } catch { return { ok: true, value: null } }
     }
@@ -111,7 +112,7 @@ async function readKeyChecked(kind, key) {
     console.warn(`[Discover] media read failed for ${kind}, trying local`, err.message)
   }
   try {
-    const r = await fetch(`/api/discover-store?kind=${kind}&mode=${encodeURIComponent(key)}`)
+    const r = await apiFetch(`/api/discover-store?kind=${kind}&mode=${encodeURIComponent(key)}`)
     const d = await r.json()
     if (!r.ok) throw new Error(`local store ${r.status}`)
     if (d && d.content) {
@@ -120,7 +121,7 @@ async function readKeyChecked(kind, key) {
     // Nothing under the new name or locally: migrate from the legacy (frozen, first-version) Anki
     // file if one exists. Only a true "nothing stored" if Anki also answered.
     if (!ankiFailed) {
-      const old = await ankiRetrieveMediaFile(legacyMediaName(kind, key)).catch(() => null)
+      const old = await srs.readFile(legacyMediaName(kind, key)).catch(() => null)
       if (old && old !== false) {
         try { return { ok: true, value: JSON.parse(b64decode(old)) } } catch { /* damaged: nothing to keep */ }
       }
@@ -176,7 +177,7 @@ export async function readBlob(kind, mode, opts = {}) {
 // state and does not warrant a whole-collection sync every time a Discover suggestion is offered,
 // skipped, or marked known — that spammed an AnkiWeb sync on essentially every Discover card. Pass
 // { sync: true } only for a change worth pushing right away (and even then, carding already runs its
-// own ankiSync after adding the note, which carries the media file along).
+// own srs.sync after adding the note, which carries the media file along).
 // Writes of ONE blob run one at a time, newest content first-class: two quick writes (two hooks saved a
 // moment apart) went out in parallel, and when the older one landed last (Anki and the local store each
 // take their own time) the stored blob went BACK to it, losing the newer hook. A write that finds a newer
@@ -213,7 +214,7 @@ async function writeBlobNow(kind, key, json, sync) {
   let ankiOk = false
   if (writesPaused) return false
   try {
-    await ankiStoreMediaFile(mediaName(kind, key), b64encode(json))
+    await srs.storeFile(mediaName(kind, key), b64encode(json))
     ankiOk = true
   } catch (err) {
     console.warn(`[Discover] media write failed for ${kind}`, err.message)
@@ -222,7 +223,7 @@ async function writeBlobNow(kind, key, json, sync) {
   // Frozen during the Anki call (up to its 2-minute timeout): the store now points at the other folder.
   if (writesPaused) return false
   try {
-    const r = await fetch(`/api/discover-store?kind=${kind}&mode=${encodeURIComponent(key)}`, {
+    const r = await apiFetch(`/api/discover-store?kind=${kind}&mode=${encodeURIComponent(key)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content: json }),
@@ -233,6 +234,6 @@ async function writeBlobNow(kind, key, json, sync) {
   else if (localOk) setLocalNewer(kind, key, true)
   if (localOk) setAnkiNewer(kind, key, false)
   else if (ankiOk) setAnkiNewer(kind, key, true)
-  if (ankiOk && sync) ankiSyncSoon()   // coalesced: see the toast note on ankiSyncSoon
+  if (ankiOk && sync) srs.syncSoon()   // coalesced: see the toast note on srs.syncSoon
   return ankiOk
 }

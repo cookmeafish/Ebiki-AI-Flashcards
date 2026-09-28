@@ -117,6 +117,17 @@ async function openAiCompatibleCall({ provider = 'openai', endpoint, apiKey, sys
   }
 
   let sent = budget // the budget of the request that produced `r`
+  // OVER THIS MODEL'S OUTPUT CAP: "max_tokens is too large: 6000. This model supports at most 4096 completion
+  // tokens" (OpenAI; other compatible endpoints word it alike). Retry once at the number the error names, the
+  // same heal as Anthropic's cap below (it goes DOWN). Without it every feature asking for more than an older
+  // model's cap (Picture 8000, bulk edit 8000, workouts 6000) failed outright on that model.
+  const cap = !r.ok && r.status === 400 && /too large|exceeds|greater than|at most|maximum/i.test(r.text)
+    ? Number((r.text.match(/(?:at most|maximum(?: of| is)?|up to|limit(?: is| of)?)\s+(\d{2,6})\s+(?:completion |output )?tokens/i) || [])[1])
+    : 0
+  if (cap && cap < sent && cap >= MIN_CONTENT_BUDGET) {
+    r = await post(tokenParam, cap)
+    sent = cap
+  }
   // BUDGET EXHAUSTED, ERROR FORM. The same underlying situation as the empty-content case below,
   // but OpenAI reports it two different ways depending on the request - measured live: o4-mini with
   // no system message returns 200 + content:"" + finish:"length", while the SAME call WITH a system

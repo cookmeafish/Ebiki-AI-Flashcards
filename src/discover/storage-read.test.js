@@ -4,10 +4,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 const anki = { retrieve: null, store: async () => true }
-vi.mock('../utils/anki', () => ({
-  ankiRetrieveMediaFile: (...a) => anki.retrieve(...a),
-  ankiStoreMediaFile: (...a) => anki.store(...a),
-  ankiSyncSoon: () => {},
+vi.mock('../cards', () => ({
+  srs: {
+    readFile: (...a) => anki.retrieve(...a),
+    storeFile: (...a) => anki.store(...a),
+    syncSoon: () => {},
+  },
 }))
 const { readBlobChecked, writeBlob } = await import('./storage')
 

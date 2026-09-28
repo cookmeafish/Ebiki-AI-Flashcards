@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { S } from '../styles/theme'
 import { C, RADIUS } from '../config/tokens'
+import { apiFetch } from '../platform'
 
 // ── How Ebiki opens on THIS computer ────────────────────────────────────────
 // 'app' = the chrome-free Electron window, 'browser' = an ordinary browser tab. The preference is
@@ -70,7 +71,7 @@ export function LaunchModeCard({ t, card, fieldLabel, hint }) {
   const isAppWindow = typeof window !== 'undefined' && !!window.ebikiWindow
 
   useEffect(() => {
-    fetch('/api/launchmode').then((r) => r.json()).then((d) => {
+    apiFetch('/api/launchmode').then((r) => r.json()).then((d) => {
       setMode(d.mode); setElectronAvailable(d.electronAvailable !== false)
     }).catch(() => setMode('app'))
   }, [])
@@ -83,7 +84,7 @@ export function LaunchModeCard({ t, card, fieldLabel, hint }) {
     const prevMode = mode
     setMode(next)
     try {
-      const d = await (await fetch('/api/launchmode', {
+      const d = await (await apiFetch('/api/launchmode', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode: next, switchNow: !!switchNow }),
       })).json()
@@ -99,7 +100,7 @@ export function LaunchModeCard({ t, card, fieldLabel, hint }) {
       const poll = async () => {
         if (Date.now() > deadline) { setNote({ kind: 'warn', text: t('lm_switchError') }); setBusy(false); return }
         let ready = false
-        try { ready = (await (await fetch('/api/launchmode')).json()).handoffReady } catch { /* keep polling */ }
+        try { ready = (await (await apiFetch('/api/launchmode')).json()).handoffReady } catch { /* keep polling */ }
         if (!ready) return void setTimeout(poll, 1000)
         // An app window can close itself. A browser tab cannot (script may only close a tab it
         // opened), so it says so instead of failing silently.

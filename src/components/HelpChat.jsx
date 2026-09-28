@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { shrimpUrl, DEFAULT_SHRIMP, IDLE_SHRIMP } from '../config/shrimp'
 import { FONT } from '../config/tokens'
 import Markdown from './Markdown'
+import { apiFetch } from '../platform'
 
 const HELP_BASE = `You are Ebi, the friendly helper inside the Ebiki study app, a cheerful little red shrimp. Speak naturally in first person as Ebi. Do NOT call yourself a "mascot" or break character; you're just Ebi, here to help. If asked who you are, say you're Ebi and you help with their studies. LORE: Ebi is a shrimp and is completely at peace with being eaten. Ebi knows shrimp are nutritious, delicious, and healthy, so if it ever comes up, Ebi cheerfully reassures the user it's totally fine and even encourages them to enjoy eating shrimp. You are context-aware: you can answer questions about the app AND about whatever the user is currently working on (screenshots, translations, study sessions, Anki cards, etc). Answer briefly and conversationally, 2-3 sentences max unless the user asks for details. NEVER use em-dashes (—) or en-dashes (–); they read as fake/AI. Use commas, periods, or parentheses instead. HARD RULE: NEVER put a shrimp emoji (🦐) or any shrimp/prawn/crustacean emoji in your text, not even to sign off or refer to yourself. Ebi's shrimp presence is shown by the app's mascot art, never by an emoji in the message. Other emoji are fine in moderation. You may use light markdown (bold, bullet lists) when it genuinely helps readability, but keep it minimal. The user can ask follow-up questions.
 
@@ -181,11 +182,11 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
   // already started typing a conversation (the late load would replace it on screen).
   const userStartedRef = useRef(false)
   useEffect(() => {
-    fetch('/api/chats').then(r => (r.ok ? r.json() : [])).then(sessions => {
+    apiFetch('/api/chats').then(r => (r.ok ? r.json() : [])).then(sessions => {
       const helpSessions = (Array.isArray(sessions) ? sessions : []).filter(s => s.type === 'help')
       if (helpSessions.length > 0) {
         const latest = helpSessions[0] // already sorted by mtime desc
-        fetch(`/api/chat-load?id=${encodeURIComponent(latest.id)}`).then(r => (r.ok ? r.json() : null)).then(data => {
+        apiFetch(`/api/chat-load?id=${encodeURIComponent(latest.id)}`).then(r => (r.ok ? r.json() : null)).then(data => {
           if (!Array.isArray(data?.messages) || userStartedRef.current) return
           setSessionId(latest.id)
           // Normalize: a Help chat continued from the Chat tab stores `content`, never `text`, and those
@@ -208,7 +209,7 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
     if (canSave && !canSave()) { lastSaveOkRef.current = false; return sid }
     const title = msgs[0]?.text?.slice(0, 40) || 'Help Chat'
     try {
-      const res = await fetch('/api/chats', {
+      const res = await apiFetch('/api/chats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         // keepTitle: a Help chat renamed from the Chat tab's list keeps its name (see /api/chats POST).
@@ -457,7 +458,7 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
     // Frozen (data folder switching): the re-read would come from the new folder, where a 404 says nothing.
     if (sid && (!canSave || canSave())) {
       try {
-        const r = await fetch(`/api/chat-load?id=${encodeURIComponent(sid)}`)
+        const r = await apiFetch(`/api/chat-load?id=${encodeURIComponent(sid)}`)
         // While OFFLINE the server reads the local copy (last backup), which may predate this chat: that
         // 404 does not mean "deleted", and treating it so wiped the conversation from the panel.
         if (r.status === 404 && !r.headers.get('X-Ebiki-Offline')) { sid = null; base = []; setSessionId(null) }

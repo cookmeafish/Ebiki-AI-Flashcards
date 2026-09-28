@@ -68,10 +68,18 @@ One **⚙ Settings** modal, `src/components/SettingsModal.jsx`:
   is used (a mode deleted on another computer left edits going to a missing id).
 
 ## i18n
-- `t(key, vars)` from `src/i18n/index.js` (dicts `en`/`es`/`zh`/`ja`; falls back lang → en → key). **A missing
-  key renders as the raw key name**: add it to ALL FOUR dicts, then wire `t()`. `{placeholder}` interpolation. No
-  em/en dashes. Count labels need singular/plural keys (`deck_countAll` / `deck_countAllOne`); zh/ja share one
-  form. **No duplicate keys** in a dict: the later one silently wins.
+- **All UI text lives in ONE place: `src/i18n/`.** `locales/<code>.js` = every string of one language (app AND
+  features; feature sections are commented with their folder and use the feature's key prefix). `languages.js` =
+  THE list of languages (`code`, own-name `label`, English `name` for prompts, `pickerName` for the study-language
+  lists, `ocr` Tesseract code). `index.js` is only the engine (`t`/`makeT`, `APP_LANGUAGES`, `langMeta`). **Never
+  hardcode a language map elsewhere** (`APP_LANG_NAME`, OCR defaults, Settings labels, Chat "Explain in" all read
+  `LANGUAGES`). Features carry NO strings (`features.test.js` enforces it).
+- **Adding a language**: copy `locales/en.js` to `locales/<code>.js`, translate the values, import it in
+  `languages.js` and add one entry. `src/i18n/locales.test.js` then checks it: same keys as English, same
+  `{placeholders}` (a zh/ja-style singular may keep `{n}`), no dashes, no duplicate keys, count pairs.
+- `t(key, vars)` falls back lang → English → key. **A missing key renders as the raw key name**: add it to EVERY
+  locale file. No em/en dashes. Count labels need singular/plural keys (`deck_countAll` / `deck_countAllOne`);
+  zh/ja share one form. **No duplicate keys** in a locale: the later one silently wins.
 - Nothing on screen is English-only any more (a 2026-09 scan). Screens shown BEFORE the config loads (slow start,
   failed settings read) and the crash screen (`ErrorBoundary`) use the last language this browser saw
   (`localStorage('ebiki-app-language')`, written whenever `appLanguage` changes). Keep it that way: new text
@@ -754,8 +762,8 @@ calls `tooltip(parent=mw, ...)`; `aqt/utils.py::tooltip()` sets `Qt.WindowType.T
 bottom of Anki's MAIN window. **Both Anki and Ebiki trigger it**: Anki auto-syncs on profile open/close
 (`maybe_auto_sync_on_open_close`), and AnkiConnect's `sync` is `onSync()`. The 5-minute periodic sync is
 media-only (no toast). Upstream bug `ankitects/anki#4188`; no setting disables it. Two fixes:
-- **Fewer syncs.** `ankiSyncSoon()` (`src/utils/anki.js`) COALESCES: each call restarts an 8s quiet timer, 90s
-  max-wait. Fire-and-forget, never throws. **Call `ankiSync()` directly ONLY when the result is needed before
+- **Fewer syncs.** `srs.syncSoon()` (`ankiSyncSoon` in `src/cards/anki`) COALESCES: each call restarts an 8s quiet
+  timer, 90s max-wait. Fire-and-forget, never throws. **Call `srs.sync()` directly ONLY when the result is needed before
   continuing**: the awaited pre-session pull (`syncFromAnkiWeb`) and the post-ratings sync that re-reads Anki.
 - **Demote what still appears.** `scripts/anki-toast-behind.ps1`, spawned by the dev server on Windows (both launch
   modes), killed with it. `SetWindowPos(toast, ankiMainWindow, SWP_NOACTIVATE)`: a non-topmost `hWndInsertAfter`
@@ -1366,8 +1374,138 @@ A card-add save that FORKS adds a list row for the new id with the original's mo
 - **Markdown**: `src/components/Markdown.jsx` (`marked` + `DOMPurify`), themed by `.md-body`. Assistant only; user
   text is literal (`pre-wrap`). `<anki-card>`/`<sources>`/`<progress-update>` are stripped first.
 
+## Features are plug-ins (`src/features/`): build every new feature this way
+Each feature is ONE folder (`src/features/<id>/`: logic, components, `strings.js`, tests) registered in ONE line
+of `src/features/index.js` (and `src/features/server.js` if it has a server half). Deleting a feature = its folder
++ those lines. **Never thread feature logic through App.jsx**; App only provides context, renders slots, emits facts.
+- **Descriptor** (`registry.jsx` header documents it): `id` (a feature's TEXT lives in `src/i18n/locales/*.js`,
+  never in the feature), `defaults` (settings under config.json `features[id]`), `Mount` (rendered once
+  app-wide), `headerItems`, `railCards`, `navItems` (whole screens in the sidebar: `{id, icon, labelKey, order,
+  Screen, rail?}`), `settingsCards` (`section: 'general'`), `on` (event handlers).
+- **Context**: components call `useFeatureCtx()`: `t`, `lang`, `apiKeys`, `getZoom`, `onboarded`, `presetModel(prov,
+  tier)`, `activeMode`, `activeTab`/`setActiveTab`, `busy` (mid-question: hold popups), `isDataSwitching()` (writers
+  must honor it), `featureSettings`/`setFeatureSettings(id, patch)`, `notify`. Add a GENERIC service here when a
+  feature needs one; never pass feature-specific props.
+- **Events** (`events.js`): App announces FACTS (`study.cardGraded`, `study.learnDone`, `cards.added`,
+  `chat.sent`); features react. New cards all go through `addNewCard` (App), graded cards through `emitOnce`
+  (keyed by run + card, persisted, so re-rates and restored sessions don't repeat). A throwing handler is isolated.
+- **Server half** (`src/features/server.js`): `dataEntries` join `DATA_ENTRIES` (backups, merges, offline copy),
+  `dataRoutes` join the unreachable-share guard, `localFiles` are watch-ignored (add them to `.gitignore`),
+  `register(server, helpers)` adds routes after the guard. Helpers: `dataPath`, `readUtf8`, `writeFileAtomic`,
+  `appRoot`, `fs`, `path`, `crypto`.
+- **Shared UI** (`src/features/ui.jsx`): `Card`, `ChunkyButton` (3D bottom edge), `ProgressBar`, `Modal` (zoom-safe),
+  `EbiSays`, `tCount` (key/keyOne), `depthBorder` (longhand borders: never mix `border` with `borderBottomWidth`).
+  Tunables are named constants at the top of each module (the `UI`, `SHELL`, `GOALS`, `XP` objects), never literals.
+- `features.test.js` checks every feature: no own strings, labels translated in every language, slot components,
+  known events, distinct server data entries.
+
+### App shell (`src/shell/`)
+Sidebar (core screens `CORE_NAV` + feature `navItems`) | screen | rail (feature `railCards`, only on `railWanted`
+screens: Study home, Stats; feature screens opt in with `rail: true`). Sizes and breakpoints in `SHELL` (CSS px after
+the body zoom; `useViewportWidth`): icon-only sidebar below `collapseBelow`, no rail below `railHideBelow`. In the
+overlay the wrappers are `display: contents`. A saved `activeTab` that no longer exists falls back to Study.
+
+### Voice typing (`src/features/voice/`)
+A mic badge on the focused text field (any `input[type=text|search]`, `textarea`, contenteditable), Alt+V toggles,
+Esc cancels. Engines (`stt.js`, `pickEngine`): stored OpenAI key → `gpt-4o-mini-transcribe` (~$0.003/min); Gemini key
+→ generateContent with audio; else the browser recognizer ONLY in a tab (Electron's always fails "network"). Text is
+inserted through the native value setter + `input` event (React-controlled fields). Never on secrets: key fields
+carry `data-no-voice`. The badge portals into `#ebiki-voice-layer` under `<html>` (not `<html>` itself).
+
+### Game (`src/features/game/`): XP, goal, streak, freezes, quests, league, friends
+- **Only raw counters are stored**: `players/<id>.json` in the DATA folder, `days[date][machineId] = {xp, cards, …,
+  goal, quests}`. Everything shown is DERIVED (`engine.js`, pure, tested). Merges take the MAX per machine per counter
+  (`mergePlayers`, run by the server on every write), so computers on one share never lose or double count.
+- `player.json` in the APP folder = this computer's `{machineId, playerId}` (`/api/player-local`, not guarded).
+  Several players in the folder and none picked → "Who is studying?" chooser (family vs one person, two PCs).
+- Streak: any XP keeps the day. Freezes: start with 1, finishing all 3 of a day's quests earns one (max 2), a missed
+  day spends one automatically. Quests: always "earn XP" + 2 seeded picks, stored in the day record; a quest kind
+  that needs another feature (`mistake-gym`, `legends`, `ebi-call`) appears only once that feature id is installed.
+- League: race your own past 4 weeks by the same weekday (ghosts); beat all → up a tier, fall below all → down.
+  Friends = other players in the folder (shown, never affect your tier). Saves send only the last 14 days.
+- The Stats tab's streak is ANKI's review streak ("Review Streak"); the game streak is Ebiki activity.
+
+### Practice activities, speech and the shared kit
+- **Slots added**: `practiceActivities` (Practice hub tiles; Screen gets `{ onExit, params }`), `chatMenuItems`
+  (`{id, icon, labelKey, onPick(ctx), visible?(ctx)}` in the Chat "+" menu). **Intents**: `ctx.open(navId, payload)`
+  switches screens and leaves a payload the screen takes with `useIntent` (Chat → Practice → Roleplay). Features
+  never import each other; shared code lives in `src/features/kit/`.
+- **Optional features** (`optional: true`, off until Settings > General > Optional features): `voice-chat` (talk
+  button + spoken replies in Ebi Call and Roleplay; read with `voiceChatOn(ctx)` from the kit), `listen-speak`,
+  `scenes`. They cost speech on the user's key, hence opt-in.
+- **Speech** (`src/speech/`): `listen(ctx)` / `speak(ctx, text, {lang, voice})`, cheapest engine first (browser/device
+  free, then Gemini < Grok < OpenAI); Settings card "Voice and speech" (`speech` feature). QuizRunner questions can
+  carry `audio: {text, lang}` (heard, not shown) and `speak: true` (answer out loud).
+- **Roleplay**: scenes suggested from the subject, typed, or built from a photo (vision); Ebi plays the OTHER part;
+  end = scorecard (language: accuracy/complexity/vocabulary; else correctness/reasoning/communication) with tips and
+  addable cards. **Scenes**: `kit/scene.js` (reusable by Legends). **Listen & Speak**: audio drills from the cards.
+- **Practice log** (`kit/practiceLog.js` pure + `practiceLogStore.js`, store `features/practice-log/log-<modeId>`):
+  every activity records the cards and topics it practiced (`recordPractice(ctx, src, entries)`); `pickCardItems`
+  and Ebi Call's practice call rank cards another activity practiced in the last 2 days LAST (`rankFresh`); topic
+  prompts get `recentTopics` as "pick something else". Mistake Gym rotates (`practicedAt`, 12h rest) and ignores
+  its own log entries. **Study reviews are never filtered by it** (Anki's schedule decides; skipping a due card
+  would break spacing).
+- **Rule cards** (`kit/ruleCard.js` + `RuleCardButton`): a mistake, recurring slip or gym diagnosis becomes a card for
+  the RULE behind it (grammar/orthography in language modes, a principle elsewhere), role `deck`, editable preview
+  before Add, the model skips one-offs. In Mistake Gym: each mistake row, the slips list (`subject.grammarSlipList`),
+  the diagnosis, and wrong answers (`QuizRunner feedbackExtra`).
+- **Translations are tested**: `src/features/i18n-coverage.test.js` fails when any `t('key')`, `tCount(t, 'key')` or
+  `*Key: 'key'` anywhere in `src/` is missing in any language. Template keys (`` t(`rp_axis_${a}`) ``) and prefixes
+  (`t('tab_' + id)`) are not seen by it: add those to every locale by hand.
+
+## Porting to phones (iOS / Android): keep these seams clean
+Two realistic paths: **Capacitor** (the web UI runs as-is in a phone WebView) or **React Native** (UI rebuilt, logic
+reused). Both depend on the same rules:
+- **`src/platform/` is the ONLY door to the device and the local server**: `apiFetch(path, init)` for every
+  `/api` call (a phone build installs an on-device router answering the same paths), `platform.beacon`,
+  `platform.kv` (localStorage here), `platform.onPageHide`, `platform.isHidden`, `platform.speech`,
+  `platform.randomId`. `setPlatform({...})` overrides any part (nested objects merge). **Never write
+  `fetch('/api…')` or `sendBeacon('/api…')` anywhere** (enforced by `src/platform/platform.test.js`).
+- **Feature logic is platform-neutral**: plain `.js` in `src/features/**` may not touch `window`, `document`,
+  `localStorage`, `sessionStorage`, `navigator`, or `fetch` except to an outside `https://` service (enforced).
+  UI lives in `.jsx`; browser-only helpers live in a file named `web.js` (e.g. `voice/web.js`); desktop server
+  halves in `server.js`. Pure engines (`game/engine.js`, `kit/grade.js`, `mistake-gym/mistakes.js`,
+  `ebi-call/grades.js`, `leech-doctor/leeches.js`, every `prompt.js`) port unchanged, tests included.
+- **Cards**: `src/cards/` already abstracts Anki. Phones have no AnkiConnect: Android can use AnkiDroid's
+  content API, iOS needs Ebiki's own backend (`src/cards/template.js`). `hasCapability('setup')` hides the
+  Anki install/diagnosis UI for backends without it.
+- **Features are chosen per platform** by the list in `src/features/index.js`: a phone build can drop `voice` (the
+  OS keyboard already has a dictation mic) without touching anything else.
+- **The routes an on-device router must answer** (data): `config`, `modes`, `modes/knowledge`,
+  `knowledge-sections`, `ankiformat`, `deck-progress`, `discover-store`, `question-bank`, `chats`, `chat-load`,
+  `keys`, `players`, `player-local`, `feature-data`, `usage`, `log`, `web-search` (needs a CORS-free fetch), `tts`,
+  `anki` (only with an AnkiConnect-like backend). **Desktop-only** (answer "not available"): `alive`, `bye`,
+  `datadir`, `offline`, `sync-backup`, `update`, `launchmode`, `launch-overlay`, `overlay-hide`,
+  `overlay-screenshot`, `ankiconnect`, `anki-focus`, `anki-start`. Keep this list current when adding a route.
+- Also desktop-only by nature: Electron (`electron/`), the launcher scripts, the Alt+Q screen overlay, the
+  Windows Anki updater. Everything AI goes straight to the providers (`src/config/providers.js`), which works on
+  phones as is.
+
+## Card backend: Anki is swappable (`src/cards/`)
+App code talks to the card store ONLY through `srs.*` from `src/cards` (the facade). Anki is one backend
+(`src/cards/anki`, AnkiConnect via `/api/anki`); `src/cards/contract.js` is the interface (every method, the
+Note/Card/DeckStats/Query shapes, the at-most-once rules), `src/cards/template.js` a starting point. Swap with
+`registerBackend(b)` + `selectBackend(id)`. Tests: `src/cards/cards.test.js`.
+- **Never import `src/cards/anki` from app code, and never write Anki search syntax outside it.** Queries are
+  structured (`{ deck, noteId, cardId, text, ignoreAccents, state: 'due'|'new'|'dueOrNew', excludeSuspended,
+  excludeBuried }`); `compileQuery` turns them into the exact strings the app always sent (tested). Empty = error.
+- **Rating writes are backend-owned**: `recordRatings({deck, ratings, preSchedule, hooks})` and
+  `correctRating({cardId, ease, preSchedule})`. The reviewer dance, `setDueDate` "!" and revlog tuples live in the
+  adapter; App keeps its guards (`studySyncedIdsRef`, `uncertainSyncRef`, `preSyncInfoRef`) and passes them as
+  hooks (`recorded` = `markSynced`, `markUncertain`/`clearUncertain`, `uncertainSince`/`forgetUncertain`,
+  `notOurs`). `oneStepInterval` (contract.js) is the shared SM-2 step.
+- **Optional abilities are capabilities** (`cloudSync`, `files`, `setup`; `hasCapability`). A missing one falls
+  back to a harmless default in the facade (`readFile`/`storeFile` THROW so blob readers fall back to local).
+  `renderAnkiOfflineBanner` shows its Anki diagnosis and Open Anki only with `setup`; otherwise
+  `cardStoreOffline` + Refresh. The `/api/anki*` routes are the Anki backend's server half.
+- Card content safety (`sanitizeCardHtml`, `escapeStrayLt`, `isHtmlTagName`) is backend-agnostic
+  (`src/cards/html.js`).
+- Still Anki-named, deliberately: state (`ankiConnected`, `ankiDeck`, `activeMode.ankiDeck`), i18n text, the
+  AnkiWeb banner. Function names elsewhere in this file (`ankiAddNote`, `ankiSetNoteTags`, …) are the Anki
+  adapter's internals behind `srs.addNote`, `srs.setNoteTags`, ….
+
 ## Study → Anki sync
-### Driving Anki's real reviewer (`doSyncRatings`)
+### Driving Anki's real reviewer (`doSyncRatings` → `srs.recordRatings`, in `src/cards/anki`)
 Not `answerCards` (it throws "not at top of queue" for out-of-order or new cards). Instead
 `ankiGuiDeckReview(deck)` → loop `ankiGuiCurrentCard()` → `ankiGuiShowAnswer()` → `ankiGuiAnswerCard(ease)`,
 matched by `cardId`. Anki computes the interval. `guiCurrentCard().buttons` is an ARRAY of valid eases: cap to

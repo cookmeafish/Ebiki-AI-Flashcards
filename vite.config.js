@@ -8,6 +8,7 @@ import os from 'os'
 import { spawn, execFile } from 'child_process'
 import { fileURLToPath } from 'url'
 import { mergeConfigPatch } from './src/utils/configDiff.js'
+import { featureDataEntries, featureDataRoutes, featureLocalFiles, registerFeatureRoutes } from './src/features/server.js'
 
 // Text files a person may have edited by hand (config.json, a mode's config, .env, datadir.json) can start
 // with a UTF-8 byte-order mark: Windows PowerShell 5.1 writes one, and so did older Notepad. JSON.parse
@@ -68,7 +69,8 @@ const readLaunchMode = () => {
     return m === 'browser' ? 'browser' : 'app'
   } catch { return 'app' }   // unset/corrupt = the current default, the app window
 }
-const DATA_ENTRIES = ['config.json', 'ankiformat.json', 'keys.json', 'modes', 'decks', 'chats', 'discover', 'cache']
+// Features add their own data folders (src/features/server.js), so removing a feature removes its entry.
+const DATA_ENTRIES = ['config.json', 'ankiformat.json', 'keys.json', 'modes', 'decks', 'chats', 'discover', 'cache', ...featureDataEntries()]
 function resolveDataDir() {
   const env = (process.env.EBIKI_DATA_DIR || '').trim()
   if (env) return path.resolve(env)
@@ -2253,7 +2255,7 @@ function apiPlugin() {
       // NOT guarded on purpose: /api/datadir (the way back to the app folder),
       // /api/keys, /api/log, /api/anki, /api/update, /api/ankiconnect, /api/anki-focus,
       // /api/web-search, /api/tts.
-      const DATA_ROUTES = ['/config', '/ankiformat', '/modes', '/knowledge-sections', '/deck-progress', '/discover-store', '/question-bank', '/chats', '/chat-load']
+      const DATA_ROUTES = ['/config', '/ankiformat', '/modes', '/knowledge-sections', '/deck-progress', '/discover-store', '/question-bank', '/chats', '/chat-load', ...featureDataRoutes()]
       server.middlewares.use('/api', async (req, res, next) => {
         const p = (req.url || '').split('?')[0].replace(/\/+$/, '') || '/'
         if (!DATA_ROUTES.some((r) => p === r || p.startsWith(r + '/'))) return next()
@@ -2280,6 +2282,9 @@ function apiPlugin() {
         if (mode === 'offline') res.setHeader('X-Ebiki-Offline', '1')
         next()
       })
+      // Feature routes (src/features/server.js), AFTER the guard so their data routes are fronted by it.
+      registerFeatureRoutes(server, { dataPath, readUtf8, writeFileAtomic, appRoot: APP_ROOT, fs, path, crypto })
+
       // Anki format endpoint
       server.middlewares.use('/api/ankiformat', (req, res) => {
         if (req.method === 'GET') {
@@ -3843,7 +3848,8 @@ export default defineConfig({
       // phantom change event on it after every restart → infinite restart loop.
       // Config edits therefore require a manual dev-server restart.
       // *.tmp: writeFileAtomic's temp files (e.g. .env.<pid>.tmp next to the app files).
-      ignored: ['**/.env', '**/config.json', '**/config.json.*', '**/ankiformat.json', '**/vite.config.js', '**/datadir.json', '**/.app-ready', '**/modes/**', '**/decks/**', '**/chats/**', '**/local-data-backup-*/**', '**/.local-sync/**', '**/.local-home/**', '**/.local-offline/**', '**/.scratch/**', '**/*.tmp'],
+      ignored: ['**/.env', '**/config.json', '**/config.json.*', '**/ankiformat.json', '**/vite.config.js', '**/datadir.json', '**/.app-ready', '**/modes/**', '**/decks/**', '**/chats/**', '**/local-data-backup-*/**', '**/.local-sync/**', '**/.local-home/**', '**/.local-offline/**', '**/.scratch/**', '**/*.tmp',
+        ...featureDataEntries().map((e) => `**/${e}/**`), ...featureLocalFiles().map((l) => `**/${l}`)],
     },
   },
 })

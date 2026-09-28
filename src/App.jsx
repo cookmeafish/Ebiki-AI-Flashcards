@@ -10,7 +10,7 @@ import TokenUsageMeter from './components/TokenUsageMeter'
 import { pickUpgrade, pickNewest, parseModelId, compareModels } from './config/modelVersions'
 import { buildModelResearchPrompt, buildPresetDecisionPrompt } from './config/modelAdvisor'
 import { LANGS, langFromName, isDistinctSpoken } from './config/languages'
-import { makeT, APP_LANGUAGES } from './i18n'
+import { makeT, APP_LANGUAGES, LANGUAGES, langMeta } from './i18n'
 import { pickShrimp, shrimpUrl, DEFAULT_SHRIMP, IDLE_SHRIMP, POSE_NAMES, poseFile, SHRIMP } from './config/shrimp'
 import { C, RADIUS, SHADOW, FONT } from './config/tokens'
 import { FREQ_SCALE, REGISTERS, isUsageTag, isRegionTag, sortTagsUsageFirst, normalizeUsageTags, collapseSpanningRegions, reconcileUsageTags, usageTagStyle, usageTagTip } from './tags/usage'
@@ -22,21 +22,27 @@ import Markdown, { sanitizeHtml } from './components/Markdown'
 import DiscoverPanel from './components/DiscoverPanel'
 import SettingsModal from './components/SettingsModal'
 import ModeStudio from './components/ModeStudio'
+import { registry, EVENTS, SLOT, FeatureContext, FeatureSlot, OptionalFeaturesCard, requestIntent } from './features'
+import Sidebar from './shell/Sidebar'
+import Rail from './shell/Rail'
+import { SHELL, CORE_NAV, railWanted, useViewportWidth } from './shell/layout'
 import OnboardingWizard from './components/OnboardingWizard'
 import Dropdown from './components/Dropdown'
 import { S } from './styles/theme'
 import { ocrLog, ocrLogTable, ocrLogFlush } from './utils/logger'
 import { answerLetterCounts, countAnswerLetters, correctLetterHint } from './utils/studyHints'
-import { ankiGetReviewsOfCards, ankiPing, ankiSyncAuthState, ankiGetDecks, ankiCreateDeck, ankiAddNote, ankiCanAddNote, ankiCopyNote, ankiChangeDeck, ankiForgetCards, ankiSetNoteTags, ankiFindCards, ankiCardsInfo, ankiAnswerCards, ankiSetDueDate, ankiInsertReviews, ankiGuiDeckReview, ankiGuiCurrentCard, ankiGuiShowAnswer, ankiGuiAnswerCard, ankiGuiDeckBrowser, ankiGetDeckStats, ankiFindNotes, ankiNotesInfo, ankiUpdateNote, ankiDeleteNotes, ankiSync, ankiSyncSoon, ankiStoreMediaFile, ankiGetNumCardsReviewedToday, ankiGetNumCardsReviewedByDay, ankiGetTodayReviewStats, markCorrectionReview, ankiDeckTerm, sanitizeCardHtml, isHtmlTagName, setAnkiTranslator } from './utils/anki'
+import { srs, hasCapability, activeBackend, sanitizeCardHtml, isHtmlTagName, setTranslator as setCardTranslator } from './cards'
 import { flattenConfig, diffConfig } from './utils/configDiff'
 import { readBlob, readBlobChecked, writeBlob, setBlobWritesPaused, storageKey as blobStoreKey, DEFAULT_LEDGER } from './discover/storage'
 import { buildProfilePrompt, buildSuggestionPrompt, buildVerifyPrompt } from './discover/prompts'
 import PbqQuestion from './components/PbqQuestion'
 import { QUESTION_REUSE_DEFAULT, reuseSettings, replaceQuestion, storableQuestion, clearBank, createQuestionReuse, mergeGlosses, updateBank } from './utils/questionBank'
 import { compilePbq, itemKey as pbqItemKey, reshufflePbq, pbqRatingScore, checkCitations, studentView, parseSolverAnswer, gradePbq, compareToKey, PBQ_GEN_SYSTEM, PBQ_SOLVER_SYSTEM, PBQ_JUDGE_SYSTEM, buildGeneratorPrompt as buildPbqGeneratorPrompt, buildSolverPrompt as buildPbqSolverPrompt, buildJudgePrompt as buildPbqJudgePrompt } from './pbq/engine'
+import { apiFetch, platform } from './platform'
 
 // App-language code → English name, for prompting the AI to reply in the user's language.
-const APP_LANG_NAME = { en: 'English', es: 'Spanish', zh: 'Chinese', ja: 'Japanese' }
+// App language code -> its English name for prompts (from the one list, src/i18n/languages.js).
+const APP_LANG_NAME = Object.fromEntries(LANGUAGES.map((l) => [l.code, l.name]))
 
 // Max characters of a mode's knowledge base injected into AI prompts (~15k tokens ≈ 20+ pages —
 // comfortably within every supported provider's context window). The knowledge base flows into
@@ -704,7 +710,7 @@ export default function App() {
     // not a blip. And when it answers again the page reloads itself, because after
     // an update-and-restart the running page is the OLD build.
     let misses = 0
-    const beat = () => fetch('/api/alive', { method: 'POST' })
+    const beat = () => apiFetch('/api/alive', { method: 'POST' })
       .then(() => {
         misses = 0
         setServerDown((was) => { if (was) window.location.reload(); return false })
@@ -714,7 +720,7 @@ export default function App() {
     // Say what kind of front end this page is, so a LIVE launch-mode switch can tell when the new
     // window/tab is really up. The page being replaced polls for this and only then closes itself:
     // tearing it down first would look to the server's auto-exit like everybody left.
-    fetch('/api/launchmode/hello', {
+    apiFetch('/api/launchmode/hello', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ kind: window.ebikiWindow ? 'app' : 'browser' }),
     }).catch(() => {})
@@ -727,7 +733,7 @@ export default function App() {
     // away: navigating off and pressing Back must not read as "the app closed".
     const bye = (e) => {
       if (e && e.persisted) return
-      try { navigator.sendBeacon('/api/bye', '') } catch { /* the page is going away regardless */ }
+      try { platform.beacon('/api/bye', '') } catch { /* the page is going away regardless */ }
     }
     // The server pings over the HMR socket before it acts on a goodbye or a
     // silence, so a tab the browser has throttled still gets to say "I'm here".
@@ -818,6 +824,25 @@ export default function App() {
   // Auto-sync study ratings to Anki N min after each card is graded (then lock it). When off, ratings
   // only sync via the manual "Sync now" button or on Finish/Exit. Global settings (config.json).
   const [studyAutoSync, setStudyAutoSync] = useState(true)
+  // Settings of the pluggable features (src/features), config.json "features": { [featureId]: {...} }.
+  const [featureSettings, setFeatureSettingsState] = useState({})
+  const setFeatureSettings = (id, patch) => setFeatureSettingsState((prev) => ({ ...prev, [id]: { ...(prev[id] || {}), ...patch } }))
+  // Optional features are on only when the user switched them on (Settings > Optional features).
+  registry.setEnabled((id) => featureSettings[id]?.enabled === true)
+  // App FACTS for features (src/features/events.js). The app never knows who listens.
+  const featureCtxRef = useRef(null) // the latest feature context, handed to event handlers
+  const emitAppEvent = (event, payload) => registry.emit(event, payload || {}, featureCtxRef.current)
+  // A fact announced at most once per key, across reloads (a restored study session must not repeat it).
+  const EMITTED_STORE = 'ebiki-emitted-events'
+  const EMITTED_MAX = 500
+  const emittedRef = useRef(null)
+  const emitOnce = (key, event, payload) => {
+    if (!emittedRef.current) { try { emittedRef.current = JSON.parse(localStorage.getItem(EMITTED_STORE) || '[]') } catch { emittedRef.current = [] } }
+    if (emittedRef.current.includes(key)) return
+    emittedRef.current = [...emittedRef.current, key].slice(-EMITTED_MAX)
+    try { localStorage.setItem(EMITTED_STORE, JSON.stringify(emittedRef.current)) } catch { /* in memory only */ }
+    emitAppEvent(event, payload)
+  }
   const [studyAutoSyncMinutes, setStudyAutoSyncMinutes] = useState(5)
   // Question reuse (GLOBAL, config.json, OFF unless the user turns it on in Settings > AI & cost or onboarding):
   // save the questions generated for a card and ask them again once it holds maxPerCard. See utils/questionBank.js.
@@ -882,7 +907,7 @@ export default function App() {
   useEffect(() => {
     if (isOverlay || !configLoaded) return
     let stop = false
-    const check = () => fetch('/api/offline').then((r) => (r.ok ? r.json() : null)).then((d) => {
+    const check = () => apiFetch('/api/offline').then((r) => (r.ok ? r.json() : null)).then((d) => {
       if (stop) return
       // Only a real status counts: a 500 (the offline copy could not be listed) read as "the share is back" and
       // froze every writer while the app was still offline.
@@ -916,7 +941,7 @@ export default function App() {
     if (discard && !(await confirmDialog(t('offlineDiscardConfirm')))) return
     setOfflineBusy(discard ? 'discard' : 'merge')
     try {
-      const r = await fetch('/api/offline', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ discard: !!discard }) })
+      const r = await apiFetch('/api/offline', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ discard: !!discard }) })
       const d = await r.json()
       // Known refusals by code (the server's text is English).
       const OFFLINE_ERR = { busy: 'offlineErrBusy', unreachable: 'offlineErrUnreachable', otherFolder: 'offlineErrOtherFolder' }
@@ -1093,7 +1118,7 @@ export default function App() {
   // while it still equals the previous language's default (a first run froze the OS language's value).
   const targetLangAppRef = useRef(null)
   useEffect(() => {
-    const def = (l) => ({ en: 'eng', es: 'spa', zh: 'chi_sim', ja: 'jpn' })[l] || 'eng'
+    const def = (l) => langMeta(l).ocr
     const prev = targetLangAppRef.current
     targetLangAppRef.current = appLanguage
     if (prev && prev !== appLanguage) setTargetLang((cur) => (cur === def(prev) ? def(appLanguage) : cur))
@@ -1138,7 +1163,7 @@ export default function App() {
   useEffect(() => {
     if (isOverlay || !configLoaded || ankiConnected !== false) return
     let stop = false
-    fetch('/api/ankiconnect').then((r) => r.json()).then((d) => { if (!stop) setAnkiAddon(d) }).catch(() => {})
+    srs.setupStatus().then((d) => { if (!stop) setAnkiAddon(d) }).catch(() => {})
     return () => { stop = true }
   }, [isOverlay, configLoaded, ankiConnected])
 
@@ -1146,13 +1171,13 @@ export default function App() {
   // answering. A 'signed-in' answer is remembered so the probe (which performs a
   // real sync in that case) never runs again; a 'signed-out' answer is not
   // remembered, so it is re-asked next launch until they either sign in or say
-  // "not now". See ankiSyncAuthState for why this is free when signed out.
+  // "not now". See srs.cloudAuthState for why this is free when signed out.
   useEffect(() => {
     if (isOverlay || !configLoaded || !ankiConnected || ankiWebProbedRef.current) return
     try { if (localStorage.getItem('ebiki-ankiweb') === 'signed-in') { ankiWebProbedRef.current = true; return } } catch { /* private mode: probe every time */ }
     ankiWebProbedRef.current = true
     let stop = false
-    ankiSyncAuthState().then((state) => {
+    srs.cloudAuthState().then((state) => {
       if (stop || state === 'unknown') return
       setAnkiWebAuth(state)
       if (state === 'signed-in') { try { localStorage.setItem('ebiki-ankiweb', 'signed-in') } catch { /* nothing to remember it with */ } }
@@ -1168,11 +1193,11 @@ export default function App() {
   // closed Anki the button silently did nothing.
   const openAnkiWindow = async () => {
     let focused = false
-    try { focused = !!(await (await fetch('/api/anki-focus', { method: 'POST' })).json()).ok } catch { /* nothing to focus */ }
+    try { focused = !!(await srs.focusApp()).ok } catch { /* nothing to focus */ }
     // Anki is running but waiting on a question: starting it again does nothing (and said "Starting Anki").
     if (!focused && !ankiAddon?.ankiAwaitingInput) {
       try {
-        const d = await (await fetch('/api/anki-start', { method: 'POST' })).json()
+        const d = await srs.startApp()
         if (d.ok) {
           setSuccessNotice(t('ankiStarting'))
           setAnkiAddon((a) => (a ? { ...a, ankiLauncherStuck: false } : a))
@@ -1184,7 +1209,7 @@ export default function App() {
   const installAnkiAddon = async () => {
     setAddonState('installing'); setAddonMsg('')
     try {
-      const d = await (await fetch('/api/ankiconnect', { method: 'POST' })).json()
+      const d = await srs.installConnector()
       if (!d.ok) { setAddonState('error'); setAddonMsg(d.error || ''); return }
       // Already there (a switched-off or half-loaded add-on): saying "installed, restart Anki" sent the user
       // round in a circle and hid the repair button for the session.
@@ -1201,12 +1226,12 @@ export default function App() {
   const openAnkiForSignIn = async () => {
     setAnkiWebHint(t('ankiWebHow'))
     try {
-      const d = await (await fetch('/api/anki-focus', { method: 'POST' })).json()
+      const d = await srs.focusApp()
       if (!d.ok) setAnkiWebHint(t('ankiWebNoWindow'))
     } catch { setAnkiWebHint(t('ankiWebNoWindow')) }
   }
   const recheckAnkiWeb = async () => {
-    const state = await ankiSyncAuthState().catch(() => 'unknown')
+    const state = await srs.cloudAuthState().catch(() => 'unknown')
     if (state === 'signed-in') {
       try { localStorage.setItem('ebiki-ankiweb', 'signed-in') } catch { /* nothing to remember it with */ }
       setAnkiWebAuth('signed-in')
@@ -1608,7 +1633,7 @@ export default function App() {
     // nothing and every refresh opened a blank New Chat.
     let savedId = null
     try { savedId = localStorage.getItem('ebiki-chat-session') } catch {}
-    fetch('/api/chats').then(r => r.json()).then(async sessions => {
+    apiFetch('/api/chats').then(r => r.json()).then(async sessions => {
       // A 503 (share down) answers an object, and rendering the list from it crashed the Chat tab.
       if (!Array.isArray(sessions)) return
       setChatTabSessions(sessions)
@@ -1617,7 +1642,7 @@ export default function App() {
         if (match) {
           // Same rule as chatTabLoadSession: a chat that could not be read is not reopened EMPTY
           // under its id, or the next message would save a 2-line chat over the real one.
-          const r = await fetch(`/api/chat-load?id=${encodeURIComponent(match.id)}`)
+          const r = await apiFetch(`/api/chat-load?id=${encodeURIComponent(match.id)}`)
           const data = await r.json()
           if (!r.ok || !Array.isArray(data?.messages)) return
           // The user already started a chat (or opened one) while this loaded: that one stays. Restoring
@@ -2351,7 +2376,7 @@ export default function App() {
   const researchModelCard = async (prov, id, advisor, ids) => {
     if (aiStateRef.current.modelCards?.[id]) return
     let results = []
-    try { results = ((await (await fetch(`/api/web-search?q=${encodeURIComponent(`${id} AI model pricing token usage capabilities`)}`)).json()).results) || [] } catch {}
+    try { results = ((await (await apiFetch(`/api/web-search?q=${encodeURIComponent(`${id} AI model pricing token usage capabilities`)}`)).json()).results) || [] } catch {}
     try {
       const txt = await aiCall(aiStateRef.current.apiKeys[prov], 'You research AI models. Respond with valid JSON only.',
         buildModelResearchPrompt({ modelId: id, provider: prov, priorModelId: priorInFamily(id, ids), searchResults: results.slice(0, 5) }), advisor, { silent: true, provider: prov })
@@ -2509,10 +2534,10 @@ export default function App() {
   // ─── Load Keys & Config from file on mount ─────────────────────────────────
   useEffect(() => {
     Promise.all([
-      fetch('/api/keys').then((r) => r.ok ? r.json().then((k) => ({ ...k, _ok: true })) : { _ok: false }).catch(() => ({ _ok: false })),
-      fetch('/api/config').then((r) => r.ok ? r.json().then((d) => ({ ...d, _reachable: true, _offline: r.headers.get('X-Ebiki-Offline') === '1' })) : { _reachable: false }).catch(() => ({ _reachable: false })),
-      fetch('/api/modes').then((r) => r.json()).catch(() => null),
-      fetch('/api/ankiformat').then((r) => r.json()).catch(() => null),
+      apiFetch('/api/keys').then((r) => r.ok ? r.json().then((k) => ({ ...k, _ok: true })) : { _ok: false }).catch(() => ({ _ok: false })),
+      apiFetch('/api/config').then((r) => r.ok ? r.json().then((d) => ({ ...d, _reachable: true, _offline: r.headers.get('X-Ebiki-Offline') === '1' })) : { _reachable: false }).catch(() => ({ _reachable: false })),
+      apiFetch('/api/modes').then((r) => r.json()).catch(() => null),
+      apiFetch('/api/ankiformat').then((r) => r.json()).catch(() => null),
     ]).then(([keys, config, modesData, legacyFormat]) => {
       // Load modes from /api/modes (per-file storage)
       // Only a SUCCESSFUL read (even an empty one, a genuine first run) unlocks mode saves.
@@ -2623,10 +2648,11 @@ export default function App() {
       // Never chosen: the app language, not English. General modes translate Picture words INTO targetLang, and a
       // Chinese or Spanish user scanning an English page got nothing translated (English counted as their own).
       if (config.targetLang) setTargetLang(config.targetLang)
-      else setTargetLang(({ en: 'eng', es: 'spa', zh: 'chi_sim', ja: 'jpn' })[config.appLanguage || appLanguage] || 'eng')
+      else setTargetLang(langMeta(config.appLanguage || appLanguage).ocr)
       if (config.showHighlights !== undefined) setShowHighlights(config.showHighlights)
       if (config.intelligence) setIntelligence(config.intelligence)
       if (typeof config.studyAutoSync === 'boolean') setStudyAutoSync(config.studyAutoSync)
+      if (config.features && typeof config.features === 'object' && !Array.isArray(config.features)) setFeatureSettingsState(config.features)
       if (Number.isFinite(config.studyAutoSyncMinutes)) setStudyAutoSyncMinutes(config.studyAutoSyncMinutes)
       if (config.questionReuse && typeof config.questionReuse === 'object') setQuestionReuse(reuseSettings(config.questionReuse))
       if (typeof config.showTokenUsage === 'boolean') setShowTokenUsage(config.showTokenUsage)
@@ -2683,7 +2709,7 @@ export default function App() {
       setAiErrorNotice(tLiveRef.current('start_configFailed', { msg: e?.message || e }))
     })
     // Check overlay status immediately and poll
-    const checkOverlay = () => fetch('/api/launch-overlay').then(r => r.json()).then(d => setOverlayRunning(d.running)).catch(() => {})
+    const checkOverlay = () => apiFetch('/api/launch-overlay').then(r => r.json()).then(d => setOverlayRunning(d.running)).catch(() => {})
     checkOverlay()
     const overlayPoll = setInterval(checkOverlay, 3000)
 
@@ -2832,11 +2858,11 @@ export default function App() {
       const ready = () => setTimeout(() => { overlaySettingsReadyRef.current = true }, 0) // after the render that applies them
       const cap = setTimeout(() => { overlaySettingsReadyRef.current = true }, 5000)
       // The deck list too: a deck made since the overlay started fell back to the first deck, and cards went there.
-      ankiGetDecks().then((d) => { if (Array.isArray(d)) setAnkiDecks(d) }).catch(() => {})
+      srs.getDecks().then((d) => { if (Array.isArray(d)) setAnkiDecks(d) }).catch(() => {})
       Promise.all([
-        fetch('/api/keys').then((r) => (r.ok ? r.json() : null)).catch(() => null),
-        fetch('/api/config').then((r) => (r.ok ? r.json() : null)).catch(() => null),
-        fetch('/api/modes').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        apiFetch('/api/keys').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        apiFetch('/api/config').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+        apiFetch('/api/modes').then((r) => (r.ok ? r.json() : null)).catch(() => null),
       ]).then(([keys, config, modesData]) => {
         if (keys && typeof keys === 'object') setApiKeys(keys)
         if (config && typeof config === 'object') {
@@ -2867,10 +2893,10 @@ export default function App() {
 
     // Check AnkiConnect on mount
     console.log('[Anki] checking connection on mount...')
-    ankiPing().then((ok) => {
+    srs.ping().then((ok) => {
       setAnkiConnected(ok)
       console.log('[Anki] mount check:', ok ? 'connected' : 'not connected')
-      if (ok) ankiGetDecks().then((decks) => {
+      if (ok) srs.getDecks().then((decks) => {
         setAnkiDecks(decks)
         console.log('[Anki] available decks:', decks)
         // NO default deck is written into the modes here (CLAUDE.md: never auto-persist a deck
@@ -2944,7 +2970,7 @@ export default function App() {
       keySaveDoneSeqRef.current = mySeq
       if (keyYieldedRef.current) { keyYieldedRef.current = false; setTimeout(() => setKeySaveRetry((n) => n + 1), 0) }
       if (authority.length) keyCheckRetryRef.current = 0
-      fetch('/api/keys' + (authority.length ? '?source=user&providers=' + encodeURIComponent(authority.join(',')) : ''), {
+      apiFetch('/api/keys' + (authority.length ? '?source=user&providers=' + encodeURIComponent(authority.join(',')) : ''), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(apiKeys),
@@ -2980,7 +3006,7 @@ export default function App() {
     // One at a time, in order (same reason as postModes): two saves on separate connections could
     // land out of order and the server merges each over the file, so the older one won (a quick
     // theme or tab change reverted).
-    const all = { provider, aiModels, modelPresets, rejectedModels, modelPlans, modelCards, modelAvailability, lastModelCheck, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, intelligence, studyAutoSync, studyAutoSyncMinutes, questionReuse, showTokenUsage, overlayEnabled, pronunciation: pronunciationCfg, onboarded, ...(activeTab ? { activeTab } : {}) }
+    const all = { provider, aiModels, modelPresets, rejectedModels, modelPlans, modelCards, modelAvailability, lastModelCheck, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, intelligence, studyAutoSync, studyAutoSyncMinutes, questionReuse, showTokenUsage, overlayEnabled, pronunciation: pronunciationCfg, features: featureSettings, onboarded, ...(activeTab ? { activeTab } : {}) }
     // Per key, and one level down inside the per-provider / per-model maps (configDiff.js): one change in
     // aiModels used to post this computer's whole stale map, erasing another computer's entries.
     const sent = lastSentCfgRef.current
@@ -2993,7 +3019,7 @@ export default function App() {
     lastSentCfgRef.current = nowSent
     const body = JSON.stringify(diff.body)
     configSaveRef.current = configSaveRef.current
-      .then(() => fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }))
+      .then(() => apiFetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }))
       // Not saved: mark only THESE keys unsent, so the next save retries them. Forgetting everything made
       // the next save post the whole config, and its stale copy of every other setting overwrote what
       // another computer had changed meanwhile (the clobber the changed-keys design exists to stop).
@@ -3011,7 +3037,7 @@ export default function App() {
       lastSentCfgRef.current = next
       if (++cfgSaveFailsRef.current <= 6) setTimeout(() => setCfgSaveRetry((n) => n + 1), 5000 * cfgSaveFailsRef.current)
     }
-  }, [provider, aiModels, modelPresets, rejectedModels, modelPlans, modelCards, modelAvailability, lastModelCheck, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, intelligence, studyAutoSync, studyAutoSyncMinutes, questionReuse, showTokenUsage, overlayEnabled, pronunciationCfg, onboarded, activeTab, configLoaded, cfgSaveRetry])
+  }, [provider, aiModels, modelPresets, rejectedModels, modelPlans, modelCards, modelAvailability, lastModelCheck, availableModels, appLanguage, appTheme, language, targetLang, showHighlights, intelligence, studyAutoSync, studyAutoSyncMinutes, questionReuse, showTokenUsage, overlayEnabled, pronunciationCfg, featureSettings, onboarded, activeTab, configLoaded, cfgSaveRetry])
 
   // Auto-launch the overlay once on startup when the persisted preference is ON (default).
   const overlayAutoLaunchedRef = useRef(false)
@@ -3020,7 +3046,7 @@ export default function App() {
     if (isOverlay || !configLoaded || !onboarded || overlayAutoLaunchedRef.current) return
     if (overlayEnabled && !overlayRunning) {
       overlayAutoLaunchedRef.current = true
-      fetch('/api/launch-overlay', { method: 'POST' })
+      apiFetch('/api/launch-overlay', { method: 'POST' })
         .then((r) => r.json())
         .then((d) => { if (!d.error) setOverlayRunning(true) })
         .catch(() => {})
@@ -4183,13 +4209,13 @@ export default function App() {
   // review log so they always match Anki. Accuracy here is a pass-rate (% of today's
   // reviewed cards that weren't answered "Again"). Falls back to local history if offline.
   // Extracted so a post-sync refresh can re-read it too (sync is bidirectional — after pushing
-  // our ratings, ankiSync also PULLS other devices' reviews, so the numbers must be re-read).
+  // our ratings, srs.sync also PULLS other devices' reviews, so the numbers must be re-read).
   const ankiStatsSeqRef = useRef(0)
   const refreshAnkiStats = async () => {
     // The tab-open read and the post-sync read overlap (every deck is read in turn): the one that started first
     // finished last and put the older numbers back.
     const seq = ++ankiStatsSeqRef.current
-    const connected = await ankiPing()
+    const connected = await srs.ping()
     if (seq !== ankiStatsSeqRef.current) return
     setAnkiConnected(connected)
     // Keep the last-known (hydrated) numbers visible if Anki is momentarily unreachable —
@@ -4197,9 +4223,9 @@ export default function App() {
     if (!connected) return
     try {
       let [today, byDayRaw, todayReviews] = await Promise.all([
-        ankiGetNumCardsReviewedToday().catch(() => null),
-        ankiGetNumCardsReviewedByDay().catch(() => null),
-        ankiGetTodayReviewStats().catch(() => null),
+        srs.reviewsToday().catch(() => null),
+        srs.reviewsByDay().catch(() => null),
+        srs.todayReviewStats().catch(() => null),
       ])
       if (seq !== ankiStatsSeqRef.current) return
       // Every read failed: keep what is on screen (an all-zero result looked like a lost streak).
@@ -4548,15 +4574,15 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
   const refreshAnkiConnection = async () => {
     console.log('[Anki] refreshing connection...')
     setAnkiConnected(null)
-    const ok = await ankiPing()
+    const ok = await srs.ping()
     setAnkiConnected(ok)
     if (ok) {
       // A failed read keeps the list (an empty one emptied every deck picker, and chat cards went to "Default").
-      const decksRead = await ankiGetDecks().catch(() => null)
+      const decksRead = await srs.getDecks().catch(() => null)
       const decks = Array.isArray(decksRead) ? decksRead : []
       if (Array.isArray(decksRead)) setAnkiDecks(decksRead)
       // Refused right after connecting (AnkiConnect warming up): read again once, the boot watcher has stopped.
-      else setTimeout(() => { ankiGetDecks().then((d) => { if (Array.isArray(d)) setAnkiDecks(d) }).catch(() => {}) }, 5000)
+      else setTimeout(() => { srs.getDecks().then((d) => { if (Array.isArray(d)) setAnkiDecks(d) }).catch(() => {}) }, 5000)
       console.log('[Anki] connected, decks:', decks)
       // NEVER auto-write a default deck into the mode config here. This used to persist decks[0]
       // whenever the saved deck wasn't in the list — but on a fresh load this can run BEFORE the
@@ -5050,11 +5076,11 @@ Output ONLY raw JSON. No markdown, no backticks.${dialectRule()}${preferredTermR
     // Inside the try: the lock above is released only in its finally.
     try {
       // Re-check Anki connection so the status is fresh (user may have opened Anki since last check)
-      const connected = await ankiPing()
+      const connected = await srs.ping()
       setAnkiConnected(connected)
       if (connected) {
         // A failed read keeps the list (an empty one emptied every deck picker, and chat cards went to "Default").
-        const decksRead = await ankiGetDecks().catch(() => null)
+        const decksRead = await srs.getDecks().catch(() => null)
         const decks = Array.isArray(decksRead) ? decksRead : []
         if (Array.isArray(decksRead)) setAnkiDecks(decksRead)
       }
@@ -5160,7 +5186,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     // renamedIds always sent: a missing list is an OLDER client to the server, which then moved a folder another
     // computer had renamed back to this page's stale name (a deck pick through setAnkiDeck did exactly that).
     const body = JSON.stringify({ ...payload, deletedIds: Array.isArray(payload.deletedIds) ? payload.deletedIds : [], renamedIds: Array.isArray(payload.renamedIds) ? payload.renamedIds : [] })
-    modesSaveRef.current = modesSaveRef.current.then(() => fetch('/api/modes', {
+    modesSaveRef.current = modesSaveRef.current.then(() => apiFetch('/api/modes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body,
@@ -5260,7 +5286,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     Promise.resolve(saved).then((conflicts) => {
       // The server re-tagged this mode's chats: the chat list held the old tag, so a chat of the renamed mode
       // looked like one of an unknown mode, and its cards went to the ACTIVE mode's deck.
-      fetch('/api/chats').then((r) => (r.ok ? r.json() : null)).then((list) => { if (Array.isArray(list)) setChatTabSessions(list) }).catch(() => {})
+      apiFetch('/api/chats').then((r) => (r.ok ? r.json() : null)).then((list) => { if (Array.isArray(list)) setChatTabSessions(list) }).catch(() => {})
       const c = (Array.isArray(conflicts) ? conflicts : []).find((x) => x && x.id === id)
       const target = c?.suggested || toName
       const live = modesRef.current.find((m) => m.id === id)?.name
@@ -5430,9 +5456,9 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     if ((deckAnalyzeRecs.length > 0 || deckDupGroups.length > 0) && !(await confirmDialog(t('deck_switchDiscard')))) return // it opens the new deck: same question as the deck picker
     setDeckBrowserAddLoading(true)
     try {
-      await ankiCreateDeck(name)
+      await srs.createDeck(name)
       // A failed read keeps the list (an empty one emptied every deck picker, and chat cards went to "Default").
-      const decksRead = await ankiGetDecks().catch(() => null)
+      const decksRead = await srs.getDecks().catch(() => null)
       const decks = Array.isArray(decksRead) ? decksRead : []
       if (Array.isArray(decksRead)) setAnkiDecks(decksRead)
       // Anki's own spelling of the deck: "spanish" typed for an existing "Spanish" was linked as typed, the picker
@@ -5490,9 +5516,9 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     if ((deckAnalyzeRecs.length > 0 || deckDupGroups.length > 0) && !(await confirmDialog(t('deck_switchDiscard')))) return // it opens the new deck: same question as the deck picker
     setDeckBrowserAddLoading(true)
     try {
-      await ankiCreateDeck(name) // idempotent: linking an existing deck is fine
+      await srs.createDeck(name) // idempotent: linking an existing deck is fine
       // A failed read keeps the list (an empty one emptied every deck picker, and chat cards went to "Default").
-      const decksRead = await ankiGetDecks().catch(() => null)
+      const decksRead = await srs.getDecks().catch(() => null)
       const decks = Array.isArray(decksRead) ? decksRead : []
       if (Array.isArray(decksRead)) setAnkiDecks(decksRead)
       name = decks.find((d) => d.toLowerCase() === name.toLowerCase()) || name // Anki's own spelling (see handleAddDeck)
@@ -5519,8 +5545,8 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     try {
       // A refused first request is common right at page load (see loadDeckNotes): one retry, and a list that
       // still failed is NOT "no decks" (the saved deck was replaced by the fallback and lost for good).
-      let decks = await ankiGetDecks().catch(() => null)
-      if (!decks) { await new Promise((r) => setTimeout(r, 1000)); decks = await ankiGetDecks().catch(() => null) }
+      let decks = await srs.getDecks().catch(() => null)
+      if (!decks) { await new Promise((r) => setTimeout(r, 1000)); decks = await srs.getDecks().catch(() => null) }
       if (decks) setAnkiDecks(decks)
       // Respect the user's last-chosen deck (persisted in localStorage → deckBrowserDeck) if it still
       // exists; only fall back to the mode deck / first deck when nothing valid is saved. Without this
@@ -5556,7 +5582,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       // cards" (verified live: the exact same query that failed here succeeded moments later).
       let noteIds
       for (let attempt = 0; ; attempt++) {
-        try { noteIds = await ankiFindNotes(`${ankiDeckTerm(deck)}`); break }
+        try { noteIds = await srs.findNotes({ deck }); break }
         catch (err) {
           if (attempt >= 2) throw err
           await new Promise((r) => setTimeout(r, 400 * (attempt + 1)))
@@ -5564,13 +5590,13 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       }
       // A note deleted between findNotes and notesInfo comes back as {} (no fields), and rendering it
       // threw in the search filter and the row: the whole app fell to the recovery screen.
-      const notes = noteIds.length > 0 ? ((await ankiNotesInfo(noteIds)) || []).filter((n) => n && n.noteId && n.fields) : []
+      const notes = noteIds.length > 0 ? ((await srs.notesInfo(noteIds)) || []).filter((n) => n && n.noteId && n.fields) : []
       // Fetch card-level scheduling stats so we can sort by studied/lapses/interval.
       // Aggregated per note across its cards; failures here don't block the listing.
       try {
         const allCardIds = notes.flatMap((n) => n.cards || [])
         if (allCardIds.length > 0) {
-          const cardsInfo = await ankiCardsInfo(allCardIds)
+          const cardsInfo = await srs.cardsInfo(allCardIds)
           const byId = {}
           cardsInfo.forEach((c) => { byId[c.cardId] = c })
           notes.forEach((n) => {
@@ -5682,7 +5708,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       // in Anki, would be overwritten by the editor's older copy of a field it changes. Refuse that; the
       // editor stays open with the user's text. A failed re-read writes as before.
       let fresh = null
-      try { fresh = ((await ankiNotesInfo([noteId])) || [])[0] || null } catch { fresh = null }
+      try { fresh = ((await srs.notesInfo([noteId])) || [])[0] || null } catch { fresh = null }
       if (fresh && fresh.fields) {
         // A field whose Anki copy already holds the edited text (a save that failed after writing, then Save again;
         // the same fix made in Anki) is not "moved": it is dropped from the write, and the rest goes through.
@@ -5694,7 +5720,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         ;({ out: htmlFields, bad: unkeepable } = buildHtml(fresh, already))
         if (unkeepable) { setMyStatus('error'); setAiErrorNotice(t('deck_keepsMarkup')); return }
       }
-      if (Object.keys(htmlFields).length) { await ankiUpdateNote(noteId, htmlFields); markDeckEdited(noteId) }
+      if (Object.keys(htmlFields).length) { await srs.updateNoteFields(noteId, htmlFields); markDeckEdited(noteId) }
       // Persist tag edits (space-separated input → tag array); skipped when unchanged
       const note = fresh && fresh.noteId ? fresh : deckBrowserNotes.find((n) => n.noteId === noteId)
       const newTags = deckBrowserEditTags.split(/\s+/).map((s) => s.trim()).filter(Boolean)
@@ -5705,9 +5731,9 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         const added = newTags.filter((x) => !openTags.includes(x))
         const cur = note.tags || []
         const target = [...cur.filter((x) => !removed.has(lc(x)) || added.includes(x)), ...added.filter((x) => !cur.includes(x))]
-        if (target.join(' ') !== cur.join(' ')) await ankiSetNoteTags(noteId, cur, target)
+        if (target.join(' ') !== cur.join(' ')) await srs.setNoteTags(noteId, cur, target)
       }
-      ankiSyncSoon()
+      srs.syncSoon()
       // Reload QUIETLY: a normal load closes every editor at once, including another card opened meanwhile.
       await loadDeckNotes(deckBrowserDeckRef.current, { quiet: true })
       // Only THIS card's editor: on a big deck the reload takes seconds, and the user may have opened another
@@ -5771,19 +5797,19 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     setDeckBrowserCopyStatus('working')
     try {
       if (move) {
-        const cardIds = await ankiFindCards(`nid:${note.noteId}`)
+        const cardIds = await srs.findCards({ noteId: note.noteId })
         // Deleted in Anki meanwhile: moving nothing reported "Moved" and dropped the row as if it had gone.
         if (!cardIds || cardIds.length === 0) throw new Error(t('deck_noCardsForNote'))
-        await ankiChangeDeck(cardIds, targetDeck)
+        await srs.moveCards(cardIds, targetDeck)
         // A subdeck of the open deck is still inside it (the deck's search includes children).
         const open = deckBrowserDeckRef.current || ''
         if (!(open && targetDeck.toLowerCase().startsWith(open.toLowerCase() + '::'))) setDeckBrowserNotes(prev => prev.filter(n => n.noteId !== note.noteId))
       } else {
         const fields = {}
         Object.entries(note.fields).forEach(([name, f]) => { fields[name] = f.value })
-        await ankiCopyNote(targetDeck, note.modelName, fields, note.tags || [])
+        await srs.copyNote(targetDeck, note.modelName, fields, note.tags || [])
       }
-      ankiSyncSoon()
+      srs.syncSoon()
       const mine = () => deckBrowserCopyingRef.current === note.noteId // another row's panel opened meanwhile: not its result
       if (mine()) setDeckBrowserCopyStatus(move ? 'moved' : 'copied')
       setTimeout(() => { if (mine()) { setDeckBrowserCopyStatus(null); setDeckBrowserCopying(null) } }, 1400)
@@ -5801,10 +5827,10 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
   const resetNoteProgress = async (note, front) => {
     if (!(await confirmDialog(t('deck_resetConfirm', { front: shortFront(front) })))) return
     try {
-      const cardIds = await ankiFindCards(`nid:${note.noteId}`)
+      const cardIds = await srs.findCards({ noteId: note.noteId })
       if (cardIds.length === 0) throw new Error(t('deck_noCardsForNote'))
-      await ankiForgetCards(cardIds)
-      ankiSyncSoon()
+      await srs.resetCards(cardIds)
+      srs.syncSoon()
       await loadDeckNotes(deckBrowserDeckRef.current, { quiet: true }) // refresh the badges; quiet keeps the open editor (and its unsaved text)
       console.log('[Deck] progress reset for note', note.noteId)
     } catch (err) {
@@ -5817,8 +5843,8 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
 
   const deleteNote = async (noteId) => {
     try {
-      await ankiDeleteNotes([noteId])
-      ankiSyncSoon()
+      await srs.deleteNotes([noteId])
+      srs.syncSoon()
       setDeckBrowserNotes((prev) => prev.filter((n) => n.noteId !== noteId))
       console.log('[Deck] note deleted:', noteId)
     } catch (err) {
@@ -5831,7 +5857,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
   // returning is instant (was the "switching to Deck refreshes the page" bug). This only syncs any
   // edits made in the browser back into a live study session; the state is left intact.
   // The Anki helpers write a few messages themselves (a cut-off reply, no Basic note type): in the app language.
-  useEffect(() => { setAnkiTranslator((k) => tLiveRef.current(k)) }, [])
+  useEffect(() => { setCardTranslator((k) => tLiveRef.current(k)) }, [])
   // noteId -> write stamp: notes written from the Deck tab (syncDeckEditsToStudy). A stamp that changed during the
   // re-read is a newer save, which stays for the next leave.
   const deckEditedIdsRef = useRef(new Map())
@@ -5853,7 +5879,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     const edited = [...stamps.keys()]
     if (edited.length === 0) return
     let fresh
-    try { fresh = await ankiNotesInfo(edited) } catch { return } // kept for the next leave
+    try { fresh = await srs.notesInfo(edited) } catch { return } // kept for the next leave
     edited.forEach((id) => { if (deckEditedIdsRef.current.get(id) === stamps.get(id)) deckEditedIdsRef.current.delete(id) })
     const noteMap = {}
     ;(Array.isArray(fresh) ? fresh : []).forEach(n => { if (n && n.noteId && n.fields) noteMap[n.noteId] = n })
@@ -6281,7 +6307,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
 
     // Build per-rec diff: only fields the user/AI actually changed get sent to Anki.
     // Unchanged fields are NOT sent, so original HTML markup (<b>, <img>, sound refs, etc.) is preserved.
-    // Tags travel separately (ankiSetNoteTags) and only when they actually changed.
+    // Tags travel separately (srs.setNoteTags) and only when they actually changed.
     const updates = toCommit.map((rec) => {
       const changed = {}
       Object.keys(rec.recommendedFields).forEach((k) => {
@@ -6337,7 +6363,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     // fails, write as before rather than block the save.
     const plainOf = (v) => fieldHtmlToPlain(v).trim()
     let fresh = null
-    try { fresh = new Map(((await ankiNotesInfo(updates.map((u) => u.rec.noteId))) || []).filter((n) => n && n.noteId).map((n) => [n.noteId, n])) } catch { fresh = null }
+    try { fresh = new Map(((await srs.notesInfo(updates.map((u) => u.rec.noteId))) || []).filter((n) => n && n.noteId).map((n) => [n.noteId, n])) } catch { fresh = null }
 
     for (const { rec, changed, finalTags, tagsChanged: tagsWanted } of updates) {
       let tagsChanged = tagsWanted
@@ -6374,9 +6400,9 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
             htmlFields[k] = keepFieldImages(html, [origHtml]) // the review shows text only; a picture must not vanish on Accept
           })
           if (unkeepable) { failures.push({ noteId: rec.noteId, error: t('deck_keepsMarkup') }); continue }
-          await ankiUpdateNote(rec.noteId, htmlFields); markDeckEdited(rec.noteId)
+          await srs.updateNoteFields(rec.noteId, htmlFields); markDeckEdited(rec.noteId)
         }
-        if (tagsChanged) await ankiSetNoteTags(rec.noteId, rec.currentTags || [], finalTags)
+        if (tagsChanged) await srs.setNoteTags(rec.noteId, rec.currentTags || [], finalTags)
         successes.push(rec.noteId)
       } catch (err) {
         failures.push({ noteId: rec.noteId, error: err.message })
@@ -6384,7 +6410,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       }
     }
 
-    if (successes.length > 0) ankiSyncSoon()
+    if (successes.length > 0) srs.syncSoon()
     // Remove ONLY what was saved. Clearing the list (success) or keeping "failed or unaccepted"
     // (partial) threw away suggestions not reviewed yet, recs a still-running batch appended during
     // the save, and ones accepted after this save took its snapshot.
@@ -6796,19 +6822,19 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     // close and wipe the NEW form (or put its error there).
     const seq = deckAddSeqRef.current
     try {
-      const connected = await ankiPing()
+      const connected = await srs.ping()
       setAnkiConnected(connected)
       if (!connected) { if (seq === deckAddSeqRef.current) setDeckAddError(t('deck_ankiNotRunning')); return }
-      if (!(await ankiGetDecks().catch(() => [])).includes(deckBrowserDeck)) {
-        await ankiCreateDeck(deckBrowserDeck)
+      if (!(await srs.getDecks().catch(() => [])).includes(deckBrowserDeck)) {
+        await srs.createDeck(deckBrowserDeck)
       }
       // Shared any-script label bolding (the old local regex was Latin-only).
       const ankiBack = plainBackHtml(back)
       // Spaces separate tags too (Anki's own convention, and the card editor's): "noun food" became ONE tag
       // "noun-food". Same rule as the bulk-edit tag box (parseRecTags).
       const tags = [...new Set(deckAddTags.split(/[\s,，、]+/).map((tg) => tg.trim()).filter(Boolean))]
-      await ankiAddNote(deckBrowserDeck, plainFrontHtml(front), ankiBack, tags.length ? tags : ['ebiki'])
-      ankiSyncSoon()
+      await addNewCard(deckBrowserDeck, plainFrontHtml(front), ankiBack, tags.length ? tags : ['ebiki'])
+      srs.syncSoon()
       await loadDeckNotes(deckBrowserDeckRef.current, { quiet: true })
       if (seq === deckAddSeqRef.current) closeAddCard()
     } catch (err) {
@@ -6852,7 +6878,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       // Duplicate pre-check (best-effort; never blocks).
       const withDup = await Promise.all(cards.map(async (c) => ({
         ...c, accepted: true, synced: false, syncing: false,
-        dup: deck ? !(await ankiCanAddNote(deck, plainFrontHtml(c.front), plainBackHtml(c.back))) : false,
+        dup: deck ? !(await srs.canAddNote(deck, plainFrontHtml(c.front), plainBackHtml(c.back))) : false,
       })))
       if (stale()) return // closed (or mode switched) during the duplicate check
       // Deck switched during the check: the badges were for the old deck, so the tray shows without them (the
@@ -6897,14 +6923,14 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     const setTrayCards = (fn) => { if (tray === quickAddTrayRef.current) setQuickAddCards(fn) }
     setTrayCards((prev) => prev.map((c, k) => k === i ? { ...c, syncing: true } : c))
     try {
-      const connected = await ankiPing()
+      const connected = await srs.ping()
       setAnkiConnected(connected)
       if (!connected) { setQuickAddError(t('deck_ankiNotRunning')); setTrayCards((prev) => prev.map((c, k) => k === i ? { ...c, syncing: false } : c)); return }
-      if (!(await ankiGetDecks().catch(() => [])).includes(deck)) await ankiCreateDeck(deck)
+      if (!(await srs.getDecks().catch(() => [])).includes(deck)) await srs.createDeck(deck)
       // allowDuplicate: true — Quick Add is an explicit "add these" action (the duplicate badge
       // already warns), and multi-meaning words legitimately share a front (e.g. two "gato" cards).
-      await ankiAddNote(deck, plainFrontHtml(card.front), plainBackHtml(card.back), (card.tags && card.tags.length) ? card.tags : ['ebiki'], true)
-      ankiSyncSoon()
+      await addNewCard(deck, plainFrontHtml(card.front), plainBackHtml(card.back), (card.tags && card.tags.length) ? card.tags : ['ebiki'], true)
+      srs.syncSoon()
       setTrayCards((prev) => prev.map((c, k) => k === i ? { ...c, synced: true, syncing: false } : c))
       // Not per card during "Add N": each reload re-reads the WHOLE deck on Anki's one thread, and twenty of
       // them queued ahead of the adds froze Anki for minutes. The batch reloads once when it ends.
@@ -6988,7 +7014,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         // edit, and a card already gone would fail halfway. Skipped when the re-read itself fails.
         if (Array.isArray(g.cards) && g.cards.length) {
           let freshNotes = null
-          try { freshNotes = await ankiNotesInfo(g.noteIds) } catch { freshNotes = null }
+          try { freshNotes = await srs.notesInfo(g.noteIds) } catch { freshNotes = null }
           if (Array.isArray(freshNotes)) {
             const byId = new Map(freshNotes.filter((n) => n && n.noteId).map((n) => [n.noteId, n]))
             noteById = byId
@@ -7032,13 +7058,13 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
           }
         }
         if (refused) { failures.push({ noteIds: g.noteIds, error: t('deck_keepsMarkup') }); continue }
-        if (Object.keys(htmlFields).length) { await ankiUpdateNote(keepId, htmlFields); markDeckEdited(keepId) }
+        if (Object.keys(htmlFields).length) { await srs.updateNoteFields(keepId, htmlFields); markDeckEdited(keepId) }
         // Carry every duplicate's tags onto the survivor (leech, marked, region-*, the user's own):
         // only fields were merged, so the deleted notes' tags vanished with them.
         const groupNotes = g.noteIds.map((id) => noteById.get(id)).filter(Boolean)
         const keepTags = groupNotes.find((n) => n.noteId === keepId)?.tags || []
         const allTags = [...new Set(groupNotes.flatMap((n) => n.tags || []))]
-        if (allTags.length > keepTags.length) await ankiSetNoteTags(keepId, keepTags, allTags)
+        if (allTags.length > keepTags.length) await srs.setNoteTags(keepId, keepTags, allTags)
         const deleteIds = g.noteIds.slice(1)
         if (deleteIds.length > 0) {
           // Memory hooks are stored per note id: the deleted duplicates' hooks were left under ids that no
@@ -7050,7 +7076,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
             if (!moved.length) return prev
             return { ...prev, [keepId]: [...new Set([...(prev[keepId] || []), ...moved])] }
           })
-          await ankiDeleteNotes(deleteIds); deleteIds.forEach((id) => mergeDeletedIds.add(id))
+          await srs.deleteNotes(deleteIds); deleteIds.forEach((id) => mergeDeletedIds.add(id))
           writeModeHooks((prev) => {
             if (!deleteIds.some((id) => prev[id])) return prev
             const next = { ...prev }
@@ -7066,7 +7092,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       }
     }
 
-    if (merged > 0) ankiSyncSoon()
+    if (merged > 0) srs.syncSoon()
 
     if (failures.length > 0) {
       setDeckDupError(t('deck_mergeResult', { n: merged, m: toCommit.length, failures: failures.map((f) => `[${f.noteIds.join(',')}] (${f.error})`).join('; ') }))
@@ -7102,7 +7128,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       const all = new Set()
       const ids = noteIds.slice(-6000) // capped so a pathological deck stays quick
       for (let i = 0; i < ids.length; i += 500) {
-        for (const n of await ankiNotesInfo(ids.slice(i, i + 500))) {
+        for (const n of await srs.notesInfo(ids.slice(i, i + 500))) {
           const first = Object.values(n.fields).sort((a, b) => a.order - b.order)[0]
           for (const form of headwordForms(stripHtml(first?.value || ''))) all.add(foldHookWord(form))
         }
@@ -7114,9 +7140,9 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
   const loadDiscoverDeckTerms = async (deck, live) => {
     if (!deck) return
     try {
-      const noteIds = await ankiFindNotes(`${ankiDeckTerm(deck)}`)
+      const noteIds = await srs.findNotes({ deck })
       if (!live()) return
-      const sample = noteIds.length ? await ankiNotesInfo(noteIds.slice(-150)) : []
+      const sample = noteIds.length ? await srs.notesInfo(noteIds.slice(-150)) : []
       if (!live()) return
       discoverDeckTermsRef.current = sample.map((n) => stripHtml(Object.values(n.fields).sort((a, b) => a.order - b.order)[0]?.value || '')).filter(Boolean)
       await loadDiscoverAllFronts(noteIds, live)
@@ -7143,21 +7169,21 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       let masterySummary = ''
       try {
         if (deck) {
-          const noteIds = await ankiFindNotes(`${ankiDeckTerm(deck)}`)
+          const noteIds = await srs.findNotes({ deck })
           cardCount = noteIds.length
           // The NEWEST 150 for the profile: the oldest ones are the likeliest to be mature, which
           // skewed the judged level upward on a big deck.
-          const notes = noteIds.length ? await ankiNotesInfo(noteIds.slice(-150)) : []
+          const notes = noteIds.length ? await srs.notesInfo(noteIds.slice(-150)) : []
           cards = notes.map((n) => {
             const f = Object.values(n.fields).sort((a, b) => a.order - b.order)
             return { front: stripHtml(f[0]?.value || ''), back: stripHtml(f[1]?.value || '') }
           })
           if (live()) discoverDeckTermsRef.current = cards.map((c) => c.front).filter(Boolean)
           loadDiscoverAllFronts(noteIds, frontsLive)
-          const cardIds = await ankiFindCards(`${ankiDeckTerm(deck)}`).catch(() => [])
+          const cardIds = await srs.findCards({ deck }).catch(() => [])
           // Spread across the whole deck (not the 300 oldest) so the mature/learning/new mix is honest.
           const step = Math.max(1, Math.ceil(cardIds.length / 300))
-          const info = cardIds.length ? await ankiCardsInfo(cardIds.filter((_, i) => i % step === 0).slice(0, 300)) : []
+          const info = cardIds.length ? await srs.cardsInfo(cardIds.filter((_, i) => i % step === 0).slice(0, 300)) : []
           if (info.length) {
             const mature = info.filter((c) => (c.interval || 0) >= 21).length
             const learning = info.filter((c) => (c.interval || 0) > 0 && (c.interval || 0) < 21).length
@@ -7177,7 +7203,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       let progressObs = ''
       try {
         if (deck) {
-          const r = await fetch(`/api/deck-progress?deck=${encodeURIComponent(deck)}`)
+          const r = await apiFetch(`/api/deck-progress?deck=${encodeURIComponent(deck)}`)
           progressObs = (await r.json()).content || ''
         }
       } catch {}
@@ -7185,7 +7211,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       let chatSummary = ''
       let chatCount = 0
       try {
-        const sessions = await (await fetch('/api/chats')).json()
+        const sessions = await (await apiFetch('/api/chats')).json()
         // Scope chat history to the CURRENT mode only. A chat is relevant if it is tagged with this
         // mode; untagged legacy chats (no mode field) are EXCLUDED so another mode's topics (e.g. a
         // Security+ "DHCP" chat) never contaminate this deck's learner profile.
@@ -7196,7 +7222,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
 
       let knowledgeSummary = ''
       try {
-        const d = await (await fetch(`/api/modes/knowledge?mode=${encodeURIComponent(activeMode.name)}`)).json()
+        const d = await (await apiFetch(`/api/modes/knowledge?mode=${encodeURIComponent(activeMode.name)}`)).json()
         const names = (d.files || []).filter((f) => !f.disabled).map((f) => f.name)
         // Full content (capped), not just file names — for cert modes this is what lets the
         // profile enumerate the real exam objective domains. A whole-book KB contributes its
@@ -7354,7 +7380,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         setDiscoverStatus('searching')
         try {
           const q = `${suggestion.term} meaning ${studyLanguage || ''}`.trim()
-          const searchData = await (await fetch(`/api/web-search?q=${encodeURIComponent(q)}`)).json()
+          const searchData = await (await apiFetch(`/api/web-search?q=${encodeURIComponent(q)}`)).json()
           if (!live()) return // retired (Re-analyze, Adjust): its status and sources landed on the next view
           if (searchData.results?.length > 0) {
             setDiscoverSources(searchData.results.slice(0, 4))
@@ -7448,22 +7474,22 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     const modeAtClick = activeModeIdRef.current
     const modeNameAtClick = activeMode.name
     try {
-      const connected = await ankiPing()
+      const connected = await srs.ping()
       setAnkiConnected(connected)
       if (!connected) { setDiscoverError(t('d_errAnkiClosed')); return }
       // Same non-persistent fallback as the Chat cards: with no deck picked anywhere, the add went to a
       // deck named '' and failed.
       const targetDeck = discoverDeck || ankiDeck || ankiDecks[0] || 'Default'
-      const decksNow = await ankiGetDecks().catch(() => [])
+      const decksNow = await srs.getDecks().catch(() => [])
       if (gen !== discoverGenRef.current) { setAiErrorNotice(t('d_saveCancelled')); return } // Adjust / Re-analyze meanwhile
       if (targetDeck && !decksNow.includes(targetDeck)) {
-        await ankiCreateDeck(targetDeck)
+        await srs.createDeck(targetDeck)
       }
       // cardBackToHtml bolds the leading "Label:" of each line in ANY script (the old local
       // regex was Latin-only, so Chinese/Japanese/Russian labels never bolded).
       if (gen !== discoverGenRef.current) { setAiErrorNotice(t('d_saveCancelled')); return } // retired before anything was added: add nothing, and say so
-      const noteId = await ankiAddNote(targetDeck, plainFrontHtml(card.front), plainBackHtml(card.back), card.tags)
-      ankiSyncSoon()
+      const noteId = await addNewCard(targetDeck, plainFrontHtml(card.front), plainBackHtml(card.back), card.tags)
+      srs.syncSoon()
       // Saved. A mode switch meanwhile: this ledger is not the one on screen, write nothing. A Discover DECK
       // switch (same mode) still records it: the ledger is per mode, and skipping it let Discover offer the
       // term again.
@@ -7626,7 +7652,7 @@ Return ONLY a JSON array (no markdown):
       if (cached.ledger) { discoverCachedLedgerRef.current = { ledger: cached.ledger, verified: cached.ledgerVerified }; setDiscoverLedger(cached.ledger) }
 
       // For the deck switcher, and awaited when this render has no deck list yet (a deckless mode's fallback deck).
-      const decksP = ankiGetDecks().then((d) => { if (Array.isArray(d)) { ankiDecksRef.current = d; setAnkiDecks(d) } return d }).catch(() => null)
+      const decksP = srs.getDecks().then((d) => { if (Array.isArray(d)) { ankiDecksRef.current = d; setAnkiDecks(d) } return d }).catch(() => null)
       if (!ankiDeck && !discoverDeckRef.current && !ankiDecksRef.current.length) await decksP
       ensureDiscoverKinds() // fire-and-forget; chips appear when ready
       const ledgerRead = await readBlobChecked('ledger', activeMode.name, { siblings: modesRef.current.map((m) => m.name) })
@@ -7815,7 +7841,7 @@ Return ONLY a JSON array (no markdown):
       } else if (deckBrowserDeck) {
         // Re-entry: keep the browser as-is but quietly pull in any cards added elsewhere
         // (Quick Add, study, Anki itself) and pick up newly-created decks — no teardown/flash.
-        ankiGetDecks().then((d) => setAnkiDecks(d)).catch(() => {})
+        srs.getDecks().then((d) => setAnkiDecks(d)).catch(() => {})
         loadDeckNotes(deckBrowserDeckRef.current, { quiet: true })
       }
     }
@@ -7851,7 +7877,7 @@ Return ONLY a JSON array (no markdown):
     const modeName = modesRef.current.find((m) => m.id === activeModeIdRef.current)?.name || activeMode.name
     try {
       await modesSaveRef.current
-      const r = await fetch(`/api/modes/knowledge?mode=${encodeURIComponent(modeName)}`)
+      const r = await apiFetch(`/api/modes/knowledge?mode=${encodeURIComponent(modeName)}`)
       const res = await r.json().catch(() => ({}))
       if (seq !== knowledgeFilesSeqRef.current) return
       // A failed read (503 share down, 500) keeps the list and says so: shown as "No files", the user thought the
@@ -7870,7 +7896,7 @@ Return ONLY a JSON array (no markdown):
     const modeName = modesRef.current.find((m) => m.id === activeModeIdRef.current)?.name || activeMode.name
     try {
       await modesSaveRef.current
-      const r = await fetch(`/api/modes/knowledge?mode=${encodeURIComponent(modeName)}`)
+      const r = await apiFetch(`/api/modes/knowledge?mode=${encodeURIComponent(modeName)}`)
       if (seq !== modeKnowledgeSeqRef.current) return
       // A failed read keeps the material already loaded (a mode switch cleared it first): an error answer or a
       // dropped connection used to blank the knowledge base for every AI call until the next switch.
@@ -7945,7 +7971,7 @@ Return ONLY a JSON array (no markdown):
         if (knowledgeSelectRef.current.size > 300) knowledgeSelectRef.current.clear()
         knowledgeSelectRef.current.set(key, ids)
       }
-      const res = await fetch(`/api/knowledge-sections?mode=${encodeURIComponent(activeMode.name)}&sections=${ids.join(',')}&cap=${cap}`).then((r) => r.json())
+      const res = await apiFetch(`/api/knowledge-sections?mode=${encodeURIComponent(activeMode.name)}&sections=${ids.join(',')}&cap=${cap}`).then((r) => r.json())
       // Nothing came back for these ids (they point past an outline another computer shrank): drop the pick and
       // re-read the outline, or every later call with this key fell back to the TOC alone all session.
       if (!res.content) { knowledgeSelectRef.current.delete(key); refreshModeKnowledge().catch(() => {}); return knowledgeBlock(cap) }
@@ -8003,7 +8029,7 @@ Return ONLY a JSON array (no markdown):
       // note is read AGAIN right before the write: written from the first read, an edit saved during the
       // download was overwritten with the old back.
       const readBack = async () => {
-        const note = (await ankiNotesInfo([noteId]))?.[0]
+        const note = (await srs.notesInfo([noteId]))?.[0]
         const backName = note && Object.entries(note.fields).sort(([, a], [, b]) => a.order - b.order)[1]?.[0]
         if (!backName) return null
         let backVal = note.fields[backName].value || ''
@@ -8027,7 +8053,7 @@ Return ONLY a JSON array (no markdown):
       const mediaName = `ebiki-${String(word).normalize('NFC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').slice(0, 40)}-${noteId}.${ext}`
       // Anki may store it under another name (normalized, or hash-suffixed when that name holds other audio):
       // the card must point at the name it really got, or the sound tag plays nothing.
-      const stored = await ankiStoreMediaFile(mediaName, btoa(bin))
+      const stored = await srs.storeFile(mediaName, btoa(bin))
       const soundName = typeof stored === 'string' && stored ? stored : mediaName
       // The CC-BY-SA credit must travel with the cached copy — it goes on the card itself.
       // Escaped: the author/license come from Commons metadata. A stray "<" or quote in them went into
@@ -8041,7 +8067,7 @@ Return ONLY a JSON array (no markdown):
       if (!fresh) return // audio was added meanwhile (not ours to replace), or the note is gone
       const { backName, backVal } = fresh
       const newBack = `${backVal}<br>[sound:${soundName}]${credit}`
-      await ankiUpdateNote(noteId, { [backName]: newBack })
+      await srs.updateNoteFields(noteId, { [backName]: newBack })
       // The deck list's copy must match Anki, or its editor opened on the old back and every save was refused.
       setDeckBrowserNotes((prev) => prev.map((n) => (n.noteId === noteId && n.fields?.[backName] ? { ...n, fields: { ...n.fields, [backName]: { ...n.fields[backName], value: newBack } } } : n)))
       console.log('[Pronunciation] embedded native audio into note', noteId, mediaName)
@@ -8054,7 +8080,7 @@ Return ONLY a JSON array (no markdown):
   const embedPronunciationForCard = async (cardId, result, word, opts) => {
     if (!cardId) return
     try {
-      const noteId = (await ankiCardsInfo([cardId]))?.[0]?.note
+      const noteId = (await srs.cardsInfo([cardId]))?.[0]?.note
       await embedPronunciationInNote(noteId, result, word, opts)
     } catch { /* best-effort */ }
   }
@@ -8116,7 +8142,7 @@ Return ONLY a JSON array (no markdown):
       const modeName = modesRef.current.find((m) => m.id === modeId)?.name
       if (!modeName) throw new Error(t('mode_gone'))
       // Writers frozen (a folder switch, or the share came back while a PDF was being read): not posted.
-      const post = (replace) => (dataSwitchingRef.current ? Promise.reject(new Error(t('mode_cannotSave'))) : fetch(`/api/modes/knowledge?mode=${encodeURIComponent(modeName)}`, {
+      const post = (replace) => (dataSwitchingRef.current ? Promise.reject(new Error(t('mode_cannotSave'))) : apiFetch(`/api/modes/knowledge?mode=${encodeURIComponent(modeName)}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ filename, content: text, replace }),
       }))
@@ -8158,7 +8184,7 @@ Return ONLY a JSON array (no markdown):
       try { await modesSaveRef.current } catch { /* the save reports itself */ }
       if (dataSwitchingRef.current) { setAiErrorNotice(t('mode_cannotSave')); return } // writers frozen (folder switch, share back)
       const name = modesRef.current.find((m) => m.id === modeId)?.name || activeMode.name
-      const res = await fetch(`/api/modes/knowledge?mode=${encodeURIComponent(name)}&file=${encodeURIComponent(fileName)}${extra}`, { method }).catch(() => null)
+      const res = await apiFetch(`/api/modes/knowledge?mode=${encodeURIComponent(name)}&file=${encodeURIComponent(fileName)}${extra}`, { method }).catch(() => null)
       if (!res || !res.ok) setAiErrorNotice(t('knowledgeActionFailed'))
       loadKnowledgeFiles()
       refreshModeKnowledge()
@@ -9488,8 +9514,8 @@ Output ONLY raw JSON. No markdown, no backticks.`
       const { front, back, tags } = await buildCardFields({ term: cs.front, partOfSpeech: 'verb', translation: cs.back || '', language: studyConjugationLanguage || '' })
       // Through cardBackToHtml like every other add path: the plain back went in with its line
       // breaks lost (one run-on line in Anki) and no bold labels.
-      await ankiAddNote(studyDeck, plainFrontHtml(front), plainBackHtml(back), tags)
-      ankiSyncSoon()
+      await addNewCard(studyDeck, plainFrontHtml(front), plainBackHtml(back), tags)
+      srs.syncSoon()
       // Only on this word in this session: after a new session started meanwhile, the word now at this
       // index showed "Added" (and lost its Add button) though it never was.
       if (addSid === studySessionRef.current) setStudyCardState(prev => prev.map((c, i) => (i === cardIdx && c.front === cs.front) ? { ...c, addedToAnki: true } : c))
@@ -9536,7 +9562,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     setAnkiError(null) // a failure from the last attempt ("nothing due") must not greet a fresh start screen
     setStudyStartError(null)
     // One failed read (Anki busy on a dialog) emptied every deck picker in the app, and Start stayed disabled.
-    const read = await ankiGetDecks().catch(() => null)
+    const read = await srs.getDecks().catch(() => null)
     if (!Array.isArray(read)) { setStudyStartError(t('anki_errEmpty')); return } // its own state: ankiError is shared with Picture
     const decks = read
     setAnkiDecks(decks)
@@ -9564,7 +9590,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     if (!ankiConnected) return
     try {
       await Promise.race([
-        ankiSync(),
+        srs.sync(),
         new Promise((_, reject) => setTimeout(() => reject(new Error('sync timed out')), 8000)),
       ])
     } catch (e) {
@@ -9592,7 +9618,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     setAnkiError(null)
     // Started NOW, alongside the AnkiWeb sync and the Anki reads below (it needs none of them): it used to wait
     // for all of them first.
-    const knowledgeP = fetch(`/api/modes/knowledge?mode=${encodeURIComponent(activeMode.name)}`).then(r => r.json()).catch(() => ({ content: null, fileCount: 0 }))
+    const knowledgeP = apiFetch(`/api/modes/knowledge?mode=${encodeURIComponent(activeMode.name)}`).then(r => r.json()).catch(() => ({ content: null, fileCount: 0 }))
     try {
       // Pull the latest schedule from AnkiWeb FIRST so reviews done on another device (phone, etc.)
       // are reflected in what Anki considers due here — otherwise a fresh session could re-offer
@@ -9611,13 +9637,13 @@ Output ONLY raw JSON. No markdown, no backticks.`
       // buried new cards were quizzed, and the sync's setDueDate fallback then UN-suspended them.
       // Conjugation drills only READ fronts for a word pool and record no reviews: a fully reviewed deck said
       // "nothing due" and the drill could not start.
-      let cardIds = await ankiFindCards(mode === 'conjugations' ? `${ankiDeckTerm(deck)} -is:suspended` : `${ankiDeckTerm(deck)} (is:due OR is:new) -is:suspended -is:buried`)
+      let cardIds = await srs.findCards(mode === 'conjugations' ? { deck, excludeSuspended: true } : { deck, state: 'dueOrNew', excludeSuspended: true, excludeBuried: true })
       if (!mine()) return
       if (!cardIds || cardIds.length === 0) { mine() && setAnkiError(t('study_nothingDue')); mine() && setStudyLoading(false); return }
 
       // The deck stats and the due list are independent reads: asked together, not one after the other.
-      const statsP = ankiGetDeckStats([deck]).catch(() => ({}))
-      const dueP = ankiFindCards(`${ankiDeckTerm(deck)} is:due -is:suspended -is:buried`).catch(() => null)
+      const statsP = srs.deckStats([deck]).catch(() => ({}))
+      const dueP = srs.findCards({ deck, state: 'due', excludeSuspended: true, excludeBuried: true }).catch(() => null)
       const knowledgeRes = await knowledgeP
       if (!mine()) return
       setStudyKnowledge(knowledgeRes.content)
@@ -9646,7 +9672,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
         ordered = [...shuffle(cardIds.filter((id) => dueSet.has(id))), ...shuffle(cardIds.filter((id) => !dueSet.has(id))).slice(0, newLimit)]
         if (!ordered.length) { mine() && setAnkiError(t('study_nothingDue')); mine() && setStudyLoading(false); return }
       }
-      const cardsRaw = await ankiCardsInfo(ordered.slice(0, 100))
+      const cardsRaw = await srs.cardsInfo(ordered.slice(0, 100))
       if (!mine()) return
       // ONE card per note: the two cards of a "Basic (and reversed)" note are read from the note's fields
       // by order, so both asked the identical question and both were rated and synced from one answer.
@@ -9843,6 +9869,32 @@ Output ONLY raw JSON. No markdown, no backticks.`
   const studySessionRef = useRef(0)
   // Stable id of the running session (survives a resume, unlike studySessionRef): keys its Stats entry.
   const studyRunIdRef = useRef(0)
+  // Every NEW card (any surface) is created here, so features hear about it once.
+  const addNewCard = async (...args) => {
+    const id = await srs.addNote(...args)
+    emitAppEvent(EVENTS.CARDS_ADDED, { n: 1, mode: activeModeIdRef.current })
+    return id
+  }
+  // Each studied card's FIRST final rating, announced once (re-rates and restored sessions don't repeat it).
+  useEffect(() => {
+    for (const cs of studyCardState) {
+      if (!cs?.done || !cs.rating || cs.evaluating || cs.rating === 'deleted') continue
+      // The questions answered wrong, for features that learn from mistakes (not skipped ones: nothing was tried).
+      const misses = (cs.results || []).map((r, qi) => {
+        if (!r || r.correct || cs.skipped) return null
+        const q = cs.questions?.[qi]
+        const qText = typeof q === 'string' ? q : q?.question || ''
+        const answer = String(cs.answers?.[qi] ?? '')
+        if (!qText || !answer || answer === '(skipped)') return null
+        const expected = (typeof q === 'object' && (q.acceptedAnswers || []).join(' / ')) || ''
+        return { question: qText, answer, expected, feedback: String(r.feedback || '') }
+      }).filter(Boolean)
+      emitOnce(`graded:${studyRunIdRef.current}:${cs.cardId || cs.front}:${cs.relearn ? 'r' : ''}`, EVENTS.CARD_GRADED, {
+        correct: cs.rating === 'good' || cs.rating === 'easy', mode: activeModeIdRef.current,
+        front: cs.front, back: cs.back, noteId: cs.noteId, cardId: cs.cardId, misses,
+      })
+    }
+  }, [studyCardState]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // How many questions THIS card actually has. Done-ness must key on it, never on the
   // questionsPerCard SETTING: a card can hold fewer (the model returned fewer, the fallback set
@@ -10000,7 +10052,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
         if (s.studyWrappingUp) { studyWrappingUpRef.current = true; setStudyWrappingUp(true) }
         // The knowledge base is not in the snapshot, and only beginStudy loaded it: after a refresh,
         // grading and every new question ran WITHOUT the mode's reference material. Reload it.
-        fetch(`/api/modes/knowledge?mode=${encodeURIComponent(sessionModeName)}`).then((r) => r.json())
+        apiFetch(`/api/modes/knowledge?mode=${encodeURIComponent(sessionModeName)}`).then((r) => r.json())
           .then((k) => { if (k && typeof k.content === 'string') setStudyKnowledge(k.content) }).catch(() => {})
           .finally(() => setResumeKbDone(true))
         setStudyMode(s.studyMode || 'flashcards')
@@ -10490,7 +10542,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
   // earlier observation would be gone. A missing file is a real, empty read (the server says so).
   const readDeckProgress = async (deck) => {
     try {
-      const r = await fetch(`/api/deck-progress?deck=${encodeURIComponent(deck)}`)
+      const r = await apiFetch(`/api/deck-progress?deck=${encodeURIComponent(deck)}`)
       const d = await r.json()
       return r.ok && typeof d?.content === 'string' ? { ok: true, content: d.content } : { ok: false, content: '' }
     } catch { return { ok: false, content: '' } }
@@ -11079,7 +11131,7 @@ ${usageTagsContract(`"${target}" in this sense`)}
     let readOk = !noteId // with a note, a DERIVED guess is cached only when the card really has no usage tags
     if (noteId && ankiConnected) {
       try {
-        const [note] = await ankiNotesInfo([noteId])
+        const [note] = await srs.notesInfo([noteId])
         readOk = true
         const own = foldUsageTags((note?.tags || []).filter(isUsageTag))
         // The card's non-usage tags (part of speech, level, topic) ride along so the panel shows the
@@ -11116,7 +11168,7 @@ ${usageTagsContract(`"${target}" in this sense`)}
     try {
       const noteIds = [...new Set((cards || []).map((c) => c.note).filter(Boolean))]
       if (!noteIds.length) return
-      const notes = await ankiNotesInfo(noteIds)
+      const notes = await srs.notesInfo(noteIds)
       const next = {}
       for (const n of notes || []) {
         if (!n?.noteId) continue
@@ -11387,9 +11439,9 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text, never an em da
       // reverse (the old fallback only covered a tapped word that HAD accents). Older Anki without
       // nc: falls back to the exact + folded searches.
       let ids = []
-      try { ids = await ankiFindNotes(`${ankiDeckTerm(deck)} "nc:${fold(safe)}"`) } catch { ids = [] }
-      if (!ids.length) ids = await ankiFindNotes(`${ankiDeckTerm(deck)} "${safe}"`)
-      if (!ids.length && fold(safe) !== safe.toLowerCase()) ids = await ankiFindNotes(`${ankiDeckTerm(deck)} "${fold(safe)}"`)
+      try { ids = await srs.findNotes({ deck, text: fold(safe), ignoreAccents: true }) } catch { ids = [] }
+      if (!ids.length) ids = await srs.findNotes({ deck, text: safe })
+      if (!ids.length && fold(safe) !== safe.toLowerCase()) ids = await srs.findNotes({ deck, text: fold(safe) })
       if (!ids.length) return null
       // Check EVERY hit, in chunks. The search matches the word anywhere (backs, examples), so a
       // short common word ("ser", "casa") hit 50+ notes and the real card fell outside the first
@@ -11405,7 +11457,7 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text, never an em da
       }
       let match = null
       for (let i = 0; i < Math.min(ids.length, 1000) && !match; i += 100) {
-        match = (await ankiNotesInfo(ids.slice(i, i + 100))).find(isHead) || null
+        match = (await srs.notesInfo(ids.slice(i, i + 100))).find(isHead) || null
       }
       if (!match) return null
       const fs = Object.values(match.fields).sort((a, b) => a.order - b.order)
@@ -11484,9 +11536,9 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text, never an em da
     const deck = studyWordCardDeck()
     setStudyWordLookup((prev) => prev ? { ...prev, cardSyncing: true, cardError: null } : prev)
     try {
-      if (!(await ankiGetDecks().catch(() => [])).includes(deck)) await ankiCreateDeck(deck)
-      await ankiAddNote(deck, plainFrontHtml(wl.card.front), plainBackHtml(wl.card.back), wl.card.tags || ['ebiki'])
-      ankiSyncSoon()
+      if (!(await srs.getDecks().catch(() => [])).includes(deck)) await srs.createDeck(deck)
+      await addNewCard(deck, plainFrontHtml(wl.card.front), plainBackHtml(wl.card.back), wl.card.tags || ['ebiki'])
+      srs.syncSoon()
       setStudyWordLookup((prev) => (prev && prev.card === wl.card) ? { ...prev, cardSyncing: false, cardSynced: true, cardDeck: deck } : prev)
     } catch {
       setStudyWordLookup((prev) => (prev && prev.card === wl.card) ? { ...prev, cardSyncing: false, cardError: t('card_syncFailed') } : prev) // only on its own popup, like the success path
@@ -12546,7 +12598,7 @@ Your output keeps: the same method, the same language (${explainLang}), the same
     // Snapshot each card's PRE-REVIEW schedule before anything is recorded (post-lock corrections
     // read it later; a failed fetch just means the correction falls back to live card info).
     try {
-      const infos = await ankiCardsInfo(ratingsToSync.map((cs) => cs.cardId))
+      const infos = await srs.cardsInfo(ratingsToSync.map((cs) => cs.cardId))
       for (const inf of infos || []) if (inf && inf.cardId && !preSyncInfoRef.current.has(inf.cardId)) preSyncInfoRef.current.set(inf.cardId, { interval: inf.interval, factor: inf.factor })
     } catch { /* fall back to live info at correction time */ }
 
@@ -12555,16 +12607,12 @@ Your output keeps: the same method, the same language (${explainLang}), the same
     // the last grade. If it's not up, this is NOT a failure — leave every rating PENDING (never mark
     // it failed or locked) so it syncs on the next trigger once Anki is back, and reflect the offline
     // state in the UI so the manual button/banner update instead of a bogus "card(s) failed" error.
-    if (!(await ankiPing())) {
+    if (!(await srs.ping())) {
       setAnkiConnected(false)
       return { synced: 0, failed: 0, offline: true }
     }
 
-    // Anki may queue these cards in a different order than we studied them, so look each
-    // presented card up by id rather than assuming an order.
-    const wanted = new Map(ratingsToSync.map(cs => [cs.cardId, cs]))
     const synced = []
-    const syncStartedAt = Date.now()
     const markSynced = (cs) => {
       synced.push(cs)
       studySyncedIdsRef.current.add(cs.cardId) // clobber-proof: this card can never be answered again this session
@@ -12582,210 +12630,25 @@ Your output keeps: the same method, the same language (${explainLang}), the same
       }
       // Mark synced in the REF immediately so a later queued sync won't re-answer (double) this card.
       studyCardStateRef.current = studyCardStateRef.current.map(c => (c.cardId === cs.cardId && !c.noSync) ? { ...c, synced: true } : c) // not the noSync relearn copy that shares this cardId: it never syncs, and a synced flag would lock its undo + dots
-      wanted.delete(cs.cardId)
     }
 
-    // PRIMARY PATH: drive Anki's real reviewer. `answerCards` only works on the card at the TOP
-    // of the scheduler queue ("not at top of queue" otherwise, e.g. for a brand-new card), so we
-    // start a review on the deck and answer each card the scheduler presents with our rating. This
-    // also makes Anki compute the correct SM-2/FSRS interval for every rating.
-    const uncertain = [] // cards whose answer call threw: not sent again in this run
-    // An earlier run's answer that threw may have been RECORDED: Anki's review log decides. A new or learning card
-    // is due again within minutes, so the reviewer would otherwise answer it a second time.
-    const unsure = [...wanted.keys()].filter((id) => uncertainSyncRef.current.has(id))
-    if (unsure.length) {
-      try {
-        const log = (await ankiGetReviewsOfCards(unsure)) || {}
-        for (const id of unsure) {
-          const since = uncertainSyncRef.current.get(id)
-          const rows = Array.isArray(log[id]) ? log[id] : Array.isArray(log[String(id)]) ? log[String(id)] : []
-          // A real ANSWER only (button 1-4): the nudge's setDueDate writes a manual row (button 0) just before the
-          // answer call, and that row alone locked the card "Synced" though its rating never reached Anki.
-          // Locked with the grade Anki RECORDED (the card's rating may have changed since the call that threw).
-          const hit = rows.filter((r) => Number(r?.ease) >= 1 && Number(r?.id) >= since - 1000).sort((a, b) => Number(b.id) - Number(a.id))[0]
-          if (hit) { const cs = wanted.get(id); const e = Math.min(4, Number(hit.ease)); if (cs) markSynced({ ...cs, ease: e, rating: ['again', 'hard', 'good', 'easy'][e - 1] }) }
-          uncertainSyncRef.current.delete(id)
-        }
-      } catch {
-        for (const id of unsure) { const cs = wanted.get(id); if (cs) { wanted.delete(id); uncertain.push(cs) } } // still unknown: not this run
-      }
-    }
-    try {
-      const started = await ankiGuiDeckReview(studyDeck)
-      if (started) {
-        let guard = ratingsToSync.length * 4 + 8
-        while (wanted.size > 0 && guard-- > 0) {
-          let cur
-          try { cur = await ankiGuiCurrentCard() } catch { cur = null }
-          if (!cur || !cur.cardId) break          // queue exhausted
-          const cs = wanted.get(cur.cardId)
-          if (!cs) break                           // a card we didn't study is up next — stop, don't touch it
-          // guiCurrentCard returns `buttons` as an ARRAY of the valid ease values (e.g. [1,2,3] for a
-          // new/learning card, [1,2,3,4] for review) — NOT a count. Cap our ease to the highest available.
-          const validEases = Array.isArray(cur.buttons) ? cur.buttons.filter(n => typeof n === 'number') : []
-          const maxEase = validEases.length ? Math.max(...validEases) : 4
-          const ease = Math.min(cs.ease, maxEase)
-          console.log('[Anki sync] gui-answering card', cur.cardId, 'ease', ease, 'rating', cs.rating, 'buttons', cur.buttons)
-          try {
-            await ankiGuiShowAnswer()
-            markUncertain(cs.cardId, Date.now()) // before the call: see clearUncertain
-            const ok = await ankiGuiAnswerCard(ease)
-            if (ok !== false) markSynced(cs)
-            else { clearUncertain(cs.cardId); break } // a clean refusal: nothing recorded
-          } catch {
-            // Anki may have RECORDED it before the reply was lost (a timeout): the fallback below would then
-            // answer it a second time (a fresh learning card still reads as due). Left for a later retry.
-            wanted.delete(cs.cardId); uncertain.push(cs)
-            markUncertain(cs.cardId, syncStartedAt)
-            break
-          }
-        }
-      }
-    } catch (err) {
-      console.error('[Anki sync] gui review failed', err.message)
-    } finally {
-      // Leave Anki on the deck list rather than stuck mid-review.
-      try { await ankiGuiDeckBrowser() } catch {}
-    }
-
-    // FALLBACK: any card the reviewer never presented (odd queue state) — try the direct path.
-    // answerCards returns an ARRAY of booleans (one per card), or throws "not at top of queue".
-    const ansOk = (r) => Array.isArray(r) ? r[0] !== false : r !== false
-    // Map our 1-4 ease onto a due-date interval (days) for the last-resort path. Approximate, but it
-    // records SOMETHING so a brand-new card (the common "not at top of queue" case) still syncs.
-    const easeToDueDays = (ease) => ease >= 4 ? '4' : ease === 3 ? '2' : ease === 2 ? '1' : '0'
-    const failed = [...uncertain]
-    for (const cs of Array.from(wanted.values())) {
-      // ANKI-SCHEDULE GUARD: never record a review for a card Anki does not consider due/new RIGHT
-      // NOW (most often: its review was already recorded earlier today). The reviewer path above is
-      // inherently schedule-respecting — this fallback wasn't, and force-recording off-schedule
-      // reviews is exactly how a week of studying compounded intervals into years. Act like Anki:
-      // only answer when it's actually time.
-      try {
-        const stillDue = await ankiFindCards(`cid:${cs.cardId} (is:due OR is:new) -is:suspended -is:buried`)
-        if (Array.isArray(stillDue) && stillDue.length === 0) {
-          console.warn('[Anki sync] card', cs.cardId, `("${cs.front}") is not due in Anki — its review was already recorded. Skipping to protect the schedule.`)
-          // Nothing of OURS was recorded: a later feedback-chat correction must not add a review to it.
-          preSyncInfoRef.current?.delete?.(cs.cardId)
-          markSynced(cs)
-          continue
-        }
-      } catch { /* if the check itself fails, continue — answerCards fails safely for non-top cards */ }
-      try {
-        console.log('[Anki sync] answering card (fallback)', cs.cardId, 'ease', cs.ease, 'rating', cs.rating)
-        let result
-        try {
-          markUncertain(cs.cardId, Date.now()) // before the call: see clearUncertain
-          result = await ankiAnswerCards([{ cardId: cs.cardId, ease: cs.ease }])
-          // Retry once with a capped ease in case it was out of range (a new card with only 3 buttons).
-          if (!ansOk(result)) result = await ankiAnswerCards([{ cardId: cs.cardId, ease: Math.min(cs.ease, 3) }])
-          if (!ansOk(result)) clearUncertain(cs.cardId) // refused both times: nothing recorded
-        } catch (eAns) {
-          // "Not at top of queue" is a clean refusal (the fallbacks below). Anything else (a timeout: Anki
-          // still has the change queued) may have been RECORDED: the nudge would then answer it again.
-          if (!/top of|queue/i.test(String(eAns?.message || ''))) {
-            markUncertain(cs.cardId, syncStartedAt)
-            failed.push(cs)
-            continue
-          }
-          clearUncertain(cs.cardId) // "not at top of queue": refused, nothing recorded
-          throw eAns
-        }
-        if (ansOk(result)) { markSynced(cs); continue }
-        throw new Error('not at top of queue')
-      } catch (err) {
-        // answerCards can't grade a card that isn't at the top of the scheduler queue.
-        try {
-          const isNew = await ankiFindCards(`cid:${cs.cardId} is:new`).then((r) => r.length > 0).catch(() => false)
-          if (isNew) {
-            // Brand-new card (the common "not at top of queue" case): approximate first interval +
-            // revlog row. There is no existing schedule to corrupt, so this is safe.
-            const days = easeToDueDays(cs.ease)
-            const ease = Math.min(Math.max(cs.ease, 1), 4)
-            console.log('[Anki sync] setDueDate+insertReviews fallback (new card)', cs.cardId, 'days', days, 'ease', ease)
-            // "!" also sets the interval (not just the due date) so the new card graduates with the
-            // right interval instead of staying ivl=0 (which Anki would then reschedule oddly).
-            await ankiSetDueDate([cs.cardId], days + '!')
-            // setDueDate reschedules but writes no revlog row, so Anki would show "0 studied". Add the
-            // revlog entry so the card counts in Cards Today / streak / accuracy. +i keeps the id unique.
-            const ivl = Math.max(0, parseInt(days, 10) || 0)
-            await ankiInsertReviews([[Date.now() + failed.length + synced.length, cs.cardId, -1, ease, ivl, 0, 2500, 0, 0]])
-              .catch((e) => console.warn('[Anki sync] insertReviews failed (rating still rescheduled):', e.message))
-            markSynced(cs)
-            continue
-          }
-          // REVIEW card the reviewer didn't present: record a REAL review without touching the
-          // grading — a bare setDueDate "0" nudges the card due NOW but preserves its interval
-          // (only the "!" suffix would change it), then Anki's own reviewer answers it so the
-          // scheduler computes the next interval from the card's true history.
-          // RELIABILITY (this used to fail in a loop): (1) leave the reviewer FIRST — after a
-          // failed pass Anki sits on a stale queue / congrats screen and re-calling guiDeckReview
-          // does not rebuild it; (2) give Anki a beat to apply the due-date change; (3) poll
-          // guiCurrentCard a few times instead of sampling once.
-          console.log('[Anki sync] nudge-due + reviewer fallback (review card)', cs.cardId, 'ease', cs.ease)
-          const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-          await ankiSetDueDate([cs.cardId], '0')
-          try { await ankiGuiDeckBrowser() } catch {}
-          await sleep(350)
-          let answered = false
-          const started2 = await ankiGuiDeckReview(studyDeck)
-          if (started2) {
-            for (let poll = 0; poll < 3 && !answered; poll++) {
-              let cur2 = null
-              try { cur2 = await ankiGuiCurrentCard() } catch { cur2 = null }
-              if (cur2?.cardId === cs.cardId) {
-                const validEases2 = Array.isArray(cur2.buttons) ? cur2.buttons.filter((n) => typeof n === 'number') : []
-                const maxEase2 = validEases2.length ? Math.max(...validEases2) : 4
-                await ankiGuiShowAnswer()
-                let ok2
-                markUncertain(cs.cardId, Date.now()) // before the call: see clearUncertain
-                try { ok2 = await ankiGuiAnswerCard(Math.min(cs.ease, maxEase2)) }
-                catch { markUncertain(cs.cardId, syncStartedAt); answered = 'uncertain'; break } // may be recorded (see above)
-                if (ok2 !== false) { markSynced(cs); answered = true; break }
-                clearUncertain(cs.cardId) // refused: nothing recorded
-              }
-              if (cur2?.cardId && cur2.cardId !== cs.cardId) break // a different card is genuinely ahead — polling won't change that
-              await sleep(300) // no card yet (queue still rebuilding) — try again
-            }
-          }
-          if (answered === 'uncertain') { failed.push(cs); continue } // checked against the revlog next run
-          if (answered) continue
-          // Reviewer still would not present it (an UNRELATED due card is ahead of ours in the deck's
-          // queue, or a daily review limit blocks it — we must not touch cards we didn't study, so the
-          // reviewer can't reach ours). Record the review with a PROPER interval computed from the
-          // card's OWN current interval + ease factor: exactly ONE SM-2 step, the same math Anki uses.
-          // This is NOT the old arbitrary-constant approximation that inflated intervals to years — it
-          // grows by a single step from the card's REAL interval, and markSynced()/studySyncedIdsRef
-          // guarantee it runs at most once per card per session, so nothing can compound.
-          // The interval from BEFORE this sync first (snapshotted at its start), else a live read. With
-          // neither, do not guess: a failed read used to mean "interval 1", so a 300-day card rated Good
-          // was rescheduled to 3 days. Throwing leaves the card unsynced for the next sync to retry.
-          const info = preSyncInfoRef.current.get(cs.cardId) || await ankiCardsInfo([cs.cardId]).then((r) => r && r[0]).catch(() => null)
-          if (!info) throw new Error('could not read the card\'s schedule from Anki')
-          const curIvl = info.interval > 0 ? info.interval : 1
-          const factor = info && info.factor >= 1300 ? info.factor : 2500  // permille (2500 = 2.5x)
-          let newIvl
-          if (cs.ease === 1) newIvl = 0                                              // Again → relearn (due today)
-          else if (cs.ease === 2) newIvl = Math.max(1, Math.round(curIvl * 1.2))     // Hard
-          else if (cs.ease === 3) newIvl = Math.max(1, Math.round(curIvl * factor / 1000))        // Good
-          else newIvl = Math.max(Math.max(1, Math.round(curIvl * factor / 1000)) + 1, Math.round(curIvl * factor / 1000 * 1.3)) // Easy (+ easy bonus), always past Good: round(1 x 2.5 x 1.3) = 3 = Good on young cards
-          newIvl = Math.min(newIvl, 36500)
-          console.log('[Anki sync] computed-interval fallback (reviewer blocked)', cs.cardId, 'ivl', curIvl, '→', newIvl, 'ease', cs.ease)
-          // "!" makes setDueDate ALSO set the interval (not just the due date), so the rating actually
-          // takes effect — otherwise an Easy barely moves the card and an Again keeps its long interval.
-          await ankiSetDueDate([cs.cardId], newIvl + '!')
-          await ankiInsertReviews([[Date.now() + failed.length + synced.length, cs.cardId, -1, cs.ease, newIvl, curIvl, factor, 0, curIvl > 0 ? 1 : 0]]) // type 1 = Review: a Learning (0) row on a mature card made FSRS drop its history
-            .catch((e) => console.warn('[Anki sync] insertReviews failed (rating still rescheduled):', e.message))
-          markSynced(cs)
-          continue
-        } catch (err2) {
-          console.error('[Anki sync] fallback failed for card', cs.cardId, err2.message)
-          failed.push(cs)
-        }
-      }
-    }
-    // The nudge fallback may have left Anki mid-review — return it to the deck list.
-    try { await ankiGuiDeckBrowser() } catch {}
+    // The card store records each rating AT MOST ONCE (how is its business: Anki drives its own
+    // reviewer, see src/cards/anki). The hooks keep this session's guards current as it goes, so a
+    // reload mid-sync never answers a card twice.
+    const { failed } = await srs.recordRatings({
+      deck: studyDeck,
+      ratings: ratingsToSync,
+      preSchedule: (cardId) => preSyncInfoRef.current.get(cardId),
+      hooks: {
+        recorded: markSynced,
+        markUncertain,
+        clearUncertain,
+        uncertainSince: (cardId) => uncertainSyncRef.current.get(cardId),
+        forgetUncertain: (cardId) => { uncertainSyncRef.current.delete(cardId) },
+        // Nothing of OURS was recorded: a later feedback-chat correction must not add a review to it.
+        notOurs: (cardId) => { preSyncInfoRef.current?.delete?.(cardId) },
+      },
+    })
     if (synced.length > 0) {
       // Show the rating Anki actually RECORDED: one changed while this sync was running was not the
       // one sent, and the card used to lock showing the new rating Anki never got.
@@ -12802,14 +12665,14 @@ Your output keeps: the same method, the same language (${explainLang}), the same
         const sent = sentById.get(cs.cardId)
         return (sent && !cs.noSync) ? { ...cs, synced: true, rating: sent.rating, ease: sent.ease } : cs // not the noSync relearn copy sharing this cardId
       }))
-      // Sync is BIDIRECTIONAL: ankiSync pushes our new schedule to AnkiWeb AND pulls back anything
+      // Sync is BIDIRECTIONAL: srs.sync pushes our new schedule to AnkiWeb AND pulls back anything
       // other devices changed. Once it settles, re-read Anki so Ebiki's own views reflect what was
       // pulled in (reviews done elsewhere, edits, reschedules) — not just what we just wrote. We do
       // NOT re-pull the in-progress study card set here (that would yank cards mid-session); the
       // safe live surfaces are the deck stats, the Stats numbers, and the deck browser if it's open.
-      ankiSync().then(() => {
+      srs.sync().then(() => {
         refreshAnkiStats().catch(() => {})
-        ankiGetDeckStats([studyDeck]).then(s => {
+        srs.deckStats([studyDeck]).then(s => {
           const ds = Object.values(s)[0]
           if (ds && studyDeck === studyDeckLiveRef.current) setStudyDeckStats(ds)
         }).catch(() => {})
@@ -12820,7 +12683,7 @@ Your output keeps: the same method, the same language (${explainLang}), the same
         // Even if the AnkiWeb round-trip failed (offline / not configured), refresh from the LOCAL
         // collection so our just-written ratings still surface in the on-screen numbers.
         refreshAnkiStats().catch(() => {})
-        ankiGetDeckStats([studyDeck]).then(s => {
+        srs.deckStats([studyDeck]).then(s => {
           const ds = Object.values(s)[0]
           if (ds && studyDeck === studyDeckLiveRef.current) setStudyDeckStats(ds)
         }).catch(() => {})
@@ -12856,23 +12719,7 @@ Your output keeps: the same method, the same language (${explainLang}), the same
       // guessed 1 day (a 300-day card corrected to Good became 3 days). Like the sync fallback: no guessing.
       const src = preSyncInfoRef.current.get(cs.cardId)
       if (!src) throw new Error(tLiveRef.current('fbr_noPreSchedule'))
-      const curIvl = src.interval > 0 ? src.interval : 1
-      const factor = src && src.factor >= 1300 ? src.factor : 2500  // permille (2500 = 2.5x)
-      let newIvl
-      if (ease === 1) newIvl = 0                                                       // Again → relearn today
-      else if (ease === 2) newIvl = Math.max(1, Math.round(curIvl * 1.2))              // Hard
-      else if (ease === 3) newIvl = Math.max(1, Math.round(curIvl * factor / 1000))    // Good
-      else newIvl = Math.max(Math.max(1, Math.round(curIvl * factor / 1000)) + 1, Math.round(curIvl * factor / 1000 * 1.3)) // Easy (+ bonus), always past Good
-      newIvl = Math.min(newIvl, 36500)
-      // "!" makes setDueDate ALSO set the interval (not just the due date) — without it the
-      // correction barely moves the card.
-      await ankiSetDueDate([cs.cardId], newIvl + '!')
-      const revId = Date.now()
-      await ankiInsertReviews([[revId, cs.cardId, -1, Math.min(Math.max(ease, 1), 4), newIvl, curIvl, factor, 0, curIvl > 0 ? 1 : 0]]) // Review, not Learning (see the reviewer-blocked fallback)
-        .then(() => markCorrectionReview(revId)) // a correction, not a second answer, in today's stats
-        .catch((e) => console.warn('[Anki correct] insertReviews failed (schedule still corrected):', e.message))
-      console.log('[Anki correct] post-lock correction', cs.cardId, 'pre-ivl', curIvl, '→', newIvl, 'ease', ease)
-      return newIvl
+      return srs.correctRating({ cardId: cs.cardId, ease, preSchedule: src })
     })
     syncChainRef.current = run.catch(() => {})
     return run
@@ -12902,7 +12749,7 @@ Your output keeps: the same method, the same language (${explainLang}), the same
         // Distinguish "sync genuinely failed" from "Anki simply isn't open": ping AnkiConnect.
         // Unreachable → flip ankiConnected so the reconnect watcher takes over (it re-pings and
         // auto-flushes when Anki is back) and show a calm note instead of a scary failure.
-        const up = await ankiPing().catch(() => false)
+        const up = await srs.ping().catch(() => false)
         if (!up) {
           setAnkiConnected(false)
           setStudySyncError(t(r.failed === 1 ? 'study_syncAnkiClosedOne' : 'study_syncAnkiClosed', { n: r.failed }))
@@ -12954,7 +12801,7 @@ Your output keeps: the same method, the same language (${explainLang}), the same
       if (reconnectPingBusyRef.current) return
       reconnectPingBusyRef.current = true
       try {
-        const up = await ankiPing().catch(() => false)
+        const up = await srs.ping().catch(() => false)
         if (up) { setStudySyncError(null); refreshAnkiConnection() }
       } finally { reconnectPingBusyRef.current = false }
     }, 10000)
@@ -12974,12 +12821,12 @@ Your output keeps: the same method, the same language (${explainLang}), the same
     let stopped = false
     const tick = async () => {
       tries += 1
-      if (await ankiPing().catch(() => false)) { refreshAnkiConnection(); return }
+      if (await srs.ping().catch(() => false)) { refreshAnkiConnection(); return }
       if (stopped) return
       // Re-read Anki's STATE too (every other tick: it runs a process on the server). It was read once, when
       // the connection first failed, so the banner froze on "Anki is waiting on a question" (no Install
       // button) after the dialog was answered and only the add-on was missing.
-      if (tries % 2 === 0 && !isOverlay) fetch('/api/ankiconnect').then((r) => r.json()).then((d) => { if (!stopped && d && typeof d === 'object') setAnkiAddon(d) }).catch(() => {})
+      if (tries % 2 === 0 && !isOverlay) srs.setupStatus().then((d) => { if (!stopped && d && typeof d === 'object') setAnkiAddon(d) }).catch(() => {})
       id = setTimeout(tick, tries < 15 ? 4000 : 20000)
     }
     id = setTimeout(tick, 4000)
@@ -13209,7 +13056,7 @@ learner's goals or interests that already exist.`
       if (newProgress && existingOk && !stillSame) console.warn('[Study] progress update not saved: the notes changed during the analysis')
       if (newProgress && existingOk && stillSame) {
         try {
-          const saved = await fetch('/api/deck-progress', {
+          const saved = await apiFetch('/api/deck-progress', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ deck: studyDeck, content: newProgress }),
@@ -13286,8 +13133,8 @@ learner's goals or interests that already exist.`
       // Find the noteId from the card
       const card = studyAllCards.find(c => c.cardId === cs.cardId)
       if (card) {
-        await ankiDeleteNotes([card.note])
-        ankiSyncSoon()
+        await srs.deleteNotes([card.note])
+        srs.syncSoon()
       }
       // Mark as done + deleted, skip remaining questions
       // From LIVE state, patched functionally: the Anki delete above is awaited, and a render-time
@@ -13425,7 +13272,7 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
                 // The model rewrote the card from its PLAIN text, captured at session start. Re-read the note:
                 // the write kept none of the field's images, audio (a 🔊 play embeds it mid-session) or
                 // furigana/tables, and overwrote an edit made in the deck browser or Anki meanwhile.
-                const fresh = ((await ankiNotesInfo([card.note])) || [])[0]
+                const fresh = ((await srs.notesInfo([card.note])) || [])[0]
                 if (!fresh?.fields) throw new Error(t('fbr_cardGone'))
                 const fields = Object.entries(fresh.fields).sort(([,a],[,b]) => a.order - b.order)
                 // Only the sides the reply actually provides: a reply with just a new back used to write an
@@ -13450,11 +13297,11 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
                 // failure (Anki closed) used to be swallowed silently.
                 if (refused) cardEditReceipt = t('fbr_cardKeepsMarkup')
                 else if (Object.keys(updates).length) {
-                  await ankiUpdateNote(card.note, updates); ankiSyncSoon(); cardEditReceipt = t('fbr_cardUpdated')
+                  await srs.updateNoteFields(card.note, updates); srs.syncSoon(); cardEditReceipt = t('fbr_cardUpdated')
                   // The session takes the card's NEW text: the next message's prompt still showed the old back, and
                   // a second edit ("also add the plural") wrote over the first. Fail-soft.
                   try {
-                    const fresh = (await ankiNotesInfo([card.note]))?.[0]
+                    const fresh = (await srs.notesInfo([card.note]))?.[0]
                     if (fresh?.fields && feedbackSid === studySessionRef.current) {
                       const ids = new Set(fresh.cards || [])
                       setStudyAllCards((prev) => prev.map((c) => (c.note === card.note ? { ...c, fields: fresh.fields } : c)))
@@ -13626,10 +13473,10 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
     if (!deckName) { setChatTabAttachedDeck(null); setChatTabAttachLoading(false); return }
     setChatTabAttachLoading(true)
     try {
-      const noteIds = await ankiFindNotes(`${ankiDeckTerm(deckName)}`)
+      const noteIds = await srs.findNotes({ deck: deckName })
       // The NEWEST 100 (note ids grow with creation): the oldest 100 are the likeliest to be mature, so
       // "weak areas" were judged from the cards the learner knows best. The real total is kept too.
-      const notes = noteIds.length > 0 ? await ankiNotesInfo(noteIds.slice(-100)) : []
+      const notes = noteIds.length > 0 ? await srs.notesInfo(noteIds.slice(-100)) : []
       const cards = notes.map(n => {
         const fields = Object.values(n.fields).sort((a, b) => a.order - b.order)
         return { front: stripHtml(fields[0]?.value || ''), back: stripHtml(fields[1]?.value || '') }
@@ -13692,6 +13539,7 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
     // then reset to "+ Add" (and could be added twice). Text typed during the wait stays in the box.
     const newMsgs = [...(chatTabMsgsRef.current || chatTabMsgs), { role: 'user', content: q || '(image)', image: img || undefined }]
     setChatTabMsgs(newMsgs)
+    emitAppEvent(EVENTS.CHAT_SENT, { mode: activeModeIdRef.current })
     setChatTabInput((cur) => (cur.trim() === q ? '' : cur))
     setChatTabImage(null)
     setChatPlusOpen(false)
@@ -13749,7 +13597,7 @@ ${activeMode.type === 'language' ? `   - LANGUAGE MODE (learning ${learnLangName
       if (chatTabWebSearch && q) {
         setChatTabStatus('searching')
         try {
-          const searchRes = await fetch(`/api/web-search?q=${encodeURIComponent(q)}`)
+          const searchRes = await apiFetch(`/api/web-search?q=${encodeURIComponent(q)}`)
           const searchData = await searchRes.json()
           // A search that never ran (the service blocked it, a network error) is a FAILURE, not "found
           // nothing": Ebi must say it could not search rather than claim the web had no answer.
@@ -13848,7 +13696,7 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       if (progressMatches.length > 0 && progressDeck && progressReadOk && progressStill && !dataSwitchingRef.current) { // frozen: see chatTabSaveCurrent
         for (const pm of progressMatches.slice(-1)) { // the last update is the one that stands
           try {
-            const saved = await fetch('/api/deck-progress', {
+            const saved = await apiFetch('/api/deck-progress', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ deck: progressDeck, content: pm[1].trim() }),
@@ -13948,7 +13796,7 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       let results = []
       let searchFailed = false // the search never ran (blocked, offline): not the same as "found nothing"
       try {
-        const sr = await fetch(`/api/web-search?q=${encodeURIComponent(query)}`)
+        const sr = await apiFetch(`/api/web-search?q=${encodeURIComponent(query)}`)
         const sd = await sr.json()
         if (!sr.ok || sd.error) searchFailed = true
         else results = sd.results || []
@@ -14007,15 +13855,15 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
     chatCardsAddingRef.current.add(card)
     const deck = chatCardDeck()
     try {
-      if (!(await ankiGetDecks().catch(() => [])).includes(deck)) await ankiCreateDeck(deck)
+      if (!(await srs.getDecks().catch(() => [])).includes(deck)) await srs.createDeck(deck)
       // Bold the "Label:" prefixes so the formatted back renders cleanly in Anki.
       // allowDuplicate: the chat emits ONE card per meaning, all with the same "word (pos)" front, so
       // Anki refused the second meaning as a duplicate. The in-flight guard above stops double clicks.
       const nc = normalizeChatCard(card) // a card saved before normalization existed may still hold an object
       // Plain text, as the widget showed it: "<div>" in a web-dev card is a word, not markup (Anki kept it
       // as a tag and dropped <form> entirely, so the saved card differed from the preview).
-      await ankiAddNote(deck, escapePlainHtml(nc.front), cardBackToHtml(String(nc.back || '').split('\n').map(escapePlainHtml).join('\n')), nc.tags.length ? nc.tags : ['ebiki'], true)
-      ankiSyncSoon()
+      await addNewCard(deck, escapePlainHtml(nc.front), cardBackToHtml(String(nc.back || '').split('\n').map(escapePlainHtml).join('\n')), nc.tags.length ? nc.tags : ['ebiki'], true)
+      srs.syncSoon()
       // Another chat opened while Anki added it: marking and saving now would write THAT chat's messages
       // under this render's (the old chat's) id, and the server kept them as a duplicate chat.
       if (!chatTabMsgsRef.current[msgIdx]?.cards?.includes(card)) return
@@ -14074,7 +13922,7 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
     const chatTitle = title || (first && first !== '(image)' ? first.slice(0, 40) : t(first === '(image)' ? 'chat_imageTitle' : 'chat_untitled'))
     chatLastSaveOkRef.current = false
     try {
-      const res = await fetch('/api/chats', {
+      const res = await apiFetch('/api/chats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         // Tag the session with the mode it belongs to, so the Discover learner profile can scope
@@ -14085,7 +13933,7 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       const data = await res.json().catch(() => null)
       if (refreshList) {
         // A failed list read (503 while the share is down) is not an empty list.
-        const sessions = await fetch('/api/chats').then(r => (r.ok ? r.json() : null)).catch(() => null)
+        const sessions = await apiFetch('/api/chats').then(r => (r.ok ? r.json() : null)).catch(() => null)
         if (Array.isArray(sessions)) setChatTabSessions(sessions)
       }
       // A failed save has no id: keep the one we have (undefined made the next save a NEW chat).
@@ -14141,7 +13989,7 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
     // A chat that could not be READ must not be opened as an empty one: its id would then take the
     // next save, which writes the new (short) conversation over the real one.
     try {
-      const r = await fetch(`/api/chat-load?id=${encodeURIComponent(session.id)}`)
+      const r = await apiFetch(`/api/chat-load?id=${encodeURIComponent(session.id)}`)
       const data = await r.json()
       if (!r.ok || !Array.isArray(data?.messages)) throw new Error(data?.error || `load ${r.status}`)
       const msgs = data.messages.map(m => ({ ...m, content: m.content ?? m.text ?? '' }))
@@ -14167,7 +14015,7 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
     if (!(await confirmDialog(t('chat_deleteConfirm')))) return
     if (dataSwitchingRef.current) return // frozen while the dialog was open (an offline delete must never reach the share)
     try {
-      const r = await fetch(`/api/chats?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+      const r = await apiFetch(`/api/chats?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
       if (!r.ok) throw new Error(`delete ${r.status}`) // not deleted on disk, so the row stays (it would reappear on reload anyway)
       setChatTabSessions(prev => prev.filter(s => s.id !== id))
       if (chatTabSessionIdRef.current === id) { setChatTabMsgs([]); setChatTabSessionId(null) } // live: it may have opened during the confirm
@@ -14191,11 +14039,11 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
     }
     chatRenamingRef.current = id
     try {
-      const r = await fetch(`/api/chat-load?id=${encodeURIComponent(id)}`)
+      const r = await apiFetch(`/api/chat-load?id=${encodeURIComponent(id)}`)
       const data = await r.json()
       // Renaming re-saves the whole chat: from a failed read it would save it with NO messages.
       if (!r.ok || !Array.isArray(data?.messages)) throw new Error(data?.error || `load ${r.status}`)
-      const saved = await fetch('/api/chats', {
+      const saved = await apiFetch('/api/chats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         // Preserve the session's existing type/mode tags so a rename doesn't strip them.
@@ -14205,7 +14053,7 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       // A refused save (share down) kept the old title on disk while the list showed the new one; a chat
       // continued elsewhere in between was saved as a renamed COPY, so the list needs the real ids.
       if (!saved.ok || !sd?.ok) throw new Error(sd?.error || `save ${saved.status}`)
-      if (sd.forked) { const list = await fetch('/api/chats').then((x) => (x.ok ? x.json() : null)).catch(() => null); if (Array.isArray(list)) setChatTabSessions(list) }
+      if (sd.forked) { const list = await apiFetch('/api/chats').then((x) => (x.ok ? x.json() : null)).catch(() => null); if (Array.isArray(list)) setChatTabSessions(list) }
       else setChatTabSessions(prev => prev.map(s => s.id === id ? { ...s, title: newTitle } : s))
       setChatTabEditingTitle(null)
     } catch { setAiErrorNotice((prev) => prev || t('chat_renameFailed')) } // the old title silently came back
@@ -14443,7 +14291,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     setAnkiError(null)
     try {
       // Re-check connection
-      const connected = await ankiPing()
+      const connected = await srs.ping()
       setAnkiConnected(connected)
       if (!connected) {
         const msg = t('d_errAnkiClosed') // was English-only in every app language
@@ -14453,21 +14301,21 @@ Output ONLY raw JSON. No markdown, no backticks.`
       }
       // Ensure target deck exists — create it if not
       // A failed read keeps the list (an empty one emptied every deck picker, and chat cards went to "Default").
-      const decksRead = await ankiGetDecks().catch(() => null)
+      const decksRead = await srs.getDecks().catch(() => null)
       const decks = Array.isArray(decksRead) ? decksRead : []
       if (Array.isArray(decksRead)) setAnkiDecks(decksRead)
       if (!decks.includes(ankiDeck)) {
         console.log('[Anki] deck not found, creating:', ankiDeck)
-        await ankiCreateDeck(ankiDeck)
-        const updated = await ankiGetDecks().catch(() => null) // a failed read keeps the pickers' list
+        await srs.createDeck(ankiDeck)
+        const updated = await srs.getDecks().catch(() => null) // a failed read keeps the pickers' list
         if (Array.isArray(updated)) setAnkiDecks(updated)
       }
       // Convert to rich HTML for Anki (shared any-script label bolding; the old local regex was Latin-only)
       const ankiBack = plainBackHtml(card.back)
-      const noteId = await ankiAddNote(ankiDeck, plainFrontHtml(card.front), ankiBack, card.tags)
+      const noteId = await addNewCard(ankiDeck, plainFrontHtml(card.front), ankiBack, card.tags)
       console.log('[Anki] card synced successfully, noteId:', noteId, 'deck:', ankiDeck)
       // Sync to AnkiWeb
-      ankiSyncSoon()
+      srs.syncSoon()
       if (scanGen === scanGenRef.current) setAnkiSynced((prev) => ({ ...prev, [idx]: ankiDeck || true })) // the deck it really went to (see the label)
     } catch (err) {
       console.error('[Anki] sync error:', err.message)
@@ -14762,6 +14610,10 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
           : state === 'notRunning' ? t('ankiAddonStartAnki')
             : state === 'notLoaded' ? t('ankiAddonNotLoaded')
               : t('ankiNotConnected')
+    // A card store that is not a separate program Ebiki can set up (no 'setup' capability) gets none of the
+    // Anki diagnosis above: just its name and Refresh.
+    const setupAble = hasCapability('setup')
+    const shown = setupAble ? message : t('cardStoreOffline', { name: activeBackend()?.label || '' })
     const btn = { ...S.ghostBtn, fontSize: 11, color: 'var(--c-warning)', borderColor: 'rgba(232,147,12,.4)', flexShrink: 0 }
     const busy = addonState === 'installing'
     return (
@@ -14770,7 +14622,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
         background: 'rgba(232,147,12,.12)', border: '1px solid rgba(232,147,12,.35)',
         color: C.ink, fontSize: 12, fontWeight: 600, lineHeight: 1.5, textAlign: 'left', flexWrap: 'wrap', ...style,
       }}>
-        <span>⚠️ {message}</span>
+        <span>⚠️ {shown}</span>
         <span style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           {busy && <span style={{ color: C.inkDim, fontWeight: 600 }}>{t('ankiAddonInstalling')}</span>}
           {addonState === 'done' && <span style={{ color: 'var(--c-success)', fontWeight: 700 }}>✓ {addonMsg}</span>}
@@ -14780,7 +14632,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
           {!busy && (<>
             {/* Bring Anki forward: the fix for both "not running" and "not loaded" is
                 over in Anki, and hunting for its window is the part people stall on. */}
-            {state !== 'missing' && (
+            {setupAble && state !== 'missing' && (
               <button onClick={openAnkiWindow} style={btn}>{t('ankiAddonOpenAnki')}</button>
             )}
             {/* Installing is ALWAYS offered once we know the add-on is absent, and is
@@ -14819,6 +14671,27 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
   }
 
   // ─── Render ────────────────────────────────────────────────────────────────
+  // ─── Shell: sidebar navigation (core screens + feature screens), right rail ───
+  const viewportW = useViewportWidth(getZoom)
+  const featureNav = registry.slot(SLOT.NAV)
+  const navItems = [
+    ...CORE_NAV.map((n) => ({ ...n, label: t('tab_' + n.id) })),
+    ...featureNav.map((n) => ({ id: n.id, icon: n.icon, order: n.order, label: t(n.labelKey) })),
+  ].sort((a, b) => a.order - b.order)
+  const featureScreen = featureNav.find((n) => n.id === activeTab) || null
+  const pickTab = (tab) => {
+    setActiveTab(tab)
+    setChatSidePanel(false)
+    setSettingsOpen(false) // switching tabs closes the settings modal
+  }
+  // A saved tab whose feature was removed (or never existed) falls back to Study.
+  useEffect(() => {
+    if (!isOverlay && configLoaded && activeTab && !navItems.some((n) => n.id === activeTab)) setActiveTab('study')
+  }, [activeTab, configLoaded]) // eslint-disable-line react-hooks/exhaustive-deps
+  const shellOn = !isOverlay && onboarded
+  const sidebarCollapsed = viewportW < SHELL.collapseBelow
+  const showRail = shellOn && viewportW >= SHELL.railHideBelow && (railWanted(activeTab, { studyActive }) || !!featureScreen?.rail)
+
   // Wait for config + modes before the first real paint so the saved tab/mode are already
   // applied — otherwise the UI briefly flashes the default mode/tab before load (the flicker).
   if (!isOverlay && !configLoaded) {
@@ -14847,7 +14720,59 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
       </div>
     )
   }
+  // ─── Features (src/features): one context, generic slots ───────────────────
+  const featureCtx = {
+    registry, t, lang: appLanguage, apiKeys, getZoom, onboarded,
+    presetModel: (prov, tier) => presetModel(PROVIDERS[prov], prov, tier),
+    activeMode, activeTab, setActiveTab,
+    // Open a screen (a sidebar id) with params for it (e.g. { activity, params } for Practice). Unknown ids do nothing.
+    open: (navId, payload) => { if (!navItems.some((n) => n.id === navId)) return false; requestIntent(navId, payload); pickTab(navId); return true },
+    busy: studyActive && studyPhase === 'question', // mid-question: features hold their popups
+    isDataSwitching: () => !!dataSwitchingRef.current,
+    featureSettings, setFeatureSettings,
+    notify: setSuccessNotice,
+    confirm: confirmDialog,
+    emit: emitAppEvent, // features announce their own facts (EVENTS) the same way the app does
+    studyActive, ankiConnected,
+    // AI for features, on the user's provider. `role` picks the model like everywhere else (resolveModel).
+    ai: {
+      hasKey: !!apiKey,
+      call: (system, user, { role = 'general', maxTokens, images, silent } = {}) =>
+        aiCall(apiKey, system, user, resolveModel(role), { ...(maxTokens ? { maxTokens } : {}), ...(images ? { images } : {}), ...(silent ? { silent } : {}) }),
+      json: parseAiJson,
+      clean: (text) => stripDashes(text).replace(/[🦐🦞🦀]️?/gu, '').trim(), // no dashes or shrimp in anything shown
+    },
+    // The active mode, described for prompts. ANY subject: `isLanguage` only switches wording, never features.
+    subject: {
+      modeId: activeMode.id, name: activeMode.name, type: activeMode.type, isLanguage: activeMode.type === 'language',
+      description: activeMode.description || '',
+      deck: ankiDeck || ankiDecks[0] || '',
+      learnLang: activeMode.type === 'language' ? learnLangName() : userLangName(),
+      learnLangIso: langInfo(activeMode.type === 'language' ? learnLangName() : userLangName())?.iso1 || '',
+      userLang: userLangName(),
+      rules: () => (activeMode.type === 'language' ? [dialectRule(), preferredTermRule()].filter(Boolean).join('\n') : ''),
+      knowledge: (cap) => knowledgeBlock(cap),
+      grammarSlips: (limit) => grammarSlipBlock(limit),
+      // The same slips as data ([{ text, front, n }], most frequent first), for features that act on each one.
+      grammarSlipList: (limit = 15) => (activeMode.type === 'language' ? [...modeGrammarLog].sort((a, b) => ((b.n || 1) - (a.n || 1)) || ((b.at || 0) - (a.at || 0))).slice(0, limit).map((e) => ({ text: String(e.t || ''), front: String(e.front || ''), n: e.n || 1 })).filter((e) => e.text) : []),
+    },
+    // Card helpers that must go through the app: new cards (so every surface announces them the same way) and
+    // the app's text <-> card HTML conventions (bold "Label:" lines, line breaks, escaping).
+    cards: {
+      addNew: addNewCard,
+      frontHtml: plainFrontHtml,
+      backHtml: plainBackHtml,
+      // { front, back, fieldNames } of a note OR a cardsInfo entry, as plain text (line breaks kept).
+      noteText: (n) => {
+        const fields = Object.entries(n?.fields || {}).sort((a, b) => (a[1]?.order ?? 0) - (b[1]?.order ?? 0))
+        const text = (v) => stripHtml(String(v || '').replace(/<(?:br|hr)[^>]*>|<\/(?:div|p|li|tr)>/gi, '\n')).replace(/\n{3,}/g, '\n\n').trim()
+        return { front: text(fields[0]?.[1]?.value), back: text(fields[1]?.[1]?.value), fieldNames: fields.map(([k]) => k) }
+      },
+    },
+  }
+  featureCtxRef.current = featureCtx
   return (
+    <FeatureContext.Provider value={featureCtx}>
     <div
       ref={containerRef}
       onDragOver={handleDragOver}
@@ -15014,28 +14939,13 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
           </svg>
           <h1 style={S.title}>Ebiki</h1>
           <span style={S.badge}>{t('badge_local')}</span>
-          <div style={S.tabBar}>
-            {['chat', 'study', 'deck', 'discover', 'picture', 'stats'].map((tab) => (
-              <button
-                key={tab}
-                className={activeTab === tab ? 'ui-tab ui-tab-current' : 'ui-tab'}
-                onClick={() => {
-                  setActiveTab(tab)
-                  setChatSidePanel(false)
-                  setSettingsOpen(false) // switching tabs closes the settings modal
-                }}
-                style={{ ...S.tab, ...(activeTab === tab ? S.tabActive : {}) }}
-              >
-                <span className="ui-tab-inner">{t('tab_' + tab)}</span>
-              </button>
-            ))}
-          </div>
           {/* Talk to Ebi — opens Ebi's chat (replaces the old floating shrimp button). Not "Ask Ebi":
               Ebi also ACTS on requests (bulk edits, dialect, preferences), not just answers. */}
           <button onClick={() => setAskEbiSignal((n) => n + 1)} data-tip={t('hdr_talkToEbiTip')} className="ui-btn tip tip-b"
             style={{ ...S.ghostBtn, marginLeft: 8, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)', fontWeight: 700 }}>
             {t('hdr_talkToEbi')}
           </button>
+          {onboarded && <FeatureSlot registry={registry} name={SLOT.HEADER} />}
         </div>
         <div style={S.headerRight}>
           {/* Picture tab: context buttons */}
@@ -15089,12 +14999,12 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                 setOverlayEnabled(next)
                 if (next) {
                   try {
-                    const r = await fetch('/api/launch-overlay', { method: 'POST' })
+                    const r = await apiFetch('/api/launch-overlay', { method: 'POST' })
                     const d = await r.json()
                     if (d.error) { alertDialog(t('overlay_launchFailed', { msg: d.error })) } else { setOverlayRunning(true) } // the server's text is English
                   } catch (err) { alertDialog(t('overlay_launchFailed', { msg: err.message })) }
                 } else {
-                  try { await fetch('/api/launch-overlay', { method: 'DELETE' }); setOverlayRunning(false) } catch {}
+                  try { await apiFetch('/api/launch-overlay', { method: 'DELETE' }); setOverlayRunning(false) } catch {}
                 }
               }} style={{
                 ...S.ghostBtn,
@@ -15223,6 +15133,10 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
           planDeciding={planDeciding} runConnectionTest={runConnectionTest} modelProbe={modelProbe}
           serverDown={serverDown}
           studyAutoSync={studyAutoSync} setStudyAutoSync={setStudyAutoSync}
+          renderFeatureSettings={(section, ui) => (<>
+            {section === 'general' && <OptionalFeaturesCard {...ui} />}
+            <FeatureSlot registry={registry} name={SLOT.SETTINGS} filter={(i) => i.section === section} props={ui} />
+          </>)}
           studyAutoSyncMinutes={studyAutoSyncMinutes} setStudyAutoSyncMinutes={setStudyAutoSyncMinutes}
           questionReuse={questionReuse} setQuestionReuse={setQuestionReuse} clearSavedQuestions={clearSavedQuestions}
           showTokenUsage={showTokenUsage} setShowTokenUsage={setShowTokenUsage} getActiveModeId={() => activeModeIdRef.current} getActiveMode={() => modesRef.current.find((m) => m.id === activeModeIdRef.current)}
@@ -15263,6 +15177,13 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
           onClose={() => setModeStudio(null)}
         />
       )}
+
+      {/* ── Shell row: sidebar | screen | rail (in the overlay these wrappers vanish: display contents) ── */}
+      <div style={shellOn ? { flex: 1, display: 'flex', minHeight: 0 } : { display: 'contents' }}>
+      {shellOn && <Sidebar items={navItems} active={activeTab} onPick={pickTab} collapsed={sidebarCollapsed} />}
+      <div style={shellOn ? { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 } : { display: 'contents' }}>
+      {/* A screen contributed by a feature (navItems slot). */}
+      {featureScreen?.Screen && <main style={S.main}><featureScreen.Screen /></main>}
 
       {/* ── Deck Browser ─────────────────────────────────────────────────────── */}
       {activeTab === 'deck' && (
@@ -16127,7 +16048,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                                   const name = cleanDeckName(await promptDialog(t('newDeckName')))
                                   if (!name) return
                                   try {
-                                    await ankiCreateDeck(name)
+                                    await srs.createDeck(name)
                                     // Anki deck names ignore case: "spanish" typed while "Spanish" exists IS that deck (a
                                     // copy "there" duplicated the card into the open deck; a move made it vanish from the list).
                                     const same = ankiDecks.find((d) => d.toLowerCase() === name.toLowerCase())
@@ -16480,6 +16401,10 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                     <div style={{ position: 'absolute', bottom: 'calc(100% + 8px)', left: 0, width: 230, background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 10, boxShadow: SHADOW.lg, padding: 6, zIndex: 50, display: 'flex', flexDirection: 'column', gap: 2 }}>
                       <button onClick={() => chatImageInputRef.current?.click()} style={itemStyle}>📷 {t('chatMenu_attachPhoto')}</button>
                       <button onClick={() => setChatTabWebSearch((v) => !v)} style={itemStyle}>🌐 {t('chatMenu_webSearch')} {chatTabWebSearch ? '✓' : ''}</button>
+                      {/* Entries contributed by features (chatMenuItems slot), e.g. Roleplay. */}
+                      {registry.slot(SLOT.CHAT_MENU, (it) => !it.visible || it.visible(featureCtxRef.current)).map((it) => (
+                        <button key={`${it.feature}:${it.id}`} onClick={() => { setChatPlusOpen(false); it.onPick?.(featureCtxRef.current) }} style={itemStyle}>{it.icon} {t(it.labelKey)}</button>
+                      ))}
                       <div style={labelStyle}>{t('chatMenu_focus')}</div>
                       <select value={prefs.focus || 'free'} onChange={(e) => setChatPref('focus', e.target.value)} style={selStyle}>
                         <option value="free">{t('chatMenu_focusFree')}</option>
@@ -16504,7 +16429,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                       <select value={prefs.explain || 'auto'} onChange={(e) => setChatPref('explain', e.target.value)} style={selStyle}>
                         <option value="auto">{t('chatMenu_auto')}</option>
                         {(() => {
-                          const own = { English: 'English', Spanish: 'Español', Chinese: '中文', Japanese: '日本語' }
+                          const own = Object.fromEntries(LANGUAGES.map((l) => [l.name, l.label]))
                           const names = Object.keys(own)
                           const learned = activeMode.type === 'language' ? learnLangName() : ''
                           if (learned && !names.includes(learned)) names.push(learned)
@@ -17097,10 +17022,10 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                             <div style={{ display: 'flex', gap: 8 }}>
                               <input value={lm.typed} autoFocus
                                 onChange={(e) => { const v = e.target.value; setStudyLearnMoment((p) => p ? { ...p, typed: v } : p) }}
-                                onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing && typedOk) setStudyLearnMoment(null) }}
+                                onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing && typedOk) { emitAppEvent(EVENTS.LEARN_DONE); setStudyLearnMoment(null) } }}
                                 placeholder={t('learnIt_typePlaceholder')}
                                 style={{ flex: 1, background: 'var(--c-surface)', color: 'var(--c-ink)', border: `1.5px solid ${typedOk ? 'var(--c-success)' : 'var(--c-border)'}`, borderRadius: 6, padding: '8px 10px', fontSize: 13, fontFamily: 'inherit', outline: 'none' }} />
-                              <button onClick={() => setStudyLearnMoment(null)} disabled={!typedOk} className="btn-press"
+                              <button onClick={() => { emitAppEvent(EVENTS.LEARN_DONE); setStudyLearnMoment(null) }} disabled={!typedOk} className="btn-press"
                                 style={{ ...S.captureBtn, borderRadius: 8, fontSize: 12, padding: '8px 18px', opacity: typedOk ? 1 : 0.5, cursor: typedOk ? 'pointer' : 'default' }}>
                                 {t('pbqContinue')}
                               </button>
@@ -17879,6 +17804,9 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
           </div>
         )}
       </main>}
+      </div>
+      {showRail && <Rail registry={registry} />}
+      </div>
 
       {/* ── Expanded Fullscreen ───────────────────────────────────────────────── */}
       {expanded && (
@@ -18714,6 +18642,9 @@ ${PALETTE_CSS}
       )}
       </div>
 
+      {/* Feature mounts (voice typing, the game's modals, ...): each decides for itself when to show. */}
+      {!isOverlay && configLoaded && registry.mounts().map(({ id, Mount }) => <Mount key={id} />)}
+
       {!isOverlay && configLoaded && onboarded && !rerunSetup && <HelpChat
         t={t}
         apiKey={apiKey}
@@ -18901,6 +18832,7 @@ ${PALETTE_CSS}
         knowledge: knowledgeRaw(12000),
       }} />}
     </div>
+    </FeatureContext.Provider>
   )
 }
 
