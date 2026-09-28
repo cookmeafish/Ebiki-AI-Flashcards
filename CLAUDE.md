@@ -1415,6 +1415,11 @@ Sidebar (core screens `CORE_NAV` + feature `navItems`) | screen | rail (feature 
 screens: Study home, Stats; feature screens opt in with `rail: true`). Sizes and breakpoints in `SHELL` (CSS px after
 the body zoom; `useViewportWidth`): icon-only sidebar below `collapseBelow`, no rail below `railHideBelow`. In the
 overlay the wrappers are `display: contents`. A saved `activeTab` that no longer exists falls back to Study.
+**Core screens share the Duolingo-style look through global classes** (App.jsx global `<style>`, same design as
+`src/features/ui.jsx`): `.duo-title` (display heading), `.duo-bubble` (Ebi speech bubble), `.duo-cta` (+ `.green`; chunky 3D
+button, pair with `btn-press`), `.duo-tile` (+ `.brand`; chunky choice tile). Used by the Study home, the Chat empty state and
+the Deck header. Tiles in a flex column WRAP (`flex: 1 1 170px; minWidth: 0`), never an auto-fit grid: its min-content width
+widened the Chat column and pushed Send off screen.
 
 ### Voice typing (`src/features/voice/`)
 A mic badge on the focused text field (any `input[type=text|search]`, `textarea`, contenteditable), Alt+V toggles,
