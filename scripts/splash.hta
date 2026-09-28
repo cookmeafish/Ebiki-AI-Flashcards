@@ -112,7 +112,7 @@
         <div class="title" id="title">Starting Ebiki</div>
         <div class="sub" id="sub">Waking up Anki and the study server.</div>
         <div id="ask">
-          <button class="yes" id="yesBtn" onclick="answer('yes')">Update now</button><button class="no" onclick="answer('no')">Not now</button>
+          <button class="yes" id="yesBtn" onclick="answer('yes')">Update now</button><button class="no" id="noBtn" onclick="answer('no')">Not now</button>
         </div>
       </div>
     </div>
@@ -158,6 +158,38 @@ var fso = new ActiveXObject('Scripting.FileSystemObject');
 var htaPath = unescape(location.href).replace(/^file:\/+/, '').replace(/\//g, String.fromCharCode(92));
 var appDir = fso.GetParentFolderName(fso.GetParentFolderName(htaPath));
 var readyFile = fso.BuildPath(appDir, '.app-ready');
+
+// A whole file as UTF-8 text ('' when missing or busy). ADODB.Stream, not FileSystemObject: FSO reads only
+// ANSI or UTF-16, and the launcher's messages are translated (Chinese, Japanese...) and written as UTF-8.
+function readUtf8(path) {
+  try {
+    if (!fso.FileExists(path)) return '';
+    var st = new ActiveXObject('ADODB.Stream');
+    st.Type = 2; st.Charset = 'utf-8'; st.Open(); st.LoadFromFile(path);
+    var txt = st.ReadText(); st.Close();
+    return txt.replace(/^﻿/, '');
+  } catch (e) { return ''; }
+}
+// This window's text comes from the app's locale files, through their generated copy
+// scripts/launcher-strings.json (npm run i18n:launcher). Language: applang.json (the app language) -> the
+// Windows language -> English. This legacy-mode engine has no JSON object; the file is our own, so eval.
+var L = {}, LF = {};
+(function loadText() {
+  var all = null, saved = null;
+  try { all = eval('(' + readUtf8(fso.BuildPath(fso.GetParentFolderName(htaPath), 'launcher-strings.json')) + ')'); } catch (e) {}
+  try { saved = eval('(' + readUtf8(fso.BuildPath(appDir, 'applang.json')) + ')'); } catch (e) {}
+  if (!all || !all.langs) return;
+  var sys = String(navigator.browserLanguage || navigator.systemLanguage || navigator.userLanguage || '').toLowerCase().split('-')[0];
+  var lang = (saved && saved.lang && all.langs[saved.lang]) ? saved.lang : (all.langs[sys] ? sys : all.fallback);
+  L = all.langs[lang] || {};
+  LF = all.langs[all.fallback] || {};
+})();
+function T(key, english) { return L[key] || LF[key] || english; }
+document.getElementById('title').innerText = T('ln_startingTitle', 'Starting Ebiki');
+document.getElementById('sub').innerText = T('ln_wakingUp', 'Waking up Anki and the study server.');
+document.getElementById('yesBtn').innerText = T('ln_updateNow', 'Update now');
+document.getElementById('noBtn').innerText = T('ln_notNow', 'Not now');
+fitWindow();
 // scripts/launch.ps1 writes a one-line description of whatever it is doing right
 // now into this file. Showing it is the whole point: a launch that pauses to
 // check for an update, waits on the update question, or spends a minute running
@@ -189,10 +221,10 @@ function answer(v) {
   prompting = false;
   document.getElementById('ask').style.display = 'none';
   document.getElementById('track').style.display = 'block';
-  document.getElementById('title').innerText = 'Starting Ebiki';
+  document.getElementById('title').innerText = T('ln_startingTitle', 'Starting Ebiki');
   document.body.className = '';
   lastStatus = '';   // so the launcher's next status line is shown even if it repeats
-  showStatus(v === 'yes' ? (promptYesText || 'Updating Ebiki. This can take a minute, please wait.') : 'Starting Ebiki.');
+  showStatus(v === 'yes' ? (promptYesText || T('ln_updating', 'Updating Ebiki. This can take a minute, please wait.')) : T('ln_starting', 'Starting Ebiki.'));
 }
 
 // title / yesText are optional (the ASK| form): the Anki update asks in this same window with its
@@ -202,7 +234,7 @@ function showPrompt(txt, title, yesText) {
   if (prompting) return;
   prompting = true;
   promptYesText = yesText || '';
-  document.getElementById('title').innerText = title || 'Update available';
+  document.getElementById('title').innerText = title || T('ln_updateTitle', 'Update available');
   document.getElementById('sub').innerText = txt;
   document.getElementById('ask').style.display = 'block';
   document.getElementById('track').style.display = 'none';
@@ -216,10 +248,11 @@ function showPrompt(txt, title, yesText) {
 function readStatus() {
   try {
     if (!fso.FileExists(statusFile)) return '';
-    var f = fso.OpenTextFile(statusFile, 1);
-    var txt = f.AtEndOfStream ? '' : f.ReadLine();
-    f.Close();
-    return txt.replace(/^\s+|\s+$/g, '');
+    // UTF-8 (the launcher writes translated text). "@key" is a message named by its key (launch-ebiki.vbs
+    // writes one before any translation is loaded).
+    var txt = readUtf8(statusFile).split(/\r?\n/)[0].replace(/^\s+|\s+$/g, '');
+    if (txt.charAt(0) === '@') txt = T(txt.substring(1), '');
+    return txt;
   } catch (e) { return ''; }   // being written to right now - try again next tick
 }
 
@@ -266,7 +299,7 @@ function tick() {
     prompting = false;
     document.getElementById('ask').style.display = 'none';
     document.getElementById('track').style.display = 'block';
-    document.getElementById('title').innerText = 'Starting Ebiki';
+    document.getElementById('title').innerText = T('ln_startingTitle', 'Starting Ebiki');
     document.body.className = '';
     lastStatus = '';
   }
@@ -290,7 +323,7 @@ function tick() {
   // (checking for updates, installing one, waiting on the update question)
   // always beats a generic "hang on".
   if (waited >= 12000 && !status) {
-    showStatus('Almost there. First starts and slower computers take a bit longer.');
+    showStatus(T('ln_almostThere', 'Almost there. First starts and slower computers take a bit longer.'));
   }
   window.setTimeout(tick, STEP);
 }

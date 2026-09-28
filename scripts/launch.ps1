@@ -9,6 +9,8 @@
 # Path-relative so it works wherever the app is installed; this script lives in
 # scripts/, so the app folder is one level up.
 $app = Split-Path $PSScriptRoot -Parent
+# Every message below comes from the app's locale files (Tr, scripts/launcher-i18n.ps1).
+. (Join-Path $PSScriptRoot 'launcher-i18n.ps1')
 
 # ── Splash handshake ────────────────────────────────────────────────────────
 # launch-ebiki.vbs pops scripts/splash.hta the instant the shortcut is clicked,
@@ -54,7 +56,7 @@ function Invoke-NpmInstall($label) {
       # A ceiling: its heartbeat keeps the splash open, so a wedged install (a stuck download, a locked file)
       # held the splash and the launcher lock forever. .npm-install-pending makes the next start retry.
       if ($secs -gt 900) { & taskkill /T /F /PID $p.Id 2>&1 | Out-Null; return 1 }
-      Set-Status ("{0} ({1}s so far, please wait)" -f $label, $secs)
+      Set-Status (Tr 'ln_stillWorking' @{ label = $label; s = $secs })
     }
     return $p.ExitCode
   } catch { return 1 }
@@ -62,15 +64,14 @@ function Invoke-NpmInstall($label) {
 
 function Set-Status($text) {
   if ($follower) { return }
-  # ASCII on purpose: the splash reads this with FileSystemObject, which would
-  # render a UTF-8 BOM as visible junk at the start of the line. Every message
-  # here is plain ASCII, so nothing is lost.
+  # UTF-8: the messages are translated (Chinese, Japanese...), and the splash reads this file with
+  # ADODB.Stream as UTF-8 (it skips the BOM Windows PowerShell writes).
   # RETRIED: the splash reads this file four times a second and its FileSystemObject read handle does
   # not share write access, so a write landing on a read failed ("being used by another process").
   # Measured at ~1.7% per write - enough that the update QUESTION was sometimes never shown and the
   # launch sat on "Checking for updates." for the whole answer timeout.
   for ($i = 0; $i -lt 20; $i++) {
-    try { Set-Content -Path $statusFile -Value $text -Encoding ASCII -ErrorAction Stop; return } catch { Start-Sleep -Milliseconds 25 }
+    try { Set-Content -Path $statusFile -Value $text -Encoding UTF8 -ErrorAction Stop; return } catch { Start-Sleep -Milliseconds 25 }
   }
 }
 function Clear-Status {
@@ -114,18 +115,18 @@ function Ask-InSplash($text, $timeoutSec, $title, $yesStatus) {
         # Take the question back down straight away. The splash guards against
         # re-asking an answered question too, but leaving PROMPT| sitting in the
         # status file is asking for it to be shown again by some later reader.
-        Set-Status 'Starting Ebiki.'
+        Set-Status (Tr 'ln_starting')
         if ($v -eq 'yes') { return 'yes' } else { return 'no' }
       }
     }
     # The splash closed meanwhile (its silence cap, Alt+F4) and took its marker with it: nobody can answer in
     # there, so the caller's own dialog asks instead of this waiting out the timeout invisibly.
-    if (-not (Test-Path $splashMarker)) { Set-Status 'Starting Ebiki.'; return 'nosplash' }
+    if (-not (Test-Path $splashMarker)) { Set-Status (Tr 'ln_starting'); return 'nosplash' }
     Start-Sleep -Milliseconds 200
   }
   # Nobody answered: say we moved on, so the splash takes its buttons down (a click after this
   # would otherwise read as "updating" while nothing is listening for it).
-  Set-Status 'Starting Ebiki.'
+  Set-Status (Tr 'ln_starting')
   return 'timeout'
 }
 # Hold the splash until the window Electron just spawned actually paints (it
@@ -158,7 +159,7 @@ function Wait-AppReady($proc) {
 # updates in the splash (scripts/anki-update.ps1), then starts Anki minimized. Fail-soft - the
 # app still opens without it.
 . (Join-Path $PSScriptRoot 'anki-start.ps1')
-Set-Status 'Waking up Anki and the study server.'
+Set-Status (Tr 'ln_wakingUp')
 try { $null = Start-AnkiIfNeeded } catch {}
 
 # ── Open Ebiki as its own chrome-free window ────────────────────────────────
@@ -401,7 +402,7 @@ function Check-Update {
   # it has no history to diff or roll back through, and it reports "build 1" so the
   # version line has to hide the build number entirely. Deepen it once, quietly, the
   # first time we are here with a working network. Fail-soft: offline just leaves it.
-  Set-Status 'Checking for updates.'
+  Set-Status (Tr 'ln_checkingUpdates')
 
   # Compare against 'master' (the release branch), whatever local branch this
   # clone is on. Look up just its remote head (fast, refs only) with a hard 6s
@@ -414,9 +415,9 @@ function Check-Update {
   # Only now that GitHub answered (offline, it cost the full network timeout on every launch), and with a
   # low-speed limit: a stalled transfer hung here with the launcher lock held.
   if (Test-Path (Join-Path $app '.git\shallow')) {
-    Set-Status 'Filling in this copy''s history. One time only.'
+    Set-Status (Tr 'ln_fillingHistory')
     & git -C $app -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=20 fetch --unshallow 2>&1 | Out-Null
-    Set-Status 'Checking for updates.'
+    Set-Status (Tr 'ln_checkingUpdates')
   }
   $remote = (($line | Select-Object -First 1) -split '\s+')[0]
   if (-not $remote -or $remote -eq $local) { Write-UpdateLog 'no update: already on the latest release'; return }
@@ -430,20 +431,20 @@ function Check-Update {
   # Update available -> ask IN THE SPLASH (see Ask-InSplash). One window, already
   # on screen and in front, so there is nothing left for the question to hide
   # behind.
-  $msg = 'A new version of Ebiki is ready. Updating usually takes under a minute, and Ebiki opens straight after.'
+  $msg = Tr 'ln_updateReady'
   $ans = Ask-InSplash $msg 90
   if ($ans -eq 'nosplash') {
     # No splash to ask in (mshta missing, or this script run on its own). Fall back
     # to a dialog - TOPMOST (4096 = MB_SYSTEMMODAL) and brought to the front
     # (65536 = MB_SETFOREGROUND) so at least it cannot end up behind something.
     $r = (New-Object -ComObject WScript.Shell).Popup(
-      "$msg`n`nUpdate now?",
-      60, 'Ebiki update', 4 + 32 + 4096 + 65536)   # 4 = Yes/No, 32 = question icon
+      ("{0}`n`n{1}" -f $msg, (Tr 'ln_updateAskNow')),
+      60, (Tr 'ln_updateDialogTitle'), 4 + 32 + 4096 + 65536)   # 4 = Yes/No, 32 = question icon
     $ans = if ($r -eq 6) { 'yes' } elseif ($r -eq 7) { 'no' } else { 'timeout' }
   }
   Write-UpdateLog ("launcher: update available ({0} -> {1}); answer='{2}'{3}" -f $local.Substring(0,7), $remote.Substring(0,7), $ans, $(if ($AlreadyRunning) { ' (app already running)' } else { '' }))
   if ($ans -eq 'yes') {
-    Set-Status 'Updating Ebiki. This can take a minute, please wait.'
+    Set-Status (Tr 'ln_updating')
     # MATCH master, do not merely move toward it. `pull --ff-only` is only correct
     # while master goes forwards; a maintainer who retracts a bad release moves it
     # BACKWARDS, and with the local commit ahead that pull exits 0 saying "Already
@@ -470,25 +471,25 @@ function Check-Update {
       # Nothing moved: the fetch failed, a hand-edited tracked file blocked matching master, or
       # git refused the merge. Carrying on as if it worked told the user "Update installed" and
       # logged "applied" while the old version kept running.
-      Set-Status 'The update could not be installed this time. Opening your current version.'
+      Set-Status (Tr 'ln_updateFailed')
       Start-Sleep -Seconds 3
       Write-UpdateLog ("launcher: update FAILED, still at {0}" -f $local.Substring(0,7))
     } else {
-      Set-Status 'Installing the update. Almost done.'
+      Set-Status (Tr 'ln_installingUpdate')
       # A failed install (network hiccup, files locked by the running server) was never retried: HEAD
       # now matches master, so no later launch ran npm install and the new code ran on the old
       # dependencies for good. The marker makes the next fresh start install first. Written BEFORE the
       # install and cleared on success, so an install cut off midway (window closed, reboot) counts too.
       $npmMarker = Join-Path $app '.npm-install-pending'
       try { Set-Content -Path $npmMarker -Value (Get-Date).ToString('s') -Encoding ASCII } catch {}
-      $npmExit = Invoke-NpmInstall 'Installing the update'
+      $npmExit = Invoke-NpmInstall (Tr 'ln_installingLabel')
       $script:npmTriedThisRun = $true   # a failure is retried on the NEXT start, not straight away (see below)
       if ($npmExit -eq 0) { Remove-Item -Force $npmMarker -ErrorAction SilentlyContinue }
       else { Write-UpdateLog ("launcher: npm install failed (exit {0}); will retry on the next start" -f $npmExit) }
       # When the app was already up, the running copy is still serving the OLD code
       # (the dev server cannot reload vite.config.js or new dependencies live), so
       # say the one thing that finishes the job rather than pretending it is done.
-      if ($AlreadyRunning) { Set-Status 'Update installed. Close Ebiki and open it again to finish.'; Start-Sleep -Seconds 4 }
+      if ($AlreadyRunning) { Set-Status (Tr 'ln_updateInstalledReopen'); Start-Sleep -Seconds 4 }
       Write-UpdateLog ("launcher: applied, now at {0}" -f (& git -C $app rev-parse --short HEAD 2>$null))
     }
   } else {
@@ -498,7 +499,7 @@ function Check-Update {
   # 'timeout' (nobody was at the computer) -> open normally. Nothing is lost
   # either way: the next launch asks again, and Settings > Data & updates
   # offers it inside the app.
-  Set-Status 'Starting the study server.'
+  Set-Status (Tr 'ln_startingServer')
 }
 
 # ORDER: Write-UpdateLog and Check-Update MUST be defined above this branch.
@@ -526,7 +527,7 @@ if (Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyCont
   # returning. Logged so this decision is traceable exactly like every other one
   # on this path.
   Write-UpdateLog 'launcher: port 3000 was listening but not answering - stopped the stale server and starting fresh'
-  Set-Status "Ebiki's server stopped responding. Restarting it."
+  Set-Status (Tr 'ln_serverRestart')
   Stop-StaleServer
 }
 
@@ -536,7 +537,7 @@ if (-not $hasNode) {
   # it was never seen, and it held the launcher lock, so every later click waited on it and opened nothing.
   Signal-AppReady; Clear-Status
   [void](New-Object -ComObject WScript.Shell).Popup(
-    "Ebiki could not find Node.js.`n`nRun 'Install Ebiki.bat' in the Ebiki folder, then sign out and back in once.",
+    (Tr 'ln_noNode'),
     300, 'Ebiki', 16 + 4096 + 65536)   # stop icon + MB_SYSTEMMODAL + MB_SETFOREGROUND; 5 min cap
   return
 }
@@ -570,23 +571,23 @@ if ((Test-Path $pendingInstall) -and -not $script:npmTriedThisRun) {
         if (-not $p -or @('cmd', 'node', 'npm') -notcontains $p.ProcessName.ToLower()) { break }
         # A reused PID (a reboot, days later) is a process that started AFTER the marker: not the install.
         try { if ($mark.at -and $p.StartTime -gt ([datetime]$mark.at).AddSeconds(5)) { break } } catch { break }
-        Set-Status ("Waiting for the last update to finish installing ({0}s)." -f [int]((Get-Date) - $t0).TotalSeconds)
+        Set-Status (Tr 'ln_waitingLastUpdate' @{ s = [int]((Get-Date) - $t0).TotalSeconds })
         Start-Sleep -Seconds 5
       }
     }
   } catch { }
-  Set-Status 'Finishing the last update.'
-  $npmExit = Invoke-NpmInstall 'Finishing the last update'
+  Set-Status (Tr 'ln_finishingUpdate')
+  $npmExit = Invoke-NpmInstall ((Tr 'ln_finishingUpdate').TrimEnd('.', [char]0x3002))
   if ($npmExit -eq 0) { Remove-Item -Force $pendingInstall -ErrorAction SilentlyContinue; Write-UpdateLog 'launcher: finished the pending npm install' }
   else { Write-UpdateLog ("launcher: pending npm install failed again (exit {0})" -f $npmExit) }
 }
-Set-Status 'Starting the study server.'
+Set-Status (Tr 'ln_startingServer')
 Start-Process -FilePath 'cmd.exe' -ArgumentList '/c', 'npm run dev' -WorkingDirectory $app -WindowStyle Hidden
 $deadline = (Get-Date).AddSeconds(60)
 do { Start-Sleep -Milliseconds 800 } until (
   (Get-NetTCPConnection -State Listen -LocalPort 3000 -ErrorAction SilentlyContinue) -or ((Get-Date) -gt $deadline)
 )
-Set-Status 'Opening Ebiki.'
+Set-Status (Tr 'ln_opening')
 Wait-AppReady (Open-App)
 
 }

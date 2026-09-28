@@ -32,6 +32,8 @@ discover-mode-plan.md
 .anki-update-declined
 .app-splash
 launchmode.json
+# The app language for the launcher/splash (machine-local copy, written by the server)
+applang.json
 
 # Local scratch space for tooling/test runs (never committed)
 .scratch/

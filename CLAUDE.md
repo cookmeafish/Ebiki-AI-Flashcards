@@ -77,6 +77,17 @@ One **⚙ Settings** modal, `src/components/SettingsModal.jsx`:
 - **Adding a language**: copy `locales/en.js` to `locales/<code>.js`, translate the values, import it in
   `languages.js` and add one entry. `src/i18n/locales.test.js` then checks it: same keys as English, same
   `{placeholders}` (a zh/ja-style singular may keep `{n}`), no dashes, no duplicate keys, count pairs.
+- **The launcher, installer, splash and app window are translated too**, from the same locale files: their text
+  is the `ln_*` section. They cannot read JS, so `npm run i18n:launcher` (`scripts/build-launcher-strings.mjs`)
+  copies those keys into `scripts/launcher-strings.json`; `locales.test.js` fails while that copy is stale. Readers:
+  `scripts/launcher-i18n.ps1` (`Tr 'key' @{ name = value }`: launch.ps1, anki-start/-update, setup.ps1,
+  install-ankiconnect.ps1), `scripts/launcher-i18n.cjs` (electron/main.cjs holding page; `t key name=value` in
+  launch.sh / setup.sh), and splash.hta itself (ADODB.Stream + eval: legacy mode has no JSON). Language:
+  `applang.json` (machine-local, gitignored, written by the server on every config read/save that names
+  `appLanguage`) -> the system language -> English. `.app-status` is **UTF-8** now (the splash reads it with
+  ADODB.Stream and strips the BOM PowerShell 5.1 writes); a status starting with `@` is a message KEY (the VBS
+  writes `@ln_starting` before any translation is loaded). Only the "no Node.js" messages of launch.sh/setup.sh
+  stay English (node is what reads the translations). Log files (`logs/*.log`) stay English on purpose.
 - `t(key, vars)` falls back lang → English → key. **A missing key renders as the raw key name**: add it to EVERY
   locale file. No em/en dashes. Count labels need singular/plural keys (`deck_countAll` / `deck_countAllOne`);
   zh/ja share one form. **No duplicate keys** in a locale: the later one silently wins.

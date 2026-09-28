@@ -152,7 +152,7 @@ function Start-AnkiIfNeededLocked {
   $ankiUpdater = Join-Path $PSScriptRoot 'anki-update.ps1'
   if (Test-Path $ankiUpdater) {
     try { . $ankiUpdater; Update-AnkiIfOffered $exe } catch { Write-AnkiStartLog "update check failed: $($_.Exception.Message)" }
-    Set-Status 'Waking up Anki and the study server.'
+    Set-Status (Tr 'ln_wakingUp')
   }
   # Opened by hand while the update question was up (the update then skips itself): starting it again
   # popped Anki's single-instance dialog and minimized the window the user had just opened.
@@ -179,7 +179,7 @@ function Start-AnkiIfNeededLocked {
   }
   if (-not $configured) {
     # And do not let the watchdog put that dialog away either.
-    Set-Status 'Finish setting up Anki in the window that just opened.'
+    Set-Status (Tr 'ln_ankiFinishSetup')
     return 'started'
   }
   # Asking is not enough: the launcher boots the real Anki out of a venv and exits, and the
@@ -197,6 +197,7 @@ function Start-AnkiIfNeededLocked {
 if ($Start) {
   # No splash here: statuses go nowhere, and the update question uses anki-update.ps1's topmost
   # dialog fallback. Defined only when the host did not already provide them.
+  if (-not (Get-Command Tr -ErrorAction SilentlyContinue)) { . (Join-Path $PSScriptRoot 'launcher-i18n.ps1') }
   if (-not (Get-Command Set-Status -ErrorAction SilentlyContinue)) { function Set-Status($t) { } }
   if (-not (Get-Command Ask-InSplash -ErrorAction SilentlyContinue)) { function Ask-InSplash { 'nosplash' } }
   $r = 'failed'

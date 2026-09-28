@@ -11,6 +11,10 @@
 
 # scripts/ lives one level below the app folder.
 $app = Split-Path $PSScriptRoot -Parent
+# Every message below comes from the app's locale files (Tr, scripts/launcher-i18n.ps1). UTF-8 output so
+# Chinese and Japanese print correctly in the console.
+try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch {}
+. (Join-Path $PSScriptRoot 'launcher-i18n.ps1')
 
 function Section($t) { Write-Host ''; Write-Host "== $t ==" -ForegroundColor Cyan }
 function Ok($t)      { Write-Host "  $t" -ForegroundColor Green }
@@ -115,9 +119,9 @@ function Link-ToGit($dir, $repo) {
   # install this same script runs - so a ZIP user gets the same real repository a
   # git user has, and can pull, log, diff and revert by hand like anyone else.
   & git -C $dir fetch origin master:refs/remotes/origin/master 2>&1 | Out-Null
-  if ($LASTEXITCODE -ne 0) { throw 'could not reach GitHub' }
+  if ($LASTEXITCODE -ne 0) { throw (Tr 'ln_inst_noGithub') }
   & git -C $dir checkout -B master refs/remotes/origin/master -f 2>&1 | Out-Null
-  if ($LASTEXITCODE -ne 0) { throw 'could not check out the release branch' }
+  if ($LASTEXITCODE -ne 0) { throw (Tr 'ln_inst_noCheckout') }
   & git -C $dir branch --set-upstream-to=origin/master master 2>&1 | Out-Null
   # Sweep files the old ZIP had that the release no longer ships (the renamed
   # install.bat / install.ps1 / launch.ps1 would otherwise sit next to the new
@@ -166,7 +170,7 @@ function Test-RealClone($dir) {
 function Have-Winget { [bool](Get-Command winget -ErrorAction SilentlyContinue) }
 function Install-With-Winget($id, $label) {
   if (-not (Have-Winget)) { return $false }
-  Warn "Installing $label with winget (this can take a minute; approve the Windows prompt if it appears)..."
+  Warn (Tr 'ln_inst_winget' @{ label = $label })
   winget install -e --id $id --accept-source-agreements --accept-package-agreements --disable-interactivity 2>&1 | Out-Host
   # winget returns non-zero for "already installed"/"no upgrade"; that's fine.
   return $true
@@ -182,60 +186,63 @@ try {
 } catch { $logFile = $null }
 
 try {
-  Write-Host 'Ebiki installer' -ForegroundColor Magenta
-  Write-Host "App folder: $app"
+  Write-Host (Tr 'ln_inst_intro1')
+  Write-Host (Tr 'ln_inst_intro2')
+  Write-Host ''
+  Write-Host (Tr 'ln_inst_title') -ForegroundColor Magenta
+  Write-Host (Tr 'ln_inst_appFolder' @{ path = $app })
 
   # 1) Node.js (required) ----------------------------------------------------
-  Section 'Checking Node.js'
+  Section (Tr 'ln_inst_checkNode')
   $node = Resolve-Tool 'node' $nodeDirs
   if ($node) {
-    Ok "Node already installed ($(& $node.Source -v))"
+    Ok (Tr 'ln_inst_nodeHave' @{ version = (& $node.Source -v) })
   } else {
-    Warn 'Node.js is not installed.'
+    Warn (Tr 'ln_inst_nodeMissing')
     if (-not (Install-With-Winget 'OpenJS.NodeJS.LTS' 'Node.js LTS')) {
-      throw 'winget is not available on this Windows, so Node.js cannot be installed automatically. Install Node.js LTS from https://nodejs.org then run "Install Ebiki.bat" again.'
+      throw (Tr 'ln_inst_noWinget')
     }
     $node = Resolve-Tool 'node' $nodeDirs
     if (-not $node) {
-      throw 'Node.js was installed but could not be found on PATH. Close this window, sign out and back in (or restart), then run "Install Ebiki.bat" again.'
+      throw (Tr 'ln_inst_nodeNotFound')
     }
-    Ok "Node installed ($(& $node.Source -v))"
+    Ok (Tr 'ln_inst_nodeInstalled' @{ version = (& $node.Source -v) })
   }
   # Too OLD is as bad as missing: the dev server (vite) needs Node 18+, so an old Node passed this step,
   # "All set" was printed, and the app then failed to start on every launch with nothing to repair it.
   $nodeMajor = 0
   try { $nodeMajor = [int](((& $node.Source -v) -replace '^v', '') -split '\.')[0] } catch { $nodeMajor = 0 }
   if ($nodeMajor -gt 0 -and $nodeMajor -lt 18) {
-    Warn "Node.js v$nodeMajor is too old for Ebiki (it needs 18 or newer). Installing the current LTS..."
+    Warn (Tr 'ln_inst_nodeOld' @{ version = $nodeMajor })
     if (Install-With-Winget 'OpenJS.NodeJS.LTS' 'Node.js LTS') { $node = Resolve-Tool 'node' $nodeDirs }
     try { $nodeMajor = [int](((& $node.Source -v) -replace '^v', '') -split '\.')[0] } catch { $nodeMajor = 0 }
     if ($nodeMajor -gt 0 -and $nodeMajor -lt 18) {
-      throw 'Node.js is too old for Ebiki (it needs version 18 or newer). Install the current LTS from https://nodejs.org, then run "Install Ebiki.bat" again.'
+      throw (Tr 'ln_inst_nodeTooOld')
     }
-    Ok "Node updated ($(& $node.Source -v))"
+    Ok (Tr 'ln_inst_nodeUpdated' @{ version = (& $node.Source -v) })
   }
   # npm ships with Node; resolve it from the same folder so version prints work.
   $npm = Resolve-Tool 'npm' $nodeDirs
-  if ($npm) { Ok "npm $(& $npm.Source -v)" } else { Warn 'npm was not found next to Node; the app may still run if npm appears after a restart.' }
+  if ($npm) { Ok "npm $(& $npm.Source -v)" } else { Warn (Tr 'ln_inst_npmMissing') }
 
   # 2) Git (needed for the built-in update check; app still runs without it) --
-  Section 'Checking Git'
+  Section (Tr 'ln_inst_checkGit')
   $git = Resolve-Tool 'git' $gitDirs
   if ($git) {
-    Ok "Git already installed ($((& $git.Source --version) -replace 'git version ',''))"
+    Ok (Tr 'ln_inst_gitHave' @{ version = ((& $git.Source --version) -replace 'git version ','') })
   } else {
-    Warn 'Git is not installed (used for the in-app update check).'
+    Warn (Tr 'ln_inst_gitMissing')
     if (Install-With-Winget 'Git.Git' 'Git') {
       $git = Resolve-Tool 'git' $gitDirs
     }
-    if ($git) { Ok "Git installed ($((& $git.Source --version) -replace 'git version ',''))" }
-    else { Warn 'Could not install Git automatically. The app will still run; get Git from https://git-scm.com to enable in-app updates.' }
+    if ($git) { Ok (Tr 'ln_inst_gitInstalled' @{ version = ((& $git.Source --version) -replace 'git version ','') }) }
+    else { Warn (Tr 'ln_inst_gitFailed') }
   }
 
   # 3) This copy of the app: is it updatable, and which version is it? --------
   # Printed FIRST thing that matters, so "which installer am I even running" is
   # answerable from a screenshot of this window.
-  Section 'Checking this copy of the app'
+  Section (Tr 'ln_inst_checkCopy')
   if (Test-GitHealthy $app) {
     $sha = (& git -C $app rev-parse --short HEAD 2>$null)
     # An earlier installer linked ZIP folders SHALLOW, which leaves a repo that can
@@ -243,39 +250,39 @@ try {
     # machines end up with the same real repository as everyone else. Fail-soft:
     # offline just leaves it as it was, and the next run tries again.
     if (Test-Path (Join-Path $app '.git\shallow')) {
-      Info 'Filling in this copy''s history so git works normally here...'
+      Info (Tr 'ln_inst_filling')
       & git -C $app fetch --unshallow 2>&1 | Out-Null
-      if ($LASTEXITCODE -eq 0) { Ok 'History restored.' } else { Warn 'Could not fetch the full history right now; updates still work.' }
+      if ($LASTEXITCODE -eq 0) { Ok (Tr 'ln_inst_historyOk') } else { Warn (Tr 'ln_inst_historyFail') }
     }
-    if ($sha) { Ok "Version $sha. Updates work (Settings > Data & updates, and on launch)." }
-    else { Ok 'Git clone. Updates work.' }
-    Info "You can also update by hand from this folder: git pull"
+    if ($sha) { Ok (Tr 'ln_inst_version' @{ sha = $sha }) }
+    else { Ok (Tr 'ln_inst_gitClone') }
+    Info (Tr 'ln_inst_gitPull')
   } elseif ($git -and (Test-RealClone $app)) {
     $branch = (& git -C $app rev-parse --abbrev-ref HEAD 2>$null)
     if ($branch -eq 'master') {
       & git -C $app fetch origin master:refs/remotes/origin/master 2>&1 | Out-Null
       & git -C $app branch --set-upstream-to=origin/master master 2>&1 | Out-Null
-      if ($LASTEXITCODE -eq 0) { Ok 'Git clone. Updates work (tracking repaired).' }
-      else { Warn 'Git clone without upstream tracking, and it could not be repaired right now. The app runs fine.' }
+      if ($LASTEXITCODE -eq 0) { Ok (Tr 'ln_inst_trackingFixed') }
+      else { Warn (Tr 'ln_inst_trackingFail') }
     } else {
-      Info "Git clone on branch '$branch'. Left as it is; in-app updates follow master only."
+      Info (Tr 'ln_inst_otherBranch' @{ branch = $branch })
     }
   } elseif ($git) {
     if (Test-Path (Join-Path $app '.git')) {
-      Warn 'This folder has a half-finished repository (an earlier link was interrupted). Repairing it...'
+      Warn (Tr 'ln_inst_halfRepo')
     } else {
-      Warn 'This folder came from a ZIP download, so it has no version and cannot update itself.'
+      Warn (Tr 'ln_inst_zip')
     }
     # Say it BEFORE doing it. This path replaces the app's own files with the
     # current release without asking - reasonable for an installer, but it is the
     # only update anywhere that is not gated on a Yes, so it must not be a surprise
     # ("I ran the installer and it updated itself"). User data is untouched.
-    Warn 'This will also update the app files to the latest release. Your settings, learning modes and decks are not touched.'
-    Info 'Linking it to the project so updates work from now on...'
+    Warn (Tr 'ln_inst_willUpdate')
+    Info (Tr 'ln_inst_linking')
     try {
       $sha = Link-ToGit $app 'https://github.com/cookmeafish/Ebiki-AI-Flashcards.git'
-      Ok "Linked and updated to the latest release ($sha). Your settings, modes and decks were untouched."
-      Ok 'This folder is now a normal git checkout: "git pull" here works by hand.'
+      Ok (Tr 'ln_inst_linked' @{ sha = $sha })
+      Ok (Tr 'ln_inst_normalCheckout')
       # START OVER with the files we just downloaded. THIS IS THE POINT OF THE WHOLE BLOCK.
       # Linking updates the FOLDER, but the script already running is still the one that came
       # out of the ZIP - so everything after this line behaved like whatever old release that
@@ -287,45 +294,45 @@ try {
       # the freshly downloaded one, and an env var an older copy does not know about is simply
       # ignored, whereas an unknown -Switch would make it fail to start at all.
       if ($env:EBIKI_SETUP_RELINKED -ne '1') {
-        Section 'Restarting setup with the updated files'
-        Info 'So this install is identical to a git one.'
+        Section (Tr 'ln_inst_restarting')
+        Info (Tr 'ln_inst_identical')
         $env:EBIKI_SETUP_RELINKED = '1'
         try { Stop-Transcript | Out-Null } catch {}
         & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $app 'scripts\setup.ps1')
         exit $LASTEXITCODE
       }
     } catch {
-      Warn "Could not link this folder ($($_.Exception.Message)). The app runs fine; to get updates later, clone with git instead of downloading the ZIP."
+      Warn (Tr 'ln_inst_linkFailed' @{ error = $_.Exception.Message })
     }
   } else {
-    Warn 'ZIP download and no Git, so this copy cannot update itself. The app still runs.'
+    Warn (Tr 'ln_inst_zipNoGit')
   }
 
   # 4) Anki + the AnkiConnect add-on (the card store Ebiki syncs with) -------
   # Ebiki reads/writes cards through AnkiConnect, so a fresh machine needs BOTH
   # Anki itself and the add-on. Fail-soft on purpose: the app still runs (chat,
   # picture, mode design) without Anki, so nothing here throws.
-  Section 'Checking Anki'
+  Section (Tr 'ln_inst_checkAnki')
   $ankiOk = Test-AnkiInstalled
   if ($ankiOk) {
     # Already there -> skip entirely, never hand it to winget.
     $anki = Find-Anki
-    if ($anki) { Ok "Anki already installed ($anki)" } else { Ok 'Anki already installed.' }
+    if ($anki) { Ok (Tr 'ln_inst_ankiHaveAt' @{ path = $anki }) } else { Ok (Tr 'ln_inst_ankiHave') }
   } else {
-    Warn 'Anki is not installed.'
+    Warn (Tr 'ln_inst_ankiMissing')
     if (Install-With-Winget 'Anki.Anki' 'Anki') { $ankiOk = Test-AnkiInstalled }
     if ($ankiOk) {
       $anki = Find-Anki
-      if ($anki) { Ok "Anki installed ($anki)" } else { Ok 'Anki installed.' }
+      if ($anki) { Ok (Tr 'ln_inst_ankiInstalledAt' @{ path = $anki }) } else { Ok (Tr 'ln_inst_ankiInstalled') }
     } else {
-      Warn 'Could not install Anki automatically. Get it from https://apps.ankiweb.net (the add-on below is still set up, so Anki will find it).'
+      Warn (Tr 'ln_inst_ankiFailed')
     }
   }
 
   # AnkiConnect lives in Anki's add-on folder as plain files, so it can be
   # installed WITHOUT driving Anki's UI: fetch the .ankiaddon (a zip) from
   # AnkiWeb and unpack it into addons21\<code>. Anki picks it up on next start.
-  Section 'Checking the AnkiConnect add-on'
+  Section (Tr 'ln_inst_checkAddon')
   $ankiBase = if ($env:ANKI_BASE) { $env:ANKI_BASE } else { Join-Path $env:APPDATA 'Anki2' }
   $addonDir = Join-Path $ankiBase 'addons21\2055492159'
   # Website installs run the real Anki as python/pythonw out of the Anki folders (same test as
@@ -338,42 +345,42 @@ try {
   if ($have) {
     $meta = Get-AddonMeta $have
     $label = if ($meta -and $meta.name) { $meta.name } else { $have.Name }
-    Ok "$label is already installed (that is the add-on Ebiki talks to)."
-    if ($meta -and $meta.disabled) { Warn 'It is currently DISABLED in Anki. Enable it under Tools > Add-ons.' }
+    Ok (Tr 'ln_inst_addonHave' @{ label = $label })
+    if ($meta -and $meta.disabled) { Warn (Tr 'ln_inst_addonDisabled') }
   } else {
     # Installed even when Anki itself is missing. The add-on is just files in
     # %APPDATA%, and Anki reads that folder whenever it first starts, so a failed
     # or skipped Anki install must not also cost the user the add-on.
-    if (-not $ankiOk) { Warn 'Anki is not here yet; installing the add-on anyway so it is ready when Anki is.' }
+    if (-not $ankiOk) { Warn (Tr 'ln_inst_addonNoAnki') }
     try {
       $from = Install-AnkiConnect $addonDir
-      Ok "AnkiConnect installed from $from into $addonDir"
-      if ($ankiRunning) { Warn 'Anki is running right now: close and reopen it so the add-on loads.' }
+      Ok (Tr 'ln_inst_addonInstalled' @{ from = $from; dir = $addonDir })
+      if ($ankiRunning) { Warn (Tr 'ln_inst_addonReopen') }
     } catch {
-      Warn "Could not install AnkiConnect automatically ($($_.Exception.Message))."
-      Warn 'Ebiki can install it for you later: open Ebiki and use the button on the "Anki is not connected" notice.'
-      Warn 'Or add it by hand in Anki: Tools > Add-ons > Get Add-ons, code 2055492159.'
+      Warn (Tr 'ln_inst_addonFailed' @{ error = $_.Exception.Message })
+      Warn (Tr 'ln_inst_addonLater')
+      Warn (Tr 'ln_inst_addonByHand')
     }
   }
   # State the end result plainly, whatever happened above. A success that was only
   # implied is what made "it did not install AnkiConnect" impossible to confirm
   # from the installer window or from logs/install.log afterwards.
-  if (Find-AnkiConnect $ankiBase) { Ok 'Verified: the add-on Ebiki talks to is in place.' }
-  else { Warn 'AnkiConnect is still NOT installed. Open Ebiki and use the button on the "Anki is not connected" notice to install it.' }
+  if (Find-AnkiConnect $ankiBase) { Ok (Tr 'ln_inst_addonVerified') }
+  else { Warn (Tr 'ln_inst_addonStillMissing') }
 
   # 5) Dependencies (the npm environment) ------------------------------------
-  Section 'Installing dependencies (npm install)'
-  Warn 'This can take a few minutes the first time...'
+  Section (Tr 'ln_inst_deps')
+  Warn (Tr 'ln_inst_depsSlow')
   Push-Location $app
   # Use cmd so the freshly-resolved PATH (with node/npm) is inherited reliably.
   & cmd /c 'npm install --no-fund --no-audit'
   $code = $LASTEXITCODE
   Pop-Location
-  if ($code -ne 0) { throw 'npm install failed. Check your internet connection and run "Install Ebiki.bat" again.' }
-  Ok 'Dependencies installed.'
+  if ($code -ne 0) { throw (Tr 'ln_inst_depsFailed') }
+  Ok (Tr 'ln_inst_depsDone')
 
   # 6) Shortcuts (Desktop + Start Menu) with the Ebi icon --------------------
-  Section 'Creating shortcuts'
+  Section (Tr 'ln_inst_shortcuts')
   $icon   = Join-Path $app 'ebiki.ico'          # baked into the repo
   $target = Join-Path $app 'launch-ebiki.vbs'   # relative to wherever the app is
   $ws     = New-Object -ComObject WScript.Shell
@@ -381,7 +388,7 @@ try {
     $sc = $ws.CreateShortcut($linkPath)
     $sc.TargetPath       = $target
     $sc.WorkingDirectory = $app
-    $sc.Description       = 'Launch Ebiki'
+    $sc.Description       = Tr 'ln_inst_shortcutDesc'
     if (Test-Path $icon) { $sc.IconLocation = "$icon,0" }
     $sc.Save()
   }
@@ -389,18 +396,18 @@ try {
   $programs = [Environment]::GetFolderPath('Programs')
   New-EbikiShortcut (Join-Path $desktop 'Ebiki.lnk')
   if ($programs) { New-EbikiShortcut (Join-Path $programs 'Ebiki.lnk') }
-  Ok "Shortcut created on your Desktop ($desktop)."
+  Ok (Tr 'ln_inst_shortcutDone' @{ path = $desktop })
 
   Write-Host ''
-  Write-Host 'All set! Double-click "Ebiki" on your Desktop to start the app.' -ForegroundColor Magenta
-  Write-Host 'It opens at http://localhost:3000 and only ever runs one copy at a time.'
-  Write-Host 'Open Anki too and leave it running: that is where your cards live.'
-  Write-Host 'If the shortcut ever says it cannot find Node, sign out and back in once, then use it again.'
+  Write-Host (Tr 'ln_inst_done1') -ForegroundColor Magenta
+  Write-Host (Tr 'ln_inst_done2')
+  Write-Host (Tr 'ln_inst_done3')
+  Write-Host (Tr 'ln_inst_done4')
 }
 catch {
   Write-Host ''
-  Write-Host "Setup could not finish: $($_.Exception.Message)" -ForegroundColor Red
-  if ($logFile) { Write-Host "Details were written to $logFile" -ForegroundColor Yellow }
+  Write-Host (Tr 'ln_inst_failed' @{ error = $_.Exception.Message }) -ForegroundColor Red
+  if ($logFile) { Write-Host (Tr 'ln_inst_details' @{ path = $logFile }) -ForegroundColor Yellow }
   try { Stop-Transcript | Out-Null } catch {}
   exit 1
 }
