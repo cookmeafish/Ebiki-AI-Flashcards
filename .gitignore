@@ -44,3 +44,7 @@ config.json.*
 # launch.sh lock (flock file; mkdir lock where flock is missing)
 .launcher.lock
 .launcher.lock.d/
+
+# Feature data (src/features/server.js): players live in the data folder; player.json names this computer
+/players/
+player.json

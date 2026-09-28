@@ -1,3 +1,4 @@
+import { apiFetch } from '../platform'
 // Question reuse (opt-in: config `questionReuse` = { enabled, maxPerCard }). OFF (the default) means off:
 // no bank is read or written and every card gets a fresh generation, exactly as before. ON: the question
 // sets generated for a card are saved with the card's DECK (/api/question-bank, one file per note under
@@ -126,7 +127,7 @@ const qs = (deck, noteId) => `deck=${encodeURIComponent(deck)}${noteId != null ?
 // { ok, bank }: ok:false = could not read (a save would then replace sets we never saw, so callers skip it).
 export async function loadBank(deck, noteId) {
   try {
-    const r = await fetch(`/api/question-bank?${qs(deck, noteId)}`)
+    const r = await apiFetch(`/api/question-bank?${qs(deck, noteId)}`)
     if (!r.ok) return { ok: false, bank: null }
     const d = await r.json()
     return { ok: true, bank: d && d.bank && typeof d.bank === 'object' ? d.bank : null }
@@ -135,7 +136,7 @@ export async function loadBank(deck, noteId) {
 
 export async function saveBank(deck, noteId, bank) {
   try {
-    const r = await fetch(`/api/question-bank?${qs(deck, noteId)}`, {
+    const r = await apiFetch(`/api/question-bank?${qs(deck, noteId)}`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bank }),
     })
     return r.ok
@@ -167,7 +168,7 @@ export function updateBank(deck, noteId, fn, { load = loadBank, save = saveBank,
 export async function clearBank(deck, subdecks = null) {
   try {
     const extra = Array.isArray(subdecks) ? `&exact=1${subdecks.map((n) => `&also=${encodeURIComponent(n)}`).join('')}` : ''
-    const r = await fetch(`/api/question-bank?${qs(deck)}${extra}`, { method: 'DELETE' })
+    const r = await apiFetch(`/api/question-bank?${qs(deck)}${extra}`, { method: 'DELETE' })
     const d = await r.json().catch(() => null)
     return r.ok && d ? { ok: true, removed: d.removed || 0 } : { ok: false }
   } catch { return { ok: false } }

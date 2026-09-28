@@ -1,5 +1,6 @@
 import React from 'react'
 import { makeT } from '../i18n'
+import { apiFetch, platform } from '../platform'
 
 // The last language this browser used (App keeps it in localStorage): the crash screen has no App state to read.
 const crashT = () => { let l = 'en'; try { l = localStorage.getItem('ebiki-app-language') || 'en' } catch { /* storage unavailable */ } return makeT(l) }
@@ -30,8 +31,8 @@ export default class ErrorBoundary extends React.Component {
       // Same contract as App's heartbeat: beat, answer the server's HMR ping (it asks before acting on a
       // silence, and a throttled background tab showing this screen must still count as open), and say
       // goodbye on close so a shortcut-started server exits promptly.
-      this.sendBeat = () => { fetch('/api/alive', { method: 'POST' }).catch(() => {}) }
-      this.bye = (e) => { if (e && e.persisted) return; try { navigator.sendBeacon('/api/bye', '') } catch { /* leaving anyway */ } }
+      this.sendBeat = () => { apiFetch('/api/alive', { method: 'POST' }).catch(() => {}) }
+      this.bye = (e) => { if (e && e.persisted) return; try { platform.beacon('/api/bye', '') } catch { /* leaving anyway */ } }
       this.sendBeat()
       this.beat = setInterval(this.sendBeat, 5000)
       if (import.meta.hot) import.meta.hot.on('ebiki:ping', this.sendBeat)

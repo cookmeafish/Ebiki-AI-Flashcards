@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { FONT } from '../config/tokens'
 import { sessionUsage, subscribeUsage, summarize, formatTokens, formatCost, flushUsageNow } from '../utils/tokenUsage'
+import { apiFetch } from '../platform'
 
 // The token and cost counter at the bottom right (Settings > AI & cost > "Show token and cost usage", off by
 // default). The pill shows this window's session; the panel adds the all-time totals for this computer (kept by
@@ -26,7 +27,7 @@ export default function TokenUsageMeter({ t, getZoom, confirmDialog }) {
     if (!force && Date.now() - lastFetchRef.current < 4000) return
     lastFetchRef.current = Date.now()
     try {
-      const r = await fetch('/api/usage')
+      const r = await apiFetch('/api/usage')
       const d = r.ok ? await r.json() : null
       if (d && d.byModel) setTotal(d)
     } catch { /* keeps the last totals */ }
@@ -36,7 +37,7 @@ export default function TokenUsageMeter({ t, getZoom, confirmDialog }) {
   useEffect(() => { fetchTotal(true) }, []) // the pill prices this session with the user's own prices too
   const savePrice = async (provider, model, price) => {
     try {
-      const r = await fetch('/api/usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ setPrice: { provider, model, price } }) })
+      const r = await apiFetch('/api/usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ setPrice: { provider, model, price } }) })
       if (!r.ok) throw new Error(String(r.status))
       setTotal(await r.json())
       setPriceEdit(null)
@@ -130,7 +131,7 @@ export default function TokenUsageMeter({ t, getZoom, confirmDialog }) {
             if (!(await confirmDialog(t('usage_resetConfirm')))) return
             try {
               await flushUsageNow()
-              const r = await fetch('/api/usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reset: true }) })
+              const r = await apiFetch('/api/usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reset: true }) })
               if (r.ok) setTotal(await r.json())
             } catch { /* totals stay */ }
           }} style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, border: '1px solid var(--c-danger)', color: 'var(--c-danger)', background: 'transparent', cursor: 'pointer' }}>{t('usage_reset')}</button>

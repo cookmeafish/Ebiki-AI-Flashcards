@@ -4,8 +4,9 @@ import { C, RADIUS, SHADOW, FONT } from '../config/tokens'
 import { LANGS, langFromName, isDistinctSpoken } from '../config/languages'
 import { langInfo } from '../pronunciation/langcodes'
 import { PROVIDERS, keyOfOtherProvider } from '../config/providers'
-import { APP_LANGUAGES } from '../i18n'
+import { APP_LANGUAGES, langMeta } from '../i18n'
 import { LaunchModeCard } from './LaunchModeChoice'
+import { apiFetch } from '../platform'
 
 // ── Data folder (optional shared data directory) ──
 // Self-contained: talks to /api/datadir directly. The data-folder pointer is
@@ -21,9 +22,9 @@ function DataFolderCard({ t, card, fieldLabel, hint, onChanged }) {
   const [confirmMerge, setConfirmMerge] = useState(false)  // "are you sure?" step before a merge
   const [backup, setBackup] = useState(null)   // { enabled, at, files, error }
   const [backingUp, setBackingUp] = useState(false)
-  const refreshBackup = () => fetch('/api/sync-backup').then((r) => r.json()).then(setBackup).catch(() => {})
+  const refreshBackup = () => apiFetch('/api/sync-backup').then((r) => r.json()).then(setBackup).catch(() => {})
   useEffect(() => {
-    fetch('/api/datadir').then((r) => r.json()).then((d) => {
+    apiFetch('/api/datadir').then((r) => r.json()).then((d) => {
       setInfo(d)
       // Show the active shared path in the field so what's saved is unmistakable
       // (the default app folder leaves the field empty with its placeholder).
@@ -33,7 +34,7 @@ function DataFolderCard({ t, card, fieldLabel, hint, onChanged }) {
   }, [])
   const backupNow = async () => {
     setBackingUp(true)
-    try { const r = await fetch('/api/sync-backup', { method: 'POST' }); setBackup(await r.json()) } catch {}
+    try { const r = await apiFetch('/api/sync-backup', { method: 'POST' }); setBackup(await r.json()) } catch {}
     finally { setBackingUp(false) }
   }
   // "3 min ago" style relative time from an ISO string (backup timestamps).
@@ -59,7 +60,7 @@ function DataFolderCard({ t, card, fieldLabel, hint, onChanged }) {
     try {
       const body = { dataDir: dir }
       if (merge !== undefined) body.merge = merge
-      const r = await fetch('/api/datadir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const r = await apiFetch('/api/datadir', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const data = await r.json()
       if (data.needsChoice) { setChoice({ dir, context: data.context, sourceOnly: data.sourceOnly }); return }
       // Known refusals by code (the server's text is English); anything else is framed in the app language.
@@ -206,7 +207,7 @@ async function confirmUpdateApplied(beforeSha, ms = 45000) {
       // ?local=1: only the checked-out commit matters here, and asking GitHub for it
       // can cost a 25s round trip on a bad connection - which is what made this look
       // frozen. This answers as fast as git can read HEAD.
-      const d = await (await fetch('/api/update?local=1')).json()
+      const d = await (await apiFetch('/api/update?local=1')).json()
       // ONE answer from the server settles it, whichever way it goes. This used to
       // return only when the sha had MOVED, so the common case where the service
       // came back and the update had NOT applied matched nothing and the loop kept
@@ -242,7 +243,7 @@ function UpdatesCard({ t, card, fieldLabel, hint, serverDown }) {
     const seq = ++checkSeq.current
     setState('checking'); setErr(null)
     try {
-      const d = await (await fetch('/api/update')).json()
+      const d = await (await apiFetch('/api/update')).json()
       if (seq !== checkSeq.current) return
       setInfo(d)   // BEFORE the early returns: the version line is worth showing even when
                    // the check itself could not run, which is exactly when someone is asking
@@ -274,7 +275,7 @@ function UpdatesCard({ t, card, fieldLabel, hint, serverDown }) {
   const restartNow = async () => {
     setState('restarting')
     try {
-      const d = await (await fetch('/api/update/restart', { method: 'POST' })).json()
+      const d = await (await apiFetch('/api/update/restart', { method: 'POST' })).json()
       if (d.ok) { setTimeout(() => { try { window.ebikiWindow?.close() } catch { /* the relauncher is waiting */ } }, 600); return }
       // The server is ALIVE but cannot restart itself (macOS/Linux, a manual npm run dev): the window's
       // own relaunch only starts a new server when none answers, so it reopened on the OLD one and the
@@ -289,7 +290,7 @@ function UpdatesCard({ t, card, fieldLabel, hint, serverDown }) {
     setState('updating'); setErr(null)
     ++checkSeq.current   // a check still in flight must not land over this update's result
     try {
-      const d = await (await fetch('/api/update', { method: 'POST' })).json()
+      const d = await (await apiFetch('/api/update', { method: 'POST' })).json()
       if (d.busy) { setState('busy'); return }
       if (d.dirty) { setState('dirty'); return }
       if (d.localCommits) { setState('localCommits'); return }
@@ -477,7 +478,7 @@ export default function SettingsModal(p) {
     refreshModels, checkNewModels, modelsLoading, modelsError, intelligence, setIntelligence,
     planDeciding, runConnectionTest, modelProbe,
     serverDown,
-    studyAutoSync, setStudyAutoSync, studyAutoSyncMinutes, setStudyAutoSyncMinutes,
+    studyAutoSync, setStudyAutoSync, studyAutoSyncMinutes, setStudyAutoSyncMinutes, renderFeatureSettings,
     questionReuse, setQuestionReuse, clearSavedQuestions, getActiveModeId, getActiveMode,
     showTokenUsage, setShowTokenUsage,
     // Modes
@@ -685,6 +686,8 @@ export default function SettingsModal(p) {
         <div style={hint}>{t('translationHint')}</div>
       </div>
       <LaunchModeCard t={t} card={card} fieldLabel={fieldLabel} hint={hint} />
+      {/* Cards contributed by features (src/features, settingsCards with section 'general'). */}
+      {renderFeatureSettings?.('general', { card, fieldLabel, hint })}
       {onRunSetup && (
         <button onClick={onRunSetup} style={{ ...S.ghostBtn, fontSize: 12 }}>↻ {t('runSetupAgain')}</button>
       )}
@@ -736,7 +739,7 @@ export default function SettingsModal(p) {
               clearTimeout(keyTypeTimerRef.current)
               keyTypeTimerRef.current = setTimeout(() => { checkKey(v.trim()) }, 700)
             }}
-            placeholder={providerConfig.placeholder} spellCheck={false} autoComplete="off" style={{ ...S.keyInput, flex: 1 }} />
+            placeholder={providerConfig.placeholder} spellCheck={false} autoComplete="off" data-no-voice="" style={{ ...S.keyInput, flex: 1 }} />
           <a href={providerConfig.url} target="_blank" rel="noopener noreferrer" style={S.getKeyLink}>{t('getKey')}</a>
         </div>
         {/* Live key check: prefix warning first, then the ping result (checking / valid / rejected). */}
@@ -912,7 +915,7 @@ export default function SettingsModal(p) {
   // Unset "Ebi speaks" defaults: language modes → the learned language (immersion); general
   // modes → the APP language (mirrors interactionLangName, so the picker never shows a phantom).
   // Option labels, not prompt names: 'Chinese' matched no option, so the picker showed the first one.
-  const appLangLabel = ({ en: 'English', es: 'Spanish', zh: 'Chinese (Simplified)', ja: 'Japanese' })[appLanguage] || 'English'
+  const appLangLabel = langMeta(appLanguage).pickerName
   // What the question generator uses when a language mode has no saved studyLanguage (App's
   // learnLangName(): the mode name, e.g. "Spanish (LatAm)"), mapped onto this list. Defaulting to
   // 'English' here showed "Learning: English" while every question came out in Spanish.

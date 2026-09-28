@@ -1,0 +1,129 @@
+// THE PLATFORM SEAM. Everything that differs between the desktop app (Electron / browser tab + the local
+// dev server) and a future phone build (Capacitor WebView, or React Native reusing the logic) goes through
+// here, so a port replaces THIS file's adapters instead of hunting through the app:
+//
+//   api(path, init)    every call to Ebiki's own /api routes. Desktop: the local server. A phone build installs
+//                      an on-device router answering the same paths (see CLAUDE.md "Porting to phones").
+//   beacon(path, body) a fire-and-forget request that survives the page closing.
+//   kv                 small per-device key/value storage (localStorage here; AsyncStorage/Preferences there).
+//   onPageHide(fn)     "the app is going away": pagehide here; app background/terminate on phones.
+//   isHidden()         the app is in the background (skip background polling).
+//   randomId()         a random lowercase id.
+//   speech             device voice: speak(text, lang) (free text to speech), record() (the microphone).
+//   audio              play(blob) an audio clip.
+//   kind               'electron' | 'browser' | whatever a port sets ('ios', 'android').
+//
+// Call setPlatform({...}) once at startup to override any part. Logic modules must never touch fetch('/api'),
+// localStorage, window or document directly (src/platform/platform.test.js enforces it for src/features).
+
+const hasWindow = typeof window !== 'undefined'
+
+const web = {
+  kind: hasWindow && /Electron/i.test(navigator.userAgent || '') ? 'electron' : 'browser',
+  api: (path, init) => fetch(path, init),
+  beacon: (path, body) => {
+    try { return !!(hasWindow && navigator.sendBeacon && navigator.sendBeacon(path, body)) } catch { return false }
+  },
+  kv: {
+    get: (key) => { try { return localStorage.getItem(key) } catch { return null } },
+    set: (key, value) => { try { localStorage.setItem(key, String(value)); return true } catch { return false } },
+    remove: (key) => { try { localStorage.removeItem(key) } catch { /* private window */ } },
+    getJson: (key, fallback = null) => { try { const v = localStorage.getItem(key); return v == null ? fallback : JSON.parse(v) } catch { return fallback } },
+    setJson: (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); return true } catch { return false } },
+  },
+  isHidden: () => hasWindow && typeof document !== 'undefined' && !!document.hidden,
+  randomId: () => (globalThis.crypto?.randomUUID?.() || `${Date.now()}${Math.random()}`).replace(/[^a-z0-9]/gi, '').toLowerCase(),
+  onPageHide: (fn) => {
+    if (!hasWindow) return () => {}
+    const h = (e) => { if (!e.persisted) fn() }
+    window.addEventListener('pagehide', h)
+    return () => window.removeEventListener('pagehide', h)
+  },
+  speech: {
+    canSpeak: () => hasWindow && 'speechSynthesis' in window,
+    // The device's own (free) voice. Resolves when it finishes (or fails); never rejects.
+    speak: (text, lang, { rate = 1, voiceIndex = 0 } = {}) => new Promise((resolve) => {
+      try {
+        if (!hasWindow || !('speechSynthesis' in window) || !text) return resolve()
+        const u = new SpeechSynthesisUtterance(text)
+        if (lang) u.lang = lang
+        u.rate = rate
+        // A second character in a dialogue gets a different voice of the same language when one exists.
+        const voices = window.speechSynthesis.getVoices().filter((v) => !lang || v.lang?.toLowerCase().startsWith(String(lang).toLowerCase().slice(0, 2)))
+        if (voices.length) u.voice = voices[voiceIndex % voices.length]
+        u.onend = () => resolve()
+        u.onerror = () => resolve()
+        window.speechSynthesis.speak(u)
+      } catch { resolve() }
+    }),
+    stop: () => { try { window.speechSynthesis?.cancel() } catch { /* nothing playing */ } },
+    // A FREE built-in recognizer (Chrome/Edge tabs; never inside Electron, where it always fails "network").
+    canRecognize: () => hasWindow && !!(window.SpeechRecognition || window.webkitSpeechRecognition) && !/Electron/i.test(navigator.userAgent || ''),
+    // Live recognition: { stop(): Promise<text>, cancel() }.
+    recognize: ({ lang = '' } = {}) => {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+      const rec = new SR()
+      rec.continuous = true
+      rec.interimResults = false
+      if (lang) rec.lang = lang
+      let text = ''
+      let finish = null
+      const ended = new Promise((resolve) => { finish = resolve })
+      rec.onresult = (e) => { for (let i = e.resultIndex; i < e.results.length; i++) if (e.results[i].isFinal) text += e.results[i][0].transcript }
+      rec.onerror = (e) => { if (e.error === 'not-allowed') text = ''; finish() }
+      rec.onend = () => finish()
+      rec.start()
+      return {
+        stop: async () => { try { rec.stop() } catch { /* stopped */ } await ended; return text.trim() },
+        cancel: () => { text = ''; try { rec.abort() } catch { /* stopped */ } },
+      }
+    },
+    // Microphone recording. Resolves to { stop(): Promise<Blob>, cancel() } or rejects when there is no mic.
+    record: async () => {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'].find((m) => window.MediaRecorder?.isTypeSupported?.(m)) || ''
+      const mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined)
+      const chunks = []
+      mr.ondataavailable = (e) => { if (e.data?.size) chunks.push(e.data) }
+      const release = () => stream.getTracks().forEach((tr) => tr.stop())
+      mr.start()
+      return {
+        stop: () => new Promise((resolve) => {
+          mr.onstop = () => { release(); resolve(new Blob(chunks, { type: mr.mimeType || mime || 'audio/webm' })) }
+          try { mr.stop() } catch { release(); resolve(new Blob(chunks)) }
+        }),
+        cancel: () => { mr.onstop = release; try { mr.stop() } catch { release() } },
+      }
+    },
+  },
+  // Play an audio clip (Blob). Resolves when it ends; `stop()` on the returned handle cuts it short.
+  audio: {
+    play: (blob) => {
+      let el = null
+      let url = ''
+      const done = new Promise((resolve) => {
+        try {
+          url = URL.createObjectURL(blob)
+          el = new Audio(url)
+          el.onended = () => resolve()
+          el.onerror = () => resolve()
+          el.play().catch(() => resolve())
+        } catch { resolve() }
+      }).finally(() => { try { if (url) URL.revokeObjectURL(url) } catch { /* gone */ } })
+      return { done, stop: () => { try { el?.pause() } catch { /* gone */ } } }
+    },
+  },
+}
+
+export const platform = { ...web, kv: { ...web.kv }, speech: { ...web.speech }, audio: { ...web.audio } }
+
+// Override adapters (a phone build, or tests). Nested objects merge, so a port can replace just kv.get.
+export function setPlatform(overrides = {}) {
+  for (const [k, v] of Object.entries(overrides)) {
+    platform[k] = v && typeof v === 'object' && !Array.isArray(v) && typeof platform[k] === 'object' ? { ...platform[k], ...v } : v
+  }
+  return platform
+}
+
+// Shorthand for the most common call.
+export const apiFetch = (path, init) => platform.api(path, init)

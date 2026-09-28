@@ -1,3 +1,4 @@
+import { apiFetch } from '../platform'
 // Collects OCR pipeline logs and writes them to logs/ directory via Vite dev server
 const lines = []
 
@@ -27,7 +28,7 @@ export async function ocrLogFlush() {
   if (lines.length === 0) return
   const content = lines.join('\n')
   try {
-    await fetch('/api/log', {
+    await apiFetch('/api/log', {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain' },
       body: content,

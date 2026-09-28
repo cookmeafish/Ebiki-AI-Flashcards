@@ -2,16 +2,16 @@
 // been embedded ([sound:…] on the back), every later play is served straight from Anki's
 // local media folder: instant, offline, and it never touches Wikimedia again (no rate
 // limits). Only runs when the surface knows its note/card id.
-import { ankiCardsInfo, ankiNotesInfo, ankiRetrieveMediaFile } from '../utils/anki'
+import { srs } from '../cards'
 
 const MIME = { ogg: 'audio/ogg', oga: 'audio/ogg', wav: 'audio/wav', mp3: 'audio/mpeg', opus: 'audio/ogg', flac: 'audio/flac' }
 
 export async function resolveAnkiMedia({ noteId, cardId }) {
   if (!noteId && !cardId) return null
   try {
-    const nid = noteId || (await ankiCardsInfo([cardId]))?.[0]?.note
+    const nid = noteId || (await srs.cardsInfo([cardId]))?.[0]?.note
     if (!nid) return null
-    const note = (await ankiNotesInfo([nid]))?.[0]
+    const note = (await srs.notesInfo([nid]))?.[0]
     if (!note) return null
     // Ours first ([sound:ebiki-...], always this word), then the BACK field, then any field: the first sound
     // anywhere could be a sentence or the other side's audio, played as "the card's".
@@ -19,7 +19,7 @@ export async function resolveAnkiMedia({ noteId, cardId }) {
     const all = fields.join('\n')
     const m = all.match(/\[sound:(ebiki-[^\]]+)\]/) || (fields[1] || '').match(/\[sound:([^\]]+)\]/) || all.match(/\[sound:([^\]]+)\]/)
     if (!m) return null
-    const b64 = await ankiRetrieveMediaFile(m[1])
+    const b64 = await srs.readFile(m[1])
     if (!b64 || typeof b64 !== 'string') return null
     const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
     const ext = m[1].split('.').pop().toLowerCase()

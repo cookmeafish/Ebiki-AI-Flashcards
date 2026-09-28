@@ -1,3 +1,4 @@
+import { apiFetch } from '../platform'
 // Token and cost tracking. providers.js reports every successful request's token counts (setUsageListener);
 // this module keeps the running totals for THIS window's session, and batches each report to the dev server
 // (/api/usage), which keeps the all-time totals for this computer in one file, so the app window, a browser tab
@@ -121,7 +122,7 @@ async function flush() {
   const batch = pending
   pending = []
   try {
-    const r = await fetch('/api/usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ add: batch }) })
+    const r = await apiFetch('/api/usage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ add: batch }) })
     if (!r.ok) throw new Error(String(r.status))
     notify()
   } catch {

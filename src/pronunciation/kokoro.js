@@ -4,6 +4,7 @@
 // The browser never talks to the TTS server directly — /api/tts (vite middleware)
 // proxies + disk-caches, avoiding CORS and keeping the server URL out of the client.
 import { langInfo } from './langcodes'
+import { apiFetch } from '../platform'
 
 // Default voice map from Kokoro-82M's published voice inventory (verified against a live
 // server's /v1/audio/voices when one is configured). Keys: iso1 or iso1-region. Kokoro
@@ -24,7 +25,7 @@ export async function resolveKokoro({ word, lang, region = '', config = {} }) {
   const voice = voices[`${info.iso1}-${String(region).toLowerCase()}`] || voices[info.iso1]
   if (!voice) return null // language not covered by the local model → fall through
   try {
-    const r = await fetch('/api/tts', {
+    const r = await apiFetch('/api/tts', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ input: word, voice, lang: info.iso1 }),
     })

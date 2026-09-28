@@ -5,6 +5,7 @@ import { PROVIDERS, keyOfOtherProvider } from '../config/providers'
 import { APP_LANGUAGES } from '../i18n'
 import { shrimpUrl, poseFile, DEFAULT_SHRIMP } from '../config/shrimp'
 import { LaunchModeOptions, choiceProps } from './LaunchModeChoice'
+import { apiFetch } from '../platform'
 
 // First-run, Ebi-guided onboarding. Hand-holds a new user through:
 // language → appearance → AI provider+key → first study mode → done.
@@ -123,7 +124,7 @@ export default function OnboardingWizard(p) {
   const [launchMode, setLaunchMode] = useState('app')
   const [launchElectron, setLaunchElectron] = useState(true)
   useEffect(() => {
-    fetch('/api/launchmode').then((r) => r.json()).then((d) => {
+    apiFetch('/api/launchmode').then((r) => r.json()).then((d) => {
       setLaunchMode(d.mode || 'app'); setLaunchElectron(d.electronAvailable !== false)
     }).catch(() => {})
   }, [])
@@ -133,7 +134,7 @@ export default function OnboardingWizard(p) {
     setLaunchMode(m); setLaunchSaveError(false)
     // A refused write (a locked or read-only folder) showed the tile as chosen while the next launch ignored it:
     // put the old choice back and say so, like Settings does.
-    fetch('/api/launchmode', {
+    apiFetch('/api/launchmode', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: m }),
     }).then(async (r) => {
       const d = await r.json().catch(() => ({}))
@@ -218,7 +219,7 @@ export default function OnboardingWizard(p) {
             ))}
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', maxWidth: 460, margin: '16px auto 0' }}>
-            <input type="password" value={apiKey} onChange={(e) => setCurrentKey(e.target.value.replace(/\s+/g, ''))} placeholder={providerConfig.placeholder}
+            <input type="password" data-no-voice="" value={apiKey} onChange={(e) => setCurrentKey(e.target.value.replace(/\s+/g, ''))} placeholder={providerConfig.placeholder}
               style={{ ...S.keyInput, flex: 1, ...(keyStateColor ? { borderColor: keyStateColor } : {}) }} />
             <a href={providerConfig.url} target="_blank" rel="noopener noreferrer" style={S.getKeyLink}>{t('getKey')}</a>
           </div>
