@@ -1112,7 +1112,13 @@ on each keystroke and the key field lost focus. Same rule everywhere: no compone
 7. **Segmented controls**: the selected segment gets `ui-tab-current` + `cursor: 'default'`.
 
 ## ⭐ HOW TO ADD A NEW EBI EMOTE
-1. Put the image in `public/assets/shrimp/` (`.png`/`.webp`).
+1. Put the image in `public/assets/shrimp/`, any size and any common format (PNG, JPEG, WebP, GIF, AVIF, TIFF, SVG).
+   Keep the ORIGINAL there; never shrink it by hand. The app loads Ebi through `shrimpUrl` → `/assets/ebi/<file>`,
+   served by `src/server/ebi-images.js` (wired in `vite.config.js`): a copy at most `EBI_MAX_PX` (512) on its long
+   side, WebP with transparency, made on first request (and warmed 15s after start) in the machine-local
+   `.cache/ebi/` (gitignored, watch-ignored), remade when the original is newer. Never enlarges; SVG as is; without
+   the optional `sharp` package (or on any resize error) the original is served. sharp's file cache is OFF (it held
+   originals open on Windows). Names are plain file names only (no paths). `splash.hta` still reads the original.
 2. Add one `SHRIMP` entry in `src/config/shrimp.js`:
    ```js
    { name: 'ninja', file: '12345-ninjashrimp.png',

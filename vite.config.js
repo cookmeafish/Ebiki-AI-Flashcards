@@ -9,6 +9,7 @@ import { spawn, execFile } from 'child_process'
 import { fileURLToPath } from 'url'
 import { mergeConfigPatch } from './src/utils/configDiff.js'
 import { featureDataEntries, featureDataRoutes, featureLocalFiles, registerFeatureRoutes } from './src/features/server.js'
+import { createEbiImages } from './src/server/ebi-images.js'
 
 // Text files a person may have edited by hand (config.json, a mode's config, .env, datadir.json) can start
 // with a UTF-8 byte-order mark: Windows PowerShell 5.1 writes one, and so did older Notepad. JSON.parse
@@ -1370,9 +1371,19 @@ function apiRequestAllowed(headers = {}) {
   } catch { return false }
 }
 
+// Ebi's pictures (see configureServer). `sharp` is optional: without it the originals are served.
+const ebiImages = createEbiImages({
+  srcDir: path.join(SELF_DIR, 'public', 'assets', 'shrimp'),
+  cacheDir: path.join(SELF_DIR, '.cache', 'ebi'),
+  loadSharp: () => import('sharp').then((m) => m.default || m),
+  log: (m) => console.log('[Ebi images]', m),
+})
+
 function apiPlugin() {
   return {
     name: 'api-plugin',
+    // `vite preview` of a build: Ebi's pictures still resolve (the /api routes exist only on the dev server).
+    configurePreviewServer(server) { server.middlewares.use(ebiImages.middleware) },
     configureServer(server) {
       // A rejected promise nobody handled (an async middleware throwing outside its try) is FATAL on current
       // Node: the dev server exited and every window lost its backend. Logged instead; registered once.
@@ -2294,6 +2305,13 @@ function apiPlugin() {
       })
       // Feature routes (src/features/server.js), AFTER the guard so their data routes are fronted by it.
       registerFeatureRoutes(server, { dataPath, readUtf8, writeFileAtomic, appRoot: APP_ROOT, fs, path, crypto })
+
+      // Ebi's pictures, resized automatically (src/server/ebi-images.js): originals in public/assets/shrimp/, small
+      // WebP copies in the machine-local .cache/ebi/ (gitignored), served at /assets/ebi/<file>. Copies are made
+      // in the background shortly after start, and on demand for anything new.
+      server.middlewares.use(ebiImages.middleware)
+      // Delayed so it never competes with start-up (the first App.jsx transform); every request resizes on demand anyway.
+      if (!process.env.VITEST) { const t = setTimeout(() => { ebiImages.warm().then((n) => { if (n) console.log('[Ebi images] ready:', n, 'resized copies') }).catch((e) => console.log('[Ebi images] warm-up failed:', e?.message || e)) }, 15000); t.unref?.() }
 
       // Anki format endpoint
       server.middlewares.use('/api/ankiformat', (req, res) => {
@@ -3860,7 +3878,7 @@ export default defineConfig({
       // phantom change event on it after every restart → infinite restart loop.
       // Config edits therefore require a manual dev-server restart.
       // *.tmp: writeFileAtomic's temp files (e.g. .env.<pid>.tmp next to the app files).
-      ignored: ['**/.env', '**/config.json', '**/config.json.*', '**/ankiformat.json', '**/vite.config.js', '**/datadir.json', '**/applang.json', '**/.app-ready', '**/modes/**', '**/decks/**', '**/chats/**', '**/local-data-backup-*/**', '**/.local-sync/**', '**/.local-home/**', '**/.local-offline/**', '**/.scratch/**', '**/*.tmp',
+      ignored: ['**/.env', '**/config.json', '**/config.json.*', '**/ankiformat.json', '**/vite.config.js', '**/datadir.json', '**/applang.json', '**/.cache/**', '**/.app-ready', '**/modes/**', '**/decks/**', '**/chats/**', '**/local-data-backup-*/**', '**/.local-sync/**', '**/.local-home/**', '**/.local-offline/**', '**/.scratch/**', '**/*.tmp',
         ...featureDataEntries().map((e) => `**/${e}/**`), ...featureLocalFiles().map((l) => `**/${l}`)],
     },
   },
