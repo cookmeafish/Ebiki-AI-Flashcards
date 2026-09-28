@@ -69,6 +69,16 @@ const readLaunchMode = () => {
     return m === 'browser' ? 'browser' : 'app'
   } catch { return 'app' }   // unset/corrupt = the current default, the app window
 }
+// The app language, copied MACHINE-LOCAL for the launcher, installer, splash and app window (applang.json,
+// gitignored): they run before this server exists, and config.json may sit on an unreachable share. Pinned to
+// the code folder like .env (a launch with the share as cwd must not write it there). Written whenever a
+// config read or save names a language; readers fall back to the system language, then English.
+const APP_LANG_POINTER = path.join(SELF_DIR, 'applang.json')
+function rememberAppLanguage(lang) {
+  if (typeof lang !== 'string' || !/^[a-z]{2,3}(-[A-Za-z0-9]+)?$/.test(lang)) return
+  try { if (JSON.parse(readUtf8(APP_LANG_POINTER))?.lang === lang) return } catch { /* missing or unreadable: write it */ }
+  try { writeFileAtomic(APP_LANG_POINTER, JSON.stringify({ lang }) + '\n') } catch (e) { console.warn('[Config] could not save applang.json:', e.message) }
+}
 // Features add their own data folders (src/features/server.js), so removing a feature removes its entry.
 const DATA_ENTRIES = ['config.json', 'ankiformat.json', 'keys.json', 'modes', 'decks', 'chats', 'discover', 'cache', ...featureDataEntries()]
 function resolveDataDir() {
@@ -3404,6 +3414,7 @@ function apiPlugin() {
             res.end(JSON.stringify({ unreadable: true, error: r.error }))
             return
           }
+          rememberAppLanguage(r.data?.appLanguage)
           res.end(JSON.stringify(r.data))
         } else if (req.method === 'POST') {
           let body = ''
@@ -3417,6 +3428,7 @@ function apiPlugin() {
             }
             try {
               writeConfig(parsed)
+              rememberAppLanguage(parsed?.appLanguage)
               res.setHeader('Content-Type', 'application/json')
               res.end('{"ok":true}')
             } catch (e) {
@@ -3848,7 +3860,7 @@ export default defineConfig({
       // phantom change event on it after every restart → infinite restart loop.
       // Config edits therefore require a manual dev-server restart.
       // *.tmp: writeFileAtomic's temp files (e.g. .env.<pid>.tmp next to the app files).
-      ignored: ['**/.env', '**/config.json', '**/config.json.*', '**/ankiformat.json', '**/vite.config.js', '**/datadir.json', '**/.app-ready', '**/modes/**', '**/decks/**', '**/chats/**', '**/local-data-backup-*/**', '**/.local-sync/**', '**/.local-home/**', '**/.local-offline/**', '**/.scratch/**', '**/*.tmp',
+      ignored: ['**/.env', '**/config.json', '**/config.json.*', '**/ankiformat.json', '**/vite.config.js', '**/datadir.json', '**/applang.json', '**/.app-ready', '**/modes/**', '**/decks/**', '**/chats/**', '**/local-data-backup-*/**', '**/.local-sync/**', '**/.local-home/**', '**/.local-offline/**', '**/.scratch/**', '**/*.tmp',
         ...featureDataEntries().map((e) => `**/${e}/**`), ...featureLocalFiles().map((l) => `**/${l}`)],
     },
   },

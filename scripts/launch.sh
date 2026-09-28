@@ -13,6 +13,13 @@ set -u
 # -P: the PHYSICAL path, which is what the server's command line holds (through a symlinked folder, or
 # macOS's /tmp -> /private/tmp, stop_stale_server never recognised our own wedged server).
 APP="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+
+# Messages come from the app's locale files through scripts/launcher-i18n.cjs (the app language, else the system
+# language, else English). Needs node; without it the key itself would show, so the only message that can appear
+# without node (the "no Node.js" one) keeps an English text of its own.
+t() { node "$APP/scripts/launcher-i18n.cjs" "$@" 2>/dev/null || printf '%s' "$1"; }
+# A text safe inside an AppleScript string literal.
+as_str() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
 cd "$APP"
 
 # ── Start Anki if it isn't up ───────────────────────────────────────────────
@@ -229,6 +236,7 @@ stop_stale_server() {
 
 
 if ! command -v npm >/dev/null 2>&1; then
+  # English on purpose: the translations are read with node, which is exactly what is missing here.
   echo "Ebiki could not find Node.js/npm. Install Node.js (e.g. via your distro's package manager or nodejs.org), then run scripts/setup.sh again." >&2
   # Best-effort GUI notice too, since this may be launched from a desktop icon with no visible terminal.
   command -v zenity >/dev/null 2>&1 && zenity --error --text="Ebiki could not find Node.js.\n\nInstall Node.js, then run scripts/setup.sh again." 2>/dev/null
@@ -288,19 +296,22 @@ check_update() {
   fi
 
   local answer=""
+  local q_title q_new q_ask b_yes b_no
+  q_title="$(t ln_updateDialogTitle)"; q_new="$(t ln_updateAvailableUnix)"; q_ask="$(t ln_updateQuickUnix)"
+  b_yes="$(t ln_updateNow)"; b_no="$(t ln_notNow)"
   if command -v zenity >/dev/null 2>&1; then
-    zenity --question --title="Ebiki update" --text="A new version of Ebiki is available.\n\nUpdate now? It only takes a few seconds." --timeout=60 2>/dev/null
+    zenity --question --title="$q_title" --text="$q_new\n\n$q_ask" --ok-label="$b_yes" --cancel-label="$b_no" --timeout=60 2>/dev/null
     case $? in 0) answer=yes ;; 1) answer=no ;; *) answer=timeout ;; esac
   elif command -v kdialog >/dev/null 2>&1; then
-    kdialog --yesno "A new version of Ebiki is available.\n\nUpdate now?" 2>/dev/null
+    kdialog --title "$q_title" --yes-label "$b_yes" --no-label "$b_no" --yesno "$q_new\n\n$q_ask" 2>/dev/null
     [ $? -eq 0 ] && answer=yes || answer=no
   elif command -v osascript >/dev/null 2>&1; then
     # macOS has neither zenity nor kdialog, so every update there was skipped without a word.
     local out
-    out="$(osascript -e 'display dialog "A new version of Ebiki is available." & return & return & "Update now? It only takes a few seconds." buttons {"Not now", "Update now"} default button "Update now" with title "Ebiki update" giving up after 60' 2>/dev/null)"
+    out="$(osascript -e "display dialog \"$(as_str "$q_new")\" & return & return & \"$(as_str "$q_ask")\" buttons {\"$(as_str "$b_no")\", \"$(as_str "$b_yes")\"} default button \"$(as_str "$b_yes")\" with title \"$(as_str "$q_title")\" giving up after 60" 2>/dev/null)"
     case "$out" in
       *"gave up:true"*) answer=timeout ;;
-      *"Update now"*) answer=yes ;;
+      *"button returned:$b_yes"*) answer=yes ;;
       *) answer=no ;;
     esac
   else
@@ -343,13 +354,15 @@ check_update() {
       else log_update "npm install failed; will retry on the next start"; fi
     else
       log_update "update FAILED: HEAD did not move"
+      local f_msg f_title f_ok
+      f_msg="$(t ln_updateCouldNot)"; f_title="$(t ln_updateDialogTitle)"; f_ok="$(t ln_ok)"
       if command -v zenity >/dev/null 2>&1; then
-        zenity --warning --title="Ebiki update" --text="Ebiki could not update this time. It will open the current version and ask again next launch." --timeout=15 2>/dev/null
+        zenity --warning --title="$f_title" --text="$f_msg" --timeout=15 2>/dev/null
       elif command -v kdialog >/dev/null 2>&1; then
-        kdialog --sorry "Ebiki could not update this time. It will open the current version and ask again next launch." 2>/dev/null
+        kdialog --title "$f_title" --sorry "$f_msg" 2>/dev/null
       elif command -v osascript >/dev/null 2>&1; then
         # macOS (the question above used osascript too, so the failure must be told the same way)
-        osascript -e 'display dialog "Ebiki could not update this time. It will open the current version and ask again next launch." buttons {"OK"} default button "OK" with title "Ebiki update" giving up after 15' >/dev/null 2>&1
+        osascript -e "display dialog \"$(as_str "$f_msg")\" buttons {\"$(as_str "$f_ok")\"} default button \"$(as_str "$f_ok")\" with title \"$(as_str "$f_title")\" giving up after 15" >/dev/null 2>&1
       fi
     fi
   fi
@@ -365,10 +378,10 @@ if port_listening; then
     if server_updating; then log_update "skipped: the running app is installing an update"
     elif [ "$WAITED" != 1 ]; then check_update || true; fi
     if [ "$UPDATED" = 1 ]; then
-      msg="Ebiki was updated. Close Ebiki and open it again to finish (the running copy still has the old version)."
-      if command -v zenity >/dev/null 2>&1; then zenity --info --title="Ebiki update" --text="$msg" --timeout=30 2>/dev/null
-      elif command -v kdialog >/dev/null 2>&1; then kdialog --msgbox "$msg" 2>/dev/null
-      elif command -v osascript >/dev/null 2>&1; then osascript -e "display dialog \"$msg\" buttons {\"OK\"} default button \"OK\" with title \"Ebiki update\" giving up after 30" >/dev/null 2>&1
+      msg="$(t ln_updatedReopen)"; m_title="$(t ln_updateDialogTitle)"; m_ok="$(t ln_ok)"
+      if command -v zenity >/dev/null 2>&1; then zenity --info --title="$m_title" --text="$msg" --timeout=30 2>/dev/null
+      elif command -v kdialog >/dev/null 2>&1; then kdialog --title "$m_title" --msgbox "$msg" 2>/dev/null
+      elif command -v osascript >/dev/null 2>&1; then osascript -e "display dialog \"$(as_str "$msg")\" buttons {\"$(as_str "$m_ok")\"} default button \"$(as_str "$m_ok")\" with title \"$(as_str "$m_title")\" giving up after 30" >/dev/null 2>&1
       fi
     fi
     release_lock # nothing left to guard; release before the window opens

@@ -12,6 +12,8 @@
 #
 # -Install also prints a single JSON line, which is what the server parses.
 param([switch]$Install)
+# Messages come from the app's locale files (scripts/launcher-i18n.ps1); setup.ps1 already loaded it.
+if (-not (Get-Command Tr -ErrorAction SilentlyContinue)) { . (Join-Path $PSScriptRoot 'launcher-i18n.ps1') }
 
 # Where Anki keeps its data (ANKI_BASE overrides, same as Anki itself).
 function Get-AnkiBase {
@@ -56,7 +58,7 @@ function Install-AnkiConnect($addonDir) {
     $stage = Join-Path $env:TEMP ('ebiki-ac-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
     $zip = "$stage.zip"   # must end in .zip or Expand-Archive refuses it
     try {
-      Write-Host "  Downloading AnkiConnect from $($src.name)..."
+      Write-Host ("  " + (Tr 'ln_inst_downloading' @{ source = $src.name }))
       try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
       Invoke-WebRequest -Uri $src.url -OutFile $zip -UseBasicParsing -ErrorAction Stop
       New-Item -ItemType Directory -Force -Path $stage | Out-Null
@@ -64,17 +66,17 @@ function Install-AnkiConnect($addonDir) {
       # Where the add-on's own files ended up: the AnkiWeb .ankiaddon is flat, the
       # GitHub zip nests them. Find the folder that actually holds __init__.py.
       $init = Get-ChildItem $stage -Recurse -Filter '__init__.py' -File -ErrorAction SilentlyContinue | Select-Object -First 1
-      if (-not $init) { throw 'the download contained no add-on files' }
+      if (-not $init) { throw (Tr 'ln_inst_noAddonFiles') }
       $payload = $init.Directory
       # The signature Ebiki actually depends on. A login page or an error blob
       # renamed .zip cannot get this far, and neither can the wrong repository.
       $cfg = Join-Path $payload.FullName 'config.json'
       if (-not (Test-Path $cfg) -or -not ((Get-Content $cfg -Raw) -match 'webBindPort')) {
-        throw 'the downloaded files are not AnkiConnect'
+        throw (Tr 'ln_inst_notAnkiConnect')
       }
       New-Item -ItemType Directory -Force -Path $addonDir | Out-Null
       Copy-Item (Join-Path $payload.FullName '*') $addonDir -Recurse -Force
-      if (-not (Test-Path (Join-Path $addonDir '__init__.py'))) { throw 'the add-on could not be written into the Anki folder' }
+      if (-not (Test-Path (Join-Path $addonDir '__init__.py'))) { throw (Tr 'ln_inst_addonNotWritten') }
       # Anki writes this itself on first load; seeding it just makes the add-on
       # list show a real name. No "config" key, so AnkiConnect's own defaults win
       # (127.0.0.1:8765 - which is exactly what Ebiki's server talks to).

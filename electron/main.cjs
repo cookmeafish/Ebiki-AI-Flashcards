@@ -448,7 +448,11 @@ function createAppWindow() {
   // too, and closed a second launch's splash in the middle of its update question.
   let readySignaled = false
 
+  // Text from the app's locale files (scripts/launcher-i18n.cjs): applang.json -> the system language -> English.
+  const { t: lt, lang: holdingLang } = require('../scripts/launcher-i18n.cjs').launcherText(app.getLocale())
+  const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c])
   const HOLDING_PAGE = 'data:text/html;charset=utf-8,' + encodeURIComponent(`<!doctype html>
+<html lang="${esc(holdingLang)}">
 <meta charset="utf-8">
 <style>
   html, body { height: 100%; margin: 0; }
@@ -464,8 +468,8 @@ function createAppWindow() {
   @keyframes s { from { left: -40%; } to { left: 102%; } }
 </style>
 <div class="card">
-  <div class="t">Waiting for Ebiki's server</div>
-  <div class="s">It starts a few seconds after the app. This page loads by itself.</div>
+  <div class="t">${esc(lt('ln_waitServerTitle'))}</div>
+  <div class="s">${esc(lt('ln_waitServerBody'))}</div>
   <div class="track"><div class="bar"></div></div>
 </div>`)
 

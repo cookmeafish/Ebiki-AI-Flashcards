@@ -14,24 +14,28 @@
 set -u
 APP="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$APP"
-
-echo "== Ebiki setup =="
+# Messages come from the app's locale files (scripts/launcher-i18n.cjs, needs node). The "no Node.js" message
+# below stays English: node is what is missing there.
+t() { node "$APP/scripts/launcher-i18n.cjs" "$@" 2>/dev/null || printf '%s' "$1"; }
 
 if ! command -v npm >/dev/null 2>&1; then
+  echo "== Ebiki setup =="
   echo "Node.js/npm not found. Install it first (e.g. 'sudo apt install nodejs npm', or via nodejs.org / nvm), then run this script again." >&2
   exit 1
 fi
 
+echo "== $(t ln_inst_shTitle) =="
+
 chmod +x "$APP/scripts/launch.sh" "$APP/scripts/setup.sh" 2>/dev/null || true
 
-echo "Installing dependencies (npm install)... this can take a few minutes the first time."
+echo "$(t ln_inst_shDeps)"
 if ! (cd "$APP" && npm install --no-fund --no-audit); then
-  echo "npm install failed. Check your internet connection and run scripts/setup.sh again." >&2
+  echo "$(t ln_inst_shDepsFailed)" >&2
   exit 1
 fi
-echo "Dependencies installed."
+echo "$(t ln_inst_depsDone)"
 
-echo "Creating a desktop launcher..."
+echo "$(t ln_inst_shLauncher)"
 ICON="$APP/public/assets/shrimp/6820-holeshrimp.png"   # same source art as ebiki.ico
 DESKTOP_ENTRY_DIR="$HOME/.local/share/applications"
 mkdir -p "$DESKTOP_ENTRY_DIR"
@@ -41,7 +45,7 @@ cat > "$DESKTOP_FILE" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Ebiki
-Comment=AI flashcards, launched as its own window
+Comment=$(t ln_inst_shortcutDesc)
 Exec="$APP/scripts/launch.sh"
 Icon=$ICON
 Terminal=false
@@ -61,6 +65,6 @@ if [ -d "$HOME/Desktop" ]; then
 fi
 
 echo ""
-echo "All set! Launch Ebiki from your applications menu (or Desktop icon) - it opens as its own window."
-echo "It runs at http://localhost:3000 and only ever runs one copy at a time."
-echo "Install Anki too and leave it running: that is where your cards live."
+echo "$(t ln_inst_shDone1)"
+echo "$(t ln_inst_done2)"
+echo "$(t ln_inst_shDone3)"

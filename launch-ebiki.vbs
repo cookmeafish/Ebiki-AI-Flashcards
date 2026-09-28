@@ -38,7 +38,7 @@ If Not follower Then
   ' Claim the launch NOW: the splash and launch.ps1 create their files only after a moment, so a double
   ' click made two leaders, and the second asked the update question again right after "Not now".
   Set claim = fso.CreateTextFile(appDir & "\.app-status", True)
-  claim.WriteLine "Starting Ebiki."
+  claim.WriteLine "@ln_starting"   ' a message KEY: the splash shows it in the app language
   claim.Close
 End If
 

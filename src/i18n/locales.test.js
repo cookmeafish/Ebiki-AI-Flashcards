@@ -59,3 +59,20 @@ for (const lang of LANGUAGES) {
     })
   })
 }
+
+// The launcher, installer, splash and app window read the `ln_*` keys from a generated copy.
+describe('launcher text (scripts/launcher-strings.json)', () => {
+  it('matches the locale files (run `npm run i18n:launcher` after editing ln_* keys)', async () => {
+    const { buildLauncherStrings, OUT } = await import('../../scripts/build-launcher-strings.mjs')
+    expect(fs.readFileSync(OUT, 'utf8').replace(/\r\n/g, '\n')).toBe(await buildLauncherStrings())
+  })
+  it('is read in the saved or system language, English otherwise, with {placeholders} filled', async () => {
+    const { createRequire } = await import('module')
+    const { launcherText } = createRequire(import.meta.url)('../../scripts/launcher-i18n.cjs')
+    const ja = launcherText('ja-JP')
+    const saved = (() => { try { return JSON.parse(fs.readFileSync('applang.json', 'utf8')).lang } catch { return null } })()
+    if (!saved) expect(ja.lang).toBe('ja') // an applang.json on this machine wins over the system language
+    expect(ja.t('ln_ankiUpdated', { version: '26.5' })).toContain('26.5')
+    expect(ja.t('ln_missingKey')).toBe('ln_missingKey')
+  })
+})

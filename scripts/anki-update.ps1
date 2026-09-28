@@ -1,6 +1,6 @@
 # Anki updates, handled by Ebiki instead of Anki's console launcher.
 #
-# Dot-sourced by launch.ps1 (define only). Needs Ask-InSplash / Set-Status from there.
+# Dot-sourced by launch.ps1 (define only). Needs Ask-InSplash / Set-Status / Tr from there (or anki-start.ps1 -Start).
 #
 # WHY THIS EXISTS. What the Anki website installs (%LOCALAPPDATA%\Programs\Anki\anki.exe) is a
 # LAUNCHER: the real Anki lives in a uv-managed venv under %LOCALAPPDATA%\AnkiProgramFiles, pinned by
@@ -157,7 +157,7 @@ function Invoke-AnkiSync($state, $maxSeconds) {
     while (-not $p.HasExited) {
       $secs = [int]((Get-Date) - $start).TotalSeconds
       if ($secs -gt $maxSeconds) { try { $p.Kill() } catch {}; Write-AnkiUpdateLog "uv sync stopped after ${maxSeconds}s"; return $false }
-      if ($secs -ge 10 -and ($secs % 10) -eq 0) { Set-Status "Updating Anki. Still downloading ($secs s). Please wait." }
+      if ($secs -ge 10 -and ($secs % 10) -eq 0) { Set-Status (Tr 'ln_ankiDownloading' @{ s = $secs }) }
       Start-Sleep -Seconds 1
     }
     $p.WaitForExit()
@@ -204,7 +204,7 @@ function Update-AnkiIfOffered($ankiExe) {
   # through, so declining here still dropped the next Anki start into the console menu).
   $stuck = (-not $state.Marker) -or $state.WantLauncher -or $state.PyprojectNewer
 
-  Set-Status 'Checking for Anki updates.'
+  Set-Status (Tr 'ln_ankiChecking')
   $latest = Get-AnkiLatestInstallable
   $declinedFile = Join-Path $app '.anki-update-declined'
   $declined = $null
@@ -220,18 +220,18 @@ function Update-AnkiIfOffered($ankiExe) {
   if ($offer) {
     # Short on purpose: the title names ANKI (asked in Ebiki's own splash, so the app being updated must
     # be unmistakable), and the body is just the versions and how long it takes.
-    $msg = "Anki $latest is available. You have $($state.Installed). It takes a minute or two."
-    $ans = Ask-InSplash $msg 120 'Update Anki?' 'Updating Anki. This can take a minute or two, please wait.'
+    $msg = Tr 'ln_ankiAvailable' @{ latest = $latest; installed = $state.Installed }
+    $ans = Ask-InSplash $msg 120 (Tr 'ln_ankiAskTitle') (Tr 'ln_ankiUpdating')
     if ($ans -eq 'nosplash') {
-      $r = (New-Object -ComObject WScript.Shell).Popup("$msg`n`nUpdate Anki now?", 60, 'Anki update', 4 + 32 + 4096 + 65536)
+      $r = (New-Object -ComObject WScript.Shell).Popup(("{0}`n`n{1}" -f $msg, (Tr 'ln_ankiAskNow')), 60, (Tr 'ln_ankiDialogTitle'), 4 + 32 + 4096 + 65536)
       $ans = if ($r -eq 6) { 'yes' } elseif ($r -eq 7) { 'no' } else { 'timeout' }
     }
     Write-AnkiUpdateLog ("offered Anki {0} (installed {1}); answer='{2}'" -f $latest, $state.Installed, $ans)
     if ($ans -eq 'yes') {
       # Opened while the question was up: uv would replace files the running Anki has loaded (Windows refuses
       # those deletes), leaving a half-replaced install.
-      if ((Get-Command Test-AnkiUp -ErrorAction SilentlyContinue) -and (Test-AnkiUp)) { Write-AnkiUpdateLog 'Anki opened meanwhile; update skipped'; Set-Status 'Anki is open, so its update was skipped. Close Anki before starting Ebiki to update it.'; return }
-      Set-Status 'Updating Anki. This can take a minute or two, please wait.'
+      if ((Get-Command Test-AnkiUp -ErrorAction SilentlyContinue) -and (Test-AnkiUp)) { Write-AnkiUpdateLog 'Anki opened meanwhile; update skipped'; Set-Status (Tr 'ln_ankiOpenSkipped'); return }
+      Set-Status (Tr 'ln_ankiUpdating')
       $rootPy = $state.PyVersion
       if ($state.LauncherPy) { $state.PyVersion = $state.LauncherPy }
       Set-AnkiPin $state $latest
@@ -244,11 +244,11 @@ function Update-AnkiIfOffered($ankiExe) {
         Complete-AnkiSync $state
         try { Remove-Item $declinedFile -Force -ErrorAction SilentlyContinue } catch {}
         Write-AnkiUpdateLog "updated Anki to $latest"
-        Set-Status "Anki updated to $latest. Starting it now."
+        Set-Status (Tr 'ln_ankiUpdated' @{ version = $latest })
         return
       }
       Write-AnkiUpdateLog "update to $latest failed; restoring $($state.Installed)"
-      Set-Status 'The Anki update did not work, so your current Anki is being kept.'
+      Set-Status (Tr 'ln_ankiUpdateFailed')
       Restore-AnkiInstalled $state
       return
     }
@@ -259,7 +259,7 @@ function Update-AnkiIfOffered($ankiExe) {
   # working version so Anki opens instead of the console.
   if ($stuck) {
     if ((Get-Command Test-AnkiUp -ErrorAction SilentlyContinue) -and (Test-AnkiUp)) { Write-AnkiUpdateLog 'Anki is open; launcher repair skipped'; return }
-    Set-Status 'Repairing the Anki launcher.'
+    Set-Status (Tr 'ln_ankiRepairing')
     Restore-AnkiInstalled $state
   }
 }
