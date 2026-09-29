@@ -11,7 +11,9 @@ export const EVENTS = {
   PRACTICE_ANSWERED: 'practice.answered', // { source, correct, mode } one practice question (never touches Anki)
   PRACTICE_DONE: 'practice.done',         // { source, mode, total, correct } a practice session finished
   CALL_DONE: 'call.done',                 // { mode, cards } an Ebi Call ended; `cards` = reviews it recorded
-  LEGENDS_STEP: 'legends.stepCleared',    // { mode, kind, area } a Legends step was cleared (area = 0-based index on the map)
-  BOSS_BEATEN: 'legends.bossBeaten',      // { mode, area } a Legends boss was beaten (the area is finished)
+  LEGENDS_STEP: 'legends.stepCleared',    // { mode, kind, area, effort, replays } a Legends step was cleared (area = 0-based index
+                                          // on the map; effort 0.5..1.3 = how hard the answers were; replays = earlier clears)
+  BOSS_BEATEN: 'legends.bossBeaten',      // { mode, area, raid? } a Legends boss was beaten (the area is finished), or
+                                          // a daily raid boss for the first time (raid: true)
   LEVEL_UP: 'learner.levelUp',            // { mode, from, to } the learner level passed a whole number upward
 }

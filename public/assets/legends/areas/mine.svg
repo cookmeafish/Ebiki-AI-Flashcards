@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
+  <!-- The Abandoned Mine: timber tunnels, mine carts on rails, glowing ore veins, dripping lanterns, a fresh hole in the
+       rock with the Deep Delver's drill snout and lamp breaking through. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #d9c8a8)"/>
+  <!-- rock wall -->
+  <rect x="0" y="0" width="400" height="112" fill="#6b5040"/>
+  <g fill="#5a4030" opacity="0.8"><path d="M0 20 L40 14 L60 28 L30 34Z M300 10 L340 6 L360 20 L320 26Z M100 60 L140 56 L150 70 L110 72Z M240 40 L280 36 L290 50 L250 52Z"/></g>
+  <!-- glowing ore veins -->
+  <g fill="none" stroke-linecap="round" stroke-width="2">
+    <path d="M20 50 L40 58 L36 70 L54 80" stroke="#6ff3ff"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 0.6;0 0" dur="2s" repeatCount="indefinite"/></path>
+    <path d="M330 60 L350 52 L360 64 L380 58" stroke="#ff3fd2"/>
+    <path d="M110 20 L126 28 L120 38" stroke="#9cff57"/>
+  </g>
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"><polygon points="38,56 42,52 46,56 42,60" fill="#6ff3ff"/><polygon points="350,50 354,46 358,50 354,54" fill="#ff3fd2"/><polygon points="124,26 127,23 130,26 127,29" fill="#9cff57"/></g>
+  <!-- timber tunnel, left -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round">
+    <path d="M70 112 V56 C70 40 130 40 130 56 V112Z" fill="#1a1208"/>
+    <rect x="66" y="50" width="8" height="62" fill="#8a5a2b"/><rect x="126" y="50" width="8" height="62" fill="#8a5a2b"/>
+    <rect x="62" y="44" width="76" height="8" fill="#8a5a2b"/>
+    <path d="M74 52 L90 44 M126 52 L110 44" fill="none" stroke="#6b4423" stroke-width="3"/>
+  </g>
+  <!-- the fresh hole, right of center: the Delver breaking through -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round">
+    <path d="M210 36 L232 26 L262 30 L280 48 L282 74 L268 94 L240 100 L214 92 L200 72 L202 50Z" fill="#1a1208"/>
+  </g>
+  <g fill="#8a6a44" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"><polygon points="206,36 212,28 216,38"/><polygon points="280,44 290,40 286,50"/><polygon points="198,72 190,68 196,80"/><polygon points="266,96 272,104 262,100"/></g>
+  <!-- the Delver: helmet, lamp, lantern eyes, drill snout -->
+  <path d="M216 72 C216 50 226 40 242 40 C258 40 268 50 268 72 C262 88 222 88 216 72Z" fill="#6b5040" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+  <path d="M216 56 C216 42 228 34 242 34 C256 34 268 42 268 56 C258 52 226 52 216 56Z" fill="#e0a13a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+  <rect x="237" y="36" width="10" height="8" rx="1.4" fill="#5a5f6a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+  <circle cx="242" cy="40" r="2.6" fill="#fff6a8"/>
+  <g fill="#fff6a8" opacity="0.3"><path d="M242 40 L180 10 L170 40Z"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-6 242 40;6 242 40;-6 242 40" dur="4s" repeatCount="indefinite"/></path></g>
+  <g fill="#ffd23f"><circle cx="230" cy="62" r="2"/><circle cx="254" cy="62" r="2"/></g>
+  <g fill="#ff7a1a" opacity="0.5"><circle cx="230" cy="62" r="4"/><circle cx="254" cy="62" r="4"/></g>
+  <g transform="translate(242 76)">
+    <circle r="8" fill="#3a2418" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;360" dur="0.6s" repeatCount="indefinite"/>
+      <path d="M0 -5 L4 3 L-4 3Z" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/></g>
+    <g fill="#f4efe0"><polygon points="0,-8 1,-6 -1,-6"/><polygon points="8,0 6,1 6,-1"/><polygon points="0,8 -1,6 1,6"/><polygon points="-8,0 -6,-1 -6,1"/></g>
+  </g>
+  <!-- claws gripping the rim -->
+  <g fill="#e8dcc0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"><path d="M206 84 L198 90 L204 90Z M210 88 L204 96 L210 94Z M278 84 L286 90 L280 90Z M274 88 L280 96 L274 94Z"/></g>
+  <!-- rails and a mine cart -->
+  <path d="M0 112 H400 V140 H0Z" fill="var(--lg-near, #8a6a4a)"/>
+  <g stroke="#5a5f6a" stroke-width="2"><path d="M0 118 H400 M0 126 H400"/></g>
+  <g fill="#6b4423"><rect x="10" y="116" width="6" height="12"/><rect x="40" y="116" width="6" height="12"/><rect x="70" y="116" width="6" height="12"/><rect x="100" y="116" width="6" height="12"/><rect x="130" y="116" width="6" height="12"/><rect x="160" y="116" width="6" height="12"/><rect x="190" y="116" width="6" height="12"/><rect x="220" y="116" width="6" height="12"/><rect x="250" y="116" width="6" height="12"/><rect x="280" y="116" width="6" height="12"/><rect x="310" y="116" width="6" height="12"/><rect x="340" y="116" width="6" height="12"/><rect x="370" y="116" width="6" height="12"/></g>
+  <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;30 0;30 0;0 0" keyTimes="0;.4;.6;1" dur="8s" repeatCount="indefinite"/>
+    <path d="M300 102 H340 L336 116 H304Z" fill="#5a5f6a" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    <g fill="#26272c"><circle cx="310" cy="118" r="3"/><circle cx="330" cy="118" r="3"/></g>
+    <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"><polygon points="306,102 312,94 318,102" fill="#6ff3ff"/><polygon points="316,102 322,96 328,102" fill="#ffd23f"/><polygon points="326,102 332,97 336,102" fill="#ff3fd2"/></g>
+  </g>
+  <!-- hanging lanterns, dripping -->
+  <g>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-6 160 0;6 160 0;-6 160 0" dur="3s" repeatCount="indefinite"/>
+      <path d="M160 0 V30" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/><rect x="155" y="30" width="10" height="12" rx="2" fill="#c9a441" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/><rect x="157" y="32" width="6" height="8" fill="#ffd23f"/></g>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="6 330 0;-6 330 0;6 330 0" dur="3.4s" repeatCount="indefinite"/>
+      <path d="M330 0 V26" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/><rect x="325" y="26" width="10" height="12" rx="2" fill="#c9a441" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/><rect x="327" y="28" width="6" height="8" fill="#ffd23f"/></g>
+  </g>
+  <circle style="transform-box:fill-box;transform-origin:center" cx="176" cy="10" r="1.4" fill="#9fd4ff"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 100" dur="2s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2s" repeatCount="indefinite" additive="sum"/></circle>
+  <!-- dust falling from the fresh hole -->
+  <g fill="#c8a878">
+    <circle style="transform-box:fill-box;transform-origin:center" cx="220" cy="100" r="1.4"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-4 14" dur="1.2s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.2s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle style="transform-box:fill-box;transform-origin:center" cx="262" cy="102" r="1.2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;4 12" dur="1.4s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.4s" repeatCount="indefinite" additive="sum"/></circle>
+  </g>
+</svg>

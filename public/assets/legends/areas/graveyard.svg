@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
+  <!-- Hollow Graves: crooked tombstones, an iron fence, a glowing mausoleum, hands clawing out of graves, crows under a full moon. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #e3e8ef)"/>
+  <circle cx="300" cy="40" r="26" fill="#f4efd8" stroke="#c9bf94" stroke-width="1.6"/>
+  <g fill="#d9d1b0" opacity="0.8"><circle cx="292" cy="34" r="5"/><circle cx="310" cy="48" r="6"/></g>
+  <!-- far hills -->
+  <path d="M0 96 Q100 80 200 92 T400 88 V140 H0Z" fill="var(--lg-far, #b8c0cf)"/>
+  <!-- dead tree with crows -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round">
+    <path d="M60 106 C62 90 58 76 64 60 L52 46 L56 44 L66 56 L68 40 L72 42 L70 58 L82 48 L84 52 L72 64 C70 80 72 94 74 106Z" fill="#2a2433"/>
+  </g>
+  <g fill="#1d2230">
+    <path d="M52 46 c2 -3 6 -3 7 0 l3 -1 l-2 2 c0 2 -3 3 -5 2 l-3 1Z"/>
+    <path d="M80 48 c2 -3 6 -3 7 0 l3 -1 l-2 2 c0 2 -3 3 -5 2 l-3 1Z"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 84 50;-10 84 50;0 84 50" dur="2.4s" repeatCount="indefinite"/></path>
+  </g>
+  <!-- the mausoleum, glowing -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round">
+    <path d="M170 104 V62 H250 V104Z" fill="var(--lg-deep, #5c5a78)"/>
+    <path d="M164 62 L210 36 L256 62Z" fill="var(--lg-near, #7c7a9a)"/>
+    <g fill="var(--lg-near, #7c7a9a)"><rect x="174" y="62" width="8" height="42"/><rect x="238" y="62" width="8" height="42"/></g>
+    <path d="M196 104 V78 C196 70 224 70 224 78 V104Z" fill="#0f2a22"/>
+  </g>
+  <g transform="translate(210 90)"><g>
+    <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.15;1" dur="2s" repeatCount="indefinite"/>
+    <ellipse rx="14" ry="12" fill="#7cffcb" opacity="0.35"/>
+  </g></g>
+  <g fill="#e9fff6"><path d="M204 88 C204 84 208 82 210 86Z"/><path d="M216 88 C216 84 212 82 210 86Z"/></g>
+  <g fill="#7cffcb"><circle cx="205" cy="86" r="1.4"/><circle cx="215" cy="86" r="1.4"/></g>
+  <path d="M206 32 L210 26 L214 32 M210 26 V20" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+  <!-- tombstones -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round" fill="var(--lg-near, #7c7a9a)">
+    <path d="M100 112 V96 C100 88 116 88 116 96 V112Z" transform="rotate(-8 108 104)"/>
+    <path d="M130 114 V92 H146 V114Z" transform="rotate(6 138 104)"/>
+    <path d="M270 114 V94 C270 86 288 86 288 94 V114Z" transform="rotate(10 279 104)"/>
+    <path d="M320 114 V90 H326 V84 H332 V90 H338 V96 H332 V114 H326 V96 H320Z" transform="rotate(-6 330 100)"/>
+  </g>
+  <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" opacity="0.6"><path d="M104 100 L110 104 M134 100 L140 104 M276 100 L282 106"/></g>
+  <!-- hands clawing out of graves -->
+  <g fill="#b8d9c8" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round">
+    <path d="M120 122 L122 110 L120 104 L123 108 L124 100 L126 108 L128 101 L128 109 L131 104 L129 112 L130 122Z"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 2;0 -2;0 2" dur="2.6s" repeatCount="indefinite"/></path>
+    <path d="M300 124 L302 112 L300 106 L303 110 L304 102 L306 110 L308 103 L308 111 L311 106 L309 114 L310 124Z"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -2;0 2;0 -2" dur="3s" repeatCount="indefinite"/></path>
+  </g>
+  <!-- the ground -->
+  <path d="M0 116 Q100 108 200 116 T400 114 V140 H0Z" fill="var(--lg-near, #7c7a9a)"/>
+  <path d="M0 124 Q100 118 200 124 T400 122 V140 H0Z" fill="#000" opacity="0.18"/>
+  <!-- iron fence in front -->
+  <g stroke="#1d2230" stroke-width="1.6" fill="none">
+    <path d="M0 110 H96 M0 126 H96 M304 110 H400 M304 126 H400"/>
+    <path d="M8 104 V132 M20 104 V132 M32 104 V132 M44 104 V132 M56 104 V132 M68 104 V132 M80 104 V132 M92 104 V132 M308 104 V132 M320 104 V132 M332 104 V132 M344 104 V132 M356 104 V132 M368 104 V132 M380 104 V132 M392 104 V132"/>
+  </g>
+  <g fill="#1d2230"><path d="M6 104 L8 98 L10 104Z M18 104 L20 98 L22 104Z M30 104 L32 98 L34 104Z M42 104 L44 98 L46 104Z M54 104 L56 98 L58 104Z M66 104 L68 98 L70 104Z M78 104 L80 98 L82 104Z M90 104 L92 98 L94 104Z M306 104 L308 98 L310 104Z M318 104 L320 98 L322 104Z M330 104 L332 98 L334 104Z M342 104 L344 98 L346 104Z M354 104 L356 98 L358 104Z M366 104 L368 98 L370 104Z M378 104 L380 98 L382 104Z M390 104 L392 98 L394 104Z"/></g>
+  <!-- ghost wisps drifting -->
+  <g fill="#7cffcb" opacity="0.6">
+    <path style="transform-box:fill-box;transform-origin:center" d="M150 70 C154 64 160 64 162 70 C158 74 154 76 150 70Z"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;20 -8;40 0" dur="6s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="6s" repeatCount="indefinite" additive="sum"/></path>
+    <path style="transform-box:fill-box;transform-origin:center" d="M250 60 C254 54 260 54 262 60 C258 64 254 66 250 60Z"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-20 -6;-40 0" dur="7s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="7s" repeatCount="indefinite" additive="sum"/></path>
+  </g>
+  <!-- ground fog -->
+  <g fill="var(--lg-light, #ffffff)" opacity="0.3">
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="-20 0;20 0;-20 0" dur="12s" repeatCount="indefinite"/>
+    <ellipse cx="120" cy="116" rx="90" ry="6"/><ellipse cx="320" cy="118" rx="80" ry="6"/>
+  </g>
+</svg>

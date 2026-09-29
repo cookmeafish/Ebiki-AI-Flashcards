@@ -1,20 +1,53 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
-  <rect width="400" height="140" fill="var(--lg-sky, #e6e3fb)"/>
-  <circle cx="70" cy="34" r="16" fill="var(--lg-accent, #f2b441)" opacity="0.9"/>
-  <g fill="var(--lg-light, #ffffff)" opacity="0.85">
-    <ellipse cx="300" cy="28" rx="22" ry="7"/><ellipse cx="316" cy="23" rx="13" ry="7"/>
+  <!-- Colossus Pass: a rope bridge over a burning chasm, and a cliff that is the Colossus's face. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #e8ecf2)"/>
+  <!-- far snowy range -->
+  <path d="M0 70 L30 40 L52 58 L80 26 L108 54 L130 38 L160 64 L400 64 L400 70Z" fill="var(--lg-far, #b4b8c2)" opacity="0.7"/>
+  <path d="M250 64 L276 34 L296 52 L322 22 L348 48 L372 36 L400 56 V70 H250Z" fill="var(--lg-far, #b4b8c2)" opacity="0.7"/>
+  <g fill="var(--lg-light, #ffffff)"><polygon points="80,26 72,36 80,34 88,36"/><polygon points="322,22 314,32 322,30 330,32"/><polygon points="30,40 24,47 32,46"/></g>
+  <!-- an eagle circling -->
+  <g>
+    <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 120 30;360 120 30" dur="16s" repeatCount="indefinite"/>
+    <path d="M140 30 q4 -4 8 0 q4 -4 8 0" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linecap="round"/>
   </g>
-  <polygon points="0,122 80,44 160,122" fill="var(--lg-far, #b5aef0)"/>
-  <polygon points="250,124 340,56 400,104 400,124" fill="var(--lg-far, #b5aef0)"/>
-  <polygon points="104,126 220,24 336,126" fill="var(--lg-near, #7f72d9)"/>
-  <polygon points="220,24 198,44 210,42 220,52 232,42 244,46" fill="var(--lg-light, #ffffff)"/>
-  <polygon points="80,44 64,60 76,58 86,64 96,58" fill="var(--lg-light, #ffffff)"/>
-  <polygon points="340,56 326,68 336,68 344,74 352,66" fill="var(--lg-light, #ffffff)"/>
-  <rect x="219" y="10" width="2" height="16" fill="var(--lg-deep, #4b3fb0)"/>
-  <polygon points="221,10 234,14 221,18" fill="var(--lg-accent, #f2b441)"/>
-  <path d="M0 116 Q100 106 200 118 T400 114 V140 H0Z" fill="var(--lg-deep, #4b3fb0)"/>
-  <path d="M170 140 Q190 128 214 124 Q240 120 262 126 Q226 130 212 140Z" fill="var(--lg-light, #ffffff)" opacity="0.3"/>
-  <g fill="var(--lg-near, #7f72d9)">
-    <polygon points="40,118 32,134 48,134"/><polygon points="360,116 352,132 368,132"/><polygon points="376,120 370,134 382,134"/>
+  <path d="M80 140 L90 70 H182 L176 140Z" fill="#2a1f24" opacity="0.55"/>
+  <!-- left cliff with the path -->
+  <path d="M0 140 V64 L20 58 L44 66 L64 62 L84 74 L96 90 L104 140Z" fill="var(--lg-near, #8d929e)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M84 74 L96 90 L104 140 H90 L88 96Z" fill="#000" opacity="0.2"/>
+  <path d="M0 80 C24 76 50 82 90 86" fill="none" stroke="#c9b48f" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
+  <!-- the colossus cliff -->
+  <path d="M170 140 L176 70 L188 40 L214 22 L250 18 L286 26 L310 46 L322 76 L330 140Z" fill="var(--lg-deep, #6b6f7a)" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M188 40 L214 22 L250 18 L232 34 L206 48 L192 76 L186 140 H172 L176 70Z" fill="var(--lg-near, #8d929e)"/>
+  <path d="M310 46 L322 76 L330 140 H312 L310 84 L298 58Z" fill="#000" opacity="0.28"/>
+  <!-- carved brow, burning eyes, magma mouth -->
+  <path d="M206 58 L244 66 L248 64 L252 66 L290 58 L288 50 L250 58 L246 58 L208 50Z" fill="var(--lg-far, #b4b8c2)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+  <g>
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -1;0 0" dur="1.6s" repeatCount="indefinite"/>
+    <g fill="#ff7a1a" opacity="0.45"><ellipse cx="228" cy="70" rx="12" ry="7"/><ellipse cx="268" cy="70" rx="12" ry="7"/></g>
+  </g>
+  <g fill="#ffb347"><ellipse cx="228" cy="70" rx="7" ry="3"/><ellipse cx="268" cy="70" rx="7" ry="3"/></g>
+  <g fill="#fff4d6"><ellipse cx="228" cy="70" rx="3" ry="1.4"/><ellipse cx="268" cy="70" rx="3" ry="1.4"/></g>
+  <path d="M220 90 H276 L270 104 L248 110 L226 104Z" fill="#1a0b04" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+  <ellipse cx="248" cy="100" rx="14" ry="5" fill="#ff7a1a" opacity="0.6"/>
+  <g fill="#d6d2c4" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"><polygon points="224,90 228,97 232,90"/><polygon points="236,90 240,98 244,90"/><polygon points="252,90 256,98 260,90"/><polygon points="264,90 268,97 272,90"/></g>
+  <g fill="none" stroke="#ffd166" stroke-width="1.4" stroke-linecap="round"><path d="M196 110 L204 118 L200 128 M300 104 L292 114 L298 124"/></g>
+  <!-- crystal spires -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round">
+    <polygon points="196,44 188,20 202,40" fill="var(--lg-accent, #f2b441)"/><polygon points="204,40 206,12 212,38" fill="var(--lg-accent, #f2b441)"/>
+    <polygon points="296,40 306,16 302,44" fill="var(--lg-accent, #f2b441)"/><polygon points="288,34 290,8 296,34" fill="var(--lg-accent, #f2b441)"/>
+  </g>
+  <g fill="#fff" opacity="0.45"><polygon points="206,12 208,38 206,40"/><polygon points="290,8 292,34 290,34"/></g>
+  <!-- right cliff -->
+  <path d="M400 140 V70 L380 64 L360 72 L346 90 L340 140Z" fill="var(--lg-near, #8d929e)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+  <!-- the chasm glow and the rope bridge -->
+  <path d="M104 140 L110 118 H164 L170 140Z" fill="#ff7a1a" opacity="0.5"/>
+  <path d="M104 140 L112 126 H162 L170 140Z" fill="#ffd166" opacity="0.5"/>
+  <path d="M88 88 Q130 104 176 92" fill="none" stroke="#6b4423" stroke-width="2"/>
+  <path d="M88 80 Q130 96 176 84" fill="none" stroke="#6b4423" stroke-width="1.2"/>
+  <g stroke="#8a5a2b" stroke-width="2.4"><path d="M96 91 V83 M106 95 V87 M116 97 V89 M126 98 V90 M136 98 V90 M146 97 V89 M156 96 V88 M166 94 V86"/></g>
+  <!-- falling rocks -->
+  <g fill="var(--lg-deep, #6b6f7a)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7">
+    <polygon style="transform-box:fill-box;transform-origin:center" points="180,30 185,28 186,33 181,34"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-10 100" dur="2.6s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.6s" repeatCount="indefinite" additive="sum"/></polygon>
+    <polygon style="transform-box:fill-box;transform-origin:center" points="318,50 322,49 322,53 318,54"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;8 90" dur="3.2s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="3.2s" repeatCount="indefinite" additive="sum"/></polygon>
   </g>
 </svg>

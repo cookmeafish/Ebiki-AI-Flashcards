@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140" shape-rendering="crispEdges">
+  <!-- Game Over Arcade: rows of cabinets, a neon floor grid, a giant screen where the Pixel Overlord glares, pixel
+       sparks. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #e6e0f5)"/>
+  <!-- the giant screen -->
+  <rect x="136" y="24" width="128" height="76" fill="#1d1b28" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
+  <rect x="142" y="30" width="116" height="64" fill="#0b1a10"/>
+  <!-- the Overlord on the screen: pixel horns, red eyes, jagged grin -->
+  <g fill="var(--lg-deep, #7c4def)"><path d="M172 94 V50 H176 V44 H224 V50 H228 V94Z"/></g>
+  <g fill="#e6e0cc"><path d="M168 50 V38 H172 V30 H176 V46 H180 V50Z M232 50 V38 H228 V30 H224 V46 H220 V50Z"/></g>
+  <g fill="#ffd23f"><path d="M184 44 V36 H188 V40 H192 V34 H196 V40 H204 V34 H208 V40 H212 V36 H216 V44Z"/></g>
+  <g fill="#1d1b28"><rect x="180" y="56" width="12" height="4"/><rect x="208" y="56" width="12" height="4"/></g>
+  <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="-2 0;2 0;-2 0" dur="1.6s" repeatCount="indefinite"/>
+    <g fill="#ff2e4c"><rect x="184" y="62" width="6" height="6"/><rect x="210" y="62" width="6" height="6"/></g></g>
+  <path d="M180 76 H220 V80 H216 V84 H184 V80 H180Z" fill="#1c0f24"/>
+  <g fill="#fff"><rect x="184" y="76" width="4" height="4"/><rect x="192" y="76" width="4" height="6"/><rect x="204" y="76" width="4" height="6"/><rect x="212" y="76" width="4" height="4"/></g>
+  <!-- scanline flicker -->
+  <rect x="142" y="30" width="116" height="3" fill="#fff" opacity="0.15"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 60;0 0" dur="4s" repeatCount="indefinite" keyTimes="0;.5;1"/></rect>
+  <!-- GAME OVER marquee -->
+  <rect x="160" y="10" width="80" height="12" fill="#1d1b28" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+  <g fill="#ff3fd2">
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 0;0 200;0 200;0 0;0 0" keyTimes="0;.7;.701;.75;.751;1" dur="1.4s" repeatCount="indefinite"/>
+    <path d="M166 13 H172 V15 H168 V18 H170 V17 H172 V20 H166Z M174 13 H180 V20 H178 V17 H176 V20 H174Z M176 14 V16 H178 V14Z M182 13 H190 V20 H188 V15 H187 V20 H185 V15 H184 V20 H182Z M192 13 H198 V15 H194 V16 H197 V17 H194 V18 H198 V20 H192Z"/>
+    <path d="M204 13 H210 V20 H204Z M206 15 V18 H208 V15Z M212 13 H214 V18 H216 V13 H218 V18 L216 20 H214 L212 18Z M220 13 H226 V15 H222 V16 H225 V17 H222 V18 H226 V20 H220Z M228 13 H234 V17 H232 L234 20 H232 L230 17 V20 H228Z M230 14 V16 H232 V14Z"/>
+  </g>
+  <!-- rows of cabinets, left and right -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2">
+    <g fill="#3a2a70"><path d="M20 112 V52 H48 V62 L44 74 V112Z"/><path d="M60 112 V56 H86 V66 L82 76 V112Z"/><path d="M98 112 V60 H122 V70 L118 80 V112Z"/></g>
+    <g fill="#3a2a70"><path d="M380 112 V52 H352 V62 L356 74 V112Z"/><path d="M340 112 V56 H314 V66 L318 76 V112Z"/><path d="M302 112 V60 H278 V70 L282 80 V112Z"/></g>
+  </g>
+  <!-- cabinet screens glowing different colors -->
+  <g>
+    <rect x="24" y="56" width="20" height="14" fill="#2ef2ff"/><rect x="64" y="60" width="18" height="12" fill="#ff3fd2"/><rect x="101" y="64" width="17" height="11" fill="#9cff57"/>
+    <rect x="356" y="56" width="20" height="14" fill="#ffd23f"/><rect x="318" y="60" width="18" height="12" fill="#2ef2ff"/><rect x="282" y="64" width="17" height="11" fill="#ff3fd2"/>
+  </g>
+  <g fill="#1d1b28" opacity="0.5"><rect x="28" y="60" width="4" height="4"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;10 4;0 0" dur="1.2s" repeatCount="indefinite"/></rect><rect x="360" y="62" width="4" height="4"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;10 0;0 0" dur="1s" repeatCount="indefinite"/></rect></g>
+  <!-- joysticks and buttons -->
+  <g fill="#ff2e4c"><rect x="30" y="76" width="3" height="3"/><rect x="36" y="78" width="3" height="3"/><rect x="68" y="80" width="3" height="3"/><rect x="364" y="76" width="3" height="3"/><rect x="326" y="80" width="3" height="3"/></g>
+  <!-- the neon floor grid, receding -->
+  <path d="M0 112 H400 V140 H0Z" fill="#140f2a"/>
+  <g stroke="#ff3fd2" stroke-width="1" opacity="0.8" fill="none">
+    <path d="M0 116 H400 M0 122 H400 M0 130 H400 M0 139 H400"/>
+    <path d="M200 112 V140 M170 112 L140 140 M140 112 L80 140 M110 112 L20 140 M230 112 L260 140 M260 112 L320 140 M290 112 L380 140"/>
+  </g>
+  <rect x="0" y="112" width="400" height="2" fill="#2ef2ff"/>
+  <!-- pixel sparks -->
+  <g fill="#ffd23f">
+    <rect style="transform-box:fill-box;transform-origin:center" x="130" y="40" width="3" height="3"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-10 -14" dur="1.4s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.4s" repeatCount="indefinite" additive="sum"/></rect>
+    <rect style="transform-box:fill-box;transform-origin:center" x="268" y="46" width="3" height="3"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;10 -14" dur="1.6s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.6s" repeatCount="indefinite" additive="sum"/></rect>
+    <rect style="transform-box:fill-box;transform-origin:center" x="200" y="104" width="3" height="3" fill="#2ef2ff"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -10" dur="1.2s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.2s" repeatCount="indefinite" additive="sum"/></rect>
+  </g>
+</svg>

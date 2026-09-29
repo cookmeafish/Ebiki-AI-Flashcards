@@ -1,25 +1,68 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
-  <rect width="400" height="140" fill="var(--lg-sky, #e3f1f6)"/>
-  <g fill="var(--lg-far, #a9d3e3)" opacity="0.6">
-    <rect x="0" y="20" width="400" height="4"/><rect x="0" y="60" width="400" height="3"/>
+  <!-- Containment Breach: specimen tanks, one shattered, alarms spinning, and eyes in the dark doorway. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #e4f2df)"/>
+  <!-- wall panels -->
+  <g fill="var(--lg-far, #b5d6a4)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" opacity="0.8">
+    <rect x="0" y="20" width="80" height="90"/><rect x="80" y="20" width="80" height="90"/><rect x="160" y="20" width="80" height="90"/><rect x="240" y="20" width="80" height="90"/><rect x="320" y="20" width="80" height="90"/>
   </g>
-  <rect x="330" y="30" width="54" height="34" rx="4" fill="var(--lg-far, #a9d3e3)" stroke="var(--lg-deep, #2c6f8f)" stroke-width="3"/>
-  <path d="M338 54 l8 -10 l8 6 l10 -14 l12 8" stroke="var(--lg-accent, #e8566c)" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="0" y="108" width="400" height="32" fill="var(--lg-near, #6fb3cf)"/>
-  <rect x="0" y="104" width="400" height="6" fill="var(--lg-deep, #2c6f8f)"/>
-  <path d="M86 38 h24 v24 l26 42 h-76 l26 -42z" fill="var(--lg-light, #ffffff)" opacity="0.9" stroke="var(--lg-deep, #2c6f8f)" stroke-width="3" stroke-linejoin="round"/>
-  <path d="M70 86 h56 l10 18 h-76z" fill="var(--lg-accent, #e8566c)" opacity="0.9"/>
-  <g fill="var(--lg-accent, #e8566c)" opacity="0.65">
-    <circle cx="104" cy="28" r="5"/><circle cx="114" cy="16" r="3.5"/><circle cx="96" cy="10" r="2.5"/>
+  <g fill="var(--lg-ink, #1d2230)" opacity="0.5"><circle cx="6" cy="26" r="1"/><circle cx="74" cy="26" r="1"/><circle cx="86" cy="26" r="1"/><circle cx="154" cy="26" r="1"/><circle cx="246" cy="26" r="1"/><circle cx="314" cy="26" r="1"/></g>
+  <!-- ceiling pipes -->
+  <path d="M0 8 H400 V20 H0Z" fill="var(--lg-deep, #5a8f3c)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+  <g fill="none" stroke-linecap="round">
+    <path d="M0 16 H400" stroke="var(--lg-ink, #1d2230)" stroke-width="6"/><path d="M0 16 H400" stroke="#9aa7bd" stroke-width="3.6"/>
+    <path d="M60 16 V34 H100 V16" stroke="var(--lg-ink, #1d2230)" stroke-width="5"/><path d="M60 16 V34 H100 V16" stroke="#9aa7bd" stroke-width="3"/>
   </g>
-  <rect x="176" y="46" width="18" height="58" rx="9" fill="var(--lg-light, #ffffff)" opacity="0.9" stroke="var(--lg-deep, #2c6f8f)" stroke-width="3"/>
-  <rect x="179" y="74" width="12" height="28" rx="6" fill="var(--lg-accent, #e8566c)"/>
-  <rect x="206" y="56" width="18" height="48" rx="9" fill="var(--lg-light, #ffffff)" opacity="0.9" stroke="var(--lg-deep, #2c6f8f)" stroke-width="3"/>
-  <rect x="209" y="80" width="12" height="22" rx="6" fill="var(--lg-far, #a9d3e3)"/>
-  <circle cx="276" cy="78" r="26" fill="var(--lg-light, #ffffff)" opacity="0.9" stroke="var(--lg-deep, #2c6f8f)" stroke-width="3"/>
-  <rect x="268" y="42" width="16" height="14" fill="var(--lg-light, #ffffff)" stroke="var(--lg-deep, #2c6f8f)" stroke-width="3"/>
-  <path d="M252 84 a24 24 0 0 0 48 0z" fill="var(--lg-far, #a9d3e3)"/>
-  <g fill="var(--lg-accent, #e8566c)" opacity="0.6">
-    <circle cx="284" cy="30" r="4"/><circle cx="294" cy="18" r="5.5"/>
+  <circle style="transform-box:fill-box;transform-origin:center" cx="220" cy="18" r="1.6" fill="#7cff3f"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 100" dur="1.8s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.8s" repeatCount="indefinite" additive="sum"/></circle>
+  <!-- the alarm light and its beam -->
+  <path d="M200 24 L150 -20 H250Z" fill="#ff2e4c" opacity="0.2">
+    <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 200 24;360 200 24" dur="2s" repeatCount="indefinite"/>
+  </path>
+  <path d="M192 26 Q200 14 208 26Z" fill="#ff2e4c" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+  <!-- hazard band -->
+  <g><rect x="0" y="100" width="400" height="8" fill="#ffd23f"/>
+    <g fill="#1d2230"><polygon points="0,100 8,100 0,108"/><polygon points="16,100 24,100 16,108 8,108"/><polygon points="40,100 48,100 40,108 32,108"/><polygon points="64,100 72,100 64,108 56,108"/><polygon points="88,100 96,100 88,108 80,108"/><polygon points="112,100 120,100 112,108 104,108"/><polygon points="136,100 144,100 136,108 128,108"/><polygon points="160,100 168,100 160,108 152,108"/><polygon points="184,100 192,100 184,108 176,108"/><polygon points="208,100 216,100 208,108 200,108"/><polygon points="232,100 240,100 232,108 224,108"/><polygon points="256,100 264,100 256,108 248,108"/><polygon points="280,100 288,100 280,108 272,108"/><polygon points="304,100 312,100 304,108 296,108"/><polygon points="328,100 336,100 328,108 320,108"/><polygon points="352,100 360,100 352,108 344,108"/><polygon points="376,100 384,100 376,108 368,108"/><polygon points="400,100 400,108 392,108"/></g>
   </g>
+  <!-- monitor bank -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"><rect x="12" y="44" width="40" height="28" rx="2" fill="#0b1a10"/><rect x="12" y="76" width="40" height="18" rx="2" fill="#0b1a10"/></g>
+  <path d="M16 64 L22 58 L28 62 L34 50 L40 60 L48 54" fill="none" stroke="#7cff3f" stroke-width="1.4"/>
+  <g fill="#ff2e4c"><rect x="16" y="82" width="10" height="3"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;0 1;1 1" dur="0.8s" repeatCount="indefinite"/></rect></g>
+  <!-- tank 1: a sleeping specimen -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.4">
+    <rect x="72" y="34" width="44" height="72" rx="6" fill="#7cff3f" opacity="0.35"/>
+    <path d="M94 50 C84 50 82 62 86 70 C82 78 86 90 94 92 C102 90 106 78 102 70 C106 62 104 50 94 50Z" fill="var(--lg-deep, #5a8f3c)" opacity="0.7" stroke="none"/>
+    <rect x="68" y="28" width="52" height="8" rx="2" fill="#9aa7bd"/><rect x="68" y="102" width="52" height="10" rx="2" fill="#9aa7bd"/>
+  </g>
+  <g fill="none" stroke="#fff" stroke-width="0.8" opacity="0.9">
+    <circle style="transform-box:fill-box;transform-origin:center" cx="82" cy="96" r="1.6"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -56" dur="2.4s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.4s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle style="transform-box:fill-box;transform-origin:center" cx="106" cy="98" r="1.2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -58" dur="2s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2s" repeatCount="indefinite" additive="sum"/></circle>
+  </g>
+  <path d="M78 40 V96" stroke="#fff" stroke-width="2" opacity="0.4"/>
+  <!-- tank 2: shattered, slime everywhere -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round">
+    <rect x="168" y="28" width="64" height="8" rx="2" fill="#9aa7bd"/>
+    <path d="M172 36 L178 50 L174 58 L182 64 L176 36Z" fill="#dff7ff" opacity="0.8"/><path d="M228 36 L222 48 L228 56 L220 66 L224 36Z" fill="#dff7ff" opacity="0.8"/>
+    <path d="M172 104 L176 88 L184 96 L190 84 L196 98 L204 86 L212 98 L218 88 L224 98 L228 104Z" fill="#dff7ff" opacity="0.8"/>
+    <rect x="168" y="102" width="64" height="10" rx="2" fill="#9aa7bd"/>
+    <path d="M150 124 C160 110 180 112 200 112 C220 112 244 110 256 124 C240 130 170 132 150 124Z" fill="#7cff3f"/>
+  </g>
+  <g fill="#7cff3f"><path d="M184 112 C184 118 188 120 188 116 V112Z"/><path d="M214 112 C214 120 218 122 218 116 V112Z"/></g>
+  <g fill="#dff7ff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"><polygon points="140,128 146,124 144,132"/><polygon points="262,126 268,124 266,130"/></g>
+  <!-- tank 3 -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.4">
+    <rect x="276" y="34" width="44" height="72" rx="6" fill="#7cff3f" opacity="0.35"/>
+    <path d="M298 52 C290 54 288 66 292 74 C288 84 292 92 298 92 C304 92 308 84 304 74 C308 66 306 54 298 52Z" fill="var(--lg-deep, #5a8f3c)" opacity="0.7" stroke="none"/>
+    <rect x="272" y="28" width="52" height="8" rx="2" fill="#9aa7bd"/><rect x="272" y="102" width="52" height="10" rx="2" fill="#9aa7bd"/>
+  </g>
+  <circle style="transform-box:fill-box;transform-origin:center" cx="300" cy="96" r="1.4" fill="none" stroke="#fff" stroke-width="0.8"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -56" dur="2.2s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.2s" repeatCount="indefinite" additive="sum"/></circle>
+  <!-- the dark doorway: Specimen X is watching -->
+  <path d="M344 108 V44 H392 V108Z" fill="#0b120a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6"/>
+  <path d="M344 44 H392 V52 H344Z" fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+  <g style="transform-box:fill-box;transform-origin:center">
+    <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1;1 0.1;1 1" keyTimes="0;.9;.95;1" dur="4s" repeatCount="indefinite" additive="sum"/>
+    <g fill="#ff2e4c"><circle cx="360" cy="74" r="3"/><circle cx="376" cy="74" r="3"/><circle cx="368" cy="66" r="2"/><circle cx="354" cy="84" r="1.6"/><circle cx="382" cy="84" r="1.6"/></g>
+  </g>
+  <path d="M356 94 C362 90 374 90 380 94 C376 100 360 100 356 94Z" fill="#7cff3f" opacity="0.6"/>
+  <!-- floor -->
+  <path d="M0 108 H400 V140 H0Z" fill="var(--lg-near, #8cc26b)"/>
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" opacity="0.4"><path d="M0 124 H400 M50 108 V140 M100 108 V140 M150 108 V140 M250 108 V140 M300 108 V140 M350 108 V140"/></g>
 </svg>

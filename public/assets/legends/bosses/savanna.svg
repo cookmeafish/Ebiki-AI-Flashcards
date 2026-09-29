@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- The Pride Tyrant: a monstrous lion. A mane of burning spikes, a scarred face, glowing eyes, saber fangs, a
+       crown of horns. -->
+  <!-- heat shimmer sun -->
+  <circle cx="60" cy="52" r="54" fill="var(--lg-accent, #f28b41)" opacity="0.18"/>
+  <!-- the burning spike mane: flares on the entrance -->
+  <g transform="translate(60 56)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.6;0.6;1.25;1" keyTimes="0;.6;.8;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;4;0;-4;0" dur="3s" begin="1.5s" repeatCount="indefinite"/>
+      <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round">
+        <path d="M0 -56 L10 -38 L24 -52 L26 -32 L44 -40 L38 -22 L56 -20 L44 -6 L58 4 L42 12 L52 26 L34 28 L38 46 L22 38 L14 54 L4 40 L-4 40 L-14 54 L-22 38 L-38 46 L-34 28 L-52 26 L-42 12 L-58 4 L-44 -6 L-56 -20 L-38 -22 L-44 -40 L-26 -32 L-24 -52 L-10 -38Z" fill="#b3321a"/>
+        <path d="M0 -44 L8 -30 L20 -40 L20 -24 L36 -30 L30 -14 L44 -12 L34 0 L46 8 L32 12 L38 24 L24 24 L26 36 L14 30 L6 42 L0 32 L-6 42 L-14 30 L-26 36 L-24 24 L-38 24 L-32 12 L-46 8 L-34 0 L-44 -12 L-30 -14 L-36 -30 L-20 -24 L-20 -40 L-8 -30Z" fill="#ff7a1a" stroke="none"/>
+      </g>
+      <g fill="#ffd23f" opacity="0.8"><path d="M0 -34 L4 -24 L-4 -24Z M28 -20 L26 -10 L20 -16Z M-28 -20 L-26 -10 L-20 -16Z M34 14 L24 14 L28 6Z M-34 14 L-24 14 L-28 6Z"/></g>
+    </g>
+  </g></g>
+  <!-- horn crown -->
+  <g fill="#e8dcc0" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
+    <path d="M40 30 C34 18 36 8 30 2 C42 6 48 18 46 30Z"/><path d="M80 30 C86 18 84 8 90 2 C78 6 72 18 74 30Z"/>
+    <path d="M52 24 L56 10 L60 22 L64 10 L68 24Z" fill="#c9a441"/>
+  </g>
+  <!-- face -->
+  <path d="M38 50 C38 32 48 24 60 24 C72 24 82 32 82 50 C82 62 78 72 72 80 C68 86 52 86 48 80 C42 72 38 62 38 50Z" fill="#e0a13a" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
+  <path d="M42 48 C42 36 50 28 58 27 C50 34 46 44 48 64Z" fill="#fff" opacity="0.22"/>
+  <path d="M82 50 C82 62 78 72 72 80 C76 68 78 58 76 44Z" fill="#000" opacity="0.2"/>
+  <!-- scars -->
+  <path d="M44 34 L54 56 M47 36 L45 38 M50 44 L48 46 M52 50 L50 52" stroke="#7a1f14" stroke-width="1.4" stroke-linecap="round"/>
+  <!-- brows and glowing eyes -->
+  <path d="M40 40 L56 46 M80 40 L64 46" stroke="var(--lg-ink, #1d2230)" stroke-width="3" stroke-linecap="round"/>
+  <g transform="translate(50 49)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.1;1 0.1;1.3 1.3;1 1" keyTimes="0;.55;.75;1" dur="1.5s" fill="freeze"/>
+    <path d="M-6 0 L6 -2 L4 3Z" fill="#ffe36b" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/><path d="M0 -2 V2" stroke="#1a0808" stroke-width="1.4"/>
+  </g></g>
+  <g transform="translate(70 49)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.1;1 0.1;1.3 1.3;1 1" keyTimes="0;.55;.75;1" dur="1.5s" fill="freeze"/>
+    <path d="M6 0 L-6 -2 L-4 3Z" fill="#ffe36b" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/><path d="M0 -2 V2" stroke="#1a0808" stroke-width="1.4"/>
+  </g></g>
+  <!-- muzzle and nose -->
+  <path d="M50 60 C50 54 70 54 70 60 C70 66 66 68 60 68 C54 68 50 66 50 60Z" fill="#f2c27a" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+  <path d="M54 56 H66 L60 62Z" fill="#3a1a14" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+  <g fill="var(--lg-ink, #1d2230)"><circle cx="54" cy="64" r="0.6"/><circle cx="56" cy="66" r="0.6"/><circle cx="66" cy="64" r="0.6"/><circle cx="64" cy="66" r="0.6"/></g>
+  <!-- the roar: jaw drops open -->
+  <g>
+    <animateTransform class="lg-in" attributeName="transform" type="translate" values="0 -6;0 -6;0 4;0 0" keyTimes="0;.7;.85;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 2;0 0" dur="1.8s" begin="1.5s" repeatCount="indefinite"/>
+      <path d="M48 70 C52 68 68 68 72 70 C72 82 66 90 60 90 C54 90 48 82 48 70Z" fill="#4a0c0c" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+      <path d="M54 84 C56 80 64 80 66 84 C64 88 56 88 54 84Z" fill="#c43a4a"/>
+      <!-- saber fangs -->
+      <g fill="#f4efe0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round">
+        <path d="M50 70 L52 88 L55 70Z"/><path d="M70 70 L68 88 L65 70Z"/>
+        <polygon points="56,70 58,74 60,70"/><polygon points="60,70 62,74 64,70"/>
+        <polygon points="54,90 56,84 58,90"/><polygon points="62,90 64,84 66,90"/>
+      </g>
+    </g>
+  </g>
+  <!-- the body and forepaws, claws out -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round">
+    <path d="M22 120 C20 104 30 94 44 92 L48 100 C40 104 36 112 36 120Z" fill="#e0a13a"/>
+    <path d="M98 120 C100 104 90 94 76 92 L72 100 C80 104 84 112 84 120Z" fill="#e0a13a"/>
+  </g>
+  <g fill="#f4efe0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7">
+    <path d="M22 118 L18 112 L24 114Z M28 119 L25 112 L30 115Z M92 118 L96 112 L90 114Z M86 119 L89 112 L84 115Z"/>
+  </g>
+  <!-- embers rising off the mane -->
+  <g fill="#ffd23f">
+    <circle style="transform-box:fill-box;transform-origin:center" cx="14" cy="40" r="1.4"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-4 -30" dur="1.8s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.8s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle style="transform-box:fill-box;transform-origin:center" cx="106" cy="44" r="1.4"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;4 -30" dur="2.1s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.1s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle style="transform-box:fill-box;transform-origin:center" cx="60" cy="4" r="1.2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 8;2 -6" dur="1.5s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.5s" repeatCount="indefinite" additive="sum"/></circle>
+  </g>
+</svg>

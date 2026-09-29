@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
+  <!-- The Glowcap Hollow: a cave of giant glowing mushrooms, drifting spores, a still pool, the Sporelord looming. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #efe6f7)"/>
+  <rect width="400" height="140" fill="#1c1030" opacity="0.35"/>
+  <!-- stalactites -->
+  <g fill="var(--lg-deep, #7c4def)" stroke="var(--lg-ink, #1d2230)" stroke-width="1">
+    <path d="M0 0 H400 V14 L380 30 L366 12 L350 24 L330 10 L312 34 L296 12 L270 22 L250 10 L230 26 L210 12 L190 20 L170 8 L150 30 L130 12 L110 22 L90 10 L70 28 L50 12 L30 22 L10 10 L0 16Z"/>
+  </g>
+  <!-- the Sporelord looming in the back -->
+  <g>
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -2;0 0" dur="3s" repeatCount="indefinite"/>
+    <path d="M150 64 C150 40 172 28 200 28 C228 28 250 40 250 64 C236 70 164 70 150 64Z" fill="var(--lg-deep, #7c4def)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6"/>
+    <g fill="#c9ff5a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"><circle cx="176" cy="44" r="4"/><circle cx="202" cy="36" r="5"/><circle cx="226" cy="46" r="4"/><circle cx="190" cy="56" r="3"/><circle cx="216" cy="58" r="3"/></g>
+    <path d="M154 64 C170 70 230 70 246 64 L240 70 C220 74 180 74 160 70Z" fill="#5a3f9e"/>
+    <path d="M182 70 H218 V110 H182Z" fill="#e8dcc6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+    <g fill="#c9ff5a" opacity="0.4"><circle cx="190" cy="78" r="6"/><circle cx="210" cy="78" r="6"/></g>
+    <g fill="#f4ffd9" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"><ellipse cx="190" cy="78" rx="4" ry="2.6"/><ellipse cx="210" cy="78" rx="4" ry="2.6"/></g>
+    <g fill="#b3122e"><circle cx="190" cy="78" r="1.4"/><circle cx="210" cy="78" r="1.4"/></g>
+    <path d="M184 72 L196 76 M216 72 L204 76" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linecap="round"/>
+    <path d="M186 86 C192 84 208 84 214 86 C212 98 206 102 200 102 C194 102 188 98 186 86Z" fill="#1c0f24" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    <g fill="#f4efe0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"><polygon points="188,86 190,92 192,86"/><polygon points="194,86 196,93 198,86"/><polygon points="202,86 204,93 206,86"/><polygon points="208,86 210,92 212,86"/><polygon points="193,101 195,96 197,101"/><polygon points="203,101 205,96 207,101"/></g>
+  </g>
+  <!-- giant glowing mushrooms, left -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2">
+    <rect x="46" y="70" width="10" height="44" fill="#e8dcc6"/>
+    <path d="M18 72 C18 48 84 48 84 72Z" fill="var(--lg-accent, #f2b441)"/>
+    <g fill="#fff" opacity="0.8" stroke="none"><circle cx="36" cy="62" r="3"/><circle cx="56" cy="56" r="4"/><circle cx="72" cy="64" r="3"/></g>
+    <rect x="110" y="84" width="7" height="30" fill="#e8dcc6"/>
+    <path d="M92 86 C92 70 136 70 136 86Z" fill="#c9ff5a"/>
+  </g>
+  <!-- giant glowing mushrooms, right -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2">
+    <rect x="336" y="64" width="12" height="50" fill="#e8dcc6"/>
+    <path d="M300 66 C300 36 384 36 384 66Z" fill="#2ef2ff"/>
+    <g fill="#fff" opacity="0.8" stroke="none"><circle cx="322" cy="54" r="4"/><circle cx="344" cy="46" r="5"/><circle cx="366" cy="56" r="3"/></g>
+    <rect x="280" y="90" width="6" height="24" fill="#e8dcc6"/>
+    <path d="M266 92 C266 78 300 78 300 92Z" fill="var(--lg-accent, #f2b441)"/>
+  </g>
+  <!-- glow halos, pulsing -->
+  <g opacity="0.25">
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -1;0 0" dur="2s" repeatCount="indefinite"/>
+    <ellipse cx="51" cy="64" rx="44" ry="18" fill="var(--lg-accent, #f2b441)"/><ellipse cx="342" cy="56" rx="50" ry="22" fill="#2ef2ff"/><ellipse cx="114" cy="80" rx="28" ry="10" fill="#c9ff5a"/>
+  </g>
+  <!-- cave floor and the still pool -->
+  <path d="M0 112 H400 V140 H0Z" fill="var(--lg-deep, #7c4def)"/>
+  <ellipse cx="200" cy="124" rx="80" ry="8" fill="#2ef2ff" opacity="0.35"/>
+  <ellipse cx="200" cy="124" rx="40" ry="3" fill="#fff" opacity="0.4" style="transform-box:fill-box;transform-origin:center">
+    <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.1 1;1 1" dur="3s" repeatCount="indefinite" additive="sum"/>
+  </ellipse>
+  <!-- small mushrooms in front -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.8">
+    <rect x="20" y="118" width="3" height="8" fill="#e8dcc6"/><path d="M15 119 Q21.5 110 28 119Z" fill="#c9ff5a"/>
+    <rect x="372" y="120" width="3" height="7" fill="#e8dcc6"/><path d="M367 121 Q373.5 113 380 121Z" fill="#ff3fd2"/>
+    <rect x="140" y="122" width="2" height="5" fill="#e8dcc6"/><path d="M137 123 Q141 117 145 123Z" fill="var(--lg-accent, #f2b441)"/>
+  </g>
+  <!-- drifting spores -->
+  <g fill="#c9ff5a">
+    <circle style="transform-box:fill-box;transform-origin:center" cx="60" cy="100" r="1.6"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -70" dur="5s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="5s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle style="transform-box:fill-box;transform-origin:center" cx="140" cy="104" r="1.4"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-6 -70" dur="6s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="6s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle style="transform-box:fill-box;transform-origin:center" cx="260" cy="100" r="1.6"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;4 -70" dur="5.4s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="5.4s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle style="transform-box:fill-box;transform-origin:center" cx="330" cy="106" r="1.3"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-4 -70" dur="4.8s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="4.8s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle style="transform-box:fill-box;transform-origin:center" cx="200" cy="96" r="1.2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;2 -60" dur="4.4s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="4.4s" repeatCount="indefinite" additive="sum"/></circle>
+  </g>
+</svg>

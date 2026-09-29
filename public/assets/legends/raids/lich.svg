@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- The Lich Sovereign. Phase 1: a skeletal king on a floating throne of bones, soul-green eyes, a phylactery
+       gem in his crown. Phase 2: the crown splits, souls circle him. Phase 3: the gem shatters and his skull ignites.
+       Rises out of a grave-mist, hovering up and settling. -->
+  <!-- mist -->
+  <g fill="#9cffc9" opacity="0.35" stroke="none">
+    <ellipse cx="40" cy="108" rx="26" ry="6"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 0;0 0" dur="4s" repeatCount="indefinite"/></ellipse>
+    <ellipse cx="82" cy="110" rx="24" ry="5"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-6 0;0 0" dur="4.6s" repeatCount="indefinite"/></ellipse>
+  </g>
+  <g>
+    <animateTransform class="lg-in" attributeName="transform" type="translate" values="0 60;0 60;0 -8;0 0" keyTimes="0;.2;.75;1" dur="1.7s" fill="freeze"/>
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -4;0 0" dur="3s" begin="1.7s" repeatCount="indefinite" additive="sum"/>
+    <!-- robe -->
+    <path d="M32 112 C30 84 36 58 46 46 H74 C84 58 90 84 88 112 C80 106 74 112 66 106 C60 112 54 106 48 112 C42 106 38 112 32 112Z" fill="var(--lg-deep, #2b2340)" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M32 112 C30 86 36 62 46 48 C42 66 42 90 46 110Z" fill="#000" opacity="0.3"/>
+    <path d="M52 50 L60 60 L68 50" fill="none" stroke="#e8d27a" stroke-width="1.6"/>
+    <path d="M60 60 V104" stroke="#e8d27a" stroke-width="1.2" opacity="0.8"/>
+    <!-- ribcage in the robe's opening -->
+    <g stroke="#efe6cf" stroke-width="1.6" fill="none" stroke-linecap="round">
+      <path d="M52 66 C56 64 64 64 68 66"/><path d="M51 72 C56 70 64 70 69 72"/><path d="M52 78 C56 76 64 76 68 78"/>
+    </g>
+    <!-- claws holding a staff -->
+    <path d="M92 20 V112" stroke="#6b4a2b" stroke-width="3" stroke-linecap="round"/>
+    <path d="M86 18 C86 10 98 10 98 18 C98 24 86 24 86 18Z" fill="#101a14" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+    <circle cx="92" cy="18" r="3.4" fill="#3dff8f" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.35;1" dur="1.2s" repeatCount="indefinite"/></circle>
+    <path d="M84 62 C88 58 94 60 94 64 L86 70Z" fill="#efe6cf" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    <path d="M36 64 C30 60 26 64 28 70 L36 72Z" fill="#efe6cf" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    <!-- skull -->
+    <path d="M44 32 C44 18 52 12 60 12 C68 12 76 18 76 32 C76 40 72 44 68 46 V52 H52 V46 C48 44 44 40 44 32Z" fill="#efe6cf" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M44 32 C44 22 48 16 54 14 C50 20 48 28 50 40 C47 38 44 36 44 32Z" fill="#000" opacity="0.18"/>
+    <path d="M58 16 L56 24 L60 28" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+    <path d="M50 28 C50 24 56 24 57 28 C57 33 50 33 50 28Z M63 28 C64 24 70 24 70 28 C70 33 63 33 63 28Z" fill="#101a14"/>
+    <g style="transform-box:fill-box;transform-origin:center">
+      <animateTransform class="lg-in" attributeName="transform" type="scale" values="0;0;1.6;1" keyTimes="0;.65;.85;1" dur="1.7s" fill="freeze"/>
+      <circle cx="53.5" cy="29" r="2.2" fill="#3dff8f"/><circle cx="66.5" cy="29" r="2.2" fill="#3dff8f"/>
+    </g>
+    <path d="M58 35 L60 38 L62 35Z" fill="#101a14"/>
+    <path d="M52 44 V50 M55 45 V51 M58 45 V51 M61 45 V51 M64 45 V51 M67 44 V50" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+    <!-- crown: whole (phase 1), split (phase 2+) -->
+    <g class="lg-p1">
+      <path d="M44 20 L46 6 L52 14 L56 2 L60 12 L64 2 L68 14 L74 6 L76 20Z" fill="#e8b93a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+      <path d="M57 14 L60 10 L63 14 L60 18Z" fill="#3dff8f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+    </g>
+    <g class="lg-p2" style="display:none">
+      <path d="M42 20 L44 8 L50 14 L54 4 L57 16Z" fill="#e8b93a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round" transform="rotate(-10 50 20)"/>
+      <path d="M78 20 L76 8 L70 14 L66 4 L63 16Z" fill="#e8b93a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round" transform="rotate(10 70 20)"/>
+      <!-- circling souls -->
+      <g>
+        <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 60 56;360 60 56" dur="5s" repeatCount="indefinite"/>
+        <path d="M20 56 C18 50 24 46 26 50 C28 54 24 60 20 56Z" fill="#9cffc9" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+        <path d="M100 56 C102 50 96 46 94 50 C92 54 96 60 100 56Z" fill="#9cffc9" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+        <path d="M60 100 C54 102 50 96 54 94 C58 92 64 96 60 100Z" fill="#9cffc9" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+      </g>
+    </g>
+    <!-- phase 2 only: the gem hangs cracked -->
+    <path class="lg-p2" style="display:none" d="M57 14 L60 10 L63 14 L60 18Z M58.5 12.5 L61 16" fill="#3dff8f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+    <!-- phase 3: the skull burns with soul-fire -->
+    <g class="lg-p3" style="display:none">
+      <path d="M44 22 C40 10 48 4 50 -2 C52 6 56 2 58 -4 C60 4 64 0 66 -4 C68 4 72 4 70 -2 C78 6 80 14 76 22Z" fill="#3dff8f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" opacity="0.9" style="transform-box:fill-box;transform-origin:center bottom">
+        <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1.2;1 0.95;1 1" dur="0.6s" repeatCount="indefinite"/>
+      </path>
+      <circle cx="53.5" cy="29" r="3.4" fill="#fff" opacity="0.8"/><circle cx="66.5" cy="29" r="3.4" fill="#fff" opacity="0.8"/>
+      <g fill="#bfffe0"><path d="M52 16 L56 8 L58 16Z"/><path d="M62 16 L66 6 L68 16Z"/></g>
+    </g>
+  </g>
+</svg>

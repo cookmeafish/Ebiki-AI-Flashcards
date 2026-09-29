@@ -1,22 +1,59 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
-  <rect width="400" height="140" fill="var(--lg-sky, #dcefff)"/>
-  <circle cx="78" cy="38" r="18" fill="var(--lg-accent, #f2b441)" opacity="0.9"/>
-  <g fill="var(--lg-light, #ffffff)" opacity="0.95">
-    <ellipse cx="150" cy="42" rx="30" ry="11"/><ellipse cx="166" cy="34" rx="19" ry="11"/>
-    <ellipse cx="280" cy="72" rx="34" ry="12"/><ellipse cx="298" cy="63" rx="21" ry="12"/>
-    <ellipse cx="54" cy="96" rx="28" ry="10"/><ellipse cx="68" cy="88" rx="16" ry="9"/>
-    <ellipse cx="344" cy="28" rx="24" ry="9"/><ellipse cx="356" cy="22" rx="14" ry="8"/>
+  <!-- Stormspire Isles: floating islands above the clouds, a ruined sky temple, and the Wyvern circling in the storm. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #e3ecfb)"/>
+  <circle cx="60" cy="30" r="16" fill="var(--lg-accent, #f2b441)" opacity="0.6"/>
+  <!-- the storm over the spire -->
+  <g fill="var(--lg-far, #b9c8e8)">
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-8 0;0 0" dur="9s" repeatCount="indefinite"/>
+    <ellipse cx="300" cy="18" rx="80" ry="16"/><ellipse cx="260" cy="10" rx="40" ry="12"/><ellipse cx="350" cy="12" rx="44" ry="12"/>
   </g>
+  <ellipse cx="300" cy="26" rx="70" ry="6" fill="#000" opacity="0.12"/>
+  <path d="M320 28 L312 44 L318 44 L308 62 L326 40 L320 40 L328 28Z" fill="#fff04a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+  <!-- the wyvern circling -->
   <g>
-    <path d="M222 22 a18 22 0 0 1 36 0 q0 18 -12 30 h-12 q-12 -12 -12 -30z" fill="var(--lg-accent, #f2b441)"/>
-    <path d="M232 8 q8 20 2 44" stroke="var(--lg-deep, #1f6fb0)" stroke-width="2" fill="none" opacity="0.5"/>
-    <path d="M248 8 q-8 20 -2 44" stroke="var(--lg-deep, #1f6fb0)" stroke-width="2" fill="none" opacity="0.5"/>
-    <path d="M234 52 l2 12 h8 l2 -12" stroke="var(--lg-deep, #1f6fb0)" stroke-width="1.5" fill="none"/>
-    <rect x="234" y="64" width="12" height="9" rx="2" fill="var(--lg-deep, #1f6fb0)"/>
+    <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 280 40;-360 280 40" dur="10s" repeatCount="indefinite"/>
+    <g fill="var(--lg-deep, #4c6fd6)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round">
+      <path d="M226 42 L212 30 L216 38 L208 36 L220 46Z"/><path d="M232 42 L246 30 L242 38 L250 36 L238 46Z"/>
+      <ellipse cx="229" cy="44" rx="5" ry="3"/><path d="M233 44 L240 42 L237 46Z"/><path d="M224 44 C220 46 218 50 214 50 C218 48 220 46 222 44Z"/>
+    </g>
   </g>
-  <g stroke="var(--lg-deep, #1f6fb0)" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.6">
-    <path d="M110 70 q5 -5 10 0 q5 -5 10 0"/><path d="M320 104 q4 -4 8 0 q4 -4 8 0"/>
+  <!-- left island with a waterfall -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -3;0 0" dur="5s" repeatCount="indefinite"/>
+    <path d="M20 70 H100 L90 80 L76 100 L62 112 L50 100 L34 84Z" fill="var(--lg-deep, #4c6fd6)"/>
+    <path d="M20 70 H100 L96 76 H24Z" fill="var(--lg-near, #7f9ae6)"/>
+    <path d="M30 70 L36 58 L42 70 M80 70 L86 54 L92 70" fill="#2e8b57"/>
+    <path d="M58 76 V120" stroke="#9ff3ff" stroke-width="3" opacity="0.8"/>
   </g>
-  <path d="M0 124 Q200 102 400 124 V140 H0Z" fill="var(--lg-near, #8cc7ee)"/>
-  <path d="M0 132 Q200 116 400 132 V140 H0Z" fill="var(--lg-far, #b6dcf5)"/>
+  <!-- central island with the ruined temple -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round">
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -2;0 2;0 -2" dur="6s" repeatCount="indefinite"/>
+    <path d="M140 82 H260 L250 94 L232 112 L212 126 L196 118 L176 104 L156 92Z" fill="var(--lg-deep, #4c6fd6)"/>
+    <path d="M140 82 H260 L254 90 H146Z" fill="var(--lg-near, #7f9ae6)"/>
+    <g fill="#f2ede1"><rect x="160" y="52" width="8" height="30"/><rect x="180" y="46" width="8" height="36"/><rect x="212" y="46" width="8" height="36"/><rect x="232" y="58" width="8" height="24"/></g>
+    <path d="M156 52 L200 36 L244 52 Z" fill="#f2ede1"/>
+    <path d="M196 60 L204 60 L204 82 H196Z" fill="#1d2230"/>
+    <path d="M232 58 L236 52 L240 58" fill="#f2ede1"/>
+    <path d="M200 36 V24" stroke="#f2b441" stroke-width="1.6"/><circle cx="200" cy="22" r="2.6" fill="#fff04a"/>
+    <path d="M216 88 V130" stroke="#9ff3ff" stroke-width="3" opacity="0.8"/>
+  </g>
+  <!-- right island -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 2;0 -2;0 2" dur="5.5s" repeatCount="indefinite"/>
+    <path d="M310 88 H380 L372 98 L356 110 L342 104 L326 96Z" fill="var(--lg-deep, #4c6fd6)"/>
+    <path d="M310 88 H380 L376 92 H314Z" fill="var(--lg-near, #7f9ae6)"/>
+    <path d="M330 88 L334 72 L338 88 M350 88 L356 68 L362 88" fill="#2e8b57"/>
+  </g>
+  <!-- chains holding the islands -->
+  <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-dasharray="3 2" opacity="0.6"><path d="M100 72 L140 84 M260 84 L310 90"/></g>
+  <!-- the cloud sea below, drifting -->
+  <g fill="var(--lg-light, #ffffff)">
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-30 0;0 0" dur="16s" repeatCount="indefinite"/>
+    <ellipse cx="20" cy="130" rx="50" ry="16"/><ellipse cx="100" cy="134" rx="60" ry="16"/><ellipse cx="190" cy="136" rx="60" ry="14"/><ellipse cx="280" cy="132" rx="60" ry="16"/><ellipse cx="370" cy="134" rx="60" ry="16"/><ellipse cx="440" cy="130" rx="50" ry="16"/>
+  </g>
+  <g fill="var(--lg-far, #b9c8e8)" opacity="0.6"><ellipse cx="60" cy="140" rx="60" ry="8"/><ellipse cx="240" cy="140" rx="80" ry="8"/><ellipse cx="380" cy="140" rx="50" ry="8"/></g>
+  <!-- wind streaks -->
+  <g fill="none" stroke="var(--lg-light, #ffffff)" stroke-width="1.4" stroke-linecap="round" opacity="0.9">
+    <path d="M120 50 H146 M280 70 H300"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="30 0;-40 0;30 0" dur="4.8s" repeatCount="indefinite" keyTimes="0;.5;1"/></path>
+  </g>
 </svg>

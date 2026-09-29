@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- The Poltergeist: a furious sheet ghost with a glowing screaming mouth, shackled chains, and a storm of flying
+       furniture: a chair, a candelabra, a portrait, a book. -->
+  <!-- cold aura -->
+  <ellipse cx="60" cy="60" rx="46" ry="52" fill="#9ff0ff" opacity="0.14"/>
+  <!-- the flying storm (behind) -->
+  <!-- a chair -->
+  <g><animateTransform class="lg-in" attributeName="transform" type="translate" values="0 60;0 60;0 0" keyTimes="0;.6;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-10 14 30;14 14 30;-10 14 30" dur="2.6s" begin="1.5s" repeatCount="indefinite"/>
+      <g fill="#6b4423" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round">
+        <path d="M6 14 H12 V30 H22 V34 H6Z"/><path d="M7 34 V44 H9 V34 M19 34 V44 H21 V34"/><path d="M6 14 C6 10 12 10 12 14" fill="#8a5a2b"/>
+      </g>
+    </g>
+  </g>
+  <!-- a portrait with a frowning face -->
+  <g><animateTransform class="lg-in" attributeName="transform" type="translate" values="0 60;0 60;0 0" keyTimes="0;.66;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="12 102 22;-8 102 22;12 102 22" dur="3s" begin="1.5s" repeatCount="indefinite"/>
+      <rect x="92" y="8" width="20" height="24" fill="#c9a441" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+      <rect x="95" y="11" width="14" height="18" fill="#3a2a4a"/>
+      <circle cx="102" cy="18" r="4" fill="#e8c8a8"/><path d="M100 17 h1 M103 17 h1 M100 21 C101 20 103 20 104 21" stroke="#1d2230" stroke-width="0.7" fill="none"/>
+      <!-- eyes that follow you -->
+      <g fill="#ff2e4c"><circle cx="100.5" cy="17" r="0.6"/><circle cx="103.5" cy="17" r="0.6"/></g>
+    </g>
+  </g>
+  <!-- the sheet ghost: rises out of the floor -->
+  <g>
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -4;0 0" dur="2.2s" repeatCount="indefinite"/>
+    <!-- sheet body, flowing hem -->
+    <path d="M28 60 C28 28 42 12 60 12 C78 12 92 28 92 60 L96 104 C90 100 88 110 82 106 C78 102 74 112 68 108 C64 104 60 114 54 108 C50 104 46 112 40 106 C36 102 30 108 24 104Z" fill="#f2f6ff" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round">
+      <animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;3;0;-3;0" dur="1.6s" repeatCount="indefinite"/>
+    </path>
+    <!-- sheet folds -->
+    <path d="M36 56 C34 76 36 92 40 104 M50 64 C48 82 50 96 54 106 M76 60 C80 78 80 94 82 104" fill="none" stroke="#b8c6e0" stroke-width="1.4" stroke-linecap="round"/>
+    <path d="M34 50 C36 32 46 20 58 16 C46 26 40 40 40 64Z" fill="#fff" opacity="0.6"/>
+    <!-- raging arms -->
+    <path d="M30 62 C18 58 10 46 12 36 C16 42 22 46 30 48Z" fill="#f2f6ff" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6"/>
+    <path d="M90 62 C102 58 110 46 108 36 C104 42 98 46 90 48Z" fill="#f2f6ff" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6"/>
+    <!-- shackles and chains -->
+    <g fill="none" stroke="#6b7080" stroke-width="2.4">
+      <path d="M12 38 C8 40 8 44 12 46"/><path d="M108 38 C112 40 112 44 108 46"/>
+    </g>
+    <g fill="none" stroke="#8a8f9c" stroke-width="1.6">
+      <path d="M12 46 C8 58 12 70 6 82" stroke-dasharray="3 1.4"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 12 46;8 12 46;0 12 46" dur="1.2s" repeatCount="indefinite"/></path>
+      <path d="M108 46 C112 58 108 70 114 82" stroke-dasharray="3 1.4"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 108 46;-8 108 46;0 108 46" dur="1.2s" repeatCount="indefinite"/></path>
+    </g>
+    <!-- hollow furious eyes -->
+    <path d="M40 36 C44 30 54 34 54 42 C52 48 42 48 40 42Z" fill="#1a1030" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    <path d="M80 36 C76 30 66 34 66 42 C68 48 78 48 80 42Z" fill="#1a1030" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    <g transform="translate(47 41)"><g>
+      <animateTransform class="lg-in" attributeName="transform" type="scale" values="0;0;1.8;1" keyTimes="0;.7;.85;1" dur="1.5s" fill="freeze"/>
+      <circle r="2.6" fill="#6ff3ff" opacity="0.5"/><circle r="1.4" fill="#e8ffff"/></g></g>
+    <g transform="translate(73 41)"><g>
+      <animateTransform class="lg-in" attributeName="transform" type="scale" values="0;0;1.8;1" keyTimes="0;.7;.85;1" dur="1.5s" fill="freeze"/>
+      <circle r="2.6" fill="#6ff3ff" opacity="0.5"/><circle r="1.4" fill="#e8ffff"/></g></g>
+    <path d="M38 30 L52 36 M82 30 L68 36" stroke="var(--lg-ink, #1d2230)" stroke-width="2.4" stroke-linecap="round"/>
+    <!-- the screaming mouth, glowing -->
+    <g transform="translate(60 64)"><g>
+      <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.3 0.1;0.3 0.1;1.2 1.4;1 1" keyTimes="0;.7;.88;1" dur="1.5s" fill="freeze"/>
+      <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.1 1.25;1 1" dur="0.9s" begin="1.5s" repeatCount="indefinite"/>
+        <ellipse rx="14" ry="16" fill="#6ff3ff" opacity="0.3"/>
+        <path d="M-9 -8 C-6 -12 6 -12 9 -8 C12 0 8 12 0 13 C-8 12 -12 0 -9 -8Z" fill="#1a1030" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+        <ellipse cy="4" rx="5" ry="7" fill="#6ff3ff" opacity="0.6"/>
+        <ellipse cy="6" rx="2.4" ry="4" fill="#e8ffff"/>
+      </g>
+    </g></g>
+  </g>
+  <!-- a candelabra flying past, flames flickering -->
+  <g><animateTransform class="lg-in" attributeName="transform" type="translate" values="0 60;0 60;0 0" keyTimes="0;.72;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-6 -8;0 0" dur="2.4s" begin="1.5s" repeatCount="indefinite"/>
+      <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" fill="#c9a441">
+        <path d="M102 104 V94 M96 96 C96 100 108 100 108 96 M96 96 V90 M108 96 V90 M102 94 V88"/>
+        <rect x="100" y="104" width="4" height="4"/>
+      </g>
+      <g fill="#fff4d6"><rect x="95" y="86" width="2" height="4"/><rect x="101" y="84" width="2" height="4"/><rect x="107" y="86" width="2" height="4"/></g>
+      <g fill="#ffb627"><path d="M96 86 C94 82 96 80 96 80 C98 82 98 84 96 86Z M102 84 C100 80 102 78 102 78 C104 80 104 82 102 84Z M108 86 C106 82 108 80 108 80 C110 82 110 84 108 86Z"/></g>
+    </g>
+  </g>
+  <!-- a book flapping -->
+  <g><animateTransform class="lg-in" attributeName="transform" type="translate" values="0 60;0 60;0 0" keyTimes="0;.78;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -6;0 0" dur="2s" begin="1.5s" repeatCount="indefinite"/>
+      <path d="M8 98 L16 94 L16 104 L8 108Z" fill="#7a2a3a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"><animateTransform class="lg-loop" attributeName="transform" type="skewY" values="0;-10;0" dur="0.5s" repeatCount="indefinite"/></path>
+      <path d="M16 94 L24 98 L24 108 L16 104Z" fill="#8a3a4a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+    </g>
+  </g>
+</svg>

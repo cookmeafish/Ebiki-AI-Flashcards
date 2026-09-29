@@ -25,11 +25,19 @@ export function leaksAnswer(question, accepted = []) {
   })
 }
 
+// Choices in a random order (models favor one slot), keeping track of the right one.
+function shuffleChoices(choices, idx) {
+  const order = choices.map((c, i) => [i, Math.random()]).sort((a, b) => a[1] - b[1]).map(([i]) => i)
+  return { choices: order.map((i) => choices[i]), answerIdx: order.indexOf(idx) }
+}
+
 // Clean a model-written question list into the runner's shape; drops anything unusable.
 // In: [{ question, type: 'choice'|'typed', choices, answer (index or text), accepted, explanation, target,
 //        say (text to HEAR instead of read), speak (answer out loud) }]
 // `audioLang` / `speakLang`: the language the audio is read in and the answer is spoken in.
-export function sanitizeQuestions(raw, { maxChoices = 4, audioLang = '', speakLang = '' } = {}) {
+// `dual`: a question with BOTH typed answers ("accepted") and choices stays typed and keeps the choices as `alt`
+// ({ choices, answerIdx }): a fight lets the learner answer it either way (a power or a safe strike).
+export function sanitizeQuestions(raw, { maxChoices = 4, audioLang = '', speakLang = '', dual = false } = {}) {
   if (!Array.isArray(raw)) return []
   const out = []
   for (const q of raw) {
@@ -40,6 +48,15 @@ export function sanitizeQuestions(raw, { maxChoices = 4, audioLang = '', speakLa
     const target = q.target != null ? String(q.target) : ''
     const say = String(q.say || '').trim()
     const extra = { ...(say ? { audio: { text: say, lang: audioLang } } : {}), ...(q.speak === true ? { speak: true, speakLang } : {}) }
+    const typedAccepted = Array.isArray(q.accepted) ? q.accepted.map((x) => String(x).trim()).filter(Boolean) : []
+    if (dual && Array.isArray(q.choices) && q.choices.length >= 2 && typedAccepted.length && !leaksAnswer(prompt, typedAccepted)) {
+      const choices = [...new Set(q.choices.map((c) => String(c).trim()).filter(Boolean))].slice(0, maxChoices)
+      let idx = Number.isInteger(q.answer) ? q.answer : choices.findIndex((c) => normalizeAnswer(c) === normalizeAnswer(q.answer ?? typedAccepted[0]))
+      if (idx < 0) idx = choices.findIndex((c) => typedAccepted.some((a) => normalizeAnswer(a) === normalizeAnswer(c)))
+      const alt = idx >= 0 && idx < choices.length && choices.length >= 2 ? shuffleChoices(choices, idx) : null
+      out.push({ kind: 'typed', prompt, accepted: [...new Set(typedAccepted)], explanation, target, open: !!q.open, ...(alt ? { alt } : {}), ...extra })
+      continue
+    }
     if (Array.isArray(q.choices) && q.choices.length >= 2) {
       const choices = [...new Set(q.choices.map((c) => String(c).trim()).filter(Boolean))].slice(0, maxChoices)
       let idx = Number.isInteger(q.answer) ? q.answer : choices.findIndex((c) => normalizeAnswer(c) === normalizeAnswer(q.answer))

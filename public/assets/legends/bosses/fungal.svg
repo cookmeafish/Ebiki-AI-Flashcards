@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- The Sporelord: a mushroom colossus. Glowing warts on its cap, eyes under the rim, a gill mouth full of teeth,
+       root-tendril arms, clouds of spores. -->
+  <!-- spore haze -->
+  <g fill="#c9ff5a" opacity="0.14" style="transform-box:fill-box;transform-origin:center">
+    <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.06;1" dur="3s" repeatCount="indefinite" additive="sum"/>
+    <circle cx="30" cy="30" r="22"/><circle cx="92" cy="26" r="20"/><circle cx="60" cy="16" r="18"/>
+  </g>
+  <!-- root-tendril arms -->
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <g>
+      <animateTransform class="lg-in" attributeName="transform" type="rotate" values="50 40 80;50 40 80;-8 40 80;0 40 80" keyTimes="0;.5;.75;1" dur="1.5s" fill="freeze"/>
+      <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 40 80;-6 40 80;0 40 80" dur="2.8s" begin="1.5s" repeatCount="indefinite"/>
+        <path d="M42 82 C30 84 18 76 12 62 C10 56 6 54 2 56 M14 64 C8 66 6 72 2 72 M20 72 C18 80 12 82 8 86" stroke="var(--lg-ink, #1d2230)" stroke-width="6"/>
+        <path d="M42 82 C30 84 18 76 12 62 C10 56 6 54 2 56 M14 64 C8 66 6 72 2 72 M20 72 C18 80 12 82 8 86" stroke="#e8dcc6" stroke-width="3.6"/>
+      </g>
+    </g>
+    <g>
+      <animateTransform class="lg-in" attributeName="transform" type="rotate" values="-50 80 80;-50 80 80;8 80 80;0 80 80" keyTimes="0;.5;.75;1" dur="1.5s" fill="freeze"/>
+      <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 80 80;6 80 80;0 80 80" dur="2.6s" begin="1.5s" repeatCount="indefinite"/>
+        <path d="M78 82 C90 84 102 76 108 62 C110 56 114 54 118 56 M106 64 C112 66 114 72 118 72 M100 72 C102 80 108 82 112 86" stroke="var(--lg-ink, #1d2230)" stroke-width="6"/>
+        <path d="M78 82 C90 84 102 76 108 62 C110 56 114 54 118 56 M106 64 C112 66 114 72 118 72 M100 72 C102 80 108 82 112 86" stroke="#e8dcc6" stroke-width="3.6"/>
+      </g>
+    </g>
+  </g>
+  <!-- stalk body with a ragged ring, breathing -->
+  <g transform="translate(60 120)"><g>
+    <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.03 1.04;1 1" dur="2.6s" repeatCount="indefinite"/>
+    <g transform="translate(-60 -120)">
+      <path d="M36 120 C38 100 40 84 42 66 H78 C80 84 82 100 84 120Z" fill="#e8dcc6" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
+      <path d="M72 66 H78 C80 84 82 100 84 120 H74 C74 100 74 84 72 66Z" fill="#000" opacity="0.18"/>
+      <g fill="none" stroke="#b8a888" stroke-width="1" stroke-linecap="round"><path d="M46 90 C48 100 46 110 48 118 M58 84 V118 M70 92 C68 102 70 110 70 118"/></g>
+      <path d="M34 80 L40 74 H80 L86 80 L82 86 L76 82 L70 88 L64 82 L58 88 L52 82 L46 88 L40 82Z" fill="#f4efe6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+      <!-- roots in the ground -->
+      <g fill="none" stroke="#b8a888" stroke-width="3" stroke-linecap="round"><path d="M36 118 C28 114 22 116 16 120 M84 118 C92 114 98 116 104 120"/></g>
+      <!-- tiny mushrooms at its feet -->
+      <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.7">
+        <rect x="21" y="110" width="2" height="6" fill="#f4efe6"/><path d="M17 111 Q22 104 27 111Z" fill="var(--lg-accent, #f2b441)"/>
+        <rect x="97" y="112" width="2" height="5" fill="#f4efe6"/><path d="M94 113 Q98 107 102 113Z" fill="var(--lg-accent, #f2b441)"/>
+      </g>
+    </g>
+  </g></g>
+  <!-- the cap: swells on the entrance -->
+  <g transform="translate(60 50)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.3 0.3;0.3 0.3;1.15 1.2;1 1" keyTimes="0;.45;.7;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.03 0.97;1 1" dur="2.6s" begin="1.5s" repeatCount="indefinite"/>
+      <g transform="translate(-60 -50)">
+        <path d="M6 54 C6 24 30 6 60 6 C90 6 114 24 114 54 C100 60 20 60 6 54Z" fill="var(--lg-deep, #7c4def)" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2"/>
+        <path d="M14 46 C18 26 36 12 58 10 C40 18 28 32 24 52Z" fill="#fff" opacity="0.2"/>
+        <path d="M114 54 C112 34 100 18 80 10 C96 22 104 38 104 58Z" fill="#000" opacity="0.25"/>
+        <!-- glowing warts, pulsing -->
+        <g fill="#c9ff5a" stroke="var(--lg-ink, #1d2230)" stroke-width="1">
+          <circle cx="36" cy="26" r="5"/><circle cx="62" cy="16" r="6"/><circle cx="88" cy="28" r="5.4"/><circle cx="22" cy="44" r="3.6"/><circle cx="50" cy="38" r="4"/><circle cx="76" cy="42" r="4.4"/><circle cx="100" cy="46" r="3.2"/>
+        </g>
+        <g fill="#c9ff5a" opacity="0.35">
+          <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -0.5;0 0" dur="1.2s" repeatCount="indefinite"/>
+          <circle cx="36" cy="26" r="9"/><circle cx="62" cy="16" r="10"/><circle cx="88" cy="28" r="9"/><circle cx="76" cy="42" r="8"/>
+        </g>
+        <g fill="#f4ffd9"><circle cx="34" cy="24" r="1.6"/><circle cx="60" cy="14" r="2"/><circle cx="86" cy="26" r="1.6"/></g>
+        <!-- gills under the rim -->
+        <path d="M10 54 C30 62 90 62 110 54 L104 62 C84 68 36 68 16 62Z" fill="#5a3f9e" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+        <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" opacity="0.7"><path d="M20 58 L22 64 M28 59 L30 66 M36 60 L37 66 M84 60 L83 66 M92 59 L90 66 M100 58 L98 64"/></g>
+      </g>
+    </g>
+  </g></g>
+  <!-- eyes under the rim -->
+  <g transform="translate(46 70)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.05;1 0.05;1.4 1.4;1 1" keyTimes="0;.62;.8;1" dur="1.5s" fill="freeze"/>
+    <circle r="6" fill="#c9ff5a" opacity="0.4"/><ellipse rx="4.4" ry="3" fill="#f4ffd9" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/><circle r="1.6" fill="#b3122e"/></g></g>
+  <g transform="translate(74 70)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.05;1 0.05;1.4 1.4;1 1" keyTimes="0;.66;.84;1" dur="1.5s" fill="freeze"/>
+    <circle r="6" fill="#c9ff5a" opacity="0.4"/><ellipse rx="4.4" ry="3" fill="#f4ffd9" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/><circle r="1.6" fill="#b3122e"/></g></g>
+  <g fill="#f4ffd9" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"><circle cx="36" cy="66" r="2"/><circle cx="84" cy="66" r="2"/><circle cx="60" cy="66" r="1.8"/></g>
+  <g fill="#b3122e"><circle cx="36" cy="66" r="0.9"/><circle cx="84" cy="66" r="0.9"/><circle cx="60" cy="66" r="0.8"/></g>
+  <path d="M38 64 L52 68 M82 64 L68 68" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linecap="round"/>
+  <!-- gill mouth full of teeth: opens on the entrance -->
+  <g transform="translate(60 84)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.15;1 0.15;1.1 1.3;1 1" keyTimes="0;.7;.86;1" dur="1.6s" fill="freeze"/>
+    <path d="M-14 -5 C-8 -8 8 -8 14 -5 C12 6 6 11 0 11 C-6 11 -12 6 -14 -5Z" fill="#1c0f24" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+    <g fill="none" stroke="#5a3f9e" stroke-width="1"><path d="M-10 -2 C-6 2 -6 6 -8 9 M10 -2 C6 2 6 6 8 9 M0 -4 V10"/></g>
+    <g fill="#f4efe0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"><polygon points="-12,-5 -10,2 -8,-6"/><polygon points="-6,-6 -4,3 -2,-6"/><polygon points="2,-6 4,3 6,-6"/><polygon points="8,-6 10,2 12,-5"/><polygon points="-7,10 -5,4 -3,10"/><polygon points="3,10 5,4 7,10"/></g>
+  </g></g>
+  <!-- spores puffing up -->
+  <g fill="#c9ff5a">
+    <circle style="transform-box:fill-box;transform-origin:center" cx="20" cy="50" r="1.6"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-4 -40" dur="3s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="3s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle style="transform-box:fill-box;transform-origin:center" cx="100" cy="46" r="1.4"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;5 -38" dur="3.4s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="3.4s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle style="transform-box:fill-box;transform-origin:center" cx="60" cy="8" r="1.4"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;3 -20" dur="2.6s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.6s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle style="transform-box:fill-box;transform-origin:center" cx="40" cy="10" r="1.2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-3 -18" dur="2.2s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.2s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle style="transform-box:fill-box;transform-origin:center" cx="84" cy="12" r="1.2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;4 -20" dur="2.8s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.8s" repeatCount="indefinite" additive="sum"/></circle>
+  </g>
+</svg>

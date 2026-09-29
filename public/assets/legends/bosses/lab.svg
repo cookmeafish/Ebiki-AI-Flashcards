@@ -1,13 +1,92 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
-  <path d="M46 8 h28 v28 l30 56 Q110 112 90 112 H30 Q10 112 16 92 l30 -56z" fill="var(--lg-light, #ffffff)" opacity="0.9" stroke="var(--lg-deep, #2c6f8f)" stroke-width="4" stroke-linejoin="round"/>
-  <rect x="42" y="4" width="36" height="8" rx="3" fill="var(--lg-deep, #2c6f8f)"/>
-  <path d="M28 68 Q44 56 60 66 Q76 76 92 66 L104 92 Q110 112 90 112 H30 Q10 112 16 92Z" fill="var(--lg-accent, #e8566c)"/>
-  <ellipse cx="48" cy="86" rx="8" ry="9" fill="var(--lg-light, #ffffff)"/><ellipse cx="72" cy="86" rx="8" ry="9" fill="var(--lg-light, #ffffff)"/>
-  <circle cx="50" cy="88" r="4" fill="var(--lg-ink, #1d2230)"/><circle cx="70" cy="88" r="4" fill="var(--lg-ink, #1d2230)"/>
-  <path d="M40 76 l12 4 M80 76 l-12 4" stroke="var(--lg-ink, #1d2230)" stroke-width="3" stroke-linecap="round"/>
-  <path d="M50 102 Q60 96 70 102" stroke="var(--lg-ink, #1d2230)" stroke-width="3" fill="none" stroke-linecap="round"/>
-  <g fill="var(--lg-accent, #e8566c)" opacity="0.7">
-    <circle cx="58" cy="50" r="4"/><circle cx="66" cy="38" r="3"/><circle cx="54" cy="28" r="2.5"/>
+  <!-- Specimen X: an escaped experiment. Exposed brain dome, too many eyes, bolts, tubes and toxic slime. -->
+  <g transform="translate(60 62)"><g>
+    <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.08;1" dur="1.6s" repeatCount="indefinite"/>
+    <circle r="56" fill="#7cff3f" opacity="0.08"/><circle r="44" fill="var(--lg-accent, #f2b441)" opacity="0.1"/>
+  </g></g>
+  <!-- feeding tubes -->
+  <g fill="none" stroke-linecap="round">
+    <path d="M24 44 C10 40 6 22 14 6" stroke="var(--lg-ink, #1d2230)" stroke-width="6"/><path d="M24 44 C10 40 6 22 14 6" stroke="#9aa7bd" stroke-width="3.6"/>
+    <path d="M96 44 C110 40 114 22 106 6" stroke="var(--lg-ink, #1d2230)" stroke-width="6"/><path d="M96 44 C110 40 114 22 106 6" stroke="#9aa7bd" stroke-width="3.6"/>
   </g>
-  <path d="M24 100 Q30 96 36 100" stroke="var(--lg-light, #ffffff)" stroke-width="3" fill="none" opacity="0.6" stroke-linecap="round"/>
+  <g fill="#7cff3f">
+    <circle style="transform-box:fill-box;transform-origin:center" cx="12" cy="30" r="1.6"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="2 -20;0 0;4 12" dur="1.6s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.6s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle style="transform-box:fill-box;transform-origin:center" cx="108" cy="30" r="1.6"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="-2 -20;0 0;-4 12" dur="1.9s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.9s" repeatCount="indefinite" additive="sum"/></circle>
+  </g>
+  <!-- blob body, pulsing -->
+  <g transform="translate(60 120)"><g>
+    <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.04 0.97;0.98 1.04;1 1" dur="2.2s" repeatCount="indefinite"/>
+    <g transform="translate(-60 -120)">
+      <path d="M10 120 C8 100 14 84 22 72 C20 56 30 42 46 40 C54 38 66 38 74 40 C90 42 100 56 98 72 C106 84 112 100 110 120Z" fill="var(--lg-deep, #5a8f3c)" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2"/>
+      <path d="M22 72 C20 56 30 42 46 40 C36 50 32 62 32 76 C28 90 26 104 24 120 H10 C8 100 14 84 22 72Z" fill="#fff" opacity="0.14"/>
+      <path d="M98 72 C106 84 112 100 110 120 H96 C98 100 96 86 88 76 C92 64 90 50 80 42 C92 46 100 58 98 72Z" fill="#000" opacity="0.26"/>
+      <!-- stitches and bolts -->
+      <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3" stroke-linecap="round">
+        <path d="M30 88 C40 86 44 94 52 92"/><path d="M33 85 l-1 6 M38 86 l-1 6 M43 89 l-1 6 M48 91 l-1 5"/>
+        <path d="M74 100 C82 96 88 100 94 96"/><path d="M78 96 l0 6 M84 96 l0 6 M90 96 l0 6"/>
+      </g>
+      <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" fill="#b7c0cf"><rect x="16" y="76" width="8" height="5" rx="1"/><rect x="96" y="76" width="8" height="5" rx="1"/></g>
+      <!-- hazard tag -->
+      <path d="M62 104 L70 104 L66 97Z" fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+      <path d="M66 100 V102" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+      <!-- slime drips -->
+      <g fill="#7cff3f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8">
+        <path d="M26 110 C26 114 30 116 30 112 V104 H26Z"/><path d="M88 112 C88 117 92 118 92 114 V106 H88Z"/>
+      </g>
+    </g>
+  </g></g>
+  <!-- glass dome with the brain -->
+  <g transform="translate(60 26)"><g>
+    <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.04;1" dur="0.9s" repeatCount="indefinite"/>
+    <g transform="translate(-60 -26)">
+      <path d="M38 40 C36 22 46 10 60 10 C74 10 84 22 82 40Z" fill="var(--lg-light, #ffffff)" opacity="0.35" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8"/>
+      <path d="M44 38 C42 26 50 18 60 18 C70 18 78 26 76 38Z" fill="#ff8fb1" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+      <g fill="none" stroke="#c9486f" stroke-width="1.3" stroke-linecap="round"><path d="M50 24 C54 22 54 28 58 26 M62 22 C66 24 64 30 70 28 M48 32 C52 30 54 34 58 32 M62 34 C66 30 70 34 72 32"/></g>
+      <path d="M44 16 C46 12 52 10 56 11" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+      <rect x="36" y="38" width="48" height="5" rx="2" fill="#9aa7bd" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+    </g>
+  </g></g>
+  <!-- electrodes crackling -->
+  <g stroke="#7cff3f" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M36 20 L30 16 L33 13 L27 9"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-1 1;1 -1;0 0" dur="0.3s" repeatCount="indefinite"/></path>
+    <path d="M84 20 L90 16 L87 13 L93 9"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;1 1;-1 -1;0 0" dur="0.35s" repeatCount="indefinite"/></path>
+  </g>
+  <!-- the eyes: they pop open one after another on the entrance -->
+  <g transform="translate(46 58) rotate(14)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.02;0.02;1.35;1" keyTimes="0;.55;.72;1" dur="1.4s" fill="freeze"/>
+    <circle r="9" fill="#7cff3f" opacity="0.3"/><ellipse rx="7" ry="6" fill="#f3ffe0" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;2 1;-2 0;0 0" dur="2.1s" begin="1.4s" repeatCount="indefinite"/><circle r="3.6" fill="#ff2e4c"/><circle r="1.6" fill="#1a0508"/></g>
+  </g></g>
+  <g transform="translate(74 58) rotate(-14)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.02;0.02;1.35;1" keyTimes="0;.62;.78;1" dur="1.4s" fill="freeze"/>
+    <circle r="9" fill="#7cff3f" opacity="0.3"/><ellipse rx="7" ry="6" fill="#f3ffe0" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-2 1;2 0;0 0" dur="1.8s" begin="1.4s" repeatCount="indefinite"/><circle r="3.6" fill="#ff2e4c"/><circle r="1.6" fill="#1a0508"/></g>
+  </g></g>
+  <g transform="translate(60 50)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.02;0.02;1.4;1" keyTimes="0;.7;.84;1" dur="1.4s" fill="freeze"/>
+    <circle r="6" fill="#7cff3f" opacity="0.3"/><circle r="4.4" fill="#f3ffe0" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1"/><circle r="2.2" fill="#ff2e4c"/><circle r="1" fill="#1a0508"/>
+  </g></g>
+  <g transform="translate(32 70)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.02;0.02;1.4;1" keyTimes="0;.76;.88;1" dur="1.4s" fill="freeze"/>
+    <circle r="3.4" fill="#f3ffe0" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><circle r="1.7" fill="#ff2e4c"/>
+  </g></g>
+  <g transform="translate(88 70)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.02;0.02;1.4;1" keyTimes="0;.8;.9;1" dur="1.4s" fill="freeze"/>
+    <circle r="3" fill="#f3ffe0" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><circle r="1.5" fill="#ff2e4c"/>
+  </g></g>
+  <!-- angry brow ridges -->
+  <path d="M36 50 L52 54 M84 50 L68 54" stroke="var(--lg-ink, #1d2230)" stroke-width="3" stroke-linecap="round"/>
+  <!-- slavering maw: gapes on the entrance -->
+  <g transform="translate(60 76)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.15;1 0.15;1.1 1.3;1 1" keyTimes="0;.7;.86;1" dur="1.6s" fill="freeze"/>
+    <g transform="translate(-60 -76)">
+      <path d="M38 74 C46 72 74 72 82 74 C80 88 70 96 60 96 C50 96 40 88 38 74Z" fill="#12200a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8"/>
+      <ellipse cx="60" cy="88" rx="10" ry="4" fill="#ff5c8a"/>
+      <g fill="#f4f7e6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round">
+        <polygon points="41,75 44,83 47,75"/><polygon points="47,75 50,85 53,75"/><polygon points="53,75 56,82 59,75"/><polygon points="61,75 64,82 67,75"/><polygon points="67,75 70,85 73,75"/><polygon points="73,75 76,83 79,75"/>
+        <polygon points="46,90 49,84 52,92"/><polygon points="68,92 71,84 74,90"/>
+      </g>
+      <path style="transform-box:fill-box;transform-origin:center top" d="M50 94 C50 100 54 102 54 98 V94Z" fill="#7cff3f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1.3;1 1" dur="1.5s" repeatCount="indefinite"/></path>
+    </g>
+  </g></g>
 </svg>

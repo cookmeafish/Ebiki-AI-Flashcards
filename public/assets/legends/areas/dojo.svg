@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
+  <!-- The Burning Dojo: a mountain dojo under a red sky, torn banners, lanterns, a torii gate, the Oni's silhouette in the
+       doorway. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #f5d6cc)"/>
+  <circle cx="330" cy="40" r="20" fill="#e0233e" opacity="0.45"/>
+  <!-- far mountains -->
+  <path d="M0 100 L40 54 L70 76 L110 40 L150 80 L190 60 L230 100Z M200 100 L260 60 L300 82 L340 50 L400 86 V100Z" fill="var(--lg-far, #d9a3a3)"/>
+  <!-- smoke columns -->
+  <g fill="#6b6f7a" opacity="0.35">
+    <ellipse cx="236" cy="26" rx="18" ry="8"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 10;10 -6;0 10" dur="10s" repeatCount="indefinite" keyTimes="0;.5;1"/></ellipse>
+    <ellipse cx="200" cy="30" rx="14" ry="6"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 10;-8 -6;0 10" dur="12s" repeatCount="indefinite" keyTimes="0;.5;1"/></ellipse>
+  </g>
+  <!-- the torii gate, left -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
+    <path d="M20 40 C44 36 80 36 104 40 L102 46 H22Z" fill="#c0392b"/>
+    <rect x="30" y="52" width="64" height="5" fill="#c0392b"/>
+    <rect x="36" y="44" width="6" height="68" fill="#c0392b"/><rect x="82" y="44" width="6" height="68" fill="#c0392b"/>
+    <rect x="56" y="46" width="12" height="8" fill="#1d1b28"/>
+  </g>
+  <!-- the dojo -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round">
+    <path d="M160 64 H300 V112 H160Z" fill="#e8d7b0"/>
+    <path d="M140 66 C170 56 190 40 230 38 C270 40 290 56 320 66 C300 64 170 64 140 66Z" fill="#3a2418"/>
+    <path d="M176 44 C196 30 214 24 230 24 C246 24 264 30 284 44 C260 42 200 42 176 44Z" fill="#4a3020"/>
+    <g fill="#6b4423"><rect x="160" y="64" width="6" height="48"/><rect x="294" y="64" width="6" height="48"/><rect x="200" y="64" width="4" height="48"/><rect x="256" y="64" width="4" height="48"/></g>
+    <!-- paper walls, one torn -->
+    <g fill="none" stroke="#b8a878" stroke-width="0.8"><path d="M170 76 H196 M170 88 H196 M170 100 H196 M264 76 H290 M264 88 H290 M264 100 H290 M183 66 V112 M277 66 V112"/></g>
+    <path d="M270 80 L276 86 L272 92 L282 94" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    <!-- the doorway: fire behind, the Oni's silhouette -->
+    <path d="M206 112 V70 H254 V112Z" fill="#ff7a1a"/>
+  </g>
+  <g fill="#ffd23f" opacity="0.8"><path d="M210 112 C210 100 216 96 214 86 C222 94 224 102 222 112Z M236 112 C236 100 242 94 240 82 C250 92 250 102 246 112Z" style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1.08;1 1" dur="0.6s" repeatCount="indefinite"/></path></g>
+  <g fill="#1d1b28">
+    <path d="M216 112 C214 96 218 84 230 82 C242 84 246 96 244 112Z"/>
+    <path d="M220 86 L214 74 L224 82Z M240 86 L246 74 L236 82Z"/>
+    <path d="M222 86 C220 76 240 76 238 86Z"/>
+  </g>
+  <g fill="#ffd23f"><path d="M224 84 L229 85 L225 86Z M236 84 L231 85 L235 86Z"/></g>
+  <!-- torn banners flapping -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round">
+    <path d="M128 50 V112" stroke-width="2"/>
+    <path d="M128 52 H146 V80 L140 76 L136 84 L132 76 L128 80Z" fill="#c0392b"><animateTransform class="lg-loop" attributeName="transform" type="skewY" values="0;4;0" dur="1.6s" repeatCount="indefinite"/></path>
+    <path d="M332 50 V112" stroke-width="2"/>
+    <path d="M332 52 H350 V76 L344 72 L340 82 L336 74 L332 78Z" fill="#1d1b28"><animateTransform class="lg-loop" attributeName="transform" type="skewY" values="0;-4;0" dur="1.8s" repeatCount="indefinite"/></path>
+  </g>
+  <path d="M134 60 l6 6 M140 60 l-6 6" stroke="#fff" stroke-width="1.4"/>
+  <!-- paper lanterns under the eaves -->
+  <g>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-6 176 64;6 176 64;-6 176 64" dur="2.4s" repeatCount="indefinite"/>
+      <path d="M176 64 V68" stroke="var(--lg-ink, #1d2230)"/><ellipse cx="176" cy="74" rx="5" ry="7" fill="#ff5a3a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/></g>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="6 284 64;-6 284 64;6 284 64" dur="2.6s" repeatCount="indefinite"/>
+      <path d="M284 64 V68" stroke="var(--lg-ink, #1d2230)"/><ellipse cx="284" cy="74" rx="5" ry="7" fill="#ff5a3a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/></g>
+  </g>
+  <!-- flames on the roof -->
+  <g fill="#ff7a1a">
+    <path d="M296 62 C294 54 298 50 298 44 C304 52 306 58 302 64Z" style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1.2;1 1" dur="0.5s" repeatCount="indefinite"/></path>
+    <path d="M186 42 C184 36 188 32 188 28 C194 34 194 40 190 44Z" fill="#ffb627" style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1.1;1 0.9;1 1.1" dur="0.6s" repeatCount="indefinite"/></path>
+  </g>
+  <!-- the ground and stone steps -->
+  <path d="M0 112 H400 V140 H0Z" fill="var(--lg-near, #b8927a)"/>
+  <g fill="#8a8f9c" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"><rect x="200" y="112" width="60" height="6"/><rect x="194" y="118" width="72" height="6"/><rect x="188" y="124" width="84" height="6"/></g>
+  <!-- stone lanterns -->
+  <g fill="#8a8f9c" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9"><path d="M120 112 V100 H116 V96 L124 90 L132 96 V100 H128 V112Z"/><path d="M360 112 V100 H356 V96 L364 90 L372 96 V100 H368 V112Z"/></g>
+  <g fill="#ffd23f"><rect x="121" y="96" width="6" height="4"/><rect x="361" y="96" width="6" height="4"/></g>
+  <!-- embers -->
+  <g fill="#ffb627">
+    <circle style="transform-box:fill-box;transform-origin:center" cx="250" cy="60" r="1.4"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;10 -40" dur="2.4s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.4s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle style="transform-box:fill-box;transform-origin:center" cx="300" cy="56" r="1.2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-6 -40" dur="2.8s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.8s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle style="transform-box:fill-box;transform-origin:center" cx="200" cy="50" r="1.2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;4 -36" dur="3s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="3s" repeatCount="indefinite" additive="sum"/></circle>
+  </g>
+</svg>

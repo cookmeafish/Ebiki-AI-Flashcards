@@ -30,6 +30,17 @@ export const XP = { card: 10, cardCorrect: 5, learn: 5, cardAdded: 3, chat: 1, g
 export const LEGENDS_AREA_XP = 5
 export const LEGENDS_AREA_CAP = 6
 export const LEVEL_UP_CAP = 3 // whole learner levels paid for at once (a placement-sized jump is not an XP windfall)
+// A Legends step pays for the EFFORT its answers show (typed power strikes most, safe choices least: 0.5 .. 1.3,
+// computed by Legends) and less each time an already cleared step is replayed (farming easy content pays little).
+export const EFFORT_RANGE = { min: 0.5, max: 1.3 }
+export const REPLAY_DECAY = 0.6
+export const REPLAY_MIN = 0.25
+export const replayFactor = (replays) => Math.max(REPLAY_MIN, REPLAY_DECAY ** Math.max(0, Math.round(Number(replays) || 0)))
+export function legendsXp({ area = 0, effort = 1, replays = 0 } = {}) {
+  const base = XP.legends + LEGENDS_AREA_XP * Math.max(0, Math.min(LEGENDS_AREA_CAP, Math.round(Number(area) || 0)))
+  const e = Math.max(EFFORT_RANGE.min, Math.min(EFFORT_RANGE.max, Number(effort) || 1))
+  return Math.max(1, Math.round(base * e * replayFactor(replays)))
+}
 
 // ─── Dates (LOCAL days, like Anki's) ───────────────────────────────────────────
 export const dateKey = (d = new Date()) => {
@@ -76,7 +87,7 @@ export function eventDelta(kind, opts = {}, today = {}) {
     case 'chat': return { chat: 1, xp: (Number(today.chat) || 0) < CHAT_XP_CAP ? XP.chat : 0 }
     case 'gym': return { gym: 1, xp: XP.gym }
     case 'gymDone': return { gymDone: 1, xp: XP.gymDone }
-    case 'legends': return { legends: 1, xp: XP.legends + LEGENDS_AREA_XP * Math.max(0, Math.min(LEGENDS_AREA_CAP, Math.round(Number(opts.area) || 0))) }
+    case 'legends': return { legends: 1, xp: legendsXp(opts) }
     case 'bossWin': return { bossWins: 1, xp: XP.bossWin } // also earns a streak freeze (computeStreak)
     case 'levelUp': { const k = Math.min(LEVEL_UP_CAP, n); return { levelUps: k, xp: XP.levelUp * k } }
     case 'call': return { calls: 1, xp: XP.call + XP.card * Math.max(0, Number(opts.cards) || 0) }
@@ -107,9 +118,23 @@ export function mergePlayers(a, b) {
   }
   // Profile fields: the newer edit wins.
   if ((Number(a.profileAt) || 0) > (Number(b.profileAt) || 0)) {
-    for (const f of ['name', 'avatar', 'goalXp', 'profileAt']) if (a[f] !== undefined) out[f] = a[f]
+    for (const f of PROFILE_FIELDS) if (a[f] !== undefined) out[f] = a[f]
   }
   return out
+}
+
+// Profile fields (not counters): the newer edit wins in a merge.
+export const PROFILE_FIELDS = ['name', 'avatar', 'goalXp', 'restDays', 'restDates', 'profileAt']
+
+// ─── Rest days ─────────────────────────────────────────────────────────────────
+// Planned days off never break the streak and never spend a freeze: every week on some weekdays (0 = Monday ..
+// 6 = Sunday), or single dates planned ahead. A rest day with XP still counts as a normal day.
+export const REST_DATES_MAX = 60
+export const weekdayOf = (k) => (parseKey(k).getDay() + 6) % 7
+export function isRestDay(player, key) {
+  const days = Array.isArray(player?.restDays) ? player.restDays : []
+  const dates = Array.isArray(player?.restDates) ? player.restDates : []
+  return days.includes(weekdayOf(key)) || dates.includes(key)
 }
 
 // ─── Quests ────────────────────────────────────────────────────────────────────
@@ -163,10 +188,11 @@ export function questProgress(id, totals) {
 // most two). A missed day spends a freeze automatically if one is held, so the streak survives.
 export function computeStreak(player, today = dateKey()) {
   const keys = Object.keys(player?.days || {}).filter((k) => k <= today && dayTotals(player, k).xp > 0).sort()
-  const empty = { streak: 0, longest: 0, freezes: START_FREEZES, frozen: [], todayDone: false, first: null }
+  const empty = { streak: 0, longest: 0, freezes: START_FREEZES, frozen: [], rested: [], todayDone: false, first: null }
   if (!keys.length) return empty
   let streak = 0, longest = 0, freezes = START_FREEZES
   const frozen = []
+  const rested = []
   for (let d = keys[0]; d <= today; d = addDays(d, 1)) {
     const tot = dayTotals(player, d)
     if (tot.xp > 0) {
@@ -177,6 +203,8 @@ export function computeStreak(player, today = dateKey()) {
       if (tot.bossWins > 0) freezes = Math.min(MAX_FREEZES, freezes + tot.bossWins)
     } else if (d === today) {
       // Today isn't over: the streak stands until midnight.
+    } else if (isRestDay(player, d)) {
+      rested.push(d) // a planned day off: nothing breaks, nothing is spent
     } else if (streak > 0 && freezes > 0) {
       freezes--
       frozen.push(d)
@@ -184,10 +212,10 @@ export function computeStreak(player, today = dateKey()) {
       streak = 0
     }
   }
-  return { streak, longest, freezes, frozen, todayDone: dayTotals(player, today).xp > 0, first: keys[0] }
+  return { streak, longest, freezes, frozen, rested, todayDone: dayTotals(player, today).xp > 0, first: keys[0] }
 }
 
-// Monday..Sunday of the current week: 'done' | 'frozen' | 'missed' | 'today' | 'future' | 'none'
+// Monday..Sunday of the current week: 'done' | 'frozen' | 'rest' | 'missed' | 'today' | 'future' | 'none'
 // ('none' = before the player's first day).
 export function weekRow(player, today = dateKey()) {
   const s = computeStreak(player, today)
@@ -199,7 +227,8 @@ export function weekRow(player, today = dateKey()) {
     const status = d > today ? 'future'
       : xp > 0 ? 'done'
       : frozen.has(d) ? 'frozen'
-      : d === today ? 'today'
+      : d === today ? (isRestDay(player, d) ? 'rest' : 'today')
+      : isRestDay(player, d) ? 'rest'
       : (!s.first || d < s.first) ? 'none' : 'missed'
     return { date: d, status }
   })

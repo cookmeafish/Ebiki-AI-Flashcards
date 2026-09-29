@@ -3882,7 +3882,10 @@ export default defineConfig({
       // Config edits therefore require a manual dev-server restart.
       // *.tmp: writeFileAtomic's temp files (e.g. .env.<pid>.tmp next to the app files).
       ignored: ['**/.env', '**/config.json', '**/config.json.*', '**/ankiformat.json', '**/vite.config.js', '**/datadir.json', '**/applang.json', '**/.cache/**', '**/.app-ready', '**/modes/**', '**/decks/**', '**/chats/**', '**/local-data-backup-*/**', '**/.local-sync/**', '**/.local-home/**', '**/.local-offline/**', '**/.scratch/**', '**/*.tmp',
-        ...featureDataEntries().map((e) => `**/${e}/**`), ...featureLocalFiles().map((l) => `**/${l}`)],
+        // Feature data and local files live at the ROOT of the app folder. Anchored there: as "**/features/**" the
+        // feature data folder also ignored src/features/**, so no feature code edit ever reloaded (stale modules until
+        // a restart).
+        ...featureDataEntries().map((e) => `${SELF_DIR.split(path.sep).join('/')}/${e}/**`), ...featureLocalFiles().map((l) => `${SELF_DIR.split(path.sep).join('/')}/${l}`)],
     },
   },
 })

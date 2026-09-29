@@ -1,29 +1,74 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
-  <rect width="400" height="140" fill="var(--lg-sky, #fde9d9)"/>
-  <circle cx="62" cy="36" r="18" fill="var(--lg-accent, #e8566c)" opacity="0.85"/>
-  <g fill="var(--lg-far, #f3b58f)">
-    <rect x="10" y="62" width="34" height="78"/><rect x="92" y="46" width="30" height="94"/><rect x="176" y="56" width="40" height="84"/>
-    <rect x="262" y="40" width="32" height="100"/><rect x="340" y="58" width="44" height="82"/>
-    <polygon points="262,40 278,22 294,40"/>
+  <!-- Neon Ruins: a broken skyline at night; the Tyrant's visor burns behind the towers. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #dfe6f5)"/>
+  <!-- searchlights sweeping -->
+  <path d="M110 120 L90 0 H130Z" fill="var(--lg-light, #ffffff)" opacity="0.25">
+    <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-18 110 120;18 110 120;-18 110 120" dur="7s" repeatCount="indefinite"/>
+  </path>
+  <path d="M300 120 L280 0 H320Z" fill="var(--lg-light, #ffffff)" opacity="0.25">
+    <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="16 300 120;-20 300 120;16 300 120" dur="8s" repeatCount="indefinite"/>
+  </path>
+  <!-- the Tyrant looming behind the skyline -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round">
+    <path d="M178 26 L170 6 L176 4 L184 22Z" fill="var(--lg-near, #6f8fc2)"/><path d="M222 26 L230 6 L224 4 L216 22Z" fill="var(--lg-near, #6f8fc2)"/>
+    <path d="M168 40 L176 24 L200 18 L224 24 L232 40 L230 70 H170Z" fill="var(--lg-deep, #3d5a8c)"/>
+    <path d="M174 40 H226 L222 50 H178Z" fill="#0b0d14"/>
+    <path d="M140 72 V52 L150 46 H166 L170 52 V72Z" fill="var(--lg-far, #9fb4d4)"/><path d="M260 72 V52 L250 46 H234 L230 52 V72Z" fill="var(--lg-far, #9fb4d4)"/>
+    <path d="M182 56 H218 L214 70 H186Z" fill="#1a0808"/>
   </g>
-  <g fill="var(--lg-near, #e0845a)">
-    <rect x="40" y="76" width="44" height="64"/><rect x="122" y="66" width="46" height="74"/><rect x="214" y="80" width="42" height="60"/>
-    <rect x="296" y="70" width="40" height="70"/>
-    <rect x="140" y="52" width="10" height="16"/>
+  <ellipse cx="200" cy="64" rx="8" ry="3" fill="#ff5a1f" opacity="0.7"/>
+  <g fill="#d9e1ee" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"><polygon points="184,56 187,62 190,56"/><polygon points="192,56 195,63 198,56"/><polygon points="202,56 205,63 208,56"/><polygon points="210,56 213,62 216,56"/></g>
+  <g fill="#ffe27a"><rect x="146" y="54" width="3" height="3"/><rect x="156" y="54" width="3" height="3"/><rect x="146" y="62" width="3" height="3"/><rect x="240" y="54" width="3" height="3"/><rect x="250" y="62" width="3" height="3"/></g>
+  <g fill="none" stroke="#ff2e88" stroke-width="1.4" stroke-linecap="round"><path d="M188 28 L192 34 L188 38 M222 30 L218 34 L222 38"/></g>
+  <g>
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="-14 0;14 0;-14 0" dur="3s" repeatCount="indefinite"/>
+    <ellipse cx="200" cy="45" rx="12" ry="5" fill="#ff2e4c" opacity="0.45"/><ellipse cx="200" cy="45" rx="6" ry="2.6" fill="#ff6b7f"/>
   </g>
-  <g fill="var(--lg-light, #ffffff)" opacity="0.75">
-    <rect x="48" y="86" width="7" height="8"/><rect x="62" y="86" width="7" height="8"/><rect x="48" y="102" width="7" height="8"/><rect x="62" y="102" width="7" height="8"/>
-    <rect x="130" y="76" width="8" height="9"/><rect x="146" y="76" width="8" height="9"/><rect x="130" y="94" width="8" height="9"/><rect x="146" y="94" width="8" height="9"/>
-    <rect x="222" y="90" width="7" height="8"/><rect x="238" y="90" width="7" height="8"/>
-    <rect x="304" y="80" width="8" height="9"/><rect x="320" y="80" width="8" height="9"/><rect x="304" y="98" width="8" height="9"/>
+  <path d="M162 140 L166 76 L178 70 H222 L234 76 L238 140Z" fill="var(--lg-deep, #3d5a8c)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M222 70 L234 76 L238 140 H224 L226 84Z" fill="#000" opacity="0.28"/>
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1" fill="none" opacity="0.6"><path d="M168 96 H232 M168 116 H232 M184 76 V140 M216 76 V140"/></g>
+  <g transform="translate(200 104)"><g>
+    <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.3;1" dur="1.2s" repeatCount="indefinite"/>
+    <circle r="12" fill="#2ef2ff" opacity="0.3"/>
+  </g></g>
+  <circle cx="200" cy="104" r="6" fill="#dffcff" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+  <!-- far towers -->
+  <g fill="var(--lg-far, #9fb4d4)">
+    <rect x="0" y="58" width="30" height="82"/><rect x="34" y="40" width="24" height="100"/><rect x="62" y="66" width="30" height="74"/>
+    <path d="M96 50 L112 44 L124 52 V140 H96Z"/><rect x="128" y="62" width="34" height="78"/>
+    <rect x="238" y="56" width="30" height="84"/><path d="M272 38 H296 V140 H272Z"/><rect x="300" y="60" width="28" height="80"/>
+    <path d="M332 46 L348 30 L364 46 V140 H332Z"/><rect x="368" y="62" width="32" height="78"/>
   </g>
-  <g fill="var(--lg-accent, #e8566c)" opacity="0.9">
-    <rect x="18" y="72" width="6" height="7"/><rect x="100" y="58" width="6" height="7"/><rect x="186" y="66" width="7" height="7"/>
-    <rect x="270" y="52" width="6" height="7"/><rect x="352" y="70" width="7" height="7"/>
+  <!-- broken tops -->
+  <g fill="var(--lg-sky, #dfe6f5)"><polygon points="34,40 42,48 46,40 52,50 58,40"/><polygon points="272,38 280,46 284,40 290,48 296,38"/></g>
+  <!-- window grid -->
+  <g fill="#ffe27a">
+    <rect x="38" y="52" width="4" height="4"/><rect x="48" y="52" width="4" height="4" opacity="0.3"/><rect x="38" y="62" width="4" height="4" opacity="0.3"/><rect x="48" y="62" width="4" height="4"/><rect x="38" y="72" width="4" height="4"/>
+    <rect x="102" y="60" width="4" height="4"/><rect x="112" y="60" width="4" height="4"/><rect x="102" y="70" width="4" height="4" opacity="0.3"/><rect x="112" y="80" width="4" height="4"/>
+    <rect x="276" y="54" width="4" height="4"/><rect x="286" y="54" width="4" height="4" opacity="0.3"/><rect x="276" y="64" width="4" height="4"/><rect x="286" y="74" width="4" height="4"/>
+    <rect x="338" y="56" width="4" height="4"/><rect x="348" y="56" width="4" height="4"/><rect x="338" y="66" width="4" height="4" opacity="0.3"/><rect x="354" y="76" width="4" height="4"/>
+    <rect x="6" y="66" width="4" height="4"/><rect x="16" y="76" width="4" height="4"/><rect x="376" y="70" width="4" height="4"/><rect x="386" y="80" width="4" height="4" opacity="0.3"/>
   </g>
-  <rect x="0" y="124" width="400" height="16" fill="var(--lg-deep, #b8513a)"/>
-  <g fill="var(--lg-light, #ffffff)" opacity="0.6">
-    <rect x="20" y="131" width="26" height="3"/><rect x="80" y="131" width="26" height="3"/><rect x="140" y="131" width="26" height="3"/>
-    <rect x="200" y="131" width="26" height="3"/><rect x="260" y="131" width="26" height="3"/><rect x="320" y="131" width="26" height="3"/>
+  <!-- neon signs -->
+  <g stroke-linecap="round" fill="none">
+    <rect x="130" y="70" width="28" height="12" rx="3" stroke="#ff2e88" stroke-width="2"/><path d="M136 76 H152" stroke="#2ef2ff" stroke-width="2"/>
+    <rect x="240" y="66" width="24" height="10" rx="3" stroke="#2ef2ff" stroke-width="2"/><path d="M246 71 H258" stroke="#ff2e88" stroke-width="2"/>
+  </g>
+  <!-- near buildings -->
+  <g fill="var(--lg-deep, #3d5a8c)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
+    <path d="M0 96 H44 V140 H0Z"/><path d="M60 88 L76 80 L92 88 V140 H60Z"/><path d="M300 92 H340 V140 H300Z"/><path d="M356 84 H400 V140 H356Z"/>
+  </g>
+  <g fill="#ffe27a" opacity="0.9"><rect x="8" y="104" width="6" height="4"/><rect x="24" y="104" width="6" height="4"/><rect x="68" y="98" width="6" height="4"/><rect x="310" y="100" width="6" height="4"/><rect x="366" y="94" width="6" height="4"/><rect x="382" y="104" width="6" height="4"/></g>
+  <!-- cracked road -->
+  <path d="M0 122 H400 V140 H0Z" fill="var(--lg-near, #6f8fc2)"/>
+  <g stroke="var(--lg-light, #ffffff)" stroke-width="2" stroke-dasharray="14 12" opacity="0.7"><path d="M0 131 H400"/></g>
+  <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"><path d="M180 122 L186 130 L182 140 M220 122 L214 128 L220 136"/></g>
+  <!-- rubble and a flipped car -->
+  <g fill="var(--lg-far, #9fb4d4)" stroke="var(--lg-ink, #1d2230)" stroke-width="1"><polygon points="150,122 158,114 166,122"/><polygon points="236,122 242,116 250,122"/></g>
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"><path d="M110 112 H136 L132 122 H114Z" fill="#b3122e"/><circle cx="116" cy="110" r="3" fill="#1d2230"/><circle cx="130" cy="110" r="3" fill="#1d2230"/></g>
+  <!-- rain -->
+  <g stroke="var(--lg-light, #ffffff)" stroke-width="1" opacity="0.5">
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -30;-8 30;0 -30" dur="1.6s" repeatCount="indefinite" keyTimes="0;.5;1"/>
+    <path d="M30 20 l-3 10 M90 10 l-3 10 M150 30 l-3 10 M250 16 l-3 10 M330 24 l-3 10 M380 8 l-3 10 M60 70 l-3 10 M210 80 l-3 10 M360 60 l-3 10"/>
   </g>
 </svg>

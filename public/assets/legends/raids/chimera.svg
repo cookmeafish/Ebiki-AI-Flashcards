@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- Chimera Rex. Phase 1: a maned lion beast, crouched. Phase 2: a goat head tears out of its back. Phase 3:
+       the serpent tail rears up with its own jaws and leathery wings spread. Pounces in from the left, low. -->
+  <g>
+    <animateTransform class="lg-in" attributeName="transform" type="translate" values="-130 20;-130 20;8 -10;0 0" keyTimes="0;.2;.7;1" dur="1.4s" fill="freeze"/>
+    <!-- phase 3: wings behind everything -->
+    <g class="lg-p3" style="display:none">
+      <g>
+        <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 44 52;-12 44 52;0 44 52" dur="1.3s" repeatCount="indefinite"/>
+        <path d="M44 52 L8 18 L14 40 L2 38 L14 56 L4 60 L30 66Z" fill="#6b2b3a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+        <path d="M44 52 L14 40 M44 52 L14 56" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+      </g>
+      <g>
+        <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 76 52;12 76 52;0 76 52" dur="1.3s" repeatCount="indefinite"/>
+        <path d="M76 52 L112 18 L106 40 L118 38 L106 56 L116 60 L90 66Z" fill="#6b2b3a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+        <path d="M76 52 L106 40 M76 52 L106 56" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+      </g>
+    </g>
+    <!-- body -->
+    <path d="M22 98 C18 80 30 64 52 62 H84 C100 64 108 78 104 98 L96 112 H86 L88 100 H44 L40 112 H30Z" fill="var(--lg-near, #c48a3a)" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M22 98 C20 86 26 74 36 68 C32 80 32 92 36 104 L30 112Z" fill="#000" opacity="0.22"/>
+    <path d="M30 112 H22 L26 106Z M40 112 H34 L38 106Z M96 112 H90 L94 106Z" fill="#fff4e0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+    <path d="M60 70 L64 80 M70 68 L73 78 M80 70 L82 80" stroke="#6b2b1a" stroke-width="1.4" stroke-linecap="round" opacity="0.7"/>
+    <!-- phase 2: goat head bursting from the back -->
+    <g class="lg-p2" style="display:none">
+      <g>
+        <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 80 64;-8 80 64;0 80 64" dur="1.7s" repeatCount="indefinite"/>
+        <path d="M74 64 C72 52 76 42 84 38 C92 36 98 42 96 50 L90 58 L86 66Z" fill="#8a7d6e" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+        <path d="M84 40 C78 30 70 28 66 34 C72 34 76 38 80 42Z M92 40 C96 28 104 26 108 32 C102 32 98 36 94 42Z" fill="#e8dcc4" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+        <path d="M86 46 L90 46" stroke="#ffe066" stroke-width="2" stroke-linecap="round"/>
+        <path d="M86 46 L90 46" stroke="#1d1b28" stroke-width="0.8"/>
+        <path d="M90 56 L92 62 L88 60Z" fill="#e8dcc4" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+      </g>
+      <path d="M72 64 L76 58 L80 64 L84 60 L86 66" fill="none" stroke="#b3202d" stroke-width="1.4"/>
+    </g>
+    <!-- tail: a plain lash (phase 1-2), a serpent head (phase 3) -->
+    <g class="lg-p12">
+      <path d="M102 86 C112 80 116 68 110 60" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="4" stroke-linecap="round"/>
+      <path d="M102 86 C112 80 116 68 110 60" fill="none" stroke="var(--lg-near, #c48a3a)" stroke-width="2.4" stroke-linecap="round"/>
+    </g>
+    <g class="lg-p3" style="display:none">
+      <g>
+        <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 102 86;-10 102 86;4 102 86;0 102 86" dur="1.6s" repeatCount="indefinite"/>
+        <path d="M102 86 C116 80 118 62 108 52" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="6" stroke-linecap="round"/>
+        <path d="M102 86 C116 80 118 62 108 52" fill="none" stroke="#3f7a3a" stroke-width="4" stroke-linecap="round"/>
+        <path d="M100 52 C100 44 112 42 116 48 L112 56 C108 58 102 58 100 52Z" fill="#3f7a3a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+        <path d="M104 50 L108 51" stroke="#ffe066" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M113 54 L115 58 L111 56Z" fill="#fff4e0"/>
+        <path d="M116 50 L120 48 M116 50 L120 52" stroke="#ff3b6b" stroke-width="0.8"/>
+      </g>
+    </g>
+    <!-- mane -->
+    <g>
+      <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 38 56;2 38 56;0 38 56" dur="2.4s" repeatCount="indefinite"/>
+      <path d="M38 22 L46 30 L52 20 L54 34 L64 30 L60 42 L70 46 L60 52 L66 62 L54 60 L52 72 L44 64 L36 74 L32 62 L20 66 L24 54 L12 50 L22 42 L14 32 L28 34 L26 22 L34 28Z" fill="#8a3f14" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
+      <path d="M38 22 L34 28 L26 22 L28 34 L14 32 L22 42 L12 50 L24 54 L20 66 L32 62 L36 74 L38 60 L30 50 L32 38Z" fill="#000" opacity="0.2"/>
+      <!-- lion face -->
+      <path d="M26 40 C26 32 32 28 39 28 C46 28 52 32 52 40 C52 50 48 58 39 58 C30 58 26 50 26 40Z" fill="var(--lg-near, #c48a3a)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8"/>
+      <path d="M28 38 L36 40 L28 42Z M50 38 L42 40 L50 42Z" fill="#ffe066" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+      <path d="M30 40 H34 M48 40 H44" stroke="#1d1b28" stroke-width="1"/>
+      <path d="M26 34 L36 36 M52 34 L42 36" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linecap="round"/>
+      <path d="M36 46 L39 44 L42 46 L39 48Z" fill="#3a1a12"/>
+      <!-- roaring jaw -->
+      <g transform="rotate(8 39 50)"><g>
+        <animateTransform class="lg-in" attributeName="transform" type="rotate" values="-8 39 50;-8 39 50;6 39 50;0 39 50" keyTimes="0;.65;.85;1" dur="1.4s" fill="freeze"/>
+        <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 39 50;5 39 50;0 39 50" dur="1.2s" begin="1.4s" repeatCount="indefinite" additive="sum"/>
+        <path d="M31 50 C32 58 46 58 47 50Z" fill="#3a0d1d" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+        <path d="M32 51 L34 55 L36 51 M42 51 L44 55 L46 51" fill="#fff4e0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"/>
+      </g></g>
+      <path d="M31 49 L33 53 L35 49 M43 49 L45 53 L47 49" fill="#fff4e0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"/>
+    </g>
+    <!-- a scar and front claws -->
+    <path d="M44 32 L48 38" stroke="#b3202d" stroke-width="1.2" stroke-linecap="round"/>
+    <path d="M40 112 L42 106 L44 112 L46 106 L48 112" fill="#fff4e0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+  </g>
+</svg>

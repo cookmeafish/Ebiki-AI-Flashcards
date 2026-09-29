@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- The Glacier Warlord: a hulking yeti in ice armor, crystal ram horns, frost breath, claws raised. -->
+  <!-- ice-crystal halo, slowly turning -->
+  <g transform="translate(60 50)">
+    <g>
+      <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;60" dur="12s" repeatCount="indefinite"/>
+      <polygon points="0,-50 43,-25 43,25 0,50 -43,25 -43,-25" fill="none" stroke="#9ff3ff" stroke-width="2" opacity="0.5"/>
+      <g stroke="#9ff3ff" stroke-width="2" stroke-linecap="round" opacity="0.45"><path d="M0 -50 V-40 M43 -25 L35 -20 M43 25 L35 20 M0 50 V40 M-43 25 L-35 20 M-43 -25 L-35 -20"/></g>
+    </g>
+    <circle r="36" fill="var(--lg-accent, #f2b441)" opacity="0.1"/>
+  </g>
+  <!-- left arm raised, claws out -->
+  <g>
+    <animateTransform class="lg-in" attributeName="transform" type="rotate" values="70 34 64;70 34 64;-12 34 64;0 34 64" keyTimes="0;.45;.72;1" dur="1.5s" fill="freeze"/>
+    <g>
+      <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 34 64;-5 34 64;0 34 64" dur="2.6s" begin="1.5s" repeatCount="indefinite"/>
+      <path d="M36 66 C24 64 14 54 12 38 L22 36 C24 48 30 54 40 56Z" fill="var(--lg-far, #cfe6f2)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
+      <g fill="var(--lg-light, #ffffff)" opacity="0.8"><path d="M16 46 l-3 2 l4 1Z M20 54 l-4 1 l4 2Z M26 60 l-3 3 l4 0Z"/></g>
+      <path d="M8 36 C8 28 14 24 20 24 C26 24 28 30 26 36Z" fill="#6aa7c9" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6"/>
+      <g fill="#e6f7ff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"><polygon points="10,28 6,18 13,26"/><polygon points="15,25 13,14 18,24"/><polygon points="21,24 22,13 24,25"/></g>
+    </g>
+  </g>
+  <!-- right arm raised -->
+  <g>
+    <animateTransform class="lg-in" attributeName="transform" type="rotate" values="-70 86 64;-70 86 64;12 86 64;0 86 64" keyTimes="0;.45;.72;1" dur="1.5s" fill="freeze"/>
+    <g>
+      <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 86 64;5 86 64;0 86 64" dur="2.6s" begin="1.5s" repeatCount="indefinite"/>
+      <path d="M84 66 C96 64 106 54 108 38 L98 36 C96 48 90 54 80 56Z" fill="var(--lg-far, #cfe6f2)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
+      <path d="M84 66 C96 64 106 54 108 38 L103 37 C100 52 92 60 82 62Z" fill="#000" opacity="0.15"/>
+      <path d="M112 36 C112 28 106 24 100 24 C94 24 92 30 94 36Z" fill="#6aa7c9" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6"/>
+      <g fill="#e6f7ff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"><polygon points="110,28 114,18 107,26"/><polygon points="105,25 107,14 102,24"/><polygon points="99,24 98,13 96,25"/></g>
+    </g>
+  </g>
+  <!-- shaggy body, breathing -->
+  <g transform="translate(60 120)"><g>
+    <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.03 1.03;1 1" dur="2.6s" repeatCount="indefinite"/>
+    <g transform="translate(-60 -120)">
+      <path d="M18 120 L22 100 L16 94 L26 86 L24 74 L34 68 L36 56 L48 52 H72 L84 56 L86 68 L96 74 L94 86 L104 94 L98 100 L102 120Z" fill="var(--lg-far, #cfe6f2)" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M84 56 L86 68 L96 74 L94 86 L104 94 L98 100 L102 120 H88 L86 90 L80 70Z" fill="#000" opacity="0.14"/>
+      <!-- fur tufts -->
+      <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linecap="round" opacity="0.5"><path d="M30 104 l4 -6 M40 110 l3 -7 M78 110 l-3 -7 M88 104 l-4 -6 M36 90 l4 -5 M84 90 l-4 -5"/></g>
+      <!-- ice armor: chest plate and pauldrons -->
+      <path d="M44 70 L60 64 L76 70 L72 96 L60 104 L48 96Z" fill="#9ff3ff" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round" opacity="0.9"/>
+      <path d="M44 70 L60 64 L60 104 L48 96Z" fill="#fff" opacity="0.35"/>
+      <path d="M52 76 L60 72 L68 76 L60 92Z" fill="#4fd1e8" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+      <g transform="translate(60 80)"><g>
+        <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.3;1" dur="1.6s" repeatCount="indefinite"/>
+        <circle r="4" fill="#e6fdff" opacity="0.8"/>
+      </g></g>
+      <g fill="#9ff3ff" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
+        <polygon points="30,70 36,54 42,58 46,70 38,76"/><polygon points="90,70 84,54 78,58 74,70 82,76"/>
+        <polygon points="34,58 32,46 38,54"/><polygon points="86,58 88,46 82,54"/>
+      </g>
+      <!-- icicles on the belly fur -->
+      <g fill="#e6f7ff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"><polygon points="50,104 52,112 54,104"/><polygon points="64,106 66,116 68,105"/></g>
+    </g>
+  </g></g>
+  <!-- crystal ram horns: freeze into place on the entrance -->
+  <g transform="translate(60 36)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.1;0.1;1.2;1" keyTimes="0;.5;.75;1" dur="1.4s" fill="freeze"/>
+    <g transform="translate(-60 -36)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round">
+      <path d="M44 30 C34 22 22 24 20 34 C18 42 26 46 30 40 C26 38 26 32 32 32 C36 32 40 36 42 40Z" fill="#9ff3ff"/>
+      <path d="M76 30 C86 22 98 24 100 34 C102 42 94 46 90 40 C94 38 94 32 88 32 C84 32 80 36 78 40Z" fill="#9ff3ff"/>
+      <path d="M40 28 C32 24 26 26 24 32" fill="none" stroke="#fff" stroke-width="1.4" opacity="0.8"/>
+      <path d="M80 28 C88 24 94 26 96 32" fill="none" stroke="#fff" stroke-width="1.4" opacity="0.8"/>
+    </g>
+  </g></g>
+  <!-- head: fur mane and a blue face -->
+  <path d="M40 40 L38 30 L44 26 L46 18 L54 20 L60 14 L66 20 L74 18 L76 26 L82 30 L80 40 L82 50 L74 58 H46 L38 50Z" fill="var(--lg-far, #cfe6f2)" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M46 32 C46 28 52 26 60 26 C68 26 74 28 74 32 L74 46 C72 54 66 56 60 56 C54 56 48 54 46 46Z" fill="#6aa7c9" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5"/>
+  <path d="M46 34 L58 38 M74 34 L62 38" stroke="var(--lg-ink, #1d2230)" stroke-width="2.6" stroke-linecap="round"/>
+  <!-- glacier eyes -->
+  <g transform="translate(52 40) rotate(12)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.05;1 0.05;1.3 1.3;1 1" keyTimes="0;.6;.8;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1;1 0.1;1 1" keyTimes="0;.9;.95;1" dur="5s" begin="2s" repeatCount="indefinite"/><circle r="5.5" fill="#9ff3ff" opacity="0.4"/><ellipse rx="3.6" ry="2.4" fill="#e6fdff"/><circle r="1.2" fill="#0b3a4a"/></g>
+  </g></g>
+  <g transform="translate(68 40) rotate(-12)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.05;1 0.05;1.3 1.3;1 1" keyTimes="0;.6;.8;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1;1 0.1;1 1" keyTimes="0;.9;.95;1" dur="5s" begin="2s" repeatCount="indefinite"/><circle r="5.5" fill="#9ff3ff" opacity="0.4"/><ellipse rx="3.6" ry="2.4" fill="#e6fdff"/><circle r="1.2" fill="#0b3a4a"/></g>
+  </g></g>
+  <!-- roaring mouth with tusks -->
+  <g transform="translate(60 48)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.2;1 0.2;1.1 1.3;1 1" keyTimes="0;.66;.84;1" dur="1.6s" fill="freeze"/>
+    <path d="M-9 -2 C-4 -4 4 -4 9 -2 C8 5 4 8 0 8 C-4 8 -8 5 -9 -2Z" fill="#0b1f2a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+    <g fill="#f4f7fa" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" stroke-linejoin="round"><polygon points="-8,-2 -6,6 -4,-2"/><polygon points="8,-2 6,6 4,-2"/><polygon points="-2,-3 0,1 2,-3"/></g>
+  </g></g>
+  <!-- frost breath -->
+  <g transform="translate(60 56)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0;0;1.4;1" keyTimes="0;.75;.88;1" dur="1.6s" fill="freeze"/>
+    <g fill="var(--lg-light, #ffffff)" opacity="0.75">
+      <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 4;0 0" dur="1.6s" repeatCount="indefinite"/>
+      <circle cx="-4" cy="4" r="3"/><circle cx="3" cy="6" r="3.6"/><circle cx="-1" cy="10" r="2.6"/>
+    </g>
+  </g></g>
+  <!-- snow falling -->
+  <g fill="var(--lg-light, #ffffff)" stroke="#9ff3ff" stroke-width="0.4">
+    <circle style="transform-box:fill-box;transform-origin:center" cx="10" cy="10" r="1.6"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -10;6 110" dur="5s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="5s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle style="transform-box:fill-box;transform-origin:center" cx="36" cy="0" r="1.2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -10;-4 120" dur="6s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="6s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle style="transform-box:fill-box;transform-origin:center" cx="86" cy="4" r="1.4"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -10;5 116" dur="5.5s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="5.5s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle cx="110" cy="14" r="1.1" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -20;-6 110" dur="4.6s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" additive="sum" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="4.6s" repeatCount="indefinite"/></circle>
+  </g>
+</svg>

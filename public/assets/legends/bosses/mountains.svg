@@ -1,17 +1,95 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
-  <path d="M22 116 Q14 60 30 34 Q44 10 60 10 Q76 10 90 34 Q106 60 98 116Z" fill="var(--lg-light, #ffffff)"/>
-  <path d="M22 116 Q14 60 30 34 Q44 10 60 10 Q76 10 90 34 Q106 60 98 116Z" fill="none" stroke="var(--lg-near, #7f72d9)" stroke-width="4"/>
-  <g fill="var(--lg-far, #b5aef0)" opacity="0.7">
-    <path d="M30 34 l6 6 l4 -8 l6 6 l4 -8 l6 6 l4 -8 l6 6 l4 -8 l6 6 l6 -6 Q76 10 60 10 Q44 10 30 34Z"/>
+  <!-- Stone Colossus: a mountain that stood up. Crystal spines, magma veins, boulder fists. -->
+  <g transform="translate(60 62)"><g>
+    <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.07;1" dur="2.2s" repeatCount="indefinite"/>
+    <circle r="56" fill="#ff7a1a" opacity="0.08"/><circle r="44" fill="var(--lg-accent, #f2b441)" opacity="0.12"/>
+  </g></g>
+  <!-- crystal spines on the shoulders: grow on the entrance -->
+  <g transform="translate(28 46)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.05;0.05;1.2;1" keyTimes="0;.5;.75;1" dur="1.4s" fill="freeze"/>
+    <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
+      <polygon points="-4,0 -12,-26 -2,-8" fill="var(--lg-accent, #f2b441)"/><polygon points="-2,-8 -12,-26 -6,-4" fill="#fff" opacity="0.4"/>
+      <polygon points="2,0 4,-34 10,-2" fill="var(--lg-accent, #f2b441)"/><polygon points="4,-34 6,-4 2,0" fill="#fff" opacity="0.35"/>
+      <polygon points="8,2 20,-18 14,4" fill="var(--lg-accent, #f2b441)"/>
+    </g>
+  </g></g>
+  <g transform="translate(92 46)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.05;0.05;1.2;1" keyTimes="0;.55;.8;1" dur="1.4s" fill="freeze"/>
+    <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
+      <polygon points="4,0 12,-26 2,-8" fill="var(--lg-accent, #f2b441)"/><polygon points="2,-8 12,-26 6,-4" fill="#fff" opacity="0.4"/>
+      <polygon points="-2,0 -4,-34 -10,-2" fill="var(--lg-accent, #f2b441)"/><polygon points="-4,-34 -6,-4 -2,0" fill="#fff" opacity="0.35"/>
+      <polygon points="-8,2 -20,-18 -14,4" fill="var(--lg-accent, #f2b441)"/>
+    </g>
+  </g></g>
+  <!-- torso: faceted boulder, breathing -->
+  <g transform="translate(60 120)"><g>
+    <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.02 1.03;1 1" dur="3s" repeatCount="indefinite"/>
+    <g transform="translate(-60 -120)">
+      <path d="M8 120 L12 70 L26 46 L48 38 H72 L94 46 L108 70 L112 120Z" fill="var(--lg-deep, #6b6f7a)" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2" stroke-linejoin="round"/>
+      <path d="M12 70 L26 46 L48 38 L42 58 L24 76 L18 120 H8Z" fill="var(--lg-near, #8d929e)"/>
+      <path d="M94 46 L108 70 L112 120 H96 L98 84 L86 60Z" fill="#000" opacity="0.3"/>
+      <path d="M42 58 L60 52 L78 58 L84 84 L60 96 L36 84Z" fill="var(--lg-far, #b4b8c2)" opacity="0.55" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+      <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1" stroke-linejoin="round" opacity="0.55"><path d="M24 76 L36 84 L30 104"/><path d="M96 84 L84 84 L90 106"/><path d="M60 96 L58 120"/></g>
+      <!-- magma veins, pulsing -->
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M34 92 L44 100 L40 112 M78 94 L70 104 L76 114 M56 60 L60 70 L66 64" stroke="#ff7a1a" stroke-width="4" opacity="0.35">
+          <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -0.6;0 0" dur="1.4s" repeatCount="indefinite"/>
+        </path>
+        <path d="M34 92 L44 100 L40 112 M78 94 L70 104 L76 114 M56 60 L60 70 L66 64" stroke="#ffd166" stroke-width="1.6"/>
+      </g>
+      <!-- lichen -->
+      <g fill="var(--lg-accent, #f2b441)" opacity="0.5"><circle cx="20" cy="96" r="2"/><circle cx="24" cy="100" r="1.4"/><circle cx="100" cy="100" r="1.8"/></g>
+    </g>
+  </g></g>
+  <!-- head sunk between the shoulders -->
+  <path d="M38 40 L44 18 L60 12 L76 18 L82 40 L76 56 H44Z" fill="var(--lg-deep, #6b6f7a)" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2" stroke-linejoin="round"/>
+  <path d="M44 18 L60 12 L58 22 L46 28 L40 40 H38Z" fill="var(--lg-near, #8d929e)"/>
+  <path d="M76 18 L82 40 L76 56 H70 L76 38Z" fill="#000" opacity="0.3"/>
+  <!-- brow slab -->
+  <path d="M36 30 L58 36 L62 36 L84 30 L82 38 L62 42 H58 L38 38Z" fill="var(--lg-far, #b4b8c2)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+  <!-- magma eyes: ignite on the entrance -->
+  <g transform="translate(49 42) rotate(12)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.05;0.05;1.4;1" keyTimes="0;.6;.8;1" dur="1.5s" fill="freeze"/>
+    <g>
+      <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.15;1" dur="1.4s" begin="1.5s" repeatCount="indefinite"/>
+      <ellipse rx="8" ry="5" fill="#ff7a1a" opacity="0.4"/><ellipse rx="5" ry="2.4" fill="#ffb347"/><ellipse rx="2.4" ry="1.2" fill="#fff4d6"/>
+    </g>
+  </g></g>
+  <g transform="translate(71 42) rotate(-12)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.05;0.05;1.4;1" keyTimes="0;.6;.8;1" dur="1.5s" fill="freeze"/>
+    <g>
+      <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.15;1" dur="1.4s" begin="1.5s" repeatCount="indefinite"/>
+      <ellipse rx="8" ry="5" fill="#ff7a1a" opacity="0.4"/><ellipse rx="5" ry="2.4" fill="#ffb347"/><ellipse rx="2.4" ry="1.2" fill="#fff4d6"/>
+    </g>
+  </g></g>
+  <!-- rock jaw grinding open -->
+  <g>
+    <animateTransform class="lg-in" attributeName="transform" type="translate" values="0 -6;0 -6;0 3;0 0" keyTimes="0;.66;.84;1" dur="1.6s" fill="freeze"/>
+    <path d="M46 48 H74 L70 58 L60 62 L50 58Z" fill="#1a0b04" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/>
+    <ellipse cx="60" cy="55" rx="7" ry="3" fill="#ff7a1a" opacity="0.55"/>
+    <g fill="#d6d2c4" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round">
+      <polygon points="47,48 50,54 53,48"/><polygon points="55,48 58,55 61,48"/><polygon points="63,48 66,54 69,48"/><polygon points="68,48 71,53 73,48"/>
+      <polygon points="52,58 55,54 57,60"/><polygon points="63,60 65,54 68,58"/>
+    </g>
   </g>
-  <rect x="34" y="36" width="52" height="38" rx="18" fill="var(--lg-near, #7f72d9)"/>
-  <ellipse cx="48" cy="52" rx="7" ry="8" fill="var(--lg-light, #ffffff)"/><ellipse cx="72" cy="52" rx="7" ry="8" fill="var(--lg-light, #ffffff)"/>
-  <circle cx="49" cy="54" r="3.5" fill="var(--lg-ink, #1d2230)"/><circle cx="73" cy="54" r="3.5" fill="var(--lg-ink, #1d2230)"/>
-  <path d="M40 42 l12 4 M80 42 l-12 4" stroke="var(--lg-ink, #1d2230)" stroke-width="3" stroke-linecap="round"/>
-  <path d="M48 66 h24 l-4 5 h-16z" fill="var(--lg-ink, #1d2230)"/>
-  <polygon points="52,66 55,71 58,66" fill="var(--lg-light, #ffffff)"/><polygon points="62,66 65,71 68,66" fill="var(--lg-light, #ffffff)"/>
-  <path d="M22 80 Q6 76 8 58" stroke="var(--lg-light, #ffffff)" stroke-width="12" fill="none" stroke-linecap="round"/>
-  <path d="M98 80 Q114 76 112 58" stroke="var(--lg-light, #ffffff)" stroke-width="12" fill="none" stroke-linecap="round"/>
-  <g fill="var(--lg-deep, #4b3fb0)"><circle cx="8" cy="56" r="5"/><circle cx="112" cy="56" r="5"/></g>
-  <g fill="var(--lg-far, #b5aef0)" opacity="0.6"><circle cx="44" cy="92" r="3"/><circle cx="66" cy="100" r="3"/><circle cx="80" cy="88" r="2.5"/></g>
+  <!-- boulder fists -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round">
+    <g>
+      <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -3;0 0" dur="3s" repeatCount="indefinite"/>
+      <path d="M0 100 L4 84 L18 78 L30 84 L32 100 L22 112 H6Z" fill="var(--lg-near, #8d929e)"/>
+      <path d="M18 78 L30 84 L32 100 L22 112 L24 94Z" fill="#000" opacity="0.28"/>
+      <path d="M8 88 L14 92 M16 84 L20 90 M24 86 L26 92" stroke-width="1.2"/>
+    </g>
+    <g>
+      <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -3;0 0;0 -3" dur="3s" repeatCount="indefinite"/>
+      <path d="M120 100 L116 84 L102 78 L90 84 L88 100 L98 112 H114Z" fill="var(--lg-near, #8d929e)"/>
+      <path d="M116 84 L120 100 L114 112 H108 L112 94Z" fill="#000" opacity="0.28"/>
+      <path d="M112 88 L106 92 M104 84 L100 90 M96 86 L94 92" stroke-width="1.2"/>
+    </g>
+  </g>
+  <!-- falling pebbles -->
+  <g fill="var(--lg-deep, #6b6f7a)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6">
+    <polygon style="transform-box:fill-box;transform-origin:center" points="14,40 18,38 19,42 15,44"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -10;0 30" dur="1.8s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.8s" repeatCount="indefinite" additive="sum"/></polygon>
+    <polygon style="transform-box:fill-box;transform-origin:center" points="104,30 108,29 108,33 104,34"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -10;0 34" dur="2.3s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.3s" repeatCount="indefinite" additive="sum"/></polygon>
+  </g>
 </svg>

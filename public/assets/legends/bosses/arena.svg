@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- The Gladiator Titan: a giant bronze gladiator. Crested helmet with a burning visor, a lion-emblem shield, a trident,
+       scars and chains. -->
+  <!-- arena dust and the roar of the crowd (speed lines) -->
+  <g fill="none" stroke="var(--lg-far, #e0a79a)" stroke-width="1.6" stroke-linecap="round" opacity="0.6">
+    <path d="M4 30 L16 34 M2 48 L14 50 M104 30 L116 34 M106 48 L118 50" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.05;1" dur="0.8s" repeatCount="indefinite" additive="sum"/></path>
+  </g>
+  <!-- the trident -->
+  <g>
+    <animateTransform class="lg-in" attributeName="transform" type="rotate" values="60 94 110;60 94 110;-8 94 110;0 94 110" keyTimes="0;.5;.75;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 94 110;3 94 110;0 94 110" dur="2.4s" begin="1.5s" repeatCount="indefinite"/>
+      <path d="M94 118 L104 12" stroke="#6b4423" stroke-width="3.4" stroke-linecap="round"/>
+      <g fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round">
+        <path d="M96 20 L104 2 L110 20 L106 20 L104 10 L102 20Z"/><path d="M94 22 C90 20 90 12 92 6 L94 12 L96 22Z"/><path d="M112 24 C116 22 116 14 114 8 L112 14 L110 24Z"/>
+        <rect x="95" y="20" width="18" height="4" rx="1" fill="#c9a441"/>
+      </g>
+    </g>
+  </g>
+  <!-- bronze body: muscled cuirass -->
+  <path d="M26 120 L30 84 L44 72 H76 L90 84 L94 120Z" fill="#b87a3a" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M44 84 C48 80 56 82 58 90 C54 94 46 94 44 84Z M76 84 C72 80 64 82 62 90 C66 94 74 94 76 84Z" fill="#d49a4e" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9"/>
+  <path d="M50 100 H70 M52 108 H68" stroke="var(--lg-ink, #1d2230)" stroke-width="1" opacity="0.6"/>
+  <path d="M30 84 L44 72 H52 L38 88 L34 120 H26Z" fill="#fff" opacity="0.18"/>
+  <path d="M90 84 L94 120 H84 L84 90 L76 74Z" fill="#000" opacity="0.28"/>
+  <!-- chains and a scar -->
+  <path d="M30 100 C44 108 76 108 90 100" fill="none" stroke="#8a8f9c" stroke-width="2" stroke-dasharray="3 1.5"/>
+  <path d="M62 74 L70 90 M64 76 L66 78" stroke="#7a2020" stroke-width="1.4"/>
+  <!-- red cape over the shoulder -->
+  <path d="M76 72 C92 76 100 92 98 120 H88 C90 100 86 86 76 80Z" fill="var(--lg-deep, #c0392b)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+  <!-- lion-emblem shield: bashes forward on the entrance -->
+  <g>
+    <animateTransform class="lg-in" attributeName="transform" type="translate" values="-30 10;-30 10;6 -2;0 0" keyTimes="0;.62;.8;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -2;0 0" dur="2.6s" begin="1.5s" repeatCount="indefinite"/>
+      <path d="M6 72 C6 60 18 54 32 54 C46 54 58 60 58 72 C58 96 44 110 32 116 C20 110 6 96 6 72Z" fill="var(--lg-deep, #c0392b)" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
+      <path d="M12 72 C12 62 22 58 32 58 C42 58 52 62 52 72 C52 92 42 104 32 110 C22 104 12 92 12 72Z" fill="none" stroke="#c9a441" stroke-width="2"/>
+      <!-- lion face -->
+      <path d="M22 76 C18 66 24 64 26 68 C26 62 32 60 32 66 C32 60 38 62 38 68 C40 64 46 66 42 76 C42 88 22 88 22 76Z" fill="#c9a441" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9"/>
+      <g fill="#1d2230"><path d="M26 76 L30 78 L27 79Z M38 76 L34 78 L37 79Z"/><path d="M30 84 C32 86 34 84 34 84 L32 88Z"/></g>
+      <path d="M12 68 C14 62 20 58 28 58" fill="none" stroke="#fff" stroke-width="1.4" opacity="0.4"/>
+    </g>
+  </g>
+  <!-- crested helmet -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round">
+    <!-- the horsehair crest -->
+    <path d="M40 22 C40 8 52 0 66 2 C80 4 88 14 86 26 C80 18 70 12 60 12 C52 12 46 16 40 22Z" fill="#b3122e">
+      <animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;3;0;-3;0" dur="2s" repeatCount="indefinite"/>
+    </path>
+    <path d="M40 22 C40 14 50 10 60 10" fill="none" stroke="#e05555" stroke-width="1.4"/>
+    <path d="M40 32 C40 20 50 14 62 14 C74 14 82 20 82 32 L82 60 C82 68 74 72 62 72 C50 72 40 68 40 60Z" fill="#b87a3a"/>
+    <path d="M44 30 C46 22 52 18 60 17 C52 24 48 34 48 58 L44 58Z" fill="#fff" opacity="0.22" stroke="none"/>
+    <path d="M82 32 L82 60 C82 66 76 70 70 71 C76 62 78 48 76 32Z" fill="#000" opacity="0.25" stroke="none"/>
+    <!-- cheek guards and grille -->
+    <path d="M40 44 H50 V68 C44 66 40 62 40 58Z M82 44 H72 V68 C78 66 82 62 82 58Z" fill="#9a6230"/>
+    <g stroke-width="1.2"><path d="M52 58 V70 M56 58 V71 M60 58 V71 M64 58 V71 M68 58 V70"/></g>
+  </g>
+  <!-- the burning visor -->
+  <path d="M46 42 H76 L74 50 H48Z" fill="#1a0808"/>
+  <g transform="translate(61 46)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.05 1;0.05 1;1.2 1.4;1 1" keyTimes="0;.62;.8;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.05 1.3;1 1" dur="1s" begin="1.5s" repeatCount="indefinite"/>
+      <path d="M-14 -3 H14 L13 3 H-13Z" fill="#ff7a1a" opacity="0.6"/>
+      <g fill="#ffd166"><ellipse cx="-7" rx="4" ry="1.6"/><ellipse cx="7" rx="4" ry="1.6"/></g>
+    </g>
+  </g></g>
+  <path d="M42 38 L54 42 M80 38 L68 42" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linecap="round"/>
+  <!-- dust kicked up -->
+  <g fill="var(--lg-far, #e0a79a)" opacity="0.7">
+    <circle style="transform-box:fill-box;transform-origin:center" cx="20" cy="116" r="4"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-8 -6" dur="1.6s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.6s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle style="transform-box:fill-box;transform-origin:center" cx="104" cy="116" r="4"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;8 -6" dur="1.8s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.8s" repeatCount="indefinite" additive="sum"/></circle>
+  </g>
+</svg>

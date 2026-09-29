@@ -4,20 +4,22 @@
 import { useEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile, shrimpUrl } from '../../config/shrimp'
-import { useFeatureCtx, useIntent } from '../registry'
+import { useFeatureCtx, useIntent, featureCfg } from '../registry'
 import { EVENTS } from '../events'
 import { ChunkyButton, EbiSays, Card } from '../ui'
 import { useLearner, updateLearner } from '../kit/learnerStore'
 import { newLearner, applyLearnerDelta, deltaFor, bandFor, LEVEL_MAX } from '../kit/learner'
 import { recordPractice } from '../kit'
 import { useLegendsMap, updateMap, configureLegends, clearStep, LEGENDS_ID } from './store'
-import { applyLegendaryResult, createMap, applyNodeResult, needsDetail, needsMoreAreas, starsFor } from './map'
+import { applyLegendaryResult, createMap, applyNodeResult, needsDetail, needsMoreAreas, starsFor, logDay, OPTIONAL_KINDS } from './map'
 import { planMap, detailAreas, extendIfNeeded, detailAreaNow } from './generate'
 import Questionnaire from './Questionnaire'
 import Placement from './PlacementExam'
 import MapView from './MapView'
 import NodeRun, { ItemAddList, NewQuestionsButton } from './NodeRun'
 import EditPanel from './EditPanel'
+import AssetView from './AssetView'
+import RaidRun from './RaidRun'
 import { BossArt } from './art'
 import { BossStyle } from './BossArena'
 import { cheatsOn } from './CheatUI'
@@ -60,7 +62,8 @@ function AllAnswers({ t, answers }) {
 
 function Result({ ctx, modeId, result, onBack, onRetry, onNewQuestions }) {
   const { t } = ctx
-  const { node, area, res, passed, stars, areaDone, nextTitle, earnedLife, firstLegend } = result
+  const { node, area, res, passed, stars, areaDone, nextTitle, earnedLife, firstLegend, helper, flawless, nudgeIds = [] } = result
+  const fight = node.kind === 'boss' || node.kind === 'legendary'
   const pose = areaDone ? 'party' : passed ? 'happy' : 'confused'
   return (
     <div style={{ maxWidth: 600, margin: '24px auto', display: 'grid', gap: 16, justifyItems: 'center', textAlign: 'center' }}>
@@ -75,6 +78,25 @@ function Result({ ctx, modeId, result, onBack, onRetry, onNewQuestions }) {
       </div>
       {passed && <Stars n={stars} />}
       {res.total > 0 && <div style={{ fontSize: 16, fontWeight: 800, color: C.inkDim }}>{t('lg_score', { c: res.correct, n: res.total })}</div>}
+      {(flawless || (fight && passed && res.power)) && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+          {flawless && !OPTIONAL_KINDS.has(node.kind) && <span style={{ fontWeight: 900, color: C.warning, fontSize: 14 }}>✨ {t('lg_badgeFlawless')}</span>}
+          {fight && passed && res.power && <span style={{ fontWeight: 900, color: C.danger, fontSize: 14 }}>💥 {t('lg_badgePower')}</span>}
+        </div>
+      )}
+      {helper && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderRadius: RADIUS.lg, border: `2px solid ${C.purple}`, background: `color-mix(in srgb, ${C.purple} 10%, ${C.surface})` }}>
+          <span style={{ fontSize: 30 }}>{helper === 'shield' ? '🛡' : '📜'}</span>
+          <span style={{ textAlign: 'left', fontSize: 14, fontWeight: 800, color: C.ink }}>{helper === 'shield' ? t('lg_helperShield') : t('lg_helperScroll')}</span>
+        </div>
+      )}
+      {node.kind === 'boss' && !passed && area.nemesis?.itemIds?.length > 0 && <div style={{ fontSize: 14, fontWeight: 800, color: C.danger }}>👿 {t('lg_nemesisSet')}</div>}
+      {nudgeIds.length > 0 && (
+        <Card style={{ width: '100%', boxSizing: 'border-box', textAlign: 'left', display: 'grid', gap: 10 }}>
+          <EbiSays pose={poseFile('book')}>{t('lg_nudgeMissed')}</EbiSays>
+          <ItemAddList ctx={ctx} modeId={modeId} areaId={area.id} itemIds={nudgeIds} />
+        </Card>
+      )}
       {areaDone && <div style={{ fontSize: 15, fontWeight: 800, color: C.info }}>❄ {t('lg_bossFreeze')}</div>}
       {earnedLife && <BossStyle />}
       {earnedLife && (
@@ -113,7 +135,7 @@ function Result({ ctx, modeId, result, onBack, onRetry, onNewQuestions }) {
         {!passed && <ChunkyButton onClick={onRetry} color={C.warning}>↻ {t('lg_tryAgain')}</ChunkyButton>}
         <ChunkyButton onClick={onBack} color={C.success}>{t('lg_toMap')}</ChunkyButton>
       </div>
-      {node.kind !== 'talk' && <NewQuestionsButton t={t} onClick={onNewQuestions} />}
+      {node.kind !== 'talk' && node.kind !== 'adventure' && <NewQuestionsButton t={t} onClick={onNewQuestions} />}
     </div>
   )
 }
@@ -206,7 +228,15 @@ export default function LegendsScreen() {
       setView('placed')
     }
 
-    if (view === 'questionnaire') return <Questionnaire t={t} subject={subject} onBack={() => setView('map')} onDone={saveStart} />
+    if (view === 'questionnaire') {
+      // The style step's answers are settings (focus mode, accent grading), saved as soon as the questionnaire ends.
+      const done = (answers) => {
+        ctx.setFeatureSettings(LEGENDS_ID, { focus: answers.style === 'focus' })
+        if (subject.accents && typeof answers.accents === 'boolean' && answers.accents !== (subject.strictAccents !== false)) subject.setStrictAccents?.(answers.accents)
+        return saveStart(answers)
+      }
+      return <Questionnaire t={t} subject={subject} focus={featureCfg(ctx, LEGENDS_ID).focus === true} onBack={() => setView('map')} onDone={done} />
+    }
     if (view === 'placement') {
       return <Placement ctx={ctx} selfRating={startAnswers?.selfRating || map?.start?.selfRating || 1} onDone={placementDone} onQuit={() => setView('map')} />
     }
@@ -268,12 +298,29 @@ export default function LegendsScreen() {
       let outcome = null
       const cheating = cheatsOn(ctx)
       let hadLife = false
+      let replays = 0
+      let nudgeIds = []
+      const nudgeOn = featureCfg(ctx, LEGENDS_ID).nudge !== false
+      const today = new Date().toLocaleDateString('en-CA')
+      // After the result lands: the day goes on the journey heatmap, and items missed for the FIRST time (not in the
+      // deck yet) are offered as cards once on the result screen (then marked, so it never nags about them again).
+      const after = (m) => {
+        let next = logDay(m, today)
+        const missed = [...new Set((res.items || []).filter((x) => !x.correct).map((x) => x.itemId))]
+        const la = next.areas.find((a) => a.id === area.id)
+        nudgeIds = nudgeOn ? missed.filter((id) => { const it = la?.items?.find((x) => x.id === id); return it && !it.missNudged && !it.cardNoteId }) : []
+        if (nudgeIds.length) next = { ...next, areas: next.areas.map((a) => (a.id !== area.id ? a : { ...a, items: a.items.map((it) => (nudgeIds.includes(it.id) ? { ...it, missNudged: true } : it)) })) }
+        return next
+      }
       await updateMap(pinned, (m) => {
         if (!m) return m
         const live = m.areas.find((a) => a.id === area.id)
         hadLife = !!live?.bonusLife
+        const before = live?.nodes?.find((n) => n.id === node.id)
+        // Replays of a step already cleared pay less XP each time (game engine replayFactor).
+        replays = before?.status === 'done' ? Math.max(1, before.attempts || 1) : node.kind === 'legendary' && live?.legendary ? 1 : 0
         // A Legendary run is not a node of the map: a pass marks the area legendary.
-        if (node.kind === 'legendary') { outcome = applyLegendaryResult(m, area.id, res); return outcome.map }
+        if (node.kind === 'legendary') { outcome = applyLegendaryResult(m, area.id, res); outcome.map = after(outcome.map); return outcome.map }
         const liveNode = live?.nodes?.find((n) => n.id === node.id)
         if (cheating && liveNode?.status === 'locked') {
           // Cheat mode opened a locked step: a win still counts (the normal rules refuse a locked step).
@@ -284,10 +331,11 @@ export default function LegendsScreen() {
           if (node.kind === 'weak') next = { ...next, areas: next.areas.map((a) => (a.id === area.id ? { ...a, bonusLife: true } : a)) }
           const i = next.areas.findIndex((a) => a.id === area.id)
           const areaDone = node.kind === 'boss' && live.status !== 'done'
-          outcome = { map: next, passed: true, stars, areaDone, nextAreaId: areaDone ? next.areas[i + 1]?.id || null : null }
-          return next
+          outcome = { map: after(next), passed: true, stars, areaDone, nextAreaId: areaDone ? next.areas[i + 1]?.id || null : null }
+          return outcome.map
         }
         outcome = applyNodeResult(m, area.id, node.id, res)
+        outcome.map = after(outcome.map)
         return outcome.map
       })
       if (!outcome) { setError(t('lg_errSave')); setView('map'); return }
@@ -300,11 +348,11 @@ export default function LegendsScreen() {
       // XP. The FIRST win over an area's boss also earns a streak freeze (replays never do).
       ctx.emit(EVENTS.PRACTICE_DONE, { source: passed ? LEGENDS_ID : `${LEGENDS_ID}-try`, mode: pinned, total: res.total, correct: res.correct })
       const areaNo = Math.max(0, outcome.map.areas.findIndex((a) => a.id === area.id))
-      if (passed) ctx.emit(EVENTS.LEGENDS_STEP, { mode: pinned, kind: node.kind, area: areaNo })
+      if (passed) ctx.emit(EVENTS.LEGENDS_STEP, { mode: pinned, kind: node.kind, area: areaNo, effort: res.effort ?? 1, replays })
       if (areaDone) ctx.emit(EVENTS.BOSS_BEATEN, { mode: pinned, area: areaNo })
       recordPractice(ctx, LEGENDS_ID, [{ kind: 'topic', label: area.title }])
       const liveArea = outcome.map.areas.find((a) => a.id === area.id) || area
-      setResult({ node, area: liveArea, res, passed, stars, areaDone, earnedLife, firstLegend: !!outcome.firstLegend, nextTitle: nextAreaId ? outcome.map.areas.find((a) => a.id === nextAreaId)?.title : '' })
+      setResult({ node, area: liveArea, res, passed, stars, areaDone, earnedLife, firstLegend: !!outcome.firstLegend, helper: outcome.helper || '', flawless: !!outcome.flawless, nudgeIds, nextTitle: nextAreaId ? outcome.map.areas.find((a) => a.id === nextAreaId)?.title : '' })
       setView('result')
     }
 
@@ -336,6 +384,9 @@ export default function LegendsScreen() {
           onRetry={() => { const area = map.areas.find((a) => a.id === result.area.id) || result.area; const node = area.nodes.find((n) => n.id === result.node.id) || result.node; setOpenStep({ area, node, misses: (result.res.misses || []).map((m) => m.expected || m.asked).filter(Boolean), try: (openStep?.try || 0) + 1 }); setResult(null); setView('node') }} />
       )
     }
+    if (view === 'raid') return <RaidRun key={modeId} ctx={ctx} onExit={() => setView('map')} />
+    // Cheat mode only: every stage's drawings (AssetView.jsx). Turning cheats off while it is open goes back to the map.
+    if (view === 'assets' && cheatsOn(ctx)) return <AssetView ctx={ctx} onBack={() => setView('map')} />
     if (view === 'edit') {
       return <EditPanel key={edit.text} ctx={ctx} modeId={modeId} initial={edit.text} autoRun={edit.auto} onClose={(saved) => { setEdit({ text: '', auto: false }); setView('map'); if (saved) ctx.notify?.(t('lg_editSaved')) }} />
     }
@@ -367,6 +418,7 @@ export default function LegendsScreen() {
         setBusy(t('lg_preparingArea')); setError('')
         try { await detailAreaNow(ctx, pinned, a) } catch (e) { setError(String(e.message || e)) } finally { setBusy('') }
       },
+      assets: () => setView('assets'),
       setLevel: async () => {
         const v = await ctx.prompt?.(t('lg_cheatLevelAsk', { max: LEVEL_MAX }))
         const n = Number(String(v ?? '').replace(',', '.'))
@@ -377,7 +429,7 @@ export default function LegendsScreen() {
       placement: () => { setStartAnswers(null); setView('placement') },
     }
     return (
-      <MapView ctx={ctx} map={map} learner={learner} busy={busy} error={error} cheat={cheat}
+      <MapView ctx={ctx} map={map} learner={learner} busy={busy} error={error} cheat={cheat} onRaid={() => setView('raid')}
         onRetry={() => { setError(''); updateMap(modeId, (m) => (m ? { ...m, updatedAt: Date.now() } : m)) }}
         onOpen={(area, node) => { if (!ai.hasKey) { setError(t('lg_needKey')); return } setOpenStep({ area, node }); setView('node') }}
         onLegendary={(area, node) => { if (!ai.hasKey) { setError(t('lg_needKey')); return } setOpenStep({ area, node }); setView('node') }}

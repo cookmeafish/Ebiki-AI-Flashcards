@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
+  <!-- The Glacier Throne: aurora over a frozen lake, snowy pines, and the Warlord's eyes glowing in the ice cave. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #e6f3fa)"/>
+  <g fill="var(--lg-light, #ffffff)"><circle cx="40" cy="14" r="1"/><circle cx="120" cy="8" r="1.2"/><circle cx="230" cy="12" r="1"/><circle cx="330" cy="6" r="1.2"/><circle cx="380" cy="22" r="1"/></g>
+  <!-- aurora ribbons -->
+  <g fill="none" stroke-linecap="round" opacity="0.55">
+    <path d="M-20 30 Q60 10 120 28 T260 22 T420 26" stroke="#7cffcb" stroke-width="7">
+      <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-20 4;0 0" dur="8s" repeatCount="indefinite"/>
+    </path>
+    <path d="M-20 42 Q80 24 160 40 T300 34 T420 40" stroke="#9ff3ff" stroke-width="5">
+      <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;20 -3;0 0" dur="10s" repeatCount="indefinite"/>
+    </path>
+    <path d="M-20 22 Q100 6 200 20 T420 14" stroke="#c9a2ff" stroke-width="3">
+      <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-14 3;0 0" dur="7s" repeatCount="indefinite"/>
+    </path>
+  </g>
+  <!-- ice mountains -->
+  <path d="M0 84 L30 50 L50 66 L84 30 L118 70 L140 56 L170 84Z" fill="var(--lg-far, #cfe6f2)" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+  <path d="M84 30 L118 70 H94 Z M30 50 L50 66 H38Z" fill="#000" opacity="0.1"/>
+  <path d="M84 30 L76 40 L84 38 L92 42Z" fill="var(--lg-light, #ffffff)"/>
+  <!-- the glacier cliff and the ice cave -->
+  <path d="M220 94 L234 56 L252 42 L270 50 L286 30 L306 44 L330 36 L350 52 L372 46 L400 60 V94Z" fill="#9ff3ff" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M234 56 L252 42 L270 50 L262 94 H226Z" fill="#fff" opacity="0.35"/>
+  <path d="M350 52 L372 46 L400 60 V94 H368Z" fill="#000" opacity="0.1"/>
+  <g fill="none" stroke="#4fd1e8" stroke-width="1" opacity="0.8"><path d="M250 60 L256 80 M300 50 L296 70 M340 60 L346 84"/></g>
+  <path d="M286 94 C286 74 296 64 310 64 C324 64 334 74 334 94Z" fill="#0b2a3a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+  <g fill="#e6f7ff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"><polygon points="292,72 296,82 300,70"/><polygon points="304,66 307,76 310,64"/><polygon points="316,66 319,78 322,68"/></g>
+  <g>
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 0;0 1;0 0" keyTimes="0;.9;.95;1" dur="4s" repeatCount="indefinite"/>
+    <g fill="#9ff3ff"><ellipse cx="303" cy="84" rx="4" ry="3" opacity="0.5"/><ellipse cx="317" cy="84" rx="4" ry="3" opacity="0.5"/><ellipse cx="303" cy="84" rx="2" ry="1.2"/><ellipse cx="317" cy="84" rx="2" ry="1.2"/></g>
+  </g>
+  <!-- icicles along the cliff lip -->
+  <g fill="#e6f7ff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"><polygon points="240,94 242,102 244,94"/><polygon points="258,94 260,104 262,94"/><polygon points="344,94 346,102 348,94"/><polygon points="370,94 372,106 374,94"/></g>
+  <!-- the frozen lake -->
+  <path d="M0 94 H400 V140 H0Z" fill="var(--lg-near, #a9d4ea)"/>
+  <g fill="none" stroke="var(--lg-light, #ffffff)" stroke-width="1.6" opacity="0.6"><path d="M20 104 H90 M140 112 H220 M260 102 H320 M60 126 H130 M300 130 H380"/></g>
+  <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" opacity="0.5"><path d="M150 100 L162 112 L156 122 L170 132 M162 112 L178 110"/></g>
+  <!-- snowy pines -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round">
+    <g fill="var(--lg-deep, #3b7ea3)"><polygon points="190,96 176,96 183,74"/><polygon points="190,86 176,86 183,64"/><polygon points="212,98 196,98 204,70"/><polygon points="212,86 196,86 204,58"/><polygon points="34,100 20,100 27,78"/><polygon points="34,90 20,90 27,68"/></g>
+    <g fill="var(--lg-light, #ffffff)" stroke="none"><polygon points="183,64 179,72 187,72"/><polygon points="204,58 199,68 209,68"/><polygon points="27,68 23,76 31,76"/></g>
+  </g>
+  <!-- ice spikes in front -->
+  <g fill="#9ff3ff" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round">
+    <polygon points="60,140 68,110 74,140"/><polygon points="72,140 80,120 86,140"/><polygon points="340,140 350,114 356,140"/><polygon points="354,140 362,124 368,140"/>
+  </g>
+  <g fill="#fff" opacity="0.5"><polygon points="68,110 70,140 66,140"/><polygon points="350,114 352,140 348,140"/></g>
+  <!-- snow falling -->
+  <g fill="var(--lg-light, #ffffff)" stroke="#9ff3ff" stroke-width="0.4">
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -60;-10 60;0 -60" dur="12s" repeatCount="indefinite" keyTimes="0;.5;1"/>
+    <circle cx="30" cy="40" r="1.6"/><circle cx="100" cy="20" r="1.2"/><circle cx="170" cy="50" r="1.4"/><circle cx="250" cy="30" r="1.6"/><circle cx="330" cy="46" r="1.2"/><circle cx="390" cy="20" r="1.4"/>
+    <circle cx="60" cy="100" r="1.2"/><circle cx="140" cy="90" r="1.6"/><circle cx="220" cy="110" r="1.2"/><circle cx="300" cy="96" r="1.4"/><circle cx="370" cy="110" r="1.6"/>
+  </g>
+</svg>

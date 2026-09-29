@@ -8,14 +8,17 @@ import { poseFile } from '../../config/shrimp'
 import { speak } from '../../speech'
 import { useFocusHold } from '../registry'
 import { ChunkyButton, EbiSays, ProgressBar, Card } from '../ui'
-import { QuizRunner, RuleCardButton, buildScenePrompt, parseScene, voiceFor, SCENE_ROLE, SCENE_MAX_TOKENS } from '../kit'
+import { QuizRunner, RuleCardButton, buildScenePrompt, parseScene, voiceFor, SCENE_ROLE, SCENE_MAX_TOKENS, judgeStrike } from '../kit'
+import { featureCfg } from '../registry'
 import { learnerLevelLine } from '../kit/learnerStore'
 import { makeQuiz, sceneFor, ensureBossName, KNOWLEDGE_CAP } from './generate'
 import { itemIdFor } from './prompt'
 import { addItemsToDeck, liveItems, isAdding } from './deck'
 import Talk from './Talk'
-import { BossIntro, BossArena, BossEnd, bossOutcome, forgivenMisses } from './BossArena'
-import { weakItems, WEAK_BONUS_LIVES, PASS } from './map'
+import { BossIntro, BossArena, BossEnd, bossOdds, forgivenMisses } from './BossArena'
+import { weakItems, WEAK_BONUS_LIVES, PASS, spendHelper } from './map'
+import { newFight, strike, fightOutcome, phaseOf, healthLeft, attackSlot, canAttack, weakTo, effortOf, ATTACK_LIVES } from './fight'
+import { updateMap, peekMap, LEGENDS_ID } from './store'
 import { CheatButton, CheatRow } from './CheatUI'
 
 // Every level teaches its items before asking (a story level too: its story brings in new items).
@@ -219,10 +222,13 @@ export default function NodeRun(props) {
   )
 }
 
+// The scroll's hint: the first letter of every word, the rest as dots ("buenos días" → "b····· d···").
+const scrollHint = (ans) => ans.split(/(\s+)/).map((w) => (/^\s+$/.test(w) ? w : [...w].map((ch, i) => (i === 0 || !/\p{L}/u.test(ch) ? ch : '·')).join(''))).join('')
+
 function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, onNewQuestions }) {
   const { t, ai, subject } = ctx
   const teaches = TEACH_KINDS.has(node.kind)
-  const [phase, setPhase] = useState(node.kind === 'talk' ? 'talk' : teaches ? 'teach' : 'loading') // teach | loading | quiz | story | talk | error
+  const [phase, setPhase] = useState(node.kind === 'talk' || node.kind === 'adventure' ? 'talk' : teaches ? 'teach' : 'loading') // teach | loading | quiz | story | talk | error
   const [questions, setQuestions] = useState(null)
   const [scene, setScene] = useState(null)
   const [error, setError] = useState('')
@@ -238,10 +244,31 @@ function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, o
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // The boss fight: an intro card first, then every answer is a hit on the boss or a lost heart (BossArena.jsx).
   const [fighting, setFighting] = useState(false)
-  const [tally, setTally] = useState({ hits: 0, misses: 0, last: null })
+  // The fight (fight.js). A ref mirrors it: onAnswer must read the state the previous answer left, not a render's.
+  const [fs, setFs] = useState(newFight)
+  const fsRef = useRef(fs)
+  const pos = useRef(-1) // index of the question on screen in the run (inserted attacks included)
+  const effort = useRef({ typed: 0, choice: 0, misses: 0 }) // answers of a non-fight step, for XP
+  const cfg = featureCfg(ctx, LEGENDS_ID)
+  const focus = cfg.focus === true
+  // A shield (a helper earned in Weak spots) is taken into the fight when one is held; it absorbs one lost life.
+  const [shield] = useState(() => node.kind === 'boss' && (peekMap(modeId)?.helpers?.shield || 0) > 0)
+  // Hint scrolls (earned by a first flawless level, held at most HELPERS_MAX): one shows the answer's first letter
+  // and length on a typed question.
+  const [scrolls, setScrolls] = useState(() => peekMap(modeId)?.helpers?.scroll || 0)
+  const spendScroll = (q, api) => {
+    const ans = String((q.accepted || [])[0] || '')
+    if (!ans || scrolls < 1) return
+    setScrolls((n) => n - 1)
+    updateMap(modeId, (m) => (m ? spendHelper(m, 'scroll') : m))
+    api.hint(`📜 ${t('lg_scrollHint', { hint: scrollHint(ans) })}`)
+  }
   // A fight: the boss, or a Legendary run over a cleared area (harder pass, no bonus life).
   const fight = node.kind === 'boss' || node.kind === 'legendary'
   const odds = node.kind === 'legendary' ? { pass: PASS.legendary } : { bonus: area.bonusLife ? WEAK_BONUS_LIVES : 0 }
+  // The items this boss is weak to (answered right, they deal +1).
+  const weakIds = fight ? weakTo(area) : []
+  const weakNames = weakIds.map((id) => area.items.find((it) => it.id === id)?.front).filter(Boolean)
   // Weak spots practices the island's shakiest items right now; every other step its own.
   const items = node.kind === 'weak' ? weakItems(area) : area.items.filter((it) => node.itemIds.includes(it.id))
   const teachItems = node.kind === 'rule' ? [...items.filter((it) => it.kind === 'rule'), ...items.filter((it) => it.kind !== 'rule')] : items
@@ -272,9 +299,16 @@ function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, o
   // `total`: the fight ended early out of lives, so the questions never asked count as not answered right.
   const finish = (total) => {
     const a = answers.current
-    const won = fight && bossOutcome(questions?.length || 0, tally.hits, tally.misses, odds) === 'won'
+    const st = fsRef.current
+    const o = fight ? bossOdds(questions?.length || 0, odds) : null
+    // Questions run out with lives left = a win (fight.js: that can only happen with the boss beaten or a shield used).
+    const outcome = fight ? (fightOutcome(st, o) || 'won') : ''
+    const won = outcome === 'won'
+    const hits = a.filter((x) => x.correct).length
     onFinish({
-      forgiven: won ? forgivenMisses(questions.length, tally.hits, odds) : 0,
+      outcome, power: fight && won && st.safe === 0 && st.answers > 0,
+      effort: fight ? effortOf({ clean: st.clean, glancing: st.glancing, choice: st.safe, misses: st.misses }) : effortOf(effort.current),
+      forgiven: won && node.kind === 'boss' ? forgivenMisses(questions.length, hits, odds) : 0,
       total: Math.max(a.length, Number(total) || 0), correct: a.filter((x) => x.correct).length,
       items: a.filter((x) => x.itemId).map((x) => ({ itemId: x.itemId, correct: x.correct })),
       misses: a.filter((x) => !x.correct).map(({ asked, answered, expected }) => ({ asked, answered, expected })),
@@ -284,7 +318,7 @@ function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, o
 
   // Throws this attempt away (nothing is recorded) and asks for a new set. On every screen of a quiz-like step:
   // the lesson, the scene story, the boss entrance and the questions (it was only on the questions and results).
-  const renew = onNewQuestions && node.kind !== 'talk' && (async () => {
+  const renew = onNewQuestions && node.kind !== 'talk' && node.kind !== 'adventure' && (async () => {
     if (answers.current.length && !(await ctx.confirm(t('lg_newQuestionsConfirm')))) return
     onNewQuestions()
   })
@@ -331,19 +365,71 @@ function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, o
   if (phase === 'story' && scene) return <div style={{ display: 'grid', gap: 4 }}>{renewRow}<Story ctx={ctx} scene={scene} onQuit={onQuit} onDone={() => { setQuestions(scene.questions); setPhase('quiz') }} /></div>
 
   if (phase === 'quiz' && questions) {
-    const record = (q, correct, answer) => {
+    const o = fight ? bossOdds(questions.length, odds) : null
+    const fightPhase = fight ? phaseOf(healthLeft(fs, o.need), o.need) : 1
+    const record = (q, correct, answer, info = {}) => {
+      pos.current++
       if (q._retry) return // a missed question asked again at the end is practice: it never changes the score
-      const expected = q.kind === 'choice' ? q.choices?.[q.answerIdx] : (q.accepted || [])[0]
-      answers.current = [...answers.current, { itemId: itemIdFor(q, area.items), correct, asked: q.prompt, answered: answer, expected: expected || '' }]
-      if (fight) setTally((s) => ({ hits: s.hits + (correct ? 1 : 0), misses: s.misses + (correct ? 0 : 1), last: { kind: correct ? 'hit' : 'miss', n: (s.last?.n || 0) + 1 } }))
+      const choice = info.mode === 'choice'
+      const itemId = itemIdFor(q, area.items)
+      if (!q._extra) {
+        const expected = q.kind === 'choice' ? q.choices?.[q.answerIdx] : (q.accepted || [])[0]
+        answers.current = [...answers.current, { itemId, correct, asked: q.prompt, answered: answer, expected: expected || '' }]
+      }
+      if (!fight) {
+        const e = effort.current
+        effort.current = correct ? (choice ? { ...e, choice: e.choice + 1 } : { ...e, typed: e.typed + 1 }) : { ...e, misses: e.misses + 1 }
+        return null
+      }
+      const before = fsRef.current
+      if (fightOutcome(before, o)) return null // decided: the rest is not a fight any more
+      const verdict = info.verdict || (correct ? 'clean' : 'miss')
+      let next = strike(before, { verdict, mode: choice ? 'choice' : 'typed', weak: weakIds.includes(itemId), attack: !!q._attack }, { shield })
+      if (next.last?.shielded && !before.shieldUsed) updateMap(modeId, (m) => (m ? spendHelper(m, 'shield') : m))
+      // The boss strikes back with what went wrong: the missed question itself, or the other slip of a glancing
+      // hit (judgeStrike's follow-up). Never from an attack, never once the fight is decided, at most MAX_ATTACKS.
+      let insert = null
+      if (!q._attack && !fightOutcome(next, o) && canAttack(next)) {
+        const base = verdict === 'miss' ? { ...q, alt: undefined } : info.attackQ ? { kind: 'typed', prompt: info.attackQ.prompt, accepted: info.attackQ.accepted, exact: !!info.attackQ.exact, target: q.target } : null
+        if (base) { insert = { ...base, _attack: true }; next = { ...next, attacks: next.attacks + 1 } }
+      }
+      fsRef.current = next
+      setFs(next)
+      return insert ? { insert, at: attackSlot(pos.current, Number.MAX_SAFE_INTEGER) } : null
     }
+    // Typed answers in a fight are strikes: clean (all right) 2, glancing (the tested thing right, something else
+    // wrong) 1, and the slip comes back as an attack. Choices are a safe strike, only before the boss enrages.
+    const judge = fight ? async (q, ans) => {
+      const j = await judgeStrike(ai, subject, q, ans, { strictAccents: !subject.accents || subject.strictAccents !== false })
+      return {
+        correct: j.verdict !== 'miss', partial: j.verdict === 'glancing', note: j.note || '', accent: !!j.accent && j.verdict !== 'miss',
+        title: j.verdict === 'clean' ? t('lg_strikeClean') : j.verdict === 'glancing' ? t('lg_strikeGlancing') : '',
+        info: { verdict: j.verdict, attackQ: j.attack || null },
+      }
+    } : undefined
+    const header = fight ? (q, mode) => (
+      <div style={{ display: 'grid', gap: 6 }}>
+        {q._attack && (
+          <div role="alert" className="lg-boss" style={{ padding: '8px 12px', borderRadius: RADIUS.md, background: `color-mix(in srgb, ${C.danger} 14%, ${C.surface})`, border: `2px solid ${C.danger}`, color: C.danger, fontWeight: 900, fontSize: 14, animation: focus ? 'none' : 'lgCall .9s ease-in-out infinite' }}>
+            ⚔️ {t('lg_attackIncoming', { n: ATTACK_LIVES })}
+          </div>
+        )}
+        <div style={{ fontSize: 12, fontWeight: 800, color: mode === 'choice' ? C.info : C.warning }}>
+          {mode === 'choice' ? `🛡 ${t('lg_strikeSafeHint')}` : `💥 ${t('lg_strikePowerHint')}`}{fightPhase > 1 && node.kind === 'boss' ? ` · 😡 ${t('lg_rageNoSafe')}` : ''}
+        </div>
+      </div>
+    ) : undefined
+    const canUseChoices = node.kind === 'boss' ? (q) => !q._attack && fightPhase === 1 : undefined
+    const tools = scrolls > 0 ? (q, api) => (!api.asChoice && q.kind !== 'choice' && !q.open && (q.accepted || []).length && api.phase === 'answer'
+      ? <ChunkyButton variant="ghost" color={C.purple} onClick={() => spendScroll(q, api)} style={{ fontSize: 12, padding: '6px 10px' }}>📜 {t('lg_useScroll', { n: scrolls })}</ChunkyButton>
+      : null) : undefined
     const boss = fight
-    if (boss && !fighting) return <div style={{ display: 'grid', gap: 4 }}><BossIntro t={t} area={area} name={bossName} total={questions.length} odds={odds} legendary={node.kind === 'legendary'} onFight={() => setFighting(true)} />{renewRow}</div>
+    if (boss && !fighting) return <div style={{ display: 'grid', gap: 4 }}><BossIntro t={t} area={area} name={bossName} total={questions.length} odds={odds} legendary={node.kind === 'legendary'} calm={focus} onFight={() => setFighting(true)} />{renewRow}</div>
     const runner = (
       <QuizRunner questions={questions} t={t} ai={ai} subject={subject} ctx={ctx} confirm={ctx.confirm}
         title={node.kind === 'boss' ? `👑 ${bossName || t('lg_boss')}` : node.kind === 'legendary' ? `🏅 ${bossName || t('lg_legendary')}` : node.title || t(`lg_kind_${node.kind}`)}
         retryMisses={!fight}
-        onAnswer={record}
+        onAnswer={record} judge={judge} header={header} canUseChoices={canUseChoices} tools={tools}
         feedbackExtra={(q, correct, answer) => (!correct && (node.kind === 'rule' || fight) && ai.hasKey
           ? <RuleCardButton ctx={ctx} compact source={{ asked: q.prompt, answered: answer, expected: q.kind === 'choice' ? q.choices?.[q.answerIdx] : (q.accepted || [])[0] }} />
           : null)}
@@ -353,11 +439,12 @@ function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, o
     if (!boss) return <div style={{ display: 'grid', gap: 4 }}>{renewRow}{runner}</div>
     // The fight ends when the boss has no health left (a win: stars count the answers given) or the learner no
     // lives (the rest of the questions count as missed).
-    const outcome = bossOutcome(questions.length, tally.hits, tally.misses, odds)
+    const outcome = fightOutcome(fs, o)
     return (
       <div style={{ display: 'grid', gap: 12 }}>
-        <div style={{ maxWidth: 680, width: '100%', margin: '0 auto' }}>
-          <BossArena t={t} area={area} name={bossName} total={questions.length} odds={odds} hits={tally.hits} misses={tally.misses} last={tally.last} />
+        {/* Sticky: a long question or four tall choices scroll UNDER the boss instead of pushing it off screen. */}
+        <div style={{ maxWidth: 680, width: '100%', margin: '0 auto', position: 'sticky', top: 0, zIndex: 5, paddingTop: 4, background: C.bg }}>
+          <BossArena t={t} area={area} name={bossName} need={o.need} lives={o.lives} bonus={o.bonus} state={fs} weak={weakNames} shield={shield} focus={focus} getZoom={ctx.getZoom} />
         </div>
         {outcome ? <BossEnd t={t} won={outcome === 'won'} onDone={() => finish(outcome === 'lost' ? questions.length : 0)} /> : <div style={{ display: 'grid', gap: 4 }}>{renewRow}{runner}</div>}
       </div>

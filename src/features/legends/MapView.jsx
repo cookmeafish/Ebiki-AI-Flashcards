@@ -1,15 +1,16 @@
 // The map: a vertical scroll of areas (the first at the bottom), each an illustrated banner over a winding
 // ladder of round steps climbed bottom to top, the boss on top. Drawn by the app, never by the AI: the banner
 // and the boss are the hand-made files in public/assets/legends (./art.jsx). Scrolls to the learner's current area.
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { bandFor, bandProgress } from '../kit/learner'
 import { ChunkyButton, ProgressBar, depthBorder, shade } from '../ui'
 import { AreaArt, BossArt, paletteColors } from './art'
 import { mapProgress } from './map'
 import { CheatButton, CheatRow, useCheatToggle } from './CheatUI'
+import { AreaExtras, Journey, PassportModal } from './Extras'
 
-export const KIND_ICON = { learn: '📘', practice: '✏️', scene: '📖', rule: '📐', talk: '💬', weak: '🎯', boss: '👑' }
+export const KIND_ICON = { learn: '📘', practice: '✏️', scene: '📖', rule: '📐', talk: '💬', adventure: '🧭', weak: '🎯', boss: '👑' }
 const NODE = { size: 66, boss: 88, swing: 72, gap: 26 }  // px: step button, boss button, sideways swing, vertical gap
 const MAX_W = 620
 
@@ -62,6 +63,12 @@ function StepButton({ t, area, node, colors, onOpen, index, focusRef, cheat }) {
           : <span style={{ filter: locked ? 'grayscale(1)' : 'none' }}>{locked ? '🔒' : KIND_ICON[node.kind] || '⭐'}</span>}
       </button>
       {done && <Stars n={node.stars} size={boss ? 16 : 13} />}
+      {(node.flawless || node.allPower) && (
+        <span style={{ display: 'flex', gap: 4, fontSize: 11, fontWeight: 900 }}>
+          {node.flawless && <span className="tip" data-tip={t('lg_badgeFlawless')} style={{ color: C.warning }}>✨</span>}
+          {node.allPower && <span className="tip" data-tip={t('lg_badgePower')} style={{ color: C.danger }}>💥</span>}
+        </span>
+      )}
       {node.kind === 'weak' && !locked && (
         // The reward, visible before it is earned: one extra life for this island's boss (once).
         <span className="tip" data-tip={area.bonusLife ? t('lg_weakEarnedTip') : t('lg_weakRewardTip')}
@@ -76,14 +83,14 @@ function StepButton({ t, area, node, colors, onOpen, index, focusRef, cheat }) {
         <CheatRow>
           {!done && <CheatButton tip={t('lg_cheatCompleteStep')} onClick={() => cheat.completeStep(area.id, node.id)}>⚡✓</CheatButton>}
           {(done || node.attempts > 0) && <CheatButton tip={t('lg_cheatResetStep')} onClick={() => cheat.resetStep(area.id, node.id)}>⚡↺</CheatButton>}
-          {node.kind !== 'talk' && <CheatButton tip={t('lg_cheatNewQuestions')} onClick={() => cheat.newQuestions(area.id, node.id)}>⚡🔄</CheatButton>}
+          {node.kind !== 'talk' && node.kind !== 'adventure' && <CheatButton tip={t('lg_cheatNewQuestions')} onClick={() => cheat.newQuestions(area.id, node.id)}>⚡🔄</CheatButton>}
         </CheatRow>
       )}
     </div>
   )
 }
 
-function AreaSection({ t, area, index, onOpen, onLegendary, preparing, refFor, stepRef, cheat }) {
+function AreaSection({ ctx, t, area, index, onOpen, onLegendary, preparing, refFor, stepRef, cheat }) {
   const colors = paletteColors(area.palette)
   const locked = area.status === 'locked'
   const nodes = area.nodes || []
@@ -108,6 +115,8 @@ function AreaSection({ t, area, index, onOpen, onLegendary, preparing, refFor, s
           </div>
           <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 20, color: locked ? C.inkDim : C.ink, lineHeight: 1.2 }}>{area.title}</div>
           {area.theme && !locked && <div style={{ fontSize: 13, color: C.inkDim, lineHeight: 1.4 }}>{area.theme}</div>}
+          {area.nemesis?.itemIds?.length > 0 && area.status !== 'done' && <div style={{ fontSize: 12.5, fontWeight: 800, color: C.danger, marginTop: 4 }}>👿 {t('lg_nemesisWaiting', { boss: area.bossName || t('lg_boss') })}</div>}
+          <AreaExtras ctx={ctx} modeId={ctx.subject.modeId} area={area} />
           {area.status === 'done' && area.detailed && (
             <button type="button" onClick={() => onLegendary(area)} className="tip" data-tip={t('lg_legendaryTip')}
               style={{ marginTop: 8, fontFamily: FONT.body, fontWeight: 900, fontSize: 13, color: C.purple, background: 'transparent', border: `2px solid color-mix(in srgb, ${C.purple} 45%, transparent)`, borderRadius: RADIUS.pill, padding: '4px 12px', cursor: 'pointer' }}>
@@ -134,8 +143,9 @@ function AreaSection({ t, area, index, onOpen, onLegendary, preparing, refFor, s
 }
 
 // `cheat`: cheat mode's actions (LegendsScreen), or null when it is off.
-export default function MapView({ ctx, map, learner, busy, error, onRetry, onOpen, onLegendary, onEdit, onRestart, cheat = null }) {
+export default function MapView({ ctx, map, learner, busy, error, onRetry, onOpen, onLegendary, onEdit, onRestart, onRaid, cheat = null }) {
   const { t, subject } = ctx
+  const [passport, setPassport] = useState(false)
   const titleClick = useCheatToggle(ctx)
   const currentRef = useRef(null)
   const stepRef = useRef(null)
@@ -168,14 +178,25 @@ export default function MapView({ ctx, map, learner, busy, error, onRetry, onOpe
           </div>
           <div style={{ flex: '0 1 220px' }}><LevelChip t={t} learner={learner} isLanguage={subject.isLanguage} /></div>
         </div>
+        <div style={{ display: 'flex', gap: 12, marginTop: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Journey t={t} days={map.days} />
+          {(map.helpers?.scroll > 0 || map.helpers?.shield > 0) && (
+            <span className="tip" data-tip={t('lg_helpersTip')} style={{ fontSize: 13, fontWeight: 900, color: C.purple }}>
+              {map.helpers.scroll > 0 ? `📜 ${map.helpers.scroll} ` : ''}{map.helpers.shield > 0 ? `🛡 ${map.helpers.shield}` : ''}
+            </span>
+          )}
+        </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
           <ChunkyButton variant="ghost" color={C.purple} onClick={onEdit} disabled={!ctx.ai.hasKey} style={{ fontSize: 12, padding: '7px 12px' }}>✏️ {t('lg_changeMap')}</ChunkyButton>
+          <ChunkyButton variant="ghost" color={C.success} onClick={() => setPassport(true)} style={{ fontSize: 12, padding: '7px 12px' }}>🛂 {t('lg_passport')}</ChunkyButton>
+          {onRaid && <ChunkyButton variant="ghost" color={C.warning} onClick={onRaid} style={{ fontSize: 12, padding: '7px 12px' }}>⚔️ {t('lg_raid')}</ChunkyButton>}
           <ChunkyButton variant="ghost" color={C.danger} onClick={onRestart} style={{ fontSize: 12, padding: '7px 12px' }}>↺ {t('lg_restart')}</ChunkyButton>
         </div>
         {cheat && (
           <CheatRow style={{ justifyContent: 'flex-start', marginTop: 8 }}>
             <CheatButton onClick={cheat.setLevel}>⚡ {t('lg_cheatLevel')}</CheatButton>
             <CheatButton disabled={!ctx.ai.hasKey} onClick={cheat.placement}>⚡ {t('lg_cheatPlacement')}</CheatButton>
+            <CheatButton onClick={cheat.assets}>⚡ {t('lg_cheatAssets')}</CheatButton>
           </CheatRow>
         )}
         {busy && <div style={{ marginTop: 8, fontSize: 13, fontWeight: 700, color: C.info }}>⏳ {busy}</div>}
@@ -189,10 +210,11 @@ export default function MapView({ ctx, map, learner, busy, error, onRetry, onOpe
         <div style={{ textAlign: 'center', padding: 16, fontFamily: FONT.display, fontWeight: 900, fontSize: 18, color: C.warning }}>🏆 {t('lg_mapFinished')}</div>
       )}
       {reversed.map(({ a, i }) => (
-        <AreaSection key={a.id} cheat={cheat} t={t} area={a} index={i} onOpen={onOpen} onLegendary={(area) => onLegendary?.(area, { id: `${area.id}-legendary`, kind: 'legendary', title: '', itemIds: (area.items || []).map((x) => x.id) })} preparing={!!busy}
+        <AreaSection key={a.id} ctx={ctx} cheat={cheat} t={t} area={a} index={i} onOpen={onOpen} onLegendary={(area) => onLegendary?.(area, { id: `${area.id}-legendary`, kind: 'legendary', title: '', itemIds: (area.items || []).map((x) => x.id) })} preparing={!!busy}
           refFor={i === current ? currentRef : undefined} stepRef={i === current ? stepRef : undefined} />
       ))}
       <div style={{ height: NODE.gap }} />
+      {passport && <PassportModal ctx={ctx} map={map} onClose={() => setPassport(false)} />}
     </div>
   )
 }

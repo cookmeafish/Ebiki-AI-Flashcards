@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
+  <!-- The Grand Colosseum: tiered stone stands with a roaring crowd, banners, a sandy floor, weapons stuck in the ground,
+       the Gladiator Titan waiting at the far gate. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #f5e6cc)"/>
+  <circle cx="60" cy="24" r="12" fill="#fff6c2" opacity="0.8"/>
+  <!-- the colosseum wall: arches in tiers -->
+  <path d="M0 22 C120 14 280 14 400 22 V100 H0Z" fill="#d8c09a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+  <g fill="#8a6a4a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8">
+    <path d="M14 42 V32 C14 26 26 26 26 32 V42Z M44 42 V32 C44 26 56 26 56 32 V42Z M74 40 V30 C74 24 86 24 86 30 V40Z M314 40 V30 C314 24 326 24 326 30 V40Z M344 42 V32 C344 26 356 26 356 32 V42Z M374 42 V32 C374 26 386 26 386 32 V42Z"/>
+  </g>
+  <path d="M0 46 C120 38 280 38 400 46" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+  <!-- the roaring crowd: rows of heads, bobbing -->
+  <g>
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -2;0 0" dur="0.8s" repeatCount="indefinite"/>
+    <g fill="#8a5a3a"><circle cx="10" cy="54" r="4"/><circle cx="24" cy="53" r="4"/><circle cx="38" cy="52" r="4"/><circle cx="52" cy="52" r="4"/><circle cx="66" cy="51" r="4"/><circle cx="80" cy="50" r="4"/><circle cx="94" cy="50" r="4"/><circle cx="306" cy="50" r="4"/><circle cx="320" cy="50" r="4"/><circle cx="334" cy="51" r="4"/><circle cx="348" cy="52" r="4"/><circle cx="362" cy="52" r="4"/><circle cx="376" cy="53" r="4"/><circle cx="390" cy="54" r="4"/></g>
+    <g fill="#c0392b"><path d="M6 58 H14 V64 H6Z M34 56 H42 V62 H34Z M62 55 H70 V61 H62Z M90 54 H98 V60 H90Z M316 54 H324 V60 H316Z M344 56 H352 V62 H344Z M372 57 H380 V63 H372Z"/></g>
+    <g fill="#2e6b8a"><path d="M20 57 H28 V63 H20Z M48 56 H56 V62 H48Z M76 54 H84 V60 H76Z M302 54 H310 V60 H302Z M330 55 H338 V61 H330Z M358 56 H366 V62 H358Z M386 58 H394 V64 H386Z"/></g>
+  </g>
+  <!-- raised fists in the crowd -->
+  <g stroke="#8a5a3a" stroke-width="2" stroke-linecap="round">
+    <path d="M24 49 V42"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -3;0 0" dur="0.5s" repeatCount="indefinite"/></path>
+    <path d="M334 47 V40"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -3;0 0;0 -3" dur="0.5s" repeatCount="indefinite"/></path>
+    <path d="M80 46 V39"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -3;0 0" dur="0.6s" repeatCount="indefinite"/></path>
+  </g>
+  <!-- the lower wall with the great gate -->
+  <path d="M0 66 C120 60 280 60 400 66 V112 H0Z" fill="#c8a878" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+  <path d="M166 112 V76 C166 58 234 58 234 76 V112Z" fill="#2a1a10" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6"/>
+  <!-- the Titan in the gate: crested helmet, burning visor, shield, trident -->
+  <path d="M178 112 C176 98 186 90 200 88 C214 90 224 98 222 112Z" fill="#b87a3a" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+  <path d="M188 76 C188 64 212 64 212 76 V88 C212 92 188 92 188 88Z" fill="#b87a3a" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+  <path d="M188 70 C188 58 198 54 206 56 C214 58 216 64 214 70 C208 64 196 64 188 70Z" fill="#b3122e" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+  <rect x="192" y="76" width="16" height="4" fill="#1a0808"/>
+  <g fill="#ffd166"><ellipse cx="196" cy="78" rx="2.4" ry="1"/><ellipse cx="204" cy="78" rx="2.4" ry="1" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.2;1" dur="1s" repeatCount="indefinite" additive="sum"/></ellipse></g>
+  <path d="M176 110 C176 98 184 94 190 94 L190 112Z" fill="#c0392b" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+  <path d="M226 112 L230 62" stroke="#6b4423" stroke-width="2"/>
+  <path d="M226 64 L230 54 L234 64 M224 66 C222 60 224 56 226 56 M236 66 C238 60 236 56 234 56" fill="none" stroke="#c9ccd6" stroke-width="1.6"/>
+  <!-- portcullis half raised -->
+  <g stroke="#5a5f6a" stroke-width="1.6"><path d="M172 60 V74 M182 58 V72 M192 56 V70 M202 56 V70 M212 56 V70 M222 58 V72 M232 60 V74 M168 70 H236"/></g>
+  <!-- banners hanging from the wall -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.9">
+    <path d="M100 66 H120 V96 L110 90 L100 96Z" fill="#c0392b"><animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;3;0" dur="2s" repeatCount="indefinite"/></path>
+    <path d="M280 66 H300 V96 L290 90 L280 96Z" fill="#c0392b"><animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;-3;0" dur="2.2s" repeatCount="indefinite"/></path>
+  </g>
+  <g fill="#c9a441"><circle cx="110" cy="76" r="4"/><circle cx="290" cy="76" r="4"/></g>
+  <!-- the sandy floor -->
+  <path d="M0 112 H400 V140 H0Z" fill="var(--lg-near, #e0c07a)"/>
+  <g fill="#c8a060" opacity="0.6"><ellipse cx="80" cy="124" rx="30" ry="3"/><ellipse cx="310" cy="128" rx="36" ry="3"/></g>
+  <!-- weapons stuck in the sand -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round">
+    <path d="M60 126 L66 100 L70 101 L64 127Z" fill="#c9ccd6"/><path d="M62 104 L72 106" stroke="#6b4423" stroke-width="2.4"/>
+    <path d="M340 128 L336 108" stroke="#6b4423" stroke-width="2"/><path d="M332 108 C330 100 340 98 342 104 L336 110Z" fill="#c9ccd6"/>
+    <path d="M130 130 C130 122 142 122 142 130Z" fill="#c0392b"/>
+    <path d="M270 126 L284 118 M272 118 L282 128" stroke="#8a8f9c" stroke-width="2"/>
+  </g>
+  <!-- dust puffs and a flying petal of confetti -->
+  <g fill="#e8d0a0" opacity="0.8">
+    <circle style="transform-box:fill-box;transform-origin:center" cx="160" cy="118" r="4"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-10 -4" dur="2s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle style="transform-box:fill-box;transform-origin:center" cx="244" cy="120" r="3.4"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;10 -4" dur="2.4s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.4s" repeatCount="indefinite" additive="sum"/></circle>
+  </g>
+  <g fill="#ff3fd2"><rect style="transform-box:fill-box;transform-origin:center" x="140" y="30" width="3" height="3"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;10 60" dur="3s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="3s" repeatCount="indefinite" additive="sum"/></rect><rect style="transform-box:fill-box;transform-origin:center" x="260" y="26" width="3" height="3" fill="#ffd23f"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-8 60" dur="3.4s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="3.4s" repeatCount="indefinite" additive="sum"/></rect></g>
+</svg>

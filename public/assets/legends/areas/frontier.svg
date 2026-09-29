@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
+  <!-- Deadrock Gulch: red canyon walls, a ghost town saloon, tumbleweeds, a gallows, a blood-red sunset, the Revenant
+       Rider silhouetted on the ridge with a burning skull. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #ffd0b0)"/>
+  <!-- blood-red sunset -->
+  <circle cx="300" cy="64" r="34" fill="#e0233e" opacity="0.5"/>
+  <circle cx="300" cy="64" r="22" fill="#e0233e" opacity="0.7"/>
+  <!-- canyon walls: mesas -->
+  <path d="M0 112 V40 L20 36 L30 44 L60 42 L70 60 L80 112Z" fill="#b3452c" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+  <path d="M0 50 H30 M0 70 H70 M0 90 H76" fill="none" stroke="#8a3220" stroke-width="1.4"/>
+  <path d="M340 112 L350 56 L366 50 L380 54 L400 50 V112Z" fill="#b3452c" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+  <path d="M346 76 H400 M344 96 H400" fill="none" stroke="#8a3220" stroke-width="1.4"/>
+  <!-- the far ridge with the Rider -->
+  <path d="M180 88 C220 78 260 78 300 82 C320 84 336 88 346 94 V112 H180Z" fill="var(--lg-far, #d9805a)"/>
+  <g transform="translate(0 14)">
+  <g>
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -1;0 0" dur="1.2s" repeatCount="indefinite"/>
+    <g fill="#1d1b28">
+      <path d="M262 68 L260 58 L266 52 L286 52 L292 58 L292 68 L288 68 L288 60 L284 60 L282 68 L276 68 L274 60 L268 60 L266 68Z"/>
+      <path d="M260 54 L252 46 L250 38 L256 36 L262 44 L268 52Z"/>
+      <path d="M272 52 L274 40 L284 40 L286 52Z"/>
+      <path d="M270 38 C270 34 288 34 288 38Z M274 36 C274 30 284 30 284 36Z"/>
+    </g>
+    <!-- the burning skull and the horse's fire -->
+    <path d="M276 30 C274 24 278 22 278 16 C282 22 284 26 282 30Z" fill="#6ff3ff"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1.2;1 1" dur="0.5s" repeatCount="indefinite"/></path>
+    <circle cx="279" cy="33" r="2.6" fill="#e6e0cc"/>
+    <g fill="#6ff3ff"><circle cx="278" cy="33" r="0.6"/><circle cx="280.4" cy="33" r="0.6"/></g>
+    <path d="M250 38 C246 40 244 36 240 38 C242 42 246 42 250 40Z" fill="#ff7a1a"/>
+    <circle cx="254" cy="40" r="0.8" fill="#ff2e4c"/>
+  </g>
+  </g>
+  <!-- the ghost town: saloon -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
+    <path d="M96 112 V56 H176 V112Z" fill="#8a5a2b"/>
+    <path d="M96 56 H176 V44 H96Z" fill="#6b4423"/>
+    <rect x="106" y="46" width="60" height="8" fill="#e8d7b0"/>
+    <path d="M92 76 H180 V80 H92Z" fill="#5a3a1a"/>
+    <g fill="#1d1b28"><rect x="104" y="62" width="14" height="10"/><rect x="154" y="62" width="14" height="10"/></g>
+    <path d="M128 112 V88 H144 V112Z" fill="#1d1b28"/>
+    <path d="M100 80 V112 M172 80 V112" fill="none" stroke-width="2"/>
+  </g>
+  <path d="M112 50 h4 M120 50 h8 M132 50 h6 M142 50 h10 M156 50 h4" stroke="#8a3220" stroke-width="1.4"/>
+  <!-- swinging saloon doors -->
+  <g fill="#b87a3a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8">
+    <path d="M128 92 H135 V104 H128Z"><animateTransform class="lg-loop" attributeName="transform" type="skewY" values="0;8;0;-4;0" dur="2.4s" repeatCount="indefinite"/></path>
+    <path d="M137 92 H144 V104 H137Z"><animateTransform class="lg-loop" attributeName="transform" type="skewY" values="0;-8;0;4;0" dur="2.4s" repeatCount="indefinite"/></path>
+  </g>
+  <!-- ghostly lamp in a window -->
+  <rect x="156" y="64" width="10" height="6" fill="#6ff3ff" opacity="0.6"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 0;0 200;0 200;0 0;0 0" keyTimes="0;.6;.601;.65;.651;1" dur="3s" repeatCount="indefinite"/></rect>
+  <!-- the gallows -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" fill="#6b4423">
+    <rect x="200" y="96" width="44" height="4"/><rect x="204" y="100" width="4" height="12"/><rect x="236" y="100" width="4" height="12"/>
+    <rect x="232" y="54" width="4" height="42"/><rect x="210" y="52" width="26" height="4"/>
+  </g>
+  <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-6 214 56;6 214 56;-6 214 56" dur="3s" repeatCount="indefinite"/>
+    <path d="M214 56 V74" stroke="#c8a060" stroke-width="1.4"/><ellipse cx="214" cy="78" rx="3.4" ry="4" fill="none" stroke="#c8a060" stroke-width="1.4"/></g>
+  <!-- the dusty ground -->
+  <path d="M0 112 H400 V140 H0Z" fill="var(--lg-near, #d9a95a)"/>
+  <g fill="#b8862a" opacity="0.5"><ellipse cx="60" cy="124" rx="30" ry="3"/><ellipse cx="300" cy="130" rx="40" ry="3"/></g>
+  <!-- cactus and a cow skull -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1" fill="#5a8a3a"><path d="M320 112 V88 C320 84 326 84 326 88 V112Z M320 100 H314 V92 C314 90 318 90 318 92 V96 H320Z M326 96 H332 V88 C332 86 336 86 336 88 V100 H326Z"/></g>
+  <g fill="#f4efe0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"><path d="M44 118 C44 112 54 112 54 118 L50 124 H48Z M42 114 C38 112 36 108 38 106 C40 110 44 110 45 112 M56 114 C60 112 62 108 60 106 C58 110 54 110 53 112"/></g>
+  <!-- tumbleweeds rolling -->
+  <g fill="none" stroke="#8a6a44" stroke-width="1">
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="-20 0;420 0" dur="10s" repeatCount="indefinite"/>
+      <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 0 120;360 0 120" dur="1.6s" repeatCount="indefinite"/>
+        <circle cx="0" cy="120" r="7"/><path d="M-5 116 L5 124 M-5 124 L5 116 M0 113 V127"/></g></g>
+  </g>
+  <!-- vultures -->
+  <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linecap="round">
+    <path d="M150 24 l4 -3 l4 3 l4 -3 l4 3"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;16 4;0 0" dur="6s" repeatCount="indefinite"/></path>
+  </g>
+</svg>

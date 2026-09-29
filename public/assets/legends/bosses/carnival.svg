@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- The Box King: a monstrous jack-in-the-box. Striped box, coiled spring, a jester with far too many teeth, belled
+       hat, clawed gloves gripping the box. -->
+  <!-- string lights -->
+  <path d="M0 8 Q30 22 60 10 Q90 -2 120 12" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+  <g>
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 1;0 0" dur="1.2s" repeatCount="indefinite"/>
+    <circle cx="12" cy="13" r="2" fill="#ffd23f"/><circle cx="30" cy="16" r="2" fill="#ff3fd2"/><circle cx="48" cy="13" r="2" fill="#2ef2ff"/><circle cx="72" cy="7" r="2" fill="#ffd23f"/><circle cx="90" cy="5" r="2" fill="#ff3fd2"/><circle cx="108" cy="9" r="2" fill="#2ef2ff"/>
+  </g>
+  <!-- the box -->
+  <path d="M24 86 H96 V120 H24Z" fill="var(--lg-deep, #7c4def)" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
+  <g fill="#ffd23f"><path d="M34 86 H44 L38 120 H28Z"/><path d="M58 86 H68 L62 120 H52Z"/><path d="M82 86 H92 L86 120 H76Z"/></g>
+  <path d="M80 86 H96 V120 H86Z" fill="#000" opacity="0.2"/>
+  <g fill="#fff" opacity="0.8"><path d="M48 98 l2 4 l4 0 l-3 3 l1 4 l-4 -2 l-4 2 l1 -4 l-3 -3 l4 0Z"/></g>
+  <!-- the lid, flung open behind -->
+  <path d="M96 86 L114 62 L118 66 L100 88Z" fill="var(--lg-near, #a585f5)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+  <!-- the jester springs out on the entrance -->
+  <g>
+    <animateTransform class="lg-in" attributeName="transform" type="translate" values="0 50;0 50;0 -10;0 4;0 0" keyTimes="0;.45;.68;.84;1" dur="1.6s" fill="freeze"/>
+    <g>
+      <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 60 90;4 60 90;0 60 90;-4 60 90;0 60 90" dur="2.4s" begin="1.6s" repeatCount="indefinite"/>
+      <!-- the spring -->
+      <path d="M52 90 L68 86 L52 82 L68 78 L52 74 L68 70 L52 66" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="4.4" stroke-linejoin="round"/>
+      <path d="M52 90 L68 86 L52 82 L68 78 L52 74 L68 70 L52 66" fill="none" stroke="#c9ccd6" stroke-width="2.4" stroke-linejoin="round"/>
+      <!-- ruff collar -->
+      <path d="M36 66 C40 60 44 66 48 60 C52 66 56 60 60 64 C64 60 68 66 72 60 C76 66 80 60 84 66 L78 72 H42Z" fill="#f4efe6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+      <!-- belled hat: three points -->
+      <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round">
+        <path d="M40 30 C30 22 20 22 12 30 C22 30 30 34 38 40Z" fill="#b3122e"/>
+        <path d="M80 30 C90 22 100 22 108 30 C98 30 90 34 82 40Z" fill="var(--lg-deep, #7c4def)"/>
+        <path d="M48 26 C50 12 56 4 64 0 C62 10 66 18 72 26Z" fill="#ffd23f"/>
+      </g>
+      <g fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="1">
+        <circle cx="12" cy="31" r="3.4"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 14 28;25 14 28;0 14 28;-25 14 28;0 14 28" dur="0.9s" repeatCount="indefinite"/></circle>
+        <circle cx="108" cy="31" r="3.4"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 106 28;-25 106 28;0 106 28;25 106 28;0 106 28" dur="1s" repeatCount="indefinite"/></circle>
+        <circle cx="64" cy="1" r="3"/>
+      </g>
+      <!-- face -->
+      <path d="M38 40 C38 26 48 22 60 22 C72 22 82 26 82 40 C82 56 72 66 60 66 C48 66 38 56 38 40Z" fill="#f4efe6" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
+      <path d="M76 30 C80 38 80 50 74 58 C70 62 66 64 62 66 C72 60 78 50 76 30Z" fill="#000" opacity="0.14"/>
+      <!-- diamond eye paint -->
+      <g fill="var(--lg-deep, #7c4def)" opacity="0.8"><path d="M48 30 L52 36 L48 42 L44 36Z"/><path d="M72 30 L76 36 L72 42 L68 36Z"/></g>
+      <!-- spiral eyes -->
+      <g transform="translate(50 38)"><g>
+        <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.05;0.05;1.4;1" keyTimes="0;.62;.8;1" dur="1.5s" fill="freeze"/>
+        <circle r="5" fill="#fff" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+        <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;360" dur="1.4s" repeatCount="indefinite"/>
+          <path d="M0 0 C1 -1 2 0 1.6 1.4 C1 3 -2 3 -2.6 0.6 C-3.2 -2 0 -4 2.4 -3" fill="none" stroke="#b3122e" stroke-width="1.1"/></g>
+      </g></g>
+      <g transform="translate(70 38)"><g>
+        <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.05;0.05;1.4;1" keyTimes="0;.66;.84;1" dur="1.5s" fill="freeze"/>
+        <circle r="5" fill="#fff" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+        <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="360;0" dur="1.4s" repeatCount="indefinite"/>
+          <path d="M0 0 C1 -1 2 0 1.6 1.4 C1 3 -2 3 -2.6 0.6 C-3.2 -2 0 -4 2.4 -3" fill="none" stroke="#b3122e" stroke-width="1.1"/></g>
+      </g></g>
+      <path d="M42 30 L54 33 M78 30 L66 33" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2" stroke-linecap="round"/>
+      <circle cx="60" cy="46" r="3.4" fill="#d4342c" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+      <!-- the grin: splits wide on the entrance -->
+      <g transform="translate(60 54)"><g>
+        <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.3 0.3;0.3 0.3;1.15 1.2;1 1" keyTimes="0;.7;.86;1" dur="1.6s" fill="freeze"/>
+        <path d="M-18 -4 C-10 2 10 2 18 -4 C14 8 6 12 0 12 C-6 12 -14 8 -18 -4Z" fill="#2a0f14" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+        <g fill="#fff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round">
+          <polygon points="-16,-3 -14,3 -12,-1"/><polygon points="-12,-1 -10,5 -8,0"/><polygon points="-8,0 -6,6 -4,1"/><polygon points="-4,1 -2,6 0,1"/><polygon points="0,1 2,6 4,1"/><polygon points="4,1 6,6 8,0"/><polygon points="8,0 10,5 12,-1"/><polygon points="12,-1 14,3 16,-3"/>
+          <polygon points="-10,10 -8,5 -6,10"/><polygon points="-4,11 -2,6 0,12"/><polygon points="0,12 2,6 4,11"/><polygon points="6,10 8,5 10,10"/>
+        </g>
+      </g></g>
+      <path d="M40 48 C38 52 40 56 42 56 M80 48 C82 52 80 56 78 56" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    </g>
+  </g>
+  <!-- clawed gloves gripping the box edge -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round">
+    <path d="M22 86 C18 80 22 74 30 74 C36 74 40 78 40 86Z" fill="#f4efe6"/>
+    <path d="M98 86 C102 80 98 74 90 74 C84 74 80 78 80 86Z" fill="#f4efe6"/>
+    <g fill="#2a2433" stroke-width="0.8"><polygon points="24,86 22,94 27,88"/><polygon points="30,86 29,95 33,88"/><polygon points="36,86 36,94 39,87"/><polygon points="96,86 98,94 93,88"/><polygon points="90,86 91,95 87,88"/><polygon points="84,86 84,94 81,87"/></g>
+  </g>
+  <!-- confetti -->
+  <g>
+    <rect style="transform-box:fill-box;transform-origin:center" x="16" y="50" width="3" height="3" fill="#ffd23f"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -20;4 40" dur="2.6s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.6s" repeatCount="indefinite" additive="sum"/></rect>
+    <rect style="transform-box:fill-box;transform-origin:center" x="100" y="44" width="3" height="3" fill="#2ef2ff"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -20;-4 40" dur="2.2s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.2s" repeatCount="indefinite" additive="sum"/></rect>
+    <rect style="transform-box:fill-box;transform-origin:center" x="30" y="40" width="3" height="3" fill="#ff3fd2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -20;-2 44" dur="3s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="3s" repeatCount="indefinite" additive="sum"/></rect>
+  </g>
+</svg>

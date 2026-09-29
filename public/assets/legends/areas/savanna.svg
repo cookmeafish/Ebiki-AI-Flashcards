@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
+  <!-- The Sunscorched Plains: a blazing sunset, acacia trees, Pride Rock with the Pride Tyrant on top, grass bending in
+       the wind, vultures circling. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #ffd9b0)"/>
+  <!-- blazing sun with bands -->
+  <circle cx="200" cy="70" r="46" fill="#ff7a1a" opacity="0.35" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.04;1" dur="4s" repeatCount="indefinite" additive="sum"/></circle>
+  <circle cx="200" cy="70" r="32" fill="#ffb627"/>
+  <g fill="var(--lg-sky, #ffd9b0)" opacity="0.6"><rect x="160" y="72" width="80" height="3"/><rect x="160" y="80" width="80" height="4"/><rect x="160" y="90" width="80" height="5"/></g>
+  <!-- far hills -->
+  <path d="M0 100 C40 90 80 94 120 88 C160 84 200 92 240 90 C280 88 330 94 400 88 V104 H0Z" fill="var(--lg-far, #e0a079)"/>
+  <!-- vultures circling -->
+  <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linecap="round">
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 250 30;360 250 30" dur="14s" repeatCount="indefinite"/><path d="M262 30 l4 -3 l4 3 l4 -3 l4 3"/></g>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="180 250 30;540 250 30" dur="14s" repeatCount="indefinite"/><path d="M262 30 l3 -2 l3 2 l3 -2 l3 2"/></g>
+  </g>
+  <!-- acacia trees -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
+    <path d="M52 112 L54 76 L44 64 L48 62 L56 72 L60 60 L64 62 L60 76 L58 112Z" fill="#4a3020"/>
+    <path d="M20 62 C24 52 44 50 58 52 C74 50 92 52 96 60 C84 66 34 68 20 62Z" fill="#6b8a3a"/>
+    <path d="M364 112 L366 84 L358 76 L362 74 L368 80 L372 72 L376 74 L370 86 L370 112Z" fill="#4a3020"/>
+    <path d="M338 76 C342 68 358 66 368 68 C380 66 394 68 398 74 C388 80 348 80 338 76Z" fill="#6b8a3a"/>
+  </g>
+  <!-- Pride Rock -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round">
+    <path d="M120 112 L140 84 L170 72 L200 70 L260 66 L284 72 L270 80 L240 84 L250 112Z" fill="#8a6a4a"/>
+    <path d="M140 84 L170 72 L200 70 L260 66 L284 72 L262 72 L200 76 L160 84Z" fill="#fff" opacity="0.2" stroke="none"/>
+    <path d="M150 96 L170 90 M200 94 L230 88 M220 104 L240 100" fill="none" stroke-width="0.8"/>
+  </g>
+  <!-- the Pride Tyrant on the ledge: spiked burning mane, crown of horns -->
+  <g transform="translate(258 68) scale(1.35) translate(-258 -68)">
+  <g>
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -1;0 0" dur="2s" repeatCount="indefinite"/>
+    <path d="M232 68 C230 58 236 50 244 50 L268 56 L276 66Z" fill="#e0a13a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+    <g stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round">
+      <path d="M252 30 L256 38 L262 30 L262 40 L270 36 L266 44 L276 44 L268 50 L276 56 L266 56 L268 64 L260 58 L256 66 L252 58 L244 62 L246 54 L238 54 L244 48 L238 42 L246 42 L242 34 L250 38Z" fill="#b3321a">
+        <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 256 48;4 256 48;0 256 48;-4 256 48;0 256 48" dur="3s" repeatCount="indefinite"/>
+      </path>
+    </g>
+    <path d="M248 44 C248 38 264 38 264 44 C264 52 260 56 256 56 C252 56 248 52 248 44Z" fill="#e0a13a" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    <g fill="#e8dcc0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"><path d="M249 40 L246 32 L252 38Z M263 40 L266 32 L260 38Z"/></g>
+    <g fill="#ffe36b"><path d="M250 44 L254 45 L251 46Z M262 44 L258 45 L261 46Z"/></g>
+    <path d="M252 50 C254 54 258 54 260 50 L258 53 H254Z" fill="#4a0c0c"/>
+    <g fill="#fff"><polygon points="253,50 254,54 255,50"/><polygon points="257,50 258,54 259,50"/></g>
+    <path d="M276 60 C284 58 288 50 286 46" fill="none" stroke="#e0a13a" stroke-width="2"/>
+  </g>
+  </g>
+  <!-- roar shock lines -->
+  <g fill="none" stroke="#fff6c2" stroke-width="1.4" stroke-linecap="round" opacity="0.8">
+    <path d="M238 44 C234 46 234 52 238 54 M232 40 C226 44 226 54 232 58"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="4 0;-4 0;4 0" dur="2s" repeatCount="indefinite" keyTimes="0;.5;1"/></path>
+  </g>
+  <!-- the plain -->
+  <path d="M0 104 C80 100 160 108 240 104 C300 100 360 106 400 104 V140 H0Z" fill="var(--lg-near, #d9a95a)"/>
+  <!-- grass bending in the wind -->
+  <g fill="none" stroke="#b8862a" stroke-width="1.6" stroke-linecap="round">
+    <g><animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;-10;0" dur="2s" repeatCount="indefinite"/>
+      <path d="M20 132 C20 124 24 118 28 114 M26 132 C26 126 28 120 32 118 M90 128 C90 120 94 114 98 110 M96 128 C96 122 98 118 102 116 M300 130 C300 122 304 116 308 112 M306 130 C306 124 308 120 312 118 M360 134 C360 126 364 120 368 116"/>
+    </g>
+  </g>
+  <!-- bones by the rock -->
+  <g fill="#f4efe0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"><path d="M130 120 H146 M130 118 C128 118 128 122 130 122 M146 118 C148 118 148 122 146 122" stroke-width="2.4" stroke-linecap="round"/><path d="M160 124 C156 116 166 114 168 120 C168 124 164 126 160 124Z"/></g>
+  <!-- heat shimmer -->
+  <g fill="none" stroke="#fff" stroke-width="1" opacity="0.4"><path d="M100 98 C110 96 120 100 130 98 M280 100 C290 98 300 102 310 100"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -3;0 0" dur="1.6s" repeatCount="indefinite"/></path></g>
+</svg>

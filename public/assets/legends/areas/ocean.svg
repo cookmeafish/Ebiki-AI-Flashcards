@@ -1,25 +1,69 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
+  <!-- Kraken Deep: a storm at sea, a lonely lighthouse, a wreck in the grip of the Abyssal Kraken. -->
   <rect width="400" height="140" fill="var(--lg-sky, #dcefff)"/>
-  <circle cx="300" cy="40" r="20" fill="var(--lg-accent, #22b8a8)" opacity="0.85"/>
-  <g fill="var(--lg-light, #ffffff)" opacity="0.85">
-    <ellipse cx="90" cy="30" rx="24" ry="8"/><ellipse cx="106" cy="24" rx="15" ry="8"/>
+  <!-- storm clouds -->
+  <g fill="var(--lg-far, #8fc7df)" opacity="0.8">
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;12 0;0 0" dur="12s" repeatCount="indefinite"/>
+    <ellipse cx="60" cy="14" rx="60" ry="14"/><ellipse cx="160" cy="8" rx="50" ry="12"/><ellipse cx="300" cy="12" rx="70" ry="14"/><ellipse cx="380" cy="20" rx="40" ry="12"/>
   </g>
-  <path d="M330 84 Q346 62 366 70 Q378 76 380 84Z" fill="var(--lg-far, #8cc7ee)"/>
-  <rect x="352" y="56" width="3" height="18" fill="var(--lg-deep, #1f6fb0)"/>
-  <path d="M355 56 Q366 60 355 66Z" fill="var(--lg-accent, #22b8a8)"/>
-  <path d="M0 80 Q50 70 100 80 T200 80 T300 80 T400 80 V140 H0Z" fill="var(--lg-far, #8cc7ee)"/>
-  <path d="M0 98 Q50 88 100 98 T200 98 T300 98 T400 98 V140 H0Z" fill="var(--lg-near, #4d9fdb)"/>
+  <path d="M120 16 L112 34 L118 34 L110 52 L126 30 L120 30 L126 16Z" fill="#fff04a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+  <!-- lighthouse on the rocks, beam turning -->
+  <path d="M40 60 L4 40 V80Z" fill="#ffe27a" opacity="0.3">
+    <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 40 60;50 40 60;0 40 60" dur="6s" repeatCount="indefinite"/>
+  </path>
+  <path d="M10 100 L20 86 L34 90 L46 84 L62 92 L70 100Z" fill="var(--lg-deep, #1f6f99)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+  <path d="M34 88 L37 58 H45 L48 88Z" fill="#f4efe6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+  <g fill="#d8342c"><rect x="35.6" y="66" width="10.8" height="5"/><rect x="34.6" y="78" width="12.8" height="5"/></g>
+  <rect x="36" y="52" width="10" height="6" fill="#ffe27a" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+  <path d="M34 52 L41 46 L48 52Z" fill="#1d2230"/>
+  <!-- horizon -->
+  <path d="M0 76 H400 V140 H0Z" fill="var(--lg-far, #8fc7df)"/>
+  <!-- the kraken rising -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round">
+    <g>
+      <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 190 96;-6 190 96;0 190 96" dur="3.4s" repeatCount="indefinite"/>
+      <path d="M184 98 C176 76 168 60 176 40 C180 30 190 32 188 40 C182 54 190 70 198 94Z" fill="var(--lg-deep, #1f6f99)"/>
+      <g fill="var(--lg-far, #8fc7df)" stroke-width="0.6"><circle cx="182" cy="46" r="1.6"/><circle cx="181" cy="56" r="1.8"/><circle cx="184" cy="68" r="2"/></g>
+    </g>
+    <g>
+      <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 300 96;6 300 96;0 300 96" dur="3.1s" repeatCount="indefinite"/>
+      <path d="M296 98 C306 80 318 66 312 46 C308 36 298 38 300 46 C306 60 298 76 286 94Z" fill="var(--lg-deep, #1f6f99)"/>
+      <g fill="var(--lg-far, #8fc7df)" stroke-width="0.6"><circle cx="307" cy="52" r="1.6"/><circle cx="306" cy="62" r="1.8"/><circle cx="302" cy="74" r="2"/></g>
+    </g>
+    <path d="M206 100 C204 70 222 54 244 54 C266 54 284 70 282 100Z" fill="var(--lg-deep, #1f6f99)"/>
+    <path d="M212 90 C214 70 226 60 240 58 C228 66 222 78 222 96Z" fill="#fff" opacity="0.15" stroke="none"/>
+    <g fill="#3ff0ff" stroke="none"><circle cx="232" cy="62" r="1.6"/><circle cx="250" cy="60" r="1.4"/><circle cx="262" cy="66" r="1.6"/><circle cx="222" cy="72" r="1.2"/></g>
+    <path d="M220 80 L236 84 M268 80 L252 84" stroke-width="2.4" stroke-linecap="round"/>
+    <ellipse cx="229" cy="88" rx="7" ry="5" fill="#b8fbff" stroke-width="1.2"/><ellipse cx="259" cy="88" rx="7" ry="5" fill="#b8fbff" stroke-width="1.2"/>
+    <g fill="#0b1a24" stroke="none"><ellipse cx="229" cy="88" rx="1.4" ry="4"/><ellipse cx="259" cy="88" rx="1.4" ry="4"/></g>
+    <g fill="#3ff0ff" stroke="none" opacity="0.3"><circle cx="229" cy="88" r="10"/><circle cx="259" cy="88" r="10"/></g>
+  </g>
+  <!-- the wreck in a tentacle's grip -->
   <g>
-    <path d="M118 84 H160 L152 96 H126Z" fill="var(--lg-accent, #22b8a8)"/>
-    <rect x="137" y="52" width="3" height="32" fill="var(--lg-deep, #1f6fb0)"/>
-    <polygon points="140,54 140,82 162,82" fill="var(--lg-light, #ffffff)"/>
-    <polygon points="137,58 137,82 120,82" fill="var(--lg-light, #ffffff)" opacity="0.8"/>
+    <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-12 340 96;-6 340 96;-12 340 96" dur="4s" repeatCount="indefinite"/>
+    <path d="M318 96 L362 96 L356 106 L324 106Z" fill="#6b4423" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+    <path d="M340 96 V60" stroke="#4a2f1a" stroke-width="2.4"/>
+    <path d="M340 62 L358 72 L340 80Z" fill="var(--lg-light, #f4efe6)" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    <path d="M352 110 C358 96 368 90 372 80 C374 74 368 72 366 78 C362 88 352 96 346 106" fill="var(--lg-deep, #1f6f99)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
   </g>
-  <path d="M0 118 Q50 108 100 118 T200 118 T300 118 T400 118 V140 H0Z" fill="var(--lg-deep, #1f6fb0)"/>
-  <g stroke="var(--lg-light, #ffffff)" stroke-width="2" fill="none" opacity="0.55" stroke-linecap="round">
-    <path d="M30 108 q8 -4 16 0"/><path d="M220 106 q8 -4 16 0"/><path d="M300 126 q8 -4 16 0"/><path d="M80 130 q8 -4 16 0"/>
+  <!-- rolling waves -->
+  <g>
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-40 0;0 0" dur="8s" repeatCount="indefinite" keyTimes="0;.5;1"/>
+    <path d="M0 100 Q20 92 40 100 T80 100 T120 100 T160 100 T200 100 T240 100 T280 100 T320 100 T360 100 T400 100 T440 100 V140 H0Z" fill="var(--lg-near, #4fa3c7)"/>
+    <g fill="none" stroke="var(--lg-light, #ffffff)" stroke-width="1.6" stroke-linecap="round" opacity="0.8"><path d="M10 97 Q20 93 30 97 M90 97 Q100 93 110 97 M170 97 Q180 93 190 97 M250 97 Q260 93 270 97 M330 97 Q340 93 350 97 M410 97 Q420 93 430 97"/></g>
   </g>
-  <g fill="var(--lg-accent, #22b8a8)">
-    <path d="M250 128 q6 -8 12 0 q-6 6 -12 0z"/><polygon points="262,128 268,124 268,132"/>
+  <g>
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="-40 0;0 0;-40 0" dur="6s" repeatCount="indefinite" keyTimes="0;.5;1"/>
+    <path d="M0 118 Q20 110 40 118 T80 118 T120 118 T160 118 T200 118 T240 118 T280 118 T320 118 T360 118 T400 118 T440 118 V140 H0Z" fill="var(--lg-deep, #1f6f99)"/>
+  </g>
+  <!-- whirlpool -->
+  <g transform="translate(120 128)"><g>
+    <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-360" dur="6s" repeatCount="indefinite"/>
+    <path d="M0 0 C10 -4 16 4 8 8 C-4 12 -16 2 -10 -8 C-2 -18 20 -12 22 2" fill="none" stroke="var(--lg-light, #ffffff)" stroke-width="1.6" stroke-linecap="round" opacity="0.8"/>
+  </g></g>
+  <!-- spray -->
+  <g fill="var(--lg-light, #ffffff)" opacity="0.8">
+    <circle style="transform-box:fill-box;transform-origin:center" cx="210" cy="100" r="2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-6 -12;-10 0" dur="1.6s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.6s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle style="transform-box:fill-box;transform-origin:center" cx="280" cy="100" r="2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -12;10 0" dur="1.8s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.8s" repeatCount="indefinite" additive="sum"/></circle>
   </g>
 </svg>

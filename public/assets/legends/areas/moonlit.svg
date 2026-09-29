@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
+  <!-- The Howling Moor: standing stones, a ruined cottage, claw marks, a wolf howling on the hill under a huge moon. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #e7e4f0)"/>
+  <!-- the huge moon -->
+  <circle cx="250" cy="56" r="44" fill="#f4efd8" stroke="#c9bf94" stroke-width="2"/>
+  <circle cx="250" cy="56" r="52" fill="#f4efd8" opacity="0.2"/>
+  <g fill="#d9d1b0" opacity="0.8"><circle cx="232" cy="42" r="8"/><circle cx="268" cy="66" r="10"/><circle cx="258" cy="30" r="4"/></g>
+  <!-- clouds across the moon -->
+  <g fill="var(--lg-far, #b9b0dc)" opacity="0.8">
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="-30 0;30 0;-30 0" dur="18s" repeatCount="indefinite"/>
+    <ellipse cx="200" cy="60" rx="40" ry="6"/><ellipse cx="300" cy="44" rx="34" ry="5"/>
+  </g>
+  <!-- the hill, and the wolf howling on top -->
+  <path d="M150 104 C190 80 230 70 260 74 C290 78 320 90 350 104Z" fill="var(--lg-deep, #5a4a6e)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+  <g fill="#1d2230">
+    <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 262 74;-4 262 74;0 262 74" dur="3s" repeatCount="indefinite"/>
+    <path d="M244 76 C246 68 254 64 262 64 L268 50 L272 52 L270 60 L276 56 L278 60 L272 66 C274 70 274 76 272 76 L268 72 L264 76 L256 76 L252 72 L248 76Z"/>
+    <path d="M244 72 C240 70 236 72 234 76 L240 76Z"/>
+  </g>
+  <!-- the moor -->
+  <path d="M0 96 Q100 84 200 100 T400 94 V140 H0Z" fill="var(--lg-near, #8a7a9e)"/>
+  <!-- standing stones -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round" fill="var(--lg-far, #b9b0dc)">
+    <path d="M40 104 L42 70 L54 66 L56 104Z"/><path d="M66 104 L66 74 L78 72 L80 104Z"/><path d="M36 70 L84 66 L84 74 L36 78Z"/>
+    <path d="M100 106 L102 82 L110 80 L112 106Z"/>
+  </g>
+  <g fill="none" stroke="#e05555" stroke-width="1.6" stroke-linecap="round"><path d="M44 84 l6 10 M47 82 l6 10 M50 80 l6 10"/></g>
+  <!-- the ruined cottage -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
+    <path d="M320 112 V88 L334 76 L346 84 L352 80 L360 90 V112Z" fill="#8a7a6a"/>
+    <path d="M316 90 L336 72 L348 80" fill="none" stroke="#4a3b2a" stroke-width="3"/>
+    <rect x="330" y="96" width="8" height="16" fill="#1d1410"/>
+    <rect x="344" y="94" width="6" height="6" fill="#ffb347"/>
+    <path d="M344 97 H350 M347 94 V100" stroke="#4a3b2a" stroke-width="0.8"/>
+  </g>
+  <!-- dead bushes -->
+  <g fill="none" stroke="#2a2433" stroke-width="1.6" stroke-linecap="round"><path d="M140 112 L136 102 M140 112 L144 100 M140 112 L148 106 M380 114 L376 104 M380 114 L384 102"/></g>
+  <!-- ground mist -->
+  <g fill="var(--lg-light, #ffffff)" opacity="0.35">
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="-20 0;20 0;-20 0" dur="12s" repeatCount="indefinite"/>
+    <ellipse cx="100" cy="112" rx="110" ry="7"/><ellipse cx="310" cy="116" rx="100" ry="7"/>
+  </g>
+  <!-- paw prints -->
+  <g fill="#2a2433" opacity="0.6">
+    <g transform="translate(190 124)"><ellipse rx="3" ry="2.4"/><circle cx="-3" cy="-3.6" r="1"/><circle cx="0" cy="-4.4" r="1"/><circle cx="3" cy="-3.6" r="1"/></g>
+    <g transform="translate(212 130)"><ellipse rx="3" ry="2.4"/><circle cx="-3" cy="-3.6" r="1"/><circle cx="0" cy="-4.4" r="1"/><circle cx="3" cy="-3.6" r="1"/></g>
+  </g>
+  <!-- bats -->
+  <g fill="#1d2230">
+    <path style="transform-box:fill-box;transform-origin:center" d="M60 40 l5 -4 l2 3 l2 -3 l5 4 l-4 0 l-3 2 l-3 -2Z"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;80 -10;160 6" dur="8s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="8s" repeatCount="indefinite" additive="sum"/></path>
+  </g>
+</svg>

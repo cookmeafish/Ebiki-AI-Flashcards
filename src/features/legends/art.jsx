@@ -7,13 +7,19 @@
 //   --lg-sky --lg-far --lg-near --lg-deep --lg-accent --lg-light
 // The files are inlined (an <img> could not see the theme's variables) through the app's one sanitizer, loaded
 // lazily (it needs a DOM). Edit or replace a file to change the art; public/assets/legends/README.md says how.
-import { useEffect, useState } from 'react'
+// Motion is SVG animation inside the file (<animateTransform>/<animateMotion>; the sanitizer drops <animate>/<set>):
+// class="lg-in" = the entrance (played once when the file appears), class="lg-loop" = idle life (breathing, fire,
+// waves). `animated` picks what plays: 'intro' = both, 'idle' = loops only, false = none (the file's own attributes
+// are its resting pose, so a still file shows the finished boss). Reduced motion always gets false.
+import { useEffect, useMemo, useState } from 'react'
 import { RADIUS } from '../../config/tokens'
 import { MOTIFS } from './map'
+import { RAID_MOTIFS } from './raid'
 
 export const ART_BASE = '/assets/legends'
 export const BANNER = { w: 400, h: 140 }
-export const artUrl = (kind, motif) => `${ART_BASE}/${kind}/${MOTIFS.includes(motif) ? motif : MOTIFS[0]}.svg`
+// Raid bosses have their own list (raid.js); areas and bosses share the map's motifs.
+export const artUrl = (kind, motif) => { const list = kind === 'raids' ? RAID_MOTIFS : MOTIFS; return `${ART_BASE}/${kind}/${list.includes(motif) ? motif : list[0]}.svg` }
 
 const mix = (token, pct, base = 'var(--c-surface)') => `color-mix(in srgb, ${token} ${pct}%, ${base})`
 
@@ -46,8 +52,22 @@ function loadArt(url) {
   return cache.get(url)
 }
 
+const ANIM_TAGS = new Set(['animatetransform', 'animatemotion'])
+const reducedMotion = () => { try { return !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches } catch { return false } }
+// Sanitized markup with only the motion `mode` allows (parsed inertly; nothing here runs the file).
+export function withMotion(svg, mode) {
+  if (!svg || mode === 'intro') return svg
+  const doc = new DOMParser().parseFromString(svg, 'text/html')
+  for (const n of [...doc.body.querySelectorAll('*')]) {
+    if (!ANIM_TAGS.has(n.localName.toLowerCase())) continue
+    if (mode === 'idle' && !n.classList.contains('lg-in')) continue
+    n.remove()
+  }
+  return doc.body.innerHTML
+}
+
 // One art file, colored for `palette`. While it loads (or if it is missing) the frame shows the palette's sky.
-export function LegendsArt({ kind, motif, palette, height, width = '100%', locked = false, round = RADIUS.lg, style }) {
+export function LegendsArt({ kind, motif, palette, height, width = '100%', locked = false, round = RADIUS.lg, animated = false, style }) {
   const url = artUrl(kind, motif)
   const [html, setHtml] = useState({ url: '', svg: '' })
   useEffect(() => {
@@ -55,7 +75,9 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
     loadArt(url).then((svg) => { if (live) setHtml({ url, svg }) })
     return () => { live = false }
   }, [url])
-  const svg = html.url === url ? html.svg : ''
+  const mode = locked || reducedMotion() ? false : animated
+  const raw = html.url === url ? html.svg : ''
+  const svg = useMemo(() => withMotion(raw, mode), [raw, mode])
   return (
     <div style={{
       width, height, borderRadius: round, overflow: 'hidden', flexShrink: 0, ...artVars(palette),
@@ -66,9 +88,9 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
   )
 }
 
-export const AreaArt = ({ area, height = 120, locked = false, style }) => (
-  <LegendsArt kind="areas" motif={area?.motif} palette={area?.palette} height={height} locked={locked} style={style} />
+export const AreaArt = ({ area, height = 120, width = '100%', locked = false, animated = 'idle', style }) => (
+  <LegendsArt kind="areas" motif={area?.motif} palette={area?.palette} height={height} width={width} locked={locked} animated={animated} style={style} />
 )
-export const BossArt = ({ area, size = 64, locked = false, style }) => (
-  <LegendsArt kind="bosses" motif={area?.motif} palette={area?.palette} height={size} width={size} round={0} locked={locked} style={style} />
+export const BossArt = ({ area, size = 64, locked = false, animated = false, style }) => (
+  <LegendsArt kind="bosses" motif={area?.motif} palette={area?.palette} height={size} width={size} round={0} locked={locked} animated={animated} style={style} />
 )

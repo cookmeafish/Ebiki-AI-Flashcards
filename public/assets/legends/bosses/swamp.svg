@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- Bogmaw: a colossal swamp crocodile with an anglerfish lantern, rising out of the mire, jaws agape. -->
+  <!-- marsh mist -->
+  <g fill="var(--lg-far, #9fd4ad)" opacity="0.35">
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="-4 0;4 0;-4 0" dur="6s" repeatCount="indefinite"/>
+    <ellipse cx="26" cy="26" rx="30" ry="9"/><ellipse cx="98" cy="18" rx="26" ry="8"/>
+  </g>
+  <!-- reeds and cattails -->
+  <g fill="none" stroke="var(--lg-deep, #2e8b57)" stroke-width="2" stroke-linecap="round">
+    <path d="M5 104 C7 84 5 66 9 50 M12 104 C12 88 16 74 14 62 M114 104 C112 84 116 68 112 52 M107 104 C109 90 105 78 107 66"/>
+  </g>
+  <g fill="#6b4423" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"><rect x="7" y="46" width="4" height="10" rx="2"/><rect x="110" y="48" width="4" height="10" rx="2"/></g>
+  <!-- scute ridge of the back -->
+  <g fill="var(--lg-deep, #2e8b57)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
+    <polygon points="18,58 22,40 30,54"/><polygon points="28,46 34,28 42,44"/><polygon points="78,44 86,28 92,46"/><polygon points="90,54 98,40 102,58"/>
+  </g>
+  <!-- the maw interior -->
+  <path d="M24 66 L60 86 L96 66 C98 82 84 100 60 104 C36 100 22 82 24 66Z" fill="#150b0a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+  <path d="M46 94 C52 90 68 90 74 94 C68 98 52 98 46 94Z" fill="#7a1e2b"/>
+  <!-- lower jaw: drops open on the entrance -->
+  <g>
+    <animateTransform class="lg-in" attributeName="transform" type="translate" values="0 -16;0 -16;0 4;0 0" keyTimes="0;.62;.82;1" dur="1.6s" fill="freeze"/>
+    <g>
+      <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 3;0 0" dur="3.2s" begin="1.6s" repeatCount="indefinite"/>
+      <path d="M20 84 L60 110 L100 84 L96 80 L60 102 L24 80Z" fill="var(--lg-deep, #2e8b57)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
+      <g fill="#efe6c6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round">
+        <polygon points="28,84 30,72 34,87"/><polygon points="36,89 39,78 42,92"/><polygon points="45,94 48,82 51,97"/><polygon points="55,100 58,88 61,101"/>
+        <polygon points="63,100 66,88 68,99"/><polygon points="72,95 75,83 78,93"/><polygon points="81,90 84,78 87,88"/><polygon points="89,86 92,74 94,83"/>
+      </g>
+    </g>
+  </g>
+  <!-- skull and V-shaped upper snout -->
+  <g transform="translate(60 60)"><g>
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -2;0 0" dur="3.2s" repeatCount="indefinite"/>
+    <g transform="translate(-60 -60)">
+      <path d="M14 60 C14 44 28 32 42 28 C50 25 70 25 78 28 C92 32 106 44 106 60 L98 68 L60 90 L22 68Z" fill="var(--lg-deep, #2e8b57)" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2" stroke-linejoin="round"/>
+      <path d="M20 58 C22 44 34 34 46 31 C38 40 32 52 30 68 L22 66Z" fill="#fff" opacity="0.14"/>
+      <path d="M100 58 C98 46 90 36 78 31 C86 42 88 56 84 76 L98 68Z" fill="#000" opacity="0.26"/>
+      <!-- armored plates and warts -->
+      <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" opacity="0.55"><path d="M42 48 h8 v6 h-8z M54 46 h8 v6 h-8z M66 48 h8 v6 h-8z M48 58 h8 v6 h-8z M62 58 h8 v6 h-8z M56 68 h8 v5 h-8z"/></g>
+      <g fill="var(--lg-near, #5fb57a)"><circle cx="34" cy="52" r="1.6"/><circle cx="86" cy="50" r="1.8"/><circle cx="40" cy="62" r="1.2"/><circle cx="82" cy="62" r="1.4"/></g>
+      <!-- scars -->
+      <g fill="none" stroke="#1d1410" stroke-width="1.4" stroke-linecap="round"><path d="M70 36 L80 48 M73 35 L76 39 M77 40 L80 38"/></g>
+      <!-- nostrils at the snout tip -->
+      <g fill="#10180e"><ellipse cx="56" cy="78" rx="2" ry="1.4"/><ellipse cx="64" cy="78" rx="2" ry="1.4"/></g>
+      <!-- upper fangs along the V, interlocking -->
+      <g fill="#efe6c6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round">
+        <polygon points="24,68 27,82 30,70"/><polygon points="32,73 35,82 37,75"/><polygon points="40,77 43,93 46,80"/><polygon points="49,82 51,90 53,84"/>
+        <polygon points="67,84 69,90 71,82"/><polygon points="74,80 77,93 80,77"/><polygon points="83,75 85,82 88,73"/><polygon points="90,70 93,82 96,68"/>
+      </g>
+      <!-- moss draping from the jaw -->
+      <g fill="var(--lg-near, #5fb57a)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8">
+        <path d="M16 60 C14 70 18 76 16 86 C20 80 22 72 22 64Z"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 18 60;6 18 60;0 18 60" dur="2.4s" repeatCount="indefinite"/></path>
+        <path d="M104 60 C106 70 102 78 104 88 C100 80 98 72 98 64Z"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 102 60;-6 102 60;0 102 60" dur="2.7s" repeatCount="indefinite"/></path>
+      </g>
+    </g>
+  </g></g>
+  <!-- eye turrets with bony brows -->
+  <g fill="var(--lg-deep, #2e8b57)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6"><ellipse cx="44" cy="34" rx="10" ry="8"/><ellipse cx="76" cy="34" rx="10" ry="8"/></g>
+  <g transform="translate(44 35) rotate(14)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.05;1 0.05;1.3 1.4;1 1" keyTimes="0;.55;.75;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1;1 0.1;1 1" keyTimes="0;.9;.95;1" dur="5.2s" begin="2s" repeatCount="indefinite"/>
+      <ellipse rx="7" ry="4.4" fill="#ffcf3a" opacity="0.35"/><ellipse rx="5.4" ry="3.2" fill="#ffd966" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/><ellipse rx="0.9" ry="3" fill="#b3122e"/></g>
+  </g></g>
+  <g transform="translate(76 35) rotate(-14)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.05;1 0.05;1.3 1.4;1 1" keyTimes="0;.55;.75;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1;1 0.1;1 1" keyTimes="0;.9;.95;1" dur="5.2s" begin="2s" repeatCount="indefinite"/>
+      <ellipse rx="7" ry="4.4" fill="#ffcf3a" opacity="0.35"/><ellipse rx="5.4" ry="3.2" fill="#ffd966" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/><ellipse rx="0.9" ry="3" fill="#b3122e"/></g>
+  </g></g>
+  <path d="M32 26 L54 33 L52 28 L36 22Z M88 26 L66 33 L68 28 L84 22Z" fill="var(--lg-near, #5fb57a)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+  <!-- the lantern lure: swings down and lights on the entrance, then sways -->
+  <g>
+    <animateTransform class="lg-in" attributeName="transform" type="rotate" values="-70 60 28;-70 60 28;12 60 28;0 60 28" keyTimes="0;.4;.7;1" dur="1.4s" fill="freeze"/>
+    <g>
+      <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 60 28;8 60 28;0 60 28;-6 60 28;0 60 28" dur="3s" begin="1.4s" repeatCount="indefinite"/>
+      <path d="M60 28 C58 12 70 2 84 6 C90 8 92 14 90 18" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="3.4" stroke-linecap="round"/>
+      <path d="M60 28 C58 12 70 2 84 6 C90 8 92 14 90 18" fill="none" stroke="var(--lg-near, #5fb57a)" stroke-width="1.8" stroke-linecap="round"/>
+      <g transform="translate(90 22)"><g>
+        <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.25;1" dur="1.4s" repeatCount="indefinite"/>
+        <circle r="9" fill="#d4ff3a" opacity="0.25"/><circle r="6" fill="#d4ff3a" opacity="0.45"/>
+      </g></g>
+      <circle cx="90" cy="22" r="3.6" fill="#f7ffd1" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    </g>
+  </g>
+  <!-- bog water -->
+  <path d="M0 104 C20 100 40 106 60 102 C80 98 100 106 120 102 V120 H0Z" fill="var(--lg-near, #5fb57a)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+  <path d="M0 112 C24 108 48 114 72 110 C92 108 106 114 120 110 V120 H0Z" fill="#000" opacity="0.2"/>
+  <ellipse cx="60" cy="106" rx="32" ry="2.6" fill="none" stroke="var(--lg-light, #ffffff)" stroke-width="1.2" opacity="0.6">
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 1;0 0" dur="2s" repeatCount="indefinite"/>
+  </ellipse>
+  <!-- lily pads and bubbles -->
+  <g fill="var(--lg-deep, #2e8b57)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"><path d="M8 113 a7 3 0 1 0 14 0 l-7 0Z"/><path d="M96 116 a8 3 0 1 0 16 0 l-8 0Z"/></g>
+  <circle cx="14" cy="111" r="1.6" fill="#f25c9e"/>
+  <g fill="none" stroke="var(--lg-light, #ffffff)" stroke-width="0.9">
+    <circle style="transform-box:fill-box;transform-origin:center" cx="34" cy="110" r="1.8"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 4;0 -8" dur="1.6s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.6s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle style="transform-box:fill-box;transform-origin:center" cx="86" cy="112" r="1.4"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 4;0 -8" dur="2s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2s" repeatCount="indefinite" additive="sum"/></circle>
+  </g>
+</svg>

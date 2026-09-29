@@ -6,8 +6,11 @@
 //              start: { reason, selfRating, goal, placement: { level, answered, at } | null }, areas: Area[] }
 // Area  { id, title, theme, motif, palette, status: 'locked'|'open'|'done',
 //         detailed, frozen, items: Item[], nodes: Node[] }            (first area = bottom of the map)
-// Node  { id, kind, title, itemIds, status, stars (0..3), bestScore (0..1), attempts, optional }
-// Item  { id, kind: 'term'|'rule'|'skill', front, back, cardNoteId, seen, right }
+// Node  { id, kind, title, itemIds, status, stars (0..3), bestScore (0..1), attempts, optional, goal?, flawless?, allPower? }
+// Item  { id, kind: 'term'|'rule'|'skill', front, back, cardNoteId, seen, right, bossRight?, missNudged? }
+// Area extras: story (lines shown when it opens), canDo (the passport stamp), bonus (the chest's phrase),
+//              storySeen, chestOpened, nemesis ({ itemIds, at } after a lost boss fight), bonusLife, legendary
+// Map extras:  helpers ({ scroll, shield }), days ({ 'YYYY-MM-DD': steps finished }) for the journey heatmap
 export const MAP_VERSION = 1
 export const AREAS = { min: 3, max: 12, plan: 8 }       // areas planned at once (titles only, detail comes later)
 export const ITEMS = { min: 4, max: 24 }
@@ -17,9 +20,17 @@ export const NODES = { min: 3, max: 8 }                 // not counting the boss
 export const LESSONS = 8
 export const PER_LESSON = { min: 2, max: 3 }
 export const LOOKAHEAD = 2                              // areas kept fully detailed ahead of the learner
-export const NODE_KINDS = ['learn', 'practice', 'scene', 'rule', 'talk', 'boss']
+export const NODE_KINDS = ['learn', 'practice', 'scene', 'rule', 'talk', 'adventure', 'boss']
+// Optional steps: never block the ladder (a Talk conversation, an Adventure with a goal).
+export const OPTIONAL_KINDS = new Set(['talk', 'adventure'])
+export const STORY = { lines: 3, max: 220 }
+export const CAN_DO = { lines: 4, max: 140 }
+export const GOAL_MAX = 200
 export const ITEM_KINDS = ['term', 'rule', 'skill']
-export const MOTIFS = ['forest', 'city', 'ocean', 'mountains', 'lab', 'stage', 'sky', 'desert']
+export const MOTIFS = ['forest', 'city', 'ocean', 'mountains', 'lab', 'stage', 'sky', 'desert', 'volcano', 'ice',
+  'swamp', 'castle', 'graveyard', 'jungle', 'space', 'clockwork', 'carnival', 'underworld', 'moonlit', 'fungal',
+  'pirate', 'dojo', 'crystal', 'arcade', 'library', 'sewer', 'arena', 'hive', 'garden', 'sweets',
+  'savanna', 'mirror', 'manor', 'junkyard', 'dream', 'sakura', 'mine', 'frontier', 'primeval', 'celestial']
 export const PALETTES = ['brand', 'ocean', 'forest', 'sunset', 'night', 'sand', 'candy', 'steel']
 export const PASS = { node: 0.6, boss: 0.7, legendary: 0.9 } // share of answers right to clear a node
 // Weak spots: the level before the boss, made from the island's shakiest items. Clearing it ONCE earns the area
@@ -36,6 +47,15 @@ const BACK_MAX = 700
 
 const str = (v, max, clean = (s) => s) => clean(String(v ?? '').replace(/\s+/g, ' ').trim()).slice(0, max)
 const pick = (v, list, fallback) => (list.includes(String(v || '').toLowerCase()) ? String(v).toLowerCase() : fallback)
+// Every motif is a hand-made banner + boss in public/assets/legends/. A map takes each one at most once while unused
+// ones remain (the model sometimes names one motif for several areas: the same boss twice on one map). The model's
+// pick wins when it is free; otherwise the first motif no area uses. `used` is updated.
+export function freshMotif(want, used) {
+  const w = pick(want, MOTIFS, '')
+  const m = w && !used.has(w) ? w : MOTIFS.find((x) => !used.has(x)) || w || MOTIFS[used.size % MOTIFS.length]
+  used.add(m)
+  return m
+}
 
 // A stable, readable id: lowercase ASCII, unique within `used` (a Set that is updated).
 export function slug(text, used = new Set(), fallback = 'area') {
@@ -53,11 +73,12 @@ export function parseMapPlan(raw, clean) {
   const list = Array.isArray(raw) ? raw : Array.isArray(raw?.areas) ? raw.areas : []
   const out = []
   const seen = new Set()
+  const motifs = new Set()
   for (const a of list) {
     const title = str(a?.title, TITLE_MAX, clean)
     if (!title || seen.has(title.toLowerCase())) continue
     seen.add(title.toLowerCase())
-    out.push({ title, theme: str(a?.theme, THEME_MAX, clean), motif: pick(a?.motif, MOTIFS, MOTIFS[out.length % MOTIFS.length]), palette: pick(a?.palette, PALETTES, PALETTES[out.length % PALETTES.length]) })
+    out.push({ title, theme: str(a?.theme, THEME_MAX, clean), motif: freshMotif(a?.motif, motifs), palette: pick(a?.palette, PALETTES, PALETTES[out.length % PALETTES.length]) })
     if (out.length >= AREAS.max) break
   }
   return out.length >= AREAS.min ? out : null
@@ -104,18 +125,23 @@ export function parseAreaDetail(raw, clean, { areaId = 'a' } = {}) {
   }
   if (items.length < ITEMS.min) return null
   const nodes = []
+  const opt = (x) => OPTIONAL_KINDS.has(x.kind)
   const rawNodes = (Array.isArray(raw.nodes) ? raw.nodes : []).filter((n) => String(n?.kind || '').toLowerCase() !== 'boss')
   for (const n of rawNodes) {
     const kind = pick(n?.kind, NODE_KINDS, 'learn')
     if (kind === 'boss' || kind === 'practice') continue // every level teaches something new (no re-drill steps)
+    // One optional step of each kind is enough (a model listing three Adventures would crowd the ladder).
+    if (OPTIONAL_KINDS.has(kind) && nodes.some((o) => o.kind === kind)) continue
+    const goal = kind === 'adventure' ? str(n?.goal, GOAL_MAX, clean) : ''
+    if (kind === 'adventure' && !goal) continue // an Adventure is its goal
     // An item is taught by ONE level: a later level naming it again drops it (and gets the untaught ones below).
     const all = (Array.isArray(n?.items) ? n.items : []).map((x) => Number(x) - 1).filter((i) => Number.isInteger(i) && i >= 0 && i < items.length)
-    const idx = kind === 'talk' ? all : all.filter((i) => !nodes.some((o) => o.kind !== 'talk' && o.itemIdx.includes(i)))
-    nodes.push({ kind, title: str(n?.title, TITLE_MAX, clean), itemIdx: [...new Set(idx)] })
-    if (nodes.filter((x) => x.kind !== 'talk').length >= NODES.max) break
+    const idx = OPTIONAL_KINDS.has(kind) ? all : all.filter((i) => !nodes.some((o) => !opt(o) && o.itemIdx.includes(i)))
+    nodes.push({ kind, title: str(n?.title, TITLE_MAX, clean), itemIdx: [...new Set(idx)], ...(goal ? { goal } : {}) })
+    if (nodes.filter((x) => !opt(x)).length >= NODES.max) break
   }
   // Too few steps (or none): a plain ladder of lessons over slices of the items.
-  if (nodes.filter((x) => x.kind !== 'talk').length < NODES.min) {
+  if (nodes.filter((x) => !opt(x)).length < NODES.min) {
     nodes.length = 0
     const per = 3
     for (let i = 0; i < items.length; i += per) {
@@ -124,30 +150,46 @@ export function parseAreaDetail(raw, clean, { areaId = 'a' } = {}) {
     }
   }
   // A Learn or Rule step needs items to teach; any step with none gets the items no step covers yet (or all).
-  const covered = new Set(nodes.filter((n) => n.kind !== 'talk').flatMap((n) => n.itemIdx))
+  const covered = new Set(nodes.filter((n) => !opt(n)).flatMap((n) => n.itemIdx))
   const rest = items.map((_, i) => i).filter((i) => !covered.has(i))
-  for (const n of nodes) if (!n.itemIdx.length && rest.length) n.itemIdx = rest.splice(0, PER_LESSON.max)
-  // A level left with nothing new to teach (every item it named is taught earlier) is dropped; a Talk step with no
-  // items practices them all.
+  for (const n of nodes) if (!opt(n) && !n.itemIdx.length && rest.length) n.itemIdx = rest.splice(0, PER_LESSON.max)
+  // A level left with nothing new to teach (every item it named is taught earlier) is dropped; an optional step with
+  // no items practices them all.
   for (let k = nodes.length - 1; k >= 0; k--) {
     if (nodes[k].itemIdx.length) continue
-    if (nodes[k].kind === 'talk') nodes[k].itemIdx = items.map((_, i) => i)
+    if (opt(nodes[k])) nodes[k].itemIdx = items.map((_, i) => i)
     else nodes.splice(k, 1)
   }
   // Items no level teaches would first appear in the boss: they get lessons of their own (or join the last one).
   while (rest.length) {
     const chunk = rest.splice(0, PER_LESSON.max)
-    const teaching = nodes.filter((x) => x.kind !== 'talk')
+    const teaching = nodes.filter((x) => !opt(x))
     if (teaching.length < NODES.max) nodes.splice(nodes.lastIndexOf(teaching[teaching.length - 1]) + 1, 0, { kind: 'learn', title: '', itemIdx: chunk })
     else teaching[teaching.length - 1].itemIdx.push(...chunk)
   }
   const out = nodes.map((n, i) => ({
     id: slug(`${areaId}-n${i + 1}`, used), kind: n.kind, title: n.title, itemIds: n.itemIdx.map((k) => items[k].id),
-    status: 'locked', stars: 0, bestScore: 0, attempts: 0, optional: n.kind === 'talk',
+    status: 'locked', stars: 0, bestScore: 0, attempts: 0, optional: OPTIONAL_KINDS.has(n.kind), ...(n.goal ? { goal: n.goal } : {}),
   }))
   out.push(weakNode(areaId, items))
   out.push({ id: slug(`${areaId}-boss`, used), kind: 'boss', title: '', itemIds: items.map((x) => x.id), status: 'locked', stars: 0, bestScore: 0, attempts: 0, optional: false })
-  return { items, nodes: out, bossName: cleanBossName(raw.boss, clean) }
+  return { items, nodes: out, bossName: cleanBossName(raw.boss, clean), ...parseAreaExtras(raw, clean) }
+}
+
+// The area's extras: a short story shown when it opens, the passport's "you can now" lines, and the chest's bonus
+// phrase. Each is optional (older replies and failed parts leave it out).
+export function parseAreaExtras(raw, clean) {
+  const lines = (v, n, max) => (Array.isArray(v) ? v : typeof v === 'string' ? v.split(/\n+/) : [])
+    .map((x) => str(typeof x === 'object' ? x?.text : x, max, clean)).filter(Boolean).slice(0, n)
+  const out = {}
+  const story = lines(raw?.story, STORY.lines, STORY.max)
+  if (story.length) out.story = story
+  const canDo = lines(raw?.canDo ?? raw?.can_do, CAN_DO.lines, CAN_DO.max)
+  if (canDo.length) out.canDo = canDo
+  const bf = str(raw?.bonus?.front, FRONT_MAX, clean)
+  const bb = clean(String(raw?.bonus?.back ?? '').replace(/\\n/g, '\n').replace(/[ \t]+/g, ' ').trim()).slice(0, BACK_MAX)
+  if (bf && bb) out.bonus = { front: bf, back: bb }
+  return out
 }
 
 // ── Creating and keeping the map consistent ─────────────────────────────────────────────────────────────────
@@ -219,7 +261,8 @@ export function applyAreaDetail(map, areaId, detail, now = Date.now()) {
   const i = areaIndex(map, areaId)
   const a = map?.areas?.[i]
   if (!a || a.frozen || a.detailed || !detail?.items?.length) return map
-  const areas = map.areas.map((x, k) => (k === i ? { ...x, items: detail.items, nodes: detail.nodes, detailed: true, bossName: detail.bossName || x.bossName || '' } : x))
+  const extras = Object.fromEntries(['story', 'canDo', 'bonus'].filter((k) => detail[k]).map((k) => [k, detail[k]]))
+  const areas = map.areas.map((x, k) => (k === i ? { ...x, items: detail.items, nodes: detail.nodes, detailed: true, bossName: detail.bossName || x.bossName || '', ...extras } : x))
   return normalizeMap({ ...map, areas, updatedAt: now })
 }
 
@@ -234,7 +277,7 @@ export function setBossName(map, areaId, name) {
 export const passRatio = (kind) => (kind === 'boss' ? PASS.boss : kind === 'legendary' ? PASS.legendary : PASS.node)
 
 // A Legendary run over a cleared area (not a node): a pass marks the area legendary. Same outcome shape as
-// applyNodeResult. Only a done area can be legendary.
+// applyNodeResult. Only a done area can be legendary. The answers count for the codex like a boss's.
 export function applyLegendaryResult(map, areaId, result, now = Date.now()) {
   const i = areaIndex(map, areaId)
   const area = map?.areas?.[i]
@@ -242,9 +285,10 @@ export function applyLegendaryResult(map, areaId, result, now = Date.now()) {
   if (!area || area.status !== 'done') return none
   const total = Math.max(0, Number(result?.total) || 0)
   const ratio = total ? Math.max(0, Math.min(1, (Number(result?.correct) || 0) / total)) : 0
-  const stars = total ? starsFor(ratio, 'legendary') : 0
-  if (!stars) return none
-  const next = { ...map, updatedAt: now, areas: map.areas.map((x, k) => (k === i ? { ...x, legendary: true } : x)) }
+  const stars = fightStars(ratio, 'legendary', result?.outcome)
+  const items = tallyItems(area.items, result?.items, true)
+  if (!stars) return { ...none, map: { ...map, updatedAt: now, areas: map.areas.map((x, k) => (k === i ? { ...x, items } : x)) } }
+  const next = { ...map, updatedAt: now, areas: map.areas.map((x, k) => (k === i ? { ...x, items, legendary: true } : x)) }
   return { map: next, passed: true, stars, areaDone: false, nextAreaId: null, firstLegend: !area.legendary }
 }
 export function starsFor(ratio, kind) {
@@ -252,37 +296,125 @@ export function starsFor(ratio, kind) {
   if (r < passRatio(kind)) return 0
   return r >= STAR_AT[1] ? 3 : r >= STAR_AT[0] ? 2 : 1
 }
-
-// Record a finished node: { total, correct, items: [{ itemId, correct }] }. Starting an area freezes it (an
-// edit from Ebi can no longer change it). Returns { map, passed, stars, areaDone, nextAreaId }.
-export function applyNodeResult(map, areaId, nodeId, result, now = Date.now()) {
-  const i = areaIndex(map, areaId)
-  const area = map?.areas?.[i]
-  const node = area?.nodes?.find((n) => n.id === nodeId)
-  if (!node || node.status === 'locked') return { map, passed: false, stars: 0, areaDone: false, nextAreaId: null }
-  const total = Math.max(0, Number(result?.total) || 0)
-  // A boss won with the Weak spots life: the forgiven miss counts as right (at most the lives the area earned).
-  const forgiven = node.kind === 'boss' ? Math.min(Number(result?.forgiven) || 0, area.bonusLife ? WEAK_BONUS_LIVES : 0) : 0
-  const ratio = total ? Math.max(0, Math.min(1, ((Number(result?.correct) || 0) + forgiven) / total)) : 0
-  const stars = total ? starsFor(ratio, node.kind) : 0
-  const passed = stars > 0
+// A fight's stars: its OUTCOME decides the pass (a won fight always clears with at least one star, a lost one never
+// does, whatever the ratio); without an outcome (older callers, cheats) the ratio alone decides.
+export function fightStars(ratio, kind, outcome) {
+  if (outcome === 'lost') return 0
+  const s = starsFor(ratio, kind)
+  return outcome === 'won' ? Math.max(1, s) : s
+}
+// Add a result's answers to the items' tallies (`fight`: right answers in a boss or Legendary also count for gold).
+function tallyItems(items, results, fight) {
   const hits = new Map()
-  for (const r of result?.items || []) {
+  for (const r of results || []) {
     if (!r?.itemId) continue
     const h = hits.get(r.itemId) || { seen: 0, right: 0 }
     h.seen++; if (r.correct) h.right++
     hits.set(r.itemId, h)
   }
+  return (items || []).map((it) => {
+    const h = hits.get(it.id)
+    if (!h) return it
+    return { ...it, seen: (it.seen || 0) + h.seen, right: (it.right || 0) + h.right, ...(fight ? { bossRight: (it.bossRight || 0) + h.right } : {}) }
+  })
+}
+
+// ── The codex: every item of an area, with a tier from how the learner does with it in Legends ─────────────────
+// 'new' (never asked) → 'bronze' (answered right once) → 'silver' (steady: 3+ right, 70%+) → 'gold' (silver, 80%+,
+// and right in a boss fight or Legendary run). The tier is computed, so an item the learner starts missing fades.
+export const TIER = { silverRight: 3, silverRatio: 0.7, goldRatio: 0.8 }
+export const CODEX_TIERS = ['new', 'bronze', 'silver', 'gold']
+export function itemTier(it) {
+  const seen = it?.seen || 0
+  const right = it?.right || 0
+  if (!seen || !right) return 'new'
+  const ratio = right / seen
+  if (right >= TIER.silverRight && ratio >= TIER.goldRatio && (it.bossRight || 0) > 0) return 'gold'
+  if (right >= TIER.silverRight && ratio >= TIER.silverRatio) return 'silver'
+  return 'bronze'
+}
+// { new, bronze, silver, gold, total, complete } for one area (complete = every item gold).
+export function areaCodex(area) {
+  const out = { new: 0, bronze: 0, silver: 0, gold: 0, total: 0, complete: false }
+  for (const it of area?.items || []) { out[itemTier(it)]++; out.total++ }
+  out.complete = out.total > 0 && out.gold === out.total
+  return out
+}
+
+// ── Helpers: a hint scroll (shows an answer's first letter) or a shield (absorbs one lost life) ─────────────────
+// Earned only by practice (a flawless level: a scroll; a flawless Weak spots: a shield), held at most HELPERS_MAX
+// together, never bought.
+export const HELPERS_MAX = 2
+export const helperCount = (map) => (map?.helpers?.scroll || 0) + (map?.helpers?.shield || 0)
+export function earnHelper(map, kind) {
+  if (!map || !['scroll', 'shield'].includes(kind) || helperCount(map) >= HELPERS_MAX) return map
+  return { ...map, helpers: { scroll: 0, shield: 0, ...(map.helpers || {}), [kind]: (map.helpers?.[kind] || 0) + 1 } }
+}
+export function spendHelper(map, kind) {
+  if (!map || !(map.helpers?.[kind] > 0)) return map
+  return { ...map, helpers: { ...map.helpers, [kind]: map.helpers[kind] - 1 } }
+}
+
+// ── The journey: steps finished per local day, for the heatmap (the last JOURNEY_DAYS kept) ─────────────────────
+export const JOURNEY_DAYS = 120
+export function logDay(map, key) {
+  if (!map || !key) return map
+  const days = { ...(map.days || {}), [key]: (map.days?.[key] || 0) + 1 }
+  const keys = Object.keys(days).sort()
+  for (const k of keys.slice(0, Math.max(0, keys.length - JOURNEY_DAYS))) delete days[k]
+  return { ...map, days }
+}
+
+// One area's own flags (storySeen, chestOpened, an item's missNudged): a plain merge, no status change.
+export function patchArea(map, areaId, patch) {
+  const i = areaIndex(map, areaId)
+  if (i < 0) return map
+  return { ...map, areas: map.areas.map((x, k) => (k === i ? { ...x, ...(typeof patch === 'function' ? patch(x) : patch) } : x)) }
+}
+export function patchItem(map, areaId, itemId, patch) {
+  return patchArea(map, areaId, (a) => ({ items: (a.items || []).map((it) => (it.id === itemId ? { ...it, ...patch } : it)) }))
+}
+
+// Record a finished node: { total, correct, items: [{ itemId, correct }], outcome?: 'won'|'lost', power?: bool }.
+// Starting an area freezes it (an edit from Ebi can no longer change it). A fight's outcome decides its pass
+// (fightStars). A flawless level (no miss) earns a hint scroll the first time, a flawless Weak spots a shield; a lost
+// boss fight remembers the items it missed (the nemesis rematch), a won one forgets them.
+// Returns { map, passed, stars, areaDone, nextAreaId, flawless, helper }.
+export function applyNodeResult(map, areaId, nodeId, result, now = Date.now()) {
+  const i = areaIndex(map, areaId)
+  const area = map?.areas?.[i]
+  const node = area?.nodes?.find((n) => n.id === nodeId)
+  if (!node || node.status === 'locked') return { map, passed: false, stars: 0, areaDone: false, nextAreaId: null, flawless: false, helper: '' }
+  const total = Math.max(0, Number(result?.total) || 0)
+  const correct = Number(result?.correct) || 0
+  // A boss won with the Weak spots life: the forgiven miss counts as right (at most the lives the area earned).
+  const forgiven = node.kind === 'boss' ? Math.min(Number(result?.forgiven) || 0, area.bonusLife ? WEAK_BONUS_LIVES : 0) : 0
+  const ratio = total ? Math.max(0, Math.min(1, (correct + forgiven) / total)) : 0
+  const fight = node.kind === 'boss'
+  const stars = total ? (fight ? fightStars(ratio, node.kind, result?.outcome) : starsFor(ratio, node.kind)) : 0
+  const passed = stars > 0
+  const flawless = passed && total > 0 && correct >= total && !OPTIONAL_KINDS.has(node.kind)
+  const firstFlawless = flawless && !node.flawless
   const nodes = area.nodes.map((n) => (n.id !== nodeId ? n : {
     ...n, attempts: (n.attempts || 0) + 1, bestScore: Math.max(n.bestScore || 0, ratio), stars: Math.max(n.stars || 0, stars),
     status: passed || n.status === 'done' ? 'done' : n.status,
+    ...(flawless ? { flawless: true } : {}), ...(fight && passed && result?.power ? { allPower: true } : {}),
   }))
-  const items = area.items.map((it) => (hits.has(it.id) ? { ...it, seen: (it.seen || 0) + hits.get(it.id).seen, right: (it.right || 0) + hits.get(it.id).right } : it))
+  const items = tallyItems(area.items, result?.items, fight)
   const areaDone = area.status !== 'done' && node.kind === 'boss' && passed
   const bonusLife = area.bonusLife || (node.kind === 'weak' && passed)
-  const areas = map.areas.map((x, k) => (k === i ? { ...x, nodes, items, frozen: true, bonusLife, status: areaDone ? 'done' : x.status } : x))
-  const next = normalizeMap({ ...map, areas, updatedAt: now })
-  return { map: next, passed, stars, areaDone, nextAreaId: areaDone ? next.areas[i + 1]?.id || null : null }
+  // The nemesis: a lost fight's missed items (asked again in the rematch), cleared by a win.
+  const missed = [...new Set((result?.items || []).filter((r) => r?.itemId && !r.correct).map((r) => r.itemId))]
+  const nemesis = !fight ? area.nemesis : result?.outcome === 'lost' && missed.length ? { itemIds: missed, at: now } : passed ? null : area.nemesis
+  const areas = map.areas.map((x, k) => (k === i ? { ...x, nodes, items, frozen: true, bonusLife, status: areaDone ? 'done' : x.status, ...(nemesis ? { nemesis } : { nemesis: null }) } : x))
+  let next = normalizeMap({ ...map, areas, updatedAt: now })
+  let helper = ''
+  if (firstFlawless) {
+    const kind = node.kind === 'weak' ? 'shield' : 'scroll'
+    const earned = earnHelper(next, kind)
+    if (earned !== next) { next = earned; helper = kind }
+  }
+  return { map: next, passed, stars, areaDone, nextAreaId: areaDone ? next.areas[i + 1]?.id || null : null, flawless, helper }
 }
 
 // Split a step's items by how well they are known: new or weak ones are asked as multiple choice.
@@ -344,19 +476,21 @@ export function mergeEdit(map, proposal, now = Date.now()) {
   const changes = fixed.map((a) => ({ kind: 'kept', id: a.id, title: a.title }))
   const out = []
   const taken = new Set()
+  // Motifs held by areas that stay; an open area keeps its own unless the proposal moves it onto a free one.
+  const motifs = new Set(fixed.map((a) => a.motif))
   for (const p of proposal?.areas || []) {
     if (fixedIds.has(p.id)) continue // the model re-listed a started area: it stays as it is, where it is
     const old = open.get(p.id)
     if (old && !taken.has(old.id)) {
       taken.add(old.id)
-      const next = { ...old, title: p.title || old.title, theme: p.theme || old.theme, motif: p.motif || old.motif, palette: p.palette || old.palette }
+      const next = { ...old, title: p.title || old.title, theme: p.theme || old.theme, motif: freshMotif(p.motif || old.motif, motifs), palette: p.palette || old.palette }
       const topicMoved = next.title !== old.title || next.theme !== old.theme
       const looksMoved = next.motif !== old.motif || next.palette !== old.palette
       if (topicMoved) Object.assign(next, { detailed: false, items: [], nodes: [], bossName: '', bonusLife: false, legendary: false })
       out.push(next)
       changes.push(topicMoved || looksMoved ? { kind: 'changed', id: old.id, title: next.title, before: old.title } : { kind: 'kept', id: old.id, title: old.title })
     } else if (p.title) {
-      const a = newArea({ title: p.title, theme: p.theme, motif: p.motif || MOTIFS[(fixed.length + out.length) % MOTIFS.length], palette: p.palette || PALETTES[(fixed.length + out.length) % PALETTES.length] }, used)
+      const a = newArea({ title: p.title, theme: p.theme, motif: freshMotif(p.motif, motifs), palette: p.palette || PALETTES[(fixed.length + out.length) % PALETTES.length] }, used)
       out.push(a)
       changes.push({ kind: 'added', id: a.id, title: a.title })
     }

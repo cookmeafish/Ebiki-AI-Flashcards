@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
+  <!-- The Crusher Yard: piles of crushed cars, a crane with a magnet, a car crusher, rusty barrels, the Scrap Titan
+       rising out of the scrap with its headlights on. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #dde3ea)"/>
+  <!-- smog -->
+  <g fill="#8a8f9c" opacity="0.3"><ellipse cx="100" cy="30" rx="90" ry="10"/><ellipse cx="320" cy="24" rx="90" ry="10"/></g>
+  <!-- the crane -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
+    <path d="M330 112 V26 H338 V112Z" fill="#e0a13a"/>
+    <path d="M334 26 L270 20 L270 24 L334 32Z" fill="#e0a13a"/>
+    <g fill="none" stroke="#1d2230" stroke-width="0.6"><path d="M330 36 L338 46 M338 36 L330 46 M330 56 L338 66 M338 56 L330 66 M330 76 L338 86 M338 76 L330 86"/></g>
+    <rect x="336" y="30" width="16" height="12" fill="#c07a1a"/>
+  </g>
+  <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-6 276 22;6 276 22;-6 276 22" dur="4s" repeatCount="indefinite"/>
+    <path d="M276 22 V58" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    <ellipse cx="276" cy="62" rx="10" ry="4" fill="#5a5f6a" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    <path d="M266 62 V66 C266 68 286 68 286 66 V62" fill="#3a3d45" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    <!-- a car hanging from the magnet -->
+    <path d="M264 70 H288 V78 H264Z" fill="#2e6b8a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+    <g fill="#26272c"><circle cx="269" cy="79" r="2.4"/><circle cx="283" cy="79" r="2.4"/></g>
+  </g>
+  <!-- piles of crushed cars, left -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round">
+    <path d="M0 112 V70 L20 64 L40 68 L60 60 L90 66 L110 80 L120 112Z" fill="#6b6f7a"/>
+    <rect x="10" y="74" width="30" height="10" fill="#b3452c"/><rect x="44" y="70" width="28" height="9" fill="#2e6b8a" transform="rotate(-6 58 74)"/>
+    <rect x="16" y="88" width="34" height="10" fill="#e0a13a"/><rect x="56" y="84" width="30" height="10" fill="#6b8a3a" transform="rotate(4 70 88)"/>
+    <rect x="26" y="100" width="36" height="10" fill="#8a3a8a"/>
+  </g>
+  <g fill="#26272c"><circle cx="100" cy="96" r="6"/><circle cx="100" cy="96" r="2.4" fill="#8a8f9c"/></g>
+  <!-- the car crusher, right -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
+    <path d="M350 112 V74 H396 V112Z" fill="#5a5f6a"/>
+    <path d="M354 78 H392 V88 H354Z" fill="#26272c"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 8;0 8;0 0" keyTimes="0;.3;.6;1" dur="3s" repeatCount="indefinite"/>
+      <rect x="354" y="66" width="38" height="12" fill="#e0a13a"/>
+      <path d="M358 66 L364 72 M370 66 L376 72 M382 66 L388 72" stroke="#1d2230" stroke-width="1.4"/></g>
+  </g>
+  <!-- the Scrap Titan rising from the middle heap -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round">
+    <path d="M150 112 L160 86 L180 80 H220 L240 86 L250 112Z" fill="#b3452c"/>
+    <circle cx="162" cy="86" r="10" fill="#26272c"/><circle cx="238" cy="86" r="10" fill="#26272c"/>
+    <circle cx="162" cy="86" r="4" fill="#8a8f9c"/><circle cx="238" cy="86" r="4" fill="#8a8f9c"/>
+    <path d="M174 50 C174 42 184 38 200 38 C216 38 226 42 226 50 V74 C226 78 216 82 200 82 C184 82 174 78 174 74Z" fill="#6b8a9a"/>
+    <path d="M194 38 L200 24 L206 38Z" fill="#ff7a1a"/>
+    <rect x="182" y="64" width="36" height="12" fill="#c9ccd6"/>
+    <rect x="184" y="66" width="32" height="8" fill="#1d1b28"/>
+  </g>
+  <path d="M196 28 H204 M197.5 33 H202.5" stroke="#fff" stroke-width="1.6"/>
+  <g fill="#e6e8ee"><path d="M186 66 V72 L188 74 L190 72 V66Z M194 66 V72 L196 74 L198 72 V66Z M202 66 V72 L204 74 L206 72 V66Z M210 66 V72 L212 74 L214 72 V66Z"/></g>
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1"><circle cx="188" cy="52" r="6" fill="#c9ccd6"/><circle cx="212" cy="52" r="6" fill="#c9ccd6"/></g>
+  <!-- headlight beams sweeping -->
+  <g fill="#fff6a8" opacity="0.3">
+    <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-6 200 52;6 200 52;-6 200 52" dur="4s" repeatCount="indefinite"/>
+    <path d="M188 52 L120 30 L124 70Z M212 52 L280 30 L276 70Z"/>
+  </g>
+  <g fill="#fff6a8"><circle cx="188" cy="52" r="4"/><circle cx="212" cy="52" r="4"/></g>
+  <path d="M178 44 L194 48 M222 44 L206 48" stroke="var(--lg-ink, #1d2230)" stroke-width="2.4" stroke-linecap="round"/>
+  <!-- the ground: oil and dirt -->
+  <path d="M0 112 H400 V140 H0Z" fill="var(--lg-near, #7a6a5a)"/>
+  <g fill="#1d1b28" opacity="0.5"><ellipse cx="140" cy="126" rx="24" ry="4"/><ellipse cx="300" cy="130" rx="20" ry="3"/></g>
+  <!-- rusty barrels -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.9">
+    <rect x="126" y="98" width="14" height="18" fill="#b3452c"/><path d="M126 104 H140 M126 110 H140"/>
+    <rect x="296" y="100" width="14" height="18" fill="#6b8a3a"/><path d="M296 106 H310 M296 112 H310"/>
+    <path d="M310 118 L324 114 L326 122 L312 126Z" fill="#e0a13a"/>
+  </g>
+  <!-- sparks from the crusher -->
+  <g fill="#ffd23f">
+    <circle style="transform-box:fill-box;transform-origin:center" cx="352" cy="80" r="1.2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-12 -10" dur="1s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle style="transform-box:fill-box;transform-origin:center" cx="352" cy="84" r="1"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-10 4" dur="0.8s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="0.8s" repeatCount="indefinite" additive="sum"/></circle>
+  </g>
+</svg>

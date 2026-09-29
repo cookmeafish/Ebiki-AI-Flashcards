@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
+  <!-- The Primeval Valley: giant ferns, a smoking volcano far away, bones, footprints full of water, pterosaurs, Tyrant
+       Rex roaring out of the jungle. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #f2e6c8)"/>
+  <!-- the volcano far away, smoking -->
+  <path d="M260 100 L310 44 H330 L380 100Z" fill="var(--lg-far, #b8a080)" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+  <path d="M310 44 L316 52 L322 48 L326 54 L330 44Z" fill="#ff7a1a"/>
+  <g fill="#6b6f7a" opacity="0.45">
+    <circle cx="320" cy="34" r="8"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 6;6 -14;0 6" dur="8s" repeatCount="indefinite" keyTimes="0;.5;1"/></circle>
+    <circle cx="330" cy="24" r="10"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 6;8 -14;0 6" dur="10s" repeatCount="indefinite" keyTimes="0;.5;1"/></circle>
+  </g>
+  <!-- pterosaurs gliding -->
+  <g fill="#6b4a3a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6">
+    <path d="M60 30 L72 26 L80 32 L88 26 L100 30 L84 34 L80 38 L76 34Z"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;40 6;80 0;40 6;0 0" dur="24s" repeatCount="indefinite" keyTimes="0;.25;.5;.75;1"/></path>
+    <path d="M200 20 L208 18 L214 22 L220 18 L228 20 L216 24 L214 26 L212 24Z"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-30 4;-60 0;-30 4;0 0" dur="20s" repeatCount="indefinite" keyTimes="0;.25;.5;.75;1"/></path>
+  </g>
+  <!-- jungle wall of giant ferns -->
+  <g fill="var(--lg-deep, #2e6b3a)" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round">
+    <path d="M0 112 C4 80 16 60 30 50 C24 70 24 90 28 112Z"/>
+    <path d="M20 112 C30 76 50 58 70 52 C56 72 50 90 50 112Z"/>
+    <path d="M230 112 C236 84 250 68 266 62 C256 80 252 96 254 112Z"/>
+    <path d="M360 112 C366 82 380 66 400 58 V112Z"/>
+  </g>
+  <g fill="var(--lg-near, #5fb57a)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8">
+    <path d="M40 112 C44 88 56 74 72 70 C62 86 58 100 60 112Z"><animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;-4;0" dur="3s" repeatCount="indefinite"/></path>
+    <path d="M340 112 C344 90 354 78 368 74 C360 88 356 100 358 112Z"><animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;4;0" dur="3.4s" repeatCount="indefinite"/></path>
+  </g>
+  <!-- Tyrant Rex bursting out of the jungle, roaring -->
+  <g>
+    <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 190 100;-2 190 100;0 190 100" dur="2.6s" repeatCount="indefinite"/>
+    <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round">
+      <path d="M150 112 C152 96 166 84 190 80 C214 80 232 92 236 112Z" fill="#4f7a3a"/>
+      <path d="M164 92 C166 78 174 68 182 64 L196 76 C188 80 180 88 176 98Z" fill="#4f7a3a"/>
+      <path d="M200 60 C198 44 188 36 172 36 C156 36 138 40 130 48 C128 52 130 56 132 56 L140 60 C154 58 168 60 182 64 L198 72Z" fill="#5f8c46"/>
+      <path d="M130 56 L140 60 C154 58 168 60 182 64 L186 70 C172 70 156 72 142 78 C136 74 132 66 130 56Z" fill="#5a0c12"/>
+      <g fill="#f4efe0" stroke-width="0.6"><polygon points="134,57 136,64 138,58"/><polygon points="142,59 144,66 147,59"/><polygon points="151,59 153,64 156,59.5"/><polygon points="160,60 162,67 165,61"/><polygon points="170,62 172,66 175,63"/></g>
+      <path d="M142 78 C156 72 172 70 186 70 L194 78 C184 84 166 88 148 86 C142 84 140 82 142 78Z" fill="#5f8c46"/>
+      <g fill="#f4efe0" stroke-width="0.6"><polygon points="146,78 148,72 150,78"/><polygon points="156,76 158,70 161,75"/><polygon points="167,74 169,69 172,73"/></g>
+      <path d="M170 38 C176 34 188 34 194 40 L190 44 C186 40 178 40 172 42Z" fill="#3f6630"/>
+    </g>
+    <path d="M178 44 C180 42 186 42 188 44 C186 46 180 46 178 44Z" fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+    <ellipse cx="183" cy="44" rx="0.6" ry="1.8" fill="#1a0508"/>
+    <path d="M150 40 L160 50 M154 38 L164 48" stroke="#8a2a1a" stroke-width="1.2" stroke-linecap="round"/>
+    <!-- tiny arm -->
+    <path d="M176 92 L168 96 L166 100" fill="none" stroke="#3f6630" stroke-width="3" stroke-linecap="round"/>
+  </g>
+  <!-- roar rings -->
+  <g fill="none" stroke="#fff6c2" stroke-width="1.6" stroke-linecap="round" opacity="0.8">
+    <path d="M124 58 C120 62 120 70 124 74 M116 54 C110 62 110 74 116 80"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="4 0;-6 0;4 0" dur="1.6s" repeatCount="indefinite" keyTimes="0;.5;1"/></path>
+  </g>
+  <!-- the valley floor with footprints full of water -->
+  <path d="M0 112 H400 V140 H0Z" fill="var(--lg-near, #8a9a5a)"/>
+  <g fill="#6fb8ff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.8">
+    <path d="M90 124 L84 118 L88 116 L92 120 L94 114 L98 114 L98 120 L102 116 L106 118 L100 124 C98 128 92 128 90 124Z"/>
+    <path d="M290 130 L284 124 L288 122 L292 126 L294 120 L298 120 L298 126 L302 122 L306 124 L300 130 C298 134 292 134 290 130Z"/>
+  </g>
+  <!-- bones: a big ribcage -->
+  <g fill="none" stroke="#f4efe0" stroke-width="2.4" stroke-linecap="round">
+    <path d="M320 126 H372"/><path d="M328 126 C326 116 330 108 336 106 M340 126 C338 114 342 106 348 104 M352 126 C352 114 356 108 362 108"/>
+  </g>
+  <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.5"><path d="M320 127.4 H372"/></g>
+  <!-- shaking pebbles -->
+  <g fill="#6b4a3a">
+    <rect x="130" y="118" width="3" height="3"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -4;0 0;0 0" keyTimes="0;.2;.4;1" dur="1.2s" repeatCount="indefinite"/></rect>
+    <rect x="250" y="120" width="3" height="3"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 0;0 -4;0 0" keyTimes="0;.3;.5;1" dur="1.2s" repeatCount="indefinite"/></rect>
+  </g>
+</svg>

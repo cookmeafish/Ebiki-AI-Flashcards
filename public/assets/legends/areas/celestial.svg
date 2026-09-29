@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
+  <!-- The Shattered Heavens: broken marble clouds, a fallen golden gate, pillars adrift, beams of light, the Fallen
+       Seraph's cracked halo and wings above it all. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #fdf2e0)"/>
+  <!-- beams of light -->
+  <g fill="#fff6c2" opacity="0.45">
+    <path d="M190 0 H210 L250 140 H150Z"/><path d="M60 0 H70 L96 140 H40Z" opacity="0.6"/><path d="M330 0 H340 L366 140 H304Z" opacity="0.6"/>
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="-4 0;4 0;-4 0" dur="6s" repeatCount="indefinite"/>
+  </g>
+  <!-- the Seraph above: six wings spread, rings of eyes, faceless mask, cracked halo -->
+  <g>
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -3;0 0" dur="4s" repeatCount="indefinite"/>
+    <g fill="#f4f0ff" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round">
+      <path d="M190 44 C170 34 146 32 126 40 L136 44 L126 48 L138 50 L130 56 L146 54 C160 52 176 52 190 50Z"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 190 46;-5 190 46;0 190 46" dur="3s" repeatCount="indefinite"/></path>
+      <path d="M210 44 C230 34 254 32 274 40 L264 44 L274 48 L262 50 L270 56 L254 54 C240 52 224 52 210 50Z"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 210 46;5 210 46;0 210 46" dur="3s" repeatCount="indefinite"/></path>
+      <path d="M192 54 C180 62 166 74 160 86 L168 82 L166 90 L174 82 L178 88 C184 76 190 66 196 60Z"/>
+      <path d="M208 54 C220 62 234 74 240 86 L232 82 L234 90 L226 82 L222 88 C216 76 210 66 204 60Z"/>
+      <path d="M194 34 C186 24 180 14 182 4 L188 10 L190 4 L194 12 L196 30Z"/><path d="M206 34 C214 24 220 14 218 4 L212 10 L210 4 L206 12 L204 30Z"/>
+    </g>
+    <g fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"><ellipse cx="150" cy="44" rx="2.4" ry="1.4"/><ellipse cx="250" cy="44" rx="2.4" ry="1.4"/></g>
+    <g fill="#1a0508"><circle cx="150" cy="44" r="0.7"/><circle cx="250" cy="44" r="0.7"/></g>
+    <!-- robe -->
+    <path d="M192 50 C190 64 188 78 186 90 H214 C212 78 210 64 208 50Z" fill="#f4f0ff" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    <path d="M200 60 L198 68 L202 74 L199 84" fill="none" stroke="#b3122e" stroke-width="1.2"/>
+    <!-- rings of eyes -->
+    <g transform="translate(200 38)">
+      <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;360" dur="8s" repeatCount="indefinite"/>
+        <ellipse rx="18" ry="5" fill="none" stroke="#c9a441" stroke-width="1.6"/>
+        <g fill="#fff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"><ellipse cx="-18" rx="1.8" ry="1.2"/><ellipse cx="18" rx="1.8" ry="1.2"/></g>
+        <g fill="#ff2e4c"><circle cx="-18" r="0.6"/><circle cx="18" r="0.6"/></g></g>
+      <path d="M-6 -2 C-6 -9 6 -9 6 -2 C6 5 2 9 0 9 C-2 9 -6 5 -6 -2Z" fill="#fffdf2" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+      <path d="M0 -5 V5" stroke="#ff2e4c" stroke-width="1.6" stroke-linecap="round"/>
+    </g>
+    <g transform="translate(200 22)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-8;8;-8" dur="3s" repeatCount="indefinite"/>
+      <ellipse rx="11" ry="3" fill="none" stroke="#ffd23f" stroke-width="2.2" stroke-dasharray="26 2 14 3"/></g></g>
+  </g>
+  <!-- broken marble clouds -->
+  <g fill="#fff" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round">
+    <path d="M0 100 C6 88 20 86 30 92 C36 82 56 82 62 92 C74 88 86 94 84 104 L70 106 L74 112 H0Z"/>
+    <path d="M316 104 C318 92 332 88 342 94 C348 84 368 84 374 94 C388 90 400 96 400 100 V112 H320Z"/>
+    <path d="M110 92 C114 84 126 84 132 90 C138 84 150 86 150 96 L138 100 L142 104 L112 104Z"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -4;0 0" dur="5s" repeatCount="indefinite"/></path>
+  </g>
+  <g fill="none" stroke="#c8bce8" stroke-width="1"><path d="M20 98 L30 104 L26 110 M340 100 L350 106"/></g>
+  <!-- the fallen golden gate, tilted -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" transform="rotate(-12 280 100)">
+    <path d="M248 112 V76 C248 56 300 56 300 76 V112" fill="none" stroke="#c9a441" stroke-width="4"/>
+    <g stroke="#c9a441" stroke-width="1.6"><path d="M258 112 V70 M268 112 V64 M278 112 V62 M288 112 V66"/></g>
+    <circle cx="274" cy="58" r="4" fill="#ffd23f"/>
+  </g>
+  <!-- pillars adrift -->
+  <g fill="#f4f0ff" stroke="var(--lg-ink, #1d2230)" stroke-width="1">
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-10 100 60;-4 100 60;-10 100 60" dur="6s" repeatCount="indefinite"/>
+      <rect x="94" y="40" width="12" height="40"/><rect x="90" y="36" width="20" height="5"/><rect x="90" y="80" width="20" height="5"/>
+      <path d="M98 42 V78 M102 42 V78" stroke="#c8bce8"/></g>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="14 316 56;8 316 56;14 316 56" dur="7s" repeatCount="indefinite"/>
+      <rect x="310" y="40" width="12" height="30"/><rect x="306" y="36" width="20" height="5"/>
+      <path d="M310 70 L314 74 L318 70 L322 74" fill="none"/></g>
+  </g>
+  <!-- the cloud floor below -->
+  <path d="M0 112 C40 106 80 116 120 112 C160 106 200 116 240 112 C280 106 320 116 360 112 C380 108 392 112 400 112 V140 H0Z" fill="var(--lg-near, #e0d6f5)"/>
+  <!-- falling feathers and sparkles -->
+  <g fill="#f4f0ff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5">
+    <path style="transform-box:fill-box;transform-origin:center" d="M140 20 C142 16 146 16 146 20 C144 22 142 22 140 20Z"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;10 80" dur="6s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="6s" repeatCount="indefinite" additive="sum"/></path>
+    <path style="transform-box:fill-box;transform-origin:center" d="M260 16 C262 12 266 12 266 16 C264 18 262 18 260 16Z"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-10 80" dur="7s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="7s" repeatCount="indefinite" additive="sum"/></path>
+  </g>
+  <g fill="#ffd23f"><path d="M40 60 l1.2 -3 l1.2 3 l3 1.2 l-3 1.2 l-1.2 3 l-1.2 -3 l-3 -1.2Z" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.3;1" dur="1.8s" repeatCount="indefinite" additive="sum"/></path><path d="M366 70 l1 -2.4 l1 2.4 l2.4 1 l-2.4 1 l-1 2.4 l-1 -2.4 l-2.4 -1Z"/></g>
+</svg>
