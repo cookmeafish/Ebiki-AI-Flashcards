@@ -373,9 +373,14 @@ copy. The pristine base makes reconnect a real 3-way merge.
   `enterOffline` won't serve another folder's copy, reconcile refuses to merge it elsewhere (409), and a
   data-folder switch resets `offlineActive` + `reachCache` (else the new folder routed through the old share's
   offline copy for up to 15s).
-- **The share coming back FREEZES writers** (`dataSwitchingRef` + `configHealthyRef` off) and shows a "Reload now"
-  banner (`shareBackReload`): the page holds the offline copy's state, and the server routes writes to the share the
-  moment it answers. Never an automatic reload (it threw away in-flight work). Merge AND Discard reload. A copy parked for another folder shows `offlineOtherFolder`;
+- **A wake from sleep is not an outage**: the first failed probe after being online waits up to
+  `SHARE_WAKE_WAIT_MS` (20s, re-probing every 2s, one shared wait) before offline mode starts, so a drive that is
+  only reconnecting never trips it (a folder switch clears `shareWasOnline`).
+- **The share coming back is handled WITHOUT asking** (the owner hated the red "reload now" box after every sleep):
+  no offline edits = nothing to do (routine saves post only changes); offline edits are merged in the background
+  with the normal 3-way merge and a green toast says so. Only a merge that FAILS falls back to the old path: freeze
+  writers (`dataSwitchingRef` + `configHealthyRef` off) and the `shareBackReload` banner. Never an automatic reload
+  (it threw away in-flight work). The manual Merge and Discard buttons still reload. A copy parked for another folder shows `offlineOtherFolder`;
   backups stay paused for it (refreshing `.local-sync` would destroy that copy's merge base). Folder identity is
   `sameFolder` (case-insensitive on Windows/macOS). JOIN with `merge:false` copies NOTHING onto the share.
 - **Offline deletions are NOT replayed** (indistinguishable from never-synced; re-deleting shared data is
@@ -388,7 +393,7 @@ copy. The pristine base makes reconnect a real 3-way merge.
   The `modes/<dir>/` patterns take BOTH separators (`[\\/]`): `rel` comes from `path.join` (backslashes on Windows);
   a `[\/]` class matched only "/" and none of these rules ran on Windows.
 - Client: the config fetch reads `X-Ebiki-Offline`; a 30s `/api/offline` poll drives an amber dismissable banner
-  and, once the share is back, an "N offline changes waiting · Merge / Discard" bar. Never an automatic push.
+  and, once the share is back, an "N offline changes waiting · Merge / Discard" bar, shown only when the automatic merge failed.
   `offlineBusy` holds `'merge'`/`'discard'` so the bar names what it's doing (SMB reconcile can take seconds).
   The poll acts only on a real status (`typeof d.offline === 'boolean'`): a 500 read as "share back" and froze writers.
 

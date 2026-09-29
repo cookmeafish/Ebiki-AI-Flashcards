@@ -529,8 +529,31 @@ function enterOffline() {
 // share that comes back mid-session is picked up without a restart: offline goes
 // false immediately, while `.local-offline/` STAYS on disk holding the offline
 // edits until the user reconciles or discards them.
+// A share that WAS online and fails a probe is usually reconnecting (the computer just woke from sleep, a
+// Wi-Fi hop): mapped drives answer again within seconds. Going offline at once made every wake-up a trip
+// through offline mode and a "share is back, reload" banner. So the first failure after being online waits up
+// to SHARE_WAKE_WAIT_MS, re-probing, before offline mode starts; every request arriving meanwhile shares that
+// one wait. A share that stays dead goes offline as before (only the first requests wait).
+const SHARE_WAKE_WAIT_MS = 20000
+const SHARE_WAKE_PROBE_MS = 2000
+let shareWasOnline = false
+let shareWakeWait = null
 async function dataMode() {
-  if (await shareReachable()) { offlineActive = false; return 'online' }
+  if (await shareReachable()) { offlineActive = false; shareWasOnline = true; return 'online' }
+  if (!offlineActive && shareWasOnline) {
+    shareWakeWait ||= (async () => {
+      const dir = DATA_DIR
+      const until = Date.now() + SHARE_WAKE_WAIT_MS
+      while (Date.now() < until && DATA_DIR === dir) {
+        await new Promise((r) => setTimeout(r, SHARE_WAKE_PROBE_MS))
+        reachCache = { at: 0, ok: false }
+        if (await shareReachable()) return true
+      }
+      return false
+    })().finally(() => { shareWakeWait = null })
+    if (await shareWakeWait) { offlineActive = false; return 'online' }
+    shareWasOnline = false
+  }
   return enterOffline() ? 'offline' : 'down'
 }
 
@@ -3407,7 +3430,7 @@ function apiPlugin() {
               // The offline routing and the reachability answer described the OLD folder: left in place,
               // dataPath() kept serving the old share's offline copy as the new folder's data (up to 15s).
               offlineActive = false
-              reachCache = { at: 0, ok: false }
+              reachCache = { at: 0, ok: false }; shareWasOnline = false
               // A snapshot of the NEW folder at once: waiting for the 10-minute timer left the old folder's
               // snapshot as the only one if the new share went down meanwhile.
               if (next !== APP_ROOT) setTimeout(() => { runBackup().catch(() => {}) }, 2000)
