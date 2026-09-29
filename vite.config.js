@@ -6,7 +6,7 @@ import http from 'http'
 import crypto from 'crypto'
 import os from 'os'
 import { spawn, execFile } from 'child_process'
-import { fileURLToPath } from 'url'
+import { fileURLToPath, pathToFileURL } from 'url'
 import { mergeConfigPatch } from './src/utils/configDiff.js'
 import { featureDataEntries, featureDataRoutes, featureLocalFiles, registerFeatureRoutes } from './src/features/server.js'
 import { createEbiImages } from './src/server/ebi-images.js'
@@ -1849,6 +1849,9 @@ function apiPlugin() {
                     return
                   }
                   try { fs.rmSync(npmPending, { force: true }) } catch { /* nothing to clear */ }
+                  // The installed-dependencies fingerprint (scripts/deps-fingerprint.mjs): the launchers install at start
+                  // when it differs, so code changed outside an update never runs on old dependencies.
+                  import(pathToFileURL(path.join(SELF_DIR, 'scripts', 'deps-fingerprint.mjs')).href).then((m) => m.writeStamp(SELF_DIR)).catch(() => {})
                   finish({ ok: true, updated: true, restartRequired: true, canRestart: canSelfRestart(), output: String(out || '').slice(0, 600) })
                 }
                 // Marked BEFORE it runs, cleared on success: a server that stopped mid-install (the install

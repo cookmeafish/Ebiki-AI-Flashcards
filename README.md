@@ -10,6 +10,7 @@ A local-first study app: an AI tutor, Anki study sessions, screen translation an
 
 - **Chat** - AI tutor that makes Anki cards inline, tutors from an attached deck, searches the web and saves conversations.
 - **Study** - Anki sessions with AI-written questions, a multiple-choice mode, verified PBQ exercises for cert subjects, and spaced-repetition insights.
+- **Legends** - your own adventure map for each mode, in any subject. Answer a few questions (and take an optional level test), then climb themed areas of eight lessons (each teaches something new and reviews what came before), stories, rule drills and chats with Ebi, each topped by a named boss with fresh, hard questions every try. Clear Weak spots first for an extra life. Beating a boss opens the next area and earns a streak freeze; a Legendary challenge replays a cleared area at its hardest. Your level (A1 to C2 for languages, Beginner to Expert otherwise) shows on the map and in the right panel. Ask Ebi to change the map any time; areas you started never change.
 - **Deck** - browse, search and edit cards; add them by hand or with AI; bulk-edit, check quality, merge duplicates.
 - **Discover** - suggests *new* cards at your level, web-verified.
 - **Picture** - screen capture, OCR and in-context translation with word overlays, plus a game overlay.

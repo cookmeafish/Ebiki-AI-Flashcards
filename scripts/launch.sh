@@ -350,7 +350,7 @@ check_update() {
       # The marker goes down FIRST and is cleared on success, so an install cut off midway counts too.
       date > "$APP/.npm-install-pending"
       NPM_TRIED=1   # a failure is retried on the NEXT start, not straight away (see the pending block)
-      if (cd "$APP" && run_with_timeout 900 npm install --no-fund --no-audit >/dev/null 2>&1); then rm -f "$APP/.npm-install-pending"
+      if (cd "$APP" && run_with_timeout 900 npm install --no-fund --no-audit >/dev/null 2>&1); then rm -f "$APP/.npm-install-pending"; node "$APP/scripts/deps-fingerprint.mjs" --stamp >/dev/null 2>&1
       else log_update "npm install failed; will retry on the next start"; fi
     else
       log_update "update FAILED: HEAD did not move"
@@ -406,6 +406,13 @@ fi
 # itself - leaving open:true on would additionally pop a plain browser tab
 # next to it.
 export EBIKI_AUTO_EXIT=1
+# Code that changed WITHOUT an update (a manual git pull, a branch switch, a copy from another computer) runs on
+# the old node_modules: when the dependency lists differ from the last install, install first (through the pending
+# marker below). It compares the code as it is now, so being several updates behind is covered too.
+if [ ! -f "$APP/.npm-install-pending" ] && [ "${NPM_TRIED:-0}" != 1 ]; then
+  node "$APP/scripts/deps-fingerprint.mjs" --check >/dev/null 2>&1
+  if [ $? -eq 1 ]; then log_update "dependencies changed since the last install; installing"; date > "$APP/.npm-install-pending"; fi
+fi
 # Not when this launch's update just tried (and failed): a second 15-minute attempt held the lock for half an hour.
 if [ -f "$APP/.npm-install-pending" ] && [ "${NPM_TRIED:-0}" != 1 ]; then
   # An install started by Settings can outlive the server it took down: wait for it (PID in the marker, 15 min cap).
@@ -429,7 +436,7 @@ if [ -f "$APP/.npm-install-pending" ] && [ "${NPM_TRIED:-0}" != 1 ]; then
     done
   fi
   if (cd "$APP" && run_with_timeout 900 npm install --no-fund --no-audit >/dev/null 2>&1); then
-    rm -f "$APP/.npm-install-pending"; log_update "finished the pending npm install"
+    rm -f "$APP/.npm-install-pending"; node "$APP/scripts/deps-fingerprint.mjs" --stamp >/dev/null 2>&1; log_update "finished the pending npm install"
   else
     log_update "pending npm install failed again"
   fi

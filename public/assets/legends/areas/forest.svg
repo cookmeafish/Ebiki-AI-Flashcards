@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
+  <rect width="400" height="140" fill="var(--lg-sky, #dff2e4)"/>
+  <circle cx="330" cy="34" r="17" fill="var(--lg-accent, #f2b441)" opacity="0.9"/>
+  <g fill="var(--lg-light, #ffffff)" opacity="0.85">
+    <ellipse cx="80" cy="30" rx="22" ry="8"/><ellipse cx="94" cy="25" rx="14" ry="8"/>
+    <ellipse cx="240" cy="22" rx="18" ry="6"/>
+  </g>
+  <path d="M0 92 Q70 62 150 84 T300 76 T400 82 V140 H0Z" fill="var(--lg-far, #9fd4ad)"/>
+  <g fill="var(--lg-deep, #2e8b57)" opacity="0.8">
+    <polygon points="30,62 14,104 46,104"/><polygon points="30,50 18,82 42,82"/>
+    <polygon points="98,70 82,110 114,110"/><polygon points="98,58 86,90 110,90"/>
+    <polygon points="296,64 278,108 314,108"/><polygon points="296,50 283,84 309,84"/>
+    <polygon points="362,72 348,108 376,108"/>
+  </g>
+  <g>
+    <rect x="182" y="84" width="8" height="26" fill="var(--lg-deep, #2e8b57)"/>
+    <circle cx="186" cy="80" r="20" fill="var(--lg-deep, #2e8b57)"/>
+    <circle cx="176" cy="74" r="4" fill="var(--lg-accent, #f2b441)"/><circle cx="194" cy="86" r="3.5" fill="var(--lg-accent, #f2b441)"/>
+    <circle cx="190" cy="68" r="3" fill="var(--lg-accent, #f2b441)"/>
+  </g>
+  <path d="M0 114 Q110 98 220 116 T400 110 V140 H0Z" fill="var(--lg-near, #5fb57a)"/>
+  <path d="M150 140 Q190 122 214 116 Q232 112 250 116 Q222 124 206 140Z" fill="var(--lg-light, #ffffff)" opacity="0.35"/>
+  <g fill="var(--lg-accent, #f2b441)">
+    <circle cx="60" cy="126" r="3"/><circle cx="120" cy="130" r="2.5"/><circle cx="330" cy="126" r="3"/><circle cx="370" cy="132" r="2.5"/>
+  </g>
+</svg>

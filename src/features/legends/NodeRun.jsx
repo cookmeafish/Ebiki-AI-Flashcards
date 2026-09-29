@@ -1,0 +1,367 @@
+// One step of the map. Learn and Rule steps teach their items first (with "Add to deck"), then everything
+// that is a quiz runs through the shared QuizRunner; a Scene step tells a story or case study line by line,
+// then asks about it; a Talk step is its own conversation (./Talk.jsx). When it ends, `onFinish(result)` gets
+// { total, correct, items: [{ itemId, correct }], misses: [{ asked, answered, expected }] }.
+import { useEffect, useRef, useState } from 'react'
+import { C, FONT, RADIUS } from '../../config/tokens'
+import { poseFile } from '../../config/shrimp'
+import { speak } from '../../speech'
+import { useFocusHold } from '../registry'
+import { ChunkyButton, EbiSays, ProgressBar, Card } from '../ui'
+import { QuizRunner, RuleCardButton, buildScenePrompt, parseScene, voiceFor, SCENE_ROLE, SCENE_MAX_TOKENS } from '../kit'
+import { learnerLevelLine } from '../kit/learnerStore'
+import { makeQuiz, sceneFor, ensureBossName, KNOWLEDGE_CAP } from './generate'
+import { itemIdFor } from './prompt'
+import { addItemsToDeck, liveItems, isAdding } from './deck'
+import Talk from './Talk'
+import { BossIntro, BossArena, BossEnd, bossOutcome, forgivenMisses } from './BossArena'
+import { weakItems, WEAK_BONUS_LIVES, PASS } from './map'
+import { CheatButton, CheatRow } from './CheatUI'
+
+// Every level teaches its items before asking (a story level too: its story brings in new items).
+const TEACH_KINDS = new Set(['learn', 'rule', 'scene'])
+const SIDE = { A: 'flex-start', B: 'flex-end', N: 'center' }
+
+// One item's own "Add to deck" (the learner may already know some of a step's items). Shows "In your deck" once
+// the map records its note id; the busy guard is shared with "Add all" through addItemsToDeck.
+function AddOne({ ctx, modeId, areaId, it }) {
+  const { t, subject } = ctx
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState('')
+  if (it.cardNoteId) return <span style={{ fontSize: 11.5, fontWeight: 800, color: C.success, whiteSpace: 'nowrap' }}>✓ {t('lg_inDeck')}</span>
+  const noDeck = !subject.modeDeck
+  const add = async () => {
+    if (busy || isAdding(modeId, it.id)) return
+    setBusy(true); setNote('')
+    const r = await addItemsToDeck(ctx, modeId, areaId, [it])
+    setBusy(false)
+    if (!r.added) setNote(r.message || t('lg_addFailed'))
+  }
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+      {note && <span style={{ fontSize: 11.5, color: C.warning }}>{note}</span>}
+      <button type="button" onClick={add} disabled={busy || noDeck} className={noDeck ? 'tip' : undefined} data-tip={noDeck ? t('lg_pickDeckFirst') : undefined}
+        style={{ fontFamily: FONT.body, fontSize: 11.5, fontWeight: 800, padding: '4px 10px', borderRadius: RADIUS.pill, border: `1px solid color-mix(in srgb, ${C.success} 35%, transparent)`,
+          background: 'transparent', color: C.success, whiteSpace: 'nowrap', cursor: busy || noDeck ? 'default' : 'pointer', opacity: busy || noDeck ? 0.5 : 1 }}>
+        {busy ? t('lg_adding') : `+ ${t('lg_addItem')}`}
+      </button>
+    </span>
+  )
+}
+
+// With `ctx`, the card offers its own "Add to deck".
+export function ItemCard({ it, t, ctx, modeId, areaId }) {
+  return (
+    <div style={{ padding: '12px 14px', borderRadius: RADIUS.md, border: `2px solid ${C.border}`, background: C.surface }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+        {it.kind === 'rule' && <span style={{ fontSize: 11, fontWeight: 800, color: C.purple, textTransform: 'uppercase', letterSpacing: '.05em' }}>📐 {t('lg_itemRule')}</span>}
+        {it.kind === 'skill' && <span style={{ fontSize: 11, fontWeight: 800, color: C.info, textTransform: 'uppercase', letterSpacing: '.05em' }}>🛠 {t('lg_itemSkill')}</span>}
+        <span style={{ marginLeft: 'auto' }}>
+          {ctx ? <AddOne ctx={ctx} modeId={modeId} areaId={areaId} it={it} />
+            : it.cardNoteId && <span style={{ fontSize: 11.5, fontWeight: 800, color: C.success }}>✓ {t('lg_inDeck')}</span>}
+        </span>
+      </div>
+      <div style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 18, color: C.ink }}>{it.front}</div>
+      <div style={{ fontSize: 14, color: C.inkDim, whiteSpace: 'pre-wrap', lineHeight: 1.5, marginTop: 4 }}>{it.back}</div>
+    </div>
+  )
+}
+
+// Every item of a list, each with its own add, then "Add all" for the rest (the boss result's area cards).
+export function ItemAddList({ ctx, modeId, areaId, itemIds }) {
+  const items = liveItems(modeId, areaId, itemIds)
+  if (!items.length) return null
+  return (
+    <div style={{ display: 'grid', gap: 10 }}>
+      <div style={{ display: 'grid', gap: 6 }}>
+        {items.map((it) => (
+          <div key={it.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: `1px solid ${C.border}` }}>
+            <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 800, color: C.ink, overflowWrap: 'anywhere' }}>{it.front}</span>
+            <AddOne ctx={ctx} modeId={modeId} areaId={areaId} it={it} />
+          </div>
+        ))}
+      </div>
+      <AddToDeck ctx={ctx} modeId={modeId} areaId={areaId} itemIds={itemIds} />
+    </div>
+  )
+}
+
+// Which deck the mode's cards go to: the mode's saved deck, chosen here (and saved on the mode, like Settings >
+// Cards & Anki). With no deck chosen yet nothing is added: the first deck of the collection is no safe guess.
+export function DeckPicker({ ctx }) {
+  const { t, subject, cards } = ctx
+  const decks = cards.decks || []
+  const deck = subject.modeDeck || ''
+  if (ctx.ankiConnected === false || !decks.length) return <span style={{ fontSize: 12.5, color: C.warning }}>{t('lg_noDeck')}</span>
+  return (
+    <label style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 12.5, fontWeight: 700, color: deck ? C.inkDim : C.warning }}>
+      {deck ? t('lg_deckFor') : t('lg_pickDeckFirst')}
+      <select value={decks.includes(deck) ? deck : ''} onChange={(e) => { if (e.target.value) cards.setModeDeck(e.target.value) }}
+        style={{ fontFamily: FONT.body, fontSize: 12.5, fontWeight: 700, padding: '4px 8px', borderRadius: RADIUS.sm, border: `1px solid ${deck ? C.border : C.warning}`, background: C.surfaceAlt, color: C.ink, maxWidth: 260 }}>
+        {!decks.includes(deck) && <option value="">{deck ? `${deck} (?)` : t('lg_deckChoose')}</option>}
+        {decks.map((d) => <option key={d} value={d}>{d}</option>)}
+      </select>
+    </label>
+  )
+}
+
+// "Add these to my deck" for a list of items; shows what happened.
+export function AddToDeck({ ctx, modeId, areaId, itemIds, label }) {
+  const { t, subject } = ctx
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState('')
+  const [, force] = useState(0)
+  const items = liveItems(modeId, areaId, itemIds)
+  const todo = items.filter((it) => !it.cardNoteId)
+  const add = async () => {
+    if (busy || !todo.length) return
+    setBusy(true); setNote('')
+    const r = await addItemsToDeck(ctx, modeId, areaId, todo)
+    setBusy(false)
+    setNote(r.added ? t('lg_added', { n: r.added, deck: subject.modeDeck }) + (r.failed ? ` ${r.message || ''}` : '') : r.message || t('lg_addFailed'))
+    force((n) => n + 1)
+  }
+  if (!items.length) return null
+  const deck = subject.modeDeck
+  return (
+    <div style={{ display: 'grid', gap: 8 }}>
+      {todo.length > 0 && <DeckPicker ctx={ctx} />}
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        {todo.length ? (
+          <ChunkyButton variant="ghost" color={C.success} onClick={add} disabled={busy || !deck} style={{ fontSize: 12.5, padding: '8px 12px' }}>
+            + {busy ? t('lg_adding') : label || (deck ? t('lg_addAll', { n: todo.length, deck }) : t('lg_addN', { n: todo.length }))}
+          </ChunkyButton>
+        ) : <span style={{ fontSize: 13, fontWeight: 800, color: C.success }}>✓ {t('lg_allInDeck')}</span>}
+        {note && <span style={{ fontSize: 12.5, color: C.inkDim }}>{note}</span>}
+      </div>
+    </div>
+  )
+}
+
+function Story({ ctx, scene, onDone, onQuit }) {
+  const { t, subject } = ctx
+  const [shown, setShown] = useState(1)
+  const [gloss, setGloss] = useState(false)
+  const sid = useRef(`lg-scene-${Date.now().toString(36)}`).current // tapped-word popups belong to this story
+  const audioRef = useRef(null)
+  const listRef = useRef(null)
+  useFocusHold(true)
+  useEffect(() => () => audioRef.current?.stop(), [])
+  useEffect(() => { listRef.current?.scrollTo?.({ top: 1e9, behavior: 'smooth' }) }, [shown])
+  const lang = subject.isLanguage ? subject.learnLangIso : ctx.lang
+  const say = (line) => { audioRef.current?.stop(); audioRef.current = speak(ctx, line.text, { lang, voice: voiceFor(line.speaker) }) }
+  const last = shown >= scene.lines.length
+  const who = (sp) => (sp === 'N' ? '' : scene.cast[sp])
+  return (
+    <div style={{ maxWidth: 680, margin: '0 auto', display: 'flex', flexDirection: 'column', height: '100%', minHeight: 420, gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ flex: 1, fontFamily: FONT.display, fontWeight: 900, fontSize: 20, color: C.ink }}>📖 {scene.title}</div>
+        {subject.isLanguage && (
+          <label style={{ fontSize: 12.5, color: C.inkDim, display: 'flex', gap: 6, alignItems: 'center', cursor: 'pointer' }}>
+            <input type="checkbox" checked={gloss} onChange={(e) => setGloss(e.target.checked)} style={{ accentColor: C.brand }} />{t('lg_gloss')}
+          </label>
+        )}
+      </div>
+      <ProgressBar value={shown} max={scene.lines.length} color={C.success} style={{ height: 12 }} />
+      <div ref={listRef} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, padding: 4 }}>
+        {scene.lines.slice(0, shown).map((l, i) => (
+          <div key={i} style={{ alignSelf: SIDE[l.speaker], maxWidth: l.speaker === 'N' ? '90%' : '80%', textAlign: l.speaker === 'N' ? 'center' : 'left' }}>
+            {who(l.speaker) && <div style={{ fontSize: 11.5, fontWeight: 800, color: l.speaker === 'A' ? C.info : C.purple, margin: '0 4px 2px' }}>{who(l.speaker)}</div>}
+            {/* The line's words are tappable like Study's (ctx.words), so the replay is its own small button. */}
+            <div style={{
+              fontFamily: FONT.body, textAlign: 'inherit', padding: l.speaker === 'N' ? '4px 8px' : '10px 14px', borderRadius: RADIUS.lg,
+              background: l.speaker === 'N' ? 'transparent' : C.surface, border: l.speaker === 'N' ? 'none' : `2px solid ${C.border}`,
+              color: l.speaker === 'N' ? C.inkDim : C.ink, fontStyle: l.speaker === 'N' ? 'italic' : 'normal', fontSize: 15.5, lineHeight: 1.45,
+            }}>
+              {ctx.words ? ctx.words.tappable(l.text, `${sid}-${i}`) : l.text}
+              <button type="button" onClick={() => say(l)} aria-label={t('lg_replay')} data-tip={t('lg_replay')} className="tip"
+                style={{ marginLeft: 6, border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 13, padding: 0, verticalAlign: 'middle' }}>🔊</button>
+              {gloss && l.gloss && <div style={{ fontSize: 12.5, color: C.inkFaint, marginTop: 4, fontStyle: 'normal' }}>{l.gloss}</div>}
+            </div>
+            {ctx.words && ctx.words.popup(`${sid}-${i}`)}
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+        <ChunkyButton variant="ghost" color={C.inkDim} onClick={() => { audioRef.current?.stop(); onQuit() }}>{t('lg_leave')}</ChunkyButton>
+        <ChunkyButton onClick={() => (last ? (audioRef.current?.stop(), onDone()) : setShown(shown + 1))} color={C.success}>{last ? t('lg_toQuestions') : t('lg_continue')}</ChunkyButton>
+      </div>
+    </div>
+  )
+}
+
+// Cheat mode puts "Win now" / "Fail now" above any step; both finish it through the normal path (rewards included,
+// so they can be tested).
+// "These questions are bad": a quiet link under the result and above a running quiz.
+export function NewQuestionsButton({ t, onClick }) {
+  return (
+    <button type="button" onClick={onClick} className="tip" data-tip={t('lg_newQuestionsTip')}
+      style={{ fontFamily: FONT.body, border: 'none', background: 'transparent', color: C.inkDim, fontWeight: 800, fontSize: 13, cursor: 'pointer', padding: 4 }}>
+      🔄 {t('lg_newQuestions')}
+    </button>
+  )
+}
+
+export default function NodeRun(props) {
+  const { ctx, node, area, cheat, onFinish } = props
+  if (!cheat) return <NodeRunBody {...props} />
+  const ids = (node.itemIds || []).filter((id) => area.items.some((it) => it.id === id))
+  const n = Math.max(1, ids.length)
+  const end = (win) => onFinish({ total: n, correct: win ? n : 0, items: ids.map((itemId) => ({ itemId, correct: win })), misses: [] })
+  return (
+    <div style={{ display: 'grid', gap: 10 }}>
+      <CheatRow>
+        <CheatButton onClick={() => end(true)}>⚡ {ctx.t('lg_cheatWin')}</CheatButton>
+        <CheatButton onClick={() => end(false)}>⚡ {ctx.t('lg_cheatLose')}</CheatButton>
+      </CheatRow>
+      <NodeRunBody {...props} />
+    </div>
+  )
+}
+
+function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, onNewQuestions }) {
+  const { t, ai, subject } = ctx
+  const teaches = TEACH_KINDS.has(node.kind)
+  const [phase, setPhase] = useState(node.kind === 'talk' ? 'talk' : teaches ? 'teach' : 'loading') // teach | loading | quiz | story | talk | error
+  const [questions, setQuestions] = useState(null)
+  const [scene, setScene] = useState(null)
+  const [error, setError] = useState('')
+  const seq = useRef(0)
+  const answers = useRef([]) // [{ itemId, correct, asked, answered, expected }]
+  // The boss's character name (older areas get one made while the questions load).
+  const [bossName, setBossName] = useState(area.bossName || '')
+  useEffect(() => {
+    if ((node.kind !== 'boss' && node.kind !== 'legendary') || area.bossName || !ai.hasKey) return
+    let live = true
+    ensureBossName(ctx, modeId, area.id).then((n) => { if (live && n) setBossName(n) })
+    return () => { live = false }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // The boss fight: an intro card first, then every answer is a hit on the boss or a lost heart (BossArena.jsx).
+  const [fighting, setFighting] = useState(false)
+  const [tally, setTally] = useState({ hits: 0, misses: 0, last: null })
+  // A fight: the boss, or a Legendary run over a cleared area (harder pass, no bonus life).
+  const fight = node.kind === 'boss' || node.kind === 'legendary'
+  const odds = node.kind === 'legendary' ? { pass: PASS.legendary } : { bonus: area.bonusLife ? WEAK_BONUS_LIVES : 0 }
+  // Weak spots practices the island's shakiest items right now; every other step its own.
+  const items = node.kind === 'weak' ? weakItems(area) : area.items.filter((it) => node.itemIds.includes(it.id))
+  const teachItems = node.kind === 'rule' ? [...items.filter((it) => it.kind === 'rule'), ...items.filter((it) => it.kind !== 'rule')] : items
+
+  const load = async () => {
+    const my = ++seq.current
+    setPhase('loading'); setError('')
+    try {
+      if (node.kind === 'scene') {
+        const s = await sceneFor(modeId, area, node, async () => {
+          const level = await learnerLevelLine(ctx)
+          const { system, user } = buildScenePrompt(subject, items.map((it) => ({ front: it.front, back: it.back })), { level, theme: `${area.title}: ${area.theme}`, knowledge: subject.knowledge(KNOWLEDGE_CAP.quiz) })
+          const made = parseScene(ai.json(await ai.call(system, user, { role: SCENE_ROLE, maxTokens: SCENE_MAX_TOKENS })), ai.clean)
+          if (!made || !made.questions.length) throw new Error(t('lg_errQuiz'))
+          return made
+        })
+        if (my !== seq.current) return
+        setScene(s); setPhase('story')
+      } else {
+        const qs = await makeQuiz(ctx, modeId, area, node, { misses })
+        if (my !== seq.current) return
+        setQuestions(qs); setPhase('quiz')
+      }
+    } catch (e) { if (my === seq.current) { setError(String(e.message || e)); setPhase('error') } }
+  }
+  useEffect(() => { if (phase === 'loading') load(); return () => { seq.current++ } }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // `total`: the fight ended early out of lives, so the questions never asked count as not answered right.
+  const finish = (total) => {
+    const a = answers.current
+    const won = fight && bossOutcome(questions?.length || 0, tally.hits, tally.misses, odds) === 'won'
+    onFinish({
+      forgiven: won ? forgivenMisses(questions.length, tally.hits, odds) : 0,
+      total: Math.max(a.length, Number(total) || 0), correct: a.filter((x) => x.correct).length,
+      items: a.filter((x) => x.itemId).map((x) => ({ itemId: x.itemId, correct: x.correct })),
+      misses: a.filter((x) => !x.correct).map(({ asked, answered, expected }) => ({ asked, answered, expected })),
+      answers: a.map(({ asked, answered, expected, correct }) => ({ asked, answered, expected, correct })), // for "See all answers"
+    })
+  }
+
+  // Throws this attempt away (nothing is recorded) and asks for a new set. On every screen of a quiz-like step:
+  // the lesson, the scene story, the boss entrance and the questions (it was only on the questions and results).
+  const renew = onNewQuestions && node.kind !== 'talk' && (async () => {
+    if (answers.current.length && !(await ctx.confirm(t('lg_newQuestionsConfirm')))) return
+    onNewQuestions()
+  })
+  const renewRow = renew && <div style={{ display: 'flex', justifyContent: 'flex-end', maxWidth: 640, width: '100%', margin: '0 auto' }}><NewQuestionsButton t={t} onClick={renew} /></div>
+
+  if (phase === 'talk') return <Talk ctx={ctx} area={area} node={node} items={items} onFinish={onFinish} onQuit={onQuit} />
+
+  if (phase === 'teach') {
+    return (
+      <div style={{ maxWidth: 680, margin: '0 auto', display: 'grid', gap: 14 }}>
+        <button onClick={onQuit} style={{ fontFamily: FONT.body, justifySelf: 'start', border: 'none', background: 'transparent', color: C.inkDim, fontWeight: 800, cursor: 'pointer', fontSize: 13 }}>← {t('lg_toMap')}</button>
+        <EbiSays pose={poseFile(node.kind === 'rule' ? 'science' : 'book')}>{node.kind === 'rule' ? t('lg_teachRule') : t('lg_teachLearn', { n: teachItems.length })}</EbiSays>
+        <div style={{ display: 'grid', gap: 10 }}>{liveItems(modeId, area.id, teachItems.map((it) => it.id)).map((it) => <ItemCard key={it.id} it={it} t={t} ctx={ctx} modeId={modeId} areaId={area.id} />)}</div>
+        <AddToDeck ctx={ctx} modeId={modeId} areaId={area.id} itemIds={teachItems.map((it) => it.id)} />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          {renew && <NewQuestionsButton t={t} onClick={renew} />}
+          <ChunkyButton onClick={load} color={C.success} disabled={!ai.hasKey}>{t('lg_startQuestions')}</ChunkyButton>
+        </div>
+      </div>
+    )
+  }
+
+  if (phase === 'error') {
+    return (
+      <div style={{ maxWidth: 560, margin: '40px auto', display: 'grid', gap: 14 }}>
+        <EbiSays pose={poseFile('confused')}>{error}</EbiSays>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <ChunkyButton variant="ghost" color={C.inkDim} onClick={onQuit}>{t('lg_toMap')}</ChunkyButton>
+          <ChunkyButton onClick={load} color={C.success}>{t('lg_retry')}</ChunkyButton>
+        </div>
+      </div>
+    )
+  }
+
+  if (phase === 'loading') {
+    return (
+      <div style={{ maxWidth: 560, margin: '60px auto', display: 'grid', gap: 10, justifyItems: 'center' }}>
+        <EbiSays pose={poseFile(fight ? 'weapon' : 'work')}>{fight ? t('lg_bossIntro', { area: area.title }) : node.kind === 'scene' ? t('lg_sceneIntro') : t('lg_quizIntro')}</EbiSays>
+        <div style={{ fontFamily: FONT.display, fontWeight: 800, color: C.inkDim }}>{t('lg_preparing')}</div>
+      </div>
+    )
+  }
+
+  if (phase === 'story' && scene) return <div style={{ display: 'grid', gap: 4 }}>{renewRow}<Story ctx={ctx} scene={scene} onQuit={onQuit} onDone={() => { setQuestions(scene.questions); setPhase('quiz') }} /></div>
+
+  if (phase === 'quiz' && questions) {
+    const record = (q, correct, answer) => {
+      if (q._retry) return // a missed question asked again at the end is practice: it never changes the score
+      const expected = q.kind === 'choice' ? q.choices?.[q.answerIdx] : (q.accepted || [])[0]
+      answers.current = [...answers.current, { itemId: itemIdFor(q, area.items), correct, asked: q.prompt, answered: answer, expected: expected || '' }]
+      if (fight) setTally((s) => ({ hits: s.hits + (correct ? 1 : 0), misses: s.misses + (correct ? 0 : 1), last: { kind: correct ? 'hit' : 'miss', n: (s.last?.n || 0) + 1 } }))
+    }
+    const boss = fight
+    if (boss && !fighting) return <div style={{ display: 'grid', gap: 4 }}><BossIntro t={t} area={area} name={bossName} total={questions.length} odds={odds} legendary={node.kind === 'legendary'} onFight={() => setFighting(true)} />{renewRow}</div>
+    const runner = (
+      <QuizRunner questions={questions} t={t} ai={ai} subject={subject} ctx={ctx} confirm={ctx.confirm}
+        title={node.kind === 'boss' ? `👑 ${bossName || t('lg_boss')}` : node.kind === 'legendary' ? `🏅 ${bossName || t('lg_legendary')}` : node.title || t(`lg_kind_${node.kind}`)}
+        retryMisses={!fight}
+        onAnswer={record}
+        feedbackExtra={(q, correct, answer) => (!correct && (node.kind === 'rule' || fight) && ai.hasKey
+          ? <RuleCardButton ctx={ctx} compact source={{ asked: q.prompt, answered: answer, expected: q.kind === 'choice' ? q.choices?.[q.answerIdx] : (q.accepted || [])[0] }} />
+          : null)}
+        onFinish={() => finish()}
+        onExit={onQuit} />
+    )
+    if (!boss) return <div style={{ display: 'grid', gap: 4 }}>{renewRow}{runner}</div>
+    // The fight ends when the boss has no health left (a win: stars count the answers given) or the learner no
+    // lives (the rest of the questions count as missed).
+    const outcome = bossOutcome(questions.length, tally.hits, tally.misses, odds)
+    return (
+      <div style={{ display: 'grid', gap: 12 }}>
+        <div style={{ maxWidth: 680, width: '100%', margin: '0 auto' }}>
+          <BossArena t={t} area={area} name={bossName} total={questions.length} odds={odds} hits={tally.hits} misses={tally.misses} last={tally.last} />
+        </div>
+        {outcome ? <BossEnd t={t} won={outcome === 'won'} onDone={() => finish(outcome === 'lost' ? questions.length : 0)} /> : <div style={{ display: 'grid', gap: 4 }}>{renewRow}{runner}</div>}
+      </div>
+    )
+  }
+  return <Card>{t('lg_preparing')}</Card>
+}

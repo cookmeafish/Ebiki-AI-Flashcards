@@ -33,6 +33,7 @@ if ! (cd "$APP" && npm install --no-fund --no-audit); then
   echo "$(t ln_inst_shDepsFailed)" >&2
   exit 1
 fi
+node "$APP/scripts/deps-fingerprint.mjs" --stamp >/dev/null 2>&1 || true
 echo "$(t ln_inst_depsDone)"
 
 echo "$(t ln_inst_shLauncher)"

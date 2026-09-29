@@ -11,7 +11,9 @@ import { award } from './store'
 export const GAME_FEATURE_ID = 'game'
 // Which finished practice session counts for which quest counter (by the source feature's id).
 // Anything not listed still earns the generic practiceDone XP, so a new activity needs no change here.
-const DONE_AWARD = { 'mistake-gym': 'gymDone', legends: 'legends', roleplay: 'roleplay' }
+// Legends steps are paid through LEGENDS_STEP (worth more further up the map), so `legends` is skipped here.
+const DONE_AWARD = { 'mistake-gym': 'gymDone', 'legends-placement': 'placement', roleplay: 'roleplay' }
+const PAID_ELSEWHERE = new Set(['legends'])
 
 export default {
   id: GAME_FEATURE_ID,
@@ -32,7 +34,10 @@ export default {
     [EVENTS.CARDS_ADDED]: ({ n }) => award('cardAdded', { n }),
     [EVENTS.CHAT_SENT]: () => award('chat'),
     [EVENTS.PRACTICE_ANSWERED]: () => award('gym'),
-    [EVENTS.PRACTICE_DONE]: ({ source }) => award(DONE_AWARD[source] || 'practiceDone'),
+    [EVENTS.PRACTICE_DONE]: ({ source }) => { if (!PAID_ELSEWHERE.has(source)) award(DONE_AWARD[source] || 'practiceDone') },
+    [EVENTS.LEGENDS_STEP]: ({ area }) => award('legends', { area }),
+    [EVENTS.BOSS_BEATEN]: () => award('bossWin'),
+    [EVENTS.LEVEL_UP]: ({ from, to }) => { const n = Math.floor(Number(to) || 0) - Math.floor(Number(from) || 0); if (n > 0) award('levelUp', { n }) },
     [EVENTS.CALL_DONE]: ({ cards }) => award('call', { cards }),
   },
 }

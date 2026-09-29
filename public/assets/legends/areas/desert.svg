@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
+  <rect width="400" height="140" fill="var(--lg-sky, #fdeed2)"/>
+  <circle cx="312" cy="40" r="24" fill="var(--lg-accent, #22b8a8)" opacity="0.5"/>
+  <circle cx="312" cy="40" r="16" fill="var(--lg-accent, #22b8a8)" opacity="0.85"/>
+  <polygon points="190,100 226,58 262,100" fill="var(--lg-deep, #b3741c)" opacity="0.75"/>
+  <polygon points="226,58 226,100 262,100" fill="var(--lg-deep, #b3741c)"/>
+  <polygon points="250,100 270,78 290,100" fill="var(--lg-deep, #b3741c)" opacity="0.6"/>
+  <path d="M0 100 Q90 70 200 98 T400 90 V140 H0Z" fill="var(--lg-far, #f3cf8f)"/>
+  <g stroke="var(--lg-deep, #b3741c)" stroke-linecap="round" fill="none">
+    <path d="M98 118 V74" stroke-width="12"/>
+    <path d="M98 96 h-12 v-14" stroke-width="8"/>
+    <path d="M98 88 h13 v-12" stroke-width="8"/>
+  </g>
+  <path d="M0 122 Q140 100 260 120 T400 116 V140 H0Z" fill="var(--lg-near, #e8b35e)"/>
+  <g fill="var(--lg-deep, #b3741c)" opacity="0.5">
+    <ellipse cx="160" cy="130" rx="8" ry="2"/><ellipse cx="320" cy="128" rx="10" ry="2"/>
+  </g>
+  <g stroke="var(--lg-light, #ffffff)" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.5">
+    <path d="M30 60 q20 -6 40 0"/><path d="M130 44 q16 -5 32 0"/>
+  </g>
+  <g fill="var(--lg-deep, #b3741c)">
+    <circle cx="354" cy="118" r="4"/><rect x="352" y="118" width="4" height="10"/>
+  </g>
+</svg>

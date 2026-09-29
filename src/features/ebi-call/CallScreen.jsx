@@ -14,6 +14,7 @@ import { EVENTS } from '../events'
 import { ChunkyButton, EbiSays, tCount, depthBorder } from '../ui'
 import { splitReply, applyGrades, ratingsFrom, VERDICTS, CALL_CARDS } from './grades'
 import { buildCallSystem, buildCallTurn, CALL_ROLE, CALL_MAX_TOKENS } from './prompt'
+import { learnerLevelLine } from '../kit/learnerStore'
 import { recordCall } from './recorder'
 
 export const CALL_FEATURE_ID = 'ebi-call'
@@ -57,7 +58,7 @@ export default function CallScreen({ onExit }) {
   const voiceOn = voiceChatOn(ctx) // optional feature: talk out loud, hear replies
 
   const say = async (history) => {
-    const system = buildCallSystem(subject, targets.length ? targets : [], { practice, slips: subject.isLanguage ? subject.grammarSlips(SLIPS) : '' })
+    const system = buildCallSystem(subject, targets.length ? targets : [], { practice, slips: subject.isLanguage ? subject.grammarSlips(SLIPS) : '', level: await learnerLevelLine(ctx) })
     const raw = await ai.call(system, buildCallTurn(history), { role: CALL_ROLE, maxTokens: CALL_MAX_TOKENS })
     return splitReply(raw, targets.map((tg) => tg.cardId), ai.json)
   }

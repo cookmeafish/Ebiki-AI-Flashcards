@@ -7,7 +7,9 @@
 // ctx: the feature context, only needed for audio and speaking
 // feedbackExtra(question, correct, answer): optional node under the explanation (e.g. a rule-card button)
 // onAnswer(question, correct, answerText)  after each check (features award XP, log mistakes, ...)
-// onFinish(results)                         results: [{ question, correct, answer }]
+// onFinish(results)                         results: [{ question, correct, answer }] (first attempts only)
+// retryMisses: a question answered wrong comes back ONCE at the end (Duolingo style). The retry is practice: it
+//              never changes the score, and onAnswer gets the question with `_retry: true`.
 import { useEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile, shrimpUrl } from '../../config/shrimp'
@@ -27,8 +29,11 @@ const PLAY_BASE_MS = 2500
 const PLAY_PER_CHAR_MS = 110
 const PLAY_MAX_MS = 20000
 
-export default function QuizRunner({ questions, t, ai, subject, onAnswer, onFinish, onExit, title, confirm, ctx, feedbackExtra }) {
+export default function QuizRunner({ questions: given, t, ai, subject, onAnswer, onFinish, onExit, title, confirm, ctx, feedbackExtra, retryMisses = false }) {
   const [idx, setIdx] = useState(0)
+  // The feature's list, plus the misses asked again at the end (the list itself stays the feature's).
+  const [retries, setRetries] = useState([])
+  const questions = retries.length ? [...given, ...retries] : given
   const [picked, setPicked] = useState(null)
   const [text, setText] = useState('')
   const [phase, setPhase] = useState('answer')    // answer | checking | feedback | done
@@ -62,8 +67,11 @@ export default function QuizRunner({ questions, t, ai, subject, onAnswer, onFini
     return () => audioRef.current?.stop()
   }, [idx]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const lastAnswer = useRef('') // the answer just checked (a retry's answer is not in `results`)
   const record = (correct, answer, extra = {}) => {
-    results.current = [...results.current, { question: q, correct, answer }]
+    lastAnswer.current = answer
+    if (!q._retry) results.current = [...results.current, { question: q, correct, answer }]
+    if (!correct && retryMisses && !q._retry) setRetries((list) => [...list, { ...q, _retry: true }])
     setVerdict({ correct, ...extra })
     setPhase('feedback')
     try { onAnswer?.(q, correct, answer) } catch { /* the feature's problem */ }
@@ -110,11 +118,12 @@ export default function QuizRunner({ questions, t, ai, subject, onAnswer, onFini
 
   if (phase === 'done') {
     const right = results.current.filter((r) => r.correct).length
+    const asked = results.current.length
     return (
       <div style={{ maxWidth: MAX_W, margin: '40px auto', textAlign: 'center' }}>
         <img src={shrimpUrl(poseFile(POSE.done))} alt="" width={120} />
         <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 28, color: C.ink, margin: '8px 0 4px' }}>{title}</div>
-        <div style={{ fontSize: 18, fontWeight: 800, color: C.success, marginBottom: 20 }}>{t('kit_score', { c: right, n: total })}</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: C.success, marginBottom: 20 }}>{t('kit_score', { c: right, n: asked })}</div>
         <ChunkyButton onClick={onExit} color={C.success}>{t('kit_finish')}</ChunkyButton>
       </div>
     )
@@ -133,7 +142,7 @@ export default function QuizRunner({ questions, t, ai, subject, onAnswer, onFini
           style={{ border: 'none', background: 'transparent', color: C.inkFaint, fontSize: 22, cursor: 'pointer', padding: 4 }}>✕</button>
         <ProgressBar value={idx + (phase === 'feedback' ? 1 : 0)} max={total} color={C.success} style={{ flex: 1, height: 16 }} />
       </div>
-      {title && <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: C.purple }}>{title} · {t('kit_progress', { i: idx + 1, n: total })}</div>}
+      {title && <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: C.purple }}>{title} · {t('kit_progress', { i: idx + 1, n: total })}{q._retry ? ` · 🔁 ${t('kit_again')}` : ''}</div>}
       <div style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 22, color: C.ink, lineHeight: 1.35, whiteSpace: 'pre-wrap' }}>{q.prompt}</div>
       {q.audio?.text && ctx && (
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -159,7 +168,7 @@ export default function QuizRunner({ questions, t, ai, subject, onAnswer, onFini
               <button key={i} disabled={phase !== 'answer'} onClick={() => setPicked(i)} className="btn-press" style={{
                 display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', textAlign: 'left', borderRadius: RADIUS.md,
                 ...depthBorder(edge, { bottomColor: edge }), background: isPick || showRight ? `color-mix(in srgb, ${edge} 12%, ${C.surface})` : C.surface,
-                color: C.ink, fontSize: 16, fontWeight: 700, cursor: phase === 'answer' ? 'pointer' : 'default',
+                color: C.ink, fontFamily: FONT.body, fontSize: 16, fontWeight: 700, cursor: phase === 'answer' ? 'pointer' : 'default',
               }}>
                 <span style={{ width: 26, height: 26, flexShrink: 0, borderRadius: RADIUS.sm, border: `2px solid ${C.border}`, display: 'grid', placeItems: 'center', fontSize: 13, color: C.inkFaint }}>{i + 1}</span>
                 <span>{c}</span>
@@ -189,7 +198,7 @@ export default function QuizRunner({ questions, t, ai, subject, onAnswer, onFini
               {!good && reveal && !q.open && <div style={{ fontSize: 14, color: C.ink, fontWeight: 700 }}>{t('kit_answerWas', { a: reveal })}</div>}
               {verdict?.note && <div style={{ fontSize: 13.5, color: C.ink, marginTop: 4, lineHeight: 1.45 }}>{verdict.note}</div>}
               {q.explanation && <div style={{ fontSize: 13.5, color: C.inkDim, marginTop: 4, lineHeight: 1.45 }}>{q.explanation}</div>}
-              {feedbackExtra && <div key={idx} style={{ marginTop: 6 }}>{feedbackExtra(q, !!good, results.current[results.current.length - 1]?.answer || '')}</div>}
+              {feedbackExtra && <div key={idx} style={{ marginTop: 6 }}>{feedbackExtra(q, !!good, lastAnswer.current || '')}</div>}
             </div>
             <ChunkyButton onClick={next} color={good ? C.success : C.danger}>{t('kit_continue')}</ChunkyButton>
           </div>

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
+  <rect width="400" height="140" fill="var(--lg-far, #c9a0e8)"/>
+  <polygon points="200,0 116,122 284,122" fill="var(--lg-accent, #f2b441)" opacity="0.28"/>
+  <polygon points="120,0 90,122 150,122" fill="var(--lg-light, #ffffff)" opacity="0.12"/>
+  <polygon points="280,0 250,122 310,122" fill="var(--lg-light, #ffffff)" opacity="0.12"/>
+  <path d="M0 0 H78 Q66 50 58 90 Q50 120 44 140 H0Z" fill="var(--lg-deep, #7b3fb8)"/>
+  <path d="M400 0 H322 Q334 50 342 90 Q350 120 356 140 H400Z" fill="var(--lg-deep, #7b3fb8)"/>
+  <g stroke="var(--lg-near, #a46ad6)" stroke-width="3" opacity="0.7">
+    <path d="M22 0 Q18 70 14 140"/><path d="M48 0 Q42 70 30 140"/><path d="M378 0 Q382 70 386 140"/><path d="M352 0 Q358 70 370 140"/>
+  </g>
+  <path d="M0 0 H400 V16 Q360 26 320 16 Q280 26 240 16 Q200 26 160 16 Q120 26 80 16 Q40 26 0 16Z" fill="var(--lg-near, #a46ad6)"/>
+  <rect x="40" y="116" width="320" height="24" fill="var(--lg-near, #a46ad6)"/>
+  <rect x="40" y="114" width="320" height="4" fill="var(--lg-accent, #f2b441)" opacity="0.8"/>
+  <g>
+    <rect x="196" y="84" width="8" height="30" fill="var(--lg-deep, #7b3fb8)"/>
+    <ellipse cx="200" cy="82" rx="9" ry="12" fill="var(--lg-deep, #7b3fb8)"/>
+    <rect x="186" y="112" width="28" height="4" rx="2" fill="var(--lg-deep, #7b3fb8)"/>
+    <ellipse cx="200" cy="80" rx="5" ry="8" fill="var(--lg-light, #ffffff)" opacity="0.35"/>
+  </g>
+  <g fill="var(--lg-accent, #f2b441)">
+    <path d="M140 60 l3 7 l7 1 l-5 5 l1 7 l-6 -3 l-6 3 l1 -7 l-5 -5 l7 -1z"/>
+    <path d="M262 46 l2.5 5.5 l6 .8 l-4.3 4 l1 6 l-5.2 -2.8 l-5.2 2.8 l1 -6 l-4.3 -4 l6 -.8z"/>
+  </g>
+</svg>

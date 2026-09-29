@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <path d="M22 116 Q14 60 30 34 Q44 10 60 10 Q76 10 90 34 Q106 60 98 116Z" fill="var(--lg-light, #ffffff)"/>
+  <path d="M22 116 Q14 60 30 34 Q44 10 60 10 Q76 10 90 34 Q106 60 98 116Z" fill="none" stroke="var(--lg-near, #7f72d9)" stroke-width="4"/>
+  <g fill="var(--lg-far, #b5aef0)" opacity="0.7">
+    <path d="M30 34 l6 6 l4 -8 l6 6 l4 -8 l6 6 l4 -8 l6 6 l4 -8 l6 6 l6 -6 Q76 10 60 10 Q44 10 30 34Z"/>
+  </g>
+  <rect x="34" y="36" width="52" height="38" rx="18" fill="var(--lg-near, #7f72d9)"/>
+  <ellipse cx="48" cy="52" rx="7" ry="8" fill="var(--lg-light, #ffffff)"/><ellipse cx="72" cy="52" rx="7" ry="8" fill="var(--lg-light, #ffffff)"/>
+  <circle cx="49" cy="54" r="3.5" fill="var(--lg-ink, #1d2230)"/><circle cx="73" cy="54" r="3.5" fill="var(--lg-ink, #1d2230)"/>
+  <path d="M40 42 l12 4 M80 42 l-12 4" stroke="var(--lg-ink, #1d2230)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M48 66 h24 l-4 5 h-16z" fill="var(--lg-ink, #1d2230)"/>
+  <polygon points="52,66 55,71 58,66" fill="var(--lg-light, #ffffff)"/><polygon points="62,66 65,71 68,66" fill="var(--lg-light, #ffffff)"/>
+  <path d="M22 80 Q6 76 8 58" stroke="var(--lg-light, #ffffff)" stroke-width="12" fill="none" stroke-linecap="round"/>
+  <path d="M98 80 Q114 76 112 58" stroke="var(--lg-light, #ffffff)" stroke-width="12" fill="none" stroke-linecap="round"/>
+  <g fill="var(--lg-deep, #4b3fb0)"><circle cx="8" cy="56" r="5"/><circle cx="112" cy="56" r="5"/></g>
+  <g fill="var(--lg-far, #b5aef0)" opacity="0.6"><circle cx="44" cy="92" r="3"/><circle cx="66" cy="100" r="3"/><circle cx="80" cy="88" r="2.5"/></g>
+</svg>
