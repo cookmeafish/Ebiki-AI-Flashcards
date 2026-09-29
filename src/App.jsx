@@ -876,14 +876,33 @@ export default function App() {
       // Only a real status counts: a 500 (the offline copy could not be listed) read as "the share is back" and
       // froze every writer while the app was still offline.
       if (!d || typeof d.offline !== 'boolean') return
-      // Freeze writers at once, but let the USER reload: an automatic reload threw away a pending chat
-      // reply, a Quick Add tray, an unapplied Ebi Studio proposal or a half-typed answer, and cut a
-      // study sync mid-way (and repeated every 30s on a flapping VPN share).
+      // The share is back (usually: the computer woke from sleep). No big "reload" box any more: every routine
+      // save now posts only what CHANGED (config keys, one mode, chats fork on a mismatch), so a page holding the
+      // offline copy's state is no staler than any page left open beside another computer. What is left is the
+      // offline EDITS: merged in the background with the same 3-way merge as the Merge button (nothing is
+      // dropped; a value both sides changed keeps the share's). Only a merge that FAILS falls back to the old
+      // path: freeze writers and let the user reload (an automatic reload threw away in-flight work).
       if (wasOfflineRef.current && !d.offline) {
         wasOfflineRef.current = false
-        dataSwitchingRef.current = true; setBlobWritesPaused(true)
-        configHealthyRef.current = false
-        setShareBackReload(true)
+        const n = d.pending ? (d.changes || 0) : 0
+        if (n > 0 && !d.otherFolder) {
+          setOfflineBusy('merge')
+          apiFetch('/api/offline', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ discard: false }) })
+            .then((r) => r.json())
+            .then((res) => {
+              if (res.error) throw new Error(res.error)
+              setOfflinePending(0)
+              setSuccessNotice(tLiveRef.current('offlineMerged', { n: (res.forwarded || 0) + (res.merged || 0) + (res.keptBoth || 0) }))
+            })
+            .catch(() => {
+              dataSwitchingRef.current = true; setBlobWritesPaused(true)
+              configHealthyRef.current = false
+              setShareBackReload(true)
+            })
+            .finally(() => setOfflineBusy(null))
+          setDataOffline(false)
+          return
+        }
       }
       setDataOffline(!!d.offline)
       setOfflinePending(d.pending ? (d.changes || 0) : 0)
@@ -14826,8 +14845,8 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
           • amber  - running from this computer's copy: fully usable, edits ARE
                      saved locally and merge back later. Dismissable, since it is
                      a working state and not an error;
-          • brand  - the share is back and offline edits are waiting on the user's
-                     decision (never pushed automatically). */}
+          • brand  - the share is back and the automatic merge of the offline edits
+                     failed, so they wait on the user. */}
       {/* The service is gone. Something MUST say so: every save is failing silently
           while the window looks perfectly normal, which is the mystery that took a
           whole session to chase down. But it is a QUIET line now, not the
