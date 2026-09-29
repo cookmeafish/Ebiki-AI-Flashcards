@@ -35,7 +35,7 @@ export default {
     [EVENTS.CHAT_SENT]: () => award('chat'),
     [EVENTS.PRACTICE_ANSWERED]: () => award('gym'),
     [EVENTS.PRACTICE_DONE]: ({ source }) => { if (!PAID_ELSEWHERE.has(source)) award(DONE_AWARD[source] || 'practiceDone') },
-    [EVENTS.LEGENDS_STEP]: ({ area }) => award('legends', { area }),
+    [EVENTS.LEGENDS_STEP]: ({ area, effort, replays }) => award('legends', { area, effort, replays }),
     [EVENTS.BOSS_BEATEN]: () => award('bossWin'),
     [EVENTS.LEVEL_UP]: ({ from, to }) => { const n = Math.floor(Number(to) || 0) - Math.floor(Number(from) || 0); if (n > 0) award('levelUp', { n }) },
     [EVENTS.CALL_DONE]: ({ cards }) => award('call', { cards }),

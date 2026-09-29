@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- The Scrap Titan: a giant made of junk. A car-grille jaw, headlight eyes, tire shoulders, a crane-magnet hand,
+       exhaust pipes breathing smoke, a traffic cone horn. -->
+  <!-- exhaust smoke -->
+  <g fill="#6b6f7a" opacity="0.5">
+    <circle style="transform-box:fill-box;transform-origin:center" cx="30" cy="10" r="5"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 8;-6 -6" dur="1.8s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.8s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle style="transform-box:fill-box;transform-origin:center" cx="90" cy="10" r="5"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 8;6 -6" dur="2.1s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.1s" repeatCount="indefinite" additive="sum"/></circle>
+  </g>
+  <!-- exhaust pipes on the back -->
+  <g fill="#8a8f9c" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"><rect x="26" y="14" width="8" height="26" rx="1"/><rect x="86" y="14" width="8" height="26" rx="1"/><rect x="25" y="12" width="10" height="4" fill="#5a5f6a"/><rect x="85" y="12" width="10" height="4" fill="#5a5f6a"/></g>
+  <!-- the body: a crushed car block -->
+  <path d="M24 120 L28 80 L48 72 H74 L94 80 L98 120Z" fill="#b3452c" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M28 80 L48 72 H58 L40 86 L36 120 H24Z" fill="#fff" opacity="0.16"/>
+  <g fill="#8a3220" opacity="0.8"><circle cx="42" cy="100" r="3"/><circle cx="80" cy="92" r="2.4"/><circle cx="70" cy="110" r="3.4"/></g>
+  <!-- car door with a window, rivets, a license plate -->
+  <path d="M46 84 H74 V104 H46Z" fill="#9a3a24" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+  <path d="M48 86 H72 V94 H48Z" fill="#6fb8ff" opacity="0.5" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+  <path d="M50 88 L58 92 M62 86 L66 94" stroke="#fff" stroke-width="0.8"/>
+  <rect x="52" y="108" width="16" height="7" rx="1" fill="#f2e6b8" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+  <path d="M55 110 H65 M55 112.5 H62" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+  <!-- tire shoulders -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.6">
+    <circle cx="26" cy="78" r="12" fill="#26272c"/><circle cx="26" cy="78" r="5" fill="#8a8f9c"/>
+    <circle cx="94" cy="78" r="12" fill="#26272c"/><circle cx="94" cy="78" r="5" fill="#8a8f9c"/>
+  </g>
+  <g fill="none" stroke="#4a4b52" stroke-width="1.2" stroke-dasharray="2 2"><circle cx="26" cy="78" r="9"/><circle cx="94" cy="78" r="9"/></g>
+  <!-- left arm: rebar and a pipe fist -->
+  <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 22 84;-6 22 84;0 22 84" dur="2.4s" repeatCount="indefinite"/>
+    <path d="M18 86 L10 106" stroke="#5a5f6a" stroke-width="6" stroke-linecap="round"/>
+    <path d="M4 104 H18 V116 H4Z" fill="#8a8f9c" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+    <path d="M6 116 V120 M10 116 V120 M14 116 V120" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6"/>
+  </g>
+  <!-- right arm: the crane magnet -->
+  <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 98 84;6 98 84;0 98 84" dur="2.6s" repeatCount="indefinite"/>
+    <path d="M100 86 L110 100" stroke="#e0a13a" stroke-width="5" stroke-linecap="round"/>
+    <path d="M110 100 V104" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+    <ellipse cx="110" cy="108" rx="9" ry="4" fill="#5a5f6a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+    <path d="M101 108 V112 C101 114 119 114 119 112 V108" fill="#3a3d45" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+    <!-- sparks of magnetism -->
+    <path d="M104 116 l-2 3 M110 117 v3 M116 116 l2 3" stroke="#6ff3ff" stroke-width="1.2" stroke-linecap="round"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 1.4;0 0" dur="0.3s" repeatCount="indefinite"/></path>
+  </g>
+  <!-- the head: an old car front -->
+  <path d="M34 34 C34 26 42 22 60 22 C78 22 86 26 86 34 V62 C86 68 80 72 60 72 C40 72 34 68 34 62Z" fill="#6b8a9a" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
+  <path d="M38 34 C38 28 46 26 58 26 C48 30 42 36 42 60 H38Z" fill="#fff" opacity="0.2"/>
+  <!-- dented hood, rust patch -->
+  <path d="M48 28 C52 32 56 30 58 26" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9"/>
+  <ellipse cx="76" cy="30" rx="5" ry="3" fill="#b3452c" opacity="0.7"/>
+  <!-- traffic cone horn -->
+  <path d="M54 22 L60 4 L66 22Z" fill="#ff7a1a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+  <path d="M56.5 16 H63.5 M58 10 H62" stroke="#fff" stroke-width="2"/>
+  <!-- headlight eyes: switch on (flicker, then blaze) -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"><circle cx="46" cy="42" r="8" fill="#c9ccd6"/><circle cx="74" cy="42" r="8" fill="#c9ccd6"/></g>
+  <g transform="translate(46 42)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0;0;1;0;0;1.3;1" keyTimes="0;.62;.66;.7;.74;.86;1" dur="1.5s" fill="freeze"/>
+    <circle r="11" fill="#fff6a8" opacity="0.4"/><circle r="6" fill="#fff6a8"/><circle r="3" fill="#fff"/>
+  </g></g>
+  <g transform="translate(74 42)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0;0;1;0;0;1.3;1" keyTimes="0;.64;.68;.72;.76;.88;1" dur="1.5s" fill="freeze"/>
+    <circle r="11" fill="#fff6a8" opacity="0.4"/><circle r="6" fill="#fff6a8"/><circle r="3" fill="#fff"/>
+  </g></g>
+  <path d="M36 32 L54 38 M84 32 L66 38" stroke="var(--lg-ink, #1d2230)" stroke-width="3" stroke-linecap="round"/>
+  <!-- car-grille jaw, chomping -->
+  <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 3;0 0" dur="1.1s" repeatCount="indefinite"/>
+    <path d="M38 54 H82 V66 C82 70 38 70 38 66Z" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+    <rect x="40" y="56" width="40" height="10" fill="#1d1b28"/>
+    <g fill="#e6e8ee" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"><path d="M42 56 V64 L44 66 L46 64 V56Z M50 56 V64 L52 66 L54 64 V56Z M58 56 V64 L60 66 L62 64 V56Z M66 56 V64 L68 66 L70 64 V56Z M74 56 V64 L76 66 L78 64 V56Z"/></g>
+    <rect x="54" y="66" width="12" height="3" fill="#8a8f9c" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+  </g>
+  <!-- a dragging bumper and scraps falling off on the heave -->
+  <g fill="#8a8f9c" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7">
+    <g transform="translate(6 0)"><g><animateTransform class="lg-in" attributeName="transform" type="translate" values="-6 -30;-6 -30;0 0;0 0" keyTimes="0;.5;.7;1" dur="1.5s" fill="freeze"/><path d="M84 112 l6 -3 l2 4 l-6 3Z"/></g></g>
+    <g transform="translate(-6 0)"><g><animateTransform class="lg-in" attributeName="transform" type="translate" values="6 -30;6 -30;0 0;0 0" keyTimes="0;.55;.75;1" dur="1.5s" fill="freeze"/><circle cx="34" cy="114" r="2.4"/></g></g>
+  </g>
+</svg>

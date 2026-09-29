@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
+  <!-- The Golden Hive: a giant honeycomb wall, dripping honey, swarms of drones, the royal chamber glowing gold with the
+       Hive Queen's silhouette inside. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #fbeccb)"/>
+  <!-- honeycomb wall -->
+  <g fill="#f2b441" stroke="#b87a1a" stroke-width="1.4">
+    <path d="M0 10 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M28 10 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M56 10 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M84 10 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M112 10 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M260 10 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M288 10 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M316 10 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M344 10 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M372 10 l14 -8 l14 8 v16 l-14 8 l-14 -8Z"/>
+    <path d="M14 34 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M42 34 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M70 34 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M98 34 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M274 34 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M302 34 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M330 34 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M358 34 l14 -8 l14 8 v16 l-14 8 l-14 -8Z"/>
+    <path d="M0 58 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M28 58 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M56 58 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M84 58 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M288 58 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M316 58 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M344 58 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M372 58 l14 -8 l14 8 v16 l-14 8 l-14 -8Z"/>
+    <path d="M14 82 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M42 82 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M70 82 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M302 82 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M330 82 l14 -8 l14 8 v16 l-14 8 l-14 -8Z M358 82 l14 -8 l14 8 v16 l-14 8 l-14 -8Z"/>
+  </g>
+  <!-- capped and glowing cells, larvae -->
+  <g fill="#ffd96b" opacity="0.9"><path d="M30 12 l12 -7 l12 7 v14 l-12 7 l-12 -7Z M318 36 l12 -7 l12 7 v14 l-12 7 l-12 -7Z M72 60 l12 -7 l12 7 v14 l-12 7 l-12 -7Z"/></g>
+  <g fill="#fff4d6" stroke="#b87a1a" stroke-width="0.6"><ellipse cx="56" cy="44" rx="5" ry="3"/><ellipse cx="344" cy="68" rx="5" ry="3"/><ellipse cx="28" cy="92" rx="5" ry="3"/></g>
+  <!-- the royal chamber: a great round cell glowing -->
+  <circle cx="200" cy="62" r="52" fill="#ffd23f" opacity="0.3" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.05;1" dur="3s" repeatCount="indefinite" additive="sum"/></circle>
+  <path d="M200 14 l42 24 v48 l-42 24 l-42 -24 v-48Z" fill="#c07a1a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8"/>
+  <path d="M200 22 l35 20 v40 l-35 20 l-35 -20 v-40Z" fill="#ffe89a"/>
+  <!-- the Queen's silhouette inside: crown, wings, compound eyes -->
+  <g fill="#3a2a10">
+    <path d="M176 50 C160 36 150 40 152 50 C156 58 170 58 182 56Z"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 182 54;-8 182 54;0 182 54" dur="0.14s" repeatCount="indefinite"/></path>
+    <path d="M224 50 C240 36 250 40 248 50 C244 58 230 58 218 56Z"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 218 54;8 218 54;0 218 54" dur="0.14s" repeatCount="indefinite"/></path>
+    <path d="M186 50 C186 40 214 40 214 50 C214 62 206 66 200 66 C194 66 186 62 186 50Z"/>
+    <path d="M190 66 C188 80 196 94 200 98 C204 94 212 80 210 66Z"/>
+    <path d="M190 42 L192 32 L196 38 L200 30 L204 38 L208 32 L210 42Z" fill="#c9a441"/>
+  </g>
+  <g fill="#ff2e4c"><ellipse cx="194" cy="50" rx="3.4" ry="4"/><ellipse cx="206" cy="50" rx="3.4" ry="4"/></g>
+  <g fill="#ffd23f"><path d="M192 74 H208 M192 84 H208" stroke="#ffd23f" stroke-width="2"/></g>
+  <!-- honey dripping from the chamber and the comb -->
+  <g fill="#ffb627" stroke="#b87a1a" stroke-width="0.6">
+    <path d="M186 102 C186 112 190 116 190 108 V102Z" style="transform-box:fill-box;transform-origin:center top"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1.3;1 1" dur="2.4s" repeatCount="indefinite"/></path>
+    <path d="M40 104 C40 114 44 118 44 110 V104Z" style="transform-box:fill-box;transform-origin:center top"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1.25;1 1" dur="2.8s" repeatCount="indefinite"/></path>
+    <path d="M340 104 C340 112 343 116 343 110 V104Z"/>
+  </g>
+  <circle style="transform-box:fill-box;transform-origin:center" cx="214" cy="104" r="2" fill="#ffb627"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 24" dur="1.6s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.6s" repeatCount="indefinite" additive="sum"/></circle>
+  <!-- the honey floor -->
+  <path d="M0 112 C60 108 120 114 200 110 C280 106 340 114 400 110 V140 H0Z" fill="var(--lg-near, #e0a13a)"/>
+  <path d="M0 122 C80 118 160 126 240 120 C300 116 360 124 400 120 V140 H0Z" fill="#c07a1a" opacity="0.5"/>
+  <!-- swarms of drones -->
+  <g fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6">
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;30 -10;60 4;30 12;0 0" dur="6s" repeatCount="indefinite"/>
+      <ellipse cx="120" cy="80" rx="3" ry="2"/><ellipse cx="130" cy="74" rx="3" ry="2"/><ellipse cx="126" cy="88" rx="3" ry="2"/></g>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-30 8;-60 -4;-30 -12;0 0" dur="7s" repeatCount="indefinite"/>
+      <ellipse cx="280" cy="90" rx="3" ry="2"/><ellipse cx="272" cy="96" rx="3" ry="2"/><ellipse cx="290" cy="84" rx="3" ry="2"/></g>
+  </g>
+  <g fill="#fff" opacity="0.7"><ellipse cx="119" cy="78" rx="2" ry="1"/><ellipse cx="279" cy="88" rx="2" ry="1"/></g>
+</svg>

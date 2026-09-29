@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- The Flytrap Queen: a carnivorous plant tyrant. A huge flytrap maw with thorn teeth, smaller snapping heads on
+       vines, poison petals, a thorn crown. -->
+  <!-- poison pollen haze -->
+  <g fill="#ff3fd2" opacity="0.1"><circle cx="60" cy="50" r="50"/></g>
+  <!-- thorny vines behind -->
+  <g fill="none" stroke="var(--lg-deep, #2e8b57)" stroke-width="3.4" stroke-linecap="round">
+    <path d="M60 120 C50 100 30 96 20 80 C12 68 16 56 24 50"/><path d="M60 120 C70 100 90 96 100 80 C108 68 104 56 96 50"/>
+  </g>
+  <g fill="#e8d7b0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"><polygon points="34,98 30,94 36,95"/><polygon points="18,76 14,74 19,72"/><polygon points="86,98 90,94 84,95"/><polygon points="102,76 106,74 101,72"/></g>
+  <!-- LEFT small snapping head -->
+  <g>
+    <animateTransform class="lg-in" attributeName="transform" type="rotate" values="-50 24 50;-50 24 50;10 24 50;0 24 50" keyTimes="0;.55;.78;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 24 50;-8 24 50;0 24 50" dur="1.8s" begin="1.5s" repeatCount="indefinite"/>
+      <path d="M24 50 C12 44 8 30 14 24 L24 36Z" fill="var(--lg-near, #5fb57a)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+      <path d="M24 50 C30 38 30 26 22 20 L20 34Z" fill="var(--lg-near, #5fb57a)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+      <path d="M16 26 C18 30 20 34 22 34" fill="#b3122e"/>
+      <g fill="#f4efe0"><polygon points="14,26 17,28 15,29"/><polygon points="16,32 19,32 17,35"/><polygon points="22,22 21,26 24,24"/><polygon points="26,28 23,30 26,32"/></g>
+    </g>
+  </g>
+  <!-- RIGHT small snapping head -->
+  <g>
+    <animateTransform class="lg-in" attributeName="transform" type="rotate" values="50 96 50;50 96 50;-10 96 50;0 96 50" keyTimes="0;.6;.82;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 96 50;8 96 50;0 96 50" dur="2s" begin="1.5s" repeatCount="indefinite"/>
+      <path d="M96 50 C108 44 112 30 106 24 L96 36Z" fill="var(--lg-near, #5fb57a)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+      <path d="M96 50 C90 38 90 26 98 20 L100 34Z" fill="var(--lg-near, #5fb57a)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+      <path d="M104 26 C102 30 100 34 98 34" fill="#b3122e"/>
+      <g fill="#f4efe0"><polygon points="106,26 103,28 105,29"/><polygon points="104,32 101,32 103,35"/><polygon points="98,22 99,26 96,24"/><polygon points="94,28 97,30 94,32"/></g>
+    </g>
+  </g>
+  <!-- poison petals around the base -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
+    <path d="M60 104 C40 110 24 104 20 94 C34 92 48 94 60 100Z" fill="#b3122e"/><path d="M60 104 C80 110 96 104 100 94 C86 92 72 94 60 100Z" fill="#b3122e"/>
+    <path d="M60 106 C50 116 36 118 30 114 C38 106 50 102 60 102Z" fill="#7a0c20"/><path d="M60 106 C70 116 84 118 90 114 C82 106 70 102 60 102Z" fill="#7a0c20"/>
+  </g>
+  <g fill="#ffd23f"><circle cx="30" cy="96" r="1.4"/><circle cx="90" cy="96" r="1.4"/><circle cx="40" cy="110" r="1.2"/><circle cx="80" cy="110" r="1.2"/></g>
+  <!-- the stem -->
+  <path d="M54 104 C52 92 54 82 56 74 H64 C66 82 68 92 66 104Z" fill="var(--lg-deep, #2e8b57)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6"/>
+  <!-- the great trap: two lobes, gaping -->
+  <g transform="translate(60 72)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.2;1 0.2;1.1 1.2;1 1" keyTimes="0;.6;.8;1" dur="1.6s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 0.9;1 1" dur="2.4s" begin="1.6s" repeatCount="indefinite"/>
+      <g transform="translate(-60 -72)">
+        <!-- upper lobe -->
+        <path d="M22 50 C22 24 40 12 60 12 C80 12 98 24 98 50 C84 54 36 54 22 50Z" fill="var(--lg-near, #5fb57a)" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
+        <path d="M28 48 C28 28 42 18 60 18 C44 24 36 34 34 50Z" fill="#fff" opacity="0.18"/>
+        <path d="M30 48 C40 42 80 42 90 48 C86 50 34 50 30 48Z" fill="#b3122e"/>
+        <!-- thorn crown on the upper lobe -->
+        <g fill="#e8d7b0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"><polygon points="44,16 42,4 50,14"/><polygon points="56,12 58,0 62,12"/><polygon points="70,14 78,4 76,16"/><polygon points="34,22 26,14 38,20"/><polygon points="86,22 94,14 82,20"/></g>
+        <!-- lower lobe -->
+        <path d="M24 72 C36 94 84 94 96 72 C84 76 36 76 24 72Z" fill="var(--lg-near, #5fb57a)" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
+        <!-- the red maw -->
+        <path d="M22 50 C36 54 84 54 98 50 C100 60 98 68 96 72 C84 76 36 76 24 72 C22 68 20 60 22 50Z" fill="#6b0c1e" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+        <ellipse cx="60" cy="64" rx="20" ry="6" fill="#ff3fd2" opacity="0.35"/>
+        <!-- thorn teeth, interlocking -->
+        <g fill="#f4efe0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round">
+          <polygon points="26,52 28,62 32,53"/><polygon points="36,53 38,64 42,54"/><polygon points="46,54 48,66 52,54"/><polygon points="56,54 58,64 62,54"/><polygon points="66,54 70,66 72,54"/><polygon points="76,54 80,64 82,53"/><polygon points="86,53 90,62 92,52"/>
+          <polygon points="30,72 33,62 36,73"/><polygon points="40,74 43,64 46,74"/><polygon points="51,74 54,64 57,74"/><polygon points="62,74 66,64 68,74"/><polygon points="73,74 76,64 80,74"/><polygon points="84,73 87,62 90,72"/>
+        </g>
+        <!-- eyes deep in the maw -->
+        <g fill="#ffd23f"><ellipse cx="52" cy="62" rx="2.4" ry="1.4"/><ellipse cx="68" cy="62" rx="2.4" ry="1.4"/></g>
+        <g fill="#1a0508"><ellipse cx="52" cy="62" rx="0.5" ry="1.2"/><ellipse cx="68" cy="62" rx="0.5" ry="1.2"/></g>
+        <!-- dripping digestive juice -->
+        <path style="transform-box:fill-box;transform-origin:center top" d="M44 74 C44 80 47 82 47 78 V74Z" fill="#9cff57"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1.5;1 1" dur="1.6s" repeatCount="indefinite"/></path>
+      </g>
+    </g>
+  </g></g>
+  <!-- flies caught nearby -->
+  <g fill="#1d2230">
+    <circle cx="44" cy="6" r="1.4"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 4;-4 8;0 0" dur="1.2s" repeatCount="indefinite"/></circle>
+    <circle cx="84" cy="8" r="1.2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-6 4;4 8;0 0" dur="1s" repeatCount="indefinite"/></circle>
+  </g>
+</svg>

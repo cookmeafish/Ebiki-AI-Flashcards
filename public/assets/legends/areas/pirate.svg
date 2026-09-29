@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
+  <!-- Wreckers' Cove: a ghost ship with torn sails in a moonlit cove, a skull rock, treasure, rolling fog. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #d6e6f5)"/>
+  <!-- moon with a halo -->
+  <circle cx="84" cy="44" r="24" fill="#fff6d6" opacity="0.35"/>
+  <circle cx="84" cy="44" r="14" fill="#fff6d6" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+  <g fill="#e8dcb0"><circle cx="80" cy="40" r="3"/><circle cx="89" cy="48" r="2"/></g>
+  <!-- far cliffs -->
+  <path d="M0 96 V60 L20 54 L34 62 L48 50 L60 64 L64 96Z M320 96 L324 58 L344 48 L360 58 L376 44 L400 52 V96Z" fill="var(--lg-far, #9fb8d6)"/>
+  <!-- the skull rock -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
+    <path d="M18 104 C12 80 22 56 44 54 C66 56 76 80 70 104Z" fill="#8a8f9c"/>
+    <path d="M24 100 C20 82 26 64 40 58 C32 70 30 86 34 102Z" fill="#fff" opacity="0.2" stroke="none"/>
+    <path d="M28 76 C28 68 38 68 38 76 C38 82 28 82 28 76Z M50 76 C50 68 60 68 60 76 C60 82 50 82 50 76Z" fill="#1d1b28"/>
+    <path d="M42 84 L40 90 H48 L46 84Z" fill="#1d1b28"/>
+    <path d="M34 96 H56 M38 92 V100 M44 92 V100 M50 92 V100" fill="none"/>
+  </g>
+  <g fill="#6ff3ff"><circle cx="33" cy="76" r="1.6" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.4;1" dur="2s" repeatCount="indefinite" additive="sum"/></circle><circle cx="55" cy="76" r="1.6"/></g>
+  <!-- the ghost ship, bobbing -->
+  <g>
+    <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-2 230 100;2 230 100;-2 230 100" dur="5s" repeatCount="indefinite"/>
+    <!-- masts -->
+    <g stroke="var(--lg-ink, #1d2230)" stroke-width="2.4" stroke-linecap="round"><path d="M196 94 V26 M246 92 V20 M284 90 V40"/><path d="M186 40 H206 M234 32 H258 M276 50 H292" stroke-width="1.6"/></g>
+    <!-- torn sails -->
+    <g fill="#e8e4d4" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round" opacity="0.92">
+      <path d="M186 42 C190 54 190 66 186 78 L192 74 L196 80 L200 72 L206 78 C202 66 202 54 206 42Z"><animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;4;0" dur="3s" repeatCount="indefinite"/></path>
+      <path d="M234 34 C238 48 238 62 234 76 L240 70 L244 78 L250 70 L258 76 C254 62 254 48 258 34Z"><animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;4;0" dur="3.4s" repeatCount="indefinite"/></path>
+      <path d="M276 52 C279 60 279 70 276 78 L282 74 L286 80 L292 78 C290 70 290 60 292 52Z"/>
+    </g>
+    <!-- jolly roger -->
+    <path d="M246 20 H262 L258 24 L262 28 H246Z" fill="#1d1b28" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+    <circle cx="253" cy="23.5" r="2" fill="#fff"/>
+    <!-- hull -->
+    <path d="M168 88 H306 L296 110 C260 116 212 116 180 110Z" fill="#4a3322" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6"/>
+    <path d="M170 92 H304" stroke="#6b4a2a" stroke-width="2"/>
+    <path d="M300 88 L316 80 L314 86 L306 92Z" fill="#4a3322" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    <!-- a hole in the hull and ghostly portholes -->
+    <path d="M214 98 L222 96 L226 104 L218 108 L212 104Z" fill="#1d1b28"/>
+    <g fill="#6ff3ff" opacity="0.8"><circle cx="240" cy="100" r="2.4"/><circle cx="262" cy="100" r="2.4"/><circle cx="284" cy="99" r="2.4"/></g>
+    <!-- the Dread Captain at the helm: a shadow with a tricorn and glowing eyes -->
+    <path d="M292 88 C290 76 292 70 298 68 C304 70 306 76 304 88Z" fill="#1d1b28"/>
+    <path d="M288 68 C292 62 304 62 308 68 C302 66 294 66 288 68Z" fill="#1d1b28"/>
+    <g fill="#6ff3ff"><circle cx="296" cy="72" r="1"/><circle cx="300" cy="72" r="1"/></g>
+  </g>
+  <!-- the cove water -->
+  <path d="M0 104 C50 100 100 108 150 104 C200 100 250 108 300 104 C350 100 380 106 400 104 V140 H0Z" fill="var(--lg-deep, #1e6fa8)"/>
+  <g fill="none" stroke="#fff" stroke-width="1.4" opacity="0.5" stroke-linecap="round">
+    <path d="M20 116 C30 112 40 116 50 112 M140 120 C150 116 160 120 170 116 M320 118 C330 114 340 118 350 114">
+      <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;10 0;0 0" dur="4s" repeatCount="indefinite"/>
+    </path>
+  </g>
+  <!-- moon path on the water -->
+  <g fill="#fff6d6" opacity="0.6"><rect x="70" y="110" width="28" height="2" rx="1"/><rect x="74" y="116" width="20" height="2" rx="1"/><rect x="78" y="122" width="12" height="2" rx="1"/></g>
+  <!-- treasure on a spit of sand -->
+  <path d="M320 112 C340 104 380 104 400 110 V120 H320Z" fill="#e0c07a" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round">
+    <path d="M346 100 H368 V110 H346Z" fill="#8a5a2b"/><path d="M346 100 C346 94 368 94 368 100Z" fill="#6b4423"/>
+    <rect x="355" y="100" width="4" height="4" fill="#c9a441"/>
+  </g>
+  <g fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"><circle cx="340" cy="108" r="2"/><circle cx="372" cy="108" r="2"/><circle cx="376" cy="110" r="1.6"/></g>
+  <path style="transform-box:fill-box;transform-origin:center" d="M362 94 l1.4 -3 l1.4 3 l-1.4 1.4Z" fill="#fff"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.3;1" dur="1.6s" repeatCount="indefinite" additive="sum"/></path>
+  <!-- rolling fog -->
+  <g fill="#fff" opacity="0.35">
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="-30 0;30 0;-30 0" dur="18s" repeatCount="indefinite"/>
+    <ellipse cx="120" cy="100" rx="90" ry="7"/><ellipse cx="300" cy="106" rx="80" ry="6"/>
+  </g>
+</svg>

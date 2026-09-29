@@ -139,6 +139,8 @@ export function makeQuiz(ctx, modeId, area, node, opts = {}) {
   return once(`quiz:${modeId}:${area.id}:${node.id}`, () => makeQuizNow(ctx, modeId, area, node, opts))
 }
 async function makeQuizNow(ctx, modeId, area, node, { misses = [] } = {}) {
+  // A boss that beat the learner comes back with those items (area.nemesis, set by a lost fight).
+  const nemesis = node.kind === 'boss' ? (area.nemesis?.itemIds || []).map((id) => area.items.find((it) => it.id === id)?.front).filter(Boolean) : []
   const { subject, ai, t } = ctx
   const weak = node.kind === 'weak'
   const stepItems = weak ? weakItems(area) : node.itemIds.map((id) => area.items.find((it) => it.id === id)).filter(Boolean)
@@ -166,10 +168,10 @@ async function makeQuizNow(ctx, modeId, area, node, { misses = [] } = {}) {
   // taught Texas) is reviewed once: what survives is kept, and the gaps are refilled below like a new set's.
   let kept = null
   if (!fresh && saved.value?.questions?.length) {
-    if (saved.value.checked === QUIZ_CHECK_VERSION) return reshuffleQuiz(saved.value.questions)
-    kept = await review(saved.value.questions)
-    if (!kept) return reshuffleQuiz(saved.value.questions)
-    if (!enough(kept.length)) kept = null
+    const clean = saved.value.questions
+    if (saved.value.checked === QUIZ_CHECK_VERSION && enough(clean.length)) return reshuffleQuiz(clean)
+    kept = await review(clean)
+    if (!kept) { if (enough(clean.length)) return reshuffleQuiz(clean) } else if (!enough(kept.length)) kept = null
   }
   const others = await Promise.all((area.nodes || []).filter((n) => n.id !== node.id).map((n) => readStepAny(modeId, area.id, n.id).catch(() => null)))
   const history = fresh ? (await readStepAny(modeId, area.id, node.id).catch(() => null))?.history || [] : []
@@ -177,14 +179,14 @@ async function makeQuizNow(ctx, modeId, area, node, { misses = [] } = {}) {
   const seen = new Set(avoid.map(normQ))
   const opts = {
     choiceItems: split.choice, typedItems: split.typed, reviewItems, count: QUIZ_SIZE[node.kind] || QUIZ_SIZE.practice,
-    level: await levelText(ctx), knowledge: subject.knowledge(KNOWLEDGE_CAP.quiz), misses, avoid,
+    level: await levelText(ctx), knowledge: subject.knowledge(KNOWLEDGE_CAP.quiz), misses, avoid, nemesis,
   }
   const lang = subject.isLanguage ? subject.learnLangIso : ''
   // Only questions about a taught item stay (their "target" names it), and none the area already asked;
   // too few left = one stricter retry.
   const ask = async (strict, more = {}) => {
     const raw = await call(ctx, buildQuizPrompt(subject, area, node, { ...opts, ...more, strict }), ROLE.quiz, MAX_TOKENS.quiz)
-    const qs = parseQuestions(ai.json(raw), ai.clean, { speakLang: lang }).filter((q) => itemIdFor(q, taught) && !seen.has(normQ(q.prompt)))
+    const qs = parseQuestions(ai.json(raw), ai.clean, { speakLang: lang, dual: boss }).filter((q) => itemIdFor(q, taught) && !seen.has(normQ(q.prompt)))
     return (await review(qs)) || qs
   }
   for (const q of kept || []) seen.add(normQ(q.prompt))

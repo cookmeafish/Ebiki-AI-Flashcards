@@ -10,7 +10,7 @@ import { computeStreak, weekRow, questProgress, leagueBoard, friendStreak, TIERS
 const DOT = 26                    // weekday circle size
 const LEAGUE_ROWS = 6             // board rows shown
 const TIER_POSE = ['cute', 'chill', 'happy', 'cool', 'rockstar', 'king', 'angel'] // Ebi per league tier
-const STATUS_COLOR = { done: C.warning, frozen: C.info, missed: C.surfaceSunken, today: C.surfaceSunken, future: C.surfaceSunken, none: C.surfaceSunken }
+const STATUS_COLOR = { done: C.warning, frozen: C.info, rest: `color-mix(in srgb, ${C.purple} 30%, ${C.surfaceSunken})`, missed: C.surfaceSunken, today: C.surfaceSunken, future: C.surfaceSunken, none: C.surfaceSunken }
 
 // Weekday initials in the app language, Monday first.
 export function weekdayLetters(lang) {
@@ -33,7 +33,7 @@ export function WeekDots({ player, lang, popToday = 0 }) {
             display: 'grid', placeItems: 'center', color: C.white, fontSize: 13, fontWeight: 900,
             outline: d.status === 'today' ? `2px dashed ${C.warning}` : 'none', outlineOffset: 1,
             ...(popToday && d.date === dateKey() && d.status === 'done' ? { animation: `gmDotPop .5s cubic-bezier(.3,1.6,.5,1) ${popToday}s both` } : {}),
-          }}>{d.status === 'done' ? '✓' : d.status === 'frozen' ? '❄' : ''}</div>
+          }}>{d.status === 'done' ? '✓' : d.status === 'frozen' ? '❄' : d.status === 'rest' ? '🌙' : ''}</div>
         </div>
       ))}
     </div>

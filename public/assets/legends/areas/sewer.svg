@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
+  <!-- The Undercity Drains: brick tunnels, a sludge channel, dripping pipes, grates of light, a hundred red eyes in the
+       dark, the Rat King's crown glinting in the main tunnel. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #d6e0d6)"/>
+  <!-- brick wall -->
+  <rect x="0" y="0" width="400" height="112" fill="#7a5a4a"/>
+  <g stroke="#5a3a2a" stroke-width="1" fill="none" opacity="0.8">
+    <path d="M0 14 H400 M0 28 H400 M0 42 H400 M0 56 H400 M0 70 H400 M0 84 H400 M0 98 H400"/>
+    <path d="M20 0 V14 M60 0 V14 M100 0 V14 M140 0 V14 M180 0 V14 M340 0 V14 M380 0 V14 M40 14 V28 M80 14 V28 M120 14 V28 M300 14 V28 M360 14 V28 M20 28 V42 M60 28 V42 M340 28 V42 M380 28 V42 M40 42 V56 M80 42 V56 M320 42 V56 M360 42 V56 M20 56 V70 M60 56 V70 M340 56 V70 M40 70 V84 M100 70 V84 M320 70 V84 M20 84 V98 M80 84 V98 M360 84 V98"/>
+  </g>
+  <!-- grate of light from the street above -->
+  <g opacity="0.45"><path d="M86 0 H120 L140 112 H66Z" fill="#fff6c2"/></g>
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="2"><path d="M86 2 H120 M92 0 V6 M100 0 V6 M108 0 V6 M114 0 V6"/></g>
+  <!-- the main tunnel: dark arch -->
+  <path d="M150 112 V66 C150 36 250 36 250 66 V112Z" fill="#1a1512" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6"/>
+  <path d="M146 112 V66 C146 30 254 30 254 66 V112" fill="none" stroke="#5a3a2a" stroke-width="6"/>
+  <!-- the Rat King inside: heap silhouette, crown, big red eyes, teeth -->
+  <path d="M166 112 C164 94 176 82 200 80 C224 82 236 94 234 112Z" fill="#2a2320"/>
+  <path d="M186 72 L186 62 L192 68 L196 58 L200 66 L204 58 L208 68 L214 62 L214 72 C206 70 194 70 186 72Z" fill="#b87a3a" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+  <path d="M184 90 C182 76 190 70 200 70 C210 70 218 76 216 90Z" fill="#3a302a"/>
+  <g fill="#ff2e4c"><circle cx="193" cy="80" r="2.6"/><circle cx="207" cy="80" r="2.6"/></g>
+  <g fill="#ff2e4c" opacity="0.4"><circle cx="193" cy="80" r="5" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.2;1" dur="1.6s" repeatCount="indefinite" additive="sum"/></circle></g>
+  <g fill="#f2d25a"><rect x="197" y="86" width="2.6" height="5"/><rect x="200.4" y="86" width="2.6" height="5"/></g>
+  <!-- a hundred red eyes in the dark tunnel, blinking -->
+  <g fill="#ff2e4c">
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 0;0 200;0 200;0 0;0 0" keyTimes="0;.8;.801;.85;.851;1" dur="3s" repeatCount="indefinite"/>
+      <circle cx="170" cy="100" r="1.2"/><circle cx="174" cy="100" r="1.2"/><circle cx="228" cy="98" r="1.2"/><circle cx="232" cy="98" r="1.2"/></g>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 0;0 200;0 200;0 0;0 0" keyTimes="0;.4;.401;.45;.451;1" dur="3.4s" repeatCount="indefinite"/>
+      <circle cx="162" cy="72" r="1"/><circle cx="165" cy="72" r="1"/><circle cx="236" cy="70" r="1"/><circle cx="239" cy="70" r="1"/><circle cx="178" cy="56" r="1"/><circle cx="181" cy="56" r="1"/></g>
+    <circle cx="220" cy="54" r="1"/><circle cx="223" cy="54" r="1"/><circle cx="158" cy="90" r="1"/><circle cx="161" cy="90" r="1"/>
+  </g>
+  <!-- pipes, dripping -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2">
+    <path d="M0 40 H60 V60" fill="none" stroke="#6b7080" stroke-width="8"/>
+    <path d="M400 30 H330 V76" fill="none" stroke="#8a6a44" stroke-width="10"/>
+    <path d="M280 20 V56 H300" fill="none" stroke="#6b7080" stroke-width="6"/>
+  </g>
+  <g fill="#6b7080" stroke="var(--lg-ink, #1d2230)" stroke-width="1"><rect x="54" y="58" width="12" height="5"/><rect x="323" y="74" width="14" height="5" fill="#8a6a44"/></g>
+  <g fill="#7cff3f">
+    <circle style="transform-box:fill-box;transform-origin:center" cx="60" cy="66" r="1.8"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 46" dur="1.4s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.4s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle style="transform-box:fill-box;transform-origin:center" cx="330" cy="82" r="2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 30" dur="1.1s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.1s" repeatCount="indefinite" additive="sum"/></circle>
+  </g>
+  <!-- green sludge pouring from the big pipe -->
+  <path d="M325 79 C323 90 327 100 324 112 H336 C333 100 337 90 335 79Z" fill="#6fd42a" opacity="0.9"/>
+  <!-- walkway ledges and the sludge channel -->
+  <path d="M0 112 H400 V140 H0Z" fill="#4a3a30"/>
+  <path d="M0 118 H400 V134 H0Z" fill="var(--lg-near, #6fa84a)"/>
+  <g fill="none" stroke="#b8ff7a" stroke-width="1.2" opacity="0.7">
+    <path d="M20 124 C30 122 40 126 50 124 M200 128 C210 126 220 130 230 128 M330 124 C340 122 350 126 360 124"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;16 0;0 0" dur="6s" repeatCount="indefinite" keyTimes="0;.5;1"/></path>
+  </g>
+  <g fill="#b8ff7a" opacity="0.8">
+    <circle style="transform-box:fill-box;transform-origin:center" cx="120" cy="126" r="2"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.4;1.2;0.4" dur="2s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle style="transform-box:fill-box;transform-origin:center" cx="280" cy="128" r="1.6"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1.2;0.4;1.2" dur="2.4s" repeatCount="indefinite" additive="sum"/></circle>
+  </g>
+  <!-- a floating crate and a rat on the ledge -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"><rect x="244" y="116" width="12" height="8" fill="#8a6a44"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;30 0;0 0" dur="12s" repeatCount="indefinite"/></rect></g>
+  <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;40 0;40 0;0 0" keyTimes="0;.4;.6;1" dur="6s" repeatCount="indefinite"/>
+    <path d="M100 112 C100 106 108 104 114 106 L118 104 L117 108 C118 112 112 114 106 114Z" fill="#6b5a5a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"/>
+    <path d="M100 112 C94 114 92 110 88 112" fill="none" stroke="#e8a0a8" stroke-width="0.9"/>
+    <circle cx="114" cy="108" r="0.7" fill="#ff2e4c"/>
+  </g>
+</svg>

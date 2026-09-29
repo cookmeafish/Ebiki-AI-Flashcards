@@ -1418,7 +1418,9 @@ of `src/features/index.js` (and `src/features/server.js` if it has a server half
   `chat.sent`); features react. New cards all go through `addNewCard` (App), graded cards through `emitOnce`
   (keyed by run + card, persisted, so re-rates and restored sessions don't repeat). A throwing handler is isolated.
 - **Server half** (`src/features/server.js`): `dataEntries` join `DATA_ENTRIES` (backups, merges, offline copy),
-  `dataRoutes` join the unreachable-share guard, `localFiles` are watch-ignored (add them to `.gitignore`),
+  `dataRoutes` join the unreachable-share guard, `localFiles` are watch-ignored (add them to `.gitignore`; data entries
+  and local files are ignored ANCHORED to the app root: as `**/features/**` the data folder also ignored `src/features`
+  and no feature edit ever hot-reloaded),
   `register(server, helpers)` adds routes after the guard. Helpers: `dataPath`, `readUtf8`, `writeFileAtomic`,
   `appRoot`, `fs`, `path`, `crypto`.
 - **Shared UI** (`src/features/ui.jsx`): `Card`, `ChunkyButton` (3D bottom edge), `ProgressBar`, `Modal` (zoom-safe),
@@ -1531,8 +1533,10 @@ Plan: `docs/legends-roadmap.md`. Works for ANY subject (a CompTIA map teaches Co
   `QUIZ_PER_ITEM_MAX` questions per item, wrong options that are clearly wrong. `makeQuiz` drops every question whose
   `target` is not a taught item (`itemIdFor`) and asks once more (`strict`) when fewer than `QUIZ_MIN_KEPT` remain: a
   Learn step taught three greetings and then quizzed on things it never showed.
-  Places, people and situations come only from the material (the mode description, e.g. "lives in Texas", leaked
-  into questions as if taught). A REVIEW PASS (`buildQuizCheckPrompt` / `parseQuizCheck`, role study) then drops
+  What is ASKED comes only from the material. The mode DESCRIPTION is the learner's own context, in their words, and
+  quizzes, the grader and raids SEE it: situations may draw on it ("moving to Texas with my uncle" gives a shop in
+  Texas, the uncle in a Talk step). That is personalization, not a hallucination (a 2026-09 attempt to hide the
+  description was reverted at the owner's request). A REVIEW PASS (`buildQuizCheckPrompt` / `parseQuizCheck`, role study) then drops
   questions with a second defensible option ("I am Carlos" vs the key "I'm Carlos"), a missing accepted answer, a
   wrong key, or untaught content; fail-soft (a review that fails keeps the set). A saved set carries
   `checked: QUIZ_CHECK_VERSION`; an older one is reviewed ONCE on its next visit (kept and re-saved if enough
@@ -1552,7 +1556,23 @@ Plan: `docs/legends-roadmap.md`. Works for ANY subject (a CompTIA map teaches Co
   `sanitizeHtml` (loaded LAZILY: Markdown.jsx needs a DOM; a top-level import broke `features.test.js`) and inlines it
   inside a box that sets `--lg-sky/far/near/deep/accent/light` from the area's palette, so one drawing fits every area
   and both themes. Every `var()` in a file carries its own fallback (`art.test.js` checks it, plus one file per motif
-  and no scripts/links/url()). A new motif = a `MOTIFS` entry + both files. How to edit: `public/assets/legends/README.md`.
+  and no scripts/links/url()). A new motif = a `MOTIFS` entry + both files + an `ENTRANCES` entry. How to edit:
+  `public/assets/legends/README.md`.
+- **Asked to make or redraw Legends art? Read `docs/legends-art-guide.md` FIRST and follow it** (the owner's art
+  direction): bosses super detailed and FEROCIOUS (never cute), every boss and banner truly unique (different
+  silhouette, pose, backdrop, eyes, mouth and entrance, not a recolor), each banner is its boss's lair with the boss
+  present, each boss has its OWN animated entrance (no two share a MOVEMENT, not only a keyframe name; `ENTRANCES`
+  entries can set a pivot `origin`), everything has idle life. 40 motifs now; `dev/legends-gallery/catalog.js` is the
+  one list of them (boss, idea, entrance, lair; a test keeps it equal to `MOTIFS`). The owner reviews ALL art at
+  `/dev/legends-gallery/` (dev server only; Good/Change/Bad + notes, "Copy my feedback"). `keyTimes` must match
+  `values` one to one and end at 1, or the browser silently drops the animation (tested). The app palette CSS lives in
+  `src/config/palette.js` (`PALETTE_CSS`, shared by App and the gallery).
+  Motion is in-file SVG (`<animateTransform>`/`<animateMotion>` only: the sanitizer drops `<animate>`/`<set>`/`calcMode`),
+  tagged `class="lg-in"` (entrance) or `lg-loop` (idle); `art.jsx` `withMotion` strips per `animated` mode ('intro' on
+  the intro card, 'idle' in the arena and on banners, still on map icons, locked areas and reduced motion), so a
+  file's own attributes must be the finished pose. The card motion per motif is `ENTRANCES` (BossArena.jsx CSS
+  keyframes, landing at `ENTRANCE.impact`). No `url()` means no gradients: depth is layered opacity shapes. Always
+  render the art in headless Chrome (light + dark palette, a few moments of the entrance) and look before committing.
   Old maps may still carry an `art.svg` from the AI-art days; nothing reads it.
 - **Step content is made ONCE and saved** (`store.js` `readStep`/`saveStep`, one `features/legends/step-<hash>.json` per
   step, keyed by mode + area + node, `sig` = the step's items): a revisit or retry reuses it (`reshuffleQuiz`: new
@@ -1601,6 +1621,58 @@ Plan: `docs/legends-roadmap.md`. Works for ANY subject (a CompTIA map teaches Co
   map, cap 6), `legends-try` (generic practice XP), `legends-placement` (placement XP); `BOSS_BEATEN` (first win of an
   area only) = 50 XP + a streak freeze (`bossWins` counter, `computeStreak`, still capped at `MAX_FREEZES`);
   `LEVEL_UP` = 10 XP per new whole level (cap 3 per event).
+- **Fights are strikes** (`fight.js`, pure, `fight.test.js`; boss, Legendary and raids). A typed answer is judged by
+  `judgeStrike` (kit/judge.js): CLEAN (the tested thing and everything else right) deals 2, GLANCING (the tested thing
+  right, something else wrong) deals 1 and its other slip comes back as an attack, a MISS costs a life. A choice (the
+  typed question's `alt`, "🛡 Show choices", phase 1 only) is a SAFE strike of 1. Every 3rd clean strike in a row is a
+  critical (+1); items the boss is weak to (`weakTo`: rule items first) deal +1. A missed question returns
+  `ATTACK_GAP` questions later as the boss's ATTACK (telegraphed banner; blocked = counter 1, missed = 2 lives; at most
+  `MAX_ATTACKS`, never from an attack). The boss enrages at half health (no more choices). A shield (helper) absorbs one
+  life. The OUTCOME decides the pass (`fightStars`): questions running out with lives left is a win. Boss/Legendary
+  questions are generated DUAL (`sanitizeQuestions(..., {dual})`: typed with `alt` choices).
+- **Accent grading is ONE setting** with Study's accent drill (`studyRules.accentDrill`; `subject.accents`,
+  `subject.strictAccents`, `subject.setStrictAccents`), offered only for languages that write accents. Relaxed: an
+  accent slip counts clean unless it makes another word or form (`accentChangesWord`).
+- **XP rewards effort**: `LEGENDS_STEP` carries `effort` (`effortOf`: clean strikes most, choices least) and `replays`
+  (each replay of a cleared step pays less, `replayFactor`); `legendsXp` in game/engine.js.
+- **Codex** (`Extras.jsx`, `itemTier`/`areaCodex` in map.js): an AREA's items only (Study and raids are the whole deck):
+  new → bronze → silver → gold (gold needs a right answer in a fight); tiers are computed, so gold fades. One
+  constellation per level. **Gold blitz**: timed local recall of gold items (no AI), fed back into the tallies.
+- **Area extras** from the area-detail prompt (`parseAreaExtras`): `story` (opening story at the learner's level,
+  tappable; open until "Got it", `storySeen`), `canDo` (the **passport**: stamped when the area is cleared),
+  `bonus` (the **chest** of a cleared area: one right recall opens it, `chestOpened`; its phrase can go to the deck).
+  Areas detailed before this have none of them. One optional **Adventure** step per area (`goal`: an open mission in
+  the Talk screen; Ebi ends a reply with `GOAL_TAG` when it is reached; `ADVENTURE_TURNS`).
+- **Helpers** (`map.helpers`, at most `HELPERS_MAX`): a first flawless level earns a 📜 hint scroll (first letters on
+  a typed question), a first flawless Weak spots a 🛡 shield (taken into the next boss fight). Never bought.
+- **Nemesis rematch**: a lost boss fight stores its missed items (`area.nemesis`); the next boss prompt asks
+  `NEMESIS_SHARE` % of questions about them, the rest the whole area; a win clears it.
+- **Journey heatmap** (`map.days`, `logDay`, map header). **First-miss nudge**: the result screen offers items missed
+  for the FIRST time (`missNudged`, not in the deck) as cards once; off in Settings > General > Legends.
+- **Focus mode** (`features.legends.focus`, asked in the questionnaire's style step, Settings card
+  `SettingsCard.jsx`): no entrance cinematic (`BossIntro calm`), floaters or combo flair; the rules are the same.
+- **Raids** (`raid.js` pure + `raid.test.js`, `RaidRun.jsx`; Practice tile and the map header): today's DUE cards in
+  Anki's order (`raidOrder`, one per note, `RAID.maxCards`), one dual question per card (`buildRaidPrompt`). Health
+  from the cards due (`raidHp`), 3 lives, THREE phases. Every card's FIRST answer is recorded as a real review
+  (`raidRating`: Good/Hard/Again, never Easy) through `kit/reviews.js` `recordReviews` (guards per run), win, lose or
+  quit; `CARD_GRADED` per card. The boss keeps its wounds for the day (`applyRaidAttempt`); a win adds a trophy
+  (raid hall), `BOSS_BEATEN {raid: true}` (XP + a freeze) and brings out the next boss (`RAID_MOTIFS`). Raid art:
+  `public/assets/legends/raids/<motif>.svg` with phase layers `lg-p2`/`lg-p3` (start `style="display:none"`),
+  `lg-p1` (phase 1 only) and `lg-p12` (gone in phase 3), switched by the arena's `data-phase` (BossArena CSS).
+- **Asset view** (cheat mode only: `AssetView.jsx`, map header ⚡ button): every stage one at a time, in every size,
+  place and palette the app shows it; ← and → step through stages.
+- **SVG pivots**: a scale or rotate pivots on the element's local (0,0). A part drawn elsewhere needs
+  `style="transform-box:fill-box;transform-origin:center"` (the sanitizer keeps it) or it slides across the picture
+  (a 2026-09 sweep fixed 19). A looping translate that ends away from its start snaps back: particles get a sibling
+  additive scale `0;1;1;0`, drifters run there and back. Reduced motion and focus mode never force `opacity` on SVG
+  (it turned every shadow and glow solid). Flames pivot at `center bottom`, drips at `center top`.
+  More rules from the second sweep (`.scratch`-style checks: lint, measured pivots, followers):
+  an ENTRANCE must END at the file's own pose (the arena strips `lg-in`: a jaw left open snapped shut, rubble jumped
+  back into the hole, the dream eyelids closed again), so a part that ends elsewhere is wrapped in
+  `<g transform="<end pose>">` with the values shifted; two NON-additive animateTransforms on one element override
+  each other (the idle loop killed the entrance): the loop gets `additive="sum"`; a part that copies another part's
+  idle loop (claws on a wing) must copy its entrance too; "hide" by an off-canvas jump is instant (step keyTimes),
+  never a slide back across the scene.
 - **Help** can open a map edit: `legends_edit` action (capability text only when `appContext.legendsAvailable`),
   receipts `hr_legends*`, opened through `featureCtx.open('legends', { edit })` (`useIntent`).
 - Drive it with every AI host stubbed and `/api/feature-data` in memory (the real stores and credits untouched).

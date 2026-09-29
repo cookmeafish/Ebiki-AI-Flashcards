@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
+  <!-- The Forbidden Stacks: towering shelves, floating books, a spiral stair, candles, ink pooling from the grimoire's
+       lectern. The Grimoire's eye glares from the open book. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #efe6d6)"/>
+  <!-- far shelves in shadow -->
+  <g fill="var(--lg-far, #c8b89a)"><rect x="0" y="14" width="400" height="100"/></g>
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" opacity="0.4" fill="none"><path d="M0 34 H400 M0 56 H400 M0 78 H400 M0 100 H400"/></g>
+  <!-- towering bookshelves, left and right -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2">
+    <rect x="8" y="10" width="90" height="104" fill="#5a3a24"/><rect x="302" y="10" width="90" height="104" fill="#5a3a24"/>
+    <g fill="#3a2418"><rect x="8" y="36" width="90" height="3"/><rect x="8" y="62" width="90" height="3"/><rect x="8" y="88" width="90" height="3"/><rect x="302" y="36" width="90" height="3"/><rect x="302" y="62" width="90" height="3"/><rect x="302" y="88" width="90" height="3"/></g>
+  </g>
+  <!-- book spines -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.5">
+    <g fill="#b3122e"><rect x="12" y="16" width="6" height="20"/><rect x="40" y="42" width="7" height="20"/><rect x="70" y="68" width="6" height="20"/><rect x="310" y="18" width="6" height="18"/><rect x="350" y="44" width="7" height="18"/><rect x="376" y="70" width="6" height="18"/></g>
+    <g fill="#2e6b8a"><rect x="18" y="20" width="7" height="16"/><rect x="48" y="44" width="5" height="18"/><rect x="78" y="70" width="8" height="18"/><rect x="316" y="16" width="7" height="20"/><rect x="358" y="42" width="5" height="20"/><rect x="330" y="68" width="8" height="20"/></g>
+    <g fill="#c9a441"><rect x="26" y="18" width="5" height="18"/><rect x="56" y="42" width="6" height="20"/><rect x="18" y="70" width="6" height="18"/><rect x="326" y="20" width="5" height="16"/><rect x="340" y="42" width="6" height="20"/><rect x="310" y="72" width="6" height="16"/></g>
+    <g fill="#3f6630"><rect x="32" y="16" width="8" height="20"/><rect x="64" y="46" width="6" height="16"/><rect x="26" y="68" width="7" height="20"/><rect x="334" y="16" width="8" height="20"/><rect x="366" y="46" width="6" height="16"/><rect x="386" y="68" width="4" height="20"/></g>
+    <g fill="#6b4a8a"><rect x="42" y="18" width="6" height="18"/><rect x="14" y="44" width="8" height="18"/><rect x="36" y="70" width="6" height="18"/><rect x="344" y="18" width="6" height="18"/><rect x="316" y="44" width="8" height="18"/><rect x="346" y="70" width="6" height="18"/></g>
+  </g>
+  <!-- the spiral stair -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" fill="#8a5a2b">
+    <rect x="258" y="20" width="4" height="92" fill="#6b4423"/>
+    <path d="M240 106 H262 V110 H240Z M262 96 H282 V100 H262Z M240 86 H262 V90 H240Z M262 76 H282 V80 H262Z M240 66 H262 V70 H240Z M262 56 H282 V60 H262Z M240 46 H262 V50 H240Z M262 36 H282 V40 H262Z"/>
+  </g>
+  <!-- the lectern with the open Grimoire -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
+    <path d="M186 112 L192 82 H208 L214 112Z" fill="#4a3020"/>
+    <path d="M170 82 L200 74 L230 82 L226 86 H174Z" fill="#6b4423"/>
+    <path d="M168 78 C176 64 194 64 200 72 C206 64 224 64 232 78 C224 74 206 76 200 80 C194 76 176 74 168 78Z" fill="#f2e6c8"/>
+    <path d="M200 72 V80" fill="none"/>
+  </g>
+  <!-- runes on the pages -->
+  <g fill="none" stroke="#6b2a8a" stroke-width="0.8"><path d="M176 72 h6 M178 75 h8 M212 70 h8 M214 73 h6"/></g>
+  <!-- the eye on the book -->
+  <g transform="translate(200 58)">
+    <ellipse rx="14" ry="9" fill="#ff2e4c" opacity="0.25"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.2;1" dur="1.8s" repeatCount="indefinite"/></ellipse>
+    <path d="M-10 0 C-4 -7 4 -7 10 0 C4 7 -4 7 -10 0Z" fill="#fff4d6" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="-3 0;3 0;-3 0" dur="3s" repeatCount="indefinite"/>
+      <circle r="3.6" fill="#b3122e"/><ellipse rx="1" ry="3" fill="#1a0508"/></g>
+  </g>
+  <!-- ink pooling from the lectern -->
+  <path d="M170 112 C180 108 222 108 236 112 C228 118 176 118 170 112Z" fill="#1d1b28"/>
+  <path d="M190 86 C190 96 194 104 192 110" fill="none" stroke="#1d1b28" stroke-width="3" stroke-linecap="round"/>
+  <!-- the floor -->
+  <path d="M0 112 H400 V140 H0Z" fill="var(--lg-near, #8a6a44)"/>
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.4"><path d="M0 124 H400 M60 112 V124 M140 124 V140 M260 112 V124 M340 124 V140"/></g>
+  <!-- floating books, flapping -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round">
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -6;0 0" dur="3s" repeatCount="indefinite"/>
+      <path d="M124 40 L134 36 V48 L124 52Z" fill="#b3122e"><animateTransform class="lg-loop" attributeName="transform" type="skewY" values="0;-12;0" dur="0.6s" repeatCount="indefinite"/></path>
+      <path d="M134 36 L144 40 V52 L134 48Z" fill="#8a1026"/></g>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-6 -4;0 0" dur="3.6s" repeatCount="indefinite"/>
+      <path d="M150 20 L158 17 V27 L150 30Z" fill="#2e6b8a"><animateTransform class="lg-loop" attributeName="transform" type="skewY" values="0;-12;0" dur="0.7s" repeatCount="indefinite"/></path>
+      <path d="M158 17 L166 20 V30 L158 27Z" fill="#1e4a6a"/></g>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;4 -8;0 0" dur="3.2s" repeatCount="indefinite"/>
+      <path d="M226 30 L234 27 V37 L226 40Z" fill="#c9a441"/><path d="M234 27 L242 30 V40 L234 37Z" fill="#a8862a"/></g>
+  </g>
+  <!-- loose pages drifting -->
+  <g fill="#f2e6c8" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5">
+    <rect x="110" y="80" width="7" height="9"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 114 84;30 114 84;0 114 84" dur="3s" repeatCount="indefinite"/></rect>
+    <rect x="290" y="30" width="7" height="9"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 294 34;-30 294 34;0 294 34" dur="3.4s" repeatCount="indefinite"/></rect>
+  </g>
+  <!-- candles -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"><rect x="116" y="100" width="5" height="12" fill="#f4efe0"/><rect x="282" y="98" width="5" height="14" fill="#f4efe0"/></g>
+  <g fill="#ffb627">
+    <path d="M118.5 99 C116 95 118.5 92 118.5 92 C121 95 121 97 118.5 99Z" style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1.15;1 1" dur="0.5s" repeatCount="indefinite"/></path>
+    <path d="M284.5 97 C282 93 284.5 90 284.5 90 C287 93 287 95 284.5 97Z" style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1.1;1 0.95;1 1.1" dur="0.6s" repeatCount="indefinite"/></path>
+  </g>
+</svg>

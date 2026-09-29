@@ -58,7 +58,13 @@ describe('quiz review pass', () => {
     expect(parseQuizCheck(null, 2).size).toBe(0)
     expect([...parseQuizCheck([1], 2)]).toEqual([1])
   })
-  it('keeps the subject description out of quiz content', () => {
-    expect(buildQuizPrompt(spanish, area, { kind: 'learn' }, { choiceItems: items }).user).toMatch(/never quiz content/)
+  it('gives quizzes the learner\'s own context, while what is asked stays the material', () => {
+    const texan = { ...spanish, description: 'moving to Texas with my uncle' }
+    for (const kind of ['learn', 'boss']) {
+      const p = buildQuizPrompt(texan, area, { kind }, { choiceItems: items })
+      expect(p.user).toMatch(/moving to Texas with my uncle/)
+      expect(p.user).toMatch(/What is ASKED comes only from this material/)
+    }
+    expect(buildQuizCheckPrompt(texan, items, []).user).toMatch(/Texas/)
   })
 })

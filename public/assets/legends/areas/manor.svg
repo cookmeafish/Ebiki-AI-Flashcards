@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
+  <!-- Blackwood Manor: a crooked mansion on a hill, lit windows, a dead garden, floating chairs in the doorway,
+       lightning, the Poltergeist screaming from the attic window. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #d6d6e6)"/>
+  <!-- storm clouds -->
+  <g fill="#5a5a70" opacity="0.6"><ellipse cx="80" cy="16" rx="70" ry="12"/><ellipse cx="320" cy="14" rx="80" ry="12"/><ellipse cx="200" cy="10" rx="60" ry="10"/></g>
+  <!-- lightning, flashing -->
+  <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -200;0 -200;0 0;0 0;0 -200;0 -200;0 0;0 0;0 -200;0 -200" keyTimes="0;.8;.801;.82;.821;.86;.861;.88;.881;1" dur="4s" repeatCount="indefinite"/>
+    <path d="M340 20 L330 44 L338 44 L326 72 L346 38 L338 38 L348 20Z" fill="#fff6c2" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+  </g>
+  <!-- the hill -->
+  <path d="M0 112 C60 96 120 88 200 86 C280 88 340 96 400 112Z" fill="var(--lg-far, #6b6a8a)"/>
+  <!-- the crooked mansion -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round">
+    <!-- left tower, leaning -->
+    <path d="M136 92 L138 40 L160 38 L160 92Z" fill="#3a3448" transform="rotate(-4 148 92)"/>
+    <path d="M132 42 L150 18 L166 40Z" fill="#26222f" transform="rotate(-4 148 92)"/>
+    <!-- main house -->
+    <path d="M158 92 V52 H244 V92Z" fill="#4a4258"/>
+    <path d="M150 54 L200 26 L252 54Z" fill="#26222f"/>
+    <!-- attic -->
+    <path d="M186 42 H214 V54 H186Z" fill="#4a4258"/>
+    <!-- right wing, sagging -->
+    <path d="M244 92 V62 L280 60 L282 92Z" fill="#3a3448"/>
+    <path d="M240 64 L262 48 L286 62Z" fill="#26222f"/>
+    <!-- chimney -->
+    <rect x="226" y="30" width="8" height="18" fill="#3a3448"/>
+  </g>
+  <!-- lit windows -->
+  <g fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8">
+    <rect x="142" y="50" width="8" height="10"/><rect x="170" y="60" width="10" height="12"/><rect x="222" y="60" width="10" height="12"/><rect x="256" y="68" width="8" height="10" fill="#1d1b28"/><rect x="266" y="68" width="8" height="10"/>
+  </g>
+  <g fill="#ffd23f" opacity="0.4"><rect x="170" y="60" width="10" height="12"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 0;0 200;0 200;0 0;0 0" keyTimes="0;.5;.501;.55;.551;1" dur="2.6s" repeatCount="indefinite"/></rect></g>
+  <!-- the attic window: the Poltergeist's screaming face -->
+  <rect x="192" y="44" width="16" height="10" fill="#9ff0ff"/>
+  <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -1;0 0" dur="1.2s" repeatCount="indefinite"/>
+    <path d="M194 54 C194 44 206 44 206 54Z" fill="#f2f6ff"/>
+    <g fill="#1a1030"><ellipse cx="198" cy="48" rx="1.2" ry="1.6"/><ellipse cx="202" cy="48" rx="1.2" ry="1.6"/><ellipse cx="200" cy="52" rx="1.4" ry="2"/></g>
+  </g>
+  <!-- the doorway with floating furniture -->
+  <path d="M194 92 V72 C194 66 206 66 206 72 V92Z" fill="#9ff0ff" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+  <g fill="#6b4423" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6">
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-10 200 80;14 200 80;-10 200 80" dur="2.4s" repeatCount="indefinite"/>
+      <path d="M196 76 H199 V82 H204 V84 H196Z M197 84 V88 M203 84 V88"/></g>
+  </g>
+  <g fill="#6b4423" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8">
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-4 -8;0 0" dur="3s" repeatCount="indefinite"/>
+      <path d="M110 60 H116 V72 H124 V76 H110Z M111 76 V84 H113 V76 M121 76 V84 H123 V76"/></g>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="10 300 50;-10 300 50;10 300 50" dur="3.4s" repeatCount="indefinite"/>
+      <rect x="294" y="40" width="14" height="18" fill="#c9a441"/><rect x="297" y="43" width="8" height="12" fill="#3a2a4a"/></g>
+  </g>
+  <!-- iron fence and a dead garden -->
+  <path d="M0 112 H400 V140 H0Z" fill="var(--lg-near, #3a4a3a)"/>
+  <g stroke="#1d1b28" stroke-width="1.6" fill="none"><path d="M20 112 V96 M32 112 V96 M44 112 V96 M56 112 V96 M68 112 V96 M332 112 V96 M344 112 V96 M356 112 V96 M368 112 V96 M380 112 V96 M16 102 H72 M328 102 H384"/></g>
+  <g fill="#1d1b28"><path d="M18 96 L20 92 L22 96Z M30 96 L32 92 L34 96Z M42 96 L44 92 L46 96Z M54 96 L56 92 L58 96Z M66 96 L68 92 L70 96Z M330 96 L332 92 L334 96Z M342 96 L344 92 L346 96Z M354 96 L356 92 L358 96Z M366 96 L368 92 L370 96Z M378 96 L380 92 L382 96Z"/></g>
+  <!-- dead trees -->
+  <g fill="none" stroke="#26222f" stroke-width="3" stroke-linecap="round"><path d="M98 112 V80 L86 66 M98 88 L110 74 M98 80 L96 64 M306 112 V84 L318 70 M306 92 L294 80"/></g>
+  <!-- gravestones -->
+  <g fill="#8a8f9c" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"><path d="M130 124 V116 C130 110 140 110 140 116 V124Z"/><path d="M260 126 V118 C260 112 270 112 270 118 V126Z"/></g>
+  <!-- ghostly wisps and a bat -->
+  <g fill="#9ff0ff" opacity="0.5">
+    <circle style="transform-box:fill-box;transform-origin:center" cx="150" cy="104" r="3"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;10 -20;0 -40" dur="4s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="4s" repeatCount="indefinite" additive="sum"/></circle>
+  </g>
+  <path d="M60 40 l6 -4 l2 3 l2 -3 l6 4 l-5 0 l-3 3 l-3 -3Z" fill="#1d1b28"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;30 -6;60 4;30 10;0 0" dur="6s" repeatCount="indefinite"/></path>
+</svg>

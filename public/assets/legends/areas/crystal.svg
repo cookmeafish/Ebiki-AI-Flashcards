@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
+  <!-- The Prism Caverns: a cave of giant crystals, beams of split light, a mirror lake, the hydra's three heads rising
+       behind the crystals. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #efe0f5)"/>
+  <!-- cave ceiling with hanging crystals -->
+  <path d="M0 0 H400 V26 C360 34 330 22 300 30 C260 40 230 24 190 32 C150 40 120 26 80 32 C50 36 20 28 0 32Z" fill="var(--lg-deep, #5a3a8a)"/>
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round">
+    <polygon points="60,30 66,52 72,30" fill="#6ff3ff"/><polygon points="150,34 154,48 158,34" fill="#ff7aff"/><polygon points="260,32 266,56 272,32" fill="#9cff57"/><polygon points="340,28 344,42 348,28" fill="#6ff3ff"/>
+  </g>
+  <!-- rainbow light beams from a crack -->
+  <g opacity="0.3">
+    <path d="M200 0 L150 140 H170Z" fill="#ff5a5a"/><path d="M200 0 L170 140 H190Z" fill="#ffd23f"/><path d="M200 0 L190 140 H210Z" fill="#6fff8a"/><path d="M200 0 L210 140 H230Z" fill="#6fb8ff"/><path d="M200 0 L230 140 H250Z" fill="#b58cff"/>
+    <animateTransform class="lg-loop" attributeName="transform" type="skewX" values="-4;4;-4" dur="8s" repeatCount="indefinite"/>
+  </g>
+  <!-- the Prism Hydra's three heads rising behind -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round">
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 176 104;-5 176 104;0 176 104" dur="3s" repeatCount="indefinite"/>
+      <path d="M170 104 C166 80 158 64 150 54 L164 48 C172 60 180 80 182 104Z" fill="#c8a8ff"/>
+      <path d="M140 52 L166 44 L168 54 L146 60Z" fill="#c8a8ff"/><polygon points="150,48 146,38 156,46" fill="#fff"/>
+      <circle cx="158" cy="50" r="1.6" fill="#ff2e4c" stroke="none"/></g>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 200 104;3 200 104;0 200 104" dur="2.6s" repeatCount="indefinite"/>
+      <path d="M194 104 C194 80 196 60 198 42 H210 C210 60 208 80 208 104Z" fill="#b58cff"/>
+      <path d="M192 44 L204 30 L216 44 L204 50Z" fill="#b58cff"/><polygon points="198,34 194,22 204,30" fill="#fff"/><polygon points="210,34 214,22 204,30" fill="#fff"/>
+      <g fill="#ff2e4c" stroke="none"><circle cx="200" cy="42" r="1.6"/><circle cx="208" cy="42" r="1.6"/></g></g>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 230 104;5 230 104;0 230 104" dur="3.2s" repeatCount="indefinite"/>
+      <path d="M224 104 C226 80 236 64 244 54 L256 60 C248 70 238 84 236 104Z" fill="#c8a8ff"/>
+      <path d="M244 50 L268 56 L262 64 L244 60Z" fill="#c8a8ff"/><polygon points="256,52 262,42 262,54" fill="#fff"/>
+      <circle cx="252" cy="55" r="1.6" fill="#ff2e4c" stroke="none"/></g>
+  </g>
+  <!-- giant crystals in front of the hydra -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
+    <path d="M150 112 L160 70 L172 60 L182 72 L184 112Z" fill="#6ff3ff" opacity="0.9"/>
+    <path d="M160 70 L172 60 L170 112 H160Z" fill="#fff" opacity="0.4" stroke="none"/>
+    <path d="M220 112 L226 80 L238 66 L250 82 L248 112Z" fill="#ff7aff" opacity="0.9"/>
+    <path d="M226 80 L238 66 L236 112 H226Z" fill="#fff" opacity="0.4" stroke="none"/>
+    <!-- side clusters -->
+    <path d="M20 112 L28 74 L38 64 L46 80 L48 112Z" fill="#9cff57"/><path d="M44 112 L52 86 L60 80 L66 92 L64 112Z" fill="#6ff3ff"/>
+    <path d="M340 112 L346 80 L358 66 L368 82 L366 112Z" fill="#6fb8ff"/><path d="M364 112 L372 88 L380 82 L386 94 L384 112Z" fill="#ff7aff"/>
+    <path d="M100 112 L106 94 L114 90 L118 112Z" fill="#b58cff"/><path d="M290 112 L296 96 L304 92 L308 112Z" fill="#9cff57"/>
+  </g>
+  <g fill="#fff"><path d="M36 76 l1.4 -3 l1.4 3 l-1.4 1.4Z M356 72 l1.4 -3 l1.4 3 l-1.4 1.4Z M236 70 l1.4 -3 l1.4 3 l-1.4 1.4Z"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -2;0 0" dur="1.8s" repeatCount="indefinite"/></path></g>
+  <!-- the mirror lake: a reflection of the crystals -->
+  <path d="M0 112 H400 V140 H0Z" fill="var(--lg-near, #8a6ad0)"/>
+  <g opacity="0.35">
+    <path d="M150 112 L160 132 L172 138 L182 130 L184 112Z" fill="#6ff3ff"/><path d="M220 112 L226 128 L238 136 L250 128 L248 112Z" fill="#ff7aff"/>
+    <path d="M20 112 L28 130 L38 136 L46 128 L48 112Z" fill="#9cff57"/><path d="M340 112 L346 128 L358 136 L368 128 L366 112Z" fill="#6fb8ff"/>
+  </g>
+  <g fill="none" stroke="#fff" stroke-width="1" opacity="0.6">
+    <path d="M60 122 H100 M230 126 H270 M300 120 H330"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;8 0;0 0" dur="4s" repeatCount="indefinite"/></path>
+  </g>
+  <!-- floating shards -->
+  <g fill="#fff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5">
+    <polygon points="120,60 124,54 126,62"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -6;0 0" dur="3s" repeatCount="indefinite"/></polygon>
+    <polygon points="300,56 304,50 306,58"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -6;0 0" dur="3.6s" repeatCount="indefinite"/></polygon>
+  </g>
+</svg>

@@ -11,8 +11,8 @@ export const REASON_KEYS = [
 ]
 export const GOAL_KEYS = [{ key: 'relaxed', icon: '🐢' }, { key: 'normal', icon: '🚶' }, { key: 'serious', icon: '🏃' }, { key: 'intense', icon: '🚀' }]
 const KNOW_LEVELS = [1, 2, 3, 4, 5]
-const STEPS = ['reason', 'know', 'goal', 'start']
-const POSE = { reason: 'happy', know: 'book', goal: 'work', start: 'cool' }
+const STEPS = ['reason', 'know', 'goal', 'style', 'start']
+const POSE = { reason: 'happy', know: 'book', goal: 'work', style: 'weapon', start: 'cool' }
 
 function Tile({ selected, onClick, children, style }) {
   const edge = selected ? C.info : C.border
@@ -25,9 +25,11 @@ function Tile({ selected, onClick, children, style }) {
   )
 }
 
-export default function Questionnaire({ t, subject, onDone, onBack }) {
+// `focus`: the current focus-mode setting (the style step starts on it). The style step also asks about accents
+// when the learned language writes them (subject.accents); both are saved as settings by the caller.
+export default function Questionnaire({ t, subject, onDone, onBack, focus = false }) {
   const [step, setStep] = useState(0)
-  const [answers, setAnswers] = useState({ reason: '', selfRating: 0, goal: '' })
+  const [answers, setAnswers] = useState({ reason: '', selfRating: 0, goal: '', style: focus ? 'focus' : 'game', accents: subject.strictAccents !== false })
   const name = STEPS[step]
   const set = (patch) => setAnswers((a) => ({ ...a, ...patch }))
   const ready = name === 'reason' ? !!answers.reason : name === 'know' ? answers.selfRating > 0 : name === 'goal' ? !!answers.goal : true
@@ -35,6 +37,7 @@ export default function Questionnaire({ t, subject, onDone, onBack }) {
     reason: t('lg_qReason', { subject: subject.name }),
     know: t('lg_qKnow', { subject: subject.name }),
     goal: t('lg_qGoal'),
+    style: t('lg_qStyle'),
     start: t('lg_qStart'),
   }[name]
 
@@ -79,6 +82,29 @@ export default function Questionnaire({ t, subject, onDone, onBack }) {
               <span style={{ fontSize: 13, color: C.inkDim, fontWeight: 700 }}>{t(`lg_goalDesc_${g.key}`)}</span>
             </Tile>
           ))}
+        </div>
+      )}
+
+      {name === 'style' && (
+        <div style={{ display: 'grid', gap: 14 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+            {[['game', '⚔️'], ['focus', '🧘']].map(([k, icon]) => (
+              <Tile key={k} selected={answers.style === k} onClick={() => set({ style: k })} style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
+                <span style={{ fontSize: 28 }}>{icon}</span>
+                <span style={{ fontFamily: FONT.display, fontSize: 18 }}>{t(`lg_style_${k}`)}</span>
+                <span style={{ fontSize: 13, color: C.inkDim, fontWeight: 600 }}>{t(`lg_style_${k}Desc`)}</span>
+              </Tile>
+            ))}
+          </div>
+          {subject.accents && (
+            <div style={{ display: 'grid', gap: 8 }}>
+              <div style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 16, color: C.ink }}>{t('lg_qAccents', { lang: subject.learnLang })}</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+                <Tile selected={answers.accents} onClick={() => set({ accents: true })}>🎯 {t('lg_accentsStrict')}</Tile>
+                <Tile selected={!answers.accents} onClick={() => set({ accents: false })}>🌿 {t('lg_accentsRelaxed')}</Tile>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -1,24 +1,57 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
-  <rect width="400" height="140" fill="var(--lg-sky, #fdeed2)"/>
-  <circle cx="312" cy="40" r="24" fill="var(--lg-accent, #22b8a8)" opacity="0.5"/>
-  <circle cx="312" cy="40" r="16" fill="var(--lg-accent, #22b8a8)" opacity="0.85"/>
-  <polygon points="190,100 226,58 262,100" fill="var(--lg-deep, #b3741c)" opacity="0.75"/>
-  <polygon points="226,58 226,100 262,100" fill="var(--lg-deep, #b3741c)"/>
-  <polygon points="250,100 270,78 290,100" fill="var(--lg-deep, #b3741c)" opacity="0.6"/>
-  <path d="M0 100 Q90 70 200 98 T400 90 V140 H0Z" fill="var(--lg-far, #f3cf8f)"/>
-  <g stroke="var(--lg-deep, #b3741c)" stroke-linecap="round" fill="none">
-    <path d="M98 118 V74" stroke-width="12"/>
-    <path d="M98 96 h-12 v-14" stroke-width="8"/>
-    <path d="M98 88 h13 v-12" stroke-width="8"/>
+  <!-- The Sand Emperor's Tomb: a scorpion-crowned pyramid, bones in the dunes, and a stinger rising from the sand. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #fbefd9)"/>
+  <!-- blazing sun with turning rays -->
+  <g transform="translate(80 40)">
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;360" dur="30s" repeatCount="indefinite"/>
+      <g fill="var(--lg-accent, #f2b441)" opacity="0.4"><polygon points="-3,-34 3,-34 0,-24"/><polygon points="-3,34 3,34 0,24"/><polygon points="-34,-3 -34,3 -24,0"/><polygon points="34,-3 34,3 24,0"/><polygon points="-26,-22 -22,-26 -16,-16"/><polygon points="26,22 22,26 16,16"/><polygon points="26,-22 22,-26 16,-16"/><polygon points="-26,22 -22,26 -16,16"/></g>
+    </g>
+    <circle r="20" fill="var(--lg-accent, #f2b441)" opacity="0.5"/><circle r="14" fill="var(--lg-accent, #f2b441)"/>
   </g>
-  <path d="M0 122 Q140 100 260 120 T400 116 V140 H0Z" fill="var(--lg-near, #e8b35e)"/>
-  <g fill="var(--lg-deep, #b3741c)" opacity="0.5">
-    <ellipse cx="160" cy="130" rx="8" ry="2"/><ellipse cx="320" cy="128" rx="10" ry="2"/>
+  <!-- far dunes -->
+  <path d="M0 82 Q60 64 120 78 T260 72 T400 76 V140 H0Z" fill="var(--lg-far, #ecc98f)"/>
+  <!-- obelisks -->
+  <g fill="var(--lg-deep, #b0702a)" stroke="var(--lg-ink, #1d2230)" stroke-width="1"><path d="M146 80 L149 44 L152 40 L155 44 L158 80Z"/><path d="M340 78 L343 50 L346 46 L349 50 L352 78Z"/></g>
+  <!-- the pyramid tomb -->
+  <path d="M190 90 L250 22 L318 90Z" fill="var(--lg-near, #d49a4e)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
+  <path d="M250 22 L318 90 H270Z" fill="#000" opacity="0.2"/>
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" opacity="0.4"><path d="M226 50 H274 M212 66 H290 M200 80 H306"/></g>
+  <path d="M242 31 L250 22 L258 31Z" fill="#ffd966" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+  <!-- scorpion emblem over the door -->
+  <g stroke="#ffd966" stroke-width="1.6" fill="none" stroke-linecap="round">
+    <path d="M250 60 V48 C250 42 256 42 256 46"/><path d="M244 52 C240 50 240 46 244 46 M256 52 C260 50 260 46 256 46"/>
   </g>
-  <g stroke="var(--lg-light, #ffffff)" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.5">
-    <path d="M30 60 q20 -6 40 0"/><path d="M130 44 q16 -5 32 0"/>
+  <path d="M242 90 V70 Q250 62 258 70 V90Z" fill="#1a0f06" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+  <g fill="#ff3b1f"><circle cx="247" cy="76" r="1.4"/><circle cx="253" cy="76" r="1.4"/><circle cx="244" cy="79" r="1"/><circle cx="256" cy="79" r="1"/></g>
+  <!-- heat shimmer -->
+  <g fill="none" stroke="var(--lg-light, #ffffff)" stroke-width="1" opacity="0.5">
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -4;0 0" dur="2s" repeatCount="indefinite"/>
+    <path d="M160 60 q4 -3 8 0 t8 0 M300 46 q4 -3 8 0 t8 0 M40 72 q4 -3 8 0 t8 0"/>
   </g>
-  <g fill="var(--lg-deep, #b3741c)">
-    <circle cx="354" cy="118" r="4"/><rect x="352" y="118" width="4" height="10"/>
+  <!-- near dunes -->
+  <path d="M0 108 Q80 88 170 104 T330 98 T400 104 V140 H0Z" fill="var(--lg-near, #d49a4e)"/>
+  <path d="M0 108 Q80 88 170 104 Q80 96 0 116Z" fill="#fff" opacity="0.18"/>
+  <!-- the great ribcage -->
+  <g fill="none" stroke="#f4e6c8" stroke-width="3.4" stroke-linecap="round">
+    <path d="M40 110 C40 90 60 80 80 82 C100 84 108 96 104 110"/><path d="M52 112 C52 96 64 90 78 92"/><path d="M92 110 C94 100 88 94 80 94"/>
+  </g>
+  <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" opacity="0.6"><path d="M40 110 C40 90 60 80 80 82 C100 84 108 96 104 110"/></g>
+  <!-- a bleached skull -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1"><path d="M126 112 C122 104 128 98 136 98 C144 98 150 104 146 112 L142 116 H130Z" fill="#f4e6c8"/></g>
+  <g fill="#1d2230"><circle cx="132" cy="106" r="2"/><circle cx="140" cy="106" r="2"/></g>
+  <!-- the stinger rising from the dune -->
+  <g>
+    <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 360 112;-6 360 112;0 360 112;4 360 112;0 360 112" dur="3.4s" repeatCount="indefinite"/>
+    <g fill="var(--lg-deep, #b0702a)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2">
+      <ellipse cx="360" cy="108" rx="7" ry="6"/><ellipse cx="366" cy="96" rx="6.4" ry="6"/><ellipse cx="368" cy="84" rx="6" ry="5.6"/><ellipse cx="364" cy="73" rx="5.4" ry="5"/><ellipse cx="356" cy="65" rx="5" ry="4.6"/>
+    </g>
+    <g fill="#ffd966"><rect x="356" y="106" width="8" height="1.6"/><rect x="362" y="94" width="8" height="1.6"/><rect x="364" y="82" width="7" height="1.6"/></g>
+    <path d="M352 62 C344 60 338 56 336 50 C342 48 350 52 356 58Z" fill="#6b2f8a" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    <path d="M336 50 L330 55 L335 54Z" fill="#f4e6c8" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+  </g>
+  <path d="M340 112 Q360 104 380 112Z" fill="var(--lg-near, #d49a4e)"/>
+  <!-- blowing sand -->
+  <g fill="none" stroke="var(--lg-far, #ecc98f)" stroke-width="1.6" stroke-linecap="round">
+    <path d="M10 124 H40 M180 130 H220 M280 122 H300"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="-20 0;60 0;-20 0" dur="5.2s" repeatCount="indefinite" keyTimes="0;.5;1"/></path>
   </g>
 </svg>

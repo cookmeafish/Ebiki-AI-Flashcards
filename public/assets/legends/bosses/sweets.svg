@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- The Gingerbread Colossus: a gingerbread golem gone wrong. Cracked icing, candy-cane horns, gumdrop eyes glowing
+       red, a jagged cookie-tooth maw, a chunk bitten out of its shoulder. -->
+  <!-- sprinkles raining -->
+  <g stroke-width="2" stroke-linecap="round">
+    <path style="transform-box:fill-box;transform-origin:center" d="M10 14 l3 3" stroke="#ff3fd2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 40" dur="2s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2s" repeatCount="indefinite" additive="sum"/></path>
+    <path style="transform-box:fill-box;transform-origin:center" d="M108 20 l-3 3" stroke="#2ec4b6"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 40" dur="2.4s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.4s" repeatCount="indefinite" additive="sum"/></path>
+    <path style="transform-box:fill-box;transform-origin:center" d="M100 6 l2 3" stroke="#ffd23f"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 40" dur="1.8s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.8s" repeatCount="indefinite" additive="sum"/></path>
+  </g>
+  <!-- whole body wobbles like jelly after landing -->
+  <g transform="translate(60 120)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 1;1 1;1.12 0.86;0.94 1.08;1.03 0.97;1 1" keyTimes="0;.4;.55;.7;.85;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.02 0.98;1 1" dur="1.4s" begin="1.5s" repeatCount="indefinite"/>
+    <g transform="translate(-60 -120)">
+      <!-- arms with icing cuffs, fists -->
+      <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round">
+        <path d="M30 76 C18 80 8 92 8 106 C12 112 20 112 22 106 C22 96 28 90 36 88Z" fill="#b5652b"/>
+        <path d="M90 76 C102 80 112 92 112 106 C108 112 100 112 98 106 C98 96 92 90 84 88Z" fill="#b5652b"/>
+      </g>
+      <g fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M10 100 C14 102 18 102 22 98 M110 100 C106 102 102 102 98 98"/></g>
+      <!-- torso -->
+      <path d="M28 120 C26 96 34 76 60 74 C86 76 94 96 92 120Z" fill="#b5652b" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
+      <path d="M32 116 C32 96 38 82 52 78 C42 90 40 102 42 118Z" fill="#fff" opacity="0.14"/>
+      <!-- icing zigzag and gumdrop buttons -->
+      <path d="M36 88 L42 84 L48 88 L54 84 L60 88 L66 84 L72 88 L78 84 L84 88" fill="none" stroke="#fff" stroke-width="2.2" stroke-linejoin="round"/>
+      <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.9"><path d="M56 96 C56 92 64 92 64 96 V100 H56Z" fill="#2ec4b6"/><path d="M56 106 C56 102 64 102 64 106 V110 H56Z" fill="#ff3fd2"/></g>
+      <!-- the bite taken out of the shoulder -->
+      <path d="M78 76 C82 72 88 74 88 78 C92 78 94 82 92 86 C88 84 84 84 82 80 C80 80 78 78 78 76Z" fill="var(--lg-sky, #ffe0ef)" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+      <!-- head -->
+      <path d="M30 46 C30 26 44 14 60 14 C76 14 90 26 90 46 C90 64 78 76 60 76 C42 76 30 64 30 46Z" fill="#b5652b" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
+      <path d="M36 44 C36 28 46 20 58 18 C46 26 42 36 42 56Z" fill="#fff" opacity="0.16"/>
+      <!-- icing trim, cracking -->
+      <path d="M34 36 C40 22 52 18 60 18 C68 18 80 22 86 36" fill="none" stroke="#fff" stroke-width="2.4" stroke-dasharray="5 2" stroke-linecap="round"/>
+      <path d="M44 26 L48 32 L46 36 M74 24 L72 30 L76 34" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linecap="round"/>
+      <!-- candy-cane horns -->
+      <g stroke-linecap="round" fill="none">
+        <path d="M38 24 C30 14 30 2 40 2 C46 2 46 10 42 10" stroke="#fff" stroke-width="5"/>
+        <path d="M38 24 C30 14 30 2 40 2 C46 2 46 10 42 10" stroke="#e0233e" stroke-width="5" stroke-dasharray="3 3"/>
+        <path d="M82 24 C90 14 90 2 80 2 C74 2 74 10 78 10" stroke="#fff" stroke-width="5"/>
+        <path d="M82 24 C90 14 90 2 80 2 C74 2 74 10 78 10" stroke="#e0233e" stroke-width="5" stroke-dasharray="3 3"/>
+      </g>
+      <!-- furious gumdrop eyes: ignite -->
+      <path d="M38 36 L54 42 M82 36 L66 42" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+      <g transform="translate(47 47)"><g>
+        <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.1;0.1;1.5;1" keyTimes="0;.62;.8;1" dur="1.5s" fill="freeze"/>
+        <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.12;1" dur="1.2s" begin="1.5s" repeatCount="indefinite"/>
+          <circle r="7" fill="#ff2e4c" opacity="0.35"/><path d="M-5 3 C-5 -5 5 -5 5 3Z" fill="#e0233e" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><circle cx="0" cy="0" r="1.6" fill="#ffe36b"/></g>
+      </g></g>
+      <g transform="translate(73 47)"><g>
+        <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.1;0.1;1.5;1" keyTimes="0;.66;.84;1" dur="1.5s" fill="freeze"/>
+        <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.12;1" dur="1.2s" begin="1.5s" repeatCount="indefinite"/>
+          <circle r="7" fill="#ff2e4c" opacity="0.35"/><path d="M-5 3 C-5 -5 5 -5 5 3Z" fill="#e0233e" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><circle cx="0" cy="0" r="1.6" fill="#ffe36b"/></g>
+      </g></g>
+      <!-- the jagged cookie-tooth maw, opening -->
+      <g transform="translate(60 58)"><g>
+        <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.1;1 0.1;1.1 1.3;1 1" keyTimes="0;.72;.88;1" dur="1.5s" fill="freeze"/>
+        <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1.12;1 1" dur="1.6s" begin="1.5s" repeatCount="indefinite"/>
+          <path d="M-18 0 C-12 -2 12 -2 18 0 C16 10 8 14 0 14 C-8 14 -16 10 -18 0Z" fill="#3a1206" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+          <path d="M-8 10 C-4 8 4 8 8 10 C4 13 -4 13 -8 10Z" fill="#e0233e"/>
+          <g fill="#f4e6c8" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" stroke-linejoin="round">
+            <polygon points="-16,0 -13,7 -10,0"/><polygon points="-9,-1 -6,8 -3,-1"/><polygon points="-2,-1 1,6 3,-1"/><polygon points="4,-1 7,8 10,-1"/><polygon points="11,0 13,7 16,0"/>
+            <polygon points="-12,11 -9,6 -6,12"/><polygon points="6,12 9,6 12,11"/>
+          </g>
+        </g>
+      </g></g>
+    </g></g>
+  </g></g>
+  <!-- crumbs flying off on the landing -->
+  <g fill="#b5652b" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5">
+    <g transform="translate(-18 6)"><g><animateTransform class="lg-in" attributeName="transform" type="translate" values="18 -6;18 -6;4 -24;0 0" keyTimes="0;.5;.75;1" dur="1.5s" fill="freeze"/><rect x="24" y="110" width="4" height="3"/></g></g>
+    <g transform="translate(18 6)"><g><animateTransform class="lg-in" attributeName="transform" type="translate" values="-18 -6;-18 -6;-4 -26;0 0" keyTimes="0;.5;.75;1" dur="1.5s" fill="freeze"/><rect x="92" y="110" width="4" height="3"/></g></g>
+  </g>
+</svg>

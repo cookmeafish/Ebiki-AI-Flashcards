@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- The Nine-Tailed Kitsune: a great fox spirit. Nine flaming tails fanned out, a masked face with slit eyes,
+       foxfire orbs, a ceremonial rope collar with paper streamers. -->
+  <!-- nine tails, fanning out on the entrance (each rotates out from behind) -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
+    <g><animateTransform class="lg-in" attributeName="transform" type="rotate" values="60 60 90;60 60 90;0 60 90" keyTimes="0;.6;1" dur="1.5s" fill="freeze"/>
+      <path d="M60 90 C40 80 12 70 4 44 C14 50 20 50 22 44 C28 56 44 70 60 82Z" fill="#fff2e6"/><path d="M4 44 C10 48 16 48 22 44 C16 40 10 38 4 44Z" fill="#6ff3ff"/></g>
+    <g><animateTransform class="lg-in" attributeName="transform" type="rotate" values="45 60 90;45 60 90;0 60 90" keyTimes="0;.6;1" dur="1.5s" fill="freeze"/>
+      <path d="M60 88 C40 72 14 56 10 26 C18 34 24 34 26 28 C32 44 46 62 60 80Z" fill="#fff2e6"/><path d="M10 26 C16 32 22 32 26 28 C20 22 14 20 10 26Z" fill="#6ff3ff"/></g>
+    <g><animateTransform class="lg-in" attributeName="transform" type="rotate" values="30 60 90;30 60 90;0 60 90" keyTimes="0;.6;1" dur="1.5s" fill="freeze"/>
+      <path d="M60 86 C44 66 26 44 26 12 C32 20 38 20 40 14 C42 34 50 58 62 80Z" fill="#fff2e6"/><path d="M26 12 C30 18 36 18 40 14 C36 8 30 6 26 12Z" fill="#6ff3ff"/></g>
+    <g><animateTransform class="lg-in" attributeName="transform" type="rotate" values="15 60 90;15 60 90;0 60 90" keyTimes="0;.6;1" dur="1.5s" fill="freeze"/>
+      <path d="M58 86 C50 62 40 36 44 6 C48 14 54 14 56 8 C56 30 60 56 64 80Z" fill="#fff2e6"/><path d="M44 6 C48 12 54 12 56 8 C52 2 48 0 44 6Z" fill="#6ff3ff"/></g>
+    <path d="M60 86 C58 60 58 34 60 4 C62 34 62 60 60 86Z M56 8 C58 2 62 2 64 8 C62 12 58 12 56 8Z" fill="#fff2e6"/>
+    <path d="M56 8 C58 2 62 2 64 8 C62 6 58 6 56 8Z" fill="#6ff3ff"/>
+    <g><animateTransform class="lg-in" attributeName="transform" type="rotate" values="-15 60 90;-15 60 90;0 60 90" keyTimes="0;.6;1" dur="1.5s" fill="freeze"/>
+      <path d="M62 86 C70 62 80 36 76 6 C72 14 66 14 64 8 C64 30 60 56 56 80Z" fill="#fff2e6"/><path d="M76 6 C72 12 66 12 64 8 C68 2 72 0 76 6Z" fill="#6ff3ff"/></g>
+    <g><animateTransform class="lg-in" attributeName="transform" type="rotate" values="-30 60 90;-30 60 90;0 60 90" keyTimes="0;.6;1" dur="1.5s" fill="freeze"/>
+      <path d="M60 86 C76 66 94 44 94 12 C88 20 82 20 80 14 C78 34 70 58 58 80Z" fill="#fff2e6"/><path d="M94 12 C90 18 84 18 80 14 C84 8 90 6 94 12Z" fill="#6ff3ff"/></g>
+    <g><animateTransform class="lg-in" attributeName="transform" type="rotate" values="-45 60 90;-45 60 90;0 60 90" keyTimes="0;.6;1" dur="1.5s" fill="freeze"/>
+      <path d="M60 88 C80 72 106 56 110 26 C102 34 96 34 94 28 C88 44 74 62 60 80Z" fill="#fff2e6"/><path d="M110 26 C104 32 98 32 94 28 C100 22 106 20 110 26Z" fill="#6ff3ff"/></g>
+    <g><animateTransform class="lg-in" attributeName="transform" type="rotate" values="-60 60 90;-60 60 90;0 60 90" keyTimes="0;.6;1" dur="1.5s" fill="freeze"/>
+      <path d="M60 90 C80 80 108 70 116 44 C106 50 100 50 98 44 C92 56 76 70 60 82Z" fill="#fff2e6"/><path d="M116 44 C110 48 104 48 98 44 C104 40 110 38 116 44Z" fill="#6ff3ff"/></g>
+  </g>
+  <!-- the tails sway as one -->
+  <g fill="#ff7aa8" opacity="0.4">
+    <circle cx="60" cy="60" r="2" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.2;1" dur="2s" repeatCount="indefinite"/></circle>
+  </g>
+  <!-- body -->
+  <path d="M34 120 C32 100 42 84 60 82 C78 84 88 100 86 120Z" fill="#fff2e6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8"/>
+  <path d="M46 120 C46 104 52 94 60 92 C68 94 74 104 74 120Z" fill="#ffd6e4"/>
+  <!-- the rope collar with paper streamers -->
+  <path d="M40 88 C50 96 70 96 80 88" fill="none" stroke="#c9a441" stroke-width="4" stroke-linecap="round"/>
+  <path d="M40 88 C50 96 70 96 80 88" fill="none" stroke="#8a6a1f" stroke-width="1" stroke-dasharray="3 2"/>
+  <g fill="#fff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7">
+    <path d="M50 93 L48 100 L52 100 L50 106 L54 104"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 50 93;6 50 93;0 50 93" dur="1.2s" repeatCount="indefinite"/></path>
+    <path d="M70 93 L72 100 L68 100 L70 106 L66 104"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 70 93;-6 70 93;0 70 93" dur="1.3s" repeatCount="indefinite"/></path>
+  </g>
+  <!-- head -->
+  <path d="M38 50 C38 40 46 34 60 34 C74 34 82 40 82 50 C82 62 72 72 60 84 C48 72 38 62 38 50Z" fill="#fff2e6" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
+  <!-- tall ears -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round">
+    <path d="M40 44 L34 14 L54 36Z" fill="#fff2e6"/><path d="M80 44 L86 14 L66 36Z" fill="#fff2e6"/>
+    <path d="M42 38 L38 22 L50 36Z M78 38 L82 22 L70 36Z" fill="#ff7aa8" stroke="none"/>
+  </g>
+  <!-- the ceremonial mask markings -->
+  <g fill="#e0233e">
+    <path d="M60 36 C58 40 58 44 60 48 C62 44 62 40 60 36Z"/>
+    <path d="M40 50 C44 46 50 46 52 50 C48 52 44 52 40 50Z M80 50 C76 46 70 46 68 50 C72 52 76 52 80 50Z"/>
+    <path d="M44 60 L50 58 M76 60 L70 58" stroke="#e0233e" stroke-width="1.4"/>
+  </g>
+  <!-- slit eyes, glowing -->
+  <g transform="translate(50 52)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0;1 0;1 1.6;1 1" keyTimes="0;.7;.85;1" dur="1.5s" fill="freeze"/>
+    <path d="M-6 2 C-3 -2 3 -3 6 -2 C3 3 -3 4 -6 2Z" fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/><ellipse rx="0.7" ry="2" fill="#1a0508"/>
+  </g></g>
+  <g transform="translate(70 52)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0;1 0;1 1.6;1 1" keyTimes="0;.7;.85;1" dur="1.5s" fill="freeze"/>
+    <path d="M6 2 C3 -2 -3 -3 -6 -2 C-3 3 3 4 6 2Z" fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/><ellipse rx="0.7" ry="2" fill="#1a0508"/>
+  </g></g>
+  <!-- snout with a sly fanged grin -->
+  <path d="M60 74 L57 70 H63Z" fill="#1d1b28"/>
+  <path d="M50 72 C54 80 66 80 70 72 C66 76 54 76 50 72Z" fill="#8a1030" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+  <g fill="#fff"><polygon points="53,74 54,78 55.5,75"/><polygon points="67,74 66,78 64.5,75"/></g>
+  <!-- foxfire orbs orbiting -->
+  <g fill="#6ff3ff">
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 60 60;360 60 60" dur="6s" repeatCount="indefinite"/>
+      <circle cx="60" cy="8" r="4" opacity="0.4"/><path d="M60 4 C57 8 58 12 60 12 C62 12 63 8 60 4Z" fill="#e8ffff"/></g>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="180 60 60;540 60 60" dur="6s" repeatCount="indefinite"/>
+      <circle cx="60" cy="8" r="4" opacity="0.4"/><path d="M60 4 C57 8 58 12 60 12 C62 12 63 8 60 4Z" fill="#e8ffff"/></g>
+  </g>
+  <!-- sakura petals -->
+  <g fill="#ffb7cf">
+    <ellipse style="transform-box:fill-box;transform-origin:center" cx="14" cy="100" rx="2" ry="1.2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -20;8 10" dur="3s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="3s" repeatCount="indefinite" additive="sum"/></ellipse>
+    <ellipse style="transform-box:fill-box;transform-origin:center" cx="104" cy="100" rx="2" ry="1.2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -20;-8 10" dur="3.4s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="3.4s" repeatCount="indefinite" additive="sum"/></ellipse>
+  </g>
+</svg>

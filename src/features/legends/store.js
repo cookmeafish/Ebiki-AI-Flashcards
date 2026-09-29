@@ -89,3 +89,24 @@ export async function clearStep(modeId, areaId, nodeId) {
   const r = await store.read(key)
   return r.ok ? store.write(key, null) : false
 }
+
+// ── Raids ───────────────────────────────────────────────────────────────────────────────────────────────────
+// One raid state per mode (features/legends/raid-<modeId>.json): the boss in rotation, today's wounds, trophies.
+// Read-modify-write, serialized, never after a failed read. Resolves to the saved state, or undefined.
+const raidKey = (modeId) => `raid-${String(modeId ?? 'default').toLowerCase().replace(/[^a-z0-9-]/g, '') || 'default'}`
+let raidChain = Promise.resolve()
+export async function readRaid(modeId) {
+  const r = await store.read(raidKey(modeId))
+  return r.ok ? { ok: true, value: r.value || null } : { ok: false, value: null }
+}
+export function updateRaid(modeId, fn) {
+  const run = raidChain.then(async () => {
+    const r = await store.read(raidKey(modeId))
+    if (!r.ok) return undefined
+    const next = fn(r.value || null)
+    if (!(await store.write(raidKey(modeId), next))) return undefined
+    return next
+  })
+  raidChain = run.catch(() => {})
+  return run.catch(() => undefined)
+}

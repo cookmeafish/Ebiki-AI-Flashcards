@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- The Void Leviathan. Phase 1: a mass of night with one great eye and tendrils. Phase 2: more eyes tear open
+       across its body. Phase 3: its whole body splits into a starry maw of teeth. Unfolds from a single point of
+       light on the entrance. -->
+  <!-- starfield -->
+  <g fill="#fff">
+    <circle cx="14" cy="16" r="0.9"/><circle cx="104" cy="12" r="1.1"/><circle cx="98" cy="96" r="0.8"/><circle cx="18" cy="92" r="0.9"/>
+    <path d="M106 40 l1 2.4 l2.4 1 l-2.4 1 l-1 2.4 l-1 -2.4 l-2.4 -1 l2.4 -1Z" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.3;1" dur="1.8s" repeatCount="indefinite"/></path>
+  </g>
+  <g style="transform-box:fill-box;transform-origin:center">
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.02;0.02;1.15;1" keyTimes="0;.25;.75;1" dur="1.6s" fill="freeze"/>
+    <!-- tendrils -->
+    <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="5" stroke-linecap="round">
+      <path d="M36 84 C26 96 22 104 12 110"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 36 84;8 36 84;0 36 84" dur="2.2s" repeatCount="indefinite"/></path>
+      <path d="M84 84 C94 96 98 104 108 110"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 84 84;-8 84 84;0 84 84" dur="2.5s" repeatCount="indefinite"/></path>
+      <path d="M50 92 C48 104 44 110 40 118"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 50 92;6 50 92;0 50 92" dur="1.9s" repeatCount="indefinite"/></path>
+      <path d="M72 92 C74 104 78 110 82 118"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 72 92;-6 72 92;0 72 92" dur="2.1s" repeatCount="indefinite"/></path>
+    </g>
+    <g fill="none" stroke="#3a2066" stroke-width="3" stroke-linecap="round">
+      <path d="M36 84 C26 96 22 104 12 110"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 36 84;8 36 84;0 36 84" dur="2.2s" repeatCount="indefinite"/></path>
+      <path d="M84 84 C94 96 98 104 108 110"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 84 84;-8 84 84;0 84 84" dur="2.5s" repeatCount="indefinite"/></path>
+      <path d="M50 92 C48 104 44 110 40 118"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 50 92;6 50 92;0 50 92" dur="1.9s" repeatCount="indefinite"/></path>
+      <path d="M72 92 C74 104 78 110 82 118"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 72 92;-6 72 92;0 72 92" dur="2.1s" repeatCount="indefinite"/></path>
+    </g>
+    <!-- aura -->
+    <circle cx="60" cy="56" r="44" fill="#7b3dff" opacity="0.18" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.08;1" dur="2.6s" repeatCount="indefinite"/></circle>
+    <!-- body -->
+    <path d="M22 60 C18 30 40 12 60 12 C80 12 102 30 98 60 C96 80 82 96 60 96 C38 96 24 80 22 60Z" fill="#1a1030" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2"/>
+    <path d="M28 52 C28 30 44 18 60 16 C46 24 36 38 36 56 C36 72 44 84 54 92 C38 88 28 74 28 52Z" fill="#fff" opacity="0.06"/>
+    <g fill="#fff" opacity="0.7">
+      <circle cx="40" cy="40" r="0.8"/><circle cx="78" cy="30" r="1"/><circle cx="86" cy="62" r="0.8"/><circle cx="36" cy="72" r="1"/><circle cx="66" cy="84" r="0.8"/>
+    </g>
+    <!-- phase 1-2: the great eye -->
+    <g class="lg-p12">
+      <ellipse cx="60" cy="50" rx="18" ry="11" fill="#fff4e0" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8"/>
+      <g style="transform-box:fill-box;transform-origin:center">
+        <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-5 1;5 -1;0 0" dur="4s" repeatCount="indefinite"/>
+        <circle cx="60" cy="50" r="8" fill="#b01b62" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+        <ellipse cx="60" cy="50" rx="2" ry="7" fill="#0b0514"/>
+        <circle cx="63" cy="46" r="1.6" fill="#fff"/>
+      </g>
+      <!-- lids blink -->
+      <path d="M40 50 C44 36 76 36 80 50 C76 44 44 44 40 50Z" fill="#1a1030" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" style="transform-box:fill-box;transform-origin:center top">
+        <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1;1 2.4;1 1" keyTimes="0;.88;.93;1" dur="4.2s" repeatCount="indefinite"/>
+      </path>
+    </g>
+    <!-- phase 2: more eyes tear open -->
+    <g class="lg-p2" style="display:none">
+      <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 0.1;1 1" keyTimes="0;.5;1" dur="3.1s" repeatCount="indefinite"/>
+        <ellipse cx="34" cy="38" rx="6" ry="3.6" fill="#fff4e0" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><circle cx="34" cy="38" r="2.4" fill="#b01b62"/><ellipse cx="34" cy="38" rx="0.7" ry="2.2" fill="#0b0514"/></g>
+      <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 0.1;1 1" keyTimes="0;.5;1" dur="2.7s" repeatCount="indefinite"/>
+        <ellipse cx="86" cy="36" rx="6" ry="3.6" fill="#fff4e0" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><circle cx="86" cy="36" r="2.4" fill="#b01b62"/><ellipse cx="86" cy="36" rx="0.7" ry="2.2" fill="#0b0514"/></g>
+      <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 0.1;1 1" keyTimes="0;.5;1" dur="3.5s" repeatCount="indefinite"/>
+        <ellipse cx="32" cy="66" rx="5" ry="3" fill="#fff4e0" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><circle cx="32" cy="66" r="2" fill="#b01b62"/></g>
+      <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 0.1;1 1" keyTimes="0;.5;1" dur="2.9s" repeatCount="indefinite"/>
+        <ellipse cx="88" cy="68" rx="5" ry="3" fill="#fff4e0" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><circle cx="88" cy="68" r="2" fill="#b01b62"/></g>
+      <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 0.1;1 1" keyTimes="0;.5;1" dur="3.8s" repeatCount="indefinite"/>
+        <ellipse cx="60" cy="22" rx="5" ry="3" fill="#fff4e0" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><circle cx="60" cy="22" r="2" fill="#b01b62"/></g>
+    </g>
+    <!-- phase 1-2: a thin mouth -->
+    <path class="lg-p12" d="M44 74 C52 80 68 80 76 74 L72 76 L68 73 L64 77 L60 73 L56 77 L52 73 L48 76Z" fill="#fff4e0" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+    <!-- phase 3: the body splits into a maw -->
+    <g class="lg-p3" style="display:none">
+      <path d="M28 44 C40 30 80 30 92 44 C84 74 36 74 28 44Z" fill="#0b0514" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
+      <g fill="#fff" opacity="0.9"><circle cx="48" cy="52" r="0.9"/><circle cx="70" cy="48" r="1.1"/><circle cx="60" cy="60" r="0.8"/><circle cx="78" cy="56" r="0.7"/></g>
+      <path d="M30 45 L35 54 L39 44 L44 56 L48 42 L53 57 L57 41 L60 58 L63 41 L67 57 L72 42 L76 56 L81 44 L85 54 L90 45" fill="#fff4e0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+      <g style="transform-box:fill-box;transform-origin:center">
+        <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.3;1" dur="0.9s" repeatCount="indefinite"/>
+        <circle cx="60" cy="24" r="6" fill="#ff2e7a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/><ellipse cx="60" cy="24" rx="1.5" ry="5" fill="#0b0514"/>
+      </g>
+      <path d="M36 68 L40 76 L44 66 L48 78 L52 67 L56 79 L60 68 L64 79 L68 67 L72 78 L76 66 L80 76 L84 68" fill="#fff4e0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+    </g>
+  </g>
+</svg>

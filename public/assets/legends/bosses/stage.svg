@@ -1,12 +1,73 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
-  <path d="M60 6 Q100 6 104 50 Q106 80 96 104 Q90 116 80 108 Q72 116 64 108 Q56 116 48 108 Q40 116 32 108 Q22 116 18 104 Q12 80 16 50 Q20 6 60 6Z" fill="var(--lg-deep, #7b3fb8)"/>
-  <path d="M60 24 Q88 24 90 52 Q92 78 60 86 Q28 78 30 52 Q32 24 60 24Z" fill="var(--lg-light, #ffffff)"/>
-  <path d="M40 48 Q48 40 56 50 Q48 58 40 48Z" fill="var(--lg-ink, #1d2230)"/>
-  <path d="M80 48 Q72 40 64 50 Q72 58 80 48Z" fill="var(--lg-ink, #1d2230)"/>
-  <circle cx="49" cy="49" r="2" fill="var(--lg-accent, #f2b441)"/><circle cx="71" cy="49" r="2" fill="var(--lg-accent, #f2b441)"/>
-  <path d="M46 66 Q60 76 74 66" stroke="var(--lg-ink, #1d2230)" stroke-width="3.5" fill="none" stroke-linecap="round"/>
-  <path d="M36 36 Q44 30 52 34" stroke="var(--lg-near, #a46ad6)" stroke-width="3" fill="none" stroke-linecap="round"/>
-  <path d="M84 36 Q76 30 68 34" stroke="var(--lg-near, #a46ad6)" stroke-width="3" fill="none" stroke-linecap="round"/>
-  <path d="M40 4 L48 16 L54 2 L60 16 L66 2 L72 16 L80 4 L82 20 H38Z" fill="var(--lg-accent, #f2b441)"/>
-  <g fill="var(--lg-accent, #f2b441)"><circle cx="54" cy="12" r="2"/><circle cx="66" cy="12" r="2"/></g>
+  <!-- The Phantom Maestro: a horned puppeteer in a cracked porcelain mask, cape like torn curtains. -->
+  <!-- spotlight cone from above -->
+  <path d="M46 0 H74 L112 120 H8Z" fill="var(--lg-light, #ffffff)" opacity="0.16"/>
+  <path d="M52 0 H68 L92 120 H28Z" fill="var(--lg-accent, #f2b441)" opacity="0.12"/>
+  <!-- puppet strings from the dark above -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.6"><path d="M14 0 V70 M106 0 V70 M40 0 V20 M80 0 V20"/></g>
+  <!-- cape: sweeps open on the entrance, hem flutters -->
+  <g transform="translate(60 40)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.15 1;0.15 1;1.12 1;1 1" keyTimes="0;.45;.72;1" dur="1.5s" fill="freeze"/>
+    <g>
+      <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.03 0.98;1 1" dur="2.4s" begin="1.5s" repeatCount="indefinite"/>
+      <g transform="translate(-60 -40)">
+        <path d="M60 36 C40 36 16 44 4 66 L8 72 L4 80 L12 84 L8 96 L18 98 L16 112 L28 108 L32 120 H88 L92 108 L104 112 L102 98 L112 96 L108 84 L116 80 L112 72 L116 66 C104 44 80 36 60 36Z" fill="var(--lg-deep, #7c4def)" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M60 44 C46 46 32 54 24 68 L30 70 L26 80 L34 82 L32 94 L42 94 L44 120 H76 L78 94 L88 94 L86 82 L94 80 L90 70 L96 68 C88 54 74 46 60 44Z" fill="#b3122e" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+        <g fill="none" stroke="#000" stroke-width="1.4" opacity="0.3"><path d="M22 66 C24 84 28 100 30 118 M98 66 C96 84 92 100 90 118 M40 58 C40 80 42 100 42 118 M80 58 C80 80 78 100 78 118"/></g>
+        <path d="M60 36 C40 36 16 44 4 66 L10 64 C22 48 40 42 60 42Z" fill="#fff" opacity="0.2"/>
+      </g>
+    </g>
+  </g></g>
+  <!-- tailcoat and ruff -->
+  <path d="M46 56 L60 92 L74 56 L66 52 H54Z" fill="#161421" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M56 56 L60 72 L64 56Z" fill="var(--lg-light, #ffffff)" opacity="0.9"/>
+  <path d="M42 54 C46 50 50 56 54 52 C56 56 60 50 62 54 C64 50 68 56 70 52 C72 56 76 50 78 54 L74 58 H46Z" fill="var(--lg-light, #f4efe6)" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+  <!-- clawed hands with a crackling baton -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round">
+    <g>
+      <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 24 76;-10 24 76;0 24 76;6 24 76;0 24 76" dur="2.2s" repeatCount="indefinite"/>
+      <path d="M26 74 L12 50" stroke="#e8d7b0" stroke-width="2.2"/>
+      <path d="M12 50 l-3 -5 m3 5 l3 -5 m-3 5 l-5 0" stroke="#fff04a" stroke-width="1.4"/>
+      <path d="M20 72 C22 68 28 68 30 72 L32 80 L28 78 L27 84 L24 79 L21 84 L21 77 L17 80Z" fill="#dcd6e6"/>
+    </g>
+    <path d="M100 72 C98 68 92 68 90 72 L88 80 L92 78 L93 84 L96 79 L99 84 L99 77 L103 80Z" fill="#dcd6e6"/>
+    <g fill="none" stroke-width="0.8"><path d="M89 79 L86 84 M92 82 L91 88 M96 82 L97 88 M99 80 L102 85"/></g>
+  </g>
+  <!-- horned top hat: tips on the entrance -->
+  <g>
+    <animateTransform class="lg-in" attributeName="transform" type="rotate" values="-25 60 30;-25 60 30;8 60 30;0 60 30" keyTimes="0;.62;.82;1" dur="1.5s" fill="freeze"/>
+    <path d="M44 18 C38 10 36 4 40 -2 C42 6 46 10 50 14Z" fill="#e8d7b0" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+    <path d="M76 18 C82 10 84 4 80 -2 C78 6 74 10 70 14Z" fill="#e8d7b0" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+    <path d="M46 26 L48 4 H72 L74 26Z" fill="#161421" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <rect x="47" y="19" width="26" height="4" fill="#b3122e"/>
+    <path d="M36 26 H84 L80 30 H40Z" fill="#161421" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M50 6 V18" stroke="#fff" stroke-width="1.4" opacity="0.3"/>
+  </g>
+  <!-- cracked porcelain mask with a carved grin -->
+  <path d="M44 30 H76 C78 40 76 50 70 56 C64 60 56 60 50 56 C44 50 42 40 44 30Z" fill="#f4efe6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8"/>
+  <path d="M70 30 H76 C78 40 76 50 70 56 C66 58 64 58 62 58 C70 52 72 42 70 30Z" fill="#000" opacity="0.14"/>
+  <path d="M64 30 L62 36 L66 40 L63 46" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9"/>
+  <!-- eye slits: ignite on the entrance -->
+  <path d="M47 38 L57 42 L55 45 L48 42Z" fill="#12101b"/><path d="M73 38 L63 42 L65 45 L72 42Z" fill="#12101b"/>
+  <g transform="translate(52 42)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.05;0.05;1.6;1" keyTimes="0;.7;.85;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.2;1" dur="1.2s" begin="1.5s" repeatCount="indefinite"/><circle r="4.5" fill="#ff3fd2" opacity="0.4"/><circle r="1.8" fill="#ffd6f6"/></g>
+  </g></g>
+  <g transform="translate(68 42)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.05;0.05;1.6;1" keyTimes="0;.74;.88;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.2;1" dur="1.2s" begin="1.7s" repeatCount="indefinite"/><circle r="4.5" fill="#ff3fd2" opacity="0.4"/><circle r="1.8" fill="#ffd6f6"/></g>
+  </g></g>
+  <!-- the grin: stretches wide on the entrance -->
+  <g transform="translate(60 50)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.3 1;0.3 1;1.15 1.1;1 1" keyTimes="0;.72;.88;1" dur="1.6s" fill="freeze"/>
+    <path d="M-12 -2 C-6 4 6 4 12 -2 C8 8 -8 8 -12 -2Z" fill="#12101b"/>
+    <path d="M-10 -1 V3 M-6 1 V5 M-2 2 V6 M2 2 V6 M6 1 V5 M10 -1 V3" stroke="#f4efe6" stroke-width="1.1"/>
+  </g></g>
+  <!-- tear of the tragedy half -->
+  <path d="M69 47 C68 50 70 52 71 50 C71 49 70 48 69 47Z" fill="var(--lg-deep, #7c4def)"/>
+  <!-- orbiting sparkles -->
+  <g fill="var(--lg-accent, #f2b441)">
+    <path d="M20 22 l1.5 4 l4 1.5 l-4 1.5 l-1.5 4 l-1.5 -4 l-4 -1.5 l4 -1.5Z"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 20 27.5;90 20 27.5" dur="1.4s" repeatCount="indefinite"/></path>
+    <path d="M100 18 l1.2 3 l3 1.2 l-3 1.2 l-1.2 3 l-1.2 -3 l-3 -1.2 l3 -1.2Z"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 100 22.2;-90 100 22.2" dur="1.7s" repeatCount="indefinite"/></path>
+  </g>
 </svg>

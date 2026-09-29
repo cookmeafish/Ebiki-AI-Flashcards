@@ -10,6 +10,14 @@
 // onFinish(results)                         results: [{ question, correct, answer }] (first attempts only)
 // retryMisses: a question answered wrong comes back ONCE at the end (Duolingo style). The retry is practice: it
 //              never changes the score, and onAnswer gets the question with `_retry: true`.
+// FIGHT OPTIONS (Legends bosses and raids; all optional):
+// judge(q, answer, mode)   async grader for typed answers → { correct, partial?, note?, title?, info? }
+// canUseChoices(q)         a typed question with `alt` choices may be answered with them instead (a safe strike)
+// header(q, mode)          a node above the question (the attack banner, the strike label)
+// tools(q, api)            a node beside Skip; api = { hint(text), phase, asChoice }
+// onAnswer's return value  { insert: question, at: index } puts a question into the run (the boss's attack); an
+//                          inserted question is marked `_extra` and, like a retry, never changes the score.
+// onAnswer(q, correct, answer, info)  info = { mode: 'typed'|'choice', skipped?, ...the judge's info }
 import { useEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile, shrimpUrl } from '../../config/shrimp'
@@ -29,11 +37,20 @@ const PLAY_BASE_MS = 2500
 const PLAY_PER_CHAR_MS = 110
 const PLAY_MAX_MS = 20000
 
-export default function QuizRunner({ questions: given, t, ai, subject, onAnswer, onFinish, onExit, title, confirm, ctx, feedbackExtra, retryMisses = false }) {
+export default function QuizRunner({ questions: given, t, ai, subject, onAnswer, onFinish, onExit, title, confirm, ctx, feedbackExtra, retryMisses = false, judge, canUseChoices, header, tools }) {
   const [idx, setIdx] = useState(0)
-  // The feature's list, plus the misses asked again at the end (the list itself stays the feature's).
+  // The feature's list, plus the misses asked again at the end and anything the feature put in (attacks).
   const [retries, setRetries] = useState([])
-  const questions = retries.length ? [...given, ...retries] : given
+  const [inserts, setInserts] = useState([]) // [{ at, q }]: shown at position `at` of the run
+  const questions = (() => {
+    const base = retries.length ? [...given, ...retries] : given
+    if (!inserts.length) return base
+    const out = [...base]
+    for (const { at, q } of inserts) out.splice(Math.min(at, out.length), 0, q)
+    return out
+  })()
+  const [mode, setMode] = useState('typed') // a typed question answered with its choices instead: 'choice'
+  const [hintText, setHintText] = useState('')
   const [picked, setPicked] = useState(null)
   const [text, setText] = useState('')
   const [phase, setPhase] = useState('answer')    // answer | checking | feedback | done
@@ -62,30 +79,44 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
     Promise.resolve(h.done).catch(() => {}).finally(release)
   }
   useEffect(() => {
-    setPicked(null); setText(''); setVerdict(null); setPhase('answer'); setTimeout(() => inputRef.current?.focus(), 30)
+    setPicked(null); setText(''); setVerdict(null); setPhase('answer'); setMode('typed'); setHintText(''); setTimeout(() => inputRef.current?.focus(), 30)
     play() // a listening question plays once by itself
     return () => audioRef.current?.stop()
   }, [idx]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const lastAnswer = useRef('') // the answer just checked (a retry's answer is not in `results`)
-  const record = (correct, answer, extra = {}) => {
+  // A typed question answered with its choices (a safe strike), or a plain choice question.
+  const asChoice = q?.kind === 'choice' || (mode === 'choice' && !!q?.alt)
+  const view = q?.kind === 'choice' ? q : asChoice ? { ...q, choices: q.alt.choices, answerIdx: q.alt.answerIdx } : q
+
+  const record = (correct, answer, extra = {}, info = {}) => {
     lastAnswer.current = answer
-    if (!q._retry) results.current = [...results.current, { question: q, correct, answer }]
-    if (!correct && retryMisses && !q._retry) setRetries((list) => [...list, { ...q, _retry: true }])
+    const extraQ = q._retry || q._extra
+    if (!extraQ) results.current = [...results.current, { question: q, correct, answer }]
+    if (!correct && retryMisses && !extraQ) setRetries((list) => [...list, { ...q, _retry: true }])
     setVerdict({ correct, ...extra })
     setPhase('feedback')
-    try { onAnswer?.(q, correct, answer) } catch { /* the feature's problem */ }
+    let got = null
+    try { got = onAnswer?.(q, correct, answer, { mode: asChoice ? 'choice' : q.kind, ...info }) } catch { /* the feature's problem */ }
+    // Inserted after the question on screen (never before it: the run's position must not jump).
+    if (got?.insert) setInserts((list) => [...list, { at: Math.max(idx + 1, Number.isInteger(got.at) ? got.at : idx + 1), q: { ...got.insert, _extra: true } }])
   }
 
   const check = async (skip = false) => {
     if (!q || phase !== 'answer') return
-    if (skip) return record(false, '')
-    if (q.kind === 'choice') {
+    if (skip) return record(false, '', {}, { skipped: true })
+    if (asChoice) {
       if (picked == null) return
-      return record(picked === q.answerIdx, q.choices[picked])
+      return record(picked === view.answerIdx, view.choices[picked])
     }
     const ans = text.trim()
     if (!ans) return
+    if (judge) {
+      setPhase('checking')
+      const j = await Promise.resolve(judge(q, ans, 'typed')).catch(() => null)
+      setPhase('answer') // record() moves on
+      return record(!!j?.correct, ans, { note: j?.note || '', partial: !!j?.partial, title: j?.title || '', accent: !!j?.accent }, j?.info || {})
+    }
     const local = q.open ? null : matchTyped(ans, q.accepted)
     if (local) return record(true, ans, local === 'accent' ? { accent: true } : {})
     setPhase('checking')
@@ -103,13 +134,13 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
   useEffect(() => {
     const onKey = (e) => {
       if (e.isComposing) return
-      if (phase === 'answer' && q?.kind === 'choice') {
+      if (phase === 'answer' && asChoice) {
         const n = CHOICE_KEYS.indexOf(e.key)
-        if (n >= 0 && n < q.choices.length) { setPicked(n); return }
+        if (n >= 0 && n < view.choices.length) { setPicked(n); return }
       }
       if (e.key === 'Enter' && !e.shiftKey) {
         if (phase === 'feedback') { e.preventDefault(); next() }
-        else if (phase === 'answer' && (q?.kind === 'choice' || document.activeElement === inputRef.current)) { e.preventDefault(); check() }
+        else if (phase === 'answer' && (asChoice || document.activeElement === inputRef.current)) { e.preventDefault(); check() }
       }
     }
     window.addEventListener('keydown', onKey)
@@ -134,7 +165,10 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
     if (!results.current.length || !confirm || (await confirm(t('kit_quitConfirm')))) onExit?.(results.current)
   }
   const good = verdict?.correct
-  const reveal = q.kind === 'choice' ? q.choices[q.answerIdx] : (q.accepted || [])[0]
+  const partial = good && verdict?.partial // right, with something else to fix (a glancing strike)
+  const tone = partial ? C.warning : good ? C.success : C.danger
+  const reveal = asChoice ? view.choices[view.answerIdx] : (q.accepted || [])[0]
+  const switchable = !asChoice && !!q.alt && !!canUseChoices?.(q)
   return (
     <div style={{ maxWidth: MAX_W, margin: '0 auto', display: 'flex', flexDirection: 'column', minHeight: '100%', gap: 18 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -143,7 +177,9 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
         <ProgressBar value={idx + (phase === 'feedback' ? 1 : 0)} max={total} color={C.success} style={{ flex: 1, height: 16 }} />
       </div>
       {title && <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: C.purple }}>{title} · {t('kit_progress', { i: idx + 1, n: total })}{q._retry ? ` · 🔁 ${t('kit_again')}` : ''}</div>}
+      {header && header(q, asChoice ? 'choice' : 'typed')}
       <div style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 22, color: C.ink, lineHeight: 1.35, whiteSpace: 'pre-wrap' }}>{q.prompt}</div>
+      {hintText && phase === 'answer' && <div role="status" style={{ fontSize: 14, fontWeight: 700, color: C.warning }}>{hintText}</div>}
       {q.audio?.text && ctx && (
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <ChunkyButton onClick={play} color={C.info} disabled={playing}>🔊 {playing ? t('kit_playing') : t('kit_play')}</ChunkyButton>
@@ -157,12 +193,12 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
         </div>
       )}
 
-      {q.kind === 'choice' ? (
+      {asChoice ? (
         <div style={{ display: 'grid', gap: 10 }}>
-          {q.choices.map((c, i) => {
+          {view.choices.map((c, i) => {
             const isPick = picked === i
-            const showRight = phase === 'feedback' && i === q.answerIdx
-            const showWrong = phase === 'feedback' && isPick && i !== q.answerIdx
+            const showRight = phase === 'feedback' && i === view.answerIdx
+            const showWrong = phase === 'feedback' && isPick && i !== view.answerIdx
             const edge = showRight ? C.success : showWrong ? C.danger : isPick ? C.info : C.border
             return (
               <button key={i} disabled={phase !== 'answer'} onClick={() => setPicked(i)} className="btn-press" style={{
@@ -177,36 +213,47 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
           })}
         </div>
       ) : (
-        <textarea ref={inputRef} value={text} disabled={phase !== 'answer'} onChange={(e) => setText(e.target.value)}
-          placeholder={q.open ? t('kit_writePlaceholder') : t('kit_typePlaceholder')} rows={q.open ? 4 : 2}
-          style={{
-            width: '100%', boxSizing: 'border-box', resize: 'vertical', padding: '12px 14px', fontSize: 16, fontFamily: FONT.body,
-            borderRadius: RADIUS.md, border: `${UI.cardBorder}px solid ${C.border}`, background: C.surfaceAlt, color: C.ink,
-          }} />
+        <div style={{ display: 'grid', gap: 8 }}>
+          <textarea ref={inputRef} value={text} disabled={phase !== 'answer'} onChange={(e) => setText(e.target.value)}
+            placeholder={q.open ? t('kit_writePlaceholder') : t('kit_typePlaceholder')} rows={q.open ? 4 : 2}
+            style={{
+              width: '100%', boxSizing: 'border-box', resize: 'vertical', padding: '12px 14px', fontSize: 16, fontFamily: FONT.body,
+              borderRadius: RADIUS.md, border: `${UI.cardBorder}px solid ${C.border}`, background: C.surfaceAlt, color: C.ink,
+            }} />
+          {switchable && phase === 'answer' && (
+            <button type="button" onClick={() => { setMode('choice'); setPicked(null) }}
+              style={{ justifySelf: 'start', fontFamily: FONT.body, border: `2px solid color-mix(in srgb, ${C.info} 40%, transparent)`, background: 'transparent', color: C.info, fontWeight: 800, fontSize: 13, borderRadius: RADIUS.pill, padding: '5px 12px', cursor: 'pointer' }}>
+              🛡 {t('kit_useChoices')}
+            </button>
+          )}
+        </div>
       )}
 
       <div style={{ marginTop: 'auto' }}>
         {phase === 'feedback' ? (
           <div style={{
             borderRadius: RADIUS.lg, padding: '14px 16px', display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap',
-            background: good ? C.successTint : C.dangerTint, border: `2px solid ${good ? C.success : C.danger}`,
+            background: partial ? `color-mix(in srgb, ${C.warning} 12%, ${C.surface})` : good ? C.successTint : C.dangerTint, border: `2px solid ${tone}`,
           }}>
             <img src={shrimpUrl(poseFile(good ? POSE.right : POSE.wrong))} alt="" width={54} />
             <div style={{ flex: 1, minWidth: 200 }}>
-              <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 20, color: good ? C.success : C.danger }}>{good ? t('kit_correct') : t('kit_wrong')}</div>
+              <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 20, color: tone }}>{verdict?.title || (partial ? t('kit_partial') : good ? t('kit_correct') : t('kit_wrong'))}</div>
               {verdict?.accent && <div style={{ fontSize: 14, color: C.ink, fontWeight: 700 }}>{t('kit_accent', { a: reveal })}</div>}
-              {!good && reveal && !q.open && <div style={{ fontSize: 14, color: C.ink, fontWeight: 700 }}>{t('kit_answerWas', { a: reveal })}</div>}
+              {(!good || partial) && reveal && !q.open && !verdict?.accent && <div style={{ fontSize: 14, color: C.ink, fontWeight: 700 }}>{t('kit_answerWas', { a: reveal })}</div>}
               {verdict?.note && <div style={{ fontSize: 13.5, color: C.ink, marginTop: 4, lineHeight: 1.45 }}>{verdict.note}</div>}
               {q.explanation && <div style={{ fontSize: 13.5, color: C.inkDim, marginTop: 4, lineHeight: 1.45 }}>{q.explanation}</div>}
               {feedbackExtra && <div key={idx} style={{ marginTop: 6 }}>{feedbackExtra(q, !!good, lastAnswer.current || '')}</div>}
             </div>
-            <ChunkyButton onClick={next} color={good ? C.success : C.danger}>{t('kit_continue')}</ChunkyButton>
+            <ChunkyButton onClick={next} color={tone}>{t('kit_continue')}</ChunkyButton>
           </div>
         ) : (
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center' }}>
-            <ChunkyButton variant="ghost" color={C.inkDim} onClick={() => check(true)} disabled={phase !== 'answer'}>{t('kit_skip')}</ChunkyButton>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <ChunkyButton variant="ghost" color={C.inkDim} onClick={() => check(true)} disabled={phase !== 'answer'}>{t('kit_skip')}</ChunkyButton>
+              {tools && tools(q, { hint: setHintText, phase, asChoice })}
+            </div>
             <ChunkyButton onClick={() => check()} color={C.success}
-              disabled={phase !== 'answer' || (q.kind === 'choice' ? picked == null : !text.trim())}>
+              disabled={phase !== 'answer' || (asChoice ? picked == null : !text.trim())}>
               {phase === 'checking' ? t('kit_checking') : t('kit_check')}
             </ChunkyButton>
           </div>

@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" shape-rendering="crispEdges">
+  <!-- The Pixel Overlord: an 8-bit demon king built of squares. Pixel horns, a blocky fanged grin, screen eyes,
+       a pixel crown, a floating score. Everything sits on a 4-unit grid. -->
+  <!-- scanline backdrop -->
+  <g fill="var(--lg-far, #b9b0dc)" opacity="0.35"><rect x="0" y="8" width="120" height="2"/><rect x="0" y="20" width="120" height="2"/><rect x="0" y="32" width="120" height="2"/><rect x="0" y="92" width="120" height="2"/><rect x="0" y="104" width="120" height="2"/></g>
+  <!-- score -->
+  <g fill="#ffd23f">
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -2;0 0" dur="1s" repeatCount="indefinite"/>
+    <rect x="8" y="4" width="2" height="6"/><rect x="12" y="4" width="4" height="2"/><rect x="14" y="6" width="2" height="4"/><rect x="18" y="4" width="4" height="2"/><rect x="18" y="8" width="4" height="2"/><rect x="18" y="6" width="2" height="2"/><rect x="20" y="6" width="2" height="2"/>
+  </g>
+  <!-- pixel shoulders and body -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.4">
+    <path d="M16 120 V88 H24 V80 H36 V76 H84 V80 H96 V88 H104 V120Z" fill="var(--lg-deep, #7c4def)"/>
+    <path d="M16 88 H24 V80 H36 V76 H48 V84 H28 V92 H24 V120 H16Z" fill="#fff" opacity="0.2" stroke="none"/>
+    <path d="M96 88 H104 V120 H92 V92 H88 V84 H84 V80 H96Z" fill="#000" opacity="0.25" stroke="none"/>
+  </g>
+  <!-- pixel skull core -->
+  <g transform="translate(60 102)"><g>
+    <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.15;1;1" keyTimes="0;.15;.3;1" dur="1s" repeatCount="indefinite"/>
+    <rect x="-12" y="-12" width="24" height="24" fill="#ff2e4c" opacity="0.3"/>
+    <path d="M-8 -8 H8 V2 H6 V6 H-6 V2 H-8Z" fill="#f4efe6" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    <rect x="-6" y="-4" width="4" height="4" fill="#ff2e4c"/><rect x="2" y="-4" width="4" height="4" fill="#ff2e4c"/>
+    <rect x="-1" y="0" width="2" height="2" fill="#1d1b28"/><rect x="-4" y="4" width="2" height="2" fill="#1d1b28"/><rect x="0" y="4" width="2" height="2" fill="#1d1b28"/><rect x="2" y="4" width="2" height="2" fill="#1d1b28"/>
+  </g></g>
+  <!-- pixel claws -->
+  <g fill="#e6e0cc" stroke="var(--lg-ink, #1d2230)" stroke-width="1"><path d="M8 88 H12 V96 H16 V100 H8Z"/><path d="M4 92 H8 V100 H4Z"/><path d="M112 88 H108 V96 H104 V100 H112Z"/><path d="M116 92 H112 V100 H116Z"/></g>
+  <!-- pixel horns -->
+  <g fill="#e6e0cc" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2">
+    <path d="M28 32 V20 H24 V8 H28 V4 H32 V16 H36 V28 H40 V32Z"/><path d="M92 32 V20 H96 V8 H92 V4 H88 V16 H84 V28 H80 V32Z"/>
+  </g>
+  <!-- pixel crown -->
+  <path d="M40 28 V16 H44 V20 H48 V12 H52 V20 H56 V8 H64 V20 H68 V12 H72 V20 H76 V16 H80 V28Z" fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+  <g fill="#2ef2ff"><rect x="58" y="12" width="4" height="4"/></g>
+  <g fill="#ff3fd2"><rect x="44" y="22" width="4" height="2"/><rect x="72" y="22" width="4" height="2"/></g>
+  <!-- head -->
+  <path d="M32 72 V36 H36 V28 H84 V36 H88 V72 H80 V76 H40 V72Z" fill="var(--lg-deep, #7c4def)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8"/>
+  <path d="M36 36 V28 H56 V32 H40 V52 H36Z" fill="#fff" opacity="0.25"/>
+  <path d="M84 36 H88 V72 H80 V60 H84Z" fill="#000" opacity="0.25"/>
+  <!-- angry pixel brows -->
+  <g fill="#1d1b28"><path d="M36 40 H44 V44 H52 V48 H44 V44 H36Z"/><path d="M84 40 H76 V44 H68 V48 H76 V44 H84Z"/></g>
+  <!-- screen eyes: flicker on -->
+  <g transform="translate(46 54)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.05;1 0.05;1 1;1 0.05;1 1;1 1" keyTimes="0;.55;.62;.7;.78;1" dur="1.5s" fill="freeze"/>
+    <rect x="-8" y="-5" width="16" height="10" fill="#0b1a10" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="-2 0;2 0;-2 0" dur="1.6s" begin="1.5s" repeatCount="indefinite"/>
+      <rect x="-4" y="-3" width="6" height="6" fill="#ff2e4c"/><rect x="-2" y="-1" width="2" height="2" fill="#fff4f5"/></g>
+  </g></g>
+  <g transform="translate(74 54)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.05;1 0.05;1 1;1 0.05;1 1;1 1" keyTimes="0;.58;.65;.73;.8;1" dur="1.5s" fill="freeze"/>
+    <rect x="-8" y="-5" width="16" height="10" fill="#0b1a10" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="-2 0;2 0;-2 0" dur="1.6s" begin="1.5s" repeatCount="indefinite"/>
+      <rect x="-4" y="-3" width="6" height="6" fill="#ff2e4c"/><rect x="-2" y="-1" width="2" height="2" fill="#fff4f5"/></g>
+  </g></g>
+  <!-- jagged pixel maw -->
+  <path d="M36 62 H84 V66 H80 V70 H76 V74 H44 V70 H40 V66 H36Z" fill="#1c0f24" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+  <rect x="48" y="68" width="24" height="4" fill="#ff2e4c" opacity="0.7"/>
+  <g fill="#fff"><path d="M38 62 H42 V68 H40 V66 H38Z"/><path d="M46 62 H50 V70 H48 V66 H46Z"/><path d="M56 62 H60 V66 H56Z"/><path d="M60 62 H64 V66 H60Z"/><path d="M70 62 H74 V66 H72 V70 H70Z"/><path d="M78 62 H82 V66 H80 V68 H78Z"/>
+    <path d="M52 74 H54 V70 H56 V74Z"/><path d="M64 74 H66 V70 H68 V74Z"/></g>
+  <!-- pixel flames on the horns -->
+  <g fill="#ff7a1a">
+    <path d="M24 8 V4 H26 V0 H28 V4 H30 V8Z"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -2;0 0" dur="0.4s" repeatCount="indefinite"/></path>
+    <path d="M90 8 V4 H92 V0 H94 V4 H96 V8Z"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -2;0 0;0 -2" dur="0.4s" repeatCount="indefinite"/></path>
+  </g>
+  <!-- glitch blocks -->
+  <g fill="#ff3fd2">
+    <rect x="92" y="44" width="6" height="2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 0;0 0;0 0" keyTimes="0;.1;.2;1" dur="1.4s" repeatCount="indefinite"/></rect>
+    <rect x="20" y="60" width="8" height="2" fill="#2ef2ff"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 0;-6 0;0 0" keyTimes="0;.5;.6;1" dur="1.2s" repeatCount="indefinite"/></rect>
+  </g>
+  <!-- pixel sparks -->
+  <g fill="#ffd23f">
+    <rect style="transform-box:fill-box;transform-origin:center" x="10" y="40" width="2" height="2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-2 -12" dur="1.4s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.4s" repeatCount="indefinite" additive="sum"/></rect>
+    <rect style="transform-box:fill-box;transform-origin:center" x="108" y="48" width="2" height="2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;2 -12" dur="1.6s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.6s" repeatCount="indefinite" additive="sum"/></rect>
+  </g>
+</svg>

@@ -1,26 +1,62 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
+  <!-- Thornmaw Woods: a path through twisted woods to the elder tree that watches back. -->
   <rect width="400" height="140" fill="var(--lg-sky, #dff2e4)"/>
-  <circle cx="330" cy="34" r="17" fill="var(--lg-accent, #f2b441)" opacity="0.9"/>
-  <g fill="var(--lg-light, #ffffff)" opacity="0.85">
-    <ellipse cx="80" cy="30" rx="22" ry="8"/><ellipse cx="94" cy="25" rx="14" ry="8"/>
-    <ellipse cx="240" cy="22" rx="18" ry="6"/>
+  <circle cx="320" cy="30" r="20" fill="var(--lg-accent, #f2b441)" opacity="0.5"/><circle cx="320" cy="30" r="13" fill="var(--lg-accent, #f2b441)" opacity="0.8"/>
+  <!-- far treeline -->
+  <path d="M0 80 L10 60 L18 74 L28 50 L38 72 L48 56 L58 76 L70 52 L82 74 L94 58 L104 78 L116 60 L126 76 L140 64 L150 80 L400 80 V140 H0Z" fill="var(--lg-far, #9fd4ad)" opacity="0.7"/>
+  <path d="M260 80 L270 58 L280 74 L292 54 L302 72 L314 60 L326 78 L338 56 L350 74 L362 60 L374 78 L386 62 L400 76 V140 H260Z" fill="var(--lg-far, #9fd4ad)" opacity="0.7"/>
+  <!-- drifting fog -->
+  <g fill="var(--lg-light, #ffffff)" opacity="0.35">
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="-20 0;20 0;-20 0" dur="14s" repeatCount="indefinite"/>
+    <ellipse cx="80" cy="84" rx="70" ry="6"/><ellipse cx="300" cy="88" rx="90" ry="7"/>
   </g>
-  <path d="M0 92 Q70 62 150 84 T300 76 T400 82 V140 H0Z" fill="var(--lg-far, #9fd4ad)"/>
-  <g fill="var(--lg-deep, #2e8b57)" opacity="0.8">
-    <polygon points="30,62 14,104 46,104"/><polygon points="30,50 18,82 42,82"/>
-    <polygon points="98,70 82,110 114,110"/><polygon points="98,58 86,90 110,90"/>
-    <polygon points="296,64 278,108 314,108"/><polygon points="296,50 283,84 309,84"/>
-    <polygon points="362,72 348,108 376,108"/>
+  <!-- middle twisted trees -->
+  <g fill="var(--lg-deep, #2e8b57)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
+    <path d="M40 112 C42 96 36 84 44 70 C36 64 30 56 34 46 C40 52 46 54 50 50 C52 42 60 38 66 42 C62 50 58 58 60 66 C62 80 56 96 58 112Z"/>
+    <path d="M110 112 C112 100 108 88 114 78 C106 72 104 64 108 58 C114 64 120 64 122 60 C126 54 132 54 136 58 C130 64 128 72 128 80 C130 92 126 102 128 112Z"/>
+    <path d="M330 112 C332 98 326 86 334 72 C326 66 322 58 326 50 C332 56 338 58 342 54 C346 46 354 44 358 48 C352 56 348 64 350 72 C352 86 346 98 348 112Z"/>
   </g>
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2">
+    <g fill="var(--lg-deep, #2e8b57)"><circle cx="34" cy="44" r="12"/><circle cx="50" cy="36" r="13"/><circle cx="66" cy="44" r="11"/><circle cx="108" cy="58" r="9"/><circle cx="122" cy="52" r="10"/><circle cx="136" cy="58" r="8"/><circle cx="324" cy="48" r="11"/><circle cx="340" cy="40" r="12"/><circle cx="356" cy="48" r="10"/></g>
+  </g>
+  <g fill="#000" opacity="0.18"><circle cx="54" cy="40" r="8"/><circle cx="126" cy="56" r="6"/><circle cx="344" cy="44" r="8"/></g>
+  <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1" opacity="0.6"><path d="M48 80 C46 90 50 98 48 108 M118 86 C116 94 120 102 118 108 M338 80 C336 90 340 98 338 108"/></g>
+  <g fill="var(--lg-accent, #f2b441)"><circle cx="50" cy="60" r="1.6"/><circle cx="56" cy="62" r="1.6"/><circle cx="342" cy="62" r="1.4"/><circle cx="348" cy="63" r="1.4"/></g>
+  <!-- the elder tree: the boss's lair -->
   <g>
-    <rect x="182" y="84" width="8" height="26" fill="var(--lg-deep, #2e8b57)"/>
-    <circle cx="186" cy="80" r="20" fill="var(--lg-deep, #2e8b57)"/>
-    <circle cx="176" cy="74" r="4" fill="var(--lg-accent, #f2b441)"/><circle cx="194" cy="86" r="3.5" fill="var(--lg-accent, #f2b441)"/>
-    <circle cx="190" cy="68" r="3" fill="var(--lg-accent, #f2b441)"/>
+    <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 210 110;-1.2 210 110;0 210 110;1.2 210 110;0 210 110" dur="7s" repeatCount="indefinite"/>
+    <g fill="var(--lg-far, #9fd4ad)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4">
+      <circle cx="176" cy="30" r="20"/><circle cx="244" cy="28" r="20"/><circle cx="200" cy="16" r="18"/><circle cx="224" cy="14" r="18"/><circle cx="210" cy="30" r="22"/>
+    </g>
+    <g fill="var(--lg-deep, #2e8b57)" opacity="0.5"><circle cx="180" cy="36" r="12"/><circle cx="240" cy="34" r="12"/><circle cx="210" cy="38" r="14"/></g>
+    <g fill="none" stroke="#4a2f1a" stroke-width="5" stroke-linecap="round"><path d="M196 50 L182 28 L168 20 M224 50 L238 28 L252 20 M206 46 L202 18 M214 46 L220 16"/></g>
+    <path d="M180 122 C184 104 180 86 186 68 C192 54 200 48 210 48 C220 48 228 54 234 68 C240 86 236 104 240 122Z" fill="#5a3a1e" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
+    <path d="M186 68 C192 56 200 50 206 49 C198 60 194 76 192 96 L190 122 H181 C184 104 180 86 186 68Z" fill="#8a5a2b" opacity="0.5"/>
+    <path d="M190 72 L206 78 L210 74 L214 78 L230 72 L228 66 L214 70 L210 68 L206 70 L192 66Z" fill="#3b2412"/>
+    <ellipse cx="199" cy="80" rx="6" ry="4" fill="#140804"/><ellipse cx="221" cy="80" rx="6" ry="4" fill="#140804"/>
+    <g fill="#ffb627"><circle cx="199" cy="80" r="5" opacity="0.4"/><circle cx="221" cy="80" r="5" opacity="0.4"/></g>
+    <g fill="#ffd966"><ellipse cx="199" cy="80" rx="3" ry="2"/><ellipse cx="221" cy="80" rx="3" ry="2"/></g>
+    <path d="M196 92 C202 90 218 90 224 92 C222 102 216 108 210 108 C204 108 198 102 196 92Z" fill="#140804"/>
+    <g fill="#e8d7b0"><polygon points="199,92 201,98 203,92"/><polygon points="206,91 208,99 210,91"/><polygon points="212,91 214,98 216,91"/><polygon points="218,92 220,97 221,92"/></g>
   </g>
-  <path d="M0 114 Q110 98 220 116 T400 110 V140 H0Z" fill="var(--lg-near, #5fb57a)"/>
-  <path d="M150 140 Q190 122 214 116 Q232 112 250 116 Q222 124 206 140Z" fill="var(--lg-light, #ffffff)" opacity="0.35"/>
+  <!-- glowing mushrooms -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.8">
+    <rect x="151" y="112" width="3" height="8" fill="#f4e6c8"/><path d="M146 113 Q152.5 103 159 113Z" fill="#d8342c"/>
+    <rect x="262" y="114" width="2.4" height="6" fill="#f4e6c8"/><path d="M258 115 Q263.2 107 268.4 115Z" fill="#d8342c"/>
+  </g>
+  <!-- the winding path and ground -->
+  <path d="M0 116 Q110 102 220 118 T400 112 V140 H0Z" fill="var(--lg-near, #5fb57a)"/>
+  <path d="M150 140 Q180 126 200 120 Q212 116 222 118 Q206 126 196 140Z" fill="#c9a877" opacity="0.7"/>
+  <!-- thorn bramble in front -->
+  <g fill="none" stroke="#4a2f1a" stroke-width="3" stroke-linecap="round">
+    <path d="M0 132 C20 118 40 126 56 116 M20 140 C30 128 46 132 60 124"/><path d="M400 128 C380 116 360 124 342 116 M384 140 C372 128 356 132 344 122"/>
+  </g>
+  <g fill="#6b4423"><polygon points="24,122 22,116 28,120"/><polygon points="44,120 46,114 48,120"/><polygon points="374,120 376,114 378,120"/><polygon points="356,122 352,117 358,119"/></g>
+  <!-- fireflies -->
   <g fill="var(--lg-accent, #f2b441)">
-    <circle cx="60" cy="126" r="3"/><circle cx="120" cy="130" r="2.5"/><circle cx="330" cy="126" r="3"/><circle cx="370" cy="132" r="2.5"/>
+    <circle cx="90" cy="96" r="1.8"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;10 -8;4 -16;0 0" dur="5s" repeatCount="indefinite"/></circle>
+    <circle cx="270" cy="92" r="1.6"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-8 -6;-2 -14;0 0" dur="4.4s" repeatCount="indefinite"/></circle>
+    <circle cx="140" cy="84" r="1.4"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -10;-4 -6;0 0" dur="4.8s" repeatCount="indefinite"/></circle>
+    <circle cx="310" cy="104" r="1.5"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-6 -9;4 -12;0 0" dur="5.4s" repeatCount="indefinite"/></circle>
   </g>
 </svg>

@@ -114,7 +114,7 @@ export async function createPlayer(name) {
 export function updateProfile(patch) {
   if (!state.player) return
   const allowed = {}
-  for (const k of ['name', 'avatar', 'goalXp']) if (patch[k] !== undefined) allowed[k] = patch[k]
+  for (const k of ['name', 'avatar', 'goalXp', 'restDays', 'restDates']) if (patch[k] !== undefined) allowed[k] = patch[k]
   set({ player: { ...state.player, ...allowed, profileAt: Date.now() } })
   dirty = true
   scheduleSave()

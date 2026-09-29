@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
+  <!-- Dreadhold Keep: a black castle on a crag, a drawbridge over the moat, torches, banners, bats, the burning visor in the gate. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #e4e0f2)"/>
+  <!-- storm clouds and lightning -->
+  <g fill="var(--lg-far, #b9b0dc)" opacity="0.8">
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;10 0;0 0" dur="10s" repeatCount="indefinite"/>
+    <ellipse cx="80" cy="16" rx="70" ry="14"/><ellipse cx="330" cy="14" rx="80" ry="14"/>
+  </g>
+  <path d="M340 20 L332 36 L338 36 L328 54 L346 32 L340 32 L346 20Z" fill="#fff04a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+  <!-- the crag -->
+  <path d="M110 140 L130 104 L150 96 L172 100 L200 92 L230 98 L256 94 L276 104 L296 140Z" fill="var(--lg-deep, #4a3d6b)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+  <!-- the keep -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round">
+    <path d="M150 100 V58 H158 V52 H164 V58 H170 V52 H176 V58 H184 V100Z" fill="#2a2835"/>
+    <path d="M222 100 V58 H230 V52 H236 V58 H242 V52 H248 V58 H256 V100Z" fill="#2a2835"/>
+    <path d="M178 100 V40 H186 V34 H192 V40 H198 V34 H204 V40 H210 V34 H216 V40 H224 V100Z" fill="#35334a"/>
+    <path d="M150 58 L167 30 L184 58Z M222 58 L239 30 L256 58Z" fill="#1d1b28"/>
+    <path d="M178 40 L201 12 L224 40Z" fill="#1d1b28"/>
+  </g>
+  <!-- lit windows -->
+  <g fill="#ffb347"><rect x="164" y="68" width="4" height="7" rx="2"/><rect x="236" y="68" width="4" height="7" rx="2"/><rect x="190" y="50" width="4" height="7" rx="2"/><rect x="208" y="50" width="4" height="7" rx="2"/></g>
+  <!-- banners flapping -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.8">
+    <path d="M167 30 V18" stroke-width="1.2"/><path d="M167 18 H178 L175 22 L178 26 H167Z" fill="#b3122e"><animateTransform class="lg-loop" attributeName="transform" type="skewY" values="0;6;0;-6;0" dur="1.6s" repeatCount="indefinite"/></path>
+    <path d="M239 30 V18" stroke-width="1.2"/><path d="M239 18 H250 L247 22 L250 26 H239Z" fill="#b3122e"><animateTransform class="lg-loop" attributeName="transform" type="skewY" values="0;-6;0;6;0" dur="1.8s" repeatCount="indefinite"/></path>
+  </g>
+  <!-- the gate and the burning visor inside it -->
+  <path d="M190 100 V78 C190 70 212 70 212 78 V100Z" fill="#0b0708" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+  <g>
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -1;0 0" dur="1s" repeatCount="indefinite"/>
+    <path d="M194 84 H208 V86 H202 V92 H200 V86 H194Z" fill="#ff7a1a"/>
+    <path d="M195 84.6 H207 V85.4 H201.4 V91 H200.6 V85.4 H195Z" fill="#ffd166"/>
+  </g>
+  <!-- drawbridge and chains over the moat -->
+  <path d="M186 100 L180 124 H222 L216 100Z" fill="#6b4423" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.6"><path d="M185 106 H217 M183 112 H219 M182 118 H220"/></g>
+  <g fill="none" stroke="#8a8f9c" stroke-width="1.2" stroke-dasharray="2 1"><path d="M188 80 L182 122 M214 80 L220 122"/></g>
+  <!-- torches -->
+  <g>
+    <rect x="184" y="84" width="2" height="8" fill="#4a2f1a"/><rect x="216" y="84" width="2" height="8" fill="#4a2f1a"/>
+    <g fill="#ff7a1a">
+      <path d="M185 84 C182 80 186 78 185 74 C189 78 188 82 187 84Z" style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1.2;1 1" dur="0.5s" repeatCount="indefinite" additive="sum"/></path>
+      <path d="M217 84 C214 80 218 78 217 74 C221 78 220 82 219 84Z" style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1.15;1 1;1 1.15" dur="0.6s" repeatCount="indefinite" additive="sum"/></path>
+    </g>
+  </g>
+  <!-- the moat -->
+  <path d="M0 118 H400 V140 H0Z" fill="#26324a"/>
+  <g fill="none" stroke="var(--lg-light, #ffffff)" stroke-width="1" opacity="0.5">
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-20 0;0 0" dur="8s" repeatCount="indefinite" keyTimes="0;.5;1"/>
+    <path d="M20 126 Q30 122 40 126 M120 130 Q130 126 140 130 M260 128 Q270 124 280 128 M360 126 Q370 122 380 126"/>
+  </g>
+  <!-- far hills and dead trees -->
+  <path d="M0 118 L0 96 L30 90 L60 100 L90 94 L112 104 L110 118Z M296 118 L300 102 L330 92 L360 100 L400 94 V118Z" fill="var(--lg-near, #7a6aa8)" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+  <g fill="none" stroke="#2a2835" stroke-width="2.4" stroke-linecap="round"><path d="M40 92 V72 M40 80 L30 70 M40 76 L50 66 M350 96 V76 M350 84 L360 74"/></g>
+  <!-- bats -->
+  <g fill="#1d1b28">
+    <path style="transform-box:fill-box;transform-origin:center" d="M120 50 l5 -4 l2 3 l2 -3 l5 4 l-4 0 l-3 2 l-3 -2Z"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;60 -10;120 4" dur="6s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="6s" repeatCount="indefinite" additive="sum"/></path>
+    <path style="transform-box:fill-box;transform-origin:center" d="M280 40 l4 -3 l2 2 l2 -2 l4 3 l-3 0 l-3 2 l-3 -2Z"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-50 8;-100 -4" dur="7s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="7s" repeatCount="indefinite" additive="sum"/></path>
+  </g>
+</svg>

@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <!-- The Nightmare Weaver: a shadow with a crescent-moon grin. A starry cloak, many sleepy eyes that snap open,
+       spider-like thread hands weaving nightmares. -->
+  <!-- a spiral sky behind -->
+  <path d="M60 52 C66 52 68 44 62 42 C52 40 48 54 56 60 C68 68 80 52 74 40 C66 26 42 30 40 50 C38 72 64 82 80 70" fill="none" stroke="#b58cff" stroke-width="1.6" opacity="0.35">
+    <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 60 52;360 60 52" dur="20s" repeatCount="indefinite"/>
+  </path>
+  <!-- the web of nightmare threads -->
+  <g fill="none" stroke="#e8dcff" stroke-width="0.8" opacity="0.6">
+    <path d="M8 16 L60 50 L112 16 M4 70 L60 50 L116 70 M20 110 L60 50 L100 110"/>
+    <path d="M26 28 C40 34 80 34 94 28 M20 64 C36 58 84 58 100 64 M30 92 C44 80 76 80 90 92"/>
+  </g>
+  <!-- the starry cloak -->
+  <path d="M60 22 C36 22 22 44 18 72 C14 96 10 108 4 120 H116 C110 108 106 96 102 72 C98 44 84 22 60 22Z" fill="#1c1540" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round">
+    <animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;2;0;-2;0" dur="3s" repeatCount="indefinite"/>
+  </path>
+  <path d="M60 26 C40 28 28 46 24 72 C22 88 18 104 14 116" fill="none" stroke="#5a44a8" stroke-width="2"/>
+  <g fill="#fff6c2">
+    <circle cx="30" cy="84" r="1"/><circle cx="42" cy="104" r="1.2"/><circle cx="84" cy="96" r="1"/><circle cx="92" cy="78" r="1.2"/><circle cx="70" cy="110" r="0.9"/><circle cx="24" cy="108" r="0.9"/>
+    <path style="transform-box:fill-box;transform-origin:center" d="M52 96 l1 2.4 l2.4 1 l-2.4 1 l-1 2.4 l-1 -2.4 l-2.4 -1 l2.4 -1Z"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.3;1" dur="1.6s" repeatCount="indefinite" additive="sum"/></path>
+  </g>
+  <!-- sleepy eyes all over the cloak: shut, then snap open -->
+  <g>
+    <g fill="#f4e6ff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7">
+      <ellipse cx="32" cy="70" rx="4" ry="2.4"/><ellipse cx="88" cy="68" rx="4" ry="2.4"/><ellipse cx="40" cy="94" rx="3.4" ry="2"/><ellipse cx="80" cy="102" rx="3.4" ry="2"/><ellipse cx="96" cy="94" rx="3" ry="1.8"/><ellipse cx="22" cy="96" rx="3" ry="1.8"/>
+    </g>
+    <g fill="#ff2e4c"><circle cx="32" cy="70" r="1.4"/><circle cx="88" cy="68" r="1.4"/><circle cx="40" cy="94" r="1.2"/><circle cx="80" cy="102" r="1.2"/><circle cx="96" cy="94" r="1"/><circle cx="22" cy="96" r="1"/></g>
+    <!-- the eyelids: close over them until the snap -->
+    <g fill="#1c1540">
+      <g transform="translate(0 -200)"><animateTransform class="lg-in" attributeName="transform" type="translate" values="0 0;0 0;0 -200;0 -200;0 -200" keyTimes="0;.8;.801;.82;1" dur="1.5s" fill="freeze"/>
+        <ellipse cx="32" cy="70" rx="4.6" ry="3"/><ellipse cx="88" cy="68" rx="4.6" ry="3"/><ellipse cx="40" cy="94" rx="4" ry="2.6"/><ellipse cx="80" cy="102" rx="4" ry="2.6"/><ellipse cx="96" cy="94" rx="3.6" ry="2.4"/><ellipse cx="22" cy="96" rx="3.6" ry="2.4"/></g>
+    </g>
+  </g>
+  <!-- spider-thread hands weaving -->
+  <g fill="none" stroke="#2a2060" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 28 60;-10 28 60;0 28 60" dur="1.6s" repeatCount="indefinite"/>
+      <path d="M28 60 L14 44 L6 48 M22 54 L8 36 L2 38 M26 58 L18 32 L12 30"/></g>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 92 60;10 92 60;0 92 60" dur="1.6s" repeatCount="indefinite"/>
+      <path d="M92 60 L106 44 L114 48 M98 54 L112 36 L118 38 M94 58 L102 32 L108 30"/></g>
+  </g>
+  <!-- a spun nightmare dangling from a thread -->
+  <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-8 110 30;8 110 30;-8 110 30" dur="2.4s" repeatCount="indefinite"/>
+    <path d="M110 30 V46" stroke="#e8dcff" stroke-width="0.7"/>
+    <circle cx="110" cy="50" r="4" fill="#3a2a70" stroke="#e8dcff" stroke-width="0.7"/><path d="M108 49 h1 M111 49 h1 M108 52 C109 51 111 51 112 52" stroke="#ff2e4c" stroke-width="0.7"/>
+  </g>
+  <!-- the hood and the void face -->
+  <path d="M34 50 C34 26 46 14 60 14 C74 14 86 26 86 50 C86 64 76 74 60 74 C44 74 34 64 34 50Z" fill="#120d2e" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
+  <path d="M38 48 C38 30 48 20 58 18 C48 28 44 40 44 60Z" fill="#5a44a8" opacity="0.5"/>
+  <!-- the nightcap, crooked, with a pompom -->
+  <path d="M36 30 C40 14 52 6 64 8 C80 10 96 4 104 14 C94 14 84 20 84 30 C70 22 50 22 36 30Z" fill="#3a2a70" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+  <circle cx="104" cy="14" r="4" fill="#e8dcff" stroke="var(--lg-ink, #1d2230)" stroke-width="1"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 3;0 0" dur="2s" repeatCount="indefinite"/></circle>
+  <!-- slit eyes -->
+  <g transform="translate(48 44)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.05;1 0.05;1 1.6;1 1" keyTimes="0;.78;.88;1" dur="1.5s" fill="freeze"/>
+    <path d="M-7 1 C-4 -3 4 -3 7 -1 C4 3 -4 3 -7 1Z" fill="#ffe36b"/><ellipse rx="0.8" ry="2.2" fill="#1a0508"/>
+  </g></g>
+  <g transform="translate(72 44)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.05;1 0.05;1 1.6;1 1" keyTimes="0;.78;.88;1" dur="1.5s" fill="freeze"/>
+    <path d="M7 1 C4 -3 -4 -3 -7 -1 C-4 3 4 3 7 1Z" fill="#ffe36b"/><ellipse rx="0.8" ry="2.2" fill="#1a0508"/>
+  </g></g>
+  <!-- the crescent-moon grin -->
+  <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 1.4;0 0" dur="2.2s" repeatCount="indefinite"/>
+    <path d="M38 54 C46 70 74 70 82 54 C74 62 46 62 38 54Z" fill="#fff6c2" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"><path d="M44 59 L46 63 M50 61 L51 65 M56 62 V66 M62 62 V66 M68 61 L67 65 M74 59 L72 63"/></g>
+  </g>
+  <!-- zzz drifting, turned sinister -->
+  <g fill="none" stroke="#b58cff" stroke-width="1.4" stroke-linejoin="round">
+    <path style="transform-box:fill-box;transform-origin:center" d="M12 10 h5 l-5 5 h5"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 6;-4 -4" dur="2.4s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.4s" repeatCount="indefinite" additive="sum"/></path>
+  </g>
+</svg>

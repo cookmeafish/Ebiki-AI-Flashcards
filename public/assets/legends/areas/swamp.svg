@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
+  <!-- Mire of Lanterns: a misty bog, dead trees in hanging moss, a rotting boardwalk, will-o-wisps, Bogmaw lurking. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #dfeee0)"/>
+  <circle cx="330" cy="36" r="14" fill="var(--lg-light, #ffffff)" opacity="0.6"/>
+  <!-- far dead trees -->
+  <g fill="none" stroke="var(--lg-far, #9fd4ad)" stroke-width="3" stroke-linecap="round">
+    <path d="M60 100 V50 M60 64 L46 52 M60 58 L72 44 M150 100 V56 M150 70 L162 60 M270 100 V48 M270 62 L256 52 M270 58 L282 48"/>
+  </g>
+  <!-- drifting fog -->
+  <g fill="var(--lg-light, #ffffff)" opacity="0.35">
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="-24 0;24 0;-24 0" dur="16s" repeatCount="indefinite"/>
+    <ellipse cx="100" cy="78" rx="100" ry="8"/><ellipse cx="320" cy="84" rx="90" ry="7"/>
+  </g>
+  <!-- near dead tree with hanging moss, left -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
+    <path d="M20 112 C22 90 18 70 26 50 L14 36 L20 34 L30 46 L34 30 L40 32 L36 50 C44 70 40 92 44 112Z" fill="#4a3b2a"/>
+    <g fill="var(--lg-near, #5fb57a)">
+      <path d="M16 36 C14 46 18 52 16 60 C20 54 20 46 20 38Z"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 18 36;6 18 36;0 18 36" dur="3s" repeatCount="indefinite"/></path>
+      <path d="M36 34 C36 44 40 50 38 58 C42 52 42 44 40 36Z"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 38 34;-6 38 34;0 38 34" dur="3.4s" repeatCount="indefinite"/></path>
+    </g>
+  </g>
+  <!-- near dead tree, right -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
+    <path d="M362 112 C360 92 364 74 358 56 L372 40 L366 38 L354 52 L350 36 L344 38 L348 56 C340 76 344 94 340 112Z" fill="#4a3b2a"/>
+    <path d="M370 42 C372 52 368 58 370 66 C366 60 366 52 368 44Z" fill="var(--lg-near, #5fb57a)"/>
+  </g>
+  <!-- the bog -->
+  <path d="M0 96 H400 V140 H0Z" fill="var(--lg-near, #5fb57a)"/>
+  <path d="M0 110 C80 104 160 112 240 106 C300 102 360 110 400 106 V140 H0Z" fill="#000" opacity="0.18"/>
+  <g transform="translate(230 100) scale(1.7) translate(-230 -100)">
+  <!-- Bogmaw lurking: ridges, eyes, the lantern -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
+    <g fill="var(--lg-deep, #2e8b57)"><polygon points="232,98 238,86 244,98"/><polygon points="246,98 252,82 258,98"/><polygon points="260,98 266,88 272,98"/><polygon points="274,98 278,90 282,98"/></g>
+    <path d="M186 100 C186 90 196 86 206 86 C216 86 224 90 224 100Z" fill="var(--lg-deep, #2e8b57)"/>
+    <ellipse cx="196" cy="91" rx="5" ry="4" fill="var(--lg-deep, #2e8b57)"/><ellipse cx="214" cy="91" rx="5" ry="4" fill="var(--lg-deep, #2e8b57)"/>
+  </g>
+  <g fill="#ffd966"><ellipse cx="196" cy="91" rx="3" ry="1.8"/><ellipse cx="214" cy="91" rx="3" ry="1.8"/></g>
+  <g fill="#b3122e"><ellipse cx="196" cy="91" rx="0.6" ry="1.6"/><ellipse cx="214" cy="91" rx="0.6" ry="1.6"/></g>
+  <g>
+    <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 205 86;8 205 86;0 205 86;-6 205 86;0 205 86" dur="3s" repeatCount="indefinite"/>
+    <path d="M205 86 C204 72 214 64 224 68" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
+    <circle cx="226" cy="72" r="7" fill="#d4ff3a" opacity="0.3"/><circle cx="226" cy="72" r="3" fill="#f7ffd1" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+  </g>
+  </g>
+  <!-- the rotting boardwalk -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round">
+    <g fill="#8a6a44"><path d="M40 104 L62 102 L62 108 L40 110Z"/><path d="M64 102 L86 100 L86 106 L64 108Z"/><path d="M90 101 L110 99 L111 104 L90 106Z" transform="rotate(6 100 102)"/><path d="M118 98 L140 96 L140 102 L118 104Z"/><path d="M146 97 L164 96 L164 101 L146 103Z" transform="rotate(-8 155 99)"/></g>
+    <g fill="#5a4630"><rect x="44" y="108" width="3" height="14"/><rect x="80" y="104" width="3" height="16"/><rect x="122" y="102" width="3" height="16"/><rect x="158" y="100" width="3" height="14"/></g>
+  </g>
+  <!-- lily pads, reeds -->
+  <g fill="var(--lg-deep, #2e8b57)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"><path d="M300 118 a10 3 0 1 0 20 0 l-10 0Z"/><path d="M330 126 a8 2.6 0 1 0 16 0 l-8 0Z"/><path d="M100 124 a8 2.6 0 1 0 16 0 l-8 0Z"/></g>
+  <circle cx="308" cy="116" r="2" fill="#f25c9e"/>
+  <g fill="none" stroke="var(--lg-deep, #2e8b57)" stroke-width="2" stroke-linecap="round"><path d="M384 124 C384 110 388 100 386 90 M392 124 C392 112 396 104 394 96 M8 126 C8 112 4 104 6 94"/></g>
+  <!-- will-o-wisps -->
+  <g fill="#d4ff3a">
+    <circle cx="120" cy="70" r="3"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;8 -6;-4 -10;0 0" dur="4s" repeatCount="indefinite"/></circle>
+    <circle cx="300" cy="66" r="2.6"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-8 -4;4 -10;0 0" dur="4.6s" repeatCount="indefinite"/></circle>
+    <circle cx="170" cy="56" r="2.2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -8;-6 -4;0 0" dur="5s" repeatCount="indefinite"/></circle>
+  </g>
+  <g fill="#d4ff3a" opacity="0.3"><circle cx="120" cy="70" r="7"/><circle cx="300" cy="66" r="6"/></g>
+  <!-- bubbles -->
+  <g fill="none" stroke="var(--lg-light, #ffffff)" stroke-width="1">
+    <circle style="transform-box:fill-box;transform-origin:center" cx="200" cy="112" r="2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 4;0 -10" dur="1.6s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.6s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle style="transform-box:fill-box;transform-origin:center" cx="260" cy="116" r="1.6"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 4;0 -10" dur="2s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2s" repeatCount="indefinite" additive="sum"/></circle>
+  </g>
+</svg>

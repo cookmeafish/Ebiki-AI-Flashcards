@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
+  <!-- The Hall of Mirrors: tall ornate mirrors, each showing a different grinning face, broken glass on the floor, the
+       Shattered Doppel stepping out of the central mirror. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #e6ebf2)"/>
+  <!-- velvet curtains, top -->
+  <path d="M0 0 H400 V14 C380 22 360 10 340 18 C320 24 300 10 280 18 C260 24 240 10 220 18 C200 24 180 10 160 18 C140 24 120 10 100 18 C80 24 60 10 40 18 C20 24 10 12 0 16Z" fill="#8a1a3a" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+  <!-- wall panels -->
+  <rect x="0" y="16" width="400" height="96" fill="var(--lg-far, #b8c0d6)"/>
+  <!-- four side mirrors, each with a different face -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.4">
+    <path d="M22 106 V42 C22 28 58 28 58 42 V106Z" fill="#c9a441"/><path d="M27 102 V44 C27 34 53 34 53 44 V102Z" fill="#dce6f2"/>
+    <path d="M86 106 V38 C86 24 122 24 122 38 V106Z" fill="#c9a441"/><path d="M91 102 V40 C91 30 117 30 117 40 V102Z" fill="#c4d2e4"/>
+    <path d="M278 106 V38 C278 24 314 24 314 38 V106Z" fill="#c9a441"/><path d="M283 102 V40 C283 30 309 30 309 40 V102Z" fill="#c4d2e4"/>
+    <path d="M342 106 V42 C342 28 378 28 378 42 V106Z" fill="#c9a441"/><path d="M347 102 V44 C347 34 373 34 373 44 V102Z" fill="#dce6f2"/>
+  </g>
+  <!-- faces in the mirrors: grinning, weeping, screaming, winking -->
+  <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linecap="round">
+    <path d="M34 60 l4 2 M46 62 l4 -2 M34 72 C38 78 46 78 50 72"/>
+    <path d="M98 58 l6 2 M110 60 l6 -2 M100 72 C104 68 110 68 114 72"/><path d="M100 62 v5" stroke="#6fb8ff"/>
+    <path d="M290 56 l4 2 M302 58 l4 -2"/>
+    <path d="M354 60 h6 M364 58 l4 3 M356 70 C360 76 366 76 370 70 C366 72 360 72 356 70Z"/>
+  </g>
+  <ellipse cx="298" cy="70" rx="4" ry="6" fill="#1d1b28"/>
+  <!-- reflections glint -->
+  <g fill="#fff" opacity="0.7">
+    <path d="M30 50 L36 44 L38 46 L32 52Z"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;16 40;0 0" dur="4s" repeatCount="indefinite"/></path>
+    <path d="M352 50 L358 44 L360 46 L354 52Z"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;14 40;0 0" dur="4.6s" repeatCount="indefinite"/></path>
+  </g>
+  <!-- the great central mirror, shattered -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.6">
+    <path d="M150 110 V36 C150 14 250 14 250 36 V110Z" fill="#c9a441"/>
+    <path d="M158 104 V38 C158 22 242 22 242 38 V104Z" fill="#1d1b28"/>
+  </g>
+  <circle cx="200" cy="18" r="5" fill="#c9a441" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+  <!-- the Doppel stepping out: shard figure with a grin and star eyes -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -2;0 0" dur="2.4s" repeatCount="indefinite"/>
+      <path d="M176 104 L180 76 L196 70 L198 88 L190 104Z" fill="#b8c6d8"/><path d="M224 104 L220 76 L204 70 L202 88 L210 104Z" fill="#a4b4c8"/>
+      <path d="M190 104 L198 88 L196 70 H204 L202 88 L210 104Z" fill="#d6e0ec"/>
+      <path d="M182 44 L198 40 L196 58 L180 60Z" fill="#dce6f2"/><path d="M202 40 L220 44 L220 60 L204 58Z" fill="#c4d2e4"/>
+      <path d="M180 60 L220 58 L216 72 L200 76 L184 72Z" fill="#eef4fb"/>
+      <path d="M186 66 C192 72 208 72 214 64 C208 68 192 68 186 66Z" fill="#1d1b28"/>
+      <path d="M180 76 L166 66 L160 54 L168 58 L166 48 L172 58 Z M220 76 L234 66 L240 54 L232 58 L234 48 L228 58Z" fill="#c8d4e4"/>
+    </g>
+  </g>
+  <g fill="#6ff3ff"><path d="M192 52 l1 -3 l1 3 l3 1 l-3 1 l-1 3 l-1 -3 l-3 -1Z"/><path d="M208 52 l1 -3 l1 3 l3 1 l-3 1 l-1 3 l-1 -3 l-3 -1Z"/></g>
+  <!-- the crack of light across the mirror -->
+  <path d="M170 30 L186 46 L180 60 L196 72 M230 30 L216 44 L224 58" fill="none" stroke="#fff6c2" stroke-width="1.4"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0.6 0;0 0" dur="0.3s" repeatCount="indefinite"/></path>
+  <!-- checkered floor with broken glass -->
+  <path d="M0 110 H400 V140 H0Z" fill="var(--lg-near, #8a94b0)"/>
+  <g fill="#1d1b28" opacity="0.35"><path d="M0 110 H20 V120 H0Z M40 110 H60 V120 H40Z M80 110 H100 V120 H80Z M120 110 H140 V120 H120Z M160 110 H180 V120 H160Z M200 110 H220 V120 H200Z M240 110 H260 V120 H240Z M280 110 H300 V120 H280Z M320 110 H340 V120 H320Z M360 110 H380 V120 H360Z M20 120 H40 V130 H20Z M60 120 H80 V130 H60Z M100 120 H120 V130 H100Z M140 120 H160 V130 H140Z M180 120 H200 V130 H180Z M220 120 H240 V130 H220Z M260 120 H280 V130 H260Z M300 120 H320 V130 H300Z M340 120 H360 V130 H340Z M380 120 H400 V130 H380Z"/></g>
+  <g fill="#eef4fb" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6">
+    <polygon points="150,120 158,116 156,124"/><polygon points="240,122 250,118 246,128"/><polygon points="120,126 126,122 128,130"/><polygon points="270,118 276,116 274,124"/>
+  </g>
+  <g fill="#fff"><path style="transform-box:fill-box;transform-origin:center" d="M156 118 l1 -2 l1 2 l-1 1Z"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.4;1" dur="1.4s" repeatCount="indefinite" additive="sum"/></path></g>
+  <!-- floating shards -->
+  <g fill="#eef4fb" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5">
+    <polygon points="140,40 146,34 144,46"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -6;0 0" dur="3s" repeatCount="indefinite"/></polygon>
+    <polygon points="260,46 266,40 264,52"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -6;0 0" dur="3.6s" repeatCount="indefinite"/></polygon>
+  </g>
+</svg>
