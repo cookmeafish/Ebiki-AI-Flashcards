@@ -1,8 +1,11 @@
 # Legends mode: roadmap
 
-Status: planned, not started. Everything else from the Duolingo-inspired plan is built on the `app-expansion`
-branch (Practice hub, Mistake Gym, Leech Doctor, Ebi Call, Roleplay, Listen & Speak, Scenes, game layer, speech,
-adaptive cards, rule cards, practice log). Legends is the last big piece.
+Status: BUILT (1.14.0) in `src/features/legends/` (see the Legends section of CLAUDE.md). Decisions on the open
+questions below: the level is BOTH a number (0 to 130) and a band; beating a boss offers the whole area as cards in
+one click (and earns a streak freeze); Talk steps are typed, or spoken with Voice chat on, and always optional; the
+first plan has 8 areas, only 2 are detailed ahead of the learner, and more are planned near the end. The learner
+level lives in the kit (`kit/learner.js`) so other features read it without importing Legends. Not done: feeding
+the level to Discover (a core screen), caching step questions in the question-reuse store.
 
 **Hard rules (apply to every step below)**
 
@@ -66,7 +69,7 @@ LegendsMap {
   areas: Area[]                       // ordered bottom (first) to top
 }
 Area {
-  id (stable slug), title, theme (short art brief), art: { svg?, palette, motif }
+  id (stable slug), title, theme, motif (which art files), palette (their colors)
   status: 'locked' | 'open' | 'done'
   items: Item[]                       // what the area teaches (terms, rules, skills)
   nodes: Node[]                       // bottom to top; the last one is the boss
@@ -126,11 +129,10 @@ listening", "add an area about subnetting", "make the art spooky".
 
 ## 5. Area art (SVG)
 
-- Each area gets a small illustrated banner, generated as **inline SVG** from its theme (a simple style guide in
-  the prompt: flat shapes, the app palette tokens, a few landmarks, Ebi optional), sanitized like every rendered
-  SVG (no scripts, no external URLs, see the DOMPurify rules in the project notes), and cached in the map.
-- Fallback when generation fails or is off: a set of hand-made SVG templates in `src/features/legends/art/`
-  (forest, city, ocean, mountains, lab, stage, sky, desert) tinted by the area's palette.
+- **Decided (2026-09-28): no generated art.** Every area's banner and boss are hand-made SVG files shipped with the
+  app in `public/assets/legends/` (`areas/<motif>.svg`, `bosses/<motif>.svg` for forest, city, ocean, mountains, lab,
+  stage, sky, desert), so the owner controls every picture and no user pays for drawing calls. The map's AI only
+  picks each area's motif and palette; the palette tints the file through CSS variables (see the folder's README).
 - The ladder itself is drawn by the app (not the AI): nodes as round chunky buttons on a winding path, the boss as
   a larger node with a crown.
 

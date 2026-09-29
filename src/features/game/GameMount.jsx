@@ -8,28 +8,29 @@ import { Modal, ChunkyButton, tCount, depthBorder } from '../ui'
 import { useGame, initGame, configureGame, ensureToday, closeGamePanel, choosePlayer, createPlayer } from './store'
 import { computeStreak, dateKey } from './engine'
 import { WeekDots } from './Rail'
+import StreakFlame, { StreakFxStyle } from './StreakFlame'
 
 const DAY_CHECK_MS = 60000        // how often to notice that the date changed
 const CELEBRATE_POSE = 'party'
 const CHOOSER_POSE = 'happy'
 
-function StreakScreen({ player, t, lang, onClose }) {
+// `celebrate`: the day's first XP just extended the streak, so the flame, the number and today's dot play their show.
+function StreakScreen({ player, t, lang, onClose, celebrate }) {
   const s = computeStreak(player)
+  const rise = (delay) => (celebrate ? { animation: `gmRise .45s ease-out ${delay}s both` } : {})
   return (
-    <div style={{ textAlign: 'center' }}>
-      <div style={{ position: 'relative', width: 150, height: 150, margin: '6px auto 4px' }}>
-        <div style={{ fontSize: 120, lineHeight: '150px', filter: s.todayDone ? 'none' : 'grayscale(1)' }}>🔥</div>
-        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 18, fontFamily: FONT.display, fontWeight: 900, fontSize: 40, color: C.white, WebkitTextStroke: `2px ${C.warning}` }}>{s.streak}</div>
-      </div>
-      <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 26, color: C.warning, marginBottom: 16 }}>
+    <div className="gm-fx" style={{ textAlign: 'center' }}>
+      <StreakFxStyle />
+      <StreakFlame streak={s.streak} lit={s.todayDone} celebrate={celebrate} />
+      <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 26, color: C.warning, marginBottom: 16, ...rise(1.05) }}>
         {s.streak === 1 ? t('game_streakBig') : t('game_streakBigMany')}
       </div>
-      <div style={{ border: `2px solid ${C.border}`, borderRadius: RADIUS.lg, padding: '14px 12px' }}>
-        <WeekDots player={player} lang={lang} />
+      <div style={{ border: `2px solid ${C.border}`, borderRadius: RADIUS.lg, padding: '14px 12px', ...rise(1.2) }}>
+        <WeekDots player={player} lang={lang} popToday={celebrate ? 1.5 : 0} />
         <div style={{ borderTop: `2px solid ${C.border}`, margin: '14px -12px 12px' }} />
         <div style={{ fontSize: 14, fontWeight: 700, color: C.inkDim, lineHeight: 1.5 }}>{t('game_streakKeep')}</div>
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, margin: '12px 2px 18px', color: C.inkDim }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, margin: '12px 2px 18px', color: C.inkDim, ...rise(1.35) }}>
         <span style={{ color: C.info }}>❄ {s.freezes ? tCount(t, 'game_freezes', s.freezes) : t('game_freezesNone')}</span>
         <span>{t('game_longest', { n: s.longest })}</span>
       </div>
@@ -118,8 +119,8 @@ export default function GameMount() {
         <Chooser g={g} t={t} />
       </Modal>
       <Modal open={!!g.player && (celebrate || g.panel === 'streak')} zoom={zoom} onClose={() => { setCelebrate(false); closeGamePanel() }}>
-        {celebrate && <img src={shrimpUrl(poseFile(CELEBRATE_POSE))} alt="" width={80} style={{ display: 'block', margin: '0 auto -10px' }} />}
-        {g.player && <StreakScreen player={g.player} t={t} lang={lang} onClose={() => { setCelebrate(false); closeGamePanel() }} />}
+        {celebrate && <img className="gm-fx" src={shrimpUrl(poseFile(CELEBRATE_POSE))} alt="" width={80} style={{ display: 'block', margin: '0 auto -10px', animation: 'gmHop .9s ease-in-out .5s 2 both' }} />}
+        {g.player && <StreakScreen player={g.player} t={t} lang={lang} celebrate={celebrate} onClose={() => { setCelebrate(false); closeGamePanel() }} />}
       </Modal>
     </>
   )

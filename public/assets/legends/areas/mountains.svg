@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
+  <rect width="400" height="140" fill="var(--lg-sky, #e6e3fb)"/>
+  <circle cx="70" cy="34" r="16" fill="var(--lg-accent, #f2b441)" opacity="0.9"/>
+  <g fill="var(--lg-light, #ffffff)" opacity="0.85">
+    <ellipse cx="300" cy="28" rx="22" ry="7"/><ellipse cx="316" cy="23" rx="13" ry="7"/>
+  </g>
+  <polygon points="0,122 80,44 160,122" fill="var(--lg-far, #b5aef0)"/>
+  <polygon points="250,124 340,56 400,104 400,124" fill="var(--lg-far, #b5aef0)"/>
+  <polygon points="104,126 220,24 336,126" fill="var(--lg-near, #7f72d9)"/>
+  <polygon points="220,24 198,44 210,42 220,52 232,42 244,46" fill="var(--lg-light, #ffffff)"/>
+  <polygon points="80,44 64,60 76,58 86,64 96,58" fill="var(--lg-light, #ffffff)"/>
+  <polygon points="340,56 326,68 336,68 344,74 352,66" fill="var(--lg-light, #ffffff)"/>
+  <rect x="219" y="10" width="2" height="16" fill="var(--lg-deep, #4b3fb0)"/>
+  <polygon points="221,10 234,14 221,18" fill="var(--lg-accent, #f2b441)"/>
+  <path d="M0 116 Q100 106 200 118 T400 114 V140 H0Z" fill="var(--lg-deep, #4b3fb0)"/>
+  <path d="M170 140 Q190 128 214 124 Q240 120 262 126 Q226 130 212 140Z" fill="var(--lg-light, #ffffff)" opacity="0.3"/>
+  <g fill="var(--lg-near, #7f72d9)">
+    <polygon points="40,118 32,134 48,134"/><polygon points="360,116 352,132 368,132"/><polygon points="376,120 370,134 382,134"/>
+  </g>
+</svg>

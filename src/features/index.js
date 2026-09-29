@@ -11,6 +11,7 @@ import ebiCall from './ebi-call'
 import roleplay from './roleplay'
 import listenSpeak from './listen-speak'
 import scenes from './scenes'
+import legends from './legends'
 
 export const registry = createRegistry([
   game,
@@ -24,6 +25,7 @@ export const registry = createRegistry([
   roleplay,
   listenSpeak,
   scenes,
+  legends,
 ])
 
 export { EVENTS } from './events'

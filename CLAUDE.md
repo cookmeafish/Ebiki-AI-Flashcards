@@ -557,6 +557,15 @@ ran a fixed bug for weeks). Don't simplify it back.
   Now ANY unpublished HEAD (ahead or diverged) is not offered, with the current origin/master as the extra
   candidate; `/api/update` GET answers `localCommits` and UpdatesCard shows it. A failed install inside
   `Check-Update`/`check_update` is not retried in the same launch (`npmTriedThisRun` / `NPM_TRIED`).
+- **Dependencies are checked at every start, not only after an update** (`scripts/deps-fingerprint.mjs`): code can change
+  without an update path (a manual `git pull`, a branch switch, a synced copy), and it then ran on the old node_modules
+  (a missing package). Every successful install stamps `.deps-installed` (machine-local, gitignored) with a hash of
+  package.json's dependency sections + the lockfile's package list + the Node ABI/platform (NOT the app version, so a
+  release does not force an install): the `postinstall` hook, and again after each install in `launch.ps1`,
+  `launch.sh`, `/api/update` and both setups (npm may write the lockfile after postinstall). Before starting the
+  server both launchers run `--check` (exit 1 = install needed) and, when stale, drop `.npm-install-pending` so the
+  existing pending-install block runs. It compares the code AS IT IS NOW, so several skipped updates are covered.
+  A check that cannot tell (exit 2, no node) never blocks the start. Tests: `scripts/deps-fingerprint.test.js`.
 - **Never `execFile` a `.cmd`/`.bat` without a shell**: current Node throws EINVAL synchronously (CVE-2024-27980),
   and inside a callback that kills the server. `/api/update` runs `cmd /d /s /c "npm install ..."` on Windows.
 - **A failed post-update `npm install` leaves `.npm-install-pending`** (gitignored; written by `launch.ps1`, `launch.sh`
@@ -1399,6 +1408,8 @@ of `src/features/index.js` (and `src/features/server.js` if it has a server half
   never in the feature), `defaults` (settings under config.json `features[id]`), `Mount` (rendered once
   app-wide), `headerItems`, `railCards`, `navItems` (whole screens in the sidebar: `{id, icon, labelKey, order,
   Screen, rail?}`), `settingsCards` (`section: 'general'`), `on` (event handlers).
+- **`subject.rules` is a STRING** (prompts write `${subject.rules || ''}`); as a function its source code went into
+  seven feature prompts.
 - **Context**: components call `useFeatureCtx()`: `t`, `lang`, `apiKeys`, `getZoom`, `onboarded`, `presetModel(prov,
   tier)`, `activeMode`, `activeTab`/`setActiveTab`, `busy` (mid-question: hold popups), `isDataSwitching()` (writers
   must honor it), `featureSettings`/`setFeatureSettings(id, patch)`, `notify`. Add a GENERIC service here when a
@@ -1474,6 +1485,125 @@ carry `data-no-voice`. The badge portals into `#ebiki-voice-layer` under `<html>
 - **Translations are tested**: `src/features/i18n-coverage.test.js` fails when any `t('key')`, `tCount(t, 'key')` or
   `*Key: 'key'` anywhere in `src/` is missing in any language. Template keys (`` t(`rp_axis_${a}`) ``) and prefixes
   (`t('tab_' + id)`) are not seen by it: add those to every locale by hand.
+
+### Legends (`src/features/legends/`): the adventure map per mode
+Plan: `docs/legends-roadmap.md`. Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends`
+(order 15, no rail: the map header shows the level), rail card `LevelCard` (Study home, Stats).
+- **Pure, tested**: `map.js` (map model, `normalizeMap` recomputes every status from what is DONE: areas open in
+  order, steps one by one, optional Talk steps never block, the boss last; `applyNodeResult` stars/passes and
+  FREEZES the area; `needsDetail`/`applyAreaDetail` = lazy detail of `LOOKAHEAD` areas; `mergeEdit` keeps started
+  and finished areas exactly, first, and takes the proposal for the rest), `placement.js` (batches of 5 per tier,
+  climb on 80%, step down while struggling, 10 to 30 questions, `placementLevel`), `prompt.js` (every prompt + parser).
+  Tests: `map.test.js`, `placement.test.js`, `prompt.test.js`, `art.test.js`.
+- **Storage**: `store.js` = `featureStore('legends')`, key `map-<modeId>`, serialized `updateMap(modeId, fn)` that
+  never writes after a failed read; every async writer passes the mode id pinned when it STARTED. Start over writes
+  null. `shapeMap` refuses a map from a newer `MAP_VERSION`.
+- **Learner level is in the KIT** (`kit/learner.js` pure, `kit/learnerStore.js`, store `features/learner/level-<modeId>`)
+  so other features read it without importing Legends: Ebi Call, Roleplay, Scenes and every Legends prompt pass
+  `level: await learnerLevelLine(ctx)`. 0..130 plus a band (A1..C2 for languages, Beginner..Expert otherwise;
+  `lg_band_*`). Set by placement (or "I'm new"); nudged by `deltaFor(source, total, correct)` from Legends results
+  and, through the feature's `on`, CARD_GRADED and other features' PRACTICE_DONE. Only an EXISTING level moves.
+  `peak` = the highest level reached: `LEVEL_UP` (whole level above the peak) is emitted once, never on a re-climb.
+- **Generation** (`generate.js`, one run per task via `once`): plan (role general) → detail (role deck: items become
+  cards) → quiz per step (role study, `adaptiveSplit`: new or weak items asked as multiple choice).
+- **An area is `LESSONS` (8) levels, then Weak spots, then the boss** (a 2026-09 comparison with Duolingo: a Learn
+  step plus a Practice step over the SAME items read as one level twice). Every level teaches `PER_LESSON` (2 to 3)
+  NEW items and quizzes them (`QUIZ_SIZE.learn` 10: each new item two ways, plus up to `QUIZ_REVIEW_ITEMS` items of
+  EARLIER levels, shakiest first, as spaced review). `parseAreaDetail` enforces it: a 'practice' node is dropped,
+  an item is taught by ONE level (a repeat is removed), untaught items get their own level (else join the last).
+  A story level teaches its items first too (`TEACH_KINDS`). Older maps keep their practice steps.
+- **Missed questions come back once at the end** (`QuizRunner retryMisses`, Duolingo style; not in fights). The retry
+  is practice: it never changes the score (`_retry`, NodeRun's `record` ignores it).
+- **Weak spots** (node kind `weak`, optional, opens with the boss, never blocks it; `ensureWeakNodes` adds it to
+  older maps on load): 10 questions over `weakItems(area)` (lowest share right, then least seen). Clearing it ONCE
+  sets `area.bonusLife`: the boss starts with one extra life, drawn as a gold 💖 with a "+1" tag (`Lives bonus`).
+  A replay never adds another. The life is one more allowed miss: `bossOdds(total, {bonus})` needs one hit less,
+  and `forgivenMisses` goes into the result as `forgiven`, which `applyNodeResult` counts as right (boss only,
+  capped by what the area earned). The cheat path for a locked Weak spots step pays the life too.
+- **The boss is always 20 questions and written FRESH every attempt** (`FRESH_KINDS`: never a saved set; the step
+  file keeps only `history`, the prompts already asked, fed back as `avoid`). Its prompt pushes to the limit: new
+  sentences and situations, combined items, production, close distractors, never unfair.
+- **Legendary** (a cleared area's "Legendary challenge"): a fight that is not a map node (`{kind: 'legendary'}`),
+  20 fresh questions, all typed, 90% to win (`PASS.legendary`), no bonus life; `applyLegendaryResult` marks
+  `area.legendary` (🏅 on the map).
+- **Quizzes ask ONLY about what the step taught.** `buildQuizPrompt` sends the items' full text as the one source
+  ("LEARNING MATERIAL THE LEARNER WAS SHOWN"), the knowledge base only as background for accuracy, at most
+  `QUIZ_PER_ITEM_MAX` questions per item, wrong options that are clearly wrong. `makeQuiz` drops every question whose
+  `target` is not a taught item (`itemIdFor`) and asks once more (`strict`) when fewer than `QUIZ_MIN_KEPT` remain: a
+  Learn step taught three greetings and then quizzed on things it never showed.
+  Places, people and situations come only from the material (the mode description, e.g. "lives in Texas", leaked
+  into questions as if taught). A REVIEW PASS (`buildQuizCheckPrompt` / `parseQuizCheck`, role study) then drops
+  questions with a second defensible option ("I am Carlos" vs the key "I'm Carlos"), a missing accepted answer, a
+  wrong key, or untaught content; fail-soft (a review that fails keeps the set). A saved set carries
+  `checked: QUIZ_CHECK_VERSION`; an older one is reviewed ONCE on its next visit (kept and re-saved if enough
+  questions survive, else a new set is made): sets saved before the review asked "most natural in Texas".
+  **🔄 New questions is for everyone, not a cheat** (`NewQuestionsButton`, NodeRun): beside Start questions on the lesson, above the scene story, under the boss entrance, above a running quiz (boss
+  too; asks first once answers exist, nothing recorded) and under the result. `newQuestions` in LegendsScreen =
+  `clearStep` + reopen with `try + 1`.
+  **A set the review shrank is TOPPED UP** (`QUIZ_TOPUP_BELOW`: under 85% of the target, one more call for exactly the
+  missing count, avoiding the kept prompts, reviewed too): a boss of 14 came back with 8. Old sets refill the same way.
+- **Bosses have names** from what the area teaches ("El Relojero Tic-Tac" guards numbers and time): `boss` in the
+  area-detail JSON (`bossLine`, user's language) → `area.bossName`; areas detailed before names existed get one
+  from `ensureBossName` (role help, once, `setBossName` fills only a missing name, frozen areas too). Shown on the
+  entrance (`lg_bossNamed` + `lg_bossGuards`), the arena, the quiz title and the map; no name = the old wording. The result screen lists EVERY answer (`AllAnswers`,
+  `res.answers`), not only the misses.
+- **Art is hand-made FILES, never generated** (`public/assets/legends/areas|bosses/<motif>.svg`, one per `MOTIFS`
+  entry; the map's AI only picks the motif and palette). `art.jsx` fetches a file once, sanitizes it with the app's
+  `sanitizeHtml` (loaded LAZILY: Markdown.jsx needs a DOM; a top-level import broke `features.test.js`) and inlines it
+  inside a box that sets `--lg-sky/far/near/deep/accent/light` from the area's palette, so one drawing fits every area
+  and both themes. Every `var()` in a file carries its own fallback (`art.test.js` checks it, plus one file per motif
+  and no scripts/links/url()). A new motif = a `MOTIFS` entry + both files. How to edit: `public/assets/legends/README.md`.
+  Old maps may still carry an `art.svg` from the AI-art days; nothing reads it.
+- **Step content is made ONCE and saved** (`store.js` `readStep`/`saveStep`, one `features/legends/step-<hash>.json` per
+  step, keyed by mode + area + node, `sig` = the step's items): a revisit or retry reuses it (`reshuffleQuiz`: new
+  question and choice order), scenes too (`sceneFor`). A changed area (Change my map) no longer matches `sig` and gets
+  a new set. A new set is written with the area's other steps' questions as `avoid` (Learn and Practice repeated each
+  other) and exact repeats are dropped (`normQ`). Talk steps are live conversation (always new).
+- **Talk steps**: Ebi plays the step's scene (`buildTalkSystem` `scene` = node title: "Conversation with your uncle"
+  makes Ebi the uncle) and never re-asks what the learner said. **💡 Hint** (`buildTalkHintPrompt`, role `help`): ONE
+  sentence in the user's language saying WHAT to say next, never the learned-language words; `hintGivesAway` rejects a
+  hint quoting a practice phrase (asked again once, then `lg_hintFallback`); hints used go to the score prompt.
+- **Ebi's words are tappable like Study** (`ctx.words.tappable(text, source)` + `ctx.words.popup(source)` = App's
+  `renderTappableText`/`renderWordLookupPopup`): Talk messages and Scene lines (whose replay is now its own 🔊 button,
+  since the line was one big button). Sources are unique per chat/story (`sid`); only 'question'/'hint' are guarded as
+  a live answer. Language modes only.
+- **The boss is a fight** (`BossArena.jsx`): a dramatic entrance (`BossIntro`, timings in `ENTRANCE`: hazard stripes,
+  the boss slams down, quake, shockwave, stamped title, lives popping in; static under reduced motion), then the boss
+  above the questions with a health bar = the right answers needed (`bossOdds`: `PASS.boss`) and LIVES = misses allowed
+  + 1. No rule text: the hearts say it. `bossOutcome` ends the fight at 0 health (a win; stars count the answers given)
+  or 0 lives (the unasked questions count as missed: `finish(total)`); the test proves losing every life can never pass
+  and emptying the bar always does. `applyNodeResult` still decides the pass.
+- **Adding cards needs the MODE's deck** (`subject.modeDeck`, never the first-deck fallback `subject.deck`): a
+  `DeckPicker` beside the add buttons saves it on the mode (`ctx.cards.setModeDeck` = `setAnkiDeck`; `ctx.cards.decks`).
+- **Mount flags are SET on mount, not only cleared** (`useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])`):
+  `main.jsx` runs React.StrictMode, which mounts, unmounts and mounts again. A flag only cleared on unmount, paired
+  with a run-once guard (`opened`/`ran` refs), dropped the first (and only) answer: the Talk step sat on "Ebi is
+  thinking" forever, and Help's auto-run map edit on "thinking". Never pair a one-shot guard with a cleanup-only flag.
+- **`/features/` (feature data in the data folder) is GITIGNORED**: maps, saved questions, learner levels and the
+  practice log are personal and were one `git add` away from a public push.
+- **Cheat mode (hidden, for testing)**: 7 quick clicks on the map title (`CheatUI.jsx` `useCheatToggle`) flip
+  `features.legends.cheats`; while on, ⚡ buttons complete/reset/unlock/regenerate areas and steps (`cheats.js`, pure,
+  `cheats.test.js`), open locked steps (a win there records through `cheatCompleteNode`), set the level
+  (`updateLearner(..., { quiet: true })`: no LEVEL_UP XP) and retake placement; "Win now"/"Fail now" in a step finish it
+  through the NORMAL path (rewards included, to test them). Map cheats pay nothing. Settings > General shows its card
+  (`CheatSettingsCard`) only while it is on. `ctx.prompt` (= `promptDialog`) exists for it.
+- **Screens**: `LegendsScreen` orchestrates; `Questionnaire`, `PlacementExam` (NOT `Placement.jsx`: on Windows
+  `./Placement` resolved to `placement.js`), `MapView` (areas bottom to top, steps as a winding ladder; centers the
+  next step inside the screen's scroll box: `scrollIntoView` also scrolled the page root), `NodeRun` (learn/rule
+  teach first; everything quiz-like through `QuizRunner`), `Talk`, `EditPanel` (kept/changed/added/removed review,
+  Accept re-merges over the LIVE map).
+  A mode switch keeps the previous screen (the SAME element objects, so nothing remounts or restarts) while the
+  new map is read (`held`), and shows `lg_loading` only after `HOLD_MS`: the loading line flashed on every switch. A
+  failed read shows the retry screen (it used to sit on "Loading" for good).
+- **Cards only on a click** (`deck.js`, `ctx.cards.addNew`, tags `ebiki legends lg-<area>`); a beaten boss offers the
+  whole area.
+- **Rewards** (game): PRACTICE_DONE `legends` (quest counter, paid through `LEGENDS_STEP`: 20 XP + 5 per area up the
+  map, cap 6), `legends-try` (generic practice XP), `legends-placement` (placement XP); `BOSS_BEATEN` (first win of an
+  area only) = 50 XP + a streak freeze (`bossWins` counter, `computeStreak`, still capped at `MAX_FREEZES`);
+  `LEVEL_UP` = 10 XP per new whole level (cap 3 per event).
+- **Help** can open a map edit: `legends_edit` action (capability text only when `appContext.legendsAvailable`),
+  receipts `hr_legends*`, opened through `featureCtx.open('legends', { edit })` (`useIntent`).
+- Drive it with every AI host stubbed and `/api/feature-data` in memory (the real stores and credits untouched).
 
 ## Porting to phones (iOS / Android): keep these seams clean
 Two realistic paths: **Capacitor** (the web UI runs as-is in a phone WebView) or **React Native** (UI rebuilt, logic

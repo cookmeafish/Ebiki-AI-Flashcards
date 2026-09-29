@@ -39,6 +39,8 @@ applang.json
 .scratch/
 config.json.*
 .npm-install-pending
+# Fingerprint of the last successful npm install (scripts/deps-fingerprint.mjs), machine-local
+.deps-installed
 
 # writeFileAtomic temp files left by an interrupted write
 *.tmp
@@ -52,3 +54,7 @@ config.json.*
 player.json
 # Resized copies of Ebi's pictures (made automatically, machine-local)
 /.cache/
+
+# Feature data (src/features/storage-server.js): Legends maps and saved questions, learner levels, practice log.
+# Personal, machine or data-folder local: never pushed.
+/features/

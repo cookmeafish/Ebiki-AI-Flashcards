@@ -14760,6 +14760,14 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
     featureSettings, setFeatureSettings,
     notify: setSuccessNotice,
     confirm: confirmDialog,
+    prompt: promptDialog, // resolves to the typed text, or null when cancelled
+    // Study's tap-a-word lookup (meaning in context, other senses, audio, "Make Anki card", memory hooks), for any
+    // feature text. Language modes only (plain text otherwise). `source` must be unique per spot: the popup renders
+    // where popup(source) is placed, under the tapped text. Only 'question'/'hint' are guarded as a live answer.
+    words: {
+      tappable: (text, source, sentence) => renderTappableText(text, sentence || text, source),
+      popup: (source) => renderWordLookupPopup(source),
+    },
     emit: emitAppEvent, // features announce their own facts (EVENTS) the same way the app does
     studyActive, ankiConnected,
     // AI for features, on the user's provider. `role` picks the model like everywhere else (resolveModel).
@@ -14775,10 +14783,12 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
       modeId: activeMode.id, name: activeMode.name, type: activeMode.type, isLanguage: activeMode.type === 'language',
       description: activeMode.description || '',
       deck: ankiDeck || ankiDecks[0] || '',
+      modeDeck: ankiDeck, // the deck SAVED on the mode ('' = none chosen; `deck` above falls back to the first deck)
       learnLang: activeMode.type === 'language' ? learnLangName() : userLangName(),
       learnLangIso: langInfo(activeMode.type === 'language' ? learnLangName() : userLangName())?.iso1 || '',
       userLang: userLangName(),
-      rules: () => (activeMode.type === 'language' ? [dialectRule(), preferredTermRule()].filter(Boolean).join('\n') : ''),
+      // A STRING (prompts write `${subject.rules || ''}`): as a function, its source code went into every feature prompt.
+      rules: activeMode.type === 'language' ? [dialectRule(), preferredTermRule()].filter(Boolean).join('\n') : '',
       knowledge: (cap) => knowledgeBlock(cap),
       grammarSlips: (limit) => grammarSlipBlock(limit),
       // The same slips as data ([{ text, front, n }], most frequent first), for features that act on each one.
@@ -14787,6 +14797,8 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
     // Card helpers that must go through the app: new cards (so every surface announces them the same way) and
     // the app's text <-> card HTML conventions (bold "Label:" lines, line breaks, escaping).
     cards: {
+      decks: Array.isArray(ankiDecks) ? ankiDecks : [], // the collection's decks ([] while Anki is not connected)
+      setModeDeck: (deck) => setAnkiDeck(deck), // saves the active mode's deck
       addNew: addNewCard,
       frontHtml: plainFrontHtml,
       backHtml: plainBackHtml,
@@ -18780,10 +18792,19 @@ ${PALETTE_CSS}
               return t('hr_deckEditStarted', { instr }) + onDeck
             }
             return null
+          } else if (action?.type === 'legends_edit' && typeof action.request === 'string' && action.request.trim()) {
+            // Legends map edit: open its "Change my map" preview with the request (the feature does the rest; nothing
+            // is saved until the learner accepts there). Only for the mode the question was asked in.
+            const req = helpText(action.request).slice(0, 400)
+            if (!req) return null
+            if (askedModeId !== activeModeIdRef.current) return t('hr_legendsSwitched', { req })
+            if (!featureCtxRef.current?.open?.('legends', { edit: req })) return t('hr_legendsOff')
+            return t('hr_legendsEdit', { req })
           }
           return null
         }}
         appContext={{
+        legendsAvailable: registry.isActive('legends'),
         activeTab,
         activeMode: { id: activeMode.id, name: activeMode.name, type: activeMode.type, ankiDeck: activeMode.ankiDeck, dialect: dialectName() || undefined },
         // Recurring grammar slips from graded study answers — Ebi can coach or drill them on request.

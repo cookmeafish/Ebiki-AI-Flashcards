@@ -19,7 +19,8 @@ export function weekdayLetters(lang) {
   return Array.from({ length: 7 }, (_, i) => fmt.format(new Date(monday.getFullYear(), 0, 1 + i)))
 }
 
-export function WeekDots({ player, lang }) {
+// popToday: seconds after which today's dot pops in (the streak celebration), 0 = no animation.
+export function WeekDots({ player, lang, popToday = 0 }) {
   const row = weekRow(player)
   const letters = weekdayLetters(lang)
   return (
@@ -31,6 +32,7 @@ export function WeekDots({ player, lang }) {
             width: DOT, height: DOT, margin: '0 auto', borderRadius: '50%', background: STATUS_COLOR[d.status],
             display: 'grid', placeItems: 'center', color: C.white, fontSize: 13, fontWeight: 900,
             outline: d.status === 'today' ? `2px dashed ${C.warning}` : 'none', outlineOffset: 1,
+            ...(popToday && d.date === dateKey() && d.status === 'done' ? { animation: `gmDotPop .5s cubic-bezier(.3,1.6,.5,1) ${popToday}s both` } : {}),
           }}>{d.status === 'done' ? '✓' : d.status === 'frozen' ? '❄' : ''}</div>
         </div>
       ))}
@@ -74,12 +76,14 @@ export function GoalCard() {
         <span>{xp >= goal ? `🎉 ${t('game_goalDone')}` : t('game_goalProgress', { xp, goal })}</span>
       </div>
       <ProgressBar value={xp} max={goal} color={xp >= goal ? C.success : C.warning} />
-      <div style={{ display: 'flex', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
+      {/* Two per row: four in a row did not fit the rail, and flex items allowed to shrink to 0 never wrapped,
+          so the labels spilled past their boxes. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6, marginTop: 12 }}>
         {GOALS.map((opt) => (
           <button key={opt.key} onClick={() => updateProfile({ goalXp: opt.xp })} className={goal === opt.xp ? 'ui-tab-current' : undefined}
             data-tip={t('game_goalMinutes', { m: opt.minutes })}
             style={{
-              flex: 1, minWidth: 0, padding: '5px 4px', borderRadius: RADIUS.sm, fontSize: 11, fontWeight: 800,
+              minWidth: 0, padding: '6px 4px', borderRadius: RADIUS.sm, fontSize: 11, fontWeight: 800,
               border: `2px solid ${goal === opt.xp ? C.brand : C.border}`, background: goal === opt.xp ? C.brandTint : C.surface,
               color: goal === opt.xp ? C.brand : C.inkDim, cursor: goal === opt.xp ? 'default' : 'pointer',
             }}>{t(`game_goal_${opt.key}`)}</button>

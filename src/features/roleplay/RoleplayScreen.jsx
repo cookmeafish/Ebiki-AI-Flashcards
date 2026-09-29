@@ -10,6 +10,7 @@ import { useFeatureCtx, useFocusHold } from '../registry'
 import { EVENTS } from '../events'
 import { ChunkyButton, EbiSays, depthBorder } from '../ui'
 import { TalkButton, voiceChatOn, readPracticeLog, recordPractice, recentTopics } from '../kit'
+import { learnerLevelLine } from '../kit/learnerStore'
 import { parseScenarios, cleanScenario, normalizeScorecard, axesFor, SCORE_MAX, MIN_TURNS_TO_SCORE } from './scoring'
 import {
   buildScenarioPrompt, buildImageScenarioPrompt, buildCustomScenarioPrompt, buildSceneSystem, buildSceneTurn,
@@ -76,7 +77,7 @@ export default function RoleplayScreen({ onExit, params }) {
     setLoadingIdeas(true); setError('')
     try {
       const avoid = recentTopics(await readPracticeLog(ctx))
-      const { system, user } = buildScenarioPrompt(subject, { knowledge: subject.knowledge(KNOWLEDGE_CAP), avoid })
+      const { system, user } = buildScenarioPrompt(subject, { knowledge: subject.knowledge(KNOWLEDGE_CAP), avoid, level: await learnerLevelLine(ctx) })
       const list = parseScenarios(ai.json(await ai.call(system, user, { role: RP_SETUP_ROLE, maxTokens: RP_SETUP_MAX_TOKENS })), ai.clean)
       if (!list.length) throw new Error(t('rp_noIdeas'))
       ideasCache.set(subject.modeId, list); setIdeas(list)
@@ -111,7 +112,7 @@ export default function RoleplayScreen({ onExit, params }) {
     const id = sceneIdRef.current
     setBusy(true); setError('')
     try {
-      const system = buildSceneSystem(subject, scene, { slips, knowledge: subject.knowledge(KNOWLEDGE_CAP) })
+      const system = buildSceneSystem(subject, scene, { slips, knowledge: subject.knowledge(KNOWLEDGE_CAP), level: await learnerLevelLine(ctx) })
       const { text, ended: done } = splitSceneReply(await ai.call(system, buildSceneTurn(history), { role: RP_ROLE, maxTokens: RP_MAX_TOKENS }))
       if (id !== sceneIdRef.current) return // the learner left this scene meanwhile
       const line = ai.clean(text) || '...'

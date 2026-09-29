@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <g stroke="var(--lg-deep, #1f6fb0)" stroke-width="10" fill="none" stroke-linecap="round">
+    <path d="M30 72 Q10 84 16 104 Q20 112 28 106"/>
+    <path d="M44 80 Q34 100 44 112"/>
+    <path d="M60 82 Q60 102 66 112"/>
+    <path d="M76 80 Q88 98 80 112"/>
+    <path d="M90 72 Q110 84 104 104 Q100 112 92 106"/>
+  </g>
+  <g fill="var(--lg-accent, #22b8a8)">
+    <circle cx="18" cy="96" r="2.5"/><circle cx="40" cy="104" r="2.5"/><circle cx="84" cy="104" r="2.5"/><circle cx="102" cy="96" r="2.5"/>
+  </g>
+  <path d="M20 58 Q20 10 60 10 Q100 10 100 58 Q100 84 60 84 Q20 84 20 58Z" fill="var(--lg-near, #4d9fdb)"/>
+  <path d="M34 26 Q46 16 58 18" stroke="var(--lg-light, #ffffff)" stroke-width="5" fill="none" stroke-linecap="round" opacity="0.5"/>
+  <ellipse cx="45" cy="52" rx="10" ry="11" fill="var(--lg-light, #ffffff)"/><ellipse cx="75" cy="52" rx="10" ry="11" fill="var(--lg-light, #ffffff)"/>
+  <circle cx="47" cy="55" r="5" fill="var(--lg-ink, #1d2230)"/><circle cx="77" cy="55" r="5" fill="var(--lg-ink, #1d2230)"/>
+  <path d="M34 40 l14 5 M86 40 l-14 5" stroke="var(--lg-ink, #1d2230)" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M50 72 Q60 66 70 72" stroke="var(--lg-ink, #1d2230)" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+  <g fill="var(--lg-deep, #1f6fb0)" opacity="0.5"><circle cx="30" cy="40" r="3"/><circle cx="90" cy="36" r="3.5"/><circle cx="62" cy="28" r="2.5"/></g>
+</svg>

@@ -46,6 +46,14 @@ $statusFile = Join-Path $app '.app-status'
 # npm install with a HEARTBEAT on the splash: the splash gives up after 3 minutes without a NEW status, and
 # a dependency-heavy update on a slow line took longer, so the splash closed mid-install and a second click
 # then looked like a fresh launch. Returns npm's exit code.
+# The installed-dependencies fingerprint (scripts/deps-fingerprint.mjs). Test-DepsStale is true only on a definite
+# "install needed" (exit 1); no node, or a check that cannot tell, never blocks the start.
+function Test-DepsStale {
+  try { & node (Join-Path $app 'scripts\deps-fingerprint.mjs') --check 2>$null | Out-Null; return ($LASTEXITCODE -eq 1) } catch { return $false }
+}
+function Save-DepsStamp {
+  try { & node (Join-Path $app 'scripts\deps-fingerprint.mjs') --stamp 2>$null | Out-Null } catch { }
+}
 function Invoke-NpmInstall($label) {
   try {
     $p = Start-Process -FilePath 'cmd.exe' -ArgumentList '/d', '/c', 'npm install --no-fund --no-audit' -WorkingDirectory $app -WindowStyle Hidden -PassThru
@@ -484,7 +492,7 @@ function Check-Update {
       try { Set-Content -Path $npmMarker -Value (Get-Date).ToString('s') -Encoding ASCII } catch {}
       $npmExit = Invoke-NpmInstall (Tr 'ln_installingLabel')
       $script:npmTriedThisRun = $true   # a failure is retried on the NEXT start, not straight away (see below)
-      if ($npmExit -eq 0) { Remove-Item -Force $npmMarker -ErrorAction SilentlyContinue }
+      if ($npmExit -eq 0) { Remove-Item -Force $npmMarker -ErrorAction SilentlyContinue; Save-DepsStamp }
       else { Write-UpdateLog ("launcher: npm install failed (exit {0}); will retry on the next start" -f $npmExit) }
       # When the app was already up, the running copy is still serving the OLD code
       # (the dev server cannot reload vite.config.js or new dependencies live), so
@@ -557,6 +565,13 @@ if (-not $follower) { try { Check-Update } catch {} } # see the already-running 
 $env:EBIKI_AUTO_EXIT = '1'
 # An update whose npm install failed (here or from Settings) finishes now, before the server starts.
 $pendingInstall = Join-Path $app '.npm-install-pending'
+# Code that changed WITHOUT an update (a manual git pull, a branch switch, a copy from another computer) runs on
+# the old node_modules: when the dependency lists differ from the last install, install first (through the pending
+# marker). It compares the code as it is now, so being several updates behind is covered too.
+if (-not (Test-Path $pendingInstall) -and -not $script:npmTriedThisRun -and (Test-DepsStale)) {
+  Write-UpdateLog 'launcher: dependencies changed since the last install; installing'
+  try { Set-Content -Path $pendingInstall -Value (Get-Date).ToString('s') -Encoding ASCII } catch {}
+}
 # Not when this launch's update just tried (and failed): a second 15-minute attempt held the splash and the launcher
 # lock for half an hour. The marker stays, so the next start retries.
 if ((Test-Path $pendingInstall) -and -not $script:npmTriedThisRun) {
@@ -578,7 +593,7 @@ if ((Test-Path $pendingInstall) -and -not $script:npmTriedThisRun) {
   } catch { }
   Set-Status (Tr 'ln_finishingUpdate')
   $npmExit = Invoke-NpmInstall ((Tr 'ln_finishingUpdate').TrimEnd('.', [char]0x3002))
-  if ($npmExit -eq 0) { Remove-Item -Force $pendingInstall -ErrorAction SilentlyContinue; Write-UpdateLog 'launcher: finished the pending npm install' }
+  if ($npmExit -eq 0) { Remove-Item -Force $pendingInstall -ErrorAction SilentlyContinue; Save-DepsStamp; Write-UpdateLog 'launcher: finished the pending npm install' }
   else { Write-UpdateLog ("launcher: pending npm install failed again (exit {0})" -f $npmExit) }
 }
 Set-Status (Tr 'ln_startingServer')

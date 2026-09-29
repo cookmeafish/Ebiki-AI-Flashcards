@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   dateKey, addDays, weekStart, dayTotals, eventDelta, mergePlayers, pickQuests, questProgress,
-  computeStreak, weekRow, weekXp, tierFor, leagueBoard, friendStreak, CHAT_XP_CAP, MAX_FREEZES,
+  computeStreak, weekRow, weekXp, tierFor, leagueBoard, friendStreak, CHAT_XP_CAP, MAX_FREEZES, XP, LEGENDS_AREA_XP, LEGENDS_AREA_CAP, LEVEL_UP_CAP,
 } from './engine'
 
 // A player with XP on the given days (one machine), optionally with that day's quests.
@@ -118,5 +118,26 @@ describe('league', () => {
     const a = player({ '2026-09-26': 5, '2026-09-27': 5 })
     const b = player({ '2026-09-26': 5, '2026-09-27': 5, '2026-09-28': 5 })
     expect(friendStreak(a, b, '2026-09-28')).toBe(2)
+  })
+})
+
+describe('Legends rewards', () => {
+  it('a step is worth more further up the map, capped', () => {
+    expect(eventDelta('legends', { area: 0 })).toEqual({ legends: 1, xp: XP.legends })
+    expect(eventDelta('legends', { area: 2 }).xp).toBe(XP.legends + 2 * LEGENDS_AREA_XP)
+    expect(eventDelta('legends', { area: 99 }).xp).toBe(XP.legends + LEGENDS_AREA_CAP * LEGENDS_AREA_XP)
+  })
+  it('pays for whole levels gained, capped', () => {
+    expect(eventDelta('levelUp', { n: 1 })).toEqual({ levelUps: 1, xp: XP.levelUp })
+    expect(eventDelta('levelUp', { n: 40 }).levelUps).toBe(LEVEL_UP_CAP)
+  })
+  it('a beaten boss earns a streak freeze, still capped', () => {
+    const used = player({ '2026-09-20': 10, '2026-09-22': 10 }) // the 21st spent the starting freeze
+    expect(computeStreak(used, '2026-09-22').freezes).toBe(0)
+    const boss = player({ '2026-09-20': 10, '2026-09-22': { xp: 60, bossWins: 1 } })
+    expect(computeStreak(boss, '2026-09-22').freezes).toBe(1)
+    const many = player({ '2026-09-22': { xp: 150, bossWins: 3 } })
+    expect(computeStreak(many, '2026-09-22').freezes).toBe(MAX_FREEZES)
+    expect(eventDelta('bossWin')).toEqual({ bossWins: 1, xp: XP.bossWin })
   })
 })

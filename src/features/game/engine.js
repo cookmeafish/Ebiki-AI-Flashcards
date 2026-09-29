@@ -6,10 +6,11 @@
 // league tier, friend streaks) is DERIVED from those counters, so there is no second copy of the truth
 // to drift, and a merge can never produce an impossible state.
 //
-// DayRecord: { xp, cards, correct, added, chat, gym, gymDone, legends, calls, learn, roleplays, practiced, goal, quests: [id] }
+// DayRecord: { xp, cards, correct, added, chat, gym, gymDone, legends, calls, learn, roleplays, practiced, bossWins, levelUps,
+//             goal, quests: [id] }
 // Subject-agnostic on purpose: a "card" is a card in any mode, language or CompTIA or music theory.
 
-export const COUNTERS = ['xp', 'cards', 'correct', 'added', 'chat', 'gym', 'gymDone', 'legends', 'calls', 'learn', 'roleplays', 'practiced']
+export const COUNTERS = ['xp', 'cards', 'correct', 'added', 'chat', 'gym', 'gymDone', 'legends', 'calls', 'learn', 'roleplays', 'practiced', 'bossWins', 'levelUps']
 
 // Daily goals, in XP. Minutes are the rough time at about a card a minute (10 XP each).
 export const GOALS = [
@@ -24,7 +25,11 @@ export const START_FREEZES = 1
 export const CHAT_XP_CAP = 20 // chat is worth something, but it must not out-earn studying
 
 // XP per event. Kept small and legible: a studied card is the unit (10 XP).
-export const XP = { card: 10, cardCorrect: 5, learn: 5, cardAdded: 3, chat: 1, gym: 5, gymDone: 10, legends: 20, call: 10, placement: 30, roleplay: 15, practiceDone: 10 }
+export const XP = { card: 10, cardCorrect: 5, learn: 5, cardAdded: 3, chat: 1, gym: 5, gymDone: 10, legends: 20, call: 10, placement: 30, roleplay: 15, practiceDone: 10, bossWin: 50, levelUp: 10 }
+// A Legends step is worth more further up the map: + LEGENDS_AREA_XP per area climbed, up to LEGENDS_AREA_CAP areas.
+export const LEGENDS_AREA_XP = 5
+export const LEGENDS_AREA_CAP = 6
+export const LEVEL_UP_CAP = 3 // whole learner levels paid for at once (a placement-sized jump is not an XP windfall)
 
 // ─── Dates (LOCAL days, like Anki's) ───────────────────────────────────────────
 export const dateKey = (d = new Date()) => {
@@ -71,7 +76,9 @@ export function eventDelta(kind, opts = {}, today = {}) {
     case 'chat': return { chat: 1, xp: (Number(today.chat) || 0) < CHAT_XP_CAP ? XP.chat : 0 }
     case 'gym': return { gym: 1, xp: XP.gym }
     case 'gymDone': return { gymDone: 1, xp: XP.gymDone }
-    case 'legends': return { legends: 1, xp: XP.legends }
+    case 'legends': return { legends: 1, xp: XP.legends + LEGENDS_AREA_XP * Math.max(0, Math.min(LEGENDS_AREA_CAP, Math.round(Number(opts.area) || 0))) }
+    case 'bossWin': return { bossWins: 1, xp: XP.bossWin } // also earns a streak freeze (computeStreak)
+    case 'levelUp': { const k = Math.min(LEVEL_UP_CAP, n); return { levelUps: k, xp: XP.levelUp * k } }
     case 'call': return { calls: 1, xp: XP.call + XP.card * Math.max(0, Number(opts.cards) || 0) }
     case 'placement': return { xp: XP.placement }
     case 'roleplay': return { roleplays: 1, xp: XP.roleplay }
@@ -152,8 +159,8 @@ export function questProgress(id, totals) {
 
 // ─── Streak and freezes ────────────────────────────────────────────────────────
 // Any XP on a day keeps the streak ("do anything that earns XP today"); the goal is separate.
-// Freezes: start with one; finishing ALL of a day's quests earns one (hold at most two). A missed day
-// spends a freeze automatically if one is held, so the streak survives.
+// Freezes: start with one; finishing ALL of a day's quests earns one, and so does each Legends boss beaten (hold at
+// most two). A missed day spends a freeze automatically if one is held, so the streak survives.
 export function computeStreak(player, today = dateKey()) {
   const keys = Object.keys(player?.days || {}).filter((k) => k <= today && dayTotals(player, k).xp > 0).sort()
   const empty = { streak: 0, longest: 0, freezes: START_FREEZES, frozen: [], todayDone: false, first: null }
@@ -167,6 +174,7 @@ export function computeStreak(player, today = dateKey()) {
       longest = Math.max(longest, streak)
       const { quests } = dayMeta(player, d)
       if (quests && quests.length && quests.every((q) => questProgress(q, tot).done)) freezes = Math.min(MAX_FREEZES, freezes + 1)
+      if (tot.bossWins > 0) freezes = Math.min(MAX_FREEZES, freezes + tot.bossWins)
     } else if (d === today) {
       // Today isn't over: the streak stands until midnight.
     } else if (streak > 0 && freezes > 0) {

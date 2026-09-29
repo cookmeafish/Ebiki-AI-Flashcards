@@ -9,6 +9,7 @@ import { useFeatureCtx, useFocusHold } from '../registry'
 import { EVENTS } from '../events'
 import { ChunkyButton, EbiSays, ProgressBar } from '../ui'
 import { QuizRunner, pickCardItems, buildScenePrompt, parseScene, voiceFor, SCENE_ROLE, SCENE_MAX_TOKENS, readPracticeLog, recordPractice, recentTopics } from '../kit'
+import { learnerLevelLine } from '../kit/learnerStore'
 
 export const SCENES_FEATURE_ID = 'scenes'
 const ITEMS = 8
@@ -47,7 +48,7 @@ export default function SceneScreen({ onExit }) {
     try {
       const items = await pickCardItems(ctx, ITEMS, { due: DUE_ITEMS })
       const avoid = recentTopics(await readPracticeLog(ctx))
-      const { system, user } = buildScenePrompt(subject, items, { knowledge: subject.knowledge(KNOWLEDGE_CAP), theme: theme.trim(), avoid })
+      const { system, user } = buildScenePrompt(subject, items, { knowledge: subject.knowledge(KNOWLEDGE_CAP), theme: theme.trim(), avoid, level: await learnerLevelLine(ctx) })
       const s = parseScene(ai.json(await ai.call(system, user, { role: SCENE_ROLE, maxTokens: SCENE_MAX_TOKENS })), ai.clean)
       if (!s || s.lines.length < MIN_LINES) throw new Error(t('sc_bad'))
       setScene(s); setShown(1); setPhase('story')

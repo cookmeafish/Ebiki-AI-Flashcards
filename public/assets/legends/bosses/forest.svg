@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <circle cx="60" cy="42" r="34" fill="var(--lg-deep, #2e8b57)"/>
+  <circle cx="34" cy="34" r="16" fill="var(--lg-near, #5fb57a)"/>
+  <circle cx="86" cy="32" r="16" fill="var(--lg-near, #5fb57a)"/>
+  <circle cx="60" cy="18" r="16" fill="var(--lg-near, #5fb57a)"/>
+  <path d="M42 58 Q40 90 30 112 H90 Q80 90 78 58Z" fill="var(--lg-accent-deep, #8a5a2b)"/>
+  <path d="M30 112 Q22 104 14 110" stroke="var(--lg-accent-deep, #8a5a2b)" stroke-width="7" fill="none" stroke-linecap="round"/>
+  <path d="M90 112 Q98 104 106 110" stroke="var(--lg-accent-deep, #8a5a2b)" stroke-width="7" fill="none" stroke-linecap="round"/>
+  <path d="M44 70 Q28 62 22 48" stroke="var(--lg-accent-deep, #8a5a2b)" stroke-width="7" fill="none" stroke-linecap="round"/>
+  <path d="M76 70 Q92 62 98 48" stroke="var(--lg-accent-deep, #8a5a2b)" stroke-width="7" fill="none" stroke-linecap="round"/>
+  <ellipse cx="51" cy="76" rx="6" ry="7" fill="var(--lg-light, #ffffff)"/><ellipse cx="69" cy="76" rx="6" ry="7" fill="var(--lg-light, #ffffff)"/>
+  <circle cx="52" cy="78" r="3" fill="var(--lg-ink, #1d2230)"/><circle cx="70" cy="78" r="3" fill="var(--lg-ink, #1d2230)"/>
+  <path d="M44 66 l12 4 M76 66 l-12 4" stroke="var(--lg-ink, #1d2230)" stroke-width="3" stroke-linecap="round"/>
+  <path d="M52 94 Q60 88 68 94" stroke="var(--lg-ink, #1d2230)" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <circle cx="40" cy="28" r="4" fill="var(--lg-accent, #f2b441)"/><circle cx="78" cy="22" r="3.5" fill="var(--lg-accent, #f2b441)"/><circle cx="62" cy="40" r="3" fill="var(--lg-accent, #f2b441)"/>
+</svg>

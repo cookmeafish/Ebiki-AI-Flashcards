@@ -377,6 +377,8 @@ try {
   $code = $LASTEXITCODE
   Pop-Location
   if ($code -ne 0) { throw (Tr 'ln_inst_depsFailed') }
+  # Record what was installed (the postinstall hook does too; this runs after npm has finished writing the lockfile).
+  try { & node (Join-Path $app 'scripts\deps-fingerprint.mjs') --stamp 2>$null | Out-Null } catch { }
   Ok (Tr 'ln_inst_depsDone')
 
   # 6) Shortcuts (Desktop + Start Menu) with the Ebi icon --------------------
