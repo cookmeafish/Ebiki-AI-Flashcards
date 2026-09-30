@@ -1,83 +1,275 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
-  <!-- The Forge Titan. Phase 1: a walking furnace in riveted plate, one visor slit. Phase 2: the plate cracks and
-       magma shows through. Phase 3: the chest plate is gone, the molten core beats, the visor splits into a maw.
-       Stamps down from above on the entrance, fists first. -->
+  <!-- The Forge Titan. A hunched colossus of iron and bronze, seen from below, fists raised, a furnace for a heart,
+       a gear halo turning behind it. Phase 1: sealed armor, one burning visor slit, chained fists.
+       Phase 2: the armor cracks on molten veins, the chest bursts open on a spinning core, the chains snap, vents
+       blast steam. Phase 3: meltdown: the helm splits on a molten skull, the core goes white hot, the fists burn and
+       the halo becomes a ring of fire. Entrance: the fists slam down, the visor ignites, the core lights. -->
+  <!-- gear halo -->
+  <g transform="translate(60 44)">
+    <g>
+      <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;360" dur="24s" repeatCount="indefinite"/>
+      <circle r="47" fill="#2a1c12" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
+      <path d="M43.7 -5.3 L51.8 -4.7 L51.8 4.7 L43.7 5.3Z M42.4 11.9 L49.6 15.5 L46.1 24.1 L38.3 21.6Z M34.6 27.2 L39.9 33.3 L33.3 39.9 L27.2 34.6Z M21.6 38.3 L24.1 46.1 L15.5 49.6 L11.9 42.4Z M5.3 43.7 L4.7 51.8 L-4.7 51.8 L-5.3 43.7Z M-11.9 42.4 L-15.5 49.6 L-24.1 46.1 L-21.6 38.3Z M-27.2 34.6 L-33.3 39.9 L-39.9 33.3 L-34.6 27.2Z M-38.3 21.6 L-46.1 24.1 L-49.6 15.5 L-42.4 11.9Z M-43.7 5.3 L-51.8 4.7 L-51.8 -4.7 L-43.7 -5.3Z M-42.4 -11.9 L-49.6 -15.5 L-46.1 -24.1 L-38.3 -21.6Z M-34.6 -27.2 L-39.9 -33.3 L-33.3 -39.9 L-27.2 -34.6Z M-21.6 -38.3 L-24.1 -46.1 L-15.5 -49.6 L-11.9 -42.4Z M-5.3 -43.7 L-4.7 -51.8 L4.7 -51.8 L5.3 -43.7Z M11.9 -42.4 L15.5 -49.6 L24.1 -46.1 L21.6 -38.3Z M27.2 -34.6 L33.3 -39.9 L39.9 -33.3 L34.6 -27.2Z M38.3 -21.6 L46.1 -24.1 L49.6 -15.5 L42.4 -11.9Z" fill="#3d2a1a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+      <circle r="38" fill="none" stroke="#6b4520" stroke-width="3"/>
+      <path d="M0 -38 V38 M-38 0 H38 M-27 -27 L27 27 M-27 27 L27 -27" stroke="#6b4520" stroke-width="2.4" opacity="0.7"/>
+    </g>
+  </g>
+  <!-- heat glow behind the body -->
+  <g transform="translate(60 70)"><g>
+    <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.06;1" dur="1.8s" repeatCount="indefinite"/>
+    <ellipse rx="44" ry="34" fill="#ff8a1f" opacity="0.16"/>
+  </g></g>
+  <!-- phase 3: the halo becomes a ring of fire -->
+  <g class="lg-p3" style="display:none" transform="translate(60 44)">
+    <g>
+      <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-360" dur="6s" repeatCount="indefinite"/>
+      <path transform="rotate(0)" d="M-6 -44 C-8 -52 -3 -54 -2 -62 C1 -56 4 -58 5 -64 C8 -56 9 -50 6 -44Z" fill="#ff8a1f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"/>
+      <path transform="rotate(30)" d="M-6 -44 C-8 -52 -3 -54 -2 -62 C1 -56 4 -58 5 -64 C8 -56 9 -50 6 -44Z" fill="#ff8a1f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"/>
+      <path transform="rotate(60)" d="M-6 -44 C-8 -52 -3 -54 -2 -62 C1 -56 4 -58 5 -64 C8 -56 9 -50 6 -44Z" fill="#ff8a1f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"/>
+      <path transform="rotate(90)" d="M-6 -44 C-8 -52 -3 -54 -2 -62 C1 -56 4 -58 5 -64 C8 -56 9 -50 6 -44Z" fill="#ff8a1f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"/>
+      <path transform="rotate(120)" d="M-6 -44 C-8 -52 -3 -54 -2 -62 C1 -56 4 -58 5 -64 C8 -56 9 -50 6 -44Z" fill="#ff8a1f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"/>
+      <path transform="rotate(150)" d="M-6 -44 C-8 -52 -3 -54 -2 -62 C1 -56 4 -58 5 -64 C8 -56 9 -50 6 -44Z" fill="#ff8a1f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"/>
+      <path transform="rotate(180)" d="M-6 -44 C-8 -52 -3 -54 -2 -62 C1 -56 4 -58 5 -64 C8 -56 9 -50 6 -44Z" fill="#ff8a1f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"/>
+      <path transform="rotate(210)" d="M-6 -44 C-8 -52 -3 -54 -2 -62 C1 -56 4 -58 5 -64 C8 -56 9 -50 6 -44Z" fill="#ff8a1f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"/>
+      <path transform="rotate(240)" d="M-6 -44 C-8 -52 -3 -54 -2 -62 C1 -56 4 -58 5 -64 C8 -56 9 -50 6 -44Z" fill="#ff8a1f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"/>
+      <path transform="rotate(270)" d="M-6 -44 C-8 -52 -3 -54 -2 -62 C1 -56 4 -58 5 -64 C8 -56 9 -50 6 -44Z" fill="#ff8a1f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"/>
+      <path transform="rotate(300)" d="M-6 -44 C-8 -52 -3 -54 -2 -62 C1 -56 4 -58 5 -64 C8 -56 9 -50 6 -44Z" fill="#ff8a1f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"/>
+      <path transform="rotate(330)" d="M-6 -44 C-8 -52 -3 -54 -2 -62 C1 -56 4 -58 5 -64 C8 -56 9 -50 6 -44Z" fill="#ff8a1f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"/>
+      <circle r="47" fill="none" stroke="#ffd36b" stroke-width="2.4" opacity="0.8"/>
+    </g>
+  </g>
+  <!-- the titan: breathes as one piece -->
   <g>
-    <animateTransform class="lg-in" attributeName="transform" type="translate" values="0 -130;0 -130;0 6;0 -3;0 0" keyTimes="0;.25;.6;.8;1" dur="1.5s" fill="freeze"/>
-    <!-- anvil shadow -->
-    <ellipse cx="60" cy="114" rx="40" ry="5" fill="#000" opacity="0.3"/>
-    <!-- legs -->
-    <path d="M40 92 L38 114 H52 L54 92Z M66 92 L68 114 H82 L80 92Z" fill="var(--lg-deep, #3b3f4a)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
-    <!-- torso -->
-    <path d="M28 44 L36 32 H84 L92 44 L88 94 H32Z" fill="var(--lg-near, #6b7280)" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2" stroke-linejoin="round"/>
-    <path d="M28 44 L36 32 H44 L40 94 H32Z" fill="#000" opacity="0.25"/>
-    <path d="M78 34 H84 L90 44 L86 90 H82Z" fill="#fff" opacity="0.15"/>
-    <g fill="#c9ced8" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5">
-      <circle cx="38" cy="40" r="1.4"/><circle cx="82" cy="40" r="1.4"/><circle cx="36" cy="88" r="1.4"/><circle cx="84" cy="88" r="1.4"/><circle cx="60" cy="90" r="1.4"/>
-    </g>
-    <!-- chest plate (phase 1 and 2) -->
-    <g class="lg-p12">
-      <path d="M44 48 H76 L72 78 H48Z" fill="var(--lg-far, #9aa3b2)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
-      <path d="M52 54 H68 M50 62 H70 M52 70 H68" stroke="var(--lg-ink, #1d2230)" stroke-width="1" opacity="0.5"/>
-      <circle cx="60" cy="62" r="4" fill="#ff7a1a" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
-    </g>
-    <!-- phase 2: magma cracks -->
-    <g class="lg-p2" style="display:none" fill="none" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M36 50 L44 58 L40 66 L46 74" stroke="#ff5a1f" stroke-width="2.4"/>
-      <path d="M84 52 L78 60 L82 70 L76 80" stroke="#ff5a1f" stroke-width="2.4"/>
-      <path d="M36 50 L44 58 L40 66 L46 74 M84 52 L78 60 L82 70 L76 80" stroke="#ffe066" stroke-width="0.8"/>
-    </g>
-    <!-- phase 3: the molten core -->
-    <g class="lg-p3" style="display:none">
-      <path d="M44 48 H76 L72 78 H48Z" fill="#2a0f07" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
-      <circle cx="60" cy="63" r="15" fill="#ff5a1f" opacity="0.35" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.2;1" dur="0.8s" repeatCount="indefinite"/></circle>
-      <circle cx="60" cy="63" r="9" fill="#ff7a1a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.12;1" dur="0.8s" repeatCount="indefinite"/></circle>
-      <circle cx="60" cy="63" r="4.5" fill="#ffe066"/>
-      <path d="M48 50 L54 56 M72 50 L66 56 M48 76 L54 70 M72 76 L66 70" stroke="#ffb627" stroke-width="1.4" stroke-linecap="round"/>
-    </g>
-    <!-- shoulders with vents -->
-    <path d="M18 40 C18 30 30 26 38 32 L36 50 C28 52 18 50 18 40Z M102 40 C102 30 90 26 82 32 L84 50 C92 52 102 50 102 40Z" fill="var(--lg-deep, #3b3f4a)" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
-    <g fill="#2a0f07"><rect x="22" y="36" width="10" height="2"/><rect x="22" y="41" width="10" height="2"/><rect x="88" y="36" width="10" height="2"/><rect x="88" y="41" width="10" height="2"/></g>
-    <!-- smoke from the vents -->
-    <g fill="#8a8f99" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4" opacity="0.8">
-      <circle cx="26" cy="28" r="3.5" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-6 -18" dur="2.2s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.2s" repeatCount="indefinite" additive="sum"/></circle>
-      <circle cx="94" cy="28" r="3.5" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -18" dur="2.6s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.6s" repeatCount="indefinite" additive="sum"/></circle>
-    </g>
-    <!-- arms and hammer fists -->
+    <animateTransform class="lg-in" attributeName="transform" type="translate" values="0 16;0 16;0 -3;0 0" keyTimes="0;.2;.5;1" dur="1.6s" fill="freeze"/>
     <g>
-      <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 24 46;-5 24 46;0 24 46" dur="1.9s" repeatCount="indefinite"/>
-      <path d="M18 48 L12 76 L22 78 L28 50Z" fill="var(--lg-near, #6b7280)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
-      <rect x="6" y="76" width="22" height="16" rx="3" fill="var(--lg-deep, #3b3f4a)" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
-      <path d="M10 80 H24 M10 86 H24" stroke="#c9ced8" stroke-width="0.8"/>
-    </g>
+      <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 1.6;0 0" dur="2.4s" repeatCount="indefinite"/>
+      <!-- torso -->
+      <path d="M28 52 L92 52 L102 124 L18 124Z" fill="#343a4a" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2" stroke-linejoin="round"/>
+      <path d="M28 52 L44 52 L38 124 L18 124Z" fill="#000" opacity="0.28"/>
+      <path d="M34 54 L86 54 L82 86 L60 96 L38 86Z" fill="#a8743a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
+      <path d="M34 54 L48 54 L46 88 L38 86Z" fill="#000" opacity="0.25"/>
+      <path d="M60 56 L60 94" stroke="#6b4520" stroke-width="1.2"/>
+      <path d="M26 100 H94 M24 112 H96" stroke="#566076" stroke-width="2" opacity="0.7"/>
+      <g fill="#ffd36b"><circle cx="38" cy="60" r="1"/><circle cx="82" cy="60" r="1"/><circle cx="42" cy="82" r="1"/><circle cx="78" cy="82" r="1"/></g>
+      <!-- phase 1: the chest grille glowing behind its bars -->
+      <g class="lg-p1">
+        <rect x="47" y="62" width="26" height="18" rx="2" fill="#2a0e04" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+        <g transform="translate(60 71)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.15;1" dur="1.2s" repeatCount="indefinite"/>
+          <rect x="-11" y="-7" width="22" height="14" fill="#ff8a1f" opacity="0.8"/><rect x="-6" y="-4" width="12" height="8" fill="#ffd36b"/></g></g>
+        <path d="M47 66 H73 M47 71 H73 M47 76 H73" stroke="#566076" stroke-width="2"/>
+      </g>
+      <!-- phase 2+: the grille burst open on a spinning furnace core -->
+      <g class="lg-p2" style="display:none">
+        <path d="M44 60 L50 58 L56 62 L64 57 L70 61 L76 59 L78 70 L75 82 L66 86 L58 83 L50 86 L44 78Z" fill="#2a0e04" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+        <g transform="translate(61 72)">
+          <circle r="12" fill="#ff8a1f" opacity="0.45"/>
+          <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;360" dur="1.4s" repeatCount="indefinite"/>
+            <circle r="8.5" fill="#ff8a1f" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+            <path d="M0 -8.5 V8.5 M-8.5 0 H8.5 M-6 -6 L6 6 M-6 6 L6 -6" stroke="#ffd36b" stroke-width="1.6"/>
+            <circle r="3.4" fill="#fff4d6"/></g>
+        </g>
+        <!-- molten veins through the cracked plates -->
+        <path d="M36 58 L40 66 L37 74 L41 84 M84 58 L80 68 L83 76 L79 86 M52 88 L56 94 L54 100 M70 90 L66 96 L69 104 M28 104 L36 108 L32 116 M92 104 L84 110 L90 118" fill="none" stroke="#ff8a1f" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+        <path d="M36 58 L40 66 L37 74 L41 84 M84 58 L80 68 L83 76 L79 86" fill="none" stroke="#ffd36b" stroke-width="0.6"/>
+      </g>
+      <!-- phase 3: the core goes white hot, energy rings spin -->
+      <g class="lg-p3" style="display:none" transform="translate(61 72)">
+        <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.25;1" dur="0.5s" repeatCount="indefinite"/>
+          <circle r="11" fill="#fff4d6" opacity="0.6"/><circle r="6" fill="#fff"/></g>
+        <g fill="none" stroke="#ffd36b" stroke-width="1.2">
+          <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;360" dur="1s" repeatCount="indefinite"/><ellipse rx="20" ry="6"/></g>
+          <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="60;-300" dur="1.3s" repeatCount="indefinite"/><ellipse rx="20" ry="6"/></g>
+        </g>
+      </g>
+      <!-- the two sides: shoulders, raised forearms and fists -->
+      <g>
+    <!-- pauldron -->
+    <path d="M-10 46 C-8 30 10 22 28 24 C40 26 46 34 46 46 L42 60 C30 55 12 57 -6 68Z" fill="#343a4a" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M-10 46 C-8 30 10 22 28 24 C14 28 4 38 2 58 L-6 68Z" fill="#000" opacity="0.28"/>
+    <path d="M-6 40 C0 30 14 26 28 27 C38 28 43 34 44 42" fill="none" stroke="#a8743a" stroke-width="2.6" stroke-linecap="round"/>
+    <path d="M-7 62 C8 54 26 53 43 58" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="5" stroke-linecap="round"/>
+    <path d="M-7 62 C8 54 26 53 43 58" fill="none" stroke="#a8743a" stroke-width="3" stroke-linecap="round"/>
+    <path d="M-4 58 C10 51 26 50 41 55" fill="none" stroke="#e0a860" stroke-width="0.7" opacity="0.7"/>
+    <path d="M-2 50 C4 44 12 44 18 44 M6 58 C12 50 22 48 34 50" fill="none" stroke="#566076" stroke-width="1" opacity="0.8"/>
+    <path d="M14 30 C22 27 32 27 40 32" fill="none" stroke="#8c97ad" stroke-width="1" opacity="0.6"/>
+    <path d="M2 30 L-2 14 L8 26 Z M14 25 L14 8 L21 24Z M26 24 L32 9 L33 26Z" fill="#a8743a" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+    <g fill="#ffd36b" opacity="0.9"><circle cx="8" cy="42" r="1"/><circle cx="20" cy="38" r="1"/><circle cx="32" cy="38" r="1"/><circle cx="38" cy="48" r="1"/></g>
+    <!-- smokestack vent on the shoulder -->
+    <path d="M30 26 L30 14 L38 14 L38 28Z" fill="#566076" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+    <path d="M29 14 H39" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
+    <!-- forearm rising to a raised fist -->
     <g>
-      <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 96 46;5 96 46;0 96 46" dur="2.1s" repeatCount="indefinite"/>
-      <path d="M102 48 L108 76 L98 78 L92 50Z" fill="var(--lg-near, #6b7280)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
-      <rect x="92" y="76" width="22" height="16" rx="3" fill="var(--lg-deep, #3b3f4a)" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
-      <path d="M96 80 H110 M96 86 H110" stroke="#c9ced8" stroke-width="0.8"/>
+      <animateTransform class="lg-in" attributeName="transform" type="rotate" values="-40 6 120;-40 6 120;8 6 120;0 6 120" keyTimes="0;.55;0.73;1" dur="1.6s" fill="freeze"/>
+      <path d="M-8 124 L2 80 L26 84 L22 124Z" fill="#343a4a" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M-8 124 L2 80 L10 82 L4 124Z" fill="#000" opacity="0.25"/>
+      <!-- bronze manacle on the wrist -->
+      <path d="M0 84 L27 87 L26 96 L-1 93Z" fill="#a8743a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+      <path d="M0 84 L7 85 L6 94 L-1 93Z" fill="#000" opacity="0.28"/>
+      <path d="M1 86.4 L26 89.2" stroke="#e0a860" stroke-width="0.8" opacity="0.7"/>
+      <g fill="#6b4520" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"><circle cx="5" cy="89.5" r="1.1"/><circle cx="13" cy="90.4" r="1.1"/><circle cx="21" cy="91.3" r="1.1"/></g>
+      <!-- phase 1: a heavy chain from the manacle down into the ground -->
+      <g class="lg-p1">
+        <path d="M12 93 L14 99 L10 99Z" fill="#566076" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+        <ellipse cx="12.0" cy="101.0" rx="2.6" ry="3.9" transform="rotate(-8 12.0 101.0)" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="3.2"/><ellipse cx="12.0" cy="101.0" rx="2.6" ry="3.9" transform="rotate(-8 12.0 101.0)" fill="none" stroke="#b9bfcb" stroke-width="1.6"/><path d="M12.6 101.0 V108.8" transform="rotate(-8 12.6 104.9)" stroke="var(--lg-ink, #1d2230)" stroke-width="3.4" stroke-linecap="round"/><path d="M12.6 101.3 V108.5" transform="rotate(-8 12.6 104.9)" stroke="#8d93a1" stroke-width="1.6" stroke-linecap="round"/><ellipse cx="13.1" cy="108.7" rx="2.6" ry="3.9" transform="rotate(-8 13.1 108.7)" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="3.2"/><ellipse cx="13.1" cy="108.7" rx="2.6" ry="3.9" transform="rotate(-8 13.1 108.7)" fill="none" stroke="#b9bfcb" stroke-width="1.6"/><path d="M13.7 108.7 V116.5" transform="rotate(-8 13.7 112.6)" stroke="var(--lg-ink, #1d2230)" stroke-width="3.4" stroke-linecap="round"/><path d="M13.7 109.0 V116.2" transform="rotate(-8 13.7 112.6)" stroke="#8d93a1" stroke-width="1.6" stroke-linecap="round"/><ellipse cx="14.3" cy="116.4" rx="2.6" ry="3.9" transform="rotate(-8 14.3 116.4)" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="3.2"/><ellipse cx="14.3" cy="116.4" rx="2.6" ry="3.9" transform="rotate(-8 14.3 116.4)" fill="none" stroke="#b9bfcb" stroke-width="1.6"/><path d="M14.9 116.4 V124.2" transform="rotate(-8 14.9 120.3)" stroke="var(--lg-ink, #1d2230)" stroke-width="3.4" stroke-linecap="round"/><path d="M14.9 116.7 V123.9" transform="rotate(-8 14.9 120.3)" stroke="#8d93a1" stroke-width="1.6" stroke-linecap="round"/><ellipse cx="15.4" cy="124.1" rx="2.6" ry="3.9" transform="rotate(-8 15.4 124.1)" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="3.2"/><ellipse cx="15.4" cy="124.1" rx="2.6" ry="3.9" transform="rotate(-8 15.4 124.1)" fill="none" stroke="#b9bfcb" stroke-width="1.6"/><path d="M16.0 124.1 V131.9" transform="rotate(-8 16.0 128.0)" stroke="var(--lg-ink, #1d2230)" stroke-width="3.4" stroke-linecap="round"/><path d="M16.0 124.4 V131.6" transform="rotate(-8 16.0 128.0)" stroke="#8d93a1" stroke-width="1.6" stroke-linecap="round"/>
+      </g>
+      <!-- phase 2+: the chain snapped, a broken length swings -->
+      <g class="lg-p2" style="display:none">
+        <path d="M12 93 L14 99 L10 99Z" fill="#566076" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+        <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-16 12 98;16 12 98;-16 12 98" dur="1.3s" repeatCount="indefinite"/>
+          <ellipse cx="12.0" cy="101.0" rx="2.6" ry="3.9" transform="rotate(-4 12.0 101.0)" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="3.2"/><ellipse cx="12.0" cy="101.0" rx="2.6" ry="3.9" transform="rotate(-4 12.0 101.0)" fill="none" stroke="#b9bfcb" stroke-width="1.6"/><path d="M12.3 101.8 V109.6" transform="rotate(-4 12.3 105.7)" stroke="var(--lg-ink, #1d2230)" stroke-width="3.4" stroke-linecap="round"/><path d="M12.3 102.1 V109.3" transform="rotate(-4 12.3 105.7)" stroke="#8d93a1" stroke-width="1.6" stroke-linecap="round"/><ellipse cx="12.7" cy="110.3" rx="2.6" ry="3.9" transform="rotate(-4 12.7 110.3)" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="3.2"/><ellipse cx="12.7" cy="110.3" rx="2.6" ry="3.9" transform="rotate(-4 12.7 110.3)" fill="none" stroke="#b9bfcb" stroke-width="1.6"/><path d="M13.0 111.1 V118.9" transform="rotate(-4 13.0 115.0)" stroke="var(--lg-ink, #1d2230)" stroke-width="3.4" stroke-linecap="round"/><path d="M13.0 111.4 V118.6" transform="rotate(-4 13.0 115.0)" stroke="#8d93a1" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="M11 117.6 L13.4 119.6 L11.6 121.4 L14.2 123" fill="none" stroke="#ffd36b" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+      </g>
+      <!-- the gauntlet fist: knuckle plates, curled fingers, thumb plate -->
+      <path d="M-2 60 C-3 54 2 51 8 51 L25 51 C31 51 33 57 31 63 L29 82 L1 82 C-3 77 -3 69 -2 60Z" fill="#343a4a" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2" stroke-linejoin="round"/>
+      <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.1" stroke-linejoin="round">
+        <path d="M-1 53.6 C-1 51 1 50 4 50 L7.4 50 L7.4 61 L-1.4 61Z" fill="#566076"/>
+        <path d="M7.4 50 L14.6 50 L14.6 61 L7.4 61Z" fill="#566076"/>
+        <path d="M14.6 50 L21.8 50 L21.8 61 L14.6 61Z" fill="#566076"/>
+        <path d="M21.8 50 L26 50 C29.6 50 31 52.4 30.6 55 L30 61 L21.8 61Z" fill="#566076"/>
+      </g>
+      <path d="M0 52 H29 M0.4 53.4 L0 60" fill="none" stroke="#8c97ad" stroke-width="0.8" opacity="0.8"/>
+      <!-- curled fingers, glowing seams between them -->
+      <path d="M-1.4 61 L30 61 L29.4 71 L-1.6 71Z" fill="#343a4a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1"/>
+      <path d="M7.4 61.6 V70.4 M14.6 61.6 V70.4 M21.8 61.6 V70.4" stroke="#ff8a1f" stroke-width="1.1"/>
+      <path d="M7.4 61.6 V70.4 M14.6 61.6 V70.4 M21.8 61.6 V70.4" stroke="#ffd36b" stroke-width="0.4"/>
+      <path d="M-1.4 61 L7.4 61 L7.4 71 L-1.6 71Z" fill="#000" opacity="0.22"/>
+      <!-- thumb plate across the front -->
+      <path d="M-1 71 L19 73 C22 73.4 22 78 19 78.6 L0 80Z" fill="#566076" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+      <path d="M1 73 L18 74.6" stroke="#8c97ad" stroke-width="0.7"/>
+      <!-- bronze knuckle spikes -->
+      <path d="M1.4 50 L3.6 41 L6 50Z M8.8 50 L11 40 L13.2 50Z M16 50 L18.2 40 L20.4 50Z M23.2 50 L25.6 42 L28 50.4Z" fill="#a8743a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+      <path d="M3.6 42.6 L4.6 49 M11 41.6 L12 49 M18.2 41.6 L19.2 49 M25.6 43.6 L26.6 49" stroke="#e0a860" stroke-width="0.6" opacity="0.8"/>
+      <!-- phase 3: the fist burns -->
+      <g class="lg-p3" style="display:none">
+        <g transform="translate(13 50)"><g>
+          <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.1 1.25;0.95 0.9;1 1" dur="0.5s" repeatCount="indefinite"/>
+          <path d="M-14 4 C-18 -8 -10 -12 -8 -22 C-4 -14 -2 -18 0 -30 C4 -18 8 -16 10 -24 C14 -14 18 -8 14 4Z" fill="#ff8a1f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round" opacity="0.95"/>
+          <path d="M-8 4 C-10 -4 -4 -8 -2 -14 C0 -8 4 -10 6 -14 C8 -6 10 -2 8 4Z" fill="#ffd36b"/>
+        </g></g>
+      </g>
+    </g></g>
+      <g transform="matrix(-1 0 0 1 120 0)">
+    <!-- pauldron -->
+    <path d="M-10 46 C-8 30 10 22 28 24 C40 26 46 34 46 46 L42 60 C30 55 12 57 -6 68Z" fill="#343a4a" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M-10 46 C-8 30 10 22 28 24 C14 28 4 38 2 58 L-6 68Z" fill="#000" opacity="0.28"/>
+    <path d="M-6 40 C0 30 14 26 28 27 C38 28 43 34 44 42" fill="none" stroke="#a8743a" stroke-width="2.6" stroke-linecap="round"/>
+    <path d="M-7 62 C8 54 26 53 43 58" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="5" stroke-linecap="round"/>
+    <path d="M-7 62 C8 54 26 53 43 58" fill="none" stroke="#a8743a" stroke-width="3" stroke-linecap="round"/>
+    <path d="M-4 58 C10 51 26 50 41 55" fill="none" stroke="#e0a860" stroke-width="0.7" opacity="0.7"/>
+    <path d="M-2 50 C4 44 12 44 18 44 M6 58 C12 50 22 48 34 50" fill="none" stroke="#566076" stroke-width="1" opacity="0.8"/>
+    <path d="M14 30 C22 27 32 27 40 32" fill="none" stroke="#8c97ad" stroke-width="1" opacity="0.6"/>
+    <path d="M2 30 L-2 14 L8 26 Z M14 25 L14 8 L21 24Z M26 24 L32 9 L33 26Z" fill="#a8743a" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+    <g fill="#ffd36b" opacity="0.9"><circle cx="8" cy="42" r="1"/><circle cx="20" cy="38" r="1"/><circle cx="32" cy="38" r="1"/><circle cx="38" cy="48" r="1"/></g>
+    <!-- smokestack vent on the shoulder -->
+    <path d="M30 26 L30 14 L38 14 L38 28Z" fill="#566076" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+    <path d="M29 14 H39" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
+    <!-- forearm rising to a raised fist -->
+    <g>
+      <animateTransform class="lg-in" attributeName="transform" type="rotate" values="-40 6 120;-40 6 120;8 6 120;0 6 120" keyTimes="0;.62;0.80;1" dur="1.6s" fill="freeze"/>
+      <path d="M-8 124 L2 80 L26 84 L22 124Z" fill="#343a4a" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M-8 124 L2 80 L10 82 L4 124Z" fill="#000" opacity="0.25"/>
+      <!-- bronze manacle on the wrist -->
+      <path d="M0 84 L27 87 L26 96 L-1 93Z" fill="#a8743a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+      <path d="M0 84 L7 85 L6 94 L-1 93Z" fill="#000" opacity="0.28"/>
+      <path d="M1 86.4 L26 89.2" stroke="#e0a860" stroke-width="0.8" opacity="0.7"/>
+      <g fill="#6b4520" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"><circle cx="5" cy="89.5" r="1.1"/><circle cx="13" cy="90.4" r="1.1"/><circle cx="21" cy="91.3" r="1.1"/></g>
+      <!-- phase 1: a heavy chain from the manacle down into the ground -->
+      <g class="lg-p1">
+        <path d="M12 93 L14 99 L10 99Z" fill="#566076" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+        <ellipse cx="12.0" cy="101.0" rx="2.6" ry="3.9" transform="rotate(-8 12.0 101.0)" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="3.2"/><ellipse cx="12.0" cy="101.0" rx="2.6" ry="3.9" transform="rotate(-8 12.0 101.0)" fill="none" stroke="#b9bfcb" stroke-width="1.6"/><path d="M12.6 101.0 V108.8" transform="rotate(-8 12.6 104.9)" stroke="var(--lg-ink, #1d2230)" stroke-width="3.4" stroke-linecap="round"/><path d="M12.6 101.3 V108.5" transform="rotate(-8 12.6 104.9)" stroke="#8d93a1" stroke-width="1.6" stroke-linecap="round"/><ellipse cx="13.1" cy="108.7" rx="2.6" ry="3.9" transform="rotate(-8 13.1 108.7)" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="3.2"/><ellipse cx="13.1" cy="108.7" rx="2.6" ry="3.9" transform="rotate(-8 13.1 108.7)" fill="none" stroke="#b9bfcb" stroke-width="1.6"/><path d="M13.7 108.7 V116.5" transform="rotate(-8 13.7 112.6)" stroke="var(--lg-ink, #1d2230)" stroke-width="3.4" stroke-linecap="round"/><path d="M13.7 109.0 V116.2" transform="rotate(-8 13.7 112.6)" stroke="#8d93a1" stroke-width="1.6" stroke-linecap="round"/><ellipse cx="14.3" cy="116.4" rx="2.6" ry="3.9" transform="rotate(-8 14.3 116.4)" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="3.2"/><ellipse cx="14.3" cy="116.4" rx="2.6" ry="3.9" transform="rotate(-8 14.3 116.4)" fill="none" stroke="#b9bfcb" stroke-width="1.6"/><path d="M14.9 116.4 V124.2" transform="rotate(-8 14.9 120.3)" stroke="var(--lg-ink, #1d2230)" stroke-width="3.4" stroke-linecap="round"/><path d="M14.9 116.7 V123.9" transform="rotate(-8 14.9 120.3)" stroke="#8d93a1" stroke-width="1.6" stroke-linecap="round"/><ellipse cx="15.4" cy="124.1" rx="2.6" ry="3.9" transform="rotate(-8 15.4 124.1)" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="3.2"/><ellipse cx="15.4" cy="124.1" rx="2.6" ry="3.9" transform="rotate(-8 15.4 124.1)" fill="none" stroke="#b9bfcb" stroke-width="1.6"/><path d="M16.0 124.1 V131.9" transform="rotate(-8 16.0 128.0)" stroke="var(--lg-ink, #1d2230)" stroke-width="3.4" stroke-linecap="round"/><path d="M16.0 124.4 V131.6" transform="rotate(-8 16.0 128.0)" stroke="#8d93a1" stroke-width="1.6" stroke-linecap="round"/>
+      </g>
+      <!-- phase 2+: the chain snapped, a broken length swings -->
+      <g class="lg-p2" style="display:none">
+        <path d="M12 93 L14 99 L10 99Z" fill="#566076" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+        <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-16 12 98;16 12 98;-16 12 98" dur="1.1s" repeatCount="indefinite"/>
+          <ellipse cx="12.0" cy="101.0" rx="2.6" ry="3.9" transform="rotate(-4 12.0 101.0)" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="3.2"/><ellipse cx="12.0" cy="101.0" rx="2.6" ry="3.9" transform="rotate(-4 12.0 101.0)" fill="none" stroke="#b9bfcb" stroke-width="1.6"/><path d="M12.3 101.8 V109.6" transform="rotate(-4 12.3 105.7)" stroke="var(--lg-ink, #1d2230)" stroke-width="3.4" stroke-linecap="round"/><path d="M12.3 102.1 V109.3" transform="rotate(-4 12.3 105.7)" stroke="#8d93a1" stroke-width="1.6" stroke-linecap="round"/><ellipse cx="12.7" cy="110.3" rx="2.6" ry="3.9" transform="rotate(-4 12.7 110.3)" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="3.2"/><ellipse cx="12.7" cy="110.3" rx="2.6" ry="3.9" transform="rotate(-4 12.7 110.3)" fill="none" stroke="#b9bfcb" stroke-width="1.6"/><path d="M13.0 111.1 V118.9" transform="rotate(-4 13.0 115.0)" stroke="var(--lg-ink, #1d2230)" stroke-width="3.4" stroke-linecap="round"/><path d="M13.0 111.4 V118.6" transform="rotate(-4 13.0 115.0)" stroke="#8d93a1" stroke-width="1.6" stroke-linecap="round"/>
+          <path d="M11 117.6 L13.4 119.6 L11.6 121.4 L14.2 123" fill="none" stroke="#ffd36b" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+      </g>
+      <!-- the gauntlet fist: knuckle plates, curled fingers, thumb plate -->
+      <path d="M-2 60 C-3 54 2 51 8 51 L25 51 C31 51 33 57 31 63 L29 82 L1 82 C-3 77 -3 69 -2 60Z" fill="#343a4a" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2" stroke-linejoin="round"/>
+      <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.1" stroke-linejoin="round">
+        <path d="M-1 53.6 C-1 51 1 50 4 50 L7.4 50 L7.4 61 L-1.4 61Z" fill="#566076"/>
+        <path d="M7.4 50 L14.6 50 L14.6 61 L7.4 61Z" fill="#566076"/>
+        <path d="M14.6 50 L21.8 50 L21.8 61 L14.6 61Z" fill="#566076"/>
+        <path d="M21.8 50 L26 50 C29.6 50 31 52.4 30.6 55 L30 61 L21.8 61Z" fill="#566076"/>
+      </g>
+      <path d="M0 52 H29 M0.4 53.4 L0 60" fill="none" stroke="#8c97ad" stroke-width="0.8" opacity="0.8"/>
+      <!-- curled fingers, glowing seams between them -->
+      <path d="M-1.4 61 L30 61 L29.4 71 L-1.6 71Z" fill="#343a4a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1"/>
+      <path d="M7.4 61.6 V70.4 M14.6 61.6 V70.4 M21.8 61.6 V70.4" stroke="#ff8a1f" stroke-width="1.1"/>
+      <path d="M7.4 61.6 V70.4 M14.6 61.6 V70.4 M21.8 61.6 V70.4" stroke="#ffd36b" stroke-width="0.4"/>
+      <path d="M-1.4 61 L7.4 61 L7.4 71 L-1.6 71Z" fill="#000" opacity="0.22"/>
+      <!-- thumb plate across the front -->
+      <path d="M-1 71 L19 73 C22 73.4 22 78 19 78.6 L0 80Z" fill="#566076" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+      <path d="M1 73 L18 74.6" stroke="#8c97ad" stroke-width="0.7"/>
+      <!-- bronze knuckle spikes -->
+      <path d="M1.4 50 L3.6 41 L6 50Z M8.8 50 L11 40 L13.2 50Z M16 50 L18.2 40 L20.4 50Z M23.2 50 L25.6 42 L28 50.4Z" fill="#a8743a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+      <path d="M3.6 42.6 L4.6 49 M11 41.6 L12 49 M18.2 41.6 L19.2 49 M25.6 43.6 L26.6 49" stroke="#e0a860" stroke-width="0.6" opacity="0.8"/>
+      <!-- phase 3: the fist burns -->
+      <g class="lg-p3" style="display:none">
+        <g transform="translate(13 50)"><g>
+          <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.1 1.25;0.95 0.9;1 1" dur="0.5s" repeatCount="indefinite"/>
+          <path d="M-14 4 C-18 -8 -10 -12 -8 -22 C-4 -14 -2 -18 0 -30 C4 -18 8 -16 10 -24 C14 -14 18 -8 14 4Z" fill="#ff8a1f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round" opacity="0.95"/>
+          <path d="M-8 4 C-10 -4 -4 -8 -2 -14 C0 -8 4 -10 6 -14 C8 -6 10 -2 8 4Z" fill="#ffd36b"/>
+        </g></g>
+      </g>
+    </g></g>
+      <!-- phase 2+: steam blasts from the vents -->
+      <g class="lg-p2" style="display:none" fill="#e8ecf2">
+        <g transform="translate(34 10)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-4 -14" dur="0.9s" repeatCount="indefinite"/><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.3;1.3;0.1" dur="0.9s" repeatCount="indefinite"/><circle r="5" opacity="0.8"/><circle cx="4" cy="-2" r="3.5" opacity="0.7"/></g></g></g>
+        <g transform="translate(86 10)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;4 -14" dur="1.1s" repeatCount="indefinite"/><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.3;1.3;0.1" dur="1.1s" repeatCount="indefinite"/><circle r="5" opacity="0.8"/><circle cx="4" cy="-2" r="3.5" opacity="0.7"/></g></g></g>
+      </g>
+      <!-- neck -->
+      <path d="M50 40 L70 40 L72 54 L48 54Z" fill="#1f232d" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+      <!-- phase 1-2: the crested helm with its burning visor slit -->
+      <g class="lg-p12">
+        <path d="M44 42 L42 26 C42 14 50 8 60 8 C70 8 78 14 78 26 L76 42 L60 50Z" fill="#566076" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M44 42 L42 26 C42 14 50 8 60 8 C52 12 48 22 50 46Z" fill="#000" opacity="0.28"/>
+        <path d="M57 10 L60 -8 L63 10Z" fill="#a8743a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+        <path d="M44 22 L28 10 L42 28Z M76 22 L92 10 L78 28Z" fill="#a8743a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+        <path d="M46 40 L52 34 L68 34 L74 40 L60 48Z" fill="#343a4a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+        <path d="M52 38 V44 M56 37 V46 M60 37 V47 M64 37 V46 M68 38 V44" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9"/>
+        <!-- a heavy brow ridge, angled down to the middle -->
+        <path d="M43 20 L60 27 L77 20 L77 24 L60 31 L43 24Z" fill="#343a4a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+        <path d="M44 21 L60 27.6" stroke="#8c97ad" stroke-width="0.7" opacity="0.8"/>
+        <g fill="#a8743a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"><circle cx="47" cy="23.4" r="1"/><circle cx="73" cy="23.4" r="1"/></g>
+        <!-- the V visor slit under it -->
+        <path d="M45 25.6 L60 32 L75 25.6 L74 30 L60 36.4 L46 30Z" fill="#12060a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+        <g transform="translate(60 31)"><g>
+          <animateTransform class="lg-in" attributeName="transform" type="scale" values="0 1;0 1;1.2 1;1 1" keyTimes="0;.6;.78;1" dur="1.6s" fill="freeze"/>
+          <path d="M-17 -7 L0 0.6 L17 -7 L16 0 L0 7 L-16 0Z" fill="#ff8a1f" opacity="0.4"/>
+          <path d="M-13.4 -4.2 L0 1.6 L13.4 -4.2 L12.8 -1.4 L0 4.2 L-12.8 -1.4Z" fill="#ff8a1f"/>
+          <path d="M-9 -1.6 L-4 0.6 L-5 2 L-9.6 0Z M9 -1.6 L4 0.6 L5 2 L9.6 0Z" fill="#fff4d6"/>
+        </g></g>
+        <g fill="#ffd36b"><circle cx="46" cy="36" r="0.9"/><circle cx="74" cy="36" r="0.9"/></g>
+      </g>
+      <!-- phase 3: the helm split apart on a molten skull -->
+      <g class="lg-p3" style="display:none">
+        <path d="M40 44 L36 26 C36 16 42 10 50 8 L54 30 L48 48Z" fill="#566076" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M80 44 L84 26 C84 16 78 10 70 8 L66 30 L72 48Z" fill="#566076" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M40 22 L24 8 L38 28Z M80 22 L96 8 L82 28Z" fill="#a8743a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+        <g transform="translate(60 30) scale(1.25)">
+          <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.12;1" dur="0.6s" repeatCount="indefinite"/>
+            <ellipse rx="16" ry="20" fill="#ff8a1f" opacity="0.35"/></g>
+          <path d="M-10 -8 C-10 -18 10 -18 10 -8 L9 4 L4 8 L-4 8 L-9 4Z" fill="#3a1206" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+          <path d="M-8 -8 L-2 -5 L-7 -2Z M8 -8 L2 -5 L7 -2Z" fill="#fff4d6"/>
+          <path d="M-8 -8 L-2 -5 L-7 -2Z M8 -8 L2 -5 L7 -2Z" fill="#ffd36b" opacity="0.5" transform="scale(1.4)"/>
+          <path d="M-7 4 L7 4 L5 16 L0 19 L-5 16Z" fill="#ff8a1f" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+          <path d="M-5 9 L5 9 L3 14 L0 16 L-3 14Z" fill="#fff4d6"/>
+          <path d="M-7 4 L-5.5 9 L-4 4 M-2 4 L-1 8 L0 4 L1 8 L2 4 M4 4 L5.5 9 L7 4" fill="#fff4d6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"/>
+          <path d="M-5 16 L-4 12 L-3 16 M3 16 L4 12 L5 16" fill="#fff4d6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"/>
+        </g>
+      </g>
     </g>
-    <!-- helm -->
-    <path d="M42 30 C42 14 50 8 60 8 C70 8 78 14 78 30 L74 36 H46Z" fill="var(--lg-deep, #3b3f4a)" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
-    <path d="M46 14 L40 4 L50 10Z M74 14 L80 4 L70 10Z" fill="#c9ced8" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
-    <path d="M48 12 C52 10 56 9 60 9 C54 12 50 16 49 22Z" fill="#fff" opacity="0.2"/>
-    <!-- visor: phase 1-2 one slit, phase 3 a burning maw -->
-    <g class="lg-p12">
-      <rect x="47" y="21" width="26" height="4" rx="1" fill="#1a0a05" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
-      <rect x="49" y="22" width="22" height="2" fill="#ff7a1a" style="transform-box:fill-box;transform-origin:center">
-        <animateTransform class="lg-in" attributeName="transform" type="scale" values="0 1;0 1;1 1" keyTimes="0;.7;1" dur="1.5s" fill="freeze"/>
-        <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1;1 0.2;1 1" keyTimes="0;.85;.9;1" dur="3.4s" begin="1.5s" repeatCount="indefinite" additive="sum"/>
-      </rect>
-    </g>
-    <g class="lg-p3" style="display:none">
-      <path d="M46 20 L74 20 L70 32 L50 32Z" fill="#1a0a05" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
-      <path d="M48 21 L51 25 L54 21 L57 25 L60 21 L63 25 L66 21 L69 25 L72 21" fill="none" stroke="#fff4e0" stroke-width="1.2" stroke-linejoin="round"/>
-      <path d="M51 31 L54 27 L57 31 L60 27 L63 31 L66 27 L69 31" fill="none" stroke="#fff4e0" stroke-width="1.2" stroke-linejoin="round"/>
-      <circle cx="53" cy="17" r="2" fill="#ffe066"/><circle cx="67" cy="17" r="2" fill="#ffe066"/>
-    </g>
-    <!-- sparks -->
-    <g fill="#ffd166">
-      <circle cx="30" cy="96" r="1.2" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-8 -10" dur="1.1s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.1s" repeatCount="indefinite" additive="sum"/></circle>
-      <circle cx="90" cy="96" r="1.2" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;8 -12" dur="1.3s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.3s" repeatCount="indefinite" additive="sum"/></circle>
-    </g>
+  </g>
+  <!-- embers rising -->
+  <g fill="#ffd36b">
+    <circle cx="20" cy="110" r="1.1" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;4 -60" dur="2.1s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" additive="sum" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.1s" repeatCount="indefinite"/></circle>
+    <circle cx="44" cy="118" r="0.9" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;4 -60" dur="1.7s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" additive="sum" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.7s" repeatCount="indefinite"/></circle>
+    <circle cx="76" cy="116" r="1.2" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-4 -60" dur="2.4s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" additive="sum" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.4s" repeatCount="indefinite"/></circle>
+    <circle cx="100" cy="108" r="1" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-4 -60" dur="1.9s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" additive="sum" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.9s" repeatCount="indefinite"/></circle>
+    <circle cx="60" cy="120" r="0.8" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-4 -60" dur="2.8s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" additive="sum" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.8s" repeatCount="indefinite"/></circle>
   </g>
 </svg>

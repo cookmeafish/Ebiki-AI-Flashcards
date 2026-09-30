@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
   <!-- The Dread Knight: hollow black armor, a horned great helm with a burning slit, spiked pauldrons, a raised cleaver. -->
   <!-- torn cape behind -->
-  <path d="M26 56 C18 76 16 98 8 120 L20 114 L28 120 L38 112 L48 120 H72 L82 112 L92 120 L100 114 L112 120 C104 98 102 76 94 56Z" fill="#7a0c20" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round">
+  <path style="transform-box:fill-box;transform-origin:center top" d="M26 56 C18 76 16 98 8 120 L20 114 L28 120 L38 112 L48 120 H72 L82 112 L92 120 L100 114 L112 120 C104 98 102 76 94 56Z" fill="#7a0c20" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round">
     <animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;2;0;-2;0" dur="4s" repeatCount="indefinite"/>
   </path>
   <!-- the cleaver: raised on the entrance -->
@@ -11,7 +11,7 @@
       <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 94 92;-3 94 92;0 94 92" dur="2.8s" begin="1.5s" repeatCount="indefinite"/>
       <path d="M96 88 L104 6 C112 10 118 24 116 40 L104 88Z" fill="#aeb6c4" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
       <path d="M104 6 C112 10 118 24 116 40 L108 42Z" fill="#fff" opacity="0.4"/>
-      <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linecap="round"><path d="M112 24 l3 -2 M110 36 l4 0 M109 50 l3 1"/></g>
+      <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linecap="round"><path d="M111 24 l2.2 -1.5 M110 36 l4 0 M109 50 l3 1"/></g>
       <path d="M100 60 L108 58" stroke="#b3122e" stroke-width="2" stroke-linecap="round"/>
       <rect x="92" y="86" width="16" height="5" rx="1.5" fill="#3a3340" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" transform="rotate(-8 100 88)"/>
       <path d="M97 92 L94 112" stroke="#3a3340" stroke-width="5" stroke-linecap="round"/>

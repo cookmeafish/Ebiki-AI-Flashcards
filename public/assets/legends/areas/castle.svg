@@ -21,8 +21,8 @@
   <g fill="#ffb347"><rect x="164" y="68" width="4" height="7" rx="2"/><rect x="236" y="68" width="4" height="7" rx="2"/><rect x="190" y="50" width="4" height="7" rx="2"/><rect x="208" y="50" width="4" height="7" rx="2"/></g>
   <!-- banners flapping -->
   <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.8">
-    <path d="M167 30 V18" stroke-width="1.2"/><path d="M167 18 H178 L175 22 L178 26 H167Z" fill="#b3122e"><animateTransform class="lg-loop" attributeName="transform" type="skewY" values="0;6;0;-6;0" dur="1.6s" repeatCount="indefinite"/></path>
-    <path d="M239 30 V18" stroke-width="1.2"/><path d="M239 18 H250 L247 22 L250 26 H239Z" fill="#b3122e"><animateTransform class="lg-loop" attributeName="transform" type="skewY" values="0;-6;0;6;0" dur="1.8s" repeatCount="indefinite"/></path>
+    <path d="M167 30 V18" stroke-width="1.2"/><path d="M167 18 H178 L175 22 L178 26 H167Z" fill="#b3122e" style="transform-box:fill-box;transform-origin:left center"><animateTransform class="lg-loop" attributeName="transform" type="skewY" values="0;6;0;-6;0" dur="1.6s" repeatCount="indefinite"/></path>
+    <path d="M239 30 V18" stroke-width="1.2"/><path d="M239 18 H250 L247 22 L250 26 H239Z" fill="#b3122e" style="transform-box:fill-box;transform-origin:left center"><animateTransform class="lg-loop" attributeName="transform" type="skewY" values="0;-6;0;6;0" dur="1.8s" repeatCount="indefinite"/></path>
   </g>
   <!-- the gate and the burning visor inside it -->
   <path d="M190 100 V78 C190 70 212 70 212 78 V100Z" fill="#0b0708" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>

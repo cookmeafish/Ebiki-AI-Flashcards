@@ -24,7 +24,7 @@
     <path d="M40 104 L42 70 L54 66 L56 104Z"/><path d="M66 104 L66 74 L78 72 L80 104Z"/><path d="M36 70 L84 66 L84 74 L36 78Z"/>
     <path d="M100 106 L102 82 L110 80 L112 106Z"/>
   </g>
-  <g fill="none" stroke="#e05555" stroke-width="1.6" stroke-linecap="round"><path d="M44 84 l6 10 M47 82 l6 10 M50 80 l6 10"/></g>
+  <g fill="none" stroke="#e05555" stroke-width="1.6" stroke-linecap="round"><path d="M43 84 l5.5 9 M46 82 l5.5 9 M49 80 l5 8.5"/></g>
   <!-- the ruined cottage -->
   <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
     <path d="M320 112 V88 L334 76 L346 84 L352 80 L360 90 V112Z" fill="#8a7a6a"/>

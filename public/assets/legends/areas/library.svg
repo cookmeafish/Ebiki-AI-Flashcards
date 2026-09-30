@@ -48,10 +48,10 @@
   <!-- floating books, flapping -->
   <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round">
     <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -6;0 0" dur="3s" repeatCount="indefinite"/>
-      <path d="M124 40 L134 36 V48 L124 52Z" fill="#b3122e"><animateTransform class="lg-loop" attributeName="transform" type="skewY" values="0;-12;0" dur="0.6s" repeatCount="indefinite"/></path>
+      <path d="M124 40 L134 36 V48 L124 52Z" fill="#b3122e" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="skewY" values="0;-12;0" dur="0.6s" repeatCount="indefinite"/></path>
       <path d="M134 36 L144 40 V52 L134 48Z" fill="#8a1026"/></g>
     <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-6 -4;0 0" dur="3.6s" repeatCount="indefinite"/>
-      <path d="M150 20 L158 17 V27 L150 30Z" fill="#2e6b8a"><animateTransform class="lg-loop" attributeName="transform" type="skewY" values="0;-12;0" dur="0.7s" repeatCount="indefinite"/></path>
+      <path d="M150 20 L158 17 V27 L150 30Z" fill="#2e6b8a" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="skewY" values="0;-12;0" dur="0.7s" repeatCount="indefinite"/></path>
       <path d="M158 17 L166 20 V30 L158 27Z" fill="#1e4a6a"/></g>
     <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;4 -8;0 0" dur="3.2s" repeatCount="indefinite"/>
       <path d="M226 30 L234 27 V37 L226 40Z" fill="#c9a441"/><path d="M234 27 L242 30 V40 L234 37Z" fill="#a8862a"/></g>

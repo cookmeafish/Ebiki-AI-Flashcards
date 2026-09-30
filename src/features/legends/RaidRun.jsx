@@ -13,8 +13,8 @@ import { QuizRunner, judgeStrike, recordReviews, recordPractice } from '../kit'
 import { learnerLevelLine } from '../kit/learnerStore'
 import { BossIntro, BossArena, BossEnd } from './BossArena'
 import { LegendsArt } from './art'
-import { newFight, strike, phaseOf, attackSlot, canAttack, raidRating, ATTACK_LIVES } from './fight'
-import { RAID, RAID_MOTIFS, todayKey, raidToday, applyRaidAttempt, raidOrder, shapeRaid } from './raid'
+import { newFight, strike, phaseOf, attackSlot, attackGapFor, canAttack, raidRating, ATTACK_LIVES, ABILITY } from './fight'
+import { RAID, RAID_MOTIFS, RAID_ABILITY, todayKey, raidToday, applyRaidAttempt, raidOrder, shapeRaid } from './raid'
 import { buildRaidPrompt, parseQuestions, RAID_ROLE, RAID_MAX_TOKENS } from './prompt'
 import { readRaid, updateRaid, LEGENDS_ID } from './store'
 
@@ -47,6 +47,7 @@ export default function RaidRun({ ctx, onExit }) {
   const need = day ? Math.max(1, day.hp - day.damage) : 1 // what is left of today's health
   const motif = raid ? RAID_MOTIFS[shapeRaid(raid).boss] : RAID_MOTIFS[0]
   const bossName = t(`lg_raidBoss_${motif}`)
+  const ability = RAID_ABILITY[motif] || ''
   const area = { id: `raid-${motif}`, title: t('lg_raidTitle'), motif, palette: 'night' }
 
   const load = async () => {
@@ -147,7 +148,7 @@ export default function RaidRun({ ctx, onExit }) {
   if (phase === 'intro') {
     return (
       <div style={{ display: 'grid', gap: 8 }}>
-        <BossIntro t={t} area={area} name={bossName} total={questions.length} kind="raids" raidLives={RAID.lives} calm={focus} onFight={() => setPhase('fight')} />
+        <BossIntro t={t} area={area} name={bossName} total={questions.length} kind="raids" raidLives={RAID.lives} ability={ability} calm={focus} onFight={() => setPhase('fight')} />
         <div style={{ maxWidth: 640, margin: '0 auto', textAlign: 'center', fontSize: 13.5, color: C.inkDim, lineHeight: 1.5 }}>
           {t('lg_raidRules', { n: questions.length, lives: RAID.lives })}{day?.damage ? ` ${t('lg_raidWounded', { hp: day.hp - day.damage, max: day.hp })}` : ''}
         </div>
@@ -187,17 +188,31 @@ export default function RaidRun({ ctx, onExit }) {
     const before = fsRef.current
     if (before.damage >= need || before.livesLost >= lives) return null
     const verdict = info.verdict || (correct ? 'clean' : 'miss')
-    const hit = { verdict, mode: info.mode === 'choice' ? 'choice' : 'typed', attack: !!q._attack }
-    if (!q._attack && q._cardId != null && !firstHit.current.has(q._cardId)) firstHit.current.set(q._cardId, { ...hit, q, answer })
-    let next = strike(before, hit)
+    const hit = { verdict, mode: info.mode === 'choice' ? 'choice' : 'typed', attack: !!q._attack, lastStand: !!q._lastStand, key: q._cardId }
+    if (!q._attack && !q._lastStand && q._cardId != null && !firstHit.current.has(q._cardId)) firstHit.current.set(q._cardId, { ...hit, q, answer })
+    // The phase BEFORE this answer, from the whole day's health (earlier attempts' wounds count).
+    const phaseNow = phaseOf(Math.max(0, dayHp - (before.damage + (day ? day.damage : 0))), dayHp, RAID.phases)
+    let next = strike(before, hit, { ability, phase: phaseNow, need })
+    const over = next.damage >= need || next.livesLost >= lives
+    // The Lich rises: every card still missed comes back, typed, right now (the last stand).
+    if (next.last?.rise && !over) {
+      const back = next.unredeemed.map((k) => questions.find((x) => String(x._cardId) === k)).filter(Boolean)
+      fsRef.current = next
+      setFs(next)
+      return back.length ? { insert: back.map((x) => ({ ...x, alt: undefined, _lastStand: true })), at: pos.current + 1 } : null
+    }
     let insert = null
-    if (!q._attack && !(next.damage >= need || next.livesLost >= lives) && canAttack(next)) {
-      const base = verdict === 'miss' ? { ...q, alt: undefined } : info.attackQ ? { kind: 'typed', prompt: info.attackQ.prompt, accepted: info.attackQ.accepted, exact: !!info.attackQ.exact, target: q.target } : null
+    let at = attackSlot(pos.current, Number.MAX_SAFE_INTEGER, attackGapFor(ability))
+    if (q._lastStand) {
+      // A missed last-stand card comes back once more (each miss costs a life, so this ends).
+      if (verdict === 'miss' && !over) { insert = { ...q }; at = pos.current + 2 }
+    } else if (!q._attack && !over && canAttack(next)) {
+      const base = verdict === 'miss' ? { ...q, alt: undefined } : info.attackQ ? { kind: 'typed', prompt: info.attackQ.prompt, accepted: info.attackQ.accepted, exact: !!info.attackQ.exact, target: q.target, _cardId: q._cardId } : null
       if (base) { insert = { ...base, _attack: true }; next = { ...next, attacks: next.attacks + 1 } }
     }
     fsRef.current = next
     setFs(next)
-    return insert ? { insert, at: attackSlot(pos.current, Number.MAX_SAFE_INTEGER) } : null
+    return insert ? { insert, at } : null
   }
   const judge = async (q, ans) => {
     const j = await judgeStrike(ai, subject, q, ans, { strictAccents: !subject.accents || subject.strictAccents !== false })
@@ -207,18 +222,28 @@ export default function RaidRun({ ctx, onExit }) {
       info: { verdict: j.verdict, attackQ: j.attack || null },
     }
   }
+  // One line under the strike label when the boss's ability applies to THIS question.
+  const abilityHint = (q, mode) => {
+    if (ability === 'plating' && fightPhase === 1 && mode === 'choice') return `🛡 ${t('lg_hint_plating')}`
+    if (ability === 'regrowth' && q._attack) return `✂ ${t('lg_hint_regrowth', { n: ABILITY.regrowthCut })}`
+    if (ability === 'singularity' && fightPhase >= 3) return `🌀 ${t('lg_hint_singularity', { n: ABILITY.singularityLives })}`
+    if (ability === 'heads' && !q._attack && fs.chain % ABILITY.tripleEvery === ABILITY.tripleEvery - 1) return `🔥 ${t('lg_hint_heads')}`
+    return ''
+  }
   const header = (q, mode) => (
     <div style={{ display: 'grid', gap: 6 }}>
+      {q._lastStand && <div role="alert" style={{ padding: '8px 12px', borderRadius: RADIUS.md, background: `color-mix(in srgb, ${C.purple} 14%, ${C.surface})`, border: `2px solid ${C.purple}`, color: C.purple, fontWeight: 900, fontSize: 14 }}>☠ {t('lg_lastStandQ')}</div>}
       {q._attack && <div role="alert" style={{ padding: '8px 12px', borderRadius: RADIUS.md, background: `color-mix(in srgb, ${C.danger} 14%, ${C.surface})`, border: `2px solid ${C.danger}`, color: C.danger, fontWeight: 900, fontSize: 14 }}>⚔️ {t('lg_attackIncoming', { n: ATTACK_LIVES })}</div>}
       <div style={{ fontSize: 12, fontWeight: 800, color: mode === 'choice' ? C.info : C.warning }}>
         {mode === 'choice' ? `🛡 ${t('lg_strikeSafeHint')}` : `💥 ${t('lg_strikePowerHint')}`}{fightPhase > 1 ? ` · 😡 ${t('lg_rageNoSafe')}` : ''}
       </div>
+      {abilityHint(q, mode) && <div style={{ fontSize: 12, fontWeight: 800, color: C.purple }}>{abilityHint(q, mode)}</div>}
     </div>
   )
   return (
     <div style={{ display: 'grid', gap: 12 }}>
       <div style={{ maxWidth: 680, width: '100%', margin: '0 auto', position: 'sticky', top: 0, zIndex: 5, paddingTop: 4, background: C.bg }}>
-        <BossArena t={t} area={area} name={bossName} need={dayHp} lives={lives} state={shown} phases={RAID.phases} focus={focus} getZoom={ctx.getZoom} kind="raids" />
+        <BossArena t={t} area={area} name={bossName} need={dayHp} lives={lives} state={shown} phases={RAID.phases} ability={ability} focus={focus} getZoom={ctx.getZoom} kind="raids" />
       </div>
       {outcome ? <BossEnd t={t} won={outcome === 'won'} onDone={save} /> : (
         <QuizRunner questions={questions} t={t} ai={ai} subject={subject} ctx={ctx} confirm={ctx.confirm}

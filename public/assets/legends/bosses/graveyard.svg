@@ -47,7 +47,7 @@
       <g fill="#1d2230"><circle cx="-2" cy="-0.5" r="1"/><circle cx="2" cy="-0.5" r="1"/></g>
     </g></g>
     <!-- bony hand on the staff -->
-    <g fill="#d9d3bf" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"><path d="M16 66 C20 62 26 64 26 68 L24 74 L18 74 L14 70Z"/><path d="M14 70 H26 M15 72 H25" fill="none"/></g>
+    <g fill="#d9d3bf" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"><path d="M16 66 C20 62 26 64 26 68 L24 74 L18 74 L14 70Z"/><path d="M15 70 H24.6 M17 72 H23.6" fill="none"/></g>
   </g>
   <!-- clawed hand casting soul-fire -->
   <g>

@@ -23,8 +23,8 @@
     <g stroke="var(--lg-ink, #1d2230)" stroke-width="2.4" stroke-linecap="round"><path d="M196 94 V26 M246 92 V20 M284 90 V40"/><path d="M186 40 H206 M234 32 H258 M276 50 H292" stroke-width="1.6"/></g>
     <!-- torn sails -->
     <g fill="#e8e4d4" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round" opacity="0.92">
-      <path d="M186 42 C190 54 190 66 186 78 L192 74 L196 80 L200 72 L206 78 C202 66 202 54 206 42Z"><animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;4;0" dur="3s" repeatCount="indefinite"/></path>
-      <path d="M234 34 C238 48 238 62 234 76 L240 70 L244 78 L250 70 L258 76 C254 62 254 48 258 34Z"><animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;4;0" dur="3.4s" repeatCount="indefinite"/></path>
+      <path d="M186 42 C190 54 190 66 186 78 L192 74 L196 80 L200 72 L206 78 C202 66 202 54 206 42Z" style="transform-box:fill-box;transform-origin:center top"><animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;4;0" dur="3s" repeatCount="indefinite"/></path>
+      <path d="M234 34 C238 48 238 62 234 76 L240 70 L244 78 L250 70 L258 76 C254 62 254 48 258 34Z" style="transform-box:fill-box;transform-origin:center top"><animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;4;0" dur="3.4s" repeatCount="indefinite"/></path>
       <path d="M276 52 C279 60 279 70 276 78 L282 74 L286 80 L292 78 C290 70 290 60 292 52Z"/>
     </g>
     <!-- jolly roger -->

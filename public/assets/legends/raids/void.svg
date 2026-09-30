@@ -1,74 +1,356 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
-  <!-- The Void Leviathan. Phase 1: a mass of night with one great eye and tendrils. Phase 2: more eyes tear open
-       across its body. Phase 3: its whole body splits into a starry maw of teeth. Unfolds from a single point of
-       light on the entrance. -->
-  <!-- starfield -->
+  <!-- The Void Leviathan. A mass of living night with one great eye, a black hole's burning disk behind it, starry
+       tentacles with toothed mouths. Phase 1: the great eye watches. Phase 2: it sees you: the body cracks and eyes
+       tear open everywhere, gravity rings pulse, more tentacles. Phase 3: singularity: the body splits into a colossal
+       maw of spiraling teeth around a star-core, a crown of eyes above it, shattered planets orbit, the disk blazes.
+       Entrance: it unfolds from a single point of light and the eye snaps open. -->
+  <!-- deep starfield -->
   <g fill="#fff">
-    <circle cx="14" cy="16" r="0.9"/><circle cx="104" cy="12" r="1.1"/><circle cx="98" cy="96" r="0.8"/><circle cx="18" cy="92" r="0.9"/>
-    <path d="M106 40 l1 2.4 l2.4 1 l-2.4 1 l-1 2.4 l-1 -2.4 l-2.4 -1 l2.4 -1Z" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.3;1" dur="1.8s" repeatCount="indefinite"/></path>
+    <circle cx="8" cy="10" r="0.7"/><circle cx="112" cy="8" r="0.9"/><circle cx="104" cy="104" r="0.7"/><circle cx="12" cy="98" r="0.8"/><circle cx="30" cy="4" r="0.6"/><circle cx="92" cy="22" r="0.6"/>
+    <path d="M106 37 l0.9 2.1 l2.1 0.9 l-2.1 0.9 l-0.9 2.1 l-0.9 -2.1 l-2.1 -0.9 l2.1 -0.9Z" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.2;1" dur="1.8s" repeatCount="indefinite"/></path><path d="M16 27 l0.9 2.1 l2.1 0.9 l-2.1 0.9 l-0.9 2.1 l-0.9 -2.1 l-2.1 -0.9 l2.1 -0.9Z" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.2;1" dur="2.3s" repeatCount="indefinite"/></path><path d="M88 107 l0.9 2.1 l2.1 0.9 l-2.1 0.9 l-0.9 2.1 l-0.9 -2.1 l-2.1 -0.9 l2.1 -0.9Z" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.2;1" dur="2.7s" repeatCount="indefinite"/></path>
   </g>
   <g style="transform-box:fill-box;transform-origin:center">
-    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.02;0.02;1.15;1" keyTimes="0;.25;.75;1" dur="1.6s" fill="freeze"/>
-    <!-- tendrils -->
-    <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="5" stroke-linecap="round">
-      <path d="M36 84 C26 96 22 104 12 110"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 36 84;8 36 84;0 36 84" dur="2.2s" repeatCount="indefinite"/></path>
-      <path d="M84 84 C94 96 98 104 108 110"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 84 84;-8 84 84;0 84 84" dur="2.5s" repeatCount="indefinite"/></path>
-      <path d="M50 92 C48 104 44 110 40 118"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 50 92;6 50 92;0 50 92" dur="1.9s" repeatCount="indefinite"/></path>
-      <path d="M72 92 C74 104 78 110 82 118"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 72 92;-6 72 92;0 72 92" dur="2.1s" repeatCount="indefinite"/></path>
-    </g>
-    <g fill="none" stroke="#3a2066" stroke-width="3" stroke-linecap="round">
-      <path d="M36 84 C26 96 22 104 12 110"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 36 84;8 36 84;0 36 84" dur="2.2s" repeatCount="indefinite"/></path>
-      <path d="M84 84 C94 96 98 104 108 110"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 84 84;-8 84 84;0 84 84" dur="2.5s" repeatCount="indefinite"/></path>
-      <path d="M50 92 C48 104 44 110 40 118"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 50 92;6 50 92;0 50 92" dur="1.9s" repeatCount="indefinite"/></path>
-      <path d="M72 92 C74 104 78 110 82 118"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 72 92;-6 72 92;0 72 92" dur="2.1s" repeatCount="indefinite"/></path>
-    </g>
-    <!-- aura -->
-    <circle cx="60" cy="56" r="44" fill="#7b3dff" opacity="0.18" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.08;1" dur="2.6s" repeatCount="indefinite"/></circle>
-    <!-- body -->
-    <path d="M22 60 C18 30 40 12 60 12 C80 12 102 30 98 60 C96 80 82 96 60 96 C38 96 24 80 22 60Z" fill="#1a1030" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2"/>
-    <path d="M28 52 C28 30 44 18 60 16 C46 24 36 38 36 56 C36 72 44 84 54 92 C38 88 28 74 28 52Z" fill="#fff" opacity="0.06"/>
-    <g fill="#fff" opacity="0.7">
-      <circle cx="40" cy="40" r="0.8"/><circle cx="78" cy="30" r="1"/><circle cx="86" cy="62" r="0.8"/><circle cx="36" cy="72" r="1"/><circle cx="66" cy="84" r="0.8"/>
-    </g>
-    <!-- phase 1-2: the great eye -->
-    <g class="lg-p12">
-      <ellipse cx="60" cy="50" rx="18" ry="11" fill="#fff4e0" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8"/>
-      <g style="transform-box:fill-box;transform-origin:center">
-        <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-5 1;5 -1;0 0" dur="4s" repeatCount="indefinite"/>
-        <circle cx="60" cy="50" r="8" fill="#b01b62" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
-        <ellipse cx="60" cy="50" rx="2" ry="7" fill="#0b0514"/>
-        <circle cx="63" cy="46" r="1.6" fill="#fff"/>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.02;0.02;1.18;1" keyTimes="0;.2;.72;1" dur="1.6s" fill="freeze"/>
+    <!-- the accretion disk, back half (behind the body) -->
+    <g transform="translate(60 54) rotate(-14) scale(1 0.26)">
+      <circle r="60" fill="#ff9a3d" opacity="0.12"/>
+      <circle r="56" fill="none" stroke="#ff9a3d" stroke-width="7" opacity="0.55"/>
+      <circle r="47" fill="none" stroke="#9a5cff" stroke-width="5" opacity="0.6"/>
+      <g fill="none" stroke="#ffe0a8" stroke-width="2.6" stroke-linecap="round">
+        <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;360" dur="5s" repeatCount="indefinite"/>
+        <path d="M56 0 A56 56 0 0 1 20 52"/><path d="M-56 0 A56 56 0 0 1 -20 -52"/><path d="M0 -51 A51 51 0 0 1 36 -36"/>
       </g>
-      <!-- lids blink -->
-      <path d="M40 50 C44 36 76 36 80 50 C76 44 44 44 40 50Z" fill="#1a1030" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" style="transform-box:fill-box;transform-origin:center top">
-        <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1;1 2.4;1 1" keyTimes="0;.88;.93;1" dur="4.2s" repeatCount="indefinite"/>
-      </path>
     </g>
-    <!-- phase 2: more eyes tear open -->
+    <!-- phase 2+: gravity rings pulse outward -->
+    <g class="lg-p2" style="display:none" transform="translate(60 54)" fill="none" stroke="#9a5cff" stroke-width="1.4">
+      <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.6;1.35" dur="1.4s" begin="0s" repeatCount="indefinite"/><circle r="40" opacity="0.7"/></g><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.6;1.35" dur="1.4s" begin="0.7s" repeatCount="indefinite"/><circle r="40" opacity="0.7"/></g>
+    </g>
+    <!-- tentacles (phase 2 adds two more) -->
+    <g transform="translate(34 76)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 0 0;9 0 0;-4.5 0 0;0 0 0" dur="2.3s" repeatCount="indefinite"/>
+    <path d="M-2 0 C-10 8 -18 18 -30 24 C-36 27 -40 24 -40 20 C-30 16 -20 8 -10 -4Z" fill="#9a5cff" opacity="0.35" transform="scale(1.08)"/>
+    <path d="M-2 0 C-10 8 -18 18 -30 24 C-36 27 -40 24 -40 20 C-30 16 -20 8 -10 -4Z" fill="#120a24" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M-2 0 C-10 8 -18 18 -30 24 C-36 27 -40 24 -40 20 C-30 16 -20 8 -10 -4Z" fill="none" stroke="#9a5cff" stroke-width="0.9" opacity="0.9"/>
+    <path d="M-2 0 C-10 8 -18 18 -30 24 C-36 27 -40 24 -40 20 C-30 16 -20 8 -10 -4Z" fill="#2a1650" opacity="0.45" transform="translate(1.2 -1) scale(0.85)"/>
+    <g transform="translate(-38 21) rotate(30)">
+      <circle r="4.4" fill="#07030f" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+      <path d="M-3.4 -1.4 L-2.6 0.6 L-1.6 -1.6 L-0.8 0.8 L0 -1.8 L0.8 0.8 L1.6 -1.6 L2.6 0.6 L3.4 -1.4" fill="none" stroke="#f4ecff" stroke-width="0.8" stroke-linejoin="round"/>
+      <circle r="1" fill="#ff2e7a"/>
+    </g>
+  </g></g>
+    <g transform="translate(86 76)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 0 0;-9 0 0;4.5 0 0;0 0 0" dur="2.6s" repeatCount="indefinite"/>
+    <path d="M2 0 C10 8 18 18 30 24 C36 27 40 24 40 20 C30 16 20 8 10 -4Z" fill="#9a5cff" opacity="0.35" transform="scale(1.08)"/>
+    <path d="M2 0 C10 8 18 18 30 24 C36 27 40 24 40 20 C30 16 20 8 10 -4Z" fill="#120a24" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M2 0 C10 8 18 18 30 24 C36 27 40 24 40 20 C30 16 20 8 10 -4Z" fill="none" stroke="#9a5cff" stroke-width="0.9" opacity="0.9"/>
+    <path d="M2 0 C10 8 18 18 30 24 C36 27 40 24 40 20 C30 16 20 8 10 -4Z" fill="#2a1650" opacity="0.45" transform="translate(1.2 -1) scale(0.85)"/>
+    <g transform="translate(38 21) rotate(-30)">
+      <circle r="4.4" fill="#07030f" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+      <path d="M-3.4 -1.4 L-2.6 0.6 L-1.6 -1.6 L-0.8 0.8 L0 -1.8 L0.8 0.8 L1.6 -1.6 L2.6 0.6 L3.4 -1.4" fill="none" stroke="#f4ecff" stroke-width="0.8" stroke-linejoin="round"/>
+      <circle r="1" fill="#ff2e7a"/>
+    </g>
+  </g></g>
+    <g transform="translate(52 88)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 0 0;7 0 0;-3.5 0 0;0 0 0" dur="1.9s" repeatCount="indefinite"/>
+    <path d="M-4 0 C-6 14 -10 26 -18 36 C-20 39 -24 38 -24 35 C-18 26 -14 14 -12 0Z" fill="#9a5cff" opacity="0.35" transform="scale(1.08)"/>
+    <path d="M-4 0 C-6 14 -10 26 -18 36 C-20 39 -24 38 -24 35 C-18 26 -14 14 -12 0Z" fill="#120a24" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M-4 0 C-6 14 -10 26 -18 36 C-20 39 -24 38 -24 35 C-18 26 -14 14 -12 0Z" fill="none" stroke="#9a5cff" stroke-width="0.9" opacity="0.9"/>
+    <path d="M-4 0 C-6 14 -10 26 -18 36 C-20 39 -24 38 -24 35 C-18 26 -14 14 -12 0Z" fill="#2a1650" opacity="0.45" transform="translate(1.2 -1) scale(0.85)"/>
+    <g transform="translate(-22 36) rotate(10)">
+      <circle r="4.4" fill="#07030f" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+      <path d="M-3.4 -1.4 L-2.6 0.6 L-1.6 -1.6 L-0.8 0.8 L0 -1.8 L0.8 0.8 L1.6 -1.6 L2.6 0.6 L3.4 -1.4" fill="none" stroke="#f4ecff" stroke-width="0.8" stroke-linejoin="round"/>
+      <circle r="1" fill="#ff2e7a"/>
+    </g>
+  </g></g>
+    <g transform="translate(68 88)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 0 0;-7 0 0;3.5 0 0;0 0 0" dur="2.1s" repeatCount="indefinite"/>
+    <path d="M4 0 C6 14 10 26 18 36 C20 39 24 38 24 35 C18 26 14 14 12 0Z" fill="#9a5cff" opacity="0.35" transform="scale(1.08)"/>
+    <path d="M4 0 C6 14 10 26 18 36 C20 39 24 38 24 35 C18 26 14 14 12 0Z" fill="#120a24" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M4 0 C6 14 10 26 18 36 C20 39 24 38 24 35 C18 26 14 14 12 0Z" fill="none" stroke="#9a5cff" stroke-width="0.9" opacity="0.9"/>
+    <path d="M4 0 C6 14 10 26 18 36 C20 39 24 38 24 35 C18 26 14 14 12 0Z" fill="#2a1650" opacity="0.45" transform="translate(1.2 -1) scale(0.85)"/>
+    <g transform="translate(22 36) rotate(-10)">
+      <circle r="4.4" fill="#07030f" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+      <path d="M-3.4 -1.4 L-2.6 0.6 L-1.6 -1.6 L-0.8 0.8 L0 -1.8 L0.8 0.8 L1.6 -1.6 L2.6 0.6 L3.4 -1.4" fill="none" stroke="#f4ecff" stroke-width="0.8" stroke-linejoin="round"/>
+      <circle r="1" fill="#ff2e7a"/>
+    </g>
+  </g></g>
     <g class="lg-p2" style="display:none">
-      <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 0.1;1 1" keyTimes="0;.5;1" dur="3.1s" repeatCount="indefinite"/>
-        <ellipse cx="34" cy="38" rx="6" ry="3.6" fill="#fff4e0" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><circle cx="34" cy="38" r="2.4" fill="#b01b62"/><ellipse cx="34" cy="38" rx="0.7" ry="2.2" fill="#0b0514"/></g>
-      <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 0.1;1 1" keyTimes="0;.5;1" dur="2.7s" repeatCount="indefinite"/>
-        <ellipse cx="86" cy="36" rx="6" ry="3.6" fill="#fff4e0" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><circle cx="86" cy="36" r="2.4" fill="#b01b62"/><ellipse cx="86" cy="36" rx="0.7" ry="2.2" fill="#0b0514"/></g>
-      <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 0.1;1 1" keyTimes="0;.5;1" dur="3.5s" repeatCount="indefinite"/>
-        <ellipse cx="32" cy="66" rx="5" ry="3" fill="#fff4e0" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><circle cx="32" cy="66" r="2" fill="#b01b62"/></g>
-      <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 0.1;1 1" keyTimes="0;.5;1" dur="2.9s" repeatCount="indefinite"/>
-        <ellipse cx="88" cy="68" rx="5" ry="3" fill="#fff4e0" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><circle cx="88" cy="68" r="2" fill="#b01b62"/></g>
-      <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 0.1;1 1" keyTimes="0;.5;1" dur="3.8s" repeatCount="indefinite"/>
-        <ellipse cx="60" cy="22" rx="5" ry="3" fill="#fff4e0" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><circle cx="60" cy="22" r="2" fill="#b01b62"/></g>
+      <g transform="translate(26 48)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 0 0;8 0 0;-4 0 0;0 0 0" dur="1.7s" repeatCount="indefinite"/>
+    <path d="M0 0 C-10 -6 -22 -8 -34 -4 C-38 -3 -40 -7 -37 -9 C-24 -14 -12 -12 2 -8Z" fill="#9a5cff" opacity="0.35" transform="scale(1.08)"/>
+    <path d="M0 0 C-10 -6 -22 -8 -34 -4 C-38 -3 -40 -7 -37 -9 C-24 -14 -12 -12 2 -8Z" fill="#120a24" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M0 0 C-10 -6 -22 -8 -34 -4 C-38 -3 -40 -7 -37 -9 C-24 -14 -12 -12 2 -8Z" fill="none" stroke="#9a5cff" stroke-width="0.9" opacity="0.9"/>
+    <path d="M0 0 C-10 -6 -22 -8 -34 -4 C-38 -3 -40 -7 -37 -9 C-24 -14 -12 -12 2 -8Z" fill="#2a1650" opacity="0.45" transform="translate(1.2 -1) scale(0.85)"/>
+    <g transform="translate(-37 -6) rotate(80)">
+      <circle r="4.4" fill="#07030f" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+      <path d="M-3.4 -1.4 L-2.6 0.6 L-1.6 -1.6 L-0.8 0.8 L0 -1.8 L0.8 0.8 L1.6 -1.6 L2.6 0.6 L3.4 -1.4" fill="none" stroke="#f4ecff" stroke-width="0.8" stroke-linejoin="round"/>
+      <circle r="1" fill="#ff2e7a"/>
     </g>
-    <!-- phase 1-2: a thin mouth -->
-    <path class="lg-p12" d="M44 74 C52 80 68 80 76 74 L72 76 L68 73 L64 77 L60 73 L56 77 L52 73 L48 76Z" fill="#fff4e0" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
-    <!-- phase 3: the body splits into a maw -->
-    <g class="lg-p3" style="display:none">
-      <path d="M28 44 C40 30 80 30 92 44 C84 74 36 74 28 44Z" fill="#0b0514" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
-      <g fill="#fff" opacity="0.9"><circle cx="48" cy="52" r="0.9"/><circle cx="70" cy="48" r="1.1"/><circle cx="60" cy="60" r="0.8"/><circle cx="78" cy="56" r="0.7"/></g>
-      <path d="M30 45 L35 54 L39 44 L44 56 L48 42 L53 57 L57 41 L60 58 L63 41 L67 57 L72 42 L76 56 L81 44 L85 54 L90 45" fill="#fff4e0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
-      <g style="transform-box:fill-box;transform-origin:center">
-        <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.3;1" dur="0.9s" repeatCount="indefinite"/>
-        <circle cx="60" cy="24" r="6" fill="#ff2e7a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/><ellipse cx="60" cy="24" rx="1.5" ry="5" fill="#0b0514"/>
+  </g></g>
+      <g transform="translate(94 48)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 0 0;-8 0 0;4 0 0;0 0 0" dur="1.8s" repeatCount="indefinite"/>
+    <path d="M0 0 C10 -6 22 -8 34 -4 C38 -3 40 -7 37 -9 C24 -14 12 -12 -2 -8Z" fill="#9a5cff" opacity="0.35" transform="scale(1.08)"/>
+    <path d="M0 0 C10 -6 22 -8 34 -4 C38 -3 40 -7 37 -9 C24 -14 12 -12 -2 -8Z" fill="#120a24" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M0 0 C10 -6 22 -8 34 -4 C38 -3 40 -7 37 -9 C24 -14 12 -12 -2 -8Z" fill="none" stroke="#9a5cff" stroke-width="0.9" opacity="0.9"/>
+    <path d="M0 0 C10 -6 22 -8 34 -4 C38 -3 40 -7 37 -9 C24 -14 12 -12 -2 -8Z" fill="#2a1650" opacity="0.45" transform="translate(1.2 -1) scale(0.85)"/>
+    <g transform="translate(37 -6) rotate(-80)">
+      <circle r="4.4" fill="#07030f" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+      <path d="M-3.4 -1.4 L-2.6 0.6 L-1.6 -1.6 L-0.8 0.8 L0 -1.8 L0.8 0.8 L1.6 -1.6 L2.6 0.6 L3.4 -1.4" fill="none" stroke="#f4ecff" stroke-width="0.8" stroke-linejoin="round"/>
+      <circle r="1" fill="#ff2e7a"/>
+    </g>
+  </g></g>
+    </g>
+    <!-- thorn spines around the body -->
+    <g transform="translate(60 54)">
+      <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-3;3;-3" dur="5s" repeatCount="indefinite"/>
+        <path transform="rotate(-150)" d="M-5 -38 C-6 -48 -2 -56 2 -64 C1 -54 4 -46 5 -38Z" fill="#120a24" stroke="#9a5cff" stroke-width="1" stroke-linejoin="round"/><path transform="rotate(-124.5)" d="M-5 -38 C-6 -48 -2 -56 2 -64 C1 -54 4 -46 5 -38Z" fill="#120a24" stroke="#9a5cff" stroke-width="1" stroke-linejoin="round"/><path transform="rotate(-99)" d="M-5 -38 C-6 -48 -2 -56 2 -64 C1 -54 4 -46 5 -38Z" fill="#120a24" stroke="#9a5cff" stroke-width="1" stroke-linejoin="round"/><path transform="rotate(-73.5)" d="M-5 -38 C-6 -48 -2 -56 2 -64 C1 -54 4 -46 5 -38Z" fill="#120a24" stroke="#9a5cff" stroke-width="1" stroke-linejoin="round"/><path transform="rotate(-48)" d="M-5 -38 C-6 -48 -2 -56 2 -64 C1 -54 4 -46 5 -38Z" fill="#120a24" stroke="#9a5cff" stroke-width="1" stroke-linejoin="round"/><path transform="rotate(-22.5)" d="M-5 -38 C-6 -48 -2 -56 2 -64 C1 -54 4 -46 5 -38Z" fill="#120a24" stroke="#9a5cff" stroke-width="1" stroke-linejoin="round"/><path transform="rotate(3)" d="M-5 -38 C-6 -48 -2 -56 2 -64 C1 -54 4 -46 5 -38Z" fill="#120a24" stroke="#9a5cff" stroke-width="1" stroke-linejoin="round"/><path transform="rotate(28.5)" d="M-5 -38 C-6 -48 -2 -56 2 -64 C1 -54 4 -46 5 -38Z" fill="#120a24" stroke="#9a5cff" stroke-width="1" stroke-linejoin="round"/><path transform="rotate(54)" d="M-5 -38 C-6 -48 -2 -56 2 -64 C1 -54 4 -46 5 -38Z" fill="#120a24" stroke="#9a5cff" stroke-width="1" stroke-linejoin="round"/>
       </g>
-      <path d="M36 68 L40 76 L44 66 L48 78 L52 67 L56 79 L60 68 L64 79 L68 67 L72 78 L76 66 L80 76 L84 68" fill="#fff4e0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+    </g>
+    <!-- the body: a mass of living night -->
+    <g transform="translate(60 54)">
+      <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.04;1" dur="2.8s" repeatCount="indefinite"/>
+        <path d="M40.2 8.1 L36.2 17.1 L34.1 27.8 L23.5 31.1 L18.5 43.2 L6.1 37.5 L-3.4 42.9 L-13.2 39.9 L-24.5 38.9 L-29.5 28.4 L-36.3 21.1 L-38.4 11.2 L-45 1.9 L-38.2 -7.7 L-37.1 -17.5 L-29.5 -24 L-26.5 -35.1 L-16.5 -38.6 L-7.6 -46.4 L3.2 -40.9 L13.6 -40.8 L21.3 -33.8 L33.1 -31.9 L33.7 -19.5 L40.3 -11.7 L38 -1.6Z" fill="#120a24" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2" stroke-linejoin="round"/>
+        <path d="M29.5 12.5 L25.6 19.2 L22.2 27 L13.4 28 L7.7 37.2 L-1.1 30 L-9.4 32.7 L-16.9 29.5 L-25.6 26.8 L-27.8 17.7 L-31.3 10.5 L-31.9 2.7 L-35.5 -5.7 L-28.6 -12.1 L-25.6 -19.2 L-19 -23.2 L-15.1 -31.6 L-6.9 -33.3 L1.4 -38 L9.1 -31.7 L16.9 -29.5 L22.1 -23.1 L31.2 -19.9 L29.4 -9.9 L32.9 -2.7 L29.6 4.7Z" fill="#2a1650" opacity="0.28" transform="translate(-4 -5)"/>
+        <path d="M-30 18 C-20 34 20 34 30 18 C18 40 -18 40 -30 18Z" fill="#000" opacity="0.35"/>
+        <g fill="#fff" opacity="0.8"><circle cx="-24" cy="-16" r="0.8"/><circle cx="20" cy="-24" r="1"/><circle cx="28" cy="10" r="0.7"/><circle cx="-26" cy="14" r="0.9"/><circle cx="6" cy="28" r="0.7"/><circle cx="-8" cy="-30" r="0.6"/></g>
+      </g>
+    </g>
+    <!-- phase 2+: the body cracks, and eyes tear open everywhere -->
+    <g class="lg-p2" style="display:none">
+      <path d="M30 34 L38 40 L34 46 L42 52 M88 30 L80 38 L86 44 L78 50 M34 76 L42 72 L40 66 M86 76 L78 72 L82 66 M60 16 L58 24 L62 28" fill="none" stroke="#ff2e7a" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+      <g transform="translate(36 30)"><g>
+    <ellipse rx="7.5" ry="5" fill="#ff2e7a" opacity="0.35"/>
+    <ellipse rx="5.5" ry="3" fill="#fff0f6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+    <path d="M-5.5 0 C-2.8 -1 -1.8 1 -1.1 0 M5.5 0 C2.8 1 1.8 -1 1.1 0" fill="none" stroke="#ff7aa8" stroke-width="0.6"/>
+    <g>
+      <circle r="2.5" fill="#b01b62" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+      <circle r="1.8" fill="none" stroke="#ff2e7a" stroke-width="0.7"/>
+      <ellipse rx="0.5" ry="2.3" fill="#0b0514"/>
+      <circle cx="1.1" cy="-1.1" r="0.6" fill="#fff"/>
+    </g>
+    <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1;1 0.05;1 1" keyTimes="0;.9;.95;1" dur="2.9s" repeatCount="indefinite"/>
+      <path d="M-6.5 0 C-3.7 -4.3 3.7 -4.3 6.5 0 C3.7 -2.8 -3.7 -2.8 -6.5 0Z" fill="#120a24" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+    </g>
+  </g></g>
+      <g transform="translate(86 28)"><g>
+    <ellipse rx="7" ry="4.8" fill="#ff2e7a" opacity="0.35"/>
+    <ellipse rx="5" ry="2.8" fill="#fff0f6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+    <path d="M-5 0 C-2.5 -0.9 -1.7 0.9 -1 0 M5 0 C2.5 0.9 1.7 -0.9 1 0" fill="none" stroke="#ff7aa8" stroke-width="0.6"/>
+    <g>
+      <circle r="2.3" fill="#b01b62" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+      <circle r="1.6" fill="none" stroke="#ff2e7a" stroke-width="0.7"/>
+      <ellipse rx="0.5" ry="2.1" fill="#0b0514"/>
+      <circle cx="1" cy="-1" r="0.6" fill="#fff"/>
+    </g>
+    <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1;1 0.05;1 1" keyTimes="0;.9;.95;1" dur="3.3s" repeatCount="indefinite"/>
+      <path d="M-6 0 C-3.3 -3.9 3.3 -3.9 6 0 C3.3 -2.5 -3.3 -2.5 -6 0Z" fill="#120a24" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+    </g>
+  </g></g>
+      <g transform="translate(30 62)"><g>
+    <ellipse rx="6.5" ry="4.5" fill="#ff2e7a" opacity="0.35"/>
+    <ellipse rx="4.5" ry="2.5" fill="#fff0f6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+    <path d="M-4.5 0 C-2.3 -0.8 -1.5 0.8 -0.9 0 M4.5 0 C2.3 0.8 1.5 -0.8 0.9 0" fill="none" stroke="#ff7aa8" stroke-width="0.6"/>
+    <g>
+      <circle r="2.1" fill="#b01b62" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+      <circle r="1.5" fill="none" stroke="#ff2e7a" stroke-width="0.7"/>
+      <ellipse rx="0.4" ry="1.9" fill="#0b0514"/>
+      <circle cx="0.9" cy="-0.9" r="0.5" fill="#fff"/>
+    </g>
+    <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1;1 0.05;1 1" keyTimes="0;.9;.95;1" dur="2.6s" repeatCount="indefinite"/>
+      <path d="M-5.5 0 C-3 -3.5 3 -3.5 5.5 0 C3 -2.3 -3 -2.3 -5.5 0Z" fill="#120a24" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+    </g>
+  </g></g>
+      <g transform="translate(90 62)"><g>
+    <ellipse rx="6.5" ry="4.5" fill="#ff2e7a" opacity="0.35"/>
+    <ellipse rx="4.5" ry="2.5" fill="#fff0f6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+    <path d="M-4.5 0 C-2.3 -0.8 -1.5 0.8 -0.9 0 M4.5 0 C2.3 0.8 1.5 -0.8 0.9 0" fill="none" stroke="#ff7aa8" stroke-width="0.6"/>
+    <g>
+      <circle r="2.1" fill="#b01b62" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+      <circle r="1.5" fill="none" stroke="#ff2e7a" stroke-width="0.7"/>
+      <ellipse rx="0.4" ry="1.9" fill="#0b0514"/>
+      <circle cx="0.9" cy="-0.9" r="0.5" fill="#fff"/>
+    </g>
+    <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1;1 0.05;1 1" keyTimes="0;.9;.95;1" dur="3.7s" repeatCount="indefinite"/>
+      <path d="M-5.5 0 C-3 -3.5 3 -3.5 5.5 0 C3 -2.3 -3 -2.3 -5.5 0Z" fill="#120a24" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+    </g>
+  </g></g>
+      <g transform="translate(60 20)"><g>
+    <ellipse rx="6" ry="4.2" fill="#ff2e7a" opacity="0.35"/>
+    <ellipse rx="4" ry="2.2" fill="#fff0f6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+    <path d="M-4 0 C-2 -0.7 -1.3 0.7 -0.8 0 M4 0 C2 0.7 1.3 -0.7 0.8 0" fill="none" stroke="#ff7aa8" stroke-width="0.6"/>
+    <g>
+      <circle r="1.8" fill="#b01b62" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+      <circle r="1.3" fill="none" stroke="#ff2e7a" stroke-width="0.7"/>
+      <ellipse rx="0.4" ry="1.7" fill="#0b0514"/>
+      <circle cx="0.8" cy="-0.8" r="0.4" fill="#fff"/>
+    </g>
+    <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1;1 0.05;1 1" keyTimes="0;.9;.95;1" dur="3.1s" repeatCount="indefinite"/>
+      <path d="M-5 0 C-2.7 -3.1 2.7 -3.1 5 0 C2.7 -2 -2.7 -2 -5 0Z" fill="#120a24" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+    </g>
+  </g></g>
+      <g transform="translate(44 80)"><g>
+    <ellipse rx="5.5" ry="3.9" fill="#ff2e7a" opacity="0.35"/>
+    <ellipse rx="3.5" ry="1.9" fill="#fff0f6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+    <path d="M-3.5 0 C-1.8 -0.6 -1.2 0.6 -0.7 0 M3.5 0 C1.8 0.6 1.2 -0.6 0.7 0" fill="none" stroke="#ff7aa8" stroke-width="0.6"/>
+    <g>
+      <circle r="1.6" fill="#b01b62" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+      <circle r="1.2" fill="none" stroke="#ff2e7a" stroke-width="0.7"/>
+      <ellipse rx="0.3" ry="1.5" fill="#0b0514"/>
+      <circle cx="0.7" cy="-0.7" r="0.4" fill="#fff"/>
+    </g>
+    <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1;1 0.05;1 1" keyTimes="0;.9;.95;1" dur="2.4s" repeatCount="indefinite"/>
+      <path d="M-4.5 0 C-2.3 -2.8 2.3 -2.8 4.5 0 C2.3 -1.8 -2.3 -1.8 -4.5 0Z" fill="#120a24" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+    </g>
+  </g></g>
+      <g transform="translate(76 80)"><g>
+    <ellipse rx="5.5" ry="3.9" fill="#ff2e7a" opacity="0.35"/>
+    <ellipse rx="3.5" ry="1.9" fill="#fff0f6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+    <path d="M-3.5 0 C-1.8 -0.6 -1.2 0.6 -0.7 0 M3.5 0 C1.8 0.6 1.2 -0.6 0.7 0" fill="none" stroke="#ff7aa8" stroke-width="0.6"/>
+    <g>
+      <circle r="1.6" fill="#b01b62" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+      <circle r="1.2" fill="none" stroke="#ff2e7a" stroke-width="0.7"/>
+      <ellipse rx="0.3" ry="1.5" fill="#0b0514"/>
+      <circle cx="0.7" cy="-0.7" r="0.4" fill="#fff"/>
+    </g>
+    <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1;1 0.05;1 1" keyTimes="0;.9;.95;1" dur="3.5s" repeatCount="indefinite"/>
+      <path d="M-4.5 0 C-2.3 -2.8 2.3 -2.8 4.5 0 C2.3 -1.8 -2.3 -1.8 -4.5 0Z" fill="#120a24" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+    </g>
+  </g></g>
+    </g>
+    <!-- phase 1-2: the great eye and a thin grin -->
+    <g class="lg-p12">
+      <g transform="translate(60 50)">
+        <g><animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.05;1 0.05;1 1.3;1 1" keyTimes="0;.7;.85;1" dur="1.6s" fill="freeze"/><g>
+    <ellipse rx="21" ry="12.5" fill="#ff2e7a" opacity="0.35"/>
+    <ellipse rx="19" ry="10.5" fill="#fff0f6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+    <path d="M-19 0 C-9.5 -3.5 -6.3 3.5 -3.8 0 M19 0 C9.5 3.5 6.3 -3.5 3.8 0" fill="none" stroke="#ff7aa8" stroke-width="0.6"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-5 1;5 -1;0 0" dur="4.4s" repeatCount="indefinite"/>
+      <circle r="8.8" fill="#b01b62" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+      <circle r="6.3" fill="none" stroke="#ff2e7a" stroke-width="0.7"/>
+      <ellipse rx="1.9" ry="7.9" fill="#0b0514"/>
+      <circle cx="3.8" cy="-3.8" r="2.1" fill="#fff"/>
+    </g>
+    <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1;1 0.05;1 1" keyTimes="0;.9;.95;1" dur="4.6s" repeatCount="indefinite"/>
+      <path d="M-20 0 C-12.7 -14.9 12.7 -14.9 20 0 C12.7 -9.5 -12.7 -9.5 -20 0Z" fill="#120a24" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+    </g>
+  </g></g>
+      </g>
+      <!-- the glaring brow over the great eye -->
+      <path d="M35 45 L50 46 L60 49.5 L70 46 L85 45 C82 36 72 31 60 31 C48 31 38 36 35 45Z" fill="#190d30"/>
+      <path d="M36 44 L50 46 L60 49.5 L70 46 L84 44" fill="none" stroke="#9a5cff" stroke-width="1" stroke-linejoin="round"/>
+      <g transform="translate(60 78)">
+        <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.04 1.25;1 1" dur="1.9s" repeatCount="indefinite"/>
+          <path d="M-24 -6 C-14 -1 14 -1 24 -6 C20 6 10 12 0 12 C-10 12 -20 6 -24 -6Z" fill="#2a0718" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+          <path d="M-10 4 C-4 8 4 8 10 4 C6 9 -6 9 -10 4Z" fill="#ff2e7a" opacity="0.5"/>
+          <path d="M-21.2 -3.0 L-19 2.5 L-16.8 -3.0Z M-16.2 -3.3 L-14 3.2 L-11.8 -3.3Z M-11.2 -3.5 L-9 3.8 L-6.8 -3.5Z M-6.2 -3.8 L-4 4.5 L-1.7999999999999998 -3.8Z M-1.2000000000000002 -4.0 L1 4.9 L3.2 -4.0Z M3.8 -3.7 L6 4.2 L8.2 -3.7Z M8.8 -3.5 L11 3.6 L13.2 -3.5Z M13.8 -3.2 L16 2.9 L18.2 -3.2Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" stroke-linejoin="round"/>
+          <path d="M-18.5 5.4 L-16.5 1.4 L-14.5 5.4Z M-13.5 6.8 L-11.5 2.2 L-9.5 6.8Z M-8.5 8.2 L-6.5 3.0 L-4.5 8.2Z M-3.5 9.6 L-1.5 3.8 L0.5 9.6Z M1.5 9.0 L3.5 3.4 L5.5 9.0Z M6.5 7.6 L8.5 2.6 L10.5 7.6Z M11.5 6.2 L13.5 1.8 L15.5 6.2Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" stroke-linejoin="round"/>
+        </g>
+      </g>
+    </g>
+    <!-- phase 3: singularity: the body splits into a maw of spiraling teeth around a star-core -->
+    <g class="lg-p3" style="display:none">
+      <g transform="translate(60 56)">
+        <ellipse rx="30" ry="36" fill="#07030f" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
+        <ellipse rx="30" ry="36" fill="none" stroke="#ff2e7a" stroke-width="1.4"/>
+        <g transform="scale(0.818 1)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;360" dur="3s" repeatCount="indefinite"/>
+          <path transform="rotate(0) translate(0 -33)" d="M-2.4 0 L0 9.2 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(20) translate(0 -33)" d="M-2.4 0 L0 9.2 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(40) translate(0 -33)" d="M-2.4 0 L0 9.2 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(60) translate(0 -33)" d="M-2.4 0 L0 9.2 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(80) translate(0 -33)" d="M-2.4 0 L0 9.2 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(100) translate(0 -33)" d="M-2.4 0 L0 9.2 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(120) translate(0 -33)" d="M-2.4 0 L0 9.2 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(140) translate(0 -33)" d="M-2.4 0 L0 9.2 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(160) translate(0 -33)" d="M-2.4 0 L0 9.2 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(180) translate(0 -33)" d="M-2.4 0 L0 9.2 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(200) translate(0 -33)" d="M-2.4 0 L0 9.2 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(220) translate(0 -33)" d="M-2.4 0 L0 9.2 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(240) translate(0 -33)" d="M-2.4 0 L0 9.2 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(260) translate(0 -33)" d="M-2.4 0 L0 9.2 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(280) translate(0 -33)" d="M-2.4 0 L0 9.2 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(300) translate(0 -33)" d="M-2.4 0 L0 9.2 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(320) translate(0 -33)" d="M-2.4 0 L0 9.2 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(340) translate(0 -33)" d="M-2.4 0 L0 9.2 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/>
+        </g></g>
+        <g transform="scale(0.800 1)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-360" dur="2.2s" repeatCount="indefinite"/>
+          <path transform="rotate(0) translate(0 -25)" d="M-2.4 0 L0 7 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(25.7) translate(0 -25)" d="M-2.4 0 L0 7 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(51.4) translate(0 -25)" d="M-2.4 0 L0 7 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(77.1) translate(0 -25)" d="M-2.4 0 L0 7 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(102.9) translate(0 -25)" d="M-2.4 0 L0 7 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(128.6) translate(0 -25)" d="M-2.4 0 L0 7 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(154.3) translate(0 -25)" d="M-2.4 0 L0 7 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(180) translate(0 -25)" d="M-2.4 0 L0 7 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(205.7) translate(0 -25)" d="M-2.4 0 L0 7 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(231.4) translate(0 -25)" d="M-2.4 0 L0 7 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(257.1) translate(0 -25)" d="M-2.4 0 L0 7 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(282.9) translate(0 -25)" d="M-2.4 0 L0 7 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(308.6) translate(0 -25)" d="M-2.4 0 L0 7 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(334.3) translate(0 -25)" d="M-2.4 0 L0 7 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/>
+        </g></g>
+        <g transform="scale(0.765 1)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;360" dur="1.6s" repeatCount="indefinite"/>
+          <path transform="rotate(0) translate(0 -17)" d="M-2.4 0 L0 4.8 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(36) translate(0 -17)" d="M-2.4 0 L0 4.8 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(72) translate(0 -17)" d="M-2.4 0 L0 4.8 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(108) translate(0 -17)" d="M-2.4 0 L0 4.8 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(144) translate(0 -17)" d="M-2.4 0 L0 4.8 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(180) translate(0 -17)" d="M-2.4 0 L0 4.8 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(216) translate(0 -17)" d="M-2.4 0 L0 4.8 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(252) translate(0 -17)" d="M-2.4 0 L0 4.8 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(288) translate(0 -17)" d="M-2.4 0 L0 4.8 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/><path transform="rotate(324) translate(0 -17)" d="M-2.4 0 L0 4.8 L2.4 0Z" fill="#f4ecff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/>
+        </g></g>
+        <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.3;1" dur="0.6s" repeatCount="indefinite"/>
+          <circle r="10" fill="#ff2e7a" opacity="0.3"/><circle r="7" fill="#ffe0a8" opacity="0.6"/>
+          <path d="M0 -9 L1.6 -1.6 L9 0 L1.6 1.6 L0 9 L-1.6 1.6 L-9 0 L-1.6 -1.6Z" fill="#fff"/>
+          <circle r="2.6" fill="#fff"/></g>
+        <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-360" dur="3s" repeatCount="indefinite"/>
+          <path d="M0 -6 L1 -1 L6 0 L1 1 L0 6 L-1 1 L-6 0 L-1 -1Z" fill="#ffe0a8" transform="rotate(45)"/></g>
+      </g>
+      <!-- a crown of eyes above -->
+      <g transform="translate(34 20)"><g>
+    <ellipse rx="6.5" ry="4.5" fill="#ff2e7a" opacity="0.35"/>
+    <ellipse rx="4.5" ry="2.5" fill="#fff0f6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+    <path d="M-4.5 0 C-2.3 -0.8 -1.5 0.8 -0.9 0 M4.5 0 C2.3 0.8 1.5 -0.8 0.9 0" fill="none" stroke="#ff7aa8" stroke-width="0.6"/>
+    <g>
+      <circle r="2.1" fill="#b01b62" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+      <circle r="1.5" fill="none" stroke="#ff2e7a" stroke-width="0.7"/>
+      <ellipse rx="0.4" ry="1.9" fill="#0b0514"/>
+      <circle cx="0.9" cy="-0.9" r="0.5" fill="#fff"/>
+    </g>
+    <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1;1 0.05;1 1" keyTimes="0;.9;.95;1" dur="2.3s" repeatCount="indefinite"/>
+      <path d="M-5.5 0 C-3 -3.5 3 -3.5 5.5 0 C3 -2.3 -3 -2.3 -5.5 0Z" fill="#120a24" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+    </g>
+  </g></g>
+      <g transform="translate(46 12)"><g>
+    <ellipse rx="7" ry="4.8" fill="#ff2e7a" opacity="0.35"/>
+    <ellipse rx="5" ry="2.8" fill="#fff0f6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+    <path d="M-5 0 C-2.5 -0.9 -1.7 0.9 -1 0 M5 0 C2.5 0.9 1.7 -0.9 1 0" fill="none" stroke="#ff7aa8" stroke-width="0.6"/>
+    <g>
+      <circle r="2.3" fill="#b01b62" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+      <circle r="1.6" fill="none" stroke="#ff2e7a" stroke-width="0.7"/>
+      <ellipse rx="0.5" ry="2.1" fill="#0b0514"/>
+      <circle cx="1" cy="-1" r="0.6" fill="#fff"/>
+    </g>
+    <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1;1 0.05;1 1" keyTimes="0;.9;.95;1" dur="2.9s" repeatCount="indefinite"/>
+      <path d="M-6 0 C-3.3 -3.9 3.3 -3.9 6 0 C3.3 -2.5 -3.3 -2.5 -6 0Z" fill="#120a24" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+    </g>
+  </g></g>
+      <g transform="translate(60 9)"><g>
+    <ellipse rx="8" ry="5.3" fill="#ff2e7a" opacity="0.35"/>
+    <ellipse rx="6" ry="3.3" fill="#fff0f6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+    <path d="M-6 0 C-3 -1.1 -2 1.1 -1.2 0 M6 0 C3 1.1 2 -1.1 1.2 0" fill="none" stroke="#ff7aa8" stroke-width="0.6"/>
+    <g>
+      <circle r="2.8" fill="#b01b62" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+      <circle r="2" fill="none" stroke="#ff2e7a" stroke-width="0.7"/>
+      <ellipse rx="0.6" ry="2.5" fill="#0b0514"/>
+      <circle cx="1.2" cy="-1.2" r="0.7" fill="#fff"/>
+    </g>
+    <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1;1 0.05;1 1" keyTimes="0;.9;.95;1" dur="3.4s" repeatCount="indefinite"/>
+      <path d="M-7 0 C-4 -4.7 4 -4.7 7 0 C4 -3 -4 -3 -7 0Z" fill="#120a24" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+    </g>
+  </g></g>
+      <g transform="translate(74 12)"><g>
+    <ellipse rx="7" ry="4.8" fill="#ff2e7a" opacity="0.35"/>
+    <ellipse rx="5" ry="2.8" fill="#fff0f6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+    <path d="M-5 0 C-2.5 -0.9 -1.7 0.9 -1 0 M5 0 C2.5 0.9 1.7 -0.9 1 0" fill="none" stroke="#ff7aa8" stroke-width="0.6"/>
+    <g>
+      <circle r="2.3" fill="#b01b62" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+      <circle r="1.6" fill="none" stroke="#ff2e7a" stroke-width="0.7"/>
+      <ellipse rx="0.5" ry="2.1" fill="#0b0514"/>
+      <circle cx="1" cy="-1" r="0.6" fill="#fff"/>
+    </g>
+    <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1;1 0.05;1 1" keyTimes="0;.9;.95;1" dur="2.7s" repeatCount="indefinite"/>
+      <path d="M-6 0 C-3.3 -3.9 3.3 -3.9 6 0 C3.3 -2.5 -3.3 -2.5 -6 0Z" fill="#120a24" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+    </g>
+  </g></g>
+      <g transform="translate(86 20)"><g>
+    <ellipse rx="6.5" ry="4.5" fill="#ff2e7a" opacity="0.35"/>
+    <ellipse rx="4.5" ry="2.5" fill="#fff0f6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+    <path d="M-4.5 0 C-2.3 -0.8 -1.5 0.8 -0.9 0 M4.5 0 C2.3 0.8 1.5 -0.8 0.9 0" fill="none" stroke="#ff7aa8" stroke-width="0.6"/>
+    <g>
+      <circle r="2.1" fill="#b01b62" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+      <circle r="1.5" fill="none" stroke="#ff2e7a" stroke-width="0.7"/>
+      <ellipse rx="0.4" ry="1.9" fill="#0b0514"/>
+      <circle cx="0.9" cy="-0.9" r="0.5" fill="#fff"/>
+    </g>
+    <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1;1 0.05;1 1" keyTimes="0;.9;.95;1" dur="3.1s" repeatCount="indefinite"/>
+      <path d="M-5.5 0 C-3 -3.5 3 -3.5 5.5 0 C3 -2.3 -3 -2.3 -5.5 0Z" fill="#120a24" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+    </g>
+  </g></g>
+      <!-- shattered planets orbiting -->
+      <g transform="translate(60 56)">
+        <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;360" dur="4.5s" repeatCount="indefinite"/>
+          <path transform="translate(0 -52)" d="M-5 -2 L-2 -5 L4 -4 L5 2 L1 5 L-4 3Z" fill="#6b4ea8" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+          <path transform="translate(46 24)" d="M-3 -1 L0 -4 L4 -1 L2 3 L-2 3Z" fill="#ff9a3d" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"/>
+          <path transform="translate(-44 28)" d="M-4 0 L-1 -4 L4 -2 L3 3 L-2 4Z" fill="#3e7fb8" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"/>
+        </g>
+      </g>
+    </g>
+    <!-- the accretion disk, near half (in front of the body's lower edge) -->
+    <g transform="translate(60 54) rotate(-14) scale(1 0.26)">
+      <path d="M-56 0 A56 56 0 0 0 56 0" fill="none" stroke="#ff9a3d" stroke-width="7" opacity="0.85"/>
+      <path d="M-47 0 A47 47 0 0 0 47 0" fill="none" stroke="#9a5cff" stroke-width="4" opacity="0.8"/>
+    </g>
+    <!-- phase 3: the disk blazes -->
+    <g class="lg-p3" style="display:none" transform="translate(60 54) rotate(-14) scale(1 0.26)">
+      <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.06;1" dur="0.5s" repeatCount="indefinite"/>
+        <path d="M-58 0 A58 58 0 0 0 58 0" fill="none" stroke="#ffe0a8" stroke-width="5"/></g>
     </g>
   </g>
 </svg>

@@ -6,7 +6,7 @@ import { createRoot } from 'react-dom/client'
 import { PALETTE_CSS } from '../../src/config/palette'
 import { makeT } from '../../src/i18n'
 import { BossIntro } from '../../src/features/legends/BossArena'
-import { AreaArt, BossArt } from '../../src/features/legends/art'
+import { AreaArt, ArtLabels, BossArt } from '../../src/features/legends/art'
 import { MOTIFS, PALETTES } from '../../src/features/legends/map'
 import { CATALOG } from './catalog'
 
@@ -174,4 +174,4 @@ function Gallery() {
   )
 }
 
-createRoot(document.getElementById('root')).render(<Gallery />)
+createRoot(document.getElementById('root')).render(<ArtLabels.Provider value><Gallery /></ArtLabels.Provider>) // every drawing names its file

@@ -1,6 +1,6 @@
 // The fight rules: damage, attacks, combos, shields, phases, and that the OUTCOME decides a fight's pass.
 import { describe, it, expect } from 'vitest'
-import { newFight, strike, fightOutcome, phaseOf, weakTo, effortOf, raidRating, attackSlot, canAttack, DAMAGE, ATTACK_LIVES, MAX_ATTACKS, COMBO_EVERY } from './fight'
+import { newFight, strike, fightOutcome, phaseOf, weakTo, effortOf, raidRating, attackSlot, attackGapFor, canAttack, DAMAGE, ATTACK_LIVES, MAX_ATTACKS, COMBO_EVERY, ABILITY, ABILITIES } from './fight'
 import { bossOdds } from './BossArena'
 import { applyNodeResult, applyLegendaryResult, fightStars, itemTier, areaCodex, earnHelper, spendHelper, helperCount, HELPERS_MAX, logDay, JOURNEY_DAYS, parseAreaDetail, createMap, applyAreaDetail } from './map'
 
@@ -204,5 +204,87 @@ describe('map art comes from the shipped drawings', () => {
     expect(motifs[0]).toBe('forest')
     expect(new Set(motifs).size).toBe(motifs.length)
     for (const m of motifs) expect(MOTIFS).toContain(m)
+  })
+})
+
+describe('raid boss abilities', () => {
+  it('Hydra regrowth: a missed card returns sooner and cutting it deals ABILITY.regrowthCut', () => {
+    expect(attackSlot(4, 99, attackGapFor('regrowth'))).toBe(4 + 1 + ABILITY.regrowthGap)
+    expect(attackGapFor('')).toBe(attackSlot(0, 99) - 1)
+    const s = run([hit('miss', 'typed', { key: 1 }), hit('clean', 'typed', { attack: true, key: 1 })], { ability: 'regrowth' })
+    expect(s.damage).toBe(ABILITY.regrowthCut)
+    expect(s.last.fx).toBe('cut')
+    expect(run([hit('clean', 'typed', { attack: true })]).damage).toBe(DAMAGE.counter)
+  })
+  it('Titan plating: a right choice bounces off in phase 1 only; typed answers and misses are unchanged', () => {
+    const p1 = strike(newFight(), hit('clean', 'choice'), { ability: 'plating', phase: 1 })
+    expect(p1.damage).toBe(0)
+    expect(p1.livesLost).toBe(0)
+    expect(p1.last.fx).toBe('bounce')
+    expect(strike(newFight(), hit('clean', 'choice'), { ability: 'plating', phase: 2 }).damage).toBe(DAMAGE.choice)
+    expect(strike(newFight(), hit('clean'), { ability: 'plating', phase: 1 }).damage).toBe(DAMAGE.clean)
+    expect(strike(newFight(), hit('miss', 'choice'), { ability: 'plating', phase: 1 }).livesLost).toBe(1)
+  })
+  it('Chimera heads: every third right answer in a row triples, replacing the critical', () => {
+    const opts = { ability: 'heads' }
+    const s = run([hit('clean'), hit('clean'), hit('clean')], opts)
+    expect(s.damage).toBe(DAMAGE.clean * 2 + DAMAGE.clean * ABILITY.tripleFactor)
+    expect(s.crits).toBe(0)
+    expect(s.triples).toBe(1)
+    // a miss breaks the chain; a choice keeps it going
+    expect(run([hit('clean'), hit('miss'), hit('clean'), hit('clean')], opts).triples).toBe(0)
+    expect(run([hit('clean'), hit('clean', 'choice'), hit('clean')], opts).triples).toBe(1)
+  })
+  it('Void singularity: double damage and 2 lives per miss, only in phase 3', () => {
+    expect(strike(newFight(), hit('clean'), { ability: 'singularity', phase: 3 }).damage).toBe(DAMAGE.clean * ABILITY.singularityFactor)
+    expect(strike(newFight(), hit('miss'), { ability: 'singularity', phase: 3 }).livesLost).toBe(ABILITY.singularityLives)
+    expect(strike(newFight(), hit('clean'), { ability: 'singularity', phase: 2 }).damage).toBe(DAMAGE.clean)
+    expect(strike(newFight(), hit('miss'), { ability: 'singularity', phase: 2 }).livesLost).toBe(1)
+  })
+  describe('Lich phylactery', () => {
+    const opts = { ability: 'phylactery', need: 4 }
+    it('rises at 1 health while a missed card is unredeemed, and falls when it is answered right', () => {
+      let s = run([hit('miss', 'typed', { key: 7 }), hit('clean', 'typed', { key: 1 }), hit('clean', 'typed', { key: 2 })], opts)
+      expect(s.risen).toBe(true)
+      expect(s.last.rise).toBe(true)
+      expect(s.damage).toBe(3)
+      expect(fightOutcome(s, { need: 4, lives: 3 })).toBe('')
+      // ordinary answers no longer hurt it
+      s = strike(s, hit('clean', 'typed', { key: 3 }), opts)
+      expect(s.damage).toBe(3)
+      // a missed last stand costs one life and the card stays unredeemed
+      s = strike(s, hit('miss', 'typed', { key: 7, lastStand: true }), opts)
+      expect(s.livesLost).toBe(2)
+      expect(s.unredeemed).toEqual(['7'])
+      s = strike(s, hit('clean', 'typed', { key: 7, lastStand: true }), opts)
+      expect(s.unredeemed).toEqual([])
+      expect(fightOutcome(s, { need: 4, lives: 3 })).toBe('won')
+      expect(s.last.fx).toBe('shatter')
+    })
+    it('never rises when every miss was already redeemed', () => {
+      const s = run([hit('miss', 'typed', { key: 7 }), hit('clean', 'typed', { key: 7, attack: true }), hit('clean'), hit('clean')], opts)
+      expect(s.risen).toBe(false)
+      expect(fightOutcome(s, { need: 4, lives: 3 })).toBe('won')
+    })
+    it('a loss during the last stand never reads as a win (health stays at 1)', () => {
+      let s = run([hit('miss', 'typed', { key: 7 }), hit('clean'), hit('clean')], opts)
+      s = strike(s, hit('miss', 'typed', { key: 7, lastStand: true }), opts)
+      s = strike(s, hit('miss', 'typed', { key: 7, lastStand: true }), opts)
+      expect(fightOutcome(s, { need: 4, lives: 3 })).toBe('lost')
+      expect(s.damage).toBeLessThan(4)
+    })
+  })
+  it('every raid motif has an ability, an entrance of its own, and every ability has its texts', async () => {
+    const { RAID_MOTIFS, RAID_ABILITY } = await import('./raid')
+    const { ENTRANCES } = await import('./BossArena')
+    const { MOTIFS } = await import('./map')
+    const en = (await import('../../i18n/locales/en.js')).default
+    for (const m of RAID_MOTIFS) {
+      expect(ABILITIES).toContain(RAID_ABILITY[m])
+      expect(ENTRANCES[m], m).toBeTruthy()
+    }
+    const names = [...MOTIFS, ...RAID_MOTIFS].map((m) => ENTRANCES[m].name)
+    expect(new Set(names).size).toBe(names.length)
+    for (const a of ABILITIES) for (const k of [`lg_ability_${a}`, `lg_abilityDesc_${a}`]) expect(en[k], k).toBeTruthy()
   })
 })

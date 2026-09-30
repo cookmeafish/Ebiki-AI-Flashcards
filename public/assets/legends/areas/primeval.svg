@@ -22,8 +22,8 @@
     <path d="M360 112 C366 82 380 66 400 58 V112Z"/>
   </g>
   <g fill="var(--lg-near, #5fb57a)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8">
-    <path d="M40 112 C44 88 56 74 72 70 C62 86 58 100 60 112Z"><animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;-4;0" dur="3s" repeatCount="indefinite"/></path>
-    <path d="M340 112 C344 90 354 78 368 74 C360 88 356 100 358 112Z"><animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;4;0" dur="3.4s" repeatCount="indefinite"/></path>
+    <path d="M40 112 C44 88 56 74 72 70 C62 86 58 100 60 112Z" style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;-4;0" dur="3s" repeatCount="indefinite"/></path>
+    <path d="M340 112 C344 90 354 78 368 74 C360 88 356 100 358 112Z" style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;4;0" dur="3.4s" repeatCount="indefinite"/></path>
   </g>
   <!-- Tyrant Rex bursting out of the jungle, roaring -->
   <g>

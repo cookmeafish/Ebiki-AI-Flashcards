@@ -15,7 +15,7 @@
 // canUseChoices(q)         a typed question with `alt` choices may be answered with them instead (a safe strike)
 // header(q, mode)          a node above the question (the attack banner, the strike label)
 // tools(q, api)            a node beside Skip; api = { hint(text), phase, asChoice }
-// onAnswer's return value  { insert: question, at: index } puts a question into the run (the boss's attack); an
+// onAnswer's return value  { insert: question | [questions], at: index } puts questions into the run (the boss's attack); an
 //                          inserted question is marked `_extra` and, like a retry, never changes the score.
 // onAnswer(q, correct, answer, info)  info = { mode: 'typed'|'choice', skipped?, ...the judge's info }
 import { useEffect, useRef, useState } from 'react'
@@ -99,7 +99,11 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
     let got = null
     try { got = onAnswer?.(q, correct, answer, { mode: asChoice ? 'choice' : q.kind, ...info }) } catch { /* the feature's problem */ }
     // Inserted after the question on screen (never before it: the run's position must not jump).
-    if (got?.insert) setInserts((list) => [...list, { at: Math.max(idx + 1, Number.isInteger(got.at) ? got.at : idx + 1), q: { ...got.insert, _extra: true } }])
+    if (got?.insert) {
+      const at = Math.max(idx + 1, Number.isInteger(got.at) ? got.at : idx + 1)
+      const add = (Array.isArray(got.insert) ? got.insert : [got.insert]).map((x, i) => ({ at: at + i, q: { ...x, _extra: true } }))
+      setInserts((list) => [...list, ...add])
+    }
   }
 
   const check = async (skip = false) => {

@@ -57,7 +57,7 @@
     <path d="M0 118 Q20 110 40 118 T80 118 T120 118 T160 118 T200 118 T240 118 T280 118 T320 118 T360 118 T400 118 T440 118 V140 H0Z" fill="var(--lg-deep, #1f6f99)"/>
   </g>
   <!-- whirlpool -->
-  <g transform="translate(120 128)"><g>
+  <g transform="translate(120 114)"><g>
     <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-360" dur="6s" repeatCount="indefinite"/>
     <path d="M0 0 C10 -4 16 4 8 8 C-4 12 -16 2 -10 -8 C-2 -18 20 -12 22 2" fill="none" stroke="var(--lg-light, #ffffff)" stroke-width="1.6" stroke-linecap="round" opacity="0.8"/>
   </g></g>

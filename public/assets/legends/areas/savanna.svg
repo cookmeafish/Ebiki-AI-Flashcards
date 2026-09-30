@@ -52,7 +52,7 @@
   <path d="M0 104 C80 100 160 108 240 104 C300 100 360 106 400 104 V140 H0Z" fill="var(--lg-near, #d9a95a)"/>
   <!-- grass bending in the wind -->
   <g fill="none" stroke="#b8862a" stroke-width="1.6" stroke-linecap="round">
-    <g><animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;-10;0" dur="2s" repeatCount="indefinite"/>
+    <g style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;-10;0" dur="2s" repeatCount="indefinite"/>
       <path d="M20 132 C20 124 24 118 28 114 M26 132 C26 126 28 120 32 118 M90 128 C90 120 94 114 98 110 M96 128 C96 122 98 118 102 116 M300 130 C300 122 304 116 308 112 M306 130 C306 124 308 120 312 118 M360 134 C360 126 364 120 368 116"/>
     </g>
   </g>

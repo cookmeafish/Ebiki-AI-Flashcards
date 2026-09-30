@@ -1,66 +1,217 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
-  <!-- The Lich Sovereign. Phase 1: a skeletal king on a floating throne of bones, soul-green eyes, a phylactery
-       gem in his crown. Phase 2: the crown splits, souls circle him. Phase 3: the gem shatters and his skull ignites.
-       Rises out of a grave-mist, hovering up and settling. -->
-  <!-- mist -->
-  <g fill="#9cffc9" opacity="0.35" stroke="none">
-    <ellipse cx="40" cy="108" rx="26" ry="6"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 0;0 0" dur="4s" repeatCount="indefinite"/></ellipse>
-    <ellipse cx="82" cy="110" rx="24" ry="5"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-6 0;0 0" dur="4.6s" repeatCount="indefinite"/></ellipse>
-  </g>
-  <g>
-    <animateTransform class="lg-in" attributeName="transform" type="translate" values="0 60;0 60;0 -8;0 0" keyTimes="0;.2;.75;1" dur="1.7s" fill="freeze"/>
-    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -4;0 0" dur="3s" begin="1.7s" repeatCount="indefinite" additive="sum"/>
-    <!-- robe -->
-    <path d="M32 112 C30 84 36 58 46 46 H74 C84 58 90 84 88 112 C80 106 74 112 66 106 C60 112 54 106 48 112 C42 106 38 112 32 112Z" fill="var(--lg-deep, #2b2340)" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
-    <path d="M32 112 C30 86 36 62 46 48 C42 66 42 90 46 110Z" fill="#000" opacity="0.3"/>
-    <path d="M52 50 L60 60 L68 50" fill="none" stroke="#e8d27a" stroke-width="1.6"/>
-    <path d="M60 60 V104" stroke="#e8d27a" stroke-width="1.2" opacity="0.8"/>
-    <!-- ribcage in the robe's opening -->
-    <g stroke="#efe6cf" stroke-width="1.6" fill="none" stroke-linecap="round">
-      <path d="M52 66 C56 64 64 64 68 66"/><path d="M51 72 C56 70 64 70 69 72"/><path d="M52 78 C56 76 64 76 68 78"/>
-    </g>
-    <!-- claws holding a staff -->
-    <path d="M92 20 V112" stroke="#6b4a2b" stroke-width="3" stroke-linecap="round"/>
-    <path d="M86 18 C86 10 98 10 98 18 C98 24 86 24 86 18Z" fill="#101a14" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
-    <circle cx="92" cy="18" r="3.4" fill="#3dff8f" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.35;1" dur="1.2s" repeatCount="indefinite"/></circle>
-    <path d="M84 62 C88 58 94 60 94 64 L86 70Z" fill="#efe6cf" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
-    <path d="M36 64 C30 60 26 64 28 70 L36 72Z" fill="#efe6cf" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
-    <!-- skull -->
-    <path d="M44 32 C44 18 52 12 60 12 C68 12 76 18 76 32 C76 40 72 44 68 46 V52 H52 V46 C48 44 44 40 44 32Z" fill="#efe6cf" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
-    <path d="M44 32 C44 22 48 16 54 14 C50 20 48 28 50 40 C47 38 44 36 44 32Z" fill="#000" opacity="0.18"/>
-    <path d="M58 16 L56 24 L60 28" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
-    <path d="M50 28 C50 24 56 24 57 28 C57 33 50 33 50 28Z M63 28 C64 24 70 24 70 28 C70 33 63 33 63 28Z" fill="#101a14"/>
+  <!-- The Lich of the Sunless Crypt. A floating sorcerer-king: crown of black iron, a skull of green fire, a robe
+       that frays into wisps, a chained phylactery in one hand and a ram-skull staff in the other; a rune circle
+       turns behind him. Phase 1: in command. Phase 2: the dead rise: bony arms claw out of the ground, spectral
+       skulls circle him, the crown catches fire, the robe tears. Phase 3: soul storm: the phylactery cracks, his
+       skull splits and pours light, a giant screaming wraith looms behind him, a second rune ring turns.
+       Entrance: the rune circle spins up out of nothing, he rises and his eyes ignite. -->
+  <!-- phase 3: a giant wraith's hood looms around everything, eyes burning in the corners, claws reaching in -->
+  <g class="lg-p3" style="display:none">
     <g style="transform-box:fill-box;transform-origin:center">
-      <animateTransform class="lg-in" attributeName="transform" type="scale" values="0;0;1.6;1" keyTimes="0;.65;.85;1" dur="1.7s" fill="freeze"/>
-      <circle cx="53.5" cy="29" r="2.2" fill="#3dff8f"/><circle cx="66.5" cy="29" r="2.2" fill="#3dff8f"/>
-    </g>
-    <path d="M58 35 L60 38 L62 35Z" fill="#101a14"/>
-    <path d="M52 44 V50 M55 45 V51 M58 45 V51 M61 45 V51 M64 45 V51 M67 44 V50" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
-    <!-- crown: whole (phase 1), split (phase 2+) -->
-    <g class="lg-p1">
-      <path d="M44 20 L46 6 L52 14 L56 2 L60 12 L64 2 L68 14 L74 6 L76 20Z" fill="#e8b93a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
-      <path d="M57 14 L60 10 L63 14 L60 18Z" fill="#3dff8f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
-    </g>
-    <g class="lg-p2" style="display:none">
-      <path d="M42 20 L44 8 L50 14 L54 4 L57 16Z" fill="#e8b93a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round" transform="rotate(-10 50 20)"/>
-      <path d="M78 20 L76 8 L70 14 L66 4 L63 16Z" fill="#e8b93a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round" transform="rotate(10 70 20)"/>
-      <!-- circling souls -->
+      <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.03;0.99;1" dur="1.8s" repeatCount="indefinite"/>
+      <path d="M-20 130 L-18 60 C-18 16 18 -22 60 -22 C102 -22 138 16 138 60 L140 130 L118 130 L114 108 L120 88 L112 70 L116 48 C108 20 86 6 60 6 C34 6 12 20 4 48 L8 70 L0 88 L6 108 L2 130Z" fill="#58ffb0" opacity="0.26" stroke="#c8ffe6" stroke-width="1.2" stroke-linejoin="round"/>
+      <path d="M4 48 C12 20 34 6 60 6 C86 6 108 20 116 48 L122 40 C112 12 88 -6 60 -6 C32 -6 8 12 -2 40Z" fill="#58ffb0" opacity="0.28"/>
+      <!-- hollow slanted sockets and burning eyes -->
+      <path d="M-4 6 L30 18 L24 30 L-6 20Z M124 6 L90 18 L96 30 L126 20Z" fill="#06120d" stroke="#58ffb0" stroke-width="1" stroke-linejoin="round"/>
       <g>
-        <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 60 56;360 60 56" dur="5s" repeatCount="indefinite"/>
-        <path d="M20 56 C18 50 24 46 26 50 C28 54 24 60 20 56Z" fill="#9cffc9" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
-        <path d="M100 56 C102 50 96 46 94 50 C92 54 96 60 100 56Z" fill="#9cffc9" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
-        <path d="M60 100 C54 102 50 96 54 94 C58 92 64 96 60 100Z" fill="#9cffc9" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+        <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -0.8;0 0.4;0 0" dur="0.9s" repeatCount="indefinite"/>
+        <path d="M0 11 L24 19.6 L20 25 L-2 17.4Z M120 11 L96 19.6 L100 25 L122 17.4Z" fill="#c8ffe6" opacity="0.4"/>
+        <path d="M4 13.6 L21 19.8 L18.6 22.6 L3 17Z M116 13.6 L99 19.8 L101.4 22.6 L117 17Z" fill="#c8ffe6"/>
+        <path d="M12 17.4 L16 19 L15 20.4 Z M108 17.4 L104 19 L105 20.4Z" fill="#ffffff"/>
+      </g>
+      <!-- jagged spectral teeth along the hood's inner edge -->
+      <path d="M4 48 L10 52 L6 58 L12 62 L8 70 M116 48 L110 52 L114 58 L108 62 L112 70" fill="none" stroke="#c8ffe6" stroke-width="1.2" stroke-linejoin="round" opacity="0.8"/>
+    </g>
+    <g transform="">
+      <g style="transform-box:fill-box;transform-origin:left bottom">
+        <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-7;2;0" dur="2.9s" repeatCount="indefinite"/>
+        <path d="M-12 128 C-6 112 2 100 10 92 L18 94 C12 104 6 116 4 128Z" fill="#58ffb0" opacity="0.3" stroke="#c8ffe6" stroke-width="1"/>
+        <g fill="none" stroke="#c8ffe6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M11 93 C16 84 22 80 28 80 L31 84" stroke-width="2.2"/>
+          <path d="M13 95 C20 90 27 90 32 92 L34 97" stroke-width="2.2"/>
+          <path d="M13 99 C19 99 25 101 28 105 L28 110" stroke-width="2"/>
+          <path d="M10 92 C10 84 13 78 17 74 L21 76" stroke-width="1.8"/>
+        </g>
+        <path d="M31 84 L34 82 L32 88Z M34 97 L37 96 L34 101Z M28 110 L30 113 L26 113Z M21 76 L24 73 L23 79Z" fill="#c8ffe6"/>
+        <path d="M-4 124 C0 112 6 104 12 98" fill="none" stroke="#06120d" stroke-width="1" opacity="0.6"/>
       </g>
     </g>
-    <!-- phase 2 only: the gem hangs cracked -->
-    <path class="lg-p2" style="display:none" d="M57 14 L60 10 L63 14 L60 18Z M58.5 12.5 L61 16" fill="#3dff8f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
-    <!-- phase 3: the skull burns with soul-fire -->
-    <g class="lg-p3" style="display:none">
-      <path d="M44 22 C40 10 48 4 50 -2 C52 6 56 2 58 -4 C60 4 64 0 66 -4 C68 4 72 4 70 -2 C78 6 80 14 76 22Z" fill="#3dff8f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" opacity="0.9" style="transform-box:fill-box;transform-origin:center bottom">
-        <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1.2;1 0.95;1 1" dur="0.6s" repeatCount="indefinite"/>
-      </path>
-      <circle cx="53.5" cy="29" r="3.4" fill="#fff" opacity="0.8"/><circle cx="66.5" cy="29" r="3.4" fill="#fff" opacity="0.8"/>
-      <g fill="#bfffe0"><path d="M52 16 L56 8 L58 16Z"/><path d="M62 16 L66 6 L68 16Z"/></g>
+    <g transform="matrix(-1 0 0 1 120 0)">
+      <g style="transform-box:fill-box;transform-origin:left bottom">
+        <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-7;2;0" dur="2.3s" repeatCount="indefinite"/>
+        <path d="M-12 128 C-6 112 2 100 10 92 L18 94 C12 104 6 116 4 128Z" fill="#58ffb0" opacity="0.3" stroke="#c8ffe6" stroke-width="1"/>
+        <g fill="none" stroke="#c8ffe6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M11 93 C16 84 22 80 28 80 L31 84" stroke-width="2.2"/>
+          <path d="M13 95 C20 90 27 90 32 92 L34 97" stroke-width="2.2"/>
+          <path d="M13 99 C19 99 25 101 28 105 L28 110" stroke-width="2"/>
+          <path d="M10 92 C10 84 13 78 17 74 L21 76" stroke-width="1.8"/>
+        </g>
+        <path d="M31 84 L34 82 L32 88Z M34 97 L37 96 L34 101Z M28 110 L30 113 L26 113Z M21 76 L24 73 L23 79Z" fill="#c8ffe6"/>
+        <path d="M-4 124 C0 112 6 104 12 98" fill="none" stroke="#06120d" stroke-width="1" opacity="0.6"/>
+      </g>
     </g>
+  </g>
+  <!-- rune circle -->
+  <g transform="translate(60 50)">
+    <g>
+      <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.02;0.02;1.15;1" keyTimes="0;.05;.4;1" dur="1.6s" fill="freeze"/>
+      <g>
+        <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;360" dur="20s" repeatCount="indefinite"/>
+        <circle r="54" fill="#58ffb0" opacity="0.07"/>
+        <circle r="52" fill="none" stroke="#58ffb0" stroke-width="1.6" opacity="0.8"/>
+        <circle r="45" fill="none" stroke="#58ffb0" stroke-width="0.9" opacity="0.6"/>
+        <g fill="none" stroke="#58ffb0" stroke-width="0.8" stroke-linecap="round" opacity="0.9"><path transform="rotate(0) translate(0 -48.5) scale(1)" d="M-2 -2 L0 2 L2 -2"/><path transform="rotate(20) translate(0 -48.5) scale(1)" d="M-2 0 H2 M0 -2 V2"/><path transform="rotate(40) translate(0 -48.5) scale(1)" d="M-2 2 L0 -2 L2 2 M-1 0 H1"/><path transform="rotate(60) translate(0 -48.5) scale(1)" d="M-2 -2 H2 L-2 2 H2"/><path transform="rotate(80) translate(0 -48.5) scale(1)" d="M0 -2 V2 M-2 -1 L2 1"/><path transform="rotate(100) translate(0 -48.5) scale(1)" d="M-2 -2 L0 2 L2 -2"/><path transform="rotate(120) translate(0 -48.5) scale(1)" d="M-2 0 H2 M0 -2 V2"/><path transform="rotate(140) translate(0 -48.5) scale(1)" d="M-2 2 L0 -2 L2 2 M-1 0 H1"/><path transform="rotate(160) translate(0 -48.5) scale(1)" d="M-2 -2 H2 L-2 2 H2"/><path transform="rotate(180) translate(0 -48.5) scale(1)" d="M0 -2 V2 M-2 -1 L2 1"/><path transform="rotate(200) translate(0 -48.5) scale(1)" d="M-2 -2 L0 2 L2 -2"/><path transform="rotate(220.00000000000003) translate(0 -48.5) scale(1)" d="M-2 0 H2 M0 -2 V2"/><path transform="rotate(240) translate(0 -48.5) scale(1)" d="M-2 2 L0 -2 L2 2 M-1 0 H1"/><path transform="rotate(260) translate(0 -48.5) scale(1)" d="M-2 -2 H2 L-2 2 H2"/><path transform="rotate(280) translate(0 -48.5) scale(1)" d="M0 -2 V2 M-2 -1 L2 1"/><path transform="rotate(300) translate(0 -48.5) scale(1)" d="M-2 -2 L0 2 L2 -2"/><path transform="rotate(320) translate(0 -48.5) scale(1)" d="M-2 0 H2 M0 -2 V2"/><path transform="rotate(340) translate(0 -48.5) scale(1)" d="M-2 2 L0 -2 L2 2 M-1 0 H1"/></g>
+        <path d="M0 -45 L39 22.5 L-39 22.5Z M0 45 L-39 -22.5 L39 -22.5Z" fill="none" stroke="#58ffb0" stroke-width="0.7" opacity="0.4"/>
+      </g>
+      <!-- phase 3: a second ring, the other way -->
+      <g class="lg-p3" style="display:none">
+        <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-360" dur="5s" repeatCount="indefinite"/>
+        <circle r="36" fill="none" stroke="#c8ffe6" stroke-width="1.4" stroke-dasharray="6 4"/>
+        <g fill="none" stroke="#c8ffe6" stroke-width="0.8"><path transform="rotate(0) translate(0 -40) scale(0.9)" d="M-2 -2 L0 2 L2 -2"/><path transform="rotate(30) translate(0 -40) scale(0.9)" d="M-2 0 H2 M0 -2 V2"/><path transform="rotate(60) translate(0 -40) scale(0.9)" d="M-2 2 L0 -2 L2 2 M-1 0 H1"/><path transform="rotate(90) translate(0 -40) scale(0.9)" d="M-2 -2 H2 L-2 2 H2"/><path transform="rotate(120) translate(0 -40) scale(0.9)" d="M0 -2 V2 M-2 -1 L2 1"/><path transform="rotate(150) translate(0 -40) scale(0.9)" d="M-2 -2 L0 2 L2 -2"/><path transform="rotate(180) translate(0 -40) scale(0.9)" d="M-2 0 H2 M0 -2 V2"/><path transform="rotate(210) translate(0 -40) scale(0.9)" d="M-2 2 L0 -2 L2 2 M-1 0 H1"/><path transform="rotate(240) translate(0 -40) scale(0.9)" d="M-2 -2 H2 L-2 2 H2"/><path transform="rotate(270) translate(0 -40) scale(0.9)" d="M0 -2 V2 M-2 -1 L2 1"/><path transform="rotate(300) translate(0 -40) scale(0.9)" d="M-2 -2 L0 2 L2 -2"/><path transform="rotate(330) translate(0 -40) scale(0.9)" d="M-2 0 H2 M0 -2 V2"/></g>
+      </g>
+    </g>
+  </g>
+  <!-- phase 2+: spectral skulls circling him -->
+  <g class="lg-p2" style="display:none" transform="translate(60 52)">
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;360" dur="7s" repeatCount="indefinite"/>
+      <g transform="rotate(0) translate(0 -46) rotate(0)"><g transform="scale(1.1)">
+  <path d="M-5 -2 C-5 -8 5 -8 5 -2 L4 3 L-4 3Z" fill="#c8ffe6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.9"/>
+  <circle cx="-2" cy="-2" r="1.3" fill="#0b1a14"/><circle cx="2" cy="-2" r="1.3" fill="#0b1a14"/>
+  <path d="M-3 3 V5 M-1 3 V5.5 M1 3 V5.5 M3 3 V5" stroke="#c8ffe6" stroke-width="0.8"/></g></g><g transform="rotate(120) translate(0 -46) rotate(-120)"><g transform="scale(1.1)">
+  <path d="M-5 -2 C-5 -8 5 -8 5 -2 L4 3 L-4 3Z" fill="#c8ffe6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.9"/>
+  <circle cx="-2" cy="-2" r="1.3" fill="#0b1a14"/><circle cx="2" cy="-2" r="1.3" fill="#0b1a14"/>
+  <path d="M-3 3 V5 M-1 3 V5.5 M1 3 V5.5 M3 3 V5" stroke="#c8ffe6" stroke-width="0.8"/></g></g><g transform="rotate(240) translate(0 -46) rotate(-240)"><g transform="scale(1.1)">
+  <path d="M-5 -2 C-5 -8 5 -8 5 -2 L4 3 L-4 3Z" fill="#c8ffe6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.9"/>
+  <circle cx="-2" cy="-2" r="1.3" fill="#0b1a14"/><circle cx="2" cy="-2" r="1.3" fill="#0b1a14"/>
+  <path d="M-3 3 V5 M-1 3 V5.5 M1 3 V5.5 M3 3 V5" stroke="#c8ffe6" stroke-width="0.8"/></g></g>
+    </g>
+  </g>
+  <!-- the Lich, floating -->
+  <g>
+    <animateTransform class="lg-in" attributeName="transform" type="translate" values="0 50;0 50;0 -6;0 0" keyTimes="0;.15;.6;1" dur="1.6s" fill="freeze"/>
+    <g>
+      <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -3;0 0" dur="3s" repeatCount="indefinite"/>
+      <!-- robe wisps trailing off -->
+      <g fill="#1d1428" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round">
+        <path d="M35 94 C36 106 38 112 41 120 C42 110 45 104 46 94Z"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 40 94;6 40 94;0 40 94" dur="2.2s" repeatCount="indefinite"/></path>
+        <path d="M47 98 C48 110 50 116 53 124 C54 114 57 108 58 98Z"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 52 98;-5 52 98;0 52 98" dur="1.8s" repeatCount="indefinite"/></path>
+        <path d="M61 98 C62 110 64 116 67 124 C68 114 71 108 72 98Z"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 66 98;6 66 98;0 66 98" dur="2.4s" repeatCount="indefinite"/></path>
+        <path d="M75 94 C76 106 78 112 81 120 C82 110 85 104 86 94Z"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 80 94;-6 80 94;0 80 94" dur="2s" repeatCount="indefinite"/></path>
+      </g>
+      <!-- high spiked collar behind the head -->
+      <path d="M34 50 L26 18 L40 34 L42 14 L50 32 L60 20 L70 32 L78 14 L80 34 L94 18 L86 50Z" fill="#33234a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+      <path d="M40 34 L42 14 L50 32 M70 32 L78 14 L80 34" fill="none" stroke="#58ffb0" stroke-width="0.7" opacity="0.8"/>
+      <!-- the robe -->
+      <path d="M32 50 C30 64 30 82 34 100 L42 96 L48 104 L54 98 L60 106 L66 98 L72 104 L78 96 L86 100 C90 82 90 64 88 50 C80 44 70 42 60 42 C50 42 40 44 32 50Z" fill="#1d1428" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M32 50 C30 64 30 82 34 100 L42 96 L46 100 C40 84 40 64 44 46Z" fill="#000" opacity="0.3"/>
+      <path d="M60 46 L60 104" stroke="#c9a24a" stroke-width="1.6"/>
+      <path d="M52 48 L60 60 L68 48" fill="none" stroke="#c9a24a" stroke-width="1.6" stroke-linejoin="round"/>
+      <g fill="none" stroke="#58ffb0" stroke-width="0.8" opacity="0.85"><path d="M56 70 L58 74 L56 78 M64 70 L62 74 L64 78 M55 86 H65 M57 92 L60 96 L63 92"/></g>
+      <!-- ribcage glimpsed through the open robe -->
+      <path d="M53 62 C56 60 64 60 67 62 M52 67 C56 65 64 65 68 67 M53 72 C56 70 64 70 67 72" fill="none" stroke="#e9e2c9" stroke-width="1.2" opacity="0.8"/>
+      <!-- phase 2+: the robe torn -->
+      <g class="lg-p2" style="display:none" fill="#06120d" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6">
+        <path d="M36 70 L42 74 L38 80 L44 86 L36 84Z"/><path d="M84 66 L78 72 L84 76 L78 82 L86 80Z"/>
+      </g>
+      <!-- left arm: the chained phylactery -->
+      <g>
+        <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 36 56;-4 36 56;0 36 56" dur="2.6s" repeatCount="indefinite"/>
+        <path d="M36 54 C28 58 22 62 18 66 L22 72 C26 68 32 64 40 62Z" fill="#33234a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+        <path d="M18 66 L12 62 M18 66 L11 67 M18 66 L13 72 M18 66 L16 74" stroke="#e9e2c9" stroke-width="1.4" stroke-linecap="round"/>
+        <path d="M14 64 L14 72 L13 78" fill="none" stroke="#9aa0ad" stroke-width="1.2" stroke-dasharray="1.6 1"/>
+        <g transform="translate(13 84)">
+          <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.2;1" dur="1.4s" repeatCount="indefinite"/>
+            <circle r="9" fill="#58ffb0" opacity="0.3"/></g>
+          <path d="M0 -7 L5 -2 L3 6 L-3 6 L-5 -2Z" fill="#58ffb0" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+          <path d="M0 -7 L1.4 -2 L0 6 L-1.4 -2Z" fill="#c8ffe6"/>
+          <!-- phase 3: it cracks, shards circle it -->
+          <g class="lg-p3" style="display:none">
+            <path d="M-3 -3 L0 0 L-2 3 M2 -4 L1 1 L3 4" stroke="#06120d" stroke-width="0.9" fill="none"/>
+            <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;360" dur="1.6s" repeatCount="indefinite"/>
+              <path d="M10 0 L12 -2 L13 1Z M-9 6 L-12 5 L-10 8Z M-2 -11 L0 -14 L1 -11Z" fill="#c8ffe6"/></g>
+          </g>
+        </g>
+      </g>
+      <!-- right arm: the ram-skull staff -->
+      <g>
+        <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 86 56;3 86 56;0 86 56" dur="3.1s" repeatCount="indefinite"/>
+        <path d="M104 14 L98 120" stroke="#3b2a1a" stroke-width="3.2" stroke-linecap="round"/>
+        <path d="M104 14 L98 120" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" opacity="0.6"/>
+        <path d="M84 54 C92 58 96 62 100 64 L98 70 C94 68 88 64 82 62Z" fill="#33234a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+        <path d="M100 64 L104 60 M100 64 L105 64 M100 64 L104 69 M100 64 L101 70" stroke="#e9e2c9" stroke-width="1.4" stroke-linecap="round"/>
+        <!-- ram skull on top -->
+        <g transform="translate(104 14)">
+          <path d="M-6 0 C-12 -2 -14 -10 -8 -12 C-4 -13 -4 -8 -6 -6 M6 0 C12 -2 14 -10 8 -12 C4 -13 4 -8 6 -6" fill="none" stroke="#b9ae8c" stroke-width="2.2" stroke-linecap="round"/>
+          <path d="M-4 -6 C-4 -10 4 -10 4 -6 L3 2 L0 5 L-3 2Z" fill="#e9e2c9" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+          <circle cx="-1.6" cy="-4" r="1" fill="#58ffb0"/><circle cx="1.6" cy="-4" r="1" fill="#58ffb0"/>
+          <!-- green flame -->
+          <g transform="translate(0 -12)"><g>
+            <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;0.9 1.25;1.05 0.9;1 1" dur="0.7s" repeatCount="indefinite"/>
+            <path d="M-4 0 C-6 -6 -1 -8 0 -14 C2 -8 6 -6 4 0Z" fill="#58ffb0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" stroke-linejoin="round"/>
+            <path d="M-2 0 C-2 -3 0 -5 0 -8 C1 -5 2 -3 2 0Z" fill="#c8ffe6"/>
+          </g></g>
+        </g>
+      </g>
+      <!-- the skull -->
+      <g transform="translate(60 34)">
+        <path d="M-11 -4 C-12 -16 -6 -22 0 -22 C6 -22 12 -16 11 -4 L9 6 L5 10 L-5 10 L-9 6Z" fill="#e9e2c9" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+        <path d="M-11 -4 C-12 -16 -6 -22 0 -22 C-5 -18 -8 -10 -6 8 L-9 6Z" fill="#000" opacity="0.2"/>
+        <path d="M-4 -20 L-2 -14 L-5 -10 M6 -18 L4 -13" fill="none" stroke="#b9ae8c" stroke-width="0.8"/>
+        <!-- sockets with green fire -->
+        <path d="M-9 -8 L-2 -6 L-3 0 L-8 0Z M9 -8 L2 -6 L3 0 L8 0Z" fill="#0b1a14" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+        <g>
+          <animateTransform class="lg-in" attributeName="transform" type="scale" values="0 0;0 0;1.5 1.5;1 1" keyTimes="0;.62;.8;1" dur="1.6s" fill="freeze"/>
+          <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.2;0.9;1" dur="0.9s" repeatCount="indefinite"/>
+            <circle cx="-5.5" cy="-3.5" r="3.4" fill="#58ffb0" opacity="0.45"/><circle cx="5.5" cy="-3.5" r="3.4" fill="#58ffb0" opacity="0.45"/>
+            <circle cx="-5.5" cy="-3.5" r="1.6" fill="#c8ffe6"/><circle cx="5.5" cy="-3.5" r="1.6" fill="#c8ffe6"/>
+          </g>
+        </g>
+        <path d="M-1 1 L0 4 L1 1Z" fill="#0b1a14"/>
+        <!-- jaw hanging open -->
+        <path d="M-7 8 L7 8 L6 16 L0 18 L-6 16Z" fill="#0b1a14" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+        <path d="M-6 8 L-5 11 L-4 8 M-2 8 L-1 11 L0 8 L1 11 L2 8 M4 8 L5 11 L6 8" fill="#e9e2c9" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"/>
+        <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 2;0 0" dur="2.2s" repeatCount="indefinite"/>
+          <path d="M-7 16 L-5 13 L-3 16 L-1 13 L1 16 L3 13 L5 16 L7 16 L5 21 L-5 21Z" fill="#e9e2c9" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/></g>
+        <!-- phase 3: the skull splits and pours light -->
+        <g class="lg-p3" style="display:none">
+          <path d="M1 -22 L-2 -14 L2 -8 L-1 -2" fill="none" stroke="#c8ffe6" stroke-width="2" stroke-linejoin="round"/>
+          <g style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.3 1.3;1 1" dur="0.5s" repeatCount="indefinite"/>
+            <path d="M0 -22 L-6 -40 L0 -32 L6 -44 L2 -22Z" fill="#58ffb0" opacity="0.6"/></g>
+        </g>
+        <!-- the crown of black iron -->
+        <g transform="translate(0 -18)">
+          <path d="M-12 2 L-14 -12 L-8 -4 L-6 -18 L-2 -6 L0 -22 L2 -6 L6 -18 L8 -4 L14 -12 L12 2Z" fill="#23232c" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3" stroke-linejoin="round"/>
+          <path d="M-12 2 H12" stroke="#c9a24a" stroke-width="1.6"/>
+          <path d="M-2 -4 L0 -8 L2 -4 L0 0Z" fill="#58ffb0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+          <!-- phase 2+: the crown catches green fire -->
+          <g class="lg-p2" style="display:none">
+            <g transform="translate(-14 -12)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;0.8 1.4;1.1 0.9;1 1" dur="0.50s" repeatCount="indefinite"/><path d="M-2 1 C-3 -2 0 -3 0 -7 C1 -3 3 -2 2 1Z" fill="#58ffb0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"/></g></g><g transform="translate(-6 -18)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;0.8 1.4;1.1 0.9;1 1" dur="0.57s" repeatCount="indefinite"/><path d="M-2 1 C-3 -2 0 -3 0 -7 C1 -3 3 -2 2 1Z" fill="#58ffb0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"/></g></g><g transform="translate(0 -22)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;0.8 1.4;1.1 0.9;1 1" dur="0.64s" repeatCount="indefinite"/><path d="M-2 1 C-3 -2 0 -3 0 -7 C1 -3 3 -2 2 1Z" fill="#58ffb0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"/></g></g><g transform="translate(6 -18)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;0.8 1.4;1.1 0.9;1 1" dur="0.71s" repeatCount="indefinite"/><path d="M-2 1 C-3 -2 0 -3 0 -7 C1 -3 3 -2 2 1Z" fill="#58ffb0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"/></g></g><g transform="translate(14 -12)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;0.8 1.4;1.1 0.9;1 1" dur="0.78s" repeatCount="indefinite"/><path d="M-2 1 C-3 -2 0 -3 0 -7 C1 -3 3 -2 2 1Z" fill="#58ffb0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"/></g></g>
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+  <!-- phase 2+: bony arms clawing out of the ground -->
+  <g class="lg-p2" style="display:none" fill="#e9e2c9" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round">
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 14 122;-8 14 122;0 14 122" dur="1.6s" repeatCount="indefinite"/>
+      <path d="M12 122 L13 104 L16 104 L16 122Z"/>
+      <path d="M13 104 L9 94 M14 104 L13 92 M15 104 L17 93 M16 104 L20 96" fill="none" stroke="#e9e2c9" stroke-width="1.4" stroke-linecap="round"/></g>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 34 122;6 34 122;0 34 122" dur="1.9s" repeatCount="indefinite"/>
+      <path d="M32 122 L33 104 L36 104 L36 122Z"/>
+      <path d="M33 104 L29 94 M34 104 L33 92 M35 104 L37 93 M36 104 L40 96" fill="none" stroke="#e9e2c9" stroke-width="1.4" stroke-linecap="round"/></g>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 86 122;-6 86 122;0 86 122" dur="1.7s" repeatCount="indefinite"/>
+      <path d="M84 122 L85 104 L88 104 L88 122Z"/>
+      <path d="M85 104 L81 94 M86 104 L85 92 M87 104 L89 93 M88 104 L92 96" fill="none" stroke="#e9e2c9" stroke-width="1.4" stroke-linecap="round"/></g>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 106 122;8 106 122;0 106 122" dur="2.1s" repeatCount="indefinite"/>
+      <path d="M104 122 L105 104 L108 104 L108 122Z"/>
+      <path d="M105 104 L101 94 M106 104 L105 92 M107 104 L109 93 M108 104 L112 96" fill="none" stroke="#e9e2c9" stroke-width="1.4" stroke-linecap="round"/></g>
+    <path d="M-4 120 C20 112 40 116 60 114 C80 116 100 112 124 120 V124 H-4Z" fill="#0b1a14" stroke="none"/>
+  </g>
+  <!-- soul motes rising -->
+  <g fill="#58ffb0">
+    <circle cx="24" cy="110" r="1.1" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;3 -50" dur="2.6s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" additive="sum" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.6s" repeatCount="indefinite"/></circle>
+    <circle cx="50" cy="116" r="1.1" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;3 -50" dur="2.1s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" additive="sum" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.1s" repeatCount="indefinite"/></circle>
+    <circle cx="72" cy="114" r="1.1" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-3 -50" dur="2.9s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" additive="sum" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.9s" repeatCount="indefinite"/></circle>
+    <circle cx="96" cy="110" r="1.1" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-3 -50" dur="2.3s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" additive="sum" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.3s" repeatCount="indefinite"/></circle>
   </g>
 </svg>

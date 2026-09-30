@@ -6,6 +6,8 @@
 // Why beat it: the boss keeps its wounds across the day's attempts (a loss still hurts it), a win is a trophy in the
 // raid hall, XP and a streak freeze, and the next raid boss in the rotation comes out.
 export const RAID_MOTIFS = ['hydra', 'titan', 'lich', 'chimera', 'void']
+// Each raid boss fights its own way (fight.js ABILITIES: the rules live there).
+export const RAID_ABILITY = { hydra: 'regrowth', titan: 'plating', lich: 'phylactery', chimera: 'heads', void: 'singularity' }
 export const RAID = { minCards: 5, maxCards: 15, hpPerCard: 1.5, minHp: 8, maxHp: 40, lives: 3, phases: 3 }
 
 export const todayKey = (d = new Date()) => d.toLocaleDateString('en-CA')
