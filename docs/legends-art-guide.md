@@ -25,6 +25,63 @@ plus the technical rules the app enforces. The files live in `public/assets/lege
   a path, a bridge, ruins, weather, something alive.
 - **Each boss has its own animated entrance** (see Motion), and everything has some idle life.
 
+## The boss recipe (what made the 2026-09 raid redesign land)
+
+The first raid bosses were called "boring, uninspired and weak" (small figures in empty space, one neck, a boxy robot,
+a skeleton in a robe, a lion like a house cat). The redesign got "YESS, much better". Every boss from now on is held
+to this list, Legends bosses and raid bosses alike. `docs/raid-bosses-plan.md` is the worked example.
+
+**Plan before drawing.** Write a short plan per boss first: the idea in one line, the backdrop, what each phase (or
+the intro) shows, the idle motion, the SVG entrance beats and the card entrance. Make every boss's answers different.
+
+**Size and presence**
+- **Fill the frame and bleed past it.** Horns, fins, wings, fists, tentacles run off the edge (the 20% headroom
+  shows them). A figure floating small in the middle of its box reads weak, whatever its detail.
+- **Shoulders wider than the frame, seen from below**: the viewer looks UP at a boss. Low horizon, big upper body.
+- **A backdrop that is part of the boss**, never a plain glow: a maelstrom it rises from, a gear halo, a rune circle,
+  a burning spiky shockwave, a black hole's disk. It animates on its own rhythm.
+
+**Faces sell menace** (check the face at 420 px first; a soft face ruins the whole boss)
+- **Angry brows over the eyes**: a heavy brow ridge angled DOWN to the middle, or a V-shaped visor slit. Round eyes,
+  or eyes with no brow, read friendly.
+- **Slit or burning eyes with a glow halo** (the same shape bigger and bright behind it, 0.4 to 0.5), a slit pupil,
+  and a tiny white hot spot.
+- **Angular skulls, not round heads**: faceted planes, cel shaded (a `#000` shadow plane at 0.2 to 0.3 on one side, a
+  lit plane at 0.3 on the other), cheek spikes, swept-back ridged horns, scale or plate texture on the crown.
+- **Too many teeth**: long upper fangs past the lip, a row of small teeth, a dark maw with a tongue. The jaw moves.
+
+**Materials read as materials**
+- Metal gets rims, rivets, bolts and a lit edge line. Fists are gauntlets with knuckle plates, curled fingers and
+  glowing seams, not boxes. A chain is interlocking LINKS (alternate a ring and an edge-on bar, ink under a light
+  stroke), never stacked ellipses (they read as springs).
+- Scales, fur, bone and robes get texture strokes, kept inside their shape (the overdraw rule).
+- Wings are membranes with lit panels between bone struts and an ember or light edge; on a dark backdrop a dark
+  wing disappears.
+
+**Contrast against the backdrop.** Check every big shape against what is behind it in BOTH palettes. A dark
+membrane on a dark sky, a translucent wraith over a busy rune circle, a storm cloud as dark as the night: all
+vanished. Fix with a lit rim, a brighter mid-tone, or a glow copy behind.
+
+**Every phase is a transformation with a story** (raids: phase 1, 2, 3; a Legends boss's rage too):
+- Phase 1 controlled (sealed armor, one power shown). Phase 2 hurt and WORSE (armor cracks on molten veins, a cut
+  neck grows two heads, the dead rise, many eyes open). Phase 3 the final form (a skull under the split helm, a
+  plasma orb in the maw, a wraith hood framing the scene, a maw of spiral teeth), the colors run hot.
+- A new element must READ at 120 px: big, bright, framed. A giant ghost face behind the figure only showed pale
+  blobs at the edges; redrawn as a hood around the frame with eyes in the corners and claws reaching in, it worked.
+- Nothing only "added": something breaks, grows, opens or turns on.
+
+**Motion with character.** Every head, limb, flame and particle on its own rhythm. Each boss gets its own SVG
+entrance beats (eyes igniting, jaws opening, fists slamming) AND its own card entrance in `ENTRANCES` whose
+MOVEMENT no other boss uses (crushed flat then whipping up tall, three hydraulic jerks, a slow drift then a snap
+up, three roars, a slit in reality tearing open).
+
+**No hard edges from the frame.** Bands that span the width (a cloud layer, a floor) end in organic shapes inside
+the headroom; a straight cut at the box edge shows as a rectangle when the boss scales in.
+
+**Check at every size, both themes, every moment.** Render at 420 px (does the face scare?), 190 px (intro), 120 and
+68 px (fight), per phase, in the entrance at a few moments and at rest. Then run `check-art.mjs`. Look, fix, repeat:
+the second pass (sharper heads, real chains, a readable wraith, lit wings) is where "good" became "great".
+
 ## The current set (40 motifs)
 
 The full list, one line per motif (boss, idea, entrance, lair), is `dev/legends-gallery/catalog.js`: the ONE place

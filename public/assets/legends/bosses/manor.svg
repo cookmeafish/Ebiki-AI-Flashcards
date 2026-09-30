@@ -26,7 +26,7 @@
   <g>
     <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -4;0 0" dur="2.2s" repeatCount="indefinite"/>
     <!-- sheet body, flowing hem -->
-    <path d="M28 60 C28 28 42 12 60 12 C78 12 92 28 92 60 L96 104 C90 100 88 110 82 106 C78 102 74 112 68 108 C64 104 60 114 54 108 C50 104 46 112 40 106 C36 102 30 108 24 104Z" fill="#f2f6ff" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round">
+    <path style="transform-box:fill-box;transform-origin:center top" d="M28 60 C28 28 42 12 60 12 C78 12 92 28 92 60 L96 104 C90 100 88 110 82 106 C78 102 74 112 68 108 C64 104 60 114 54 108 C50 104 46 112 40 106 C36 102 30 108 24 104Z" fill="#f2f6ff" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round">
       <animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;3;0;-3;0" dur="1.6s" repeatCount="indefinite"/>
     </path>
     <!-- sheet folds -->

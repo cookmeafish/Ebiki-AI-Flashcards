@@ -7,9 +7,7 @@
   <circle cx="300" cy="64" r="22" fill="#e0233e" opacity="0.7"/>
   <!-- canyon walls: mesas -->
   <path d="M0 112 V40 L20 36 L30 44 L60 42 L70 60 L80 112Z" fill="#b3452c" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
-  <path d="M0 50 H30 M0 70 H70 M0 90 H76" fill="none" stroke="#8a3220" stroke-width="1.4"/>
   <path d="M340 112 L350 56 L366 50 L380 54 L400 50 V112Z" fill="#b3452c" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
-  <path d="M346 76 H400 M344 96 H400" fill="none" stroke="#8a3220" stroke-width="1.4"/>
   <!-- the far ridge with the Rider -->
   <path d="M180 88 C220 78 260 78 300 82 C320 84 336 88 346 94 V112 H180Z" fill="var(--lg-far, #d9805a)"/>
   <g transform="translate(0 14)">
@@ -22,7 +20,7 @@
       <path d="M270 38 C270 34 288 34 288 38Z M274 36 C274 30 284 30 284 36Z"/>
     </g>
     <!-- the burning skull and the horse's fire -->
-    <path d="M276 30 C274 24 278 22 278 16 C282 22 284 26 282 30Z" fill="#6ff3ff"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1.2;1 1" dur="0.5s" repeatCount="indefinite"/></path>
+    <path d="M276.4 33 C274.4 26 277.6 22 278.6 15 C282.6 21 284.4 26 281.6 33Z" fill="#6ff3ff" style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1.2;1 1" dur="0.5s" repeatCount="indefinite"/></path>
     <circle cx="279" cy="33" r="2.6" fill="#e6e0cc"/>
     <g fill="#6ff3ff"><circle cx="278" cy="33" r="0.6"/><circle cx="280.4" cy="33" r="0.6"/></g>
     <path d="M250 38 C246 40 244 36 240 38 C242 42 246 42 250 40Z" fill="#ff7a1a"/>
@@ -42,8 +40,8 @@
   <path d="M112 50 h4 M120 50 h8 M132 50 h6 M142 50 h10 M156 50 h4" stroke="#8a3220" stroke-width="1.4"/>
   <!-- swinging saloon doors -->
   <g fill="#b87a3a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8">
-    <path d="M128 92 H135 V104 H128Z"><animateTransform class="lg-loop" attributeName="transform" type="skewY" values="0;8;0;-4;0" dur="2.4s" repeatCount="indefinite"/></path>
-    <path d="M137 92 H144 V104 H137Z"><animateTransform class="lg-loop" attributeName="transform" type="skewY" values="0;-8;0;4;0" dur="2.4s" repeatCount="indefinite"/></path>
+    <path d="M128 92 H135 V104 H128Z" style="transform-box:fill-box;transform-origin:left center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;0.35 1;1 1;0.75 1;1 1" dur="2.4s" repeatCount="indefinite"/></path>
+    <path d="M137 92 H144 V104 H137Z" style="transform-box:fill-box;transform-origin:right center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;0.35 1;1 1;0.75 1;1 1" dur="2.4s" repeatCount="indefinite"/></path>
   </g>
   <!-- ghostly lamp in a window -->
   <rect x="156" y="64" width="10" height="6" fill="#6ff3ff" opacity="0.6"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 0;0 200;0 200;0 0;0 0" keyTimes="0;.6;.601;.65;.651;1" dur="3s" repeatCount="indefinite"/></rect>

@@ -39,9 +39,9 @@
   <!-- torn banners flapping -->
   <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round">
     <path d="M128 50 V112" stroke-width="2"/>
-    <path d="M128 52 H146 V80 L140 76 L136 84 L132 76 L128 80Z" fill="#c0392b"><animateTransform class="lg-loop" attributeName="transform" type="skewY" values="0;4;0" dur="1.6s" repeatCount="indefinite"/></path>
+    <path d="M128 52 H146 V80 L140 76 L136 84 L132 76 L128 80Z" fill="#c0392b" style="transform-box:fill-box;transform-origin:left center"><animateTransform class="lg-loop" attributeName="transform" type="skewY" values="0;4;0" dur="1.6s" repeatCount="indefinite"/></path>
     <path d="M332 50 V112" stroke-width="2"/>
-    <path d="M332 52 H350 V76 L344 72 L340 82 L336 74 L332 78Z" fill="#1d1b28"><animateTransform class="lg-loop" attributeName="transform" type="skewY" values="0;-4;0" dur="1.8s" repeatCount="indefinite"/></path>
+    <path d="M332 52 H350 V76 L344 72 L340 82 L336 74 L332 78Z" fill="#1d1b28" style="transform-box:fill-box;transform-origin:left center"><animateTransform class="lg-loop" attributeName="transform" type="skewY" values="0;-4;0" dur="1.8s" repeatCount="indefinite"/></path>
   </g>
   <path d="M134 60 l6 6 M140 60 l-6 6" stroke="#fff" stroke-width="1.4"/>
   <!-- paper lanterns under the eaves -->

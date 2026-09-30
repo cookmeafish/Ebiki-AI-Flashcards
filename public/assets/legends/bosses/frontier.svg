@@ -27,8 +27,8 @@
       </g>
       <!-- the horse's burning mane and tail -->
       <g fill="#ff7a1a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round">
-        <path d="M46 46 C48 38 44 34 46 28 C50 34 52 40 50 46 C54 40 56 36 56 30 C60 38 58 48 52 60Z"><animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;-6;0" dur="0.6s" repeatCount="indefinite"/></path>
-        <path d="M94 80 C104 76 110 82 114 76 C114 86 108 92 98 90 C104 94 110 96 116 94 C110 102 100 100 92 92Z"><animateTransform class="lg-loop" attributeName="transform" type="skewY" values="0;6;0" dur="0.7s" repeatCount="indefinite"/></path>
+        <path d="M46 46 C48 38 44 34 46 28 C50 34 52 40 50 46 C54 40 56 36 56 30 C60 38 58 48 52 60Z" style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;-6;0" dur="0.6s" repeatCount="indefinite"/></path>
+        <path d="M94 80 C104 76 110 82 114 76 C114 86 108 92 98 90 C104 94 110 96 116 94 C110 102 100 100 92 92Z" style="transform-box:fill-box;transform-origin:left center"><animateTransform class="lg-loop" attributeName="transform" type="skewY" values="0;6;0" dur="0.7s" repeatCount="indefinite"/></path>
       </g>
       <g fill="#ffd23f"><path d="M50 44 C50 38 52 36 52 36 C54 40 54 42 50 44Z M100 86 C102 82 106 82 106 82 C104 86 102 88 100 86Z"/></g>
       <!-- the horse's eye -->
@@ -42,7 +42,7 @@
         </g>
       </g></g>
       <!-- the rider: tattered duster -->
-      <path d="M58 64 C54 50 58 36 66 32 H78 C84 38 86 52 82 64 L90 76 L84 74 L86 82 L78 76 L74 84 L70 74 L64 80 L64 70Z" fill="#6b4a2a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round">
+      <path style="transform-box:fill-box;transform-origin:center top" d="M58 64 C54 50 58 36 66 32 H78 C84 38 86 52 82 64 L90 76 L84 74 L86 82 L78 76 L74 84 L70 74 L64 80 L64 70Z" fill="#6b4a2a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round">
         <animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;-3;0" dur="1s" repeatCount="indefinite"/>
       </path>
       <path d="M62 60 C60 48 62 40 68 36" fill="none" stroke="#8a6a44" stroke-width="1.4"/>
@@ -75,13 +75,9 @@
       <path d="M62 17 H82" stroke="#8a1a1a" stroke-width="1.6"/>
     </g>
   </g>
-  <!-- dust clouds and a tumbleweed -->
+  <!-- dust clouds -->
   <g fill="#c8a878" opacity="0.8">
     <circle style="transform-box:fill-box;transform-origin:center" cx="86" cy="116" r="5"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;10 -4" dur="1.4s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.4s" repeatCount="indefinite" additive="sum"/></circle>
     <circle style="transform-box:fill-box;transform-origin:center" cx="62" cy="118" r="4"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;8 -4" dur="1.6s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.6s" repeatCount="indefinite" additive="sum"/></circle>
-  </g>
-  <g fill="none" stroke="#8a6a44" stroke-width="0.9">
-    <circle cx="108" cy="112" r="5"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 108 112;360 108 112" dur="2s" repeatCount="indefinite"/></circle>
-    <path d="M104 110 L112 114 M106 116 L110 108"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 108 112;360 108 112" dur="2s" repeatCount="indefinite"/></path>
   </g>
 </svg>

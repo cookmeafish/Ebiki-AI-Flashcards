@@ -11,7 +11,7 @@
 // class="lg-in" = the entrance (played once when the file appears), class="lg-loop" = idle life (breathing, fire,
 // waves). `animated` picks what plays: 'intro' = both, 'idle' = loops only, false = none (the file's own attributes
 // are its resting pose, so a still file shows the finished boss). Reduced motion always gets false.
-import { useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { RADIUS } from '../../config/tokens'
 import { MOTIFS } from './map'
 import { RAID_MOTIFS } from './raid'
@@ -66,6 +66,18 @@ export function withMotion(svg, mode) {
   return doc.body.innerHTML
 }
 
+// The asset viewer names every drawing: a tag UNDER it with its file ("areas/frontier.svg"), so a screenshot says
+// which file to open (under, never on the art). ONLY the asset view (AssetView.jsx) and the dev gallery provide it.
+export const ArtLabels = createContext(false)
+const LABEL_MIN_PX = 100 // smaller drawings (map icons, the stage strip) are too small for a readable tag
+
+// A boss (or raid boss) is a figure on a backdrop, not a picture with edges: a flame or a wing that grows past the
+// 120 x 120 frame was sliced flat, a visible invisible box. So a figure may draw up to BOSS_HEADROOM past its frame
+// (the SVG overflows, the box clips at that wider edge). Parts parked far off canvas to hide them (a translate of
+// 200) stay hidden. Banners are pictures: they clip at their own edge.
+const BOSS_HEADROOM = '20%'
+const freeFigure = (svg) => svg.replace(/<svg\b/, '<svg overflow="visible"')
+
 // One art file, colored for `palette`. While it loads (or if it is missing) the frame shows the palette's sky.
 export function LegendsArt({ kind, motif, palette, height, width = '100%', locked = false, round = RADIUS.lg, animated = false, style }) {
   const url = artUrl(kind, motif)
@@ -77,13 +89,27 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
   }, [url])
   const mode = locked || reducedMotion() ? false : animated
   const raw = html.url === url ? html.svg : ''
-  const svg = useMemo(() => withMotion(raw, mode), [raw, mode])
-  return (
+  const figure = kind !== 'areas'
+  const svg = useMemo(() => { const out = withMotion(raw, mode); return figure ? freeFigure(out) : out }, [raw, mode, figure])
+  const labels = useContext(ArtLabels)
+  const big = (typeof height !== 'number' || height >= LABEL_MIN_PX) && (typeof width !== 'number' || width >= LABEL_MIN_PX)
+  const art = (
     <div style={{
-      width, height, borderRadius: round, overflow: 'hidden', flexShrink: 0, ...artVars(palette),
-      background: kind === 'areas' ? 'var(--lg-sky)' : 'transparent', filter: locked ? 'grayscale(1) opacity(.55)' : 'none', ...style,
+      width: labels && big ? '100%' : width, height, borderRadius: round, flexShrink: 0, ...artVars(palette),
+      ...(figure ? { overflow: 'visible', clipPath: `inset(-${BOSS_HEADROOM})` } : { overflow: 'hidden' }),
+      background: figure ? 'transparent' : 'var(--lg-sky)', filter: locked ? 'grayscale(1) opacity(.55)' : 'none', ...style,
     }}>
       {svg && <div style={{ width: '100%', height: '100%' }} dangerouslySetInnerHTML={{ __html: svg }} />}
+    </div>
+  )
+  if (!(labels && big)) return art
+  return (
+    <div style={{ width, display: 'grid', gap: 4, justifyItems: 'start', flexShrink: 0 }}>
+      {art}
+      <span style={{ padding: '1px 6px', borderRadius: 4, background: 'rgba(0,0,0,.72)', color: '#fff',
+        font: '700 10px/1.4 monospace', textTransform: 'none', letterSpacing: 'normal', whiteSpace: 'nowrap' }}>
+        {url.slice(ART_BASE.length + 1)}
+      </span>
     </div>
   )
 }

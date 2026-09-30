@@ -38,8 +38,8 @@
   <g stroke="#5a5f6a" stroke-width="1.6"><path d="M172 60 V74 M182 58 V72 M192 56 V70 M202 56 V70 M212 56 V70 M222 58 V72 M232 60 V74 M168 70 H236"/></g>
   <!-- banners hanging from the wall -->
   <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.9">
-    <path d="M100 66 H120 V96 L110 90 L100 96Z" fill="#c0392b"><animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;3;0" dur="2s" repeatCount="indefinite"/></path>
-    <path d="M280 66 H300 V96 L290 90 L280 96Z" fill="#c0392b"><animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;-3;0" dur="2.2s" repeatCount="indefinite"/></path>
+    <path d="M100 66 H120 V96 L110 90 L100 96Z" fill="#c0392b" style="transform-box:fill-box;transform-origin:center top"><animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;3;0" dur="2s" repeatCount="indefinite"/></path>
+    <path d="M280 66 H300 V96 L290 90 L280 96Z" fill="#c0392b" style="transform-box:fill-box;transform-origin:center top"><animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;-3;0" dur="2.2s" repeatCount="indefinite"/></path>
   </g>
   <g fill="#c9a441"><circle cx="110" cy="76" r="4"/><circle cx="290" cy="76" r="4"/></g>
   <!-- the sandy floor -->
