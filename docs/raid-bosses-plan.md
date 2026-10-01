@@ -38,6 +38,15 @@ tested), keyed by the raid motif.
 | Chimera | **Three heads** | Every third right answer in a row cuts all three heads at once: triple damage (it replaces the critical). | Rewards steady, consistent recall. |
 | Void | **Singularity** | In phase 3 right answers deal double, and a miss costs two lives. | A high-stakes finale that still only asks cards you have to know. |
 | Seraph | **Judgment** | Every 5 answers are weighed together: if all 5 were right, the Judge is smitten for +5 damage. Nothing is taken away. | Rewards steady, consistent recall over a run of cards. |
+| Leviathan | **Maelstrom** | After a miss, the next right answer breaks the surface: +3 damage. | Recovering right after a mistake is the big hit. |
+| Inferno | **Kindling** | From the 4th right answer in a row, every right answer burns for +1. A miss puts the fire out. | Rewards long runs of steady recall. |
+| Chronos | **Rewind** | The first miss in each phase is rewound: it costs no life (it still counts as a miss). | Room to try a hard card without the fight ending on it. |
+| Vampire | **Blood pact** | Every 5th right answer in a row wins back a lost life. | A streak of recall can undo earlier mistakes. |
+| Tempest | **Tempest** | Every 4th answer is a lightning strike: answered right, it deals double. | A rhythm to play toward; the cards stay the same. |
+| Kaleido | **Reflection** | A glancing typed answer (the tested thing right, a small slip elsewhere) deals full clean damage. | Credit for knowing the core of the card. |
+| Glutton | **Devour** | A miss lets it gorge and heal 1 (never below the attempt's start); a clean typed answer chokes it for +1. | The one boss that punishes misses; full recall wins it back. |
+| Puppeteer | **Marionette** | A blocked attack snaps a string for 3 damage; a missed attack costs only 1 life. | Fixing a missed card is worth a lot, and failing it again is forgiven a little. |
+| Berserker | **Last breath** | On your last life every right answer deals triple. | A comeback is always possible. |
 
 ## 1. Hydra: the Maelstrom Hydra
 
@@ -133,3 +142,41 @@ tested), keyed by the raid motif.
 - **Face per phase**: one great staring eye, then a cracked mask of eyes, then a screaming maw.
 - **Entrance (SVG)**: the window and halo spin up, the wings snap open pair by pair, the arms swing out, the great eye
   opens last. **Card**: `lgHolyUnfold`, a point of light high above that spins open and descends into place.
+
+## 7 to 15. The second wave (owner request: "super crazy bonkers", Seraph and Void as the bar, "like WTF IS THAT")
+
+Each was drawn to the same rules: terrifying from phase 1, a face that changes every phase, a backdrop that is part of the
+boss, a phase 3 true form that is a different creature. The file's leading comment describes each one in full.
+
+- **7. Leviathan, the Drowned God** (`lgAbyssBreach`): an eyeless barnacled skull rising from a maelstrom, a sunken
+  cathedral and a lighthouse fused on, a jaw of ship-mast fangs. Phase 2: gill slits tear open into red eyes, jaws inside
+  jaws, tentacles. Phase 3: the head peels open four ways into a whirlpool throat of tooth rings around a drowned eye.
+- **8. Inferno, the Cinder Sovereign** (`lgFlareBurst`): an obsidian dragon on a throne of melted swords, wings like fire
+  windows, a lavafall behind. Phase 2: the scales flake into embers, a furnace throat. Phase 3: a black bone skeleton in
+  a firestorm with a heart of eyes and a screaming skull of white fire above its own.
+- **9. Chronos, the Hour Devourer** (`lgTimeReverse`): a cracked clock face with a grin of numeral fangs, eight arms with
+  hourglasses, scythe hands and eyed pendulums, in a vortex of clocks. Phase 2: the dial splits like jaws over gears and
+  eyes, the arms trail ghost afterimages. Phase 3: a vortex maw of gear teeth with stuttering copies of the head.
+- **10. Vampire, the Crimson Matriarch** (`lgBatAssemble`): a corpse-pale queen with a third eye, a crown of thorns and a
+  bat-wing collar, a blood moon in a stained-glass window. Phase 2: the jaw splits into a lamprey maw, the bats leave the
+  cloak, it rains blood. Phase 3: a giant blood bat-demon wearing her old face as a mask, the moon an eye.
+- **11. Tempest, the Storm Tyrant** (`lgBoltDrop`): a thundercloud titan with a lightning face, rods that light in a
+  four-beat rhythm (the ability) and a fourth-beat bolt. Phase 2: the chest tears open on the eye of the storm. Phase 3:
+  a tornado with a screaming face of white lightning and debris spinning round it.
+- **12. Kaleido, the Thousand Reflections** (`lgShardFocus`): two counter-rotating rings of mirror shards around an
+  obsidian grinning mask, each shard reflecting a fragment of a face. Phase 2: the mask splits laughing and screaming,
+  glass hands punch out. Phase 3: a fractal ring of eyes and gilded jaws around an endless mirror tunnel with a real
+  face screaming at its end.
+- **13. Glutton, the Bottomless Maw** (`lgGulpBloat`): a mountain of flesh that is mostly grin, tongues (one with an eye,
+  one with a fork), cheek mouths, a crown of skewered things, over a collapsing banquet. Phase 2: the belly splits into a
+  spinning maw and it eats its own crown. Phase 3: a spiral tunnel of jaw rings down to one tiny eye, swallowing the feast.
+- **14. Puppeteer, the Grand Marionettist** (`lgStringDrop`): a hooded porcelain mask with needle fingers working a
+  knight-jester marionette on a ruined stage; the strings stay attached through every motion. Phase 2: the doll's head
+  snaps off and the strings run up into the real maw, the hanging puppets wake. Phase 3: a spider made of strings and
+  masks under an eye of strings, the stage on fire.
+- **15. Berserker, the Last Warlord** (`lgWarCharge`): a ram-skull war god in spiked armor with two axes on a burning
+  battlefield. Phase 2: the armor shatters on rage veins, a tusked face, two more arms with a mace and a flail. Phase 3:
+  a flayed burning six-armed skeleton with a halo of orbiting weapons.
+
+Hidden entrance parts rest at `scale(0.01)` or far off canvas, never `scale(0)` (a non-invertible matrix crashes
+check-art's overdraw pass).

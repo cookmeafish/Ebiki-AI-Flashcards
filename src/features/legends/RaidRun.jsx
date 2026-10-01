@@ -200,7 +200,7 @@ export default function RaidRun({ ctx, onExit }) {
     if (!q._attack && !q._lastStand && q._cardId != null && !firstHit.current.has(q._cardId)) firstHit.current.set(q._cardId, { ...hit, q, answer })
     // The phase BEFORE this answer, from the whole day's health (earlier attempts' wounds count).
     const phaseNow = phaseOf(Math.max(0, dayHp - (before.damage + (day ? day.damage : 0))), dayHp, RAID.phases)
-    let next = strike(before, hit, { ability, phase: phaseNow, need })
+    let next = strike(before, hit, { ability, phase: phaseNow, need, lives })
     const over = next.damage >= need || next.livesLost >= lives
     // The Lich rises: every card still missed comes back, typed, right now (the last stand).
     if (next.last?.rise && !over) {
@@ -240,6 +240,16 @@ export default function RaidRun({ ctx, onExit }) {
       const into = (fs.judged || 0) % ABILITY.judgmentEvery
       if (into === ABILITY.judgmentEvery - 1 && (fs.judgedRight || 0) === into) return `⚖️ ${t('lg_hint_judgment', { n: ABILITY.judgmentSmite })}`
     }
+    const normal = !q._attack && !q._lastStand
+    if (ability === 'maelstrom' && normal && fs.surge) return `🌊 ${t('lg_hint_maelstrom', { n: ABILITY.maelstromBonus })}`
+    if (ability === 'kindling' && normal && (fs.chain || 0) + 1 >= ABILITY.kindlingFrom) return `🔥 ${t('lg_hint_kindling', { n: ABILITY.kindlingBonus })}`
+    if (ability === 'rewind' && !(fs.rewound || []).includes(fightPhase)) return `⏳ ${t('lg_hint_rewind')}`
+    if (ability === 'bloodpact' && normal && fs.livesLost > 0 && ((fs.chain || 0) + 1) % ABILITY.bloodpactEvery === 0) return `🩸 ${t('lg_hint_bloodpact')}`
+    if (ability === 'tempest' && normal && ((fs.answers || 0) + 1) % ABILITY.tempestEvery === 0) return `⚡ ${t('lg_hint_tempest', { n: ABILITY.tempestFactor })}`
+    if (ability === 'reflection' && normal && mode !== 'choice') return `🪞 ${t('lg_hint_reflection')}`
+    if (ability === 'devour' && normal && mode !== 'choice') return `👄 ${t('lg_hint_devour', { n: ABILITY.devourChoke })}`
+    if (ability === 'marionette' && q._attack) return `🎭 ${t('lg_hint_marionette', { n: ABILITY.marionetteCounter })}`
+    if (ability === 'lastbreath' && lives - fs.livesLost === 1) return `🪓 ${t('lg_hint_lastbreath', { n: ABILITY.lastbreathFactor })}`
     return ''
   }
   const header = (q, mode) => (

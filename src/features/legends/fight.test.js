@@ -255,6 +255,73 @@ describe('raid boss abilities', () => {
     expect(run(fiveRight, {}).smites).toBe(0) // other bosses never judge
     expect(run([hit('clean', 'typed', { attack: true }), ...fiveRight.slice(1)], opts).smites).toBe(0) // attacks are not weighed
   })
+  describe('the nine newer raid abilities', () => {
+    it('Leviathan maelstrom: the first right answer after a miss surfaces for bonus damage', () => {
+      const o = { ability: 'maelstrom' }
+      const s = run([hit('miss'), hit('clean')], o)
+      expect(s.last.fx).toBe('surface')
+      expect(s.damage).toBe(DAMAGE.clean + ABILITY.maelstromBonus)
+      expect(run([hit('miss'), hit('clean'), hit('clean')], o).damage).toBe(2 * DAMAGE.clean + ABILITY.maelstromBonus) // only once
+      expect(run([hit('clean'), hit('clean')], o).surfaced).toBe(0)
+      expect(run([hit('miss'), hit('clean')], {}).damage).toBe(DAMAGE.clean)
+    })
+    it('Inferno kindling: from the 4th right answer in a row each burns for more; a miss puts it out', () => {
+      const o = { ability: 'kindling' }
+      const four = Array(ABILITY.kindlingFrom).fill(hit('clean', 'choice'))
+      expect(run(four, o).damage).toBe(ABILITY.kindlingFrom * DAMAGE.choice + ABILITY.kindlingBonus)
+      expect(run([...four.slice(1), hit('miss'), hit('clean', 'choice')], o).kindled).toBe(0)
+    })
+    it('Chronos rewind: the first miss in each phase costs no life, the second does', () => {
+      const o1 = { ability: 'rewind', phase: 1 }
+      let s = run([hit('miss'), hit('miss')], o1)
+      expect(s.livesLost).toBe(1)
+      expect(s.misses).toBe(2)
+      s = strike(s, hit('miss'), { ability: 'rewind', phase: 2 })
+      expect(s.livesLost).toBe(1)
+      expect(s.last.fx).toBe('rewind')
+      expect(run([hit('miss')], {}).livesLost).toBe(1)
+    })
+    it('Vampire blood pact: every 5th right answer in a row wins back a lost life, never below zero', () => {
+      const o = { ability: 'bloodpact' }
+      const five = Array(ABILITY.bloodpactEvery).fill(hit('clean', 'choice'))
+      const s = run([hit('miss'), ...five], o)
+      expect(s.livesLost).toBe(0)
+      expect(s.pacts).toBe(1)
+      expect(run(five, o).livesLost).toBe(0)
+      expect(run(five, o).pacts).toBe(0) // nothing to win back
+    })
+    it('Tempest: every 4th answer is lightning; right, it deals double', () => {
+      const o = { ability: 'tempest' }
+      const s = run(Array(ABILITY.tempestEvery).fill(hit('clean', 'choice')), o)
+      expect(s.damage).toBe((ABILITY.tempestEvery - 1) * DAMAGE.choice + DAMAGE.choice * ABILITY.tempestFactor)
+      expect(s.last.fx).toBe('bolt')
+      expect(run([hit('clean'), hit('clean'), hit('clean'), hit('miss')], o).bolts).toBe(0)
+    })
+    it('Kaleido reflection: a glancing typed answer deals full clean damage', () => {
+      expect(run([hit('glancing')], { ability: 'reflection' }).damage).toBe(DAMAGE.clean)
+      expect(run([hit('glancing')], {}).damage).toBe(DAMAGE.glancing)
+    })
+    it('Glutton devour: a miss heals it (never below this attempt), a clean typed answer chokes it', () => {
+      const o = { ability: 'devour' }
+      expect(run([hit('clean')], o).damage).toBe(DAMAGE.clean + ABILITY.devourChoke)
+      expect(run([hit('clean', 'choice')], o).damage).toBe(DAMAGE.choice)
+      expect(run([hit('clean'), hit('miss')], o).damage).toBe(DAMAGE.clean + ABILITY.devourChoke - ABILITY.devourHeal)
+      expect(run([hit('miss')], o).damage).toBe(0)
+    })
+    it('Puppeteer marionette: blocked attacks snap for more, missed attacks cost one life', () => {
+      const o = { ability: 'marionette' }
+      expect(run([hit('clean', 'typed', { attack: true })], o).damage).toBe(ABILITY.marionetteCounter)
+      expect(run([hit('miss', 'typed', { attack: true })], o).livesLost).toBe(ABILITY.marionetteLives)
+      expect(run([hit('miss', 'typed', { attack: true })], {}).livesLost).toBe(ATTACK_LIVES)
+    })
+    it('Berserker last breath: on the last life right answers deal triple', () => {
+      const o = { ability: 'lastbreath', lives: 3 }
+      expect(run([hit('clean')], o).damage).toBe(DAMAGE.clean)
+      const s = run([hit('miss'), hit('miss'), hit('clean', 'choice')], o)
+      expect(s.damage).toBe(DAMAGE.choice * ABILITY.lastbreathFactor)
+      expect(s.last.fx).toBe('lastbreath')
+    })
+  })
   describe('Lich phylactery', () => {
     const opts = { ability: 'phylactery', need: 4 }
     it('rises at 1 health while a missed card is unredeemed, and falls when it is answered right', () => {

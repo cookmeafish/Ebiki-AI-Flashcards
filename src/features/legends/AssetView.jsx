@@ -43,8 +43,11 @@ function PhaseDemo({ t, area, motif, getZoom }) {
 
 // A raid boss's ability, in full, at the top of its page: the rule, the hint the fight shows when it applies, and the
 // words that pop over the boss when it triggers (the same texts the real fight uses).
-const ABILITY_HINT = { plating: {}, regrowth: { n: ABILITY.regrowthCut }, singularity: { n: ABILITY.singularityLives }, heads: {}, judgment: { n: ABILITY.judgmentSmite } }
-const ABILITY_FX = { regrowth: ['cut'], plating: ['bounce'], phylactery: ['rise', 'shatter'], heads: ['triple'], singularity: ['singularity'], judgment: ['smite'] }
+const ABILITY_HINT = { plating: {}, regrowth: { n: ABILITY.regrowthCut }, singularity: { n: ABILITY.singularityLives }, heads: {}, judgment: { n: ABILITY.judgmentSmite },
+  maelstrom: { n: ABILITY.maelstromBonus }, kindling: { n: ABILITY.kindlingBonus }, rewind: {}, bloodpact: {}, tempest: { n: ABILITY.tempestFactor },
+  reflection: {}, devour: { n: ABILITY.devourChoke }, marionette: { n: ABILITY.marionetteCounter }, lastbreath: { n: ABILITY.lastbreathFactor } }
+const ABILITY_FX = { regrowth: ['cut'], plating: ['bounce'], phylactery: ['rise', 'shatter'], heads: ['triple'], singularity: ['singularity'], judgment: ['smite'],
+  maelstrom: ['surface'], kindling: ['kindle'], rewind: ['rewind'], bloodpact: ['pact'], tempest: ['bolt'], reflection: ['reflect'], devour: ['choke', 'gorge'], marionette: ['snap'], lastbreath: ['lastbreath'] }
 function AbilityCard({ t, ability }) {
   if (!ability) return <div style={{ fontSize: 13.5, color: C.inkDim }}>{t('lg_assetsNoAbility')}</div>
   const label = { fontSize: 11.5, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase', color: C.purple }
