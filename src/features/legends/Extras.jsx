@@ -15,7 +15,7 @@ import { itemTier, areaCodex, patchArea, patchItem, CODEX_TIERS, JOURNEY_DAYS } 
 import { updateMap, LEGENDS_ID } from './store'
 import { addItemsToDeck } from './deck'
 
-export const TIER_LOOK = { new: { icon: '⚪', color: 'var(--c-ink-faint)' }, bronze: { icon: '🥉', color: '#b87333' }, silver: { icon: '🥈', color: '#8a96a8' }, gold: { icon: '🥇', color: '#e0a800' } }
+export const TIER_LOOK = { new: { icon: '⚪', color: 'var(--c-ink-faint)' }, bronze: { icon: '🥉', color: 'color-mix(in srgb, var(--c-warning) 55%, var(--c-danger))' }, silver: { icon: '🥈', color: 'var(--c-ink-dim)' }, gold: { icon: '🥇', color: 'var(--c-warning)' } } // theme tokens: both themes
 export const BLITZ = { minGold: 3, max: 8, seconds: 10 }
 const JOURNEY_WEEKS = Math.ceil(JOURNEY_DAYS / 7)
 
@@ -69,8 +69,8 @@ function Constellation({ items, title }) {
   return (
     <div style={{ display: 'grid', justifyItems: 'center', gap: 2 }}>
       <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true" style={{ background: 'color-mix(in srgb, var(--c-purple) 12%, var(--c-surface-sunken))', borderRadius: 10 }}>
-        {pts.slice(1).map((p, i) => <line key={i} x1={pts[i].x} y1={pts[i].y} x2={p.x} y2={p.y} stroke={lit ? '#ffd23f' : 'var(--c-border-strong)'} strokeWidth={lit ? 1.6 : 1} strokeDasharray={lit ? undefined : '3 3'} />)}
-        {pts.map((p, i) => { const tier = itemTier(items[i]); return <circle key={i} cx={p.x} cy={p.y} r={size[tier]} fill={TIER_LOOK[tier].color} stroke="#fff" strokeWidth={tier === 'gold' ? 1.4 : 0.6} /> })}
+        {pts.slice(1).map((p, i) => <line key={i} x1={pts[i].x} y1={pts[i].y} x2={p.x} y2={p.y} stroke={lit ? 'var(--c-warning)' : 'var(--c-border-strong)'} strokeWidth={lit ? 1.6 : 1} strokeDasharray={lit ? undefined : '3 3'} />)}
+        {pts.map((p, i) => { const tier = itemTier(items[i]); return <circle key={i} cx={p.x} cy={p.y} r={size[tier]} fill={TIER_LOOK[tier].color} stroke="var(--c-surface)" strokeWidth={tier === 'gold' ? 1.4 : 0.6} /> })}
       </svg>
       <div style={{ fontSize: 11, fontWeight: 800, color: lit ? C.warning : C.inkDim, maxWidth: W, textAlign: 'center', lineHeight: 1.2 }}>{lit ? '✨ ' : ''}{title}</div>
     </div>
@@ -95,14 +95,21 @@ function Blitz({ ctx, modeId, area, onDone }) {
     const id = setTimeout(() => setLeft((s) => s - 1), 1000)
     return () => clearTimeout(id)
   }) // eslint-disable-line react-hooks/exhaustive-deps
+  // Claimed with refs, not state: a double Enter read `shown` as still empty and pushed the answer twice, and a double
+  // click on the last Continue saved the counts and paid the XP twice.
+  const answeredFor = useRef(-1)
+  const finishing = useRef(false)
   const answer = (timeout = false) => {
-    if (shown || !r) return
+    if (shown || !r || answeredFor.current === i) return
+    answeredFor.current = i
     const ok = !timeout && !!matchTyped(text, r.accepted)
     results.current.push({ id: it.id, ok })
     setShown({ ok, answer: r.accepted[0] })
   }
   const next = async () => {
     if (i + 1 < pool.length) { setI(i + 1); setText(''); setLeft(BLITZ.seconds); setShown(null); return }
+    if (finishing.current) return
+    finishing.current = true
     const res = results.current
     // Every answer counts toward the item's record: a slipped gold item fades to silver on its own.
     await updateMap(modeId, (m) => res.reduce((mm, x) => {
@@ -121,7 +128,8 @@ function Blitz({ ctx, modeId, area, onDone }) {
       </div>
       <ProgressBar value={shown ? 0 : left} max={BLITZ.seconds} color={left <= 3 ? C.danger : C.warning} />
       <div style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 20, color: C.ink }}>{r.cue}</div>
-      <input ref={inputRef} value={text} disabled={!!shown} onChange={(e) => setText(e.target.value)}
+      {/* readOnly, not disabled, once answered: a disabled box never gets the Enter that continues. */}
+      <input ref={inputRef} value={text} readOnly={!!shown} onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) { e.preventDefault(); shown ? next() : answer() } }}
         placeholder={t('kit_typePlaceholder')} style={{ padding: '10px 12px', fontSize: 16, fontFamily: FONT.body, borderRadius: RADIUS.md, border: `2px solid ${C.border}`, background: C.surfaceAlt, color: C.ink }} />
       {shown && <div style={{ fontWeight: 900, color: shown.ok ? C.success : C.danger }}>{shown.ok ? `✓ ${t('kit_correct')}` : `✗ ${t('kit_answerWas', { a: shown.answer })}`}</div>}

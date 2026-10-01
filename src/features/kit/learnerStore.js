@@ -20,8 +20,8 @@ let chain = Promise.resolve()
 
 const configure = (ctx) => { if (ctx?.isDataSwitching) blocked = () => !!ctx.isDataSwitching() }
 
-async function ensure(key) {
-  if (cache.has(key)) return { ok: true, value: cache.get(key) }
+async function ensure(key, { fresh = false } = {}) {
+  if (cache.has(key) && !fresh) return { ok: true, value: cache.get(key) }
   const r = await store.read(key)
   if (!r.ok) { failed.add(key); notify(); return { ok: false, value: null } }
   failed.delete(key)
@@ -49,13 +49,16 @@ export function updateLearner(ctx, modeId, fn, { quiet = false } = {}) {
   configure(ctx)
   const key = keyFor(modeId)
   chain = chain.then(async () => {
-    const r = await ensure(key)
+    // Read again before every write: on a shared data folder another computer may have saved a level since this page
+    // loaded (a graded card here wrote level 10 over the other computer's placement result of 60).
+    const r = await ensure(key, { fresh: true })
     if (!r.ok) return
     const next = fn(r.value)
     if (!next || next === r.value) return
+    // Shown only once saved: a refused write (folder switching, share down) must not show a level that is not stored.
+    if (!(await store.write(key, next))) return
     cache.set(key, next)
     notify()
-    if (!(await store.write(key, next))) return
     // A NEW whole level (above the best ever reached) is a fact other features reward (the game pays XP for it).
     // Falling back and climbing again pays nothing; a first level neither (the placement exam has its own reward).
     const best = r.value ? Math.max(r.value.peak ?? r.value.level, r.value.level) : null

@@ -11,14 +11,15 @@ export const SHELL = {
   gap: 16,
 }
 
-// Core screens in sidebar order, with their icon. Features add screens through their navItems slot.
+// Core screens in sidebar order, with their icon (`art`: a drawn icon in public/assets/nav/<art>.svg; the emoji is the
+// fallback while it loads or for a screen without one). Features add screens through their navItems slot.
 export const CORE_NAV = [
-  { id: 'study', icon: '📚', order: 10 },
-  { id: 'chat', icon: '💬', order: 30 },
-  { id: 'deck', icon: '🗂️', order: 40 },
-  { id: 'discover', icon: '🧭', order: 50 },
-  { id: 'picture', icon: '📷', order: 60 },
-  { id: 'stats', icon: '📊', order: 70 },
+  { id: 'study', icon: '📚', art: 'study', order: 10 },
+  { id: 'chat', icon: '💬', art: 'chat', order: 30 },
+  { id: 'deck', icon: '🗂️', art: 'deck', order: 40 },
+  { id: 'discover', icon: '🧭', art: 'discover', order: 50 },
+  { id: 'picture', icon: '📷', art: 'picture', order: 60 },
+  { id: 'stats', icon: '📊', art: 'stats', order: 70 },
 ]
 
 // Screens that show the rail (home-like screens; never mid-session, where focus matters most).

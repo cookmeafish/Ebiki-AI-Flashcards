@@ -43,6 +43,7 @@ export default function DiscoverPanel(props) {
     onNext, setCard,
     started, config, setConfig, onStart, onAdjust, isLanguage, modeName, modeDescription,
     decks = [], onDeckChange, customKinds = null,
+    legendsLevel = null, useLegendsLevel = false, onUseLegendsLevel,
   } = props
 
   if (!apiKey) {
@@ -128,6 +129,14 @@ export default function DiscoverPanel(props) {
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 11, color: C.dim, marginBottom: 6, fontWeight: 600 }}>{t('d_difficulty')}</div>
             {chipRow(diffOptions, difficulty, (k) => setConfig({ ...config, difficulty: k }))}
+            {/* Opt-in: pitch suggestions at the level Legends measured (placement + results). Off by default. */}
+            {legendsLevel != null && onUseLegendsLevel && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: C.dim, marginTop: 8, cursor: 'pointer' }}>
+                <input type="checkbox" checked={useLegendsLevel} onChange={(e) => onUseLegendsLevel(e.target.checked)} />
+                {t('d_useLegendsLevel', { level: legendsLevel })}
+                <span className="tip" data-tip={t('d_useLegendsLevelTip')} style={{ cursor: 'help' }}>ⓘ</span>
+              </label>
+            )}
           </div>
 
           <div style={{ marginBottom: 14 }}>

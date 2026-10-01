@@ -39,7 +39,8 @@ Base the estimate on real evidence. Be honest: if there is little evidence, lowe
 // ─── Next suggestion ────────────────────────────────────────────────────────
 // Proposes ONE new item to learn, calibrated to the profile and never repeating
 // anything the learner already has / knows / declined.
-export function buildSuggestionPrompt({ profile, modeType, modeName, modeDescription, studyLanguage, excludeList, itemType, focus, knowledge, difficulty, customKind, userLanguage = 'English' }) {
+// `learnerLevel`: the measured level from Legends (placement + results), only when the learner opted in.
+export function buildSuggestionPrompt({ profile, modeType, modeName, modeDescription, studyLanguage, excludeList, itemType, focus, knowledge, difficulty, customKind, userLanguage = 'English', learnerLevel = '' }) {
   const level = profile?.level || { scale: 'tiers', estimate: 'beginner' }
   const weak = (profile?.domains || []).filter((d) => d.status !== 'strong').map((d) => d.name)
   const isLang = modeType === 'language'
@@ -77,6 +78,8 @@ export function buildSuggestionPrompt({ profile, modeType, modeName, modeDescrip
       : 'Aim appropriate for their level: slightly stretch them, never trivial.'
 
   return `You are a tutor suggesting ONE new ${itemKind} for the learner to make a flashcard from. They are studying "${modeName}"${modeDescription ? ` (${modeDescription})` : ''}.
+${learnerLevel ? `MEASURED LEVEL (from the learner's adventure map: placement exam and results): ${learnerLevel}. This outranks the estimate below; pitch the suggestion at THIS level (the difficulty choice is relative to it), and prefer their weak areas.
+` : ''}
 
 Learner level: ${level.scale} = ${level.estimate} (confidence ${profile?.level?.confidence ?? 'unknown'}).
 ${profile?.summary ? `Profile summary: ${profile.summary}` : ''}

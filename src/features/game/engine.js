@@ -10,7 +10,7 @@
 //             goal, quests: [id] }
 // Subject-agnostic on purpose: a "card" is a card in any mode, language or CompTIA or music theory.
 
-export const COUNTERS = ['xp', 'cards', 'correct', 'added', 'chat', 'gym', 'gymDone', 'legends', 'calls', 'learn', 'roleplays', 'practiced', 'bossWins', 'levelUps']
+export const COUNTERS = ['xp', 'cards', 'correct', 'added', 'chat', 'gym', 'gymDone', 'legends', 'calls', 'learn', 'roleplays', 'practiced', 'bossWins', 'levelUps', 'legendsTries']
 
 // Daily goals, in XP. Minutes are the rough time at about a card a minute (10 XP each).
 export const GOALS = [
@@ -23,9 +23,12 @@ export const DEFAULT_GOAL = 30
 export const MAX_FREEZES = 2
 export const START_FREEZES = 1
 export const CHAT_XP_CAP = 20 // chat is worth something, but it must not out-earn studying
+// A failed Legends step or a Blitz run pays a little practice XP, at most this many times a day: losing a boss on
+// purpose (three quick misses) paid a flat 10 XP every time, more than a cleared step's replay.
+export const LEGENDS_TRY_XP_CAP = 6
 
 // XP per event. Kept small and legible: a studied card is the unit (10 XP).
-export const XP = { card: 10, cardCorrect: 5, learn: 5, cardAdded: 3, chat: 1, gym: 5, gymDone: 10, legends: 20, call: 10, placement: 30, roleplay: 15, practiceDone: 10, bossWin: 50, levelUp: 10 }
+export const XP = { card: 10, cardCorrect: 5, learn: 5, cardAdded: 3, chat: 1, gym: 5, gymDone: 10, legends: 20, call: 10, placement: 30, roleplay: 15, practiceDone: 10, legendsTry: 5, bossWin: 50, levelUp: 10 }
 // A Legends step is worth more further up the map: + LEGENDS_AREA_XP per area climbed, up to LEGENDS_AREA_CAP areas.
 export const LEGENDS_AREA_XP = 5
 export const LEGENDS_AREA_CAP = 6
@@ -94,6 +97,7 @@ export function eventDelta(kind, opts = {}, today = {}) {
     case 'placement': return { xp: XP.placement }
     case 'roleplay': return { roleplays: 1, xp: XP.roleplay }
     case 'practiceDone': return { practiced: 1, xp: XP.practiceDone } // any other finished practice activity
+    case 'legendsTry': return { practiced: 1, legendsTries: 1, xp: (Number(today.legendsTries) || 0) < LEGENDS_TRY_XP_CAP ? XP.legendsTry : 0 }
     default: return {}
   }
 }

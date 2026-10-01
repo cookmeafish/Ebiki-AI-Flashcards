@@ -198,10 +198,14 @@ export function parseQuizCheck(raw, n) {
 }
 
 // Which item a question checks (its "target" names the item's front), or ''.
+const ITEM_MATCH_MIN = 3
 export function itemIdFor(question, items) {
   const t = String(question?.target || '').trim().toLowerCase()
   if (!t) return ''
-  const hit = items.find((it) => it.front.toLowerCase() === t) || items.find((it) => it.front.toLowerCase().includes(t) || t.includes(it.front.toLowerCase()))
+  // A partial match needs at least 3 characters on the shorter side: a target like "a" or "el" sits inside nearly
+  // every item and let unrelated questions through the "only what was taught" filter.
+  const part = (a, b) => Math.min(a.length, b.length) >= ITEM_MATCH_MIN && (a.includes(b) || b.includes(a))
+  const hit = items.find((it) => it.front.toLowerCase() === t) || items.find((it) => part(it.front.toLowerCase(), t))
   return hit?.id || ''
 }
 

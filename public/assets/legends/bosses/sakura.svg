@@ -1,77 +1,132 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
-  <!-- The Nine-Tailed Kitsune: a great fox spirit. Nine flaming tails fanned out, a masked face with slit eyes,
-       foxfire orbs, a ceremonial rope collar with paper streamers. -->
-  <!-- nine tails, fanning out on the entrance (each rotates out from behind) -->
-  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
-    <g><animateTransform class="lg-in" attributeName="transform" type="rotate" values="60 60 90;60 60 90;0 60 90" keyTimes="0;.6;1" dur="1.5s" fill="freeze"/>
-      <path d="M60 90 C40 80 12 70 4 44 C14 50 20 50 22 44 C28 56 44 70 60 82Z" fill="#fff2e6"/><path d="M4 44 C10 48 16 48 22 44 C16 40 10 38 4 44Z" fill="#6ff3ff"/></g>
-    <g><animateTransform class="lg-in" attributeName="transform" type="rotate" values="45 60 90;45 60 90;0 60 90" keyTimes="0;.6;1" dur="1.5s" fill="freeze"/>
-      <path d="M60 88 C40 72 14 56 10 26 C18 34 24 34 26 28 C32 44 46 62 60 80Z" fill="#fff2e6"/><path d="M10 26 C16 32 22 32 26 28 C20 22 14 20 10 26Z" fill="#6ff3ff"/></g>
-    <g><animateTransform class="lg-in" attributeName="transform" type="rotate" values="30 60 90;30 60 90;0 60 90" keyTimes="0;.6;1" dur="1.5s" fill="freeze"/>
-      <path d="M60 86 C44 66 26 44 26 12 C32 20 38 20 40 14 C42 34 50 58 62 80Z" fill="#fff2e6"/><path d="M26 12 C30 18 36 18 40 14 C36 8 30 6 26 12Z" fill="#6ff3ff"/></g>
-    <g><animateTransform class="lg-in" attributeName="transform" type="rotate" values="15 60 90;15 60 90;0 60 90" keyTimes="0;.6;1" dur="1.5s" fill="freeze"/>
-      <path d="M58 86 C50 62 40 36 44 6 C48 14 54 14 56 8 C56 30 60 56 64 80Z" fill="#fff2e6"/><path d="M44 6 C48 12 54 12 56 8 C52 2 48 0 44 6Z" fill="#6ff3ff"/></g>
-    <path d="M60 86 C58 60 58 34 60 4 C62 34 62 60 60 86Z M56 8 C58 2 62 2 64 8 C62 12 58 12 56 8Z" fill="#fff2e6"/>
-    <path d="M56 8 C58 2 62 2 64 8 C62 6 58 6 56 8Z" fill="#6ff3ff"/>
-    <g><animateTransform class="lg-in" attributeName="transform" type="rotate" values="-15 60 90;-15 60 90;0 60 90" keyTimes="0;.6;1" dur="1.5s" fill="freeze"/>
-      <path d="M62 86 C70 62 80 36 76 6 C72 14 66 14 64 8 C64 30 60 56 56 80Z" fill="#fff2e6"/><path d="M76 6 C72 12 66 12 64 8 C68 2 72 0 76 6Z" fill="#6ff3ff"/></g>
-    <g><animateTransform class="lg-in" attributeName="transform" type="rotate" values="-30 60 90;-30 60 90;0 60 90" keyTimes="0;.6;1" dur="1.5s" fill="freeze"/>
-      <path d="M60 86 C76 66 94 44 94 12 C88 20 82 20 80 14 C78 34 70 58 58 80Z" fill="#fff2e6"/><path d="M94 12 C90 18 84 18 80 14 C84 8 90 6 94 12Z" fill="#6ff3ff"/></g>
-    <g><animateTransform class="lg-in" attributeName="transform" type="rotate" values="-45 60 90;-45 60 90;0 60 90" keyTimes="0;.6;1" dur="1.5s" fill="freeze"/>
-      <path d="M60 88 C80 72 106 56 110 26 C102 34 96 34 94 28 C88 44 74 62 60 80Z" fill="#fff2e6"/><path d="M110 26 C104 32 98 32 94 28 C100 22 106 20 110 26Z" fill="#6ff3ff"/></g>
-    <g><animateTransform class="lg-in" attributeName="transform" type="rotate" values="-60 60 90;-60 60 90;0 60 90" keyTimes="0;.6;1" dur="1.5s" fill="freeze"/>
-      <path d="M60 90 C80 80 108 70 116 44 C106 50 100 50 98 44 C92 56 76 70 60 82Z" fill="#fff2e6"/><path d="M116 44 C110 48 104 48 98 44 C104 40 110 38 116 44Z" fill="#6ff3ff"/></g>
+  <!-- The Nine-Tailed Kitsune: a great fox spirit seen from below. Nine plush tails fanned out wider than the frame,
+       each burning at its tip with foxfire rooted in the fur; an angular fox head under a cracked lacquered mask,
+       one red V carved over burning slit eyes, a snarling muzzle with fangs past the lip, a twisted shrine rope
+       collar with paper streamers and a bell, foxfire orbs circling, petals falling.
+       Entrance: the tails fan out one by one, the slit eyes ignite, the jaw drops into a snarl. -->
+  <!-- the nine tails, fanning -->
+  <g>
+    <g transform="rotate(-70 60 94)"><g><animateTransform class="lg-in" attributeName="transform" type="rotate" values="70 60 94;70 60 94;-5.6 60 94;0 60 94" keyTimes="0;.5;.78;1" dur="1.5s" fill="freeze"/>
+      <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 60 94;3 60 94;0 60 94" dur="2.3s" repeatCount="indefinite"/>
+        <g transform="translate(60 94) scale(0.936)"><path d="M-5 0 C-15 -16 -19 -38 -13 -56 C-9 -68 -2 -74 4 -72 C0 -66 3 -60 9 -56 C15 -38 13 -16 5 0Z" fill="#f6bfd2" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/><path d="M3 -4 C10 -18 12 -36 8 -54 C6 -60 4 -64 4 -70 C10 -64 14 -54 13 -40 C12 -24 9 -12 5 0Z" fill="#b8406e" opacity="0.35"/><path d="M-8 -28 l3 -5 M-11 -42 l3 -5 M6 -22 l-2 -5 M8 -38 l-2 -5" stroke="#b8406e" stroke-width="0.8" stroke-linecap="round" opacity="0.7"/><path d="M-13 -56 C-9 -68 -2 -74 4 -72 C0 -66 3 -60 9 -56 C4 -61 -6 -61 -13 -56Z" fill="#bff6ff"/><g style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;0.88 1.18;1 1" dur="0.62s" repeatCount="indefinite"/><path d="M-12 -57 C-16 -67 -10 -75 -6 -85 C-5 -77 -1 -77 0 -83 C4 -77 2 -71 6 -75 C10 -67 10 -61 8 -57 C2 -61 -6 -61 -12 -57Z" fill="#6ff3ff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/><path d="M-6 -59 C-8 -65 -5 -69 -3 -75 C-2 -69 2 -69 2 -65 C4 -63 4 -61 3 -59Z" fill="#e8ffff"/></g></g>
+      </g></g></g>
+    <g transform="rotate(70 60 94)"><g><animateTransform class="lg-in" attributeName="transform" type="rotate" values="-70 60 94;-70 60 94;5.6 60 94;0 60 94" keyTimes="0;.5;.78;1" dur="1.5s" fill="freeze"/>
+      <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 60 94;-3 60 94;0 60 94" dur="2.0s" repeatCount="indefinite"/>
+        <g transform="translate(60 94) scale(0.936)"><path d="M-5 0 C-15 -16 -19 -38 -13 -56 C-9 -68 -2 -74 4 -72 C0 -66 3 -60 9 -56 C15 -38 13 -16 5 0Z" fill="#f6bfd2" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/><path d="M3 -4 C10 -18 12 -36 8 -54 C6 -60 4 -64 4 -70 C10 -64 14 -54 13 -40 C12 -24 9 -12 5 0Z" fill="#b8406e" opacity="0.35"/><path d="M-8 -28 l3 -5 M-11 -42 l3 -5 M6 -22 l-2 -5 M8 -38 l-2 -5" stroke="#b8406e" stroke-width="0.8" stroke-linecap="round" opacity="0.7"/><path d="M-13 -56 C-9 -68 -2 -74 4 -72 C0 -66 3 -60 9 -56 C4 -61 -6 -61 -13 -56Z" fill="#bff6ff"/><g style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;0.88 1.18;1 1" dur="0.74s" repeatCount="indefinite"/><path d="M-12 -57 C-16 -67 -10 -75 -6 -85 C-5 -77 -1 -77 0 -83 C4 -77 2 -71 6 -75 C10 -67 10 -61 8 -57 C2 -61 -6 -61 -12 -57Z" fill="#6ff3ff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/><path d="M-6 -59 C-8 -65 -5 -69 -3 -75 C-2 -69 2 -69 2 -65 C4 -63 4 -61 3 -59Z" fill="#e8ffff"/></g></g>
+      </g></g></g>
+    <g transform="rotate(-52 60 94)"><g><animateTransform class="lg-in" attributeName="transform" type="rotate" values="52 60 94;52 60 94;-4.2 60 94;0 60 94" keyTimes="0;.5;.78;1" dur="1.5s" fill="freeze"/>
+      <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 60 94;3 60 94;0 60 94" dur="2.6s" repeatCount="indefinite"/>
+        <g transform="translate(60 94) scale(1.118)"><path d="M-5 0 C-15 -16 -19 -38 -13 -56 C-9 -68 -2 -74 4 -72 C0 -66 3 -60 9 -56 C15 -38 13 -16 5 0Z" fill="#f6bfd2" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/><path d="M3 -4 C10 -18 12 -36 8 -54 C6 -60 4 -64 4 -70 C10 -64 14 -54 13 -40 C12 -24 9 -12 5 0Z" fill="#b8406e" opacity="0.35"/><path d="M-8 -28 l3 -5 M-11 -42 l3 -5 M6 -22 l-2 -5 M8 -38 l-2 -5" stroke="#b8406e" stroke-width="0.8" stroke-linecap="round" opacity="0.7"/><path d="M-13 -56 C-9 -68 -2 -74 4 -72 C0 -66 3 -60 9 -56 C4 -61 -6 -61 -13 -56Z" fill="#bff6ff"/><g style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;0.88 1.18;1 1" dur="0.68s" repeatCount="indefinite"/><path d="M-12 -57 C-16 -67 -10 -75 -6 -85 C-5 -77 -1 -77 0 -83 C4 -77 2 -71 6 -75 C10 -67 10 -61 8 -57 C2 -61 -6 -61 -12 -57Z" fill="#6ff3ff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/><path d="M-6 -59 C-8 -65 -5 -69 -3 -75 C-2 -69 2 -69 2 -65 C4 -63 4 -61 3 -59Z" fill="#e8ffff"/></g></g>
+      </g></g></g>
+    <g transform="rotate(52 60 94)"><g><animateTransform class="lg-in" attributeName="transform" type="rotate" values="-52 60 94;-52 60 94;4.2 60 94;0 60 94" keyTimes="0;.5;.78;1" dur="1.5s" fill="freeze"/>
+      <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 60 94;-3 60 94;0 60 94" dur="1.9s" repeatCount="indefinite"/>
+        <g transform="translate(60 94) scale(1.118)"><path d="M-5 0 C-15 -16 -19 -38 -13 -56 C-9 -68 -2 -74 4 -72 C0 -66 3 -60 9 -56 C15 -38 13 -16 5 0Z" fill="#f6bfd2" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/><path d="M3 -4 C10 -18 12 -36 8 -54 C6 -60 4 -64 4 -70 C10 -64 14 -54 13 -40 C12 -24 9 -12 5 0Z" fill="#b8406e" opacity="0.35"/><path d="M-8 -28 l3 -5 M-11 -42 l3 -5 M6 -22 l-2 -5 M8 -38 l-2 -5" stroke="#b8406e" stroke-width="0.8" stroke-linecap="round" opacity="0.7"/><path d="M-13 -56 C-9 -68 -2 -74 4 -72 C0 -66 3 -60 9 -56 C4 -61 -6 -61 -13 -56Z" fill="#bff6ff"/><g style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;0.88 1.18;1 1" dur="0.8s" repeatCount="indefinite"/><path d="M-12 -57 C-16 -67 -10 -75 -6 -85 C-5 -77 -1 -77 0 -83 C4 -77 2 -71 6 -75 C10 -67 10 -61 8 -57 C2 -61 -6 -61 -12 -57Z" fill="#6ff3ff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/><path d="M-6 -59 C-8 -65 -5 -69 -3 -75 C-2 -69 2 -69 2 -65 C4 -63 4 -61 3 -59Z" fill="#e8ffff"/></g></g>
+      </g></g></g>
+    <g transform="rotate(-35 60 94)"><g><animateTransform class="lg-in" attributeName="transform" type="rotate" values="35 60 94;35 60 94;-2.8 60 94;0 60 94" keyTimes="0;.5;.78;1" dur="1.5s" fill="freeze"/>
+      <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 60 94;3 60 94;0 60 94" dur="2.1s" repeatCount="indefinite"/>
+        <g transform="translate(60 94) scale(1.235)"><path d="M-5 0 C-15 -16 -19 -38 -13 -56 C-9 -68 -2 -74 4 -72 C0 -66 3 -60 9 -56 C15 -38 13 -16 5 0Z" fill="#f6bfd2" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/><path d="M3 -4 C10 -18 12 -36 8 -54 C6 -60 4 -64 4 -70 C10 -64 14 -54 13 -40 C12 -24 9 -12 5 0Z" fill="#b8406e" opacity="0.35"/><path d="M-8 -28 l3 -5 M-11 -42 l3 -5 M6 -22 l-2 -5 M8 -38 l-2 -5" stroke="#b8406e" stroke-width="0.8" stroke-linecap="round" opacity="0.7"/><path d="M-13 -56 C-9 -68 -2 -74 4 -72 C0 -66 3 -60 9 -56 C4 -61 -6 -61 -13 -56Z" fill="#bff6ff"/><g style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;0.88 1.18;1 1" dur="0.58s" repeatCount="indefinite"/><path d="M-12 -57 C-16 -67 -10 -75 -6 -85 C-5 -77 -1 -77 0 -83 C4 -77 2 -71 6 -75 C10 -67 10 -61 8 -57 C2 -61 -6 -61 -12 -57Z" fill="#6ff3ff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/><path d="M-6 -59 C-8 -65 -5 -69 -3 -75 C-2 -69 2 -69 2 -65 C4 -63 4 -61 3 -59Z" fill="#e8ffff"/></g></g>
+      </g></g></g>
+    <g transform="rotate(35 60 94)"><g><animateTransform class="lg-in" attributeName="transform" type="rotate" values="-35 60 94;-35 60 94;2.8 60 94;0 60 94" keyTimes="0;.5;.78;1" dur="1.5s" fill="freeze"/>
+      <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 60 94;-3 60 94;0 60 94" dur="2.5s" repeatCount="indefinite"/>
+        <g transform="translate(60 94) scale(1.235)"><path d="M-5 0 C-15 -16 -19 -38 -13 -56 C-9 -68 -2 -74 4 -72 C0 -66 3 -60 9 -56 C15 -38 13 -16 5 0Z" fill="#f6bfd2" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/><path d="M3 -4 C10 -18 12 -36 8 -54 C6 -60 4 -64 4 -70 C10 -64 14 -54 13 -40 C12 -24 9 -12 5 0Z" fill="#b8406e" opacity="0.35"/><path d="M-8 -28 l3 -5 M-11 -42 l3 -5 M6 -22 l-2 -5 M8 -38 l-2 -5" stroke="#b8406e" stroke-width="0.8" stroke-linecap="round" opacity="0.7"/><path d="M-13 -56 C-9 -68 -2 -74 4 -72 C0 -66 3 -60 9 -56 C4 -61 -6 -61 -13 -56Z" fill="#bff6ff"/><g style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;0.88 1.18;1 1" dur="0.71s" repeatCount="indefinite"/><path d="M-12 -57 C-16 -67 -10 -75 -6 -85 C-5 -77 -1 -77 0 -83 C4 -77 2 -71 6 -75 C10 -67 10 -61 8 -57 C2 -61 -6 -61 -12 -57Z" fill="#6ff3ff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/><path d="M-6 -59 C-8 -65 -5 -69 -3 -75 C-2 -69 2 -69 2 -65 C4 -63 4 -61 3 -59Z" fill="#e8ffff"/></g></g>
+      </g></g></g>
+    <g transform="rotate(-17 60 94)"><g><animateTransform class="lg-in" attributeName="transform" type="rotate" values="17 60 94;17 60 94;-1.4 60 94;0 60 94" keyTimes="0;.5;.78;1" dur="1.5s" fill="freeze"/>
+      <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 60 94;3 60 94;0 60 94" dur="1.8s" repeatCount="indefinite"/>
+        <g transform="translate(60 94) scale(1.300)"><path d="M-5 0 C-15 -16 -19 -38 -13 -56 C-9 -68 -2 -74 4 -72 C0 -66 3 -60 9 -56 C15 -38 13 -16 5 0Z" fill="#f6bfd2" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/><path d="M3 -4 C10 -18 12 -36 8 -54 C6 -60 4 -64 4 -70 C10 -64 14 -54 13 -40 C12 -24 9 -12 5 0Z" fill="#b8406e" opacity="0.35"/><path d="M-8 -28 l3 -5 M-11 -42 l3 -5 M6 -22 l-2 -5 M8 -38 l-2 -5" stroke="#b8406e" stroke-width="0.8" stroke-linecap="round" opacity="0.7"/><path d="M-13 -56 C-9 -68 -2 -74 4 -72 C0 -66 3 -60 9 -56 C4 -61 -6 -61 -13 -56Z" fill="#bff6ff"/><g style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;0.88 1.18;1 1" dur="0.66s" repeatCount="indefinite"/><path d="M-12 -57 C-16 -67 -10 -75 -6 -85 C-5 -77 -1 -77 0 -83 C4 -77 2 -71 6 -75 C10 -67 10 -61 8 -57 C2 -61 -6 -61 -12 -57Z" fill="#6ff3ff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/><path d="M-6 -59 C-8 -65 -5 -69 -3 -75 C-2 -69 2 -69 2 -65 C4 -63 4 -61 3 -59Z" fill="#e8ffff"/></g></g>
+      </g></g></g>
+    <g transform="rotate(17 60 94)"><g><animateTransform class="lg-in" attributeName="transform" type="rotate" values="-17 60 94;-17 60 94;1.4 60 94;0 60 94" keyTimes="0;.5;.78;1" dur="1.5s" fill="freeze"/>
+      <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 60 94;-3 60 94;0 60 94" dur="2.4s" repeatCount="indefinite"/>
+        <g transform="translate(60 94) scale(1.300)"><path d="M-5 0 C-15 -16 -19 -38 -13 -56 C-9 -68 -2 -74 4 -72 C0 -66 3 -60 9 -56 C15 -38 13 -16 5 0Z" fill="#f6bfd2" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/><path d="M3 -4 C10 -18 12 -36 8 -54 C6 -60 4 -64 4 -70 C10 -64 14 -54 13 -40 C12 -24 9 -12 5 0Z" fill="#b8406e" opacity="0.35"/><path d="M-8 -28 l3 -5 M-11 -42 l3 -5 M6 -22 l-2 -5 M8 -38 l-2 -5" stroke="#b8406e" stroke-width="0.8" stroke-linecap="round" opacity="0.7"/><path d="M-13 -56 C-9 -68 -2 -74 4 -72 C0 -66 3 -60 9 -56 C4 -61 -6 -61 -13 -56Z" fill="#bff6ff"/><g style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;0.88 1.18;1 1" dur="0.77s" repeatCount="indefinite"/><path d="M-12 -57 C-16 -67 -10 -75 -6 -85 C-5 -77 -1 -77 0 -83 C4 -77 2 -71 6 -75 C10 -67 10 -61 8 -57 C2 -61 -6 -61 -12 -57Z" fill="#6ff3ff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/><path d="M-6 -59 C-8 -65 -5 -69 -3 -75 C-2 -69 2 -69 2 -65 C4 -63 4 -61 3 -59Z" fill="#e8ffff"/></g></g>
+      </g></g></g>
+    <g transform="rotate(0 60 94)"><g><animateTransform class="lg-in" attributeName="transform" type="rotate" values="0 60 94;0 60 94;0.0 60 94;0 60 94" keyTimes="0;.5;.78;1" dur="1.5s" fill="freeze"/>
+      <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 60 94;3 60 94;0 60 94" dur="2.2s" repeatCount="indefinite"/>
+        <g transform="translate(60 94) scale(1.300)"><path d="M-5 0 C-15 -16 -19 -38 -13 -56 C-9 -68 -2 -74 4 -72 C0 -66 3 -60 9 -56 C15 -38 13 -16 5 0Z" fill="#f6bfd2" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/><path d="M3 -4 C10 -18 12 -36 8 -54 C6 -60 4 -64 4 -70 C10 -64 14 -54 13 -40 C12 -24 9 -12 5 0Z" fill="#b8406e" opacity="0.35"/><path d="M-8 -28 l3 -5 M-11 -42 l3 -5 M6 -22 l-2 -5 M8 -38 l-2 -5" stroke="#b8406e" stroke-width="0.8" stroke-linecap="round" opacity="0.7"/><path d="M-13 -56 C-9 -68 -2 -74 4 -72 C0 -66 3 -60 9 -56 C4 -61 -6 -61 -13 -56Z" fill="#bff6ff"/><g style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;0.88 1.18;1 1" dur="0.7s" repeatCount="indefinite"/><path d="M-12 -57 C-16 -67 -10 -75 -6 -85 C-5 -77 -1 -77 0 -83 C4 -77 2 -71 6 -75 C10 -67 10 -61 8 -57 C2 -61 -6 -61 -12 -57Z" fill="#6ff3ff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/><path d="M-6 -59 C-8 -65 -5 -69 -3 -75 C-2 -69 2 -69 2 -65 C4 -63 4 -61 3 -59Z" fill="#e8ffff"/></g></g>
+      </g></g></g>
+
   </g>
-  <!-- the tails sway as one -->
-  <g fill="#ff7aa8" opacity="0.4">
-    <circle cx="60" cy="60" r="2" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.2;1" dur="2s" repeatCount="indefinite"/></circle>
+  <!-- foxfire orbs circling behind the head -->
+  <g transform="translate(60 58)">
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;360" dur="7s" repeatCount="indefinite"/>
+      <g transform="translate(0 -44)"><circle r="4.6" fill="#6ff3ff" opacity="0.4"/><path d="M0 -5 C-4 -1 -3 3 0 3.4 C3 3 4 -1 0 -5Z" fill="#6ff3ff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/><circle cy="0.6" r="1.4" fill="#fff"/></g>
+      <g transform="rotate(120) translate(0 -44)"><circle r="4.6" fill="#6ff3ff" opacity="0.4"/><path d="M0 -5 C-4 -1 -3 3 0 3.4 C3 3 4 -1 0 -5Z" fill="#6ff3ff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/><circle cy="0.6" r="1.4" fill="#fff"/></g>
+      <g transform="rotate(240) translate(0 -44)"><circle r="4.6" fill="#6ff3ff" opacity="0.4"/><path d="M0 -5 C-4 -1 -3 3 0 3.4 C3 3 4 -1 0 -5Z" fill="#6ff3ff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/><circle cy="0.6" r="1.4" fill="#fff"/></g>
+    </g>
   </g>
-  <!-- body -->
-  <path d="M34 120 C32 100 42 84 60 82 C78 84 88 100 86 120Z" fill="#fff2e6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8"/>
-  <path d="M46 120 C46 104 52 94 60 92 C68 94 74 104 74 120Z" fill="#ffd6e4"/>
-  <!-- the rope collar with paper streamers -->
-  <path d="M40 88 C50 96 70 96 80 88" fill="none" stroke="#c9a441" stroke-width="4" stroke-linecap="round"/>
-  <path d="M40 88 C50 96 70 96 80 88" fill="none" stroke="#8a6a1f" stroke-width="1" stroke-dasharray="3 2"/>
-  <g fill="#fff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7">
-    <path d="M50 93 L48 100 L52 100 L50 106 L54 104"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 50 93;6 50 93;0 50 93" dur="1.2s" repeatCount="indefinite"/></path>
-    <path d="M70 93 L72 100 L68 100 L70 106 L66 104"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 70 93;-6 70 93;0 70 93" dur="1.3s" repeatCount="indefinite"/></path>
+  <!-- the chest: a deep ruff of fur -->
+  <path d="M10 126 C12 110 22 98 34 94 L28 96 L34 88 L40 94 L46 86 L52 93 L60 85 L68 93 L74 86 L80 94 L86 88 L92 96 L86 94 C98 98 108 110 110 126Z" fill="#fff2e6" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M88 96 C100 102 106 112 108 126 H94 C94 114 92 104 88 96Z" fill="#d97aa0" opacity="0.35"/>
+  <path d="M24 116 l3 -6 l2 5 M40 116 l3 -6 l2 5 M58 114 l3 -6 l2 5 M74 118 l3 -6 l2 5 M90 114 l3 -6 l2 5" fill="none" stroke="#d99ab4" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- the shrine rope collar: twisted straw, paper streamers, a bell -->
+  <path d="M30 94 C42 104 78 104 90 94" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="8.4" stroke-linecap="round"/>
+  <path d="M30 94 C42 104 78 104 90 94" fill="none" stroke="#e0c070" stroke-width="6" stroke-linecap="round"/>
+  <path d="M33 94.6 l2 4.4 M38 97.4 l2 4.4 M43.4 99.4 l2 4.2 M49 100.6 l2 4.2 M55 101.2 l2 4 M61 101.2 l2 4 M67 100.6 l2 4.2 M72.6 99.4 l2 4.2 M78 97.4 l2 4.4 M83 94.6 l2 4.4" stroke="#8a6a1f" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M32 92.6 C44 101 76 101 88 92.6" fill="none" stroke="#fff3c8" stroke-width="0.8" opacity="0.8"/>
+  <g fill="#fff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round">
+    <path d="M42 101 L40 108 L44 108 L42 115 L46 113"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 42 101;7 42 101;0 42 101" dur="1.2s" repeatCount="indefinite"/></path>
+    <path d="M78 101 L80 108 L76 108 L78 115 L74 113"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 78 101;-7 78 101;0 78 101" dur="1.3s" repeatCount="indefinite"/></path>
   </g>
-  <!-- head -->
-  <path d="M38 50 C38 40 46 34 60 34 C74 34 82 40 82 50 C82 62 72 72 60 84 C48 72 38 62 38 50Z" fill="#fff2e6" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
-  <!-- tall ears -->
-  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round">
-    <path d="M40 44 L34 14 L54 36Z" fill="#fff2e6"/><path d="M80 44 L86 14 L66 36Z" fill="#fff2e6"/>
-    <path d="M42 38 L38 22 L50 36Z M78 38 L82 22 L70 36Z" fill="#ff7aa8" stroke="none"/>
+  <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-8 60 103;8 60 103;-8 60 103" dur="1.6s" repeatCount="indefinite"/>
+    <path d="M60 103 V105" stroke="#e0233e" stroke-width="1.6"/>
+    <circle cx="60" cy="110" r="5" fill="#e0b030" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+    <path d="M56 109 H64 M60 111 V115" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9"/>
+    <path d="M57 107 A3.4 3.4 0 0 1 60 105.6" fill="none" stroke="#fff3b0" stroke-width="1"/>
   </g>
-  <!-- the ceremonial mask markings -->
-  <g fill="#e0233e">
-    <path d="M60 36 C58 40 58 44 60 48 C62 44 62 40 60 36Z"/>
-    <path d="M40 50 C44 46 50 46 52 50 C48 52 44 52 40 50Z M80 50 C76 46 70 46 68 50 C72 52 76 52 80 50Z"/>
-    <path d="M44 60 L50 58 M76 60 L70 58" stroke="#e0233e" stroke-width="1.4"/>
+  <!-- tall ears with an earring bell -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-linejoin="round">
+    <path d="M47 36 L32 2 L60 32Z" fill="#fff2e6" stroke-width="1.8"/><path d="M73 36 L88 2 L60 32Z" fill="#fff2e6" stroke-width="1.8"/>
+    <path d="M47 33 L36 9 L55 31Z M73 33 L84 9 L65 31Z" fill="#e0233e" stroke="none" opacity="0.85"/>
+    <path d="M45 30 L40 18 M75 30 L80 18" stroke="#fff" stroke-width="0.8"/>
   </g>
-  <!-- slit eyes, glowing -->
-  <g transform="translate(50 52)"><g>
+  <g transform="translate(38 20)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-12;12;-12" dur="1.4s" repeatCount="indefinite"/>
+    <path d="M0 0 V4" stroke="#e0233e" stroke-width="1"/><circle cy="6" r="2.2" fill="#e0b030" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/></g></g>
+  <!-- the head: an angular fox skull, cheek fur in spikes -->
+  <path d="M60 28 L74 33 L84 43 L88 52 L97 56 L89 61 L93 68 L82 70 L74 80 L66 87 H54 L46 80 L38 70 L27 68 L31 61 L23 56 L32 52 L36 43 L46 33Z" fill="#fff2e6" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2" stroke-linejoin="round"/>
+  <path d="M60 28 L74 33 L84 43 L88 52 L97 56 L89 61 L93 68 L82 70 L74 80 L66 87 H60Z" fill="#d97aa0" opacity="0.3"/>
+  <path d="M46 34 L37 44 L33 53 L40 52 L44 42Z" fill="#fff" opacity="0.6"/>
+  <!-- the lacquered mask -->
+  <path d="M60 31 L72 35 L80 45 L79 58 L69 65 L60 62 L51 65 L41 58 L40 45 L48 35Z" fill="#fffaf4" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M60 31 L72 35 L80 45 L79 58 L69 65 L60 62Z" fill="#000" opacity="0.08"/>
+  <path d="M60 33 C57.6 37 57.6 41 60 45 C62.4 41 62.4 37 60 33Z" fill="#e0233e"/>
+  <path d="M42 60 L36 66 M46 63 L41 70 M78 60 L84 66 M74 63 L79 70" stroke="#e0233e" stroke-width="1.6" stroke-linecap="round"/>
+  <!-- a crack through the mask, glowing -->
+  <path d="M71 36 L68 42 L72 46 L69 52" fill="none" stroke="#6ff3ff" stroke-width="1.6" stroke-linejoin="round" opacity="0.6"/>
+  <path d="M71 36 L68 42 L72 46 L69 52" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"/>
+  <!-- slit eyes, burning gold -->
+  <path d="M42 50 C46 52 50 54 55 58 C51 61 45 59 42 55Z M78 50 C74 52 70 54 65 58 C69 61 75 59 78 55Z" fill="#1a0508" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+  <g transform="translate(48.6 55.4) rotate(26)"><g>
     <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0;1 0;1 1.6;1 1" keyTimes="0;.7;.85;1" dur="1.5s" fill="freeze"/>
-    <path d="M-6 2 C-3 -2 3 -3 6 -2 C3 3 -3 4 -6 2Z" fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/><ellipse rx="0.7" ry="2" fill="#1a0508"/>
+    <ellipse rx="6.6" ry="3.6" fill="#ffd23f" opacity="0.4"/><ellipse rx="4.6" ry="1.9" fill="#ffd23f"/>
+    <ellipse rx="0.7" ry="2.2" fill="#1a0508" transform="rotate(-26)"/><circle cx="-1.8" cy="-0.6" r="0.6" fill="#fff"/>
   </g></g>
-  <g transform="translate(70 52)"><g>
-    <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0;1 0;1 1.6;1 1" keyTimes="0;.7;.85;1" dur="1.5s" fill="freeze"/>
-    <path d="M6 2 C3 -2 -3 -3 -6 -2 C-3 3 3 4 6 2Z" fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/><ellipse rx="0.7" ry="2" fill="#1a0508"/>
+  <g transform="translate(71.4 55.4) rotate(-26)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0;1 0;1 1.6;1 1" keyTimes="0;.72;.87;1" dur="1.5s" fill="freeze"/>
+    <ellipse rx="6.6" ry="3.6" fill="#ffd23f" opacity="0.4"/><ellipse rx="4.6" ry="1.9" fill="#ffd23f"/>
+    <ellipse rx="0.7" ry="2.2" fill="#1a0508" transform="rotate(26)"/><circle cx="1.8" cy="-0.6" r="0.6" fill="#fff"/>
   </g></g>
-  <!-- snout with a sly fanged grin -->
-  <path d="M60 74 L57 70 H63Z" fill="#1d1b28"/>
-  <path d="M50 72 C54 80 66 80 70 72 C66 76 54 76 50 72Z" fill="#8a1030" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
-  <g fill="#fff"><polygon points="53,74 54,78 55.5,75"/><polygon points="67,74 66,78 64.5,75"/></g>
-  <!-- foxfire orbs orbiting -->
-  <g fill="#6ff3ff">
-    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 60 60;360 60 60" dur="6s" repeatCount="indefinite"/>
-      <circle cx="60" cy="8" r="4" opacity="0.4"/><path d="M60 4 C57 8 58 12 60 12 C62 12 63 8 60 4Z" fill="#e8ffff"/></g>
-    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="180 60 60;540 60 60" dur="6s" repeatCount="indefinite"/>
-      <circle cx="60" cy="8" r="4" opacity="0.4"/><path d="M60 4 C57 8 58 12 60 12 C62 12 63 8 60 4Z" fill="#e8ffff"/></g>
+  <!-- the brow: one red lacquer ridge carved in a V -->
+  <path d="M39 43 C47 45 54 48 60 54 C66 48 73 45 81 43 L81 49 C73 51 66 54 60 60 C54 54 47 51 39 49Z" fill="#e0233e" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+  <path d="M40 44.4 C47.6 46.4 54.4 49.4 60 55 C65.6 49.4 72.4 46.4 80 44.4" fill="none" stroke="#ff8aa0" stroke-width="0.8"/>
+  <!-- the snarling muzzle -->
+  <path d="M51 66 C55 64 65 64 69 66" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9"/>
+  <path d="M56 64 C58 62.6 62 62.6 64 64 C63 66.4 61.4 67.4 60 67.4 C58.6 67.4 57 66.4 56 64Z" fill="#1d1b28" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+  <path d="M57.4 64.2 C58.6 63.6 60 63.6 61 64" fill="none" stroke="#fff" stroke-width="0.5"/>
+  <path d="M48 72 C52 69 57 70 60 70.6 C63 70 68 69 72 72 L70 80 C66 86 54 86 50 80Z" fill="#5a0c1e" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+  <path d="M54 80 C56 77 64 77 66 80 C64 83 56 83 54 80Z" fill="#c43a5a"/>
+  <g fill="#fffaf4" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round">
+    <path d="M50 72 L52.6 82 L54 71.4Z M66 71.4 L67.4 82 L70 72Z"/>
+    <path d="M55 70.8 L56 74 L57.2 70.6Z M58.4 70.6 L59.4 73.4 L60.4 70.6Z M61.6 70.6 L62.6 73.4 L63.6 70.6Z M62.8 70.6 L64 74 L65 70.8Z"/>
   </g>
-  <!-- sakura petals -->
-  <g fill="#ffb7cf">
-    <ellipse style="transform-box:fill-box;transform-origin:center" cx="14" cy="100" rx="2" ry="1.2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -20;8 10" dur="3s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="3s" repeatCount="indefinite" additive="sum"/></ellipse>
-    <ellipse style="transform-box:fill-box;transform-origin:center" cx="104" cy="100" rx="2" ry="1.2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -20;-8 10" dur="3.4s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="3.4s" repeatCount="indefinite" additive="sum"/></ellipse>
+  <path d="M51 72 L52.6 80" stroke="#fff" stroke-width="0.4"/>
+  <path d="M46 68 L50 70 M74 68 L70 70 M47 66 L50 67 M73 66 L70 67" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linecap="round"/>
+  <!-- the lower jaw: drops into the snarl -->
+  <g><animateTransform class="lg-in" attributeName="transform" type="translate" values="0 -5;0 -5;0 3;0 0" keyTimes="0;.72;.86;1" dur="1.5s" fill="freeze"/>
+    <path d="M50 81 C54 88 66 88 70 81 L68 88 C64 92 56 92 52 88Z" fill="#fff2e6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+    <g fill="#fffaf4" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"><path d="M52.4 84 L54 77.4 L55.6 85Z M64.4 85 L66 77.4 L67.6 84Z M57.6 86 L58.6 82.4 L59.6 86.4Z M60.4 86.4 L61.4 82.4 L62.4 86Z"/></g>
+  </g>
+  <!-- sakura petals drifting down -->
+  <g fill="#ffb7cf" stroke="#e0233e" stroke-width="0.4">
+    <path style="transform-box:fill-box;transform-origin:center" d="M12 70 c2 -2 5 -1 4 2 c-1 2 -4 2 -4 -2Z"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -24;10 14" dur="3s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="3s" repeatCount="indefinite" additive="sum"/></path>
+    <path style="transform-box:fill-box;transform-origin:center" d="M104 78 c2 -2 5 -1 4 2 c-1 2 -4 2 -4 -2Z"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -24;-10 14" dur="3.4s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="3.4s" repeatCount="indefinite" additive="sum"/></path>
+    <path style="transform-box:fill-box;transform-origin:center" d="M94 104 c2 -2 5 -1 4 2 c-1 2 -4 2 -4 -2Z"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -20;-6 10" dur="2.7s" begin="1s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.7s" begin="1s" repeatCount="indefinite" additive="sum"/></path>
   </g>
 </svg>

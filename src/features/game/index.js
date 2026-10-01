@@ -12,7 +12,7 @@ export const GAME_FEATURE_ID = 'game'
 // Which finished practice session counts for which quest counter (by the source feature's id).
 // Anything not listed still earns the generic practiceDone XP, so a new activity needs no change here.
 // Legends steps are paid through LEGENDS_STEP (worth more further up the map), so `legends` is skipped here.
-const DONE_AWARD = { 'mistake-gym': 'gymDone', 'legends-placement': 'placement', roleplay: 'roleplay' }
+const DONE_AWARD = { 'mistake-gym': 'gymDone', 'legends-placement': 'placement', roleplay: 'roleplay', 'legends-try': 'legendsTry', 'legends-blitz': 'legendsTry' }
 const PAID_ELSEWHERE = new Set(['legends'])
 
 export default {

@@ -23,11 +23,18 @@ export const artUrl = (kind, motif) => { const list = kind === 'raids' ? RAID_MO
 
 const mix = (token, pct, base = 'var(--c-surface)') => `color-mix(in srgb, ${token} ${pct}%, ${base})`
 
-// palette → the two theme colors it is built from
+// palette → [main color, accent], from theme colors (so both themes work). Every palette has its OWN main color: night
+// and candy were both purple (sunset and sand both amber) and drew the same sky, hills and ground.
+const tone = (a, pct, b) => `color-mix(in srgb, ${a} ${pct}%, ${b})`
 const BASE = {
-  brand: ['var(--c-brand)', 'var(--c-warning)'], ocean: ['var(--c-info)', 'var(--c-teal)'], forest: ['var(--c-success)', 'var(--c-warning)'],
-  sunset: ['var(--c-warning)', 'var(--c-brand)'], night: ['var(--c-purple)', 'var(--c-info)'], sand: ['var(--c-warning)', 'var(--c-teal)'],
-  candy: ['var(--c-purple)', 'var(--c-brand)'], steel: ['var(--c-ink-dim)', 'var(--c-info)'],
+  brand: ['var(--c-brand)', 'var(--c-warning)'],
+  ocean: ['var(--c-info)', 'var(--c-teal)'],
+  forest: ['var(--c-success)', 'var(--c-warning)'],
+  sunset: [tone('var(--c-warning)', 60, 'var(--c-brand)'), 'var(--c-purple)'],   // orange, a violet dusk
+  night: [tone('var(--c-info)', 50, 'var(--c-purple)'), 'var(--c-warning)'],     // indigo, gold stars
+  sand: [tone('var(--c-warning)', 55, 'var(--c-ink-dim)'), 'var(--c-teal)'],     // khaki, an oasis
+  candy: [tone('var(--c-brand)', 55, 'var(--c-purple)'), 'var(--c-info)'],       // pink, sky blue sprinkles
+  steel: [tone('var(--c-ink-dim)', 70, 'var(--c-info)'), 'var(--c-warning)'],    // blue grey, a warm light
 }
 export function paletteColors(name) {
   const [main, accent] = BASE[name] || BASE.brand
@@ -84,7 +91,7 @@ const freeFigure = (svg) => svg.replace(/<svg\b/, '<svg overflow="visible"')
 // One art file, colored for `palette`. While it loads (or if it is missing) the frame shows the palette's sky.
 // `room`: a figure wrapped in its headroom as real space (margin on every side), for places where text, buttons or
 // other drawings sit next to it. The asset view and gallery (ArtLabels) always give it.
-export function LegendsArt({ kind, motif, palette, height, width = '100%', locked = false, round = RADIUS.lg, animated = false, style, room = false }) {
+export function LegendsArt({ kind, motif, palette, height, width = '100%', locked = false, round = RADIUS.lg, animated = false, style, room = false, roomed = false }) {
   const url = artUrl(kind, motif)
   const [html, setHtml] = useState({ url: '', svg: '' })
   useEffect(() => {
@@ -111,7 +118,20 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
   // file tag, a caption, a button, a title or the next drawing.
   const size = Math.max(typeof height === 'number' ? height : 0, typeof width === 'number' ? width : 0)
   const pad = figure && size && (room || labels) ? headroomPx(size) : 0
-  if (!labels || !big) return pad ? <div style={{ padding: pad, flexShrink: 0, lineHeight: 0 }}>{art}</div> : art
+  // `roomed`: the parent already keeps the headroom around a box of exactly this size (boss card, fight arena), so the
+  // art stays in that box and the tag sits in the reserved space below it (padding again pushed the boss off center).
+  if (labels && big && roomed) {
+    return (
+      <div style={{ position: 'relative', width, height, flexShrink: 0 }}>
+        {art}
+        <span style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', top: `calc(100% + ${Math.max(0, pad - 18)}px)`, padding: '1px 6px', borderRadius: 4,
+          background: 'rgba(0,0,0,.72)', color: '#fff', font: '700 10px/1.4 monospace', textTransform: 'none', letterSpacing: 'normal', whiteSpace: 'nowrap' }}>
+          {url.slice(ART_BASE.length + 1)}
+        </span>
+      </div>
+    )
+  }
+  if (!labels || !big) return pad && !roomed ? <div style={{ padding: pad, flexShrink: 0, lineHeight: 0 }}>{art}</div> : art
   return (
     <div style={{ width: typeof width === 'number' ? width + pad * 2 : width, padding: pad, boxSizing: 'border-box', display: 'grid', gap: 4, justifyItems: 'start', flexShrink: 0 }}>
       {art}
@@ -126,6 +146,6 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
 export const AreaArt = ({ area, height = 120, width = '100%', locked = false, animated = 'idle', style }) => (
   <LegendsArt kind="areas" motif={area?.motif} palette={area?.palette} height={height} width={width} locked={locked} animated={animated} style={style} />
 )
-export const BossArt = ({ area, size = 64, locked = false, animated = false, style, room = false }) => (
-  <LegendsArt kind="bosses" motif={area?.motif} palette={area?.palette} height={size} width={size} round={0} locked={locked} animated={animated} style={style} room={room} />
+export const BossArt = ({ area, size = 64, locked = false, animated = false, style, room = false, roomed = false }) => (
+  <LegendsArt kind="bosses" motif={area?.motif} palette={area?.palette} height={size} width={size} round={0} locked={locked} animated={animated} style={style} room={room} roomed={roomed} />
 )

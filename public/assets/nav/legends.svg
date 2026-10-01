@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- Legends: a folded treasure map, islands, a dashed trail and an X. -->
+  <path d="M5 13 L17 9 L31 13 L43 9 L43 41 L31 45 L17 41 L5 45Z" fill="#C99A2E"/>
+  <path d="M5 11 L17 7 L17 39 L5 43Z" fill="#FFE08A"/>
+  <path d="M17 7 L31 11 L31 43 L17 39Z" fill="#F2C94C"/>
+  <path d="M31 11 L43 7 L43 39 L31 43Z" fill="#FFE08A"/>
+  <path d="M8 18 C10 13 16 14 15.5 18.5 C15 23 9.5 23 8 18Z" fill="#58CC02"/>
+  <path d="M33 27 C35 22 41 23 40.5 28 C40 33 34 33 33 27Z" fill="#58CC02"/>
+  <path d="M20 14 C22 12 26 13 25.5 15.5 C25 18 21 18 20 14Z" fill="#1CB0F6" opacity="0.8"/>
+  <path d="M11 33 C16 37 21 26 26 28 C30 30 32 22 35.5 18" fill="none" stroke="#DF2540" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="2.6 3"/>
+  <circle cx="11" cy="33" r="2.2" fill="#DF2540"/>
+  <path d="M33 14.5 L38.5 20 M38.5 14.5 L33 20" stroke="#DF2540" stroke-width="3" stroke-linecap="round"/>
+</svg>

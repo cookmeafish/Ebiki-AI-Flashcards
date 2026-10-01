@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- Stats: three rising bars on a baseline. -->
+  <rect x="6" y="26" width="10" height="17" rx="3" fill="#46A302"/>
+  <rect x="6" y="26" width="10" height="14" rx="3" fill="#58CC02"/>
+  <rect x="19" y="16" width="10" height="27" rx="3" fill="#E0A800"/>
+  <rect x="19" y="16" width="10" height="24" rx="3" fill="#FFC800"/>
+  <rect x="32" y="6" width="10" height="37" rx="3" fill="#1487C2"/>
+  <rect x="32" y="6" width="10" height="34" rx="3" fill="#1CB0F6"/>
+  <g fill="#ffffff" opacity="0.45">
+    <rect x="8" y="28.5" width="2" height="7" rx="1"/><rect x="21" y="18.5" width="2" height="10" rx="1"/><rect x="34" y="8.5" width="2" height="12" rx="1"/>
+  </g>
+  <rect x="3" y="41" width="42" height="4" rx="2" fill="#8794A8"/>
+</svg>

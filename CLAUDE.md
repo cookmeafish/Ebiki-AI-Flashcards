@@ -61,7 +61,8 @@ One **⚙ Settings** modal, `src/components/SettingsModal.jsx`:
 - `chatSuggestions` (3 subject-specific Chat starter chips) come from `createMode`; the Chat empty state shows them
   (generic fallback) plus an always-present "💬 Just chat with Ebi" chip. Older modes backfill lazily on first
   Chat visit (effect near `sendChatTabMessage`).
-- Header: quick mode-switcher + ⚙. Switching tabs closes the modal.
+- Header: quick mode-switcher, then the deck switcher (the ACTIVE MODE's deck via `setAnkiDeck`, shown only while Anki
+  answers; Practice, raids, Study and Legends all read it) + ⚙. Switching tabs closes the modal.
 - **Mode ids are repaired on load** (modes-load effect, next to the em-dash sanitize pass): duplicate ids (merged
   shared folders) are re-id'd, first wins; string ids become numbers; changes persist. A duplicate breaks the
   active highlight and turns a switch into a rename. **The saved `activeModeId` must exist**, else the first mode
@@ -1037,6 +1038,10 @@ on each keystroke and the key field lost focus. Same rule everywhere: no compone
 - **Discover async guards**: the full duplicate set loads under a MODE + DECK-SWITCH token (Adjust bumping
   `discoverGenRef` left it empty); the cache paint runs only on the mode deck; a save retired by Adjust says so
   (`d_saveCancelled`). partOfSpeech/difficulty/domain-coverage estimates are asked in the app language.
+- **Legends level, opt-in per mode** (`activeMode.discoverUseLevel`, default OFF; checkbox under Difficulty, shown
+  only when the mode HAS a level): App reads it live with `useLearner(activeModeId)` (the shared kit store, no Legends
+  import) and passes `learnerLine(...)` to `buildSuggestionPrompt` as `learnerLevel` ("MEASURED LEVEL ... outranks
+  the estimate"). Tests: `src/discover/prompts.test.js`.
 - **Actions**: Make Card / I Know This (`known`) / Skip (`declined`: excluded forever) / Next (advance, nothing
   recorded). All via `discoverExcludeList`.
 - **Dialect + mode language**: `fetchNextSuggestion` appends `dialectRule()`; `buildCardFields` (Discover + Picture
@@ -1438,7 +1443,8 @@ of `src/features/index.js` (and `src/features/server.js` if it has a server half
 Sidebar (core screens `CORE_NAV` + feature `navItems`) | screen | rail (feature `railCards`, only on `railWanted`
 screens: Study home, Stats; feature screens opt in with `rail: true`). Sizes and breakpoints in `SHELL` (CSS px after
 the body zoom; `useViewportWidth`): icon-only sidebar below `collapseBelow`, no rail below `railHideBelow`. In the
-overlay the wrappers are `display: contents`. A saved `activeTab` that no longer exists falls back to Study.
+overlay the wrappers are `display: contents`. Sidebar icons are drawn SVGs (`public/assets/nav/<art>.svg`, `art` on
+`CORE_NAV` entries and feature `navItems`; the emoji `icon` stays as the fallback and for the Chat "+" menu). A saved `activeTab` that no longer exists falls back to Study.
 **Core screens share the Duolingo-style look through global classes** (App.jsx global `<style>`, same design as
 `src/features/ui.jsx`): `.duo-title` (display heading), `.duo-bubble` (Ebi speech bubble), `.duo-cta` (+ `.green`; chunky 3D
 button, pair with `btn-press`), `.duo-tile` (+ `.brand`; chunky choice tile). Used by the Study home, the Chat empty state and
@@ -1494,7 +1500,7 @@ carry `data-no-voice`. The badge portals into `#ebiki-voice-layer` under `<html>
   (`t('tab_' + id)`) are not seen by it: add those to every locale by hand.
 
 ### Legends (`src/features/legends/`): the adventure map per mode
-Plan: `docs/legends-roadmap.md`. Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends`
+Discover can use the level (opt-in, see Discover). Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends`
 (order 15, no rail: the map header shows the level), rail card `LevelCard` (Study home, Stats).
 - **Pure, tested**: `map.js` (map model, `normalizeMap` recomputes every status from what is DONE: areas open in
   order, steps one by one, optional Talk steps never block, the boss last; `applyNodeResult` stars/passes and
@@ -1563,8 +1569,10 @@ Plan: `docs/legends-roadmap.md`. Works for ANY subject (a CompTIA map teaches Co
   and both themes. Every `var()` in a file carries its own fallback (`art.test.js` checks it, plus one file per motif
   and no scripts/links/url()). A new motif = a `MOTIFS` entry + both files + an `ENTRANCES` entry. How to edit:
   `public/assets/legends/README.md`.
-- **Asked to make or redraw Legends art? Read `docs/legends-art-guide.md` FIRST and follow it** (the owner's art
-  direction). **Its "boss recipe" is the bar for EVERY new boss** (from the raid redesign the owner loved): a written
+- **Asked to make or redraw Legends art (a boss, a RAID boss, a banner)? Read `docs/legends-art-guide.md` FIRST and
+  follow it** (the owner's art direction; its "owner's vision" section lists what was approved and rejected, and
+  `raids/void.svg` is the gold standard). Every new or redrawn asset gets the guide's TRIPLE CHECK (each drawing
+  alone, the whole set side by side, then the real app screens + tests + check-art) before the owner sees it. **Its "boss recipe" is the bar for EVERY new boss** (from the raid redesign the owner loved): a written
   plan per boss first; fill and bleed past the frame, seen from below; a backdrop that is part of the boss; angry
   brows over slit glowing eyes, angular cel-shaded skulls, too many teeth; materials that read (gauntlets, real chain
   links, lit wing membranes); contrast checked against the backdrop in both themes; every phase a transformation that
@@ -1624,6 +1632,21 @@ Plan: `docs/legends-roadmap.md`. Works for ANY subject (a CompTIA map teaches Co
   A mode switch keeps the previous screen (the SAME element objects, so nothing remounts or restarts) while the
   new map is read (`held`), and shows `lg_loading` only after `HOLD_MS`: the loading line flashed on every switch. A
   failed read shows the retry screen (it used to sit on "Loading" for good).
+- **Shared-folder safety (a 2026-09 review)**: `updateMap` and `updateLearner` READ AGAIN before every write
+  (`ensure(key, { fresh: true })`): computers on one share wrote the whole map or level from the copy they loaded
+  hours earlier. The learner level is cached only after its write succeeds. A stored map this build cannot shape
+  (newer `MAP_VERSION`, damaged) is a FAILED read, never "no map" (a new plan was written over it). `shapeMap`
+  collapses areas a merge listed twice (`dedupeAreas`: the more finished copy, in the first place). Area detail lands
+  only while the area keeps its title/theme (Change my map can repurpose the id mid-call).
+- **One-time rewards live OUTSIDE the map** (`claimReward(modeId, rewardKeyFor(kind, title))`, store key
+  `rewards-<mode>`): the placement XP and each boss's first win (by island title) are paid once per mode, even after
+  Start over (it writes a null map). Failed tries and Blitz pay `legendsTry` (5 XP, `LEGENDS_TRY_XP_CAP` 6 a day).
+- **Guards**: `finishingRef` (a double "See the result" recorded and paid twice), `modeIdRef` (a result finishing after
+  a mode switch shows nothing), Help's map edit waits in `pendingEdit` until a map exists and no step/exam/fight/raid
+  runs (`BUSY_VIEWS`), a raid left by navigation saves on unmount, and card XP goes only to cards Anki recorded,
+  one hint scroll per question, Blitz claims answers and the finish with refs, QuizRunner ignores a judge reply after
+  ✕ (`exited`), `itemIdFor` needs 3+ characters for a partial match, `addItemsToDeck` remembers this session's adds
+  (`addedNow`) when the map save fails.
 - **Cards only on a click** (`deck.js`, `ctx.cards.addNew`, tags `ebiki legends lg-<area>`); a beaten boss offers the
   whole area.
 - **Rewards** (game): PRACTICE_DONE `legends` (quest counter, paid through `LEGENDS_STEP`: 20 XP + 5 per area up the
@@ -1668,13 +1691,15 @@ Plan: `docs/legends-roadmap.md`. Works for ANY subject (a CompTIA map teaches Co
   (raid hall), `BOSS_BEATEN {raid: true}` (XP + a freeze) and brings out the next boss (`RAID_MOTIFS`). Raid art:
   `public/assets/legends/raids/<motif>.svg` with phase layers `lg-p2`/`lg-p3` (start `style="display:none"`),
   `lg-p1` (phase 1 only) and `lg-p12` (gone in phase 3), switched by the arena's `data-phase` (BossArena CSS).
-  **The five raid bosses are the plan in `docs/raid-bosses-plan.md`** (the owner found the first set "boring,
+  **The six raid bosses are the plan in `docs/raid-bosses-plan.md`** (the owner found the first set "boring,
   uninspired and weak"): each fills its frame, has a backdrop that is part of it, and every phase is a TRANSFORMATION
   (armor breaks, heads regrow, a wraith looms), not a sticker. They are generated by scripts kept outside the repo;
   edit the SVGs directly now. Each has its own card entrance in `ENTRANCES` (hydra `lgHydraRise`, titan `lgPowerUp`,
-  lich `lgLevitate`, chimera `lgTripleRoar`, void `lgRealityTear`; a test keeps all Legends + raid entrance names
+  lich `lgLevitate`, chimera `lgTripleRoar`, void `lgRealityTear`, seraph `lgHolyUnfold`; a test keeps all Legends + raid entrance names
   distinct). A phase change in the arena (`usePhaseShift`, rises only) flashes and shakes the boss (`lgPhaseShift`)
-  and stamps "PHASE N"; focus mode skips it.
+  and fades a small "PHASE N" tag in UNDER the boss (`lgPhaseTag`; a stamp over the boss hid the change itself); focus
+  mode skips it. Each phase should also change the boss's FACE (lich: calm, furious brows, screaming; titan: sealed
+  visor, molten snarl, split skull). Phase layers never add flat colored blobs behind the boss (they read as stains).
 - **Raid abilities** (owner's rule: they change how the FIGHT plays, never how a question is asked: no timers,
   nothing hidden, a right answer never marked wrong). Rules in `fight.js` (`ABILITY`, `ABILITIES`, `strike(..., {
   ability, phase, need })`, tested), motif → ability in `raid.js` `RAID_ABILITY`: hydra `regrowth` (a miss returns
@@ -1682,10 +1707,12 @@ Plan: `docs/legends-roadmap.md`. Works for ANY subject (a CompTIA map teaches Co
   damage), lich `phylactery` (the killing blow with a missed card still unredeemed leaves it at 1 health and it RISES
   once; `RaidRun` inserts every unredeemed card typed as `_lastStand`; only redeeming the last one ends it, so a loss
   there never saves as a win), chimera `heads` (every 3rd right answer in a row triples, replacing the critical),
-  void `singularity` (phase 3: double damage, a miss costs 2 lives). Shown on the intro (`BossIntro ability`), as an
+  void `singularity` (phase 3: double damage, a miss costs 2 lives), seraph `judgment` (every 5 answers are weighed:
+  all right = +5 smite damage; nothing is ever taken away). Shown on the intro (`BossIntro ability`), as an
   arena chip, as floaters (`last.fx`) and as a one-line hint under the strike label when it applies. Anki still gets
   only each card's FIRST answer (last-stand and attack answers are never recorded). `QuizRunner`'s `insert` may be
-  a list. The asset view's raid tab has a live arena with "Next phase" to watch the phase change.
+  a list. The asset view's raid tab opens each boss with a big ABILITY card (rule, the in-fight hint, the floater words:
+  `AbilityCard`, same texts as the fight) and a live arena with "Next phase" to watch the phase change.
 - **Asset view** (cheat mode only: `AssetView.jsx`, map header ⚡ button): two tabs, **Legends** (the 40 stages:
   entrance, boss sizes, banners) and **Raid bosses** (entrance, phases 1 to 3 through the arena's own phase CSS,
   fight sizes); every palette; ← and → step through the list. **File names are shown ONLY there** (and in the dev

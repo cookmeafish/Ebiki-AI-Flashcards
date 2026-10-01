@@ -24,8 +24,12 @@ async function ensure(key, { fresh = false } = {}) {
   if (cache.has(key) && !fresh) return { ok: true, value: cache.get(key) }
   const r = await store.read(key)
   if (!r.ok) { failed.add(key); notify(); return { ok: false, value: null } }
+  // A saved map this build cannot read (written by a newer version, or damaged) is NOT "no map yet": treated
+  // as unreadable, so nothing (a new plan, Start over) is ever written over it.
+  const shaped = shapeMap(r.value)
+  if (r.value != null && shaped == null) { failed.add(key); notify(); return { ok: false, value: null } }
   failed.delete(key)
-  cache.set(key, shapeMap(r.value))
+  cache.set(key, shaped)
   notify()
   return { ok: true, value: cache.get(key) }
 }
@@ -38,7 +42,9 @@ export const peekMap = (modeId) => cache.get(keyFor(modeId)) || null
 export function updateMap(modeId, fn) {
   const key = keyFor(modeId)
   const run = chain.then(async () => {
-    const r = await ensure(key)
+    // Read the file again before every write: on a shared data folder another computer may have saved since this
+    // page loaded, and writing the whole map from the old copy erased that computer's progress.
+    const r = await ensure(key, { fresh: true })
     if (!r.ok) return undefined
     const next = fn(r.value)
     if (next === r.value) return r.value
@@ -49,6 +55,26 @@ export function updateMap(modeId, fn) {
   })
   chain = run.catch(() => {})
   return run.catch(() => undefined)
+}
+
+// ── One-time rewards ────────────────────────────────────────────────────────────────────────────────────────
+// Rewards a mode has already paid (the placement exam, each boss's first win), kept OUTSIDE the map: "Start over"
+// writes a null map, and a new map used to pay them all again. true = this call claimed it (pay now); false =
+// already paid, or the record could not be read or written (pay nothing rather than twice).
+const rewardsKey = (modeId) => `rewards-${keyFor(modeId).slice(4)}`
+let rewardChain = Promise.resolve()
+export const rewardKeyFor = (kind, title = '') => `${kind}:${String(title).toLowerCase().replace(/\s+/g, ' ').trim()}`.slice(0, 120)
+export function claimReward(modeId, rewardKey) {
+  const key = rewardsKey(modeId)
+  const run = rewardChain.then(async () => {
+    const r = await store.read(key)
+    if (!r.ok) return false
+    const paid = Array.isArray(r.value?.paid) ? r.value.paid : []
+    if (paid.includes(rewardKey)) return false
+    return store.write(key, { paid: [...paid, rewardKey].slice(-500) })
+  })
+  rewardChain = run.catch(() => {})
+  return run.catch(() => false)
 }
 
 // { map, loaded, failed, retry } for a mode; loads on first use.

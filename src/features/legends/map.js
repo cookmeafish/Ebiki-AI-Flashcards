@@ -239,10 +239,19 @@ function normalizeNodes(nodes, areaStatus) {
 }
 
 // Migrations for a stored map (future format changes land here); null when it is not a map at all.
+// One area per id. A merge of two computers' copies (offline reconcile, joining a shared folder) unions the lists and
+// can hold the same area twice: the copy with more finished steps stays, in the place of the first one.
+function dedupeAreas(areas) {
+  const done = (a) => (a?.nodes || []).filter((n) => n.status === 'done').length + (a?.status === 'done' ? 100 : 0)
+  const best = new Map()
+  for (const a of areas) { if (!a || typeof a !== 'object') continue; const b = best.get(a.id); if (!b || done(a) > done(b)) best.set(a.id, a) }
+  const seen = new Set()
+  return areas.filter((a) => a && typeof a === 'object' && !seen.has(a.id) && seen.add(a.id)).map((a) => best.get(a.id))
+}
 export function shapeMap(raw) {
   if (!raw || typeof raw !== 'object' || !Array.isArray(raw.areas)) return null
   if ((raw.version || 1) > MAP_VERSION) return null // written by a newer build: leave it alone
-  return normalizeMap(ensureWeakNodes({ ...raw, version: MAP_VERSION }))
+  return normalizeMap(ensureWeakNodes({ ...raw, version: MAP_VERSION, areas: dedupeAreas(raw.areas) }))
 }
 
 export const areaIndex = (map, areaId) => (map?.areas || []).findIndex((a) => a.id === areaId)
@@ -441,7 +450,12 @@ export function mapProgress(map) {
 }
 
 // The map needs more areas planned: the learner is on its last area (or finished it).
-export const needsMoreAreas = (map) => !!map?.areas?.length && map.areas.length < AREAS.max * 2 && map.areas.findIndex((a) => a.status === 'open') >= map.areas.length - 1
+// (Every area finished counts too: a "plan more" that failed on the last area must be retried, not a dead end.)
+export const needsMoreAreas = (map) => {
+  if (!map?.areas?.length || map.areas.length >= AREAS.max * 2) return false
+  const open = map.areas.findIndex((a) => a.status === 'open')
+  return open < 0 ? map.areas.every((a) => a.status === 'done') : open >= map.areas.length - 1
+}
 
 // Append newly planned areas (titles only) after the existing ones.
 export function appendAreas(map, plan, now = Date.now()) {
@@ -486,7 +500,8 @@ export function mergeEdit(map, proposal, now = Date.now()) {
       const next = { ...old, title: p.title || old.title, theme: p.theme || old.theme, motif: freshMotif(p.motif || old.motif, motifs), palette: p.palette || old.palette }
       const topicMoved = next.title !== old.title || next.theme !== old.theme
       const looksMoved = next.motif !== old.motif || next.palette !== old.palette
-      if (topicMoved) Object.assign(next, { detailed: false, items: [], nodes: [], bossName: '', bonusLife: false, legendary: false })
+      // A new topic forgets everything the old one earned or wrote (its story, passport line, chest, nemesis).
+      if (topicMoved) Object.assign(next, { detailed: false, items: [], nodes: [], bossName: '', bonusLife: false, legendary: false, story: undefined, canDo: undefined, bonus: undefined, storySeen: false, chestOpened: false, nemesis: null })
       out.push(next)
       changes.push(topicMoved || looksMoved ? { kind: 'changed', id: old.id, title: next.title, before: old.title } : { kind: 'kept', id: old.id, title: old.title })
     } else if (p.title) {

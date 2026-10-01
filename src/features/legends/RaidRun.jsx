@@ -99,17 +99,21 @@ export default function RaidRun({ ctx, onExit }) {
   const save = async () => {
     if (saved.current) return
     saved.current = true
-    setPhase('saving')
+    if (alive.current) setPhase('saving')
     const st = fsRef.current
     const ratings = [...firstHit.current.entries()].map(([cardId, hit]) => {
       const r = raidRating(hit)
       return { cardId, ease: r.ease, rating: r.rating, front: cardsRef.current.find((c) => c.cardId === cardId)?.front || '' }
     })
     let recorded = 0, failed = 0
+    let recordedIds = new Set()
     if (ratings.length) {
-      try { const r = await recordReviews({ guardKey: GUARD_KEY, runId, deck, ratings, preSchedule: preRef.current }); recorded = r.recorded.length; failed = r.failed.length } catch { failed = ratings.length }
+      try { const r = await recordReviews({ guardKey: GUARD_KEY, runId, deck, ratings, preSchedule: preRef.current }); recordedIds = new Set(r.recorded); recorded = r.recorded.length; failed = r.failed.length } catch { failed = ratings.length }
     }
+    // Card XP and mistakes only for the cards Anki really recorded: an unrecorded card stays due, and the next raid
+    // today would have paid and logged it again.
     for (const [cardId, hit] of firstHit.current) {
+      if (!recordedIds.has(cardId)) continue
       const c = cardsRef.current.find((x) => x.cardId === cardId)
       ctx.emit(EVENTS.CARD_GRADED, { correct: hit.verdict !== 'miss', mode: modeId, front: c?.front || '', back: c?.back || '', cardId, misses: hit.verdict === 'miss' ? [{ question: hit.q?.prompt || '', answer: hit.answer || '', expected: (hit.q?.accepted || [])[0] || '' }] : [] })
     }
@@ -124,6 +128,10 @@ export default function RaidRun({ ctx, onExit }) {
     setSummary({ recorded, failed, won: outcome.won, firstWin: outcome.firstWin, damage: st.damage, saveFailed: next === undefined })
     setPhase('done')
   }
+  // Leaving by the sidebar, the Practice hub or a mode switch unmounts the raid: what was answered is still saved.
+  const saveRef = useRef(save)
+  saveRef.current = save
+  useEffect(() => () => { if (firstHit.current.size && !saved.current) saveRef.current() }, [])
   // Leaving mid-fight still records what was answered (the reviews happened).
   const leave = async () => {
     // QuizRunner already asked "quit?"; the answers given so far are still recorded.
@@ -228,6 +236,10 @@ export default function RaidRun({ ctx, onExit }) {
     if (ability === 'regrowth' && q._attack) return `✂ ${t('lg_hint_regrowth', { n: ABILITY.regrowthCut })}`
     if (ability === 'singularity' && fightPhase >= 3) return `🌀 ${t('lg_hint_singularity', { n: ABILITY.singularityLives })}`
     if (ability === 'heads' && !q._attack && fs.chain % ABILITY.tripleEvery === ABILITY.tripleEvery - 1) return `🔥 ${t('lg_hint_heads')}`
+    if (ability === 'judgment' && !q._attack && !q._lastStand) {
+      const into = (fs.judged || 0) % ABILITY.judgmentEvery
+      if (into === ABILITY.judgmentEvery - 1 && (fs.judgedRight || 0) === into) return `⚖️ ${t('lg_hint_judgment', { n: ABILITY.judgmentSmite })}`
+    }
     return ''
   }
   const header = (q, mode) => (

@@ -5,6 +5,7 @@ import { SHELL } from './layout'
 
 const ROW_H = 46
 const ICON_SIZE = 22
+const ART_SIZE = 28 // a drawn icon (public/assets/nav/<art>.svg) fills its square, an emoji does not
 
 export default function Sidebar({ items, active, onPick, collapsed }) {
   return (
@@ -26,7 +27,9 @@ export default function Sidebar({ items, active, onPick, collapsed }) {
               background: on ? C.brandTint : 'transparent', color: on ? C.brand : C.inkDim, cursor: on ? 'default' : 'pointer',
               fontFamily: FONT.body, fontWeight: 800, fontSize: 14, letterSpacing: '.06em', textTransform: 'uppercase',
             }}>
-            <span style={{ fontSize: ICON_SIZE, lineHeight: 1, width: ICON_SIZE + 6, textAlign: 'center' }}>{it.icon}</span>
+            {it.art
+              ? <img src={`/assets/nav/${it.art}.svg`} alt="" aria-hidden="true" draggable={false} width={ART_SIZE} height={ART_SIZE} style={{ flexShrink: 0, display: 'block' }} />
+              : <span style={{ fontSize: ICON_SIZE, lineHeight: 1, width: ICON_SIZE + 6, textAlign: 'center' }}>{it.icon}</span>}
             {!collapsed && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{it.label}</span>}
           </button>
         )

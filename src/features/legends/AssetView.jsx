@@ -6,10 +6,11 @@ import { useEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { ChunkyButton, Card } from '../ui'
 import { AreaArt, ArtLabels, BossArt, LegendsArt, artUrl, BANNER } from './art'
-import { BossIntro, BossArena, BossStyle, BOSS } from './BossArena'
+import { BossIntro, BossArena, BossStyle, BOSS, ABILITY_ICON } from './BossArena'
 import { newFight } from './fight'
 import { MOTIFS, PALETTES } from './map'
 import { RAID, RAID_MOTIFS, RAID_ABILITY } from './raid'
+import { ABILITY } from './fight'
 
 const VIEW = { mapW: 620, mapH: 132, thumb: 56, paletteBoss: 72, paletteBannerW: 260, phase: 180, demoHp: 30 }
 const TABS = [
@@ -26,7 +27,7 @@ const RaidPhase = ({ motif, palette, phase, size }) => (
   <div className="lg-boss" data-phase={phase}><LegendsArt kind="raids" motif={motif} palette={palette} height={size} width={size} round={0} animated="idle" /></div>
 )
 // The fight arena with a button that deals a third of the health: every press plays the phase change (flash, shake,
-// "PHASE N" stamp) the real raid shows. After the last phase it starts over at full health.
+// "PHASE N" tag) the real raid shows. After the last phase it starts over at full health.
 function PhaseDemo({ t, area, motif, getZoom }) {
   const [step, setStep] = useState(0)
   const third = VIEW.demoHp / RAID.phases
@@ -37,6 +38,37 @@ function PhaseDemo({ t, area, motif, getZoom }) {
       <BossArena key={motif} t={t} area={area} name={motif} need={VIEW.demoHp} lives={RAID.lives} state={state} phases={RAID.phases} ability={RAID_ABILITY[motif]} getZoom={getZoom} kind="raids" />
       <div><ChunkyButton variant="ghost" color={C.danger} onClick={() => setStep((n) => (n + 1) % RAID.phases)} style={{ fontSize: 12, padding: '6px 10px' }}>⚔️ {t('lg_assetsNextPhase')}</ChunkyButton></div>
     </div>
+  )
+}
+
+// A raid boss's ability, in full, at the top of its page: the rule, the hint the fight shows when it applies, and the
+// words that pop over the boss when it triggers (the same texts the real fight uses).
+const ABILITY_HINT = { plating: {}, regrowth: { n: ABILITY.regrowthCut }, singularity: { n: ABILITY.singularityLives }, heads: {}, judgment: { n: ABILITY.judgmentSmite } }
+const ABILITY_FX = { regrowth: ['cut'], plating: ['bounce'], phylactery: ['rise', 'shatter'], heads: ['triple'], singularity: ['singularity'], judgment: ['smite'] }
+function AbilityCard({ t, ability }) {
+  if (!ability) return <div style={{ fontSize: 13.5, color: C.inkDim }}>{t('lg_assetsNoAbility')}</div>
+  const label = { fontSize: 11.5, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase', color: C.purple }
+  return (
+    <section aria-label={t('lg_assetsAbility')} style={{ maxWidth: 640, padding: '14px 18px', borderRadius: RADIUS.lg, display: 'grid', gap: 10,
+      border: `3px solid ${C.purple}`, background: `color-mix(in srgb, ${C.purple} 12%, ${C.surface})` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ fontSize: 34, lineHeight: 1 }}>{ABILITY_ICON[ability]}</span>
+        <div>
+          <div style={label}>{t('lg_assetsAbility')}</div>
+          <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 22, color: C.ink }}>{t(`lg_ability_${ability}`)}</div>
+        </div>
+      </div>
+      <div style={{ fontSize: 14.5, fontWeight: 700, lineHeight: 1.5, color: C.ink }}>{t(`lg_abilityDesc_${ability}`)}</div>
+      {ABILITY_HINT[ability] && (
+        <div><div style={label}>{t('lg_assetsAbilityHint')}</div><div style={{ fontSize: 13.5, color: C.inkDim, fontWeight: 600 }}>{t(`lg_hint_${ability}`, ABILITY_HINT[ability])}</div></div>
+      )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <span style={label}>{t('lg_assetsAbilityFx')}</span>
+        {(ABILITY_FX[ability] || []).map((k) => (
+          <span key={k} style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 16, color: C.purple, padding: '0 8px', borderRadius: RADIUS.sm, background: C.surface }}>{t(`lg_fx_${k}`)}</span>
+        ))}
+      </div>
+    </section>
   )
 }
 
@@ -114,7 +146,7 @@ export default function AssetView({ ctx, onBack }) {
               border: `2px solid ${i === idx ? C.brand : C.border}`, background: i === idx ? `color-mix(in srgb, ${C.brand} 12%, ${C.surface})` : C.surface,
               fontFamily: FONT.body, fontSize: 10, fontWeight: 800, color: i === idx ? C.brand : C.inkDim }}>
             {thumb(m)}
-            {i + 1}. {m}
+            <span>{i + 1}. {m}{raids && RAID_ABILITY[m] ? ` ${ABILITY_ICON[RAID_ABILITY[m]]}` : ''}</span>
           </button>
         ))}
       </div>
@@ -129,6 +161,8 @@ export default function AssetView({ ctx, onBack }) {
             {raids ? <span>{artUrl('raids', motif)}</span> : <><span>{artUrl('bosses', motif)}</span><span>{artUrl('areas', motif)}</span></>}
           </div>
         </div>
+
+        {raids && <AbilityCard t={t} ability={RAID_ABILITY[motif]} />}
 
         <div style={section}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

@@ -25,6 +25,84 @@ plus the technical rules the app enforces. The files live in `public/assets/lege
   a path, a bridge, ruins, weather, something alive.
 - **Each boss has its own animated entrance** (see Motion), and everything has some idle life.
 
+## The owner's vision in one place (read this before ANY new boss or raid boss)
+
+**The gold standard is `raids/void.svg`** ("the best one by far"): it fills its frame, its backdrop IS the boss (a
+black hole's disk), it has a face you remember, and every phase changes it so much you would not mistake one phase for
+another. `raids/titan.svg` and `raids/hydra.svg` are the next references. A new boss is measured against these, and
+the 40 Legends bosses are held to the same bar (they just have no phases).
+
+**Bosses vs raid bosses**
+- A **Legends boss** guards one area of the map: one drawing, no phases, an entrance on its intro card and idle life
+  in the fight. Its concept comes from the area (`dev/legends-gallery/catalog.js`). It must still look as detailed and
+  fierce as a raid boss: raids are not allowed to make it look lackluster.
+- A **raid boss** fights across THREE phases (`lg-p1`, `lg-p2`, `lg-p3`, `lg-p12`, see the README) and has an ability
+  (`RAID_ABILITY`). Each phase is a TRANSFORMATION of the boss itself, not layers added around it.
+
+**What the owner approved (do more of this)**
+- Phases that change the creature: a head cut off and two growing back, armor bursting open on a molten core, a helm
+  splitting on a skull, a crown shattering into orbiting shards, bony legs showing where the robe burned away,
+  waterspouts rising from the whirlpool, a bolt striking the crowned head.
+- **The face changes every phase** (the owner's idea): calm and in control, then furious, then screaming or melting.
+  Lich: calm eyes, then one solid V brow ridge narrowing them, then blazing wide eyes over a dropped jaw. Titan:
+  sealed visor, then the jaw grille torn off on a snarling molten mouth with flames pouring from the eyes, then a
+  split helm on a molten skull with the same flames.
+- Effects ATTACHED to their source and moving with it: flames rooted in the eyes they pour from, drips falling from
+  the gash that bleeds them, sparks from the core.
+- Chunky, colorful, readable shapes with a strong outline, a darker depth edge and a highlight.
+
+**What the owner rejected (never again)**
+- **Flat semi-transparent color blobs or auras** behind or around a boss (a red tint filling the clouds, green fans
+  behind heads): they read as stains. A glow is only ever the bright copy of one specific shape (an eye, a flame
+  core).
+- Effects floating loose: flames hovering above the eyes instead of coming out of them.
+- Motion without a reason: teeth bobbing while the jaw stays still. Teeth hold still unless the whole jaw moves.
+- Thin separate brow wedges with a line through them: they read as **eyelashes**. A brow is ONE solid bone or armor
+  ridge in a V, angled down to the middle.
+- Too much stacked at once in a final phase (a ghost robe + a fishbone ribcage + a bright rectangle mouth + a scythe
+  on one lich): it reads "mega weird". Pick the two or three changes that tell the story and make them big.
+- A phase that only adds small things: if phase 2 looks like phase 1 at a glance, it is not done.
+- Labels or tags over the boss (the PHASE tag now sits under it) and anything that hides the transformation.
+- **Nose rings** ("I hate nose rings"). No piercings on bosses.
+- **"Inspired by X, don't copy it" does NOT mean drop what made X loved.** The first Thousand-Eyed Judge kept only the
+  idea of "an angel" and became a calm gold knight with no eyes; the owner: "where is the scary eyes and dangerous
+  white celestial figure??? HOW IS THIS YOUR BEST WORK???". Keep the loved signature (a white celestial, eyes
+  everywhere), change the rest (pose, backdrop, structure, phases). And a raid boss is terrifying from PHASE 1; the
+  phases make it worse, they do not make it scary for the first time.
+- **Fire out of the eyes as a default.** It worked on the titan and the castle knight, where it is rooted IN the
+  visor slit and leans outward; on other bosses (the frontier rider) the owner asked to remove it. Use it rarely, and
+  only rooted in the eye.
+- Mouths that do not read as mouths: a thin slot with tiny teeth, pink squiggles around it, a ring line across it.
+  A maw is one bold jagged opening, a dark inside, a glowing throat and a few BIG fangs.
+- Twitchy idle motion: small limbs flapping fast and far (the rex's arm). Idle life is slow and small; the big
+  motion belongs to the entrance.
+
+**Backgrounds (area banners, `areas/<motif>.svg`) are held to the same bar.** A banner is the boss's LAIR, as
+detailed and alive as the boss: layered depth (far silhouettes, mid scenery, a near foreground framing the view),
+weather and light that move (fog drifting, rain, searchlights sweeping, embers, fireflies, waves), a small story (a
+path leading in, a bridge, ruins, a wreck, a warning sign) and the BOSS PRESENT and recognisable as the same creature
+as its boss file (its glowing eyes in the dark, its silhouette on the ridge, a tentacle holding the wreck, its face in
+the cliff). Same rules as bosses: no flat color blobs as "atmosphere" (depth comes from layered shapes and lit
+edges), effects attached to their source, contrast checked in both themes and every palette, and nothing important
+outside the visible band (about y 28 to y 112 on the map). A banner and its boss are designed TOGETHER: when a boss is
+redrawn, its banner's boss presence is updated to match.
+
+**Process the owner expects**
+1. Plan per boss (idea, backdrop, face, what each phase breaks/grows/opens, idle motion, entrance).
+2. Draw, render ALL phases side by side at 300 px and 120 px on dark AND light, and look at them before showing.
+3. Ask: does each phase read as a different moment at a glance? Does the face change? Is anything floating, flat or
+   weird? Fix, render again.
+4. `npx vitest run src/features/legends` and `check-art.mjs` (0 failures, no new warnings).
+5. **Triple check before showing the owner** (the owner asked for this on every boss, raid boss and banner):
+   - **Check 1, the drawing:** each asset alone at 420, 190, 120 and 64 px, dark and light, at rest and at a few
+     entrance moments. Face fierce? Anything floating, flat, cut off, invisible on one theme, or moving for no reason?
+   - **Check 2, the set:** a contact sheet of the WHOLE set side by side (all bosses, or all raid bosses with their
+     phases). Does any boss look like another (silhouette, backdrop, face)? Does any look weaker than the raid bosses?
+     Do several now share a habit (every boss in a rectangular frame, the same glow, the same pose)?
+   - **Check 3, in the app:** the real screens (intro card with its entrance, the fight arena, the map icon, the asset
+     viewer), plus the tests and `check-art.mjs` once more after the last fix. Fix what any check finds, then run all
+     three again.
+
 ## The boss recipe (what made the 2026-09 raid redesign land)
 
 The first raid bosses were called "boring, uninspired and weak" (small figures in empty space, one neck, a boxy robot,
