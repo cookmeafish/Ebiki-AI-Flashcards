@@ -75,11 +75,16 @@ const LABEL_MIN_PX = 100 // smaller drawings (map icons, the stage strip) are to
 // 120 x 120 frame was sliced flat, a visible invisible box. So a figure may draw up to BOSS_HEADROOM past its frame
 // (the SVG overflows, the box clips at that wider edge). Parts parked far off canvas to hide them (a translate of
 // 200) stay hidden. Banners are pictures: they clip at their own edge.
-const BOSS_HEADROOM = '20%'
+export const HEADROOM_SHARE = 0.2
+// The space a figure of `size` px may draw past its frame: give it as margin wherever text or controls sit next to one.
+export const headroomPx = (size) => Math.round(size * HEADROOM_SHARE)
+const BOSS_HEADROOM = `${HEADROOM_SHARE * 100}%`
 const freeFigure = (svg) => svg.replace(/<svg\b/, '<svg overflow="visible"')
 
 // One art file, colored for `palette`. While it loads (or if it is missing) the frame shows the palette's sky.
-export function LegendsArt({ kind, motif, palette, height, width = '100%', locked = false, round = RADIUS.lg, animated = false, style }) {
+// `room`: a figure wrapped in its headroom as real space (margin on every side), for places where text, buttons or
+// other drawings sit next to it. The asset view and gallery (ArtLabels) always give it.
+export function LegendsArt({ kind, motif, palette, height, width = '100%', locked = false, round = RADIUS.lg, animated = false, style, room = false }) {
   const url = artUrl(kind, motif)
   const [html, setHtml] = useState({ url: '', svg: '' })
   useEffect(() => {
@@ -102,11 +107,15 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
       {svg && <div style={{ width: '100%', height: '100%' }} dangerouslySetInnerHTML={{ __html: svg }} />}
     </div>
   )
-  if (!(labels && big)) return art
+  // A figure keeps its headroom as real space on every side, so what it draws past its frame never runs under its
+  // file tag, a caption, a button, a title or the next drawing.
+  const size = Math.max(typeof height === 'number' ? height : 0, typeof width === 'number' ? width : 0)
+  const pad = figure && size && (room || labels) ? headroomPx(size) : 0
+  if (!labels || !big) return pad ? <div style={{ padding: pad, flexShrink: 0, lineHeight: 0 }}>{art}</div> : art
   return (
-    <div style={{ width, display: 'grid', gap: 4, justifyItems: 'start', flexShrink: 0 }}>
+    <div style={{ width: typeof width === 'number' ? width + pad * 2 : width, padding: pad, boxSizing: 'border-box', display: 'grid', gap: 4, justifyItems: 'start', flexShrink: 0 }}>
       {art}
-      <span style={{ padding: '1px 6px', borderRadius: 4, background: 'rgba(0,0,0,.72)', color: '#fff',
+      <span style={{ marginTop: pad, padding: '1px 6px', borderRadius: 4, background: 'rgba(0,0,0,.72)', color: '#fff',
         font: '700 10px/1.4 monospace', textTransform: 'none', letterSpacing: 'normal', whiteSpace: 'nowrap' }}>
         {url.slice(ART_BASE.length + 1)}
       </span>
@@ -117,6 +126,6 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
 export const AreaArt = ({ area, height = 120, width = '100%', locked = false, animated = 'idle', style }) => (
   <LegendsArt kind="areas" motif={area?.motif} palette={area?.palette} height={height} width={width} locked={locked} animated={animated} style={style} />
 )
-export const BossArt = ({ area, size = 64, locked = false, animated = false, style }) => (
-  <LegendsArt kind="bosses" motif={area?.motif} palette={area?.palette} height={size} width={size} round={0} locked={locked} animated={animated} style={style} />
+export const BossArt = ({ area, size = 64, locked = false, animated = false, style, room = false }) => (
+  <LegendsArt kind="bosses" motif={area?.motif} palette={area?.palette} height={size} width={size} round={0} locked={locked} animated={animated} style={style} room={room} />
 )
