@@ -45,12 +45,12 @@ export function cheatResetNode(map, areaId, nodeId, now) {
 // An area back to untouched: steps not done, item history forgotten, no longer frozen (so it can be edited again).
 export function cheatResetArea(map, areaId, now) {
   return withArea(map, areaId, (a) => ({
-    ...a, status: 'open', frozen: false, bonusLife: false, legendary: false, nodes: (a.nodes || []).map(freshNode),
+    ...a, status: 'open', frozen: false, bonusLife: false, legendary: false, storySeen: false, chestOpened: false, nemesis: null, nodes: (a.nodes || []).map(freshNode),
     items: (a.items || []).map(({ seen, right, ...it }) => it),
   }), now)
 }
 
 // An area's content thrown away, so it is written again (by the lookahead, or by "Generate now").
 export function cheatClearArea(map, areaId, now) {
-  return withArea(map, areaId, (a) => ({ ...a, status: 'open', frozen: false, detailed: false, items: [], nodes: [], bossName: '', bonusLife: false, legendary: false }), now)
+  return withArea(map, areaId, (a) => ({ ...a, status: 'open', frozen: false, detailed: false, items: [], nodes: [], bossName: '', bonusLife: false, legendary: false, story: undefined, canDo: undefined, bonus: undefined, storySeen: false, chestOpened: false, nemesis: null }), now)
 }

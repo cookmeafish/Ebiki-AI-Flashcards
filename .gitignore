@@ -58,3 +58,7 @@ player.json
 # Feature data (src/features/storage-server.js): Legends maps and saved questions, learner levels, practice log.
 # Personal, machine or data-folder local: never pushed.
 /features/
+
+# Instruction/skill copies other coding tools generate (CLAUDE.md and .claude/skills are the real ones)
+/AGENTS.md
+/.agents/

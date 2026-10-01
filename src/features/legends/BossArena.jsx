@@ -115,9 +115,10 @@ const CSS = `
 @keyframes lgPowerUp { 0% { transform: translateY(24%) scale(.8); opacity: 0; filter: brightness(.15) } 12% { opacity: 1; transform: translateY(24%) scale(.8) } 22% { transform: translateY(14%) scale(.87); filter: brightness(1.9) } 30% { transform: translateY(14%) scale(.87); filter: brightness(.4) } 42% { transform: translateY(6%) scale(.94); filter: brightness(2.1) } 50% { transform: translateY(6%) scale(.94); filter: brightness(.5) } 64% { transform: translateY(-4%) scale(1.08); filter: brightness(2.6) } 72% { transform: translate(-5px, -2%) scale(1.06) } 78% { transform: translate(5px, -1%) scale(1.05) } 84% { transform: translate(-3px, 0) scale(1.02); filter: brightness(1.3) } 100% { transform: none; filter: none } }
 @keyframes lgLevitate { 0% { transform: translateY(70%) rotate(-7deg); opacity: 0; filter: brightness(.3) blur(3px) } 25% { opacity: .9; transform: translateY(45%) rotate(6deg); filter: blur(1px) } 50% { transform: translateY(24%) rotate(-5deg) } 66% { transform: translateY(14%) rotate(3deg); filter: brightness(1) blur(0) } 76% { transform: translateY(-16%) scale(1.1); filter: brightness(2) } 88% { transform: translateY(3%) scale(.98) } 100% { transform: none; filter: none } }
 @keyframes lgTripleRoar { 0% { transform: scale(.55); opacity: 0 } 10% { opacity: 1 } 20% { transform: scale(.7) rotate(-5deg) } 26% { transform: scale(.66) rotate(3deg) } 44% { transform: scale(.88) rotate(5deg) } 50% { transform: scale(.84) rotate(-3deg) } 70% { transform: scale(1.18) rotate(-6deg) } 76% { transform: scale(1.12) rotate(5deg) } 82% { transform: scale(1.1) rotate(-3deg) } 90% { transform: scale(.97) } 100% { transform: none } }
+@keyframes lgHolyUnfold { 0% { transform: translateY(-70px) rotate(-120deg) scale(.04); opacity: 0; filter: brightness(6) } 12% { opacity: 1 } 34% { transform: translateY(-62px) rotate(-60deg) scale(.1); filter: brightness(5) } 62% { transform: translateY(-6px) rotate(8deg) scale(1.16); filter: brightness(2.4) } 76% { transform: translateY(2px) rotate(-3deg) scale(.95) } 88% { transform: rotate(1deg) scale(1.02) } 100% { transform: none; filter: none } }
 @keyframes lgRealityTear { 0% { transform: scale(1.3, .02); opacity: 0; filter: brightness(3) } 14% { opacity: 1; transform: scale(1.3, .03) } 28% { transform: scale(1.1, .05) } 46% { transform: scale(.94, 1.28); filter: brightness(2) hue-rotate(40deg) } 54% { transform: translateX(-9px) scale(1.04, .94) } 60% { transform: translateX(8px) scale(.98, 1.04); filter: hue-rotate(-30deg) } 66% { transform: translateX(-5px) } 72% { transform: translateX(3px) scale(1.02) } 100% { transform: none; filter: none } }
 @keyframes lgPhaseShift { 0% { transform: none; filter: none } 10% { transform: scale(1.3); filter: brightness(3) saturate(0) } 22% { transform: scale(.9) translateX(-7px) rotate(-4deg); filter: brightness(1.2) } 32% { transform: scale(1.22) translateX(7px) rotate(4deg); filter: brightness(2.4) } 44% { transform: scale(.96) translateX(-4px) } 58% { transform: scale(1.14); filter: brightness(1.7) saturate(1.6) } 100% { transform: none; filter: none } }
-@keyframes lgPhaseStamp { 0% { transform: translate(-50%, -50%) scale(2.6) rotate(-8deg); opacity: 0 } 18% { transform: translate(-50%, -50%) scale(.92) rotate(-8deg); opacity: 1 } 26% { transform: translate(-50%, -50%) scale(1.05) rotate(-8deg) } 75% { opacity: 1 } 100% { transform: translate(-50%, -62%) scale(1) rotate(-8deg); opacity: 0 } }
+@keyframes lgPhaseTag { 0% { transform: translate(-50%, -6px); opacity: 0 } 15% { transform: translate(-50%, 0); opacity: 1 } 75% { opacity: 1 } 100% { transform: translate(-50%, 0); opacity: 0 } }
 @keyframes lgPhaseRing { 0% { transform: translate(-50%, -50%) scale(.3); opacity: .95 } 100% { transform: translate(-50%, -50%) scale(2.4); opacity: 0 } }
 @keyframes lgQuake { 0%,100% { transform: translate(0, 0) } 12% { transform: translate(-9px, 5px) } 25% { transform: translate(8px, -6px) } 38% { transform: translate(-7px, -3px) } 52% { transform: translate(6px, 4px) } 66% { transform: translate(-4px, 2px) } 80% { transform: translate(3px, -2px) } }
 @keyframes lgShock { 0% { transform: translate(-50%, -50%) scale(.2); opacity: 0 } 6% { opacity: .9 } 100% { transform: translate(-50%, -50%) scale(2.6); opacity: 0 } }
@@ -189,6 +190,7 @@ export const ENTRANCES = {
   lich: { name: 'lgLevitate', ease: 'cubic-bezier(.3,.6,.4,1)' }, // drifts up swaying, then snaps upward as the power takes hold
   chimera: { name: 'lgTripleRoar', ease: 'cubic-bezier(.3,.8,.4,1)', origin: 'bottom center' }, // three roars, each a bigger lunge
   void: { name: 'lgRealityTear', ease: 'cubic-bezier(.3,.8,.4,1)' }, // a slit in reality tears open, jitters and holds
+  seraph: { name: 'lgHolyUnfold', ease: 'cubic-bezier(.25,.8,.35,1)' }, // a point of light high above spins open and descends
 }
 export const entranceFor = (motif) => ENTRANCES[motif] || ENTRANCES.mountains
 // `odds`: bossOdds options ({ bonus, pass }); `legendary`: the harder replay of a cleared area.
@@ -223,7 +225,7 @@ export function BossIntro({ t, area, name = '', total, onFight, odds, legendary 
           ))}
           <div style={{ position: 'relative', transformOrigin: entrance.origin || '50% 50%', animation: `${entrance.name} ${(E.impact - E.slam).toFixed(2)}s ${entrance.ease} ${E.slam}s both` }}>
             <div style={{ animation: `lgEyes 1.3s ease-in-out ${E.impact + 0.2}s infinite, lgBossBob 2.4s ease-in-out ${E.impact + 0.4}s infinite` }}>
-              {kind === 'bosses' ? <BossArt area={area} size={BOSS.intro} animated={calm ? 'idle' : 'intro'} /> : <LegendsArt kind={kind} motif={area.motif} palette={area.palette} height={BOSS.intro} width={BOSS.intro} round={0} animated={calm ? 'idle' : 'intro'} />}
+              {kind === 'bosses' ? <BossArt area={area} size={BOSS.intro} animated={calm ? 'idle' : 'intro'} roomed /> : <LegendsArt kind={kind} motif={area.motif} palette={area.palette} height={BOSS.intro} width={BOSS.intro} round={0} animated={calm ? 'idle' : 'intro'} roomed />}
             </div>
           </div>
         </div>
@@ -264,8 +266,8 @@ export function BossEnd({ t, won, onDone }) {
 }
 
 // Icons and floater texts for the raid abilities (fight.js ABILITIES, strike's last.fx).
-export const ABILITY_ICON = { regrowth: '🐍', plating: '🛡', phylactery: '☠', heads: '🔥', singularity: '🌀' }
-const FX_KEY = { cut: 'lg_fx_cut', bounce: 'lg_fx_bounce', triple: 'lg_fx_triple', rise: 'lg_fx_rise', shatter: 'lg_fx_shatter', singularity: 'lg_fx_singularity' }
+export const ABILITY_ICON = { regrowth: '🐍', plating: '🛡', phylactery: '☠', heads: '🔥', singularity: '🌀', judgment: '⚖️' }
+const FX_KEY = { cut: 'lg_fx_cut', bounce: 'lg_fx_bounce', triple: 'lg_fx_triple', rise: 'lg_fx_rise', shatter: 'lg_fx_shatter', singularity: 'lg_fx_singularity', smite: 'lg_fx_smite' }
 
 // The phase to stamp while a phase change plays (0 otherwise). Only a RISE counts, never the first render.
 function usePhaseShift(phase) {
@@ -308,12 +310,13 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
   const missNow = last?.kind === 'miss'
   const phase = down ? phases : phaseOf(hp, need, phases)
   const rage = phase > 1
-  // A raid boss changing phase: it flashes, shakes and swells, and "PHASE N" stamps over it (once per change).
+  // A raid boss changing phase: it flashes, shakes and swells, and a small "PHASE N" tag fades in UNDER it (once per change; over the boss it hid the change itself).
   const shift = usePhaseShift(phases > 2 && !down ? phase : 0)
   const hpColor = hp / need > 0.5 ? C.danger : hp / need > 0.25 ? C.warning : C.success
   const heartsLast = missNow || (last?.lives > 0) ? { kind: 'miss', n: last.n } : null
-  const chip = (color, text, key) => (
-    <span key={key} style={{ fontSize: 11.5, fontWeight: 800, color, border: `1.5px solid color-mix(in srgb, ${color} 45%, transparent)`, borderRadius: RADIUS.pill, padding: '1px 8px', whiteSpace: 'nowrap' }}>{text}</span>
+  // `wrap`: a chip with a list in it (the weak items) wraps instead of running past the arena on a narrow window.
+  const chip = (color, text, key, wrap = false) => (
+    <span key={key} style={{ fontSize: 11.5, fontWeight: 800, color, border: `1.5px solid color-mix(in srgb, ${color} 45%, transparent)`, borderRadius: RADIUS.pill, padding: '1px 8px', ...(wrap ? { whiteSpace: 'normal', overflowWrap: 'anywhere', minWidth: 0 } : { whiteSpace: 'nowrap' }) }}>{text}</span>
   )
   return (
     <div className="lg-boss" data-phase={phase} style={{ display: 'flex', alignItems: 'center', gap: compact ? 10 : 16, padding: compact ? '0 12px 0 0' : '0 14px 0 0', borderRadius: RADIUS.lg,
@@ -324,13 +327,13 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
         <div key={`b${last?.n || 0}`} style={{ animation: down ? 'lgBossDown .6s ease-out both' : focus ? 'none' : hitNow ? 'lgBossHit .5s ease-out' : missNow ? 'lgBossLunge .45s ease-out' : `lgBossBob ${rage ? 1.2 : 2.4}s ease-in-out infinite`,
           filter: down ? 'grayscale(.8) opacity(.6)' : rage ? `drop-shadow(0 0 10px ${C.danger}) saturate(1.3)` : 'none' }}>
           {kind === 'bosses'
-            ? <BossArt area={area} size={compact ? BOSS.arenaCompact : BOSS.arena} animated={down ? false : 'idle'} />
-            : <LegendsArt kind={kind} motif={area.motif} palette={area.palette} height={compact ? BOSS.arenaCompact : BOSS.arena} width={compact ? BOSS.arenaCompact : BOSS.arena} round={0} animated={down ? false : 'idle'} phase={phase} />}
+            ? <BossArt area={area} size={compact ? BOSS.arenaCompact : BOSS.arena} animated={down ? false : 'idle'} roomed />
+            : <LegendsArt kind={kind} motif={area.motif} palette={area.palette} height={compact ? BOSS.arenaCompact : BOSS.arena} width={compact ? BOSS.arenaCompact : BOSS.arena} round={0} animated={down ? false : 'idle'} phase={phase} roomed />}
         </div>
         </div>
         {shift > 0 && !focus && <>
-          <div key={`r${shift}`} aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '50%', width: '100%', height: '100%', borderRadius: '50%', border: `4px solid ${C.purple}`, transform: 'translate(-50%, -50%)', animation: 'lgPhaseRing .8s ease-out both', pointerEvents: 'none' }} />
-          <div key={`p${shift}`} aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '50%', whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 900, fontSize: compact ? 18 : 24, letterSpacing: '.08em', textTransform: 'uppercase', color: C.white, padding: '0 8px', borderRadius: 6, background: `color-mix(in srgb, ${C.danger} 80%, black)`, border: `2px solid ${C.white}`, boxShadow: `0 0 16px ${C.danger}`, transform: 'translate(-50%, -50%) rotate(-8deg)', animation: 'lgPhaseStamp 1.6s cubic-bezier(.3,1.3,.5,1) both', pointerEvents: 'none', zIndex: 2 }}>{t('lg_fightPhase', { n: shift })}</div>
+          <div key={`r${shift}`} aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '50%', width: '100%', height: '100%', borderRadius: '50%', border: `2px solid ${C.purple}`, transform: 'translate(-50%, -50%)', animation: 'lgPhaseRing .8s ease-out both', pointerEvents: 'none' }} />
+          <div key={`p${shift}`} aria-hidden="true" style={{ position: 'absolute', left: '50%', top: compact ? 'calc(100% - 3px)' : 'calc(100% + 4px)', whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 800, fontSize: compact ? 11 : 13, letterSpacing: '.06em', textTransform: 'uppercase', color: C.white, padding: '1px 9px', borderRadius: 999, background: `color-mix(in srgb, ${C.danger} 70%, transparent)`, transform: 'translateX(-50%)', animation: 'lgPhaseTag 1.8s ease-out both', pointerEvents: 'none', zIndex: 2 }}>{t('lg_fightPhase', { n: shift })}</div>
         </>}
         {!focus && hitNow && <div key={`f${last.n}`} aria-hidden="true" style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: C.danger, mixBlendMode: 'screen', animation: 'lgBossFlash .35s ease-out both', pointerEvents: 'none' }} />}
         {!focus && last && (hitNow || last.shielded || last.kind === 'block' || last.fx) && (
@@ -354,7 +357,7 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
           {!down && ability && chip(C.purple, `${ABILITY_ICON[ability]} ${t(`lg_ability_${ability}`)}${ability === 'phylactery' && st.risen ? ` · ${t('lg_fx_rise')}` : ''}`, 'ab')}
           {!down && rage && chip(C.danger, `😡 ${phases > 2 ? t('lg_fightPhase', { n: phase }) : t('lg_fightRage')}`, 'rg')}
           {!focus && st.combo >= 2 && chip(C.warning, `🔥 ${t('lg_fightCombo', { n: st.combo })}`, 'cb')}
-          {weak.length > 0 && !compact && chip(C.success, `🎯 ${t('lg_fightWeak', { items: weak.join(', ') })}`, 'wk')}
+          {weak.length > 0 && !compact && chip(C.success, `🎯 ${t('lg_fightWeak', { items: weak.join(', ') })}`, 'wk', true)}
         </div>
       </div>
     </div>

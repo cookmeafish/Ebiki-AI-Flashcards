@@ -25,6 +25,8 @@ import DiscoverPanel from './components/DiscoverPanel'
 import SettingsModal from './components/SettingsModal'
 import ModeStudio from './components/ModeStudio'
 import { registry, EVENTS, SLOT, FeatureContext, FeatureSlot, OptionalFeaturesCard, requestIntent } from './features'
+import { useLearner } from './features/kit/learnerStore'
+import { learnerLine } from './features/kit/learner'
 import Sidebar from './shell/Sidebar'
 import Rail from './shell/Rail'
 import { SHELL, CORE_NAV, railWanted, useViewportWidth } from './shell/layout'
@@ -1459,6 +1461,9 @@ export default function App() {
   const [discoverCardSaving, setDiscoverCardSaving] = useState(false)
   const [discoverStarted, setDiscoverStarted] = useState(false) // false = setup screen, true = suggestion loop
   const [discoverConfig, setDiscoverConfig] = useState({ itemType: 'both', focus: '', difficulty: 'stretch' }) // itemType per mode kind; difficulty: easier|level|stretch
+  // The mode's Legends level (shared kit store; null until the learner has one). Discover uses it only when the
+  // mode opted in (`activeMode.discoverUseLevel`, off by default).
+  const { model: legendsLevel } = useLearner(activeModeId)
   const [discoverDeck, setDiscoverDeck] = useState('') // '' = the mode's own deck; switchable in the panel
   // Live mirror: the mode-switch reset and the init run in ONE commit, and the init's render-time value was still
   // the previous mode's switched deck (it loaded that deck's words as this mode's duplicates and skipped its profile).
@@ -7322,6 +7327,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
           ? (activeMode.discoverKinds || []).find((k) => k.key === discoverConfig.itemType) || null
           : null,
         userLanguage: userLangName(),
+        learnerLevel: activeMode.discoverUseLevel === true && legendsLevel ? learnerLine(legendsLevel, (activeMode.type || 'general') === 'language') : '',
       }) + dialectRule() // regional-variant safeguard — suggestions must fit the studied dialect
       const text = await aiCall(apiKey, 'You suggest new study items. Always respond with valid JSON only.', prompt, resolveModel('discover'))
       let suggestion = parseAiJson(text)
@@ -14686,7 +14692,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
   const featureNav = registry.slot(SLOT.NAV)
   const navItems = [
     ...CORE_NAV.map((n) => ({ ...n, label: t('tab_' + n.id) })),
-    ...featureNav.map((n) => ({ id: n.id, icon: n.icon, order: n.order, label: t(n.labelKey) })),
+    ...featureNav.map((n) => ({ id: n.id, icon: n.icon, art: n.art, order: n.order, label: t(n.labelKey) })),
   ].sort((a, b) => a.order - b.order)
   const featureScreen = featureNav.find((n) => n.id === activeTab) || null
   const pickTab = (tab) => {
@@ -15063,6 +15069,22 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
               { value: '__add__', label: t('mode_addMenu'), icon: '➕', color: 'var(--c-ink-dim)', divider: true },
             ]}
           />
+
+          {/* Deck quick-switcher, right next to the mode: the ACTIVE MODE's deck (the same setting as Settings >
+              Cards & Anki), which Study, Practice, raids, Legends and Discover all read. Only while Anki answers. */}
+          {ankiConnected && Array.isArray(ankiDecks) && ankiDecks.length > 0 && (
+            <Dropdown
+              value={ankiDecks.includes(ankiDeck) ? ankiDeck : '__none__'}
+              getZoom={getZoom}
+              onChange={(val) => { if (val && val !== '__none__' && val !== ankiDeck) setAnkiDeck(val) }}
+              title={t('hdr_deckTip', { mode: activeMode.name })}
+              style={{ ...S.select, color: 'var(--c-success)', borderColor: 'rgba(24,169,87,0.3)', background: 'rgba(24,169,87,0.08)', fontWeight: 700, maxWidth: 220 }}
+              options={[
+                ...(ankiDecks.includes(ankiDeck) ? [] : [{ value: '__none__', label: ankiDeck ? `${ankiDeck} (?)` : t('hdr_deckPick'), icon: '🗂️', color: 'var(--c-warning)' }]),
+                ...ankiDecks.map((d) => ({ value: d, label: d, icon: '🗂️', color: 'var(--c-success)' })),
+              ]}
+            />
+          )}
 
           {/* Single Settings entry \u2014 opens the unified modal (right-most, like every tab) */}
           <button onClick={() => setSettingsOpen(true)} title={t('settingsTitle')} className="ui-btn" style={{ ...S.ghostBtn, position: 'relative', padding: '6px 10px', color: 'var(--c-ink-dim)' }}>
@@ -16164,6 +16186,9 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
               started={discoverStarted}
               config={discoverConfig}
               setConfig={setDiscoverConfig}
+              legendsLevel={legendsLevel ? Math.round(legendsLevel.level) : null}
+              useLegendsLevel={activeMode.discoverUseLevel === true}
+              onUseLegendsLevel={(on) => updateModeById(activeModeIdRef.current, { discoverUseLevel: !!on })}
               onStart={startDiscover}
               onAdjust={adjustDiscover}
               isLanguage={(activeMode.type || 'general') === 'language'}

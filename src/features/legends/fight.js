@@ -20,7 +20,7 @@ export const RAGE_AT = 0.5             // the boss enrages at half health: no mo
 export const WEAK_TO_MAX = 2
 
 export const newFight = () => ({ damage: 0, livesLost: 0, combo: 0, crits: 0, attacks: 0, blocked: 0, answers: 0, clean: 0, glancing: 0, safe: 0, misses: 0, shieldUsed: false, last: null, n: 0,
-  chain: 0, triples: 0, bounces: 0, cuts: 0, unredeemed: [], risen: false })
+  chain: 0, triples: 0, bounces: 0, cuts: 0, unredeemed: [], risen: false, judged: 0, judgedRight: 0, smites: 0 })
 
 // RAID BOSS ABILITIES (docs/raid-bosses-plan.md). Each changes how the FIGHT plays, never how a question is asked:
 // no timers, nothing hidden, a right answer is never marked wrong, and each twist rewards what builds memory.
@@ -33,8 +33,10 @@ export const newFight = () => ({ damage: 0, livesLost: 0, combo: 0, crits: 0, at
 //   heads        (Chimera) every ABILITY.tripleEvery-th right answer in a row cuts all three heads: triple damage
 //                          (it replaces the critical, never stacks with it).
 //   singularity  (Void)    in phase 3 right answers deal double, and a miss costs ABILITY.singularityLives.
-export const ABILITY = { regrowthGap: 2, regrowthCut: 3, tripleEvery: 3, tripleFactor: 3, singularityFactor: 2, singularityLives: 2 }
-export const ABILITIES = ['regrowth', 'plating', 'phylactery', 'heads', 'singularity']
+//   judgment     (Seraph)  every ABILITY.judgmentEvery answers are weighed together: all right = a smite of
+//                          ABILITY.judgmentSmite extra damage on the last of them. Nothing is ever taken away.
+export const ABILITY = { regrowthGap: 2, regrowthCut: 3, tripleEvery: 3, tripleFactor: 3, singularityFactor: 2, singularityLives: 2, judgmentEvery: 5, judgmentSmite: 5 }
+export const ABILITIES = ['regrowth', 'plating', 'phylactery', 'heads', 'singularity', 'judgment']
 
 // One answer. hit = { verdict: 'clean'|'glancing'|'miss', mode: 'typed'|'choice', weak?: bool, attack?: bool,
 // lastStand?: bool (the Lich's returning cards), key?: the card it asked (for the Lich's unredeemed misses) }.
@@ -75,6 +77,15 @@ export function strike(state, hit, { shield = false, ability = '', phase = 1, ne
       s.chain++
       if (ability === 'plating' && phase === 1 && hit.mode === 'choice') { dmg = 0; s.bounces++; fx = 'bounce' }
       if (ability === 'heads' && s.chain % ABILITY.tripleEvery === 0) { dmg *= ABILITY.tripleFactor; s.triples++; fx = 'triple' }
+    }
+    if (ability === 'judgment') {
+      // The Seraph weighs every ABILITY.judgmentEvery answers (attacks and last stands are not weighed).
+      s.judged = (s.judged || 0) + 1
+      if (right) s.judgedRight = (s.judgedRight || 0) + 1
+      if (s.judged % ABILITY.judgmentEvery === 0) {
+        if (s.judgedRight === ABILITY.judgmentEvery) { dmg += ABILITY.judgmentSmite; s.smites = (s.smites || 0) + 1; fx = 'smite' }
+        s.judgedRight = 0
+      }
     }
   }
   if (ability === 'singularity' && phase >= 3) {

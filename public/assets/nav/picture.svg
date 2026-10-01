@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- Picture: a chunky camera with a big blue lens. -->
+  <rect x="15" y="8" width="17" height="10" rx="3" fill="#3B4A63"/>
+  <rect x="34" y="9" width="7" height="6" rx="2" fill="#B51C33"/>
+  <rect x="34" y="9" width="7" height="4.6" rx="2" fill="#DF2540"/>
+  <rect x="4" y="15" width="40" height="28" rx="7" fill="#3B4A63"/>
+  <rect x="4" y="14" width="40" height="26" rx="7" fill="#5B6D8A"/>
+  <rect x="8" y="18" width="7" height="3.6" rx="1.4" fill="#FFC800"/>
+  <circle cx="24" cy="27.5" r="11" fill="#2A3547"/>
+  <circle cx="24" cy="27" r="8.4" fill="#1CB0F6"/>
+  <circle cx="24" cy="27" r="4.6" fill="#0E6FA8"/>
+  <circle cx="21" cy="24" r="2.2" fill="#ffffff" opacity="0.85"/>
+  <rect x="31" y="16.6" width="9" height="1.8" rx="0.9" fill="#ffffff" opacity="0.35"/>
+</svg>

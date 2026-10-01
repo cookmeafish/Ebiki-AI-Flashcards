@@ -89,7 +89,11 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
   const asChoice = q?.kind === 'choice' || (mode === 'choice' && !!q?.alt)
   const view = q?.kind === 'choice' ? q : asChoice ? { ...q, choices: q.alt.choices, answerIdx: q.alt.answerIdx } : q
 
+  // Left with ✕ while an answer was being checked: the judge's late reply must not record it (in a boss fight it
+  // spent the shield on a fight already left).
+  const exited = useRef(false)
   const record = (correct, answer, extra = {}, info = {}) => {
+    if (exited.current) return
     lastAnswer.current = answer
     const extraQ = q._retry || q._extra
     if (!extraQ) results.current = [...results.current, { question: q, correct, answer }]
@@ -166,7 +170,7 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
   if (!q) return null
 
   const quit = async () => {
-    if (!results.current.length || !confirm || (await confirm(t('kit_quitConfirm')))) onExit?.(results.current)
+    if (!results.current.length || !confirm || (await confirm(t('kit_quitConfirm')))) { exited.current = true; onExit?.(results.current) }
   }
   const good = verdict?.correct
   const partial = good && verdict?.partial // right, with something else to fix (a glancing strike)

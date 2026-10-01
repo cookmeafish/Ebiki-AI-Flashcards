@@ -10,7 +10,7 @@ import { ChunkyButton, EbiSays, Card } from '../ui'
 import { useLearner, updateLearner } from '../kit/learnerStore'
 import { newLearner, applyLearnerDelta, deltaFor, bandFor, LEVEL_MAX } from '../kit/learner'
 import { recordPractice } from '../kit'
-import { useLegendsMap, updateMap, configureLegends, clearStep, LEGENDS_ID } from './store'
+import { useLegendsMap, updateMap, configureLegends, clearStep, claimReward, rewardKeyFor, LEGENDS_ID } from './store'
 import { applyLegendaryResult, createMap, applyNodeResult, needsDetail, needsMoreAreas, starsFor, logDay, OPTIONAL_KINDS } from './map'
 import { planMap, detailAreas, extendIfNeeded, detailAreaNow } from './generate'
 import Questionnaire from './Questionnaire'
@@ -97,7 +97,7 @@ function Result({ ctx, modeId, result, onBack, onRetry, onNewQuestions }) {
           <ItemAddList ctx={ctx} modeId={modeId} areaId={area.id} itemIds={nudgeIds} />
         </Card>
       )}
-      {areaDone && <div style={{ fontSize: 15, fontWeight: 800, color: C.info }}>❄ {t('lg_bossFreeze')}</div>}
+      {areaDone && result.bossPaid !== false && <div style={{ fontSize: 15, fontWeight: 800, color: C.info }}>❄ {t('lg_bossFreeze')}</div>}
       {earnedLife && <BossStyle />}
       {earnedLife && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderRadius: RADIUS.lg, border: `2px solid ${C.warning}`, background: `color-mix(in srgb, ${C.warning} 10%, ${C.surface})`, animation: 'lgPopIn .5s cubic-bezier(.3,1.6,.5,1) both' }}>
@@ -143,6 +143,7 @@ function Result({ ctx, modeId, result, onBack, onRetry, onNewQuestions }) {
 // How long a mode switch keeps the previous screen while the new mode's map is read, before "Loading" shows.
 const HOLD_MS = 400
 
+const BUSY_VIEWS = new Set(['node', 'placement', 'questionnaire', 'raid', 'edit'])
 export default function LegendsScreen() {
   const ctx = useFeatureCtx()
   const modeId = ctx?.subject?.modeId
@@ -157,6 +158,11 @@ export default function LegendsScreen() {
   const [startAnswers, setStartAnswers] = useState(null)
   const workSeq = useRef(0)
   const held = useRef(null) // the last screen shown (see the end)
+  // The live mode (an await that finishes after a mode switch must not show its screen under the new mode) and a
+  // claim on finishing a step (a double click on "See the result" recorded the step and paid its XP twice).
+  const modeIdRef = useRef(modeId)
+  modeIdRef.current = modeId
+  const finishingRef = useRef(false)
   const [slow, setSlow] = useState(false)
   if (ctx) configureLegends(ctx)
   useEffect(() => {
@@ -167,8 +173,15 @@ export default function LegendsScreen() {
   }, [loaded, modeId])
 
   // A mode switch starts this screen over (the map and learner hooks follow the new mode by themselves).
-  useEffect(() => { setView('map'); setOpenStep(null); setResult(null); setError(''); setBusy('') }, [modeId])
-  useIntent(LEGENDS_INTENT, (p) => { if (p?.edit) { setEdit({ text: String(p.edit), auto: true }); setView('edit') } })
+  useEffect(() => { setView('map'); setOpenStep(null); setResult(null); setError(''); setBusy(''); setPendingEdit(null) }, [modeId])
+  // Help's "change my map" waits until there IS a map (on a first visit it was dropped) and until no step, exam or
+  // fight is running (it used to throw a boss fight away without asking).
+  const [pendingEdit, setPendingEdit] = useState(null)
+  useIntent(LEGENDS_INTENT, (p) => { if (p?.edit) setPendingEdit(String(p.edit)) })
+  useEffect(() => {
+    if (pendingEdit == null || !map?.areas?.length || BUSY_VIEWS.has(view)) return
+    setEdit({ text: pendingEdit, auto: true }); setView('edit'); setPendingEdit(null)
+  }, [pendingEdit, map, view])
 
   const ready = !!map?.areas?.length
 
@@ -213,17 +226,22 @@ export default function LegendsScreen() {
     const saveStart = async (a) => {
       const start = { reason: a.reason, selfRating: a.selfRating, goal: a.goal, path: a.path, placement: null }
       const saved = await updateMap(modeId, (m) => (m ? { ...m, start } : createMap({ modeId, subject, start, plan: [] })))
-      if (!saved) { setError(t('lg_errSave')); return }
-      if (a.path === 'place') { setStartAnswers(a); setView('placement'); return }
       const pinned = modeId
+      // A failed save leaves the questionnaire (it shows no errors: its buttons just did nothing) for the map
+      // screen, which shows the error with its retry.
+      if (!saved) { if (pinned === modeIdRef.current) { setError(t('lg_errSave')); setView('map') } return }
+      if (pinned !== modeIdRef.current) return
+      if (a.path === 'place') { setStartAnswers(a); setView('placement'); return }
       await updateLearner(ctx, pinned, (m) => m || newLearner({ level: NEW_LEVEL[a.selfRating] || 0, confidence: 0.2, source: 'self' }))
-      setView('map')
+      if (pinned === modeIdRef.current) setView('map')
     }
     const placementDone = async (r) => {
       const pinned = modeId
       await updateMap(pinned, (m) => (m ? { ...m, start: { ...(m.start || {}), placement: { level: r.level, answered: r.answered.length, at: Date.now() } } } : m))
       await updateLearner(ctx, pinned, () => newLearner({ level: r.level, confidence: r.confidence, strengths: r.strengths, gaps: r.gaps, source: 'placement' }))
-      ctx.emit(EVENTS.PRACTICE_DONE, { source: PLACEMENT_SOURCE, mode: pinned, total: r.answered.length, correct: r.answered.filter((x) => x.correct).length })
+      // The placement XP is paid once per mode (a retake after Start over pays nothing more).
+      if (await claimReward(pinned, rewardKeyFor('placement'))) ctx.emit(EVENTS.PRACTICE_DONE, { source: PLACEMENT_SOURCE, mode: pinned, total: r.answered.length, correct: r.answered.filter((x) => x.correct).length })
+      if (pinned !== modeIdRef.current) return
       setResult({ placement: r })
       setView('placed')
     }
@@ -293,6 +311,11 @@ export default function LegendsScreen() {
 
     // ── A step ──
     const finishStep = async (res) => {
+      if (finishingRef.current) return
+      finishingRef.current = true
+      try { await finishStepNow(res) } finally { finishingRef.current = false }
+    }
+    const finishStepNow = async (res) => {
       const { area, node } = openStep
       const pinned = modeId
       let outcome = null
@@ -349,10 +372,13 @@ export default function LegendsScreen() {
       ctx.emit(EVENTS.PRACTICE_DONE, { source: passed ? LEGENDS_ID : `${LEGENDS_ID}-try`, mode: pinned, total: res.total, correct: res.correct })
       const areaNo = Math.max(0, outcome.map.areas.findIndex((a) => a.id === area.id))
       if (passed) ctx.emit(EVENTS.LEGENDS_STEP, { mode: pinned, kind: node.kind, area: areaNo, effort: res.effort ?? 1, replays })
-      if (areaDone) ctx.emit(EVENTS.BOSS_BEATEN, { mode: pinned, area: areaNo })
+      // A boss's first-win reward (XP + a streak freeze) is paid once per island topic, even across Start over.
+      const bossPaid = areaDone && (await claimReward(pinned, rewardKeyFor('boss', area.title)))
+      if (bossPaid) ctx.emit(EVENTS.BOSS_BEATEN, { mode: pinned, area: areaNo })
       recordPractice(ctx, LEGENDS_ID, [{ kind: 'topic', label: area.title }])
       const liveArea = outcome.map.areas.find((a) => a.id === area.id) || area
-      setResult({ node, area: liveArea, res, passed, stars, areaDone, earnedLife, firstLegend: !!outcome.firstLegend, helper: outcome.helper || '', flawless: !!outcome.flawless, nudgeIds, nextTitle: nextAreaId ? outcome.map.areas.find((a) => a.id === nextAreaId)?.title : '' })
+      if (pinned !== modeIdRef.current) return // recorded for its own mode; the screen now shows another one
+      setResult({ node, area: liveArea, res, passed, stars, areaDone, bossPaid, earnedLife, firstLegend: !!outcome.firstLegend, helper: outcome.helper || '', flawless: !!outcome.flawless, nudgeIds, nextTitle: nextAreaId ? outcome.map.areas.find((a) => a.id === nextAreaId)?.title : '' })
       setView('result')
     }
 

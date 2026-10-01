@@ -1,74 +1,95 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
-  <!-- Tyrant Rex: a scarred giant tyrannosaur leaning in head first. A huge roaring jaw, tiny angry arms, an armored
-       brow, a battle-scarred hide, a broken tooth. The roar shakes the ground. -->
-  <!-- ferns behind -->
-  <g fill="var(--lg-near, #5fb57a)" opacity="0.55">
-    <path d="M0 120 C4 96 12 80 24 70 C20 86 18 100 20 120Z"/><path d="M120 120 C116 96 108 80 96 70 C100 86 102 100 100 120Z"/>
-  </g>
-  <!-- the body and a thick leg -->
-  <path d="M60 120 C62 100 74 84 92 80 C108 78 118 88 120 100 V120Z" fill="#4f7a3a" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
-  <path d="M84 120 L86 104 C90 98 100 98 104 104 L108 120Z" fill="#3f6630" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6"/>
-  <g fill="#f4efe0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"><path d="M86 120 L84 116 L88 118Z M94 120 L93 115 L97 118Z M102 120 L103 115 L106 119Z"/></g>
-  <!-- back osteoderms -->
-  <g fill="#2f5226" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"><polygon points="96,80 100,72 104,80"/><polygon points="106,84 111,77 114,86"/></g>
-  <!-- the head, leaning in (loops a heavy breathing lean) -->
-  <g>
-    <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 90 90;-2 90 90;0 90 90" dur="2.6s" repeatCount="indefinite"/>
-    <!-- neck -->
-    <path d="M62 96 C64 78 74 64 86 60 L98 76 C90 82 80 92 76 104Z" fill="#4f7a3a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8"/>
-    <!-- tiny angry arm -->
-    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 68 92;-18 68 92;0 68 92" dur="0.5s" repeatCount="indefinite"/>
-      <path d="M68 92 L58 96 L56 102" fill="none" stroke="#3f6630" stroke-width="4" stroke-linecap="round"/>
-      <path d="M56 102 L52 104 M56 102 L54 106" stroke="#f4efe0" stroke-width="1.4" stroke-linecap="round"/>
-    </g>
-    <!-- upper skull -->
-    <path d="M100 58 C98 36 84 24 62 24 C40 24 18 30 8 40 C4 44 6 50 10 52 L20 56 C40 54 60 56 78 64 L98 76Z" fill="#5f8c46" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
-    <path d="M14 42 C26 32 46 28 64 28 C48 32 34 38 24 48Z" fill="#fff" opacity="0.2"/>
-    <!-- scars across the snout -->
-    <path d="M30 32 L44 48 M36 30 L50 44 M40 36 L38 38 M46 40 L44 42" stroke="#8a2a1a" stroke-width="1.4" stroke-linecap="round"/>
-    <!-- nostril -->
-    <path d="M12 42 C14 40 18 40 18 42" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linecap="round"/>
-    <!-- armored brow ridge -->
-    <path d="M58 30 C66 24 80 24 88 32 L84 38 C78 32 68 32 60 36Z" fill="#3f6630" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
-    <g fill="#2f5226" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"><polygon points="66,28 68,22 71,27"/><polygon points="76,27 79,21 81,28"/></g>
-    <!-- the eye: narrows on the lean-in -->
-    <g transform="translate(72 38)"><g>
-      <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.1;1 0.1;1.3 1.4;1 1" keyTimes="0;.5;.7;1" dur="1.5s" fill="freeze"/>
-      <path d="M-7 0 C-4 -4 4 -4 7 -1 C4 3 -4 4 -7 0Z" fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
-      <ellipse rx="0.9" ry="2.8" fill="#1a0508"/>
-      <circle cx="-2" cy="-1" r="0.7" fill="#fff"/>
-    </g></g>
-    <!-- the gaping mouth -->
-    <path d="M10 52 L20 56 C40 54 60 56 78 64 L84 72 C66 70 44 72 24 80 C16 74 12 64 10 52Z" fill="#5a0c12" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
-    <path d="M30 72 C44 66 62 66 74 68 C60 70 44 72 30 76Z" fill="#c43a4a"/>
-    <!-- upper teeth (one broken) -->
-    <g fill="#f4efe0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round">
-      <polygon points="14,53 16,62 19,55"/><polygon points="21,56 24,66 27,56"/><polygon points="30,55 32,62 35,55"/><polygon points="38,55 41,66 44,55"/><polygon points="47,56 49,61 52,56.5"/><polygon points="55,57 58,66 61,58"/><polygon points="64,59 66,65 69,60.5"/>
-    </g>
-    <!-- lower jaw: drops open on the roar -->
-    <g>
-      <animateTransform class="lg-in" attributeName="transform" type="rotate" values="-14 84 72;-14 84 72;8 84 72;0 84 72" keyTimes="0;.62;.8;1" dur="1.5s" fill="freeze"/>
-      <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 84 72;4 84 72;0 84 72" dur="1.3s" begin="1.5s" repeatCount="indefinite"/>
-        <path d="M24 80 C44 72 66 70 84 72 L94 82 C82 90 58 94 34 92 C26 90 22 86 24 80Z" fill="#5f8c46" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8"/>
-        <path d="M34 90 C50 92 70 88 84 84" fill="none" stroke="#e8dcc0" stroke-width="1.2" opacity="0.7"/>
-        <g fill="#f4efe0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round">
-          <polygon points="28,80 31,72 34,79"/><polygon points="38,78 41,69 44,77"/><polygon points="49,76 52,68 55,75"/><polygon points="60,74 63,67 66,74"/><polygon points="71,73 73,67 76,73"/>
+  <!-- Tyrant Rex: a scarred giant tyrannosaur leaning in head first, seen from below in three-quarter profile. A
+       huge dark olive-brown skull fills the frame and runs off its right edge, bony crest plates down the skull and
+       neck, ember-orange war markings, one heavy brow ridge angled down over a burning slit eye, claw scars, a jaw
+       dropped wide on too many teeth (one broken), tiny furious arms. Its roar pulses out of the jaw in jagged rings.
+       Entrance: the eye snaps open, the jaw drops into the roar, the shock rings burst out. -->
+  <!-- the roar: jagged shock rings bursting from the jaw -->
+  <g transform="translate(36 66)">
+    <g><animateTransform class="lg-in" attributeName="transform" type="scale" values="0.2;0.2;1.25;1" keyTimes="0;.66;.86;1" dur="1.5s" fill="freeze"/>
+      <g fill="none" stroke-linejoin="round">
+        <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.55;1.15" dur="1.3s" repeatCount="indefinite"/>
+          <path d="M0 -48 L8 -42 L16 -46 L22 -38 L32 -38 L34 -28 L44 -24 L40 -14 L48 -6 L42 2 L48 12 L40 18 L42 28 L32 30 L30 40 L20 38 L12 46 L4 40 L-4 46 L-12 40 L-20 46 L-26 38 L-36 38 L-36 28 L-46 22 L-40 14 L-48 6 L-42 -2 L-48 -12 L-40 -18 L-42 -28 L-32 -30 L-28 -40 L-18 -38 L-10 -46 L-4 -40Z" stroke="#ff7a1a" stroke-width="2.6"/>
+          <path d="M0 -48 L8 -42 L16 -46 L22 -38 L32 -38 L34 -28 L44 -24 L40 -14 L48 -6 L42 2 L48 12 L40 18 L42 28 L32 30 L30 40 L20 38 L12 46 L4 40 L-4 46 L-12 40 L-20 46 L-26 38 L-36 38 L-36 28 L-46 22 L-40 14 L-48 6 L-42 -2 L-48 -12 L-40 -18 L-42 -28 L-32 -30 L-28 -40 L-18 -38 L-10 -46 L-4 -40Z" stroke="#ffe08a" stroke-width="0.9"/>
+        </g>
+        <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.55;1.15" dur="1.3s" begin="0.65s" repeatCount="indefinite"/>
+          <path d="M0 -48 L8 -42 L16 -46 L22 -38 L32 -38 L34 -28 L44 -24 L40 -14 L48 -6 L42 2 L48 12 L40 18 L42 28 L32 30 L30 40 L20 38 L12 46 L4 40 L-4 46 L-12 40 L-20 46 L-26 38 L-36 38 L-36 28 L-46 22 L-40 14 L-48 6 L-42 -2 L-48 -12 L-40 -18 L-42 -28 L-32 -30 L-28 -40 L-18 -38 L-10 -46 L-4 -40Z" stroke="#ff7a1a" stroke-width="2.6"/>
+          <path d="M0 -48 L8 -42 L16 -46 L22 -38 L32 -38 L34 -28 L44 -24 L40 -14 L48 -6 L42 2 L48 12 L40 18 L42 28 L32 30 L30 40 L20 38 L12 46 L4 40 L-4 46 L-12 40 L-20 46 L-26 38 L-36 38 L-36 28 L-46 22 L-40 14 L-48 6 L-42 -2 L-48 -12 L-40 -18 L-42 -28 L-32 -30 L-28 -40 L-18 -38 L-10 -46 L-4 -40Z" stroke="#ffe08a" stroke-width="0.9"/>
         </g>
       </g>
     </g>
-    <!-- drool strand -->
-    <path style="transform-box:fill-box;transform-origin:center top" d="M44 66 C44 72 46 74 46 70" fill="none" stroke="#dff1ff" stroke-width="1" opacity="0.8"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1.3;1 1" dur="1.3s" repeatCount="indefinite"/></path>
   </g>
-  <!-- the roar: shock rings out of the mouth -->
-  <g fill="none" stroke="#fff6c2" stroke-width="2" stroke-linecap="round" opacity="0.8">
-    <g transform="translate(-8 0)"><g><animateTransform class="lg-in" attributeName="transform" type="translate" values="38 0;38 0;8 0;0 0" keyTimes="0;.7;.85;1" dur="1.5s" fill="freeze"/>
-      <path d="M6 58 C2 62 2 70 6 74 M0 54 C-4 62 -4 72 0 78"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="4 0;-4 0;4 0" dur="1.2s" repeatCount="indefinite" keyTimes="0;.5;1"/></path>
+  <!-- the neck and chest, running off the bottom right -->
+  <path d="M84 58 C100 56 116 52 126 44 C136 60 138 96 136 126 H56 C58 108 66 92 76 82Z" fill="#4a3c24" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2" stroke-linejoin="round"/>
+  <path d="M60 126 C62 108 70 94 80 86 C76 100 74 112 76 126Z" fill="#a08a5a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+  <path d="M64 112 C68 112 72 113 75 115 M67 100 C70 100 73 101 76 103 M72 90 C75 90 77 91 79 93" fill="none" stroke="#6a5634" stroke-width="1"/>
+  <path d="M96 64 C110 66 124 74 132 82 L134 126 H112 C112 104 106 82 96 64Z" fill="#000" opacity="0.25"/>
+  <g fill="#ff7a1a" opacity="0.45"><path d="M90 84 C98 82 106 86 112 92 C104 90 96 90 90 84Z"/><path d="M94 100 C102 98 110 102 116 108 C108 106 100 106 94 100Z"/></g>
+  <g fill="#ff9a3d"><path d="M92 85 C98 84 104 86 108 90 C102 89 96 89 92 85Z"/><path d="M96 101 C102 100 108 102 112 106 C106 105 100 105 96 101Z"/></g>
+  <!-- crest plates down the neck -->
+  <g fill="#e8dcc0" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round">
+    <path d="M129 52 L141 47 L134 60Z"/><path d="M134 68 L146 65 L137 78Z"/>
+  </g>
+  <!-- the tiny furious arm -->
+  <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 80 98;-8 80 98;0 80 98" dur="0.9s" repeatCount="indefinite"/>
+    <path d="M82 98 L72 102 L68 108" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M82 98 L72 102 L68 108" fill="none" stroke="#6a5634" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M68 108 L63 110 M68 108 L65 114" stroke="#f4efe0" stroke-width="1.6" stroke-linecap="round"/>
+  </g>
+  <!-- the head: heaves with each breath -->
+  <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 110 70;-2 110 70;0 110 70" dur="1.3s" repeatCount="indefinite"/>
+    <!-- the mouth -->
+    <path d="M100 60 C80 56 44 54 8 58 L12 68 C40 76 70 74 102 66Z" fill="#3a0a0a"/>
+    <!-- the lower jaw: drops into the roar -->
+    <g><animateTransform class="lg-in" attributeName="transform" type="rotate" values="-16 102 64;-16 102 64;6 102 64;0 102 64" keyTimes="0;.62;.8;1" dur="1.5s" fill="freeze"/>
+      <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 102 64;3 102 64;0 102 64" dur="1.3s" begin="1.5s" repeatCount="indefinite"/>
+        <path d="M102 62 C80 70 50 80 16 86 L12 68 C40 74 70 70 100 60Z" fill="#3a0a0a"/>
+        <path d="M30 80 C50 74 72 70 90 66 C74 74 54 80 34 84Z" fill="#c43a4a"/>
+        <g fill="#f4efe0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"><path d="M96.8 67.1 L94.3 62.7 L93.2 68.3Z M90.1 69.4 L87.2 62.9 L86.5 70.5Z M82.8 71.7 L80.1 66.2 L79.2 72.8Z M75.1 74.0 L72.0 65.5 L71.5 75.0Z M67.0 76.3 L64.1 69.8 L63.3 77.3Z M58.5 78.6 L55.5 71.0 L54.8 79.5Z M49.7 80.7 L46.9 75.2 L46.0 81.6Z M40.6 82.8 L37.4 74.2 L36.9 83.6Z M31.3 84.7 L28.5 79.0 L27.6 85.4Z"/></g>
+        <path d="M104 64 C80 72 50 82 16 87 C8 89 7 100 17 101 C48 101 82 96 112 84Z" fill="#5a4a2e" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M14 98 C46 98 80 92 110 80 L112 84 C82 96 48 101 17 101Z" fill="#000" opacity="0.3"/>
+        <path d="M20 95 C48 94 78 88 106 79 L108 82 C80 92 50 98 22 98Z" fill="#a08a5a"/>
+        <path d="M22 89 C46 86 72 80 98 72" fill="none" stroke="#a08a5a" stroke-width="1.2"/>
+        <path d="M40 90 L46 88 M58 86 L64 83" stroke="#ff9a3d" stroke-width="1.6" stroke-linecap="round"/>
+      </g>
+    </g>
+    <!-- the upper skull: faceted, cel shaded, past the right edge -->
+    <path d="M2 46 C6 38 16 34 30 32 C46 28 60 20 76 16 C92 12 110 12 122 18 C132 24 136 38 132 50 C124 58 112 60 100 60 C80 56 44 54 8 58 C4 56 2 52 2 46Z" fill="#5a4a2e" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2" stroke-linejoin="round"/>
+    <path d="M4 44 C8 38 18 35 30 33 C46 29 60 21 76 17 C92 13 108 13 120 19 L118 25 C104 22 90 22 76 26 C60 30 44 38 30 40 C18 42 10 44 4 47Z" fill="#fff" opacity="0.18"/>
+    <path d="M10 57 C40 54 76 56 100 59 C112 60 122 57 128 52 L128 44 C118 50 104 52 92 50 C70 47 40 48 10 54Z" fill="#000" opacity="0.28"/>
+    <path d="M30 40 L44 49 M60 30 L70 46" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" opacity="0.6"/>
+    <!-- bony crest plates along the skull -->
+    <g fill="#e8dcc0" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round">
+      <path d="M84 15 L90 5 L94 14Z"/><path d="M96 13 L104 2 L106 13Z"/><path d="M108 13 L118 4 L118 14Z"/><path d="M119 17 L128 11 L127 21Z"/>
+    </g>
+    <path d="M87 13 L90 7 M99 11 L103 5" stroke="#fff" stroke-width="0.6"/>
+    <!-- ember war markings -->
+    <g fill="#ff7a1a" opacity="0.45"><path d="M40 38 C48 34 56 34 62 36 C56 38 48 40 40 38Z" transform="translate(0 0) scale(1)"/><path d="M98 30 C106 26 116 26 124 28 C116 32 106 34 98 30Z"/><path d="M96 40 C104 38 114 38 122 40 C114 44 104 44 96 40Z"/></g>
+    <g fill="#ff9a3d"><path d="M42 37.6 C48 35 55 35 60 36.4 C54 37.6 48 38.6 42 37.6Z"/><path d="M100 30 C106 27.6 114 27.6 121 29 C114 31.4 106 32 100 30Z"/><path d="M98 40 C104 38.6 112 38.6 119 40.2 C112 42.4 104 42.4 98 40Z"/></g>
+    <!-- claw scars across the snout -->
+    <path d="M18 34 L26 46 M24 33 L32 44 M30 32 L37 42" stroke="#3a1a10" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M18 34 L26 46 M24 33 L32 44 M30 32 L37 42" stroke="#e8a090" stroke-width="0.6" stroke-linecap="round"/>
+    <!-- nostril, smoking with embers -->
+    <path d="M6 42 C8 39 12 39 13 41 C11 43 8 43 6 42Z" fill="#1a1008" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+    <circle cx="9.4" cy="41.4" r="0.8" fill="#ff7a1a"/>
+    <!-- the eye: a burning slit under one heavy brow ridge angled down to the front -->
+    <path d="M64 34 C70 31 78 30 86 31 C84 37 76 40 68 39Z" fill="#1a0508" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9"/>
+    <g transform="translate(76 35) rotate(-8)"><g>
+      <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.1;1 0.1;1.3 1.4;1 1" keyTimes="0;.5;.7;1" dur="1.5s" fill="freeze"/>
+      <ellipse rx="8" ry="4" fill="#ffb627" opacity="0.45"/><ellipse rx="6" ry="2.6" fill="#ffd23f"/>
+      <ellipse rx="0.9" ry="2.6" fill="#1a0508"/><circle cx="-2.4" cy="-0.7" r="0.8" fill="#fff"/>
     </g></g>
+    <path d="M56 30 C68 24 82 21 96 22 L96 28 C84 28 72 31 62 37Z" fill="#3a2e1c" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M58 29.6 C69 24 82 22 95 23" fill="none" stroke="#a08a5a" stroke-width="0.9"/>
+    <path d="M60 31 L56 22 L66 27Z" fill="#e8dcc0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+    <!-- upper teeth (one broken) -->
+    <g fill="#f4efe0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"><path d="M96.5 59.7 L93.8 64.4 L92.7 59.1Z M89.9 58.7 L86.9 65.4 L86.1 58.2Z M82.7 57.8 L79.5 66.6 L78.9 57.4Z M75.1 57.1 L72.3 62.9 L71.3 56.8Z M67.0 56.5 L63.5 67.4 L63.2 56.3Z M58.6 56.1 L55.5 64.0 L54.9 55.9Z M50.0 55.8 L48.7 58.2 L47.3 59.1 L46.2 55.8Z M41.3 55.8 L37.9 65.9 L37.5 55.9Z M32.4 56.1 L29.4 63.1 L28.6 56.2Z M23.5 56.5 L20.3 65.7 L19.7 56.8Z M14.7 57.2 L11.9 63.4 L10.9 57.6Z"/></g>
+    <!-- drool strand -->
+    <path style="transform-box:fill-box;transform-origin:center top" d="M40 60 C40 68 42 72 42 66" fill="none" stroke="#dff1ff" stroke-width="1" opacity="0.85"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1.4;1 1" dur="1.3s" repeatCount="indefinite"/></path>
   </g>
-  <!-- ground cracks and bouncing pebbles -->
-  <path d="M40 120 L46 112 L44 106 M52 120 L56 114" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+  <!-- bouncing pebbles under the roar -->
   <g fill="#8a6a44" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5">
-    <rect x="30" y="112" width="3" height="3"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -4;0 0;0 0" keyTimes="0;.2;.4;1" dur="1s" repeatCount="indefinite"/></rect>
-    <rect x="48" y="114" width="2.4" height="2.4"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 0;0 -5;0 0" keyTimes="0;.3;.5;1" dur="1s" repeatCount="indefinite"/></rect>
+    <rect x="22" y="112" width="3" height="3"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -5;0 0;0 0" keyTimes="0;.2;.4;1" dur="1.3s" repeatCount="indefinite"/></rect>
+    <rect x="38" y="116" width="2.6" height="2.6"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 0;0 -6;0 0" keyTimes="0;.3;.5;1" dur="1.3s" repeatCount="indefinite"/></rect>
   </g>
 </svg>

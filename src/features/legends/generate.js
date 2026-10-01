@@ -60,7 +60,9 @@ async function detailOne(ctx, modeId, areaId) {
   }), ROLE.area, MAX_TOKENS.area)
   const detail = parseAreaDetail(ai.json(raw), ai.clean, { areaId })
   if (!detail) throw new Error(t('lg_errArea', { area: area.title }))
-  const saved = await updateMap(modeId, (m) => (m ? applyAreaDetail(m, areaId, detail) : m))
+  // Lands only on the area it was written for: "Change my map" can give the same id a new topic meanwhile.
+  const sameTopic = (m) => { const a = m?.areas?.find((x) => x.id === areaId); return !!a && a.title === area.title && a.theme === area.theme }
+  const saved = await updateMap(modeId, (m) => (m && sameTopic(m) ? applyAreaDetail(m, areaId, detail) : m))
   if (!saved) throw new Error(t('lg_errSave'))
 }
 
@@ -187,6 +189,7 @@ async function makeQuizNow(ctx, modeId, area, node, { misses = [] } = {}) {
   const ask = async (strict, more = {}) => {
     const raw = await call(ctx, buildQuizPrompt(subject, area, node, { ...opts, ...more, strict }), ROLE.quiz, MAX_TOKENS.quiz)
     const qs = parseQuestions(ai.json(raw), ai.clean, { speakLang: lang, dual: boss }).filter((q) => itemIdFor(q, taught) && !seen.has(normQ(q.prompt)))
+    if (!qs.length) return qs // nothing to review (never a paid call on an empty list)
     return (await review(qs)) || qs
   }
   for (const q of kept || []) seen.add(normQ(q.prompt))

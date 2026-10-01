@@ -91,9 +91,11 @@ const res = await page.evaluate(async ({ HEADROOM, DRIFT }) => {
 // Overdraw hits an eye has reviewed and kept on purpose (branches, antlers, legs, reeds, fence posts, fur tufts,
 // a necklace, cloak folds): "<file>|<start of the stroke's d>". Add one only after looking at it.
 const REVIEWED = new Set([
-  "raids/hydra.svg|M14 -4 L10 10 L16 12 L8 3", // lightning forks out of the storm clouds
+  "raids/hydra.svg|M14 -4 L10 10 L16 12 L8 ", // lightning forks out of the storm clouds
   "raids/hydra.svg|M108 -4 L112 8 L106 10 L",
   "raids/lich.svg|M-2 -2 L0 2 L2 -2", // a rune glyph crossing its ring
+  "raids/seraph.svg|M5 -1.6 L14.6 -4.7 L23.3", // bone fingers reach out of the clawed palms
+  "raids/seraph.svg|M5.1 1.3 L14.9 3.7 L22.4",
   "raids/void.svg|M-47 0 A47 47 0 0 0 47 0", // the near half of the accretion disk passes in front of the body
   "areas/forest.svg|M196 50 L182 28 L168 20",
   "areas/forest.svg|M224 50 L238 28 L252 20",

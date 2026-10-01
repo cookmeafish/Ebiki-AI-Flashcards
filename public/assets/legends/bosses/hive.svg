@@ -1,73 +1,155 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
-  <!-- The Hive Queen: a colossal wasp queen. Compound eyes, mandibles dripping honey, a jeweled carapace crown, four
-       buzzing wings, a huge stinger. -->
-  <!-- honeycomb behind -->
-  <g fill="none" stroke="var(--lg-accent, #f2b441)" stroke-width="1.4" opacity="0.45">
-    <path d="M10 20 l8 -5 l8 5 v9 l-8 5 l-8 -5Z M26 20 l8 -5 l8 5 v9 l-8 5 l-8 -5Z M18 34 l8 -5 l8 5 v9 l-8 5 l-8 -5Z M78 20 l8 -5 l8 5 v9 l-8 5 l-8 -5Z M94 20 l8 -5 l8 5 v9 l-8 5 l-8 -5Z M86 34 l8 -5 l8 5 v9 l-8 5 l-8 -5Z"/>
+  <!-- The Hive Queen: a colossal wasp queen in front of her honeycomb wall, glowing honey cells pulsing in it. A crown
+       of carapace spikes with gems, three burning ocelli, a solid black V plate between two huge faceted red compound
+       eyes, serrated mandibles dripping honey around a mouth of tiny fangs, four veined wings buzzing, hooked raptor
+       legs and a striped abdomen with a venom stinger. Entrance: the wings snap open, the eyes flare, the mandibles
+       snap. -->
+  <!-- the honeycomb wall -->
+  <path d="M34.9 -13.5 L43.1 -8.8 L43.1 0.7 L34.9 5.5 L26.7 0.8 L26.7 -8.8Z M51.4 -13.5 L59.6 -8.8 L59.6 0.7 L51.4 5.5 L43.1 0.8 L43.1 -8.8Z M67.8 -13.5 L76.0 -8.8 L76.0 0.7 L67.8 5.5 L59.6 0.8 L59.6 -8.8Z M84.3 -13.5 L92.5 -8.8 L92.5 0.7 L84.3 5.5 L76.0 0.8 L76.0 -8.8Z M10.2 0.8 L18.5 5.5 L18.5 15.0 L10.2 19.8 L2.0 15.0 L2.0 5.5Z M26.7 0.8 L34.9 5.5 L34.9 15.0 L26.7 19.8 L18.5 15.0 L18.5 5.5Z M43.1 0.8 L51.4 5.5 L51.4 15.0 L43.1 19.8 L34.9 15.0 L34.9 5.5Z M59.6 0.8 L67.8 5.5 L67.8 15.0 L59.6 19.8 L51.4 15.0 L51.4 5.5Z M76.0 0.8 L84.3 5.5 L84.3 15.0 L76.0 19.8 L67.8 15.0 L67.8 5.5Z M92.5 0.8 L100.7 5.5 L100.7 15.0 L92.5 19.8 L84.3 15.0 L84.3 5.5Z M109.0 0.8 L117.2 5.5 L117.2 15.0 L109.0 19.8 L100.7 15.0 L100.7 5.5Z M2.0 15.0 L10.2 19.8 L10.2 29.2 L2.0 34.0 L-6.2 29.3 L-6.2 19.8Z M18.5 15.0 L26.7 19.8 L26.7 29.2 L18.5 34.0 L10.2 29.3 L10.2 19.8Z M34.9 15.0 L43.1 19.8 L43.1 29.2 L34.9 34.0 L26.7 29.3 L26.7 19.8Z M51.4 15.0 L59.6 19.8 L59.6 29.2 L51.4 34.0 L43.1 29.3 L43.1 19.8Z M67.8 15.0 L76.0 19.8 L76.0 29.2 L67.8 34.0 L59.6 29.3 L59.6 19.8Z M84.3 15.0 L92.5 19.8 L92.5 29.2 L84.3 34.0 L76.0 29.3 L76.0 19.8Z M100.7 15.0 L109.0 19.8 L109.0 29.2 L100.7 34.0 L92.5 29.3 L92.5 19.8Z M117.2 15.0 L125.4 19.8 L125.4 29.2 L117.2 34.0 L109.0 29.3 L109.0 19.8Z M-6.2 29.2 L2.0 34.0 L2.0 43.5 L-6.2 48.2 L-14.5 43.5 L-14.5 34.0Z M10.2 29.2 L18.5 34.0 L18.5 43.5 L10.2 48.2 L2.0 43.5 L2.0 34.0Z M26.7 29.2 L34.9 34.0 L34.9 43.5 L26.7 48.2 L18.5 43.5 L18.5 34.0Z M43.1 29.2 L51.4 34.0 L51.4 43.5 L43.1 48.2 L34.9 43.5 L34.9 34.0Z M59.6 29.2 L67.8 34.0 L67.8 43.5 L59.6 48.2 L51.4 43.5 L51.4 34.0Z M76.0 29.2 L84.3 34.0 L84.3 43.5 L76.0 48.2 L67.8 43.5 L67.8 34.0Z M92.5 29.2 L100.7 34.0 L100.7 43.5 L92.5 48.2 L84.3 43.5 L84.3 34.0Z M109.0 29.2 L117.2 34.0 L117.2 43.5 L109.0 48.2 L100.7 43.5 L100.7 34.0Z M125.4 29.2 L133.6 34.0 L133.6 43.5 L125.4 48.2 L117.2 43.5 L117.2 34.0Z M2.0 43.5 L10.2 48.2 L10.2 57.8 L2.0 62.5 L-6.2 57.8 L-6.2 48.2Z M18.5 43.5 L26.7 48.2 L26.7 57.8 L18.5 62.5 L10.2 57.8 L10.2 48.2Z M34.9 43.5 L43.1 48.2 L43.1 57.8 L34.9 62.5 L26.7 57.8 L26.7 48.2Z M84.3 43.5 L92.5 48.2 L92.5 57.8 L84.3 62.5 L76.0 57.8 L76.0 48.2Z M100.7 43.5 L109.0 48.2 L109.0 57.8 L100.7 62.5 L92.5 57.8 L92.5 48.2Z M117.2 43.5 L125.4 48.2 L125.4 57.8 L117.2 62.5 L109.0 57.8 L109.0 48.2Z M-6.2 57.8 L2.0 62.5 L2.0 72.0 L-6.2 76.8 L-14.5 72.0 L-14.5 62.5Z M10.2 57.8 L18.5 62.5 L18.5 72.0 L10.2 76.8 L2.0 72.0 L2.0 62.5Z M26.7 57.8 L34.9 62.5 L34.9 72.0 L26.7 76.8 L18.5 72.0 L18.5 62.5Z M92.5 57.8 L100.7 62.5 L100.7 72.0 L92.5 76.8 L84.3 72.0 L84.3 62.5Z M109.0 57.8 L117.2 62.5 L117.2 72.0 L109.0 76.8 L100.7 72.0 L100.7 62.5Z M125.4 57.8 L133.6 62.5 L133.6 72.0 L125.4 76.8 L117.2 72.0 L117.2 62.5Z M2.0 72.0 L10.2 76.8 L10.2 86.2 L2.0 91.0 L-6.2 86.2 L-6.2 76.8Z M18.5 72.0 L26.7 76.8 L26.7 86.2 L18.5 91.0 L10.2 86.2 L10.2 76.8Z M100.7 72.0 L109.0 76.8 L109.0 86.2 L100.7 91.0 L92.5 86.2 L92.5 76.8Z M117.2 72.0 L125.4 76.8 L125.4 86.2 L117.2 91.0 L109.0 86.2 L109.0 76.8Z M10.2 86.2 L18.5 91.0 L18.5 100.5 L10.2 105.2 L2.0 100.5 L2.0 91.0Z M26.7 86.2 L34.9 91.0 L34.9 100.5 L26.7 105.2 L18.5 100.5 L18.5 91.0Z M92.5 86.2 L100.7 91.0 L100.7 100.5 L92.5 105.2 L84.3 100.5 L84.3 91.0Z M109.0 86.2 L117.2 91.0 L117.2 100.5 L109.0 105.2 L100.7 100.5 L100.7 91.0Z M34.9 100.5 L43.1 105.2 L43.1 114.8 L34.9 119.5 L26.7 114.8 L26.7 105.2Z M84.3 100.5 L92.5 105.2 L92.5 114.8 L84.3 119.5 L76.0 114.8 L76.0 105.2Z" fill="var(--lg-far, #d9c27a)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M34.9 -11.3 L41.2 -7.7 L41.2 -0.4 L34.9 3.3 L28.6 -0.3 L28.6 -7.7Z M51.4 -11.3 L57.7 -7.7 L57.7 -0.4 L51.4 3.3 L45.0 -0.3 L45.0 -7.7Z M67.8 -11.3 L74.1 -7.7 L74.1 -0.4 L67.8 3.3 L61.5 -0.3 L61.5 -7.7Z M84.3 -11.3 L90.6 -7.7 L90.6 -0.4 L84.3 3.3 L78.0 -0.3 L78.0 -7.7Z M26.7 3.0 L33.0 6.6 L33.0 13.9 L26.7 17.6 L20.4 13.9 L20.4 6.6Z M43.1 3.0 L49.5 6.6 L49.5 13.9 L43.1 17.6 L36.8 13.9 L36.8 6.6Z M59.6 3.0 L65.9 6.6 L65.9 13.9 L59.6 17.6 L53.3 13.9 L53.3 6.6Z M76.0 3.0 L82.4 6.6 L82.4 13.9 L76.0 17.6 L69.7 13.9 L69.7 6.6Z M92.5 3.0 L98.8 6.6 L98.8 13.9 L92.5 17.6 L86.2 13.9 L86.2 6.6Z M2.0 17.2 L8.3 20.8 L8.3 28.1 L2.0 31.8 L-4.3 28.2 L-4.3 20.8Z M34.9 17.2 L41.2 20.8 L41.2 28.1 L34.9 31.8 L28.6 28.2 L28.6 20.8Z M84.3 17.2 L90.6 20.8 L90.6 28.1 L84.3 31.8 L78.0 28.2 L78.0 20.8Z M117.2 17.2 L123.5 20.8 L123.5 28.1 L117.2 31.8 L110.9 28.2 L110.9 20.8Z M-6.2 31.4 L0.1 35.1 L0.1 42.4 L-6.2 46.0 L-12.5 42.4 L-12.5 35.1Z M10.2 31.4 L16.5 35.1 L16.5 42.4 L10.2 46.0 L3.9 42.4 L3.9 35.1Z M26.7 31.4 L33.0 35.1 L33.0 42.4 L26.7 46.0 L20.4 42.4 L20.4 35.1Z M92.5 31.4 L98.8 35.1 L98.8 42.4 L92.5 46.0 L86.2 42.4 L86.2 35.1Z M109.0 31.4 L115.3 35.1 L115.3 42.4 L109.0 46.0 L102.6 42.4 L102.6 35.1Z M125.4 31.4 L131.7 35.1 L131.7 42.4 L125.4 46.0 L119.1 42.4 L119.1 35.1Z M18.5 45.7 L24.8 49.4 L24.8 56.6 L18.5 60.3 L12.1 56.7 L12.1 49.4Z M34.9 45.7 L41.2 49.4 L41.2 56.6 L34.9 60.3 L28.6 56.7 L28.6 49.4Z M84.3 45.7 L90.6 49.4 L90.6 56.6 L84.3 60.3 L78.0 56.7 L78.0 49.4Z M117.2 45.7 L123.5 49.4 L123.5 56.6 L117.2 60.3 L110.9 56.7 L110.9 49.4Z M-6.2 60.0 L0.1 63.6 L0.1 70.9 L-6.2 74.5 L-12.5 70.9 L-12.5 63.6Z M10.2 60.0 L16.5 63.6 L16.5 70.9 L10.2 74.5 L3.9 70.9 L3.9 63.6Z M26.7 60.0 L33.0 63.6 L33.0 70.9 L26.7 74.5 L20.4 70.9 L20.4 63.6Z M92.5 60.0 L98.8 63.6 L98.8 70.9 L92.5 74.5 L86.2 70.9 L86.2 63.6Z M109.0 60.0 L115.3 63.6 L115.3 70.9 L109.0 74.5 L102.6 70.9 L102.6 63.6Z M125.4 60.0 L131.7 63.6 L131.7 70.9 L125.4 74.5 L119.1 70.9 L119.1 63.6Z M2.0 74.2 L8.3 77.8 L8.3 85.1 L2.0 88.8 L-4.3 85.2 L-4.3 77.8Z M100.7 74.2 L107.0 77.8 L107.0 85.1 L100.7 88.8 L94.4 85.2 L94.4 77.8Z M10.2 88.5 L16.5 92.1 L16.5 99.4 L10.2 103.0 L3.9 99.4 L3.9 92.1Z M26.7 88.5 L33.0 92.1 L33.0 99.4 L26.7 103.0 L20.4 99.4 L20.4 92.1Z M92.5 88.5 L98.8 92.1 L98.8 99.4 L92.5 103.0 L86.2 99.4 L86.2 92.1Z M34.9 102.7 L41.2 106.3 L41.2 113.6 L34.9 117.3 L28.6 113.7 L28.6 106.3Z M84.3 102.7 L90.6 106.3 L90.6 113.6 L84.3 117.3 L78.0 113.7 L78.0 106.3Z" fill="var(--lg-deep, #8a6b3a)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+  <path d="M34.9 -11.3 L41.2 -7.7 L41.2 -0.4 L34.9 3.3 L28.6 -0.3 L28.6 -7.7Z M51.4 -11.3 L57.7 -7.7 L57.7 -0.4 L51.4 3.3 L45.0 -0.3 L45.0 -7.7Z M26.7 3.0 L33.0 6.6 L33.0 13.9 L26.7 17.6 L20.4 13.9 L20.4 6.6Z M2.0 17.2 L8.3 20.8 L8.3 28.1 L2.0 31.8 L-4.3 28.2 L-4.3 20.8Z M-6.2 31.4 L0.1 35.1 L0.1 42.4 L-6.2 46.0 L-12.5 42.4 L-12.5 35.1Z M26.7 31.4 L33.0 35.1 L33.0 42.4 L26.7 46.0 L20.4 42.4 L20.4 35.1Z M18.5 45.7 L24.8 49.4 L24.8 56.6 L18.5 60.3 L12.1 56.7 L12.1 49.4Z M10.2 60.0 L16.5 63.6 L16.5 70.9 L10.2 74.5 L3.9 70.9 L3.9 63.6Z M2.0 74.2 L8.3 77.8 L8.3 85.1 L2.0 88.8 L-4.3 85.2 L-4.3 77.8Z M10.2 88.5 L16.5 92.1 L16.5 99.4 L10.2 103.0 L3.9 99.4 L3.9 92.1Z M34.9 102.7 L41.2 106.3 L41.2 113.6 L34.9 117.3 L28.6 113.7 L28.6 106.3Z" fill="#000" opacity="0.3"/>
+  <!-- glowing honey cells, pulsing -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" stroke-linejoin="round">
+    <g transform="translate(10.2 10.2)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.86;1" dur="1.9s" repeatCount="indefinite"/><path d="M0 -6.8 L5.9 -3.4 L5.9 3.4 L0 6.8 L-5.9 3.4 L-5.9 -3.4Z" fill="#ffb627"/><path d="M-3.6 -2 L0 -4 L2 -2.8" fill="none" stroke="#fff4c2" stroke-width="1"/></g></g>
+    <g transform="translate(109 10.2)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.86;1" dur="2.3s" repeatCount="indefinite"/><path d="M0 -6.8 L5.9 -3.4 L5.9 3.4 L0 6.8 L-5.9 3.4 L-5.9 -3.4Z" fill="#ffb627"/><path d="M-3.6 -2 L0 -4 L2 -2.8" fill="none" stroke="#fff4c2" stroke-width="1"/></g></g>
+    <g transform="translate(100.7 24.5)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.86;1" dur="2.1s" repeatCount="indefinite"/><path d="M0 -6.8 L5.9 -3.4 L5.9 3.4 L0 6.8 L-5.9 3.4 L-5.9 -3.4Z" fill="#ffb627"/><path d="M-3.6 -2 L0 -4 L2 -2.8" fill="none" stroke="#fff4c2" stroke-width="1"/></g></g>
+    <g transform="translate(2 53)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.86;1" dur="1.7s" repeatCount="indefinite"/><path d="M0 -6.8 L5.9 -3.4 L5.9 3.4 L0 6.8 L-5.9 3.4 L-5.9 -3.4Z" fill="#ffb627"/><path d="M-3.6 -2 L0 -4 L2 -2.8" fill="none" stroke="#fff4c2" stroke-width="1"/></g></g>
+    <g transform="translate(100.7 53)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.86;1" dur="2.5s" repeatCount="indefinite"/><path d="M0 -6.8 L5.9 -3.4 L5.9 3.4 L0 6.8 L-5.9 3.4 L-5.9 -3.4Z" fill="#ffb627"/><path d="M-3.6 -2 L0 -4 L2 -2.8" fill="none" stroke="#fff4c2" stroke-width="1"/></g></g>
+    <g transform="translate(117.2 81.5)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.86;1" dur="2s" repeatCount="indefinite"/><path d="M0 -6.8 L5.9 -3.4 L5.9 3.4 L0 6.8 L-5.9 3.4 L-5.9 -3.4Z" fill="#ffb627"/><path d="M-3.6 -2 L0 -4 L2 -2.8" fill="none" stroke="#fff4c2" stroke-width="1"/></g></g>
+    <g transform="translate(18.5 81.5)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.86;1" dur="2.2s" repeatCount="indefinite"/><path d="M0 -6.8 L5.9 -3.4 L5.9 3.4 L0 6.8 L-5.9 3.4 L-5.9 -3.4Z" fill="#ffb627"/><path d="M-3.6 -2 L0 -4 L2 -2.8" fill="none" stroke="#fff4c2" stroke-width="1"/></g></g>
+    <g transform="translate(109 95.8)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.86;1" dur="1.8s" repeatCount="indefinite"/><path d="M0 -6.8 L5.9 -3.4 L5.9 3.4 L0 6.8 L-5.9 3.4 L-5.9 -3.4Z" fill="#ffb627"/><path d="M-3.6 -2 L0 -4 L2 -2.8" fill="none" stroke="#fff4c2" stroke-width="1"/></g></g>
   </g>
-  <!-- four wings, buzzing -->
-  <g fill="#dff1ff" stroke="var(--lg-ink, #1d2230)" stroke-width="1" opacity="0.7">
-    <path d="M44 56 C24 30 4 30 2 42 C2 54 24 60 44 60Z"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 44 58;-14 44 58;0 44 58" dur="0.12s" repeatCount="indefinite"/></path>
-    <path d="M76 56 C96 30 116 30 118 42 C118 54 96 60 76 60Z"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 76 58;14 76 58;0 76 58" dur="0.12s" repeatCount="indefinite"/></path>
-    <path d="M44 64 C28 70 12 80 14 90 C18 96 34 84 46 70Z"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 44 66;10 44 66;0 44 66" dur="0.14s" repeatCount="indefinite"/></path>
-    <path d="M76 64 C92 70 108 80 106 90 C102 96 86 84 74 70Z"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 76 66;-10 76 66;0 76 66" dur="0.14s" repeatCount="indefinite"/></path>
-  </g>
-  <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.5"><path d="M40 58 C28 46 16 40 8 42 M80 58 C92 46 104 40 112 42"/></g>
-  <!-- abdomen with the huge stinger, curling forward -->
+  <!-- four veined wings: snap open on the entrance, then buzz -->
   <g>
-    <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 60 86;4 60 86;0 60 86;-4 60 86;0 60 86" dur="1.6s" repeatCount="indefinite"/>
-    <path d="M42 86 C40 100 48 112 60 116 C72 112 80 100 78 86Z" fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8"/>
-    <g fill="#1d1b28"><path d="M42 92 C48 94 72 94 78 92 L77 98 C70 100 50 100 43 98Z"/><path d="M46 106 C52 108 68 108 74 106 L70 111 C64 113 56 113 50 111Z"/></g>
-    <path d="M56 116 L60 120 L64 116" fill="#1d1b28" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
-    <path d="M48 90 C46 98 48 106 54 112" fill="none" stroke="#fff" stroke-width="1.2" opacity="0.4"/>
+    <animateTransform class="lg-in" attributeName="transform" type="rotate" values="40 44 70;40 44 70;-8 44 70;0 44 70" keyTimes="0;.4;.6;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 44 70;-12 44 70;0 44 70" dur="0.12s" repeatCount="indefinite"/>
+      <path d="M44 68 C30 50 8 28 -12 16 C-19 13 -20 22 -15 28 C0 46 22 64 42 74Z" fill="#d8eeff" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round" opacity="0.92"/>
+      <path d="M42 70 C28 54 10 36 -10 22 M36 68 C24 60 14 50 2 42 M30 58 L22 40" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"/>
+      <path d="M20 46 L28 52 L34 62 L26 56Z M4 30 L12 34 L18 42 L8 38Z" fill="#fff" opacity="0.55"/>
+      <path d="M-12 18 C-16 18 -17 23 -14 27" fill="none" stroke="#ffb627" stroke-width="1"/>
+    </g>
   </g>
-  <!-- thorax -->
-  <path d="M40 66 C40 58 50 54 60 54 C70 54 80 58 80 66 C80 78 70 86 60 86 C50 86 40 78 40 66Z" fill="#1d1b28" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8"/>
-  <path d="M44 64 C46 58 52 56 58 56 C52 60 48 66 48 76Z" fill="#fff" opacity="0.18"/>
-  <g fill="#ffd23f"><path d="M50 64 L60 60 L70 64 L66 70 H54Z"/></g>
-  <!-- spiked legs -->
-  <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M44 74 L28 80 L22 94 M76 74 L92 80 L98 94 M46 80 L36 92 L34 106 M74 80 L84 92 L86 106"/>
+  <g>
+    <animateTransform class="lg-in" attributeName="transform" type="rotate" values="-40 76 70;-40 76 70;8 76 70;0 76 70" keyTimes="0;.42;.62;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 76 70;12 76 70;0 76 70" dur="0.12s" repeatCount="indefinite"/>
+      <path d="M76 68 C90 50 112 28 132 16 C139 13 140 22 135 28 C120 46 98 64 78 74Z" fill="#d8eeff" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round" opacity="0.92"/>
+      <path d="M78 70 C92 54 110 36 130 22 M84 68 C96 60 106 50 118 42 M90 58 L98 40" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"/>
+      <path d="M100 46 L92 52 L86 62 L94 56Z M116 30 L108 34 L102 42 L112 38Z" fill="#fff" opacity="0.55"/>
+      <path d="M132 18 C136 18 137 23 134 27" fill="none" stroke="#ffb627" stroke-width="1"/>
+    </g>
   </g>
-  <g fill="none" stroke="#3a3340" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M44 74 L28 80 L22 94 M76 74 L92 80 L98 94 M46 80 L36 92 L34 106 M74 80 L84 92 L86 106"/>
+  <g>
+    <animateTransform class="lg-in" attributeName="transform" type="rotate" values="30 44 76;30 44 76;-6 44 76;0 44 76" keyTimes="0;.46;.66;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 44 76;9 44 76;0 44 76" dur="0.14s" repeatCount="indefinite"/>
+      <path d="M44 74 C28 72 8 66 -6 64 C-12 64 -12 71 -6 73 C10 78 28 80 44 79Z" fill="#c6e4fb" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3" stroke-linejoin="round" opacity="0.92"/>
+      <path d="M42 76 C28 75 12 71 -4 68 M24 74 L16 69" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+    </g>
   </g>
-  <!-- head -->
-  <path d="M42 38 C42 26 50 20 60 20 C70 20 78 26 78 38 C78 48 70 56 60 56 C50 56 42 48 42 38Z" fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8"/>
-  <path d="M46 34 C48 26 54 22 60 22 C54 28 50 34 50 44Z" fill="#fff" opacity="0.3"/>
-  <!-- jeweled carapace crown -->
-  <path d="M44 28 L46 16 L52 22 L56 10 L60 18 L64 10 L68 22 L74 16 L76 28 C70 24 50 24 44 28Z" fill="#c9a441" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1" stroke-linejoin="round"/>
-  <g fill="#ff3fd2" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"><circle cx="56" cy="16" r="1.4"/><circle cx="64" cy="16" r="1.4"/><circle cx="60" cy="22" r="1.8" fill="#2ec4b6"/></g>
-  <!-- antennae -->
-  <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linecap="round">
-    <path d="M50 22 C44 12 38 8 32 8"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 50 22;-6 50 22;0 50 22" dur="1.4s" repeatCount="indefinite"/></path>
-    <path d="M70 22 C76 12 82 8 88 8"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 70 22;6 70 22;0 70 22" dur="1.4s" repeatCount="indefinite"/></path>
+  <g>
+    <animateTransform class="lg-in" attributeName="transform" type="rotate" values="-30 76 76;-30 76 76;6 76 76;0 76 76" keyTimes="0;.48;.68;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 76 76;-9 76 76;0 76 76" dur="0.14s" repeatCount="indefinite"/>
+      <path d="M76 74 C92 72 112 66 126 64 C132 64 132 71 126 73 C110 78 92 80 76 79Z" fill="#c6e4fb" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3" stroke-linejoin="round" opacity="0.92"/>
+      <path d="M78 76 C92 75 108 71 124 68 M96 74 L104 69" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+    </g>
   </g>
-  <!-- compound eyes: glint on the entrance -->
-  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2">
-    <path d="M42 36 C42 28 50 26 54 32 C56 38 52 46 46 46 C42 44 42 40 42 36Z" fill="#b3122e"/>
-    <path d="M78 36 C78 28 70 26 66 32 C64 38 68 46 74 46 C78 44 78 40 78 36Z" fill="#b3122e"/>
+  <!-- the abdomen with the huge stinger, swaying -->
+  <g>
+    <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 60 88;4 60 88;0 60 88;-4 60 88;0 60 88" dur="1.8s" repeatCount="indefinite"/>
+    <path d="M36 88 C32 102 42 118 60 124 C78 118 88 102 84 88Z" fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M37 94 C46 98 74 98 83 94 L82 102 C72 106 48 106 38 102Z M42 110 C50 114 70 114 78 110 L72 117 C66 120 54 120 48 117Z" fill="#1d1b28"/>
+    <path d="M60 88 L84 88 C88 102 78 118 60 124Z" fill="#000" opacity="0.2"/>
+    <path d="M40 92 C38 100 42 108 48 114" fill="none" stroke="#fff" stroke-width="1.3" opacity="0.5"/>
+    <path d="M50 96 l2 2 M66 96 l-2 2 M56 108 l1 2" stroke="#ffd23f" stroke-width="0.6"/>
+    <!-- stinger and its venom -->
+    <path d="M55 122 L60 138 L65 122Z" fill="#1d1b28" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+    <path d="M57 124 L60 134" stroke="#8a8f9c" stroke-width="0.7"/>
+    <path style="transform-box:fill-box;transform-origin:center top" d="M60 137 C58.6 139 58.6 141 60 141 C61.4 141 61.4 139 60 137Z" fill="#b6ff3a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.4;1.3;0.4" dur="1.4s" repeatCount="indefinite"/></path>
   </g>
-  <g fill="none" stroke="#ff6b6b" stroke-width="0.6"><path d="M44 34 H52 M44 38 H53 M45 42 H51 M47 30 V45 M50 30 V45 M76 34 H68 M76 38 H67 M75 42 H69 M73 30 V45 M70 30 V45"/></g>
-  <g transform="translate(47 34)"><g>
-    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0;0;2;1" keyTimes="0;.6;.78;1" dur="1.5s" fill="freeze"/>
-    <circle r="1.8" fill="#fff"/></g></g>
-  <g transform="translate(73 34)"><g>
-    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0;0;2;1" keyTimes="0;.64;.82;1" dur="1.5s" fill="freeze"/>
-    <circle r="1.8" fill="#fff"/></g></g>
-  <!-- mandibles: snap on the entrance, dripping honey -->
-  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
-    <path d="M52 48 C46 50 44 56 48 60 L54 54Z" fill="#1d1b28"><animateTransform class="lg-in" attributeName="transform" type="rotate" values="0 54 50;0 54 50;-24 54 50;6 54 50;0 54 50" keyTimes="0;.6;.72;.86;1" dur="1.5s" fill="freeze"/>
-      <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 54 50;-10 54 50;0 54 50" dur="0.7s" begin="1.5s" repeatCount="indefinite" additive="sum"/></path>
-    <path d="M68 48 C74 50 76 56 72 60 L66 54Z" fill="#1d1b28"><animateTransform class="lg-in" attributeName="transform" type="rotate" values="0 66 50;0 66 50;24 66 50;-6 66 50;0 66 50" keyTimes="0;.6;.72;.86;1" dur="1.5s" fill="freeze"/>
-      <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 66 50;10 66 50;0 66 50" dur="0.7s" begin="1.5s" repeatCount="indefinite" additive="sum"/></path>
+  <!-- the thorax, furred -->
+  <path d="M38 76 C38 66 48 60 60 60 C72 60 82 66 82 76 C82 86 72 92 60 92 C48 92 38 86 38 76Z" fill="#1d1b28" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
+  <path d="M42 74 C44 66 52 63 58 63 C52 68 48 74 48 84Z" fill="#fff" opacity="0.16"/>
+  <path d="M50 70 L60 66 L70 70 L66 78 H54Z" fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"/>
+  <path d="M40 80 l-3 1 M42 86 l-2 2 M80 80 l3 1 M78 86 l2 2 M52 90 l-1 2 M68 90 l1 2" stroke="#ffd23f" stroke-width="0.8" stroke-linecap="round"/>
+  <!-- hooked raptor legs, spined -->
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M44 74 L28 80 L22 94 M40 86 L30 96 L30 112 M76 74 L92 80 L98 94 M80 86 L90 96 L90 112" stroke="var(--lg-ink, #1d2230)" stroke-width="4"/>
+    <path d="M44 74 L28 80 L22 94 M40 86 L30 96 L30 112 M76 74 L92 80 L98 94 M80 86 L90 96 L90 112" stroke="#3a3340" stroke-width="2.2"/>
   </g>
-  <path style="transform-box:fill-box;transform-origin:center top" d="M56 54 C56 60 58 62 58 58" fill="#ffb627" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5">
-    <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1.4;1 1" dur="1.8s" repeatCount="indefinite"/>
-  </path>
-  <!-- drones buzzing around -->
-  <g fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6">
-    <ellipse cx="14" cy="60" rx="3" ry="2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;4 -6;-2 -10;0 0" dur="1.2s" repeatCount="indefinite"/></ellipse>
-    <ellipse cx="106" cy="104" rx="3" ry="2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-4 -6;2 -10;0 0" dur="1.4s" repeatCount="indefinite"/></ellipse>
+  <g fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" stroke-linejoin="round"><path d="M26 84 L21 82 L25 87Z M94 84 L99 82 L95 87Z M22 94 L27 101 L20 97Z M98 94 L93 101 L100 97Z"/></g>
+  <!-- the head -->
+  <g transform="translate(60 42) scale(1.18) translate(-60 -42)">
+  <g>
+    <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 60 60;-2 60 60;0 60 60;2 60 60;0 60 60" dur="3.2s" repeatCount="indefinite"/>
+    <!-- antennae, hooked -->
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 52 16;-7 52 16;0 52 16" dur="1.4s" repeatCount="indefinite"/>
+        <path d="M50 17 C44 6 36 -4 26 -9 L21 -5 L25 -12 C37 -8 47 2 54 15Z" fill="#3a3340" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1" stroke-linejoin="round"/></g>
+      <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 68 16;7 68 16;0 68 16" dur="1.6s" repeatCount="indefinite"/>
+        <path d="M70 17 C76 6 84 -4 94 -9 L99 -5 L95 -12 C83 -8 73 2 66 15Z" fill="#3a3340" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1" stroke-linejoin="round"/></g>
+    </g>
+    <!-- the jeweled carapace crown -->
+    <path d="M38 22 L38 4 L46 12 L50 -6 L56 8 L60 -12 L64 8 L70 -6 L74 12 L82 4 L82 22 C70 18 50 18 38 22Z" fill="#c9a441" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+    <path d="M60 -12 L64 8 L70 -6 L74 12 L82 4 L82 22 C76 20 68 19 60 19Z" fill="#000" opacity="0.2"/>
+    <path d="M39 6 L45 13 M50 -4 L55 8 M60 -10 L62 6" stroke="#fff3c4" stroke-width="0.8"/>
+    <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"><circle cx="50" cy="14" r="1.8" fill="#ff3fd2"/><circle cx="70" cy="14" r="1.8" fill="#ff3fd2"/><path d="M60 8 l2.4 3.4 l-2.4 3.4 l-2.4 -3.4Z" fill="#2ec4b6" stroke-linejoin="round"/></g>
+    <!-- the head capsule: angular, cel shaded -->
+    <path d="M32 24 L46 18 L60 16 L74 18 L88 24 L92 36 L86 48 L76 58 L66 64 L54 64 L44 58 L34 48 L28 36Z" fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2" stroke-linejoin="round"/>
+    <path d="M60 16 L74 18 L88 24 L92 36 L86 48 L76 58 L66 64 L60 64Z" fill="#000" opacity="0.18"/>
+    <path d="M34 26 L46 20 L58 18 L50 24 L38 30 L31 36Z" fill="#fff" opacity="0.4"/>
+    <!-- the black face mask -->
+    <path d="M50 40 L60 44 L70 40 L68 54 L62 62 L58 62 L52 54Z" fill="#1d1b28"/>
+    <!-- huge faceted compound eyes: flare on the entrance -->
+    <g transform="translate(38 40)"><g>
+      <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.3;0.3;1.25;1" keyTimes="0;.6;.78;1" dur="1.5s" fill="freeze"/>
+      <path d="M-8 -14 C0 -20 9 -15 11 -6 C13 4 8 14 1 16 C-6 13 -11 4 -11 -6 C-11 -10 -10 -12 -8 -14Z" fill="#ff3b3b" opacity="0.45" transform="scale(1.18)"/>
+      <path d="M-8 -14 C0 -20 9 -15 11 -6 C13 4 8 14 1 16 C-6 13 -11 4 -11 -6 C-11 -10 -10 -12 -8 -14Z" fill="#a3122a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+      <path d="M-9 -8 H9 M-10 -2 H11 M-10 4 H10 M-7 10 H7 M-4 -16 V14 M2 -16 V15 M7 -12 V12" fill="none" stroke="#ff6b6b" stroke-width="0.6" opacity="0.9"/>
+      <path d="M-6 -10 C-2 -14 4 -12 6 -8 C2 -9 -2 -8 -6 -4Z" fill="#ffb0a0"/>
+      <circle cx="-3" cy="-9" r="1.4" fill="#fff"/>
+    </g></g>
+    <g transform="translate(82 40)"><g>
+      <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.3;0.3;1.25;1" keyTimes="0;.62;.8;1" dur="1.5s" fill="freeze"/>
+      <path d="M8 -14 C0 -20 -9 -15 -11 -6 C-13 4 -8 14 -1 16 C6 13 11 4 11 -6 C11 -10 10 -12 8 -14Z" fill="#ff3b3b" opacity="0.45" transform="scale(1.18)"/>
+      <path d="M8 -14 C0 -20 -9 -15 -11 -6 C-13 4 -8 14 -1 16 C6 13 11 4 11 -6 C11 -10 10 -12 8 -14Z" fill="#a3122a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+      <path d="M9 -8 H-9 M10 -2 H-11 M10 4 H-10 M7 10 H-7 M4 -16 V14 M-2 -16 V15 M-7 -12 V12" fill="none" stroke="#ff6b6b" stroke-width="0.6" opacity="0.9"/>
+      <path d="M6 -10 C2 -14 -4 -12 -6 -8 C-2 -9 2 -8 6 -4Z" fill="#ffb0a0"/>
+      <circle cx="3" cy="-9" r="1.4" fill="#fff"/>
+    </g></g>
+    <!-- the solid black V plate pressing down between the eyes -->
+    <path d="M36 24 L60 38 L84 24 L84 30 L60 44 L36 30Z" fill="#1d1b28" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3" stroke-linejoin="round"/>
+    <path d="M37.6 25.8 L60 39 L82.4 25.8" fill="none" stroke="#ffd23f" stroke-width="0.9"/>
+    <!-- three burning ocelli -->
+    <g><circle cx="54" cy="27" r="2.6" fill="#ffb627" opacity="0.5"/><circle cx="66" cy="27" r="2.6" fill="#ffb627" opacity="0.5"/><circle cx="60" cy="23" r="2.8" fill="#ffb627" opacity="0.5"/>
+      <circle cx="54" cy="27" r="1.5" fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"/><circle cx="66" cy="27" r="1.5" fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"/><circle cx="60" cy="23" r="1.7" fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"/>
+      <circle cx="53.5" cy="26.5" r="0.5" fill="#fff"/><circle cx="65.5" cy="26.5" r="0.5" fill="#fff"/><circle cx="59.5" cy="22.4" r="0.6" fill="#fff"/></g>
+    <!-- the mouth: a ring of tiny fangs -->
+    <path d="M52 56 C55 54 65 54 68 56 L66 64 C63 66 57 66 54 64Z" fill="#3a0a10" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+    <g fill="#fff4dc" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"><path d="M54 56 l1 2.4 l1 -2.6Z M57 55.4 l1 2.6 l1 -2.6Z M61 55.4 l1 2.6 l1 -2.6Z M64 55.6 l1 2.4 l1 -2.4Z M55 64.4 l1 -2 l1 2.2Z M58.4 65 l1 -2 l1 2Z M61.8 64.8 l1 -2 l1 2Z"/></g>
+    <!-- serrated mandibles: snap on the entrance, then chew; honey drips from the tips -->
+    <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
+      <g>
+        <animateTransform class="lg-in" attributeName="transform" type="rotate" values="0 50 54;0 50 54;-30 50 54;8 50 54;0 50 54" keyTimes="0;.6;.72;.86;1" dur="1.5s" fill="freeze"/>
+        <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 50 54;-12 50 54;0 50 54" dur="0.7s" repeatCount="indefinite"/>
+          <path d="M50 52 C42 56 40 66 46 72 C50 75 56 74 59 70 L56 68 L54 70 L53 66 L50 67 L50 63 L48 62 C48 58 50 56 53 55Z" fill="#7a4414"/>
+          <path d="M48 56 C44 60 44 66 47 70" fill="none" stroke="#ffcf6b" stroke-width="0.9"/>
+          <path style="transform-box:fill-box;transform-origin:center top" d="M57 71 C56 75 57 78 58 78 C59.4 78 59.6 75 58.6 71Z" fill="#ffb627" stroke-width="0.5"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1.6;1 1" dur="1.8s" repeatCount="indefinite"/></path>
+        </g>
+      </g>
+      <g>
+        <animateTransform class="lg-in" attributeName="transform" type="rotate" values="0 70 54;0 70 54;30 70 54;-8 70 54;0 70 54" keyTimes="0;.6;.72;.86;1" dur="1.5s" fill="freeze"/>
+        <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 70 54;12 70 54;0 70 54" dur="0.7s" repeatCount="indefinite"/>
+          <path d="M70 52 C78 56 80 66 74 72 C70 75 64 74 61 70 L64 68 L66 70 L67 66 L70 67 L70 63 L72 62 C72 58 70 56 67 55Z" fill="#7a4414"/>
+          <path d="M72 56 C76 60 76 66 73 70" fill="none" stroke="#ffcf6b" stroke-width="0.9"/>
+        </g>
+      </g>
+    </g>
+  </g>
+  </g>
+  <!-- drones buzzing around the queen -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.6">
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;5 -6;-3 -11;0 0" dur="1.2s" repeatCount="indefinite"/>
+      <ellipse cx="10" cy="100" rx="3.6" ry="2.4" fill="#ffd23f"/><path d="M9 98 V102 M11.4 98.2 V101.8" stroke="#1d1b28" stroke-width="0.9"/><ellipse cx="9" cy="96.6" rx="2.4" ry="1.4" fill="#d8eeff"/></g>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-5 -6;3 -10;0 0" dur="1.4s" repeatCount="indefinite"/>
+      <ellipse cx="110" cy="104" rx="3.6" ry="2.4" fill="#ffd23f"/><path d="M109 102 V106 M111.4 102.2 V105.8" stroke="#1d1b28" stroke-width="0.9"/><ellipse cx="111" cy="100.6" rx="2.4" ry="1.4" fill="#d8eeff"/></g>
   </g>
 </svg>

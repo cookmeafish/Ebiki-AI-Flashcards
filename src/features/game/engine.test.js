@@ -141,3 +141,12 @@ describe('Legends rewards', () => {
     expect(eventDelta('bossWin')).toEqual({ bossWins: 1, xp: XP.bossWin })
   })
 })
+
+describe('failed Legends tries pay a little, capped per day', () => {
+  it('pays legendsTry XP until the daily cap, then nothing (still counted as practice)', async () => {
+    const { eventDelta, LEGENDS_TRY_XP_CAP, XP } = await import('./engine')
+    expect(eventDelta('legendsTry', {}, { legendsTries: 0 })).toEqual({ practiced: 1, legendsTries: 1, xp: XP.legendsTry })
+    expect(eventDelta('legendsTry', {}, { legendsTries: LEGENDS_TRY_XP_CAP }).xp).toBe(0)
+    expect(XP.legendsTry).toBeLessThan(XP.practiceDone)
+  })
+})

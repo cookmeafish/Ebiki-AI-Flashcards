@@ -256,9 +256,13 @@ function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, o
   // Hint scrolls (earned by a first flawless level, held at most HELPERS_MAX): one shows the answer's first letter
   // and length on a typed question.
   const [scrolls, setScrolls] = useState(() => peekMap(modeId)?.helpers?.scroll || 0)
+  // One scroll per question: the button stays on screen after use, and each click spent another scroll.
+  const scrolledFor = useRef(new Set())
   const spendScroll = (q, api) => {
+    if (scrolledFor.current.has(q)) return
     const ans = String((q.accepted || [])[0] || '')
     if (!ans || scrolls < 1) return
+    scrolledFor.current.add(q)
     setScrolls((n) => n - 1)
     updateMap(modeId, (m) => (m ? spendHelper(m, 'scroll') : m))
     api.hint(`📜 ${t('lg_scrollHint', { hint: scrollHint(ans) })}`)
@@ -420,7 +424,7 @@ function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, o
       </div>
     ) : undefined
     const canUseChoices = node.kind === 'boss' ? (q) => !q._attack && fightPhase === 1 : undefined
-    const tools = scrolls > 0 ? (q, api) => (!api.asChoice && q.kind !== 'choice' && !q.open && (q.accepted || []).length && api.phase === 'answer'
+    const tools = scrolls > 0 ? (q, api) => (!api.asChoice && q.kind !== 'choice' && !q.open && (q.accepted || []).length && api.phase === 'answer' && !scrolledFor.current.has(q)
       ? <ChunkyButton variant="ghost" color={C.purple} onClick={() => spendScroll(q, api)} style={{ fontSize: 12, padding: '6px 10px' }}>📜 {t('lg_useScroll', { n: scrolls })}</ChunkyButton>
       : null) : undefined
     const boss = fight

@@ -12,6 +12,9 @@ export const areaTag = (areaId) => `lg-${String(areaId || '').replace(/[^a-z0-9-
 const inFlight = new Set()
 const flightKey = (modeId, itemId) => `${modeId}:${itemId}`
 export const isAdding = (modeId, itemId) => inFlight.has(flightKey(modeId, itemId))
+// Items added this session, by the same key. The map normally records the note id, but when that save fails (share
+// down, folder switching) the card is already in Anki: this keeps a second click from adding it again.
+const addedNow = new Map()
 
 // Adds the items not added yet; returns { added, failed, message }. Items already carrying a note id, or being
 // added by another click, are skipped.
@@ -19,7 +22,7 @@ export async function addItemsToDeck(ctx, modeId, areaId, items) {
   const { subject, cards } = ctx
   const deck = subject.modeDeck
   if (!deck || ctx.ankiConnected === false) return { added: 0, failed: items.length, message: ctx.t('lg_noDeck') }
-  const mine = items.filter((it) => !it.cardNoteId && !inFlight.has(flightKey(modeId, it.id)))
+  const mine = items.filter((it) => !it.cardNoteId && !addedNow.has(flightKey(modeId, it.id)) && !inFlight.has(flightKey(modeId, it.id)))
   for (const it of mine) inFlight.add(flightKey(modeId, it.id))
   const done = new Map()
   let failed = 0; let message = ''
@@ -28,21 +31,24 @@ export async function addItemsToDeck(ctx, modeId, areaId, items) {
       try {
         const id = await cards.addNew(deck, cards.frontHtml(it.front), cards.backHtml(it.back), [...CARD_TAGS, areaTag(areaId)])
         done.set(it.id, id || true)
+        addedNow.set(flightKey(modeId, it.id), id || true)
       } catch (e) { failed++; message = String(e?.message || e) }
     }
-    if (done.size) await markAdded(modeId, areaId, done)
+    if (done.size && !(await markAdded(modeId, areaId, done))) message = ctx.t('lg_errSave') // added, but not remembered on the map
   } finally {
     for (const it of mine) inFlight.delete(flightKey(modeId, it.id))
   }
   return { added: done.size, failed, message }
 }
 
+// true when the map now records the note ids.
 async function markAdded(modeId, areaId, done) {
-  await updateMap(modeId, (m) => {
+  const saved = await updateMap(modeId, (m) => {
     const k = m ? areaIndex(m, areaId) : -1
     if (k < 0) return m
     return { ...m, areas: m.areas.map((a, j) => (j !== k ? a : { ...a, items: a.items.map((it) => (done.has(it.id) ? { ...it, cardNoteId: done.get(it.id) } : it)) })) }
   })
+  return saved !== undefined
 }
 
 // The live copy of an area's items (after an add, the map in the store has the note ids).
@@ -50,4 +56,5 @@ export const liveItems = (modeId, areaId, ids) => {
   const a = peekMap(modeId)?.areas?.find((x) => x.id === areaId)
   const byId = new Map((a?.items || []).map((it) => [it.id, it]))
   return (ids || []).map((id) => byId.get(id)).filter(Boolean)
+    .map((it) => (!it.cardNoteId && addedNow.has(flightKey(modeId, it.id)) ? { ...it, cardNoteId: addedNow.get(flightKey(modeId, it.id)) } : it))
 }

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- Study: a stack of three books, the top one tipped, with a ribbon bookmark. -->
+  <rect x="5" y="33" width="36" height="11" rx="3" fill="#1487C2"/>
+  <rect x="5" y="32" width="36" height="9" rx="3" fill="#1CB0F6"/>
+  <rect x="29" y="34.5" width="14" height="6" rx="1.5" fill="#FFF4D6"/>
+  <rect x="9" y="33.6" width="16" height="1.6" rx="0.8" fill="#ffffff" opacity="0.45"/>
+  <rect x="8" y="22" width="33" height="11" rx="3" fill="#46A302"/>
+  <rect x="8" y="21" width="33" height="9" rx="3" fill="#58CC02"/>
+  <rect x="5" y="23.5" width="13" height="6" rx="1.5" fill="#FFF4D6"/>
+  <rect x="22" y="22.6" width="15" height="1.6" rx="0.8" fill="#ffffff" opacity="0.45"/>
+  <g transform="rotate(-8 24 16)">
+    <rect x="9" y="10" width="30" height="11" rx="3" fill="#B51C33"/>
+    <rect x="9" y="9" width="30" height="9" rx="3" fill="#DF2540"/>
+    <rect x="29" y="11.5" width="12" height="6" rx="1.5" fill="#FFF4D6"/>
+    <rect x="12" y="10.6" width="14" height="1.6" rx="0.8" fill="#ffffff" opacity="0.45"/>
+    <path d="M18 18 L18 25 L20.5 23 L23 25 L23 18Z" fill="#FFC800"/>
+  </g>
+</svg>

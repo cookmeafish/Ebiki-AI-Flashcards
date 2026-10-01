@@ -4,7 +4,7 @@ The owner's verdict on the first set: "super boring, uninspired and weak" (small
 neck, a boxy robot, a skeleton in a robe, a lion like a house cat). A raid boss is the day's WHOLE due stack in one
 fight, harder than any Legends boss, so it must look like the final boss of a game.
 
-## Rules for all five
+## Rules for all raid bosses
 
 - **Fill the frame.** The figure owns the 120 x 120 canvas and bleeds past its edges (heads, wings, fists, tentacles
   cut by the frame read as "too big to fit"). Boss figures may draw 20% past the frame (art.jsx `BOSS_HEADROOM`).
@@ -37,6 +37,7 @@ tested), keyed by the raid motif.
 | Lich | **Phylactery** | At 0 health the Lich rises once if any card you missed is still unredeemed: those cards come back one last time, and it falls when all are answered right (a miss there costs a life). | Every mistake of the fight gets fixed before it ends. |
 | Chimera | **Three heads** | Every third right answer in a row cuts all three heads at once: triple damage (it replaces the critical). | Rewards steady, consistent recall. |
 | Void | **Singularity** | In phase 3 right answers deal double, and a miss costs two lives. | A high-stakes finale that still only asks cards you have to know. |
+| Seraph | **Judgment** | Every 5 answers are weighed together: if all 5 were right, the Judge is smitten for +5 damage. Nothing is taken away. | Rewards steady, consistent recall over a run of cards. |
 
 ## 1. Hydra: the Maelstrom Hydra
 
@@ -106,3 +107,26 @@ tested), keyed by the raid motif.
 - **Idle**: tentacles writhe, eyes blink out of step, the ring turns, stars twinkle.
 - **Entrance (SVG)**: unfolds from a point of light, the eye snaps open. **Card**: `lgRealityTear`, reality splits
   as a horizontal slit, tears open vertically, jitters, and holds.
+
+## 6. Seraph: the Thousand-Eyed Judge (owner request: inspired by the Legends celestial, NOT a copy; "a masterpiece, terrifying but crazy")
+
+- **Lesson from the first draft**: a calm GOLD knight with a sword and no eyes in phase 1 was rejected outright ("where
+  is the scary eyes and dangerous white celestial figure???"). "Inspired by" keeps what the owner loved (a WHITE
+  celestial, scary eyes everywhere) and changes the rest. Terrifying from phase 1, not only at the end.
+- **Second lesson**: v2 (white, eyes, a sword) was "still not that scary"; the sword "restricts the design" and was
+  removed. Terror in EVERY phase: bloodshot eyes, blood tears, teeth from phase 1, reaching clawed hands.
+- **Idea**: a towering white celestial: a faceless angular porcelain mask split by ONE huge bloodshot vertical red eye
+  under a porcelain V brow, weeping blood over a needle-toothed slit grin; six white wings (three pairs: up, out, down,
+  past the frame) of steel-tipped feathers with rows of red eyes; gyroscope rings full of eyes and a halo of
+  light-blades around the head; a tattered white robe on a dark red lining; long skeletal arms with black-clawed hands
+  reaching out of the sleeves, an eye staring from each palm; before a dark crimson cathedral rose window. No weapon.
+- **Phase 1, watching**: every eye open, the hands reaching, the grin.
+- **Phase 2, cracking**: red light in cracks across the mask, four more eyes tear open on it and four down the robe,
+  the jaw drops open on two rows of teeth and heaves, a second pair of clawed arms rises from behind the shoulders,
+  the window cracks.
+- **Phase 3, true form**: the mask shatters into halves drifting apart on a void with a spiral of eyes around a huge
+  screaming vertical maw, a beam of light pours up, the wings and rings burn, shards orbit, the window shatters over
+  a red void full of opening eyes.
+- **Face per phase**: one great staring eye, then a cracked mask of eyes, then a screaming maw.
+- **Entrance (SVG)**: the window and halo spin up, the wings snap open pair by pair, the arms swing out, the great eye
+  opens last. **Card**: `lgHolyUnfold`, a point of light high above that spins open and descends into place.

@@ -25,8 +25,10 @@ export const depthBorder = (color, { width = UI.cardBorder, depth = UI.buttonDep
 })
 
 export function Card({ children, style, onClick, title }) {
+  // A clickable card is a button for the keyboard too (Tab to it, Enter or Space opens it).
+  const keys = onClick ? { role: 'button', tabIndex: 0, onKeyDown: (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); onClick(e) } } } : {}
   return (
-    <div onClick={onClick} className={onClick ? 'click-dim' : undefined} style={{
+    <div onClick={onClick} {...keys} className={onClick ? 'click-dim' : undefined} style={{
       background: C.surface, border: `${UI.cardBorder}px solid ${C.border}`, borderRadius: RADIUS.lg,
       padding: 16, cursor: onClick ? 'pointer' : undefined, ...style,
     }}>

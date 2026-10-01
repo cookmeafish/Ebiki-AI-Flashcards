@@ -1,71 +1,200 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
-  <!-- The Gladiator Titan: a giant bronze gladiator. Crested helmet with a burning visor, a lion-emblem shield, a trident,
-       scars and chains. -->
-  <!-- arena dust and the roar of the crowd (speed lines) -->
-  <g fill="none" stroke="var(--lg-far, #e0a79a)" stroke-width="1.6" stroke-linecap="round" opacity="0.6">
-    <path d="M4 30 L16 34 M2 48 L14 50 M104 30 L116 34 M106 48 L118 50" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.05;1" dur="0.8s" repeatCount="indefinite" additive="sum"/></path>
+  <!-- The Gladiator Titan: a bronze giant seen from below in the Grand Colosseum. The tiered arches curve around it
+       with the crowd in them and banners swaying. A crested helmet with a solid V brow over burning eye slits and a
+       lion-maw face guard full of bronze fangs; riveted pauldrons, a chained cuirass with scars, a lion-emblem shield
+       and a barbed trident. Entrance: the trident swings up, the shield bashes in, the eye slits blaze. -->
+  <!-- the colosseum: two tiers of arches curving around the titan -->
+  <path d="M-15.6 48.9 L-11.3 42.4 L-6.7 36.2 L-1.7 30.5 L3.6 25.3 L9.1 20.5 L14.9 16.3 L21.0 12.5 L27.2 9.4 L33.5 6.7 L40.0 4.7 L46.6 3.2 L53.3 2.3 L60.0 2.0 L66.7 2.3 L73.4 3.2 L80.0 4.7 L86.5 6.7 L92.8 9.4 L99.0 12.5 L105.1 16.3 L110.9 20.5 L116.4 25.3 L121.7 30.5 L126.7 36.2 L131.3 42.4 L135.6 48.9 L132 56 L128 62 L130 66 L124 70 L120 76 L116.7 76.0 L113.5 71.8 L110.0 67.9 L106.3 64.2 L102.3 60.9 L98.2 57.9 L93.8 55.1 L89.3 52.7 L84.6 50.7 L79.8 49.0 L75.0 47.7 L70.0 46.8 L65.0 46.2 L60.0 46.0 L55.0 46.2 L50.0 46.8 L45.0 47.7 L40.2 49.0 L35.4 50.7 L30.7 52.7 L26.2 55.1 L21.8 57.9 L17.7 60.9 L13.7 64.2 L10.0 67.9 L6.5 71.8 L3.3 76.0 L1 72 L-6 68 L-4 62 L-10 58 L-12 52Z" fill="var(--lg-far, #e0a79a)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
+  <path d="M60 2 L66.7 2.3 L73.4 3.2 L80.0 4.7 L86.5 6.7 L92.8 9.4 L99.0 12.5 L105.1 16.3 L110.9 20.5 L116.4 25.3 L121.7 30.5 L126.7 36.2 L131.3 42.4 L135.6 48.9 L132 56 L128 62 L130 66 L124 70 L120 76 L116.7 76.0 L113.5 71.8 L110.0 67.9 L106.3 64.2 L102.3 60.9 L98.2 57.9 L93.8 55.1 L89.3 52.7 L84.6 50.7 L79.8 49.0 L75.0 47.7 L70.0 46.8 L65.0 46.2 L60.0 46.0Z" fill="#000" opacity="0.2"/>
+  <path d="M-4.3 59.7 L-0.4 54.5 L3.8 49.7 L8.3 45.2 L13.0 41.1 L18.0 37.4 L23.2 34.1 L28.5 31.3 L34.0 28.9 L39.7 27.0 L45.4 25.5 L51.2 24.5 L57.1 24.1 L62.9 24.1 L68.8 24.5 L74.6 25.5 L80.3 27.0 L86.0 28.9 L91.5 31.3 L96.8 34.1 L102.0 37.4 L107.0 41.1 L111.7 45.2 L116.2 49.7 L120.4 54.5 L124.3 59.7" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+  <path d="M-10 45 L-6.7 39.2 L-1.7 33.5 L3.6 28.3 L9.1 23.5 L14.9 19.3 L21.0 15.5 L27.2 12.4 L33.5 9.7 L40.0 7.7 L46.6 6.2 L53.3 5.3 L60 5" fill="none" stroke="#fff" stroke-width="1" opacity="0.35"/>
+  <g fill="#1c1210" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6">
+    <path transform="translate(-5.8 48.3) rotate(-39.9)" d="M-3.5 6.4 V-2.9 A3.5 3.5 0 0 1 3.5 -2.9 V6.4Z"/>
+    <path transform="translate(4.6 36.5) rotate(-32.3)" d="M-3.8 7.0 V-3.1 A3.8 3.8 0 0 1 3.8 -3.1 V7.0Z"/>
+    <path transform="translate(16.4 26.9) rotate(-24.6)" d="M-4.1 7.4 V-3.3 A4.1 4.1 0 0 1 4.1 -3.3 V7.4Z"/>
+    <path transform="translate(29.2 19.7) rotate(-17.0)" d="M-4.3 7.8 V-3.5 A4.3 4.3 0 0 1 4.3 -3.5 V7.8Z"/>
+    <path transform="translate(42.8 15.0) rotate(-9.3)" d="M-4.4 8.0 V-3.6 A4.4 4.4 0 0 1 4.4 -3.6 V8.0Z"/>
+    <path transform="translate(84.8 17.3) rotate(13.6)" d="M-4.4 7.9 V-3.6 A4.4 4.4 0 0 1 4.4 -3.6 V7.9Z"/>
+    <path transform="translate(98.0 23.4) rotate(21.2)" d="M-4.2 7.6 V-3.4 A4.2 4.2 0 0 1 4.2 -3.4 V7.6Z"/>
+    <path transform="translate(110.3 32.0) rotate(28.9)" d="M-4.0 7.2 V-3.2 A4.0 4.0 0 0 1 4.0 -3.2 V7.2Z"/>
+    <path transform="translate(121.4 42.8) rotate(36.5)" d="M-3.7 6.7 V-3.0 A3.7 3.7 0 0 1 3.7 -3.0 V6.7Z"/>
+    <path transform="translate(3.0 63.3) rotate(-39.9)" d="M-3.5 6.4 V-2.9 A3.5 3.5 0 0 1 3.5 -2.9 V6.4Z"/>
+    <path transform="translate(12.0 53.9) rotate(-32.3)" d="M-3.8 7.0 V-3.1 A3.8 3.8 0 0 1 3.8 -3.1 V7.0Z"/>
+    <path transform="translate(22.2 46.2) rotate(-24.6)" d="M-4.1 7.4 V-3.3 A4.1 4.1 0 0 1 4.1 -3.3 V7.4Z"/>
+    <path transform="translate(33.3 40.4) rotate(-17.0)" d="M-4.3 7.8 V-3.5 A4.3 4.3 0 0 1 4.3 -3.5 V7.8Z"/>
+    <path transform="translate(81.5 38.4) rotate(13.6)" d="M-4.4 7.9 V-3.6 A4.4 4.4 0 0 1 4.4 -3.6 V7.9Z"/>
+    <path transform="translate(93.0 43.3) rotate(21.2)" d="M-4.2 7.6 V-3.4 A4.2 4.2 0 0 1 4.2 -3.4 V7.6Z"/>
+    <path transform="translate(103.6 50.2) rotate(28.9)" d="M-4.0 7.2 V-3.2 A4.0 4.0 0 0 1 4.0 -3.2 V7.2Z"/>
+    <path transform="translate(113.2 58.9) rotate(36.5)" d="M-3.7 6.7 V-3.0 A3.7 3.7 0 0 1 3.7 -3.0 V6.7Z"/>
   </g>
-  <!-- the trident -->
+  <!-- the roaring crowd in the arches: heads and fists bob -->
+  <g fill="var(--lg-accent, #8b5cf6)">
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -1.2;0 0" dur="0.5s" repeatCount="indefinite"/>
+      <circle cx="-4.6" cy="51" r="1.3"/><circle cx="17" cy="29" r="1.4"/><circle cx="43" cy="18" r="1.5"/><circle cx="98.6" cy="26" r="1.4"/><circle cx="120" cy="45.5" r="1.3"/>
+      <circle cx="12.6" cy="56.6" r="1.3"/><circle cx="33.8" cy="43.4" r="1.4"/><circle cx="92.4" cy="46" r="1.4"/><circle cx="112.2" cy="61.6" r="1.3"/>
+    </g>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -1;0 0.6;0 -1" dur="0.42s" repeatCount="indefinite"/>
+      <circle cx="5.8" cy="39" r="1.3"/><circle cx="29.4" cy="22.6" r="1.4"/><circle cx="85" cy="20" r="1.4"/><circle cx="110.4" cy="34.6" r="1.3"/>
+      <circle cx="3.6" cy="66" r="1.2"/><circle cx="22.6" cy="49" r="1.3"/><circle cx="81.4" cy="41.2" r="1.4"/><circle cx="103.2" cy="53" r="1.3"/>
+      <path d="M31.4 18 l0.6 -3 l1 0.4Z M86.6 15.6 l0.4 -3 l1 0.2Z M24 44.6 l0.6 -3 l1 0.4Z M94.4 41.4 l0.4 -3 l1 0.4Z" stroke="var(--lg-accent, #8b5cf6)" stroke-width="1"/>
+    </g>
+  </g>
+  <!-- banners hanging from the top tier -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round">
+    <g transform="translate(9 22)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;5;0;-3;0" dur="2.3s" repeatCount="indefinite"/>
+      <path d="M-3 0 H3 V12 L0 9 L-3 12Z" fill="#b3122e"/><path d="M-1.6 3 H1.6 M-1.6 5.4 H1.6" stroke="#ffd166" stroke-width="0.8"/>
+    </g></g>
+    <g transform="translate(111 22)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-5;0;3;0" dur="2.6s" repeatCount="indefinite"/>
+      <path d="M-3 0 H3 V12 L0 9 L-3 12Z" fill="#b3122e"/><path d="M-1.6 3 H1.6 M-1.6 5.4 H1.6" stroke="#ffd166" stroke-width="0.8"/>
+    </g></g>
+  </g>
+  <!-- the barbed trident: swings up on the entrance -->
   <g>
-    <animateTransform class="lg-in" attributeName="transform" type="rotate" values="60 94 110;60 94 110;-8 94 110;0 94 110" keyTimes="0;.5;.75;1" dur="1.5s" fill="freeze"/>
-    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 94 110;3 94 110;0 94 110" dur="2.4s" begin="1.5s" repeatCount="indefinite"/>
-      <path d="M94 118 L104 12" stroke="#6b4423" stroke-width="3.4" stroke-linecap="round"/>
+    <animateTransform class="lg-in" attributeName="transform" type="rotate" values="70 104 104;70 104 104;-10 104 104;0 104 104" keyTimes="0;.45;.7;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 104 104;3 104 104;0 104 104" dur="2.4s" repeatCount="indefinite"/>
+      <path d="M100 124 L114 -2" stroke="var(--lg-ink, #1d2230)" stroke-width="5.2" stroke-linecap="round"/>
+      <path d="M100 124 L114 -2" stroke="#6b4423" stroke-width="3.4" stroke-linecap="round"/>
+      <path d="M101.4 116 L114 2" stroke="#a87545" stroke-width="0.9"/>
       <g fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round">
-        <path d="M96 20 L104 2 L110 20 L106 20 L104 10 L102 20Z"/><path d="M94 22 C90 20 90 12 92 6 L94 12 L96 22Z"/><path d="M112 24 C116 22 116 14 114 8 L112 14 L110 24Z"/>
-        <rect x="95" y="20" width="18" height="4" rx="1" fill="#c9a441"/>
+        <path d="M112 2 L116 -22 L119 2 L118 6 L114 6Z"/>
+        <path d="M108 6 C103 4 102 -6 104 -14 L106 -10 L105 -6 L108 -5 L109 4Z"/>
+        <path d="M120 8 C125 7 127 -3 126 -11 L123.6 -7.6 L124.4 -3.6 L121.4 -3 L121 6Z"/>
+        <path d="M106 4 L122 6 L121.4 9.4 L105.4 7.6Z" fill="#c9a441"/>
       </g>
+      <path d="M115.5 -18 L117.4 0" stroke="#fff" stroke-width="0.7"/>
+      <path d="M104.4 -10 L104 -3 M125.4 -7 L124.6 0" stroke="#fff" stroke-width="0.6"/>
+      <path d="M116 -12 l2 2 l-1 1 M117 -6 l1.6 1.6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
     </g>
   </g>
-  <!-- bronze body: muscled cuirass -->
-  <path d="M26 120 L30 84 L44 72 H76 L90 84 L94 120Z" fill="#b87a3a" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
-  <path d="M44 84 C48 80 56 82 58 90 C54 94 46 94 44 84Z M76 84 C72 80 64 82 62 90 C66 94 74 94 76 84Z" fill="#d49a4e" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9"/>
-  <path d="M50 100 H70 M52 108 H68" stroke="var(--lg-ink, #1d2230)" stroke-width="1" opacity="0.6"/>
-  <path d="M30 84 L44 72 H52 L38 88 L34 120 H26Z" fill="#fff" opacity="0.18"/>
-  <path d="M90 84 L94 120 H84 L84 90 L76 74Z" fill="#000" opacity="0.28"/>
-  <!-- chains and a scar -->
-  <path d="M30 100 C44 108 76 108 90 100" fill="none" stroke="#8a8f9c" stroke-width="2" stroke-dasharray="3 1.5"/>
-  <path d="M62 74 L70 90 M64 76 L66 78" stroke="#7a2020" stroke-width="1.4"/>
-  <!-- red cape over the shoulder -->
-  <path d="M76 72 C92 76 100 92 98 120 H88 C90 100 86 86 76 80Z" fill="var(--lg-deep, #c0392b)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
-  <!-- lion-emblem shield: bashes forward on the entrance -->
+  <!-- the body: shoulders wider than the frame -->
   <g>
-    <animateTransform class="lg-in" attributeName="transform" type="translate" values="-30 10;-30 10;6 -2;0 0" keyTimes="0;.62;.8;1" dur="1.5s" fill="freeze"/>
-    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -2;0 0" dur="2.6s" begin="1.5s" repeatCount="indefinite"/>
-      <path d="M6 72 C6 60 18 54 32 54 C46 54 58 60 58 72 C58 96 44 110 32 116 C20 110 6 96 6 72Z" fill="var(--lg-deep, #c0392b)" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
-      <path d="M12 72 C12 62 22 58 32 58 C42 58 52 62 52 72 C52 92 42 104 32 110 C22 104 12 92 12 72Z" fill="none" stroke="#c9a441" stroke-width="2"/>
-      <!-- lion face -->
-      <path d="M22 76 C18 66 24 64 26 68 C26 62 32 60 32 66 C32 60 38 62 38 68 C40 64 46 66 42 76 C42 88 22 88 22 76Z" fill="#c9a441" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9"/>
-      <g fill="#1d2230"><path d="M26 76 L30 78 L27 79Z M38 76 L34 78 L37 79Z"/><path d="M30 84 C32 86 34 84 34 84 L32 88Z"/></g>
-      <path d="M12 68 C14 62 20 58 28 58" fill="none" stroke="#fff" stroke-width="1.4" opacity="0.4"/>
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -1;0 0" dur="2.2s" repeatCount="indefinite"/>
+    <!-- red cape behind the shoulders -->
+    <path d="M10 82 C0 92 -6 108 -8 126 L4 120 L10 128 L18 120 L26 126 L30 96Z M110 82 C120 92 126 108 128 126 L116 120 L110 128 L102 120 L94 126 L90 96Z" fill="#b3122e" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M110 82 C120 92 126 108 128 126 L116 120 L112 100Z" fill="#000" opacity="0.25"/>
+    <!-- muscled bronze cuirass -->
+    <path d="M24 124 L28 88 L44 74 H76 L92 88 L96 124 C80 130 40 130 24 124Z" fill="#b87a3a" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M76 74 L92 88 L96 124 C90 126 84 127 80 128 L82 94Z" fill="#000" opacity="0.26"/>
+    <path d="M28 88 L44 74 H52 L36 90 L32 124 L24 124Z" fill="#fff" opacity="0.2"/>
+    <path d="M40 86 L58 82 L59 95 L46 97 L40 92Z M80 86 L62 82 L61 95 L74 97 L80 92Z" fill="#c98b45" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1" stroke-linejoin="round"/>
+    <path d="M61 95 L74 97 L80 92 L80 86 L62 82Z" fill="#000" opacity="0.15"/>
+    <path d="M41 87 L57 83.4" fill="none" stroke="#ffe0a8" stroke-width="0.9"/>
+    <path d="M50 99 L59 98 L59 106 L51 107Z M70 99 L61 98 L61 106 L69 107Z M51 109 L59 108.4 L59 116 L52 117Z M69 109 L61 108.4 L61 116 L68 117Z" fill="#c98b45" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+    <!-- a scar gouged across the bronze -->
+    <path d="M66 76 L74 92 L71 98" fill="none" stroke="#5a2a10" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M67 80 l3 -1 M70 86 l3 -1" stroke="#ffd9a0" stroke-width="0.7"/>
+    <!-- the chain across the chest: real links -->
+    <g stroke="var(--lg-ink, #1d2230)" stroke-linejoin="round">
+      <g fill="none" stroke-width="1.8"><ellipse cx="34" cy="100" rx="2.8" ry="1.8" transform="rotate(18 34 100)"/><ellipse cx="44" cy="104" rx="2.8" ry="1.8" transform="rotate(14 44 104)"/><ellipse cx="54" cy="106.6" rx="2.8" ry="1.8" transform="rotate(6 54 106.6)"/><ellipse cx="66" cy="106.6" rx="2.8" ry="1.8" transform="rotate(-6 66 106.6)"/><ellipse cx="76" cy="104" rx="2.8" ry="1.8" transform="rotate(-14 76 104)"/><ellipse cx="86" cy="100" rx="2.8" ry="1.8" transform="rotate(-18 86 100)"/></g>
+      <g fill="none" stroke="#c7ccd6" stroke-width="0.8"><ellipse cx="34" cy="100" rx="2.8" ry="1.8" transform="rotate(18 34 100)"/><ellipse cx="44" cy="104" rx="2.8" ry="1.8" transform="rotate(14 44 104)"/><ellipse cx="54" cy="106.6" rx="2.8" ry="1.8" transform="rotate(6 54 106.6)"/><ellipse cx="66" cy="106.6" rx="2.8" ry="1.8" transform="rotate(-6 66 106.6)"/><ellipse cx="76" cy="104" rx="2.8" ry="1.8" transform="rotate(-14 76 104)"/><ellipse cx="86" cy="100" rx="2.8" ry="1.8" transform="rotate(-18 86 100)"/></g>
+      <g fill="#c7ccd6" stroke-width="0.6"><rect x="37.6" y="101.2" width="3.6" height="1.4" rx="0.7" transform="rotate(16 39.4 101.9)"/><rect x="47.6" y="104.6" width="3.6" height="1.4" rx="0.7" transform="rotate(10 49.4 105.3)"/><rect x="58.2" y="106.2" width="3.6" height="1.4" rx="0.7"/><rect x="68.8" y="104.6" width="3.6" height="1.4" rx="0.7" transform="rotate(-10 70.6 105.3)"/><rect x="78.8" y="101.2" width="3.6" height="1.4" rx="0.7" transform="rotate(-16 80.6 101.9)"/></g>
     </g>
-  </g>
-  <!-- crested helmet -->
-  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round">
-    <!-- the horsehair crest -->
-    <path d="M40 22 C40 8 52 0 66 2 C80 4 88 14 86 26 C80 18 70 12 60 12 C52 12 46 16 40 22Z" fill="#b3122e">
-      <animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;3;0;-3;0" dur="2s" repeatCount="indefinite"/>
-    </path>
-    <path d="M40 22 C40 14 50 10 60 10" fill="none" stroke="#e05555" stroke-width="1.4"/>
-    <path d="M40 32 C40 20 50 14 62 14 C74 14 82 20 82 32 L82 60 C82 68 74 72 62 72 C50 72 40 68 40 60Z" fill="#b87a3a"/>
-    <path d="M44 30 C46 22 52 18 60 17 C52 24 48 34 48 58 L44 58Z" fill="#fff" opacity="0.22" stroke="none"/>
-    <path d="M82 32 L82 60 C82 66 76 70 70 71 C76 62 78 48 76 32Z" fill="#000" opacity="0.25" stroke="none"/>
-    <!-- cheek guards and grille -->
-    <path d="M40 44 H50 V68 C44 66 40 62 40 58Z M82 44 H72 V68 C78 66 82 62 82 58Z" fill="#9a6230"/>
-    <g stroke-width="1.2"><path d="M52 58 V70 M56 58 V71 M60 58 V71 M64 58 V71 M68 58 V70"/></g>
-  </g>
-  <!-- the burning visor -->
-  <path d="M46 42 H76 L74 50 H48Z" fill="#1a0808"/>
-  <g transform="translate(61 46)"><g>
-    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.05 1;0.05 1;1.2 1.4;1 1" keyTimes="0;.62;.8;1" dur="1.5s" fill="freeze"/>
-    <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.05 1.3;1 1" dur="1s" begin="1.5s" repeatCount="indefinite"/>
-      <path d="M-14 -3 H14 L13 3 H-13Z" fill="#ff7a1a" opacity="0.6"/>
-      <g fill="#ffd166"><ellipse cx="-7" rx="4" ry="1.6"/><ellipse cx="7" rx="4" ry="1.6"/></g>
+    <!-- riveted pauldrons with spikes -->
+    <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round">
+      <path d="M44 76 C30 72 14 76 8 88 L14 92 C20 84 30 82 40 84Z" fill="#c98b45"/>
+      <path d="M40 84 C30 82 20 84 14 92 L18 98 C24 92 32 90 40 92Z" fill="#b87a3a"/>
+      <path d="M40 92 C32 90 24 92 18 98 L22 104 C28 98 34 98 40 100Z" fill="#a66a30"/>
+      <path d="M76 76 C90 72 106 76 112 88 L106 92 C100 84 90 82 80 84Z" fill="#a66a30"/>
+      <path d="M80 84 C90 82 100 84 106 92 L102 98 C96 92 88 90 80 92Z" fill="#94602b"/>
+      <path d="M80 92 C88 90 96 92 102 98 L98 104 C92 98 86 98 80 100Z" fill="#865424"/>
     </g>
-  </g></g>
-  <path d="M42 38 L54 42 M80 38 L68 42" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linecap="round"/>
-  <!-- dust kicked up -->
-  <g fill="var(--lg-far, #e0a79a)" opacity="0.7">
-    <circle style="transform-box:fill-box;transform-origin:center" cx="20" cy="116" r="4"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-8 -6" dur="1.6s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.6s" repeatCount="indefinite" additive="sum"/></circle>
-    <circle style="transform-box:fill-box;transform-origin:center" cx="104" cy="116" r="4"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;8 -6" dur="1.8s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.8s" repeatCount="indefinite" additive="sum"/></circle>
+    <path d="M12 86 C18 78 28 75 40 77" fill="none" stroke="#ffe0a8" stroke-width="0.9"/>
+    <g fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"><path d="M18 78 L10 64 L24 75Z"/><path d="M30 74 L28 60 L36 73Z"/><path d="M102 78 L110 64 L96 75Z"/><path d="M90 74 L92 60 L84 73Z"/></g>
+    <g fill="#ffe0a8" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"><circle cx="20" cy="84" r="0.9"/><circle cx="30" cy="80" r="0.9"/><circle cx="24" cy="92" r="0.9"/><circle cx="100" cy="84" r="0.9"/><circle cx="90" cy="80" r="0.9"/><circle cx="96" cy="92" r="0.9"/></g>
+    <!-- gauntlet gripping the trident -->
+    <path d="M96 98 C98 92 108 92 110 98 L110 108 C106 112 98 112 96 108Z" fill="#9a6230" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+    <path d="M97 101 H109 M97 105 H109" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+    <g fill="#c9a441" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"><circle cx="99.6" cy="99" r="0.9"/><circle cx="103" cy="98.6" r="0.9"/><circle cx="106.4" cy="99" r="0.9"/></g>
+  </g>
+  <!-- the crested helmet -->
+  <g>
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -1.4;0 0" dur="2.2s" begin="0.1s" repeatCount="indefinite"/>
+    <!-- the horsehair crest, fanned -->
+    <g transform="translate(60 14) scale(1.05)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;2.5;0;-2.5;0" dur="2.6s" repeatCount="indefinite"/>
+      <path d="M-29.6 -5.2 L-18.8 -6.8 L-27.4 -15.8 L-15.3 -12.9 L-21.1 -25.2 L-10.0 -17.3 L-11.5 -31.7 L-3.5 -19.7 L0.0 -34.0 L3.5 -19.7 L11.5 -31.7 L10.0 -17.3 L21.1 -25.2 L15.3 -12.9 L27.4 -15.8 L18.8 -6.8 L29.6 -5.2 L22 2 L-22 2Z" fill="#b3122e" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+      <path d="M0 -34 L3.5 -19.7 L11.5 -31.7 L10.0 -17.3 L21.1 -25.2 L15.3 -12.9 L27.4 -15.8 L18.8 -6.8 L29.6 -5.2 L22 2 L0 2Z" fill="#000" opacity="0.22"/>
+      <path d="M-22.5 -6.4 L-13.6 -6.4 L-20.1 -13.8 L-10.8 -10.4 L-15.2 -20.2 L-7.0 -13.3 L-8.2 -24.5 L-2.4 -14.8 L0.0 -26.0" fill="none" stroke="#ff6b6b" stroke-width="1.1" stroke-linejoin="round"/>
+      <path d="M-18 -2 L-10 -8 M-10 -2 L-5 -12 M-2 -2 L0 -16 M6 -2 L5 -12 M14 -2 L10 -8" stroke="#7a0c20" stroke-width="0.8" stroke-linecap="round"/>
+    </g></g>
+    <!-- the bronze dome, brim and cheek plates -->
+    <path d="M26 38 L34 33 C34 14 46 7 60 7 C74 7 86 14 86 33 L94 38 L86 42 L86 62 C80 73 70 78 60 78 C50 78 40 73 34 62 L34 42Z" fill="#b87a3a" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2" stroke-linejoin="round"/>
+    <path d="M60 7 C74 7 86 14 86 33 L94 38 L86 42 L86 62 C80 73 70 78 60 78Z" fill="#000" opacity="0.24"/>
+    <path d="M38 30 C38 18 48 11 58 10 C50 16 44 24 43 34Z" fill="#fff" opacity="0.32"/>
+    <path d="M26 38 L34 33 L86 33 L94 38 L86 42 L34 42Z" fill="#d49a4e" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+    <path d="M28 38 L35 34.4 H85" fill="none" stroke="#ffe0a8" stroke-width="0.8"/>
+    <g fill="#ffe0a8" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"><circle cx="38" cy="37.6" r="0.9"/><circle cx="48" cy="37.6" r="0.9"/><circle cx="72" cy="37.6" r="0.9"/><circle cx="82" cy="37.6" r="0.9"/></g>
+    <!-- the raised center ridge holding the crest, riveted -->
+    <path d="M55 9 C57 8 63 8 65 9 L64 33 H56Z" fill="#d49a4e" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+    <path d="M60 8.4 L65 9 L64 33 H60Z" fill="#000" opacity="0.2"/>
+    <path d="M56.6 11 L57.2 31" stroke="#ffe0a8" stroke-width="0.8"/>
+    <g fill="#ffe0a8" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"><circle cx="60" cy="14" r="0.9"/><circle cx="60" cy="21" r="0.9"/><circle cx="60" cy="28" r="0.9"/></g>
+    <path d="M40 28 C44 20 50 16 54 15 M80 28 C76 20 70 16 66 15" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" opacity="0.6"/>
+    <!-- a dent and gash in the dome -->
+    <path d="M70 14 L74 20 L72 26" fill="none" stroke="#5a2a10" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M44 20 C46 18 48 18 49 20" fill="none" stroke="#5a2a10" stroke-width="1"/>
+    <!-- the solid V brow ridge -->
+    <path d="M36 42 L60 52 L84 42 L84 47.5 L60 57.5 L36 47.5Z" fill="#d49a4e" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/>
+    <path d="M37.5 43.6 L60 53 L82.5 43.6" fill="none" stroke="#ffe0a8" stroke-width="0.8"/>
+    <path d="M60 52 L84 42 L84 47.5 L60 57.5Z" fill="#000" opacity="0.22"/>
+    <!-- burning eye slits: blaze on the entrance -->
+    <path d="M39 49.5 L56 57 L55 60.5 L40 54.5Z" fill="#1a0808"/>
+    <path d="M81 49.5 L64 57 L65 60.5 L80 54.5Z" fill="#1a0808"/>
+    <g transform="translate(48 55)"><g>
+      <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.05 1;0.05 1;1.3 1.6;1 1" keyTimes="0;.62;.8;1" dur="1.5s" fill="freeze"/>
+      <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.06 1.35;1 1" dur="0.9s" repeatCount="indefinite"/>
+        <path d="M-11 -7 L10 2.6 L8.4 7.4 L-10 0.4Z" fill="#ff7a1a" opacity="0.5"/>
+        <path d="M-8 -4.6 L7.4 2.4 L6.6 4.8 L-7.6 -1.4Z" fill="#ffb02e"/>
+        <path d="M-5 -2.4 L4 1.8 L3.6 3 L-4.8 -0.8Z" fill="#fff4c2"/>
+      </g>
+    </g></g>
+    <g transform="translate(72 55)"><g>
+      <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.05 1;0.05 1;1.3 1.6;1 1" keyTimes="0;.64;.82;1" dur="1.5s" fill="freeze"/>
+      <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.06 1.35;1 1" dur="0.9s" begin="0.2s" repeatCount="indefinite"/>
+        <path d="M11 -7 L-10 2.6 L-8.4 7.4 L10 0.4Z" fill="#ff7a1a" opacity="0.5"/>
+        <path d="M8 -4.6 L-7.4 2.4 L-6.6 4.8 L7.6 -1.4Z" fill="#ffb02e"/>
+        <path d="M5 -2.4 L-4 1.8 L-3.6 3 L4.8 -0.8Z" fill="#fff4c2"/>
+      </g>
+    </g></g>
+    <!-- nose guard -->
+    <path d="M57 56 L63 56 L62 66 L58 66Z" fill="#c98b45" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1" stroke-linejoin="round"/>
+    <!-- the lion-maw face guard: bronze fangs around a dark mouth with an ember breath -->
+    <path d="M40 64 C48 66 72 66 80 64 L76 74 C70 79 50 79 44 74Z" fill="#1a0808" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+    <g transform="translate(60 71)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.25;1" dur="0.9s" repeatCount="indefinite"/>
+      <path d="M-9 0 C-6 -3 6 -3 9 0 C6 3 -6 3 -9 0Z" fill="#ff7a1a" opacity="0.7"/>
+      <path d="M-5 0 C-3 -1.4 3 -1.4 5 0 C3 1.4 -3 1.4 -5 0Z" fill="#ffd166"/>
+    </g></g>
+    <g fill="#e3b56a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round">
+      <path d="M42 64 L45 73 L47 64.8Z"/><path d="M78 64 L75 73 L73 64.8Z"/>
+      <path d="M48 65 L50 69 L52 65.4Z"/><path d="M53 65.4 L55 69.4 L57 65.6Z"/><path d="M63 65.6 L65 69.4 L67 65.4Z"/><path d="M68 65.4 L70 69 L72 65Z"/>
+      <path d="M48 76 L50 72 L52 76.8Z"/><path d="M55 77.4 L57 73 L59 77.6Z"/><path d="M61 77.6 L63 73 L65 77.4Z"/><path d="M68 76.8 L70 72 L72 76Z"/>
+    </g>
+    <path d="M43 65 L45 71 M77 65 L75 71" stroke="#fff" stroke-width="0.6"/>
+    <!-- cheek plates with an engraved line -->
+    <path d="M34 42 L40 46 L40 64 L44 74 C40 72 36 68 34 62Z" fill="#9a6230" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+    <path d="M86 42 L80 46 L80 64 L76 74 C80 72 84 68 86 62Z" fill="#865424" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+    <g fill="#ffe0a8" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"><circle cx="37" cy="50" r="0.9"/><circle cx="37" cy="60" r="0.9"/><circle cx="83" cy="50" r="0.9"/><circle cx="83" cy="60" r="0.9"/></g>
+  </g>
+  <!-- the lion-emblem shield: bashes in on the entrance -->
+  <g>
+    <animateTransform class="lg-in" attributeName="transform" type="translate" values="-34 14;-34 14;6 -2;0 0" keyTimes="0;.56;.76;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -1.8;0 0" dur="2.6s" repeatCount="indefinite"/>
+    <g transform="translate(12 96)">
+      <circle r="27" fill="var(--lg-deep, #c0392b)" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2"/>
+      <path d="M0 -27 A27 27 0 0 1 0 27 A20 27 0 0 0 0 -27Z" fill="#000" opacity="0.22"/>
+      <circle r="23" fill="none" stroke="#c9a441" stroke-width="2.6"/>
+      <circle r="23" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+      <g fill="#ffe0a8" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"><circle cx="0.0" cy="-23.0" r="1.3"/><circle cx="11.5" cy="-19.9" r="1.3"/><circle cx="19.9" cy="-11.5" r="1.3"/><circle cx="23.0" cy="0" r="1.3"/><circle cx="19.9" cy="11.5" r="1.3"/><circle cx="11.5" cy="19.9" r="1.3"/><circle cx="0.0" cy="23.0" r="1.3"/><circle cx="-11.5" cy="19.9" r="1.3"/><circle cx="-19.9" cy="11.5" r="1.3"/><circle cx="-23.0" cy="0" r="1.3"/><circle cx="-19.9" cy="-11.5" r="1.3"/><circle cx="-11.5" cy="-19.9" r="1.3"/></g>
+      <!-- the lion: spiked mane, V brow, fangs -->
+      <path d="M0 -17 L4 -12 L10 -14 L10 -8 L16 -6 L12 -1 L16 4 L10 6 L10 12 L4 10 L0 16 L-4 10 L-10 12 L-10 6 L-16 4 L-12 -1 L-16 -6 L-10 -8 L-10 -14 L-4 -12Z" fill="#c9a441" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+      <path d="M-8 -6 C-8 -11 8 -11 8 -6 L7 4 C4 9 -4 9 -7 4Z" fill="#e3c06a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+      <path d="M-7 -6 L0 -2.6 L7 -6 L7 -4 L0 -0.6 L-7 -4Z" fill="#7a5a1a"/>
+      <path d="M-5.6 -2.4 L-2 -0.8 L-5 0.2Z M5.6 -2.4 L2 -0.8 L5 0.2Z" fill="#ff7a1a"/>
+      <path d="M-2 1.6 H2 L0 3.6Z" fill="var(--lg-ink, #1d2230)"/>
+      <path d="M-4 5 C-2 7.6 2 7.6 4 5" fill="#3a1a0a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+      <path d="M-3 5.4 L-2.4 7.6 L-1.8 5.8 M3 5.4 L2.4 7.6 L1.8 5.8" fill="#fff" stroke="#fff" stroke-width="0.5"/>
+      <path d="M-20 -10 C-16 -18 -8 -22 0 -22" fill="none" stroke="#fff" stroke-width="1.4" opacity="0.4"/>
+      <path d="M8 14 L14 18 M10 12 l3 0" stroke="#3a1a0a" stroke-width="1" stroke-linecap="round"/>
+    </g>
+    </g>
   </g>
 </svg>

@@ -241,6 +241,20 @@ describe('raid boss abilities', () => {
     expect(strike(newFight(), hit('clean'), { ability: 'singularity', phase: 2 }).damage).toBe(DAMAGE.clean)
     expect(strike(newFight(), hit('miss'), { ability: 'singularity', phase: 2 }).livesLost).toBe(1)
   })
+  it('Seraph judgment: five right in a window smite for extra damage; a miss in the window only voids that smite', () => {
+    const opts = { ability: 'judgment' }
+    const fiveRight = Array.from({ length: ABILITY.judgmentEvery }, () => hit('clean', 'choice'))
+    const s = run(fiveRight, opts)
+    expect(s.smites).toBe(1)
+    expect(s.last.fx).toBe('smite')
+    expect(s.damage).toBe(ABILITY.judgmentEvery * DAMAGE.choice + ABILITY.judgmentSmite)
+    const withMiss = run([hit('miss'), ...fiveRight.slice(1)], opts)
+    expect(withMiss.smites).toBe(0)
+    expect(withMiss.livesLost).toBe(1) // a miss costs what it always costs, never more
+    expect(run([hit('miss'), ...fiveRight.slice(1), ...fiveRight], opts).smites).toBe(1) // the next window starts clean
+    expect(run(fiveRight, {}).smites).toBe(0) // other bosses never judge
+    expect(run([hit('clean', 'typed', { attack: true }), ...fiveRight.slice(1)], opts).smites).toBe(0) // attacks are not weighed
+  })
   describe('Lich phylactery', () => {
     const opts = { ability: 'phylactery', need: 4 }
     it('rises at 1 health while a missed card is unredeemed, and falls when it is answered right', () => {

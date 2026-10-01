@@ -1,73 +1,145 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
-  <!-- The Phantom Maestro: a horned puppeteer in a cracked porcelain mask, cape like torn curtains. -->
-  <!-- spotlight cone from above -->
-  <path d="M46 0 H74 L112 120 H8Z" fill="var(--lg-light, #ffffff)" opacity="0.16"/>
-  <path d="M52 0 H68 L92 120 H28Z" fill="var(--lg-accent, #f2b441)" opacity="0.12"/>
-  <!-- puppet strings from the dark above -->
-  <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.6"><path d="M14 0 V70 M106 0 V70 M40 0 V20 M80 0 V20"/></g>
-  <!-- cape: sweeps open on the entrance, hem flutters -->
-  <g transform="translate(60 40)"><g>
-    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.15 1;0.15 1;1.12 1;1 1" keyTimes="0;.45;.72;1" dur="1.5s" fill="freeze"/>
-    <g>
-      <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.03 0.98;1 1" dur="2.4s" begin="1.5s" repeatCount="indefinite"/>
-      <g transform="translate(-60 -40)">
-        <path d="M60 36 C40 36 16 44 4 66 L8 72 L4 80 L12 84 L8 96 L18 98 L16 112 L28 108 L32 120 H88 L92 108 L104 112 L102 98 L112 96 L108 84 L116 80 L112 72 L116 66 C104 44 80 36 60 36Z" fill="var(--lg-deep, #7c4def)" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
-        <path d="M60 44 C46 46 32 54 24 68 L30 70 L26 80 L34 82 L32 94 L42 94 L44 120 H76 L78 94 L88 94 L86 82 L94 80 L90 70 L96 68 C88 54 74 46 60 44Z" fill="#b3122e" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
-        <g fill="none" stroke="#000" stroke-width="1.4" opacity="0.3"><path d="M22 66 C24 84 28 100 30 118 M98 66 C96 84 92 100 90 118 M40 58 C40 80 42 100 42 118 M80 58 C80 80 78 100 78 118"/></g>
-        <path d="M60 36 C40 36 16 44 4 66 L10 64 C22 48 40 42 60 42Z" fill="#fff" opacity="0.2"/>
+  <!-- The Phantom Maestro: a horned puppeteer seen from the front row. The theatre's own crimson curtains and
+       valance frame it, and its cape is torn curtain cloth. A cracked porcelain mask with one carved V brow,
+       burning slit eyes and a carved grin of fangs, a tilted top hat pierced by curling horns, a baton crackling
+       in one claw, a marionette dangling from the other.
+       Entrance: it spins in under the spotlight; the cape sweeps open, the hat tips, the grin stretches. -->
+  <!-- the stage curtains, tied back, swaying -->
+  <g>
+    <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 8 -10;-2.5 8 -10;0 8 -10" dur="5s" repeatCount="indefinite"/>
+    <path d="M-8 -10 H24 C18 12 22 34 14 54 C12 58 13 62 15 64 C8 80 4 98 -4 114 C-8 108 -10 96 -9 84 C-12 64 -6 44 -10 24 C-8 10 -11 0 -8 -10Z" fill="#8c0f26" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
+    <path d="M-8 -10 H4 C2 14 6 40 2 60 C0 80 -2 98 -4 114 C-8 108 -10 96 -9 84 C-12 64 -6 44 -10 24 C-8 10 -11 0 -8 -10Z" fill="#000" opacity="0.25"/>
+    <g fill="none" stroke-linecap="round"><path d="M10 -8 C8 14 12 36 8 56 M8 66 C4 82 2 96 -2 108" stroke="#000" stroke-width="1.4" opacity="0.3"/><path d="M16 -8 C14 14 18 36 12 56 M10 70 C7 80 4 88 0 94" stroke="#ff6b81" stroke-width="1" opacity="0.6"/></g>
+    <path d="M6 58 C12 56 18 58 20 62 C16 66 10 66 6 64Z" fill="#ffd166" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+    <path d="M18 63 L20 72 L22 72Z" fill="#ffd166" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+  </g>
+  <g>
+    <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 112 -10;2.5 112 -10;0 112 -10" dur="5.4s" repeatCount="indefinite"/>
+    <path d="M128 -10 H96 C102 12 98 34 106 54 C108 58 107 62 105 64 C112 80 116 98 124 114 C128 108 130 96 129 84 C132 64 126 44 130 24 C128 10 131 0 128 -10Z" fill="#8c0f26" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
+    <path d="M128 -10 H112 C114 14 112 40 116 60 C118 80 122 98 124 114 C128 108 130 96 129 84 C132 64 126 44 130 24 C128 10 131 0 128 -10Z" fill="#000" opacity="0.3"/>
+    <g fill="none" stroke-linecap="round"><path d="M110 -8 C112 14 108 36 112 56 M112 66 C116 82 118 96 122 108" stroke="#000" stroke-width="1.4" opacity="0.3"/><path d="M104 -8 C106 14 102 36 108 56 M110 70 C113 80 116 88 120 94" stroke="#ff6b81" stroke-width="1" opacity="0.6"/></g>
+    <path d="M114 58 C108 56 102 58 100 62 C104 66 110 66 114 64Z" fill="#ffd166" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+    <path d="M102 63 L100 72 L98 72Z" fill="#ffd166" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+  </g>
+  <!-- the valance with gold tassels, rounded ends inside the headroom -->
+  <path d="M-12 -12 C-12 -18 -8 -20 -2 -20 H122 C128 -20 132 -18 132 -12 V-6 C126 0 120 -6 114 -2 C106 4 98 -6 90 -2 C82 4 74 -6 66 -2 C62 2 58 2 54 -2 C46 -6 38 4 30 -2 C22 -6 14 4 6 -2 C0 -6 -6 0 -12 -6Z" fill="#b3122e" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
+  <path d="M-10 -12 C10 -8 30 -14 50 -10 C70 -6 90 -14 110 -10 C120 -8 126 -10 130 -12" fill="none" stroke="#ffd166" stroke-width="1.6" stroke-linecap="round"/>
+  <g fill="#ffd166" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"><path d="M30 -2 L28 6 H32Z"/><path d="M60 1 L58 9 H62Z"/><path d="M90 -2 L88 6 H92Z"/><path d="M-12 -6 L-14 2 H-10Z"/><path d="M132 -6 L130 2 H134Z"/></g>
+  <!-- the cape of torn curtains: sweeps open on the entrance, the hem flutters -->
+  <g transform="translate(60 56)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.12 1;0.12 1;1.14 1;1 1" keyTimes="0;.42;.68;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.03 0.98;1 1" dur="2.4s" repeatCount="indefinite"/>
+      <g transform="translate(-60 -56)">
+        <path d="M60 50 C40 50 18 58 2 76 L8 82 L-2 92 L8 96 L0 110 L12 112 L6 126 H114 L108 112 L120 110 L112 96 L122 92 L112 82 L118 76 C102 58 80 50 60 50Z" fill="#b3122e" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M60 50 C40 50 18 58 2 76 L8 82 L-2 92 L8 96 L0 110 L12 112 L6 126 H24 C24 100 28 76 40 58Z" fill="#fff" opacity="0.14"/>
+        <path d="M118 76 C104 60 86 52 76 52 C92 64 98 90 98 126 H114 L108 112 L120 110 L112 96 L122 92 L112 82Z" fill="#000" opacity="0.28"/>
+        <path d="M60 58 C46 60 34 68 28 80 L32 84 L28 94 L36 96 L34 108 L42 110 L42 126 H78 L78 110 L86 108 L84 96 L92 94 L88 84 L92 80 C86 68 74 60 60 58Z" fill="var(--lg-deep, #7c4def)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+        <path d="M60 58 C46 60 34 68 28 80 L32 84 L28 94 L36 96 L34 108 L42 110 L42 126 H78 L78 110 L86 108 L84 96 L92 94 L88 84 L92 80 C86 68 74 60 60 58Z" fill="#000" opacity="0.45"/>
+        <g fill="none" stroke="#000" stroke-width="1.3" opacity="0.3" stroke-linecap="round"><path d="M20 72 C22 88 24 104 22 122 M100 72 C98 88 96 104 98 122"/></g>
+        <g fill="#ffd166"><circle cx="8" cy="82" r="1.2"/><circle cx="8" cy="96" r="1.2"/><circle cx="12" cy="112" r="1.2"/><circle cx="112" cy="82" r="1.2"/><circle cx="112" cy="96" r="1.2"/><circle cx="108" cy="112" r="1.2"/></g>
       </g>
     </g>
   </g></g>
-  <!-- tailcoat and ruff -->
-  <path d="M46 56 L60 92 L74 56 L66 52 H54Z" fill="#161421" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/>
-  <path d="M56 56 L60 72 L64 56Z" fill="var(--lg-light, #ffffff)" opacity="0.9"/>
-  <path d="M42 54 C46 50 50 56 54 52 C56 56 60 50 62 54 C64 50 68 56 70 52 C72 56 76 50 78 54 L74 58 H46Z" fill="var(--lg-light, #f4efe6)" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
-  <!-- clawed hands with a crackling baton -->
-  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round">
-    <g>
-      <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 24 76;-10 24 76;0 24 76;6 24 76;0 24 76" dur="2.2s" repeatCount="indefinite"/>
-      <path d="M26 74 L12 50" stroke="#e8d7b0" stroke-width="2.2"/>
-      <path d="M12 50 l-3 -5 m3 5 l3 -5 m-3 5 l-5 0" stroke="#fff04a" stroke-width="1.4"/>
-      <path d="M20 72 C22 68 28 68 30 72 L32 80 L28 78 L27 84 L24 79 L21 84 L21 77 L17 80Z" fill="#dcd6e6"/>
-    </g>
-    <path d="M100 72 C98 68 92 68 90 72 L88 80 L92 78 L93 84 L96 79 L99 84 L99 77 L103 80Z" fill="#dcd6e6"/>
-    <g fill="none" stroke-width="0.8"><path d="M89 79 L86 84 M92 82 L91 88 M96 82 L97 88 M99 80 L102 85"/></g>
-  </g>
-  <!-- horned top hat: tips on the entrance -->
+  <!-- tailcoat, vest and ruff -->
+  <path d="M42 62 L60 104 L78 62 L68 56 H52Z" fill="#161421" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M52 60 L60 86 L68 60Z" fill="var(--lg-deep, #7c4def)" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+  <g fill="#ffd166" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"><circle cx="60" cy="68" r="1.2"/><circle cx="60" cy="75" r="1.2"/></g>
+  <path d="M38 60 C42 55 46 62 50 57 C52 62 56 55 60 60 C64 55 68 62 70 57 C74 62 78 55 82 60 L78 65 C74 61 70 67 66 62 C63 67 57 67 54 62 C50 67 46 61 42 65Z" fill="#f4efe6" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+  <!-- left arm: a clawed glove raising a crackling baton -->
   <g>
-    <animateTransform class="lg-in" attributeName="transform" type="rotate" values="-25 60 30;-25 60 30;8 60 30;0 60 30" keyTimes="0;.62;.82;1" dur="1.5s" fill="freeze"/>
-    <path d="M44 18 C38 10 36 4 40 -2 C42 6 46 10 50 14Z" fill="#e8d7b0" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
-    <path d="M76 18 C82 10 84 4 80 -2 C78 6 74 10 70 14Z" fill="#e8d7b0" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
-    <path d="M46 26 L48 4 H72 L74 26Z" fill="#161421" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
-    <rect x="47" y="19" width="26" height="4" fill="#b3122e"/>
-    <path d="M36 26 H84 L80 30 H40Z" fill="#161421" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
-    <path d="M50 6 V18" stroke="#fff" stroke-width="1.4" opacity="0.3"/>
+    <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 34 66;-8 34 66;0 34 66;5 34 66;0 34 66" dur="2.2s" repeatCount="indefinite"/>
+    <path d="M38 62 C30 60 22 54 18 44 L24 40 C28 48 34 54 42 56Z" fill="#161421" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+    <path d="M17 46 L22 42 L25 44 L20 49Z" fill="#f4efe6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+    <path d="M20 40 L4 12" stroke="var(--lg-ink, #1d2230)" stroke-width="3" stroke-linecap="round"/>
+    <path d="M20 40 L4 12" stroke="#e8d7b0" stroke-width="1.6" stroke-linecap="round"/>
+    <path d="M13 34 C14 30 22 30 24 34 L24 42 L21 40 L20 46 L17 41 L14 46 L14 39 L10 42Z" fill="#dcd6e6" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+    <g fill="none" stroke="#fff04a" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 12 L-2 6 L2 4 L-4 -4 M4 12 L10 4 L7 2 L12 -4 M4 12 L-4 14">
+        <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;1 -1;-1 1;0 0" dur="0.25s" repeatCount="indefinite"/>
+      </path>
+    </g>
+    <circle cx="4" cy="12" r="4" fill="#fff04a" opacity="0.5" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.5;1" dur="0.5s" repeatCount="indefinite"/></circle>
+    <circle cx="4" cy="12" r="1.6" fill="#fff"/>
   </g>
-  <!-- cracked porcelain mask with a carved grin -->
-  <path d="M44 30 H76 C78 40 76 50 70 56 C64 60 56 60 50 56 C44 50 42 40 44 30Z" fill="#f4efe6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8"/>
-  <path d="M70 30 H76 C78 40 76 50 70 56 C66 58 64 58 62 58 C70 52 72 42 70 30Z" fill="#000" opacity="0.14"/>
-  <path d="M64 30 L62 36 L66 40 L63 46" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9"/>
-  <!-- eye slits: ignite on the entrance -->
-  <path d="M47 38 L57 42 L55 45 L48 42Z" fill="#12101b"/><path d="M73 38 L63 42 L65 45 L72 42Z" fill="#12101b"/>
-  <g transform="translate(52 42)"><g>
-    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.05;0.05;1.6;1" keyTimes="0;.7;.85;1" dur="1.5s" fill="freeze"/>
-    <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.2;1" dur="1.2s" begin="1.5s" repeatCount="indefinite"/><circle r="4.5" fill="#ff3fd2" opacity="0.4"/><circle r="1.8" fill="#ffd6f6"/></g>
+  <!-- right arm: the claw that works the marionette -->
+  <path d="M82 62 C90 62 98 60 102 52 L96 48 C94 54 88 56 80 56Z" fill="#161421" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+  <g transform="translate(100 46)">
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;8;0;-6;0" dur="2.8s" repeatCount="indefinite"/>
+      <!-- the control bar and strings -->
+      <path d="M-10 0 H10 M0 -6 V6" stroke="#6b4423" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M-10 0 L-6 40 M10 0 L6 40 M0 6 L0 30" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" opacity="0.8"/>
+      <!-- the marionette, dangling -->
+      <g fill="#e8d7b0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round">
+        <circle cx="0" cy="30" r="3.4"/><path d="M-3 34 H3 L4 44 H-4Z" fill="#b3122e"/>
+        <path d="M-4 35 L-6 40 M4 35 L6 40 M-2 44 L-3 52 M2 44 L3 52" fill="none" stroke-width="1.4" stroke-linecap="round"/>
+      </g>
+      <path d="M-2 28 L-0.8 29.4 M-0.8 28 L-2 29.4 M0.8 28 L2 29.4 M2 28 L0.8 29.4 M-1.4 31.6 H1.4 M-0.8 31 V32.2 M0 31 V32.2 M0.8 31 V32.2" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"/>
+    </g>
+    <path d="M-6 -4 C-4 -8 4 -8 6 -4 L7 3 L4 1 L3 6 L0 2 L-3 6 L-3 0 L-7 2Z" fill="#dcd6e6" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+  </g>
+  <!-- the hood of shadow behind the mask -->
+  <path d="M36 28 L84 28 L88 52 L78 72 H42 L32 52Z" fill="#161421" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+  <!-- horns curling out from under the hat -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round">
+    <path d="M42 28 C30 24 20 12 24 -6 C26 -12 32 -14 34 -10 C28 -6 28 4 34 12 C38 18 44 20 48 20Z" fill="#e8d7b0"/>
+    <path d="M78 28 C90 24 100 12 96 -6 C94 -12 88 -14 86 -10 C92 -6 92 4 86 12 C82 18 76 20 72 20Z" fill="#e8d7b0"/>
+    <path d="M42 28 C30 24 20 12 24 -6 C24 4 30 16 44 22Z" fill="#000" opacity="0.2" stroke="none"/>
+    <path d="M78 28 C90 24 100 12 96 -6 C96 4 90 16 76 22Z" fill="#000" opacity="0.2" stroke="none"/>
+    <path d="M26 6 L30 4 M27 12 L32 10 M31 18 L35 15 M94 6 L90 4 M93 12 L88 10 M89 18 L85 15" fill="none" stroke-width="0.8"/>
+  </g>
+  <!-- the top hat: tips on the entrance -->
+  <g>
+    <animateTransform class="lg-in" attributeName="transform" type="rotate" values="-30 60 28;-30 60 28;10 60 28;0 60 28" keyTimes="0;.6;.8;1" dur="1.5s" fill="freeze"/>
+    <g transform="rotate(-6 60 28)">
+      <path d="M43 26 L45 -6 H75 L77 26Z" fill="#161421" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
+      <path d="M45 -6 H75 L75 -2 H45Z" fill="#fff" opacity="0.2"/>
+      <path d="M48 -4 V18" stroke="#fff" stroke-width="1.4" opacity="0.3"/>
+      <path d="M44 16 H76 L76.6 22 H43.4Z" fill="#b3122e" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+      <path d="M68 8 L76 6 L77 18 L69 20Z" fill="#f4efe6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+      <path d="M72 10 L73 14 L71 15Z" fill="#b3122e"/>
+      <path d="M32 26 H88 L84 31 H36Z" fill="#161421" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
+    </g>
+  </g>
+  <!-- the cracked porcelain mask -->
+  <path d="M44 30 H76 L80 42 L77 56 L68 68 L60 72 L52 68 L43 56 L40 42Z" fill="#f4efe6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
+  <path d="M68 30 H76 L80 42 L77 56 L68 68 L62 71 C70 60 74 46 68 30Z" fill="#000" opacity="0.15"/>
+  <path d="M44 30 H52 L46 40 L44 54 L43 56 L40 42Z" fill="#fff" opacity="0.7"/>
+  <path d="M42 50 L48 58 M78 50 L72 58" stroke="#c9b9a4" stroke-width="1.2" stroke-linecap="round"/>
+  <!-- the carved V brow, one ridge -->
+  <path d="M41 36 L53 40 L60 45 L67 40 L79 36 L78 41.4 L67 44.4 L60 49.5 L53 44.4 L42 41.4Z" fill="#d6c8b4" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+  <path d="M42 37 L53 41 L60 46 L67 41 L78 37" fill="none" stroke="#fff" stroke-width="0.9" stroke-linejoin="round"/>
+  <!-- eye slits -->
+  <path d="M43 43 L56 48 L54 52 L45 49Z M77 43 L64 48 L66 52 L75 49Z" fill="#12101b"/>
+  <!-- burning eyes: ignite on the entrance -->
+  <g transform="translate(50 48) rotate(20)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.05;0.05;1.6;1" keyTimes="0;.68;.84;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.2;1" dur="1.2s" repeatCount="indefinite"/>
+      <ellipse rx="6" ry="3.4" fill="#ff3fd2" opacity="0.5"/><ellipse rx="3.6" ry="1.4" fill="#ffd6f6"/><circle cx="1" cy="-0.4" r="0.6" fill="#fff"/>
+    </g>
   </g></g>
-  <g transform="translate(68 42)"><g>
-    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.05;0.05;1.6;1" keyTimes="0;.74;.88;1" dur="1.5s" fill="freeze"/>
-    <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.2;1" dur="1.2s" begin="1.7s" repeatCount="indefinite"/><circle r="4.5" fill="#ff3fd2" opacity="0.4"/><circle r="1.8" fill="#ffd6f6"/></g>
+  <g transform="translate(70 48) rotate(-20)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.05;0.05;1.6;1" keyTimes="0;.72;.88;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.2;1" dur="1.2s" begin="0.2s" repeatCount="indefinite"/>
+      <ellipse rx="6" ry="3.4" fill="#ff3fd2" opacity="0.5"/><ellipse rx="3.6" ry="1.4" fill="#ffd6f6"/><circle cx="-1" cy="-0.4" r="0.6" fill="#fff"/>
+    </g>
   </g></g>
-  <!-- the grin: stretches wide on the entrance -->
-  <g transform="translate(60 50)"><g>
-    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.3 1;0.3 1;1.15 1.1;1 1" keyTimes="0;.72;.88;1" dur="1.6s" fill="freeze"/>
-    <path d="M-12 -2 C-6 4 6 4 12 -2 C8 8 -8 8 -12 -2Z" fill="#12101b"/>
-    <path d="M-10 -1 V3 M-6 1 V5 M-2 2 V6 M2 2 V6 M6 1 V5 M10 -1 V3" stroke="#f4efe6" stroke-width="1.1"/>
+  <!-- the carved grin: stretches wide on the entrance -->
+  <g transform="translate(60 58)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.3 1;0.3 1;1.15 1.12;1 1" keyTimes="0;.72;.88;1" dur="1.6s" fill="freeze"/>
+    <path d="M-17 -4 C-10 3 10 3 17 -4 C14 6 8 11 0 11 C-8 11 -14 6 -17 -4Z" fill="#12101b" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+    <path d="M-17 -4 L-20 -7 M17 -4 L20 -7" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1" stroke-linecap="round"/>
+    <g fill="#f4efe6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round">
+      <path d="M-15 -2 L-13 3 L-11 0Z"/><path d="M-11 0 L-9 5 L-7 1Z"/><path d="M-7 1 L-5 6 L-3 1.6Z"/><path d="M-3 1.6 L-1 6.4 L1 1.8Z"/><path d="M1 1.8 L3 6.4 L5 1.6Z"/><path d="M5 1.6 L7 6 L9 1Z"/><path d="M9 1 L11 5 L13 0Z"/><path d="M11 0 L13 3 L15 -2Z"/>
+      <path d="M-9 8 L-7 4 L-5 9Z"/><path d="M-3 10 L-1 5 L1 10.4Z"/><path d="M3 10 L5 5 L7 9Z"/>
+    </g>
   </g></g>
-  <!-- tear of the tragedy half -->
-  <path d="M69 47 C68 50 70 52 71 50 C71 49 70 48 69 47Z" fill="var(--lg-deep, #7c4def)"/>
-  <!-- orbiting sparkles -->
+  <!-- the crack, and a black tear of the tragedy half -->
+  <path d="M66 30 L63 36 L67 40 L64 46 L68 54 L65 62" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+  <path d="M64 46 L60 50 M67 40 L71 38" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+  <path d="M72 52 C71 56 73 58 74 56 C74 55 73 54 72 52Z" fill="#12101b"/>
+  <!-- sparks of applause drifting up -->
   <g fill="var(--lg-accent, #f2b441)">
-    <path d="M20 22 l1.5 4 l4 1.5 l-4 1.5 l-1.5 4 l-1.5 -4 l-4 -1.5 l4 -1.5Z"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 20 27.5;90 20 27.5" dur="1.4s" repeatCount="indefinite"/></path>
-    <path d="M100 18 l1.2 3 l3 1.2 l-3 1.2 l-1.2 3 l-1.2 -3 l-3 -1.2 l3 -1.2Z"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 100 22.2;-90 100 22.2" dur="1.7s" repeatCount="indefinite"/></path>
+    <path d="M30 88 l1.2 3 l3 1.2 l-3 1.2 l-1.2 3 l-1.2 -3 l-3 -1.2 l3 -1.2Z" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;90" dur="1.4s" repeatCount="indefinite"/></path>
+    <path d="M94 104 l1 2.4 l2.4 1 l-2.4 1 l-1 2.4 l-1 -2.4 l-2.4 -1 l2.4 -1Z" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-90" dur="1.7s" repeatCount="indefinite"/></path>
   </g>
 </svg>

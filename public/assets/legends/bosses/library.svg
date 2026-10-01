@@ -1,72 +1,216 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
-  <!-- The Ink Grimoire: a living spellbook. Pages for teeth, one eye on the cover, ink tentacles, chained clasps,
-       quills orbiting like blades. -->
-  <!-- arcane circle behind -->
+  <!-- The Ink Grimoire: a living spellbook seen from below. Its pages fan out behind it like a crest, the front cover
+       is a brow with one burning eye under a brass V ridge, the book gapes into a maw of page teeth with a ribbon
+       bookmark for a tongue, ink tentacles spill out, broken chains hang from its clasps and quills orbit like blades.
+       Entrance: the pages fan open, the book slams open into the maw, the eye snaps open. -->
+  <!-- the rune circle it was bound in, turning -->
   <g transform="translate(60 56)">
-    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-360" dur="20s" repeatCount="indefinite"/>
-      <circle r="50" fill="none" stroke="var(--lg-accent, #f2b441)" stroke-width="1.4" stroke-dasharray="6 3" opacity="0.6"/>
-      <circle r="44" fill="none" stroke="var(--lg-accent, #f2b441)" stroke-width="0.8" opacity="0.5"/>
-      <g fill="var(--lg-accent, #f2b441)" opacity="0.6"><path d="M0 -50 l3 5 h-6Z"/><path d="M0 50 l3 -5 h-6Z"/><path d="M-50 0 l5 3 v-6Z"/><path d="M50 0 l-5 3 v-6Z"/></g>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-360" dur="30s" repeatCount="indefinite"/>
+      <circle r="58" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="4"/>
+      <circle r="58" fill="none" stroke="var(--lg-accent, #2a9d8f)" stroke-width="2.4"/>
+      <circle r="51" fill="none" stroke="var(--lg-accent, #2a9d8f)" stroke-width="0.9"/>
+      <g fill="none" stroke="var(--lg-accent, #2a9d8f)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M-3 -55 l3 -2 l3 2 M-1 -53 v-3"/><path d="M52 -16 l2 -3 l2 3"/><path d="M50 22 l3 1 l-1 3 l3 1"/>
+        <path d="M18 51 l2 3 l3 -2"/><path d="M-24 49 l1 3 l3 -1 l1 3"/><path d="M-54 14 l2 -2 l2 2 l2 -2"/><path d="M-50 -26 l3 0 l-2 3 l3 0"/><path d="M-22 -51 l0 3 l3 0"/>
+      </g>
     </g>
   </g>
-  <!-- ink tentacles below -->
-  <g fill="#1c1030" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
-    <path d="M40 90 C34 102 24 108 16 118 C24 118 34 112 42 102Z"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 40 90;-6 40 90;0 40 90" dur="2.4s" repeatCount="indefinite"/></path>
-    <path d="M80 90 C86 102 96 108 104 118 C96 118 86 112 78 102Z"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 80 90;6 80 90;0 80 90" dur="2.6s" repeatCount="indefinite"/></path>
-    <path d="M56 92 C54 104 50 112 52 120 H60 C58 112 62 104 64 94Z"/>
+  <!-- the pages fan out behind the book like a crest -->
+  <g transform="translate(60 54)">
+    <g><animateTransform class="lg-in" attributeName="transform" type="scale" values="0.1;0.1;1.12;1" keyTimes="0;.3;.55;1" dur="1.5s" fill="freeze"/>
+      <g transform="rotate(-58)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;3;0" dur="1.8s" repeatCount="indefinite"/>
+        <path d="M-6 -20 L-8 -70 l3 -4 l3 3 l3 -6 l3 4 l2 -3 L8 -70 L6 -20Z" fill="#f6ead0" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+        <path d="M2 -20 L3 -70 l2 -3 l3 3 L6 -20Z" fill="#000" opacity="0.18"/>
+        <path d="M-4 -40 H4 M-4 -45 H3 M-4 -50 H4 M-4 -55 H3 M-4 -60 H4" stroke="#6b5a3a" stroke-width="0.8"/>
+        <path d="M-2 -58 l2 -3 l2 3 l-2 3Z" fill="#b3122e"/>
+      </g></g>
+      <g transform="rotate(58)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-3;0" dur="2.0s" repeatCount="indefinite"/>
+        <path d="M-6 -20 L-8 -70 l3 -4 l3 3 l3 -6 l3 4 l2 -3 L8 -70 L6 -20Z" fill="#f6ead0" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+        <path d="M2 -20 L3 -70 l2 -3 l3 3 L6 -20Z" fill="#000" opacity="0.18"/>
+        <path d="M-4 -40 H4 M-4 -45 H3 M-4 -50 H4 M-4 -55 H3 M-4 -60 H4" stroke="#6b5a3a" stroke-width="0.8"/>
+        <path d="M-2 -58 l2 -3 l2 3 l-2 3Z" fill="#b3122e"/>
+      </g></g>
+      <g transform="rotate(-30)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-2.5;0" dur="1.6s" repeatCount="indefinite"/>
+        <path d="M-6 -20 L-8 -72 l3 -4 l3 3 l3 -6 l3 4 l2 -3 L8 -72 L6 -20Z" fill="#efe1bd" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+        <path d="M2 -20 L3 -72 l2 -3 l3 3 L6 -20Z" fill="#000" opacity="0.18"/>
+        <path d="M-4 -42 H4 M-4 -47 H3 M-4 -52 H4 M-4 -57 H3 M-4 -62 H4" stroke="#6b5a3a" stroke-width="0.8"/>
+      </g></g>
+      <g transform="rotate(30)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;2.5;0" dur="1.7s" repeatCount="indefinite"/>
+        <path d="M-6 -20 L-8 -72 l3 -4 l3 3 l3 -6 l3 4 l2 -3 L8 -72 L6 -20Z" fill="#efe1bd" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+        <path d="M2 -20 L3 -72 l2 -3 l3 3 L6 -20Z" fill="#000" opacity="0.18"/>
+        <path d="M-4 -42 H4 M-4 -47 H3 M-4 -52 H4 M-4 -57 H3 M-4 -62 H4" stroke="#6b5a3a" stroke-width="0.8"/>
+      </g></g>
+      <g transform="rotate(-8)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;2;0" dur="1.9s" repeatCount="indefinite"/>
+        <path d="M-6 -20 L-8 -74 l3 -4 l3 3 l3 -6 l3 4 l2 -3 L8 -74 L6 -20Z" fill="#f6ead0" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+        <path d="M2 -20 L3 -74 l2 -3 l3 3 L6 -20Z" fill="#000" opacity="0.18"/>
+        <path d="M-4 -44 H4 M-4 -49 H3 M-4 -54 H4 M-4 -59 H3 M-4 -64 H4" stroke="#6b5a3a" stroke-width="0.8"/>
+        <path d="M-2 -62 l2 -3 l2 3 l-2 3Z" fill="#b3122e"/>
+      </g></g>
+      <g transform="rotate(10)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-2;0" dur="2.2s" repeatCount="indefinite"/>
+        <path d="M-6 -20 L-8 -72 l3 -4 l3 3 l3 -6 l3 4 l2 -3 L8 -72 L6 -20Z" fill="#efe1bd" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+        <path d="M2 -20 L3 -72 l2 -3 l3 3 L6 -20Z" fill="#000" opacity="0.18"/>
+        <path d="M-4 -42 H4 M-4 -47 H3 M-4 -52 H4 M-4 -57 H3 M-4 -62 H4" stroke="#6b5a3a" stroke-width="0.8"/>
+      </g></g>
+    </g>
   </g>
-  <g fill="#1c1030"><circle cx="30" cy="114" r="2.4"/><circle cx="92" cy="116" r="2"/></g>
-  <!-- the back cover and the open pages -->
-  <path d="M14 34 L60 44 L106 34 L106 92 L60 100 L14 92Z" fill="#5a2a1e" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
-  <!-- page-teeth mouth: the book gapes open on the entrance -->
-  <g transform="translate(60 68)"><g>
-    <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.1;1 0.1;1.05 1.25;1 1" keyTimes="0;.55;.75;1" dur="1.5s" fill="freeze"/>
-    <g transform="translate(-60 -68)">
-      <path d="M18 48 L60 56 L102 48 L102 86 L60 92 L18 86Z" fill="#1c0f24" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
-      <ellipse cx="60" cy="76" rx="22" ry="8" fill="#b44bff" opacity="0.45"/>
-      <!-- upper page teeth -->
-      <g fill="#f4e8cc" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round">
-        <polygon points="20,48 26,62 30,50"/><polygon points="30,50 35,64 40,52"/><polygon points="40,52 45,66 50,54"/><polygon points="50,54 55,68 60,56"/>
-        <polygon points="60,56 65,68 70,54"/><polygon points="70,54 75,66 80,52"/><polygon points="80,52 85,64 90,50"/><polygon points="90,50 94,62 100,48"/>
-        <polygon points="22,86 28,74 32,87"/><polygon points="34,88 40,76 44,89"/><polygon points="46,90 52,78 56,91"/><polygon points="64,91 68,78 74,90"/><polygon points="76,89 80,76 86,88"/><polygon points="88,87 92,74 98,86"/>
+  <!-- ink tentacles spilling out under the book -->
+  <g transform="translate(26 96)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-8;3;0" dur="2.6s" repeatCount="indefinite"/>
+    <path d="M6 -4 C-6 0 -18 6 -30 2 C-38 -1 -40 -10 -34 -12 C-32 -6 -24 -4 -18 -8 C-10 -12 -2 -14 6 -12Z" fill="#1a0e2c" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M4 -6 C-6 -2 -18 2 -28 0" fill="none" stroke="#a46bff" stroke-width="0.9" opacity="0.9"/>
+    <g fill="#d9c6ff" opacity="0.8"><circle cx="-8" cy="-7" r="1"/><circle cx="-16" cy="-5" r="0.9"/><circle cx="-24" cy="-3" r="0.8"/></g>
+  </g></g>
+  <g transform="translate(94 96)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;8;-3;0" dur="2.9s" repeatCount="indefinite"/>
+    <path d="M-6 -4 C6 0 18 6 30 2 C38 -1 40 -10 34 -12 C32 -6 24 -4 18 -8 C10 -12 2 -14 -6 -12Z" fill="#1a0e2c" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M-4 -6 C6 -2 18 2 28 0" fill="none" stroke="#a46bff" stroke-width="0.9" opacity="0.9"/>
+    <g fill="#d9c6ff" opacity="0.8"><circle cx="8" cy="-7" r="1"/><circle cx="16" cy="-5" r="0.9"/><circle cx="24" cy="-3" r="0.8"/></g>
+  </g></g>
+  <g transform="translate(40 106)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;9;-4;0" dur="2.2s" repeatCount="indefinite"/>
+    <path d="M-5 0 C-8 10 -14 18 -22 22 C-26 24 -28 20 -25 18 C-18 14 -14 8 -12 -2Z" fill="#1a0e2c" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M-7 0 C-10 8 -15 15 -22 20" fill="none" stroke="#a46bff" stroke-width="0.9" opacity="0.9"/>
+  </g></g>
+  <g transform="translate(80 106)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-9;4;0" dur="2.4s" repeatCount="indefinite"/>
+    <path d="M5 0 C8 10 14 18 22 22 C26 24 28 20 25 18 C18 14 14 8 12 -2Z" fill="#1a0e2c" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M7 0 C10 8 15 15 22 20" fill="none" stroke="#a46bff" stroke-width="0.9" opacity="0.9"/>
+  </g></g>
+  <!-- the maw: the book slams open on the entrance; the whole jaw chews -->
+  <g transform="translate(60 48)"><g>
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.12;1 0.12;1.04 1.24;1 1" keyTimes="0;.5;.72;1" dur="1.5s" fill="freeze"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1.05;1 1" dur="1.7s" repeatCount="indefinite"/>
+    <g transform="translate(-60 -48)">
+      <!-- throat -->
+      <path d="M10 44 L60 54 L110 44 L108 96 L60 106 L12 96Z" fill="#12081c" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+      <!-- the binding sigil burning deep in the throat -->
+      <g transform="translate(60 78)">
+        <circle r="13" fill="none" stroke="#c46bff" stroke-width="3" opacity="0.45"/>
+        <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;360" dur="6s" repeatCount="indefinite"/>
+          <circle r="11" fill="none" stroke="#e2b8ff" stroke-width="1.2"/>
+          <path d="M0 -11 L9.5 5.5 L-9.5 5.5Z M0 -11 V-15 M9.5 5.5 L13 7.5 M-9.5 5.5 L-13 7.5" fill="none" stroke="#c46bff" stroke-width="1.1" stroke-linejoin="round"/><circle r="4.6" fill="none" stroke="#e2b8ff" stroke-width="0.8"/>
+        </g>
+        <circle r="2.6" fill="#f4e0ff"/>
       </g>
-      <g stroke="#b8a888" stroke-width="0.5"><path d="M26 56 L28 60 M45 60 L47 64 M65 62 L67 66 M85 58 L87 62"/></g>
+      <!-- inner row of small dark page teeth -->
+      <g fill="#b9a982" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" stroke-linejoin="round">
+        <polygon points="22,58 25,66 28,59"/><polygon points="32,60 35,67 38,61"/><polygon points="82,61 85,67 88,60"/><polygon points="92,59 95,66 98,58"/>
+        <polygon points="24,88 27,81 30,89"/><polygon points="90,89 93,81 96,88"/>
+      </g>
+      <!-- the bookmark ribbon tongue -->
+      <g transform="translate(60 94)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;7;-5;0" dur="1.9s" repeatCount="indefinite"/>
+        <path d="M-4 -8 C-6 4 2 10 -2 20 C-4 26 0 30 2 34 L6 28 L8 34 C10 28 8 22 9 16 C11 6 4 0 6 -8Z" fill="#c8203a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+        <path d="M0 -6 C-1 4 5 10 2 20" fill="none" stroke="#ff6b7d" stroke-width="1" opacity="0.8"/>
+      </g></g>
+      <!-- upper page fangs, hanging from the cover -->
+      <g fill="#f4e8cc" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round">
+        <polygon points="12,44 17,58 21,46"/><polygon points="21,46 26,62 30,48"/><polygon points="30,48 35,60 39,50"/><polygon points="39,50 46,76 52,52"/>
+        <polygon points="52,52 56,62 60,54"/><polygon points="60,54 64,62 68,52"/><polygon points="68,52 74,76 81,50"/><polygon points="81,50 85,60 90,48"/>
+        <polygon points="90,48 94,62 99,46"/><polygon points="99,46 103,58 108,44"/>
+      </g>
+      <g stroke="#9a8a66" stroke-width="0.5"><path d="M43 56 H49 M44 60 H48.5 M45 64 H48 M71 56 H77 M71.5 60 H76 M72 64 H75 M24 52 H28 M92 52 H96"/></g>
+      <path d="M41 51 L46 74 M71 52 L74 74" stroke="#fff" stroke-width="0.8" opacity="0.6"/>
+      <!-- lower page teeth -->
+      <g fill="#f4e8cc" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round">
+        <polygon points="14,96 19,82 23,97"/><polygon points="23,97 28,84 32,99"/><polygon points="32,99 37,86 41,100"/><polygon points="41,100 46,88 50,102"/>
+        <polygon points="70,102 74,88 79,100"/><polygon points="79,100 83,86 88,99"/><polygon points="88,99 92,84 97,97"/><polygon points="97,97 101,82 106,96"/>
+      </g>
+      <!-- the back cover: the lower jaw -->
+      <path d="M8 94 L60 104 L112 94 L108 110 L60 120 L12 110Z" fill="var(--lg-deep, #8a6b3a)" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M60 104 L112 94 L108 110 L60 120Z" fill="#000" opacity="0.28"/>
+      <path d="M12 97 L58 106" stroke="#fff" stroke-width="1" opacity="0.3"/>
+      <path d="M14 106 L60 115 L106 106" fill="none" stroke="#e8c26a" stroke-width="0.8" stroke-dasharray="2 1.5"/>
+      <g fill="#c9a441" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"><path d="M8 94 L20 96 L12 110Z"/><path d="M112 94 L100 96 L108 110Z"/><path d="M54 103 L66 103 L64 119 L56 119Z"/></g>
+      <g fill="#fff3c4"><circle cx="13" cy="99" r="0.8"/><circle cx="107" cy="99" r="0.8"/><circle cx="60" cy="111" r="1"/></g>
+    </g>
     </g>
   </g></g>
-  <!-- the front cover lifted as a brow, with the eye -->
+  <!-- broken chains hanging from the clasps -->
+  <g transform="translate(13 44)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;6;0;-3;0" dur="2.8s" repeatCount="indefinite"/>
+    <g stroke="var(--lg-ink, #1d2230)" stroke-linejoin="round">
+      <ellipse cy="3" rx="2" ry="3" fill="none" stroke-width="1.8"/><ellipse cy="3" rx="2" ry="3" fill="none" stroke="#c7ccd6" stroke-width="0.8"/>
+      <rect x="-0.8" y="5" width="1.6" height="6" rx="0.8" fill="#c7ccd6" stroke-width="0.7"/>
+      <ellipse cy="13" rx="2" ry="3" fill="none" stroke-width="1.8"/><ellipse cy="13" rx="2" ry="3" fill="none" stroke="#c7ccd6" stroke-width="0.8"/>
+      <rect x="-0.8" y="15" width="1.6" height="6" rx="0.8" fill="#c7ccd6" stroke-width="0.7"/>
+      <path d="M-2 23 C-3 26 -1 27 0 25 M2 23 C3 27 1 28 0 26" fill="none" stroke-width="1.8"/><path d="M-2 23 C-3 26 -1 27 0 25 M2 23 C3 27 1 28 0 26" fill="none" stroke="#c7ccd6" stroke-width="0.8"/>
+    </g>
+  </g></g>
+  <g transform="translate(107 44)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-6;0;3;0" dur="3.1s" repeatCount="indefinite"/>
+    <g stroke="var(--lg-ink, #1d2230)" stroke-linejoin="round">
+      <ellipse cy="3" rx="2" ry="3" fill="none" stroke-width="1.8"/><ellipse cy="3" rx="2" ry="3" fill="none" stroke="#c7ccd6" stroke-width="0.8"/>
+      <rect x="-0.8" y="5" width="1.6" height="6" rx="0.8" fill="#c7ccd6" stroke-width="0.7"/>
+      <ellipse cy="13" rx="2" ry="3" fill="none" stroke-width="1.8"/><ellipse cy="13" rx="2" ry="3" fill="none" stroke="#c7ccd6" stroke-width="0.8"/>
+      <rect x="-0.8" y="15" width="1.6" height="6" rx="0.8" fill="#c7ccd6" stroke-width="0.7"/>
+      <ellipse cy="23" rx="2" ry="3" fill="none" stroke-width="1.8"/><ellipse cy="23" rx="2" ry="3" fill="none" stroke="#c7ccd6" stroke-width="0.8"/>
+    </g>
+  </g></g>
+  <!-- the front cover: a heavy leather brow with the eye -->
   <g>
-    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -2;0 0" dur="2.4s" repeatCount="indefinite"/>
-    <path d="M14 34 L60 44 L106 34 L102 14 L60 22 L18 14Z" fill="#7a3a28" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
-    <path d="M18 14 L60 22 L60 30 L20 22Z" fill="#fff" opacity="0.15"/>
-    <!-- gold corner fittings -->
-    <g fill="#c9a441" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"><path d="M18 14 L28 16 L22 22Z"/><path d="M102 14 L92 16 L98 22Z"/></g>
-    <!-- chained clasps -->
-    <g stroke="#8a8f9c" stroke-width="1.6" stroke-dasharray="2 1.2" fill="none"><path d="M26 30 L26 50 M94 30 L94 50"/></g>
-    <g fill="#c9a441" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"><rect x="23" y="28" width="6" height="4"/><rect x="91" y="28" width="6" height="4"/></g>
-    <!-- the eye on the cover -->
-    <path d="M44 30 C50 22 70 22 76 30 C70 38 50 38 44 30Z" fill="#f4efe0" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
-    <g transform="translate(60 30)"><g>
-      <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.05;1 0.05;1.2 1.3;1 1" keyTimes="0;.65;.82;1" dur="1.5s" fill="freeze"/>
-      <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="-3 0;3 0;-3 0" dur="3s" begin="1.5s" repeatCount="indefinite"/>
-        <circle r="5" fill="#b44bff"/><ellipse rx="1.4" ry="4" fill="#1c0f24"/><circle cx="-1.6" cy="-2" r="1" fill="#fff"/></g>
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -1.6;0 0" dur="1.7s" repeatCount="indefinite"/>
+    <!-- page block edge under the cover -->
+    <path d="M9 40 L60 50 L111 40 L111 45 L60 55 L9 45Z" fill="#efe1bd" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+    <path d="M12 42.5 L60 52.5 L108 42.5" fill="none" stroke="#b9a982" stroke-width="0.6"/>
+    <!-- the cover slab -->
+    <path d="M2 12 L60 0 L118 12 L112 42 L60 52 L8 42Z" fill="var(--lg-deep, #8a6b3a)" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2" stroke-linejoin="round"/>
+    <path d="M60 0 L118 12 L112 42 L60 52Z" fill="#000" opacity="0.26"/>
+    <path d="M4 13 L60 2 L60 10 L10 20Z" fill="#fff" opacity="0.2"/>
+    <!-- tooled border, stitched -->
+    <path d="M9 16 L60 6 L111 16 L106 38 L60 47 L14 38Z" fill="none" stroke="#e8c26a" stroke-width="0.9" stroke-dasharray="2.4 1.6" stroke-linejoin="round"/>
+    <!-- glowing runes in the leather -->
+    <g fill="none" stroke="#ffd36b" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="24" cy="27" r="4"/><path d="M24 21 v12 M19 30 l10 -6"/><circle cx="96" cy="27" r="4"/><path d="M96 21 v12 M101 30 l-10 -6"/><path d="M56 6 l4 3 l4 -3"/>
+    </g>
+    <!-- brass corner guards with spikes, riveted -->
+    <g fill="#c9a441" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1" stroke-linejoin="round">
+      <path d="M2 12 L-8 2 L14 9.5 L16 18 L9 22 L6 30Z"/><path d="M118 12 L128 2 L106 9.5 L104 18 L111 22 L114 30Z"/>
+      <path d="M60 0 L54 1.3 L56 -10 L60 -4 L64 -10 L66 1.3Z"/>
+    </g>
+    <path d="M-6 3 L12 9.5 M126 3 L108 9.5 M56 -8 L58 0" stroke="#fff3c4" stroke-width="0.8" opacity="0.8"/>
+    <g fill="#fff3c4" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"><circle cx="9" cy="15" r="1"/><circle cx="111" cy="15" r="1"/><circle cx="60" cy="-1" r="0.9"/></g>
+    <!-- clasps -->
+    <g fill="#c9a441" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"><rect x="9" y="37" width="8" height="6" rx="1"/><rect x="103" y="37" width="8" height="6" rx="1"/></g>
+    <g fill="var(--lg-ink, #1d2230)"><rect x="12" y="39" width="2" height="2"/><rect x="106" y="39" width="2" height="2"/></g>
+    <!-- the eye: a burning slit under a brass V ridge -->
+    <path d="M40 40 C47 30 73 30 80 40 C73 50 47 50 40 40Z" fill="#c46bff" opacity="0.45" transform="translate(60 40) scale(1.22) translate(-60 -40)"/>
+    <path d="M42 40 C49 31 71 31 78 40 C71 49 49 49 42 40Z" fill="#fff2c2" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/>
+    <g transform="translate(60 40)"><g>
+      <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.05;1 0.05;1.2 1.35;1 1" keyTimes="0;.66;.82;1" dur="1.5s" fill="freeze"/>
+      <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="-3 0;3 0;3 0;-3 0" keyTimes="0;.35;.6;1" dur="3.4s" repeatCount="indefinite"/>
+        <circle r="7.8" fill="#ff7af2" opacity="0.45"/>
+        <circle r="6.4" fill="#a43cff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+        <circle r="4.4" fill="#e3a6ff"/>
+        <path d="M0 -6.2 C1.9 -2.4 1.9 2.4 0 6.2 C-1.9 2.4 -1.9 -2.4 0 -6.2Z" fill="#12081c"/>
+        <circle cx="-2.4" cy="-2.6" r="1.2" fill="#fff"/>
+      </g>
     </g></g>
-    <path d="M42 26 L52 28 M78 26 L68 28" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linecap="round"/>
-    <!-- runes -->
-    <g fill="none" stroke="#c9a441" stroke-width="1"><path d="M32 22 l2 4 l2 -4 M84 22 l2 4 l2 -4 M58 40 h4"/></g>
+    <path d="M44 43.5 C51 47.5 69 47.5 76 43.5" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    <path d="M36 22 L60 31 L84 22 L84 27 L60 36 L36 27Z" fill="#c9a441" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/>
+    <path d="M37.5 23.5 L60 32 L82.5 23.5" fill="none" stroke="#fff3c4" stroke-width="0.8" opacity="0.9"/>
+    <path d="M60 32 L84 23 L84 27 L60 36Z" fill="#000" opacity="0.25"/>
+    <g fill="#fff3c4" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"><circle cx="40" cy="25.5" r="0.9"/><circle cx="80" cy="25.5" r="0.9"/><circle cx="60" cy="33" r="1"/></g>
   </g>
   <!-- quills orbiting like blades -->
-  <g transform="translate(60 60)">
-    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;360" dur="6s" repeatCount="indefinite"/>
-      <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.8">
-        <path d="M0 -58 C4 -54 4 -46 0 -42 C-4 -46 -4 -54 0 -58Z" fill="#f4efe0"/><path d="M0 -42 V-38" stroke="#1d2230" stroke-width="1.4"/>
-        <path d="M58 0 C54 4 46 4 42 0 C46 -4 54 -4 58 0Z" fill="#f4efe0"/><path d="M42 0 H38" stroke="#1d2230" stroke-width="1.4"/>
-        <path d="M-58 0 C-54 -4 -46 -4 -42 0 C-46 4 -54 4 -58 0Z" fill="#f4efe0"/><path d="M-42 0 H-38" stroke="#1d2230" stroke-width="1.4"/>
+  <g transform="translate(60 58)">
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;360" dur="7s" repeatCount="indefinite"/>
+      <g transform="rotate(0) translate(0 -60) rotate(90)">
+        <path d="M-12 0 C-8 -5 4 -5 8 -1 L8 1 C4 4 -8 4 -12 0Z" fill="#f4efe0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+        <path d="M-12 0 H8" stroke="#b9a982" stroke-width="0.6"/>
+        <path d="M8 -1.6 L15 0 L8 1.6Z" fill="#3a3f4c" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"/>
+        <path d="M9 -0.8 L14 0" stroke="#e8edf5" stroke-width="0.5"/>
+      </g>
+      <g transform="rotate(120) translate(0 -60) rotate(90)">
+        <path d="M-12 0 C-8 -5 4 -5 8 -1 L8 1 C4 4 -8 4 -12 0Z" fill="#f4efe0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+        <path d="M-12 0 H8" stroke="#b9a982" stroke-width="0.6"/>
+        <path d="M8 -1.6 L15 0 L8 1.6Z" fill="#3a3f4c" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"/>
+        <path d="M9 -0.8 L14 0" stroke="#e8edf5" stroke-width="0.5"/>
+      </g>
+      <g transform="rotate(240) translate(0 -60) rotate(90)">
+        <path d="M-12 0 C-8 -5 4 -5 8 -1 L8 1 C4 4 -8 4 -12 0Z" fill="#f4efe0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+        <path d="M-12 0 H8" stroke="#b9a982" stroke-width="0.6"/>
+        <path d="M8 -1.6 L15 0 L8 1.6Z" fill="#3a3f4c" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"/>
+        <path d="M9 -0.8 L14 0" stroke="#e8edf5" stroke-width="0.5"/>
       </g>
     </g>
   </g>
-  <!-- ink drips -->
-  <g fill="#1c1030">
-    <circle style="transform-box:fill-box;transform-origin:center" cx="40" cy="94" r="1.8"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 20" dur="1.4s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.4s" repeatCount="indefinite" additive="sum"/></circle>
-    <circle style="transform-box:fill-box;transform-origin:center" cx="82" cy="94" r="1.6"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 22" dur="1.7s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.7s" repeatCount="indefinite" additive="sum"/></circle>
+  <!-- ink drips from the tentacles -->
+  <g fill="#1a0e2c">
+    <path style="transform-box:fill-box;transform-origin:center" d="M-6 100 C-7 102 -7 104 -6 104 C-5 104 -5 102 -6 100Z"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 18" dur="1.4s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1.4;1.4;0" keyTimes="0;.12;.82;1" dur="1.4s" repeatCount="indefinite" additive="sum"/></path>
+    <path style="transform-box:fill-box;transform-origin:center" d="M126 100 C125 102 125 104 126 104 C127 104 127 102 126 100Z"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 18" dur="1.7s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1.4;1.4;0" keyTimes="0;.12;.82;1" dur="1.7s" repeatCount="indefinite" additive="sum"/></path>
   </g>
 </svg>

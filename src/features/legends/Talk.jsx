@@ -147,10 +147,10 @@ export default function Talk({ ctx, area, node, items, onFinish, onQuit }) {
         </div>
       )}
       {mine < maxTurns && !goalDone ? (
-        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <textarea value={input} onChange={(e) => setInput(e.target.value)} rows={2} placeholder={t('lg_talkPlaceholder')}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent?.isComposing) { e.preventDefault(); send() } }}
-            style={{ flex: 1, resize: 'none', padding: '10px 12px', fontSize: 15, fontFamily: FONT.body, borderRadius: RADIUS.md, border: `2px solid ${C.border}`, background: C.surfaceAlt, color: C.ink }} />
+            style={{ flex: '1 1 220px', minWidth: 0, resize: 'none', padding: '10px 12px', fontSize: 15, fontFamily: FONT.body, borderRadius: RADIUS.md, border: `2px solid ${C.border}`, background: C.surfaceAlt, color: C.ink }} />
           {voiceOn && <TalkButton ctx={ctx} lang={lang} onStart={() => speaking.current?.stop()} onText={(said) => setInput((cur) => (cur.trim() ? `${cur.trim()} ${said}` : said))} />}
           <ChunkyButton variant="ghost" onClick={askHint} disabled={busy || hinting || !messages.length} color={C.warning} style={{ padding: '10px 12px' }}>
             💡 {hinting ? t('lg_hinting') : t('lg_hint')}

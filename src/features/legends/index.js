@@ -26,7 +26,7 @@ export default {
   id: LEGENDS_ID,
   // focus: calm fights (no cinematic or flair); nudge: offer first-time misses as cards once.
   defaults: { focus: false, nudge: true },
-  navItems: [{ id: 'legends', icon: '🗺️', labelKey: 'lg_nav', order: 15, Screen: LegendsScreen }],
+  navItems: [{ id: 'legends', icon: '🗺️', art: 'legends', labelKey: 'lg_nav', order: 15, Screen: LegendsScreen }],
   railCards: [{ id: 'level', order: 25, Component: LevelCard }],
   // The daily raid: the deck's due cards as a boss fight (every answer is a real Anki review).
   practiceActivities: [{ id: 'raid', order: 3, icon: '⚔️', titleKey: 'lg_raidTile', descKey: 'lg_raidTileDesc', Screen: RaidTile }],
