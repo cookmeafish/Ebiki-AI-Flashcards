@@ -1693,7 +1693,10 @@ Plan: `docs/legends-roadmap.md`. Works for ANY subject (a CompTIA map teaches Co
   cheat mode or not (the owner: "solely for viewing assets in the asset viewer").
 - **Boss figures breathe past their frame** (art.jsx `BOSS_HEADROOM` 20%): a boss or raid boss SVG renders
   `overflow="visible"` and its box clips at `inset(-20%)`, so a flame, wing or aura that grows past the 120 x 120
-  viewBox is not sliced flat (a flame looked boxy, as if behind glass). Parts hidden by a far off-canvas translate
+  viewBox is not sliced flat (a flame looked boxy, as if behind glass). **That headroom is real LAYOUT space wherever something sits next to a figure**
+  (`room` prop / `headroomPx(size)`: the asset view and gallery always, the intro card, the fight arena, result
+  screens, the raid hall): tags, captions, titles, stripes and the next drawing were drawn over (the owner: "make
+  sure asset names and anything else don't collide with the svgs"). Parts hidden by a far off-canvas translate
   (200) stay hidden. Banners are pictures and clip at their own edge; keep their animated parts inside it.
 - **Run `node dev/legends-gallery/check-art.mjs` (dev server up) before committing ANY art change.** It FAILS on a
   boss part that moves past frame + headroom, and on an idle scale/skew whose part slides instead of pulsing in place;

@@ -70,7 +70,7 @@ function Result({ ctx, modeId, result, onBack, onRetry, onNewQuestions }) {
       {node.kind === 'boss' ? (
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 18 }}>
           <img src={shrimpUrl(poseFile(pose))} alt="" width={120} />
-          <BossArt area={area} size={110} style={passed ? { filter: 'grayscale(.6) opacity(.7)', transform: 'rotate(-8deg)' } : undefined} />
+          <BossArt area={area} size={110} room style={passed ? { filter: 'grayscale(.6) opacity(.7)', transform: 'rotate(-8deg)' } : undefined} />
         </div>
       ) : <img src={shrimpUrl(poseFile(pose))} alt="" width={130} />}
       <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 30, color: passed ? C.success : C.warning, lineHeight: 1.1 }}>

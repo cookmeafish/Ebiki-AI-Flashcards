@@ -6,7 +6,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { ChunkyButton } from '../ui'
-import { BossArt, LegendsArt } from './art'
+import { BossArt, LegendsArt, headroomPx } from './art'
 import { newFight, healthLeft, livesLeft, phaseOf } from './fight'
 import { PASS } from './map'
 
@@ -215,7 +215,7 @@ export function BossIntro({ t, area, name = '', total, onFight, odds, legendary 
         background: `radial-gradient(ellipse at 50% 42%, color-mix(in srgb, ${C.danger} 30%, ${NIGHT}) 0%, ${NIGHT} 72%)` }}>
         <div aria-hidden="true" style={band('top')}><span style={label}>⚠ {kind === 'raids' ? t('lg_raid') : legendary ? t('lg_legendary') : t('lg_boss')} ⚠</span></div>
         <div aria-hidden="true" style={band('bottom')}><span style={label}>⚠ {kind === 'raids' ? t('lg_raid') : legendary ? t('lg_legendary') : t('lg_boss')} ⚠</span></div>
-        <div style={{ position: 'relative', width: BOSS.intro, height: BOSS.intro }}>
+        <div style={{ position: 'relative', width: BOSS.intro, height: BOSS.intro, margin: `${headroomPx(BOSS.intro)}px 0` }}>
           <div aria-hidden="true" style={{ position: 'absolute', inset: -40, borderRadius: '50%', background: `radial-gradient(circle, color-mix(in srgb, ${C.danger} 55%, transparent) 0%, transparent 65%)`, animation: `lgStageIn .2s ease-out ${E.impact}s both, lgHeartbeat 1.3s ease-in-out ${E.impact}s infinite` }} />
           <div aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '88%', width: BOSS.intro, height: BOSS.intro * 0.35, borderRadius: '50%', border: `4px solid ${C.danger}`, animation: `lgShock .6s ease-out ${E.impact}s both` }} />
           {Array.from({ length: 8 }, (_, i) => (
@@ -316,10 +316,10 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
     <span key={key} style={{ fontSize: 11.5, fontWeight: 800, color, border: `1.5px solid color-mix(in srgb, ${color} 45%, transparent)`, borderRadius: RADIUS.pill, padding: '1px 8px', whiteSpace: 'nowrap' }}>{text}</span>
   )
   return (
-    <div className="lg-boss" data-phase={phase} style={{ display: 'flex', alignItems: 'center', gap: compact ? 10 : 16, padding: compact ? '6px 12px' : '10px 14px', borderRadius: RADIUS.lg,
+    <div className="lg-boss" data-phase={phase} style={{ display: 'flex', alignItems: 'center', gap: compact ? 10 : 16, padding: compact ? '0 12px 0 0' : '0 14px 0 0', borderRadius: RADIUS.lg,
       background: `color-mix(in srgb, ${C.danger} ${rage ? 14 : 7}%, ${C.surface})`, border: `2px solid color-mix(in srgb, ${C.danger} ${rage ? 60 : 30}%, ${C.border})`, transition: 'background .4s, border-color .4s' }}>
       <BossStyle />
-      <div style={{ position: 'relative', flexShrink: 0 }}>
+      <div style={{ position: 'relative', flexShrink: 0, margin: headroomPx(compact ? BOSS.arenaCompact : BOSS.arena) }}>
         <div key={`s${shift}`} style={{ animation: shift && !focus ? 'lgPhaseShift 1s ease-out both' : 'none' }}>
         <div key={`b${last?.n || 0}`} style={{ animation: down ? 'lgBossDown .6s ease-out both' : focus ? 'none' : hitNow ? 'lgBossHit .5s ease-out' : missNow ? 'lgBossLunge .45s ease-out' : `lgBossBob ${rage ? 1.2 : 2.4}s ease-in-out infinite`,
           filter: down ? 'grayscale(.8) opacity(.6)' : rage ? `drop-shadow(0 0 10px ${C.danger}) saturate(1.3)` : 'none' }}>

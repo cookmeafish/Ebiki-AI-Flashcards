@@ -160,7 +160,7 @@ export default function RaidRun({ ctx, onExit }) {
   if (phase === 'done' && summary) {
     return (
       <div style={{ maxWidth: 600, margin: '24px auto', display: 'grid', gap: 14, justifyItems: 'center', textAlign: 'center' }}>
-        <LegendsArt kind="raids" motif={motif} palette="night" height={120} width={120} round={0} animated={summary.won ? false : 'idle'} style={summary.won ? { filter: 'grayscale(.6) opacity(.7)', transform: 'rotate(-8deg)' } : undefined} />
+        <LegendsArt kind="raids" motif={motif} palette="night" height={120} width={120} round={0} room animated={summary.won ? false : 'idle'} style={summary.won ? { filter: 'grayscale(.6) opacity(.7)', transform: 'rotate(-8deg)' } : undefined} />
         <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 28, color: summary.won ? C.success : C.warning }}>{summary.won ? `🏆 ${t('lg_raidWon', { name: bossName })}` : t('lg_raidRetreat')}</div>
         {summary.firstWin && <div style={{ fontWeight: 800, color: C.info }}>❄ {t('lg_bossFreeze')} · 🏆 {t('lg_raidTrophy')}</div>}
         {!summary.won && raid?.day && <div style={{ fontWeight: 800, color: C.inkDim }}>{t('lg_raidWounded', { hp: Math.max(0, raid.day.hp - raid.day.damage), max: raid.day.hp })}</div>}
@@ -265,7 +265,7 @@ function Trophies({ ctx, raid }) {
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         {list.slice(0, 20).map((x, i) => (
           <div key={i} style={{ display: 'grid', justifyItems: 'center', gap: 2, fontSize: 11, fontWeight: 800, color: C.inkDim }}>
-            <LegendsArt kind="raids" motif={x.motif} palette="night" height={48} width={48} round={0} />
+            <LegendsArt kind="raids" motif={x.motif} palette="night" height={48} width={48} round={0} room />
             {x.date}
           </div>
         ))}
