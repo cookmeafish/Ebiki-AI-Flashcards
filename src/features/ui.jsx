@@ -1,6 +1,6 @@
 // Shared building blocks for feature screens, in the chunky, friendly style (thick borders, a solid
 // "3D" bottom edge on buttons, rounded cards). Colors come from tokens only, so both themes work.
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { C, FONT, RADIUS } from '../config/tokens'
 import { DEFAULT_SHRIMP, shrimpUrl } from '../config/shrimp'
 
@@ -62,17 +62,37 @@ export function ProgressBar({ value, max, color = C.warning, height = UI.barHeig
   )
 }
 
+const MODAL_STACK = []
 // A centered modal that respects the app's body zoom (a fixed inset:0 box would cover 135% of the view).
 export function Modal({ open, onClose, children, width = UI.modalWidth, zoom = 1, dismissable = true }) {
+  const rootRef = useRef(null)
+  // Open modals in opening order: only the TOP one takes Esc (each one's capture listener ran in registration
+  // order, so a celebration opened over the Gold blitz left Esc closing the blitz underneath).
+  const tokenRef = useRef(null)
+  useEffect(() => {
+    if (!open) return
+    const tok = {}; tokenRef.current = tok; MODAL_STACK.push(tok)
+    return () => { const i = MODAL_STACK.indexOf(tok); if (i >= 0) MODAL_STACK.splice(i, 1) }
+  }, [open])
   useEffect(() => {
     if (!open || !dismissable) return
-    const onKey = (e) => { if (e.key === 'Escape') onClose?.() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    // Capture + marked handled: the Picture tab's Esc also reset a finished analysis, and the Chat "+" menu closed
+    // with it. Not an IME composition's Esc (it cancels only the candidate: a blitz lost every answer), not one an
+    // app dialog above owns, and not one meant for Ebi's Help panel when the focus is there.
+    const onKey = (e) => {
+      if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing || e.keyCode === 229) return
+      if (MODAL_STACK[MODAL_STACK.length - 1] !== tokenRef.current) return
+      if (document.querySelector('[data-app-dialog]')) return
+      const a = document.activeElement
+      if (a && !rootRef.current?.contains(a) && a.closest?.('[data-help-panel]')) return
+      e.preventDefault(); onClose?.()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   }, [open, dismissable, onClose])
   if (!open) return null
   return (
-    <div onMouseDown={(e) => { if (dismissable && e.target === e.currentTarget) onClose?.() }} style={{
+    <div ref={rootRef} onMouseDown={(e) => { if (dismissable && e.target === e.currentTarget) onClose?.() }} style={{
       position: 'fixed', top: 0, left: 0, width: `calc(100vw / ${zoom})`, height: `calc(100vh / ${zoom})`,
       background: 'rgba(0,0,0,.45)', zIndex: UI.zModal, display: 'grid', placeItems: 'center', padding: 16, boxSizing: 'border-box',
     }}>

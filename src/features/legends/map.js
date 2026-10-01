@@ -111,15 +111,22 @@ export function ensureWeakNodes(map) {
 
 // A boss's name: a short character name, no wrapping quotes.
 export const BOSS_NAME_MAX = 40
-export const cleanBossName = (v, clean) => str(v, BOSS_NAME_MAX, clean).replace(/^["'«»“”‘’\s]+|["'«»“”‘’\s]+$/g, '')
+export const cleanBossName = (v, clean) => str(typeof v === 'string' ? v : '', BOSS_NAME_MAX, clean) // an object was stored as "[object Object]" for good
+    .replace(/^["'«»“”‘’\s]+|["'«»“”‘’\s]+$/g, '')
 export function parseAreaDetail(raw, clean, { areaId = 'a' } = {}) {
   if (!raw || typeof raw !== 'object') return null
   const used = new Set()
   const items = []
-  for (const it of Array.isArray(raw.items) ? raw.items : []) {
+  // Nodes name items by their RAW position: a skipped item (empty, or a repeat) shifted every later one, and levels
+  // taught their neighbours' items. rawToKept maps a raw index to the kept one (missing = skipped).
+  const rawToKept = new Map()
+  const rawItems = Array.isArray(raw.items) ? raw.items : []
+  for (let r = 0; r < rawItems.length; r++) {
+    const it = rawItems[r]
     const front = str(it?.front, FRONT_MAX, clean)
     const back = clean(String(it?.back ?? '').replace(/\\n/g, '\n').replace(/[ \t]+/g, ' ').trim()).slice(0, BACK_MAX)
     if (!front || !back || items.some((x) => x.front.toLowerCase() === front.toLowerCase())) continue
+    rawToKept.set(r, items.length)
     items.push({ id: `${areaId}-i${items.length + 1}`, kind: pick(it?.kind, ITEM_KINDS, 'term'), front, back, cardNoteId: null, seen: 0, right: 0 })
     if (items.length >= ITEMS.max) break
   }
@@ -132,22 +139,26 @@ export function parseAreaDetail(raw, clean, { areaId = 'a' } = {}) {
     if (kind === 'boss' || kind === 'practice') continue // every level teaches something new (no re-drill steps)
     // One optional step of each kind is enough (a model listing three Adventures would crowd the ladder).
     if (OPTIONAL_KINDS.has(kind) && nodes.some((o) => o.kind === kind)) continue
+    // Teaching steps past the cap are skipped, but the parse goes on: the optional Talk and Adventure come AFTER the
+    // eight levels the prompt asks for, and a break here dropped them from nearly every area.
+    if (!OPTIONAL_KINDS.has(kind) && nodes.filter((x) => !opt(x)).length >= NODES.max) continue
     const goal = kind === 'adventure' ? str(n?.goal, GOAL_MAX, clean) : ''
     if (kind === 'adventure' && !goal) continue // an Adventure is its goal
     // An item is taught by ONE level: a later level naming it again drops it (and gets the untaught ones below).
-    const all = (Array.isArray(n?.items) ? n.items : []).map((x) => Number(x) - 1).filter((i) => Number.isInteger(i) && i >= 0 && i < items.length)
+    const all = (Array.isArray(n?.items) ? n.items : []).map((x) => rawToKept.get(Number(x) - 1)).filter((i) => Number.isInteger(i))
     const idx = OPTIONAL_KINDS.has(kind) ? all : all.filter((i) => !nodes.some((o) => !opt(o) && o.itemIdx.includes(i)))
     nodes.push({ kind, title: str(n?.title, TITLE_MAX, clean), itemIdx: [...new Set(idx)], ...(goal ? { goal } : {}) })
-    if (nodes.filter((x) => !opt(x)).length >= NODES.max) break
   }
   // Too few steps (or none): a plain ladder of lessons over slices of the items.
   if (nodes.filter((x) => !opt(x)).length < NODES.min) {
+    const keepOpt = nodes.filter(opt) // a valid Talk / Adventure survives the rebuilt ladder
     nodes.length = 0
     const per = 3
     for (let i = 0; i < items.length; i += per) {
       const idx = Array.from({ length: Math.min(per, items.length - i) }, (_, k) => i + k)
       nodes.push({ kind: 'learn', title: '', itemIdx: idx })
     }
+    nodes.push(...keepOpt)
   }
   // A Learn or Rule step needs items to teach; any step with none gets the items no step covers yet (or all).
   const covered = new Set(nodes.filter((n) => !opt(n)).flatMap((n) => n.itemIdx))
@@ -326,6 +337,20 @@ function tallyItems(items, results, fight) {
     if (!h) return it
     return { ...it, seen: (it.seen || 0) + h.seen, right: (it.right || 0) + h.right, ...(fight ? { bossRight: (it.bossRight || 0) + h.right } : {}) }
   })
+}
+
+// A card made from an item (item.cardNoteId) was answered in Study: the item's tally moves too, so the codex and
+// Weak spots know what Study saw. Never gold (that needs a fight). The same map back when no item has that card.
+export function tallyStudiedCard(map, noteId, correct) {
+  if (!map || !Array.isArray(map.areas) || noteId == null || noteId === '') return map
+  const id = String(noteId)
+  let hit = false
+  const areas = map.areas.map((a) => {
+    if (!Array.isArray(a?.items) || !a.items.some((it) => it && it.cardNoteId != null && String(it.cardNoteId) === id)) return a
+    hit = true
+    return { ...a, items: a.items.map((it) => (it && it.cardNoteId != null && String(it.cardNoteId) === id ? { ...it, seen: (it.seen || 0) + 1, right: (it.right || 0) + (correct ? 1 : 0) } : it)) }
+  })
+  return hit ? { ...map, areas } : map
 }
 
 // ── The codex: every item of an area, with a tier from how the learner does with it in Legends ─────────────────

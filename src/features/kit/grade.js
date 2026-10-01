@@ -25,6 +25,23 @@ export function leaksAnswer(question, accepted = []) {
   })
 }
 
+// A model's choices, deduped by the SAME normalizer answers are matched with ("coche" and "Coche" were two tiles,
+// one of them "wrong"), capped. An integer answer is resolved to its text BEFORE the dedupe (indexes shift).
+function cleanChoices(rawChoices, answer, max) {
+  const list = rawChoices.map((c) => String(c).trim()).filter(Boolean)
+  const keyText = Number.isInteger(answer) && answer >= 0 && answer < rawChoices.length ? String(rawChoices[answer]).trim() : null
+  const choices = []
+  // Two options that differ only in case collapse to one, keeping the KEY's spelling: in German case is the word
+  // (Essen food, essen to eat), and the first copy showed the noun as the right answer to "to eat".
+  const at = new Map()
+  for (const c of list) {
+    const k = normalizeAnswer(c)
+    if (at.has(k)) { if (keyText != null && c === keyText) choices[at.get(k)] = c; continue }
+    at.set(k, choices.length); choices.push(c)
+  }
+  return { choices: choices.slice(0, max), keyText }
+}
+
 // Choices in a random order (models favor one slot), keeping track of the right one.
 function shuffleChoices(choices, idx) {
   const order = choices.map((c, i) => [i, Math.random()]).sort((a, b) => a[1] - b[1]).map(([i]) => i)
@@ -50,16 +67,19 @@ export function sanitizeQuestions(raw, { maxChoices = 4, audioLang = '', speakLa
     const extra = { ...(say ? { audio: { text: say, lang: audioLang } } : {}), ...(q.speak === true ? { speak: true, speakLang } : {}) }
     const typedAccepted = Array.isArray(q.accepted) ? q.accepted.map((x) => String(x).trim()).filter(Boolean) : []
     if (dual && Array.isArray(q.choices) && q.choices.length >= 2 && typedAccepted.length && !leaksAnswer(prompt, typedAccepted)) {
-      const choices = [...new Set(q.choices.map((c) => String(c).trim()).filter(Boolean))].slice(0, maxChoices)
-      let idx = Number.isInteger(q.answer) ? q.answer : choices.findIndex((c) => normalizeAnswer(c) === normalizeAnswer(q.answer ?? typedAccepted[0]))
+      const { choices, keyText } = cleanChoices(q.choices, q.answer, maxChoices)
+      let idx = choices.findIndex((c) => normalizeAnswer(c) === normalizeAnswer(keyText ?? q.answer ?? typedAccepted[0]))
       if (idx < 0) idx = choices.findIndex((c) => typedAccepted.some((a) => normalizeAnswer(a) === normalizeAnswer(c)))
-      const alt = idx >= 0 && idx < choices.length && choices.length >= 2 ? shuffleChoices(choices, idx) : null
+      // A SECOND option that is also an accepted answer (a synonym) would be graded wrong when picked (a lost life, and
+      // in a raid an Again in Anki): such a question is asked typed only.
+      const twoRight = choices.some((c, i) => i !== idx && typedAccepted.some((a) => normalizeAnswer(a) === normalizeAnswer(c)))
+      const alt = !twoRight && idx >= 0 && idx < choices.length && choices.length >= 2 ? shuffleChoices(choices, idx) : null
       out.push({ kind: 'typed', prompt, accepted: [...new Set(typedAccepted)], explanation, target, open: !!q.open, ...(alt ? { alt } : {}), ...extra })
       continue
     }
     if (Array.isArray(q.choices) && q.choices.length >= 2) {
-      const choices = [...new Set(q.choices.map((c) => String(c).trim()).filter(Boolean))].slice(0, maxChoices)
-      let idx = Number.isInteger(q.answer) ? q.answer : choices.findIndex((c) => normalizeAnswer(c) === normalizeAnswer(q.answer))
+      const { choices, keyText } = cleanChoices(q.choices, q.answer, maxChoices)
+      const idx = choices.findIndex((c) => normalizeAnswer(c) === normalizeAnswer(keyText ?? q.answer))
       if (idx < 0 || idx >= choices.length || choices.length < 2) continue
       // Shuffle (models favor one slot), keeping track of the right one.
       const order = choices.map((c, i) => [i, Math.random()]).sort((a, b) => a[1] - b[1]).map(([i]) => i)
@@ -72,4 +92,15 @@ export function sanitizeQuestions(raw, { maxChoices = 4, audioLang = '', speakLa
     out.push({ kind: 'typed', prompt, accepted, explanation, target, open: !!q.open, ...extra })
   }
   return out
+}
+
+// QuizRunner results → misses for EVENTS.PRACTICE_MISSED ([{ front, question, answer, expected }]). `front` = the item
+// the question practiced (its "target"), else the given fallback.
+export function missesFromResults(results = [], front = '') {
+  return (Array.isArray(results) ? results : []).filter((r) => r && !r.correct && r.question && typeof r.question === 'object').map(({ question: q, answer }) => ({
+    front: String(q.target || front || ''),
+    question: String(q.prompt || ''),
+    answer: typeof answer === 'number' && Array.isArray(q.choices) ? String(q.choices[answer] ?? '') : String(answer ?? ''),
+    expected: String(q.kind === 'choice' ? (q.choices?.[q.answerIdx] ?? '') : (q.accepted?.[0] ?? '')),
+  })).filter((m) => m.question)
 }

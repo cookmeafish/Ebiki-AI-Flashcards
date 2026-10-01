@@ -114,7 +114,7 @@ Four sources, tried in order, for any language (no accounts, no paid APIs):
 
 A fullscreen overlay that translates games and apps in place, with every app feature. It starts with the app; the Picture tab's **Overlay** button turns it on or off (`npm run overlay` starts it by hand).
 
-1. In your game, press **Alt+Q** to capture. Drag to select an area (the rest of the desktop stays usable); **Esc** dismisses.
+1. In your game, press **Alt+Q** to capture the screen; **Esc** dismisses.
 2. Hover words for translations, click to pin, make Anki cards.
 
 Fullscreen-exclusive games may need borderless windowed mode.

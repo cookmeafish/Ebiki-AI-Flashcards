@@ -9,7 +9,7 @@
 // named in `__unset` (as paths), and the server merges them into the stored map (mergeConfigPatch). Shared by
 // App.jsx and vite.config.js so the two sides can't drift.
 
-export const NESTED_CONFIG_KEYS = ['aiModels', 'modelPresets', 'rejectedModels', 'modelPlans', 'modelCards', 'modelAvailability', 'availableModels', 'pronunciation']
+export const NESTED_CONFIG_KEYS = ['aiModels', 'modelPresets', 'rejectedModels', 'modelPlans', 'modelCards', 'modelAvailability', 'availableModels', 'pronunciation', 'features']
 const NESTED = new Set(NESTED_CONFIG_KEYS)
 const DEPTH = 2 // map levels below the top-level key that are merged entry by entry
 const SEP = '\u0001'

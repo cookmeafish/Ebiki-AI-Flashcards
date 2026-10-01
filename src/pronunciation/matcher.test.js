@@ -265,3 +265,23 @@ describe('accent-exact means the WORD, not any letters in the name', () => {
     expect(pickAudioFiles(['LL-Q5146 (por)-Pedrohenrique-é.wav'], { ...PT, word: 'é' })[0]?.approx).toBeUndefined()
   })
 })
+
+describe('region-tagged phrases', () => {
+  it('ranks the exact word above a phrase holding it when no region is asked', () => {
+    const r = pickAudioFiles(['En-us-the house.ogg', 'En-us-house.ogg'], { ...EN, word: 'house' })
+    expect(r[0].file).toBe('En-us-house.ogg')
+    expect(r[0].score).toBeGreaterThan(r[1].score)
+  })
+  it('treats uk and gb as one region', () => {
+    const r = pickAudioFiles(['En-us-house.ogg', 'En-uk-house.ogg'], { ...EN, word: 'house', region: 'gb' })
+    expect(r[0].file).toBe('En-uk-house.ogg')
+  })
+})
+
+describe('a two-letter word piece is not a region', () => {
+  it('keeps the exact word above a hyphenated compound (au-dessus)', () => {
+    const r = pickAudioFiles(['Fr-au-dessus.ogg', 'Fr-dessus.ogg'], { iso1: 'fr', iso3: ['fra'], word: 'dessus' })
+    expect(r[0].file).toBe('Fr-dessus.ogg')
+    expect(r[0].score).toBeGreaterThan(r[1].score)
+  })
+})

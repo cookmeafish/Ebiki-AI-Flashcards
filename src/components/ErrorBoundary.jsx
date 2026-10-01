@@ -39,13 +39,24 @@ export default class ErrorBoundary extends React.Component {
       window.addEventListener('pagehide', this.bye)
     }
     // A crashed overlay would otherwise be an invisible full-screen window swallowing clicks.
-    if (isOverlay) { try { document.body.style.opacity = '1' } catch { /* nothing to show */ } }
+    if (isOverlay) {
+      const show = () => { try { document.body.style.opacity = '1' } catch { /* nothing to show */ } }
+      show()
+      // Every later Alt+Q hides the page again before showing the window, and App (whose listeners showed it) is
+      // gone: show this screen on each capture, or the overlay is an invisible window eating every click.
+      if (!this.showAgain) {
+        this.showAgain = show
+        window.addEventListener('overlay-reset', show)
+        window.addEventListener('overlay-capture', show)
+      }
+    }
   }
 
   componentWillUnmount() {
     if (this.beat) clearInterval(this.beat)
     if (this.sendBeat && import.meta.hot) import.meta.hot.off('ebiki:ping', this.sendBeat)
     if (this.bye) window.removeEventListener('pagehide', this.bye)
+    if (this.showAgain) { window.removeEventListener('overlay-reset', this.showAgain); window.removeEventListener('overlay-capture', this.showAgain) }
   }
 
   render() {

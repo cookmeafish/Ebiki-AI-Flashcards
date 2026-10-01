@@ -1,45 +1,41 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
-  <!-- The Gingerbread Colossus: a gingerbread golem gone wrong, a spinning peppermint saw blade behind it. Sharpened
-       candy-cane horns, a bite taken out of its skull, one cracked V of hard icing over two glowing gumdrop eyes, a
-       jagged maw of broken cookie teeth drooling chocolate, caramel glowing through the cracks, and two huge fists
-       studded with gumdrop knuckles. Entrance: it drops and wobbles like jelly, the eyes ignite, the maw cracks open. -->
-  <!-- sprinkles raining -->
-  <g stroke-width="2" stroke-linecap="round">
-    <path style="transform-box:fill-box;transform-origin:center" d="M6 6 l3 3" stroke="#ff3fd2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 40" dur="2s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2s" repeatCount="indefinite" additive="sum"/></path>
-    <path style="transform-box:fill-box;transform-origin:center" d="M112 12 l-3 3" stroke="#2ec4b6"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 40" dur="2.4s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.4s" repeatCount="indefinite" additive="sum"/></path>
-    <path style="transform-box:fill-box;transform-origin:center" d="M100 -2 l2 3" stroke="#ffd23f"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 40" dur="1.8s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.8s" repeatCount="indefinite" additive="sum"/></path>
-    <path style="transform-box:fill-box;transform-origin:center" d="M22 -4 l-2 3" stroke="#6fb8ff"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 44" dur="2.2s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.2s" repeatCount="indefinite" additive="sum"/></path>
+  <!-- The Gingerbread Colossus on a sugar high: a giant gingerbread golem, cheerfully unhinged, a huge peppermint
+       turning behind it. Candy-cane horns knocked to a jaunty tilt, a bite out of its skull, two wide spiral candy eyes
+       spinning (one bigger than the other) under icing brows flung up in delight, gumdrop blush, and a huge goofy grin
+       of square cookie teeth with one knocked out and a chunk bitten out of the icing. One hand is up at its cheek, a
+       finger dipped in pink icing, and its tongue sneaks out to lick it; the other fist pumps, sprinkles bounce all
+       around, and its whole body bounces like it cannot sit still.
+       Entrance: it drops and wobbles like jelly; the spiral eyes pop open, the grin splits wide. -->
+  <!-- sprinkles bouncing all around it like it is too excited to sit still -->
+  <g stroke-width="2.2" stroke-linecap="round">
+    <g transform="translate(8 30)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -7;0 0" keyTimes="0;.5;1" dur="0.9s" begin="0s" repeatCount="indefinite"/><path style="transform-box:fill-box;transform-origin:center" d="M-1.6 0 h3.2" transform="rotate(40)" stroke="#ff3fd2"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;180;360" dur="1.80s" begin="0s" repeatCount="indefinite" additive="sum"/></path></g></g>
+    <g transform="translate(112 26)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -7;0 0" keyTimes="0;.5;1" dur="1.0s" begin="0.3s" repeatCount="indefinite"/><path style="transform-box:fill-box;transform-origin:center" d="M-1.6 0 h3.2" transform="rotate(-30)" stroke="#2ec4b6"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;180;360" dur="2.00s" begin="0.3s" repeatCount="indefinite" additive="sum"/></path></g></g>
+    <g transform="translate(14 66)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -7;0 0" keyTimes="0;.5;1" dur="0.8s" begin="0.5s" repeatCount="indefinite"/><path style="transform-box:fill-box;transform-origin:center" d="M-1.6 0 h3.2" transform="rotate(70)" stroke="#ffd23f"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;180;360" dur="1.60s" begin="0.5s" repeatCount="indefinite" additive="sum"/></path></g></g>
+    <g transform="translate(106 52)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -7;0 0" keyTimes="0;.5;1" dur="0.95s" begin="0.15s" repeatCount="indefinite"/><path style="transform-box:fill-box;transform-origin:center" d="M-1.6 0 h3.2" transform="rotate(20)" stroke="#6fb8ff"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;180;360" dur="1.90s" begin="0.15s" repeatCount="indefinite" additive="sum"/></path></g></g>
+    <g transform="translate(24 10)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -7;0 0" keyTimes="0;.5;1" dur="1.1s" begin="0.6s" repeatCount="indefinite"/><path style="transform-box:fill-box;transform-origin:center" d="M-1.6 0 h3.2" transform="rotate(-60)" stroke="#7c4def"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;180;360" dur="2.20s" begin="0.6s" repeatCount="indefinite" additive="sum"/></path></g></g>
+    <g transform="translate(98 6)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -7;0 0" keyTimes="0;.5;1" dur="0.85s" begin="0.4s" repeatCount="indefinite"/><path style="transform-box:fill-box;transform-origin:center" d="M-1.6 0 h3.2" transform="rotate(10)" stroke="#ff3fd2"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;180;360" dur="1.70s" begin="0.4s" repeatCount="indefinite" additive="sum"/></path></g></g>
+    <g transform="translate(4 48)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -7;0 0" keyTimes="0;.5;1" dur="1.05s" begin="0.7s" repeatCount="indefinite"/><path style="transform-box:fill-box;transform-origin:center" d="M-1.6 0 h3.2" transform="rotate(80)" stroke="#2ec4b6"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;180;360" dur="2.10s" begin="0.7s" repeatCount="indefinite" additive="sum"/></path></g></g>
+    <g transform="translate(116 72)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -7;0 0" keyTimes="0;.5;1" dur="0.9s" begin="0.2s" repeatCount="indefinite"/><path style="transform-box:fill-box;transform-origin:center" d="M-1.6 0 h3.2" transform="rotate(-45)" stroke="#ffd23f"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;180;360" dur="1.80s" begin="0.2s" repeatCount="indefinite" additive="sum"/></path></g></g>
   </g>
-  <!-- whole body wobbles like jelly after landing -->
+  <!-- whole body wobbles like jelly after landing, then bounces on the spot -->
   <g transform="translate(60 120)"><g>
     <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 1;1 1;1.14 0.84;0.93 1.1;1.03 0.97;1 1" keyTimes="0;.4;.55;.7;.85;1" dur="1.5s" fill="freeze"/>
-    <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.02 0.98;1 1" dur="1.4s" repeatCount="indefinite"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.035 0.965;1 1" dur="0.8s" repeatCount="indefinite"/>
     <g transform="translate(-60 -120)">
-      <!-- the peppermint saw blade, spinning -->
+      <!-- the giant peppermint behind it, turning lazily: a scalloped candy edge, red swirls -->
       <g transform="translate(60 46)">
-        <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;360" dur="3s" repeatCount="indefinite"/>
-          <g fill="#f4f4f8" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"><path transform="rotate(0)" d="M-4.6 -50 L0 -60 L4.6 -50Z"/><path transform="rotate(15)" d="M-4.6 -50 L0 -60 L4.6 -50Z"/><path transform="rotate(30)" d="M-4.6 -50 L0 -60 L4.6 -50Z"/><path transform="rotate(45)" d="M-4.6 -50 L0 -60 L4.6 -50Z"/><path transform="rotate(60)" d="M-4.6 -50 L0 -60 L4.6 -50Z"/><path transform="rotate(75)" d="M-4.6 -50 L0 -60 L4.6 -50Z"/><path transform="rotate(90)" d="M-4.6 -50 L0 -60 L4.6 -50Z"/><path transform="rotate(105)" d="M-4.6 -50 L0 -60 L4.6 -50Z"/><path transform="rotate(120)" d="M-4.6 -50 L0 -60 L4.6 -50Z"/><path transform="rotate(135)" d="M-4.6 -50 L0 -60 L4.6 -50Z"/><path transform="rotate(150)" d="M-4.6 -50 L0 -60 L4.6 -50Z"/><path transform="rotate(165)" d="M-4.6 -50 L0 -60 L4.6 -50Z"/><path transform="rotate(180)" d="M-4.6 -50 L0 -60 L4.6 -50Z"/><path transform="rotate(195)" d="M-4.6 -50 L0 -60 L4.6 -50Z"/><path transform="rotate(210)" d="M-4.6 -50 L0 -60 L4.6 -50Z"/><path transform="rotate(225)" d="M-4.6 -50 L0 -60 L4.6 -50Z"/><path transform="rotate(240)" d="M-4.6 -50 L0 -60 L4.6 -50Z"/><path transform="rotate(255)" d="M-4.6 -50 L0 -60 L4.6 -50Z"/><path transform="rotate(270)" d="M-4.6 -50 L0 -60 L4.6 -50Z"/><path transform="rotate(285)" d="M-4.6 -50 L0 -60 L4.6 -50Z"/><path transform="rotate(300)" d="M-4.6 -50 L0 -60 L4.6 -50Z"/><path transform="rotate(315)" d="M-4.6 -50 L0 -60 L4.6 -50Z"/><path transform="rotate(330)" d="M-4.6 -50 L0 -60 L4.6 -50Z"/><path transform="rotate(345)" d="M-4.6 -50 L0 -60 L4.6 -50Z"/></g>
-          <circle r="51" fill="#f4f4f8" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
+        <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;360" dur="9s" repeatCount="indefinite"/>
+          <g fill="#f4f4f8" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6"><circle cx="51.00" cy="0.00" r="5.2"/><circle cx="49.26" cy="13.20" r="5.2"/><circle cx="44.17" cy="25.50" r="5.2"/><circle cx="36.06" cy="36.06" r="5.2"/><circle cx="25.50" cy="44.17" r="5.2"/><circle cx="13.20" cy="49.26" r="5.2"/><circle cx="0.00" cy="51.00" r="5.2"/><circle cx="-13.20" cy="49.26" r="5.2"/><circle cx="-25.50" cy="44.17" r="5.2"/><circle cx="-36.06" cy="36.06" r="5.2"/><circle cx="-44.17" cy="25.50" r="5.2"/><circle cx="-49.26" cy="13.20" r="5.2"/><circle cx="-51.00" cy="0.00" r="5.2"/><circle cx="-49.26" cy="-13.20" r="5.2"/><circle cx="-44.17" cy="-25.50" r="5.2"/><circle cx="-36.06" cy="-36.06" r="5.2"/><circle cx="-25.50" cy="-44.17" r="5.2"/><circle cx="-13.20" cy="-49.26" r="5.2"/><circle cx="-0.00" cy="-51.00" r="5.2"/><circle cx="13.20" cy="-49.26" r="5.2"/><circle cx="25.50" cy="-44.17" r="5.2"/><circle cx="36.06" cy="-36.06" r="5.2"/><circle cx="44.17" cy="-25.50" r="5.2"/><circle cx="49.26" cy="-13.20" r="5.2"/></g>
+          <circle r="51" fill="#f4f4f8"/>
           <g fill="#e0233e"><path transform="rotate(0)" d="M0 -6 C10 -18 26 -30 14 -50 A51 51 0 0 0 -6 -50.6 C8 -34 2 -18 0 -6Z"/><path transform="rotate(45)" d="M0 -6 C10 -18 26 -30 14 -50 A51 51 0 0 0 -6 -50.6 C8 -34 2 -18 0 -6Z"/><path transform="rotate(90)" d="M0 -6 C10 -18 26 -30 14 -50 A51 51 0 0 0 -6 -50.6 C8 -34 2 -18 0 -6Z"/><path transform="rotate(135)" d="M0 -6 C10 -18 26 -30 14 -50 A51 51 0 0 0 -6 -50.6 C8 -34 2 -18 0 -6Z"/><path transform="rotate(180)" d="M0 -6 C10 -18 26 -30 14 -50 A51 51 0 0 0 -6 -50.6 C8 -34 2 -18 0 -6Z"/><path transform="rotate(225)" d="M0 -6 C10 -18 26 -30 14 -50 A51 51 0 0 0 -6 -50.6 C8 -34 2 -18 0 -6Z"/><path transform="rotate(270)" d="M0 -6 C10 -18 26 -30 14 -50 A51 51 0 0 0 -6 -50.6 C8 -34 2 -18 0 -6Z"/><path transform="rotate(315)" d="M0 -6 C10 -18 26 -30 14 -50 A51 51 0 0 0 -6 -50.6 C8 -34 2 -18 0 -6Z"/></g>
-          <circle r="51" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
           <circle r="46" fill="none" stroke="#fff" stroke-width="1" opacity="0.6"/>
+          <circle r="5" fill="#fff" stroke="#e0233e" stroke-width="1.4"/>
         </g>
       </g>
-      <!-- candy-cane horns, sharpened -->
-      <g fill="none" stroke-linecap="round">
-        <path d="M40 22 C30 12 24 -2 14 -10 C6 -16 -2 -10 2 -2" stroke="var(--lg-ink, #1d2230)" stroke-width="8.4"/>
-        <path d="M40 22 C30 12 24 -2 14 -10 C6 -16 -2 -10 2 -2" stroke="#fff" stroke-width="6"/>
-        <path d="M40 22 C30 12 24 -2 14 -10 C6 -16 -2 -10 2 -2" stroke="#e0233e" stroke-width="6" stroke-dasharray="3.4 3.4"/>
-        <path d="M80 22 C90 12 96 -2 106 -10 C114 -16 122 -10 118 -2" stroke="var(--lg-ink, #1d2230)" stroke-width="8.4"/>
-        <path d="M80 22 C90 12 96 -2 106 -10 C114 -16 122 -10 118 -2" stroke="#fff" stroke-width="6"/>
-        <path d="M80 22 C90 12 96 -2 106 -10 C114 -16 122 -10 118 -2" stroke="#e0233e" stroke-width="6" stroke-dasharray="3.4 3.4"/>
-        <path d="M30 6 C26 2 22 -2 18 -5 M90 6 C94 2 98 -2 102 -5" stroke="#fff" stroke-width="1.2" opacity="0.8"/>
-      </g>
-      <g fill="#f4f4f8" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"><path d="M-1 -3 L2 6 L5 -1Z"/><path d="M121 -3 L118 6 L115 -1Z"/></g>
-      <!-- arms -->
+      <!-- arms: one fist pumping, one hand up at its grin -->
       <g stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round">
         <path d="M30 80 C16 80 6 86 2 94 L14 104 C18 98 26 94 36 94Z" fill="#a85a24"/>
-        <path d="M90 80 C104 80 114 86 118 94 L106 104 C102 98 94 94 84 94Z" fill="#a85a24"/>
+        <path d="M82 84 C92 86 100 84 103 76 L92 72 C90 78 86 80 80 79Z" fill="#a85a24"/>
       </g>
       <!-- torso -->
       <path d="M22 126 C20 98 30 78 60 74 C90 78 100 98 98 126 C80 132 40 132 22 126Z" fill="#b5652b" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2" stroke-linejoin="round"/>
@@ -55,78 +51,97 @@
       </g>
       <path d="M57 99 C58 97.6 60 97.6 61 98 M57 110 C58 108.6 60 108.6 61 109" fill="none" stroke="#fff" stroke-width="0.8"/>
       <path d="M62 107 L60 110 L62 112" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"/>
-      <!-- the head -->
-      <g>
-        <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 60 74;-2 60 74;0 60 74;2 60 74;0 60 74" dur="2.8s" repeatCount="indefinite"/>
+      <!-- the head: tipped to one side, bobbing like it is giggling -->
+      <g transform="rotate(7 60 74)"><g>
+        <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 60 74;-4 60 74;0 60 74;3 60 74;0 60 74" dur="1.6s" repeatCount="indefinite"/>
+        <!-- candy-cane horns, blunt and round, knocked to a jaunty tilt -->
+        <g transform="rotate(8 60 26)" fill="none" stroke-linecap="round">
+          <path d="M42 24 C34 12 30 0 22 -8 C14 -15 5 -11 8 -3" stroke="var(--lg-ink, #1d2230)" stroke-width="8.4"/>
+          <path d="M42 24 C34 12 30 0 22 -8 C14 -15 5 -11 8 -3" stroke="#fff" stroke-width="6"/>
+          <path d="M42 24 C34 12 30 0 22 -8 C14 -15 5 -11 8 -3" stroke="#e0233e" stroke-width="6" stroke-dasharray="3.4 3.4"/>
+          <path d="M78 24 C88 16 96 6 106 0 C114 -4 120 2 116 8" stroke="var(--lg-ink, #1d2230)" stroke-width="8.4"/>
+          <path d="M78 24 C88 16 96 6 106 0 C114 -4 120 2 116 8" stroke="#fff" stroke-width="6"/>
+          <path d="M78 24 C88 16 96 6 106 0 C114 -4 120 2 116 8" stroke="#e0233e" stroke-width="6" stroke-dasharray="3.4 3.4"/>
+          <path d="M35 10 C32 5 29 1 25 -3 M88 14 C93 10 98 6 103 3" stroke="#fff" stroke-width="1.2" opacity="0.8"/>
+        </g>
         <path d="M28 46 L32 28 C36 16 46 10 60 10 C66 10 70 10 74 12 C74 16 78 18 81 17 C81 21 85 23 88 23 L92 46 C92 62 80 74 60 76 C40 74 28 62 28 46Z" fill="#b5652b" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2" stroke-linejoin="round"/>
         <path d="M60 10 C66 10 70 10 74 12 C74 16 78 18 81 17 C81 21 85 23 88 23 L92 46 C92 62 80 74 60 76Z" fill="#000" opacity="0.22"/>
         <path d="M33 40 L36 28 C40 20 48 15 56 14 C48 22 42 32 41 48Z" fill="#fff" opacity="0.2"/>
         <!-- the bite: crumbly edge -->
         <path d="M74 12 C74 16 78 18 81 17 C81 21 85 23 88 23" fill="none" stroke="#e0a066" stroke-width="1.6"/>
         <g fill="#6e3410"><circle cx="77" cy="20" r="0.9"/><circle cx="82" cy="24" r="0.8"/><circle cx="74" cy="17" r="0.7"/></g>
-        <!-- piped icing trim, cracking -->
+        <!-- piped icing trim, a little wobbly -->
         <path d="M33 46 L36 30 C40 20 50 15 60 15 C66 15 70 15 72 16 M86 28 L88 46 C88 58 78 69 60 71 C42 69 32 58 32 46" fill="none" stroke="#fff6fa" stroke-width="2.2" stroke-dasharray="4 2" stroke-linecap="round"/>
-        <!-- caramel cracks in the cheeks -->
-        <path d="M36 56 L41 60 L39 65 M84 54 L79 60 L82 64" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M36 56 L41 60 L39 65 M84 54 L79 60 L82 64" fill="none" stroke="#ffa62b" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
-        <!-- glowing gumdrop eyes: ignite -->
-        <g transform="translate(46 50)"><g>
+        <!-- gumdrop blush on both cheeks -->
+        <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.9"><ellipse cx="35.4" cy="57.4" rx="4" ry="2.8" fill="#ff8ab0"/><ellipse cx="85" cy="56.4" rx="4" ry="2.8" fill="#ff8ab0"/></g>
+        <g fill="#fff"><circle cx="34" cy="56.4" r="0.8"/><circle cx="83.6" cy="55.4" r="0.8"/></g>
+        <!-- wide spiral candy eyes, spinning, one bigger than the other -->
+        <g transform="translate(45 45)"><g>
           <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.1;0.1;1.5;1" keyTimes="0;.62;.8;1" dur="1.5s" fill="freeze"/>
-          <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.1;1" dur="1.2s" repeatCount="indefinite"/>
-            <path d="M-10 6 C-10 -8 10 -8 10 6Z" fill="#ff2e4c" opacity="0.45"/>
-            <path d="M-7 5 C-7 -5 7 -5 7 5Z" fill="#e0233e" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1" stroke-linejoin="round"/>
-            <path d="M-5 4 C-5 -2 0 -3.6 3 -2.6 C-1 -1 -3 1 -3 4Z" fill="#ff7a8c"/>
-            <path d="M1.4 -2.6 C2.4 0 2.4 2.4 1.4 4.6 C0.4 2.4 0.4 0 1.4 -2.6Z" fill="#ffe36b"/>
-            <circle cx="-3" cy="-1" r="0.8" fill="#fff"/>
-            <g fill="#fff"><circle cx="4" cy="2" r="0.4"/><circle cx="-4.6" cy="3" r="0.4"/></g>
-          </g>
+          <circle r="9.2" fill="#fff" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6"/>
+          <g transform="scale(1.000)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;360" dur="1.6s" repeatCount="indefinite"/>
+            <path d="M0.60 0.00 L0.69 0.18 L0.73 0.40 L0.69 0.65 L0.57 0.90 L0.37 1.13 L0.08 1.30 L-0.27 1.39 L-0.65 1.39 L-1.05 1.27 L-1.43 1.04 L-1.75 0.69 L-1.98 0.25 L-2.10 -0.27 L-2.08 -0.82 L-1.90 -1.38 L-1.57 -1.90 L-1.10 -2.34 L-0.51 -2.65 L0.18 -2.81 L0.91 -2.79 L1.63 -2.58 L2.31 -2.17 L2.88 -1.58 L3.29 -0.85 L3.52 -0.00 L3.52 0.90 L3.29 1.81 L2.82 2.65 L2.13 3.36 L1.27 3.90 L0.26 4.21 L-0.81 4.26 L-1.89 4.03 L-2.91 3.52 L-3.79 2.75 L-4.46 1.77 L-4.88 0.62 L-4.99 -0.63 L-4.79 -1.90 L-4.26 -3.10 L-3.43 -4.15 L-2.34 -4.98 L-1.05 -5.52 L0.36 -5.72 L1.81 -5.56 L3.20 -5.04 L4.43 -4.16 L5.43 -2.99 L6.12 -1.57 L6.43 -0.00 L6.34 1.63 L5.84 3.21 L4.94 4.64 L3.70 5.83 L2.17 6.67 L0.45 7.12 L-1.36 7.12 L-3.14 6.67 L-4.77 5.77 L-6.15 4.47" fill="none" stroke="#e0233e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </g></g>
+          <circle cx="-3.86" cy="-4.14" r="1.56" fill="#fff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"/>
         </g></g>
-        <g transform="translate(74 50)"><g>
-          <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.1;0.1;1.5;1" keyTimes="0;.66;.84;1" dur="1.5s" fill="freeze"/>
-          <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.1;1" dur="1.2s" repeatCount="indefinite"/>
-            <path d="M-10 6 C-10 -8 10 -8 10 6Z" fill="#ff2e4c" opacity="0.45"/>
-            <path d="M-7 5 C-7 -5 7 -5 7 5Z" fill="#e0233e" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1" stroke-linejoin="round"/>
-            <path d="M5 4 C5 -2 0 -3.6 -3 -2.6 C1 -1 3 1 3 4Z" fill="#ff7a8c"/>
-            <path d="M-1.4 -2.6 C-0.4 0 -0.4 2.4 -1.4 4.6 C-2.4 2.4 -2.4 0 -1.4 -2.6Z" fill="#ffe36b"/>
-            <circle cx="3" cy="-1" r="0.8" fill="#fff"/>
-            <g fill="#fff"><circle cx="-4" cy="2" r="0.4"/><circle cx="4.6" cy="3" r="0.4"/></g>
-          </g>
+        <g transform="translate(75 43.6)"><g>
+          <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.1;0.1;1.5;1" keyTimes="0;.66;.8;1" dur="1.5s" fill="freeze"/>
+          <circle r="10.4" fill="#fff" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6"/>
+          <g transform="scale(1.130)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-360" dur="1.6s" repeatCount="indefinite"/>
+            <path d="M0.60 0.00 L0.69 0.18 L0.73 0.40 L0.69 0.65 L0.57 0.90 L0.37 1.13 L0.08 1.30 L-0.27 1.39 L-0.65 1.39 L-1.05 1.27 L-1.43 1.04 L-1.75 0.69 L-1.98 0.25 L-2.10 -0.27 L-2.08 -0.82 L-1.90 -1.38 L-1.57 -1.90 L-1.10 -2.34 L-0.51 -2.65 L0.18 -2.81 L0.91 -2.79 L1.63 -2.58 L2.31 -2.17 L2.88 -1.58 L3.29 -0.85 L3.52 -0.00 L3.52 0.90 L3.29 1.81 L2.82 2.65 L2.13 3.36 L1.27 3.90 L0.26 4.21 L-0.81 4.26 L-1.89 4.03 L-2.91 3.52 L-3.79 2.75 L-4.46 1.77 L-4.88 0.62 L-4.99 -0.63 L-4.79 -1.90 L-4.26 -3.10 L-3.43 -4.15 L-2.34 -4.98 L-1.05 -5.52 L0.36 -5.72 L1.81 -5.56 L3.20 -5.04 L4.43 -4.16 L5.43 -2.99 L6.12 -1.57 L6.43 -0.00 L6.34 1.63 L5.84 3.21 L4.94 4.64 L3.70 5.83 L2.17 6.67 L0.45 7.12 L-1.36 7.12 L-3.14 6.67 L-4.77 5.77 L-6.15 4.47" fill="none" stroke="#e0233e" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </g></g>
+          <circle cx="-4.37" cy="-4.68" r="1.77" fill="#fff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"/>
         </g></g>
-        <!-- one cracked V of hard icing -->
-        <path d="M32 36 L60 49 L88 36 L88 42 L60 55 L32 42Z" fill="#fff6fa" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/>
-        <path d="M60 49 L88 36 L88 42 L60 55Z" fill="#ff8ab0" opacity="0.45"/>
-        <path d="M33.6 41.2 L60 53.6 L86.4 41.2" fill="none" stroke="#ff8ab0" stroke-width="1"/>
-        <path d="M44 41 L46 46 L44 48 M74 41 L72 45" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linecap="round" stroke-linejoin="round"/>
-        <!-- the jagged cookie-tooth maw, cracking open -->
-        <g transform="translate(60 61)"><g>
-          <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.1;1 0.1;1.1 1.3;1 1" keyTimes="0;.72;.88;1" dur="1.5s" fill="freeze"/>
-          <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1.1;1 1" dur="1.6s" repeatCount="indefinite"/>
-            <path d="M-21 -1 L-14 -3 L-6 -2 L0 -4 L7 -2 L14 -3 L21 -1 C20 9 12 14 0 15 C-12 14 -20 9 -21 -1Z" fill="#2a0f06" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/>
-            <path d="M-9 10 C-4 7 4 7 9 10 C4 13 -4 13 -9 10Z" fill="#6b2a10"/>
-            <g fill="#f4e6c8" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round">
-              <path d="M-19 -1 L-16 7 L-15 4 L-13 -2Z"/><path d="M-12 -2.4 L-9 10 L-6 -2Z"/><path d="M-5 -2.4 L-3 4 L-1 5 L0 -3Z"/><path d="M1 -3 L3 9 L6 -2Z"/><path d="M7 -2 L10 6 L11 3 L13 -2.6Z"/><path d="M14 -2.6 L16 8 L19 -1.4Z"/>
-              <path d="M-15 10 L-12 4 L-9 12Z"/><path d="M-4 13.4 L-2 9 L0 14Z"/><path d="M4 13.6 L7 8 L9 12.6Z"/><path d="M11 11 L14 6 L16 9Z"/>
+        <!-- brows: two arched swoops of icing, flung up in delight -->
+        <path d="M34.2 33.6 C37 26 50 24.4 55.4 30.4 C49.6 28.4 40.2 29.6 36.6 35.4Z" fill="#fff6fa" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3" stroke-linejoin="round"/>
+        <path d="M64.4 26.6 C68 18 82 17.2 87.2 24.6 C81.6 22 71.6 22.6 66.6 28.6Z" fill="#fff6fa" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3" stroke-linejoin="round"/>
+        <path d="M37 32.4 C40 29.6 46 28.6 50 29 M67.4 25.2 C71 22.4 77 21.6 81.6 22.4" fill="none" stroke="#ff8ab0" stroke-width="0.9" stroke-linecap="round"/>
+        <!-- the huge goofy grin, popping open on the entrance -->
+        <g transform="translate(60 60)"><g>
+          <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.1;1 0.1;1.12 1.3;1 1" keyTimes="0;.72;.88;1" dur="1.5s" fill="freeze"/>
+          <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.04 1.08;1 1" dur="0.8s" repeatCount="indefinite"/>
+            <path d="M-23 -2.4 C-12 1.6 12 1.6 23 -3 C21 8 12 14 0 14.4 C-12 14 -21 8 -23 -2.4Z" fill="#2a0f06" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+            <path d="M-11 9.6 C-6 6 6 6 11 9.6 C6 13.4 -6 13.4 -11 9.6Z" fill="#ff5c7a"/>
+            <path d="M-4 9.4 C-1 8.6 1 8.6 4 9.4" fill="none" stroke="#c2304f" stroke-width="0.8" stroke-linecap="round"/>
+            <!-- big square cookie teeth, one knocked out -->
+            <g fill="#f4e6c8" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round">
+              <path d="M-19.4 -1.2 L-13 0.2 L-13.4 4.2 C-14.6 5.4 -17.6 5 -18.6 3.4Z"/>
+              <path d="M-12.2 0.4 L-5.6 1 L-5.8 5.6 C-7.2 6.8 -10.6 6.6 -11.8 5.2Z"/>
+              <path d="M-4.8 1 L1.4 1.1 L1.2 6 C0 7 -3.4 7 -4.6 5.8Z"/>
+              <path d="M9 0.6 L15.2 -0.4 L14.8 4 C13.6 5.4 10.6 5.6 9.2 4.4Z"/>
+              <path d="M16 -0.6 L20 -2 L19.4 2 C18.6 3.2 16.8 3.2 16.2 2.2Z"/>
             </g>
-            <path d="M-10 -1 L-8.6 6 M3 -1.6 L4 6" stroke="#fff" stroke-width="0.6"/>
-            <!-- chocolate drool from the corner of the maw -->
-            <path style="transform-box:fill-box;transform-origin:center top" d="M15 7 C14 13 16 16 17 16 C18.4 16 18.6 12 17.6 7Z" fill="#5a2a10" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1.7;1 1" dur="1.9s" repeatCount="indefinite"/></path>
+            <path d="M-17.6 1 L-16.2 1.2 M-10.8 2 L-9.4 2.2 M-3.4 2.6 L-2 2.6 M10.6 1.8 L12 1.6" stroke="#fff" stroke-width="0.6" stroke-linecap="round"/>
+            <!-- piped icing along the lips, a chunk bitten out of it -->
+            <path d="M-23 -2.4 C-12 1.6 2 2 10 1 M14 0.2 C17 -0.6 20 -1.6 23 -3" fill="none" stroke="#fff6fa" stroke-width="1.6" stroke-dasharray="2.4 1.4" stroke-linecap="round"/>
+            <path d="M-22.4 0.6 C-20 9 -12 13.6 0 14 C10 13.8 15 11 17.6 8.4" fill="none" stroke="#fff6fa" stroke-width="1.6" stroke-dasharray="2.4 1.4" stroke-linecap="round"/>
           </g>
         </g></g>
-      </g>
-      <!-- huge fists with gumdrop knuckles -->
-      <g transform="translate(8 104)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-6;0" dur="1.6s" repeatCount="indefinite"/>
+        <!-- the tongue, sneaking out of the corner to lick the icing off its finger -->
+        <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 80 62;-14 80 62;4 80 62;0 80 62" keyTimes="0;.4;.7;1" dur="1.3s" repeatCount="indefinite"/>
+          <path d="M78 60.4 C83 57.6 87.4 52.6 90.4 48.6 C92.4 46.2 95.6 48 94.4 50.8 C92.6 55.4 86 61.6 80.4 65.2Z" fill="#ff5c7a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1" stroke-linejoin="round"/>
+          <path d="M82.4 60.6 C85.6 58.2 88.8 54.6 91.6 50.6" fill="none" stroke="#c2304f" stroke-width="0.8" stroke-linecap="round"/>
+        </g>
+      </g></g>
+      <!-- the hand raised to its grin, a finger dipped in pink icing -->
+      <g transform="translate(97 73)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-1.4 1;0 0" dur="1.3s" repeatCount="indefinite"/>
+        <path d="M-9 4 C-12 -4 -8 -10 -2 -10 L-3 -20 C-3 -24 2 -24 2.4 -20 L3 -10 C9 -10 12 -4 10 4 C8 10 -6 10 -9 4Z" fill="#b5652b" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M3 -10 C9 -10 12 -4 10 4 C8 9 3 10 0 9.6 C5 6 6 -2 3 -10Z" fill="#000" opacity="0.22"/>
+        <path d="M-7 -1 H6 M-7.4 4 H7" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" opacity="0.6"/>
+        <path d="M-7.2 -6.6 C-4 -9 2 -9 6 -6.8" fill="none" stroke="#fff6fa" stroke-width="1.8" stroke-linecap="round"/>
+        <!-- the icing on the fingertip -->
+        <path d="M-4.4 -19.6 C-5.4 -24.4 -1 -27 1.6 -25 C4.2 -26.6 6.4 -23 4 -20.4 C2.6 -18.8 -3 -18.2 -4.4 -19.6Z" fill="#ff8ab0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+        <path d="M-2.6 -22.4 C-1.6 -23.6 0 -23.8 1 -23.2" fill="none" stroke="#fff" stroke-width="0.8" stroke-linecap="round"/>
+        <path style="transform-box:fill-box;transform-origin:center top" d="M3.4 -20.6 C3.6 -18 4.6 -16.4 5.2 -16.6 C5.8 -16.8 5.6 -18.6 5 -20.8Z" fill="#ff8ab0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1.6;1 1" dur="1.9s" repeatCount="indefinite"/></path>
+        <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"><path d="M-8 -8 C-8 -12.6 -3.6 -12.6 -3.6 -8Z" fill="#2ec4b6"/><path d="M4.6 -8 C4.6 -12.6 9 -12.6 9 -8Z" fill="#ffd23f"/></g>
+      </g></g>
+      <!-- the other fist, pumping with glee -->
+      <g transform="translate(8 104)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-14;0" dur="0.8s" repeatCount="indefinite"/>
         <path d="M-12 -12 C-4 -18 10 -16 14 -8 L16 6 C16 14 8 18 -2 16 L-14 12 C-20 4 -18 -6 -12 -12Z" fill="#b5652b" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
         <path d="M14 -8 L16 6 C16 14 8 18 -2 16 L0 10 C8 10 10 2 8 -6Z" fill="#000" opacity="0.22"/>
         <path d="M-10 -4 H8 M-11 3 H9 M-9 9 H6" stroke="var(--lg-ink, #1d2230)" stroke-width="1" opacity="0.7"/>
         <path d="M-12 -10 C-6 -14 4 -14 10 -10" fill="none" stroke="#fff6fa" stroke-width="2.2" stroke-linecap="round"/>
         <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"><path d="M-12 -14 C-12 -20 -4 -20 -4 -14Z" fill="#7c4def"/><path d="M-3 -16 C-3 -22 5 -22 5 -16Z" fill="#2ec4b6"/><path d="M6 -14 C6 -20 14 -20 14 -14Z" fill="#ffd23f"/></g>
-      </g></g>
-      <g transform="translate(112 104)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;6;0" dur="1.7s" repeatCount="indefinite"/>
-        <path d="M12 -12 C4 -18 -10 -16 -14 -8 L-16 6 C-16 14 -8 18 2 16 L14 12 C20 4 18 -6 12 -12Z" fill="#b5652b" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
-        <path d="M12 -12 C18 -6 20 4 14 12 L2 16 C8 10 10 0 6 -10Z" fill="#000" opacity="0.22"/>
-        <path d="M10 -4 H-8 M11 3 H-9 M9 9 H-6" stroke="var(--lg-ink, #1d2230)" stroke-width="1" opacity="0.7"/>
-        <path d="M12 -10 C6 -14 -4 -14 -10 -10" fill="none" stroke="#fff6fa" stroke-width="2.2" stroke-linecap="round"/>
-        <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"><path d="M12 -14 C12 -20 4 -20 4 -14Z" fill="#ff3fd2"/><path d="M3 -16 C3 -22 -5 -22 -5 -16Z" fill="#2ec4b6"/><path d="M-6 -14 C-6 -20 -14 -20 -14 -14Z" fill="#7c4def"/></g>
       </g></g>
     </g></g>
   </g></g>

@@ -11,31 +11,42 @@ export default function TalkButton({ ctx, lang = '', onText, onStart, disabled, 
   const [note, setNote] = useState('')
   const sessionRef = useRef(null)
   const capRef = useRef(null)
-  useEffect(() => () => { clearTimeout(capRef.current); sessionRef.current?.cancel?.() }, [])
+  const startingRef = useRef(false) // the mic is being opened (a permission prompt can take seconds)
+  const aliveRef = useRef(false)    // set on mount too: StrictMode mounts twice
+  useEffect(() => { aliveRef.current = true; return () => { aliveRef.current = false; clearTimeout(capRef.current); sessionRef.current?.cancel?.(); sessionRef.current = null } }, [])
   const { t } = ctx
   const engine = speechEngines(ctx).stt
 
+  const onTextRef = useRef(onText); onTextRef.current = onText
   const stop = async () => {
     const s = sessionRef.current
     if (!s) return
     sessionRef.current = null
     clearTimeout(capRef.current)
     setState('hearing')
-    try { const text = (await s.stop())?.trim(); if (text) onText?.(text) } catch (e) { setNote(String(e.message || e).slice(0, 140)) }
-    setState('idle')
+    // The LIVE onText: the 60s cap's timer held the render that opened the mic, and its old send() wrote back an old
+    // message list over a typed turn and Ebi's reply (a grade in it was lost).
+    try { const text = (await s.stop())?.trim(); if (text && aliveRef.current) onTextRef.current?.(text) } catch (e) { if (aliveRef.current) setNote(e?.code === 'nomic' ? t('kit_noMic') : String(e.message || e).slice(0, 140)) }
+    if (aliveRef.current) setState('idle')
   }
   const start = async () => {
+    if (startingRef.current || sessionRef.current) return // a second tap while the mic opens started a second recorder
     setNote('')
     onStart?.() // e.g. stop Ebi talking
     if (!engine) { setNote(t('kit_noEngine')); return }
-    try { sessionRef.current = await listen(ctx, { lang }) } catch { setNote(t('kit_noMic')); return }
+    startingRef.current = true
+    let s
+    try { s = await listen(ctx, { lang }) } catch { startingRef.current = false; if (aliveRef.current) setNote(t('kit_noMic')); return }
+    startingRef.current = false
+    if (!aliveRef.current) { s?.cancel?.(); return } // left the screen while the mic opened: never leave it on
+    sessionRef.current = s
     capRef.current = setTimeout(stop, MAX_MS)
     setState('listening')
   }
   const live = state === 'listening'
   return (
     <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-      <button type="button" disabled={disabled || state === 'hearing'} onClick={live ? stop : start}
+      <button type="button" disabled={(disabled && !live) || state === 'hearing'} onClick={live ? stop : start}
         className={`btn-press${live ? ' ebiki-talk-live' : ''}`} aria-label={live ? t('kit_tapStop') : t('kit_tapTalk')}
         style={{
           padding: compact ? '8px 14px' : '12px 20px', borderRadius: RADIUS.pill, fontWeight: 800, fontSize: compact ? 13 : 15,

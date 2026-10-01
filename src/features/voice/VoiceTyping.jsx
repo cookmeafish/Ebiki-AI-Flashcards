@@ -44,6 +44,7 @@ export default function VoiceTyping() {
   const fieldRef = useRef(null)                      // the field a recording belongs to (survives blur)
   const recRef = useRef(null)                        // { stop, cancel }
   const stateRef = useRef('idle')
+  const startingRef = useRef(false)                  // the mic is opening (state is still idle then)
   stateRef.current = state
   const engine = speechEngines(ctx).stt
   const layer = useLayer(LAYER_ID)
@@ -72,7 +73,12 @@ export default function VoiceTyping() {
     let raf = 0
     let last = ''
     const tick = () => {
-      if (!target.isConnected) { setPos(null); setField(null); return }
+      if (!target.isConnected) {
+        // The field left the screen mid-dictation: stop WITHOUT transcribing (the mic stayed open invisibly for up to
+        // 90s, then a paid transcript was thrown away).
+        if (stateRef.current === 'recording') { recRef.current?.cancel(); setNotice(t('voice_fieldGone')) }
+        setPos(null); setField(null); return
+      }
       const r = target.getBoundingClientRect()
       const z = getZoom ? getZoom() : 1
       const s = SIZE * z
@@ -107,13 +113,16 @@ export default function VoiceTyping() {
   }, [t])
 
   const start = useCallback(async (el) => {
-    if (!el || stateRef.current !== 'idle') return
+    // startingRef: the state is still idle while the mic opens, and a second Alt+V there started a second recorder.
+    if (!el || stateRef.current !== 'idle' || startingRef.current) return
     if (!engine) { say(t('voice_needKey')); return }
     fieldRef.current = el
     setNotice('')
     const lang = el.closest?.('[data-voice-lang]')?.getAttribute('data-voice-lang') || ''
     let session
-    try { session = await listen(ctx, { lang }) } catch { say(t('voice_noMic')); return }
+    startingRef.current = true
+    try { session = await listen(ctx, { lang }) } catch { startingRef.current = false; say(t('voice_noMic')); return }
+    startingRef.current = false
     let over = false
     const cap = setTimeout(() => recRef.current?.stop(), MAX_MS)
     recRef.current = {
@@ -121,7 +130,7 @@ export default function VoiceTyping() {
         if (over) return
         over = true; clearTimeout(cap)
         setState('transcribing')
-        try { finish(await session.stop()) } catch (e) { setState('idle'); say(t('voice_failed', { msg: String(e.message || e).slice(0, 160) })) }
+        try { finish(await session.stop()) } catch (e) { setState('idle'); say(e?.code === 'nomic' ? t('voice_noMic') : t('voice_failed', { msg: String(e.message || e).slice(0, 160) })) }
       },
       cancel: () => { if (over) return; over = true; clearTimeout(cap); session.cancel(); setState('idle') },
     }
@@ -150,6 +159,8 @@ export default function VoiceTyping() {
 
   // A recording in progress when the component goes away must release the microphone.
   useEffect(() => () => recRef.current?.cancel?.(), [])
+  // Voice typing switched off in Settings while recording: stop (the recording ran on and still typed its text).
+  useEffect(() => { if (!enabled) recRef.current?.cancel?.() }, [enabled])
 
   if (!enabled || !pos || !layer) return null
   const rec = state === 'recording'

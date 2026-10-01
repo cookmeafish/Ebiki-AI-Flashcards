@@ -53,11 +53,11 @@ export function normalizeScorecard(raw, axes, clean = (s) => s) {
     if (Number.isFinite(Number(v)) && v !== null && v !== '') scores[a] = clamp(v)
   }
   const vals = Object.values(scores)
-  const overall = Number.isFinite(Number(raw.overall)) && raw.overall !== null ? clamp(raw.overall) : vals.length ? clamp(vals.reduce((a, b) => a + b, 0) / vals.length) : 0
+  const overall = Number.isFinite(Number(raw.overall)) && raw.overall !== null && raw.overall !== '' ? clamp(raw.overall) : vals.length ? clamp(vals.reduce((a, b) => a + b, 0) / vals.length) : 0
   const list = (v, n) => (Array.isArray(v) ? v : []).map((x) => clean(str(x, 240))).filter(Boolean).slice(0, n)
   const cards = (Array.isArray(raw.cards) ? raw.cards : [])
     .map((c) => ({ front: clean(str(c?.front, 120)), back: clean(String(c?.back ?? '').trim().slice(0, 600)) }))
     .filter((c) => c.front && c.back).slice(0, MAX_CARDS)
   if (!vals.length && !overall) return null
-  return { scores, overall, goalMet: raw.goalMet === true, summary: clean(str(raw.summary, 400)), strengths: list(raw.strengths, MAX_TIPS), tips: list(raw.tips, MAX_TIPS), cards }
+  return { scores, overall, goalMet: raw.goalMet === true || /^(true|yes)$/i.test(String(raw.goalMet ?? '').trim()), summary: clean(str(raw.summary, 400)), strengths: list(raw.strengths, MAX_TIPS), tips: list(raw.tips, MAX_TIPS), cards }
 }

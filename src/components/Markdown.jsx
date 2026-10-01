@@ -35,6 +35,9 @@ DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
   // Only a LOCAL reference ("url(#grad)", href="#id") stays; a link's href on <a> is untouched.
   if (data.attrName !== 'style') {
     const v = String(data.attrValue || '')
+    // SVG presentation attributes are parsed as CSS, so an escape hides url( ("\75 rl(https://...)" fetched with
+    // no click): any backslash outside a link's href is refused, like in style.
+    if (v.includes('\\') &&!(data.attrName === 'href' && String(node.nodeName).toLowerCase() === 'a')) { data.keepAttr = false; return }
     if (/url\s*\(|image-set/i.test(v) && !/^\s*url\(\s*['"]?#[^)]*\)\s*$/i.test(v)) data.keepAttr = false
     if (data.attrName === 'href' && String(node.nodeName).toLowerCase() !== 'a' && !/^\s*#/.test(v)) data.keepAttr = false
     return
@@ -49,7 +52,9 @@ export const sanitizeHtml = (html, opts = {}) => DOMPurify.sanitize(String(html 
 export default function Markdown({ text, style }) {
   const html = useMemo(() => {
     const raw = marked.parse(String(text || ''), { async: false })
-    const clean = sanitizeHtml(raw, { ADD_ATTR: ['target', 'rel'] })
+    // SANITIZE_NAMED_PROPS: an id in a reply ("<i id=ebikiWindow>") became window.ebikiWindow in a tab, and the app
+    // took itself for the Electron window and crashed on every reload.
+    const clean = sanitizeHtml(raw, { ADD_ATTR: ['target', 'rel'], SANITIZE_NAMED_PROPS: true })
     return clean
   }, [text])
 

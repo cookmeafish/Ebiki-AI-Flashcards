@@ -40,7 +40,7 @@ export default function ModeStudio({ t, kind = 'create', focus = 'all', existing
     // Not an Esc a dialog above already took (declining "end study?" closed Studio too); and it is marked
     // handled, so Settings underneath stays open.
     const onKey = (e) => {
-      if (e.key !== 'Escape' || e.defaultPrevented || document.querySelector('[data-app-dialog]')) return
+      if (e.key !== 'Escape' || e.defaultPrevented || e.isComposing || e.keyCode === 229 || document.querySelector('[data-app-dialog]')) return // an IME's Esc cancels only its candidate
       e.preventDefault()
       if (!loading) onClose()
     }
@@ -203,7 +203,7 @@ Do NOT include the <mode> block while you are still asking questions. Include it
           {spec && !applied && (
             <div style={{ ...card, borderColor: C.brandRing, background: C.brandTint2 || C.surface }}>
               <div style={{ fontSize: 11, fontWeight: 800, color: C.brand, letterSpacing: '.03em', marginBottom: 6 }}>{t('studioPlan')}</div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>{spec.type === 'language' ? '\u{1F310}' : '\u{1F4DA}'} {asText(spec.name)}</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>{spec.type === 'language' ? '\u{1F310}' : '\u{1F4DA}'} {isEdit && focus !== 'all' ? (existing?.name || '') : asText(spec.name)}</div>
               {specLine(t('studioLblGoal'), spec.description)}
               {focus !== 'study' && specLine(t('studioLblBack'), spec.backTemplate)}
               {focus !== 'study' && specLine(t('studioLblTags'), spec.tagRules)}

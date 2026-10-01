@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { ChunkyButton, Card } from '../ui'
-import { AreaArt, ArtLabels, BossArt, LegendsArt, artUrl, BANNER } from './art'
+import { AreaArt, ArtLabels, BossArt, LegendsArt, artUrl, BANNER, ArtMotion } from './art'
 import { BossIntro, BossArena, BossStyle, BOSS, ABILITY_ICON } from './BossArena'
 import { newFight } from './fight'
 import { MOTIFS, PALETTES } from './map'
@@ -16,7 +16,83 @@ const VIEW = { mapW: 620, mapH: 132, thumb: 56, paletteBoss: 72, paletteBannerW:
 const TABS = [
   { id: 'legends', icon: '🗺️', labelKey: 'lg_assetsTabLegends', list: MOTIFS },
   { id: 'raids', icon: '⚔️', labelKey: 'lg_assetsTabRaids', list: RAID_MOTIFS },
+  { id: 'ebi', icon: '🎨', labelKey: 'lg_assetsTabEbi', get list() { return EBI_DRAFTS.candidates.map((c) => c.id) } },
 ]
+
+// Ebi drafts: original redrawn mascot candidates (public/assets/ebi-drafts/<candidate>/<emote>.svg), shown ONLY here so
+// the owner can compare them with the current Ebi before deciding. Nothing else in the app reads these files.
+const EBI_DRAFTS = {
+  dir: '/assets/ebi-drafts',
+  emote: 96,
+  sizes: [46, 64, 128],
+  emotes: ['default', 'happy', 'laughing', 'sad', 'crying', 'surprised', 'confused', 'idea', 'love', 'cool', 'sleep', 'book', 'camera', 'singer'],
+  candidates: [
+    { id: 'classic', nameKey: 'lg_ebiDraftName_classic', descKey: 'lg_ebiDraftDesc_classic' },
+    { id: 'chubby', nameKey: 'lg_ebiDraftName_chubby', descKey: 'lg_ebiDraftDesc_chubby' },
+    { id: 'sleek', nameKey: 'lg_ebiDraftName_sleek', descKey: 'lg_ebiDraftDesc_sleek' },
+    { id: 'sticker', nameKey: 'lg_ebiDraftName_sticker', descKey: 'lg_ebiDraftDesc_sticker' },
+    { id: 'chibi', nameKey: 'lg_ebiDraftName_chibi', descKey: 'lg_ebiDraftDesc_chibi' },
+    { id: 'mochi', nameKey: 'lg_ebiDraftName_mochi', descKey: 'lg_ebiDraftDesc_mochi' },
+    { id: 'tall', nameKey: 'lg_ebiDraftName_tall', descKey: 'lg_ebiDraftDesc_tall' },
+    { id: 'longtail', nameKey: 'lg_ebiDraftName_longtail', descKey: 'lg_ebiDraftDesc_longtail' },
+    { id: 'bold', nameKey: 'lg_ebiDraftName_bold', descKey: 'lg_ebiDraftDesc_bold' },
+    { id: 'geo', nameKey: 'lg_ebiDraftName_geo', descKey: 'lg_ebiDraftDesc_geo' },
+    { id: 'cel', nameKey: 'lg_ebiDraftName_cel', descKey: 'lg_ebiDraftDesc_cel' },
+    { id: 'pixel', nameKey: 'lg_ebiDraftName_pixel', descKey: 'lg_ebiDraftDesc_pixel' },
+    { id: 'watercolor', nameKey: 'lg_ebiDraftName_watercolor', descKey: 'lg_ebiDraftDesc_watercolor' },
+    { id: 'kawaii', nameKey: 'lg_ebiDraftName_kawaii', descKey: 'lg_ebiDraftDesc_kawaii' },
+    { id: 'plush', nameKey: 'lg_ebiDraftName_plush', descKey: 'lg_ebiDraftDesc_plush' },
+    { id: 'anime', nameKey: 'lg_ebiDraftName_anime', descKey: 'lg_ebiDraftDesc_anime' },
+    { id: 'storybook', nameKey: 'lg_ebiDraftName_storybook', descKey: 'lg_ebiDraftDesc_storybook' },
+    { id: 'tempura', nameKey: 'lg_ebiDraftName_tempura', descKey: 'lg_ebiDraftDesc_tempura' },
+    { id: 'chef', nameKey: 'lg_ebiDraftName_chef', descKey: 'lg_ebiDraftDesc_chef' },
+    { id: 'explorer', nameKey: 'lg_ebiDraftName_explorer', descKey: 'lg_ebiDraftDesc_explorer' },
+    { id: 'lineart', nameKey: 'lg_ebiDraftName_lineart', descKey: 'lg_ebiDraftDesc_lineart' },
+    { id: 'papercut', nameKey: 'lg_ebiDraftName_papercut', descKey: 'lg_ebiDraftDesc_papercut' },
+    { id: 'gummy', nameKey: 'lg_ebiDraftName_gummy', descKey: 'lg_ebiDraftDesc_gummy' },
+    { id: 'sumi', nameKey: 'lg_ebiDraftName_sumi', descKey: 'lg_ebiDraftDesc_sumi' },
+  ],
+}
+const ebiDraftUrl = (c, e) => `${EBI_DRAFTS.dir}/${c}/${e}.svg`
+function EbiDrafts({ t }) {
+  const file = { fontSize: 11, color: C.inkFaint, fontFamily: 'monospace' }
+  const h = { fontFamily: FONT.display, fontWeight: 900, fontSize: 16, color: C.ink }
+  // An SVG shown as an <img> never runs scripts or loads anything else.
+  const img = (c, e, px) => <img src={ebiDraftUrl(c, e)} alt="" width={px} height={px} draggable={false} style={{ display: 'block', width: px, height: px }} />
+  return (
+    <div style={{ display: 'grid', gap: 16 }}>
+      <div style={{ fontSize: 13.5, color: C.inkDim, fontWeight: 600 }}>{t('lg_ebiDraftsIntro')}</div>
+      {EBI_DRAFTS.candidates.map((c) => (
+        <Card key={c.id} style={{ display: 'grid', gap: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+            <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 22, color: C.brand }}>{t(c.nameKey)}</div>
+            <div style={{ fontSize: 13.5, color: C.inkDim, fontWeight: 600, marginRight: 'auto' }}>{t(c.descKey)}</div>
+            <span style={file}>{EBI_DRAFTS.dir}/{c.id}/</span>
+          </div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            <div style={h}>{t('lg_ebiDraftsSizes')}</div>
+            <div style={{ display: 'flex', gap: 20, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+              {EBI_DRAFTS.sizes.map((px) => (
+                <div key={px} style={{ display: 'grid', gap: 4, justifyItems: 'center' }}>{img(c.id, 'default', px)}<span style={file}>{px} px</span></div>
+              ))}
+            </div>
+          </div>
+          <div style={{ display: 'grid', gap: 8 }}>
+            <div style={h}>{t('lg_ebiDraftsEmotes')}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${EBI_DRAFTS.emote + 16}px, 1fr))`, gap: 10 }}>
+              {EBI_DRAFTS.emotes.map((e) => (
+                <div key={e} style={{ display: 'grid', gap: 4, justifyItems: 'center', padding: 6, borderRadius: RADIUS.md, border: `2px solid ${C.border}`, background: C.surface }}>
+                  {img(c.id, e, EBI_DRAFTS.emote)}
+                  <span style={file}>{e}.svg</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+      ))}
+    </div>
+  )
+}
 
 const Label = ({ children }) => (
   <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: C.inkFaint }}>{children}</div>
@@ -28,15 +104,25 @@ const RaidPhase = ({ motif, palette, phase, size }) => (
 )
 // The fight arena with a button that deals a third of the health: every press plays the phase change (flash, shake,
 // "PHASE N" tag) the real raid shows. After the last phase it starts over at full health.
+// The ability buttons play that ability's effect and floater on the same arena (to check them without a real fight).
 function PhaseDemo({ t, area, motif, getZoom }) {
   const [step, setStep] = useState(0)
+  const [shot, setShot] = useState(null) // { fx, n }: the ability effect last played
   const third = VIEW.demoHp / RAID.phases
   const damage = Math.min(VIEW.demoHp - 1, Math.round(step * third))
-  const state = { ...newFight(), damage, last: step ? { kind: 'hit', damage: Math.round(third), lives: 0, n: step } : null }
+  const ability = RAID_ABILITY[motif]
+  const fxLast = shot && { kind: shot.fx === 'gorge' ? 'miss' : shot.fx === 'rewind' ? 'block' : 'hit', damage: shot.fx === 'gorge' || shot.fx === 'rewind' ? 0 : 3, lives: shot.fx === 'gorge' ? 1 : 0, fx: shot.fx, n: shot.n }
+  const state = { ...newFight(), damage, last: fxLast || (step ? { kind: 'hit', damage: Math.round(third), lives: 0, n: step } : null) }
+  const play = (fx) => setShot((s) => ({ fx, n: 1000 + ((s && s.n) || 0) + 1 }))
   return (
     <div style={{ display: 'grid', gap: 10 }}>
-      <BossArena key={motif} t={t} area={area} name={motif} need={VIEW.demoHp} lives={RAID.lives} state={state} phases={RAID.phases} ability={RAID_ABILITY[motif]} getZoom={getZoom} kind="raids" />
-      <div><ChunkyButton variant="ghost" color={C.danger} onClick={() => setStep((n) => (n + 1) % RAID.phases)} style={{ fontSize: 12, padding: '6px 10px' }}>⚔️ {t('lg_assetsNextPhase')}</ChunkyButton></div>
+      <BossArena key={motif} t={t} area={area} name={motif} need={VIEW.demoHp} lives={RAID.lives} state={state} phases={RAID.phases} ability={ability} getZoom={getZoom} kind="raids" />
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <ChunkyButton variant="ghost" color={C.danger} onClick={() => { setShot(null); setStep((n) => (n + 1) % RAID.phases) }} style={{ fontSize: 12, padding: '6px 10px' }}>⚔️ {t('lg_assetsNextPhase')}</ChunkyButton>
+        {(ABILITY_FX[ability] || []).map((fx) => (
+          <ChunkyButton key={fx} variant="ghost" color={C.purple} onClick={() => play(fx)} style={{ fontSize: 12, padding: '6px 10px' }}>{ABILITY_ICON[ability]} {t('lg_assetsPlayFx', { name: t(`lg_fx_${fx}`) })}</ChunkyButton>
+        ))}
+      </div>
     </div>
   )
 }
@@ -119,6 +205,7 @@ export default function AssetView({ ctx, onBack }) {
     ? <LegendsArt kind="raids" motif={m} palette={palette} height={VIEW.thumb} width={VIEW.thumb} round={0} />
     : <BossArt area={{ motif: m, palette }} size={VIEW.thumb} />
   return (
+    <ArtMotion.Provider value>
     <ArtLabels.Provider value>
     <BossStyle />
     <div ref={rootRef} style={{ maxWidth: 1100, margin: '0 auto', display: 'grid', gap: 16 }}>
@@ -144,6 +231,7 @@ export default function AssetView({ ctx, onBack }) {
         })}
       </div>
 
+      {tab === 'ebi' ? <EbiDrafts t={t} /> : <>
       <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 6 }}>
         {list.map((m, i) => (
           <button key={m} type="button" onClick={() => setIdx(i)} className={i === idx ? 'ui-tab-current' : undefined}
@@ -232,7 +320,9 @@ export default function AssetView({ ctx, onBack }) {
           </div>
         </div>
       </Card>
+      </>}
     </div>
     </ArtLabels.Provider>
+    </ArtMotion.Provider>
   )
 }

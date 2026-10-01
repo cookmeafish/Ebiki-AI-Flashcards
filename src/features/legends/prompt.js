@@ -192,8 +192,10 @@ export function buildQuizCheckPrompt(subject, items, questions) {
   }
 }
 // Indexes the review marked bad (numbers only, in range).
+// null = no usable verdict (prose, a cut-off reply): the review did not run, and the set is not stamped as reviewed.
 export function parseQuizCheck(raw, n) {
-  const list = Array.isArray(raw?.bad) ? raw.bad : Array.isArray(raw) ? raw : []
+  if (!Array.isArray(raw?.bad) && !Array.isArray(raw)) return null
+  const list = Array.isArray(raw?.bad) ? raw.bad : raw
   return new Set(list.map((b) => Number(typeof b === 'object' ? b?.i : b)).filter((i) => Number.isInteger(i) && i >= 0 && i < n))
 }
 
@@ -269,7 +271,7 @@ export function buildTalkScorePrompt(subject, area, history, { hints = 0, goal =
   }
 }
 export function parseTalkScore(raw, clean) {
-  const s = Number(raw?.score)
+  const s = raw?.score === '' || raw?.score == null ? NaN : Number(raw.score) // "" read as a real 0
   if (!raw || !Number.isFinite(s)) return null
   const list = (v) => (Array.isArray(v) ? v : []).map((x) => String(x).trim().slice(0, 60)).filter(Boolean).slice(0, 3)
   return { score: Math.max(0, Math.min(1, s > 1 ? s / 100 : s)), note: clean(String(raw.note || '')).slice(0, 400), strengths: list(raw.strengths), gaps: list(raw.gaps) }

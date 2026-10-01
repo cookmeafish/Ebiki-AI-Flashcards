@@ -3,6 +3,14 @@
 import { matchTyped } from './grade'
 
 export const JUDGE_ROLE = 'study'
+// A model's yes/no flag: true/false, but also the STRINGS "true"/"False"/"yes"/"no" models write. null = not a flag
+// (unreadable). Read strictly as booleans, a stringified flag made every check fail and the answer could never be graded.
+export const flagOf = (v) => {
+  if (v === true || v === 1) return true
+  if (v === false || v === 0) return false
+  const s = String(v ?? '').trim().toLowerCase()
+  return /^(true|yes|correct)$/.test(s) ? true : /^(false|no|incorrect|wrong)$/.test(s) ? false : null
+}
 const JUDGE_MAX_TOKENS = 300
 
 // ── Strikes (Legends fights and raids): the TESTED thing and the REST of the answer are graded apart ────────────
@@ -48,15 +56,17 @@ export async function judgeStrike(ai, subject, q, answer, { strictAccents = true
   try {
     const raw = await ai.call(system, user, { role: JUDGE_ROLE, maxTokens: STRIKE_MAX_TOKENS, silent: true })
     const j = ai.json(raw)
-    if (!j || typeof j.target !== 'boolean') return { verdict: 'miss', note: '' }
+    // A grading that did not happen is NOT a miss (it cost a life and recorded Again in Anki): 'error' = ask again.
+    const target = j ? flagOf(j.target) : null
+    if (target == null) return { verdict: 'error', note: '' }
     const note = ai.clean(j.note || '')
-    if (!j.target) return { verdict: 'miss', note }
-    if (j.all === true) return { verdict: 'clean', note: '' }
-    if (j.accentsOnly === true) return strictAccents ? { verdict: 'glancing', note, accent: true } : { verdict: 'clean', note, accent: true }
+    if (!target) return { verdict: 'miss', note }
+    if (flagOf(j.all) === true) return { verdict: 'clean', note: '' }
+    if (flagOf(j.accentsOnly) === true) return strictAccents ? { verdict: 'glancing', note, accent: true } : { verdict: 'clean', note, accent: true }
     const fq = j.fix && typeof j.fix === 'object' ? String(j.fix.question || '').trim() : ''
     const fa = j.fix && typeof j.fix === 'object' ? String(j.fix.answer || '').trim() : ''
     return { verdict: 'glancing', note, ...(fq && fa ? { attack: { prompt: ai.clean(fq), accepted: [fa] } } : {}) }
-  } catch { return { verdict: 'miss', note: '' } }
+  } catch { return { verdict: 'error', note: '' } }
 }
 
 // Does the accent slip make a different word or form? A short reason (in the user's language) when it does, else ''.
@@ -71,7 +81,7 @@ async function accentChangesWord(ai, subject, q, ans) {
   ].join('\n')
   try {
     const j = ai.json(await ai.call(system, user, { role: JUDGE_ROLE, maxTokens: JUDGE_MAX_TOKENS, silent: true }))
-    return j?.different === true ? (ai.clean(j.note || '') || ' ') : ''
+    return flagOf(j?.different) === true ? (ai.clean(j.note || '') || ' ') : ''
   } catch { return '' }
 }
 
@@ -94,7 +104,8 @@ export async function judgeAnswer(ai, subject, q, answer) {
   try {
     const raw = await ai.call(system, user, { role: JUDGE_ROLE, maxTokens: JUDGE_MAX_TOKENS, silent: true })
     const j = ai.json(raw)
-    if (!j || typeof j.correct !== 'boolean') return null
-    return { correct: j.correct, note: ai.clean(j.note || '') }
+    const correct = j ? flagOf(j.correct) : null
+    if (correct == null) return null
+    return { correct, note: ai.clean(j.note || '') }
   } catch { return null }
 }

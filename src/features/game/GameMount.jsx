@@ -9,6 +9,8 @@ import { useGame, initGame, configureGame, ensureToday, closeGamePanel, choosePl
 import { computeStreak, dateKey } from './engine'
 import { WeekDots } from './Rail'
 import StreakFlame, { StreakFxStyle } from './StreakFlame'
+import { gameHelpText } from './helpText'
+import { useHelpEntry } from '../kit/useHelp'
 
 const DAY_CHECK_MS = 60000        // how often to notice that the date changed
 const CELEBRATE_POSE = 'party'
@@ -73,6 +75,10 @@ export default function GameMount() {
   const lastDone = useRef(null)     // today's "streak extended" state as last seen (null = not loaded yet)
   const owed = useRef(false)        // a celebration waiting for the user to finish what they're doing
   const dayRef = useRef(dateKey())
+  // Ebi's Help knows the game on every screen (XP, goal, streak, quests, league): "how much XP until my goal?"
+  let helpText = ''
+  try { helpText = gameHelpText(g.player, g.others) } catch { helpText = '' }
+  useHelpEntry(ctx, 'game', helpText, '')
 
   // Load once; the store honors the data-folder switch and knows which features exist (for quests).
   const featureIds = ctx?.registry?.features?.filter((f) => ctx.registry.isActive(f.id)).map((f) => f.id).join(',') || ''
@@ -99,11 +105,15 @@ export default function GameMount() {
 
   // The first XP of the day extends the streak: celebrate, but never in the middle of a question.
   const done = g.player ? computeStreak(g.player).todayDone : null
+  const playerIdRef = useRef(null)
   useEffect(() => {
+    // Another player ("Switch player"): what the previous one had done today says nothing about this one (a player who
+    // already played today got a false "streak extended" celebration).
+    if (g.player?.id !== playerIdRef.current) { playerIdRef.current = g.player?.id ?? null; lastDone.current = null }
     if (done == null) return
     if (lastDone.current === false && done) owed.current = true
     lastDone.current = done
-  }, [done])
+  }, [done, g.player?.id])
   const held = useFocusHeld()
   const busy = !!ctx?.busy || held
   useEffect(() => {

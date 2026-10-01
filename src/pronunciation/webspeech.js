@@ -3,6 +3,7 @@
 // exact dialect → base language → null. Single words are far below the ~15s
 // utterance truncation limit, so no chunking is needed.
 import { langInfo } from './langcodes'
+import { REGION_ALIASES } from './matcher'
 
 // Voice lang tags that differ from the language's own code (data, not per-language branches):
 // browsers ship Norwegian as nb/nn, and some still report Hebrew/Indonesian by their old codes.
@@ -49,13 +50,16 @@ export async function resolveWebSpeech({ word, lang, region = '' }) {
   const norm = (t) => String(t || '').replace(/_/g, '-').toLowerCase()
   const bases = [base, ...(VOICE_ALIASES[base] || [])]
   const notBase = (v) => (VOICE_NOT_BASE[base] || []).some((t) => norm(v.lang) === t || norm(v.lang).startsWith(t + '-'))
-  const voice = voices.find((v) => norm(v.lang) === wanted)
+  // "uk" (what Commons and the Settings hint use) is "en-GB" for voices: British was read in the first en-* voice.
+  const wantedAll = [wanted, ...(region ? (REGION_ALIASES[String(region).toLowerCase()] || []).map((r) => `${base}-${r}`) : [])]
+  const voice = wantedAll.map((w) => voices.find((v) => norm(v.lang) === w)).find(Boolean)
     || bases.map((b) => voices.find((v) => norm(v.lang).startsWith(b + '-') && !notBase(v)) || voices.find((v) => norm(v.lang) === b)).find(Boolean)
   if (!voice) return null
   return {
     kind: 'speak', source: 'webspeech',
-    speak: () => {
+    speak: (onEnd) => {
       const u = new SpeechSynthesisUtterance(word)
+      if (onEnd) { u.onend = onEnd; u.onerror = onEnd }
       u.voice = voice
       u.lang = voice.lang
       u.rate = 0.85 // slightly slow for learners

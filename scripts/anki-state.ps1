@@ -74,4 +74,7 @@ $state = @{
   # Anki is up, showing something, and has no main window: it is stopped on a question.
   awaitingInput = (($pids.Count -gt 0) -and ($main.Count -eq 0) -and ($dialogs.Count -gt 0))
 }
+# The server reads this JSON line as UTF-8; Windows PowerShell writes the pipe in the OEM code page, so translated
+# failure reasons (and accented paths) arrived as "?" marks. No BOM: the line must stay parseable.
+try { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false } catch {}
 [Console]::Out.WriteLine((ConvertTo-Json $state -Compress))

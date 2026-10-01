@@ -316,3 +316,18 @@ describe('keyOfOtherProvider', () => {
     expect(keyOfOtherProvider(PROVIDERS.anthropic, 'sk-ant-api03-xyz')).toBe(null)
   })
 })
+
+describe('a reply cut off by its own reasoning', () => {
+  it('retries once with room when reasoning used the budget and the text stopped at the limit', async () => {
+    const cut = new Response(JSON.stringify({ choices: [{ message: { content: 'Half a sen' }, finish_reason: 'length' }], usage: { prompt_tokens: 10, completion_tokens: 600, completion_tokens_details: { reasoning_tokens: 450 } } }), { status: 200 })
+    const calls = stub((n) => (n === 1 ? cut : okOpenAi('A whole sentence.')))
+    const out = await PROVIDERS.openai.call('k', 'sys', 'user', 'o4-mini', undefined, 600)
+    expect(calls).toHaveLength(2)
+    expect(out).toBe('A whole sentence.')
+  })
+  it('keeps the reply as is when no reasoning was involved', async () => {
+    const calls = stub(() => okOpenAi('Long text that hit the cap', 'length'))
+    await PROVIDERS.openai.call('k', 'sys', 'user', 'gpt-4o-mini', undefined, 600)
+    expect(calls).toHaveLength(1)
+  })
+})

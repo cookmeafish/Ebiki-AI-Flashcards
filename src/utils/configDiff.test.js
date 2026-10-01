@@ -59,3 +59,14 @@ describe('config diff (shared config.json)', () => {
       .toEqual({ appTheme: 'd', aiModels: { g: { c: 1 } } })
   })
 })
+
+describe('feature settings (config.json features[id]) are merged per entry', () => {
+  it('two computers changing different features keep both', () => {
+    const loaded = { features: { legends: { focus: false } } }
+    // Computer A turns on an optional feature; computer B (still holding the old copy) changes Legends focus.
+    const a = post(loaded, { features: { legends: { focus: false }, 'voice-chat': { enabled: true } } })
+    const b = post(loaded, { features: { legends: { focus: true } } })
+    const disk = mergeConfigPatch(mergeConfigPatch(loaded, a.body), b.body)
+    expect(disk.features).toEqual({ legends: { focus: true }, 'voice-chat': { enabled: true } })
+  })
+})

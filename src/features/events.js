@@ -9,7 +9,10 @@ export const EVENTS = {
   CARDS_ADDED: 'cards.added',             // { n, source, mode } new cards went into a deck
   CHAT_SENT: 'chat.sent',                 // { mode } the user sent a Chat message
   PRACTICE_ANSWERED: 'practice.answered', // { source, correct, mode } one practice question (never touches Anki)
-  PRACTICE_DONE: 'practice.done',         // { source, mode, total, correct } a practice session finished
+  PRACTICE_DONE: 'practice.done',         // { source, mode, total, correct, gaps?, strengths? } a practice session finished
+  // Wrong answers in a practice activity (never an Anki review), for the Mistake Gym:
+  // { source, mode, misses: [{ front, back, question, answer, expected, feedback }] }
+  PRACTICE_MISSED: 'practice.missed',
   CALL_DONE: 'call.done',                 // { mode, cards } an Ebi Call ended; `cards` = reviews it recorded
   LEGENDS_STEP: 'legends.stepCleared',    // { mode, kind, area, effort, replays } a Legends step was cleared (area = 0-based index
                                           // on the map; effort 0.5..1.3 = how hard the answers were; replays = earlier clears)

@@ -5,7 +5,9 @@ import { useFeatureCtx } from '../registry'
 import { ChunkyButton, Card, EbiSays, tCount } from '../ui'
 import { poseFile } from '../../config/shrimp'
 import { QuizRunner, sanitizeQuestions, RuleCardButton, readPracticeLog, recordPractice } from '../kit'
+import { learnerLevelLine } from '../kit/learnerStore'
 import { EVENTS } from '../events'
+import { useHelpEntry } from '../kit/useHelp'
 import { useMistakes, updateMistakes, configureGym, GYM_FEATURE_ID } from './store'
 import { pickForWorkout, applyPractice, WORKOUT_SIZE, GYM_SRC } from './mistakes'
 import { buildWorkoutPrompt, WORKOUT_ROLE, WORKOUT_MAX_TOKENS } from './prompt'
@@ -22,6 +24,14 @@ export default function GymScreen({ onExit }) {
   const [phase, setPhase] = useState('overview') // overview | loading | run
   const [workout, setWorkout] = useState(null)   // { diagnosis, questions, targets }
   const [error, setError] = useState('')
+  // What Ebi's Help knows: the mistakes collected, and the workout's diagnosis. While a workout runs only the
+  // fronts are named (the quiz itself reports its question; its answers stay secret).
+  const top = (list?.items || []).filter((m) => !m.cleared).slice(0, 10)
+  useHelpEntry(ctx, 'mistake-gym', [
+    `Activity open: Mistake Gym (${phase === 'run' ? 'a workout is running' : 'the overview'}). ${(list?.items || []).length} mistakes collected from studying.`,
+    phase !== 'run' && top.length ? `Most recent mistakes: ${top.map((m) => `"${m.front}" (asked "${String(m.question || '').slice(0, 100)}", answered "${String(m.answer || '').slice(0, 60)}"${m.expected ? `, expected "${String(m.expected).slice(0, 60)}"` : ''}${m.n > 1 ? `, missed ${m.n} times` : ''})`).join('; ')}` : '',
+    phase !== 'run' && workout?.diagnosis ? `The workout's diagnosis: ${String(workout.diagnosis).slice(0, 500)}` : '',
+  ].filter(Boolean).join('\n'))
   if (!ctx) return null
   const { t, subject, ai } = ctx
   configureGym({ isBlocked: () => !!ctx.isDataSwitching?.() })
@@ -33,25 +43,26 @@ export default function GymScreen({ onExit }) {
   const start = async () => {
     setError(''); setPhase('loading')
     const targets = pickForWorkout(list, WORKOUT_SIZE, { log: await readPracticeLog(ctx) })
-    const { system, user } = buildWorkoutPrompt(subject, targets, { slips })
+    const { system, user } = buildWorkoutPrompt(subject, targets, { slips, level: await learnerLevelLine(ctx) })
     try {
       const raw = await ai.call(system, user, { role: WORKOUT_ROLE, maxTokens: WORKOUT_MAX_TOKENS })
       const j = ai.json(raw)
-      const questions = sanitizeQuestions((j?.questions || []).map((q) => ({ ...q, question: ai.clean(q.question), explanation: ai.clean(q.explanation) })))
+      const questions = sanitizeQuestions((Array.isArray(j) ? j : Array.isArray(j?.questions) ? j.questions : []).filter((q) => q && typeof q === 'object').map((q) => ({ ...q, question: ai.clean(q.question), explanation: ai.clean(q.explanation) })))
       if (questions.length < MIN_QUESTIONS) throw new Error(t('gym_badWorkout'))
-      setWorkout({ diagnosis: ai.clean(j?.diagnosis || ''), questions, targets })
+      setWorkout({ diagnosis: ai.clean(typeof j?.diagnosis === 'string' ? j.diagnosis : ''), questions, targets })
       setPhase('run')
     } catch (e) { setError(String(e.message || e)); setPhase('overview') }
   }
 
   // The mistake a question targets (for the rule card and the practice log).
   const mistakeOf = (q) => (workout?.targets || []).find((m) => m.id === q?.target) || null
-  const finish = (results) => {
+  const finish = (results, done = false) => {
     updateMistakes(modeId, (l) => applyPractice(l, results.map((r) => ({ target: r.question.target, correct: r.correct }))))
     // Tell the other activities what was drilled, so they pick other cards and topics for a while.
     const fronts = [...new Set(results.map((r) => mistakeOf(r.question)?.front).filter(Boolean))]
     recordPractice(ctx, GYM_SRC, [...fronts.map((f) => ({ kind: 'card', label: f })), ...(workout?.diagnosis ? [{ kind: 'topic', label: workout.diagnosis }] : [])])
-    ctx.emit(EVENTS.PRACTICE_DONE, { source: GYM_FEATURE_ID, mode: modeId, total: results.length, correct: results.filter((r) => r.correct).length })
+    // Only a FINISHED workout pays and counts for the quest and the level (a quit after one skip paid both).
+    if (done) ctx.emit(EVENTS.PRACTICE_DONE, { source: GYM_FEATURE_ID, mode: modeId, total: results.length, correct: results.filter((r) => r.correct).length })
   }
 
   if (phase === 'run' && workout) {
@@ -63,9 +74,9 @@ export default function GymScreen({ onExit }) {
             <RuleCardButton ctx={ctx} compact source={{ text: workout.diagnosis }} />
           </div>
         )}
-        <QuizRunner questions={workout.questions} t={t} ai={ai} subject={subject} confirm={ctx.confirm} title={t('gym_title')}
-          onAnswer={(q, correct) => ctx.emit(EVENTS.PRACTICE_ANSWERED, { source: GYM_FEATURE_ID, correct, mode: modeId })}
-          onFinish={finish}
+        <QuizRunner questions={workout.questions} t={t} ai={ai} subject={subject} ctx={ctx} confirm={ctx.confirm} title={t('gym_title')}
+          onAnswer={(q, correct, a, info) => { if (!info?.skipped) ctx.emit(EVENTS.PRACTICE_ANSWERED, { source: GYM_FEATURE_ID, correct, mode: modeId }) }}
+          onFinish={(r) => finish(r, true)}
           feedbackExtra={(q, correct, answer) => (correct ? null : (
             <RuleCardButton ctx={ctx} compact source={{ text: q.explanation, card: mistakeOf(q)?.front, asked: q.prompt, answered: answer, expected: q.kind === 'choice' ? q.choices[q.answerIdx] : (q.accepted || [])[0] }} />
           ))}

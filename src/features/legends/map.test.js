@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
+import { tallyStudiedCard,
   slug, parseMapPlan, parseAreaDetail, createMap, normalizeMap, shapeMap, needsDetail, applyAreaDetail, applyNodeResult,
   starsFor, adaptiveSplit, mapProgress, weakItems, ensureWeakNodes, applyLegendaryResult, WEAK_BONUS_LIVES, mergeEdit, parseMapEdit, editChanged, appendAreas, needsMoreAreas, currentArea, MAP_VERSION, AREAS,
 } from './map'
@@ -258,5 +258,22 @@ describe('review fixes', () => {
     const area = (edited.map || edited).areas.find((a) => a.title === 'A new topic')
     expect(area.bossName).toBe('')
     expect(area.bonusLife).toBe(false)
+  })
+})
+
+describe('tallyStudiedCard', () => {
+  it('counts a Study answer on the item whose card it is (never gold)', () => {
+    const map = { areas: [{ id: 'a', items: [{ id: 'i1', cardNoteId: 77, seen: 1, right: 1 }, { id: 'i2' }] }, { id: 'b', items: [] }] }
+    const next = tallyStudiedCard(map, '77', false)
+    expect(next.areas[0].items[0]).toMatchObject({ seen: 2, right: 1 })
+    expect(next.areas[0].items[0].bossRight).toBeUndefined()
+    expect(next.areas[1]).toBe(map.areas[1])
+    expect(tallyStudiedCard(next, 77, true).areas[0].items[0]).toMatchObject({ seen: 3, right: 2 })
+  })
+  it('returns the same map when no item has that card', () => {
+    const map = { areas: [{ id: 'a', items: [{ id: 'i1' }] }] }
+    expect(tallyStudiedCard(map, 5, true)).toBe(map)
+    expect(tallyStudiedCard(null, 5, true)).toBe(null)
+    expect(tallyStudiedCard(map, null, true)).toBe(map)
   })
 })

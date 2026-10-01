@@ -12,6 +12,7 @@ import roleplay from './roleplay'
 import listenSpeak from './listen-speak'
 import scenes from './scenes'
 import legends from './legends'
+import learner from './learner'
 
 export const registry = createRegistry([
   game,
@@ -26,6 +27,7 @@ export const registry = createRegistry([
   listenSpeak,
   scenes,
   legends,
+  learner,
 ])
 
 export { EVENTS } from './events'

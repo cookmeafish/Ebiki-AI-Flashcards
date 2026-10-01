@@ -11,7 +11,7 @@ export const SPEAKERS = ['A', 'B', 'N'] // two characters and a narrator
 const LINE_CHARS = 280
 const BACK_CHARS = 200
 
-export function buildScenePrompt(subject, items, { level = '', knowledge = '', theme = '', avoid = [] } = {}) {
+export function buildScenePrompt(subject, items, { level = '', knowledge = '', theme = '', avoid = [], slips = '' } = {}) {
   const lang = subject.isLanguage
   const list = items.map((it, i) => `${i + 1}. ${it.front} = ${String(it.back || '').replace(/\s+/g, ' ').slice(0, BACK_CHARS)}`).join('\n')
   return {
@@ -26,6 +26,7 @@ export function buildScenePrompt(subject, items, { level = '', knowledge = '', t
       theme ? `Theme: ${theme}` : '',
       !theme && avoid.length ? `Scenes and topics practiced recently (pick a different situation): ${avoid.join('; ')}` : '',
       level ? `Learner level: ${level}` : '',
+      slips ? `Mistakes this learner keeps making (let the story model the right form once or twice, naturally):\n${slips}` : '',
       knowledge ? `The learner's material:\n${knowledge}` : '',
       `Then ${SCENE_QUESTIONS} questions in ${subject.userLang} that check real understanding of what happened and why (not trivia about names), mixing choice (4 real options) and typed. "explanation" in ${subject.userLang}.`,
     ].filter(Boolean).join('\n'),

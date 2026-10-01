@@ -5,7 +5,7 @@ import { poseFile, shrimpUrl } from '../../config/shrimp'
 import { useFeatureCtx } from '../registry'
 import { Card, ProgressBar, tCount } from '../ui'
 import { useGame, openGamePanel, todayTotals, updateProfile } from './store'
-import { computeStreak, weekRow, questProgress, leagueBoard, friendStreak, TIERS, GOALS, DEFAULT_GOAL, MAX_FREEZES, dateKey, dayTotals } from './engine'
+import { computeStreak, weekRow, questProgress, leagueBoard, friendStreak, TIERS, GOALS, DEFAULT_GOAL, MAX_FREEZES, dateKey, dayTotals, dayMeta } from './engine'
 
 const DOT = 26                    // weekday circle size
 const LEAGUE_ROWS = 6             // board rows shown
@@ -80,7 +80,7 @@ export function GoalCard() {
           so the labels spilled past their boxes. */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6, marginTop: 12 }}>
         {GOALS.map((opt) => (
-          <button key={opt.key} onClick={() => updateProfile({ goalXp: opt.xp })} className={goal === opt.xp ? 'ui-tab-current' : undefined}
+          <button key={opt.key} onClick={() => updateProfile({ goalXp: opt.xp })} className={goal === opt.xp ? 'tip ui-tab-current' : 'tip'}
             data-tip={t('game_goalMinutes', { m: opt.minutes })}
             style={{
               minWidth: 0, padding: '6px 4px', borderRadius: RADIUS.sm, fontSize: 11, fontWeight: 800,
@@ -99,8 +99,7 @@ export function QuestsCard() {
   if (!ctx || !g.player) return null
   const { t } = ctx
   const key = dateKey()
-  const recs = g.player.days?.[key] || {}
-  const quests = Object.values(recs).find((r) => r?.quests?.length)?.quests || []
+  const quests = dayMeta(g.player, key).quests || [] // the SAME list computeStreak judges the freeze on
   if (!quests.length) return null
   const totals = dayTotals(g.player, key)
   const prog = quests.map((q) => questProgress(q, totals))
@@ -140,7 +139,8 @@ export function LeagueCard() {
           <div style={{ fontSize: 12, color: C.inkDim }}>{b.daysLeft === 0 ? t('game_daysLeftNone') : tCount(t, 'game_daysLeft', b.daysLeft)}</div>
         </div>
       </div>
-      {b.rows.slice(0, LEAGUE_ROWS).map((r, i) => {
+      {/* Your own row is always shown: cut at LEAGUE_ROWS, a slow start behind two friends hid you from the board. */}
+      {(() => { const all = b.rows.map((r, i) => ({ r, rank: i + 1 })); const mine = all.findIndex((x) => x.r.kind === 'me'); return mine >= LEAGUE_ROWS ? [...all.slice(0, LEAGUE_ROWS - 1), all[mine]] : all.slice(0, LEAGUE_ROWS) })().map(({ r, rank }) => {
         const me = r.kind === 'me'
         const label = me ? (g.player.name || t('game_you')) : r.kind === 'ghost' ? tCount(t, 'game_ghost', r.weeksAgo) : (r.name || t('game_unnamed'))
         return (
@@ -148,7 +148,7 @@ export function LeagueCard() {
             display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: RADIUS.sm, marginBottom: 2,
             background: me ? C.brandTint : 'transparent', fontSize: 13, fontWeight: me ? 800 : 600, color: C.ink,
           }}>
-            <span style={{ width: 18, color: C.inkFaint, fontWeight: 800 }}>{i + 1}</span>
+            <span style={{ width: 18, color: C.inkFaint, fontWeight: 800 }}>{rank}</span>
             <span style={{ width: 20 }}>{me ? '⭐' : r.kind === 'ghost' ? '👻' : '🦐'}</span>
             <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: r.kind === 'ghost' ? 0.75 : 1 }}>{label}</span>
             <span style={{ color: C.inkDim, fontWeight: 800 }}>{r.xp} XP</span>

@@ -6,9 +6,20 @@ plus the technical rules the app enforces. The files live in `public/assets/lege
 
 ## What the owner wants
 
-- **Bosses look like real bosses.** Super detailed, ferocious, menacing: glowing eyes, fangs or a maw, claws, spikes,
-  scars, armor, cracks of light. Never cute, never a smiley blob with teeth. A boss should read as a threat at 64 px
-  on the map and still reward a close look at 190 px on its intro card.
+- **Bosses look like real bosses.** Super detailed: glowing eyes, a maw, claws, spikes, scars, armor, cracks of light.
+  Never cute, never a smiley blob with teeth. A boss should read as a boss at 64 px on the map and still reward a
+  close look at 190 px on its intro card.
+- **Mood: RAID bosses are all terrifying; Legends bosses VARY (owner, 2026-10).** "Raid bosses should look super
+  threatening but normal Legends bosses don't all need to be mean looking. Some mean looking ones, but also variety."
+  A Legends boss can be mean, but also smug, playful, proud, eerie, sleepy, mischievous, regal, sad or comic-menacing:
+  pick the mood that fits its area and give the set a spread. Not every Legends boss gets the angry V brow (the
+  "Faces sell menace" recipe below is for the mean ones and for raids).
+  **Mean is still welcome where the design calls for it** (owner: "this doesn't mean there should never be any mean
+  bosses ... if it makes sense for the boss design then yea keep it mean"). The rule is VARIETY, not "no mean
+  bosses": a dread knight, a lava wyrm or a three-headed hound stay menacing; a mountain spirit, a kitsune or a candy
+  giant may be serene, sly or goofy. Decide per boss from its concept, then check the whole set for a spread. In 2026-10
+  the owner had these eight changed from mean: mountains (serene), sakura (enigmatic), sky (playful), sweets (goofy),
+  ice (haughty), jungle (smug), graveyard (melancholy), garden (dopey and hungry).
 - **Every boss and every banner is truly unique**, not "the same thing but slightly different". Vary the whole idea,
   not the colors:
   - silhouette and pose (a head bust, a full body, winged, a profile view, a creature rising out of something);
@@ -103,6 +114,31 @@ redrawn, its banner's boss presence is updated to match.
      viewer), plus the tests and `check-art.mjs` once more after the last fix. Fix what any check finds, then run all
      three again.
 
+## How the owner wants RAID bosses made (2026-10: "i love the new raid bosses")
+
+The third and fourth waves (leviathan to dreamer) and the 2026-10 redraws of lich, chimera, hydra, titan, void and
+seraph are what the owner loved. Every new or redrawn raid boss follows this, on top of everything above:
+- **"Super crazy bonkers", "like WTF is that".** Seraph and Void are the bar. A raid boss is the most extreme drawing
+  in the app: a creature nobody has seen before, not a big version of a Legends boss.
+- **Detail is the point**: about 200 to 300 KB of hand-placed shapes (a 30 KB raid boss reads as lackluster next to
+  them), but every addition must still read at 120 px; cut what muddies the small read.
+- **The backdrop is part of the boss** (a crypt throne of skulls, a foundry with a pouring crucible, a black hole's
+  disk, a colosseum): it fills the frame, bleeds past it and changes with the phases.
+- **Terrifying from phase 1.** Phase 2 makes it furious (wounds open, more eyes, the face rages); phase 3 is a TRUE
+  FORM, nearly a different creature (a maw of turning tooth rings, a colossal wraith, armor blown into an orbit around
+  a skeletal core, eyes everywhere). Each phase must read as a different moment at 120 px.
+- **The face changes every phase**, and the boss's signature stays readable through all three (the Seraph's one head
+  eye stays in phase 3: the owner asked for it back when a maw replaced it). Transform what makes it loved, never
+  remove it.
+- **The ability shows in the art** (the hydra's regrowing heads, the titan's plating, the lich's phylactery at the
+  center of every phase) and has its own effect in the fight (`AbilityFx.jsx`).
+- **Unique against the whole set**: silhouette, palette, backdrop, face and entrance (`ENTRANCES`, its own MOVEMENT).
+- **Owner dislikes, again**: flat aura blobs, eyelash brows, fire not rooted in what burns (eye fire was removed from
+  the inferno), bobbing teeth, a sword in the hands (it boxes the pose in), nose rings, twitchy fast idle motion.
+- **Process**: one agent per boss with a written plan (the brief lists these rules and the checks), a generator
+  script kept OUTSIDE the repo, renders of every phase (420, 300, 120 px, dark and light, entrance frames), vitest and
+  `check-art.mjs`, then the owner looks in the asset viewer (Raid bosses tab: phases and every ability effect).
+
 ## The boss recipe (what made the 2026-09 raid redesign land)
 
 The first raid bosses were called "boring, uninspired and weak" (small figures in empty space, one neck, a boxy robot,
@@ -119,7 +155,7 @@ the intro) shows, the idle motion, the SVG entrance beats and the card entrance.
 - **A backdrop that is part of the boss**, never a plain glow: a maelstrom it rises from, a gear halo, a rune circle,
   a burning spiky shockwave, a black hole's disk. It animates on its own rhythm.
 
-**Faces sell menace** (check the face at 420 px first; a soft face ruins the whole boss)
+**Faces sell menace** (raid bosses, and the Legends bosses meant to be mean; check the face at 420 px first)
 - **Angry brows over the eyes**: a heavy brow ridge angled DOWN to the middle, or a V-shaped visor slit. Round eyes,
   or eyes with no brow, read friendly.
 - **Slit or burning eyes with a glow halo** (the same shape bigger and bright behind it, 0.4 to 0.5), a slit pupil,

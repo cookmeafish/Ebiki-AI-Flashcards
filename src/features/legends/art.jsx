@@ -12,6 +12,8 @@
 // waves). `animated` picks what plays: 'intro' = both, 'idle' = loops only, false = none (the file's own attributes
 // are its resting pose, so a still file shows the finished boss). Reduced motion always gets false.
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { useFeatureCtx, featureCfg } from '../registry'
+import { LEGENDS_ID } from './store'
 import { RADIUS } from '../../config/tokens'
 import { MOTIFS } from './map'
 import { RAID_MOTIFS } from './raid'
@@ -60,7 +62,23 @@ function loadArt(url) {
 }
 
 const ANIM_TAGS = new Set(['animatetransform', 'animatemotion'])
-const reducedMotion = () => { try { return !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches } catch { return false } }
+export const reducedMotion = () => { try { return !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches } catch { return false } }
+// The system's "reduce motion" (Windows: Animation effects off) stills every drawing. Two things override it: the
+// Legends setting "Always animate the art" (features.legends.motion) and the asset view (ArtMotion), which is there
+// to look at the motion. useArtMotionAlways() also lets BossArena keep its card entrances (the lg-motion class).
+// The owner's "Still bosses" (features.legends.still, toggled on the fight screen and in Settings) stills them all
+// for a learner who wants no distraction, and wins over "Always animate"; only the asset view ignores it.
+export const ArtMotion = createContext(false)
+export function useArtStill() {
+  const forced = useContext(ArtMotion)
+  const ctx = useFeatureCtx()
+  return !forced && !!ctx && featureCfg(ctx, LEGENDS_ID).still === true
+}
+export function useArtMotionAlways() {
+  const forced = useContext(ArtMotion)
+  const ctx = useFeatureCtx()
+  return forced || (!!ctx && featureCfg(ctx, LEGENDS_ID).motion === true && featureCfg(ctx, LEGENDS_ID).still !== true)
+}
 // Sanitized markup with only the motion `mode` allows (parsed inertly; nothing here runs the file).
 export function withMotion(svg, mode) {
   if (!svg || mode === 'intro') return svg
@@ -99,7 +117,9 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
     loadArt(url).then((svg) => { if (live) setHtml({ url, svg }) })
     return () => { live = false }
   }, [url])
-  const mode = locked || reducedMotion() ? false : animated
+  const always = useArtMotionAlways()
+  const still = useArtStill()
+  const mode = locked || still || (!always && reducedMotion()) ? false : animated
   const raw = html.url === url ? html.svg : ''
   const figure = kind !== 'areas'
   const svg = useMemo(() => { const out = withMotion(raw, mode); return figure ? freeFigure(out) : out }, [raw, mode, figure])

@@ -46,3 +46,27 @@ describe('sanitizeQuestions', () => {
     expect(said.audio).toBeUndefined()
   })
 })
+
+describe('dual questions never offer two right answers', () => {
+  it('a synonym of the key among the choices keeps the question typed only', async () => {
+    const { sanitizeQuestions } = await import('./grade')
+    const [q] = sanitizeQuestions([{ question: 'Translate: car', accepted: ['coche', 'carro'], choices: ['coche', 'carro', 'camion', 'moto'], answer: 'coche' }], { dual: true })
+    expect(q.kind).toBe('typed')
+    expect(q.alt).toBeUndefined()
+  })
+  it('choices that differ only in case are one choice, and an index answer still finds its text', async () => {
+    const { sanitizeQuestions } = await import('./grade')
+    const [q] = sanitizeQuestions([{ question: 'Pick the car', choices: ['coche', 'Coche', 'moto', 'tren'], answer: 2 }])
+    expect(q.choices.length).toBe(3)
+    expect(q.choices[q.answerIdx]).toBe('moto')
+  })
+})
+
+describe('flagOf reads the flags models write as text', () => {
+  it('true/false, strings and nonsense', async () => {
+    const { flagOf } = await import('./judge')
+    expect([true, 'true', 'True', 'yes', 1].map(flagOf)).toEqual([true, true, true, true, true])
+    expect([false, 'false', 'No', 0].map(flagOf)).toEqual([false, false, false, false])
+    expect([undefined, null, 'maybe', {}].map(flagOf)).toEqual([null, null, null, null])
+  })
+})

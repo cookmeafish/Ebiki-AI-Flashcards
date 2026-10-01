@@ -1,6 +1,7 @@
 // Scenes: a short story (or case study) made from your cards, told line by line with two voices, then a few
 // questions on what happened. Never touches the review schedule.
 import { useEffect, useRef, useState } from 'react'
+import { useHelpEntry } from '../kit/useHelp'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile } from '../../config/shrimp'
 import { platform } from '../../platform'
@@ -8,7 +9,7 @@ import { speak } from '../../speech'
 import { useFeatureCtx, useFocusHold } from '../registry'
 import { EVENTS } from '../events'
 import { ChunkyButton, EbiSays, ProgressBar } from '../ui'
-import { QuizRunner, pickCardItems, buildScenePrompt, parseScene, voiceFor, SCENE_ROLE, SCENE_MAX_TOKENS, readPracticeLog, recordPractice, recentTopics } from '../kit'
+import { QuizRunner, pickCardItems, buildScenePrompt, parseScene, voiceFor, SCENE_ROLE, SCENE_MAX_TOKENS, readPracticeLog, recordPractice, recentTopics, missesFromResults } from '../kit'
 import { learnerLevelLine } from '../kit/learnerStore'
 
 export const SCENES_FEATURE_ID = 'scenes'
@@ -32,8 +33,15 @@ export default function SceneScreen({ onExit }) {
   const audioRef = useRef(null)
   const listRef = useRef(null)
   useFocusHold(phase === 'story')
-  useEffect(() => () => audioRef.current?.stop(), [])
+  // aliveRef: set on mount too (StrictMode mounts twice). A reply landing after the screen closed is never spoken.
+  const aliveRef = useRef(false)
+  useEffect(() => { aliveRef.current = true; return () => { aliveRef.current = false; audioRef.current?.stop() } }, [])
   useEffect(() => { listRef.current?.scrollTo?.({ top: 1e9, behavior: 'smooth' }) }, [shown])
+  // What Ebi's Help knows: the story's lines revealed so far (they are read, not asked). The quiz reports itself.
+  useHelpEntry(ctx, 'scenes', !scene ? '' : [
+    `Activity open: Scenes. Story: "${scene.title || theme || ''}" (${phase === 'quiz' ? 'the quiz about it is running' : 'being read'}).`,
+    phase === 'quiz' ? 'The story lines are the answers to the quiz on screen: do not quote or retell them until it is over.' : scene.lines?.slice(0, shown).map((l) => `${l.speaker === 'N' ? '' : `${scene.cast?.[l.speaker] || l.speaker}: `}${String(l.text || '').slice(0, 200)}`).join('\n'),
+  ].filter(Boolean).join('\n'))
   if (!ctx) return null
   const { t, ai, subject } = ctx
   const lang = subject.isLanguage ? subject.learnLangIso : ctx.lang
@@ -48,12 +56,12 @@ export default function SceneScreen({ onExit }) {
     try {
       const items = await pickCardItems(ctx, ITEMS, { due: DUE_ITEMS })
       const avoid = recentTopics(await readPracticeLog(ctx))
-      const { system, user } = buildScenePrompt(subject, items, { knowledge: subject.knowledge(KNOWLEDGE_CAP), theme: theme.trim(), avoid, level: await learnerLevelLine(ctx) })
+      const { system, user } = buildScenePrompt(subject, items, { knowledge: subject.knowledge(KNOWLEDGE_CAP), theme: theme.trim(), avoid, level: await learnerLevelLine(ctx), slips: subject.isLanguage ? subject.grammarSlips(8) : '' })
       const s = parseScene(ai.json(await ai.call(system, user, { role: SCENE_ROLE, maxTokens: SCENE_MAX_TOKENS })), ai.clean)
       if (!s || s.lines.length < MIN_LINES) throw new Error(t('sc_bad'))
       setScene(s); setShown(1); setPhase('story')
       recordPractice(ctx, SCENES_FEATURE_ID, [...items.map((it) => ({ kind: 'card', label: it.front })), { kind: 'topic', label: s.title || theme.trim() }])
-      if (readAloud) say(s.lines[0])
+      if (readAloud && aliveRef.current) say(s.lines[0])
     } catch (e) { setError(String(e.message || e)); setPhase('intro') }
   }
 
@@ -68,12 +76,16 @@ export default function SceneScreen({ onExit }) {
     if (scene.questions.length) setPhase('quiz')
     else { done([]); setPhase('intro') }
   }
-  const done = (res) => ctx.emit(EVENTS.PRACTICE_DONE, { source: SCENES_FEATURE_ID, mode: subject.modeId, total: res.length, correct: res.filter((r) => r.correct).length })
+  const done = (res) => {
+    ctx.emit(EVENTS.PRACTICE_DONE, { source: SCENES_FEATURE_ID, mode: subject.modeId, total: res.length, correct: res.filter((r) => r.correct).length })
+    const misses = missesFromResults(res, scene?.title || '')
+    if (misses.length) ctx.emit(EVENTS.PRACTICE_MISSED, { source: SCENES_FEATURE_ID, mode: subject.modeId, misses })
+  }
 
   if (phase === 'quiz' && scene) {
     return (
       <QuizRunner questions={scene.questions} t={t} ai={ai} subject={subject} ctx={ctx} confirm={ctx.confirm} title={scene.title || t('sc_title')}
-        onAnswer={(q, correct) => ctx.emit(EVENTS.PRACTICE_ANSWERED, { source: SCENES_FEATURE_ID, correct, mode: subject.modeId })}
+        onAnswer={(q, correct, a, info) => { if (!info?.skipped) ctx.emit(EVENTS.PRACTICE_ANSWERED, { source: SCENES_FEATURE_ID, correct, mode: subject.modeId }) }} // a Skip earns no answer XP
         onFinish={done}
         onExit={() => { setPhase('intro'); setScene(null) }} />
     )

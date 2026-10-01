@@ -21,11 +21,27 @@ export default {
       const dir = dataPath(DIR, feature)
       const file = path.join(dir, `${key}.json`)
       if (req.method === 'GET') {
-        try { return send(res, 200, { value: JSON.parse(readUtf8(file)) }) }
+        const read = () => JSON.parse(readUtf8(file))
+        try { return send(res, 200, { value: read() }) }
         catch (e) {
           if (e?.code === 'ENOENT') return send(res, 200, { value: null })
-          // Damaged JSON is not "nothing saved": the client must not write over it blindly.
-          return send(res, e instanceof SyntaxError ? 409 : 500, { error: e.message })
+          if (!(e instanceof SyntaxError)) return send(res, 500, { error: e.message })
+          // Damaged JSON: maybe another computer is mid-write, so read once more a second later. Still damaged =
+          // kept aside as <key>.json.corrupt-<stamp> and served as empty (like config.json): a 409 here refused
+          // every later write, so that feature's data for this mode was locked for good.
+          setTimeout(() => {
+            try { return send(res, 200, { value: read() }) }
+            catch (e2) {
+              if (e2?.code === 'ENOENT') return send(res, 200, { value: null })
+              if (!(e2 instanceof SyntaxError)) return send(res, 500, { error: e2.message })
+              try {
+                fs.renameSync(file, `${file}.corrupt-${new Date().toISOString().replace(/[:.]/g, '-')}`)
+                console.warn(`[feature-data] damaged ${feature}/${key}.json kept aside`)
+                send(res, 200, { value: null })
+              } catch (e3) { send(res, 500, { error: e3.message }) }
+            }
+          }, 1000)
+          return
         }
       }
       if (req.method !== 'POST') return send(res, 405, { error: 'method' })

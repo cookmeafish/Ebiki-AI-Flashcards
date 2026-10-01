@@ -52,19 +52,20 @@ export function updateLearner(ctx, modeId, fn, { quiet = false } = {}) {
     // Read again before every write: on a shared data folder another computer may have saved a level since this page
     // loaded (a graded card here wrote level 10 over the other computer's placement result of 60).
     const r = await ensure(key, { fresh: true })
-    if (!r.ok) return
+    if (!r.ok) return false
     const next = fn(r.value)
-    if (!next || next === r.value) return
+    if (!next || next === r.value) return true
     // Shown only once saved: a refused write (folder switching, share down) must not show a level that is not stored.
-    if (!(await store.write(key, next))) return
+    if (!(await store.write(key, next))) return false
     cache.set(key, next)
     notify()
     // A NEW whole level (above the best ever reached) is a fact other features reward (the game pays XP for it).
     // Falling back and climbing again pays nothing; a first level neither (the placement exam has its own reward).
     const best = r.value ? Math.max(r.value.peak ?? r.value.level, r.value.level) : null
     if (!quiet && best != null && Math.floor(next.level) > Math.floor(best)) ctx?.emit?.(EVENTS.LEVEL_UP, { mode: modeId, from: best, to: next.level })
-  }).catch(() => {})
-  return chain
+    return true
+  }).catch(() => false)
+  return chain // resolves true when stored (or nothing to store), false when not
 }
 
 // { model, failed } for a mode; loads on first use.

@@ -48,7 +48,9 @@ export function createEbiImages({ srcDir, cacheDir, loadSharp, maxPx = EBI_MAX_P
     const first = original()
     if (first.type === 'image/svg+xml') return first // vector: already sharp at any size
     const out = path.join(cacheDir, `${name}.${maxPx}.webp`)
-    try { if (fs.statSync(out).mtimeMs >= src.mtimeMs) return { file: out, type: 'image/webp', resized: true } } catch { /* not made yet */ }
+    // The copy carries its original's modified time and is used only while they MATCH: a replaced picture with an
+    // OLDER date (an Explorer copy keeps the source's date) kept serving the old copy under "newer wins".
+    try { if (Math.abs(fs.statSync(out).mtimeMs - src.mtimeMs) < 2) return { file: out, type: 'image/webp', resized: true } } catch { /* not made yet */ }
     const sharp = await getSharp()
     if (!sharp) return first
     if (!inflight.has(out)) {
@@ -60,6 +62,7 @@ export function createEbiImages({ srcDir, cacheDir, loadSharp, maxPx = EBI_MAX_P
             .resize({ width: maxPx, height: maxPx, fit: 'inside', withoutEnlargement: true })
             .webp(WEBP).toFile(tmp)
           fs.renameSync(tmp, out)
+          try { const tm = new Date(src.mtimeMs); fs.utimesSync(out, tm, tm) } catch { /* remade next time */ }
           return true
         } catch (e) {
           try { fs.rmSync(tmp, { force: true }) } catch { /* nothing to clean */ }

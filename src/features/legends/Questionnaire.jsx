@@ -1,9 +1,10 @@
 // First visit per mode: four quick questions, one per screen, Ebi asking in a speech bubble (the onboarding
 // look). Why you're learning, how much you know, a daily goal, then "I'm new" or "Find my level".
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile } from '../../config/shrimp'
 import { ChunkyButton, EbiSays, ProgressBar, depthBorder } from '../ui'
+import { EVIDENCE } from '../kit/evidence'
 
 export const REASON_KEYS = [
   { key: 'work', icon: '💼' }, { key: 'school', icon: '🎓' }, { key: 'travel', icon: '✈️' },
@@ -14,21 +15,27 @@ const KNOW_LEVELS = [1, 2, 3, 4, 5]
 const STEPS = ['reason', 'know', 'goal', 'style', 'start']
 const POSE = { reason: 'happy', know: 'book', goal: 'work', style: 'weapon', start: 'cool' }
 
-function Tile({ selected, onClick, children, style }) {
+function Tile({ selected, onClick, children, style, disabled = false }) {
   const edge = selected ? C.info : C.border
   return (
-    <button type="button" onClick={onClick} className="btn-press" aria-pressed={selected} style={{
+    <button type="button" onClick={onClick} disabled={disabled} className={disabled ? undefined : 'btn-press'} aria-pressed={selected} style={{
       display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: RADIUS.md, textAlign: 'left',
       ...depthBorder(edge, { bottomColor: edge }), background: selected ? `color-mix(in srgb, ${C.info} 12%, ${C.surface})` : C.surface,
       color: C.ink, fontFamily: FONT.body, fontSize: 15.5, fontWeight: 800, cursor: 'pointer', flex: '1 1 200px', minWidth: 0, ...style,
+      ...(disabled ? { opacity: 0.5, cursor: 'default' } : {}),
     }}>{children}</button>
   )
 }
 
 // `focus`: the current focus-mode setting (the style step starts on it). The style step also asks about accents
 // when the learned language writes them (subject.accents); both are saved as settings by the caller.
-export default function Questionnaire({ t, subject, onDone, onBack, focus = false }) {
+// `evidence`: what Ebiki has already seen (LegendsScreen reads it): { status, ok, sum }. Enough of it offers a third
+// start, "Use what Ebiki knows", which reads the level from it instead of the exam.
+export default function Questionnaire({ t, subject, onDone, onBack, focus = false, evidence = null }) {
   const [step, setStep] = useState(0)
+  // One start only: a double click ran two starts (two paid level reads; "I'm new" landing over the exam).
+  const startedRef = useRef(false)
+  const finish = (a) => { if (startedRef.current) return; startedRef.current = true; onDone(a) }
   const [answers, setAnswers] = useState({ reason: '', selfRating: 0, goal: '', style: focus ? 'focus' : 'game', accents: subject.strictAccents !== false })
   const name = STEPS[step]
   const set = (patch) => setAnswers((a) => ({ ...a, ...patch }))
@@ -110,16 +117,33 @@ export default function Questionnaire({ t, subject, onDone, onBack, focus = fals
 
       {name === 'start' && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-          <Tile onClick={() => onDone({ ...answers, path: 'new' })} style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
+          <Tile onClick={() => finish({ ...answers, path: 'new' })} style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
             <span style={{ fontSize: 30 }}>🌱</span>
             <span style={{ fontFamily: FONT.display, fontSize: 18 }}>{t('lg_startNew')}</span>
             <span style={{ fontSize: 13, color: C.inkDim, fontWeight: 600 }}>{t('lg_startNewDesc')}</span>
           </Tile>
-          <Tile onClick={() => onDone({ ...answers, path: 'place' })} style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
+          <Tile onClick={() => finish({ ...answers, path: 'place' })} style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
             <span style={{ fontSize: 30 }}>🧭</span>
             <span style={{ fontFamily: FONT.display, fontSize: 18 }}>{t('lg_startPlace')}</span>
             <span style={{ fontSize: 13, color: C.inkDim, fontWeight: 600 }}>{t('lg_startPlaceDesc')}</span>
           </Tile>
+          {(() => {
+            const sum = evidence?.sum
+            const ok = evidence?.status === 'ready' && evidence.ok && sum?.enough
+            const desc = !evidence || evidence.status === 'loading' ? t('lg_startKnownChecking')
+              : !evidence.ok ? t('lg_startKnownNoAnki')
+              : ok ? t('lg_startKnownDesc', { n: sum.reviewed })
+              : !sum?.reviewed ? t('lg_startKnownNone')
+              : sum.reviewed === 1 ? t('lg_startKnownThinOne', { need: EVIDENCE.minReviewed })
+              : t('lg_startKnownThin', { n: sum.reviewed, need: EVIDENCE.minReviewed })
+            return (
+              <Tile disabled={!ok} onClick={() => ok && finish({ ...answers, path: 'known' })} style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
+                <span style={{ fontSize: 30 }}>🧠</span>
+                <span style={{ fontFamily: FONT.display, fontSize: 18 }}>{t('lg_startKnown')}</span>
+                <span style={{ fontSize: 13, color: C.inkDim, fontWeight: 600 }}>{desc}</span>
+              </Tile>
+            )
+          })()}
         </div>
       )}
 

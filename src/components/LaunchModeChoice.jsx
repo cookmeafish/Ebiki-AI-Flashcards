@@ -68,7 +68,7 @@ export function LaunchModeCard({ t, card, fieldLabel, hint }) {
   // happened. The switch is done; only closing the tab is left.
   const [handedOver, setHandedOver] = useState(false)
   // This page IS one of the two front ends, so it knows which one without asking the server.
-  const isAppWindow = typeof window !== 'undefined' && !!window.ebikiWindow
+  const isAppWindow = typeof window !== 'undefined' && typeof window.ebikiWindow?.isMaximized === 'function' // not an element named by id
 
   useEffect(() => {
     apiFetch('/api/launchmode').then((r) => r.json()).then((d) => {

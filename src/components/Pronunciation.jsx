@@ -22,6 +22,10 @@ export default function Pronunciation({ word, lang, region = '', config = {}, no
   const noticeTimer = useRef(null)
   // Browser speech too: it kept talking over the next word, or over a recording started elsewhere.
   const stopSpeech = () => { try { window.speechSynthesis?.cancel() } catch { /* no speech */ } }
+  // Only speech THIS player started is stopped on a word change or close: mounting a word popup cut off a Legends
+  // scene line or Talk reply being read aloud (speechSynthesis.cancel stops every voice in the page).
+  const spokeRef = useRef(false)
+  const stopOwnSpeech = () => { if (spokeRef.current) { spokeRef.current = false; stopSpeech() } }
   // A fetch still running when the popup closed played its audio afterwards (nothing left to stop it): playback
   // happens only while mounted. The Anki embed still goes through (the user asked for that voice).
   const mountedRef = useRef(true)
@@ -30,7 +34,7 @@ export default function Pronunciation({ word, lang, region = '', config = {}, no
     return () => {
       mountedRef.current = false
       try { audioRef.current?.pause() } catch { /* nothing playing */ }
-      stopSpeech()
+      stopOwnSpeech()
       if (noticeTimer.current) clearTimeout(noticeTimer.current)
     }
   }, []) // closing a popup / leaving a card stops it
@@ -47,7 +51,7 @@ export default function Pronunciation({ word, lang, region = '', config = {}, no
   const propKey = `${word}|${lang}|${region}|${noteId}|${cardId}`
   if (propKey !== prevKey) {
     try { audioRef.current?.pause() } catch { /* nothing playing */ } // the old word stops with it
-    stopSpeech()
+    stopOwnSpeech()
     setPrevKey(propKey)
     setState('idle')
     setResult(null)
@@ -66,7 +70,10 @@ export default function Pronunciation({ word, lang, region = '', config = {}, no
     try {
       if (r.kind === 'speak') {
         if (playingAudio) { try { playingAudio.pause() } catch { /* gone */ } } // one voice at a time, speech included
-        r.speak()
+        // Cleared when the utterance ends: a later close must not cancel speech some other part of the app started.
+        const mine = {}
+        spokeRef.current = mine
+        r.speak(() => { if (spokeRef.current === mine) spokeRef.current = false })
       } else {
         stopSpeech()
         if (!audioRef.current) audioRef.current = new Audio()

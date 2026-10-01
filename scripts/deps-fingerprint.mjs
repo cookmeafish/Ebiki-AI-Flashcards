@@ -58,7 +58,10 @@ export function writeStamp(app = APP) {
 
 // Run as a script (not when imported by a test).
 const same = (a, b) => (process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b)
-if (process.argv[1] && same(path.resolve(process.argv[1]), fileURLToPath(import.meta.url))) {
+// Real paths on both sides: import.meta.url is the RESOLVED path, argv[1] the typed one, so a folder reached through
+// a junction or symlink never matched and --check silently said 'up to date' (the server ran on old node_modules).
+const real = (p) => { try { return fs.realpathSync(p) } catch { return path.resolve(p) } }
+if (process.argv[1] && same(real(process.argv[1]), real(fileURLToPath(import.meta.url)))) {
   const arg = process.argv[2]
   try {
     if (arg === '--check') { const r = needsInstall(); process.exit(r === null ? 2 : r ? 1 : 0) }

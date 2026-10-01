@@ -1,18 +1,21 @@
 // LEGENDS: the per-mode adventure map. First visit: a short questionnaire, then "I'm new" or a placement exam;
 // Ebi plans the map; areas are detailed lazily as the learner climbs. This screen only orchestrates: rules in
 // ./map.js and ./placement.js, AI in ./generate.js, storage in ./store.js.
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile, shrimpUrl } from '../../config/shrimp'
 import { useFeatureCtx, useIntent, featureCfg } from '../registry'
+import { setLegendsLive, legendsLive, onLegendsLive, legendsSecretHeld } from './helpContext'
 import { EVENTS } from '../events'
 import { ChunkyButton, EbiSays, Card } from '../ui'
 import { useLearner, updateLearner } from '../kit/learnerStore'
 import { newLearner, applyLearnerDelta, deltaFor, bandFor, LEVEL_MAX } from '../kit/learner'
 import { recordPractice } from '../kit'
+import { readEvidence, judgeLevelFromEvidence } from '../kit/evidenceJudge'
+import { EVIDENCE } from '../kit/evidence'
 import { useLegendsMap, updateMap, configureLegends, clearStep, claimReward, rewardKeyFor, LEGENDS_ID } from './store'
 import { applyLegendaryResult, createMap, applyNodeResult, needsDetail, needsMoreAreas, starsFor, logDay, OPTIONAL_KINDS } from './map'
-import { planMap, detailAreas, extendIfNeeded, detailAreaNow } from './generate'
+import { planMap, detailAreas, extendIfNeeded, detailAreaNow, forgetRunning } from './generate'
 import Questionnaire from './Questionnaire'
 import Placement from './PlacementExam'
 import MapView from './MapView'
@@ -143,7 +146,8 @@ function Result({ ctx, modeId, result, onBack, onRetry, onNewQuestions }) {
 // How long a mode switch keeps the previous screen while the new mode's map is read, before "Loading" shows.
 const HOLD_MS = 400
 
-const BUSY_VIEWS = new Set(['node', 'placement', 'questionnaire', 'raid', 'edit'])
+// 'result' and 'placed' too: an edit applied there replaced the result screen (stars, answers, the cards offer) unseen.
+const BUSY_VIEWS = new Set(['node', 'placement', 'inferring', 'questionnaire', 'raid', 'edit', 'result', 'placed'])
 export default function LegendsScreen() {
   const ctx = useFeatureCtx()
   const modeId = ctx?.subject?.modeId
@@ -156,6 +160,10 @@ export default function LegendsScreen() {
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
   const [startAnswers, setStartAnswers] = useState(null)
+  // What Ebiki has already seen of this learner (kit/evidence.js): offered instead of the placement exam when enough.
+  const [evidence, setEvidence] = useState(null) // null | { status: 'loading' } | { status: 'ready', ok, sum }
+  const evidenceSeq = useRef(0)
+  const knownRunRef = useRef(false) // one "Use what Ebiki knows" at a time
   const workSeq = useRef(0)
   const held = useRef(null) // the last screen shown (see the end)
   // The live mode (an await that finishes after a mode switch must not show its screen under the new mode) and a
@@ -173,24 +181,47 @@ export default function LegendsScreen() {
   }, [loaded, modeId])
 
   // A mode switch starts this screen over (the map and learner hooks follow the new mode by themselves).
-  useEffect(() => { setView('map'); setOpenStep(null); setResult(null); setError(''); setBusy(''); setPendingEdit(null) }, [modeId])
+  // Only on a REAL mode change: StrictMode re-runs this effect on mount, and that second run wiped the edit Help had
+  // just asked for ("change my map" from another screen opened the map and never showed the edit).
+  const resetModeRef = useRef(modeId)
+  useEffect(() => {
+    if (resetModeRef.current === modeId) return
+    resetModeRef.current = modeId
+    setView('map'); setOpenStep(null); setResult(null); setError(''); setBusy(''); setPendingEdit(null)
+  }, [modeId])
   // Help's "change my map" waits until there IS a map (on a first visit it was dropped) and until no step, exam or
   // fight is running (it used to throw a boss fight away without asking).
   const [pendingEdit, setPendingEdit] = useState(null)
+  // What is on screen, for Ebi's Help (helpContext.js keeps answers out while a step runs). Back to the map when the
+  // screen closes (a step left by navigation is gone).
+  useEffect(() => { setLegendsLive({ view, area: openStep?.area ? { id: openStep.area.id, title: openStep.area.title } : null, node: openStep?.node ? { kind: openStep.node.kind, title: openStep.node.title } : null, result }) }, [view, openStep, result])
+  useEffect(() => () => setLegendsLive(null), [])
   useIntent(LEGENDS_INTENT, (p) => { if (p?.edit) setPendingEdit(String(p.edit)) })
+  const liveSnap = useSyncExternalStore(onLegendsLive, legendsLive) // re-checks the edit gate when a modal closes
   useEffect(() => {
-    if (pendingEdit == null || !map?.areas?.length || BUSY_VIEWS.has(view)) return
+    // A Gold blitz or the chest runs in a modal over the map (the view stays 'map'): it holds the edit too.
+    if (pendingEdit == null || !map?.areas?.length || BUSY_VIEWS.has(view) || legendsSecretHeld()) return
     setEdit({ text: pendingEdit, auto: true }); setView('edit'); setPendingEdit(null)
-  }, [pendingEdit, map, view])
+  }, [pendingEdit, map, view, liveSnap])
 
   const ready = !!map?.areas?.length
+  // The level is still to be found (the exam, or Ebiki's read of what it has seen).
+  const levelPending = !!map && (map.start?.path === 'place' || map.start?.path === 'known') && !map.start?.placement
+  const wantEvidence = view === 'questionnaire' || (levelPending && !ready && view === 'map')
+  useEffect(() => {
+    if (!ctx || !wantEvidence) return
+    const my = ++evidenceSeq.current
+    setEvidence({ status: 'loading' })
+    readEvidence(ctx)
+      .then((ev) => { if (my === evidenceSeq.current) setEvidence({ status: 'ready', ...ev }) })
+      .catch(() => { if (my === evidenceSeq.current) setEvidence({ status: 'ready', ok: false, sum: null }) })
+  }, [wantEvidence, modeId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Background work while the map is on screen: plan the map when it has no areas, detail the next areas,
   // plan more near the end, draw banners. One pass at a time; the mode id is pinned for every write.
   useEffect(() => {
     if (!ctx || !loaded || !map || view !== 'map' || !ctx.ai.hasKey) return
-    const placementPending = map.start?.path === 'place' && !map.start?.placement
-    if (placementPending) return
+    if (levelPending) return // the map is planned for the level, once it is known
     const my = ++workSeq.current
     const pinned = modeId
     const live = () => my === workSeq.current
@@ -232,13 +263,39 @@ export default function LegendsScreen() {
       if (!saved) { if (pinned === modeIdRef.current) { setError(t('lg_errSave')); setView('map') } return }
       if (pinned !== modeIdRef.current) return
       if (a.path === 'place') { setStartAnswers(a); setView('placement'); return }
+      if (a.path === 'known') { setStartAnswers(a); knownFromEvidence(a); return }
       await updateLearner(ctx, pinned, (m) => m || newLearner({ level: NEW_LEVEL[a.selfRating] || 0, confidence: 0.2, source: 'self' }))
       if (pinned === modeIdRef.current) setView('map')
+    }
+    // "Use what Ebiki knows": the level read from the mode deck's reviews, study sessions and slips (no exam).
+    const knownFromEvidence = async (a) => {
+      if (knownRunRef.current) return
+      knownRunRef.current = true
+      try { await knownFromEvidenceNow(a) } finally { knownRunRef.current = false }
+    }
+    const knownFromEvidenceNow = async (a) => {
+      const pinned = modeId
+      setError(''); setView('inferring')
+      const r = await judgeLevelFromEvidence(ctx, { selfRating: a?.selfRating || map?.start?.selfRating || 0, evidence: evidence?.status === 'ready' ? evidence : null })
+      if (pinned !== modeIdRef.current) return
+      if (r.error) {
+        setError(r.error === 'thin' ? (r.sum?.reviewed === 1 ? t('lg_startKnownThinOne', { need: EVIDENCE.minReviewed }) : t('lg_startKnownThin', { n: r.sum?.reviewed || 0, need: EVIDENCE.minReviewed })) : r.error === 'read' ? t('lg_startKnownNoAnki') : t('lg_knownFailed'))
+        setView('map')
+        return
+      }
+      const saved = await updateMap(pinned, (m) => (m ? { ...m, start: { ...(m.start || {}), path: 'known', placement: { level: r.level, from: 'evidence', at: Date.now() } } } : m))
+      if (!saved) { if (pinned === modeIdRef.current) { setError(t('lg_errSave')); setView('map') } return }
+      await updateLearner(ctx, pinned, (m) => ({ ...newLearner({ level: r.level, confidence: r.confidence, strengths: r.strengths, gaps: r.gaps, source: 'evidence' }), peak: Math.max(m?.peak ?? m?.level ?? 0, r.level) }), { quiet: true })
+      if (pinned !== modeIdRef.current) return
+      setResult({ placement: { level: r.level, why: r.why, fromEvidence: true } })
+      setView('placed')
     }
     const placementDone = async (r) => {
       const pinned = modeId
       await updateMap(pinned, (m) => (m ? { ...m, start: { ...(m.start || {}), placement: { level: r.level, answered: r.answered.length, at: Date.now() } } } : m))
-      await updateLearner(ctx, pinned, () => newLearner({ level: r.level, confidence: r.confidence, strengths: r.strengths, gaps: r.gaps, source: 'placement' }))
+      // Quiet (the placement has its own one-time reward; a LEVEL_UP paid again on a retake), and the best level ever
+      // reached is kept (a lower placement reset it, and climbing back paid LEVEL_UP again).
+      await updateLearner(ctx, pinned, (m) => ({ ...newLearner({ level: r.level, confidence: r.confidence, strengths: r.strengths, gaps: r.gaps, source: 'placement' }), peak: Math.max(m?.peak ?? m?.level ?? 0, r.level) }), { quiet: true })
       // The placement XP is paid once per mode (a retake after Start over pays nothing more).
       if (await claimReward(pinned, rewardKeyFor('placement'))) ctx.emit(EVENTS.PRACTICE_DONE, { source: PLACEMENT_SOURCE, mode: pinned, total: r.answered.length, correct: r.answered.filter((x) => x.correct).length })
       if (pinned !== modeIdRef.current) return
@@ -253,10 +310,17 @@ export default function LegendsScreen() {
         if (subject.accents && typeof answers.accents === 'boolean' && answers.accents !== (subject.strictAccents !== false)) subject.setStrictAccents?.(answers.accents)
         return saveStart(answers)
       }
-      return <Questionnaire t={t} subject={subject} focus={featureCfg(ctx, LEGENDS_ID).focus === true} onBack={() => setView('map')} onDone={done} />
+      return <Questionnaire t={t} subject={subject} evidence={evidence} focus={featureCfg(ctx, LEGENDS_ID).focus === true} onBack={() => setView('map')} onDone={done} />
     }
     if (view === 'placement') {
       return <Placement ctx={ctx} selfRating={startAnswers?.selfRating || map?.start?.selfRating || 1} onDone={placementDone} onQuit={() => setView('map')} />
+    }
+    if (view === 'inferring') {
+      return (
+        <div style={{ maxWidth: 560, margin: '50px auto', display: 'grid', gap: 14, justifyItems: 'center' }}>
+          <EbiSays pose={poseFile('book')}>{t('lg_knownReading')}</EbiSays>
+        </div>
+      )
     }
     if (view === 'placed' && result?.placement) {
       const band = bandFor(result.placement.level, subject.isLanguage)
@@ -266,7 +330,8 @@ export default function LegendsScreen() {
           <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 28, color: C.ink }}>{t('lg_placedTitle')}</div>
           <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 44, color: C.purple, lineHeight: 1 }}>{result.placement.level}</div>
           <div style={{ fontSize: 17, fontWeight: 800, color: C.ink }}>{t(`lg_band_${band.key}`)}</div>
-          <div style={{ fontSize: 14, color: C.inkDim }}>{t('lg_placedBody')}</div>
+          {result.placement.why && <div style={{ fontSize: 15, color: C.ink, lineHeight: 1.5, maxWidth: 480 }}>{result.placement.why}</div>}
+          <div style={{ fontSize: 14, color: C.inkDim }}>{t(result.placement.fromEvidence ? 'lg_placedFromEvidence' : 'lg_placedBody')}</div>
           <ChunkyButton color={C.success} onClick={() => { setResult(null); setView('map') }}>{t('lg_seeMap')}</ChunkyButton>
         </div>
       )
@@ -287,12 +352,15 @@ export default function LegendsScreen() {
     }
 
     // Answers saved, "Find my level" chosen, exam not finished (left midway, or the app closed).
-    if (!ready && map.start?.path === 'place' && !map.start?.placement) {
+    if (!ready && levelPending) {
+      const knownOk = evidence?.status === 'ready' && evidence.ok && evidence.sum?.enough
       return (
         <div style={{ maxWidth: 600, margin: '30px auto', display: 'grid', gap: 18 }}>
           <EbiSays pose={poseFile('book')}>{t('lg_resumePlacement')}</EbiSays>
+          {error && <div style={{ color: C.danger, fontSize: 13 }}>{error}</div>}
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
             <ChunkyButton variant="ghost" color={C.inkDim} onClick={() => saveStart({ ...map.start, path: 'new' })}>🌱 {t('lg_startNew')}</ChunkyButton>
+            {knownOk && <ChunkyButton variant="ghost" color={C.purple} onClick={() => knownFromEvidence(map.start)} disabled={!ai.hasKey}>🧠 {t('lg_startKnown')}</ChunkyButton>}
             <ChunkyButton color={C.success} onClick={() => setView('placement')} disabled={!ai.hasKey}>🧭 {t('lg_startPlace')}</ChunkyButton>
           </div>
         </div>
@@ -335,7 +403,7 @@ export default function LegendsScreen() {
         if (nudgeIds.length) next = { ...next, areas: next.areas.map((a) => (a.id !== area.id ? a : { ...a, items: a.items.map((it) => (nudgeIds.includes(it.id) ? { ...it, missNudged: true } : it)) })) }
         return next
       }
-      await updateMap(pinned, (m) => {
+      const savedMap = await updateMap(pinned, (m) => {
         if (!m) return m
         const live = m.areas.find((a) => a.id === area.id)
         hadLife = !!live?.bonusLife
@@ -361,7 +429,9 @@ export default function LegendsScreen() {
         outcome.map = after(outcome.map)
         return outcome.map
       })
-      if (!outcome) { setError(t('lg_errSave')); setView('map'); return }
+      // undefined = the write failed (folder switching, share down): nothing was saved, so nothing is paid or shown
+      // as cleared (it paid the step and the boss's one-time reward, and the step stayed open on the map).
+      if (!outcome || savedMap === undefined) { setError(t('lg_errSave')); setView('map'); return }
       const { passed, stars, areaDone, nextAreaId } = outcome
       const earnedLife = node.kind === 'weak' && passed && !hadLife // the Weak spots heart, once per island
       const source = node.kind === 'boss' ? 'boss' : 'legends'
@@ -375,7 +445,12 @@ export default function LegendsScreen() {
       // A boss's first-win reward (XP + a streak freeze) is paid once per island topic, even across Start over.
       const bossPaid = areaDone && (await claimReward(pinned, rewardKeyFor('boss', area.title)))
       if (bossPaid) ctx.emit(EVENTS.BOSS_BEATEN, { mode: pinned, area: areaNo })
-      recordPractice(ctx, LEGENDS_ID, [{ kind: 'topic', label: area.title }])
+      // The items it practiced too (Listen and Scenes pick other cards for a while), not only the topic.
+      const stepItems = (node.itemIds || []).map((id) => (area.items || []).find((it) => it.id === id)).filter(Boolean)
+      recordPractice(ctx, LEGENDS_ID, [{ kind: 'topic', label: area.title }, ...stepItems.map((it) => ({ kind: 'card', label: it.front }))])
+      // Its wrong answers go to the Mistake Gym like Study's.
+      const lgMisses = (res.misses || []).filter((m) => m && m.asked).map((m) => ({ front: area.title, question: String(m.asked), answer: String(m.answered || ''), expected: String(m.expected || '') }))
+      if (lgMisses.length) ctx.emit(EVENTS.PRACTICE_MISSED, { source: LEGENDS_ID, mode: pinned, misses: lgMisses })
       const liveArea = outcome.map.areas.find((a) => a.id === area.id) || area
       if (pinned !== modeIdRef.current) return // recorded for its own mode; the screen now shows another one
       setResult({ node, area: liveArea, res, passed, stars, areaDone, bossPaid, earnedLife, firstLegend: !!outcome.firstLegend, helper: outcome.helper || '', flawless: !!outcome.flawless, nudgeIds, nextTitle: nextAreaId ? outcome.map.areas.find((a) => a.id === nextAreaId)?.title : '' })
@@ -420,6 +495,7 @@ export default function LegendsScreen() {
     const restart = async () => {
       if (!(await ctx.confirm(t('lg_restartConfirm')))) return
       workSeq.current++
+      forgetRunning(`:${modeId}`) // the old map's planning and detail work never lands on the new map
       const ok = await updateMap(modeId, () => null)
       if (ok === undefined) setError(t('lg_errSave'))
       setView('map')

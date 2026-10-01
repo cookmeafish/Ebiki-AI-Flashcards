@@ -93,13 +93,14 @@ const res = await page.evaluate(async ({ HEADROOM, DRIFT }) => {
 const REVIEWED = new Set([
   "raids/hydra.svg|M14 -4 L10 10 L16 12 L8 ", // lightning forks out of the storm clouds
   "raids/hydra.svg|M108 -4 L112 8 L106 10 L",
-  "raids/lich.svg|M-2 -2 L0 2 L2 -2", // a rune glyph crossing its ring
   "raids/seraph.svg|M5 -1.6 L14.6 -4.7 L23.3", // bone fingers reach out of the clawed palms
   "raids/seraph.svg|M5.1 1.3 L14.9 3.7 L22.4",
   "raids/seraph.svg|M2.1 2 L6.1 5.9 L8.5 10",
   "raids/seraph.svg|M1.9 -2.2 L5.5 -6.5 L9.4",
   "raids/reaper.svg|M116.2 53.4L118.6 53.6L1", // a finger of the lantern hand hangs past the robe
   "raids/void.svg|M-47 0 A47 47 0 0 0 47 0", // the near half of the accretion disk passes in front of the body
+  "raids/void.svg|M-52.6 0 A52.6 52.6 0 0 ", // the near half of the disk's hot band, in front of the body
+  "raids/void.svg|M-30 36 A47 47 0 0 1 -46", // a turning violet streak on the back half of the disk
   "areas/forest.svg|M196 50 L182 28 L168 20",
   "areas/forest.svg|M224 50 L238 28 L252 20",
   "areas/swamp.svg|M384 124 C384 110 388 10",

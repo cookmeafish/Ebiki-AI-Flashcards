@@ -65,9 +65,11 @@ export function readUsage(provider, raw) {
     input = n(u.promptTokenCount)
     output = n(u.candidatesTokenCount) + n(u.thoughtsTokenCount)
   } else {
-    const u = j.usage || {} // OpenAI and xAI: reasoning is already inside completion_tokens
+    // OpenAI counts reasoning inside completion_tokens; xAI does NOT (it is only in total_tokens and
+    // completion_tokens_details.reasoning_tokens, billed as output): Grok's cost showed a small fraction.
+    const u = j.usage || {}
     input = n(u.prompt_tokens ?? u.input_tokens)
-    output = n(u.completion_tokens ?? u.output_tokens)
+    output = Math.max(n(u.completion_tokens ?? u.output_tokens), n(u.total_tokens) - input)
   }
   return input || output ? { input, output } : null
 }
@@ -147,12 +149,22 @@ async function openAiCompatibleCall({ provider = 'openai', endpoint, apiKey, sys
 
   const read = (raw) => {
     try {
-      const choice = JSON.parse(raw).choices?.[0]
+      const j = JSON.parse(raw)
+      const choice = j.choices?.[0]
       const refusal = typeof choice?.message?.refusal === 'string' ? choice.message.refusal.trim() : ''
-      return { content: choice?.message?.content || '', finish: choice?.finish_reason, refusal }
-    } catch { return { content: '', finish: null, refusal: '' } }
+      const reasoning = Number(j.usage?.completion_tokens_details?.reasoning_tokens ?? j.usage?.output_tokens_details?.reasoning_tokens) || 0
+      return { content: choice?.message?.content || '', finish: choice?.finish_reason, refusal, reasoning }
+    } catch { return { content: '', finish: null, refusal: '', reasoning: 0 } }
   }
-  let { content, finish, refusal } = read(r.text)
+  let { content, finish, refusal, reasoning } = read(r.text)
+  // CUT OFF BY ITS OWN REASONING: some text, finish "length", and reasoning took the budget (a 600-token Help reply on
+  // a reasoning model: 450 thinking, 150 written, shown as if complete). One retry with room; kept only if it has text.
+  if (content && finish === 'length' && reasoning > 0 && budget >= MIN_CONTENT_BUDGET && roomier > sent) {
+    try {
+      const retry = await post(tokenParam, roomier)
+      if (retry.ok) { const got = read(retry.text); if (got.content) { content = got.content; finish = got.finish } }
+    } catch { /* keep the cut reply */ }
+  }
 
   // MIN_CONTENT_BUDGET keeps probeModel out of this. It calls with maxTokens=4 purely to see
   // whether a model answers at all, and "Test connections" probes the ENTIRE catalog (71 models on
@@ -350,14 +362,21 @@ export const PROVIDERS = {
         try {
           const j = JSON.parse(raw)
           const c = j.candidates?.[0]
-          return { text: c?.content?.parts?.map((p) => p.text || '').join('') || '', finish: c?.finishReason, blocked: j.promptFeedback?.blockReason }
-        } catch { return { text: '', finish: null } }
+          return { text: c?.content?.parts?.map((p) => p.text || '').join('') || '', finish: c?.finishReason, blocked: j.promptFeedback?.blockReason, thoughts: Number(j.usageMetadata?.thoughtsTokenCount) || 0 }
+        } catch { return { text: '', finish: null, thoughts: 0 } }
       }
 
       const budget = maxTokens || 0
       let r = await post(budget)
       if (!r.ok) throw new Error(`API ${r.status}: ${errText(r.text)}`)
-      let { text, finish, blocked } = read(r.text)
+      let { text, finish, blocked, thoughts } = read(r.text)
+      // Cut off by its own thinking (some text, MAX_TOKENS, thoughts used): one roomier retry, kept only with text.
+      if (text && finish === 'MAX_TOKENS' && thoughts > 0 && budget >= MIN_CONTENT_BUDGET) {
+        const bigger = Math.min(Math.max(budget * 4, 4000), 32000)
+        if (bigger > budget) {
+          try { const retry = await post(bigger); if (retry.ok) { const got = read(retry.text); if (got.text) { text = got.text; finish = got.finish } } } catch { /* keep the cut reply */ }
+        }
+      }
       // Gemini's THINKING models (2.5 and later) spend maxOutputTokens on thinking before they
       // write anything, exactly like OpenAI's reasoning models - so a tight budget comes back
       // finishReason:"MAX_TOKENS" with no text and no error. Same bounded one-shot retry, same

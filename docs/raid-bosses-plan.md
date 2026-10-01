@@ -53,62 +53,67 @@ tested), keyed by the raid motif.
 | Reaper | **Harvest** | Every life already lost makes it careless: right answers deal +1 per lost life, at most +2. | A rough start is easier to turn around. |
 | Dreamer | **Slumber** | While no life is lost, every right answer deals +1. | Rewards a careful, clean run. |
 
-## 1. Hydra: the Maelstrom Hydra
+## 1. Hydra: the Tide Hydra (redrawn 2026-10)
 
-- **Idea**: a many-headed sea serpent rising out of a whirlpool in a storm. Not one neck: a knot of necks.
-- **Backdrop**: a spinning maelstrom (spiral bands of black water) under a storm arc; lightning forks flicker.
-- **Phase 1**: three heads on thick scaled necks (the center one crowned with a fin frill, the side two lower,
-  snapping), teal eyes, rows of fangs, belly plates, the whirlpool around the coils.
-- **Phase 2, "cut one off, two grow back"**: the left head is a severed stump spurting glowing ichor, and two new
-  heads burst from it (five heads). Eyes turn toxic green, gill frills flare.
-- **Phase 3, "the storm answers"**: the center head's maw charges a crackling ball of storm plasma, every neck's
-  spines glow, lightning runs down the coils, the maelstrom speeds up.
-- **Idle**: every head sways on its own pivot and rhythm, jaws snap, spray droplets, lightning flicker.
-- **Entrance (SVG)**: the heads rise one by one out of the water and open their jaws. **Card**: `lgHydraRise`,
-  crushed flat at the waterline, then the necks whip up tall with side-to-side lashes.
+- **Idea**: a five-headed sea serpent wrecking a harbor in a night storm; every head has its own face (a crowned
+  king, a one-eyed brute, a broken jaw, a young hungry one, an old barnacled one).
+- **Backdrop**: storm clouds with lit undersides, rain and lightning; a smashed burning lighthouse on a cliff, a harbor
+  fortress on fire, burning galleons, tail coils breaking the surface through snapped ships.
+- **Phase 1**: pewter scales, blood-red crests, gold slit eyes under one V brow per head, harpoons and chains in the
+  necks, a snapped harbor chain across the body.
+- **Phase 2, regrowth**: the two outer necks are cut to dripping stumps, each bursting into two pale new heads; the
+  rest go feral (green eyes, vein cracks, wider jaws); the severed heads float in an ichor slick.
+- **Phase 3, true form**: the body rises as one colossal three-eyed head with lightning seams and a gaping mandible V
+  around a storm orb, two heads lunging from its throat, a crown of eleven necks, waterspouts, the lighthouse falling.
+- **Entrance (SVG)**: the body heaves up, the necks shoot up one at a time, the eyes ignite and the jaws snap open.
+  **Card**: `lgHydraRise`.
 
-## 2. Titan: the Forge Titan
+## 2. Titan: the Forge Titan (redrawn 2026-10)
 
-- **Idea**: a colossal war machine of iron and bronze seen from below, shoulders too wide for the frame, a furnace for
-  a heart. Not a box robot: a hunched giant with huge fists and a crested helm.
-- **Backdrop**: a slowly turning gear halo with heat and embers rising.
-- **Phase 1**: sealed armor, a helm with one burning visor slit, a chest grille glowing orange, chained fists.
-- **Phase 2, "the armor cracks"**: plates split and show molten veins, the chest grille bursts open on a spinning
-  furnace core, the chains snap, steam blasts from the shoulder vents.
-- **Phase 3, "meltdown"**: the helm splits open on a molten skull with a fanged maw, the core goes white-hot with
-  energy rings, fists burn, cracks everywhere, the halo turns into a ring of fire.
-- **Idle**: a heavy breath heave, the core pulsing, the visor scanning, embers rising, a smoking vent.
-- **Entrance (SVG)**: the visor ignites left to right, the fists slam down. **Card**: `lgPowerUp`, crouched and dark,
-  rising in three hydraulic jerks with power surges, then a shudder.
+- **Idea**: a hunched forge machine-god seen from below, inside its own foundry. Its eyes sit at the same spot on the
+  helm and the skull, so the eye flames carry from phase 2 into phase 3.
+- **Backdrop**: a soot-brick foundry under an iron truss arch, two furnace mouths, a brass flywheel halo, a conveyor of
+  white-hot ingots, and a colossal tipped crucible pouring a molten stream into a funnel on the helm.
+- **Phase 1, sealed**: one V brow plate over burning slit eyes, a furnace-grille mouth breathing steam, four smoking
+  stacks, a power-hammer forearm with pistons, an anvil fist, chained arms, the firebox shut and glowing.
+- **Phase 2, the plating cracks**: plates tear open on white-hot metal and gears, the firebox door blows off, the grille
+  tears off on a molten snarl (static fangs), flames pour out of the eye slits, the chains snap, the halo cracks red.
+- **Phase 3, true form**: the armor blows apart into two counter-turning orbits around a skeletal machine (girder ribs,
+  gear spine, a white-hot reactor core with lightning), a molten iron skull with the same eye flames, fed by a torrent
+  from the crucible, the halo a ring of fire.
+- **Entrance (SVG)**: the crucible pours, the flywheel spins up, the hammer arm swings up in jerks, the anvil fist slams,
+  the eyes ignite. **Card**: `lgPowerUp`.
 
-## 3. Lich: the Lich of the Sunless Crypt
+## 3. Lich: the Lich of the Sunless Crypt (redrawn 2026-10)
 
-- **Idea**: a floating sorcerer-king with a crown of black iron, a skull of green fire, a robe dissolving into wisps,
-  one hand on a chained phylactery, the other on a ram-skull staff.
-- **Backdrop**: a rune circle turning behind him, soul flames.
-- **Phase 1**: in command: runes turning, eyes burning green, the phylactery glowing.
-- **Phase 2, "the dead rise"**: skeletal arms claw up from the ground, spectral skulls orbit him, the crown catches
-  green fire, the robe tears.
-- **Phase 3, "soul storm"**: the phylactery cracks, the skull splits and pours light, a giant screaming wraith face
-  looms behind him, a second rune ring turns the other way.
-- **Idle**: a floating bob, wisps swaying, skulls orbiting, runes turning, eyes flickering.
-- **Entrance (SVG)**: the eyes ignite, the rune circle spins up. **Card**: `lgLevitate`, drifts up from below with a
-  slow sway, then snaps upward as the power takes hold.
+- **Idea**: the sorcerer-king bound to his phylactery, which sits at the center of every phase.
+- **Backdrop**: a crypt throne: a pointed arch rimmed with vertebrae, an ossuary wall of skulls with blinking eyes,
+  standing coffins with candle skulls, bone piles, green embers.
+- **Phase 1, calm and cruel**: an angular skull with steady green pupils and a chattering grin, a cracked iron crown, a
+  rune circle, trophy-skull pauldrons, royal robes, soulfire in one hand and an open grimoire in the other, lower arms
+  dragging chained souls, the phylactery cage with a screaming soul inside.
+- **Phase 2, furious**: the robe burns away to a ribcage full of soulfire, two more burning arms rise, one V brow over
+  blazing slit eyes, a snarling jaw, souls tear out of the grimoire, the coffins burst open on reaching corpses.
+- **Phase 3, true form**: a colossal hooded wraith of soulfire with a huge screaming maw; the skeleton hangs in its
+  torn-open chest on threads of soulfire, the phylactery blazes at the center, the crown floats in pieces.
+- **Entrance (SVG)**: the throne swells in, the coffins slide in, the lich rises, the runes spin up, the grimoire snaps
+  open, the eyes ignite last. **Card**: `lgLevitate`.
 
-## 4. Chimera: the Chimera Tyrant
+## 4. Chimera: the Chimera Tyrant (redrawn 2026-10)
 
-- **Idea**: a rearing monster: a lion in front with a mane of fire, and more heads that wake as it is hurt. It
-  stands up tall, claws out, roaring at you.
-- **Backdrop**: a burning ring of embers.
-- **Phase 1**: the lion alone: a huge roaring maw, a burning mane, scarred shoulders, raised claws.
-- **Phase 2, "the goat wakes"**: a goat head bursts out of its back with curled horns that crackle with lightning.
-- **Phase 3, "all three heads"**: dragon wings unfold across the frame and the serpent tail strikes over its
-  shoulder, dripping venom: fire, lightning and poison at once.
-- **Idle**: the mane flickers, the jaw roars, claws flex, embers rise, and each head moves on its own.
-- **Entrance (SVG)**: the mane ignites, the jaw opens. **Card**: `lgTripleRoar`, three roars, each a bigger punch
-  forward with a head shake.
+- **Idea**: three beasts in one body, in a ruined colosseum: a lion with a mane of fire, a goat on a neck from the
+  shoulder with lightning between its horns, and a serpent-dragon tail curling over the top.
+- **Backdrop**: a broken bone-sandstone colosseum with skull spectators, braziers, chains, a volcanic sky, a cracked
+  lava floor.
+- **Phase 1**: torn burning wings, spiked iron pauldrons and a skull breastplate, the lion roaring, the goat chanting
+  with its third eye sealed, the serpent spitting venom.
+- **Phase 2, feral**: the lion's jaw splits to the ears, the goat's horns crack with fire and its eyes multiply, the
+  serpent sheds to a skeletal neck, and a fourth head tears out of the chest.
+- **Phase 3, true form**: the chest becomes a maw of three counter-turning tooth rings with an eye in its throat, all
+  three heads are burning skulls, six more heads sprout on writhing necks, the arena burns.
+- **Entrance (SVG)**: the braziers ignite, then three roars: serpent, goat, lion. **Card**: `lgTripleRoar`.
 
-## 5. Void: the Void Leviathan (the owner's favorite: keep the idea, push it much further)
+## 5. Void: the Void Leviathan (the owner's favorite: keep the idea, push it much further; upgraded 2026-10 with veined eyes, sealed eyes that tear open in phase 2, crack-mouths, a torn flesh rim and an eye in the throat in phase 3, and debris pulled into the disk)
 
 - **Idea**: a cosmic horror: one great eye in a mass of night, a black hole's burning ring behind it, starry
   tentacles.

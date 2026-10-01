@@ -10,10 +10,11 @@ About Ebiki:
 Ebiki is an AI-powered study app whose mascot is Ebi, a red shrimp. It turns what you study into Anki flashcards, quizzes you on them with AI-written questions, and can read and translate text in any picture or on screen.
 
 Where things are (describe ONLY these; never invent a button):
-- Tabs across the top: Chat (talk with Ebi, make cards, attach a deck), Study (AI quiz sessions on your Anki cards), Deck (browse, edit, search, add, Quick Add, copy/move, check card quality, scan for duplicates, Ebi bulk edit), Discover (AI suggestions for new cards at your level), Picture (capture, upload, paste or drop an image to translate its words), Stats (streak, cards today, accuracy, 14-day chart).
+- Screens in the sidebar on the left (the exact list the user has is given below as SIDEBAR SCREENS): Chat (talk with Ebi, make cards, attach a deck), Study (AI quiz sessions on your Anki cards), Deck (browse, edit, search, add, Quick Add, copy/move, check card quality, scan for duplicates, Ebi bulk edit), Discover (AI suggestions for new cards at your level), Picture (capture, upload, paste or drop an image to translate its words), Stats (Anki review streak, cards today, accuracy, 14-day chart), and the feature screens such as Legends (an adventure map with lessons, bosses and the daily raid) and Practice (a hub of activities, listed below as PRACTICE ACTIVITIES).
+- The header also shows the Ebiki streak and today's XP toward the daily goal (the game).
 - "Talk to Ebi" button in the header: opens this help chat.
 - Mode switcher in the header: switch between learning modes like "Spanish" or "Security+". Each mode has its own deck, card format and study rules.
-- Settings (the gear button, top right). App settings: General (theme, app language, translation languages, how Ebiki opens, run setup again), AI & cost (provider, API key, intelligence preset, "Save tokens: reuse questions" which is off unless the user turns it on and is cleared per deck, per-feature models under "Choose a model per feature"), Anki & audio (Anki auto-sync and its grace window, pronunciation audio), Data & updates (shared data folder, updates and restart). Mode settings: Learning modes (create, rename, delete, or design one with Ebi), Study (session size, languages, feedback, how Ebi asks questions, and an Advanced section), Cards & Anki (deck, card format, tags, and the screen capture transparency switch), Knowledge base (upload .txt, .md or .pdf reference material).
+- Settings (the gear button, top right). App settings: General (theme, app language, translation languages, how Ebiki opens, run setup again), AI & cost (provider, API key, intelligence preset, "Save tokens: reuse questions" which is off unless the user turns it on and is cleared per deck, per-feature models under "Choose a model per feature"), Anki & audio (Anki auto-sync and its grace window, pronunciation audio), Data & updates (shared data folder, updates and restart). Mode settings: Learning modes (create, rename, delete, or design one with Ebi), Study (session size, languages, feedback, how Ebi asks questions, and an Advanced section), Cards & Anki (deck, card format, tags), Knowledge base (upload .txt, .md or .pdf reference material).
 - Alt+Q: screen capture; with the overlay running it works over games and other apps. ESC dismisses it.
 - Anki integration needs Anki desktop running with the AnkiConnect add-on (code 2055492159). If it is missing, the app offers to install it.`
 
@@ -32,15 +33,24 @@ function buildSystemPrompt(appContext) {
     discover: 'the DISCOVER screen (AI suggestions for new cards to add)',
     picture: 'the PICTURE screen (translate text in an image via OCR)',
     stats: 'the STATS screen (a study-statistics dashboard)',
+    legends: 'the LEGENDS screen (an adventure map of areas with lessons, boss fights and daily raid bosses built from their deck)',
+    practice: 'the PRACTICE screen (a hub of practice activities: Ebi Call, Roleplay, Mistake Gym and others)',
   }[tab] || `the "${tab}" screen`
   parts.push(`\n>>> RIGHT NOW the user is looking at ${SCREEN}. When they ask "what's on my screen", "what is this", or "what am I looking at", answer about THIS screen. Never describe a different screen, and never claim a study question is on screen unless the STUDY screen is the one shown below. <<<`)
   parts.push(`NOTE: the user navigates between screens as you talk, so THIS value always reflects where they are for the CURRENT message. If your earlier reply described a different screen, they simply moved, that is NOT a mistake on your part. Just answer for the current screen, do NOT apologize or say "I got that wrong."`)
 
   // Always-true background facts (independent of the visible screen).
+  if (appContext.navScreens?.length) parts.push(`SIDEBAR SCREENS: ${appContext.navScreens.join(', ')}`)
+  if (appContext.practiceActivities?.length) parts.push(`PRACTICE ACTIVITIES (tiles on the Practice screen): ${appContext.practiceActivities.join(', ')}`)
   parts.push(`Mode: ${appContext.activeMode?.name || 'unknown'} (${appContext.activeMode?.type || ''})`)
   parts.push(`Anki deck for this mode: ${appContext.activeMode?.ankiDeck || 'none set'}`)
   if (appContext.activeMode?.dialect) parts.push(`Dialect setting: ${appContext.activeMode.dialect} (all generation follows this variant)`)
   if (appContext.grammarSlips?.length) parts.push(`RECURRING GRAMMAR SLIPS (auto-collected from graded study answers: things the learner conceptually knows but keeps getting wrong, e.g. a missing tilde). Offer targeted practice on these when asked ("let's drill my weak points"), or a gentle reminder when one is relevant:\n${appContext.grammarSlips.map((s) => `- ${s}`).join('\n')}`)
+  parts.push(`Learner level in this mode: ${appContext.learnerLevel || 'not measured yet (Legends can measure it: a short test, or reading what Ebiki has seen them study)'}`)
+  if (appContext.chatSettings && Object.values(appContext.chatSettings).some(Boolean)) {
+    const c = appContext.chatSettings
+    parts.push(`Chat tab settings for this mode: ${[c.focus && c.focus !== 'free' && `focus ${c.focus}`, c.level && `level ${c.level}`, c.explain && c.explain !== 'auto' && `explains in ${c.explain}`, c.attachedDeck && `deck attached: ${c.attachedDeck}`].filter(Boolean).join(', ') || 'defaults'}`)
+  }
   parts.push(`Anki connected: ${appContext.ankiConnected ? 'yes' : 'no'}`)
   if (appContext.ankiDecks?.length) parts.push(`Available Anki decks: ${appContext.ankiDecks.join(', ')}`)
 
@@ -62,6 +72,17 @@ function buildSystemPrompt(appContext) {
     if (appContext.ankiCard) parts.push(`Anki card being prepared: Front="${appContext.ankiCard.front}", Back="${appContext.ankiCard.back?.slice(0, 200)}"`)
   }
 
+  // --- Features (Legends, Practice activities...): what the learner does there, as each feature reports it ---
+  // Shown on every screen (Ebi knows what the learner did everywhere); an entry for the screen in view is marked as
+  // what is on screen right now. A feature never puts the answer of a question on screen into its text.
+  for (const f of appContext.featureContext || []) {
+    if (!f?.text) continue
+    const here = f.screen && f.screen === tab
+    parts.push(here
+      ? `\nON SCREEN NOW (${f.id}): what the user sees and does here. Answer questions about this screen from it. If a question or fight is running, do NOT give its answer unless they explicitly ask for it; guide them instead:\n${f.text}`
+      : `\nBACKGROUND, ${f.id} (not on screen; what the learner has done there, use it when they ask about their progress or this part of the app):\n${f.text}`)
+  }
+
   // --- STATS screen ---
   if (tab === 'stats' && appContext.stats) {
     const s = appContext.stats
@@ -75,12 +96,19 @@ function buildSystemPrompt(appContext) {
 
   // --- DECK browser ---
   if (tab === 'deck' && appContext.deckBrowser) {
-    parts.push(`\nON THE DECK BROWSER: deck "${appContext.deckBrowser.deck || '(none picked)'}" with ${appContext.deckBrowser.cards} cards listed. From here the user can add, edit, copy/move, reset, analyze, scan for duplicates, or bulk-edit cards.`)
+    const d = appContext.deckBrowser
+    parts.push(`\nON THE DECK BROWSER: deck "${d.deck || '(none picked)'}" with ${d.cards} cards listed${d.search ? `, filtered by the search "${d.search}"` : ''}. From here the user can add, edit, copy/move, reset, analyze, scan for duplicates, or bulk-edit cards.`)
+    if (d.quickAdd) parts.push(`Quick Add tray open with cards waiting for review: ${d.quickAdd.join(' | ')}`)
+    if (d.review) parts.push(`A review of ${d.review.count} suggested card changes is open (${d.review.kind === 'custom' ? `the request: "${d.review.request}"` : 'a card quality check'}); nothing is saved until the user accepts each one. First ones: ${d.review.first.map((r) => `"${r.front}": ${r.reason}`).join(' | ')}`)
+    if (d.duplicates) parts.push(`${d.duplicates} duplicate group(s) found and waiting for merge decisions.`)
   }
 
   // --- DISCOVER screen ---
   if (tab === 'discover' && appContext.discover) {
-    parts.push(`\nON THE DISCOVER SCREEN: ${appContext.discover.started ? 'actively suggesting new items to add' : 'on the setup screen'}, learner level=${appContext.discover.level || 'not analyzed yet'}, target deck="${appContext.discover.deck || 'none'}".`)
+    const dv = appContext.discover
+    parts.push(`\nON THE DISCOVER SCREEN: ${dv.started ? 'actively suggesting new items to add' : 'on the setup screen'}, learner level=${dv.level || 'not analyzed yet'}, target deck="${dv.deck || 'none'}".`)
+    if (dv.profile) parts.push(`Discover's profile of the learner: ${dv.profile}`)
+    if (dv.suggestion) parts.push(`Suggestion on screen: "${dv.suggestion.term}"${dv.suggestion.kind ? ` (${dv.suggestion.kind})` : ''}${dv.suggestion.meaning ? `: ${dv.suggestion.meaning}` : ''}${dv.suggestion.why ? `. Why it was suggested: ${dv.suggestion.why}` : ''}`)
   }
 
   // --- STUDY screen: the question is "on screen" ONLY here ---
@@ -103,10 +131,23 @@ function buildSystemPrompt(appContext) {
     }
     if (appContext.learnMoment) parts.push(`\nON SCREEN: a "Learn it" lesson for the card "${appContext.learnMoment.front}" (${appContext.learnMoment.intro ? 'a NEW card, taught before its questions' : 'the learner gave up on it'}; it is being TAUGHT, so it is not secret)${appContext.learnMoment.back ? `. Card back: ${appContext.learnMoment.back}` : ''}. The learner must type it once to continue.`)
     if (ss.gradedRecent?.length) parts.push(`Recently graded this session: ${ss.gradedRecent.map((g) => `"${g.front}" → ${g.rating}`).join(', ')}`)
+    if (appContext.pbqReview) parts.push(`\nON SCREEN: the result of a practice exercise (${appContext.pbqReview.format}): ${appContext.pbqReview.correct} of ${appContext.pbqReview.total} right, rated ${appContext.pbqReview.rating}. Its answers are shown, so they are not secret.`)
+    if (appContext.studyPhase === 'summary') parts.push('\nON SCREEN: the session SUMMARY (the session is over; every card listed is finished, so nothing is secret).')
+  } else if (tab === 'study' && appContext.studyStart) {
+    const st = appContext.studyStart
+    parts.push(`\nON THE STUDY START SCREEN (no session running): deck "${st.deck || 'none'}", type ${st.type}, answer style ${st.answerStyle}. The user picks a deck and options, then presses Start.`)
   } else if (appContext.studyActive) {
     // A session exists but the user has navigated AWAY from the study screen. Do NOT present its
     // question as on-screen — this is exactly the "Ebi answered about a study question while on Stats" bug.
     parts.push(`\n(Background only, NOT on screen: a study session is paused on the Study tab: deck="${appContext.studyDeck}", ${ss.completed ?? 0} done / ${ss.activeCards ?? 0} active. The user is NOT looking at it right now. You may summarize it if asked, but do not say a question is currently on screen.)`)
+  }
+  // What this session got wrong (finished cards only): shown on every screen so "what did I get wrong?" works anywhere.
+  if (appContext.studyReview) {
+    const r = appContext.studyReview
+    const counts = Object.entries(r.counts || {}).map(([k, n]) => `${k} ${n}`).join(', ')
+    parts.push(`\nTHIS STUDY SESSION SO FAR (finished cards; ${counts}).`)
+    if (r.wrong?.length) parts.push(`Questions answered WRONG (finished cards, safe to discuss):\n${r.wrong.map((c) => `- "${c.front}" (${c.rating}): ${c.wrong.map((w) => `asked "${w.q}", answered "${w.answer || '(skipped)'}"${w.expected ? `, expected "${w.expected}"` : ''}${w.note ? ` [${w.note}]` : ''}`).join('; ')}`).join('\n')}`)
+    if (r.insights) parts.push(`Session insights shown to the user: ${r.insights}`)
   }
   const prefs = appContext.questionPreferences || ss.questionPreferences
   if (prefs?.length) parts.push(`Saved question-style preferences for this mode:\n${prefs.map((p) => `- ${p}`).join('\n')}`)
@@ -120,8 +161,7 @@ function buildSystemPrompt(appContext) {
 - If the user asks to change MANY EXISTING CARDS at once (e.g. "rewrite all my pronunciation lines as Latin American Spanish", "add an example sentence to every card"), first make sure the request is specific enough to act on, then include <action>{"type":"deck_edit","instruction":"<ONE clear imperative instruction: exactly what to change and what to leave untouched>"}</action>. The app opens the Deck tab and builds a before/after preview of every affected card: tell the user NOTHING is saved until they review and accept each change there. If the request is vague ("make my cards better"), ask what specifically to change instead of emitting the action.
 - If the user wants FUTURE generation geared to a regional language variant (e.g. "all new Spanish cards should use Latin American pronunciation"), include <action>{"type":"set_dialect","dialect":"<the variant, e.g. Latin American Spanish>"}</action>. This sets the mode's Dialect setting (Settings → Study → "Dialect / variant") and steers ALL generation from then on: new cards' pronunciation lines, memory hooks, tapped-word phonetics, and questions. Confirm what you set. It does NOT rewrite existing cards: offer the bulk edit (previous bullet) for those.
 ${appContext.legendsAvailable ? `- If the user asks to change their LEGENDS adventure map (new topics or areas, a different order, a new look for the area art), include <action>{"type":"legends_edit","request":"<the change, one clear sentence>"}</action>. The app opens Legends > Change my map with a before/after preview: tell the user NOTHING changes until they accept it there, and areas they already started never change.
-` : ''}- To fix the QUESTION CURRENTLY ON SCREEN in place, tell them about the "✎ Fix question" button under the answer box: it regenerates that question and also remembers the preference.
-- Other study settings (deck, learning language, questions per card, saved preferences) live in ⚙ Settings → Study: direct them precisely.
+` : ''}${tab === 'study' && appContext.currentQuestion ? '- To fix the QUESTION CURRENTLY ON SCREEN in place, tell them about the "✎ Fix question" button under the answer box: it regenerates that question and also remembers the preference.\n' : tab === 'legends' ? '- A Legends question that is badly worded: there is no Fix button there; the "🔄 New questions" button writes a fresh set for that step.\n' : ''}- Other study settings (deck, learning language, questions per card, saved preferences) live in ⚙ Settings → Study: direct them precisely.
 - AFTER ANY ACTION: the app automatically appends a verified "Checked by the app" list to your reply that states exactly what was changed and which systems it affects, so the user KNOWS it truly happened. So keep your own confirmation short and natural ("Done!") and NEVER claim you changed something you did not emit an action for. If you only explained something and changed nothing, do not imply anything was saved.`)
 
   if (appContext.chatTabMsgs?.length) {
@@ -172,7 +212,11 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
   const inputRef = useRef(null)
 
   // Open the chat when the host fires the "Ask Ebi" signal (e.g. the study companion button).
+  // Only a NEW signal: remounted (after Run setup again) with the old count, the panel popped open by itself.
+  const askSeenRef = useRef(askEbiSignal)
   useEffect(() => {
+    if (askEbiSignal === askSeenRef.current) return
+    askSeenRef.current = askEbiSignal
     if (askEbiSignal) { setOpen(true); setTimeout(() => inputRef.current?.focus(), 80) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [askEbiSignal])
@@ -237,6 +281,8 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
       // that is not a prefix of the file). Only a never-saved chat is saved here.
       if (messages.length > 0 && (!sessionId || !lastSaveOkRef.current)) {
         await saveMessages(messages, sessionId)
+        // Still not saved (share down, server gone, folder switching): the chat stays on screen rather than vanish.
+        if (!lastSaveOkRef.current) return
       }
       setMessages([])
       setSessionId(null)
@@ -746,7 +792,7 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
       {open && !snapZone && (() => {
         const chatStyle = getChatStyle()
         return (
-          <div ref={panelRef} style={{
+          <div ref={panelRef} data-help-panel="" style={{
             ...chatStyle,
             background: 'color-mix(in srgb, var(--c-surface) 94%, transparent)',
             backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
@@ -764,7 +810,7 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
 
       {/* Snapped / detached panel (left·right·top·bottom edge zones, or free-floating) */}
       {open && snapZone && (
-        <div ref={panelRef} style={{
+        <div ref={panelRef} data-help-panel="" style={{
           ...panelStyle(),
           background: 'color-mix(in srgb, var(--c-surface) 94%, transparent)',
           backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',

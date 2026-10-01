@@ -102,6 +102,7 @@ function DataFolderCard({ t, card, fieldLabel, hint, onChanged }) {
     if (s.chats) out.push(t('dataFolderMergeChats', { count: s.chats }))
     if (s.decks?.length) out.push(t('dataFolderMergeDecks', { names: names(s.decks) }))
     if (s.discover) out.push(t('dataFolderMergeDiscover', { count: s.discover }))
+    if (s.features) out.push(t(s.features === 1 ? 'dataFolderMergeFeaturesOne' : 'dataFolderMergeFeatures', { count: s.features }))
     return out
   }
   return (
@@ -250,6 +251,9 @@ function UpdatesCard({ t, card, fieldLabel, hint, serverDown }) {
                    // the check itself could not run, which is exactly when someone is asking
                    // "what version is this machine actually on?"
       if (!d.gitAvailable) { setState('nogit'); return }
+      // Updated since this server started: it still runs the old code, so the restart stays on offer (this said "up to
+      // date" and hid it on the next check or a reopen of Settings).
+      if (d.restartPending) { setState('done'); return }
       // Updates come from master; a copy parked on another branch can never apply one,
       // so say which branch rather than offering an update that would fail.
       if (d.branch && !d.onMaster) { setState('branch'); return }
@@ -364,7 +368,7 @@ function UpdatesCard({ t, card, fieldLabel, hint, serverDown }) {
     return null
   }
   // Also while an update is verified or restarting: a check landing then replaced the restart offer.
-  const checkBlocked = ['checking', 'updating', 'verifying', 'restarting'].includes(state)
+  const checkBlocked = ['checking', 'updating', 'verifying', 'restarting', 'done'].includes(state)
   return (
     <div style={card}>
       {fieldLabel(t('updatesTitle'))}
@@ -503,7 +507,7 @@ export default function SettingsModal(p) {
 
   const isLanguage = (activeMode?.type || 'general') === 'language'
   // Per-role "type a custom model" toggles (emergency: provider list empty / future models).
-  const [customRoles, setCustomRoles] = useState({})
+  const [customRoles, setCustomRoles] = useState({}) // keyed "<provider>:<role>": one provider's toggle showed on another's row
   const [qPrefInput, setQPrefInput] = useState('') // Settings → Study: add a question-style preference
   const [clearDeck, setClearDeck] = useState('') // Settings → AI & cost: deck whose saved questions to clear
   // Live key-check status shown under the key field: { state: 'checking'|'valid'|'invalid'|'unknown' }.
@@ -878,7 +882,7 @@ export default function SettingsModal(p) {
             const def = ROLE_DEFAULTS(providerConfig, intelligence)[role]
             const current = aiModels[provider]?.[role] || ''
             const opts = Array.from(new Set([...(provModels.length ? provModels : []), def, current].filter(Boolean)))
-            const isCustom = customRoles[role]
+            const isCustom = customRoles[`${provider}:${role}`]
             const setRole = (v) => setAiModels((prev) => ({ ...prev, [provider]: { ...(prev[provider] || {}), [role]: v } }))
             return (
               <div key={role} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
@@ -891,7 +895,7 @@ export default function SettingsModal(p) {
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) e.currentTarget.blur() }}
                     placeholder={t('set_customModelIdPlaceholder')} style={{ ...S.keyInput, flex: 1, fontSize: 11, padding: '6px 9px' }} />
                 ) : (
-                  <select value={current} onChange={(e) => { if (e.target.value === '__custom__') { setCustomRoles((c) => ({ ...c, [role]: true })) } else setRole(e.target.value) }}
+                  <select value={current} onChange={(e) => { if (e.target.value === '__custom__') { setCustomRoles((c) => ({ ...c, [`${provider}:${role}`]: true })) } else setRole(e.target.value) }}
                     style={{ ...S.select, flex: 1, fontSize: 11, padding: '6px 9px' }}>
                     <option value="">{t('providerDefault')} ({planDeciding && !current ? t('set_choosing') : def})</option>
                     {opts.map((m) => <option key={m} value={m}>{m}</option>)}
@@ -899,7 +903,7 @@ export default function SettingsModal(p) {
                   </select>
                 )}
                 {isCustom && (
-                  <button onClick={() => { setCustomRoles((c) => ({ ...c, [role]: false })); setRole('') }} style={{ ...S.ghostBtn, fontSize: 9, padding: '3px 7px' }} title={t('useList')}>↩</button>
+                  <button onClick={() => { setCustomRoles((c) => ({ ...c, [`${provider}:${role}`]: false })); if (current && !(provModels || []).includes(current)) setRole('') }} style={{ ...S.ghostBtn, fontSize: 9, padding: '3px 7px' }} title={t('useList')}>↩</button>
                 )}
               </div>
             )
@@ -1126,16 +1130,6 @@ export default function SettingsModal(p) {
         <textarea value={activeMode.tagRules || ''} onChange={(e) => updateActiveMode({ tagRules: e.target.value })}
           placeholder={t('tagRulesPlaceholder')} style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box', fontSize: 12, minHeight: 80, resize: 'vertical' }} />
       </div>
-      {/* Screen capture (Alt+Q) for this mode: the old "Screen overlay" pane held only this switch. */}
-      <div style={card}>
-        {fieldLabel(t('setCapture'))}
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: C.ink, cursor: 'pointer' }}>
-          <input type="checkbox" checked={activeMode.areaSelectTransparent !== false}
-            onChange={() => updateActiveMode({ areaSelectTransparent: !(activeMode.areaSelectTransparent !== false) })} />
-          {t('overlayTransparent')}
-        </label>
-        <div style={hint}>{t('overlayTransparentHint')}</div>
-      </div>
     </div>
   )
 
@@ -1165,12 +1159,12 @@ export default function SettingsModal(p) {
         {knowledgeFiles.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10 }}>
             {knowledgeFiles.map((f) => (
-              <div key={f.name} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: f.disabled ? C.surfaceSunken : C.successTint, border: `1px solid ${f.disabled ? C.border : 'rgba(24,169,87,.2)'}`, borderRadius: RADIUS.sm, fontSize: 12 }}>
+              <div key={`${f.name}|${f.disabled ? 1 : 0}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: f.disabled ? C.surfaceSunken : C.successTint, border: `1px solid ${f.disabled ? C.border : 'rgba(24,169,87,.2)'}`, borderRadius: RADIUS.sm, fontSize: 12 }}>
                 <span style={{ flex: 1, color: f.disabled ? C.inkFaint : C.ink, textDecoration: f.disabled ? 'line-through' : 'none' }}>{f.name}</span>
                 <span style={{ color: C.inkFaint, fontSize: 10 }}>{(f.size / 1024).toFixed(1)}KB</span>
                 <button onClick={() => toggleKnowledgeFile(f.name, !f.disabled)} disabled={knowledgeBusyFiles?.has?.(f.name)}
                   style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 7px', ...(knowledgeBusyFiles?.has?.(f.name) ? { opacity: 0.5, cursor: 'default' } : {}) }}>{f.disabled ? t('enable') : t('disable')}</button>
-                <button onClick={async () => { const id = activeModeId; if (!(await confirmDialog(t('deck_deleteConfirm', { front: f.name })))) return; if (getActiveModeId && getActiveModeId() !== id) return /* the file belongs to the mode that was active when asked */; deleteKnowledgeFile(f.name) }} style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 7px', color: C.danger, borderColor: 'rgba(229,57,46,.25)' }}>{t('delete')}</button>
+                <button onClick={async () => { const id = activeModeId; if (!(await confirmDialog(t('deck_deleteConfirm', { front: f.name })))) return; if (getActiveModeId && getActiveModeId() !== id) return /* the file belongs to the mode that was active when asked */; deleteKnowledgeFile(f.name, !!f.disabled) }} disabled={knowledgeBusyFiles?.has?.(f.name)} style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 7px', color: C.danger, borderColor: 'rgba(229,57,46,.25)', ...(knowledgeBusyFiles?.has?.(f.name) ? { opacity: 0.5, cursor: 'default' } : {}) }}>{t('delete')}</button>
               </div>
             ))}
           </div>

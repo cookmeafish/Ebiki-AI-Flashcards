@@ -150,3 +150,29 @@ describe('failed Legends tries pay a little, capped per day', () => {
     expect(XP.legendsTry).toBeLessThan(XP.practiceDone)
   })
 })
+
+describe('rest weekdays change from the day they are changed', () => {
+  it('dropping a weekday keeps the past rest days on it', async () => {
+    const { restDaysPatch, isRestDay } = await import('./engine')
+    const p0 = { restDays: [6] } // Sundays off
+    const p1 = { ...p0, ...restDaysPatch(p0, [], '2026-10-01') }
+    expect(isRestDay(p1, '2026-09-27')).toBe(true)  // a past Sunday: still a rest day
+    expect(isRestDay(p1, '2026-10-04')).toBe(false) // a coming Sunday: not any more
+  })
+  it('adding a weekday does not turn past missed days into rest days', async () => {
+    const { restDaysPatch, isRestDay } = await import('./engine')
+    const p1 = { restDays: [], ...restDaysPatch({ restDays: [] }, [6], '2026-10-01') }
+    expect(isRestDay(p1, '2026-09-27')).toBe(false)
+    expect(isRestDay(p1, '2026-10-04')).toBe(true)
+  })
+})
+
+describe('league tier and a later goal change', () => {
+  it('judges the first week against the goal recorded then, not today\'s', async () => {
+    const { tierFor, weekStart } = await import('./engine')
+    const day = (xp) => ({ m1: { xp, goal: 30 } })
+    const p = { id: 'p', days: { '2026-06-01': day(80), '2026-06-02': day(80), '2026-06-08': day(100), '2026-06-09': day(100) } }
+    const mon = weekStart('2026-06-17')
+    expect(tierFor(p, mon, 50)).toBe(tierFor(p, mon, 30))
+  })
+})
