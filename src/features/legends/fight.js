@@ -21,7 +21,8 @@ export const WEAK_TO_MAX = 2
 
 export const newFight = () => ({ damage: 0, livesLost: 0, combo: 0, crits: 0, attacks: 0, blocked: 0, answers: 0, clean: 0, glancing: 0, safe: 0, misses: 0, shieldUsed: false, last: null, n: 0,
   chain: 0, triples: 0, bounces: 0, cuts: 0, unredeemed: [], risen: false, judged: 0, judgedRight: 0, smites: 0,
-  surge: false, surfaced: 0, kindled: 0, rewound: [], pacts: 0, bolts: 0, reflects: 0, gorged: 0, snaps: 0, lastBreaths: 0 })
+  surge: false, surfaced: 0, kindled: 0, rewound: [], pacts: 0, bolts: 0, reflects: 0, gorged: 0, snaps: 0, lastBreaths: 0,
+  rights: 0, stings: 0, perfects: 0, crumbles: 0, crescendos: 0, harvests: 0, slumbers: 0 })
 
 // RAID BOSS ABILITIES (docs/raid-bosses-plan.md). Each changes how the FIGHT plays, never how a question is asked:
 // no timers, nothing hidden, a right answer is never marked wrong, and each twist rewards what builds memory.
@@ -50,11 +51,19 @@ export const newFight = () => ({ damage: 0, livesLost: 0, combo: 0, crits: 0, at
 //   marionette   (Puppeteer) blocking an attack snaps a string for ABILITY.marionetteCounter damage, and a missed
 //                          attack costs only ABILITY.marionetteLives life.
 //   lastbreath   (Berserker) on your last life every right answer deals ABILITY.lastbreathFactor times the damage.
+//   swarm        (Hive Empress) every ABILITY.swarmEvery-th right answer (in a row or not) stings for +ABILITY.swarmSting.
+//   petrify      (Gorgon) every ABILITY.petrifyEvery-th clean typed answer shatters stone for +ABILITY.petrifyShatter.
+//   crescendo    (Banshee) right answers deal +1 in phase 2 and +2 in phase 3 (phase - 1).
+//   harvest      (Reaper) every life already lost makes it careless: right answers deal +1 per lost life, at most
+//                          +ABILITY.harvestMax.
+//   slumber      (Dreamer) while no life is lost yet, every right answer deals +ABILITY.slumberBonus (don't wake it).
 export const ABILITY = { regrowthGap: 2, regrowthCut: 3, tripleEvery: 3, tripleFactor: 3, singularityFactor: 2, singularityLives: 2, judgmentEvery: 5, judgmentSmite: 5,
   maelstromBonus: 3, kindlingFrom: 4, kindlingBonus: 1, bloodpactEvery: 5, tempestEvery: 4, tempestFactor: 2, devourHeal: 1, devourChoke: 1,
-  marionetteCounter: 3, marionetteLives: 1, lastbreathFactor: 3 }
+  marionetteCounter: 3, marionetteLives: 1, lastbreathFactor: 3, swarmEvery: 5, swarmSting: 3, petrifyEvery: 3, petrifyShatter: 3,
+  harvestMax: 2, slumberBonus: 1 }
 export const ABILITIES = ['regrowth', 'plating', 'phylactery', 'heads', 'singularity', 'judgment',
-  'maelstrom', 'kindling', 'rewind', 'bloodpact', 'tempest', 'reflection', 'devour', 'marionette', 'lastbreath']
+  'maelstrom', 'kindling', 'rewind', 'bloodpact', 'tempest', 'reflection', 'devour', 'marionette', 'lastbreath',
+  'swarm', 'petrify', 'crescendo', 'harvest', 'slumber']
 
 // One answer. hit = { verdict: 'clean'|'glancing'|'miss', mode: 'typed'|'choice', weak?: bool, attack?: bool,
 // lastStand?: bool (the Lich's returning cards), key?: the card it asked (for the Lich's unredeemed misses) }.
@@ -104,6 +113,15 @@ export function strike(state, hit, { shield = false, ability = '', phase = 1, ne
       if (ability === 'maelstrom' && s.surge) { dmg += ABILITY.maelstromBonus; s.surfaced++; fx = 'surface' }
       if (ability === 'tempest' && s.answers % ABILITY.tempestEvery === 0) { dmg *= ABILITY.tempestFactor; s.bolts++; fx = 'bolt' }
       if (ability === 'bloodpact' && s.chain % ABILITY.bloodpactEvery === 0 && (state.livesLost || 0) > 0) { heal = 1; s.pacts++; fx = 'pact' }
+      s.rights = (s.rights || 0) + 1
+      if (ability === 'swarm' && s.rights % ABILITY.swarmEvery === 0) { dmg += ABILITY.swarmSting; s.stings++; fx = 'sting' }
+      if (ability === 'petrify' && hit.mode === 'typed' && hit.verdict === 'clean') {
+        s.perfects = (s.perfects || 0) + 1
+        if (s.perfects % ABILITY.petrifyEvery === 0) { dmg += ABILITY.petrifyShatter; s.crumbles++; fx = 'crumble' }
+      }
+      if (ability === 'crescendo' && phase > 1) { dmg += Math.min(2, phase - 1); s.crescendos++; fx = 'crescendo' }
+      if (ability === 'harvest' && (state.livesLost || 0) > 0) { dmg += Math.min(ABILITY.harvestMax, state.livesLost); s.harvests++; fx = 'harvest' }
+      if (ability === 'slumber' && !(state.livesLost > 0)) { dmg += ABILITY.slumberBonus; s.slumbers++; fx = 'slumber' }
     }
     if (ability === 'maelstrom') s.surge = !right
     if (ability === 'devour' && !right) { gorge = Math.min(ABILITY.devourHeal, s.damage); if (gorge > 0) { s.gorged++; fx = 'gorge' } }
