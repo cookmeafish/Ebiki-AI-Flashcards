@@ -322,6 +322,35 @@ describe('raid boss abilities', () => {
       expect(s.last.fx).toBe('lastbreath')
     })
   })
+  describe('the five newest raid abilities', () => {
+    it('Hive Empress swarm: every 5th right answer, in a row or not, stings', () => {
+      const o = { ability: 'swarm' }
+      const s = run([hit('clean', 'choice'), hit('miss'), hit('clean', 'choice'), hit('clean', 'choice'), hit('clean', 'choice'), hit('clean', 'choice')], o)
+      expect(s.stings).toBe(1)
+      expect(s.damage).toBe(5 * DAMAGE.choice + ABILITY.swarmSting)
+    })
+    it('Gorgon petrify: every 3rd clean typed answer shatters; choices and glancing answers do not count', () => {
+      const o = { ability: 'petrify' }
+      expect(run([hit('clean'), hit('clean', 'choice'), hit('glancing'), hit('clean'), hit('clean')], o).crumbles).toBe(1)
+      expect(run([hit('clean'), hit('clean'), hit('clean')], o).damage).toBe(3 * DAMAGE.clean + 1 + ABILITY.petrifyShatter) // + the usual critical
+    })
+    it('Banshee crescendo: +1 in phase 2, +2 in phase 3', () => {
+      expect(run([hit('clean', 'choice')], { ability: 'crescendo', phase: 1 }).damage).toBe(DAMAGE.choice)
+      expect(run([hit('clean', 'choice')], { ability: 'crescendo', phase: 2 }).damage).toBe(DAMAGE.choice + 1)
+      expect(run([hit('clean', 'choice')], { ability: 'crescendo', phase: 3 }).damage).toBe(DAMAGE.choice + 2)
+    })
+    it('Reaper harvest: +1 per life already lost, capped', () => {
+      const o = { ability: 'harvest' }
+      expect(run([hit('clean', 'choice')], o).damage).toBe(DAMAGE.choice)
+      expect(run([hit('miss'), hit('clean', 'choice')], o).damage).toBe(DAMAGE.choice + 1)
+      expect(run([hit('miss'), hit('miss'), hit('miss'), hit('clean', 'choice')], o).damage).toBe(DAMAGE.choice + ABILITY.harvestMax)
+    })
+    it('Dreamer slumber: +1 per right answer only while no life is lost', () => {
+      const o = { ability: 'slumber' }
+      expect(run([hit('clean', 'choice'), hit('clean', 'choice')], o).damage).toBe(2 * (DAMAGE.choice + ABILITY.slumberBonus))
+      expect(run([hit('miss'), hit('clean', 'choice')], o).damage).toBe(DAMAGE.choice)
+    })
+  })
   describe('Lich phylactery', () => {
     const opts = { ability: 'phylactery', need: 4 }
     it('rises at 1 health while a missed card is unredeemed, and falls when it is answered right', () => {

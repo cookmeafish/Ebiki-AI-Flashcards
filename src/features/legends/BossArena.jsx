@@ -125,6 +125,11 @@ const CSS = `
 @keyframes lgGulpBloat { 0% { transform: scale(.3); opacity: 0 } 12% { opacity: 1 } 34% { transform: scale(1.5, 1.38) } 44% { transform: scale(1.38, 1.52) } 54% { transform: scale(1.56, 1.36) } 62% { transform: scale(.78, 1.12) } 70% { transform: scale(1.1, .9) } 82% { transform: scale(.97, 1.03) } 100% { transform: none } }
 @keyframes lgStringDrop { 0% { transform: translateY(-140%) rotate(0); opacity: 0 } 8% { opacity: 1 } 30% { transform: translateY(12%) rotate(-8deg) } 40% { transform: translateY(-14%) rotate(10deg) } 52% { transform: translateY(6%) rotate(-12deg) } 62% { transform: translateY(-4%) rotate(9deg) } 72% { transform: translateY(2%) rotate(-5deg) } 80% { transform: translateY(-6%) rotate(0) scale(1.05, .95) } 88% { transform: translateY(0) scale(.98, 1.03) } 100% { transform: none } }
 @keyframes lgWarCharge { 0% { transform: translateX(-160%) skewX(-18deg); opacity: 0 } 8% { opacity: 1 } 38% { transform: translateX(14%) skewX(-12deg) scale(1.04, .96) } 50% { transform: translateX(8%) skewX(10deg) rotate(4deg) } 60% { transform: translateX(-4%) skewX(-4deg) rotate(-3deg) } 70% { transform: translateY(-10%) } 78% { transform: translateY(4%) scale(1.1, .88) } 88% { transform: scale(.98, 1.03) } 100% { transform: none } }
+@keyframes lgHiveRumble { 0% { transform: translateY(45%) scale(.9); opacity: 0 } 6% { opacity: 1 } 10% { transform: translateY(45%) translateX(-3px) } 14% { transform: translateY(44%) translateX(3px) } 18% { transform: translateY(45%) translateX(-3px) } 22% { transform: translateY(44%) translateX(3px) } 26% { transform: translateY(45%) translateX(-2px) } 30% { transform: translateY(43%) translateX(2px) } 56% { transform: translateY(-8%) scale(1.04) } 70% { transform: translateY(3%) scale(.98) } 84% { transform: translateY(-1%) } 100% { transform: none } }
+@keyframes lgSerpentRear { 0% { transform: translateX(130%) translateY(18%) skewX(20deg) scaleY(.7); opacity: 0 } 8% { opacity: 1 } 22% { transform: translateX(80%) translateY(12%) skewX(-18deg) scaleY(.72) } 36% { transform: translateX(40%) translateY(14%) skewX(18deg) scaleY(.75) } 50% { transform: translateX(8%) translateY(10%) skewX(-12deg) scaleY(.8) } 66% { transform: translateY(-10%) scaleY(1.16) scaleX(.94) } 80% { transform: translateY(2%) scaleY(.96) } 100% { transform: none } }
+@keyframes lgWailPulse { 0% { transform: scale(.4); opacity: 0 } 10% { transform: scale(.7); opacity: .4 } 16% { transform: scale(.6); opacity: .3 } 28% { transform: scale(.92); opacity: .7 } 34% { transform: scale(.82); opacity: .55 } 48% { transform: scale(1.12); opacity: 1 } 54% { transform: scale(1.02) } 66% { transform: scale(1.22) } 72% { transform: scale(1.08) } 86% { transform: scale(.98) } 100% { transform: none } }
+@keyframes lgScytheSwoop { 0% { transform: translate(120%, -120%) rotate(70deg) scale(.6); opacity: 0 } 10% { opacity: 1 } 34% { transform: translate(60%, -10%) rotate(30deg) scale(.85) } 52% { transform: translate(-14%, 8%) rotate(-12deg) scale(1.05) } 66% { transform: translate(4%, -4%) rotate(5deg) } 80% { transform: translate(0, 2%) rotate(-2deg) } 100% { transform: none } }
+@keyframes lgEldritchUnfold { 0% { transform: scale(.06, .002); opacity: 0 } 10% { opacity: 1; transform: scale(.06, .02) } 26% { transform: scale(.08, .2) } 34% { transform: scale(.1, .18) } 56% { transform: scale(1.22, .86) } 66% { transform: scale(.86, 1.14) } 76% { transform: scale(1.08, .94) } 86% { transform: scale(.97, 1.03) } 100% { transform: none } }
 @keyframes lgRealityTear { 0% { transform: scale(1.3, .02); opacity: 0; filter: brightness(3) } 14% { opacity: 1; transform: scale(1.3, .03) } 28% { transform: scale(1.1, .05) } 46% { transform: scale(.94, 1.28); filter: brightness(2) hue-rotate(40deg) } 54% { transform: translateX(-9px) scale(1.04, .94) } 60% { transform: translateX(8px) scale(.98, 1.04); filter: hue-rotate(-30deg) } 66% { transform: translateX(-5px) } 72% { transform: translateX(3px) scale(1.02) } 100% { transform: none; filter: none } }
 @keyframes lgPhaseShift { 0% { transform: none; filter: none } 10% { transform: scale(1.3); filter: brightness(3) saturate(0) } 22% { transform: scale(.9) translateX(-7px) rotate(-4deg); filter: brightness(1.2) } 32% { transform: scale(1.22) translateX(7px) rotate(4deg); filter: brightness(2.4) } 44% { transform: scale(.96) translateX(-4px) } 58% { transform: scale(1.14); filter: brightness(1.7) saturate(1.6) } 100% { transform: none; filter: none } }
 @keyframes lgPhaseTag { 0% { transform: translate(-50%, -6px); opacity: 0 } 15% { transform: translate(-50%, 0); opacity: 1 } 75% { opacity: 1 } 100% { transform: translate(-50%, 0); opacity: 0 } }
@@ -209,6 +214,11 @@ export const ENTRANCES = {
   glutton: { name: 'lgGulpBloat', ease: 'cubic-bezier(.3,.8,.4,1)', origin: 'bottom center' }, // bloats up, wobbles, gulps back
   puppeteer: { name: 'lgStringDrop', ease: 'cubic-bezier(.3,.7,.4,1)', origin: 'top center' }, // dropped on strings, dangles, jerked upright
   berserker: { name: 'lgWarCharge', ease: 'cubic-bezier(.3,.8,.4,1)', origin: 'bottom center' }, // charges in from the side, skids, stomps
+  swarmqueen: { name: 'lgHiveRumble', ease: 'cubic-bezier(.3,.7,.4,1)', origin: 'bottom center' }, // the comb shivers, she pushes up out of it
+  gorgon: { name: 'lgSerpentRear', ease: 'cubic-bezier(.3,.7,.4,1)', origin: 'bottom center' }, // slithers in on an S-curve, rears up
+  banshee: { name: 'lgWailPulse', ease: 'cubic-bezier(.3,.7,.4,1)' }, // fades in on swelling waves of a scream
+  reaper: { name: 'lgScytheSwoop', ease: 'cubic-bezier(.3,.8,.4,1)' }, // swoops down from the corner on a scythe arc
+  dreamer: { name: 'lgEldritchUnfold', ease: 'cubic-bezier(.3,.8,.4,1)' }, // one eye opens, then it unfolds with a jelly wobble
 }
 export const entranceFor = (motif) => ENTRANCES[motif] || ENTRANCES.mountains
 // `odds`: bossOdds options ({ bonus, pass }); `legendary`: the harder replay of a cleared area.
@@ -285,9 +295,11 @@ export function BossEnd({ t, won, onDone }) {
 
 // Icons and floater texts for the raid abilities (fight.js ABILITIES, strike's last.fx).
 export const ABILITY_ICON = { regrowth: '🐍', plating: '🛡', phylactery: '☠', heads: '🔥', singularity: '🌀', judgment: '⚖️',
-  maelstrom: '🌊', kindling: '🔥', rewind: '⏳', bloodpact: '🩸', tempest: '⚡', reflection: '🪞', devour: '👄', marionette: '🎭', lastbreath: '🪓' }
+  maelstrom: '🌊', kindling: '🔥', rewind: '⏳', bloodpact: '🩸', tempest: '⚡', reflection: '🪞', devour: '👄', marionette: '🎭', lastbreath: '🪓',
+  swarm: '🐝', petrify: '🗿', crescendo: '🎶', harvest: '💀', slumber: '💤' }
 const FX_KEY = { cut: 'lg_fx_cut', bounce: 'lg_fx_bounce', triple: 'lg_fx_triple', rise: 'lg_fx_rise', shatter: 'lg_fx_shatter', singularity: 'lg_fx_singularity', smite: 'lg_fx_smite',
-  surface: 'lg_fx_surface', kindle: 'lg_fx_kindle', rewind: 'lg_fx_rewind', pact: 'lg_fx_pact', bolt: 'lg_fx_bolt', reflect: 'lg_fx_reflect', choke: 'lg_fx_choke', gorge: 'lg_fx_gorge', snap: 'lg_fx_snap', lastbreath: 'lg_fx_lastbreath' }
+  surface: 'lg_fx_surface', kindle: 'lg_fx_kindle', rewind: 'lg_fx_rewind', pact: 'lg_fx_pact', bolt: 'lg_fx_bolt', reflect: 'lg_fx_reflect', choke: 'lg_fx_choke', gorge: 'lg_fx_gorge', snap: 'lg_fx_snap', lastbreath: 'lg_fx_lastbreath',
+  sting: 'lg_fx_sting', crumble: 'lg_fx_crumble', crescendo: 'lg_fx_crescendo', harvest: 'lg_fx_harvest', slumber: 'lg_fx_slumber' }
 
 // The phase to stamp while a phase change plays (0 otherwise). Only a RISE counts, never the first render.
 function usePhaseShift(phase) {

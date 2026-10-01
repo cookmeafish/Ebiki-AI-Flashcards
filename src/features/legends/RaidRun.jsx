@@ -250,6 +250,11 @@ export default function RaidRun({ ctx, onExit }) {
     if (ability === 'devour' && normal && mode !== 'choice') return `👄 ${t('lg_hint_devour', { n: ABILITY.devourChoke })}`
     if (ability === 'marionette' && q._attack) return `🎭 ${t('lg_hint_marionette', { n: ABILITY.marionetteCounter })}`
     if (ability === 'lastbreath' && lives - fs.livesLost === 1) return `🪓 ${t('lg_hint_lastbreath', { n: ABILITY.lastbreathFactor })}`
+    if (ability === 'swarm' && normal && ((fs.rights || 0) + 1) % ABILITY.swarmEvery === 0) return `🐝 ${t('lg_hint_swarm', { n: ABILITY.swarmSting })}`
+    if (ability === 'petrify' && normal && mode !== 'choice' && ((fs.perfects || 0) + 1) % ABILITY.petrifyEvery === 0) return `🗿 ${t('lg_hint_petrify', { n: ABILITY.petrifyShatter })}`
+    if (ability === 'crescendo' && normal && fightPhase > 1) return `🎶 ${t('lg_hint_crescendo', { n: Math.min(2, fightPhase - 1) })}`
+    if (ability === 'harvest' && normal && fs.livesLost > 0) return `💀 ${t('lg_hint_harvest', { n: Math.min(ABILITY.harvestMax, fs.livesLost) })}`
+    if (ability === 'slumber' && normal && !(fs.livesLost > 0)) return `💤 ${t('lg_hint_slumber', { n: ABILITY.slumberBonus })}`
     return ''
   }
   const header = (q, mode) => (

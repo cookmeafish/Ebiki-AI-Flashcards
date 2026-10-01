@@ -45,9 +45,11 @@ function PhaseDemo({ t, area, motif, getZoom }) {
 // words that pop over the boss when it triggers (the same texts the real fight uses).
 const ABILITY_HINT = { plating: {}, regrowth: { n: ABILITY.regrowthCut }, singularity: { n: ABILITY.singularityLives }, heads: {}, judgment: { n: ABILITY.judgmentSmite },
   maelstrom: { n: ABILITY.maelstromBonus }, kindling: { n: ABILITY.kindlingBonus }, rewind: {}, bloodpact: {}, tempest: { n: ABILITY.tempestFactor },
-  reflection: {}, devour: { n: ABILITY.devourChoke }, marionette: { n: ABILITY.marionetteCounter }, lastbreath: { n: ABILITY.lastbreathFactor } }
+  reflection: {}, devour: { n: ABILITY.devourChoke }, marionette: { n: ABILITY.marionetteCounter }, lastbreath: { n: ABILITY.lastbreathFactor },
+  swarm: { n: ABILITY.swarmSting }, petrify: { n: ABILITY.petrifyShatter }, crescendo: { n: 2 }, harvest: { n: ABILITY.harvestMax }, slumber: { n: ABILITY.slumberBonus } }
 const ABILITY_FX = { regrowth: ['cut'], plating: ['bounce'], phylactery: ['rise', 'shatter'], heads: ['triple'], singularity: ['singularity'], judgment: ['smite'],
-  maelstrom: ['surface'], kindling: ['kindle'], rewind: ['rewind'], bloodpact: ['pact'], tempest: ['bolt'], reflection: ['reflect'], devour: ['choke', 'gorge'], marionette: ['snap'], lastbreath: ['lastbreath'] }
+  maelstrom: ['surface'], kindling: ['kindle'], rewind: ['rewind'], bloodpact: ['pact'], tempest: ['bolt'], reflection: ['reflect'], devour: ['choke', 'gorge'], marionette: ['snap'], lastbreath: ['lastbreath'],
+  swarm: ['sting'], petrify: ['crumble'], crescendo: ['crescendo'], harvest: ['harvest'], slumber: ['slumber'] }
 function AbilityCard({ t, ability }) {
   if (!ability) return <div style={{ fontSize: 13.5, color: C.inkDim }}>{t('lg_assetsNoAbility')}</div>
   const label = { fontSize: 11.5, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase', color: C.purple }

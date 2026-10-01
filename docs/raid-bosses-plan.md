@@ -47,6 +47,11 @@ tested), keyed by the raid motif.
 | Glutton | **Devour** | A miss lets it gorge and heal 1 (never below the attempt's start); a clean typed answer chokes it for +1. | The one boss that punishes misses; full recall wins it back. |
 | Puppeteer | **Marionette** | A blocked attack snaps a string for 3 damage; a missed attack costs only 1 life. | Fixing a missed card is worth a lot, and failing it again is forgiven a little. |
 | Berserker | **Last breath** | On your last life every right answer deals triple. | A comeback is always possible. |
+| Hive Empress | **Swarm** | Every 5th right answer, in a row or not, stings the queen for +3. | Every right answer counts toward the next hit, even after a slip. |
+| Gorgon | **Petrify** | Every 3rd clean typed answer cracks her stone for +3. | Rewards full recall typed out. |
+| Banshee | **Crescendo** | Right answers deal +1 in phase 2 and +2 in phase 3. | The fight builds toward a big finish. |
+| Reaper | **Harvest** | Every life already lost makes it careless: right answers deal +1 per lost life, at most +2. | A rough start is easier to turn around. |
+| Dreamer | **Slumber** | While no life is lost, every right answer deals +1. | Rewards a careful, clean run. |
 
 ## 1. Hydra: the Maelstrom Hydra
 
@@ -180,3 +185,25 @@ boss, a phase 3 true form that is a different creature. The file's leading comme
 
 Hidden entrance parts rest at `scale(0.01)` or far off canvas, never `scale(0)` (a non-invertible matrix crashes
 check-art's overdraw pass).
+
+## 16 to 20. The third wave (owner request: "5 more raid bosses", the same bar)
+
+- **16. Swarmqueen, the Hive Empress** (`lgHiveRumble`): an insect queen enthroned on her own giant egg sac in a honeycomb
+  cathedral of wax arches and cocooned victims, compound eyes of a hundred facets, four scythe forelimbs. Phase 2: the
+  carapace splits on a glowing thorax, an inner jaw thrusts out, the egg sac bursts and drones pour out. Phase 3: the
+  hive is her face: comb cells become eyes and chewing mouths around a ring of mandibles, her old body hung inside.
+- **17. Gorgon, the Stone Gorgon** (`lgSerpentRear`): a jade gorgon with a crown of thirteen striking serpents and
+  sweeping green gaze rays, petrified warriors around her in a ruined temple. Phase 2: her face turns to stone and splits
+  open on a second face made of snakes. Phase 3: one colossal coiled serpent bristling with heads around a single huge
+  petrifying eye, the temple collapsing.
+- **18. Banshee, the Wailing Choir** (`lgWailPulse`): a ghost in a drowned organ loft with an enormous screaming mouth,
+  veils for hair, a crown of cracked bells and a choir of faces in her robe. Phase 2: the jaw unhinges to her chest, the
+  air cracks like glass, the organ pipes howl. Phase 3: a living organ of bone pipes ending in howling faces around a
+  maw-vortex of sound, her head torn in two above it.
+- **19. Reaper, the Soul Harvester** (`lgScytheSwoop`): a robe of screaming faces, a spine scythe with a jawbone blade, a
+  lantern of trapped souls, over a field of dead wheat and graves. Phase 2: the hood falls on a cracked skull with eight
+  eyes, a ribcage full of souls, the lantern cracks. Phase 3: a cloud of souls around a giant skull maw, hundreds of
+  skeletal hands, a fan of orbiting blades, the graves bursting open.
+- **20. Dreamer, the Sleeping Horror** (`lgEldritchUnfold`): an eldritch god asleep in a drowned impossible city, slit
+  eyes peeking, tentacles twitching, dream bubbles holding tiny nightmares. Phase 2: it wakes, dozens of eyes snap open,
+  the tentacles part on a beak. Phase 3: the skull splits open on a cosmic brain of galaxies ringed by eyes, the sky tears.
