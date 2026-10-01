@@ -96,6 +96,8 @@ const REVIEWED = new Set([
   "raids/lich.svg|M-2 -2 L0 2 L2 -2", // a rune glyph crossing its ring
   "raids/seraph.svg|M5 -1.6 L14.6 -4.7 L23.3", // bone fingers reach out of the clawed palms
   "raids/seraph.svg|M5.1 1.3 L14.9 3.7 L22.4",
+  "raids/seraph.svg|M2.1 2 L6.1 5.9 L8.5 10",
+  "raids/seraph.svg|M1.9 -2.2 L5.5 -6.5 L9.4",
   "raids/void.svg|M-47 0 A47 47 0 0 0 47 0", // the near half of the accretion disk passes in front of the body
   "areas/forest.svg|M196 50 L182 28 L168 20",
   "areas/forest.svg|M224 50 L238 28 L252 20",

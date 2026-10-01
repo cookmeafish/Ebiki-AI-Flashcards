@@ -1,60 +1,144 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
-  <!-- The Sunken Temple: an overgrown step pyramid, a waterfall, vines and parrots, Vinecoil coiled on top. -->
-  <rect width="400" height="140" fill="var(--lg-sky, #e2f3e2)"/>
-  <!-- far canopy -->
-  <g fill="var(--lg-far, #9fd4ad)"><circle cx="20" cy="70" r="30"/><circle cx="70" cy="62" r="28"/><circle cx="120" cy="72" r="24"/><circle cx="290" cy="70" r="26"/><circle cx="340" cy="60" r="30"/><circle cx="390" cy="70" r="26"/></g>
-  <!-- waterfall on the left cliff -->
-  <path d="M40 140 V60 L58 44 H90 L96 140Z" fill="var(--lg-deep, #2e8b57)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
-  <rect x="66" y="46" width="14" height="94" fill="#9ff3ff" opacity="0.85"/>
-  <g stroke="#fff" stroke-width="1.4" opacity="0.8">
-    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -20;0 0;0 -20" dur="1.6s" repeatCount="indefinite" keyTimes="0;.5;1"/>
-    <path d="M69 50 V60 M75 62 V72 M70 78 V88 M76 94 V104 M69 108 V118 M74 122 V132 M71 136 V146"/>
+  <!-- The Sunken Temple: a step pyramid swallowed by the jungle, the temple's carved sun disc turning behind its
+       summit. Vinecoil is coiled round the top tier, its banded body wrapped twice round the stone, its hood flared
+       wider than the shrine and painted with gold glyphs and blood-red gems: a jeweled headpiece, one scale V brow over
+       burning slit eyes, long fangs dripping venom, a forked tongue flicking. A waterfall pours off the cliff on the
+       left into the river, torches flicker at the dark doorway the stairs lead to, a sunken idol's face stares out of
+       the water on the right, parrots cross the canopy, vines and huge leaves sway in the foreground. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #e3f1e8)"/>
+  <!-- the canopy, far and near -->
+  <g fill="var(--lg-far, #9fd4ad)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" opacity="1"><circle cx="-10" cy="66" r="17"/><circle cx="12" cy="59" r="22"/><circle cx="34" cy="61" r="20"/><circle cx="56" cy="65" r="21"/><circle cx="78" cy="56" r="17"/><circle cx="100" cy="61" r="23"/><circle cx="122" cy="56" r="22"/><circle cx="144" cy="65" r="20"/><circle cx="166" cy="67" r="18"/><circle cx="188" cy="56" r="23"/><circle cx="210" cy="62" r="16"/><circle cx="232" cy="61" r="24"/><circle cx="254" cy="61" r="18"/><circle cx="276" cy="59" r="16"/><circle cx="298" cy="62" r="20"/><circle cx="320" cy="59" r="18"/><circle cx="342" cy="62" r="18"/><circle cx="364" cy="56" r="18"/><circle cx="386" cy="63" r="23"/><circle cx="408" cy="58" r="21"/></g>
+  <path d="M0 64 H400 V112 H0Z" fill="var(--lg-far, #9fd4ad)"/>
+  <g fill="var(--lg-near, #4fae74)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" opacity="1"><circle cx="-10" cy="89" r="26"/><circle cx="16" cy="79" r="18"/><circle cx="42" cy="87" r="25"/><circle cx="68" cy="82" r="23"/><circle cx="94" cy="85" r="23"/><circle cx="120" cy="80" r="23"/><circle cx="146" cy="83" r="21"/><circle cx="172" cy="90" r="24"/><circle cx="198" cy="85" r="26"/><circle cx="224" cy="81" r="22"/><circle cx="250" cy="78" r="18"/><circle cx="276" cy="82" r="22"/><circle cx="302" cy="89" r="21"/><circle cx="328" cy="85" r="22"/><circle cx="354" cy="78" r="20"/><circle cx="380" cy="80" r="21"/><circle cx="406" cy="90" r="22"/></g>
+  <path d="M0 88 H400 V120 H0Z" fill="var(--lg-near, #4fae74)"/>
+  <g fill="#000" opacity="0.12"><circle cx="40" cy="92" r="10"/><circle cx="100" cy="96" r="12"/><circle cx="300" cy="94" r="12"/><circle cx="360" cy="92" r="10"/></g>
+  <!-- the temple's carved sun disc, turning -->
+  <g transform="translate(200 52)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;360" dur="60s" repeatCount="indefinite"/>
+  <g fill="#ffd04a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"><path d="M-6 -40 L0 -50 L6 -40Z" transform="rotate(0.0)"/><path d="M-6 -40 L0 -50 L6 -40Z" transform="rotate(22.5)"/><path d="M-6 -40 L0 -50 L6 -40Z" transform="rotate(45.0)"/><path d="M-6 -40 L0 -50 L6 -40Z" transform="rotate(67.5)"/><path d="M-6 -40 L0 -50 L6 -40Z" transform="rotate(90.0)"/><path d="M-6 -40 L0 -50 L6 -40Z" transform="rotate(112.5)"/><path d="M-6 -40 L0 -50 L6 -40Z" transform="rotate(135.0)"/><path d="M-6 -40 L0 -50 L6 -40Z" transform="rotate(157.5)"/><path d="M-6 -40 L0 -50 L6 -40Z" transform="rotate(180.0)"/><path d="M-6 -40 L0 -50 L6 -40Z" transform="rotate(202.5)"/><path d="M-6 -40 L0 -50 L6 -40Z" transform="rotate(225.0)"/><path d="M-6 -40 L0 -50 L6 -40Z" transform="rotate(247.5)"/><path d="M-6 -40 L0 -50 L6 -40Z" transform="rotate(270.0)"/><path d="M-6 -40 L0 -50 L6 -40Z" transform="rotate(292.5)"/><path d="M-6 -40 L0 -50 L6 -40Z" transform="rotate(315.0)"/><path d="M-6 -40 L0 -50 L6 -40Z" transform="rotate(337.5)"/></g>
+  <circle r="40" fill="#ffd04a" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
+  <circle r="33" fill="none" stroke="#c99a1a" stroke-width="2.4"/>
+  <g fill="#c99a1a"><path d="M-3 -36 H3 V-30 H-3Z" transform="rotate(0)"/><path d="M-3 -36 H3 V-30 H-3Z" transform="rotate(30)"/><path d="M-3 -36 H3 V-30 H-3Z" transform="rotate(60)"/><path d="M-3 -36 H3 V-30 H-3Z" transform="rotate(90)"/><path d="M-3 -36 H3 V-30 H-3Z" transform="rotate(120)"/><path d="M-3 -36 H3 V-30 H-3Z" transform="rotate(150)"/><path d="M-3 -36 H3 V-30 H-3Z" transform="rotate(180)"/><path d="M-3 -36 H3 V-30 H-3Z" transform="rotate(210)"/><path d="M-3 -36 H3 V-30 H-3Z" transform="rotate(240)"/><path d="M-3 -36 H3 V-30 H-3Z" transform="rotate(270)"/><path d="M-3 -36 H3 V-30 H-3Z" transform="rotate(300)"/><path d="M-3 -36 H3 V-30 H-3Z" transform="rotate(330)"/></g>
+  <circle r="26" fill="#000" opacity="0.12"/>
+  </g></g>
+  <!-- the step pyramid, overgrown -->
+  <path d="M68 138 L74 106 L326 106 L332 138Z" fill="#b3b098" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M200 106 L326 106 L332 138 L200 138Z" fill="#000" opacity="0.16"/>
+  <path d="M74 106 H326 V108.5 H74Z" fill="#d6d3bd"/>
+  <path d="M76 122 H324" stroke="#7d7b68" stroke-width="0.8" opacity="0.7"/>
+  <path d="M92 106 L98 92 L302 92 L308 106Z" fill="#b3b098" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M200 92 L302 92 L308 106 L200 106Z" fill="#000" opacity="0.16"/>
+  <path d="M98 92 H302 V94.5 H98Z" fill="#d6d3bd"/>
+  <path d="M100 99 H300" stroke="#7d7b68" stroke-width="0.8" opacity="0.7"/>
+  <path d="M112 92 L118 78 L282 78 L288 92Z" fill="#b3b098" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M200 78 L282 78 L288 92 L200 92Z" fill="#000" opacity="0.16"/>
+  <path d="M118 78 H282 V80.5 H118Z" fill="#d6d3bd"/>
+  <path d="M120 85 H280" stroke="#7d7b68" stroke-width="0.8" opacity="0.7"/>
+  <path d="M130 78 L136 66 L264 66 L270 78Z" fill="#b3b098" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M200 66 L264 66 L270 78 L200 78Z" fill="#000" opacity="0.16"/>
+  <path d="M136 66 H264 V68.5 H136Z" fill="#d6d3bd"/>
+  <path d="M138 72 H262" stroke="#7d7b68" stroke-width="0.8" opacity="0.7"/>
+  <path d="M148 66 L154 54 L246 54 L252 66Z" fill="#b3b098" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M200 54 L246 54 L252 66 L200 66Z" fill="#000" opacity="0.16"/>
+  <path d="M154 54 H246 V56.5 H154Z" fill="#d6d3bd"/>
+  <path d="M156 60 H244" stroke="#7d7b68" stroke-width="0.8" opacity="0.7"/>
+  <path d="M186 138 L190 66 H210 L214 138Z" fill="#d6d3bd" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M188.0 134 H212.0M188.3 128 H211.7M188.6 122 H211.4M188.9 116 H211.1M189.2 110 H210.8M189.5 104 H210.5M189.8 98 H210.2M190.1 92 H209.9M190.4 86 H209.6M190.7 80 H209.3M191.0 74 H209.0" stroke="#7d7b68" stroke-width="1"/>
+  <!-- the dark doorway, torches at its sides -->
+  <g transform="translate(0 8)">
+  <path d="M146 118 V104 L154 98 L162 104 V118Z" fill="#1a1612" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+  <path d="M238 118 V104 L246 98 L254 104 V118Z" fill="#1a1612" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+  <g fill="#ffb627"><circle cx="151" cy="110" r="1.2"/><circle cx="157" cy="110" r="1.2"/></g>
+  <path d="M138.6 116 H141.4 V106 H138.6Z" fill="#6b4a2a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"/>
+  <g transform="translate(140 106)"><g style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;0.8 1.3;1.1 0.85;1 1" dur="0.6s" repeatCount="indefinite"/><path d="M-3 0 C-4 -4 -1 -6 0 -10 C1 -6 4 -4 3 0Z" fill="#ff7a1a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/><path d="M-1.4 0 C-1.8 -2 -0.4 -3 0 -5.4 C0.4 -3 1.8 -2 1.4 0Z" fill="#ffe36b"/></g></g>
+  <path d="M166.6 116 H169.4 V106 H166.6Z" fill="#6b4a2a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"/>
+  <g transform="translate(168 106)"><g style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;0.8 1.3;1.1 0.85;1 1" dur="0.6s" repeatCount="indefinite"/><path d="M-3 0 C-4 -4 -1 -6 0 -10 C1 -6 4 -4 3 0Z" fill="#ff7a1a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/><path d="M-1.4 0 C-1.8 -2 -0.4 -3 0 -5.4 C0.4 -3 1.8 -2 1.4 0Z" fill="#ffe36b"/></g></g>
+  <path d="M230.6 116 H233.4 V106 H230.6Z" fill="#6b4a2a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"/>
+  <g transform="translate(232 106)"><g style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;0.8 1.3;1.1 0.85;1 1" dur="0.65s" repeatCount="indefinite"/><path d="M-3 0 C-4 -4 -1 -6 0 -10 C1 -6 4 -4 3 0Z" fill="#ff7a1a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/><path d="M-1.4 0 C-1.8 -2 -0.4 -3 0 -5.4 C0.4 -3 1.8 -2 1.4 0Z" fill="#ffe36b"/></g></g>
+  <path d="M258.6 116 H261.4 V106 H258.6Z" fill="#6b4a2a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"/>
+  <g transform="translate(260 106)"><g style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;0.8 1.3;1.1 0.85;1 1" dur="0.65s" repeatCount="indefinite"/><path d="M-3 0 C-4 -4 -1 -6 0 -10 C1 -6 4 -4 3 0Z" fill="#ff7a1a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/><path d="M-1.4 0 C-1.8 -2 -0.4 -3 0 -5.4 C0.4 -3 1.8 -2 1.4 0Z" fill="#ffe36b"/></g></g>
   </g>
-  <ellipse cx="73" cy="128" rx="16" ry="4" fill="#fff" opacity="0.6"/>
-  <g transform="translate(0 14)">
-  <!-- the step pyramid -->
-  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round" fill="#9aa08a">
-    <path d="M140 120 H300 V106 H140Z"/><path d="M152 106 H288 V92 H152Z"/><path d="M166 92 H274 V78 H166Z"/><path d="M180 78 H260 V64 H180Z"/>
-    <path d="M196 64 H244 V44 H196Z"/>
-  </g>
-  <path d="M288 92 H300 V120 H288Z M274 78 H288 V92 H274Z M260 64 H274 V78 H260Z" fill="#000" opacity="0.2"/>
-  <path d="M212 120 V78 H228 V120Z" fill="#6f7563" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
-  <path d="M208 64 V52 C208 46 232 46 232 52 V64Z" fill="#1a2014" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
-  <g fill="#ffd966"><circle cx="216" cy="56" r="1.6"/><circle cx="224" cy="56" r="1.6"/></g>
-  <!-- glyph bands -->
-  <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" opacity="0.6"><path d="M160 113 h8 v-4 h4 v4 M184 113 h8 v-4 h4 v4 M244 113 h8 v-4 h4 v4 M268 113 h8 v-4 h4 v4 M176 99 h6 v-3 h3 v3 M256 99 h6 v-3 h3 v3"/></g>
-  <!-- vines draped over the temple -->
-  <g fill="none" stroke="var(--lg-deep, #2e8b57)" stroke-width="2.4" stroke-linecap="round"><path d="M180 64 C176 80 184 90 178 106 M260 64 C264 78 256 90 262 104 M166 92 C164 102 168 110 164 120"/></g>
-  <g fill="var(--lg-near, #5fb57a)"><ellipse cx="178" cy="80" rx="4" ry="2"/><ellipse cx="182" cy="96" rx="4" ry="2"/><ellipse cx="262" cy="78" rx="4" ry="2"/><ellipse cx="258" cy="94" rx="4" ry="2"/></g>
-  <!-- Vinecoil coiled on the summit, hood flared -->
-  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
-    <path d="M198 46 C204 38 236 38 242 46 C236 52 204 52 198 46Z" fill="var(--lg-deep, #2e8b57)"/>
-    <g>
-      <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 220 44;-3 220 44;0 220 44;3 220 44;0 220 44" dur="4s" repeatCount="indefinite"/>
-      <path d="M214 44 C212 34 214 28 218 24 H222 C226 28 228 34 226 44Z" fill="var(--lg-deep, #2e8b57)"/>
-      <path d="M220 4 C234 5 242 16 242 26 C242 34 234 38 228 34 L220 30 L212 34 C206 38 198 34 198 26 C198 16 206 5 220 4Z" fill="var(--lg-near, #5fb57a)"/>
-      <g fill="#ff3b1f" stroke="none"><circle cx="210" cy="18" r="1.8"/><circle cx="230" cy="18" r="1.8"/></g>
-      <path d="M214 22 C214 16 217 14 220 14 C223 14 226 16 226 22 C226 26 223 30 220 30 C217 30 214 26 214 22Z" fill="var(--lg-deep, #2e8b57)"/>
-      <g fill="#ffd966" stroke="none"><ellipse cx="217.6" cy="21" rx="1.4" ry="1"/><ellipse cx="222.4" cy="21" rx="1.4" ry="1"/></g>
-      <path d="M216 15 L218 11 L220 14 L222 11 L224 15Z" fill="#ffd966" stroke-width="0.6"/>
-      <path d="M220 28 V34 L218 36 M220 34 L222 36" fill="none" stroke="#d4342c" stroke-width="0.8"/>
-    </g>
-  </g>
-  </g>
-  <!-- near foliage and ground -->
-  <path d="M0 120 H400 V140 H0Z" fill="var(--lg-near, #5fb57a)"/>
-  <g fill="var(--lg-deep, #2e8b57)" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round">
-    <path d="M104 140 C98 124 104 110 118 104 C114 116 118 126 124 140Z"/><path d="M124 140 C128 122 140 114 154 116 C144 124 140 132 140 140Z"/>
-    <path d="M300 140 C304 122 316 112 330 114 C320 122 316 132 316 140Z"/><path d="M330 140 C334 126 346 118 358 120 C350 128 346 134 346 140Z"/>
-  </g>
-  <!-- parrots flying -->
-  <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.6">
-    <path d="M120 30 l8 -4 l4 4 l6 -2 l-4 6 l-8 2Z" fill="#d4342c"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;60 -8;120 2;60 -8;0 0" dur="12s" repeatCount="indefinite" keyTimes="0;.25;.5;.75;1"/></path>
-    <path d="M320 36 l-8 -4 l-4 4 l-6 -2 l4 6 l8 2Z" fill="#2d86c9"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-50 -6;-100 4;-50 -6;0 0" dur="14s" repeatCount="indefinite" keyTimes="0;.25;.5;.75;1"/></path>
-  </g>
-  <!-- hanging vines from the top -->
-  <g fill="none" stroke="var(--lg-deep, #2e8b57)" stroke-width="2" stroke-linecap="round">
-    <path d="M120 0 C118 14 124 22 120 36"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 120 0;4 120 0;0 120 0" dur="3s" repeatCount="indefinite"/></path>
-    <path d="M330 0 C332 12 326 20 330 32"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 330 0;-4 330 0;0 330 0" dur="3.4s" repeatCount="indefinite"/></path>
-  </g>
+  <path d="M136 104 C140 110 136 116 140 122 M262 94 C258 100 264 106 260 114 M160 78 C164 84 160 90 164 96" fill="none" stroke="var(--lg-deep, #0e8746)" stroke-width="2" stroke-linecap="round"/>
+  <g fill="var(--lg-deep, #0e8746)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"><ellipse cx="139" cy="108" rx="2.4" ry="1.3" transform="rotate(30 139 108)"/><ellipse cx="138" cy="117" rx="2.4" ry="1.3" transform="rotate(-30 138 117)"/><ellipse cx="260" cy="98" rx="2.4" ry="1.3" transform="rotate(-30 260 98)"/><ellipse cx="262" cy="108" rx="2.4" ry="1.3" transform="rotate(30 262 108)"/><ellipse cx="162" cy="82" rx="2.4" ry="1.3" transform="rotate(30 162 82)"/><ellipse cx="162" cy="92" rx="2.4" ry="1.3" transform="rotate(-30 162 92)"/></g>
+  <!-- the shrine on the summit -->
+  <path d="M178 66 V50 L200 40 L222 50 V66Z" fill="#b3b098" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M200 40 L222 50 V66 H200Z" fill="#000" opacity="0.16"/>
+  <!-- Vinecoil's banded body: a coil behind the shrine, one wrapped in front -->
+  <path d="M150 96 C132 84 150 62 200 62 C250 62 268 84 250 96" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="13" stroke-linecap="round"/><path d="M150 96 C132 84 150 62 200 62 C250 62 268 84 250 96" fill="none" stroke="#2fa84f" stroke-width="10" stroke-linecap="round"/><path d="M150 96 C132 84 150 62 200 62 C250 62 268 84 250 96" fill="none" stroke="#f2d98c" stroke-width="5.5" stroke-dasharray="3 4"/><path d="M150 96 C132 84 150 62 200 62 C250 62 268 84 250 96" fill="none" stroke="#fff" stroke-width="1.2" opacity="0.3" transform="translate(0 -3)"/>
+  <!-- the neck and hood, swaying slowly -->
+  <g transform="translate(0 6)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-2 200 94;2 200 94;-2 200 94" dur="6s" repeatCount="indefinite"/>
+  <path d="M188 98 C184 84 186 70 190 56 L210 56 C214 70 216 84 212 98Z" fill="#2fa84f" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M200 18 C226 20 252 34 258 56 C262 72 254 86 238 88 C226 89 216 80 212 70 L188 70 C184 80 174 89 162 88 C146 86 138 72 142 56 C148 34 174 20 200 18Z" fill="#2fa84f" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M200 26 C222 28 242 40 248 58 C250 70 244 80 234 80 C226 80 218 72 214 62 L186 62 C182 72 174 80 166 80 C156 80 150 70 152 58 C158 40 178 28 200 26Z" fill="#17703a"/>
+  <path d="M200 18 C226 20 252 34 258 56 C262 72 254 86 238 88 C226 89 216 80 212 70 L200 70Z" fill="#000" opacity="0.15"/>
+  <path d="M200 20 C176 22 150 36 144 56 C143 60 143 64 144 68 C150 46 172 30 200 26Z" fill="#fff" opacity="0.22"/>
+  <path d="M193 96 C191 84 192 72 195 60 L205 60 C208 72 209 84 207 96Z" fill="#f2d98c" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+  <path d="M194 66 H206 M193 74 H207 M192.6 82 H207.4 M192.6 90 H207.4" stroke="#c9a441" stroke-width="0.9"/>
+  <path d="M156 70 L162 62 L166 68 L172 56 L176 62 L182 50 M244 70 L238 62 L234 68 L228 56 L224 62 L218 50" fill="none" stroke="#ffd04a" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M166 37 L173 44 L166 51 L159 44Z" fill="#d4342c" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1"/><path d="M166 37 L173 44 L166 44Z" fill="#fff" opacity="0.35"/>
+  <path d="M166 41 L169 44 L166 47 L163 44Z" fill="#ffd04a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+  <path d="M234 37 L241 44 L234 51 L227 44Z" fill="#d4342c" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1"/><path d="M234 37 L241 44 L234 44Z" fill="#fff" opacity="0.35"/>
+  <path d="M234 41 L237 44 L234 47 L231 44Z" fill="#ffd04a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+  <g fill="#ffd04a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"><circle cx="158" cy="78" r="1.6"/><circle cx="242" cy="78" r="1.6"/><circle cx="150" cy="58" r="1.4"/><circle cx="250" cy="58" r="1.4"/></g>
+  <!-- the head: jeweled headpiece, one scale V brow, burning slit eyes, fangs dripping venom -->
+  <path d="M200 10 L215 16 L220 32 L214 48 L206 56 L194 56 L186 48 L180 32 L185 16Z" fill="#45c26a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.9" stroke-linejoin="round"/>
+  <path d="M200 10 L215 16 L220 32 L214 48 L206 56 L200 56Z" fill="#000" opacity="0.2"/>
+  <path d="M191 18 L195 22 L191 26 M209 18 L205 22 L209 26" fill="none" stroke="#17703a" stroke-width="1" stroke-linecap="round"/>
+  <path d="M185 16 L182 2 L191 9 L196 -4 L200 6 L204 -4 L209 9 L218 2 L215 16 L200 12Z" fill="#ffd04a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M200 6 L204 -4 L209 9 L218 2 L215 16 L200 12Z" fill="#000" opacity="0.15"/>
+  <path d="M185 15 H215 L214 18 H186Z" fill="#c99a1a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+  <path d="M200 3 L203.5 8 L200 13 L196.5 8Z" fill="#2ec4b6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/><circle cx="199" cy="6.5" r="0.8" fill="#fff"/>
+  <g transform="translate(200 29)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1;1 0.1;1;1" keyTimes="0;.9;.94;.98;1" dur="5s" repeatCount="indefinite"/><g transform="translate(-200 -29)">
+  <path d="M184 24 L196 30 L193 34 L183 30Z" fill="#ffd966" opacity="0.55" transform="translate(189 29) scale(1.7) translate(-189 -29)"/>
+  <path d="M184 24 L196 30 L193 34 L183 30Z" fill="#ffd966" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+  <path d="M189 26.5 L189.6 32.4" stroke="#3a0a0a" stroke-width="1.5" stroke-linecap="round"/>
+  <circle cx="186.5" cy="27.6" r="0.8" fill="#fff"/>
+  <path d="M216 24 L204 30 L207 34 L217 30Z" fill="#ffd966" opacity="0.55" transform="translate(211 29) scale(1.7) translate(-211 -29)"/>
+  <path d="M216 24 L204 30 L207 34 L217 30Z" fill="#ffd966" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+  <path d="M211 26.5 L210.4 32.4" stroke="#3a0a0a" stroke-width="1.5" stroke-linecap="round"/>
+  <circle cx="213.5" cy="27.6" r="0.8" fill="#fff"/>
+  </g></g></g>
+  <path d="M180 20 L200 28 L220 20 L219 26 L200 34 L181 26Z" fill="#17703a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3" stroke-linejoin="round"/>
+  <path d="M184 22 L200 28.6 L216 22" fill="none" stroke="#f2d98c" stroke-width="0.8"/>
+  <path d="M187 38 L200 36 L213 38 L209 52 L200 56 L191 52Z" fill="#3a0a0a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+  <ellipse cx="200" cy="48" rx="5" ry="3" fill="#d4342c"/>
+  <path d="M188 38 L191 53 L194 38Z M212 38 L209 53 L206 38Z" fill="#fff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+  <path d="M196 37.4 L197.5 41 L199 37 M201 37 L202.5 41 L204 37.4" fill="#fff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"/>
+  <g transform="translate(190.6 53)"><g style="transform-box:fill-box;transform-origin:center top"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 0.3;1 1.6;1 0.3" dur="2.2s" repeatCount="indefinite"/><path d="M-1.2 0 C-1.2 2.4 -1.8 4 0 5.4 C1.8 4 1.2 2.4 1.2 0Z" fill="#9cff57" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"/></g></g>
+  <g transform="translate(209.4 53)"><g style="transform-box:fill-box;transform-origin:center top"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 0.3;1 1.6;1 0.3" dur="2.2s" begin="0.9s" repeatCount="indefinite"/><path d="M-1.2 0 C-1.2 2.4 -1.8 4 0 5.4 C1.8 4 1.2 2.4 1.2 0Z" fill="#9cff57" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"/></g></g>
+  <g transform="translate(200 55)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 0.05;1 0.05;1 1;1 0.05" keyTimes="0;.6;.75;1" dur="3s" repeatCount="indefinite"/><path d="M-0.8 0 V8 L-3 12 M0.8 0 V8 L3 12" fill="none" stroke="#d4342c" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></g></g>
+  </g></g>
+  <!-- the front coil wrapped round the pyramid, the tail hanging over the tier -->
+  <path d="M120 112 C112 96 150 92 200 94 C250 96 290 100 280 112 C276 120 262 122 256 116" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="14" stroke-linecap="round"/><path d="M120 112 C112 96 150 92 200 94 C250 96 290 100 280 112 C276 120 262 122 256 116" fill="none" stroke="#2fa84f" stroke-width="11" stroke-linecap="round"/><path d="M120 112 C112 96 150 92 200 94 C250 96 290 100 280 112 C276 120 262 122 256 116" fill="none" stroke="#f2d98c" stroke-width="6.1" stroke-dasharray="3 4"/><path d="M120 112 C112 96 150 92 200 94 C250 96 290 100 280 112 C276 120 262 122 256 116" fill="none" stroke="#fff" stroke-width="1.2" opacity="0.3" transform="translate(0 -3)"/>
+  <path d="M152 112 C170 118 186 116 196 110" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="11" stroke-linecap="round"/><path d="M152 112 C170 118 186 116 196 110" fill="none" stroke="#2fa84f" stroke-width="8" stroke-linecap="round"/><path d="M152 112 C170 118 186 116 196 110" fill="none" stroke="#f2d98c" stroke-width="4.4" stroke-dasharray="3 4"/><path d="M152 112 C170 118 186 116 196 110" fill="none" stroke="#fff" stroke-width="1.2" opacity="0.3" transform="translate(0 -3)"/>
+  <!-- the cliff and its waterfall -->
+  <path d="M0 30 L40 26 L58 34 L62 60 L56 120 H0Z" fill="var(--lg-deep, #0e8746)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
+  <path d="M40 26 L58 34 L62 60 L56 120 L46 120 L50 60 L46 34Z" fill="#000" opacity="0.2"/>
+  <path d="M6 44 L20 46 M10 70 L24 72 M4 96 L18 98" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" opacity="0.5"/>
+  <path d="M60 34 C66 36 70 36 76 34 L82 120 L56 120Z" fill="#bfeefe" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M70 36 L78 120 L72 120Z" fill="#fff" opacity="0.5"/>
+  <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 12" dur="0.8s" repeatCount="indefinite"/><path d="M62.4 34 v6M69.0 40 v6M75.6 46 v6M64.2 52 v6M70.8 58 v6M77.4 64 v6M66.0 70 v6M72.6 76 v6M79.2 82 v6M67.8 88 v6M74.4 94 v6M81.0 100 v6M69.6 106 v6" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity="0.85"/></g>
+  <circle cx="62" cy="118" r="4" fill="#fff" stroke="#9cc3dc" stroke-width="0.6" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.6;1.2;0.6" dur="0.9s" repeatCount="indefinite"/></circle>
+  <circle cx="70" cy="116" r="4" fill="#fff" stroke="#9cc3dc" stroke-width="0.6" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.6;1.2;0.6" dur="1.05s" begin="0.2s" repeatCount="indefinite"/></circle>
+  <circle cx="78" cy="118" r="4" fill="#fff" stroke="#9cc3dc" stroke-width="0.6" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.6;1.2;0.6" dur="1.2s" begin="0.4s" repeatCount="indefinite"/></circle>
+  <circle cx="86" cy="120" r="4" fill="#fff" stroke="#9cc3dc" stroke-width="0.6" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.6;1.2;0.6" dur="1.35s" begin="0.6000000000000001s" repeatCount="indefinite"/></circle>
+  <!-- the river; a sunken idol's face in it -->
+  <path d="M0 120 C60 116 120 122 200 120 C280 118 340 122 400 118 V140 H0Z" fill="#5fb3c8" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+  <path d="M20 128 H60 M110 132 H150 M240 130 H290 M330 134 H370" stroke="#fff" stroke-width="1.3" opacity="0.6" stroke-linecap="round"/>
+  <g transform="translate(316 118)"><path d="M-16 6 L-14 -18 L-6 -26 H6 L14 -18 L16 6Z" fill="#b3b098" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/><path d="M0 -26 H6 L14 -18 L16 6 H0Z" fill="#000" opacity="0.18"/><path d="M-11 -12 H-3 L-4 -8 H-10Z M3 -12 H11 L10 -8 H4Z" fill="#1a1612"/><circle cx="-7" cy="-10" r="1" fill="#ffb627"/><circle cx="7" cy="-10" r="1" fill="#ffb627"/><path d="M-8 -2 H8 V2 H-8Z" fill="#1a1612"/><path d="M-6 -2 V1 M-2 -2 V1 M2 -2 V1 M6 -2 V1" stroke="#d6d3bd" stroke-width="0.8"/><path d="M-12 -6 L-10 -14 M10 -16 L12 -8" stroke="#7d7b68" stroke-width="0.8"/></g>
+  <path d="M296 124 C304 121 328 121 336 124" fill="none" stroke="#fff" stroke-width="1.2" opacity="0.7"/>
+  <g fill="var(--lg-deep, #0e8746)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"><path d="M120 126 a5 2.2 0 1 0 0.1 0Z"/><path d="M254 128 a6 2.4 0 1 0 0.1 0Z"/></g>
+  <!-- hanging vines -->
+  <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-3 96 0;3 96 0;-3 96 0" dur="5s" repeatCount="indefinite"/><path d="M96 -2 C99 13 93 25 96 42" fill="none" stroke="var(--lg-deep, #0e8746)" stroke-width="1.8" stroke-linecap="round"/><g fill="var(--lg-near, #4fae74)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"><ellipse cx="93.5" cy="6" rx="3" ry="1.5" transform="rotate(-30 93.5 6)"/><ellipse cx="98.5" cy="13" rx="3" ry="1.5" transform="rotate(30 98.5 13)"/><ellipse cx="93.5" cy="20" rx="3" ry="1.5" transform="rotate(-30 93.5 20)"/><ellipse cx="98.5" cy="27" rx="3" ry="1.5" transform="rotate(30 98.5 27)"/><ellipse cx="93.5" cy="34" rx="3" ry="1.5" transform="rotate(-30 93.5 34)"/><ellipse cx="98.5" cy="41" rx="3" ry="1.5" transform="rotate(30 98.5 41)"/></g></g>
+  <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-3 118 0;3 118 0;-3 118 0" dur="6s" repeatCount="indefinite"/><path d="M118 -2 C121 9 115 18 118 30" fill="none" stroke="var(--lg-deep, #0e8746)" stroke-width="1.8" stroke-linecap="round"/><g fill="var(--lg-near, #4fae74)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"><ellipse cx="115.5" cy="6" rx="3" ry="1.5" transform="rotate(-30 115.5 6)"/><ellipse cx="120.5" cy="13" rx="3" ry="1.5" transform="rotate(30 120.5 13)"/><ellipse cx="115.5" cy="20" rx="3" ry="1.5" transform="rotate(-30 115.5 20)"/><ellipse cx="120.5" cy="27" rx="3" ry="1.5" transform="rotate(30 120.5 27)"/></g></g>
+  <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-3 290 0;3 290 0;-3 290 0" dur="5.5s" repeatCount="indefinite"/><path d="M290 -2 C293 11 287 22 290 36" fill="none" stroke="var(--lg-deep, #0e8746)" stroke-width="1.8" stroke-linecap="round"/><g fill="var(--lg-near, #4fae74)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"><ellipse cx="287.5" cy="6" rx="3" ry="1.5" transform="rotate(-30 287.5 6)"/><ellipse cx="292.5" cy="13" rx="3" ry="1.5" transform="rotate(30 292.5 13)"/><ellipse cx="287.5" cy="20" rx="3" ry="1.5" transform="rotate(-30 287.5 20)"/><ellipse cx="292.5" cy="27" rx="3" ry="1.5" transform="rotate(30 292.5 27)"/><ellipse cx="287.5" cy="34" rx="3" ry="1.5" transform="rotate(-30 287.5 34)"/></g></g>
+  <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-3 330 0;3 330 0;-3 330 0" dur="6.5s" repeatCount="indefinite"/><path d="M330 -2 C333 15 327 30 330 50" fill="none" stroke="var(--lg-deep, #0e8746)" stroke-width="1.8" stroke-linecap="round"/><g fill="var(--lg-near, #4fae74)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"><ellipse cx="327.5" cy="6" rx="3" ry="1.5" transform="rotate(-30 327.5 6)"/><ellipse cx="332.5" cy="13" rx="3" ry="1.5" transform="rotate(30 332.5 13)"/><ellipse cx="327.5" cy="20" rx="3" ry="1.5" transform="rotate(-30 327.5 20)"/><ellipse cx="332.5" cy="27" rx="3" ry="1.5" transform="rotate(30 332.5 27)"/><ellipse cx="327.5" cy="34" rx="3" ry="1.5" transform="rotate(-30 327.5 34)"/><ellipse cx="332.5" cy="41" rx="3" ry="1.5" transform="rotate(30 332.5 41)"/><ellipse cx="327.5" cy="48" rx="3" ry="1.5" transform="rotate(-30 327.5 48)"/></g></g>
+  <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-3 368 0;3 368 0;-3 368 0" dur="4.8s" repeatCount="indefinite"/><path d="M368 -2 C371 8 365 17 368 28" fill="none" stroke="var(--lg-deep, #0e8746)" stroke-width="1.8" stroke-linecap="round"/><g fill="var(--lg-near, #4fae74)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"><ellipse cx="365.5" cy="6" rx="3" ry="1.5" transform="rotate(-30 365.5 6)"/><ellipse cx="370.5" cy="13" rx="3" ry="1.5" transform="rotate(30 370.5 13)"/><ellipse cx="365.5" cy="20" rx="3" ry="1.5" transform="rotate(-30 365.5 20)"/><ellipse cx="370.5" cy="27" rx="3" ry="1.5" transform="rotate(30 370.5 27)"/></g></g>
+  <!-- big leaves in the foreground -->
+  <g transform="translate(-4 140) rotate(50)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-3;3;-3" dur="5s" repeatCount="indefinite"/><path d="M0 0 C18 -21.0 14.4 -56.0 0 -70 C-14.4 -56.0 -18 -21.0 0 0Z" fill="var(--lg-deep, #0e8746)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/><path d="M0 0 C-18 -21.0 -14.4 -56.0 0 -70Z" fill="#000" opacity="0.15"/><path d="M0 -2 L0 -63.0M0 -17.5 L9.0 -25.9 M0 -17.5 L-9.0 -25.9M0 -31.5 L9.0 -39.9 M0 -31.5 L-9.0 -39.9M0 -45.5 L9.0 -53.9 M0 -45.5 L-9.0 -53.9" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" opacity="0.5" stroke-linecap="round"/></g></g>
+  <g transform="translate(10 142) rotate(24)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-3;3;-3" dur="4.4s" begin="0.6s" repeatCount="indefinite"/><path d="M0 0 C14 -16.8 11.2 -44.8 0 -56 C-11.2 -44.8 -14 -16.8 0 0Z" fill="var(--lg-near, #4fae74)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/><path d="M0 0 C-14 -16.8 -11.2 -44.8 0 -56Z" fill="#000" opacity="0.15"/><path d="M0 -2 L0 -50.4M0 -14.0 L7.0 -20.7 M0 -14.0 L-7.0 -20.7M0 -25.2 L7.0 -31.9 M0 -25.2 L-7.0 -31.9M0 -36.4 L7.0 -43.1 M0 -36.4 L-7.0 -43.1" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" opacity="0.5" stroke-linecap="round"/></g></g>
+  <g transform="translate(404 140) rotate(-52)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-3;3;-3" dur="5.4s" begin="0.3s" repeatCount="indefinite"/><path d="M0 0 C18 -21.6 14.4 -57.6 0 -72 C-14.4 -57.6 -18 -21.6 0 0Z" fill="var(--lg-deep, #0e8746)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/><path d="M0 0 C-18 -21.6 -14.4 -57.6 0 -72Z" fill="#000" opacity="0.15"/><path d="M0 -2 L0 -64.8M0 -18.0 L9.0 -26.6 M0 -18.0 L-9.0 -26.6M0 -32.4 L9.0 -41.0 M0 -32.4 L-9.0 -41.0M0 -46.8 L9.0 -55.4 M0 -46.8 L-9.0 -55.4" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" opacity="0.5" stroke-linecap="round"/></g></g>
+  <g transform="translate(392 142) rotate(-24)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-3;3;-3" dur="4.8s" begin="0.9s" repeatCount="indefinite"/><path d="M0 0 C13 -15.6 10.4 -41.6 0 -52 C-10.4 -41.6 -13 -15.6 0 0Z" fill="var(--lg-near, #4fae74)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/><path d="M0 0 C-13 -15.6 -10.4 -41.6 0 -52Z" fill="#000" opacity="0.15"/><path d="M0 -2 L0 -46.8M0 -13.0 L6.5 -19.2 M0 -13.0 L-6.5 -19.2M0 -23.4 L6.5 -29.6 M0 -23.4 L-6.5 -29.6M0 -33.8 L6.5 -40.0 M0 -33.8 L-6.5 -40.0" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" opacity="0.5" stroke-linecap="round"/></g></g>
+  <!-- parrots crossing the canopy -->
+  <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="-30 40;60 32;120 46;200 36;280 26;340 42;430 34" keyTimes="0;.2;.33;.5;.67;.8;1" dur="14s" repeatCount="indefinite"/><g><path d="M-8 0 C-4 -4 4 -4 8 -1 L12 0 L8 2 C4 4 -4 4 -8 0Z" fill="#d4342c" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/><path d="M-8 0 L-16 3 L-14 0 L-16 -2Z" fill="#2a7bd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/><circle cx="6" cy="-1" r="0.9" fill="var(--lg-ink, #1d2230)"/><path d="M10 -1 L13 0.5 L10 1.5Z" fill="#f2d98c" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"/><g style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 -0.6;1 1" dur="0.3s" repeatCount="indefinite"/><path d="M-2 -1 L2 -10 L5 -1Z" fill="#2a7bd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/></g></g></g>
+  <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="430 60;340 54;250 62;160 50;80 60;-30 54" keyTimes="0;.2;.4;.6;.8;1" dur="18s" repeatCount="indefinite"/><g transform="scale(-0.8 0.8)"><g><path d="M-8 0 C-4 -4 4 -4 8 -1 L12 0 L8 2 C4 4 -4 4 -8 0Z" fill="#2a7bd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/><path d="M-8 0 L-16 3 L-14 0 L-16 -2Z" fill="#ffd04a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/><circle cx="6" cy="-1" r="0.9" fill="var(--lg-ink, #1d2230)"/><path d="M10 -1 L13 0.5 L10 1.5Z" fill="#f2d98c" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"/><g style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 -0.6;1 1" dur="0.3s" repeatCount="indefinite"/><path d="M-2 -1 L2 -10 L5 -1Z" fill="#ffd04a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/></g></g></g></g>
 </svg>
