@@ -22,6 +22,7 @@ export default function OnboardingWizard(p) {
   } = p
 
   const [step, setStep] = useState(0)
+  const customTypedRef = useRef(false) // a custom model was typed in this run's "Advanced" box
   const [modeInput, setModeInput] = useState('')
   const [creatingFirst, setCreatingFirst] = useState(false)
   const [modeFailed, setModeFailed] = useState(false)
@@ -56,7 +57,7 @@ export default function OnboardingWizard(p) {
   // "Run setup again" can be left (Esc or ✕); a first run cannot.
   useEffect(() => {
     if (!onClose) return
-    const onKey = (e) => { if (e.key === 'Escape' && !e.defaultPrevented && !document.querySelector('[data-app-dialog]')) { e.preventDefault(); onClose() } }
+    const onKey = (e) => { if (e.key === 'Escape' && !e.defaultPrevented && !e.isComposing && e.keyCode !== 229 && !document.querySelector('[data-app-dialog]')) { e.preventDefault(); onClose() } }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
@@ -238,7 +239,7 @@ export default function OnboardingWizard(p) {
                 {/* Commits on blur/Enter, whitespace removed (like Settings): every keystroke was a config save, and
                     a pasted id with a trailing space broke the first mode's creation. */}
                 <input key={provider} defaultValue={aiModels[provider]?.general || ''}
-                  onBlur={(e) => { const v = e.target.value.replace(/\s+/g, ''); e.target.value = v; setAiModels((prev) => ({ ...prev, [provider]: { ...(prev[provider] || {}), general: v } })) }}
+                  onBlur={(e) => { const v = e.target.value.replace(/\s+/g, ''); e.target.value = v; customTypedRef.current = !!v; setAiModels((prev) => ({ ...prev, [provider]: { ...(prev[provider] || {}), general: v } })) }}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) e.currentTarget.blur() }}
                   placeholder={t('obCustomModelPlaceholder')} spellCheck={false} style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box', fontSize: 12 }} />
               </div>
@@ -260,7 +261,21 @@ export default function OnboardingWizard(p) {
             ].map((opt) => {
               const active = (intelligence || 'normal') === opt.key
               return (
-                <button key={opt.key} onClick={() => setIntelligence(opt.key)} style={{
+                <button key={opt.key} onClick={() => {
+                  // A re-run: the preset applies to the whole app, as the step says, so per-feature overrides from
+                  // Settings go (Settings' own preset tiles do the same). A custom model typed here stays.
+                  if (onClose) {
+                    setAiModels((prev) => {
+                      const cur = prev?.[provider]
+                      if (!cur) return prev
+                      const n = { ...prev }
+                      if (customTypedRef.current && cur.general) n[provider] = { general: cur.general }
+                      else delete n[provider]
+                      return n
+                    })
+                  }
+                  setIntelligence(opt.key)
+                }} style={{
                   width: 240, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
                   padding: '14px 16px', borderRadius: RADIUS.md,
                   border: `2px solid ${active ? C.brand : C.border}`, background: active ? C.brandTint : C.surface,

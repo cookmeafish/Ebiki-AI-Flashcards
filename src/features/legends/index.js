@@ -2,30 +2,25 @@
 // level; Ebi plans themed areas, each a ladder of steps (learn, practice, rule, scene, talk) with a boss on top.
 // Works for ANY subject. The learner level it sets lives in the kit (kit/learner.js) so other features read it.
 // Remove this folder and its line in ../index.js to drop it (the game then never offers the Legends quest).
-import { EVENTS } from '../events'
-import { updateLearner } from '../kit/learnerStore'
-import { applyLearnerDelta, deltaFor } from '../kit/learner'
 import LegendsScreen from './LegendsScreen'
 import LevelCard from './LevelCard'
 import { LEGENDS_ID } from './store'
 import { CheatSettingsCard } from './CheatUI'
 import LegendsSettingsCard from './SettingsCard'
 import RaidTile from './RaidTile'
+import HelpBridge from './HelpBridge'
+import { EVENTS } from '../events'
+import { peekMap, updateMap, configureLegends } from './store'
+import { tallyStudiedCard } from './map'
 
-// Other features' finished sessions nudge the level (Legends applies its own results directly).
-const STEP_OF = { 'mistake-gym': 'gym', roleplay: 'roleplay', 'ebi-call': 'call' }
-
-// Only an EXISTING level moves: nobody gets a level from outside events before placing themselves.
-const nudge = (ctx, modeId, source, total, correct) => {
-  const d = deltaFor(source, total, correct)
-  if (!d || modeId == null) return
-  updateLearner(ctx, modeId, (m) => (m ? applyLearnerDelta(m, d, source) : m))
-}
+// Other features' results move the level through the learner feature (../learner); Legends applies its own.
 
 export default {
   id: LEGENDS_ID,
   // focus: calm fights (no cinematic or flair); nudge: offer first-time misses as cards once.
-  defaults: { focus: false, nudge: true },
+  defaults: { focus: false, nudge: true, motion: false, still: false },
+  // Tells Ebi's Help what the learner does in Legends, on every screen (helpContext.js).
+  Mount: HelpBridge,
   navItems: [{ id: 'legends', icon: '🗺️', art: 'legends', labelKey: 'lg_nav', order: 15, Screen: LegendsScreen }],
   railCards: [{ id: 'level', order: 25, Component: LevelCard }],
   // The daily raid: the deck's due cards as a boss fight (every answer is a real Anki review).
@@ -36,10 +31,14 @@ export default {
     { id: 'legends-cheats', section: 'general', order: 90, Component: CheatSettingsCard },
   ],
   on: {
-    [EVENTS.CARD_GRADED]: ({ correct, mode }, ctx) => nudge(ctx, mode, 'study', 1, correct ? 1 : 0),
-    [EVENTS.PRACTICE_DONE]: ({ source, mode, total, correct }, ctx) => {
-      if (String(source || '').startsWith(LEGENDS_ID)) return
-      nudge(ctx, mode, STEP_OF[source] || 'practice', total, correct)
+    // A Legends item's card answered in Study counts for the item (codex, Weak spots). Only when the map is already
+    // loaded and holds that card: no store read per graded card.
+    [EVENTS.CARD_GRADED]: ({ noteId, correct, mode }, ctx) => {
+      if (noteId == null || mode == null) return
+      if (ctx) configureLegends(ctx) // the writer freeze, even when the Legends screen was never opened
+      const m = peekMap(mode)
+      if (!m || tallyStudiedCard(m, noteId, correct) === m) return
+      updateMap(mode, (cur) => tallyStudiedCard(cur, noteId, correct))
     },
   },
 }

@@ -656,7 +656,7 @@ async function correctRating({ cardId, ease, preSchedule }) {
 
 // ─── Setup (Anki is a separate program) ──────────────────────────────────────
 // Server routes in vite.config.js; see "Anki setup states" in CLAUDE.md.
-const postJson = async (url) => (await fetch(url, { method: 'POST' })).json()
+const postJson = async (url) => (await apiFetch(url, { method: 'POST' })).json() // through the platform seam like every /api call
 const setupStatus = async () => (await apiFetch('/api/ankiconnect')).json()
 const installConnector = () => postJson('/api/ankiconnect')
 const focusApp = () => postJson('/api/anki-focus')

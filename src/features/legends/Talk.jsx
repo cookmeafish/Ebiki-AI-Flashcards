@@ -64,7 +64,9 @@ export default function Talk({ ctx, area, node, items, onFinish, onQuit }) {
     setInput(''); setHint('')
     const history = [...messages, { role: 'me', text }]
     setMessages(history)
-    if (history.filter((m) => m.role === 'me').length < maxTurns) turn(history)
+    // An Adventure still gets Ebi's reply to the LAST message: it is where the goal tag is read, and a mission
+    // finished on the final turn was scored as not reached.
+    if (history.filter((m) => m.role === 'me').length < maxTurns || (goal && !goalDone)) turn(history)
   }
 
   // 💡 What to say next, never the words: a hint quoting a practice phrase is asked again once, then replaced by a

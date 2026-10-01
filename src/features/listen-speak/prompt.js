@@ -8,7 +8,7 @@ const BACK_CHARS = 240
 
 const itemList = (items) => items.map((it, i) => `${i + 1}. ${it.front} = ${String(it.back || '').replace(/\s+/g, ' ').slice(0, BACK_CHARS)}`).join('\n')
 
-export function buildDrillPrompt(subject, items, { knowledge = '', slips = '' } = {}) {
+export function buildDrillPrompt(subject, items, { knowledge = '', slips = '', level = '' } = {}) {
   const lang = subject.isLanguage
   const Q = '{"type": "choice"|"typed", "question": "...", "say": "<text the learner HEARS, never shown before answering>", "speak": true|false, "choices": ["..."], "answer": <index or text>, "accepted": ["..."], "open": true|false, "explanation": "...", "target": "<the item it practices>"}'
   const kinds = lang
@@ -28,6 +28,7 @@ export function buildDrillPrompt(subject, items, { knowledge = '', slips = '' } 
     user: [
       `Subject: ${subject.name}${subject.description ? ` (${subject.description})` : ''}.`,
       lang ? subject.rules || '' : `This is ${subject.name}, never a language lesson: keep terms, names, code and formulas as they are.`,
+      level ? `Learner level: ${level}. Sentences, speed of ideas and vocabulary around the items fit this level.` : '',
       `Write ${DRILL_SIZE} questions, one per item where possible, mixing these kinds (at least two of each):`,
       ...kinds.map((k) => `- ${k}`),
       'Items (from the learner\'s cards):',

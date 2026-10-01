@@ -5,7 +5,7 @@ export const WORKOUT_ROLE = 'study'
 export const WORKOUT_MAX_TOKENS = 6000
 export const QUESTIONS = 8
 
-export function buildWorkoutPrompt(subject, mistakes, { slips = '', count = QUESTIONS } = {}) {
+export function buildWorkoutPrompt(subject, mistakes, { slips = '', count = QUESTIONS, level = '' } = {}) {
   const lang = subject.isLanguage
   const system = 'You are Ebi, the coach of a learning app\'s Mistake Gym. You reply with JSON only. Accuracy matters: the learner memorizes what you write, so never invent facts, words or rules.'
   const list = mistakes.map((m) => [
@@ -26,6 +26,7 @@ export function buildWorkoutPrompt(subject, mistakes, { slips = '', count = QUES
     'MISTAKES the learner made in recent study sessions:',
     list || '(none recorded)',
     slips ? `\nRecurring slips noticed in their writing:\n${slips}` : '',
+    level ? `\nLearner level: ${level}. Pitch the new questions there (never easier than the mistake itself).` : '',
     '',
     `Write ${count} NEW practice questions. For each one:`,
     '- Target one listed mistake (put its id in "target"; spread them so the most repeated ones get more).',

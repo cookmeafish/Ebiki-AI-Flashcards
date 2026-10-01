@@ -55,7 +55,7 @@ describe('quiz review pass', () => {
   })
   it('reads only real question indexes', () => {
     expect([...parseQuizCheck({ bad: [{ i: 0, why: 'I am is correct too' }, { i: 7 }, { i: 'x' }] }, 2)]).toEqual([0])
-    expect(parseQuizCheck(null, 2).size).toBe(0)
+    expect(parseQuizCheck(null, 2)).toBe(null) // no verdict: the review did not run
     expect([...parseQuizCheck([1], 2)]).toEqual([1])
   })
   it('gives quizzes the learner\'s own context, while what is asked stays the material', () => {

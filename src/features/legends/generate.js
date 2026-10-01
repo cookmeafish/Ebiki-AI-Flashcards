@@ -17,11 +17,13 @@ const running = new Map() // task key -> promise
 
 function once(key, fn) {
   if (running.has(key)) return running.get(key)
-  const p = Promise.resolve().then(fn).finally(() => running.delete(key))
+  const p = Promise.resolve().then(fn).finally(() => { if (running.get(key) === p) running.delete(key) })
   running.set(key, p)
   return p
 }
 export const isRunning = (prefix) => [...running.keys()].some((k) => k.startsWith(prefix))
+// Start over: tasks still running for the old map are forgotten (a new map's plan got the old map's promise back).
+export const forgetRunning = (suffix) => { for (const k of [...running.keys()]) if (k.endsWith(suffix)) running.delete(k) }
 
 const call = async (ctx, { system, user }, role, maxTokens) => ctx.ai.call(system, user, { role, maxTokens })
 const levelText = async (ctx) => learnerLevelLine(ctx)
@@ -31,16 +33,21 @@ export function planMap(ctx, modeId, { more = false } = {}) {
   return once(`plan:${modeId}`, async () => {
     const { subject, ai, t } = ctx
     const current = peekMap(modeId)
+    const startedOn = current?.createdAt // the map this plan is FOR: a Start over meanwhile makes it another map
     const level = await levelText(ctx)
     const after = more ? (current?.areas || []).map((a) => a.title) : []
     const raw = await call(ctx, buildMapPrompt(subject, { start: current?.start, level, knowledge: subject.knowledge(KNOWLEDGE_CAP.plan), after }), ROLE.plan, MAX_TOKENS.plan)
     const plan = parseMapPlan(ai.json(raw), ai.clean)
     if (!plan) throw new Error(t('lg_errPlan'))
+    let dropped = false
     const saved = await updateMap(modeId, (m) => {
-      if (!m) return createMap({ modeId, subject, start: null, plan })
+      // Start over while this plan was being written: the map is gone (or a new one was started). A plan for the
+      // old map never lands (it rebuilt a map with no questionnaire, or gave the new map the old one's next areas).
+      if (!m || (startedOn != null && m.createdAt !== startedOn) || (more && !m.areas.length)) { dropped = true; return m }
       if (!m.areas.length) return createMap({ modeId, subject, start: m.start, plan }, m.createdAt)
       return more ? appendAreas(m, plan) : m
     })
+    if (dropped) return saved
     if (!saved) throw new Error(t('lg_errSave'))
     return saved
   })
@@ -163,6 +170,7 @@ async function makeQuizNow(ctx, modeId, area, node, { misses = [] } = {}) {
   const review = async (qs) => {
     try {
       const bad = parseQuizCheck(ctx.ai.json(await call(ctx, buildQuizCheckPrompt(subject, taught, qs), ROLE.quizCheck, MAX_TOKENS.quizCheck)), qs.length)
+      if (!bad) return null
       return qs.filter((_, i) => !bad.has(i))
     } catch { return null }
   }
@@ -244,15 +252,19 @@ export async function proposeEdit(ctx, modeId, request) {
   const proposal = parseMapEdit(ai.json(raw), ai.clean)
   if (!proposal) throw new Error(t('lg_errEdit'))
   const { map: merged, changes } = mergeEdit(map, proposal)
-  return { map: merged, changes, note: proposal.note, base: map.updatedAt }
+  return { map: merged, changes, note: proposal.note, base: map.updatedAt, baseIds: (map.areas || []).map((a) => a.id) }
 }
 
 // Apply an accepted proposal: re-merged over the LIVE map (a step finished while the learner was reading the
 // preview may have frozen another area, which the merge then keeps as it is).
-export async function acceptEdit(ctx, modeId, proposalMap) {
+// `baseIds`: the areas the preview was built from. An area that arrived AFTER it (the background planner, another
+// computer) was never shown as "removed", so it is kept, not dropped by the merge.
+export async function acceptEdit(ctx, modeId, proposalMap, baseIds = null) {
   const saved = await updateMap(modeId, (m) => {
     if (!m) return m
-    const again = mergeEdit(m, { areas: proposalMap.areas.map((a) => ({ id: a.id, title: a.title, theme: a.theme, motif: a.motif, palette: a.palette })) })
+    const seen = Array.isArray(baseIds) ? new Set(baseIds) : null
+    const later = seen ? (m.areas || []).filter((a) => a && !seen.has(a.id) && !proposalMap.areas.some((p) => p.id === a.id)) : []
+    const again = mergeEdit(m, { areas: [...proposalMap.areas, ...later].map((a) => ({ id: a.id, title: a.title, theme: a.theme, motif: a.motif, palette: a.palette })) })
     return again.map
   })
   if (!saved) throw new Error(ctx.t('lg_errSave'))

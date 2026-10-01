@@ -17,7 +17,7 @@ export default function Sidebar({ items, active, onPick, collapsed }) {
       {items.map((it) => {
         const on = it.id === active
         return (
-          <button key={it.id} onClick={() => !on && onPick(it.id)} aria-current={on ? 'page' : undefined}
+          <button key={it.id} onClick={() => !on && onPick(it.id)} aria-current={on ? 'page' : undefined} aria-label={it.label}
             className={on ? 'ui-tab-current' : 'click-dim'}
             data-tip={collapsed ? it.label : undefined}
             style={{

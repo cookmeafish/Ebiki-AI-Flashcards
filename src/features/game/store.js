@@ -6,13 +6,14 @@
 // disk (engine.mergePlayers), so a stale or repeated save can never lower a counter.
 import { useSyncExternalStore } from 'react'
 import { platform, apiFetch } from '../../platform'
-import { dateKey, addDays, dayTotals, eventDelta, mergePlayers, pickQuests, COUNTERS, DEFAULT_GOAL } from './engine'
+import { dateKey, addDays, dayTotals, eventDelta, mergePlayers, pickQuests, COUNTERS, DEFAULT_GOAL, dayMeta } from './engine'
 
 const SAVE_DEBOUNCE_MS = 1500
 const SEND_DAYS = 14               // a save carries only recent days: the server merges into the full file
 const REFRESH_MS = 120000          // pull friends' progress (and this player's other computers) this often
 const LOCAL_BACKUP_KEY = 'ebiki-game-unsaved' // this computer's unsaved player, if the last save failed
-const API = { players: '/api/players', local: '/api/player-local' }
+const API = { players: '/api/players', local: '/api/player-local', inbox: '/api/game-inbox' }
+const INBOX_MS = 15000             // the main window collects awards the Alt+Q overlay relayed (it never loads a player)
 
 let state = {
   status: 'idle',        // idle | loading | ready | choose (several players, none picked here) | error
@@ -36,6 +37,11 @@ let saveTimer = null
 let dirty = false
 let refreshTimer = null
 const pending = []             // awards that arrived before the player was loaded
+let initCalled = false         // false in a window that never loads the game (the overlay): its awards are relayed
+let inboxTimer = null
+let retryTimer = null
+let retries = 0
+const RETRY_MS = [5000, 15000, 30000, 60000] // a failed load tries again (else every award of the session was lost)
 
 const newId = () => platform.randomId().slice(0, 16)
 
@@ -55,13 +61,22 @@ export function configureGame({ isBlocked, features }) {
 
 // Load identity + players. Safe to call again (a data-folder change reloads the page anyway).
 export async function initGame() {
+  initCalled = true
   if (state.status === 'loading') return
   set({ status: 'loading', error: '' })
   try {
     const local = await getJson(API.local)
-    const { players } = await getJson(API.players)
+    const { players, unreadable } = await getJson(API.players)
+    // This computer's player exists but could not be read (a locked file on the share): a FAILED read. Never create
+    // or choose another player then (this computer switched to a new empty player and lost its streak).
+    if (local.playerId && Array.isArray(unreadable) && unreadable.includes(local.playerId)) throw new Error('player file unreadable')
+    // No player picked here yet and the folder's only players are unreadable: "no players" would make a new one and pin it.
+    if (!local.playerId && !players.length && Array.isArray(unreadable) && unreadable.length) throw new Error('player files unreadable')
     readOk = true
+    retries = 0
     let mine = players.find((p) => p.id === local.playerId) || null
+    // Awards not yet saved (the save debounce, a failed save) are kept when the load runs again.
+    if (mine && state.player?.id === mine.id) { mine = mergePlayers(mine, state.player); dirty = true }
     try { // a save that failed last time is folded back in (the merge never double counts)
       const unsaved = platform.kv.getJson(LOCAL_BACKUP_KEY)
       if (unsaved?.id && mine && unsaved.id === mine.id) { mine = mergePlayers(mine, unsaved); dirty = true }
@@ -76,12 +91,17 @@ export async function initGame() {
       set({ status: 'choose', machineId: local.machineId, player: null, others: players })
     }
     flushPending()
+    drainInbox()
+    clearInterval(inboxTimer)
+    inboxTimer = setInterval(drainInbox, INBOX_MS)
     if (dirty) scheduleSave()
     clearInterval(refreshTimer)
     refreshTimer = setInterval(refresh, REFRESH_MS)
   } catch (e) {
     readOk = false
     set({ status: 'error', error: String(e.message || e) })
+    clearTimeout(retryTimer)
+    retryTimer = setTimeout(initGame, RETRY_MS[Math.min(retries++, RETRY_MS.length - 1)])
   }
 }
 
@@ -114,7 +134,7 @@ export async function createPlayer(name) {
 export function updateProfile(patch) {
   if (!state.player) return
   const allowed = {}
-  for (const k of ['name', 'avatar', 'goalXp', 'restDays', 'restDates']) if (patch[k] !== undefined) allowed[k] = patch[k]
+  for (const k of ['name', 'avatar', 'goalXp', 'restDays', 'restDaysHistory', 'restDates']) if (patch[k] !== undefined) allowed[k] = patch[k]
   set({ player: { ...state.player, ...allowed, profileAt: Date.now() } })
   dirty = true
   scheduleSave()
@@ -125,7 +145,7 @@ function todayRecord(player) {
   const key = dateKey()
   const recs = player.days?.[key] || {}
   const mine = recs[state.machineId] || Object.fromEntries(COUNTERS.map((c) => [c, 0]))
-  const anyQuests = Object.values(recs).find((r) => Array.isArray(r?.quests) && r.quests.length)?.quests
+  const anyQuests = dayMeta(player, key).quests // by sorted machine id, like computeStreak
   return {
     key,
     rec: {
@@ -149,7 +169,12 @@ export function ensureToday() {
 
 // Record an app event (see ../events.js mapping in ./index.js). Returns the XP it earned.
 export function award(kind, opts = {}) {
-  if (!state.player) { pending.push([kind, opts]); return 0 }
+  if (!state.player) {
+    // A window that never loads the game (the overlay: cards added from a screen capture) hands the award to this
+    // computer's inbox; the main window adds it. Loading a player here would make a second writer for one machine.
+    if (!initCalled) { relayAward(kind, opts); return 0 }
+    pending.push([kind, opts]); return 0
+  }
   const p = state.player
   const { key, rec } = todayRecord(p)
   const delta = eventDelta(kind, opts, rec)
@@ -163,6 +188,20 @@ export function award(kind, opts = {}) {
   dirty = true
   scheduleSave()
   return delta.xp || 0
+}
+
+function relayAward(kind, opts) {
+  try { apiFetch(API.inbox, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ add: [[kind, opts]] }) }).catch(() => {}) } catch { /* best effort */ }
+}
+
+let draining = false
+async function drainInbox() {
+  if (!state.player || !readOk || blocked() || draining) return
+  draining = true
+  try {
+    const { items } = await getJson(API.inbox, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ take: true }) })
+    for (const it of Array.isArray(items) ? items : []) if (Array.isArray(it) && typeof it[0] === 'string') award(it[0], it[1] && typeof it[1] === 'object' ? it[1] : {})
+  } catch { /* next time */ } finally { draining = false }
 }
 
 function flushPending() {
@@ -182,9 +221,14 @@ function scheduleSave() {
   saveTimer = setTimeout(save, SAVE_DEBOUNCE_MS)
 }
 
+// Save now (before a player switch, so awards still waiting in the debounce are not lost).
+export const saveGameNow = () => { clearTimeout(saveTimer); return save() }
+
 async function save() {
   if (!dirty || !readOk || !state.player) return
-  if (blocked()) return // the data folder is switching: the page reloads, and this would land in the new folder
+  // Writers frozen (a folder switch, the share back after a failed merge): kept for the next load instead (initGame
+  // folds it back in for the same player), never sent now.
+  if (blocked()) { try { platform.kv.setJson(LOCAL_BACKUP_KEY, state.player) } catch { /* storage full */ } return }
   dirty = false
   try {
     const { player } = await getJson(API.players, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ player: outgoing() }) })
@@ -198,7 +242,8 @@ async function save() {
 
 // Unsaved progress goes out as the app closes (keepalive survives the unload).
 platform.onPageHide(() => {
-  if (!dirty || !readOk || !state.player || blocked()) return
+  if (!dirty || !readOk || !state.player) return
+  if (blocked()) { try { platform.kv.setJson(LOCAL_BACKUP_KEY, state.player) } catch { /* storage full */ } return }
   try { apiFetch(API.players, { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ player: outgoing() }) }) } catch { /* best effort */ }
 })
 

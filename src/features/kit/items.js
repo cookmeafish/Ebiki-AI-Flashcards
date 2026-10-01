@@ -11,9 +11,15 @@ const INFO_BATCH = 200
 
 const shuffle = (a) => a.map((x) => [x, Math.random()]).sort((p, q) => p[1] - q[1]).map(([x]) => x)
 
-export async function pickCardItems(ctx, n, { due = 0 } = {}) {
+export async function pickCardItems(ctx, n, opts = {}) {
   const deck = ctx?.subject?.deck
   if (!ctx?.ankiConnected || !deck || n <= 0) return []
+  // Anki closed since the app checked (ankiConnected is not re-checked while true): the activity still works from
+  // the subject alone instead of failing on the card store's error.
+  try { return await pickFrom(ctx, deck, n, opts) } catch { return [] }
+}
+
+async function pickFrom(ctx, deck, n, { due = 0 }) {
   const ids = shuffle(await srs.findCards({ deck, excludeSuspended: true })).slice(0, n * POOL_FACTOR)
   const dueIds = due > 0 ? shuffle(await srs.findCards({ deck, state: 'due', excludeSuspended: true })).slice(0, due) : []
   const all = [...new Set([...dueIds, ...ids])]

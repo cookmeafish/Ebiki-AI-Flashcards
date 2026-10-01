@@ -1,8 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
-  <!-- Stone Colossus: a mountain that stood up, seen from below. A fan of crystal spires grows from its back,
-       its shoulders are snow-capped peaks with pines on them, magma veins glow in its faceted rock, burning eyes
-       under one stone brow slab, a rock jaw of stalactite teeth over a magma throat, boulder fists with crystals
-       on the knuckles. Entrance: the crystals grow, the eyes ignite, the jaw grinds open. -->
+  <!-- Stone Colossus: a mountain that stood up ten thousand years ago, ANCIENT, SERENE and WISE, never angry, seen
+       from below. A fan of crystal spires grows from its back, its shoulders are snow-capped peaks with pines and a
+       waterfall, moss grows on its slopes and soft runes glow in the rock. Heavy stone lids rest half closed over
+       pale calm eyes under one level mossy brow where a bird nests; a long moss-and-snow beard flows from a faint,
+       patient smile; boulder fists rest at its sides. It breathes slowly and deeply, its lids droop and lift.
+       Entrance: the crystals grow, the brow rune lights, the lids lift halfway. -->
   <!-- the crystal spires on its back: grow on the entrance -->
   <g transform="translate(60 46)"><g>
     <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.05;0.05;1.15;1" keyTimes="0;.4;.65;1" dur="1.5s" fill="freeze"/>
@@ -23,100 +25,153 @@
       <path d="M50 -24 l0.8 2 l2 0.8 l-2 0.8 l-0.8 2 l-0.8 -2 l-2 -0.8 l2 -0.8Z" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.2;1.2;0.2" dur="2.7s" repeatCount="indefinite"/></path>
     </g>
   </g></g>
-  <!-- the body: peaks for shoulders, wider than the frame, breathing -->
+  <!-- the body: peaks for shoulders, wider than the frame, breathing slowly and deeply -->
   <g transform="translate(60 124)"><g>
-    <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.012 1.02;1 1" dur="3.2s" repeatCount="indefinite"/>
+    <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.014 1.024;1 1" dur="6.5s" repeatCount="indefinite"/>
     <g transform="translate(-60 -124)">
       <path d="M-10 126 L-8 76 L2 58 L16 38 L30 46 L44 42 L60 50 L76 42 L90 46 L104 38 L118 58 L128 76 L130 126Z" fill="var(--lg-deep, #6b6f7a)" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2" stroke-linejoin="round"/>
       <path d="M-8 76 L2 58 L16 38 L30 46 L22 60 L10 74 L6 126 H-10Z" fill="var(--lg-near, #8d929e)"/>
       <path d="M16 38 L30 46 L44 42 L36 56 L22 60Z" fill="var(--lg-far, #b4b8c2)"/>
       <path d="M104 38 L118 58 L128 76 L130 126 H112 L112 82 L100 62 L90 46Z" fill="#000" opacity="0.3"/>
       <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round" opacity="0.6">
-        <path d="M10 74 L22 84 L18 104"/><path d="M22 60 L36 72 L34 90"/><path d="M110 76 L98 86 L102 106"/><path d="M100 62 L86 72 L88 90"/><path d="M48 100 L60 94 L72 100"/>
+        <path d="M10 74 L22 84 L18 104"/><path d="M22 60 L36 72 L34 90"/><path d="M110 76 L98 86 L102 106"/><path d="M100 62 L86 72 L88 90"/>
       </g>
+      <!-- moss on the slopes -->
+      <g fill="#4f7a3e" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round">
+        <path d="M30 60 C34 56 40 57 42 61 C44 64 40 67 36 66 C32 67 28 64 30 60Z"/>
+        <path d="M86 58 C90 55 96 56 98 60 C99 64 94 66 90 65 C86 65 84 61 86 58Z"/>
+        <path d="M100 96 C104 92 110 93 112 97 C113 100 108 102 104 101 C100 102 98 99 100 96Z"/>
+      </g>
+      <g fill="#79a85a"><circle cx="35" cy="60" r="1.6"/><circle cx="91" cy="58.6" r="1.4"/><circle cx="105" cy="96" r="1.3"/></g>
       <!-- snow caps on the shoulder peaks, pines on the slopes -->
       <path d="M8 48 L16 38 L30 46 L24 48 L20 45 L16 49 L12 46Z" fill="#f4f8ff" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
       <path d="M112 48 L104 38 L90 46 L96 48 L100 45 L104 49 L108 46Z" fill="#f4f8ff" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
       <g fill="#2f5d3a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" stroke-linejoin="round">
-        <path d="M4 62 L7 54 L10 62Z"/><path d="M9 58 L12 50 L15 58Z"/><path d="M110 58 L113 50 L116 58Z"/><path d="M114 63 L117 55 L120 63Z"/><path d="M104 56 L106.5 49 L109 56Z"/>
+        <path d="M4 62 L7 54 L10 62Z"/><path d="M9 58 L12 50 L15 58Z"/><path d="M110 58 L113 50 L116 58Z"/><path d="M114 63 L117 55 L120 63Z"/><path d="M104 56 L106.5 49 L109 56Z"/><path d="M96 54 L98.5 48 L101 54Z"/>
       </g>
-      <!-- magma veins, pulsing -->
-      <g fill="none" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M20 90 L28 98 L24 110 L30 120 M24 104 L16 108 M98 92 L90 102 L96 112 L92 120 M94 106 L102 110 M42 84 L46 92 L44 98 L48 104 M78 84 L74 92 L76 98 L72 104 M56 104 L60 110 L58 116 L62 122" stroke="#ff7a1a" stroke-width="3.6" opacity="0.5"/>
-        <path d="M20 90 L28 98 L24 110 L30 120 M24 104 L16 108 M98 92 L90 102 L96 112 L92 120 M94 106 L102 110 M42 84 L46 92 L44 98 L48 104 M78 84 L74 92 L76 98 L72 104 M56 104 L60 110 L58 116 L62 122" stroke="#ffd166" stroke-width="1.4"/>
+      <!-- a waterfall pouring off the left shoulder -->
+      <path d="M19 47 C18 60 17 70 16 80 L24 80 C24 70 25 60 25.4 47Z" fill="#8fd3f0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+      <path d="M20.6 48 C20 60 19.4 70 19 80" fill="none" stroke="#dff6ff" stroke-width="1.2" stroke-linecap="round"/>
+      <g stroke="#fff" stroke-width="1" stroke-linecap="round">
+        <path d="M22.6 50 V55" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-1.6 20" dur="1.6s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.01;1;1;0.01" keyTimes="0;.15;.8;1" dur="1.6s" repeatCount="indefinite" additive="sum"/></path>
+        <path d="M21.4 52 V56" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-1.6 20" dur="1.6s" begin="0.8s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.01;1;1;0.01" keyTimes="0;.15;.8;1" dur="1.6s" begin="0.8s" repeatCount="indefinite" additive="sum"/></path>
       </g>
+      <!-- runes carved in the rock, glowing softly -->
+      <g><path d="M22 92 L26 98 L22 104 M19 98 H29" fill="none" stroke="#8ff0d8" stroke-width="3.3000000000000003" stroke-linecap="round" stroke-linejoin="round" opacity="0.4" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.9;1.15;0.9" dur="4.2s" begin="0s" repeatCount="indefinite"/></path><path d="M22 92 L26 98 L22 104 M19 98 H29" fill="none" stroke="#e6fff8" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></g>
+      <g><path d="M96 92 C100 90 103 94 100 98 C97 102 101 106 104 104" fill="none" stroke="#8ff0d8" stroke-width="3.3000000000000003" stroke-linecap="round" stroke-linejoin="round" opacity="0.4" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.9;1.15;0.9" dur="4.8s" begin="1.2s" repeatCount="indefinite"/></path><path d="M96 92 C100 90 103 94 100 98 C97 102 101 106 104 104" fill="none" stroke="#e6fff8" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></g>
+      <g><path d="M14 108 L18 104 L22 108 L18 112Z" fill="none" stroke="#8ff0d8" stroke-width="3.3000000000000003" stroke-linecap="round" stroke-linejoin="round" opacity="0.4" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.9;1.15;0.9" dur="5.2s" begin="2.1s" repeatCount="indefinite"/></path><path d="M14 108 L18 104 L22 108 L18 112Z" fill="none" stroke="#e6fff8" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></g>
+      <g><path d="M102 108 V118 M98 112 H106" fill="none" stroke="#8ff0d8" stroke-width="3.3000000000000003" stroke-linecap="round" stroke-linejoin="round" opacity="0.4" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.9;1.15;0.9" dur="4.5s" begin="0.6s" repeatCount="indefinite"/></path><path d="M102 108 V118 M98 112 H106" fill="none" stroke="#e6fff8" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/></g>
     </g>
   </g></g>
-  <!-- the head, sunk between the peaks -->
-  <path d="M38 40 L46 28 L60 22 L74 28 L82 40 L86 58 L78 74 L60 82 L42 74 L34 58Z" fill="var(--lg-deep, #6b6f7a)" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2" stroke-linejoin="round"/>
+  <!-- the head, the brow and the beard rise and settle with each breath -->
+  <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -0.9;0 0" dur="6.5s" repeatCount="indefinite"/>
+  <path d="M38 40 L46 28 L60 22 L74 28 L82 40 L86 58 L80 74 L60 84 L40 74 L34 58Z" fill="var(--lg-deep, #6b6f7a)" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2" stroke-linejoin="round"/>
   <path d="M46 28 L60 22 L58 32 L46 38 L38 52 L34 58 L38 40Z" fill="var(--lg-near, #8d929e)"/>
-  <path d="M74 28 L82 40 L86 58 L78 74 L70 78 L80 56 L78 38Z" fill="#000" opacity="0.3"/>
+  <path d="M74 28 L82 40 L86 58 L80 74 L70 80 L80 56 L78 38Z" fill="#000" opacity="0.3"/>
   <path d="M60 22 L58 32 L62 38" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
-  <!-- cheek spurs -->
-  <path d="M35 56 L24 52 L34 64Z M85 56 L96 52 L86 64Z" fill="var(--lg-near, #8d929e)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3" stroke-linejoin="round"/>
-  <!-- eye sockets -->
-  <path d="M38 48 L56 54 L54 62 L42 60Z M82 48 L64 54 L66 62 L78 60Z" fill="#1a0b04"/>
-  <!-- magma eyes: ignite on the entrance -->
-  <g transform="translate(48 56) rotate(18)"><g>
-    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.05;0.05;1.45;1" keyTimes="0;.58;.78;1" dur="1.5s" fill="freeze"/>
-    <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.12;1" dur="1.4s" repeatCount="indefinite"/>
-      <ellipse rx="9" ry="5" fill="#ff7a1a" opacity="0.5"/><ellipse rx="6.4" ry="2.8" fill="#ffb347" stroke="#7a2a00" stroke-width="0.5"/><ellipse rx="3.4" ry="1.3" fill="#fff4d6"/><circle cx="1.6" cy="-0.6" r="0.7" fill="#fff"/>
-    </g>
-  </g></g>
-  <g transform="translate(72 56) rotate(-18)"><g>
-    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.05;0.05;1.45;1" keyTimes="0;.58;.78;1" dur="1.5s" fill="freeze"/>
-    <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.12;1" dur="1.4s" repeatCount="indefinite"/>
-      <ellipse rx="9" ry="5" fill="#ff7a1a" opacity="0.5"/><ellipse rx="6.4" ry="2.8" fill="#ffb347" stroke="#7a2a00" stroke-width="0.5"/><ellipse rx="3.4" ry="1.3" fill="#fff4d6"/><circle cx="-1.6" cy="-0.6" r="0.7" fill="#fff"/>
-    </g>
-  </g></g>
-  <!-- ONE stone brow slab in a V, cracked, with a magma seam -->
-  <path d="M32 42 L48 47 L60 55 L72 47 L88 42 L86 51 L72 54 L60 62 L48 54 L34 51Z" fill="var(--lg-far, #b4b8c2)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
-  <path d="M33 43 L48 48 L60 56 L72 48 L87 43" fill="none" stroke="#fff" stroke-width="1" opacity="0.6" stroke-linejoin="round"/>
-  <path d="M40 46 L44 50 L42 52 M78 46 L76 50 L79 52" fill="none" stroke="#ff7a1a" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
-  <!-- the magma throat -->
-  <path d="M42 64 L60 68 L78 64 L74 76 H46Z" fill="#1a0b04" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
-  <g transform="translate(60 73)"><ellipse rx="11" ry="4" fill="#ff7a1a" opacity="0.6" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.2;1" dur="1.1s" repeatCount="indefinite"/></ellipse><ellipse rx="6" ry="2" fill="#ffd166"/></g>
-  <!-- stalactite teeth fixed to the head -->
-  <g fill="#d6d2c4" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round">
-    <path d="M43 64.5 L45 72 L48 65.5Z"/><path d="M49 66 L51.5 74 L54 67Z"/><path d="M55 67.4 L57 73 L59 67.8Z"/><path d="M61 67.8 L63 73 L65 67.4Z"/><path d="M66 67 L68.5 74 L71 66Z"/><path d="M72 65.5 L75 72 L77 64.5Z"/>
+  <!-- snow on the crown -->
+  <path d="M46 28 L60 22 L74 28 L69 30 L64 27 L58 30 L52 28 L48 31Z" fill="#f4f8ff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+  <!-- the rune of the brow -->
+  <g transform="translate(60 37)">
+    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.01;0.01;1.4;1" keyTimes="0;.55;.75;1" dur="1.6s" fill="freeze" additive="sum"/>
+    <circle r="5.4" fill="#8ff0d8" opacity="0.3" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.25;1" dur="4s" begin="0s" repeatCount="indefinite"/></circle>
+    <circle r="3.6" fill="none" stroke="#e6fff8" stroke-width="1"/>
+    <path d="M0 -2.4 V2.4 M-2 -0.6 L0 -2.4 L2 -0.6" fill="none" stroke="#e6fff8" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
-  <!-- the rock jaw: grinds open on the entrance, works after -->
-  <g>
-    <animateTransform class="lg-in" attributeName="transform" type="translate" values="0 -8;0 -8;0 4;0 0" keyTimes="0;.66;.84;1" dur="1.6s" fill="freeze"/>
-    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 1.6;0 0" dur="2.2s" repeatCount="indefinite"/>
-      <path d="M38 76 L46 74 H74 L82 76 L76 88 L60 94 L44 88Z" fill="var(--lg-near, #8d929e)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
-      <path d="M74 74 L82 76 L76 88 L64 92 L74 82Z" fill="#000" opacity="0.3"/>
-      <path d="M38 76 L46 74 H56 L44 80Z" fill="#fff" opacity="0.25"/>
-      <g fill="#d6d2c4" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round">
-        <path d="M46 75 L48 68 L51 75Z"/><path d="M52 75 L54.5 67 L57 75Z"/><path d="M58 75 L60 69 L62 75Z"/><path d="M63 75 L65.5 67 L68 75Z"/><path d="M69 75 L72 68 L74 75Z"/>
+  <!-- eyes: heavy stone lids half closed, pale calm light beneath, gazing down at you -->
+  <g transform="translate(48 55.6) rotate(-6)">
+    <ellipse rx="9" ry="5.2" fill="#1a1410"/>
+    <ellipse cy="1" rx="7.4" ry="4.2" fill="#8ff0d8" opacity="0.5" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.25;1" dur="6.5s" begin="0s" repeatCount="indefinite"/></ellipse>
+    <circle cx="0.6" cy="1.2" r="3.5" fill="#c8fff0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"/>
+    <circle cx="0.6" cy="1.8" r="1.4" fill="#1d2230"/>
+    <circle cx="1.6" cy="0.9" r="0.6" fill="#fff"/>
+    <g style="transform-box:fill-box;transform-origin:center top">
+      <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 2.2;1 2.2;1 2.2;1 0.85;1 1" keyTimes="0;.45;.62;.85;1" dur="1.6s" fill="freeze"/>
+      <g style="transform-box:fill-box;transform-origin:center top"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1.14;1 1.14;1 1" keyTimes="0;.4;.6;1" dur="9s" repeatCount="indefinite"/>
+        <path d="M-9.8 -5.8 L9.8 -5.8 L9.8 -0.6 C4.6 1 -4.6 1 -9.8 -0.6Z" fill="var(--lg-far, #b4b8c2)"/>
+        <path d="M-8 -3.2 C-4 -2.2 4 -2.2 8 -3.2" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.5" stroke-linecap="round"/>
+        <path d="M-9.8 -0.6 C-4.6 1 4.6 1 9.8 -0.6" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M-7 -1.4 C-3 -0.4 3 -0.4 7 -1.4" fill="none" stroke="#fff" stroke-width="0.7" opacity="0.5" stroke-linecap="round"/>
       </g>
-      <path d="M50 84 L56 86 L60 84" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" opacity="0.6"/>
     </g>
   </g>
-  <!-- boulder fists, crystals on the knuckles, magma between the fingers -->
+  <g transform="translate(72 55.6) rotate(6)">
+    <ellipse rx="9" ry="5.2" fill="#1a1410"/>
+    <ellipse cy="1" rx="7.4" ry="4.2" fill="#8ff0d8" opacity="0.5" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.25;1" dur="6.5s" begin="0s" repeatCount="indefinite"/></ellipse>
+    <circle cx="-0.6" cy="1.2" r="3.5" fill="#c8fff0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"/>
+    <circle cx="-0.6" cy="1.8" r="1.4" fill="#1d2230"/>
+    <circle cx="0.4" cy="0.9" r="0.6" fill="#fff"/>
+    <g style="transform-box:fill-box;transform-origin:center top">
+      <animateTransform class="lg-in" attributeName="transform" type="scale" values="1 2.2;1 2.2;1 2.2;1 0.85;1 1" keyTimes="0;.45;.62;.85;1" dur="1.6s" fill="freeze"/>
+      <g style="transform-box:fill-box;transform-origin:center top"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1.14;1 1.14;1 1" keyTimes="0;.4;.6;1" dur="9s" repeatCount="indefinite"/>
+        <path d="M-9.8 -5.8 L9.8 -5.8 L9.8 -0.6 C4.6 1 -4.6 1 -9.8 -0.6Z" fill="var(--lg-far, #b4b8c2)"/>
+        <path d="M-8 -3.2 C-4 -2.2 4 -2.2 8 -3.2" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.5" stroke-linecap="round"/>
+        <path d="M-9.8 -0.6 C-4.6 1 4.6 1 9.8 -0.6" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M-7 -1.4 C-3 -0.4 3 -0.4 7 -1.4" fill="none" stroke="#fff" stroke-width="0.7" opacity="0.5" stroke-linecap="round"/>
+      </g>
+    </g>
+  </g>
+
+  <!-- the brow: one long level ledge, mossy, gently arched over each eye -->
+  <path d="M31 48 C38 44 44 44 50 46 L60 47.4 L70 46 C76 44 82 44 89 48 L88 52.4 C82 49.6 76 49.6 70 51 L60 52.4 L50 51 C44 49.6 38 49.6 32 52.4Z" fill="var(--lg-far, #b4b8c2)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
+  <path d="M32.6 48.4 C38 45.4 44 45.4 50 47 L60 48.4 L70 47 C76 45.4 82 45.4 87.4 48.4" fill="none" stroke="#fff" stroke-width="0.9" opacity="0.6"/>
+  <path d="M33 47.4 C36 44 41 43.4 44 45 C42 46 39 46.8 36 48.4Z M76 45 C79 43.4 84 44 87 47.4 L84 48.4 C81 46.8 78 46 76 45Z" fill="#79a85a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" stroke-linejoin="round"/>
+  <!-- the nose ridge -->
+  <path d="M57 51 L55.6 63 L60 65.6 L64.4 63 L63 51Z" fill="var(--lg-near, #8d929e)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+  <path d="M60 51 L63 51 L64.4 63 L60 65.6Z" fill="#000" opacity="0.2"/>
+  <path d="M57.4 63.6 C58.6 64.6 59.4 64.8 60 64.6 M62.6 63.6 C61.4 64.6 60.6 64.8 60 64.6" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linecap="round"/>
+  <!-- the long moss-and-snow beard, swaying slowly -->
+  <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 60 66;1.4 60 66;0 60 66;-1.4 60 66;0 60 66" dur="11s" repeatCount="indefinite"/>
+    <path d="M36 62 C34 74 36 86 42 96 C44 104 48 112 52 118 L55 112 L58 122 L61 113 L64 121 L67 111 L70 116 C74 108 78 100 80 94 C85 84 86 72 84 62 C78 70 70 74 60 74 C50 74 42 70 36 62Z" fill="#4f7a3e" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
+    <path d="M72 72 C78 70 82 66 84 62 C86 72 85 84 80 94 C76 102 72 110 68 114 C72 100 74 86 72 72Z" fill="#000" opacity="0.22"/>
+    <path d="M38 66 C38 76 41 86 46 94 C44 84 42 76 42 70Z" fill="#fff" opacity="0.18"/>
+    <g fill="none" stroke="#355c2c" stroke-width="1" stroke-linecap="round">
+      <path d="M46 78 C47 88 50 98 54 108"/><path d="M54 80 C55 90 56 100 58 112"/><path d="M64 80 C64 90 63 100 63 110"/><path d="M73 78 C72 88 70 96 67 104"/>
+    </g>
+    <g fill="none" stroke="#f4f8ff" stroke-width="1.5" stroke-linecap="round">
+      <path d="M42 76 C43 84 46 92 50 100"/><path d="M59 82 C59 92 60 100 60 108"/><path d="M77 78 C76 86 74 92 71 98"/>
+    </g>
+    <path d="M51 112 L55 112 L58 120 L61 113 L64 119 L67 111 L69 114" fill="none" stroke="#f4f8ff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <g fill="#fff8d6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"><circle cx="47" cy="88" r="1.2"/><circle cx="70" cy="90" r="1.1"/><circle cx="56" cy="100" r="1"/></g>
+    <!-- the mustache and a faint, patient smile -->
+    <path d="M60 65 C54 64 46 66 40 72 C46 70 52 70 56 70.4 C58 70.4 59.4 69 60 67.6 C60.6 69 62 70.4 64 70.4 C68 70 74 70 80 72 C74 66 66 64 60 65Z" fill="#79a85a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+    <path d="M44 69.6 C50 67 55 66.8 59 67.4 M76 69.6 C70 67 65 66.8 61 67.4" fill="none" stroke="#f4f8ff" stroke-width="0.9" stroke-linecap="round" opacity="0.9"/>
+    <path d="M52.4 72.4 C56 76.8 64 76.8 67.6 72.4 C64 74.2 56 74.2 52.4 72.4Z" fill="var(--lg-near, #8d929e)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+    <path d="M52.4 72.4 C51.8 71.6 51 71.4 50.2 71.6 M67.6 72.4 C68.2 71.6 69 71.4 69.8 71.6" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linecap="round"/>
+  </g>
+  <!-- a bird's nest on the end of the brow, its bird looking about -->
+  <g transform="translate(34 46)">
+    <path d="M-6 -1 C-5 3 5 3 6 -1 C3 0.6 -3 0.6 -6 -1Z" fill="#8a5a2b" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"/>
+    <path d="M-5 0 L-1 1.6 M-2 0.6 L3 1.4 M1 0 L5 0.8" stroke="#5a3a1c" stroke-width="0.5" stroke-linecap="round"/>
+    <g style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;0;-14;-14;6;6;0" keyTimes="0;.3;.36;.6;.66;.9;1" dur="5s" repeatCount="indefinite"/>
+      <path d="M-3 -0.6 C-3.4 -4 -1 -6 1.4 -5.4 C3 -5 3.4 -3 3 -0.6Z" fill="#d9663a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" stroke-linejoin="round"/>
+      <path d="M3.2 -4.4 L5 -3.8 L3.2 -3.2Z" fill="#f2b441" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4" stroke-linejoin="round"/>
+      <circle cx="1.8" cy="-4.2" r="0.55" fill="#1d2230"/>
+      <path d="M-3 -2.4 L-5.4 -1.4 L-3.2 -1Z" fill="#a8482a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4" stroke-linejoin="round"/>
+    </g>
+  </g>
+  </g>
+  <!-- boulder fists resting, crystals on the knuckles, moss and runes in the seams -->
   <g stroke="var(--lg-ink, #1d2230)" stroke-linejoin="round">
-    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -3;0 0" dur="3s" repeatCount="indefinite"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -1.6;0 0" dur="6.5s" repeatCount="indefinite"/>
       <path d="M-14 106 L-10 86 L4 76 L24 78 L36 90 L34 110 L22 124 L-4 124Z" fill="var(--lg-near, #8d929e)" stroke-width="2"/>
       <path d="M-14 106 L-10 86 L4 76 L10 80 L-2 92 L-4 112Z" fill="#fff" opacity="0.22" stroke="none"/>
       <path d="M36 90 L34 110 L22 124 L14 124 L26 108 L28 90Z" fill="#000" opacity="0.3" stroke="none"/>
       <path d="M-6 88 L2 82 L10 86 L4 94Z M6 82 L14 78 L22 82 L16 90Z M18 82 L26 82 L32 90 L24 94Z" fill="var(--lg-far, #b4b8c2)" stroke-width="1"/>
-      <path d="M2 96 L4 112 M14 94 L16 112 M26 96 L26 110" fill="none" stroke="#ff7a1a" stroke-width="1.6" stroke-linecap="round"/>
-      <path d="M2 96 L4 112 M14 94 L16 112 M26 96 L26 110" fill="none" stroke="#ffd166" stroke-width="0.6" stroke-linecap="round"/>
+      <path d="M2 96 L4 112 M14 94 L16 112 M26 96 L26 110" fill="none" stroke="#355c2c" stroke-width="1.8" stroke-linecap="round"/>
+      <path d="M2 96 L4 112 M14 94 L16 112 M26 96 L26 110" fill="none" stroke="#79a85a" stroke-width="0.6" stroke-linecap="round"/>
       <g stroke-width="0.8"><path d="M4 84 L2 74 L7 83Z" fill="var(--lg-accent, #f2b441)"/><path d="M15 80 L16 70 L19 80Z" fill="var(--lg-accent, #f2b441)"/></g>
     </g>
-    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -3;0 0;0 -3" dur="3s" repeatCount="indefinite"/>
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -1.6;0 0;0 -1.6" dur="6.5s" repeatCount="indefinite"/>
       <path d="M134 106 L130 86 L116 76 L96 78 L84 90 L86 110 L98 124 L124 124Z" fill="var(--lg-near, #8d929e)" stroke-width="2"/>
       <path d="M134 106 L130 86 L116 76 L110 80 L122 92 L124 112Z" fill="#000" opacity="0.25" stroke="none"/>
       <path d="M84 90 L86 110 L98 124 L102 124 L92 108 L92 90Z" fill="#fff" opacity="0.15" stroke="none"/>
       <path d="M126 88 L118 82 L110 86 L116 94Z M114 82 L106 78 L98 82 L104 90Z M102 82 L94 82 L88 90 L96 94Z" fill="var(--lg-far, #b4b8c2)" stroke-width="1"/>
-      <path d="M118 96 L116 112 M106 94 L104 112 M94 96 L94 110" fill="none" stroke="#ff7a1a" stroke-width="1.6" stroke-linecap="round"/>
-      <path d="M118 96 L116 112 M106 94 L104 112 M94 96 L94 110" fill="none" stroke="#ffd166" stroke-width="0.6" stroke-linecap="round"/>
+      <path d="M118 96 L116 112 M106 94 L104 112 M94 96 L94 110" fill="none" stroke="#355c2c" stroke-width="1.8" stroke-linecap="round"/>
+      <path d="M118 96 L116 112 M106 94 L104 112 M94 96 L94 110" fill="none" stroke="#79a85a" stroke-width="0.6" stroke-linecap="round"/>
       <g stroke-width="0.8"><path d="M116 84 L118 74 L113 83Z" fill="var(--lg-accent, #f2b441)"/><path d="M105 80 L104 70 L101 80Z" fill="var(--lg-accent, #f2b441)"/></g>
     </g>
   </g>
-  <!-- pebbles falling from the peaks -->
-  <g fill="var(--lg-deep, #6b6f7a)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6">
-    <path style="transform-box:fill-box;transform-origin:center" d="M20 40 L24 38 L25 42 L21 44Z"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -6;-2 30" dur="1.8s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.8s" repeatCount="indefinite" additive="sum"/></path>
-    <path style="transform-box:fill-box;transform-origin:center" d="M100 36 L104 35 L104 39 L100 40Z"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 -6;2 34" dur="2.3s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.3s" repeatCount="indefinite" additive="sum"/></path>
-  </g>
+  <!-- a bird gliding around the spires -->
+  <path d="M-3.4 0 Q-1.7 -2 0 0 Q1.7 -2 3.4 0" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linecap="round" transform="translate(18 18)"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="18 18;46 6;80 10;102 22;80 14;46 12;18 18" dur="14s" repeatCount="indefinite"/></path>
 </svg>

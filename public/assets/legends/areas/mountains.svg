@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
-  <!-- Colossus Pass: a rope bridge sways over a burning chasm, and the whole massif behind it IS the Stone Colossus: crystal spires on its back, snowy shoulder peaks with pines, a V brow of rock over burning eyes, a grinding jaw on a lava throat, magma veins, boulder fists gripping both rims. Idle: it breathes, eyes pulse, the jaw grinds, pebbles fall, embers rise, the bridge sways, a torch flickers, a hawk circles, clouds drift. -->
+  <!-- Colossus Pass: a rope bridge sways over a misty gorge, and the whole massif behind it IS the Stone Colossus, ancient and serene, eyes half closed: crystal spires on its back, snowy shoulder peaks with pines and a waterfall, one level mossy brow where a bird nests, heavy stone lids over pale glowing eyes, a long moss-and-snow beard flowing down into the mist from a faint patient smile, soft runes glowing in the rock, mossy boulder fists resting on both rims. Idle: it breathes slowly, its lids droop and lift, runes pulse, the beard sways, the waterfall pours, mist rises, the bridge sways, a torch flickers, a hawk circles, clouds drift. -->
   <rect width="400" height="140" fill="var(--lg-sky, #dfe6ee)"/>
-  <!-- storm clouds over the pass -->
+  <!-- clouds over the pass -->
   <g fill="var(--lg-light, #ffffff)" opacity="0.7">
     <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;26 0;0 0" dur="30s" repeatCount="indefinite"/>
     <ellipse cx="60" cy="22" rx="46" ry="9"/><ellipse cx="96" cy="16" rx="28" ry="8"/><ellipse cx="340" cy="18" rx="50" ry="9"/><ellipse cx="300" cy="24" rx="30" ry="6"/>
@@ -39,67 +39,93 @@
     <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linecap="round" opacity="0.6">
       <path d="M200 38 L212 44"/><path d="M262 40 L254 46"/><path d="M290 70 L300 82 L298 94"/><path d="M168 76 L162 90"/><path d="M296 110 L306 124"/>
     </g>
-    <!-- magma veins glowing in the rock -->
-    <g fill="none" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M148 104 L156 114 L150 128" stroke="#ffb347" stroke-width="3.2" opacity="0.4"/>
-      <path d="M148 104 L156 114 L150 128" stroke="#ff7a1a" stroke-width="1.4"/>
-      <path d="M304 96 L296 108 L304 122" stroke="#ffb347" stroke-width="3.2" opacity="0.4"/>
-      <path d="M304 96 L296 108 L304 122" stroke="#ff7a1a" stroke-width="1.4"/>
-      <path d="M182 72 L178 84 L184 94" stroke="#ff7a1a" stroke-width="1.2"/>
-      <path d="M276 66 L282 78 L278 88" stroke="#ff7a1a" stroke-width="1.2"/>
+    <!-- a waterfall pouring off the left shoulder into the gorge -->
+    <path d="M161 52 C160 72 158 96 155 124 L163 124 C165 96 166 72 167 52Z" fill="#7cc4e4" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+    <path d="M162.6 54 C162 74 160.6 98 158.6 122" fill="none" stroke="#dff6ff" stroke-width="1.2" stroke-linecap="round"/>
+    <g stroke="#fff" stroke-width="1.1" stroke-linecap="round">
+      <path d="M164.4 56 V63" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-2.4 50" dur="2.2s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.01;1;1;0.01" keyTimes="0;.12;.85;1" dur="2.2s" repeatCount="indefinite" additive="sum"/></path>
+      <path d="M163 60 V66" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-2.4 50" dur="2.2s" begin="1.1s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.01;1;1;0.01" keyTimes="0;.12;.85;1" dur="2.2s" begin="1.1s" repeatCount="indefinite" additive="sum"/></path>
     </g>
-    <!-- the brow: one stone ridge in a V -->
-    <path d="M190 46 L230 60 L270 46 L272 55 L230 69 L188 55Z" fill="var(--lg-deep, #3e4f63)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
-    <path d="M190 46 L230 60 L270 46 L270 49 L230 63 L190 49Z" fill="#fff" opacity="0.25"/>
-    <!-- burning eyes -->
-    <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.18;1" dur="2.4s" repeatCount="indefinite"/>
-      <path d="M200 58 L224 66 L220 72 L203 66Z" fill="#ffb347" opacity="0.45"/>
-      <path d="M260 58 L236 66 L240 72 L257 66Z" fill="#ffb347" opacity="0.45"/>
+    <!-- runes glowing softly in the rock, moss on the slopes -->
+    <path d="M146 106 L152 112 L146 118 M142 112 H156" fill="none" stroke="#8ff0d8" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.4" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.9;1.15;0.9" dur="4.4s" begin="0s" repeatCount="indefinite"/></path><path d="M146 106 L152 112 L146 118 M142 112 H156" fill="none" stroke="#e6fff8" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M300 104 C305 101 309 106 305 110 C301 114 306 118 310 116" fill="none" stroke="#8ff0d8" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.4" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.9;1.15;0.9" dur="5s" begin="1.3s" repeatCount="indefinite"/></path><path d="M300 104 C305 101 309 106 305 110 C301 114 306 118 310 116" fill="none" stroke="#e6fff8" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M178 78 L182 74 L186 78 L182 82Z" fill="none" stroke="#8ff0d8" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.4" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.9;1.15;0.9" dur="5.6s" begin="2.2s" repeatCount="indefinite"/></path><path d="M178 78 L182 74 L186 78 L182 82Z" fill="none" stroke="#e6fff8" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M282 72 V84 M277 78 H287" fill="none" stroke="#8ff0d8" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.4" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.9;1.15;0.9" dur="4.8s" begin="0.7s" repeatCount="indefinite"/></path><path d="M282 72 V84 M277 78 H287" fill="none" stroke="#e6fff8" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+    <g fill="#4f7a3e" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"><path d="M164 92 C168 88 175 89 177 93 C178 97 172 99 168 98 C164 98 162 95 164 92Z"/><path d="M286 94 C290 90 297 91 299 95 C300 99 294 101 290 100 C286 100 284 97 286 94Z"/><path d="M248 32 C252 29 259 30 261 34 C262 37 257 38 253 37.6 C249 38 246 35 248 32Z"/></g>
+    <g transform="translate(210 63.6) rotate(-5)">
+      <ellipse rx="13" ry="6.4" fill="#1a1410"/>
+      <ellipse cy="1.2" rx="10.6" ry="5" fill="#8ff0d8" opacity="0.5" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.2;1" dur="6.5s" repeatCount="indefinite"/></ellipse>
+      <circle cx="0.8" cy="1.4" r="4.6" fill="#c8fff0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+      <circle cx="0.8" cy="2.2" r="1.9" fill="#1d2230"/><circle cx="2.2" cy="0.8" r="0.8" fill="#fff"/>
+      <g style="transform-box:fill-box;transform-origin:center top"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1.14;1 1.14;1 1" keyTimes="0;.4;.6;1" dur="9s" repeatCount="indefinite"/>
+        <path d="M-14 -7.2 L14 -7.2 L14 -0.8 C7 1.2 -7 1.2 -14 -0.8Z" fill="var(--lg-far, #a9b8c8)"/>
+        <path d="M-11 -4 C-6 -2.8 6 -2.8 11 -4" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" opacity="0.5" stroke-linecap="round"/>
+        <path d="M-14 -0.8 C-7 1.2 7 1.2 14 -0.8" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M-10 -1.8 C-5 -0.6 5 -0.6 10 -1.8" fill="none" stroke="#fff" stroke-width="0.8" opacity="0.5" stroke-linecap="round"/>
+      </g>
     </g>
-    <path d="M203 60 L222 66 L218 70 L205 65Z" fill="#ff7a1a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
-    <path d="M257 60 L238 66 L242 70 L255 65Z" fill="#ff7a1a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
-    <path d="M211 63 L214 64 L213 68 L211 67Z" fill="#3a0f00"/><path d="M249 63 L246 64 L247 68 L249 67Z" fill="#3a0f00"/>
-    <circle cx="207" cy="63" r="0.9" fill="#fff"/><circle cx="253" cy="63" r="0.9" fill="#fff"/>
-    <!-- the maw -->
-    <path d="M198 78 L214 74 L230 76 L246 74 L262 78 L256 96 L230 102 L204 96Z" fill="#2a0e05" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3" stroke-linejoin="round"/>
-    <ellipse cx="230" cy="92" rx="18" ry="5" fill="#ff6a1a" opacity="0.55"/>
-    <ellipse cx="230" cy="93" rx="9" ry="2.6" fill="#ffd24a" opacity="0.8"/>
-    <path d="M200 78 L204 90 L208 77 L212 84 L216 75 L220 82 L224 76 L227 92 L230 76 L233 92 L236 76 L240 82 L244 75 L248 84 L252 77 L256 90 L260 78Z" fill="#e9e3d2" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
-    <!-- the rock jaw grinds -->
-    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 2.6;0 0.4;0 2.6;0 0" dur="3.2s" repeatCount="indefinite"/>
-      <path d="M196 96 L206 94 L230 100 L254 94 L264 96 L258 110 L230 118 L202 110Z" fill="var(--lg-near, #6f8499)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
-      <path d="M196 96 L206 94 L230 100 L230 118 L202 110Z" fill="#000" opacity="0.2"/>
-      <path d="M206 95 L210 88 L214 97 L220 91 L224 99 L230 93 L236 99 L240 91 L246 97 L250 88 L254 95Z" fill="#e9e3d2" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
-      <path d="M214 106 L222 110" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" opacity="0.6"/>
+    <g transform="translate(250 63.6) rotate(5)">
+      <ellipse rx="13" ry="6.4" fill="#1a1410"/>
+      <ellipse cy="1.2" rx="10.6" ry="5" fill="#8ff0d8" opacity="0.5" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.2;1" dur="6.5s" repeatCount="indefinite"/></ellipse>
+      <circle cx="-0.8" cy="1.4" r="4.6" fill="#c8fff0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+      <circle cx="-0.8" cy="2.2" r="1.9" fill="#1d2230"/><circle cx="0.5999999999999999" cy="0.8" r="0.8" fill="#fff"/>
+      <g style="transform-box:fill-box;transform-origin:center top"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1.14;1 1.14;1 1" keyTimes="0;.4;.6;1" dur="9s" repeatCount="indefinite"/>
+        <path d="M-14 -7.2 L14 -7.2 L14 -0.8 C7 1.2 -7 1.2 -14 -0.8Z" fill="var(--lg-far, #a9b8c8)"/>
+        <path d="M-11 -4 C-6 -2.8 6 -2.8 11 -4" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" opacity="0.5" stroke-linecap="round"/>
+        <path d="M-14 -0.8 C-7 1.2 7 1.2 14 -0.8" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M-10 -1.8 C-5 -0.6 5 -0.6 10 -1.8" fill="none" stroke="#fff" stroke-width="0.8" opacity="0.5" stroke-linecap="round"/>
+      </g>
     </g>
-    <!-- cheek spikes of rock -->
-    <path d="M186 66 L172 70 L186 76Z" fill="var(--lg-deep, #3e4f63)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
-    <path d="M274 66 L288 70 L274 76Z" fill="var(--lg-deep, #3e4f63)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+    <!-- the brow: one long level ledge, mossy, gently arched over each eye -->
+    <path d="M188 54 C198 49 210 49 220 52.4 L230 53.4 L240 52.4 C250 49 262 49 272 54 L271 59.4 C262 55.4 250 55.4 240 57.6 L230 58.6 L220 57.6 C210 55.4 198 55.4 189 59.4Z" fill="var(--lg-deep, #3e4f63)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+    <path d="M189.6 54.4 C198 50.6 210 50.6 220 53.6 L230 54.6 L240 53.6 C250 50.6 262 50.6 270.4 54.4" fill="none" stroke="#fff" stroke-width="0.9" opacity="0.4"/>
+    <path d="M190 53.4 C194 49.6 200 49 205 50.6 C201 51.6 196 52.6 192 54.6Z M255 50.6 C260 49 266 49.6 270 53.4 L268 54.6 C264 52.6 259 51.6 255 50.6Z" fill="#79a85a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" stroke-linejoin="round"/>
+    <!-- the nose ridge -->
+    <path d="M226 58 L224 76 L230 79.6 L236 76 L234 58Z" fill="var(--lg-near, #6f8499)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+    <path d="M230 58 L234 58 L236 76 L230 79.6Z" fill="#000" opacity="0.2"/>
+    <!-- the long moss-and-snow beard flowing down into the mist -->
+    <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 230 80;1 230 80;0 230 80;-1 230 80;0 230 80" dur="11s" repeatCount="indefinite"/>
+      <path d="M196 74 C194 88 198 102 206 112 C210 118 214 124 218 128 L222 122 L226 132 L230 123 L234 131 L238 122 L242 127 C248 120 254 110 256 104 C262 94 266 84 264 74 C256 84 244 90 230 90 C216 90 204 84 196 74Z" fill="#4f7a3e" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+      <path d="M244 88 C254 84 260 80 264 74 C266 84 262 94 256 104 C252 112 246 120 240 124 C246 110 248 98 244 88Z" fill="#000" opacity="0.22"/>
+      <g fill="none" stroke="#355c2c" stroke-width="1" stroke-linecap="round"><path d="M210 94 C212 104 216 112 222 120"/><path d="M222 96 C223 106 225 114 227 124"/><path d="M238 96 C238 106 237 114 236 122"/><path d="M250 94 C248 104 245 110 241 118"/></g>
+      <g fill="none" stroke="#eef3f7" stroke-width="1.6" stroke-linecap="round"><path d="M203 90 C205 100 209 108 214 114"/><path d="M230 96 C230 106 231 114 231 122"/><path d="M257 92 C255 100 252 106 248 112"/></g>
+      <g fill="#fff8d6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"><circle cx="212" cy="104" r="1.4"/><circle cx="246" cy="106" r="1.3"/></g>
+      <!-- the mustache and a faint, patient smile -->
+      <path d="M230 77 C222 76 210 79 202 87 C210 84 218 84 224 84.6 C227 84.6 229 83 230 81.4 C231 83 233 84.6 236 84.6 C242 84 250 84 258 87 C250 79 238 76 230 77Z" fill="#79a85a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1" stroke-linejoin="round"/>
+      <path d="M208 83.4 C216 80.4 223 80 228 81 M252 83.4 C244 80.4 237 80 232 81" fill="none" stroke="#eef3f7" stroke-width="1" stroke-linecap="round"/>
+      <path d="M219 86.4 C224 91.6 236 91.6 241 86.4 C236 88.4 224 88.4 219 86.4Z" fill="var(--lg-near, #6f8499)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1" stroke-linejoin="round"/>
+      <path d="M219 86.4 C218.2 85.6 217.2 85.4 216.2 85.6 M241 86.4 C241.8 85.6 242.8 85.4 243.8 85.6" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linecap="round"/>
+    </g>
+    <!-- a bird's nest on the end of the brow -->
+    <g transform="translate(193 53)">
+      <path d="M-7 -1 C-6 3.6 6 3.6 7 -1 C3.6 0.8 -3.6 0.8 -7 -1Z" fill="#8a5a2b" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"/>
+      <g style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;0;-14;-14;6;6;0" keyTimes="0;.3;.36;.6;.66;.9;1" dur="5s" repeatCount="indefinite"/>
+        <path d="M-3.4 -0.6 C-3.8 -4.6 -1 -6.8 1.6 -6.2 C3.4 -5.8 3.8 -3.4 3.4 -0.6Z" fill="#d9663a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" stroke-linejoin="round"/>
+        <path d="M3.6 -5 L5.6 -4.3 L3.6 -3.6Z" fill="#f2b441" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4" stroke-linejoin="round"/>
+        <circle cx="2" cy="-4.8" r="0.6" fill="#1d2230"/>
+      </g>
+    </g>
   </g>
-  <!-- pebbles shaken loose from the face -->
-  <g fill="var(--lg-deep, #3e4f63)">
-    <path d="M182 40 l3 -1 l1 3 l-3 1Z" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-4 80" dur="3.6s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1;0.1" dur="3.6s" repeatCount="indefinite" additive="sum"/></path>
-    <path d="M286 52 l2.4 -1 l1 2.4 l-2.4 1Z" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;5 76" dur="4.4s" repeatCount="indefinite" begin="1.6s"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1;0.1" dur="4.4s" repeatCount="indefinite" additive="sum" begin="1.6s"/></path>
-  </g>
-  <!-- the burning chasm -->
-  <path d="M96 140 L100 122 Q140 116 180 124 Q220 118 260 124 Q300 116 346 122 L344 140Z" fill="#ff7a1a"/>
-  <g fill="#ffd24a"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-8 0;0 0" dur="3s" repeatCount="indefinite"/>
+  <!-- the misty river in the gorge -->
+  <path d="M96 140 L100 122 Q140 116 180 124 Q220 118 260 124 Q300 116 346 122 L344 140Z" fill="#7cc4e4"/>
+  <g fill="#dff6ff"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-8 0;0 0" dur="3s" repeatCount="indefinite"/>
     <path d="M110 126 Q130 122 150 127 Q140 129 110 128Z"/><path d="M196 127 Q216 122 238 127 Q220 130 196 129Z"/><path d="M280 126 Q300 121 322 126 Q306 129 280 128Z"/>
   </g>
-  <g fill="#ffd24a">
-    <circle cx="140" cy="130" r="1.3" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -64" dur="3.2s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.2" dur="3.2s" repeatCount="indefinite" additive="sum"/></circle>
-    <circle cx="214" cy="132" r="1.1" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-8 -70" dur="4s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.2" dur="4s" repeatCount="indefinite" additive="sum" begin="1s"/></circle>
-    <circle cx="300" cy="130" r="1.4" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;4 -60" dur="3.6s" repeatCount="indefinite" begin="0.6s"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.2" dur="3.6s" repeatCount="indefinite" additive="sum" begin="0.6s"/></circle>
-    <circle cx="176" cy="132" r="1" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-3 -56" dur="2.8s" repeatCount="indefinite" begin="1.8s"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.2" dur="2.8s" repeatCount="indefinite" additive="sum" begin="1.8s"/></circle>
+  <!-- mist rising from the river -->
+  <g fill="#fff" opacity="0.85">
+    <circle cx="140" cy="130" r="2.2" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -64" dur="3.2s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.3" dur="3.2s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle cx="214" cy="132" r="2" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-8 -70" dur="4s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.3" dur="4s" repeatCount="indefinite" additive="sum" begin="1s"/></circle>
+    <circle cx="300" cy="130" r="2.4" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;4 -60" dur="3.6s" repeatCount="indefinite" begin="0.6s"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.3" dur="3.6s" repeatCount="indefinite" additive="sum" begin="0.6s"/></circle>
+    <circle cx="176" cy="132" r="1.8" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-3 -56" dur="2.8s" repeatCount="indefinite" begin="1.8s"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.3" dur="2.8s" repeatCount="indefinite" additive="sum" begin="1.8s"/></circle>
   </g>
   <!-- near cliffs framing the pass -->
   <path d="M0 74 L22 70 L48 76 L74 76 L96 84 L102 104 L96 140 H0Z" fill="var(--lg-deep, #3e4f63)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
   <path d="M0 74 L22 70 L48 76 L74 76 L96 84 L94 88 L72 80 L48 80 L22 74 L0 78Z" fill="#fff" opacity="0.22"/>
   <path d="M400 72 L378 70 L358 78 L344 86 L340 106 L344 140 H400Z" fill="var(--lg-deep, #3e4f63)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
   <path d="M400 72 L378 70 L358 78 L344 86 L348 89 L360 82 L378 74 L400 76Z" fill="#fff" opacity="0.22"/>
-  <path d="M96 104 L100 122 L96 140 H90 Z" fill="#ff7a1a" opacity="0.5"/>
-  <path d="M340 106 L344 122 L344 140 H350Z" fill="#ff7a1a" opacity="0.5"/>
-  <!-- strata and a warning cairn on the near rims -->
+  <path d="M96 104 L100 122 L96 140 H90 Z" fill="#dff6ff" opacity="0.5"/>
+  <path d="M340 106 L344 122 L344 140 H350Z" fill="#dff6ff" opacity="0.5"/>
+  <!-- strata and a pilgrim cairn on the near rims -->
   <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linecap="round" opacity="0.5">
     <path d="M10 92 L40 94"/><path d="M20 106 L60 108"/><path d="M14 122 L50 124"/><path d="M360 100 L388 98"/><path d="M356 116 L392 118"/>
   </g>
@@ -107,20 +133,19 @@
     <ellipse cx="36" cy="72" rx="8" ry="3.4" fill="var(--lg-far, #a9b8c8)"/><ellipse cx="37" cy="67" rx="5.6" ry="2.8" fill="var(--lg-far, #a9b8c8)"/><ellipse cx="36" cy="63" rx="3.4" ry="2" fill="var(--lg-far, #a9b8c8)"/>
     <rect x="44" y="58" width="2" height="16" fill="#6b4423"/>
     <path d="M38 56 L54 58 L53 66 L37 64Z" fill="#c9a46a"/>
-    <path d="M42.6 58.7 a2.4 2.4 0 1 1 4.6 0.6 l-0.6 1.6 h-3.2Z" fill="#f4efe2" stroke-width="0.5"/>
-    <circle cx="44.2" cy="59.6" r="0.6" fill="#1d2230" stroke="none"/><circle cx="46.4" cy="59.9" r="0.6" fill="#1d2230" stroke="none"/>
+    <path d="M43 61.4 L45.6 59 L48.2 61.4 L45.6 63.8Z" fill="none" stroke="#3a6a5e" stroke-width="0.9" stroke-linejoin="round"/>
     <ellipse cx="376" cy="72" rx="6" ry="2.6" fill="var(--lg-far, #a9b8c8)"/><ellipse cx="388" cy="72" rx="4" ry="2" fill="var(--lg-far, #a9b8c8)"/>
   </g>
-  <!-- boulder fists gripping the rims -->
+  <!-- mossy boulder fists resting on the rims -->
   <g stroke="var(--lg-ink, #1d2230)" stroke-linejoin="round">
     <path d="M100 108 L96 92 L104 82 L120 80 L134 84 L138 96 L130 110 L112 112Z" fill="var(--lg-near, #6f8499)" stroke-width="1.6"/>
     <path d="M100 108 L96 92 L104 82 L110 86 L106 104 L112 112Z" fill="#000" opacity="0.22" stroke="none"/>
     <path d="M104 84 L112 80 L114 88 L106 90Z M114 82 L122 80 L124 88 L116 89Z M124 82 L132 84 L132 91 L126 90Z" fill="var(--lg-far, #a9b8c8)" stroke-width="0.9"/>
-    <path d="M110 96 L118 98 L126 96" fill="none" stroke="#ff7a1a" stroke-width="1.1" stroke-linecap="round"/>
+    <path d="M108 96 C112 92 120 92 124 96 C122 99 112 99 108 96Z" fill="#4f7a3e" stroke-width="0.6"/>
     <path d="M340 106 L344 92 L338 80 L322 78 L310 82 L306 94 L314 108 L330 110Z" fill="var(--lg-near, #6f8499)" stroke-width="1.6"/>
     <path d="M340 106 L344 92 L338 80 L332 84 L336 104 L330 110Z" fill="#000" opacity="0.22" stroke="none"/>
     <path d="M338 82 L330 78 L328 86 L336 88Z M328 80 L320 78 L318 86 L326 87Z M318 80 L310 82 L310 89 L316 88Z" fill="var(--lg-far, #a9b8c8)" stroke-width="0.9"/>
-    <path d="M316 94 L324 96 L332 94" fill="none" stroke="#ff7a1a" stroke-width="1.1" stroke-linecap="round"/>
+    <path d="M314 94 C318 90 326 90 330 94 C328 97 318 97 314 94Z" fill="#4f7a3e" stroke-width="0.6"/>
   </g>
   <!-- the rope bridge, swaying over the fire -->
   <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 1.6;0 0" dur="4.2s" repeatCount="indefinite"/>

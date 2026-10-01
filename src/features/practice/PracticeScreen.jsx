@@ -1,10 +1,11 @@
 // The Practice hub: a tile per activity other features contribute (practiceActivities slot). Opening a tile
 // shows its Screen here; nothing in the hub knows what the activities are.
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile, shrimpUrl } from '../../config/shrimp'
 import { useFeatureCtx, useIntent, SLOT } from '../registry'
 import { depthBorder } from '../ui'
+import { useHelpEntry } from '../kit/useHelp'
 
 const MAX_W = 920
 const TILE_MIN = 260
@@ -17,10 +18,25 @@ export default function PracticeScreen() {
   const [params, setParams] = useState(null)
   // Another surface asked for an activity (e.g. Chat's "+" menu → Roleplay): { activity: '<feature>:<id>', params }
   useIntent(PRACTICE_INTENT, (p) => { if (p.activity) { setParams(p.params || null); setOpen(p.activity) } })
-  if (!ctx) return null
-  const { t, registry, subject } = ctx
-  const acts = registry.slot(SLOT.PRACTICE)
+  // A mode switch closes the open activity: every activity reads the LIVE subject, so a workout, scene or call
+  // started in one mode filed its results, level change and new cards under the other.
+  const modeId = ctx?.subject?.modeId
+  const modeSeen = useRef(modeId)
+  useEffect(() => {
+    if (modeSeen.current === modeId) return
+    modeSeen.current = modeId
+    setOpen(null); setParams(null)
+  }, [modeId])
+  const acts = ctx ? ctx.registry.slot(SLOT.PRACTICE) : []
   const current = acts.find((a) => `${a.feature}:${a.id}` === open)
+  // Its feature was switched off while it was open: forget it (switching it back on reopened it, unasked).
+  useEffect(() => { if (open && !current) { setOpen(null); setParams(null) } }, [open, current])
+  // Ebi's Help: which activity is open (each activity reports its own details), or the hub's tiles.
+  useHelpEntry(ctx, 'practice', !ctx ? '' : current
+    ? `Practice hub: the activity "${ctx.t(current.titleKey)}" is open.`
+    : `Practice hub (no activity open). Activities offered: ${acts.map((a) => `${ctx.t(a.titleKey)} (${ctx.t(a.descKey)})`).join('; ')}`)
+  if (!ctx) return null
+  const { t, subject } = ctx
   if (current?.Screen) {
     return (
       <div style={{ maxWidth: MAX_W, margin: '0 auto', height: '100%' }}>

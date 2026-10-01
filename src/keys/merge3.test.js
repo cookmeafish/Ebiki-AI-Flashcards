@@ -91,3 +91,36 @@ describe('deepMergeJson: keys deleted on one side (with a base)', () => {
     expect(deepMergeJson({ a: 1 }, { b: 2 })).toEqual({ a: 1, b: 2 })
   })
 })
+
+// Feature data (Legends maps, Mistake Gym lists, the practice log) is lists of records with an id (or key): merged per
+// record, so a record both sides edited is kept ONCE and a record one side removed stays removed.
+describe('deepMergeJson on lists of records', () => {
+  it('a Legends area removed offline stays removed while the other side played another area', () => {
+    const base = { areas: [{ id: 'a1', s: 0 }, { id: 'a4', s: 0 }] }
+    const theirs = { areas: [{ id: 'a1', s: 1 }, { id: 'a4', s: 0 }] }   // played a1
+    const mine = { areas: [{ id: 'a1', s: 0 }, { id: 'x4', s: 0 }] }     // Change my map: a4 -> x4
+    expect(deepMergeJson(theirs, mine, base)).toEqual({ areas: [{ id: 'a1', s: 1 }, { id: 'x4', s: 0 }] })
+  })
+  it('one record edited on both sides is kept once, merged field by field', () => {
+    const base = { items: [{ id: 2, n: 1, at: 0 }] }
+    const theirs = { items: [{ id: 2, n: 2, at: 0 }, { id: 3, n: 1, at: 0 }] }
+    const mine = { items: [{ id: 2, n: 1, at: 5 }] }
+    expect(deepMergeJson(theirs, mine, base)).toEqual({ items: [{ id: 2, n: 2, at: 5 }, { id: 3, n: 1, at: 0 }] })
+  })
+  it('a record retired on one side does not come back', () => {
+    const base = { items: [{ id: 1, n: 1 }, { id: 2, n: 1 }] }
+    const theirs = { items: [{ id: 1, n: 1 }, { id: 2, n: 2 }] }
+    const mine = { items: [{ id: 2, n: 1 }] } // retired 1
+    expect(deepMergeJson(theirs, mine, base).items.map((x) => x.id)).toEqual([2])
+  })
+  it('lists keyed by "key" merge the same way', () => {
+    expect(deepMergeJson({ l: [{ key: 'a', t: 1 }] }, { l: [{ key: 'a', t: 2 }, { key: 'b', t: 1 }] }, { l: [{ key: 'a', t: 1 }] }))
+      .toEqual({ l: [{ key: 'a', t: 2 }, { key: 'b', t: 1 }] })
+  })
+  it('without a base (join/return) records are matched by id and nothing is dropped', () => {
+    expect(deepMergeJson({ l: [{ id: 1, v: 'x' }] }, { l: [{ id: 1, v: 'y' }, { id: 2 }] })).toEqual({ l: [{ id: 1, v: 'x' }, { id: 2 }] })
+  })
+  it('lists that are not records (duplicate ids, plain values) keep the union', () => {
+    expect(deepMergeJson({ l: [{ id: 1 }, { id: 1, z: 1 }] }, { l: [{ id: 2 }] }, { l: [] })).toEqual({ l: [{ id: 1 }, { id: 1, z: 1 }, { id: 2 }] })
+  })
+})

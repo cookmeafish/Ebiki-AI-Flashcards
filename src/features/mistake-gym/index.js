@@ -14,5 +14,11 @@ export default {
       configureGym({ isBlocked: () => !!ctx?.isDataSwitching?.() })
       updateMistakes(p.mode, (list) => addMisses(list, p))
     },
+    // Misses from the other practice activities (Ebi Call, Legends, Scenes, Listen & Speak). Never its own workouts.
+    [EVENTS.PRACTICE_MISSED]: (p, ctx) => {
+      if (!p?.misses?.length || p.source === GYM_FEATURE_ID) return
+      configureGym({ isBlocked: () => !!ctx?.isDataSwitching?.() })
+      updateMistakes(p.mode, (list) => p.misses.reduce((l, m) => addMisses(l, { front: m.front, back: m.back, misses: [m] }), list))
+    },
   },
 }

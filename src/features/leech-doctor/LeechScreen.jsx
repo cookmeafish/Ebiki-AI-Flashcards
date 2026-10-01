@@ -1,10 +1,11 @@
 // Leech Doctor: cards you keep failing, why, a short mentoring lesson, and a proposed card fix you accept or
 // skip (before/after shown; nothing is written without Apply). A card edited since the diagnosis is skipped.
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile } from '../../config/shrimp'
 import { srs } from '../../cards'
 import { useFeatureCtx } from '../registry'
+import { useHelpEntry } from '../kit/useHelp'
 import { ChunkyButton, Card, EbiSays, tCount } from '../ui'
 import { findLeeches, parseDiagnoses, MAX_PATIENTS } from './leeches'
 import { buildDoctorPrompt, DOCTOR_ROLE, DOCTOR_MAX_TOKENS } from './prompt'
@@ -43,10 +44,21 @@ export default function LeechScreen({ onExit }) {
   const [done, setDone] = useState({})           // noteId -> 'applied' | 'skipped' | 'changed' | 'failed'
   const [error, setError] = useState('')
   const deck = ctx?.subject?.deck
+  const deckRunRef = useRef(0)
+  const applyingRef = useRef(new Set()) // notes whose fix is being written (a double click read the new mod as "changed")
+  const prevDeckRef = useRef(undefined)
 
   useEffect(() => {
     if (!ctx) return
     let stop = false
+    // Another deck (a mode or deck switch while open): the old deck's diagnoses and results never carry over.
+    // Only a real deck change: an Anki reconnect (a dialog in Anki) re-runs this too and threw away paid diagnoses.
+    if (prevDeckRef.current !== deck) {
+      prevDeckRef.current = deck
+      deckRunRef.current += 1
+      setDx(new Map()); setDone({}); setOpen({})
+    }
+    setError(''); setState('loading')
     ;(async () => {
       if (!ctx.ankiConnected || !deck) { setState('error'); setError(ctx.t('doc_needAnki')); return }
       try {
@@ -64,34 +76,48 @@ export default function LeechScreen({ onExit }) {
     return () => { stop = true }
   }, [deck, ctx?.ankiConnected]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // What Ebi's Help knows: the cards the learner keeps forgetting, Ebi's diagnosis of each, and what was done.
+  useHelpEntry(ctx, 'leech-doctor', state === 'loading' ? '' : [
+    `Activity open: Leech Doctor (cards forgotten again and again). ${patients.length} patients in the deck "${deck || ''}".`,
+    patients.slice(0, 10).map((p) => {
+      const d = dx.get(String(p.noteId))
+      return `- "${String(p.front || '').slice(0, 80)}" (${p.lapses} lapses)${d ? `: cause ${d.cause}${d.mentor ? `; Ebi's advice: ${d.mentor.slice(0, 200)}` : ''}${d.fix ? `; proposed fix: ${[d.fix.front && `front "${d.fix.front}"`, d.fix.back && `back "${String(d.fix.back).slice(0, 120)}"`].filter(Boolean).join(', ')}` : ''}` : ''}${done[p.noteId] ? ` [${done[p.noteId]}]` : ''}`
+    }).join('\n'),
+  ].filter(Boolean).join('\n'))
   if (!ctx) return null
   const { t, ai, subject } = ctx
 
   const diagnose = async () => {
+    const run = deckRunRef.current
     setState('diagnosing'); setError('')
     try {
       const { system, user } = buildDoctorPrompt(subject, patients, { others })
       const raw = await ai.call(system, user, { role: DOCTOR_ROLE, maxTokens: DOCTOR_MAX_TOKENS })
       const m = parseDiagnoses(ai.json(raw), patients)
       for (const d of m.values()) { d.explanation = ai.clean(d.explanation); d.mentor = ai.clean(d.mentor); if (d.fix) { d.fix.front = ai.clean(d.fix.front); d.fix.back = ai.clean(d.fix.back) } }
+      if (run !== deckRunRef.current) return // the deck changed while the doctor was thinking
       if (!m.size) throw new Error(t('doc_noAnswer'))
       setDx(m); setState('ready')
-    } catch (e) { setError(String(e.message || e)); setState('ready') }
+    } catch (e) { if (run === deckRunRef.current) { setError(String(e.message || e)); setState('ready') } }
   }
 
   // Apply a fix: re-read the note first; a card edited since the diagnosis is left alone.
   const apply = async (p) => {
     const d = dx.get(String(p.noteId))
-    if (!d?.fix) return
+    if (!d?.fix || applyingRef.current.has(p.noteId)) return
+    applyingRef.current.add(p.noteId)
     try {
       const [fresh] = await srs.notesInfo([p.noteId])
       if (!fresh || fresh.mod !== p.mod) { setDone((x) => ({ ...x, [p.noteId]: 'changed' })); return }
+      // Built over the field's current html: images, audio and its credit stay; furigana/tables/links refuse the fix.
       const fields = {}
-      if (d.fix.front && d.fix.front !== p.front) fields[p.fieldNames[0]] = ctx.cards.frontHtml(d.fix.front)
-      if (d.fix.back && d.fix.back !== p.back && p.fieldNames[1]) fields[p.fieldNames[1]] = ctx.cards.backHtml(d.fix.back)
+      const orig = (name) => fresh.fields?.[name]?.value || ''
+      const put = (name, text, which) => { const html = ctx.cards.rewriteField(orig(name), text, which); if (html == null) return false; fields[name] = html; return true }
+      if (d.fix.front && d.fix.front !== p.front && !put(p.fieldNames[0], d.fix.front, 'front')) { setDone((x) => ({ ...x, [p.noteId]: 'markup' })); return }
+      if (d.fix.back && d.fix.back !== p.back && p.fieldNames[1] && !put(p.fieldNames[1], d.fix.back, 'back')) { setDone((x) => ({ ...x, [p.noteId]: 'markup' })); return }
       if (Object.keys(fields).length) { await srs.updateNoteFields(p.noteId, fields); srs.syncSoon() }
       setDone((x) => ({ ...x, [p.noteId]: 'applied' }))
-    } catch { setDone((x) => ({ ...x, [p.noteId]: 'failed' })) }
+    } catch { setDone((x) => ({ ...x, [p.noteId]: 'failed' })) } finally { applyingRef.current.delete(p.noteId) }
   }
 
   const intro = state === 'loading' ? t('doc_loading') : state === 'error' ? error : !patients.length ? t('doc_healthy') : tCount(t, 'doc_intro', patients.length)
@@ -141,7 +167,7 @@ export default function LeechScreen({ onExit }) {
                         ) : (
                           <>
                             <ChunkyButton onClick={() => apply(p)} color={C.success}>{t('doc_apply')}</ChunkyButton>
-                            <ChunkyButton variant="ghost" color={C.inkDim} onClick={() => setDone((x) => ({ ...x, [p.noteId]: 'skipped' }))}>{t('doc_skip')}</ChunkyButton>
+                            <ChunkyButton variant="ghost" color={C.inkDim} onClick={() => { if (!applyingRef.current.has(p.noteId)) setDone((x) => ({ ...x, [p.noteId]: 'skipped' })) }}>{t('doc_skip')}</ChunkyButton>
                           </>
                         )}
                       </div>

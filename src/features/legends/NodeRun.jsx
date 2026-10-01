@@ -7,7 +7,7 @@ import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile } from '../../config/shrimp'
 import { speak } from '../../speech'
 import { useFocusHold } from '../registry'
-import { ChunkyButton, EbiSays, ProgressBar, Card } from '../ui'
+import { ChunkyButton, EbiSays, ProgressBar, Card, tCount } from '../ui'
 import { QuizRunner, RuleCardButton, buildScenePrompt, parseScene, voiceFor, SCENE_ROLE, SCENE_MAX_TOKENS, judgeStrike } from '../kit'
 import { featureCfg } from '../registry'
 import { learnerLevelLine } from '../kit/learnerStore'
@@ -334,7 +334,7 @@ function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, o
     return (
       <div style={{ maxWidth: 680, margin: '0 auto', display: 'grid', gap: 14 }}>
         <button onClick={onQuit} style={{ fontFamily: FONT.body, justifySelf: 'start', border: 'none', background: 'transparent', color: C.inkDim, fontWeight: 800, cursor: 'pointer', fontSize: 13 }}>← {t('lg_toMap')}</button>
-        <EbiSays pose={poseFile(node.kind === 'rule' ? 'science' : 'book')}>{node.kind === 'rule' ? t('lg_teachRule') : t('lg_teachLearn', { n: teachItems.length })}</EbiSays>
+        <EbiSays pose={poseFile(node.kind === 'rule' ? 'science' : 'book')}>{node.kind === 'rule' ? t('lg_teachRule') : tCount(t, 'lg_teachLearn', teachItems.length)}</EbiSays>
         <div style={{ display: 'grid', gap: 10 }}>{liveItems(modeId, area.id, teachItems.map((it) => it.id)).map((it) => <ItemCard key={it.id} it={it} t={t} ctx={ctx} modeId={modeId} areaId={area.id} />)}</div>
         <AddToDeck ctx={ctx} modeId={modeId} areaId={area.id} itemIds={teachItems.map((it) => it.id)} />
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -405,6 +405,7 @@ function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, o
     // wrong) 1, and the slip comes back as an attack. Choices are a safe strike, only before the boss enrages.
     const judge = fight ? async (q, ans) => {
       const j = await judgeStrike(ai, subject, q, ans, { strictAccents: !subject.accents || subject.strictAccents !== false })
+      if (j.verdict === 'error') return { error: true } // could not be checked: QuizRunner asks to try again
       return {
         correct: j.verdict !== 'miss', partial: j.verdict === 'glancing', note: j.note || '', accent: !!j.accent && j.verdict !== 'miss',
         title: j.verdict === 'clean' ? t('lg_strikeClean') : j.verdict === 'glancing' ? t('lg_strikeGlancing') : '',
@@ -414,7 +415,7 @@ function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, o
     const header = fight ? (q, mode) => (
       <div style={{ display: 'grid', gap: 6 }}>
         {q._attack && (
-          <div role="alert" className="lg-boss" style={{ padding: '8px 12px', borderRadius: RADIUS.md, background: `color-mix(in srgb, ${C.danger} 14%, ${C.surface})`, border: `2px solid ${C.danger}`, color: C.danger, fontWeight: 900, fontSize: 14, animation: focus ? 'none' : 'lgCall .9s ease-in-out infinite' }}>
+          <div role="alert" className="lg-boss" style={{ padding: '8px 12px', borderRadius: RADIUS.md, background: `color-mix(in srgb, ${C.danger} 14%, ${C.surface})`, border: `2px solid ${C.danger}`, color: C.danger, fontWeight: 900, fontSize: 14, animation: focus || cfg.still === true ? 'none' : 'lgCall .9s ease-in-out infinite' }}>
             ⚔️ {t('lg_attackIncoming', { n: ATTACK_LIVES })}
           </div>
         )}
@@ -435,7 +436,7 @@ function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, o
         retryMisses={!fight}
         onAnswer={record} judge={judge} header={header} canUseChoices={canUseChoices} tools={tools}
         feedbackExtra={(q, correct, answer) => (!correct && (node.kind === 'rule' || fight) && ai.hasKey
-          ? <RuleCardButton ctx={ctx} compact source={{ asked: q.prompt, answered: answer, expected: q.kind === 'choice' ? q.choices?.[q.answerIdx] : (q.accepted || [])[0] }} />
+          ? <RuleCardButton ctx={ctx} compact deck={ctx.subject?.modeDeck || ''} source={{ asked: q.prompt, answered: answer, expected: q.kind === 'choice' ? q.choices?.[q.answerIdx] : (q.accepted || [])[0] }} />
           : null)}
         onFinish={() => finish()}
         onExit={onQuit} />

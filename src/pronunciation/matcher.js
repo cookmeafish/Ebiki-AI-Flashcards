@@ -12,6 +12,17 @@
 // the region tag is absent; DO reject files identifiably from another language.
 import { KNOWN_ISO1, KNOWN_ISO3 } from './langcodes'
 
+// Region codes that name the same place (data, never per-language code).
+export const REGION_ALIASES = { uk: ['gb'], gb: ['uk'] }
+// Region codes recording file names use after each language ("En-us-", "Es-mx-", "Pt-br-"): data, never branches.
+// Per language, because a code can be a piece of a word elsewhere ("au" is Australia in English, "au-dessus" in French).
+const REGION_CODES = {
+  en: ['us', 'uk', 'gb', 'au', 'ca', 'nz', 'ie', 'in', 'za', 'sg', 'ph', 'jm', 'sc'],
+  es: ['es', 'mx', 'ar', 'co', 'cl', 'pe', 've', 'cu', 'uy', 'bo', 'ec', 'cr', 'pr', 'us'],
+  pt: ['br', 'pt', 'ao', 'mz'], fr: ['fr', 'be', 'ch', 'ca', 'qc', 'lu'], de: ['de', 'at', 'ch', 'li'],
+  zh: ['cn', 'tw', 'hk', 'mo', 'sg'], nl: ['nl', 'be'], it: ['it', 'ch'], ko: ['kr', 'kp'],
+}
+
 const AUDIO_EXT_RE = /\.(ogg|oga|wav|mp3|opus|flac)$/i
 // Namespace prefixes seen across editions/APIs ("File:", German "Medium:"/"Datei:", …).
 const NS_RE = /^(file|image|medium|media|datei|archivo|fichier|ficheiro|plik|bestand|ファイル|文件|파일):/i
@@ -54,6 +65,8 @@ export function pickAudioFiles(files, { iso1, iso3 = [], region = '', word }) {
     : (w && asWord.test(rest)) ? 10 : null
 
   const out = []
+  // Region names people type differ from the tags files use: Commons says "uk", the standard tag is "gb".
+  const sameRegion = (a, b) => a === b || (REGION_ALIASES[a] || []).includes(b)
   for (const raw of files || []) {
     const file = normalizeFileName(raw)
     if (!AUDIO_EXT_RE.test(file)) continue
@@ -78,11 +91,18 @@ export function pickAudioFiles(files, { iso1, iso3 = [], region = '', word }) {
     } else if (classic && (classic[1] === iso1 || iso3.includes(classic[1]))) {
       // A 2-letter chunk after the language code is AMBIGUOUS: region ("en-us-schedule")
       // or part of a hyphenated word ("fr-va-t-en"). Score both parses, keep the better.
-      const parses = [{ rest: base.slice(classic[1].length + 1), pts: 120 }] // bare-language reading
-      if (classic[2]) parses.push({ rest: classic[3], pts: reg && classic[2] === reg ? 140 : 95 })
-      for (const p of parses) {
-        const wp = wordPts(p.rest)
-        if (wp !== null) best = Math.max(best ?? -1, p.pts + wp)
+      // When the region reading matches the word it wins outright: scored against the bare reading too,
+      // "En-us-the house" read as the phrase "us-the house" (120 + 10) and tied the exact "En-us-house", so a
+      // phrase recording could be played and embedded. No region asked = no penalty (most English files are
+      // region-tagged); another region = 95.
+      // Only a REAL region code wins this way: French "au-dessus", "là-bas" begin with a 2-letter piece of the word,
+      // and read as a region "Fr-au-dessus" outranked the exact "Fr-dessus". Anything else keeps both readings.
+      const regWp = classic[2] ? wordPts(classic[3]) : null
+      const bareWp = wordPts(base.slice(classic[1].length + 1)) // bare-language reading ("fr-va-t-en")
+      if (regWp !== null && (REGION_CODES[iso1] || []).includes(classic[2])) best = (reg ? (sameRegion(classic[2], reg) ? 140 : 95) : 120) + regWp
+      else {
+        if (bareWp !== null) best = 120 + bareWp
+        if (regWp !== null) best = Math.max(best ?? -1, (reg && sameRegion(classic[2], reg) ? 140 : 95) + regWp)
       }
     } else if (classic && (KNOWN_ISO1.has(classic[1]) || KNOWN_ISO3.has(classic[1]))) {
       continue // another language's recording — never offer it

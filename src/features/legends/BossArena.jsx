@@ -3,10 +3,13 @@
 // answer is a hit, every wrong one costs a life. Lives = the misses the pass mark allows + 1, so losing the last one
 // is exactly the miss that makes the boss unbeatable: the fight ends there, and at 0 health it ends in a win. The
 // pass itself is still decided by applyNodeResult. Nothing moves for people who asked for reduced motion.
-import { useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { ChunkyButton } from '../ui'
-import { BossArt, LegendsArt, headroomPx } from './art'
+import { BossArt, LegendsArt, headroomPx, useArtMotionAlways, useArtStill, reducedMotion, ArtMotion } from './art'
+import { useFeatureCtx } from '../registry'
+import { LEGENDS_ID } from './store'
+import { AbilityFx } from './AbilityFx'
 import { newFight, healthLeft, livesLeft, phaseOf } from './fight'
 import { PASS } from './map'
 
@@ -143,7 +146,7 @@ const CSS = `
 @keyframes lgPopIn { 0% { transform: scale(0) } 70% { transform: scale(1.35) } 100% { transform: scale(1) } }
 @keyframes lgRise { 0% { transform: translateY(24px); opacity: 0 } 100% { transform: translateY(0); opacity: 1 } }
 @keyframes lgCall { 0%,100% { transform: scale(1) } 50% { transform: scale(1.06) } }
-@media (prefers-reduced-motion: reduce) { .lg-boss, .lg-boss *:not(svg):not(svg *) { animation: none !important; opacity: 1 !important } }
+@media (prefers-reduced-motion: reduce) { .lg-boss:not(.lg-motion), .lg-boss:not(.lg-motion) *:not(svg):not(svg *) { animation: none !important; opacity: 1 !important } }
 .lg-calm, .lg-calm *:not(svg):not(svg *) { animation: none !important }
 .lg-boss[data-phase="2"] .lg-p2, .lg-boss[data-phase="3"] .lg-p2, .lg-boss[data-phase="3"] .lg-p3 { display: inline !important }
 .lg-boss[data-phase="2"] .lg-p1, .lg-boss[data-phase="3"] .lg-p1, .lg-boss[data-phase="3"] .lg-p12 { display: none !important }
@@ -224,7 +227,10 @@ export const entranceFor = (motif) => ENTRANCES[motif] || ENTRANCES.mountains
 // `odds`: bossOdds options ({ bonus, pass }); `legendary`: the harder replay of a cleared area.
 // `calm` (focus mode): the card shows at once, still (no stripes sliding, slam, quake or entrance animation).
 // `kind`: 'raids' shows a raid boss (its own art folder and its own lives count, `raidLives`).
-export function BossIntro({ t, area, name = '', total, onFight, odds, legendary = false, calm = false, kind = 'bosses', raidLives = 0, ability = '' }) {
+export function BossIntro({ t, area, name = '', total, onFight, odds, legendary = false, calm: focusCalm = false, kind = 'bosses', raidLives = 0, ability = '' }) {
+  const motion = useArtMotionAlways()
+  const stillArt = useArtStill()
+  const calm = focusCalm || stillArt
   const odds0 = bossOdds(total, odds)
   const lives = kind === 'raids' ? raidLives : odds0.lives
   const bonus = kind === 'raids' ? 0 : odds0.bonus
@@ -239,7 +245,7 @@ export function BossIntro({ t, area, name = '', total, onFight, odds, legendary 
   })
   const label = { fontFamily: FONT.display, fontWeight: 900, fontSize: 15, letterSpacing: '.35em', color: C.white, padding: '0 14px', background: `color-mix(in srgb, ${C.danger} 20%, black)`, borderRadius: 4, textTransform: 'uppercase' }
   return (
-    <div className={calm ? 'lg-boss lg-calm' : 'lg-boss'} style={{ maxWidth: 640, margin: '12px auto', position: 'relative', borderRadius: RADIUS.xl, overflow: 'hidden', animation: `lgStageIn .3s ease-out both, lgQuake .45s ease-out ${E.impact}s` }}>
+    <div className={(calm ? 'lg-boss lg-calm' : 'lg-boss') + (motion ? ' lg-motion' : '')} style={{ maxWidth: 640, margin: '12px auto', position: 'relative', borderRadius: RADIUS.xl, overflow: 'hidden', animation: `lgStageIn .3s ease-out both, lgQuake .45s ease-out ${E.impact}s` }}>
       <BossStyle />
       <div style={{ position: 'relative', padding: '64px 20px 76px', display: 'grid', gap: 14, justifyItems: 'center', textAlign: 'center',
         background: `radial-gradient(ellipse at 50% 42%, color-mix(in srgb, ${C.danger} 30%, ${NIGHT}) 0%, ${NIGHT} 72%)` }}>
@@ -247,10 +253,14 @@ export function BossIntro({ t, area, name = '', total, onFight, odds, legendary 
         <div aria-hidden="true" style={band('bottom')}><span style={label}>⚠ {kind === 'raids' ? t('lg_raid') : legendary ? t('lg_legendary') : t('lg_boss')} ⚠</span></div>
         <div style={{ position: 'relative', width: BOSS.intro, height: BOSS.intro, margin: `${headroomPx(BOSS.intro)}px 0` }}>
           <div aria-hidden="true" style={{ position: 'absolute', inset: -40, borderRadius: '50%', background: `radial-gradient(circle, color-mix(in srgb, ${C.danger} 55%, transparent) 0%, transparent 65%)`, animation: `lgStageIn .2s ease-out ${E.impact}s both, lgHeartbeat 1.3s ease-in-out ${E.impact}s infinite` }} />
+          {/* Shockwave and dust exist ONLY as animation (invisible at both ends): stilled, they stuck on screen as a stray ring
+              and grey dots. */}
+          {!calm && (motion || !reducedMotion()) && <>
           <div aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '88%', width: BOSS.intro, height: BOSS.intro * 0.35, borderRadius: '50%', border: `4px solid ${C.danger}`, animation: `lgShock .6s ease-out ${E.impact}s both` }} />
           {Array.from({ length: 8 }, (_, i) => (
             <span key={i} aria-hidden="true" style={{ position: 'absolute', left: `${20 + i * 8.5}%`, bottom: 2, width: 14, height: 14, borderRadius: '50%', background: `color-mix(in srgb, ${C.inkDim} 60%, transparent)`, '--dx': `${(i - 3.5) * 14}px`, animation: `lgDust .7s ease-out ${E.impact}s both`, opacity: 0 }} />
           ))}
+          </>}
           <div style={{ position: 'relative', transformOrigin: entrance.origin || '50% 50%', animation: `${entrance.name} ${(E.impact - E.slam).toFixed(2)}s ${entrance.ease} ${E.slam}s both` }}>
             <div style={{ animation: `lgEyes 1.3s ease-in-out ${E.impact + 0.2}s infinite, lgBossBob 2.4s ease-in-out ${E.impact + 0.4}s infinite` }}>
               {kind === 'bosses' ? <BossArt area={area} size={BOSS.intro} animated={calm ? 'idle' : 'intro'} roomed /> : <LegendsArt kind={kind} motif={area.motif} palette={area.palette} height={BOSS.intro} width={BOSS.intro} round={0} animated={calm ? 'idle' : 'intro'} roomed />}
@@ -275,6 +285,7 @@ export function BossIntro({ t, area, name = '', total, onFight, odds, legendary 
             <ChunkyButton color={C.danger} onClick={onFight} style={{ minWidth: 200, fontSize: 18 }}>⚔️ {t('lg_bossFight')}</ChunkyButton>
           </div>
         </div>
+        <MotionToggle t={t} dark />
       </div>
     </div>
   )
@@ -283,13 +294,31 @@ export function BossIntro({ t, area, name = '', total, onFight, odds, legendary 
 // `hits`/`misses` so far; `last` = { kind: 'hit' | 'miss', n } (n changes per answer, so the animation replays).
 // The end of the fight, under the arena: the win, or out of lives. `onDone` goes to the result.
 export function BossEnd({ t, won, onDone }) {
+  const motion = useArtMotionAlways()
+  const still = useArtStill()
   return (
-    <div className="lg-boss" style={{ display: 'grid', gap: 12, justifyItems: 'center', textAlign: 'center', padding: '10px 0' }}>
-      <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 24, color: won ? C.success : C.danger, animation: 'lgBossBob 1.6s ease-in-out 2' }}>
+    <div className={motion ? 'lg-boss lg-motion' : 'lg-boss'} style={{ display: 'grid', gap: 12, justifyItems: 'center', textAlign: 'center', padding: '10px 0' }}>
+      <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 24, color: won ? C.success : C.danger, animation: still ? 'none' : 'lgBossBob 1.6s ease-in-out 2' }}>
         {won ? `🏆 ${t('lg_bossWon')}` : `💔 ${t('lg_bossLost')}`}
       </div>
       <ChunkyButton color={won ? C.success : C.warning} onClick={onDone}>{t('lg_bossSeeResult')}</ChunkyButton>
     </div>
+  )
+}
+
+// The obvious on/off for boss animations (features.legends.still), on the intro card and the fight itself, for a
+// learner who wants the fight without the motion. Settings > General > Legends has the same switch.
+export function MotionToggle({ t, dark = false }) {
+  const ctx = useFeatureCtx()
+  const forced = useContext(ArtMotion) // the asset view always animates: the switch would do nothing there
+  if (!ctx || forced) return null
+  const still = ctx.featureSettings?.[LEGENDS_ID]?.still === true
+  const color = dark ? C.white : C.inkDim
+  return (
+    <button type="button" aria-pressed={still} onClick={() => ctx.setFeatureSettings(LEGENDS_ID, { still: !still })}
+      style={{ fontFamily: FONT.body, fontSize: 12, fontWeight: 800, color, background: dark ? 'rgba(0,0,0,.35)' : C.surface, border: `1.5px solid color-mix(in srgb, ${color} 40%, transparent)`, borderRadius: RADIUS.pill, padding: '3px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+      {still ? `▶ ${t('lg_animPlay')}` : `⏸ ${t('lg_animStop')}`}
+    </button>
   )
 }
 
@@ -332,6 +361,9 @@ function useShortWindow(getZoom) {
 // raid boss (`data-phase` lets a raid drawing show its lg-p2 / lg-p3 layers). `weak`: names of the items the boss
 // is weak to. `shield`: the learner brought a shield. `focus`: focus mode, no floaters or combo flair (the numbers stay).
 export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, phases = 2, weak = [], shield = false, focus = false, getZoom, kind = 'bosses', ability = '' }) {
+  const motion = useArtMotionAlways()
+  const still = useArtStill()
+  const quiet = focus || still // no shake, bob, flash or ability effect (still: the owner's no-animation switch)
   const compact = useShortWindow(getZoom)
   const st = state || newFight()
   const hp = healthLeft(st, need)
@@ -351,24 +383,28 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
     <span key={key} style={{ fontSize: 11.5, fontWeight: 800, color, border: `1.5px solid color-mix(in srgb, ${color} 45%, transparent)`, borderRadius: RADIUS.pill, padding: '1px 8px', ...(wrap ? { whiteSpace: 'normal', overflowWrap: 'anywhere', minWidth: 0 } : { whiteSpace: 'nowrap' }) }}>{text}</span>
   )
   return (
-    <div className="lg-boss" data-phase={phase} style={{ display: 'flex', alignItems: 'center', gap: compact ? 10 : 16, padding: compact ? '0 12px 0 0' : '0 14px 0 0', borderRadius: RADIUS.lg,
+    <div className={motion ? 'lg-boss lg-motion' : 'lg-boss'} data-phase={phase} style={{ display: 'flex', alignItems: 'center', gap: compact ? 10 : 16, padding: compact ? '0 12px 0 0' : '0 14px 0 0', borderRadius: RADIUS.lg,
       background: `color-mix(in srgb, ${C.danger} ${rage ? 14 : 7}%, ${C.surface})`, border: `2px solid color-mix(in srgb, ${C.danger} ${rage ? 60 : 30}%, ${C.border})`, transition: 'background .4s, border-color .4s' }}>
       <BossStyle />
       <div style={{ position: 'relative', flexShrink: 0, margin: headroomPx(compact ? BOSS.arenaCompact : BOSS.arena) }}>
-        <div key={`s${shift}`} style={{ animation: shift && !focus ? 'lgPhaseShift 1s ease-out both' : 'none' }}>
-        <div key={`b${last?.n || 0}`} style={{ animation: down ? 'lgBossDown .6s ease-out both' : focus ? 'none' : hitNow ? 'lgBossHit .5s ease-out' : missNow ? 'lgBossLunge .45s ease-out' : `lgBossBob ${rage ? 1.2 : 2.4}s ease-in-out infinite`,
+        <div key={`s${shift}`} style={{ animation: shift && !quiet ? 'lgPhaseShift 1s ease-out both' : 'none' }}>
+        <div key={`b${last?.n || 0}`} style={{ animation: down ? 'lgBossDown .6s ease-out both' : quiet ? 'none' : hitNow ? 'lgBossHit .5s ease-out' : missNow ? 'lgBossLunge .45s ease-out' : `lgBossBob ${rage ? 1.2 : 2.4}s ease-in-out infinite`,
           filter: down ? 'grayscale(.8) opacity(.6)' : rage ? `drop-shadow(0 0 10px ${C.danger}) saturate(1.3)` : 'none' }}>
           {kind === 'bosses'
             ? <BossArt area={area} size={compact ? BOSS.arenaCompact : BOSS.arena} animated={down ? false : 'idle'} roomed />
             : <LegendsArt kind={kind} motif={area.motif} palette={area.palette} height={compact ? BOSS.arenaCompact : BOSS.arena} width={compact ? BOSS.arenaCompact : BOSS.arena} round={0} animated={down ? false : 'idle'} phase={phase} roomed />}
         </div>
         </div>
-        {shift > 0 && !focus && <>
+        {shift > 0 && !quiet && <>
           <div key={`r${shift}`} aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '50%', width: '100%', height: '100%', borderRadius: '50%', border: `2px solid ${C.purple}`, transform: 'translate(-50%, -50%)', animation: 'lgPhaseRing .8s ease-out both', pointerEvents: 'none' }} />
           <div key={`p${shift}`} aria-hidden="true" style={{ position: 'absolute', left: '50%', top: compact ? 'calc(100% - 3px)' : 'calc(100% + 4px)', whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 800, fontSize: compact ? 11 : 13, letterSpacing: '.06em', textTransform: 'uppercase', color: C.white, padding: '1px 9px', borderRadius: 999, background: `color-mix(in srgb, ${C.danger} 70%, transparent)`, transform: 'translateX(-50%)', animation: 'lgPhaseTag 1.8s ease-out both', pointerEvents: 'none', zIndex: 2 }}>{t('lg_fightPhase', { n: shift })}</div>
         </>}
-        {!focus && hitNow && <div key={`f${last.n}`} aria-hidden="true" style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: C.danger, mixBlendMode: 'screen', animation: 'lgBossFlash .35s ease-out both', pointerEvents: 'none' }} />}
-        {!focus && last && (hitNow || last.shielded || last.kind === 'block' || last.fx) && (
+        {/* the raid ability's own effect (a bolt, a wave, a scythe arc...), once per strike that fires it */}
+        {!quiet && last?.fx && (motion || !reducedMotion()) && <AbilityFx key={`x${last.n}`} fx={last.fx} />}
+        {/* Flash and floater only where they can animate: under the system's reduce-motion their fade was removed and a
+            red disc covered the boss after every hit. */}
+        {!quiet && hitNow && (motion || !reducedMotion()) && <div key={`f${last.n}`} aria-hidden="true" style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: C.danger, mixBlendMode: 'screen', animation: 'lgBossFlash .35s ease-out both', pointerEvents: 'none' }} />}
+        {!focus && (motion || !reducedMotion()) && last && (hitNow || last.shielded || last.kind === 'block' || last.fx) && (
           <div key={`d${last.n}`} aria-hidden="true" style={{ position: 'absolute', left: '50%', top: 0, whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 900, fontSize: last.crit || last.fx ? 26 : 22, color: last.shielded || last.fx === 'bounce' ? C.info : last.fx ? C.purple : last.crit ? C.warning : C.danger, animation: 'lgBossFloat .9s ease-out both', pointerEvents: 'none' }}>
             {last.shielded ? '🛡' : last.fx && FX_KEY[last.fx] ? `${last.damage ? `-${last.damage} ` : ''}${t(FX_KEY[last.fx])}` : `-${last.damage}${last.crit ? '!' : ''}`}
           </div>
@@ -378,6 +414,7 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: compact ? 15 : 17, color: C.ink }}>{down ? `🏆 ${t('lg_bossDown')}` : `${rage ? '😡' : '👑'} ${name || area.title}`}</span>
           <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 800, color: C.inkDim }}>{t('lg_bossHp', { hp, max: need })}</span>
+          <MotionToggle t={t} />
         </div>
         <div role="progressbar" aria-valuemin={0} aria-valuemax={need} aria-valuenow={hp} aria-label={t('lg_bossHpLabel')}
           style={{ height: compact ? 12 : 16, borderRadius: RADIUS.pill, background: C.surfaceSunken, overflow: 'hidden', border: `2px solid color-mix(in srgb, ${C.danger} 35%, transparent)` }}>

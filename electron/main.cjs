@@ -650,7 +650,11 @@ function registerOverlayEsc() {
 
 function hideOverlay() {
   if (globalShortcut.isRegistered('Escape')) globalShortcut.unregister('Escape')
-  if (overlayWindow) overlayWindow.hide()
+  if (overlayWindow) {
+    overlayWindow.hide()
+    // Tell the page: a scan still running stops its follow-up calls (translations, enrichments) in a hidden window.
+    try { overlayWindow.webContents.executeJavaScript("window.dispatchEvent(new CustomEvent('overlay-hidden'))").catch(() => {}) } catch { /* page gone */ }
+  }
 }
 
 // One capture at a time: a held Alt+Q auto-repeats, and overlapping captures raced on the same screenshot

@@ -44,14 +44,14 @@ export default function EditPanel({ ctx, modeId, initial = '', autoRun = false, 
 
   const accept = async () => {
     setPhase('saving'); setError('')
-    try { await acceptEdit(ctx, modeId, proposal.map); onClose(true) } catch (e) { setError(String(e.message || e)); setPhase('review') }
+    try { await acceptEdit(ctx, modeId, proposal.map, proposal.baseIds); onClose(true) } catch (e) { setError(String(e.message || e)); setPhase('review') }
   }
 
   const changes = proposal?.changes || []
   const anything = editChanged(changes)
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', display: 'grid', gap: 14 }}>
-      <button onClick={() => onClose(false)} style={{ fontFamily: FONT.body, justifySelf: 'start', border: 'none', background: 'transparent', color: C.inkDim, fontWeight: 800, cursor: 'pointer', fontSize: 13 }}>← {t('lg_toMap')}</button>
+      <button onClick={() => onClose(false)} disabled={phase === 'saving'} style={{ fontFamily: FONT.body, justifySelf: 'start', border: 'none', background: 'transparent', color: C.inkDim, fontWeight: 800, cursor: phase === 'saving' ? 'default' : 'pointer', opacity: phase === 'saving' ? 0.5 : 1, fontSize: 13 }}>← {t('lg_toMap')}</button>
       <EbiSays pose={poseFile('artist')}>{phase === 'review' ? (proposal?.note || t('lg_editReview')) : t('lg_editIntro')}</EbiSays>
 
       {(phase === 'ask' || phase === 'thinking') && (

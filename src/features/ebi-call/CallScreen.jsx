@@ -16,6 +16,7 @@ import { splitReply, applyGrades, ratingsFrom, VERDICTS, CALL_CARDS } from './gr
 import { buildCallSystem, buildCallTurn, CALL_ROLE, CALL_MAX_TOKENS } from './prompt'
 import { learnerLevelLine } from '../kit/learnerStore'
 import { recordCall } from './recorder'
+import { useHelpEntry } from '../kit/useHelp'
 
 export const CALL_FEATURE_ID = 'ebi-call'
 const SLIPS = 8
@@ -40,11 +41,22 @@ export default function CallScreen({ onExit }) {
   const [readAloud, setReadAloud] = useState(() => platform.kv.get(READ_ALOUD_KEY) === '1')
   const preRef = useRef(new Map())
   const callIdRef = useRef('')
+  const callDeckRef = useRef('') // the deck the call's cards came from: reviews are saved there even if the header deck changes
   const listRef = useRef(null)
   const speakingRef = useRef(null)
-  useEffect(() => () => speakingRef.current?.stop(), [])
+  // aliveRef: set on mount too (StrictMode mounts twice). A reply landing after the screen closed is never spoken.
+  const aliveRef = useRef(false)
+  useEffect(() => { aliveRef.current = true; return () => { aliveRef.current = false; speakingRef.current?.stop() } }, [])
   useFocusHold(phase === 'call') // no pop-ups mid-conversation (the graded-card toasts are the exception)
   useEffect(() => { listRef.current?.scrollTo?.({ top: 1e9, behavior: 'smooth' }) }, [messages])
+  // What Ebi's Help knows about this call. The cards it checks stay SECRET while the call runs (they are the answers).
+  useHelpEntry(ctx, 'ebi-call', phase === 'intro' || phase === 'loading' ? '' : [
+    `Activity open: Ebi Call (${practice ? 'a practice call: nothing is recorded in Anki' : 'a review call: each card it checks becomes an Anki review'}). Phase: ${phase}.`,
+    phase === 'call'
+      ? `The call checks ${targets.length} cards; they are SECRET while it runs (the learner must produce them).`
+      : targets.length ? `Cards checked: ${targets.map((tg) => { const g = grades[tg.cardId]; return `"${tg.front}" ${g ? `${g.verdict}${g.why ? ` (${g.why})` : ''}` : 'not reached'}` }).join('; ')}` : '',
+    messages.length ? `Conversation (latest turns):\n${messages.slice(-8).map((m) => `${m.role === 'ebi' ? 'Ebi' : 'Learner'}: ${String(m.text || '').slice(0, 220)}`).join('\n')}` : '',
+  ].filter(Boolean).join('\n'))
   // The first line of the call, once the targets are in state. (Declared before any early return: hook order.)
   const openedRef = useRef('')
   useEffect(() => {
@@ -64,6 +76,7 @@ export default function CallScreen({ onExit }) {
   }
 
   const land = (reply, history, cur) => {
+    if (!aliveRef.current) return // the call was left while Ebi was answering: no toasts, no speech
     const text = ai.clean(reply.say) || '...'
     const { state, fresh } = applyGrades(cur, reply.grades)
     setGrades(state)
@@ -80,9 +93,10 @@ export default function CallScreen({ onExit }) {
     try {
       let picked = []
       let isPractice = false
+      callDeckRef.current = subject.deck || ''
       if (ctx.ankiConnected && subject.deck) {
         const due = await srs.findCards({ deck: subject.deck, state: 'due', excludeSuspended: true, excludeBuried: true })
-        picked = shuffle(due).slice(0, CALL_CARDS)
+        picked = shuffle(due).slice(0, CALL_CARDS * 3) // extra: siblings of one note are cut below
         if (!picked.length) { // nothing due: a practice call over cards already learned
           const seen = await srs.findCards({ deck: subject.deck, excludeSuspended: true })
           picked = shuffle(seen).slice(0, CALL_CARDS * 4)
@@ -91,6 +105,10 @@ export default function CallScreen({ onExit }) {
       }
       let infos = []
       for (let i = 0; i < picked.length; i += INFO_BATCH) infos.push(...((await srs.cardsInfo(picked.slice(i, i + INFO_BATCH))) || []))
+      // One card per NOTE: a reversed sibling reads the same word, and one use of it recorded two Anki reviews.
+      const seenNotes = new Set()
+      infos = infos.filter((c) => (c.note == null ? true : seenNotes.has(c.note) ? false : (seenNotes.add(c.note), true)))
+      if (!isPractice) infos = infos.slice(0, CALL_CARDS)
       // A practice call (nothing due) prefers cards no other activity practiced lately.
       if (isPractice) infos = rankFresh(infos.filter((c) => Number(c.type) >= 2), await readPracticeLog(ctx), { labelOf: (c) => ctx.cards.noteText(c).front }).slice(0, CALL_CARDS)
       const tg = infos.map((c) => ({ cardId: c.cardId, ...ctx.cards.noteText(c) })).filter((x) => x.front)
@@ -117,13 +135,22 @@ export default function CallScreen({ onExit }) {
     if (practice || !ratings.length) { finish(0); return }
     setPhase('saving')
     try {
-      const r = await recordCall({ callId: callIdRef.current, deck: subject.deck, ratings, preSchedule: preRef.current })
+      const r = await recordCall({ callId: callIdRef.current, deck: callDeckRef.current || subject.deck, ratings, preSchedule: preRef.current })
       finish(r.recorded.length, r.failed.length)
     } catch (e) { setError(String(e.message || e)); setPhase('review') }
   }
   const finish = (n, failed = 0) => {
     recordPractice(ctx, CALL_FEATURE_ID, targets.filter((tg) => grades[String(tg.cardId)]).map((tg) => ({ kind: 'card', label: tg.front })))
-    ctx.emit(EVENTS.CALL_DONE, { mode: subject.modeId, cards: n })
+    // Only a call the learner took part in counts (End right after Ebi's opener paid XP and the daily call quest), and
+    // it nudges the learner level like any practice (Legends listens to PRACTICE_DONE; the game pays CALL_DONE).
+    if (messages.some((m) => m.role === 'me')) {
+      ctx.emit(EVENTS.CALL_DONE, { mode: subject.modeId, cards: n })
+      const vs = Object.values(grades).map((g) => g?.verdict).filter(Boolean)
+      if (vs.length) ctx.emit(EVENTS.PRACTICE_DONE, { source: CALL_FEATURE_ID, mode: subject.modeId, total: vs.length, correct: vs.filter((v) => v !== 'again').length })
+      // Cards the learner could not produce in the call go to the Mistake Gym (the Anki review is separate).
+      const missed = targets.filter((tg) => grades[String(tg.cardId)]?.verdict === 'again')
+      if (missed.length) ctx.emit(EVENTS.PRACTICE_MISSED, { source: CALL_FEATURE_ID, mode: subject.modeId, misses: missed.map((tg) => ({ front: tg.front, back: tg.back, question: t('call_missQuestion'), answer: '', expected: tg.front, feedback: grades[String(tg.cardId)]?.why || '' })) })
+    }
     if (n) ctx.notify(tCount(t, 'call_saved', n))
     setResult({ n, failed }); setPhase('done')
   }

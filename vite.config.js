@@ -10,6 +10,7 @@ import { fileURLToPath, pathToFileURL } from 'url'
 import { mergeConfigPatch } from './src/utils/configDiff.js'
 import { featureDataEntries, featureDataRoutes, featureLocalFiles, registerFeatureRoutes } from './src/features/server.js'
 import { createEbiImages } from './src/server/ebi-images.js'
+import { mergePlayers } from './src/features/game/engine.js'
 
 // Text files a person may have edited by hand (config.json, a mode's config, .env, datadir.json) can start
 // with a UTF-8 byte-order mark: Windows PowerShell 5.1 writes one, and so did older Notepad. JSON.parse
@@ -46,6 +47,13 @@ const ENV_DIR = process.env.EBIKI_ENV_DIR ? path.resolve(process.env.EBIKI_ENV_D
 const ENV_FILE = path.join(ENV_DIR, '.env')   // machine-local on purpose: API keys stay per computer
 const LOG_DIR = path.resolve('logs')    // machine-local on purpose: diagnostic logs
 const APP_ROOT = path.resolve('.')
+// The commit this server STARTED on: after an update the checkout moves but this process still runs the old code, so
+// /api/update says a restart is pending (Settings said "up to date" and the restart offer was gone).
+let bootSha = null
+try {
+  execFile('git', ['rev-parse', 'HEAD'], { cwd: APP_ROOT, windowsHide: true, timeout: 10000 }, (e, out) => { if (!e) bootSha = String(out || '').trim() || null })
+    .on('error', () => {})
+} catch { /* no git */ }
 
 // ── Optional shared data directory ──────────────────────────────────────────
 // ALL user data (config.json, ankiformat.json, modes/, decks/, chats/,
@@ -109,6 +117,57 @@ const dataPath = (...segs) => path.join(offlineActive ? OFFLINE_DIR : DATA_DIR, 
 const isPlainObject = (v) => v && typeof v === 'object' && !Array.isArray(v)
 const NO_BASE = Symbol('no base')
 const sameJson = (a, b) => JSON.stringify(a) === JSON.stringify(b)
+// 'id' or 'key' when every item of both lists is an object carrying that field (a string or number), unique within
+// each list; else null (plain values, mixed lists: those keep the union).
+function recordIdField(a, b) {
+  for (const f of ['id', 'key']) {
+    const ok = (list) => {
+      if (!list.length) return true
+      const seen = new Set()
+      for (const x of list) {
+        if (!isPlainObject(x) || (typeof x[f] !== 'string' && typeof x[f] !== 'number')) return false
+        const k = String(x[f]); if (seen.has(k)) return false; seen.add(k)
+      }
+      return true
+    }
+    if ((a.length || b.length) && ok(a) && ok(b)) return f
+  }
+  return null
+}
+function mergeRecordLists(target, source, base, f) {
+  const baseById = new Map(Array.isArray(base) ? base.filter((x) => isPlainObject(x) && x[f] != null).map((x) => [String(x[f]), x]) : [])
+  const hasBase = base !== NO_BASE && Array.isArray(base)
+  const srcById = new Map(source.map((x) => [String(x[f]), x]))
+  const tgtIds = new Set(target.map((x) => String(x[f])))
+  const out = []
+  for (const t of target) {
+    const k = String(t[f])
+    if (srcById.has(k)) {
+      const s = srcById.get(k), b = baseById.has(k) ? baseById.get(k) : NO_BASE
+      // A Legends AREA (a record holding its own steps) that both sides changed is kept whole, both copies: merged
+      // item by item, an area detailed differently on two computers became one area of 8 items with steps teaching
+      // both sets. The map's load (dedupeAreas) keeps the more finished copy.
+      const bothChanged = !sameJson(t, s) && (b === NO_BASE || (!sameJson(t, b) && !sameJson(s, b)))
+      // Only when the two copies teach DIFFERENT items: the same area simply played on both computers merges field by
+      // field (kept whole, the less advanced copy's Legendary win, tallies and stars were dropped by dedupeAreas).
+      const itemsOf = (a) => JSON.stringify((Array.isArray(a.items) ? a.items : []).map((i) => [i?.id, i?.front, i?.back]))
+      if (bothChanged && Array.isArray(t.nodes) && Array.isArray(s.nodes) && itemsOf(t) !== itemsOf(s)) { out.push(t, s); continue }
+      out.push(deepMergeJson(t, s, b)); continue
+    }
+    // Only in the target: the source DELETED it if the base had it and the target left it unchanged.
+    if (hasBase && baseById.has(k) && sameJson(t, baseById.get(k))) continue
+    out.push(t)
+  }
+  for (const s of source) {
+    const k = String(s[f])
+    if (tgtIds.has(k)) continue
+    // Only in the source: the target DELETED it if the base had it and the source left it unchanged.
+    if (hasBase && baseById.has(k) && sameJson(s, baseById.get(k))) continue
+    out.push(s)
+  }
+  return out
+}
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
 function deepMergeJson(target, source, base = NO_BASE) {
   if (Array.isArray(target) && Array.isArray(source)) {
     // With a base (offline reconcile), a list only ONE side changed is that side's list: the union brought
@@ -117,6 +176,11 @@ function deepMergeJson(target, source, base = NO_BASE) {
       if (sameJson(source, base)) return target
       if (sameJson(target, base)) return source
     }
+    // Lists of RECORDS (objects with a unique id, or key): merged per record, against the base when there is one.
+    // A union by whole value kept a record both sides edited TWICE (a Legends area, a Mistake Gym item under one id)
+    // and brought back records one side had removed (an area dropped by "Change my map", a retired mistake).
+    const idField = recordIdField(target, source)
+    if (idField) return mergeRecordLists(target, source, base, idField)
     const seen = new Set(target.map((x) => JSON.stringify(x)))
     for (const item of source) { const k = JSON.stringify(item); if (!seen.has(k)) { target.push(item); seen.add(k) } }
     return target
@@ -124,8 +188,10 @@ function deepMergeJson(target, source, base = NO_BASE) {
   if (isPlainObject(target) && isPlainObject(source)) {
     const hasBase = base !== NO_BASE && isPlainObject(base)
     for (const key of Object.keys(source)) {
-      const sub = hasBase && key in base ? base[key] : NO_BASE
-      if (key in target) target[key] = deepMergeJson(target[key], source[key], sub)
+      // A JSON "__proto__" key merged into Object.prototype, and `in` also saw inherited names ("constructor").
+      if (UNSAFE_KEYS.has(key)) continue
+      const sub = hasBase && Object.hasOwn(base, key) ? base[key] : NO_BASE
+      if (Object.hasOwn(target, key)) target[key] = deepMergeJson(target[key], source[key], sub)
       // The TARGET deleted it and the source never changed it: stays deleted (a removed model override or
       // hook came back whenever the other side touched anything else in the file).
       else if (hasBase && key in base && sameJson(source[key], base[key])) continue
@@ -183,7 +249,26 @@ function deepMergeInto(from, to, label, acc, basePath = null) {
       const before = readUtf8(to)
       let base = NO_BASE
       if (basePath) { try { base = JSON.parse(readUtf8(basePath)) } catch { base = NO_BASE } }
-      const merged = deepMergeJson(JSON.parse(before), JSON.parse(readUtf8(from)), base)
+      const mine = JSON.parse(readUtf8(from)), theirs = JSON.parse(before)
+      // Whole-state Legends files are never fused. A STEP file is a regenerable cache of one step's questions (merged,
+      // a 10-question lesson asked 20, some from another version of the area). A MAP from another "Start over"
+      // (a different createdAt) is another map: fused, two plans became one map neither computer made.
+      const legendsFile = /[\\/]features[\\/]legends[\\/](map|step)-[^\\/]+\.json$/i.exec(to)
+      if (legendsFile && legendsFile[1].toLowerCase() === 'step') return acc
+      if (legendsFile && (theirs?.createdAt ?? null) !== (mine?.createdAt ?? null)) {
+        // Two different maps: the LATER "Start over" wins whole (an offline restart, its placement and progress were
+        // silently dropped, the file still recorded as merged).
+        const ts = (v) => (typeof v === 'number' ? v : Date.parse(v) || 0)
+        // Only when THIS side started over (its map differs from the base): a share whose map another computer reset
+        // (null) must not get this side's old map back.
+        const mineRestarted = base !== NO_BASE && (base?.createdAt ?? null) !== (mine?.createdAt ?? null)
+        if (mine && mineRestarted && ts(mine.createdAt) > ts(theirs?.createdAt)) { writeFileAtomic(to, JSON.stringify(mine, null, 2) + '\n'); acc.merged++ }
+        return acc
+      }
+      // A player's XP file merges by the game's own rule (the max per machine per counter): generic, a counter both
+      // sides held kept the target's, and a Return with merge lost the XP earned on the share that day.
+      const playerFile = /[\\/]players[\\/][^\\/]+\.json$/i.test(to)
+      const merged = playerFile ? mergePlayers(theirs, mine) : deepMergeJson(theirs, mine, base)
       const out = JSON.stringify(merged, null, 2) + '\n'
       if (out !== before) { writeFileAtomic(to, out); acc.merged++ } // atomic: this can be the share
       return acc
@@ -244,8 +329,21 @@ function sourceOnlySummary(from, to) {
   const decks = onlyIn('decks', (n) => !n.startsWith('.'))
   const chats = onlyIn('chats', (n) => n.endsWith('.json'))
   const discover = onlyIn('discover', (n) => n.endsWith('.json'))
-  const has = modes.length || decks.length || chats.length || discover.length
-  return { modes, decks, chats: chats.length, discover: discover.length, has: !!has }
+  // Feature data (game players, Legends maps, learner levels, Mistake Gym...): files this computer has that the
+  // share lacks. Uncounted, a join found nothing to ask about, copied none of it (the share already had those
+  // folders) and parked this computer's XP, streak and maps in .local-home/ without a word.
+  let features = 0
+  const walk = (rel, depth) => {
+    let names = []
+    try { names = fs.readdirSync(path.join(from, rel), { withFileTypes: true }) } catch { return }
+    for (const d of names) {
+      const r = path.join(rel, d.name)
+      if (d.isDirectory()) { if (depth < 4) walk(r, depth + 1) } else if (d.name.endsWith('.json') && !/\.\d+\.tmp$/.test(d.name) && !fs.existsSync(path.join(to, r))) features++
+    }
+  }
+  for (const e of featureDataEntries()) walk(e, 0)
+  const has = modes.length || decks.length || chats.length || discover.length || features
+  return { modes, decks, chats: chats.length, discover: discover.length, features, has: !!has }
 }
 
 // This computer's OWN data, stashed here while a shared folder is in use. It lets
@@ -1128,6 +1226,19 @@ function writeModeFolders(modesDir, modes, activeModeId, deletedIds, changedIds,
     const dupTarget = targets.findIndex((t2, j) => j < i && folderKey(t2) === folderKey(targets[i])) >= 0
     if (dupTarget || (idKey(owner) !== undefined && idKey(owner) !== idKey(mode.id) && (!keptIds.has(idKey(owner)) || (!changed && !idSeenTwice.has(idKey(owner))) || (changed && !changed.has(idKey(owner)))))) {
       // (An id held by TWO folders is the load repair re-iding one of them: that folder is its own.)
+      // Not a rename by this save, and this mode already lives in another folder: another computer renamed it (and
+      // reused the old name for another mode). It ADOPTS that name; answered as a plain clash it became "<old> 2",
+      // which then moved the renamed folder and left its hooks, grammar log and Discover history under the new name.
+      if (!dupTarget && idKey(mode.id) !== undefined && !(renamed && renamed.has(idKey(mode.id)))) {
+        const homes = fs.readdirSync(modesDir).filter((d) => folderKey(d) !== folderKey(targets[i]) && isDir(d) && idKey(idOf(d)) === idKey(mode.id))
+        if (homes.length === 1) {
+          let homeName = homes[0]
+          try { homeName = JSON.parse(readUtf8(path.join(modesDir, homes[0], 'config.json'))).name || homes[0] } catch { /* the folder name */ }
+          conflicts.push({ id: mode.id, name: mode.name, suggested: homeName, adopt: true })
+          skipped.add(idKey(mode.id))
+          return
+        }
+      }
       let suggested = null
       for (let n = 2; n < 1000 && !suggested; n++) {
         const cand = `${mode.name} ${n}`
@@ -1781,7 +1892,7 @@ function apiPlugin() {
                 // restart of this file's own logic.
                 let appVersion = ''
                 try { appVersion = JSON.parse(readUtf8(path.join(APP_ROOT, 'package.json'))).version || '' } catch { /* no package.json = no declared version */ }
-                const base = { current: (headSha || '').slice(0, 7), currentDate: headDate || '', version: headVersion || '', appVersion, build, branch, onMaster: branch === 'master' }
+                const base = { current: (headSha || '').slice(0, 7), currentDate: headDate || '', version: headVersion || '', appVersion, build, branch, onMaster: branch === 'master', restartPending: !!(bootSha && headSha && headSha.trim() !== bootSha) }
                 known = base
                 if (localOnly) { send({ ok: true, gitAvailable: true, reachable: null, ...base }); return }
                 git(['ls-remote', 'origin', 'refs/heads/master'], (e3, remoteOut) => { // exact ref: "master" also matches "*/master"
@@ -2169,12 +2280,20 @@ function apiPlugin() {
       // (the app window, a browser tab and the overlay all report here); POST {reset:true} starts over.
       server.middlewares.use('/api/usage', (req, res) => {
         const file = path.join(LOG_DIR, 'token-usage.json')
+        // Only a MISSING file is a fresh start. A damaged one is set aside first (like config.json); a file that cannot
+        // be read right now (a lock) throws, so no write replaces the totals and the prices the user typed.
         const read = () => {
-          try { const j = JSON.parse(readUtf8(file)); if (j && typeof j === 'object' && j.byModel && typeof j.byModel === 'object') return j } catch { /* none yet or damaged: start over */ }
+          let text
+          try { text = readUtf8(file) } catch (e) {
+            if (e.code === 'ENOENT') return { since: new Date().toISOString(), byModel: {} }
+            throw e
+          }
+          try { const j = JSON.parse(text); if (j && typeof j === 'object' && j.byModel && typeof j.byModel === 'object') return j } catch { /* damaged */ }
+          try { fs.renameSync(file, `${file}.corrupt-${Date.now()}`) } catch { /* left as is */ }
           return { since: new Date().toISOString(), byModel: {} }
         }
         const send = (code, obj) => { res.statusCode = code; res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(obj)) }
-        if (req.method === 'GET') { send(200, read()); return }
+        if (req.method === 'GET') { try { send(200, read()) } catch (e) { send(503, { error: e.message }) } return }
         if (req.method !== 'POST') { send(405, { error: 'method' }); return }
         const handle = (bodyStr) => {
           try {
@@ -2304,7 +2423,8 @@ function apiPlugin() {
       // /api/web-search, /api/tts.
       const DATA_ROUTES = ['/config', '/ankiformat', '/modes', '/knowledge-sections', '/deck-progress', '/discover-store', '/question-bank', '/chats', '/chat-load', ...featureDataRoutes()]
       server.middlewares.use('/api', async (req, res, next) => {
-        const p = (req.url || '').split('?')[0].replace(/\/+$/, '') || '/'
+        // Lower-cased: connect routes /api/Players to the players handler too, and the guard must see it.
+        const p = ((req.url || '').split('?')[0].replace(/\/+$/, '') || '/').toLowerCase()
         if (!DATA_ROUTES.some((r) => p === r || p.startsWith(r + '/'))) return next()
         // A folder switch runs synchronously for seconds; writes the page sent meanwhile were handled right after it,
         // in the NEW folder, before the page froze its writers. Refused for a short window after the switch.
@@ -2387,6 +2507,9 @@ function apiPlugin() {
         req.on('end', async () => {
           try {
             const { input, voice, lang } = JSON.parse(raw || '{}')
+            // Not behind the data guard, but it reads config.json and the cache on the data folder with SYNC calls: a
+            // hung share froze the whole server. The async probe first; without the data folder, browser speech runs.
+            if ((await dataMode()) === 'down') { res.statusCode = 404; res.end('data folder unreachable'); return }
             const ttsUrl = String(readConfig().pronunciation?.ttsUrl || '').trim().replace(/\/+$/, '')
             if (!ttsUrl || !input || !voice) { res.statusCode = 404; res.end('tts not configured'); return }
             const key = crypto.createHash('sha1').update(`${input}|${lang || ''}|${voice}`).digest('hex')
@@ -2550,7 +2673,9 @@ function apiPlugin() {
           const t = line.trim()
           let m
           if (inFence[i]) { /* code */ }
-          else if ((m = t.match(/^(#{1,6})\s+(.{2,120})$/))) {
+          // Only in markdown mode: in a PDF's text a stray "# of hosts per subnet" row became a level-1 heading
+          // that cut its chapter short (it falls through to the numbered/chapter checks instead).
+          else if (hasMarkdown && (m = t.match(/^(#{1,6})\s+(.{2,120})$/))) {
             out.push({ file: file.name, title: m[2].trim(), level: m[1].length, start: off, md: true })
           } else if (!hasMarkdown && (chapterLevel(t) !== null || cjkHead(t))) {
             out.push({ file: file.name, title: t.slice(0, 120), level: cjkHead(t) ? cjkLevel(t) : chapterLevel(t), start: off })
@@ -2618,12 +2743,17 @@ function apiPlugin() {
           const realAt = (byKey.get(k) || []).find((i) => leadNum(out[i]) && out[i + 1] && out[i + 1].title.startsWith(leadNum(out[i]) + '.')) ?? -1
           if (realAt >= 0) { best.set(k, realAt); continue }
           const nums = copies.map(leadNum)
-          if (nums.every(Boolean) && !copies.some(tailNum) && new Set(nums).size > 1) pureRunningHead.add(k)
+          // A trailing number the SAME on every copy is part of the title ("2 Microsoft Excel 2019"), not a page.
+          if (nums.every(Boolean) && (!copies.some(tailNum) || new Set(copies.map(tailNum)).size === 1) && new Set(nums).size > 1) pureRunningHead.add(k)
         }
         // Seen fewer than 3 times, WITH and WITHOUT a trailing page number: the numbered copy is the contents
         // line ("Chapter 2 Routing 20"), whose section is that one line. Only the real start is kept.
         const hasPlain = new Set(out.map((h, i) => (!h.md && !pageTail(h) ? keys[i] : null)).filter((k) => k !== null))
-        const contentsCopy = (h, i) => !h.md && pageTail(h) && (counts.get(keys[i]) || 0) < 3 && hasPlain.has(keys[i])
+        // Also by the EXACT title minus one page number: "Chapter 2: Windows 11 21" is the contents copy of
+        // "Chapter 2: Windows 11" (both end in a number, so the key test above never told them apart).
+        const exactTitles = new Set(out.filter((h) => !h.md).map((h) => h.title.toLowerCase()))
+        const contentsCopy = (h, i) => !h.md && pageTail(h) && (counts.get(keys[i]) || 0) < 3
+          && (hasPlain.has(keys[i]) || exactTitles.has(h.title.replace(/\s+\d+$/, '').toLowerCase()))
         return out.filter((h, i) => h.md || ((counts.get(keys[i]) || 0) < 3 ? !contentsCopy(h, i) : (best.get(keys[i]) === i && !pureRunningHead.has(keys[i]))))
           .map(({ md, ...h }) => h)
       }
@@ -2859,8 +2989,11 @@ function apiPlugin() {
             if (/^[.\s]*$/.test(safeName)) { res.statusCode = 400; res.end('{"error":"bad file name"}'); return }
             const filePath = path.join(knowledgeDir, safeName)
             const disabledPath = filePath + '.disabled'
-            if (fs.existsSync(filePath)) fs.unlinkSync(filePath)
-            if (fs.existsSync(disabledPath)) fs.unlinkSync(disabledPath)
+            // Which copy: a share can hold both (an offline disable is merged as a second file). Deleting the
+            // struck-through row deleted the live one too. No parameter (an older client) = both, as before.
+            const which = url.searchParams.get('disabled')
+            if (which !== '1' && fs.existsSync(filePath)) fs.unlinkSync(filePath)
+            if (which !== '0' && fs.existsSync(disabledPath)) fs.unlinkSync(disabledPath)
             res.end('{"ok":true}')
           } catch (e) { res.statusCode = 500; res.end(JSON.stringify({ error: e.message })) }
         } else if (req.method === 'PATCH') {

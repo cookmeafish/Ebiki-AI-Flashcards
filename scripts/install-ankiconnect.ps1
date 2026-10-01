@@ -99,6 +99,9 @@ function Install-AnkiConnect($addonDir) {
 }
 
 if ($Install) {
+  # The server reads this JSON line as UTF-8; Windows PowerShell writes the pipe in the OEM code page, so translated
+  # failure reasons (and accented paths) arrived as "?" marks. No BOM: the line must stay parseable.
+  try { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false } catch {}
   $base = Get-AnkiBase
   $result = @{ ok = $false }
   try {

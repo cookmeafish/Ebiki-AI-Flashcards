@@ -55,6 +55,7 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
   const [text, setText] = useState('')
   const [phase, setPhase] = useState('answer')    // answer | checking | feedback | done
   const [verdict, setVerdict] = useState(null)     // { correct, note, accent }
+  const [checkErr, setCheckErr] = useState(false)  // the AI check failed: the answer was NOT graded, try again
   const results = useRef([])
   const inputRef = useRef(null)
   const audioRef = useRef(null)
@@ -79,7 +80,7 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
     Promise.resolve(h.done).catch(() => {}).finally(release)
   }
   useEffect(() => {
-    setPicked(null); setText(''); setVerdict(null); setPhase('answer'); setMode('typed'); setHintText(''); setTimeout(() => inputRef.current?.focus(), 30)
+    setPicked(null); setText(''); setVerdict(null); setCheckErr(false); setPhase('answer'); setMode('typed'); setHintText(''); setTimeout(() => inputRef.current?.focus(), 30)
     play() // a listening question plays once by itself
     return () => audioRef.current?.stop()
   }, [idx]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -88,6 +89,23 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
   // A typed question answered with its choices (a safe strike), or a plain choice question.
   const asChoice = q?.kind === 'choice' || (mode === 'choice' && !!q?.alt)
   const view = q?.kind === 'choice' ? q : asChoice ? { ...q, choices: q.alt.choices, answerIdx: q.alt.answerIdx } : q
+
+  // Ebi's Help sees the question on screen (any activity: Legends, raids, Mistake Gym...), never its answer while it
+  // is being answered; once the feedback shows the right answer, Help may talk about it too.
+  const helpSet = ctx?.help?.set
+  const helpScreen = ctx?.activeTab || ''
+  useEffect(() => {
+    if (!helpSet) return
+    if (!q || phase === 'done') { helpSet('quiz', null); return }
+    const shown = asChoice && Array.isArray(view?.choices) ? `\nChoices on screen: ${view.choices.map((c, i) => `${i + 1}) ${c}`).join('  ')}` : ''
+    // Only what the screen really shows: no model answer for an open question, none after a right answer (kit_answerWas).
+    const key = q.open || (verdict?.correct && !verdict?.accent && !verdict?.partial) ? '' : view?.kind === 'choice' || asChoice ? view?.choices?.[view.answerIdx] : (q.accepted || [])[0]
+    const fb = phase === 'feedback' && verdict
+      ? `\nThey just answered${lastAnswer.current ? ` "${String(lastAnswer.current).slice(0, 120)}"` : ''}: ${verdict.correct ? 'right' : 'wrong'}${key ? `. The right answer (shown on screen): "${String(key).slice(0, 120)}"` : ''}${verdict.note ? `. Feedback shown: ${String(verdict.note).slice(0, 200)}` : ''}.`
+      : '\nIt is being answered now: do NOT give the answer unless they explicitly ask for it; give a hint or explain the idea instead.'
+    helpSet('quiz', { screen: helpScreen, text: `Running quiz${title ? ` "${String(title).slice(0, 80)}"` : ''}: question ${idx + 1} of ${total}${q.audio?.text ? ' (heard as audio, not shown)' : ''}.\nQuestion: ${String(q.prompt || '').slice(0, 400)}${shown}${fb}` })
+  }, [helpSet, helpScreen, q, idx, total, phase, verdict, asChoice, title]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => { helpSet?.('quiz', null) }, [helpSet])
 
   // Left with ✕ while an answer was being checked: the judge's late reply must not record it (in a boss fight it
   // spent the shield on a fight already left).
@@ -112,6 +130,7 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
 
   const check = async (skip = false) => {
     if (!q || phase !== 'answer') return
+    setCheckErr(false)
     if (skip) return record(false, '', {}, { skipped: true })
     if (asChoice) {
       if (picked == null) return
@@ -123,6 +142,7 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
       setPhase('checking')
       const j = await Promise.resolve(judge(q, ans, 'typed')).catch(() => null)
       setPhase('answer') // record() moves on
+      if (j?.error) { setCheckErr(true); return } // never graded: a failed check is not a wrong answer
       return record(!!j?.correct, ans, { note: j?.note || '', partial: !!j?.partial, title: j?.title || '', accent: !!j?.accent }, j?.info || {})
     }
     const local = q.open ? null : matchTyped(ans, q.accepted)
@@ -130,6 +150,7 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
     setPhase('checking')
     const j = await judgeAnswer(ai, subject, q, ans)
     setPhase('answer') // record() moves on
+    if (j == null && ai?.hasKey) { setCheckErr(true); return } // the check failed (a timeout, an unreadable reply): try again
     record(!!j?.correct, ans, { note: j?.note || '' })
   }
 
@@ -141,7 +162,16 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
   // Keys: 1-6 pick a tile, Enter checks / continues.
   useEffect(() => {
     const onKey = (e) => {
-      if (e.isComposing) return
+      if (e.isComposing || e.defaultPrevented) return
+      // Keys meant for something else: Ebi's Help input (its "2" picked a tile, its Enter submitted the answer, in a
+      // raid as a real Anki review), the rule-card editor (Enter for a new line skipped the question) and an open
+      // dialog (Enter on "Quit?" submitted the picked tile, or finished the run).
+      if (typeof document !== 'undefined' && document.querySelector('[data-app-dialog],[data-top-overlay]')) return
+      const el = e.target
+      if (el && el !== inputRef.current && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName || ''))) return
+      // Enter on a focused button or link is that control's own click (Quit, Skip, the rule-card button): taking it
+      // submitted the picked tile instead, in a raid as a real Anki review. The runner's own choice tiles still count.
+      if (e.key === 'Enter' && el?.closest?.('button,a,[role=button]') && !el.closest('[data-quiz-choice]')) return
       if (phase === 'answer' && asChoice) {
         const n = CHOICE_KEYS.indexOf(e.key)
         if (n >= 0 && n < view.choices.length) { setPicked(n); return }
@@ -190,7 +220,7 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
       {hintText && phase === 'answer' && <div role="status" style={{ fontSize: 14, fontWeight: 700, color: C.warning }}>{hintText}</div>}
       {q.audio?.text && ctx && (
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <ChunkyButton onClick={play} color={C.info} disabled={playing}>🔊 {playing ? t('kit_playing') : t('kit_play')}</ChunkyButton>
+          <ChunkyButton onClick={(e) => { e?.currentTarget?.blur?.(); play() }} color={C.info} disabled={playing}>🔊 {playing ? t('kit_playing') : t('kit_play')}</ChunkyButton>
           {phase === 'feedback' && <span style={{ fontSize: 15, color: C.inkDim, fontStyle: 'italic' }}>{q.audio.text}</span>}
         </div>
       )}
@@ -209,7 +239,7 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
             const showWrong = phase === 'feedback' && isPick && i !== view.answerIdx
             const edge = showRight ? C.success : showWrong ? C.danger : isPick ? C.info : C.border
             return (
-              <button key={i} disabled={phase !== 'answer'} onClick={() => setPicked(i)} className="btn-press" style={{
+              <button key={i} data-quiz-choice="" disabled={phase !== 'answer'} onClick={() => setPicked(i)} className="btn-press" style={{
                 display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', textAlign: 'left', borderRadius: RADIUS.md,
                 ...depthBorder(edge, { bottomColor: edge }), background: isPick || showRight ? `color-mix(in srgb, ${edge} 12%, ${C.surface})` : C.surface,
                 color: C.ink, fontFamily: FONT.body, fontSize: 16, fontWeight: 700, cursor: phase === 'answer' ? 'pointer' : 'default',
@@ -260,6 +290,7 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
               <ChunkyButton variant="ghost" color={C.inkDim} onClick={() => check(true)} disabled={phase !== 'answer'}>{t('kit_skip')}</ChunkyButton>
               {tools && tools(q, { hint: setHintText, phase, asChoice })}
             </div>
+            {checkErr && phase === 'answer' && <div role="alert" style={{ flexBasis: '100%', order: -1, fontSize: 13, fontWeight: 700, color: C.danger }}>{t('kit_checkFailed')}</div>}
             <ChunkyButton onClick={() => check()} color={C.success}
               disabled={phase !== 'answer' || (asChoice ? picked == null : !text.trim())}>
               {phase === 'checking' ? t('kit_checking') : t('kit_check')}

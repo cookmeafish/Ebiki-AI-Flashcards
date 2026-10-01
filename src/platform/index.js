@@ -68,14 +68,29 @@ const web = {
       if (lang) rec.lang = lang
       let text = ''
       let finish = null
+      let wanted = true   // until stop() or cancel(): Chrome ends a session on its own after a silence
+      let denied = false
       const ended = new Promise((resolve) => { finish = resolve })
-      rec.onresult = (e) => { for (let i = e.resultIndex; i < e.results.length; i++) if (e.results[i].isFinal) text += e.results[i][0].transcript }
-      rec.onerror = (e) => { if (e.error === 'not-allowed') text = ''; finish() }
-      rec.onend = () => finish()
+      rec.onresult = (e) => { for (let i = e.resultIndex; i < e.results.length; i++) if (e.results[i].isFinal) text += `${e.results[i][0].transcript} ` }
+      rec.onerror = (e) => {
+        // Only a silence is worth a restart: any other error repeats forever, and an abort we did not ask for (our own
+        // stop/cancel already cleared `wanted`) is another recognizer taking the mic: restarting ping-ponged the two.
+        if (e.error !== 'no-speech') wanted = false
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed' || e.error === 'audio-capture') { denied = true; text = '' }
+      }
+      // Ended by itself (a pause, Chrome's session limit) while the learner is still talking: listen again, or
+      // everything said after the pause was lost while the badge kept saying "Listening".
+      rec.onend = () => { if (wanted) { try { rec.start(); return } catch { /* cannot restart */ } } finish() }
       rec.start()
       return {
-        stop: async () => { try { rec.stop() } catch { /* stopped */ } await ended; return text.trim() },
-        cancel: () => { text = ''; try { rec.abort() } catch { /* stopped */ } },
+        stop: async () => {
+          wanted = false
+          try { rec.stop() } catch { /* stopped */ }
+          await ended
+          if (denied) { const e = new Error('no microphone'); e.code = 'nomic'; throw e }
+          return text.replace(/\s+/g, ' ').trim()
+        },
+        cancel: () => { wanted = false; text = ''; try { rec.abort() } catch { /* stopped */ } },
       }
     },
     // Microphone recording. Resolves to { stop(): Promise<Blob>, cancel() } or rejects when there is no mic.

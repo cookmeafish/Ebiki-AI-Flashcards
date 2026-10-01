@@ -2,6 +2,7 @@
 // and cards worth adding. Any subject. Never touches the review schedule; new cards go to the mode's deck.
 // With the optional Voice chat feature on, the learner talks and Ebi's lines are spoken.
 import { useEffect, useRef, useState } from 'react'
+import { useHelpEntry } from '../kit/useHelp'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile, shrimpUrl } from '../../config/shrimp'
 import { downscaleDataUrl, dataUrlToImagePart } from '../../utils/image'
@@ -53,11 +54,15 @@ export default function RoleplayScreen({ onExit, params }) {
   const sceneIdRef = useRef(0)
   const openedRef = useRef(0)
   useFocusHold(phase === 'play')
-  useEffect(() => () => speakingRef.current?.stop(), [])
+  // aliveRef: set on mount too (StrictMode mounts twice). A reply landing after the screen closed is never spoken.
+  const aliveRef = useRef(false)
+  useEffect(() => { aliveRef.current = true; return () => { aliveRef.current = false; speakingRef.current?.stop() } }, [])
+  const startedRef = useRef(false) // StrictMode runs the mount effect twice: two scenario calls, two scenes
   useEffect(() => { listRef.current?.scrollTo?.({ top: 1e9, behavior: 'smooth' }) }, [messages])
   // Opened from somewhere else with a ready scene or idea (e.g. the Chat "+" menu).
   useEffect(() => {
-    if (!ctx) return
+    if (!ctx || startedRef.current) return
+    startedRef.current = true
     if (params?.idea) { setCustom(params.idea); makeFrom(buildCustomScenarioPrompt(ctx.subject, params.idea)) }
     else if (!ideas && ctx.ai.hasKey) loadIdeas()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -67,6 +72,12 @@ export default function RoleplayScreen({ onExit, params }) {
     openedRef.current = sceneIdRef.current
     turn([])
   }, [phase, scene]) // eslint-disable-line react-hooks/exhaustive-deps
+  // What Ebi's Help knows about this roleplay (open conversation: nothing secret).
+  useHelpEntry(ctx, 'roleplay', phase === 'pick' || !scene ? '' : [
+    `Activity open: Roleplay. Scene: ${scene.title || scene.setting || ''}${scene.role ? `; Ebi plays ${scene.role}` : ''}${scene.goal ? `; the learner's goal: ${scene.goal}` : ''}. Phase: ${phase}${ended ? ' (the scene ended)' : ''}.`,
+    messages.length ? `Conversation (latest turns):\n${messages.slice(-8).map((m) => `${m.role === 'ebi' ? 'Ebi' : 'Learner'}: ${String(m.text || '').slice(0, 220)}`).join('\n')}` : '',
+    card ? `Scorecard shown: overall ${card.overall} of 5${card.summary ? `. ${card.summary}` : ''}${card.strengths?.length ? `. Strengths: ${card.strengths.join('; ')}` : ''}${card.tips?.length ? `. Tips (what they said and a better version): ${card.tips.join('; ')}` : ''}` : '',
+  ].filter(Boolean).join('\n'))
   if (!ctx) return null
   const { t, ai, subject } = ctx
   const voiceOn = voiceChatOn(ctx)
@@ -118,7 +129,7 @@ export default function RoleplayScreen({ onExit, params }) {
       const line = ai.clean(text) || '...'
       setMessages([...history, { role: 'ebi', text: line }])
       if (done) setEnded(true)
-      if (voiceOn) { speakingRef.current?.stop(); speakingRef.current = speak(ctx, line, { lang: speakLang }) }
+      if (voiceOn && aliveRef.current) { speakingRef.current?.stop(); speakingRef.current = speak(ctx, line, { lang: speakLang }) }
     } catch (e) { if (id === sceneIdRef.current) setError(String(e.message || e)) } finally { if (id === sceneIdRef.current) setBusy(false) }
   }
 
@@ -143,16 +154,17 @@ export default function RoleplayScreen({ onExit, params }) {
       const sc = normalizeScorecard(ai.json(await ai.call(system, user, { role: RP_SETUP_ROLE, maxTokens: RP_SCORE_MAX_TOKENS })), axes, ai.clean)
       if (!sc) throw new Error(t('rp_noScore'))
       setCard(sc); setPhase('card')
-      ctx.emit(EVENTS.PRACTICE_DONE, { source: ROLEPLAY_FEATURE_ID, mode: subject.modeId, total: SCORE_MAX, correct: sc.overall })
+      // Its strengths feed the learner level's "strong at" (the level line every prompt reads).
+      ctx.emit(EVENTS.PRACTICE_DONE, { source: ROLEPLAY_FEATURE_ID, mode: subject.modeId, total: SCORE_MAX, correct: sc.overall, strengths: (sc.strengths || []).map((s) => String(s).slice(0, 60)).slice(0, 3) })
     } catch (e) { setError(String(e.message || e)); setPhase('play') }
   }
 
   const addCard = async (i) => {
-    if (added[i] === 'adding' || added[i] === 'done' || !subject.deck) return
+    if (added[i] === 'adding' || added[i] === 'done' || !subject.modeDeck) return
     setAdded((a) => ({ ...a, [i]: 'adding' }))
     const c = card.cards[i]
     try {
-      await ctx.cards.addNew(subject.deck, ctx.cards.frontHtml(c.front), ctx.cards.backHtml(c.back), CARD_TAGS)
+      await ctx.cards.addNew(subject.modeDeck, ctx.cards.frontHtml(c.front), ctx.cards.backHtml(c.back), CARD_TAGS)
       setAdded((a) => ({ ...a, [i]: 'done' }))
     } catch { setAdded((a) => ({ ...a, [i]: 'failed' })) }
   }
@@ -181,7 +193,7 @@ export default function RoleplayScreen({ onExit, params }) {
             </button>
           ))}
         </div>
-        {ideas && <button onClick={loadIdeas} disabled={loadingIdeas || !ai.hasKey} style={{ marginTop: 10, border: 'none', background: 'transparent', color: C.brand, fontWeight: 800, cursor: 'pointer', fontSize: 13, opacity: loadingIdeas ? 0.5 : 1 }}>↻ {t('rp_moreIdeas')}</button>}
+        {(ideas || !loadingIdeas) && <button onClick={loadIdeas} disabled={loadingIdeas || !ai.hasKey} style={{ marginTop: 10, border: 'none', background: 'transparent', color: C.brand, fontWeight: 800, cursor: 'pointer', fontSize: 13, opacity: loadingIdeas ? 0.5 : 1 }}>↻ {t('rp_moreIdeas')}</button>}
         <div style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 17, color: C.ink, margin: '20px 0 8px' }}>{t('rp_ownTitle')}</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder={subject.isLanguage ? t('rp_ownPlaceholderLang') : t('rp_ownPlaceholderGeneral')}
@@ -223,7 +235,7 @@ export default function RoleplayScreen({ onExit, params }) {
         {card.cards.length > 0 && (
           <>
             <div style={{ fontWeight: 800, color: C.ink, margin: '16px 0 6px' }}>🃏 {t('rp_cards')}</div>
-            {!subject.deck && <div style={{ fontSize: 12.5, color: C.warning }}>{t('rp_noDeck')}</div>}
+            {!subject.modeDeck && <div style={{ fontSize: 12.5, color: C.warning }}>{t('rp_noDeck')}</div>}
             <div style={{ display: 'grid', gap: 8 }}>
               {card.cards.map((c, i) => (
                 <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '10px 12px', borderRadius: RADIUS.md, border: `2px solid ${C.border}` }}>
@@ -231,10 +243,10 @@ export default function RoleplayScreen({ onExit, params }) {
                     <div style={{ fontWeight: 800, color: C.ink }}>{c.front}</div>
                     <div style={{ fontSize: 12.5, color: C.inkDim, whiteSpace: 'pre-wrap' }}>{c.back}</div>
                   </div>
-                  <button onClick={() => addCard(i)} disabled={!subject.deck || added[i] === 'adding' || added[i] === 'done'} style={{
+                  <button onClick={() => addCard(i)} disabled={!subject.modeDeck || added[i] === 'adding' || added[i] === 'done'} style={{
                     padding: '5px 12px', borderRadius: RADIUS.sm, fontSize: 12, fontWeight: 800, border: `1px solid ${C.success}`,
                     background: added[i] === 'done' ? C.success : 'transparent', color: added[i] === 'done' ? C.white : C.success,
-                    cursor: !subject.deck || added[i] === 'adding' || added[i] === 'done' ? 'default' : 'pointer', opacity: subject.deck ? 1 : 0.5, whiteSpace: 'nowrap',
+                    cursor: !subject.modeDeck || added[i] === 'adding' || added[i] === 'done' ? 'default' : 'pointer', opacity: subject.modeDeck ? 1 : 0.5, whiteSpace: 'nowrap',
                   }}>{added[i] === 'done' ? `✓ ${t('rp_added')}` : added[i] === 'adding' ? t('rp_adding') : added[i] === 'failed' ? t('rp_addFailed') : `+ ${t('rp_add')}`}</button>
                 </div>
               ))}

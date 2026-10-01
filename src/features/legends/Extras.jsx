@@ -9,7 +9,8 @@ import { useEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile } from '../../config/shrimp'
 import { EVENTS } from '../events'
-import { ChunkyButton, EbiSays, Modal, ProgressBar } from '../ui'
+import { ChunkyButton, EbiSays, Modal, ProgressBar, tCount } from '../ui'
+import { holdLegendsSecret } from './helpContext'
 import { matchTyped } from '../kit/grade'
 import { itemTier, areaCodex, patchArea, patchItem, CODEX_TIERS, JOURNEY_DAYS } from './map'
 import { updateMap, LEGENDS_ID } from './store'
@@ -78,6 +79,7 @@ function Constellation({ items, title }) {
 }
 
 function Blitz({ ctx, modeId, area, onDone }) {
+  useEffect(() => { holdLegendsSecret(true); return () => holdLegendsSecret(false) }, []) // answers are live: none to Help
   const { t } = ctx
   const pool = useRef(area.items.filter((it) => itemTier(it) === 'gold' && recallOf(it)).sort(() => Math.random() - 0.5).slice(0, BLITZ.max)).current
   const [i, setI] = useState(0)
@@ -94,7 +96,9 @@ function Blitz({ ctx, modeId, area, onDone }) {
     if (left <= 0) { answer(true); return }
     const id = setTimeout(() => setLeft((s) => s - 1), 1000)
     return () => clearTimeout(id)
-  }) // eslint-disable-line react-hooks/exhaustive-deps
+    // Keyed on the countdown itself: with no list, every keystroke re-rendered, cleared the pending tick and restarted
+    // a full second, so the timer never ran while the learner typed.
+  }, [i, shown, left]) // eslint-disable-line react-hooks/exhaustive-deps
   // Claimed with refs, not state: a double Enter read `shown` as still empty and pushed the answer twice, and a double
   // click on the last Continue saved the counts and paid the XP twice.
   const answeredFor = useRef(-1)
@@ -149,6 +153,8 @@ function CodexModal({ ctx, modeId, area, onClose }) {
   const levels = (area.nodes || []).filter((n) => ['learn', 'rule', 'scene', 'practice'].includes(n.kind)).map((n) => ({ n, items: (n.itemIds || []).map((id) => byId.get(id)).filter(Boolean) })).filter((l) => l.items.length)
   const goldRecall = area.items.filter((it) => itemTier(it) === 'gold' && recallOf(it)).length
   const unadded = area.items.filter((it) => !it.cardNoteId)
+  const [addingAll, setAddingAll] = useState(false)
+  const addingAllRef = useRef(false)
   return (
     <Modal open onClose={onClose} width={720} zoom={zoomOf(ctx)}>
       {blitz === 'run' ? <Blitz ctx={ctx} modeId={modeId} area={area} onDone={(res) => setBlitz(res)} /> : (
@@ -166,7 +172,7 @@ function CodexModal({ ctx, modeId, area, onClose }) {
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             <ChunkyButton color={C.warning} disabled={goldRecall < BLITZ.minGold} onClick={() => setBlitz('run')}>⚡ {t('lg_blitzStart', { n: Math.min(BLITZ.max, goldRecall) })}</ChunkyButton>
             {goldRecall < BLITZ.minGold && <span style={{ fontSize: 12.5, color: C.inkDim }}>{t('lg_blitzNone', { n: BLITZ.minGold })}</span>}
-            {unadded.length > 0 && <ChunkyButton variant="ghost" color={C.success} onClick={async () => { const r = await addItemsToDeck(ctx, modeId, area.id, unadded); ctx.notify?.(r.added ? t('lg_codexAdded', { n: r.added }) : r.message || t('lg_noDeck')) }}>＋ {t('lg_codexAddAll', { n: unadded.length })}</ChunkyButton>}
+            {unadded.length > 0 && <ChunkyButton variant="ghost" color={C.success} disabled={addingAll} onClick={async () => { if (addingAllRef.current) return; addingAllRef.current = true; setAddingAll(true); try { const r = await addItemsToDeck(ctx, modeId, area.id, unadded); const msg = r.added ? t('lg_codexAdded', { n: r.added }) : r.failed ? (r.message || t('lg_noDeck')) : ''; if (msg) ctx.notify?.(msg) } finally { addingAllRef.current = false; setAddingAll(false) } }}>＋ {t('lg_codexAddAll', { n: unadded.length })}</ChunkyButton>}
           </div>
           {levels.length > 0 && (
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -194,17 +200,26 @@ function CodexModal({ ctx, modeId, area, onClose }) {
 
 // ── Chest ──────────────────────────────────────────────────────────────────────────────────────────────────────
 function ChestModal({ ctx, modeId, area, onClose }) {
+  useEffect(() => { holdLegendsSecret(true); return () => holdLegendsSecret(false) }, [])
   const { t } = ctx
   const pick = useRef((() => { const list = area.items.map((it) => ({ it, r: recallOf(it) })).filter((x) => x.r); return list[Math.floor(Math.random() * list.length)] || null })()).current
   const [text, setText] = useState('')
   const [state, setState] = useState(area.chestOpened || !pick ? 'open' : 'ask') // ask | wrong | open
   const [adding, setAdding] = useState(false)
+  // Added this session: stays retired even when the map save failed (cards allow duplicates; it was added twice).
+  const addedRef = useRef(false)
+  const [addedNow, setAddedNow] = useState(false)
   const open = () => { setState('open'); if (!area.chestOpened) updateMap(modeId, (m) => (m ? patchArea(m, area.id, { chestOpened: true }) : m)) }
+  // Nothing to recall (rule items, long fronts): it opens straight away, and is recorded as opened (the map kept 🔒🎁).
+  useEffect(() => { if (!pick && !area.chestOpened) updateMap(modeId, (m) => (m ? patchArea(m, area.id, { chestOpened: true }) : m)) }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const check = () => { if (pick && matchTyped(text, pick.r.accepted)) open(); else setState('wrong') }
   const add = async () => {
+    if (addedRef.current || adding) return
     setAdding(true)
     try {
       await ctx.cards.addNew(ctx.subject.modeDeck, ctx.cards.frontHtml(area.bonus.front), ctx.cards.backHtml(area.bonus.back), ['ebiki', 'legends', 'lg-bonus'])
+      addedRef.current = true
+      setAddedNow(true)
       await updateMap(modeId, (m) => (m ? patchArea(m, area.id, (a) => ({ bonus: { ...a.bonus, added: true } })) : m))
       ctx.notify?.(t('lg_chestAdded'))
     } catch (e) { ctx.notify?.(String(e?.message || e)) } finally { setAdding(false) }
@@ -232,7 +247,7 @@ function ChestModal({ ctx, modeId, area, onClose }) {
             <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 22, color: C.ink, textAlign: 'center' }}>{area.bonus.front}</div>
             <div style={{ fontSize: 14.5, color: C.inkDim, lineHeight: 1.5, whiteSpace: 'pre-wrap', textAlign: 'center' }}>{area.bonus.back}</div>
             <div style={{ display: 'flex', justifyContent: 'center', gap: 10 }}>
-              {area.bonus.added ? <span style={{ fontWeight: 900, color: C.success }}>✓ {t('lg_chestInDeck')}</span>
+              {area.bonus.added || addedNow ? <span style={{ fontWeight: 900, color: C.success }}>✓ {t('lg_chestInDeck')}</span>
                 : <ChunkyButton color={C.success} disabled={adding || !ctx.subject.modeDeck || ctx.ankiConnected === false} onClick={add}>＋ {t('lg_chestAdd')}</ChunkyButton>}
               <ChunkyButton variant="ghost" color={C.inkDim} onClick={onClose}>{t('lg_back')}</ChunkyButton>
             </div>
@@ -282,7 +297,7 @@ export function Journey({ t, days = {} }) {
   const played = cells.filter((c) => c.n > 0).length
   const shadeFor = (n) => (!n ? 'var(--c-surface-sunken)' : n < 2 ? 'color-mix(in srgb, var(--c-success) 40%, var(--c-surface))' : n < 4 ? 'color-mix(in srgb, var(--c-success) 70%, var(--c-surface))' : 'var(--c-success)')
   return (
-    <div className="tip" data-tip={t('lg_journeyTip', { n: played })} style={{ display: 'grid', gridTemplateRows: 'repeat(7, 7px)', gridAutoFlow: 'column', gap: 2 }} aria-label={t('lg_journeyTip', { n: played })}>
+    <div className="tip" data-tip={tCount(t, 'lg_journeyTip', played)} style={{ display: 'grid', gridTemplateRows: 'repeat(7, 7px)', gridAutoFlow: 'column', gap: 2 }} aria-label={tCount(t, 'lg_journeyTip', played)}>
       {cells.map((c) => <span key={c.key} style={{ width: 7, height: 7, borderRadius: 2, background: shadeFor(c.n) }} />)}
     </div>
   )

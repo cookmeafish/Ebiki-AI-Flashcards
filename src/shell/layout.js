@@ -31,6 +31,7 @@ export function useViewportWidth(getZoom) {
   const [w, setW] = useState(read)
   useEffect(() => {
     const on = () => setW(read())
+    on() // measured again now: the first render ran before the body zoom was applied (wrong breakpoints until a resize)
     window.addEventListener('resize', on)
     return () => window.removeEventListener('resize', on)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps

@@ -1,9 +1,9 @@
 // Settings > General: your name (friends see it), daily goal, rest days, switch player.
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { C, RADIUS } from '../../config/tokens'
 import { useFeatureCtx } from '../registry'
-import { useGame, updateProfile, initGame } from './store'
-import { GOALS, DEFAULT_GOAL, REST_DATES_MAX, dateKey } from './engine'
+import { useGame, updateProfile, initGame, saveGameNow } from './store'
+import { GOALS, DEFAULT_GOAL, REST_DATES_MAX, dateKey, restDaysPatch } from './engine'
 import { weekdayLetters } from './Rail'
 import { apiFetch } from '../../platform'
 
@@ -14,11 +14,15 @@ const NAME_SAVE_MS = 600
 // keeps the streak without spending a freeze; playing on one still counts.
 function RestDays({ t, lang, player }) {
   const days = Array.isArray(player.restDays) ? player.restDays : []
-  const dates = (Array.isArray(player.restDates) ? player.restDates : []).filter((d) => d >= dateKey()).sort()
+  // Only future dates are LISTED, but every write keeps the past ones: they bridged days already gone (written from
+  // the filtered list, a past day off became a missed day and the streak broke after the fact).
+  const all = Array.isArray(player.restDates) ? player.restDates : []
+  const dates = all.filter((d) => d >= dateKey()).sort()
   const [pick, setPick] = useState('')
   const letters = weekdayLetters(lang)
-  const toggle = (i) => updateProfile({ restDays: days.includes(i) ? days.filter((d) => d !== i) : [...days, i].sort() })
-  const addDate = () => { if (pick && !dates.includes(pick)) updateProfile({ restDates: [...dates, pick].sort().slice(-REST_DATES_MAX) }); setPick('') }
+  const toggle = (i) => updateProfile(restDaysPatch(player, days.includes(i) ? days.filter((d) => d !== i) : [...days, i].sort(), dateKey()))
+  // A PAST date (typed: min only limits the picker) revived a broken streak, and the list could not show it to undo.
+  const addDate = () => { if (pick && pick >= dateKey() && !all.includes(pick)) updateProfile({ restDates: [...all, pick].sort().slice(-REST_DATES_MAX) }); setPick('') }
   const btn = (on) => ({ width: 32, height: 32, borderRadius: '50%', fontSize: 12, fontWeight: 800, cursor: 'pointer', border: `1px solid ${on ? C.info : C.border}`, background: on ? `color-mix(in srgb, ${C.info} 18%, ${C.surface})` : C.surface, color: on ? C.info : C.ink })
   return (
     <div style={{ marginTop: 12 }}>
@@ -32,7 +36,7 @@ function RestDays({ t, lang, player }) {
         <button type="button" onClick={addDate} disabled={!pick} style={{ padding: '5px 10px', borderRadius: RADIUS.sm, border: `1px solid ${C.info}`, background: 'transparent', color: C.info, fontSize: 12, fontWeight: 800, cursor: pick ? 'pointer' : 'default', opacity: pick ? 1 : 0.5 }}>＋ {t('game_restAdd')}</button>
         {dates.map((d) => (
           <span key={d} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: RADIUS.pill, border: `1px solid ${C.border}`, fontSize: 12 }}>
-            {d}<button type="button" aria-label={t('game_restRemove')} onClick={() => updateProfile({ restDates: dates.filter((x) => x !== d) })} style={{ border: 'none', background: 'transparent', color: C.inkDim, cursor: 'pointer', fontSize: 13 }}>×</button>
+            {d}<button type="button" aria-label={t('game_restRemove')} onClick={() => updateProfile({ restDates: all.filter((x) => x !== d) })} style={{ border: 'none', background: 'transparent', color: C.inkDim, cursor: 'pointer', fontSize: 13 }}>×</button>
           </span>
         ))}
       </div>
@@ -51,11 +55,19 @@ export default function GameSettingsCard({ card, fieldLabel, hint }) {
     const id = setTimeout(() => updateProfile({ name: name.trim().slice(0, NAME_MAX) }), NAME_SAVE_MS)
     return () => clearTimeout(id)
   }, [name]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Leaving the pane or closing Settings within the debounce cancelled the save: flush the typed name on unmount.
+  const nameRef = useRef(name); nameRef.current = name
+  const savedNameRef = useRef(g.player?.name || ''); savedNameRef.current = g.player?.name || ''
+  useEffect(() => () => {
+    const n = nameRef.current.trim().slice(0, NAME_MAX)
+    if (nameRef.current !== savedNameRef.current && n !== savedNameRef.current) updateProfile({ name: n })
+  }, [])
   if (!ctx || !g.player) return null
   const { t } = ctx
   const goal = g.player.goalXp || DEFAULT_GOAL
   // Switching = forget this computer's choice and ask again.
   const switchPlayer = async () => {
+    await saveGameNow()
     await apiFetch('/api/player-local', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerId: '' }) })
     initGame()
   }

@@ -17,9 +17,12 @@ export function splitReply(text, targetIds, parseJson) {
   if (m) {
     let arr = null
     try { arr = (parseJson || JSON.parse)(m[1]) } catch { arr = null }
+    // One attempted card comes back as a lone object, and "Good" as often as "good": both were dropped (never graded).
+    if (arr && !Array.isArray(arr) && typeof arr === 'object') arr = [arr]
     if (Array.isArray(arr)) {
-      grades = arr.filter((g) => g && known.has(String(g.id)) && VERDICTS.includes(g.verdict))
-        .map((g) => ({ id: String(g.id), verdict: g.verdict, why: String(g.why || '').trim() }))
+      const v = (g) => String(g?.verdict ?? '').trim().toLowerCase()
+      grades = arr.filter((g) => g && known.has(String(g.id)) && VERDICTS.includes(v(g)))
+        .map((g) => ({ id: String(g.id), verdict: v(g), why: String(g.why || '').trim() }))
     }
   }
   return { say, grades }

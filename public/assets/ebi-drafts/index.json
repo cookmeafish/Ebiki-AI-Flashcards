@@ -1,0 +1,117 @@
+{
+  "note": "Draft Ebi designs for the asset viewer only. Nothing in the app uses these files.",
+  "emotes": [
+    "default",
+    "happy",
+    "laughing",
+    "sad",
+    "crying",
+    "surprised",
+    "confused",
+    "idea",
+    "love",
+    "cool",
+    "sleep",
+    "book",
+    "camera",
+    "singer"
+  ],
+  "candidates": [
+    {
+      "id": "classic",
+      "description": "Closest to the current Ebi: the same flat curled red shrimp, cleaned up."
+    },
+    {
+      "id": "chubby",
+      "description": "Rounder and cuter: a big head, big shiny eyes, rosy cheeks and a shorter curl."
+    },
+    {
+      "id": "sleek",
+      "description": "A longer curve with more shrimp detail: shell plates, a small rostrum spike and a three lobed tail fan."
+    },
+    {
+      "id": "sticker",
+      "description": "The classic Ebi as a sticker: a white sticker border and a soft dark outline."
+    },
+    {
+      "id": "chibi",
+      "description": "Tiny chibi: a huge round head and a little curled body, eyes you can read at any size."
+    },
+    {
+      "id": "mochi",
+      "description": "Round mochi: a soft bean shaped shrimp with a stubby tail, all squish and no corners."
+    },
+    {
+      "id": "tall",
+      "description": "Tall question mark pose: Ebi stands up on a curled tail, head high and proud."
+    },
+    {
+      "id": "longtail",
+      "description": "Long tail: a slim body that sweeps into a big spiral tail, elegant and fast."
+    },
+    {
+      "id": "bold",
+      "description": "Mascot logo: a heavy navy outline, ringed eyes and a determined brow, like a team badge."
+    },
+    {
+      "id": "geo",
+      "description": "Minimal geometric: built from straight facets and triangles, a clean modern icon."
+    },
+    {
+      "id": "cel",
+      "description": "Cel shaded game style: a slim body, a thin dark line, a hard highlight on the back and a deep belly shadow."
+    },
+    {
+      "id": "pixel",
+      "description": "Pixel art: Ebi as a chunky retro game sprite, square pixels and a dark outline."
+    },
+    {
+      "id": "watercolor",
+      "description": "Watercolor: soft washes that bleed past a loose pencil line, like a painted card."
+    },
+    {
+      "id": "kawaii",
+      "description": "Kawaii sticker: a fat comma curl, shiny bean eyes, a cat mouth and little sparkles."
+    },
+    {
+      "id": "plush",
+      "description": "Plush toy: soft fabric Ebi with stitched seams, button eyes and a little sewn in tag."
+    },
+    {
+      "id": "anime",
+      "description": "Retro 90s anime: thick ink lines, huge sparkly eyes and bold cel shading."
+    },
+    {
+      "id": "storybook",
+      "description": "Storybook: a gentle hand drawn line, a cream belly and soft speckles, like a picture book."
+    },
+    {
+      "id": "tempura",
+      "description": "Tempura Ebi: a golden crunchy batter body with a bright red tail, cute enough to not eat."
+    },
+    {
+      "id": "chef",
+      "description": "Chef Ebi: a tall white toque and a neckerchief, ready to run the kitchen."
+    },
+    {
+      "id": "explorer",
+      "description": "Deep sea explorer: Ebi in a glass diving dome with a brass collar and bubbles."
+    },
+    {
+      "id": "lineart",
+      "description": "Line icon: one even red line over a pale fill, crisp like an app icon."
+    },
+    {
+      "id": "papercut",
+      "description": "Paper cut: layered paper bands with a drop shadow, like a craft collage."
+    },
+    {
+      "id": "gummy",
+      "description": "Gummy candy: a glossy see through jelly Ebi with bright shine spots."
+    },
+    {
+      "id": "sumi",
+      "description": "Ink print: a red shape with a slightly offset black brush line and a seal, like a Japanese woodblock."
+    }
+  ]
+}

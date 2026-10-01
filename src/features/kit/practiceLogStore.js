@@ -10,11 +10,13 @@ const store = featureStore(PRACTICE_LOG_ID, { isBlocked: () => blocked() })
 const keyFor = (modeId) => `log-${String(modeId ?? 'default').toLowerCase().replace(/[^a-z0-9-]/g, '') || 'default'}`
 const cache = new Map()
 let chain = Promise.resolve()
+const unsaved = new Set() // keys whose last write failed
 
 const configure = (ctx) => { if (ctx?.isDataSwitching) blocked = () => !!ctx.isDataSwitching() }
 
-async function ensure(key) {
-  if (cache.has(key)) return cache.get(key)
+// `fresh`: read again before a write (another computer on a shared folder may have added entries since).
+async function ensure(key, { fresh = false } = {}) {
+  if (cache.has(key) && !fresh) return cache.get(key)
   const r = await store.read(key)
   if (!r.ok) return null
   cache.set(key, r.value && Array.isArray(r.value.items) ? r.value : emptyLog())
@@ -28,17 +30,22 @@ export async function readPracticeLog(ctx) {
 }
 
 // Record what an activity practiced: entries [{ kind: 'card'|'topic', label }], tagged with `src`.
+const unsavedLogs = new Map() // key -> entry batches not saved yet
 export function recordPractice(ctx, src, entries) {
   configure(ctx)
   const key = keyFor(ctx?.subject?.modeId)
   const list = (entries || []).filter((e) => e?.label).map((e) => ({ ...e, src }))
   if (!list.length) return chain
   chain = chain.then(async () => {
-    const log = await ensure(key)
-    if (!log) return // unreadable: never write
-    const next = logPractice(log, list)
+    // Always a FRESH read (another computer may have logged since), then every entry not saved yet on top: building on
+    // the cached log after a failed write erased the other computer's entries.
+    const batches = [...(unsavedLogs.get(key) || []), list]
+    unsavedLogs.set(key, batches)
+    const log = await ensure(key, { fresh: true })
+    if (!log) return // unreadable: never write (the entries wait for the next record)
+    const next = batches.reduce((l, b) => logPractice(l, b), log)
     cache.set(key, next)
-    await store.write(key, next)
+    if (await store.write(key, next)) { unsavedLogs.delete(key); unsaved.delete(key) } else unsaved.add(key)
   }).catch(() => {})
   return chain
 }

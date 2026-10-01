@@ -33,7 +33,7 @@ One **⚙ Settings** modal, `src/components/SettingsModal.jsx`:
   **studyLanguage** = the LEARNED language (answers + card generation), **quizLanguage** = "Ebi speaks" (phrasing;
   '' = same as learned), hookLanguage, dialect; Feedback = grammarFeedback, **wordHints**; How Ebi asks =
   questionPreferences + Ask AI + Studio; collapsed Advanced = questionPrompt, ratingRules), `cards` (Cards & Anki:
-  `activeMode.ankiDeck`, fields/templates, tagRules, screen capture `areaSelectTransparent`), `knowledge`.
+  `activeMode.ankiDeck`, fields/templates, tagRules), `knowledge`.
 - Old pane ids still open the right pane (`PANE_ALIAS`: `audio` → `anki`, `overlay` → `cards`). The content column
   is keyed by pane, so a new pane starts scrolled to the top. Small number inputs override `S.keyInput`'s
   `flex: 1; minWidth: 200` (`flex: 'none', minWidth: 0`) or they stretch across the row.
@@ -1099,6 +1099,21 @@ on each keystroke and the key field lost focus. Same rule everywhere: no compone
   the pending edit.
   `grammarSlips` leave out slips logged on the live question's card (or revealing its answers).
 - Help's saves honor `dataSwitchingRef` through the `canSave` prop (and skip the pre-send re-read while frozen).
+- **Features tell Help what the learner does** (the owner: "Ebi is supposed to have context of anything the user
+  does"): `ctx.help.set(id, { text, screen })` (null clears) → App's `featureHelp` → `appContext.featureContext` →
+  `buildSystemPrompt`, on EVERY screen ("ON SCREEN NOW" when `screen` is the tab, else "BACKGROUND"). The text is plain
+  facts and must never hold the answer of a question being answered. Legends: `HelpBridge.jsx` (its `Mount`) +
+  `helpContext.js` (pure, tested: map, areas, current area's levels and items, weak items, nemesis, level, raid,
+  helpers, journey, what the Legends screen shows; item meanings left out while a step, raid or placement runs;
+  `LegendsScreen` feeds `setLegendsLive`). Every `QuizRunner` with `ctx` publishes its question as `quiz` (the answer
+  only once the feedback shows it). **A new feature or screen reports here too**: `useHelpEntry(ctx, id, text, screen)`
+  (`kit/useHelp.js`, clears on unmount). Reporting now: Legends, `quiz`, `game` (XP, goal, Ebiki streak vs Anki's,
+  quests, league; `game/helpText.js`, pure, tested), `practice` (hub / open activity), `ebi-call` (targets SECRET
+  while the call runs), `roleplay` (scene, turns, scorecard), `mistake-gym` (no items or diagnosis during a workout: a language card's front IS the answer),
+  `leech-doctor`, `scenes` (lines revealed so far; none during its quiz, the story is the answer source). `appContext` also carries `learnerLevel` (every screen),
+  `studyReview` (what this session got wrong, finished cards only, never the live one), `pbqReview`, `studyStart`,
+  `chatSettings`, a richer `deckBrowser` (search, Quick Add tray, open review, duplicate groups) and `discover`
+  (profile summary, the suggestion on screen).
 - **HARD RULE: Ebi NEVER emits a shrimp emoji.** Forbidden in prompts (HELP_BASE + Chat `systemPrompt`) AND
   code-stripped (`[🦐🦞🦀]️?` next to the em-dash strip in HelpChat `sendMessage`, Chat `cleanText`, and the
   search-offer answer). Other emoji are fine.
@@ -1227,8 +1242,8 @@ on each keystroke and the key field lost focus. Same rule everywhere: no compone
   storage quota.
   The rescue also runs when the restore was skipped (`configLoaded && !modesLoadedRef.current`).
 - `overlayEnabled` (config, default ON, auto-launches once).
-- **Capture shortcut: `Alt+Q` only** (`electron/main.cjs` + a web keydown handler): opens the overlay, drag to
-  select, Esc dismisses. No `Ctrl+Shift+A`. It switches to the Picture tab first (a capture on another tab was
+- **Capture shortcut: `Alt+Q` only** (`electron/main.cjs` + a web keydown handler): opens the overlay over a
+  screenshot of the screen (there is no drag-to-select any more), Esc dismisses. No `Ctrl+Shift+A`. It switches to the Picture tab first (a capture on another tab was
   never shown). `/api/launch-overlay` tracks its child by identity (`overlayProcess === p`), refuses a second one
   while an untracked overlay runs, and waits for a pending DELETE's orphan sweep; server `shutdown()` sweeps too.
   The overlay page re-reads keys, config and modes on every `overlay-reset` (`refreshOverlaySettings`, read-only):
@@ -1511,6 +1526,28 @@ Discover can use the level (opt-in, see Discover). Works for ANY subject (a Comp
 - **Storage**: `store.js` = `featureStore('legends')`, key `map-<modeId>`, serialized `updateMap(modeId, fn)` that
   never writes after a failed read; every async writer passes the mode id pinned when it STARTED. Start over writes
   null. `shapeMap` refuses a map from a newer `MAP_VERSION`.
+- **Levels for everyone, from evidence** (the owner: "if the app has enough context for the user's understanding of a
+  topic then it uses that instead" of the test). `kit/evidence.js` (pure, tested) turns what the app observed
+  (`ctx.learning.evidence()` in App: a spread sample of the MODE deck's scheduling, the study sessions on it, logged
+  slips, the Discover profile) into counts and an `enough` verdict (`EVIDENCE`: 40 reviewed cards, or 20 plus 60
+  graded study answers; never-studied cards are not evidence), plus the level prompt/parser (same bands as the exam;
+  confidence capped at 0.7). `kit/evidenceJudge.js` runs it. Used by: Legends' third start tile **"Use what Ebiki
+  knows"** (Questionnaire, disabled with the reason when there is not enough; path `known`, `map.start.placement.from
+  = 'evidence'`, the result screen shows the model's `why`; a failure falls back to the resume screen with the test),
+  and the **learner feature** (`features/learner/`): it owns level NUDGES now (Legends no longer does; study cards are
+  batched per burst, `STUDY_FLUSH_MS`, not a store write per card) and seeds a level for a mode with none once the
+  evidence is enough (one silent AI call per mode per app session, active mode only, quiet: no LEVEL_UP; also tried
+  by its `Mount` when a mode becomes active with Anki connected, for Anki-only reviewers). Unapplied study batches
+  are kept in `localStorage('ebiki-learner-pending')` PER PAGE (owner + `seenAt`; another tab's entries are adopted
+  only after 60s of silence) and flushed on page hide. Evidence uses the mode deck or the first deck (never none).
+  A damaged `features/<id>/<key>.json` is retried after 1s, then kept aside as `.corrupt-<stamp>` and read as empty.
+  The level reaches Study question generation (`levelBlock`, wording only), Chat (when no manual Chat level is set),
+  Mistake Gym, Listen & Speak, Scenes, Roleplay, Ebi Call, Legends and Help.
+- **Practice wrong answers reach the Mistake Gym**: `EVENTS.PRACTICE_MISSED { source, mode, misses }` from Ebi Call
+  (cards it could not elicit), Legends steps (`res.misses`), Scenes and Listen & Speak (`missesFromResults`,
+  kit/grade.js). Never the gym's own workouts. Study cards made from Legends items move the item's tally
+  (`tallyStudiedCard`, map.js; only when the map is cached, never gold). Legends steps log their items in the
+  practice log. Roleplay's strengths go into the level's "strong at".
 - **Learner level is in the KIT** (`kit/learner.js` pure, `kit/learnerStore.js`, store `features/learner/level-<modeId>`)
   so other features read it without importing Legends: Ebi Call, Roleplay, Scenes and every Legends prompt pass
   `level: await learnerLevelLine(ctx)`. 0..130 plus a band (A1..C2 for languages, Beginner..Expert otherwise;
@@ -1576,7 +1613,8 @@ Discover can use the level (opt-in, see Discover). Works for ANY subject (a Comp
   plan per boss first; fill and bleed past the frame, seen from below; a backdrop that is part of the boss; angry
   brows over slit glowing eyes, angular cel-shaded skulls, too many teeth; materials that read (gauntlets, real chain
   links, lit wing membranes); contrast checked against the backdrop in both themes; every phase a transformation that
-  reads at 120 px; then a second pass at 420 px. Bosses super detailed and FEROCIOUS (never cute), every boss and banner truly unique (different
+  reads at 120 px; then a second pass at 420 px. Bosses super detailed (never cute); RAID bosses all terrifying, LEGENDS bosses a VARIETY of moods (mean where the design
+  calls for it, others smug, playful, eerie, proud: the owner's 2026-10 rule, details in the guide's "Mood" bullet), every boss and banner truly unique (different
   silhouette, pose, backdrop, eyes, mouth and entrance, not a recolor), each banner is its boss's lair with the boss
   present, each boss has its OWN animated entrance (no two share a MOVEMENT, not only a keyframe name; `ENTRANCES`
   entries can set a pivot `origin`), everything has idle life. 40 motifs now; `dev/legends-gallery/catalog.js` is the
@@ -1683,6 +1721,13 @@ Discover can use the level (opt-in, see Discover). Works for ANY subject (a Comp
   for the FIRST time (`missNudged`, not in the deck) as cards once; off in Settings > General > Legends.
 - **Focus mode** (`features.legends.focus`, asked in the questionnaire's style step, Settings card
   `SettingsCard.jsx`): no entrance cinematic (`BossIntro calm`), floaters or combo flair; the rules are the same.
+- **Boss motion switches** (art.jsx): the system's reduce-motion (Windows "Animation effects" off) stills every
+  drawing, which looked like "no boss animates". **Always animate the art** (`features.legends.motion`) overrides it;
+  **Still bosses** (`features.legends.still`, the owner: a learner who wants the fight without distraction) stills
+  every boss and raid boss, the card entrance, shake, flash and ability effects, and wins over `motion`. It must stay
+  OBVIOUS: `MotionToggle` (BossArena.jsx) sits under Fight on the intro card and in the arena header, plus Settings >
+  General > Legends. The asset view (`ArtMotion` context) always animates and hides the toggle. Read them through
+  `useArtMotionAlways` / `useArtStill`, never the settings directly.
 - **Raids** (`raid.js` pure + `raid.test.js`, `RaidRun.jsx`; Practice tile and the map header): today's DUE cards in
   Anki's order (`raidOrder`, one per note, `RAID.maxCards`), one dual question per card (`buildRaidPrompt`). Health
   from the cards due (`raidHp`), 3 lives, THREE phases. Every card's FIRST answer is recorded as a real review
@@ -1723,6 +1768,12 @@ Discover can use the level (opt-in, see Discover). Works for ANY subject (a Comp
   only each card's FIRST answer (last-stand and attack answers are never recorded). `QuizRunner`'s `insert` may be
   a list. The asset view's raid tab opens each boss with a big ABILITY card (rule, the in-fight hint, the floater words:
   `AbilityCard`, same texts as the fight) and a live arena with "Next phase" to watch the phase change.
+  **Every ability has its own EFFECT** (`AbilityFx.jsx`, keyed by `last.fx`: a bolt, a wave, a scythe arc, bees, a
+  clock spinning back...), drawn over the boss for about a second with FIXED bright colors (theme colors vanished over
+  dark art), skipped in focus mode, Still bosses and reduced motion. The asset view's raid arena has a button per
+  effect of the boss's ability (`ABILITY_FX`) to replay it. `abilityfx.test.js` fails when a fired `fx` has no
+  effect, no floater text or no asset-view button. **How the owner wants raid bosses made** (detail, true-form phase 3,
+  the signature kept through every phase, the ability in the art): `docs/legends-art-guide.md`, read it first.
 - **Asset view** (cheat mode only: `AssetView.jsx`, map header ⚡ button): two tabs, **Legends** (the 40 stages:
   entrance, boss sizes, banners) and **Raid bosses** (entrance, phases 1 to 3 through the arena's own phase CSS,
   fight sizes); every palette; ← and → step through the list. **File names are shown ONLY there** (and in the dev

@@ -68,7 +68,7 @@ export function dayTotals(player, key) {
   return out
 }
 // The day's goal and quest list: the first machine (by id) that recorded one wins, so every computer agrees.
-function dayMeta(player, key) {
+export function dayMeta(player, key) {
   const recs = player?.days?.[key]
   if (!recs) return { goal: null, quests: null }
   let goal = null, quests = null
@@ -128,15 +128,32 @@ export function mergePlayers(a, b) {
 }
 
 // Profile fields (not counters): the newer edit wins in a merge.
-export const PROFILE_FIELDS = ['name', 'avatar', 'goalXp', 'restDays', 'restDates', 'profileAt']
+export const PROFILE_FIELDS = ['name', 'avatar', 'goalXp', 'restDays', 'restDaysHistory', 'restDates', 'profileAt']
 
 // ─── Rest days ─────────────────────────────────────────────────────────────────
 // Planned days off never break the streak and never spend a freeze: every week on some weekdays (0 = Monday ..
 // 6 = Sunday), or single dates planned ahead. A rest day with XP still counts as a normal day.
 export const REST_DATES_MAX = 60
 export const weekdayOf = (k) => (parseKey(k).getDay() + 6) % 7
+// `restDaysHistory`: [{ until, days }], the weekdays that applied BEFORE `until` (a date key). A change of weekdays
+// applies from the day it was made: applied backwards, dropping a weekday turned every past rest day on it into a
+// missed day (a months-long streak collapsed), and adding one revived a streak that had already broken.
+export const REST_HISTORY_MAX = 40
+export function restDaysOn(player, key) {
+  const hist = Array.isArray(player?.restDaysHistory) ? player.restDaysHistory : []
+  for (const h of [...hist].sort((a, b) => String(a?.until).localeCompare(String(b?.until)))) {
+    if (h && typeof h.until === 'string' && key < h.until) return Array.isArray(h.days) ? h.days : []
+  }
+  return Array.isArray(player?.restDays) ? player.restDays : []
+}
+// The profile patch for a new weekday set chosen today (keeps what applied to the days before).
+export function restDaysPatch(player, days, today) {
+  const hist = (Array.isArray(player?.restDaysHistory) ? player.restDaysHistory : []).filter((h) => h && h.until !== today)
+  const before = restDaysOn(player, addDays(today, -1))
+  return { restDays: days, restDaysHistory: [...hist, { until: today, days: before }].sort((a, b) => String(a.until).localeCompare(String(b.until))).slice(-REST_HISTORY_MAX) }
+}
 export function isRestDay(player, key) {
-  const days = Array.isArray(player?.restDays) ? player.restDays : []
+  const days = restDaysOn(player, key)
   const dates = Array.isArray(player?.restDates) ? player.restDates : []
   return days.includes(weekdayOf(key)) || dates.includes(key)
 }
@@ -259,7 +276,12 @@ export function tierFor(player, monday, goalXp = DEFAULT_GOAL) {
     const me = weekXp(player, w)
     const ghosts = [1, 2, 3, 4].map((n) => addDays(w, -7 * n)).filter((g) => g >= firstWeek).map((g) => weekXp(player, g))
     if (me === 0) tier = Math.max(0, tier - 1)
-    else if (!ghosts.length) { if (me >= goalXp * 5) tier = Math.min(TIERS.length - 1, tier + 1) }
+    else if (!ghosts.length) {
+      // Against the goal THAT week had (recorded on its days), never today's: changing the goal later moved the whole
+      // tier history by one, mid-week and for good (and the goal buttons could farm a tier).
+      const weekGoal = Math.max(0, ...[0, 1, 2, 3, 4, 5, 6].map((d) => dayMeta(player, addDays(w, d)).goal || 0)) || goalXp
+      if (me >= weekGoal * 5) tier = Math.min(TIERS.length - 1, tier + 1)
+    }
     else if (me > Math.max(...ghosts)) tier = Math.min(TIERS.length - 1, tier + 1)
     else if (me < Math.min(...ghosts)) tier = Math.max(0, tier - 1)
   }

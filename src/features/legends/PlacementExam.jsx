@@ -34,6 +34,8 @@ export default function Placement({ ctx, selfRating, onDone, onQuit }) {
   const asked = useRef([])     // question texts so far (never repeated)
   const results = useRef([])   // every answer, with its question (for topics)
   const loadSeq = useRef(0)
+  const alive = useRef(false)  // set on mount too: StrictMode mounts twice
+  const ran = useRef(false)    // the first batch is asked ONCE (StrictMode paid for two and threw one away)
 
   const load = async (s) => {
     const seq = ++loadSeq.current
@@ -41,12 +43,16 @@ export default function Placement({ ctx, selfRating, onDone, onQuit }) {
     try {
       const n = Math.min(BATCH, MAX_QUESTIONS - s.answered.length)
       const qs = await makePlacementBatch(ctx, s.tier, n, asked.current)
-      if (seq !== loadSeq.current) return
+      if (seq !== loadSeq.current || !alive.current) return
       asked.current = [...asked.current, ...qs.map((q) => q.prompt)]
       setQuestions(qs)
-    } catch (e) { if (seq === loadSeq.current) setError(String(e.message || e)) }
+    } catch (e) { if (seq === loadSeq.current && alive.current) setError(String(e.message || e)) }
   }
-  useEffect(() => { load(state); return () => { loadSeq.current++ } }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    alive.current = true
+    if (!ran.current) { ran.current = true; load(state) }
+    return () => { alive.current = false }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const finishBatch = (res) => {
     results.current = [...results.current, ...res]

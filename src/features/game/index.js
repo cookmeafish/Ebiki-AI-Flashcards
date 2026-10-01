@@ -13,7 +13,7 @@ export const GAME_FEATURE_ID = 'game'
 // Anything not listed still earns the generic practiceDone XP, so a new activity needs no change here.
 // Legends steps are paid through LEGENDS_STEP (worth more further up the map), so `legends` is skipped here.
 const DONE_AWARD = { 'mistake-gym': 'gymDone', 'legends-placement': 'placement', roleplay: 'roleplay', 'legends-try': 'legendsTry', 'legends-blitz': 'legendsTry' }
-const PAID_ELSEWHERE = new Set(['legends'])
+const PAID_ELSEWHERE = new Set(['legends', 'ebi-call']) // Ebi Call is paid through CALL_DONE
 
 export default {
   id: GAME_FEATURE_ID,
