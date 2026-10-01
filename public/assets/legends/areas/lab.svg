@@ -1,68 +1,136 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
-  <!-- Containment Breach: specimen tanks, one shattered, alarms spinning, and eyes in the dark doorway. -->
-  <rect width="400" height="140" fill="var(--lg-sky, #e4f2df)"/>
-  <!-- wall panels -->
-  <g fill="var(--lg-far, #b5d6a4)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" opacity="0.8">
-    <rect x="0" y="20" width="80" height="90"/><rect x="80" y="20" width="80" height="90"/><rect x="160" y="20" width="80" height="90"/><rect x="240" y="20" width="80" height="90"/><rect x="320" y="20" width="80" height="90"/>
+  <!-- Containment Breach: a lab corridor of specimen tanks. Specimen X bursts out of the shattered tank in the middle:
+       its exposed brain sparking in a cracked glass dome, five red eyes under one V brow, neck bolts and stitches, a
+       maw stretched too wide and drooling slime, clawed hands gripping the broken glass, feeding tubes still running
+       from the tank cap into its shoulders. Slime spills across the hazard-striped floor among the shards. On the left
+       two intact tanks bubble round floating things and a monitor flatlines; above, an alarm beacon sweeps red light
+       and a cut cable sparks; on the right the blast door is torn open and more eyes blink in the dark beyond it. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #e3f1e8)"/>
+  <!-- the wall: panels, a vent, a hazard sign -->
+  <path d="M0 14 H400 V116 H0Z" fill="var(--lg-far, #9fd4ad)"/>
+  <path d="M40 14 V116 M100 14 V116 M160 14 V116 M220 14 V116 M280 14 V116 M340 14 V116 M0 64 H400" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" opacity="0.35"/>
+  <g fill="var(--lg-ink, #1d2230)" opacity="0.4"><circle cx="44" cy="20" r="0.9"/><circle cx="36" cy="20" r="0.9"/><circle cx="44" cy="58" r="0.9"/><circle cx="36" cy="58" r="0.9"/><circle cx="44" cy="70" r="0.9"/><circle cx="36" cy="70" r="0.9"/><circle cx="44" cy="110" r="0.9"/><circle cx="36" cy="110" r="0.9"/><circle cx="104" cy="20" r="0.9"/><circle cx="96" cy="20" r="0.9"/><circle cx="104" cy="58" r="0.9"/><circle cx="96" cy="58" r="0.9"/><circle cx="104" cy="70" r="0.9"/><circle cx="96" cy="70" r="0.9"/><circle cx="104" cy="110" r="0.9"/><circle cx="96" cy="110" r="0.9"/><circle cx="164" cy="20" r="0.9"/><circle cx="156" cy="20" r="0.9"/><circle cx="164" cy="58" r="0.9"/><circle cx="156" cy="58" r="0.9"/><circle cx="164" cy="70" r="0.9"/><circle cx="156" cy="70" r="0.9"/><circle cx="164" cy="110" r="0.9"/><circle cx="156" cy="110" r="0.9"/><circle cx="224" cy="20" r="0.9"/><circle cx="216" cy="20" r="0.9"/><circle cx="224" cy="58" r="0.9"/><circle cx="216" cy="58" r="0.9"/><circle cx="224" cy="70" r="0.9"/><circle cx="216" cy="70" r="0.9"/><circle cx="224" cy="110" r="0.9"/><circle cx="216" cy="110" r="0.9"/><circle cx="284" cy="20" r="0.9"/><circle cx="276" cy="20" r="0.9"/><circle cx="284" cy="58" r="0.9"/><circle cx="276" cy="58" r="0.9"/><circle cx="284" cy="70" r="0.9"/><circle cx="276" cy="70" r="0.9"/><circle cx="284" cy="110" r="0.9"/><circle cx="276" cy="110" r="0.9"/><circle cx="344" cy="20" r="0.9"/><circle cx="336" cy="20" r="0.9"/><circle cx="344" cy="58" r="0.9"/><circle cx="336" cy="58" r="0.9"/><circle cx="344" cy="70" r="0.9"/><circle cx="336" cy="70" r="0.9"/><circle cx="344" cy="110" r="0.9"/><circle cx="336" cy="110" r="0.9"/></g>
+  <path d="M0 14 H400 V22 H0Z" fill="#000" opacity="0.12"/>
+  <!-- ceiling pipes, slime dripping from a leak -->
+  <path d="M0 0 H400 V14 H0Z" fill="var(--lg-deep, #0e8746)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+  <path d="M0 9 H400" stroke="var(--lg-ink, #1d2230)" stroke-width="6"/><path d="M0 9 H400" stroke="#9aa7bd" stroke-width="3.8"/><path d="M0 7.6 H400" stroke="#fff" stroke-width="0.8" opacity="0.6"/>
+  <g fill="#5b6577" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"><path d="M24 4 H29 V14 H24Z"/><path d="M92 4 H97 V14 H92Z"/><path d="M160 4 H165 V14 H160Z"/><path d="M338 4 H343 V14 H338Z"/></g>
+  <g transform="translate(96 13)"><g style="transform-box:fill-box;transform-origin:center top"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 0.4;1 1.6;1 0.4" dur="2.4s" repeatCount="indefinite"/><path d="M-1.6 0 C-1.6 3 -2.4 5 0 7 C2.4 5 1.6 3 1.6 0Z" fill="#7cff3f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"/></g></g>
+  <g transform="translate(344 13)"><g style="transform-box:fill-box;transform-origin:center top"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 0.4;1 1.6;1 0.4" dur="3.0s" begin="0.8s" repeatCount="indefinite"/><path d="M-1.6 0 C-1.6 3 -2.4 5 0 7 C2.4 5 1.6 3 1.6 0Z" fill="#7cff3f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"/></g></g>
+  <path d="M14 30 H40 V46 H14Z" fill="#5b6577" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/><path d="M16 34 H38 M16 38 H38 M16 42 H38" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+  <path d="M344 30 L358 54 H330Z" fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/><path d="M344 38 V46" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2" stroke-linecap="round"/><circle cx="344" cy="50" r="1.3" fill="var(--lg-ink, #1d2230)"/>
+  <!-- a monitor flatlining -->
+  <path d="M54 26 H96 V54 H54Z" fill="#5b6577" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/><path d="M57 29 H93 V51 H57Z" fill="#12200a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+  <path d="M58 42 H68 L71 34 L75 48 L78 42 H92" fill="none" stroke="#7cff3f" stroke-width="1.2" stroke-linejoin="round"/>
+  <circle cx="90" cy="32" r="1.4" fill="#ff2e4c" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.1;1" dur="0.8s" repeatCount="indefinite"/></circle>
+  <!-- the alarm beacon, its beams sweeping -->
+  <g transform="translate(150 20)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;0.02 1;-1 1;0.02 1;1 1" dur="1.2s" repeatCount="indefinite"/><path d="M0 0 L36 -6 L36 10Z" fill="#ff2e4c" opacity="0.32"/><path d="M0 0 L-24 -4 L-24 6Z" fill="#ff2e4c" opacity="0.22"/></g></g>
+  <path d="M144 14 H156 V18 H144Z" fill="#5b6577" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+  <path d="M145 18 C145 26 155 26 155 18Z" fill="#ff2e4c" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/><path d="M147 19 C147 22 149 23 150 23" fill="none" stroke="#fff" stroke-width="0.8"/>
+  <g transform="translate(150 21)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.5;1" dur="0.6s" repeatCount="indefinite"/><circle r="5" fill="#ff2e4c" opacity="0.35"/></g></g>
+  <!-- a cut cable sparking -->
+  <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-6 120 14;6 120 14;-6 120 14" dur="3s" repeatCount="indefinite"/><path d="M120 14 C122 24 116 32 118 40" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/><path d="M116 40 L118 44 L121 40" fill="none" stroke="#ff7a1a" stroke-width="1"/><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-6 8" dur="0.7s" repeatCount="indefinite"/><circle cx="118" cy="44" r="1.1" fill="#ffd23f" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0" dur="0.7s" repeatCount="indefinite"/></circle></g><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;5 9" dur="0.85s" begin="0.2s" repeatCount="indefinite"/><circle cx="118" cy="44" r="1.1" fill="#ffd23f" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0" dur="0.85s" begin="0.2s" repeatCount="indefinite"/></circle></g><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 12" dur="1.0s" begin="0.4s" repeatCount="indefinite"/><circle cx="118" cy="44" r="1.1" fill="#ffd23f" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0" dur="1.0s" begin="0.4s" repeatCount="indefinite"/></circle></g></g>
+  <!-- two intact tanks, something floating in each -->
+  <path d="M16 56 H48 V110 H16Z" fill="#7cff3f" opacity="0.35"/>
+  <path d="M16 64 H48 V110 H16Z" fill="#3fa81f" opacity="0.45"/>
+  <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -3;0 0" dur="4s" repeatCount="indefinite"/><path d="M28 76 C22 70 24 60 32 60 C40 60 42 70 36 76 C40 84 36 96 32 98 C28 96 24 84 28 76Z" fill="#1f7a30" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><circle cx="30" cy="66" r="1.6" fill="#ff2e4c"/><circle cx="34" cy="66" r="1.2" fill="#ff2e4c"/><path d="M28 72 H36" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/><path d="M29 78 L35 80 M29 84 L35 86" stroke="#7cff3f" stroke-width="0.8"/></g>
+  <path d="M16 56 H48 V110 H16Z" fill="#bdf5ff" opacity="0.18" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+  <path d="M19 58 H22 V108 H19Z" fill="#fff" opacity="0.5"/>
+  <path d="M13 48 H51 V56 H13Z" fill="#9aa7bd" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/><path d="M13 48 H51 V50 H13Z" fill="#fff" opacity="0.4"/>
+  <path d="M13 110 H51 V118 H13Z" fill="#9aa7bd" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/><circle cx="18" cy="114" r="1.4" fill="#7cff3f"/>
+  <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -42" dur="2.4s" repeatCount="indefinite"/><circle cx="22.4" cy="106" r="1.6" fill="none" stroke="#fff" stroke-width="0.7" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1;0.1" keyTimes="0;.85;1" dur="2.4s" repeatCount="indefinite"/></circle></g>
+  <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -42" dur="2.9s" begin="0.6s" repeatCount="indefinite"/><circle cx="28.8" cy="106" r="1.6" fill="none" stroke="#fff" stroke-width="0.7" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1;0.1" keyTimes="0;.85;1" dur="2.9s" begin="0.6s" repeatCount="indefinite"/></circle></g>
+  <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -42" dur="3.4s" begin="1.2s" repeatCount="indefinite"/><circle cx="35.2" cy="106" r="1.6" fill="none" stroke="#fff" stroke-width="0.7" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1;0.1" keyTimes="0;.85;1" dur="3.4s" begin="1.2s" repeatCount="indefinite"/></circle></g>
+  <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -42" dur="3.9s" begin="1.7999999999999998s" repeatCount="indefinite"/><circle cx="41.6" cy="106" r="1.6" fill="none" stroke="#fff" stroke-width="0.7" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1;0.1" keyTimes="0;.85;1" dur="3.9s" begin="1.7999999999999998s" repeatCount="indefinite"/></circle></g>
+  <path d="M62 60 H90 V110 H62Z" fill="#7cff3f" opacity="0.35"/>
+  <path d="M62 68 H90 V110 H62Z" fill="#3fa81f" opacity="0.45"/>
+  <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-6 74 80;6 74 80;-6 74 80" dur="5s" repeatCount="indefinite"/><path d="M66 82 C64 72 72 66 80 70 C86 74 84 86 76 90 C70 92 66 88 66 82Z" fill="#c98aa0" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><path d="M70 76 C74 74 78 76 80 80 M70 82 C74 80 78 84 80 86" fill="none" stroke="#8a4a60" stroke-width="0.8" stroke-linecap="round"/><path d="M74 90 C72 96 76 100 74 104" fill="none" stroke="#c98aa0" stroke-width="1.4"/></g>
+  <path d="M62 60 H90 V110 H62Z" fill="#bdf5ff" opacity="0.18" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+  <path d="M65 62 H68 V108 H65Z" fill="#fff" opacity="0.5"/>
+  <path d="M59 52 H93 V60 H59Z" fill="#9aa7bd" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/><path d="M59 52 H93 V54 H59Z" fill="#fff" opacity="0.4"/>
+  <path d="M59 110 H93 V118 H59Z" fill="#9aa7bd" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/><circle cx="64" cy="114" r="1.4" fill="#7cff3f"/>
+  <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -38" dur="2.4s" repeatCount="indefinite"/><circle cx="67.6" cy="106" r="1.6" fill="none" stroke="#fff" stroke-width="0.7" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1;0.1" keyTimes="0;.85;1" dur="2.4s" repeatCount="indefinite"/></circle></g>
+  <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -38" dur="2.9s" begin="0.6s" repeatCount="indefinite"/><circle cx="73.2" cy="106" r="1.6" fill="none" stroke="#fff" stroke-width="0.7" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1;0.1" keyTimes="0;.85;1" dur="2.9s" begin="0.6s" repeatCount="indefinite"/></circle></g>
+  <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -38" dur="3.4s" begin="1.2s" repeatCount="indefinite"/><circle cx="78.8" cy="106" r="1.6" fill="none" stroke="#fff" stroke-width="0.7" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1;0.1" keyTimes="0;.85;1" dur="3.4s" begin="1.2s" repeatCount="indefinite"/></circle></g>
+  <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -38" dur="3.9s" begin="1.7999999999999998s" repeatCount="indefinite"/><circle cx="84.4" cy="106" r="1.6" fill="none" stroke="#fff" stroke-width="0.7" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1;0.1" keyTimes="0;.85;1" dur="3.9s" begin="1.7999999999999998s" repeatCount="indefinite"/></circle></g>
+  <!-- the blast door torn open, eyes in the dark beyond -->
+  <path d="M332 116 V62 H392 V116Z" fill="#0d1408" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6"/>
+  <path d="M332 62 H392 V68 H332Z" fill="#ffd23f"/><path d="M336 62 L342 68 M348 62 L354 68 M360 62 L366 68 M372 62 L378 68 M384 62 L390 68" stroke="var(--lg-ink, #1d2230)" stroke-width="2.4"/>
+  <g transform="translate(352 84) scale(1)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1;1 0.1;1" keyTimes="0;.85;.92;1" dur="4s" repeatCount="indefinite"/><path d="M-7 -1 L-2 1 L-6 2Z M7 -1 L2 1 L6 2Z" fill="#ff2e4c"/><circle cx="-5" cy="0.6" r="3" fill="#ff2e4c" opacity="0.3"/><circle cx="5" cy="0.6" r="3" fill="#ff2e4c" opacity="0.3"/></g></g>
+  <g transform="translate(374 96) scale(0.8)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1;1 0.1;1" keyTimes="0;.85;.92;1" dur="5s" begin="0.7s" repeatCount="indefinite"/><path d="M-7 -1 L-2 1 L-6 2Z M7 -1 L2 1 L6 2Z" fill="#ff2e4c"/><circle cx="-5" cy="0.6" r="3" fill="#ff2e4c" opacity="0.3"/><circle cx="5" cy="0.6" r="3" fill="#ff2e4c" opacity="0.3"/></g></g>
+  <g transform="translate(346 104) scale(0.7)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1;1 0.1;1" keyTimes="0;.85;.92;1" dur="6s" begin="1.4s" repeatCount="indefinite"/><path d="M-7 -1 L-2 1 L-6 2Z M7 -1 L2 1 L6 2Z" fill="#ff2e4c"/><circle cx="-5" cy="0.6" r="3" fill="#ff2e4c" opacity="0.3"/><circle cx="5" cy="0.6" r="3" fill="#ff2e4c" opacity="0.3"/></g></g>
+  <path d="M392 62 L398 70 L396 116 L390 116Z" fill="#5b6577" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M332 68 L312 76 L316 116 H332Z" fill="#9aa7bd" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/><path d="M318 82 L326 80 L328 100" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" opacity="0.6"/>
+  <g fill="none" stroke="#3fa81f" stroke-width="1.4" stroke-linecap="round"><path d="M322 86 L330 84 M320 92 L330 90 M321 98 L330 96"/></g>
+  <!-- the shattered tank: its cap, feeding tubes, back glass -->
+  <path d="M180 18 H296 V30 H180Z" fill="#9aa7bd" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8"/><path d="M180 18 H296 V21 H180Z" fill="#fff" opacity="0.4"/>
+  <g fill="#5b6577" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"><circle cx="186" cy="25" r="1.4"/><circle cx="199" cy="25" r="1.4"/><circle cx="212" cy="25" r="1.4"/><circle cx="225" cy="25" r="1.4"/><circle cx="238" cy="25" r="1.4"/><circle cx="251" cy="25" r="1.4"/><circle cx="264" cy="25" r="1.4"/><circle cx="277" cy="25" r="1.4"/><circle cx="290" cy="25" r="1.4"/></g>
+  <path d="M186 30 L186 112 L290 112 L290 30Z" fill="#bdf5ff" opacity="0.2"/>
+  <path d="M186 30 V112 H290 V30Z" fill="#0d1408" opacity="0.35"/>
+  <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -1.4;0 0" dur="2.8s" repeatCount="indefinite"/>
+  <path d="M178 118 C178 96 190 84 208 82 L268 82 C286 84 298 96 298 118Z" fill="#3fae4a" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
+  <path d="M238 82 L268 82 C286 84 298 96 298 118 H238Z" fill="#000" opacity="0.18"/>
+  <path d="M194 104 L218 102 M252 106 L278 104" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+  <path d="M198 101 l1 6 M204 100.5 l1 6 M210 100 l1 6 M258 102.5 l1 6 M264 102 l1 6 M270 101.6 l1 6 " stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+  <path d="M230 108 L238 96 L246 108Z" fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/><path d="M238 100 V104" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+  <path d="M194 30 C182 50 176 70 192 90 M282 30 C294 50 300 70 284 90" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="6" stroke-linecap="round"/>
+  <path d="M194 30 C182 50 176 70 192 90 M282 30 C294 50 300 70 284 90" fill="none" stroke="#7cff3f" stroke-width="3.6" stroke-linecap="round" stroke-dasharray="4 3"/>
+  <!-- the head: a brain sparking in a cracked glass dome, five eyes under one V brow -->
+  <path d="M214 42 C214 18 262 18 262 42Z" fill="#bdf5ff" opacity="0.45" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6"/>
+  <path d="M220 42 C218 28 230 24 238 26 C246 24 258 28 256 42Z" fill="#ff9ec2" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+  <path d="M238 26.5 V41 M224 34 C228 30 232 36 235 31 M252 34 C248 30 244 36 241 31 M224 39 C228 36 232 40 235 37 M252 39 C248 36 244 40 241 37" fill="none" stroke="#c2477a" stroke-width="1" stroke-linecap="round"/>
+  <path d="M220 30 C224 22 232 20 238 21" fill="none" stroke="#fff" stroke-width="1.6" opacity="0.8" stroke-linecap="round"/>
+  <path d="M248 24 L252 30 L250 34 M252 30 L257 31" fill="none" stroke="#fff" stroke-width="0.8" opacity="0.9"/>
+  <g><path d="M228 28 l2 -3 l-1 3 l2 -2" fill="none" stroke="#7cff3f" stroke-width="1" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.1;1;0.1;0.1" keyTimes="0;.15;.3;.45;1" dur="1.3s" repeatCount="indefinite"/></path><path d="M244 30 l2 -3 l-1 3 l2 -2" fill="none" stroke="#7cff3f" stroke-width="1" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.1;1;0.1;0.1" keyTimes="0;.15;.3;.45;1" dur="1.6s" begin="0.4s" repeatCount="indefinite"/></path><path d="M234 36 l2 -3 l-1 3 l2 -2" fill="none" stroke="#7cff3f" stroke-width="1" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.1;1;0.1;0.1" keyTimes="0;.15;.3;.45;1" dur="1.9s" begin="0.8s" repeatCount="indefinite"/></path></g>
+  <path d="M204 50 L216 40 H260 L272 50 L276 70 L266 88 H210 L200 70Z" fill="#3fae4a" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M238 40 H260 L272 50 L276 70 L266 88 H238Z" fill="#000" opacity="0.18"/>
+  <path d="M208 42 H268 V48 H208Z" fill="#9aa7bd" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/><g fill="#5b6577"><circle cx="214" cy="45" r="1.2"/><circle cx="230" cy="45" r="1.2"/><circle cx="246" cy="45" r="1.2"/><circle cx="262" cy="45" r="1.2"/></g>
+  <path d="M200 66 H192 V72 H200Z" fill="#9aa7bd" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/><path d="M192 64 V74" stroke="var(--lg-ink, #1d2230)" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M276 66 H284 V72 H276Z" fill="#9aa7bd" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/><path d="M284 64 V74" stroke="var(--lg-ink, #1d2230)" stroke-width="2.4" stroke-linecap="round"/>
+  <g><path d="M191 64 l-4 -3 l1 3 l-4 -2" fill="none" stroke="#7cff3f" stroke-width="0.9" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.1;0.1;1" keyTimes="0;.2;.8;1" dur="0.9s" repeatCount="indefinite"/></path><path d="M285 64 l4 -3 l-1 3 l4 -2" fill="none" stroke="#7cff3f" stroke-width="0.9" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.1;0.1;1" keyTimes="0;.2;.8;1" dur="1.3s" repeatCount="indefinite"/></path></g>
+  <path d="M254 76 L268 72" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><path d="M256 73 l1 5 M261 72 l1 5 M266 70.6 l1 4.6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9"/>
+  <g transform="translate(238 58)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1;1 0.1;1;1" keyTimes="0;.88;.92;.96;1" dur="4.4s" repeatCount="indefinite"/><g transform="translate(-238 -58)">
+  <circle cx="222" cy="62" r="6.7" fill="#ff2e4c" opacity="0.35"/><circle cx="222" cy="62" r="4.2" fill="#f3ffe0" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><circle cx="222" cy="62" r="2.6" fill="#ff2e4c"/><path d="M222 59.9 V64.1" stroke="#1a0508" stroke-width="1"/><circle cx="220.7" cy="60.7" r="0.7" fill="#fff"/>
+  <circle cx="254" cy="62" r="6.7" fill="#ff2e4c" opacity="0.35"/><circle cx="254" cy="62" r="4.2" fill="#f3ffe0" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><circle cx="254" cy="62" r="2.6" fill="#ff2e4c"/><path d="M254 59.9 V64.1" stroke="#1a0508" stroke-width="1"/><circle cx="252.7" cy="60.7" r="0.7" fill="#fff"/>
+  <circle cx="210" cy="59" r="4.2" fill="#ff2e4c" opacity="0.35"/><circle cx="210" cy="59" r="2.6" fill="#f3ffe0" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><circle cx="210" cy="59" r="1.6" fill="#ff2e4c"/><path d="M210 57.7 V60.3" stroke="#1a0508" stroke-width="1"/><circle cx="209.2" cy="58.2" r="0.7" fill="#fff"/>
+  <circle cx="266" cy="59" r="4.2" fill="#ff2e4c" opacity="0.35"/><circle cx="266" cy="59" r="2.6" fill="#f3ffe0" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><circle cx="266" cy="59" r="1.6" fill="#ff2e4c"/><path d="M266 57.7 V60.3" stroke="#1a0508" stroke-width="1"/><circle cx="265.2" cy="58.2" r="0.7" fill="#fff"/>
+  <circle cx="238" cy="51.5" r="4.5" fill="#ff2e4c" opacity="0.35"/><circle cx="238" cy="51.5" r="2.8" fill="#f3ffe0" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><circle cx="238" cy="51.5" r="1.7" fill="#ff2e4c"/><path d="M238 50.1 V52.9" stroke="#1a0508" stroke-width="1"/><circle cx="237.2" cy="50.7" r="0.7" fill="#fff"/>
+  </g></g></g>
+  <path d="M203 50 L238 56 L273 50 L272 54 L238 60 L204 54Z" fill="#1f7a30" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3" stroke-linejoin="round" opacity="0.95"/>
+  <path d="M208 51.6 L238 57.4 L268 51.6" fill="none" stroke="#7cff3f" stroke-width="0.8"/>
+  <!-- the maw, stretched too wide, drooling slime -->
+  <path d="M210 70 C224 66 252 66 266 70 L260 86 C246 92 230 92 216 86Z" fill="#1a0508" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+  <ellipse cx="238" cy="84" rx="10" ry="4" fill="#ff7aa0"/><path d="M238 81 V87" stroke="#c2477a" stroke-width="0.8"/>
+  <path d="M211 70.6 L215 79 L218 69.6 L222 80 L226 68.8 L230 78 L234 68.4 L238 77 L242 68.4 L246 78 L250 68.8 L254 80 L258 69.6 L261 79 L265 70.6 C252 66.6 224 66.6 211 70.6Z" fill="#f4f7e6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"/>
+  <path d="M218 85 L222 78 L226 87.6 L232 80 L236 89 L240 89 L244 80 L250 87.6 L254 78 L258 85 C246 90.6 230 90.6 218 85Z" fill="#f4f7e6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"/>
+  <g transform="translate(224 89)"><g style="transform-box:fill-box;transform-origin:center top"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 0.3;1 1.8;1 0.3" dur="2.2s" repeatCount="indefinite"/><path d="M-2 0 C-2 4 -2.8 6 0 8 C2.8 6 2 4 2 0Z" fill="#7cff3f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"/></g></g>
+  <g transform="translate(248 89)"><g style="transform-box:fill-box;transform-origin:center top"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 0.3;1 1.8;1 0.3" dur="2.2s" begin="0.7s" repeatCount="indefinite"/><path d="M-2 0 C-2 4 -2.8 6 0 8 C2.8 6 2 4 2 0Z" fill="#7cff3f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"/></g></g>
   </g>
-  <g fill="var(--lg-ink, #1d2230)" opacity="0.5"><circle cx="6" cy="26" r="1"/><circle cx="74" cy="26" r="1"/><circle cx="86" cy="26" r="1"/><circle cx="154" cy="26" r="1"/><circle cx="246" cy="26" r="1"/><circle cx="314" cy="26" r="1"/></g>
-  <!-- ceiling pipes -->
-  <path d="M0 8 H400 V20 H0Z" fill="var(--lg-deep, #5a8f3c)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
-  <g fill="none" stroke-linecap="round">
-    <path d="M0 16 H400" stroke="var(--lg-ink, #1d2230)" stroke-width="6"/><path d="M0 16 H400" stroke="#9aa7bd" stroke-width="3.6"/>
-    <path d="M60 16 V34 H100 V16" stroke="var(--lg-ink, #1d2230)" stroke-width="5"/><path d="M60 16 V34 H100 V16" stroke="#9aa7bd" stroke-width="3"/>
+  <g transform="translate(184 64) scale(-1 1)">
+  <path d="M-6 30 C-10 18 -8 6 0 0 L10 -4 L14 4 C12 10 10 20 8 30Z" fill="#3fae4a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M0 0 L10 -4 L14 4 C12 10 10 20 8 30 L2 30Z" fill="#000" opacity="0.15"/>
+  <path d="M2 18 L8 16 M2 22 L8 20" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+  <g fill="#f4f7e6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"><path d="M10 -4 L18 -10 L14 -2Z"/><path d="M14 2 L22 0 L15 6Z"/><path d="M13 9 L20 12 L12 13Z"/></g>
   </g>
-  <circle style="transform-box:fill-box;transform-origin:center" cx="220" cy="18" r="1.6" fill="#7cff3f"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 100" dur="1.8s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="1.8s" repeatCount="indefinite" additive="sum"/></circle>
-  <!-- the alarm light and its beam -->
-  <path d="M200 24 L150 -20 H250Z" fill="#ff2e4c" opacity="0.2">
-    <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 200 24;360 200 24" dur="2s" repeatCount="indefinite"/>
-  </path>
-  <path d="M192 26 Q200 14 208 26Z" fill="#ff2e4c" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
-  <!-- hazard band -->
-  <g><rect x="0" y="100" width="400" height="8" fill="#ffd23f"/>
-    <g fill="#1d2230"><polygon points="0,100 8,100 0,108"/><polygon points="16,100 24,100 16,108 8,108"/><polygon points="40,100 48,100 40,108 32,108"/><polygon points="64,100 72,100 64,108 56,108"/><polygon points="88,100 96,100 88,108 80,108"/><polygon points="112,100 120,100 112,108 104,108"/><polygon points="136,100 144,100 136,108 128,108"/><polygon points="160,100 168,100 160,108 152,108"/><polygon points="184,100 192,100 184,108 176,108"/><polygon points="208,100 216,100 208,108 200,108"/><polygon points="232,100 240,100 232,108 224,108"/><polygon points="256,100 264,100 256,108 248,108"/><polygon points="280,100 288,100 280,108 272,108"/><polygon points="304,100 312,100 304,108 296,108"/><polygon points="328,100 336,100 328,108 320,108"/><polygon points="352,100 360,100 352,108 344,108"/><polygon points="376,100 384,100 376,108 368,108"/><polygon points="400,100 400,108 392,108"/></g>
+  <g transform="translate(292 64) scale(1 1)">
+  <path d="M-6 30 C-10 18 -8 6 0 0 L10 -4 L14 4 C12 10 10 20 8 30Z" fill="#3fae4a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M0 0 L10 -4 L14 4 C12 10 10 20 8 30 L2 30Z" fill="#000" opacity="0.15"/>
+  <path d="M2 18 L8 16 M2 22 L8 20" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+  <g fill="#f4f7e6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"><path d="M10 -4 L18 -10 L14 -2Z"/><path d="M14 2 L22 0 L15 6Z"/><path d="M13 9 L20 12 L12 13Z"/></g>
   </g>
-  <!-- monitor bank -->
-  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"><rect x="12" y="44" width="40" height="28" rx="2" fill="#0b1a10"/><rect x="12" y="76" width="40" height="18" rx="2" fill="#0b1a10"/></g>
-  <path d="M16 64 L22 58 L28 62 L34 50 L40 60 L48 54" fill="none" stroke="#7cff3f" stroke-width="1.4"/>
-  <g fill="#ff2e4c"><rect x="16" y="82" width="10" height="3" style="transform-box:fill-box;transform-origin:left center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;0 1;1 1" dur="0.8s" repeatCount="indefinite"/></rect></g>
-  <!-- tank 1: a sleeping specimen -->
-  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.4">
-    <rect x="72" y="34" width="44" height="72" rx="6" fill="#7cff3f" opacity="0.35"/>
-    <path d="M94 50 C84 50 82 62 86 70 C82 78 86 90 94 92 C102 90 106 78 102 70 C106 62 104 50 94 50Z" fill="var(--lg-deep, #5a8f3c)" opacity="0.7" stroke="none"/>
-    <rect x="68" y="28" width="52" height="8" rx="2" fill="#9aa7bd"/><rect x="68" y="102" width="52" height="10" rx="2" fill="#9aa7bd"/>
-  </g>
-  <g fill="none" stroke="#fff" stroke-width="0.8" opacity="0.9">
-    <circle style="transform-box:fill-box;transform-origin:center" cx="82" cy="96" r="1.6"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -56" dur="2.4s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.4s" repeatCount="indefinite" additive="sum"/></circle>
-    <circle style="transform-box:fill-box;transform-origin:center" cx="106" cy="98" r="1.2"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -58" dur="2s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2s" repeatCount="indefinite" additive="sum"/></circle>
-  </g>
-  <path d="M78 40 V96" stroke="#fff" stroke-width="2" opacity="0.4"/>
-  <!-- tank 2: shattered, slime everywhere -->
-  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round">
-    <rect x="168" y="28" width="64" height="8" rx="2" fill="#9aa7bd"/>
-    <path d="M172 36 L178 50 L174 58 L182 64 L176 36Z" fill="#dff7ff" opacity="0.8"/><path d="M228 36 L222 48 L228 56 L220 66 L224 36Z" fill="#dff7ff" opacity="0.8"/>
-    <path d="M172 104 L176 88 L184 96 L190 84 L196 98 L204 86 L212 98 L218 88 L224 98 L228 104Z" fill="#dff7ff" opacity="0.8"/>
-    <rect x="168" y="102" width="64" height="10" rx="2" fill="#9aa7bd"/>
-    <path d="M150 124 C160 110 180 112 200 112 C220 112 244 110 256 124 C240 130 170 132 150 124Z" fill="#7cff3f"/>
-  </g>
-  <g fill="#7cff3f"><path d="M184 112 C184 118 188 120 188 116 V112Z"/><path d="M214 112 C214 120 218 122 218 116 V112Z"/></g>
-  <g fill="#dff7ff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"><polygon points="140,128 146,124 144,132"/><polygon points="262,126 268,124 266,130"/></g>
-  <!-- tank 3 -->
-  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.4">
-    <rect x="276" y="34" width="44" height="72" rx="6" fill="#7cff3f" opacity="0.35"/>
-    <path d="M298 52 C290 54 288 66 292 74 C288 84 292 92 298 92 C304 92 308 84 304 74 C308 66 306 54 298 52Z" fill="var(--lg-deep, #5a8f3c)" opacity="0.7" stroke="none"/>
-    <rect x="272" y="28" width="52" height="8" rx="2" fill="#9aa7bd"/><rect x="272" y="102" width="52" height="10" rx="2" fill="#9aa7bd"/>
-  </g>
-  <circle style="transform-box:fill-box;transform-origin:center" cx="300" cy="96" r="1.4" fill="none" stroke="#fff" stroke-width="0.8"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -56" dur="2.2s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.2s" repeatCount="indefinite" additive="sum"/></circle>
-  <!-- the dark doorway: Specimen X is watching -->
-  <path d="M344 108 V44 H392 V108Z" fill="#0b120a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6"/>
-  <path d="M344 44 H392 V52 H344Z" fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
-  <g style="transform-box:fill-box;transform-origin:center">
-    <animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1;1 0.1;1 1" keyTimes="0;.9;.95;1" dur="4s" repeatCount="indefinite" additive="sum"/>
-    <g fill="#ff2e4c"><circle cx="360" cy="74" r="3"/><circle cx="376" cy="74" r="3"/><circle cx="368" cy="66" r="2"/><circle cx="354" cy="84" r="1.6"/><circle cx="382" cy="84" r="1.6"/></g>
-  </g>
-  <path d="M356 94 C362 90 374 90 380 94 C376 100 360 100 356 94Z" fill="#7cff3f" opacity="0.6"/>
-  <!-- floor -->
-  <path d="M0 108 H400 V140 H0Z" fill="var(--lg-near, #8cc26b)"/>
-  <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" opacity="0.4"><path d="M0 124 H400 M50 108 V140 M100 108 V140 M150 108 V140 M250 108 V140 M300 108 V140 M350 108 V140"/></g>
+  <path d="M186 30 L186 112 L200 112 L196 96 L204 88 L194 72 L198 56 L190 44 L194 30Z" fill="#bdf5ff" opacity="0.55" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+  <path d="M290 30 L290 112 L280 112 L284 92 L276 82 L284 66 L280 50 L286 38 L278 30Z" fill="#bdf5ff" opacity="0.55" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+  <path d="M188 34 L190 100 M288 36 L287 100" stroke="#fff" stroke-width="1.6" opacity="0.7"/>
+  <path d="M180 110 H296 V122 H180Z" fill="#9aa7bd" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8"/><path d="M180 110 H296 V113 H180Z" fill="#fff" opacity="0.35"/>
+  <path d="M180 116 H296" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" opacity="0.6"/>
+  <!-- the floor: hazard stripes, the slime spill, glass shards -->
+  <path d="M0 116 H400 V140 H0Z" fill="var(--lg-near, #4fae74)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+  <path d="M0 116 H180 V121 H0Z M296 116 H400 V121 H296Z" fill="#ffd23f"/>
+  <path d="M4 116 l5 0 l-4 5 l-5 0ZM14 116 l5 0 l-4 5 l-5 0ZM24 116 l5 0 l-4 5 l-5 0ZM34 116 l5 0 l-4 5 l-5 0ZM44 116 l5 0 l-4 5 l-5 0ZM54 116 l5 0 l-4 5 l-5 0ZM64 116 l5 0 l-4 5 l-5 0ZM74 116 l5 0 l-4 5 l-5 0ZM84 116 l5 0 l-4 5 l-5 0ZM94 116 l5 0 l-4 5 l-5 0ZM104 116 l5 0 l-4 5 l-5 0ZM114 116 l5 0 l-4 5 l-5 0ZM124 116 l5 0 l-4 5 l-5 0ZM134 116 l5 0 l-4 5 l-5 0ZM144 116 l5 0 l-4 5 l-5 0ZM154 116 l5 0 l-4 5 l-5 0ZM164 116 l5 0 l-4 5 l-5 0ZM174 116 l5 0 l-4 5 l-5 0ZM300 116 l5 0 l-4 5 l-5 0ZM310 116 l5 0 l-4 5 l-5 0ZM320 116 l5 0 l-4 5 l-5 0ZM330 116 l5 0 l-4 5 l-5 0ZM340 116 l5 0 l-4 5 l-5 0ZM350 116 l5 0 l-4 5 l-5 0ZM360 116 l5 0 l-4 5 l-5 0ZM370 116 l5 0 l-4 5 l-5 0ZM380 116 l5 0 l-4 5 l-5 0ZM390 116 l5 0 l-4 5 l-5 0Z" fill="var(--lg-ink, #1d2230)"/>
+  <path d="M168 128 C178 120 218 122 238 121 C268 120 308 122 318 128 C298 136 188 136 168 128Z" fill="#7cff3f" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+  <path d="M188 127 C208 124 228 125 242 125" fill="none" stroke="#fff" stroke-width="1.2" opacity="0.7" stroke-linecap="round"/>
+  <g transform="translate(208 130)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.2;1;0.2" dur="1.8s" repeatCount="indefinite"/><circle r="2.4" fill="none" stroke="#3fa81f" stroke-width="0.8"/></g></g>
+  <g transform="translate(268 129)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.2;1;0.2" dur="2.2s" begin="0.5s" repeatCount="indefinite"/><circle r="2.4" fill="none" stroke="#3fa81f" stroke-width="0.8"/></g></g>
+  <g transform="translate(294 131)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.2;1;0.2" dur="2.6s" begin="1.0s" repeatCount="indefinite"/><circle r="2.4" fill="none" stroke="#3fa81f" stroke-width="0.8"/></g></g>
+  <g fill="#bdf5ff" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round" opacity="0.9"><path d="M158 132 L164 124 L168 132Z"/><path d="M322 130 L330 126 L328 134Z"/><path d="M142 128 L148 126 L146 132Z"/><path d="M338 134 L342 128 L346 134Z"/></g>
 </svg>

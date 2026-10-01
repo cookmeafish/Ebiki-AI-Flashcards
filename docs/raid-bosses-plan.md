@@ -119,14 +119,17 @@ tested), keyed by the raid motif.
   under a porcelain V brow, weeping blood over a needle-toothed slit grin; six white wings (three pairs: up, out, down,
   past the frame) of steel-tipped feathers with rows of red eyes; gyroscope rings full of eyes and a halo of
   light-blades around the head; a tattered white robe on a dark red lining; long skeletal arms with black-clawed hands
-  reaching out of the sleeves, an eye staring from each palm; before a dark crimson cathedral rose window. No weapon.
-- **Phase 1, watching**: every eye open, the hands reaching, the grin.
+  reaching out of the sleeves, an eye staring from each palm; a crown of iron thorns; chains hanging beside it, an eye
+  locked in an iron cage on each; eyes stitched shut down the robe's lining; bone hands clawing up from below; before a
+  dark crimson cathedral rose window. No weapon.
+- **Phase 1, watching**: every eye open, the hands reaching (and clawing up from below), the grin, the stitched eyes
+  straining against their thread.
 - **Phase 2, cracking**: red light in cracks across the mask, four more eyes tear open on it and four down the robe,
   the jaw drops open on two rows of teeth and heaves, a second pair of clawed arms rises from behind the shoulders,
-  the window cracks.
+  the stitches burst and those eyes open too, the halo blades go red-hot, it rains blood, the window cracks.
 - **Phase 3, true form**: the mask shatters into halves drifting apart on a void with a spiral of eyes around a huge
-  screaming vertical maw, a beam of light pours up, the wings and rings burn, shards orbit, the window shatters over
-  a red void full of opening eyes.
+  screaming vertical maw, a beam of light pours up, the robe splits into a second maw with ribs for teeth and an eye
+  down its throat, the wings and rings burn, shards orbit, the window shatters over a red void full of opening eyes.
 - **Face per phase**: one great staring eye, then a cracked mask of eyes, then a screaming maw.
 - **Entrance (SVG)**: the window and halo spin up, the wings snap open pair by pair, the arms swing out, the great eye
   opens last. **Card**: `lgHolyUnfold`, a point of light high above that spins open and descends into place.

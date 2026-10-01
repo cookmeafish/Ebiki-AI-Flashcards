@@ -1,52 +1,127 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
-  <!-- The Howling Moor: standing stones, a ruined cottage, claw marks, a wolf howling on the hill under a huge moon. -->
-  <rect width="400" height="140" fill="var(--lg-sky, #e7e4f0)"/>
+  <!-- The Howling Moor: a huge moon with clouds and bats sliding across it, and MOONFANG on the hill against it: bristling fur, a torn red plaid shirt, hooked claws raised, a V brow over burning eyes that blink, a snarling muzzle. Standing stones gouged by claws, a ruined cottage with a candle and smoke, a path and broken fence, a dead tree with the pack's eyes in the brush, ground mist. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #e2def0)"/>
+  <!-- stars -->
+  <g fill="var(--lg-accent, #e8b84a)">
+    <circle cx="30" cy="20" r="1"/><circle cx="96" cy="12" r="0.8"/><circle cx="150" cy="30" r="0.9"/><circle cx="370" cy="16" r="1"/><circle cx="388" cy="40" r="0.7"/><circle cx="196" cy="8" r="0.7"/>
+    <path d="M60 33.36 L60.66 35.34 L62.64 36 L60.66 36.66 L60 38.64 L59.34 36.66 L57.36 36 L59.34 35.34Z" fill="var(--lg-accent, #e8b84a)" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.15;1" dur="2.6s" repeatCount="indefinite"/></path><path d="M348 27.58 L348.61 29.39 L350.42 30 L348.61 30.61 L348 32.42 L347.39 30.61 L345.58 30 L347.39 29.39Z" fill="var(--lg-accent, #e8b84a)" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.15;1" dur="3.1s" repeatCount="indefinite" begin="1s"/></path><path d="M176 15.8 L176.55 17.45 L178.20 18 L176.55 18.55 L176 20.20 L175.45 18.55 L173.80 18 L175.45 17.45Z" fill="var(--lg-accent, #e8b84a)" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.15;1" dur="2.2s" repeatCount="indefinite" begin="0.5s"/></path>
+  </g>
   <!-- the huge moon -->
-  <circle cx="250" cy="56" r="44" fill="#f4efd8" stroke="#c9bf94" stroke-width="2"/>
-  <circle cx="250" cy="56" r="52" fill="#f4efd8" opacity="0.2"/>
-  <g fill="#d9d1b0" opacity="0.8"><circle cx="232" cy="42" r="8"/><circle cx="268" cy="66" r="10"/><circle cx="258" cy="30" r="4"/></g>
-  <!-- clouds across the moon -->
-  <g fill="var(--lg-far, #b9b0dc)" opacity="0.8">
-    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="-30 0;30 0;-30 0" dur="18s" repeatCount="indefinite"/>
-    <ellipse cx="200" cy="60" rx="40" ry="6"/><ellipse cx="300" cy="44" rx="34" ry="5"/>
+  <circle cx="272" cy="58" r="50" fill="#f6f1da" stroke="#c9bf94" stroke-width="2"/>
+  <path d="M246 20 A50 50 0 0 0 272 108 A44 44 0 0 1 246 20Z" fill="#d9cfa6" opacity="0.6"/>
+  <g fill="#ddd3ad"><circle cx="300" cy="34" r="7"/><circle cx="312" cy="70" r="9"/><circle cx="292" cy="92" r="5"/><circle cx="238" cy="80" r="6"/></g>
+  <g fill="#c9bf94" opacity="0.6"><circle cx="301" cy="35" r="4"/><circle cx="313" cy="71" r="5"/></g>
+  <!-- clouds sliding across the moon -->
+  <g fill="var(--lg-far, #b4abd6)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8">
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="-40 0;40 0;-40 0" dur="26s" repeatCount="indefinite"/>
+    <path d="M196 48 C200 42 212 42 216 46 C222 40 236 42 238 48 C246 48 248 54 240 56 H198 C190 56 190 50 196 48Z"/>
+    <path d="M318 88 C322 82 334 82 338 86 C344 80 358 84 358 90 C364 92 362 96 356 96 H320 C312 96 312 90 318 88Z"/>
   </g>
-  <!-- the hill, and the wolf howling on top -->
-  <path d="M150 104 C190 80 230 70 260 74 C290 78 320 90 350 104Z" fill="var(--lg-deep, #5a4a6e)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
-  <g fill="#1d2230">
-    <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 262 74;-4 262 74;0 262 74" dur="3s" repeatCount="indefinite"/>
-    <path d="M244 76 C246 68 254 64 262 64 L268 50 L272 52 L270 60 L276 56 L278 60 L272 66 C274 70 274 76 272 76 L268 72 L264 76 L256 76 L252 72 L248 76Z"/>
-    <path d="M244 72 C240 70 236 72 234 76 L240 76Z"/>
+  <!-- far hills -->
+  <path d="M0 84 C40 74 80 80 120 76 C160 72 200 82 240 80 C290 78 340 72 400 80 V112 H0Z" fill="var(--lg-far, #b4abd6)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9"/>
+  <!-- the ruined cottage, a candle still burning -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.1" stroke-linejoin="round">
+    <path d="M338 102 V80 L352 68 L362 76 L368 72 L378 82 V102Z" fill="#7d6e66"/>
+    <path d="M338 80 L352 68 L362 76 L358 80 L352 74 L340 84Z" fill="#000" opacity="0.2" stroke="none"/>
+    <path d="M334 82 L352 64 L364 74" fill="none" stroke="#3e2f22" stroke-width="2.6"/>
+    <path d="M366 74 L370 60 L375 60 L374 78Z" fill="#6b5c54"/>
+    <rect x="346" y="88" width="8" height="14" fill="#140e0c"/>
+    <rect x="360" y="86" width="7" height="7" fill="#ffb347"/>
+    <rect x="360" y="86" width="7" height="7" fill="#ffe08a" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.6;1;0.8;1" dur="1.4s" repeatCount="indefinite"/></rect>
+    <path d="M360 89.5 H367 M363.5 86 V93" stroke="#3e2f22" stroke-width="0.8"/>
+    <path d="M342 92 L350 86 M370 96 L374 90" fill="none" stroke-width="0.6" opacity="0.6"/>
   </g>
-  <!-- the moor -->
-  <path d="M0 96 Q100 84 200 100 T400 94 V140 H0Z" fill="var(--lg-near, #8a7a9e)"/>
-  <!-- standing stones -->
-  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round" fill="var(--lg-far, #b9b0dc)">
-    <path d="M40 104 L42 70 L54 66 L56 104Z"/><path d="M66 104 L66 74 L78 72 L80 104Z"/><path d="M36 70 L84 66 L84 74 L36 78Z"/>
-    <path d="M100 106 L102 82 L110 80 L112 106Z"/>
+  <g fill="var(--lg-far, #b4abd6)" opacity="0.8">
+    <circle cx="372" cy="56" r="4" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;4 -22" dur="4s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.6;1.6;0.05" dur="4s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle cx="372" cy="56" r="3.4" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -20" dur="4s" repeatCount="indefinite" begin="2s"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.6;1.6;0.05" dur="4s" repeatCount="indefinite" additive="sum" begin="2s"/></circle>
   </g>
-  <g fill="none" stroke="#e05555" stroke-width="1.6" stroke-linecap="round"><path d="M43 84 l5.5 9 M46 82 l5.5 9 M49 80 l5 8.5"/></g>
-  <!-- the ruined cottage -->
+  <!-- MOONFANG on the hill, claws raised against the moon -->
+  <g transform="translate(270 100) scale(0.84) translate(-270 -100)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -1.6;0 0" dur="3.6s" repeatCount="indefinite"/>
+    <!-- arms -->
+    <g><g style="transform-box:fill-box;transform-origin:right bottom"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-4;0" dur="2.8s" repeatCount="indefinite"/>
+      <path d="M240 72 L232 62 L222 50 L214 40 L220 38 L228 44 L238 54 L248 64Z" fill="#2c2440" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3" stroke-linejoin="round"/>
+      <path d="M232 62 L226 66 L230 58 Z M224 52 L218 54 L222 46Z" fill="#2c2440" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+      <path d="M246 64 L236 60 L240 70Z" fill="#9b2230" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+      <path d="M206 40 L210 30 L216 28 L224 34 L222 42 L212 44Z" fill="#43385e" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1" stroke-linejoin="round"/>
+      <path d="M208 32 L200 22 L210 28Z M213 29 L208 16 L217 26Z M219 29 L219 15 L223 28Z M224 33 L230 22 L227 34Z" fill="#f1ece0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" stroke-linejoin="round"/>
+    </g></g>
+    <g><g style="transform-box:fill-box;transform-origin:left bottom"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;4;0" dur="3.1s" repeatCount="indefinite"/>
+      <path d="M 300 72 L 308 62 L 318 50 L 326 40 L 320 38 L 312 44 L 302 54 L 292 64 Z" fill="#2c2440" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3" stroke-linejoin="round"/>
+      <path d="M 308 62 L 314 66 L 310 58 Z M 316 52 L 322 54 L 318 46 Z" fill="#2c2440" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+      <path d="M 294 64 L 304 60 L 300 70 Z" fill="#9b2230" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+      <path d="M 334 40 L 330 30 L 324 28 L 316 34 L 318 42 L 328 44 Z" fill="#43385e" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1" stroke-linejoin="round"/>
+      <path d="M 332 32 L 340 22 L 330 28 Z M 327 29 L 332 16 L 323 26 Z M 321 29 L 321 15 L 317 28 Z M 316 33 L 310 22 L 313 34 Z" fill="#f1ece0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" stroke-linejoin="round"/>
+    </g></g>
+    <!-- bristling shoulders and the torn plaid shirt -->
+    <path d="M226 100 L230 80 L224 76 L236 72 L234 64 L246 66 L250 58 L270 64 L290 58 L294 66 L306 64 L304 72 L316 76 L310 80 L314 100Z" fill="#2c2440" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/>
+    <path d="M238 74 L252 66 L270 72 L288 66 L302 74 L306 100 L234 100Z" fill="#9b2230" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1" stroke-linejoin="round"/>
+    <g fill="none" stroke="#2a0a10" stroke-width="1.4" opacity="0.7"><path d="M246 72 V98 M258 70 V98 M282 70 V98 M294 72 V98"/><path d="M240 80 H300 M238 90 H302"/></g>
+    <g fill="none" stroke="#e6c46a" stroke-width="0.6" opacity="0.7"><path d="M252 70 V98 M288 70 V98 M239 85 H301"/></g>
+    <path d="M258 70 L270 92 L282 70 L276 74 L270 84 L264 74Z" fill="#43385e" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+    <path d="M263 74 L270 88 L277 74 L270 80Z" fill="#cfc4a4"/>
+    <path d="M238 74 L232 82 L240 80 L236 90 L244 84Z M302 74 L308 82 L300 80 L304 90 L296 84Z" fill="#2c2440" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"/>
+    <path d="M304 76 L310 80 L312 98 L306 98Z" fill="#d9d3f0" opacity="0.35"/>
+    <!-- the head -->
+    <g transform="translate(270 46)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-3;2;0" dur="4.2s" repeatCount="indefinite"/><g transform="translate(-270 -46)">
+      <path d="M248 46 L240 40 L246 38 L242 30 L252 32 L256 24 L264 28 L270 22 L276 28 L284 24 L288 32 L298 30 L294 38 L300 40 L292 46 L296 58 L284 60 L270 68 L256 60 L244 58Z" fill="#2c2440" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3" stroke-linejoin="round"/>
+      <path d="M252 32 L246 12 L262 28Z" fill="#2c2440" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+      <path d="M288 32 L294 12 L278 28Z" fill="#2c2440" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+      <path d="M252 28 L249 18 L257 27Z M288 28 L291 18 L283 27Z" fill="#7a3a52"/>
+      <path d="M284 24 L288 32 L298 30 L294 38 L300 40 L292 46 L296 58 L288 48 L292 40 L288 36Z" fill="#d9d3f0" opacity="0.3"/>
+      <path d="M256 40 L270 47 L284 40 L284 45 L270 52 L256 45Z" fill="#17121f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+      <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.2;1" dur="2s" repeatCount="indefinite"/><path d="M256 44 L268 49 L266 53 L257 50Z M284 44 L272 49 L274 53 L283 50Z" fill="#ffb347" opacity="0.45"/></g>
+      <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1;1 0.1;1 1;1 1" dur="5s" repeatCount="indefinite" keyTimes="0;.9;.93;.96;1"/>
+        <path d="M258 45.5 L267 49 L265.4 51.4 L258.6 49Z M282 45.5 L273 49 L274.6 51.4 L281.4 49Z" fill="#ff8a1f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"/>
+      </g>
+      <circle cx="260" cy="47.3" r="0.6" fill="#fff"/><circle cx="280" cy="47.3" r="0.6" fill="#fff"/>
+      <!-- the snarling muzzle -->
+      <path d="M262 52 L278 52 L280 60 L270 68 L260 60Z" fill="#43385e" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+      <path d="M264 54 L268 55 M272 55 L276 54 M263 57 L267 57.6" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+      <path d="M266 52 L274 52 L272 55 L268 55Z" fill="#0d0a12"/>
+      <path d="M260 60 L264 58 L270 60 L276 58 L280 60 L276 70 L270 72 L264 70Z" fill="#5a0f1a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+      <path d="M262 64 Q270 60 278 64 L276 70 L264 70Z" fill="#c4384a"/>
+      <path d="M261 60 L263 66 L265 59.4 M279 60 L277 66 L275 59.4 M266 59.2 L267 62 L268 59.6 M272 59.6 L273 62 L274 59.2" fill="#f1ece0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4" stroke-linejoin="round"/>
+      <path d="M264 70 L265.6 66 L267 70 M273 70 L274.4 66 L276 70" fill="#f1ece0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4" stroke-linejoin="round"/>
+    </g></g></g>
+  </g></g>
+  <!-- the moor in front, a path winding up -->
+  <path d="M0 98 C40 92 90 96 130 102 C160 106 190 108 220 112 V140 H0Z" fill="var(--lg-near, #7e70a8)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+  <!-- the hill he stands on -->
+  <path d="M126 140 C150 116 196 96 256 96 C290 98 322 96 352 104 C372 108 388 108 400 108 V140Z" fill="var(--lg-deep, #4b3d74)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3" stroke-linejoin="round"/>
+  <path d="M190 102 C214 96 236 95 252 96" fill="none" stroke="#d9d3f0" stroke-width="1" opacity="0.5"/>
+  <path d="M120 140 C130 126 160 116 196 112 C220 108 240 104 256 100 L262 101 C246 108 226 114 204 118 C176 122 150 130 140 140Z" fill="#cbbf9a" opacity="0.55"/>
+  <!-- standing stones, gouged by claws -->
   <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round">
-    <path d="M320 112 V88 L334 76 L346 84 L352 80 L360 90 V112Z" fill="#8a7a6a"/>
-    <path d="M316 90 L336 72 L348 80" fill="none" stroke="#4a3b2a" stroke-width="3"/>
-    <rect x="330" y="96" width="8" height="16" fill="#1d1410"/>
-    <rect x="344" y="94" width="6" height="6" fill="#ffb347"/>
-    <path d="M344 97 H350 M347 94 V100" stroke="#4a3b2a" stroke-width="0.8"/>
+    <path d="M68 104 L70 70 L84 66 L86 104Z" fill="var(--lg-far, #b4abd6)"/>
+    <path d="M96 104 L96 72 L110 70 L112 104Z" fill="var(--lg-far, #b4abd6)"/>
+    <path d="M62 70 L116 64 L116 73 L62 79Z" fill="var(--lg-far, #b4abd6)"/>
+    <path d="M128 106 L130 84 L140 82 L142 106Z" fill="var(--lg-far, #b4abd6)"/>
+    <path d="M40 104 L44 88 L52 90 L52 104Z" fill="var(--lg-far, #b4abd6)"/>
+    <path d="M68 104 L70 70 L75 69 L74 104Z M96 104 L96 72 L100 71 L100 104Z M128 106 L130 84 L133 84 L132 106Z" fill="#000" opacity="0.22" stroke="none"/>
   </g>
-  <!-- dead bushes -->
-  <g fill="none" stroke="#2a2433" stroke-width="1.6" stroke-linecap="round"><path d="M140 112 L136 102 M140 112 L144 100 M140 112 L148 106 M380 114 L376 104 M380 114 L384 102"/></g>
+  <g fill="none" stroke-linecap="round">
+    <path d="M73 78 L80 92 M76 76 L83 90 M79 75 L85 87" stroke="#140e18" stroke-width="2"/>
+    <path d="M73 78 L80 92 M76 76 L83 90 M79 75 L85 87" stroke="#e05566" stroke-width="0.7"/>
+    <path d="M100 76 L106 88 M103 75 L108.5 86" stroke="#140e18" stroke-width="1.8"/>
+  </g>
+  <!-- the dead tree and the pack's eyes in the dark brush -->
+  <path d="M0 140 V60 C4 56 8 56 10 60 L12 80 C16 70 20 64 26 60 L28 62 C22 70 18 78 16 92 L18 140Z" fill="#1d1828" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+  <path d="M10 60 L8 44 L12 46 Z M26 60 L36 50 L34 56Z M16 76 L30 76 L18 80Z" fill="#1d1828" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+  <path d="M0 140 V112 C10 104 22 106 30 110 C38 104 52 108 56 116 C64 114 70 118 70 124 V140Z" fill="#1d1828"/>
+  <g fill="#ff8a1f">
+    <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1;1 0.1;1 1" dur="4s" repeatCount="indefinite" keyTimes="0;.7;.75;1"/><path d="M28 116 l6 2.4 l-6 1.2Z M42 116 l-6 2.4 l6 1.2Z"/></g>
+    <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1;1 0.1;1 1" dur="5.2s" repeatCount="indefinite" keyTimes="0;.4;.45;1"/><path d="M48 122 l5 2 l-5 1Z M60 122 l-5 2 l5 1Z"/></g>
+  </g>
   <!-- ground mist -->
-  <g fill="var(--lg-light, #ffffff)" opacity="0.35">
-    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="-20 0;20 0;-20 0" dur="12s" repeatCount="indefinite"/>
-    <ellipse cx="100" cy="112" rx="110" ry="7"/><ellipse cx="310" cy="116" rx="100" ry="7"/>
+  <g fill="#f2effa" opacity="0.4">
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="-20 0;20 0;-20 0" dur="14s" repeatCount="indefinite"/>
+    <path d="M60 112 C80 106 120 106 150 110 C170 108 196 110 206 114 C170 118 110 118 60 116Z"/><path d="M250 120 C280 112 330 114 360 118 C330 124 280 124 250 122Z"/>
   </g>
-  <!-- paw prints -->
-  <g fill="#2a2433" opacity="0.6">
-    <g transform="translate(190 124)"><ellipse rx="3" ry="2.4"/><circle cx="-3" cy="-3.6" r="1"/><circle cx="0" cy="-4.4" r="1"/><circle cx="3" cy="-3.6" r="1"/></g>
-    <g transform="translate(212 130)"><ellipse rx="3" ry="2.4"/><circle cx="-3" cy="-3.6" r="1"/><circle cx="0" cy="-4.4" r="1"/><circle cx="3" cy="-3.6" r="1"/></g>
-  </g>
-  <!-- bats -->
-  <g fill="#1d2230">
-    <path style="transform-box:fill-box;transform-origin:center" d="M60 40 l5 -4 l2 3 l2 -3 l5 4 l-4 0 l-3 2 l-3 -2Z"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;80 -10;160 6" dur="8s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="8s" repeatCount="indefinite" additive="sum"/></path>
+  <!-- broken fence along the path -->
+  <g stroke="#3e2f22" stroke-width="1.8" stroke-linecap="round"><path d="M176 124 L178 112 M196 120 L196 108 M214 114 L216 104"/><path d="M176 117 L196 113 M196 113 L206 110" stroke-width="1.2"/></g>
+  <!-- bats crossing the moon -->
+  <g fill="#1d1828">
+    <path style="transform-box:fill-box;transform-origin:center" d="M180 30 l5 -4 l2 3 l2 -3 l5 4 l-4 0 l-3 2 l-3 -2Z"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;90 -8;180 4" dur="9s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" dur="9s" repeatCount="indefinite" keyTimes="0;.1;.85;1" additive="sum"/></path>
+    <path style="transform-box:fill-box;transform-origin:center" d="M196 44 l4 -3 l1.6 2.4 l1.6 -2.4 l4 3 l-3.2 0 l-2.4 1.6 l-2.4 -1.6Z"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;70 -14;150 -4" dur="7s" repeatCount="indefinite" begin="2s"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" dur="7s" repeatCount="indefinite" keyTimes="0;.1;.85;1" additive="sum" begin="2s"/></path>
   </g>
 </svg>

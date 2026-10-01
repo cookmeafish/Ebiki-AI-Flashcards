@@ -1,53 +1,139 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
-  <!-- Colossus Pass: a rope bridge over a burning chasm, and a cliff that is the Colossus's face. -->
-  <rect width="400" height="140" fill="var(--lg-sky, #e8ecf2)"/>
-  <!-- far snowy range -->
-  <path d="M0 70 L30 40 L52 58 L80 26 L108 54 L130 38 L160 64 L400 64 L400 70Z" fill="var(--lg-far, #b4b8c2)" opacity="0.7"/>
-  <path d="M250 64 L276 34 L296 52 L322 22 L348 48 L372 36 L400 56 V70 H250Z" fill="var(--lg-far, #b4b8c2)" opacity="0.7"/>
-  <g fill="var(--lg-light, #ffffff)"><polygon points="80,26 72,36 80,34 88,36"/><polygon points="322,22 314,32 322,30 330,32"/><polygon points="30,40 24,47 32,46"/></g>
-  <!-- an eagle circling -->
+  <!-- Colossus Pass: a rope bridge sways over a burning chasm, and the whole massif behind it IS the Stone Colossus: crystal spires on its back, snowy shoulder peaks with pines, a V brow of rock over burning eyes, a grinding jaw on a lava throat, magma veins, boulder fists gripping both rims. Idle: it breathes, eyes pulse, the jaw grinds, pebbles fall, embers rise, the bridge sways, a torch flickers, a hawk circles, clouds drift. -->
+  <rect width="400" height="140" fill="var(--lg-sky, #dfe6ee)"/>
+  <!-- storm clouds over the pass -->
+  <g fill="var(--lg-light, #ffffff)" opacity="0.7">
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;26 0;0 0" dur="30s" repeatCount="indefinite"/>
+    <ellipse cx="60" cy="22" rx="46" ry="9"/><ellipse cx="96" cy="16" rx="28" ry="8"/><ellipse cx="340" cy="18" rx="50" ry="9"/><ellipse cx="300" cy="24" rx="30" ry="6"/>
+  </g>
+  <!-- far range with snow -->
+  <path d="M0 74 L26 52 L44 60 L70 34 L96 58 L120 46 L150 66 L180 54 L230 70 L270 50 L300 62 L330 38 L356 56 L380 44 L400 54 V100 H0Z" fill="var(--lg-far, #a9b8c8)" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+  <g fill="#eef3f7" opacity="0.9"><path d="M60 43 L70 34 L80 45 L74 43 L70 47 L65 42Z"/><path d="M322 46 L330 38 L338 48 L332 46 L329 50 L326 45Z"/><path d="M114 51 L120 46 L127 52 L121 51Z"/><path d="M374 49 L380 44 L386 48 L380 49Z"/></g>
+  <!-- the crystal spires on the Colossus's back -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.1" stroke-linejoin="round">
+    <g><path d="M190 46 L178 12 L184 4 L192 12 L200 42Z" fill="#e88a1e"/><path d="M184 4 L192 12 L200 42 L194 44Z" fill="#ffd27a" opacity="0.6" stroke="none"/></g>
+    <g><path d="M206 38 L200 6 L208 -2 L214 6 L218 36Z" fill="#f29a2a"/><path d="M208 -2 L214 6 L218 36 L212 37Z" fill="#ffd27a" opacity="0.6" stroke="none"/></g>
+    <g><path d="M224 34 L226 2 L234 -4 L240 4 L238 34Z" fill="#e88a1e"/><path d="M234 -4 L240 4 L238 34 L232 34Z" fill="#ffd27a" opacity="0.6" stroke="none"/></g>
+    <g><path d="M246 36 L254 6 L262 0 L266 8 L258 40Z" fill="#f29a2a"/><path d="M262 0 L266 8 L258 40 L254 38Z" fill="#ffd27a" opacity="0.6" stroke="none"/></g>
+    <g><path d="M262 44 L276 14 L284 10 L286 18 L272 48Z" fill="#e88a1e"/><path d="M284 10 L286 18 L272 48 L268 46Z" fill="#ffd27a" opacity="0.6" stroke="none"/></g>
+  </g>
+  <path d="M208 6.92 L208.77 9.23 L211.08 10 L208.77 10.77 L208 13.08 L207.23 10.77 L204.92 10 L207.23 9.23Z" fill="#fff" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.15;1" dur="2.2s" repeatCount="indefinite"/></path><path d="M262 9.36 L262.66 11.34 L264.64 12 L262.66 12.66 L262 14.64 L261.34 12.66 L259.36 12 L261.34 11.34Z" fill="#fff" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.15;1" dur="2.9s" repeatCount="indefinite" begin="1s"/></path><path d="M181 13.8 L181.55 15.45 L183.20 16 L181.55 16.55 L181 18.20 L180.45 16.55 L178.80 16 L180.45 15.45Z" fill="#fff" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.15;1" dur="3.4s" repeatCount="indefinite"/></path>
+  <!-- the Stone Colossus rising out of the chasm: the pass IS its face -->
   <g>
-    <animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 120 30;360 120 30" dur="16s" repeatCount="indefinite"/>
-    <path d="M140 30 q4 -4 8 0 q4 -4 8 0" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linecap="round"/>
+    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -1.4;0 0" dur="5s" repeatCount="indefinite"/>
+    <path d="M112 140 L120 100 L144 62 L160 42 L178 60 L186 46 L204 30 L256 28 L274 42 L286 56 L304 40 L324 62 L342 98 L350 140Z" fill="var(--lg-near, #6f8499)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
+    <!-- shadow side and lit planes -->
+    <path d="M120 100 L144 62 L160 42 L168 54 L150 80 L140 140 L114 140Z" fill="#000" opacity="0.22"/>
+    <path d="M186 46 L204 30 L230 30 L214 48 L196 70 L190 100 L176 140 L150 140 L162 96Z" fill="#000" opacity="0.14"/>
+    <path d="M256 28 L274 42 L286 56 L270 54 L252 36Z" fill="#fff" opacity="0.28"/>
+    <path d="M304 40 L324 62 L342 98 L330 92 L316 64Z" fill="#fff" opacity="0.22"/>
+    <!-- snowy shoulder peaks -->
+    <path d="M150 54 L160 42 L172 54 L166 52 L161 58 L155 52Z" fill="#eef3f7" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+    <path d="M294 50 L304 40 L316 52 L310 50 L304 56 L299 51Z" fill="#eef3f7" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+    <!-- pines on the shoulders -->
+    <g fill="var(--lg-deep, #3e4f63)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round">
+      <path d="M140 84 L144 72 L148 84Z"/><path d="M148 76 L152 64 L156 76Z"/><path d="M133 96 L137 84 L141 96Z"/>
+      <path d="M314 72 L318 60 L322 72Z"/><path d="M324 84 L328 72 L332 84Z"/><path d="M318 94 L322 82 L326 94Z"/>
+    </g>
+    <!-- rock seams -->
+    <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linecap="round" opacity="0.6">
+      <path d="M200 38 L212 44"/><path d="M262 40 L254 46"/><path d="M290 70 L300 82 L298 94"/><path d="M168 76 L162 90"/><path d="M296 110 L306 124"/>
+    </g>
+    <!-- magma veins glowing in the rock -->
+    <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M148 104 L156 114 L150 128" stroke="#ffb347" stroke-width="3.2" opacity="0.4"/>
+      <path d="M148 104 L156 114 L150 128" stroke="#ff7a1a" stroke-width="1.4"/>
+      <path d="M304 96 L296 108 L304 122" stroke="#ffb347" stroke-width="3.2" opacity="0.4"/>
+      <path d="M304 96 L296 108 L304 122" stroke="#ff7a1a" stroke-width="1.4"/>
+      <path d="M182 72 L178 84 L184 94" stroke="#ff7a1a" stroke-width="1.2"/>
+      <path d="M276 66 L282 78 L278 88" stroke="#ff7a1a" stroke-width="1.2"/>
+    </g>
+    <!-- the brow: one stone ridge in a V -->
+    <path d="M190 46 L230 60 L270 46 L272 55 L230 69 L188 55Z" fill="var(--lg-deep, #3e4f63)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+    <path d="M190 46 L230 60 L270 46 L270 49 L230 63 L190 49Z" fill="#fff" opacity="0.25"/>
+    <!-- burning eyes -->
+    <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.18;1" dur="2.4s" repeatCount="indefinite"/>
+      <path d="M200 58 L224 66 L220 72 L203 66Z" fill="#ffb347" opacity="0.45"/>
+      <path d="M260 58 L236 66 L240 72 L257 66Z" fill="#ffb347" opacity="0.45"/>
+    </g>
+    <path d="M203 60 L222 66 L218 70 L205 65Z" fill="#ff7a1a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+    <path d="M257 60 L238 66 L242 70 L255 65Z" fill="#ff7a1a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+    <path d="M211 63 L214 64 L213 68 L211 67Z" fill="#3a0f00"/><path d="M249 63 L246 64 L247 68 L249 67Z" fill="#3a0f00"/>
+    <circle cx="207" cy="63" r="0.9" fill="#fff"/><circle cx="253" cy="63" r="0.9" fill="#fff"/>
+    <!-- the maw -->
+    <path d="M198 78 L214 74 L230 76 L246 74 L262 78 L256 96 L230 102 L204 96Z" fill="#2a0e05" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3" stroke-linejoin="round"/>
+    <ellipse cx="230" cy="92" rx="18" ry="5" fill="#ff6a1a" opacity="0.55"/>
+    <ellipse cx="230" cy="93" rx="9" ry="2.6" fill="#ffd24a" opacity="0.8"/>
+    <path d="M200 78 L204 90 L208 77 L212 84 L216 75 L220 82 L224 76 L227 92 L230 76 L233 92 L236 76 L240 82 L244 75 L248 84 L252 77 L256 90 L260 78Z" fill="#e9e3d2" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+    <!-- the rock jaw grinds -->
+    <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 2.6;0 0.4;0 2.6;0 0" dur="3.2s" repeatCount="indefinite"/>
+      <path d="M196 96 L206 94 L230 100 L254 94 L264 96 L258 110 L230 118 L202 110Z" fill="var(--lg-near, #6f8499)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+      <path d="M196 96 L206 94 L230 100 L230 118 L202 110Z" fill="#000" opacity="0.2"/>
+      <path d="M206 95 L210 88 L214 97 L220 91 L224 99 L230 93 L236 99 L240 91 L246 97 L250 88 L254 95Z" fill="#e9e3d2" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+      <path d="M214 106 L222 110" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" opacity="0.6"/>
+    </g>
+    <!-- cheek spikes of rock -->
+    <path d="M186 66 L172 70 L186 76Z" fill="var(--lg-deep, #3e4f63)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+    <path d="M274 66 L288 70 L274 76Z" fill="var(--lg-deep, #3e4f63)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
   </g>
-  <path d="M80 140 L90 70 H182 L176 140Z" fill="#2a1f24" opacity="0.55"/>
-  <!-- left cliff with the path -->
-  <path d="M0 140 V64 L20 58 L44 66 L64 62 L84 74 L96 90 L104 140Z" fill="var(--lg-near, #8d929e)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
-  <path d="M84 74 L96 90 L104 140 H90 L88 96Z" fill="#000" opacity="0.2"/>
-  <path d="M0 80 C24 76 50 82 90 86" fill="none" stroke="#c9b48f" stroke-width="3" stroke-linecap="round" opacity="0.8"/>
-  <!-- the colossus cliff -->
-  <path d="M170 140 L176 70 L188 40 L214 22 L250 18 L286 26 L310 46 L322 76 L330 140Z" fill="var(--lg-deep, #6b6f7a)" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
-  <path d="M188 40 L214 22 L250 18 L232 34 L206 48 L192 76 L186 140 H172 L176 70Z" fill="var(--lg-near, #8d929e)"/>
-  <path d="M310 46 L322 76 L330 140 H312 L310 84 L298 58Z" fill="#000" opacity="0.28"/>
-  <!-- carved brow, burning eyes, magma mouth -->
-  <path d="M206 58 L244 66 L248 64 L252 66 L290 58 L288 50 L250 58 L246 58 L208 50Z" fill="var(--lg-far, #b4b8c2)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
-  <g>
-    <animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -1;0 0" dur="1.6s" repeatCount="indefinite"/>
-    <g fill="#ff7a1a" opacity="0.45"><ellipse cx="228" cy="70" rx="12" ry="7"/><ellipse cx="268" cy="70" rx="12" ry="7"/></g>
+  <!-- pebbles shaken loose from the face -->
+  <g fill="var(--lg-deep, #3e4f63)">
+    <path d="M182 40 l3 -1 l1 3 l-3 1Z" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-4 80" dur="3.6s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1;0.1" dur="3.6s" repeatCount="indefinite" additive="sum"/></path>
+    <path d="M286 52 l2.4 -1 l1 2.4 l-2.4 1Z" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;5 76" dur="4.4s" repeatCount="indefinite" begin="1.6s"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1;0.1" dur="4.4s" repeatCount="indefinite" additive="sum" begin="1.6s"/></path>
   </g>
-  <g fill="#ffb347"><ellipse cx="228" cy="70" rx="7" ry="3"/><ellipse cx="268" cy="70" rx="7" ry="3"/></g>
-  <g fill="#fff4d6"><ellipse cx="228" cy="70" rx="3" ry="1.4"/><ellipse cx="268" cy="70" rx="3" ry="1.4"/></g>
-  <path d="M220 90 H276 L270 104 L248 110 L226 104Z" fill="#1a0b04" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
-  <ellipse cx="248" cy="100" rx="14" ry="5" fill="#ff7a1a" opacity="0.6"/>
-  <g fill="#d6d2c4" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"><polygon points="224,90 228,97 232,90"/><polygon points="236,90 240,98 244,90"/><polygon points="252,90 256,98 260,90"/><polygon points="264,90 268,97 272,90"/></g>
-  <g fill="none" stroke="#ffd166" stroke-width="1.4" stroke-linecap="round"><path d="M196 110 L204 118 L200 128 M300 104 L292 114 L298 124"/></g>
-  <!-- crystal spires -->
-  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round">
-    <polygon points="196,44 188,20 202,40" fill="var(--lg-accent, #f2b441)"/><polygon points="204,40 206,12 212,38" fill="var(--lg-accent, #f2b441)"/>
-    <polygon points="296,40 306,16 302,44" fill="var(--lg-accent, #f2b441)"/><polygon points="288,34 290,8 296,34" fill="var(--lg-accent, #f2b441)"/>
+  <!-- the burning chasm -->
+  <path d="M96 140 L100 122 Q140 116 180 124 Q220 118 260 124 Q300 116 346 122 L344 140Z" fill="#ff7a1a"/>
+  <g fill="#ffd24a"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-8 0;0 0" dur="3s" repeatCount="indefinite"/>
+    <path d="M110 126 Q130 122 150 127 Q140 129 110 128Z"/><path d="M196 127 Q216 122 238 127 Q220 130 196 129Z"/><path d="M280 126 Q300 121 322 126 Q306 129 280 128Z"/>
   </g>
-  <g fill="#fff" opacity="0.45"><polygon points="206,12 208,38 206,40"/><polygon points="290,8 292,34 290,34"/></g>
-  <!-- right cliff -->
-  <path d="M400 140 V70 L380 64 L360 72 L346 90 L340 140Z" fill="var(--lg-near, #8d929e)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
-  <!-- the chasm glow and the rope bridge -->
-  <path d="M104 140 L110 118 H164 L170 140Z" fill="#ff7a1a" opacity="0.5"/>
-  <path d="M104 140 L112 126 H162 L170 140Z" fill="#ffd166" opacity="0.5"/>
-  <path d="M88 88 Q130 104 176 92" fill="none" stroke="#6b4423" stroke-width="2"/>
-  <path d="M88 80 Q130 96 176 84" fill="none" stroke="#6b4423" stroke-width="1.2"/>
-  <g stroke="#8a5a2b" stroke-width="2.4"><path d="M96 91 V83 M106 95 V87 M116 97 V89 M126 98 V90 M136 98 V90 M146 97 V89 M156 96 V88 M166 94 V86"/></g>
-  <!-- falling rocks -->
-  <g fill="var(--lg-deep, #6b6f7a)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7">
-    <polygon style="transform-box:fill-box;transform-origin:center" points="180,30 185,28 186,33 181,34"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-10 100" dur="2.6s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="2.6s" repeatCount="indefinite" additive="sum"/></polygon>
-    <polygon style="transform-box:fill-box;transform-origin:center" points="318,50 322,49 322,53 318,54"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;8 90" dur="3.2s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" keyTimes="0;.12;.82;1" dur="3.2s" repeatCount="indefinite" additive="sum"/></polygon>
+  <g fill="#ffd24a">
+    <circle cx="140" cy="130" r="1.3" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -64" dur="3.2s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.2" dur="3.2s" repeatCount="indefinite" additive="sum"/></circle>
+    <circle cx="214" cy="132" r="1.1" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-8 -70" dur="4s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.2" dur="4s" repeatCount="indefinite" additive="sum" begin="1s"/></circle>
+    <circle cx="300" cy="130" r="1.4" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;4 -60" dur="3.6s" repeatCount="indefinite" begin="0.6s"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.2" dur="3.6s" repeatCount="indefinite" additive="sum" begin="0.6s"/></circle>
+    <circle cx="176" cy="132" r="1" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-3 -56" dur="2.8s" repeatCount="indefinite" begin="1.8s"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.2" dur="2.8s" repeatCount="indefinite" additive="sum" begin="1.8s"/></circle>
   </g>
+  <!-- near cliffs framing the pass -->
+  <path d="M0 74 L22 70 L48 76 L74 76 L96 84 L102 104 L96 140 H0Z" fill="var(--lg-deep, #3e4f63)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M0 74 L22 70 L48 76 L74 76 L96 84 L94 88 L72 80 L48 80 L22 74 L0 78Z" fill="#fff" opacity="0.22"/>
+  <path d="M400 72 L378 70 L358 78 L344 86 L340 106 L344 140 H400Z" fill="var(--lg-deep, #3e4f63)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M400 72 L378 70 L358 78 L344 86 L348 89 L360 82 L378 74 L400 76Z" fill="#fff" opacity="0.22"/>
+  <path d="M96 104 L100 122 L96 140 H90 Z" fill="#ff7a1a" opacity="0.5"/>
+  <path d="M340 106 L344 122 L344 140 H350Z" fill="#ff7a1a" opacity="0.5"/>
+  <!-- strata and a warning cairn on the near rims -->
+  <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linecap="round" opacity="0.5">
+    <path d="M10 92 L40 94"/><path d="M20 106 L60 108"/><path d="M14 122 L50 124"/><path d="M360 100 L388 98"/><path d="M356 116 L392 118"/>
+  </g>
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round">
+    <ellipse cx="36" cy="72" rx="8" ry="3.4" fill="var(--lg-far, #a9b8c8)"/><ellipse cx="37" cy="67" rx="5.6" ry="2.8" fill="var(--lg-far, #a9b8c8)"/><ellipse cx="36" cy="63" rx="3.4" ry="2" fill="var(--lg-far, #a9b8c8)"/>
+    <rect x="44" y="58" width="2" height="16" fill="#6b4423"/>
+    <path d="M38 56 L54 58 L53 66 L37 64Z" fill="#c9a46a"/>
+    <path d="M42.6 58.7 a2.4 2.4 0 1 1 4.6 0.6 l-0.6 1.6 h-3.2Z" fill="#f4efe2" stroke-width="0.5"/>
+    <circle cx="44.2" cy="59.6" r="0.6" fill="#1d2230" stroke="none"/><circle cx="46.4" cy="59.9" r="0.6" fill="#1d2230" stroke="none"/>
+    <ellipse cx="376" cy="72" rx="6" ry="2.6" fill="var(--lg-far, #a9b8c8)"/><ellipse cx="388" cy="72" rx="4" ry="2" fill="var(--lg-far, #a9b8c8)"/>
+  </g>
+  <!-- boulder fists gripping the rims -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-linejoin="round">
+    <path d="M100 108 L96 92 L104 82 L120 80 L134 84 L138 96 L130 110 L112 112Z" fill="var(--lg-near, #6f8499)" stroke-width="1.6"/>
+    <path d="M100 108 L96 92 L104 82 L110 86 L106 104 L112 112Z" fill="#000" opacity="0.22" stroke="none"/>
+    <path d="M104 84 L112 80 L114 88 L106 90Z M114 82 L122 80 L124 88 L116 89Z M124 82 L132 84 L132 91 L126 90Z" fill="var(--lg-far, #a9b8c8)" stroke-width="0.9"/>
+    <path d="M110 96 L118 98 L126 96" fill="none" stroke="#ff7a1a" stroke-width="1.1" stroke-linecap="round"/>
+    <path d="M340 106 L344 92 L338 80 L322 78 L310 82 L306 94 L314 108 L330 110Z" fill="var(--lg-near, #6f8499)" stroke-width="1.6"/>
+    <path d="M340 106 L344 92 L338 80 L332 84 L336 104 L330 110Z" fill="#000" opacity="0.22" stroke="none"/>
+    <path d="M338 82 L330 78 L328 86 L336 88Z M328 80 L320 78 L318 86 L326 87Z M318 80 L310 82 L310 89 L316 88Z" fill="var(--lg-far, #a9b8c8)" stroke-width="0.9"/>
+    <path d="M316 94 L324 96 L332 94" fill="none" stroke="#ff7a1a" stroke-width="1.1" stroke-linecap="round"/>
+  </g>
+  <!-- the rope bridge, swaying over the fire -->
+  <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 1.6;0 0" dur="4.2s" repeatCount="indefinite"/>
+    <path d="M92 86 Q220 122 348 84" fill="none" stroke="#5a3a1c" stroke-width="1.4"/>
+    <g fill="#9a6a38" stroke="#4a2e14" stroke-width="0.6"><rect x="-3.6" y="-1" width="7.2" height="4.4" rx="0.8" transform="translate(101.8 88.7) rotate(14.5)"/><rect x="-3.6" y="-1" width="7.2" height="4.4" rx="0.8" transform="translate(111.7 91.1) rotate(13.3)"/><rect x="-3.6" y="-1" width="7.2" height="4.4" rx="0.8" transform="translate(121.5 93.3) rotate(12.1)"/><rect x="-3.6" y="-1" width="7.2" height="4.4" rx="0.8" transform="translate(131.4 95.3) rotate(10.9)"/><rect x="-3.6" y="-1" width="7.2" height="4.4" rx="0.8" transform="translate(141.2 97.1) rotate(9.6)"/><rect x="-3.6" y="-1" width="7.2" height="4.4" rx="0.8" transform="translate(151.1 98.7) rotate(8.4)"/><rect x="-3.6" y="-1" width="7.2" height="4.4" rx="0.8" transform="translate(160.9 100.0) rotate(7.1)"/><rect x="-3.6" y="-1" width="7.2" height="4.4" rx="0.8" transform="translate(170.8 101.1) rotate(5.9)"/><rect x="-3.6" y="-1" width="7.2" height="4.4" rx="0.8" transform="translate(180.6 102.1) rotate(4.6)"/><rect x="-3.6" y="-1" width="7.2" height="4.4" rx="0.8" transform="translate(190.5 102.7) rotate(3.4)"/><rect x="-3.6" y="-1" width="7.2" height="4.4" rx="0.8" transform="translate(200.3 103.2) rotate(2.1)"/><rect x="-3.6" y="-1" width="7.2" height="4.4" rx="0.8" transform="translate(210.2 103.5) rotate(0.8)"/><rect x="-3.6" y="-1" width="7.2" height="4.4" rx="0.8" transform="translate(220.0 103.5) rotate(-0.5)"/><rect x="-3.6" y="-1" width="7.2" height="4.4" rx="0.8" transform="translate(249.5 102.3) rotate(-4.3)"/><rect x="-3.6" y="-1" width="7.2" height="4.4" rx="0.8" transform="translate(259.4 101.4) rotate(-5.5)"/><rect x="-3.6" y="-1" width="7.2" height="4.4" rx="0.8" transform="translate(269.2 100.4) rotate(-6.8)"/><rect x="-3.6" y="-1" width="7.2" height="4.4" rx="0.8" transform="translate(279.1 99.1) rotate(-8.1)"/><rect x="-3.6" y="-1" width="7.2" height="4.4" rx="0.8" transform="translate(288.9 97.6) rotate(-9.3)"/><rect x="-3.6" y="-1" width="7.2" height="4.4" rx="0.8" transform="translate(298.8 95.9) rotate(-10.5)"/><rect x="-3.6" y="-1" width="7.2" height="4.4" rx="0.8" transform="translate(308.6 93.9) rotate(-11.8)"/><rect x="-3.6" y="-1" width="7.2" height="4.4" rx="0.8" transform="translate(318.5 91.8) rotate(-13.0)"/><rect x="-3.6" y="-1" width="7.2" height="4.4" rx="0.8" transform="translate(328.3 89.4) rotate(-14.2)"/><rect x="-3.6" y="-1" width="7.2" height="4.4" rx="0.8" transform="translate(338.2 86.8) rotate(-15.4)"/></g>
+    <path d="M121.5 79.7 L121.5 93.3 M151.1 84.6 L151.1 98.7 M180.6 87.7 L180.6 102.1 M210.2 89.0 L210.2 103.5 M269.2 86.1 L269.2 100.4 M298.8 81.9 L298.8 95.9 M328.3 76.0 L328.3 89.4" fill="none" stroke="#5a3a1c" stroke-width="0.7"/>
+    <path d="M92 73 Q220 106 348 71" fill="none" stroke="#5a3a1c" stroke-width="1.3"/>
+    <g transform="translate(234.8 105.1)"><rect x="-1.4" y="0" width="2.8" height="9" fill="#9a6a38" stroke="#4a2e14" stroke-width="0.5" style="transform-box:fill-box;transform-origin:center top"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-14;10;-14" dur="2.6s" repeatCount="indefinite"/></rect></g>
+  </g>
+  <!-- anchor posts and a torch -->
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1" fill="#6b4423"><rect x="86" y="66" width="5" height="20" rx="1"/><rect x="346" y="64" width="5" height="20" rx="1"/><rect x="66" y="58" width="3.4" height="18"/></g>
+  <path d="M67.7 58 C64 54 66 50 67.7 46 C69.6 50 71.4 54 67.7 58Z" fill="#ff7a1a" style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;0.85 1.2;1.1 0.9;1 1" dur="0.7s" repeatCount="indefinite"/></path>
+  <path d="M67.7 57 C66 55 67 52 67.7 50 C68.6 52 69.4 55 67.7 57Z" fill="#ffd24a"/>
+  <!-- a hawk circling the pass -->
+  <path d="M-4 0 Q-2 -2 0 0 Q2 -2 4 0" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1" transform="translate(130 34)"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="130 34;160 30;190 36;160 40;130 34" dur="9s" repeatCount="indefinite"/></path>
 </svg>
