@@ -128,7 +128,27 @@ const EFFECTS = {
     <div className="lgx" style={{ ...center, width: '115%', height: '115%', borderRadius: '50%', borderTop: '6px solid #e9f2ff', borderRight: '3px solid transparent', boxShadow: '0 -6px 14px -6px #9fd0ff', animation: anim('lgxArc', 700) }} />
   ),
   // Dreamer: it still sleeps: a soft bubble pops and Zzz drift up.
+  // Moon Devourer: supernova: a star ignites at its heart, flares white, and bursts in rings and rays.
+  supernova: () => <>
+    <div className="lgx" style={{ ...center, width: '34%', height: '34%', borderRadius: '50%', background: 'radial-gradient(circle, #ffffff 0 30%, #fff1a8 48%, #ff8a3d 70%, transparent 72%)', boxShadow: '0 0 30px #ffd36b', '--s': 3.2, animation: anim('lgxRing', 900) }} />
+    {flash('#fff3c4')}
+    {around(12, (i, a) => <div key={i} className="lgx" style={{ ...center, width: 5, height: i % 2 ? 46 : 70, marginLeft: -2.5, background: i % 2 ? '#ff6ad5' : '#fff1a8', borderRadius: 3, boxShadow: `0 0 10px ${i % 2 ? '#ff6ad5' : '#ffd36b'}`, '--a': `${a}deg`, '--d': '-70px', '--spin': '0deg', animation: anim('lgxShard', 800, 80) }} />)}
+    {ring('#ffd36b', 120, 2.2, 5)}{ring('#c86bff', 260, 2.7, 3, 800)}
+  </>,
   slumber: () => <>{ring(C.purple, 0, 1.4, 4, 1000)}{['Z', 'z', 'Z'].map((z, i) => <div key={i} className="lgx" style={{ left: `${40 + i * 12}%`, top: '30%', fontWeight: 900, fontSize: 20 - i * 3, color: C.purple, '--dx': `${10 + i * 8}px`, animation: anim('lgxZ', 1000, i * 150) }}>{z}</div>)}</>,
+  // Nine-Tailed Empress: a star ball is stolen: her jewel tears out of her, flashes, and flies down to you.
+  steal: () => <>
+    {flash('#c8fbff')}
+    {ring('#6ff3ff', 0, 1.8, 4)}{ring('#ff8fc0', 160, 2.3, 3)}
+    <div className="lgx" style={{ ...center, width: 30, height: 36, marginLeft: -15, marginTop: -18, borderRadius: '50% 50% 50% 50% / 64% 64% 36% 36%', background: 'radial-gradient(circle at 40% 55%, #ffffff 0 22%, #c8fbff 40%, #6ff3ff 70%, #17a9c9 100%)', border: '2px solid #1d2230', boxShadow: '0 0 18px #6ff3ff, 0 -10px 16px -4px #bff9ff', '--tx': '0px', '--ty': '150px', animation: anim('lgxToHearts', 950, 120, 'ease-in') }} />
+    {around(8, (i, a) => <div key={i} className="lgx" style={{ ...center, width: 7, height: 7, marginLeft: -3.5, borderRadius: '50%', background: i % 2 ? '#ffb7cf' : '#e8ffff', boxShadow: '0 0 8px #6ff3ff', '--a': `${a}deg`, '--d': '-64px', animation: anim('lgxShard', 650) }} />)}
+  </>,
+  // Nine-Tailed Empress: a held star ball burns: a small jewel flares and fox-fire sparks rise from the hit.
+  starball: () => <>
+    <div className="lgx" style={{ ...center, width: 18, height: 22,borderRadius: '50% 50% 50% 50% / 64% 64% 36% 36%', background: 'radial-gradient(circle at 40% 55%, #ffffff 0 22%, #c8fbff 40%, #6ff3ff 70%, #17a9c9 100%)', border: '2px solid #1d2230', boxShadow: '0 0 18px #6ff3ff, 0 -10px 16px -4px #bff9ff', '--s': 2.2, animation: anim('lgxRing', 700) }} />
+    {ring('#6ff3ff', 60, 1.5, 3)}
+    {[0, 1, 2, 3].map((i) => <div key={i} className="lgx" style={{ left: `${34 + i * 10}%`, top: '52%', width: 9, height: 13, borderRadius: '50% 50% 50% 50% / 64% 64% 36% 36%', background: i % 2 ? '#bff9ff' : '#6ff3ff', boxShadow: '0 0 10px #6ff3ff', '--h': `${-70 - i * 12}px`, animation: anim('lgxRise', 800, i * 90) }} />)}
+  </>,
 }
 
 export const ABILITY_FX_KEYS = Object.keys(EFFECTS)

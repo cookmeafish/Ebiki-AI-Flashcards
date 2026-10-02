@@ -18,8 +18,18 @@ plus the technical rules the app enforces. The files live in `public/assets/lege
   bosses ... if it makes sense for the boss design then yea keep it mean"). The rule is VARIETY, not "no mean
   bosses": a dread knight, a lava wyrm or a three-headed hound stay menacing; a mountain spirit, a kitsune or a candy
   giant may be serene, sly or goofy. Decide per boss from its concept, then check the whole set for a spread. In 2026-10
-  the owner had these eight changed from mean: mountains (serene), sakura (enigmatic), sky (playful), sweets (goofy),
-  ice (haughty), jungle (smug), graveyard (melancholy), garden (dopey and hungry).
+  the owner had these changed from mean: mountains (serene), sakura (enigmatic), sky (playful), sweets (goofy),
+  ice (haughty), jungle (smug), graveyard (melancholy), garden (dopey and hungry),
+  arena (noble and handsome: a laurel-crowned champion with his face shown, a calm half smile, sword raised in salute),
+  crystal (insufferably smug: three conceited heads, a cocked brow, an eye roll, a self-admiring sparkle),
+  fungal (drowsy, dreamy spore-sage: heavy half-shut lids, a moss moustache and beard, a content smile, a slow yawn
+  that puffs sleepy spores),
+  arcade (hyped and cocky, he just set the high score: gold pixel star eyes, raised brows with one cocked, a huge
+  toothy grin that laughs HA-HA in hard steps, a blinking HI under the score),
+  sewer (smug show-off, flashing his gold grillz: chin up, half-lidded eyes, one brow cocked, two huge sparkling gold
+  buck teeth as the focal point, bling, and two rat courtiers, one polishing a coin, one holding up his mirror),
+  junkyard (happy-creepy: chrome brows arched in glee, mismatched headlight lenses with pinpoint pupils that never
+  move, cheeks pushed up into smiling eyes, a grin far too wide crammed with scrap teeth, a wind-up key, a cheerful wave).
 - **Every boss and every banner is truly unique**, not "the same thing but slightly different". Vary the whole idea,
   not the colors:
   - silhouette and pose (a head bust, a full body, winged, a profile view, a creature rising out of something);
