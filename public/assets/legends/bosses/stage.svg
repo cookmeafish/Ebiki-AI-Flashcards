@@ -33,7 +33,7 @@
         <path d="M60 50 C40 50 18 58 2 76 L8 82 L-2 92 L8 96 L0 110 L12 112 L6 126 H114 L108 112 L120 110 L112 96 L122 92 L112 82 L118 76 C102 58 80 50 60 50Z" fill="#b3122e" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
         <path d="M60 50 C40 50 18 58 2 76 L8 82 L-2 92 L8 96 L0 110 L12 112 L6 126 H24 C24 100 28 76 40 58Z" fill="#fff" opacity="0.14"/>
         <path d="M118 76 C104 60 86 52 76 52 C92 64 98 90 98 126 H114 L108 112 L120 110 L112 96 L122 92 L112 82Z" fill="#000" opacity="0.28"/>
-        <path d="M60 58 C46 60 34 68 28 80 L32 84 L28 94 L36 96 L34 108 L42 110 L42 126 H78 L78 110 L86 108 L84 96 L92 94 L88 84 L92 80 C86 68 74 60 60 58Z" fill="var(--lg-deep, #7c4def)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+        <path d="M60 58 C46 60 34 68 28 80 L32 84 L28 94 L36 96 L34 108 L42 110 L42 126 H78 L78 110 L86 108 L84 96 L92 94 L88 84 L92 80 C86 68 74 60 60 58Z" fill="var(--lg-tint,#7c4def)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
         <path d="M60 58 C46 60 34 68 28 80 L32 84 L28 94 L36 96 L34 108 L42 110 L42 126 H78 L78 110 L86 108 L84 96 L92 94 L88 84 L92 80 C86 68 74 60 60 58Z" fill="#000" opacity="0.45"/>
         <g fill="none" stroke="#000" stroke-width="1.3" opacity="0.3" stroke-linecap="round"><path d="M20 72 C22 88 24 104 22 122 M100 72 C98 88 96 104 98 122"/></g>
         <g fill="#ffd166"><circle cx="8" cy="82" r="1.2"/><circle cx="8" cy="96" r="1.2"/><circle cx="12" cy="112" r="1.2"/><circle cx="112" cy="82" r="1.2"/><circle cx="112" cy="96" r="1.2"/><circle cx="108" cy="112" r="1.2"/></g>
@@ -42,7 +42,7 @@
   </g></g>
   <!-- tailcoat, vest and ruff -->
   <path d="M42 62 L60 104 L78 62 L68 56 H52Z" fill="#161421" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
-  <path d="M52 60 L60 86 L68 60Z" fill="var(--lg-deep, #7c4def)" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+  <path d="M52 60 L60 86 L68 60Z" fill="var(--lg-tint,#7c4def)" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
   <g fill="#ffd166" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"><circle cx="60" cy="68" r="1.2"/><circle cx="60" cy="75" r="1.2"/></g>
   <path d="M38 60 C42 55 46 62 50 57 C52 62 56 55 60 60 C64 55 68 62 70 57 C74 62 78 55 82 60 L78 65 C74 61 70 67 66 62 C63 67 57 67 54 62 C50 67 46 61 42 65Z" fill="#f4efe6" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
   <!-- left arm: a clawed glove raising a crackling baton -->
@@ -129,8 +129,8 @@
     <path d="M-17 -4 C-10 3 10 3 17 -4 C14 6 8 11 0 11 C-8 11 -14 6 -17 -4Z" fill="#12101b" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
     <path d="M-17 -4 L-20 -7 M17 -4 L20 -7" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1" stroke-linecap="round"/>
     <g fill="#f4efe6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round">
-      <path d="M-15 -2 L-13 3 L-11 0Z"/><path d="M-11 0 L-9 5 L-7 1Z"/><path d="M-7 1 L-5 6 L-3 1.6Z"/><path d="M-3 1.6 L-1 6.4 L1 1.8Z"/><path d="M1 1.8 L3 6.4 L5 1.6Z"/><path d="M5 1.6 L7 6 L9 1Z"/><path d="M9 1 L11 5 L13 0Z"/><path d="M11 0 L13 3 L15 -2Z"/>
-      <path d="M-9 8 L-7 4 L-5 9Z"/><path d="M-3 10 L-1 5 L1 10.4Z"/><path d="M3 10 L5 5 L7 9Z"/>
+      <path d="M-15 -2 L-14.64 0.25 Q-13 4.1 -11.36 1.35 L-11 0Z"/><path d="M-11 0 L-10.64 2.25 Q-9 6.1 -7.36 2.8 L-7 1Z"/><path d="M-7 1 L-6.64 3.25 Q-5 7.1 -3.36 3.58 L-3 1.6Z"/><path d="M-3 1.6 L-2.64 3.76 Q-1 7.5 0.64 3.87 L1 1.8Z"/><path d="M1 1.8 L1.36 3.87 Q3 7.5 4.64 3.76 L5 1.6Z"/><path d="M5 1.6 L5.36 3.58 Q7 7.1 8.64 3.25 L9 1Z"/><path d="M9 1 L9.36 2.8 Q11 6.1 12.64 2.25 L13 0Z"/><path d="M11 0 L11.36 1.35 Q13 4.1 14.64 0.25 L15 -2Z"/>
+      <path d="M-9 8 L-8.64 6.2 Q-7 2.9 -5.36 6.75 L-5 9Z"/><path d="M-3 10 L-2.64 7.75 Q-1 3.9 0.64 7.97 L1 10.4Z"/><path d="M3 10 L3.36 7.75 Q5 3.9 6.64 7.2 L7 9Z"/>
     </g>
   </g></g>
   <!-- the crack, and a black tear of the tragedy half -->
@@ -138,7 +138,7 @@
   <path d="M64 46 L60 50 M67 40 L71 38" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
   <path d="M72 52 C71 56 73 58 74 56 C74 55 73 54 72 52Z" fill="#12101b"/>
   <!-- sparks of applause drifting up -->
-  <g fill="var(--lg-accent, #f2b441)">
+  <g fill="#f2b441">
     <path d="M30 88 l1.2 3 l3 1.2 l-3 1.2 l-1.2 3 l-1.2 -3 l-3 -1.2 l3 -1.2Z" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;90" dur="1.4s" repeatCount="indefinite"/></path>
     <path d="M94 104 l1 2.4 l2.4 1 l-2.4 1 l-1 2.4 l-1 -2.4 l-2.4 -1 l2.4 -1Z" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-90" dur="1.7s" repeatCount="indefinite"/></path>
   </g>

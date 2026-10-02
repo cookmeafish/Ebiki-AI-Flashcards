@@ -4,29 +4,29 @@
        side, a ring of station wreckage orbiting it, a ringed planet far away.
        Entrance: the tentacles unfurl, the wreckage ring spins up, the eye opens, the iris snaps wide, the jaw gapes. -->
   <!-- stars and a far ringed planet -->
-  <g fill="#fff" stroke="var(--lg-accent, #f2b441)" stroke-width="0.3">
+  <g fill="#fff" stroke="#f2b441" stroke-width="0.3">
     <circle cx="104" cy="8" r="1.1"/><circle cx="116" cy="34" r="0.8"/><circle cx="4" cy="64" r="0.9"/><circle cx="112" cy="100" r="1"/><circle cx="10" cy="108" r="0.8"/><circle cx="40" cy="2" r="0.7"/>
     <path d="M96 18 l0.9 2.1 l2.1 0.9 l-2.1 0.9 l-0.9 2.1 l-0.9 -2.1 l-2.1 -0.9 l2.1 -0.9Z" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.2;1" dur="1.9s" repeatCount="indefinite"/></path>
     <path d="M24 92 l0.9 2.1 l2.1 0.9 l-2.1 0.9 l-0.9 2.1 l-0.9 -2.1 l-2.1 -0.9 l2.1 -0.9Z" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.2;1" dur="2.4s" repeatCount="indefinite"/></path>
   </g>
   <g transform="translate(12 12) rotate(-20)">
-    <circle r="6.4" fill="var(--lg-accent, #f2b441)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+    <circle r="6.4" fill="#f2b441" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
     <path d="M-6.4 0 A6.4 6.4 0 0 0 6.4 0 A6.4 3 0 0 1 -6.4 0Z" fill="#000" opacity="0.2"/>
     <ellipse rx="11" ry="2.6" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="2.4"/><ellipse rx="11" ry="2.6" fill="none" stroke="#ffe0a8" stroke-width="1.1"/>
   </g>
   <!-- the wreckage ring, back half -->
   <g transform="translate(60 60) rotate(-12) scale(1 0.24)">
     <ellipse rx="64" ry="64" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="6" opacity="0.5"/>
-    <ellipse rx="64" ry="64" fill="none" stroke="var(--lg-accent, #f2b441)" stroke-width="3.6" stroke-dasharray="6 3 2 4"/>
+    <ellipse rx="64" ry="64" fill="none" stroke="#f2b441" stroke-width="3.6" stroke-dasharray="6 3 2 4"/>
   </g>
   <!-- star-dust tentacles -->
   <g transform="translate(60 58) rotate(150) translate(38 0)"><g>
       <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.05;0.05;1.15;1" keyTimes="0;.3;.62;1" dur="1.6s" fill="freeze"/>
       <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;8;0" dur="3.4s" repeatCount="indefinite"/>
         <path d="M0 -6 C16 -8 30 0 36 12 C40 20 36 28 29 26 C24 24 26 18 30 19 C32 12 22 6 12 6 L0 6Z" fill="#2a1650" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
-        <path d="M0 -6 C16 -8 30 0 36 12 C40 20 36 28 29 26" fill="none" stroke="#b44bff" stroke-width="0.9"/>
+        <path d="M0 -6 C16 -8 30 0 36 12 C40 20 36 28 29 26" fill="none" stroke="var(--lg-tint,#b44bff)" stroke-width="0.9"/>
         <g fill="#fff"><circle cx="10" cy="-2" r="0.7"/><circle cx="20" cy="0" r="0.6"/><circle cx="30" cy="8" r="0.7"/><circle cx="34" cy="18" r="0.5"/></g>
-        <g fill="#ff2e7a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"><circle cx="14" cy="4" r="1.1"/><circle cx="24" cy="7" r="1"/><circle cx="31" cy="14" r="0.9"/></g>
+        <g fill="var(--lg-tint-hi,#ff2e7a)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"><circle cx="14" cy="4" r="1.1"/><circle cx="24" cy="7" r="1"/><circle cx="31" cy="14" r="0.9"/></g>
         <circle cx="30" cy="22" r="2.2" fill="#ffe0f2" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
       </g>
     </g></g>
@@ -34,9 +34,9 @@
       <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.05;0.05;1.15;1" keyTimes="0;.3;.62;1" dur="1.6s" fill="freeze"/>
       <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-10;0" dur="2.9s" repeatCount="indefinite"/>
         <path d="M0 -6 C16 -8 30 0 36 12 C40 20 36 28 29 26 C24 24 26 18 30 19 C32 12 22 6 12 6 L0 6Z" fill="#2a1650" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
-        <path d="M0 -6 C16 -8 30 0 36 12 C40 20 36 28 29 26" fill="none" stroke="#b44bff" stroke-width="0.9"/>
+        <path d="M0 -6 C16 -8 30 0 36 12 C40 20 36 28 29 26" fill="none" stroke="var(--lg-tint,#b44bff)" stroke-width="0.9"/>
         <g fill="#fff"><circle cx="10" cy="-2" r="0.7"/><circle cx="20" cy="0" r="0.6"/><circle cx="30" cy="8" r="0.7"/><circle cx="34" cy="18" r="0.5"/></g>
-        <g fill="#ff2e7a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"><circle cx="14" cy="4" r="1.1"/><circle cx="24" cy="7" r="1"/><circle cx="31" cy="14" r="0.9"/></g>
+        <g fill="var(--lg-tint-hi,#ff2e7a)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"><circle cx="14" cy="4" r="1.1"/><circle cx="24" cy="7" r="1"/><circle cx="31" cy="14" r="0.9"/></g>
         <circle cx="30" cy="22" r="2.2" fill="#ffe0f2" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
       </g>
     </g></g>
@@ -44,9 +44,9 @@
       <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.05;0.05;1.15;1" keyTimes="0;.3;.62;1" dur="1.6s" fill="freeze"/>
       <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;9;0" dur="3.8s" repeatCount="indefinite"/>
         <path d="M0 -6 C16 -8 30 0 36 12 C40 20 36 28 29 26 C24 24 26 18 30 19 C32 12 22 6 12 6 L0 6Z" fill="#2a1650" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
-        <path d="M0 -6 C16 -8 30 0 36 12 C40 20 36 28 29 26" fill="none" stroke="#b44bff" stroke-width="0.9"/>
+        <path d="M0 -6 C16 -8 30 0 36 12 C40 20 36 28 29 26" fill="none" stroke="var(--lg-tint,#b44bff)" stroke-width="0.9"/>
         <g fill="#fff"><circle cx="10" cy="-2" r="0.7"/><circle cx="20" cy="0" r="0.6"/><circle cx="30" cy="8" r="0.7"/><circle cx="34" cy="18" r="0.5"/></g>
-        <g fill="#ff2e7a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"><circle cx="14" cy="4" r="1.1"/><circle cx="24" cy="7" r="1"/><circle cx="31" cy="14" r="0.9"/></g>
+        <g fill="var(--lg-tint-hi,#ff2e7a)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"><circle cx="14" cy="4" r="1.1"/><circle cx="24" cy="7" r="1"/><circle cx="31" cy="14" r="0.9"/></g>
         <circle cx="30" cy="22" r="2.2" fill="#ffe0f2" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
       </g>
     </g></g>
@@ -54,9 +54,9 @@
       <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.05;0.05;1.15;1" keyTimes="0;.3;.62;1" dur="1.6s" fill="freeze"/>
       <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-9;0" dur="3.1s" repeatCount="indefinite"/>
         <path d="M0 -6 C16 -8 30 0 36 12 C40 20 36 28 29 26 C24 24 26 18 30 19 C32 12 22 6 12 6 L0 6Z" fill="#2a1650" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
-        <path d="M0 -6 C16 -8 30 0 36 12 C40 20 36 28 29 26" fill="none" stroke="#b44bff" stroke-width="0.9"/>
+        <path d="M0 -6 C16 -8 30 0 36 12 C40 20 36 28 29 26" fill="none" stroke="var(--lg-tint,#b44bff)" stroke-width="0.9"/>
         <g fill="#fff"><circle cx="10" cy="-2" r="0.7"/><circle cx="20" cy="0" r="0.6"/><circle cx="30" cy="8" r="0.7"/><circle cx="34" cy="18" r="0.5"/></g>
-        <g fill="#ff2e7a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"><circle cx="14" cy="4" r="1.1"/><circle cx="24" cy="7" r="1"/><circle cx="31" cy="14" r="0.9"/></g>
+        <g fill="var(--lg-tint-hi,#ff2e7a)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"><circle cx="14" cy="4" r="1.1"/><circle cx="24" cy="7" r="1"/><circle cx="31" cy="14" r="0.9"/></g>
         <circle cx="30" cy="22" r="2.2" fill="#ffe0f2" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
       </g>
     </g></g>
@@ -64,9 +64,9 @@
       <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.05;0.05;1.15;1" keyTimes="0;.3;.62;1" dur="1.6s" fill="freeze"/>
       <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;10;0" dur="3.6s" repeatCount="indefinite"/>
         <path d="M0 -6 C16 -8 30 0 36 12 C40 20 36 28 29 26 C24 24 26 18 30 19 C32 12 22 6 12 6 L0 6Z" fill="#2a1650" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
-        <path d="M0 -6 C16 -8 30 0 36 12 C40 20 36 28 29 26" fill="none" stroke="#b44bff" stroke-width="0.9"/>
+        <path d="M0 -6 C16 -8 30 0 36 12 C40 20 36 28 29 26" fill="none" stroke="var(--lg-tint,#b44bff)" stroke-width="0.9"/>
         <g fill="#fff"><circle cx="10" cy="-2" r="0.7"/><circle cx="20" cy="0" r="0.6"/><circle cx="30" cy="8" r="0.7"/><circle cx="34" cy="18" r="0.5"/></g>
-        <g fill="#ff2e7a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"><circle cx="14" cy="4" r="1.1"/><circle cx="24" cy="7" r="1"/><circle cx="31" cy="14" r="0.9"/></g>
+        <g fill="var(--lg-tint-hi,#ff2e7a)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"><circle cx="14" cy="4" r="1.1"/><circle cx="24" cy="7" r="1"/><circle cx="31" cy="14" r="0.9"/></g>
         <circle cx="30" cy="22" r="2.2" fill="#ffe0f2" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
       </g>
     </g></g>
@@ -74,9 +74,9 @@
       <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.05;0.05;1.15;1" keyTimes="0;.3;.62;1" dur="1.6s" fill="freeze"/>
       <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-8;0" dur="3.2s" repeatCount="indefinite"/>
         <path d="M0 -6 C16 -8 30 0 36 12 C40 20 36 28 29 26 C24 24 26 18 30 19 C32 12 22 6 12 6 L0 6Z" fill="#2a1650" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
-        <path d="M0 -6 C16 -8 30 0 36 12 C40 20 36 28 29 26" fill="none" stroke="#b44bff" stroke-width="0.9"/>
+        <path d="M0 -6 C16 -8 30 0 36 12 C40 20 36 28 29 26" fill="none" stroke="var(--lg-tint,#b44bff)" stroke-width="0.9"/>
         <g fill="#fff"><circle cx="10" cy="-2" r="0.7"/><circle cx="20" cy="0" r="0.6"/><circle cx="30" cy="8" r="0.7"/><circle cx="34" cy="18" r="0.5"/></g>
-        <g fill="#ff2e7a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"><circle cx="14" cy="4" r="1.1"/><circle cx="24" cy="7" r="1"/><circle cx="31" cy="14" r="0.9"/></g>
+        <g fill="var(--lg-tint-hi,#ff2e7a)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.4"><circle cx="14" cy="4" r="1.1"/><circle cx="24" cy="7" r="1"/><circle cx="31" cy="14" r="0.9"/></g>
         <circle cx="30" cy="22" r="2.2" fill="#ffe0f2" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
       </g>
     </g></g>
@@ -141,7 +141,7 @@
   </g></g>
   <!-- the wreckage ring, front half, debris orbiting: spins up on the entrance -->
   <g transform="translate(60 60) rotate(-12) scale(1 0.24)">
-    <path d="M-67.5 0 A67.5 67.5 0 0 0 67.5 0 L60.5 0 A60.5 60.5 0 0 1 -60.5 0Z" fill="var(--lg-accent, #f2b441)" stroke="var(--lg-ink, #1d2230)" stroke-width="2.4" stroke-linejoin="round"/>
+    <path d="M-67.5 0 A67.5 67.5 0 0 0 67.5 0 L60.5 0 A60.5 60.5 0 0 1 -60.5 0Z" fill="#f2b441" stroke="var(--lg-ink, #1d2230)" stroke-width="2.4" stroke-linejoin="round"/>
     <g fill="var(--lg-ink, #1d2230)" opacity="0.55"><rect x="-1" y="60" width="2" height="8" transform="rotate(60)"/><rect x="-1" y="60" width="2" height="8" transform="rotate(42)"/><rect x="-1" y="60" width="2" height="8" transform="rotate(22)"/><rect x="-1" y="60" width="2" height="8" transform="rotate(0)"/><rect x="-1" y="60" width="2" height="8" transform="rotate(-22)"/><rect x="-1" y="60" width="2" height="8" transform="rotate(-42)"/><rect x="-1" y="60" width="2" height="8" transform="rotate(-60)"/></g>
   </g>
   <g transform="rotate(-12 60 60)">

@@ -1602,8 +1602,11 @@ Discover can use the level (opt-in, see Discover). Works for ANY subject (a Comp
 - **Art is hand-made FILES, never generated** (`public/assets/legends/areas|bosses/<motif>.svg`, one per `MOTIFS`
   entry; the map's AI only picks the motif and palette). `art.jsx` fetches a file once, sanitizes it with the app's
   `sanitizeHtml` (loaded LAZILY: Markdown.jsx needs a DOM; a top-level import broke `features.test.js`) and inlines it
-  inside a box that sets `--lg-sky/far/near/deep/accent/light` from the area's palette, so one drawing fits every area
-  and both themes. Every `var()` in a file carries its own fallback (`art.test.js` checks it, plus one file per motif
+  inside a box that sets the palette variables. **Every drawing is painted in its OWN ideal fixed colors** (palette
+  `original`, first in `PALETTES`); a palette recolors only ONE chosen part per boss (its fire, gems, aura, cape),
+  which uses `--lg-tint`/`-hi`/`-lo` with the ideal colors as fallbacks, in the boss, its banner and every raid phase
+  (the owner: palettes repainting whole bosses made some unrecognizable). `art.test.js` fails on the retired
+  `--lg-sky/far/near/deep/accent/light` and on a file with no tinted part. Every `var()` in a file carries its own fallback (`art.test.js` checks it, plus one file per motif
   and no scripts/links/url()). A new motif = a `MOTIFS` entry + both files + an `ENTRANCES` entry. How to edit:
   `public/assets/legends/README.md`.
 - **Asked to make or redraw Legends art (a boss, a RAID boss, a banner)? Read `docs/legends-art-guide.md` FIRST and
@@ -1780,6 +1783,11 @@ Discover can use the level (opt-in, see Discover). Works for ANY subject (a Comp
   `SHRIMP` comes first at the same sizes, so all compare on one screen); every palette; ← and → step through the list. **File names are shown ONLY there** (and in the dev
   gallery): `ArtLabels` (art.jsx) puts a tag UNDER each drawing of 100px or more, never on it and never in gameplay,
   cheat mode or not (the owner: "solely for viewing assets in the asset viewer").
+- **Art loads near the screen and pauses off it** (art.jsx `useArtInView`, `ART_NEAR`): a drawing is fetched and
+  sanitized only once it comes within 400px of the viewport, files are sanitized one per task (`sanitizeQueue`), and
+  an off-screen drawing's SMIL is paused (`pauseAnimations`). The asset view mounted ~37 raid bosses (~3000 shapes,
+  hundreds of animations each) at once and lagged the owner's computer. The dev gallery sets
+  `window.__ebikiArtEager = true` (check-art measures every drawing at fixed moments); keep that line.
 - **Boss figures breathe past their frame** (art.jsx `BOSS_HEADROOM` 20%): a boss or raid boss SVG renders
   `overflow="visible"` and its box clips at `inset(-20%)`, so a flame, wing or aura that grows past the 120 x 120
   viewBox is not sliced flat (a flame looked boxy, as if behind glass). **That headroom is real LAYOUT space wherever something sits next to a figure**

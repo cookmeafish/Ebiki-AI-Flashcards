@@ -7,9 +7,9 @@
   <!-- the sunburst mandorla: a solid plate of gold spikes turning slowly behind it -->
   <g transform="translate(60 44)">
     <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;360" dur="40s" repeatCount="indefinite"/>
-      <path d="M0.0 -46.0 L7.0 -35.3 L17.6 -42.5 L20.0 -29.9 L32.5 -32.5 L29.9 -20.0 L42.5 -17.6 L35.3 -7.0 L46.0 -0.0 L35.3 7.0 L42.5 17.6 L29.9 20.0 L32.5 32.5 L20.0 29.9 L17.6 42.5 L7.0 35.3 L0.0 46.0 L-7.0 35.3 L-17.6 42.5 L-20.0 29.9 L-32.5 32.5 L-29.9 20.0 L-42.5 17.6 L-35.3 7.0 L-46.0 0.0 L-35.3 -7.0 L-42.5 -17.6 L-29.9 -20.0 L-32.5 -32.5 L-20.0 -29.9 L-17.6 -42.5 L-7.0 -35.3Z" fill="#e0b030" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
-      <path d="M0.0 -46.0 L7.0 -35.3 L17.6 -42.5 L20.0 -29.9 L32.5 -32.5 L29.9 -20.0 L42.5 -17.6 L35.3 -7.0 L46.0 -0.0 L35.3 7.0 L42.5 17.6 L29.9 20.0 L32.5 32.5 L20.0 29.9 L17.6 42.5 L7.0 35.3 L0.0 46.0 L-7.0 35.3 L-17.6 42.5 L-20.0 29.9 L-32.5 32.5 L-29.9 20.0 L-42.5 17.6 L-35.3 7.0 L-46.0 0.0 L-35.3 -7.0 L-42.5 -17.6 L-29.9 -20.0 L-32.5 -32.5 L-20.0 -29.9 L-17.6 -42.5 L-7.0 -35.3Z" fill="#ffd23f" transform="scale(0.82)"/>
-      <circle r="27" fill="#fff6c2" stroke="#e0b030" stroke-width="1.4"/>
+      <path d="M0.0 -46.0 L7.0 -35.3 L17.6 -42.5 L20.0 -29.9 L32.5 -32.5 L29.9 -20.0 L42.5 -17.6 L35.3 -7.0 L46.0 -0.0 L35.3 7.0 L42.5 17.6 L29.9 20.0 L32.5 32.5 L20.0 29.9 L17.6 42.5 L7.0 35.3 L0.0 46.0 L-7.0 35.3 L-17.6 42.5 L-20.0 29.9 L-32.5 32.5 L-29.9 20.0 L-42.5 17.6 L-35.3 7.0 L-46.0 0.0 L-35.3 -7.0 L-42.5 -17.6 L-29.9 -20.0 L-32.5 -32.5 L-20.0 -29.9 L-17.6 -42.5 L-7.0 -35.3Z" fill="var(--lg-tint,#e0b030)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+      <path d="M0.0 -46.0 L7.0 -35.3 L17.6 -42.5 L20.0 -29.9 L32.5 -32.5 L29.9 -20.0 L42.5 -17.6 L35.3 -7.0 L46.0 -0.0 L35.3 7.0 L42.5 17.6 L29.9 20.0 L32.5 32.5 L20.0 29.9 L17.6 42.5 L7.0 35.3 L0.0 46.0 L-7.0 35.3 L-17.6 42.5 L-20.0 29.9 L-32.5 32.5 L-29.9 20.0 L-42.5 17.6 L-35.3 7.0 L-46.0 0.0 L-35.3 -7.0 L-42.5 -17.6 L-29.9 -20.0 L-32.5 -32.5 L-20.0 -29.9 L-17.6 -42.5 L-7.0 -35.3Z" fill="var(--lg-tint-hi,#ffd23f)" transform="scale(0.82)"/>
+      <circle r="27" fill="#fff6c2" stroke="var(--lg-tint,#e0b030)" stroke-width="1.4"/>
     </g>
   </g>
   <!-- the rings of eyes: two great wheels turning behind it, in different planes -->

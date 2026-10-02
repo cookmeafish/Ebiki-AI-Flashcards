@@ -61,12 +61,26 @@ tested), keyed by the raid motif.
   king, a one-eyed brute, a broken jaw, a young hungry one, an old barnacled one).
 - **Backdrop**: storm clouds with lit undersides, rain and lightning; a smashed burning lighthouse on a cliff, a harbor
   fortress on fire, burning galleons, tail coils breaking the surface through snapped ships.
-- **Phase 1**: pewter scales, blood-red crests, gold slit eyes under one V brow per head, harpoons and chains in the
-  necks, a snapped harbor chain across the body.
-- **Phase 2, regrowth**: the two outer necks are cut to dripping stumps, each bursting into two pale new heads; the
-  rest go feral (green eyes, vein cracks, wider jaws); the severed heads float in an ichor slick.
+- **Five faces (2026-10, the owner: "make each head have a different face and personality")**, each with its own eye
+  color, brow, mouth and idle rhythm so they read apart at 120 px: the **King** (center: gold crown, cold gold slits
+  looking down, mouth shut in a thin line with long fangs over the lip, slow imperious sway), the **Brute** (outer left:
+  one eye scarred shut, one huge bloodshot eye, crushed brow, roaring maw with tusks, heavy head shake, never blinks),
+  the **Broken Jaw** (inner left: cracked jaw hanging crooked, lopsided grin of teeth, one big wild green eye and one
+  green squint under a lopsided ridge, tongue lolling, cackling jaw), the **Young** one (inner right, smaller: wide
+  cyan eyes with pinpoint pupils, needle teeth, drool, snaps and lunges in time) and the **Old** one (outer right:
+  barnacles, heavy lids over milky eyes, a chipped fang and a stump, jaw ajar breathing mist, slowest sway).
+- **Phase 1**: pewter scales, blood-red crests, the five faces, harpoons and chains in the necks, a snapped harbor
+  chain across the body.
+- **Phase 2, regrowth**: the two outer necks are cut to dripping stumps, each bursting into two pale new heads, a
+  SCREAMING newborn (eyes squeezed shut, huge wet maw) and a HISSER (yellow slit eyes, mouth shut on two long fangs,
+  forked tongue flicking); the rest rage in character with ichor vein cracks (the King's crown cracks and he snarls, the
+  Broken Jaw drops further and drips ichor, the Young one snaps faster with slit pupils); the severed Brute and Old
+  heads float dead in an ichor slick.
 - **Phase 3, true form**: the body rises as one colossal three-eyed head with lightning seams and a gaping mandible V
   around a storm orb, two heads lunging from its throat, a crown of eleven necks, waterspouts, the lighthouse falling.
+  The crown keeps the five in their true forms (the King's crown crackles with lightning, the Brute's scar splits on a
+  second burning eye, the Broken Jaw nearly drops off, the Young one's pupils burn red, the Old one's lids lift on
+  blank glowing eyes) beside screamers and hissers.
 - **Entrance (SVG)**: the body heaves up, the necks shoot up one at a time, the eyes ignite and the jaws snap open.
   **Card**: `lgHydraRise`.
 
@@ -241,25 +255,26 @@ check-art's overdraw pass).
 
 ## 22. Kitsune: the Nine-Tailed Empress (owner request: "I LOVE THE CONCEPT OF SAKURA. PLEASE CREATE A VARIATION AS A RAID BOSS AND GO ALL OUT")
 
-- **Idea**: the sakura kitsune of `bosses/sakura.svg` grown into a shrine goddess gone wrong. Kept what the owner loved:
-  the white fox, the red kabuki fox-mask markings, the golden eye with its sly asymmetry (one eye nearly shut), the small
-  fox mask on her head, the pink petal-notched tails, cyan fox-fire, the gold bell with shide papers. Kept apart from the
-  Seraph: a fox on all fours with TAILS fanned up from the hips around a moon, not a standing figure with wings and a
-  window; pink, cyan and vermilion.
-- **Backdrop**: a vermilion torii over her, a full moon rising behind its beams (her ears on the moon), night clouds,
-  shrine stone steps under her paws, two stone lanterns in the bottom corners, sakura branches over the top corners.
-  Eight tails fan in a V around the moon; the ninth wraps around her front paws. Her hoshi no tama (the star ball that
-  holds a kitsune's power) glows under her right paw: the ability.
-- **Phase 1, in control**: one solid crimson V brow ridge of mask paint, the left eye a gold sliver under a heavy lid,
-  the right a narrowed glowing slit, a thin smirk splitting open on teeth at one corner, two long fangs, black claws.
-- **Phase 2, furious**: the small mask cracks on cyan light, the markings blaze, both eyes snap wide on slit pupils, the
-  jaw opens on rows of fangs over a fox-fire throat (the lower jaw chomps), cyan fire climbs every tail to the tips, the
-  torii catches fire, the lantern windows turn cyan, the petals become a storm.
-- **Phase 3, true form**: the left half of her face was a mask and has broken off on a crimson-black demon with three
-  eyes; the golden eye blazes on the white half; a maw from cheek to cheek. Demon fur with white-hot stripes and cyan fire
-  tufts, nine giant spirit tails of hot pink fire fringed with fox-fire, a blinking eye on each, a blood moon, burning
-  blossoms and ember petals, the torii cracked and ablaze. The bell stays.
-- **Face per phase**: a sly half-shut mask, a wide slit-eyed snarl, a half-mask demon with three eyes and a huge maw.
-- **Entrance (SVG)**: the tails fan open one by one from the center out, the wrapped tail swings in, the fox-fire wisps
-  ignite, the small mask drops onto her head, the star ball flares, the golden eye opens last. **Card**: `lgPetalFall`,
-  she drifts down from high above like a falling sakura petal, side to side with a flipping tilt, then blooms to full size.
+- **Lesson from the first draft**: a crouching cat body with chunky paws, a busy frame (torii, lanterns, steps,
+  branches, moon), a scowl and too many face marks was "very ugly ... compare it to sakura being so beautiful". A raid
+  variation of a beautiful boss stays beautiful: keep the face construction and the elegance, add majesty through
+  scale, light and stillness.
+- **Idea**: "the sakura goddess ascended". Built FROM `bosses/sakura.svg`'s face (its paths, at its own scale): the long
+  fine white fox face, one eye serenely closed, one sly gold slit, Heian dot brows, delicate red markings, a knowing
+  smile with one small fang tip, the little fox mask pushed up on her head, a bell earring. A regal bust: a slender
+  neck, a layered kimono collar (white, pink, red, gold) over dark palette-tinted silk with gold sakura crests, a gold
+  bell on a red cord, gold kanzashi hairpins with swaying chains, and the star ball (the ability) pinned at the V of the
+  collar.
+- **Backdrop**: nothing but her: nine pastel pink tails in a symmetrical fan like an open sakura bloom, white tips,
+  each edged in cyan fox-fire with sakura's flame at its tip, and a thin gold halo ring behind her head with fox-fire
+  rising from it. A few petals.
+- **Phase 1, serene**: sakura's face, the stare and the stillness are the threat.
+- **Phase 2, awake**: both eyes open, gold on slit pupils, the markings glow, the smile turns thin and cold over two
+  elegant fangs, the small mask cracks on cyan light, the tail flames flare tall, the halo burns brighter, petals swirl.
+- **Phase 3, true form**: a spirit goddess, never a dark demon: her fur turns luminous white with cyan light, a third
+  eye opens as a gold jewel on her brow, the mask breaks into three pieces drifting away, a crown of fox-fire on the
+  halo, nine towering spirit tails of pink and cyan fire with a blinking gold eye on each, the star jewel blazes pink.
+- **Face per phase**: one eye closed and one sly gold slit, two gold eyes and a cold smile, a third eye and blazing gaze.
+- **Entrance (SVG)**: the mask lifts off her face onto her head, the tails open one by one from the center like
+  petals, the gold eye slides open. **Card**: `lgPetalFall`, she drifts down like a falling sakura petal, side to side,
+  then blooms to full size.

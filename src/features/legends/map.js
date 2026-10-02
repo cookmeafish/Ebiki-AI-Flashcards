@@ -31,7 +31,8 @@ export const MOTIFS = ['forest', 'city', 'ocean', 'mountains', 'lab', 'stage', '
   'swamp', 'castle', 'graveyard', 'jungle', 'space', 'clockwork', 'carnival', 'underworld', 'moonlit', 'fungal',
   'pirate', 'dojo', 'crystal', 'arcade', 'library', 'sewer', 'arena', 'hive', 'garden', 'sweets',
   'savanna', 'mirror', 'manor', 'junkyard', 'dream', 'sakura', 'mine', 'frontier', 'primeval', 'celestial']
-export const PALETTES = ['brand', 'ocean', 'forest', 'sunset', 'night', 'sand', 'candy', 'steel']
+// 'original' = every drawing in its own ideal colors; the others recolor one chosen part of each boss (art.jsx).
+export const PALETTES = ['original', 'brand', 'ocean', 'forest', 'sunset', 'night', 'sand', 'candy', 'steel']
 export const PASS = { node: 0.6, boss: 0.7, legendary: 0.9 } // share of answers right to clear a node
 // Weak spots: the level before the boss, made from the island's shakiest items. Clearing it ONCE earns the area
 // one extra boss life (`bonusLife`); a replay never adds another.

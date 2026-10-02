@@ -1,17 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
   <!-- The Dread Knight: hollow black armor standing in the gate of its keep. A tall horned great helm with a burning
-       V visor, flames pouring up out of the slit; spiked layered pauldrons wider than the frame, a chained breastplate,
+       V visor; spiked layered pauldrons wider than the frame, a chained breastplate,
        a torn cape, and a notched cleaver raised past the frame. Torches burn on the gate's pillars.
-       Entrance: the cape flares, the visor ignites and pours flame, the cleaver swings up. -->
+       Entrance: the cape flares, the visor ignites, the cleaver swings up. -->
   <!-- the gate of the keep -->
-  <path d="M-14 124 V44 C-14 8 22 -16 60 -16 C98 -16 134 8 134 44 V124 H114 V46 C114 18 90 2 60 2 C30 2 6 18 6 46 V124Z" fill="var(--lg-far, #8f8cb8)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
+  <path d="M-14 124 V44 C-14 8 22 -16 60 -16 C98 -16 134 8 134 44 V124 H114 V46 C114 18 90 2 60 2 C30 2 6 18 6 46 V124Z" fill="#8f8cb8" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
   <path d="M6 124 V46 C6 18 30 2 60 2 C90 2 114 18 114 46 V124Z" fill="#100d1c"/>
   <path d="M114 124 V46 C114 18 90 2 60 2 L60 -16 C98 -16 134 8 134 44 V124Z" fill="#000" opacity="0.2"/>
   <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" opacity="0.7">
     <path d="M-8 24 L10 30 M4 6 L18 18 M22 -8 L32 6 M42 -14 L46 2 M78 -14 L74 2 M98 -8 L88 6 M113 9 L104 17 M128 24 L110 30"/>
     <path d="M-14 62 H6 M-14 82 H6 M-14 102 H6 M114 62 H134 M114 82 H134 M114 102 H134 M-4 62 V82 M-8 82 V102 M124 62 V82 M128 82 V102"/>
   </g>
-  <path d="M54 -16 L66 -16 L64 4 L56 4Z" fill="var(--lg-far, #8f8cb8)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+  <path d="M54 -16 L66 -16 L64 4 L56 4Z" fill="#8f8cb8" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
   <!-- the raised portcullis in the arch -->
   <g stroke="var(--lg-ink, #1d2230)" stroke-linejoin="round">
     <path d="M18 17 C32 7 88 7 102 17" fill="none" stroke-width="3.6"/>
@@ -39,10 +39,10 @@
   <g transform="translate(60 52)"><g>
     <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.5 0.9;0.5 0.9;1.12 1;1 1" keyTimes="0;.25;.5;1" dur="1.5s" fill="freeze"/>
     <g style="transform-box:fill-box;transform-origin:center top"><animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;2.5;0;-2.5;0" dur="4s" repeatCount="indefinite"/>
-      <path d="M-40 0 C-56 24 -66 50 -74 72 L-64 66 L-58 74 L-48 64 L-40 74 L-30 62 H30 L40 74 L48 64 L58 74 L64 66 L74 72 C66 50 56 24 40 0Z" fill="#7a0c20" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
+      <path d="M-40 0 C-56 24 -66 50 -74 72 L-64 66 L-58 74 L-48 64 L-40 74 L-30 62 H30 L40 74 L48 64 L58 74 L64 66 L74 72 C66 50 56 24 40 0Z" fill="var(--lg-tint-lo,#7a0c20)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
       <path d="M-42 6 C-54 28 -60 48 -66 66 L-58 74 C-54 52 -48 30 -36 8Z" fill="#000" opacity="0.28"/>
       <path d="M40 2 C52 24 58 44 64 66 L74 72 C66 50 56 24 40 0Z" fill="#000" opacity="0.28"/>
-      <path d="M-34 8 C-44 28 -50 46 -54 62 M34 8 C44 28 50 46 54 62" fill="none" stroke="#b81f3a" stroke-width="1.2" stroke-linecap="round"/>
+      <path d="M-34 8 C-44 28 -50 46 -54 62 M34 8 C44 28 50 46 54 62" fill="none" stroke="var(--lg-tint,#b81f3a)" stroke-width="1.2" stroke-linecap="round"/>
     </g>
   </g></g>
   <!-- the armor: breathes like something is inside -->
@@ -124,21 +124,6 @@
     <g fill="#0b0708"><circle cx="46" cy="48" r="1"/><circle cx="46" cy="52" r="1"/><circle cx="49.5" cy="50" r="1"/><circle cx="74" cy="48" r="1"/><circle cx="74" cy="52" r="1"/><circle cx="70.5" cy="50" r="1"/></g>
     <!-- the visor: a V slit and a breath slit, dark until it ignites -->
     <path d="M40 24 L60 33.6 L80 24 L80 29 L60 38.6 L40 29Z M54 43 H66 V46 H54Z M54 49 H66 V52 H54Z M55.5 55 H64.5 V58 H55.5Z" fill="#0b0708" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
-    <!-- flames pouring out of the eyes: rooted inside the slit, leaning outward; the slit glow is drawn over their roots -->
-    <g transform="translate(50 31) rotate(-22)"><g>
-      <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.02;0.02;1.4;1" keyTimes="0;.7;.86;1" dur="1.5s" fill="freeze"/>
-      <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;0.85 1.25;1.05 0.9;1 1" dur="0.8s" repeatCount="indefinite"/>
-        <path d="M-4 0 C-6 -6 -2 -9 -3 -15 C1 -11 2 -14 2 -19 C6 -12 6 -6 4 0Z" fill="#ff5a1f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
-        <path d="M-2 0 C-3 -4 0 -6 0 -10 C2 -7 3 -4 2 0Z" fill="#ffd166"/>
-      </g>
-    </g></g>
-    <g transform="translate(70 31) rotate(22)"><g>
-      <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.02;0.02;1.4;1" keyTimes="0;.72;.88;1" dur="1.5s" fill="freeze"/>
-      <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.05 0.9;0.85 1.25;1 1" dur="0.9s" repeatCount="indefinite"/>
-        <path d="M4 0 C6 -6 2 -9 3 -15 C-1 -11 -2 -14 -2 -19 C-6 -12 -6 -6 -4 0Z" fill="#ff5a1f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
-        <path d="M2 0 C3 -4 0 -6 0 -10 C-2 -7 -3 -4 -2 0Z" fill="#ffd166"/>
-      </g>
-    </g></g>
     <g transform="translate(60 33)"><g>
       <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.05 1;0.05 1;1.2 1.3;1 1" keyTimes="0;.56;.76;1" dur="1.5s" fill="freeze"/>
       <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.05 1.18;1 1" dur="0.9s" repeatCount="indefinite"/>

@@ -103,14 +103,14 @@ const CSS = `
 @keyframes lgRiseLift { 0% { transform: translateX(-260px) rotate(-360deg) scale(.7); opacity: 0 } 20% { opacity: 1 } 65% { transform: translateX(10px) rotate(8deg) scale(1.05) } 80% { transform: translateX(-4px) rotate(-3deg) scale(.98, 1.03) } 100% { transform: none } }
 @keyframes lgBuzz { 0% { transform: translate(-180px, -60px) scale(.5); opacity: 0 } 15% { opacity: 1; transform: translate(-120px, 20px) scale(.6) rotate(10deg) } 30% { transform: translate(-60px, -40px) scale(.7) rotate(-10deg) } 45% { transform: translate(20px, 20px) scale(.85) rotate(8deg) } 60% { transform: translate(-10px, -20px) scale(.95) rotate(-6deg) } 78% { transform: translate(6px, 6px) scale(1.08) } 100% { transform: none } }
 @keyframes lgBloom { 0% { transform: translateY(40%) scale(.1) rotate(-90deg); opacity: 0 } 40% { opacity: 1; transform: translateY(10%) scale(.6) rotate(-30deg) } 70% { transform: translateY(-4%) scale(1.15) rotate(8deg) } 100% { transform: none } }
-@keyframes lgJelly { 0% { transform: translateY(-200px); opacity: 0 } 30% { opacity: 1; transform: translateY(0) scale(1, 1) } 45% { transform: scale(1.3, .7) } 58% { transform: scale(.8, 1.22) } 70% { transform: scale(1.14, .88) } 82% { transform: scale(.95, 1.05) } 100% { transform: none } }
+@keyframes lgCurtsy { 0% { transform: translateY(14%) scale(.55); opacity: 0 } 25% { opacity: 1 } 45% { transform: scale(1.02) } 60% { transform: scale(1.06, .8) rotate(-3deg) } 72% { transform: scale(1.06, .8) rotate(-3deg) } 88% { transform: scale(.97, 1.07) rotate(1deg) } 100% { transform: none } }
 @keyframes lgPounce { 0% { transform: translate(-120px, 30%) scale(1.2, .55); opacity: 0 } 20% { opacity: 1 } 50% { transform: translate(0, 30%) scale(1.25, .5) } 62% { transform: translate(0, 28%) scale(1.3, .45) } 78% { transform: translateY(-14%) scale(.85, 1.25) } 90% { transform: translateY(2%) scale(1.04, .96) } 100% { transform: none } }
 @keyframes lgMirrorFlip { 0% { transform: scaleX(-1); opacity: 0; filter: brightness(3) } 12% { opacity: 1 } 20% { filter: brightness(1) } 26% { filter: brightness(3) } 34% { filter: brightness(1); transform: scaleX(-1) } 55% { transform: scaleX(.05) } 72% { transform: scaleX(1.12); filter: brightness(2.4) } 86% { transform: scaleX(.97); filter: brightness(1) } 100% { transform: none; filter: none } }
 @keyframes lgHaunt { 0% { transform: scaleY(0) skewX(0); opacity: 0 } 25% { opacity: .8; transform: scaleY(.4) skewX(18deg) } 45% { transform: scaleY(.8) skewX(-14deg) } 65% { transform: scaleY(1.2) skewX(8deg); opacity: 1 } 82% { transform: scaleY(.95) skewX(-3deg) } 100% { transform: none } }
 @keyframes lgAssemble { 0% { transform: rotate(-90deg); opacity: 0 } 15% { opacity: 1 } 45% { transform: rotate(-60deg) } 52% { transform: rotate(-64deg) } 72% { transform: rotate(6deg) } 80% { transform: rotate(0) scale(1.06, .9) } 90% { transform: rotate(-2deg) } 100% { transform: none } }
 @keyframes lgHypno { 0% { transform: scale(.6, 2.6) skewX(20deg) translateY(-30%); opacity: 0; filter: hue-rotate(-140deg) blur(5px) } 35% { opacity: 1; transform: scale(.8, 1.8) skewX(-12deg) translateY(-8%) } 60% { transform: scale(1.1, .8) skewX(6deg); filter: hue-rotate(-50deg) blur(1px) } 80% { transform: scale(.96, 1.06) } 100% { transform: none; filter: none } }
 @keyframes lgFoxfire { 0% { transform: translateX(-120px); opacity: 0 } 10% { opacity: .9; transform: translateX(-120px) } 18% { opacity: 0 } 26% { opacity: .9; transform: translateX(110px) scale(.9) } 34% { opacity: 0 } 44% { opacity: .9; transform: translateX(-50px) scale(.95) } 52% { opacity: 0 } 64% { opacity: 1; transform: scale(1.18); filter: brightness(2) } 82% { transform: scale(.96); filter: brightness(1.2) } 100% { transform: none; filter: none } }
-@keyframes lgDrill { 0% { transform: translateY(100%) rotate(0); opacity: 0 } 15% { opacity: 1 } 30% { transform: translateY(70%) rotate(180deg) } 50% { transform: translateY(30%) rotate(360deg) } 68% { transform: translateY(-10%) rotate(540deg) scale(1.08) } 84% { transform: translateY(3%) rotate(720deg) } 100% { transform: rotate(720deg) } }
+@keyframes lgCartBrake { 0% { transform: translate(-240px, -110px) rotate(16deg); opacity: 0 } 15% { opacity: 1 } 60% { transform: translate(-8px, -3px) rotate(3deg) } 70% { transform: translate(3px, 0) rotate(10deg) } 82% { transform: rotate(-3deg) } 92% { transform: rotate(1deg) } 100% { transform: none } }
 @keyframes lgGallop { 0% { transform: translateX(260px); opacity: 0 } 12% { opacity: 1; transform: translate(200px, -14px) } 24% { transform: translate(150px, 0) } 36% { transform: translate(100px, -14px) } 48% { transform: translate(50px, 0) } 60% { transform: translate(10px, -14px) } 74% { transform: translate(-6px, 0) rotate(-10deg) } 88% { transform: rotate(4deg) } 100% { transform: none } }
 @keyframes lgRoarShake { 0% { transform: rotate(-70deg) translateX(-60px); opacity: 0 } 25% { opacity: 1 } 55% { transform: rotate(6deg) } 62% { transform: rotate(4deg) translate(-4px, 2px) } 68% { transform: rotate(3deg) translate(4px, -2px) } 74% { transform: rotate(2deg) translate(-3px, 1px) } 82% { transform: rotate(-1deg) } 100% { transform: none } }
 @keyframes lgDescend { 0% { transform: translateY(-220px) scale(.8); opacity: 0; filter: brightness(3) blur(4px) } 50% { opacity: 1; filter: brightness(2) blur(0) } 75% { transform: translateY(8px) scale(1.06) } 100% { transform: none; filter: none } }
@@ -192,14 +192,14 @@ export const ENTRANCES = {
   arena: { name: 'lgRiseLift', ease: 'cubic-bezier(.2,.7,.3,1)' }, // tumbles in rolling like a thrown champion
   hive: { name: 'lgBuzz', ease: 'linear' }, // buzzes in on a zigzag
   garden: { name: 'lgBloom', ease: 'cubic-bezier(.3,.8,.4,1)' }, // blooms out of the soil
-  sweets: { name: 'lgJelly', ease: 'cubic-bezier(.3,.7,.4,1)' }, // drops in and wobbles like jelly
+  sweets: { name: 'lgCurtsy', ease: 'cubic-bezier(.3,.7,.4,1)', origin: 'bottom center' }, // grows into view, sinks into a slow regal curtsy, rises tall
   savanna: { name: 'lgPounce', ease: 'cubic-bezier(.3,.7,.4,1)', origin: 'bottom center' }, // stalks in low, crouches, then springs up tall
   mirror: { name: 'lgMirrorFlip', ease: 'linear' }, // flips over like its own reflection, glass flashing
   manor: { name: 'lgHaunt', ease: 'cubic-bezier(.3,.7,.4,1)', origin: 'bottom center' }, // billows up out of the floor like a sheet
   junkyard: { name: 'lgAssemble', ease: 'linear', origin: 'bottom left' }, // heaves itself up from lying on its side
   dream: { name: 'lgHypno', ease: 'cubic-bezier(.3,.7,.4,1)', origin: 'top center' }, // melts into shape like a dripping dream
   sakura: { name: 'lgFoxfire', ease: 'linear' }, // blinks in and out like a trickster before it appears
-  mine: { name: 'lgDrill', ease: 'cubic-bezier(.3,.7,.4,1)' }, // drills up out of the ground, spinning
+  mine: { name: 'lgCartBrake', ease: 'linear', origin: 'bottom right' }, // rides his ore cart down the rails, brakes hard and tips forward
   frontier: { name: 'lgGallop', ease: 'linear' }, // gallops in from the side
   primeval: { name: 'lgRoarShake', ease: 'cubic-bezier(.3,.7,.4,1)', origin: 'bottom right' }, // leans into frame head first and roars
   celestial: { name: 'lgDescend', ease: 'cubic-bezier(.3,.7,.4,1)' }, // descends in a blaze of light
@@ -266,7 +266,7 @@ export function BossIntro({ t, area, name = '', total, onFight, odds, legendary 
           ))}
           </>}
           <div style={{ position: 'relative', transformOrigin: entrance.origin || '50% 50%', animation: `${entrance.name} ${(E.impact - E.slam).toFixed(2)}s ${entrance.ease} ${E.slam}s both` }}>
-            <div style={{ animation: `lgEyes 1.3s ease-in-out ${E.impact + 0.2}s infinite, lgBossBob 2.4s ease-in-out ${E.impact + 0.4}s infinite` }}>
+            <div style={{ animation: `lgEyes 1.3s ease-in-out ${E.impact + 0.2}s infinite` }}>
               {kind === 'bosses' ? <BossArt area={area} size={BOSS.intro} animated={calm ? 'idle' : 'intro'} roomed /> : <LegendsArt kind={kind} motif={area.motif} palette={area.palette} height={BOSS.intro} width={BOSS.intro} round={0} animated={calm ? 'idle' : 'intro'} roomed />}
             </div>
           </div>
@@ -393,7 +393,7 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
       <BossStyle />
       <div style={{ position: 'relative', flexShrink: 0, margin: headroomPx(compact ? BOSS.arenaCompact : BOSS.arena) }}>
         <div key={`s${shift}`} style={{ animation: shift && !quiet ? 'lgPhaseShift 1s ease-out both' : 'none' }}>
-        <div key={`b${last?.n || 0}`} style={{ animation: down ? 'lgBossDown .6s ease-out both' : quiet ? 'none' : hitNow ? 'lgBossHit .5s ease-out' : missNow ? 'lgBossLunge .45s ease-out' : `lgBossBob ${rage ? 1.2 : 2.4}s ease-in-out infinite`,
+        <div key={`b${last?.n || 0}`} style={{ animation: down ? 'lgBossDown .6s ease-out both' : quiet ? 'none' : hitNow ? 'lgBossHit .5s ease-out' : missNow ? 'lgBossLunge .45s ease-out' : 'none',
           filter: down ? 'grayscale(.8) opacity(.6)' : rage ? `drop-shadow(0 0 10px ${C.danger}) saturate(1.3)` : 'none' }}>
           {kind === 'bosses'
             ? <BossArt area={area} size={compact ? BOSS.arenaCompact : BOSS.arena} animated={down ? false : 'idle'} roomed />

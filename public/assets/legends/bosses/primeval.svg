@@ -24,8 +24,8 @@
   <path d="M60 126 C62 108 70 94 80 86 C76 100 74 112 76 126Z" fill="#a08a5a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
   <path d="M64 112 C68 112 72 113 75 115 M67 100 C70 100 73 101 76 103 M72 90 C75 90 77 91 79 93" fill="none" stroke="#6a5634" stroke-width="1"/>
   <path d="M96 64 C110 66 124 74 132 82 L134 126 H112 C112 104 106 82 96 64Z" fill="#000" opacity="0.25"/>
-  <g fill="#ff7a1a" opacity="0.45"><path d="M90 84 C98 82 106 86 112 92 C104 90 96 90 90 84Z"/><path d="M94 100 C102 98 110 102 116 108 C108 106 100 106 94 100Z"/></g>
-  <g fill="#ff9a3d"><path d="M92 85 C98 84 104 86 108 90 C102 89 96 89 92 85Z"/><path d="M96 101 C102 100 108 102 112 106 C106 105 100 105 96 101Z"/></g>
+  <g fill="var(--lg-tint,#ff7a1a)" opacity="0.45"><path d="M90 84 C98 82 106 86 112 92 C104 90 96 90 90 84Z"/><path d="M94 100 C102 98 110 102 116 108 C108 106 100 106 94 100Z"/></g>
+  <g fill="var(--lg-tint-hi,#ff9a3d)"><path d="M92 85 C98 84 104 86 108 90 C102 89 96 89 92 85Z"/><path d="M96 101 C102 100 108 102 112 106 C106 105 100 105 96 101Z"/></g>
   <!-- crest plates down the neck -->
   <g fill="#e8dcc0" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round">
     <path d="M129 52 L141 47 L134 60Z"/><path d="M134 68 L146 65 L137 78Z"/>
@@ -50,7 +50,7 @@
         <path d="M14 98 C46 98 80 92 110 80 L112 84 C82 96 48 101 17 101Z" fill="#000" opacity="0.3"/>
         <path d="M20 95 C48 94 78 88 106 79 L108 82 C80 92 50 98 22 98Z" fill="#a08a5a"/>
         <path d="M22 89 C46 86 72 80 98 72" fill="none" stroke="#a08a5a" stroke-width="1.2"/>
-        <path d="M40 90 L46 88 M58 86 L64 83" stroke="#ff9a3d" stroke-width="1.6" stroke-linecap="round"/>
+        <path d="M40 90 L46 88 M58 86 L64 83" stroke="var(--lg-tint-hi,#ff9a3d)" stroke-width="1.6" stroke-linecap="round"/>
       </g>
     </g>
     <!-- the upper skull: faceted, cel shaded, past the right edge -->
@@ -64,14 +64,14 @@
     </g>
     <path d="M87 13 L90 7 M99 11 L103 5" stroke="#fff" stroke-width="0.6"/>
     <!-- ember war markings -->
-    <g fill="#ff7a1a" opacity="0.45"><path d="M40 38 C48 34 56 34 62 36 C56 38 48 40 40 38Z" transform="translate(0 0) scale(1)"/><path d="M98 30 C106 26 116 26 124 28 C116 32 106 34 98 30Z"/><path d="M96 40 C104 38 114 38 122 40 C114 44 104 44 96 40Z"/></g>
-    <g fill="#ff9a3d"><path d="M42 37.6 C48 35 55 35 60 36.4 C54 37.6 48 38.6 42 37.6Z"/><path d="M100 30 C106 27.6 114 27.6 121 29 C114 31.4 106 32 100 30Z"/><path d="M98 40 C104 38.6 112 38.6 119 40.2 C112 42.4 104 42.4 98 40Z"/></g>
+    <g fill="var(--lg-tint,#ff7a1a)" opacity="0.45"><path d="M40 38 C48 34 56 34 62 36 C56 38 48 40 40 38Z" transform="translate(0 0) scale(1)"/><path d="M98 30 C106 26 116 26 124 28 C116 32 106 34 98 30Z"/><path d="M96 40 C104 38 114 38 122 40 C114 44 104 44 96 40Z"/></g>
+    <g fill="var(--lg-tint-hi,#ff9a3d)"><path d="M42 37.6 C48 35 55 35 60 36.4 C54 37.6 48 38.6 42 37.6Z"/><path d="M100 30 C106 27.6 114 27.6 121 29 C114 31.4 106 32 100 30Z"/><path d="M98 40 C104 38.6 112 38.6 119 40.2 C112 42.4 104 42.4 98 40Z"/></g>
     <!-- claw scars across the snout -->
     <path d="M18 34 L26 46 M24 33 L32 44 M30 32 L37 42" stroke="#3a1a10" stroke-width="1.8" stroke-linecap="round"/>
     <path d="M18 34 L26 46 M24 33 L32 44 M30 32 L37 42" stroke="#e8a090" stroke-width="0.6" stroke-linecap="round"/>
     <!-- nostril, smoking with embers -->
     <path d="M6 42 C8 39 12 39 13 41 C11 43 8 43 6 42Z" fill="#1a1008" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
-    <circle cx="9.4" cy="41.4" r="0.8" fill="#ff7a1a"/>
+    <circle cx="9.4" cy="41.4" r="0.8" fill="var(--lg-tint,#ff7a1a)"/>
     <!-- the eye: a burning slit under one heavy brow ridge angled down to the front -->
     <path d="M64 34 C70 31 78 30 86 31 C84 37 76 40 68 39Z" fill="#1a0508" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9"/>
     <g transform="translate(76 35) rotate(-8)"><g>
