@@ -350,6 +350,50 @@ describe('raid boss abilities', () => {
       expect(run([hit('clean', 'choice'), hit('clean', 'choice')], o).damage).toBe(2 * (DAMAGE.choice + ABILITY.slumberBonus))
       expect(run([hit('miss'), hit('clean', 'choice')], o).damage).toBe(DAMAGE.choice)
     })
+    it('Moon Devourer supernova: the first right answer in each phase bursts, once per phase', () => {
+      const p1 = run([hit('miss'), hit('clean', 'choice'), hit('clean', 'choice')], { ability: 'supernova', phase: 1 })
+      expect(p1.damage).toBe(2 * DAMAGE.choice + ABILITY.supernovaBurst)
+      expect(p1.novas).toEqual([1])
+      // a new phase brings a new supernova; attacks never trigger it
+      let s = strike(p1, hit('clean', 'choice', { attack: true }), { ability: 'supernova', phase: 2 })
+      expect(s.last.fx).toBe('')
+      s = strike(s, hit('clean', 'choice'), { ability: 'supernova', phase: 2 })
+      expect(s.last.fx).toBe('supernova')
+      expect(s.last.damage).toBe(DAMAGE.choice + ABILITY.supernovaBurst)
+      s = strike(s, hit('clean', 'choice'), { ability: 'supernova', phase: 2 })
+      expect(s.last.fx).toBe('')
+      expect(strike(s, hit('clean', 'choice'), { ability: 'supernova', phase: 3 }).novas).toEqual([1, 2, 3])
+    })
+    it('Nine-Tailed Empress starball: a blocked attack steals a star ball, every later right answer deals +1 per ball, at most +2', () => {
+      const o = { ability: 'starball' }
+      // no star ball yet: a right answer is a plain strike
+      let s = run([hit('clean', 'choice')], o)
+      expect(s.last.fx).toBe('')
+      expect(s.damage).toBe(DAMAGE.choice)
+      // a missed attack steals nothing
+      s = strike(s, hit('miss', 'typed', { attack: true }), o)
+      expect(s.stolen).toBe(0)
+      // a blocked attack steals one and counters as usual
+      s = strike(s, hit('clean', 'typed', { attack: true }), o)
+      expect(s.last.fx).toBe('steal')
+      expect(s.last.damage).toBe(DAMAGE.counter)
+      expect(s.stolen).toBe(1)
+      // from then on every right answer burns +1
+      s = strike(s, hit('clean', 'choice'), o)
+      expect(s.last.fx).toBe('starball')
+      expect(s.last.damage).toBe(DAMAGE.choice + 1)
+      // a miss loses nothing: the star balls stay stolen
+      s = strike(s, hit('miss'), o)
+      expect(s.stolen).toBe(1)
+      // two more blocks: the bonus is capped at ABILITY.starballMax
+      s = strike(s, hit('clean', 'typed', { attack: true }), o)
+      s = strike(s, hit('clean', 'typed', { attack: true }), o)
+      expect(s.stolen).toBe(ABILITY.starballMax)
+      expect(s.steals).toBe(ABILITY.starballMax)
+      expect(s.last.fx).toBe('')
+      s = strike(s, hit('clean', 'choice'), o)
+      expect(s.last.damage).toBe(DAMAGE.choice + ABILITY.starballMax)
+    })
   })
   describe('Lich phylactery', () => {
     const opts = { ability: 'phylactery', need: 4 }

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
   <!-- The Hive Queen: a colossal wasp queen in front of her honeycomb wall, glowing honey cells pulsing in it. A crown
-       of carapace spikes with gems, three burning ocelli, a solid black V plate between two huge faceted red compound
+       of carapace spikes with gems, three burning ocelli, two huge faceted red compound
        eyes, serrated mandibles dripping honey around a mouth of tiny fangs, four veined wings buzzing, hooked raptor
        legs and a striped abdomen with a venom stinger. Entrance: the wings snap open, the eyes flare, the mandibles
        snap. -->
@@ -115,9 +115,6 @@
       <path d="M6 -10 C2 -14 -4 -12 -6 -8 C-2 -9 2 -8 6 -4Z" fill="#ffb0a0"/>
       <circle cx="3" cy="-9" r="1.4" fill="#fff"/>
     </g></g>
-    <!-- the solid black V plate pressing down between the eyes -->
-    <path d="M36 24 L60 38 L84 24 L84 30 L60 44 L36 30Z" fill="#1d1b28" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3" stroke-linejoin="round"/>
-    <path d="M37.6 25.8 L60 39 L82.4 25.8" fill="none" stroke="#ffd23f" stroke-width="0.9"/>
     <!-- three burning ocelli -->
     <g><circle cx="54" cy="27" r="2.6" fill="#ffb627" opacity="0.5"/><circle cx="66" cy="27" r="2.6" fill="#ffb627" opacity="0.5"/><circle cx="60" cy="23" r="2.8" fill="#ffb627" opacity="0.5"/>
       <circle cx="54" cy="27" r="1.5" fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"/><circle cx="66" cy="27" r="1.5" fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"/><circle cx="60" cy="23" r="1.7" fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"/>

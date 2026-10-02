@@ -133,6 +133,8 @@ const CSS = `
 @keyframes lgWailPulse { 0% { transform: scale(.4); opacity: 0 } 10% { transform: scale(.7); opacity: .4 } 16% { transform: scale(.6); opacity: .3 } 28% { transform: scale(.92); opacity: .7 } 34% { transform: scale(.82); opacity: .55 } 48% { transform: scale(1.12); opacity: 1 } 54% { transform: scale(1.02) } 66% { transform: scale(1.22) } 72% { transform: scale(1.08) } 86% { transform: scale(.98) } 100% { transform: none } }
 @keyframes lgScytheSwoop { 0% { transform: translate(120%, -120%) rotate(70deg) scale(.6); opacity: 0 } 10% { opacity: 1 } 34% { transform: translate(60%, -10%) rotate(30deg) scale(.85) } 52% { transform: translate(-14%, 8%) rotate(-12deg) scale(1.05) } 66% { transform: translate(4%, -4%) rotate(5deg) } 80% { transform: translate(0, 2%) rotate(-2deg) } 100% { transform: none } }
 @keyframes lgEldritchUnfold { 0% { transform: scale(.06, .002); opacity: 0 } 10% { opacity: 1; transform: scale(.06, .02) } 26% { transform: scale(.08, .2) } 34% { transform: scale(.1, .18) } 56% { transform: scale(1.22, .86) } 66% { transform: scale(.86, 1.14) } 76% { transform: scale(1.08, .94) } 86% { transform: scale(.97, 1.03) } 100% { transform: none } }
+@keyframes lgMoonrise { 0% { transform: translate(-70%, 30%) scale(.32); opacity: 0; filter: brightness(.15) } 8% { opacity: 1 } 22% { transform: translate(-30%, 52%) scale(.46); filter: brightness(.3) } 36% { transform: translate(28%, 50%) scale(.6); filter: brightness(.5) } 50% { transform: translate(58%, 18%) scale(.74); filter: brightness(.75) } 62% { transform: translate(30%, -22%) scale(.88); filter: brightness(1.2) } 72% { transform: translate(0, -10%) scale(1.24); filter: brightness(2.2) } 80% { transform: translate(0, 2%) scale(.92); filter: brightness(1.1) } 90% { transform: scale(1.05) } 100% { transform: none; filter: none } }
+@keyframes lgPetalFall { 0% { transform: translate(-30%, -150%) rotate(-26deg) scale(.22); opacity: 0 } 8% { opacity: 1 } 20% { transform: translate(28%, -114%) rotate(22deg) scale(.24) } 34% { transform: translate(-24%, -78%) rotate(-20deg) scale(.26) } 48% { transform: translate(20%, -44%) rotate(15deg) scale(.28) } 60% { transform: translate(-8%, -14%) rotate(-8deg) scale(.3) } 70% { transform: translate(0, 0) scale(.32); filter: brightness(1.5) } 80% { transform: scale(1.2); filter: brightness(1.8) saturate(1.3) } 90% { transform: scale(.95); filter: brightness(1.1) } 100% { transform: none; filter: none } }
 @keyframes lgRealityTear { 0% { transform: scale(1.3, .02); opacity: 0; filter: brightness(3) } 14% { opacity: 1; transform: scale(1.3, .03) } 28% { transform: scale(1.1, .05) } 46% { transform: scale(.94, 1.28); filter: brightness(2) hue-rotate(40deg) } 54% { transform: translateX(-9px) scale(1.04, .94) } 60% { transform: translateX(8px) scale(.98, 1.04); filter: hue-rotate(-30deg) } 66% { transform: translateX(-5px) } 72% { transform: translateX(3px) scale(1.02) } 100% { transform: none; filter: none } }
 @keyframes lgPhaseShift { 0% { transform: none; filter: none } 10% { transform: scale(1.3); filter: brightness(3) saturate(0) } 22% { transform: scale(.9) translateX(-7px) rotate(-4deg); filter: brightness(1.2) } 32% { transform: scale(1.22) translateX(7px) rotate(4deg); filter: brightness(2.4) } 44% { transform: scale(.96) translateX(-4px) } 58% { transform: scale(1.14); filter: brightness(1.7) saturate(1.6) } 100% { transform: none; filter: none } }
 @keyframes lgPhaseTag { 0% { transform: translate(-50%, -6px); opacity: 0 } 15% { transform: translate(-50%, 0); opacity: 1 } 75% { opacity: 1 } 100% { transform: translate(-50%, 0); opacity: 0 } }
@@ -222,6 +224,8 @@ export const ENTRANCES = {
   banshee: { name: 'lgWailPulse', ease: 'cubic-bezier(.3,.7,.4,1)' }, // fades in on swelling waves of a scream
   reaper: { name: 'lgScytheSwoop', ease: 'cubic-bezier(.3,.8,.4,1)' }, // swoops down from the corner on a scythe arc
   dreamer: { name: 'lgEldritchUnfold', ease: 'cubic-bezier(.3,.8,.4,1)' }, // one eye opens, then it unfolds with a jelly wobble
+  moonmaw: { name: 'lgMoonrise', ease: 'cubic-bezier(.35,.6,.4,1)' }, // swings around a full orbit in eclipse, waxing to full, then a gravity pulse
+  kitsune: { name: 'lgPetalFall', ease: 'cubic-bezier(.3,.6,.4,1)' }, // drifts down like a falling sakura petal, side to side, then blooms to full size
 }
 export const entranceFor = (motif) => ENTRANCES[motif] || ENTRANCES.mountains
 // `odds`: bossOdds options ({ bonus, pass }); `legendary`: the harder replay of a cleared area.
@@ -325,10 +329,11 @@ export function MotionToggle({ t, dark = false }) {
 // Icons and floater texts for the raid abilities (fight.js ABILITIES, strike's last.fx).
 export const ABILITY_ICON = { regrowth: '🐍', plating: '🛡', phylactery: '☠', heads: '🔥', singularity: '🌀', judgment: '⚖️',
   maelstrom: '🌊', kindling: '🔥', rewind: '⏳', bloodpact: '🩸', tempest: '⚡', reflection: '🪞', devour: '👄', marionette: '🎭', lastbreath: '🪓',
-  swarm: '🐝', petrify: '🗿', crescendo: '🎶', harvest: '💀', slumber: '💤' }
+  swarm: '🐝', petrify: '🗿', crescendo: '🎶', harvest: '💀', slumber: '💤', supernova: '🌟', starball: '🔮' }
 const FX_KEY = { cut: 'lg_fx_cut', bounce: 'lg_fx_bounce', triple: 'lg_fx_triple', rise: 'lg_fx_rise', shatter: 'lg_fx_shatter', singularity: 'lg_fx_singularity', smite: 'lg_fx_smite',
   surface: 'lg_fx_surface', kindle: 'lg_fx_kindle', rewind: 'lg_fx_rewind', pact: 'lg_fx_pact', bolt: 'lg_fx_bolt', reflect: 'lg_fx_reflect', choke: 'lg_fx_choke', gorge: 'lg_fx_gorge', snap: 'lg_fx_snap', lastbreath: 'lg_fx_lastbreath',
-  sting: 'lg_fx_sting', crumble: 'lg_fx_crumble', crescendo: 'lg_fx_crescendo', harvest: 'lg_fx_harvest', slumber: 'lg_fx_slumber' }
+  sting: 'lg_fx_sting', crumble: 'lg_fx_crumble', crescendo: 'lg_fx_crescendo', harvest: 'lg_fx_harvest', slumber: 'lg_fx_slumber', supernova: 'lg_fx_supernova',
+  steal: 'lg_fx_steal', starball: 'lg_fx_starball' }
 
 // The phase to stamp while a phase change plays (0 otherwise). Only a RISE counts, never the first render.
 function usePhaseShift(phase) {

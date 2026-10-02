@@ -281,6 +281,9 @@ export default function RaidRun({ ctx, onExit }) {
     if (ability === 'crescendo' && normal && fightPhase > 1) return `🎶 ${t('lg_hint_crescendo', { n: Math.min(2, fightPhase - 1) })}`
     if (ability === 'harvest' && normal && fs.livesLost > 0) return `💀 ${t('lg_hint_harvest', { n: Math.min(ABILITY.harvestMax, fs.livesLost) })}`
     if (ability === 'slumber' && normal && !(fs.livesLost > 0)) return `💤 ${t('lg_hint_slumber', { n: ABILITY.slumberBonus })}`
+    if (ability === 'supernova' && normal && !(fs.novas || []).includes(fightPhase)) return `🌟 ${t('lg_hint_supernova', { n: ABILITY.supernovaBurst })}`
+    if (ability === 'starball' && q._attack && (fs.stolen || 0) < ABILITY.starballMax) return `🔮 ${t('lg_hint_starball', { n: ABILITY.starballMax })}`
+    if (ability === 'starball' && normal && (fs.stolen || 0) > 0) return `🔮 ${t('lg_hint_starballHeld', { n: Math.min(ABILITY.starballMax, fs.stolen) })}`
     return ''
   }
   const header = (q, mode) => (

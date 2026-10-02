@@ -101,6 +101,7 @@ const REVIEWED = new Set([
   "raids/void.svg|M-47 0 A47 47 0 0 0 47 0", // the near half of the accretion disk passes in front of the body
   "raids/void.svg|M-52.6 0 A52.6 52.6 0 0 ", // the near half of the disk's hot band, in front of the body
   "raids/void.svg|M-30 36 A47 47 0 0 1 -46", // a turning violet streak on the back half of the disk
+  "raids/kitsune.svg|M-22 -4 C-10 2 0 6 10 14", // the sakura branches reach in over the torii from past the frame
   "areas/forest.svg|M196 50 L182 28 L168 20",
   "areas/forest.svg|M224 50 L238 28 L252 20",
   "areas/swamp.svg|M384 124 C384 110 388 10",

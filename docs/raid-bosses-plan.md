@@ -52,6 +52,8 @@ tested), keyed by the raid motif.
 | Banshee | **Crescendo** | Right answers deal +1 in phase 2 and +2 in phase 3. | The fight builds toward a big finish. |
 | Reaper | **Harvest** | Every life already lost makes it careless: right answers deal +1 per lost life, at most +2. | A rough start is easier to turn around. |
 | Dreamer | **Slumber** | While no life is lost, every right answer deals +1. | Rewards a careful, clean run. |
+| Moon Devourer | **Supernova** | The first right answer in each phase goes supernova: +3 damage. | Every time the fight turns, a calm, careful first recall is the big hit. |
+| Nine-Tailed Empress | **Star ball** | Blocking an attack (a missed card answered right when it comes back) steals a star ball: every later right answer deals +1 per star ball held, at most +2. | Fixing a mistake is the biggest hit of the fight because its power lasts. |
 
 ## 1. Hydra: the Tide Hydra (redrawn 2026-10)
 
@@ -212,3 +214,52 @@ check-art's overdraw pass).
 - **20. Dreamer, the Sleeping Horror** (`lgEldritchUnfold`): an eldritch god asleep in a drowned impossible city, slit
   eyes peeking, tentacles twitching, dream bubbles holding tiny nightmares. Phase 2: it wakes, dozens of eyes snap open,
   the tentacles part on a beak. Phase 3: the skull splits open on a cosmic brain of galaxies ringed by eyes, the sky tears.
+
+## 21. Moonmaw: the Moon Devourer (owner request: the Legends space boss as a raid boss that "goes all out")
+
+- **Idea**: the living moon of `bosses/space.svg` (one giant purple slit eye under a crater-rim V brow, a jagged maw,
+  star-dust tentacles, a gold orbit ring of satellites, the little ringed planet) grown into a planet eater. Kept apart
+  from the Void: a PALE moon, not a dark orb; the bottom of the frame is the curve of an Earth-like world it is eating,
+  its tentacles reach DOWN onto it; phase 3 splits the moon like a clam, not a round maw.
+- **Backdrop**: a dome of deep space framed by a belt of shattered moon rock (the belt also passes in front of the
+  world's lower edge), a milky way, a comet, a half-eaten moon still crumbling at the bite; the world below with oceans,
+  continents, clouds, an atmosphere rim and city lights on its night side.
+- **Phase 1, in control**: the eye narrowed and looking down at its meal, the maw shut in an interlocked jagged grin with
+  violet drool and light leaking between the teeth, tentacles crushing the crust, the ring intact, satellites orbiting.
+- **Phase 2, furious**: magenta fissures crack the moon open, six craters split into eyes, the brow clamps into a steep V
+  over a bloodshot slit, the maw tears wide on two rows of fangs and a ring-toothed glowing gullet (the jaw chomps), the
+  ring snaps into broken arcs with sparks and whirling wreckage, the crust cracks with lava, stars streak toward it.
+- **Phase 3, true form**: the moon splits like a clam: the upper shell with the brow and the great eye (now wide and
+  blazing) lifts, the lower jaw shell with its fangs drops, and between them a galaxy throat turns inside two
+  counter-turning tooth rings around a white-hot star; shell plates orbit, the tentacles become galaxy arms reaching
+  every corner, the world is torn open on its molten core and its crust rises into the jaw.
+- **Face per phase**: narrowed and smug over a grin, a furious bloodshot slit over a screaming maw, a wide blazing eye
+  over the galaxy throat.
+- **Entrance (SVG)**: the tentacles unfurl one by one, the ring spins up, the eye snaps open, the grin cracks wide.
+  **Card**: `lgMoonrise`, it swings round a full orbit in eclipse, small and dark, waxing brighter as it comes round,
+  then a gravity pulse toward the viewer.
+
+## 22. Kitsune: the Nine-Tailed Empress (owner request: "I LOVE THE CONCEPT OF SAKURA. PLEASE CREATE A VARIATION AS A RAID BOSS AND GO ALL OUT")
+
+- **Idea**: the sakura kitsune of `bosses/sakura.svg` grown into a shrine goddess gone wrong. Kept what the owner loved:
+  the white fox, the red kabuki fox-mask markings, the golden eye with its sly asymmetry (one eye nearly shut), the small
+  fox mask on her head, the pink petal-notched tails, cyan fox-fire, the gold bell with shide papers. Kept apart from the
+  Seraph: a fox on all fours with TAILS fanned up from the hips around a moon, not a standing figure with wings and a
+  window; pink, cyan and vermilion.
+- **Backdrop**: a vermilion torii over her, a full moon rising behind its beams (her ears on the moon), night clouds,
+  shrine stone steps under her paws, two stone lanterns in the bottom corners, sakura branches over the top corners.
+  Eight tails fan in a V around the moon; the ninth wraps around her front paws. Her hoshi no tama (the star ball that
+  holds a kitsune's power) glows under her right paw: the ability.
+- **Phase 1, in control**: one solid crimson V brow ridge of mask paint, the left eye a gold sliver under a heavy lid,
+  the right a narrowed glowing slit, a thin smirk splitting open on teeth at one corner, two long fangs, black claws.
+- **Phase 2, furious**: the small mask cracks on cyan light, the markings blaze, both eyes snap wide on slit pupils, the
+  jaw opens on rows of fangs over a fox-fire throat (the lower jaw chomps), cyan fire climbs every tail to the tips, the
+  torii catches fire, the lantern windows turn cyan, the petals become a storm.
+- **Phase 3, true form**: the left half of her face was a mask and has broken off on a crimson-black demon with three
+  eyes; the golden eye blazes on the white half; a maw from cheek to cheek. Demon fur with white-hot stripes and cyan fire
+  tufts, nine giant spirit tails of hot pink fire fringed with fox-fire, a blinking eye on each, a blood moon, burning
+  blossoms and ember petals, the torii cracked and ablaze. The bell stays.
+- **Face per phase**: a sly half-shut mask, a wide slit-eyed snarl, a half-mask demon with three eyes and a huge maw.
+- **Entrance (SVG)**: the tails fan open one by one from the center out, the wrapped tail swings in, the fox-fire wisps
+  ignite, the small mask drops onto her head, the star ball flares, the golden eye opens last. **Card**: `lgPetalFall`,
+  she drifts down from high above like a falling sakura petal, side to side with a flipping tilt, then blooms to full size.

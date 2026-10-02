@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
   <!-- Blackwood Manor: a crooked mansion on its hill under a storm, lightning forking down, every window lit, chairs
        floating in the open doorway. The Poltergeist rises behind the hill on the right, taller than the house: its
-       sheet whipped into a horn-like peak, one solid cloth V brow over burning slit eyes, a torn screaming mouth of
+       sheet whipped into a horn-like peak, burning slit eyes, a torn screaming mouth of
        ripped-cloth fangs around a turning vortex throat, shackled wrists raised with broken chains swinging. Its
        whirlwind carries a chair, the cursed portrait, a candelabra and a flapping book round and round. A dead garden
        of twisted trees, an iron fence and a cracked fountain line the path; bats cross the clouds. -->
@@ -32,15 +32,13 @@
   <path d="M290 10 C278 22 266 32 264 54 C268 40 280 26 290 18Z" fill="#fff" opacity="0.8"/>
   <path d="M258 92 C260 100 262 106 264 112 M322 94 C324 100 326 106 328 110 M288 98 C288 104 286 108 284 112 M246 60 C252 66 252 74 254 80" fill="none" stroke="#9aa0ae" stroke-width="1.2" stroke-linecap="round"/>
   <path d="M306 100 l4 -2 l1 5 l-4 2Z" fill="#c8ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
-  <!-- one cloth V brow over burning slit eyes -->
+  <!-- burning slit eyes -->
   <g transform="translate(292 52)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1;1 0.08;1;1" keyTimes="0;.9;.93;.96;1" dur="5.6s" repeatCount="indefinite"/><g transform="translate(-292 -52)">
   <path d="M268 47 L287 53 L284 57 L270 54Z" fill="#6ff3ff" opacity="0.45" transform="translate(278 52) scale(1.7) translate(-278 -52)"/>
   <path d="M268 47 L287 53 L284 57 L270 54Z" fill="#0d0820" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><path d="M271 49 L284 53.4 L282 55.6 L272 52.6Z" fill="#6ff3ff"/><circle cx="275" cy="51.4" r="0.9" fill="#fff"/>
   <path d="M316 47 L297 53 L300 57 L314 54Z" fill="#6ff3ff" opacity="0.45" transform="translate(306 52) scale(1.7) translate(-306 -52)"/>
   <path d="M316 47 L297 53 L300 57 L314 54Z" fill="#0d0820" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><path d="M313 49 L300 53.4 L302 55.6 L312 52.6Z" fill="#6ff3ff"/><circle cx="309" cy="51.4" r="0.9" fill="#fff"/>
   </g></g></g>
-  <path d="M262 38 L292 50 L322 38 L321 44 L292 56 L263 44Z" fill="#c8ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/>
-  <path d="M266 41 L292 52 L318 41" fill="none" stroke="#fff" stroke-width="1" opacity="0.8"/>
   <!-- the torn screaming mouth, a vortex for a throat -->
   <path d="M276 64 L286 60 L292 63 L299 59 L308 64 L310 80 L302 92 L292 88 L283 93 L274 80Z" fill="#0d0820" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
   <g transform="translate(292 77)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-360" dur="1.8s" repeatCount="indefinite"/><circle r="9" fill="#6ff3ff" opacity="0.3"/><path d="M0 0 C3 -2 6 1 4 5 C1 9 -6 7 -7 1 C-8 -6 0 -10 6 -8" fill="none" stroke="#6ff3ff" stroke-width="1.8" stroke-linecap="round"/><circle r="2" fill="#d8fdff"/></g></g>

@@ -11,6 +11,7 @@ import { newFight } from './fight'
 import { MOTIFS, PALETTES } from './map'
 import { RAID, RAID_MOTIFS, RAID_ABILITY } from './raid'
 import { ABILITY } from './fight'
+import { SHRIMP, DEFAULT_SHRIMP, IDLE_SHRIMP, shrimpUrl } from '../../config/shrimp'
 
 const VIEW = { mapW: 620, mapH: 132, thumb: 56, paletteBoss: 72, paletteBannerW: 260, phase: 180, demoHp: 30 }
 const TABS = [
@@ -59,9 +60,37 @@ function EbiDrafts({ t }) {
   const h = { fontFamily: FONT.display, fontWeight: 900, fontSize: 16, color: C.ink }
   // An SVG shown as an <img> never runs scripts or loads anything else.
   const img = (c, e, px) => <img src={ebiDraftUrl(c, e)} alt="" width={px} height={px} draggable={false} style={{ display: 'block', width: px, height: px }} />
+  const current = (f, px) => <img src={shrimpUrl(f)} alt="" width={px} height={px} draggable={false} style={{ display: 'block', width: px, height: px, objectFit: 'contain' }} />
   return (
     <div style={{ display: 'grid', gap: 16 }}>
       <div style={{ fontSize: 13.5, color: C.inkDim, fontWeight: 600 }}>{t('lg_ebiDraftsIntro')}</div>
+      {/* The Ebi the app uses today, first, at the same sizes, so every draft can be compared on one screen. */}
+      <Card style={{ display: 'grid', gap: 14, borderColor: C.brand }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 22, color: C.brand }}>{t('lg_ebiCurrentName')}</div>
+          <div style={{ fontSize: 13.5, color: C.inkDim, fontWeight: 600, marginRight: 'auto' }}>{t('lg_ebiCurrentDesc')}</div>
+          <span style={file}>/assets/shrimp/</span>
+        </div>
+        <div style={{ display: 'grid', gap: 8 }}>
+          <div style={h}>{t('lg_ebiDraftsSizes')}</div>
+          <div style={{ display: 'flex', gap: 20, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            {EBI_DRAFTS.sizes.map((px) => (
+              <div key={px} style={{ display: 'grid', gap: 4, justifyItems: 'center' }}>{current(DEFAULT_SHRIMP, px)}<span style={file}>{px} px</span></div>
+            ))}
+          </div>
+        </div>
+        <div style={{ display: 'grid', gap: 8 }}>
+          <div style={h}>{t('lg_ebiDraftsEmotes')}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${EBI_DRAFTS.emote + 16}px, 1fr))`, gap: 10 }}>
+            {[{ name: 'default', file: DEFAULT_SHRIMP }, ...SHRIMP.filter((s, i, all) => all.findIndex((x) => x.file === s.file) === i)].map((s) => (
+              <div key={s.name} style={{ display: 'grid', gap: 4, justifyItems: 'center', padding: 6, borderRadius: RADIUS.md, border: `2px solid ${C.border}`, background: C.surface }}>
+                {current(s.file, EBI_DRAFTS.emote)}
+                <span style={file}>{s.name}{s.file === IDLE_SHRIMP ? ' (idle)' : ''}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Card>
       {EBI_DRAFTS.candidates.map((c) => (
         <Card key={c.id} style={{ display: 'grid', gap: 14 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
@@ -132,10 +161,11 @@ function PhaseDemo({ t, area, motif, getZoom }) {
 const ABILITY_HINT = { plating: {}, regrowth: { n: ABILITY.regrowthCut }, singularity: { n: ABILITY.singularityLives }, heads: {}, judgment: { n: ABILITY.judgmentSmite },
   maelstrom: { n: ABILITY.maelstromBonus }, kindling: { n: ABILITY.kindlingBonus }, rewind: {}, bloodpact: {}, tempest: { n: ABILITY.tempestFactor },
   reflection: {}, devour: { n: ABILITY.devourChoke }, marionette: { n: ABILITY.marionetteCounter }, lastbreath: { n: ABILITY.lastbreathFactor },
-  swarm: { n: ABILITY.swarmSting }, petrify: { n: ABILITY.petrifyShatter }, crescendo: { n: 2 }, harvest: { n: ABILITY.harvestMax }, slumber: { n: ABILITY.slumberBonus } }
+  swarm: { n: ABILITY.swarmSting }, petrify: { n: ABILITY.petrifyShatter }, crescendo: { n: 2 }, harvest: { n: ABILITY.harvestMax }, slumber: { n: ABILITY.slumberBonus },
+  supernova: { n: ABILITY.supernovaBurst }, starball: { n: ABILITY.starballMax } }
 const ABILITY_FX = { regrowth: ['cut'], plating: ['bounce'], phylactery: ['rise', 'shatter'], heads: ['triple'], singularity: ['singularity'], judgment: ['smite'],
   maelstrom: ['surface'], kindling: ['kindle'], rewind: ['rewind'], bloodpact: ['pact'], tempest: ['bolt'], reflection: ['reflect'], devour: ['choke', 'gorge'], marionette: ['snap'], lastbreath: ['lastbreath'],
-  swarm: ['sting'], petrify: ['crumble'], crescendo: ['crescendo'], harvest: ['harvest'], slumber: ['slumber'] }
+  swarm: ['sting'], petrify: ['crumble'], crescendo: ['crescendo'], harvest: ['harvest'], slumber: ['slumber'], supernova: ['supernova'], starball: ['steal', 'starball'] }
 function AbilityCard({ t, ability }) {
   if (!ability) return <div style={{ fontSize: 13.5, color: C.inkDim }}>{t('lg_assetsNoAbility')}</div>
   const label = { fontSize: 11.5, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase', color: C.purple }

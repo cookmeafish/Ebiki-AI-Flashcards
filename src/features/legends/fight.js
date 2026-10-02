@@ -22,7 +22,7 @@ export const WEAK_TO_MAX = 2
 export const newFight = () => ({ damage: 0, livesLost: 0, combo: 0, crits: 0, attacks: 0, blocked: 0, answers: 0, clean: 0, glancing: 0, safe: 0, misses: 0, shieldUsed: false, last: null, n: 0,
   chain: 0, triples: 0, bounces: 0, cuts: 0, unredeemed: [], risen: false, judged: 0, judgedRight: 0, smites: 0,
   surge: false, surfaced: 0, kindled: 0, rewound: [], pacts: 0, bolts: 0, reflects: 0, gorged: 0, snaps: 0, lastBreaths: 0,
-  rights: 0, stings: 0, perfects: 0, crumbles: 0, crescendos: 0, harvests: 0, slumbers: 0 })
+  rights: 0, stings: 0, perfects: 0, crumbles: 0, crescendos: 0, harvests: 0, slumbers: 0, novas: [], stolen: 0, steals: 0, starfires: 0 })
 
 // RAID BOSS ABILITIES (docs/raid-bosses-plan.md). Each changes how the FIGHT plays, never how a question is asked:
 // no timers, nothing hidden, a right answer is never marked wrong, and each twist rewards what builds memory.
@@ -57,13 +57,17 @@ export const newFight = () => ({ damage: 0, livesLost: 0, combo: 0, crits: 0, at
 //   harvest      (Reaper) every life already lost makes it careless: right answers deal +1 per lost life, at most
 //                          +ABILITY.harvestMax.
 //   slumber      (Dreamer) while no life is lost yet, every right answer deals +ABILITY.slumberBonus (don't wake it).
+//   supernova    (Moon Devourer) the first right answer in each phase goes supernova for +ABILITY.supernovaBurst.
+//   starball     (Nine-Tailed Empress) blocking an attack (a missed card answered right when it comes back) steals one
+//                          of her star balls; every later right answer deals +1 per star ball held (at most
+//                          ABILITY.starballMax). The block itself counters as usual.
 export const ABILITY = { regrowthGap: 2, regrowthCut: 3, tripleEvery: 3, tripleFactor: 3, singularityFactor: 2, singularityLives: 2, judgmentEvery: 5, judgmentSmite: 5,
   maelstromBonus: 3, kindlingFrom: 4, kindlingBonus: 1, bloodpactEvery: 5, tempestEvery: 4, tempestFactor: 2, devourHeal: 1, devourChoke: 1,
   marionetteCounter: 3, marionetteLives: 1, lastbreathFactor: 3, swarmEvery: 5, swarmSting: 3, petrifyEvery: 3, petrifyShatter: 3,
-  harvestMax: 2, slumberBonus: 1 }
+  harvestMax: 2, slumberBonus: 1, supernovaBurst: 3, starballMax: 2 }
 export const ABILITIES = ['regrowth', 'plating', 'phylactery', 'heads', 'singularity', 'judgment',
   'maelstrom', 'kindling', 'rewind', 'bloodpact', 'tempest', 'reflection', 'devour', 'marionette', 'lastbreath',
-  'swarm', 'petrify', 'crescendo', 'harvest', 'slumber']
+  'swarm', 'petrify', 'crescendo', 'harvest', 'slumber', 'supernova', 'starball']
 
 // One answer. hit = { verdict: 'clean'|'glancing'|'miss', mode: 'typed'|'choice', weak?: bool, attack?: bool,
 // lastStand?: bool (the Lich's returning cards), key?: the card it asked (for the Lich's unredeemed misses) }.
@@ -89,6 +93,7 @@ export function strike(state, hit, { shield = false, ability = '', phase = 1, ne
     if (right) {
       s.blocked++
       if (ability === 'regrowth') { dmg = ABILITY.regrowthCut; s.cuts++; fx = 'cut' } else if (ability === 'marionette') { dmg = ABILITY.marionetteCounter; s.snaps++; fx = 'snap' } else dmg = DAMAGE.counter
+      if (ability === 'starball' && (s.stolen || 0) < ABILITY.starballMax) { s.stolen = (s.stolen || 0) + 1; s.steals = (s.steals || 0) + 1; fx = 'steal' }
     } else lives = ability === 'marionette' ? ABILITY.marionetteLives : ATTACK_LIVES
   } else {
     s.answers++
@@ -122,6 +127,8 @@ export function strike(state, hit, { shield = false, ability = '', phase = 1, ne
       if (ability === 'crescendo' && phase > 1) { dmg += Math.min(2, phase - 1); s.crescendos++; fx = 'crescendo' }
       if (ability === 'harvest' && (state.livesLost || 0) > 0) { dmg += Math.min(ABILITY.harvestMax, state.livesLost); s.harvests++; fx = 'harvest' }
       if (ability === 'slumber' && !(state.livesLost > 0)) { dmg += ABILITY.slumberBonus; s.slumbers++; fx = 'slumber' }
+      if (ability === 'supernova' && !(s.novas || []).includes(phase)) { dmg += ABILITY.supernovaBurst; s.novas = [...(s.novas || []), phase]; fx = 'supernova' }
+      if (ability === 'starball' && (s.stolen || 0) > 0) { dmg += Math.min(ABILITY.starballMax, s.stolen); s.starfires = (s.starfires || 0) + 1; fx = 'starball' }
     }
     if (ability === 'maelstrom') s.surge = !right
     if (ability === 'devour' && !right) { gorge = Math.min(ABILITY.devourHeal, s.damage); if (gorge > 0) { s.gorged++; fx = 'gorge' } }

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
   <!-- The Poltergeist: a furious sheet ghost seen from below, its sheet whipped into a horn-like peak. A screaming
-       torn mouth glowing with a vortex throat, one solid fold of cloth for a brow over burning slit eyes, shackled
+       torn mouth glowing with a vortex throat, burning slit eyes, shackled
        wrists dragging real chains, and its own storm (a turning whirlwind of wind and debris) hurling the manor's
        furniture: a chair, a cursed portrait, a candelabra, a flapping book.
        Entrance: the furniture flies up into the storm, the eyes ignite, the mouth tears open. -->
@@ -98,10 +98,6 @@
       <g fill="#140c2a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"><path d="M40 112 l2 -3 l2 2 l-1 3Z"/><path d="M86 108 l3 -2 l1 3 l-3 1Z"/></g>
       <path d="M28 82 L36 81 L37 90 L29 91Z" fill="#dfe6f6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
       <path d="M29.5 83 l1 -1.6 M32 82.6 l1 -1.6 M34.5 82.4 l1 -1.6 M30 90 l1 1.6 M32.6 89.8 l1 1.6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
-      <!-- the brow: ONE solid fold of cloth pinched into a V -->
-      <path d="M27 27 C39 29 50 33 60 41 C70 33 81 29 93 27 L94 34 C82 37 71 42 60 51 C49 42 38 37 26 34Z" fill="#8f9dc4" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/>
-      <path d="M28 28.4 C39 30.4 50 34.4 60 42.4 C70 34.4 81 30.4 92 28.4" fill="none" stroke="#fff" stroke-width="1" opacity="0.85"/>
-      <path d="M27 34 C38 37 49 42 60 51 C71 42 82 37 93 34 C82 39 70 45 60 54 C50 45 38 39 27 34Z" fill="#000" opacity="0.18"/>
       <!-- torn eye holes, burning slit eyes -->
       <path d="M31 37 C39 40 48 45 55 51 C53 57 45 59 39 56 C34 53 31 45 31 37Z" fill="#0d0820" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3" stroke-linejoin="round"/>
       <path d="M89 37 C81 40 72 45 65 51 C67 57 75 59 81 56 C86 53 89 45 89 37Z" fill="#0d0820" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3" stroke-linejoin="round"/>
