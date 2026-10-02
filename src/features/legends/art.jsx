@@ -5,13 +5,18 @@
 // palette and the app theme, so one drawing fits every area and both light and dark mode; a variable the app does
 // not set (or a file opened on its own) uses the fallback written in the file: var(--lg-far, #9fd4ad).
 //   --lg-sky --lg-far --lg-near --lg-deep --lg-accent --lg-light
+// Every drawing is painted in its OWN ideal colors (the palette "original" shows exactly that). A palette recolors only
+// ONE part of each boss, chosen per drawing so the boss still looks right in any palette (its fire, its gems, its
+// glow): that part alone uses --lg-tint (its main color), --lg-tint-hi (the lit side) and --lg-tint-lo (the shade),
+// each with the ideal color as its fallback. The older variables above are no longer read by any drawing (a palette
+// that repainted the whole boss made some unrecognizable); the frame still shows --lg-sky while a banner loads.
 // The files are inlined (an <img> could not see the theme's variables) through the app's one sanitizer, loaded
 // lazily (it needs a DOM). Edit or replace a file to change the art; public/assets/legends/README.md says how.
 // Motion is SVG animation inside the file (<animateTransform>/<animateMotion>; the sanitizer drops <animate>/<set>):
 // class="lg-in" = the entrance (played once when the file appears), class="lg-loop" = idle life (breathing, fire,
 // waves). `animated` picks what plays: 'intro' = both, 'idle' = loops only, false = none (the file's own attributes
 // are its resting pose, so a still file shows the finished boss). Reduced motion always gets false.
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useFeatureCtx, featureCfg } from '../registry'
 import { LEGENDS_ID } from './store'
 import { RADIUS } from '../../config/tokens'
@@ -38,27 +43,71 @@ const BASE = {
   candy: [tone('var(--c-brand)', 55, 'var(--c-purple)'), 'var(--c-info)'],       // pink, sky blue sprinkles
   steel: [tone('var(--c-ink-dim)', 70, 'var(--c-info)'), 'var(--c-warning)'],    // blue grey, a warm light
 }
+// The one recolored part of a drawing, per palette: [main, lit, shade]. Fixed colors, like the drawings themselves (a
+// boss looks the same in both themes). "original" sets none, so every part keeps the color written in its file.
+const TINT = {
+  brand: ['#df2540', '#ff7083', '#8e1428'],
+  ocean: ['#2f8fe0', '#86c8ff', '#17508a'],
+  forest: ['#2fb35a', '#8ee6a2', '#16663a'],
+  sunset: ['#f07a1f', '#ffb870', '#9a4410'],
+  night: ['#6a4de0', '#ad9bff', '#33237f'],
+  sand: ['#d6a63a', '#f3da8e', '#86661a'],
+  candy: ['#ee5fb0', '#ffadd9', '#982c6b'],
+  steel: ['#6f8aa6', '#b8cadb', '#3b4e62'],
+}
+export const ORIGINAL_PALETTE = 'original'
 export function paletteColors(name) {
   const [main, accent] = BASE[name] || BASE.brand
   return { sky: mix(main, 14), far: mix(main, 38), near: mix(main, 70), deep: main, accent, light: 'var(--c-surface)' }
 }
 export const artVars = (palette) => {
   const c = paletteColors(palette)
-  return { '--lg-sky': c.sky, '--lg-far': c.far, '--lg-near': c.near, '--lg-deep': c.deep, '--lg-accent': c.accent, '--lg-light': c.light }
+  const tint = TINT[palette]
+  return {
+    '--lg-sky': c.sky, '--lg-far': c.far, '--lg-near': c.near, '--lg-deep': c.deep, '--lg-accent': c.accent, '--lg-light': c.light,
+    ...(tint ? { '--lg-tint': tint[0], '--lg-tint-hi': tint[1], '--lg-tint-lo': tint[2] } : {}),
+  }
 }
 
 // url → sanitized markup ('' = unusable), shared by every banner on the map.
+// Sanitizing a raid boss (about 300 KB, 3000 shapes) takes a while: files are sanitized ONE AT A TIME, each in its own
+// task, so opening a screen with many drawings (the asset view's strip of 22 raid bosses) no longer froze the page.
 const cache = new Map()
+let sanitizeQueue = Promise.resolve()
+const nextTask = () => new Promise((resolve) => setTimeout(resolve, 0))
 function loadArt(url) {
   if (!cache.has(url)) {
     cache.set(url, Promise.all([fetch(url).then((r) => (r.ok ? r.text() : '')), import('../../components/Markdown')])
       .then(([text, m]) => {
-        const out = text ? m.sanitizeHtml(text, { USE_PROFILES: { svg: true } }) : ''
-        return /<svg[\s>]/i.test(out) ? out.replace(/<svg\b/i, '<svg preserveAspectRatio="xMidYMid slice" width="100%" height="100%" aria-hidden="true"') : ''
+        const job = sanitizeQueue.then(nextTask).then(() => {
+          const out = text ? m.sanitizeHtml(text, { USE_PROFILES: { svg: true } }) : ''
+          return /<svg[\s>]/i.test(out) ? out.replace(/<svg\b/i, '<svg preserveAspectRatio="xMidYMid slice" width="100%" height="100%" aria-hidden="true"') : ''
+        })
+        sanitizeQueue = job.catch(() => {})
+        return job
       })
       .catch(() => { cache.delete(url); return '' })) // a failed fetch is tried again next time
   }
   return cache.get(url)
+}
+
+// A drawing is loaded only once it comes near the screen, and its animations pause while it is off screen: the asset
+// view mounted about 37 full raid bosses at once, each with hundreds of animations, and lagged the whole computer.
+// The dev gallery (check-art measures every drawing at fixed moments) sets window.__ebikiArtEager to keep them all live.
+const ART_NEAR = '400px'
+function useArtInView(ref) {
+  const eager = typeof window === 'undefined' || typeof IntersectionObserver === 'undefined' || !!window.__ebikiArtEager
+  const [state, setState] = useState({ seen: eager, visible: true })
+  useEffect(() => {
+    const el = ref.current
+    if (eager || !el) return undefined
+    const io = new IntersectionObserver(([e]) => {
+      setState((s) => (s.visible === e.isIntersecting && (s.seen || !e.isIntersecting) ? s : { seen: s.seen || e.isIntersecting, visible: e.isIntersecting }))
+    }, { rootMargin: ART_NEAR })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [eager, ref])
+  return state
 }
 
 const ANIM_TAGS = new Set(['animatetransform', 'animatemotion'])
@@ -112,21 +161,30 @@ const freeFigure = (svg) => svg.replace(/<svg\b/, '<svg overflow="visible"')
 export function LegendsArt({ kind, motif, palette, height, width = '100%', locked = false, round = RADIUS.lg, animated = false, style, room = false, roomed = false }) {
   const url = artUrl(kind, motif)
   const [html, setHtml] = useState({ url: '', svg: '' })
+  const boxRef = useRef(null)
+  const { seen, visible } = useArtInView(boxRef)
   useEffect(() => {
+    if (!seen) return undefined
     let live = true
     loadArt(url).then((svg) => { if (live) setHtml({ url, svg }) })
     return () => { live = false }
-  }, [url])
+  }, [url, seen])
   const always = useArtMotionAlways()
   const still = useArtStill()
   const mode = locked || still || (!always && reducedMotion()) ? false : animated
   const raw = html.url === url ? html.svg : ''
   const figure = kind !== 'areas'
   const svg = useMemo(() => { const out = withMotion(raw, mode); return figure ? freeFigure(out) : out }, [raw, mode, figure])
+  // Off screen: the drawing's animations pause (they resume where they were when it scrolls back in).
+  useEffect(() => {
+    const el = boxRef.current?.querySelector('svg')
+    if (!el || !mode) return
+    try { if (visible) el.unpauseAnimations?.(); else el.pauseAnimations?.() } catch { /* not an SVG root */ }
+  }, [visible, svg, mode])
   const labels = useContext(ArtLabels)
   const big = (typeof height !== 'number' || height >= LABEL_MIN_PX) && (typeof width !== 'number' || width >= LABEL_MIN_PX)
   const art = (
-    <div style={{
+    <div ref={boxRef} style={{
       width: labels && big ? '100%' : width, height, borderRadius: round, flexShrink: 0, ...artVars(palette),
       ...(figure ? { overflow: 'visible', clipPath: `inset(-${BOSS_HEADROOM})` } : { overflow: 'hidden' }),
       background: figure ? 'transparent' : 'var(--lg-sky)', filter: locked ? 'grayscale(1) opacity(.55)' : 'none', ...style,

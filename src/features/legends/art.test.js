@@ -5,11 +5,15 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { MOTIFS } from './map'
-import { artUrl, artVars } from './art'
+import { RAID_MOTIFS } from './raid'
+import { artUrl, artVars, ORIGINAL_PALETTE } from './art'
 
 const PUBLIC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../public')
 const read = (url) => fs.readFileSync(path.join(PUBLIC, url), 'utf8')
 const APP_VARS = Object.keys(artVars('brand'))
+// A drawing is painted in its own colors; a palette reaches only the one part that uses the tint (art.jsx).
+const PAINT_VARS = /var\(--lg-(sky|far|near|deep|accent|light)\b/
+const TINT_VAR = /var\(--lg-tint(-hi|-lo)?,\s*#[0-9a-fA-F]{3,8}\)/
 
 describe('Legends art files', () => {
   for (const kind of ['areas', 'bosses']) {
@@ -21,6 +25,9 @@ describe('Legends art files', () => {
         expect(svg).not.toMatch(/<(script|foreignObject|image|use|a|style)\b|\son\w+\s*=|url\s*\(|javascript:|href=/i)
         // Every color variable has a fallback, so the file also looks right on its own and outside the app.
         for (const m of svg.matchAll(/var\((--[\w-]+)(,[^)]*)?\)/g)) expect(m[2], `${m[1]} in ${kind}/${motif}`).toBeTruthy()
+        // Its own colors, with one part a palette may recolor.
+        expect(svg, `${kind}/${motif} repaints with the palette`).not.toMatch(PAINT_VARS)
+        expect(svg, `${kind}/${motif} has a part the palette tints`).toMatch(TINT_VAR)
         // Motion: only what the sanitizer keeps (<animate>/<set> are dropped), each piece tagged entrance or loop,
         // no ids (a file is inlined many times on one page) and no calcMode (dropped too: timing is linear).
         expect(svg).not.toMatch(/<animate[\s>/]|<set\b|\sid=|calcMode/i)
@@ -54,10 +61,19 @@ describe('Legends art files', () => {
       for (const k of ['boss', 'idea', 'entrance', 'lair', 'palette']) expect(c[k], `${c.motif}.${k}`).toBeTruthy()
     })
   })
+  for (const motif of RAID_MOTIFS) {
+    it(`raids/${motif}.svg keeps its own colors and tints one part`, () => {
+      const svg = read(artUrl('raids', motif))
+      expect(svg).not.toMatch(PAINT_VARS)
+      expect(svg).toMatch(TINT_VAR)
+    })
+  }
   it('names a real file for an unknown motif', () => {
     expect(artUrl('areas', 'atlantis')).toBe(artUrl('areas', MOTIFS[0]))
   })
   it('sets the documented palette variables', () => {
-    expect(APP_VARS).toEqual(['--lg-sky', '--lg-far', '--lg-near', '--lg-deep', '--lg-accent', '--lg-light'])
+    expect(APP_VARS).toEqual(['--lg-sky', '--lg-far', '--lg-near', '--lg-deep', '--lg-accent', '--lg-light', '--lg-tint', '--lg-tint-hi', '--lg-tint-lo'])
+    // "original" leaves the tint unset: every part shows the color written in its file.
+    expect(Object.keys(artVars(ORIGINAL_PALETTE)).filter((k) => k.startsWith('--lg-tint'))).toEqual([])
   })
 })

@@ -31,16 +31,16 @@
     <animateTransform class="lg-in" attributeName="transform" type="rotate" values="0 74 116;0 74 116;-16 74 116;4 74 116;0 74 116" keyTimes="0;.55;.72;.88;1" dur="1.5s" fill="freeze"/>
     <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 74 116;-2 74 116;0 74 116" dur="1.2s" begin="1.5s" repeatCount="indefinite"/>
       <!-- the burning tail, streaming back -->
-      <g fill="#ff7a1a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round">
+      <g fill="var(--lg-tint,#ff7a1a)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round">
         <path style="transform-box:fill-box;transform-origin:left center" d="M96 80 C106 74 114 80 122 72 C120 84 112 90 102 88 C110 92 118 94 126 90 C120 102 106 100 94 92Z"><animateTransform class="lg-loop" attributeName="transform" type="skewY" values="0;7;0" dur="0.7s" repeatCount="indefinite"/></path>
-        <path d="M100 84 C106 82 110 84 114 80 C112 86 106 88 100 87Z" fill="#ffd23f" stroke="none"/>
+        <path d="M100 84 C106 82 110 84 114 80 C112 86 106 88 100 87Z" fill="var(--lg-tint-hi,#ffd23f)" stroke="none"/>
       </g>
       <!-- hind legs: bone and sinew, burning hooves -->
       <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round">
         <path d="M80 90 L90 104 L86 116 H93 L99 103 L92 88Z" fill="#1d1b28"/>
         <path d="M68 94 L69 108 L62 117 H69 L77 106 L77 94Z" fill="#2a2533"/>
       </g>
-      <g fill="#ff7a1a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"><path d="M85 116 L87 112 L89 115 L91 111 L94 116Z M61 117 L63 113 L65 116 L67 112 L70 117Z"/></g>
+      <g fill="var(--lg-tint,#ff7a1a)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"><path d="M85 116 L87 112 L89 115 L91 111 L94 116Z M61 117 L63 113 L65 116 L67 112 L70 117Z"/></g>
       <!-- the barrel, ribs through the hide -->
       <path d="M38 77 C40 64 56 60 72 62 C88 64 99 72 99 84 C99 96 87 101 70 101 C54 101 38 93 38 77Z" fill="#2a2533" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
       <path d="M44 70 C52 63 66 62 78 64 C66 66 54 68 46 76Z" fill="#6a5a7a" opacity="0.6"/>
@@ -54,15 +54,15 @@
       </g>
       <g fill="#e6e0cc" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"><circle cx="32" cy="72.6" r="1.6"/><circle cx="37" cy="94" r="1.6"/></g>
       <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.2;1" dur="0.5s" repeatCount="indefinite"/>
-        <path d="M21 79 C16 78 14 74 17 70 C17 73 19 73 19 70 C22 72 23 76 21 79Z M31 103 C26 103 24 99 27 95 C27 98 29 98 29 95 C32 97 33 101 31 103Z" fill="#ff7a1a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+        <path d="M21 79 C16 78 14 74 17 70 C17 73 19 73 19 70 C22 72 23 76 21 79Z M31 103 C26 103 24 99 27 95 C27 98 29 98 29 95 C32 97 33 101 31 103Z" fill="var(--lg-tint,#ff7a1a)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
       </g>
       <!-- the neck and the flaming mane -->
       <path d="M42 81 C35 70 33 58 36 47 L47 45 C51 57 55 68 57 72Z" fill="#2a2533" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
       <path d="M38 50 C38 60 40 70 44 78" fill="none" stroke="#6a5a7a" stroke-width="1.2"/>
-      <g fill="#ff7a1a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round">
+      <g fill="var(--lg-tint,#ff7a1a)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round">
         <path style="transform-box:fill-box;transform-origin:center bottom" d="M46 48 C47 40 43 36 45 28 C50 34 52 40 51 46 C54 40 56 34 56 27 C61 36 60 46 55 58 C58 52 62 48 62 42 C66 52 62 62 56 66Z"><animateTransform class="lg-loop" attributeName="transform" type="skewX" values="0;-6;0" dur="0.6s" repeatCount="indefinite"/></path>
       </g>
-      <path d="M49 44 C49 39 51 36 51 36 C53 40 53 42 49 44Z M55 56 C56 50 58 47 58 47 C59 52 58 54 55 56Z" fill="#ffd23f"/>
+      <path d="M49 44 C49 39 51 36 51 36 C53 40 53 42 49 44Z M55 56 C56 50 58 47 58 47 C59 52 58 54 55 56Z" fill="var(--lg-tint-hi,#ffd23f)"/>
       <!-- the horse skull, angled down as it rears, ears laid back -->
       <g transform="rotate(-20 40 52)">
       <g fill="#e6e0cc" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"><path d="M33 43 L35 31 L39 42Z"/><path d="M28 42 L28 30 L33 41Z"/></g>
@@ -83,8 +83,8 @@
       <g transform="translate(6 59)"><g>
         <animateTransform class="lg-in" attributeName="transform" type="scale" values="0;0;1.4;1" keyTimes="0;.7;.86;1" dur="1.5s" fill="freeze"/>
         <g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.2;1" dur="0.5s" begin="1.5s" repeatCount="indefinite"/>
-          <path d="M0 -1 C-5 0 -9 -3 -13 0 C-9 1 -10 4 -15 6 C-8 7 -5 4 -4 8 C-2 4 0 3 0 1Z" fill="#ff7a1a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" stroke-linejoin="round"/>
-          <path d="M0 0 C-3 0 -6 0 -8 2 C-6 3 -3 2 0 1.6Z" fill="#ffd23f"/>
+          <path d="M0 -1 C-5 0 -9 -3 -13 0 C-9 1 -10 4 -15 6 C-8 7 -5 4 -4 8 C-2 4 0 3 0 1Z" fill="var(--lg-tint,#ff7a1a)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" stroke-linejoin="round"/>
+          <path d="M0 0 C-3 0 -6 0 -8 2 C-6 3 -3 2 0 1.6Z" fill="var(--lg-tint-hi,#ffd23f)"/>
         </g>
       </g></g>
       </g>

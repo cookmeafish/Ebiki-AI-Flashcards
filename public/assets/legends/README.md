@@ -17,20 +17,20 @@ To look at all of them at once (and note what is good or bad): `npm run dev`, th
 
 ## Colors
 
-A file can use fixed colors, or these variables, which the app sets from the area's color mood and the light or dark
-theme, so one drawing fits every area:
+Every drawing is painted in its OWN ideal colors (fixed hex colors; the palette "original" shows exactly that).
+An area's palette recolors only ONE part of each boss, chosen so the boss still looks right in any palette (its
+fire, its gems, its aura, a cape): that part, in the boss file AND in its banner (raid bosses: in every phase layer),
+uses these variables, each with the ideal color as its fallback:
 
 | Variable | Use |
 |---|---|
-| `--lg-sky` | background, lightest |
-| `--lg-far` | far hills, buildings in the back |
-| `--lg-near` | the ground in front |
-| `--lg-deep` | the strongest shade: bodies, trees, outlines |
-| `--lg-accent` | a second color: sun, lights, details |
-| `--lg-light` | clouds, windows, highlights (dark in dark mode) |
+| `--lg-tint` | the part's main color |
+| `--lg-tint-hi` | its lit side and highlights |
+| `--lg-tint-lo` | its shade |
 
-Always give a fallback, `fill="var(--lg-far, #9fd4ad)"`: that color shows when the file is opened on its own and for
-any variable the app does not set (`--lg-ink` for outlines stays dark in both themes).
+`fill="var(--lg-tint, #3fd0ff)"`: the fallback shows in "original" and when the file is opened on its own. Outlines
+use `var(--lg-ink, #1d2230)` (never set, dark in both themes). The old `--lg-sky/far/near/deep/accent/light`
+repainted whole bosses and are not used any more (`art.test.js` fails on them and on a file with no tinted part).
 
 ## Motion
 

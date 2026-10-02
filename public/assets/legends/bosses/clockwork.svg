@@ -7,7 +7,7 @@
   <g transform="translate(60 38)">
     <path d="M49.5 0 L51.6 6.8 L47.8 12.8 L48 19.9 L42.9 24.7 L41.3 31.7 L35 35 L31.7 41.3 L24.8 42.9 L19.9 48 L12.8 47.8 L6.8 51.6 L0 49.5 L-6.8 51.6 L-12.8 47.8 L-19.9 48 L-24.7 42.9 L-31.7 41.3 L-35 35 L-41.3 31.7 L-42.9 24.7 L-48 19.9 L-47.8 12.8 L-51.6 6.8 L-49.5 0 L-51.6 -6.8 L-47.8 -12.8 L-48 -19.9 L-42.9 -24.8 L-41.3 -31.7 L-35 -35 L-31.7 -41.3 L-24.8 -42.9 L-19.9 -48 L-12.8 -47.8 L-6.8 -51.6 L0 -49.5 L6.8 -51.6 L12.8 -47.8 L19.9 -48 L24.8 -42.9 L31.7 -41.3 L35 -35 L41.3 -31.7 L42.9 -24.8 L48 -19.9 L47.8 -12.8 L51.6 -6.8Z" fill="#e0c16a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
     <circle r="48" fill="#f2e6c4" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/>
-    <circle r="44" fill="none" stroke="var(--lg-deep, #b0702a)" stroke-width="2.4"/>
+    <circle r="44" fill="none" stroke="#b0702a" stroke-width="2.4"/>
     <g stroke="var(--lg-ink, #1d2230)" stroke-linecap="round">
       <path d="M0 -40 V-32" stroke-width="2.6" transform="rotate(0)"/><path d="M0 -40 V-35" stroke-width="1.4" transform="rotate(30)"/><path d="M0 -40 V-35" stroke-width="1.4" transform="rotate(60)"/><path d="M0 -40 V-32" stroke-width="2.6" transform="rotate(90)"/><path d="M0 -40 V-35" stroke-width="1.4" transform="rotate(120)"/><path d="M0 -40 V-35" stroke-width="1.4" transform="rotate(150)"/><path d="M0 -40 V-32" stroke-width="2.6" transform="rotate(180)"/><path d="M0 -40 V-35" stroke-width="1.4" transform="rotate(210)"/><path d="M0 -40 V-35" stroke-width="1.4" transform="rotate(240)"/><path d="M0 -40 V-32" stroke-width="2.6" transform="rotate(270)"/><path d="M0 -40 V-35" stroke-width="1.4" transform="rotate(300)"/><path d="M0 -40 V-35" stroke-width="1.4" transform="rotate(330)"/>
     </g>
@@ -63,11 +63,11 @@
   </g>
   <!-- the brass body: shoulders wider than the frame -->
   <g transform="translate(60 126)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.018;1" dur="2.4s" repeatCount="indefinite"/><g transform="translate(-60 -126)">
-    <path d="M-14 126 L-12 94 C-8 80 4 72 20 68 L40 62 H80 L100 68 C116 72 128 80 132 94 L134 126 C90 130 30 130 -14 126Z" fill="var(--lg-deep, #b0702a)" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2" stroke-linejoin="round"/>
+    <path d="M-14 126 L-12 94 C-8 80 4 72 20 68 L40 62 H80 L100 68 C116 72 128 80 132 94 L134 126 C90 130 30 130 -14 126Z" fill="#b0702a" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2" stroke-linejoin="round"/>
     <path d="M-12 94 C-8 80 4 72 20 68 L40 62 H52 L30 74 C16 80 6 92 2 126 H-14Z" fill="#fff" opacity="0.2"/>
     <path d="M132 94 L134 126 H112 L110 92 L96 72 L100 68 C116 72 128 80 132 94Z" fill="#000" opacity="0.25"/>
     <!-- shoulder plates with rivets -->
-    <path d="M-12 96 C-10 82 2 72 18 70 C28 70 34 76 34 84 L26 96Z M132 96 C130 82 118 72 102 70 C92 70 86 76 86 84 L94 96Z" fill="var(--lg-near, #d49a4e)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M-12 96 C-10 82 2 72 18 70 C28 70 34 76 34 84 L26 96Z M132 96 C130 82 118 72 102 70 C92 70 86 76 86 84 L94 96Z" fill="#d49a4e" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
     <g fill="#5a3a1e"><circle cx="2" cy="84" r="1.2"/><circle cx="12" cy="78" r="1.2"/><circle cx="24" cy="76" r="1.2"/><circle cx="118" cy="84" r="1.2"/><circle cx="108" cy="78" r="1.2"/><circle cx="96" cy="76" r="1.2"/><circle cx="8" cy="108" r="1.2"/><circle cx="112" cy="108" r="1.2"/></g>
     <path d="M2 112 C30 116 90 116 118 112 M36 66 L32 84 M84 66 L88 84" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1" opacity="0.6"/>
     <g fill="#5a3a1e"><circle cx="20" cy="114" r="1"/><circle cx="40" cy="115.4" r="1"/><circle cx="80" cy="115.4" r="1"/><circle cx="100" cy="114" r="1"/></g>
@@ -87,7 +87,7 @@
     <!-- the furnace -->
     <rect x="46" y="84" width="28" height="26" rx="4" fill="#1a0b04" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8"/>
     <g transform="translate(60 98)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.08 1.15;1 1" dur="0.9s" repeatCount="indefinite"/>
-      <ellipse rx="11" ry="8" fill="#ff5a1f"/><ellipse rx="6.6" ry="5" fill="#ffb347"/><ellipse rx="3" ry="2" fill="#fff1b8"/>
+      <ellipse rx="11" ry="8" fill="var(--lg-tint,#ff5a1f)"/><ellipse rx="6.6" ry="5" fill="var(--lg-tint-hi,#ffb347)"/><ellipse rx="3" ry="2" fill="#fff1b8"/>
     </g></g>
     <path d="M51 84 V110 M56 84 V110 M64 84 V110 M69 84 V110" stroke="#3a3d46" stroke-width="2.2"/>
     <rect x="46" y="84" width="28" height="26" rx="4" fill="none" stroke="#e0c16a" stroke-width="1"/>
@@ -116,9 +116,9 @@
     <path d="M42 24 C28 28 10 22 2 8 C10 18 26 22 40 20Z" fill="#000" opacity="0.25"/>
     <path d="M32 13 L30 23 M22 9 L18 20 M12 3 L6 12 M5 -3 L0 2" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1" stroke-linecap="round"/>
     <path d="M2 -11 L0 -6 L3 -5Z" fill="#e0c16a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/></g>
-    <path d="M40 30 L24 32 L20 40 L38 40Z M80 30 L96 32 L100 40 L82 40Z" fill="var(--lg-deep, #b0702a)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M40 30 L24 32 L20 40 L38 40Z M80 30 L96 32 L100 40 L82 40Z" fill="#b0702a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
     <path d="M36 33 L26 34 L24 38 L36 38Z M84 33 L94 34 L96 38 L84 38Z" fill="#1a0b04" opacity="0.6"/>
-    <path d="M38 26 L44 14 L60 10 L76 14 L82 26 L81 50 L76 64 L68 74 H52 L44 64 L39 50Z" fill="var(--lg-near, #d49a4e)" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2" stroke-linejoin="round"/>
+    <path d="M38 26 L44 14 L60 10 L76 14 L82 26 L81 50 L76 64 L68 74 H52 L44 64 L39 50Z" fill="#d49a4e" stroke="var(--lg-ink, #1d2230)" stroke-width="2.2" stroke-linejoin="round"/>
     <path d="M38 26 L44 14 L60 10 L58 22 L46 30 L40 46Z" fill="#fff" opacity="0.25"/>
     <path d="M82 26 L81 50 L76 64 L68 74 L70 56 L76 30Z" fill="#000" opacity="0.22"/>
     <path d="M60 10 V24 M44 14 L52 22 M76 14 L68 22" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" opacity="0.6"/>
@@ -157,14 +157,14 @@
     <path d="M36 26 L60 35.6 L84 26" fill="none" stroke="#9aa0ae" stroke-width="1" stroke-linejoin="round"/>
     <g fill="#9aa0ae"><circle cx="41" cy="29.6" r="0.9"/><circle cx="51" cy="33.6" r="0.9"/><circle cx="69" cy="33.6" r="0.9"/><circle cx="79" cy="29.6" r="0.9"/></g>
     <!-- the muzzle: an angular plate, flared nostrils, a grille jaw with iron tusks -->
-    <path d="M 40 51 L 80 51 L 78 64 L 70 76 H 50 L 42 64 Z" fill="var(--lg-deep, #b0702a)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
+    <path d="M 40 51 L 80 51 L 78 64 L 70 76 H 50 L 42 64 Z" fill="#b0702a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
     <path d="M 40 51 L 60 51 L 60 76 H 50 L 42 64 Z" fill="#fff" opacity="0.15"/>
     <path d="M 80 51 L 78 64 L 70 76 L 66 76 L 72 62 L 74 51 Z" fill="#000" opacity="0.25"/>
     <path d="M 60 51 V 60" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" opacity="0.7"/>
     <g fill="#1a0b04" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9"><ellipse cx="51.5" cy="58" rx="2.4" ry="3.2" transform="rotate(30 51.5 58)"/><ellipse cx="68.5" cy="58" rx="2.4" ry="3.2" transform="rotate(-30 68.5 58)"/></g>
     <path d="M 46 65 H 74 L 68 73 H 52 Z" fill="#1a0b04" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
     <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 0.6;0 0" dur="0.9s" repeatCount="indefinite"/>
-      <path d="M 50 67 H 70 L 66 71.6 H 54 Z" fill="#ff7a1a"/></g>
+      <path d="M 50 67 H 70 L 66 71.6 H 54 Z" fill="var(--lg-tint,#ff7a1a)"/></g>
     <path d="M 52 65 V 73 M 56 65 V 73 M 60 65 V 73.6 M 64 65 V 73 M 68 65 V 73" stroke="#3a3d46" stroke-width="1.6"/>
     <path d="M 44 72 L 42 60 L 48 69 Z M 76 72 L 78 60 L 72 69 Z" fill="#d8dce4" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
   </g></g>

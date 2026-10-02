@@ -18,18 +18,30 @@ plus the technical rules the app enforces. The files live in `public/assets/lege
   bosses ... if it makes sense for the boss design then yea keep it mean"). The rule is VARIETY, not "no mean
   bosses": a dread knight, a lava wyrm or a three-headed hound stay menacing; a mountain spirit, a kitsune or a candy
   giant may be serene, sly or goofy. Decide per boss from its concept, then check the whole set for a spread. In 2026-10
-  the owner had these changed from mean: mountains (serene), sakura (enigmatic), sky (playful), sweets (goofy),
+  the owner had these changed from mean: mountains (serene), sakura (enigmatic), sky (playful),
   ice (haughty), jungle (smug), graveyard (melancholy), garden (dopey and hungry),
-  arena (noble and handsome: a laurel-crowned champion with his face shown, a calm half smile, sword raised in salute),
+  arena (noble, handsome holy knight: a chiselled heroic face, a halo, shining silver plate, a huge glowing greatsword),
   crystal (insufferably smug: three conceited heads, a cocked brow, an eye roll, a self-admiring sparkle),
   fungal (drowsy, dreamy spore-sage: heavy half-shut lids, a moss moustache and beard, a content smile, a slow yawn
   that puffs sleepy spores),
-  arcade (hyped and cocky, he just set the high score: gold pixel star eyes, raised brows with one cocked, a huge
-  toothy grin that laughs HA-HA in hard steps, a blinking HI under the score),
+  arcade (evil but OVERLY happy, giddy because he is about to destroy you: steep devil brows raised with glee, crazed
+  glowing red crescent eyes, cheeks pushed up, a manic ear-to-ear grin of far too many sharp fangs, a drool drip,
+  cackling HA-HA-HA in hard steps; the owner rejected an earlier cute star-eyed version),
   sewer (smug show-off, flashing his gold grillz: chin up, half-lidded eyes, one brow cocked, two huge sparkling gold
   buck teeth as the focal point, bling, and two rat courtiers, one polishing a coin, one holding up his mirror),
+  sweets (sickly sweet and scheming, remade from scratch after the owner hated the goofy gingerbread man: the
+  Sugarplum Queen, half-lidded eyes looking down, one brow arched, a too-sweet smile curling at one corner over one
+  sugar fang, offering you a skull-marked bonbon),
   junkyard (happy-creepy: chrome brows arched in glee, mismatched headlight lenses with pinpoint pupils that never
-  move, cheeks pushed up into smiling eyes, a grin far too wide crammed with scrap teeth, a wind-up key, a cheerful wave).
+  move, cheeks pushed up into smiling eyes, a grin far too wide crammed with scrap teeth, a wind-up key, a cheerful wave),
+  mine (grumpy, remade from scratch after the owner disliked the drill-maw mole-worm: Old Grumbeard, a dwarf-king in
+  his ore cart, heavy lids slanting down over small glinting eyes, bushy brows crushed into a scowl, a walrus moustache
+  grumbling over a jutting lower lip, a ruby hugged to his chest, a crystal crown growing out of his dented helm),
+  ocean (eerily polite: a walking octopus gentleman in a tattered greatcoat, one gold eye heavy-lidded, the other
+  magnified behind a brass monocle under the lifted side of one brow ridge, flat octopus pupils, a tentacle beard
+  hiding the mouth, a lantern held high as a lure; the owner asked for "a walking human like octopus thing"),
+  forest (hopeful: an old forest spirit hoping for spring, big round amber eyes looking up, brows lifted in the middle,
+  a soft smile, moss cheeks and beard, a heart of light in his chest, his antlers and shoulders wound with leafy vines).
 - **Every boss and every banner is truly unique**, not "the same thing but slightly different". Vary the whole idea,
   not the colors:
   - silhouette and pose (a head bust, a full body, winged, a profile view, a creature rising out of something);
@@ -85,11 +97,16 @@ the 40 Legends bosses are held to the same bar (they just have no phases).
 - A phase that only adds small things: if phase 2 looks like phase 1 at a glance, it is not done.
 - Labels or tags over the boss (the PHASE tag now sits under it) and anything that hides the transformation.
 - **Nose rings** ("I hate nose rings"). No piercings on bosses.
+- **Handsome means HANDSOME** (owner on the first noble arena: "ugly af"): a chiseled heroic face with cel shading and
+  good head-to-body proportions, shining layered armor, not a small flat head on a flat torso.
 - **"Inspired by X, don't copy it" does NOT mean drop what made X loved.** The first Thousand-Eyed Judge kept only the
   idea of "an angel" and became a calm gold knight with no eyes; the owner: "where is the scary eyes and dangerous
   white celestial figure??? HOW IS THIS YOUR BEST WORK???". Keep the loved signature (a white celestial, eyes
   everywhere), change the rest (pose, backdrop, structure, phases). And a raid boss is terrifying from PHASE 1; the
   phases make it worse, they do not make it scary for the first time.
+- **A raid variation of a BEAUTIFUL boss stays beautiful** (owner, 2026-10, on the first kitsune: "very ugly ...
+  compare it to sakura being so beautiful"): keep the loved face construction and elegance, make it grander and more
+  dangerous through scale, light and stillness, never by crowding the frame or uglifying the face.
 - **Fire out of the eyes as a default.** It worked on the titan and the castle knight, where it is rooted IN the
   visor slit and leans outward; on other bosses (the frontier rider) the owner asked to remove it. Use it rarely, and
   only rooted in the eye.
@@ -244,12 +261,14 @@ When adding a motif, pick an idea none of the forty uses.
   LAYERS: a shape, then a `#000` shape at `opacity` 0.15 to 0.3 for the shadow side, then a `#fff` or light shape at
   0.15 to 0.4 for the lit side, then a glow halo (the same shape bigger, bright color, `opacity` 0.3 to 0.45).
 - **No `id` attributes**: a file is inlined many times on one page, and ids would collide.
-- **Colors**: the app themes each area with `--lg-sky`, `--lg-far`, `--lg-near`, `--lg-deep`, `--lg-accent`,
-  `--lg-light` (from the area's palette and light or dark mode). Use them for the BODY and the scenery, so one file
-  fits every palette. EVERY `var()` needs a fallback: `fill="var(--lg-deep, #2e8b57)"`. Use `var(--lg-ink, #1d2230)`
-  for outlines (the app does not set it, so it stays dark). Use FIXED colors for the signature details that must not
-  change with the palette: glowing eyes, fire and lava, venom, teeth and bone, ice glints, neon. Check both themes:
-  `--lg-light` is DARK in dark mode, so anything that must stay white (a lighthouse, a mask) uses a fixed color.
+- **Colors** (the owner, 2026-10: palettes that repainted the whole boss made some unrecognizable and barely touched
+  others): paint every boss, banner and raid boss in its OWN ideal FIXED colors (what the palette "original" shows).
+  A palette recolors exactly ONE part per boss: the least intrusive part that is still clearly noticed (its fire,
+  ice growing out of it, a gem or orb, an aura or halo, runes, a cape or banner cloth, crystals; never skin, face
+  or body). That part uses `var(--lg-tint, #orig)` (mid tone), `var(--lg-tint-hi, #orig)` (lit) and
+  `var(--lg-tint-lo, #orig)` (shade), with the ideal colors as fallbacks, in the boss AND the same part in its banner
+  (raid bosses: in every phase layer). Check it in every palette, including dull sand and steel. Outlines use
+  `var(--lg-ink, #1d2230)`. The old `--lg-sky/far/near/deep/accent/light` are retired (`art.test.js` fails on them).
 - **Outline style**: ink strokes 1.5 to 2.2 on big shapes, 0.6 to 1.2 on details, `stroke-linejoin="round"`.
 
 ## Motion

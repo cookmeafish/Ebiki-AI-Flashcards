@@ -6,18 +6,18 @@
        tire shoulders with rebar spikes, exhaust stacks belching smoke, an excavator-bucket fist slammed into the
        heap and the crane magnet waving hello. On the left a crane swings a wreck from its magnet over the car crusher, whose press pumps down on a car;
        crushed cubes are stacked beside it. Rusty barrels, a tire pile and a torn fence with a warning sign in front. -->
-  <rect width="400" height="140" fill="var(--lg-sky, #e9edf1)"/>
-  <circle cx="120" cy="46" r="22" fill="var(--lg-accent, #b36a00)" opacity="0.5"/><circle cx="120" cy="46" r="16" fill="var(--lg-accent, #b36a00)" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
-  <path d="M96 52 H144 M100 58 H140" stroke="var(--lg-sky, #e9edf1)" stroke-width="2.4"/>
+  <rect width="400" height="140" fill="#e9edf1"/>
+  <circle cx="120" cy="46" r="22" fill="#b36a00" opacity="0.5"/><circle cx="120" cy="46" r="16" fill="#b36a00" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+  <path d="M96 52 H144 M100 58 H140" stroke="#e9edf1" stroke-width="2.4"/>
   <!-- far mountains of junk -->
-  <path d="M0 86 L20 70 L34 74 L46 58 L64 66 L78 52 L96 64 L112 60 L130 74 L150 68 L170 80 L200 72 L226 82 L250 66 L276 74 L300 60 L326 70 L350 58 L376 66 L400 62 V110 H0Z" fill="var(--lg-far, #bcc6d1)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+  <path d="M0 86 L20 70 L34 74 L46 58 L64 66 L78 52 L96 64 L112 60 L130 74 L150 68 L170 80 L200 72 L226 82 L250 66 L276 74 L300 60 L326 70 L350 58 L376 66 L400 62 V110 H0Z" fill="#bcc6d1" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
   <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1" opacity="0.45" stroke-linecap="round"><path d="M40 72 L44 62 L52 62 L56 70"/><path d="M84 66 L94 56"/><path d="M160 80 L164 70 H172"/><path d="M332 70 L340 60 L348 64"/><path d="M380 70 L384 62"/></g>
-  <g transform="translate(30 66)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -40" dur="6s" repeatCount="indefinite"/><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.4;1.6" dur="6s" repeatCount="indefinite"/><circle r="6" fill="var(--lg-far, #bcc6d1)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.6"/></g></g></g>
-  <g transform="translate(30 66)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -40" dur="6s" begin="2.0s" repeatCount="indefinite"/><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.4;1.6" dur="6s" begin="2.0s" repeatCount="indefinite"/><circle r="6" fill="var(--lg-far, #bcc6d1)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.6"/></g></g></g>
-  <g transform="translate(30 66)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -40" dur="6s" begin="4.0s" repeatCount="indefinite"/><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.4;1.6" dur="6s" begin="4.0s" repeatCount="indefinite"/><circle r="6" fill="var(--lg-far, #bcc6d1)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.6"/></g></g></g>
-  <g transform="translate(186 72)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -40" dur="6s" begin="1.3s" repeatCount="indefinite"/><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.4;1.6" dur="6s" begin="1.3s" repeatCount="indefinite"/><circle r="6" fill="var(--lg-far, #bcc6d1)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.6"/></g></g></g>
-  <g transform="translate(186 72)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -40" dur="6s" begin="3.3s" repeatCount="indefinite"/><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.4;1.6" dur="6s" begin="3.3s" repeatCount="indefinite"/><circle r="6" fill="var(--lg-far, #bcc6d1)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.6"/></g></g></g>
-  <g transform="translate(186 72)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -40" dur="6s" begin="5.3s" repeatCount="indefinite"/><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.4;1.6" dur="6s" begin="5.3s" repeatCount="indefinite"/><circle r="6" fill="var(--lg-far, #bcc6d1)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.6"/></g></g></g>
+  <g transform="translate(30 66)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -40" dur="6s" repeatCount="indefinite"/><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.4;1.6" dur="6s" repeatCount="indefinite"/><circle r="6" fill="#bcc6d1" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.6"/></g></g></g>
+  <g transform="translate(30 66)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -40" dur="6s" begin="2.0s" repeatCount="indefinite"/><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.4;1.6" dur="6s" begin="2.0s" repeatCount="indefinite"/><circle r="6" fill="#bcc6d1" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.6"/></g></g></g>
+  <g transform="translate(30 66)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -40" dur="6s" begin="4.0s" repeatCount="indefinite"/><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.4;1.6" dur="6s" begin="4.0s" repeatCount="indefinite"/><circle r="6" fill="#bcc6d1" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.6"/></g></g></g>
+  <g transform="translate(186 72)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -40" dur="6s" begin="1.3s" repeatCount="indefinite"/><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.4;1.6" dur="6s" begin="1.3s" repeatCount="indefinite"/><circle r="6" fill="#bcc6d1" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.6"/></g></g></g>
+  <g transform="translate(186 72)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -40" dur="6s" begin="3.3s" repeatCount="indefinite"/><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.4;1.6" dur="6s" begin="3.3s" repeatCount="indefinite"/><circle r="6" fill="#bcc6d1" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.6"/></g></g></g>
+  <g transform="translate(186 72)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -40" dur="6s" begin="5.3s" repeatCount="indefinite"/><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.4;1.6" dur="6s" begin="5.3s" repeatCount="indefinite"/><circle r="6" fill="#bcc6d1" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.6"/></g></g></g>
   <!-- the crane, a wreck swinging from its magnet -->
   <path d="M34 120 L42 30 H50 L58 120Z" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="3.2" stroke-linejoin="round"/><path d="M34 120 L42 30 H50 L58 120Z" fill="none" stroke="#ffd23f" stroke-width="1.8" stroke-linejoin="round"/>
   <path d="M38 104 L54 92 M40 86 L52 74 M42 68 L50 58 M43 50 L49 42 M37 104 H55 M39 86 H53 M41 68 H51 M42 50 H50" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3"/>
@@ -35,7 +35,7 @@
   <path d="M124 77 l1.5 -3 l1.5 3" fill="none" stroke="#6ff3ff" stroke-width="0.9" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.2;1" dur="0.76s" repeatCount="indefinite"/></path>
   </g>
   <!-- the car crusher, its press pumping down on a car -->
-  <path d="M64 120 V76 H100 V120Z" fill="var(--lg-deep, #5c6f86)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8"/>
+  <path d="M64 120 V76 H100 V120Z" fill="#5c6f86" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8"/>
   <path d="M88 76 H100 V120 H88Z" fill="#000" opacity="0.2"/><path d="M66 78 H70 V118 H66Z" fill="#fff" opacity="0.18"/>
   <path d="M66 94 H98 V118 H66Z" fill="#1d1b28" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
   <path d="M67 118 L68 110 L76 108 L80 104 L90 104 L94 108 L97 110 L97 118Z" fill="#d4342c" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
@@ -63,7 +63,7 @@
   <g transform="translate(322 24)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -14" dur="2.7s" begin="1.3s" repeatCount="indefinite"/><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.3;1.3" dur="2.7s" begin="1.3s" repeatCount="indefinite"/><circle r="5" fill="#5a5f6a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.8"/></g></g></g>
   <g transform="translate(322 24)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -14" dur="2.7s" begin="2.2s" repeatCount="indefinite"/><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.3;1.3" dur="2.7s" begin="2.2s" repeatCount="indefinite"/><circle r="5" fill="#5a5f6a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.8"/></g></g></g>
   <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -1.6;0 0" dur="3s" repeatCount="indefinite"/>
-  <path d="M236 140 L240 92 L262 80 H302 L324 92 L328 140Z" fill="var(--lg-deep, #5c6f86)" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M236 140 L240 92 L262 80 H302 L324 92 L328 140Z" fill="#5c6f86" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
   <path d="M282 80 H302 L324 92 L328 140 H282Z" fill="#000" opacity="0.18"/>
   <path d="M262 100 H302 V118 H262Z" fill="#3a3d45" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
   <path d="M266 104 H298 V114 H266Z" fill="#ff7a1a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/><path d="M270 104 V114 M276 104 V114 M282 104 V114 M288 104 V114 M294 104 V114" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
@@ -93,7 +93,7 @@
   <path d="M282 28 H302 L308 40 L310 66 L302 76 H282Z" fill="#000" opacity="0.18"/>
   <path d="M264 30 H300 L304 38 H260Z" fill="#bdf5ff" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><path d="M270 31 L276 37 M284 31 L290 37" stroke="#fff" stroke-width="1"/>
   <path d="M278 31 L282 34 L279 35" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
-  <path d="M273 28 L278 10 H286 L291 28Z" fill="#ff7a1a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3" stroke-linejoin="round"/><path d="M275.6 20 H288.4 L287.4 16 H276.6Z" fill="#fff"/><path d="M271 28 H293 V30 H271Z" fill="#c95a10" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+  <path d="M273 28 L278 10 H286 L291 28Z" fill="var(--lg-tint,#ff7a1a)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3" stroke-linejoin="round"/><path d="M275.6 20 H288.4 L287.4 16 H276.6Z" fill="#fff"/><path d="M271 28 H293 V30 H271Z" fill="var(--lg-tint-lo,#c95a10)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
   <!-- mismatched headlight lenses, wide and delighted, pinpoint pupils; the cracked one blinks -->
   <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"><circle cx="268" cy="49" r="8.6" fill="#9aa0ae"/><circle cx="296" cy="50" r="7" fill="#9aa0ae"/></g>
   <g transform="translate(268 49)">
@@ -150,11 +150,11 @@
   </g>
   </g>
   <!-- the scrap heap he rises from -->
-  <path d="M170 140 L184 118 L200 114 L214 120 L232 112 L254 118 L270 110 L292 116 L312 108 L330 116 L352 110 L372 118 L392 112 L400 114 V140Z" fill="var(--lg-near, #8695a8)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
+  <path d="M170 140 L184 118 L200 114 L214 120 L232 112 L254 118 L270 110 L292 116 L312 108 L330 116 L352 110 L372 118 L392 112 L400 114 V140Z" fill="#8695a8" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
   <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"><path d="M240 124 L262 118 L266 128 L244 132Z" fill="#4f7fbf"/><path d="M300 122 L320 118 L322 128 L302 130Z" fill="#3f9a5a"/><path d="M344 122 L362 120 L364 130 L346 130Z" fill="#b3452c"/></g>
   <circle cx="282" cy="128" r="7" fill="#2a2c33" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/><circle cx="282" cy="128" r="3" fill="#c9ccd6"/>
   <path d="M200 124 L208 116 M330 124 L338 114 M372 126 L380 116" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linecap="round"/>
-  <path d="M0 118 C60 116 120 120 180 118 L170 140 H0Z" fill="var(--lg-near, #8695a8)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+  <path d="M0 118 C60 116 120 120 180 118 L170 140 H0Z" fill="#8695a8" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
   <ellipse cx="140" cy="130" rx="22" ry="4" fill="#2a2c33" opacity="0.6"/><path d="M126 129 C132 127 140 127 146 129" fill="none" stroke="#9a5cff" stroke-width="0.9"/><path d="M130 131 C138 129 146 130 152 131" fill="none" stroke="#2ec4b6" stroke-width="0.8"/>
   <!-- rusty barrels, a tire pile, a torn fence with a warning sign -->
   <path d="M7 122 V104 H21 V122Z" fill="#b3452c" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3"/><path d="M7 110 H21 M7 116 H21" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><path d="M9 105 V121" stroke="#fff" stroke-width="1.2" opacity="0.3"/>

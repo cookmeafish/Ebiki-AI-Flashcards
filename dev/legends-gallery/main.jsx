@@ -10,6 +10,10 @@ import { AreaArt, ArtLabels, BossArt } from '../../src/features/legends/art'
 import { MOTIFS, PALETTES } from '../../src/features/legends/map'
 import { CATALOG } from './catalog'
 
+// check-art measures every drawing at fixed moments: keep them all loaded and animating (the app loads drawings only
+// near the screen and pauses those off screen).
+window.__ebikiArtEager = true
+
 const STORE = 'ebiki-legends-art-feedback'
 const MAP_W = 620, MAP_H = 132 // the map's banner box (MapView: MAX_W wide, AreaArt height 132)
 const VERDICTS = [
@@ -114,7 +118,7 @@ function ThemeCard({ item, t, palette, replay, fb, setFb, exists }) {
 function Gallery() {
   const t = useMemo(() => makeT('en'), [])
   const [dark, setDark] = useState(false)
-  const [palette, setPalette] = useState('') // '' = each theme's own mood
+  const [palette, setPalette] = useState('original') // 'original' = every drawing's own colors; '' = the catalog's mood
   const [replay, setReplay] = useState(0)
   const [fb, setFbState] = useState(readStore)
   const [copied, setCopied] = useState('')

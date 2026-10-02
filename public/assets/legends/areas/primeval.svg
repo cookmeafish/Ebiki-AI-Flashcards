@@ -1,20 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
   <!-- The Primeval Valley: a dry valley floor under a smoking volcano and mesas, pterosaurs crossing, the ribs of something eaten, water-filled footprints leading to the TYRANT REX: a brown head leaning in from the right in profile, crest plates, ember war markings, old claw scars, one heavy brow over a burning slit eye, a dropped jaw full of teeth with a broken fang, a tiny furious arm, its roar bursting out in jagged shock rings. Giant ferns and a cycad sway; pebbles hop as the ground shakes. -->
-  <rect width="400" height="140" fill="var(--lg-sky, #e6f1e6)"/>
+  <rect width="400" height="140" fill="#e6f1e6"/>
   <!-- the smoking volcano far off -->
-  <path d="M60 92 L112 40 L124 38 L134 44 L196 92Z" fill="var(--lg-far, #a8cfae)" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+  <path d="M60 92 L112 40 L124 38 L134 44 L196 92Z" fill="#a8cfae" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
   <path d="M112 40 L124 38 L134 44 L126 46 L120 44 L116 46Z" fill="#ff6a1a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
   <path d="M118 46 L112 60 L116 62 L110 76" fill="none" stroke="#ff6a1a" stroke-width="1.4" stroke-linecap="round"/>
   <path d="M60 92 L112 40 L118 44 L84 92Z" fill="#000" opacity="0.15"/>
-  <g fill="var(--lg-far, #a8cfae)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7">
+  <g fill="#a8cfae" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7">
     <circle cx="122" cy="32" r="5" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-10 -26" dur="5s" repeatCount="indefinite"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.6;1.8;0.05" dur="5s" repeatCount="indefinite" additive="sum"/></circle>
     <circle cx="126" cy="32" r="4" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-6 -24" dur="5s" repeatCount="indefinite" begin="1.7s"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.6;1.8;0.05" dur="5s" repeatCount="indefinite" additive="sum" begin="1.7s"/></circle>
     <circle cx="120" cy="34" r="4.4" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-14 -22" dur="5s" repeatCount="indefinite" begin="3.3s"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.6;1.8;0.05" dur="5s" repeatCount="indefinite" additive="sum" begin="3.3s"/></circle>
   </g>
   <!-- mesas with strata -->
-  <path d="M0 96 L0 62 L18 58 L34 60 L40 74 L56 76 L62 96Z" fill="var(--lg-far, #a8cfae)" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+  <path d="M0 96 L0 62 L18 58 L34 60 L40 74 L56 76 L62 96Z" fill="#a8cfae" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
   <path d="M4 68 L30 66 M4 76 L36 76 M6 86 L52 86" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.45"/>
-  <path d="M176 96 L184 70 L206 66 L222 68 L232 96Z" fill="var(--lg-far, #a8cfae)" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+  <path d="M176 96 L184 70 L206 66 L222 68 L232 96Z" fill="#a8cfae" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
   <path d="M186 76 L216 74 M184 86 L224 86" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.45"/>
   <!-- pterosaurs crossing -->
   <g fill="#86694a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" stroke-linejoin="round">
@@ -22,7 +22,7 @@
     <path d="M0 0 L-8 -3 L-3 0 L-9 3 L-2 1.6 L3 -0.8 L6 0 L3 0.8Z" style="transform-box:fill-box;transform-origin:center" transform="translate(40 40)"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="40 40;150 30;240 40" dur="10s" repeatCount="indefinite" begin="4s"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1;0" dur="10s" repeatCount="indefinite" keyTimes="0;.08;.9;1" additive="sum" begin="4s"/></path>
   </g>
   <!-- the valley floor -->
-  <path d="M0 96 C60 92 120 96 180 94 C220 92 250 96 280 96 C320 96 360 94 400 96 V140 H0Z" fill="var(--lg-near, #5fa86c)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+  <path d="M0 96 C60 92 120 96 180 94 C220 92 250 96 280 96 C320 96 360 94 400 96 V140 H0Z" fill="#5fa86c" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
   <path d="M0 96 C60 92 120 96 180 94 L180 98 C120 100 60 96 0 100Z" fill="#fff" opacity="0.2"/>
   <g fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linecap="round" opacity="0.5"><path d="M150 120 L162 116 L170 122 M176 108 L186 112 M60 128 L72 124 L80 130"/></g>
   <!-- the bones of something it ate -->
@@ -36,7 +36,7 @@
     <circle cx="142" cy="94" r="1.4" fill="#2a1e14" stroke="none"/>
   </g>
   <!-- footprints full of water, leading to it -->
-  <g transform="translate(52 126) rotate(0) scale(1.2 0.72)"><g fill="#3b2d1f" opacity="0.6" transform="scale(1.25)"><ellipse cx="0" cy="-6" rx="1.8" ry="5"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(-34)"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(34)"/><ellipse cx="0" cy="0.5" rx="3" ry="2.4"/></g><g fill="var(--lg-sky, #e6f1e6)"><ellipse cx="0" cy="-6" rx="1.8" ry="5"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(-34)"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(34)"/><ellipse cx="0" cy="0.5" rx="3" ry="2.4"/></g></g><g transform="translate(108 116) rotate(0) scale(1.25 0.75)"><g fill="#3b2d1f" opacity="0.6" transform="scale(1.25)"><ellipse cx="0" cy="-6" rx="1.8" ry="5"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(-34)"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(34)"/><ellipse cx="0" cy="0.5" rx="3" ry="2.4"/></g><g fill="var(--lg-sky, #e6f1e6)"><ellipse cx="0" cy="-6" rx="1.8" ry="5"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(-34)"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(34)"/><ellipse cx="0" cy="0.5" rx="3" ry="2.4"/></g></g><g transform="translate(162 128) rotate(0) scale(1.3 0.78)"><g fill="#3b2d1f" opacity="0.6" transform="scale(1.25)"><ellipse cx="0" cy="-6" rx="1.8" ry="5"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(-34)"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(34)"/><ellipse cx="0" cy="0.5" rx="3" ry="2.4"/></g><g fill="var(--lg-sky, #e6f1e6)"><ellipse cx="0" cy="-6" rx="1.8" ry="5"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(-34)"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(34)"/><ellipse cx="0" cy="0.5" rx="3" ry="2.4"/></g></g><g transform="translate(204 108) rotate(0) scale(1.2 0.72)"><g fill="#3b2d1f" opacity="0.6" transform="scale(1.25)"><ellipse cx="0" cy="-6" rx="1.8" ry="5"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(-34)"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(34)"/><ellipse cx="0" cy="0.5" rx="3" ry="2.4"/></g><g fill="var(--lg-sky, #e6f1e6)"><ellipse cx="0" cy="-6" rx="1.8" ry="5"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(-34)"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(34)"/><ellipse cx="0" cy="0.5" rx="3" ry="2.4"/></g></g>
+  <g transform="translate(52 126) rotate(0) scale(1.2 0.72)"><g fill="#3b2d1f" opacity="0.6" transform="scale(1.25)"><ellipse cx="0" cy="-6" rx="1.8" ry="5"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(-34)"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(34)"/><ellipse cx="0" cy="0.5" rx="3" ry="2.4"/></g><g fill="#e6f1e6"><ellipse cx="0" cy="-6" rx="1.8" ry="5"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(-34)"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(34)"/><ellipse cx="0" cy="0.5" rx="3" ry="2.4"/></g></g><g transform="translate(108 116) rotate(0) scale(1.25 0.75)"><g fill="#3b2d1f" opacity="0.6" transform="scale(1.25)"><ellipse cx="0" cy="-6" rx="1.8" ry="5"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(-34)"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(34)"/><ellipse cx="0" cy="0.5" rx="3" ry="2.4"/></g><g fill="#e6f1e6"><ellipse cx="0" cy="-6" rx="1.8" ry="5"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(-34)"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(34)"/><ellipse cx="0" cy="0.5" rx="3" ry="2.4"/></g></g><g transform="translate(162 128) rotate(0) scale(1.3 0.78)"><g fill="#3b2d1f" opacity="0.6" transform="scale(1.25)"><ellipse cx="0" cy="-6" rx="1.8" ry="5"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(-34)"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(34)"/><ellipse cx="0" cy="0.5" rx="3" ry="2.4"/></g><g fill="#e6f1e6"><ellipse cx="0" cy="-6" rx="1.8" ry="5"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(-34)"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(34)"/><ellipse cx="0" cy="0.5" rx="3" ry="2.4"/></g></g><g transform="translate(204 108) rotate(0) scale(1.2 0.72)"><g fill="#3b2d1f" opacity="0.6" transform="scale(1.25)"><ellipse cx="0" cy="-6" rx="1.8" ry="5"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(-34)"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(34)"/><ellipse cx="0" cy="0.5" rx="3" ry="2.4"/></g><g fill="#e6f1e6"><ellipse cx="0" cy="-6" rx="1.8" ry="5"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(-34)"/><ellipse cx="0" cy="-6" rx="1.8" ry="5" transform="rotate(34)"/><ellipse cx="0" cy="0.5" rx="3" ry="2.4"/></g></g>
   <!-- TYRANT REX leaning into the valley, roaring -->
   <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-1.4 0.6;0 0" dur="4s" repeatCount="indefinite"/>
     <!-- neck and throat -->
@@ -55,7 +55,7 @@
       <path d="M250 90 C252 98 264 104 282 104 L330 98 L350 94 L360 98 C350 108 330 112 300 112 C276 114 256 108 248 98Z" fill="#5b4630" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/>
       <path d="M252 100 C262 108 290 110 320 106" fill="none" stroke="#3b2d1f" stroke-width="1.2" opacity="0.7"/>
       <path d="M258 94 L261 89 L264 94Z M266.4 94 L269.4 87 L272.4 94Z M274.79999999999995 94 L277.79999999999995 88 L280.79999999999995 94Z M283.19999999999993 94 L286.19999999999993 86 L289.19999999999993 94Z M291.5999999999999 94 L294.5999999999999 88 L297.5999999999999 94Z M299.9999999999999 94 L302.9999999999999 87 L305.9999999999999 94Z M308.39999999999986 94 L311.39999999999986 89 L314.39999999999986 94Z M316.79999999999984 94 L319.79999999999984 88 L322.79999999999984 94Z " fill="#f1ece0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" stroke-linejoin="round"/>
-      <path d="M268 104 L284 106 M298 106 L310 104" fill="none" stroke="#ff8a2a" stroke-width="1.6" stroke-linecap="round"/>
+      <path d="M268 104 L284 106 M298 106 L310 104" fill="none" stroke="var(--lg-tint-hi,#ff8a2a)" stroke-width="1.6" stroke-linecap="round"/>
     </g></g></g>
     <!-- the skull -->
     <path d="M400 18 C374 22 352 30 332 36 L302 40 C280 42 262 48 248 54 L238 60 C234 64 236 70 244 71 L300 70 L332 74 L352 84 L400 76Z" fill="#5b4630" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
@@ -65,7 +65,7 @@
     <path d="M336 35 L342 22 L348 32 L356 18 L362 29 L372 14 L376 25 L388 10 L390 22 L400 12 V18 C380 22 360 28 336 35Z" fill="#3b2d1f" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
     <!-- scales and war markings -->
     <g fill="none" stroke="#3b2d1f" stroke-width="0.9" stroke-linecap="round" opacity="0.8"><path d="M360 44 l4 3 M370 40 l4 3 M380 38 l4 3 M366 54 l4 3 M378 50 l4 3 M388 46 l4 3"/></g>
-    <g fill="none" stroke="#ff8a2a" stroke-width="2" stroke-linecap="round"><path d="M342 52 L352 46 L364 50 M346 62 L360 58 L372 62 M382 30 L390 36"/><path d="M264 56 L272 54 M280 52 L290 50" stroke-width="1.6"/></g>
+    <g fill="none" stroke="var(--lg-tint-hi,#ff8a2a)" stroke-width="2" stroke-linecap="round"><path d="M342 52 L352 46 L364 50 M346 62 L360 58 L372 62 M382 30 L390 36"/><path d="M264 56 L272 54 M280 52 L290 50" stroke-width="1.6"/></g>
     <!-- old claw scars over the snout -->
     <g fill="none" stroke="#3b2d1f" stroke-width="1.4" stroke-linecap="round"><path d="M268 50 L278 62 M273 48 L283 60"/></g>
     <path d="M244 58 L250 56" stroke="#120c08" stroke-width="2" stroke-linecap="round"/>
@@ -87,17 +87,17 @@
   <!-- giant ferns and cycads framing the near ground -->
   <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round">
     <g transform="translate(14 137)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-3;0" dur="4.6s" repeatCount="indefinite"/>
-      <path d="M0 0 C-2 -30 10 -56 34 -66 C26 -50 18 -30 8 0Z" fill="var(--lg-deep, #2e8b57)"/>
-      <path d="M6 -16 L-4 -20 L7 -24 M8 -30 L-1 -36 L11 -38 M13 -44 L6 -52 L18 -51 M20 -54 L16 -62 L26 -59 M10 -14 L20 -22 L12 -26 M14 -32 L24 -40 L16 -42" fill="var(--lg-deep, #2e8b57)" stroke-width="0.7"/>
+      <path d="M0 0 C-2 -30 10 -56 34 -66 C26 -50 18 -30 8 0Z" fill="#2e8b57"/>
+      <path d="M6 -16 L-4 -20 L7 -24 M8 -30 L-1 -36 L11 -38 M13 -44 L6 -52 L18 -51 M20 -54 L16 -62 L26 -59 M10 -14 L20 -22 L12 -26 M14 -32 L24 -40 L16 -42" fill="#2e8b57" stroke-width="0.7"/>
     </g></g>
     <g transform="translate(44 136)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;4;0" dur="5.2s" repeatCount="indefinite"/>
-      <path d="M0 0 C4 -22 20 -40 40 -44 C30 -32 16 -18 6 0Z" fill="var(--lg-near, #5fa86c)"/>
-      <path d="M8 -16 L12 -26 L16 -18 M16 -26 L22 -36 L26 -28 M24 -34 L32 -42 L33 -34" fill="var(--lg-near, #5fa86c)" stroke-width="0.7"/>
+      <path d="M0 0 C4 -22 20 -40 40 -44 C30 -32 16 -18 6 0Z" fill="#5fa86c"/>
+      <path d="M8 -16 L12 -26 L16 -18 M16 -26 L22 -36 L26 -28 M24 -34 L32 -42 L33 -34" fill="#5fa86c" stroke-width="0.7"/>
     </g></g>
     <path d="M218 140 L222 118 L228 118 L232 140Z" fill="#7a5a36"/>
     <path d="M222 120 L226 120 M223 126 L229 126 M223 132 L229 132" fill="none" stroke="#4a331c" stroke-width="0.8"/>
     <g transform="translate(225 118)"><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-4;0" dur="3.8s" repeatCount="indefinite"/>
-      <path d="M0 0 C-10 -4 -20 -2 -26 4 C-16 0 -8 2 0 2Z M0 0 C10 -4 20 -2 26 4 C16 0 8 2 0 2Z M0 0 C-6 -10 -14 -14 -22 -14 C-12 -10 -6 -6 0 0Z M0 0 C6 -10 14 -14 22 -14 C12 -10 6 -6 0 0Z M0 0 C-2 -8 0 -16 4 -20 C2 -12 2 -6 0 0Z" fill="var(--lg-deep, #2e8b57)"/>
+      <path d="M0 0 C-10 -4 -20 -2 -26 4 C-16 0 -8 2 0 2Z M0 0 C10 -4 20 -2 26 4 C16 0 8 2 0 2Z M0 0 C-6 -10 -14 -14 -22 -14 C-12 -10 -6 -6 0 0Z M0 0 C6 -10 14 -14 22 -14 C12 -10 6 -6 0 0Z M0 0 C-2 -8 0 -16 4 -20 C2 -12 2 -6 0 0Z" fill="#2e8b57"/>
     </g></g>
   </g>
   <!-- the ground shakes: pebbles hop -->
