@@ -20,6 +20,9 @@ Every boss and raid boss brief starts from these (what the owner rejected or lov
    120 px.
 5. **Personality is constant across phases.** A smug king stays smug and cool; a sly showman keeps his sly smirk.
    Escalate with status, scale, power and spectacle, never by turning the character into a screaming, snarling maw.
+   Owner-approved exception (2026-10-03): phase 3 may change MOOD when it tells the boss's story, the character
+   staying recognizable (the rat king turns furious as his fortune drains; the showman's cool snaps into a manic
+   grin). Ask the owner before doing this for another boss.
 6. **Distinct parts of one creature.** Repeated heads, minions or wings each get their own character (size, shape,
    scars, expression, angle) while clearly one creature. Identical clones read as lazy.
 7. **The backdrop is subordinate.** Muted, darker, lower saturation, with depth; the boss is the brightest, most
@@ -30,7 +33,8 @@ Every boss and raid boss brief starts from these (what the owner rejected or lov
 9. **Raid variants of loved Legends bosses go all out but stay recognizable**, and look clearly different from the
    Legends boss even in phase 1 (own costume, prop, setting, pose).
 10. **Fire only where it belongs** (the arena knight has none). All-ages content (tasteful figures, no revealing
-    designs).
+    designs), except where the owner asks otherwise: the Sugarplum Heiress's phase 3 has a deep V neckline with
+    visible cleavage at the owner's request (2026-10-03), never explicit (fully dressed, no nudity).
 11. **Photo-real layers are opt-in per boss** (only the ophanim so far, via the PHOTO LAYERS block in `art.jsx`). No
     photos on other bosses unless the owner asks.
 12. **Every change gets a backup and a before/after render**, and the owner sees an honest critique, not just praise.
@@ -46,8 +50,8 @@ Every boss and raid boss brief starts from these (what the owner rejected or lov
     (a yellow blob in a fist and a gold disc in a mouth read as nothing).
 16. **Shapes stay sleek, not blocky.** Heads and necks taper and curve (arrowhead skulls, waisted necks); straight
     parallel sides and flat coffin outlines read as "blocky" (hydra heads). But never round, puffy or rubbery.
-17. **Necklines match across phases.** A character's neckline (the sugar queen's sweetheart neckline with its short
-    cleavage line) is visible in every phase and no lower than the most covered phase; props must not hide it.
+17. **Necklines read clearly in every phase**; props, bands and pendants never hide them (the sugar queen's phase 3 band
+    hid hers). Her phase 3 deep V is the owner's choice; don't raise it back.
 18. **Abilities animate the boss itself.** Every ability effect moves the boss's REAL parts (the ophanim's lids open
     and blink, the seraph's wings spread and eyes turn gold, the hydra's heads rise), and is rich, not bare bones
     (seraph Grace was sent back). An effect never covers the boss: no stand-in drawn eye over the real one, and the
@@ -432,22 +436,28 @@ titan, void and seraph. Every new or redrawn raid boss follows this, on top of e
   top (the rat stays a gold-dripping smug kingpin).
 - **Stage became the Infernal Impresario** (`raids/showman.svg`, owner: "I LOVE THE DESIGN OF STAGE ... GOES ALL
   OUT"). The first pass (the Legends bust in the same arch three times, a wall of teeth growing into an unhinged
-  scream) was "a little" too close to the regular boss with "lackluster" phases. What fixed it: a raid COSTUME and
-  STAGE of its own even in phase 1 (ringmaster coat with gold braid and tails, star-lined cape, crystal-ball cane, a
-  vast opera house with boxes and a chandelier, a full-figure stance); the loved signature kept (hat with the ace,
-  horns, half mask with the cocked painted brow, burning eye, moustache, cards) with the SAME sly smirk every phase;
-  three different silhouettes and color stories (standing with a card halo in warm gold; floating with card wings in
-  violet light; colossal under an enormous hat in an emerald ruin with giant masks circling).
+  scream) was "a little" too close to the regular boss with "lackluster" phases; v2 to v6 made him an opera house
+  magician with a costume and stage of his own, and he still read as the Illusionist. **2026-10-03**: redesigned as an
+  infernal circus ringmaster because he was too similar to the Grand Illusionist; phase 3 given powers and a manic face
+  at the owner's request. Now: crimson demon skin, a gold domino mask, ember ram horns, a red stovepipe with a ring of
+  fire, a crimson hussar coat with gold epaulettes, white breeches, a flaming whip and a brass megaphone, a hellfire
+  big top; phase 1 presents the ring and cracks the whip (fire hoops, the masks on circus drums), phase 2 a giant
+  turning hoop of fire with the megaphone up, phase 3 the Infernal Encore (cards whirl from his glove, a burning sigil
+  over his palm, the masks float free firing beams, a summoning circle in the ring, coat tails turned flaming wings,
+  wide white-hot eyes and a huge clenched grin under a mask cracking with light). The lesson: a raid variation keeps
+  the theme and the ability's props, but when the parent's own costume and stage are kept, it reads as the parent.
   - A full-figure phase needs a WHOLE body (owner on v2: "it's almost as if his lower body doesn't exist"): a big head
     on a narrow coat ending in a triangle of cape reads as a head on a stick. Draw about 3.5 to 4 heads of heroic
     proportion: chest, cinched waist, hips, two legs with real shoes, coat tails BEHIND the legs, a cape that frames
     and never replaces them, a contact shadow (or a glow when floating); check at 120 px that it reads as a figure.
   - Props carrying the concept are ARTIFACTS, not emoji faces (masks: filigree, gems, painted lips, carved brows,
-    ribbons, age); the concept can become the face (phase 2: three masks taking turns on his face from a carousel).
+    ribbons, age); the concept can become the face (the old phase 2: three masks taking turns on his face from a
+    carousel).
     Props sharing a role are still unique DESIGNS, not recolors (the harlequin, the weeping saint, the porcelain).
   - A final phase is an EVENT, not a pose (owner: "PHASE 3 IS REALLY UNEVENTFUL" on a frontal bust holding props): a
     diagonal action pose, something breaking open, things flying with motion trails, foreground debris, idle motion
-    that keeps it happening (here: he rips the curtain open on a void, cards burst, the hat flies off).
+    that keeps it happening (the old curtain-call phase 3: he ripped the curtain open on a void; now the ring becomes
+    a summoning circle, cards whirl, the masks fly free firing beams).
 - **The face changes every phase**, and the signature stays readable through all three (the Seraph's one head eye
   stays in phase 3: the owner asked for it back when a maw replaced it). Transform what makes it loved, never remove it.
 - **The ability shows in the art** (the hydra's regrowing heads, the titan's plating, the lich's phylactery at the

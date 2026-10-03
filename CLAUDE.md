@@ -1271,6 +1271,27 @@ Re-runnable from Settings → General ("Run setup again" with an unchanged provi
   auto-analyze waits for that refresh (`overlaySettingsReadyRef`, 5s cap).
   The header toggle acts on `overlayRunning` (what the dot shows), not the saved preference.
 
+## Back / Forward (`src/nav/`): the mouse's back button, Alt+Left, a phone's back button
+Navigation lives in React state, so the app keeps its OWN history. `history.js` (pure stack: entries = snapshots of
+every live slice, push/replace/unwind, cap 100; tested in `nav.test.js` with `memory.js`), `index.js` (the service
+`nav`), `react.js` (`useNavEntry(key, value, apply, { enabled, rest, guard, replace, replaceWhen })`, re-exported by
+`src/features/registry.jsx`; `ctx.nav` = back/forward/canGoBack). Device side = `platform.history` (window.history +
+popstate; `onDeviceNav` = mouse buttons 3/4, Electron's `app-command` forwarded by main.cjs as `app-window:nav`, and
+Alt+Left/Right in Electron only). Rules:
+- **A user change of a slice is an entry; changing TO its `rest` value UNWINDS** to the earlier entry that looks like
+  the live state (closing Settings, leaving a step for the map), so closing never leaves a "reopen" entry.
+- **Back never abandons something running silently**: `guard(to, from)` returns false (stay), true, or `'skip'`
+  (that entry cannot be shown again, e.g. Forward into a finished quiz). Study asks (`nav_leaveStudy`) then runs
+  the normal `exitStudy`; Legends steps/raids/placement ask (`nav_leaveRun`), `inferring` refuses; Practice activities ask
+  (`nav_leaveActivity`). A blocker stops every move while a dialog, Ebi Studio, the wizard or a data switch is up.
+- Slices now: `tab` (every screen), `settings` (pane, rest null), `study` (session, rest pick), `chat` (open chat, Chat
+  screen only; a new chat's first id replaces), `legends.view` (map/assets/edit/activity), `legends.assetsTab` (+ scroll
+  memo via `remember`) and `legends.assetsIdx` (replace), `practice.open`. A screen mounting on an entry restores itself
+  (only on a plain `true` guard: never a dialog while mounting).
+- A guard entry sits behind the first entry: Back at the root steps forward again, never out of the app (also over a
+  reload's old entries). Never in the overlay. Electron: never `webContents.goBack()` (could reach the holding page).
+- New screen or sub-view: one `useNavEntry` with a `<feature>.<what>` key; plain-data values only.
+
 ## Card generator (shared, language-agnostic) + Quick Add
 - `generateCards(words)` works for any language/subject. **Language modes** → `LANGUAGE_CARD_PROMPT` with
   `learnLangName()` (from `studyRules.studyLanguage` / app `language` / mode name) and `userLangName()`
@@ -1956,7 +1977,7 @@ screen `legends` (order 15, no rail: the map header shows the level), rail card 
 ## Porting to phones (iOS / Android): keep these seams clean
 Two paths: **Capacitor** (web UI as-is in a phone WebView) or **React Native** (UI rebuilt, logic reused). Both
 need:
-- **`src/platform/` is the ONLY door to the device and the local server**: `apiFetch(path, init)` for every
+- **`src/platform/` is the ONLY door to the device and the local server** (incl. `platform.history`, the Back/Forward device): `apiFetch(path, init)` for every
   `/api` call (a phone build installs an on-device router answering the same paths), `platform.beacon`,
   `platform.kv` (localStorage here), `platform.onPageHide`, `platform.isHidden`, `platform.speech`,
   `platform.randomId`. `setPlatform({...})` overrides any part (nested objects merge). **Never write

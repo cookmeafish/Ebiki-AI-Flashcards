@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile, shrimpUrl } from '../../config/shrimp'
-import { useFeatureCtx, useIntent, SLOT } from '../registry'
+import { useFeatureCtx, useIntent, useNavEntry, SLOT } from '../registry'
 import { depthBorder } from '../ui'
 import { useHelpEntry } from '../kit/useHelp'
 
@@ -31,6 +31,12 @@ export default function PracticeScreen() {
   const current = acts.find((a) => `${a.feature}:${a.id}` === open)
   // Its feature was switched off while it was open: forget it (switching it back on reopened it, unasked).
   useEffect(() => { if (open && !current) { setOpen(null); setParams(null) } }, [open, current])
+  // Back / Forward (src/nav): opening an activity is an entry; Back asks before leaving it (it may be mid-call or
+  // mid-workout) and returns to the hub. A closed activity is not reopened by Forward (its params are gone).
+  useNavEntry('practice.open', open, () => { setOpen(null); setParams(null) }, {
+    enabled: !!ctx, rest: null,
+    guard: async (to) => (to ? 'skip' : !!(await ctx.confirm(ctx.t('nav_leaveActivity')))),
+  })
   // Ebi's Help: which activity is open (each activity reports its own details), or the hub's tiles.
   useHelpEntry(ctx, 'practice', !ctx ? '' : current
     ? `Practice hub: the activity "${ctx.t(current.titleKey)}" is open.`

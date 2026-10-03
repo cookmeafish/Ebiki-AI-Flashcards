@@ -16,6 +16,13 @@ contextBridge.exposeInMainWorld('ebikiWindow', {
   isMaximized: () => ipcRenderer.invoke('app-window:is-maximized'),
   // Screenshot of the primary screen with this window stepped out of the way (see main.cjs).
   capture: () => ipcRenderer.invoke('app-window:capture'),
+  // The mouse's back/forward side buttons, which Windows delivers to the window as app-commands (main.cjs): the
+  // page turns them into its own Back/Forward (src/platform history.onDeviceNav). 'back' | 'forward'.
+  onNav: (cb) => {
+    const listener = (_event, dir) => cb(dir === 'forward' ? 'forward' : 'back')
+    ipcRenderer.on('app-window:nav', listener)
+    return () => ipcRenderer.removeListener('app-window:nav', listener)
+  },
   onMaximizedChange: (cb) => {
     const listener = (_event, isMaximized) => cb(isMaximized)
     ipcRenderer.on('app-window:maximized-changed', listener)

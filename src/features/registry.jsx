@@ -105,6 +105,11 @@ export function useIntent(target, onIntent) {
   }, [target]) // eslint-disable-line react-hooks/exhaustive-deps
 }
 
+// BACK / FORWARD for feature screens and sub-views: useNavEntry(key, value, apply, opts) (src/nav/react.js documents
+// it). A user change of `value` is a history entry; Back restores it through apply(). Keys are '<feature>.<what>'.
+// ctx.nav has back() / forward() / canGoBack() for buttons that should act like the device's Back.
+export { useNavEntry } from '../nav/react'
+
 export const useFocusHeld = () => useSyncExternalStore((fn) => { holdListeners.add(fn); return () => holdListeners.delete(fn) }, () => holds > 0)
 
 // The shared context App.jsx provides: generic app services only (t, keys, active mode, navigation,
