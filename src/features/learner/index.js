@@ -2,8 +2,9 @@
 // (kit/learner.js pure, kit/learnerStore.js storage) so any feature reads it; this feature MOVES it:
 //   - finished activities and graded study cards nudge an existing level (study cards in one batch per session
 //     burst, not a store write per card);
-//   - a mode with NO level gets one from what Ebiki has already seen (the mode deck's reviews, study sessions and
-//     slips: kit/evidenceJudge.js) once there is enough of it. One background AI call, at most once per mode per app
+//   - a mode with NO level gets one from what Ebiki has already seen (the app-wide learner context: the mode deck's
+//     studied and new cards, study sessions, slips, chats, Discover, practice: kit/evidenceJudge.js) once there is
+//     enough of it. One background AI call, at most once per mode per app
 //     session, only for the ACTIVE mode. Legends' placement exam or "Use what Ebiki knows" replaces it any time.
 // Remove this folder and its line in ../index.js to drop it: levels then only come from Legends.
 import { EVENTS } from '../events'
@@ -77,7 +78,8 @@ async function maybeSeed(ctx, modeId) {
   const cur = await readLearner(ctx, modeId)
   if (!cur.ok) { seedTried.delete(modeId); return }
   if (cur.value) return
-  const r = await judgeLevelFromEvidence(ctx)
+  // The shared learner context (cached a minute): deck cards with their stats and new cards, study sessions, chats...
+  const r = await judgeLevelFromEvidence(ctx, { fresh: false })
   if (r.error) { if (r.error === 'thin' || r.error === 'read') seedTried.delete(modeId); return } // try again after more study
   if (ctx.subject?.modeId !== modeId) return
   await updateLearner(ctx, modeId, (m) => m || newLearner({ level: r.level, confidence: r.confidence, strengths: r.strengths, gaps: r.gaps, source: 'evidence' }), { quiet: true })

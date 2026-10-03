@@ -30,6 +30,7 @@ export default function LegendsSettingsCard({ card, fieldLabel, hint }) {
       <Check checked={cfg.focus === true} onChange={(v) => set({ focus: v })} label={t('lg_setFocus')} desc={t('lg_setFocusDesc')} />
       <Check checked={cfg.still === true} onChange={(v) => set({ still: v })} label={t('lg_setStill')} desc={t('lg_setStillDesc')} />
       <Check checked={cfg.motion === true} onChange={(v) => set({ motion: v })} label={t('lg_setMotion')} desc={t('lg_setMotionDesc')} />
+      <Check checked={cfg.taunts !== false} onChange={(v) => set({ taunts: v })} label={t('lg_setTaunts')} desc={t('lg_setTauntsDesc')} />
       <Check checked={cfg.nudge !== false} onChange={(v) => set({ nudge: v })} label={t('lg_setNudge')} desc={t('lg_setNudgeDesc')} />
       {subject?.accents && (
         <Check checked={subject.strictAccents !== false} onChange={(v) => subject.setStrictAccents?.(v)} label={t('lg_setAccents', { lang: subject.learnLang })} desc={t('lg_setAccentsDesc')} />

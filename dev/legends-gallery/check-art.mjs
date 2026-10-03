@@ -101,8 +101,6 @@ const REVIEWED = new Set([
   "raids/void.svg|M-47 0 A47 47 0 0 0 47 0", // the near half of the accretion disk passes in front of the body
   "raids/void.svg|M-52.6 0 A52.6 52.6 0 0 ", // the near half of the disk's hot band, in front of the body
   "raids/void.svg|M-30 36 A47 47 0 0 1 -46", // a turning violet streak on the back half of the disk
-  "areas/forest.svg|M196 50 L182 28 L168 20",
-  "areas/forest.svg|M224 50 L238 28 L252 20",
   "areas/swamp.svg|M384 124 C384 110 388 10",
   "areas/swamp.svg|M8 126 C8 112 4 104 6 94",
   "areas/manor.svg|M56 112 V96",
@@ -110,14 +108,6 @@ const REVIEWED = new Set([
   "areas/manor.svg|M332 112 V96",
   "areas/manor.svg|M344 112 V96",
   "areas/primeval.svg|M352 126 C352 114 356 10",
-  "bosses/forest.svg|M44 40 L34 20 L22 12",
-  "bosses/forest.svg|M76 40 L86 20 L98 12",
-  "bosses/forest.svg|M38 66 C26 70 16 66 10 5",
-  "bosses/forest.svg|M82 66 C94 70 104 66 110",
-  "bosses/forest.svg|M40 46 C38 56 42 60 40 7",
-  "bosses/forest.svg|M80 46 C82 56 78 62 80 7",
-  "bosses/forest.svg|M-30 -28 C-32 -38 -30 -4", // an antler tine and the vine winding it run past the leaves on it
-  "bosses/forest.svg|M-30 -28 C-29.9 -28.3 -2",
   "bosses/stage.svg|M22 66 C24 84 28 100 30 ",
   "bosses/stage.svg|M98 66 C96 84 92 100 90 ",
   "bosses/volcano.svg|M26 84 H38",

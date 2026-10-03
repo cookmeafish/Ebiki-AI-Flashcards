@@ -25,7 +25,7 @@ The app folder can live anywhere.
 Each time the **Ebiki** shortcut opens, it checks for a newer version:
 
 - None, or offline: the app opens normally.
-- Update available: the start-up window asks **Update now** or **Not now**. Saying no opens the app; you'll be asked again next launch. The start-up window says what it is doing, so a slow start explains itself.
+- Update available: the start-up window asks **Update now** or **Not now**. No opens the app; you're asked again next launch. The start-up window says what it is doing, so a slow start explains itself.
 
 You can also update from **Settings → General → Updates**, which shows your version (e.g. `Ebiki 1.5.0`, with release date and build) and offers **Restart now** to finish an update.
 
@@ -41,9 +41,9 @@ If Ebiki says the **AnkiConnect add-on** is missing, click **Install it for me**
 
 ## Running the app
 
-Double-click **Ebiki**. A start-up window appears at once and says what it is doing, then Ebiki opens as its own window (no address bar or tabs, maximized; F11 for fullscreen) or, if you chose it, as a browser tab. Change this per computer in Settings → General. Only one copy runs: if Ebiki is open, the shortcut brings it forward.
+Double-click **Ebiki**. A start-up window appears at once and says what it is doing, then Ebiki opens as its own window (no address bar or tabs, maximized; F11 for fullscreen) or, if you chose it, a browser tab. Change this per computer in Settings → General. Only one copy runs: if Ebiki is open, the shortcut brings it forward.
 
-**Anki starts too**, minimized, because your cards live there (the first time it opens normally so you can answer its setup questions). If an Anki update is available, the start-up window offers it first. Ebiki may say "Anki is not connected" for a few seconds; it connects once Anki is ready. Keep Anki running while you use Ebiki.
+**Anki starts too**, minimized, because your cards live there (the first time it opens normally so you can answer its setup questions). If an Anki update is available, the start-up window offers it first. Ebiki may say "Anki is not connected" for a few seconds until Anki is ready. Keep Anki running while you use Ebiki.
 
 To stop, close the Ebiki window; the background server shuts down shortly after.
 

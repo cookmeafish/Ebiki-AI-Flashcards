@@ -10,167 +10,149 @@
 // and an item the boss is weak to deals +1. A fight ends at 0 health (won) or 0 lives (lost); the outcome decides the
 // pass on its own (applyNodeResult), so a win can never read as a fail and a loss never as a pass.
 
-export const DAMAGE = { clean: 2, glancing: 1, choice: 1, weak: 1, crit: 1, counter: 1 }
-export const ATTACK_LIVES = 2          // a missed attack
-export const MISS_LIVES = 1
-export const COMBO_EVERY = 3           // every Nth clean strike in a row is a critical
-export const MAX_ATTACKS = 5           // attacks one fight can throw (a missed attack never spawns another)
-export const ATTACK_GAP = 3            // an attack comes this many questions after the miss that caused it
-export const RAGE_AT = 0.5             // the boss enrages at half health: no more safe strikes
-export const WEAK_TO_MAX = 2
+import { DAMAGE, ATTACK_LIVES, MISS_LIVES, COMBO_EVERY, MAX_ATTACKS, ATTACK_GAP, RAGE_AT, WEAK_TO_MAX, MAX_INSERTED, phaseOf, barPhase, phaseFloor, hashOf } from './abilities/_rules'
+import { abilityById, ABILITY_IDS } from './abilities'
+import { gradeFromStrike, easeFor, isMature, GRADE_EASE } from '../../config/grading'
 
-export const newFight = () => ({ damage: 0, livesLost: 0, combo: 0, crits: 0, attacks: 0, blocked: 0, answers: 0, clean: 0, glancing: 0, safe: 0, misses: 0, shieldUsed: false, last: null, n: 0,
+export { DAMAGE, ATTACK_LIVES, MISS_LIVES, COMBO_EVERY, MAX_ATTACKS, ATTACK_GAP, RAGE_AT, WEAK_TO_MAX, MAX_INSERTED, phaseOf, barPhase, phaseFloor, hashOf }
+
+// The fight's state. `insertedN` = the ability-inserted questions put into this attempt so far (raidStep caps them at
+// MAX_INSERTED). The zero counters after `chain` belong to the v1 raid abilities (ported unchanged into
+// abilities/<motif>.js); a new ability keeps its state in `ab` (its module's init()).
+export const newFight = () => ({ damage: 0, livesLost: 0, combo: 0, crits: 0, attacks: 0, blocked: 0, answers: 0, clean: 0, glancing: 0, safe: 0, misses: 0, shieldUsed: false, last: null, n: 0, insertedN: 0,
   chain: 0, triples: 0, bounces: 0, cuts: 0, unredeemed: [], risen: false, judged: 0, judgedRight: 0, smites: 0,
   surge: false, surfaced: 0, kindled: 0, rewound: [], pacts: 0, bolts: 0, reflects: 0, gorged: 0, snaps: 0, lastBreaths: 0,
-  rights: 0, stings: 0, perfects: 0, crumbles: 0, crescendos: 0, harvests: 0, slumbers: 0, novas: [], stolen: 0, steals: 0, starfires: 0 })
+  rights: 0, stings: 0, perfects: 0, crumbles: 0, crescendos: 0, harvests: 0, slumbers: 0, novas: [], stolen: 0, steals: 0, starfires: 0, eyes: 0, gazes: 0, coins: 0, loots: 0,
+  sugar: 0, rush: 0, rushes: 0, sugared: 0, crashes: 0 })
 
-// RAID BOSS ABILITIES (docs/raid-bosses-plan.md). Each changes how the FIGHT plays, never how a question is asked:
-// no timers, nothing hidden, a right answer is never marked wrong, and each twist rewards what builds memory.
-//   regrowth     (Hydra)   a missed card grows back as a new head sooner (ABILITY.regrowthGap questions later), and
-//                          cutting it (answering the returning card right) deals ABILITY.regrowthCut.
-//   plating      (Titan)   in phase 1 a right CHOICE bounces off the armor (no damage); typed answers smash through.
-//   phylactery   (Lich)    the blow that would end it while a missed card is still unredeemed leaves it at 1 health
-//                          instead: it RISES once, and falls only when every missed card is answered right (the
-//                          last stand; a miss there costs one life and the card comes back).
-//   heads        (Chimera) every ABILITY.tripleEvery-th right answer in a row cuts all three heads: triple damage
-//                          (it replaces the critical, never stacks with it).
-//   singularity  (Void)    in phase 3 right answers deal double, and a miss costs ABILITY.singularityLives.
-//   judgment     (Seraph)  every ABILITY.judgmentEvery answers are weighed together: all right = a smite of
-//                          ABILITY.judgmentSmite extra damage on the last of them. Nothing is ever taken away.
-//   maelstrom    (Leviathan) after a miss, the next right answer breaks the surface: +ABILITY.maelstromBonus damage.
-//   kindling     (Inferno) from the ABILITY.kindlingFrom-th right answer in a row, every right answer burns for
-//                          +ABILITY.kindlingBonus (a miss puts the fire out).
-//   rewind       (Chronos) the first miss in each phase is rewound: it costs no life (it still counts as a miss).
-//   bloodpact    (Vampire) every ABILITY.bloodpactEvery-th right answer in a row wins back one lost life.
-//   tempest      (Tempest) every ABILITY.tempestEvery-th answer is a lightning strike: right, it deals
-//                          ABILITY.tempestFactor times the damage.
-//   reflection   (Kaleido) a glancing typed answer (the tested thing right, a small slip) reflects for full clean
-//                          damage (its slip still comes back as an attack).
-//   devour       (Glutton) a miss lets it gorge: it heals ABILITY.devourHeal (never below this attempt's start); a
-//                          clean typed answer chokes it for +ABILITY.devourChoke.
-//   marionette   (Puppeteer) blocking an attack snaps a string for ABILITY.marionetteCounter damage, and a missed
-//                          attack costs only ABILITY.marionetteLives life.
-//   lastbreath   (Berserker) on your last life every right answer deals ABILITY.lastbreathFactor times the damage.
-//   swarm        (Hive Empress) every ABILITY.swarmEvery-th right answer (in a row or not) stings for +ABILITY.swarmSting.
-//   petrify      (Gorgon) every ABILITY.petrifyEvery-th clean typed answer shatters stone for +ABILITY.petrifyShatter.
-//   crescendo    (Banshee) right answers deal +1 in phase 2 and +2 in phase 3 (phase - 1).
-//   harvest      (Reaper) every life already lost makes it careless: right answers deal +1 per lost life, at most
-//                          +ABILITY.harvestMax.
-//   slumber      (Dreamer) while no life is lost yet, every right answer deals +ABILITY.slumberBonus (don't wake it).
-//   supernova    (Moon Devourer) the first right answer in each phase goes supernova for +ABILITY.supernovaBurst.
-//   starball     (Nine-Tailed Empress) blocking an attack (a missed card answered right when it comes back) steals one
-//                          of her star balls; every later right answer deals +1 per star ball held (at most
-//                          ABILITY.starballMax). The block itself counters as usual.
-export const ABILITY = { regrowthGap: 2, regrowthCut: 3, tripleEvery: 3, tripleFactor: 3, singularityFactor: 2, singularityLives: 2, judgmentEvery: 5, judgmentSmite: 5,
-  maelstromBonus: 3, kindlingFrom: 4, kindlingBonus: 1, bloodpactEvery: 5, tempestEvery: 4, tempestFactor: 2, devourHeal: 1, devourChoke: 1,
-  marionetteCounter: 3, marionetteLives: 1, lastbreathFactor: 3, swarmEvery: 5, swarmSting: 3, petrifyEvery: 3, petrifyShatter: 3,
-  harvestMax: 2, slumberBonus: 1, supernovaBurst: 3, starballMax: 2 }
-export const ABILITIES = ['regrowth', 'plating', 'phylactery', 'heads', 'singularity', 'judgment',
-  'maelstrom', 'kindling', 'rewind', 'bloodpact', 'tempest', 'reflection', 'devour', 'marionette', 'lastbreath',
-  'swarm', 'petrify', 'crescendo', 'harvest', 'slumber', 'supernova', 'starball']
+// RAID BOSS ABILITIES live in abilities/<motif>.js: one pure module per raid boss, picked up by abilities/index.js
+// (the hook contract is abilities/_contract.js). Each changes how the FIGHT plays, never how a question is asked: no
+// timers, nothing hidden, a right answer is never marked wrong. strike() runs the base rules, then the module's hooks.
+export const ABILITIES = ABILITY_IDS
+export const abilityOf = (ability) => abilityById(ability)
+
+// The ability's own state (fight.ab), made by its init() the first time it is needed.
+export function abilityState(state, mod, ctx = {}) {
+  if (!mod) return (state && state.ab) || {}
+  if (state && state.ab) return state.ab
+  return mod.init ? mod.init({ phase: 1, ...ctx, K: mod.K || {} }) || {} : {}
+}
+
+// A working copy of the fight for the hooks: `ab` shallow-copied, a phase change announced (onPhase).
+function workCopy(state, mod, ctx) {
+  const s = { ...state, n: state.n + 1, unredeemed: [...(state.unredeemed || [])], chain: state.chain || 0 }
+  if (mod) {
+    s.ab = { ...abilityState(state, mod, ctx) }
+    const seen = state.phaseSeen
+    if (seen != null && ctx.phase > seen && mod.onPhase) mod.onPhase(s, ctx.phase, ctx)
+    s.phaseSeen = Math.max(seen || 0, ctx.phase)
+  }
+  return s
+}
+
+const newRes = () => ({ dmg: 0, lives: 0, heal: 0, gorge: 0, crit: false, fx: '', fxVars: null })
+
+// Apply a filled `res` to the copy: damage, lives, the boss's heal (floored at what this attempt dealt), the phase
+// line it may cross (onPhase), and `last` (what the arena plays).
+function applyRes(s, res, mod, ctx, extra) {
+  res.dmg = Math.max(0, Number(res.dmg) || 0)
+  res.gorge = Math.max(0, Math.min(Number(res.gorge) || 0, s.damage + res.dmg))
+  res.lives = Math.max(0, Number(res.lives) || 0)
+  s.damage += res.dmg - res.gorge
+  s.livesLost = Math.max(0, s.livesLost + res.lives - (res.heal || 0))
+  if (mod && ctx.bar) {
+    const after = barPhase(ctx.bar, s.damage)
+    if (after > (s.phaseSeen || ctx.phase)) {
+      if (mod.onPhase) mod.onPhase(s, after, { ...ctx, phase: after })
+      s.phaseSeen = after
+    }
+  }
+  const kind = res.dmg > 0 ? 'hit' : res.lives > 0 ? 'miss' : 'block'
+  s.last = { kind, damage: res.dmg, lives: res.lives, crit: !!res.crit, shielded: !!res.shielded, attack: false, fx: res.fx || '', fxVars: res.fxVars || null,
+    rise: res.fx === 'rise', n: s.n, healed: res.heal || 0, gorged: res.gorge, ...extra }
+  return s
+}
+
+const baseCtx = (state, mod, opts, kind) => {
+  const { shield = false, need = Infinity, lives = Infinity, bar = null } = opts
+  const phase = opts.phase != null ? opts.phase : bar ? barPhase(bar, state.damage) : 1
+  const livesLost = state.livesLost || 0
+  return { kind, phase, need, lives, livesLost, lastLife: lives - livesLost === 1, shieldReady: shield && !state.shieldUsed, bar, dayAb: opts.dayAb || null, before: state, K: (mod && mod.K) || {} }
+}
 
 // One answer. hit = { verdict: 'clean'|'glancing'|'miss', mode: 'typed'|'choice', weak?: bool, attack?: bool,
-// lastStand?: bool (the Lich's returning cards), key?: the card it asked (for the Lich's unredeemed misses) }.
-// `shield`: the learner holds a shield (it absorbs the first life a fight would take, once).
-// `ability`: a raid boss's ability (ABILITIES), `phase`: the fight's phase BEFORE this answer, `need`: its health
-// (the Lich needs both to rise at the right moment), `lives`: the fight's lives (the Berserker's last breath).
-export function strike(state, hit, { shield = false, ability = '', phase = 1, need = Infinity, lives: maxLives = Infinity } = {}) {
-  const s = { ...state, n: state.n + 1, unredeemed: [...(state.unredeemed || [])], chain: state.chain || 0 }
+// inserted?: kind (a question an ability put in: 'lastStand', 'minion'...), lastStand?: bool (= inserted
+// 'lastStand'), key?: the card it asked, armed?: { toggleId: true } (the ability toggles armed for this answer) }.
+// opts: `shield` (the learner holds a shield: it absorbs the first life a fight would take, once), `ability` (a raid
+// boss's ability id), `phase` (the fight's phase BEFORE this answer), `need` (its health), `lives` (the fight's
+// lives), `bar` ({ total, before, phases }: a raid's whole-day bar, so an ability sees its phase lines), `dayAb` (what
+// the ability saved from today's earlier attempts: its dayState, read by init as ctx.dayAb).
+export function strike(state, hit, opts = {}) {
+  const mod = abilityById(opts.ability)
   const right = hit.verdict === 'clean' || hit.verdict === 'glancing'
+  const inserted = hit.inserted || (hit.lastStand ? 'lastStand' : '')
+  const kind = inserted ? 'inserted' : hit.attack ? 'attack' : 'normal'
+  const ctx = { ...baseCtx(state, mod, opts, kind), inserted, right, clean: right && hit.mode !== 'choice' && hit.verdict === 'clean' }
+  const s = workCopy(state, mod, ctx)
   const key = hit.key == null ? null : String(hit.key)
-  let dmg = 0
-  let lives = 0
-  let crit = false
-  let fx = ''
-  let heal = 0
-  let gorge = 0
-  const lastLife = maxLives - (state.livesLost || 0) === 1
-  if (hit.lastStand) {
-    // The Lich's last stand: a returning missed card. Right redeems it; a miss costs one life (it comes back).
-    if (!right) lives = MISS_LIVES
+  const res = newRes()
+  if (inserted) {
+    // A question an ability put in (the Lich's last stand...): a miss costs one life unless the ability says otherwise.
+    if (!right) res.lives = MISS_LIVES
   } else if (hit.attack) {
     // An attack: a block counters, a miss hurts twice. It never builds or breaks a combo.
-    if (right) {
-      s.blocked++
-      if (ability === 'regrowth') { dmg = ABILITY.regrowthCut; s.cuts++; fx = 'cut' } else if (ability === 'marionette') { dmg = ABILITY.marionetteCounter; s.snaps++; fx = 'snap' } else dmg = DAMAGE.counter
-      if (ability === 'starball' && (s.stolen || 0) < ABILITY.starballMax) { s.stolen = (s.stolen || 0) + 1; s.steals = (s.steals || 0) + 1; fx = 'steal' }
-    } else lives = ability === 'marionette' ? ABILITY.marionetteLives : ATTACK_LIVES
+    if (right) { s.blocked++; res.dmg = DAMAGE.counter } else res.lives = mod && mod.attackLives ? mod.attackLives(s, ctx) : ATTACK_LIVES
   } else {
     s.answers++
     if (!right) {
-      lives = MISS_LIVES; s.misses++; s.combo = 0; s.chain = 0
+      res.lives = MISS_LIVES; s.misses++; s.combo = 0; s.chain = 0
     } else if (hit.mode === 'choice') {
-      dmg = DAMAGE.choice; s.safe++; s.combo = 0
+      res.dmg = DAMAGE.choice; s.safe++; s.combo = 0
     } else if (hit.verdict === 'glancing') {
-      dmg = DAMAGE.glancing; s.glancing++; s.combo = 0
-      if (ability === 'reflection') { dmg = DAMAGE.clean; s.reflects++; fx = 'reflect' }
+      res.dmg = DAMAGE.glancing; s.glancing++; s.combo = 0
     } else {
-      dmg = DAMAGE.clean; s.clean++; s.combo++
-      if (ability !== 'heads' && s.combo % COMBO_EVERY === 0) { dmg += DAMAGE.crit; crit = true; s.crits++ }
+      res.dmg = DAMAGE.clean; s.clean++; s.combo++
+      if (!(mod && mod.noCrit) && s.combo % COMBO_EVERY === 0) { res.dmg += DAMAGE.crit; res.crit = true; s.crits++ }
     }
-    if (right && hit.weak) dmg += DAMAGE.weak
-    if (right) {
-      s.chain++
-      if (ability === 'plating' && phase === 1 && hit.mode === 'choice') { dmg = 0; s.bounces++; fx = 'bounce' }
-      if (ability === 'heads' && s.chain % ABILITY.tripleEvery === 0) { dmg *= ABILITY.tripleFactor; s.triples++; fx = 'triple' }
-      if (ability === 'kindling' && s.chain >= ABILITY.kindlingFrom) { dmg += ABILITY.kindlingBonus; s.kindled++; fx = 'kindle' }
-      if (ability === 'devour' && hit.mode === 'typed' && hit.verdict === 'clean') { dmg += ABILITY.devourChoke; fx = 'choke' }
-      if (ability === 'maelstrom' && s.surge) { dmg += ABILITY.maelstromBonus; s.surfaced++; fx = 'surface' }
-      if (ability === 'tempest' && s.answers % ABILITY.tempestEvery === 0) { dmg *= ABILITY.tempestFactor; s.bolts++; fx = 'bolt' }
-      if (ability === 'bloodpact' && s.chain % ABILITY.bloodpactEvery === 0 && (state.livesLost || 0) > 0) { heal = 1; s.pacts++; fx = 'pact' }
-      s.rights = (s.rights || 0) + 1
-      if (ability === 'swarm' && s.rights % ABILITY.swarmEvery === 0) { dmg += ABILITY.swarmSting; s.stings++; fx = 'sting' }
-      if (ability === 'petrify' && hit.mode === 'typed' && hit.verdict === 'clean') {
-        s.perfects = (s.perfects || 0) + 1
-        if (s.perfects % ABILITY.petrifyEvery === 0) { dmg += ABILITY.petrifyShatter; s.crumbles++; fx = 'crumble' }
-      }
-      if (ability === 'crescendo' && phase > 1) { dmg += Math.min(2, phase - 1); s.crescendos++; fx = 'crescendo' }
-      if (ability === 'harvest' && (state.livesLost || 0) > 0) { dmg += Math.min(ABILITY.harvestMax, state.livesLost); s.harvests++; fx = 'harvest' }
-      if (ability === 'slumber' && !(state.livesLost > 0)) { dmg += ABILITY.slumberBonus; s.slumbers++; fx = 'slumber' }
-      if (ability === 'supernova' && !(s.novas || []).includes(phase)) { dmg += ABILITY.supernovaBurst; s.novas = [...(s.novas || []), phase]; fx = 'supernova' }
-      if (ability === 'starball' && (s.stolen || 0) > 0) { dmg += Math.min(ABILITY.starballMax, s.stolen); s.starfires = (s.starfires || 0) + 1; fx = 'starball' }
-    }
-    if (ability === 'maelstrom') s.surge = !right
-    if (ability === 'devour' && !right) { gorge = Math.min(ABILITY.devourHeal, s.damage); if (gorge > 0) { s.gorged++; fx = 'gorge' } }
-    if (ability === 'judgment') {
-      // The Seraph weighs every ABILITY.judgmentEvery answers (attacks and last stands are not weighed).
-      s.judged = (s.judged || 0) + 1
-      if (right) s.judgedRight = (s.judgedRight || 0) + 1
-      if (s.judged % ABILITY.judgmentEvery === 0) {
-        if (s.judgedRight === ABILITY.judgmentEvery) { dmg += ABILITY.judgmentSmite; s.smites = (s.smites || 0) + 1; fx = 'smite' }
-        s.judgedRight = 0
-      }
-    }
+    if (right && hit.weak) res.dmg += DAMAGE.weak
+    if (right) { s.chain++; s.rights = (s.rights || 0) + 1 }
   }
-  if (ability === 'singularity' && phase >= 3) {
-    if (dmg > 0) { dmg *= ABILITY.singularityFactor; fx = fx || 'singularity' }
-    if (lives > 0) lives = Math.max(lives, ABILITY.singularityLives)
-  }
-  if (ability === 'lastbreath' && lastLife && dmg > 0) { dmg *= ABILITY.lastbreathFactor; s.lastBreaths++; fx = 'lastbreath' }
-  if (ability === 'rewind' && lives > 0 && !s.rewound.includes(phase)) { lives = 0; s.rewound = [...s.rewound, phase]; fx = 'rewind' }
-  // The Lich's misses stay unredeemed until that card is answered right again.
+  // A missed card stays unredeemed until it is answered right again (when it comes back as an attack or is inserted).
   if (key != null) {
     if (!right && !s.unredeemed.includes(key)) s.unredeemed.push(key)
-    if (right && (hit.attack || hit.lastStand) && s.unredeemed.includes(key)) s.unredeemed = s.unredeemed.filter((k) => k !== key)
+    if (right && kind !== 'normal' && s.unredeemed.includes(key)) s.unredeemed = s.unredeemed.filter((k) => k !== key)
   }
-  if (ability === 'phylactery') {
-    if (s.risen) {
-      // Risen at 1 health: only redeeming the last missed card ends it.
-      dmg = s.unredeemed.length === 0 && right && (hit.attack || hit.lastStand) ? Math.max(1, need - s.damage) : 0
-      if (dmg > 0) fx = 'shatter'
-    } else if (s.damage + dmg >= need && s.unredeemed.length > 0) {
-      dmg = Math.max(0, need - 1 - s.damage)
-      s.risen = true
-      fx = 'rise'
-    }
-  }
-  let shielded = false
-  if (lives > 0 && shield && !s.shieldUsed) { lives--; s.shieldUsed = true; shielded = true }
-  s.damage += dmg - gorge
-  s.livesLost = Math.max(0, s.livesLost + lives - heal)
-  const kind = dmg > 0 ? 'hit' : lives > 0 ? 'miss' : 'block'
-  s.last = { kind, damage: dmg, lives, crit, shielded, attack: !!hit.attack, fx, rise: fx === 'rise', n: s.n, healed: heal, gorged: gorge }
-  return s
+  if (mod && mod.onStrike) mod.onStrike(s, res, hit, ctx)
+  res.lives = Math.max(0, Number(res.lives) || 0)
+  if (res.lives > 0 && opts.shield && !s.shieldUsed) { res.lives--; s.shieldUsed = true; res.shielded = true }
+  if (res.lives > 0 && mod && mod.onLifeLoss) mod.onLifeLoss(s, res, ctx)
+  return applyRes(s, res, mod, ctx, { attack: !!hit.attack, inserted })
+}
+
+// A player action between questions (an ability's button: Vent, Buy...). Never costs lives. Same opts as strike.
+export function act(state, action, opts = {}) {
+  const mod = abilityById(opts.ability)
+  if (!mod || !mod.act) return state
+  const ctx = baseCtx(state, mod, opts, 'action')
+  const s = workCopy(state, mod, ctx)
+  const res = newRes()
+  mod.act(s, res, action || {}, ctx)
+  res.lives = 0
+  return applyRes(s, res, mod, ctx, { action: (action && action.type) || '' })
+}
+
+// The questions ran out (or the raid was left): an ability holding damage (a bank, a gauge, moons in orbit) lets it
+// go. The state comes back unchanged when nothing is held.
+export function settleFight(state, opts = {}) {
+  const mod = abilityById(opts.ability)
+  if (!mod || !mod.settle) return state
+  const ctx = baseCtx(state, mod, opts, 'settle')
+  const s = workCopy(state, mod, ctx)
+  const res = newRes()
+  mod.settle(s, res, ctx)
+  if (!(res.dmg > 0) && !res.fx) return state
+  res.lives = 0
+  return applyRes(s, res, mod, ctx, { settle: true })
 }
 
 // 'won' | 'lost' | '' for health `need` and `lives`.
@@ -178,18 +160,20 @@ export const fightOutcome = (state, { need, lives }) => (state.damage >= need ? 
 export const healthLeft = (state, need) => Math.max(0, need - state.damage)
 export const livesLeft = (state, lives) => Math.max(0, lives - state.livesLost)
 
-// Phase of a fight from the health left: a boss has 2 (rage at RAGE_AT), a raid boss 3 (at two thirds, one third).
-export function phaseOf(hpLeft, need, phases = 2) {
-  if (need <= 0) return 1
-  const share = hpLeft / need
-  if (phases >= 3) return share <= 1 / 3 ? 3 : share <= 2 / 3 ? 2 : 1
-  return share <= RAGE_AT ? 2 : 1
-}
-
 // Where an attack goes: `gap` (ATTACK_GAP) questions after `idx` (or the end), never beyond the list.
 export const attackSlot = (idx, total, gap = ATTACK_GAP) => Math.min(total, idx + 1 + gap)
-// The gap for a raid boss's ability (the Hydra regrows faster).
-export const attackGapFor = (ability) => (ability === 'regrowth' ? ABILITY.regrowthGap : ATTACK_GAP)
+// The questions between a miss and its returning attack against this ability (its module's attackGap).
+export function attackGapFor(ability, state) {
+  const mod = abilityById(ability)
+  if (!mod || !mod.attackGap) return ATTACK_GAP
+  return mod.attackGap({ ...(state || {}), ab: abilityState(state, mod) }, { K: mod.K || {} })
+}
+// The lives a missed attack costs against this ability (its banner says so).
+export function attackLivesFor(ability, state) {
+  const mod = abilityById(ability)
+  if (!mod || !mod.attackLives) return ATTACK_LIVES
+  return mod.attackLives({ ...(state || {}), ab: abilityState(state, mod) }, { K: mod.K || {} })
+}
 export const canAttack = (state) => state.attacks < MAX_ATTACKS
 
 // The items a boss is weak to: the area's rule items first (the core of an area), then its first items. Stable.
@@ -209,11 +193,53 @@ export function effortOf({ clean = 0, glancing = 0, typed = 0, choice = 0, misse
   return Math.round(Math.max(EFFORT.min, Math.min(EFFORT.max, e)) * 100) / 100
 }
 
-// A raid card's Anki rating from its FIRST answer: a clean or safe right answer is Good (a choice is recognition,
-// never above Good; one question is never Easy), a glancing one Hard, a miss Again.
-export const RAID_EASE = { again: 1, hard: 2, good: 3 }
-export function raidRating(hit) {
-  if (!hit || hit.verdict === 'miss') return { ease: RAID_EASE.again, rating: 'again' }
-  if (hit.verdict === 'glancing') return { ease: RAID_EASE.hard, rating: 'hard' }
-  return { ease: RAID_EASE.good, rating: 'good' }
+// A raid card's Anki rating from its FIRST answer, by the shared one-answer rule (config/grading.js): a miss Again, a
+// glancing strike Hard, a clean typed strike Good (Easy when the card is already mature: Anki interval >= 21 days),
+// a choice (the safe strike) at most Good. `sched` = the card's pre-review schedule ({ interval } in days).
+export const RAID_EASE = GRADE_EASE
+export function raidRating(hit, sched = null) {
+  if (!hit) return { ease: RAID_EASE.again, rating: 'again' }
+  const rating = gradeFromStrike(hit.verdict, { choice: hit.mode === 'choice', mature: isMature(sched?.interval) })
+  return { ease: easeFor(rating), rating }
 }
+
+// ── Second looks: the background re-check and the learner's appeal (kit/fightJudge.js) ─────────────────────────
+// An answer judged a miss or glancing is looked at again; when it was right after all, the fight gives back what the
+// verdict cost and deals what the answer should have dealt. `cost` = what the first verdict really did to the fight:
+// { lives: the lives it took (after a shield or an ability), damage: what it dealt }. `kind` = 'normal' | 'attack' |
+// 'inserted' (the question asked), `mode` = 'typed' | 'choice', `weak` = an item the boss is weak to.
+// → { lives: lives to give back, damage: damage still due } (both >= 0). An ability's own state (a hydra's new heads,
+// a crashed sugar jar) is left as it is: only hearts and damage are put right, never a combo or a critical.
+export function refundFor({ kind = 'normal', to = 'clean', mode = 'typed', weak = false } = {}, cost = {}) {
+  const right = to === 'clean' || to === 'glancing'
+  const lives = Math.max(0, Number(cost.lives) || 0)
+  if (!right) return { lives: 0, damage: 0 }
+  let due = 0
+  if (kind === 'attack') due = DAMAGE.counter
+  else if (kind === 'normal') due = (mode === 'choice' ? DAMAGE.choice : to === 'clean' ? DAMAGE.clean : DAMAGE.glancing) + (weak ? DAMAGE.weak : 0)
+  return { lives, damage: Math.max(0, due - Math.max(0, Number(cost.damage) || 0)) }
+}
+
+// Apply a refund to a running fight (the caller checks it is still running: fightOutcome ''). `from`/`to` = the
+// verdicts, so the counters (misses, clean, glancing) tell the truth. `last` becomes { kind: 'refund' } with its own
+// counter (refundN): the arena plays the heart flying back and a sheepish boss, never a new hit or lunge.
+export function applyRefund(state, { lives = 0, damage = 0, from = 'miss', to = 'clean', kind = 'normal' } = {}) {
+  const s = { ...state }
+  const back = Math.max(0, Math.min(Number(lives) || 0, s.livesLost || 0))
+  const dealt = Math.max(0, Number(damage) || 0)
+  s.livesLost = (s.livesLost || 0) - back
+  s.damage = (s.damage || 0) + dealt
+  if (kind === 'normal') {
+    if (from === 'miss') s.misses = Math.max(0, (s.misses || 0) - 1)
+    if (from === 'glancing') s.glancing = Math.max(0, (s.glancing || 0) - 1)
+    if (to === 'clean') s.clean = (s.clean || 0) + 1
+    else if (to === 'glancing' && from !== 'glancing') s.glancing = (s.glancing || 0) + 1
+  }
+  s.refunds = (s.refunds || 0) + 1
+  s.refundN = (s.refundN || 0) + 1
+  s.last = { kind: 'refund', refund: true, damage: dealt, lives: 0, healedLives: back, n: s.n, rn: s.refundN, fx: '', fxVars: null, crit: false, shielded: false, attack: false }
+  return s
+}
+
+// What a verdict did to the fight, from the states around the strike (for refundFor).
+export const strikeCost = (before, after) => ({ lives: Math.max(0, (after?.livesLost || 0) - (before?.livesLost || 0)), damage: Math.max(0, (after?.damage || 0) - (before?.damage || 0)) })

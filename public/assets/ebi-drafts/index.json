@@ -18,8 +18,124 @@
   ],
   "candidates": [
     {
+      "id": "true-rim",
+      "description": "The current Ebi traced line for line, with a gentle rim of light along its back."
+    },
+    {
+      "id": "true-gloss",
+      "description": "The current Ebi traced line for line, with a soft glossy streak on the shell and a crisp catchlight in the eye."
+    },
+    {
+      "id": "true-depth",
+      "description": "The current Ebi traced line for line, with a soft inner shadow under the arch and along the tail."
+    },
+    {
+      "id": "true-warm",
+      "description": "The current Ebi traced line for line, in a slightly warmer, brighter red that reads well on light and dark."
+    },
+    {
+      "id": "true-soft",
+      "description": "The current Ebi traced line for line, with a whisper of light on top and shade below for gentle volume."
+    },
+    {
+      "id": "ebi-pop",
+      "description": "An original chunky shrimp: a big round head, bold banded shell, thick curly antennae, round leg nubs and a two lobe tail."
+    },
+    {
+      "id": "ebi-swoop",
+      "description": "An original slim shrimp: a long elegant curl, chevron segment lines, long whip antennae, slender legs and a three blade tail."
+    },
+    {
+      "id": "ebi-bean",
+      "description": "An original plump shrimp: a tall rounded back, a coral belly stripe, little bobble antennae, tiny feet and a heart shaped tail."
+    },
+    {
+      "id": "ebi-arc",
+      "description": "An original geometric shrimp: a straight head into a perfect round arch, ridged back, raised antennae, a friendly brow and a forked tail."
+    },
+    {
+      "id": "ebi-spark",
+      "description": "An original lively shrimp: a little nose spike, one bright stripe down the back, crossed antennae, hooked legs and a fan tail."
+    },
+    {
+      "id": "ebi-plum",
+      "description": "An original hand drawn shrimp: a small round head under a heavy humped back, a springy tail with a two lobe fan, and poses that act out every mood."
+    },
+    {
+      "id": "ebi-comet",
+      "description": "An original hand drawn shrimp: a big round head with a large eye, a body that sweeps back and hooks under into a flicked fan."
+    },
+    {
+      "id": "ebi-hop",
+      "description": "An original hand drawn shrimp standing tall like a question mark: head on top, back down the side and the tail tucked forward."
+    },
+    {
+      "id": "ebi-mochi",
+      "description": "An original hand drawn shrimp curled into a round ball, with a coral belly, short curly antennae and a fan peeking out below."
+    },
+    {
+      "id": "ebi-knight",
+      "description": "An original hand drawn shrimp with a big helmet shell over the head and a separate plated tail curling down to a wide fan."
+    },
+    {
       "id": "classic",
-      "description": "Closest to the current Ebi: the same flat curled red shrimp, cleaned up."
+      "description": "The current Ebi, polished: the same flat crimson arch, dot eye and long antennae, with crisper curves, one soft shade, one light band and neat notches."
+    },
+    {
+      "id": "refined",
+      "description": "The classic, redrawn with smooth curves: a chunkier arch that swells at the back, a rounder nose, a shiny eye, a tidy forked tail fan and one curved seam where the tail turns darker."
+    },
+    {
+      "id": "coral-belly",
+      "description": "The refined Ebi in two tones: a soft coral belly band and coral legs under the crimson shell, like a cooked shrimp."
+    },
+    {
+      "id": "cutie",
+      "description": "The refined Ebi with a bigger head: a big sparkly eye with two catchlights, a pink blush and a slightly shorter tail, still the same clean shapes."
+    },
+    {
+      "id": "graceful",
+      "description": "A slimmer, elegant Ebi: a lighter body, a longer forked tail fan and long antennae that end in a curl."
+    },
+    {
+      "id": "sunset",
+      "description": "The refined Ebi in flat sunset bands: a deep crimson back, a warm red middle and a coral belly, no gradients."
+    },
+    {
+      "id": "classic-round",
+      "description": "The current Ebi, a little rounder: a bigger head, a plumper body, a softer tail and a shiny eye with two highlights."
+    },
+    {
+      "id": "classic-sleek",
+      "description": "The current Ebi, more elegant: a slimmer arch, fine thin antennae and a sharper tail."
+    },
+    {
+      "id": "classic-soft",
+      "description": "The current Ebi, softer: a gentle darker edge, two tone shading and a light blush."
+    },
+    {
+      "id": "classic-bold",
+      "description": "The current Ebi, bolder: thicker shapes and a strong deep red outline, like a sticker without the white border."
+    },
+    {
+      "id": "classic-glossy",
+      "description": "The current Ebi with a candy lacquer: a bright glossy streak along the back, a shine on the head and a gleam on the tail."
+    },
+    {
+      "id": "classic-warm",
+      "description": "The current Ebi in warm ink: a thin warm brown outline, a brown eye and mouth and a light blush."
+    },
+    {
+      "id": "classic-legs",
+      "description": "The current Ebi on tiny legs: five little jointed walking legs and a small claw under the chin."
+    },
+    {
+      "id": "classic-expressive",
+      "description": "The current Ebi, more expressive: a bigger eye with two catchlights, an eyebrow for every mood and a larger mouth."
+    },
+    {
+      "id": "classic-banded",
+      "description": "The current Ebi with shell segments: curved bands across the body and a flat two tone cel shade."
     },
     {
       "id": "chubby",

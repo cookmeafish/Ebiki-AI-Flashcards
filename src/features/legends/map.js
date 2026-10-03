@@ -11,6 +11,7 @@
 // Area extras: story (lines shown when it opens), canDo (the passport stamp), bonus (the chest's phrase),
 //              storySeen, chestOpened, nemesis ({ itemIds, at } after a lost boss fight), bonusLife, legendary
 // Map extras:  helpers ({ scroll, shield }), days ({ 'YYYY-MM-DD': steps finished }) for the journey heatmap
+import { gradeIsRight, gradeIsSolid } from '../../config/grading'
 export const MAP_VERSION = 1
 export const AREAS = { min: 3, max: 12, plan: 8 }       // areas planned at once (titles only, detail comes later)
 export const ITEMS = { min: 4, max: 24 }
@@ -324,32 +325,39 @@ export function fightStars(ratio, kind, outcome) {
   const s = starsFor(ratio, kind)
   return outcome === 'won' ? Math.max(1, s) : s
 }
-// Add a result's answers to the items' tallies (`fight`: right answers in a boss or Legendary also count for gold).
+// One answer's standing under the shared grading rule (config/grading.js): `grade` when the caller graded it (again |
+// hard | good | easy), else the plain `correct` flag (older callers, cheats: right = good).
+const rightOf = (r) => (r?.grade ? gradeIsRight(r.grade) : !!r?.correct)
+const solidOf = (r) => (r?.grade ? gradeIsSolid(r.grade) : !!r?.correct)
+// Add a result's answers to the items' tallies. Again = a miss; Hard (a hint, a glancing strike, a near miss) counts
+// right; only Good or Easy in a boss or Legendary (`fight`) counts toward gold.
 function tallyItems(items, results, fight) {
   const hits = new Map()
   for (const r of results || []) {
     if (!r?.itemId) continue
-    const h = hits.get(r.itemId) || { seen: 0, right: 0 }
-    h.seen++; if (r.correct) h.right++
+    const h = hits.get(r.itemId) || { seen: 0, right: 0, solid: 0 }
+    h.seen++; if (rightOf(r)) h.right++; if (solidOf(r)) h.solid++
     hits.set(r.itemId, h)
   }
   return (items || []).map((it) => {
     const h = hits.get(it.id)
     if (!h) return it
-    return { ...it, seen: (it.seen || 0) + h.seen, right: (it.right || 0) + h.right, ...(fight ? { bossRight: (it.bossRight || 0) + h.right } : {}) }
+    return { ...it, seen: (it.seen || 0) + h.seen, right: (it.right || 0) + h.right, ...(fight ? { bossRight: (it.bossRight || 0) + h.solid } : {}) }
   })
 }
 
 // A card made from an item (item.cardNoteId) was answered in Study: the item's tally moves too, so the codex and
 // Weak spots know what Study saw. Never gold (that needs a fight). The same map back when no item has that card.
-export function tallyStudiedCard(map, noteId, correct) {
+// `grade` (Study's rating, config/grading.js) wins over `correct` when given: anything but Again counts right.
+export function tallyStudiedCard(map, noteId, correct, grade) {
+  const right = grade ? gradeIsRight(grade) : !!correct
   if (!map || !Array.isArray(map.areas) || noteId == null || noteId === '') return map
   const id = String(noteId)
   let hit = false
   const areas = map.areas.map((a) => {
     if (!Array.isArray(a?.items) || !a.items.some((it) => it && it.cardNoteId != null && String(it.cardNoteId) === id)) return a
     hit = true
-    return { ...a, items: a.items.map((it) => (it && it.cardNoteId != null && String(it.cardNoteId) === id ? { ...it, seen: (it.seen || 0) + 1, right: (it.right || 0) + (correct ? 1 : 0) } : it)) }
+    return { ...a, items: a.items.map((it) => (it && it.cardNoteId != null && String(it.cardNoteId) === id ? { ...it, seen: (it.seen || 0) + 1, right: (it.right || 0) + (right ? 1 : 0) } : it)) }
   })
   return hit ? { ...map, areas } : map
 }
@@ -410,7 +418,7 @@ export function patchItem(map, areaId, itemId, patch) {
   return patchArea(map, areaId, (a) => ({ items: (a.items || []).map((it) => (it.id === itemId ? { ...it, ...patch } : it)) }))
 }
 
-// Record a finished node: { total, correct, items: [{ itemId, correct }], outcome?: 'won'|'lost', power?: bool }.
+// Record a finished node: { total, correct, items: [{ itemId, correct, grade? }], outcome?: 'won'|'lost', power?: bool }.
 // Starting an area freezes it (an edit from Ebi can no longer change it). A fight's outcome decides its pass
 // (fightStars). A flawless level (no miss) earns a hint scroll the first time, a flawless Weak spots a shield; a lost
 // boss fight remembers the items it missed (the nemesis rematch), a won one forgets them.
@@ -545,3 +553,23 @@ export function mergeEdit(map, proposal, now = Date.now()) {
 }
 
 export const editChanged = (changes) => (changes || []).some((c) => c.kind !== 'kept')
+
+// A fight answer's grade changed AFTER its result was recorded (a won appeal on the result screen): the item's tally
+// moves by the difference (seen stays; right and, in a fight, bossRight follow the new grade). The same map back when
+// nothing changes or the item is gone.
+export function regradeItem(map, areaId, itemId, fromGrade, toGrade, fight = true) {
+  if (!map || !Array.isArray(map.areas) || !itemId || fromGrade === toGrade) return map
+  const dRight = (gradeIsRight(toGrade) ? 1 : 0) - (gradeIsRight(fromGrade) ? 1 : 0)
+  const dSolid = fight ? (gradeIsSolid(toGrade) ? 1 : 0) - (gradeIsSolid(fromGrade) ? 1 : 0) : 0
+  if (!dRight && !dSolid) return map
+  let hit = false
+  const areas = map.areas.map((a) => {
+    if (a?.id !== areaId || !Array.isArray(a.items)) return a
+    return { ...a, items: a.items.map((it) => {
+      if (it?.id !== itemId) return it
+      hit = true
+      return { ...it, right: Math.max(0, Math.min(it.seen || 0, (it.right || 0) + dRight)), ...(fight ? { bossRight: Math.max(0, (it.bossRight || 0) + dSolid) } : {}) }
+    }) }
+  })
+  return hit ? { ...map, areas } : map
+}

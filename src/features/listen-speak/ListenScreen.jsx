@@ -30,7 +30,7 @@ export default function ListenScreen({ onExit }) {
     setError(''); setPhase('loading')
     try {
       const items = await pickCardItems(ctx, DRILL_SIZE)
-      const { system, user } = buildDrillPrompt(subject, items, { knowledge: subject.knowledge(KNOWLEDGE_CAP), slips: subject.isLanguage ? subject.grammarSlips(SLIPS) : '', level: await learnerLevelLine(ctx) })
+      const { system, user } = buildDrillPrompt(subject, items, { knowledge: subject.knowledge(KNOWLEDGE_CAP), slips: subject.isLanguage ? subject.grammarSlips(SLIPS) : '', level: await learnerLevelLine(ctx, { context: true }) })
       const j = ai.json(await ai.call(system, user, { role: DRILL_ROLE, maxTokens: DRILL_MAX_TOKENS }))
       const qs = sanitizeQuestions((Array.isArray(j) ? j : Array.isArray(j?.questions) ? j.questions : []).filter((q) => q && typeof q === 'object').map((q) => ({
         ...q, question: ai.clean(q.question), explanation: ai.clean(q.explanation), say: ai.clean(q.say || ''),

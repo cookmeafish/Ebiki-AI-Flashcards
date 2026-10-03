@@ -12,6 +12,7 @@ import { buildModelResearchPrompt, buildPresetDecisionPrompt } from './config/mo
 import { LANGS, langFromName, isDistinctSpoken } from './config/languages'
 import { makeT, APP_LANGUAGES, LANGUAGES, langMeta } from './i18n'
 import { ADAPTIVE_STRUGGLE_LAPSES } from './config/study'
+import { questionCountFor, oneQuestionRating, questionDepthOf } from './utils/studyDepth'
 import { pickShrimp, shrimpUrl, DEFAULT_SHRIMP, IDLE_SHRIMP, POSE_NAMES, poseFile, SHRIMP } from './config/shrimp'
 import { C, RADIUS, SHADOW, FONT } from './config/tokens'
 import { PALETTE_CSS } from './config/palette'
@@ -25,13 +26,18 @@ import DiscoverPanel from './components/DiscoverPanel'
 import SettingsModal from './components/SettingsModal'
 import ModeStudio from './components/ModeStudio'
 import { registry, EVENTS, SLOT, FeatureContext, FeatureSlot, OptionalFeaturesCard, requestIntent } from './features'
-import { useLearner } from './features/kit/learnerStore'
+import { useLearner, readLearner } from './features/kit/learnerStore'
+import { readPracticeLog } from './features/kit/practiceLogStore'
+import { createLearnerContextCache, LC as LEARNER_LC } from './features/kit/learnerContext'
+import { learnerContextFor, discoverEvidence, headForms as headFormsOf } from './features/kit/learnerContextUse'
+import { gatherLearnerContext } from './features/kit/learnerContextGather'
 import { learnerLine } from './features/kit/learner'
 import Sidebar from './shell/Sidebar'
 import Rail from './shell/Rail'
 import { SHELL, CORE_NAV, railWanted, useViewportWidth } from './shell/layout'
 import OnboardingWizard from './components/OnboardingWizard'
 import Dropdown from './components/Dropdown'
+import ModeDeckSwitch from './components/ModeDeckSwitch'
 import { S } from './styles/theme'
 import { ocrLog, ocrLogTable, ocrLogFlush } from './utils/logger'
 import { answerLetterCounts, countAnswerLetters, correctLetterHint } from './utils/studyHints'
@@ -569,6 +575,8 @@ const WIN_CTRL_H = 30
 // html → plain text memo for stripHtml (see there). Module-level so it survives re-renders.
 const STRIP_HTML_CACHE = new Map()
 const STRIP_HTML_CACHE_MAX = 80000
+// The learner context (kit/learnerContext.js), one snapshot per mode for a minute; every app event clears it.
+const LEARNER_CONTEXT_CACHE = createLearnerContextCache()
 
 // Tap-to-look-up tokens. Whitespace splits most scripts, but Chinese/Japanese/Thai are written
 // WITHOUT spaces, so a whole sentence used to be one tap target (sent to the lookup as "the word").
@@ -585,6 +593,7 @@ const tapLongEnough = (clean) => [...clean].length >= (TAP_NO_SPACE.test(clean) 
 // disk beside the user's first real mode.
 const defaultStudyRules = {
   questionsPerCard: 3,
+  questionDepth: 'adaptive', // 'adaptive' = a due review gets ONE production question (utils/studyDepth.js); 'thorough' = always questionsPerCard
   cardsAtOnce: 3,
   studyLanguage: '',  // '' = derived (learnLangName: the mode's name, then the translation language). A default 'English' was WRITTEN into any mode whose first study-setting edit spread these defaults, switching a Spanish mode to English. The LEARNED language (answer language); also drives card generation
   dialect: '',               // regional variant, e.g. "Latin American Spanish" — steers phonetics/vocab/usage in ALL generation
@@ -596,6 +605,7 @@ const defaultStudyRules = {
 }
 const defaultGeneralStudyRules = {
   questionsPerCard: 3,
+  questionDepth: 'adaptive', // 'adaptive' = a due review gets ONE production question (utils/studyDepth.js); 'thorough' = always questionsPerCard
   cardsAtOnce: 3,
   studyLanguage: '', // see defaultStudyRules
   quizLanguage: '',          // "Ebi speaks" — for general modes this is the whole interaction language
@@ -830,7 +840,8 @@ export default function App() {
     featureHelpRef.current = all
     setFeatureHelp(all)
   }, [])
-  const emitAppEvent = (event, payload) => registry.emit(event, payload || {}, featureCtxRef.current)
+  // Any fact (a graded card, a chat message, a finished practice) makes the cached learner context stale.
+  const emitAppEvent = (event, payload) => { LEARNER_CONTEXT_CACHE.invalidate(); return registry.emit(event, payload || {}, featureCtxRef.current) }
   // A fact announced at most once per key, across reloads (a restored study session must not repeat it).
   const EMITTED_STORE = 'ebiki-emitted-events'
   const EMITTED_MAX = 500
@@ -1524,6 +1535,10 @@ export default function App() {
   const { model: legendsLevel } = useLearner(activeModeId)
   // The measured level as one prompt line ('' without one), read live by memoized/async prompt builders.
   const learnerLevelRef = useRef('')
+  // The learner context each prompt reads (kit/learnerContextUse.js): the LAST snapshot gathered per mode (String(id)
+  // -> snapshot), so a prompt never waits for a gather; `ctx.learning.cached()` refreshes it in the background.
+  const learnerSnapsRef = useRef(new Map())
+  const learnerRefreshAtRef = useRef(new Map()) // mode -> when a background refresh last started (throttle)
   const [discoverDeck, setDiscoverDeck] = useState('') // '' = the mode's own deck; switchable in the panel
   // Live mirror: the mode-switch reset and the init run in ONE commit, and the init's render-time value was still
   // the previous mode's switched deck (it loaded that deck's words as this mode's duplicates and skipped its profile).
@@ -5251,6 +5266,18 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
   const activeModeIdRef = useRef(activeModeId)
   useEffect(() => { modesRef.current = modes }, [modes])
   useEffect(() => { activeModeIdRef.current = activeModeId }, [activeModeId])
+  // The learner context block for one prompt (kit/learnerContextUse.js CONTEXT_USES: help, chat, question, practice):
+  // the remembered snapshot of the LIVE mode only (a snapshot of another mode gives ''), never waited for, and '' on any
+  // failure. Reads refs at call time, so memoized callers stay correct.
+  const learnerBlock = (use, opts = {}) => {
+    try { return learnerContextFor(featureCtxRef.current?.learning?.cached?.(), activeModeIdRef.current, use, opts) } catch { return '' }
+  }
+  // Warm it a few seconds after a mode becomes active (and when Anki connects), so the first prompt already has one.
+  useEffect(() => {
+    if (isOverlay || !configLoaded || !onboarded) return
+    const timer = setTimeout(() => { try { featureCtxRef.current?.learning?.cached?.() } catch { /* fail soft */ } }, 5000)
+    return () => clearTimeout(timer)
+  }, [activeModeId, configLoaded, onboarded, ankiConnected]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Modes writes go out ONE AT A TIME, in call order: each POST replaces the whole list, and two
   // in flight on separate connections could land out of order (an older list winning). Knowledge
@@ -7262,6 +7289,17 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       // profiled against nothing, it was a "beginner" and new words already in that deck were suggested and saved.
       const deckKey = deckArg || discoverDeck || ankiDeck
       const deck = deckKey || ankiDecksRef.current[0] || ankiDecks[0] || ''
+      // The shared learner context (kit/learnerContext.js) already holds the mode deck's scheduling sample, this mode's
+      // chats, its study sessions and slips: used instead of reading them again when it is THIS mode's snapshot of THIS
+      // deck (`discoverEvidence` checks both). The remembered one, else a read capped at 4s; without it, as before.
+      const modeIdAtStart = activeModeIdRef.current
+      const lcEv = await (async () => {
+        try {
+          const lr = featureCtxRef.current?.learning
+          const snap = lr?.cached?.() || await Promise.race([Promise.resolve(lr?.context?.()).catch(() => null), new Promise((r) => setTimeout(() => r(null), 4000))])
+          return discoverEvidence(snap, { modeId: modeIdAtStart, deck })
+        } catch { return null }
+      })()
       let cards = []
       let cardCount = 0
       let masterySummary = ''
@@ -7278,7 +7316,8 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
           })
           if (live()) discoverDeckTermsRef.current = cards.map((c) => c.front).filter(Boolean)
           loadDiscoverAllFronts(noteIds, frontsLive)
-          const cardIds = await srs.findCards({ deck }).catch(() => [])
+          if (lcEv?.mastery) masterySummary = lcEv.mastery
+          const cardIds = lcEv?.mastery ? [] : await srs.findCards({ deck }).catch(() => [])
           // Spread across the whole deck (not the 300 oldest) so the mature/learning/new mix is honest.
           const step = Math.max(1, Math.ceil(cardIds.length / 300))
           const info = cardIds.length ? await srs.cardsInfo(cardIds.filter((_, i) => i % step === 0).slice(0, 300)) : []
@@ -7308,7 +7347,10 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
 
       let chatSummary = ''
       let chatCount = 0
-      try {
+      if (lcEv && lcEv.chatCount != null) {
+        chatCount = lcEv.chatCount
+        chatSummary = lcEv.chatTitles.map((title) => `- ${title}`).join('\n')
+      } else try {
         const sessions = await (await apiFetch('/api/chats')).json()
         // Scope chat history to the CURRENT mode only. A chat is relevant if it is tagged with this
         // mode; untagged legacy chats (no mode field) are EXCLUDED so another mode's topics (e.g. a
@@ -7341,6 +7383,8 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         cardCount ? `Sample of their cards:\n${cardList}` : 'No cards yet, likely a beginner.',
         progressObs ? `Progress observations:\n${progressObs}` : '',
         chatCount ? `Recent study/feedback chat topics (${chatCount}):\n${chatSummary}` : '',
+        lcEv?.study || '',
+        lcEv?.slips || '',
         knowledgeSummary,
       ].filter(Boolean).join('\n\n')
 
@@ -9170,6 +9214,16 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const mc = !mcSession && (isNew || struggling)
     return { mc, flags: { ...(mc ? { mc: true, adaptiveMc: true } : {}), ...(isNew ? { learnFirst: true } : {}) } }
   }
+  // QUESTION DEPTH (per mode, studyRules.questionDepth, default 'adaptive'; utils/studyDepth.js): a due review gets
+  // ONE production question, rated by the shared one-answer rule (rateStudyCard); new, learning, lapsed, struggling
+  // cards and relearn copies get questionsPerCard. 'thorough' = always questionsPerCard (the count rule).
+  // → { rules (questionsPerCard = this card's count, for generation, split and the reuse signature), flags }.
+  // `oneQ` cards carry `ivl` (Anki interval, days) for the mature check. Thorough mode never sets oneQ.
+  const depthPlan = (card, rules, kind = studyMode) => {
+    const n = questionCountFor(card, rules, { kind })
+    if (n !== 1 || questionDepthOf(rules) === 'thorough' || kind !== 'flashcards') return { rules, flags: {} }
+    return { rules: { ...rules, questionsPerCard: 1 }, flags: { oneQ: true, ivl: Number(card?.interval) || 0 } }
+  }
   const needsLetterCue = (q, isLanguage, wantChoices) =>
     isLanguage && !wantChoices && (q.type === 'recall' || q.type === 'fill_blank') &&
     cueAnswers(q).length > 0 && !hasLetterCue(q)
@@ -9237,6 +9291,11 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const levelBlock = learnerLevelRef.current
       ? `\n\nTHE LEARNER'S MEASURED LEVEL: ${learnerLevelRef.current}. Pitch the sentence around the blank, the sense cues and any distractors to this level (plain everyday words around a beginner's answer, richer context for an advanced learner). The card's answer stays the answer.`
       : ''
+    // What Ebiki knows about the learner (study accuracy, recurring slips): wording only, never what is asked. Slips
+    // holding this card's own headword are left out (the model must not lean on the answer). Not in the question-reuse
+    // signature: saved questions stay valid.
+    const learnerCtx = learnerBlock('question', { omit: learnerLevelRef.current ? ['level'] : [], hideFronts: [front], hideAnswers: headFormsOf(front) })
+    const learnerCtxBlock = learnerCtx ? `\n\n${learnerCtx}` : ''
     const isLanguage = activeMode.type === 'language'
 
     // Two DISTINCT languages — never conflate them:
@@ -9272,7 +9331,9 @@ Output ONLY raw JSON. No markdown, no backticks.`
           deepQ,
         ].filter(Boolean).join('\n')
       : n === 1
-      ? (isLanguage ? q1Language : `Generate 1 question. It must be BLIND RECALL: never mention the target word/answer.`)
+      // ONE question (a due review at adaptive depth, or questionsPerCard 1): PRODUCTION, the strongest single test. The
+      // student must produce the answer itself, never recognize it or explain around it.
+      ? (isLanguage ? q1Language : `Generate exactly 1 question. It must be PRODUCTION / BLIND RECALL: the student must PRODUCE the card's exact answer themselves (the term, name, value, number, step or fact the card holds), e.g. "Which port does SSH use by default?" (answer: 22), "What is the first item on the engine failure after takeoff checklist?", "What do you call the technique of repeating the other person's last words back to them?". Never mention the target term/answer. Not multiple-choice recognition (unless this is a multiple-choice session), not "explain X", not a translation exercise. Put the exact expected answer(s) in "acceptedAnswers". Type MUST be "recall".`)
       : [
           `Generate exactly ${n} questions in this STRICT ORDER:`,
           isLanguage ? q1Language : q1General,
@@ -9287,7 +9348,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const generalBlock = isLanguage ? '' : `\nGENERAL STUDY MODE: REQUIRED:\n- This is a general study mode for the subject "${activeMode.name}"${activeMode.description ? ` (${activeMode.description})` : ''}. It is NOT a language course.\n- Match the question style to what the subject actually IS: exam-style for certifications, applied "what would you do/use" for practical skills and procedures, notation/theory for music or math, cause/effect for science or history. The card and the subject decide, never force one template onto every subject.\n- Write EVERY question, instruction, and all framing in ${quizLang} (that is the language Ebi speaks to this student).\n- Do NOT generate language-learning questions: never ask the student to translate, never ask "how do you say X in <language>", never ask "in <language>, what word/noun/verb…", and never quiz a word's gender, article, or conjugation. Speaking ${quizLang} does not make this a ${quizLang} course, it is still purely about "${activeMode.name}".\n- Even if a card's term is written in another language, test the underlying CONCEPT, fact, or meaning, not vocabulary translation. The expected answer is the term/concept exactly as it appears on the card (subject terms/proper names stay as-is on the card, untranslated).\n`
     const languageBlock = isLanguage ? `\nLANGUAGE MODE: REQUIRED:\n- The student is LEARNING ${learnLang}. The EXPECTED ANSWER is ALWAYS the ${learnLang} word/phrase on the card, regardless of which side it's on.\n- Identify the ${learnLang} word on the card (the one NOT written in ${userLang}), that is the answer. The ${userLang} side is just the meaning/hint.\n- "acceptedAnswers" MUST contain the ${learnLang} word (lowercase, plus close variants with/without accents). NEVER put the ${userLang} meaning in acceptedAnswers.\n- EBI SPEAKS ${quizLang}: write all instructions, question framing, and feedback in ${quizLang}.${sameLang ? '' : ` EXCEPTION: a fill-in-the-blank/example SENTENCE that must contain the ${learnLang} answer stays in ${learnLang} (you cannot blank a ${learnLang} word out of a ${quizLang} sentence), only the wrapper instruction around it is in ${quizLang}.`}\n- LANGUAGE NAMES = ENDONYMS: whenever a question written in ${quizLang} names a language, use that language's OWN name (its endonym), NEVER the English name. So a Spanish question says "en español" (never "en Spanish"), a French one "en français", Japanese "日本語で", German "auf Deutsch". Do NOT drop English language names into non-English text.\n- Treat the word in its BROADEST everyday meaning. If the card text doesn't pin down a specific domain, do NOT restrict questions to specialized contexts (programming, medicine, law, military, etc.). Example: "puntero" alone could be a clock hand, laser pointer, finger, or mouse cursor, don't assume programming.\n- BUT if the card text explicitly indicates a domain (e.g. back says "Pointer (C/C++)", tag mentions a field), quiz within that domain.\n- PREFERRED-TERM AWARENESS: if the card's back notes that a DIFFERENT ${learnLang} word is more common for one of its meanings (a "Uso:"-style line naming a preferred synonym, e.g. barro's card noting that everyday speech prefers "lodo" for mud), do NOT build questions that present the headword as the default word for THAT meaning, quiz the meanings the headword IS the default term for instead, and let the cue's sense note reflect the word's own core sense.${dialectRule()}${wantHints ? `\n- WORD HINTS: for EACH question, also return a "glosses" object giving a SHORT translation (1-3 words) for EVERY word shown in the question text, INCLUDING short function words (articles, pronouns, prepositions, conjunctions: "se", "el", "que", "y", "no", …) and the words inside any parenthetical (…) cue, EXCEPT ONLY the answer word, the blank, quoted single letters, and any word whose translation would reveal the answer: a ${learnLang} word gets a short ${userLang} meaning, a ${userLang} word gets its ${learnLang} equivalent. Every key must be ONE single word, spelled EXACTLY as it appears in the question (keep accents). Skip bare punctuation and numbers. Missing words leave the learner unable to read that part of the question, cover them ALL.` : ''}\n` : ''
 
-    const prompt = `Card front: "${front}"\nCard back: "${back}"\n${languageBlock}${generalBlock}${choicesBlock}\n${orderRules}\n\nCRITICAL RULES:\n- Questions must require the SPECIFIC answer on this card, synonyms are NOT acceptable for recall/fill_blank questions\n- NEVER construct a question whose only purpose is to directly name the answer (e.g. "what noun corresponds to adjective X?" when that noun IS the answer)\n- THE ANSWER MUST NEVER APPEAR IN THE QUESTION TEXT: not the target word, not ANY acceptedAnswers entry, not inside the parenthetical sense cue. Writing "(rollo antiguo de papel o pergamino…)" when the answer IS "pergamino" destroys the question. Describe the sense WITHOUT the word or its inflected forms; if you can't, take a different angle instead.\n- Each question must test a DIFFERENT angle${isLanguage ? `\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question before finalizing): mentally substitute 2 to 3 plausible alternative ${learnLang} words, ESPECIALLY synonyms, into the question. If ANY of them still fit after reading the WHOLE question, it is INVALID and you MUST fix it. THE REQUIRED FIX: embed a compact parenthetical cue in ${quizLang} right at the blank that names the target word's precise meaning/nuance, ${wantChoices ? 'but NO first letter: this is a multiple-choice session, where the options already disambiguate and a letter would give the answer away. This inline sense cue is PART OF the question text and is mandatory for EVERY recall/fill_blank question' : `and ALWAYS ADD its first letter in quotes (phrased in ${quizLang}: 'empieza con "h"' / 'starts with "h"' / etc., using the answer's real first character). This inline cue is PART OF the question text and is mandatory for EVERY recall/fill_blank question`}, a bare sentence is never enough. (The separate hint1/hint2 fields are revealed only on demand and do NOT count as disambiguation.) A blank surrounded only by a GENERIC predicate that many words satisfy is INVALID until you add the cue. Prefer a slightly over-specified question with a clear cue over an elegant but ambiguous one.\n  - BAD: "Al ver al depredador, la gacela ___ a toda velocidad para salvar su vida." Target "huye", but "corre", "escapa", "salta" all fit. INVALID.\n  - GOOD: "Al ver al depredador, la gacela ___ (escapar de un peligro; empieza con "h") a toda velocidad para salvar su vida.", the cue pins "huye".\n  - BAD: "Sienten una atracción ___: él la quiere a ella y ella lo quiere a él por igual." Target "recíproca", but "mutua" fits equally. INVALID.\n  - GOOD: "Sienten una atracción ___ (correspondida por ambos; empieza con "r"): él la quiere a ella y ella lo quiere a él por igual.", the cue pins "recíproca".` : `\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question): if another term from this subject would also fit, add a compact parenthetical cue in ${quizLang} at the blank naming the precise concept or context. Never a letter of the answer and never the term itself: a blind recall must stay blind.`}\n- For language cards: test usage in sentences, grammatical properties, contextual usage\n- For conceptual cards: test application, process, comparison\n\n${questionPrompt}${qPrefsBlock}${levelBlock}\n\n${isLanguage ? `Phrase every question and its framing in ${quizLang} (target-language sentences that hold the ${learnLang} answer stay in ${learnLang}).` : `Write all questions in ${quizLang}.`}${knowledgeContext}\n\nReturn a JSON array of exactly ${count} objects:\n[\n  {\n    "question": "the question text",\n    "type": "recall" | "fill_blank" | "explanation",\n    "hint1": "N letters" (letter count of primary answer, null for explanation),\n    "hint2": "starts with 'X'" (first letter of primary answer, null for explanation),\n    "acceptedAnswers": ["answer1", "answer2"] (lowercase; exact words that are correct; empty for explanation),${wantChoices ? `\n    "choices": ["option1", "option2", "option3", "option4"] (exactly 4; one correct + 3 plausible-but-wrong distractors),\n    "answerIdx": 0 (index of the correct option in "choices"),` : ''}${wantHints ? `\n    "glosses": { "<non-answer word from the question>": "<short translation>" } (single-word keys exactly as written in the question, covering EVERY word incl. function words and cue words, excluding only the answer/blank; {} if none),` : ''}\n    "pose": one mascot pose name that best fits this question's topic, chosen ONLY from: ${POSE_NAMES.join(', ')} (use "default" if none fit)\n  }\n]\nOutput ONLY raw JSON array. No markdown, no backticks.`
+    const prompt = `Card front: "${front}"\nCard back: "${back}"\n${languageBlock}${generalBlock}${choicesBlock}\n${orderRules}\n\nCRITICAL RULES:\n- Questions must require the SPECIFIC answer on this card, synonyms are NOT acceptable for recall/fill_blank questions\n- NEVER construct a question whose only purpose is to directly name the answer (e.g. "what noun corresponds to adjective X?" when that noun IS the answer)\n- THE ANSWER MUST NEVER APPEAR IN THE QUESTION TEXT: not the target word, not ANY acceptedAnswers entry, not inside the parenthetical sense cue. Writing "(rollo antiguo de papel o pergamino…)" when the answer IS "pergamino" destroys the question. Describe the sense WITHOUT the word or its inflected forms; if you can't, take a different angle instead.\n- Each question must test a DIFFERENT angle${isLanguage ? `\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question before finalizing): mentally substitute 2 to 3 plausible alternative ${learnLang} words, ESPECIALLY synonyms, into the question. If ANY of them still fit after reading the WHOLE question, it is INVALID and you MUST fix it. THE REQUIRED FIX: embed a compact parenthetical cue in ${quizLang} right at the blank that names the target word's precise meaning/nuance, ${wantChoices ? 'but NO first letter: this is a multiple-choice session, where the options already disambiguate and a letter would give the answer away. This inline sense cue is PART OF the question text and is mandatory for EVERY recall/fill_blank question' : `and ALWAYS ADD its first letter in quotes (phrased in ${quizLang}: 'empieza con "h"' / 'starts with "h"' / etc., using the answer's real first character). This inline cue is PART OF the question text and is mandatory for EVERY recall/fill_blank question`}, a bare sentence is never enough. (The separate hint1/hint2 fields are revealed only on demand and do NOT count as disambiguation.) A blank surrounded only by a GENERIC predicate that many words satisfy is INVALID until you add the cue. Prefer a slightly over-specified question with a clear cue over an elegant but ambiguous one.\n  - BAD: "Al ver al depredador, la gacela ___ a toda velocidad para salvar su vida." Target "huye", but "corre", "escapa", "salta" all fit. INVALID.\n  - GOOD: "Al ver al depredador, la gacela ___ (escapar de un peligro; empieza con "h") a toda velocidad para salvar su vida.", the cue pins "huye".\n  - BAD: "Sienten una atracción ___: él la quiere a ella y ella lo quiere a él por igual." Target "recíproca", but "mutua" fits equally. INVALID.\n  - GOOD: "Sienten una atracción ___ (correspondida por ambos; empieza con "r"): él la quiere a ella y ella lo quiere a él por igual.", the cue pins "recíproca".` : `\n- AMBIGUITY SELF-CHECK (apply to EVERY recall/fill_blank question): if another term from this subject would also fit, add a compact parenthetical cue in ${quizLang} at the blank naming the precise concept or context. Never a letter of the answer and never the term itself: a blind recall must stay blind.`}\n- For language cards: test usage in sentences, grammatical properties, contextual usage\n- For conceptual cards: test application, process, comparison\n\n${questionPrompt}${qPrefsBlock}${levelBlock}${learnerCtxBlock}\n\n${isLanguage ? `Phrase every question and its framing in ${quizLang} (target-language sentences that hold the ${learnLang} answer stay in ${learnLang}).` : `Write all questions in ${quizLang}.`}${knowledgeContext}\n\nReturn a JSON array of exactly ${count} objects:\n[\n  {\n    "question": "the question text",\n    "type": "recall" | "fill_blank" | "explanation",\n    "hint1": "N letters" (letter count of primary answer, null for explanation),\n    "hint2": "starts with 'X'" (first letter of primary answer, null for explanation),\n    "acceptedAnswers": ["answer1", "answer2"] (lowercase; exact words that are correct; empty for explanation),${wantChoices ? `\n    "choices": ["option1", "option2", "option3", "option4"] (exactly 4; one correct + 3 plausible-but-wrong distractors),\n    "answerIdx": 0 (index of the correct option in "choices"),` : ''}${wantHints ? `\n    "glosses": { "<non-answer word from the question>": "<short translation>" } (single-word keys exactly as written in the question, covering EVERY word incl. function words and cue words, excluding only the answer/blank; {} if none),` : ''}\n    "pose": one mascot pose name that best fits this question's topic, chosen ONLY from: ${POSE_NAMES.join(', ')} (use "default" if none fit)\n  }\n]\nOutput ONLY raw JSON array. No markdown, no backticks.`
 
     // Generate → leak-check → REGENERATE (up to twice, with the violation named) so the question
     // reads naturally without the answer; the scrub is only the absolute last resort so a leak can
@@ -9921,18 +9982,19 @@ Output ONLY raw JSON. No markdown, no backticks.`
         // other questions are written next, told what Q1 asked, while the next cards are asked (questions are picked
         // at random and never from the card just answered). A saved set (question reuse) is used whole and at once.
         const firstCard = cards[0]
-        const perCard = rules.questionsPerCard || 3
+        const firstDepth = depthPlan(firstCard, rules, mode) // one question for a due review (adaptive depth)
+        const perCard = firstDepth.rules.questionsPerCard || 3
         let resolveFirst = null
         const firstP = new Promise((res) => { resolveFirst = res })
         const firstPlan = adaptivePlan(firstCard, rules, mcSession, mode)
-        const fullP = generateQuestionsForCard(firstCard, rules, studyLang, knowledgeContext, mcSession || firstPlan.mc, (q1) => resolveFirst(q1))
+        const fullP = generateQuestionsForCard(firstCard, firstDepth.rules, studyLang, knowledgeContext, mcSession || firstPlan.mc, (q1) => resolveFirst(q1))
         fullP.catch(() => {}) // awaited below; a rejection here must not be unhandled
         const early = await Promise.race([fullP.then((qs) => ({ full: qs })), firstP.then((q1) => ({ first: q1 }))])
         const splitStart = !!early.first && Array.isArray(early.first) && early.first.length > 0 && perCard > 1
         const firstQuestions = splitStart ? early.first : (early.full || await fullP)
         const firstCardState = {
           cardId: firstCard.cardId, front: getCardFront(firstCard), back: getCardBack(firstCard),
-          questions: firstQuestions, answers: [], results: [], done: false, questionIdx: 0, questionAttempts: [], ...mcFlags, ...firstPlan.flags,
+          questions: firstQuestions, answers: [], results: [], done: false, questionIdx: 0, questionAttempts: [], ...mcFlags, ...firstPlan.flags, ...firstDepth.flags,
           ...(splitStart ? { pendingRest: true, expectedCount: perCard } : {}),
         }
 
@@ -9987,11 +10049,12 @@ Output ONLY raw JSON. No markdown, no backticks.`
         cards.slice(1, cardsAtOnce).forEach((card) => trackStudyGen(async () => {
           if (!stillThisSession()) return
           const plan = adaptivePlan(card, rules, mcSession, mode)
-          const questions = await generateQuestionsForCard(card, rules, studyLang, knowledgeContext, mcSession || plan.mc)
+          const depth = depthPlan(card, rules, mode)
+          const questions = await generateQuestionsForCard(card, depth.rules, studyLang, knowledgeContext, mcSession || plan.mc)
           if (!stillThisSession()) return
           setStudyCardState(prev => [...prev, {
             cardId: card.cardId, front: getCardFront(card), back: getCardBack(card),
-            questions, answers: [], results: [], done: false, questionIdx: 0, questionAttempts: [], ...mcFlags, ...plan.flags,
+            questions, answers: [], results: [], done: false, questionIdx: 0, questionAttempts: [], ...mcFlags, ...plan.flags, ...depth.flags,
           }])
           console.log('[Study] pool card ready:', getCardFront(card))
         }))
@@ -10034,7 +10097,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
         return { question: qText, answer, expected, feedback: String(r.feedback || '') }
       }).filter(Boolean)
       emitOnce(`graded:${studyRunIdRef.current}:${cs.cardId || cs.front}:${cs.relearn ? 'r' : ''}`, EVENTS.CARD_GRADED, {
-        correct: cs.rating === 'good' || cs.rating === 'easy', mode: activeModeIdRef.current,
+        correct: cs.rating === 'good' || cs.rating === 'easy', grade: cs.rating, mode: activeModeIdRef.current, // grade: config/grading.js's four grades
         front: cs.front, back: cs.back, noteId: cs.noteId, cardId: cs.cardId, misses,
       })
     }
@@ -11070,6 +11133,12 @@ Output ONLY raw JSON. No markdown, no backticks.`
   // The loading flag holds the KEY of the question it is for: as a plain boolean, a hint still loading for
   // an answered question kept the NEXT question's hint button dead (and "loading") until it finished.
   const meaningHintKey = () => (currentQuestion ? `${studySessionRef.current}:${currentQuestion.cardIdx}:${currentQuestion.questionIdx}` : '')
+  // A meaning hint SHOWN on a question: a one-question card answered with it rates Hard at best (rateStudyCard).
+  const markHintUsed = (cardIdx, questionIdx, front) => setStudyCardState((prev) => {
+    const c = prev[cardIdx]
+    if (!c || c.front !== front || c.hintQs?.[questionIdx]) return prev
+    const u = [...prev]; u[cardIdx] = { ...c, hintQs: { ...(c.hintQs || {}), [questionIdx]: true } }; return u
+  })
   const fetchMeaningHint = async () => {
     if (!currentQuestion || !apiKey || (studyMeaningHintLoading && studyMeaningHintLoading === meaningHintKey())) return
     const myKey = meaningHintKey()
@@ -11106,10 +11175,10 @@ Rules:
         const hint = String(text || '').replace(/\s*[—–]\s*/g, ', ').trim()
         if (!hint) throw new Error('empty hint') // an empty reply showed an empty hint box
         if (!here()) break // answered or moved on meanwhile: this hint belongs to another question
-        if (!hintRevealsAnswer(hint, accepted)) { setStudyMeaningHint(hint); break }
+        if (!hintRevealsAnswer(hint, accepted)) { setStudyMeaningHint(hint); markHintUsed(cardIdx, questionIdx, cs.front); break }
         console.warn(`[Study] meaning hint revealed the answer (attempt ${attempt + 1}) — regenerating`)
         revealNote = `\n\nYOUR PREVIOUS HINT WAS REJECTED: it contained the answer word or a close form of it. Rewrite the hint from scratch WITHOUT the word, its plural, or any inflected/derived form, describe the concept in other words entirely.`
-        if (attempt === 2) setStudyMeaningHint(scrubHint(hint, accepted))
+        if (attempt === 2) { setStudyMeaningHint(scrubHint(hint, accepted)); markHintUsed(cardIdx, questionIdx, cs.front) }
       }
     } catch {
       // Only a popup opened FROM the hint goes with it: closing any popup threw away an unrelated card or
@@ -12166,14 +12235,27 @@ Your output keeps: the same method, the same language (${explainLang}), the same
   const questionHasChoices = (q) => q && Array.isArray(q.choices) && q.choices.length >= 2 &&
     Number.isInteger(q.answerIdx) && q.answerIdx >= 0 && q.answerIdx < q.choices.length
 
-  const evaluateCardLocally = (cardIdx, cs) => {
-    const results = cs.questions.map((q, i) => {
-      const correctText = questionHasChoices(q) ? String(q.choices[q.answerIdx]) : ''
-      const correct = !!correctText && cs.answers[i] === correctText
-      return { correct, feedback: correct ? '' : (correctText ? `✓ ${correctText}` : '') }
-    })
-    const qpc = cs.questions.length
-    const wrongCount = results.filter(r => !r.correct).length
+  // A card's rating from its graded results. A ONE-question card (cs.oneQ, adaptive question depth) is rated by the
+  // shared one-answer rule (config/grading.js): Again = wrong or skipped; Hard = right with a hint (the meaning hint,
+  // or a retry after a wrong try, which shows the letter hints), an accent slip or a penalizing grader note; Good =
+  // clean; Easy = clean, typed, on a mature card (interval >= 21 days). Every other card keeps the count rule
+  // (0 wrong Easy, 1 Good, more Hard, all Again). The MC cap (Good when the card records to Anki) applies to both.
+  const rateStudyCard = (cs, results, grammarOn = false) => {
+    if (cs.oneQ && results.length === 1 && !cs.isConjugation && !cs.pbq) {
+      const r = results[0] || {}
+      const notes = Array.isArray(r.notes) ? r.notes : []
+      return oneQuestionRating({
+        correct: !!r.correct,
+        skipped: String(cs.answers?.[0] ?? '') === '(skipped)',
+        hintUsed: !!cs.hintQs?.[0],
+        accentSlip: (cs.accentSlips || 0) > 0,
+        retried: (cs.questionAttempts?.[0] || []).length > 1,
+        corrected: notes.some((n) => n?.penalize && (n.type !== 'grammar' || grammarOn)),
+        choice: !!cs.mc && !cs.noSync, // practice (noSync) keeps the honest label, like the count rule
+      }, { interval: cs.ivl })
+    }
+    const qpc = results.length
+    const wrongCount = results.filter(r => !r?.correct || (grammarOn && (r.notes || []).some(n => n?.type === 'grammar' && n.penalize))).length
     let ease, label
     if (wrongCount === 0) { ease = 4; label = 'easy' }
     // "All wrong" is checked BEFORE "one wrong": on a 1-question card they are the same count, and
@@ -12181,15 +12263,37 @@ Your output keeps: the same method, the same language (${explainLang}), the same
     else if (wrongCount >= qpc) { ease = 1; label = 'again' }
     else if (wrongCount === 1) { ease = 3; label = 'good' }
     else { ease = 2; label = 'hard' }
-    // Recognition (picking from options) is easier than recall — when this practice session DOES
-    // record reviews in Anki, cap the ease at Good so a mature card's interval can't inflate off
-    // a multiple-choice pass. Pure practice (noSync) keeps the honest label; it never reaches Anki.
-    if (!cs.noSync && ease > 3) { ease = 3; label = 'good' }
+    // Recognition (picking from options) is easier than recall: when the card DOES record reviews in Anki, cap the
+    // ease at Good so a mature card's interval can't inflate off a multiple-choice pass. Pure practice (noSync) keeps
+    // the honest label; it never reaches Anki.
+    if ((cs.mc || cs.pbq) && !cs.noSync && ease > 3) { ease = 3; label = 'good' }
+    // Strict accents: perfect answers with accent slips grade Good at best.
+    if (ease === 4 && (cs.accentSlips || 0) > 0) { ease = 3; label = 'good' }
+    return { ease, label }
+  }
+  // A one-question review answered wrong (Again, recorded once) comes back in this session as a relearn copy (noSync)
+  // with the full questionsPerCard. A give-up with the Learn-it moment on was already re-queued by the moment.
+  const requeueOneQMiss = (cs, label) => {
+    if (!cs.oneQ || label !== 'again' || cs.relearn || cs.noSync || cs.isConjugation || cs.pbq) return
+    const gaveUp = String(cs.answers?.[0] ?? '') === '(skipped)'
+    if (gaveUp && (activeMode.studyRules || defaultStudyRules).learnMoment !== false) return
+    requeueForRelearn(cs)
+  }
+
+  const evaluateCardLocally = (cardIdx, cs) => {
+    const results = cs.questions.map((q, i) => {
+      const correctText = questionHasChoices(q) ? String(q.choices[q.answerIdx]) : ''
+      const correct = !!correctText && cs.answers[i] === correctText
+      return { correct, feedback: correct ? '' : (correctText ? `✓ ${correctText}` : '') }
+    })
+    // rateStudyCard: the count rule (all MC here, so capped at Good when recording), or the one-answer rule.
+    const { ease, label } = rateStudyCard({ ...cs, mc: true }, results)
     setStudyCardState(prev => {
       const updated = [...prev]
       updated[cardIdx] = { ...updated[cardIdx], results, rating: label, ease, evaluating: false, gradedAt: Date.now() }
       return updated
     })
+    requeueOneQMiss(cs, label)
     if (!cs.relearn) setStudyStats(prev => ({ ...prev, [label]: (prev[label] || 0) + 1 })) // a relearn copy is a practice pass of a card already counted
     console.log('[Study] card graded locally (multiple choice):', cs.front, '→', label)
   }
@@ -12354,26 +12458,16 @@ Your output keeps: the same method, the same language (${explainLang}), the same
       }
       if (!stillGrading()) return
 
-      // Rate the card
-      const qpc = cs.questions.length
-      const wrongCount = results.filter(r => !r?.correct || (grammarOn && (r.notes || []).some(n => n?.type === 'grammar' && n.penalize))).length
-      let ease, label
-      if (wrongCount === 0) { ease = 4; label = 'easy' }
-      else if (wrongCount >= qpc) { ease = 1; label = 'again' } // before "one wrong": see evaluateCardLocally
-      else if (wrongCount === 1) { ease = 3; label = 'good' }
-      else { ease = 2; label = 'hard' }
-      // Same recognition cap as evaluateCardLocally — a multiple-choice pass that syncs to Anki
-      // never rates above Good (this path handles mc cards whose choices partially failed to generate).
-      if (cs.mc && !cs.noSync && ease > 3) { ease = 3; label = 'good' }
-      // Strict accents: perfect answers with accent slips (missing/misplaced tilde caught by the
-      // retype gate) grade Good at best — an obvious accent mistake is still a mistake.
-      if (ease === 4 && (cs.accentSlips || 0) > 0) { ease = 3; label = 'good' }
+      // Rate the card (rateStudyCard: the count rule with the MC and accent caps, or the one-answer rule). The card's
+      // LIVE hint marks: a meaning hint shown while this grade ran still counts.
+      const { ease, label } = rateStudyCard({ ...cs, hintQs: studyCardStateRef.current[cardIdx]?.hintQs || cs.hintQs }, results, grammarOn)
 
       setStudyCardState(prev => {
         const updated = [...prev]
         updated[cardIdx] = { ...updated[cardIdx], results, rating: label, ease, evaluating: false, gradedAt: Date.now(), gradeFailed: false }
         return updated
       })
+      requeueOneQMiss(cs, label) // same render as the grade: the completion check sees the copy in the pool
       if (!cs.relearn) setStudyStats(prev => ({ ...prev, [label]: (prev[label] || 0) + 1 })) // relearn copy: see evaluateCardLocally
 
       // Persist grammar slips for later coaching (language modes). The penalize flag is
@@ -12496,11 +12590,12 @@ Your output keeps: the same method, the same language (${explainLang}), the same
       const relearnFlags = card._relearn ? { noSync: true, relearn: true } : {}
       const knowledgeContext = studyKnowledge ? `\n\nReference material:\n${studyKnowledge.substring(0, KNOWLEDGE_CAP)}` : ''
       const plan = adaptivePlan(card, rules, mcSession)
-      const questions = await generateQuestionsForCard(card, rules, studyLang, knowledgeContext, mcSession || plan.mc)
+      const depth = depthPlan(card, rules) // a relearn copy always gets questionsPerCard
+      const questions = await generateQuestionsForCard(card, depth.rules, studyLang, knowledgeContext, mcSession || plan.mc)
       if (stale()) return
       setStudyCardState(prev => [...prev, {
         cardId: card.cardId, front: getCardFront(card), back: getCardBack(card),
-        questions, answers: [], results: [], done: false, questionIdx: 0, ...mcFlags, ...plan.flags, ...relearnFlags,
+        questions, answers: [], results: [], done: false, questionIdx: 0, ...mcFlags, ...plan.flags, ...depth.flags, ...relearnFlags,
       }])
       console.log('[Study] pulled new card:', getCardFront(card))
     }
@@ -13576,20 +13671,9 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
             updatedStates[cardIdx] = { ...updatedStates[cardIdx], synced: true }
           }
         }
-        const qpc = updatedStates[cardIdx].results.length
         const grammarOn = (activeMode.studyRules || defaultStudyRules).grammarFeedback || false
-        const wrongCount = updatedStates[cardIdx].results.filter(r => !r.correct || (grammarOn && (r.notes || []).some(n => n.type === 'grammar' && n.penalize))).length
-        let label
-        if (wrongCount === 0) label = 'easy'
-        else if (wrongCount >= qpc) label = 'again' // before "one wrong": a 1-question card missed is Again
-        else if (wrongCount === 1) label = 'good'
-        else label = 'hard'
-        // Recognition cap parity with the graders: an MC card that records to Anki never rates
-        // above Good, corrections included.
-        let ease = { easy: 4, good: 3, hard: 2, again: 1 }[label] || 1
-        if ((updatedStates[cardIdx].mc || updatedStates[cardIdx].pbq) && !updatedStates[cardIdx].noSync && ease > 3) { ease = 3; label = 'good' } // PBQs too (pbqRatingFromFraction caps them)
-        // Same accent cap as the grader: an accent slip keeps the card at Good at best.
-        if (ease === 4 && (updatedStates[cardIdx].accentSlips || 0) > 0) { ease = 3; label = 'good' }
+        // The graders' own rule (rateStudyCard): the count rule with the MC/PBQ and accent caps, or the one-answer rule.
+        const { ease, label } = rateStudyCard(updatedStates[cardIdx], updatedStates[cardIdx].results, grammarOn)
         // Update stats: remove old rating, add new
         // From the LIVE card, read after the sync wait: the copy above predates it, and a sync that sent
         // (and reset the card to) another rating made this skip the Anki correction and lock the card
@@ -13869,6 +13953,10 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       if (prefs.level) systemPrompt += `\nTarget a ${prefs.level} learner.`
       else if (learnerLevelRef.current) systemPrompt += `\nThe learner's measured level in this subject: ${learnerLevelRef.current}. Pitch explanations and examples there.`
       if (prefs.explain && prefs.explain !== 'auto') systemPrompt += `\nWrite your explanations in ${prefs.explain}.`
+      // What Ebiki knows about the learner in this mode (study accuracy, forgotten cards, recent topics, practice,
+      // scope): the remembered snapshot, never waited for. The level and (language modes) the slips are above already.
+      const chatLearnerCtx = learnerBlock('chat', { omit: ['level', ...(activeMode.type === 'language' ? ['slips'] : [])] })
+      if (chatLearnerCtx) systemPrompt += `\n\n${chatLearnerCtx}`
 
       const convo = boundChatHistory(newMsgs)
       // Include images from the recent conversation (most recent up to 4) so follow-up questions
@@ -14409,6 +14497,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     // 1 + "3" - 1 = 12 and start 11 background generations instead of 2.
     sr.questionsPerCard = clampRule(sr.questionsPerCard, 1, 10, 3)
     if (sr.cardsAtOnce !== undefined) sr.cardsAtOnce = clampRule(sr.cardsAtOnce, 1, 10, 3)
+    if (sr.questionDepth !== undefined) sr.questionDepth = questionDepthOf(sr) // only 'adaptive' | 'thorough'
     sr.questionPrompt = modeText(sr.questionPrompt, baseSR.questionPrompt)
     sr.ratingRules = modeText(sr.ratingRules, baseSR.ratingRules)
     // Always a LIST: a Studio reply with one preference as a plain string was saved as a string, and the
@@ -14892,7 +14981,8 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
   // ─── Render ────────────────────────────────────────────────────────────────
   // ─── Shell: sidebar navigation (core screens + feature screens), right rail ───
   const viewportW = useViewportWidth(getZoom)
-  const featureNav = registry.slot(SLOT.NAV)
+  // A feature screen may hide itself (visible: the Legends asset view shows only in cheat mode).
+  const featureNav = registry.slot(SLOT.NAV, (n) => !n.visible || n.visible({ registry, featureSettings }))
   const navItems = [
     ...CORE_NAV.map((n) => ({ ...n, label: t('tab_' + n.id) })),
     ...featureNav.map((n) => ({ id: n.id, icon: n.icon, art: n.art, order: n.order, label: t(n.labelKey) })),
@@ -14963,6 +15053,18 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
       tappable: (text, source, sentence) => renderTappableText(text, sentence || text, source),
       popup: (source) => renderWordLookupPopup(source),
     },
+    // Study's Learn-it pieces for features (kit/LearnItPanel.jsx: a raid card or Legends item missed in a fight):
+    // the item's saved memory hooks (any surface), and a new hook from the ONE hook engine (generateMemoryHook,
+    // verify pass included), saved to the mode's hook store like every other surface. Never records a review.
+    learn: {
+      savedHooks: (noteId, front) => hooksForItem(noteId || null, front),
+      makeHook: async (front, back, prior = [], method = 'auto', noteId = null) => {
+        const hookModeId = activeModeIdRef.current // a hook finishing after a mode switch must not land in the new mode's store
+        const hook = await generateMemoryHook(front, back, prior, method)
+        if (hook && hookModeId === activeModeIdRef.current) addNoteHook(hookSaveKey(noteId || null, front), hook)
+        return hook || ''
+      },
+    },
     emit: emitAppEvent, // features announce their own facts (EVENTS) the same way the app does
     studyActive, ankiConnected,
     // AI for features, on the user's provider. `role` picks the model like everywhere else (resolveModel).
@@ -15016,38 +15118,66 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
         return { front: text(fields[0]?.[1]?.value), back: text(fields[1]?.[1]?.value), fieldNames: fields.map(([k]) => k) }
       },
     },
-    // What the app has OBSERVED about the learner in the active mode, as raw facts for kit/evidence.js:
-    // a spread sample of the mode deck's scheduling (Anki answered from the learner's own reviews), the study
-    // sessions on that deck, the logged slips and the Discover profile. { ok, deck, cards, sessions, slips,
-    // profile }; ok:false = the deck could not be read (never "knows nothing": that would judge a beginner).
+    // THE LEARNER CONTEXT (kit/learnerContext.js): everything Ebiki knows about the learner in the active mode, as
+    // one snapshot. context({ fresh }) → snapshot (cached a minute per mode; any app event clears it). Parts: the mode
+    // deck's studied cards (a bounded spread sample with real stats) and its NEW cards (the scope), study sessions,
+    // logged slips, chats tagged with this mode, the Discover profile, the level, the practice log and what features
+    // register (Legends map, raids). Each part says ok:false when it could not be read; one failed part never hides
+    // the others (a closed Anki once disabled "Use what Ebiki knows" for a learner with sessions and chats).
     learning: {
-      evidence: async ({ sample = 600 } = {}) => {
-        // The same non-persistent fallback Study and Discover use: a mode with no saved deck is studied from the first
-        // deck, and judging it on no cards said "Ebiki has not seen you study this" to a daily learner.
+      context: ({ fresh = false } = {}) => {
+        const modeId = activeModeId
+        // The same non-persistent fallback Study and Discover use: a mode with no saved deck is studied from the first deck.
         const deck = ankiDeck || ankiDecksRef.current?.[0] || ''
-        const sessions = (() => {
-          try {
+        const modeName = activeMode.name
+        const isLanguage = activeMode.type === 'language'
+        const noteText = (c) => {
+          const fields = Object.entries(c?.fields || {}).sort((x, y) => (x[1]?.order ?? 0) - (y[1]?.order ?? 0))
+          const text = (v) => stripHtml(String(v || '').replace(/<(?:br|hr)[^>]*>|<\/(?:div|p|li|tr)>/gi, ' · ')).replace(/\[sound:[^\]]*\]/g, '').replace(/🔊.*$/s, '').replace(/(\s·\s*)+$/, '').trim()
+          return { front: text(fields[0]?.[1]?.value), back: text(fields[1]?.[1]?.value) }
+        }
+        return LEARNER_CONTEXT_CACHE.get(modeId, () => gatherLearnerContext({
+          modeId, modeName, isLanguage, deck,
+          cards: { findCards: (q) => srs.findCards(q), cardsInfo: (ids) => srs.cardsInfo(ids), text: noteText },
+          cardsDown: () => ankiConnected !== true,
+          history: () => {
             const h = JSON.parse(localStorage.getItem('screenlens-study-history') || '[]')
             const inDeck = (d) => deck && (d === deck || String(d || '').startsWith(`${deck}::`))
-            return Array.isArray(h) ? h.filter((x) => x && typeof x === 'object' && (inDeck(cardText(x.deck)) || (!ankiDeck && x.mode === activeMode.name))) : []
-          } catch { return [] }
-        })()
-        const slips = activeMode.type === 'language' ? [...modeGrammarLog].sort((a, b) => (b.n || 1) - (a.n || 1)).slice(0, 20).map((e) => ({ text: String(e.t || ''), n: e.n || 1 })) : []
-        const profile = discoverProfile && profileFitsModeDeck(discoverProfile) ? { summary: cardText(discoverProfile.summary), level: cardText(discoverProfile.level) } : null
-        if (!deck) return { ok: true, deck, cards: [], sessions, slips, profile }
-        try {
-          const ids = await srs.findCards({ deck })
-          const step = Math.max(1, Math.ceil(ids.length / sample))
-          const pick = ids.filter((_, i) => i % step === 0).slice(0, sample)
-          const info = pick.length ? await srs.cardsInfo(pick) : []
-          const cards = info.map((c) => {
-            const fields = Object.entries(c?.fields || {}).sort((a, b) => (a[1]?.order ?? 0) - (b[1]?.order ?? 0))
-            return { front: stripHtml(String(fields[0]?.[1]?.value || '')).replace(/\[sound:[^\]]*\]/g, '').trim(), interval: Number(c?.interval) || 0, lapses: Number(c?.lapses) || 0, reps: Number(c?.reps) || 0 }
-          })
-          return { ok: true, deck, cards, sessions, slips, profile }
-        } catch (e) {
-          return { ok: false, deck, cards: [], sessions, slips, profile, error: String(e?.message || e) }
+            return Array.isArray(h) ? h.filter((x) => x && typeof x === 'object' && (x.mode === modeName || (!x.mode && inDeck(cardText(x.deck))))) : []
+          },
+          slips: () => {
+            // The in-memory log belongs to ONE mode (grammarModeIdRef): right after a switch it can still be the previous one's.
+            if (String(grammarModeIdRef.current ?? '') !== String(modeId ?? '')) throw new Error('slips of another mode')
+            return [...modeGrammarLog].sort((x, y) => (y.n || 1) - (x.n || 1)).slice(0, 20).map((e) => ({ text: String(e.t || ''), n: e.n || 1 }))
+          },
+          chats: {
+            list: async () => { const r = await apiFetch('/api/chats'); if (!r.ok) throw new Error(`chats ${r.status}`); const l = await r.json(); return Array.isArray(l) ? l : [] },
+            load: async (id) => { const r = await apiFetch(`/api/chat-load?id=${encodeURIComponent(id)}`); return r.ok ? r.json() : null },
+          },
+          profile: () => (discoverProfile && profileFitsModeDeck(discoverProfile) ? { summary: cardText(discoverProfile.summary), level: cardText(discoverProfile.level) } : null),
+          level: async () => {
+            const r = await readLearner(featureCtxRef.current, modeId)
+            return r.ok ? { ok: true, value: r.value?.level ?? null, line: r.value ? learnerLine(r.value, isLanguage) : '' } : { ok: false }
+          },
+          practice: async () => ({ ok: true, items: (await readPracticeLog(featureCtxRef.current))?.items || [] }),
+          ctx: featureCtxRef.current,
+        }), { fresh }).then((snap) => {
+          // Remembered per mode for the prompts that never wait (`cached` below); keyed by the snapshot's OWN mode.
+          if (snap && snap.modeId != null) learnerSnapsRef.current.set(String(snap.modeId), snap)
+          return snap
+        })
+      },
+      // The last snapshot of the ACTIVE mode, at once (null when there is none yet). A missing or stale one (older than
+      // LC.staleMs, or its deck could not be read) starts a background read, at most one per mode every 30s; prompts never wait for it.
+      cached: () => {
+        const key = String(activeModeIdRef.current ?? '')
+        const snap = learnerSnapsRef.current.get(key) || null
+        const now = Date.now()
+        if ((!snap || now - snap.at > LEARNER_LC.staleMs || snap.deck?.ok === false) && now - (learnerRefreshAtRef.current.get(key) || 0) > 30000) {
+          learnerRefreshAtRef.current.set(key, now)
+          try { Promise.resolve(featureCtxRef.current?.learning?.context?.()).catch(() => {}) } catch { /* fail soft */ }
         }
+        return snap && String(snap.modeId ?? '') === key ? snap : null
       },
     },
   }
@@ -15300,38 +15430,39 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
             </>
           )}
 
-          {/* Mode quick-switcher (fast switch without opening Settings); "+ Add mode" opens the
-              same Learning-modes panel in Settings used to create a mode. */}
-          <Dropdown
-            value={activeModeId}
+          {/* Mode + deck as ONE split control (ModeDeckSwitch): the mode on the left, the deck THAT mode studies
+              on the right (the same setting as Settings > Cards & Anki, which Study, Practice, raids, Legends and
+              Discover all read). "+ Add mode" opens the Learning-modes panel in Settings. The deck segment shows
+              while Anki answers; with Anki known to be down it stays, disabled, so the pair is still visible. */}
+          <ModeDeckSwitch
             getZoom={getZoom}
-            onChange={async (val) => {
-              if (val === '__add__') { setSettingsCategory('modes'); setSettingsOpen(true); return }
-              await switchActiveMode(parseInt(val)) // ends a live study session first (see endStudyForModeSwitch)
+            tip={t('hdr_modeDeckTip')}
+            mode={{
+              value: activeModeId,
+              ariaLabel: t('settingsMode'),
+              onChange: async (val) => {
+                if (val === '__add__') { setSettingsCategory('modes'); setSettingsOpen(true); return }
+                await switchActiveMode(parseInt(val)) // ends a live study session first (see endStudyForModeSwitch)
+              },
+              options: [
+                ...modes.map((m) => ({ value: m.id, label: m.name, icon: m.type === 'language' ? '\u{1F310}' : '\u{1F4DA}', color: 'var(--c-brand)' })),
+                { value: '__add__', label: t('mode_addMenu'), icon: '➕', color: 'var(--c-ink-dim)', divider: true },
+              ],
             }}
-            title={t('settingsMode')}
-            style={{ ...S.select, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)', background: 'rgba(223,37,64,.08)', fontWeight: 700 }}
-            options={[
-              ...modes.map((m) => ({ value: m.id, label: m.name, icon: m.type === 'language' ? '\u{1F310}' : '\u{1F4DA}', color: 'var(--c-brand)' })),
-              { value: '__add__', label: t('mode_addMenu'), icon: '➕', color: 'var(--c-ink-dim)', divider: true },
-            ]}
-          />
-
-          {/* Deck quick-switcher, right next to the mode: the ACTIVE MODE's deck (the same setting as Settings >
-              Cards & Anki), which Study, Practice, raids, Legends and Discover all read. Only while Anki answers. */}
-          {ankiConnected && Array.isArray(ankiDecks) && ankiDecks.length > 0 && (
-            <Dropdown
-              value={ankiDecks.includes(ankiDeck) ? ankiDeck : '__none__'}
-              getZoom={getZoom}
-              onChange={(val) => { if (val && val !== '__none__' && val !== ankiDeck) setAnkiDeck(val) }}
-              title={t('hdr_deckTip', { mode: activeMode.name })}
-              style={{ ...S.select, color: 'var(--c-success)', borderColor: 'rgba(24,169,87,0.3)', background: 'rgba(24,169,87,0.08)', fontWeight: 700, maxWidth: 220 }}
-              options={[
+            deck={ankiConnected && Array.isArray(ankiDecks) && ankiDecks.length > 0 ? {
+              value: ankiDecks.includes(ankiDeck) ? ankiDeck : '__none__',
+              ariaLabel: t('hdr_deckTip', { mode: activeMode.name }),
+              onChange: (val) => { if (val && val !== '__none__' && val !== ankiDeck) setAnkiDeck(val) },
+              options: [
                 ...(ankiDecks.includes(ankiDeck) ? [] : [{ value: '__none__', label: ankiDeck ? `${ankiDeck} (?)` : t('hdr_deckPick'), icon: '🗂️', color: 'var(--c-warning)' }]),
                 ...ankiDecks.map((d) => ({ value: d, label: d, icon: '🗂️', color: 'var(--c-success)' })),
-              ]}
-            />
-          )}
+              ],
+            } : ankiConnected === false ? {
+              disabled: true,
+              label: `🗂️ ${t('hdr_deckOffline')}`,
+              ariaLabel: t('hdr_deckOffline'),
+            } : null}
+          />
 
           {/* Single Settings entry \u2014 opens the unified modal (right-most, like every tab) */}
           <button onClick={() => setSettingsOpen(true)} title={t('settingsTitle')} className="ui-btn" style={{ ...S.ghostBtn, position: 'relative', padding: '6px 10px', color: 'var(--c-ink-dim)' }}>
@@ -17072,6 +17203,11 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                         <input type="checkbox" checked={sr.adaptive === true} onChange={(e) => setSR({ adaptive: e.target.checked })} />
                         {t('studyAdaptive')} <span className="tip" data-tip={t('studyAdaptiveDesc', { n: ADAPTIVE_STRUGGLE_LAPSES })} style={{ color: 'var(--c-ink-faint)' }}>ⓘ</span>
                       </label>
+                      {/* Question depth — flashcards: one production question per due review (adaptive) vs all questions (thorough) */}
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--c-ink-dim)', cursor: 'pointer' }}>
+                        <input type="checkbox" checked={questionDepthOf(sr) === 'adaptive'} onChange={(e) => setSR({ questionDepth: e.target.checked ? 'adaptive' : 'thorough' })} />
+                        {t('studyDepthQuick')} <span className="tip" data-tip={t('studyDepthQuickDesc')} style={{ color: 'var(--c-ink-faint)' }}>ⓘ</span>
+                      </label>
                     </div>
                   </>))}
 
@@ -18712,6 +18848,8 @@ ${PALETTE_CSS}
         /* Opens DOWNWARD, for controls at the top of the window (the header), where an upward tip is cut off. */
         .tip-b:hover::after { bottom: auto; top: calc(100% + 7px); }
         .tip-b:hover::before { bottom: auto; top: calc(100% + 2px); border-top-color: transparent; border-bottom-color: var(--c-ink); }
+        /* A tip around a Dropdown (the header's mode + deck switch) hides while its menu is open: it covered the list. */
+        .tip:has([aria-expanded="true"]):hover::after, .tip:has([aria-expanded="true"]):hover::before { display: none; }
         /* A button that explains itself stays a button: no help cursor. */
         button.tip { cursor: pointer; }
         button.tip:disabled { cursor: default; }
@@ -19132,6 +19270,7 @@ ${PALETTE_CSS}
           learning: activeMode.type === 'language' ? (activeMode.studyRules?.studyLanguage || learnLangName()) : null,
           ebiSpeaks: activeMode.studyRules?.quizLanguage || null,
           questionPreferences: activeMode.studyRules?.questionPreferences || [],
+          questionDepth: questionDepthOf(activeMode.studyRules), questionsPerCard: activeMode.studyRules?.questionsPerCard || 3,
           // Not the live card (a relearn copy's original is "graded": its front, the answer, sat unmarked here).
           gradedRecent: studyCardState.filter((c) => c.done && c.rating && !(currentQuestion && c.front === studyCardState[currentQuestion.cardIdx]?.front)).slice(-5).map((c) => ({ front: c.front, rating: c.rating })),
         } : null,
@@ -19153,7 +19292,7 @@ ${PALETTE_CSS}
         // A PBQ result held on screen (its answers are being shown, so they are not secret).
         pbqReview: studyActive && studyPbqReview ? { format: studyPbqReview.pbq?.format || studyPbqReview.pbq?.kind || '', correct: studyPbqReview.correct, total: studyPbqReview.total, rating: studyPbqReview.rating } : null,
         // The Study START screen (no session yet).
-        studyStart: activeTab === 'study' && !studyActive ? { deck: studyDeck || ankiDeck || '', type: studyMode, answerStyle: studyAnswerStyle } : null,
+        studyStart: activeTab === 'study' && !studyActive ? { deck: studyDeck || ankiDeck || '', type: studyMode, answerStyle: studyAnswerStyle, questionDepth: questionDepthOf(activeMode.studyRules), questionsPerCard: activeMode.studyRules?.questionsPerCard || 3 } : null,
         deckBrowser: deckBrowserActive ? {
           deck: deckBrowserDeck, cards: deckBrowserNotes.length, search: deckBrowserSearch || '',
           quickAdd: quickAddCards.length ? quickAddCards.slice(0, 8).map((c) => cardText(c.front).slice(0, 60)) : null,
@@ -19170,6 +19309,21 @@ ${PALETTE_CSS}
         // The learner's measured level in this mode ('' = none yet), whatever set it (Legends, Ebiki's read of
         // their studying, practice since).
         learnerLevel: learnerLevelRef.current || '',
+        // What Ebiki knows about the learner in this mode (kit/learnerContextUse.js 'help'), built only when Help writes
+        // its prompt. SECRET: the live study card (its front and every answer of its questions) is kept out, on any
+        // screen; while a feature quiz, fight, raid or exam runs (its `quiz` Help entry), no card lists, meanings or
+        // feature sections at all. The snapshot must be this mode's (checked inside).
+        learnerContext: () => {
+          const liveCs = studyActive && currentQuestion ? studyCardState[currentQuestion.cardIdx] : null
+          const liveAns = liveCs ? (liveCs.questions || []).flatMap((q) => questionAnswers(q)).filter(Boolean) : []
+          return learnerContextFor(featureCtxRef.current?.learning?.cached?.(), activeMode.id, 'help', {
+            omit: ['level', 'slips'], // both have their own lines (the slips there are filtered the same way)
+            hideFronts: liveCs ? [cardText(liveCs.front)] : [],
+            hideAnswers: [...liveAns, ...(liveCs ? headFormsOf(cardText(liveCs.front)) : [])],
+            reveals: liveAns.length ? (text) => hintRevealsAnswer(text, liveAns) : null,
+            secret: !!featureHelp.quiz,
+          })
+        },
         // Stats screen: what the dashboard actually shows, so Ebi can answer about it accurately.
         stats: activeTab === 'stats' ? (() => {
           const hist = (() => { try { const h = JSON.parse(localStorage.getItem('screenlens-study-history') || '[]'); return Array.isArray(h) ? h.filter((x) => x && typeof x === 'object' && typeof x.date === 'string').map((x) => ({ ...x, deck: cardText(x.deck) })) : [] } catch { return [] } })() // see the Stats tab
