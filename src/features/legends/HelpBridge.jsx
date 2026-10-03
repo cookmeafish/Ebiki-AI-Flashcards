@@ -3,7 +3,7 @@
 // question runs).
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { useFeatureCtx } from '../registry'
-import { useLegendsMap, readRaid, configureLegends } from './store'
+import { useLegendsMap, readRaid, configureLegends, onRaidSaved } from './store'
 import { useLearner } from '../kit/learnerStore'
 import { buildLegendsHelpText, legendsLive, onLegendsLive, legendsSecretHeld } from './helpContext'
 import { todayKey } from './raid'
@@ -18,14 +18,17 @@ export default function HelpBridge() {
   const { model: learner } = useLearner(modeId)
   const live = useSyncExternalStore(onLegendsLive, legendsLive)
   const [raid, setRaid] = useState(null)
-  // The raid state: on a mode change and whenever the Legends screen changes view (a raid just ended).
+  const [raidSaves, setRaidSaves] = useState(0)
+  useEffect(() => onRaidSaved(() => setRaidSaves((n) => n + 1)), [])
+  // The raid state: on a mode change, whenever the Legends screen changes view, and after a raid was saved (from the
+  // Practice tile no Legends view changes).
   useEffect(() => {
     let stop = false
     setRaid(null)
     if (modeId == null) return undefined
     readRaid(modeId).then((r) => { if (!stop && r.ok) setRaid(r.value) }).catch(() => {})
     return () => { stop = true }
-  }, [modeId, live.view])
+  }, [modeId, live.view, raidSaves])
   const set = ctx?.help?.set
   const isLanguage = !!ctx?.subject?.isLanguage
   const tab = ctx?.activeTab || ''

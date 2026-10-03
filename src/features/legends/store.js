@@ -121,6 +121,9 @@ export async function clearStep(modeId, areaId, nodeId) {
 // Read-modify-write, serialized, never after a failed read. Resolves to the saved state, or undefined.
 const raidKey = (modeId) => `raid-${String(modeId ?? 'default').toLowerCase().replace(/[^a-z0-9-]/g, '') || 'default'}`
 let raidChain = Promise.resolve()
+// Told after every saved raid (Help's raid facts re-read: a raid from the Practice tile changes no Legends view).
+const raidListeners = new Set()
+export const onRaidSaved = (fn) => { raidListeners.add(fn); return () => raidListeners.delete(fn) }
 export async function readRaid(modeId) {
   const r = await store.read(raidKey(modeId))
   return r.ok ? { ok: true, value: r.value || null } : { ok: false, value: null }
@@ -131,6 +134,7 @@ export function updateRaid(modeId, fn) {
     if (!r.ok) return undefined
     const next = fn(r.value || null)
     if (!(await store.write(raidKey(modeId), next))) return undefined
+    for (const l of raidListeners) { try { l(modeId) } catch { /* a listener's problem */ } }
     return next
   })
   raidChain = run.catch(() => {})

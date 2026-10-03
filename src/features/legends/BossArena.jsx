@@ -342,7 +342,7 @@ export function BossIntro({ t, area, name = '', total, onFight, odds, legendary 
         <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 30, color: C.white, lineHeight: 1.1, textShadow: `0 0 18px color-mix(in srgb, ${C.danger} 80%, transparent), 0 3px 0 color-mix(in srgb, ${C.danger} 60%, black)`, animation: `lgStamp .45s cubic-bezier(.3,1.4,.5,1) ${E.title}s both` }}>
           {name ? t('lg_bossNamed', { name }) : t('lg_bossBlocks', { area: area.title })}
         </div>
-        {name && <div style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 15, letterSpacing: '.08em', textTransform: 'uppercase', color: `color-mix(in srgb, ${C.danger} 55%, ${C.white})`, marginTop: -6, animation: `lgStamp .45s cubic-bezier(.3,1.4,.5,1) ${E.title + 0.15}s both` }}>{t('lg_bossGuards', { area: area.title })}</div>}
+        {name && <div style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 15, letterSpacing: '.08em', textTransform: 'uppercase', color: `color-mix(in srgb, ${C.danger} 55%, ${C.white})`, marginTop: -6, animation: `lgStamp .45s cubic-bezier(.3,1.4,.5,1) ${E.title + 0.15}s both` }}>{area.subtitle || t('lg_bossGuards', { area: area.title })}</div>}
         <Lives t={t} lives={lives} left={lives} size={28} popFrom={E.lives} bonus={bonus} />
         {bonus > 0 && <div style={{ fontSize: 14, fontWeight: 800, color: C.warning, marginTop: -4, animation: `lgRise .4s ease-out ${E.lives + lives * 0.12}s both` }}>💖 {t('lg_bonusLife')}</div>}
         {legendary && <div style={{ fontSize: 14, fontWeight: 800, color: `color-mix(in srgb, ${C.warning} 70%, ${C.white})`, marginTop: -4 }}>{t('lg_legendaryRules')}</div>}
