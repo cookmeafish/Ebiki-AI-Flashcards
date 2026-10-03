@@ -5,7 +5,7 @@
 //   lg_fxDoes_<motif>_<fx>  what it does to the fight
 // abilities/triggers.test.js drives every entry through fight.js with the exact situation the text names (and a near
 // miss that must NOT fire it), and fails when a module gains an fx key without an entry here.
-import { ABILITY_BY_MOTIF } from './index'
+import { ABILITY_BY_MOTIF, abilityById } from './index'
 
 const none = () => ({})
 
@@ -158,4 +158,11 @@ export function triggerOf(motif, fx) {
   if (!entry) return null
   const mod = ABILITY_BY_MOTIF[motif]
   return { whenKey: `lg_fxWhen_${motif}_${fx}`, doesKey: `lg_fxDoes_${motif}_${fx}`, vars: entry.vars((mod && mod.K) || {}), choice: !!entry.choice }
+}
+
+// The bestiary card's "How it works" rows for a raid boss (AssetView.jsx AbilityCard draws them): one per effect the
+// ability module names (its fxKeys, in its order) that has an entry here. → [{ fx, tr }] (tr = triggerOf).
+export function bestiaryRows(motif, ability) {
+  const keys = abilityById(ability)?.fxKeys || []
+  return keys.map((fx) => ({ fx, tr: triggerOf(motif, fx) })).filter((r) => r.tr)
 }

@@ -11,7 +11,7 @@ import { describe, it, expect } from 'vitest'
 import { newFight, strike, act, settleFight } from '../fight'
 import { ABILITY_BY_MOTIF } from './index'
 import { RAID_MOTIFS } from '../raid'
-import { TRIGGERS, triggerOf } from './_triggers'
+import { TRIGGERS, triggerOf, bestiaryRows } from './_triggers'
 import { facetAt } from './kaleido'
 import en from '../../../i18n/locales/en.js'
 import es from '../../../i18n/locales/es.js'
@@ -253,4 +253,17 @@ describe('every raid ability effect fires when its bestiary line says, and not o
       })
     })
   }
+})
+
+describe('bestiaryRows (the asset view ability card)', () => {
+  it('one row per effect of the module, in its order, each with its texts', () => {
+    for (const motif of RAID_MOTIFS) {
+      const mod = ABILITY_BY_MOTIF[motif]
+      if (!mod) continue
+      const rows = bestiaryRows(motif, mod.id)
+      expect(rows.map((r) => r.fx), motif).toEqual((mod.fxKeys || []).filter((fx) => triggerOf(motif, fx)))
+      for (const r of rows) expect(r.tr.whenKey).toBe(`lg_fxWhen_${motif}_${r.fx}`)
+    }
+    expect(bestiaryRows('hydra', '')).toEqual([])
+  })
 })

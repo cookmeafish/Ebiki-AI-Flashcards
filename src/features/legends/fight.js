@@ -241,5 +241,16 @@ export function applyRefund(state, { lives = 0, damage = 0, from = 'miss', to = 
   return s
 }
 
+// An overturned answer (entry: { kind, mode, weak, first, cost }) against the RUNNING fight `state` with its odds
+// ({ need, lives }): the fight with the refund applied, or null when nothing changes (the fight is decided, or the
+// verdict cost nothing). Callers check the fight is still running at all (their phase) and the refund switch
+// (fightCheck.js FIGHT_EXTRAS.refund).
+export function refundRunningFight(state, odds, entry = {}, to = 'clean') {
+  if (!state || !odds || fightOutcome(state, odds)) return null
+  const r = refundFor({ kind: entry.kind, to, mode: entry.mode, weak: !!entry.weak }, entry.cost || {})
+  if (!r.lives && !r.damage) return null
+  return applyRefund(state, { ...r, from: entry.first, to, kind: entry.kind })
+}
+
 // What a verdict did to the fight, from the states around the strike (for refundFor).
 export const strikeCost = (before, after) => ({ lives: Math.max(0, (after?.livesLost || 0) - (before?.livesLost || 0)), damage: Math.max(0, (after?.damage || 0) - (before?.damage || 0)) })

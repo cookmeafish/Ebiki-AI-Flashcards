@@ -29,6 +29,7 @@ function scrollToTop(el) {
   let box = el?.parentElement
   while (box && !/(auto|scroll)/.test(getComputedStyle(box).overflowY)) box = box.parentElement
   if (box) box.scrollTop = 0
+  else window.scrollTo(0, 0)
 }
 
 function Portrait({ t, motif, kind, size, name, onOpen }) {
@@ -44,7 +45,7 @@ function Portrait({ t, motif, kind, size, name, onOpen }) {
       onMouseEnter={on} onMouseLeave={off} onFocus={on} onBlur={off} onClick={open}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open() } }}
       style={{ display: 'grid', justifyItems: 'center', gap: 3, cursor: 'pointer', borderRadius: RADIUS.md, padding: 2, maxWidth: size + 40 }}>
-      <div className="lg-boss" data-phase={1} data-fam-motif={motif} style={{ lineHeight: 0 }}>
+      <div className="lg-boss" data-phase={1} data-fam-motif={motif} style={{ lineHeight: 0, pointerEvents: 'none' }}>
         <LegendsArt kind={kind} motif={motif} height={size} width={size} round={0} room animated={live ? 'idle' : false} phase={raid ? 1 : undefined} />
       </div>
       <div style={{ fontFamily: FONT.body, fontWeight: 800, fontSize: 12, color: C.ink, textAlign: 'center', lineHeight: 1.2 }}>{name}</div>

@@ -18,7 +18,8 @@ import { applyLegendaryResult, createMap, applyNodeResult, needsDetail, needsMor
 import { recheckStrike } from '../kit'
 import LearnItPanel from '../kit/LearnItPanel'
 import { gradeFromStrike } from '../../config/grading'
-import { MissTools, isWrongish } from './FightExtras'
+import { MissTools } from './FightExtras'
+import { FIGHT_EXTRAS, isWrongish, appealOpen, learnItemFor } from './fightCheck'
 import { planMap, detailAreas, extendIfNeeded, detailAreaNow, forgetRunning } from './generate'
 import Questionnaire from './Questionnaire'
 import Placement from './PlacementExam'
@@ -48,7 +49,7 @@ function Stars({ n }) {
 function AllAnswers({ ctx, modeId, area, answers, fight }) {
   const { t } = ctx
   const [rows, setRows] = useState(() => answers.map((a) => ({ ...a, answer: a.answered })))
-  const tripped = fight && rows.some((a) => a.aid && isWrongish(a.first))
+  const tripped = FIGHT_EXTRAS.debrief && fight && rows.some((a) => a.aid && isWrongish(a.first))
   const [open, setOpen] = useState(!!tripped)
   const [learn, setLearn] = useState(null)
   const alive = useRef(true)
@@ -56,7 +57,7 @@ function AllAnswers({ ctx, modeId, area, answers, fight }) {
   const setRow = (aid, p) => setRows((list) => list.map((r) => (r.aid === aid ? { ...r, ...p } : r)))
   const appeal = async (aid, reason) => {
     const a = rows.find((r) => r.aid === aid)
-    if (!a || a.overturned || a.appeal === 'pending' || a.appeal === 'won' || a.appeal === 'lost') return
+    if (!appealOpen(a)) return
     setRow(aid, { appeal: 'pending' })
     const r = await recheckStrike(ctx.ai, ctx.subject, a.q || { prompt: a.asked, accepted: [a.expected] }, a.answered, { verdict: a.verdict || a.first, reason })
     if (!alive.current) return
@@ -67,8 +68,7 @@ function AllAnswers({ ctx, modeId, area, answers, fight }) {
     if (a.itemId && area?.id) updateMap(modeId, (m) => (m ? regradeItem(m, area.id, a.itemId, a.grade, grade, true) : m))
   }
   const openLearn = (a) => {
-    const it = (area?.items || []).find((x) => x.id === a.itemId)
-    setLearn(it ? { front: it.front, back: it.back, noteId: it.cardNoteId || null } : { front: a.asked, back: a.expected })
+    setLearn(learnItemFor((area?.items || []).find((x) => x.id === a.itemId), null, { noteKey: 'cardNoteId', fallback: { front: a.asked, back: a.expected } }))
   }
   return (
     <div style={{ width: '100%', textAlign: 'left' }}>

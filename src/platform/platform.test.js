@@ -18,19 +18,48 @@ const FORBIDDEN_IN_LOGIC = [
 ]
 const EXEMPT_LOGIC = /(\.test\.js|(^|\/)server\.js|storage-server\.js|(^|\/)web\.js)$/
 
+// Feature logic files (not tests, not declared web adapters or server halves).
+const featureLogic = () => walk(path.join(SRC, 'features')).filter((x) => x.endsWith('.js') && !EXEMPT_LOGIC.test(rel(x)))
+// Every line of `files` that touches the browser, or fetches anything but an outside https service.
+function scanLogic(files) {
+  const bad = []
+  for (const f of files) {
+    fs.readFileSync(f, 'utf8').split(/\r?\n/).forEach((line, i) => {
+      if (/^\s*\/\//.test(line)) return // comments may mention them
+      for (const [re, name] of FORBIDDEN_IN_LOGIC) if (re.test(line)) bad.push(`${rel(f)}:${i + 1} uses ${name}`)
+      // fetch only to outside services (an AI provider); Ebiki's own routes go through apiFetch.
+      if (/\bfetch\(/.test(line) && !/https?:\/\//.test(line)) bad.push(`${rel(f)}:${i + 1} calls fetch directly`)
+    })
+  }
+  return bad
+}
+
 describe('portability', () => {
   it('feature logic stays platform-neutral', () => {
-    const bad = []
-    for (const f of walk(path.join(SRC, 'features')).filter((x) => x.endsWith('.js') && !EXEMPT_LOGIC.test(rel(x)))) {
-      const lines = fs.readFileSync(f, 'utf8').split(/\r?\n/)
-      lines.forEach((line, i) => {
-        if (/^\s*\/\//.test(line)) return // comments may mention them
-        for (const [re, name] of FORBIDDEN_IN_LOGIC) if (re.test(line)) bad.push(`${rel(f)}:${i + 1} uses ${name}`)
-        // fetch only to outside services (an AI provider); Ebiki's own routes go through apiFetch.
-        if (/\bfetch\(/.test(line) && !/https?:\/\//.test(line)) bad.push(`${rel(f)}:${i + 1} calls fetch directly`)
-      })
+    expect(scanLogic(featureLogic())).toEqual([])
+  })
+
+  // The app-level modules feature LOGIC imports (src/config/grading.js, src/cards, src/i18n ...) are part of that logic
+  // on a phone too, so they follow the same rule; so do the pure modules App.jsx keeps its study rules in.
+  it('app-level modules that feature logic imports stay platform-neutral too', () => {
+    const PURE_APP = ['config/grading.js', 'config/study.js', 'utils/studyDepth.js']
+    const targets = new Set(PURE_APP.map((r) => path.join(SRC, r)))
+    const resolve = (from, spec) => {
+      const base = path.resolve(path.dirname(from), spec)
+      for (const c of [base, `${base}.js`, path.join(base, 'index.js')]) if (fs.existsSync(c) && fs.statSync(c).isFile()) return c
+      return null
     }
-    expect(bad).toEqual([])
+    for (const f of featureLogic()) {
+      for (const m of fs.readFileSync(f, 'utf8').matchAll(/from\s+['"](\.[^'"]+)['"]/g)) {
+        const hit = resolve(f, m[1])
+        if (!hit || !hit.endsWith('.js')) continue
+        const r = rel(hit)
+        if (r.startsWith('features/') || r.startsWith('platform/') || r.startsWith('i18n/locales/') || r.startsWith('..')) continue
+        targets.add(hit)
+      }
+    }
+    for (const r of PURE_APP) expect(fs.existsSync(path.join(SRC, r)), r).toBe(true)
+    expect(scanLogic([...targets])).toEqual([])
   })
 
   it('no file reaches /api except through the platform seam', () => {

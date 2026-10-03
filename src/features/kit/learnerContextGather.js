@@ -3,10 +3,11 @@
 // stores (`ctx.learning.context`). Every part is read on its own: one that fails is marked ok:false and the others
 // still count (a closed Anki never hides the study sessions and chats).
 import { LC, batches, spread, buildLearnerSnapshot, readFeatureSources } from './learnerContext'
+import { STORE_DOWN_CODES } from '../../cards/contract'
 
 const settle = async (fn, fallback) => { try { return await fn() } catch (e) { return { ...fallback, ok: false, error: String(e?.message || e), code: e?.code || '' } } }
-// The card store's own "not reachable" codes (src/cards/anki: notRunning, timeout, closed) or no local service at all.
-const DOWN_CODES = new Set(['notRunning', 'timeout', 'timeoutChange', 'closed'])
+// The card store's own "not reachable" codes (src/cards/contract.js STORE_DOWN_CODES) or no local service at all.
+const DOWN_CODES = new Set(STORE_DOWN_CODES)
 
 // r = {
 //   modeId, modeName, isLanguage, deck,

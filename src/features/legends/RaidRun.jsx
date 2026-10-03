@@ -14,12 +14,13 @@ import { featureCfg } from '../registry'
 import { ChunkyButton, EbiSays, Card, tCount } from '../ui'
 import { QuizRunner, judgeStrike, recordReviews, recordPractice } from '../kit'
 import LearnItPanel from '../kit/LearnItPanel'
-import { useFightCheck, useBossTaunt, TauntBubble, FightNotice, MissTools, Debrief, expectedOf, isWrongish } from './FightExtras'
+import { useFightCheck, useBossTaunt, TauntBubble, FightNotice, MissTools, Debrief } from './FightExtras'
+import { FIGHT_EXTRAS, fightExtrasFor, expectedOf, isWrongish, learnItemFor } from './fightCheck'
 import { RAID_VOICES } from './raidVoices'
 import { learnerLevelLine } from '../kit/learnerStore'
 import { BossIntro, BossArena, BossEnd } from './BossArena'
 import { LegendsArt } from './art'
-import { newFight, act, settleFight, phaseOf, raidRating, attackLivesFor, abilityState, refundFor, applyRefund, strikeCost, fightOutcome } from './fight'
+import { newFight, act, settleFight, phaseOf, raidRating, attackLivesFor, abilityState, refundRunningFight, strikeCost, fightOutcome } from './fight'
 import { RAID, RAID_MOTIFS, RAID_ABILITY, todayKey, raidToday, applyRaidAttempt, raidOrder, shapeRaid, raidStep, raidMotif, isRaidMotif } from './raid'
 import { abilityById } from './abilities'
 import { buildRaidPrompt, parseQuestions, RAID_ROLE, RAID_MAX_TOKENS } from './prompt'
@@ -36,7 +37,7 @@ export default function RaidRun({ ctx, onExit }) {
   // (saved to the new deck, every card missed Anki's reviewer and fell to a hand-made interval).
   const deckRef = useRef('')
   const focus = featureCfg(ctx, LEGENDS_ID).focus === true
-  const tauntsOn = featureCfg(ctx, LEGENDS_ID).taunts !== false && !focus // off in focus mode
+  const tauntsOn = fightExtrasFor(featureCfg(ctx, LEGENDS_ID), { focus }).taunts // off in focus mode (fightCheck.js)
   const [phase, setPhase] = useState('loading') // loading | none | intro | fight | aftermath | saving | done | error
   const [afterQs, setAfterQs] = useState(null) // the Aftermath: the picked cards the fight never asked
   // Changes whenever QuizRunner shows a new question: an ability effect still playing fast-fades (BossArena).
@@ -102,13 +103,9 @@ export default function RaidRun({ ctx, onExit }) {
     }
     // The fight gives back what the verdict cost, only while it still runs (after the fight a won appeal fixes the
     // grade, never the outcome).
-    const o = fightOver.current
-    if (phaseRef.current !== 'fight' || !o || e.kind === 'aftermath') return false
-    const cur = fsRef.current
-    if (fightOutcome(cur, o)) return false
-    const r = refundFor({ kind: e.kind, to, mode: e.mode }, e.cost || {})
-    if (!r.lives && !r.damage) return false
-    const next = applyRefund(cur, { ...r, from: e.first, to, kind: e.kind })
+    if (!FIGHT_EXTRAS.refund || phaseRef.current !== 'fight' || e.kind === 'aftermath') return false
+    const next = refundRunningFight(fsRef.current, fightOver.current, { kind: e.kind, mode: e.mode, first: e.first, cost: e.cost }, to)
+    if (!next) return false
     fsRef.current = next
     setFs(next)
     return true
@@ -119,8 +116,7 @@ export default function RaidRun({ ctx, onExit }) {
   const taunt = useBossTaunt(ctx, { bossKey: `raid:${motif}`, voice: voice?.voice || '', sample: voice?.sample || '', bossName, enabled: tauntsOn })
   const [learn, setLearn] = useState(null) // the Learn-it panel's item (the fight waits under it)
   const openLearn = (e) => {
-    const card = cardsRef.current.find((c) => c.cardId === e.q?._cardId)
-    setLearn(card ? { front: card.front, back: card.back, noteId: card.noteId } : { front: e.q?.prompt || '', back: expectedOf(e.q) })
+    setLearn(learnItemFor(cardsRef.current.find((c) => c.cardId === e.q?._cardId), e.q))
   }
   const learnPanel = learn && <LearnItPanel ctx={ctx} item={learn} onClose={() => setLearn(null)} closeLabel={phase === 'fight' ? t('lg_learnBackToFight') : undefined} />
   const missTools = (q) => {

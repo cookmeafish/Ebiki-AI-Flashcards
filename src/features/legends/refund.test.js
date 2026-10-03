@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { newFight, strike, refundFor, applyRefund, strikeCost, fightOutcome, DAMAGE } from './fight'
+import { newFight, strike, refundFor, applyRefund, strikeCost, fightOutcome, DAMAGE, refundRunningFight } from './fight'
 import { regradeItem } from './map'
 import { raidStep } from './raid'
 
@@ -78,5 +78,23 @@ describe('raidStep tags attacks for the second look', () => {
   it('a glancing follow-up still being written is a placeholder', () => {
     const { groups } = raidStep(newFight(), { prompt: 'p', accepted: ['a'], _cardId: 1 }, { verdict: 'glancing', mode: 'typed', aid: 'x2', attackQ: { pending: 'x2' } }, opts)
     expect(groups[0].insert[0]).toMatchObject({ _attack: true, _pending: 'x2', prompt: '' })
+  })
+})
+
+describe('refundRunningFight (the one refund path NodeRun and RaidRun share)', () => {
+  const odds = { need: 10, lives: 3 }
+  it('gives back what the overturned verdict cost while the fight runs', () => {
+    const before = newFight()
+    const after = strike(before, { verdict: 'miss', mode: 'typed' })
+    const next = refundRunningFight(after, odds, { first: 'miss', mode: 'typed', cost: strikeCost(before, after) }, 'clean')
+    expect(next.livesLost).toBe(0)
+    expect(next.damage).toBe(DAMAGE.clean)
+    expect(next.last.kind).toBe('refund')
+  })
+  it('changes nothing in a decided fight, without odds, or when the verdict cost nothing', () => {
+    const lost = { ...newFight(), livesLost: 3 }
+    expect(refundRunningFight(lost, odds, { first: 'miss', cost: { lives: 1 } }, 'clean')).toBe(null)
+    expect(refundRunningFight(newFight(), null, { first: 'miss', cost: { lives: 1 } }, 'clean')).toBe(null)
+    expect(refundRunningFight(newFight(), odds, { kind: 'inserted', first: 'miss', cost: {} }, 'clean')).toBe(null)
   })
 })

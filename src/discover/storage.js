@@ -28,13 +28,10 @@ export const storageKey = (name) => {
   const legacy = legacyKey(name)
   return /[^\x20-\x7E]/.test(String(name || '')) ? `${legacy}-${fnv1a(name)}` : legacy
 }
-// Anki media names cannot contain "/". With the old `_screenlens/...` name AnkiConnect read the
-// basename while its store step deleted the name WITH the slash (matching nothing), so every write
-// after the first became a new hash-suffixed copy and every read returned the FIRST version ever
-// saved (measured: 138 orphan copies; hooks read back as a months-old 1-hook file). Flat name now,
-// "_" prefix kept so Check Media leaves it alone. The legacy name is read once as a migration source.
-const mediaName = (kind, key) => `_ebiki_${kind}__${key}.json`
-const legacyMediaName = (kind, key) => `_screenlens/${kind}__${key}.json`
+// The blob's file name in the card store's file store is the BACKEND's choice (src/cards: blobFileName, and
+// legacyBlobFileName for a one-time migration source; Anki's are flat `_ebiki_<kind>__<key>.json` media names).
+const mediaName = (kind, key) => srs.blobFileName(kind, key)
+const legacyMediaName = (kind, key) => srs.legacyBlobFileName(kind, key)
 
 // { ok, value }. ok:false means the stored blob could NOT be read (as opposed to "nothing stored"):
 // every writer replaces the whole blob with what it loaded plus its change, so a caller that writes
@@ -121,7 +118,8 @@ async function readKeyChecked(kind, key) {
     // Nothing under the new name or locally: migrate from the legacy (frozen, first-version) Anki
     // file if one exists. Only a true "nothing stored" if Anki also answered.
     if (!ankiFailed) {
-      const old = await srs.readFile(legacyMediaName(kind, key)).catch(() => null)
+      const legacy = legacyMediaName(kind, key)
+      const old = legacy ? await srs.readFile(legacy).catch(() => null) : null
       if (old && old !== false) {
         try { return { ok: true, value: JSON.parse(b64decode(old)) } } catch { /* damaged: nothing to keep */ }
       }
