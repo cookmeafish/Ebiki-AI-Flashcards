@@ -1,27 +1,22 @@
 // AI check for a typed answer the local matcher couldn't settle (a synonym, a paraphrase, an open answer).
 // Subject-agnostic: language questions judge the exact word or form; everything else judges meaning.
 import { matchTyped } from './grade'
+import { flagOf, buildVerdictPrompt, parseVerdict, verdictOf, buildExplainPrompt, parseExplain, buildRecheckPrompt, parseRecheck, VERDICT_MAX_TOKENS, EXPLAIN_MAX_TOKENS, RECHECK_MAX_TOKENS } from './fightJudge'
 
 export const JUDGE_ROLE = 'study'
-// A model's yes/no flag: true/false, but also the STRINGS "true"/"False"/"yes"/"no" models write. null = not a flag
-// (unreadable). Read strictly as booleans, a stringified flag made every check fail and the answer could never be graded.
-export const flagOf = (v) => {
-  if (v === true || v === 1) return true
-  if (v === false || v === 0) return false
-  const s = String(v ?? '').trim().toLowerCase()
-  return /^(true|yes|correct)$/.test(s) ? true : /^(false|no|incorrect|wrong)$/.test(s) ? false : null
-}
+export { flagOf }
+const strikeNote = (subject) => `Write "note" in ${subject?.userLang || 'English'}: one short sentence, no dashes.`
 const JUDGE_MAX_TOKENS = 300
 
 // ── Strikes (Legends fights and raids): the TESTED thing and the REST of the answer are graded apart ────────────
-// { verdict: 'clean'|'glancing'|'miss', note, accent?, attack? } where attack = { prompt, accepted, exact? } is the
-// follow-up the boss throws back: the slip of a glancing answer ("el niño tomar agua" → fix "tomar"), or the word
-// again with its accents. `strictAccents` (the mode's accents setting): an accent slip is glancing; relaxed, it is
-// clean with a note, unless the accent makes ANOTHER word or form (té/te, hablé/hable), which is always wrong.
-// A question marked `exact` (an accent attack) takes only the exact spelling.
-
-const STRIKE_MAX_TOKENS = 500
-const strikeNote = (subject) => `Write "note" in ${subject?.userLang || 'English'}: one short sentence, no dashes.`
+// { verdict: 'clean'|'glancing'|'miss'|'error', note, accent?, attack?, ai?, later? } where attack = { prompt,
+// accepted, exact? } is the follow-up the boss throws back (the word again with its accents, decided locally).
+// FAST (kit/fightJudge.js): the blocking AI call returns only the verdict flags, so damage and hearts land at once.
+// `later` (AI verdicts that are not clean) = a promise of { note, attack? }: the explanation and a glancing answer's
+// "fix" follow-up, written in the background (never rejects; {} when it failed). `ai: true` = the verdict came from
+// the model (only those are re-checked: recheckStrike). `strictAccents` (the mode's accents setting): an accent slip
+// is glancing; relaxed, it is clean with a note, unless the accent makes ANOTHER word or form (té/te, hablé/hable),
+// which is always wrong. A question marked `exact` (an accent attack) takes only the exact spelling.
 
 export async function judgeStrike(ai, subject, q, answer, { strictAccents = true } = {}) {
   const ans = String(answer || '').trim()
@@ -38,35 +33,36 @@ export async function judgeStrike(ai, subject, q, answer, { strictAccents = true
   }
   if (q.exact) return { verdict: 'miss', note: '' }
   if (!ai?.hasKey) return { verdict: 'miss', note: '' }
-  const lang = subject?.isLanguage
-  const system = 'You grade one answer in a learning game. Reply with JSON only: {"target": true|false, "all": true|false, "accentsOnly": true|false, "note": "...", "fix": {"question": "...", "answer": "..."} | null}.'
-  const user = [
-    `Subject: ${subject?.name || ''}${subject?.description ? ` (the learner's own context: ${subject.description})` : ''}`,
-    `Question: ${q.prompt}`,
-    q.target ? `The question TESTS: ${q.target}` : '',
-    q.accepted?.length ? `Reference answer(s): ${q.accepted.join(' / ')}` : '',
-    `Student answer: ${ans}`,
-    lang
-      ? `"target": the tested ${subject.learnLang} word, form or rule is used correctly (a single-letter typo in it is still wrong for "all", but right for "target" when the word is clearly meant). "all": the WHOLE answer is correct ${subject.learnLang} for what was asked (grammar, agreement, spelling, accents). "accentsOnly": true when "target" is true and the ONLY mistakes are missing or wrong accents that do not turn a word into a different word or form.`
-      : '"target": the answer shows the tested idea correctly. "all": nothing in it is wrong (no wrong detail, no misused term). "accentsOnly": false.',
-    q.open ? 'This is an open question: any wording that does what was asked is correct.' : '',
-    '"fix": ONLY when "target" is true and "all" is false and the other mistake is not only accents: a short follow-up question (in the same language as the question above) that makes the student correct that OTHER mistake, with its correct "answer". Otherwise null.',
-    `${strikeNote(subject)} If not all correct, say what was wrong and the right form.`,
-  ].filter(Boolean).join('\n')
   try {
-    const raw = await ai.call(system, user, { role: JUDGE_ROLE, maxTokens: STRIKE_MAX_TOKENS, silent: true })
-    const j = ai.json(raw)
+    const { system, user } = buildVerdictPrompt(subject, q, ans)
+    const flags = parseVerdict(ai.json(await ai.call(system, user, { role: JUDGE_ROLE, maxTokens: VERDICT_MAX_TOKENS, silent: true })))
     // A grading that did not happen is NOT a miss (it cost a life and recorded Again in Anki): 'error' = ask again.
-    const target = j ? flagOf(j.target) : null
-    if (target == null) return { verdict: 'error', note: '' }
-    const note = ai.clean(j.note || '')
-    if (!target) return { verdict: 'miss', note }
-    if (flagOf(j.all) === true) return { verdict: 'clean', note: '' }
-    if (flagOf(j.accentsOnly) === true) return strictAccents ? { verdict: 'glancing', note, accent: true } : { verdict: 'clean', note, accent: true }
-    const fq = j.fix && typeof j.fix === 'object' ? String(j.fix.question || '').trim() : ''
-    const fa = j.fix && typeof j.fix === 'object' ? String(j.fix.answer || '').trim() : ''
-    return { verdict: 'glancing', note, ...(fq && fa ? { attack: { prompt: ai.clean(fq), accepted: [fa] } } : {}) }
+    if (!flags) return { verdict: 'error', note: '' }
+    const verdict = verdictOf(flags, { strictAccents })
+    const accent = flags.target && !flags.all && flags.accentsOnly
+    if (verdict === 'clean') return { verdict, note: '', ai: true, ...(accent ? { accent: true } : {}) }
+    const later = explainStrike(ai, subject, q, ans, { verdict, accentsOnly: accent })
+    return { verdict, note: '', ai: true, later, ...(accent ? { accent: true } : {}), ...(verdict === 'glancing' && !accent ? { fixLater: true } : {}) }
   } catch { return { verdict: 'error', note: '' } }
+}
+
+// The background half of a strike: { note, attack? }, {} when it failed (never throws).
+export async function explainStrike(ai, subject, q, answer, { verdict = 'miss', accentsOnly = false } = {}) {
+  if (!ai?.hasKey) return {}
+  try {
+    const { system, user } = buildExplainPrompt(subject, q, String(answer || '').trim(), { verdict, accentsOnly })
+    return parseExplain(ai.json(await ai.call(system, user, { role: JUDGE_ROLE, maxTokens: EXPLAIN_MAX_TOKENS, silent: true })), ai.clean) || {}
+  } catch { return {} }
+}
+
+// The careful second look at a miss or glancing verdict (automatic, or the learner's appeal with `reason`):
+// { verdict, overturned, why } (verdict only ever raised), or null when the check could not run.
+export async function recheckStrike(ai, subject, q, answer, { verdict = 'miss', reason = '' } = {}) {
+  if (!ai?.hasKey) return null
+  try {
+    const { system, user } = buildRecheckPrompt(subject, q, String(answer || '').trim(), { verdict, reason })
+    return parseRecheck(ai.json(await ai.call(system, user, { role: JUDGE_ROLE, maxTokens: RECHECK_MAX_TOKENS, silent: true })), verdict, ai.clean)
+  } catch { return null }
 }
 
 // Does the accent slip make a different word or form? A short reason (in the user's language) when it does, else ''.

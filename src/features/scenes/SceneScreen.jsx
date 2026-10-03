@@ -56,7 +56,7 @@ export default function SceneScreen({ onExit }) {
     try {
       const items = await pickCardItems(ctx, ITEMS, { due: DUE_ITEMS })
       const avoid = recentTopics(await readPracticeLog(ctx))
-      const { system, user } = buildScenePrompt(subject, items, { knowledge: subject.knowledge(KNOWLEDGE_CAP), theme: theme.trim(), avoid, level: await learnerLevelLine(ctx), slips: subject.isLanguage ? subject.grammarSlips(8) : '' })
+      const { system, user } = buildScenePrompt(subject, items, { knowledge: subject.knowledge(KNOWLEDGE_CAP), theme: theme.trim(), avoid, level: await learnerLevelLine(ctx, { context: true }), slips: subject.isLanguage ? subject.grammarSlips(8) : '' })
       const s = parseScene(ai.json(await ai.call(system, user, { role: SCENE_ROLE, maxTokens: SCENE_MAX_TOKENS })), ai.clean)
       if (!s || s.lines.length < MIN_LINES) throw new Error(t('sc_bad'))
       setScene(s); setShown(1); setPhase('story')

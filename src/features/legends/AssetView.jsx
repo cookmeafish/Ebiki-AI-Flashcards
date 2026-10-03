@@ -10,14 +10,29 @@ import { BossIntro, BossArena, BossStyle, BOSS, ABILITY_ICON } from './BossArena
 import { newFight } from './fight'
 import { MOTIFS, PALETTES } from './map'
 import { RAID, RAID_MOTIFS, RAID_ABILITY } from './raid'
-import { ABILITY } from './fight'
-import { SHRIMP, DEFAULT_SHRIMP, IDLE_SHRIMP, shrimpUrl } from '../../config/shrimp'
+import { RAID_VOICES } from './raidVoices'
+import { abilityById } from './abilities'
+import { triggerOf } from './abilities/_triggers'
+import { floaterKeyFor, fxDemoFor } from './fx'
 
+// Sample values for a floater that counts something ("+{n} heads"), so the asset view never shows a raw placeholder.
+const demoVars = (ability, fx) => ({ n: 2, ...(fxDemoFor(ability, fx)?.fxVars || {}) })
+import { SHRIMP, DEFAULT_SHRIMP, IDLE_SHRIMP, shrimpUrl } from '../../config/shrimp'
+import { S } from '../../styles/theme'
+import { platform } from '../../platform'
+import BossFamilies from './BossFamilies' // EXPERIMENTAL boss families tab (removal list: families.js)
+import { FAMILY_TREES } from './families'
+
+// Raid bosses tab: which copies besides the entrance card and the phase demo arena animate. 'hover': the phase cells
+// and fight-size copies show still and animate only while hovered or focused (each live raid boss costs about 5 ms a
+// frame; the owner found copies animating after an ability Play confusing). 'always': all of them animate, as before.
+const ASSET_RAID_ANIMATE_COPIES = 'hover'
 const VIEW = { mapW: 620, mapH: 132, thumb: 56, paletteBoss: 72, paletteBannerW: 260, phase: 180, demoHp: 30 }
 const TABS = [
   { id: 'legends', icon: '🗺️', labelKey: 'lg_assetsTabLegends', list: MOTIFS },
   { id: 'raids', icon: '⚔️', labelKey: 'lg_assetsTabRaids', list: RAID_MOTIFS },
   { id: 'ebi', icon: '🎨', labelKey: 'lg_assetsTabEbi', get list() { return EBI_DRAFTS.candidates.map((c) => c.id) } },
+  { id: 'families', icon: '🌳', labelKey: 'lg_famTab', list: FAMILY_TREES.map((f) => f.id) }, // EXPERIMENTAL (families.js)
 ]
 
 // Ebi drafts: original redrawn mascot candidates (public/assets/ebi-drafts/<candidate>/<emote>.svg), shown ONLY here so
@@ -28,7 +43,36 @@ const EBI_DRAFTS = {
   sizes: [46, 64, 128],
   emotes: ['default', 'happy', 'laughing', 'sad', 'crying', 'surprised', 'confused', 'idea', 'love', 'cool', 'sleep', 'book', 'camera', 'singer'],
   candidates: [
+    { id: 'true-rim', nameKey: 'lg_ebiDraftName_trueRim', descKey: 'lg_ebiDraftDesc_trueRim', tone: 'green' },
+    { id: 'true-gloss', nameKey: 'lg_ebiDraftName_trueGloss', descKey: 'lg_ebiDraftDesc_trueGloss', tone: 'green' },
+    { id: 'true-depth', nameKey: 'lg_ebiDraftName_trueDepth', descKey: 'lg_ebiDraftDesc_trueDepth', tone: 'green' },
+    { id: 'true-warm', nameKey: 'lg_ebiDraftName_trueWarm', descKey: 'lg_ebiDraftDesc_trueWarm', tone: 'green' },
+    { id: 'true-soft', nameKey: 'lg_ebiDraftName_trueSoft', descKey: 'lg_ebiDraftDesc_trueSoft', tone: 'green' },
+    { id: 'ebi-pop', nameKey: 'lg_ebiDraftName_ebiPop', descKey: 'lg_ebiDraftDesc_ebiPop', tone: 'red' },
+    { id: 'ebi-swoop', nameKey: 'lg_ebiDraftName_ebiSwoop', descKey: 'lg_ebiDraftDesc_ebiSwoop', tone: 'red' },
+    { id: 'ebi-bean', nameKey: 'lg_ebiDraftName_ebiBean', descKey: 'lg_ebiDraftDesc_ebiBean', tone: 'red' },
+    { id: 'ebi-arc', nameKey: 'lg_ebiDraftName_ebiArc', descKey: 'lg_ebiDraftDesc_ebiArc', tone: 'red' },
+    { id: 'ebi-spark', nameKey: 'lg_ebiDraftName_ebiSpark', descKey: 'lg_ebiDraftDesc_ebiSpark', tone: 'red' },
+    { id: 'ebi-plum', nameKey: 'lg_ebiDraftName_ebiPlum', descKey: 'lg_ebiDraftDesc_ebiPlum', tone: 'yellow' },
+    { id: 'ebi-comet', nameKey: 'lg_ebiDraftName_ebiComet', descKey: 'lg_ebiDraftDesc_ebiComet', tone: 'yellow' },
+    { id: 'ebi-hop', nameKey: 'lg_ebiDraftName_ebiHop', descKey: 'lg_ebiDraftDesc_ebiHop', tone: 'yellow' },
+    { id: 'ebi-mochi', nameKey: 'lg_ebiDraftName_ebiMochi', descKey: 'lg_ebiDraftDesc_ebiMochi', tone: 'yellow' },
+    { id: 'ebi-knight', nameKey: 'lg_ebiDraftName_ebiKnight', descKey: 'lg_ebiDraftDesc_ebiKnight', tone: 'yellow' },
     { id: 'classic', nameKey: 'lg_ebiDraftName_classic', descKey: 'lg_ebiDraftDesc_classic' },
+    { id: 'refined', nameKey: 'lg_ebiDraftName_refined', descKey: 'lg_ebiDraftDesc_refined' },
+    { id: 'coral-belly', nameKey: 'lg_ebiDraftName_coralBelly', descKey: 'lg_ebiDraftDesc_coralBelly' },
+    { id: 'cutie', nameKey: 'lg_ebiDraftName_cutie', descKey: 'lg_ebiDraftDesc_cutie' },
+    { id: 'graceful', nameKey: 'lg_ebiDraftName_graceful', descKey: 'lg_ebiDraftDesc_graceful' },
+    { id: 'sunset', nameKey: 'lg_ebiDraftName_sunset', descKey: 'lg_ebiDraftDesc_sunset' },
+    { id: 'classic-round', nameKey: 'lg_ebiDraftName_classicRound', descKey: 'lg_ebiDraftDesc_classicRound' },
+    { id: 'classic-sleek', nameKey: 'lg_ebiDraftName_classicSleek', descKey: 'lg_ebiDraftDesc_classicSleek' },
+    { id: 'classic-soft', nameKey: 'lg_ebiDraftName_classicSoft', descKey: 'lg_ebiDraftDesc_classicSoft' },
+    { id: 'classic-bold', nameKey: 'lg_ebiDraftName_classicBold', descKey: 'lg_ebiDraftDesc_classicBold' },
+    { id: 'classic-glossy', nameKey: 'lg_ebiDraftName_classicGlossy', descKey: 'lg_ebiDraftDesc_classicGlossy' },
+    { id: 'classic-warm', nameKey: 'lg_ebiDraftName_classicWarm', descKey: 'lg_ebiDraftDesc_classicWarm' },
+    { id: 'classic-legs', nameKey: 'lg_ebiDraftName_classicLegs', descKey: 'lg_ebiDraftDesc_classicLegs' },
+    { id: 'classic-expressive', nameKey: 'lg_ebiDraftName_classicExpressive', descKey: 'lg_ebiDraftDesc_classicExpressive' },
+    { id: 'classic-banded', nameKey: 'lg_ebiDraftName_classicBanded', descKey: 'lg_ebiDraftDesc_classicBanded' },
     { id: 'chubby', nameKey: 'lg_ebiDraftName_chubby', descKey: 'lg_ebiDraftDesc_chubby' },
     { id: 'sleek', nameKey: 'lg_ebiDraftName_sleek', descKey: 'lg_ebiDraftDesc_sleek' },
     { id: 'sticker', nameKey: 'lg_ebiDraftName_sticker', descKey: 'lg_ebiDraftDesc_sticker' },
@@ -55,70 +99,111 @@ const EBI_DRAFTS = {
   ],
 }
 const ebiDraftUrl = (c, e) => `${EBI_DRAFTS.dir}/${c}/${e}.svg`
-function EbiDrafts({ t }) {
+// The picker: one button per variation ("Current", every draft set, then "All side by side"). One variation shows at a
+// time; the choice is remembered per browser and falls back to Current when the stored set no longer exists.
+const EBI_PICK_KEY = 'ebiki-ebi-draft-pick'
+const EBI_CURRENT = 'current'
+const EBI_ALL = 'all'
+const ebiChoices = () => [EBI_CURRENT, ...EBI_DRAFTS.candidates.map((c) => c.id), EBI_ALL]
+function readEbiPick() {
+  const v = platform.kv.get(EBI_PICK_KEY)
+  return v && ebiChoices().includes(v) ? v : EBI_CURRENT
+}
+function EbiDrafts({ t, stepRef }) {
+  const [pick, setPickState] = useState(readEbiPick)
+  const setPick = (id) => { setPickState(id); platform.kv.set(EBI_PICK_KEY, id) }
+  // ← and → in the asset view step through the variations on this tab.
+  if (stepRef) stepRef.current = (d) => {
+    const list = ebiChoices()
+    const i = Math.max(0, list.indexOf(pick))
+    setPick(list[(i + d + list.length) % list.length])
+  }
   const file = { fontSize: 11, color: C.inkFaint, fontFamily: 'monospace' }
   const h = { fontFamily: FONT.display, fontWeight: 900, fontSize: 16, color: C.ink }
   // An SVG shown as an <img> never runs scripts or loads anything else.
   const img = (c, e, px) => <img src={ebiDraftUrl(c, e)} alt="" width={px} height={px} draggable={false} style={{ display: 'block', width: px, height: px }} />
   const current = (f, px) => <img src={shrimpUrl(f)} alt="" width={px} height={px} draggable={false} style={{ display: 'block', width: px, height: px, objectFit: 'contain' }} />
+  const head = (name, desc, path) => (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+      <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 22, color: C.brand }}>{name}</div>
+      <div style={{ fontSize: 13.5, color: C.inkDim, fontWeight: 600, marginRight: 'auto' }}>{desc}</div>
+      <span style={file}>{path}</span>
+    </div>
+  )
+  const sizes = (render) => (
+    <div style={{ display: 'grid', gap: 8 }}>
+      <div style={h}>{t('lg_ebiDraftsSizes')}</div>
+      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        {EBI_DRAFTS.sizes.map((px) => (
+          <div key={px} style={{ display: 'grid', gap: 4, justifyItems: 'center' }}>{render(px)}<span style={file}>{px} px</span></div>
+        ))}
+      </div>
+    </div>
+  )
+  const tile = { display: 'grid', gap: 4, justifyItems: 'center', padding: 6, borderRadius: RADIUS.md, border: `2px solid ${C.border}`, background: C.surface }
+  const grid = { display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${EBI_DRAFTS.emote + 16}px, 1fr))`, gap: 10 }
+  // The Ebi the app uses today, at the same sizes, so every draft can be compared with it.
+  const currentCard = () => (
+    <Card key={EBI_CURRENT} style={{ display: 'grid', gap: 14, borderColor: C.brand }}>
+      {head(t('lg_ebiCurrentName'), t('lg_ebiCurrentDesc'), '/assets/shrimp/')}
+      {sizes((px) => current(DEFAULT_SHRIMP, px))}
+      <div style={{ display: 'grid', gap: 8 }}>
+        <div style={h}>{t('lg_ebiDraftsEmotes')}</div>
+        <div style={grid}>
+          {[{ name: 'default', file: DEFAULT_SHRIMP }, ...SHRIMP.filter((s, i, all) => all.findIndex((x) => x.file === s.file) === i)].map((s) => (
+            <div key={s.name} style={tile}>
+              {current(s.file, EBI_DRAFTS.emote)}
+              <span style={file}>{s.name}{s.file === IDLE_SHRIMP ? ' (idle)' : ''}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Card>
+  )
+  const draftCard = (c) => (
+    <Card key={c.id} style={{ display: 'grid', gap: 14 }}>
+      {head(t(c.nameKey), t(c.descKey), `${EBI_DRAFTS.dir}/${c.id}/`)}
+      {sizes((px) => img(c.id, 'default', px))}
+      <div style={{ display: 'grid', gap: 8 }}>
+        <div style={h}>{t('lg_ebiDraftsEmotes')}</div>
+        <div style={grid}>
+          {EBI_DRAFTS.emotes.map((e) => (
+            <div key={e} style={tile}>
+              {img(c.id, e, EBI_DRAFTS.emote)}
+              <span style={file}>{e}.svg</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Card>
+  )
+  const label = (id) => id === EBI_CURRENT ? t('lg_ebiDraftsCurrent') : id === EBI_ALL ? t('lg_ebiDraftsAll') : t(EBI_DRAFTS.candidates.find((c) => c.id === id).nameKey)
+  const chosen = EBI_DRAFTS.candidates.find((c) => c.id === pick)
   return (
     <div style={{ display: 'grid', gap: 16 }}>
       <div style={{ fontSize: 13.5, color: C.inkDim, fontWeight: 600 }}>{t('lg_ebiDraftsIntro')}</div>
-      {/* The Ebi the app uses today, first, at the same sizes, so every draft can be compared on one screen. */}
-      <Card style={{ display: 'grid', gap: 14, borderColor: C.brand }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-          <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 22, color: C.brand }}>{t('lg_ebiCurrentName')}</div>
-          <div style={{ fontSize: 13.5, color: C.inkDim, fontWeight: 600, marginRight: 'auto' }}>{t('lg_ebiCurrentDesc')}</div>
-          <span style={file}>/assets/shrimp/</span>
-        </div>
-        <div style={{ display: 'grid', gap: 8 }}>
-          <div style={h}>{t('lg_ebiDraftsSizes')}</div>
-          <div style={{ display: 'flex', gap: 20, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-            {EBI_DRAFTS.sizes.map((px) => (
-              <div key={px} style={{ display: 'grid', gap: 4, justifyItems: 'center' }}>{current(DEFAULT_SHRIMP, px)}<span style={file}>{px} px</span></div>
-            ))}
-          </div>
-        </div>
-        <div style={{ display: 'grid', gap: 8 }}>
-          <div style={h}>{t('lg_ebiDraftsEmotes')}</div>
-          <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${EBI_DRAFTS.emote + 16}px, 1fr))`, gap: 10 }}>
-            {[{ name: 'default', file: DEFAULT_SHRIMP }, ...SHRIMP.filter((s, i, all) => all.findIndex((x) => x.file === s.file) === i)].map((s) => (
-              <div key={s.name} style={{ display: 'grid', gap: 4, justifyItems: 'center', padding: 6, borderRadius: RADIUS.md, border: `2px solid ${C.border}`, background: C.surface }}>
-                {current(s.file, EBI_DRAFTS.emote)}
-                <span style={file}>{s.name}{s.file === IDLE_SHRIMP ? ' (idle)' : ''}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </Card>
-      {EBI_DRAFTS.candidates.map((c) => (
-        <Card key={c.id} style={{ display: 'grid', gap: 14 }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-            <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 22, color: C.brand }}>{t(c.nameKey)}</div>
-            <div style={{ fontSize: 13.5, color: C.inkDim, fontWeight: 600, marginRight: 'auto' }}>{t(c.descKey)}</div>
-            <span style={file}>{EBI_DRAFTS.dir}/{c.id}/</span>
-          </div>
-          <div style={{ display: 'grid', gap: 8 }}>
-            <div style={h}>{t('lg_ebiDraftsSizes')}</div>
-            <div style={{ display: 'flex', gap: 20, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-              {EBI_DRAFTS.sizes.map((px) => (
-                <div key={px} style={{ display: 'grid', gap: 4, justifyItems: 'center' }}>{img(c.id, 'default', px)}<span style={file}>{px} px</span></div>
-              ))}
-            </div>
-          </div>
-          <div style={{ display: 'grid', gap: 8 }}>
-            <div style={h}>{t('lg_ebiDraftsEmotes')}</div>
-            <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${EBI_DRAFTS.emote + 16}px, 1fr))`, gap: 10 }}>
-              {EBI_DRAFTS.emotes.map((e) => (
-                <div key={e} style={{ display: 'grid', gap: 4, justifyItems: 'center', padding: 6, borderRadius: RADIUS.md, border: `2px solid ${C.border}`, background: C.surface }}>
-                  {img(c.id, e, EBI_DRAFTS.emote)}
-                  <span style={file}>{e}.svg</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Card>
-      ))}
+      <div role="radiogroup" aria-label={t('lg_ebiDraftsPick')} style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {ebiChoices().map((id) => {
+          const on = id === pick
+          // Newer drafts carry a tone (green, red, yellow) so they stand out; chosen, they get a stronger tint and a ring.
+          const tone = EBI_DRAFTS.candidates.find((c) => c.id === id)?.tone
+          const fresh = !!tone
+          const accent = tone === 'green' ? C.success : tone === 'yellow' ? C.warning : C.brand
+          return (
+            <button key={id} type="button" role="radio" aria-checked={on} onClick={() => { if (!on) setPick(id) }}
+              className={`ui-btn${on ? ' ui-tab-current' : ''}`}
+              style={{ ...S.ghostBtn, fontSize: 12, padding: '6px 11px', cursor: on ? 'default' : 'pointer',
+                color: on || fresh ? accent : C.inkDim, borderColor: on || fresh ? accent : C.border, fontWeight: on ? 800 : 700,
+                background: on ? `color-mix(in srgb, ${accent} ${fresh ? 26 : 12}%, ${C.surface})`
+                  : fresh ? `color-mix(in srgb, ${accent} 9%, ${C.surface})` : C.surface,
+                ...(on && fresh ? { boxShadow: `0 0 0 2px ${accent}` } : {}) }}>
+              {label(id)}
+            </button>
+          )
+        })}
+      </div>
+      {pick === EBI_ALL ? <>{currentCard()}{EBI_DRAFTS.candidates.map((c) => draftCard(c))}</>
+        : chosen ? draftCard(chosen) : currentCard()}
     </div>
   )
 }
@@ -127,50 +212,77 @@ const Label = ({ children }) => (
   <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: C.inkFaint }}>{children}</div>
 )
 const Cell = ({ label, children }) => <div style={{ display: 'grid', gap: 6, justifyItems: 'center' }}>{children}<Label>{label}</Label></div>
+// A raid boss's story (lg_raidLore_<motif>) and its voice for a future boss dialogue (raidVoices.js: the sample line
+// as a quote, the English persona prompt below it, labeled as text for the AI).
+function RaidLore({ t, motif }) {
+  const label = { fontSize: 11.5, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase', color: C.inkDim }
+  const quote = { margin: 0, paddingLeft: 12, borderLeft: `3px solid ${C.borderStrong}`, fontStyle: 'italic', lineHeight: 1.6, color: C.ink, overflowWrap: 'anywhere' }
+  const voice = RAID_VOICES[motif]
+  return (
+    <section aria-label={t('lg_raidLoreTitle')} style={{ maxWidth: 640, minWidth: 0, display: 'grid', gap: 10 }}>
+      <div>
+        <div style={label}>{t('lg_raidLoreTitle')}</div>
+        <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 20, color: C.ink }}>{t(`lg_raidBoss_${motif}`)}</div>
+      </div>
+      <p style={{ ...quote, fontSize: 14.5 }}>{t(`lg_raidLore_${motif}`)}</p>
+      {voice && (
+        <div style={{ display: 'grid', gap: 6 }}>
+          <div style={label}>{t('lg_raidVoiceTitle')}</div>
+          <blockquote aria-label={t('lg_raidVoiceSample')} style={{ ...quote, fontSize: 15, fontWeight: 700, borderLeftColor: C.purple }}>“{voice.sample}”</blockquote>
+          <div style={{ fontSize: 11, fontWeight: 800, color: C.inkFaint }}>{t('lg_raidVoiceNote')}</div>
+          <div style={{ fontSize: 12.5, lineHeight: 1.5, color: C.inkDim, overflowWrap: 'anywhere' }}>{voice.persona}</div>
+        </div>
+      )}
+    </section>
+  )
+}
+
 // A raid boss as the fight shows it in a phase: the arena's own rules switch the lg-p1/p2/p3/p12 layers.
-const RaidPhase = ({ motif, palette, phase, size }) => (
-  <div className="lg-boss" data-phase={phase}><LegendsArt kind="raids" motif={motif} palette={palette} height={size} width={size} round={0} animated="idle" /></div>
+const RaidPhase = ({ motif, palette, phase, size, animate = true }) => (
+  <div className="lg-boss" data-phase={phase}><LegendsArt kind="raids" motif={motif} palette={palette} height={size} width={size} round={0} animated={animate ? 'idle' : false} phase={phase} /></div>
 )
+// A still copy that animates while hovered or focused (ASSET_RAID_ANIMATE_COPIES).
+function LiveCopy({ children }) {
+  const [live, setLive] = useState(false)
+  if (ASSET_RAID_ANIMATE_COPIES === 'always') return children(true)
+  const on = () => setLive(true)
+  const off = () => setLive(false)
+  return <div tabIndex={0} onMouseEnter={on} onMouseLeave={off} onFocus={on} onBlur={off} style={{ lineHeight: 0 }}>{children(live)}</div>
+}
 // The fight arena with a button that deals a third of the health: every press plays the phase change (flash, shake,
 // "PHASE N" tag) the real raid shows. After the last phase it starts over at full health.
-// The ability buttons play that ability's effect and floater on the same arena (to check them without a real fight).
-function PhaseDemo({ t, area, motif, getZoom }) {
+// The ability card's "Try it" buttons play that ability's effect and floater on this same arena (`shot`, held by the
+// page: { motif, fx, n }), to check them without a real fight.
+function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot }) {
   const [step, setStep] = useState(0)
-  const [shot, setShot] = useState(null) // { fx, n }: the ability effect last played
   const third = VIEW.demoHp / RAID.phases
   const damage = Math.min(VIEW.demoHp - 1, Math.round(step * third))
   const ability = RAID_ABILITY[motif]
-  const fxLast = shot && { kind: shot.fx === 'gorge' ? 'miss' : shot.fx === 'rewind' ? 'block' : 'hit', damage: shot.fx === 'gorge' || shot.fx === 'rewind' ? 0 : 3, lives: shot.fx === 'gorge' ? 1 : 0, fx: shot.fx, n: shot.n }
+  const mine = shot && shot.motif === motif ? shot : null
+  const fxLast = mine && { kind: 'hit', damage: 3, lives: 0, ...(fxDemoFor(ability, mine.fx) || {}), fx: mine.fx, n: mine.n }
   const state = { ...newFight(), damage, last: fxLast || (step ? { kind: 'hit', damage: Math.round(third), lives: 0, n: step } : null) }
-  const play = (fx) => setShot((s) => ({ fx, n: 1000 + ((s && s.n) || 0) + 1 }))
   return (
     <div style={{ display: 'grid', gap: 10 }}>
       <BossArena key={motif} t={t} area={area} name={motif} need={VIEW.demoHp} lives={RAID.lives} state={state} phases={RAID.phases} ability={ability} getZoom={getZoom} kind="raids" />
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <ChunkyButton variant="ghost" color={C.danger} onClick={() => { setShot(null); setStep((n) => (n + 1) % RAID.phases) }} style={{ fontSize: 12, padding: '6px 10px' }}>⚔️ {t('lg_assetsNextPhase')}</ChunkyButton>
-        {(ABILITY_FX[ability] || []).map((fx) => (
-          <ChunkyButton key={fx} variant="ghost" color={C.purple} onClick={() => play(fx)} style={{ fontSize: 12, padding: '6px 10px' }}>{ABILITY_ICON[ability]} {t('lg_assetsPlayFx', { name: t(`lg_fx_${fx}`) })}</ChunkyButton>
-        ))}
+        <ChunkyButton variant="ghost" color={C.danger} onClick={() => { onClearShot(); setStep((n) => (n + 1) % RAID.phases) }} style={{ fontSize: 12, padding: '6px 10px' }}>⚔️ {t('lg_assetsNextPhase')}</ChunkyButton>
       </div>
     </div>
   )
 }
 
-// A raid boss's ability, in full, at the top of its page: the rule, the hint the fight shows when it applies, and the
-// words that pop over the boss when it triggers (the same texts the real fight uses).
-const ABILITY_HINT = { plating: {}, regrowth: { n: ABILITY.regrowthCut }, singularity: { n: ABILITY.singularityLives }, heads: {}, judgment: { n: ABILITY.judgmentSmite },
-  maelstrom: { n: ABILITY.maelstromBonus }, kindling: { n: ABILITY.kindlingBonus }, rewind: {}, bloodpact: {}, tempest: { n: ABILITY.tempestFactor },
-  reflection: {}, devour: { n: ABILITY.devourChoke }, marionette: { n: ABILITY.marionetteCounter }, lastbreath: { n: ABILITY.lastbreathFactor },
-  swarm: { n: ABILITY.swarmSting }, petrify: { n: ABILITY.petrifyShatter }, crescendo: { n: 2 }, harvest: { n: ABILITY.harvestMax }, slumber: { n: ABILITY.slumberBonus },
-  supernova: { n: ABILITY.supernovaBurst }, starball: { n: ABILITY.starballMax } }
-const ABILITY_FX = { regrowth: ['cut'], plating: ['bounce'], phylactery: ['rise', 'shatter'], heads: ['triple'], singularity: ['singularity'], judgment: ['smite'],
-  maelstrom: ['surface'], kindling: ['kindle'], rewind: ['rewind'], bloodpact: ['pact'], tempest: ['bolt'], reflection: ['reflect'], devour: ['choke', 'gorge'], marionette: ['snap'], lastbreath: ['lastbreath'],
-  swarm: ['sting'], petrify: ['crumble'], crescendo: ['crescendo'], harvest: ['harvest'], slumber: ['slumber'], supernova: ['supernova'], starball: ['steal', 'starball'] }
-function AbilityCard({ t, ability }) {
+// A raid boss's ability as a BESTIARY entry (the owner: "think about asset viewer like a potential future bestiary"):
+// name and icon, the one-line rule, then "How it works", one row per effect: the words that pop over the boss, what
+// the player does to set it off, what it does, a "your choice" tag on a button effect, and "Try it" (plays it on the
+// demo arena above). The texts come from abilities/_triggers.js with the module's own numbers; triggers.test.js proves
+// every row does what it says. Each ability module names its own effects (fxKeys), so boss agents never edit this file.
+const abilityFxKeys = (ability) => abilityById(ability)?.fxKeys || []
+function AbilityCard({ t, motif, ability, onTry }) {
   if (!ability) return <div style={{ fontSize: 13.5, color: C.inkDim }}>{t('lg_assetsNoAbility')}</div>
   const label = { fontSize: 11.5, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase', color: C.purple }
+  const rows = abilityFxKeys(ability).map((fx) => ({ fx, tr: triggerOf(motif, fx) })).filter((r) => r.tr)
   return (
-    <section aria-label={t('lg_assetsAbility')} style={{ maxWidth: 640, padding: '14px 18px', borderRadius: RADIUS.lg, display: 'grid', gap: 10,
+    <section aria-label={t('lg_assetsAbility')} style={{ maxWidth: 640, minWidth: 0, padding: '14px 18px', borderRadius: RADIUS.lg, display: 'grid', gap: 12,
       border: `3px solid ${C.purple}`, background: `color-mix(in srgb, ${C.purple} 12%, ${C.surface})` }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <span style={{ fontSize: 34, lineHeight: 1 }}>{ABILITY_ICON[ability]}</span>
@@ -180,14 +292,23 @@ function AbilityCard({ t, ability }) {
         </div>
       </div>
       <div style={{ fontSize: 14.5, fontWeight: 700, lineHeight: 1.5, color: C.ink }}>{t(`lg_abilityDesc_${ability}`)}</div>
-      {ABILITY_HINT[ability] && (
-        <div><div style={label}>{t('lg_assetsAbilityHint')}</div><div style={{ fontSize: 13.5, color: C.inkDim, fontWeight: 600 }}>{t(`lg_hint_${ability}`, ABILITY_HINT[ability])}</div></div>
-      )}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <span style={label}>{t('lg_assetsAbilityFx')}</span>
-        {(ABILITY_FX[ability] || []).map((k) => (
-          <span key={k} style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 16, color: C.purple, padding: '0 8px', borderRadius: RADIUS.sm, background: C.surface }}>{t(`lg_fx_${k}`)}</span>
-        ))}
+      <div style={{ display: 'grid', gap: 6 }}>
+        <div style={label}>{t('lg_bestiaryHow')}</div>
+        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 6 }}>
+          {rows.map(({ fx, tr }) => (
+            <li key={fx} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '8px 10px', borderRadius: RADIUS.md, background: C.surface, border: `1px solid ${C.border}` }}>
+              <div style={{ flex: '0 0 128px', minWidth: 0, display: 'grid', gap: 3, justifyItems: 'start', overflowWrap: 'anywhere' }}>
+                <span style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 15, color: C.purple, lineHeight: 1.15 }}>{t(floaterKeyFor(ability, fx) || `lg_fx_${fx}`, demoVars(ability, fx))}</span>
+                {tr.choice && <span style={{ fontSize: 10.5, fontWeight: 900, letterSpacing: '.04em', textTransform: 'uppercase', color: C.warning, padding: '1px 6px', borderRadius: RADIUS.sm, border: `1px solid color-mix(in srgb, ${C.warning} 45%, transparent)` }}>{t('lg_bestiaryYourChoice')}</span>}
+              </div>
+              <div style={{ flex: '1 1 220px', minWidth: 0, fontSize: 13.5, lineHeight: 1.45 }}>
+                <div style={{ fontWeight: 800, color: C.ink }}>{t(tr.whenKey, tr.vars)}</div>
+                <div style={{ fontWeight: 600, color: C.inkDim }}>{t(tr.doesKey, tr.vars)}</div>
+              </div>
+              <ChunkyButton variant="ghost" color={C.purple} onClick={() => onTry(fx)} style={{ flex: '0 0 auto', fontSize: 12, padding: '5px 10px' }}>▶ {t('lg_bestiaryTry')}</ChunkyButton>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   )
@@ -197,13 +318,15 @@ export default function AssetView({ ctx, onBack }) {
   const { t } = ctx
   const [tab, setTab] = useState('legends')
   const [idx, setIdx] = useState(0)
+  const [shot, setShot] = useState(null) // the ability effect last played on the demo arena: { motif, fx, n }
   const [palette, setPalette] = useState(PALETTES[0])
   const [replay, setReplay] = useState(0)
   const { list } = TABS.find((x) => x.id === tab)
   const raids = tab === 'raids'
   const motif = list[Math.min(idx, list.length - 1)]
   const area = { id: motif, title: motif, motif, palette }
-  const go = (d) => setIdx((i) => (i + d + list.length) % list.length)
+  const ebiStepRef = useRef(null)
+  const go = (d) => tab === 'ebi' ? ebiStepRef.current?.(d) : setIdx((i) => (i + d + list.length) % list.length)
   const pickTab = (id) => { setTab(id); setIdx(0); setReplay(0) }
   // Opens at the top: the screen's scroll box still held the map's position.
   const rootRef = useRef(null)
@@ -261,7 +384,7 @@ export default function AssetView({ ctx, onBack }) {
         })}
       </div>
 
-      {tab === 'ebi' ? <EbiDrafts t={t} /> : <>
+      {tab === 'families' ? <BossFamilies t={t} onOpen={(to, m) => { setTab(to); setIdx(Math.max(0, TABS.find((x) => x.id === to).list.indexOf(m))); setReplay(0) }} /> : tab === 'ebi' ? <EbiDrafts t={t} stepRef={ebiStepRef} /> : <>
       <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 6 }}>
         {list.map((m, i) => (
           <button key={m} type="button" onClick={() => setIdx(i)} className={i === idx ? 'ui-tab-current' : undefined}
@@ -285,7 +408,14 @@ export default function AssetView({ ctx, onBack }) {
           </div>
         </div>
 
-        {raids && <AbilityCard t={t} ability={RAID_ABILITY[motif]} />}
+        {raids && (
+          <div style={section}>
+            <div style={h}>{t('lg_assetsPhases')}</div>
+            <div style={{ maxWidth: 640 }}><PhaseDemo t={t} area={area} motif={motif} getZoom={ctx.getZoom} shot={shot} onClearShot={() => setShot(null)} /></div>
+          </div>
+        )}
+        {raids && <AbilityCard t={t} motif={motif} ability={RAID_ABILITY[motif]} onTry={(fx) => setShot((x) => ({ motif, fx, n: 1000 + ((x && x.n) || 0) + 1 }))} />}
+        {raids && <RaidLore t={t} motif={motif} />}
 
         <div style={section}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -301,15 +431,14 @@ export default function AssetView({ ctx, onBack }) {
         {raids ? (
           <div style={section}>
             <div style={h}>{t('lg_assetsPhases')}</div>
-            <div style={{ maxWidth: 640 }}><PhaseDemo t={t} area={area} motif={motif} getZoom={ctx.getZoom} /></div>
             <div style={row}>
               {Array.from({ length: RAID.phases }, (_, i) => (
-                <Cell key={i} label={t('lg_assetsPhase', { n: i + 1 })}><RaidPhase motif={motif} palette={palette} phase={i + 1} size={VIEW.phase} /></Cell>
+                <Cell key={i} label={t('lg_assetsPhase', { n: i + 1 })}><LiveCopy>{(on) => <RaidPhase motif={motif} palette={palette} phase={i + 1} size={VIEW.phase} animate={on} />}</LiveCopy></Cell>
               ))}
             </div>
             <div style={row}>
-              <Cell label={t('lg_assetsFight', { px: BOSS.arena })}><RaidPhase motif={motif} palette={palette} phase={1} size={BOSS.arena} /></Cell>
-              <Cell label={t('lg_assetsFight', { px: BOSS.arenaCompact })}><RaidPhase motif={motif} palette={palette} phase={1} size={BOSS.arenaCompact} /></Cell>
+              <Cell label={t('lg_assetsFight', { px: BOSS.arena })}><LiveCopy>{(on) => <RaidPhase motif={motif} palette={palette} phase={1} size={BOSS.arena} animate={on} />}</LiveCopy></Cell>
+              <Cell label={t('lg_assetsFight', { px: BOSS.arenaCompact })}><LiveCopy>{(on) => <RaidPhase motif={motif} palette={palette} phase={1} size={BOSS.arenaCompact} animate={on} />}</LiveCopy></Cell>
             </div>
           </div>
         ) : (

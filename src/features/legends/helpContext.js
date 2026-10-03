@@ -5,7 +5,7 @@
 // expected answers (the running question itself is published by QuizRunner, without its key). After a step ends, its
 // result screen (asked / expected / given) is on screen anyway, so it is shared.
 import { itemTier, areaCodex, mapProgress, helperCount, WEAK_RATIO } from './map'
-import { RAID_MOTIFS, RAID_ABILITY, shapeRaid } from './raid'
+import { RAID_ABILITY, shapeRaid, raidMotif } from './raid'
 import { learnerLine } from '../kit/learner'
 
 export const HELP_MAX = 5000
@@ -107,7 +107,7 @@ export function buildLegendsHelpText({ map: rawMap, learner, raid, live: lv = { 
   }
   if (raid) {
     const r = shapeRaid(raid)
-    const motif = RAID_MOTIFS[r.boss]
+    const motif = raidMotif(r)
     const d = r.day && (!today || r.day.date === today) ? r.day : null
     out.push(`Daily raid (due Anki cards as a boss fight; each card's first answer is a real review): today's boss is the ${motif} (ability: ${RAID_ABILITY[motif]})${d ? `, health ${Math.max(0, d.hp - d.damage)}/${d.hp} after ${d.attempts} attempt(s)${d.won ? ', beaten today' : ''}` : ', not fought yet today'}; ${r.trophies.length} raid trophies won.`)
   }

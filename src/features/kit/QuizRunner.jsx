@@ -15,9 +15,16 @@
 // canUseChoices(q)         a typed question with `alt` choices may be answered with them instead (a safe strike)
 // header(q, mode)          a node above the question (the attack banner, the strike label)
 // tools(q, api)            a node beside Skip; api = { hint(text), phase, asChoice }
+// onQuestion(q, idx)       a new question is on screen (the raid arena fast-fades an effect still playing)
 // onAnswer's return value  { insert: question | [questions], at: index } puts questions into the run (the boss's attack); an
 //                          inserted question is marked `_extra` and, like a retry, never changes the score.
-// onAnswer(q, correct, answer, info)  info = { mode: 'typed'|'choice', skipped?, ...the judge's info }
+// onAnswer(q, correct, answer, info)  info = { mode: 'typed'|'choice', at (the question's index in the run), skipped?,
+//                          accent?, partial?, ...the judge's info }
+// judge's `later`          a promise of { note } (the explanation, written in the background): the note fills into
+//                          the feedback when it arrives, only while the same answer's feedback is on screen
+// resolveQuestion(q)       asked when the run moves on to a question: the question itself, a replacement (a boss's
+//                          follow-up whose text arrived later), or null to skip it (an attack that was not ready in
+//                          time, or one a re-check cancelled). Skipped questions record nothing.
 import { useEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile, shrimpUrl } from '../../config/shrimp'
@@ -37,7 +44,7 @@ const PLAY_BASE_MS = 2500
 const PLAY_PER_CHAR_MS = 110
 const PLAY_MAX_MS = 20000
 
-export default function QuizRunner({ questions: given, t, ai, subject, onAnswer, onFinish, onExit, title, confirm, ctx, feedbackExtra, retryMisses = false, judge, canUseChoices, header, tools }) {
+export default function QuizRunner({ questions: given, t, ai, subject, onAnswer, onFinish, onExit, title, confirm, ctx, feedbackExtra, retryMisses = false, judge, canUseChoices, header, tools, onQuestion, resolveQuestion }) {
   const [idx, setIdx] = useState(0)
   // The feature's list, plus the misses asked again at the end and anything the feature put in (attacks).
   const [retries, setRetries] = useState([])
@@ -60,8 +67,11 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
   const inputRef = useRef(null)
   const audioRef = useRef(null)
   const [playing, setPlaying] = useState(false)
-  const q = questions[idx]
+  // A question resolved when the run moved on to it (resolveQuestion): shown instead of the list's entry at that index.
+  const [override, setOverride] = useState(null) // { i, q }
+  const q = override && override.i === idx ? override.q : questions[idx]
   const total = questions.length
+  const verdictSeq = useRef(0) // the answer whose feedback is on screen: a late note lands only on it
   useFocusHold(phase !== 'done') // no pop-ups while answering
   // The pose pictures are big: load them up front so the feedback strip never shows an empty gap.
   useEffect(() => { for (const p of Object.values(POSE)) { const f = poseFile(p); if (f) { const im = new Image(); im.src = shrimpUrl(f) } } }, [])
@@ -82,6 +92,7 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
   useEffect(() => {
     setPicked(null); setText(''); setVerdict(null); setCheckErr(false); setPhase('answer'); setMode('typed'); setHintText(''); setTimeout(() => inputRef.current?.focus(), 30)
     play() // a listening question plays once by itself
+    try { onQuestion?.(q, idx) } catch { /* the feature's problem */ }
     return () => audioRef.current?.stop()
   }, [idx]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -116,10 +127,12 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
     const extraQ = q._retry || q._extra
     if (!extraQ) results.current = [...results.current, { question: q, correct, answer }]
     if (!correct && retryMisses && !extraQ) setRetries((list) => [...list, { ...q, _retry: true }])
-    setVerdict({ correct, ...extra })
+    verdictSeq.current++
+    setVerdict({ correct, ...extra, seq: verdictSeq.current })
     setPhase('feedback')
     let got = null
-    try { got = onAnswer?.(q, correct, answer, { mode: asChoice ? 'choice' : q.kind, ...info }) } catch { /* the feature's problem */ }
+    // accent / partial: near misses for the shared grading rule (config/grading.js), next to the judge's own info.
+    try { got = onAnswer?.(q, correct, answer, { mode: asChoice ? 'choice' : q.kind, at: idx, ...(extra.accent ? { accent: true } : {}), ...(extra.partial ? { partial: true } : {}), ...info }) } catch { /* the feature's problem */ }
     // Inserted after the question on screen (never before it: the run's position must not jump).
     if (got?.insert) {
       const at = Math.max(idx + 1, Number.isInteger(got.at) ? got.at : idx + 1)
@@ -143,7 +156,14 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
       const j = await Promise.resolve(judge(q, ans, 'typed')).catch(() => null)
       setPhase('answer') // record() moves on
       if (j?.error) { setCheckErr(true); return } // never graded: a failed check is not a wrong answer
-      return record(!!j?.correct, ans, { note: j?.note || '', partial: !!j?.partial, title: j?.title || '', accent: !!j?.accent }, j?.info || {})
+      const later = j?.later && typeof j.later.then === 'function' ? j.later : null
+      record(!!j?.correct, ans, { note: j?.note || '', partial: !!j?.partial, title: j?.title || '', accent: !!j?.accent, noteLoading: !!later && !j?.note }, j?.info || {})
+      if (later) {
+        const seq = verdictSeq.current
+        later.then((r) => setVerdict((v) => (v && v.seq === seq ? { ...v, note: v.note || String(r?.note || ''), noteLoading: false } : v)))
+          .catch(() => setVerdict((v) => (v && v.seq === seq ? { ...v, noteLoading: false } : v)))
+      }
+      return
     }
     const local = q.open ? null : matchTyped(ans, q.accepted)
     if (local) return record(true, ans, local === 'accent' ? { accent: true } : {})
@@ -155,8 +175,17 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
   }
 
   const next = () => {
-    if (idx + 1 < total) setIdx(idx + 1)
-    else { setPhase('done'); onFinish?.(results.current) }
+    let i = idx + 1
+    let over = null
+    while (i < total) {
+      const raw = questions[i]
+      let r = raw
+      try { r = resolveQuestion ? resolveQuestion(raw) : raw } catch { r = raw }
+      if (r === null) { i++; continue } // skipped: nothing recorded
+      if (r && r !== raw) over = { i, q: r }
+      break
+    }
+    if (i < total) { setOverride(over); setIdx(i) } else { setPhase('done'); onFinish?.(results.current) }
   }
 
   // Keys: 1-6 pick a tile, Enter checks / continues.
@@ -279,6 +308,7 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
               {verdict?.accent && <div style={{ fontSize: 14, color: C.ink, fontWeight: 700 }}>{t('kit_accent', { a: reveal })}</div>}
               {(!good || partial) && reveal && !q.open && !verdict?.accent && <div style={{ fontSize: 14, color: C.ink, fontWeight: 700 }}>{t('kit_answerWas', { a: reveal })}</div>}
               {verdict?.note && <div style={{ fontSize: 13.5, color: C.ink, marginTop: 4, lineHeight: 1.45 }}>{verdict.note}</div>}
+              {!verdict?.note && verdict?.noteLoading && <div role="status" style={{ fontSize: 12.5, color: C.inkDim, marginTop: 4 }}>📝 {t('kit_noteLoading')}</div>}
               {q.explanation && <div style={{ fontSize: 13.5, color: C.inkDim, marginTop: 4, lineHeight: 1.45 }}>{q.explanation}</div>}
               {feedbackExtra && <div key={idx} style={{ marginTop: 6 }}>{feedbackExtra(q, !!good, lastAnswer.current || '')}</div>}
             </div>

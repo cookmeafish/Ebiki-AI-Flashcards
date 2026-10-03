@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
   <!-- Specimen X: an escaped experiment seen from below, still half in its shattered containment tank. The tank's
        cracked glass and steel cap are its backdrop, an alarm beacon pulses on top, feeding tubes run from the cap
-       into its shoulders. An exposed brain sparks in a glass dome, FIVE eyes under one V brow, neck bolts, giant
+       into its shoulders. An exposed brain sparks in a glass dome, two snail eye stalks, two angry eyes under one V brow, neck bolts, giant
        stitches, a maw stretched too wide with toxic drool, clawed hands raised past the frame.
        Entrance: it teleports in on a beam; its eyes pop open one after another, the maw gapes. -->
   <!-- the shattered tank: back glass with a burst hole, cracks running out of it -->
@@ -125,12 +125,41 @@
     <path d="M29 21 L34 16 L38 18 L44 12"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;1 -1;-1 1;0 0" dur="0.28s" repeatCount="indefinite"/></path>
     <path d="M91 21 L86 16 L82 18 L76 12"><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-1 -1;1 1;0 0" dur="0.33s" repeatCount="indefinite"/></path>
   </g>
-  <!-- FIVE eyes: they pop open one after another on the entrance -->
-  <!-- the forehead eye (opens first) -->
-  <g transform="translate(60 44)"><g>
-    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.02;0.02;1.45;1" keyTimes="0;.5;.64;1" dur="1.5s" fill="freeze"/>
-    <ellipse rx="5" ry="4" fill="#7cff3f" opacity="0.45"/><ellipse rx="3.6" ry="2.8" fill="#f3ffe0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9"/><ellipse rx="0.8" ry="2.4" fill="#ff2e4c"/><circle cx="1" cy="-0.8" r="0.5" fill="#fff"/>
-  </g></g>
+  <!-- snail eye stalks growing out of the top corners of the head, past the dome: they shoot up on the entrance,
+       then sway on their own and blink now and then -->
+  <g transform="translate(35 40) rotate(-32)">
+    <ellipse cx="0" cy="0.4" rx="3.4" ry="1.8" fill="#5a8f3c" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    <g style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.05;1 0.05;1 1.25;1 1" keyTimes="0;0.50;0.64;1" dur="1.5s" fill="freeze"/>
+      <g style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;7;0;-4.8999999999999995;0" keyTimes="0;.3;.5;.8;1" dur="3.4s" begin="0s" repeatCount="indefinite"/>
+        <path d="M0 0 C-2.6 -8.8 2.6 -16.3 0 -25" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="6.6" stroke-linecap="round"/>
+        <path d="M0 0 C-2.6 -8.8 2.6 -16.3 0 -25" fill="none" stroke="#5a8f3c" stroke-width="4.6" stroke-linecap="round"/>
+        <path d="M-0.9 -2 C-2 -8.8 0.4 -15.0 -0.8 -23.0" fill="none" stroke="#fff" stroke-width="0.8" opacity="0.35" stroke-linecap="round"/>
+        <circle cy="-29" r="6.3" fill="#7cff3f" opacity="0.45"/>
+        <circle cy="-29" r="5" fill="#f3ffe0" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+        <circle cx="0.9" cy="-28.7" r="2.5" fill="#ff2e4c"/>
+        <ellipse cx="0.9" cy="-28.7" rx="0.6" ry="1.9" fill="#1a0508"/>
+        <circle cx="1.8" cy="-29.9" r="0.7" fill="#fff"/>
+        <circle cy="-29" r="5.2" fill="#5a8f3c" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" transform="scale(1 0.02)" style="transform-box:fill-box;transform-origin:center top"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 0.02;1 0.02;1 1;1 0.02;1 0.02" keyTimes="0;.88;.93;.98;1" dur="4.4s" begin="0s" repeatCount="indefinite"/></circle>
+      </g>
+    </g>
+  </g>
+  <g transform="translate(85 40) rotate(30)">
+    <ellipse cx="0" cy="0.4" rx="3.4" ry="1.8" fill="#5a8f3c" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    <g style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-in" attributeName="transform" type="scale" values="1 0.05;1 0.05;1 1.25;1 1" keyTimes="0;0.60;0.74;1" dur="1.5s" fill="freeze"/>
+      <g style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;-6;0;4.199999999999999;0" keyTimes="0;.3;.5;.8;1" dur="2.9s" begin="0.7s" repeatCount="indefinite"/>
+        <path d="M0 0 C-2.6 -8.0 2.6 -15.0 0 -23" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="6.6" stroke-linecap="round"/>
+        <path d="M0 0 C-2.6 -8.0 2.6 -15.0 0 -23" fill="none" stroke="#5a8f3c" stroke-width="4.6" stroke-linecap="round"/>
+        <path d="M-0.9 -2 C-2 -8.0 0.4 -13.8 -0.8 -21.0" fill="none" stroke="#fff" stroke-width="0.8" opacity="0.35" stroke-linecap="round"/>
+        <circle cy="-26.8" r="6.1" fill="#7cff3f" opacity="0.45"/>
+        <circle cy="-26.8" r="4.8" fill="#f3ffe0" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+        <circle cx="-0.9" cy="-26.5" r="2.4" fill="#ff2e4c"/>
+        <ellipse cx="-0.9" cy="-26.5" rx="0.6" ry="1.8" fill="#1a0508"/>
+        <circle cx="0.0" cy="-27.7" r="0.7" fill="#fff"/>
+        <circle cy="-26.8" r="5.0" fill="#5a8f3c" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" transform="scale(1 0.02)" style="transform-box:fill-box;transform-origin:center top"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 0.02;1 0.02;1 1;1 0.02;1 0.02" keyTimes="0;.88;.93;.98;1" dur="3.8s" begin="0.7s" repeatCount="indefinite"/></circle>
+      </g>
+    </g>
+  </g>
+  <!-- the two main eyes: they pop open on the entrance -->
   <!-- eye hollows for the two main eyes -->
   <path d="M30 50 L52 56 L52 64 L36 64 L30 58Z M90 50 L68 56 L68 64 L84 64 L90 58Z" fill="#12200a"/>
   <g transform="translate(43 58) rotate(16)"><g>
@@ -144,15 +173,6 @@
     <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-1.4 0.6;1.4 0;0 0" dur="1.8s" repeatCount="indefinite"/>
       <ellipse rx="10" ry="5.6" fill="#7cff3f" opacity="0.45"/><ellipse rx="7.6" ry="3.8" fill="#f3ffe0" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1"/><circle r="3.2" fill="#ff2e4c"/><ellipse rx="0.9" ry="3" fill="#1a0508"/><circle cx="-1.4" cy="-1.2" r="0.8" fill="#fff"/>
     </g>
-  </g></g>
-  <!-- the cheek eyes (open last) -->
-  <g transform="translate(31 67)"><g>
-    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.02;0.02;1.5;1" keyTimes="0;.72;.84;1" dur="1.5s" fill="freeze"/>
-    <circle r="4.6" fill="#7cff3f" opacity="0.45"/><circle r="3.2" fill="#f3ffe0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9"/><circle r="1.7" fill="#ff2e4c"/><circle cx="0.7" cy="-0.7" r="0.5" fill="#fff"/>
-  </g></g>
-  <g transform="translate(89 67)"><g>
-    <animateTransform class="lg-in" attributeName="transform" type="scale" values="0.02;0.02;1.5;1" keyTimes="0;.78;.9;1" dur="1.5s" fill="freeze"/>
-    <circle r="4.2" fill="#7cff3f" opacity="0.45"/><circle r="2.9" fill="#f3ffe0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9"/><circle r="1.5" fill="#ff2e4c"/><circle cx="0.6" cy="-0.6" r="0.5" fill="#fff"/>
   </g></g>
   <!-- ONE V brow ridge over the main eyes -->
   <path d="M28 48 L46 52 L60 59 L74 52 L92 48 L90 55 L74 57 L60 65 L46 57 L30 55Z" fill="#5a8f3c" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>

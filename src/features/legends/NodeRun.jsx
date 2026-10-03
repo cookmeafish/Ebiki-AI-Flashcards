@@ -10,6 +10,7 @@ import { useFocusHold } from '../registry'
 import { ChunkyButton, EbiSays, ProgressBar, Card, tCount } from '../ui'
 import { QuizRunner, RuleCardButton, buildScenePrompt, parseScene, voiceFor, SCENE_ROLE, SCENE_MAX_TOKENS, judgeStrike } from '../kit'
 import { featureCfg } from '../registry'
+import { gradeAnswer, gradeFromStrike } from '../../config/grading'
 import { learnerLevelLine } from '../kit/learnerStore'
 import { makeQuiz, sceneFor, ensureBossName, KNOWLEDGE_CAP } from './generate'
 import { itemIdFor } from './prompt'
@@ -17,7 +18,11 @@ import { addItemsToDeck, liveItems, isAdding } from './deck'
 import Talk from './Talk'
 import { BossIntro, BossArena, BossEnd, bossOdds, forgivenMisses } from './BossArena'
 import { weakItems, WEAK_BONUS_LIVES, PASS, spendHelper } from './map'
-import { newFight, strike, fightOutcome, phaseOf, healthLeft, attackSlot, canAttack, weakTo, effortOf, ATTACK_LIVES } from './fight'
+import { newFight, strike, fightOutcome, phaseOf, healthLeft, attackSlot, canAttack, weakTo, effortOf, ATTACK_LIVES, refundFor, applyRefund, strikeCost } from './fight'
+import LearnItPanel from '../kit/LearnItPanel'
+import { islandVoice } from '../kit/taunt'
+import { RAID_VOICE_RULES, STOCK_WORDS } from './raidVoices'
+import { useFightCheck, useBossTaunt, TauntBubble, FightNotice, MissTools, expectedOf, isWrongish } from './FightExtras'
 import { updateMap, peekMap, LEGENDS_ID } from './store'
 import { CheatButton, CheatRow } from './CheatUI'
 
@@ -277,6 +282,39 @@ function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, o
   const items = node.kind === 'weak' ? weakItems(area) : area.items.filter((it) => node.itemIds.includes(it.id))
   const teachItems = node.kind === 'rule' ? [...items.filter((it) => it.kind === 'rule'), ...items.filter((it) => it.kind !== 'rule')] : items
 
+  // ── Second looks, appeals, Learn it and taunts (fights only; FightExtras.jsx) ──
+  const alive = useRef(true)
+  useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
+  const oddsRef = useRef(null) // { need, lives } of the running fight
+  const finished = useRef(false)
+  // A miss or glancing answer was right after all: the answer counts right (its grade goes into the item tally at
+  // the finish), and while the fight runs the lost heart comes back and the damage it should have dealt lands.
+  const onOverturn = (e, to) => {
+    const grade = gradeFromStrike(to, { choice: e.mode === 'choice', hintUsed: !!e.hintUsed })
+    answers.current = answers.current.map((x) => (x.aid === e.aid ? { ...x, correct: true, grade, verdict: to, overturned: true } : x))
+    const o = oddsRef.current
+    if (finished.current || !o || !fight) return false
+    const cur = fsRef.current
+    if (fightOutcome(cur, o)) return false
+    const r = refundFor({ kind: e.kind, to, mode: e.mode, weak: !!e.weak }, e.cost || {})
+    if (!r.lives && !r.damage) return false
+    const next = applyRefund(cur, { ...r, from: e.first, to, kind: e.kind })
+    fsRef.current = next
+    setFs(next)
+    return true
+  }
+  const isOver = () => finished.current || !oddsRef.current || !!fightOutcome(fsRef.current, oddsRef.current)
+  const fc = useFightCheck(ctx, { onOverturn, isOver })
+  const tauntsOn = fight && cfg.taunts !== false && !focus
+  const voice = fight ? islandVoice({ bossName: bossName || area.bossName || '', areaTitle: area.title, theme: area.theme }) : ''
+  const taunt = useBossTaunt(ctx, { bossKey: `boss:${modeId}:${String(area.title || area.id).slice(0, 60)}`, voice, rules: RAID_VOICE_RULES, avoidWords: STOCK_WORDS, bossName: bossName || area.bossName || '', enabled: tauntsOn })
+  const [learn, setLearn] = useState(null) // the Learn-it panel's item (the fight waits under it)
+  const openLearn = (e) => {
+    const it = area.items.find((x) => x.id === itemIdFor(e.q, area.items))
+    setLearn(it ? { front: it.front, back: it.back, noteId: it.cardNoteId || null } : { front: e.q?.prompt || '', back: expectedOf(e.q) })
+  }
+  const [settling, setSettling] = useState(false)
+
   const load = async () => {
     const my = ++seq.current
     setPhase('loading'); setError('')
@@ -301,7 +339,15 @@ function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, o
   useEffect(() => { if (phase === 'loading') load(); return () => { seq.current++ } }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // `total`: the fight ended early out of lives, so the questions never asked count as not answered right.
-  const finish = (total) => {
+  const finish = async (total) => {
+    if (finished.current) return
+    finished.current = true
+    if (fight) {
+      // Re-checks and appeals still running decide the grades first (bounded).
+      setSettling(true)
+      await fc.settle()
+      if (!alive.current) return
+    }
     const a = answers.current
     const st = fsRef.current
     const o = fight ? bossOdds(questions?.length || 0, odds) : null
@@ -314,9 +360,13 @@ function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, o
       effort: fight ? effortOf({ clean: st.clean, glancing: st.glancing, choice: st.safe, misses: st.misses }) : effortOf(effort.current),
       forgiven: won && node.kind === 'boss' ? forgivenMisses(questions.length, hits, odds) : 0,
       total: Math.max(a.length, Number(total) || 0), correct: a.filter((x) => x.correct).length,
-      items: a.filter((x) => x.itemId).map((x) => ({ itemId: x.itemId, correct: x.correct })),
+      items: a.filter((x) => x.itemId).map((x) => ({ itemId: x.itemId, correct: x.correct, grade: x.grade })),
       misses: a.filter((x) => !x.correct).map(({ asked, answered, expected }) => ({ asked, answered, expected })),
-      answers: a.map(({ asked, answered, expected, correct }) => ({ asked, answered, expected, correct })), // for "See all answers"
+      // for "See all answers" (and, after a fight, its debrief: the second look, the note, the appeal)
+      answers: a.map(({ asked, answered, expected, correct, aid, itemId, grade, verdict, q: aq }) => {
+        const e = aid ? fc.get(aid) : null
+        return { asked, answered, expected, correct, ...(e ? { aid, itemId, grade, verdict, first: e.first, mode: e.mode, note: e.note || '', why: e.why || '', overturned: !!e.overturned, afterFight: !!e.afterFight, by: e.by || '', appeal: e.appeal || null, appealWhy: e.appealWhy || '', status: e.status, q: aq } : {}) }
+      }),
     })
   }
 
@@ -372,13 +422,22 @@ function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, o
     const o = fight ? bossOdds(questions.length, odds) : null
     const fightPhase = fight ? phaseOf(healthLeft(fs, o.need), o.need) : 1
     const record = (q, correct, answer, info = {}) => {
-      pos.current++
+      pos.current = Number.isInteger(info.at) ? info.at : pos.current + 1
       if (q._retry) return // a missed question asked again at the end is practice: it never changes the score
       const choice = info.mode === 'choice'
       const itemId = itemIdFor(q, area.items)
+      // The shared one-answer grade (config/grading.js): a fight's verdict, else right/wrong with the near misses
+      // (a hint scroll, an accent slip, a partly right answer). Items move toward gold only on Good or better.
+      const hintUsed = scrolledFor.current.has(q)
+      const grade = fight
+        ? gradeFromStrike(info.verdict || (correct ? 'clean' : 'miss'), { choice, hintUsed })
+        : gradeAnswer({ correct, choice, hintUsed, accentSlip: !!info.accent, corrected: !!info.partial })
+      const fverdict = info.verdict || (correct ? 'clean' : 'miss')
+      const aid = fight ? (info.aid || fc.open(q, answer, choice ? 'choice' : 'typed', { verdict: fverdict })) : null
+      if (fight) { taunt.onAnswer(); if (fverdict === 'miss' && !info.skipped) taunt.onMiss(q, answer, expectedOf(q)) }
       if (!q._extra) {
         const expected = q.kind === 'choice' ? q.choices?.[q.answerIdx] : (q.accepted || [])[0]
-        answers.current = [...answers.current, { itemId, correct, asked: q.prompt, answered: answer, expected: expected || '' }]
+        answers.current = [...answers.current, { itemId, correct, grade, asked: q.prompt, answered: answer, expected: expected || '', ...(aid ? { aid, verdict: fverdict, q: { prompt: q.prompt, kind: q.kind, accepted: q.accepted, choices: q.choices, answerIdx: q.answerIdx, target: q.target, open: q.open } } : {}) }]
       }
       if (!fight) {
         const e = effort.current
@@ -386,19 +445,26 @@ function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, o
         return null
       }
       const before = fsRef.current
-      if (fightOutcome(before, o)) return null // decided: the rest is not a fight any more
-      const verdict = info.verdict || (correct ? 'clean' : 'miss')
-      let next = strike(before, { verdict, mode: choice ? 'choice' : 'typed', weak: weakIds.includes(itemId), attack: !!q._attack }, { shield })
+      const fkind = q._attack ? 'attack' : 'normal'
+      const weakHit = weakIds.includes(itemId)
+      if (fightOutcome(before, o)) { fc.attach(aid, { cost: {}, kind: fkind, mode: choice ? 'choice' : 'typed', itemId, hintUsed }); return null } // decided: the rest is not a fight any more
+      const verdict = fverdict
+      let next = strike(before, { verdict, mode: choice ? 'choice' : 'typed', weak: weakHit, attack: !!q._attack }, { shield })
       if (next.last?.shielded && !before.shieldUsed) updateMap(modeId, (m) => (m ? spendHelper(m, 'shield') : m))
       // The boss strikes back with what went wrong: the missed question itself, or the other slip of a glancing
       // hit (judgeStrike's follow-up). Never from an attack, never once the fight is decided, at most MAX_ATTACKS.
       let insert = null
       if (!q._attack && !fightOutcome(next, o) && canAttack(next)) {
-        const base = verdict === 'miss' ? { ...q, alt: undefined } : info.attackQ ? { kind: 'typed', prompt: info.attackQ.prompt, accepted: info.attackQ.accepted, exact: !!info.attackQ.exact, target: q.target } : null
+        // `_attackOf`: a re-check that finds the answer right cancels its attack; a glancing slip's follow-up still being
+        // written goes in as a placeholder (`_pending`), skipped when it is not there in time.
+        const a = info.attackQ
+        const base = verdict === 'miss' ? { ...q, alt: undefined, _attackOf: aid }
+          : a ? (a.pending ? { kind: 'typed', prompt: '', accepted: [], target: q.target, _pending: a.pending } : { kind: 'typed', prompt: a.prompt, accepted: a.accepted, exact: !!a.exact, target: q.target, _attackOf: aid }) : null
         if (base) { insert = { ...base, _attack: true }; next = { ...next, attacks: next.attacks + 1 } }
       }
       fsRef.current = next
       setFs(next)
+      fc.attach(aid, { cost: strikeCost(before, next), kind: fkind, mode: choice ? 'choice' : 'typed', weak: weakHit, itemId, hintUsed })
       return insert ? { insert, at: attackSlot(pos.current, Number.MAX_SAFE_INTEGER) } : null
     }
     // Typed answers in a fight are strikes: clean (all right) 2, glancing (the tested thing right, something else
@@ -406,10 +472,13 @@ function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, o
     const judge = fight ? async (q, ans) => {
       const j = await judgeStrike(ai, subject, q, ans, { strictAccents: !subject.accents || subject.strictAccents !== false })
       if (j.verdict === 'error') return { error: true } // could not be checked: QuizRunner asks to try again
+      // The verdict lands at once; the note and a glancing slip's follow-up come later, and a miss or glancing verdict
+      // is looked at again in the background (useFightCheck).
+      const aid = fc.open(q, ans, 'typed', j)
       return {
         correct: j.verdict !== 'miss', partial: j.verdict === 'glancing', note: j.note || '', accent: !!j.accent && j.verdict !== 'miss',
         title: j.verdict === 'clean' ? t('lg_strikeClean') : j.verdict === 'glancing' ? t('lg_strikeGlancing') : '',
-        info: { verdict: j.verdict, attackQ: j.attack || null },
+        info: { verdict: j.verdict, attackQ: j.attack || (j.fixLater ? { pending: aid } : null), aid }, later: j.later,
       }
     } : undefined
     const header = fight ? (q, mode) => (
@@ -435,7 +504,11 @@ function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, o
         title={node.kind === 'boss' ? `👑 ${bossName || t('lg_boss')}` : node.kind === 'legendary' ? `🏅 ${bossName || t('lg_legendary')}` : node.title || t(`lg_kind_${node.kind}`)}
         retryMisses={!fight}
         onAnswer={record} judge={judge} header={header} canUseChoices={canUseChoices} tools={tools}
-        feedbackExtra={(q, correct, answer) => (!correct && (node.kind === 'rule' || fight) && ai.hasKey
+        onQuestion={fight ? () => taunt.onQuestion() : undefined} resolveQuestion={fight ? fc.resolveQuestion : undefined}
+        feedbackExtra={(q, correct, answer) => fight ? (() => {
+          const e = fc.entryFor(q)
+          return e && isWrongish(e.first) ? <MissTools ctx={ctx} entry={e} onAppeal={fc.appeal} onLearn={() => openLearn(e)} rule expected={expectedOf(q)} /> : null
+        })() : (!correct && node.kind === 'rule' && ai.hasKey
           ? <RuleCardButton ctx={ctx} compact deck={ctx.subject?.modeDeck || ''} source={{ asked: q.prompt, answered: answer, expected: q.kind === 'choice' ? q.choices?.[q.answerIdx] : (q.accepted || [])[0] }} />
           : null)}
         onFinish={() => finish()}
@@ -445,12 +518,17 @@ function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, o
     // The fight ends when the boss has no health left (a win: stars count the answers given) or the learner no
     // lives (the rest of the questions count as missed).
     const outcome = fightOutcome(fs, o)
+    oddsRef.current = o
+    if (settling) return <div style={{ maxWidth: 560, margin: '60px auto' }}><EbiSays pose={poseFile('work')}>{t('lg_recheckSettling')}</EbiSays></div>
     return (
       <div style={{ display: 'grid', gap: 12 }}>
         {/* Sticky: a long question or four tall choices scroll UNDER the boss instead of pushing it off screen. */}
         <div style={{ maxWidth: 680, width: '100%', margin: '0 auto', position: 'sticky', top: 0, zIndex: 5, paddingTop: 4, background: C.bg }}>
           <BossArena t={t} area={area} name={bossName} need={o.need} lives={o.lives} bonus={o.bonus} state={fs} weak={weakNames} shield={shield} focus={focus} getZoom={ctx.getZoom} />
+          {!outcome && <TauntBubble bubble={taunt.bubble} name={bossName} calm={focus} />}
+          <FightNotice notice={fc.notice} t={t} />
         </div>
+        {learn && <LearnItPanel ctx={ctx} item={learn} onClose={() => setLearn(null)} closeLabel={t('lg_learnBackToFight')} />}
         {outcome ? <BossEnd t={t} won={outcome === 'won'} onDone={() => finish(outcome === 'lost' ? questions.length : 0)} /> : <div style={{ display: 'grid', gap: 4 }}>{renewRow}{runner}</div>}
       </div>
     )

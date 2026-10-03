@@ -3,6 +3,8 @@
 // Works for ANY subject. The learner level it sets lives in the kit (kit/learner.js) so other features read it.
 // Remove this folder and its line in ../index.js to drop it (the game then never offers the Legends quest).
 import LegendsScreen from './LegendsScreen'
+import AssetScreen from './AssetScreen'
+import { cheatsOn } from './CheatUI'
 import LevelCard from './LevelCard'
 import { LEGENDS_ID } from './store'
 import { CheatSettingsCard } from './CheatUI'
@@ -12,16 +14,22 @@ import HelpBridge from './HelpBridge'
 import { EVENTS } from '../events'
 import { peekMap, updateMap, configureLegends } from './store'
 import { tallyStudiedCard } from './map'
+import './learnerSource' // map progress and raids in the app-wide learner context (kit/learnerContext.js)
 
 // Other features' results move the level through the learner feature (../learner); Legends applies its own.
 
 export default {
   id: LEGENDS_ID,
-  // focus: calm fights (no cinematic or flair); nudge: offer first-time misses as cards once.
-  defaults: { focus: false, nudge: true, motion: false, still: false },
+  // focus: calm fights (no cinematic or flair); nudge: offer first-time misses as cards once; taunts: bosses tease a
+  // miss in their own voice (off in focus mode too).
+  defaults: { focus: false, nudge: true, motion: false, still: false, taunts: true },
   // Tells Ebi's Help what the learner does in Legends, on every screen (helpContext.js).
   Mount: HelpBridge,
-  navItems: [{ id: 'legends', icon: '🗺️', art: 'legends', labelKey: 'lg_nav', order: 15, Screen: LegendsScreen }],
+  navItems: [
+    { id: 'legends', icon: '🗺️', art: 'legends', labelKey: 'lg_nav', order: 15, Screen: LegendsScreen },
+    // Cheat mode only: every boss, raid boss, banner and Ebi draft (AssetView.jsx), straight from the sidebar.
+    { id: 'assets', icon: '🎨', labelKey: 'lg_cheatAssets', order: 95, Screen: AssetScreen, visible: (ctx) => cheatsOn(ctx) },
+  ],
   railCards: [{ id: 'level', order: 25, Component: LevelCard }],
   // The daily raid: the deck's due cards as a boss fight (every answer is a real Anki review).
   practiceActivities: [{ id: 'raid', order: 3, icon: '⚔️', titleKey: 'lg_raidTile', descKey: 'lg_raidTileDesc', Screen: RaidTile }],
@@ -33,12 +41,13 @@ export default {
   on: {
     // A Legends item's card answered in Study counts for the item (codex, Weak spots). Only when the map is already
     // loaded and holds that card: no store read per graded card.
-    [EVENTS.CARD_GRADED]: ({ noteId, correct, mode }, ctx) => {
+    [EVENTS.CARD_GRADED]: ({ noteId, correct, grade, mode }, ctx) => {
       if (noteId == null || mode == null) return
       if (ctx) configureLegends(ctx) // the writer freeze, even when the Legends screen was never opened
       const m = peekMap(mode)
-      if (!m || tallyStudiedCard(m, noteId, correct) === m) return
-      updateMap(mode, (cur) => tallyStudiedCard(cur, noteId, correct))
+      // `grade`: Study's rating under the shared rule (config/grading.js); anything but Again counts right.
+      if (!m || tallyStudiedCard(m, noteId, correct, grade) === m) return
+      updateMap(mode, (cur) => tallyStudiedCard(cur, noteId, correct, grade))
     },
   },
 }

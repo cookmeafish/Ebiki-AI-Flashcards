@@ -16,7 +16,9 @@ import { FONT } from '../config/tokens'
 //    convention elsewhere, so it lands correctly under the app's `body { zoom:1.35 }`.
 //
 // options: [{ value, label, icon?, color?, divider? }]. `divider:true` draws a separator above the row.
-export default function Dropdown({ value, onChange, options, style = {}, menuAlign = 'left', title, getZoom }) {
+// `ariaLabel` names the button for screen readers; `wrapStyle` merges into the wrapper (e.g. `minWidth: 0`
+// so the button can shrink and ellipsize inside a flex row).
+export default function Dropdown({ value, onChange, options, style = {}, menuAlign = 'left', title, getZoom, ariaLabel, wrapStyle }) {
   const [open, setOpen] = useState(false)
   const [menu, setMenu] = useState({ left: 0, top: undefined, bottom: undefined, width: 0, maxH: 300 })
   const wrapRef = useRef(null)
@@ -95,8 +97,9 @@ export default function Dropdown({ value, onChange, options, style = {}, menuAli
   return (
     // A width passed in `style` must apply to the WRAPPER (the button's width:100% would be
     // circular against an inline-block wrapper that shrink-wraps its content).
-    <div ref={wrapRef} style={{ position: 'relative', display: 'inline-block', width: style.width }}>
+    <div ref={wrapRef} style={{ position: 'relative', display: 'inline-block', width: style.width, ...wrapStyle }}>
       <button ref={btnRef} type="button" onClick={toggle} title={title} className="ui-btn"
+        aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open}
         style={{ boxSizing: 'border-box', ...style, display: 'inline-flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
         <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {current ? `${current.icon ? current.icon + ' ' : ''}${current.label}` : ''}

@@ -1,11 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 140">
-  <!-- The Crusher Yard: mountains of junk under a smoggy sun. The Scrap Titan heaves up out of the biggest scrap
-       heap on the right: its radiator fan spinning behind its head like a halo, a traffic cone jammed on its roof, chrome
-       brows arched in glee over mismatched headlight lenses with pinpoint pupils, smiling cheek plates and a grin far
-       too wide for its face, crammed with scrap teeth (bolts, a piano key, a fork, a gold tooth), a wind-up key turning,
-       tire shoulders with rebar spikes, exhaust stacks belching smoke, an excavator-bucket fist slammed into the
-       heap and the crane magnet waving hello. On the left a crane swings a wreck from its magnet over the car crusher, whose press pumps down on a car;
-       crushed cubes are stacked beside it. Rusty barrels, a tire pile and a torn fence with a warning sign in front. -->
+  <!-- The Crusher Yard: mountains of junk under a smoggy sun. The Scrap Titan towers over the biggest scrap heap on
+       the right, the same robot warlord as his boss file, standing on a car he has crushed flat: fire and smog from the
+       exhaust stacks on his back, a jagged orange car-hood pauldron and a steaming truck-panel one, a crested gunmetal
+       helmet with swept fins, red slit eyes that leave light trails, a fanged mouth guard, a windshield chest around his
+       blazing furnace core, a car-door forearm ending in a clawed gauntlet, and the fusion cannon leveled at you,
+       charging (its energy is the part a palette tints). On the left a crane swings a wreck from its magnet over the car
+       crusher, whose press pumps down on a car; crushed cubes are stacked beside it. Rusty barrels, a tire pile and a
+       torn fence with a warning sign in front. -->
   <rect width="400" height="140" fill="#e9edf1"/>
   <circle cx="120" cy="46" r="22" fill="#b36a00" opacity="0.5"/><circle cx="120" cy="46" r="16" fill="#b36a00" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
   <path d="M96 52 H144 M100 58 H140" stroke="#e9edf1" stroke-width="2.4"/>
@@ -46,112 +47,368 @@
   <path d="M66 84 L70 82 M94 86 L98 84" stroke="#ffd23f" stroke-width="1.6"/>
   <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"><path d="M102 120 V106 H118 V120Z" fill="#4f7fbf"/><path d="M118 120 V108 H134 V120Z" fill="#b3452c"/><path d="M108 106 V94 H124 V106Z" fill="#3f9a5a"/></g>
   <path d="M104 110 H116 M120 112 H132 M110 98 H122 M104 115 H116 M120 116 H132 M110 102 H122" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" opacity="0.6"/>
-  <!-- the radiator fan halo, spinning -->
-  <g transform="translate(282 54)">
-  <circle r="56" fill="#8a8f9c" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/><circle r="51" fill="#3a3d45" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
-  <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;360" dur="1.6s" repeatCount="indefinite"/><path d="M0 0 C10 -12 14 -38 6 -49 C-5 -47 -10 -26 0 0Z" transform="rotate(0)" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><path d="M0 0 C10 -12 14 -38 6 -49 C-5 -47 -10 -26 0 0Z" transform="rotate(60)" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><path d="M0 0 C10 -12 14 -38 6 -49 C-5 -47 -10 -26 0 0Z" transform="rotate(120)" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><path d="M0 0 C10 -12 14 -38 6 -49 C-5 -47 -10 -26 0 0Z" transform="rotate(180)" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><path d="M0 0 C10 -12 14 -38 6 -49 C-5 -47 -10 -26 0 0Z" transform="rotate(240)" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><path d="M0 0 C10 -12 14 -38 6 -49 C-5 -47 -10 -26 0 0Z" transform="rotate(300)" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/></g>
-  <circle r="6" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
-  <g fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"><circle cx="53.5" cy="0.0" r="1.4"/><circle cx="46.3" cy="26.7" r="1.4"/><circle cx="26.8" cy="46.3" r="1.4"/><circle cx="0.0" cy="53.5" r="1.4"/><circle cx="-26.7" cy="46.3" r="1.4"/><circle cx="-46.3" cy="26.7" r="1.4"/><circle cx="-53.5" cy="0.0" r="1.4"/><circle cx="-46.3" cy="-26.8" r="1.4"/><circle cx="-26.8" cy="-46.3" r="1.4"/><circle cx="-0.0" cy="-53.5" r="1.4"/><circle cx="26.8" cy="-46.3" r="1.4"/><circle cx="46.3" cy="-26.8" r="1.4"/></g>
+  <!-- the Scrap Titan towering over the yard: the same warlord as his boss file, on the car he crushed -->
+  <g transform="translate(236 21) scale(0.76)">
+
+  <!-- legs planted on the crushed car -->
+  <g>
+    <path d="M-22 141 C-20 132 -12 128 -4 130 L124 130 C134 128 140 132 142 141 C100 143 20 143 -22 141Z" fill="#5c5f68" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
+    <g stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"><path d="M-16 136 L-10 131 L-4 133 L-8 139Z" fill="#7a3a26"/><path d="M128 135 L134 131 L138 136 L133 139Z" fill="#3f7a9a"/></g>
+    <path d="M-2 134 L2 124 L14 119 L26 119 L34 112 L50 109 L70 109 L84 113 L96 119 L110 120 L120 126 L122 134 L114 139 L60 140.5 L4 139Z" fill="#b8352c" stroke="var(--lg-ink, #1d2230)" stroke-width="1.9" stroke-linejoin="round"/>
+    <path d="M2 128 L120 128 L122 134 L114 139 L60 140.5 L4 139 L-2 134Z" fill="#000" opacity="0.28"/>
+    <path d="M4 124 L14 120.4 L26 120.4" fill="none" stroke="#ff8a7a" stroke-width="0.9" opacity="0.8"/>
+    <path d="M36 113.4 L50 110.6 L70 110.6 L82 114" fill="none" stroke="#ff8a7a" stroke-width="0.8" opacity="0.7"/>
+    <path d="M6 131 L18 128 L30 131 L44 127 L58 131 L74 127 L88 131 L102 128 L116 131" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" opacity="0.7"/>
+    <path d="M52 112 L70 112 L76 119 L48 119Z" fill="#8fc3d8" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+    <path d="M60 112.6 L58 116 L62 118.4 M58 116 L53 117.6 M62 115 L68 113.6" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"/>
+    <g transform="translate(8 136)"><ellipse rx="7" ry="4.2" fill="#202127" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/><ellipse rx="3.4" ry="2" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"/></g>
+    <g transform="translate(112 136)"><ellipse rx="7" ry="4.2" fill="#202127" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/><ellipse rx="3.4" ry="2" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"/></g>
+    <path d="M110 121.2 L118 125" stroke="#ffe08a" stroke-width="1.6" stroke-linecap="round"/>
+    <path d="M14 124 L18 122 M100 123 L106 124" stroke="#c4622e" stroke-width="0.9" stroke-linecap="round"/>
   </g>
-  <!-- exhaust stacks belching smoke -->
-  <path d="M238 70 V30 H246 V70Z" fill="#8a8f9c" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/><path d="M236 30 H248 V26 H236Z" fill="#3a3d45" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/><path d="M239 32 V68" stroke="#fff" stroke-width="1" opacity="0.5"/>
-  <g transform="translate(242 24)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-6 -14" dur="2.7s" repeatCount="indefinite"/><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.3;1.3" dur="2.7s" repeatCount="indefinite"/><circle r="5" fill="#5a5f6a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.8"/></g></g></g>
-  <g transform="translate(242 24)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-6 -14" dur="2.7s" begin="0.9s" repeatCount="indefinite"/><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.3;1.3" dur="2.7s" begin="0.9s" repeatCount="indefinite"/><circle r="5" fill="#5a5f6a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.8"/></g></g></g>
-  <g transform="translate(242 24)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-6 -14" dur="2.7s" begin="1.8s" repeatCount="indefinite"/><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.3;1.3" dur="2.7s" begin="1.8s" repeatCount="indefinite"/><circle r="5" fill="#5a5f6a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.8"/></g></g></g>
-  <path d="M318 70 V30 H326 V70Z" fill="#8a8f9c" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/><path d="M316 30 H328 V26 H316Z" fill="#3a3d45" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/><path d="M319 32 V68" stroke="#fff" stroke-width="1" opacity="0.5"/>
-  <g transform="translate(322 24)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -14" dur="2.7s" begin="0.4s" repeatCount="indefinite"/><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.3;1.3" dur="2.7s" begin="0.4s" repeatCount="indefinite"/><circle r="5" fill="#5a5f6a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.8"/></g></g></g>
-  <g transform="translate(322 24)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -14" dur="2.7s" begin="1.3s" repeatCount="indefinite"/><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.3;1.3" dur="2.7s" begin="1.3s" repeatCount="indefinite"/><circle r="5" fill="#5a5f6a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.8"/></g></g></g>
-  <g transform="translate(322 24)"><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;6 -14" dur="2.7s" begin="2.2s" repeatCount="indefinite"/><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0.3;1.3" dur="2.7s" begin="2.2s" repeatCount="indefinite"/><circle r="5" fill="#5a5f6a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" opacity="0.8"/></g></g></g>
-  <g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -1.6;0 0" dur="3s" repeatCount="indefinite"/>
-  <path d="M236 140 L240 92 L262 80 H302 L324 92 L328 140Z" fill="#5c6f86" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
-  <path d="M282 80 H302 L324 92 L328 140 H282Z" fill="#000" opacity="0.18"/>
-  <path d="M262 100 H302 V118 H262Z" fill="#3a3d45" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>
-  <path d="M266 104 H298 V114 H266Z" fill="#ff7a1a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/><path d="M270 104 V114 M276 104 V114 M282 104 V114 M288 104 V114 M294 104 V114" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
-  <g transform="translate(282 109)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.15;1" dur="0.9s" repeatCount="indefinite"/><path d="M-18 -6 H18 V6 H-18Z" fill="#ffd23f" opacity="0.4"/></g></g>
-  <g fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"><circle cx="246" cy="98" r="1.3"/><circle cx="246" cy="110" r="1.3"/><circle cx="318" cy="98" r="1.3"/><circle cx="318" cy="110" r="1.3"/></g>
-  <g transform="translate(238 86)"><circle r="17" fill="#2a2c33" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8"/><path d="M0 -17 V-13" transform="rotate(0)" stroke="#555a66" stroke-width="2.4"/><path d="M0 -17 V-13" transform="rotate(30)" stroke="#555a66" stroke-width="2.4"/><path d="M0 -17 V-13" transform="rotate(60)" stroke="#555a66" stroke-width="2.4"/><path d="M0 -17 V-13" transform="rotate(90)" stroke="#555a66" stroke-width="2.4"/><path d="M0 -17 V-13" transform="rotate(120)" stroke="#555a66" stroke-width="2.4"/><path d="M0 -17 V-13" transform="rotate(150)" stroke="#555a66" stroke-width="2.4"/><path d="M0 -17 V-13" transform="rotate(180)" stroke="#555a66" stroke-width="2.4"/><path d="M0 -17 V-13" transform="rotate(210)" stroke="#555a66" stroke-width="2.4"/><path d="M0 -17 V-13" transform="rotate(240)" stroke="#555a66" stroke-width="2.4"/><path d="M0 -17 V-13" transform="rotate(270)" stroke="#555a66" stroke-width="2.4"/><path d="M0 -17 V-13" transform="rotate(300)" stroke="#555a66" stroke-width="2.4"/><path d="M0 -17 V-13" transform="rotate(330)" stroke="#555a66" stroke-width="2.4"/><circle r="8" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/><circle r="3" fill="#8a8f9c" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/><path d="M-12 -12 L-20 -26 L-8 -15Z M12 -12 L20 -26 L8 -15Z M0 -17 L-2 -30 L4 -17Z" fill="#b3452c" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/></g>
-  <g transform="translate(326 86)"><circle r="17" fill="#2a2c33" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8"/><path d="M0 -17 V-13" transform="rotate(0)" stroke="#555a66" stroke-width="2.4"/><path d="M0 -17 V-13" transform="rotate(30)" stroke="#555a66" stroke-width="2.4"/><path d="M0 -17 V-13" transform="rotate(60)" stroke="#555a66" stroke-width="2.4"/><path d="M0 -17 V-13" transform="rotate(90)" stroke="#555a66" stroke-width="2.4"/><path d="M0 -17 V-13" transform="rotate(120)" stroke="#555a66" stroke-width="2.4"/><path d="M0 -17 V-13" transform="rotate(150)" stroke="#555a66" stroke-width="2.4"/><path d="M0 -17 V-13" transform="rotate(180)" stroke="#555a66" stroke-width="2.4"/><path d="M0 -17 V-13" transform="rotate(210)" stroke="#555a66" stroke-width="2.4"/><path d="M0 -17 V-13" transform="rotate(240)" stroke="#555a66" stroke-width="2.4"/><path d="M0 -17 V-13" transform="rotate(270)" stroke="#555a66" stroke-width="2.4"/><path d="M0 -17 V-13" transform="rotate(300)" stroke="#555a66" stroke-width="2.4"/><path d="M0 -17 V-13" transform="rotate(330)" stroke="#555a66" stroke-width="2.4"/><circle r="8" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/><circle r="3" fill="#8a8f9c" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/><path d="M-12 -12 L-20 -26 L-8 -15Z M12 -12 L20 -26 L8 -15Z M0 -17 L2 -30 L-4 -17Z" fill="#b3452c" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/></g>
-  <path d="M236 92 L222 104 L214 116" stroke="var(--lg-ink, #1d2230)" stroke-width="9" stroke-linecap="round"/><path d="M236 92 L222 104 L214 116" stroke="#ffd23f" stroke-width="6" stroke-linecap="round"/>
-  <path d="M196 112 L226 108 L230 126 L200 132Z" fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/><path d="M200 132 L198 138 L204 132 L206 138 L210 131 L213 137 L216 130 L219 136 L222 129 L230 126" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
-  <path d="M212 110 L226 108 L230 126 L216 128Z" fill="#000" opacity="0.18"/>
-  <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 328 92;-10 328 92;-4 328 92;-10 328 92;0 328 92" keyTimes="0;.3;.5;.7;1" dur="3.6s" repeatCount="indefinite"/>
-  <path d="M328 92 L344 80 L352 66" stroke="var(--lg-ink, #1d2230)" stroke-width="9" stroke-linecap="round"/><path d="M328 92 L344 80 L352 66" stroke="#8a8f9c" stroke-width="6" stroke-linecap="round"/>
-  <path d="M340 66 C340 56 364 56 364 66 V70 H340Z" fill="#3a3d45" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6"/><path d="M340 70 H364 V74 H340Z" fill="#d4342c" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
-  <path d="M344 76 l1.6 4 l-2 1 l2 4" fill="none" stroke="#6ff3ff" stroke-width="1" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.2;1" dur="0.4s" repeatCount="indefinite"/></path>
-  <path d="M351 76 l1.6 4 l-2 1 l2 4" fill="none" stroke="#6ff3ff" stroke-width="1" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.2;1" dur="0.51s" repeatCount="indefinite"/></path>
-  <path d="M358 76 l1.6 4 l-2 1 l2 4" fill="none" stroke="#6ff3ff" stroke-width="1" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.2;1" dur="0.62s" repeatCount="indefinite"/></path>
-  <path d="M344 84 H356 V90 H344Z" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" transform="rotate(12 350 87)"/><circle cx="360" cy="86" r="2.4" fill="#2a2c33" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+  <g>
+    <path d="M38 82 L82 82 L86 92 L70 96 L60 104 L50 96 L34 92Z" fill="#353a44" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M54.6 88 L65.4 88 L64.6 98 L60 103 L55.4 98Z" fill="#f2a227" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1" stroke-linejoin="round"/>
+    <path d="M55 91 L57.4 88.4 L59.4 88.4 L55.2 93.4Z M55.8 96.6 L62 88.4 L64 88.4 L56.6 98.4Z M59.6 101.6 L64.9 94.6 L64.7 97.8 L60.8 102.2Z" fill="var(--lg-ink, #1d2230)"/>
+    <path d="M36 88 L50 90 M70 90 L84 88" stroke="#ff6a1a" stroke-width="0.8" opacity="0.9"/>
   </g>
-  <!-- the head: a car front, the cone jammed on top; it tilts slowly, curious -->
-  <g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0 282 78;-4 282 78;-3.2 282 78;-4 282 78;2.6 282 78;0 282 78" keyTimes="0;.3;.36;.42;.74;1" dur="5.6s" repeatCount="indefinite"/>
-  <path d="M309 47 H314" stroke="var(--lg-ink, #1d2230)" stroke-width="3" stroke-linecap="round"/><path d="M309 47 H314" stroke="#c9ccd6" stroke-width="1.6" stroke-linecap="round"/>
-  <g transform="translate(317 47)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 0.12;1 1" dur="2.4s" repeatCount="indefinite"/>
-    <path d="M0 -1 C-4.6 -1 -5 -7.6 0 -7.6 C5 -7.6 4.6 -1 0 -1Z M0 1 C-4.6 1 -5 7.6 0 7.6 C5 7.6 4.6 1 0 1Z" fill="#e0a13a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
-    <circle cx="0" cy="-4.2" r="1.3" fill="#3a3d45"/><circle cx="0" cy="4.2" r="1.3" fill="#3a3d45"/><circle r="1.5" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+  <g>
+    <path d="M34 84 L57 86 L57 99 L47 105 L28 103 L25 91Z" fill="#4b525f" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M44 95 L57 90 L57 99 L47 105Z" fill="#000" opacity="0.22"/>
+    <path d="M26.6 91 L34.4 85.6" stroke="#ffae4a" stroke-width="0.9" stroke-linecap="round"/>
+    <path d="M38 87.6 L54 89.4 M36 99.6 L46 101.6" stroke="#7a8392" stroke-width="0.6"/>
+    <g transform="translate(30.6 95)"><circle r="5.4" fill="#1f2026" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3"/><circle r="3" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/><circle r="1" fill="#353a44"/><path d="M-4.2 -2 A4.7 4.7 0 0 1 -1 -4.4" fill="none" stroke="#ffae4a" stroke-width="0.9" stroke-linecap="round"/></g>
+    <path d="M47 89.6 L55 90.4 M47 101.4 L54 97.4" stroke="#ff6a1a" stroke-width="0.7" opacity="0.9"/>
+    <circle cx="39" cy="88.6" r="0.6" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/><circle cx="52" cy="94" r="0.6" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/>
+    <circle cx="41" cy="106" r="4.8" fill="#353a44" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3"/>
+    <path d="M29 107 L51 107 L53.4 118 L48 123.4 L31 123.4 L27 116Z" fill="#4b525f" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M40 107 L51 107 L53.4 118 L48 123.4 L40 123.4Z" fill="#000" opacity="0.24"/>
+    <path d="M40 108 V122.4" stroke="#7a8392" stroke-width="0.8"/>
+    <path d="M27.8 115.6 L29.8 108" stroke="#ffae4a" stroke-width="0.9" stroke-linecap="round"/>
+    <path d="M47 109 L50.4 120" stroke="var(--lg-ink, #1d2230)" stroke-width="2.6" stroke-linecap="round"/><path d="M47 109 L48.6 114.4" stroke="#262a32" stroke-width="1.5" stroke-linecap="round"/><path d="M48.6 114.4 L50.4 120" stroke="#c9ccd6" stroke-width="0.9" stroke-linecap="round"/>
+    <path d="M30.6 113 L36 112.4 M30 118.6 L36 118" stroke="#ff6a1a" stroke-width="0.6" opacity="0.8"/>
+    <path d="M31 99.8 L48.4 99.2 L50 105 L41 109.6 L30.4 105.4Z" fill="#f2a227" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+    <path d="M41 105.4 L49.4 103.6 L50 105 L41 109.6Z" fill="#000" opacity="0.25"/>
+    <path d="M34 100.6 L33 92.4 L39.8 100.2Z" fill="#7a8392" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+    <path d="M32.2 101 L47 100.4" stroke="#ffd27a" stroke-width="0.7"/>
+    <circle cx="34" cy="103.6" r="0.6" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/><circle cx="46" cy="102.6" r="0.6" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/>
+    <circle cx="40" cy="123.4" r="3.4" fill="#262a32" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1"/>
+    <path d="M18.6 131 L21.6 124.6 L31 122.2 L48 122.2 L56 127 L56.4 131.4 L20 132.6Z" fill="#353a44" stroke="var(--lg-ink, #1d2230)" stroke-width="1.7" stroke-linejoin="round"/>
+    <path d="M22 124.8 L31 122.9 L47.6 122.9" fill="none" stroke="#7a8392" stroke-width="0.9"/>
+    <path d="M27 124 L25.4 131.8 M35 122.8 L34.4 132.2 M44 122.8 L45 132" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+    <path d="M40 122.4 L48 122.2 L56 127 L56.4 131.4 L40 132Z" fill="#000" opacity="0.2"/>
+    <path d="M20 131.6 L15.6 135.6 L25 132Z M29 132.2 L27.6 137 L34 132.2Z M39 132.2 L39.4 137.4 L44.4 132Z M50 131.8 L53.4 136 L55.6 131.4Z" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"/>
+  </g><g transform="matrix(-1 0 0 1 120 0)"><g>
+    <path d="M34 84 L57 86 L57 99 L47 105 L28 103 L25 91Z" fill="#4b525f" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M44 95 L57 90 L57 99 L47 105Z" fill="#000" opacity="0.12"/>
+    <path d="M26.6 91 L34.4 85.6" stroke="#ffae4a" stroke-width="0.9" stroke-linecap="round"/>
+    <path d="M38 87.6 L54 89.4 M36 99.6 L46 101.6" stroke="#7a8392" stroke-width="0.6"/>
+    <g transform="translate(30.6 95)"><circle r="5.4" fill="#1f2026" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3"/><circle r="3" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/><circle r="1" fill="#353a44"/><path d="M-4.2 -2 A4.7 4.7 0 0 1 -1 -4.4" fill="none" stroke="#ffae4a" stroke-width="0.9" stroke-linecap="round"/></g>
+    <path d="M47 89.6 L55 90.4 M47 101.4 L54 97.4" stroke="#ff6a1a" stroke-width="0.7" opacity="0.9"/>
+    <circle cx="39" cy="88.6" r="0.6" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/><circle cx="52" cy="94" r="0.6" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/>
+    <circle cx="41" cy="106" r="4.8" fill="#353a44" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3"/>
+    <path d="M29 107 L51 107 L53.4 118 L48 123.4 L31 123.4 L27 116Z" fill="#4b525f" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M40 107 L51 107 L53.4 118 L48 123.4 L40 123.4Z" fill="#000" opacity="0.12"/>
+    <path d="M40 108 V122.4" stroke="#7a8392" stroke-width="0.8"/>
+    <path d="M27.8 115.6 L29.8 108" stroke="#ffae4a" stroke-width="0.9" stroke-linecap="round"/>
+    <path d="M47 109 L50.4 120" stroke="var(--lg-ink, #1d2230)" stroke-width="2.6" stroke-linecap="round"/><path d="M47 109 L48.6 114.4" stroke="#262a32" stroke-width="1.5" stroke-linecap="round"/><path d="M48.6 114.4 L50.4 120" stroke="#c9ccd6" stroke-width="0.9" stroke-linecap="round"/>
+    <path d="M30.6 113 L36 112.4 M30 118.6 L36 118" stroke="#ff6a1a" stroke-width="0.6" opacity="0.8"/>
+    <path d="M31 99.8 L48.4 99.2 L50 105 L41 109.6 L30.4 105.4Z" fill="#f2a227" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+    <path d="M41 105.4 L49.4 103.6 L50 105 L41 109.6Z" fill="#000" opacity="0.25"/>
+    <path d="M34 100.6 L33 92.4 L39.8 100.2Z" fill="#7a8392" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+    <path d="M32.2 101 L47 100.4" stroke="#ffd27a" stroke-width="0.7"/>
+    <circle cx="34" cy="103.6" r="0.6" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/><circle cx="46" cy="102.6" r="0.6" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/>
+    <circle cx="40" cy="123.4" r="3.4" fill="#262a32" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1"/>
+    <path d="M18.6 131 L21.6 124.6 L31 122.2 L48 122.2 L56 127 L56.4 131.4 L20 132.6Z" fill="#353a44" stroke="var(--lg-ink, #1d2230)" stroke-width="1.7" stroke-linejoin="round"/>
+    <path d="M22 124.8 L31 122.9 L47.6 122.9" fill="none" stroke="#7a8392" stroke-width="0.9"/>
+    <path d="M27 124 L25.4 131.8 M35 122.8 L34.4 132.2 M44 122.8 L45 132" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+    <path d="M40 122.4 L48 122.2 L56 127 L56.4 131.4 L40 132Z" fill="#000" opacity="0.2"/>
+    <path d="M20 131.6 L15.6 135.6 L25 132Z M29 132.2 L27.6 137 L34 132.2Z M39 132.2 L39.4 137.4 L44.4 132Z M50 131.8 L53.4 136 L55.6 131.4Z" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"/>
   </g></g>
-  <path d="M256 40 L262 28 H302 L308 40 L310 66 L302 76 H262 L254 66Z" fill="#e09a1a" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
-  <path d="M282 28 H302 L308 40 L310 66 L302 76 H282Z" fill="#000" opacity="0.18"/>
-  <path d="M264 30 H300 L304 38 H260Z" fill="#bdf5ff" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/><path d="M270 31 L276 37 M284 31 L290 37" stroke="#fff" stroke-width="1"/>
-  <path d="M278 31 L282 34 L279 35" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
-  <path d="M273 28 L278 10 H286 L291 28Z" fill="var(--lg-tint,#ff7a1a)" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3" stroke-linejoin="round"/><path d="M275.6 20 H288.4 L287.4 16 H276.6Z" fill="#fff"/><path d="M271 28 H293 V30 H271Z" fill="var(--lg-tint-lo,#c95a10)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
-  <!-- mismatched headlight lenses, wide and delighted, pinpoint pupils; the cracked one blinks -->
-  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"><circle cx="268" cy="49" r="8.6" fill="#9aa0ae"/><circle cx="296" cy="50" r="7" fill="#9aa0ae"/></g>
-  <g transform="translate(268 49)">
-    <circle r="9.6" fill="#fff6a8" opacity="0.45"/><circle r="5.6" fill="#ffe36b"/><circle r="4.3" fill="#fffbe0"/>
-    <circle r="1.8" fill="none" stroke="#e0b030" stroke-width="0.5"/><circle r="1" fill="#1d1b28"/><circle cx="-2.8" cy="-2.8" r="1" fill="#fff"/>
-  </g>
-  <g transform="translate(296 50)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1;1 0.08;1 1;1 1" keyTimes="0;.86;.9;.95;1" dur="4.4s" repeatCount="indefinite"/>
-    <circle r="8" fill="#fff6a8" opacity="0.45"/><circle r="4.5" fill="#ffe36b"/><circle r="3.5" fill="#fffbe0"/>
-    <circle r="1.5" fill="none" stroke="#e0b030" stroke-width="0.5"/><circle r="0.85" fill="#1d1b28"/><circle cx="-2.2" cy="-2.2" r="0.8" fill="#fff"/>
-    <path d="M-4.4 -3 L-1.2 -0.4 L-2.4 2.8 M-1.2 -0.4 L2.6 -4.2 M-1.2 -0.4 L4.4 1.4" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"/>
-  </g></g>
-  <!-- cheek plates pushed up: smiling eyes, crinkled at the corners -->
-  <path d="M258.88 54 Q268 48 277.12 54 A10.4 10.4 0 0 1 258.88 54Z" fill="#e09a1a"/>
-  <path d="M288.73 54.6 Q296 49.4 303.27 54.6 A8.6 8.6 0 0 1 288.73 54.6Z" fill="#e09a1a"/>
-  <path d="M288.73 54.6 Q296 49.4 303.27 54.6 A8.6 8.6 0 0 1 288.73 54.6Z" fill="#000" opacity="0.18"/>
-  <path d="M258 54.6 Q268 45 278 54.6 M288 55 Q296 47.8 304 55 M258 51.6 L256.2 50.4 M258.2 54 L256.4 54.2 M304.4 52.2 L306.4 51 M304.6 54.6 L306.6 54.8" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linecap="round"/>
-  <!-- chrome brows arched in glee, the right one higher -->
-  <path d="M257 41 C259 34 273 32 277 38 L275 40 C271 35.6 262 36.6 260 42.6Z" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3" stroke-linejoin="round"/>
-  <path d="M307 39.4 C305 32 292 30 287 36.4 L289 38.4 C293 33.6 302 34.6 304 41Z" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3" stroke-linejoin="round"/>
-  <path d="M258.6 39.6 C261 35 271 33.6 275.4 37.6 M305.4 38 C303 33.4 293 32 288.6 36" fill="none" stroke="#fff" stroke-width="0.8"/>
-  <!-- the grin: far too wide, curling past the cheeks, crammed with scrap teeth; it twitches wider now and then -->
-  <g transform="translate(282 66)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1;1.07 1.05;1.03 1.02;1.07 1.05;1 1" keyTimes="0;.6;.66;.7;.75;1" dur="4.8s" repeatCount="indefinite"/><g transform="translate(-282 -66)">
-    <path d="M256 58 C266 65 298 65 308 58 C300 79 264 79 256 58Z" fill="#14121c"/>
-    <ellipse cx="282" cy="70.6" rx="11" ry="2.6" fill="#ff7a1a" opacity="0.55"/>
-    <g stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round">
-      <path d="M261 66.4 L263 62.4 L264.6 68.4Z" fill="#e6e8ee"/>
-      <path d="M268.4 71.4 V66.8 L269.2 64.8 L270 66.8 V71.4Z" fill="#c9ccd6"/>
-      <path d="M274.4 73.4 L276.6 67 L278.8 73.4Z" fill="#e6e8ee"/>
-      <rect x="280.4" y="69" width="4" height="4.8" rx="0.6" fill="#ffd23f"/>
-      <path d="M286.6 73.4 L288.8 67 L291 73.2Z" fill="#e6e8ee"/>
-      <path d="M295.6 71 L297.8 65.4 L299.8 70.2Z" fill="#e6e8ee"/>
-      <path d="M301.4 67 L303.2 62.8 L304.6 65.2Z" fill="#e6e8ee"/>
-      <path d="M258.6 58.6 L260.4 64 L262.4 60.2Z" fill="#e6e8ee"/>
-      <path d="M265.4 60.6 L267.3 61.7 V63.9 L265.4 65 L263.5 63.9 V61.7Z" fill="#c9ccd6"/>
-      <rect x="268" y="61.4" width="4.4" height="7.4" rx="0.5" fill="#fbfaf4"/>
-      <rect x="270.6" y="61.4" width="2.2" height="4.2" rx="0.3" fill="#1d1b28"/>
-      <path d="M273.4 62.4 L275.6 70 L277.6 62.8Z" fill="#e6e8ee"/>
-      <rect x="278.4" y="63" width="3.6" height="5" rx="0.5" fill="#f2efe6"/>
-      <rect x="282.6" y="63" width="3.6" height="5.8" rx="0.5" fill="#e6e8ee" transform="rotate(5 284.4 63)"/>
-      <path d="M287 62.8 H290.6 V64.8 H287Z" fill="#c9ccd6"/>
-      <path d="M291.4 62.4 L293.4 69 L295.4 61.8Z" fill="#e6e8ee"/>
-      <path d="M299 59.4 L300.8 60.4 V62.4 L299 63.4 L297.2 62.4 V60.4Z" fill="#c9ccd6"/>
-      <path d="M301.8 60.2 L303.6 64.4 L305.6 59.2Z" fill="#e6e8ee"/>
+  <g><g><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;0 -0.8;0 0" dur="3.4s" repeatCount="indefinite" begin="1.6s"/><g transform="rotate(-2.5 60 90)">
+  <!-- the stacks on his back, breathing fire and smog -->
+  <g transform="translate(40 36) rotate(-30)">
+    <path d="M-4.5 0 L-4 -30 L4 -30 L4.5 0Z" fill="#4b525f" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M-3.4 -1 L-3 -29 L-1.4 -29 L-1.6 -1Z" fill="#eef1f6" opacity="0.5"/>
+    <path d="M1.6 -1 L1.8 -29 L4 -29 L4.4 -1Z" fill="#000" opacity="0.3"/>
+    <path d="M-4.3 -10 H4.3 M-4.1 -20 H4.1" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/><path d="M-4.3 -10 H4.3 M-4.1 -20 H4.1" stroke="#262a32" stroke-width="1"/>
+    <path d="M-2.6 -19 c0.5 3 -0.3 5 0.3 8" fill="none" stroke="#c4622e" stroke-width="1" stroke-linecap="round" opacity="0.9"/>
+    <path d="M-6 -30 L6 -30 L5.4 -34 L-5.4 -34Z" fill="#353a44" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+    <path d="M-4.6 -32.6 H4.6" stroke="#ffae4a" stroke-width="0.7"/>
+    <ellipse cx="0" cy="-34" rx="4.6" ry="1.1" fill="#ffb23a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+    <g transform="translate(0 -34)"><g style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.1 1.3;0.9 0.8;1.06 1.16;1 1" dur="0.52s" repeatCount="indefinite" keyTimes="0;.25;.5;.75;1"/>
+      <path d="M-4.2 0 C-6 -5 -1.6 -7 -1.6 -14 C0.8 -9 2.4 -9.4 1.8 -5 C3.2 -6.6 4.6 -8.8 4.2 -12 C7.4 -6.6 6 -2 4.2 0Z" fill="#ff4d12" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+      <path d="M-3 0 C-3.8 -3.4 -0.8 -5 -0.6 -9 C0.6 -6 1.8 -6 1.3 -3.4 C2.4 -4.2 3.6 -5.6 3.6 -7.4 C4.8 -4 4.2 -1.6 3 0Z" fill="#ffb23a"/>
+      <path d="M-1.6 0 C-1.8 -1.8 -0.6 -2.6 -0.4 -4.4 C0.6 -2.8 1.6 -1.8 1.4 0Z" fill="#fff1b8"/>
+    </g></g>
+    <g transform="translate(0 -35)"><g transform="scale(0.02)">
+      <path d="M0 -14 L3 -6 L10 -10 L6 -3 L13 0 L5 2 L7 8 L0 4 L-7 8 L-5 2 L-13 0 L-6 -3 L-10 -10 L-3 -6Z" fill="#ff6a14" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+      <path d="M0 -8 L2 -3 L6 -4 L3.6 -0.6 L6 2 L1 1.4 L0 4 L-1 1.4 L-6 2 L-3.6 -0.6 L-6 -4 L-2 -3Z" fill="#ffd23a"/>
+    </g></g>
+    <g fill="#33353d" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8">
+      <g style="transform-box:fill-box;transform-origin:center"><circle cx="0" cy="-50" r="2.8"/><circle cx="2.2" cy="-51.4" r="2.1"/><circle cx="-2" cy="-51.8" r="1.8"/><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-2 -6" dur="2.2s" repeatCount="indefinite" begin="0s"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1.2;0" dur="2.2s" repeatCount="indefinite" keyTimes="0;.2;.75;1" begin="0s" additive="sum"/></g>
+      <g style="transform-box:fill-box;transform-origin:center"><circle cx="0" cy="-50" r="2.2"/><circle cx="1.8" cy="-51.4" r="1.6"/><circle cx="-1.5" cy="-51.8" r="1.4"/><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;2 -6" dur="2.6s" repeatCount="indefinite" begin="1s"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1.2;0" dur="2.6s" repeatCount="indefinite" keyTimes="0;.2;.75;1" begin="1s" additive="sum"/></g>
     </g>
-    <path d="M287.6 64.8 V68.4 L288.6 69.6 M289 64.8 V68.8 M290.2 64.8 V67.8" fill="none" stroke="#c9ccd6" stroke-width="0.7" stroke-linecap="round"/>
-    <path d="M256 58 C266 65 298 65 308 58 C300 79 264 79 256 58Z" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="2.8" stroke-linejoin="round"/>
-    <path d="M256 58 C266 65 298 65 308 58 C300 79 264 79 256 58Z" fill="none" stroke="#c9ccd6" stroke-width="1.3" stroke-linejoin="round"/>
-    <path d="M256.4 58.4 C253.2 57 252.8 53 255.6 52 M307.6 58.4 C310.8 57 311.2 53 308.4 52" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linecap="round"/>
-  </g></g></g>
-  <!-- the chin bumper with a smiley tag -->
-  <path d="M258 75 H306 L304 81 H260Z" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/><path d="M260 76.6 H304" stroke="#fff" stroke-width="0.9"/>
-  <path d="M276 76.6 H288 V80.4 H276Z" fill="#ffd23f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
-  <path d="M279.4 78 C280.6 79.8 283.4 79.8 284.6 78" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" stroke-linecap="round"/>
   </g>
+  <g transform="translate(80 36) rotate(30)">
+    <path d="M-4.5 0 L-4 -30 L4 -30 L4.5 0Z" fill="#4b525f" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M-3.4 -1 L-3 -29 L-1.4 -29 L-1.6 -1Z" fill="#eef1f6" opacity="0.5"/>
+    <path d="M1.6 -1 L1.8 -29 L4 -29 L4.4 -1Z" fill="#000" opacity="0.3"/>
+    <path d="M-4.3 -10 H4.3 M-4.1 -20 H4.1" stroke="var(--lg-ink, #1d2230)" stroke-width="2"/><path d="M-4.3 -10 H4.3 M-4.1 -20 H4.1" stroke="#262a32" stroke-width="1"/>
+    <path d="M-2.6 -19 c0.5 3 -0.3 5 0.3 8" fill="none" stroke="#c4622e" stroke-width="1" stroke-linecap="round" opacity="0.9"/>
+    <path d="M-6 -30 L6 -30 L5.4 -34 L-5.4 -34Z" fill="#353a44" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+    <path d="M-4.6 -32.6 H4.6" stroke="#ffae4a" stroke-width="0.7"/>
+    <ellipse cx="0" cy="-34" rx="4.6" ry="1.1" fill="#ffb23a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+    <g transform="translate(0 -34)"><g style="transform-box:fill-box;transform-origin:center bottom"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.1 1.3;0.9 0.8;1.06 1.16;1 1" dur="0.64s" repeatCount="indefinite" keyTimes="0;.25;.5;.75;1"/>
+      <path d="M-4.2 0 C-6 -5 -1.6 -7 -1.6 -14 C0.8 -9 2.4 -9.4 1.8 -5 C3.2 -6.6 4.6 -8.8 4.2 -12 C7.4 -6.6 6 -2 4.2 0Z" fill="#ff4d12" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+      <path d="M-3 0 C-3.8 -3.4 -0.8 -5 -0.6 -9 C0.6 -6 1.8 -6 1.3 -3.4 C2.4 -4.2 3.6 -5.6 3.6 -7.4 C4.8 -4 4.2 -1.6 3 0Z" fill="#ffb23a"/>
+      <path d="M-1.6 0 C-1.8 -1.8 -0.6 -2.6 -0.4 -4.4 C0.6 -2.8 1.6 -1.8 1.4 0Z" fill="#fff1b8"/>
+    </g></g>
+    <g transform="translate(0 -35)"><g transform="scale(0.02)">
+      <path d="M0 -14 L3 -6 L10 -10 L6 -3 L13 0 L5 2 L7 8 L0 4 L-7 8 L-5 2 L-13 0 L-6 -3 L-10 -10 L-3 -6Z" fill="#ff6a14" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+      <path d="M0 -8 L2 -3 L6 -4 L3.6 -0.6 L6 2 L1 1.4 L0 4 L-1 1.4 L-6 2 L-3.6 -0.6 L-6 -4 L-2 -3Z" fill="#ffd23a"/>
+    </g></g>
+    <g fill="#33353d" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8">
+      <g style="transform-box:fill-box;transform-origin:center"><circle cx="0" cy="-50" r="2.8"/><circle cx="2.2" cy="-51.4" r="2.1"/><circle cx="-2" cy="-51.8" r="1.8"/><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;-2 -6" dur="2.2s" repeatCount="indefinite" begin="0.8s"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1.2;0" dur="2.2s" repeatCount="indefinite" keyTimes="0;.2;.75;1" begin="0.8s" additive="sum"/></g>
+      <g style="transform-box:fill-box;transform-origin:center"><circle cx="0" cy="-50" r="2.2"/><circle cx="1.8" cy="-51.4" r="1.6"/><circle cx="-1.5" cy="-51.8" r="1.4"/><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;2 -6" dur="2.6s" repeatCount="indefinite" begin="1.8s"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1.2;0" dur="2.6s" repeatCount="indefinite" keyTimes="0;.2;.75;1" begin="1.8s" additive="sum"/></g>
+    </g>
+  </g>
+  <!-- a broad chest of windshield plates around a radiator grille, the furnace core blazing behind it; a tapered waist on pistons -->
+  <g>
+    <path d="M38 68 L82 68 L78 86 L42 86Z" fill="#262a32" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/>
+    <path d="M41 71 L79 71 L78 75.4 L42 75.4Z M42.6 77.4 L77.4 77.4 L76.4 81.4 L43.6 81.4Z" fill="#4b525f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+    <path d="M43.2 71.8 H77 M44.4 78.2 H75.8" stroke="#7a8392" stroke-width="0.6"/>
+    <path d="M42.4 76.4 H77.6 M43.6 82.4 H76.4" stroke="#ff6a1a" stroke-width="0.7"/>
+    <path d="M60 70 V85" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    <path d="M34 62 L41 75" stroke="var(--lg-ink, #1d2230)" stroke-width="3.6" stroke-linecap="round"/><path d="M34 62 L37.6 68.6" stroke="#4b525f" stroke-width="2.4" stroke-linecap="round"/><path d="M37.6 68.6 L41 75" stroke="#c9ccd6" stroke-width="1.3" stroke-linecap="round"/>
+    <path d="M86 62 L79 75" stroke="var(--lg-ink, #1d2230)" stroke-width="3.6" stroke-linecap="round"/><path d="M86 62 L82.4 68.6" stroke="#4b525f" stroke-width="2.4" stroke-linecap="round"/><path d="M82.4 68.6 L79 75" stroke="#c9ccd6" stroke-width="1.3" stroke-linecap="round"/>
+    <path d="M24 34 L96 34 L98 46 L86 70 L34 70 L22 46Z" fill="#4b525f" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M22 46 L98 46 L86 70 L34 70Z" fill="#000" opacity="0.16"/>
+    <path d="M60 34 L96 34 L98 46 L86 70 L60 70Z" fill="#000" opacity="0.1"/>
+    <path d="M25.4 35.6 L23.6 45.6 M94.6 35.6 L96.4 45.6" stroke="#ffae4a" stroke-width="1" stroke-linecap="round"/>
+    <path d="M29 38 L54 40 L53 55 L35 54 L27 45Z" fill="#6aa7c4" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3" stroke-linejoin="round"/>
+    <path d="M91 38 L66 40 L67 55 L85 54 L93 45Z" fill="#6aa7c4" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3" stroke-linejoin="round"/>
+    <path d="M30.4 40 L41 40.8 L33 51 L28.6 45Z" fill="#d6f1ff" opacity="0.55"/>
+    <path d="M44 41.4 L47 41.6 L39 53.4 L36 53.2Z" fill="#d6f1ff" opacity="0.4"/>
+    <path d="M77 40.6 L89.4 39.6 L91.4 45 L86 52 Z" fill="#000" opacity="0.18"/>
+    <path d="M44 46 L40 49.6 L42 52 M40 49.6 L35.6 49" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5"/>
+    <path d="M72 43 L77 47.6 L75.6 52.6 M77 47.6 L82.6 46.6 M77 47.6 L80 51.4" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="0.55"/>
+    <path d="M28.4 45.6 L30.6 39.4" stroke="#ffae4a" stroke-width="0.8"/>
+    <path d="M52 41 L68 41 L69 63 L60 68 L51 63Z" fill="#2a1712" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+    <g transform="translate(60 54)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.12;0.96;1" dur="1.3s" repeatCount="indefinite" keyTimes="0;.35;.7;1"/><g transform="translate(-60 -54)"><path d="M53.6 44 L66.4 44 L67 62 L60 66 L53 62Z" fill="#ff6a1a"/><path d="M56 47 L64 47 L64.4 60 L60 63 L55.6 60Z" fill="#ffb23a"/><ellipse cx="60" cy="54" rx="2.6" ry="5" fill="#fff1b8"/></g></g></g>
+    <path d="M54 42.6 V63.8 M57 42.6 V66.2 M60 42.6 V67.4 M63 42.6 V66.2 M66 42.6 V63.8" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6"/>
+    <path d="M54 42.6 V63.8 M57 42.6 V66.2 M60 42.6 V67.4 M63 42.6 V66.2 M66 42.6 V63.8" stroke="#c9ccd6" stroke-width="0.8"/>
+    <path d="M51.6 41.4 H68.4" stroke="#eef1f6" stroke-width="0.8"/>
+    <path d="M33 58 L44 58.6 L43 63.4 L34.4 62.4Z" fill="#fff1b8" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+    <path d="M87 58 L76 58.6 L77 63.4 L85.6 62.4Z" fill="#fff1b8" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+    <path d="M34.4 59.4 L39 59.7 M81 59.7 L85.6 59.4" stroke="#fff" stroke-width="0.7"/>
+    <path d="M27.6 46.6 L34.6 55.2 L52.6 56.2 M92.4 46.6 L85.4 55.2 L67.4 56.2" fill="none" stroke="#ff6a1a" stroke-width="0.8"/>
+    <path d="M36 66 L50 66.6 M84 66 L70 66.6" stroke="#ff6a1a" stroke-width="0.7" opacity="0.9"/>
+    <path d="M42 36 L40 38.6 M80 36.4 L78.6 38.6 M48 67 L46 69" stroke="#eef1f6" stroke-width="0.5" opacity="0.8"/>
+    <path d="M90 47 c0.4 3 -0.4 5 0.2 8" fill="none" stroke="#c4622e" stroke-width="0.9" stroke-linecap="round" opacity="0.85"/>
+    <circle cx="26" cy="37" r="0.7" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/><circle cx="94" cy="37" r="0.7" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/><circle cx="37" cy="66" r="0.7" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/><circle cx="83" cy="66" r="0.7" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/><circle cx="48" cy="68" r="0.7" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/><circle cx="72" cy="68" r="0.7" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/>
+  </g>
+  <!-- the car-hood pauldrons unfold into place -->
+  <g><g>
+    <path d="M22 50 L44 42 L48 54 L28 62Z" fill="#000" opacity="0.3"/>
+    <path d="M-16 52 L46 36 L46 48 L33 59 L9 65.5 L-12 64Z" fill="#353a44" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M-11 62.4 L9 64 L32 57.6 L44.6 47.6" fill="none" stroke="#7a8392" stroke-width="0.7"/>
+    <circle cx="-6" cy="62.6" r="0.6" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/><circle cx="10" cy="63.6" r="0.6" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/><circle cx="24" cy="60.4" r="0.6" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/><circle cx="38" cy="53" r="0.6" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/>
+    <path d="M-10 59 L9 60 L31 54 L43 44 L43.4 47 L31.4 57 L9.4 63 L-9.6 62Z" fill="#b8681a" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+    <g transform="translate(-6 29)"><circle r="8.6" fill="#1f2026" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5"/><circle r="4.6" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"/><circle r="1.4" fill="#353a44"/><path d="M-7 -3 A7.6 7.6 0 0 1 -2 -7.4" fill="none" stroke="#ffae4a" stroke-width="1.1" stroke-linecap="round"/></g>
+    <path d="M-18 47 L-23 41 L-15.6 39.6 L-17 33 L-8 31 L8 23 L30 20 L45 29 L43 44 L31 54 L9 60 L-10 59Z" fill="#f2a227" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M-10 59 L-14 50 L40 32 L43 44 L31 54 L9 60Z" fill="#b8681a" opacity="0.55"/>
+    <path d="M-15 46 L-4 38 L40 26.6 L44 30 L-12 49Z" fill="#ffd27a" opacity="0.6"/>
+    <path d="M-12 49 L44 30" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" opacity="0.6"/>
+    <path d="M-10 59 L9 60 L31 54 L43 44 L39.6 42.2 L28.4 50.4 L8.2 55.6 L-9.2 54.6Z" fill="#ffd27a"/><path d="M-10 59 L-5.93 59.21 L-2.86 54.96 L-6.59 54.75Z M-1.86 59.43 L2.21 59.64 L4.6 55.39 L0.87 55.18Z M6.29 59.86 L10.57 59.57 L12.67 54.45 L8.34 55.56Z M15.29 58.29 L20 57 L21.33 52.22 L17 53.33Z M24.71 55.71 L29.43 54.43 L29.28 49.76 L25.66 51.11Z M32.71 52.57 L35.29 50.43 L34.08 46.24 L31.68 48Z M37.86 48.29 L40.43 46.14 L38.88 42.73 L36.48 44.48Z " fill="var(--lg-ink, #1d2230)"/>
+    <path d="M6 37 L22 32 L23.4 37.6 L7.6 42Z" fill="#262a32" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+    <path d="M9 38.6 L21 35 M9.6 40.4 L21.6 36.8" stroke="#7a8392" stroke-width="0.6"/>
+    <path d="M-16 34 L-7.6 31.6 L8.4 23.6 L30 20.8 L44 29.4" fill="none" stroke="#ffae4a" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M28 21 L33 9 L35 22.4Z" fill="#7a8392" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/><path d="M33 9 L34.2 21.6" stroke="#eef1f6" stroke-width="0.5"/>
+    <path d="M12 23 L14 12 L19 21.6Z" fill="#7a8392" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/><path d="M14 12 L17.6 21.4" stroke="#eef1f6" stroke-width="0.5"/>
+    <path d="M-2 46 l1.6 -1.2 M3 50 l2 -0.8 M26 41 l2.6 -1 M-6 44 l3 -1.6" stroke="#fff" stroke-width="0.5" opacity="0.8"/>
+    <path d="M30 44 C31 46 29.4 48 31 49.6" fill="none" stroke="#9a3f1e" stroke-width="1.1" stroke-linecap="round"/>
+    <path d="M-1 41.4 C0 44 -1.4 46 0 48.6" fill="none" stroke="#9a3f1e" stroke-width="1" stroke-linecap="round"/>
+    <path d="M16 46 A3 3 0 0 1 21 45" fill="none" stroke="#b8681a" stroke-width="0.9"/><path d="M16.4 47 A3 3 0 0 0 21.4 46" fill="none" stroke="#ffd27a" stroke-width="0.6"/>
+    <circle cx="-12" cy="45" r="0.8" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/><circle cx="2" cy="35" r="0.8" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/><circle cx="36" cy="28" r="0.8" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/><circle cx="40" cy="40" r="0.8" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/>
+  </g></g>
+  <g><g>
+    <path d="M98 50 L76 42 L72 54 L92 62Z" fill="#000" opacity="0.3"/>
+    <path d="M136 52 L74 36 L74 48 L87 59 L111 65.5 L132 64Z" fill="#262a32" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M131 62.4 L111 64 L88 57.6 L75.4 47.6" fill="none" stroke="#4b525f" stroke-width="0.7"/>
+    <circle cx="126" cy="62.6" r="0.6" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/><circle cx="110" cy="63.6" r="0.6" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/><circle cx="96" cy="60.4" r="0.6" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/><circle cx="82" cy="53" r="0.6" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/>
+    <path d="M130 59 L111 60 L89 54 L77 44 L76.6 47 L88.6 57 L110.6 63 L129.6 62Z" fill="#262a32" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+    <g transform="translate(126 29)"><circle r="8.6" fill="#1f2026" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5"/><circle r="4.6" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"/><circle r="1.4" fill="#353a44"/><path d="M7 -3 A7.6 7.6 0 0 0 2 -7.4" fill="none" stroke="#ffae4a" stroke-width="1.1" stroke-linecap="round"/></g>
+    <path d="M138 47 L143 41 L135.6 39.6 L137 33 L128 31 L112 23 L90 20 L75 29 L77 44 L89 54 L111 60 L130 59Z" fill="#5d6574" stroke="var(--lg-ink, #1d2230)" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M130 59 L134 50 L80 32 L77 44 L89 54 L111 60Z" fill="#000" opacity="0.3"/>
+    <path d="M135 46 L124 38 L80 26.6 L76 30 L132 49Z" fill="#aab2c0" opacity="0.45"/>
+    <path d="M132 49 L76 30" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" opacity="0.7"/>
+    <path d="M100 41 L114 45.4 L111 51.6 L97 47.6Z" fill="#9a3f1e" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round" opacity="0.95"/>
+    <path d="M101 43 L112 46.4" stroke="#c4622e" stroke-width="0.6"/>
+    <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linecap="round"><path d="M84 38 L94 41"/><path d="M83 42 L93 45"/><path d="M82 46 L92 49"/></g>
+    <g stroke="#7a8392" stroke-width="0.6" stroke-linecap="round"><path d="M84.4 37 L93.6 39.8"/><path d="M83.4 41 L92.6 43.8"/><path d="M82.4 45 L91.6 47.8"/></g>
+    <path d="M136 34 L127.6 31.6 L111.6 23.6 L90 20.8 L76 29.4" fill="none" stroke="#ffae4a" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M92 21 L88 8 L97 21.6Z" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+    <path d="M108 23 L108 10 L113.6 24.4Z" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="1" stroke-linejoin="round"/>
+    <path d="M124 49 L129 46 M118 54 L122 52.6 M104 55 l3 0.6" stroke="#fff" stroke-width="0.5" opacity="0.7"/>
+    <path d="M120 38 C121 41 119.6 43 121 46" fill="none" stroke="#c4622e" stroke-width="1" stroke-linecap="round"/>
+    <path d="M89 54 L111 60 L130 59" fill="none" stroke="#ff6a1a" stroke-width="0.8" opacity="0.8"/>
+    <circle cx="132" cy="45" r="0.8" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/><circle cx="118" cy="35" r="0.8" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/><circle cx="84" cy="28" r="0.8" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/><circle cx="80" cy="41" r="0.8" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/><circle cx="96" cy="55" r="0.8" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/><circle cx="108" cy="57.6" r="0.8" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/>
+    <g transform="translate(126 41)">
+      <path d="M-3 -1.6 L3 -1.6 L3 1.6 L-3 1.6Z" fill="#262a32" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"/>
+      <g style="transform-box:fill-box;transform-origin:center"><circle cx="-1" cy="-5" r="2.2" fill="#e6e9f0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/><circle cx="0.6" cy="-6.4" r="1.6" fill="#e6e9f0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;1 -7" dur="1.7s" repeatCount="indefinite" begin="0s"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1.3;0" dur="1.7s" repeatCount="indefinite" keyTimes="0;.2;.7;1" begin="0s" additive="sum"/></g><g style="transform-box:fill-box;transform-origin:center"><circle cx="1" cy="-5" r="2.2" fill="#e6e9f0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/><circle cx="2.4" cy="-6.4" r="1.6" fill="#e6e9f0" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/><animateTransform class="lg-loop" attributeName="transform" type="translate" values="0 0;3 -7" dur="2.2s" repeatCount="indefinite" begin="0.8s"/><animateTransform class="lg-loop" attributeName="transform" type="scale" values="0;1;1.3;0" dur="2.2s" repeatCount="indefinite" keyTimes="0;.2;.7;1" begin="0.8s" additive="sum"/></g>
+    </g>
+  </g></g>
+  <!-- the head rises out of his collar: crested helmet, swept fins, slit eyes, a fanged mouth guard -->
+  <g><g transform="translate(60 30) scale(1.24) translate(-60 -30)"><g>
+    <path d="M42 36 L46 26 L74 26 L78 36Z" fill="#262a32" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+    <path d="M47 30 H73 M46 33 H74" stroke="#7a8392" stroke-width="0.6"/>
+    <path d="M49 22 L38 4 L35 -7 L44 -1 L53 14Z" fill="#4b525f" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/>
+    <path d="M71 22 L82 4 L85 -7 L76 -1 L67 14Z" fill="#4b525f" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5" stroke-linejoin="round"/>
+    <path d="M36.2 -5 L44 -1 L52 13.4" fill="none" stroke="#ffae4a" stroke-width="0.9" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M83.8 -5 L76 -1 L68 13.4" fill="none" stroke="#ffae4a" stroke-width="0.9" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M49 21 L40 5 L44 3 L52 15Z" fill="#000" opacity="0.25"/>
+    <path d="M71 21 L80 5 L76 3 L68 15Z" fill="#000" opacity="0.32"/>
+    <path d="M45.4 32 L45 18 L50 9 L60 4.6 L70 9 L75 18 L74.6 32 L68 30 L60 31 L52 30Z" fill="#4b525f" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
+    <path d="M60 4.6 L70 9 L75 18 L74.6 32 L68 30 L60 31Z" fill="#000" opacity="0.2"/>
+    <path d="M46.6 17.6 L50.6 10 L59 6.4" fill="none" stroke="#ffae4a" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M56 14 L60 -9 L64 14Z" fill="#4b525f" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M60 -9 L64 14 L60 14Z" fill="#000" opacity="0.28"/>
+    <path d="M60 -6 V13" stroke="#7a8392" stroke-width="0.6"/>
+    <path d="M56.6 12.6 L59.6 -6.6" stroke="#ffae4a" stroke-width="0.9" stroke-linecap="round"/>
+    <path d="M57.4 9 L58.4 2.6 L59.4 9.2Z" fill="#9a3f1e" opacity="0.8"/>
+    <path d="M45 22 L50.4 22 L52.6 36 L47 34Z" fill="#353a44" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1" stroke-linejoin="round"/>
+    <path d="M75 22 L69.6 22 L67.4 36 L73 34Z" fill="#353a44" stroke="var(--lg-ink, #1d2230)" stroke-width="1.1" stroke-linejoin="round"/>
+    <path d="M50 21 L70 21 L69 33 L60 37.6 L51 33Z" fill="#b6bcc8" stroke="var(--lg-ink, #1d2230)" stroke-width="1.3" stroke-linejoin="round"/>
+    <path d="M60 21 L70 21 L69 33 L60 37.6Z" fill="#000" opacity="0.18"/>
+    <path d="M51.4 22.4 L52 31.6" stroke="#fff" stroke-width="0.6" opacity="0.7"/>
+    <path d="M49.2 22.8 L59.8 26.6 L59.4 31.2 L49.8 29Z M70.8 22.8 L60.2 26.6 L60.6 31.2 L70.2 29Z" fill="#14141b" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+    <path d="M60 25 L61.2 30.6 L60 31.4 L58.8 30.6Z" fill="#dfe3ea" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/>
+    <!-- eyes: narrow red slits with light trails; they flare on and burn -->
+    <g transform="translate(54.8 26.6)"><g><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.06 1.25;1 1" dur="2.2s" begin="0s" repeatCount="indefinite"/><g transform="translate(-54.8 -26.6)">
+      <path d="M50 24.2 L59.2 27.8 L58.8 30.4 L50.2 28.2Z" fill="#ff2a2a" opacity="0.5" transform="translate(54.8 26.6) scale(1.6 2.3) translate(-54.8 -26.6)"/>
+      <path d="M50 24.2 L59.2 27.8 L58.8 30.4 L50.2 28.2Z" fill="#ff2a2a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/>
+      <path d="M50 24.2 L59.2 27.8 L58.8 30.4 L50.2 28.2Z" fill="#ffd2c4" transform="translate(54.8 27.2) scale(0.66 0.42) translate(-54.8 -26.8)"/>
+    </g></g></g></g>
+    <g transform="translate(65.2 26.6)"><g><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.06 1.25;1 1" dur="2.2s" begin="0.3s" repeatCount="indefinite"/><g transform="translate(-65.2 -26.6)">
+      <path d="M70 24.2 L60.8 27.8 L61.2 30.4 L69.8 28.2Z" fill="#ff2a2a" opacity="0.5" transform="translate(65.2 26.6) scale(1.6 2.3) translate(-65.2 -26.6)"/>
+      <path d="M70 24.2 L60.8 27.8 L61.2 30.4 L69.8 28.2Z" fill="#ff2a2a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.5" stroke-linejoin="round"/>
+      <path d="M70 24.2 L60.8 27.8 L61.2 30.4 L69.8 28.2Z" fill="#ffd2c4" transform="translate(65.2 27.2) scale(0.66 0.42) translate(-65.2 -26.8)"/>
+    </g></g></g></g><circle cx="56.6" cy="27.6" r="0.5" fill="#fff"/><circle cx="63.4" cy="27.6" r="0.5" fill="#fff"/>
+    <!-- the brow plate: one heavy V driven down to the middle -->
+    <path d="M44 16.6 L60 23.4 L76 16.6 L76.4 21.4 L60 27.6 L43.6 21.4Z" fill="#353a44" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+    <path d="M44.6 17.6 L60 24.2 L75.4 17.6" fill="none" stroke="#ffae4a" stroke-width="0.8" stroke-linejoin="round"/>
+    <path d="M60 24 L76 17.2 L76.2 21.2 L60 27.2Z" fill="#000" opacity="0.25"/>
+    <g transform="translate(54.8 26.6)"><g><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.06 1.25;1 1" dur="2.2s" begin="0s" repeatCount="indefinite"/><g transform="translate(-54.8 -26.6)"><path d="M51 24.4 L36 19.6 L38.6 22.8 L51 28Z" fill="#ff2a2a" opacity="0.55"/><path d="M51 24.4 L36 19.6 L38.6 22.8 L51 28Z" fill="#ffd0c0" opacity="0.7" transform="translate(54.8 26.2) scale(0.8 0.3) translate(-54.8 -26.2)"/></g></g></g></g>
+    <g transform="translate(65.2 26.6)"><g><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1.06 1.25;1 1" dur="2.2s" begin="0.3s" repeatCount="indefinite"/><g transform="translate(-65.2 -26.6)"><path d="M69 24.4 L84 19.6 L81.4 22.8 L69 28Z" fill="#ff2a2a" opacity="0.55"/><path d="M69 24.4 L84 19.6 L81.4 22.8 L69 28Z" fill="#ffd0c0" opacity="0.7" transform="translate(65.2 26.2) scale(0.8 0.3) translate(-65.2 -26.2)"/></g></g></g></g>
+    <!-- a battle scar torn across the right side of the helmet and face, hot at its bottom -->
+    <path d="M65 8 L67.6 16 L66.4 16.4 L69.6 26 L68.4 26.2 L70 33" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M65.6 8.6 L67 13 M68 18 L69 22.4" stroke="#eef1f6" stroke-width="0.5" stroke-linecap="round"/>
+    <path d="M47.6 26 L48.4 29" stroke="#eef1f6" stroke-width="0.4"/>
+    <!-- the mouth guard: vents and a row of fangs -->
+    <path d="M51.4 31 L68.6 31 L67.6 36.6 L60 40.4 L52.4 36.6Z" fill="#8e96a4" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+    <path d="M54.4 32.2 V35.6 M57.2 32.4 V37.4 M60 32.4 V38.4 M62.8 32.4 V37.4 M65.6 32.2 V35.6" stroke="#0f0f14" stroke-width="1.2" stroke-linecap="round"/>
+    <path d="M54.4 32.4 V33.4 M57.2 32.6 V33.6 M60 32.6 V33.6 M62.8 32.6 V33.6 M65.6 32.4 V33.4" stroke="#ff6a1a" stroke-width="0.8" stroke-linecap="round"/>
+    <path d="M52.6 36.4 L54 40 L55.4 37.4Z M56 38 L57.4 42.6 L59 38.8Z M61 38.8 L62.6 42.6 L64 38Z M64.6 37.4 L66 40 L67.4 36.4Z" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6" stroke-linejoin="round"/>
+    <path d="M52.4 32 L67.6 32" stroke="#e6e9f0" stroke-width="0.5"/><path d="M60 31.6 L67.8 31.6 L67 36.4 L60 40Z" fill="#000" opacity="0.22"/>
+  </g></g></g>
+  <!-- the cannon arm: leveled at you and charging -->
+  <g>
+    <!-- the upper arm on a ball joint, a piston across the elbow -->
+    <circle cx="29" cy="54" r="6.6" fill="#353a44" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5"/><path d="M24.4 51 A5.6 5.6 0 0 1 30 48.4" fill="none" stroke="#ffae4a" stroke-width="0.9" stroke-linecap="round"/>
+    <path d="M22 52 L35 57 L19 76 L5 71Z" fill="#4b525f" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M28 55 L35 57 L19 76 L13 74Z" fill="#000" opacity="0.22"/>
+    <path d="M6.4 69.6 L21.6 53.6" stroke="#ffae4a" stroke-width="1" stroke-linecap="round"/>
+    <path d="M30 60 L17 73" stroke="var(--lg-ink, #1d2230)" stroke-width="2.8" stroke-linecap="round"/><path d="M30 60 L23.5 66.5" stroke="#262a32" stroke-width="1.7" stroke-linecap="round"/><path d="M23.5 66.5 L17 73" stroke="#c9ccd6" stroke-width="1" stroke-linecap="round"/>
+    <path d="M13 63 L23 67" stroke="#ff6a1a" stroke-width="0.8"/>
+    <g transform="translate(-4 -3)">
+    <circle cx="12" cy="77" r="6.4" fill="#353a44" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5"/><circle cx="12" cy="77" r="2.4" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/>
+    <!-- the cannon: an exhaust-pipe barrel leveled at you, the engine block riding on it -->
+    <path d="M5.41 82.53 L16.29 98.36 A13 13 0 0 0 32.76 79.35 L15.55 70.83 A8 8 0 0 0 5.41 82.53Z" fill="#4b525f" stroke="var(--lg-ink, #1d2230)" stroke-width="1.7" stroke-linejoin="round"/>
+    <path d="M7.8 81.71 L18.6 98.43 A10 10 0 0 0 31.84 84.25 L14.42 74.62 A5 5 0 0 0 7.8 81.71Z" fill="#000" opacity="0.2"/>
+    <path d="M10 71 A8 8 0 0 0 5 74" fill="none" stroke="#ffae4a" stroke-width="1" stroke-linecap="round"/>
+    <path d="M7 74 C9 70 14 69 17 71" fill="none" stroke="#c9ccd6" stroke-width="1.6"/>
+    <path d="M10 80.6 C12 76.4 18 75.4 21 77.4" fill="none" stroke="var(--lg-ink, #1d2230)" stroke-width="2.6"/><path d="M10 80.6 C12 76.4 18 75.4 21 77.4" fill="none" stroke="#c9ccd6" stroke-width="1.4"/>
+    <path d="M10 66 L28 70 L34 79 L30 81 L15 79 L8 72Z" fill="#353a44" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4" stroke-linejoin="round"/>
+    <path d="M13 69 L13.6 77.6 M16.6 69.6 L17.4 78.6 M20.2 70.4 L21 79 M23.8 71.2 L24.6 79.6 M27.4 72.2 L28 80.2" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/>
+    <path d="M13.6 68.6 L14 72 M17.2 69.2 L17.6 72.6 M20.8 70 L21.2 73.4 M24.4 70.8 L24.8 74.2 M28 71.8 L28.4 75" stroke="#7a8392" stroke-width="0.6"/>
+    <path d="M10.6 66.4 L27.6 70.2" stroke="#ffae4a" stroke-width="0.9" stroke-linecap="round"/>
+    <path d="M8 72 L4.6 69 L6.6 66.2 L11 68.4" fill="#262a32" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+    <!-- the muzzle, face-on: chrome lip, dark bore and the charging energy (the part a palette tints) -->
+    <circle cx="27" cy="91" r="13" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8"/>
+    <path d="M15.6 87 A12 12 0 0 1 29 79" fill="none" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/>
+    <path d="M38 96 A12 12 0 0 1 23 102.4" fill="none" stroke="#7d8492" stroke-width="1.6" stroke-linecap="round"/>
+    <circle cx="27" cy="91" r="10.4" fill="#565e6c" stroke="var(--lg-ink, #1d2230)" stroke-width="1"/>
+    <circle cx="27" cy="91" r="8.6" fill="#120d1a" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+    <g transform="translate(27 91)"><g><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.14;0.94;1" dur="1.1s" repeatCount="indefinite" keyTimes="0;.4;.7;1"/><g transform="translate(-27 -91)">
+      <circle cx="27" cy="91" r="7.4" fill="var(--lg-tint-lo, #5d1fb8)"/>
+      <circle cx="27" cy="91" r="5.8" fill="var(--lg-tint, #a65cff)"/>
+      <circle cx="27" cy="91" r="3.4" fill="var(--lg-tint-hi, #e4c8ff)"/>
+      <circle cx="27" cy="91" r="1.5" fill="#fff"/>
+      <path d="M22 90 L25 88.6 M28.6 93.6 L31.6 92.6" stroke="#fff" stroke-width="0.6" stroke-linecap="round"/></g></g></g></g>
+    <path d="M14 83 L9.6 80.4 L11.4 77.4 L6 74.6" fill="none" stroke="var(--lg-tint-hi, #e4c8ff)" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.15;1;1" dur="0.9s" repeatCount="indefinite" keyTimes="0;.2;.4;1" begin="0s"/></path><path d="M40.6 85 L45 81 L43.6 78.4 L48.4 75" fill="none" stroke="var(--lg-tint-hi, #e4c8ff)" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.15;1;1" dur="1.1s" repeatCount="indefinite" keyTimes="0;.2;.4;1" begin="0.25s"/></path><path d="M30 105.6 L33 110 L30 112 L32.4 116.6" fill="none" stroke="var(--lg-tint-hi, #e4c8ff)" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.15;1;1" dur="0.8s" repeatCount="indefinite" keyTimes="0;.2;.4;1" begin="0.5s"/></path><path d="M15.6 99.4 L11 102 L12 105 L7 107" fill="none" stroke="var(--lg-tint-hi, #e4c8ff)" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round" style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;0.15;1;1" dur="1.2s" repeatCount="indefinite" keyTimes="0;.2;.4;1" begin="0.15s"/></path>
+    <g transform="translate(27 91)"><g transform="scale(0.02)">
+      <path d="M0 -15 L3 -6 L11 -11 L6 -3 L14 0 L6 3 L9 10 L0 5 L-9 10 L-6 3 L-14 0 L-6 -3 L-11 -11 L-3 -6Z" fill="var(--lg-tint, #a65cff)" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+      <path d="M0 -8 L2 -3 L6 -4 L3.6 -0.6 L6 2 L1 1.4 L0 4 L-1 1.4 L-6 2 L-3.6 -0.6 L-6 -4 L-2 -3Z" fill="var(--lg-tint-hi, #e4c8ff)"/>
+    </g></g>
+  </g></g>
+  <!-- the claw arm -->
+  <g>
+    <circle cx="91" cy="54" r="6.6" fill="#353a44" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5"/><path d="M95.6 51 A5.6 5.6 0 0 0 90 48.4" fill="none" stroke="#ffae4a" stroke-width="0.9" stroke-linecap="round"/>
+    <path d="M86 56 L98 50 L129 61 L121 72Z" fill="#5d6574" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M90 59 L124 68 L121 72 L86 56Z" fill="#000" opacity="0.25"/>
+    <path d="M98.6 51.4 L127.4 61.2" stroke="#ffae4a" stroke-width="1" stroke-linecap="round"/>
+    <path d="M92 58 L122 66" stroke="var(--lg-ink, #1d2230)" stroke-width="2.8" stroke-linecap="round"/><path d="M92 58 L106 61.8" stroke="#262a32" stroke-width="1.7" stroke-linecap="round"/><path d="M106 61.8 L122 66" stroke="#c9ccd6" stroke-width="1" stroke-linecap="round"/>
+    <g transform="translate(5 -3)"><circle cx="120" cy="71" r="6.2" fill="#353a44" stroke="var(--lg-ink, #1d2230)" stroke-width="1.5"/><circle cx="120" cy="71" r="2.4" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.6"/><path d="M124.4 68 A5.2 5.2 0 0 0 119 65.8" fill="none" stroke="#ffae4a" stroke-width="0.9" stroke-linecap="round"/>
+    <!-- the forearm: a salvaged orange car door, window frame, handle, hazard stripes -->
+    <path d="M114 64 L128 72 L114 96 L98 87Z" fill="#f2a227" stroke="var(--lg-ink, #1d2230)" stroke-width="1.7" stroke-linejoin="round"/>
+    <path d="M121 68 L128 72 L114 96 L108 92.6Z" fill="#b8681a" opacity="0.6"/>
+    <path d="M114.6 65.2 L126.6 72.2" stroke="#ffae4a" stroke-width="1" stroke-linecap="round"/>
+    <path d="M112 69 L120 73.6 L114.6 82.6 L106.4 78Z" fill="#6aa7c4" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+    <path d="M112.4 70.4 L115 72 L110 79 L108 78Z" fill="#d6f1ff" opacity="0.5"/>
+    <path d="M108 86 L112.4 88.6" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linecap="round"/><path d="M108 86 L112.4 88.6" stroke="#c9ccd6" stroke-width="0.7" stroke-linecap="round"/>
+    <path d="M98.6 87.4 L114 96 L115.8 92.6 L100.8 84.2Z" fill="#ffd27a"/><path d="M98.6 87.4 L100.53 88.48 L103.99 85.99 L102.11 84.94Z M102.45 89.55 L104.38 90.63 L107.74 88.09 L105.86 87.04Z M106.3 91.7 L108.23 92.78 L111.49 90.19 L109.61 89.14Z M110.15 93.85 L112.08 94.93 L115.24 92.29 L113.36 91.24Z " fill="var(--lg-ink, #1d2230)"/>
+    <path d="M118 77 C119 79.4 117.4 81.4 118.6 83.6" fill="none" stroke="#9a3f1e" stroke-width="1" stroke-linecap="round"/>
+    <circle cx="115" cy="67.6" r="0.7" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/><circle cx="124.6" cy="73" r="0.7" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/><circle cx="102.6" cy="85.6" r="0.7" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.35"/>
+    <path d="M97 86 L113 95 L111 99 L95 90Z" fill="#353a44" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"/>
+    <path d="M96 88 L112 97" stroke="#ff6a1a" stroke-width="0.7"/>
+    <!-- the gauntlet: knuckle plates over curled talons -->
+    <path d="M88 92 L110 98 L109 106 L104 110 L88 106 L85 99Z" fill="#4b525f" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M97 102 L109 106 L104 110 L88 106Z" fill="#000" opacity="0.25"/>
+    <path d="M86 98 L89 93.4 L108 98.6" fill="none" stroke="#ffae4a" stroke-width="0.8" stroke-linejoin="round"/>
+    <g transform="translate(89 104) rotate(18)"><g><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;7;0" dur="3.6s" repeatCount="indefinite" begin="0s"/>
+      <path d="M-2.2 0 L2.2 0 L2.4 5 L-2 5Z" fill="#353a44" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+      <circle cx="0" cy="5" r="1.8" fill="#4b525f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"/>
+      <path d="M-1.9 5.6 L2 5.6 C2.6 8.5 0.6 11.5 -3 12.5 C-1.4 10.2 -1.6 8 -1.9 5.6Z" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+      <path d="M1 6.2 C1.2 8.5 0.2 10 -1.6 11.200000000000001" fill="none" stroke="#fff" stroke-width="0.4"/>
+    </g></g></g><g transform="translate(94 106) rotate(8)"><g><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;7;0" dur="3.6s" repeatCount="indefinite" begin="0.4s"/>
+      <path d="M-2.2 0 L2.2 0 L2.4 5.5 L-2 5.5Z" fill="#353a44" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+      <circle cx="0" cy="5.5" r="1.8" fill="#4b525f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"/>
+      <path d="M-1.9 6.1 L2 6.1 C2.6 9.35 0.6 12.649999999999999 -3 13.75 C-1.4 11.22 -1.6 8.8 -1.9 6.1Z" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+      <path d="M1 6.82 C1.2 9.35 0.2 11 -1.6 12.32" fill="none" stroke="#fff" stroke-width="0.4"/>
+    </g></g></g><g transform="translate(99.4 107.6) rotate(-2)"><g><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;7;0" dur="3.6s" repeatCount="indefinite" begin="0.8s"/>
+      <path d="M-2.2 0 L2.2 0 L2.4 5.5 L-2 5.5Z" fill="#353a44" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+      <circle cx="0" cy="5.5" r="1.8" fill="#4b525f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"/>
+      <path d="M-1.9 6.1 L2 6.1 C2.6 9.35 0.6 12.649999999999999 -3 13.75 C-1.4 11.22 -1.6 8.8 -1.9 6.1Z" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+      <path d="M1 6.82 C1.2 9.35 0.2 11 -1.6 12.32" fill="none" stroke="#fff" stroke-width="0.4"/>
+    </g></g></g><g transform="translate(104.4 108.6) rotate(-12)"><g><g><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="0;7;0" dur="3.6s" repeatCount="indefinite" begin="1.2s"/>
+      <path d="M-2.2 0 L2.2 0 L2.4 4.8 L-2 4.8Z" fill="#353a44" stroke="var(--lg-ink, #1d2230)" stroke-width="0.9" stroke-linejoin="round"/>
+      <circle cx="0" cy="4.8" r="1.8" fill="#4b525f" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7"/>
+      <path d="M-1.9 5.3999999999999995 L2 5.3999999999999995 C2.6 8.16 0.6 11.04 -3 12 C-1.4 9.792 -1.6 7.68 -1.9 5.3999999999999995Z" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round"/>
+      <path d="M1 5.952 C1.2 8.16 0.2 9.6 -1.6 10.752" fill="none" stroke="#fff" stroke-width="0.4"/>
+    </g></g></g>
+    <path d="M86.6 97 L91 96.6 L91.4 100.6 L87.4 101.4Z M92.4 97.8 L97 98.4 L96.8 102.4 L92.4 102Z M98.6 99 L103.2 100 L102.6 104 L98.2 103.2Z M104.6 100.4 L108.6 101.6 L107.6 105.2 L104 104.4Z" fill="#6f7886" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"/>
+    <path d="M87 97.6 L90.6 97.4 M93 98.4 L96.6 98.8 M99 99.6 L102.8 100.4 M105 101 L108.2 101.9" stroke="#eef1f6" stroke-width="0.5"/>
+    <g transform="translate(86 100) rotate(60)"><g>
+      <path d="M-2 0 L2 0 L2 5 L-2 5Z" fill="#353a44" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8"/>
+      <path d="M-1.8 5.4 L1.8 5.4 C2.4 8 0.6 10.4 -2.6 11.2 C-1.2 9 -1.4 7.4 -1.8 5.4Z" fill="#c9ccd6" stroke="var(--lg-ink, #1d2230)" stroke-width="0.7" stroke-linejoin="round"/>
+    </g></g>
+  </g></g>
+  </g></g></g>
   </g>
   <!-- the scrap heap he rises from -->
-  <path d="M170 140 L184 118 L200 114 L214 120 L232 112 L254 118 L270 110 L292 116 L312 108 L330 116 L352 110 L372 118 L392 112 L400 114 V140Z" fill="#8695a8" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
-  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"><path d="M240 124 L262 118 L266 128 L244 132Z" fill="#4f7fbf"/><path d="M300 122 L320 118 L322 128 L302 130Z" fill="#3f9a5a"/><path d="M344 122 L362 120 L364 130 L346 130Z" fill="#b3452c"/></g>
+  <path d="M170 140 L184 118 L200 122 L214 129 L232 131 L254 128 L270 112 L292 116 L312 108 L330 116 L352 110 L372 118 L392 112 L400 114 V140Z" fill="#8695a8" stroke="var(--lg-ink, #1d2230)" stroke-width="1.8" stroke-linejoin="round"/>
+  <g stroke="var(--lg-ink, #1d2230)" stroke-width="1.2" stroke-linejoin="round"><path d="M190 130 L210 126 L213 135 L193 138Z" fill="#4f7fbf"/><path d="M300 122 L320 118 L322 128 L302 130Z" fill="#3f9a5a"/><path d="M344 122 L362 120 L364 130 L346 130Z" fill="#b3452c"/></g>
   <circle cx="282" cy="128" r="7" fill="#2a2c33" stroke="var(--lg-ink, #1d2230)" stroke-width="1.2"/><circle cx="282" cy="128" r="3" fill="#c9ccd6"/>
   <path d="M200 124 L208 116 M330 124 L338 114 M372 126 L380 116" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linecap="round"/>
   <path d="M0 118 C60 116 120 120 180 118 L170 140 H0Z" fill="#8695a8" stroke="var(--lg-ink, #1d2230)" stroke-width="1.4"/>

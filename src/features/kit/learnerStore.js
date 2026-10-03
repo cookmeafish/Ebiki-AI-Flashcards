@@ -5,6 +5,7 @@ import { useEffect, useSyncExternalStore } from 'react'
 import { featureStore } from '../storage'
 import { EVENTS } from '../events'
 import { shapeLearner, learnerLine } from './learner'
+import { learnerContextText } from './learnerContextUse'
 
 export const LEARNER_ID = 'learner'
 
@@ -37,9 +38,16 @@ export async function readLearner(ctx, modeId = ctx?.subject?.modeId) {
 }
 
 // The prompt line for the active mode ('' without a level): "level 47 of 130, B1 (intermediate); weak at: ...".
-export async function learnerLevelLine(ctx) {
+// `context`: the practice features' one-line hook into the learner context (kit/learnerContextUse.js): the level
+// line followed by a short block of what Ebiki knows (remembered snapshot only, never waited for; '' parts drop).
+export async function learnerLevelLine(ctx, { context = false } = {}) {
   const r = await readLearner(ctx)
-  return r.ok && r.value ? learnerLine(r.value, !!ctx?.subject?.isLanguage) : ''
+  const line = r.ok && r.value ? learnerLine(r.value, !!ctx?.subject?.isLanguage) : ''
+  if (!context) return line
+  const block = learnerContextText(ctx, 'practice')
+  return block ? `${line || 'not measured yet'}
+${block}
+(end of what Ebiki knows about the learner)` : line
 }
 
 // Apply fn(model | null) → model | null for a mode, persisted. Never writes after a failed read; returning the

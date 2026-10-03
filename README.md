@@ -1,6 +1,6 @@
 # Ebiki - AI Study App
 
-A local-first study app: an AI tutor, Anki study sessions, screen translation and progress stats, for any subject (languages, CompTIA certs, music theory, and more).
+A local-first study app: AI tutor, Anki study sessions, screen translation and progress stats, for any subject (languages, CompTIA certs, music theory, and more).
 
 > **Name.** *Ebiki* = **ebi** (海老, Japanese for *shrimp*) + **Anki**. Its helper, **Ebi**, is a red shrimp whose pose reacts to what you do; **Talk to Ebi** in the header opens the in-app assistant.
 >
@@ -9,8 +9,8 @@ A local-first study app: an AI tutor, Anki study sessions, screen translation an
 ## Tabs
 
 - **Chat** - AI tutor that makes Anki cards inline, tutors from an attached deck, searches the web and saves conversations.
-- **Study** - Anki sessions with AI-written questions, a multiple-choice mode, verified PBQ exercises for cert subjects, and spaced-repetition insights.
-- **Legends** - your own adventure map for each mode, in any subject. Answer a few questions (and take an optional level test), then climb themed areas of eight lessons (each teaches something new and reviews what came before), stories, rule drills and chats with Ebi, each topped by a named boss with fresh, hard questions every try. Clear Weak spots first for an extra life. Beating a boss opens the next area and earns a streak freeze; a Legendary challenge replays a cleared area at its hardest. Your level (A1 to C2 for languages, Beginner to Expert otherwise) shows on the map and in the right panel. Ask Ebi to change the map any time; areas you started never change.
+- **Study** - Anki sessions with AI-written questions, multiple choice, verified PBQ exercises for cert subjects, and spaced-repetition insights.
+- **Legends** - an adventure map per mode, in any subject. Answer a few questions (plus an optional level test), then climb themed areas of eight lessons (each teaches something new and reviews earlier ones), stories, rule drills and chats with Ebi, each topped by a named boss with fresh, hard questions every try. Clear Weak spots first for an extra life. Beating a boss opens the next area and earns a streak freeze; a Legendary challenge replays a cleared area at its hardest. Your level (A1 to C2 for languages, Beginner to Expert otherwise) shows on the map and in the right panel. Ask Ebi to change the map any time; areas you started never change.
 - **Deck** - browse, search and edit cards; add them by hand or with AI; bulk-edit, check quality, merge duplicates.
 - **Discover** - suggests *new* cards at your level, web-verified.
 - **Picture** - screen capture, OCR and in-context translation with word overlays, plus a game overlay.
@@ -18,13 +18,13 @@ A local-first study app: an AI tutor, Anki study sessions, screen translation an
 
 ## Highlights
 
-- **Onboarding** - a short wizard sets app language, theme, how Ebiki opens, AI provider and key, intelligence preset, and your first mode. Re-run it from Settings.
-- **Save tokens: reuse questions** (off unless you turn it on, in onboarding or Settings → AI & cost) - Ebi saves the study questions it writes for each card, with that card's deck, and once a card has your chosen number (10 by default) asks saved ones again instead of writing new ones. Edited cards get fresh questions. **Clear saved questions** starts a deck over. Turning it off stops all saving and reusing.
-- **Token and cost counter** (off unless you turn it on, in Settings → AI & cost) - a small counter at the bottom right shows the tokens Ebi used and an estimated cost, for this session and in total on this computer, with a breakdown by model. Works with every provider. Costs are estimates from list prices; for a model without a known price, type its price with **Set price** (otherwise it is counted in tokens only).
+- **Onboarding** - a short wizard sets app language, theme, how Ebiki opens, AI provider and key, intelligence preset and your first mode. Re-run it from Settings.
+- **Save tokens: reuse questions** (off unless you turn it on, in onboarding or Settings → AI & cost) - Ebi saves the study questions it writes for each card, with that card's deck; once a card has your chosen number (10 by default) it asks saved ones again instead of writing new ones. Edited cards get fresh questions. **Clear saved questions** starts a deck over. Turning it off stops all saving and reusing.
+- **Token and cost counter** (off unless you turn it on, in Settings → AI & cost) - a small bottom-right counter shows tokens used and estimated cost, for this session and in total on this computer, broken down by model. Works with every provider. Costs are estimates from list prices; for a model without a known price, type it with **Set price** (else it counts tokens only).
 - **Any of four AI providers** - Claude, GPT, Gemini or Grok. Each feature (Picture, Deck, Study, Discover, Chat, Help, Mascot, General) can use its own model, or a preset sets them all: **Optimized** (cheap models for simple tasks, strong ones for card making), **Normal** or **More intelligent**. Retired models are replaced automatically; **Check for new models** refreshes the list.
 - **App language** - English, Spanish, Chinese or Japanese. Card *content* is never translated; generated suggestions and questions use your app language.
-- **Learning modes** - one mode per subject, each with its own card format, tag rules, study rules, Anki deck and knowledge base.
-- **Ask AI to edit settings** - describe a change to your cards or study rules; Ebi shows it as a before/after diff to Accept, Deny or refine.
+- **Learning modes** - one per subject, each with its own card format, tag rules, study rules, Anki deck and knowledge base.
+- **Ask AI to edit settings** - describe a change to your cards or study rules; Ebi shows a before/after diff to Accept, Deny or refine.
 - **Knowledge base** - upload `.txt`, `.md` or `.pdf` material per mode. It feeds questions, grading, chat, card making, Discover and Help. For whole books, Ebi uses the table of contents to pick only the relevant sections.
 - **Pronunciation audio** - native-speaker recordings on study cards, deck rows and chat cards, embedded into Anki so they play on every device.
 
@@ -69,6 +69,7 @@ Modes are independent: changing Security+ never touches Language Learning. Each 
 
 - **Instant start** - the first card needs one AI call; the rest generate while you answer.
 - **10-card pool** - ten cards stay active and interleave, never the same card twice in a row.
+- **Question depth** - a card you are reviewing gets one question where you produce the answer yourself (the word, term, value or step); new, relearning and missed cards get the full set. Choose **Thorough** in Settings → Study to ask every card all its questions.
 - **Answer styles** - typed, **multiple choice** (graded instantly on your computer) or **PBQ** (general modes: verified match, order and categorize exercises, CompTIA style). In practice styles, recording to Anki is optional.
 - **Fair grading** - typos in your own language don't count; another valid form of the word is accepted unless the sentence requires one. Feedback is color-coded (right, wrong, grammar, word choice, missing, tip).
 - **Learned language vs "Ebi speaks"** - you always answer in the language you're learning; "Ebi speaks" only sets the language of questions and feedback (switch it for immersion).
@@ -76,7 +77,7 @@ Modes are independent: changing Security+ never touches Language Learning. Each 
 - **Word hints and tap-a-word** - optional glosses above untested words; tap any word for its meaning in context, pronunciation, audio and a one-click Anki card. Both work in either language direction.
 - **Memory hooks** - **🧠 Help me remember** on graded cards, deck rows and tapped words, in five styles (meaning image, sound-alike, break it down, don't confuse it, story). Written in your app language unless the mode sets another (Settings → Study).
 - **"Learn it" moments** - giving up on a card's first question opens a teach panel (card back, audio, memory hook, Ebi chat). Type the word once and the card returns later as practice.
-- **Rating sync with a correction window** - ratings reach Anki on **Sync now**, after a per-card timer (5 min by default) or on Finish. Until then you can change a rating; after syncing it **locks**, so Anki records each card once. If Anki is closed, a note replaces the error and pending ratings sync when it reconnects.
+- **Rating sync with a correction window** - ratings reach Anki on **Sync now**, after a per-card timer (5 min by default) or on Finish. Until then you can change a rating; once synced it **locks**, so Anki records each card once. If Anki is closed, a note replaces the error and pending ratings sync when it reconnects.
 - **Refresh-proof sessions** - a session in progress resumes after a refresh (sessions older than 8 hours start fresh).
 - **Wrap Up / End Now** - finish only started cards, or stop now with partial results. **View Summary → Generate Insights** adds an AI analysis to each deck's progress notes.
 
@@ -86,12 +87,12 @@ Modes are independent: changing Security+ never touches Language Learning. Each 
 - **Expand a row** for the full back, tags and scheduling (interval, lapses, last studied). **⟲ Reset progress** makes a card new again without touching its content.
 - **✨ Ebi bulk edit** - describe one change ("rewrite every pronunciation line to Latin American Spanish"); Ebi proposes it card by card and nothing is written until you accept.
 - **Check card quality / Scan for duplicates** - flags ambiguous, misspelled, thin or wrong cards and duplicate concepts, each as a before/after to review. Language decks also get a **Dialect audit** and a **Tag audit** (where, how often and in what register a word is used).
-- **Dialects** - set a variant per mode (e.g. Latin American Spanish), or tell Ebi, and every generator follows it.
+- **Dialects** - set a variant per mode (e.g. Latin American Spanish), or tell Ebi; every generator follows it.
 - Sort by date, alphabet, recently studied, most lapses or longest interval. Search ignores accents.
 
 ## Discover
 
-Finds **new** cards at your level (it never quizzes existing ones).
+Finds **new** cards at your level (never quizzes existing ones).
 
 1. **Level analysis** - estimates your level from your cards, Anki scheduling, progress notes and this mode's chats, on a fitting scale: CEFR for languages, exam-domain coverage for certs, tiers otherwise.
 2. **Setup** - pick a suggestion type (language modes: words, phrases, idioms, verbs, grammar; other subjects get AI-made categories), a difficulty and an optional focus. A deck switcher points Discover at any deck.
@@ -108,7 +109,7 @@ Four sources, tried in order, for any language (no accounts, no paid APIs):
 3. **Local TTS** (optional) - an OpenAI-compatible server such as Kokoro, set in Settings → Anki & audio.
 4. **Browser voice** - last resort.
 
-🔊 appears on study cards, deck rows, chat cards and tapped words. **↻** switches speaker, and the voice you pick replaces the card's embedded audio. Set preferred accents per language in Settings → Anki & audio.
+🔊 appears on study cards, deck rows, chat cards and tapped words. **↻** switches speaker; the voice you pick replaces the card's embedded audio. Set preferred accents per language in Settings → Anki & audio.
 
 ## Overlay (optional)
 
@@ -121,7 +122,7 @@ Fullscreen-exclusive games may need borderless windowed mode.
 
 ## Ebi's Help
 
-**Talk to Ebi** opens an assistant that knows your tab, mode, the study question on screen (it won't reveal the answer unless asked) and recent activity. It can also act: ask it mid-session to change how questions are asked and it saves that to your mode. Dock it left, right or under the question, or let it float. Help chats are saved with your Chat history.
+**Talk to Ebi** opens an assistant that knows your tab, mode, the study question on screen (it won't reveal the answer unless asked) and recent activity. It can act too: ask it mid-session to change how questions are asked and it saves that to your mode. Dock it left, right or under the question, or let it float. Help chats are saved with your Chat history.
 
 ## Sharing data between computers (optional)
 

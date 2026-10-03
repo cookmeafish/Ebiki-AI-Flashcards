@@ -6,7 +6,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { MOTIFS } from './map'
 import { RAID_MOTIFS } from './raid'
-import { artUrl, artVars, ORIGINAL_PALETTE } from './art'
+import { artUrl, artVars, ORIGINAL_PALETTE, REALISTIC_ART, idTemplate, withIds, withPhotoEye, PHOTO_EYE_URL, PHOTO_SPRITES } from './art'
 
 const PUBLIC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../public')
 const read = (url) => fs.readFileSync(path.join(PUBLIC, url), 'utf8')
@@ -15,14 +15,35 @@ const APP_VARS = Object.keys(artVars('brand'))
 const PAINT_VARS = /var\(--lg-(sky|far|near|deep|accent|light)\b/
 const TINT_VAR = /var\(--lg-tint(-hi|-lo)?,\s*#[0-9a-fA-F]{3,8}\)/
 
+// Ability face layers (`lg-fx-<key>` / `lg-fxh-<key>`) must sit INSIDE a phase group (lg-p1, lg-p2, lg-p3 or lg-p12):
+// the arena's data-phase shows one phase group, so data-phase + data-fx pick the right face (design v2.1, 1.4). Returns
+// the classes of every face layer found outside one. Only the layers a file really has are checked.
+const PHASE_GROUP = /(^|\s)lg-p(1|2|3|12)(\s|$)/
+const FX_LAYER = /(^|\s)lg-fxh?-[\w-]+/
+function fxLayersOutsidePhases(svg) {
+  const bad = []
+  const stack = []
+  for (const m of String(svg).matchAll(/<(\/?)([A-Za-z][\w:-]*)\b([^>]*?)(\/?)>/g)) {
+    const [, close, , attrs, selfClose] = m
+    if (close) { stack.pop(); continue }
+    const cls = (/\sclass="([^"]*)"/.exec(attrs) || [])[1] || ''
+    const inPhase = PHASE_GROUP.test(cls) || stack.some((c) => PHASE_GROUP.test(c))
+    if (FX_LAYER.test(cls) && !inPhase) bad.push(cls)
+    if (!selfClose) stack.push(cls)
+  }
+  return bad
+}
+
 describe('Legends art files', () => {
   for (const kind of ['areas', 'bosses']) {
     for (const motif of MOTIFS) {
       it(`${kind}/${motif}.svg exists and is plain drawing`, () => {
         const svg = read(artUrl(kind, motif))
+        const real = REALISTIC_ART.includes(`${kind}/${motif}.svg`) // local gradients allowed (checked below)
         expect(svg).toMatch(/^<svg[\s\S]*<\/svg>\s*$/)
         expect(svg).toMatch(/viewBox="0 0 \d+ \d+"/)
-        expect(svg).not.toMatch(/<(script|foreignObject|image|use|a|style)\b|\son\w+\s*=|url\s*\(|javascript:|href=/i)
+        expect(svg).not.toMatch(real ? /<(script|foreignObject|image|use|a|style|filter)\b|\son\w+\s*=|javascript:/i
+          : /<(script|foreignObject|image|use|a|style)\b|\son\w+\s*=|url\s*\(|javascript:|href=/i)
         // Every color variable has a fallback, so the file also looks right on its own and outside the app.
         for (const m of svg.matchAll(/var\((--[\w-]+)(,[^)]*)?\)/g)) expect(m[2], `${m[1]} in ${kind}/${motif}`).toBeTruthy()
         // Its own colors, with one part a palette may recolor.
@@ -30,7 +51,7 @@ describe('Legends art files', () => {
         expect(svg, `${kind}/${motif} has a part the palette tints`).toMatch(TINT_VAR)
         // Motion: only what the sanitizer keeps (<animate>/<set> are dropped), each piece tagged entrance or loop,
         // no ids (a file is inlined many times on one page) and no calcMode (dropped too: timing is linear).
-        expect(svg).not.toMatch(/<animate[\s>/]|<set\b|\sid=|calcMode/i)
+        expect(svg).not.toMatch(real ? /<animate[\s>/]|<set\b|calcMode/i : /<animate[\s>/]|<set\b|\sid=|calcMode/i)
         const anims = [...svg.matchAll(/<animate(Transform|Motion)\b[^>]*>/g)].map((m) => m[0])
         for (const a of anims) expect(a, `${kind}/${motif}: ${a.slice(0, 80)}`).toMatch(/class="lg-(in|loop)"/)
         // keyTimes must match the values one to one and run 0 to 1, else the browser silently ignores the animation.
@@ -68,6 +89,69 @@ describe('Legends art files', () => {
       expect(svg).toMatch(TINT_VAR)
     })
   }
+  // The opt-in for a painted 3D look (art.jsx REALISTIC_ART): ids and gradients, but every reference stays inside the
+  // file (no external url, no <use>/<image>/<filter>: the sanitizer strips filter primitives, and an empty filter
+  // hides what uses it), every var() keeps its fallback and the palette still tints one part.
+  for (const file of REALISTIC_ART) {
+    it(`${file} references only its own ids`, () => {
+      const svg = read(`/assets/legends/${file}`)
+      expect(svg).not.toMatch(/<(script|foreignObject|image|use|a|style|filter|fe\w+)\b|xlink:|javascript:|image-set|@import/i)
+      const ids = [...svg.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1])
+      expect(new Set(ids).size, `${file}: duplicate ids`).toBe(ids.length)
+      for (const m of svg.matchAll(/url\s*\(([^)]*)\)/g)) {
+        const ref = /^\s*['"]?#([\w-]+)['"]?\s*$/.exec(m[1])
+        expect(!!ref && ids.includes(ref[1]), `${file}: ${m[0]}`).toBe(true)
+      }
+      for (const m of svg.matchAll(/href="([^"]*)"/g)) expect(m[1][0] === '#' && ids.includes(m[1].slice(1)), `${file}: href ${m[1]}`).toBe(true)
+      for (const m of svg.matchAll(/var\((--[\w-]+)(,[^)]*)?\)/g)) expect(m[2], `${m[1]} in ${file}`).toBeTruthy()
+      expect(svg).not.toMatch(PAINT_VARS)
+      expect(svg).toMatch(TINT_VAR)
+    })
+  }
+  it('gives every mounted copy of a file its own ids', () => {
+    const t = idTemplate('<svg><linearGradient id="g"></linearGradient><linearGradient id="g2" href="#g"></linearGradient><rect fill="url(#g)" stroke="url(&quot;#g2&quot;)" data-x="g"></rect></svg>')
+    expect(withIds(t, 'a1')).toBe('<svg><linearGradient id="g-a1"></linearGradient><linearGradient id="g2-a1" href="#g-a1"></linearGradient><rect fill="url(#g-a1)" stroke="url(&quot;#g2-a1&quot;)" data-x="g"></rect></svg>')
+    expect(withIds(t, 'a2')).toContain('fill="url(#g-a2)"')
+    // A flat file (no ids) is left exactly as it was.
+    expect(idTemplate('<svg><rect fill="#fff"></rect></svg>')).toBe('<svg><rect fill="#fff"></rect></svg>')
+  })
+  it('puts the photos only into the ophanim, from the app\'s own fixed files', () => {
+    const urls = ['eye', 'wings', 'cloud', 'rings', 'light'].map((k) => PHOTO_SPRITES[k].url)
+    expect(urls).toEqual(['eye', 'wings', 'cloud', 'rings', 'light'].map((k) => `/assets/legends/raids/ophanim-${k}.webp`))
+    expect(Object.keys(PHOTO_SPRITES)).toHaveLength(5)
+    expect(PHOTO_EYE_URL).toBe(urls[0])
+    for (const u of urls) expect(fs.existsSync(path.join(PUBLIC, u)), u).toBe(true)
+    const marked = '<svg><g class="lg-photo-ball"></g><g class="lg-photo-iris3"></g><circle class="lg-photo-hide"></circle>' +
+      '<g class="lg-photo-hide lg-pwh-3"></g><g class="lg-photo-wing lg-pw-2" transform="scale(2 1)"></g>' +
+      '<g class="lg-photo-cloud lg-pc-3" transform="translate(1 2)"></g></svg>'
+    const out = withPhotoEye(marked, artUrl('raids', 'ophanim'))
+    // eye 2, a wing twice (white for phases 1 and 2, warm for phase 3), the cloud once
+    expect(out.match(/<image /g)).toHaveLength(5)
+    expect([...out.matchAll(/href="([^"]*)"/g)].map((m) => m[1])).toEqual([urls[0], urls[0], urls[1], urls[1], urls[2]])
+    expect(out).toContain('class="lg-photo-hide" style="display:none"')
+    expect(out).toContain('class="lg-photo-hide lg-pwh-3" style="display:none"')
+    expect(out).toContain('<g class="lg-photo-wing" transform="scale(2 1)"><g class="lg-p12">')
+    expect(out).toContain('<g class="lg-p3" style="display:none"><svg x="0" y="0" width="1" height="1" viewBox="1280 240 640 240"')
+    expect(out).toContain('<g class="lg-photo-cloud" transform="translate(1 2)"><svg x="0" y="0" width="1" height="1" viewBox="640 240 640 240"')
+    // Any other drawing, even one carrying the same marks, is left exactly as it was.
+    expect(withPhotoEye(marked, artUrl('raids', 'seraph'))).toBe(marked)
+    // The file itself never holds an image or a URL; it only marks the places.
+    const svg = read('/assets/legends/raids/ophanim.svg').replace(/<!--[\s\S]*?-->/g, '')
+    expect(svg).not.toMatch(/<image\b|\.webp/)
+    for (const c of ['lg-photo-ball', 'lg-photo-ball3', 'lg-photo-iris3']) expect(svg.split(`<g class="${c}"></g>`)).toHaveLength(2)
+    // the phase 1/2 iris twice: a still copy for phase 1 and the looking-around one for phase 2
+    expect(svg.split('<g class="lg-photo-iris"></g>')).toHaveLength(3)
+    expect(svg.match(/<g class="lg-photo-wing lg-pw-[0-3]" transform="[^"]+"><\/g>/g)).toHaveLength(24)
+    expect(svg.match(/<g class="lg-photo-cloud lg-pc-[0-3]" transform="[^"]+"><\/g>/g)).toHaveLength(4)
+    // eight wheels, each a back half and a front half
+    expect(svg.match(/<g class="lg-photo-ring lg-pr-\d" transform="[^"]+"><\/g>/g)).toHaveLength(16)
+    // the sky and light are HTML layers in art.jsx now (PHOTO LIGHT): the file only hides its painted backdrop
+    expect(svg).not.toContain('lg-photo-light')
+    expect(svg.match(/class="lg-photo-hide"/g).length).toBeGreaterThan(60)
+    const injected = withPhotoEye(svg, artUrl('raids', 'ophanim'))
+    expect(injected).not.toMatch(/<g class="lg-photo-(wing|cloud|ring|light)[^"]*"[^>]*><\/g>/) // every marker filled
+    for (const m of injected.matchAll(/<image [^>]*href="([^"]*)"/g)) expect(urls).toContain(m[1])
+  })
   it('names a real file for an unknown motif', () => {
     expect(artUrl('areas', 'atlantis')).toBe(artUrl('areas', MOTIFS[0]))
   })
@@ -76,4 +160,17 @@ describe('Legends art files', () => {
     // "original" leaves the tint unset: every part shows the color written in its file.
     expect(Object.keys(artVars(ORIGINAL_PALETTE)).filter((k) => k.startsWith('--lg-tint'))).toEqual([])
   })
+})
+
+describe('raid ability face layers', () => {
+  it('the checker finds a face layer outside a phase group', () => {
+    expect(fxLayersOutsidePhases('<svg><g class="lg-p1"><g class="lg-fx-sever"><path/></g></g><g class="lg-p12 x"><path class="lg-fxh-grin"/></g></svg>')).toEqual([])
+    expect(fxLayersOutsidePhases('<svg><g class="body"><g class="lg-fx-sever" style="display:none"><path/></g></g></svg>')).toEqual(['lg-fx-sever'])
+    expect(fxLayersOutsidePhases('<svg><g class="lg-p2"></g><path class="lg-fxh-eye"/></svg>')).toEqual(['lg-fxh-eye'])
+  })
+  for (const motif of RAID_MOTIFS) {
+    it(`raids/${motif}.svg keeps every lg-fx face layer inside a phase group`, () => {
+      expect(fxLayersOutsidePhases(read(artUrl('raids', motif)))).toEqual([])
+    })
+  }
 })

@@ -502,7 +502,7 @@
     <!-- the maw: the pages tear open (entrance), the jaw chews -->
     <g transform="translate(0 66) scale(1 0.85) translate(0 -58)"><g transform="translate(60 58)"><g><g transform="translate(-60 -58)">
       <g transform="translate(60 58)"><g><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1 1;1 1.06;1 1" dur="1.8s" repeatCount="indefinite"/><g transform="translate(-60 -58)">
-        <path d="M32 58.4 C42 57 51 58.8 60 58.6 C69 58.8 78 57 88 58.4 C96 59.4 98.5 66 97.5 74 C96 84 91 91 84 93.6 C76 96.6 68 96 60 97 C52 96 44 96.6 36 93.6 C29 91 24 84 22.5 74 C21.5 66 24 59.4 32 58.4Z" fill="#12081c" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
+        <path d="M23 60 C36 55 48 59 60 58 C72 59 84 55 97 60 C99 74 94 87 86 92 C77 96 69 94 60 96.5 C51 94 43 96 34 92 C26 87 21 74 23 60Z" fill="#12081c" stroke="var(--lg-ink, #1d2230)" stroke-width="1.6" stroke-linejoin="round"/>
         <path d="M27 63 C38 60 48 63 60 62 C72 63 82 60 93 63" fill="none" stroke="#3a1a52" stroke-width="2"/>
         <!-- the binding rune burning in the throat -->
         <g transform="translate(60 78)">
@@ -521,17 +521,20 @@
         </g></g>
         <!-- lower page teeth -->
         <g fill="#f4e8cc" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round">
-          <path d="M32 94 Q32.6 88.42 34.6 87.4 Q37 83.68 39.4 87.4 Q41.4 88.42 42 94Z"/><path d="M43.5 96.2 Q44.1 88.76 46.1 86.6 Q48.5 82.88 50.9 86.6 Q52.9 88.76 53.5 96.2Z"/><path d="M66.5 96.2 Q67.1 88.76 69.1 86.6 Q71.5 82.88 73.9 86.6 Q75.9 88.76 76.5 96.2Z"/><path d="M78 94 Q78.6 88.42 80.6 87.4 Q83 83.68 85.4 87.4 Q87.4 88.42 88 94Z"/>
+          <polygon points="27,88 31,79 35,91"/><polygon points="35,91 38,82 42,93"/><polygon points="42,92.5 46,74 51,95"/><polygon points="51,95 54,86 57,96"/>
+          <polygon points="63,96 66,86 69,95"/><polygon points="69,95 74,74 78,92.5"/><polygon points="78,93 82,82 85,91"/><polygon points="85,91 89,79 93,88"/>
         </g>
-        <path d="M45.5 90 H50.5 M45.8 93 H50.2 M69.5 90 H74.5 M69.8 93 H74.2 M40.5 93 Q40.2 88.6 38 89 M52 95.2 Q51.7 89 49.5 88.2 M75 95.2 Q74.7 89 72.5 88.2 M86.5 93 Q86.2 88.6 84 89" stroke="#9a855c" stroke-width="0.5"/>
+        <path d="M45 88 H49 M45.6 84 H48.6 M71 88 H75 M71.4 84 H74.4" stroke="#9a855c" stroke-width="0.5"/>
       </g></g></g>
       <!-- upper page fangs, hanging from the torn top edge (they hold still: only the jaw moves) -->
       <g fill="#f4e8cc" stroke="var(--lg-ink, #1d2230)" stroke-width="0.8" stroke-linejoin="round">
-        <path d="M26.5 57.6 Q27.1 63.18 28.84 64.44 Q31 67.79 33.16 64.44 Q34.9 63.18 35.5 57.6Z"/><path d="M38 58.2 Q38.6 68.12 40.86 71.56 Q43.5 75.65 46.14 71.56 Q48.4 68.12 49 58.2Z"/><path d="M51 58.6 Q51.6 63.56 53.08 64.68 Q55 67.66 56.92 64.68 Q58.4 63.56 59 58.6Z"/><path d="M61 58.6 Q61.6 63.56 63.08 64.68 Q65 67.66 66.92 64.68 Q68.4 63.56 69 58.6Z"/><path d="M71 58.2 Q71.6 68.12 73.86 71.56 Q76.5 75.65 79.14 71.56 Q81.4 68.12 82 58.2Z"/><path d="M84.5 57.6 Q85.1 63.18 86.84 64.44 Q89 67.79 91.16 64.44 Q92.9 63.18 93.5 57.6Z"/>
+        <polygon points="24,60.5 28,70 31,58.6"/><polygon points="31,58.6 34,67 38,57.8"/><polygon points="38,57.8 43,82 49,58.6"/><polygon points="49,58.6 52,66 55,58.3"/>
+        <polygon points="65,58.3 68,66 71,58.6"/><polygon points="71,58.6 77,82 82,57.8"/><polygon points="82,57.8 86,67 89,58.6"/><polygon points="89,58.6 92,70 96,60.5"/>
       </g>
-      <path d="M39.5 62.5 H46.5 M39.8 65.5 H46.2 M40.2 68.5 H45.6 M73.5 62.5 H80.5 M73.8 65.5 H80.2 M74.4 68.5 H79.8 M34 58.6 Q33.7 63 31.9 63 M47.5 59.2 Q47.2 67.8 44.6 69.8 M57.5 59.6 Q57.2 63.4 55.8 63.4 M67.5 59.6 Q67.2 63.4 65.8 63.4 M80.5 59.2 Q80.2 67.8 77.6 69.8 M92 58.6 Q91.7 63 89.9 63" stroke="#9a855c" stroke-width="0.5"/>
+      <path d="M41.5 63 H47 M42.3 67 H46.5 M43.2 71 H45.8 M73 63 H78.5 M73.5 67 H77.7 M74.2 71 H76.8" stroke="#9a855c" stroke-width="0.5"/>
+      <path d="M40 59.6 L43.4 79 M72.4 59.6 L76.4 79" stroke="#fff" stroke-width="0.7" opacity="0.6"/>
       <!-- the torn, curling lip of the pages -->
-      <path d="M25 60.5 C27 59 29.5 58.6 32 58.4 C42 57 51 58.8 60 58.6 C69 58.8 78 57 88 58.4 C90.5 58.6 93 59 95 60.5" fill="none" stroke="#d6c39a" stroke-width="1.2"/>
+      <path d="M23 60 C36 55 48 59 60 58 C72 59 84 55 97 60" fill="none" stroke="#d6c39a" stroke-width="1.2"/>
     </g></g></g></g>
     <!-- the eye: a burning slit under the gold V clasp -->
     <g transform="translate(60 54)"><g>

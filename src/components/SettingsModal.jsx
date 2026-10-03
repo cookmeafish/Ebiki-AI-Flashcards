@@ -977,6 +977,15 @@ export default function SettingsModal(p) {
           </div>
         </div>
         <div style={{ marginTop: 12 }}>
+          {fieldLabel(<>{t('questionDepth')} <span className="tip" data-tip={t('questionDepthDesc')} style={{ textTransform: 'none', color: C.inkFaint }}>ⓘ</span></>)}
+          <select value={activeMode.studyRules?.questionDepth === 'thorough' ? 'thorough' : 'adaptive'}
+            onChange={(e) => updateActiveMode({ studyRules: { ...studyRulesBase, questionDepth: e.target.value } })}
+            style={{ ...S.select, maxWidth: 360, width: '100%' }}>
+            <option value="adaptive">{t('questionDepthAdaptive')}</option>
+            <option value="thorough">{t('questionDepthThorough')}</option>
+          </select>
+        </div>
+        <div style={{ marginTop: 12 }}>
           {toggleRow(activeMode.studyRules?.adaptive === true, (v) => updateActiveMode({ studyRules: { ...studyRulesBase, adaptive: v } }), t('studyAdaptive'))}
           <div style={{ ...hint, marginTop: 3, marginLeft: 23 }}>{t('studyAdaptiveDesc', { n: ADAPTIVE_STRUGGLE_LAPSES })}</div>
         </div>
@@ -1078,6 +1087,7 @@ export default function SettingsModal(p) {
             so a changed rule silently did nothing. Shown as what it really is. */}
         <div style={{ marginTop: 10 }}>{fieldLabel(t('ratingRules'))}
           <div style={{ ...hint, lineHeight: 1.6 }}>{t('set_ratingFixed')}</div>
+          <div style={{ ...hint, lineHeight: 1.6 }}>{t('set_ratingOneQ')}</div>
         </div>
       </details>
     </div>

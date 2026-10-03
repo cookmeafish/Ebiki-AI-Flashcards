@@ -12,9 +12,13 @@ import { useLearner, updateLearner } from '../kit/learnerStore'
 import { newLearner, applyLearnerDelta, deltaFor, bandFor, LEVEL_MAX } from '../kit/learner'
 import { recordPractice } from '../kit'
 import { readEvidence, judgeLevelFromEvidence } from '../kit/evidenceJudge'
-import { EVIDENCE } from '../kit/evidence'
+import { knownTile, knownThinText } from './knownReason'
 import { useLegendsMap, updateMap, configureLegends, clearStep, claimReward, rewardKeyFor, LEGENDS_ID } from './store'
-import { applyLegendaryResult, createMap, applyNodeResult, needsDetail, needsMoreAreas, starsFor, logDay, OPTIONAL_KINDS } from './map'
+import { applyLegendaryResult, createMap, applyNodeResult, needsDetail, needsMoreAreas, starsFor, logDay, OPTIONAL_KINDS, regradeItem } from './map'
+import { recheckStrike } from '../kit'
+import LearnItPanel from '../kit/LearnItPanel'
+import { gradeFromStrike } from '../../config/grading'
+import { MissTools, isWrongish } from './FightExtras'
 import { planMap, detailAreas, extendIfNeeded, detailAreaNow, forgetRunning } from './generate'
 import Questionnaire from './Questionnaire'
 import Placement from './PlacementExam'
@@ -38,27 +42,59 @@ function Stars({ n }) {
 }
 
 // Every question of the step with the learner's answer: the right ones too (only the misses were listed before).
-function AllAnswers({ t, answers }) {
-  const [open, setOpen] = useState(false)
+// After a fight it is also the DEBRIEF ("What tripped you up"): each miss or glancing answer shows the note, what the
+// second look found, and Appeal / Learn it / Make a rule card. A won appeal here fixes the item's tally (regradeItem),
+// never the fight's outcome.
+function AllAnswers({ ctx, modeId, area, answers, fight }) {
+  const { t } = ctx
+  const [rows, setRows] = useState(() => answers.map((a) => ({ ...a, answer: a.answered })))
+  const tripped = fight && rows.some((a) => a.aid && isWrongish(a.first))
+  const [open, setOpen] = useState(!!tripped)
+  const [learn, setLearn] = useState(null)
+  const alive = useRef(true)
+  useEffect(() => { alive.current = true; return () => { alive.current = false } }, [])
+  const setRow = (aid, p) => setRows((list) => list.map((r) => (r.aid === aid ? { ...r, ...p } : r)))
+  const appeal = async (aid, reason) => {
+    const a = rows.find((r) => r.aid === aid)
+    if (!a || a.overturned || a.appeal === 'pending' || a.appeal === 'won' || a.appeal === 'lost') return
+    setRow(aid, { appeal: 'pending' })
+    const r = await recheckStrike(ctx.ai, ctx.subject, a.q || { prompt: a.asked, accepted: [a.expected] }, a.answered, { verdict: a.verdict || a.first, reason })
+    if (!alive.current) return
+    if (!r) { setRow(aid, { appeal: 'failed' }); return }
+    if (!r.overturned) { setRow(aid, { appeal: 'lost', appealWhy: r.why }); return }
+    const grade = gradeFromStrike(r.verdict, { choice: a.mode === 'choice' })
+    setRow(aid, { appeal: 'won', appealWhy: r.why, overturned: true, by: 'appeal', afterFight: true, correct: true, verdict: r.verdict, grade })
+    if (a.itemId && area?.id) updateMap(modeId, (m) => (m ? regradeItem(m, area.id, a.itemId, a.grade, grade, true) : m))
+  }
+  const openLearn = (a) => {
+    const it = (area?.items || []).find((x) => x.id === a.itemId)
+    setLearn(it ? { front: it.front, back: it.back, noteId: it.cardNoteId || null } : { front: a.asked, back: a.expected })
+  }
   return (
     <div style={{ width: '100%', textAlign: 'left' }}>
       <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}
         style={{ fontFamily: FONT.body, border: 'none', background: 'transparent', color: C.info, fontWeight: 800, fontSize: 14, cursor: 'pointer', padding: 0 }}>
-        {open ? '▾' : '▸'} {t('lg_allAnswers', { n: answers.length })}
+        {open ? '▾' : '▸'} {t('lg_allAnswers', { n: rows.length })}{tripped ? ` · 🧩 ${t('lg_debriefTitle')}` : ''}
       </button>
       {open && (
         <Card style={{ marginTop: 8, boxSizing: 'border-box' }}>
-          <div style={{ display: 'grid', gap: 10 }}>
-            {answers.map((a, i) => (
-              <div key={i} style={{ fontSize: 13.5, lineHeight: 1.45, borderBottom: `1px solid ${C.border}`, paddingBottom: 8 }}>
-                <div style={{ fontWeight: 800, color: C.ink, whiteSpace: 'pre-wrap' }}>{a.correct ? '✅' : '❌'} {a.asked}</div>
-                {a.answered && <div style={{ color: a.correct ? C.success : C.danger }}>{a.correct ? '✓' : '✗'} {a.answered}</div>}
-                {!a.correct && a.expected && <div style={{ color: C.success }}>✓ {a.expected}</div>}
-              </div>
-            ))}
+          <div data-debrief={tripped ? '' : undefined} style={{ display: 'grid', gap: 10 }}>
+            {rows.map((a, i) => {
+              const wrongish = a.aid && isWrongish(a.first)
+              return (
+                <div key={a.aid || i} style={{ fontSize: 13.5, lineHeight: 1.45, borderBottom: `1px solid ${C.border}`, paddingBottom: 8, display: 'grid', gap: 3 }}>
+                  <div style={{ fontWeight: 800, color: C.ink, whiteSpace: 'pre-wrap' }}>{a.correct ? (a.overturned ? '✅' : a.first === 'glancing' ? '🟠' : '✅') : '❌'} {a.asked}</div>
+                  {a.answered && <div style={{ color: a.correct ? C.success : C.danger }}>{a.correct ? '✓' : '✗'} {a.answered}</div>}
+                  {(!a.correct || a.first === 'glancing') && a.expected && <div style={{ color: C.success }}>✓ {a.expected}</div>}
+                  {wrongish && a.note && <div style={{ color: C.inkDim }}>{a.note}</div>}
+                  {wrongish && <MissTools ctx={ctx} entry={a} onAppeal={appeal} onLearn={() => openLearn(a)} rule after expected={a.expected} />}
+                </div>
+              )
+            })}
           </div>
         </Card>
       )}
+      {learn && <LearnItPanel ctx={ctx} item={learn} onClose={() => setLearn(null)} />}
     </div>
   )
 }
@@ -120,7 +156,7 @@ function Result({ ctx, modeId, result, onBack, onRetry, onNewQuestions }) {
           <ItemAddList ctx={ctx} modeId={modeId} areaId={area.id} itemIds={area.items.map((it) => it.id)} />
         </Card>
       )}
-      {res.answers?.length > 0 && <AllAnswers t={t} answers={res.answers} />}
+      {res.answers?.length > 0 && <AllAnswers ctx={ctx} modeId={modeId} area={area} answers={res.answers} fight={fight} />}
       {!passed && res.misses?.length > 0 && (
         <Card title={t('lg_review')} style={{ width: '100%', boxSizing: 'border-box', textAlign: 'left' }}>
           <div style={{ display: 'grid', gap: 10 }}>
@@ -208,14 +244,19 @@ export default function LegendsScreen() {
   // The level is still to be found (the exam, or Ebiki's read of what it has seen).
   const levelPending = !!map && (map.start?.path === 'place' || map.start?.path === 'known') && !map.start?.placement
   const wantEvidence = view === 'questionnaire' || (levelPending && !ready && view === 'map')
+  // Read again when Anki starts answering (the screen opened before Anki finished starting, and the one read made at
+  // that moment said "could not read your cards" for good), and on "Check again" (`evidenceTick`).
+  const [evidenceTick, setEvidenceTick] = useState(0)
+  const ankiUp = ctx?.ankiConnected === true
   useEffect(() => {
     if (!ctx || !wantEvidence) return
     const my = ++evidenceSeq.current
     setEvidence({ status: 'loading' })
-    readEvidence(ctx)
+    readEvidence(ctx, { fresh: evidenceTick > 0 || ankiUp })
       .then((ev) => { if (my === evidenceSeq.current) setEvidence({ status: 'ready', ...ev }) })
       .catch(() => { if (my === evidenceSeq.current) setEvidence({ status: 'ready', ok: false, sum: null }) })
-  }, [wantEvidence, modeId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [wantEvidence, modeId, ankiUp, evidenceTick]) // eslint-disable-line react-hooks/exhaustive-deps
+  const recheckEvidence = () => setEvidenceTick((n) => n + 1)
 
   // Background work while the map is on screen: plan the map when it has no areas, detail the next areas,
   // plan more near the end, draw banners. One pass at a time; the mode id is pinned for every write.
@@ -276,10 +317,12 @@ export default function LegendsScreen() {
     const knownFromEvidenceNow = async (a) => {
       const pinned = modeId
       setError(''); setView('inferring')
-      const r = await judgeLevelFromEvidence(ctx, { selfRating: a?.selfRating || map?.start?.selfRating || 0, evidence: evidence?.status === 'ready' ? evidence : null })
+      // Gathered FRESH at the click: the deck's studied and new cards, study sessions, slips, chats, Discover, practice.
+      const r = await judgeLevelFromEvidence(ctx, { selfRating: a?.selfRating || map?.start?.selfRating || 0, fresh: true })
       if (pinned !== modeIdRef.current) return
+      if (r.sum) setEvidence({ status: 'ready', ok: true, sum: r.sum }) // the resume screen shows what was just read
       if (r.error) {
-        setError(r.error === 'thin' ? (r.sum?.reviewed === 1 ? t('lg_startKnownThinOne', { need: EVIDENCE.minReviewed }) : t('lg_startKnownThin', { n: r.sum?.reviewed || 0, need: EVIDENCE.minReviewed })) : r.error === 'read' ? t('lg_startKnownNoAnki') : t('lg_knownFailed'))
+        setError(r.error === 'thin' || r.error === 'read' ? knownThinText(t, r.error, r.sum) : t('lg_knownFailed'))
         setView('map')
         return
       }
@@ -310,7 +353,7 @@ export default function LegendsScreen() {
         if (subject.accents && typeof answers.accents === 'boolean' && answers.accents !== (subject.strictAccents !== false)) subject.setStrictAccents?.(answers.accents)
         return saveStart(answers)
       }
-      return <Questionnaire t={t} subject={subject} evidence={evidence} focus={featureCfg(ctx, LEGENDS_ID).focus === true} onBack={() => setView('map')} onDone={done} />
+      return <Questionnaire t={t} subject={subject} evidence={evidence} onRecheck={recheckEvidence} focus={featureCfg(ctx, LEGENDS_ID).focus === true} onBack={() => setView('map')} onDone={done} />
     }
     if (view === 'placement') {
       return <Placement ctx={ctx} selfRating={startAnswers?.selfRating || map?.start?.selfRating || 1} onDone={placementDone} onQuit={() => setView('map')} />
@@ -353,7 +396,8 @@ export default function LegendsScreen() {
 
     // Answers saved, "Find my level" chosen, exam not finished (left midway, or the app closed).
     if (!ready && levelPending) {
-      const knownOk = evidence?.status === 'ready' && evidence.ok && evidence.sum?.enough
+      // Offered whenever Ebiki has anything for the mode: the click reads again and says what is missing, if anything.
+      const knownOk = knownTile(t, evidence).enabled
       return (
         <div style={{ maxWidth: 600, margin: '30px auto', display: 'grid', gap: 18 }}>
           <EbiSays pose={poseFile('book')}>{t('lg_resumePlacement')}</EbiSays>

@@ -12,7 +12,8 @@
 //   Mount         component rendered once app-wide (background work, modals, overlays)
 //   headerItems   [{ id, order, Component }] small items in the header
 //   railCards     [{ id, order, Component }] cards in the right-hand rail
-//   navItems      [{ id, order, icon, art?, labelKey, Screen }] whole screens in the sidebar
+//   navItems      [{ id, order, icon, art?, labelKey, Screen, rail?, visible?(ctx) }] whole screens in the sidebar
+//                 (visible gets { registry, featureSettings } and hides the entry while false)
 //   settingsCards [{ id, section, order, Component }] cards in Settings (section: 'general' for now)
 //   practiceActivities [{ id, order, icon, titleKey, descKey, Screen, Badge? }] tiles in the Practice hub;
 //                 Screen gets { onExit, params }, Badge renders a small count (or nothing)

@@ -270,6 +270,12 @@ describe('tallyStudiedCard', () => {
     expect(next.areas[1]).toBe(map.areas[1])
     expect(tallyStudiedCard(next, 77, true).areas[0].items[0]).toMatchObject({ seen: 3, right: 2 })
   })
+  it('takes the Study grade when given: anything but Again counts right', () => {
+    const map = { areas: [{ id: 'a', items: [{ id: 'i1', cardNoteId: 77, seen: 0, right: 0 }] }] }
+    expect(tallyStudiedCard(map, 77, false, 'hard').areas[0].items[0]).toMatchObject({ seen: 1, right: 1 })
+    expect(tallyStudiedCard(map, 77, true, 'again').areas[0].items[0]).toMatchObject({ seen: 1, right: 0 })
+    expect(tallyStudiedCard(map, 77, false, 'easy').areas[0].items[0]).toMatchObject({ seen: 1, right: 1 })
+  })
   it('returns the same map when no item has that card', () => {
     const map = { areas: [{ id: 'a', items: [{ id: 'i1' }] }] }
     expect(tallyStudiedCard(map, 5, true)).toBe(map)

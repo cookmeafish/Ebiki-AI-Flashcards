@@ -47,6 +47,11 @@ function buildSystemPrompt(appContext) {
   if (appContext.activeMode?.dialect) parts.push(`Dialect setting: ${appContext.activeMode.dialect} (all generation follows this variant)`)
   if (appContext.grammarSlips?.length) parts.push(`RECURRING GRAMMAR SLIPS (auto-collected from graded study answers: things the learner conceptually knows but keeps getting wrong, e.g. a missing tilde). Offer targeted practice on these when asked ("let's drill my weak points"), or a gentle reminder when one is relevant:\n${appContext.grammarSlips.map((s) => `- ${s}`).join('\n')}`)
   parts.push(`Learner level in this mode: ${appContext.learnerLevel || 'not measured yet (Legends can measure it: a short test, or reading what Ebiki has seen them study)'}`)
+  // The shared learner context (App builds it with the secrecy guards; a function, so it is built only here). A failure
+  // never costs the prompt.
+  let learnerCtx = ''
+  try { learnerCtx = typeof appContext.learnerContext === 'function' ? appContext.learnerContext() : String(appContext.learnerContext || '') } catch { learnerCtx = '' }
+  if (learnerCtx) parts.push(`\n${learnerCtx}`)
   if (appContext.chatSettings && Object.values(appContext.chatSettings).some(Boolean)) {
     const c = appContext.chatSettings
     parts.push(`Chat tab settings for this mode: ${[c.focus && c.focus !== 'free' && `focus ${c.focus}`, c.level && `level ${c.level}`, c.explain && c.explain !== 'auto' && `explains in ${c.explain}`, c.attachedDeck && `deck attached: ${c.attachedDeck}`].filter(Boolean).join(', ') || 'defaults'}`)
@@ -111,12 +116,17 @@ function buildSystemPrompt(appContext) {
     if (dv.suggestion) parts.push(`Suggestion on screen: "${dv.suggestion.term}"${dv.suggestion.kind ? ` (${dv.suggestion.kind})` : ''}${dv.suggestion.meaning ? `: ${dv.suggestion.meaning}` : ''}${dv.suggestion.why ? `. Why it was suggested: ${dv.suggestion.why}` : ''}`)
   }
 
+  // Question depth (studyRules.questionDepth) and the one-answer rating, so Ebi can explain a card's one question.
+  const depthLine = (x) => x.questionDepth === 'thorough'
+    ? `Question depth: THOROUGH (every flashcard gets all ${x.questionsPerCard} questions; rated by how many are wrong: none Easy, one Good, more Hard, all Again).`
+    : `Question depth: ADAPTIVE. A due REVIEW gets ONE production question (the learner produces the answer: the word or form in a language mode, the term, value or step otherwise); new, learning, relearning, struggling cards and relearn copies get all ${x.questionsPerCard}. A one-question card is rated: wrong or skipped Again; right with a hint, a retry or a near miss (accent slip, partial answer, a grader correction) Hard; right and clean Good; Easy only when typed and the card is mature (interval 21 days or more). Multiple choice is at most Good. A missed review is rated Again once and comes back later in the session as practice with all its questions. The setting is in Settings, Study, Session ("Question depth"), or the "One question per review" box on the start screen.`
   // --- STUDY screen: the question is "on screen" ONLY here ---
   const ss = appContext.studySession || {}
   if (tab === 'study' && appContext.studyActive) {
     parts.push(`\nON THE STUDY SCREEN: deck="${appContext.studyDeck}", phase=${appContext.studyPhase}, type=${ss.studyMode || 'flashcards'}, answer style=${ss.answerStyle || 'typed'}`)
     parts.push(`Progress: ${ss.completed ?? 0} cards done, ${ss.activeCards ?? 0} active, ${ss.poolRemaining ?? 0} still waiting in the pool`)
     if (ss.learning || ss.ebiSpeaks) parts.push(`Learning: ${ss.learning || 'not set'} · Ebi speaks: ${ss.ebiSpeaks || ss.learning || 'not set'}`)
+    if (ss.questionDepth) parts.push(depthLine(ss))
     parts.push(`Session ratings so far: easy=${appContext.studyStats?.easy}, good=${appContext.studyStats?.good}, hard=${appContext.studyStats?.hard}, again=${appContext.studyStats?.again}`)
     if (appContext.studyDeckStats) parts.push(`Deck queue: new=${appContext.studyDeckStats.new_count}, learning=${appContext.studyDeckStats.learn_count}, review=${appContext.studyDeckStats.review_count}`)
     if (appContext.currentQuestion) {
@@ -136,6 +146,7 @@ function buildSystemPrompt(appContext) {
   } else if (tab === 'study' && appContext.studyStart) {
     const st = appContext.studyStart
     parts.push(`\nON THE STUDY START SCREEN (no session running): deck "${st.deck || 'none'}", type ${st.type}, answer style ${st.answerStyle}. The user picks a deck and options, then presses Start.`)
+    if (st.questionDepth) parts.push(depthLine(st))
   } else if (appContext.studyActive) {
     // A session exists but the user has navigated AWAY from the study screen. Do NOT present its
     // question as on-screen — this is exactly the "Ebi answered about a study question while on Stats" bug.

@@ -43,7 +43,7 @@ export default function GymScreen({ onExit }) {
   const start = async () => {
     setError(''); setPhase('loading')
     const targets = pickForWorkout(list, WORKOUT_SIZE, { log: await readPracticeLog(ctx) })
-    const { system, user } = buildWorkoutPrompt(subject, targets, { slips, level: await learnerLevelLine(ctx) })
+    const { system, user } = buildWorkoutPrompt(subject, targets, { slips, level: await learnerLevelLine(ctx, { context: true }) })
     try {
       const raw = await ai.call(system, user, { role: WORKOUT_ROLE, maxTokens: WORKOUT_MAX_TOKENS })
       const j = ai.json(raw)

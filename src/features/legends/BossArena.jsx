@@ -3,16 +3,24 @@
 // answer is a hit, every wrong one costs a life. Lives = the misses the pass mark allows + 1, so losing the last one
 // is exactly the miss that makes the boss unbeatable: the fight ends there, and at 0 health it ends in a win. The
 // pass itself is still decided by applyNodeResult. Nothing moves for people who asked for reduced motion.
-import { useContext, useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { ChunkyButton } from '../ui'
-import { BossArt, LegendsArt, headroomPx, useArtMotionAlways, useArtStill, reducedMotion, ArtMotion } from './art'
+import { BossArt, LegendsArt, headroomPx, useArtMotionAlways, useArtStill, reducedMotion, ArtMotion, useArtMarkup, artGlowMask, HEADROOM_SHARE } from './art'
 import { useFeatureCtx } from '../registry'
 import { LEGENDS_ID } from './store'
 import { AbilityFx } from './AbilityFx'
-import { newFight, healthLeft, livesLeft, phaseOf } from './fight'
+import { newFight, healthLeft, livesLeft, phaseOf, abilityState } from './fight'
+import { abilityById, ABILITY_BY_ID } from './abilities'
+import { abilityCss, floaterKeyFor, floaterToneFor, fxForAbility, juiceFor } from './fx'
+import { JUICE, JUICE_CSS, FLOATER_FILL, FLOATER_OUTLINE } from './fx/_juice'
+import { AbilityHud, BarMarks } from './fx/_Hud'
 import { PASS } from './map'
 
+// The intro card's red eye glow. true: a blurred red copy of the boss's silhouette behind it pulses its OPACITY (the
+// compositor runs it; the old `filter: drop-shadow` pulse repainted and re-layerized the whole page every frame, 13 to
+// 25 ms a frame in the asset view). false: the old drop-shadow pulse, exactly as before.
+export const INTRO_EYES_GLOW_LAYER = false
 export const BOSS = { intro: 190, arena: 120, arenaCompact: 68 } // px: the boss on the intro card, and above the questions
 // Below this many layout px of window height the arena shrinks (boss, bar, hearts), so the question and its choices
 // fit under it without scrolling on a short laptop screen (the body zoom is taken out).
@@ -73,7 +81,7 @@ const CSS = `
 @keyframes lgStageIn { 0% { opacity: 0 } 100% { opacity: 1 } }
 @keyframes lgStripeL { 0% { transform: translateX(-110%) } 100% { transform: translateX(0) } }
 @keyframes lgStripeR { 0% { transform: translateX(110%) } 100% { transform: translateX(0) } }
-@keyframes lgStripeMove { to { background-position: 56px 0 } }
+@keyframes lgStripeMove { to { transform: translateX(56px) } }
 @keyframes lgSlam { 0% { transform: translateY(-340px) scale(1.5); opacity: 0; filter: blur(6px) } 60% { opacity: 1; filter: blur(0) } 78% { transform: translateY(0) scale(1.08, .88) } 88% { transform: translateY(-10px) scale(.97, 1.04) } 100% { transform: translateY(0) scale(1) } }
 @keyframes lgRootRise { 0% { transform: translateY(110%) scaleX(.7) rotate(-6deg); opacity: 0 } 45% { opacity: 1 } 65% { transform: translateY(-8%) scaleX(1.05) rotate(4deg) } 82% { transform: translateY(2%) rotate(-2deg) } 100% { transform: none } }
 @keyframes lgGlitchIn { 0% { transform: translateX(-40px) skewX(30deg) scaleY(.2); opacity: 0 } 15% { transform: translateX(30px) skewX(-25deg) scaleY(1.2); opacity: 1 } 25% { transform: translateX(-18px) scaleX(1.4) scaleY(.6); opacity: .2 } 38% { transform: translateX(12px) skewX(15deg); opacity: 1 } 50% { transform: translateX(-6px) scaleY(1.1); opacity: .4 } 64% { transform: translateX(4px) skewX(-6deg); opacity: 1 } 80% { transform: scale(1.06) } 100% { transform: none } }
@@ -84,7 +92,7 @@ const CSS = `
 @keyframes lgBurrow { 0% { transform: translateY(100%) rotate(0) scale(.6); opacity: 0 } 20% { opacity: 1; transform: translateY(70%) rotate(-10deg) } 35% { transform: translateY(55%) rotate(10deg) } 50% { transform: translateY(35%) rotate(-10deg) } 68% { transform: translateY(-12%) rotate(6deg) scale(1.1) } 84% { transform: translateY(3%) rotate(-2deg) } 100% { transform: none } }
 @keyframes lgErupt { 0% { transform: translateY(120%) scale(.5); opacity: 0 } 35% { opacity: 1; transform: translateY(-60%) scale(1.15) rotate(8deg) } 55% { transform: translateY(-70%) scale(1.1) rotate(-6deg) } 80% { transform: translateY(4%) scale(1.1, .85) } 90% { transform: translateY(-4%) scale(.96, 1.05) } 100% { transform: none } }
 @keyframes lgShatterIn { 0% { transform: scale(1.9) rotate(8deg); opacity: 0; filter: blur(8px) brightness(2.2) } 40% { opacity: 1 } 65% { transform: scale(.9) rotate(-3deg); filter: blur(0) brightness(1.6) } 80% { transform: scale(1.05) } 100% { transform: none; filter: none } }
-@keyframes lgBogRise { 0% { transform: translateY(65%); opacity: 0 } 20% { opacity: 1; transform: translateY(45%) } 55% { transform: translateY(42%) } 72% { transform: translateY(-6%) scale(1.3) } 86% { transform: scale(.97) } 100% { transform: none } }
+@keyframes lgCroakSwell { 0% { transform: scale(.5, .28); opacity: 0 } 14% { opacity: 1 } 34% { transform: scale(.82, .6) } 46% { transform: scale(.74, .5) } 68% { transform: scale(1.24, 1.12) } 80% { transform: scale(1.05, .88) } 91% { transform: scale(.98, 1.03) rotate(-2deg) } 100% { transform: none } }
 @keyframes lgMarch { 0% { transform: translateX(-70%) scale(.7); opacity: 0 } 15% { opacity: 1; transform: translateX(-52%) translateY(-10px) scale(.76) } 30% { transform: translateX(-40%) translateY(4px) scale(.82) } 45% { transform: translateX(-24%) translateY(-10px) scale(.88) } 60% { transform: translateX(-12%) translateY(4px) scale(.94) } 78% { transform: translateY(-12px) scale(1.04) } 90% { transform: translateY(3px) scale(1.02, .96) } 100% { transform: none } }
 @keyframes lgPhaseIn { 0% { opacity: 0; transform: skewX(20deg) scale(1.2); filter: blur(6px) } 20% { opacity: .7; transform: skewX(-14deg) } 30% { opacity: .1 } 45% { opacity: .85; transform: skewX(8deg) scale(1.05); filter: blur(2px) } 55% { opacity: .2 } 70% { opacity: 1; transform: skewX(-3deg); filter: blur(0) } 82% { opacity: .5 } 100% { opacity: 1; transform: none; filter: none } }
 @keyframes lgStrike { 0% { transform: translateX(-140%) rotate(-35deg) scale(.8); opacity: 0 } 35% { opacity: 1 } 55% { transform: translateX(12%) rotate(8deg) scale(1.12) } 72% { transform: translateX(-6%) rotate(-4deg) } 86% { transform: translateX(2%) } 100% { transform: none } }
@@ -100,7 +108,7 @@ const CSS = `
 @keyframes lgPixelate { 0% { transform: scale(.1); opacity: 0 } 20% { opacity: 1; transform: scale(.35) } 40% { transform: scale(.6) } 60% { transform: scale(.85) } 80% { transform: scale(1.12) } 100% { transform: none } }
 @keyframes lgBookFlip { 0% { transform: perspective(400px) rotateY(-90deg) scale(.7); opacity: 0 } 45% { opacity: 1; transform: perspective(400px) rotateY(20deg) scale(1.05) } 70% { transform: perspective(400px) rotateY(-8deg) scale(1.1) } 100% { transform: none } }
 @keyframes lgScurry { 0% { transform: translateX(-200px) scale(.3, .35); opacity: 0 } 25% { opacity: 1; transform: translateX(-120px) scale(.45, .4) } 45% { transform: translateX(-60px) scale(1.25, .5) } 62% { transform: translateX(0) scale(.85, 1.2) } 78% { transform: scale(1.08, .92) } 100% { transform: none } }
-@keyframes lgRiseLift { 0% { transform: translateX(-260px) rotate(-360deg) scale(.7); opacity: 0 } 20% { opacity: 1 } 65% { transform: translateX(10px) rotate(8deg) scale(1.05) } 80% { transform: translateX(-4px) rotate(-3deg) scale(.98, 1.03) } 100% { transform: none } }
+@keyframes lgGraveRise { 0% { transform: perspective(500px) rotateX(82deg) scale(.9); opacity: 0; filter: brightness(0) } 12% { opacity: 1 } 62% { transform: perspective(500px) rotateX(18deg) scale(.98); filter: brightness(0) } 76% { transform: perspective(500px) rotateX(-7deg) scale(1.04); filter: brightness(1.7) } 88% { transform: perspective(500px) rotateX(2deg); filter: brightness(1) } 100% { transform: none; filter: none } }
 @keyframes lgBuzz { 0% { transform: translate(-180px, -60px) scale(.5); opacity: 0 } 15% { opacity: 1; transform: translate(-120px, 20px) scale(.6) rotate(10deg) } 30% { transform: translate(-60px, -40px) scale(.7) rotate(-10deg) } 45% { transform: translate(20px, 20px) scale(.85) rotate(8deg) } 60% { transform: translate(-10px, -20px) scale(.95) rotate(-6deg) } 78% { transform: translate(6px, 6px) scale(1.08) } 100% { transform: none } }
 @keyframes lgBloom { 0% { transform: translateY(40%) scale(.1) rotate(-90deg); opacity: 0 } 40% { opacity: 1; transform: translateY(10%) scale(.6) rotate(-30deg) } 70% { transform: translateY(-4%) scale(1.15) rotate(8deg) } 100% { transform: none } }
 @keyframes lgCurtsy { 0% { transform: translateY(14%) scale(.55); opacity: 0 } 25% { opacity: 1 } 45% { transform: scale(1.02) } 60% { transform: scale(1.06, .8) rotate(-3deg) } 72% { transform: scale(1.06, .8) rotate(-3deg) } 88% { transform: scale(.97, 1.07) rotate(1deg) } 100% { transform: none } }
@@ -110,7 +118,7 @@ const CSS = `
 @keyframes lgAssemble { 0% { transform: rotate(-90deg); opacity: 0 } 15% { opacity: 1 } 45% { transform: rotate(-60deg) } 52% { transform: rotate(-64deg) } 72% { transform: rotate(6deg) } 80% { transform: rotate(0) scale(1.06, .9) } 90% { transform: rotate(-2deg) } 100% { transform: none } }
 @keyframes lgHypno { 0% { transform: scale(.6, 2.6) skewX(20deg) translateY(-30%); opacity: 0; filter: hue-rotate(-140deg) blur(5px) } 35% { opacity: 1; transform: scale(.8, 1.8) skewX(-12deg) translateY(-8%) } 60% { transform: scale(1.1, .8) skewX(6deg); filter: hue-rotate(-50deg) blur(1px) } 80% { transform: scale(.96, 1.06) } 100% { transform: none; filter: none } }
 @keyframes lgFoxfire { 0% { transform: translateX(-120px); opacity: 0 } 10% { opacity: .9; transform: translateX(-120px) } 18% { opacity: 0 } 26% { opacity: .9; transform: translateX(110px) scale(.9) } 34% { opacity: 0 } 44% { opacity: .9; transform: translateX(-50px) scale(.95) } 52% { opacity: 0 } 64% { opacity: 1; transform: scale(1.18); filter: brightness(2) } 82% { transform: scale(.96); filter: brightness(1.2) } 100% { transform: none; filter: none } }
-@keyframes lgCartBrake { 0% { transform: translate(-240px, -110px) rotate(16deg); opacity: 0 } 15% { opacity: 1 } 60% { transform: translate(-8px, -3px) rotate(3deg) } 70% { transform: translate(3px, 0) rotate(10deg) } 82% { transform: rotate(-3deg) } 92% { transform: rotate(1deg) } 100% { transform: none } }
+@keyframes lgBlindLunge { 0% { transform: translateY(-70%) scale(.9); opacity: 0 } 12% { opacity: 1 } 40% { transform: translateY(-28%) scale(.92) } 47% { transform: translateY(-25%) scale(.92) rotate(-4deg) } 53% { transform: translateY(-28%) scale(.92) rotate(3deg) } 60% { transform: translateY(-26%) scale(.92) rotate(0) } 74% { transform: translateY(5%) scale(1.2) } 86% { transform: translateY(-2%) scale(.97) } 100% { transform: none } }
 @keyframes lgGallop { 0% { transform: translateX(260px); opacity: 0 } 12% { opacity: 1; transform: translate(200px, -14px) } 24% { transform: translate(150px, 0) } 36% { transform: translate(100px, -14px) } 48% { transform: translate(50px, 0) } 60% { transform: translate(10px, -14px) } 74% { transform: translate(-6px, 0) rotate(-10deg) } 88% { transform: rotate(4deg) } 100% { transform: none } }
 @keyframes lgRoarShake { 0% { transform: rotate(-70deg) translateX(-60px); opacity: 0 } 25% { opacity: 1 } 55% { transform: rotate(6deg) } 62% { transform: rotate(4deg) translate(-4px, 2px) } 68% { transform: rotate(3deg) translate(4px, -2px) } 74% { transform: rotate(2deg) translate(-3px, 1px) } 82% { transform: rotate(-1deg) } 100% { transform: none } }
 @keyframes lgDescend { 0% { transform: translateY(-220px) scale(.8); opacity: 0; filter: brightness(3) blur(4px) } 50% { opacity: 1; filter: brightness(2) blur(0) } 75% { transform: translateY(8px) scale(1.06) } 100% { transform: none; filter: none } }
@@ -125,7 +133,6 @@ const CSS = `
 @keyframes lgBatAssemble { 0% { transform: scale(2.2, .3); opacity: 0 } 10% { opacity: .5 } 22% { transform: scale(1.7, .6) skewX(18deg); opacity: .9 } 30% { opacity: .4 } 38% { transform: scale(1.3, .8) skewX(-14deg); opacity: 1 } 46% { opacity: .55 } 56% { transform: scale(.86, 1.16) skewX(6deg); opacity: 1 } 72% { transform: scale(1.06, .95) } 100% { transform: none } }
 @keyframes lgBoltDrop { 0% { transform: translateY(-160%) scaleY(2.4) scaleX(.25); opacity: 0 } 7% { opacity: 1; filter: brightness(6) } 14% { transform: translateY(6%) scaleY(.8) scaleX(1.16); filter: brightness(3.5) } 20% { transform: translateY(0) scale(1.18, .88); filter: brightness(1) } 24% { filter: brightness(4) } 28% { filter: brightness(1) } 46% { transform: scale(.96, 1.05) } 64% { transform: scale(1.03) } 100% { transform: none; filter: none } }
 @keyframes lgShardFocus { 0% { transform: rotate(-180deg) scale(1.8); opacity: 0; filter: hue-rotate(160deg) brightness(2) } 14% { opacity: .7 } 30% { transform: rotate(-120deg) scale(1.5); filter: hue-rotate(110deg) } 33% { transform: rotate(-90deg) scale(1.5) } 50% { transform: rotate(-60deg) scale(1.25); filter: hue-rotate(60deg) } 53% { transform: rotate(-30deg) scale(1.2); opacity: 1 } 70% { transform: rotate(-10deg) scale(1.06); filter: hue-rotate(20deg) } 73% { transform: rotate(0deg) scale(1.04) } 100% { transform: none; filter: none } }
-@keyframes lgGulpBloat { 0% { transform: scale(.3); opacity: 0 } 12% { opacity: 1 } 34% { transform: scale(1.5, 1.38) } 44% { transform: scale(1.38, 1.52) } 54% { transform: scale(1.56, 1.36) } 62% { transform: scale(.78, 1.12) } 70% { transform: scale(1.1, .9) } 82% { transform: scale(.97, 1.03) } 100% { transform: none } }
 @keyframes lgStringDrop { 0% { transform: translateY(-140%) rotate(0); opacity: 0 } 8% { opacity: 1 } 30% { transform: translateY(12%) rotate(-8deg) } 40% { transform: translateY(-14%) rotate(10deg) } 52% { transform: translateY(6%) rotate(-12deg) } 62% { transform: translateY(-4%) rotate(9deg) } 72% { transform: translateY(2%) rotate(-5deg) } 80% { transform: translateY(-6%) rotate(0) scale(1.05, .95) } 88% { transform: translateY(0) scale(.98, 1.03) } 100% { transform: none } }
 @keyframes lgWarCharge { 0% { transform: translateX(-160%) skewX(-18deg); opacity: 0 } 8% { opacity: 1 } 38% { transform: translateX(14%) skewX(-12deg) scale(1.04, .96) } 50% { transform: translateX(8%) skewX(10deg) rotate(4deg) } 60% { transform: translateX(-4%) skewX(-4deg) rotate(-3deg) } 70% { transform: translateY(-10%) } 78% { transform: translateY(4%) scale(1.1, .88) } 88% { transform: scale(.98, 1.03) } 100% { transform: none } }
 @keyframes lgHiveRumble { 0% { transform: translateY(45%) scale(.9); opacity: 0 } 6% { opacity: 1 } 10% { transform: translateY(45%) translateX(-3px) } 14% { transform: translateY(44%) translateX(3px) } 18% { transform: translateY(45%) translateX(-3px) } 22% { transform: translateY(44%) translateX(3px) } 26% { transform: translateY(45%) translateX(-2px) } 30% { transform: translateY(43%) translateX(2px) } 56% { transform: translateY(-8%) scale(1.04) } 70% { transform: translateY(3%) scale(.98) } 84% { transform: translateY(-1%) } 100% { transform: none } }
@@ -134,7 +141,11 @@ const CSS = `
 @keyframes lgScytheSwoop { 0% { transform: translate(120%, -120%) rotate(70deg) scale(.6); opacity: 0 } 10% { opacity: 1 } 34% { transform: translate(60%, -10%) rotate(30deg) scale(.85) } 52% { transform: translate(-14%, 8%) rotate(-12deg) scale(1.05) } 66% { transform: translate(4%, -4%) rotate(5deg) } 80% { transform: translate(0, 2%) rotate(-2deg) } 100% { transform: none } }
 @keyframes lgEldritchUnfold { 0% { transform: scale(.06, .002); opacity: 0 } 10% { opacity: 1; transform: scale(.06, .02) } 26% { transform: scale(.08, .2) } 34% { transform: scale(.1, .18) } 56% { transform: scale(1.22, .86) } 66% { transform: scale(.86, 1.14) } 76% { transform: scale(1.08, .94) } 86% { transform: scale(.97, 1.03) } 100% { transform: none } }
 @keyframes lgMoonrise { 0% { transform: translate(-70%, 30%) scale(.32); opacity: 0; filter: brightness(.15) } 8% { opacity: 1 } 22% { transform: translate(-30%, 52%) scale(.46); filter: brightness(.3) } 36% { transform: translate(28%, 50%) scale(.6); filter: brightness(.5) } 50% { transform: translate(58%, 18%) scale(.74); filter: brightness(.75) } 62% { transform: translate(30%, -22%) scale(.88); filter: brightness(1.2) } 72% { transform: translate(0, -10%) scale(1.24); filter: brightness(2.2) } 80% { transform: translate(0, 2%) scale(.92); filter: brightness(1.1) } 90% { transform: scale(1.05) } 100% { transform: none; filter: none } }
+@keyframes lgGyroAlign { 0% { transform: perspective(520px) rotateX(84deg) scale(.12); opacity: 0; filter: brightness(4) } 8% { opacity: 1 } 24% { transform: perspective(520px) rotateX(-62deg) rotateY(38deg) scale(.3); filter: brightness(3.2) } 40% { transform: perspective(520px) rotateX(48deg) rotateY(-72deg) scale(.52); filter: brightness(2.6) } 54% { transform: perspective(520px) rotateX(-26deg) rotateY(30deg) scale(.78); filter: brightness(2) } 64% { transform: perspective(520px) rotateX(8deg) rotateY(-8deg) scale(.94) } 72% { transform: perspective(520px) rotateX(0) rotateY(0) scale(1.2); filter: brightness(2.8) } 82% { transform: scale(.95); filter: brightness(1.2) } 92% { transform: scale(1.03) } 100% { transform: none; filter: none } }
 @keyframes lgPetalFall { 0% { transform: translate(-30%, -150%) rotate(-26deg) scale(.22); opacity: 0 } 8% { opacity: 1 } 20% { transform: translate(28%, -114%) rotate(22deg) scale(.24) } 34% { transform: translate(-24%, -78%) rotate(-20deg) scale(.26) } 48% { transform: translate(20%, -44%) rotate(15deg) scale(.28) } 60% { transform: translate(-8%, -14%) rotate(-8deg) scale(.3) } 70% { transform: translate(0, 0) scale(.32); filter: brightness(1.5) } 80% { transform: scale(1.2); filter: brightness(1.8) saturate(1.3) } 90% { transform: scale(.95); filter: brightness(1.1) } 100% { transform: none; filter: none } }
+@keyframes lgCoinToss { 0% { transform: perspective(600px) translateY(120%) rotateX(0deg) scale(.3); opacity: 0 } 6% { opacity: 1 } 22% { transform: perspective(600px) translateY(-40%) rotateX(360deg) scale(.34); filter: brightness(1.6) } 36% { transform: perspective(600px) translateY(-70%) rotateX(720deg) scale(.4); filter: brightness(2) sepia(.6) } 50% { transform: perspective(600px) translateY(-42%) rotateX(1080deg) scale(.6); filter: brightness(1.6) sepia(.4) } 64% { transform: perspective(600px) translateY(0) rotateX(1440deg) scale(.9); filter: brightness(1.4) } 72% { transform: translateY(4%) scale(1.16, .8); filter: brightness(2.4) sepia(.5) } 80% { transform: translateY(-3%) scale(.94, 1.08); filter: brightness(1.3) } 90% { transform: scale(1.02, .98) } 100% { transform: none; filter: none } }
+@keyframes lgSugarDrop { 0% { transform: translateY(-170%) scale(.62, .78); opacity: 0 } 6% { opacity: 1 } 30% { transform: translateY(0) scale(1.38, .58) } 40% { transform: translateY(-30%) scale(.8, 1.24) } 52% { transform: translateY(0) scale(1.24, .74) } 60% { transform: translateY(-11%) scale(.9, 1.12) } 68% { transform: translateY(0) scale(1.08, .9) } 72% { transform: translateY(0) scale(1.16, .84); filter: brightness(1.7) saturate(1.5) } 78% { transform: scale(.9, 1.12); filter: brightness(1.2) } 84% { transform: scale(1.07, .94) } 90% { transform: scale(.97, 1.04) } 95% { transform: scale(1.01, .99) } 100% { transform: none; filter: none } }
+@keyframes lgCurtainPart { 0% { clip-path: inset(-60% 50% -60% 50%); transform: scale(1.06); filter: brightness(.12) saturate(0); opacity: 0 } 6% { opacity: 1 } 38% { clip-path: inset(-60% -60% -60% -60%); transform: scale(1.06); filter: brightness(.14) saturate(0) } 50% { transform: scale(1.02); filter: brightness(2.8) saturate(1.4) } 60% { transform: none; filter: brightness(1.15) } 72% { transform: rotate(-8deg) translateY(5%) scale(.97, .93) } 84% { transform: rotate(2.5deg) translateY(-3%) scale(1.02, 1.05) } 93% { transform: rotate(-.8deg) translateY(.5%) } 100% { clip-path: inset(-60% -60% -60% -60%); transform: none; filter: none } }
 @keyframes lgRealityTear { 0% { transform: scale(1.3, .02); opacity: 0; filter: brightness(3) } 14% { opacity: 1; transform: scale(1.3, .03) } 28% { transform: scale(1.1, .05) } 46% { transform: scale(.94, 1.28); filter: brightness(2) hue-rotate(40deg) } 54% { transform: translateX(-9px) scale(1.04, .94) } 60% { transform: translateX(8px) scale(.98, 1.04); filter: hue-rotate(-30deg) } 66% { transform: translateX(-5px) } 72% { transform: translateX(3px) scale(1.02) } 100% { transform: none; filter: none } }
 @keyframes lgPhaseShift { 0% { transform: none; filter: none } 10% { transform: scale(1.3); filter: brightness(3) saturate(0) } 22% { transform: scale(.9) translateX(-7px) rotate(-4deg); filter: brightness(1.2) } 32% { transform: scale(1.22) translateX(7px) rotate(4deg); filter: brightness(2.4) } 44% { transform: scale(.96) translateX(-4px) } 58% { transform: scale(1.14); filter: brightness(1.7) saturate(1.6) } 100% { transform: none; filter: none } }
 @keyframes lgPhaseTag { 0% { transform: translate(-50%, -6px); opacity: 0 } 15% { transform: translate(-50%, 0); opacity: 1 } 75% { opacity: 1 } 100% { transform: translate(-50%, 0); opacity: 0 } }
@@ -144,16 +155,60 @@ const CSS = `
 @keyframes lgDust { 0% { transform: translate(0, 0) scale(.6); opacity: 0 } 8% { opacity: .9 } 100% { transform: translate(var(--dx), -26px) scale(1.4); opacity: 0 } }
 @keyframes lgHeartbeat { 0%,100% { transform: scale(1); opacity: .55 } 14% { transform: scale(1.12); opacity: .9 } 28% { transform: scale(1); opacity: .6 } 42% { transform: scale(1.08); opacity: .85 } }
 @keyframes lgEyes { 0%,100% { filter: drop-shadow(0 0 0 transparent) } 50% { filter: drop-shadow(0 0 14px var(--c-danger)) brightness(1.15) } }
+@keyframes lgEyesGlow { 0%,100% { opacity: 0 } 50% { opacity: 1 } }
+@keyframes lgEyesLift { 0%,100% { filter: brightness(1) } 50% { filter: brightness(1.15) } }
 @keyframes lgStamp { 0% { transform: scale(2.4); opacity: 0; letter-spacing: .3em } 70% { transform: scale(.94); opacity: 1 } 100% { transform: scale(1); letter-spacing: normal } }
 @keyframes lgPopIn { 0% { transform: scale(0) } 70% { transform: scale(1.35) } 100% { transform: scale(1) } }
 @keyframes lgRise { 0% { transform: translateY(24px); opacity: 0 } 100% { transform: translateY(0); opacity: 1 } }
 @keyframes lgCall { 0%,100% { transform: scale(1) } 50% { transform: scale(1.06) } }
+/* The intro card off screen (scrolled away in the asset view): its endless loops hold still, so they stop repainting
+   the page; on screen nothing changes. lg-loop1 = the loop is the element's only animation, lg-loop2 = its second. */
+.lg-intro-off .lg-loop1 { animation-play-state: paused !important }
+.lg-intro-off .lg-loop2 { animation-play-state: running, paused !important }
 @media (prefers-reduced-motion: reduce) { .lg-boss:not(.lg-motion), .lg-boss:not(.lg-motion) *:not(svg):not(svg *) { animation: none !important; opacity: 1 !important } }
 .lg-calm, .lg-calm *:not(svg):not(svg *) { animation: none !important }
+@media (prefers-reduced-motion: reduce) { .lg-boss:not(.lg-motion) [class*="lgfa-"], .lg-boss:not(.lg-motion) [class*="lgr-"] { animation: none !important } }
+.lg-calm [class*="lgfa-"], .lg-calm [class*="lgr-"] { animation: none !important }
+/* fx-layer motion (fx/<motif>.jsx css on lgfa-* parts and lg-fx-* layers) is off with the other reactions: focus mode, Still bosses, reduced motion */
+.lg-fx-off [class*="lgfa-"], .lg-fx-off [class*="lgfa-"] *, .lg-fx-off [class*="lg-fx-"], .lg-fx-off [class*="lg-fx-"] * { animation: none !important }
 .lg-boss[data-phase="2"] .lg-p2, .lg-boss[data-phase="3"] .lg-p2, .lg-boss[data-phase="3"] .lg-p3 { display: inline !important }
 .lg-boss[data-phase="2"] .lg-p1, .lg-boss[data-phase="3"] .lg-p1, .lg-boss[data-phase="3"] .lg-p12 { display: none !important }
 `
 export const BossStyle = () => <style>{CSS}</style>
+
+// True while the element is fully off screen (no observer: never).
+function useOffscreen(ref) {
+  const [off, setOff] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || typeof IntersectionObserver === 'undefined') return undefined
+    const io = new IntersectionObserver(([e]) => setOff(!e.isIntersecting))
+    io.observe(el)
+    return () => io.disconnect()
+  }, [ref])
+  return off
+}
+
+// INTRO_EYES_GLOW_LAYER: the drop-shadow's look (14px red glow around the silhouette, 1.3s ease-in-out pulse) as a
+// static blurred, masked layer whose opacity pulses. Inset by the figure's headroom, like the mask's viewBox.
+function EyesGlow({ kind, motif, delay }) {
+  const raw = useArtMarkup(kind, motif)
+  const url = useMemo(() => {
+    const svg = artGlowMask(raw)
+    return svg && typeof URL !== 'undefined' && URL.createObjectURL ? URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' })) : ''
+  }, [raw])
+  useEffect(() => () => { if (url) URL.revokeObjectURL(url) }, [url])
+  if (!url) return null
+  const m = `url(${url})`
+  // The blur sits on the OUTER box: CSS applies a filter before the mask, so on one box the mask cut the glow back to a
+  // crisp silhouette hidden under the boss.
+  return (
+    <div aria-hidden="true" className="lg-loop1" style={{ position: 'absolute', inset: `-${HEADROOM_SHARE * 100}%`, pointerEvents: 'none',
+      filter: 'blur(7px)', opacity: 0, willChange: 'opacity', animation: `lgEyesGlow 1.3s ease-in-out ${delay}s infinite` }}>
+      <div style={{ width: '100%', height: '100%', background: C.danger, maskImage: m, WebkitMaskImage: m, maskSize: '100% 100%', WebkitMaskSize: '100% 100%', maskRepeat: 'no-repeat', WebkitMaskRepeat: 'no-repeat' }} />
+    </div>
+  )
+}
 
 // The entrance: the stage darkens, hazard stripes close in, the boss slams down (the stage quakes, a shockwave and
 // dust), its eyes flash, the title stamps in, the lives pop in one by one and the Fight button rises. ~2s, CSS only.
@@ -173,7 +228,7 @@ export const ENTRANCES = {
   desert: { name: 'lgBurrow', ease: 'cubic-bezier(.3,.8,.4,1)' }, // tunnels up out of the sand
   volcano: { name: 'lgErupt', ease: 'cubic-bezier(.2,.8,.4,1)' }, // erupts out of the lava
   ice: { name: 'lgShatterIn', ease: 'cubic-bezier(.3,.9,.4,1)' }, // freezes into being in a flash
-  swamp: { name: 'lgBogRise', ease: 'cubic-bezier(.4,0,.3,1)' }, // eyes surface, a pause, then it lunges at you
+  swamp: { name: 'lgCroakSwell', ease: 'cubic-bezier(.3,.7,.4,1)', origin: 'bottom center' }, // puffs up like a balloon, sighs half flat, swells huge with a croak, sags back
   castle: { name: 'lgMarch', ease: 'linear' }, // marches in with heavy stomps
   graveyard: { name: 'lgPhaseIn', ease: 'linear' }, // phases in like a ghost, flickering
   jungle: { name: 'lgStrike', ease: 'cubic-bezier(.2,.9,.3,1)' }, // strikes in from the side
@@ -189,7 +244,7 @@ export const ENTRANCES = {
   arcade: { name: 'lgPixelate', ease: 'steps(6, end)' }, // assembles pixel by pixel
   library: { name: 'lgBookFlip', ease: 'cubic-bezier(.3,.8,.4,1)' }, // flips open with a slam
   sewer: { name: 'lgScurry', ease: 'cubic-bezier(.3,.7,.4,1)', origin: 'left center' }, // squeezes out of a drain pipe
-  arena: { name: 'lgRiseLift', ease: 'cubic-bezier(.2,.7,.3,1)' }, // tumbles in rolling like a thrown champion
+  arena: { name: 'lgGraveRise', ease: 'cubic-bezier(.4,.1,.5,1)', origin: 'bottom center' }, // a black silhouette tips up from flat on its back like a raised drawbridge, then the light catches him and he stops dead
   hive: { name: 'lgBuzz', ease: 'linear' }, // buzzes in on a zigzag
   garden: { name: 'lgBloom', ease: 'cubic-bezier(.3,.8,.4,1)' }, // blooms out of the soil
   sweets: { name: 'lgCurtsy', ease: 'cubic-bezier(.3,.7,.4,1)', origin: 'bottom center' }, // grows into view, sinks into a slow regal curtsy, rises tall
@@ -199,7 +254,7 @@ export const ENTRANCES = {
   junkyard: { name: 'lgAssemble', ease: 'linear', origin: 'bottom left' }, // heaves itself up from lying on its side
   dream: { name: 'lgHypno', ease: 'cubic-bezier(.3,.7,.4,1)', origin: 'top center' }, // melts into shape like a dripping dream
   sakura: { name: 'lgFoxfire', ease: 'linear' }, // blinks in and out like a trickster before it appears
-  mine: { name: 'lgCartBrake', ease: 'linear', origin: 'bottom right' }, // rides his ore cart down the rails, brakes hard and tips forward
+  mine: { name: 'lgBlindLunge', ease: 'linear', origin: 'top center' }, // creeps down out of the shaft, sniffs twice, then lunges at you
   frontier: { name: 'lgGallop', ease: 'linear' }, // gallops in from the side
   primeval: { name: 'lgRoarShake', ease: 'cubic-bezier(.3,.7,.4,1)', origin: 'bottom right' }, // leans into frame head first and roars
   celestial: { name: 'lgDescend', ease: 'cubic-bezier(.3,.7,.4,1)' }, // descends in a blaze of light
@@ -216,7 +271,6 @@ export const ENTRANCES = {
   vampire: { name: 'lgBatAssemble', ease: 'cubic-bezier(.3,.7,.4,1)' }, // a flickering cloud of bats pulls together into her
   tempest: { name: 'lgBoltDrop', ease: 'cubic-bezier(.2,.9,.3,1)' }, // a lightning strike: it is suddenly there, then billows
   kaleido: { name: 'lgShardFocus', ease: 'linear' }, // a kaleidoscope clicking into focus
-  glutton: { name: 'lgGulpBloat', ease: 'cubic-bezier(.3,.8,.4,1)', origin: 'bottom center' }, // bloats up, wobbles, gulps back
   puppeteer: { name: 'lgStringDrop', ease: 'cubic-bezier(.3,.7,.4,1)', origin: 'top center' }, // dropped on strings, dangles, jerked upright
   berserker: { name: 'lgWarCharge', ease: 'cubic-bezier(.3,.8,.4,1)', origin: 'bottom center' }, // charges in from the side, skids, stomps
   swarmqueen: { name: 'lgHiveRumble', ease: 'cubic-bezier(.3,.7,.4,1)', origin: 'bottom center' }, // the comb shivers, she pushes up out of it
@@ -225,7 +279,11 @@ export const ENTRANCES = {
   reaper: { name: 'lgScytheSwoop', ease: 'cubic-bezier(.3,.8,.4,1)' }, // swoops down from the corner on a scythe arc
   dreamer: { name: 'lgEldritchUnfold', ease: 'cubic-bezier(.3,.8,.4,1)' }, // one eye opens, then it unfolds with a jelly wobble
   moonmaw: { name: 'lgMoonrise', ease: 'cubic-bezier(.35,.6,.4,1)' }, // swings around a full orbit in eclipse, waxing to full, then a gravity pulse
+  ophanim: { name: 'lgGyroAlign', ease: 'cubic-bezier(.3,.7,.4,1)' }, // tumbles in on two axes like a gyroscope of wheels, then locks upright in a blaze
   kitsune: { name: 'lgPetalFall', ease: 'cubic-bezier(.3,.6,.4,1)' }, // drifts down like a falling sakura petal, side to side, then blooms to full size
+  ratking: { name: 'lgCoinToss', ease: 'cubic-bezier(.3,.7,.4,1)' }, // tossed up from below like a coin, flipping end over end, then lands with a heavy squash in a flash of gold
+  sugarqueen: { name: 'lgSugarDrop', ease: 'cubic-bezier(.4,.1,.5,1)', origin: 'bottom center' }, // dropped onto her cake platter from above, splats and bounces twice like jelly, then wobbles still
+  showman: { name: 'lgCurtainPart', ease: 'cubic-bezier(.3,.6,.4,1)', origin: 'bottom center' }, // the curtains part on a dark silhouette, the spotlight hits him in a blaze, he sweeps a deep bow and snaps upright
 }
 export const entranceFor = (motif) => ENTRANCES[motif] || ENTRANCES.mountains
 // `odds`: bossOdds options ({ bonus, pass }); `legendary`: the harder replay of a cleared area.
@@ -239,24 +297,31 @@ export function BossIntro({ t, area, name = '', total, onFight, odds, legendary 
   const lives = kind === 'raids' ? raidLives : odds0.lives
   const bonus = kind === 'raids' ? 0 : odds0.bonus
   const E = ENTRANCE
+  const cardRef = useRef(null)
   const entrance = entranceFor(area?.motif)
   const NIGHT = `color-mix(in srgb, ${C.bg} 25%, black)` // the stage is dark in both themes
   const stripe = `repeating-linear-gradient(-45deg, ${C.danger} 0 14px, color-mix(in srgb, ${C.danger} 20%, black) 14px 28px)`
   const band = (side) => ({
     position: 'absolute', left: 0, right: 0, height: 30, [side]: 18, display: 'grid', placeItems: 'center', overflow: 'hidden',
-    background: stripe, backgroundSize: '56px 56px', boxShadow: `0 0 18px color-mix(in srgb, ${C.danger} 60%, transparent)`,
-    animation: `${side === 'top' ? 'lgStripeL' : 'lgStripeR'} .4s cubic-bezier(.2,.9,.3,1) ${E.stripes}s both, lgStripeMove 1.2s linear infinite`,
+    boxShadow: `0 0 18px color-mix(in srgb, ${C.danger} 60%, transparent)`,
+    animation: `${side === 'top' ? 'lgStripeL' : 'lgStripeR'} .4s cubic-bezier(.2,.9,.3,1) ${E.stripes}s both`,
   })
-  const label = { fontFamily: FONT.display, fontWeight: 900, fontSize: 15, letterSpacing: '.35em', color: C.white, padding: '0 14px', background: `color-mix(in srgb, ${C.danger} 20%, black)`, borderRadius: 4, textTransform: 'uppercase' }
+  // The stripes slide on their own layer, one tile wider on the left, moved by transform (composited) instead of
+  // background-position (a full repaint every frame); the tiles line up with the band's left edge as before.
+  const stripes = <span aria-hidden="true" className="lg-loop1" style={{ position: 'absolute', top: 0, bottom: 0, left: -56, right: 0, background: stripe, backgroundSize: '56px 56px', animation: 'lgStripeMove 1.2s linear infinite' }} />
+  const off = useOffscreen(cardRef)
+  // The glow layer exists only while it would pulse (like the shockwave): stilled, the old filter showed no glow.
+  const glowLayer = INTRO_EYES_GLOW_LAYER && !calm && (motion || !reducedMotion())
+  const label = { position: 'relative', fontFamily: FONT.display, fontWeight: 900, fontSize: 15, letterSpacing: '.35em', color: C.white, padding: '0 14px', background: `color-mix(in srgb, ${C.danger} 20%, black)`, borderRadius: 4, textTransform: 'uppercase' }
   return (
-    <div className={(calm ? 'lg-boss lg-calm' : 'lg-boss') + (motion ? ' lg-motion' : '')} style={{ maxWidth: 640, margin: '12px auto', position: 'relative', borderRadius: RADIUS.xl, overflow: 'hidden', animation: `lgStageIn .3s ease-out both, lgQuake .45s ease-out ${E.impact}s` }}>
+    <div ref={cardRef} className={(calm ? 'lg-boss lg-calm' : 'lg-boss') + (motion ? ' lg-motion' : '') + (off ? ' lg-intro-off' : '')} style={{ maxWidth: 640, margin: '12px auto', position: 'relative', borderRadius: RADIUS.xl, overflow: 'hidden', animation: `lgStageIn .3s ease-out both, lgQuake .45s ease-out ${E.impact}s` }}>
       <BossStyle />
       <div style={{ position: 'relative', padding: '64px 20px 76px', display: 'grid', gap: 14, justifyItems: 'center', textAlign: 'center',
         background: `radial-gradient(ellipse at 50% 42%, color-mix(in srgb, ${C.danger} 30%, ${NIGHT}) 0%, ${NIGHT} 72%)` }}>
-        <div aria-hidden="true" style={band('top')}><span style={label}>⚠ {kind === 'raids' ? t('lg_raid') : legendary ? t('lg_legendary') : t('lg_boss')} ⚠</span></div>
-        <div aria-hidden="true" style={band('bottom')}><span style={label}>⚠ {kind === 'raids' ? t('lg_raid') : legendary ? t('lg_legendary') : t('lg_boss')} ⚠</span></div>
+        <div aria-hidden="true" style={band('top')}>{stripes}<span style={label}>⚠ {kind === 'raids' ? t('lg_raid') : legendary ? t('lg_legendary') : t('lg_boss')} ⚠</span></div>
+        <div aria-hidden="true" style={band('bottom')}>{stripes}<span style={label}>⚠ {kind === 'raids' ? t('lg_raid') : legendary ? t('lg_legendary') : t('lg_boss')} ⚠</span></div>
         <div style={{ position: 'relative', width: BOSS.intro, height: BOSS.intro, margin: `${headroomPx(BOSS.intro)}px 0` }}>
-          <div aria-hidden="true" style={{ position: 'absolute', inset: -40, borderRadius: '50%', background: `radial-gradient(circle, color-mix(in srgb, ${C.danger} 55%, transparent) 0%, transparent 65%)`, animation: `lgStageIn .2s ease-out ${E.impact}s both, lgHeartbeat 1.3s ease-in-out ${E.impact}s infinite` }} />
+          <div aria-hidden="true" className="lg-loop2" style={{ position: 'absolute', inset: -40, borderRadius: '50%', background: `radial-gradient(circle, color-mix(in srgb, ${C.danger} 55%, transparent) 0%, transparent 65%)`, animation: `lgStageIn .2s ease-out ${E.impact}s both, lgHeartbeat 1.3s ease-in-out ${E.impact}s infinite` }} />
           {/* Shockwave and dust exist ONLY as animation (invisible at both ends): stilled, they stuck on screen as a stray ring
               and grey dots. */}
           {!calm && (motion || !reducedMotion()) && <>
@@ -266,7 +331,8 @@ export function BossIntro({ t, area, name = '', total, onFight, odds, legendary 
           ))}
           </>}
           <div style={{ position: 'relative', transformOrigin: entrance.origin || '50% 50%', animation: `${entrance.name} ${(E.impact - E.slam).toFixed(2)}s ${entrance.ease} ${E.slam}s both` }}>
-            <div style={{ animation: `lgEyes 1.3s ease-in-out ${E.impact + 0.2}s infinite` }}>
+            {glowLayer && <EyesGlow kind={kind} motif={area?.motif} delay={E.impact + 0.2} />}
+            <div className="lg-loop1" style={glowLayer ? { position: 'relative', animation: `lgEyesLift 1.3s ease-in-out ${E.impact + 0.2}s infinite` } : { animation: `lgEyes 1.3s ease-in-out ${E.impact + 0.2}s infinite` }}>
               {kind === 'bosses' ? <BossArt area={area} size={BOSS.intro} animated={calm ? 'idle' : 'intro'} roomed /> : <LegendsArt kind={kind} motif={area.motif} palette={area.palette} height={BOSS.intro} width={BOSS.intro} round={0} animated={calm ? 'idle' : 'intro'} roomed />}
             </div>
           </div>
@@ -285,7 +351,7 @@ export function BossIntro({ t, area, name = '', total, onFight, odds, legendary 
           </div>
         )}
         <div style={{ animation: `lgRise .4s ease-out ${E.fight}s both` }}>
-          <div style={{ animation: `lgCall 1.1s ease-in-out ${E.fight + 0.4}s infinite` }}>
+          <div className="lg-loop1" style={{ animation: `lgCall 1.1s ease-in-out ${E.fight + 0.4}s infinite` }}>
             <ChunkyButton color={C.danger} onClick={onFight} style={{ minWidth: 200, fontSize: 18 }}>⚔️ {t('lg_bossFight')}</ChunkyButton>
           </div>
         </div>
@@ -326,14 +392,68 @@ export function MotionToggle({ t, dark = false }) {
   )
 }
 
-// Icons and floater texts for the raid abilities (fight.js ABILITIES, strike's last.fx).
-export const ABILITY_ICON = { regrowth: '🐍', plating: '🛡', phylactery: '☠', heads: '🔥', singularity: '🌀', judgment: '⚖️',
-  maelstrom: '🌊', kindling: '🔥', rewind: '⏳', bloodpact: '🩸', tempest: '⚡', reflection: '🪞', devour: '👄', marionette: '🎭', lastbreath: '🪓',
-  swarm: '🐝', petrify: '🗿', crescendo: '🎶', harvest: '💀', slumber: '💤', supernova: '🌟', starball: '🔮' }
-const FX_KEY = { cut: 'lg_fx_cut', bounce: 'lg_fx_bounce', triple: 'lg_fx_triple', rise: 'lg_fx_rise', shatter: 'lg_fx_shatter', singularity: 'lg_fx_singularity', smite: 'lg_fx_smite',
-  surface: 'lg_fx_surface', kindle: 'lg_fx_kindle', rewind: 'lg_fx_rewind', pact: 'lg_fx_pact', bolt: 'lg_fx_bolt', reflect: 'lg_fx_reflect', choke: 'lg_fx_choke', gorge: 'lg_fx_gorge', snap: 'lg_fx_snap', lastbreath: 'lg_fx_lastbreath',
-  sting: 'lg_fx_sting', crumble: 'lg_fx_crumble', crescendo: 'lg_fx_crescendo', harvest: 'lg_fx_harvest', slumber: 'lg_fx_slumber', supernova: 'lg_fx_supernova',
-  steal: 'lg_fx_steal', starball: 'lg_fx_starball' }
+// Icons of the raid abilities (abilities/<motif>.js); their floater texts and effects live in fx/<motif>.jsx.
+export const ABILITY_ICON = Object.fromEntries(Object.values(ABILITY_BY_ID).map((a) => [a.id, a.icon]))
+
+// THE JUICE PLAYER (design v2.1, 1.2 and 1.3; the data is each fx file's `juice` map, fx/_juice.js). After a strike
+// that fires `last.fx`, JUICE.delay later: hit-stop (the boss's idle paused), flash, the arena shake, data-fx + the
+// reaction class for the fx key's size (tick 350 / medium 800 / big 1200 ms), and the overlay + floater (mounted until
+// they end, JUICE.linger). A new strike cancels the older one (it never queues). When the next question appears
+// (`questionKey` changes) everything still playing fades out over JUICE.fade and is gone: the next question is never
+// delayed and a floater never sits over it. `on` false (focus mode, Still bosses, reduced motion) plays nothing.
+const FLOAT_TONE = { purple: C.purple, danger: C.danger, warning: C.warning, success: C.success, info: C.info, brand: C.brand }
+const IDLE_JUICE = { fx: '', show: false, fading: false, shake: 0, flash: 0, stop: 0, n: 0, size: 'big' }
+function useJuice(last, on, ability, questionKey) {
+  const [st, setSt] = useState(IDLE_JUICE)
+  const key = last?.fx ? `${last.n}:${last.fx}` : ''
+  const timers = useRef([])
+  const lastFlashAt = useRef(-Infinity)
+  useEffect(() => {
+    const clear = () => { timers.current.forEach(clearTimeout); timers.current = [] }
+    const later = (ms, f) => { timers.current.push(setTimeout(f, ms)) }
+    clear()
+    setSt(IDLE_JUICE)
+    if (!on || !key) return clear
+    const fx = last.fx
+    const n = last.n
+    const j = juiceFor(ability, fx)
+    later(JUICE.delay, () => {
+      const now = Date.now()
+      // Photosensitivity: at most 2 flashes a second, whatever the data asks.
+      const flash = j.flash && now - lastFlashAt.current >= JUICE.flashGap ? j.flash : 0
+      if (flash) lastFlashAt.current = now
+      const stop = j.hitstop ? JUICE.hitstop[j.size] : 0
+      setSt({ fx, show: true, fading: false, shake: j.shake, flash, stop, n, size: j.size })
+      if (stop) later(stop, () => setSt((x) => (x.n === n ? { ...x, stop: 0 } : x)))
+      later(Math.min(JUICE.maxMs, j.ms), () => setSt((x) => (x.n === n ? { ...x, fx: '', shake: 0, flash: 0 } : x)))
+      later(JUICE.linger, () => setSt((x) => (x.n === n ? IDLE_JUICE : x)))
+    })
+    return clear
+  }, [key, on]) // eslint-disable-line react-hooks/exhaustive-deps
+  // The next question appeared: fast-fade whatever still plays, then drop it.
+  const seenQ = useRef(questionKey)
+  useEffect(() => {
+    if (seenQ.current === questionKey) return undefined
+    seenQ.current = questionKey
+    setSt((x) => (x.show || x.fx ? { ...x, fading: true, shake: 0, flash: 0, stop: 0 } : x))
+    const id = setTimeout(() => setSt((x) => (x.fading ? IDLE_JUICE : x)), JUICE.fade)
+    return () => clearTimeout(id)
+  }, [questionKey])
+  return st
+}
+
+// Hit-stop also pauses the boss's SMIL idle (CSS play-state cannot reach it); only the drawings it paused itself are
+// resumed (art.jsx takes off-screen drawings out of the page on its own).
+function useHitStop(ref, stop) {
+  useEffect(() => {
+    if (!stop || !ref.current || typeof ref.current.querySelectorAll !== 'function') return undefined
+    const paused = []
+    for (const svg of ref.current.querySelectorAll('svg')) {
+      try { if (svg.animationsPaused && !svg.animationsPaused()) { svg.pauseAnimations(); paused.push(svg) } } catch { /* not an SVG document */ }
+    }
+    return () => { for (const svg of paused) { try { svg.unpauseAnimations() } catch { /* gone */ } } }
+  }, [ref, stop])
+}
 
 // The phase to stamp while a phase change plays (0 otherwise). Only a RISE counts, never the first render.
 function usePhaseShift(phase) {
@@ -365,7 +485,12 @@ function useShortWindow(getZoom) {
 // = the boss's health, `lives` the learner's hearts. `phases`: 2 for a boss (it enrages at half health), 3 for a
 // raid boss (`data-phase` lets a raid drawing show its lg-p2 / lg-p3 layers). `weak`: names of the items the boss
 // is weak to. `shield`: the learner brought a shield. `focus`: focus mode, no floaters or combo flair (the numbers stay).
-export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, phases = 2, weak = [], shield = false, focus = false, getZoom, kind = 'bosses', ability = '' }) {
+// `questionKey`: changes when the next question appears (RaidRun), so an ability effect still playing fast-fades.
+// A refund's motion (fight.js applyRefund): a sweat drop by the sheepish boss, the heart floating back up.
+const REFUND_CSS = '@keyframes lgRefundSweat { 0% { transform: translateY(-6px) scale(.4); opacity: 0 } 20% { transform: translateY(0) scale(1.1); opacity: 1 } 80% { transform: translateY(6px) scale(1); opacity: 1 } 100% { transform: translateY(10px) scale(.9); opacity: 0 } }'
+  + ' @keyframes lgRefundHeart { 0% { transform: translate(-50%, 0) scale(.5); opacity: 0 } 25% { transform: translate(-50%, -10px) scale(1.25); opacity: 1 } 100% { transform: translate(120%, -90px) scale(.7); opacity: 0 } }'
+
+export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, phases = 2, weak = [], shield = false, focus = false, getZoom, kind = 'bosses', ability = '', dayAb = null, questionKey }) {
   const motion = useArtMotionAlways()
   const still = useArtStill()
   const quiet = focus || still // no shake, bob, flash or ability effect (still: the owner's no-animation switch)
@@ -381,6 +506,28 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
   const rage = phase > 1
   // A raid boss changing phase: it flashes, shakes and swells, and a small "PHASE N" tag fades in UNDER it (once per change; over the boss it hid the change itself).
   const shift = usePhaseShift(phases > 2 && !down ? phase : 0)
+  // The raid ability (abilities/<motif>.js): its visible state, health-bar marks, art state and the effect playing.
+  // `st.damage` here is what the bar shows (a raid's whole day), so ctx.bar starts at 0.
+  const abMod = abilityById(ability)
+  const abCtx = { phase, need, lives, livesLeft: left, damage: st.damage, bar: { total: need, before: 0, phases }, dayAb, K: abMod?.K || {} }
+  const abS = abMod ? { ...st, ab: abilityState(st, abMod, abCtx) } : st
+  const abHud = (!down && abMod?.hud?.(abS, abCtx)) || null
+  const abMarks = (!down && abMod?.barMarks?.(abS, abCtx)) || null
+  const abAttrs = (abMod?.artState?.(abS, abCtx)) || {}
+  const abStyle = (!down && abMod?.artStyle?.(abS, abCtx)) || undefined
+  const abNote = abMod?.chipNote?.(abS, abCtx)
+  const AbHud = fxForAbility(ability)?.Hud
+  const animOk = !quiet && (motion || !reducedMotion())
+  const juice = useJuice(last, animOk, ability, questionKey)
+  const fxNow = juice.fx
+  const artRef = useRef(null)
+  useHitStop(artRef, juice.stop)
+  // A persistent idle reaction (only IDLE_MOTIFS: abilities/_rules.js), off with every other reaction.
+  const idleKey = !down && animOk && abMod?.idle ? abMod.idle(abS, abCtx) : ''
+  const fxSize = juice.size
+  const shakeSpec = juice.shake ? JUICE.shake[juice.shake] : null
+  const flashSpec = juice.flash ? JUICE.flash[juice.flash] : null
+  const abCssText = abMod ? abilityCss(ability, abAttrs) : ''
   const hpColor = hp / need > 0.5 ? C.danger : hp / need > 0.25 ? C.warning : C.success
   const heartsLast = missNow || (last?.lives > 0) ? { kind: 'miss', n: last.n } : null
   // `wrap`: a chip with a list in it (the weak items) wraps instead of running past the arena on a narrow window.
@@ -388,30 +535,73 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
     <span key={key} style={{ fontSize: 11.5, fontWeight: 800, color, border: `1.5px solid color-mix(in srgb, ${color} 45%, transparent)`, borderRadius: RADIUS.pill, padding: '1px 8px', ...(wrap ? { whiteSpace: 'normal', overflowWrap: 'anywhere', minWidth: 0 } : { whiteSpace: 'nowrap' }) }}>{text}</span>
   )
   return (
-    <div className={motion ? 'lg-boss lg-motion' : 'lg-boss'} data-phase={phase} style={{ display: 'flex', alignItems: 'center', gap: compact ? 10 : 16, padding: compact ? '0 12px 0 0' : '0 14px 0 0', borderRadius: RADIUS.lg,
-      background: `color-mix(in srgb, ${C.danger} ${rage ? 14 : 7}%, ${C.surface})`, border: `2px solid color-mix(in srgb, ${C.danger} ${rage ? 60 : 30}%, ${C.border})`, transition: 'background .4s, border-color .4s' }}>
+    <div className={(motion ? 'lg-boss lg-motion' : 'lg-boss') + (animOk ? '' : ' lg-fx-off')} data-phase={phase} data-fx={fxNow || undefined} data-fx-size={fxNow ? fxSize : undefined} {...abAttrs} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: compact ? 10 : 16, padding: compact ? '0 12px 0 0' : '0 14px 0 0', borderRadius: RADIUS.lg,
+      background: `color-mix(in srgb, ${C.danger} ${rage ? 14 : 7}%, ${C.surface})`, border: `2px solid color-mix(in srgb, ${C.danger} ${rage ? 60 : 30}%, ${C.border})`, transition: 'background .4s, border-color .4s',
+      // The shake moves the ARENA box only (the question card below never moves).
+      animation: shakeSpec ? `lgJuiceShake${juice.shake} ${shakeSpec.ms}ms linear` : undefined }}>
       <BossStyle />
+      {abMod && <style>{JUICE_CSS}</style>}
+      {abCssText && <style>{abCssText}</style>}
+      {/* F2 flash: a 25% white veil over the arena for one frame */}
+      {flashSpec?.veil && <div key={`v${juice.n}`} aria-hidden="true" style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', background: '#fff', opacity: 0, animation: `lgJuiceVeil ${flashSpec.veilMs}ms steps(1, end)`, pointerEvents: 'none', zIndex: 3 }} />}
       <div style={{ position: 'relative', flexShrink: 0, margin: headroomPx(compact ? BOSS.arenaCompact : BOSS.arena) }}>
         <div key={`s${shift}`} style={{ animation: shift && !quiet ? 'lgPhaseShift 1s ease-out both' : 'none' }}>
         <div key={`b${last?.n || 0}`} style={{ animation: down ? 'lgBossDown .6s ease-out both' : quiet ? 'none' : hitNow ? 'lgBossHit .5s ease-out' : missNow ? 'lgBossLunge .45s ease-out' : 'none',
           filter: down ? 'grayscale(.8) opacity(.6)' : rage ? `drop-shadow(0 0 10px ${C.danger}) saturate(1.3)` : 'none' }}>
+          {/* the boss's own reaction to its ability (fx/<motif>.jsx css: .lgr-<motif>-<fx>), then its persistent idle
+              reaction (.lgr-<motif>-idle-<key>), then its persistent look (artStyle) on the INNERMOST box, so a scale
+              composes with the hit, the lunge and the reaction instead of fighting them for `transform` */}
+          <div ref={artRef} className={juice.stop ? 'lg-hitstop' : undefined} style={{ animation: flashSpec ? `lgJuiceFlash${juice.flash} ${flashSpec.ms}ms steps(1, end)` : undefined }}>
+          <div className={fxNow ? `lgr-${area.motif}-${fxNow}` : undefined}>
+          <div className={idleKey ? `lgr-${area.motif}-idle-${idleKey}` : undefined}>
+          <div style={abStyle}>
           {kind === 'bosses'
             ? <BossArt area={area} size={compact ? BOSS.arenaCompact : BOSS.arena} animated={down ? false : 'idle'} roomed />
             : <LegendsArt kind={kind} motif={area.motif} palette={area.palette} height={compact ? BOSS.arenaCompact : BOSS.arena} width={compact ? BOSS.arenaCompact : BOSS.arena} round={0} animated={down ? false : 'idle'} phase={phase} roomed />}
+          </div>
+          </div>
+          </div>
+          </div>
         </div>
         </div>
         {shift > 0 && !quiet && <>
           <div key={`r${shift}`} aria-hidden="true" style={{ position: 'absolute', left: '50%', top: '50%', width: '100%', height: '100%', borderRadius: '50%', border: `2px solid ${C.purple}`, transform: 'translate(-50%, -50%)', animation: 'lgPhaseRing .8s ease-out both', pointerEvents: 'none' }} />
           <div key={`p${shift}`} aria-hidden="true" style={{ position: 'absolute', left: '50%', top: compact ? 'calc(100% - 3px)' : 'calc(100% + 4px)', whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 800, fontSize: compact ? 11 : 13, letterSpacing: '.06em', textTransform: 'uppercase', color: C.white, padding: '1px 9px', borderRadius: 999, background: `color-mix(in srgb, ${C.danger} 70%, transparent)`, transform: 'translateX(-50%)', animation: 'lgPhaseTag 1.8s ease-out both', pointerEvents: 'none', zIndex: 2 }}>{t('lg_fightPhase', { n: shift })}</div>
         </>}
-        {/* the raid ability's own effect (a bolt, a wave, a scythe arc...), once per strike that fires it */}
-        {!quiet && last?.fx && (motion || !reducedMotion()) && <AbilityFx key={`x${last.n}`} fx={last.fx} />}
+        {/* the raid ability's own effect (a bolt, a wave, a scythe arc...) and its floater, once per strike that fires
+            it, inside the boss box; they fade out the moment the next question appears */}
+        {juice.show && (
+          <div key={`x${juice.n}`} aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1, opacity: juice.fading ? 0 : 1, transition: `opacity ${JUICE.fade}ms ease-in` }}>
+            <AbilityFx fx={last?.fx || ''} ability={ability} />
+            {!focus && floaterKeyFor(ability, last?.fx) && (
+              <div style={{ position: 'absolute', left: '50%', top: 0, whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 900, fontSize: JUICE.floaterPx[fxSize] || JUICE.floaterPx.big,
+                color: FLOATER_FILL[floaterToneFor(ability, last.fx)] || FLOATER_FILL.purple, WebkitTextStroke: `2px ${FLOATER_OUTLINE}`, paintOrder: 'stroke fill', zIndex: 2,
+                animation: `lgJuicePop 900ms cubic-bezier(.22,1,.36,1) ${JUICE.floaterDelay}ms both` }}>
+                {`${last.damage ? `-${last.damage} ` : ''}${t(floaterKeyFor(ability, last.fx), last.fxVars || {})}`}
+              </div>
+            )}
+          </div>
+        )}
         {/* Flash and floater only where they can animate: under the system's reduce-motion their fade was removed and a
             red disc covered the boss after every hit. */}
         {!quiet && hitNow && (motion || !reducedMotion()) && <div key={`f${last.n}`} aria-hidden="true" style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: C.danger, mixBlendMode: 'screen', animation: 'lgBossFlash .35s ease-out both', pointerEvents: 'none' }} />}
-        {!focus && (motion || !reducedMotion()) && last && (hitNow || last.shielded || last.kind === 'block' || last.fx) && (
-          <div key={`d${last.n}`} aria-hidden="true" style={{ position: 'absolute', left: '50%', top: 0, whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 900, fontSize: last.crit || last.fx ? 26 : 22, color: last.shielded || last.fx === 'bounce' ? C.info : last.fx ? C.purple : last.crit ? C.warning : C.danger, animation: 'lgBossFloat .9s ease-out both', pointerEvents: 'none' }}>
-            {last.shielded ? '🛡' : last.fx && FX_KEY[last.fx] ? `${last.damage ? `-${last.damage} ` : ''}${t(FX_KEY[last.fx])}` : `-${last.damage}${last.crit ? '!' : ''}`}
+        {/* the plain damage floater. An ability's own floater plays with its effect (above) while effects are on; with
+            them off (Still bosses) its text still shows here, so the numbers say what happened */}
+        {!focus && (motion || !reducedMotion()) && last && (hitNow || last.shielded || last.kind === 'block' || last.fx) && !(animOk && !last.shielded && last.fx && floaterKeyFor(ability, last.fx)) && (
+          <div key={`d${last.n}`} aria-hidden="true" style={{ position: 'absolute', left: '50%', top: 0, whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 900, fontSize: last.crit || last.fx ? 26 : 22, color: last.shielded ? C.info : last.fx ? (FLOAT_TONE[floaterToneFor(ability, last.fx)] || C.purple) : last.crit ? C.warning : C.danger, animation: 'lgBossFloat .9s ease-out both', pointerEvents: 'none' }}>
+            {last.shielded ? '🛡' : last.fx && floaterKeyFor(ability, last.fx) ? `${last.damage ? `-${last.damage} ` : ''}${t(floaterKeyFor(ability, last.fx), last.fxVars || {})}` : `-${last.damage}${last.crit ? '!' : ''}`}
+          </div>
+        )}
+        {/* A REFUND (a re-check or an appeal found the answer right, fight.js applyRefund): the boss looks sheepish (a
+            sweat drop, a small shrink), the lost heart floats back up and the damage it was owed lands. Its own
+            counter (rn), so the boss's hit / lunge animations never replay. Skipped in focus mode and Still bosses
+            (the notice under the arena still says it). */}
+        {!quiet && last?.kind === 'refund' && (motion || !reducedMotion()) && (
+          <div key={`rf${last.rn}`} aria-hidden="true" data-refund-fx="" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 2 }}>
+            <style>{REFUND_CSS}</style>
+            <div style={{ position: 'absolute', right: '6%', top: '4%', fontSize: 26, animation: 'lgRefundSweat 1.6s ease-out both' }}>😅</div>
+            {last.healedLives > 0 && <div style={{ position: 'absolute', left: '50%', bottom: '8%', fontSize: 24, animation: 'lgRefundHeart 1.4s cubic-bezier(.22,1,.36,1) both' }}>💖</div>}
+            {last.damage > 0 && <div style={{ position: 'absolute', left: '50%', top: 0, whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 900, fontSize: 22, color: C.success, animation: 'lgBossFloat 1.1s ease-out .25s both' }}>-{last.damage}</div>}
           </div>
         )}
       </div>
@@ -422,17 +612,19 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
           <MotionToggle t={t} />
         </div>
         <div role="progressbar" aria-valuemin={0} aria-valuemax={need} aria-valuenow={hp} aria-label={t('lg_bossHpLabel')}
-          style={{ height: compact ? 12 : 16, borderRadius: RADIUS.pill, background: C.surfaceSunken, overflow: 'hidden', border: `2px solid color-mix(in srgb, ${C.danger} 35%, transparent)` }}>
+          style={{ position: 'relative', height: compact ? 12 : 16, borderRadius: RADIUS.pill, background: C.surfaceSunken, overflow: 'hidden', border: `2px solid color-mix(in srgb, ${C.danger} 35%, transparent)` }}>
           <div style={{ width: `${(hp / need) * 100}%`, height: '100%', background: `linear-gradient(90deg, ${hpColor}, color-mix(in srgb, ${hpColor} 70%, white))`, transition: 'width .45s cubic-bezier(.3,1.3,.5,1), background .3s' }} />
+          <BarMarks marks={abMarks} need={need} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <Lives t={t} lives={lives} left={left} last={heartsLast} bonus={bonus} size={16} />
           {shield && chip(st.shieldUsed ? C.inkFaint : C.info, `🛡 ${st.shieldUsed ? t('lg_fightShieldUsed') : t('lg_fightShield')}`, 'sh')}
-          {!down && ability && chip(C.purple, `${ABILITY_ICON[ability]} ${t(`lg_ability_${ability}`)}${ability === 'phylactery' && st.risen ? ` · ${t('lg_fx_rise')}` : ''}`, 'ab')}
+          {!down && ability && chip(C.purple, `${ABILITY_ICON[ability] || ''} ${t(`lg_ability_${ability}`)}${abNote ? ` · ${t(abNote)}` : ''}`, 'ab')}
           {!down && rage && chip(C.danger, `😡 ${phases > 2 ? t('lg_fightPhase', { n: phase }) : t('lg_fightRage')}`, 'rg')}
           {!focus && st.combo >= 2 && chip(C.warning, `🔥 ${t('lg_fightCombo', { n: st.combo })}`, 'cb')}
           {weak.length > 0 && !compact && chip(C.success, `🎯 ${t('lg_fightWeak', { items: weak.join(', ') })}`, 'wk', true)}
         </div>
+        {!down && (abHud || AbHud) && <AbilityHud t={t} items={abHud} compact={compact} calm={!animOk}>{AbHud && <AbHud t={t} state={abS} ctx={abCtx} compact={compact} />}</AbilityHud>}
       </div>
     </div>
   )

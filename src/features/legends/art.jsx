@@ -16,7 +16,7 @@
 // class="lg-in" = the entrance (played once when the file appears), class="lg-loop" = idle life (breathing, fire,
 // waves). `animated` picks what plays: 'intro' = both, 'idle' = loops only, false = none (the file's own attributes
 // are its resting pose, so a still file shows the finished boss). Reduced motion always gets false.
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useFeatureCtx, featureCfg } from '../registry'
 import { LEGENDS_ID } from './store'
 import { RADIUS } from '../../config/tokens'
@@ -69,10 +69,173 @@ export const artVars = (palette) => {
   }
 }
 
+// Files allowed to use ids and gradients, for a painted 3D look (art.test.js holds every other file to flat cel
+// drawing, no ids, no url()): the owner asked for a photoreal ophanim. The default stays flat.
+export const REALISTIC_ART = ['raids/ophanim.svg']
+// PHOTO LAYERS (an experiment the owner asked for: real photographs in the ophanim: its great eye, its wings, its
+// wheels, its cloud bed and the holy light behind it). The sanitizer drops every <image> from a file (nothing a file holds may load a URL), so the file only
+// marks WHERE (empty <g class="lg-photo-..."> groups) and this code, after sanitizing, puts the app's own fixed sprites
+// there (PHOTO_SPRITES, hardcoded paths, never read from the file). Inside the SVG each photo keeps the file's stacking
+// (wheels and lids in front), the motion of the group it sits in (iris look-around, wing flaps and unfolding, cloud
+// drift) and the phase layers. The painted parts stay under it in the file as the fallback; those the photo replaces
+// are wrapped in class lg-photo-hide and hidden while the photo is there.
+//   eye    ophanim-eye.webp    2048 x 512, cells 512: 0 eyeball (iris painted out), 1 eyeball warm, 2 iris blue, 3 iris gold
+//   wings  ophanim-wings.webp  2560 x 480, cells 640 x 240: four wings (root at the left), row 0 white, row 1 warm
+//   cloud  ophanim-cloud.webp  1280 x 480, cells 640 x 240: 0 cloud, 1 mirrored, 2 and 3 the same warm (phase 3)
+//   rings  ophanim-rings.webp  1536 x 750, cells 768 x 150: five rings flattened, column 0 the back (top) half, column 1
+//          the front half; the file puts each half in its painted ring's back or front layer so the wheels still
+//          pass behind and in front of the eye
+//   light  ophanim-light.webp  1536 x 512, cells 512: the light plate (PHOTO LIGHT below), tinted for phase 1, 2, 3
+// A wing, cloud or ring marker carries its own transform (the unit square becomes its cell); a wing shows the warm row
+// in phase 3 (lg-p3) and the white one otherwise (lg-p12).
+// To revert: delete this block, PHOTO LIGHT below and their uses (the call in loadArt, `photo` in LegendsArt), delete
+// the five raids/ophanim-*.webp, restore ophanim.svg from the painted original (the scratchpad backup
+// ophanim-backup-before-photo-eye).
+export const PHOTO_SPRITES = {
+  eye: { url: `${ART_BASE}/raids/ophanim-eye.webp`, w: 2048, h: 512, cw: 512, ch: 512, cols: 4 },
+  wings: { url: `${ART_BASE}/raids/ophanim-wings.webp`, w: 2560, h: 480, cw: 640, ch: 240, cols: 4 },
+  cloud: { url: `${ART_BASE}/raids/ophanim-cloud.webp`, w: 1280, h: 480, cw: 640, ch: 240, cols: 2 },
+  rings: { url: `${ART_BASE}/raids/ophanim-rings.webp`, w: 1536, h: 750, cw: 768, ch: 150, cols: 2 },
+  light: { url: `${ART_BASE}/raids/ophanim-light.webp`, w: 1536, h: 512, cw: 512, ch: 512, cols: 3 },
+}
+export const PHOTO_EYE_URL = PHOTO_SPRITES.eye.url
+const PHOTO_FILE = `${ART_BASE}/raids/ophanim.svg`
+const EYE_CELLS = { // class: [sprite cell, center x, center y, size] in the drawing's 120 x 120 units
+  'lg-photo-ball': [0, 60, 54, 48.33], 'lg-photo-ball3': [1, 60, 54, 48.33],
+  'lg-photo-iris': [2, 60, 56.4, 32.17], 'lg-photo-iris3': [3, 60, 56.4, 32.17],
+}
+// one sprite cell drawn into the box (x, y, w, h)
+const photoCell = (sprite, cell, x, y, w, h) => {
+  const s = PHOTO_SPRITES[sprite]
+  const vx = (cell % s.cols) * s.cw, vy = Math.floor(cell / s.cols) * s.ch
+  return `<svg x="${x}" y="${y}" width="${w}" height="${h}" viewBox="${vx} ${vy} ${s.cw} ${s.ch}" preserveAspectRatio="none">` +
+    `<image href="${s.url}" width="${s.w}" height="${s.h}"/></svg>`
+}
+export function withPhotoEye(svg, url) {
+  if (url !== PHOTO_FILE || !svg) return svg
+  return svg
+    .replace(/class="lg-photo-hide([^"]*)"/g, 'class="lg-photo-hide$1" style="display:none"')
+    .replace(/<g class="(lg-photo-(?:ball|iris)3?)"><\/g>/g, (m, cls) => {
+      const [cell, cx, cy, size] = EYE_CELLS[cls]
+      return `<g class="${cls}">${photoCell('eye', cell, cx - size / 2, cy - size / 2, size, size)}</g>`
+    })
+    .replace(/<g class="lg-photo-wing lg-pw-([0-3])"( transform="[^"]*")><\/g>/g, (m, cell, tr) =>
+      `<g class="lg-photo-wing"${tr}><g class="lg-p12">${photoCell('wings', +cell, 0, 0, 1, 1)}</g>` +
+      `<g class="lg-p3" style="display:none">${photoCell('wings', +cell + 4, 0, 0, 1, 1)}</g></g>`)
+    .replace(/<g class="lg-photo-cloud lg-pc-([0-3])"( transform="[^"]*")><\/g>/g, (m, cell, tr) =>
+      `<g class="lg-photo-cloud"${tr}>${photoCell('cloud', +cell, 0, 0, 1, 1)}</g>`)
+    .replace(/<g class="lg-photo-ring lg-pr-(\d)"( transform="[^"]*")><\/g>/g, (m, cell, tr) =>
+      `<g class="lg-photo-ring"${tr}>${photoCell('rings', +cell, 0, 0, 1, 1)}</g>`)
+}
+
+// PHOTO LIGHT (part of the photo experiment): the ophanim's sky and light are real CSS, which the sanitizer never sees
+// because this is the app's own markup: HTML layers in the drawing's box, BEHIND the SVG (a deep sky with soft falloff,
+// the owner's light plate pouring down, soft volumetric rays, far cloud wisps, bokeh and stars) and IN FRONT of it (a
+// blurred bloom around the great eye). Light uses mix-blend-mode: screen (added light) and filter: blur, inside an
+// isolated box so it only mixes with the drawing. The file's flat painted sky, haze, orbs and beam sticks are hidden
+// (lg-photo-hide). Phases use the file's own classes (lg-p1, lg-p12 > lg-p2, lg-p3), which the arena's data-phase
+// switches. Motion only plays when the drawing animates (never when still, reduced or locked).
+const pct = (u) => `${(u / 120) * 100}%`
+const box = (x, y, w, h) => ({ position: 'absolute', left: pct(x), top: pct(y), width: pct(w), height: pct(h), pointerEvents: 'none' })
+const FILL = { position: 'absolute', inset: 0, pointerEvents: 'none' }
+const PHOTO_LIGHT = { // per phase: sky stops, plate cell, plate strength, ray colour, bloom colour, wisp row, stars
+  1: { sky: 'rgba(150,130,230,.95) 0%, #3b2a78 18%, #1c1442 38%, #0b0820 56%, rgba(6,5,18,.6) 66%, rgba(6,5,18,0) 72%',
+    cell: 0, plate: 0.6, ray: 'rgba(196,186,255,.5)', bloom: 'rgba(170,150,255,.55)', wisp: 0, wispOp: 0.22, stars: 1 },
+  2: { sky: 'rgba(240,248,255,1) 0%, #b9d2ff 12%, #5f84d0 26%, #26407e 42%, #0e1a3a 57%, rgba(8,14,32,.6) 66%, rgba(8,14,32,0) 72%',
+    cell: 1, plate: 0.85, ray: 'rgba(225,238,255,.55)', bloom: 'rgba(200,225,255,.6)', wisp: 0, wispOp: 0.32, stars: 0.6 },
+  3: { sky: 'rgba(255,252,235,1) 0%, #ffe08a 10%, #ff9a2a 22%, #c24a0c 36%, #5a1606 50%, #1c0604 60%, rgba(18,4,2,.6) 67%, rgba(18,4,2,0) 72%',
+    cell: 2, plate: 1, ray: 'rgba(255,214,140,.6)', bloom: 'rgba(255,190,90,.7)', wisp: 2, wispOp: 0.3, stars: 0 },
+}
+const BOKEH = [[22, 30, 7], [96, 26, 5], [14, 70, 9], [104, 66, 6], [34, 12, 4], [88, 92, 8]] // x, y, size (units)
+const STARS = [[18, 20], [30, 8], [92, 14], [104, 40], [12, 52], [84, 6], [108, 84], [8, 34]]
+const LIGHT_CSS = `
+@keyframes lgOphRays { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
+@keyframes lgOphBreath { 0%, 100% { opacity: var(--o) } 50% { opacity: calc(var(--o) * .78) } }
+@keyframes lgOphDrift { 0%, 100% { transform: translate(0, 0) } 50% { transform: translate(3%, -2%) } }
+@keyframes lgOphTwinkle { 0%, 100% { opacity: .9 } 50% { opacity: .25 } }
+`
+function phaseLayer(p, children) {
+  if (p === 1) return <div className="lg-p1" style={FILL}>{children}</div>
+  if (p === 2) return <div className="lg-p12" style={FILL}><div className="lg-p2" style={{ ...FILL, display: 'none' }}>{children}</div></div>
+  return <div className="lg-p3" style={{ ...FILL, display: 'none' }}>{children}</div>
+}
+const run = (motion, name, s, extra = '') => (motion ? `${name} ${s}s ${extra || 'ease-in-out'} infinite` : 'none')
+export function PhotoLightBack({ motion }) {
+  const L = PHOTO_SPRITES.light, C = PHOTO_SPRITES.cloud
+  return (
+    <div aria-hidden="true" style={{ ...FILL, zIndex: 0 }}>
+      <style>{LIGHT_CSS}</style>
+      {[1, 2, 3].map((p) => {
+        const s = PHOTO_LIGHT[p]
+        return phaseLayer(p, <>
+          {/* the sky: one deep gradient from the core out to the dark rim, then nothing */}
+          <div style={{ ...box(-8, -14, 136, 136), borderRadius: '50%', background: `radial-gradient(circle at 50% 46%, ${s.sky})` }} />
+          {/* far cloud wisps low in the sky, faint and soft */}
+          <div style={{ ...box(-14, 52, 148, 40), opacity: s.wispOp, filter: 'blur(1.2px)', backgroundImage: `url(${C.url})`,
+            backgroundSize: '200% 200%', backgroundPosition: s.wisp ? '0 100%' : '0 0', backgroundRepeat: 'no-repeat',
+            WebkitMaskImage: 'radial-gradient(ellipse at 50% 50%, #000 30%, transparent 70%)', maskImage: 'radial-gradient(ellipse at 50% 50%, #000 30%, transparent 70%)' }} />
+          {/* the light pouring down from above (the owner's plate), added on top of the sky */}
+          <div style={{ ...box(-25, -26, 170, 150), mixBlendMode: 'screen', '--o': s.plate, opacity: s.plate, animation: run(motion, 'lgOphBreath', 9),
+            backgroundImage: `url(${L.url})`, backgroundSize: '300% 100%', backgroundPosition: `${s.cell * 50}% 0`, backgroundRepeat: 'no-repeat',
+            WebkitMaskImage: 'radial-gradient(circle at 50% 42%, #000 42%, transparent 70%)', maskImage: 'radial-gradient(circle at 50% 42%, #000 42%, transparent 70%)' }} />
+          {/* soft volumetric rays from the core: blurred wedges that fade with distance */}
+          <div style={{ ...box(-20, -26, 160, 160), mixBlendMode: 'screen', opacity: 0.55, filter: 'blur(2.5px)',
+            WebkitMaskImage: 'radial-gradient(circle at 50% 50%, #000 8%, rgba(0,0,0,.5) 30%, transparent 62%)', maskImage: 'radial-gradient(circle at 50% 50%, #000 8%, rgba(0,0,0,.5) 30%, transparent 62%)' }}>
+            <div style={{ ...FILL, borderRadius: '50%', animation: run(motion, 'lgOphRays', 160, 'linear'),
+              background: `repeating-conic-gradient(from 7deg at 50% 50%, ${s.ray} 0deg 3deg, transparent 7deg 17deg, ${s.ray} 21deg 22.5deg, transparent 26deg 33deg)` }} />
+          </div>
+          {/* distant light, out of focus */}
+          {BOKEH.map(([x, y, d], i) => (
+            <div key={i} style={{ ...box(x - d / 2, y - d / 2, d, d), borderRadius: '50%', mixBlendMode: 'screen', opacity: 0.35, filter: 'blur(1.4px)',
+              background: `radial-gradient(circle, ${s.bloom} 0%, transparent 70%)`, animation: run(motion, 'lgOphDrift', 11 + i * 2) }} />
+          ))}
+          {s.stars ? STARS.map(([x, y], i) => (
+            <div key={`s${i}`} style={{ ...box(x - 0.5, y - 0.5, 1, 1), borderRadius: '50%', background: '#fff', opacity: 0.9 * s.stars,
+              boxShadow: '0 0 3px 1px rgba(210,220,255,.8)', animation: run(motion, 'lgOphTwinkle', 2.5 + (i % 4)) }} />
+          )) : null}
+        </>)
+      })}
+    </div>
+  )
+}
+export function PhotoLightFront({ motion }) {
+  return (
+    <div aria-hidden="true" style={{ ...FILL, zIndex: 2 }}>
+      {[1, 2, 3].map((p) => {
+        const s = PHOTO_LIGHT[p]
+        // a blurred bloom just outside the eyeball: the core's light wrapping the wheels and wings that pass it
+        return phaseLayer(p,
+          <div style={{ ...box(14, 9, 92, 92), borderRadius: '50%', mixBlendMode: 'screen', filter: 'blur(3px)', '--o': p === 3 ? 0.8 : 0.6,
+            opacity: p === 3 ? 0.8 : 0.6, animation: run(motion, 'lgOphBreath', 6),
+            background: `radial-gradient(circle, transparent 24%, ${s.bloom} 27%, transparent 52%)` }} />)
+      })}
+    </div>
+  )
+}
+
+// One file is inlined many times on one page (the raid strip, the hall, the arena): a second copy's url(#x) would paint
+// with the FIRST copy's gradient, or with nothing once that copy is hidden. So the cached markup marks every id and
+// every local reference to it once (idTemplate), and each mounted drawing swaps the mark for its own suffix (withIds,
+// a plain string replace). A file without ids passes through untouched.
+const ID_MARK = '__lgid__'
+const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+export function idTemplate(svg) {
+  if (!/\sid="/.test(svg)) return svg
+  const ids = [...new Set([...svg.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]))]
+  const any = new RegExp(`(\\sid="|url\\(\\s*(?:&quot;|['"])?#|href="#)(${ids.map(escRe).join('|')})(?=["')&])`, 'g')
+  return svg.replace(any, `$1$2${ID_MARK}`)
+}
+let artSeq = 0
+export const withIds = (svg, suffix) => (svg && svg.includes(ID_MARK) ? svg.split(ID_MARK).join(`-${suffix}`) : svg)
+
 // url → sanitized markup ('' = unusable), shared by every banner on the map.
 // Sanitizing a raid boss (about 300 KB, 3000 shapes) takes a while: files are sanitized ONE AT A TIME, each in its own
 // task, so opening a screen with many drawings (the asset view's strip of 22 raid bosses) no longer froze the page.
 const cache = new Map()
+// url → the markup once it is ready, read synchronously: a drawing that REMOUNTS (the fight arena keys its boss box
+// per answer to replay the hit; every ability Play did the same) shows at once instead of an empty box for a frame
+// or two while the promise settles.
+const ready = new Map()
 let sanitizeQueue = Promise.resolve()
 const nextTask = () => new Promise((resolve) => setTimeout(resolve, 0))
 function loadArt(url) {
@@ -81,33 +244,43 @@ function loadArt(url) {
       .then(([text, m]) => {
         const job = sanitizeQueue.then(nextTask).then(() => {
           const out = text ? m.sanitizeHtml(text, { USE_PROFILES: { svg: true } }) : ''
-          return /<svg[\s>]/i.test(out) ? out.replace(/<svg\b/i, '<svg preserveAspectRatio="xMidYMid slice" width="100%" height="100%" aria-hidden="true"') : ''
+          return /<svg[\s>]/i.test(out) ? idTemplate(withPhotoEye(out.replace(/<svg\b/i, '<svg preserveAspectRatio="xMidYMid slice" width="100%" height="100%" aria-hidden="true"'), url)) : ''
         })
         sanitizeQueue = job.catch(() => {})
-        return job
+        return job.then((svg) => { ready.set(url, svg); return svg })
       })
       .catch(() => { cache.delete(url); return '' })) // a failed fetch is tried again next time
   }
   return cache.get(url)
 }
 
-// A drawing is loaded only once it comes near the screen, and its animations pause while it is off screen: the asset
-// view mounted about 37 full raid bosses at once, each with hundreds of animations, and lagged the whole computer.
-// The dev gallery (check-art measures every drawing at fixed moments) sets window.__ebikiArtEager to keep them all live.
+// A drawing is loaded only once it comes near the screen, and its SVG is in the page ONLY while it is near: a paused
+// drawing still costs paint and layerize on every frame anything else on the page animates (the asset view, with its
+// palettes and raid bosses of about 3000 shapes each, went from about 4 to about 40 ms a frame after one scroll). Its
+// box keeps its size and the sanitized markup stays in state, so scrolling back in shows it at once (its idle loop
+// starts over). The dev gallery (check-art measures every drawing at fixed moments) sets window.__ebikiArtEager to keep
+// them all live.
 const ART_NEAR = '400px'
 function useArtInView(ref) {
   const eager = typeof window === 'undefined' || typeof IntersectionObserver === 'undefined' || !!window.__ebikiArtEager
-  const [state, setState] = useState({ seen: eager, visible: true })
+  const [near, setNear] = useState(eager)
+  // Measured before the first paint too: the observer answers a frame or more later, and a remounted drawing on screen
+  // (the arena's boss on every hit) blinked out until it did.
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (eager || !el) return
+    const r = el.getBoundingClientRect()
+    const m = parseInt(ART_NEAR, 10)
+    if (r.bottom >= -m && r.top <= window.innerHeight + m && r.right >= -m && r.left <= window.innerWidth + m) setNear(true)
+  }, [eager, ref])
   useEffect(() => {
     const el = ref.current
     if (eager || !el) return undefined
-    const io = new IntersectionObserver(([e]) => {
-      setState((s) => (s.visible === e.isIntersecting && (s.seen || !e.isIntersecting) ? s : { seen: s.seen || e.isIntersecting, visible: e.isIntersecting }))
-    }, { rootMargin: ART_NEAR })
+    const io = new IntersectionObserver(([e]) => setNear(e.isIntersecting), { rootMargin: ART_NEAR })
     io.observe(el)
     return () => io.disconnect()
   }, [eager, ref])
-  return state
+  return near
 }
 
 const ANIM_TAGS = new Set(['animatetransform', 'animatemotion'])
@@ -129,13 +302,22 @@ export function useArtMotionAlways() {
   return forced || (!!ctx && featureCfg(ctx, LEGENDS_ID).motion === true && featureCfg(ctx, LEGENDS_ID).still !== true)
 }
 // Sanitized markup with only the motion `mode` allows (parsed inertly; nothing here runs the file).
-export function withMotion(svg, mode) {
-  if (!svg || mode === 'intro') return svg
+// `phase` (a raid boss shown in fight phase 1, 2 or 3, under the arena's data-phase rules): the animations inside the
+// phase layers that phase HIDES are dropped too (display:none does not stop SMIL: about half a raid boss's animations
+// ticked unseen). No phase drops nothing for it. A phase change re-derives the markup, so the new layers animate.
+const HIDDEN_IN_PHASE = { 1: ['lg-p2', 'lg-p3'], 2: ['lg-p1', 'lg-p3'], 3: ['lg-p1', 'lg-p12'] }
+export function withMotion(svg, mode, phase) {
+  const hidden = svg && svg.includes('lg-p') ? HIDDEN_IN_PHASE[phase] : null
+  if (!svg || (mode === 'intro' && !hidden)) return svg
   const doc = new DOMParser().parseFromString(svg, 'text/html')
+  const inHidden = (n) => {
+    for (let p = n.parentElement; p; p = p.parentElement) if (hidden.some((c) => p.classList.contains(c))) return true
+    return false
+  }
   for (const n of [...doc.body.querySelectorAll('*')]) {
     if (!ANIM_TAGS.has(n.localName.toLowerCase())) continue
-    if (mode === 'idle' && !n.classList.contains('lg-in')) continue
-    n.remove()
+    const off = mode !== 'intro' && (mode !== 'idle' || n.classList.contains('lg-in'))
+    if (off || (hidden && inHidden(n))) n.remove()
   }
   return doc.body.innerHTML
 }
@@ -158,29 +340,28 @@ const freeFigure = (svg) => svg.replace(/<svg\b/, '<svg overflow="visible"')
 // One art file, colored for `palette`. While it loads (or if it is missing) the frame shows the palette's sky.
 // `room`: a figure wrapped in its headroom as real space (margin on every side), for places where text, buttons or
 // other drawings sit next to it. The asset view and gallery (ArtLabels) always give it.
-export function LegendsArt({ kind, motif, palette, height, width = '100%', locked = false, round = RADIUS.lg, animated = false, style, room = false, roomed = false }) {
+export function LegendsArt({ kind, motif, palette, height, width = '100%', locked = false, round = RADIUS.lg, animated = false, style, room = false, roomed = false, phase }) {
   const url = artUrl(kind, motif)
-  const [html, setHtml] = useState({ url: '', svg: '' })
+  const [html, setHtml] = useState(() => (ready.has(url) ? { url, svg: ready.get(url) } : { url: '', svg: '' }))
   const boxRef = useRef(null)
-  const { seen, visible } = useArtInView(boxRef)
+  const near = useArtInView(boxRef)
   useEffect(() => {
-    if (!seen) return undefined
+    if (!near) return undefined
     let live = true
-    loadArt(url).then((svg) => { if (live) setHtml({ url, svg }) })
+    loadArt(url).then((svg) => { if (live) setHtml((h) => (h.url === url && h.svg === svg ? h : { url, svg })) })
     return () => { live = false }
-  }, [url, seen])
+  }, [url, near])
   const always = useArtMotionAlways()
   const still = useArtStill()
   const mode = locked || still || (!always && reducedMotion()) ? false : animated
   const raw = html.url === url ? html.svg : ''
   const figure = kind !== 'areas'
-  const svg = useMemo(() => { const out = withMotion(raw, mode); return figure ? freeFigure(out) : out }, [raw, mode, figure])
-  // Off screen: the drawing's animations pause (they resume where they were when it scrolls back in).
-  useEffect(() => {
-    const el = boxRef.current?.querySelector('svg')
-    if (!el || !mode) return
-    try { if (visible) el.unpauseAnimations?.(); else el.pauseAnimations?.() } catch { /* not an SVG root */ }
-  }, [visible, svg, mode])
+  const [idSuffix] = useState(() => `a${++artSeq}`) // this drawing's own ids (idTemplate)
+  // `phase`: only the arena (and the asset view's phase cells) pass it; a still drawing has no animations to drop.
+  const livePhase = mode ? phase : undefined
+  const svg = useMemo(() => { const out = withIds(withMotion(raw, mode, livePhase), idSuffix); return figure ? freeFigure(out) : out }, [raw, mode, livePhase, figure, idSuffix])
+  const shown = near && !!svg // off screen: out of the page (the box keeps its size)
+  const photo = url === PHOTO_FILE // the photo ophanim's own light layers (PHOTO LIGHT)
   const labels = useContext(ArtLabels)
   const big = (typeof height !== 'number' || height >= LABEL_MIN_PX) && (typeof width !== 'number' || width >= LABEL_MIN_PX)
   const art = (
@@ -188,8 +369,11 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
       width: labels && big ? '100%' : width, height, borderRadius: round, flexShrink: 0, ...artVars(palette),
       ...(figure ? { overflow: 'visible', clipPath: `inset(-${BOSS_HEADROOM})` } : { overflow: 'hidden' }),
       background: figure ? 'transparent' : 'var(--lg-sky)', filter: locked ? 'grayscale(1) opacity(.55)' : 'none', ...style,
+      ...(photo ? { position: 'relative', isolation: 'isolate' } : {}),
     }}>
-      {svg && <div style={{ width: '100%', height: '100%' }} dangerouslySetInnerHTML={{ __html: svg }} />}
+      {photo && near && <PhotoLightBack motion={!!mode} />}
+      {shown && <div style={{ width: '100%', height: '100%', ...(photo ? { position: 'relative', zIndex: 1 } : {}) }} dangerouslySetInnerHTML={{ __html: svg }} />}
+      {photo && shown && <PhotoLightFront motion={!!mode} />}
     </div>
   )
   // A figure keeps its headroom as real space on every side, so what it draws past its frame never runs under its
@@ -219,6 +403,35 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
       </span>
     </div>
   )
+}
+
+// The drawing's sanitized markup ('' until loaded), from the same cache LegendsArt reads (no second fetch or sanitize).
+export function useArtMarkup(kind, motif) {
+  const url = artUrl(kind, motif)
+  const [html, setHtml] = useState({ url: '', svg: '' })
+  useEffect(() => {
+    let live = true
+    loadArt(url).then((svg) => { if (live) setHtml({ url, svg }) })
+    return () => { live = false }
+  }, [url])
+  return html.url === url ? html.svg : ''
+}
+// A still, standalone copy of a figure for use as a CSS mask (its silhouette): no animations, own ids, and a viewBox
+// widened by the figure's headroom so parts drawn past the frame count too (the mask box is inset by the same share).
+export function artGlowMask(svg) {
+  if (!svg) return ''
+  let out = withIds(withMotion(svg, false), 'glow')
+  out = out.replace(/<svg\b([^>]*)>/i, (m, attrs) => {
+    let a = attrs.replace(/\s(width|height|preserveAspectRatio)="[^"]*"/g, '')
+    a = a.replace(/\sviewBox="\s*([-\d.]+)[\s,]+([-\d.]+)[\s,]+([-\d.]+)[\s,]+([-\d.]+)\s*"/i, (v, x, y, w, h) => {
+      const dx = +w * HEADROOM_SHARE, dy = +h * HEADROOM_SHARE
+      return ` viewBox="${+x - dx} ${+y - dy} ${+w + 2 * dx} ${+h + 2 * dy}"`
+    })
+    return `<svg${a} preserveAspectRatio="none">`
+  })
+  // An image must be XML: re-serialize (namespaces, entities) from the inert HTML parse.
+  const el = new DOMParser().parseFromString(out, 'text/html').body.querySelector('svg')
+  return el ? new XMLSerializer().serializeToString(el) : ''
 }
 
 export const AreaArt = ({ area, height = 120, width = '100%', locked = false, animated = 'idle', style }) => (
