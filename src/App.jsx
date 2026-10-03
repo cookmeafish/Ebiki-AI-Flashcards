@@ -49,6 +49,8 @@ import PbqQuestion from './components/PbqQuestion'
 import { QUESTION_REUSE_DEFAULT, reuseSettings, replaceQuestion, storableQuestion, clearBank, createQuestionReuse, mergeGlosses, updateBank } from './utils/questionBank'
 import { compilePbq, itemKey as pbqItemKey, reshufflePbq, pbqRatingScore, checkCitations, studentView, parseSolverAnswer, gradePbq, compareToKey, PBQ_GEN_SYSTEM, PBQ_SOLVER_SYSTEM, PBQ_JUDGE_SYSTEM, buildGeneratorPrompt as buildPbqGeneratorPrompt, buildSolverPrompt as buildPbqSolverPrompt, buildJudgePrompt as buildPbqJudgePrompt } from './pbq/engine'
 import { apiFetch, platform } from './platform'
+import { nav } from './nav'
+import { useNavEntry } from './nav/react'
 
 // App-language code → English name, for prompting the AI to reply in the user's language.
 // App language code -> its English name for prompts (from the one list, src/i18n/languages.js).
@@ -14951,6 +14953,52 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
   useEffect(() => {
     if (!isOverlay && configLoaded && activeTab && !navItems.some((n) => n.id === activeTab)) setActiveTab('study')
   }, [activeTab, configLoaded]) // eslint-disable-line react-hooks/exhaustive-deps
+  // ─── Back / Forward (src/nav): the mouse's back button, Alt+Left, a phone's back button ───
+  // Each piece of navigation state is a slice; a user change pushes a history entry and Back restores it. Never in the
+  // overlay (no history there). Nothing moves while a dialog, Ebi Studio, the wizard or a data-folder switch is up.
+  const navOn = !isOverlay && configLoaded
+  const appConfirmNavRef = useRef(null); appConfirmNavRef.current = appConfirm
+  const modeStudioNavRef = useRef(null); modeStudioNavRef.current = modeStudio
+  useEffect(() => {
+    if (!navOn) return
+    nav.setBlocker(() => !!appConfirmNavRef.current || !!modeStudioNavRef.current || wizardShownRef.current || !!dataSwitchingRef.current)
+    nav.start() // idempotent (StrictMode); never stopped: the page owns one history for its whole life
+  }, [navOn])
+  // The screen (core tabs and feature screens). A screen that no longer exists is passed over.
+  useNavEntry('tab', activeTab, (tab) => pickTab(tab), {
+    enabled: navOn && !!activeTab,
+    guard: (to) => (navItems.some((n) => n.id === to) ? true : 'skip'),
+  })
+  // Settings: opening and changing pane are entries; Back goes to the previous pane, then closes it; closing (✕, Esc)
+  // steps back to where it was opened instead of leaving a "reopen Settings" entry.
+  useNavEntry('settings', settingsOpen ? settingsCategory : null, (pane) => {
+    if (pane == null) { setSettingsOpen(false); return }
+    setSettingsCategory(pane); setSettingsOpen(true)
+  }, { enabled: navOn, rest: null })
+  // Study: starting a session is an entry. Back from a live session never ends it silently: it asks, then runs the
+  // normal Exit flow (which may ask more, e.g. cards still being graded). A finished session cannot be reopened.
+  const studyLiveNav = studyActive && (studyPhase !== 'pick' || studyLoading)
+  useNavEntry('study', studyLiveNav ? 'session' : 'pick', () => {}, {
+    enabled: navOn, rest: 'pick',
+    guard: async (to) => {
+      if (to === 'session') return 'skip'
+      if (studyPhase !== 'summary' && !(await confirmDialog(t('nav_leaveStudy')))) return false
+      const sid = studySessionRef.current
+      await exitStudy()
+      return studySessionRef.current !== sid
+    },
+  })
+  // Chat: opening another chat (or a new one) is an entry, while the Chat screen is open. A new chat getting its id on
+  // its first save is not a switch. Never while a reply, a card add or another switch is running.
+  useNavEntry('chat', chatTabSessionId, (id) => { if (id) chatTabLoadSession({ id }); else chatTabNewChat() }, {
+    enabled: navOn && activeTab === 'chat',
+    replaceWhen: (prev) => prev == null,
+    guard: (to) => {
+      if (chatTabLoading || chatSendingRef.current || chatSwitchingRef.current || chatCardsAddingRef.current.size > 0) return false
+      if (to && !chatTabSessions.some((x) => x.id === to)) return 'skip' // deleted since
+      return true
+    },
+  })
   const shellOn = !isOverlay && onboarded
   const sidebarCollapsed = viewportW < SHELL.collapseBelow
   const showRail = shellOn && viewportW >= SHELL.railHideBelow && (railWanted(activeTab, { studyActive }) || !!featureScreen?.rail)
@@ -14992,6 +15040,8 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
     registry, t, lang: appLanguage, apiKeys, getZoom, onboarded,
     presetModel: (prov, tier) => presetModel(PROVIDERS[prov], prov, tier),
     activeMode, activeTab, setActiveTab,
+    // App-wide Back/Forward (src/nav). Screens declare their sub-views with useNavEntry (from '../registry').
+    nav: { back: () => nav.back(), forward: () => nav.forward(), canGoBack: () => nav.canGoBack() },
     // Open a screen (a sidebar id) with params for it (e.g. { activity, params } for Practice). Unknown ids do nothing.
     open: (navId, payload) => { if (!navItems.some((n) => n.id === navId)) return false; requestIntent(navId, payload); pickTab(navId); return true },
     busy: studyActive && studyPhase === 'question', // mid-question: features hold their popups

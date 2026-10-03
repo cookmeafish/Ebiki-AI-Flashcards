@@ -12,6 +12,10 @@
 //   speech             device voice: speak(text, lang) (free text to speech), record() (the microphone).
 //   audio              play(blob) an audio clip.
 //   kind               'electron' | 'browser' | whatever a port sets ('ios', 'android').
+//   history            the device's Back/Forward history for src/nav (window.history here): push/replace/go/onPop,
+//                      plus onDeviceNav for back/forward buttons the device does not turn into history steps itself
+//                      (a mouse's back button and Alt+Left inside Electron). A phone port without browser history can
+//                      use src/nav/memory.js and call its press(-1) from the OS back button.
 //
 // Call setPlatform({...}) once at startup to override any part. Logic modules must never touch fetch('/api'),
 // localStorage, window or document directly (src/platform/platform.test.js enforces it for src/features).
@@ -130,7 +134,61 @@ const web = {
   },
 }
 
-export const platform = { ...web, kv: { ...web.kv }, speech: { ...web.speech }, audio: { ...web.audio } }
+// Mouse button 3/4 = back/forward. A browser tab may already step its own history for that click (Chrome does,
+// Firefox too), Electron never does, so a click steps here only when no history step came within this long.
+const NAV_NATIVE_WAIT_MS = 150
+const NAV_REPEAT_MS = 400 // one physical press can arrive twice (the mouse event AND Electron's app-command)
+web.history = {
+  supported: () => hasWindow && !!window.history?.pushState,
+  push: (state) => { try { window.history.pushState(state, '') } catch { /* sandboxed */ } },
+  replace: (state) => { try { window.history.replaceState(state, '') } catch { /* sandboxed */ } },
+  go: (n) => { try { window.history.go(n) } catch { /* sandboxed */ } },
+  onPop: (fn) => {
+    if (!hasWindow) return () => {}
+    const h = (e) => fn(e.state)
+    window.addEventListener('popstate', h)
+    return () => window.removeEventListener('popstate', h)
+  },
+  onDeviceNav: (fn) => {
+    if (!hasWindow) return () => {}
+    let last = 0
+    let popAt = 0
+    const fire = (dir) => { const t = Date.now(); if (t - last < NAV_REPEAT_MS) return; last = t; fn(dir) }
+    const onPop = () => { popAt = Date.now() }
+    const onMouse = (e) => {
+      if (e.button !== 3 && e.button !== 4) return
+      e.preventDefault() // Chrome: a cancelled mouseup is no native step, so ours is the only one
+      if (e.type !== 'mouseup') return
+      const at = Date.now()
+      const dir = e.button === 3 ? -1 : 1
+      setTimeout(() => { if (popAt < at) fire(dir) }, NAV_NATIVE_WAIT_MS)
+    }
+    const electron = /Electron/i.test(navigator.userAgent || '')
+    // Electron has no browser shortcuts: Alt+Left / Alt+Right do nothing there unless handled here.
+    const onKey = (e) => {
+      if (!electron || !e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.defaultPrevented) return
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+      e.preventDefault()
+      fire(e.key === 'ArrowLeft' ? -1 : 1)
+    }
+    window.addEventListener('popstate', onPop, true)
+    window.addEventListener('mousedown', onMouse, true)
+    window.addEventListener('mouseup', onMouse, true)
+    window.addEventListener('keydown', onKey)
+    // Windows sends the mouse's side buttons to Electron as app-commands too (electron/main.cjs forwards them).
+    let offIpc = null
+    try { offIpc = window.ebikiWindow?.onNav?.((cmd) => fire(cmd === 'forward' ? 1 : -1)) || null } catch { offIpc = null }
+    return () => {
+      window.removeEventListener('popstate', onPop, true)
+      window.removeEventListener('mousedown', onMouse, true)
+      window.removeEventListener('mouseup', onMouse, true)
+      window.removeEventListener('keydown', onKey)
+      try { offIpc?.() } catch { /* gone */ }
+    }
+  },
+}
+
+export const platform = { ...web, kv: { ...web.kv }, speech: { ...web.speech }, audio: { ...web.audio }, history: { ...web.history } }
 
 // Override adapters (a phone build, or tests). Nested objects merge, so a port can replace just kv.get.
 export function setPlatform(overrides = {}) {

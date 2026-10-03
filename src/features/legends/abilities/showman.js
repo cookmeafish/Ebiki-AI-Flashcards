@@ -1,5 +1,5 @@
 // Showman (The Infernal Impresario): COMEDY AND TRAGEDY (design v2.1, #26) · family: two meters, a miss is a setup.
-// The two masks on his proscenium keep score. Every right raid answer wins a round of APPLAUSE (the comedy mask); the
+// The two masks in his ring keep score. Every right raid answer wins a round of APPLAUSE (the comedy mask); the
 // K.laughs-th round brings the house down: an ENCORE for +K.encore, and the applause starts over. Every miss sheds a
 // TEAR on the tragedy mask (the miss costs its life as always); the K.tears-th tear is a PLOT TWIST: the drama turns
 // in your favor, the applause jumps to one round short of an Encore and the tears dry. So a rough patch is never wasted:

@@ -1,12 +1,12 @@
 // What Comedy and Tragedy (abilities/showman.js) LOOKS like (design v2.1, #26). The fx contract is in fx/index.js.
-//   laugh   (tick)   a rose is tossed onto his stage from the house and two sparkles pop (he tips his hat).
+//   laugh   (tick)   a rose is tossed into his ring from the crowd and two sparkles pop (he tips his hat).
 //   encore  (big)    two spotlights swing in from the wings and cross on him, the house throws roses and his own cards
 //                    rain back down on him, a gold ring of applause rolls out (he is forced into a deep bow).
 //   tear    (tick)   one blue tear runs down from the tragedy mask (he leans back, smug).
 //   twist   (medium) the great mask spins round from tragedy to comedy and his cards whirl backwards (he reels).
 import { center, anim, around, ring } from './_kit'
 
-// Fixed bright theater colors (never theme tokens over the art).
+// Fixed bright circus colors (never theme tokens over the art).
 const T = { gold: '#ffd166', amber: '#f2b441', rose: '#e8173f', roseHi: '#ff6b8a', leaf: '#3fae5a', beam: 'rgba(255, 244, 194, .32)', tear: '#7fd4ff', white: '#ffffff', card: '#fbf7ef', ink: '#1d2230', violet: '#c58bff' }
 const SUITS = ['♠', '♥', '♦', '♣']
 const suitColor = (i) => (i % 2 ? '#d0103a' : '#15111c')

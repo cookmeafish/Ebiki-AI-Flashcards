@@ -623,72 +623,38 @@ check-art's overdraw pass).
 
 ## 26. Showman: the Infernal Impresario (owner request: "I LOVE THE DESIGN OF STAGE. PLEASE CREATE A RAID BOSS VERSION OF HIM THAT GOES ALL OUT")
 
-- **Second pass (owner on v1: "make him look a little more different than the regular boss and also phase 2 and 3
-  look lackluster, not much change or epicness")**. v1 was the Legends bust in the same arch three times, with a wall
-  of teeth growing into an unhinged screaming jaw. v2 keeps his PERSONALITY in every phase (the Illusionist's sly
-  smirk: a crooked closed grin hooked up at one corner, a few teeth on that side, two fangs) and escalates STATUS and
-  spectacle instead, with a new pose, silhouette and color story per phase.
-- **Kept from the Grand Illusionist** (bosses/stage.svg): the tilted top hat with the ace of spades in its crimson
-  band, the gold-capped horns, violet hair, the porcelain half mask with the painted brow COCKED high over an amused
-  pink eye, cracked away on demon flesh with a burning slit under a bony brow, the curled moustache and goatee, the
-  cards.
-- **New for the raid**: a high-collared ringmaster coat in black velvet with crimson lapels, rows of gold braid, a
-  gold belt and long tails; a cape lined with STARS (the tinted part, every phase); a crystal-ball cane; a vast opera
-  house seen from the pit (stage boxes up both walls, a giant chandelier), kept dark and low in saturation so he is the
-  brightest thing in the frame. No marionette strings (kept apart from the puppeteer).
-- **Phase 1, the Ringmaster** (warm gold and plum): a full showman's stance on the boards, one glove raised to the
-  house, the other on the crystal ball of his cane, his whole deck fanned into a turning HALO behind him; spotlights
-  from the wings, the chandelier overhead. Silhouette: a standing figure with a disc of cards.
-- **Phase 2, the Show Must Go On** (violet night, cyan and magenta light): he floats up off the stage, huge, arms
-  spread wide with a crystal orb over each palm, two great WINGS of cards fanning from his back; every spotlight in the
-  house converges on him, the chandelier swings, the stage boxes fill with blinking glowing eyes. The mask splits down
-  the middle, the smirk widens. Silhouette: a winged T.
-- **Phase 3, the Grand Finale** (emerald ruin): colossal, filling the frame from below, shoulders past the edges, the
-  hat grown enormous; the house in magical ruin (curtains torn into a turning vortex, a storm of cards and confetti,
-  the stage boxes tilted), the giant comedy and tragedy masks circling in front of him, a second pair of demon arms
-  juggling crystal orbs and cards over the hat; the mask shattered to one fragment (painted brow still cocked) on the
-  demon face lit emerald from below, STILL smirking. Silhouette: a giant hat and horns over a wall of shoulders, two
-  great masks.
-- **Body (third pass; owner on v2: "what's up with his body. it's almost as if his lower body doesn't exist")**:
-  heroic showman proportions, about 3.5 heads (a smaller head): broad chest under the braid, a cinched gold belt, hips,
-  swallowtails hanging BEHIND two legs in pinstriped trousers with white spats and pointed patent shoes, the star cape
-  framing him without covering the legs. Phase 1 stands with weight on one leg, the other foot forward on the boards
-  (contact shadows); phase 2 floats with one leg straight, toe pointed down, the other knee bent, a soft glow on the
-  boards under him, and the card wings taper like feathers. Phase 3 stays a bust, its demon face lit so the smirk
-  reads.
-- **The mask carousel (fifth pass; owner: "there are 3 masks including the one on the boss's face, and they rotate off
-  his face so that the animation is each mask on his face one at a time")**: in PHASE 2. Three masks take turns on his
-  face: his porcelain half mask, the harlequin (comedy) and the weeping saint (tragedy) ride a carousel seen from the
-  front (a flattened ring centred above the face). The front slot lands on the face and holds 2.2 s, then the ring
-  turns (0.6 s) and the next mask slides on while the last slides off to wait beside his head, smaller as if further
-  away; the demon face is glimpsed between swaps. Each slot undoes the ring's squash and turn, so the masks stay
-  upright. The still pose has the porcelain on his face, comedy and tragedy beside his head. Phase 2 is also brought
-  1.32x closer (rule 3) so the face and masks read.
-- **Phase 3, Curtain Call (sixth pass; owner: "PHASE 3 IS REALLY UNEVENTFUL")**: chosen from three 120 px silhouette
-  concepts (Curtain Call, The Final Trick, The Vanishing Act). The grand finale of his show, in crimson and
-  white-gold: he lunges on a diagonal and RIPS the theater open with both demon hands, claws gripping the torn edges of
-  the red curtains (billowing, ragged edges lit by what is behind); behind them a swirling crimson and gold void with
-  white-gold rays bursts open, cards explode out of it along the rays with motion streaks, his top hat flies off
-  spinning with cards pouring from under its brim, the comedy and tragedy masks whip round his head on a fast orbit
-  with motion trails, his porcelain mask spins off toward you in the foreground, the chandelier crashes in the left
-  foreground with crystals flying, the boxes beyond rise in a standing ovation of glowing eyes. His face is the bare
-  demon face with the sly smirk (the Encore and Plot Twist faces play on it; the orbiting masks have their own mouths
-  and the ability layers).
-- **Three unique mask designs** (owner: "the golden masks shouldn't just be golden, they should be unique designs"),
-  the same in every phase and in the ability layers: COMEDY a harlequin (crimson and black diamond lacquer, gold trim,
-  curled horns tipped with bells, a huge painted grin, a gold star beauty mark, black and gold ribbons); TRAGEDY a
-  weeping saint (midnight-blue enamel, silver filigree, a crescent moon on the brow, long sorrowful brows, silver tears
-  with a cracked tear track, a drooping mouth, a black lace veil below); PORCELAIN his own white glazed half mask (the
-  cocked painted brow, a pink eye ring, a fine crack, a gold-leaf edge). Each mask has its own Encore (grin widens /
-  lips press) and Plot Twist (mouth gapes) mouths.
-- **Face per phase**: the same sly smirk, wider each phase; never a snarl or a scream.
-- **The ability in the art**: the comedy and tragedy masks keep score in every phase (over the stage boxes, then on
-  the lower boxes, then circling him): `lg-ab-comedy-1` blazes gold when an Encore is one right answer away,
-  `lg-ab-tragedy-1` weeps after a first miss. Face layers: `lg-fx-encore` (he bows to it with a pressed, polite smile
-  and one fang), `lg-fx-twist` (a startled little o). Effects (fx/showman.jsx): `laugh` a rose tossed in, `encore` two
-  spotlights swing in and cross while his own cards and roses rain down and he is forced into a deep bow, `tear` one
-  blue tear, `twist` the great mask spins from tragedy to comedy while his cards whirl backwards.
-- **Entrance (SVG, phase 1)**: the spotlights swing in, the card halo fans open, the arm flings up to the house, the
-  hat tips, the eyes ignite, the brow cocks and the smirk curls. **Card**: `lgCurtainPart`, the frame opens from the
-  middle like parting curtains on a dark silhouette, the spotlight hits him in a blaze, he sweeps a deep bow and snaps
-  upright.
+- **History**. v1 was the Legends bust in the same arch three times (owner: "make him look a little more different
+  than the regular boss and also phase 2 and 3 look lackluster, not much change or epicness"); v2 to v6 were an opera
+  house magician (star cape, crystal-ball cane, a card halo, card wings, a three-mask carousel, a curtain-call phase 3;
+  owner on the body: "it's almost as if his lower body doesn't exist", on phase 3: "PHASE 3 IS REALLY UNEVENTFUL").
+  **2026-10-03**: redesigned as an infernal circus ringmaster because he was still too similar to the Grand
+  Illusionist; phase 3 given powers and a manic face at the owner's request.
+- **Who he is now**: a ringmaster of a hellfire circus, his own man next to the Grand Illusionist (bosses/stage.svg):
+  no white half mask, no black top hat, no violet cape, no theater. Crimson demon skin, a GILDED DOMINO MASK with
+  ember eyes, a waxed handlebar moustache and pointed goatee, ember ram horns glowing in their grooves; a tall crimson
+  stovepipe with gold bands, a gold star and a RING OF FIRE round its band (the tinted part); a crimson hussar tailcoat
+  with black velvet lapels, gold frogging and huge fringed epaulettes, a bow tie, white breeches and riding boots.
+  Props: a WHIP with a burning tip and a brass MEGAPHONE. Set: a big top of hellfire stripes. Face in phases 1 and 2:
+  a sly lopsided grin with one gold tooth.
+- **Phase 1, Welcome to the Big Top** (warm lantern light): knee-up in the ring, one arm swept wide presenting it,
+  the other CRACKING THE WHIP overhead (the lash curls into a flame); hoops of fire in the far ring, bunting, sawdust;
+  Comedy and Tragedy sit on striped circus drums at the ring's edge.
+- **Phase 2, Ring of Fire** (cold blue spotlights): closer, on a tilt, a giant turning hoop of fire behind him; he
+  thrusts the megaphone at the house and tips his hat; the masks ride the burning hoop.
+- **Phase 3, the Infernal Encore** (true form, the act gone mad with power): a MANIC face, eyes blown wide and
+  white-hot with fire trailing off them, brows flung up, a huge clenched showman's grin, the gilded mask cracking
+  with light, the hat's fire roaring and its brim smoking. The big top rips open on a burning sky, the ring becomes a
+  turning summoning circle on a cracking floor, his coat tails tear into wings of burning canvas; his left glove looses
+  a torrent of whirling cards, his right conjures a burning sigil, and Comedy and Tragedy float free in their own
+  auras, pouring gold and ice beams into the ring. Not smug here: his cool snaps (the owner's exception to "personality
+  is constant").
+- **The ability in the art**: the comedy and tragedy masks keep score in every phase: `lg-ab-comedy-1` blazes when an
+  Encore is one right answer away, `lg-ab-tragedy-1` weeps after a first miss. Face layers: `lg-fx-encore` (a pressed,
+  polite smile; in phase 3 an enormous closed one), `lg-fx-twist` (a startled little o). Effects (fx/showman.jsx):
+  `laugh` a rose tossed in, `encore` two spotlights swing in and cross while his own cards and roses rain down and he
+  is forced into a deep bow, `tear` one blue tear, `twist` the great mask spins from tragedy to comedy while his cards
+  whirl backwards.
+- **Entrance (SVG, phase 1)**: he rises into the ring, the whip arm swings up and cracks, the presenting arm sweeps
+  out. **Card**: `lgCurtainPart`, the frame opens from the middle like parting curtains on a dark silhouette, the
+  spotlight hits him in a blaze, he sweeps a deep bow and snaps upright.
+

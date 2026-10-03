@@ -19,6 +19,7 @@ const demoVars = (ability, fx) => ({ n: 2, ...(fxDemoFor(ability, fx)?.fxVars ||
 import { SHRIMP, DEFAULT_SHRIMP, IDLE_SHRIMP, shrimpUrl } from '../../config/shrimp'
 import { S } from '../../styles/theme'
 import { platform } from '../../platform'
+import { useNavEntry } from '../registry'
 import BossFamilies from './BossFamilies' // EXPERIMENTAL boss families tab (removal list: families.js)
 import { FAMILY_TREES } from './families'
 
@@ -313,6 +314,8 @@ function AbilityCard({ t, motif, ability, onTry }) {
   )
 }
 
+const ASSET_SCROLL_SETTLE_MS = 250 // a restored scroll position is set again once the tab's drawings are laid out
+
 export default function AssetView({ ctx, onBack }) {
   const { t } = ctx
   const [tab, setTab] = useState('legends')
@@ -326,21 +329,45 @@ export default function AssetView({ ctx, onBack }) {
   const area = { id: motif, title: motif, motif, palette }
   const ebiStepRef = useRef(null)
   const go = (d) => tab === 'ebi' ? ebiStepRef.current?.(d) : setIdx((i) => (i + d + list.length) % list.length)
-  const pickTab = (id) => { setTab(id); setIdx(0); setReplay(0) }
   // Opens at the top: the screen's scroll box still held the map's position.
   const rootRef = useRef(null)
-  useEffect(() => {
+  const scrollBox = () => {
     let box = rootRef.current?.parentElement
     while (box && !/(auto|scroll)/.test(getComputedStyle(box).overflowY)) box = box.parentElement
+    return box
+  }
+  useEffect(() => {
+    const box = scrollBox()
     if (box) box.scrollTop = 0
   }, [])
+  // Back / Forward (src/nav): every tab change is an entry (Boss families → a boss → Back = the families again, at the
+  // same scroll position); stepping through one tab's list only updates the entry.
+  const pendingScroll = useRef(null)
+  const { remember } = useNavEntry('legends.assetsTab', tab, (to, memo) => {
+    setTab(to); setReplay(0)
+    pendingScroll.current = typeof memo?.scroll === 'number' ? memo.scroll : null
+  }, { guard: (to) => (TABS.some((x) => x.id === to) ? true : 'skip') })
+  useNavEntry('legends.assetsIdx', idx, (to) => setIdx(Number(to) || 0), { replace: true })
+  const keepScroll = () => { const box = scrollBox(); if (box) remember({ scroll: box.scrollTop }) }
+  useEffect(() => {
+    const y = pendingScroll.current
+    if (y == null) return
+    pendingScroll.current = null
+    // The tab's drawings mount over a few frames: set it now and again once they are laid out.
+    const put = () => { const box = scrollBox(); if (box) box.scrollTop = y }
+    put()
+    const raf = requestAnimationFrame(() => requestAnimationFrame(put))
+    const late = setTimeout(put, ASSET_SCROLL_SETTLE_MS)
+    return () => { cancelAnimationFrame(raf); clearTimeout(late) }
+  }, [tab])
+  const pickTab = (id) => { keepScroll(); setTab(id); setIdx(0); setReplay(0) }
 
   // The key handler is installed once; it calls the CURRENT step function (the list changes with the tab).
   const goRef = useRef(go)
   goRef.current = go
   useEffect(() => {
     const on = (e) => {
-      if (e.defaultPrevented || /input|textarea|select/i.test(e.target?.tagName || '')) return
+      if (e.defaultPrevented || e.altKey || /input|textarea|select/i.test(e.target?.tagName || '')) return // Alt+Left is Back
       if (e.key === 'ArrowLeft') goRef.current(-1)
       else if (e.key === 'ArrowRight') goRef.current(1)
       else return
@@ -383,7 +410,7 @@ export default function AssetView({ ctx, onBack }) {
         })}
       </div>
 
-      {tab === 'families' ? <BossFamilies t={t} onOpen={(to, m) => { setTab(to); setIdx(Math.max(0, TABS.find((x) => x.id === to).list.indexOf(m))); setReplay(0) }} /> : tab === 'ebi' ? <EbiDrafts t={t} stepRef={ebiStepRef} /> : <>
+      {tab === 'families' ? <BossFamilies t={t} onOpen={(to, m) => { keepScroll(); setTab(to); setIdx(Math.max(0, TABS.find((x) => x.id === to).list.indexOf(m))); setReplay(0) }} /> : tab === 'ebi' ? <EbiDrafts t={t} stepRef={ebiStepRef} /> : <>
       <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 6 }}>
         {list.map((m, i) => (
           <button key={m} type="button" onClick={() => setIdx(i)} className={i === idx ? 'ui-tab-current' : undefined}

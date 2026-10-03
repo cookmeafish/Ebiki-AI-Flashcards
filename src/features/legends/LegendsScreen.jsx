@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile, shrimpUrl } from '../../config/shrimp'
-import { useFeatureCtx, useIntent, featureCfg } from '../registry'
+import { useFeatureCtx, useIntent, featureCfg, useNavEntry } from '../registry'
 import { setLegendsLive, legendsLive, onLegendsLive, legendsSecretHeld } from './helpContext'
 import { EVENTS } from '../events'
 import { ChunkyButton, EbiSays, Card } from '../ui'
@@ -183,6 +183,11 @@ function Result({ ctx, modeId, result, onBack, onRetry, onNewQuestions }) {
 const HOLD_MS = 400
 
 // 'result' and 'placed' too: an edit applied there replaced the result screen (stars, answers, the cards offer) unseen.
+// Back (src/nav) asks before leaving these: something is being answered or fought right now.
+const RUNNING_VIEWS = new Set(['node', 'placement', 'raid'])
+// The history entry a view belongs to: the map, the asset view, the edit panel, or 'activity' (a step, fight, raid,
+// test, questionnaire or a result screen, which cannot be reopened later).
+const navPage = (view) => (view === 'map' || view === 'intro' ? 'map' : view === 'assets' || view === 'edit' ? view : 'activity')
 const BUSY_VIEWS = new Set(['node', 'placement', 'inferring', 'questionnaire', 'raid', 'edit', 'result', 'placed'])
 export default function LegendsScreen() {
   const ctx = useFeatureCtx()
@@ -280,6 +285,23 @@ export default function LegendsScreen() {
     run()
   }, [loaded, map?.updatedAt, map?.areas?.length, view, modeId]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => { workSeq.current++ }, [])
+  // Back / Forward (src/nav). A step, fight, raid or test is one entry ('activity'): Back from it returns to the map, but
+  // asks first while one is running (it is never thrown away silently); from a result screen it simply goes back. A
+  // finished activity cannot be reopened by Forward (skipped). 'map' is home: leaving an activity for the map by its own
+  // buttons steps back instead of adding an entry.
+  useNavEntry('legends.view', navPage(view), (to) => {
+    if (to === 'assets') { setView('assets'); return }
+    setOpenStep(null); setResult(null); setView('map')
+  }, {
+    enabled: !!ctx, rest: 'map',
+    guard: async (to) => {
+      if (to === 'activity' || to === 'edit') return 'skip'
+      if (to === 'assets' && !cheatsOn(ctx)) return 'skip'
+      if (view === 'inferring') return false // a level is being worked out: it finishes by itself
+      if (RUNNING_VIEWS.has(view)) return !!(await ctx.confirm(ctx.t('nav_leaveRun')))
+      return true
+    },
+  })
 
   if (!ctx) return null
   const { t, ai, subject } = ctx

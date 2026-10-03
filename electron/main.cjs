@@ -296,6 +296,13 @@ function createAppWindow() {
   const sendMaximizedState = () => { if (appWindow) appWindow.webContents.send('app-window:maximized-changed', appWindow.isMaximized()) }
   appWindow.on('maximize', sendMaximizedState)
   appWindow.on('unmaximize', sendMaximizedState)
+  // The mouse's back/forward side buttons (and keyboard Browser Back/Forward keys) arrive on Windows as app-commands,
+  // which an Electron window ignores. The PAGE owns navigation (src/nav: Back and Forward walk the app's own history
+  // and never leave it), so they are handed to it; going back in the window's own history could reach the holding page.
+  appWindow.on('app-command', (_event, cmd) => {
+    if (cmd !== 'browser-backward' && cmd !== 'browser-forward') return
+    try { appWindow?.webContents.send('app-window:nav', cmd === 'browser-forward' ? 'forward' : 'back') } catch { /* window going away */ }
+  })
   ipcMain.on('app-window:minimize', () => appWindow?.minimize())
   ipcMain.on('app-window:toggle-maximize', () => {
     if (!appWindow) return
