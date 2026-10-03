@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile, shrimpUrl } from '../../config/shrimp'
-import { useFeatureCtx, useIntent, useNavEntry, SLOT } from '../registry'
+import { useFeatureCtx, useIntent, useNavEntry, activityIdle, SLOT } from '../registry'
 import { depthBorder } from '../ui'
 import { useHelpEntry } from '../kit/useHelp'
 
@@ -35,7 +35,8 @@ export default function PracticeScreen() {
   // mid-workout) and returns to the hub. A closed activity is not reopened by Forward (its params are gone).
   useNavEntry('practice.open', open, () => { setOpen(null); setParams(null) }, {
     enabled: !!ctx, rest: null,
-    guard: async (to) => (to ? 'skip' : !!(await ctx.confirm(ctx.t('nav_leaveActivity')))),
+    // Asked only while the activity has something running (useActivityBusy); one that does not report is always asked.
+    guard: async (to) => (to ? 'skip' : activityIdle() || !!(await ctx.confirm(ctx.t('nav_leaveActivity')))),
   })
   // Ebi's Help: which activity is open (each activity reports its own details), or the hub's tiles.
   useHelpEntry(ctx, 'practice', !ctx ? '' : current

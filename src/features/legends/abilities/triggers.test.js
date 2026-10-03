@@ -211,6 +211,13 @@ function scenarios(motif, K) {
       tear: { fire: ['M'], near: ['C'] },
       twist: { fire: rep(K.tears, 'M'), near: rep(K.tears - 1, 'M') },
     }
+    case 'cerberus': return {
+      bindFire: { fire: ['H'], near: ['M'] },
+      bindIron: { fire: ['C'], near: ['H', 'G'] },
+      bindShadow: { fire: ['A+'], near: ['A-'] },
+      bound: { fire: ['C', 'H', 'A+'], near: ['C', 'H', 'M', 'A+'] },
+      snap: { fire: ['H', 'M'], near: ['M'] },
+    }
     default: return {}
   }
 }

@@ -10,6 +10,10 @@ export const COSTS = {
   stt: { browser: 0, gemini: 0.0015, grok: 0.0017, openai: 0.003 },
   tts: { device: 0, gemini: 0.0135, grok: 0.0135, openai: 0.015 },
 }
+// Every speech request gives up after this long: a stalled connection left Talk on "Hearing..." for good (TTS falls
+// back to the device voice, STT shows its error and the learner can type).
+export const SPEECH_TIMEOUT_MS = 60000
+const timeoutSignal = () => (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function' ? AbortSignal.timeout(SPEECH_TIMEOUT_MS) : undefined)
 // Which stored key each engine needs (null = none).
 const NEEDS = { browser: null, device: null, gemini: 'gemini', grok: 'grok', openai: 'openai' }
 
@@ -54,7 +58,7 @@ async function multipartStt(url, key, blob, fields) {
   const form = new FormData()
   for (const [k, v] of Object.entries(fields)) if (v) form.append(k, v)
   form.append('file', blob, `speech.${extOf(blob)}`) // last: one API requires it
-  const r = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${key}` }, body: form })
+  const r = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${key}` }, body: form, signal: timeoutSignal() })
   const body = await r.text()
   if (!r.ok) throw new Error(`API ${r.status}: ${body.slice(0, 300)}`)
   try { return String(JSON.parse(body).text || '').trim() } catch { return body.trim() }
@@ -66,7 +70,7 @@ async function geminiStt(blob, key, model, lang) {
   const ask = 'Transcribe this recording exactly as spoken, in the language it is spoken in'
     + (lang ? ` (most likely ${lang})` : '') + '. Output ONLY the transcript: no quotes, labels or commentary. If nothing is said, output nothing.'
   const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: timeoutSignal(),
     body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: ask }, { inline_data: { mime_type: mimeType, data } }] }], generationConfig: { temperature: 0 } }),
   })
   const body = await r.text()
@@ -102,17 +106,17 @@ export async function synthesize(text, { engine, keys = {}, lang = '', voice = 0
   let r
   if (engine === 'openai') {
     r = await fetch('https://api.openai.com/v1/audio/speech', {
-      method: 'POST', headers: { Authorization: `Bearer ${keys.openai}`, 'Content-Type': 'application/json' },
+      method: 'POST', headers: { Authorization: `Bearer ${keys.openai}`, 'Content-Type': 'application/json' }, signal: timeoutSignal(),
       body: JSON.stringify({ model: MODELS.tts.openai, input: text, voice: name, response_format: 'mp3' }),
     })
   } else if (engine === 'grok') {
     r = await fetch('https://api.x.ai/v1/tts', {
-      method: 'POST', headers: { Authorization: `Bearer ${keys.grok}`, 'Content-Type': 'application/json' },
+      method: 'POST', headers: { Authorization: `Bearer ${keys.grok}`, 'Content-Type': 'application/json' }, signal: timeoutSignal(),
       body: JSON.stringify({ text, voice_id: name, language: lang || 'auto' }),
     })
   } else if (engine === 'gemini') {
     r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODELS.tts.gemini}:generateContent?key=${keys.gemini}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: timeoutSignal(),
       body: JSON.stringify({
         contents: [{ parts: [{ text }] }],
         generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: name } } } },

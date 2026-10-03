@@ -1,7 +1,7 @@
 // Mistake Gym: your recent misses, a diagnosis, and a fresh workout aimed at them. Never touches Anki.
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
-import { useFeatureCtx } from '../registry'
+import { useFeatureCtx, useActivityBusy } from '../registry'
 import { ChunkyButton, Card, EbiSays, tCount } from '../ui'
 import { poseFile } from '../../config/shrimp'
 import { QuizRunner, sanitizeQuestions, RuleCardButton, readPracticeLog, recordPractice } from '../kit'
@@ -10,7 +10,7 @@ import { EVENTS } from '../events'
 import { useHelpEntry } from '../kit/useHelp'
 import { useMistakes, updateMistakes, configureGym, GYM_FEATURE_ID } from './store'
 import { pickForWorkout, applyPractice, WORKOUT_SIZE, GYM_SRC } from './mistakes'
-import { buildWorkoutPrompt, WORKOUT_ROLE, WORKOUT_MAX_TOKENS } from './prompt'
+import { buildWorkoutPrompt, workoutQuestions, WORKOUT_ROLE, WORKOUT_MAX_TOKENS } from './prompt'
 
 const PREVIEW = 6          // mistakes listed on the overview
 const SLIPS = 10           // grammar slips fed to the workout
@@ -24,6 +24,11 @@ export default function GymScreen({ onExit }) {
   const [phase, setPhase] = useState('overview') // overview | loading | run
   const [workout, setWorkout] = useState(null)   // { diagnosis, questions, targets }
   const [error, setError] = useState('')
+  const [quizDone, setQuizDone] = useState(false) // the result screen: nothing left to lose
+  // The running workout's first answers, its mode and the context it started in. Left by Back, a mode switch (the hub
+  // closes the activity) or a tab change, the answers given still count (they were lost: no progress, no log).
+  const runRef = useRef(null) // { answers, settled, modeId, ctx, workout }
+  useEffect(() => () => { const r = runRef.current; if (r && !r.settled) settleRun(r, r.answers) }, [])
   // What Ebi's Help knows: the mistakes collected, and the workout's diagnosis. While a workout runs only the
   // fronts are named (the quiz itself reports its question; its answers stay secret).
   const top = (list?.items || []).filter((m) => !m.cleared).slice(0, 10)
@@ -32,6 +37,7 @@ export default function GymScreen({ onExit }) {
     phase !== 'run' && top.length ? `Most recent mistakes: ${top.map((m) => `"${m.front}" (asked "${String(m.question || '').slice(0, 100)}", answered "${String(m.answer || '').slice(0, 60)}"${m.expected ? `, expected "${String(m.expected).slice(0, 60)}"` : ''}${m.n > 1 ? `, missed ${m.n} times` : ''})`).join('; ')}` : '',
     phase !== 'run' && workout?.diagnosis ? `The workout's diagnosis: ${String(workout.diagnosis).slice(0, 500)}` : '',
   ].filter(Boolean).join('\n'))
+  useActivityBusy(phase === 'loading' || (phase === 'run' && !quizDone)) // Back asks only mid-workout
   if (!ctx) return null
   const { t, subject, ai } = ctx
   configureGym({ isBlocked: () => !!ctx.isDataSwitching?.() })
@@ -41,29 +47,25 @@ export default function GymScreen({ onExit }) {
   const slipList = subject.grammarSlipList ? subject.grammarSlipList(SLIP_ROWS) : []
 
   const start = async () => {
-    setError(''); setPhase('loading')
-    const targets = pickForWorkout(list, WORKOUT_SIZE, { log: await readPracticeLog(ctx) })
-    const { system, user } = buildWorkoutPrompt(subject, targets, { slips, level: await learnerLevelLine(ctx, { context: true }) })
+    setError(''); setQuizDone(false); setPhase('loading')
     try {
+      // Inside the try: a store or level read that throws left the screen on "building" for good.
+      const targets = pickForWorkout(list, WORKOUT_SIZE, { log: await readPracticeLog(ctx) })
+      const { system, user } = buildWorkoutPrompt(subject, targets, { slips, level: await learnerLevelLine(ctx, { context: true }) })
       const raw = await ai.call(system, user, { role: WORKOUT_ROLE, maxTokens: WORKOUT_MAX_TOKENS })
       const j = ai.json(raw)
-      const questions = sanitizeQuestions((Array.isArray(j) ? j : Array.isArray(j?.questions) ? j.questions : []).filter((q) => q && typeof q === 'object').map((q) => ({ ...q, question: ai.clean(q.question), explanation: ai.clean(q.explanation) })))
+      const questions = sanitizeQuestions(workoutQuestions(j, ai.clean))
       if (questions.length < MIN_QUESTIONS) throw new Error(t('gym_badWorkout'))
-      setWorkout({ diagnosis: ai.clean(typeof j?.diagnosis === 'string' ? j.diagnosis : ''), questions, targets })
+      const w = { diagnosis: ai.clean(typeof j?.diagnosis === 'string' ? j.diagnosis : ''), questions, targets }
+      runRef.current = { answers: [], settled: false, modeId, ctx, workout: w }
+      setWorkout(w)
       setPhase('run')
     } catch (e) { setError(String(e.message || e)); setPhase('overview') }
   }
 
   // The mistake a question targets (for the rule card and the practice log).
   const mistakeOf = (q) => (workout?.targets || []).find((m) => m.id === q?.target) || null
-  const finish = (results, done = false) => {
-    updateMistakes(modeId, (l) => applyPractice(l, results.map((r) => ({ target: r.question.target, correct: r.correct }))))
-    // Tell the other activities what was drilled, so they pick other cards and topics for a while.
-    const fronts = [...new Set(results.map((r) => mistakeOf(r.question)?.front).filter(Boolean))]
-    recordPractice(ctx, GYM_SRC, [...fronts.map((f) => ({ kind: 'card', label: f })), ...(workout?.diagnosis ? [{ kind: 'topic', label: workout.diagnosis }] : [])])
-    // Only a FINISHED workout pays and counts for the quest and the level (a quit after one skip paid both).
-    if (done) ctx.emit(EVENTS.PRACTICE_DONE, { source: GYM_FEATURE_ID, mode: modeId, total: results.length, correct: results.filter((r) => r.correct).length })
-  }
+  const finish = (results, done = false) => settleRun(runRef.current, results, done)
 
   if (phase === 'run' && workout) {
     return (
@@ -75,8 +77,10 @@ export default function GymScreen({ onExit }) {
           </div>
         )}
         <QuizRunner questions={workout.questions} t={t} ai={ai} subject={subject} ctx={ctx} confirm={ctx.confirm} title={t('gym_title')}
-          onAnswer={(q, correct, a, info) => { if (!info?.skipped) ctx.emit(EVENTS.PRACTICE_ANSWERED, { source: GYM_FEATURE_ID, correct, mode: modeId }) }}
-          onFinish={(r) => finish(r, true)}
+          onAnswer={(q, correct, a, info) => {
+            if (runRef.current && !q?._retry && !q?._extra) runRef.current.answers.push({ question: q, correct })
+            if (!info?.skipped) ctx.emit(EVENTS.PRACTICE_ANSWERED, { source: GYM_FEATURE_ID, correct, mode: modeId }) }}
+          onFinish={(r) => { finish(r, true); setQuizDone(true) }}
           feedbackExtra={(q, correct, answer) => (correct ? null : (
             <RuleCardButton ctx={ctx} compact source={{ text: q.explanation, card: mistakeOf(q)?.front, asked: q.prompt, answered: answer, expected: q.kind === 'choice' ? q.choices[q.answerIdx] : (q.accepted || [])[0] }} />
           ))}
@@ -126,6 +130,21 @@ export default function GymScreen({ onExit }) {
       )}
     </div>
   )
+}
+
+// Saves a workout's answers ONCE, under the mode and context it STARTED in: progress toward retiring each mistake, the
+// practice log, and (finished only) PRACTICE_DONE. Only a FINISHED workout pays and counts for the quest and the level
+// (a quit after one skip paid both).
+function settleRun(run, results, done = false) {
+  if (!run || run.settled || !Array.isArray(results) || !results.length) return
+  run.settled = true
+  const { ctx, modeId, workout } = run
+  updateMistakes(modeId, (l) => applyPractice(l, results.map((r) => ({ target: r.question?.target, correct: r.correct }))))
+  // Tell the other activities what was drilled, so they pick other cards and topics for a while.
+  const front = (q) => (workout?.targets || []).find((m) => m.id === q?.target)?.front
+  const fronts = [...new Set(results.map((r) => front(r.question)).filter(Boolean))]
+  recordPractice(ctx, GYM_SRC, [...fronts.map((f) => ({ kind: 'card', label: f })), ...(workout?.diagnosis ? [{ kind: 'topic', label: workout.diagnosis }] : [])])
+  if (done) ctx.emit(EVENTS.PRACTICE_DONE, { source: GYM_FEATURE_ID, mode: modeId, total: results.length, correct: results.filter((r) => r.correct).length })
 }
 
 export function GymBadge() {

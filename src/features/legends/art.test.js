@@ -174,3 +174,30 @@ describe('raid ability face layers', () => {
     })
   }
 })
+
+// motionMarkup: one parse per (file, mode, phase); a remount or a second copy reads the cache (Back to Boss families
+// used to re-parse every portrait), and a changed file is parsed again.
+describe('motionMarkup cache', () => {
+  it('parses once per variant and again when the file changes', async () => {
+    const { motionMarkup } = await import('./art')
+    let parses = 0
+    const real = globalThis.DOMParser
+    globalThis.DOMParser = class {
+      parseFromString(s) { parses++; return { body: { querySelectorAll: () => [], innerHTML: `parsed:${s}` } } }
+    }
+    try {
+      const svg = '<svg><g class="lg-p1"></g><g class="lg-p2"></g></svg>'
+      const a = motionMarkup('/x.svg', svg, false)
+      expect(motionMarkup('/x.svg', svg, false)).toBe(a)
+      expect(parses).toBe(1)
+      motionMarkup('/x.svg', svg, 'idle', 1)
+      motionMarkup('/x.svg', svg, 'idle', 1)
+      motionMarkup('/x.svg', svg, 'idle', 2)
+      expect(parses).toBe(3)
+      expect(motionMarkup('/x.svg', svg, 'intro')).toBe(svg) // no phase: intro keeps everything, no parse
+      expect(parses).toBe(3)
+      motionMarkup('/x.svg', svg.replace('<svg>', '<svg id="new">'), false)
+      expect(parses).toBe(4)
+    } finally { globalThis.DOMParser = real }
+  })
+})

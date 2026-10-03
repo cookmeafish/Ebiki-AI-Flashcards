@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { matchTyped, leaksAnswer, sanitizeQuestions, normalizeAnswer } from './grade'
+import { matchTyped, leaksAnswer, sanitizeQuestions, normalizeAnswer, missesFromResults } from './grade'
 
 describe('typed answers', () => {
   it('match after case, spacing and edge punctuation', () => {
@@ -68,5 +68,16 @@ describe('flagOf reads the flags models write as text', () => {
     expect([true, 'true', 'True', 'yes', 1].map(flagOf)).toEqual([true, true, true, true, true])
     expect([false, 'false', 'No', 0].map(flagOf)).toEqual([false, false, false, false])
     expect([undefined, null, 'maybe', {}].map(flagOf)).toEqual([null, null, null, null])
+  })
+})
+
+describe('practice misses', () => {
+  it('keep what a listening question played, so the miss still makes sense later', () => {
+    const q = { kind: 'typed', prompt: 'Type what you hear', accepted: ['tengo hambre'], target: 'hambre', audio: { text: 'tengo hambre', lang: 'es' } }
+    expect(missesFromResults([{ question: q, answer: 'tengo hombre', correct: false }])).toEqual([{ front: 'hambre', question: 'Type what you hear 🔊 "tengo hambre"', answer: 'tengo hombre', expected: 'tengo hambre' }])
+  })
+  it('leave other questions as asked, fall back to the given front, skip right answers', () => {
+    const q = { kind: 'choice', prompt: 'Who paid?', choices: ['Ana', 'Luis'], answerIdx: 1 }
+    expect(missesFromResults([{ question: q, answer: 0, correct: false }, { question: q, answer: 1, correct: true }], 'The café')).toEqual([{ front: 'The café', question: 'Who paid?', answer: 'Ana', expected: 'Luis' }])
   })
 })

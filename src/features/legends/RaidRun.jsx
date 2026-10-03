@@ -12,7 +12,7 @@ import { srs } from '../../cards'
 import { EVENTS } from '../events'
 import { featureCfg } from '../registry'
 import { ChunkyButton, EbiSays, Card, tCount } from '../ui'
-import { QuizRunner, judgeStrike, recordReviews, recordPractice } from '../kit'
+import { QuizRunner, judgeStrike, recordReviews, recordPractice, studyBlock, studyBlockText } from '../kit'
 import LearnItPanel from '../kit/LearnItPanel'
 import { useFightCheck, useBossTaunt, TauntBubble, FightNotice, MissTools, Debrief } from './FightExtras'
 import { FIGHT_EXTRAS, fightExtrasFor, expectedOf, isWrongish, learnItemFor } from './fightCheck'
@@ -43,6 +43,7 @@ export default function RaidRun({ ctx, onExit }) {
   // Changes whenever QuizRunner shows a new question: an ability effect still playing fast-fades (BossArena).
   const [questionKey, setQuestionKey] = useState(0)
   const [error, setError] = useState('')
+  const [studyBlocked, setStudyBlocked] = useState(false) // the error is a study session in the way: offer to open Study
   const [raid, setRaid] = useState(null) // today's state (raid.js)
   const [questions, setQuestions] = useState(null)
   const [fs, setFs] = useState(newFight)
@@ -125,13 +126,15 @@ export default function RaidRun({ ctx, onExit }) {
   }
 
   const load = async () => {
-    setPhase('loading'); setError('')
+    setPhase('loading'); setError(''); setStudyBlocked(false)
     try {
       if (!ai.hasKey) throw new Error(t('lg_raidNoKey'))
       if (ctx.ankiConnected === false || !deck) throw new Error(t('lg_noDeck'))
       // Never during a study session: its pending ratings and the raid's reviews would answer the same due card twice,
       // and two loops driving Anki's one reviewer at once could rate the wrong card.
-      if (ctx.studyActive) throw new Error(t('call_studyActive'))
+      // A session abandoned for 8 hours is ended here first (its ratings sent); only real pending work blocks.
+      const block = await studyBlock(ctx)
+      if (block) { if (alive.current) setStudyBlocked(true); throw new Error(studyBlockText(t, block)) }
       deckRef.current = deck
       const ids = await srs.findCards({ deck, state: 'due', excludeSuspended: true, excludeBuried: true })
       const infos = []
@@ -256,6 +259,7 @@ export default function RaidRun({ ctx, onExit }) {
         <Trophies ctx={ctx} raid={raid} />
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <ChunkyButton variant="ghost" color={C.inkDim} onClick={onExit}>{t('lg_back')}</ChunkyButton>
+          {phase === 'error' && studyBlocked && ctx.study?.open && <ChunkyButton variant="ghost" color={C.brand} onClick={() => ctx.study.open()}>{t('call_openStudy')}</ChunkyButton>}
           {phase === 'error' && <ChunkyButton color={C.success} onClick={load}>{t('lg_retry')}</ChunkyButton>}
         </div>
       </div>

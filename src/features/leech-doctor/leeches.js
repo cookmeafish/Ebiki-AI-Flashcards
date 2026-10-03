@@ -32,3 +32,33 @@ export function parseDiagnoses(json, patients) {
   }
   return out
 }
+
+// The card's own text for the doctor and the before/after: the embedded audio's [sound:] tag and its credit line
+// are not card text. Shown to the model, a fix kept the tag and dropped the credit (the CC-BY-SA link was lost);
+// left out, the rewrite puts the recording back with its credit (cards.rewriteField).
+export const cardTextOnly = (s) => String(s || '').replace(/\[sound:[^\]]*\]/gi, '').replace(/^[ \t]*\u{1F50A}.*$/gmu, '').replace(/\n{3,}/g, '\n\n').trim()
+export const soundTags = (html) => String(html || '').match(/\[sound:[^\]]+\]/gi) || []
+
+// Does a proposed fix change the card at all? ("" = that side stays.) A fix that changes nothing showed Apply and then
+// said "applied" for a card left as it was.
+export const fixChangesCard = (fix, card) => !!fix && ((!!fix.front && fix.front !== card?.front) || (!!fix.back && fix.back !== card?.back))
+
+// TREATED cards (per mode): a fixed card stops being a patient until it lapses AGAIN after the fix. The lapse count at
+// treatment is kept, so only a new lapse brings it back. { notes: { [noteId]: { lapses, at } } }, newest TREATED_MAX.
+export const TREATED_MAX = 500
+export const emptyTreated = () => ({ notes: {} })
+export const shapeTreated = (v) => (v && typeof v === 'object' && v.notes && typeof v.notes === 'object' && !Array.isArray(v.notes) ? v : emptyTreated())
+export function markTreated(value, noteId, lapses, now = Date.now()) {
+  const notes = { ...shapeTreated(value).notes, [String(noteId)]: { lapses: Number(lapses) || 0, at: now } }
+  const keep = Object.entries(notes).sort((a, b) => (b[1]?.at || 0) - (a[1]?.at || 0)).slice(0, TREATED_MAX)
+  return { notes: Object.fromEntries(keep) }
+}
+// Still resting after its treatment: no lapse since the fix.
+export const isTreated = (value, patient) => {
+  const t = shapeTreated(value).notes[String(patient?.noteId)]
+  return !!t && Number(patient?.lapses) <= Number(t.lapses)
+}
+
+// The label of the mentor button follows the cause: a confusion is taught as a difference, a hard to remember card
+// gets a way to remember it, anything else a lesson on the card.
+export const mentorLabelKey = (cause) => (cause === 'confusable' ? 'doc_mentor' : cause === 'hook' ? 'doc_mentorHook' : 'doc_mentorOther')

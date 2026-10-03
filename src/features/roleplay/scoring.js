@@ -13,7 +13,8 @@ const MAX_LEN = { title: 60, emoji: 8, setting: 280, role: 160, goal: 200 }
 
 export const axesFor = (subject) => SCORE_AXES[subject?.isLanguage ? 'language' : 'general']
 
-const str = (v, max) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, max)
+// Model text only: a list or object where a string belongs is dropped, never shown as "[object Object]".
+const str = (v, max) => (typeof v === 'string' || typeof v === 'number' ? String(v) : '').replace(/\s+/g, ' ').trim().slice(0, max)
 
 // One scenario: { title, emoji, setting, role, goal }. Needs a setting and Ebi's role; the rest defaults.
 export function cleanScenario(raw, clean = (s) => s) {
@@ -56,8 +57,21 @@ export function normalizeScorecard(raw, axes, clean = (s) => s) {
   const overall = Number.isFinite(Number(raw.overall)) && raw.overall !== null && raw.overall !== '' ? clamp(raw.overall) : vals.length ? clamp(vals.reduce((a, b) => a + b, 0) / vals.length) : 0
   const list = (v, n) => (Array.isArray(v) ? v : []).map((x) => clean(str(x, 240))).filter(Boolean).slice(0, n)
   const cards = (Array.isArray(raw.cards) ? raw.cards : [])
-    .map((c) => ({ front: clean(str(c?.front, 120)), back: clean(String(c?.back ?? '').trim().slice(0, 600)) }))
+    .map((c) => ({ front: clean(str(c?.front, 120)), back: clean((typeof c?.back === 'string' ? c.back : '').trim().slice(0, 600)) }))
     .filter((c) => c.front && c.back).slice(0, MAX_CARDS)
+  // What the learner said wrong, with a better version: these reach the Mistake Gym like other practice misses.
+  const mistakes = (Array.isArray(raw.mistakes) ? raw.mistakes : [])
+    .map((m) => ({ said: clean(str(m?.said, 200)), better: clean(str(m?.better, 200)), why: clean(str(m?.why, 240)) }))
+    .filter((m) => m.said && m.better && m.said.toLowerCase() !== m.better.toLowerCase()).slice(0, MAX_TIPS)
   if (!vals.length && !overall) return null
-  return { scores, overall, goalMet: raw.goalMet === true || /^(true|yes)$/i.test(String(raw.goalMet ?? '').trim()), summary: clean(str(raw.summary, 400)), strengths: list(raw.strengths, MAX_TIPS), tips: list(raw.tips, MAX_TIPS), cards }
+  return { scores, overall, goalMet: raw.goalMet === true || /^(true|yes)$/i.test(String(raw.goalMet ?? '').trim()), summary: clean(str(raw.summary, 400)), strengths: list(raw.strengths, MAX_TIPS), tips: list(raw.tips, MAX_TIPS), cards, mistakes }
 }
+
+// The scorecard as practice evidence for the learner level: 1 (the floor of the scale, "weak") counts as nothing
+// right and SCORE_MAX as everything right. As overall of 5 the floor read as 20% right.
+export const scoreAsPractice = (overall) => ({ total: SCORE_MAX - 1, correct: Math.max(0, Math.min(SCORE_MAX, Math.round(Number(overall) || 1)) - 1) })
+
+// Scorecard mistakes as PRACTICE_MISSED entries (kit shape: front = the better version, the item to learn).
+export const mistakesAsMisses = (mistakes, question) => (Array.isArray(mistakes) ? mistakes : [])
+  .filter((m) => m?.said && m?.better)
+  .map((m) => ({ front: m.better, back: m.why || '', question, answer: m.said, expected: m.better, feedback: m.why || '' }))

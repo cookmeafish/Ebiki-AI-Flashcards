@@ -76,7 +76,10 @@ export function buildSceneTurn(messages, learnerName = 'Learner') {
 
 export const SCENE_END_RE = /<scene-end\s*\/?>/i
 const SPEAKER_RE = /^\s*\**(?:Ebi|Assistant)\**\s*[:：]\s*/i // a model echoing the transcript's "Ebi:" label
-export const splitSceneReply = (raw) => ({ text: String(raw || '').replace(SCENE_END_RE, '').replace(SPEAKER_RE, '').trim(), ended: SCENE_END_RE.test(String(raw || '')) })
+// A model that keeps writing the transcript puts words in the learner's mouth ("Learner: Two coffees please"): the
+// reply ends where a line in the learner's name starts.
+const LEARNER_LINE_RE = /\n\s*\**(?:Learner|User)\**\s*[:：][\s\S]*$/i
+export const splitSceneReply = (raw) => ({ text: String(raw || '').replace(SCENE_END_RE, '').replace(SPEAKER_RE, '').replace(LEARNER_LINE_RE, '').trim(), ended: SCENE_END_RE.test(String(raw || '')) })
 
 export function buildScorecardPrompt(subject, scene, messages, axes) {
   const lang = subject.isLanguage
@@ -84,13 +87,16 @@ export function buildScorecardPrompt(subject, scene, messages, axes) {
     ? { accuracy: 'grammar and word choice were correct', complexity: 'range of structures beyond the basics', vocabulary: 'varied, precise, natural words' }
     : { correctness: 'what they said about the subject was right', reasoning: 'they worked the problem logically and asked the right questions', communication: 'clear, well organized, right for the listener' }
   return {
-    system: `You coach a learner after a roleplay. Reply with JSON only: {"scores": {${axes.map((a) => `"${a}": 1-${SCORE_MAX}`).join(', ')}}, "overall": 1-${SCORE_MAX}, "goalMet": true|false, "summary": "<two sentences>", "strengths": ["..."], "tips": ["<concrete fix, quoting what they said and a better version>"], "cards": [{"front": "...", "back": "..."}]}. Write summary, strengths, tips and card backs in ${subject.userLang}, speaking to the learner as "you". No dashes.`,
+    system: `You coach a learner after a roleplay. Reply with JSON only: {"scores": {${axes.map((a) => `"${a}": 1-${SCORE_MAX}`).join(', ')}}, "overall": 1-${SCORE_MAX}, "goalMet": true|false, "summary": "<two sentences>", "strengths": ["..."], "tips": ["<concrete fix, quoting what they said and a better version>"], "mistakes": [{"said": "<the learner's exact words>", "better": "<the right or better version>", "why": "<one short reason>"}], "cards": [{"front": "...", "back": "..."}]}. Write summary, strengths, tips and card backs in ${subject.userLang}, speaking to the learner as "you". No dashes.`,
     user: [
       subjectLine(subject),
       `Scene: ${scene.setting} Ebi played: ${scene.role}. Goal: ${scene.goal}`,
       `Transcript:\n${messages.map((m) => `${m.role === 'ebi' ? 'Ebi' : 'Learner'}: ${m.text}`).join('\n')}`,
       `Score ONLY the learner's lines, 1 (weak) to ${SCORE_MAX} (excellent): ${axes.map((a) => `${a} = ${axisHelp[a]}`).join('; ')}.`,
       `Up to ${MAX_TIPS} strengths and ${MAX_TIPS} tips. Be honest and specific; never praise something they did not do.`,
+      lang
+        ? `mistakes: up to ${MAX_TIPS} real errors in the learner's ${subject.learnLang} (grammar, word choice, wrong form), each quoted exactly; "why" in ${subject.userLang}. None when there were none.`
+        : `mistakes: up to ${MAX_TIPS} things the learner said about ${subject.name} that were wrong, each quoted exactly, with the accurate version; "why" in ${subject.userLang}. None when there were none.`,
       lang
         ? `cards: up to ${MAX_CARDS} flashcards for ${subject.learnLang} words or phrases the learner NEEDED in this scene (misused, missing, or a better way to say something). front = the ${subject.learnLang} word or phrase, back = meaning and a short example. Only real, correctly spelled ${subject.learnLang}.`
         : `cards: up to ${MAX_CARDS} flashcards for ideas of ${subject.name} the learner got wrong, missed or explained vaguely. front = a question or term, back = the accurate answer in two or three lines.`,

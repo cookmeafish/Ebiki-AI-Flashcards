@@ -2,7 +2,7 @@
 // Each tree is drawn top-down: the raid boss on top, the bosses it is made from in a row below, joined by lines.
 // Every portrait is STILL until hovered or keyboard-focused (one live drawing at a time, like AssetView's LiveCopy);
 // reduced motion and Still bosses still win (LegendsArt reads them: this view turns off the asset view's forced motion).
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { Card } from '../ui'
 import { ArtLabels, ArtMotion, LegendsArt } from './art'
@@ -25,23 +25,16 @@ function useLegendNames() {
   return names || {}
 }
 
-function scrollToTop(el) {
-  let box = el?.parentElement
-  while (box && !/(auto|scroll)/.test(getComputedStyle(box).overflowY)) box = box.parentElement
-  if (box) box.scrollTop = 0
-  else window.scrollTo(0, 0)
-}
-
 function Portrait({ t, motif, kind, size, name, onOpen }) {
   const [live, setLive] = useState(false)
-  const ref = useRef(null)
   const raid = kind === 'raids'
   const on = () => setLive(true)
   const off = () => setLive(false)
-  const open = () => { scrollToTop(ref.current); onOpen(raid ? 'raids' : 'legends', motif) }
+  // The asset view keeps this tab's scroll position for Back, then opens the boss at the top.
+  const open = () => onOpen(raid ? 'raids' : 'legends', motif)
   const tagColor = raid ? C.purple : C.success
   return (
-    <div ref={ref} role="button" tabIndex={0} aria-label={t('lg_famOpen', { name })} className="click-dim"
+    <div role="button" tabIndex={0} aria-label={t('lg_famOpen', { name })} className="click-dim"
       onMouseEnter={on} onMouseLeave={off} onFocus={on} onBlur={off} onClick={open}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open() } }}
       style={{ display: 'grid', justifyItems: 'center', gap: 3, cursor: 'pointer', borderRadius: RADIUS.md, padding: 2, maxWidth: size + 40 }}>

@@ -46,6 +46,8 @@ const DEFAULTS = {
   installConnector: async () => ({ ok: false, error: 'nothing to install' }),
   focusApp: async () => ({ ok: false }),
   startApp: async () => ({ ok: false }),
+  suspendedCards: async (ids) => (ids || []).map(() => false), // a store that cannot suspend has nothing suspended
+  unsuspendCards: async () => { throw new Error('this card store cannot suspend cards') },
 }
 
 // Late-bound: each call goes to whichever backend is active at call time.

@@ -44,3 +44,20 @@ export function buildWorkoutPrompt(subject, mistakes, { slips = '', count = QUES
   ].filter((x) => x !== '').join('\n')
   return { system, user }
 }
+
+// The model's questions, cleaned for showing (dashes, shrimp) before sanitizeQuestions: the choices too, and a string
+// "answer" naming the right choice with them; an index sent as the string "2" is read as the index (else the question
+// was dropped). A choice that IS that number ("1990") stays a choice text.
+export function workoutQuestions(j, clean = (s) => String(s ?? '')) {
+  const list = Array.isArray(j) ? j : Array.isArray(j?.questions) ? j.questions : []
+  return list.filter((q) => q && typeof q === 'object').map((q) => {
+    const out = { ...q, question: clean(q.question), explanation: clean(q.explanation) }
+    if (!Array.isArray(q.choices)) return out
+    out.choices = q.choices.map((c) => clean(c))
+    if (typeof q.answer === 'string') {
+      const a = q.answer.trim()
+      out.answer = /^\d+$/.test(a) && Number(a) < q.choices.length && !q.choices.some((c) => String(c).trim() === a) ? Number(a) : clean(q.answer)
+    }
+    return out
+  })
+}

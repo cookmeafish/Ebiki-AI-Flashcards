@@ -150,6 +150,13 @@ export const TRIGGERS = {
     tear: { vars: none },
     twist: { vars: (K) => ({ n: K.tears }) },
   },
+  cerberus: {
+    bindFire: { vars: none },
+    bindIron: { vars: none },
+    bindShadow: { vars: none },
+    bound: { vars: (K) => ({ n: K.bound }) },
+    snap: { vars: none },
+  },
 }
 
 // What the bestiary shows for one effect: its two text keys, their vars (from the live K) and whether it is a choice.

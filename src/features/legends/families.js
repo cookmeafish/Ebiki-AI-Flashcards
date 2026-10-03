@@ -34,7 +34,8 @@ export const FAMILY_TREES = [
   { id: 'crypt', top: 'lich', links: { lich: ['graveyard', 'library'] } },
   { id: 'haunting', top: 'banshee', links: { banshee: ['manor'] } },
   { id: 'paleRide', top: 'reaper', links: { reaper: ['frontier'] } },
-  { id: 'beastPit', top: 'chimera', links: { chimera: ['savanna', 'underworld'] } },
+  { id: 'beastPit', top: 'chimera', links: { chimera: ['savanna'] } },
+  { id: 'lastGate', top: 'cerberus', links: { cerberus: ['underworld'] } },
   { id: 'hive', top: 'swarmqueen', links: { swarmqueen: ['hive'] } },
 ]
 

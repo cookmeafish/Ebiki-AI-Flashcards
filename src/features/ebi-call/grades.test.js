@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { splitReply, applyGrades, ratingsFrom } from './grades'
+import { splitReply, applyGrades, ratingsFrom, onePerNote } from './grades'
 
 describe('splitReply', () => {
   it('hides the grades block and keeps only known targets with valid verdicts', () => {
@@ -32,5 +32,17 @@ describe('ratingsFrom', () => {
       { cardId: 1, ease: 3, rating: 'good', front: 'a' },
       { cardId: 3, ease: 1, rating: 'again', front: 'c' },
     ])
+  })
+})
+
+describe('call grade parsing extras', () => {
+  it('reads "easy" as good and an id echoed as "id 11"', () => {
+    const r = splitReply('Ok <grades>[{"id":"id 11","verdict":"Easy"},{"id":12,"verdict":"hard"}]</grades>', ['11', '12'])
+    expect(r.grades).toEqual([{ id: '11', verdict: 'good', why: '' }, { id: '12', verdict: 'hard', why: '' }])
+  })
+  it('keeps one card per note, first wins, cards without a note kept', () => {
+    const out = onePerNote([{ cardId: 1, note: 7 }, { cardId: 2, note: 7 }, { cardId: 3 }, { cardId: 4, note: 8 }])
+    expect(out.map((c) => c.cardId)).toEqual([1, 3, 4])
+    expect(onePerNote(null)).toEqual([])
   })
 })

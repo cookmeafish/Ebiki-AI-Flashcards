@@ -6,6 +6,7 @@ import { dataUrlToImagePart, downscaleDataUrl, estimateImageNoise } from './util
 const PORTABLE_IMAGE_TYPES = /^image\/(jpeg|jpg|png)$/i
 import { PROVIDERS, keyOfOtherProvider, setUsageListener } from './config/providers'
 import { recordUsage } from './utils/tokenUsage'
+import { activitySignature, isAbandoned, lastActiveAt, unsyncedInSnapshot, pendingRatings, hadProgress, STUDY_SESSION_MAX_AGE_MS } from './utils/studySession'
 import TokenUsageMeter from './components/TokenUsageMeter'
 import { pickUpgrade, pickNewest, parseModelId, compareModels } from './config/modelVersions'
 import { buildModelResearchPrompt, buildPresetDecisionPrompt } from './config/modelAdvisor'
@@ -49,6 +50,7 @@ import PbqQuestion from './components/PbqQuestion'
 import { QUESTION_REUSE_DEFAULT, reuseSettings, replaceQuestion, storableQuestion, clearBank, createQuestionReuse, mergeGlosses, updateBank } from './utils/questionBank'
 import { compilePbq, itemKey as pbqItemKey, reshufflePbq, pbqRatingScore, checkCitations, studentView, parseSolverAnswer, gradePbq, compareToKey, PBQ_GEN_SYSTEM, PBQ_SOLVER_SYSTEM, PBQ_JUDGE_SYSTEM, buildGeneratorPrompt as buildPbqGeneratorPrompt, buildSolverPrompt as buildPbqSolverPrompt, buildJudgePrompt as buildPbqJudgePrompt } from './pbq/engine'
 import { apiFetch, platform } from './platform'
+const SIDEBAR_KV = 'ebiki-sidebar-collapsed'
 import { nav } from './nav'
 import { useNavEntry } from './nav/react'
 
@@ -10136,7 +10138,22 @@ Output ONLY raw JSON. No markdown, no backticks.`
   // A saved session is only worth resuming for a short gap (a refresh, a dev-server restart).
   // After hours away it resumes DESYNCED: the async work it references is gone, grace timers are
   // long expired, and the Anki collection has moved on — expire it instead.
-  const STUDY_SESSION_MAX_AGE_MS = 8 * 60 * 60 * 1000
+  // The clock is the learner's last PROGRESS (`activeAt`, src/utils/studySession.js), never the last save: the
+  // restore saves the snapshot itself, so a savedAt clock was refreshed on every launch and a session left weeks
+  // ago never expired (raids and Ebi Call kept refusing with "finish your study session first").
+  const studyActiveAtRef = useRef(null) // last progress of the live session (null = no session yet)
+  const studyActSigRef = useRef(null) // activitySignature at that moment (null = take the next save as the baseline)
+  // Once found abandoned it STAYS abandoned: sending its ratings changes the signature, and that used to look like
+  // fresh progress, so a session reopened only to sync stayed open (and blocked raids) for good.
+  const studyAbandonedRef = useRef(false)
+  // "Your session from <date> was closed after 8 hours" (Study home, dismissable). Kept in storage until dismissed.
+  const [studyClosedNote, setStudyClosedNote] = useState(() => { try { const v = JSON.parse(localStorage.getItem('ebiki-study-closed-note') || 'null'); return v && Number(v.at) > 0 ? v : null } catch { return null } })
+  const noteStudyClosed = (at) => {
+    const v = { at: Number(at) || Date.now() }
+    setStudyClosedNote(v)
+    try { localStorage.setItem('ebiki-study-closed-note', JSON.stringify(v)) } catch {}
+  }
+  const dismissStudyClosedNote = () => { setStudyClosedNote(null); try { localStorage.removeItem('ebiki-study-closed-note') } catch {} }
   // Restore once after config loads (before the user can interact).
   useEffect(() => {
     if (!configLoaded || studyHydrated) return
@@ -10150,18 +10167,18 @@ Output ONLY raw JSON. No markdown, no backticks.`
       // Rated cards Anki never got (closed inside the grace window): an expired snapshot is NOT thrown away with
       // them. It comes back on its summary, where the auto-sync sends them (the not-due check still protects
       // the schedule), instead of silently losing those reviews.
-      const unsyncedIn = (x) => {
-        const done = new Set(Array.isArray(x?.syncedIds) ? x.syncedIds : [])
-        return (Array.isArray(x?.studyCardState) ? x.studyCardState : []).filter((cs) => cs && cs.done && (cs.ease || ((cs.evaluating || cs.gradeFailed) && !cs.isConjugation && cs.rating !== 'deleted')) && !cs.noSync && !cs.synced && cs.cardId && !done.has(cs.cardId)).length
+      // It keeps its OLD activeAt: the abandoned-session check then sends them and ends it quietly (it used to get
+      // savedAt = now and stay open, blocking raids, for good).
+      const abandoned = !!(s && s.studyActive && isAbandoned(s, Date.now(), STUDY_SESSION_MAX_AGE_MS))
+      if (abandoned && unsyncedInSnapshot(s) > 0) {
+        s.studyPhase = 'summary'
+        console.log('[Study] an abandoned session still had unsynced ratings: reopened on its summary to send them')
       }
-      if (s && s.studyActive && (!s.savedAt || Date.now() - s.savedAt > STUDY_SESSION_MAX_AGE_MS) && unsyncedIn(s) > 0) {
-        s.studyPhase = 'summary'; s.savedAt = Date.now()
-        console.log('[Study] an expired session still had unsynced ratings: reopened on its summary to send them')
-      }
-      // Snapshots from before savedAt existed count as stale (they may already be dead-ended).
-      if (s && s.studyActive && (!s.savedAt || Date.now() - s.savedAt > STUDY_SESSION_MAX_AGE_MS)) {
+      // Snapshots with no timestamp count as stale (they may already be dead-ended).
+      if (abandoned && unsyncedInSnapshot(s) === 0) {
         localStorage.removeItem('ebiki-study-session')
-        console.log('[Study] saved session expired — starting fresh')
+        if (s.studyPhase !== 'pick' && hadProgress(s.studyCardState)) noteStudyClosed(lastActiveAt(s))
+        console.log('[Study] saved session abandoned (8 hours without progress): starting fresh')
       } else if (s && s.studyActive && s.modeId !== undefined && !modesRef.current.some((m) => m.id === s.modeId)) {
         // The mode this session was studying no longer exists (deleted, maybe on another computer).
         localStorage.removeItem('ebiki-study-session')
@@ -10209,6 +10226,8 @@ Output ONLY raw JSON. No markdown, no backticks.`
           else if (cq.questionIdx < (cs.questionIdx || 0)) cq = { ...cq, questionIdx: cs.questionIdx } // the answer typed there was not saved
         }
         studyRunIdRef.current = s.runId || s.savedAt || Date.now()
+        studyActiveAtRef.current = lastActiveAt(s) || Date.now(); studyActSigRef.current = null // the restored state is the baseline
+        studyAbandonedRef.current = abandoned // reopened only to send its ratings (see the abandoned-session check)
         // The cursor moves BEFORE a card's questions exist (beginStudy's background generations, every
         // pull), so a reload in that window restored a cursor past cards that never got a state: they
         // were silently never quizzed and the session still "completed". Put them back just after the
@@ -10276,6 +10295,11 @@ Output ONLY raw JSON. No markdown, no backticks.`
     if (!studyHydrated) return
     try {
       if (studyActive) {
+        // Progress moves activeAt; a save that changed nothing the learner did (the restore, a sanitize) does not.
+        const sig = activitySignature({ studyCardState, syncedIds: studySyncedIdsRef.current })
+        if (studyActiveAtRef.current == null) studyActiveAtRef.current = Date.now() // a new session
+        if (studyActSigRef.current == null) studyActSigRef.current = sig
+        else if (studyActSigRef.current !== sig) { studyActSigRef.current = sig; if (!studyAbandonedRef.current) studyActiveAtRef.current = Date.now() }
         localStorage.setItem('ebiki-study-session', JSON.stringify({
           // Trimmed: raw cardsInfo carries the note type's CSS three times per card (css + <style> in the
           // rendered question/answer). 100 styled cards went past the storage quota, so the save failed
@@ -10295,9 +10319,11 @@ Output ONLY raw JSON. No markdown, no backticks.`
           // revlog check, and the next sync answered it a second time.
           uncertainSync: [...uncertainSyncRef.current],
           modeId: activeModeIdRef.current, // the mode this session belongs to (see the restore)
-          savedAt: Date.now(), // restore expires after STUDY_SESSION_MAX_AGE_MS
+          savedAt: Date.now(),
+          activeAt: studyActiveAtRef.current, // the restore expires after STUDY_SESSION_MAX_AGE_MS without progress
         }))
       } else {
+        studyActiveAtRef.current = null; studyActSigRef.current = null; studyAbandonedRef.current = false
         localStorage.removeItem('ebiki-study-session')
       }
     } catch {
@@ -13192,6 +13218,10 @@ Your output keeps: the same method, the same language (${explainLang}), the same
         break
       }
     }
+    teardownStudy()
+  }
+  // Ends the session with no questions asked (exitStudy after its prompts, and the abandoned-session end below).
+  const teardownStudy = () => {
     studySessionRef.current++ // anything still generating/grading for this session is now stale
     studyEndedRef.current = false
     pullsInFlightRef.current = 0 // its pulls no longer count (they skip their decrement: see pullNewCard)
@@ -13240,6 +13270,71 @@ Your output keeps: the same method, the same language (${explainLang}), the same
     uncertainSyncRef.current = new Map()
     glossFetchRef.current = new Map(); glossBusyRef.current = new Set()
   }
+
+  // ── Abandoned sessions: STUDY_SESSION_MAX_AGE_MS without progress ─────────────────────────────────────────
+  // A live session nobody touched for 8 hours (the app left open, or a restored snapshot reopened on its summary
+  // to send its ratings) is ended QUIETLY, never with exitStudy's prompts: its rated cards are synced first (the
+  // same serialized sync, so no card is answered twice); while some still can't reach Anki (Anki closed) it stays
+  // on its summary and keeps blocking raids and Ebi Call, which name the count. Then it ends like Exit Study
+  // (history recorded, snapshot cleared) and the Study home says so once.
+  const studyLiveNow = () => studyActive && (studyPhase !== 'pick' || studyLoading) // the start screen is no session
+  const studyIdleTooLong = () => studyActive && !studyLoading && studyActiveAtRef.current != null
+    && (studyAbandonedRef.current || isAbandoned({ activeAt: studyActiveAtRef.current }, Date.now(), STUDY_SESSION_MAX_AGE_MS))
+  const abandonBusyRef = useRef(null)
+  const endAbandonedStudy = async () => {
+    if (abandonBusyRef.current) return abandonBusyRef.current
+    studyAbandonedRef.current = true
+    const run = (async () => {
+      // A grade still being worked out (a restored card re-graded): wait for it, it becomes a rating to send.
+      if (studyCardStateRef.current.some((cs) => cs.done && cs.evaluating && !cs.noSync && !cs.isConjugation)) {
+        return { active: true, unsynced: unsyncedInSnapshot({ studyCardState: studyCardStateRef.current, syncedIds: [...studySyncedIdsRef.current] }) }
+      }
+      let pending = pendingRatings(studyCardStateRef.current, studySyncedIdsRef.current)
+      if (pending.length && ankiConnected === true) { // still checking (null): the effect re-runs once Anki answers
+        await syncGradedNow()
+        pending = pendingRatings(studyCardStateRef.current, studySyncedIdsRef.current)
+      }
+      if (pending.length) {
+        if (studyPhase !== 'summary') setStudyPhase('summary')
+        return { active: true, unsynced: pending.length }
+      }
+      const at = studyActiveAtRef.current
+      const progressed = studyPhase !== 'pick' && hadProgress(studyCardStateRef.current)
+      console.log('[Study] session ended after 8 hours without progress')
+      teardownStudy()
+      if (progressed) noteStudyClosed(at)
+      return { active: false, unsynced: 0 }
+    })()
+    abandonBusyRef.current = run
+    try { return await run } finally { abandonBusyRef.current = null }
+  }
+  const endAbandonedStudyRef = useRef(endAbandonedStudy)
+  endAbandonedStudyRef.current = endAbandonedStudy
+  const studyIdleTooLongRef = useRef(studyIdleTooLong)
+  studyIdleTooLongRef.current = studyIdleTooLong
+  // Checked whenever the session changes (a re-grade landing, a sync finishing, Anki coming back), when the window
+  // comes back into view, and every few minutes while it stays open.
+  useEffect(() => {
+    if (studyHydrated && studyIdleTooLong()) endAbandonedStudyRef.current()
+  }, [studyHydrated, studyActive, studyPhase, studyCardState, ankiConnected, studyPullTick]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!studyHydrated || !studyActive || isOverlay) return
+    const check = () => { if (studyIdleTooLongRef.current()) endAbandonedStudyRef.current() }
+    const onVis = () => { if (!document.hidden) check() }
+    window.addEventListener('focus', check)
+    document.addEventListener('visibilitychange', onVis)
+    const id = setInterval(check, 5 * 60 * 1000)
+    return () => { window.removeEventListener('focus', check); document.removeEventListener('visibilitychange', onVis); clearInterval(id) }
+  }, [studyHydrated, studyActive])
+  // For features (raids, Ebi Call) about to drive Anki's reviewer: ends an abandoned session first, then answers
+  // whether a study session is still live and how many of its ratings still have to reach Anki.
+  const studyStatusForFeatures = async () => {
+    if (studyIdleTooLongRef.current()) return endAbandonedStudyRef.current()
+    const live = studyLiveRef.current
+    return { active: live, unsynced: live ? pendingRatings(studyCardStateRef.current, studySyncedIdsRef.current).length : 0 }
+  }
+  const studyLiveRef = useRef(false)
+  studyLiveRef.current = studyLiveNow()
 
   // Generate spaced repetition insights + update progress observations
   // Only a session with something rated has results to learn from: with none, the notes were REWRITTEN from an
@@ -15000,7 +15095,11 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
     },
   })
   const shellOn = !isOverlay && onboarded
-  const sidebarCollapsed = viewportW < SHELL.collapseBelow
+  // The sidebar's own collapse toggle: a per-device convenience (platform.kv), never synced.
+  const [sidebarPinned, setSidebarPinned] = useState(() => platform.kv.get(SIDEBAR_KV) === '1')
+  const toggleSidebar = () => setSidebarPinned((v) => { const n = !v; platform.kv.set(SIDEBAR_KV, n ? '1' : '0'); return n })
+  const sidebarForced = viewportW < SHELL.collapseBelow // narrow window: icon-only whatever the choice
+  const sidebarCollapsed = sidebarForced || sidebarPinned
   const showRail = shellOn && viewportW >= SHELL.railHideBelow && (railWanted(activeTab, { studyActive }) || !!featureScreen?.rail)
 
   // Wait for config + modes before the first real paint so the saved tab/mode are already
@@ -15070,7 +15169,10 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
       },
     },
     emit: emitAppEvent, // features announce their own facts (EVENTS) the same way the app does
-    studyActive, ankiConnected,
+    // A live study session (the start screen is none). Before driving Anki's reviewer, features ask `study.status()`:
+    // it ends a session abandoned for 8 hours first (its ratings sent) and answers { active, unsynced }.
+    studyActive: studyLiveNow(), ankiConnected,
+    study: { status: studyStatusForFeatures, open: () => pickTab('study') },
     // AI for features, on the user's provider. `role` picks the model like everywhere else (resolveModel).
     ai: {
       hasKey: !!apiKey,
@@ -15612,7 +15714,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
 
       {/* ── Shell row: sidebar | screen | rail (in the overlay these wrappers vanish: display contents) ── */}
       <div style={shellOn ? { flex: 1, display: 'flex', minHeight: 0 } : { display: 'contents' }}>
-      {shellOn && <Sidebar items={navItems} active={activeTab} onPick={pickTab} collapsed={sidebarCollapsed} />}
+      {shellOn && <Sidebar items={navItems} active={activeTab} onPick={pickTab} collapsed={sidebarCollapsed} onToggle={sidebarForced ? null : toggleSidebar} toggleLabel={t(sidebarCollapsed ? 'nav_sidebarExpand' : 'nav_sidebarCollapse')} />}
       <div style={shellOn ? { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 } : { display: 'contents' }}>
       {/* A screen contributed by a feature (navItems slot). */}
       {featureScreen?.Screen && <main style={S.main}><featureScreen.Screen /></main>}
@@ -16601,6 +16703,12 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
               <div style={{ fontSize: 11, color: 'var(--c-ink-dim)', marginTop: 12 }}>{t('checkingAnki')}</div>
             )}
             {studyStartError && ankiConnected !== false && <div style={{ fontSize: 11, color: 'var(--c-danger)', marginTop: 12 }}>{studyStartError}</div>}
+            {studyClosedNote && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 18, padding: '10px 12px', borderRadius: 10, border: '1px solid var(--c-border)', background: 'var(--c-surface)', fontSize: 12, color: 'var(--c-ink-dim)', textAlign: 'left' }}>
+                <span style={{ flex: 1 }}>{t('study_closedIdle', { date: new Date(studyClosedNote.at).toLocaleDateString(appLanguage || undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) })}</span>
+                <button onClick={dismissStudyClosedNote} aria-label={t('close')} style={{ ...S.ghostBtn, fontSize: 11, padding: '2px 8px', color: 'var(--c-ink-dim)' }}>✕</button>
+              </div>
+            )}
           </div>
         </main>
       )}

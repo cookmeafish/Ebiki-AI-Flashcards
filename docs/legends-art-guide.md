@@ -380,7 +380,12 @@ disk), a face you remember, every phase changes it so much no phase is mistaken 
   an eye is taken; owls, moths and spiders were weighed against the set), let one theme carry the color story (full
   moon silver, blood moon red, eclipse black and gold). Keep the moon readable: show it ABOVE the brows (one solid V
   ridge and a narrow forehead wedge, never a dark cap over the whole top), craters soft and unoutlined so they never
-  read as extra eyes.
+  read as extra eyes. **2026-10-03**: "the lunar strix doesn't look like an owl" (a round plate, then an angular
+  heart/shield that read as a heraldic crest): an owl reads from its FACIAL DISC of two lobes with feather-edged rims
+  around two big round forward-facing eyes (round pupils, the brow ridge cutting the top of each eye for menace), a
+  short hooked beak tucked in bristles, and tall ear tufts. Its parent the Roost Moon became an ancient great horned
+  owl perched in a crescent moon (owlets on the horns), sharing that face: a moon with stuck-on owl features, or
+  owlets peeking from craters, read as an odd hybrid with extra eyes.
 - **Ebi drafts stay close to the current Ebi.** A redraw in a very different style was "way too different"; a
   low-detail copy was "a shitty low quality version". Variations are polished and only a little different.
 
@@ -437,15 +442,18 @@ titan, void and seraph. Every new or redrawn raid boss follows this, on top of e
 - **Stage became the Infernal Impresario** (`raids/showman.svg`, owner: "I LOVE THE DESIGN OF STAGE ... GOES ALL
   OUT"). The first pass (the Legends bust in the same arch three times, a wall of teeth growing into an unhinged
   scream) was "a little" too close to the regular boss with "lackluster" phases; v2 to v6 made him an opera house
-  magician with a costume and stage of his own, and he still read as the Illusionist. **2026-10-03**: redesigned as an
-  infernal circus ringmaster because he was too similar to the Grand Illusionist; phase 3 given powers and a manic face
-  at the owner's request. Now: crimson demon skin, a gold domino mask, ember ram horns, a red stovepipe with a ring of
-  fire, a crimson hussar coat with gold epaulettes, white breeches, a flaming whip and a brass megaphone, a hellfire
-  big top; phase 1 presents the ring and cracks the whip (fire hoops, the masks on circus drums), phase 2 a giant
-  turning hoop of fire with the megaphone up, phase 3 the Infernal Encore (cards whirl from his glove, a burning sigil
-  over his palm, the masks float free firing beams, a summoning circle in the ring, coat tails turned flaming wings,
-  wide white-hot eyes and a huge clenched grin under a mask cracking with light). The lesson: a raid variation keeps
-  the theme and the ability's props, but when the parent's own costume and stage are kept, it reads as the parent.
+  magician with a costume and stage of his own, and he still read as the Illusionist. **2026-10-03**: a hellfire
+  circus ringmaster (too close to the parent, then a flat red devil melting into his tent), then the owner: "why not
+  have him do a different magic trick per phase and also redesign the character", plus a transparent background. Now
+  (v9): a tall ash-grey demon CONJURER, silver pompadour, long ringed horns, ember eyes on black sclera, a painted gold
+  star, an EMERALD SEQUIN tailcoat with black silk lapels and an ember cravat (the tinted part), bare long-fingered
+  hands with rings and claws; one TRICK per phase on a transparent canvas: phase 1 the Ember Doves (a burning silk
+  torn from the air, doves with flame wings, Comedy hovering over his palm, Tragedy pushed up on his head), phase 2
+  the Levitation (floating over a rune circle, the masks levitated on threads under a gold hoop, a cold mean face),
+  phase 3 the Infernal Encore (he saws himself in half: a flaming hooked saw through a lacquered box, Comedy and
+  Tragedy on its doors, legs kicking out of the lower half, the manic face). The lessons: a raid variation keeps the
+  theme and the ability's props, but when the parent's own costume and stage are kept, it reads as the parent; and a
+  trick per phase gives each phase its own readable silhouette and event.
   - A full-figure phase needs a WHOLE body (owner on v2: "it's almost as if his lower body doesn't exist"): a big head
     on a narrow coat ending in a triangle of cape reads as a head on a stick. Draw about 3.5 to 4 heads of heroic
     proportion: chest, cinched waist, hips, two legs with real shoes, coat tails BEHIND the legs, a cape that frames
@@ -456,8 +464,8 @@ titan, void and seraph. Every new or redrawn raid boss follows this, on top of e
     Props sharing a role are still unique DESIGNS, not recolors (the harlequin, the weeping saint, the porcelain).
   - A final phase is an EVENT, not a pose (owner: "PHASE 3 IS REALLY UNEVENTFUL" on a frontal bust holding props): a
     diagonal action pose, something breaking open, things flying with motion trails, foreground debris, idle motion
-    that keeps it happening (the old curtain-call phase 3: he ripped the curtain open on a void; now the ring becomes
-    a summoning circle, cards whirl, the masks fly free firing beams).
+    that keeps it happening (the old curtain-call phase 3: he ripped the curtain open on a void; now he saws himself
+    in half, the saw spinning in fire, sparks spraying from the cut, his legs kicking out of the other half).
 - **The face changes every phase**, and the signature stays readable through all three (the Seraph's one head eye
   stays in phase 3: the owner asked for it back when a maw replaced it). Transform what makes it loved, never remove it.
 - **The ability shows in the art** (the hydra's regrowing heads, the titan's plating, the lich's phylactery at the

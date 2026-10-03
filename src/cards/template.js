@@ -15,6 +15,7 @@
 //   "not reachable" instead of "failed" (CHANGE_MAYBE_APPLIED for a write that may still land).
 // - Card fields keep the app's format: HTML, audio as `[sound:<file>]` (see the Note shape in ../contract).
 // - With a file store (capability `files`): storeFile/readFile, and optionally blobFileName/legacyBlobFileName.
+// - Cards that can be suspended (capability `suspend`): suspendedCards(cardIds) → bool[] and unsuspendCards(cardIds).
 const notYet = (name) => async () => { throw new Error(`${name} is not implemented yet`) }
 
 export const templateBackend = {

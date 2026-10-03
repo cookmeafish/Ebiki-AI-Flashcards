@@ -28,16 +28,18 @@ export default function RuleCardButton({ ctx, source, compact = false, deck: dec
       const c = parseRuleCard(ai.json(await ai.call(system, user, { role: RULE_ROLE, maxTokens: RULE_MAX_TOKENS })), ai.clean)
       if (!c) throw new Error(t('kit_ruleBad'))
       if (c.skip) { setNote(c.why || t('kit_ruleNone')); setState('skipped'); return }
-      setCard(c); setState('preview')
+      setCard({ ...c, modeId: subject.modeId }); setState('preview')
     } catch (e) { setNote(String(e.message || e)); setState('failed') } finally { busyRef.current = false }
   }
   const add = async () => {
     if (busyRef.current || !card || !targetDeck) return
+    // Written for another mode (a mode switch while the preview stayed open): never added to this mode's deck.
+    if (String(card.modeId ?? '') !== String(subject.modeId ?? '')) { setCard(null); setState('idle'); return }
     busyRef.current = true
     setState('adding')
     try {
       await ctx.cards.addNew(targetDeck, ctx.cards.frontHtml(card.front), ctx.cards.backHtml(card.back), card.tags)
-      madeThisSession.set(subject.modeId, [...made, card.front].slice(-30))
+      madeThisSession.set(subject.modeId, [...(madeThisSession.get(subject.modeId) || []), card.front].slice(-30)) // live list: two buttons adding at once kept only one
       recordPractice(ctx, 'rule-card', [{ kind: 'topic', label: card.front }])
       setState('added')
     } catch (e) { setNote(String(e.message || e)); setState('preview') } finally { busyRef.current = false }

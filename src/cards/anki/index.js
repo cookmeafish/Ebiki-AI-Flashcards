@@ -183,6 +183,18 @@ async function ankiForgetCards(cardIds) {
   return ankiRequest('forgetCards', { cards: cardIds })
 }
 
+// Contract: suspendedCards / unsuspendCards (capability `suspend`). Anki's leech action can suspend a card.
+async function ankiSuspendedCards(cardIds) {
+  if (!cardIds?.length) return []
+  const r = await ankiRequest('areSuspended', { cards: cardIds })
+  return cardIds.map((_, i) => r?.[i] === true)
+}
+async function ankiUnsuspend(cardIds) {
+  if (!cardIds?.length) return true
+  ankiLog(`unsuspending ${cardIds.length} card(s)`)
+  return ankiRequest('unsuspend', { cards: cardIds })
+}
+
 // Move cards to another deck — the scheduling state travels with them.
 async function ankiChangeDeck(cardIds, deckName) {
   ankiLog(`moving ${cardIds.length} card(s) to deck "${deckName}"`)
@@ -672,7 +684,7 @@ const legacyBlobFileName = (kind, key) => `_screenlens/${kind}__${key}.json`
 export const ankiBackend = {
   id: 'anki',
   label: 'Anki',
-  capabilities: { cloudSync: true, files: true, setup: true },
+  capabilities: { cloudSync: true, files: true, setup: true, suspend: true },
   ping: ankiPing,
   getDecks: ankiGetDecks,
   createDeck: ankiCreateDeck,
@@ -681,6 +693,8 @@ export const ankiBackend = {
   copyNote: ankiCopyNote,
   moveCards: ankiChangeDeck,
   resetCards: ankiForgetCards,
+  suspendedCards: ankiSuspendedCards,
+  unsuspendCards: ankiUnsuspend,
   setNoteTags: ankiSetNoteTags,
   findCards: (q) => ankiFindCards(compileQuery(q)),
   findNotes: (q) => ankiFindNotes(compileQuery(q)),

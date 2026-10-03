@@ -23,6 +23,9 @@ const unsaved = new Set()     // keys whose last write failed
 async function ensure(key, { fresh = false } = {}) {
   if (cache.has(key) && !fresh) return cache.get(key)
   const r = await store.read(key)
+  // A plain (not fresh) read that lost a race with a write: the write's list is newer (setting this read's copy
+  // showed the screen a list without the mistakes just added, until the next change).
+  if (!fresh && cache.has(key)) return cache.get(key)
   if (!r.ok) { failed.add(key); notify(); return null }
   failed.delete(key)
   cache.set(key, r.value && Array.isArray(r.value.items) ? r.value : emptyList())
@@ -43,7 +46,9 @@ export function updateMistakes(modeId, fn) {
     unsavedOps.set(key, ops)
     const list = await ensure(key, { fresh: true })
     if (!list) return // unreadable: never write (the change waits for the next one)
-    const next = ops.reduce((l, op) => op(l), list)
+    // A change that throws is dropped, never kept: kept in `unsavedOps`, it threw again on every later write and no
+    // mistake was ever saved again.
+    const next = ops.reduce((l, op) => { try { return op(l) || l } catch { unsavedOps.set(key, (unsavedOps.get(key) || []).filter((x) => x !== op)); return l } }, list)
     cache.set(key, next)
     notify()
     if (await store.write(key, next)) { unsavedOps.delete(key); unsaved.delete(key) } else unsaved.add(key)

@@ -410,7 +410,7 @@ export default function AssetView({ ctx, onBack }) {
         })}
       </div>
 
-      {tab === 'families' ? <BossFamilies t={t} onOpen={(to, m) => { keepScroll(); setTab(to); setIdx(Math.max(0, TABS.find((x) => x.id === to).list.indexOf(m))); setReplay(0) }} /> : tab === 'ebi' ? <EbiDrafts t={t} stepRef={ebiStepRef} /> : <>
+      {tab === 'families' ? <BossFamilies t={t} onOpen={(to, m) => { keepScroll(); setTab(to); setIdx(Math.max(0, TABS.find((x) => x.id === to).list.indexOf(m))); setReplay(0); const box = scrollBox(); if (box) box.scrollTop = 0 }} /> : tab === 'ebi' ? <EbiDrafts t={t} stepRef={ebiStepRef} /> : <>
       <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 6 }}>
         {list.map((m, i) => (
           <button key={m} type="button" onClick={() => setIdx(i)} className={i === idx ? 'ui-tab-current' : undefined}

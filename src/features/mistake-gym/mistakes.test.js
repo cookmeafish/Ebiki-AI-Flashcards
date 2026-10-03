@@ -58,3 +58,21 @@ describe('workout rotation', () => {
     expect(pickForWorkout(l, 2, { now, log: logPractice({ items: [] }, [{ label: 'b', src: 'mistake-gym' }], now - 1000) })[0].front).toBe('b')
   })
 })
+
+import { workoutQuestions } from './prompt'
+
+describe('workout questions from the model', () => {
+  const clean = (s) => String(s ?? '').replace(/\s*—\s*/g, ', ')
+  it('cleans choices and reads a string index as the index', () => {
+    const [q] = workoutQuestions({ questions: [{ question: 'a — b', choices: ['x — y', 'z', 'w'], answer: '1' }] }, clean)
+    expect(q).toMatchObject({ question: 'a, b', choices: ['x, y', 'z', 'w'], answer: 1 })
+  })
+  it('keeps a numeric answer that IS a choice as text', () => {
+    const [q] = workoutQuestions({ questions: [{ question: 'Year?', choices: ['1', '2', '3'], answer: '2' }] }, clean)
+    expect(q.answer).toBe('2')
+  })
+  it('accepts a bare list and drops junk', () => {
+    expect(workoutQuestions([null, 'x', { question: 'q', accepted: ['a'] }], clean)).toHaveLength(1)
+    expect(workoutQuestions(null, clean)).toEqual([])
+  })
+})
