@@ -97,6 +97,8 @@ export function useActivityBusy(busy) {
 }
 // true = nothing to lose: the open activity reports, and nothing in it is running.
 export const activityIdle = () => activityReporters > 0 && activityBusy <= 0
+// true = something reported busy right now (a screen that knows its own activity reports: a raid, a test fight).
+export const activityBusyNow = () => activityBusy > 0
 
 // INTENTS: "open <target> with these params" without features importing each other. ctx.open(navId, payload)
 // leaves one here and switches the screen; the screen takes it on mount (or live, if already open).

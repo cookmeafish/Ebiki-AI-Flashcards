@@ -229,3 +229,23 @@ describe('Anki stays behind the facade', () => {
     expect(srs.blobFileName('hooks', 'spanish')).toBe('_ebiki_hooks__spanish.json')
   })
 })
+
+describe('rating writes are serialized', () => {
+  it('a second recordRatings / correctRating waits for the first, and a failure never blocks the next', async () => {
+    const order = []
+    let release
+    const gate = new Promise((r) => { release = r })
+    const fake = { ...templateBackend, id: 'serial-test',
+      recordRatings: async ({ deck }) => { order.push(`start ${deck}`); if (deck === 'A') await gate; if (deck === 'B') throw new Error('boom'); order.push(`end ${deck}`); return { failed: [] } },
+      correctRating: async () => { order.push('correct'); return 1 } }
+    registerBackend(fake); selectBackend('serial-test')
+    const a = srs.recordRatings({ deck: 'A', ratings: [] })
+    const b = srs.recordRatings({ deck: 'B', ratings: [] })
+    const c = srs.correctRating({ cardId: 1, ease: 3 })
+    await Promise.resolve(); await Promise.resolve()
+    expect(order).toEqual(['start A'])
+    release()
+    await a; await expect(b).rejects.toThrow('boom'); await c
+    expect(order).toEqual(['start A', 'end A', 'start B', 'correct'])
+  })
+})

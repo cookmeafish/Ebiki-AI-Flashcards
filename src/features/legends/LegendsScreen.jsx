@@ -4,7 +4,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile, shrimpUrl } from '../../config/shrimp'
-import { useFeatureCtx, useIntent, featureCfg, useNavEntry } from '../registry'
+import { useFeatureCtx, useIntent, featureCfg, useNavEntry, activityBusyNow } from '../registry'
 import { setLegendsLive, legendsLive, onLegendsLive, legendsSecretHeld } from './helpContext'
 import { EVENTS } from '../events'
 import { ChunkyButton, EbiSays, Card } from '../ui'
@@ -298,7 +298,8 @@ export default function LegendsScreen() {
       if (to === 'activity' || to === 'edit') return 'skip'
       if (to === 'assets' && !cheatsOn(ctx)) return 'skip'
       if (view === 'inferring') return false // a level is being worked out: it finishes by itself
-      if (RUNNING_VIEWS.has(view)) return !!(await ctx.confirm(ctx.t('nav_leaveRun')))
+      // A raid (and a test fight in the asset view) reports what it is doing: only a fight or its aftermath asks.
+      if (view === 'raid' || view === 'assets' ? activityBusyNow() : RUNNING_VIEWS.has(view)) return !!(await ctx.confirm(ctx.t('nav_leaveRun')))
       return true
     },
   })

@@ -6,7 +6,7 @@
 // Why beat it: the boss keeps its wounds across the day's attempts (a loss still hurts it), a win is a trophy in the
 // raid hall, XP and a streak freeze, and the next raid boss in the rotation comes out.
 import { abilityForMotif, abilityById } from './abilities'
-import { strike, barPhase, canAttack, attackSlot, attackGapFor, MAX_INSERTED } from './fight'
+import { strike, barPhase, canAttack, attackSlot, attackGapFor, MAX_INSERTED, raidRating } from './fight'
 
 // THE ROSTER is append-only: a stored raid state's `boss` is an INDEX into it (older builds on a shared folder read
 // the same indices), so a boss is never removed from it, only RETIRED. A retired boss is skipped by the rotation: a
@@ -142,4 +142,56 @@ export function raidStep(before, q, info, { ability = '', need, lives, dayHp, da
     groups.push({ insert: [attack], at: attackSlot(pos, Number.MAX_SAFE_INTEGER, attackGapFor(ability, next)) })
   }
   return { next, groups }
+}
+
+// A TEST FIGHT (cheat mode's asset view, "Fight this boss"): a fresh day of THIS boss at full health for today's due
+// cards, through the normal raid (RaidRun). It is never stored: the answers are real reviews (they count like any
+// review), but the raid's progress (wounds, trophies, the rotation, the boss-win reward) stays as it is
+// (raidAttemptOutcome with `test`).
+export function testRaidState(motif, date, due) {
+  const i = RAID_ROSTER.indexOf(motif)
+  return { boss: activeBossIndex(i >= 0 ? i : 0), day: { date, hp: raidHp(due), damage: 0, attempts: 0, won: false }, trophies: [] }
+}
+
+// What an ended attempt does to the stored raid (RaidRun's save): `state` = what to write (null = write nothing, a
+// test fight), `won`, `firstWin` (the trophy, XP and freeze: never for a test fight).
+//   stored: the raid state read just now, date: the day the raid started, damage: what the attempt dealt, dayAb: the
+//   ability's day state, due: the questions the fight had (a new day's health), test: the test fight's motif or ''.
+export function raidAttemptOutcome(stored, { date, damage, dayAb, due, test = '' } = {}) {
+  if (test) {
+    const r = applyRaidAttempt(testRaidState(test, date, due), date, damage, dayAb)
+    return { state: null, won: r.won, firstWin: false }
+  }
+  // A raid started before midnight and saved after another window already began the NEXT day: that day's wounds are
+  // newer than this attempt, so they stay (raidToday would have replaced them with the old day).
+  const cur = shapeRaid(stored)
+  if (cur.day && typeof date === 'string' && cur.day.date > date) return { state: cur, won: false, firstWin: false }
+  const r = applyRaidAttempt(raidToday(stored, date, due), date, damage, dayAb)
+  return { state: r.state, won: r.won, firstWin: r.firstWin }
+}
+
+// What Ebi's Help hears about a raid on screen (plain facts, never a question's answer).
+//   view: loading | intro | fight | aftermath | saving | done | other; boss: its name; hpLeft/hpMax: today's health;
+//   livesLeft/lives; phase: 1..3; asked/total: cards answered of the cards picked; aftermathLeft: cards still to review;
+//   result: { won, recorded, failed } on the result screen; test: a cheat-mode test fight.
+export function raidHelpText({ view = '', boss = '', ability = '', hpLeft = 0, hpMax = 0, livesLeft = 0, lives = RAID.lives, phase = 1, asked = 0, total = 0, aftermathLeft = 0, result = null, test = false } = {}) {
+  const who = `${boss || 'the raid boss'}${ability ? ` (ability: ${ability})` : ''}${test ? ' [a TEST fight from the asset view: the stored raid (wounds, trophies, boss rotation) is not changed; answers are real Anki reviews]' : ''}`
+  if (view === 'loading') return `Daily raid: Ebi is gathering today's due cards and writing the questions for ${who}.`
+  if (view === 'intro') return `Daily raid: the intro card of ${who}, health ${hpLeft}/${hpMax}, ${lives} lives, ${total} due cards to fight with. Not started yet.`
+  if (view === 'fight') return `Daily raid RUNNING against ${who}: boss health ${hpLeft}/${hpMax}, phase ${phase} of ${RAID.phases}, ${livesLeft}/${lives} lives left, ${asked} of ${total} due cards answered. Each card's first answer is a real Anki review: never give the answer to the question on screen unless they explicitly ask.`
+  if (view === 'aftermath') return `Raid aftermath against ${who}: the fight is over and ${aftermathLeft} due card(s) it never asked are being reviewed (no fight rules; each first answer is a real Anki review; "Finish later" leaves them due). Never give the answer on screen unless asked.`
+  if (view === 'saving') return `Raid against ${who} ended: saving the reviews in Anki.`
+  if (view === 'done' && result) return `Raid result against ${who}: ${result.won ? 'the boss was beaten' : 'the boss survived (its wounds stay for today)'}; ${result.recorded || 0} review(s) saved in Anki${result.failed ? `, ${result.failed} could NOT be saved (those cards stay due)` : ''}.`
+  return ''
+}
+
+// THE REVIEWS a raid sends to the card store (RaidRun's save), the same for a normal raid and a test fight: one per
+// card, its FIRST answer only (`firstHits`: Map cardId -> hit), graded by the shared one-answer rule (raidRating: a
+// clean typed answer on a mature card is Easy, a choice at most Good, a glancing answer Hard, a miss Again).
+//   pre: Map cardId -> { interval, factor } (the schedule before the raid), frontOf(cardId) -> the card's front.
+export function raidReviews(firstHits, pre, frontOf = () => '') {
+  return [...(firstHits || new Map()).entries()].map(([cardId, hit]) => {
+    const r = raidRating(hit, pre?.get?.(cardId))
+    return { cardId, ease: r.ease, rating: r.rating, front: frontOf(cardId) || '' }
+  })
 }

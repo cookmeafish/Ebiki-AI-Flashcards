@@ -18,8 +18,9 @@
 //                                         BossArena already shows `.lg-fx-<key>` layers (and hides `.lg-fxh-<key>`)
 //                                         while data-fx="<key>", and `.lg-ab-<name>-<value>` layers (hiding
 //                                         `.lg-abh-<name>-<value>`) while data-ab-<name>="<value>".
-//   demo         { <fxKey>: { kind, damage, lives } }   optional: how the asset view's replay button fakes that
-//                                         strike (default { kind: 'hit', damage: 3, lives: 0 }).
+//   demo         { <fxKey>: { kind, damage, lives, ab? } }   optional: how the asset view's replay button fakes that
+//                                         strike (default { kind: 'hit', damage: 3, lives: 0 }); `ab` = the ability
+//                                         state right after it, so the art's data-ab-* layers show the result.
 //   juice        { <fxKey>: { size, shake, flash, hitstop, sfx } }   how hard each moment hits (fx/_juice.js has the
 //                                         format and the numbers). BossArena plays shake, flash and hit-stop ONCE from
 //                                         this data, and `size` sets how long data-fx and the reaction class stay on:

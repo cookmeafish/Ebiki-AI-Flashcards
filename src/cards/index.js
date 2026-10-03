@@ -50,9 +50,20 @@ const DEFAULTS = {
   unsuspendCards: async () => { throw new Error('this card store cannot suspend cards') },
 }
 
+// RATING WRITES ARE SERIALIZED app-wide: Study's sync, a raid's reviews and Ebi Call's drive the store's ONE reviewer
+// (Anki's), and two loops at once could answer the wrong card. One after the other, the second also sees what the
+// first recorded (a card no longer due is skipped, never answered twice). A failure never blocks the next write.
+export const RATING_WRITES = ['recordRatings', 'correctRating']
+let ratingChain = Promise.resolve()
+const serialized = (m) => (...args) => {
+  const run = ratingChain.then(() => active[m](...args))
+  ratingChain = run.catch(() => {})
+  return run
+}
+
 // Late-bound: each call goes to whichever backend is active at call time.
 export const srs = Object.freeze(Object.fromEntries([
-  ...REQUIRED_METHODS.map((m) => [m, (...args) => active[m](...args)]),
+  ...REQUIRED_METHODS.map((m) => [m, RATING_WRITES.includes(m) ? serialized(m) : (...args) => active[m](...args)]),
   ...Object.keys(OPTIONAL_METHODS).map((m) => [m, (...args) => (typeof active[m] === 'function' ? active[m] : DEFAULTS[m])(...args)]),
 ]))
 

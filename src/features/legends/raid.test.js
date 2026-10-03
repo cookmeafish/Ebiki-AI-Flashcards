@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { RAID, RAID_MOTIFS, RAID_ROSTER, RAID_RETIRED, raidMotif, isRaidMotif, raidHp, raidToday, applyRaidAttempt, raidOrder, shapeRaid, newRaidState } from './raid'
+import { RAID, RAID_MOTIFS, RAID_ROSTER, RAID_RETIRED, raidMotif, isRaidMotif, raidHp, raidToday, applyRaidAttempt, raidOrder, shapeRaid, newRaidState, testRaidState, raidAttemptOutcome, raidHelpText, raidReviews } from './raid'
 import { artUrl, REALISTIC_ART } from './art'
 
 describe('raid rules', () => {
@@ -113,4 +113,69 @@ describe('raid art', () => {
       for (const p of ['lg-p2', 'lg-p3']) expect(svg, `${motif} ${p}`).toMatch(new RegExp(`class="${p}"[^>]*style="display:none"`))
     })
   }
+})
+
+describe('raid test fights and the save outcome', () => {
+  it('a test fight is a fresh day of the chosen boss and never writes the stored raid', () => {
+    const t = testRaidState('lich', '2026-10-03', 10)
+    expect(RAID_ROSTER[t.boss]).toBe('lich')
+    expect(t.day).toEqual({ date: '2026-10-03', hp: raidHp(10), damage: 0, attempts: 0, won: false })
+    const stored = { boss: 0, day: { date: '2026-10-03', hp: 20, damage: 5, attempts: 1, won: false }, trophies: [] }
+    const before = JSON.stringify(stored)
+    const win = raidAttemptOutcome(stored, { date: '2026-10-03', damage: 100, due: 10, test: 'lich' })
+    expect(win).toEqual({ state: null, won: true, firstWin: false })
+    expect(raidAttemptOutcome(stored, { date: '2026-10-03', damage: 1, due: 10, test: 'lich' })).toEqual({ state: null, won: false, firstWin: false })
+    expect(JSON.stringify(stored)).toBe(before)
+  })
+  it('a retired or unknown motif falls back to an active boss', () => {
+    expect(isRaidMotif(RAID_ROSTER[testRaidState('glutton', 'd', 5).boss])).toBe(true)
+    expect(isRaidMotif(RAID_ROSTER[testRaidState('nope', 'd', 5).boss])).toBe(true)
+  })
+  it('a real attempt writes the wounds and pays the first win once', () => {
+    const r = raidAttemptOutcome(null, { date: '2026-10-03', damage: 3, due: 6 })
+    expect(r.state.day.damage).toBe(3)
+    expect(r.won).toBe(false)
+    const w = raidAttemptOutcome(r.state, { date: '2026-10-03', damage: 100, due: 6 })
+    expect(w.firstWin).toBe(true)
+    expect(w.state.trophies).toHaveLength(1)
+  })
+  it("an attempt from yesterday never overwrites a day another window already started", () => {
+    const stored = { boss: 2, day: { date: '2026-10-04', hp: 15, damage: 4, attempts: 1, won: false }, trophies: [] }
+    const r = raidAttemptOutcome(stored, { date: '2026-10-03', damage: 99, due: 10 })
+    expect(r.won).toBe(false)
+    expect(r.firstWin).toBe(false)
+    expect(r.state.day).toEqual(stored.day)
+    expect(r.state.boss).toBe(2)
+  })
+  it('Help hears the fight state, never an answer', () => {
+    expect(raidHelpText({ view: 'fight', boss: 'The Lich', hpLeft: 5, hpMax: 10, livesLeft: 2, phase: 2, asked: 3, total: 8 })).toMatch(/health 5\/10, phase 2 of 3, 2\/3 lives left, 3 of 8/)
+    expect(raidHelpText({ view: 'done', boss: 'X', result: { won: false, recorded: 4, failed: 1 } })).toMatch(/4 review\(s\) saved.*1 could NOT/)
+    expect(raidHelpText({ view: 'fight', test: true })).toMatch(/TEST fight/)
+    expect(raidHelpText({ view: 'none' })).toBe('')
+  })
+})
+
+describe('raid reviews: a test fight grades exactly like a normal raid', () => {
+  // The answers of one fight, as RaidRun's firstHit holds them (first answers only).
+  const hits = () => new Map([
+    [1, { verdict: 'clean', mode: 'typed' }],   // mature card: Easy
+    [2, { verdict: 'clean', mode: 'typed' }],   // young card: Good
+    [3, { verdict: 'clean', mode: 'choice' }],  // a choice: at most Good, even mature
+    [4, { verdict: 'glancing', mode: 'typed' }], // Hard
+    [5, { verdict: 'miss', mode: 'typed' }],    // Again
+  ])
+  const pre = new Map([[1, { interval: 30, factor: 2500 }], [2, { interval: 3, factor: 2500 }], [3, { interval: 40, factor: 2500 }], [4, { interval: 10 }], [5, { interval: 50 }]])
+  it('the shared one-answer rule, mature Easy from the pre-raid interval', () => {
+    expect(raidReviews(hits(), pre, (id) => `f${id}`).map((r) => [r.cardId, r.rating, r.ease, r.front])).toEqual([
+      [1, 'easy', 4, 'f1'], [2, 'good', 3, 'f2'], [3, 'good', 3, 'f3'], [4, 'hard', 2, 'f4'], [5, 'again', 1, 'f5'],
+    ])
+  })
+  it('the same answers give the same review list whichever boss (or test fight) they were given to', () => {
+    // RaidRun builds the list with raidReviews alone: no boss, motif or test flag reaches it.
+    expect(raidReviews.length).toBe(2) // (firstHits, pre, frontOf = ...): nothing else to pass
+    const a = raidReviews(hits(), pre)
+    const b = raidReviews(hits(), pre)
+    expect(a).toEqual(b)
+    expect(raidReviews(new Map(), pre)).toEqual([])
+  })
 })

@@ -19,7 +19,8 @@ const demoVars = (ability, fx) => ({ n: 2, ...(fxDemoFor(ability, fx)?.fxVars ||
 import { SHRIMP, DEFAULT_SHRIMP, IDLE_SHRIMP, shrimpUrl } from '../../config/shrimp'
 import { S } from '../../styles/theme'
 import { platform } from '../../platform'
-import { useNavEntry } from '../registry'
+import { useNavEntry, activityBusyNow } from '../registry'
+import RaidRun from './RaidRun'
 import BossFamilies from './BossFamilies' // EXPERIMENTAL boss families tab (removal list: families.js)
 import { FAMILY_TREES } from './families'
 
@@ -260,7 +261,9 @@ function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot }) {
   const ability = RAID_ABILITY[motif]
   const mine = shot && shot.motif === motif ? shot : null
   const fxLast = mine && { kind: 'hit', damage: 3, lives: 0, ...(fxDemoFor(ability, mine.fx) || {}), fx: mine.fx, n: mine.n }
-  const state = { ...newFight(), damage, last: fxLast || (step ? { kind: 'hit', damage: Math.round(third), lives: 0, n: step } : null) }
+  // A demo may also set the ability's state after the moment (`ab`: the hydra shows 5 heads after Grow).
+  const demoAb = mine && fxDemoFor(ability, mine.fx)?.ab
+  const state = { ...newFight(), ...(demoAb ? { ab: demoAb } : {}), damage, last: fxLast ||(step ? { kind: 'hit', damage: Math.round(third), lives: 0, n: step } : null) }
   return (
     <div style={{ display: 'grid', gap: 10 }}>
       <BossArena key={motif} t={t} area={area} name={motif} need={VIEW.demoHp} lives={RAID.lives} state={state} phases={RAID.phases} ability={ability} getZoom={getZoom} kind="raids" />
@@ -323,6 +326,20 @@ export default function AssetView({ ctx, onBack }) {
   const [shot, setShot] = useState(null) // the ability effect last played on the demo arena: { motif, fx, n }
   const [palette, setPalette] = useState(PALETTES[0])
   const [replay, setReplay] = useState(0)
+  // "Fight this boss": a real raid against the chosen raid boss with today's due cards (RaidRun `test`: real reviews,
+  // nothing stored for the raid, no rewards). It ends back here, on the same tab and boss.
+  const [testFight, setTestFight] = useState(null) // motif | null
+  useNavEntry('legends.testFight', testFight, (to) => setTestFight(to || null), {
+    rest: null,
+    guard: async (to) => (to ? 'skip' : !activityBusyNow() || !!(await ctx.confirm(t('nav_leaveRun')))),
+  })
+  // A mode switch ends the test fight (its answers are saved for the mode it started in) instead of starting a new one.
+  const fightMode = useRef(ctx.subject?.modeId)
+  useEffect(() => {
+    if (fightMode.current === ctx.subject?.modeId) return
+    fightMode.current = ctx.subject?.modeId
+    setTestFight(null)
+  }, [ctx.subject?.modeId])
   const { list } = TABS.find((x) => x.id === tab)
   const raids = tab === 'raids'
   const motif = list[Math.min(idx, list.length - 1)]
@@ -365,8 +382,11 @@ export default function AssetView({ ctx, onBack }) {
   // The key handler is installed once; it calls the CURRENT step function (the list changes with the tab).
   const goRef = useRef(go)
   goRef.current = go
+  const testFightRef = useRef(testFight)
+  testFightRef.current = testFight
   useEffect(() => {
     const on = (e) => {
+      if (testFightRef.current) return // the fight's own keys
       if (e.defaultPrevented || e.altKey || /input|textarea|select/i.test(e.target?.tagName || '')) return // Alt+Left is Back
       if (e.key === 'ArrowLeft') goRef.current(-1)
       else if (e.key === 'ArrowRight') goRef.current(1)
@@ -383,6 +403,10 @@ export default function AssetView({ ctx, onBack }) {
   const thumb = (m) => raids
     ? <LegendsArt kind="raids" motif={m} palette={palette} height={VIEW.thumb} width={VIEW.thumb} round={0} />
     : <BossArt area={{ motif: m, palette }} size={VIEW.thumb} />
+  // Outside the asset view's art providers: the fight draws its boss as the game does (no file-name tags, normal motion).
+  if (testFight) {
+    return <RaidRun key={`${fightMode.current}:${testFight}`} ctx={ctx} test={{ motif: testFight }} onExit={() => setTestFight(null)} />
+  }
   return (
     <ArtMotion.Provider value>
     <ArtLabels.Provider value>
@@ -434,6 +458,12 @@ export default function AssetView({ ctx, onBack }) {
           </div>
         </div>
 
+        {raids && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <ChunkyButton color={C.danger} onClick={() => setTestFight(motif)} style={{ fontSize: 13, padding: '7px 14px' }}>⚔ {t('lg_raidTestFight')}</ChunkyButton>
+            <span style={{ flex: 1, minWidth: 200, fontSize: 12.5, color: C.inkDim, lineHeight: 1.4 }}>{t('lg_raidTestNote')}</span>
+          </div>
+        )}
         {raids && (
           <div style={section}>
             <div style={h}>{t('lg_assetsPhases')}</div>

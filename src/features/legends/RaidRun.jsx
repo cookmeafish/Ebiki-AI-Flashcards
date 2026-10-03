@@ -10,7 +10,8 @@ import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile } from '../../config/shrimp'
 import { srs } from '../../cards'
 import { EVENTS } from '../events'
-import { featureCfg } from '../registry'
+import { featureCfg, useActivityBusy } from '../registry'
+import { useHelpEntry } from '../kit/useHelp'
 import { ChunkyButton, EbiSays, Card, tCount } from '../ui'
 import { QuizRunner, judgeStrike, recordReviews, recordPractice, studyBlock, studyBlockText } from '../kit'
 import LearnItPanel from '../kit/LearnItPanel'
@@ -21,7 +22,7 @@ import { learnerLevelLine } from '../kit/learnerStore'
 import { BossIntro, BossArena, BossEnd } from './BossArena'
 import { LegendsArt } from './art'
 import { newFight, act, settleFight, phaseOf, raidRating, attackLivesFor, abilityState, refundRunningFight, strikeCost, fightOutcome } from './fight'
-import { RAID, RAID_MOTIFS, RAID_ABILITY, todayKey, raidToday, applyRaidAttempt, raidOrder, shapeRaid, raidStep, raidMotif, isRaidMotif } from './raid'
+import { RAID, RAID_MOTIFS, RAID_ABILITY, todayKey, raidToday, applyRaidAttempt, raidOrder, shapeRaid, raidStep, raidMotif, isRaidMotif, testRaidState, raidAttemptOutcome, raidHelpText, raidReviews } from './raid'
 import { abilityById } from './abilities'
 import { buildRaidPrompt, parseQuestions, RAID_ROLE, RAID_MAX_TOKENS } from './prompt'
 import { readRaid, updateRaid, LEGENDS_ID } from './store'
@@ -29,9 +30,14 @@ import { readRaid, updateRaid, LEGENDS_ID } from './store'
 const INFO_BATCH = 40
 const GUARD_KEY = 'ebiki-raid-guards'
 
-export default function RaidRun({ ctx, onExit }) {
+// `test` (cheat mode's asset view): { motif } = a TEST fight against that boss. Today's due cards, every first answer a
+// real review, but the stored raid (wounds, trophies, the rotation) and every reward are left alone (raid.js
+// raidAttemptOutcome).
+export default function RaidRun({ ctx, onExit, test = null }) {
   const { t, ai, subject } = ctx
-  const modeId = subject.modeId
+  const testMotif = test && isRaidMotif(test.motif) ? test.motif : ''
+  // Pinned at mount: a screen that re-renders this raid under another mode before closing it still files it here.
+  const modeId = useRef(subject.modeId).current
   const deck = subject.modeDeck || subject.deck
   // The deck the raid's cards came from: its reviews are saved THERE even if the header deck changes mid-raid
   // (saved to the new deck, every card missed Anki's reviewer and fell to a hand-made interval).
@@ -68,15 +74,14 @@ export default function RaidRun({ ctx, onExit }) {
   // The day the raid STARTED: a fight finishing after midnight is saved against the day it was fought (a new day
   // started at full health and turned the win into a retreat).
   const dateRef = useRef(todayKey())
-  const date = dateRef.current
   const qCountRef = useRef(0) // the questions really asked: today's health comes from them
   const day = raid?.day
   const need = day ? Math.max(1, day.hp - day.damage) : 1 // what is left of today's health
-  const motif = raid ? raidMotif(raid) : RAID_MOTIFS[0]
+  const motif = raid ? raidMotif(raid) : testMotif || RAID_MOTIFS[0]
   const bossName = t(`lg_raidBoss_${motif}`)
   const ability = RAID_ABILITY[motif] || ''
   const abMod = abilityById(ability)
-  const area = { id: `raid-${motif}`, title: t('lg_raidTitle'), motif, palette: 'night' }
+  const area = { id: `raid-${motif}`, title: t('lg_raidTitle'), subtitle: testMotif ? t('lg_raidTestTag') : t('lg_raidTitle'), motif, palette: 'night' }
   const phaseRef = useRef(phase)
   phaseRef.current = phase
   const fightOver = useRef(null) // { need, lives } of the running fight, for a refund landing between renders
@@ -127,9 +132,12 @@ export default function RaidRun({ ctx, onExit }) {
 
   const load = async () => {
     setPhase('loading'); setError(''); setStudyBlocked(false)
+    // Nothing answered yet: a Retry after midnight fights today's raid, not yesterday's.
+    if (!firstHit.current.size) dateRef.current = todayKey()
+    const date = dateRef.current
     try {
       if (!ai.hasKey) throw new Error(t('lg_raidNoKey'))
-      if (ctx.ankiConnected === false || !deck) throw new Error(t('lg_noDeck'))
+      if (ctx.ankiConnected === false || !deck) throw new Error(t('lg_raidNoDeck'))
       // Never during a study session: its pending ratings and the raid's reviews would answer the same due card twice,
       // and two loops driving Anki's one reviewer at once could rate the wrong card.
       // A session abandoned for 8 hours is ended here first (its ratings sent); only real pending work blocks.
@@ -142,14 +150,17 @@ export default function RaidRun({ ctx, onExit }) {
       // One card per note (reversed siblings read the same), in Anki's order, capped.
       const seenNotes = new Set()
       const picked = raidOrder(infos).filter((c) => (seenNotes.has(c.note) ? false : (seenNotes.add(c.note), true))).slice(0, RAID.maxCards)
-      const r = await readRaid(modeId)
-      if (!r.ok) throw new Error(t('lg_errSave'))
-      const today = raidToday(r.value, date, picked.length)
+      // A test fight never reads (or later writes) the stored raid: a fresh day of its own boss.
+      const r = testMotif ? { ok: true, value: null } : await readRaid(modeId)
+      if (!r.ok) throw new Error(t('lg_raidReadFailed'))
+      const today = testMotif ? testRaidState(testMotif, date, picked.length) : raidToday(r.value, date, picked.length)
       if (!alive.current) return
       setRaid(today)
-      if (today.day.won) { setPhase('beaten'); return }
-      if (picked.length < RAID.minCards) { setPhase('none'); return }
+      if (!testMotif && today.day.won) { setPhase('beaten'); return }
       const cards = picked.map((c) => ({ cardId: c.cardId, noteId: c.note, ...ctx.cards.noteText(c) })).filter((c) => c.front)
+      // Counted AFTER dropping cards with no readable front: a 3-question raid got the 5-card floor health (7) and
+      // could not be won even answered all right.
+      if (cards.length < RAID.minCards) { setPhase('none'); return }
       cardsRef.current = cards
       preRef.current = new Map(picked.map((c) => [c.cardId, { interval: c.interval, factor: c.factor }]))
       const level = await learnerLevelLine(ctx)
@@ -167,12 +178,12 @@ export default function RaidRun({ ctx, onExit }) {
         used.add(card.cardId)
         qs.push({ ...one, _cardId: card.cardId, target: card.front })
       }
-      if (qs.length < Math.min(RAID.minCards, cards.length)) throw new Error(t('lg_errQuiz'))
+      if (qs.length < RAID.minCards) throw new Error(t('lg_errQuiz')) // fewer could leave the floor health unwinnable
       if (!alive.current) return
       // Health from the questions the fight really has (fewer than the cards when some could not be asked): from the
       // cards picked, a perfect run could fall short of the health and the raid was unwinnable.
       qCountRef.current = qs.length
-      setRaid(raidToday(r.value, date, qs.length))
+      setRaid(testMotif ? testRaidState(testMotif, date, qs.length) : raidToday(r.value, date, qs.length))
       setQuestions(qs)
       setPhase('intro')
     } catch (e) { if (alive.current) { setError(String(e.message || e)); setPhase('error') } }
@@ -185,6 +196,7 @@ export default function RaidRun({ ctx, onExit }) {
     if (saved.current) return
     saved.current = true
     if (alive.current) setPhase('saving')
+    const date = dateRef.current
     // An ability holding damage (a bank, a gauge, moons in orbit) lets it go when the fight ends (abilities: settle).
     const dayNow = raid?.day
     // Re-checks and appeals still running decide the grades first (bounded: the reviews are never lost to a slow reply).
@@ -192,10 +204,8 @@ export default function RaidRun({ ctx, onExit }) {
     ratingsBuilt.current = true
     const st = settleFight(fsRef.current, { ability, need: dayNow ? Math.max(1, dayNow.hp - dayNow.damage) : 1, lives: RAID.lives, bar: { total: dayNow ? dayNow.hp : 1, before: dayNow ? dayNow.damage : 0, phases: RAID.phases }, dayAb: dayNow?.ab || null })
     fsRef.current = st
-    const ratings = [...firstHit.current.entries()].map(([cardId, hit]) => {
-      const r = raidRating(hit, preRef.current.get(cardId)) // the card's interval decides Easy (mature) vs Good
-      return { cardId, ease: r.ease, rating: r.rating, front: cardsRef.current.find((c) => c.cardId === cardId)?.front || '' }
-    })
+    // The SAME reviews for a test fight (raid.js raidReviews; nothing here looks at `test`).
+    const ratings = raidReviews(firstHit.current, preRef.current, (id) => cardsRef.current.find((c) => c.cardId === id)?.front)
     let recorded = 0, failed = 0
     let recordedIds = new Set()
     if (ratings.length) {
@@ -206,21 +216,27 @@ export default function RaidRun({ ctx, onExit }) {
     // A second look that landed while the reviews were being sent: its card gets the corrected grade now.
     for (const [cardId, hit] of pendingFix.current.splice(0)) correctCard(cardId, hit)
     // Card XP and mistakes only for the cards Anki really recorded: an unrecorded card stays due, and the next raid
-    // today would have paid and logged it again.
-    for (const [cardId, hit] of firstHit.current) {
-      if (!recordedIds.has(cardId)) continue
+    // today would have paid and logged it again. A test fight's answers are real reviews too: they count the same.
+    const recordedHits = [...firstHit.current].filter(([cardId]) => recordedIds.has(cardId))
+    for (const [cardId, hit] of recordedHits) {
       const c = cardsRef.current.find((x) => x.cardId === cardId)
       ctx.emit(EVENTS.CARD_GRADED, { correct: hit.verdict !== 'miss', grade: raidRating(hit, preRef.current.get(cardId)).rating, mode: modeId, front: c?.front || '', back: c?.back || '', cardId, misses: hit.verdict === 'miss' ? [{ question: hit.q?.prompt || '', answer: hit.answer || '', expected: (hit.q?.accepted || [])[0] || '' }] : [] })
     }
+    const due = qCountRef.current || cardsRef.current.length
+    const dayAb = abMod?.dayState ? abMod.dayState(st) : undefined
     let outcome = { won: false, firstWin: false }
-    const next = await updateRaid(modeId, (cur) => { const res = applyRaidAttempt(raidToday(cur, date, qCountRef.current || cardsRef.current.length), date, st.damage, abMod?.dayState ? abMod.dayState(st) : undefined); outcome = res; return res.state })
-    const answered = firstHit.current.size
-    ctx.emit(EVENTS.PRACTICE_DONE, { source: `${LEGENDS_ID}-raid`, mode: modeId, total: answered, correct: [...firstHit.current.values()].filter((h) => h.verdict !== 'miss').length })
-    if (outcome.firstWin && next !== undefined) ctx.emit(EVENTS.BOSS_BEATEN, { mode: modeId, area: 0, raid: true })
+    let next = null
+    if (testMotif) outcome = raidAttemptOutcome(null, { date, damage: st.damage, dayAb, due, test: testMotif })
+    else next = await updateRaid(modeId, (cur) => { const res = raidAttemptOutcome(cur, { date, damage: st.damage, dayAb, due }); outcome = res; return res.state })
+    const firstWin = !testMotif && outcome.firstWin && next !== undefined // a trophy that was not saved is not paid
+    // Practice XP for the answers Anki recorded (a raid whose reviews all failed paid it, and the next raid paid again).
+    if (recordedHits.length) ctx.emit(EVENTS.PRACTICE_DONE, { source: `${LEGENDS_ID}-raid`, mode: modeId, total: recordedHits.length, correct: recordedHits.filter(([, h]) => h.verdict !== 'miss').length })
+    if (firstWin) ctx.emit(EVENTS.BOSS_BEATEN, { mode: modeId, area: 0, raid: true })
     recordPractice(ctx, LEGENDS_ID, cardsRef.current.filter((c) => firstHit.current.has(c.cardId)).map((c) => ({ kind: 'card', label: c.front })))
     if (!alive.current) return
     if (next) setRaid(next)
-    setSummary({ recorded, failed, won: outcome.won, firstWin: outcome.firstWin, damage: st.damage, saveFailed: next === undefined })
+    // The boss FOUGHT: a win brings out the next boss in `next`, and the result screen named and drew that one.
+    setSummary({ recorded, failed, won: outcome.won, firstWin, damage: st.damage, saveFailed: next === undefined, motif, bossName })
     setPhase('done')
   }
   // Leaving by the sidebar, the Practice hub or a mode switch unmounts the raid: what was answered is still saved.
@@ -250,6 +266,21 @@ export default function RaidRun({ ctx, onExit }) {
     return null
   }
 
+  // Back / the Practice hub ask before leaving only while something would be lost (a fight or its aftermath); the
+  // intro and the result screens leave at once (registry: useActivityBusy).
+  useActivityBusy(phase === 'fight' || phase === 'aftermath')
+  // Ebi's Help: the fight's state on screen (raid.js raidHelpText: never an answer; QuizRunner reports the question).
+  const helpDay = raid?.day
+  const helpLeft = helpDay ? Math.max(0, helpDay.hp - helpDay.damage - (phase === 'fight' || phase === 'aftermath' ? fs.damage : 0)) : 0
+  useHelpEntry(ctx, 'raid', raidHelpText({
+    view: phase, boss: summary?.bossName || bossName, ability, test: !!testMotif,
+    hpLeft: helpLeft, hpMax: helpDay?.hp || 0, livesLeft: Math.max(0, RAID.lives - fs.livesLost),
+    phase: helpDay ? phaseOf(helpLeft, helpDay.hp, RAID.phases) : 1,
+    asked: firstHit.current.size, total: questions?.length || 0,
+    aftermathLeft: afterQs ? afterQs.filter((q) => !firstHit.current.has(q._cardId)).length : 0,
+    result: summary,
+  }), ctx.activeTab || 'practice')
+
   if (phase === 'loading') return <div style={{ maxWidth: 560, margin: '60px auto' }}><EbiSays pose={poseFile('weapon')}>{t('lg_raidLoading')}</EbiSays></div>
   if (phase === 'error' || phase === 'none' || phase === 'beaten') {
     const text = phase === 'error' ? error : phase === 'none' ? t('lg_raidTooFew', { n: RAID.minCards }) : t('lg_raidBeatenToday')
@@ -268,6 +299,7 @@ export default function RaidRun({ ctx, onExit }) {
   if (phase === 'intro') {
     return (
       <div style={{ display: 'grid', gap: 8 }}>
+        {testMotif && <TestTag t={t} note />}
         <BossIntro t={t} area={area} name={bossName} total={questions.length} kind="raids" raidLives={RAID.lives} ability={ability} calm={focus} onFight={() => setPhase('fight')} />
         <div style={{ maxWidth: 640, margin: '0 auto', textAlign: 'center', fontSize: 13.5, color: C.inkDim, lineHeight: 1.5 }}>
           {t('lg_raidRules', { n: questions.length, lives: RAID.lives })}{day?.damage ? ` ${t('lg_raidWounded', { hp: day.hp - day.damage, max: day.hp })}` : ''}
@@ -280,10 +312,11 @@ export default function RaidRun({ ctx, onExit }) {
   if (phase === 'done' && summary) {
     return (
       <div style={{ maxWidth: 600, margin: '24px auto', display: 'grid', gap: 14, justifyItems: 'center', textAlign: 'center' }}>
-        <LegendsArt kind="raids" motif={motif} palette="night" height={120} width={120} round={0} room animated={summary.won ? false : 'idle'} style={summary.won ? { filter: 'grayscale(.6) opacity(.7)', transform: 'rotate(-8deg)' } : undefined} />
-        <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 28, color: summary.won ? C.success : C.warning }}>{summary.won ? `🏆 ${t('lg_raidWon', { name: bossName })}` : t('lg_raidRetreat')}</div>
+        <LegendsArt kind="raids" motif={summary.motif} palette="night" height={120} width={120} round={0} room animated={summary.won ? false : 'idle'} style={summary.won ? { filter: 'grayscale(.6) opacity(.7)', transform: 'rotate(-8deg)' } : undefined} />
+        <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 28, color: summary.won ? C.success : C.warning }}>{summary.won ? `🏆 ${t('lg_raidWon', { name: summary.bossName })}` : t(testMotif ? 'lg_raidTestLost' : 'lg_raidRetreat')}</div>
+        {testMotif && <TestTag t={t} note />}
         {summary.firstWin && <div style={{ fontWeight: 800, color: C.info }}>❄ {t('lg_bossFreeze')} · 🏆 {t('lg_raidTrophy')}</div>}
-        {!summary.won && raid?.day && <div style={{ fontWeight: 800, color: C.inkDim }}>{t('lg_raidWounded', { hp: Math.max(0, raid.day.hp - raid.day.damage), max: raid.day.hp })}</div>}
+        {!summary.won && !testMotif && raid?.day && <div style={{ fontWeight: 800, color: C.inkDim }}>{t('lg_raidWounded', { hp: Math.max(0, raid.day.hp - raid.day.damage), max: raid.day.hp })}</div>}
         <div style={{ fontSize: 14.5, fontWeight: 800, color: summary.failed ? C.danger : C.success }}>
           {summary.failed ? tCount(t, 'lg_raidRecordFailed', summary.failed) : tCount(t, 'lg_raidRecorded', summary.recorded)}
         </div>
@@ -415,6 +448,7 @@ export default function RaidRun({ ctx, onExit }) {
   return (
     <div style={{ display: 'grid', gap: 12 }}>
       <div style={{ maxWidth: 680, width: '100%', margin: '0 auto', position: 'sticky', top: 0, zIndex: 5, paddingTop: 4, background: C.bg }}>
+        {testMotif && <TestTag t={t} />}
         <BossArena t={t} area={area} name={bossName} need={dayHp} lives={lives} state={shown} phases={RAID.phases} ability={ability} dayAb={day?.ab || null} focus={focus} getZoom={ctx.getZoom} kind="raids" questionKey={questionKey} />
         {phase === 'fight' && <TauntBubble bubble={taunt.bubble} name={bossName} calm={focus} />}
         <FightNotice notice={fc.notice} t={t} />
@@ -464,5 +498,15 @@ function Trophies({ ctx, raid }) {
         ))}
       </div>
     </Card>
+  )
+}
+
+// A test fight's tag (cheat mode): `note` adds what it does and does not change.
+function TestTag({ t, note = false }) {
+  return (
+    <div style={{ maxWidth: 640, width: '100%', margin: '0 auto', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+      <span data-raid-test="" style={{ fontSize: 12, fontWeight: 900, color: C.purple, border: `1.5px solid color-mix(in srgb, ${C.purple} 50%, transparent)`, background: `color-mix(in srgb, ${C.purple} 10%, ${C.surface})`, borderRadius: RADIUS.pill, padding: '1px 10px' }}>⚡ {t('lg_raidTestTag')}</span>
+      {note && <span style={{ fontSize: 12.5, color: C.inkDim, lineHeight: 1.4 }}>{t('lg_raidTestNote')}</span>}
+    </div>
   )
 }
