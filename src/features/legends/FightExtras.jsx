@@ -6,12 +6,17 @@
 //   MissTools      the row under a miss: re-check status, Appeal, Learn it, Make a rule card.
 //   TauntBubble, FightNotice, Debrief   what the screens draw.
 // Async results land only where they were asked: every answer has its own id (aid), a taunt its question token.
+// The DECISIONS (who is re-checked, when an appeal may start, which rows the debrief lists, how a question resolves)
+// and the on/off switch of every piece (FIGHT_EXTRAS) live in fightCheck.js (pure, tested); this file draws them.
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { ChunkyButton, Card } from '../ui'
 import { recheckStrike, RuleCardButton } from '../kit'
 import { fetchTaunt } from '../kit/tauntStore'
 import { useHelpEntry } from '../kit/useHelp'
+import { FIGHT_EXTRAS, isWrongish, expectedOf, needsRecheck, appealOpen, appealOffered, debriefEntries, resolveFightQuestion } from './fightCheck'
+
+export { isWrongish, expectedOf } // older imports of these from here keep working
 
 // How long a fight's end waits for re-checks and appeals still running before it records anyway.
 export const SETTLE_MS = 12000
@@ -20,7 +25,6 @@ const REASON_MAX = 300
 
 let aidSeq = 0
 const newAid = () => `a${Date.now().toString(36)}${(++aidSeq).toString(36)}`
-export const isWrongish = (v) => v === 'miss' || v === 'glancing'
 
 // opts.onOverturn(entry, to): an answer judged wrong (or glancing) was right after all; `entry.by` = 'recheck' |
 // 'appeal'. Called once per answer; returns true when it gave something back to the fight (the notice says so). The
@@ -68,7 +72,7 @@ export function useFightCheck(ctx, { onOverturn, isOver } = {}) {
     const aid = newAid()
     const verdict = j.verdict || 'miss'
     const e = { aid, q, answer: String(answer || ''), mode: mode === 'choice' ? 'choice' : 'typed', verdict, first: verdict, note: j.note || '', why: '',
-      status: j.ai && isWrongish(verdict) && String(answer || '').trim() && ai.hasKey ? 'checking' : 'idle', appeal: null, attached: false, at: Date.now() }
+      status: needsRecheck({ viaAi: !!j.ai, verdict, answer, hasKey: ai.hasKey }) ? 'checking' : 'idle', appeal: null, attached: false, at: Date.now() }
     store.current.set(aid, e)
     if (q && typeof q === 'object') byQ.current.set(q, aid)
     publish()
@@ -99,7 +103,7 @@ export function useFightCheck(ctx, { onOverturn, isOver } = {}) {
 
   const appeal = useCallback(async (aid, reason) => {
     const e = store.current.get(aid)
-    if (!e || e.overturned || e.appeal === 'pending' || e.appeal === 'won' || e.appeal === 'lost' || !ai.hasKey) return
+    if (!appealOpen(e) || !ai.hasKey) return
     patch(aid, { appeal: 'pending', reason: String(reason || '').slice(0, REASON_MAX) })
     const r = await recheckStrike(ai, subject, e.q, e.answer, { verdict: e.verdict, reason })
     const cur = store.current.get(aid)
@@ -110,18 +114,7 @@ export function useFightCheck(ctx, { onOverturn, isOver } = {}) {
 
   // A run of questions asks this when it reaches one: a follow-up written later replaces its placeholder, an attack
   // that was cancelled (the answer was right) or is still unwritten is skipped.
-  const resolveQuestion = useCallback((q) => {
-    if (!q) return q
-    if (q._attackOf && cancelled.current.has(q._attackOf)) return null
-    if (q._pending) {
-      if (cancelled.current.has(q._pending)) return null
-      const fix = fixes.current.get(q._pending)
-      if (!fix) return null // not ready in time: skipped
-      const { _pending, ...rest } = q
-      return { ...rest, prompt: fix.prompt, accepted: fix.accepted }
-    }
-    return q
-  }, [])
+  const resolveQuestion = useCallback((q) => resolveFightQuestion(q, cancelled.current, fixes.current), [])
 
   // Resolves once no re-check or appeal is running (or after `ms`).
   const settle = useCallback((ms = SETTLE_MS) => new Promise((resolve) => {
@@ -202,7 +195,7 @@ export function MissTools({ ctx, entry, onAppeal, onLearn, rule = false, after =
   const wrongish = isWrongish(entry.first)
   if (!wrongish) return null
   const small = { fontFamily: FONT.body, fontSize: 12, fontWeight: 800, padding: '4px 11px', borderRadius: RADIUS.pill, background: 'transparent', cursor: 'pointer' }
-  const canAppeal = !!onAppeal && ai.hasKey && !entry.overturned && entry.status !== 'checking' && String(entry.answer || '').trim() && (entry.appeal == null || entry.appeal === 'failed')
+  const canAppeal = !!onAppeal && appealOffered(entry, { hasKey: ai.hasKey })
   const send = () => { setOpen(false); onAppeal?.(entry.aid, reason) }
   return (
     <div data-miss-tools="" style={{ display: 'grid', gap: 6 }}>
@@ -230,7 +223,7 @@ export function MissTools({ ctx, entry, onAppeal, onLearn, rule = false, after =
             <button type="button" onClick={() => setOpen(true)} className="tip" data-tip={after ? t('lg_appealTipAfter') : t('lg_appealTip')}
               style={{ ...small, color: C.purple, border: `1px solid color-mix(in srgb, ${C.purple} 40%, transparent)` }}>⚖ {t('lg_appeal')}</button>
           )}
-          {onLearn && (
+          {onLearn && FIGHT_EXTRAS.learnIt && (
             <button type="button" onClick={onLearn} className="tip" data-tip={t('lg_learnItTip')}
               style={{ ...small, color: C.brand, border: `1px solid color-mix(in srgb, ${C.brand} 40%, transparent)` }}>📖 {t('lg_learnIt')}</button>
           )}
@@ -244,7 +237,7 @@ export function MissTools({ ctx, entry, onAppeal, onLearn, rule = false, after =
 // RAIDS: "What tripped you up" after the fight (Legends extends its own all-answers list instead).
 export function Debrief({ ctx, fc, onLearn, expectedOf }) {
   const { t } = ctx
-  const list = fc.entries.filter((e) => isWrongish(e.first) && e.attached)
+  const list = debriefEntries(fc.entries)
   if (!list.length) return null
   return (
     <Card title={`🧩 ${t('lg_debriefTitle')}`} style={{ width: '100%', boxSizing: 'border-box', textAlign: 'left' }}>
@@ -266,5 +259,3 @@ export function Debrief({ ctx, fc, onLearn, expectedOf }) {
   )
 }
 
-// The question's right answer as the screen shows it.
-export const expectedOf = (q) => (q?.kind === 'choice' ? q.choices?.[q.answerIdx] : (q?.accepted || [])[0]) || ''

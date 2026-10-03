@@ -662,6 +662,13 @@ const installConnector = () => postJson('/api/ankiconnect')
 const focusApp = () => postJson('/api/anki-focus')
 const startApp = () => postJson('/api/anki-start')
 
+// The Anki media names of the app's JSON blobs (discover/storage.js). FLAT names: a name with "/" (the old
+// `_screenlens/...`) is unwritable in place (AnkiConnect reads the basename while its delete-before-store matches
+// nothing, so every write became a hash-suffixed copy and every read returned the FIRST version). The "_" prefix
+// keeps Anki's Check Media from listing them as unused. The legacy name is read once as a migration source.
+const blobFileName = (kind, key) => `_ebiki_${kind}__${key}.json`
+const legacyBlobFileName = (kind, key) => `_screenlens/${kind}__${key}.json`
+
 export const ankiBackend = {
   id: 'anki',
   label: 'Anki',
@@ -692,6 +699,8 @@ export const ankiBackend = {
   cloudAuthState: ankiSyncAuthState,
   storeFile: ankiStoreMediaFile,
   readFile: ankiRetrieveMediaFile,
+  blobFileName,
+  legacyBlobFileName,
   setupStatus,
   installConnector,
   focusApp,

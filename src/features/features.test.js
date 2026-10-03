@@ -88,3 +88,27 @@ describe('registry', () => {
     expect(seen).toEqual([7])
   })
 })
+
+// Features never reach into App internals: no App.jsx, app components, shell or dev data. The listed exceptions are
+// deliberate and documented where they live.
+describe('feature isolation', () => {
+  const ALLOWED = new Map([
+    ['legends/art.jsx', /components\/Markdown/],            // the app's sanitizeHtml, loaded lazily (Markdown needs a DOM)
+    ['legends/BossFamilies.jsx', /dev\/legends-gallery\/catalog/], // EXPERIMENTAL tab (removal list: families.js)
+  ])
+  it('imports no App internals', async () => {
+    const fs = await import('fs')
+    const path = await import('path')
+    const root = path.resolve(__dirname)
+    const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]))
+    const bad = []
+    for (const f of walk(root).filter((x) => /\.(js|jsx)$/.test(x) && !/\.test\.js$/.test(x))) {
+      const r = path.relative(root, f).split(path.sep).join('/')
+      for (const m of fs.readFileSync(f, 'utf8').matchAll(/(?:from|import\()\s*['"]((?:\.\.\/)+(?:App|components|shell|dev)\b[^'"]*)['"]/g)) {
+        if (ALLOWED.get(r)?.test(m[1])) continue
+        bad.push(`${r}: ${m[1]}`)
+      }
+    }
+    expect(bad).toEqual([])
+  })
+})

@@ -172,3 +172,50 @@ describe('Anki correctRating', () => {
     expect(calls[1][1].reviews[0].slice(1, 9)).toEqual([3, -1, 3, 25, 10, 2500, 0, 1])
   })
 })
+
+// ANKI LIVES IN ONE PLACE. Only the Anki adapter (src/cards/anki) knows AnkiConnect: its routes, its search syntax,
+// its action names, its media naming. Everything else talks to the card store through `srs` (./index.js) and the
+// contract (./contract.js), so a replacement backend is ./template.js filled in plus one selectBackend call.
+// Anki-NAMED state and text stay on purpose (ankiConnected, ankiDeck, i18n strings, the AnkiWeb banner): this checks
+// the CODE that would break with another store, not names.
+describe('Anki stays behind the facade', () => {
+  it('no file outside src/cards/anki imports it, calls its routes, or speaks Anki', async () => {
+    const fs = await import('fs')
+    const path = await import('path')
+    const SRC = path.resolve(__dirname, '..')
+    const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]))
+    const rel = (f) => path.relative(SRC, f).split(path.sep).join('/')
+    // The adapter itself, the facade that registers it, and the desktop server halves.
+    const ALLOWED = /^(cards\/anki\/|cards\/index\.js$|.*server\.js$)/
+    const RULES = [
+      [/from\s+['"][^'"]*cards\/anki['"/]/, 'imports the Anki adapter (use srs from src/cards)'],
+      // (/api/ankiformat is Ebiki's own legacy data file, not AnkiConnect.)
+      [/['"`]\/api\/anki(?!format)/, "calls an /api/anki route (the adapter's server half)"],
+      // Anki search syntax: queries are structured objects (contract.js Query), compiled only by the adapter.
+      [/['"`][^'"`\n]*(?:\b(?:deck|cid|nid|prop|rated|introduced|added):["\w(*]|\bis:(?:due|new|review|learn|suspended|buried)\b)/, 'writes Anki search syntax'],
+      // AnkiConnect action names (the contract has its own names: recordRatings, readFile, ...).
+      [/['"`](?:gui[A-Z]\w+|setDueDate|insertReviews|storeMediaFile|retrieveMediaFile|answerCards|getNumCardsReviewed\w*|cardReviews|canAddNotes|forgetCards|changeDeck|deckNamesAndIds|getDeckStats|areDue|multi)['"`]/, 'names an AnkiConnect action'],
+      // The app's own blob names in Anki's media folder belong to the adapter (blobFileName).
+      [/_ebiki_|_screenlens\//, "uses the adapter's media naming"],
+    ]
+    const bad = []
+    for (const f of walk(SRC).filter((x) => /\.(js|jsx)$/.test(x) && !/\.test\.js$/.test(x))) {
+      const r = rel(f)
+      if (ALLOWED.test(r) || r.startsWith('i18n/locales/')) continue
+      fs.readFileSync(f, 'utf8').split(/\r?\n/).forEach((line, i) => {
+        if (/^\s*(\/\/|\*)/.test(line)) return // comments may explain Anki
+        for (const [re, why] of RULES) if (re.test(line)) bad.push(`${r}:${i + 1} ${why}`)
+      })
+    }
+    expect(bad).toEqual([])
+  })
+  it('the facade gives a store without files harmless blob names', async () => {
+    const fake = { ...templateBackend, id: 'nofiles', capabilities: {} }
+    registerBackend(fake)
+    selectBackend('nofiles')
+    expect(srs.blobFileName('hooks', 'spanish')).toBe('ebiki-hooks__spanish.json')
+    expect(srs.legacyBlobFileName('hooks', 'spanish')).toBe(null)
+    selectBackend('anki')
+    expect(srs.blobFileName('hooks', 'spanish')).toBe('_ebiki_hooks__spanish.json')
+  })
+})

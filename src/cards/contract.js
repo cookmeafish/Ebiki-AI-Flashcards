@@ -13,6 +13,9 @@
 //   { noteId, modelName, tags: string[], fields: { [name]: { value: html, order: 0.. } }, cards: cardId[],
 //     mod?: seconds (last modified) }
 //   Field ORDER matters: order 0 is the front, order 1 the back. Names are shown in the card editor.
+//   Field values are HTML; AUDIO is written as `[sound:<file name>]` (Anki's markup, kept as the app's card format:
+//   the pronunciation embed writes it, App strips it from text and keeps it through edits). A backend that plays
+//   audio another way translates at its own boundary; one without files just leaves the markup in place.
 //
 // Card (cardsInfo):
 //   { cardId, note: noteId, deckName, interval: days (0 = new/learning), factor: permille (2500 = 2.5x),
@@ -29,6 +32,13 @@
 //   "everything".
 //
 // Rating: ease 1 Again | 2 Hard | 3 Good | 4 Easy.
+//
+// Errors: a backend that cannot reach its store throws an Error whose `code` is one of STORE_DOWN_CODES ('notRunning',
+// 'timeout', 'closed', or CHANGE_MAYBE_APPLIED: a CHANGE that timed out and may still be applied, so the caller must
+// check before retrying). Any other error is a refusal or a bug and is shown as written.
+export const CHANGE_MAYBE_APPLIED = 'timeoutChange'
+export const STORE_DOWN_CODES = Object.freeze(['notRunning', 'timeout', CHANGE_MAYBE_APPLIED, 'closed'])
+export const isStoreDown = (err) => STORE_DOWN_CODES.includes(err?.code)
 
 // Methods every backend MUST implement (the app calls them unguarded).
 export const REQUIRED_METHODS = [
@@ -78,6 +88,10 @@ export const OPTIONAL_METHODS = {
   // files: a small file store that travels with the collection (memory hooks, Discover ledger, audio).
   storeFile: 'files',           // (name, base64) → any
   readFile: 'files',            // (name) → base64 | false (missing)
+  // The file names the app's own JSON blobs (memory hooks, grammar log, Discover ledger...) are stored under in that
+  // file store; `kind` and `key` are already safe ([a-z0-9_-]). Sync, never throw.
+  blobFileName: 'files',        // (kind, key) → name
+  legacyBlobFileName: 'files',  // (kind, key) → an OLDER name to migrate from once, or null (none)
   // setup: the store is a separate program the app can diagnose, install into, focus and start.
   setupStatus: 'setup',         // () → object for the setup banner | null
   installConnector: 'setup',    // () → { ok, alreadyInstalled?, ankiRunning?, error? }

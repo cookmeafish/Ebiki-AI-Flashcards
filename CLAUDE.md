@@ -1021,7 +1021,7 @@ Re-runnable from Settings → General ("Run setup again" with an unchanged provi
   enables ledger WRITES only when `ledgerVerified` (cached while this session could write): a ledger kept after a
   failed read held only that session's entries and later replaced the stored history. A cache-painted ledger keeps
   its `ledgerVerified` (`discoverCachedLedgerRef`). Ledgers are shape-checked on read (`shapeLedger`).
-- **Anki media names are FLAT: `_ebiki_<kind>__<key>.json`.** A name with "/" (the old `_screenlens/...`) is
+- **Anki media names are FLAT: `_ebiki_<kind>__<key>.json`** (the adapter's `blobFileName`; storage.js asks `srs`). A name with "/" (the old `_screenlens/...`) is
   unwritable in place: AnkiConnect reads the basename but its delete-before-store matches nothing, so every write
   became a hash-suffixed copy and every read returned the FIRST version. The legacy name is read once as a
   migration source (after the local copy, which is fresher).
@@ -1468,7 +1468,8 @@ Each feature is ONE folder (`src/features/<id>/`: logic, components, `strings.js
   `EbiSays`, `tCount` (key/keyOne), `depthBorder` (longhand borders: never mix `border` with `borderBottomWidth`).
   Tunables are named constants at the top of each module (the `UI`, `SHELL`, `GOALS`, `XP` objects), never literals.
 - `features.test.js` checks every feature: no own strings, labels translated in every language, slot components,
-  known events, distinct server data entries.
+  known events, distinct server data entries, and NO imports of App internals (`App`, `components/`, `shell/`,
+  `dev/`; listed exceptions: art.jsx's lazy Markdown sanitizer, the experimental BossFamilies catalog names).
 
 ### App shell (`src/shell/`)
 Sidebar (core screens `CORE_NAV` + feature `navItems`) | screen | rail (feature `railCards`, only on `railWanted`
@@ -1739,7 +1740,10 @@ screen `legends` (order 15, no rail: the map header shows the level), rail card 
   absorbs one life. The OUTCOME decides the pass (`fightStars`): questions running out with lives left is a win.
   Boss/Legendary questions are generated DUAL (`sanitizeQuestions(..., {dual})`: typed with `alt` choices).
 - **Fight grading is FAST, then looked at again** (boss, Legendary, raids; `kit/fightJudge.js` pure + tested,
-  `kit/judge.js`, `FightExtras.jsx` `useFightCheck`). Any subject: prompts branch on `isLanguage`, never assume it.
+  `kit/judge.js`, `FightExtras.jsx` `useFightCheck`). The decisions (who is re-checked, when an appeal may start,
+  debrief rows, question resolution, Learn-it items) are `fightCheck.js` (pure, tested); the refund is ONE path,
+  `refundRunningFight` (fight.js). **Off switches, one place**: `FIGHT_EXTRAS` in `fightCheck.js` (`recheck`,
+  `refund`, `appeal`, `learnIt`, `debrief`, `taunts`); taunts also follow the user setting via `fightExtrasFor`. Any subject: prompts branch on `isLanguage`, never assume it.
   - A. `judgeStrike` blocks only on a VERDICT call (`{target, all, accentsOnly}`, `VERDICT_MAX_TOKENS` 120), so
     damage and hearts land at once; `later` (background) brings the note (QuizRunner fills it into the SAME answer's
     feedback, `verdictSeq`) and a glancing slip's "fix". That attack goes in as a `_pending` placeholder and the run
@@ -1883,7 +1887,7 @@ screen `legends` (order 15, no rail: the map header shows the level), rail card 
   +3; every 2nd miss is a Plot Twist that sets applause one short of an Encore; masks on his arch show it).
   **Every effect is reachable and documented**: `abilities/_triggers.js` holds each effect's numbers (from the
   module constants) and whether it is a button; `lg_fxWhen_<motif>_<fx>` (what the player does) and
-  `lg_fxDoes_<motif>_<fx>` (what happens) in four locales feed the asset view's bestiary card ("How it works", one
+  `lg_fxDoes_<motif>_<fx>` (what happens) in four locales feed the asset view's bestiary card (rows from `bestiaryRows`, pure; "How it works", one
   row per effect with Try it). `triggers.test.js` plays each trigger line through fight.js and checks the effect fires
   (and not one step short); `reachability.test.js` (seeded `_sim`) fails an effect seen in under 25% of typical
   raids (8 to 12 due cards, 75% right; button effects: 40% under one button habit). `REACH=1` prints the table.
@@ -1961,7 +1965,9 @@ need:
   `localStorage`, `sessionStorage`, `navigator`, or `fetch` except to an outside `https://` service (enforced).
   UI in `.jsx`; browser-only helpers in a file named `web.js` (e.g. `voice/web.js`); desktop server halves in
   `server.js`. Pure engines (`game/engine.js`, `kit/grade.js`, `mistake-gym/mistakes.js`, `ebi-call/grades.js`,
-  `leech-doctor/leeches.js`, every `prompt.js`) port unchanged, tests included.
+  `leech-doctor/leeches.js`, every `prompt.js`) port unchanged, tests included. The same scan covers the app-level
+  modules feature logic imports (`config/grading.js`, `cards`, `i18n`...) and the pure study rules
+  (`utils/studyDepth.js`, `config/study.js`).
 - **Cards**: `src/cards/` already abstracts Anki. Phones have no AnkiConnect: Android can use AnkiDroid's content
   API, iOS needs Ebiki's own backend (`src/cards/template.js`). `hasCapability('setup')` hides the Anki
   install/diagnosis UI for backends without it.
@@ -1998,6 +2004,19 @@ Note/Card/DeckStats/Query shapes, the at-most-once rules), `src/cards/template.j
 - Still Anki-named, deliberately: state (`ankiConnected`, `ankiDeck`, `activeMode.ankiDeck`), i18n text, the
   AnkiWeb banner. Function names elsewhere in this file (`ankiAddNote`, `ankiSetNoteTags`, …) are the Anki
   adapter's internals behind `srs.addNote`, `srs.setNoteTags`, ….
+- **Enforced** (`cards.test.js` "Anki stays behind the facade"): outside `src/cards/anki`, `src/cards/index.js` and
+  `server.js` files, no code line imports the adapter, calls `/api/anki*` (`/api/ankiformat` is Ebiki's own data
+  file), writes Anki search syntax (`deck:`, `cid:`, `is:due`...), names an AnkiConnect action (`gui*`,
+  `setDueDate`, `storeMediaFile`...) or uses its media naming. Also in the contract now: error codes
+  (`STORE_DOWN_CODES`, `CHANGE_MAYBE_APPLIED` = a write that may still land; `isStoreDown`), the blob file names
+  (`blobFileName`/`legacyBlobFileName`, capability `files`; Anki's are `_ebiki_<kind>__<key>.json` /
+  `_screenlens/...`), and the field format (HTML, audio as `[sound:<file>]`).
+- **A replacement backend implements exactly**: (1) a backend object (`src/cards/<id>/index.js`, start from
+  `template.js`) with every `REQUIRED_METHODS` entry and the optional methods of the capabilities it declares;
+  (2) `registerBackend` + `selectBackend` in `src/cards/index.js` (replacing the Anki lines); (3) a server half only
+  if it needs a local service. Nothing else changes. Anki-only and harmless to leave or delete: the `/api/anki*`
+  routes in `vite.config.js`, `scripts/*anki*` (install, start, update, toast demoter), the setup diagnosis UI (shown
+  only with `setup`), the AnkiWeb banner (only with `cloudSync`) and Help's one prompt line about AnkiConnect.
 
 ## Study → Anki sync
 ### Driving Anki's real reviewer (`doSyncRatings` → `srs.recordRatings`, in `src/cards/anki`)
@@ -2075,19 +2094,21 @@ days), `gradeIsRight` (not Again), `gradeIsSolid` (Good+). Again = wrong / I don
 retry, a near miss (accent slip, partial, a grader's penalizing note, a glancing strike); Good = clean; Easy = clean,
 TYPED, no hint, on a MATURE card. A choice is never above Good. Subject-neutral: no signal is language-only (an accent
 slip is one kind of near miss). Used by Study's one-question cards, raids (`raidRating`) and Legends (item tallies).
-Multi-question Study cards keep the count rule (`rateStudyCard`, App.jsx; outcomes unchanged).
+Multi-question Study cards keep the count rule (`rateStudyCard`, `utils/studyDepth.js`; outcomes unchanged).
 ### Question depth (`studyRules.questionDepth`, per mode: `'adaptive'` default, `'thorough'`; `utils/studyDepth.js`)
 `questionCountFor(card, rules, {kind})`: adaptive = a due REVIEW (Anki type 2) gets ONE question; new, learning,
 relearning (type/queue 3), struggling (`ADAPTIVE_STRUGGLE_LAPSES`) cards and relearn copies get `questionsPerCard`;
-thorough (and conjugations/PBQs) = always `questionsPerCard`. `depthPlan` (App.jsx, beside `adaptivePlan`) runs at
+thorough (and conjugations/PBQs) = always `questionsPerCard`. `depthPlan` (`utils/studyDepth.js`; App's wrapper beside `adaptivePlan` adds the session type) runs at
 every card-state creation and passes `{...rules, questionsPerCard: 1}` to generation, so the prompt asks ONE
 PRODUCTION question (language: produce the word/form; general: the term, value or step, never explain/translate),
 the split-first-card path is skipped and the reuse signature (`perCard`) keeps 1- and n-question sets apart. Such
 cards carry `oneQ` + `ivl` (interval) and `rateStudyCard` rates them with `oneQuestionRating` (the shared rule; hint =
 `hintQs` set by a shown meaning hint, retry = 2+ attempts, near miss = accent slip or a penalizing note, grammar ones
 only with grammar feedback on; MC capped at Good unless noSync). A missed one-question review (Again, recorded once)
-is re-queued as a noSync relearn copy with the full count (`requeueOneQMiss`; a give-up with the Learn-it moment on
-is re-queued by the moment). Thorough mode never sets `oneQ`. UI: Settings > Study > Session ("Question depth") and
+is re-queued as a noSync relearn copy with the full count (`oneQMissNeedsRequeue` decides, App's `requeueOneQMiss`
+re-queues; a give-up with the Learn-it moment on is re-queued by the moment). App keeps only state wiring; the rules
+are tested in `studyDepth.test.js`. Off switch: per mode `questionDepth: 'thorough'`; app-wide default
+`DEFAULT_QUESTION_DEPTH`. Thorough mode never sets `oneQ`. UI: Settings > Study > Session ("Question depth") and
 the start screen's "One question per review" box; Help sees `questionDepth` in `studySession`/`studyStart`.
 ### Multiple choice (`studyAnswerStyle` = `'typed' | 'choices'`)
 - Start screen "Answer style" (hidden for conjugations), `localStorage('ebiki-study-style')`. "Record reviews in

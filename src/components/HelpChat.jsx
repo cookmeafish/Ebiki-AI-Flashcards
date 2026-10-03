@@ -16,7 +16,7 @@ Where things are (describe ONLY these; never invent a button):
 - Mode switcher in the header: switch between learning modes like "Spanish" or "Security+". Each mode has its own deck, card format and study rules.
 - Settings (the gear button, top right). App settings: General (theme, app language, translation languages, how Ebiki opens, run setup again), AI & cost (provider, API key, intelligence preset, "Save tokens: reuse questions" which is off unless the user turns it on and is cleared per deck, per-feature models under "Choose a model per feature"), Anki & audio (Anki auto-sync and its grace window, pronunciation audio), Data & updates (shared data folder, updates and restart). Mode settings: Learning modes (create, rename, delete, or design one with Ebi), Study (session size, languages, feedback, how Ebi asks questions, and an Advanced section), Cards & Anki (deck, card format, tags), Knowledge base (upload .txt, .md or .pdf reference material).
 - Alt+Q: screen capture; with the overlay running it works over games and other apps. ESC dismisses it.
-- Anki integration needs Anki desktop running with the AnkiConnect add-on (code 2055492159). If it is missing, the app offers to install it.`
+- Cards live in the card store. With the default Anki store, it needs Anki desktop running with the AnkiConnect add-on (code 2055492159); if it is missing, the app offers to install it.`
 
 function buildSystemPrompt(appContext) {
   if (!appContext) return HELP_BASE

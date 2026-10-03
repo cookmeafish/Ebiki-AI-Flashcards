@@ -9,6 +9,8 @@ vi.mock('../cards', () => ({
     readFile: (...a) => anki.retrieve(...a),
     storeFile: (...a) => anki.store(...a),
     syncSoon: () => {},
+    blobFileName: (kind, key) => `_ebiki_${kind}__${key}.json`,
+    legacyBlobFileName: (kind, key) => `_screenlens/${kind}__${key}.json`,
   },
 }))
 const { readBlobChecked, writeBlob } = await import('./storage')

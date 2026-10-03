@@ -12,7 +12,7 @@ import { buildModelResearchPrompt, buildPresetDecisionPrompt } from './config/mo
 import { LANGS, langFromName, isDistinctSpoken } from './config/languages'
 import { makeT, APP_LANGUAGES, LANGUAGES, langMeta } from './i18n'
 import { ADAPTIVE_STRUGGLE_LAPSES } from './config/study'
-import { questionCountFor, oneQuestionRating, questionDepthOf } from './utils/studyDepth'
+import { questionDepthOf, depthPlan as depthPlanFor, rateStudyCard, oneQMissNeedsRequeue, DEFAULT_QUESTION_DEPTH } from './utils/studyDepth'
 import { pickShrimp, shrimpUrl, DEFAULT_SHRIMP, IDLE_SHRIMP, POSE_NAMES, poseFile, SHRIMP } from './config/shrimp'
 import { C, RADIUS, SHADOW, FONT } from './config/tokens'
 import { PALETTE_CSS } from './config/palette'
@@ -41,7 +41,7 @@ import ModeDeckSwitch from './components/ModeDeckSwitch'
 import { S } from './styles/theme'
 import { ocrLog, ocrLogTable, ocrLogFlush } from './utils/logger'
 import { answerLetterCounts, countAnswerLetters, correctLetterHint } from './utils/studyHints'
-import { srs, hasCapability, activeBackend, sanitizeCardHtml, isHtmlTagName, setTranslator as setCardTranslator } from './cards'
+import { srs, hasCapability, activeBackend, sanitizeCardHtml, isHtmlTagName, setTranslator as setCardTranslator, CHANGE_MAYBE_APPLIED } from './cards'
 import { flattenConfig, diffConfig } from './utils/configDiff'
 import { readBlob, readBlobChecked, writeBlob, setBlobWritesPaused, storageKey as blobStoreKey, DEFAULT_LEDGER } from './discover/storage'
 import { buildProfilePrompt, buildSuggestionPrompt, buildVerifyPrompt } from './discover/prompts'
@@ -593,7 +593,7 @@ const tapLongEnough = (clean) => [...clean].length >= (TAP_NO_SPACE.test(clean) 
 // disk beside the user's first real mode.
 const defaultStudyRules = {
   questionsPerCard: 3,
-  questionDepth: 'adaptive', // 'adaptive' = a due review gets ONE production question (utils/studyDepth.js); 'thorough' = always questionsPerCard
+  questionDepth: DEFAULT_QUESTION_DEPTH, // 'adaptive' = a due review gets ONE production question (utils/studyDepth.js); 'thorough' = always questionsPerCard
   cardsAtOnce: 3,
   studyLanguage: '',  // '' = derived (learnLangName: the mode's name, then the translation language). A default 'English' was WRITTEN into any mode whose first study-setting edit spread these defaults, switching a Spanish mode to English. The LEARNED language (answer language); also drives card generation
   dialect: '',               // regional variant, e.g. "Latin American Spanish" — steers phonetics/vocab/usage in ALL generation
@@ -605,7 +605,7 @@ const defaultStudyRules = {
 }
 const defaultGeneralStudyRules = {
   questionsPerCard: 3,
-  questionDepth: 'adaptive', // 'adaptive' = a due review gets ONE production question (utils/studyDepth.js); 'thorough' = always questionsPerCard
+  questionDepth: DEFAULT_QUESTION_DEPTH, // 'adaptive' = a due review gets ONE production question (utils/studyDepth.js); 'thorough' = always questionsPerCard
   cardsAtOnce: 3,
   studyLanguage: '', // see defaultStudyRules
   quizLanguage: '',          // "Ebi speaks" — for general modes this is the whole interaction language
@@ -7065,7 +7065,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       // Timed out while Anki sat on a dialog: the add is still QUEUED there. The batch stops (each next card
       // waited 2 more minutes and its error replaced this one), and the card is left out of the next "Add N"
       // (it would be added twice); ticking it again is the user's call after checking Anki.
-      const queued = err?.code === 'timeoutChange'
+      const queued = err?.code === CHANGE_MAYBE_APPLIED
       if (queued) quickAddRunRef.current++
       setTrayCards((prev) => prev.map((c, k) => k === i ? { ...c, syncing: false, ...(queued ? { accepted: false } : {}) } : c))
     }
@@ -9214,16 +9214,9 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const mc = !mcSession && (isNew || struggling)
     return { mc, flags: { ...(mc ? { mc: true, adaptiveMc: true } : {}), ...(isNew ? { learnFirst: true } : {}) } }
   }
-  // QUESTION DEPTH (per mode, studyRules.questionDepth, default 'adaptive'; utils/studyDepth.js): a due review gets
-  // ONE production question, rated by the shared one-answer rule (rateStudyCard); new, learning, lapsed, struggling
-  // cards and relearn copies get questionsPerCard. 'thorough' = always questionsPerCard (the count rule).
-  // → { rules (questionsPerCard = this card's count, for generation, split and the reuse signature), flags }.
-  // `oneQ` cards carry `ivl` (Anki interval, days) for the mature check. Thorough mode never sets oneQ.
-  const depthPlan = (card, rules, kind = studyMode) => {
-    const n = questionCountFor(card, rules, { kind })
-    if (n !== 1 || questionDepthOf(rules) === 'thorough' || kind !== 'flashcards') return { rules, flags: {} }
-    return { rules: { ...rules, questionsPerCard: 1 }, flags: { oneQ: true, ivl: Number(card?.interval) || 0 } }
-  }
+  // QUESTION DEPTH (per mode, studyRules.questionDepth; the rule is utils/studyDepth.js depthPlan): a due review gets
+  // ONE production question; the study type defaults to the session's.
+  const depthPlan = (card, rules, kind = studyMode) => depthPlanFor(card, rules, kind)
   const needsLetterCue = (q, isLanguage, wantChoices) =>
     isLanguage && !wantChoices && (q.type === 'recall' || q.type === 'fill_blank') &&
     cueAnswers(q).length > 0 && !hasLetterCue(q)
@@ -12235,49 +12228,10 @@ Your output keeps: the same method, the same language (${explainLang}), the same
   const questionHasChoices = (q) => q && Array.isArray(q.choices) && q.choices.length >= 2 &&
     Number.isInteger(q.answerIdx) && q.answerIdx >= 0 && q.answerIdx < q.choices.length
 
-  // A card's rating from its graded results. A ONE-question card (cs.oneQ, adaptive question depth) is rated by the
-  // shared one-answer rule (config/grading.js): Again = wrong or skipped; Hard = right with a hint (the meaning hint,
-  // or a retry after a wrong try, which shows the letter hints), an accent slip or a penalizing grader note; Good =
-  // clean; Easy = clean, typed, on a mature card (interval >= 21 days). Every other card keeps the count rule
-  // (0 wrong Easy, 1 Good, more Hard, all Again). The MC cap (Good when the card records to Anki) applies to both.
-  const rateStudyCard = (cs, results, grammarOn = false) => {
-    if (cs.oneQ && results.length === 1 && !cs.isConjugation && !cs.pbq) {
-      const r = results[0] || {}
-      const notes = Array.isArray(r.notes) ? r.notes : []
-      return oneQuestionRating({
-        correct: !!r.correct,
-        skipped: String(cs.answers?.[0] ?? '') === '(skipped)',
-        hintUsed: !!cs.hintQs?.[0],
-        accentSlip: (cs.accentSlips || 0) > 0,
-        retried: (cs.questionAttempts?.[0] || []).length > 1,
-        corrected: notes.some((n) => n?.penalize && (n.type !== 'grammar' || grammarOn)),
-        choice: !!cs.mc && !cs.noSync, // practice (noSync) keeps the honest label, like the count rule
-      }, { interval: cs.ivl })
-    }
-    const qpc = results.length
-    const wrongCount = results.filter(r => !r?.correct || (grammarOn && (r.notes || []).some(n => n?.type === 'grammar' && n.penalize))).length
-    let ease, label
-    if (wrongCount === 0) { ease = 4; label = 'easy' }
-    // "All wrong" is checked BEFORE "one wrong": on a 1-question card they are the same count, and
-    // the old order rated a missed card Good and synced that to Anki.
-    else if (wrongCount >= qpc) { ease = 1; label = 'again' }
-    else if (wrongCount === 1) { ease = 3; label = 'good' }
-    else { ease = 2; label = 'hard' }
-    // Recognition (picking from options) is easier than recall: when the card DOES record reviews in Anki, cap the
-    // ease at Good so a mature card's interval can't inflate off a multiple-choice pass. Pure practice (noSync) keeps
-    // the honest label; it never reaches Anki.
-    if ((cs.mc || cs.pbq) && !cs.noSync && ease > 3) { ease = 3; label = 'good' }
-    // Strict accents: perfect answers with accent slips grade Good at best.
-    if (ease === 4 && (cs.accentSlips || 0) > 0) { ease = 3; label = 'good' }
-    return { ease, label }
-  }
-  // A one-question review answered wrong (Again, recorded once) comes back in this session as a relearn copy (noSync)
-  // with the full questionsPerCard. A give-up with the Learn-it moment on was already re-queued by the moment.
+  // A card's rating (the count rule, or the one-answer rule for a one-question card): utils/studyDepth.js rateStudyCard.
+  // A one-question review answered wrong comes back as a relearn copy (oneQMissNeedsRequeue decides; this re-queues).
   const requeueOneQMiss = (cs, label) => {
-    if (!cs.oneQ || label !== 'again' || cs.relearn || cs.noSync || cs.isConjugation || cs.pbq) return
-    const gaveUp = String(cs.answers?.[0] ?? '') === '(skipped)'
-    if (gaveUp && (activeMode.studyRules || defaultStudyRules).learnMoment !== false) return
-    requeueForRelearn(cs)
+    if (oneQMissNeedsRequeue(cs, label, { learnMoment: (activeMode.studyRules || defaultStudyRules).learnMoment !== false })) requeueForRelearn(cs)
   }
 
   const evaluateCardLocally = (cardIdx, cs) => {

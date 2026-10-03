@@ -6,7 +6,7 @@ import { ankiBackend } from './anki'
 
 export { sanitizeCardHtml, escapeStrayLt, isHtmlTagName } from './html'
 export { setTranslator } from './i18n'
-export { oneStepInterval } from './contract'
+export { oneStepInterval, STORE_DOWN_CODES, CHANGE_MAYBE_APPLIED, isStoreDown } from './contract'
 
 const backends = new Map()
 let active = null
@@ -40,6 +40,8 @@ const DEFAULTS = {
   cloudAuthState: async () => 'unknown',
   storeFile: async () => { throw new Error('this card store keeps no files') },
   readFile: async () => { throw new Error('this card store keeps no files') },
+  blobFileName: (kind, key) => `ebiki-${kind}__${key}.json`,
+  legacyBlobFileName: () => null,
   setupStatus: async () => null,
   installConnector: async () => ({ ok: false, error: 'nothing to install' }),
   focusApp: async () => ({ ok: false }),

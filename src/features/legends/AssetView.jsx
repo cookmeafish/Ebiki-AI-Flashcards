@@ -11,8 +11,7 @@ import { newFight } from './fight'
 import { MOTIFS, PALETTES } from './map'
 import { RAID, RAID_MOTIFS, RAID_ABILITY } from './raid'
 import { RAID_VOICES } from './raidVoices'
-import { abilityById } from './abilities'
-import { triggerOf } from './abilities/_triggers'
+import { bestiaryRows } from './abilities/_triggers'
 import { floaterKeyFor, fxDemoFor } from './fx'
 
 // Sample values for a floater that counts something ("+{n} heads"), so the asset view never shows a raw placeholder.
@@ -275,12 +274,12 @@ function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot }) {
 // name and icon, the one-line rule, then "How it works", one row per effect: the words that pop over the boss, what
 // the player does to set it off, what it does, a "your choice" tag on a button effect, and "Try it" (plays it on the
 // demo arena above). The texts come from abilities/_triggers.js with the module's own numbers; triggers.test.js proves
-// every row does what it says. Each ability module names its own effects (fxKeys), so boss agents never edit this file.
-const abilityFxKeys = (ability) => abilityById(ability)?.fxKeys || []
+// every row does what it says; the rows come from bestiaryRows (pure). Each ability module names its own effects (fxKeys),
+// so boss agents never edit this file.
 function AbilityCard({ t, motif, ability, onTry }) {
   if (!ability) return <div style={{ fontSize: 13.5, color: C.inkDim }}>{t('lg_assetsNoAbility')}</div>
   const label = { fontSize: 11.5, fontWeight: 900, letterSpacing: '.08em', textTransform: 'uppercase', color: C.purple }
-  const rows = abilityFxKeys(ability).map((fx) => ({ fx, tr: triggerOf(motif, fx) })).filter((r) => r.tr)
+  const rows = bestiaryRows(motif, ability)
   return (
     <section aria-label={t('lg_assetsAbility')} style={{ maxWidth: 640, minWidth: 0, padding: '14px 18px', borderRadius: RADIUS.lg, display: 'grid', gap: 12,
       border: `3px solid ${C.purple}`, background: `color-mix(in srgb, ${C.purple} 12%, ${C.surface})` }}>

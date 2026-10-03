@@ -18,11 +18,12 @@ import { addItemsToDeck, liveItems, isAdding } from './deck'
 import Talk from './Talk'
 import { BossIntro, BossArena, BossEnd, bossOdds, forgivenMisses } from './BossArena'
 import { weakItems, WEAK_BONUS_LIVES, PASS, spendHelper } from './map'
-import { newFight, strike, fightOutcome, phaseOf, healthLeft, attackSlot, canAttack, weakTo, effortOf, ATTACK_LIVES, refundFor, applyRefund, strikeCost } from './fight'
+import { newFight, strike, fightOutcome, phaseOf, healthLeft, attackSlot, canAttack, weakTo, effortOf, ATTACK_LIVES, refundRunningFight, strikeCost } from './fight'
 import LearnItPanel from '../kit/LearnItPanel'
 import { islandVoice } from '../kit/taunt'
 import { RAID_VOICE_RULES, STOCK_WORDS } from './raidVoices'
-import { useFightCheck, useBossTaunt, TauntBubble, FightNotice, MissTools, expectedOf, isWrongish } from './FightExtras'
+import { useFightCheck, useBossTaunt, TauntBubble, FightNotice, MissTools } from './FightExtras'
+import { FIGHT_EXTRAS, fightExtrasFor, expectedOf, isWrongish, learnItemFor } from './fightCheck'
 import { updateMap, peekMap, LEGENDS_ID } from './store'
 import { CheatButton, CheatRow } from './CheatUI'
 
@@ -292,26 +293,21 @@ function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, o
   const onOverturn = (e, to) => {
     const grade = gradeFromStrike(to, { choice: e.mode === 'choice', hintUsed: !!e.hintUsed })
     answers.current = answers.current.map((x) => (x.aid === e.aid ? { ...x, correct: true, grade, verdict: to, overturned: true } : x))
-    const o = oddsRef.current
-    if (finished.current || !o || !fight) return false
-    const cur = fsRef.current
-    if (fightOutcome(cur, o)) return false
-    const r = refundFor({ kind: e.kind, to, mode: e.mode, weak: !!e.weak }, e.cost || {})
-    if (!r.lives && !r.damage) return false
-    const next = applyRefund(cur, { ...r, from: e.first, to, kind: e.kind })
+    if (!FIGHT_EXTRAS.refund || finished.current || !fight) return false
+    const next = refundRunningFight(fsRef.current, oddsRef.current, { kind: e.kind, mode: e.mode, weak: !!e.weak, first: e.first, cost: e.cost }, to)
+    if (!next) return false
     fsRef.current = next
     setFs(next)
     return true
   }
   const isOver = () => finished.current || !oddsRef.current || !!fightOutcome(fsRef.current, oddsRef.current)
   const fc = useFightCheck(ctx, { onOverturn, isOver })
-  const tauntsOn = fight && cfg.taunts !== false && !focus
+  const tauntsOn = fight && fightExtrasFor(cfg, { focus }).taunts // fightCheck.js
   const voice = fight ? islandVoice({ bossName: bossName || area.bossName || '', areaTitle: area.title, theme: area.theme }) : ''
   const taunt = useBossTaunt(ctx, { bossKey: `boss:${modeId}:${String(area.title || area.id).slice(0, 60)}`, voice, rules: RAID_VOICE_RULES, avoidWords: STOCK_WORDS, bossName: bossName || area.bossName || '', enabled: tauntsOn })
   const [learn, setLearn] = useState(null) // the Learn-it panel's item (the fight waits under it)
   const openLearn = (e) => {
-    const it = area.items.find((x) => x.id === itemIdFor(e.q, area.items))
-    setLearn(it ? { front: it.front, back: it.back, noteId: it.cardNoteId || null } : { front: e.q?.prompt || '', back: expectedOf(e.q) })
+    setLearn(learnItemFor(area.items.find((x) => x.id === itemIdFor(e.q, area.items)), e.q, { noteKey: 'cardNoteId' }))
   }
   const [settling, setSettling] = useState(false)
 
