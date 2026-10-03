@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseScenarios, cleanScenario, normalizeScorecard, axesFor, SCORE_AXES, MAX_SCENARIOS, MAX_CARDS } from './scoring'
+import { parseScenarios, cleanScenario, normalizeScorecard, axesFor, scoreAsPractice, mistakesAsMisses, SCORE_AXES, MAX_SCENARIOS, MAX_CARDS, MAX_TIPS } from './scoring'
 import { splitSceneReply, buildSceneSystem, buildScorecardPrompt, buildScenarioPrompt } from './prompt'
 
 const lang = { name: 'Spanish', isLanguage: true, learnLang: 'Spanish', userLang: 'English', rules: '' }
@@ -42,6 +42,32 @@ describe('roleplay scorecard', () => {
     const cards = [{ front: 'a', back: 'b' }, { front: 'x' }, ...Array.from({ length: 9 }, (_, i) => ({ front: `f${i}`, back: 'b' }))]
     expect(normalizeScorecard({ overall: 4, cards }, SCORE_AXES.general).cards).toHaveLength(MAX_CARDS)
   })
+  it('keeps real mistakes (said, better), drops echoes and halves, caps them', () => {
+    const mistakes = [{ said: 'yo soy hambre', better: 'tengo hambre', why: 'hunger is had' }, { said: 'Hola', better: 'hola' }, { said: 'x' }, 'junk',
+      ...Array.from({ length: 9 }, (_, i) => ({ said: `s${i}`, better: `b${i}` }))]
+    const sc = normalizeScorecard({ overall: 3, mistakes }, SCORE_AXES.language)
+    expect(sc.mistakes[0]).toEqual({ said: 'yo soy hambre', better: 'tengo hambre', why: 'hunger is had' })
+    expect(sc.mistakes.some((m) => m.said === 'Hola')).toBe(false)
+    expect(sc.mistakes).toHaveLength(MAX_TIPS)
+    expect(normalizeScorecard({ overall: 3 }, SCORE_AXES.general).mistakes).toEqual([])
+  })
+  it('turns mistakes into Mistake Gym misses (front = the version to learn)', () => {
+    expect(mistakesAsMisses([{ said: 'a', better: 'b', why: 'c' }, { said: 'x' }], 'Q')).toEqual([{ front: 'b', back: 'c', question: 'Q', answer: 'a', expected: 'b', feedback: 'c' }])
+    expect(mistakesAsMisses(undefined, 'Q')).toEqual([])
+  })
+  it('reads the 1 to 5 scale as practice evidence with 1 = nothing right', () => {
+    expect(scoreAsPractice(1)).toEqual({ total: 4, correct: 0 })
+    expect(scoreAsPractice(5)).toEqual({ total: 4, correct: 4 })
+    expect(scoreAsPractice(3)).toEqual({ total: 4, correct: 2 })
+    expect(scoreAsPractice(undefined)).toEqual({ total: 4, correct: 0 })
+  })
+  it('drops lists and objects where text belongs', () => {
+    const sc = normalizeScorecard({ overall: 3, summary: { a: 1 }, tips: [{ x: 1 }, 'ok'], cards: [{ front: ['a'], back: 'b' }, { front: 'c', back: { d: 1 } }, { front: 'e', back: 'f' }] }, SCORE_AXES.general)
+    expect(sc.summary).toBe('')
+    expect(sc.tips).toEqual(['ok'])
+    expect(sc.cards).toEqual([{ front: 'e', back: 'f' }])
+    expect(cleanScenario({ title: ['x'], setting: 'A shop', role: { r: 1 } })).toBe(null)
+  })
   it('refuses a reply with nothing judged', () => {
     expect(normalizeScorecard({ summary: 'hi' }, SCORE_AXES.general)).toBe(null)
     expect(normalizeScorecard(null, SCORE_AXES.general)).toBe(null)
@@ -53,6 +79,8 @@ describe('roleplay prompts', () => {
     expect(splitSceneReply('Adiós! <scene-end/>')).toEqual({ text: 'Adiós!', ended: true })
     expect(splitSceneReply('Hola')).toEqual({ text: 'Hola', ended: false })
     expect(splitSceneReply('Ebi: ¿Qué desea?').text).toBe('¿Qué desea?')
+    expect(splitSceneReply('¿Qué desea?\nLearner: Un café, por favor.\nEbi: ¡Claro!')).toEqual({ text: '¿Qué desea?', ended: false })
+    expect(splitSceneReply('Bien.\n**User:** ok <scene-end/>')).toEqual({ text: 'Bien.', ended: true })
   })
   it('never turns a general subject into a language lesson', () => {
     const scene = { setting: 'A help desk', role: 'an angry user', goal: 'fix the printer' }

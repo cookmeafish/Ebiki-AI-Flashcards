@@ -18,6 +18,8 @@ const configure = (ctx) => { if (ctx?.isDataSwitching) blocked = () => !!ctx.isD
 async function ensure(key, { fresh = false } = {}) {
   if (cache.has(key) && !fresh) return cache.get(key)
   const r = await store.read(key)
+  // A plain read that lost a race with a write: the written log is newer (this read's copy hid the new entries).
+  if (!fresh && cache.has(key)) return cache.get(key)
   if (!r.ok) return null
   cache.set(key, r.value && Array.isArray(r.value.items) ? r.value : emptyLog())
   return cache.get(key)

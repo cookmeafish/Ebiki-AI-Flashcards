@@ -46,10 +46,20 @@ describe('facade', () => {
     expect(await srs.cloudAuthState()).toBe('unknown')
     expect(await srs.setupStatus()).toBe(null)
     await expect(srs.readFile('x')).rejects.toThrow()
+    expect(hasCapability('suspend')).toBe(false)
+    expect(await srs.suspendedCards([1, 2])).toEqual([false, false])
+    await expect(srs.unsuspendCards([1])).rejects.toThrow()
   })
   it('Anki is the default and has all the optional abilities', () => {
     expect(activeBackend().id).toBe('anki')
-    expect(['cloudSync', 'files', 'setup'].every(hasCapability)).toBe(true)
+    expect(['cloudSync', 'files', 'setup', 'suspend'].every(hasCapability)).toBe(true)
+  })
+  it('Anki reports and lifts suspensions', async () => {
+    const calls = fakeAnki({ areSuspended: ({ cards }) => cards.map((c) => c === 2), unsuspend: () => true })
+    expect(await srs.suspendedCards([1, 2])).toEqual([false, true])
+    await srs.unsuspendCards([2])
+    expect(calls.find(([a]) => a === 'unsuspend')[1]).toEqual({ cards: [2] })
+    vi.restoreAllMocks()
   })
 })
 
@@ -194,7 +204,7 @@ describe('Anki stays behind the facade', () => {
       // Anki search syntax: queries are structured objects (contract.js Query), compiled only by the adapter.
       [/['"`][^'"`\n]*(?:\b(?:deck|cid|nid|prop|rated|introduced|added):["\w(*]|\bis:(?:due|new|review|learn|suspended|buried)\b)/, 'writes Anki search syntax'],
       // AnkiConnect action names (the contract has its own names: recordRatings, readFile, ...).
-      [/['"`](?:gui[A-Z]\w+|setDueDate|insertReviews|storeMediaFile|retrieveMediaFile|answerCards|getNumCardsReviewed\w*|cardReviews|canAddNotes|forgetCards|changeDeck|deckNamesAndIds|getDeckStats|areDue|multi)['"`]/, 'names an AnkiConnect action'],
+      [/['"`](?:gui[A-Z]\w+|setDueDate|insertReviews|storeMediaFile|retrieveMediaFile|answerCards|getNumCardsReviewed\w*|cardReviews|canAddNotes|forgetCards|changeDeck|deckNamesAndIds|getDeckStats|areDue|areSuspended|unsuspend|multi)['"`]/, 'names an AnkiConnect action'],
       // The app's own blob names in Anki's media folder belong to the adapter (blobFileName).
       [/_ebiki_|_screenlens\//, "uses the adapter's media naming"],
     ]

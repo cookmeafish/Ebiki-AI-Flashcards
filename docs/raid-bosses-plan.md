@@ -66,6 +66,7 @@ again after missing it, typing instead of recognizing, steady streaks). Each abi
 | Sewer Kingpin | **Hoard** | Every right choice, or typed answer with a slip, drops a gold coin in his hoard (max 3); the next clean typed answer loots it: +1 damage per coin, and the hoard empties. | Recognition builds the pile, full recall cashes it in. |
 | Sugarplum Tyrant | **Sugar rush** | Every right answer drops a sugar cube in her jar (a miss takes none out); the 4th sets off a sugar rush: the next 3 right answers each deal +2. A miss during the rush crashes it and the jar starts again. | Every right answer counts toward the rush, which rewards staying careful. |
 | Infernal Impresario | **Comedy and Tragedy** | Every right answer wins a round of applause (comedy mask); the 4th brings an Encore: +3 damage, applause starts over. Every miss sheds a tear on the tragedy mask; the 2nd tear is a Plot Twist putting the applause one right answer short of an Encore. Attacks and inserted questions move neither mask. | Steady recall brings the big hit; two misses set up the next Encore. |
+| Hound of the Last Gate | **Shackles** | Each head is chained by its own deed: the Fire head by any right answer, the Iron head by a clean typed answer, the Shadow head by the first right answer after a miss (or a blocked attack). One answer chains one head. All three chained = Bound: +4 damage, and every head tears free again. Any miss lets the Fire head slip its chain. | Three different good habits (recall, typing it out, bouncing back from a miss) each count; the big hit needs all three. |
 
 ## 1. Hydra: the Tide Hydra (redrawn 2026-10, second pass)
 
@@ -627,34 +628,104 @@ check-art's overdraw pass).
   than the regular boss and also phase 2 and 3 look lackluster, not much change or epicness"); v2 to v6 were an opera
   house magician (star cape, crystal-ball cane, a card halo, card wings, a three-mask carousel, a curtain-call phase 3;
   owner on the body: "it's almost as if his lower body doesn't exist", on phase 3: "PHASE 3 IS REALLY UNEVENTFUL").
-  **2026-10-03**: redesigned as an infernal circus ringmaster because he was still too similar to the Grand
-  Illusionist; phase 3 given powers and a manic face at the owner's request.
-- **Who he is now**: a ringmaster of a hellfire circus, his own man next to the Grand Illusionist (bosses/stage.svg):
-  no white half mask, no black top hat, no violet cape, no theater. Crimson demon skin, a GILDED DOMINO MASK with
-  ember eyes, a waxed handlebar moustache and pointed goatee, ember ram horns glowing in their grooves; a tall crimson
-  stovepipe with gold bands, a gold star and a RING OF FIRE round its band (the tinted part); a crimson hussar tailcoat
-  with black velvet lapels, gold frogging and huge fringed epaulettes, a bow tie, white breeches and riding boots.
-  Props: a WHIP with a burning tip and a brass MEGAPHONE. Set: a big top of hellfire stripes. Face in phases 1 and 2:
-  a sly lopsided grin with one gold tooth.
-- **Phase 1, Welcome to the Big Top** (warm lantern light): knee-up in the ring, one arm swept wide presenting it,
-  the other CRACKING THE WHIP overhead (the lash curls into a flame); hoops of fire in the far ring, bunting, sawdust;
-  Comedy and Tragedy sit on striped circus drums at the ring's edge.
-- **Phase 2, Ring of Fire** (cold blue spotlights): closer, on a tilt, a giant turning hoop of fire behind him; he
-  thrusts the megaphone at the house and tips his hat; the masks ride the burning hoop.
-- **Phase 3, the Infernal Encore** (true form, the act gone mad with power): a MANIC face, eyes blown wide and
-  white-hot with fire trailing off them, brows flung up, a huge clenched showman's grin, the gilded mask cracking
-  with light, the hat's fire roaring and its brim smoking. The big top rips open on a burning sky, the ring becomes a
-  turning summoning circle on a cracking floor, his coat tails tear into wings of burning canvas; his left glove looses
-  a torrent of whirling cards, his right conjures a burning sigil, and Comedy and Tragedy float free in their own
-  auras, pouring gold and ice beams into the ring. Not smug here: his cool snaps (the owner's exception to "personality
-  is constant").
+  **2026-10-03**: a hellfire-circus ringmaster (still too close to the Grand Illusionist, then flat: "a red devil"),
+  then the owner: "why not have him do a different magic trick per phase and also redesign the character", and "make
+  it a transparent background". v8/v9 is the result below.
+- **Who he is now**: a tall, lanky demon CONJURER, his own man next to the Grand Illusionist (bosses/stage.svg: purple
+  and black, white half mask, black top hat, violet cape). ASH-GREY skin, a long angular face with carved cheekbones
+  and a sharp chin, ember eyes with slit pupils on black sclera under heavy shadow, thin arched brows (the left
+  cocked), a sly grin with one gold tooth, a gold star painted under his left eye, long pointed ears with gold hoops,
+  silver hair swept into a pompadour with one loose curl, long black horns ringed with gold. An EMERALD SEQUIN
+  tailcoat (rows of sequins, a highlight band on the lit side, an ember reflected band on the other), black silk
+  peaked lapels edged in gold with a sheen, a black silk waistcoat, an ember silk cravat and tail lining (the TINTED
+  part: `--lg-tint`/`-hi`/`-lo`), a gold sash, lace cuffs, slim black trousers with a gold stripe, pointed shoes.
+  BARE, LONG-FINGERED hands (real joints, black claws, gold rings): the hands are his instrument. The canvas is
+  TRANSPARENT in every phase: only what belongs to the trick is drawn behind him (it reads on both app themes).
+- **One trick per phase** (each a new camera, pose, light and color):
+  - **Phase 1, the Ember Doves** (warm gold spotlight, close, bleeding past the frame): he tears a burning silk out of
+    thin air and a flock of doves with FLAME WINGS bursts from it; the other hand presents them, long fingers fanned
+    under Comedy, which hovers over his palm in a ring of embers; Tragedy is pushed up on his head like a festival
+    mask. A curved stage lip of bulbs under him.
+  - **Phase 2, the Levitation** (cold violet, low camera): he floats over a turning rune circle in a column of violet
+    light, arms spread, long hands hovering palm-down; Comedy and Tragedy float beneath them on threads of magic, a
+    gold hoop passing over each to prove there are no strings. His face turns cold and MEAN: narrowed violet eyes,
+    V brows, a thin lopsided smile with a fang over the lip, a scowl line.
+  - **Phase 3, the Infernal Encore** (ember light, the most motion): he SAWS HIMSELF IN HALF. A giant saw with hooked
+    teeth and a ring of fire spins through his lacquered emerald box (gold inlay, lozenges, a gloss streak, brass
+    hinges); the upper half (Comedy on its door) holds his MANIC face (eyes blown wide with fire trailing off them,
+    brows flung up, a huge clenched grin) and his jazz hands; the lower half (Tragedy on its door) slides away with his
+    legs, rimmed in ember light, kicking out of it; sparks spray from the white-hot cut, spotlights converge. Not smug
+    here: his cool snaps (the owner's exception to "personality is constant").
 - **The ability in the art**: the comedy and tragedy masks keep score in every phase: `lg-ab-comedy-1` blazes when an
   Encore is one right answer away, `lg-ab-tragedy-1` weeps after a first miss. Face layers: `lg-fx-encore` (a pressed,
   polite smile; in phase 3 an enormous closed one), `lg-fx-twist` (a startled little o). Effects (fx/showman.jsx):
   `laugh` a rose tossed in, `encore` two spotlights swing in and cross while his own cards and roses rain down and he
   is forced into a deep bow, `tear` one blue tear, `twist` the great mask spins from tragedy to comedy while his cards
   whirl backwards.
-- **Entrance (SVG, phase 1)**: he rises into the ring, the whip arm swings up and cracks, the presenting arm sweeps
-  out. **Card**: `lgCurtainPart`, the frame opens from the middle like parting curtains on a dark silhouette, the
-  spotlight hits him in a blaze, he sweeps a deep bow and snaps upright.
+- **Entrance (SVG, phase 1)**: he rises into the spotlight, the silk arm whips up and the doves burst out. **Card**:
+  `lgCurtainPart`, the frame opens from the middle like parting curtains on a dark silhouette, the spotlight hits him
+  in a blaze, he sweeps a deep bow and snaps upright.
 
+## 27. Cerberus: the Hound of the Last Gate (owner request: "make a raid version of this boss that GOES ALL THE WAY OUT")
+
+- **The Legends boss** (`bosses/underworld.svg`, Cerberus of the Ashen Gate): three snarling hound heads in a level row
+  before spiked bars and a wall of hellfire, burning manes, spiked collars with a ring, chains staked to the ground,
+  molten cracks on the chest. **Kept (the DNA)**: three heads on one hound, gold slit eyes under one solid V brow, spiked
+  iron collars, chains, molten chest cracks, a gate. **Changed (clearly not the Legends boss, even in phase 1)**: a
+  monumental stone gate of the underworld instead of bars and a fire wall, cold soul fire instead of hellfire, the KEY of
+  the underworld hanging from his collar, three heads that are three characters, and a new pose per phase.
+- **Idea**: the guardian of the LAST gate, a colossal hellhound who has checked every soul since the world was young. He
+  is the gate's warden in phase 1, breaks it in phase 2 and BECOMES it in phase 3 (its keyhole burns in his chest).
+  Personality, all phases: an unmoved, menacing doorman (never a goofy dog), escalating by status: chained warden,
+  unleashed beast, three crowned kings.
+- **Three heads, one creature**: shared charcoal fur, gold slit eyes, the same V brow, the same collar style. Each its
+  own character:
+  - **Brand, the Fire head** (left): a mane of flames rooted behind the skull, a burnt notch in one ear, always snarling,
+    the hothead.
+  - **The Warden, the Iron head** (center, the eldest and biggest): a riveted iron brow plate, three claw scars down
+    one cheek, one torn ear, a stern closed mouth with two fangs over the lip.
+  - **Shade, the Shadow head** (right): narrower skull, the longest snout, a mane of violet smoke, one sly half-lidded
+    eye and a one-sided grin.
+- **Phase 1, the Warden at the Gate** (cool slate and soul teal): seated on the threshold of a black stone arch with a
+  horned skull keystone, the iron-banded doors shut behind him. Chains run from the side collars to rings in the step,
+  the great key (a skull bow) hangs from the Warden's collar, soul braziers (the tinted part) burn at both pillars,
+  mist drifts along the step. Silhouette at 120 px: an arch with a compact triangle of heads.
+- **Phase 2, the Gate Torn Open** (hellfire red and orange): a new camera on a dutch angle. The doors are blasted off
+  their hinges at the frame edges, a wall of hellfire pours through the open arch, its stones tumble in the air. The
+  hound lunges: Brand big and close in the lower left with his jaws wide, the Warden roaring in the middle with his
+  brow plate cracked on molten light, Shade high on the right with a wide sly grin; snapped chains whip loose, links fly,
+  the key swings wildly on a broken chain, a huge forepaw slams down at the viewer and cracks the floor, molten cracks
+  burst across the chest. Silhouette: a diagonal with a paw in front.
+- **Phase 3, the Three Kings** (true form; violet, black and white gold): seen from far below, three long waisted necks
+  fan up from a colossal chest into a crown of kings: the Fire King under a crown of white-gold fire with a roaring
+  white-gold mane, the Iron King under a tall spiked iron crown, stern and unmoved, chin down on the viewer, the Shadow
+  King under a crown of black horns with a mane of violet smoke. His broken chains hang across his chest as gold
+  regalia; the gate's own lock plate is fused into his chest, its keyhole burning white gold with gold veins spreading
+  from it. Behind him the gate is reborn as a colossal arch ringed with soul fire, and the citadel of the underworld
+  rises with glowing windows while souls stream up past him. The most motion of the three (long neck sways, jaws,
+  crown fire, the keyhole's pulse, the regalia swinging, rising souls and sparks). Silhouette: a wide crown on top.
+- **Face per phase**: P1 gold slit eyes, composed (stern Warden, snarling Brand, sly Shade); P2 eyes blazing orange,
+  every jaw open; P3 white-gold eyes of light, each king keeping his character (Brand roars, the Warden stays stern,
+  Shade grins).
+- **Ability, Shackles** (`abilities/cerberus.js`, id `shackles`, not a decision module): a lock per head, each opened by
+  a different deed: the Fire head by any right answer, the Iron head by a clean typed answer, the Shadow head by the
+  first right answer after a miss or a blocked attack. One answer chains one head (a recovery goes to the Shadow head
+  first, a clean typed answer to the Iron head, anything else to the Fire head). All three chained = **Bound**: +4
+  damage and every head tears free again. Any miss lets the hothead Fire head slip its chain. Distinct from the Hydra
+  (heads grow and are cut) and the Chimera (three health bars to aim at): here the heads are three different
+  CONDITIONS to meet. Nothing changes how a question is asked; no timers; a right answer is never marked wrong.
+- **The ability in the art**: `data-ab-fire|iron|shadow = 1` shows that head chained in every phase: two wraps of chain
+  round the snout, a padlock under the jaw, a half-lidded glare (an open jaw is swapped for the closed one, `lg-abh-*`).
+  Faces: `lg-fx-bound` (every head strains, lids squeezed to a glowing slit), `lg-fx-snap` (Brand's eyes blaze wide).
+  Effects (`fx/cerberus.jsx`): `bindFire`/`bindIron`/`bindShadow` (a chain lashes in, a padlock clamps, smoke pulled
+  into a chain; that head's real group `lgfa-cerberus-<head>` is yanked down), `bound` (three chains meet over him, the
+  gate's bars crash down, a great padlock clamps; he is slammed down and strains; every head and the key or keyhole
+  react), `snap` (the chain bursts in flying links, flame tongues, Brand rears up).
+- **Entrance (SVG, phase 1)**: the soul braziers ignite, the heads rise one after another (Shade, Brand, then the
+  Warden), their eyes ignite, the key swings in on the Warden's collar. **Card**: `lgHoundPace`, he paces left and right
+  in the dark behind the gate, stops dead, crouches, then rams through at the viewer and plants.
+- **Voice**: a curt, unmoved doorman at the velvet rope of the dead ("Nope."), calling the learner "buddy" and a mistake
+  a "fake ticket". **Family**: its own tree, the Last Gate (`underworld` to `cerberus`); the Chimera keeps the savanna
+  lion only.
+- **Tinted part**: the soul fire (the braziers, the keystone's eyes, the gate's soul fire and windows in phase 3, the
+  keyhole's halo).

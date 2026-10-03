@@ -19,6 +19,17 @@ describe('scenes', () => {
     expect(parseScene({ lines: [{ text: 'one' }] })).toBe(null)
     expect(parseScene({ lines: Array.from({ length: 40 }, () => ({ text: 'x' })) }).lines).toHaveLength(SCENE_LINES.max)
   })
+  it('never lets a list or object stand in for text (no "[object Object]", no crash in the cleaner)', () => {
+    const clean = (x) => x.replace(/!/g, '')
+    const s = parseScene({ title: ['Bad'], cast: { A: { name: 'Ana' }, B: 'Luis' },
+      lines: [{ speaker: 'A', text: 'Hola!' }, { speaker: 'B', text: { t: 'x' } }, { speaker: 'B', text: 'Adiós', gloss: ['bye'] }, { speaker: 'N', text: 3 }],
+      questions: [{ question: { q: 'x' }, choices: ['a', 'b'], answer: 0 }, null, { question: 'Who left?', choices: ['Ana', 'Luis'], answer: 1 }] }, clean)
+    expect(s.title).toBe('')
+    expect(s.cast).toEqual({ A: 'A', B: 'Luis' })
+    expect(s.lines.map((l) => l.text)).toEqual(['Hola', 'Adiós', '3'])
+    expect(s.lines[1].gloss).toBe('')
+    expect(s.questions.map((q) => q.prompt)).toEqual(['Who left?'])
+  })
   it('gives the two characters different voices', () => {
     expect(voiceFor('A')).not.toBe(voiceFor('B'))
   })

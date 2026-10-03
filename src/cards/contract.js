@@ -97,6 +97,9 @@ export const OPTIONAL_METHODS = {
   installConnector: 'setup',    // () → { ok, alreadyInstalled?, ankiRunning?, error? }
   focusApp: 'setup',            // () → { ok }
   startApp: 'setup',            // () → { ok }
+  // suspend: cards can be suspended (left out of reviews) and brought back.
+  suspendedCards: 'suspend',    // (cardIds) → bool[] (same order: true = suspended)
+  unsuspendCards: 'suspend',    // (cardIds) → any. Back into reviews, schedule untouched.
 }
 
 // Names of REQUIRED methods a candidate backend is missing (empty = usable).

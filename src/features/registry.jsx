@@ -82,6 +82,22 @@ export function useFocusHold(active = true) {
     return () => setHolds(holds - 1)
   }, [active])
 }
+// ACTIVITY BUSY: a practice activity says whether leaving it now would lose something (a call, a workout, unsaved
+// results). useActivityBusy(busy) both REPORTS (the activity takes part) and sets the flag; the hub asks "Leave this
+// activity?" on Back only while one is busy. An activity that never calls it is always asked about (the safe default).
+let activityReporters = 0
+let activityBusy = 0
+export function useActivityBusy(busy) {
+  useEffect(() => { activityReporters++; return () => { activityReporters-- } }, [])
+  useEffect(() => {
+    if (!busy) return
+    activityBusy++
+    return () => { activityBusy-- }
+  }, [busy])
+}
+// true = nothing to lose: the open activity reports, and nothing in it is running.
+export const activityIdle = () => activityReporters > 0 && activityBusy <= 0
+
 // INTENTS: "open <target> with these params" without features importing each other. ctx.open(navId, payload)
 // leaves one here and switches the screen; the screen takes it on mount (or live, if already open).
 const intents = new Map()

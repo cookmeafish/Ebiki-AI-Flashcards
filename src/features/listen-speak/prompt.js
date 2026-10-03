@@ -32,7 +32,7 @@ export function buildDrillPrompt(subject, items, { knowledge = '', slips = '', l
       `Write ${DRILL_SIZE} questions, one per item where possible, mixing these kinds (at least two of each):`,
       ...kinds.map((k) => `- ${k}`),
       'Items (from the learner\'s cards):',
-      itemList(items),
+      itemList(items) || '(no cards to draw from: use core ideas of the subject)',
       knowledge ? `The learner's material:\n${knowledge}` : '',
       slips ? `Slips the learner tends to make (work some in):\n${slips}` : '',
       `Rules: the "say" text must NEVER appear in "question" or "choices" of a listening question; spoken sentences stay short (under 15 words) and natural; every option real and correctly spelled; "explanation" (in ${subject.userLang}) says briefly why the answer is right.`,

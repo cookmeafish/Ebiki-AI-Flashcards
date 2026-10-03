@@ -99,7 +99,8 @@ export function sanitizeQuestions(raw, { maxChoices = 4, audioLang = '', speakLa
 export function missesFromResults(results = [], front = '') {
   return (Array.isArray(results) ? results : []).filter((r) => r && !r.correct && r.question && typeof r.question === 'object').map(({ question: q, answer }) => ({
     front: String(q.target || front || ''),
-    question: String(q.prompt || ''),
+    // A listening question's prompt ("Type what you hear") means nothing later without what was heard (🔊 marks it).
+    question: `${String(q.prompt || '')}${q.prompt && q.audio?.text ? ` 🔊 "${q.audio.text}"` : ''}`,
     answer: typeof answer === 'number' && Array.isArray(q.choices) ? String(q.choices[answer] ?? '') : String(answer ?? ''),
     expected: String(q.kind === 'choice' ? (q.choices?.[q.answerIdx] ?? '') : (q.accepted?.[0] ?? '')),
   })).filter((m) => m.question)

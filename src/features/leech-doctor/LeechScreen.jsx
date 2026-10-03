@@ -3,11 +3,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile } from '../../config/shrimp'
-import { srs } from '../../cards'
-import { useFeatureCtx } from '../registry'
+import { srs, hasCapability } from '../../cards'
+import { useFeatureCtx, useActivityBusy } from '../registry'
 import { useHelpEntry } from '../kit/useHelp'
+import { recordPractice } from '../kit'
+import { EVENTS } from '../events'
 import { ChunkyButton, Card, EbiSays, tCount } from '../ui'
-import { findLeeches, parseDiagnoses, MAX_PATIENTS } from './leeches'
+import { findLeeches, parseDiagnoses, MAX_PATIENTS, cardTextOnly, soundTags, fixChangesCard, isTreated, mentorLabelKey } from './leeches'
+import { readTreated, saveTreated, DOCTOR_FEATURE_ID } from './store'
 import { buildDoctorPrompt, DOCTOR_ROLE, DOCTOR_MAX_TOKENS } from './prompt'
 
 const INFO_BATCH = 300        // cardsInfo per request
@@ -36,8 +39,16 @@ function Side({ label, before, after }) {
 
 export default function LeechScreen({ onExit }) {
   const ctx = useFeatureCtx()
-  const [state, setState] = useState('loading')  // loading | ready | diagnosing | error
-  const [patients, setPatients] = useState([])   // [{ noteId, cardId, lapses, reps, front, back, fieldNames, mod }]
+  const [state, setState] = useState('loading')  // loading | ready | error
+  // Separate from `state`: an Anki reconnect reloads the patients (state loading, then ready) and showed Diagnose
+  // again while the paid call was still running; a second click paid for it twice.
+  const [diagnosing, setDiagnosing] = useState(false)
+  const diagnosingRef = useRef(false)
+  const [patients, setPatients] = useState([])   // [{ noteId, cardId, lapses, reps, front, back, fieldNames, mod, suspendedIds }]
+  const [unsuspend, setUnsuspend] = useState({}) // noteId -> false when the learner unticked "bring it back into reviews"
+  // The mode and context the patients were loaded in (writes are filed there), and the cards fixed this visit:
+  // leaving with at least one counts as a finished practice session (PRACTICE_DONE, once).
+  const visitRef = useRef({ ctx: null, modeId: null, treated: 0, reported: false })
   const [others, setOthers] = useState([])
   const [dx, setDx] = useState(new Map())
   const [open, setOpen] = useState({})           // noteId -> mentor shown
@@ -47,6 +58,13 @@ export default function LeechScreen({ onExit }) {
   const deckRunRef = useRef(0)
   const applyingRef = useRef(new Set()) // notes whose fix is being written (a double click read the new mod as "changed")
   const prevDeckRef = useRef(undefined)
+  useEffect(() => () => {
+    const v = visitRef.current
+    if (!v.treated || v.reported || !v.ctx) return
+    v.reported = true
+    // total 0: fixing cards is not a quiz score, so the learner level does not move; the game pays its practice XP.
+    v.ctx.emit(EVENTS.PRACTICE_DONE, { source: DOCTOR_FEATURE_ID, mode: v.modeId, total: 0, correct: 0, treated: v.treated })
+  }, [])
 
   useEffect(() => {
     if (!ctx) return
@@ -61,15 +79,26 @@ export default function LeechScreen({ onExit }) {
     setError(''); setState('loading')
     ;(async () => {
       if (!ctx.ankiConnected || !deck) { setState('error'); setError(ctx.t('doc_needAnki')); return }
+      const modeId = ctx.subject?.modeId
       try {
         const cardIds = await srs.findCards({ deck })
         const infos = await inBatches(cardIds, INFO_BATCH, (b) => srs.cardsInfo(b))
-        const sick = findLeeches(infos).slice(0, MAX_PATIENTS)
+        // Cards fixed here earlier rest until they lapse again after the fix (an unreadable list hides nothing).
+        const treated = (await readTreated(ctx, modeId)).value
+        const sick = findLeeches(infos).filter((p) => !isTreated(treated, p)).slice(0, MAX_PATIENTS)
+        // Which of each patient's cards are suspended (Anki's leech action can suspend them); fail soft.
+        const noteCards = new Map(sick.map((p) => [p.noteId, infos.filter((c) => c?.note === p.noteId).map((c) => c.cardId)]))
+        const allIds = [...noteCards.values()].flat()
+        const susp = new Set()
+        if (hasCapability('suspend') && allIds.length) {
+          try { const flags = await srs.suspendedCards(allIds); allIds.forEach((id, i) => { if (flags?.[i]) susp.add(id) }) } catch { /* shown as not suspended */ }
+        }
         const notes = await inBatches(sick.map((p) => p.noteId), NOTES_BATCH, (b) => srs.notesInfo(b))
         const byId = new Map(notes.filter(Boolean).map((n) => [n.noteId, n]))
-        const list = sick.map((p) => { const n = byId.get(p.noteId); return n ? { ...p, ...ctx.cards.noteText(n), mod: n.mod } : null }).filter(Boolean)
-        const fronts = [...new Set(infos.map((c) => ctx.cards.noteText(c).front).filter(Boolean))].slice(0, DECK_FRONTS)
+        const list = sick.map((p) => { const n = byId.get(p.noteId); if (!n) return null; const tx = ctx.cards.noteText(n); return { ...p, ...tx, front: cardTextOnly(tx.front), back: cardTextOnly(tx.back), mod: n.mod, suspendedIds: (noteCards.get(p.noteId) || []).filter((id) => susp.has(id)) } }).filter(Boolean)
+        const fronts = [...new Set(infos.map((c) => cardTextOnly(ctx.cards.noteText(c).front)).filter(Boolean))].slice(0, DECK_FRONTS)
         if (stop) return
+        visitRef.current = { ...visitRef.current, ctx, modeId }
         setPatients(list); setOthers(fronts); setState('ready')
       } catch (e) { if (!stop) { setState('error'); setError(String(e.message || e)) } }
     })()
@@ -84,21 +113,35 @@ export default function LeechScreen({ onExit }) {
       return `- "${String(p.front || '').slice(0, 80)}" (${p.lapses} lapses)${d ? `: cause ${d.cause}${d.mentor ? `; Ebi's advice: ${d.mentor.slice(0, 200)}` : ''}${d.fix ? `; proposed fix: ${[d.fix.front && `front "${d.fix.front}"`, d.fix.back && `back "${String(d.fix.back).slice(0, 120)}"`].filter(Boolean).join(', ')}` : ''}` : ''}${done[p.noteId] ? ` [${done[p.noteId]}]` : ''}`
     }).join('\n'),
   ].filter(Boolean).join('\n'))
+  // Back asks while a diagnosis runs or a proposed fix is still unapplied (an apply in flight has no status yet).
+  useActivityBusy(diagnosing || patients.some((p) => dx.get(String(p.noteId))?.fix && !done[p.noteId]))
   if (!ctx) return null
   const { t, ai, subject } = ctx
 
   const diagnose = async () => {
+    if (diagnosingRef.current) return
+    diagnosingRef.current = true
     const run = deckRunRef.current
-    setState('diagnosing'); setError('')
+    const seen = patients // the cards as the doctor saw them: a fix is applied only over this version
+    setDiagnosing(true); setError('')
     try {
-      const { system, user } = buildDoctorPrompt(subject, patients, { others })
+      const { system, user } = buildDoctorPrompt(subject, seen, { others })
       const raw = await ai.call(system, user, { role: DOCTOR_ROLE, maxTokens: DOCTOR_MAX_TOKENS })
-      const m = parseDiagnoses(ai.json(raw), patients)
-      for (const d of m.values()) { d.explanation = ai.clean(d.explanation); d.mentor = ai.clean(d.mentor); if (d.fix) { d.fix.front = ai.clean(d.fix.front); d.fix.back = ai.clean(d.fix.back) } }
+      const m = parseDiagnoses(ai.json(raw), seen)
+      for (const [id, d] of m) {
+        d.explanation = ai.clean(d.explanation); d.mentor = ai.clean(d.mentor)
+        const p = seen.find((x) => String(x.noteId) === id)
+        d.mod = p?.mod // a reconnect reloads the patients: an edit made in Anki meanwhile must still count as "changed"
+        if (d.fix) {
+          d.fix.front = ai.clean(d.fix.front); d.fix.back = ai.clean(d.fix.back)
+          // A "fix" that changes nothing showed Apply and then said "applied" for a card left as it was.
+          if (!fixChangesCard(d.fix, p)) d.fix = null
+        }
+      }
       if (run !== deckRunRef.current) return // the deck changed while the doctor was thinking
       if (!m.size) throw new Error(t('doc_noAnswer'))
-      setDx(m); setState('ready')
-    } catch (e) { if (run === deckRunRef.current) { setError(String(e.message || e)); setState('ready') } }
+      setDx(m)
+    } catch (e) { if (run === deckRunRef.current) setError(String(e.message || e)) } finally { diagnosingRef.current = false; setDiagnosing(false) }
   }
 
   // Apply a fix: re-read the note first; a card edited since the diagnosis is left alone.
@@ -108,15 +151,28 @@ export default function LeechScreen({ onExit }) {
     applyingRef.current.add(p.noteId)
     try {
       const [fresh] = await srs.notesInfo([p.noteId])
-      if (!fresh || fresh.mod !== p.mod) { setDone((x) => ({ ...x, [p.noteId]: 'changed' })); return }
+      if (!fresh || fresh.mod !== (d.mod ?? p.mod)) { setDone((x) => ({ ...x, [p.noteId]: 'changed' })); return }
       // Built over the field's current html: images, audio and its credit stay; furigana/tables/links refuse the fix.
       const fields = {}
       const orig = (name) => fresh.fields?.[name]?.value || ''
       const put = (name, text, which) => { const html = ctx.cards.rewriteField(orig(name), text, which); if (html == null) return false; fields[name] = html; return true }
       if (d.fix.front && d.fix.front !== p.front && !put(p.fieldNames[0], d.fix.front, 'front')) { setDone((x) => ({ ...x, [p.noteId]: 'markup' })); return }
       if (d.fix.back && d.fix.back !== p.back && p.fieldNames[1] && !put(p.fieldNames[1], d.fix.back, 'back')) { setDone((x) => ({ ...x, [p.noteId]: 'markup' })); return }
-      if (Object.keys(fields).length) { await srs.updateNoteFields(p.noteId, fields); srs.syncSoon() }
-      setDone((x) => ({ ...x, [p.noteId]: 'applied' }))
+      // Every recording must survive: the rewrite brings back only ONE lost [sound:] (a card with two lost the other).
+      if (Object.entries(fields).some(([name, html]) => soundTags(orig(name)).some((x) => !html.includes(x)))) { setDone((x) => ({ ...x, [p.noteId]: 'audio' })); return }
+      if (Object.keys(fields).length) await srs.updateNoteFields(p.noteId, fields)
+      // Treated: not a patient again until it lapses after this fix. Filed under the mode it was loaded in.
+      const v = visitRef.current
+      saveTreated(v.ctx || ctx, v.modeId ?? subject.modeId, p.noteId, p.lapses)
+      recordPractice(v.ctx || ctx, DOCTOR_FEATURE_ID, [{ kind: 'card', label: p.front }])
+      v.treated += 1
+      // A suspended leech goes back into reviews unless the learner unticked it.
+      let result = 'applied'
+      if (p.suspendedIds?.length && unsuspend[p.noteId] !== false) {
+        try { await srs.unsuspendCards(p.suspendedIds); result = 'appliedBack' } catch { result = 'unsuspendFailed' }
+      }
+      srs.syncSoon()
+      setDone((x) => ({ ...x, [p.noteId]: result }))
     } catch { setDone((x) => ({ ...x, [p.noteId]: 'failed' })) } finally { applyingRef.current.delete(p.noteId) }
   }
 
@@ -127,7 +183,7 @@ export default function LeechScreen({ onExit }) {
       <EbiSays pose={poseFile('doctor')}>{intro}</EbiSays>
       {state !== 'loading' && state !== 'error' && patients.length > 0 && !dx.size && (
         <div style={{ margin: '18px 0' }}>
-          <ChunkyButton onClick={diagnose} disabled={!ai.hasKey || state === 'diagnosing'} color={C.purple}>{state === 'diagnosing' ? t('doc_diagnosing') : t('doc_diagnose')}</ChunkyButton>
+          <ChunkyButton onClick={diagnose} disabled={!ai.hasKey || diagnosing} color={C.purple}>{diagnosing ? t('doc_diagnosing') : t('doc_diagnose')}</ChunkyButton>
           {!ai.hasKey && <div style={{ color: C.warning, fontSize: 13, marginTop: 8 }}>{t('doc_needKey')}</div>}
         </div>
       )}
@@ -152,7 +208,7 @@ export default function LeechScreen({ onExit }) {
                   {d.mentor && (
                     <div style={{ marginTop: 8 }}>
                       <button onClick={() => setOpen((o) => ({ ...o, [p.noteId]: !o[p.noteId] }))} style={{ border: 'none', background: 'transparent', color: C.purple, fontWeight: 800, cursor: 'pointer', padding: 0, fontSize: 13 }}>
-                        {open[p.noteId] ? '▾' : '▸'} 🎓 {t('doc_mentor')}
+                        {open[p.noteId] ? '▾' : '▸'} 🎓 {t(mentorLabelKey(d.cause))}
                       </button>
                       {open[p.noteId] && <div style={{ fontSize: 13.5, color: C.ink, lineHeight: 1.55, marginTop: 6, background: C.purpleTint, borderRadius: RADIUS.sm, padding: 10, whiteSpace: 'pre-wrap' }}>{d.mentor}</div>}
                     </div>
@@ -161,9 +217,15 @@ export default function LeechScreen({ onExit }) {
                     <>
                       <Side label={t('doc_front')} before={p.front} after={d.fix.front} />
                       <Side label={t('doc_backSide')} before={p.back} after={d.fix.back} />
+                      {!status && p.suspendedIds?.length > 0 && (
+                        <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10, fontSize: 13, color: C.ink, cursor: 'pointer' }}>
+                          <input type="checkbox" checked={unsuspend[p.noteId] !== false} onChange={(e) => setUnsuspend((x) => ({ ...x, [p.noteId]: e.target.checked }))} />
+                          {t('doc_unsuspend')}
+                        </label>
+                      )}
                       <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
                         {status ? (
-                          <span style={{ fontSize: 13, fontWeight: 800, color: status === 'applied' ? C.success : status === 'skipped' ? C.inkDim : C.danger }}>{t(`doc_status_${status}`)}</span>
+                          <span style={{ fontSize: 13, fontWeight: 800, color: status === 'applied' || status === 'appliedBack' ? C.success : status === 'skipped' ? C.inkDim : status === 'unsuspendFailed' ? C.warning : C.danger }}>{t(`doc_status_${status}`)}</span>
                         ) : (
                           <>
                             <ChunkyButton onClick={() => apply(p)} color={C.success}>{t('doc_apply')}</ChunkyButton>

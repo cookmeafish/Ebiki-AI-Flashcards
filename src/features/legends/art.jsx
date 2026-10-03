@@ -321,6 +321,31 @@ export function withMotion(svg, mode, phase) {
   }
   return doc.body.innerHTML
 }
+// withMotion parses the whole file (a raid boss is up to 1 MB), and every drawing ran it on every mount: Back to the
+// asset view's Boss families re-parsed all 65 portraits (about 150 ms), a raid boss's page parsed its file once per
+// copy (palettes, phases, sizes: about 300 ms for the hydra). The result depends only on (file, mode, phase), so it is
+// kept here, newest first, within a size budget (characters) so a long session cannot hoard markup.
+const MOTION_CACHE = { maxEntries: 64, maxChars: 40e6 }
+const motionCache = new Map()
+let motionChars = 0
+export function motionMarkup(key, svg, mode, phase) {
+  if (!svg) return svg
+  const hidden = svg.includes('lg-p') ? HIDDEN_IN_PHASE[phase] : null
+  if (mode === 'intro' && !hidden) return svg
+  const k = `${key}|${mode}|${hidden ? phase : ''}`
+  const hit = motionCache.get(k)
+  if (hit && hit.src === svg) { motionCache.delete(k); motionCache.set(k, hit); return hit.out }
+  if (hit) { motionCache.delete(k); motionChars -= hit.out.length }
+  const out = withMotion(svg, mode, phase)
+  motionCache.set(k, { src: svg, out })
+  motionChars += out.length
+  for (const [old, v] of motionCache) {
+    if (motionCache.size <= MOTION_CACHE.maxEntries && motionChars <= MOTION_CACHE.maxChars) break
+    if (old === k) continue
+    motionCache.delete(old); motionChars -= v.out.length
+  }
+  return out
+}
 
 // The asset viewer names every drawing: a tag UNDER it with its file ("areas/frontier.svg"), so a screenshot says
 // which file to open (under, never on the art). ONLY the asset view (AssetView.jsx) and the dev gallery provide it.
@@ -359,7 +384,12 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
   const [idSuffix] = useState(() => `a${++artSeq}`) // this drawing's own ids (idTemplate)
   // `phase`: only the arena (and the asset view's phase cells) pass it; a still drawing has no animations to drop.
   const livePhase = mode ? phase : undefined
-  const svg = useMemo(() => { const out = withIds(withMotion(raw, mode, livePhase), idSuffix); return figure ? freeFigure(out) : out }, [raw, mode, livePhase, figure, idSuffix])
+  // Built only while near the screen (an off-screen drawing is not in the page anyway), from the shared motion cache.
+  const svg = useMemo(() => {
+    if (!near || !raw) return ''
+    const out = withIds(motionMarkup(url, raw, mode, livePhase), idSuffix)
+    return figure ? freeFigure(out) : out
+  }, [near, url, raw, mode, livePhase, figure, idSuffix])
   const shown = near && !!svg // off screen: out of the page (the box keeps its size)
   const photo = url === PHOTO_FILE // the photo ophanim's own light layers (PHOTO LIGHT)
   const labels = useContext(ArtLabels)
@@ -418,8 +448,18 @@ export function useArtMarkup(kind, motif) {
 }
 // A still, standalone copy of a figure for use as a CSS mask (its silhouette): no animations, own ids, and a viewBox
 // widened by the figure's headroom so parts drawn past the frame count too (the mask box is inset by the same share).
+// Kept per file (the entrance card remounts on every Replay, palette and item change: two parses each time).
+const glowCache = new Map()
+const GLOW_CACHE_MAX = 8
 export function artGlowMask(svg) {
   if (!svg) return ''
+  if (glowCache.has(svg)) return glowCache.get(svg)
+  const out = buildGlowMask(svg)
+  glowCache.set(svg, out)
+  if (glowCache.size > GLOW_CACHE_MAX) glowCache.delete(glowCache.keys().next().value)
+  return out
+}
+function buildGlowMask(svg) {
   let out = withIds(withMotion(svg, false), 'glow')
   out = out.replace(/<svg\b([^>]*)>/i, (m, attrs) => {
     let a = attrs.replace(/\s(width|height|preserveAspectRatio)="[^"]*"/g, '')

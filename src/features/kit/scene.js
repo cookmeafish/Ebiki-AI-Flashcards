@@ -33,21 +33,25 @@ export function buildScenePrompt(subject, items, { level = '', knowledge = '', t
   }
 }
 
+// Model text only: a list or object where a string belongs showed "[object Object]" (or threw inside `clean`).
+const txt = (v) => (typeof v === 'string' || typeof v === 'number' ? String(v) : '')
+
 // { title, cast: { A, B }, lines: [{ speaker, text, gloss }], questions } or null when unusable.
 export function parseScene(raw, clean = (s) => s) {
   if (!raw || typeof raw !== 'object') return null
   const lines = (Array.isArray(raw.lines) ? raw.lines : [])
     .map((l) => ({
       speaker: SPEAKERS.includes(String(l?.speaker || '').toUpperCase()) ? String(l.speaker).toUpperCase() : 'N',
-      text: clean(String(l?.text ?? '').replace(/\s+/g, ' ').trim().slice(0, LINE_CHARS)),
-      gloss: clean(String(l?.gloss ?? '').replace(/\s+/g, ' ').trim().slice(0, LINE_CHARS)),
+      text: clean(txt(l?.text).replace(/\s+/g, ' ').trim().slice(0, LINE_CHARS)),
+      gloss: clean(txt(l?.gloss).replace(/\s+/g, ' ').trim().slice(0, LINE_CHARS)),
     }))
     .filter((l) => l.text)
     .slice(0, SCENE_LINES.max)
   if (lines.length < Math.min(3, SCENE_LINES.min)) return null
-  const cast = { A: clean(String(raw.cast?.A || '').trim().slice(0, 30)) || 'A', B: clean(String(raw.cast?.B || '').trim().slice(0, 30)) || 'B' }
-  const questions = sanitizeQuestions((Array.isArray(raw.questions) ? raw.questions : []).map((q) => ({ ...q, question: clean(q?.question || ''), explanation: clean(q?.explanation || '') })))
-  return { title: clean(String(raw.title || '').trim().slice(0, 80)), cast, lines, questions }
+  const cast = { A: clean(txt(raw.cast?.A).trim().slice(0, 30)) || 'A', B: clean(txt(raw.cast?.B).trim().slice(0, 30)) || 'B' }
+  const questions = sanitizeQuestions((Array.isArray(raw.questions) ? raw.questions : []).filter((q) => q && typeof q === 'object')
+    .map((q) => ({ ...q, question: clean(txt(q.question)), explanation: clean(txt(q.explanation)) })))
+  return { title: clean(txt(raw.title).trim().slice(0, 80)), cast, lines, questions }
 }
 
 // Which voice reads a speaker (the speech layer's voice index): A and B differ, the narrator uses A's.

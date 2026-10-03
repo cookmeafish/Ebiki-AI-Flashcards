@@ -1,5 +1,6 @@
 // Left navigation, Duolingo style: big rounded rows with an icon and an uppercase label; the current
-// screen is outlined in the brand color. Collapses to icons on narrow windows.
+// screen is outlined in the brand color. Collapses to icons on narrow windows, or when the user collapses it with the
+// toggle at the bottom (onToggle; null while a narrow window forces icon-only).
 import { C, FONT, RADIUS } from '../config/tokens'
 import { SHELL } from './layout'
 
@@ -7,7 +8,7 @@ const ROW_H = 46
 const ICON_SIZE = 22
 const ART_SIZE = 28 // a drawn icon (public/assets/nav/<art>.svg) fills its square, an emoji does not
 
-export default function Sidebar({ items, active, onPick, collapsed }) {
+export default function Sidebar({ items, active, onPick, collapsed, onToggle, toggleLabel }) {
   return (
     <nav aria-label="Ebiki" style={{
       width: collapsed ? SHELL.sidebarCollapsed : SHELL.sidebarWidth, flexShrink: 0, boxSizing: 'border-box',
@@ -34,6 +35,19 @@ export default function Sidebar({ items, active, onPick, collapsed }) {
           </button>
         )
       })}
+      {onToggle && (
+        <button type="button" onClick={onToggle} aria-label={toggleLabel} aria-expanded={!collapsed}
+          className="click-dim" data-tip={collapsed ? toggleLabel : undefined}
+          style={{
+            marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'flex-start',
+            gap: 14, height: ROW_H - 8, padding: collapsed ? 0 : '0 14px', width: '100%', boxSizing: 'border-box', flexShrink: 0,
+            borderRadius: RADIUS.md, border: '2px solid transparent', background: 'transparent', color: C.inkFaint,
+            cursor: 'pointer', fontFamily: FONT.body, fontWeight: 800, fontSize: 12, letterSpacing: '.06em', textTransform: 'uppercase',
+          }}>
+          <span aria-hidden="true" style={{ fontSize: 18, lineHeight: 1, width: ICON_SIZE + 6, textAlign: 'center' }}>{collapsed ? '»' : '«'}</span>
+          {!collapsed && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{toggleLabel}</span>}
+        </button>
+      )}
     </nav>
   )
 }

@@ -5,9 +5,12 @@ export const CALL_ROLE = 'chat'
 export const CALL_MAX_TOKENS = 700
 export const HISTORY_TURNS = 16   // how much of the conversation is sent back each turn
 
-export function buildCallSystem(subject, targets, { practice = false, slips = '', level = '' } = {}) {
+// done: ids of items already graded. They are marked in the list, so Ebi moves on to the others (only the last
+// HISTORY_TURNS lines are sent back, and a long call circled back to an item it had covered long ago).
+export function buildCallSystem(subject, targets, { practice = false, slips = '', level = '', done = [] } = {}) {
   const lang = subject.isLanguage
-  const list = targets.map((tg) => `- id ${tg.cardId}: ${tg.front} = ${String(tg.back || '').replace(/\s+/g, ' ').slice(0, 300)}`).join('\n')
+  const doneSet = new Set((done || []).map(String))
+  const list = targets.map((tg) => `- id ${tg.cardId}: ${tg.front} = ${String(tg.back || '').replace(/\s+/g, ' ').slice(0, 300)}${doneSet.has(String(tg.cardId)) ? ' (ALREADY USED: move on to another item)' : ''}`).join('\n')
   return [
     `You are Ebi, a warm, curious study buddy (a red shrimp) on a relaxed call with the learner. Subject: ${subject.name}${subject.description ? ` (${subject.description})` : ''}.`,
     lang

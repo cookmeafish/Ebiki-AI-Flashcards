@@ -20,12 +20,21 @@ export function splitReply(text, targetIds, parseJson) {
     // One attempted card comes back as a lone object, and "Good" as often as "good": both were dropped (never graded).
     if (arr && !Array.isArray(arr) && typeof arr === 'object') arr = [arr]
     if (Array.isArray(arr)) {
-      const v = (g) => String(g?.verdict ?? '').trim().toLowerCase()
-      grades = arr.filter((g) => g && known.has(String(g.id)) && VERDICTS.includes(v(g)))
-        .map((g) => ({ id: String(g.id), verdict: v(g), why: String(g.why || '').trim() }))
+      // "easy" (a conversation never earns Easy) counts as good; an id echoed as "id 11" (the list's own format) is 11.
+      const v = (g) => { const s = String(g?.verdict ?? '').trim().toLowerCase(); return s === 'easy' ? 'good' : s }
+      const id = (g) => String(g?.id ?? '').trim().replace(/^id[\s:#]*/i, '')
+      grades = arr.filter((g) => g && known.has(id(g)) && VERDICTS.includes(v(g)))
+        .map((g) => ({ id: id(g), verdict: v(g), why: String(g.why || '').trim() }))
     }
   }
   return { say, grades }
+}
+
+// One card per NOTE (a reversed sibling reads the same word, and one use of it recorded two reviews), first wins.
+// Cards with no note id are kept.
+export function onePerNote(infos) {
+  const seen = new Set()
+  return (infos || []).filter((c) => (c?.note == null ? true : seen.has(c.note) ? false : (seen.add(c.note), true)))
 }
 
 // Fold new grades into the call state: the first verdict per target sticks.
