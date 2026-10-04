@@ -617,7 +617,7 @@ caused a restart loop), so a forgotten server keeps serving stale config. SHORTC
   minimized/covered renderer is throttled, and the server used to exit with the app open.
 - **Talk to the dev server as `localhost`, NEVER `127.0.0.1`**: Vite binds what `localhost` resolves to first, IPv6
   `::1` on current Node/Windows (and macOS for `launch.sh`).
-- Manual `npm run dev` sets no flag: the endpoints answer 204, no timer. That's how to run a second copy.
+- Manual `npm run dev` sets no flag: the endpoints answer 204, no timer. That's how to run a second copy. **Vite never opens a browser tab** (`server.open` only with `EBIKI_OPEN=1`): every agent test run used to open a real tab in the owner's browser.
 - **No auto-exit while `updateRunning`** (a killed git left `index.lock`). The update's npm install has its own
   300s timer that tree-kills (`taskkill /T`), never execFile's timeout (it killed only cmd.exe). A restart POST
   calls `requestShutdown` itself 1.5s after answering (another open tab kept the old server alive). The overlay
