@@ -28,7 +28,7 @@ function LevelBadge({ profile, t }) {
     : scale === 'domain-coverage' ? `${estimate || t('d_inProgress')}`
     : tierLabel(estimate, t)
   return (
-    <span style={{ fontSize: 11, color: C.blue, background: 'rgba(223,37,64,0.12)', border: '1px solid rgba(223,37,64,0.25)', borderRadius: 5, padding: '3px 8px', fontWeight: 600 }}>
+    <span style={{ fontSize: 12, color: 'var(--c-on-ink)', background: 'var(--c-ink-solid)', borderRadius: 999, padding: '4px 11px', fontWeight: 800 }}>
       {t('d_level')} {label}{typeof confidence === 'number' ? ` · ${t('d_sureSuffix', { pct: Math.round(confidence * 100) })}` : ''}
     </span>
   )
@@ -72,10 +72,10 @@ export default function DiscoverPanel(props) {
   const diffLabel = (diffOptions.find(([k]) => k === difficulty) || [])[1]
 
   const chipRow = (options, current, onPick) => (
-    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', background: 'rgba(81,98,108,0.12)', borderRadius: 6, padding: 3, width: 'fit-content' }}>
+    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', background: 'var(--c-surface-alt)', borderRadius: 12, padding: 4, width: 'fit-content' }}>
       {options.map(([k, label]) => (
         <button key={k} onClick={() => onPick(k)} className={current === k ? 'ui-tab-current' : undefined}
-          style={{ background: current === k ? 'rgba(223,37,64,0.18)' : 'transparent', color: current === k ? C.blue : C.dim, border: 'none', borderRadius: 4, padding: '5px 12px', fontSize: 12, fontWeight: 600, cursor: current === k ? 'default' : 'pointer', fontFamily: 'inherit' }}>
+          style={{ background: current === k ? 'var(--c-surface-raised)' : 'transparent', color: current === k ? C.text : C.dim, border: 'none', borderRadius: 9, padding: '7px 14px', fontSize: 13, fontWeight: current === k ? 800 : 600, cursor: current === k ? 'default' : 'pointer', fontFamily: 'inherit', ...(current === k ? { boxShadow: 'var(--sh-sm)' } : {}) }}>
           {label}
         </button>
       ))}
@@ -85,7 +85,7 @@ export default function DiscoverPanel(props) {
   return (
     <div>
       {/* Profile header */}
-      <div style={{ border: '1px solid rgba(223,37,64,0.18)', borderRadius: 6, padding: '10px 12px', background: 'rgba(223,37,64,0.04)', marginBottom: 14 }}>
+      <div style={{ border: '1px solid var(--c-border)', borderRadius: 22, padding: '16px 20px', background: 'var(--c-surface)', boxShadow: 'var(--sh-card)', marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: profile?.summary ? 8 : 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <LevelBadge profile={profile} t={t} />
@@ -93,7 +93,7 @@ export default function DiscoverPanel(props) {
               {t('deck')}:
               {onDeckChange && decks.length > 0 ? (
                 <select value={deck || ''} onChange={(e) => onDeckChange(e.target.value)}
-                  style={{ background: 'var(--c-surface)', color: C.text, border: '1px solid var(--c-border)', borderRadius: 5, padding: '3px 6px', fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', maxWidth: 200 }}>
+                  style={{ background: 'var(--c-surface)', color: C.text, border: '1px solid var(--c-border)', borderRadius: 10, padding: '3px 6px', fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', maxWidth: 200 }}>
                   {!deck && <option value="">·</option>}
                   {deck && !decks.includes(deck) && <option value={deck}>{deck}</option>}
                   {decks.map((d) => <option key={d} value={d}>{d}</option>)}
@@ -105,11 +105,11 @@ export default function DiscoverPanel(props) {
             <span style={{ fontSize: 11, color: C.dim }}>{cardedCount} {t('d_made')} · {knownCount} {t('d_known')}</span>
           </div>
           <button onClick={onReanalyze} disabled={profileLoading}
-            style={{ background: 'rgba(81,98,108,0.15)', color: C.dim, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 5, padding: '5px 10px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: profileLoading ? 0.5 : 1 }}>
+            style={{ background: 'rgba(81,98,108,0.15)', color: C.dim, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 10, padding: '5px 10px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: profileLoading ? 0.5 : 1 }}>
             {profileLoading ? t('d_analyzing') : t('d_reanalyze')}
           </button>
         </div>
-        {profile?.summary && <div style={{ fontSize: 11, color: C.dim, lineHeight: 1.5 }}>{profile.summary}</div>}
+        {profile?.summary && <div style={{ fontSize: 13, color: C.dim, lineHeight: 1.6 }}>{profile.summary}</div>}
         {profileLoading && !profile && <div style={{ fontSize: 12, color: C.dim }}>{t('d_analyzingProfile')}</div>}
       </div>
 
@@ -117,8 +117,8 @@ export default function DiscoverPanel(props) {
 
       {/* ── Setup screen (before starting) ─────────────────────────────────── */}
       {!started && (
-        <div style={{ border: '1px solid var(--c-border)', borderRadius: 6, padding: '14px 16px' }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>{t('d_whatSuggest')}</div>
+        <div style={{ border: '1px solid var(--c-border)', borderRadius: 22, padding: '22px 24px', background: 'var(--c-surface)', boxShadow: 'var(--sh-card)' }}>
+          <div style={{ fontSize: 20, fontWeight: 800, fontFamily: "'Baloo 2', 'Nunito', system-ui, sans-serif", letterSpacing: '-0.01em', color: C.text, marginBottom: 12 }}>{t('d_whatSuggest')}</div>
 
           <fieldset disabled={profileLoading} style={{ border: 0, padding: 0, margin: 0, minWidth: 0, opacity: profileLoading ? 0.6 : 1 }}>
           <div style={{ marginBottom: 14 }}>
@@ -143,7 +143,7 @@ export default function DiscoverPanel(props) {
             <div style={{ fontSize: 11, color: C.dim, marginBottom: 6, fontWeight: 600 }}>{t('d_focusOptional')}</div>
             <textarea value={config.focus} onChange={(e) => setConfig({ ...config, focus: e.target.value })}
               placeholder={focusPlaceholder}
-              style={{ width: '100%', boxSizing: 'border-box', minHeight: 60, resize: 'vertical', background: 'var(--c-surface)', color: C.text, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 5, padding: 8, fontSize: 12, fontFamily: 'inherit' }} />
+              style={{ width: '100%', boxSizing: 'border-box', minHeight: 60, resize: 'vertical', background: 'var(--c-surface)', color: C.text, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 10, padding: 8, fontSize: 12, fontFamily: 'inherit' }} />
           </div>
 
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: C.dim, marginBottom: 14, cursor: 'pointer' }}>
@@ -152,8 +152,8 @@ export default function DiscoverPanel(props) {
           </label>
           </fieldset>
 
-          <button onClick={onStart} disabled={profileLoading}
-            style={{ background: 'rgba(223,37,64,0.15)', color: C.blue, border: '1px solid rgba(223,37,64,0.3)', borderRadius: 5, padding: '8px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', opacity: profileLoading ? 0.5 : 1 }}>
+          <button onClick={onStart} disabled={profileLoading} className="duo-cta btn-press"
+            style={{ fontSize: 13, padding: '10px 22px', opacity: profileLoading ? 0.5 : 1 }}>
             {profileLoading ? t('d_analyzingLevel') : t('d_startDiscovering')}
           </button>
         </div>
@@ -177,7 +177,7 @@ export default function DiscoverPanel(props) {
           {/* Prominent back-to-setup control: a faint ghost chip read as "just another tag", so the
               only way back to the type/difficulty/focus screen was hidden. Brand-tinted + arrow. */}
           <button onClick={onAdjust} className="btn-press"
-            style={{ background: 'rgba(223,37,64,0.15)', color: C.blue, border: '1px solid rgba(223,37,64,0.35)', borderRadius: 6, padding: '6px 14px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            style={{ background: 'var(--c-surface)', color: C.blue, border: '1px solid var(--c-brand-line)', borderRadius: 12, padding: '7px 14px', fontSize: 12.5, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', boxShadow: 'var(--sh-sm)' }}>
             {t('d_adjust')}
           </button>
         </div>
@@ -192,18 +192,18 @@ export default function DiscoverPanel(props) {
         )}
 
         {suggestion && (
-          <div style={{ border: '1px solid rgba(24,169,87,0.2)', borderRadius: 6, padding: '14px 16px', background: 'rgba(24,169,87,0.03)' }}>
+          <div className="dc-stack"><div className="dc-card">
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
-              <span style={{ fontSize: 18, fontWeight: 700, color: C.text, overflowWrap: 'anywhere', minWidth: 0 }}>{suggestion.term}</span>
+              <span style={{ fontSize: 36, lineHeight: 1.1, fontWeight: 800, fontFamily: "'Baloo 2', 'Nunito', system-ui, sans-serif", letterSpacing: '-0.02em', color: C.text, overflowWrap: 'anywhere', minWidth: 0 }}>{suggestion.term}</span>
               {suggestion.partOfSpeech && <span style={{ fontSize: 12, color: C.dim }}>({suggestion.partOfSpeech})</span>}
-              {suggestion.difficulty && <span style={{ fontSize: 10, color: C.purple, background: 'rgba(139,92,246,0.12)', borderRadius: 4, padding: '2px 6px' }}>{tierLabel(suggestion.difficulty, t)}</span>}
+              {suggestion.difficulty && <span style={{ fontSize: 10, color: C.purple, background: 'rgba(139,92,246,0.12)', borderRadius: 8, padding: '2px 6px' }}>{tierLabel(suggestion.difficulty, t)}</span>}
               {webVerify && 'verified' in suggestion && (
                 <span style={{ fontSize: 10, color: suggestion.verified ? C.green : C.orange }}>{suggestion.verified ? t('d_verified') : t('d_unverified')}</span>
               )}
             </div>
-            {suggestion.translation && <div style={{ fontSize: 14, color: C.text, marginBottom: 6 }}>→ {suggestion.translation}</div>}
-            {suggestion.draftMeaning && <div style={{ fontSize: 12, color: C.dim, lineHeight: 1.5, marginBottom: 8 }}>{suggestion.draftMeaning}</div>}
-            {suggestion.why && <div style={{ fontSize: 11, color: C.dim, fontStyle: 'italic', marginBottom: 8 }}>{t('d_why')} {suggestion.why}</div>}
+            {suggestion.translation && <div style={{ fontSize: 18, fontWeight: 700, color: C.text, marginBottom: 10 }}>→ {suggestion.translation}</div>}
+            {suggestion.draftMeaning && <div style={{ fontSize: 14, color: C.dim, lineHeight: 1.6, marginBottom: 12 }}>{suggestion.draftMeaning}</div>}
+            {suggestion.why && <div style={{ fontSize: 12.5, color: C.dim, marginBottom: 12, padding: '10px 12px', borderRadius: 12, background: 'var(--c-surface-sunken)' }}>{t('d_why')} {suggestion.why}</div>}
 
             {sources?.length > 0 && (
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
@@ -212,7 +212,7 @@ export default function DiscoverPanel(props) {
                   // bare href resolved RELATIVE to the app and opened a blank localhost page. Same guard
                   // as the Chat tab's sources (it also turns any non-http scheme into a harmless https url).
                   <a key={i} href={/^https?:\/\//i.test(s.url || '') ? s.url : `https://${s.url || ''}`} target="_blank" rel="noopener noreferrer"
-                    style={{ fontSize: 10, color: C.blue, background: 'rgba(223,37,64,0.1)', borderRadius: 4, padding: '2px 6px', textDecoration: 'none', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    style={{ fontSize: 10, color: C.blue, background: 'rgba(223,37,64,0.1)', borderRadius: 8, padding: '2px 6px', textDecoration: 'none', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {s.title || s.url}
                   </a>
                 ))}
@@ -223,10 +223,10 @@ export default function DiscoverPanel(props) {
               <div style={{ borderTop: '1px solid rgba(81,98,108,0.2)', paddingTop: 10, marginTop: 6 }}>
                 <div style={{ fontSize: 10, color: C.dim, marginBottom: 4 }}>{t('d_front')}</div>
                 <textarea value={card.front} readOnly={cardSaving} onChange={(e) => setCard({ ...card, front: e.target.value })}
-                  style={{ width: '100%', background: 'var(--c-surface)', color: C.text, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 4, padding: 8, fontSize: 12, fontFamily: 'inherit', resize: 'vertical', marginBottom: 8, boxSizing: 'border-box' }} rows={1} />
+                  style={{ width: '100%', background: 'var(--c-surface)', color: C.text, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 8, padding: 8, fontSize: 12, fontFamily: 'inherit', resize: 'vertical', marginBottom: 8, boxSizing: 'border-box' }} rows={1} />
                 <div style={{ fontSize: 10, color: C.dim, marginBottom: 4 }}>{t('d_back')}</div>
                 <textarea value={card.back} readOnly={cardSaving} onChange={(e) => setCard({ ...card, back: e.target.value })}
-                  style={{ width: '100%', background: 'var(--c-surface)', color: C.text, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 4, padding: 8, fontSize: 12, fontFamily: 'inherit', resize: 'vertical', marginBottom: 8, boxSizing: 'border-box' }} rows={5} />
+                  style={{ width: '100%', background: 'var(--c-surface)', color: C.text, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 8, padding: 8, fontSize: 12, fontFamily: 'inherit', resize: 'vertical', marginBottom: 8, boxSizing: 'border-box' }} rows={5} />
                 {card.tags?.length > 0 && (
                   <div style={{ fontSize: 10, color: C.dim, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                     {t('d_tagsLabel')}
@@ -241,35 +241,35 @@ export default function DiscoverPanel(props) {
                 )}
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <button onClick={onSaveCard} disabled={cardSaving || ankiConnected === false || !String(card.front || '').trim()}
-                    style={{ background: 'rgba(24,169,87,0.15)', color: C.green, border: '1px solid rgba(24,169,87,0.3)', borderRadius: 5, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: (cardSaving || ankiConnected === false || !String(card.front || '').trim()) ? 0.5 : 1 }}>
+                    style={{ background: 'rgba(24,169,87,0.15)', color: C.green, border: '1px solid rgba(24,169,87,0.3)', borderRadius: 10, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: (cardSaving || ankiConnected === false || !String(card.front || '').trim()) ? 0.5 : 1 }}>
                     {cardSaving ? t('d_saving') : `${t('d_saveTo')} ${saveDeck || deck || 'Anki'}`}
                   </button>
                   <button onClick={onCancelCard} disabled={cardSaving}
-                    style={{ background: 'transparent', color: C.dim, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 5, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>{t('cancel')}</button>
+                    style={{ background: 'transparent', color: C.dim, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 10, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>{t('cancel')}</button>
                   {ankiConnected === false && <span style={{ fontSize: 10, color: C.orange }}>{t('d_openAnki')}</span>}
                 </div>
               </div>
             ) : (
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', borderTop: '1px solid rgba(81,98,108,0.2)', paddingTop: 12, marginTop: 4 }}>
-                <button onClick={onMakeCard} disabled={cardLoading}
-                  style={{ background: 'rgba(45,134,201,0.15)', color: C.info, border: '1px solid rgba(45,134,201,0.35)', borderRadius: 5, padding: '7px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', opacity: cardLoading ? 0.5 : 1 }}>
+                <button onClick={onMakeCard} disabled={cardLoading} className="btn-press"
+                  style={{ background: 'var(--c-brand)', color: '#fff', border: 'none', borderRadius: 12, padding: '10px 18px', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', boxShadow: 'inset 0 -3px 0 var(--c-brand-dark)', opacity: cardLoading ? 0.5 : 1 }}>
                   {cardLoading ? t('d_building') : t('d_makeCard')}
                 </button>
                 <button onClick={onKnow} disabled={cardLoading}
-                  style={{ background: 'rgba(24,169,87,0.1)', color: C.green, border: '1px solid rgba(24,169,87,0.25)', borderRadius: 5, padding: '7px 14px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  style={{ background: 'var(--c-surface)', color: C.green, border: '1px solid var(--c-border)', borderRadius: 12, padding: '10px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: 'var(--sh-sm)' }}>
                   {t('d_iKnowThis')}
                 </button>
                 <button onClick={onSkip} disabled={cardLoading}
-                  style={{ background: 'transparent', color: C.dim, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 5, padding: '7px 14px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  style={{ background: 'var(--c-surface)', color: C.dim, border: '1px solid var(--c-border)', borderRadius: 12, padding: '10px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: 'var(--sh-sm)' }}>
                   {t('d_skip')}
                 </button>
                 <button onClick={onNext} disabled={cardLoading} title={t('d_skipNoRecord')}
-                  style={{ background: 'transparent', color: C.dim, border: 'none', borderRadius: 5, padding: '7px 10px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', marginLeft: 'auto' }}>
+                  style={{ background: 'transparent', color: C.dim, border: 'none', borderRadius: 12, padding: '10px 12px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginLeft: 'auto' }}>
                   {t('d_next')}
                 </button>
               </div>
             )}
-          </div>
+          </div></div>
         )}
       </>)}
     </div>

@@ -1,13 +1,14 @@
 import { C, FONT, RADIUS, SHADOW } from '../config/tokens'
 
-// Ebiki — Ocean Light theme. Bright, friendly, red-focused (mascot var(--c-brand)).
+// Ebiki — Ocean Light / Deep Sea themes, red-focused (mascot var(--c-brand)). Design direction: docs/ui-overhaul.md.
 // Primary CTAs use the "3D" look (hard bottom edge in brandDark); add the
 // className "btn-press" in JSX to get the Duolingo press-down on :active.
 
 export const S = {
   app: {
     height: '100vh', color: C.ink,
-    background: `radial-gradient(1100px 620px at 84% -12%, ${C.bgGrad1}, transparent 60%), radial-gradient(900px 560px at -6% 110%, ${C.bgGrad2}, transparent 55%), ${C.bg}`,
+    // Second pass: a calm, nearly flat canvas (the brand wash is gone; red is kept for what is current).
+    background: `radial-gradient(1100px 620px at 92% -18%, ${C.bgGrad1}, transparent 64%), radial-gradient(900px 560px at -10% 112%, ${C.bgGrad2}, transparent 60%), ${C.bg}`,
     fontFamily: FONT.body,
     display: 'flex', flexDirection: 'column', position: 'relative',
   },
@@ -16,11 +17,11 @@ export const S = {
   header: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
     padding: '10px 20px', borderBottom: `1px solid ${C.border}`,
-    background: C.glass, backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
+    background: C.glass, backdropFilter: 'blur(18px) saturate(1.4)', WebkitBackdropFilter: 'blur(18px) saturate(1.4)',
     flexWrap: 'wrap', gap: 8, position: 'relative', zIndex: 20,
-    boxShadow: SHADOW.sm,
+    boxShadow: `${SHADOW.hi}, ${SHADOW.sm}`,
   },
-  headerLeft: { display: 'flex', alignItems: 'center', gap: 10 },
+  headerLeft: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 },
   tabBar: {
     display: 'flex', gap: 2, marginLeft: 16, borderRadius: RADIUS.pill, padding: 4,
     background: C.surfaceAlt, border: `1px solid ${C.border}`,
@@ -31,23 +32,22 @@ export const S = {
     background: 'transparent', color: C.inkDim, transition: 'color .18s ease, background .18s ease',
   },
   tabActive: {
-    background: C.surface,
+    background: C.surfaceRaised,
     color: C.brand,
-    boxShadow: `${SHADOW.sm}, inset 0 0 0 1.5px ${C.brandRing}`,
+    boxShadow: `${SHADOW.sm}, inset 0 0 0 1px ${C.brandRing}`,
   },
   title: {
-    fontSize: 20, fontWeight: 800, margin: 0, fontFamily: FONT.display, letterSpacing: '.2px',
-    background: `linear-gradient(92deg, ${C.brand}, ${C.brandDark})`,
-    WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+    fontSize: 21, fontWeight: 800, margin: 0, fontFamily: FONT.display, letterSpacing: '-0.01em',
+    color: C.ink,
   },
   badge: {
-    fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.1em',
-    color: C.success, background: C.successTint,
-    padding: '3px 8px', borderRadius: RADIUS.sm, border: `1px solid ${C.successTint}`,
+    fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.1em',
+    color: C.inkFaint, background: 'transparent',
+    padding: '3px 8px', borderRadius: RADIUS.pill, border: `1px solid ${C.border}`,
   },
   headerRight: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   select: {
-    padding: '7px 11px', background: C.surface, color: C.ink,
+    padding: '8px 12px', background: C.surface, color: C.ink,
     border: `1px solid ${C.border}`, borderRadius: RADIUS.md, fontSize: 13,
     fontFamily: FONT.body, cursor: 'pointer', outline: 'none', fontWeight: 600,
   },
@@ -71,7 +71,7 @@ export const S = {
     borderRadius: 0, cursor: 'pointer',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
-  captureGroup: { display: 'flex', gap: 0, borderRadius: RADIUS.md, boxShadow: SHADOW.brand },
+  captureGroup: { display: 'flex', gap: 0, borderRadius: RADIUS.md, boxShadow: SHADOW.sm },
   captureBtn: {
     padding: '8px 15px', background: C.brand, color: C.white,
     border: 'none', borderRadius: `${RADIUS.md}px 0 0 ${RADIUS.md}px`, fontWeight: 800,
@@ -116,11 +116,19 @@ export const S = {
   keyDone: {
     padding: '8px 16px', background: C.brand, color: C.white,
     border: 'none', borderRadius: RADIUS.md, fontWeight: 800, fontSize: 13,
-    fontFamily: FONT.body, cursor: 'pointer', boxShadow: `inset 0 -3px 0 ${C.brandDark}, ${SHADOW.brand}`,
+    fontFamily: FONT.body, cursor: 'pointer', boxShadow: `inset 0 -3px 0 ${C.brandDark}`,
   },
 
   // Main
-  main: { flex: 1, padding: 20, overflow: 'auto', animation: 'fadeIn .28s ease' },
+  main: { flex: 1, padding: 24, overflow: 'auto', animation: 'fadeIn .28s ease' },
+
+  // Screen anatomy (UI overhaul): a display title, then panels (the same card anatomy as features/ui.jsx Card).
+  screenTitle: { fontSize: 30, fontWeight: 800, color: C.ink, fontFamily: FONT.display, letterSpacing: '-0.01em', margin: '0 0 18px' },
+  panel: {
+    background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, boxShadow: SHADOW.card,
+    padding: '18px 20px',
+  },
+  panelTitle: { fontSize: 15, fontWeight: 800, color: C.ink, fontFamily: FONT.display, letterSpacing: '-0.01em', marginBottom: 12 },
 
   // Empty state
   emptyState: {
@@ -128,8 +136,8 @@ export const S = {
     justifyContent: 'center', flex: 1, minHeight: 'min-content', textAlign: 'center',
   },
   emptyTitle: {
-    fontSize: 26, fontWeight: 800, margin: '0 0 10px', fontFamily: FONT.display,
-    color: C.ink,
+    fontSize: 28, fontWeight: 800, margin: '0 0 10px', fontFamily: FONT.display,
+    color: C.ink, letterSpacing: '-0.01em',
   },
   emptyDesc: {
     fontSize: 14, color: C.inkDim, maxWidth: 520, lineHeight: 1.7, margin: 0, fontWeight: 500,
@@ -140,8 +148,8 @@ export const S = {
     padding: '18px 28px', borderRadius: RADIUS.lg, border: `1px solid ${C.border}`,
     background: C.surface,
     fontSize: 13, fontWeight: 700, fontFamily: FONT.body,
-    transition: 'transform .18s ease, box-shadow .18s ease, border-color .18s ease',
-    boxShadow: SHADOW.md, cursor: 'pointer', color: C.ink,
+    transition: 'box-shadow .18s ease, border-color .18s ease',
+    boxShadow: SHADOW.card, cursor: 'pointer', color: C.ink,
   },
 
   // Error
@@ -167,8 +175,8 @@ export const S = {
   // Progress
   progressBar: {
     display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
-    background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.md, marginBottom: 12,
-    boxShadow: SHADOW.sm,
+    background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, marginBottom: 12,
+    boxShadow: SHADOW.card,
   },
   progressDot: {
     width: 12, height: 12, borderRadius: '50%', background: C.brand,
@@ -192,7 +200,7 @@ export const S = {
   },
   bigBtn: {
     display: 'flex', alignItems: 'center', padding: '16px 36px',
-    background: C.brand, color: C.white, border: 'none', borderRadius: RADIUS.lg,
+    background: `linear-gradient(180deg, ${C.brandSoft}, ${C.brand})`, color: C.white, border: 'none', borderRadius: RADIUS.lg,
     fontWeight: 800, fontSize: 16, fontFamily: FONT.body, cursor: 'pointer',
     boxShadow: `inset 0 -4px 0 ${C.brandDark}, ${SHADOW.brand}`,
   },
@@ -214,7 +222,7 @@ export const S = {
   // Expanded
   backdrop: {
     position: 'fixed', inset: 0, zIndex: 1000,
-    background: 'rgba(22,36,44,.6)', backdropFilter: 'blur(8px)',
+    background: 'rgba(6,10,14,.6)', backdropFilter: 'blur(10px)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     padding: 24, cursor: 'pointer', animation: 'fadeIn .2s ease', overflow: 'auto',
   },

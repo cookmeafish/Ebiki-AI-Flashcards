@@ -18,8 +18,13 @@ describe('installed features', () => {
       it('carries no text of its own (all UI text lives in src/i18n/locales)', () => {
         expect(f.strings, f.id).toBeUndefined()
       })
+      it('points each practice hero at one of its own activities', () => {
+        for (const h of f[SLOT.PRACTICE_HERO] || []) {
+          expect((f[SLOT.PRACTICE] || []).some((a) => a.id === h.activity), `${f.id}.practiceHero.${h.id} -> ${h.activity}`).toBe(true)
+        }
+      })
       it('fills its slots with components', () => {
-        for (const slot of [SLOT.HEADER, SLOT.RAIL, SLOT.SETTINGS]) {
+        for (const slot of [SLOT.HEADER, SLOT.RAIL, SLOT.SETTINGS, SLOT.PRACTICE_HERO]) {
           for (const item of f[slot] || []) {
             expect(item.id, `${f.id}.${slot}`).toBeTruthy()
             expect(typeof item.Component, `${f.id}.${slot}.${item.id}`).toBe('function')
@@ -29,6 +34,8 @@ describe('installed features', () => {
         for (const slot of [SLOT.NAV, SLOT.PRACTICE]) {
           for (const item of f[slot] || []) {
             expect(typeof item.Screen, `${f.id}.${slot}.${item.id}`).toBe('function')
+            // A sidebar screen explains itself in the sidebar flyout.
+            if (slot === SLOT.NAV) expect(item.descKey, `${f.id}.${slot}.${item.id} needs a descKey`).toBeTruthy()
             for (const key of [item.labelKey, item.titleKey, item.descKey].filter(Boolean)) {
               for (const l of I18N_LANGS) expect(makeT(l)(key), `${f.id}: ${key} (${l})`).not.toBe(key)
             }

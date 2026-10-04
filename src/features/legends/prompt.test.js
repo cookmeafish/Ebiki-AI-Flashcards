@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   buildPlacementPrompt, buildMapPrompt, buildAreaPrompt, buildQuizPrompt, buildTalkSystem, buildTalkTurn, buildTalkScorePrompt,
-  buildMapEditPrompt, parseQuestions, itemIdFor, parseTalkScore,
+  buildMapEditPrompt, parseQuestions, itemIdFor, parseTalkScore, buildRaidPrompt,
 } from './prompt'
 
 const id = (s) => s
@@ -105,5 +105,24 @@ describe('review and the hard fights', () => {
   it('makes the boss and a Legendary run hard, never unfair', () => {
     expect(buildQuizPrompt(sp, ar, { kind: 'boss' }, { typedItems: items }).user).toMatch(/Push the learner to the limit.*never unfair/s)
     expect(buildQuizPrompt(sp, ar, { kind: 'legendary' }, { typedItems: items }).user).toMatch(/EVERY question typed/)
+  })
+})
+
+describe('raid prompt follows the fight settings', () => {
+  const cards = [{ front: 'llover', back: 'to rain' }]
+  it('immersion, dialect and the letter cue', () => {
+    const s = { name: 'Spanish', isLanguage: true, learnLang: 'Spanish', userLang: 'Spanish', rules: 'DIALECT Mexican Spanish', phrasing: 'FULL IMMERSION: write EVERYTHING in Spanish' }
+    const { user } = buildRaidPrompt(s, cards)
+    expect(user).toMatch(/FULL IMMERSION/)
+    expect(user).toMatch(/DIALECT Mexican Spanish/)
+    expect(user).toMatch(/first letter/)
+    expect(user).toMatch(/romanization/)
+    expect(user).toMatch(/Ask in Spanish/)
+  })
+  it('a general mode in Japanese keeps its terms', () => {
+    const s = { name: 'CompTIA A+', isLanguage: false, learnLang: 'English', userLang: 'Japanese', phrasing: 'Phrase everything in Japanese. Subject terms ... never translated' }
+    const { user } = buildRaidPrompt(s, [{ front: 'Port 443', back: 'HTTPS' }])
+    expect(user).toMatch(/Phrase everything in Japanese/)
+    expect(user).not.toMatch(/first letter/)
   })
 })

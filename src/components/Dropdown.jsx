@@ -119,7 +119,7 @@ export default function Dropdown({ value, onChange, options, style = {}, menuAli
           minWidth: menu.minW, width: 'max-content', maxWidth: menu.maxW,
           maxHeight: menu.maxH, overflowY: 'auto', overflowX: 'hidden',
           background: 'var(--c-surface)', border: '1px solid var(--c-border)',
-          borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,.35)', padding: 4,
+          borderRadius: 12, boxShadow: 'var(--sh-lg)', padding: 5,
           // Portaled to <html>, which is OUTSIDE the body's font-family, so set it
           // explicitly or the menu falls back to the browser default (serif).
           fontFamily: FONT.body,
@@ -130,7 +130,7 @@ export default function Dropdown({ value, onChange, options, style = {}, menuAli
               <div key={o.value} role="option" aria-selected={selected}
                 onClick={() => { onChange(o.value); setOpen(false) }}
                 style={{
-                  padding: '6px 10px', borderRadius: 6, cursor: 'pointer', whiteSpace: 'nowrap', fontSize: 13,
+                  padding: '7px 10px', borderRadius: 8, cursor: 'pointer', whiteSpace: 'nowrap', fontSize: 13,
                   overflow: 'hidden', textOverflow: 'ellipsis',
                   fontWeight: selected ? 700 : 500, color: o.color || 'var(--c-ink)',
                   background: selected ? 'var(--c-brand-tint)' : 'transparent',

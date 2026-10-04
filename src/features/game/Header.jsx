@@ -29,7 +29,7 @@ export function StreakChip() {
       data-tip={`${tCount(t, 'game_streakChip', s.streak)} · ${t('game_goalProgress', { xp, goal })}`}
       style={{
         position: 'relative', display: 'flex', alignItems: 'center', gap: 10, padding: '5px 12px', marginLeft: 8,
-        border: `2px solid ${C.border}`, borderRadius: RADIUS.pill, background: C.surface, cursor: 'pointer',
+        border: `1px solid ${C.border}`, borderRadius: RADIUS.pill, background: C.surface, cursor: 'pointer',
         fontFamily: FONT.display, fontWeight: 800, fontSize: 15, lineHeight: 1,
       }}>
       <span style={{ color: lit ? C.warning : C.inkFaint, filter: lit ? 'none' : 'grayscale(1)' }}>🔥 {s.streak}</span>

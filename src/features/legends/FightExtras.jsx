@@ -162,15 +162,29 @@ export function useBossTaunt(ctx, { bossKey, voice, rules, avoidWords, sample = 
   return { bubble, onMiss, onQuestion, onAnswer }
 }
 
-// The boss's speech bubble, right under the arena, its tail pointing up at the boss.
-export function TauntBubble({ bubble, name, calm }) {
+// Fight text with tappable words (ctx.words) when it is not in the app language; plain otherwise. An answered
+// question's text is never guarded (its answer is already on screen).
+export function useFightWords(ctx) {
+  const lang = ctx?.subject?.userLang || ''
+  const on = !!ctx?.words?.canTap?.(lang)
+  return {
+    on,
+    text: (text, source) => (on && text ? ctx.words.tappable(String(text), source, String(text), { lang }) : text),
+    popup: (source) => (on ? ctx.words.popup(source) : null),
+  }
+}
+
+// The boss's speech bubble, right under the arena, its tail pointing up at the boss. With `ctx`, its words are tappable.
+export function TauntBubble({ bubble, name, calm, ctx = null }) {
+  const w = useFightWords(ctx)
   if (!bubble?.text) return null
   return (
     <div key={bubble.n} role="status" aria-live="polite" data-boss-taunt="" style={{ position: 'relative', margin: '10px 0 0 22px', maxWidth: 520, padding: '9px 14px', borderRadius: RADIUS.lg, background: C.surface, border: `2px solid color-mix(in srgb, ${C.danger} 45%, ${C.border})`, color: C.ink, fontSize: 14.5, fontWeight: 700, lineHeight: 1.4, animation: calm ? 'none' : 'lgTauntIn .35s cubic-bezier(.3,1.5,.5,1) both' }}>
       <style>{'@keyframes lgTauntIn { 0% { transform: scale(.6); opacity: 0 } 100% { transform: scale(1); opacity: 1 } }'}</style>
       <span aria-hidden="true" style={{ position: 'absolute', top: -9, left: 26, width: 14, height: 14, background: C.surface, borderLeft: `2px solid color-mix(in srgb, ${C.danger} 45%, ${C.border})`, borderTop: `2px solid color-mix(in srgb, ${C.danger} 45%, ${C.border})`, transform: 'rotate(45deg)' }} />
       {name && <span style={{ display: 'block', fontSize: 11.5, fontWeight: 900, color: C.danger, letterSpacing: '.03em' }}>{name}</span>}
-      💬 {bubble.text}
+      <span dir="auto">💬 {w.text(bubble.text, `taunt-${bubble.n}`)}</span>
+      {w.popup(`taunt-${bubble.n}`)}
     </div>
   )
 }
@@ -237,6 +251,7 @@ export function MissTools({ ctx, entry, onAppeal, onLearn, rule = false, after =
 // RAIDS: "What tripped you up" after the fight (Legends extends its own all-answers list instead).
 export function Debrief({ ctx, fc, onLearn, expectedOf }) {
   const { t } = ctx
+  const w = useFightWords(ctx)
   const list = debriefEntries(fc.entries)
   if (!list.length) return null
   return (
@@ -246,10 +261,13 @@ export function Debrief({ ctx, fc, onLearn, expectedOf }) {
           const expected = expectedOf(e.q)
           return (
             <div key={e.aid} style={{ fontSize: 13.5, lineHeight: 1.45, borderBottom: `1px solid ${C.border}`, paddingBottom: 10, display: 'grid', gap: 4 }}>
-              <div style={{ fontWeight: 800, color: C.ink, whiteSpace: 'pre-wrap' }}>{e.overturned ? '✅' : e.first === 'glancing' ? '🟠' : '❌'} {e.q?.prompt}</div>
-              <div style={{ color: e.overturned ? C.success : C.danger }}>{e.overturned ? '✓' : '✗'} {e.answer || t('lg_debriefNoAnswer')}</div>
-              {expected && <div style={{ color: C.success }}>✓ {expected}</div>}
-              {e.note && <div style={{ color: C.inkDim }}>{e.note}</div>}
+              <div dir="auto" style={{ fontWeight: 800, color: C.ink, whiteSpace: 'pre-wrap' }}>{e.overturned ? '✅' : e.first === 'glancing' ? '🟠' : '❌'} {w.text(e.q?.prompt, `debrief-${e.aid}-q`)}</div>
+              {w.popup(`debrief-${e.aid}-q`)}
+              <div dir="auto" style={{ color: e.overturned ? C.success : C.danger }}>{e.overturned ? '✓' : '✗'} {e.answer || t('lg_debriefNoAnswer')}</div>
+              {expected && <div dir="auto" style={{ color: C.success }}>✓ {w.text(expected, `debrief-${e.aid}-x`)}</div>}
+              {expected && w.popup(`debrief-${e.aid}-x`)}
+              {e.note && <div dir="auto" style={{ color: C.inkDim }}>{w.text(e.note, `debrief-${e.aid}-n`)}</div>}
+              {e.note && w.popup(`debrief-${e.aid}-n`)}
               <MissTools ctx={ctx} entry={e} onAppeal={fc.appeal} after rule onLearn={onLearn ? () => onLearn(e) : null} expected={expected} />
             </div>
           )

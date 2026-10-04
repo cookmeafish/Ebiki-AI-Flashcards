@@ -22,7 +22,12 @@ export const REASONS = { work: 'for work', school: 'for school or an exam', trav
 const subjectLine = (s) => `Subject: ${s.name}${s.description ? ` (${s.description})` : ''}.`
 // Quizzes see the mode's description as the LEARNER'S OWN CONTEXT (why they learn, where, with whom: "moving to
 // Texas with my uncle"): situations may draw on it, answers never come from it.
-const quizSubjectLine = (s) => `Subject: ${s.name}.${s.description ? ` The learner's own context, in their words (their real goal; situations may draw on it): "${s.description}"` : ''}`
+// `phrasing`: the fight's language line (kit/fightSettings.js: full immersion, or "Ebi speaks" another language).
+const quizSubjectLine = (s) => `Subject: ${s.name}.${s.description ? ` The learner's own context, in their words (their real goal; situations may draw on it): "${s.description}"` : ''}${s.phrasing ? `\n${s.phrasing}` : ''}`
+// Study's cue: a typed language answer is pinned by a short sense cue in parentheses right at the blank (in the language
+// the instructions are written in) plus the answer's first letter in quotes; an answer written in Han characters or kana
+// is cued by the first letter of its romanization (pinyin, romaji) instead. Never the answer itself.
+const cueRule = (s) => `A typed answer asks for ONE form: right after the blank (or at the end) add a short sense cue in parentheses, written in ${s.userLang}, with the answer's first letter in quotes, for example (to rain, "l"). For an answer written in Han characters or kana, give the first letter of its romanization (pinyin, romaji) instead. The cue never contains the answer.`
 
 const scope = (s) => (s.isLanguage
   ? `This mode teaches ${s.learnLang} to someone who reads ${s.userLang}. ${s.rules || ''}`.trim()
@@ -165,7 +170,7 @@ export function buildQuizPrompt(subject, area, node, { choiceItems = [], typedIt
       // The rematch: a boss that won last time comes back with what beat the learner, but mostly the whole area.
       nemesis.length ? `REMATCH: last time the learner lost this fight on these items: ${nemesis.slice(0, 10).join(' | ')}. About ${NEMESIS_SHARE}% of the questions test them again (new wording and situations); the rest cover the whole area at random.` : '',
       subject.isLanguage
-        ? `Instructions in ${subject.userLang}; answers in ${subject.learnLang}. A typed answer asks for ONE form: give the sense and a first-letter cue when a synonym could also fit.`
+        ? `Instructions in ${subject.userLang}; answers in ${subject.learnLang}. ${cueRule(subject)} ${subject.rules || ''}`.trim()
         : `Everything in ${subject.userLang}. Test understanding and application, not wording.`,
       `Write ${n} questions. "explanation" in ${subject.userLang}: why the answer is right, in one sentence.`,
       knowledge ? `Background from the learner's own material (only to keep facts accurate; never ask about anything in it that the learning material above does not teach):\n${knowledge}` : '',
@@ -306,7 +311,7 @@ export function buildRaidPrompt(subject, cards, { level = '' } = {}) {
       level ? `Learner: ${level}.` : '',
       `Exactly ONE question per card below, in the same order, testing ONLY what that card says (never another card, never outside knowledge).`,
       subject.isLanguage
-        ? `Ask in ${subject.userLang} for the ${subject.learnLang} word or phrase (recall), or give a short ${subject.learnLang} sentence with a blank for it. "accepted": every correct ${subject.learnLang} answer. Pin ONE answer: add a short cue in brackets when a synonym would also fit.`
+        ? `Ask in ${subject.userLang} for the ${subject.learnLang} word or phrase (recall), or give a short ${subject.learnLang} sentence with a blank for it. "accepted": every correct ${subject.learnLang} answer. ${cueRule(subject)} ${subject.rules || ''}`.trim()
         : `Ask for the term, or to apply the idea to a short new case. "accepted": the correct short answers (terms stay as written).`,
       '"choices": 4 options, the right one plus 3 CLOSE but clearly wrong ones (the tempting mistakes). The question must never contain its own answer.',
       'Situations are everyday or from the learner\'s own context above: never a city, region, country or person that neither the card nor that context names.',

@@ -1,11 +1,12 @@
-// Shared building blocks for feature screens, in the chunky, friendly style (thick borders, a solid
-// "3D" bottom edge on buttons, rounded cards). Colors come from tokens only, so both themes work.
+// Shared building blocks for feature screens: layered cards (hairline + soft shadow, docs/ui-overhaul.md), a solid
+// "3D" bottom edge on the chunky buttons, rounded corners. Colors come from tokens only, so both themes work.
 import { useEffect, useRef } from 'react'
-import { C, FONT, RADIUS } from '../config/tokens'
+import { C, FONT, RADIUS, SHADOW, TYPE } from '../config/tokens'
 import { DEFAULT_SHRIMP, shrimpUrl } from '../config/shrimp'
 
 export const UI = {
-  cardBorder: 2,           // px, card outline
+  cardBorder: 1,           // px, card outline (a hairline: depth comes from the shadow)
+  edgeWidth: 2,            // px, side borders of a pressable 3D control (depthBorder)
   buttonDepth: 4,          // px, the solid bottom edge that makes a button look pressable
   barHeight: 12,           // px, progress bars
   modalWidth: 420,         // px, default modal width
@@ -20,7 +21,7 @@ export const shade = (color, pct = 22) => `color-mix(in srgb, ${color} ${100 - p
 
 // A border whose BOTTOM edge is thicker and darker: the pressable look. Longhand properties only, so React
 // never mixes a `border` shorthand with a per-side width on re-render.
-export const depthBorder = (color, { width = UI.cardBorder, depth = UI.buttonDepth, bottomColor = shade(color) } = {}) => ({
+export const depthBorder = (color, { width = UI.edgeWidth, depth = UI.buttonDepth, bottomColor = shade(color) } = {}) => ({
   borderStyle: 'solid', borderWidth: `${width}px ${width}px ${depth}px`, borderColor: `${color} ${color} ${bottomColor}`,
 })
 
@@ -28,11 +29,11 @@ export function Card({ children, style, onClick, title }) {
   // A clickable card is a button for the keyboard too (Tab to it, Enter or Space opens it).
   const keys = onClick ? { role: 'button', tabIndex: 0, onKeyDown: (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); onClick(e) } } } : {}
   return (
-    <div onClick={onClick} {...keys} className={onClick ? 'click-dim' : undefined} style={{
-      background: C.surface, border: `${UI.cardBorder}px solid ${C.border}`, borderRadius: RADIUS.lg,
-      padding: 16, cursor: onClick ? 'pointer' : undefined, ...style,
+    // Surface, hairline and shadow come from the .ui-card class (not inline), so .ui-lift's hover shadow can win.
+    <div onClick={onClick} {...keys} className={onClick ? 'ui-card ui-lift' : 'ui-card'} style={{
+      borderRadius: RADIUS.lg, padding: 18, cursor: onClick ? 'pointer' : undefined, ...style,
     }}>
-      {title && <div style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 16, color: C.ink, marginBottom: 10 }}>{title}</div>}
+      {title && <div style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: TYPE.h3 + 1, letterSpacing: TYPE.tight, color: C.ink, marginBottom: 10 }}>{title}</div>}
       {children}
     </div>
   )
@@ -43,11 +44,16 @@ export function Card({ children, style, onClick, title }) {
 export function ChunkyButton({ children, onClick, color = C.brand, textColor = C.white, disabled, style, variant = 'solid', type = 'button' }) {
   const ghost = variant === 'ghost'
   return (
-    <button type={type} onClick={onClick} disabled={disabled} className="btn-press" style={{
+    // The solid glow lives in the .ui-chunky class (color via --chunky), never inline: an inline shadow would block
+    // the hover cue. The ghost variant keeps the generic hover tint.
+    <button type={type} onClick={onClick} disabled={disabled} className={ghost ? 'btn-press' : 'btn-press ui-chunky'} style={{
+      '--chunky': color,
       fontFamily: FONT.body, fontWeight: 800, fontSize: 14, letterSpacing: '.04em', textTransform: 'uppercase',
       padding: '11px 18px', borderRadius: RADIUS.md, cursor: disabled ? 'default' : 'pointer',
-      background: ghost ? C.surface : color, color: ghost ? color : textColor,
-      ...depthBorder(ghost ? C.border : color, { bottomColor: ghost ? C.border : shade(color) }),
+      // A flat face with a pressable edge (solid; second pass: no gradient wash); a quiet surface with a hairline edge (ghost).
+      background: ghost ? C.surface : color,
+      color: ghost ? color : textColor,
+      ...depthBorder(ghost ? C.border : shade(color, 12), { width: 1, depth: UI.buttonDepth, bottomColor: ghost ? C.borderStrong : shade(color) }),
       opacity: disabled ? 0.5 : 1, ...style,
     }}>{children}</button>
   )
@@ -56,8 +62,12 @@ export function ChunkyButton({ children, onClick, color = C.brand, textColor = C
 export function ProgressBar({ value, max, color = C.warning, height = UI.barHeight, style }) {
   const pct = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0
   return (
-    <div style={{ height, borderRadius: RADIUS.pill, background: C.surfaceSunken, overflow: 'hidden', ...style }}>
-      <div style={{ width: `${pct}%`, height: '100%', borderRadius: RADIUS.pill, background: color, transition: 'width .4s ease' }} />
+    <div style={{ height, borderRadius: RADIUS.pill, background: C.surfaceSunken, overflow: 'hidden', boxShadow: `inset 0 1px 2px color-mix(in srgb, ${C.ink} 12%, transparent)`, ...style }}>
+      <div style={{
+        width: `${pct}%`, height: '100%', borderRadius: RADIUS.pill, transition: 'width .4s var(--ease-out)',
+        background: `linear-gradient(90deg, color-mix(in srgb, ${color} 80%, white), ${color})`,
+        boxShadow: pct > 0 ? 'inset 0 1px 0 rgba(255,255,255,.3)' : undefined,
+      }} />
     </div>
   )
 }
@@ -94,12 +104,13 @@ export function Modal({ open, onClose, children, width = UI.modalWidth, zoom = 1
   return (
     <div ref={rootRef} onMouseDown={(e) => { if (dismissable && e.target === e.currentTarget) onClose?.() }} style={{
       position: 'fixed', top: 0, left: 0, width: `calc(100vw / ${zoom})`, height: `calc(100vh / ${zoom})`,
-      background: 'rgba(0,0,0,.45)', zIndex: UI.zModal, display: 'grid', placeItems: 'center', padding: 16, boxSizing: 'border-box',
+      background: 'rgba(6,10,14,.5)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+      zIndex: UI.zModal, display: 'grid', placeItems: 'center', padding: 16, boxSizing: 'border-box', animation: 'fadeIn .18s ease',
     }}>
-      <div role="dialog" style={{
+      <div role="dialog" className="ui-pop" style={{
         width: '100%', maxWidth: width, maxHeight: '100%', overflow: 'auto', background: C.surface, color: C.ink,
-        border: `${UI.cardBorder}px solid ${C.border}`, borderRadius: RADIUS.xl, padding: 22, boxSizing: 'border-box',
-        fontFamily: FONT.body, animation: 'fadeIn .2s ease',
+        border: `${UI.cardBorder}px solid ${C.border}`, borderRadius: RADIUS.xl, padding: 24, boxSizing: 'border-box',
+        fontFamily: FONT.body, boxShadow: SHADOW.xl,
       }}>{children}</div>
     </div>
   )
@@ -109,10 +120,11 @@ export function Modal({ open, onClose, children, width = UI.modalWidth, zoom = 1
 export function EbiSays({ pose = DEFAULT_SHRIMP, children, size = 96 }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-      <img src={shrimpUrl(pose)} alt="" width={size} style={{ flexShrink: 0, height: 'auto' }} />
+      <img src={shrimpUrl(pose)} alt="" width={size} style={{ flexShrink: 0, height: 'auto', filter: 'drop-shadow(var(--sh-sm))' }} />
       <div style={{
         position: 'relative', background: C.surface, border: `${UI.cardBorder}px solid ${C.border}`, borderRadius: RADIUS.lg,
-        padding: '10px 14px', fontSize: 15, fontWeight: 700, color: C.ink, lineHeight: 1.4,
+        borderBottomLeftRadius: 6, boxShadow: SHADOW.card,
+        padding: '11px 15px', fontSize: 15, fontWeight: 700, color: C.ink, lineHeight: 1.4,
       }}>{children}</div>
     </div>
   )

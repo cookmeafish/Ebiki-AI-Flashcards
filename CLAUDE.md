@@ -7,6 +7,8 @@ Brand color **#DF2540**. Themes **Ocean Light** + **Dark**. Fonts Baloo 2 (displ
 - `src/config/tokens.js`: `C` (colors as `var(--c-*)`), `FONT`, `RADIUS`, `SHADOW`. Single source of truth.
 - Palettes: CSS variables in the global `<style>` in `src/App.jsx` (`:root` = light, `[data-theme="dark"]`).
   `appTheme` → `<html data-theme>`, persisted in config + localStorage; no-flash pre-paint script in `index.html`.
+- **Look and feel: `docs/ui-overhaul.md`** (2026-10 overhaul: palette roles, layered elevation `SHADOW.card/glow`,
+  `TYPE`/`MOTION` scales, `.ui-card`/`.ui-lift`/`.ui-hero`/`.ui-halo`, `S.screenTitle`/`S.panel`, how to revert).
 - `src/styles/theme.js`: `S.*` style objects built from tokens. Primary CTAs: className `btn-press`. Tabs: `ui-tab`.
 - **NO EM DASHES in ANY user-facing text**: UI strings, i18n (all four languages), `data-tip`, `title`,
   placeholders, dialogs, toasts, errors, AI output (forbidden in prompts, stripped in code). Use `. ` / `: ` / ` · `
@@ -1161,7 +1163,8 @@ Re-runnable from Settings → General ("Run setup again" with an unchanged provi
      alpha> }`. Accent is a CSS var, never hex: `--c-danger` destructive · `--c-warning` caution/session ·
      `--c-brand` primary-ish · `--c-purple` AI/insight · `--c-success` Anki/save · `--c-ink-dim` neutral.
    - Solid CTA (max one per screen): `{ ...S.captureBtn, borderRadius: 6-8 }` + `className="btn-press"`.
-2. **Hover is AUTOMATIC** (a global rule darkens non-disabled `<button>`, `<select>`, checkboxes). Only add:
+2. **Hover is AUTOMATIC** (a global rule tints non-disabled `<button>`, `<select>`, checkboxes with `--c-hover`:
+   ink in light, white in dark). Cards and tiles use `.ui-card` + `.ui-lift` (hover raises the shadow instead). Only add:
    `click-dim` on clickable `<div>`s; `ui-btn` to also deepen a ghost border; `ui-tab` for nav tabs, with
    `ui-tab-current` on the active one; `card-head` for clickable card headers (controls inside need
    `stopPropagation`). `.hover-dim` is a legacy no-op.
@@ -1542,6 +1545,7 @@ via the native value setter + `input` event (React-controlled fields). Never on 
 - The Stats tab's streak is ANKI's review streak ("Review Streak"); the game streak is Ebiki activity.
 
 ### Practice activities, speech and the shared kit
+- **`practiceHero`** (`{id, order, activity, Component}`): the Practice hub shows the lowest-order hero full width above the tiles and hides that activity's tile; the Daily raid's is `legends/RaidHero.jsx` (state in `heroState.js`, pure, tested; read-only, never writes raid state). **Never give a .js and a .jsx the same name ignoring case** (Windows resolved `./RaidHero` to `raidHero.js`). Sidebar rows show a hover/focus flyout (`NavFlyout`, portaled like Dropdown) with `nav_desc_<id>` / a nav item's `descKey` (required, tested).
 - **Slots added**: `practiceActivities` (Practice hub tiles; Screen gets `{ onExit, params }`), `chatMenuItems`
   (`{id, icon, labelKey, onPick(ctx), visible?(ctx)}` in the Chat "+" menu). **Intents**: `ctx.open(navId, payload)`
   switches screens and leaves a payload the screen takes with `useIntent` (Chat → Practice → Roleplay). Features never
@@ -1716,6 +1720,29 @@ screen `legends` (order 15, no rail: the map header shows the level), rail card 
   `renderTappableText`/`renderWordLookupPopup`): Talk messages and Scene lines (replay is now its own 🔊 button, since
   the line was one big button). Sources are unique per chat/story (`sid`); only 'question'/'hint' are guarded as a live
   answer. Language modes only.
+- **Fight settings + Study formatting in every quiz** (owner: "the user may want to fully immerse in a language").
+  `legends/FightSettings.jsx` = one collapsible row under a raid's / boss's / Legendary's intro: mode deck, learned
+  language, "Ebi speaks", word hints, grammar feedback, strict accents, Learn it, answer style (typed vs choices first,
+  raids and bosses). The values ARE the mode's studyRules (ONE setting with Study) through the generic
+  `ctx.study.rules()` / `ctx.study.setRules(patch)` (`updateModeById`, live copy); shaping is `kit/fightSettings.js`
+  (pure, tested). `fightCtx(ctx)` gives the fight a subject whose `userLang` is "Ebi speaks" ('' keeps the app
+  language, as fights always did) plus `phrasing` (FULL IMMERSION when it equals the learned language; a general mode
+  in another language keeps terms untranslated and grades understanding in any language), so EVERY fight prompt
+  (questions, verdict/explain/recheck, taunts, Learn it, rule cards) follows without knowing. A change of learned
+  language / Ebi speaks / dialect on the intro rewrites the questions (`generationKey`). Grammar feedback off: grammar
+  outside the tested word does not make a strike glancing (Study's rule). Raid questions get Study's cue (parentheses
+  + first letter, romanization initial for Han/kana; `ensureLetterCue` adds a skeleton when missing).
+  **`ctx.words.tappable(text, source, sentence, opts)`** with `opts` ({ answers, glosses, lang }) = Study's question
+  formatting for any text (muted "(...)" cues, the word-hint slot, answer words untappable), tappable when
+  `tapAllowed` (a language mode, or text in a language other than the app's; `src/utils/tapTokens.js`, the ONE tap
+  tokenizer: Intl.Segmenter for no-space scripts, per-character Han/kana fallback; tested in zh/ja/ko/ar/th).
+  `answers` guards the LIVE question (`questionAnswersOf`: accepted + correct choice + alt's): a revealing lookup shows
+  `lookup_wouldReveal`, never cached; pass [] once the answer shows. `ctx.words.canTap(lang)`, `ctx.words.glosses(text,
+  { answers })` (Study's gloss prompt, readings for Han/kanji). QuizRunner uses them for the question, choices (a word
+  tap never picks the tile), hint, answer, note and explanation, each with its own source; `startChoices(q)` opens a
+  dual question on its choices ("⌨ Type it instead" switches back). Taunts, the raid debrief, Legends' all-answers list
+  and the Learn-it panel (card, hooks, chat) are tappable too. General-mode lookups explain in the app language and
+  offer no card or hook.
 - **The boss is a fight** (`BossArena.jsx`): a dramatic entrance (`BossIntro`, timings in `ENTRANCE`: hazard stripes,
   the boss slams down, quake, shockwave, stamped title, lives popping in; static under reduced motion), then the boss
   above the questions with a health bar = right answers needed (`bossOdds`: `PASS.boss`) and LIVES = misses allowed

@@ -706,12 +706,14 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
         )}
         {messages.map((m, i) => (
           <div key={i} data-msg style={{
-            marginBottom: 8, padding: '8px 10px', borderRadius: 6,
-            background: m.role === 'user' ? 'rgba(223,37,64,.1)' : 'rgba(24,169,87,.05)',
-            border: m.role === 'user' ? '1px solid rgba(223,37,64,.15)' : '1px solid rgba(24,169,87,.1)',
-            fontSize: 12, color: 'var(--c-ink)', lineHeight: 1.6,
-            wordBreak: 'break-word',
-            ...(m.role === 'user' ? { whiteSpace: 'pre-wrap' } : {}),
+            // Second pass: the same bubbles as the Chat tab (your words in solid ink, Ebi's on a calm card).
+            marginBottom: 8, padding: m.role === 'user' ? '8px 12px' : '10px 12px',
+            borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : '4px 16px 16px 16px',
+            background: m.role === 'user' ? 'var(--c-ink-solid)' : 'var(--c-surface)',
+            border: m.role === 'user' ? '1px solid var(--c-ink-solid)' : '1px solid var(--c-border)',
+            fontSize: 12.5, color: m.role === 'user' ? 'var(--c-on-ink)' : 'var(--c-ink)', lineHeight: 1.6,
+            wordBreak: 'break-word', boxShadow: 'var(--sh-sm)',
+            ...(m.role === 'user' ? { whiteSpace: 'pre-wrap', width: 'fit-content', maxWidth: '88%', marginLeft: 'auto', fontWeight: 600 } : {}),
           }}>
             {m.role === 'user' ? m.text : <Markdown text={m.text} />}
           </div>
@@ -820,7 +822,7 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
             border: '1px solid var(--c-border)',
             borderRadius: 16, overflow: 'hidden',
             display: 'flex', flexDirection: 'column',
-            zIndex: 10000, boxShadow: '0 24px 60px rgba(16,36,44,.18)',
+            zIndex: 10000, boxShadow: 'var(--sh-xl)',
             fontFamily: FONT.body,
             animation: 'pop .18s cubic-bezier(.34,1.56,.64,1)',
           }}>
@@ -838,7 +840,7 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
           border: '1px solid var(--c-border)',
           borderRadius: isEdgeZone ? 0 : 16, overflow: 'hidden',
           display: 'flex', flexDirection: 'column',
-          zIndex: 10000, boxShadow: '0 24px 60px rgba(16,36,44,.18)',
+          zIndex: 10000, boxShadow: 'var(--sh-xl)',
           fontFamily: FONT.body,
           transition: snapDragging ? 'none' : 'left .14s ease, top .14s ease, width .14s ease, height .14s ease',
         }}>

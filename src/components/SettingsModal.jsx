@@ -577,12 +577,12 @@ export default function SettingsModal(p) {
   const currentPane = PANE_ALIAS[category] || category
 
   const sectionTitle = (txt) => (
-    <div style={{ fontSize: 16, fontWeight: 800, fontFamily: FONT.display, color: C.ink, marginBottom: 14 }}>{txt}</div>
+    <div style={{ fontSize: 22, fontWeight: 800, fontFamily: FONT.display, letterSpacing: '-0.01em', color: C.ink, marginBottom: 16 }}>{txt}</div>
   )
   const fieldLabel = (txt) => <div style={{ fontSize: 11, fontWeight: 700, color: C.inkDim, marginBottom: 5, textTransform: 'uppercase', letterSpacing: '.04em' }}>{txt}</div>
   // A card's heading when the card groups several fields (Study: Session / Languages / Feedback).
   const cardTitle = (txt) => <div style={{ fontSize: 13, fontWeight: 800, color: C.ink, marginBottom: 10 }}>{txt}</div>
-  const card = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.md, padding: '14px 16px', marginBottom: 12, boxShadow: SHADOW.sm }
+  const card = { background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: '16px 18px', marginBottom: 12, boxShadow: SHADOW.card }
   const hint = { fontSize: 11, color: C.inkFaint, marginTop: 6, lineHeight: 1.5 }
 
   // ── Mode context bar (shown atop per-mode categories) ──
@@ -1329,24 +1329,26 @@ export default function SettingsModal(p) {
     <div style={{ ...S.backdrop, width: 'calc(100vw / 1.35)', height: 'calc(100vh / 1.35)' }}
       onMouseDown={(e) => { backdropDownRef.current = e.target === e.currentTarget }}
       onClick={(e) => { if (backdropDownRef.current && e.target === e.currentTarget) onClose(); backdropDownRef.current = false }}>
-      <div onClick={(e) => e.stopPropagation()} className="settings-modal" style={{
-        display: 'flex', width: 'min(900px, calc(94vw / 1.35))', height: 'min(640px, calc(86vh / 1.35))',
-        background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg,
-        boxShadow: SHADOW.xl, overflow: 'hidden', animation: 'pop .18s cubic-bezier(.34,1.56,.64,1)', cursor: 'default',
+      <div onClick={(e) => e.stopPropagation()} className="settings-modal ui-pop" style={{
+        display: 'flex', width: 'min(960px, calc(94vw / 1.35))', height: 'min(680px, calc(88vh / 1.35))',
+        background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl,
+        boxShadow: SHADOW.xl, overflow: 'hidden', cursor: 'default',
       }}>
         {/* Sidebar */}
-        <div style={{ width: 200, flexShrink: 0, background: C.surfaceSunken, borderRight: `1px solid ${C.border}`, padding: '14px 10px', overflowY: 'auto' }}>
-          <div style={{ fontSize: 15, fontWeight: 800, fontFamily: FONT.display, color: C.ink, padding: '2px 8px 12px' }}>⚙ {t('settingsTitle')}</div>
+        <div style={{ width: 220, flexShrink: 0, background: C.surfaceSunken, borderRight: `1px solid ${C.border}`, padding: '18px 12px', overflowY: 'auto' }}>
+          <div style={{ fontSize: 22, fontWeight: 800, fontFamily: FONT.display, letterSpacing: '-0.02em', color: C.ink, padding: '0 10px 14px' }}>{t('settingsTitle')}</div>
           {NAV.map((grp) => (
             <div key={grp.group} style={{ marginBottom: 12 }}>
               <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: C.inkFaint, padding: '4px 8px' }}>{grp.group}</div>
               {grp.items.map((it) => (
                 <button key={it.id} onClick={() => setCategory(it.id)} style={{
                   display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
-                  padding: '8px 10px', borderRadius: RADIUS.sm, border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-                  fontSize: 13, fontWeight: currentPane === it.id ? 700 : 600, marginBottom: 2,
-                  background: currentPane === it.id ? C.brandTint : 'transparent',
-                  color: currentPane === it.id ? C.brand : C.inkDim,
+                  padding: '9px 10px', borderRadius: RADIUS.md, border: `1px solid ${currentPane === it.id ? C.border : 'transparent'}`, cursor: 'pointer', fontFamily: 'inherit',
+                  fontSize: 13, fontWeight: currentPane === it.id ? 800 : 600, marginBottom: 2,
+                  // Second pass: the current pane is a raised row with a red marker (no pink wash), like the sidebar.
+                  background: currentPane === it.id ? C.surface : 'transparent',
+                  ...(currentPane === it.id ? { boxShadow: `inset 3px 0 0 ${C.brand}, ${SHADOW.sm}` } : {}),
+                  color: currentPane === it.id ? C.ink : C.inkDim,
                 }}>
                   <span style={{ width: 16, textAlign: 'center' }}>{it.icon}</span>{it.label}
                 </button>
@@ -1360,7 +1362,7 @@ export default function SettingsModal(p) {
             <button onClick={onClose} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px' }}>{t('close')}</button>
           </div>
           {/* key: a new pane starts at the top, not at the previous pane's scroll position. */}
-          <div key={currentPane} style={{ flex: 1, overflowY: 'auto', padding: '8px 22px 24px' }}>
+          <div key={currentPane} style={{ flex: 1, overflowY: 'auto', padding: '4px 30px 28px' }}>
             {panes[currentPane] || General}
           </div>
         </div>

@@ -217,7 +217,7 @@ export default function RoleplayScreen({ onExit, params }) {
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder={subject.isLanguage ? t('rp_ownPlaceholderLang') : t('rp_ownPlaceholderGeneral')}
             onKeyDown={(e) => { if (e.key === 'Enter' && custom.trim() && !making && ai.hasKey && !e.nativeEvent?.isComposing) makeFrom(buildCustomScenarioPrompt(subject, custom.trim())) }}
-            style={{ flex: '1 1 260px', padding: '11px 13px', fontSize: 14, borderRadius: RADIUS.md, border: `2px solid ${C.border}`, background: C.surfaceAlt, color: C.ink }} />
+            style={{ flex: '1 1 260px', padding: '11px 13px', fontSize: 14, borderRadius: RADIUS.md, border: `1px solid ${C.border}`, background: C.surfaceAlt, color: C.ink }} />
           <ChunkyButton onClick={() => makeFrom(buildCustomScenarioPrompt(subject, custom.trim()))} disabled={!custom.trim() || making || !ai.hasKey}>{making ? t('rp_making') : t('rp_play')}</ChunkyButton>
           <ChunkyButton onClick={() => fileRef.current?.click()} disabled={making || !ai.hasKey} variant="ghost" color={C.info}>📷 {t('rp_fromPhoto')}</ChunkyButton>
           <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; onPhoto(f) }} />
@@ -272,7 +272,7 @@ export default function RoleplayScreen({ onExit, params }) {
               )}
             <div style={{ display: 'grid', gap: 8 }}>
               {card.cards.map((c, i) => (
-                <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '10px 12px', borderRadius: RADIUS.md, border: `2px solid ${C.border}` }}>
+                <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '10px 12px', borderRadius: RADIUS.md, border: `1px solid ${C.border}` }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 800, color: C.ink }}>{c.front}</div>
                     <div style={{ fontSize: 12.5, color: C.inkDim, whiteSpace: 'pre-wrap' }}>{c.back}</div>
@@ -314,7 +314,7 @@ export default function RoleplayScreen({ onExit, params }) {
           <div key={i} style={{ alignSelf: m.role === 'me' ? 'flex-end' : 'flex-start', maxWidth: '80%' }}>
             <div style={{
               padding: '10px 14px', borderRadius: RADIUS.lg,
-              background: m.role === 'me' ? C.brandTint : C.surface, border: `2px solid ${m.role === 'me' ? C.brandRing : C.border}`,
+              background: m.role === 'me' ? C.brandTint : C.surface, border: `1px solid ${m.role === 'me' ? C.brandRing : C.border}`,
               color: C.ink, fontSize: 15, lineHeight: 1.45, whiteSpace: 'pre-wrap',
             }}>{tappable && m.role === 'ebi' ? ctx.words.tappable(m.text, `${sid}-${i}`) : m.text}</div>
             {tappable && m.role === 'ebi' && ctx.words.popup(`${sid}-${i}`)}
@@ -332,7 +332,7 @@ export default function RoleplayScreen({ onExit, params }) {
         {voiceOn && <TalkButton ctx={ctx} lang={subject.isLanguage ? subject.learnLangIso : ''} onText={send} onStart={() => speakingRef.current?.stop()} disabled={busy || phase === 'scoring'} compact />}
         <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={t('rp_placeholder')} disabled={phase === 'scoring'}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) send() }}
-          style={{ flex: 1, padding: '12px 14px', fontSize: 15, borderRadius: RADIUS.md, border: `2px solid ${C.border}`, background: C.surfaceAlt, color: C.ink }} />
+          style={{ flex: 1, padding: '12px 14px', fontSize: 15, borderRadius: RADIUS.md, border: `1px solid ${C.border}`, background: C.surfaceAlt, color: C.ink }} />
         <button onClick={send} disabled={busy || !input.trim()} className="btn-press" style={{
           padding: '0 18px', borderRadius: RADIUS.md, ...depthBorder(C.success), background: C.success, color: C.white,
           fontWeight: 800, cursor: busy || !input.trim() ? 'default' : 'pointer', opacity: busy || !input.trim() ? 0.5 : 1,

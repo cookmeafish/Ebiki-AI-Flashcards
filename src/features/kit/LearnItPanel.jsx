@@ -8,7 +8,8 @@ import { C, FONT, RADIUS } from '../../config/tokens'
 import { Modal, ChunkyButton } from '../ui'
 import { buildLearnChatPrompt, boldParts, LEARN_ROLE, LEARN_MAX_TOKENS } from './learnIt'
 
-const Rich = ({ text }) => boldParts(text).map((p, i) => (p.bold ? <b key={i}>{p.text}</b> : <span key={i}>{p.text}</span>))
+// `tap(text, key)` makes the words tappable (ctx.words); all parts of one text share its popup (`k`).
+const Rich = ({ text, tap, k = '' }) => boldParts(text).map((p, i) => (p.bold ? <b key={i}>{tap ? tap(p.text, k) : p.text}</b> : <span key={i}>{tap ? tap(p.text, k) : p.text}</span>))
 
 export default function LearnItPanel({ ctx, item, onClose, closeLabel }) {
   const { t, ai, subject } = ctx
@@ -49,7 +50,11 @@ export default function LearnItPanel({ ctx, item, onClose, closeLabel }) {
     } finally { if (alive.current) setChatBusy(false) }
   }
 
-  const tappable = (text, key) => (subject.isLanguage && ctx.words ? ctx.words.tappable(text, `${sid}-${key}`) : text)
+  // Every word Ebi writes here is tappable when it is not in the app language (a language mode, or a fight speaking
+  // another language): the card, the hooks and the chat. Each spot has its own popup.
+  const canTap = !!ctx.words?.canTap?.(subject.userLang)
+  const tappable = (text, key) => (ctx.words && canTap ? ctx.words.tappable(text, `${sid}-${key}`, text, { lang: subject.userLang }) : text)
+  const popup = (key) => (ctx.words && canTap ? ctx.words.popup(`${sid}-${key}`) : null)
   const backLines = String(item.back || '').split(/\n+/).map((l) => l.trim()).filter(Boolean)
   const small = { fontFamily: FONT.body, fontSize: 12.5, fontWeight: 800, padding: '5px 12px', borderRadius: RADIUS.pill, background: 'transparent', cursor: 'pointer' }
   return (
@@ -57,18 +62,18 @@ export default function LearnItPanel({ ctx, item, onClose, closeLabel }) {
       <div data-top-overlay="" data-learn-it="" style={{ display: 'grid', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 14, fontWeight: 900, color: C.brand }}>📖 {t('kit_learnTitle')}</span>
-          <span style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 19, color: C.ink, whiteSpace: 'pre-wrap' }}>{tappable(item.front, 'front')}</span>
+          <span dir="auto" style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 19, color: C.ink, whiteSpace: 'pre-wrap' }}>{tappable(item.front, 'front')}</span>
         </div>
-        {ctx.words && subject.isLanguage && ctx.words.popup(`${sid}-front`)}
+        {popup('front')}
         {backLines.length > 0 && (
           <div style={{ fontSize: 14, color: C.ink, background: C.surfaceAlt, border: `1px solid ${C.border}`, borderRadius: RADIUS.md, padding: '10px 12px', lineHeight: 1.6, maxHeight: 220, overflowY: 'auto' }}>
-            {backLines.map((l, i) => <div key={i}>{tappable(l, `b${i}`)}</div>)}
+            {backLines.map((l, i) => <div key={i} dir="auto">{tappable(l, `b${i}`)}</div>)}
           </div>
         )}
-        {ctx.words && subject.isLanguage && backLines.map((_, i) => <span key={i}>{ctx.words.popup(`${sid}-b${i}`)}</span>)}
+        {backLines.map((_, i) => <span key={i}>{popup(`b${i}`)}</span>)}
         {hooks.map((h, i) => (
           <div key={i} style={{ fontSize: 13, color: C.ink, background: `color-mix(in srgb, ${C.purple} 8%, ${C.surface})`, border: `1px solid color-mix(in srgb, ${C.purple} 30%, transparent)`, borderRadius: RADIUS.sm, padding: '8px 10px', lineHeight: 1.55, display: 'flex', gap: 6 }}>
-            <span style={{ fontWeight: 800, color: C.purple }}>🧠</span><div style={{ flex: 1, minWidth: 0, whiteSpace: 'pre-wrap' }}><Rich text={h} /></div>
+            <span style={{ fontWeight: 800, color: C.purple }}>🧠</span><div dir="auto" style={{ flex: 1, minWidth: 0, whiteSpace: 'pre-wrap' }}><Rich text={h} tap={tappable} k={`h${i}`} />{popup(`h${i}`)}</div>
           </div>
         ))}
         {learn?.makeHook && (
@@ -82,9 +87,9 @@ export default function LearnItPanel({ ctx, item, onClose, closeLabel }) {
         {chat.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
             {chat.map((m, i) => (
-              <div key={i} style={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '90%', fontSize: 13, lineHeight: 1.55, color: m.error ? C.danger : C.ink, whiteSpace: 'pre-wrap',
+              <div key={i} dir="auto" style={{ alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '90%', fontSize: 13, lineHeight: 1.55, color: m.error ? C.danger : C.ink, whiteSpace: 'pre-wrap',
                 background: m.role === 'user' ? `color-mix(in srgb, ${C.brand} 8%, ${C.surface})` : C.surfaceAlt, border: `1px solid ${m.role === 'user' ? `color-mix(in srgb, ${C.brand} 25%, transparent)` : C.border}`, borderRadius: RADIUS.sm, padding: '6px 10px' }}>
-                <Rich text={m.content} />
+                {m.role === 'assistant' && !m.error ? <><Rich text={m.content} tap={tappable} k={`m${i}`} />{popup(`m${i}`)}</> : <Rich text={m.content} />}
               </div>
             ))}
             {chatBusy && <span style={{ fontSize: 12, color: C.inkDim }}>{t('kit_learnTyping')}</span>}

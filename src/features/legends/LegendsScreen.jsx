@@ -15,10 +15,10 @@ import { readEvidence, judgeLevelFromEvidence } from '../kit/evidenceJudge'
 import { knownTile, knownThinText } from './knownReason'
 import { useLegendsMap, updateMap, configureLegends, clearStep, claimReward, rewardKeyFor, LEGENDS_ID } from './store'
 import { applyLegendaryResult, createMap, applyNodeResult, needsDetail, needsMoreAreas, starsFor, logDay, OPTIONAL_KINDS, regradeItem } from './map'
-import { recheckStrike } from '../kit'
+import { recheckStrike, fightCtx } from '../kit'
 import LearnItPanel from '../kit/LearnItPanel'
 import { gradeFromStrike } from '../../config/grading'
-import { MissTools } from './FightExtras'
+import { MissTools, useFightWords } from './FightExtras'
 import { FIGHT_EXTRAS, isWrongish, appealOpen, learnItemFor } from './fightCheck'
 import { planMap, detailAreas, extendIfNeeded, detailAreaNow, forgetRunning } from './generate'
 import Questionnaire from './Questionnaire'
@@ -46,8 +46,11 @@ function Stars({ n }) {
 // After a fight it is also the DEBRIEF ("What tripped you up"): each miss or glancing answer shows the note, what the
 // second look found, and Appeal / Learn it / Make a rule card. A won appeal here fixes the item's tally (regradeItem),
 // never the fight's outcome.
-function AllAnswers({ ctx, modeId, area, answers, fight }) {
+function AllAnswers({ ctx: rawCtx, modeId, area, answers, fight }) {
+  // A fight spoke the fight's language (its setup panel): its answers, appeals and Learn it keep speaking it.
+  const ctx = fight ? fightCtx(rawCtx) : rawCtx
   const { t } = ctx
+  const w = useFightWords(ctx)
   const [rows, setRows] = useState(() => answers.map((a) => ({ ...a, answer: a.answered })))
   const tripped = FIGHT_EXTRAS.debrief && fight && rows.some((a) => a.aid && isWrongish(a.first))
   const [open, setOpen] = useState(!!tripped)
@@ -83,10 +86,13 @@ function AllAnswers({ ctx, modeId, area, answers, fight }) {
               const wrongish = a.aid && isWrongish(a.first)
               return (
                 <div key={a.aid || i} style={{ fontSize: 13.5, lineHeight: 1.45, borderBottom: `1px solid ${C.border}`, paddingBottom: 8, display: 'grid', gap: 3 }}>
-                  <div style={{ fontWeight: 800, color: C.ink, whiteSpace: 'pre-wrap' }}>{a.correct ? (a.overturned ? '✅' : a.first === 'glancing' ? '🟠' : '✅') : '❌'} {a.asked}</div>
-                  {a.answered && <div style={{ color: a.correct ? C.success : C.danger }}>{a.correct ? '✓' : '✗'} {a.answered}</div>}
-                  {(!a.correct || a.first === 'glancing') && a.expected && <div style={{ color: C.success }}>✓ {a.expected}</div>}
-                  {wrongish && a.note && <div style={{ color: C.inkDim }}>{a.note}</div>}
+                  <div dir="auto" style={{ fontWeight: 800, color: C.ink, whiteSpace: 'pre-wrap' }}>{a.correct ? (a.overturned ? '✅' : a.first === 'glancing' ? '🟠' : '✅') : '❌'} {w.text(a.asked, `all-${i}-q`)}</div>
+                  {w.popup(`all-${i}-q`)}
+                  {a.answered && <div dir="auto" style={{ color: a.correct ? C.success : C.danger }}>{a.correct ? '✓' : '✗'} {a.answered}</div>}
+                  {(!a.correct || a.first === 'glancing') && a.expected && <div dir="auto" style={{ color: C.success }}>✓ {w.text(a.expected, `all-${i}-x`)}</div>}
+                  {(!a.correct || a.first === 'glancing') && a.expected && w.popup(`all-${i}-x`)}
+                  {wrongish && a.note && <div dir="auto" style={{ color: C.inkDim }}>{w.text(a.note, `all-${i}-n`)}</div>}
+                  {wrongish && a.note && w.popup(`all-${i}-n`)}
                   {wrongish && <MissTools ctx={ctx} entry={a} onAppeal={appeal} onLearn={() => openLearn(a)} rule after expected={a.expected} />}
                 </div>
               )

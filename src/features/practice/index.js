@@ -7,5 +7,5 @@ export const PRACTICE_FEATURE_ID = 'practice'
 
 export default {
   id: PRACTICE_FEATURE_ID,
-  navItems: [{ id: 'practice', icon: '🏋️', art: 'practice', labelKey: 'practice_nav', order: 20, Screen: PracticeScreen, rail: true }],
+  navItems: [{ id: 'practice', icon: '🏋️', art: 'practice', labelKey: 'practice_nav', descKey: 'practice_navDesc', order: 20, Screen: PracticeScreen, rail: true }],
 }

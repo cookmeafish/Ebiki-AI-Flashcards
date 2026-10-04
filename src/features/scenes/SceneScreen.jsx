@@ -125,7 +125,7 @@ export default function SceneScreen({ onExit }) {
               {/* In a language mode the line's words are tappable like Study's (ctx.words), so the replay is its own button. */}
               <div style={{
                 fontFamily: FONT.body, textAlign: 'inherit', padding: l.speaker === 'N' ? '4px 8px' : '10px 14px', borderRadius: RADIUS.lg,
-                background: l.speaker === 'N' ? 'transparent' : C.surface, border: l.speaker === 'N' ? 'none' : `2px solid ${C.border}`,
+                background: l.speaker === 'N' ? 'transparent' : C.surface, border: l.speaker === 'N' ? 'none' : `1px solid ${C.border}`,
                 color: l.speaker === 'N' ? C.inkDim : C.ink, fontStyle: l.speaker === 'N' ? 'italic' : 'normal', fontSize: 15.5, lineHeight: 1.45,
               }}>
                 {tappable ? ctx.words.tappable(l.text, `${sidRef.current}-${i}`) : l.text}
@@ -153,7 +153,7 @@ export default function SceneScreen({ onExit }) {
       {error && <div style={{ color: C.danger, fontSize: 13, marginTop: 10 }}>{error}</div>}
       <input value={theme} onChange={(e) => setTheme(e.target.value)} placeholder={t('sc_themePlaceholder')}
         onKeyDown={(e) => { if (e.key === 'Enter' && phase !== 'loading' && ai.hasKey && !e.nativeEvent?.isComposing) start() }}
-        style={{ width: '100%', boxSizing: 'border-box', margin: '16px 0 10px', padding: '11px 13px', fontSize: 14, borderRadius: RADIUS.md, border: `2px solid ${C.border}`, background: C.surfaceAlt, color: C.ink }} />
+        style={{ width: '100%', boxSizing: 'border-box', margin: '16px 0 10px', padding: '11px 13px', fontSize: 14, borderRadius: RADIUS.md, border: `1px solid ${C.border}`, background: C.surfaceAlt, color: C.ink }} />
       <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, color: C.ink, marginBottom: 16, cursor: 'pointer' }}>
         <input type="checkbox" checked={readAloud} onChange={(e) => { setReadAloud(e.target.checked); platform.kv.set(AUTO_READ_KEY, e.target.checked ? '1' : '0') }} style={{ accentColor: C.brand }} />
         🔊 {t('sc_readAloud')}

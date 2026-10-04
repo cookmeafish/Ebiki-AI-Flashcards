@@ -25,6 +25,14 @@
 // resolveQuestion(q)       asked when the run moves on to a question: the question itself, a replacement (a boss's
 //                          follow-up whose text arrived later), or null to skip it (an attack that was not ready in
 //                          time, or one a re-check cancelled). Skipped questions record nothing.
+// startChoices(q)          a typed question with `alt` choices opens on its choices (the fight's "choices first" style);
+//                          the learner can still switch to typing.
+// WORDS (with `ctx.words`): Study's question formatting everywhere. "(...)" sense cues render muted italic, word hints
+// (the mode's Word hints setting, language modes) sit above the words, and every word of the question, its choices,
+// the hint, the feedback and the explanation is tappable for a lookup when the text is not in the app language
+// (language modes always). Each surface has its own popup source. While a question waits for its answer, its own
+// surfaces are GUARDED with its answers and correct choice (questionAnswersOf): a lookup that would give one away says
+// so instead. Once the feedback shows the answer, nothing is guarded.
 import { useEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile, shrimpUrl } from '../../config/shrimp'
@@ -32,6 +40,7 @@ import { ChunkyButton, ProgressBar, depthBorder, UI } from '../ui'
 import { useFocusHold } from '../registry'
 import { matchTyped } from './grade'
 import { judgeAnswer } from './judge'
+import { questionAnswersOf } from './fightSettings'
 import TalkButton from './TalkButton'
 import { speak } from '../../speech'
 
@@ -44,7 +53,7 @@ const PLAY_BASE_MS = 2500
 const PLAY_PER_CHAR_MS = 110
 const PLAY_MAX_MS = 20000
 
-export default function QuizRunner({ questions: given, t, ai, subject, onAnswer, onFinish, onExit, title, confirm, ctx, feedbackExtra, retryMisses = false, judge, canUseChoices, header, tools, onQuestion, resolveQuestion }) {
+export default function QuizRunner({ questions: given, t, ai, subject, onAnswer, onFinish, onExit, title, confirm, ctx, feedbackExtra, retryMisses = false, judge, canUseChoices, header, tools, onQuestion, resolveQuestion, startChoices }) {
   const [idx, setIdx] = useState(0)
   // The feature's list, plus the misses asked again at the end and anything the feature put in (attacks).
   const [retries, setRetries] = useState([])
@@ -90,7 +99,9 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
     Promise.resolve(h.done).catch(() => {}).finally(release)
   }
   useEffect(() => {
-    setPicked(null); setText(''); setVerdict(null); setCheckErr(false); setPhase('answer'); setMode('typed'); setHintText(''); setTimeout(() => inputRef.current?.focus(), 30)
+    let first = 'typed'
+    try { if (q?.alt && q.kind !== 'choice' && startChoices?.(q) && canUseChoices?.(q)) first = 'choice' } catch { /* the feature's problem */ }
+    setPicked(null); setText(''); setVerdict(null); setCheckErr(false); setPhase('answer'); setMode(first); setHintText(''); setTimeout(() => inputRef.current?.focus(), 30)
     play() // a listening question plays once by itself
     try { onQuestion?.(q, idx) } catch { /* the feature's problem */ }
     return () => audioRef.current?.stop()
@@ -100,6 +111,35 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
   // A typed question answered with its choices (a safe strike), or a plain choice question.
   const asChoice = q?.kind === 'choice' || (mode === 'choice' && !!q?.alt)
   const view = q?.kind === 'choice' ? q : asChoice ? { ...q, choices: q.alt.choices, answerIdx: q.alt.answerIdx } : q
+
+  // ── Words: formatting, word hints, tap-a-word lookups (see the header) ──
+  const W = ctx?.words?.canTap ? ctx.words : null
+  const textLang = subject?.userLang || ''
+  const tap = !!W && W.canTap(textLang)
+  const hintsOn = tap && !!subject?.isLanguage && !!(ctx?.fight ? ctx.fight.rules?.wordHints : ctx?.study?.rules?.()?.wordHints)
+  const sid = useRef(`quiz${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`).current
+  const live = phase === 'answer' || phase === 'checking' // the answer is not on screen yet: guard its surfaces
+  const guardAns = live ? questionAnswersOf(q) : []
+  const [glosses, setGlosses] = useState(null) // { i, text, map }
+  useEffect(() => {
+    if (!hintsOn || !W?.glosses || !q?.prompt || q.audio?.text) return undefined
+    let on = true
+    const text = String(q.prompt)
+    const ask = (tries) => Promise.resolve(W.glosses(text, { answers: questionAnswersOf(q) }))
+      .then((map) => { if (on && map) setGlosses({ i: idx, text, map }) })
+      .catch(() => { if (on && tries > 0) setTimeout(() => { if (on) ask(tries - 1) }, 2500) })
+    ask(1)
+    return () => { on = false }
+  }, [idx, q?.prompt, hintsOn]) // eslint-disable-line react-hooks/exhaustive-deps
+  const glossMap = glosses && glosses.i === idx && glosses.text === String(q?.prompt || '') ? glosses.map : null
+  const src = (key) => `${sid}-${idx}-${key}`
+  // A text surface: formatted (cues), tappable (lookups) with its own popup source; `guarded` = the live question's.
+  const words = (text, key, { guarded = false, gloss = false } = {}) => (W && text
+    ? W.tappable(String(text), src(key), String(text), { answers: guarded ? guardAns : [], glosses: gloss ? glossMap : null, lang: textLang })
+    : text)
+  const popup = (key) => (W && tap ? W.popup(src(key)) : null)
+  // A translated line with a node where its {a} goes (the right answer stays tappable in any word order).
+  const around = (key, node) => { const [pre, post = ''] = t(key, { a: '\u0001' }).split('\u0001'); return <>{pre}{node}{post}</> }
 
   // Ebi's Help sees the question on screen (any activity: Legends, raids, Mistake Gym...), never its answer while it
   // is being answered; once the feedback shows the right answer, Help may talk about it too.
@@ -245,8 +285,10 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
       </div>
       {title && <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: C.purple }}>{title} · {t('kit_progress', { i: idx + 1, n: total })}{q._retry ? ` · 🔁 ${t('kit_again')}` : ''}</div>}
       {header && header(q, asChoice ? 'choice' : 'typed')}
-      <div style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 22, color: C.ink, lineHeight: 1.35, whiteSpace: 'pre-wrap' }}>{q.prompt}</div>
-      {hintText && phase === 'answer' && <div role="status" style={{ fontSize: 14, fontWeight: 700, color: C.warning }}>{hintText}</div>}
+      <div dir="auto" data-quiz-prompt="" style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 22, color: C.ink, lineHeight: glossMap && Object.keys(glossMap).length ? 2.2 : 1.35, whiteSpace: 'pre-wrap' }}>{words(q.prompt, 'q', { guarded: true, gloss: true })}</div>
+      {popup('q')}
+      {hintText && phase === 'answer' && <div role="status" dir="auto" style={{ fontSize: 14, fontWeight: 700, color: C.warning }}>{words(hintText, 'h', { guarded: true })}</div>}
+      {hintText && phase === 'answer' && popup('h')}
       {q.audio?.text && ctx && (
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <ChunkyButton onClick={(e) => { e?.currentTarget?.blur?.(); play() }} color={C.info} disabled={playing}>🔊 {playing ? t('kit_playing') : t('kit_play')}</ChunkyButton>
@@ -274,10 +316,17 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
                 color: C.ink, fontFamily: FONT.body, fontSize: 16, fontWeight: 700, cursor: phase === 'answer' ? 'pointer' : 'default',
               }}>
                 <span style={{ width: 26, height: 26, flexShrink: 0, borderRadius: RADIUS.sm, border: `2px solid ${C.border}`, display: 'grid', placeItems: 'center', fontSize: 13, color: C.inkFaint }}>{i + 1}</span>
-                <span>{c}</span>
+                <span dir="auto">{words(c, `c${i}`, { guarded: true })}</span>
               </button>
             )
           })}
+          {view.choices.map((_, i) => <span key={`p${i}`} style={{ display: 'contents' }}>{popup(`c${i}`)}</span>)}
+          {q.kind !== 'choice' && phase === 'answer' && (
+            <button type="button" onClick={() => { setMode('typed'); setPicked(null); setTimeout(() => inputRef.current?.focus(), 30) }}
+              style={{ justifySelf: 'start', fontFamily: FONT.body, border: `2px solid color-mix(in srgb, ${C.warning} 40%, transparent)`, background: 'transparent', color: C.warning, fontWeight: 800, fontSize: 13, borderRadius: RADIUS.pill, padding: '5px 12px', cursor: 'pointer' }}>
+              ⌨ {t('kit_typeInstead')}
+            </button>
+          )}
         </div>
       ) : (
         <div style={{ display: 'grid', gap: 8 }}>
@@ -305,11 +354,14 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
             <img src={shrimpUrl(poseFile(good ? POSE.right : POSE.wrong))} alt="" width={54} />
             <div style={{ flex: 1, minWidth: 200 }}>
               <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 20, color: tone }}>{verdict?.title || (partial ? t('kit_partial') : good ? t('kit_correct') : t('kit_wrong'))}</div>
-              {verdict?.accent && <div style={{ fontSize: 14, color: C.ink, fontWeight: 700 }}>{t('kit_accent', { a: reveal })}</div>}
-              {(!good || partial) && reveal && !q.open && !verdict?.accent && <div style={{ fontSize: 14, color: C.ink, fontWeight: 700 }}>{t('kit_answerWas', { a: reveal })}</div>}
-              {verdict?.note && <div style={{ fontSize: 13.5, color: C.ink, marginTop: 4, lineHeight: 1.45 }}>{verdict.note}</div>}
+              {verdict?.accent && <div dir="auto" style={{ fontSize: 14, color: C.ink, fontWeight: 700 }}>{around('kit_accent', words(reveal, 'a'))}</div>}
+              {(!good || partial) && reveal && !q.open && !verdict?.accent && <div dir="auto" style={{ fontSize: 14, color: C.ink, fontWeight: 700 }}>{around('kit_answerWas', words(reveal, 'a'))}</div>}
+              {popup('a')}
+              {verdict?.note && <div dir="auto" style={{ fontSize: 13.5, color: C.ink, marginTop: 4, lineHeight: 1.45 }}>{words(verdict.note, 'n')}</div>}
+              {verdict?.note && popup('n')}
               {!verdict?.note && verdict?.noteLoading && <div role="status" style={{ fontSize: 12.5, color: C.inkDim, marginTop: 4 }}>📝 {t('kit_noteLoading')}</div>}
-              {q.explanation && <div style={{ fontSize: 13.5, color: C.inkDim, marginTop: 4, lineHeight: 1.45 }}>{q.explanation}</div>}
+              {q.explanation && <div dir="auto" style={{ fontSize: 13.5, color: C.inkDim, marginTop: 4, lineHeight: 1.45 }}>{words(q.explanation, 'x')}</div>}
+              {q.explanation && popup('x')}
               {feedbackExtra && <div key={idx} style={{ marginTop: 6 }}>{feedbackExtra(q, !!good, lastAnswer.current || '')}</div>}
             </div>
             <ChunkyButton onClick={next} color={tone}>{t('kit_continue')}</ChunkyButton>

@@ -13,7 +13,8 @@ import { EVENTS } from '../events'
 import { featureCfg, useActivityBusy } from '../registry'
 import { useHelpEntry } from '../kit/useHelp'
 import { ChunkyButton, EbiSays, Card, tCount } from '../ui'
-import { QuizRunner, judgeStrike, recordReviews, recordPractice, studyBlock, studyBlockText } from '../kit'
+import { QuizRunner, judgeStrike, recordReviews, recordPractice, studyBlock, studyBlockText, fightCtx, generationKey, ensureLetterCue } from '../kit'
+import FightSettings from './FightSettings'
 import LearnItPanel from '../kit/LearnItPanel'
 import { useFightCheck, useBossTaunt, TauntBubble, FightNotice, MissTools, Debrief } from './FightExtras'
 import { FIGHT_EXTRAS, fightExtrasFor, expectedOf, isWrongish, learnItemFor } from './fightCheck'
@@ -33,8 +34,14 @@ const GUARD_KEY = 'ebiki-raid-guards'
 // `test` (cheat mode's asset view): { motif } = a TEST fight against that boss. Today's due cards, every first answer a
 // real review, but the stored raid (wounds, trophies, the rotation) and every reward are left alone (raid.js
 // raidAttemptOutcome).
-export default function RaidRun({ ctx, onExit, test = null }) {
+export default function RaidRun({ ctx: rawCtx, onExit, test = null }) {
+  // The fight speaks the mode's fight language (FightSettings: the same study settings as Study): every prompt below,
+  // the graders, taunts, Learn it and the debrief take `ctx.subject.userLang` from here.
+  const ctx = fightCtx(rawCtx)
+  const ctxRef = useRef(ctx)
+  ctxRef.current = ctx
   const { t, ai, subject } = ctx
+  const fightRulesNow = ctx.fight?.rules || {}
   const testMotif = test && isRaidMotif(test.motif) ? test.motif : ''
   // Pinned at mount: a screen that re-renders this raid under another mode before closing it still files it here.
   const modeId = useRef(subject.modeId).current
@@ -125,9 +132,10 @@ export default function RaidRun({ ctx, onExit, test = null }) {
     setLearn(learnItemFor(cardsRef.current.find((c) => c.cardId === e.q?._cardId), e.q))
   }
   const learnPanel = learn && <LearnItPanel ctx={ctx} item={learn} onClose={() => setLearn(null)} closeLabel={phase === 'fight' ? t('lg_learnBackToFight') : undefined} />
+  const learnOn = fightRulesNow.learnMoment !== false // the mode's Learn-it moments (one setting with Study)
   const missTools = (q) => {
     const e = fc.entryFor(q)
-    return e && isWrongish(e.first) ? <MissTools ctx={ctx} entry={e} onAppeal={fc.appeal} onLearn={() => openLearn(e)} /> : null
+    return e && isWrongish(e.first) ? <MissTools ctx={ctx} entry={e} onAppeal={fc.appeal} onLearn={learnOn ? () => openLearn(e) : null} /> : null
   }
 
   const load = async () => {
@@ -163,23 +171,9 @@ export default function RaidRun({ ctx, onExit, test = null }) {
       if (cards.length < RAID.minCards) { setPhase('none'); return }
       cardsRef.current = cards
       preRef.current = new Map(picked.map((c) => [c.cardId, { interval: c.interval, factor: c.factor }]))
-      const level = await learnerLevelLine(ctx)
-      const { system, user } = buildRaidPrompt(subject, cards, { level })
-      const raw = ai.json(await ai.call(system, user, { role: RAID_ROLE, maxTokens: RAID_MAX_TOKENS }))
-      const list = Array.isArray(raw) ? raw : Array.isArray(raw?.questions) ? raw.questions : []
-      const qs = []
-      const used = new Set()
-      for (const q of list) {
-        const i = Number(q?.card) - 1
-        const card = cards[i]
-        if (!card || used.has(card.cardId)) continue
-        const [one] = parseQuestions([q], ai.clean, { speakLang: subject.learnLangIso, dual: true })
-        if (!one) continue
-        used.add(card.cardId)
-        qs.push({ ...one, _cardId: card.cardId, target: card.front })
-      }
-      if (qs.length < RAID.minCards) throw new Error(t('lg_errQuiz')) // fewer could leave the floor health unwinnable
-      if (!alive.current) return
+      storedRef.current = r.value
+      const qs = await writeQuestions(cards)
+      if (!alive.current || !qs) return
       // Health from the questions the fight really has (fewer than the cards when some could not be asked): from the
       // cards picked, a perfect run could fall short of the health and the raid was unwinnable.
       qCountRef.current = qs.length
@@ -188,8 +182,58 @@ export default function RaidRun({ ctx, onExit, test = null }) {
       setPhase('intro')
     } catch (e) { if (alive.current) { setError(String(e.message || e)); setPhase('error') } }
   }
+  const storedRef = useRef(null) // the stored raid read by load (a rewrite re-derives today's health from it)
+  // The questions, written with the LIVE fight settings (learned language, "Ebi speaks", dialect). null = superseded.
+  const writeSeq = useRef(0)
+  const genKeyRef = useRef('')
+  const writeQuestions = async (cards) => {
+    const my = ++writeSeq.current
+    const c = ctxRef.current
+    const s = c.subject
+    genKeyRef.current = generationKey(c.fight?.rules || {})
+    const level = await learnerLevelLine(c)
+    const { system, user } = buildRaidPrompt(s, cards, { level })
+    const raw = c.ai.json(await c.ai.call(system, user, { role: RAID_ROLE, maxTokens: RAID_MAX_TOKENS }))
+    if (my !== writeSeq.current) return null
+    const list = Array.isArray(raw) ? raw : Array.isArray(raw?.questions) ? raw.questions : []
+    const qs = []
+    const used = new Set()
+    for (const q of list) {
+      const i = Number(q?.card) - 1
+      const card = cards[i]
+      if (!card || used.has(card.cardId)) continue
+      const [one] = parseQuestions([q], c.ai.clean, { speakLang: s.learnLangIso, dual: true })
+      if (!one) continue
+      used.add(card.cardId)
+      // Study's first-letter cue guarantee for a typed language answer (kit/fightSettings.js).
+      qs.push({ ...ensureLetterCue(one, { isLanguage: !!s.isLanguage }), _cardId: card.cardId, target: card.front })
+    }
+    if (qs.length < RAID.minCards) throw new Error(t('lg_errQuiz')) // fewer could leave the floor health unwinnable
+    return qs
+  }
+  // A setting that changes what the questions are written in (FightSettings on the intro) rewrites them: same cards.
+  const [rewriting, setRewriting] = useState(false)
+  const genKey = generationKey(fightRulesNow)
+  useEffect(() => {
+    if (phase !== 'intro' || !genKeyRef.current || genKey === genKeyRef.current || !cardsRef.current.length) return
+    const date = dateRef.current
+    setRewriting(true)
+    writeQuestions(cardsRef.current).then((qs) => {
+      if (!alive.current) return
+      if (!qs) { setRewriting(false); return } // a newer write (a deck change reloads) took over
+      qCountRef.current = qs.length
+      setRaid(testMotif ? testRaidState(testMotif, date, qs.length) : raidToday(storedRef.current, date, qs.length))
+      setQuestions(qs)
+      setRewriting(false)
+    }).catch((e) => { if (alive.current) { setRewriting(false); setError(String(e.message || e)); setPhase('error') } })
+  }, [genKey, phase]) // eslint-disable-line react-hooks/exhaustive-deps
   const started = useRef(false)
   useEffect(() => { if (!started.current) { started.current = true; load() } }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // The deck picked in the fight settings before the fight: today's due cards come from it.
+  useEffect(() => {
+    if (!started.current || !deck || deck === deckRef.current || firstHit.current.size) return
+    if (['intro', 'none', 'error', 'beaten'].includes(phase)) load()
+  }, [deck]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Record every card answered so far (first answers only), then the day's wounds. Runs once per raid.
   const save = async () => {
@@ -301,7 +345,8 @@ export default function RaidRun({ ctx, onExit, test = null }) {
     return (
       <div style={{ display: 'grid', gap: 8 }}>
         {testMotif && <TestTag t={t} note />}
-        <BossIntro t={t} area={area} name={bossName} total={questions.length} kind="raids" raidLives={RAID.lives} ability={ability} calm={focus} onFight={() => setPhase('fight')} />
+        <BossIntro t={t} area={area} name={bossName} total={questions.length} kind="raids" raidLives={RAID.lives} ability={ability} calm={focus} onFight={() => { if (!rewriting) setPhase('fight') }} />
+        <FightSettings ctx={ctx} allowStyle busy={rewriting} />
         <div style={{ maxWidth: 640, margin: '0 auto', textAlign: 'center', fontSize: 13.5, color: C.inkDim, lineHeight: 1.5 }}>
           {t('lg_raidRules', { n: questions.length, lives: RAID.lives })}{day?.damage ? ` ${t('lg_raidWounded', { hp: day.hp - day.damage, max: day.hp })}` : ''}
         </div>
@@ -322,7 +367,7 @@ export default function RaidRun({ ctx, onExit, test = null }) {
           {summary.failed ? tCount(t, 'lg_raidRecordFailed', summary.failed) : tCount(t, 'lg_raidRecorded', summary.recorded)}
         </div>
         {summary.saveFailed && <div style={{ color: C.danger, fontWeight: 800 }}>{t('lg_errSave')}</div>}
-        <Debrief ctx={ctx} fc={fc} onLearn={openLearn} expectedOf={expectedOf} />
+        <Debrief ctx={ctx} fc={fc} onLearn={learnOn ? openLearn : null} expectedOf={expectedOf} />
         <Trophies ctx={ctx} raid={raid} />
         {learnPanel}
         <ChunkyButton color={C.success} onClick={onExit}>{t('lg_back')}</ChunkyButton>
@@ -451,7 +496,7 @@ export default function RaidRun({ ctx, onExit, test = null }) {
       <div style={{ maxWidth: 680, width: '100%', margin: '0 auto', position: 'sticky', top: 0, zIndex: 5, paddingTop: 4, background: C.bg }}>
         {testMotif && <TestTag t={t} />}
         <BossArena t={t} area={area} name={bossName} need={dayHp} lives={lives} state={shown} phases={RAID.phases} ability={ability} dayAb={day?.ab || null} focus={focus} getZoom={ctx.getZoom} kind="raids" questionKey={questionKey} />
-        {phase === 'fight' && <TauntBubble bubble={taunt.bubble} name={bossName} calm={focus} />}
+        {phase === 'fight' && <TauntBubble bubble={taunt.bubble} name={bossName} calm={focus} ctx={ctx} />}
         <FightNotice notice={fc.notice} t={t} />
       </div>
       {learnPanel}
@@ -472,6 +517,7 @@ export default function RaidRun({ ctx, onExit, test = null }) {
         <QuizRunner questions={questions} t={t} ai={ai} subject={subject} ctx={ctx} confirm={ctx.confirm}
           title={`⚔️ ${bossName}`} onAnswer={record} judge={judge} header={header} tools={abMod?.decision && abMod?.actions ? tools : undefined}
           canUseChoices={(q) => !q._attack && fightPhase === 1}
+          startChoices={() => fightRulesNow.answerStyle === 'choices'}
           onQuestion={() => { setQuestionKey((k) => k + 1); taunt.onQuestion() }}
           resolveQuestion={fc.resolveQuestion} feedbackExtra={missTools}
           onFinish={save} onExit={leave} />

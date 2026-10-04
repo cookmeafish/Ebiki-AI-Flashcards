@@ -271,7 +271,7 @@ export default function CallScreen({ onExit }) {
           {graded.map((tg) => {
             const g = grades[String(tg.cardId)]
             return (
-              <div key={tg.cardId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: RADIUS.md, border: `2px solid ${C.border}` }}>
+              <div key={tg.cardId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: RADIUS.md, border: `1px solid ${C.border}` }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 800, color: C.ink }}>{tg.front}</div>
                   {g.why && <div style={{ fontSize: 12.5, color: C.inkDim }}>{g.why}</div>}
@@ -324,7 +324,7 @@ export default function CallScreen({ onExit }) {
         {messages.map((m, i) => (
           <div key={i} style={{
             alignSelf: m.role === 'me' ? 'flex-end' : 'flex-start', maxWidth: '80%', padding: '10px 14px', borderRadius: RADIUS.lg,
-            background: m.role === 'me' ? C.brandTint : C.surface, border: `2px solid ${m.role === 'me' ? C.brandRing : C.border}`,
+            background: m.role === 'me' ? C.brandTint : C.surface, border: `1px solid ${m.role === 'me' ? C.brandRing : C.border}`,
             color: C.ink, fontSize: 15, lineHeight: 1.45, whiteSpace: 'pre-wrap',
           }}>{m.text}</div>
         ))}
@@ -335,7 +335,7 @@ export default function CallScreen({ onExit }) {
         {voiceOn && <TalkButton ctx={ctx} lang={subject.isLanguage ? subject.learnLangIso : ''} onText={send} onStart={() => speakingRef.current?.stop()} disabled={busy} compact />}
         <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={t('call_placeholder')}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) send() }}
-          style={{ flex: 1, padding: '12px 14px', fontSize: 15, borderRadius: RADIUS.md, border: `2px solid ${C.border}`, background: C.surfaceAlt, color: C.ink }} />
+          style={{ flex: 1, padding: '12px 14px', fontSize: 15, borderRadius: RADIUS.md, border: `1px solid ${C.border}`, background: C.surfaceAlt, color: C.ink }} />
         <button onClick={send} disabled={busy || !input.trim()} className="btn-press" style={{
           padding: '0 18px', borderRadius: RADIUS.md, ...depthBorder(C.success), background: C.success, color: C.white,
           fontWeight: 800, cursor: busy || !input.trim() ? 'default' : 'pointer', opacity: busy || !input.trim() ? 0.5 : 1,

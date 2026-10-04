@@ -11,6 +11,7 @@ import TokenUsageMeter from './components/TokenUsageMeter'
 import { pickUpgrade, pickNewest, parseModelId, compareModels } from './config/modelVersions'
 import { buildModelResearchPrompt, buildPresetDecisionPrompt } from './config/modelAdvisor'
 import { LANGS, langFromName, isDistinctSpoken } from './config/languages'
+import { splitTapTokens, tapClean, tapLongEnough, tapAllowed, splitCueParts } from './utils/tapTokens'
 import { makeT, APP_LANGUAGES, LANGUAGES, langMeta } from './i18n'
 import { ADAPTIVE_STRUGGLE_LAPSES } from './config/study'
 import { questionDepthOf, depthPlan as depthPlanFor, rateStudyCard, oneQMissNeedsRequeue, DEFAULT_QUESTION_DEPTH } from './utils/studyDepth'
@@ -582,15 +583,7 @@ const STRIP_HTML_CACHE_MAX = 80000
 // The learner context (kit/learnerContext.js), one snapshot per mode for a minute; every app event clears it.
 const LEARNER_CONTEXT_CACHE = createLearnerContextCache()
 
-// Tap-to-look-up tokens. Whitespace splits most scripts, but Chinese/Japanese/Thai are written
-// WITHOUT spaces, so a whole sentence used to be one tap target (sent to the lookup as "the word").
-// Those runs go through the browser's word segmenter. Combining marks (\p{M}) are part of a word:
-// stripping them cut Hindi vowel signs off ("नमस्ते" was looked up as "नमस्त").
-const TAP_SEGMENTER = (typeof Intl !== 'undefined' && Intl.Segmenter) ? new Intl.Segmenter(undefined, { granularity: 'word' }) : null
-const TAP_NO_SPACE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}]/u
-const splitTapTokens = (text) => String(text).split(/(\s+)/).flatMap((tok) => (TAP_SEGMENTER && TAP_NO_SPACE.test(tok)) ? [...TAP_SEGMENTER.segment(tok)].map((x) => x.segment) : [tok])
-const tapClean = (tok) => String(tok).replace(/^[^\p{L}\p{M}]+|[^\p{L}\p{M}]+$/gu, '')
-const tapLongEnough = (clean) => [...clean].length >= (TAP_NO_SPACE.test(clean) ? 1 : 2) // one Han character is a word
+// Tap-to-look-up tokens (scripts without spaces go through the word segmenter): src/utils/tapTokens.js.
 
 // The defaults, at MODULE scope: built inside App they were a new object every render, so the first run's
 // placeholder check (`modesRef.current[0] === defaultMode`) never matched and the placeholder mode was saved to
@@ -8630,6 +8623,58 @@ Output ONLY raw JSON. No markdown, no backticks.`
     })
   }
 
+  // FEATURE word surfaces (ctx.words.tappable with options): Study's question formatting for any feature text (a
+  // fight question, its choices, notes, a taunt). Per `source`, the ref remembers what guards it (`answers`: the LIVE
+  // question's accepted answers and correct choice; [] once the answer is shown) and the language the text is in.
+  // Tappable = a language mode, or text in a language other than the app language (data: tapAllowed). Cue "(...)"
+  // segments render muted italic (.study-word-cue so :hover still turns them red); with `glosses`, every word gets
+  // the stacked word-hint slot (buildGlossMap re-filters against the answers). Answer words are never tappable.
+  const featureTapRef = useRef(new Map()) // source -> { answers, lang, general }
+  const featureTapFor = (source) => featureTapRef.current.get(source) || null
+  const renderFeatureWords = (text, source, { sentence, answers, glosses, lang } = {}) => {
+    const str = String(text ?? '')
+    if (!str) return str
+    const isLang = activeMode.type === 'language'
+    const appLang = userLangName()
+    const textLang = String(lang || (isLang ? '' : appLang))
+    const tap = !!source && tapAllowed({ isLanguage: isLang, textLang, appLang })
+    const guard = (Array.isArray(answers) ? answers : []).map((a) => String(a || '').trim()).filter(Boolean)
+    if (tap) {
+      const map = featureTapRef.current
+      map.delete(source)
+      map.set(source, { answers: guard, lang: textLang, general: !isLang })
+      if (map.size > 400) map.delete(map.keys().next().value)
+    }
+    const cueStyle = { fontStyle: 'italic', fontWeight: 500, color: 'var(--c-ink-dim)', opacity: 0.92 }
+    const cueStyleNoColor = { fontStyle: 'italic', fontWeight: 500, opacity: 0.92 }
+    const glossMap = tap && glosses && typeof glosses === 'object' ? buildGlossMap(glosses, guard) : {}
+    const anyGloss = Object.keys(glossMap).length > 0
+    const answerSet = new Set(guard.map((a) => a.toLowerCase()))
+    const ctxSentence = sentence || str
+    return splitCueParts(str).map(({ text: part, cue }, pi) => {
+      if (!tap) return <span key={pi} style={cue ? cueStyle : undefined}>{part}</span>
+      return splitTapTokens(part).map((tok, ti) => {
+        const k = `${pi}-${ti}`
+        if (/^\s+$/.test(tok) || tok === '') return <span key={k} style={cue ? cueStyle : undefined}>{tok}</span>
+        const clean = tapClean(tok)
+        const isAnswer = answerSet.has(clean.toLowerCase())
+        const lookupable = tapLongEnough(clean) && !/_{2,}/.test(tok) && !isAnswer
+        const gloss = (!isAnswer && clean && (glossMap[glossExact(clean)] || glossMap[glossFold(clean)])) || null
+        // stopPropagation: a word inside a choice tile looks the word up, it does not pick the tile.
+        const word = lookupable
+          ? <span className="study-word" onClick={(e) => { e.stopPropagation(); e.preventDefault(); lookupStudyWord(clean, ctxSentence, source) }} title={t('lookup_whatMeans', { word: clean })} style={{ cursor: 'pointer', display: 'inline-block' }}><span className={cue ? 'study-word-inner study-word-cue' : 'study-word-inner'} style={{ display: 'inline-block', ...(cue ? cueStyleNoColor : {}) }}>{tok}</span></span>
+          : <span style={cue ? cueStyle : undefined}>{tok}</span>
+        if (!anyGloss) return <span key={k}>{word}</span>
+        return (
+          <span key={k} style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', verticalAlign: 'bottom', lineHeight: 1.1 }}>
+            <span data-gloss="" style={{ fontSize: '0.55em', fontWeight: 700, color: 'var(--c-purple)', whiteSpace: 'nowrap', minHeight: '1.1em', opacity: cue ? 0.85 : 1 }}>{gloss || ' '}</span>
+            {word}
+          </span>
+        )
+      })
+    })
+  }
+
   // Markdown-light + tap-to-lookup. Memory hooks and the Learn-it panel promise only **bold** +
   // line breaks in their format contract, so render those directly with EVERY word tappable
   // (language modes) exactly like the question text. <Markdown>'s HTML output can't host the
@@ -8698,11 +8743,12 @@ Output ONLY raw JSON. No markdown, no backticks.`
   // The tapped-word popup (in-context meaning + "Make Anki card") rendered inline wherever a word was
   // tapped. `source` must match the value passed to lookupStudyWord, so only that spot shows the popup.
   const renderWordLookupPopup = (source) => {
-    if (activeMode.type !== 'language' || !studyWordLookup || (studyWordLookup.source || 'question') !== source) return null
+    const featTap = featureTapFor(source) // a feature surface (ctx.words): its own guard and text language
+    if ((activeMode.type !== 'language' && !featTap?.general) || !studyWordLookup || (studyWordLookup.source || 'question') !== source) return null
     // On the live question, a card back (new or already in Anki) or a hook made from this popup can hold the
     // answer ("Me senté en el banco..." for a "b..." blank): shown as "would reveal" until it is answered.
     const liveQ = (source === 'question' || source === 'hint') && currentQuestion ? studyCardState[currentQuestion.cardIdx]?.questions?.[currentQuestion.questionIdx] : null
-    const liveAns = liveQ ? questionAnswers(liveQ) : []
+    const liveAns = featTap ? featTap.answers : liveQ ? questionAnswers(liveQ) : []
     const leaks = (txt) => liveAns.length > 0 && hintRevealsAnswer(String(txt || ''), liveAns)
     const wouldReveal = <div style={{ fontSize: 11, color: 'var(--c-ink-dim)', fontStyle: 'italic' }}>{t('lookup_wouldReveal')}</div>
     return (
@@ -8718,7 +8764,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
           </span>
           {/* Hear the LEARNED-language word (the target — same as the tapped word except when reversed).
               Keyed so the component remounts when the target arrives (its resolution is per-word). */}
-          {!studyWordLookup.blocked && <Pronunciation key={studyWordLookup.target || studyWordLookup.word} word={studyWordLookup.target || studyWordLookup.word} lang={learnLangName()} region={pronRegion()} config={pronunciationCfg} t={t} compact />}
+          {!studyWordLookup.blocked && <Pronunciation key={studyWordLookup.target || studyWordLookup.word} word={studyWordLookup.target || studyWordLookup.word} lang={featTap?.general ? featTap.lang : learnLangName()} region={pronRegion()} config={pronunciationCfg} t={t} compact />}
           {/* …and read it: text phonetics in the same style as the card backs (pah-RAH-gwahs) */}
           {studyWordLookup.pron && !studyWordLookup.loading && (
             <span style={{ color: 'var(--c-ink-dim)', fontStyle: 'italic', fontWeight: 600 }}>/{studyWordLookup.pron}/</span>
@@ -8751,7 +8797,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
           studyWordLookup.usageUnverified, studyWordLookup.usageChecking)}
 
         {/* Row 2: turn this word into an Anki card. generateCards is language/topic-agnostic. */}
-        {!studyWordLookup.loading && !studyWordLookup.blocked && !studyWordLookup.failed && ( /* failed: no target known, and the card's front/correction could show the live answer */
+        {!studyWordLookup.loading && !studyWordLookup.blocked && !studyWordLookup.failed && !featTap?.general && ( /* general modes: the text's language is not what the deck studies (no card, no hook); failed: no target known, and the card's front/correction could show the live answer */
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', borderTop: '1px solid rgba(223,37,64,.15)', paddingTop: 6 }}>
             {studyWordLookup.cardSynced ? (
               <span style={{ fontSize: 11, color: 'var(--c-success)', fontWeight: 700 }}>{t('card_addedTo', { deck: studyWordLookup.cardDeck })}</span>
@@ -8819,7 +8865,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
         {/* A hook hidden because it holds the answer says so once: a silent "thinking..." then nothing invited
             more clicks (each saving another hidden hook). */}
         {!studyWordLookup.blocked && (studyWordLookup.hooks || []).some(leaks) && wouldReveal}
-        {(studyWordLookup.blocked ? [] : (studyWordLookup.hooks || []).filter((h) => !leaks(h))).map((hook, hi) => (
+        {(studyWordLookup.blocked || featTap?.general ? [] : (studyWordLookup.hooks || []).filter((h) => !leaks(h))).map((hook, hi) => (
           <div key={hi} style={{ fontSize: 11, color: 'var(--c-ink)', background: 'rgba(139,92,246,.08)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 6, padding: '7px 10px', lineHeight: 1.6, display: 'flex', gap: 6 }}>
             <span style={{ fontWeight: 700, color: 'var(--c-purple)', flexShrink: 0 }}>🧠</span>
             {/* Tapping a word here re-looks-up within this same popup (source is inherited) */}
@@ -9004,22 +9050,22 @@ Output ONLY raw JSON. No markdown, no backticks.`
   // Small legend popover explaining the feedback colors.
   const FeedbackLegend = () => (
     <div style={{ position: 'relative', display: 'inline-block' }}>
-      <button onClick={() => setStudyLegendOpen(o => !o)} className="ui-btn"
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: studyLegendOpen ? 'rgba(139,92,246,0.2)' : 'rgba(139,92,246,0.12)', color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,0.45)', borderRadius: 6, padding: '5px 10px', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+      <button onClick={() => setStudyLegendOpen(o => !o)} className={studyLegendOpen ? 'st-tool on' : 'st-tool'} aria-expanded={studyLegendOpen}
+        style={{ color: studyLegendOpen ? 'var(--c-purple)' : undefined }}>
         <span style={{ display: 'inline-flex', gap: 2 }}>
-          {['var(--c-success)', 'var(--c-danger)', 'var(--c-warning)', 'var(--c-brand)'].map(c => (
+          {['var(--c-success)', 'var(--c-danger)', 'var(--c-warning)', 'var(--c-purple)'].map(c => (
             <span key={c} style={{ width: 7, height: 7, borderRadius: '50%', background: c }} />
           ))}
         </span>
         {studyLegendOpen ? t('hideLegend') : t('colorLegend')}
       </button>
       {studyLegendOpen && (
-        <div style={{ position: 'absolute', right: 0, top: '110%', zIndex: 20, background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 6, padding: '8px 10px', width: 230, boxShadow: '0 4px 16px rgba(0,0,0,.4)' }}>
-          <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', fontWeight: 700, marginBottom: 6 }}>{t('study_feedbackColors')}</div>
+        <div className="ui-pop" style={{ position: 'absolute', right: 0, top: 'calc(100% + 6px)', zIndex: 20, background: 'var(--c-surface-raised)', border: '1px solid var(--c-border)', borderRadius: 14, padding: '12px 14px', width: 240, boxShadow: 'var(--sh-lg)' }}>
+          <div className="ui-eyebrow" style={{ marginBottom: 8 }}>{t('study_feedbackColors')}</div>
           {FEEDBACK_CAT_ORDER.map((k) => (
             <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
               <span style={{ color: FEEDBACK_CATS[k].color, fontWeight: 700, width: 12, textAlign: 'center' }}>{FEEDBACK_CATS[k].icon}</span>
-              <span style={{ color: FEEDBACK_CATS[k].color, fontSize: 10 }}>{t(`fbcat_${k}`)}</span>
+              <span style={{ color: FEEDBACK_CATS[k].color, fontSize: 12, fontWeight: 700 }}>{t(`fbcat_${k}`)}</span>
             </div>
           ))}
         </div>
@@ -11462,7 +11508,8 @@ ${usageTagsContract(`"${target}" in this sense`)}
     // On the LIVE question nothing the popup shows may give the answer away: tapping "umbrella" in "Translate to
     // Spanish: umbrella" flipped to the learned side and showed "umbrella → paraguas" (the cue words too). The
     // word hints already exclude this; the lookup never saw the answer.
-    const liveAccepted = (() => {
+    const featTap = featureTapFor(source) // a feature surface: ITS live question's answers guard it ([] = shown already)
+    const liveAccepted = featTap ? (featTap.answers.length ? featTap.answers : null) : (() => {
       // The meaning hint is on the live question too: a tapped hint word flipped to the answer ("umbrella → paraguas").
       if (!(source === 'question' || source === 'hint') || !currentQuestion) return null
       const q = studyCardStateRef.current[currentQuestion.cardIdx]?.questions?.[currentQuestion.questionIdx]
@@ -11504,7 +11551,7 @@ ${usageTagsContract(`"${target}" in this sense`)}
     // "Ebi speaks" language (falling back to the app language) for general modes.
     const studyLang = activeMode.type === 'language'
       ? ((activeMode.studyRules || defaultStudyRules).studyLanguage || learnLangName())
-      : ((activeMode.studyRules || defaultGeneralStudyRules).quizLanguage || userLangName())
+      : (featTap?.lang || (activeMode.studyRules || defaultGeneralStudyRules).quizLanguage || userLangName())
     // Saved hooks show instantly: word-key hooks synchronously; hooks living under the word's NOTE
     // (generated in study/deck/learn-moment) arrive via an async note resolution — fail-soft, never
     // blocks the lookup, and records the noteId so a NEW hook from this popup saves onto the note.
@@ -11535,7 +11582,7 @@ ${usageTagsContract(`"${target}" in this sense`)}
 Question: "${sentence}"
 
 TWO CASES:
-A) "${word}" IS a ${studyLang} word here: "target" = "${word}" itself. "primary" = its meaning/translation in ${explainLang} AS USED in THIS question (the single best fit, a few words). "alternatives" = up to 3 other common meanings it has in OTHER contexts, in ${explainLang}.
+A) "${word}" IS a ${studyLang} word here: "target" = "${word}" itself (when the tapped token carries attached particles or affixes, like a Korean particle, Japanese okurigana or an Arabic prefix, "target" is its dictionary form and "primary" also says what the attached part adds). "primary" = its meaning/translation in ${explainLang} AS USED in THIS question (the single best fit, a few words). "alternatives" = up to 3 other common meanings it has in OTHER contexts, in ${explainLang}.
 B) "${word}" is NOT a ${studyLang} word here: the learner wants the ${studyLang} side. "target" = the ${studyLang} word a native speaker would ACTUALLY use for "${word}" in THIS context (honor the dialect and preferred-term rules; never a technically-correct-but-uncommon word). "primary" = the in-context sense in ${explainLang}, a few words, so the learner knows WHICH sense got translated. "alternatives" = up to 3 other ${studyLang} words for the word's OTHER senses, each written as "<${studyLang} word> (<sense in ${explainLang}>)".
 
 Reply in ${explainLang} as JSON ONLY (no markdown, no extra text, never an em dash):
@@ -12744,6 +12791,30 @@ Your output keeps: the same method, the same language (${explainLang}), the same
   // the whole app mount, so session 2's brand-new questions inherited session 1's spent attempts
   // and were permanently blocked from fetching (THE "hints work, then a later session shows none"
   // bug). Text-based keys also make a regenerated (✎ Fix) question automatically fresh.
+  // ONE word-hint prompt (Study's questions and every feature surface through ctx.words.glosses). Bidirectional, any
+  // script: a word in a script whose reading is not obvious from its spelling (Han characters, kanji) carries its
+  // reading (pinyin with tone marks, kana) before the meaning.
+  const glossPrompt = (qtext, learnLang, userLang, answers) => `Question: "${qtext}"\n\nThe learner speaks ${userLang} and is learning ${learnLang}. Return a JSON object giving a SHORT translation (1-3 words) for EVERY word in the question, INCLUDING short function words (articles, pronouns, prepositions, conjunctions, particles) AND the words inside any parenthetical (…) cue, translated into the OTHER of these two languages:\n- a word written in ${learnLang} -> translate it to ${userLang}\n- a word written in ${userLang} -> translate it to ${learnLang}\nWhen a ${learnLang} word's reading is not obvious from its spelling (Han characters, kanji), start its gloss with the reading (pinyin with tone marks, or kana), then the meaning, e.g. "yǔsǎn umbrella".\nEXCLUDE ONLY: the answer word(s) [${answers.join(', ') || 'none'}], any blank (___), any quoted single letter (a first-letter cue), and any word whose translation would reveal the answer (e.g. the quoted source word in a "translate X" question). Skip bare punctuation and numbers.\nEvery key must be ONE single word, spelled EXACTLY as it appears in the question (keep its accents and capitalization; in a script written without spaces, one word as a reader would split it). Cover EVERY word, do not stop early; a missing word means the learner cannot read that part.\n\nOutput ONLY the raw JSON object, e.g. {"perro":"dog","el":"the"}. No markdown.`
+  // Word hints for a FEATURE's text (a fight question): the same prompt and the same answer guard, cached per text.
+  const featureGlossCacheRef = useRef(new Map())
+  const fetchFeatureGlosses = async (text, { answers = [] } = {}) => {
+    if (!apiKey || activeMode.type !== 'language') return {}
+    const qtext = String(text || '').replace(/\s+/g, ' ').trim()
+    if (!qtext) return {}
+    const acc = (Array.isArray(answers) ? answers : []).map(String).filter(Boolean)
+    const key = `${activeModeIdRef.current}|${dialectName()}|${appLanguage}|${acc.join('|')}|${qtext}`
+    const hit = featureGlossCacheRef.current.get(key)
+    if (hit) return hit
+    const learnLang = (activeMode.studyRules || defaultStudyRules).studyLanguage || learnLangName()
+    const userLang = userLangName()
+    const reply = await aiCall(apiKey, `You give short word-for-word translations between ${learnLang} and ${userLang}. Respond with a JSON object only.`, glossPrompt(qtext, learnLang, userLang, acc), resolveModel('study'), { silent: true })
+    const parsed = parseAiJson(reply)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('gloss reply was not a JSON object')
+    const safe = filterRevealingGlosses(parsed, acc)
+    if (featureGlossCacheRef.current.size > 200) featureGlossCacheRef.current.delete(featureGlossCacheRef.current.keys().next().value)
+    featureGlossCacheRef.current.set(key, safe)
+    return safe
+  }
   const glossFetchRef = useRef(new Map()) // glossKey → attempts made
   const glossBusyRef = useRef(new Set()) // in-flight guard
   const GLOSS_MAX_ATTEMPTS = 3
@@ -12765,7 +12836,7 @@ Your output keeps: the same method, the same language (${explainLang}), the same
       const answers = questionAnswers(q)
       const qtext = String(getQuestionText(q)).replace(/\s+/g, ' ').trim()
       if (!qtext) return
-      const prompt = `Question: "${qtext}"\n\nThe learner speaks ${userLang} and is learning ${learnLang}. Return a JSON object giving a SHORT translation (1-3 words) for EVERY word in the question, INCLUDING short function words (articles, pronouns, prepositions, conjunctions: "se", "el", "que", "y", "no", …) AND the words inside any parenthetical (…) cue, translated into the OTHER of these two languages:\n- a word written in ${learnLang} -> translate it to ${userLang}\n- a word written in ${userLang} -> translate it to ${learnLang}\nEXCLUDE ONLY: the answer word(s) [${answers.join(', ') || 'none'}], any blank (___), any quoted single letter (a first-letter cue), and any word whose translation would reveal the answer (e.g. the quoted source word in a "translate X" question). Skip bare punctuation and numbers.\nEvery key must be ONE single word, spelled EXACTLY as it appears in the question (keep its accents and capitalization). Cover EVERY word, do not stop early; a missing word means the learner cannot read that part.\n\nOutput ONLY the raw JSON object, e.g. {"perro":"dog","el":"the"}. No markdown.`
+      const prompt = glossPrompt(qtext, learnLang, userLang, answers)
       const text = await aiCall(apiKey, `You give short word-for-word translations between ${learnLang} and ${userLang}. Respond with a JSON object only.`, prompt, resolveModel('study'), { silent: true })
       const parsed = parseAiJson(text)
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('gloss reply was not a JSON object')
@@ -15036,8 +15107,8 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
   // A feature screen may hide itself (visible: the Legends asset view shows only in cheat mode).
   const featureNav = registry.slot(SLOT.NAV, (n) => !n.visible || n.visible({ registry, featureSettings }))
   const navItems = [
-    ...CORE_NAV.map((n) => ({ ...n, label: t('tab_' + n.id) })),
-    ...featureNav.map((n) => ({ id: n.id, icon: n.icon, art: n.art, order: n.order, label: t(n.labelKey) })),
+    ...CORE_NAV.map((n) => ({ ...n, label: t('tab_' + n.id), desc: t('nav_desc_' + n.id) })),
+    ...featureNav.map((n) => ({ id: n.id, icon: n.icon, art: n.art, order: n.order, label: t(n.labelKey), desc: n.descKey ? t(n.descKey) : '' })),
   ].sort((a, b) => a.order - b.order)
   const featureScreen = featureNav.find((n) => n.id === activeTab) || null
   const pickTab = (tab) => {
@@ -15154,7 +15225,15 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
     // feature text. Language modes only (plain text otherwise). `source` must be unique per spot: the popup renders
     // where popup(source) is placed, under the tapped text. Only 'question'/'hint' are guarded as a live answer.
     words: {
-      tappable: (text, source, sentence) => renderTappableText(text, sentence || text, source),
+      // With `opts` ({ answers, glosses, lang }): Study's question formatting for any text (muted "(...)" cues, the
+      // word-hint slot, answer words untappable), tappable when the text is not in the app language (language modes
+      // always). `answers` = the LIVE question's accepted answers and correct choice: a lookup that would give one
+      // away shows lookup_wouldReveal (never cached). Pass [] once the answer is on screen.
+      tappable: (text, source, sentence, opts) => (opts ? renderFeatureWords(text, source, { sentence, ...opts }) : renderTappableText(text, sentence || text, source)),
+      // Would a word of text in `lang` be tappable here? (a language mode, or a language other than the app's)
+      canTap: (lang) => tapAllowed({ isLanguage: activeMode.type === 'language', textLang: lang || '', appLang: userLangName() }),
+      // Word hints for a text (language modes): { word: gloss }, never one revealing `answers`. Throws when the call failed.
+      glosses: (text, opts) => fetchFeatureGlosses(text, opts),
       popup: (source) => renderWordLookupPopup(source),
     },
     // Study's Learn-it pieces for features (kit/LearnItPanel.jsx: a raid card or Legends item missed in a fight):
@@ -15173,7 +15252,22 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
     // A live study session (the start screen is none). Before driving Anki's reviewer, features ask `study.status()`:
     // it ends a session abandoned for 8 hours first (its ratings sent) and answers { active, unsynced }.
     studyActive: studyLiveNow(), ankiConnected,
-    study: { status: studyStatusForFeatures, open: () => pickTab('study') },
+    // The active mode's study settings (studyRules: learned language, "Ebi speaks", dialect, word hints, grammar
+    // feedback, accent drill, Learn-it moments...): ONE setting shared by Study and features (a fight's setup panel).
+    // rules() = the live rules with defaults; setRules(patch) merges into the LIVE copy of the mode pinned when called.
+    study: {
+      status: studyStatusForFeatures, open: () => pickTab('study'),
+      rules: () => {
+        const m = modesRef.current.find((x) => x.id === activeModeIdRef.current) || activeMode
+        return { ...(m.type === 'language' ? defaultStudyRules : defaultGeneralStudyRules), ...(m.studyRules || {}) }
+      },
+      setRules: (patch) => {
+        const id = activeModeIdRef.current
+        const m = modesRef.current.find((x) => x.id === id)
+        if (!m || !patch || typeof patch !== 'object') return false
+        return updateModeById(id, { studyRules: { ...(m.studyRules || (m.type === 'language' ? defaultStudyRules : defaultGeneralStudyRules)), ...patch } })
+      },
+    },
     // AI for features, on the user's provider. `role` picks the model like everywhere else (resolveModel).
     ai: {
       hasKey: !!apiKey,
@@ -15451,16 +15545,24 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
           <div style={{ position: 'absolute', top: 0, left: 0, right: WIN_CTRL_W, height: 10, WebkitAppRegion: 'drag' }} />
         )}
         <div style={S.headerLeft}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <rect x="2" y="3" width="20" height="18" rx="2" stroke="var(--c-brand)" strokeWidth="2"/>
-            <circle cx="18" cy="7" r="4" fill="var(--c-brand)"/>
-          </svg>
+          {/* App mark: the frame glyph on a lit brand tile (UI overhaul). */}
+          <span aria-hidden="true" style={{
+            width: 30, height: 30, borderRadius: 9, display: 'grid', placeItems: 'center', flexShrink: 0,
+            background: 'linear-gradient(145deg, var(--c-brand-soft), var(--c-brand) 55%, var(--c-brand-dark))',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,.3), var(--sh-sm)',
+          }}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+              <rect x="2" y="3" width="20" height="18" rx="3" stroke="#fff" strokeWidth="2.4"/>
+              <circle cx="17.5" cy="8" r="3.4" fill="#fff"/>
+            </svg>
+          </span>
           <h1 style={S.title}>Ebiki</h1>
           <span style={S.badge}>{t('badge_local')}</span>
           {/* Talk to Ebi — opens Ebi's chat (replaces the old floating shrimp button). Not "Ask Ebi":
               Ebi also ACTS on requests (bulk edits, dialect, preferences), not just answers. */}
           <button onClick={() => setAskEbiSignal((n) => n + 1)} data-tip={t('hdr_talkToEbiTip')} className="ui-btn tip tip-b"
-            style={{ ...S.ghostBtn, marginLeft: 8, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)', fontWeight: 700 }}>
+            style={{ ...S.ghostBtn, marginLeft: 8, color: 'var(--c-ink)', borderColor: 'var(--c-border)', background: 'var(--c-surface)', borderRadius: 999, padding: '7px 15px 7px 12px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 8, boxShadow: 'var(--sh-sm)' }}>
+            <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--c-brand)', boxShadow: '0 0 0 3px var(--c-brand-tint)' }} />
             {t('hdr_talkToEbi')}
           </button>
           {onboarded && <FeatureSlot registry={registry} name={SLOT.HEADER} />}
@@ -15715,7 +15817,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
 
       {/* ── Shell row: sidebar | screen | rail (in the overlay these wrappers vanish: display contents) ── */}
       <div style={shellOn ? { flex: 1, display: 'flex', minHeight: 0 } : { display: 'contents' }}>
-      {shellOn && <Sidebar items={navItems} active={activeTab} onPick={pickTab} collapsed={sidebarCollapsed} onToggle={sidebarForced ? null : toggleSidebar} toggleLabel={t(sidebarCollapsed ? 'nav_sidebarExpand' : 'nav_sidebarCollapse')} />}
+      {shellOn && <Sidebar items={navItems} active={activeTab} onPick={pickTab} collapsed={sidebarCollapsed} onToggle={sidebarForced ? null : toggleSidebar} toggleLabel={t(sidebarCollapsed ? 'nav_sidebarExpand' : 'nav_sidebarCollapse')} getZoom={getZoom} />}
       <div style={shellOn ? { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: 0 } : { display: 'contents' }}>
       {/* A screen contributed by a feature (navItems slot). */}
       {featureScreen?.Screen && <main style={S.main}><featureScreen.Screen /></main>}
@@ -15731,21 +15833,24 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
               horizontal space is actually used (the "Ebi bulk edit" button was wrapping needlessly). */}
           <div style={{ maxWidth: 1040, width: '100%', margin: '0 auto' }}>
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <img src={shrimpUrl(poseFile('book'))} alt="" style={{ width: 56, height: 56, objectFit: 'contain' }} />
-                <div className="duo-title" style={{ fontSize: 26 }}>{t('deckBrowser')}</div>
+            <div className="ui-page-head" style={{ marginBottom: 16, alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+                <img src={shrimpUrl(poseFile('book'))} alt="" style={{ width: 60, height: 60, objectFit: 'contain', flexShrink: 0 }} />
+                <div style={{ minWidth: 0 }}>
+                  <div className="ui-eyebrow-brand" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeMode.name}</div>
+                  <div className="ui-page-title" style={{ fontSize: 32 }}>{t('deckBrowser')}</div>
+                </div>
               </div>
               <button
                 disabled={!ankiConnected}
                 onClick={() => { setDeckBrowserAddPanel(p => !p); setDeckBrowserAddName(''); setDeckBrowserAddPurpose('') }}
-                className={`duo-cta green btn-press${deckBrowserAddPanel ? ' ui-tab-current' : ''}`}
-                style={{ fontSize: 12.5, padding: '8px 18px', borderRadius: 12 }}
+                className={`ui-btn${deckBrowserAddPanel ? ' ui-tab-current' : ''}`}
+                style={{ ...S.ghostBtn, fontSize: 13, padding: '10px 16px', borderRadius: 12, color: 'var(--c-success)', boxShadow: 'var(--sh-sm)', ...(deckBrowserAddPanel ? { borderColor: 'color-mix(in srgb, var(--c-success) 45%, transparent)' } : {}) }}
               >{t('addDeck')}</button>
             </div>
 
             {deckBrowserAddPanel && (
-              <div style={{ background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 8, padding: 12, marginBottom: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div className="ui-pop" style={{ background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 18, padding: 16, marginBottom: 14, display: 'flex', flexDirection: 'column', gap: 10, boxShadow: 'var(--sh-md)' }}>
                 <input
                   placeholder={t('deck_namePlaceholder')}
                   value={deckBrowserAddName}
@@ -15788,8 +15893,10 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
               <div style={{ fontSize: 11, color: 'var(--c-ink-dim)', marginBottom: 12 }}>{t('checkingAnki')}</div>
             )}
 
+            {/* Second pass: the picker/search row and the toolbar ride in ONE sticky, blurred strip. */}
+            <div className="dk-sticky">
             {/* Deck picker + search */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: deckBrowserDeck ? 10 : 0, flexWrap: 'wrap', alignItems: 'center' }}>
               <select value={deckBrowserDeck} onChange={async (e) => {
                   const nextDeck = e.target.value // capture before the await (event object may be stale after)
                   if ((deckAnalyzeRecs.length > 0 || deckDupGroups.length > 0) && !(await confirmDialog(t('deck_switchDiscard')))) return
@@ -15870,14 +15977,14 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
 
             {/* Toolbar: add card / analyze / scan */}
             {deckBrowserDeck && (
-              <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                 <button onClick={openAddCard} disabled={deckAddOpen}
-                  style={{ background: 'rgba(223,37,64,0.12)', color: 'var(--c-brand)', border: '1px solid rgba(223,37,64,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: deckAddOpen ? 0.5 : 1 }}>
+                  style={{ background: 'var(--c-surface)', color: 'var(--c-brand)', border: '1px solid var(--c-border)', borderRadius: 10, padding: '6px 11px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: 'var(--sh-sm)', opacity: deckAddOpen ? 0.5 : 1 }}>
                   {t('deck_addCard')}
                 </button>
                 <button onClick={() => { if (quickAddOpen) { quickAddRunRef.current++; setQuickAddOpen(false) } else setQuickAddOpen(true) }} disabled={!apiKey} /* hiding stops a running "Add N" (it went on adding with the panel gone); the tray stays */
                   className="tip" data-tip={t('deck_quickAddTip')}
-                  style={{ background: 'rgba(17,168,160,0.12)', color: 'var(--c-teal)', border: '1px solid rgba(17,168,160,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: !apiKey ? 0.5 : 1 }}>
+                  style={{ background: 'var(--c-surface)', color: 'var(--c-teal)', border: '1px solid var(--c-border)', borderRadius: 10, padding: '6px 11px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: 'var(--sh-sm)', opacity: !apiKey ? 0.5 : 1 }}>
                   {t('deck_quickAdd')}
                 </button>
                 {deckBrowserNotes.length > 0 && (<>
@@ -15885,14 +15992,14 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                     onClick={() => analyzeDeck()}
                     disabled={deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0}
                     className="tip tip-r" data-tip={t('deck_analyzeTip')}
-                    style={{ background: 'rgba(139,92,246,0.12)', color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: (deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0) ? 0.5 : 1 }}
+                    style={{ background: 'var(--c-surface)', color: 'var(--c-purple)', border: '1px solid var(--c-border)', borderRadius: 10, padding: '6px 11px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: 'var(--sh-sm)', opacity: (deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0) ? 0.5 : 1 }}
                   >
                     {deckAnalyzeLoading && deckAnalyzeKind === 'ambiguous' ? t('deck_analyzing') : t('deck_analyze')}
                   </button>
                   <button
                     onClick={scanDuplicates}
                     disabled={deckDupLoading || !apiKey || deckDupGroups.length > 0}
-                    style={{ background: 'rgba(232,147,12,0.12)', color: 'var(--c-warning)', border: '1px solid rgba(232,147,12,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: (deckDupLoading || !apiKey || deckDupGroups.length > 0) ? 0.5 : 1 }}
+                    style={{ background: 'var(--c-surface)', color: 'var(--c-warning)', border: '1px solid var(--c-border)', borderRadius: 10, padding: '6px 11px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: 'var(--sh-sm)', opacity: (deckDupLoading || !apiKey || deckDupGroups.length > 0) ? 0.5 : 1 }}
                   >
                     {deckDupLoading ? t('deck_scanning') : t('deck_scanDup')}
                   </button>
@@ -15901,7 +16008,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                       onClick={() => analyzeDeck('custom', dialectAuditInstruction())}
                       disabled={deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0}
                       className="tip tip-r" data-tip={t('deck_dialectAuditTip', { lang: dialectName() || learnLangName() })}
-                      style={{ background: 'rgba(17,168,160,0.12)', color: 'var(--c-teal)', border: '1px solid rgba(17,168,160,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: (deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0) ? 0.5 : 1 }}
+                      style={{ background: 'var(--c-surface)', color: 'var(--c-teal)', border: '1px solid var(--c-border)', borderRadius: 10, padding: '6px 11px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: 'var(--sh-sm)', opacity: (deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0) ? 0.5 : 1 }}
                     >
                       {deckAnalyzeLoading && deckAnalyzeKind === 'custom' && deckAnalyzeDialectAudit ? t('deck_auditing') : t('deck_dialectAudit')}
                     </button>
@@ -15914,7 +16021,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                       onClick={() => analyzeDeck('custom', usageTagAuditInstruction())}
                       disabled={deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0}
                       className="tip tip-r" data-tip={t('deck_tagAuditTip')}
-                      style={{ background: 'rgba(24,169,87,0.12)', color: 'var(--c-success)', border: '1px solid rgba(24,169,87,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: (deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0) ? 0.5 : 1 }}
+                      style={{ background: 'var(--c-surface)', color: 'var(--c-success)', border: '1px solid var(--c-border)', borderRadius: 10, padding: '6px 11px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: 'var(--sh-sm)', opacity: (deckAnalyzeLoading || !apiKey || deckAnalyzeRecs.length > 0) ? 0.5 : 1 }}
                     >
                       {deckAnalyzeLoading && deckAnalyzeKind === 'custom' && deckAnalyzeInstruction === usageTagAuditInstruction() ? t('deck_tagAuditing') : t('deck_tagAudit')}
                     </button>
@@ -15923,7 +16030,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                     onClick={() => setDeckCustomEditOpen((v) => !v)}
                     disabled={!apiKey}
                     className="tip tip-r" data-tip={t('deck_bulkEditTip')}
-                    style={{ background: 'rgba(139,92,246,0.12)', color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 5, padding: '6px 12px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: !apiKey ? 0.5 : 1 }}
+                    style={{ background: 'var(--c-surface)', color: 'var(--c-purple)', border: '1px solid var(--c-border)', borderRadius: 10, padding: '6px 11px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: 'var(--sh-sm)', opacity: !apiKey ? 0.5 : 1 }}
                   >
                     {t('deck_bulkEdit')}
                   </button>
@@ -15958,13 +16065,14 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                 </>)}
               </div>
             )}
+            </div>
 
             {/* Ebi bulk edit — free-text instruction → AI proposes per-card changes → the SAME
                 before/after accept/deny review as Analyze. Nothing writes to Anki unapproved. */}
             {deckCustomEditOpen && (
-              <div style={{ marginBottom: 12, border: '1px solid rgba(139,92,246,0.3)', borderRadius: 8, padding: 14, background: 'rgba(139,92,246,0.04)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <div style={{ fontSize: 12, color: 'var(--c-purple)', fontWeight: 700 }}>{t('deck_bulkEdit')}</div>
+              <div className="ui-pop" style={{ marginBottom: 14, border: '1px solid var(--c-border)', borderRadius: 20, padding: '16px 18px', background: 'var(--c-surface)', boxShadow: 'inset 4px 0 0 var(--c-purple), var(--sh-md)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <div style={{ fontSize: 18, color: 'var(--c-ink)', fontWeight: 800, fontFamily: FONT.display, letterSpacing: '-0.01em' }}>{t('deck_bulkEdit')}</div>
                   <button onClick={() => setDeckCustomEditOpen(false)} style={{ ...S.ghostBtn, fontSize: 11 }}>{t('close')}</button>
                 </div>
                 <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', marginBottom: 6 }}>
@@ -15990,9 +16098,9 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
 
             {/* Quick Add — batch generate formatted cards → review tray → sync */}
             {quickAddOpen && (
-              <div style={{ marginBottom: 12, border: '1px solid rgba(17,168,160,0.3)', borderRadius: 8, padding: 14, background: 'rgba(17,168,160,0.04)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <div style={{ fontSize: 12, color: 'var(--c-teal)', fontWeight: 700 }}>{t('deck_quickAdd')}</div>
+              <div className="ui-pop" style={{ marginBottom: 14, border: '1px solid var(--c-border)', borderRadius: 20, padding: '16px 18px', background: 'var(--c-surface)', boxShadow: 'inset 4px 0 0 var(--c-teal), var(--sh-md)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                  <div style={{ fontSize: 18, color: 'var(--c-ink)', fontWeight: 800, fontFamily: FONT.display, letterSpacing: '-0.01em' }}>{t('deck_quickAdd')}</div>
                   <button onClick={closeQuickAdd} style={{ ...S.ghostBtn, fontSize: 11 }}>{t('close')}</button>
                 </div>
                 {/* Make the mode (tailors the card format/subject) AND the deck (where cards go) both
@@ -16009,11 +16117,11 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                   onChange={(e) => setQuickAddInput(e.target.value)}
                   placeholder={activeMode.type === 'language' ? t('deck_qaPlaceholderLanguage') : t('deck_qaPlaceholderGeneral')}
                   rows={3}
-                  style={{ width: '100%', boxSizing: 'border-box', fontSize: 12, fontFamily: 'inherit', padding: 8, borderRadius: 6, border: '1px solid var(--c-border)', background: 'var(--c-surface-sunken)', color: 'var(--c-ink)', resize: 'vertical' }}
+                  style={{ width: '100%', boxSizing: 'border-box', fontSize: 13.5, fontFamily: 'inherit', padding: '10px 12px', borderRadius: 12, border: '1px solid var(--c-border)', background: 'var(--c-surface-sunken)', color: 'var(--c-ink)', resize: 'vertical' }}
                 />
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
                   <button onClick={runQuickAdd} disabled={quickAddLoading || quickAddBatching || !quickAddInput.trim()}
-                    style={{ ...S.captureBtn, borderRadius: 5, fontSize: 11, opacity: (quickAddLoading || quickAddBatching || !quickAddInput.trim()) ? 0.5 : 1 }}>
+                    className="btn-press" style={{ ...S.captureBtn, borderRadius: 12, fontSize: 13, padding: '9px 16px', opacity: (quickAddLoading || quickAddBatching || !quickAddInput.trim()) ? 0.5 : 1 }}>
                     {quickAddLoading ? t('deck_generating') : t('deck_generateCards')}
                   </button>
                   {quickAddCards.length > 0 && (() => {
@@ -16399,7 +16507,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
 
             {/* Card list */}
             {deckBrowserNotes.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div className="dk-list" style={{ display: 'flex', flexDirection: 'column' }}>
                 {deckBrowserNotes
                   .filter((n) => !deckBrowserTagFilter || (n.tags || []).includes(deckBrowserTagFilter))
                   .filter((n) => {
@@ -16418,10 +16526,11 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
 
                     return (
                       <div key={note.noteId} className={isEditing ? '' : 'deck-row'} style={{
-                        border: '1px solid var(--c-border)', borderRadius: 8, overflow: 'hidden',
+                        border: '1px solid var(--c-border)', borderRadius: 12, overflow: 'hidden',
                         background: isEditing
                           ? 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))'
-                          : 'linear-gradient(180deg, var(--c-bg), rgba(255,255,255,.008))',
+                          : 'var(--c-surface)',
+                        boxShadow: 'var(--sh-sm)',
                         transition: 'border-color .15s ease, background .15s ease',
                       }}>
                         {isEditing ? (
@@ -16508,15 +16617,15 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                               </span>
                             )}
                             <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                              <button onClick={() => startEditNote(note)} style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 8px' }}>{t('edit')}</button>
+                              <button onClick={() => startEditNote(note)} style={{ ...S.ghostBtn, fontSize: 11.5, padding: '4px 9px', background: 'transparent', borderColor: 'transparent', color: 'var(--c-ink-dim)' }}>{t('edit')}</button>
                               <button onClick={() => {
                                 if (deckBrowserCopying === note.noteId) { setDeckBrowserCopying(null); return }
                                 setDeckBrowserCopying(note.noteId)
                                 setDeckBrowserCopyStatus(null)
                                 setDeckBrowserCopyTarget(ankiDecks.find(d => d !== deckBrowserDeck) || '')
-                              }} style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 8px', color: 'var(--c-success)', borderColor: 'rgba(24,169,87,.3)' }}>{t('copyTo')}</button>
+                              }} style={{ ...S.ghostBtn, fontSize: 11.5, padding: '4px 9px', background: 'transparent', borderColor: deckBrowserCopying === note.noteId ? 'var(--c-border)' : 'transparent', color: 'var(--c-ink-dim)' }}>{t('copyTo')}</button>
                               <button onClick={async () => { if (await confirmDialog(t('deck_deleteConfirm', { front }))) deleteNote(note.noteId) }}
-                                style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 8px', color: 'var(--c-danger)', borderColor: 'rgba(229,57,46,.25)' }}>{t('deck_del')}</button>
+                                style={{ ...S.ghostBtn, fontSize: 11.5, padding: '4px 9px', background: 'transparent', borderColor: 'transparent', color: 'var(--c-danger)' }}>{t('deck_del')}</button>
                             </div>
                           </div>
                           {/* Expanded card — the full back with bold labels, tags, and scheduling info */}
@@ -16630,8 +16739,16 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
       {/* ── Discover Tab ─────────────────────────────────────────────────────── */}
       {activeTab === 'discover' && (
         <main style={{ ...S.main, display: 'flex', flexDirection: 'column', padding: 20 }}>
-          <div style={{ maxWidth: 800, width: '100%', margin: '0 auto' }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: C.ink, fontFamily: FONT.display, marginBottom: 12 }}>{t('discoverTitle')}</div>
+          <div style={{ maxWidth: 820, width: '100%', margin: '0 auto' }}>
+            <div className="ui-page-head" style={{ marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <img src={shrimpUrl(poseFile('idea'))} alt="" aria-hidden="true" style={{ width: 60, height: 60, objectFit: 'contain' }} />
+                <div>
+                  <div className="ui-eyebrow-brand">{activeMode.name}</div>
+                  <h2 className="ui-page-title">{t('discoverTitle')}</h2>
+                </div>
+              </div>
+            </div>
             {ankiConnected === false && renderAnkiOfflineBanner({ marginBottom: 12 })}
             {ankiConnected === null && (
               <div style={{ fontSize: 11, color: 'var(--c-ink-dim)', marginBottom: 12 }}>{t('checkingAnki')}</div>
@@ -16684,12 +16801,14 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
 
       {/* ── Study Tab Home (no active session) ─────────────────────────────── */}
       {activeTab === 'study' && !studyActive && (
-        <main style={{ ...S.main, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-          <div style={{ maxWidth: 460, width: '100%', textAlign: 'center', padding: '40px 20px' }}>
-            <img src={shrimpUrl(poseFile('book'))} alt="Ebi" style={{ width: 132, height: 132, objectFit: 'contain', marginBottom: 6 }} />
-            <div className="duo-title" style={{ fontSize: 34, marginBottom: 12 }}>{t('studyTitle')}</div>
-            <div className="duo-bubble" style={{ marginBottom: 26 }}>{t('studyTagline')}</div>
-            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+        <main style={{ ...S.main, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', containerType: 'inline-size', containerName: 'shome' }}>
+          {/* Second pass: a split hero, words on the left and Ebi on the right (stacked on narrow windows). */}
+          <div className="sh-hero">
+            <div style={{ minWidth: 0 }}>
+            <div className="ui-eyebrow-brand" style={{ marginBottom: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeMode.name}</div>
+            <div className="ui-page-title" style={{ fontSize: 48, marginBottom: 12 }}>{t('studyTitle')}</div>
+            <div style={{ fontSize: 16, color: 'var(--c-ink-dim)', fontWeight: 600, lineHeight: 1.55, marginBottom: 26 }}>{t('studyTagline')}</div>
+            <div className="sh-cta" style={{ display: 'flex', gap: 12 }}>
               <button
                 onClick={startStudySession}
                 disabled={studyLoading || ankiConnected === false}
@@ -16710,6 +16829,10 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                 <button onClick={dismissStudyClosedNote} aria-label={t('close')} style={{ ...S.ghostBtn, fontSize: 11, padding: '2px 8px', color: 'var(--c-ink-dim)' }}>✕</button>
               </div>
             )}
+            </div>
+            <div className="sh-art">
+              <img src={shrimpUrl(poseFile('book'))} alt="Ebi" />
+            </div>
           </div>
         </main>
       )}
@@ -16718,17 +16841,19 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
       {activeTab === 'chat' && (
         <main style={{ ...S.main, display: 'flex', padding: 0, overflow: 'hidden' }}>
           {/* Session sidebar */}
-          <div style={{ width: 200, borderRight: '1px solid var(--c-border)', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-            <button onClick={chatTabNewChat} style={{ ...S.captureBtn, margin: 8, borderRadius: 6, fontSize: 11, padding: '8px 12px' }}>
+          <div style={{ width: 'clamp(168px, 24%, 240px)', borderRight: '1px solid var(--c-border)', display: 'flex', flexDirection: 'column', flexShrink: 0, background: 'color-mix(in srgb, var(--c-surface) 55%, transparent)' }}>
+            {/* Second pass: a slim drawer. New chat is a quiet full-width row (the composer is the primary action). */}
+            <button onClick={chatTabNewChat} className="ui-btn" style={{ ...S.ghostBtn, margin: '14px 12px 10px', borderRadius: 12, fontSize: 13, padding: '10px 12px', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 8, color: 'var(--c-ink)', boxShadow: 'var(--sh-sm)' }}>
               {t('newChat')}
             </button>
-            <div style={{ flex: 1, overflow: 'auto', padding: '0 8px 8px' }}>
+            <div style={{ flex: 1, overflow: 'auto', padding: '0 10px 10px' }}>
               {chatTabSessions.map(s => (
                 <div key={s.id} className="chat-session" onClick={() => chatTabLoadSession(s)} style={{
-                  padding: '7px 9px', borderRadius: 7, fontSize: 10, color: chatTabSessionId === s.id ? 'var(--c-ink)' : 'var(--c-ink-dim)',
-                  background: chatTabSessionId === s.id ? 'linear-gradient(180deg, rgba(223,37,64,.18), rgba(223,37,64,.07))' : 'transparent',
-                  border: chatTabSessionId === s.id ? '1px solid rgba(223,37,64,.25)' : '1px solid transparent',
-                  cursor: 'pointer', marginBottom: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '9px 10px 9px 12px', borderRadius: 10, fontSize: 12.5, fontWeight: chatTabSessionId === s.id ? 800 : 600, color: chatTabSessionId === s.id ? 'var(--c-ink)' : 'var(--c-ink-dim)',
+                  background: chatTabSessionId === s.id ? 'var(--c-surface)' : 'transparent',
+                  border: chatTabSessionId === s.id ? '1px solid var(--c-border)' : '1px solid transparent',
+                  ...(chatTabSessionId === s.id ? { boxShadow: 'inset 3px 0 0 var(--c-brand), var(--sh-sm)' } : {}),
+                  cursor: 'pointer', marginBottom: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                   transition: 'background .15s ease',
                 }}>
                   {chatTabEditingTitle === s.id ? (
@@ -16754,13 +16879,13 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
           </div>
 
           {/* Chat area */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 /* a reply with a long code line widened it and pushed Send off screen */ }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 /* a reply with a long code line widened it and pushed Send off screen */, containerType: 'inline-size', containerName: 'chcol' }}>
             {/* (Attached-deck chip lives in the input bar, in place of the Attach-deck dropdown,
                 so picking a deck visibly registers where you clicked instead of the chip jumping
                 to the top of the pane and reading as "the button vanished, nothing happened".) */}
 
             {/* Messages */}
-            <div ref={chatTabScrollRef} style={{ flex: 1, overflow: 'auto', padding: '16px 20px', position: 'relative' }}>
+            <div ref={chatTabScrollRef} style={{ flex: 1, overflow: 'auto', padding: '24px max(20px, calc((100% - 880px) / 2))', position: 'relative' }}>
               {chatTabMsgs.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '52px 20px' }}>
                   <img src={shrimpUrl(poseFile('singer'))} alt="Ebi" style={{ width: 120, height: 120, objectFit: 'contain', marginBottom: 6 }} />
@@ -16800,11 +16925,14 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                     {/* Content column — width-capped so long messages wrap and leave room for Ebi */}
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: isUser ? 'flex-end' : 'flex-start', minWidth: 0, maxWidth: 620 }}>
                   <div style={{
-                    maxWidth: '100%', padding: '10px 14px', borderRadius: 12, fontSize: 13, lineHeight: 1.5,
-                    background: m.role === 'user' ? 'linear-gradient(135deg, rgba(223,37,64,.2), rgba(223,37,64,.12))' : 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))',
-                    border: `1px solid ${m.role === 'user' ? 'rgba(223,37,64,.28)' : 'var(--c-border)'}`,
-                    color: 'var(--c-ink)', overflowWrap: 'anywhere', wordBreak: 'break-word',
-                    ...(m.role === 'user' ? { whiteSpace: 'pre-wrap' } : {}),
+                    maxWidth: '100%', padding: m.role === 'user' ? '10px 16px' : '14px 18px', fontSize: 14, lineHeight: 1.6,
+                    // Second pass: the learner's own words are a solid ink bubble; Ebi's replies are a calm card.
+                    borderRadius: m.role === 'user' ? '20px 20px 6px 20px' : '6px 20px 20px 20px',
+                    background: m.role === 'user' ? 'var(--c-ink-solid)' : 'var(--c-surface)',
+                    border: `1px solid ${m.role === 'user' ? 'var(--c-ink-solid)' : 'var(--c-border)'}`,
+                    boxShadow: m.role === 'user' ? 'var(--sh-sm)' : 'var(--sh-card)',
+                    color: m.role === 'user' ? 'var(--c-on-ink)' : 'var(--c-ink)', overflowWrap: 'anywhere', wordBreak: 'break-word',
+                    ...(m.role === 'user' ? { whiteSpace: 'pre-wrap', fontWeight: 600 } : {}),
                   }}>
                     {m.image && <img src={m.image} alt={t('img_attached')} style={{ display: 'block', maxWidth: 220, maxHeight: 160, borderRadius: 8, marginBottom: m.content && m.content !== '(image)' ? 8 : 0 }} />}
                     {m.role === 'user' ? (m.content === '(image)' ? '' : m.content) : <Markdown text={m.content} />}
@@ -16812,8 +16940,8 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                   {/* Inline Anki card previews */}
                   {m.cards?.map((card, ci) => (
                     <div key={ci} style={{
-                      maxWidth: '100%', marginTop: 6, padding: '10px 14px', borderRadius: 8,
-                      background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)',
+                      maxWidth: '100%', marginTop: 8, padding: '12px 16px', borderRadius: 16,
+                      background: 'var(--c-surface)', border: '1px solid var(--c-border)', boxShadow: 'inset 3px 0 0 var(--c-success), var(--sh-sm)',
                     }}>
                       <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', fontWeight: 600, marginBottom: 4 }}>{t('chat_ankiCardLabel')}</div>
                       <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink)', marginBottom: 4 }}>
@@ -16876,7 +17004,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                     </div>
                     {/* Bigger Ebi to the right of its response (uses the open space) */}
                     {!isUser && m.mascot && (
-                      <img src={shrimpUrl(m.mascot)} alt="Ebi" title="Ebi" style={{ width: 96, height: 96, objectFit: 'contain', flexShrink: 0, alignSelf: 'flex-start', animation: 'pop .3s cubic-bezier(.34,1.56,.64,1)', filter: 'drop-shadow(var(--sh-sm))' }} />
+                      <img src={shrimpUrl(m.mascot)} alt="Ebi" title="Ebi" className="ch-mascot" style={{ width: 96, height: 96, objectFit: 'contain', flexShrink: 0, alignSelf: 'flex-start', animation: 'pop .3s cubic-bezier(.34,1.56,.64,1)', filter: 'drop-shadow(var(--sh-sm))' }} />
                     )}
                   </div>
                 </div>
@@ -16901,7 +17029,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
             </div>
 
             {/* Input bar */}
-            <div style={{ padding: '12px 16px', borderTop: '1px solid var(--c-border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ padding: '6px max(16px, calc((100% - 880px) / 2)) 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
               {/* Attach deck row — the dropdown when nothing is attached, the confirmation chip in
                   the SAME spot once a deck is attached (so the pick registers where you clicked). */}
               {chatTabAttachedDeck ? (
@@ -16931,19 +17059,19 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                   <button onClick={() => setChatTabImage(null)} style={{ ...S.ghostBtn, fontSize: 10 }}>{t('removeImage')}</button>
                 </div>
               )}
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', position: 'relative' }}>
+              <div className="ch-composer" style={{ display: 'flex', gap: 6, alignItems: 'center', position: 'relative' }}>
                 <input ref={chatImageInputRef} type="file" accept="image/*" style={{ display: 'none' }}
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) attachChatImageFile(f); e.target.value = ''; setChatPlusOpen(false) }} />
                 {/* "+" learning-focused options menu */}
                 <button onClick={() => { const open = !chatPlusOpen; setChatPlusOpen(open); if (open && apiKey && !availableModels[provider]) refreshModels(provider) }} title={t('chatMenu_options')}
-                  style={{ background: chatPlusOpen ? 'rgba(223,37,64,.15)' : 'transparent', border: `1px solid ${chatPlusOpen ? 'var(--c-brand)' : 'var(--c-border)'}`, color: chatPlusOpen ? 'var(--c-brand)' : 'var(--c-ink-faint)', borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontSize: 16, lineHeight: 1, fontFamily: 'inherit' }}>+</button>
+                  style={{ background: chatPlusOpen ? 'var(--c-brand-tint)' : 'var(--c-surface-alt)', border: `1px solid ${chatPlusOpen ? 'var(--c-brand-line)' : 'transparent'}`, color: chatPlusOpen ? 'var(--c-brand)' : 'var(--c-ink-dim)', borderRadius: 14, width: 40, height: 40, flexShrink: 0, cursor: 'pointer', fontSize: 20, lineHeight: 1, fontFamily: 'inherit', fontWeight: 700 }}>+</button>
                 {chatPlusOpen && (() => {
                   const prefs = activeMode.chatPrefs || {}
                   const itemStyle = { textAlign: 'left', background: 'transparent', border: 'none', color: 'var(--c-ink)', fontFamily: 'inherit', fontSize: 12, padding: '7px 8px', borderRadius: 6, cursor: 'pointer' }
                   const labelStyle = { fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--c-ink-dim)', padding: '6px 8px 2px' }
                   const selStyle = { ...S.select, fontSize: 11, padding: '5px 6px', margin: '0 6px' }
                   return (
-                    <div style={{ position: 'absolute', bottom: 'calc(100% + 8px)', left: 0, width: 230, background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 10, boxShadow: SHADOW.lg, padding: 6, zIndex: 50, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <div className="ui-pop" style={{ position: 'absolute', bottom: 'calc(100% + 10px)', left: 0, width: 250, background: 'var(--c-surface-raised)', border: '1px solid var(--c-border)', borderRadius: 16, boxShadow: SHADOW.lg, padding: 8, zIndex: 50, display: 'flex', flexDirection: 'column', gap: 2 }}>
                       <button onClick={() => chatImageInputRef.current?.click()} style={itemStyle}>📷 {t('chatMenu_attachPhoto')}</button>
                       <button onClick={() => setChatTabWebSearch((v) => !v)} style={itemStyle}>🌐 {t('chatMenu_webSearch')} {chatTabWebSearch ? '✓' : ''}</button>
                       {/* Entries contributed by features (chatMenuItems slot), e.g. Roleplay. */}
@@ -16999,11 +17127,11 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                   onClick={() => setChatTabWebSearch(prev => !prev)}
                   title={chatTabWebSearch ? t('chat_webSearchOn') : t('chat_webSearchOff')}
                   style={{
-                    background: chatTabWebSearch ? 'rgba(223,37,64,.15)' : 'transparent',
-                    border: `1px solid ${chatTabWebSearch ? 'var(--c-brand)' : 'var(--c-border)'}`,
+                    background: chatTabWebSearch ? 'var(--c-brand-tint)' : 'var(--c-surface-alt)',
+                    border: `1px solid ${chatTabWebSearch ? 'var(--c-brand-line)' : 'transparent'}`,
                     color: chatTabWebSearch ? 'var(--c-brand)' : 'var(--c-ink-faint)',
-                    borderRadius: 6, padding: '8px 10px', cursor: 'pointer',
-                    fontSize: 14, lineHeight: 1, fontFamily: 'inherit',
+                    borderRadius: 14, width: 40, height: 40, flexShrink: 0, cursor: 'pointer',
+                    fontSize: 16, lineHeight: 1, fontFamily: 'inherit',
                     transition: 'all 0.15s',
                   }}
                 >&#127760;</button>
@@ -17013,12 +17141,13 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                   onChange={(e) => setChatTabInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing && !e.shiftKey) { e.preventDefault(); sendChatTabMessage() } }}
                   placeholder={chatTabWebSearch ? t('chat_searchAndAsk') : t('chat_placeholder')}
-                  style={{ ...S.keyInput, flex: 1, fontSize: 13, padding: '10px 14px' }}
+                  style={{ ...S.keyInput, flex: 1, minWidth: 0, fontSize: 15, padding: '10px 8px' }}
                 />
                 <button
                   onClick={sendChatTabMessage}
                   disabled={chatTabLoading || (!chatTabInput.trim() && !chatTabImage)}
-                  style={{ ...S.captureBtn, borderRadius: 6, opacity: chatTabLoading || (!chatTabInput.trim() && !chatTabImage) ? 0.5 : 1 }}
+                  className="btn-press"
+                  style={{ ...S.captureBtn, borderRadius: 14, padding: '11px 20px', flexShrink: 0, opacity: chatTabLoading || (!chatTabInput.trim() && !chatTabImage) ? 0.45 : 1 }}
                 >
                   {t('chat_send')}
                 </button>
@@ -17085,67 +17214,70 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
         })
 
         return (
-        <main style={{ ...S.main, padding: 20 }}>
-          <div style={{ maxWidth: 700, margin: '0 auto', width: '100%' }}>
-            <div style={{ fontSize: 20, fontWeight: 700, color: C.ink, fontFamily: FONT.display, marginBottom: 20 }}>{t('statsTitle')}</div>
-
-            {/* Top row: streak + today */}
-            <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
-              {[
-                { val: streak, color: 'var(--c-warning)', label: t('dayStreak') },
-                { val: todayCards, color: 'var(--c-brand)', label: t('cardsToday') },
-                { val: accuracyToday == null ? '·' : `${accuracyToday}%`, color: accuracyToday == null ? 'var(--c-ink-faint)' : 'var(--c-success)', label: t('accuracyToday') },
-              ].map((s, i) => (
-                <div key={i} style={{
-                  flex: 1, padding: '18px 20px', position: 'relative', overflow: 'hidden',
-                  background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))',
-                  border: '1px solid var(--c-border)', borderRadius: 12, textAlign: 'center',
-                  boxShadow: '0 8px 24px -18px rgba(0,0,0,.8)',
-                }}>
-                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, transparent, ${s.color}, transparent)`, opacity: .85 }} />
-                  <div style={{ fontSize: 34, fontWeight: 800, color: s.color, textShadow: `0 0 22px ${s.color}55` }}>{s.val}</div>
-                  <div style={{ fontSize: 11, color: 'var(--c-ink-dim)', marginTop: 2 }}>{s.label}</div>
-                </div>
-              ))}
+        <main style={{ ...S.main, padding: 24 }}>
+          {/* Second pass: a dashboard grid (three KPI tiles, the chart beside the per-deck list, sessions below). */}
+          <div className="ui-page" style={{ containerType: 'inline-size', containerName: 'stx' }}>
+            <div className="ui-page-head">
+              <div>
+                <div className="ui-eyebrow-brand">{activeMode.name}</div>
+                <h2 className="ui-page-title">{t('statsTitle')}</h2>
+              </div>
             </div>
 
+            <div className="stx-grid">
+            {/* Top row: streak + today */}
+              {[
+                { val: streak, color: 'var(--c-warning)', label: t('dayStreak'), icon: '🔥' },
+                { val: todayCards, color: 'var(--c-brand)', label: t('cardsToday'), icon: '📚' },
+                { val: accuracyToday == null ? '·' : `${accuracyToday}%`, color: accuracyToday == null ? 'var(--c-ink-faint)' : 'var(--c-success)', label: t('accuracyToday'), icon: '🎯' },
+              ].map((s, i) => (
+                <div key={i} className="stx-kpi" style={{
+                  ...S.panel, minWidth: 0, display: 'flex', alignItems: 'center', gap: 16, padding: '20px 22px', borderRadius: 22,
+                }}>
+                  <span aria-hidden="true" style={{ width: 52, height: 52, borderRadius: 16, display: 'grid', placeItems: 'center', fontSize: 26, flexShrink: 0, background: `color-mix(in srgb, ${s.color} 12%, var(--c-surface))`, border: `1px solid color-mix(in srgb, ${s.color} 22%, transparent)` }}>{s.icon}</span>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 36, fontWeight: 800, fontFamily: FONT.display, lineHeight: 1, letterSpacing: '-0.02em', color: 'var(--c-ink)' }}>{s.val}</div>
+                    <div style={{ marginTop: 6, fontSize: 12.5, fontWeight: 700, color: 'var(--c-ink-dim)' }}>{s.label}</div>
+                  </div>
+                </div>
+              ))}
+
             {/* 14-day chart */}
-            <div style={{ padding: '16px 20px', background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 8, marginBottom: 20 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-ink)', marginBottom: 12 }}>{t('last14Days')}</div>
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 100 }}>
+            <div className="stx-span8" style={{ ...S.panel, borderRadius: 22, minWidth: 0 }}>
+              <div style={S.panelTitle}>{t('last14Days')}</div>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 170 }}>
                 {chartDays.map((day, i) => (
-                  <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                    <div style={{ fontSize: 9, color: 'var(--c-ink-dim)' }}>{day.cards || ''}</div>
+                  <div key={i} style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+                    <div style={{ fontSize: 10.5, fontWeight: 700, color: day.date === today ? 'var(--c-brand)' : 'var(--c-ink-dim)' }}>{day.cards || ''}</div>
                     <div style={{
-                      width: '100%', borderRadius: '4px 4px 2px 2px',
-                      height: Math.max(2, (day.cards / maxCards) * 80),
+                      width: '100%', maxWidth: 34, borderRadius: 8,
+                      height: Math.max(4, (day.cards / maxCards) * 130),
                       background: day.date === today
-                        ? 'linear-gradient(180deg, var(--c-brand), var(--c-brand-dark))'
-                        : day.cards > 0 ? 'linear-gradient(180deg, rgba(223,37,64,.55), rgba(223,37,64,.25))' : 'var(--c-surface-alt)',
-                      boxShadow: day.date === today ? '0 0 12px rgba(223,37,64,.5)' : 'none',
+                        ? 'var(--c-brand)'
+                        : day.cards > 0 ? 'color-mix(in srgb, var(--c-ink) 16%, var(--c-surface))' : 'var(--c-surface-alt)',
                       transition: 'height .3s ease',
                     }} />
-                    <div style={{ fontSize: 8, color: 'var(--c-ink-faint)' }}>{day.label}</div>
+                    <div style={{ fontSize: 10, fontWeight: day.date === today ? 800 : 600, color: day.date === today ? 'var(--c-ink)' : 'var(--c-ink-faint)', whiteSpace: 'nowrap' }}>{day.label}</div>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Per-deck breakdown */}
-            <div style={{ padding: '16px 20px', background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 8, marginBottom: 20 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-ink)', marginBottom: 12 }}>{t('decks')}</div>
-              {Object.keys(deckMap).length === 0 && <div style={{ fontSize: 11, color: 'var(--c-ink-faint)' }}>{t('noStudyHistory')}</div>}
+            <div className="stx-span4" style={{ ...S.panel, borderRadius: 22, minWidth: 0 }}>
+              <div style={S.panelTitle}>{t('decks')}</div>
+              {Object.keys(deckMap).length === 0 && <div style={{ fontSize: 12.5, color: 'var(--c-ink-faint)', lineHeight: 1.5 }}>{t('noStudyHistory')}</div>}
               {Object.entries(deckMap).map(([deck, data]) => (
-                <div key={deck} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--c-border)', fontSize: 11 }}>
-                  <span style={{ color: 'var(--c-ink)', fontWeight: 600 }}>{deck}</span>
-                  <span style={{ color: 'var(--c-ink-dim)' }}>{data.cards} {t(data.cards === 1 ? 'cardLabelOne' : 'cardsLabel')} / {data.sessions} {t(data.sessions === 1 ? 'sessionLabelOne' : 'sessionsLabel')} / {t('lastLabel')}: {data.lastDate}</span>
+                <div key={deck} style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '9px 0', borderBottom: '1px solid var(--c-border)', fontSize: 12 }}>
+                  <span style={{ color: 'var(--c-ink)', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{deck}</span>
+                  <span style={{ color: 'var(--c-ink-dim)' }}>{data.cards} {t(data.cards === 1 ? 'cardLabelOne' : 'cardsLabel')} · {data.sessions} {t(data.sessions === 1 ? 'sessionLabelOne' : 'sessionsLabel')} · {t('lastLabel')}: {data.lastDate}</span>
                 </div>
               ))}
             </div>
 
             {/* Recent sessions */}
-            <div style={{ padding: '16px 20px', background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', borderRadius: 8 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-ink)', marginBottom: 12 }}>{t('recentSessions')}</div>
+            <div className="stx-span12" style={{ ...S.panel, borderRadius: 22, minWidth: 0 }}>
+              <div style={S.panelTitle}>{t('recentSessions')}</div>
               {history.length === 0 && <div style={{ fontSize: 11, color: 'var(--c-ink-faint)' }}>{t('noSessions')}</div>}
               {(() => {
                 // One study sitting can still leave several entries (older builds added one per change
@@ -17169,7 +17301,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                 return grouped.slice(0, 20).map((g, i) => {
                   const acc = g.accW > 0 ? Math.round(g.accSum / g.accW) : null
                   return (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '82px minmax(0,1fr) 84px 48px', alignItems: 'center', columnGap: 10, padding: '6px 0', borderBottom: '1px solid var(--c-border)', fontSize: 11 }}>
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '92px minmax(0,1fr) 96px 56px', alignItems: 'center', columnGap: 12, padding: '10px 0', borderBottom: '1px solid var(--c-border)', fontSize: 12.5 }}>
                       <span style={{ color: 'var(--c-ink-dim)' }}>{g.date}</span>
                       <span style={{ color: 'var(--c-brand)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.deck}</span>
                       <span style={{ color: 'var(--c-ink)', textAlign: 'right' }}>{g.cardsStudied} {g.cardsStudied === 1 ? t('cardLabelOne') : t('cardsLabel')}</span>
@@ -17178,6 +17310,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                   )
                 })
               })()}
+            </div>
             </div>
           </div>
         </main>
@@ -17194,7 +17327,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
           // Center vertically only on the pick phase; question/summary content can exceed viewport and must scroll from the top.
           ...(studyPhase === 'pick' ? { justifyContent: 'center' } : {}),
         }}>
-          <div style={{ maxWidth: studyPhase === 'question' ? 820 : 600, width: '100%', padding: '40px 20px' }}>
+          <div className="st-stage" style={{ maxWidth: studyPhase === 'question' ? 1000 : studyPhase === 'batchFeedback' ? 820 : studyPhase === 'summary' ? 680 : 640, width: '100%', padding: studyPhase === 'question' ? '8px 4px 32px' : studyPhase === 'summary' ? '4px 4px 28px' : '28px 4px' }}>
 
             {/* Study start phase — ONE sectioned card (What to study / Language / Session format)
                 with label-above-control fields and ⓘ tooltips instead of scattered boxes. */}
@@ -17227,7 +17360,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
 
               const field = (label, desc, control) => (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
-                  <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--c-ink-dim)', letterSpacing: '.05em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-ink-dim)', display: 'flex', alignItems: 'center', gap: 4 }}>
                     {label}
                     {desc && <span className="tip" data-tip={desc} style={{ color: 'var(--c-ink-faint)', fontWeight: 400, textTransform: 'none' }}>ⓘ</span>}
                   </span>
@@ -17238,17 +17371,24 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
               const row = (children) => (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>{children}</div>
               )
-              const ctl = { ...S.select, fontSize: 12, padding: '6px 10px', width: '100%', boxSizing: 'border-box', textAlign: 'left' }
+              const ctl = { ...S.select, fontSize: 13, padding: '9px 12px', width: '100%', boxSizing: 'border-box', textAlign: 'left', borderRadius: 12 }
               const section = (title, children, first = false) => (
-                <div style={{ padding: '9px 18px', borderTop: first ? 'none' : '1px solid var(--c-border)' }}>
-                  <div style={{ fontSize: 9.5, fontWeight: 800, color: 'var(--c-brand)', letterSpacing: '.1em', textTransform: 'uppercase', marginBottom: 6 }}>{title}</div>
+                <div style={{ padding: '16px 22px 18px', borderTop: first ? 'none' : '1px solid var(--c-border)' }}>
+                  <div className="ui-eyebrow" style={{ color: 'var(--c-ink)', marginBottom: 10 }}>{title}</div>
                   {children}
                 </div>
               )
 
               return (
-              <div style={{ textAlign: 'center', animation: 'slideUp .35s ease' }}>
-                <div style={{ fontSize: 18, fontWeight: 700, color: C.ink, fontFamily: FONT.display, marginBottom: 8 }}>{t('studySession')}</div>
+              <div style={{ textAlign: 'left', animation: 'slideUp .35s ease' }}>
+                {/* Second pass: a left-aligned page head with Ebi, then one sectioned card and the actions under it. */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
+                  <img src={shrimpUrl(poseFile('book'))} alt="" aria-hidden="true" style={{ width: 64, height: 64, objectFit: 'contain', flexShrink: 0 }} />
+                  <div style={{ minWidth: 0 }}>
+                    <div className="ui-eyebrow-brand">{activeMode.name}</div>
+                    <div className="ui-page-title" style={{ fontSize: 30 }}>{t('studySession')}</div>
+                  </div>
+                </div>
                 {/* Anki can go down between Study-home and here — without this the deck dropdown is just empty */}
                 {ankiConnected === false && (
                   <div style={{ maxWidth: 520, margin: '0 auto 10px' }}>{renderAnkiOfflineBanner()}</div>
@@ -17257,9 +17397,9 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                 {/* No overflow:hidden here — it would clip the ⓘ tooltips that extend past the card edge
                     (nothing else paints outside; the sections only draw inset border lines). */}
                 <div style={{
-                  display: 'inline-block', width: '100%', maxWidth: 520, textAlign: 'left',
-                  background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))',
-                  border: '1px solid var(--c-border)', borderRadius: 12, boxShadow: SHADOW.lg,
+                  width: '100%', textAlign: 'left',
+                  background: 'var(--c-surface)',
+                  border: '1px solid var(--c-border)', borderRadius: 22, boxShadow: SHADOW.lg,
                 }}>
                   {/* ── What to study ── */}
                   {section(t('studySecWhat'), row(<>
@@ -17352,12 +17492,12 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                   </>))}
                 </div>
 
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 12 }}>
-                  <button onClick={() => beginStudy(studyDeck, studyMode)} disabled={!studyDeck || studyLoading} className="btn-press"
-                    style={{ ...S.captureBtn, borderRadius: 8, padding: '9px 36px', fontSize: 13, opacity: !studyDeck || studyLoading ? 0.5 : 1 }}>
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', alignItems: 'center', marginTop: 18, flexWrap: 'wrap' }}>
+                  <button onClick={exitStudy} className="ui-btn" style={{ ...S.ghostBtn, fontSize: 13, padding: '12px 20px', borderRadius: 14 }}>{t('cancel')}</button>
+                  <button onClick={() => beginStudy(studyDeck, studyMode)} disabled={!studyDeck || studyLoading} className="duo-cta green btn-press"
+                    style={{ minWidth: 200 }}>
                     {studyLoading ? t('loading') : t('start')}
                   </button>
-                  <button onClick={exitStudy} style={{ ...S.ghostBtn }}>{t('cancel')}</button>
                 </div>
                 {ankiError && <div style={{ color: 'var(--c-danger)', fontSize: 11, marginTop: 8 }}>{ankiError}</div>}
               </div>
@@ -17366,31 +17506,51 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
 
             {/* Summary phase */}
             {studyPhase === 'summary' && (
-              <div style={{ textAlign: 'center', animation: 'pop .4s cubic-bezier(.34,1.56,.64,1)' }}>
-                <div style={{ fontSize: 20, fontWeight: 700, color: C.ink, fontFamily: FONT.display, marginBottom: 16 }}>{t('sessionComplete')}</div>
-                <div style={{ fontSize: 14, color: 'var(--c-ink-dim)', marginBottom: 24 }}>
-                  {studyStats.easy + studyStats.good + studyStats.hard + studyStats.again} {t((studyStats.easy + studyStats.good + studyStats.hard + studyStats.again) === 1 ? 'cardsStudiedOne' : 'cardsStudied')}
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 24 }}>
-                  {[
+              <div className="sum-wrap" style={{ animation: 'fadeUp .35s var(--ease-out)' }}>
+                {/* Second pass: a reward screen. Ebi celebrates, the count is the hero, the four ratings are tiles and a
+                    split bar shows the mix at a glance. Display only: every number is studyStats. */}
+                {(() => {
+                  const sumTotal = studyStats.easy + studyStats.good + studyStats.hard + studyStats.again
+                  const sumTiles = [
                     { label: t('rate_easy'), count: studyStats.easy, color: 'var(--c-success)' },
-                    { label: t('rate_good'), count: studyStats.good, color: 'var(--c-brand)' },
+                    { label: t('rate_good'), count: studyStats.good, color: 'var(--c-info)' },
                     { label: t('rate_hard'), count: studyStats.hard, color: 'var(--c-warning)' },
                     { label: t('rate_again'), count: studyStats.again, color: 'var(--c-danger)' },
-                  ].map(({ label, count, color }) => (
-                    <div key={label} style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: 24, fontWeight: 700, color }}>{count}</div>
-                      <div style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>{label}</div>
+                  ]
+                  return (
+                    <div className="sum-hero">
+                      <img src={shrimpUrl(poseFile(sumTotal > 0 && studyStats.again * 3 <= sumTotal ? 'party' : 'book'))} alt="Ebi" />
+                      <div className="ui-eyebrow-brand" style={{ marginTop: 4 }}>{t('sessionComplete')}</div>
+                      <div className="sum-count" style={{ marginTop: 8 }}>{sumTotal}</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--c-ink-dim)', marginTop: 2 }}>{t(sumTotal === 1 ? 'cardsStudiedOne' : 'cardsStudied')}</div>
+                      {sumTotal > 0 && (<>
+                        <div className="sum-split" aria-hidden="true">
+                          {sumTiles.filter((x) => x.count > 0).map((x) => <div key={x.label} style={{ flex: x.count, background: x.color }} />)}
+                        </div>
+                        {(() => { const pct = Math.round(((sumTotal - studyStats.again) / sumTotal) * 100); return (
+                          <div style={{ fontSize: 13, fontWeight: 800, color: pct >= 70 ? 'var(--c-success)' : pct >= 40 ? 'var(--c-warning)' : 'var(--c-danger)', marginTop: 10 }}>{t('study_sumRight', { n: pct })}</div>
+                        ) })()}
+                      </>)}
+                      <div className="sum-tiles">
+                        {sumTiles.map(({ label, count, color }) => (
+                          <div key={label} className="sum-tile" style={{ '--tone': color }}>
+                            <b>{count}</b>
+                            <span>{label}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  ))}
-                </div>
+                  )
+                })()}
+                <div style={{ height: 14 }} />
 
                 {/* Spaced repetition insights */}
                 {studyInsightsError && !studyInsightsLoading && (
                   <div style={{ fontSize: 11, color: 'var(--c-danger)', marginBottom: 6 }}>{studyInsightsError}</div>
                 )}
                 {!studyInsights && !studyInsightsLoading && insightsHaveResults() && (
-                  <button onClick={generateStudyInsights} disabled={!apiKey} style={{ ...S.ghostBtn, fontSize: 11, marginBottom: 16, color: 'var(--c-purple)', borderColor: 'rgba(139,92,246,.25)', ...(!apiKey ? { opacity: 0.5, cursor: 'default' } : {}) }}>
+                  <button onClick={generateStudyInsights} disabled={!apiKey} className="ui-btn" style={{ ...S.ghostBtn, fontSize: 13, padding: '9px 16px', borderRadius: 12, marginBottom: 16, color: 'var(--c-purple)', borderColor: 'color-mix(in srgb, var(--c-purple) 30%, transparent)', display: 'inline-flex', alignItems: 'center', gap: 6, ...(!apiKey ? { opacity: 0.5, cursor: 'default' } : {}) }}>
+                    <span aria-hidden="true">✨</span>
                     {t('generateInsights')}
                   </button>
                 )}
@@ -17402,9 +17562,9 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                 )}
                 {studyInsights && (
                   <div style={{
-                    textAlign: 'left', marginBottom: 16, padding: '12px 16px', borderRadius: 8,
-                    background: 'rgba(139,92,246,.06)', border: '1px solid rgba(139,92,246,.15)',
-                    fontSize: 12, color: 'var(--c-ink)', lineHeight: 1.6,
+                    textAlign: 'left', marginBottom: 16, padding: '16px 20px', borderRadius: 18,
+                    background: 'color-mix(in srgb, var(--c-purple) 6%, var(--c-surface))', border: '1px solid color-mix(in srgb, var(--c-purple) 20%, var(--c-border))',
+                    fontSize: 13.5, color: 'var(--c-ink)', lineHeight: 1.65, boxShadow: 'var(--sh-card)',
                   }}>
                     <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-purple)', marginBottom: 6 }}>{t('study_insightsTitle')}</div>
                     {/* Rendered as markdown — the model bolds card names (**brújula**) */}
@@ -17429,7 +17589,9 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                   )
                 })()}
 
-                <button onClick={exitStudy} style={{ ...S.captureBtn, borderRadius: 6 }}>{t('done')}</button>
+                <div style={{ marginTop: 6 }}>
+                  <button onClick={exitStudy} className="duo-cta btn-press" style={{ minWidth: 240 }}>{t('done')}</button>
+                </div>
               </div>
             )}
 
@@ -17465,38 +17627,35 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                     // already active): counted twice, the total started one too high and then dropped.
                     const restsPending = studyCardState.filter((cs) => cs?.pendingRest).length
                     const totalCards = completedCount + activeCount + poolRemaining + Math.max(0, pullsInFlightRef.current - restsPending)
-                    return (<>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
-                    <div style={{ display: 'flex', gap: 12, fontSize: 12, alignItems: 'baseline' }}>
-                      <span style={{ color: 'var(--c-ink)', fontWeight: 700 }}>{completedCount}<span style={{ color: 'var(--c-ink-dim)', fontWeight: 400 }}>/{totalCards}</span> <span style={{ fontSize: 10, color: 'var(--c-ink-dim)', fontWeight: 400 }}>{t('cardsLabel')}</span></span>
-                      <span style={{ color: 'var(--c-brand)' }}>{activeCount} <span style={{ fontSize: 10, color: 'var(--c-ink-dim)' }}>{t('active')}</span></span>
-                      <span style={{ color: 'var(--c-ink-dim)', fontSize: 11 }}>{studyDeckStats.new_count || 0} {t('new')} / {studyDeckStats.learn_count || 0} {t('learn')} / {studyDeckStats.review_count || 0} {t('due')}</span>
+                    return (
+                  <div className="st-bar">
+                    {/* Session progress — cards completed out of everything this session will cover (a slim top bar) */}
+                    <div className="st-progress" role="progressbar" aria-valuemin={0} aria-valuemax={totalCards} aria-valuenow={completedCount}>
+                      <div style={{ width: `${totalCards ? Math.max(2, Math.round((completedCount / totalCards) * 100)) : 0}%` }} />
                     </div>
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                      {!studyWrappingUp && (
-                        <button onClick={studyWrapUp} className="ui-btn" style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-warning)', borderColor: 'rgba(232,147,12,.25)' }}>{t('wrapUp')}</button>
-                      )}
-                      <button onClick={studyEndNow} className="ui-btn" style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-danger)', borderColor: 'rgba(229,57,46,.25)' }}>{t('endNow')}</button>
-                      {FeedbackLegend()}
-                      <button onClick={exitStudy} className="ui-btn" style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-ink-dim)' }}>{t('exitStudy')}</button>
+                    <div className="st-bar-row">
+                      <div className="st-meta">
+                        <span className="st-pill ink"><b>{completedCount}<span style={{ opacity: 0.55, fontWeight: 700 }}>/{totalCards}</span></b>{t('cardsLabel')}</span>
+                        <span className="st-pill"><b style={{ color: 'var(--c-brand)' }}>{activeCount}</b>{t('active')}</span>
+                        <span className="st-pill">{studyDeckStats.new_count || 0} {t('new')} · {studyDeckStats.learn_count || 0} {t('learn')} · {studyDeckStats.review_count || 0} {t('due')}</span>
+                      </div>
+                      <div className="st-actions">
+                        {!studyWrappingUp && (
+                          <button onClick={studyWrapUp} className="st-tool" style={{ color: 'var(--c-warning)' }}>{t('wrapUp')}</button>
+                        )}
+                        <button onClick={studyEndNow} className="st-tool" style={{ color: 'var(--c-danger)' }}>{t('endNow')}</button>
+                        {FeedbackLegend()}
+                        <button onClick={exitStudy} className="st-tool">✕ {t('exitStudy')}</button>
+                      </div>
                     </div>
                   </div>
-                  {/* Session progress — cards completed out of everything this session will cover */}
-                  <div style={{ height: 3, borderRadius: 2, background: 'var(--c-border)', marginBottom: 14, overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${totalCards ? Math.round((completedCount / totalCards) * 100) : 0}%`, background: 'var(--c-brand)', borderRadius: 2, transition: 'width .4s ease' }} />
-                  </div>
-                    </>)
+                    )
                   })()}
 
                   {/* Current question — card front is HIDDEN. Ebi studies alongside, to the right. */}
                   {(question || studyChoiceFlash || studyPbqReview || studyTypedFlash || studyLearnMoment) ? (
-                    <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start', justifyContent: 'center', flexWrap: 'wrap' }}>
-                    <div style={{
-                      flex: '1 1 480px', maxWidth: 620, minWidth: 0,
-                      background: C.surface,
-                      border: `1px solid ${C.border}`, borderRadius: 16,
-                      padding: '22px 24px', boxShadow: SHADOW.lg,
-                    }}>
+                    <div className="st-grid">
+                    <div className="st-card">
                       {/* Multiple-choice flash: a frozen copy of the question just answered, showing the
                           right/wrong colors for a beat while the live state has already moved on. */}
                       {studyLearnMoment ? (() => {
@@ -17511,7 +17670,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                           {/* "Learn it" moment — teach what the user just gave up on. Session advances underneath. */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
                             <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--c-brand)' }}>{lm.intro ? `✨ ${t('learnIt_newTitle')}` : `📖 ${t('learnIt_title')}`}</span>
-                            <span style={{ fontSize: 15.5, fontWeight: 700, color: 'var(--c-ink)' }}>{headWord}</span>
+                            <span style={{ fontSize: 28, fontWeight: 800, fontFamily: FONT.display, letterSpacing: '-0.02em', lineHeight: 1.1, color: 'var(--c-ink)' }}>{headWord}</span>
                             {activeMode.type === 'language' && (
                               <Pronunciation word={pronWord(lm.front)} lang={learnLangName()} region={pronRegion()} config={pronunciationCfg} t={t} compact />
                             )}
@@ -17578,21 +17737,20 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                             <div style={{ fontSize: 11, color: 'var(--c-ink-dim)', marginBottom: 6 }}>
                               {t('learnIt_typeOnce').split('{word}').map((part, pi) => (pi === 0 ? part : <span key={pi}><b style={{ color: 'var(--c-ink)' }}>{headWord}</b>{part}</span>))}
                             </div>
-                            <div style={{ display: 'flex', gap: 8 }}>
+                            <div className="st-answer" style={typedOk ? { borderColor: 'var(--c-success)' } : undefined}>
                               <input value={lm.typed} autoFocus
                                 onChange={(e) => { const v = e.target.value; setStudyLearnMoment((p) => p ? { ...p, typed: v } : p) }}
                                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing && typedOk) { emitAppEvent(EVENTS.LEARN_DONE); setStudyLearnMoment(null) } }}
-                                placeholder={t('learnIt_typePlaceholder')}
-                                style={{ flex: 1, background: 'var(--c-surface)', color: 'var(--c-ink)', border: `1.5px solid ${typedOk ? 'var(--c-success)' : 'var(--c-border)'}`, borderRadius: 6, padding: '8px 10px', fontSize: 13, fontFamily: 'inherit', outline: 'none' }} />
-                              <button onClick={() => { emitAppEvent(EVENTS.LEARN_DONE); setStudyLearnMoment(null) }} disabled={!typedOk} className="btn-press"
-                                style={{ ...S.captureBtn, borderRadius: 8, fontSize: 12, padding: '8px 18px', opacity: typedOk ? 1 : 0.5, cursor: typedOk ? 'pointer' : 'default' }}>
+                                placeholder={t('learnIt_typePlaceholder')} />
+                              <button onClick={() => { emitAppEvent(EVENTS.LEARN_DONE); setStudyLearnMoment(null) }} disabled={!typedOk} className="st-submit btn-press"
+                                style={typedOk ? { background: 'var(--c-success)', boxShadow: 'inset 0 -3px 0 color-mix(in srgb, var(--c-success) 70%, black)' } : undefined}>
                                 {t('pbqContinue')}
                               </button>
                             </div>
                           </div>
                         </>)
                       })() : studyChoiceFlash ? (<>
-                        <div style={{ fontSize: 15.5, lineHeight: 1.6, color: 'var(--c-ink)', fontWeight: 600, marginBottom: 10 }}>{studyChoiceFlash.question}</div>
+                        <div className="st-q" style={{ marginBottom: 18 }}>{studyChoiceFlash.question}</div>
                         {renderChoiceButtons(studyChoiceFlash.choices, { picked: studyChoiceFlash.picked, answerIdx: studyChoiceFlash.answerIdx })}
                       </>) : studyPbqReview ? (<>
                         {/* Graded PBQ — stays until Continue so the student can study what was wrong */}
@@ -17608,18 +17766,17 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                         </div>
                       </>) : studyTypedFlash ? (<>
                         {/* Typed-answer feedback: green ✓ = locally verified; amber ⏳ = Ebi grades it later */}
-                        <div style={{ fontSize: 15.5, lineHeight: 1.6, color: 'var(--c-ink)', fontWeight: 600, marginBottom: 12 }}>{studyTypedFlash.question}</div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                          <span style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 10,
-                            fontSize: 14, fontWeight: 700, animation: 'pop .25s cubic-bezier(.34,1.56,.64,1)',
+                        <div className="st-q" style={{ marginBottom: 18 }}>{studyTypedFlash.question}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                          <span className="st-flash" style={{
+                            animation: 'pop .25s cubic-bezier(.34,1.56,.64,1)',
                             border: `1.5px solid ${studyTypedFlash.kind === 'correct' ? 'var(--c-success)' : 'var(--c-warning)'}`,
                             background: studyTypedFlash.kind === 'correct' ? 'rgba(24,169,87,.12)' : 'rgba(232,147,12,.10)',
                             color: studyTypedFlash.kind === 'correct' ? 'var(--c-success)' : 'var(--c-warning)',
                           }}>
                             {studyTypedFlash.kind === 'correct' ? '✓' : '⏳'} {studyTypedFlash.answer}
                           </span>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: studyTypedFlash.kind === 'correct' ? 'var(--c-success)' : 'var(--c-ink-dim)' }}>
+                          <span style={{ fontSize: 13, fontWeight: 800, color: studyTypedFlash.kind === 'correct' ? 'var(--c-success)' : 'var(--c-ink-dim)' }}>
                             {studyTypedFlash.kind === 'correct' ? t('studyFlashCorrect') : t('studyFlashCheck')}
                           </span>
                         </div>
@@ -17698,7 +17855,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                         // word could never turn red on hover.
                         const cueStyleNoColor = { fontStyle: 'italic', fontWeight: 500, opacity: 0.92 }
                         if (activeMode.type !== 'language') {
-                          return <div dir="auto" key={`q-${cq?.cardIdx}-${cq?.questionIdx}`} style={{ fontSize: 15.5, lineHeight: 1.6, color: 'var(--c-ink)', fontWeight: 600, marginBottom: studyWordLookup ? 6 : 10, animation: 'fadeUp .25s ease' }}>
+                          return <div dir="auto" key={`q-${cq?.cardIdx}-${cq?.questionIdx}`} className="st-q" style={{ marginBottom: studyWordLookup ? 8 : 20, animation: 'fadeUp .25s ease' }}>
                             {splitCues(question).map((part, pi) => isCue(part)
                               ? <span key={pi} style={cueStyle}>{part}</span>
                               : <span key={pi}>{part}</span>)}
@@ -17713,7 +17870,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                         const glossMap = (hintsOn && questionObj?.glosses) ? buildGlossMap(questionObj.glosses, answers) : {}
                         const anyGloss = Object.keys(glossMap).length > 0
                         return (
-                          <div dir="auto" key={`q-${cq?.cardIdx}-${cq?.questionIdx}`} style={{ fontSize: 15.5, color: 'var(--c-ink)', fontWeight: 600, marginBottom: studyWordLookup ? 6 : 10, animation: 'fadeUp .25s ease', lineHeight: anyGloss ? 2.4 : 1.6 }}>
+                          <div dir="auto" key={`q-${cq?.cardIdx}-${cq?.questionIdx}`} className="st-q" style={{ marginBottom: studyWordLookup ? 8 : 20, animation: 'fadeUp .25s ease', lineHeight: anyGloss ? 2.2 : 1.5 }}>
                             {splitCues(question).map((part, pi) => {
                               // Clue segments render muted/italic (a hint, not the sentence) but their words
                               // ARE tappable and glossed like the rest of the line — every word must be
@@ -17734,7 +17891,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                                 if (!anyGloss) return <span key={`${pi}-${ti}`}>{word}</span>
                                 return (
                                   <span key={`${pi}-${ti}`} style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', verticalAlign: 'bottom', lineHeight: 1.1 }}>
-                                    <span style={{ fontSize: 8.5, fontWeight: 700, color: 'var(--c-purple)', whiteSpace: 'nowrap', minHeight: '1.1em', opacity: cue ? 0.85 : 1 }}>{gloss || ' '}</span>
+                                    <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--c-purple)', whiteSpace: 'nowrap', minHeight: '1.1em', opacity: cue ? 0.85 : 1 }}>{gloss || ' '}</span>
                                     {word}
                                   </span>
                                 )
@@ -17752,13 +17909,13 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                       {renderWordLookupPopup('question')}
 
                       {studyCurrentHint && (
-                        <div style={{ fontSize: 11, color: 'var(--c-warning)', background: 'rgba(232,147,12,.08)', border: '1px solid rgba(232,147,12,.2)', borderRadius: 5, padding: '5px 10px', marginBottom: 8 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-warning)', background: 'color-mix(in srgb, var(--c-warning) 9%, transparent)', border: '1px solid color-mix(in srgb, var(--c-warning) 26%, transparent)', borderRadius: 12, padding: '8px 14px', marginBottom: 12 }}>
                           {t('study_hintLabel')} {studyCurrentHint}
                         </div>
                       )}
 
                       {studyMeaningHint && (
-                        <div dir="auto" style={{ fontSize: 11, color: 'var(--c-brand)', background: 'rgba(223,37,64,.06)', border: '1px solid rgba(223,37,64,.2)', borderRadius: 5, padding: '5px 10px', marginBottom: 8, lineHeight: 1.6 }}>
+                        <div dir="auto" style={{ fontSize: 13, color: 'var(--c-ink)', background: 'var(--c-brand-tint)', border: '1px solid var(--c-brand-line)', borderRadius: 12, padding: '8px 14px', marginBottom: 12, lineHeight: 1.6 }}>
                           💡 {renderTappableText(studyMeaningHint, studyMeaningHint, 'hint')}
                         </div>
                       )}
@@ -17783,22 +17940,20 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                           </button>
                         </div>
                       )}
-                      <div key={`shake-${studyInputShake}`} className={studyShaking ? 'study-shake' : undefined} onAnimationEnd={() => setStudyShaking(false)} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <div key={`shake-${studyInputShake}`} className={studyShaking ? 'st-answer study-shake' : 'st-answer'} onAnimationEnd={() => setStudyShaking(false)}>
                         {/* Red ✗ while the missed attempt is on screen; typing clears it */}
                         {studyCurrentHint && !studyInput && (
-                          <span style={{ color: 'var(--c-danger)', fontWeight: 800, fontSize: 17, flexShrink: 0 }}>✗</span>
+                          <span style={{ color: 'var(--c-danger)', fontWeight: 800, fontSize: 20, flexShrink: 0, paddingLeft: 8 }}>✗</span>
                         )}
                         <input
                           value={studyInput}
                           onChange={(e) => setStudyInput(e.target.value)}
                           onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) submitStudyAnswer() }}
                           placeholder={studyAccentRetype ? t('studyAccentPlaceholder') : studyCurrentHint ? t('tryAgain') + '...' : t('typeYourAnswer')}
-                          style={{ ...S.keyInput, flex: 1, fontSize: 14, padding: '10px 14px' }}
                           ref={studyAnswerInputRef}
                           autoFocus
                         />
-                        <button onClick={() => submitStudyAnswer()} disabled={!studyInput.trim()}
-                          style={{ ...S.captureBtn, borderRadius: 6, opacity: !studyInput.trim() ? 0.5 : 1 }}>
+                        <button onClick={() => submitStudyAnswer()} disabled={!studyInput.trim()} className="st-submit btn-press">
                           {studyCurrentHint ? t('tryAgain') : t('submit')}
                         </button>
                       </div>
@@ -17824,40 +17979,40 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                         </div>
                       )}
 
-                      {/* Action buttons */}
-                      <div style={{ display: 'flex', gap: 8, marginTop: 8, justifyContent: 'space-between' }}>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button onClick={skipStudyQuestion} data-study-action="1" className="ui-btn"
-                            style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-danger)', borderColor: 'rgba(229,57,46,.25)' }}>
+                      {/* Action buttons: a quiet toolbar under a hairline (card actions left, question tools right) */}
+                      <div className="st-tools">
+                        <div>
+                          <button onClick={skipStudyQuestion} data-study-action="1" className="st-tool"
+                            style={{ color: 'var(--c-danger)' }}>
                             {t('iDontKnow')}
                           </button>
                           {studyMode === 'conjugations' && (
-                            <button onClick={skipConjugationWord} data-study-action="1" className="ui-btn"
-                              style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-ink-dim)', borderColor: 'var(--c-border)' }}>
+                            <button onClick={skipConjugationWord} data-study-action="1" className="st-tool">
                               {t('skipWord')}
                             </button>
                           )}
                           {!questionHasChoices(questionObj) && questionObj?.type !== 'pbq' && (
-                          <button onClick={fetchMeaningHint} disabled={!apiKey || (!!studyMeaningHintLoading && studyMeaningHintLoading === meaningHintKey()) || !!studyMeaningHint} className="ui-btn"
-                            style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.25)', opacity: ((!!studyMeaningHintLoading && studyMeaningHintLoading === meaningHintKey()) || !!studyMeaningHint) ? 0.5 : 1 }}>
-                            {(!!studyMeaningHintLoading && studyMeaningHintLoading === meaningHintKey()) ? t('loading') : t('meaningHint')}
+                          <button onClick={fetchMeaningHint} disabled={!apiKey || (!!studyMeaningHintLoading && studyMeaningHintLoading === meaningHintKey()) || !!studyMeaningHint} className="st-tool"
+                            style={{ color: 'var(--c-brand)', opacity: ((!!studyMeaningHintLoading && studyMeaningHintLoading === meaningHintKey()) || !!studyMeaningHint) ? 0.5 : 1 }}>
+                            💡 {(!!studyMeaningHintLoading && studyMeaningHintLoading === meaningHintKey()) ? t('loading') : t('meaningHint')}
                           </button>
                           )}
                           {studyMode !== 'conjugations' && (
-                            <button onClick={() => setStudyDeleteConfirm(cq.cardIdx)} className="ui-btn"
-                              style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-ink-dim)', borderColor: 'var(--c-border)' }}>
+                            <button onClick={() => setStudyDeleteConfirm(cq.cardIdx)} className="st-tool">
                               {t('iKnowThisAlready')}
                             </button>
                           )}
+                        </div>
+                        <div>
                           {questionObj?.type !== 'pbq' && studyMode !== 'conjugations' && !(cq.questionIdx < (studyCardState[cq.cardIdx]?.questionIdx || 0)) && ( /* conjugations: its rewrite rules (answer = the card's word, letter cue) do not fit a conjugation drill */
-                            <button onClick={() => setStudyFixQ(studyFixQ ? null : { input: '', loading: false })} disabled={!apiKey} className="ui-btn tip"
+                            <button onClick={() => setStudyFixQ(studyFixQ ? null : { input: '', loading: false })} disabled={!apiKey} className={studyFixQ ? 'st-tool tip on' : 'st-tool tip'}
                               data-tip={t('fixQuestionDesc')}
-                              style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-purple)', borderColor: studyFixQ ? 'rgba(139,92,246,.6)' : 'rgba(139,92,246,.3)', background: studyFixQ ? 'rgba(139,92,246,.12)' : 'transparent' }}>
+                              style={{ color: 'var(--c-purple)' }}>
                               ✎ {t('fixQuestion')}
                             </button>
                           )}
                           {canUndo && (
-                            <button onClick={undoLastAnswer} data-study-action="1" className="ui-btn" style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-ink-dim)', borderColor: 'var(--c-border)' }}>← {t('back')}</button>
+                            <button onClick={undoLastAnswer} data-study-action="1" className="st-tool">← {t('back')}</button>
                           )}
                         </div>
                         {/* Session-level Wrap Up / End Now moved to the header — only card actions live here */}
@@ -17879,12 +18034,20 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                       </>)}
                     </div>
                     {/* Ebi study companion — big, circle-less, reacts to the question; Ask Ebi opens Help */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, paddingTop: 8, flexShrink: 0 }}>
-                      <img src={shrimpUrl(studyMascot)} alt="Ebi" draggable={false} style={{ width: 132, height: 132, objectFit: 'contain' }} />
-                      <button onClick={() => setAskEbiSignal((n) => n + 1)} className="ui-btn" style={{ ...S.ghostBtn, fontSize: 12, color: 'var(--c-brand)', borderColor: 'var(--c-brand-ring, rgba(223,37,64,.35))', fontWeight: 700, padding: '7px 16px', borderRadius: RADIUS.pill }}>
+                    <aside className="st-companion">
+                      <div className="st-ebi"><img src={shrimpUrl(studyMascot)} alt="Ebi" draggable={false} /></div>
+                      <button onClick={() => setAskEbiSignal((n) => n + 1)} className="st-ask">
                         {t('askEbi')}
                       </button>
-                    </div>
+                      {/* Keyboard hints: Enter answers a typed question, 1 to 4 pick a choice */}
+                      {!studyLearnMoment && !studyPbqReview && questionObj?.type !== 'pbq' && (
+                        <div className="st-keys">
+                          {questionHasChoices(questionObj)
+                            ? <div><span style={{ display: 'inline-flex', gap: 3 }}>{[1, 2, 3, 4].map((k) => <span key={k} className="ui-kbd">{k}</span>)}</span>{t('study_kbdChoose')}</div>
+                            : <div><span className="ui-kbd">↵</span>{t('study_kbdSubmit')}</div>}
+                        </div>
+                      )}
+                    </aside>
                     </div>
                   ) : (
                     <div style={{ textAlign: 'center', color: 'var(--c-ink-dim)', fontSize: 12, padding: 20 }}>
@@ -17892,7 +18055,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                           summary skipped it and it arrived unstudied. studyPullTick re-renders this when a pull ends. */}
                       {studyCardState.some(cs => cs.evaluating) ? t('study_evaluatingRemaining') : pullsInFlightRef.current > 0 ? t('study_preparingNext') : t('study_allCompleted')}
                       {!studyCardState.some(cs => cs.evaluating) && pullsInFlightRef.current === 0 && (
-                        <button onClick={() => setStudyPhase('summary')} style={{ ...S.captureBtn, borderRadius: 6, marginTop: 12, display: 'block', margin: '12px auto 0' }}>{t('study_viewSummary')}</button>
+                        <button onClick={() => setStudyPhase('summary')} className="duo-cta btn-press" style={{ display: 'block', margin: '16px auto 0' }}>{t('study_viewSummary')}</button>
                       )}
                     </div>
                   )}
@@ -17948,10 +18111,10 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                     .filter((cs) => { const live = currentQuestion ? studyCardState[currentQuestion.cardIdx] : null; return !(live && live !== cs && !live.done && live.front === cs.front) })
                     .sort((a, b) => (b.gradedAt || 0) - (a.gradedAt || 0)).map((cs, i) => {
                     const ci = studyCardState.indexOf(cs)
-                    const ratingColors = { easy: 'var(--c-success)', good: 'var(--c-brand)', hard: 'var(--c-warning)', again: 'var(--c-danger)', deleted: 'var(--c-ink-dim)' }
+                    const ratingColors = { easy: 'var(--c-success)', good: 'var(--c-info)', hard: 'var(--c-warning)', again: 'var(--c-danger)', deleted: 'var(--c-ink-dim)' }
                     const view = studyGradedView[ci]
                     return (
-                      <div key={ci} className="graded-card" style={{ marginTop: 16, border: '1px solid var(--c-border)', borderRadius: 8, overflow: 'hidden' }}>
+                      <div key={ci} className="graded-card gr-card" data-rating={cs.evaluating ? undefined : (cs.rating || undefined)} style={{ marginTop: 10 }}>
                         {/* The whole header is the feedback toggle; only the HEADER highlights on hover
                             (an expanded body below must never tint). Right-side buttons stopPropagation. */}
                         <div className="card-head" onClick={() => { if (!cs.evaluating) setStudyGradedView(p => ({ ...p, [ci]: p[ci] === 'feedback' ? undefined : 'feedback' })) }}
@@ -17974,22 +18137,22 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                             {(cs.noSync || cs.isConjugation) ? ( // conjugation drills never sync either (they showed "not synced" forever)
                               // Relaxed practice — this rating never reaches Anki, so there's nothing to correct or lock.
                               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{ratingLabel(cs.rating)}</span>
-                                <span className="tip" data-tip={t('study_practiceTip')} style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-purple)' }}>{t('practiceBadge')}</span>
+                                <span className="rate-chip" style={{ '--tone': ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{ratingLabel(cs.rating)}</span>
+                                <span className="tip rate-chip" data-tip={t('study_practiceTip')} style={{ '--tone': 'var(--c-purple)', fontSize: 10.5 }}>{t('practiceBadge')}</span>
                               </span>
                             ) : cs.synced ? (
                               // Locked: this rating is committed to Anki and can no longer change (no again→easy lapse).
                               <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{ratingLabel(cs.rating)}</span>
-                                <span title={cs.ankiCorrected ? t('study_syncedCorrectedTip') : t('study_syncedLockedTip')} style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-success)' }}>{t('study_synced')}{cs.ankiCorrected ? ' ✎' : ''}</span>
+                                <span className="rate-chip" style={{ '--tone': ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{ratingLabel(cs.rating)}</span>
+                                <span title={cs.ankiCorrected ? t('study_syncedCorrectedTip') : t('study_syncedLockedTip')} style={{ fontSize: 11, fontWeight: 800, color: 'var(--c-success)' }}>{t('study_synced')}{cs.ankiCorrected ? ' ✎' : ''}</span>
                               </span>
                             ) : (
                               <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                 <span className="tip" data-tip={t('study_notSyncedTip')} style={{ fontSize: 9, color: 'var(--c-warning)', fontWeight: 700 }}>{t('study_notSynced')}</span>
-                                <select value={cs.rating || ''} onChange={(e) => rateGradedCard(ci, cs.rating, e.target.value)} className="hover-dim" style={{ background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', color: ratingColors[cs.rating] || 'var(--c-ink-dim)', border: `1px solid ${ratingColors[cs.rating] || 'var(--c-border)'}44`, borderRadius: 4, fontSize: 11, fontWeight: 700, fontFamily: 'inherit', padding: '2px 6px', cursor: 'pointer' }}>
+                                <select value={cs.rating || ''} onChange={(e) => rateGradedCard(ci, cs.rating, e.target.value)} className="hover-dim rate-chip" style={{ '--tone': ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>
                                 {!cs.rating && <option value="" disabled>{t('study_rateChoose')}</option>}
                                 <option value="easy" style={{ color: 'var(--c-success)' }}>{t('study_rateEasy')}</option>
-                                <option value="good" style={{ color: 'var(--c-brand)' }}>{t('study_rateGood')}</option>
+                                <option value="good" style={{ color: 'var(--c-info)' }}>{t('study_rateGood')}</option>
                                 <option value="hard" style={{ color: 'var(--c-warning)' }}>{t('study_rateHard')}</option>
                                 <option value="again" style={{ color: 'var(--c-danger)' }}>{t('study_rateAgain')}</option>
                               </select>
@@ -18040,18 +18203,18 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
             {/* Batch feedback — show all card results */}
             {studyPhase === 'batchFeedback' && (
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--c-ink)' }}>{t('study_batchResults')}</div>
+                <div className="ui-page-head" style={{ marginBottom: 16 }}>
+                  <div className="ui-page-title" style={{ fontSize: 28 }}>{t('study_batchResults')}</div>
                   {FeedbackLegend()}
                 </div>
                 {studyCardState.map((cs, ci) => {
                   // A card Wrap Up / End Now set aside before it was asked has no answers: offering it a rating
                   // here sent Anki a review of a card the user never saw.
                   if (cs.skipped && !cs.rating) return null
-                  const ratingColors = { easy: 'var(--c-success)', good: 'var(--c-brand)', hard: 'var(--c-warning)', again: 'var(--c-danger)', deleted: 'var(--c-ink-dim)' }
+                  const ratingColors = { easy: 'var(--c-success)', good: 'var(--c-info)', hard: 'var(--c-warning)', again: 'var(--c-danger)', deleted: 'var(--c-ink-dim)' }
                   const view = cs.rating === 'deleted' ? null : studyGradedView[ci]
                   return (
-                    <div key={ci} className={cs.rating === 'deleted' ? undefined : 'graded-card'} style={{ marginBottom: 16, border: '1px solid var(--c-border)', borderRadius: 8, overflow: 'hidden' }}>
+                    <div key={ci} className={cs.rating === 'deleted' ? 'gr-card' : 'graded-card gr-card'} data-rating={cs.rating || undefined} style={{ marginBottom: 10 }}>
                       {/* Whole header toggles feedback; only the HEADER highlights on hover */}
                       <div className={cs.rating === 'deleted' ? undefined : 'card-head'} onClick={() => { if (cs.rating !== 'deleted') setStudyGradedView(p => ({ ...p, [ci]: p[ci] === 'feedback' ? undefined : 'feedback' })) }}
                         style={{
@@ -18071,21 +18234,21 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                         ) : (cs.noSync || cs.isConjugation) ? (
                           // Relaxed practice — never pushed to Anki, so no dropdown and no lock.
                           <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{ratingLabel(cs.rating)}</span>
-                            <span className="tip" data-tip={t('study_practiceTip')} style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-purple)' }}>{t('practiceBadge')}</span>
+                            <span className="rate-chip" style={{ '--tone': ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{ratingLabel(cs.rating)}</span>
+                            <span className="tip rate-chip" data-tip={t('study_practiceTip')} style={{ '--tone': 'var(--c-purple)', fontSize: 10.5 }}>{t('practiceBadge')}</span>
                           </span>
                         ) : cs.synced ? (
                           // Already committed to Anki — locked so a correction can't double-answer (again→easy lapse).
                           <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{ratingLabel(cs.rating)}</span>
-                            <span title={cs.ankiCorrected ? t('study_syncedCorrectedTip') : t('study_syncedLockedTip')} style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-success)' }}>{t('study_synced')}{cs.ankiCorrected ? ' ✎' : ''}</span>
+                            <span className="rate-chip" style={{ '--tone': ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>{ratingLabel(cs.rating)}</span>
+                            <span title={cs.ankiCorrected ? t('study_syncedCorrectedTip') : t('study_syncedLockedTip')} style={{ fontSize: 11, fontWeight: 800, color: 'var(--c-success)' }}>{t('study_synced')}{cs.ankiCorrected ? ' ✎' : ''}</span>
                           </span>
                         ) : (
                           // Editable rating — changing it re-answers the card in Anki with the new ease (synced:false).
-                          <select value={cs.rating || ''} onChange={(e) => rateGradedCard(ci, cs.rating, e.target.value)} className="hover-dim" style={{ background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', color: ratingColors[cs.rating] || 'var(--c-ink-dim)', border: `1px solid ${ratingColors[cs.rating] || 'var(--c-border)'}44`, borderRadius: 4, fontSize: 11, fontWeight: 700, fontFamily: 'inherit', padding: '2px 6px', cursor: 'pointer' }}>
+                          <select value={cs.rating || ''} onChange={(e) => rateGradedCard(ci, cs.rating, e.target.value)} className="hover-dim rate-chip" style={{ '--tone': ratingColors[cs.rating] || 'var(--c-ink-dim)' }}>
                             {!cs.rating && <option value="" disabled>{t('study_rateChoose')}</option>}
                             <option value="easy" style={{ color: 'var(--c-success)' }}>{t('study_rateEasy')}</option>
-                            <option value="good" style={{ color: 'var(--c-brand)' }}>{t('study_rateGood')}</option>
+                            <option value="good" style={{ color: 'var(--c-info)' }}>{t('study_rateGood')}</option>
                             <option value="hard" style={{ color: 'var(--c-warning)' }}>{t('study_rateHard')}</option>
                             <option value="again" style={{ color: 'var(--c-danger)' }}>{t('study_rateAgain')}</option>
                           </select>
@@ -18129,8 +18292,8 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                     </div>
                   )
                 })}
-                <div style={{ textAlign: 'center', marginTop: 8 }}>
-                  <button onClick={nextBatch} style={{ ...S.captureBtn, borderRadius: 6 }}>
+                <div style={{ textAlign: 'center', marginTop: 20 }}>
+                  <button onClick={nextBatch} className="duo-cta btn-press" style={{ minWidth: 220 }}>
                     {/* nextBatch always ends the session (this screen only shows at the end or after Wrap Up), so it said
                         "Next Batch" after an early Wrap Up and then finished. */}
                     {t('study_finishSession')}
@@ -18147,26 +18310,29 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
         {/* Empty state (hidden in overlay) */}
         {stage === 'idle' && !isOverlay && (
           <div style={S.emptyState}>
-            <img src={shrimpUrl(poseFile('camera'))} alt="Ebi" style={{ width: 84, height: 84, objectFit: 'contain', marginBottom: 12 }} />
-            <h2 style={S.emptyTitle}>{t('pic_emptyTitle')}</h2>
-            <p style={S.emptyDesc}>
-              {t('pic_emptyDescPre')}<kbd style={S.kbdInline}>Alt+Q</kbd>{t('pic_emptyDescPost', { provider: providerConfig.label })}
-            </p>
-            <div style={S.methods}>
-              <div onClick={captureScreen} className="click-dim"
-                style={{ ...S.methodCard, borderColor: 'rgba(223,37,64,0.2)', cursor: 'pointer' }}>
-                <span style={{ color: 'var(--c-brand)', fontSize: 20 }}>📸</span>
-                <span style={{ color: 'var(--c-brand)' }}>{t('pic_capture')}</span>
-              </div>
-              <div onClick={() => fileInputRef.current?.click()} className="click-dim"
-                style={{ ...S.methodCard, borderColor: 'rgba(139,92,246,0.2)', cursor: 'pointer' }}>
-                <span style={{ color: 'var(--c-purple)', fontSize: 20 }}>📁</span>
-                <span style={{ color: 'var(--c-purple)' }}>{t('pic_upload')}</span>
-              </div>
-              <div onClick={pasteImageFromClipboard} className="click-dim"
-                style={{ ...S.methodCard, borderColor: 'rgba(24,169,87,0.2)', cursor: 'pointer' }}>
-                <span style={{ color: 'var(--c-success)', fontSize: 20 }}>📋</span>
-                <span style={{ color: 'var(--c-success)' }}>{t('pic_paste')}</span>
+            {/* Second pass: one big drop zone (drops work anywhere on the tab), three ways in as tiles. */}
+            <div className="pc-drop">
+              <img src={shrimpUrl(poseFile('camera'))} alt="Ebi" style={{ width: 120, height: 120, objectFit: 'contain', marginBottom: 6 }} />
+              <h2 className="ui-page-title" style={{ fontSize: 34, marginBottom: 10 }}>{t('pic_emptyTitle')}</h2>
+              <p style={{ ...S.emptyDesc, margin: '0 auto' }}>
+                {t('pic_emptyDescPre')}<kbd className="ui-kbd" style={{ verticalAlign: 'middle', margin: '0 2px' }}>Alt+Q</kbd>{t('pic_emptyDescPost', { provider: providerConfig.label })}
+              </p>
+              <div className="pc-methods">
+                <div onClick={captureScreen} className="pc-method ui-lift" role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); captureScreen() } }}
+                  style={{ '--tone': 'var(--c-brand)' }}>
+                  <span className="pc-ico">📸</span>
+                  <span>{t('pic_capture')}</span>
+                </div>
+                <div onClick={() => fileInputRef.current?.click()} className="pc-method ui-lift" role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInputRef.current?.click() } }}
+                  style={{ '--tone': 'var(--c-purple)' }}>
+                  <span className="pc-ico">📁</span>
+                  <span>{t('pic_upload')}</span>
+                </div>
+                <div onClick={pasteImageFromClipboard} className="pc-method ui-lift" role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pasteImageFromClipboard() } }}
+                  style={{ '--tone': 'var(--c-success)' }}>
+                  <span className="pc-ico">📋</span>
+                  <span>{t('pic_paste')}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -18206,7 +18372,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
 
         {/* Image + overlays */}
         {screenshot && (
-          <div style={isOverlay ? {} : { animation: 'fadeUp 0.25s ease', textAlign: 'center' }}>
+          <div style={isOverlay ? {} : { animation: 'fadeUp 0.25s ease', textAlign: 'center' }} className={isOverlay ? undefined : 'pc-stage'}>
             {/* Progress indicator */}
             {loading && !isOverlay && (
               <div style={{ ...S.progressBar, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -18234,6 +18400,10 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
               </div>
             )}
 
+            {/* Second pass: once the reading is ready, the picture and a side inspector (the reading panel) sit
+                side by side; stacked on narrow windows. In the overlay these wrappers are display:contents. */}
+            <div className={!isOverlay && stage === 'done' && ocrLines.length > 0 ? 'pc-split' : undefined} style={isOverlay ? { display: 'contents' } : undefined}>
+            <div style={isOverlay ? { display: 'contents' } : { minWidth: 0 }}>
             {/* Image container */}
             {isOverlay && selectionViewport && selectionCrop && activeMode.areaSelectTransparent !== false ? (
               /* Transparent area-select mode: only show the cropped selection, rest is transparent */
@@ -18328,19 +18498,20 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
               </div>
             )}
 
+            </div>
             {/* Reading panel — transcribed lines, each word clickable for in-context meaning.
                 Hover/click is shared with the image overlay (linked highlighting via hoveredIdx). */}
             {stage === 'done' && !isOverlay && ocrLines.length > 0 && (
-              <div style={{
+              <div className="pc-reading" style={{
                 maxWidth: 760, margin: '16px auto 0', textAlign: 'left',
                 background: 'var(--c-surface)', border: '1px solid var(--c-border)',
-                borderRadius: 12, padding: '14px 16px', boxShadow: SHADOW.md,
+                borderRadius: 20, padding: '16px 18px', boxShadow: SHADOW.md, fontSize: 15,
               }}>
-                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--c-ink-dim)', marginBottom: 10 }}>
+                <div className="ui-eyebrow" style={{ marginBottom: 10 }}>
                   {t('pic_readingPanel')}
                 </div>
                 {ocrLines.map((ln, li) => (
-                  <div key={li} style={{ marginBottom: 4, lineHeight: 2 }}>
+                  <div key={li} dir="auto" style={{ marginBottom: 4, lineHeight: 2, display: 'flex', flexWrap: 'wrap' }}>
                     {ln.idxs.map((wi) => {
                       const w = ocrWords[wi]
                       if (!w) return null
@@ -18365,6 +18536,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                 ))}
               </div>
             )}
+            </div>
           </div>
         )}
       </main>}
@@ -18883,6 +19055,202 @@ ${PALETTE_CSS}
 
         ::selection { background: rgba(223,37,64,.20); color: var(--c-ink); }
 
+        /* ── UI overhaul 2026-10 (docs/ui-overhaul.md) ───────────────────
+           Card surface, hover elevation, focus ring, glass. Revert = delete this block and the .duo-* restyle. */
+        .ui-card { background: var(--c-surface); border: 1px solid var(--c-border); box-shadow: var(--sh-card); }
+        .ui-lift { transition: box-shadow .16s var(--ease-out), border-color .16s var(--ease-out), background .16s var(--ease-out); }
+        .ui-lift:not(:disabled):hover {
+          box-shadow: var(--sh-md); border-color: var(--c-border-strong) !important;
+        }
+        .ui-chunky { box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 4px 10px -6px color-mix(in srgb, var(--chunky, var(--c-brand)) 60%, transparent); }
+        .ui-chunky:not(:disabled):hover { filter: brightness(1.07); }
+        .ui-hero { position: relative; border: 1px solid var(--c-border); border-radius: 24px; box-shadow: var(--sh-lg);
+          background: radial-gradient(120% 70% at 50% 0%, color-mix(in srgb, var(--c-ink) 3%, transparent), transparent 66%), var(--c-surface); }
+        .ui-hero .duo-bubble { background: var(--c-surface-sunken); box-shadow: none; }
+        .ui-halo { display: inline-grid; place-items: center; border-radius: 50%;
+          background: radial-gradient(circle, color-mix(in srgb, var(--c-brand) 9%, transparent), transparent 68%); }
+        .ui-glass { background: var(--c-glass); backdrop-filter: blur(16px) saturate(1.4); -webkit-backdrop-filter: blur(16px) saturate(1.4); }
+        .ui-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--c-ink-faint); }
+        button:focus-visible, a:focus-visible, [role="button"]:focus-visible, [role="radio"]:focus-visible, summary:focus-visible {
+          outline: 2px solid var(--c-brand); outline-offset: 2px;
+        }
+        @keyframes uiPop { from { opacity: 0; transform: scale(.96) translateY(6px); } to { opacity: 1; transform: none; } }
+        .ui-pop { animation: uiPop .22s var(--ease-out) both; }
+        @media (prefers-reduced-motion: reduce) {
+          .ui-lift, .ui-pop, .duo-tile, .duo-cta, .ui-tab, .ui-tab-inner, .chip-inner, .study-word-inner { transition: none !important; animation: none !important; }
+          .ui-tab:hover .ui-tab-inner, .chip:hover .chip-inner, .study-word:hover .study-word-inner { transform: none !important; }
+        }
+
+        /* ── UI second pass 2026-10 (docs/ui-overhaul.md "Second pass") ──────────
+           New screen layouts share these classes: the page header, the study stage (session bar, question card,
+           answer field, tools, companion), the session summary, graded rows with rating chips, the chat composer,
+           the deck list and the stats grid. Revert = delete this block and the classNames that use it. */
+        .ui-kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 6px;
+          box-sizing: border-box; border-radius: 6px; font: 700 10.5px/1 ui-monospace, 'SF Mono', Menlo, monospace; color: var(--c-ink-dim);
+          background: var(--c-surface); border: 1px solid var(--c-border-strong); border-bottom-width: 2px; white-space: nowrap; }
+        .ui-page { width: 100%; max-width: 1120px; margin: 0 auto; box-sizing: border-box; }
+        .ui-page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px 20px; flex-wrap: wrap; margin-bottom: 22px; }
+        .ui-page-title { font-family: 'Baloo 2', 'Nunito', system-ui, sans-serif; font-weight: 800; font-size: 34px; line-height: 1.02;
+          letter-spacing: -0.025em; color: var(--c-ink); margin: 0; }
+        .ui-page-sub { color: var(--c-ink-dim); font-size: 14px; font-weight: 600; line-height: 1.5; margin-top: 6px; }
+        .ui-eyebrow-brand { font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--c-brand); }
+
+        /* Study home: a split hero (words left, Ebi right). */
+        .sh-hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); align-items: center; gap: 28px; width: 100%; max-width: 880px;
+          padding: 40px 44px; box-sizing: border-box; border-radius: 28px; background: var(--c-surface); border: 1px solid var(--c-border); box-shadow: var(--sh-lg);
+          position: relative; overflow: hidden; }
+        .sh-hero::before { content: ''; position: absolute; right: -120px; top: -140px; width: 460px; height: 460px; border-radius: 50%;
+          background: radial-gradient(circle, color-mix(in srgb, var(--c-brand) 11%, transparent), transparent 68%); pointer-events: none; }
+        .sh-hero > * { position: relative; }
+        .sh-art { display: grid; place-items: center; }
+        .sh-art img { width: min(100%, 260px); height: auto; aspect-ratio: 1; object-fit: contain; filter: drop-shadow(0 18px 24px rgba(16,24,32,.16)); }
+        @container shome (max-width: 640px) {
+          .sh-hero { grid-template-columns: 1fr; padding: 28px 22px; text-align: center; gap: 8px; }
+          .sh-hero .sh-art { order: -1; }
+          .sh-hero .sh-art img { width: 150px; }
+          .sh-hero .sh-cta { justify-content: center; }
+        }
+
+        /* Study stage: the live question, focused. */
+        .st-stage { container: ststage / inline-size; width: 100%; }
+        .st-bar { display: flex; flex-direction: column; gap: 10px; margin-bottom: 22px; }
+        .st-progress { height: 6px; border-radius: 99px; background: var(--c-surface-alt); overflow: hidden; box-shadow: inset 0 0 0 1px var(--c-border); }
+        .st-progress > div { height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--c-brand-soft), var(--c-brand)); transition: width .4s var(--ease-out); }
+        .st-bar-row { display: flex; justify-content: space-between; align-items: center; gap: 8px 14px; flex-wrap: wrap; }
+        .st-meta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 12px; color: var(--c-ink-dim); font-weight: 600; }
+        .st-pill { display: inline-flex; align-items: baseline; gap: 5px; padding: 5px 11px; border-radius: 99px; background: var(--c-surface); border: 1px solid var(--c-border); white-space: nowrap; }
+        .st-pill b { color: var(--c-ink); font-weight: 800; font-size: 13px; }
+        .st-pill.ink { background: var(--c-ink-solid); border-color: var(--c-ink-solid); color: color-mix(in srgb, var(--c-on-ink) 70%, transparent); }
+        .st-pill.ink b { color: var(--c-on-ink); }
+        .st-actions { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+        .st-grid { display: grid; grid-template-columns: minmax(0, 1fr) 196px; gap: 22px; align-items: start; }
+        .st-card { position: relative; background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 24px; padding: 30px 34px 22px;
+          box-shadow: var(--sh-lg); min-width: 0; }
+        .st-card::before { content: ''; position: absolute; left: 34px; right: 34px; top: -1px; height: 3px; border-radius: 0 0 3px 3px;
+          background: linear-gradient(90deg, var(--c-brand), color-mix(in srgb, var(--c-brand) 0%, transparent)); opacity: .9; }
+        .st-q { font-size: 22px; line-height: 1.5; font-weight: 700; color: var(--c-ink); letter-spacing: -0.005em; }
+        .st-answer { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 8px; border-radius: 18px; background: var(--c-surface-sunken);
+          border: 2px solid var(--c-border); transition: border-color .16s var(--ease-out), box-shadow .16s var(--ease-out), background .16s var(--ease-out); }
+        .st-answer:focus-within { border-color: var(--c-brand); box-shadow: 0 0 0 4px var(--c-brand-tint); background: var(--c-surface); }
+        .st-answer input { flex: 1; min-width: 0; border: none !important; outline: none; background: transparent; color: var(--c-ink);
+          font: 600 19px/1.3 'Nunito', system-ui, sans-serif; padding: 12px 10px; box-shadow: none !important; }
+        .st-answer .st-submit { flex-shrink: 0; border: none; border-radius: 13px; padding: 13px 22px; font: 800 14px/1 'Nunito', system-ui, sans-serif;
+          letter-spacing: .02em; color: var(--c-on-brand); background: var(--c-brand); cursor: pointer; box-shadow: inset 0 -3px 0 var(--c-brand-dark); }
+        .st-answer .st-submit:disabled { background: var(--c-border-strong); box-shadow: none; color: var(--c-surface); opacity: 1; cursor: default; }
+        .st-tools { display: flex; justify-content: space-between; align-items: center; gap: 6px 10px; flex-wrap: wrap; margin-top: 18px;
+          padding-top: 14px; border-top: 1px solid var(--c-border); }
+        .st-tools > div { display: flex; gap: 2px; flex-wrap: wrap; align-items: center; }
+        .st-tool { display: inline-flex; align-items: center; gap: 6px; padding: 7px 9px; border-radius: 10px; border: 1px solid transparent;
+          background: transparent; color: var(--c-ink-dim); font: 700 12.5px/1.2 'Nunito', system-ui, sans-serif; cursor: pointer; white-space: nowrap; }
+        .st-tool.on { background: color-mix(in srgb, currentColor 10%, transparent); border-color: color-mix(in srgb, currentColor 28%, transparent); }
+        .st-companion { position: sticky; top: 0; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 18px 14px 16px;
+          border-radius: 24px; background: var(--c-surface); border: 1px solid var(--c-border); box-shadow: var(--sh-card); }
+        .st-companion .st-ebi { width: 150px; height: 150px; border-radius: 50%; display: grid; place-items: center;
+          background: radial-gradient(circle at 50% 60%, color-mix(in srgb, var(--c-brand) 10%, var(--c-surface-sunken)), var(--c-surface-sunken) 70%); }
+        .st-companion .st-ebi img { width: 132px; height: 132px; object-fit: contain; }
+        .st-ask { width: 100%; justify-content: center; display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 12px;
+          border: 1px solid var(--c-brand-line); background: var(--c-brand-tint); color: var(--c-brand); font: 800 13px/1.2 'Nunito', system-ui, sans-serif; cursor: pointer; }
+        .st-keys { width: 100%; display: flex; flex-direction: column; gap: 7px; padding-top: 12px; border-top: 1px solid var(--c-border);
+          font-size: 11.5px; color: var(--c-ink-faint); font-weight: 600; }
+        .st-keys > div { display: flex; align-items: center; gap: 8px; }
+        .st-flash { display: inline-flex; align-items: center; gap: 8px; padding: 12px 18px; border-radius: 14px; font-size: 18px; font-weight: 800; }
+        @container ststage (max-width: 700px) {
+          .st-grid { grid-template-columns: 1fr; gap: 14px; }
+          .st-companion { order: -1; position: static; flex-direction: row; padding: 10px 12px; gap: 12px; border-radius: 18px; }
+          .st-companion .st-ebi { width: 60px; height: 60px; flex-shrink: 0; }
+          .st-companion .st-ebi img { width: 56px; height: 56px; }
+          .st-companion .st-ask { width: auto; margin-left: auto; }
+          .st-keys { display: none; }
+          .st-card { padding: 22px 18px 16px; border-radius: 20px; }
+          .st-card::before { left: 18px; right: 18px; }
+          .st-q { font-size: 19px; }
+          .st-answer input { font-size: 17px; padding: 10px 6px; }
+          .st-answer .st-submit { padding: 12px 16px; }
+        }
+
+        /* Session summary: a reward screen. */
+        .sum-wrap { width: 100%; max-width: 640px; margin: 0 auto; text-align: center; }
+        .sum-hero { position: relative; padding: 22px 24px 22px; border-radius: 28px; background: var(--c-surface); border: 1px solid var(--c-border);
+          box-shadow: var(--sh-lg); overflow: hidden; }
+        .sum-hero::before { content: ''; position: absolute; inset: 0; pointer-events: none;
+          background: radial-gradient(70% 60% at 50% 0%, color-mix(in srgb, var(--c-success) 12%, transparent), transparent 70%),
+            radial-gradient(40% 40% at 12% 18%, color-mix(in srgb, var(--c-warning) 10%, transparent), transparent 70%),
+            radial-gradient(40% 40% at 88% 22%, color-mix(in srgb, var(--c-info) 10%, transparent), transparent 70%); }
+        .sum-hero > * { position: relative; }
+        .sum-hero img { width: 104px; height: 104px; object-fit: contain; animation: pop .5s var(--ease-spring) both; }
+        .sum-count { font-family: 'Baloo 2', 'Nunito', system-ui, sans-serif; font-weight: 800; font-size: 56px; line-height: 1; letter-spacing: -0.03em; color: var(--c-ink); }
+        .sum-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 18px; }
+        .sum-tile { --tone: var(--c-ink-dim); padding: 11px 8px 10px; border-radius: 18px; background: color-mix(in srgb, var(--tone) 8%, var(--c-surface));
+          border: 1px solid color-mix(in srgb, var(--tone) 24%, var(--c-border)); }
+        .sum-tile b { display: block; font-family: 'Baloo 2', 'Nunito', system-ui, sans-serif; font-size: 30px; line-height: 1.05; color: var(--tone); font-weight: 800; }
+        .sum-tile span { font-size: 11.5px; font-weight: 800; color: var(--c-ink-dim); text-transform: uppercase; letter-spacing: .06em; }
+        .sum-split { display: flex; height: 10px; border-radius: 99px; overflow: hidden; margin-top: 16px; background: var(--c-surface-alt); gap: 2px; }
+        .sum-split > div { height: 100%; }
+        @container ststage (max-width: 520px) { .sum-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sum-count { font-size: 52px; } }
+
+        /* Graded rows: a rating stripe and a rating chip. */
+        .gr-card { --tone: var(--c-border-strong); position: relative; background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 16px;
+          overflow: hidden; box-shadow: var(--sh-sm); }
+        .gr-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--tone); }
+        .gr-card[data-rating="easy"] { --tone: var(--c-success); }
+        .gr-card[data-rating="good"] { --tone: var(--c-info); }
+        .gr-card[data-rating="hard"] { --tone: var(--c-warning); }
+        .gr-card[data-rating="again"] { --tone: var(--c-danger); }
+        .gr-card[data-rating="deleted"] { --tone: var(--c-ink-faint); }
+        .gr-card > .card-head { padding: 11px 14px 11px 18px !important; background: transparent !important; }
+        .rate-chip { --tone: var(--c-ink-dim); display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 99px; font-size: 11.5px; font-weight: 800;
+          color: var(--tone); background: color-mix(in srgb, var(--tone) 12%, transparent); border: 1px solid color-mix(in srgb, var(--tone) 30%, transparent); white-space: nowrap; }
+        select.rate-chip { appearance: auto; font-family: inherit; cursor: pointer; padding: 3px 6px 3px 10px; }
+
+        /* Chat: a floating composer. */
+        .ch-composer { margin: 0 auto; width: 100%; max-width: 860px; box-sizing: border-box; background: var(--c-surface); border: 1px solid var(--c-border);
+          border-radius: 22px; box-shadow: var(--sh-lg); padding: 8px; }
+        @container chcol (max-width: 600px) { .ch-mascot { width: 52px !important; height: 52px !important; } }
+        .ch-composer:focus-within { border-color: color-mix(in srgb, var(--c-brand) 45%, var(--c-border)); }
+        .ch-composer textarea, .ch-composer input:not([type="file"]) { border-color: transparent !important; background: transparent !important; box-shadow: none !important; }
+
+        /* Deck: one list, hairline rows. */
+        .dk-list { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 20px; box-shadow: var(--sh-card); overflow: hidden; }
+        .dk-list > .deck-row { border: none !important; border-radius: 0 !important; margin: 0 !important; box-shadow: none !important; background: transparent !important;
+          border-bottom: 1px solid var(--c-border) !important; }
+        .dk-list > .deck-row:last-child { border-bottom: none !important; }
+        .dk-list > .deck-row:hover { background: var(--c-hover) !important; }
+        .dk-list > div:not(.deck-row) { border: none !important; border-radius: 0 !important; border-bottom: 1px solid var(--c-border) !important; box-shadow: inset 3px 0 0 var(--c-brand) !important; }
+        .dk-sticky { position: sticky; top: -20px; z-index: 6; margin: 0 -20px 14px; padding: 12px 20px; background: color-mix(in srgb, var(--c-bg) 86%, transparent);
+          backdrop-filter: blur(14px) saturate(1.3); -webkit-backdrop-filter: blur(14px) saturate(1.3); border-bottom: 1px solid var(--c-border); }
+
+        /* Discover: the suggestion is the top card of a stack. */
+        .dc-stack { position: relative; max-width: 620px; margin: 8px auto 28px; }
+        .dc-stack::before, .dc-stack::after { content: ''; position: absolute; border-radius: 26px; background: var(--c-surface); border: 1px solid var(--c-border); }
+        .dc-stack::before { left: 16px; right: 16px; top: 12px; bottom: -10px; opacity: .75; box-shadow: var(--sh-sm); }
+        .dc-stack::after { left: 34px; right: 34px; top: 24px; bottom: -20px; opacity: .45; }
+        .dc-card { position: relative; z-index: 1; border-radius: 26px; padding: 28px 30px 22px; background: var(--c-surface); border: 1px solid var(--c-border); box-shadow: var(--sh-lg); animation: uiPop .28s var(--ease-out) both; }
+        /* Picture (idle): a drop zone with three ways in. */
+        .pc-drop { width: 100%; max-width: 760px; box-sizing: border-box; padding: 34px 32px 30px; border-radius: 30px; text-align: center;
+          border: 2px dashed var(--c-border-strong); background: color-mix(in srgb, var(--c-surface) 70%, transparent); }
+        .pc-methods { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 26px; }
+        .pc-method { --tone: var(--c-brand); display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 20px 12px; border-radius: 20px; cursor: pointer;
+          background: var(--c-surface); border: 1px solid var(--c-border); box-shadow: var(--sh-card); font-weight: 800; font-size: 13.5px; color: var(--c-ink); }
+        .pc-method .pc-ico { width: 52px; height: 52px; border-radius: 16px; display: grid; place-items: center; font-size: 24px;
+          background: color-mix(in srgb, var(--tone) 12%, var(--c-surface)); border: 1px solid color-mix(in srgb, var(--tone) 24%, transparent); }
+        @media (max-width: 760px) { .pc-methods { grid-template-columns: 1fr; } .pc-method { flex-direction: row; justify-content: flex-start; padding: 12px 16px; } .pc-drop { padding: 24px 16px; } }
+        /* Picture (analysis): the picture with a side inspector (the reading panel). */
+        .pc-stage { container: pcstage / inline-size; }
+        .pc-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, 320px); gap: 18px; align-items: start; }
+        .pc-split .pc-reading { margin: 0 !important; max-width: none !important; position: sticky; top: 0; max-height: calc(100vh / 1.35 - 150px); overflow: auto; }
+        @container pcstage (max-width: 760px) {
+          .pc-split { grid-template-columns: minmax(0, 1fr); }
+          .pc-split .pc-reading { position: static; max-height: none; margin: 16px auto 0 !important; }
+        }
+        /* Stats: a dashboard grid. */
+        .stx-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
+        .stx-span4 { grid-column: span 4; } .stx-span8 { grid-column: span 8; } .stx-span12 { grid-column: span 12; }
+        .stx-kpi { grid-column: span 4; }
+        @container stx (max-width: 760px) { .stx-span4 { grid-column: span 12; } .stx-span8 { grid-column: span 12; }
+          .stx-kpi { flex-direction: column; align-items: flex-start !important; gap: 10px !important; padding: 16px !important; } }
+        @container stx (max-width: 420px) { .stx-kpi { grid-column: span 12; flex-direction: row; align-items: center !important; } }
+        @media (prefers-reduced-motion: reduce) { .sum-hero img, .st-progress > div { animation: none !important; transition: none !important; } }
+
         /* ── Interactive polish — geometry-safe (no transform on click) ─ */
         button { transition: box-shadow .18s ease, filter .18s ease, background .18s ease, border-color .18s ease, color .18s ease, transform .08s ease; }
         button:hover:not(:disabled) { filter: brightness(1.04) saturate(1.03); }
@@ -18901,17 +19269,13 @@ ${PALETTE_CSS}
            background the control has. Controls with an intentional inline box-shadow (solid
            CTAs) keep it (inline wins), and the active nav tab is exempt (already selected).
            Dark surfaces need a stronger black to register. */
-        button:not(:disabled):not(.ui-tab-current):hover,
+        /* UI overhaul: a TINT (--c-hover: ink in light, white in dark; dark used to go a muddy black)
+           instead of a darken. .ui-lift controls (cards, tiles) raise their shadow instead (see below). */
+        button:not(:disabled):not(.ui-tab-current):not(.ui-lift):not(.duo-tile):not(.duo-cta):not(.ui-chunky):hover,
         select:not(:disabled):hover,
         input[type="checkbox"]:not(:disabled):hover {
-          box-shadow: inset 0 0 0 999px rgba(0, 0, 0, .08);
-          filter: brightness(.97);
-        }
-        [data-theme="dark"] button:not(:disabled):not(.ui-tab-current):hover,
-        [data-theme="dark"] select:not(:disabled):hover,
-        [data-theme="dark"] input[type="checkbox"]:not(:disabled):hover {
-          box-shadow: inset 0 0 0 999px rgba(0, 0, 0, .26);
-          filter: brightness(.92);
+          box-shadow: inset 0 0 0 999px var(--c-hover);
+          filter: brightness(1.03);
         }
 
         /* Ghost/action buttons: SUBTLE hover — the border gently deepens toward the button's own
@@ -18984,7 +19348,7 @@ ${PALETTE_CSS}
         input, select, textarea { transition: border-color .16s ease, box-shadow .16s ease, background .16s ease; }
         input:focus, select:focus, textarea:focus {
           border-color: var(--c-brand) !important;
-          box-shadow: 0 0 0 3px rgba(223,37,64,.18);
+          box-shadow: var(--ring);
         }
         input::placeholder, textarea::placeholder { color: var(--c-ink-faint); }
 
@@ -19007,44 +19371,48 @@ ${PALETTE_CSS}
         }
 
         /* Deck browser rows — highlight on hover */
-        .deck-row:hover { border-color: rgba(223,37,64,.35) !important; background: rgba(223,37,64,.05) !important; }
+        .deck-row:hover { border-color: var(--c-border-strong) !important; background: var(--c-hover) !important; }
 
         /* Same darken for clickable NON-button elements (divs with onClick, e.g. the Picture
            entry tiles) — opt in with this class. */
         .click-dim { transition: box-shadow .15s ease; }
-        .click-dim:hover { box-shadow: inset 0 0 0 999px rgba(0, 0, 0, .08); }
-        [data-theme="dark"] .click-dim:hover { box-shadow: inset 0 0 0 999px rgba(0, 0, 0, .26); }
+        .click-dim:hover { box-shadow: inset 0 0 0 999px var(--c-hover); }
 
         /* Per-question / card-back rows inside a graded card: darken on DIRECT hover only
            (hovering the card header never floods down to them). */
         .row-head { transition: box-shadow .15s ease; }
-        .row-head:hover { box-shadow: inset 0 0 0 999px rgba(0, 0, 0, .08); }
-        [data-theme="dark"] .row-head:hover { box-shadow: inset 0 0 0 999px rgba(0, 0, 0, .26); }
+        .row-head:hover { box-shadow: inset 0 0 0 999px var(--c-hover); }
 
         /* Graded-card TOP header only: slightly darker on hover (settings-style, theme-tuned).
            NOT while hovering a control inside it (memory hook / sound / rating select) — those
            must never sit on a darkened backdrop — and the question rows inside never darken. */
         .card-head { transition: box-shadow .15s ease; }
-        .card-head:hover:not(:has(button:hover, select:hover)) { box-shadow: inset 0 0 0 999px rgba(0, 0, 0, .08); }
-        [data-theme="dark"] .card-head:hover:not(:has(button:hover, select:hover)) { box-shadow: inset 0 0 0 999px rgba(0, 0, 0, .26); }
+        .card-head:hover:not(:has(button:hover, select:hover)) { box-shadow: inset 0 0 0 999px var(--c-hover); }
 
         /* Chat session sidebar items — highlight on hover */
-        .chat-session:hover { background: rgba(223,37,64,.06) !important; }
+        .chat-session:hover { background: var(--c-hover) !important; }
 
         /* Suggestion / pill chips — lift + glow on hover (lift on inner span; see .ui-tab note) */
-        .chip:hover { border-color: rgba(223,37,64,.45) !important; color: var(--c-brand) !important; }
+        .chip:hover { border-color: var(--c-border-strong) !important; color: var(--c-ink) !important; }
         .chip { transition: border-color .16s ease, color .16s ease, background .16s ease; }
-        .duo-cta { font-family: 'Nunito', system-ui, sans-serif; font-weight: 800; font-size: 15px; letter-spacing: .04em; text-transform: uppercase;
-          color: var(--c-on-brand, #fff); background: var(--c-brand); border: 2px solid var(--c-brand-dark); border-bottom-width: 5px;
-          border-radius: 14px; padding: 12px 30px; cursor: pointer; }
-        .duo-cta.green { background: var(--c-success); border-color: color-mix(in srgb, var(--c-success) 75%, black); }
+        /* Chunky 3D CTA, modernised (UI overhaul): a lit gradient face, a darker 4px edge, a colored glow. */
+        .duo-cta { font-family: 'Nunito', system-ui, sans-serif; font-weight: 800; font-size: 15px; letter-spacing: .05em; text-transform: uppercase;
+          color: var(--c-on-brand, #fff); background: var(--c-brand);
+          border: 1px solid var(--c-brand-dark); border-bottom-width: 4px; border-radius: 16px; padding: 13px 30px; cursor: pointer; max-width: 100%; box-sizing: border-box;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,.22), var(--sh-sm); }
+        .duo-cta.green { background: var(--c-success);
+          border-color: color-mix(in srgb, var(--c-success) 70%, black);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,.2), var(--sh-sm); }
+        .duo-cta:not(:disabled):hover { filter: brightness(1.07); }
         .duo-cta:disabled { opacity: .5; cursor: default; }
         .duo-tile { font-family: inherit; text-align: left; background: var(--c-surface); color: var(--c-ink); font-weight: 700; font-size: 13px;
-          border: 2px solid var(--c-border); border-bottom-width: 4px; border-radius: 14px; padding: 12px 16px; cursor: pointer; line-height: 1.35; }
-        .duo-tile.brand { border-color: color-mix(in srgb, var(--c-brand) 45%, var(--c-border)); }
-        .duo-title { font-family: 'Baloo 2', 'Nunito', system-ui, sans-serif; font-weight: 800; color: var(--c-ink); line-height: 1.15; }
-        .duo-bubble { position: relative; background: var(--c-surface); border: 2px solid var(--c-border); border-radius: 16px; padding: 12px 16px;
-          color: var(--c-ink); font-weight: 600; font-size: 14px; line-height: 1.45; }
+          border: 1px solid var(--c-border); border-radius: 14px; padding: 12px 16px; cursor: pointer; line-height: 1.35;
+          box-shadow: var(--sh-card); transition: box-shadow .16s var(--ease-out), border-color .16s var(--ease-out); }
+        button.duo-tile:not(:disabled):hover { box-shadow: var(--sh-md); border-color: var(--c-border-strong); filter: none; }
+        .duo-tile.brand { border-color: var(--c-brand-line); background: var(--c-brand-tint); color: var(--c-brand); }
+        .duo-title { font-family: 'Baloo 2', 'Nunito', system-ui, sans-serif; font-weight: 800; color: var(--c-ink); line-height: 1.15; letter-spacing: -0.01em; }
+        .duo-bubble { position: relative; background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 18px; padding: 12px 16px;
+          color: var(--c-ink); font-weight: 600; font-size: 14px; line-height: 1.45; box-shadow: var(--sh-card); }
         .chip-inner { display: inline-block; transition: transform .14s ease; }
         .chip:hover .chip-inner { transform: translateY(-1px); }
 

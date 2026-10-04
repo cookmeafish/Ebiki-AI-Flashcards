@@ -8,7 +8,8 @@ import { poseFile } from '../../config/shrimp'
 import { speak } from '../../speech'
 import { useFocusHold } from '../registry'
 import { ChunkyButton, EbiSays, ProgressBar, Card, tCount } from '../ui'
-import { QuizRunner, RuleCardButton, buildScenePrompt, parseScene, voiceFor, SCENE_ROLE, SCENE_MAX_TOKENS, judgeStrike } from '../kit'
+import { QuizRunner, RuleCardButton, buildScenePrompt, parseScene, voiceFor, SCENE_ROLE, SCENE_MAX_TOKENS, judgeStrike, fightCtx, generationKey } from '../kit'
+import FightSettings from './FightSettings'
 import { featureCfg } from '../registry'
 import { gradeAnswer, gradeFromStrike } from '../../config/grading'
 import { learnerLevelLine } from '../kit/learnerStore'
@@ -231,7 +232,12 @@ export default function NodeRun(props) {
 // The scroll's hint: the first letter of every word, the rest as dots ("buenos días" → "b····· d···").
 const scrollHint = (ans) => ans.split(/(\s+)/).map((w) => (/^\s+$/.test(w) ? w : [...w].map((ch, i) => (i === 0 || !/\p{L}/u.test(ch) ? ch : '·')).join(''))).join('')
 
-function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, onNewQuestions }) {
+function NodeRunBody({ ctx: rawCtx, modeId, area, node, misses = [], onFinish, onQuit, onNewQuestions }) {
+  // A boss or Legendary fight speaks the mode's fight language (FightSettings, the same study settings as Study): its
+  // questions, graders, taunts and Learn it all read `ctx.subject` from here. Other steps are unchanged.
+  const isFight = node.kind === 'boss' || node.kind === 'legendary'
+  const ctx = isFight ? fightCtx(rawCtx) : rawCtx
+  const fightRulesNow = ctx.fight?.rules || {}
   const { t, ai, subject } = ctx
   const teaches = TEACH_KINDS.has(node.kind)
   const [phase, setPhase] = useState(node.kind === 'talk' || node.kind === 'adventure' ? 'talk' : teaches ? 'teach' : 'loading') // teach | loading | quiz | story | talk | error
@@ -302,6 +308,7 @@ function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, o
   }
   const isOver = () => finished.current || !oddsRef.current || !!fightOutcome(fsRef.current, oddsRef.current)
   const fc = useFightCheck(ctx, { onOverturn, isOver })
+  const learnOn = fightRulesNow.learnMoment !== false // the mode's Learn-it moments (one setting with Study)
   const tauntsOn = fight && fightExtrasFor(cfg, { focus }).taunts // fightCheck.js
   const voice = fight ? islandVoice({ bossName: bossName || area.bossName || '', areaTitle: area.title, theme: area.theme }) : ''
   const taunt = useBossTaunt(ctx, { bossKey: `boss:${modeId}:${String(area.title || area.id).slice(0, 60)}`, voice, rules: RAID_VOICE_RULES, avoidWords: STOCK_WORDS, bossName: bossName || area.bossName || '', enabled: tauntsOn })
@@ -326,6 +333,7 @@ function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, o
         if (my !== seq.current) return
         setScene(s); setPhase('story')
       } else {
+        genAt.current = generationKey(fightRulesNow)
         const qs = await makeQuiz(ctx, modeId, area, node, { misses })
         if (my !== seq.current) return
         setQuestions(qs); setPhase('quiz')
@@ -333,6 +341,17 @@ function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, o
     } catch (e) { if (my === seq.current) { setError(String(e.message || e)); setPhase('error') } }
   }
   useEffect(() => { if (phase === 'loading') load(); return () => { seq.current++ } }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // A fight setting that changes what the questions are written in (learned language, "Ebi speaks", dialect), changed
+  // on the entrance before the fight: the boss writes a new set (nothing was answered, nothing is recorded).
+  const genAt = useRef('')
+  const genKey = isFight ? generationKey(fightRulesNow) : ''
+  const asked = useRef(false)
+  useEffect(() => {
+    if (!isFight || fighting || phase !== 'quiz' || !genAt.current || genKey === genAt.current || asked.current) return
+    asked.current = true
+    if (onNewQuestions) onNewQuestions()
+    else load()
+  }, [genKey, phase, fighting]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // `total`: the fight ended early out of lives, so the questions never asked count as not answered right.
   const finish = async (total) => {
@@ -494,16 +513,17 @@ function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, o
       ? <ChunkyButton variant="ghost" color={C.purple} onClick={() => spendScroll(q, api)} style={{ fontSize: 12, padding: '6px 10px' }}>📜 {t('lg_useScroll', { n: scrolls })}</ChunkyButton>
       : null) : undefined
     const boss = fight
-    if (boss && !fighting) return <div style={{ display: 'grid', gap: 4 }}><BossIntro t={t} area={area} name={bossName} total={questions.length} odds={odds} legendary={node.kind === 'legendary'} calm={focus} onFight={() => setFighting(true)} />{renewRow}</div>
+    if (boss && !fighting) return <div style={{ display: 'grid', gap: 4 }}><BossIntro t={t} area={area} name={bossName} total={questions.length} odds={odds} legendary={node.kind === 'legendary'} calm={focus} onFight={() => setFighting(true)} /><FightSettings ctx={ctx} allowStyle={node.kind === 'boss'} />{renewRow}</div>
     const runner = (
       <QuizRunner questions={questions} t={t} ai={ai} subject={subject} ctx={ctx} confirm={ctx.confirm}
         title={node.kind === 'boss' ? `👑 ${bossName || t('lg_boss')}` : node.kind === 'legendary' ? `🏅 ${bossName || t('lg_legendary')}` : node.title || t(`lg_kind_${node.kind}`)}
         retryMisses={!fight}
         onAnswer={record} judge={judge} header={header} canUseChoices={canUseChoices} tools={tools}
+        startChoices={node.kind === 'boss' ? () => fightRulesNow.answerStyle === 'choices' : undefined}
         onQuestion={fight ? () => taunt.onQuestion() : undefined} resolveQuestion={fight ? fc.resolveQuestion : undefined}
         feedbackExtra={(q, correct, answer) => fight ? (() => {
           const e = fc.entryFor(q)
-          return e && isWrongish(e.first) ? <MissTools ctx={ctx} entry={e} onAppeal={fc.appeal} onLearn={() => openLearn(e)} rule expected={expectedOf(q)} /> : null
+          return e && isWrongish(e.first) ? <MissTools ctx={ctx} entry={e} onAppeal={fc.appeal} onLearn={learnOn ? () => openLearn(e) : null} rule expected={expectedOf(q)} /> : null
         })() : (!correct && node.kind === 'rule' && ai.hasKey
           ? <RuleCardButton ctx={ctx} compact deck={ctx.subject?.modeDeck || ''} source={{ asked: q.prompt, answered: answer, expected: q.kind === 'choice' ? q.choices?.[q.answerIdx] : (q.accepted || [])[0] }} />
           : null)}
@@ -521,7 +541,7 @@ function NodeRunBody({ ctx, modeId, area, node, misses = [], onFinish, onQuit, o
         {/* Sticky: a long question or four tall choices scroll UNDER the boss instead of pushing it off screen. */}
         <div style={{ maxWidth: 680, width: '100%', margin: '0 auto', position: 'sticky', top: 0, zIndex: 5, paddingTop: 4, background: C.bg }}>
           <BossArena t={t} area={area} name={bossName} need={o.need} lives={o.lives} bonus={o.bonus} state={fs} weak={weakNames} shield={shield} focus={focus} getZoom={ctx.getZoom} />
-          {!outcome && <TauntBubble bubble={taunt.bubble} name={bossName} calm={focus} />}
+          {!outcome && <TauntBubble bubble={taunt.bubble} name={bossName} calm={focus} ctx={ctx} />}
           <FightNotice notice={fc.notice} t={t} />
         </div>
         {learn && <LearnItPanel ctx={ctx} item={learn} onClose={() => setLearn(null)} closeLabel={t('lg_learnBackToFight')} />}

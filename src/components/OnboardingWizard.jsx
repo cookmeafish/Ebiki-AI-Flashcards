@@ -335,12 +335,20 @@ export default function OnboardingWizard(p) {
   return (
     // Sized for body{zoom:1.35} like SettingsModal: a bare inset:0 backdrop covered 135% of the window,
     // pushing the panel down-right so tall steps hid their Next/Back footer during first run.
-    <div role="dialog" aria-modal="true" style={{ ...S.backdrop, cursor: 'default', width: 'calc(100vw / 1.35)', height: 'calc(100vh / 1.35)' }}>
+    // Second pass: a full-screen flow on the app's own canvas (opaque, no blurred app behind it), a step bar on top.
+    <div role="dialog" aria-modal="true" style={{ ...S.backdrop, cursor: 'default', width: 'calc(100vw / 1.35)', height: 'calc(100vh / 1.35)',
+      background: `radial-gradient(900px 520px at 85% -10%, color-mix(in srgb, ${C.brand} 9%, transparent), transparent 65%), radial-gradient(800px 520px at 0% 110%, color-mix(in srgb, ${C.teal} 9%, transparent), transparent 60%), ${C.bg}`,
+      backdropFilter: 'none', WebkitBackdropFilter: 'none' }}>
       <div ref={panelRef} tabIndex={-1} style={{ outline: 'none', position: 'relative',
-        width: 'min(620px, calc(94vw / 1.35))', maxHeight: 'calc(90vh / 1.35)', overflowY: 'auto', textAlign: 'center',
-        background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg,
-        boxShadow: SHADOW.xl, padding: '34px 30px 26px', animation: 'pop .2s cubic-bezier(.34,1.56,.64,1)',
+        width: 'min(640px, calc(94vw / 1.35))', maxHeight: 'calc(92vh / 1.35)', overflowY: 'auto', textAlign: 'center', boxSizing: 'border-box',
+        background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl,
+        boxShadow: SHADOW.xl, padding: '30px 36px 28px', animation: 'pop .2s cubic-bezier(.34,1.56,.64,1)',
       }}>
+        {step > 0 && (
+          <div aria-hidden="true" style={{ display: 'flex', gap: 5, margin: '0 28px 18px' }}>
+            {steps.map((_, i) => <span key={i} style={{ flex: 1, height: 5, borderRadius: 99, background: i <= step ? C.brand : C.surfaceAlt, transition: 'background .3s ease' }} />)}
+          </div>
+        )}
         {onClose && (
           <button type="button" onClick={onClose} aria-label={t('close')} className="tip" data-tip={t('close')}
             style={{ position: 'absolute', top: 10, right: 12, background: 'none', border: 'none', color: C.inkFaint, fontSize: 18, cursor: 'pointer', fontFamily: 'inherit', padding: 4 }}>&times;</button>
@@ -364,14 +372,12 @@ export default function OnboardingWizard(p) {
         <Fragment key={step}>{Body()}</Fragment>
         {/* Footer nav (hidden on welcome/finish which have their own primary button) */}
         {step > 0 && step < last && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 26 }}>
-            <button style={{ ...S.ghostBtn, fontSize: 13, opacity: creatingFirst ? 0.5 : 1 }} disabled={creatingFirst} onClick={back}>{t('back')}</button>
-            <div style={{ display: 'flex', gap: 6 }}>
-              {steps.map((_, i) => <span key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: i === step ? C.brand : C.border }} />)}
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 28, paddingTop: 18, borderTop: `1px solid ${C.border}` }}>
+            <button style={{ ...S.ghostBtn, fontSize: 13, padding: '9px 16px', borderRadius: 12, opacity: creatingFirst ? 0.5 : 1 }} disabled={creatingFirst} onClick={back}>{t('back')}</button>
+            <span style={{ fontSize: 12, fontWeight: 800, color: C.inkFaint, letterSpacing: '.06em' }}>{step} / {steps.length - 1}</span>
             {steps[step] === 'mode'
               ? <span style={{ width: 60 }} />
-              : <button className="btn-press" style={{ ...S.keyDone, fontSize: 13, padding: '8px 20px' }} onClick={next}>{t('obNext')}</button>}
+              : <button className="btn-press" style={{ ...S.keyDone, fontSize: 14, padding: '10px 26px', borderRadius: 12 }} onClick={next}>{t('obNext')}</button>}
           </div>
         )}
       </div>

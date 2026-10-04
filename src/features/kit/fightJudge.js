@@ -22,7 +22,9 @@ export const flagOf = (v) => {
   return /^(true|yes|correct)$/.test(s) ? true : /^(false|no|incorrect|wrong)$/.test(s) ? false : null
 }
 
-const subjectLine = (subject) => `Subject: ${subject?.name || ''}${subject?.description ? ` (the learner's own context: ${subject.description})` : ''}`
+// `phrasing` (a fight's language line, kit/fightSettings.js) tells the grader which language the learner reads, and in
+// a general mode that answers in any language count.
+const subjectLine = (subject) => `Subject: ${subject?.name || ''}${subject?.description ? ` (the learner's own context: ${subject.description})` : ''}${subject?.phrasing ? `\n${subject.phrasing}` : ''}`
 const questionLines = (q, ans) => [
   `Question: ${q.prompt}`,
   q.kind === 'choice' && Array.isArray(q.choices) ? `Options: ${q.choices.join(' / ')}` : '',
@@ -32,8 +34,10 @@ const questionLines = (q, ans) => [
   `Student answer: ${ans}`,
   q.open ? 'This is an open question: any wording that does what was asked is correct.' : '',
 ]
+// Grammar feedback (Study's setting, `subject.grammarFeedback` in a fight): off, grammar and agreement OUTSIDE the
+// tested word or form do not count (Study grades them only with the setting on).
 const rulesFor = (subject) => (subject?.isLanguage
-  ? `"target": the tested ${subject.learnLang} word, form or rule is used correctly (a single-letter typo in it is still wrong for "all", but right for "target" when the word is clearly meant). "all": the WHOLE answer is correct ${subject.learnLang} for what was asked (grammar, agreement, spelling, accents). "accentsOnly": true when "target" is true and the ONLY mistakes are missing or wrong accents that do not turn a word into a different word or form.`
+  ? `"target": the tested ${subject.learnLang} word, form or rule is used correctly (a single-letter typo in it is still wrong for "all", but right for "target" when the word is clearly meant). "all": the WHOLE answer is correct ${subject.learnLang} for what was asked (${subject.grammarFeedback === false ? 'spelling and accents; grammar and agreement outside the tested word or form do NOT count' : 'grammar, agreement, spelling, accents'}). "accentsOnly": true when "target" is true and the ONLY mistakes are missing or wrong accents that do not turn a word into a different word or form.`
   : '"target": the answer shows the tested idea correctly (a synonym, abbreviation or paraphrase is fine). "all": nothing in it is wrong (no wrong detail, no misused term). "accentsOnly": false.')
 
 // THE FAST VERDICT: three flags, nothing else.

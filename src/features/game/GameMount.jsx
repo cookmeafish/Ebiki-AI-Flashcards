@@ -27,9 +27,9 @@ function StreakScreen({ player, t, lang, onClose, celebrate }) {
       <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 26, color: C.warning, marginBottom: 16, ...rise(1.05) }}>
         {s.streak === 1 ? t('game_streakBig') : t('game_streakBigMany')}
       </div>
-      <div style={{ border: `2px solid ${C.border}`, borderRadius: RADIUS.lg, padding: '14px 12px', ...rise(1.2) }}>
+      <div style={{ border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, padding: '14px 12px', ...rise(1.2) }}>
         <WeekDots player={player} lang={lang} popToday={celebrate ? 1.5 : 0} />
-        <div style={{ borderTop: `2px solid ${C.border}`, margin: '14px -12px 12px' }} />
+        <div style={{ borderTop: `1px solid ${C.border}`, margin: '14px -12px 12px' }} />
         <div style={{ fontSize: 14, fontWeight: 700, color: C.inkDim, lineHeight: 1.5 }}>{t('game_streakKeep')}</div>
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, margin: '12px 2px 18px', color: C.inkDim, ...rise(1.35) }}>
@@ -61,7 +61,7 @@ function Chooser({ g, t, onDone }) {
       ))}
       <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
         <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('game_namePlaceholder')} maxLength={40}
-          style={{ flex: 1, padding: '10px 12px', borderRadius: RADIUS.md, border: `2px solid ${C.border}`, background: C.surfaceAlt, color: C.ink, fontSize: 14 }} />
+          style={{ flex: 1, padding: '10px 12px', borderRadius: RADIUS.md, border: `1px solid ${C.border}`, background: C.surfaceAlt, color: C.ink, fontSize: 14 }} />
         <ChunkyButton disabled={busy} onClick={() => run(() => createPlayer(name))}>{t('game_chooseNew')}</ChunkyButton>
       </div>
     </div>

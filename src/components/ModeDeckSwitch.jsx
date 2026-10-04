@@ -1,5 +1,5 @@
 import Dropdown from './Dropdown'
-import { C, RADIUS, FONT } from '../config/tokens'
+import { C, RADIUS, FONT, SHADOW } from '../config/tokens'
 
 // The header's mode + deck switcher as ONE split control: the mode on the left, the deck THAT MODE
 // studies on the right, inside one shared shell with a link glyph between them, so it reads as a
@@ -43,7 +43,7 @@ export default function ModeDeckSwitch({ mode, deck, tip, getZoom }) {
     <div role="group" aria-label={tip} className="tip tip-b" data-tip={tip}
       style={{
         display: 'inline-flex', alignItems: 'stretch', minWidth: 0, maxWidth: '100%',
-        border: `1px solid ${C.borderStrong}`, borderRadius: RADIUS.md, background: C.surface, cursor: 'default',
+        border: `1px solid ${C.border}`, borderRadius: RADIUS.md, background: C.surface, cursor: 'default', boxShadow: SHADOW.sm,
       }}>
       <Dropdown value={mode.value} getZoom={getZoom} onChange={mode.onChange} options={mode.options}
         ariaLabel={mode.ariaLabel} wrapStyle={segWrap} style={segStyle(C.brand, deck ? 'left' : 'both')} />

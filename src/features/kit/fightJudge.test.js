@@ -102,3 +102,19 @@ describe('judgeStrike is fast: one small verdict call, the note later', () => {
     expect(await recheckStrike(fakeAi([{ right: true, all: true, why: 'w' }]), comptia, q, '443 ')).toMatchObject({ overturned: true, verdict: 'clean' })
   })
 })
+
+describe('fight settings reach the graders', () => {
+  const q = { kind: 'typed', prompt: 'Ayer yo ___ (to eat, "c")', accepted: ['comí'], target: 'comer' }
+  const base = { isLanguage: true, learnLang: 'Spanish', userLang: 'English', name: 'Spanish' }
+  it('grammar feedback off: grammar outside the tested word does not count', () => {
+    expect(buildVerdictPrompt({ ...base, grammarFeedback: false }, q, 'comí').user).toMatch(/do NOT count/)
+    expect(buildVerdictPrompt({ ...base, grammarFeedback: true }, q, 'comí').user).toMatch(/grammar, agreement, spelling, accents/)
+    expect(buildVerdictPrompt(base, q, 'comí').user).toMatch(/grammar, agreement, spelling, accents/) // no setting: as before
+  })
+  it('the phrasing line and the fight language reach every grader', () => {
+    const s = { ...base, userLang: 'Spanish', phrasing: 'FULL IMMERSION: write EVERYTHING in Spanish' }
+    expect(buildVerdictPrompt(s, q, 'x').user).toMatch(/FULL IMMERSION/)
+    expect(buildExplainPrompt(s, q, 'x').user).toMatch(/note" in Spanish/)
+    expect(buildRecheckPrompt(s, q, 'x').user).toMatch(/why" in Spanish/)
+  })
+})

@@ -12,11 +12,18 @@
 //   Mount         component rendered once app-wide (background work, modals, overlays)
 //   headerItems   [{ id, order, Component }] small items in the header
 //   railCards     [{ id, order, Component }] cards in the right-hand rail
-//   navItems      [{ id, order, icon, art?, labelKey, Screen, rail?, visible?(ctx) }] whole screens in the sidebar
+//   navItems      [{ id, order, icon, art?, labelKey, descKey, Screen, rail?, visible?(ctx) }] whole screens in the sidebar
+//                 (descKey: one or two sentences on what the screen is for, shown in the sidebar flyout on hover
+//                 or focus; required by features.test.js)
 //                 (visible gets { registry, featureSettings } and hides the entry while false)
 //   settingsCards [{ id, section, order, Component }] cards in Settings (section: 'general' for now)
 //   practiceActivities [{ id, order, icon, titleKey, descKey, Screen, Badge? }] tiles in the Practice hub;
 //                 Screen gets { onExit, params }, Badge renders a small count (or nothing)
+//   practiceHero  [{ id, order, activity, Component }] ONE big full-width card at the top of the Practice hub (today's
+//                 raid). The hub shows the hero with the lowest order among active features and leaves the tile of
+//                 its `activity` (an id in the SAME feature's practiceActivities) out of the grid. Component gets
+//                 { onOpen(params?) }, which opens that activity. It must paint at once (a skeleton while it reads),
+//                 read cheaply, never block the hub and never write state just by being shown.
 //   chatMenuItems [{ id, order, icon, labelKey, onPick(ctx), visible?(ctx) }] entries in the Chat "+" menu
 //   on            { [EVENTS.X]: (payload, ctx) => void } reactions to app facts
 //
@@ -30,6 +37,7 @@ export const SLOT = {
   NAV: 'navItems',
   SETTINGS: 'settingsCards',
   PRACTICE: 'practiceActivities', // tiles in the Practice hub (if the practice feature is installed)
+  PRACTICE_HERO: 'practiceHero',  // the one big card at the top of the Practice hub
   CHAT_MENU: 'chatMenuItems',     // entries in the Chat "+" menu
 }
 

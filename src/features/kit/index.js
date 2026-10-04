@@ -16,3 +16,4 @@ export { buildScenePrompt, parseScene, voiceFor, SCENE_ROLE, SCENE_MAX_TOKENS } 
 export { matchTyped, leaksAnswer, sanitizeQuestions, normalizeAnswer, missesFromResults } from './grade'
 export { learnerContextText, learnerContextFor } from './learnerContextUse'
 export { studyBlock, studyBlockText } from './studyGuard'
+export { fightCtx, fightRules, rulesPatch, fightSubject, fightWords, isImmersive, generationKey, ensureLetterCue, questionAnswersOf, FIGHT_STYLES } from './fightSettings'

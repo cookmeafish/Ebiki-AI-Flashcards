@@ -1,7 +1,7 @@
 // The Practice hub: a tile per activity other features contribute (practiceActivities slot). Opening a tile
 // shows its Screen here; nothing in the hub knows what the activities are.
 import { useEffect, useRef, useState } from 'react'
-import { C, FONT, RADIUS } from '../../config/tokens'
+import { C, FONT, RADIUS, SHADOW } from '../../config/tokens'
 import { poseFile, shrimpUrl } from '../../config/shrimp'
 import { useFeatureCtx, useIntent, useNavEntry, activityIdle, SLOT } from '../registry'
 import { depthBorder } from '../ui'
@@ -29,6 +29,10 @@ export default function PracticeScreen() {
   }, [modeId])
   const acts = ctx ? ctx.registry.slot(SLOT.PRACTICE) : []
   const current = acts.find((a) => `${a.feature}:${a.id}` === open)
+  // The hero (practiceHero slot): one big card on top, the lowest order wins; its activity's tile leaves the grid.
+  const hero = ctx ? ctx.registry.slot(SLOT.PRACTICE_HERO).find((h) => acts.some((a) => a.feature === h.feature && a.id === h.activity)) : null
+  const heroKey = hero ? `${hero.feature}:${hero.activity}` : ''
+  const tiles = acts.filter((a) => `${a.feature}:${a.id}` !== heroKey)
   // Its feature was switched off while it was open: forget it (switching it back on reopened it, unasked).
   useEffect(() => { if (open && !current) { setOpen(null); setParams(null) } }, [open, current])
   // Back / Forward (src/nav): opening an activity is an entry; Back asks before leaving it (it may be mid-call or
@@ -60,14 +64,15 @@ export default function PracticeScreen() {
           <div style={{ fontSize: 14, color: C.inkDim, fontWeight: 600 }}>{t('practice_sub', { mode: subject?.name || '' })}</div>
         </div>
       </div>
+      {hero && <hero.Component key={`${heroKey}:${subject?.modeId ?? ''}`} onOpen={(p) => { setParams(p || null); setOpen(heroKey) }} />}
       {!acts.length && <div style={{ color: C.inkDim }}>{t('practice_empty')}</div>}
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${TILE_MIN}px, 1fr))`, gap: 14 }}>
-        {acts.map((a) => (
-          <button key={`${a.feature}:${a.id}`} onClick={() => { setParams(null); setOpen(`${a.feature}:${a.id}`) }} className="btn-press" style={{
+        {tiles.map((a) => (
+          <button key={`${a.feature}:${a.id}`} onClick={() => { setParams(null); setOpen(`${a.feature}:${a.id}`) }} className="btn-press ui-card ui-lift" style={{
             textAlign: 'left', padding: 18, borderRadius: RADIUS.lg, background: C.surface, cursor: 'pointer',
-            ...depthBorder(C.border, { bottomColor: C.border }), display: 'flex', gap: 14, alignItems: 'flex-start',
+            display: 'flex', gap: 14, alignItems: 'flex-start', // surface, hairline and shadow: .ui-card
           }}>
-            <span style={{ fontSize: 34, lineHeight: 1 }}>{a.icon}</span>
+            <span aria-hidden="true" style={{ fontSize: 28, lineHeight: 1, width: 52, height: 52, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: RADIUS.md, background: C.surfaceAlt, boxShadow: SHADOW.hi }}>{a.icon}</span>
             <span style={{ flex: 1 }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 18, color: C.ink }}>{t(a.titleKey)}</span>

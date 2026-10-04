@@ -10,6 +10,7 @@ import { LEGENDS_ID } from './store'
 import { CheatSettingsCard } from './CheatUI'
 import LegendsSettingsCard from './SettingsCard'
 import RaidTile from './RaidTile'
+import RaidHero from './RaidHero'
 import HelpBridge from './HelpBridge'
 import { EVENTS } from '../events'
 import { peekMap, updateMap, configureLegends } from './store'
@@ -26,13 +27,15 @@ export default {
   // Tells Ebi's Help what the learner does in Legends, on every screen (helpContext.js).
   Mount: HelpBridge,
   navItems: [
-    { id: 'legends', icon: '🗺️', art: 'legends', labelKey: 'lg_nav', order: 15, Screen: LegendsScreen },
+    { id: 'legends', icon: '🗺️', art: 'legends', labelKey: 'lg_nav', descKey: 'lg_navDesc', order: 15, Screen: LegendsScreen },
     // Cheat mode only: every boss, raid boss, banner and Ebi draft (AssetView.jsx), straight from the sidebar.
-    { id: 'assets', icon: '🎨', labelKey: 'lg_cheatAssets', order: 95, Screen: AssetScreen, visible: (ctx) => cheatsOn(ctx) },
+    { id: 'assets', icon: '🎨', labelKey: 'lg_cheatAssets', descKey: 'lg_cheatAssetsDesc', order: 95, Screen: AssetScreen, visible: (ctx) => cheatsOn(ctx) },
   ],
   railCards: [{ id: 'level', order: 25, Component: LevelCard }],
   // The daily raid: the deck's due cards as a boss fight (every answer is a real Anki review).
   practiceActivities: [{ id: 'raid', order: 3, icon: '⚔️', titleKey: 'lg_raidTile', descKey: 'lg_raidTileDesc', Screen: RaidTile }],
+  // ...and its hero card at the top of the hub: today's boss, its health and the cards due (RaidHero.jsx, read only).
+  practiceHero: [{ id: 'raid', order: 10, activity: 'raid', Component: RaidHero }],
   // Hidden: renders nothing until cheat mode is on (7 quick clicks on the map's title).
   settingsCards: [
     { id: 'legends-settings', section: 'general', order: 85, Component: LegendsSettingsCard },
