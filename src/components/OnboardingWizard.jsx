@@ -333,14 +333,14 @@ export default function OnboardingWizard(p) {
   }
 
   return (
-    // Sized for body{zoom:1.35} like SettingsModal: a bare inset:0 backdrop covered 135% of the window,
+    // Sized for body{zoom (the app zoom, --app-zoom)} like SettingsModal: a bare inset:0 backdrop covered zoom x 100% of the window,
     // pushing the panel down-right so tall steps hid their Next/Back footer during first run.
     // Second pass: a full-screen flow on the app's own canvas (opaque, no blurred app behind it), a step bar on top.
-    <div role="dialog" aria-modal="true" style={{ ...S.backdrop, cursor: 'default', width: 'calc(100vw / 1.35)', height: 'calc(100vh / 1.35)',
+    <div role="dialog" aria-modal="true" style={{ ...S.backdrop, cursor: 'default', width: 'calc(100vw / var(--app-zoom))', height: 'calc(100vh / var(--app-zoom))',
       background: `radial-gradient(900px 520px at 85% -10%, color-mix(in srgb, ${C.brand} 9%, transparent), transparent 65%), radial-gradient(800px 520px at 0% 110%, color-mix(in srgb, ${C.teal} 9%, transparent), transparent 60%), ${C.bg}`,
       backdropFilter: 'none', WebkitBackdropFilter: 'none' }}>
       <div ref={panelRef} tabIndex={-1} style={{ outline: 'none', position: 'relative',
-        width: 'min(640px, calc(94vw / 1.35))', maxHeight: 'calc(92vh / 1.35)', overflowY: 'auto', textAlign: 'center', boxSizing: 'border-box',
+        width: 'min(640px, calc(94vw / var(--app-zoom)))', maxHeight: 'calc(92vh / var(--app-zoom))', overflowY: 'auto', textAlign: 'center', boxSizing: 'border-box',
         background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl,
         boxShadow: SHADOW.xl, padding: '30px 36px 28px', animation: 'pop .2s cubic-bezier(.34,1.56,.64,1)',
       }}>

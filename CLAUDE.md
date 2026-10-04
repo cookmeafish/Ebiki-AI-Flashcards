@@ -20,6 +20,12 @@ Brand color **#DF2540**. Themes **Ocean Light** + **Dark**. Fonts Baloo 2 (displ
   character, the palette CSS. Write new prompts so.
 - **Light-mode semantic colors are DEEPER than dark mode's** (success `#0E8746`, warning `#B36A00`, danger
   `#D32F24`, purple `#7C4DEF`) so green and amber stay distinct at small sizes. Keep that when retuning.
+- **App zoom** (`src/config/zoom.js`, pure, tested): the body carries a CSS zoom, default 1.35 (shown as 100%), 1.0 to
+  2.0 in 10% steps; per device in `platform.kv('ebiki-ui-zoom')`, set in Settings > General > Zoom or Ctrl/Cmd + = - 0
+  (Electron: `main.cjs` takes those keys from its menu and forwards `app-window:zoom`, `platform.onDeviceZoom`).
+  App applies it as `body.style.zoom` AND `--app-zoom` on `<html>` (1 in the overlay: OCR stays 1:1), then fires
+  `resize` so breakpoints re-measure. **Never hardcode 1.35**: a fixed box covering the viewport is
+  `calc(100vw / var(--app-zoom))`; JS divides by the live `getZoom()` (reads `body.style.zoom`).
 
 ## Settings: global vs per-mode
 One **⚙ Settings** modal, `src/components/SettingsModal.jsx`:
@@ -1153,8 +1159,8 @@ Re-runnable from Settings → General ("Run setup again" with an unchanged provi
   close; docking/undocking re-scrolls to the bottom; a drag out of an edge zone clamps the grab offset to the free
   size; the chooser overlay is above the panel while choosing.
 - **Docking**: drag the header (⠿) or click ◣ to pick **Dock left** / **Dock right** / **Under the question**;
-  previews come from one shared `ZONE_RECTS`. Sizes are viewport-relative (`clamp(250px, 24vw/1.35, 380px)`; /1.35
-  undoes the body zoom). Esc cancels; dropping in open space floats. `snapZone` = `null` | `left` | `right` |
+  previews come from one shared `ZONE_RECTS`. Sizes are viewport-relative (`clamp(250px, 24vw / var(--app-zoom), 380px)`;
+  the division undoes the body zoom). Esc cancels; dropping in open space floats. `snapZone` = `null` | `left` | `right` |
   `bottom` | `free`.
 
 ## ⭐ HOW TO ADD A BUTTON
@@ -1244,7 +1250,7 @@ Re-runnable from Settings → General ("Run setup again" with an unchanged provi
   newest picture wins. A refine lands only if `ankiCardVerRef` is unchanged.
   `loadImageFromDataUrl` retires the running scan only in `onload` (an undecodable HEIC killed it); drops use the
   first IMAGE file and never switch tabs for a non-image; the overlay ignores paste (it has no Analyze button).
-- **Zoom-aware tooltips**: body has `zoom:1.35` (non-overlay); rects/`clientX` are real px, `left/top` layout px, so
+- **Zoom-aware tooltips**: body has the app zoom (non-overlay); rects/`clientX` are real px, `left/top` layout px, so
   divide by `getZoom()` and clamp pinned popups to the zoom-adjusted viewport.
 
 ## State persistence across refresh
@@ -1515,7 +1521,8 @@ Each feature is ONE folder (`src/features/<id>/`: logic, components, `strings.js
 Sidebar (core screens `CORE_NAV` + feature `navItems`) | screen | rail (feature `railCards`, only on `railWanted`
 screens: Study home, Stats; feature screens opt in with `rail: true`). Sizes/breakpoints in `SHELL` (CSS px after the
 body zoom; `useViewportWidth`): icon-only sidebar below `collapseBelow`, no rail below `railHideBelow`. In the overlay
-the wrappers are `display: contents`. Sidebar icons are drawn SVGs (`public/assets/nav/<art>.svg`, `art` on
+the wrappers are `display: contents`. The rail collapses to a slim strip (its own toggle at the top, `platform.kv('ebiki-rail-collapsed')`,
+like the sidebar's; collapsed tooltip `tip tip-l tip-b`). Sidebar icons are drawn SVGs (`public/assets/nav/<art>.svg`, `art` on
 `CORE_NAV` entries and feature `navItems`; the emoji `icon` stays as fallback and for the Chat "+" menu). A saved
 `activeTab` that no longer exists falls back to Study.
 **Core screens share the Duolingo-style look through global classes** (App.jsx global `<style>`, same design as
@@ -1819,8 +1826,8 @@ screen `legends` (order 15, no rail: the map header shows the level), rail card 
     it should have dealt; `last.kind: 'refund'` (own counter `refundN`) plays a sweat drop and the heart flying back,
     never a hit or lunge (skipped in focus mode / Still bosses). Its attack is cancelled (`_attackOf`). An ability's
     own state is not rewound. A decided fight is never refunded: a later win fixes only the grade/tally (`afterFight`).
-    Raids: the reviews are recorded at the end as before, after `fc.settle()` (re-checks and appeals, `SETTLE_MS` cap);
-    an overturn changes the card's first answer before that, or `srs.correctRating` once per card after.
+    Raids: reviews are recorded progressively (`recordSoFar`: at a "Continue?" and at the end, after `fc.settle()`,
+    `SETTLE_MS` cap); an overturn changes a card's first answer before it is recorded, or `srs.correctRating` once after.
     Legends: NodeRun's finish waits the same way, so `items[].grade` is already corrected.
   - C. **Appeal** (`MissTools`, on every miss/glancing with an answer): an optional reason, the same careful judge
     with it, one per answer (a failed check may retry), disabled while the re-check runs; shows the judge's `why`
@@ -1873,14 +1880,27 @@ screen `legends` (order 15, no rail: the map header shows the level), rail card 
   OBVIOUS: `MotionToggle` (BossArena.jsx) under Fight on the intro card and in the arena header, plus Settings >
   General > Legends. The asset view (`ArtMotion` context) always animates and hides the toggle. Read them through
   `useArtMotionAlways` / `useArtStill`, never the settings directly.
-- **Raids** (`raid.js` pure + `raid.test.js`, `RaidRun.jsx`; Practice tile and the map header): today's DUE cards in
-  Anki's order (`raidOrder`, one per note, `RAID.maxCards`), one dual question per card (`buildRaidPrompt`). Health
-  from the cards due (`raidHp`), 3 lives, THREE phases. Every card's FIRST answer is recorded as a real review
+- **Raids** (`raid.js` pure + `raid.test.js` + `siege.test.js`, `RaidRun.jsx`; Practice tile and the map header): DUE
+  cards in Anki's order (`nextRaidCards`: one per note, `RAID.maxCards` per batch, never a note answered in a raid today:
+  `day.asked`), one dual question per card (`buildRaidPrompt`), THREE phases. **A SIEGE (owner, 2026-10)**: the boss's
+  health is set ONCE when it comes out (`siegeHp`: min(due, `RAID.typicalDay`) x `hpPerCard` x `siegeHpDays`) and its
+  wounds stay until beaten; the player's hearts (`RAID.lives` max) carry over too. Each new local day: +`heartsPerDay`,
+  the boss heals `healPerDay` (20%), applied lazily per elapsed day from `siege.date`, ONLY FORWARD (`regenSiege`,
+  idempotent: two computers never heal twice). 0 hearts = no raid until tomorrow (hero + `hearts` phase say so). Stored
+  `siege: {boss, hp, damage, hearts, date}` beside `day`; `day.hp/damage` are written in step for older builds, and a
+  state an older build wrote (no `siege`) restarts it from `day` (`siegeOf`). All numbers in `RAID`; balance checked by
+  `siege.test.js` (`simulateSiege` in `_sim.js`: 8 due a day at 75% beats a boss in 2 to 4 days). A run out of
+  questions with the boss alive and hearts left asks **Continue?** in the arena (`raidOutOfQuestions`): the next due
+  cards join the SAME fight. A win brings out the next boss the same day (`RAID.nextBossSameDay`, full hearts, fresh
+  health; overkill never spills; one boss per run). After a run NOTHING is forced (`raidRunChoices`): a win offers Next
+  boss / an optional **Victory lap** over the unasked cards (reviews + `legends-raid-lap` practice XP) / Done; a loss or
+  Stop leaves them due (one line) and offers Fight again while hearts and due cards last. "Next boss" / "Fight again"
+  remount the run (`RaidRun` key). Every card's FIRST answer is recorded as a real review
   (`raidRating`: the shared one-answer rule, see Study modes > "Grading (shared)": miss Again, glancing Hard, clean Good,
   clean typed on a mature card (pre-review interval >= 21 days, `preRef`) Easy, a choice at most Good) through `kit/reviews.js` `recordReviews` (guards per run), win, lose or
-  quit; `CARD_GRADED` per card. The boss keeps its wounds for the day (`applyRaidAttempt`); a win adds a trophy (raid
-  hall), `BOSS_BEATEN {raid: true}` (XP + a freeze) and brings out the next boss (`RAID_MOTIFS`).
-  The review list is ONE function, `raidReviews` (no boss, no test flag); `raidAttemptOutcome` decides the state write; trophy, freeze and `BOSS_BEATEN` pay only after the raid state really saved, practice XP only for answers Anki recorded. `srs.recordRatings`/`correctRating` are serialized app-wide (src/cards/index.js): Study sync, raids and Ebi Call never drive the reviewer at once. **Test fight** (asset view, cheat mode, `RaidRun test={{ motif }}`): the SAME raid and the SAME grading (real Anki reviews, XP, level), only the stored raid state (wounds, trophy, rotation, BOSS_BEATEN) is never read or written. Help gets a live raid line (`raidHelpText`). **The progression is `RAID_ORDER`** (raid.js, the ONE place: chronos first, void last; `RAID_MOTIFS` = it; `raidBossNumber` = 1-based place, shown in the asset view and as "#N" in Boss families): a new raid starts at its first boss, a win brings out the next (wrapping, `nextBossIndex`), an existing player continues from their boss's place. **The stored `boss` stays an index into the APPEND-ONLY `RAID_ROSTER`** (never renumbered; older builds on a share read the same
+  quit; `CARD_GRADED` per card. `applyRaidAttempt` carries wounds and lost hearts; a win adds a trophy (raid hall),
+  `BOSS_BEATEN {raid: true}` (XP + a freeze) and brings out the next boss (`RAID_MOTIFS`).
+  The review list is ONE function, `raidReviews` (no boss, no test flag); `raidAttemptOutcome` decides the state write; trophy, freeze and `BOSS_BEATEN` pay only after the raid state really saved, practice XP only for answers Anki recorded. `srs.recordRatings`/`correctRating` are serialized app-wide (src/cards/index.js): Study sync, raids and Ebi Call never drive the reviewer at once. **Test fight** (asset view, cheat mode, `RaidRun test={{ motif }}`): the SAME raid and the SAME grading (real Anki reviews, XP, level), only the stored raid state (wounds, hearts, trophy, rotation, BOSS_BEATEN) is never read or written: full hearts, a fresh boss. Help gets a live raid line (`raidHelpText`). **The progression is `RAID_ORDER`** (raid.js, the ONE place: chronos first, void last; `RAID_MOTIFS` = it; `raidBossNumber` = 1-based place, shown in the asset view and as "#N" in Boss families): a new raid starts at its first boss, a win brings out the next (wrapping, `nextBossIndex`), an existing player continues from their boss's place. **The stored `boss` stays an index into the APPEND-ONLY `RAID_ROSTER`** (never renumbered; older builds on a share read the same
   indices): a removed boss is RETIRED (`RAID_RETIRED`, skipped by `activeBossIndex`; a stored retired boss moves to
   the next one, keeping the day's wounds, not its ability state), never deleted from the roster; its old trophies stay
   and the raid hall draws them as a plain cup (`isRaidMotif`, `lg_raidRetired`). Retired: the Glutton (2026-10, the
@@ -1959,8 +1979,8 @@ screen `legends` (order 15, no rail: the map header shows the level), rail card 
   ratking), enforced in RaidRun, `_sim` and `raidStep`; never on attacks or inserted questions. Inserted questions
   (minions, loops, last stands) share `MAX_INSERTED` (4) per attempt. Shown on the intro (`BossIntro ability`), as an
   arena chip, HUD items (`fx/_Hud.jsx`), tag chips, floaters (`last.fx`) and a short hint when it matters NOW.
-  **Aftermath review**: when the fight ends, win or lose, every picked card never asked is asked typed with no fight
-  math (`RaidRun`, `lg_aftermath*`; "Finish later" leaves the rest due), so a raid never costs a due card its review.
+  **No forced aftermath** (owner: "weird and insulting unless it's a choice"): the unasked cards are an optional
+  Victory lap after a WIN only (no fight math, "Finish later" leaves the rest due); after a loss they simply stay due.
   Anki still gets only each card's FIRST answer (inserted and attack answers are never recorded). The asset view's raid
   tab opens each boss with a big ABILITY card and a live arena with "Next phase". **Every fx key has its own EFFECT and
   juice** (`fx/<motif>.jsx`: `effects`, `floaters`, a `juice` map
@@ -2425,7 +2445,7 @@ understood instantly), consumed only here via `explainLang`. Never hardcoded.
 
 ## Study start screen and Dropdown
 - **One sectioned card** (What to study / Language / Session format), label-above-control fields in
-  `repeat(auto-fit, minmax(180px,1fr))` grids; legends are `.tip` tooltips. Fits without scrolling at 1.35 zoom.
+  `repeat(auto-fit, minmax(180px,1fr))` grids; legends are `.tip` tooltips. Fits without scrolling at the default zoom.
   `Dropdown` applies `style.width` to its wrapper.
 - **The `Dropdown` menu is portaled to `<html>` (outside the body zoom), `position:fixed` in REAL px, scaled with
   `transform: scale(z)`.** A fixed element inside the zoomed body has a broken Chromium hit-test box (lower items
@@ -2938,7 +2958,7 @@ Every word gets the same stacked column (a blank slot when unglossed) so the bas
 - **run-ebiki skill** (`.claude/skills/run-ebiki/`, committed tooling, never bundled): `npm run dev`, then
   `npm run drive` (headless Chrome/Chromium/Edge; screenshots + console errors; no AI calls). `--studio "brief"`
   exercises Ebi Studio and **spends API credits**. Details and traps: its SKILL.md.
-- Verify UI changes THERE, not by reading JSX: `body { zoom: 1.35 }` breaks `position: fixed` boxes, and only
+- Verify UI changes THERE, not by reading JSX: the body zoom breaks `position: fixed` boxes, and only
   measuring catches it (`panelBox()`).
 
 ## README style

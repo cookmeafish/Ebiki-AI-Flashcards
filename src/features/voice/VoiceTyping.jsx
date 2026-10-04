@@ -2,7 +2,7 @@
 // focused field (and Alt+V toggles it). Speak, stop, and the words land at the caret exactly as if typed;
 // the user still presses Enter themselves. Engines and costs: src/speech.
 //
-// The badge is portaled to <html> (outside the body's zoom:1.35) in REAL px and scaled with a transform,
+// The badge is portaled to <html> (outside the body's zoom (the app zoom, --app-zoom)) in REAL px and scaled with a transform,
 // like Dropdown's menu: a fixed element inside the zoomed body has a broken hit-test box.
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'

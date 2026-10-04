@@ -23,6 +23,12 @@ contextBridge.exposeInMainWorld('ebikiWindow', {
     ipcRenderer.on('app-window:nav', listener)
     return () => ipcRenderer.removeListener('app-window:nav', listener)
   },
+  // Ctrl/Cmd + = - 0 (main.cjs takes them from the menu's page zoom): the page zooms its own UI. 'in' | 'out' | 'reset'.
+  onZoom: (cb) => {
+    const listener = (_event, action) => cb(action)
+    ipcRenderer.on('app-window:zoom', listener)
+    return () => ipcRenderer.removeListener('app-window:zoom', listener)
+  },
   onMaximizedChange: (cb) => {
     const listener = (_event, isMaximized) => cb(isMaximized)
     ipcRenderer.on('app-window:maximized-changed', listener)

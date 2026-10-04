@@ -1,5 +1,6 @@
 // THE RAID HERO: the Practice hub's big card for today's raid (the practiceHero slot). Today's boss in its own art,
-// number, ability, health with today's wounds, the cards due, and a Fight button that opens the normal raid
+// number, ability, the siege's health with its carried wounds, the player's carried hearts, the cards due and the runs
+// they make, and a Fight button that opens the normal raid
 // (RaidTile). READ ONLY: the stored raid and the due count are read once per visit (and again after a raid is saved
 // or Anki comes back); nothing here ever writes raid state. The hub paints a skeleton first and never waits on it.
 import { useEffect, useRef, useState } from 'react'
@@ -30,7 +31,7 @@ export default function RaidHero({ onOpen }) {
   const deck = ctx?.subject?.modeDeck || ctx?.subject?.deck || ''
   const anki = ctx ? ctx.ankiConnected !== false && !!deck : false
   const [stored, setStored] = useState(undefined) // undefined = still reading; null = never fought
-  const [due, setDue] = useState(null) // null = counting, NaN = the count failed
+  const [due, setDue] = useState(null) // the due note ids; null = counting, NaN = the count failed
   const [saves, setSaves] = useState(0)
   const boxRef = useRef(null)
   const [narrow, setNarrow] = useState(false)
@@ -42,13 +43,14 @@ export default function RaidHero({ onOpen }) {
     readRaid(modeId).then((r) => { if (live) setStored(r?.ok ? r.value || null : null) }).catch(() => { if (live) setStored(null) })
     return () => { live = false }
   }, [modeId, saves])
-  // The due cards the fight would use: one per note (findNotes), like RaidRun. Cheap: one query, no card info.
+  // The due cards the fight would use: one per note (findNotes), like RaidRun; notes a raid answered today are left out
+  // by raidHeroState. Cheap: one query, no card info.
   useEffect(() => {
     let live = true
     setDue(null)
     if (!anki) return undefined
     srs.findNotes({ deck, state: 'due', excludeSuspended: true, excludeBuried: true })
-      .then((ids) => { if (live) setDue(Array.isArray(ids) ? ids.length : NaN) })
+      .then((ids) => { if (live) setDue(Array.isArray(ids) ? ids : NaN) })
       .catch(() => { if (live) setDue(NaN) })
     return () => { live = false }
   }, [anki, deck, modeId, saves])
@@ -70,11 +72,12 @@ export default function RaidHero({ onOpen }) {
 
   if (stored === undefined) return <Skeleton boxRef={boxRef} t={t} />
 
-  const s = raidHeroState({ stored, date: todayKey(), due, anki, hasKey: !!ctx.ai?.hasKey })
+  const s = raidHeroState({ stored, date: todayKey(), dueIds: Array.isArray(due) ? due : null, due: Array.isArray(due) ? null : due, anki, hasKey: !!ctx.ai?.hasKey })
   const beaten = s.kind === 'beaten'
   const shownMotif = beaten && s.beaten ? s.beaten : s.motif
   const tint = raidTint(shownMotif, C.danger)
   const ready = s.kind === 'ready' || s.kind === 'unknown'
+  const noHearts = s.kind === 'hearts'
   const pulse = s.kind === 'ready' && !calm
   const name = t(`lg_raidBoss_${shownMotif}`)
   const artSize = narrow ? HERO.artNarrow : HERO.art
@@ -83,6 +86,7 @@ export default function RaidHero({ onOpen }) {
 
   const status = (() => {
     if (beaten) return { icon: '🏆', text: t('lg_raidHeroBeaten'), sub: t('lg_raidHeroNext', { n: s.num }) }
+    if (noHearts) return { icon: '💔', text: t('lg_raidHeroNoHearts'), sub: t('lg_raidHeroStudyStill') }
     if (s.kind === 'anki') return { icon: '🔌', text: t('lg_raidNoDeck') }
     if (s.kind === 'nokey') return { icon: '🔑', text: t('lg_raidNoKey') }
     if (s.kind === 'counting') return { icon: '⏳', text: t('lg_raidHeroCounting') }
@@ -91,7 +95,7 @@ export default function RaidHero({ onOpen }) {
     if (s.kind === 'few') return { icon: '🌙', text: tCount(t, 'lg_raidHeroFew', s.due, { min: RAID.minCards }) }
     return {
       icon: '⚔️',
-      text: tCount(t, 'lg_raidHeroDue', s.due),
+      text: `${tCount(t, 'lg_raidHeroDue', s.due)} · ${tCount(t, 'lg_raidHeroRuns', s.runs)}`,
       sub: s.due > s.uses ? t('lg_raidHeroUses', { n: s.uses }) : '',
     }
   })()
@@ -133,12 +137,14 @@ export default function RaidHero({ onOpen }) {
               <span style={{ opacity: 0.92 }}>: {t(`lg_abilityLine_${s.ability}`)}</span>
             </div>
           )}
-          {!beaten && s.healthKnown && (s.attempts > 0 || (s.kind !== 'none' && s.kind !== 'few')) && <Health t={t} s={s} tint={tint} narrow={narrow} />}
+          {!beaten && s.beatenToday && <div style={{ fontSize: 13, fontWeight: 800, color: mix(45, C.white) }}>🏆 {t('lg_raidHeroBeatenToday', { name: t(`lg_raidBoss_${s.beatenToday}`) })}</div>}
+          {!beaten && s.healthKnown && (s.attempts > 0 || s.damage > 0 || (s.kind !== 'none' && s.kind !== 'few')) && <Health t={t} s={s} tint={tint} narrow={narrow} />}
+          {!beaten && <SiegeRow t={t} s={s} narrow={narrow} />}
           <div style={{ display: 'grid', gap: 2 }}>
             <div style={{ fontSize: 15, fontWeight: 800, color: C.white }}>{status.icon} {status.text}</div>
             {status.sub && <div style={{ fontSize: 13, fontWeight: 700, color: `color-mix(in srgb, ${C.white} 70%, transparent)` }}>{status.sub}</div>}
           </div>
-          {!beaten && s.kind !== 'none' && s.kind !== 'few' && (
+          {!beaten && !noHearts && s.kind !== 'none' && s.kind !== 'few' && (
             <button type="button" className="duo-cta btn-press" disabled={!ready} onClick={() => ready && onOpen?.()}
               style={{ marginTop: 4, fontSize: 17, padding: '12px 34px', minWidth: 190 }}>
               ⚔️ {t('lg_bossFight')}
@@ -150,7 +156,7 @@ export default function RaidHero({ onOpen }) {
   )
 }
 
-// Today's health: what is left over the day's full health, the earlier tries' wounds shown as the missing part.
+// The siege's health: what is left of the boss's full health, the wounds of earlier runs and days as the missing part.
 function Health({ t, s, tint, narrow }) {
   const pct = s.hp > 0 ? Math.max(0, Math.min(100, (s.left / s.hp) * 100)) : 0
   return (
@@ -161,9 +167,22 @@ function Health({ t, s, tint, narrow }) {
           background: `linear-gradient(90deg, ${C.danger}, color-mix(in srgb, ${tint} 60%, ${C.danger}))` }} />
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 12.5, fontWeight: 700, color: `color-mix(in srgb, ${C.white} 78%, transparent)` }}>
-        <span>❤️ {t('lg_raidHeroHealth', { left: s.left, max: s.hp })}</span>
-        <span>{s.attempts > 0 ? tCount(t, 'lg_raidHeroTries', s.attempts) : t('lg_raidHeroFresh')}</span>
+        <span>🩸 {t('lg_raidHeroHealth', { left: s.left, max: s.hp })}</span>
+        <span>{s.attempts > 0 ? tCount(t, 'lg_raidHeroTries', s.attempts) : s.damage > 0 ? t('lg_raidHeroCarried') : t('lg_raidHeroFresh')}</span>
       </div>
+    </div>
+  )
+}
+
+// The carried hearts (lost ones greyed) and the daily rule of the siege.
+function SiegeRow({ t, s, narrow }) {
+  const dim = `color-mix(in srgb, ${C.white} 78%, transparent)`
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '4px 12px', justifyContent: narrow ? 'center' : 'flex-start', fontSize: 12.5, fontWeight: 700, color: dim }}>
+      <span role="img" aria-label={t('lg_raidHeroHearts', { n: s.hearts, max: s.heartsMax })} style={{ display: 'inline-flex', gap: 2, fontSize: 16 }}>
+        {Array.from({ length: s.heartsMax }, (_, i) => <span key={i} aria-hidden="true" style={{ filter: i >= s.hearts ? 'grayscale(1) opacity(.35)' : 'none' }}>❤️</span>)}
+      </span>
+      <span>🏰 {t('lg_raidSiegeLine', { pct: Math.round(RAID.healPerDay * 100) })}</span>
     </div>
   )
 }

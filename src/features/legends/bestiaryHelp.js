@@ -5,7 +5,7 @@
 //
 // No card, question or answer is ever in here: a raid's questions are the deck's cards (QuizRunner reports the one on
 // screen, without its key). Published by HelpBridge.jsx (the catalog, every screen) and AssetView.jsx (the bestiary).
-import { RAID, RAID_ORDER, RAID_ABILITY, raidBossNumber, shapeRaid, raidMotif, isRaidMotif } from './raid'
+import { RAID, RAID_ORDER, RAID_ABILITY, raidBossNumber, shapeRaid, raidMotif, isRaidMotif, SIEGE_RULE, raidToday, siegeOf } from './raid'
 import { MOTIFS } from './map'
 import { bestiaryRows } from './abilities/_triggers'
 import { FAMILY_TREES, FAMILY_MISFITS, familyMotifs } from './families'
@@ -44,7 +44,7 @@ function familyLine(t, motif, withFrom = true) {
 }
 
 // How raids work, for "how do I beat ...": the shared rules every raid boss adds its ability to.
-export const RAID_RULES = `Raid rules (every raid boss): today's DUE cards become the questions (each card's first answer is a real Anki review); boss health comes from the cards due; ${RAID.lives} lives; ${RAID.phases} phases. A clean typed answer deals 2, a glancing one (tested thing right, something else wrong) 1, a choice 1 (choices only before the boss is enraged at half health); every 3rd clean answer in a row is a critical (+1). A miss costs a life and comes back later as the boss's attack. Wounds stay for the day; a win gives a trophy, XP and a streak freeze, and the next boss in the progression comes out. Tips: type answers (not choices), keep clean streaks, use the boss's ability below.`
+export const RAID_RULES = `Raid rules (every raid boss): the DUE cards become the questions (each card's first answer is a real Anki review); ${RAID.phases} phases. A clean typed answer deals 2, a glancing one (tested thing right, something else wrong) 1, a choice 1 (choices only before the boss is enraged at half health); every 3rd clean answer in a row is a critical (+1). A miss costs a heart and comes back later as the boss's attack. ${SIEGE_RULE} A win gives a trophy, XP and a streak freeze. Tips: type answers (not choices), keep clean streaks, use the boss's ability below.`
 
 // One raid boss as facts. `full`: also every effect (what the player does, what happens) and the lore.
 export function raidBossFacts(t, motif, { full = false, lore = full, ids = true, madeFrom = true, fxName } = {}) {
@@ -73,12 +73,16 @@ export function raidProgressText(t, raid, today = '', known = true) {
   const motif = raidMotif(r)
   const num = raidBossNumber(motif)
   const next = RAID_ORDER[num % RAID_ORDER.length]
-  const d = r.day && (!today || r.day.date === today) ? r.day : null
+  // The siege brought forward to today (hearts back, the daily heal), as the next fight would start it.
+  const siege = siegeOf(r) ? (today ? raidToday(r, today, 0) : r) : null
+  const g = siege ? siege.siege || siegeOf(siege) : null
+  const runs = siege && siege.day && (!today || siege.day.date === today) ? siege.day.attempts : 0
+  const beatenToday = r.day && r.day.won && (!today || r.day.date === today)
   const wins = {}
   for (const tr of r.trophies) wins[tr.motif] = (wins[tr.motif] || 0) + 1
   const hall = Object.entries(wins).map(([m, n]) => `${isRaidMotif(m) ? raidBossName(t, m) : `${m} (retired)`}${n > 1 ? ` x${n}` : ''}`)
   return [
-    `The player's raid: current boss #${num} ${raidBossName(t, motif)} of ${RAID_ORDER.length}${d ? `, today health ${Math.max(0, d.hp - d.damage)}/${d.hp} after ${d.attempts} attempt(s)${d.won ? ', beaten today' : ''}` : ', not fought yet today'}. Next after a win: #${raidBossNumber(next)} ${raidBossName(t, next)}.`,
+    `The player's raid: current boss #${num} ${raidBossName(t, motif)} of ${RAID_ORDER.length}${g ? `, siege health ${Math.max(0, g.hp - g.damage)}/${g.hp} (wounds carry over), hearts ${g.hearts}/${RAID.lives}, ${runs} run(s) today` : ', not come out yet (fresh health and full hearts at its first fight)'}${beatenToday ? `; a boss was beaten today` : ''}. Next after a win: #${raidBossNumber(next)} ${raidBossName(t, next)}.`,
     `Raid trophies: ${r.trophies.length}${hall.length ? ` (${hall.join(', ')})` : ''}.`,
   ].join('\n')
 }

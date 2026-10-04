@@ -348,6 +348,17 @@ function createAppWindow() {
 
   appWindow.webContents.on('before-input-event', (event, input) => {
     if (input.type !== 'keyDown') return
+    // App zoom (src/config/zoom.js): Ctrl/Cmd + = + - _ 0 zoom the APP's UI, not the page. The default menu's
+    // zoom accelerators would scale the page on top of the app zoom, so take the keys here and forward them.
+    if ((input.control || input.meta) && !input.alt && !input.isComposing) {
+      const k = input.key
+      const action = (k === '=' || k === '+') ? 'in' : (k === '-' || k === '_') ? 'out' : k === '0' ? 'reset' : null
+      if (action) {
+        event.preventDefault()
+        try { appWindow.webContents.send('app-window:zoom', action) } catch { /* window going away */ }
+        return
+      }
+    }
     if (input.key === 'F11') {
       appWindow.setFullScreen(!appWindow.isFullScreen())
     } else if (input.key === 'Escape' && appWindow.isFullScreen()) {

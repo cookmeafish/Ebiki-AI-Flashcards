@@ -7,6 +7,7 @@ import { PROVIDERS, keyOfOtherProvider } from '../config/providers'
 import { APP_LANGUAGES, langMeta } from '../i18n'
 import { ADAPTIVE_STRUGGLE_LAPSES } from '../config/study'
 import { LaunchModeCard } from './LaunchModeChoice'
+import { ZOOM, stepZoom, canZoomIn, canZoomOut, isDefaultZoom, formatZoom } from '../config/zoom'
 import { apiFetch } from '../platform'
 
 // ── Data folder (optional shared data directory) ──
@@ -475,7 +476,7 @@ export default function SettingsModal(p) {
   const {
     t, category, setCategory, onClose, onDataFolderChanged, confirmDialog, alertDialog, knowledgeBusyFiles, learnLangDefault,
     // General (global)
-    appTheme, setAppTheme, appLanguage, setAppLanguage,
+    appTheme, setAppTheme, appZoom, setAppZoom, appLanguage, setAppLanguage,
     language, setLanguage, targetLang, setTargetLang, onRunSetup,
     // AI Models (global)
     provider, setProvider, apiKeys, apiKey, setCurrentKey, validateKey, providerConfig,
@@ -668,6 +669,23 @@ export default function SettingsModal(p) {
           ))}
         </div>
       </div>
+      {setAppZoom && (
+        <div style={card}>
+          {fieldLabel(t('set_zoom'))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" onClick={() => setAppZoom(stepZoom(appZoom, -1))} disabled={!canZoomOut(appZoom)} aria-label={t('set_zoomOut')}
+              className="tip tip-r" data-tip={t('set_zoomOut')}
+              style={{ ...S.ghostBtn, fontSize: 16, fontWeight: 800, width: 36, padding: '4px 0', color: C.brand, borderColor: 'rgba(223,37,64,.3)', ...(!canZoomOut(appZoom) ? { opacity: .5, cursor: 'default' } : {}) }}>−</button>
+            <span aria-live="polite" style={{ minWidth: 52, textAlign: 'center', fontWeight: 800, fontSize: 14, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{formatZoom(appZoom)}</span>
+            <button type="button" onClick={() => setAppZoom(stepZoom(appZoom, 1))} disabled={!canZoomIn(appZoom)} aria-label={t('set_zoomIn')}
+              className="tip" data-tip={t('set_zoomIn')}
+              style={{ ...S.ghostBtn, fontSize: 16, fontWeight: 800, width: 36, padding: '4px 0', color: C.brand, borderColor: 'rgba(223,37,64,.3)', ...(!canZoomIn(appZoom) ? { opacity: .5, cursor: 'default' } : {}) }}>+</button>
+            <button type="button" onClick={() => setAppZoom(ZOOM.default)} disabled={isDefaultZoom(appZoom)}
+              style={{ ...S.ghostBtn, fontSize: 12, color: C.inkDim, ...(isDefaultZoom(appZoom) ? { opacity: .5, cursor: 'default' } : {}) }}>↺ {t('set_zoomReset')}</button>
+          </div>
+          <div style={hint}>{t('set_zoomHint')}</div>
+        </div>
+      )}
       <div style={card}>
         {fieldLabel(t('appLanguage'))}
         <select value={appLanguage} onChange={(e) => setAppLanguage(e.target.value)} style={{ ...S.select, width: '100%' }}>
@@ -1319,18 +1337,18 @@ export default function SettingsModal(p) {
   const panes = { general: General, models: AIModels, anki: AnkiAudio, data: DataUpdates, study: Study, cards: Cards, knowledge: Knowledge, modes: Modes }
 
   return (
-    // The body has CSS zoom:1.35, which also scales this fixed backdrop — so 100vw/100vh
-    // render at 135% and its flex-centering lands off-screen (modal pushed right + clipped).
+    // The body has CSS zoom (the app zoom, --app-zoom), which also scales this fixed backdrop — so 100vw/100vh
+    // render at zoom x 100% and its flex-centering lands off-screen (modal pushed right + clipped).
     // Cancel the zoom on the backdrop so it overlays exactly one visual viewport, and divide
-    // the modal's viewport caps by 1.35 so it fits on small laptop screens. (Same /1.35
+    // the modal's viewport caps by var(--app-zoom) so it fits on small laptop screens. (Same / var(--app-zoom)
     // convention as the app root in App.jsx.)
     // Closes only on a click that STARTED on the backdrop: selecting text in a field and releasing over the
     // backdrop is a click there too, and it closed Settings mid-edit.
-    <div style={{ ...S.backdrop, width: 'calc(100vw / 1.35)', height: 'calc(100vh / 1.35)' }}
+    <div style={{ ...S.backdrop, width: 'calc(100vw / var(--app-zoom))', height: 'calc(100vh / var(--app-zoom))' }}
       onMouseDown={(e) => { backdropDownRef.current = e.target === e.currentTarget }}
       onClick={(e) => { if (backdropDownRef.current && e.target === e.currentTarget) onClose(); backdropDownRef.current = false }}>
       <div onClick={(e) => e.stopPropagation()} className="settings-modal ui-pop" style={{
-        display: 'flex', width: 'min(960px, calc(94vw / 1.35))', height: 'min(680px, calc(88vh / 1.35))',
+        display: 'flex', width: 'min(960px, calc(94vw / var(--app-zoom)))', height: 'min(680px, calc(88vh / var(--app-zoom)))',
         background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl,
         boxShadow: SHADOW.xl, overflow: 'hidden', cursor: 'default',
       }}>

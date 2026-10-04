@@ -51,7 +51,9 @@ import PbqQuestion from './components/PbqQuestion'
 import { QUESTION_REUSE_DEFAULT, reuseSettings, replaceQuestion, storableQuestion, clearBank, createQuestionReuse, mergeGlosses, updateBank } from './utils/questionBank'
 import { compilePbq, itemKey as pbqItemKey, reshufflePbq, pbqRatingScore, checkCitations, studentView, parseSolverAnswer, gradePbq, compareToKey, PBQ_GEN_SYSTEM, PBQ_SOLVER_SYSTEM, PBQ_JUDGE_SYSTEM, buildGeneratorPrompt as buildPbqGeneratorPrompt, buildSolverPrompt as buildPbqSolverPrompt, buildJudgePrompt as buildPbqJudgePrompt } from './pbq/engine'
 import { apiFetch, platform } from './platform'
+import { ZOOM, parseZoom, clampZoom, zoomKeyAction, applyZoomAction } from './config/zoom'
 const SIDEBAR_KV = 'ebiki-sidebar-collapsed'
+const RAIL_KV = 'ebiki-rail-collapsed'
 import { nav } from './nav'
 import { useNavEntry } from './nav/react'
 
@@ -656,14 +658,42 @@ export default function App() {
     document.body.style.background = 'transparent'
   }, [isOverlay])
 
-  // Default UI zoom: the app uses fixed pixel sizes, which render small on typical
-  // Windows displays. Scale the whole UI up so 100% browser zoom looks comfortable.
-  // NOT applied in overlay mode — that must stay 1:1 with screen pixels so OCR
+  // UI zoom (src/config/zoom.js): the app uses fixed pixel sizes, which render small on typical
+  // Windows displays, so the whole UI is scaled (default 1.35); the user can zoom further in or out
+  // (Settings > General > Zoom, Ctrl/Cmd + = - 0), a per-device preference in platform.kv.
+  // Applied as body zoom AND the CSS variable --app-zoom on <html> (fixed boxes divide by it).
+  // NOT applied in overlay mode: that must stay 1:1 with screen pixels so OCR
   // bounding boxes line up with the captured image.
+  const [appZoom, setAppZoomState] = useState(() => parseZoom(platform.kv.get(ZOOM.kvKey)))
+  const setAppZoom = useCallback((z) => {
+    setAppZoomState((prev) => {
+      const next = typeof z === 'function' ? z(prev) : clampZoom(z)
+      platform.kv.set(ZOOM.kvKey, String(next))
+      return next
+    })
+  }, [])
+  useLayoutEffect(() => {
+    const z = isOverlay ? 1 : appZoom
+    document.body.style.zoom = isOverlay ? '' : String(z)
+    document.documentElement.style.setProperty('--app-zoom', String(z))
+    // Everything that measures the viewport in layout px (shell breakpoints, arena size, open dropdowns) listens to resize.
+    try { window.dispatchEvent(new Event('resize')) } catch { /* no window */ }
+  }, [isOverlay, appZoom])
+  useEffect(() => () => { document.body.style.zoom = ''; document.documentElement.style.removeProperty('--app-zoom') }, [])
+  // Ctrl/Cmd + = / + / - / 0 zoom the APP (preventDefault: the browser's own zoom would stack on top). In the
+  // Electron window main.cjs intercepts the same keys (its menu would zoom the page) and forwards them here.
   useEffect(() => {
-    document.body.style.zoom = isOverlay ? '' : '1.35'
-    return () => { document.body.style.zoom = '' }
-  }, [isOverlay])
+    if (isOverlay) return
+    const onKey = (e) => {
+      const action = zoomKeyAction(e)
+      if (!action) return
+      e.preventDefault()
+      setAppZoom((prev) => applyZoomAction(prev, action))
+    }
+    window.addEventListener('keydown', onKey, true)
+    const offDevice = platform.onDeviceZoom?.((action) => setAppZoom((prev) => applyZoomAction(prev, action)))
+    return () => { window.removeEventListener('keydown', onKey, true); try { offDevice?.() } catch { /* gone */ } }
+  }, [isOverlay, setAppZoom])
 
   // ESC hides overlay — Electron handles the actual window hiding via global shortcut
   // This just resets the web app state so it's ready for the next capture
@@ -4511,7 +4541,7 @@ export default function App() {
   }, [apiKey, ocrWords, activeMode, appLanguage, language, targetLang])
 
   // ─── Hover & Pin Handlers ───────────────────────────────────────────────────
-  // The body has CSS zoom (1.35) in normal mode. position:fixed tooltips are sized/placed
+  // The body has CSS zoom (the app zoom, src/config/zoom.js) in normal mode. position:fixed tooltips are sized/placed
   // in layout px, but getBoundingClientRect()/clientX report real px — divide by this to
   // convert real → layout px so tooltips land where the cursor/word actually is.
   const getZoom = () => (parseFloat(document.body.style.zoom) || 1)
@@ -15169,6 +15199,9 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
   const shellOn = !isOverlay && onboarded
   // The sidebar's own collapse toggle: a per-device convenience (platform.kv), never synced.
   const [sidebarPinned, setSidebarPinned] = useState(() => platform.kv.get(SIDEBAR_KV) === '1')
+  // The right rail's own collapse toggle: per device (platform.kv), like the sidebar's.
+  const [railPinned, setRailPinned] = useState(() => platform.kv.get(RAIL_KV) === '1')
+  const toggleRail = () => setRailPinned((v) => { const n = !v; platform.kv.set(RAIL_KV, n ? '1' : '0'); return n })
   const toggleSidebar = () => setSidebarPinned((v) => { const n = !v; platform.kv.set(SIDEBAR_KV, n ? '1' : '0'); return n })
   const sidebarForced = viewportW < SHELL.collapseBelow // narrow window: icon-only whatever the choice
   const sidebarCollapsed = sidebarForced || sidebarPinned
@@ -15396,7 +15429,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
       } : {
         // Divide out the body zoom so the root still fills exactly one viewport
         // (otherwise 100vh × zoom overflows and vh-centered layouts sit too low).
-        ...S.app, height: 'calc(100vh / 1.35)',
+        ...S.app, height: 'calc(100vh / var(--app-zoom))',
       }}
     >
       <input
@@ -15752,6 +15785,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
           setCategory={setSettingsCategory}
           onClose={() => setSettingsOpen(false)}
           appTheme={appTheme} setAppTheme={setAppTheme}
+          appZoom={appZoom} setAppZoom={setAppZoom}
           appLanguage={appLanguage} setAppLanguage={setAppLanguage}
           language={language} setLanguage={setLanguage}
           targetLang={targetLang} setTargetLang={setTargetLang}
@@ -18541,7 +18575,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
         )}
       </main>}
       </div>
-      {showRail && <Rail registry={registry} />}
+      {showRail && <Rail registry={registry} collapsed={railPinned} onToggle={toggleRail} toggleLabel={t(railPinned ? 'nav_railExpand' : 'nav_railCollapse')} />}
       </div>
 
       {/* ── Expanded Fullscreen ───────────────────────────────────────────────── */}
@@ -19236,7 +19270,7 @@ ${PALETTE_CSS}
         /* Picture (analysis): the picture with a side inspector (the reading panel). */
         .pc-stage { container: pcstage / inline-size; }
         .pc-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, 320px); gap: 18px; align-items: start; }
-        .pc-split .pc-reading { margin: 0 !important; max-width: none !important; position: sticky; top: 0; max-height: calc(100vh / 1.35 - 150px); overflow: auto; }
+        .pc-split .pc-reading { margin: 0 !important; max-width: none !important; position: sticky; top: 0; max-height: calc(100vh / var(--app-zoom) - 150px); overflow: auto; }
         @container pcstage (max-width: 760px) {
           .pc-split { grid-template-columns: minmax(0, 1fr); }
           .pc-split .pc-reading { position: static; max-height: none; margin: 16px auto 0 !important; }
@@ -19321,6 +19355,9 @@ ${PALETTE_CSS}
            controls that sit near a left edge (the centered 240px box gets clipped there). */
         .tip-r:hover::after { left: 0; transform: none; }
         .tip-r:hover::before { left: 14px; transform: none; }
+        /* Right-anchored: grows leftward, for controls near the right edge (the rail's toggle). */
+        .tip-l:hover::after { left: auto; right: 0; transform: none; }
+        .tip-l:hover::before { left: auto; right: 14px; transform: none; }
         /* Opens DOWNWARD, for controls at the top of the window (the header), where an upward tip is cut off. */
         .tip-b:hover::after { bottom: auto; top: calc(100% + 7px); }
         .tip-b:hover::before { bottom: auto; top: calc(100% + 2px); border-top-color: transparent; border-bottom-color: var(--c-ink); }
@@ -19445,10 +19482,10 @@ ${PALETTE_CSS}
           Esc cancel; the OK button is auto-focused so Enter confirms. z above everything. */}
       {appConfirm && (
         <div data-app-dialog="1" onClick={() => resolveConfirm(false)}
-          style={{ position: 'fixed', top: 0, left: 0, width: 'calc(100vw / 1.35)', height: 'calc(100vh / 1.35)', zIndex: 12002, /* above Ebi Studio (12000): a confirm raised during Apply opened hidden under it */ background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn .12s ease' }}>
+          style={{ position: 'fixed', top: 0, left: 0, width: 'calc(100vw / var(--app-zoom))', height: 'calc(100vh / var(--app-zoom))', zIndex: 12002, /* above Ebi Studio (12000): a confirm raised during Apply opened hidden under it */ background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn .12s ease' }}>
           <div onClick={(e) => e.stopPropagation()} style={{
             background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg,
-            padding: '18px 20px', maxWidth: 440, width: 'calc(90vw / 1.35)', boxShadow: SHADOW.lg,
+            padding: '18px 20px', maxWidth: 440, width: 'calc(90vw / var(--app-zoom))', boxShadow: SHADOW.lg,
             display: 'flex', flexDirection: 'column', gap: 14, animation: 'pop .18s cubic-bezier(.34,1.56,.64,1)',
           }}>
             <div style={{ fontSize: 14, color: 'var(--c-ink)', lineHeight: 1.6, whiteSpace: 'pre-wrap', fontWeight: 600 }}>{appConfirm.message}</div>
@@ -19480,10 +19517,10 @@ ${PALETTE_CSS}
           backdrop-dismiss and no Esc: an ignored prompt would re-fire tomorrow, so the user
           answers once and we honour it. */}
       {modelUpgrade && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: 'calc(100vw / 1.35)', height: 'calc(100vh / 1.35)', zIndex: 10002, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn .12s ease' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, width: 'calc(100vw / var(--app-zoom))', height: 'calc(100vh / var(--app-zoom))', zIndex: 10002, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'fadeIn .12s ease' }}>
           <div style={{
             background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg,
-            padding: '18px 20px', maxWidth: 460, width: 'calc(90vw / 1.35)', boxShadow: SHADOW.lg,
+            padding: '18px 20px', maxWidth: 460, width: 'calc(90vw / var(--app-zoom))', boxShadow: SHADOW.lg,
             display: 'flex', flexDirection: 'column', gap: 12, animation: 'pop .18s cubic-bezier(.34,1.56,.64,1)',
           }}>
             <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--c-ink)', fontFamily: FONT.display }}>

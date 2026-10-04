@@ -8,21 +8,22 @@
 //              normal, kind }: how the learner answers each question (attacks and inserted ones too)
 //     press    'never' | 'greedy' (arm every toggle and press every enabled button until nothing changes) |
 //              (actions, info) -> [ids to press / arm]: a custom policy
-//     dayBefore  damage earlier attempts dealt today (a wounded boss); dayHp the day's health (default raidHp(n))
+//     dayBefore  damage earlier attempts dealt (a wounded boss); dayHp the boss's health (default raidHp(n)); lives
+//              the hearts the run starts with (default RAID.lives)
 //   log: one entry per answer { q, hit, before, after, phaseBefore, phaseAfter }
 import { newFight, act, settleFight, fightOutcome, abilityState, barPhase } from '../fight'
-import { raidStep, raidHp, RAID } from '../raid'
+import { raidStep, raidHp, RAID, raidToday, raidAttemptOutcome, RAID_ROSTER, RAID_ABILITY, siegeOf } from '../raid'
 import { abilityById } from './index'
 
 export const SIM_MAX_ASKED = 400
 
 const stamp = (s) => JSON.stringify({ d: s.damage, l: s.livesLost, ab: s.ab || null })
 
-export function simulateRaid(ability, { n = 10, answer = () => ({ verdict: 'clean', mode: 'typed' }), press = 'never', dayBefore = 0, dayHp } = {}) {
+export function simulateRaid(ability, { n = 10, answer = () => ({ verdict: 'clean', mode: 'typed' }), press = 'never', dayBefore = 0, dayHp, lives: livesIn } = {}) {
   const mod = abilityById(ability)
   const hp = dayHp != null ? dayHp : raidHp(n)
   const need = Math.max(1, hp - dayBefore)
-  const lives = RAID.lives
+  const lives = livesIn != null ? livesIn : RAID.lives // the siege's carried hearts (siege.test.js)
   const bar = { total: hp, before: dayBefore, phases: RAID.phases }
   const opts = { ability, need, lives, bar }
   const questions = Array.from({ length: n }, (_, i) => ({ kind: 'typed', prompt: `Card ${i}?`, accepted: [`a${i}`], alt: { choices: [`a${i}`, 'x'], answerIdx: 0 }, target: `card ${i}`, _cardId: 1000 + i }))
@@ -100,4 +101,51 @@ export function balanceOf(ability, { sizes = [8, 15], answer = mixed(0.15), pres
     const r = simulateRaid(ability, { n, answer, press })
     return { n, asked: r.asked, share: Math.round((r.asked / n) * 100) / 100, outcome: r.outcome, damage: r.state.damage, need: r.need }
   })
+}
+
+// A SEEDED learner: right about `right` of the time (a few of those glancing), typing every answer.
+export function seededAnswer(right = 0.75, seed = 1) {
+  let x = (seed * 2654435761) >>> 0 || 1
+  const rnd = () => { x ^= x << 13; x >>>= 0; x ^= x >>> 17; x ^= x << 5; x >>>= 0; return x / 4294967296 }
+  return () => { const r = rnd(); return r < right * 0.9 ? { verdict: 'clean', mode: 'typed' } : r < right ? { verdict: 'glancing', mode: 'typed' } : { verdict: 'miss', mode: 'typed' } }
+}
+
+// THE SIEGE over days (pure; siege.test.js): every day `perDay` new cards come due (plus `firstDay` extra on day 1,
+// a backlog), unanswered cards stay due, and the learner fights while hearts and due cards last: one continuous
+// fight per boss (RaidRun's "Continue?" keeps it going with the next cards), the next boss right after a win
+// (RAID.nextBossSameDay). A fresh boss needs RAID.minCards due to come out. Each boss fights with its own ability.
+// Returns { kills: [{ motif, day, cards }], days: [{ due, answered, hearts, damage, hp }] } (cards = the cards answered
+// against that boss in total).
+export function simulateSiege({ days = 10, perDay = 8, firstDay = 0, answer = seededAnswer(), press = 'greedy', start = '2026-01-01' } = {}) {
+  let state = null
+  let due = 0
+  let spent = 0 // cards answered against the current boss
+  const kills = []
+  const log = []
+  const base = Date.UTC(Number(start.slice(0, 4)), Number(start.slice(5, 7)) - 1, Number(start.slice(8, 10)))
+  for (let d = 0; d < days; d++) {
+    const date = new Date(base + d * 86400000).toISOString().slice(0, 10)
+    due += perDay + (d === 0 ? firstDay : 0)
+    let answered = 0
+    for (let guard = 0; guard < 20; guard++) {
+      if (due < 1 || (!siegeOf(state) && due < RAID.minCards)) break // a fresh boss needs a raid's worth of cards
+      const dueNow = due // a fresh boss's health comes from the cards due when it comes out
+      const today = raidToday(state, date, dueNow)
+      if (today.siege.hearts <= 0) break
+      const motif = RAID_ROSTER[today.boss]
+      const r = simulateRaid(RAID_ABILITY[motif] || '', { n: due, answer, press, dayBefore: today.day.damage, dayHp: today.day.hp, lives: today.siege.hearts })
+      const cards = r.log.filter((e) => !e.q._attack && !e.q._inserted && !e.q._lastStand && !e.q._extra).length
+      due -= cards
+      answered += cards
+      spent += cards
+      const res = raidAttemptOutcome(state, { date, damage: r.state.damage, livesLost: r.state.livesLost, due: dueNow, motif })
+      state = res.state
+      if (!res.won) break
+      kills.push({ motif, day: d + 1, cards: spent })
+      spent = 0
+    }
+    const s = raidToday(state, date, 0)
+    log.push({ due, answered, hearts: s.siege.hearts, damage: s.day.damage, hp: s.day.hp })
+  }
+  return { kills, days: log }
 }

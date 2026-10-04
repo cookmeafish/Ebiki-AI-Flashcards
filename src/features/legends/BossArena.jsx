@@ -290,8 +290,9 @@ export const ENTRANCES = {
 export const entranceFor = (motif) => ENTRANCES[motif] || ENTRANCES.mountains
 // `odds`: bossOdds options ({ bonus, pass }); `legendary`: the harder replay of a cleared area.
 // `calm` (focus mode): the card shows at once, still (no stripes sliding, slam, quake or entrance animation).
-// `kind`: 'raids' shows a raid boss (its own art folder and its own lives count, `raidLives`).
-export function BossIntro({ t, area, name = '', total, onFight, odds, legendary = false, calm: focusCalm = false, kind = 'bosses', raidLives = 0, ability = '' }) {
+// `kind`: 'raids' shows a raid boss (its own art folder and its own lives count, `raidLives`; `raidLeft` = the siege's
+// hearts left, the lost ones greyed).
+export function BossIntro({ t, area, name = '', total, onFight, odds, legendary = false, calm: focusCalm = false, kind = 'bosses', raidLives = 0, raidLeft = null, ability = '' }) {
   const motion = useArtMotionAlways()
   const stillArt = useArtStill()
   const calm = focusCalm || stillArt
@@ -343,7 +344,7 @@ export function BossIntro({ t, area, name = '', total, onFight, odds, legendary 
           {name ? t('lg_bossNamed', { name }) : t('lg_bossBlocks', { area: area.title })}
         </div>
         {name && <div style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 15, letterSpacing: '.08em', textTransform: 'uppercase', color: `color-mix(in srgb, ${C.danger} 55%, ${C.white})`, marginTop: -6, animation: `lgStamp .45s cubic-bezier(.3,1.4,.5,1) ${E.title + 0.15}s both` }}>{area.subtitle || t('lg_bossGuards', { area: area.title })}</div>}
-        <Lives t={t} lives={lives} left={lives} size={28} popFrom={E.lives} bonus={bonus} />
+        <Lives t={t} lives={lives} left={kind === 'raids' && raidLeft != null ? Math.max(0, Math.min(lives, raidLeft)) : lives} size={28} popFrom={E.lives} bonus={bonus} />
         {bonus > 0 && <div style={{ fontSize: 14, fontWeight: 800, color: C.warning, marginTop: -4, animation: `lgRise .4s ease-out ${E.lives + lives * 0.12}s both` }}>💖 {t('lg_bonusLife')}</div>}
         {legendary && <div style={{ fontSize: 14, fontWeight: 800, color: `color-mix(in srgb, ${C.warning} 70%, ${C.white})`, marginTop: -4 }}>{t('lg_legendaryRules')}</div>}
         {ability && (

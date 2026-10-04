@@ -419,9 +419,9 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
   // hovered zone, and dropping commits it (or 'free' if dropped in open space).
   // Docked panel size is VIEWPORT-RELATIVE (with px clamps) so it takes the same SHARE of the
   // screen on a laptop as on a big monitor — a fixed 360px dock ate half a small display. The
-  // /1.35 divides out the body zoom (same convention as the app root / settings modal).
-  const ZONE_W = 'clamp(250px, calc(24vw / 1.35), 380px)'
-  const ZONE_H = 'clamp(220px, calc(38vh / 1.35), 340px)'
+  // / var(--app-zoom) divides out the body zoom (same convention as the app root / settings modal).
+  const ZONE_W = 'clamp(250px, calc(24vw / var(--app-zoom)), 380px)'
+  const ZONE_H = 'clamp(220px, calc(38vh / var(--app-zoom)), 340px)'
   const FREE_W = 340, FREE_H = 440
   // The exact docked rectangle for each zone. Shared by the live panel AND the drop-zone preview
   // overlays so the preview outlines precisely where Ebi's Help will land.
@@ -431,11 +431,11 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
     bottom: { bottom: 0, left: 0, right: 0, height: ZONE_H },
   }
   // Keeps the WHOLE free panel on screen: only its top 60px were kept in view, so a drop low on a short
-  // window hid the composer below the edge. Height mirrors panelStyle's min(FREE_H, 80vh / 1.35).
+  // window hid the composer below the edge. Height mirrors panelStyle's min(FREE_H, 80vh / var(--app-zoom)).
   const clampFree = (x, y) => {
     const zoom = getZoom()
     const vw = window.innerWidth / zoom, vh = window.innerHeight / zoom
-    const h = Math.min(FREE_H, (window.innerHeight * 0.8) / 1.35)
+    const h = Math.min(FREE_H, (window.innerHeight * 0.8) / zoom)
     return { x: Math.max(5, Math.min(x, vw - FREE_W - 5)), y: Math.max(5, Math.min(y, vh - h - 5)) }
   }
   // A window made smaller later (or a laptop screen after an external monitor) re-clamps it too.
@@ -502,7 +502,7 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
     if (ZONE_RECTS[snapZone]) return { position: 'fixed', ...ZONE_RECTS[snapZone] }
     // FIXED height (viewport-capped), not maxHeight — the panel must open at full size, not
     // start tiny and grow as the conversation lengthens.
-    return { position: 'fixed', left: chatPos.x, top: chatPos.y, width: FREE_W, height: `min(${FREE_H}px, calc(80vh / 1.35))` } // 'free'
+    return { position: 'fixed', left: chatPos.x, top: chatPos.y, width: FREE_W, height: `min(${FREE_H}px, calc(80vh / var(--app-zoom)))` } // 'free'
   }
   const isEdgeZone = !!ZONE_RECTS[snapZone]
 
@@ -617,7 +617,7 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
     const rect = btn?.getBoundingClientRect()
     // No floating button to anchor to (e.g. opened via "Ask Ebi" during study): show a
     // normal chat panel docked to the bottom-left corner instead of filling the screen.
-    if (!rect) return { position: 'fixed', left: 20, bottom: 20, width: 360, height: 'min(460px, calc(80vh / 1.35))' }
+    if (!rect) return { position: 'fixed', left: 20, bottom: 20, width: 360, height: 'min(460px, calc(80vh / var(--app-zoom)))' }
     const zoom = getZoom()
     const left = rect.left / zoom, right = rect.right / zoom
     const top = rect.top / zoom, bottom = rect.bottom / zoom
@@ -625,7 +625,7 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
     const chatW = 340, chatH = 400
     const btnCX = (left + right) / 2
     const btnCY = (top + bottom) / 2
-    const style = { position: 'fixed', width: chatW, height: `min(${chatH}px, calc(80vh / 1.35))` }
+    const style = { position: 'fixed', width: chatW, height: `min(${chatH}px, calc(80vh / var(--app-zoom)))` }
 
     // Horizontal: align left edge with button, or right-align if near right edge
     style.left = btnCX < vw / 2 ? left : right - chatW

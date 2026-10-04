@@ -12,6 +12,7 @@
 //   speech             device voice: speak(text, lang) (free text to speech), record() (the microphone).
 //   audio              play(blob) an audio clip.
 //   kind               'electron' | 'browser' | whatever a port sets ('ios', 'android').
+//   onDeviceZoom(fn)   zoom keys the device took before the page (Electron forwards Ctrl + = - 0).
 //   history            the device's Back/Forward history for src/nav (window.history here): push/replace/go/onPop,
 //                      plus onDeviceNav for back/forward buttons the device does not turn into history steps itself
 //                      (a mouse's back button and Alt+Left inside Electron). A phone port without browser history can
@@ -148,6 +149,12 @@ web.history = {
     const h = (e) => fn(e.state)
     window.addEventListener('popstate', h)
     return () => window.removeEventListener('popstate', h)
+  },
+  // Zoom keys the device intercepts before the page sees them (Electron: main.cjs takes Ctrl + = - 0 away from its
+  // menu and forwards them). fn('in' | 'out' | 'reset'). The page's own keydown handles a browser tab.
+  onDeviceZoom: (fn) => {
+    if (!hasWindow) return () => {}
+    try { return window.ebikiWindow?.onZoom?.((a) => { if (a === 'in' || a === 'out' || a === 'reset') fn(a) }) || (() => {}) } catch { return () => {} }
   },
   onDeviceNav: (fn) => {
     if (!hasWindow) return () => {}

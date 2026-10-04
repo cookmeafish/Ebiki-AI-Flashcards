@@ -60,9 +60,10 @@ name, `fill` inputs (assigning `.value` skips React's onChange), screenshot, rea
 
 ## Gotchas
 
-- **`body { zoom: 1.35 }` breaks `position: fixed`.** A fixed `inset: 0` backdrop covers 135% of the viewport, so
-  a centered modal lands down-right, off-screen. Convention: `width: calc(100vw / 1.35)` +
-  `height: calc(100vh / 1.35)` from top-left. Assert geometry with `getBoundingClientRect()` against
+- **The body zoom (default 1.35, user-adjustable) breaks `position: fixed`.** A fixed `inset: 0` backdrop covers
+  zoom x 100% of the viewport, so a centered modal lands down-right, off-screen. Convention:
+  `width: calc(100vw / var(--app-zoom))` + `height: calc(100vh / var(--app-zoom))` from top-left. Test other zooms by
+  setting `localStorage['ebiki-ui-zoom']` (e.g. 1, 1.6, 2) before load. Assert geometry with `getBoundingClientRect()` against
   `window.innerWidth/Height`, not a screenshot; `panelBox()` in `drive.mjs` is the model.
 - **The ready signal is "Talk to Ebi"** (header button). The shell paints before config loads, so anything earlier
   races the first render.

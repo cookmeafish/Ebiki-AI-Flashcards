@@ -13,7 +13,7 @@ import { FONT } from '../config/tokens'
 //  - opens upward or downward toward whichever side has more room, clamped on-screen,
 //  - repositions on scroll/resize so it tracks the button and never drifts,
 //  - is placed in LAYOUT px (real px from getBoundingClientRect / body zoom), matching the tooltip
-//    convention elsewhere, so it lands correctly under the app's `body { zoom:1.35 }`.
+//    convention elsewhere, so it lands correctly under the app's `body { zoom (the app zoom, --app-zoom) }`.
 //
 // options: [{ value, label, icon?, color?, divider? }]. `divider:true` draws a separator above the row.
 // `ariaLabel` names the button for screen readers; `wrapStyle` merges into the wrapper (e.g. `minWidth: 0`
@@ -28,7 +28,7 @@ export default function Dropdown({ value, onChange, options, style = {}, menuAli
   const current = options.find((o) => String(o.value) === String(value))
 
   // Position the menu in REAL px. The menu is portaled to document.documentElement (the <html>,
-  // which is NOT zoomed — CSS zoom:1.35 lives on <body>) and scaled with transform:scale(z).
+  // which is NOT zoomed — CSS zoom (the app zoom, --app-zoom) lives on <body>) and scaled with transform:scale(z).
   // WHY: a position:fixed element inside a zoomed ancestor has a broken hit-test region in Chromium
   // (its clickable box is only 1/zoom of its visual box, top-anchored) so lower items are unclickable
   // (the "can't select past the middle" bug). Escaping the zoom (portal to <html>) and using a CSS
@@ -107,7 +107,7 @@ export default function Dropdown({ value, onChange, options, style = {}, menuAli
         <span style={{ fontSize: 10, opacity: 0.8 }}>▾</span>
       </button>
       {open && createPortal(
-        // Portaled to document.documentElement (the <html>) — OUTSIDE the body's CSS zoom:1.35 — and
+        // Portaled to document.documentElement (the <html>) — OUTSIDE the body's CSS zoom (the app zoom, --app-zoom) — and
         // scaled with transform:scale(z). A position:fixed element INSIDE the zoomed body has a broken
         // hit-test box (only 1/zoom tall, top-anchored), so its lower items are unclickable (the
         // "can't select past the middle of the mode list" bug). Escaping the zoom and scaling via a

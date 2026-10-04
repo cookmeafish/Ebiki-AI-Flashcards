@@ -1,10 +1,19 @@
-// RAIDS (pure, tested): an optional daily fight against a raid boss, made of the deck's DUE cards (Anki's own review
-// stack, so every answer is recorded as a real review, win or lose). Harder than a Legends boss: health scales with
-// the cards due, typed clean strikes are needed to win (choices deal 1 and only before phase 2), lives are few, and
-// a raid boss has THREE phases.
+// RAIDS (pure, tested): a SIEGE against a raid boss, fought with the deck's DUE cards (Anki's own review stack, so
+// every answer is recorded as a real review, win or lose). Harder than a Legends boss: typed clean strikes are needed
+// to win (choices deal 1 and only before phase 2), hearts are few, and a raid boss has THREE phases.
 //
-// Why beat it: the boss keeps its wounds across the day's attempts (a loss still hurts it), a win is a trophy in the
-// raid hall, XP and a streak freeze, and the next raid boss in the progression (RAID_ORDER) comes out.
+// THE SIEGE (owner decision, 2026-10, "option 2"): both sides carry over. The boss's health is set ONCE when it first
+// comes out (from that run's cards, capped at a typical day: RAID.typicalDay) and its wounds stay until it is beaten.
+// The player's hearts (RAID.lives at most) stay lost too. Each new calendar day the player gets RAID.heartsPerDay back
+// and the boss heals RAID.healPerDay of its health, applied lazily per elapsed day from the stored `siege.date`, only
+// ever forward (two computers on a shared folder never heal it twice). With no hearts no raid starts until tomorrow.
+// A day may hold several runs (each takes the next due cards; `day.asked` = the notes answered today). A win is a
+// trophy, XP and a streak freeze, and the next boss in RAID_ORDER comes out (the same day: RAID.nextBossSameDay),
+// with full hearts and a fresh health.
+//
+// STORED SHAPE: { boss, day: { date, hp, damage, attempts, won, ab?, asked? }, trophies, siege: { boss, hp, damage,
+// hearts, date } | null }. `day.hp`/`day.damage` are written in step with the siege, so an older build (which reads
+// only `day`) sees the boss as it is; an older build writes no `siege`, and siegeOf() then starts it from `day`.
 import { abilityForMotif, abilityById } from './abilities'
 import { strike, barPhase, canAttack, attackSlot, attackGapFor, MAX_INSERTED, raidRating } from './fight'
 
@@ -43,56 +52,165 @@ export function nextBossIndex(i) {
 export const RAID_ABILITY = Object.fromEntries(RAID_MOTIFS.map((m) => [m, abilityForMotif(m)?.id || '']))
 // minHp 7 with Math.floor (design v2.1): with round + 8, a 5-card raid answered all RIGHT by choices in phase 1, then
 // typed (phase 2 forbids choices), dealt 1+1+1+2+2 = 7 of 8 and could not win.
-export const RAID = { minCards: 5, maxCards: 15, hpPerCard: 1.5, minHp: 7, maxHp: 40, lives: 3, phases: 3 }
+// THE SIEGE NUMBERS (one place): heartsPerDay back each new day (capped at `lives`), healPerDay = the share of its
+// health the boss heals each new day, typicalDay = the most due cards a boss's health is sized for (a 60-card backlog
+// does not make a 90-health boss), siegeHpDays = how many typical days of cards it takes (health = min(due,
+// typicalDay) x hpPerCard x siegeHpDays: 8 due = 24, 10+ due = 30), nextBossSameDay = a win brings out the next boss
+// at once, askedKeep = notes kept in day.asked. siege.test.js checks the balance this gives (SIEGE=1 prints it): a
+// 75% learner with 8 due a day beats a boss in about 3 days (2 to 4 typical), 30 due in about 17 cards (one day at
+// 85%, hearts run out first at 75%), and 5 due a day still beats one in about 3 days.
+export const RAID = { minCards: 5, maxCards: 15, hpPerCard: 1.5, minHp: 7, maxHp: 40, lives: 3, phases: 3, heartsPerDay: 1, healPerDay: 0.2, typicalDay: 10, siegeHpDays: 2, nextBossSameDay: true, askedKeep: 400 }
 
 export const todayKey = (d = new Date()) => d.toLocaleDateString('en-CA')
 
-// The boss's health for a day, set by the cards due at the day's first attempt (stable for the day).
+// Health for `due` cards (raidHp: the old per-day rule, still used by the ability tests' simulator). A boss's SIEGE
+// health (siegeHp) comes from the cards due when it first comes out, capped at RAID.typicalDay: never the backlog.
 export const raidHp = (due) => Math.max(RAID.minHp, Math.min(RAID.maxHp, Math.floor(Math.max(0, due) * RAID.hpPerCard)))
+export const siegeHp = (due) => Math.max(RAID.minHp, Math.floor(Math.min(Math.max(0, Number(due) || 0), RAID.typicalDay) * RAID.hpPerCard * RAID.siegeHpDays))
+// What the boss heals each new day (at least 1).
+export const healPerDay = (hp) => Math.max(1, Math.ceil(hp * RAID.healPerDay))
 
-// Raid state per mode: { boss: index in RAID_ROSTER (never a retired one after shaping), day: { date, hp, damage, attempts } | null, trophies: [{ motif, date }] }
-export const newRaidState = () => ({ boss: raidBossIndex(RAID_ORDER[0]), day: null, trophies: [] })
+// Whole days from date `a` to date `b` (todayKey strings, 'YYYY-MM-DD'): negative when `b` is earlier. Other strings
+// (tests, damaged data) only compare: equal 0, later 1, earlier -1.
+const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/
+export function dayGap(a, b) {
+  if (a === b) return 0
+  const pa = DATE_RE.exec(String(a)), pb = DATE_RE.exec(String(b))
+  if (!pa || !pb) return String(b) > String(a) ? 1 : -1
+  const ms = (p) => Date.UTC(Number(p[1]), Number(p[2]) - 1, Number(p[3]))
+  return Math.round((ms(pb) - ms(pa)) / 86400000)
+}
+
+// Raid state per mode (see STORED SHAPE above). newRaidState = never fought.
+export const newRaidState = () => ({ boss: raidBossIndex(RAID_ORDER[0]), day: null, trophies: [], siege: null })
+const idList = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === 'number' || (typeof x === 'string' && x.length < 40)).slice(-RAID.askedKeep) : [])
+const clampInt = (v, lo, hi, dflt) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : dflt }
 export function shapeRaid(raw) {
   const s = raw && typeof raw === 'object' ? raw : {}
   const stored = Number.isInteger(s.boss) && s.boss >= 0 ? s.boss % RAID_ROSTER.length : raidBossIndex(RAID_ORDER[0]) // none stored: a new raid
   const boss = activeBossIndex(stored)
   const moved = boss !== stored // a retired boss: the next one takes over today's wounds, not the old ability's state
   const d = s.day && typeof s.day === 'object' && typeof s.day.date === 'string' ? s.day : null
-  const day = d ? { date: d.date, hp: Math.max(1, Number(d.hp) || RAID.minHp), damage: Math.max(0, Number(d.damage) || 0), attempts: Math.max(0, Number(d.attempts) || 0), won: !!d.won, ...(!moved && d.ab && typeof d.ab === 'object' && !Array.isArray(d.ab) ? { ab: d.ab } : {}) } : null
+  const asked = d ? idList(d.asked) : []
+  const day = d ? { date: d.date, hp: Math.max(1, Number(d.hp) || RAID.minHp), damage: Math.max(0, Number(d.damage) || 0), attempts: Math.max(0, Number(d.attempts) || 0), won: !!d.won, ...(!moved && d.ab && typeof d.ab === 'object' && !Array.isArray(d.ab) ? { ab: d.ab } : {}), ...(asked.length ? { asked } : {}) } : null
   // Every trophy is kept, a retired (or newer build's) boss too: the hall shows those generically (isRaidMotif).
   const trophies = (Array.isArray(s.trophies) ? s.trophies : []).filter((x) => x && typeof x.motif === 'string' && /^[a-z][a-z0-9-]{0,39}$/.test(x.motif) && typeof x.date === 'string').slice(-200)
-  return { boss, day, trophies }
+  // The siege belongs to ONE boss: a siege of another (a retired boss that moved on) is dropped.
+  const g = !moved && s.siege && typeof s.siege === 'object' && typeof s.siege.date === 'string' && s.siege.boss === stored ? s.siege : null
+  const hp = g ? clampInt(g.hp, 0, RAID.maxHp * 4, 0) : 0
+  const siege = g && hp > 0 ? { boss, hp, damage: clampInt(g.damage, 0, hp, 0), hearts: clampInt(g.hearts, 0, RAID.lives, RAID.lives), date: g.date } : null
+  return { boss, day, trophies, siege }
+}
+// The siege of the current boss: the stored one, else one started from the day record (an older build wrote the
+// state and dropped `siege`: its day holds the boss's health and wounds, hearts start full), else null (none yet).
+export function siegeOf(state) {
+  const s = shapeRaid(state)
+  if (s.siege) return s.siege
+  if (s.day && !s.day.won) return { boss: s.boss, hp: s.day.hp, damage: Math.min(s.day.damage, s.day.hp), hearts: RAID.lives, date: s.day.date }
+  return null
+}
+// The siege on `date`: one heart back and one heal per whole day since its date (hearts capped, wounds never below
+// 0). Only forward: a siege dated `date` or later is returned unchanged (idempotent).
+export function regenSiege(siege, date) {
+  if (!siege) return siege
+  const days = dayGap(siege.date, date)
+  if (days <= 0) return siege
+  return {
+    ...siege, date,
+    hearts: Math.min(RAID.lives, siege.hearts + days * RAID.heartsPerDay),
+    damage: Math.max(0, siege.damage - days * healPerDay(siege.hp)),
+  }
 }
 export const raidMotif = (state) => RAID_ROSTER[shapeRaid(state).boss]
 
-// Today's fight: yesterday's wounds heal (a new day, a fresh boss at full health for today's due cards).
+// Today's raid, as a fight would start it (pure, never stored by itself): the siege brought forward to `date` (hearts
+// back, the boss healed per day), or a fresh boss with health from `due` (the run's cards) and full hearts. `day`
+// mirrors the siege (older builds read it). A stored state dated LATER than `date` (another computer's clock) is
+// taken as it is. With RAID.nextBossSameDay off, a boss beaten today keeps the day beaten.
 export function raidToday(state, date, due) {
   const s = shapeRaid(state)
-  if (s.day && s.day.date === date) return s
-  return { ...s, day: { date, hp: raidHp(due), damage: 0, attempts: 0, won: false } }
+  if (s.day && s.day.date === date && s.day.won && !RAID.nextBossSameDay) return s
+  const had = siegeOf(s)
+  const siege = had ? regenSiege(had, date) : { boss: s.boss, hp: siegeHp(due), damage: 0, hearts: RAID.lives, date }
+  const same = !!(s.day && s.day.date === siege.date)
+  const keep = same && !s.day.won // a day whose boss fell: the new boss starts its own tries and ability state
+  const day = { date: siege.date, hp: siege.hp, damage: siege.damage, attempts: keep ? s.day.attempts : 0, won: false, ...(keep && s.day.ab ? { ab: s.day.ab } : {}), ...(same && s.day.asked ? { asked: s.day.asked } : {}) }
+  return { ...s, day, siege }
 }
+// The notes already answered in a raid on `date` (the next run takes other due cards).
+export const raidAsked = (state, date) => { const s = shapeRaid(state); return s.day && s.day.date === date ? s.day.asked || [] : [] }
+const mergeIds = (a, b) => [...new Set([...(a || []), ...(b || [])])].slice(-RAID.askedKeep)
 
-// An attempt ended with `damage` dealt. The wounds stay for the day; a win (health gone) adds a trophy and brings
-// out the next boss (tomorrow). Returns { state, won, firstWin }.
+// An attempt (one run) ended with `damage` dealt and `livesLost` hearts lost. The wounds and the lost hearts carry
+// over; a win (health gone) adds a trophy and brings out the next boss (its siege starts fresh, full hearts).
+// Overkill does not spill onto the next boss. `asked`: the notes this run answered. Returns { state, won, firstWin }.
 // `dayAb`: the raid ability's state to keep for today's next attempt (its dayState: the Chimera's wounded heads).
-export function applyRaidAttempt(state, date, damage, dayAb) {
+export function applyRaidAttempt(state, date, damage, dayAb, { livesLost = 0, asked = [] } = {}) {
   const s = shapeRaid(state)
-  if (!s.day || s.day.date !== date) return { state: s, won: false, firstWin: false }
+  if (!s.day || s.day.date !== date || s.day.won) return { state: s, won: false, firstWin: false }
+  const siege = siegeOf(s)
   const dealt = Math.max(0, Number(damage) || 0)
-  const day = { ...s.day, damage: Math.min(s.day.hp, s.day.damage + dealt), attempts: s.day.attempts + 1, ...(dayAb && typeof dayAb === 'object' ? { ab: dayAb } : {}) }
-  const won = day.damage >= day.hp
-  if (!won || s.day.won) return { state: { ...s, day: { ...day, won: s.day.won || won } }, won, firstWin: false }
+  const dmg = Math.min(siege.hp, siege.damage + dealt)
+  const hearts = Math.max(0, Math.min(RAID.lives, siege.hearts - Math.max(0, Number(livesLost) || 0)))
+  const askedAll = mergeIds(s.day.asked, asked)
+  const day = { ...s.day, hp: siege.hp, damage: dmg, attempts: s.day.attempts + 1, ...(dayAb && typeof dayAb === 'object' ? { ab: dayAb } : {}), ...(askedAll.length ? { asked: askedAll } : {}) }
+  const won = dmg >= siege.hp
+  if (!won) return { state: { ...s, day, siege: { ...siege, damage: dmg, hearts, date: day.date } }, won: false, firstWin: false }
   const motif = RAID_ROSTER[s.boss]
   return {
-    state: { boss: nextBossIndex(s.boss), day: { ...day, won: true }, trophies: [...s.trophies, { motif, date }] },
+    state: { boss: nextBossIndex(s.boss), day: { ...day, won: true }, trophies: [...s.trophies, { motif, date }], siege: null },
     won: true, firstWin: true,
   }
+}
+// The notes a Victory lap answered after the run was saved: added to the day's list, nothing else changes.
+export function raidMarkAsked(state, date, asked = []) {
+  const s = shapeRaid(state)
+  if (!s.day || s.day.date !== date || !asked.length) return s
+  return { ...s, day: { ...s.day, asked: mergeIds(s.day.asked, asked) } }
 }
 
 // Due cards in Anki's order: learning cards first (they are due soonest), then reviews by due day, then the rest.
 export function raidOrder(cards) {
   const rank = (c) => (Number(c.queue) === 1 || Number(c.queue) === 3 ? 0 : Number(c.queue) === 2 ? 1 : 2)
   return [...cards].sort((a, b) => rank(a) - rank(b) || (Number(a.due) || 0) - (Number(b.due) || 0))
+}
+
+// THE NEXT CARDS of a run (the first ones, and each "Continue?"): due cards in Anki's order, one per note, never a
+// note answered in a raid today (`asked`) or already in this run (`inRun`), at most `max`.
+export function nextRaidCards(infos, { asked = [], inRun = [], max = RAID.maxCards } = {}) {
+  const skip = new Set([...asked, ...inRun].map(String))
+  const seen = new Set()
+  return raidOrder(infos || []).filter((c) => {
+    const k = String(c.note)
+    if (skip.has(k) || seen.has(k)) return false
+    seen.add(k)
+    return true
+  }).slice(0, max)
+}
+// The cards a run needs: a FRESH boss needs RAID.minCards (its health comes from them); an ongoing siege can be
+// fought with any number (a 3-card day still lands blows).
+export const raidMinCards = (ongoing) => (ongoing ? 1 : RAID.minCards)
+
+// THE RUN RAN OUT OF QUESTIONS (RaidRun's "Continue?" in the arena): 'over' = the fight is decided (no prompt),
+// 'continue' = the boss lives, hearts are left and `next` due cards wait, 'empty' = the same, but no due card is left.
+export function raidOutOfQuestions({ damage = 0, need = 1, livesLost = 0, lives = RAID.lives, next = 0 } = {}) {
+  if (damage >= need || livesLost >= lives) return 'over'
+  return next > 0 ? 'continue' : 'empty'
+}
+
+// THE RESULT SCREEN'S CHOICES after a run (nothing is forced): `won`, `unasked` = cards this run picked and never
+// asked, `dueLeft` = due notes not answered today (the unasked ones included), `hearts` = hearts left after the run.
+//   nextBoss: the next boss is out (RAID.nextBossSameDay) and due cards remain to fight it
+//   lap:      a Victory lap over the unasked cards (a win only, optional, a reward round)
+//   again:    "Fight again" (the boss lives, hearts are left, due cards remain)
+//   stayDue:  the unasked cards that simply stay due (said in one line)
+export function raidRunChoices({ won = false, unasked = 0, dueLeft = 0, hearts = 0 } = {}) {
+  return {
+    nextBoss: !!(won && RAID.nextBossSameDay && dueLeft > 0),
+    lap: won ? Math.max(0, unasked) : 0,
+    again: !won && hearts > 0 && dueLeft > 0,
+    stayDue: won ? 0 : Math.max(0, unasked),
+  }
 }
 
 // ONE RAID ANSWER, pure (RaidRun.record runs it, and so do the fairness tests in abilities/). `q` = the question
@@ -159,44 +277,59 @@ export function raidStep(before, q, info, { ability = '', need, lives, dayHp, da
   return { next, groups }
 }
 
-// A TEST FIGHT (cheat mode's asset view, "Fight this boss"): a fresh day of THIS boss at full health for today's due
-// cards, through the normal raid (RaidRun). It is never stored: the answers are real reviews (they count like any
-// review), but the raid's progress (wounds, trophies, the rotation, the boss-win reward) stays as it is
-// (raidAttemptOutcome with `test`).
+// A TEST FIGHT (cheat mode's asset view, "Fight this boss"): a fresh siege of THIS boss (full hearts, full health
+// for the run's cards), through the normal raid (RaidRun). It is never stored: the answers are real reviews (they
+// count like any review), but the raid's progress (wounds, hearts, trophies, the rotation, the boss-win reward) stays
+// as it is (raidAttemptOutcome with `test`).
 export function testRaidState(motif, date, due) {
   const i = RAID_ROSTER.indexOf(motif)
-  return { boss: i >= 0 ? activeBossIndex(i) : raidBossIndex(RAID_ORDER[0]), day: { date, hp: raidHp(due), damage: 0, attempts: 0, won: false }, trophies: [] }
+  const boss = i >= 0 ? activeBossIndex(i) : raidBossIndex(RAID_ORDER[0])
+  const hp = siegeHp(due)
+  return { boss, day: { date, hp, damage: 0, attempts: 0, won: false }, trophies: [], siege: { boss, hp, damage: 0, hearts: RAID.lives, date } }
 }
 
-// What an ended attempt does to the stored raid (RaidRun's save): `state` = what to write (null = write nothing, a
-// test fight), `won`, `firstWin` (the trophy, XP and freeze: never for a test fight).
-//   stored: the raid state read just now, date: the day the raid started, damage: what the attempt dealt, dayAb: the
-//   ability's day state, due: the questions the fight had (a new day's health), test: the test fight's motif or ''.
-export function raidAttemptOutcome(stored, { date, damage, dayAb, due, test = '' } = {}) {
+// What an ended run does to the stored raid (RaidRun's save): `state` = what to write (null = write nothing, a test
+// fight), `won`, `firstWin` (the trophy, XP and freeze: never for a test fight).
+//   stored: the raid state read just now, date: the day the run started, damage: what it dealt, livesLost: the hearts
+//   it cost, asked: the notes it answered, dayAb: the ability's day state, due: the run's questions (a fresh boss's
+//   health), motif: the boss fought (a boss beaten meanwhile on another computer takes no damage meant for it),
+//   test: the test fight's motif or ''.
+export function raidAttemptOutcome(stored, { date, damage, livesLost = 0, asked = [], dayAb, due, motif = '', test = '' } = {}) {
   if (test) {
-    const r = applyRaidAttempt(testRaidState(test, date, due), date, damage, dayAb)
+    const r = applyRaidAttempt(testRaidState(test, date, due), date, damage, dayAb, { livesLost })
     return { state: null, won: r.won, firstWin: false }
   }
-  // A raid started before midnight and saved after another window already began the NEXT day: that day's wounds are
-  // newer than this attempt, so they stay (raidToday would have replaced them with the old day).
   const cur = shapeRaid(stored)
-  if (cur.day && typeof date === 'string' && cur.day.date > date) return { state: cur, won: false, firstWin: false }
-  const r = applyRaidAttempt(raidToday(stored, date, due), date, damage, dayAb)
+  // The boss fought is gone (beaten on another computer meanwhile): only the answered notes are kept.
+  if (motif && RAID_ROSTER[cur.boss] !== motif) return { state: raidMarkAsked(cur, date, asked), won: false, firstWin: false }
+  const base = raidToday(stored, date, due)
+  // A run started before midnight and saved after another window already began the NEXT day: its damage and hearts
+  // go onto that newer day as it is (no heal backwards, no ability state of the old day).
+  const at = base.day.date
+  const r = applyRaidAttempt(base, at, damage, at === date ? dayAb : undefined, { livesLost, asked })
   return { state: r.state, won: r.won, firstWin: r.firstWin }
 }
 
+// The siege rules in one line (Help, the bestiary catalog).
+export const SIEGE_RULE = `The raid is a SIEGE: the boss's health is set once when it comes out and its wounds stay until it is beaten; the player's ${RAID.lives} hearts carry over too (lost hearts stay lost). Each new day the player gets ${RAID.heartsPerDay} heart back and the boss heals ${Math.round(RAID.healPerDay * 100)}% of its health. With no hearts, no raid until tomorrow (Study still works). Several runs a day are fine; each takes the next due cards. A run that runs out of questions can continue with the next due cards. A win brings out the next boss ${RAID.nextBossSameDay ? 'right away' : 'the next day'} with full hearts; the unasked cards can be answered in an optional Victory lap or stay due.`
+
 // What Ebi's Help hears about a raid on screen (plain facts, never a question's answer).
-//   view: loading | intro | fight | aftermath | saving | done | other; boss: its name; hpLeft/hpMax: today's health;
-//   livesLeft/lives; phase: 1..3; asked/total: cards answered of the cards picked; aftermathLeft: cards still to review;
-//   result: { won, recorded, failed } on the result screen; test: a cheat-mode test fight.
-export function raidHelpText({ view = '', boss = '', ability = '', hpLeft = 0, hpMax = 0, livesLeft = 0, lives = RAID.lives, phase = 1, asked = 0, total = 0, aftermathLeft = 0, result = null, test = false } = {}) {
-  const who = `${boss || 'the raid boss'}${ability ? ` (ability: ${ability})` : ''}${test ? ' [a TEST fight from the asset view: the stored raid (wounds, trophies, boss rotation) is not changed; answers are real Anki reviews]' : ''}`
-  if (view === 'loading') return `Daily raid: Ebi is gathering today's due cards and writing the questions for ${who}.`
-  if (view === 'intro') return `Daily raid: the intro card of ${who}, health ${hpLeft}/${hpMax}, ${lives} lives, ${total} due cards to fight with. Not started yet.`
-  if (view === 'fight') return `Daily raid RUNNING against ${who}: boss health ${hpLeft}/${hpMax}, phase ${phase} of ${RAID.phases}, ${livesLeft}/${lives} lives left, ${asked} of ${total} due cards answered. Each card's first answer is a real Anki review: never give the answer to the question on screen unless they explicitly ask.`
-  if (view === 'aftermath') return `Raid aftermath against ${who}: the fight is over and ${aftermathLeft} due card(s) it never asked are being reviewed (no fight rules; each first answer is a real Anki review; "Finish later" leaves them due). Never give the answer on screen unless asked.`
-  if (view === 'saving') return `Raid against ${who} ended: saving the reviews in Anki.`
-  if (view === 'done' && result) return `Raid result against ${who}: ${result.won ? 'the boss was beaten' : 'the boss survived (its wounds stay for today)'}; ${result.recorded || 0} review(s) saved in Anki${result.failed ? `, ${result.failed} could NOT be saved (those cards stay due)` : ''}.`
+//   view: loading | intro | fight | more | lap | saving | done | hearts | other; boss: its name; hpLeft/hpMax: the
+//   siege's health; livesLeft: hearts left now; lives: the most hearts; phase: 1..3; asked/total: cards answered of
+//   the cards picked; lapLeft: Victory lap cards left; nextCards: the cards a Continue would bring; result: { won,
+//   recorded, failed } on the result screen; test: a cheat-mode test fight.
+export function raidHelpText({ view = '', boss = '', ability = '', hpLeft = 0, hpMax = 0, livesLeft = 0, lives = RAID.lives, phase = 1, asked = 0, total = 0, lapLeft = 0, aftermathLeft = 0, nextCards = 0, result = null, test = false } = {}) {
+  const who = `${boss || 'the raid boss'}${ability ? ` (ability: ${ability})` : ''}${test ? ' [a TEST fight from the asset view: full hearts, a fresh boss, and the stored raid (wounds, hearts, trophies, boss rotation) is not changed; answers are real Anki reviews]' : ''}`
+  const hearts = `${livesLeft}/${lives} hearts`
+  const lap = lapLeft || aftermathLeft
+  if (view === 'loading') return `Daily raid: Ebi is gathering the due cards and writing the questions for ${who}.`
+  if (view === 'intro') return `Daily raid: the intro card of ${who}, health ${hpLeft}/${hpMax}, ${hearts}, ${total} due cards to fight with. Not started yet. ${SIEGE_RULE}`
+  if (view === 'hearts') return `Daily raid against ${who}: no hearts left, so no raid until tomorrow (${RAID.heartsPerDay} heart comes back each day; Study still works). Boss health ${hpLeft}/${hpMax}.`
+  if (view === 'fight') return `Daily raid RUNNING against ${who}: boss health ${hpLeft}/${hpMax}, phase ${phase} of ${RAID.phases}, ${hearts} left, ${asked} of ${total} due cards answered. Each card's first answer is a real Anki review: never give the answer to the question on screen unless they explicitly ask.`
+  if (view === 'more') return `Daily raid against ${who}: this run is out of questions, the boss lives (health ${hpLeft}/${hpMax}) and the player has ${hearts}. ${nextCards ? `Continue brings the next ${nextCards} due cards into the same fight; Stop for now keeps the wounds and hearts for later.` : 'No due cards are left today.'}`
+  if (view === 'aftermath' || view === 'lap') return `Victory lap after beating ${who}: an optional reward round over ${lap} due card(s) the fight never asked (no fight rules; each first answer is a real Anki review; "Finish later" leaves them due). Never give the answer on screen unless asked.`
+  if (view === 'saving') return `Raid run against ${who} ended: saving the reviews in Anki.`
+  if (view === 'done' && result) return `Raid result against ${who}: ${result.won ? 'the boss was beaten' : `the boss survived with ${hpLeft}/${hpMax} health (its wounds carry over)`}; ${hearts} left; ${result.recorded || 0} review(s) saved in Anki${result.failed ? `, ${result.failed} could NOT be saved (those cards stay due)` : ''}.`
   return ''
 }
 
@@ -205,7 +338,7 @@ export function raidHelpText({ view = '', boss = '', ability = '', hpLeft = 0, h
 export function raidWhere({ view = '', boss = '', test = false } = {}) {
   const who = boss || 'the raid boss'
   const what = test ? `a raid TEST fight against ${who} (started from the bestiary, cheat mode)` : `the daily raid against ${who}`
-  const stage = { loading: 'loading', intro: 'intro card', fight: 'fight running', aftermath: 'aftermath reviews running', saving: 'saving', done: 'result' }[view]
+  const stage = { loading: 'loading', intro: 'intro card', fight: 'fight running', more: 'out of questions, continue or stop', aftermath: 'victory lap running', lap: 'victory lap running', hearts: 'no hearts left today', saving: 'saving', done: 'result' }[view]
   return stage ? `${what}: ${stage}` : what
 }
 

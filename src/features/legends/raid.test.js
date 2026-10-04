@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { RAID, RAID_MOTIFS, RAID_ROSTER, RAID_RETIRED, RAID_ORDER, raidBossNumber, raidBossIndex, nextBossIndex, raidMotif, isRaidMotif, raidHp, raidToday, applyRaidAttempt, raidOrder, shapeRaid, newRaidState, testRaidState, raidAttemptOutcome, raidHelpText, raidReviews } from './raid'
+import { RAID, siegeHp, healPerDay, RAID_MOTIFS, RAID_ROSTER, RAID_RETIRED, RAID_ORDER, raidBossNumber, raidBossIndex, nextBossIndex, raidMotif, isRaidMotif, raidHp, raidToday, applyRaidAttempt, raidOrder, shapeRaid, newRaidState, testRaidState, raidAttemptOutcome, raidHelpText, raidReviews } from './raid'
 import { artUrl, REALISTIC_ART } from './art'
 
 describe('raid rules', () => {
@@ -21,14 +21,16 @@ describe('raid rules', () => {
     // 5 cards, all right: choices while phase 1 allows them (1 + 1 + 1), then typed clean (2 + 2) = 7.
     expect(1 + 1 + 1 + 2 + 2).toBeGreaterThanOrEqual(raidHp(5))
   })
-  it('keeps the wounds for the day and heals overnight', () => {
+  it('keeps the wounds across the day and heals only 20% overnight (the siege)', () => {
     let s = raidToday(newRaidState(), '2026-09-29', 10)
     const hp = s.day.hp
+    expect(hp).toBe(siegeHp(10))
     s = applyRaidAttempt(s, '2026-09-29', 6).state
     expect(s.day.damage).toBe(6)
     expect(raidToday(s, '2026-09-29', 3).day.damage).toBe(6) // the same day: still wounded, same health
     expect(raidToday(s, '2026-09-29', 3).day.hp).toBe(hp)
-    expect(raidToday(s, '2026-09-30', 10).day.damage).toBe(0)
+    expect(raidToday(s, '2026-09-30', 50).day.hp).toBe(hp) // the health was set once: today's due cards do not change it
+    expect(raidToday(s, '2026-09-30', 10).day.damage).toBe(6 - healPerDay(hp))
   })
   it('gives a trophy once and brings out the next boss', () => {
     let s = raidToday(newRaidState(), '2026-09-29', 6)
@@ -43,7 +45,7 @@ describe('raid rules', () => {
   it('ignores an attempt for another day and survives damaged data', () => {
     const s = raidToday(newRaidState(), '2026-09-29', 6)
     expect(applyRaidAttempt(s, '2026-09-28', 99).state.day.damage).toBe(0)
-    expect(shapeRaid({ boss: 99, trophies: [{ motif: 'nope' }] })).toEqual({ boss: 99 % RAID_ROSTER.length, day: null, trophies: [] })
+    expect(shapeRaid({ boss: 99, trophies: [{ motif: 'nope' }] })).toEqual({ boss: 99 % RAID_ROSTER.length, day: null, trophies: [], siege: null })
   })
   it("a stored retired boss (today's or tomorrow's) moves on to the next active boss, keeping today's wounds", () => {
     expect(RAID_RETIRED).toContain('glutton')
@@ -167,7 +169,8 @@ describe('raid test fights and the save outcome', () => {
   it('a test fight is a fresh day of the chosen boss and never writes the stored raid', () => {
     const t = testRaidState('lich', '2026-10-03', 10)
     expect(RAID_ROSTER[t.boss]).toBe('lich')
-    expect(t.day).toEqual({ date: '2026-10-03', hp: raidHp(10), damage: 0, attempts: 0, won: false })
+    expect(t.day).toEqual({ date: '2026-10-03', hp: siegeHp(10), damage: 0, attempts: 0, won: false })
+    expect(t.siege).toMatchObject({ hp: siegeHp(10), damage: 0, hearts: RAID.lives })
     const stored = { boss: 0, day: { date: '2026-10-03', hp: 20, damage: 5, attempts: 1, won: false }, trophies: [] }
     const before = JSON.stringify(stored)
     const win = raidAttemptOutcome(stored, { date: '2026-10-03', damage: 100, due: 10, test: 'lich' })
@@ -187,16 +190,20 @@ describe('raid test fights and the save outcome', () => {
     expect(w.firstWin).toBe(true)
     expect(w.state.trophies).toHaveLength(1)
   })
-  it("an attempt from yesterday never overwrites a day another window already started", () => {
-    const stored = { boss: 2, day: { date: '2026-10-04', hp: 15, damage: 4, attempts: 1, won: false }, trophies: [] }
-    const r = raidAttemptOutcome(stored, { date: '2026-10-03', damage: 99, due: 10 })
+  it("an attempt from yesterday lands on the day another window already started, never healing it backwards", () => {
+    const stored = { boss: 2, day: { date: '2026-10-04', hp: 15, damage: 4, attempts: 1, won: false }, trophies: [], siege: { boss: 2, hp: 15, damage: 4, hearts: 2, date: '2026-10-04' } }
+    const r = raidAttemptOutcome(stored, { date: '2026-10-03', damage: 3, livesLost: 1, due: 10, dayAb: { x: 1 } })
     expect(r.won).toBe(false)
-    expect(r.firstWin).toBe(false)
-    expect(r.state.day).toEqual(stored.day)
+    expect(r.state.day).toMatchObject({ date: '2026-10-04', hp: 15, damage: 7, attempts: 2 })
+    expect(r.state.day.ab).toBeUndefined() // the old day's ability state is not the new day's
+    expect(r.state.siege).toMatchObject({ date: '2026-10-04', damage: 7, hearts: 1 })
     expect(r.state.boss).toBe(2)
   })
   it('Help hears the fight state, never an answer', () => {
-    expect(raidHelpText({ view: 'fight', boss: 'The Lich', hpLeft: 5, hpMax: 10, livesLeft: 2, phase: 2, asked: 3, total: 8 })).toMatch(/health 5\/10, phase 2 of 3, 2\/3 lives left, 3 of 8/)
+    expect(raidHelpText({ view: 'fight', boss: 'The Lich', hpLeft: 5, hpMax: 10, livesLeft: 2, phase: 2, asked: 3, total: 8 })).toMatch(/health 5\/10, phase 2 of 3, 2\/3 hearts left, 3 of 8/)
+    expect(raidHelpText({ view: 'more', boss: 'X', hpLeft: 4, hpMax: 10, livesLeft: 1, nextCards: 6 })).toMatch(/out of questions.*next 6 due cards/)
+    expect(raidHelpText({ view: 'hearts', boss: 'X' })).toMatch(/no hearts left.*tomorrow/)
+    expect(raidHelpText({ view: 'intro', boss: 'X' })).toMatch(/SIEGE/)
     expect(raidHelpText({ view: 'done', boss: 'X', result: { won: false, recorded: 4, failed: 1 } })).toMatch(/4 review\(s\) saved.*1 could NOT/)
     expect(raidHelpText({ view: 'fight', test: true })).toMatch(/TEST fight/)
     expect(raidHelpText({ view: 'none' })).toBe('')

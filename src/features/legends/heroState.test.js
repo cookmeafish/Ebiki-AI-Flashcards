@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { raidHeroState, raidUses, RAID_TINT } from './heroState'
-import { RAID, RAID_ORDER, RAID_ABILITY, raidBossIndex, raidHp } from './raid'
+import { RAID, RAID_ORDER, RAID_ABILITY, raidBossIndex, siegeHp } from './raid'
 import { makeT } from '../../i18n'
 
 const DATE = '2026-10-03'
@@ -14,16 +14,36 @@ describe('raid hero state', () => {
     expect(s.num).toBe(1)
     expect(s.total).toBe(RAID_ORDER.length)
     expect(s.ability).toBe(RAID_ABILITY[first])
-    expect(s.hp).toBe(raidHp(9))
+    expect(s.hp).toBe(siegeHp(9))
+    expect(s).toMatchObject({ hearts: RAID.lives, heartsMax: RAID.lives, runs: 1 })
     expect(s.left).toBe(s.hp)
     expect(s.attempts).toBe(0)
   })
-  it('carries today\'s wounds and tries, ignores yesterday\'s', () => {
-    const stored = { boss: raidBossIndex('titan'), day: { date: DATE, hp: 20, damage: 6, attempts: 2, won: false }, trophies: [] }
+  it("carries the siege's wounds and hearts; a new day heals 20% and gives a heart back", () => {
+    const boss = raidBossIndex('titan')
+    const stored = { boss, day: { date: DATE, hp: 20, damage: 6, attempts: 2, won: false }, trophies: [], siege: { boss, hp: 20, damage: 6, hearts: 1, date: DATE } }
     const s = raidHeroState({ stored, date: DATE, due: 12 })
-    expect(s).toMatchObject({ kind: 'ready', motif: 'titan', hp: 20, damage: 6, left: 14, attempts: 2, healthKnown: true })
-    const old = raidHeroState({ stored: { ...stored, day: { ...stored.day, date: '2026-10-02' } }, date: DATE, due: 12 })
-    expect(old).toMatchObject({ damage: 0, attempts: 0, hp: raidHp(12) })
+    expect(s).toMatchObject({ kind: 'ready', motif: 'titan', hp: 20, damage: 6, left: 14, attempts: 2, hearts: 1, healthKnown: true })
+    const later = raidHeroState({ stored: { ...stored, day: { ...stored.day, date: '2026-10-02' }, siege: { ...stored.siege, date: '2026-10-02' } }, date: DATE, due: 12 })
+    expect(later).toMatchObject({ damage: 2, attempts: 0, hp: 20, hearts: 2 })
+  })
+  it('says when no hearts are left (tomorrow), before anything else', () => {
+    const boss = raidBossIndex('titan')
+    const stored = { boss, day: { date: DATE, hp: 20, damage: 6, attempts: 2, won: false }, trophies: [], siege: { boss, hp: 20, damage: 6, hearts: 0, date: DATE } }
+    expect(raidHeroState({ stored, date: DATE, due: 12, anki: false }).kind).toBe('hearts')
+  })
+  it('counts only due notes not yet answered today, and the runs they make', () => {
+    const boss = raidBossIndex(first)
+    const stored = { boss, day: { date: DATE, hp: 30, damage: 4, attempts: 1, won: false, asked: [1, 2, 3] }, trophies: [], siege: { boss, hp: 30, damage: 4, hearts: 2, date: DATE } }
+    const ids = Array.from({ length: 34 }, (_, i) => i + 1)
+    expect(raidHeroState({ stored, date: DATE, dueIds: ids })).toMatchObject({ due: 31, runs: 3, uses: RAID.maxCards })
+    // An ongoing siege may be fought with fewer cards than a fresh boss needs.
+    expect(raidHeroState({ stored, date: DATE, dueIds: [1, 2, 3, 4] }).kind).toBe('ready')
+    expect(raidHeroState({ stored: null, date: DATE, due: RAID.minCards - 1 }).kind).toBe('few')
+  })
+  it('after a win the next boss is out the same day, fresh, with full hearts', () => {
+    const stored = { boss: raidBossIndex(RAID_ORDER[1]), day: { date: DATE, hp: 10, damage: 10, attempts: 1, won: true }, trophies: [{ motif: first, date: DATE }], siege: null }
+    expect(raidHeroState({ stored, date: DATE, due: 12 })).toMatchObject({ kind: 'ready', motif: RAID_ORDER[1], num: 2, beatenToday: first, hearts: RAID.lives, damage: 0, hp: siegeHp(12) })
   })
   it('counts the cards the fight uses, capped', () => {
     expect(raidUses(40)).toBe(RAID.maxCards)
@@ -38,13 +58,16 @@ describe('raid hero state', () => {
     expect(raidHeroState({ date: DATE, due: 9, anki: false }).kind).toBe('anki')
     expect(raidHeroState({ date: DATE, due: 9, hasKey: false }).kind).toBe('nokey')
   })
-  it('a boss beaten today shows the win, with tomorrow\'s boss next', () => {
-    const stored = { boss: raidBossIndex(RAID_ORDER[1]), day: { date: DATE, hp: 10, damage: 10, attempts: 1, won: true }, trophies: [{ motif: first, date: DATE }] }
-    const s = raidHeroState({ stored, date: DATE, due: 0, anki: false })
-    expect(s.kind).toBe('beaten')
-    expect(s.beaten).toBe(first)
-    expect(s.motif).toBe(RAID_ORDER[1])
-    expect(s.num).toBe(2)
+  it('with nextBossSameDay off, a boss beaten today shows the win, with the next boss tomorrow', () => {
+    const was = RAID.nextBossSameDay
+    RAID.nextBossSameDay = false
+    try {
+      const stored = { boss: raidBossIndex(RAID_ORDER[1]), day: { date: DATE, hp: 10, damage: 10, attempts: 1, won: true }, trophies: [{ motif: first, date: DATE }] }
+      const s = raidHeroState({ stored, date: DATE, due: 0, anki: false })
+      expect(s.kind).toBe('beaten')
+      expect(s.beaten).toBe(first)
+      expect(s.motif).toBe(RAID_ORDER[1])
+    } finally { RAID.nextBossSameDay = was }
   })
 })
 

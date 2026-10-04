@@ -103,7 +103,7 @@ export function Modal({ open, onClose, children, width = UI.modalWidth, zoom = 1
   if (!open) return null
   return (
     <div ref={rootRef} onMouseDown={(e) => { if (dismissable && e.target === e.currentTarget) onClose?.() }} style={{
-      position: 'fixed', top: 0, left: 0, width: `calc(100vw / ${zoom})`, height: `calc(100vh / ${zoom})`,
+      position: 'fixed', top: 0, left: 0, width: `calc(100vw / var(--app-zoom, ${zoom}))`, height: `calc(100vh / var(--app-zoom, ${zoom}))`,
       background: 'rgba(6,10,14,.5)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
       zIndex: UI.zModal, display: 'grid', placeItems: 'center', padding: 16, boxSizing: 'border-box', animation: 'fadeIn .18s ease',
     }}>
