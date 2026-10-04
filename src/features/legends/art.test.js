@@ -201,3 +201,68 @@ describe('motionMarkup cache', () => {
     } finally { globalThis.DOMParser = real }
   })
 })
+
+// Every path's `d` (and animateMotion `path`) in every Legends drawing must parse: the browser skips a malformed one and
+// logs "Error: <path> attribute d: Expected number, "MZ"" on every render (cerberus.svg carried three empty "MZ" shadows).
+const PATH_ARGS = { m: 2, l: 2, h: 1, v: 1, c: 6, s: 4, q: 4, t: 2, a: 7, z: 0 }
+const PATH_NUM = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/
+function pathDataError(d) {
+  const s = String(d ?? '')
+  let i = 0
+  const skip = () => { while (i < s.length && /[\s,]/.test(s[i])) i++ }
+  const ws = () => { while (i < s.length && /\s/.test(s[i])) i++ }
+  ws()
+  if (i >= s.length) return null
+  if (!/[Mm]/.test(s[i])) return `starts with "${s[i]}"`
+  while (i < s.length) {
+    ws()
+    if (i >= s.length) break
+    const c = s[i]
+    const k = PATH_ARGS[c.toLowerCase()]
+    if (k === undefined) return `bad command "${c}" at ${i}`
+    i++
+    if (k === 0) continue
+    let groups = 0
+    for (;;) {
+      skip()
+      if (i >= s.length || /[A-Za-z]/.test(s[i])) break
+      for (let a = 0; a < k; a++) {
+        if (a) skip()
+        if (c.toLowerCase() === 'a' && (a === 3 || a === 4)) {
+          if (s[i] !== '0' && s[i] !== '1') return `bad arc flag at ${i}`
+          i++
+          continue
+        }
+        const m = PATH_NUM.exec(s.slice(i))
+        if (!m) return `expected a number at ${i}: ${JSON.stringify(s.slice(Math.max(0, i - 6), i + 6))}`
+        i += m[0].length
+      }
+      groups++
+    }
+    if (!groups) return `"${c}" without numbers: ${JSON.stringify(s.slice(Math.max(0, i - 8), i + 6))}`
+  }
+  return null
+}
+const svgFiles = (dir) => fs.readdirSync(dir, { withFileTypes: true })
+  .flatMap((e) => (e.isDirectory() ? svgFiles(path.join(dir, e.name)) : e.name.endsWith('.svg') ? [path.join(dir, e.name)] : []))
+
+describe('path data', () => {
+  it('the checker knows good and bad path data', () => {
+    expect(pathDataError('M0 0L10 10Z')).toBe(null)
+    expect(pathDataError('M1,2 a5 5 0 011 1 c1-2 .5.5 3 4z M0 0')).toBe(null)
+    expect(pathDataError('MZ')).toMatch(/without numbers/)
+    expect(pathDataError('M0 0 L5')).toMatch(/number/)
+    expect(pathDataError('L0 0')).toMatch(/starts/)
+  })
+  it('every path in every Legends drawing parses', () => {
+    const bad = []
+    for (const f of svgFiles(path.join(PUBLIC, 'assets/legends'))) {
+      const svg = fs.readFileSync(f, 'utf8')
+      for (const m of svg.matchAll(/\s(d|path)="([^"]*)"/g)) {
+        const err = pathDataError(m[2])
+        if (err) bad.push(`${path.relative(PUBLIC, f)} ${m[1]}: ${err}`)
+      }
+    }
+    expect(bad).toEqual([])
+  })
+})

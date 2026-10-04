@@ -1,0 +1,151 @@
+// What Ebi's Help knows about the BESTIARY (pure, tested by bestiaryHelp.test.js): every raid boss (number in the
+// progression, name, ability and its effects, family, lore), the player's own raid progress, and what the asset view /
+// bestiary shows right now. Names, rules and lore come from the app's i18n texts (`t`), so Ebi reads them in the app
+// language; the scaffolding around them is plain English facts like the rest of the Help context.
+//
+// No card, question or answer is ever in here: a raid's questions are the deck's cards (QuizRunner reports the one on
+// screen, without its key). Published by HelpBridge.jsx (the catalog, every screen) and AssetView.jsx (the bestiary).
+import { RAID, RAID_ORDER, RAID_ABILITY, raidBossNumber, shapeRaid, raidMotif, isRaidMotif } from './raid'
+import { MOTIFS } from './map'
+import { bestiaryRows } from './abilities/_triggers'
+import { FAMILY_TREES, FAMILY_MISFITS, familyMotifs } from './families'
+
+export const CATALOG_MAX = 5800 // the always-on catalog (App keeps at most 6000 per entry)
+export const BESTIARY_MAX = 3900 // the bestiary screen (useHelpEntry keeps 4000)
+const LORE_MAX = 600
+
+const clip = (s, n) => {
+  const x = String(s ?? '').replace(/\s+/g, ' ').trim()
+  return x.length > n ? x.slice(0, n - 1) + '…' : x
+}
+const cap = (text, n) => (text.length > n ? text.slice(0, n - 1) + '…' : text)
+// t() falls back to the key itself: a missing text is left out, never shown as a key name.
+const tx = (t, key, vars) => {
+  if (typeof t !== 'function') return ''
+  const v = t(key, vars)
+  return v && v !== key ? String(v) : ''
+}
+
+export const raidBossName = (t, motif) => tx(t, `lg_raidBoss_${motif}`) || motif
+
+// The family trees a boss is drawn in (the asset view's "Boss families"): its tree's name, and what it is made from.
+export function familyOf(motif) {
+  const trees = FAMILY_TREES.filter((tr) => familyMotifs(tr).includes(motif))
+  const misfit = FAMILY_MISFITS.motifs.includes(motif)
+  return { trees, misfit, madeFrom: trees.flatMap((tr) => tr.links[motif] || []) }
+}
+function familyLine(t, motif, withFrom = true) {
+  const f = familyOf(motif)
+  const names = f.trees.map((tr) => tx(t, `lg_famTree_${tr.id}`) || tr.id)
+  if (f.misfit) names.push(tx(t, 'lg_famTree_misfits') || 'misfits')
+  if (!names.length) return ''
+  const from = !withFrom ? [] : f.madeFrom.map((m) => (isRaidMotif(m) ? raidBossName(t, m) : m))
+  return `family: ${names.join(', ')}${from.length ? ` (made from ${from.join(' + ')})` : ''}`
+}
+
+// How raids work, for "how do I beat ...": the shared rules every raid boss adds its ability to.
+export const RAID_RULES = `Raid rules (every raid boss): today's DUE cards become the questions (each card's first answer is a real Anki review); boss health comes from the cards due; ${RAID.lives} lives; ${RAID.phases} phases. A clean typed answer deals 2, a glancing one (tested thing right, something else wrong) 1, a choice 1 (choices only before the boss is enraged at half health); every 3rd clean answer in a row is a critical (+1). A miss costs a life and comes back later as the boss's attack. Wounds stay for the day; a win gives a trophy, XP and a streak freeze, and the next boss in the progression comes out. Tips: type answers (not choices), keep clean streaks, use the boss's ability below.`
+
+// One raid boss as facts. `full`: also every effect (what the player does, what happens) and the lore.
+export function raidBossFacts(t, motif, { full = false, lore = full, ids = true, madeFrom = true, fxName } = {}) {
+  const ability = RAID_ABILITY[motif] || ''
+  const num = raidBossNumber(motif)
+  const head = `#${num || '?'} ${raidBossName(t, motif)}${ids ? ` (${motif})` : ''}`
+  const ab = ability ? `ability "${tx(t, `lg_ability_${ability}`) || ability}": ${tx(t, `lg_abilityDesc_${ability}`)}` : 'no ability'
+  const fam = familyLine(t, motif, madeFrom)
+  const out = [`${head}: ${ab}${fam ? ` · ${fam}` : ''}`]
+  if (!full) return out[0]
+  const rows = ability ? bestiaryRows(motif, ability) : []
+  for (const { fx, tr } of rows) {
+    const name = (typeof fxName === 'function' && fxName(ability, fx)) || fx
+    out.push(`  - ${name}${tr.choice ? ' [the player\'s choice: a button]' : ''}: trigger: ${tx(t, tr.whenKey, tr.vars)} Effect: ${tx(t, tr.doesKey, tr.vars)}`)
+  }
+  const story = lore ? tx(t, `lg_raidLore_${motif}`) : ''
+  if (story) out.push(`  Lore: ${clip(story, LORE_MAX)}`)
+  return out.join('\n')
+}
+
+// The player's raid progress (stored raid state) in a line or two. `raid` may be null (never fought).
+export function raidProgressText(t, raid, today = '', known = true) {
+  if (!known) return "The player's raid progress could not be read right now (not loaded yet, or the data folder is unreachable)."
+  if (!raid) return `The player's raid: not started in this mode (the first boss is #1 ${raidBossName(t, RAID_ORDER[0])}).`
+  const r = shapeRaid(raid)
+  const motif = raidMotif(r)
+  const num = raidBossNumber(motif)
+  const next = RAID_ORDER[num % RAID_ORDER.length]
+  const d = r.day && (!today || r.day.date === today) ? r.day : null
+  const wins = {}
+  for (const tr of r.trophies) wins[tr.motif] = (wins[tr.motif] || 0) + 1
+  const hall = Object.entries(wins).map(([m, n]) => `${isRaidMotif(m) ? raidBossName(t, m) : `${m} (retired)`}${n > 1 ? ` x${n}` : ''}`)
+  return [
+    `The player's raid: current boss #${num} ${raidBossName(t, motif)} of ${RAID_ORDER.length}${d ? `, today health ${Math.max(0, d.hp - d.damage)}/${d.hp} after ${d.attempts} attempt(s)${d.won ? ', beaten today' : ''}` : ', not fought yet today'}. Next after a win: #${raidBossNumber(next)} ${raidBossName(t, next)}.`,
+    `Raid trophies: ${r.trophies.length}${hall.length ? ` (${hall.join(', ')})` : ''}.`,
+  ].join('\n')
+}
+
+// THE CATALOG (every screen): the rules, the player's progress, the current boss in full, then every raid boss in
+// progression order, one line each. Lines carry the ability's rule; when the budget runs out, the bosses FARTHEST
+// ahead of the player's current boss lose their rule first (name, ability name and family stay).
+export function raidCatalogText({ t, raid = null, known = true, today = '', fxName } = {}) {
+  const cur = raid ? raidMotif(raid) : RAID_ORDER[0]
+  const top = [
+    'RAID BOSSES AND THE BESTIARY (facts for questions like "which raid boss is next", "what does the Lich do", "how do I beat the Hydra", "what family is X in"). The bestiary is the asset view (cheat mode): every boss with its ability, effects, lore and family.',
+    RAID_RULES,
+    raidProgressText(t, raid, today, known),
+    `Current boss in full:\n${raidBossFacts(t, cur, { full: true, lore: false, fxName })}`,
+    'All raid bosses in progression order (a win brings out the next):',
+  ].join('\n')
+  const longLine = (m) => `- ${raidBossFacts(t, m, { ids: false, madeFrom: false })}`
+  const shortLine = (m) => {
+    const ab = RAID_ABILITY[m]
+    const fam = familyLine(t, m, false)
+    return `- #${raidBossNumber(m)} ${raidBossName(t, m)}: ${tx(t, `lg_ability_${ab}`) || ab}${fam ? ` · ${fam}` : ''}`
+  }
+  const lines = RAID_ORDER.map(longLine)
+  const n = RAID_ORDER.length
+  const at = Math.max(0, RAID_ORDER.indexOf(cur))
+  const size = () => top.length + lines.reduce((s, l) => s + l.length + 1, 0)
+  // Farthest ahead first (the bosses just behind the current one were beaten already: also far).
+  for (let d = n - 1; d > 0 && size() > CATALOG_MAX; d--) {
+    const i = (at + d) % n
+    lines[i] = shortLine(RAID_ORDER[i])
+  }
+  return cap([top, ...lines].join('\n'), CATALOG_MAX)
+}
+
+// The bestiary's tabs as Help names them (AssetView.jsx TABS ids).
+export const BESTIARY_TABS = { legends: 'Legends bosses', raids: 'Raid bosses', families: 'Boss families', ebi: 'Ebi drafts' }
+
+// THE BESTIARY ON SCREEN: which tab, which boss, the phase shown, a test fight. `map`: the player's Legends map (to name
+// the areas a Legends boss guards). `ebiPick`: the Ebi draft on screen. `phase`: the raid phase the demo arena shows.
+export function bestiaryHelpText({ t, tab = 'legends', motif = '', phase = 1, shot = '', testFight = '', map = null, ebiPick = '', fxName } = {}) {
+  const out = [`The BESTIARY (asset view, cheat mode) is open on the "${BESTIARY_TABS[tab] || tab}" tab. Tabs: Legends bosses (${MOTIFS.length}), Raid bosses (${RAID_ORDER.length}), Boss families (${FAMILY_TREES.length}), Ebi drafts. The arrow keys step through the list.`]
+  if (testFight) {
+    out.push(`A TEST FIGHT against raid boss #${raidBossNumber(testFight)} ${raidBossName(t, testFight)} is running (started with "Fight this boss"): a real raid on today's due cards whose answers are real Anki reviews, but the stored raid (wounds, trophies, which boss is next) does not change and it pays no boss reward. Never give the answer of the question on screen unless asked.`)
+    out.push(raidBossFacts(t, testFight, { full: true, fxName }))
+  } else if (tab === 'raids' && motif) {
+    out.push(`On screen: raid boss ${raidBossFacts(t, motif, { full: true, fxName })}`)
+    out.push(`The phase demo arena shows phase ${phase} of ${RAID.phases}${shot ? `; the effect "${(typeof fxName === 'function' && fxName(RAID_ABILITY[motif], shot)) || shot}" was just played with "Try it"` : ''}. The page also shows its entrance, its phases 1 to ${RAID.phases}, its fight sizes, its palettes, its lore and its voice (the line it taunts with), and "Fight this boss" (a test fight).`)
+  } else if (tab === 'legends' && motif) {
+    const i = MOTIFS.indexOf(motif)
+    const areas = (Array.isArray(map?.areas) ? map.areas : []).filter((a) => a && a.motif === motif)
+    const fam = familyLine(t, motif)
+    out.push(`On screen: Legends stage #${i + 1} "${motif}" (a Legends area boss and its banner, the lair it lives in; Legends bosses get a name from what their area teaches).${fam ? ` Its ${fam}.` : ''}`)
+    out.push(areas.length
+      ? `On the player's map it guards: ${areas.map((a) => `"${clip(a.title, 60)}"${a.bossName ? ` (boss "${clip(a.bossName, 40)}")` : ''}${a.status ? `, ${a.status}` : ''}`).join('; ')}.`
+      : 'No area of the player\'s current map uses it.')
+    out.push('The page shows its entrance, its boss at fight and map sizes, locked, its banner and every palette.')
+  } else if (tab === 'families') {
+    out.push('On screen: the boss family trees (each raid boss is "made from" one to three Legends or raid bosses):')
+    for (const tr of FAMILY_TREES) {
+      const name = tx(t, `lg_famTree_${tr.id}`) || tr.id
+      const why = tx(t, `lg_famWhy_${tr.id}`)
+      const from = Object.entries(tr.links).map(([c, ps]) => `${isRaidMotif(c) ? raidBossName(t, c) : c} <- ${ps.map((p) => (isRaidMotif(p) ? raidBossName(t, p) : p)).join(' + ')}`).join('; ')
+      out.push(`- ${name}: ${from}${why ? `. ${why}` : ''}`)
+    }
+    out.push(`- ${tx(t, 'lg_famTree_misfits') || 'Misfits'}: ${FAMILY_MISFITS.motifs.join(', ')}. ${tx(t, 'lg_famWhy_misfits')}`)
+  } else if (tab === 'ebi') {
+    out.push(`On screen: Ebi drafts, redrawn candidates of Ebi (the app's shrimp) shown only here so they can be compared with the current Ebi; nothing else uses them.${ebiPick ? ` Showing: ${ebiPick}.` : ''}`)
+  }
+  return cap(out.join('\n'), BESTIARY_MAX)
+}

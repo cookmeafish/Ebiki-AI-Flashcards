@@ -1134,6 +1134,15 @@ Re-runnable from Settings → General ("Run setup again" with an unchanged provi
   `learnerLevel` (every screen), `studyReview` (what this session got wrong, finished cards only, never the live
   one), `pbqReview`, `studyStart`, `chatSettings`, a richer `deckBrowser` (search, Quick Add tray, open review,
   duplicate groups) and `discover` (profile summary, the suggestion on screen).
+  **Sub-screens**: `useHelpEntry(..., screen, where, depth)` names the part of the screen shown; Help's "RIGHT NOW"
+  line adds the deepest `where` on the tab in view (`screenWhere`, HelpChat): Legends map/step 1 (`legendsWhere`),
+  bestiary 2, raid / test fight 3 (`raidWhere`). The asset view's tab is `assets` (its own SCREEN label).
+  **Bestiary + raid bosses** (`legends/bestiaryHelp.js`, pure, tested): `raid-bosses` (HelpBridge, EVERY screen,
+  `CATALOG_MAX`) = raid rules, the player's raid progress (current boss, today's wounds, trophies; "could not be read"
+  when the read failed), the current boss's effects, every boss in `RAID_ORDER` with ability and family (rules of the
+  bosses farthest ahead drop first); `bestiary` (AssetView) = tab, boss on screen with effects/lore, demo phase,
+  effect just tried, map areas a Legends motif guards, family trees, Ebi draft, a test fight. Names and rules come from
+  i18n (app language); never a card.
 - **HARD RULE: Ebi NEVER emits a shrimp emoji.** Forbidden in prompts (HELP_BASE + Chat `systemPrompt`) AND
   code-stripped (`[🦐🦞🦀]️?` next to the em-dash strip in HelpChat `sendMessage`, Chat `cleanText`, and the
   search-offer answer). Other emoji are fine.

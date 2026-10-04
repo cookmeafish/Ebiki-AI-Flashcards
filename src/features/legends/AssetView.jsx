@@ -12,7 +12,10 @@ import { MOTIFS, PALETTES } from './map'
 import { RAID, RAID_MOTIFS, RAID_ABILITY, raidBossNumber } from './raid'
 import { RAID_VOICES } from './raidVoices'
 import { bestiaryRows } from './abilities/_triggers'
-import { floaterKeyFor, fxDemoFor } from './fx'
+import { floaterKeyFor, fxDemoFor, fxLabel } from './fx'
+import { bestiaryHelpText, raidBossName, BESTIARY_TABS } from './bestiaryHelp'
+import { useHelpEntry } from '../kit/useHelp'
+import { useLegendsMap } from './store'
 
 // Sample values for a floater that counts something ("+{n} heads"), so the asset view never shows a raw placeholder.
 const demoVars = (ability, fx) => ({ n: 2, ...(fxDemoFor(ability, fx)?.fxVars || {}) })
@@ -110,8 +113,10 @@ function readEbiPick() {
   const v = platform.kv.get(EBI_PICK_KEY)
   return v && ebiChoices().includes(v) ? v : EBI_CURRENT
 }
-function EbiDrafts({ t, stepRef }) {
+function EbiDrafts({ t, stepRef, onPick }) {
   const [pick, setPickState] = useState(readEbiPick)
+  // Ebi's Help hears which variation is on screen.
+  useEffect(() => { onPick?.(pick) }, [pick]) // eslint-disable-line react-hooks/exhaustive-deps
   const setPick = (id) => { setPickState(id); platform.kv.set(EBI_PICK_KEY, id) }
   // ← and → in the asset view step through the variations on this tab.
   if (stepRef) stepRef.current = (d) => {
@@ -254,8 +259,8 @@ function LiveCopy({ children }) {
 // "PHASE N" tag) the real raid shows. After the last phase it starts over at full health.
 // The ability card's "Try it" buttons play that ability's effect and floater on this same arena (`shot`, held by the
 // page: { motif, fx, n }), to check them without a real fight.
-function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot }) {
-  const [step, setStep] = useState(0)
+// `step`/`setStep` live in AssetView (Ebi's Help hears the phase shown).
+function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot, step, setStep }) {
   const third = VIEW.demoHp / RAID.phases
   const damage = Math.min(VIEW.demoHp - 1, Math.round(step * third))
   const ability = RAID_ABILITY[motif]
@@ -345,6 +350,21 @@ export default function AssetView({ ctx, onBack }) {
   const motif = list[Math.min(idx, list.length - 1)]
   const area = { id: motif, title: motif, motif, palette }
   const ebiStepRef = useRef(null)
+  // Ebi's Help: what the bestiary shows (bestiaryHelp.js: plain facts, names and rules in the app language). The phase
+  // the demo arena shows and the Ebi draft on screen are kept here for it.
+  const [demoStep, setDemoStep] = useState(0)
+  const [ebiPick, setEbiPick] = useState('')
+  const ebiPickName = !ebiPick ? '' : ebiPick === EBI_CURRENT ? t('lg_ebiDraftsCurrent') : ebiPick === EBI_ALL ? t('lg_ebiDraftsAll')
+    : t(EBI_DRAFTS.candidates.find((c) => c.id === ebiPick)?.nameKey || '') || ebiPick
+  const { map: helpMap } = useLegendsMap(ctx.subject?.modeId)
+  const tabName = BESTIARY_TABS[tab] || tab
+  let helpText = ''
+  try {
+    helpText = bestiaryHelpText({ t, tab, motif: tab === 'legends' || tab === 'raids' ? motif : '', phase: demoStep + 1,
+      shot: shot && shot.motif === motif ? shot.fx : '', testFight: testFight || '', map: helpMap, ebiPick: ebiPickName, fxName: (ab, fx) => fxLabel(t, ab, fx) })
+  } catch { helpText = '' }
+  useHelpEntry(ctx, 'bestiary', helpText, ctx.activeTab || 'assets',
+    testFight ? 'the bestiary, a test fight running' : `the bestiary (asset view), ${tabName} tab${tab === 'raids' ? `: #${raidBossNumber(motif)} ${raidBossName(t, motif)}` : tab === 'legends' ? `: stage #${MOTIFS.indexOf(motif) + 1} ${motif}` : ''}`, 2)
   const go = (d) => tab === 'ebi' ? ebiStepRef.current?.(d) : setIdx((i) => (i + d + list.length) % list.length)
   // Opens at the top: the screen's scroll box still held the map's position.
   const rootRef = useRef(null)
@@ -434,7 +454,7 @@ export default function AssetView({ ctx, onBack }) {
         })}
       </div>
 
-      {tab === 'families' ? <BossFamilies t={t} onOpen={(to, m) => { keepScroll(); setTab(to); setIdx(Math.max(0, TABS.find((x) => x.id === to).list.indexOf(m))); setReplay(0); const box = scrollBox(); if (box) box.scrollTop = 0 }} /> : tab === 'ebi' ? <EbiDrafts t={t} stepRef={ebiStepRef} /> : <>
+      {tab === 'families' ? <BossFamilies t={t} onOpen={(to, m) => { keepScroll(); setTab(to); setIdx(Math.max(0, TABS.find((x) => x.id === to).list.indexOf(m))); setReplay(0); const box = scrollBox(); if (box) box.scrollTop = 0 }} /> : tab === 'ebi' ? <EbiDrafts t={t} stepRef={ebiStepRef} onPick={setEbiPick} /> : <>
       <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 6 }}>
         {list.map((m, i) => (
           <button key={m} type="button" onClick={() => setIdx(i)} className={i === idx ? 'ui-tab-current' : undefined}
@@ -467,7 +487,7 @@ export default function AssetView({ ctx, onBack }) {
         {raids && (
           <div style={section}>
             <div style={h}>{t('lg_assetsPhases')}</div>
-            <div style={{ maxWidth: 640 }}><PhaseDemo t={t} area={area} motif={motif} getZoom={ctx.getZoom} shot={shot} onClearShot={() => setShot(null)} /></div>
+            <div style={{ maxWidth: 640 }}><PhaseDemo t={t} area={area} motif={motif} getZoom={ctx.getZoom} shot={shot} onClearShot={() => setShot(null)} step={demoStep} setStep={setDemoStep} /></div>
           </div>
         )}
         {raids && <AbilityCard t={t} motif={motif} ability={RAID_ABILITY[motif]} onTry={(fx) => setShot((x) => ({ motif, fx, n: 1000 + ((x && x.n) || 0) + 1 }))} />}

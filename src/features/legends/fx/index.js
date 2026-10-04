@@ -74,6 +74,14 @@ export const floaterToneFor = (ability, fx) => fxForAbility(ability)?.floaterTon
 // How hard `fx` hits for this ability (its fx file's juice entry, normalized; see fx/_juice.js).
 export const juiceFor = (ability, fx) => juiceOf(fxForAbility(ability)?.juice?.[fx])
 export const fxDemoFor = (ability, fx) => fxForAbility(ability)?.demo?.[fx] || null
+// An effect's name as the fight pops it over the boss, for Ebi's Help (bestiaryHelp.js fxName): a count reads "N"
+// ("+N heads"), never a made-up number; no floater text = the fx key.
+export function fxLabel(t, ability, fx) {
+  const key = floaterKeyFor(ability, fx) || `lg_fx_${fx}`
+  const vars = { n: 'N', ...Object.fromEntries(Object.keys(fxDemoFor(ability, fx)?.fxVars || {}).map((k) => [k, 'N'])) }
+  const v = typeof t === 'function' ? t(key, vars) : ''
+  return v && v !== key ? String(v) : fx
+}
 
 const safe = (v) => String(v).replace(/[^\w-]/g, '')
 
