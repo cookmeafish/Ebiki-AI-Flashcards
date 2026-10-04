@@ -2088,6 +2088,7 @@ export default {
   lg_famIntro: "実験中：レイドボスはそれぞれ一体から三体の別のボスから生まれています。ボスにカーソルを合わせると動き、クリックすると開きます。",
   lg_famRaid: "レイド",
   lg_famLegend: "レジェンド",
+  lg_famRaidNum: "レイド #{n}",
   lg_famOpen: "{name}を開く",
   lg_famTree_foxfire: "狐火",
   lg_famWhy_foxfire: "桜の狐の精が昇華して九尾の女帝になった。",

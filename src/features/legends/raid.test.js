@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { RAID, RAID_MOTIFS, RAID_ROSTER, RAID_RETIRED, raidMotif, isRaidMotif, raidHp, raidToday, applyRaidAttempt, raidOrder, shapeRaid, newRaidState, testRaidState, raidAttemptOutcome, raidHelpText, raidReviews } from './raid'
+import { RAID, RAID_MOTIFS, RAID_ROSTER, RAID_RETIRED, RAID_ORDER, raidBossNumber, raidBossIndex, nextBossIndex, raidMotif, isRaidMotif, raidHp, raidToday, applyRaidAttempt, raidOrder, shapeRaid, newRaidState, testRaidState, raidAttemptOutcome, raidHelpText, raidReviews } from './raid'
 import { artUrl, REALISTIC_ART } from './art'
 
 describe('raid rules', () => {
@@ -37,7 +37,7 @@ describe('raid rules', () => {
     const r2 = applyRaidAttempt(r1.state, '2026-09-29', 100)
     expect(r2.firstWin).toBe(true)
     expect(r2.state.trophies).toEqual([{ motif: RAID_MOTIFS[0], date: '2026-09-29' }])
-    expect(r2.state.boss).toBe(1)
+    expect(RAID_ROSTER[r2.state.boss]).toBe(RAID_ORDER[1])
     expect(applyRaidAttempt(r2.state, '2026-09-29', 5).firstWin).toBe(false)
   })
   it('ignores an attempt for another day and survives damaged data', () => {
@@ -58,11 +58,11 @@ describe('raid rules', () => {
     // Active bosses keep their stored index (older builds on a shared folder read the same one).
     expect(shapeRaid({ boss: gi + 1 }).boss).toBe(gi + 1)
     expect(shapeRaid({ boss: RAID_ROSTER.length - 1 }).boss).toBe(RAID_ROSTER.length - 1)
-    // A win against the boss before it skips the retired one.
+    // A win follows RAID_ORDER, never the roster (and never lands on the retired boss).
     const before = raidToday({ boss: gi - 1, day: null, trophies: [] }, '2026-10-01', 6)
     const won = applyRaidAttempt(before, '2026-10-01', 100)
     expect(won.firstWin).toBe(true)
-    expect(RAID_ROSTER[won.state.boss]).toBe('puppeteer')
+    expect(RAID_ROSTER[won.state.boss]).toBe(RAID_ORDER[(RAID_ORDER.indexOf(RAID_ROSTER[gi - 1]) + 1) % RAID_ORDER.length])
     // The rotation never lands on a retired boss and wraps to the start.
     let st = newRaidState()
     for (let i = 0; i < RAID_ROSTER.length * 2; i++) {
@@ -85,6 +85,54 @@ describe('raid rules', () => {
   it('orders cards like Anki: learning first, then reviews by due day', () => {
     const cards = [{ cardId: 1, queue: 2, due: 30 }, { cardId: 2, queue: 1, due: 5 }, { cardId: 3, queue: 2, due: 10 }, { cardId: 4, queue: 3, due: 1 }]
     expect(raidOrder(cards).map((c) => c.cardId)).toEqual([4, 2, 3, 1])
+  })
+})
+
+describe('raid progression (RAID_ORDER)', () => {
+  it('holds every active boss once, no retired one, and RAID_MOTIFS follows it', () => {
+    expect(new Set(RAID_ORDER).size).toBe(RAID_ORDER.length)
+    expect([...RAID_ORDER].sort()).toEqual(RAID_ROSTER.filter((m) => !RAID_RETIRED.includes(m)).sort())
+    for (const m of RAID_RETIRED) expect(RAID_ORDER).not.toContain(m)
+    expect(RAID_MOTIFS).toEqual(RAID_ORDER)
+    expect(RAID_ORDER.slice(0, 3)).toEqual(['chronos', 'banshee', 'seraph'])
+    expect(RAID_ORDER[RAID_ORDER.length - 1]).toBe('void')
+  })
+  it('numbers raid bosses from 1 and nothing else', () => {
+    expect(raidBossNumber('chronos')).toBe(1)
+    expect(raidBossNumber('chimera')).toBe(7)
+    expect(raidBossNumber('void')).toBe(RAID_ORDER.length)
+    expect(raidBossNumber('glutton')).toBe(0)
+    expect(raidBossNumber('forest')).toBe(0)
+  })
+  it('a new raid starts at the first boss of the order (stored as its roster index)', () => {
+    expect(raidMotif(newRaidState())).toBe(RAID_ORDER[0])
+    expect(newRaidState().boss).toBe(RAID_ROSTER.indexOf(RAID_ORDER[0]))
+    expect(raidMotif(null)).toBe(RAID_ORDER[0])
+    expect(raidMotif({ trophies: [] })).toBe(RAID_ORDER[0])
+  })
+  it('an existing player keeps their boss and continues from its place in the order', () => {
+    const hydra = raidBossIndex('hydra')
+    expect(hydra).toBe(0) // the old first boss: index 0 stays hydra
+    expect(raidMotif({ boss: hydra })).toBe('hydra')
+    const won = applyRaidAttempt(raidToday({ boss: hydra, trophies: [] }, 'd', 6), 'd', 100)
+    expect(RAID_ROSTER[won.state.boss]).toBe('kaleido') // after hydra in RAID_ORDER
+  })
+  it('walks the whole order after wins and wraps from the last boss to the first', () => {
+    let st = newRaidState()
+    const seen = []
+    for (let i = 0; i < RAID_ORDER.length + 1; i++) {
+      seen.push(raidMotif(st))
+      st = applyRaidAttempt(raidToday(st, `d${i}`, 6), `d${i}`, 100).state
+    }
+    expect(seen).toEqual([...RAID_ORDER, RAID_ORDER[0]])
+    expect(RAID_ROSTER[nextBossIndex(raidBossIndex('void'))]).toBe('chronos')
+  })
+  it('a stored retired boss resolves to an active one and progresses through the order from there', () => {
+    const gi = raidBossIndex('glutton')
+    const now = raidMotif({ boss: gi })
+    expect(isRaidMotif(now)).toBe(true)
+    const won = applyRaidAttempt(raidToday({ boss: gi, trophies: [] }, 'd', 6), 'd', 100)
+    expect(RAID_ROSTER[won.state.boss]).toBe(RAID_ORDER[(RAID_ORDER.indexOf(now) + 1) % RAID_ORDER.length])
   })
 })
 

@@ -155,9 +155,9 @@ const LIGHT_CSS = `
 @keyframes lgOphTwinkle { 0%, 100% { opacity: .9 } 50% { opacity: .25 } }
 `
 function phaseLayer(p, children) {
-  if (p === 1) return <div className="lg-p1" style={FILL}>{children}</div>
-  if (p === 2) return <div className="lg-p12" style={FILL}><div className="lg-p2" style={{ ...FILL, display: 'none' }}>{children}</div></div>
-  return <div className="lg-p3" style={{ ...FILL, display: 'none' }}>{children}</div>
+  if (p === 1) return <div key={p} className="lg-p1" style={FILL}>{children}</div>
+  if (p === 2) return <div key={p} className="lg-p12" style={FILL}><div className="lg-p2" style={{ ...FILL, display: 'none' }}>{children}</div></div>
+  return <div key={p} className="lg-p3" style={{ ...FILL, display: 'none' }}>{children}</div>
 }
 const run = (motion, name, s, extra = '') => (motion ? `${name} ${s}s ${extra || 'ease-in-out'} infinite` : 'none')
 export function PhotoLightBack({ motion }) {

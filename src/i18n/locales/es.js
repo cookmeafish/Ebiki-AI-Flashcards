@@ -2088,6 +2088,7 @@ export default {
   lg_famIntro: "Experimental: cada jefe de incursión está hecho de uno a tres jefes. Pasa el cursor sobre un jefe para verlo moverse y haz clic para abrirlo.",
   lg_famRaid: "Incursión",
   lg_famLegend: "Leyenda",
+  lg_famRaidNum: "Incursión n.º {n}",
   lg_famOpen: "Abrir {name}",
   lg_famTree_foxfire: "Fuego de zorro",
   lg_famWhy_foxfire: "El espíritu zorro del sakura ascendió y se convirtió en la Emperatriz de Nueve Colas.",
