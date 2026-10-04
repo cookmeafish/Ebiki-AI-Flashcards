@@ -19068,7 +19068,7 @@ ${PALETTE_CSS}
           background: radial-gradient(120% 70% at 50% 0%, color-mix(in srgb, var(--c-ink) 3%, transparent), transparent 66%), var(--c-surface); }
         .ui-hero .duo-bubble { background: var(--c-surface-sunken); box-shadow: none; }
         .ui-halo { display: inline-grid; place-items: center; border-radius: 50%;
-          background: radial-gradient(circle, color-mix(in srgb, var(--c-brand) 9%, transparent), transparent 68%); }
+          background: none; } /* the owner dislikes any glow behind Ebi */
         .ui-glass { background: var(--c-glass); backdrop-filter: blur(16px) saturate(1.4); -webkit-backdrop-filter: blur(16px) saturate(1.4); }
         .ui-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--c-ink-faint); }
         button:focus-visible, a:focus-visible, [role="button"]:focus-visible, [role="radio"]:focus-visible, summary:focus-visible {
@@ -19099,8 +19099,7 @@ ${PALETTE_CSS}
         .sh-hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); align-items: center; gap: 28px; width: 100%; max-width: 880px;
           padding: 40px 44px; box-sizing: border-box; border-radius: 28px; background: var(--c-surface); border: 1px solid var(--c-border); box-shadow: var(--sh-lg);
           position: relative; overflow: hidden; }
-        .sh-hero::before { content: ''; position: absolute; right: -120px; top: -140px; width: 460px; height: 460px; border-radius: 50%;
-          background: radial-gradient(circle, color-mix(in srgb, var(--c-brand) 11%, transparent), transparent 68%); pointer-events: none; }
+        .sh-hero::before { content: none; } /* no glow behind Ebi (the owner) */
         .sh-hero > * { position: relative; }
         .sh-art { display: grid; place-items: center; }
         .sh-art img { width: min(100%, 260px); height: auto; aspect-ratio: 1; object-fit: contain; filter: drop-shadow(0 18px 24px rgba(16,24,32,.16)); }
@@ -19146,7 +19145,7 @@ ${PALETTE_CSS}
         .st-companion { position: sticky; top: 0; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 18px 14px 16px;
           border-radius: 24px; background: var(--c-surface); border: 1px solid var(--c-border); box-shadow: var(--sh-card); }
         .st-companion .st-ebi { width: 150px; height: 150px; border-radius: 50%; display: grid; place-items: center;
-          background: radial-gradient(circle at 50% 60%, color-mix(in srgb, var(--c-brand) 10%, var(--c-surface-sunken)), var(--c-surface-sunken) 70%); }
+          background: none; }
         .st-companion .st-ebi img { width: 132px; height: 132px; object-fit: contain; }
         .st-ask { width: 100%; justify-content: center; display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 12px;
           border: 1px solid var(--c-brand-line); background: var(--c-brand-tint); color: var(--c-brand); font: 800 13px/1.2 'Nunito', system-ui, sans-serif; cursor: pointer; }

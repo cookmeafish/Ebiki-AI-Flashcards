@@ -803,9 +803,7 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
             style={{
               width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center',
               pointerEvents: 'none',
-              filter: open
-                ? 'drop-shadow(0 0 6px rgba(223,37,64,.7)) drop-shadow(0 0 16px rgba(223,37,64,.5)) drop-shadow(0 2px 3px rgba(0,0,0,.3))'
-                : 'drop-shadow(0 0 5px rgba(223,37,64,.55)) drop-shadow(0 0 13px rgba(223,37,64,.38)) drop-shadow(0 2px 3px rgba(0,0,0,.3))',
+              filter: 'drop-shadow(0 2px 3px rgba(0,0,0,.3))', // no red glow around Ebi (the owner)
             }}
           />
         </button>
