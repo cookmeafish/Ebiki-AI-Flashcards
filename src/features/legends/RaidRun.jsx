@@ -22,7 +22,7 @@ import { learnerLevelLine } from '../kit/learnerStore'
 import { BossIntro, BossArena, BossEnd } from './BossArena'
 import { LegendsArt } from './art'
 import { newFight, act, settleFight, phaseOf, raidRating, attackLivesFor, abilityState, refundRunningFight, strikeCost, fightOutcome } from './fight'
-import { RAID, RAID_MOTIFS, RAID_ABILITY, todayKey, raidToday, applyRaidAttempt, raidOrder, shapeRaid, raidStep, raidMotif, isRaidMotif, testRaidState, raidAttemptOutcome, raidHelpText, raidReviews } from './raid'
+import { RAID, RAID_MOTIFS, RAID_ABILITY, todayKey, raidToday, applyRaidAttempt, raidOrder, shapeRaid, raidStep, raidMotif, isRaidMotif, testRaidState, raidAttemptOutcome, raidHelpText, raidWhere, raidReviews } from './raid'
 import { abilityById } from './abilities'
 import { buildRaidPrompt, parseQuestions, RAID_ROLE, RAID_MAX_TOKENS } from './prompt'
 import { readRaid, updateRaid, LEGENDS_ID } from './store'
@@ -272,14 +272,15 @@ export default function RaidRun({ ctx, onExit, test = null }) {
   // Ebi's Help: the fight's state on screen (raid.js raidHelpText: never an answer; QuizRunner reports the question).
   const helpDay = raid?.day
   const helpLeft = helpDay ? Math.max(0, helpDay.hp - helpDay.damage - (phase === 'fight' || phase === 'aftermath' ? fs.damage : 0)) : 0
+  const helpAbility = ability ? `${t(`lg_ability_${ability}`)}: ${t(`lg_abilityDesc_${ability}`)}` : ''
   useHelpEntry(ctx, 'raid', raidHelpText({
-    view: phase, boss: summary?.bossName || bossName, ability, test: !!testMotif,
+    view: phase, boss: summary?.bossName || bossName, ability: helpAbility, test: !!testMotif,
     hpLeft: helpLeft, hpMax: helpDay?.hp || 0, livesLeft: Math.max(0, RAID.lives - fs.livesLost),
     phase: helpDay ? phaseOf(helpLeft, helpDay.hp, RAID.phases) : 1,
     asked: firstHit.current.size, total: questions?.length || 0,
     aftermathLeft: afterQs ? afterQs.filter((q) => !firstHit.current.has(q._cardId)).length : 0,
     result: summary,
-  }), ctx.activeTab || 'practice')
+  }), ctx.activeTab || 'practice', raidWhere({ view: phase, boss: summary?.bossName || bossName, test: !!testMotif }), 3)
 
   if (phase === 'loading') return <div style={{ maxWidth: 560, margin: '60px auto' }}><EbiSays pose={poseFile('weapon')}>{t('lg_raidLoading')}</EbiSays></div>
   if (phase === 'error' || phase === 'none' || phase === 'beaten') {

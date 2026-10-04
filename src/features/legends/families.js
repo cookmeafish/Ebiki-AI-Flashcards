@@ -1,11 +1,12 @@
 // BOSS FAMILIES (EXPERIMENTAL, asset view only): each raid boss is "made from" one to three other bosses (Legends
 // bosses and/or another raid boss), drawn as family trees in the cheat-mode asset view's "Boss families" tab.
-// Nothing outside the asset view reads this. TO REMOVE THE FEATURE, delete:
+// Read by the asset view and by Ebi's Help (bestiaryHelp.js: a boss's family). TO REMOVE THE FEATURE, delete:
 //   1. src/features/legends/families.js (this file) and src/features/legends/families.test.js
 //   2. src/features/legends/BossFamilies.jsx
 //   3. in src/features/legends/AssetView.jsx: the `import ... from './BossFamilies'` / `'./families'` lines, the
 //      `families` entry of TABS and the `tab === 'families' ? <BossFamilies ... /> :` render branch
 //   4. every key starting with `lg_fam` in src/i18n/locales/en.js, es.js, zh.js and ja.js
+//   5. in src/features/legends/bestiaryHelp.js: the `./families` import, familyOf/familyLine and the 'families' branch
 // Pure data + helpers (no React, no browser), tested by families.test.js.
 import { MOTIFS } from './map'
 import { RAID_MOTIFS } from './raid'

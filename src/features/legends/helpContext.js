@@ -132,3 +132,15 @@ export function buildLegendsHelpText({ map: rawMap, learner, raid, live: lv = { 
   const text = out.join('\n')
   return text.length > HELP_MAX ? text.slice(0, HELP_MAX - 1) + '…' : text
 }
+
+// What part of the Legends screen is shown (Help names it next to the screen: kit/useHelp.js `where`, depth 1; a raid
+// or the bestiary opened inside Legends report themselves deeper). Plain words, never an answer.
+export function legendsWhere(lv = { view: 'map' }) {
+  const v = lv?.view || 'map'
+  if (v === 'node' && lv.node) return `a Legends step running: ${KIND[lv.node.kind] || lv.node.kind}${lv.node.title ? ` "${short(lv.node.title, 60)}"` : ''}${lv.area?.title ? ` in area "${short(lv.area.title, 60)}"` : ''}`
+  if (v === 'result') return `the result screen of a Legends step${lv.result?.node?.title ? ` ("${short(lv.result.node.title, 60)}")` : ''}`
+  return {
+    map: 'the Legends map', intro: 'the Legends welcome screen', questionnaire: 'the Legends start questionnaire', placement: 'the Legends placement exam (running)',
+    edit: 'Change my map (a map edit preview)', raid: 'a daily raid fight', assets: 'the bestiary (asset view)', placed: 'the starting level result', inferring: 'Ebiki reading the study history to set a level',
+  }[v] || 'the Legends map'
+}

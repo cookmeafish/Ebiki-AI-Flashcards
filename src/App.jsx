@@ -836,7 +836,8 @@ export default function App() {
   const setFeatureHelpEntry = useCallback((id, entry) => {
     const key = String(id || '')
     if (!key) return
-    const next = entry && entry.text ? { text: String(entry.text).slice(0, 6000), screen: entry.screen || '' } : null
+    // `where`/`depth`: what part of the screen is shown (kit/useHelp.js), named next to the screen in Help's prompt.
+    const next = entry && entry.text ? { text: String(entry.text).slice(0, 6000), screen: entry.screen || '', ...(entry.where ? { where: String(entry.where).slice(0, 200), depth: Number(entry.depth) || 0 } : {}) } : null
     const cur = featureHelpRef.current[key] || null
     if (JSON.stringify(cur) === JSON.stringify(next)) return
     const all = { ...featureHelpRef.current }
@@ -19324,7 +19325,7 @@ ${PALETTE_CSS}
         navScreens: navItems.map((n) => n.label),
         practiceActivities: registry.slot(SLOT.PRACTICE).map((a) => t(a.titleKey)),
         // What the learner does in the features (Legends map, level, raids, a running quiz...), as each feature reports it.
-        featureContext: Object.entries(featureHelp).map(([id, e]) => ({ id, text: e.text, screen: e.screen })),
+        featureContext: Object.entries(featureHelp).map(([id, e]) => ({ id, text: e.text, screen: e.screen, where: e.where, depth: e.depth })),
         activeTab,
         activeMode: { id: activeMode.id, name: activeMode.name, type: activeMode.type, ankiDeck: activeMode.ankiDeck, dialect: dialectName() || undefined },
         // Recurring grammar slips from graded study answers — Ebi can coach or drill them on request.

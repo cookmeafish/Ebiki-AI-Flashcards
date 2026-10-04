@@ -18,7 +18,15 @@ Where things are (describe ONLY these; never invent a button):
 - Alt+Q: screen capture; with the overlay running it works over games and other apps. ESC dismisses it.
 - Cards live in the card store. With the default Anki store, it needs Anki desktop running with the AnkiConnect add-on (code 2055492159); if it is missing, the app offers to install it.`
 
-function buildSystemPrompt(appContext) {
+// What part of the screen is shown right now, as the features name it (kit/useHelp.js `where`): of the entries for this
+// screen that name one, the deepest (`depth`) wins (a raid inside Legends over the Legends map). '' = none.
+export function screenWhere(featureContext, tab) {
+  const on = (featureContext || []).filter((f) => f?.text && f.where && f.screen === tab)
+  on.sort((a, b) => (Number(b.depth) || 0) - (Number(a.depth) || 0))
+  return on[0] ? String(on[0].where) : ''
+}
+
+export function buildSystemPrompt(appContext) {
   if (!appContext) return HELP_BASE
   const parts = [HELP_BASE, '\n--- CURRENT APP STATE ---']
 
@@ -35,8 +43,10 @@ function buildSystemPrompt(appContext) {
     stats: 'the STATS screen (a study-statistics dashboard)',
     legends: 'the LEGENDS screen (an adventure map of areas with lessons, boss fights and daily raid bosses built from their deck)',
     practice: 'the PRACTICE screen (a hub of practice activities: Ebi Call, Roleplay, Mistake Gym and others)',
+    assets: 'the BESTIARY / ASSET VIEW screen (cheat mode: every Legends boss, raid boss, boss family and Ebi draft, with abilities, effects and lore)',
   }[tab] || `the "${tab}" screen`
-  parts.push(`\n>>> RIGHT NOW the user is looking at ${SCREEN}. When they ask "what's on my screen", "what is this", or "what am I looking at", answer about THIS screen. Never describe a different screen, and never claim a study question is on screen unless the STUDY screen is the one shown below. <<<`)
+  const sub = screenWhere(appContext.featureContext, tab)
+  parts.push(`\n>>> RIGHT NOW the user is looking at ${SCREEN}${sub ? `, and on it: ${sub}` : ''}. When they ask "what's on my screen", "what is this", or "what am I looking at", answer about THIS screen. Never describe a different screen, and never claim a study question is on screen unless the STUDY screen is the one shown below. <<<`)
   parts.push(`NOTE: the user navigates between screens as you talk, so THIS value always reflects where they are for the CURRENT message. If your earlier reply described a different screen, they simply moved, that is NOT a mistake on your part. Just answer for the current screen, do NOT apologize or say "I got that wrong."`)
 
   // Always-true background facts (independent of the visible screen).

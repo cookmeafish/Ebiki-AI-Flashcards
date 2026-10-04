@@ -200,6 +200,15 @@ export function raidHelpText({ view = '', boss = '', ability = '', hpLeft = 0, h
   return ''
 }
 
+// The raid's part of the screen in a few words, for Help's "the user is looking at ... and on it: ..." (kit/useHelp.js
+// `where`). A test fight says so (it is not the daily raid).
+export function raidWhere({ view = '', boss = '', test = false } = {}) {
+  const who = boss || 'the raid boss'
+  const what = test ? `a raid TEST fight against ${who} (started from the bestiary, cheat mode)` : `the daily raid against ${who}`
+  const stage = { loading: 'loading', intro: 'intro card', fight: 'fight running', aftermath: 'aftermath reviews running', saving: 'saving', done: 'result' }[view]
+  return stage ? `${what}: ${stage}` : what
+}
+
 // THE REVIEWS a raid sends to the card store (RaidRun's save), the same for a normal raid and a test fight: one per
 // card, its FIRST answer only (`firstHits`: Map cardId -> hit), graded by the shared one-answer rule (raidRating: a
 // clean typed answer on a mature card is Easy, a choice at most Good, a glancing answer Hard, a miss Again).
