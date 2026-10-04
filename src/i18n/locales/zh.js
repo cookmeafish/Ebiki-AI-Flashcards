@@ -2088,6 +2088,7 @@ export default {
   lg_famIntro: "实验功能：每个突袭首领都由一到三个其他首领组成。把鼠标停在首领上可以看它动起来，点击可以打开它。",
   lg_famRaid: "突袭",
   lg_famLegend: "传说",
+  lg_famRaidNum: "突袭 #{n}",
   lg_famOpen: "打开{name}",
   lg_famTree_foxfire: "狐火",
   lg_famWhy_foxfire: "樱花狐灵升华成了九尾女皇。",

@@ -4,7 +4,7 @@
 // a raid boss has THREE phases.
 //
 // Why beat it: the boss keeps its wounds across the day's attempts (a loss still hurts it), a win is a trophy in the
-// raid hall, XP and a streak freeze, and the next raid boss in the rotation comes out.
+// raid hall, XP and a streak freeze, and the next raid boss in the progression (RAID_ORDER) comes out.
 import { abilityForMotif, abilityById } from './abilities'
 import { strike, barPhase, canAttack, attackSlot, attackGapFor, MAX_INSERTED, raidRating } from './fight'
 
@@ -14,15 +14,30 @@ import { strike, barPhase, canAttack, attackSlot, attackGapFor, MAX_INSERTED, ra
 export const RAID_ROSTER = ['hydra', 'titan', 'lich', 'chimera', 'void', 'seraph', 'leviathan', 'inferno', 'chronos', 'vampire', 'tempest', 'kaleido', 'glutton', 'puppeteer', 'berserker', 'swarmqueen', 'gorgon', 'banshee', 'reaper', 'dreamer', 'moonmaw', 'kitsune', 'ophanim', 'ratking', 'sugarqueen', 'showman', 'cerberus']
 // Retired by the owner (2026-10, the Glutton: "i dont even like the concept"): no art, ability, texts or voice remain.
 export const RAID_RETIRED = ['glutton']
-// The bosses that exist (art, ability, lore, voice), in rotation order.
-export const RAID_MOTIFS = RAID_ROSTER.filter((m) => !RAID_RETIRED.includes(m))
+// THE PROGRESSION (owner-approved, 2026-10): the ONE place the order lives. A win brings out the next motif here
+// (wrapping); a new raid starts at RAID_ORDER[0]. Storage stays the roster INDEX (raidBossIndex), so an existing
+// player keeps their boss and just continues from its place here. Every active boss once, no retired one (tested).
+export const RAID_ORDER = ['chronos', 'banshee', 'seraph', 'titan', 'vampire', 'gorgon', 'chimera', 'ratking', 'showman', 'reaper', 'leviathan', 'lich', 'cerberus', 'tempest', 'dreamer', 'berserker', 'inferno', 'swarmqueen', 'moonmaw', 'hydra', 'kaleido', 'puppeteer', 'sugarqueen', 'kitsune', 'ophanim', 'void']
+// The bosses that exist (art, ability, lore, voice), in progression order (= RAID_ORDER).
+export const RAID_MOTIFS = RAID_ORDER
 export const isRaidMotif = (m) => RAID_MOTIFS.includes(m)
-// The first ACTIVE roster index at or after `i` (wrapping).
+// A raid boss's number in the progression (1-based), 0 for anything else (a Legends boss, a retired one).
+export const raidBossNumber = (motif) => RAID_ORDER.indexOf(motif) + 1
+// The roster index a motif is stored as.
+export const raidBossIndex = (motif) => RAID_ROSTER.indexOf(motif)
+// The first ACTIVE roster index at or after `i` (wrapping). Only for a stored RETIRED boss (it has no place in
+// RAID_ORDER): it moves on to the next active roster entry, as older builds did.
 export function activeBossIndex(i) {
   const n = RAID_ROSTER.length
   const start = Number.isInteger(i) && i >= 0 ? i % n : 0
   for (let k = 0; k < n; k++) { const j = (start + k) % n; if (!RAID_RETIRED.includes(RAID_ROSTER[j])) return j }
   return 0
+}
+// The roster index of the boss after roster index `i` in RAID_ORDER (wrapping). A retired or unknown `i` first
+// resolves to its active successor.
+export function nextBossIndex(i) {
+  const pos = RAID_ORDER.indexOf(RAID_ROSTER[activeBossIndex(i)])
+  return raidBossIndex(RAID_ORDER[(pos + 1) % RAID_ORDER.length])
 }
 // Each raid boss fights its own way: its ability module abilities/<motif>.js (id -> the texts lg_ability_<id>...).
 export const RAID_ABILITY = Object.fromEntries(RAID_MOTIFS.map((m) => [m, abilityForMotif(m)?.id || '']))
@@ -36,10 +51,10 @@ export const todayKey = (d = new Date()) => d.toLocaleDateString('en-CA')
 export const raidHp = (due) => Math.max(RAID.minHp, Math.min(RAID.maxHp, Math.floor(Math.max(0, due) * RAID.hpPerCard)))
 
 // Raid state per mode: { boss: index in RAID_ROSTER (never a retired one after shaping), day: { date, hp, damage, attempts } | null, trophies: [{ motif, date }] }
-export const newRaidState = () => ({ boss: 0, day: null, trophies: [] })
+export const newRaidState = () => ({ boss: raidBossIndex(RAID_ORDER[0]), day: null, trophies: [] })
 export function shapeRaid(raw) {
   const s = raw && typeof raw === 'object' ? raw : {}
-  const stored = Number.isInteger(s.boss) && s.boss >= 0 ? s.boss % RAID_ROSTER.length : 0
+  const stored = Number.isInteger(s.boss) && s.boss >= 0 ? s.boss % RAID_ROSTER.length : raidBossIndex(RAID_ORDER[0]) // none stored: a new raid
   const boss = activeBossIndex(stored)
   const moved = boss !== stored // a retired boss: the next one takes over today's wounds, not the old ability's state
   const d = s.day && typeof s.day === 'object' && typeof s.day.date === 'string' ? s.day : null
@@ -69,7 +84,7 @@ export function applyRaidAttempt(state, date, damage, dayAb) {
   if (!won || s.day.won) return { state: { ...s, day: { ...day, won: s.day.won || won } }, won, firstWin: false }
   const motif = RAID_ROSTER[s.boss]
   return {
-    state: { boss: activeBossIndex(s.boss + 1), day: { ...day, won: true }, trophies: [...s.trophies, { motif, date }] },
+    state: { boss: nextBossIndex(s.boss), day: { ...day, won: true }, trophies: [...s.trophies, { motif, date }] },
     won: true, firstWin: true,
   }
 }
@@ -150,7 +165,7 @@ export function raidStep(before, q, info, { ability = '', need, lives, dayHp, da
 // (raidAttemptOutcome with `test`).
 export function testRaidState(motif, date, due) {
   const i = RAID_ROSTER.indexOf(motif)
-  return { boss: activeBossIndex(i >= 0 ? i : 0), day: { date, hp: raidHp(due), damage: 0, attempts: 0, won: false }, trophies: [] }
+  return { boss: i >= 0 ? activeBossIndex(i) : raidBossIndex(RAID_ORDER[0]), day: { date, hp: raidHp(due), damage: 0, attempts: 0, won: false }, trophies: [] }
 }
 
 // What an ended attempt does to the stored raid (RaidRun's save): `state` = what to write (null = write nothing, a

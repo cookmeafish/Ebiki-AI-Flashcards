@@ -9,7 +9,7 @@ import { AreaArt, ArtLabels, BossArt, LegendsArt, artUrl, BANNER, ArtMotion } fr
 import { BossIntro, BossArena, BossStyle, BOSS, ABILITY_ICON } from './BossArena'
 import { newFight } from './fight'
 import { MOTIFS, PALETTES } from './map'
-import { RAID, RAID_MOTIFS, RAID_ABILITY } from './raid'
+import { RAID, RAID_MOTIFS, RAID_ABILITY, raidBossNumber } from './raid'
 import { RAID_VOICES } from './raidVoices'
 import { bestiaryRows } from './abilities/_triggers'
 import { floaterKeyFor, fxDemoFor } from './fx'
@@ -31,7 +31,7 @@ const ASSET_RAID_ANIMATE_COPIES = 'hover'
 const VIEW = { mapW: 620, mapH: 132, thumb: 56, paletteBoss: 72, paletteBannerW: 260, phase: 180, demoHp: 30 }
 const TABS = [
   { id: 'legends', icon: '🗺️', labelKey: 'lg_assetsTabLegends', list: MOTIFS },
-  { id: 'raids', icon: '⚔️', labelKey: 'lg_assetsTabRaids', list: RAID_MOTIFS },
+  { id: 'raids', icon: '⚔️', labelKey: 'lg_assetsTabRaids', list: RAID_MOTIFS }, // progression order (RAID_ORDER)
   { id: 'ebi', icon: '🎨', labelKey: 'lg_assetsTabEbi', get list() { return EBI_DRAFTS.candidates.map((c) => c.id) } },
   { id: 'families', icon: '🌳', labelKey: 'lg_famTab', list: FAMILY_TREES.map((f) => f.id) }, // EXPERIMENTAL (families.js)
 ]
@@ -442,7 +442,7 @@ export default function AssetView({ ctx, onBack }) {
               border: `2px solid ${i === idx ? C.brand : C.border}`, background: i === idx ? `color-mix(in srgb, ${C.brand} 12%, ${C.surface})` : C.surface,
               fontFamily: FONT.body, fontSize: 10, fontWeight: 800, color: i === idx ? C.brand : C.inkDim }}>
             {thumb(m)}
-            <span>{i + 1}. {m}{raids && RAID_ABILITY[m] ? ` ${ABILITY_ICON[RAID_ABILITY[m]]}` : ''}</span>
+            <span>{raids ? raidBossNumber(m) : i + 1}. {m}{raids && RAID_ABILITY[m] ? ` ${ABILITY_ICON[RAID_ABILITY[m]]}` : ''}</span>
           </button>
         ))}
       </div>
@@ -450,7 +450,7 @@ export default function AssetView({ ctx, onBack }) {
       <Card style={{ display: 'grid', gap: 18 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <ChunkyButton variant="ghost" color={C.inkDim} onClick={() => go(-1)} style={{ fontSize: 12, padding: '6px 10px' }}>◀</ChunkyButton>
-          <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 26, color: C.brand }}>#{idx + 1}</div>
+          <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 26, color: C.brand }}>#{raids ? raidBossNumber(motif) : idx + 1}</div>
           <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 24, color: C.ink }}>{motif}</div>
           <ChunkyButton variant="ghost" color={C.inkDim} onClick={() => go(1)} style={{ fontSize: 12, padding: '6px 10px' }}>▶</ChunkyButton>
           <div style={{ marginLeft: 'auto', fontSize: 12, color: C.inkFaint, fontFamily: 'monospace', display: 'grid', textAlign: 'right' }}>

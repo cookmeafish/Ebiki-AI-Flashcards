@@ -2147,6 +2147,7 @@ export default {
   lg_famIntro: "Experimental: each raid boss is made from one to three other bosses. Hover a boss to see it move, click it to open it.",
   lg_famRaid: "Raid",
   lg_famLegend: "Legend",
+  lg_famRaidNum: "Raid #{n}",
   lg_famOpen: "Open {name}",
   lg_famTree_foxfire: "Foxfire",
   lg_famWhy_foxfire: "The sakura fox spirit ascended into the Nine-Tailed Empress.",
