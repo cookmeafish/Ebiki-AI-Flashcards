@@ -199,7 +199,8 @@ export function effortOf({ clean = 0, glancing = 0, typed = 0, choice = 0, misse
 export const RAID_EASE = GRADE_EASE
 export function raidRating(hit, sched = null) {
   if (!hit) return { ease: RAID_EASE.again, rating: 'again' }
-  const rating = gradeFromStrike(hit.verdict, { choice: hit.mode === 'choice', mature: isMature(sched?.interval) })
+  // `aided`: a raid power (50:50, hint) helped with the question: graded like a hint (a right answer is Hard).
+  const rating = gradeFromStrike(hit.verdict, { choice: hit.mode === 'choice', mature: isMature(sched?.interval), hintUsed: !!hit.aided })
   return { ease: easeFor(rating), rating }
 }
 

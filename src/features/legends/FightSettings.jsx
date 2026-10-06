@@ -12,7 +12,8 @@ import { sameLanguage } from '../../utils/tapTokens'
 const asOption = (name) => (isDistinctSpoken(name) ? name : (langFromName(name)?.label || name))
 const LANG_OPTIONS = LANGS.filter((l) => l.code !== 'auto').map((l) => l.label)
 
-export default function FightSettings({ ctx, allowStyle = false, busy = false, deckLocked = false }) {
+// `runSize` (raids): { value, options, onChange } = questions per run (a features.legends setting, not a study rule).
+export default function FightSettings({ ctx, allowStyle = false, busy = false, deckLocked = false, runSize = null }) {
   const { t, subject, cards } = ctx
   const f = ctx.fight
   const [open, setOpen] = useState(false)
@@ -37,6 +38,7 @@ export default function FightSettings({ ctx, allowStyle = false, busy = false, d
     isLang && r.wordHints && t('lg_fsHints'),
     isLang && r.grammarFeedback && t('lg_fsGrammar'),
     allowStyle && r.answerStyle === 'choices' && t('lg_fsChoices'),
+    runSize && t('lg_fsRunSizeShort', { n: runSize.value }),
   ].filter(Boolean)
 
   const field = { display: 'grid', gap: 4, minWidth: 0 }
@@ -106,6 +108,23 @@ export default function FightSettings({ ctx, allowStyle = false, busy = false, d
                       className={`ui-tab${on ? ' ui-tab-current' : ''}`}
                       style={{ fontFamily: FONT.body, fontSize: 12.5, fontWeight: 800, padding: '5px 12px', borderRadius: RADIUS.pill, border: `1.5px solid ${on ? C.brand : C.border}`, background: on ? `color-mix(in srgb, ${C.brand} 10%, ${C.surface})` : 'transparent', color: on ? C.brand : C.inkDim, cursor: on ? 'default' : 'pointer' }}>
                       {s === 'typed' ? `⌨ ${t('lg_fsTyped')}` : `🛡 ${t('lg_fsChoices')}`}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+          {runSize && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <span className="tip tip-r" data-tip={t('lg_fsRunSizeTip')} style={label}>{t('lg_fsRunSize')} ⓘ</span>
+              <div role="radiogroup" style={{ display: 'inline-flex', gap: 4, flexWrap: 'wrap' }}>
+                {runSize.options.map((n) => {
+                  const on = runSize.value === n
+                  return (
+                    <button key={n} type="button" role="radio" aria-checked={on} disabled={busy} onClick={() => { if (!on) runSize.onChange(n) }}
+                      className={`ui-tab${on ? ' ui-tab-current' : ''}`}
+                      style={{ fontFamily: FONT.body, fontSize: 12.5, fontWeight: 800, padding: '5px 11px', borderRadius: RADIUS.pill, border: `1.5px solid ${on ? C.brand : C.border}`, background: on ? `color-mix(in srgb, ${C.brand} 10%, ${C.surface})` : 'transparent', color: on ? C.brand : C.inkDim, cursor: on ? 'default' : 'pointer' }}>
+                      {n}
                     </button>
                   )
                 })}

@@ -14,7 +14,8 @@
 // judge(q, answer, mode)   async grader for typed answers → { correct, partial?, note?, title?, info? }
 // canUseChoices(q)         a typed question with `alt` choices may be answered with them instead (a safe strike)
 // header(q, mode)          a node above the question (the attack banner, the strike label)
-// tools(q, api)            a node beside Skip; api = { hint(text), phase, asChoice }
+// tools(q, api)            a node beside Skip; api = { hint(text), phase, asChoice, showChoices({ choices, answerIdx }) }
+//                          (showChoices: the question is answered with THESE choices, e.g. a raid's 50:50; no way back to typing)
 // onQuestion(q, idx)       a new question is on screen (the raid arena fast-fades an effect still playing)
 // onAnswer's return value  { insert: question | [questions], at: index } puts questions into the run (the boss's attack); an
 //                          inserted question is marked `_extra` and, like a retry, never changes the score.
@@ -67,6 +68,7 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
   })()
   const [mode, setMode] = useState('typed') // a typed question answered with its choices instead: 'choice'
   const [hintText, setHintText] = useState('')
+  const [narrowed, setNarrowed] = useState(null) // { i, choices, answerIdx }: a tool's own choices for question i
   const [picked, setPicked] = useState(null)
   const [text, setText] = useState('')
   const [phase, setPhase] = useState('answer')    // answer | checking | feedback | done
@@ -101,7 +103,7 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
   useEffect(() => {
     let first = 'typed'
     try { if (q?.alt && q.kind !== 'choice' && startChoices?.(q) && canUseChoices?.(q)) first = 'choice' } catch { /* the feature's problem */ }
-    setPicked(null); setText(''); setVerdict(null); setCheckErr(false); setPhase('answer'); setMode(first); setHintText(''); setTimeout(() => inputRef.current?.focus(), 30)
+    setPicked(null); setText(''); setVerdict(null); setCheckErr(false); setPhase('answer'); setMode(first); setHintText(''); setNarrowed(null); setTimeout(() => inputRef.current?.focus(), 30)
     play() // a listening question plays once by itself
     try { onQuestion?.(q, idx) } catch { /* the feature's problem */ }
     return () => audioRef.current?.stop()
@@ -109,8 +111,9 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
 
   const lastAnswer = useRef('') // the answer just checked (a retry's answer is not in `results`)
   // A typed question answered with its choices (a safe strike), or a plain choice question.
-  const asChoice = q?.kind === 'choice' || (mode === 'choice' && !!q?.alt)
-  const view = q?.kind === 'choice' ? q : asChoice ? { ...q, choices: q.alt.choices, answerIdx: q.alt.answerIdx } : q
+  const narrow = narrowed && narrowed.i === idx ? narrowed : null
+  const asChoice = q?.kind === 'choice' || !!narrow || (mode === 'choice' && !!q?.alt)
+  const view = narrow ? { ...q, choices: narrow.choices, answerIdx: narrow.answerIdx } : q?.kind === 'choice' ? q : asChoice ? { ...q, choices: q.alt.choices, answerIdx: q.alt.answerIdx } : q
 
   // ── Words: formatting, word hints, tap-a-word lookups (see the header) ──
   const W = ctx?.words?.canTap ? ctx.words : null
@@ -321,7 +324,7 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
             )
           })}
           {view.choices.map((_, i) => <span key={`p${i}`} style={{ display: 'contents' }}>{popup(`c${i}`)}</span>)}
-          {q.kind !== 'choice' && phase === 'answer' && (
+          {q.kind !== 'choice' && !narrow && phase === 'answer' && (
             <button type="button" onClick={() => { setMode('typed'); setPicked(null); setTimeout(() => inputRef.current?.focus(), 30) }}
               style={{ justifySelf: 'start', fontFamily: FONT.body, border: `2px solid color-mix(in srgb, ${C.warning} 40%, transparent)`, background: 'transparent', color: C.warning, fontWeight: 800, fontSize: 13, borderRadius: RADIUS.pill, padding: '5px 12px', cursor: 'pointer' }}>
               ⌨ {t('kit_typeInstead')}
@@ -370,7 +373,7 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
           <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <ChunkyButton variant="ghost" color={C.inkDim} onClick={() => check(true)} disabled={phase !== 'answer'}>{t('kit_skip')}</ChunkyButton>
-              {tools && tools(q, { hint: setHintText, phase, asChoice })}
+              {tools && tools(q, { hint: setHintText, phase, asChoice, showChoices: (v) => { if (v && Array.isArray(v.choices)) { setNarrowed({ i: idx, choices: v.choices, answerIdx: v.answerIdx }); setPicked(null) } } })}
             </div>
             {checkErr && phase === 'answer' && <div role="alert" style={{ flexBasis: '100%', order: -1, fontSize: 13, fontWeight: 700, color: C.danger }}>{t('kit_checkFailed')}</div>}
             <ChunkyButton onClick={() => check()} color={C.success}

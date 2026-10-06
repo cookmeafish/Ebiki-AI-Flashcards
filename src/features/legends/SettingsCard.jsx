@@ -4,6 +4,7 @@
 import { C, FONT } from '../../config/tokens'
 import { useFeatureCtx, featureCfg } from '../registry'
 import { LEGENDS_ID } from './store'
+import { RAID, raidRunSize } from './raid'
 
 function Check({ checked, onChange, label, desc }) {
   return (
@@ -32,6 +33,16 @@ export default function LegendsSettingsCard({ card, fieldLabel, hint }) {
       <Check checked={cfg.motion === true} onChange={(v) => set({ motion: v })} label={t('lg_setMotion')} desc={t('lg_setMotionDesc')} />
       <Check checked={cfg.taunts !== false} onChange={(v) => set({ taunts: v })} label={t('lg_setTaunts')} desc={t('lg_setTauntsDesc')} />
       <Check checked={cfg.nudge !== false} onChange={(v) => set({ nudge: v })} label={t('lg_setNudge')} desc={t('lg_setNudgeDesc')} />
+      <label style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 12 }}>
+        <span>
+          <span style={{ display: 'block', fontFamily: FONT.body, fontWeight: 800, fontSize: 13.5, color: C.ink }}>{t('lg_setRunSize')}</span>
+          <span style={{ display: 'block', fontSize: 12.5, color: C.inkDim, lineHeight: 1.45 }}>{t('lg_setRunSizeDesc')}</span>
+        </span>
+        <select value={raidRunSize(cfg.raidRunSize)} onChange={(e) => set({ raidRunSize: Number(e.target.value) })}
+          style={{ fontFamily: FONT.body, fontSize: 13, fontWeight: 700, padding: '5px 8px', borderRadius: 6, border: `1px solid ${C.border}`, background: C.surfaceAlt, color: C.ink }}>
+          {RAID.runSizes.map((n) => <option key={n} value={n}>{n}</option>)}
+        </select>
+      </label>
       {subject?.accents && (
         <Check checked={subject.strictAccents !== false} onChange={(v) => subject.setStrictAccents?.(v)} label={t('lg_setAccents', { lang: subject.learnLang })} desc={t('lg_setAccentsDesc')} />
       )}

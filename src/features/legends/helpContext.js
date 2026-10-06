@@ -6,6 +6,8 @@
 // result screen (asked / expected / given) is on screen anyway, so it is shared.
 import { itemTier, areaCodex, mapProgress, helperCount, WEAK_RATIO } from './map'
 import { RAID, RAID_ABILITY, shapeRaid, raidMotif, siegeOf, raidToday } from './raid'
+import { raidProfile } from './raidProfiles'
+import { POWER_IDS } from './powers'
 import { learnerLine } from '../kit/learner'
 
 export const HELP_MAX = 5000
@@ -111,7 +113,7 @@ export function buildLegendsHelpText({ map: rawMap, learner, raid, live: lv = { 
     // The siege brought forward to today (hearts back, the daily heal): wounds and hearts carry over between days.
     const g = siegeOf(r) ? (today ? raidToday(r, today, 0).siege : siegeOf(r)) : null
     const runs = r.day && (!today || r.day.date === today) && !r.day.won ? r.day.attempts : 0
-    out.push(`Daily raid (due Anki cards as a boss fight; each card's first answer is a real review; a siege: the boss's wounds and the player's hearts carry over, each new day +1 heart and the boss heals ${Math.round(RAID.healPerDay * 100)}%): the boss now is the ${motif} (ability: ${RAID_ABILITY[motif]})${g ? `, health ${Math.max(0, g.hp - g.damage)}/${g.hp}, hearts ${g.hearts}/${RAID.lives}, ${runs} run(s) today` : ', not come out yet'}; ${r.trophies.length} raid trophies won.`)
+    out.push(`Daily raid (due Anki cards as a boss fight; each card's first answer is a real review; a siege: each boss has its own health and hearts; wounds carry over, each new day the hearts are full again and the boss heals ${raidProfile(motif).heal}): the boss now is the ${motif} (ability: ${RAID_ABILITY[motif]})${g ? `, health ${Math.max(0, g.hp - g.damage)}/${g.hp}, hearts ${g.hearts}/${Math.max(g.hearts, raidProfile(motif).hearts)}, ${runs} run(s) today` : ', not come out yet'}; ${r.trophies.length} raid trophies won; power bag: ${POWER_IDS.filter((id) => r.powers?.[id] > 0).map((id) => `${id} x${r.powers[id]}`).join(', ') || 'empty'}.`)
   }
   // What is on the Legends screen right now.
   const where = {

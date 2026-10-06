@@ -10,6 +10,7 @@ import { BossIntro, BossArena, BossStyle, BOSS, ABILITY_ICON } from './BossArena
 import { newFight } from './fight'
 import { MOTIFS, PALETTES } from './map'
 import { RAID, RAID_MOTIFS, RAID_ABILITY, raidBossNumber } from './raid'
+import { raidProfile } from './raidProfiles'
 import { RAID_VOICES } from './raidVoices'
 import { bestiaryRows } from './abilities/_triggers'
 import { floaterKeyFor, fxDemoFor, fxLabel } from './fx'
@@ -271,7 +272,7 @@ function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot, step, setStep }
   const state = { ...newFight(), ...(demoAb ? { ab: demoAb } : {}), damage, last: fxLast ||(step ? { kind: 'hit', damage: Math.round(third), lives: 0, n: step } : null) }
   return (
     <div style={{ display: 'grid', gap: 10 }}>
-      <BossArena key={motif} t={t} area={area} name={motif} need={VIEW.demoHp} lives={RAID.lives} state={state} phases={RAID.phases} ability={ability} getZoom={getZoom} kind="raids" />
+      <BossArena key={motif} t={t} area={area} name={motif} need={VIEW.demoHp} lives={raidProfile(motif).hearts} state={state} phases={RAID.phases} ability={ability} getZoom={getZoom} kind="raids" />
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <ChunkyButton variant="ghost" color={C.danger} onClick={() => { onClearShot(); setStep((n) => (n + 1) % RAID.phases) }} style={{ fontSize: 12, padding: '6px 10px' }}>⚔️ {t('lg_assetsNextPhase')}</ChunkyButton>
       </div>
@@ -500,7 +501,7 @@ export default function AssetView({ ctx, onBack }) {
           </div>
           <div style={{ maxWidth: 560 }}>
             <BossIntro key={`${tab}-${motif}-${palette}-${replay}`} t={t} area={area} name={motif} total={20} onFight={() => setReplay((n) => n + 1)}
-              {...(raids ? { kind: 'raids', raidLives: RAID.lives, ability: RAID_ABILITY[motif] } : {})} />
+              {...(raids ? { kind: 'raids', raidLives: raidProfile(motif).hearts, ability: RAID_ABILITY[motif] } : {})} />
           </div>
         </div>
 

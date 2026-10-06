@@ -23,7 +23,7 @@ export default {
   id: LEGENDS_ID,
   // focus: calm fights (no cinematic or flair); nudge: offer first-time misses as cards once; taunts: bosses tease a
   // miss in their own voice (off in focus mode too).
-  defaults: { focus: false, nudge: true, motion: false, still: false, taunts: true },
+  defaults: { focus: false, nudge: true, motion: false, still: false, taunts: true, raidRunSize: 15 },
   // Tells Ebi's Help what the learner does in Legends, on every screen (helpContext.js).
   Mount: HelpBridge,
   navItems: [

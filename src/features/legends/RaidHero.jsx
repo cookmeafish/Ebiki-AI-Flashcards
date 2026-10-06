@@ -10,7 +10,7 @@ import { useFeatureCtx, featureCfg } from '../registry'
 import { tCount } from '../ui'
 import { LegendsArt, reducedMotion, useArtStill, useArtMotionAlways, headroomPx } from './art'
 import { ABILITY_ICON } from './BossArena'
-import { RAID, todayKey, raidBossNumber } from './raid'
+import { RAID, todayKey, raidBossNumber, raidRunSize } from './raid'
 import { raidHeroState, raidTint } from './heroState'
 import { readRaid, onRaidSaved, LEGENDS_ID } from './store'
 
@@ -72,7 +72,7 @@ export default function RaidHero({ onOpen }) {
 
   if (stored === undefined) return <Skeleton boxRef={boxRef} t={t} />
 
-  const s = raidHeroState({ stored, date: todayKey(), dueIds: Array.isArray(due) ? due : null, due: Array.isArray(due) ? null : due, anki, hasKey: !!ctx.ai?.hasKey })
+  const s = raidHeroState({ stored, date: todayKey(), dueIds: Array.isArray(due) ? due : null, due: Array.isArray(due) ? null : due, anki, hasKey: !!ctx.ai?.hasKey, runSize: raidRunSize(featureCfg(ctx, LEGENDS_ID).raidRunSize) })
   const beaten = s.kind === 'beaten'
   const shownMotif = beaten && s.beaten ? s.beaten : s.motif
   const tint = raidTint(shownMotif, C.danger)
@@ -182,7 +182,7 @@ function SiegeRow({ t, s, narrow }) {
       <span role="img" aria-label={t('lg_raidHeroHearts', { n: s.hearts, max: s.heartsMax })} style={{ display: 'inline-flex', gap: 2, fontSize: 16 }}>
         {Array.from({ length: s.heartsMax }, (_, i) => <span key={i} aria-hidden="true" style={{ filter: i >= s.hearts ? 'grayscale(1) opacity(.35)' : 'none' }}>❤️</span>)}
       </span>
-      <span>🏰 {t('lg_raidSiegeLine', { pct: Math.round(RAID.healPerDay * 100) })}</span>
+      <span>🏰 {t('lg_raidSiegeLine', { n: s.heal })}</span>
     </div>
   )
 }

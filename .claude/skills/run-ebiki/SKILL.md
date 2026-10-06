@@ -5,13 +5,13 @@ description: Launch the Ebiki dev server and drive the running app in a headless
 
 # Run Ebiki
 
-`npm test` (vitest) covers only pure modules; layout, modals and click paths need the running app. This skill is
-the other half of testing: start the server, drive it, read the screenshots.
+`npm test` (vitest) covers only pure modules; layout, modals and click paths need the running app. Start the
+server, drive it, read the screenshots.
 
 ## Start
 
 ```bash
-npm run dev            # run in the background; Vite serves port 3000
+npm run dev            # in the background; Vite serves port 3000 and never opens a tab
 ```
 
 Poll the port instead of sleeping:
@@ -21,7 +21,7 @@ until curl -s -o /dev/null --max-time 2 http://localhost:3000/; do sleep 0.5; do
 ```
 
 Stop with `lsof -ti:3000 -sTCP:LISTEN | xargs -r kill` (npm doesn't forward SIGTERM to vite, so killing npm
-leaves the port bound). Windows: `npx kill-port 3000`, or close the launcher window.
+leaves the port bound). Windows: `npx kill-port 3000`.
 
 Edits hot-reload, except `vite.config.js` (watch-ignored on purpose): restart after changing it.
 
@@ -30,10 +30,10 @@ Never leave a scratch server running with `EBIKI_DATA_DIR` pointed at a throwawa
 happened: a one-line `{}` config.json replaced the live one). Test data-folder behavior in a repo copy, or repair
 `.local-sync/` afterwards.
 
-Use `npm run dev`, not the Ebiki shortcut: a shortcut server sets `EBIKI_AUTO_EXIT=1` and exits seconds after the
-last tab closes, so it vanishes when the driver's browser exits and looks like a crash.
-`curl localhost:3000/api/alive` returns `{autoExit, lastBeatAgoMs}` to tell them apart. `npm run dev` never
-auto-exits.
+Use `npm run dev`, not the Ebiki shortcut: a shortcut server sets `EBIKI_AUTO_EXIT=1` and exits soon after the
+last page closes, so it vanishes when the driver's browser exits and looks like a crash. `curl
+localhost:3000/api/alive` returns `{autoExit, lastBeatAgoMs}` to tell them apart. Never launch Electron from an
+agent: it opens the real app.
 
 ## Drive
 
@@ -47,13 +47,13 @@ Works on a fresh clone: `drive.mjs` installs `playwright-core` into `~/.ebiki-dr
 repo, so `package.json` is untouched) and drives the machine's Chrome, Chromium or Edge; nothing else is
 downloaded. Override with `CHROME_BIN` / `EBIKI_DRIVE_DEPS` for unusual locations.
 
-Screenshots go to the OS temp dir by default; each path is printed. **Look at them**: a blank frame means the app
-never loaded. Console errors and 4xx responses print at the end; a failure also screenshots the stuck state.
+Screenshots go to `<os temp>/ebiki-drive-shots/` by default (`--shots` or `SHOTS` overrides; `--url` or `APP_URL`
+for another host); each path is printed. **Look at them**: a blank frame means the app never loaded. Console errors
+and 4xx responses print at the end; a failure also screenshots the stuck state.
 
-- **smoke** - loads the app and opens Settings > Learning modes, proving the server, config load and settings
-  chrome work.
-- **`--studio`** - types a brief, opens Ebi Studio, waits for Ebi's reply and reports the panel geometry. It makes
-  a real chat call on the user's key, so run it only for changes on that path.
+- **smoke** - loads the app and opens Settings > Learning modes (server, config load, settings chrome).
+- **`--studio`** - types a brief (default "Learn persuasion and negotiation"), opens Ebi Studio, waits for Ebi's
+  reply and reports the panel geometry. A real chat call on the user's key: run it only for changes on that path.
 
 For another screen, copy the `drive.mjs` pattern: `waitForSelector` on the English UI string, click by role and
 name, `fill` inputs (assigning `.value` skips React's onChange), screenshot, read console errors.

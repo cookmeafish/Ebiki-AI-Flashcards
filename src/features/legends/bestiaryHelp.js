@@ -6,6 +6,7 @@
 // No card, question or answer is ever in here: a raid's questions are the deck's cards (QuizRunner reports the one on
 // screen, without its key). Published by HelpBridge.jsx (the catalog, every screen) and AssetView.jsx (the bestiary).
 import { RAID, RAID_ORDER, RAID_ABILITY, raidBossNumber, shapeRaid, raidMotif, isRaidMotif, SIEGE_RULE, raidToday, siegeOf } from './raid'
+import { raidProfile } from './raidProfiles'
 import { MOTIFS } from './map'
 import { bestiaryRows } from './abilities/_triggers'
 import { FAMILY_TREES, FAMILY_MISFITS, familyMotifs } from './families'
@@ -82,7 +83,7 @@ export function raidProgressText(t, raid, today = '', known = true) {
   for (const tr of r.trophies) wins[tr.motif] = (wins[tr.motif] || 0) + 1
   const hall = Object.entries(wins).map(([m, n]) => `${isRaidMotif(m) ? raidBossName(t, m) : `${m} (retired)`}${n > 1 ? ` x${n}` : ''}`)
   return [
-    `The player's raid: current boss #${num} ${raidBossName(t, motif)} of ${RAID_ORDER.length}${g ? `, siege health ${Math.max(0, g.hp - g.damage)}/${g.hp} (wounds carry over), hearts ${g.hearts}/${RAID.lives}, ${runs} run(s) today` : ', not come out yet (fresh health and full hearts at its first fight)'}${beatenToday ? `; a boss was beaten today` : ''}. Next after a win: #${raidBossNumber(next)} ${raidBossName(t, next)}.`,
+    `The player's raid: current boss #${num} ${raidBossName(t, motif)} of ${RAID_ORDER.length}${g ? `, siege health ${Math.max(0, g.hp - g.damage)}/${g.hp} (wounds carry over), hearts ${g.hearts}/${Math.max(g.hearts, raidProfile(motif).hearts)}, ${runs} run(s) today` : ', not come out yet (fresh health and full hearts at its first fight)'}${beatenToday ? `; a boss was beaten today` : ''}. Next after a win: #${raidBossNumber(next)} ${raidBossName(t, next)}.`,
     `Raid trophies: ${r.trophies.length}${hall.length ? ` (${hall.join(', ')})` : ''}.`,
   ].join('\n')
 }

@@ -15,8 +15,8 @@ const raidOn = (motif) => ({ boss: raidBossIndex(motif), day: { date: '2026-10-0
 describe('raid boss catalog (every screen)', () => {
   it("names the current and next boss, today's wounds and the trophies", () => {
     const text = raidCatalogText({ t: en, raid: raidOn('hydra'), today: '2026-10-03' })
-    expect(text).toMatch(/current boss #20 The Tide Hydra of 26, siege health 14\/20 \(wounds carry over\), hearts 3\/3, 2 run\(s\) today/)
-    expect(text).toMatch(/SIEGE.*heals 20%/)
+    expect(text).toMatch(/current boss #20 The Tide Hydra of 26, siege health 14\/20 \(wounds carry over\), hearts 8\/8, 2 run\(s\) today/)
+    expect(text).toMatch(/SIEGE.*heals a little/)
     expect(text).toMatch(/Next after a win: #21 The Mirror Knight/)
     expect(text).toMatch(/Raid trophies: 2 \(The Hourglass Colossus, glutton \(retired\)\)/)
     // The current boss in full: every effect with what sets it off and what it does.
