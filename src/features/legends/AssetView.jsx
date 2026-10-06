@@ -261,20 +261,42 @@ function LiveCopy({ children }) {
 // The ability card's "Try it" buttons play that ability's effect and floater on this same arena (`shot`, held by the
 // page: { motif, fx, n }), to check them without a real fight.
 // `step`/`setStep` live in AssetView (Ebi's Help hears the phase shown).
+// The plain impact moments every raid boss shares (strikeFx.js), as the fight's last strike: one button each.
+const IMPACT_DEMOS = [
+  ['hit', 'lg_assetsFxHit', { kind: 'hit', damage: 2 }],
+  ['crit', 'lg_fxCrit', { kind: 'hit', damage: 3, crit: true }],
+  ['sharpen', 'lg_fxSharpen', { kind: 'hit', damage: 4, sharpened: true }],
+  ['hurt', 'lg_assetsFxHurt', { kind: 'miss', lives: 1 }],
+  ['hurtBig', 'lg_fxHurtBig', { kind: 'miss', lives: 2, attack: true }],
+  ['block', 'lg_fxBlock', { kind: 'hit', damage: 1, attack: true }],
+  ['shield', 'lg_fxSaved', { kind: 'block', lives: 0, shielded: true }],
+  ['wind', 'lg_fxWind', { kind: 'wind' }],
+  ['ko', 'lg_fxKo', { kind: 'hit', damage: 5 }],
+]
 function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot, step, setStep }) {
+  const [impact, setImpact] = useState(null) // { id, n }: an impact moment to replay
+  const imp = impact && IMPACT_DEMOS.find((d) => d[0] === impact.id)
   const third = VIEW.demoHp / RAID.phases
-  const damage = Math.min(VIEW.demoHp - 1, Math.round(step * third))
+  const damage = imp?.[0] === 'ko' ? VIEW.demoHp : Math.min(VIEW.demoHp - 1, Math.round(step * third))
   const ability = RAID_ABILITY[motif]
   const mine = shot && shot.motif === motif ? shot : null
   const fxLast = mine && { kind: 'hit', damage: 3, lives: 0, ...(fxDemoFor(ability, mine.fx) || {}), fx: mine.fx, n: mine.n }
   // A demo may also set the ability's state after the moment (`ab`: the hydra shows 5 heads after Grow).
   const demoAb = mine && fxDemoFor(ability, mine.fx)?.ab
-  const state = { ...newFight(), ...(demoAb ? { ab: demoAb } : {}), damage, last: fxLast ||(step ? { kind: 'hit', damage: Math.round(third), lives: 0, n: step } : null) }
+  const impactLast = imp && !mine ? { lives: 0, damage: 0, ...imp[2], n: 1000 + impact.n, ...(imp[0] === 'wind' ? { wn: impact.n } : {}) } : null
+  const state = { ...newFight(), ...(demoAb ? { ab: demoAb } : {}), damage, last: fxLast || impactLast || (step ? { kind: 'hit', damage: Math.round(third), lives: 0, n: step } : null) }
   return (
     <div style={{ display: 'grid', gap: 10 }}>
       <BossArena key={motif} t={t} area={area} name={motif} need={VIEW.demoHp} lives={raidProfile(motif).hearts} state={state} phases={RAID.phases} ability={ability} getZoom={getZoom} kind="raids" />
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <ChunkyButton variant="ghost" color={C.danger} onClick={() => { onClearShot(); setStep((n) => (n + 1) % RAID.phases) }} style={{ fontSize: 12, padding: '6px 10px' }}>⚔️ {t('lg_assetsNextPhase')}</ChunkyButton>
+        <ChunkyButton variant="ghost" color={C.danger} onClick={() => { onClearShot(); setImpact(null); setStep((n) => (n + 1) % RAID.phases) }} style={{ fontSize: 12, padding: '6px 10px' }}>⚔️ {t('lg_assetsNextPhase')}</ChunkyButton>
+      </div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        <span style={{ fontSize: 11.5, fontWeight: 900, letterSpacing: '.06em', textTransform: 'uppercase', color: C.inkDim }}>{t('lg_assetsImpact')}</span>
+        {IMPACT_DEMOS.map(([id, key]) => (
+          <ChunkyButton key={id} variant="ghost" color={id === 'ko' ? C.danger : C.purple} data-impact-demo={id}
+            onClick={() => { onClearShot(); setImpact((x) => ({ id, n: (x?.n || 0) + 1 })) }} style={{ fontSize: 11.5, padding: '5px 9px' }}>{t(key)}</ChunkyButton>
+        ))}
       </div>
     </div>
   )

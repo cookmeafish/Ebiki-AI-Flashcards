@@ -1394,6 +1394,12 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     reactions), FIXED bright colors, skipped in focus mode, Still bosses and reduced motion; a new question fades what
     plays, a new strike cancels the old, at most 2 flashes a second. `abilityfx.test.js` fails a fired `fx` with no
     effect, floater text or asset-view button.
+  - **Plain strike moments give every raid boss weight** (`strikeFx.js` pure + test, `StrikeFxLayer.jsx`): hit,
+    critical, Sharpen, the boss landing a blow (claw slashes + red glow), a missed attack ("HEAVY BLOW!"), a blocked
+    attack (parry), a Shield save, Second wind (`last.kind: 'wind'`, own `wn` counter) and the knockout (`lgBossKO`,
+    rays, "DEFEATED!"), tinted with the boss's `RAID_TINT` (heroState.js). Played by the SAME `useJuice` (its
+    `moment` argument, `STRIKE_FX` juice), so all juice limits apply; an ability's own fx wins except for the
+    knockout. Raids only (`kind === 'raids'`). Asset view: "Impact moments" buttons under the phase demo.
 - **Asset view** (cheat mode only: `AssetView.jsx`, map header ⚡, sidebar entry `assets` via `AssetScreen.jsx`; a
   `navItems` entry may carry `visible({ registry, featureSettings })`): tabs **Legends**, **Raid bosses** (phases via the
   arena's phase CSS, ability card, live arena with "Next phase") and **Ebi drafts** (`public/assets/ebi-drafts/`, the

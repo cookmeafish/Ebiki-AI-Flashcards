@@ -13,7 +13,9 @@ import { AbilityFx } from './AbilityFx'
 import { newFight, healthLeft, livesLeft, phaseOf, abilityState } from './fight'
 import { abilityById, ABILITY_BY_ID } from './abilities'
 import { abilityCss, floaterKeyFor, floaterToneFor, fxForAbility, juiceFor } from './fx'
-import { JUICE, JUICE_CSS, FLOATER_FILL, FLOATER_OUTLINE } from './fx/_juice'
+import { JUICE, JUICE_CSS, FLOATER_FILL, FLOATER_OUTLINE, juiceOf } from './fx/_juice'
+import { strikeMoment, STRIKE_FX } from './strikeFx'
+import StrikeFxLayer from './StrikeFxLayer'
 import { AbilityHud, BarMarks } from './fx/_Hud'
 import { PASS } from './map'
 
@@ -78,6 +80,7 @@ const CSS = `
 @keyframes lgBossFloat { 0% { transform: translate(-50%, 0); opacity: 1 } 100% { transform: translate(-50%, -46px); opacity: 0 } }
 @keyframes lgHeartLose { 0% { transform: scale(1) } 40% { transform: scale(1.5) rotate(-12deg) } 100% { transform: scale(.8); opacity: .35 } }
 @keyframes lgBossDown { 0% { transform: rotate(0) } 100% { transform: rotate(-14deg) translateY(12px) } }
+@keyframes lgBossKO { 0% { transform: none; filter: brightness(1) } 6% { transform: translateX(-7px) scale(1.06); filter: brightness(3) } 13% { transform: translateX(7px) scale(1.05) } 20% { transform: translateX(-6px) scale(1.04); filter: brightness(1.8) } 27% { transform: translateX(5px) } 34% { transform: translateX(-3px); filter: brightness(1.2) } 42% { transform: translateX(0) scale(1.02) } 100% { transform: rotate(-14deg) translateY(14px) scale(.94); filter: none } }
 @keyframes lgStageIn { 0% { opacity: 0 } 100% { opacity: 1 } }
 @keyframes lgStripeL { 0% { transform: translateX(-110%) } 100% { transform: translateX(0) } }
 @keyframes lgStripeR { 0% { transform: translateX(110%) } 100% { transform: translateX(0) } }
@@ -405,10 +408,12 @@ export const ABILITY_ICON = Object.fromEntries(Object.values(ABILITY_BY_ID).map(
 // (`questionKey` changes) everything still playing fades out over JUICE.fade and is gone: the next question is never
 // delayed and a floater never sits over it. `on` false (focus mode, Still bosses, reduced motion) plays nothing.
 const FLOAT_TONE = { purple: C.purple, danger: C.danger, warning: C.warning, success: C.success, info: C.info, brand: C.brand }
-const IDLE_JUICE = { fx: '', show: false, fading: false, shake: 0, flash: 0, stop: 0, n: 0, size: 'big' }
-function useJuice(last, on, ability, questionKey) {
+const IDLE_JUICE = { fx: '', moment: '', show: false, fading: false, shake: 0, flash: 0, stop: 0, n: 0, size: 'big' }
+// `moment`: a plain strike moment (strikeFx.js: a hit, a critical, the boss landing a blow, the knockout...) that plays
+// with the same rules when the strike fired no ability fx (the knockout plays either way).
+function useJuice(last, on, ability, questionKey, moment = '') {
   const [st, setSt] = useState(IDLE_JUICE)
-  const key = last?.fx ? `${last.n}:${last.fx}` : ''
+  const key = last?.fx || moment ? `${last?.n}:${last?.wn || 0}:${last?.fx || ''}:${moment}` : ''
   const timers = useRef([])
   const lastFlashAt = useRef(-Infinity)
   useEffect(() => {
@@ -417,19 +422,21 @@ function useJuice(last, on, ability, questionKey) {
     clear()
     setSt(IDLE_JUICE)
     if (!on || !key) return clear
-    const fx = last.fx
+    const fx = last.fx || ''
     const n = last.n
-    const j = juiceFor(ability, fx)
+    const j = moment === 'ko' || !fx ? juiceOf(STRIKE_FX[moment]) : juiceFor(ability, fx)
     later(JUICE.delay, () => {
       const now = Date.now()
       // Photosensitivity: at most 2 flashes a second, whatever the data asks.
       const flash = j.flash && now - lastFlashAt.current >= JUICE.flashGap ? j.flash : 0
       if (flash) lastFlashAt.current = now
       const stop = j.hitstop ? JUICE.hitstop[j.size] : 0
-      setSt({ fx, show: true, fading: false, shake: j.shake, flash, stop, n, size: j.size })
+      setSt({ fx, moment, show: true, fading: false, shake: j.shake, flash, stop, n, size: j.size })
       if (stop) later(stop, () => setSt((x) => (x.n === n ? { ...x, stop: 0 } : x)))
       later(Math.min(JUICE.maxMs, j.ms), () => setSt((x) => (x.n === n ? { ...x, fx: '', shake: 0, flash: 0 } : x)))
-      later(JUICE.linger, () => setSt((x) => (x.n === n ? IDLE_JUICE : x)))
+      // The knockout's own layer stays a little longer (rays, the stamp).
+      if (moment === 'ko') later(JUICE.linger + 300, () => setSt((x) => (x.n === n ? IDLE_JUICE : x)))
+      if (moment !== 'ko') later(JUICE.linger, () => setSt((x) => (x.n === n ? IDLE_JUICE : x)))
     })
     return clear
   }, [key, on]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -521,7 +528,9 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
   const abNote = abMod?.chipNote?.(abS, abCtx)
   const AbHud = fxForAbility(ability)?.Hud
   const animOk = !quiet && (motion || !reducedMotion())
-  const juice = useJuice(last, animOk, ability, questionKey)
+  // A raid's plain strike moments (strikeFx.js): every raid boss hits, gets hit and falls with weight.
+  const moment = kind === 'raids' ? strikeMoment(last, { down }) : ''
+  const juice = useJuice(last, animOk, ability, questionKey, moment)
   const fxNow = juice.fx
   const artRef = useRef(null)
   useHitStop(artRef, juice.stop)
@@ -543,13 +552,13 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
       // The shake moves the ARENA box only (the question card below never moves).
       animation: shakeSpec ? `lgJuiceShake${juice.shake} ${shakeSpec.ms}ms linear` : undefined }}>
       <BossStyle />
-      {abMod && <style>{JUICE_CSS}</style>}
+      {(abMod || kind === 'raids') && <style>{JUICE_CSS}</style>}
       {abCssText && <style>{abCssText}</style>}
       {/* F2 flash: a 25% white veil over the arena for one frame */}
       {flashSpec?.veil && <div key={`v${juice.n}`} aria-hidden="true" style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', background: '#fff', opacity: 0, animation: `lgJuiceVeil ${flashSpec.veilMs}ms steps(1, end)`, pointerEvents: 'none', zIndex: 3 }} />}
       <div style={{ position: 'relative', flexShrink: 0, margin: headroomPx(compact ? BOSS.arenaCompact : BOSS.arena) }}>
         <div key={`s${shift}`} style={{ animation: shift && !quiet ? 'lgPhaseShift 1s ease-out both' : 'none' }}>
-        <div key={`b${last?.n || 0}`} style={{ animation: down ? 'lgBossDown .6s ease-out both' : quiet ? 'none' : hitNow ? 'lgBossHit .5s ease-out' : missNow ? 'lgBossLunge .45s ease-out' : 'none',
+        <div key={`b${last?.n || 0}`} style={{ animation: down ? (kind === 'raids' && animOk ? 'lgBossKO 1.1s ease-out both' : 'lgBossDown .6s ease-out both') : quiet ? 'none' : hitNow ? 'lgBossHit .5s ease-out' : missNow ? 'lgBossLunge .45s ease-out' : 'none',
           filter: down ? 'grayscale(.8) opacity(.6)' : rage ? `drop-shadow(0 0 10px ${C.danger}) saturate(1.3)` : 'none' }}>
           {/* the boss's own reaction to its ability (fx/<motif>.jsx css: .lgr-<motif>-<fx>), then its persistent idle
               reaction (.lgr-<motif>-idle-<key>), then its persistent look (artStyle) on the INNERMOST box, so a scale
@@ -573,7 +582,8 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
         </>}
         {/* the raid ability's own effect (a bolt, a wave, a scythe arc...) and its floater, once per strike that fires
             it, inside the boss box; they fade out the moment the next question appears */}
-        {juice.show && (
+        {juice.show && juice.moment && <StrikeFxLayer t={t} moment={juice.moment} motif={area.motif} n={juice.n} fading={juice.fading} />}
+        {juice.show && juice.fx && (
           <div key={`x${juice.n}`} aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1, opacity: juice.fading ? 0 : 1, transition: `opacity ${JUICE.fade}ms ease-in` }}>
             <AbilityFx fx={last?.fx || ''} ability={ability} />
             {!focus && floaterKeyFor(ability, last?.fx) && (

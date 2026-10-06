@@ -703,7 +703,9 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     else if (id === 'sharpen') setPA({ ...powerArmedRef.current, sharpen: true })
     else if (id === 'wind') {
       windUsed.current = true
-      const next = { ...fsRef.current, livesLost: Math.max(0, fsRef.current.livesLost - 1) }
+      const cur = fsRef.current
+      // A heart back, and the arena's Second wind moment (strikeFx.js 'wind'; its own counter, so no hit replays).
+      const next = { ...cur, livesLost: Math.max(0, cur.livesLost - 1), last: { ...(cur.last || { n: cur.n || 0 }), kind: 'wind', damage: 0, lives: 0, crit: false, shielded: false, fx: '', wn: (cur.last?.wn || 0) + 1 } }
       fsRef.current = next
       setFs(next)
     }

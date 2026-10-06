@@ -79,3 +79,22 @@ ASK EBI
 -------
 Ebi's Help knows all of this: open "Talk to Ebi" during a raid and ask
 "how many hearts does this boss give?" or "what powers do I have?".
+
+
+4. IMPACT: EVERY RAID FIGHT NOW HITS HARDER (1.35.0)
+----------------------------------------------------
+What changed: every raid boss reacts with weight, in its own color:
+  - your hit: sparks and a shockwave, the arena jolts
+  - a critical (every 3rd clean answer in a row): a bigger burst + "CRITICAL!"
+  - the boss lands a blow on a miss: claw slashes and a red glow
+  - a missed boss attack (costs 2 hearts): heavier slashes + "HEAVY BLOW!"
+  - you answer an attack right: a parry + "BLOCKED!"
+  - a Shield saves you: a shield bubble + "SAVED!"; Second wind: a heart rises
+  - the final blow: the boss shudders, flashes and falls; rays + "DEFEATED!"
+
+Try it the fast way: cheat mode on (7 clicks on the Legends map title) > Asset
+view > Raid bosses > under the arena, press each "Impact moments" button.
+Step through bosses with the arrow keys: each boss's impact takes its color.
+
+Try it for real: any raid fight. To turn effects off: "Stop animations" on the
+fight card, or Settings > General > Legends > Focus mode / Still bosses.
