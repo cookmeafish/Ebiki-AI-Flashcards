@@ -27,11 +27,22 @@ const clock = (key, style, spin) => (
   </div>
 )
 
+// A small brass hourglass (outlined dark so it reads over the gold art).
+const hourglass = (glass = '#fff3d0') => (
+  <svg viewBox="0 0 30 40" width="100%" height="100%" aria-hidden="true">
+    <path d="M3 2h24v4H3zM3 34h24v4H3z" fill={BRASS} stroke="#3a2406" strokeWidth="1.4" />
+    <path d="M6 6h18c0 8-7 10-7 14s7 6 7 14H6c0-8 7-10 7-14S6 14 6 6Z" fill={glass} fillOpacity=".55" stroke="#3a2406" strokeWidth="1.4" />
+    <path d="M9 9h12c-1 4-5 6-6 9-1-3-5-5-6-9ZM8 33c2-4 5-5 7-6 2 1 5 2 7 6Z" fill={SAND} />
+  </svg>
+)
+
 export default {
   effects: {
-    grain: () => (
-      <div className="lgx" style={{ left: '50%', top: '18%', width: 6, height: 6, marginLeft: -3, borderRadius: '50%', background: SAND, boxShadow: `0 0 5px ${BRASS}`, animation: anim('lgrChronosGrain', 340, 0, 'ease-in') }} />
-    ),
+    // Grain (tick): a brass hourglass flips over above the boss and a thin stream of sand pours through it.
+    grain: () => <>
+      <div className="lgx" style={{ left: '50%', top: '4%', width: 30, height: 40, marginLeft: -15, filter: `drop-shadow(0 0 6px ${BRASS})`, animation: anim('lgrChronosFlip', 340, 0, 'cubic-bezier(.34,1.56,.64,1)') }}>{hourglass()}</div>
+      {[0, 1, 2, 3, 4].map((i) => <div key={i} className="lgx" style={{ left: `calc(50% + ${(i % 2 ? 1 : -1) * i}px)`, top: '15%', width: 5, height: 5, marginLeft: -2.5, borderRadius: '50%', background: SAND, boxShadow: '0 0 0 1px #6b4a10', animation: anim('lgrChronosGrain', 300, 40 + i * 45, 'ease-in') }} />)}
+    </>,
     rewind: () => <>
       <div className="lgx lgx-full" style={{ background: SEPIA, mixBlendMode: 'multiply', borderRadius: '30%', animation: anim('lgxFade', 1150) }} />
       {[0, 1, 2].map((i) => clock(`g${i}`, { opacity: 0, animation: anim('lgrChronosGhost', 900, 120 + i * 140) }, 'none'))}
@@ -49,11 +60,15 @@ export default {
       {ring('#ffffff', 600, 1.9, 6, 500)}
       {shards(14, FROST, -110, 10)}
     </>,
+    // Overflow (medium): the glass brims over: a thick curtain of sand pours down the boss, splashes at its feet and a
+    // frozen-blue tick mark pulses (time is about to stop).
     overflow: () => <>
-      {around(9, (i) => (
-        <div key={i} className="lgx" style={{ left: `${40 + (i % 3) * 10}%`, top: '14%', width: 6, height: 6, borderRadius: '50%', background: SAND, boxShadow: `0 0 4px ${BRASS}`, '--vx': `${(i % 2 ? 1 : -1) * (14 + i * 4)}px`, animation: anim('lgrChronosSpill', 760, i * 35, 'ease-in') }} />
+      <div className="lgx" style={{ left: '50%', top: '-6%', width: '26%', height: '92%', marginLeft: '-13%', transformOrigin: 'top', borderRadius: '0 0 40% 40%', background: `linear-gradient(90deg, rgba(245,194,107,0), ${SAND} 25%, #fff3d0 50%, ${SAND} 75%, rgba(245,194,107,0))`, boxShadow: '0 0 0 1.5px rgba(107,74,16,.7)', animation: anim('lgrChronosPour', 760, 0, 'cubic-bezier(.3,.7,.4,1)') }} />
+      {around(12, (i) => (
+        <div key={i} className="lgx" style={{ left: '50%', top: '82%', width: 6, height: 6, marginLeft: -3, borderRadius: '50%', background: SAND, boxShadow: '0 0 0 1px #6b4a10', '--vx': `${(i - 5.5) * 9}px`, animation: anim('lgrChronosSplash', 520, 260 + (i % 4) * 30, 'cubic-bezier(.2,.8,.4,1)') }} />
       ))}
-      {ring(BRASS, 0, 1.3, 3, 600)}
+      <div className="lgx" style={{ left: '50%', top: '4%', width: 34, height: 44, marginLeft: -17, filter: `drop-shadow(0 0 8px ${FROST})`, animation: anim('lgrChronosBrimPulse', 760) }}>{hourglass(FROST)}</div>
+      {ring(FROST, 300, 1.5, 4, 460)}
     </>,
   },
   floaters: { grain: 'lg_fx_sandGrain', rewind: 'lg_fx_rewind', paradox: 'lg_fx_paradox', timestop: 'lg_fx_timeStop', overflow: 'lg_fx_sandOverflow' },
@@ -68,12 +83,15 @@ export default {
   },
   css: `
 @keyframes lgrChronosGrain { 0% { transform: translateY(0); opacity: 0 } 20% { opacity: 1 } 100% { transform: translateY(46px); opacity: 0 } }
+@keyframes lgrChronosFlip { 0% { transform: rotate(-180deg) scale(.5); opacity: 0 } 45% { transform: rotate(12deg) scale(1.15); opacity: 1 } 70% { transform: rotate(0) scale(1); opacity: 1 } 100% { transform: rotate(0) scale(.9); opacity: 0 } }
+@keyframes lgrChronosPour { 0% { transform: scaleY(0); opacity: 0 } 15% { opacity: 1 } 45% { transform: scaleY(1); opacity: 1 } 80% { transform: scaleY(1); opacity: .9 } 100% { transform: scaleY(1) scaleX(.3); opacity: 0 } }
+@keyframes lgrChronosSplash { 0% { transform: translate(0, 0) scale(.6); opacity: 0 } 15% { opacity: 1 } 55% { transform: translate(calc(var(--vx) * .7), -26px) scale(1) } 100% { transform: translate(var(--vx), 4px) scale(.8); opacity: 0 } }
+@keyframes lgrChronosBrimPulse { 0% { transform: scale(.4); opacity: 0 } 20% { transform: scale(1.2); opacity: 1 } 35% { transform: scale(1) } 55% { transform: scale(1.12) } 70% { transform: scale(1) } 100% { transform: scale(1); opacity: 0 } }
 @keyframes lgrChronosHands { 0% { transform: rotate(0) } 100% { transform: rotate(-1080deg) } }
 @keyframes lgrChronosGhost { 0% { transform: translateX(45%) scale(.9); opacity: 0 } 20% { opacity: .35 } 100% { transform: translateX(-55%) scale(.9); opacity: 0 } }
 @keyframes lgrChronosCrack { 0% { transform: scale(1); opacity: 1 } 60% { transform: scale(1.04) rotate(-3deg); opacity: 1 } 100% { transform: scale(1.1) rotate(4deg); opacity: 0 } }
 @keyframes lgrChronosStill { 0%, 60% { opacity: 1 } 61%, 100% { opacity: 0 } }
 @keyframes lgrChronosFrostRing { 0% { transform: scale(1.3); opacity: 0 } 12% { transform: scale(1); opacity: 1 } 60% { transform: scale(1); opacity: 1 } 64% { transform: scale(1.06); opacity: 1 } 100% { transform: scale(1.5); opacity: 0 } }
-@keyframes lgrChronosSpill { 0% { transform: translate(0, 0); opacity: 0 } 15% { opacity: 1 } 100% { transform: translate(var(--vx), 70px); opacity: 0 } }
 
 @keyframes lgrChronosRewind { 0% { transform: none; filter: none } 20% { transform: translateX(4px); filter: drop-shadow(-8px 0 0 rgba(255,201,74,.45)) } 45% { transform: translateX(8px); filter: drop-shadow(-8px 0 0 rgba(255,201,74,.4)) drop-shadow(-16px 0 0 rgba(255,201,74,.25)) } 70% { transform: translateX(12px); filter: drop-shadow(-8px 0 0 rgba(255,201,74,.35)) drop-shadow(-18px 0 0 rgba(255,201,74,.2)) } 100% { transform: none; filter: none } }
 @keyframes lgrChronosFreeze { 0% { transform: none; filter: none } 8%, 62% { transform: scale(1.04); filter: grayscale(1) brightness(1.15) } 70% { transform: translateX(7px) scale(1.02); filter: none } 80% { transform: translateX(-6px) } 90% { transform: translateX(2px) } 100% { transform: none; filter: none } }

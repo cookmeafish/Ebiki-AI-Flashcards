@@ -28,6 +28,8 @@ export default {
   },
   floaters: { raise: 'lg_fx_raiseDead', burst: 'lg_fx_boneBurst', escape: 'lg_fx_minionEscape' },
   floaterTone: { raise: 'success', burst: 'success', escape: 'danger' },
+  // The asset view's Try it: an escape heals him by K.heal (abilities/lich.js), shown in its floater.
+  demo: { escape: { kind: 'miss', damage: 0, lives: 0, fxVars: { n: 2 } } },
   juice: {
     raise: { size: 'medium', shake: 1, flash: 1, hitstop: 1, sfx: 'lich.raise' },
     burst: { size: 'big', shake: 2, flash: 2, hitstop: 1, sfx: 'lich.burst' },

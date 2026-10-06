@@ -20,8 +20,8 @@ const rose = (key, extra) => (
 export default {
   effects: {
     laugh: () => <>
-      {rose('r', { left: '8%', top: '78%', '--spin': '0deg', animation: anim('lgrShowmanToss', 340, 0, 'cubic-bezier(.3,.7,.4,1)') })}
-      {[0, 1].map((i) => <div key={i} className="lgx" style={{ left: `${34 + i * 30}%`, top: `${30 + i * 6}%`, width: 8, height: 8, background: T.gold, clipPath: 'polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%)', '--h': '-16px', animation: anim('lgxRise', 300, 60 + i * 60) }} />)}
+      {[0, 1, 2].map((i) => rose(`r${i}`, { left: `${4 + i * 6}%`, top: `${74 + i * 5}%`, width: 18, height: 18, '--spin': '0deg', animation: anim('lgrShowmanToss', 330, i * 45, 'cubic-bezier(.3,.7,.4,1)') }))}
+      {around(6, (i, a) => <div key={i} className="lgx" style={{ left: '50%', top: '34%', width: 13, height: 13, marginLeft: -6.5, background: i % 2 ? T.gold : T.white, clipPath: 'polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%)', filter: `drop-shadow(0 0 3px ${T.amber})`, '--a': `${a}deg`, '--d': '-42px', '--spin': '90deg', animation: anim('lgxShard', 320, 120) }} />)}
     </>,
     encore: () => <>
       {/* the two spotlights swing in from the wings and cross on him */}
@@ -34,7 +34,8 @@ export default {
       {around(12, (i, a) => <div key={`s${i}`} className="lgx" style={{ ...center, width: 7, height: 7, marginLeft: -3.5, background: i % 2 ? T.gold : T.white, clipPath: 'polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%)', '--a': `${a}deg`, '--d': `${i % 2 ? -70 : -96}px`, '--spin': '180deg', animation: anim('lgxShard', 820, 300 + (i % 3) * 40) }} />)}
     </>,
     tear: () => <>
-      <div className="lgx" style={{ right: '17%', top: '14%', width: 9, height: 12, borderRadius: '50% 50% 50% 50% / 64% 64% 36% 36%', background: `radial-gradient(circle at 40% 60%, ${T.white}, ${T.tear} 55%, #2f8fd0)`, border: `1.5px solid ${T.ink}`, animation: anim('lgrShowmanTear', 340, 0, 'ease-in') }} />
+      <div className="lgx" style={{ right: 'calc(17% + 5px)', top: '14%', width: 6, height: '30%', transformOrigin: 'top', borderRadius: 3, background: `linear-gradient(${T.tear}, rgba(127,212,255,0))`, animation: anim('lgrShowmanStreak', 340) }} />
+      <div className="lgx" style={{ right: '17%', top: '14%', width: 16, height: 22, borderRadius: '50% 50% 50% 50% / 64% 64% 36% 36%', background: `radial-gradient(circle at 40% 60%, ${T.white}, ${T.tear} 55%, #2f8fd0)`, border: `2px solid ${T.ink}`, boxShadow: `0 0 8px ${T.tear}`, animation: anim('lgrShowmanTear', 340, 0, 'ease-in') }} />
     </>,
     twist: () => <>
       <div className="lgx lgx-full" style={{ background: 'radial-gradient(circle, rgba(197, 139, 255, .4), transparent 58%)', animation: anim('lgxFlash', 520) }} />
@@ -56,6 +57,7 @@ export default {
   css: `
 @keyframes lgrShowmanToss { 0% { transform: translate(0, 0) rotate(0); opacity: 0 } 15% { opacity: 1 } 55% { transform: translate(40px, -60px) rotate(200deg) } 100% { transform: translate(70px, -26px) rotate(380deg); opacity: 0 } }
 @keyframes lgrShowmanBeam { 0% { transform: rotate(var(--r0)); opacity: 0 } 18% { opacity: 1 } 45% { transform: rotate(var(--r1)) } 80% { transform: rotate(var(--r1)); opacity: 1 } 100% { transform: rotate(var(--r1)); opacity: 0 } }
+@keyframes lgrShowmanStreak { 0% { transform: scaleY(0); opacity: 0 } 30% { opacity: 1 } 80% { transform: scaleY(1); opacity: .9 } 100% { transform: scaleY(1); opacity: 0 } }
 @keyframes lgrShowmanTear { 0% { transform: translateY(0) scale(.4); opacity: 0 } 25% { transform: translateY(0) scale(1); opacity: 1 } 100% { transform: translateY(34px) scale(.9, 1.1); opacity: 0 } }
 @keyframes lgrShowmanFlip { 0% { transform: perspective(300px) rotateY(0) scale(.3); opacity: 0 } 20% { opacity: 1 } 60% { transform: perspective(300px) rotateY(540deg) scale(1.25) } 82% { transform: perspective(300px) rotateY(720deg) scale(1); opacity: 1 } 100% { transform: perspective(300px) rotateY(720deg) scale(1.1); opacity: 0 } }
 .lgr-showman-laugh { animation: lgrShowmanTip 320ms ease-out both; transform-origin: 50% 90% }

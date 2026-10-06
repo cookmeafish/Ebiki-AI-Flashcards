@@ -20,7 +20,9 @@ export default {
     // Kick (tick): one of your puppets hops in and kicks; three wood chips fly.
     kick: () => <>
       {puppet({ left: '8%', bottom: '2%', animation: anim('lgrPuppeteerHopKick', 340) })}
-      {around(3, (i) => <div key={i} className="lgx" style={{ left: '40%', top: '62%', width: 6, height: 4, background: WOOD, '--a': `${60 + i * 25}deg`, '--d': '-38px', '--spin': '200deg', animation: anim('lgxShard', 320, 120) }} />)}
+      {/* the kick connects: a cartoon impact star and wood chips */}
+      <div className="lgx" style={{ left: '40%', top: '62%', width: 40, height: 40, margin: '-20px 0 0 -20px', background: GOLD, clipPath: 'polygon(50% 0, 60% 32%, 95% 20%, 70% 48%, 100% 70%, 62% 66%, 55% 100%, 42% 68%, 6% 82%, 30% 52%, 0 26%, 38% 32%)', filter: 'drop-shadow(0 0 2px #1a0006) drop-shadow(0 0 6px #ffd75a)', animation: anim('lgrPuppeteerPow', 200, 130, 'cubic-bezier(.2,1.5,.4,1)') }} />
+      {around(6, (i) => <div key={i} className="lgx" style={{ left: '40%', top: '62%', width: 10, height: 6, background: WOOD, border: '1px solid #1a0006', '--a': `${20 + i * 30}deg`, '--d': '-48px', '--spin': '200deg', animation: anim('lgxShard', 320, 120) }} />)}
     </>,
     // Steal (big): three taut golden strings snap one by one and recoil, and a puppet drops to your side.
     steal: () => <>
@@ -45,6 +47,7 @@ export default {
   // Reactions (body only; the mask layers come with the art pass): steal = yanked up 12 px, then dangling like a
   // pendulum from the top; yank = reels back toward the top left; kick = a 1.5 px dip.
   css: `
+@keyframes lgrPuppeteerPow { 0% { transform: scale(.2) rotate(-30deg); opacity: 0 } 50% { transform: scale(1.2) rotate(6deg); opacity: 1 } 100% { transform: scale(1.3); opacity: 0 } }
 @keyframes lgrPuppeteerHopKick { 0% { transform: translate(0, 0) rotate(0); opacity: 0 } 25% { transform: translate(18px, -14px) rotate(-10deg); opacity: 1 } 55% { transform: translate(40px, -6px) rotate(25deg); opacity: 1 } 100% { transform: translate(30px, 0) rotate(0); opacity: 0 } }
 @keyframes lgrPuppeteerSpark { 0% { transform: scale(.2); opacity: 0 } 30% { transform: scale(1.6); opacity: 1 } 100% { transform: scale(.6); opacity: 0 } }
 @keyframes lgrPuppeteerDrop { 0% { transform: translateY(-20px) rotate(-30deg); opacity: 0 } 15% { opacity: 1 } 55% { transform: translateY(96px) rotate(8deg); opacity: 1 } 70% { transform: translateY(86px) rotate(-4deg) } 85% { transform: translateY(96px) rotate(0); opacity: 1 } 100% { transform: translateY(96px); opacity: 0 } }

@@ -13,20 +13,21 @@ const coin = (style) => ({ borderRadius: '50%', background: COIN, border: `1.5px
 
 export default {
   effects: {
+    // (three coins pop off his pile, spin through the air toward your counter on the right; a gold glint where they left)
     loot: () => <>
-      <div className="lgx" style={{ left: '50%', top: '42%', ...coin({ width: 16, height: 16, marginLeft: -8 }), animation: anim('lgrRatkingCoinFlip', 340, 0, 'ease-in') }} />
-      {[0, 1].map((i) => <div key={i} className="lgx" style={{ left: `${48 + i * 5}%`, top: '40%', width: 4, height: 4, borderRadius: '50%', background: R.goldHi, '--h': '-18px', animation: anim('lgxRise', 300, i * 50) }} />)}
+      <div className="lgx" style={{ left: '50%', top: '66%', width: 40, height: 40, background: `radial-gradient(circle, ${R.white} 0 15%, ${R.gold} 35%, transparent 65%)`, '--s': 1.8, animation: anim('lgxRing', 300) }} />
+      {[0, 1, 2].map((i) => <div key={i} className="lgx" style={{ left: '50%', top: '66%', ...coin({ width: 18, height: 18, marginLeft: -9, marginTop: -9 }), '--tx': `${70 + i * 18}px`, '--ty': `${-50 + i * 14}px`, animation: anim('lgrRatkingCoinArc', 330, i * 40, 'cubic-bezier(.3,.6,.5,1)') }} />)}
     </>,
     stolen: () => <>
       {[0, 1, 2].map((i) => (
-        <div key={i} className="lgx" style={{ left: '-18%', bottom: `${4 + i * 7}%`, width: 30, height: 15, animation: anim('lgrRatkingScurry', 760, i * 70, 'linear') }}>
+        <div key={i} className="lgx" style={{ left: '-30%', bottom: `${6 + i * 10}%`, width: 30, height: 15, animation: anim('lgrRatkingScurry', 760, i * 70, 'linear') }}><div style={{ position: 'absolute', inset: 0, transform: 'scale(1.7)', transformOrigin: 'left bottom', filter: `drop-shadow(0 0 3px ${R.gold})` }}>
           {/* a rat silhouette: body, head, ear, tail; the first one carries the coin */}
           <div style={{ position: 'absolute', left: 6, top: 3, width: 18, height: 11, borderRadius: '60% 50% 40% 40%', background: R.rat, border: `1.5px solid ${R.ink}` }} />
           <div style={{ position: 'absolute', left: 20, top: 5, width: 10, height: 7, borderRadius: '30% 70% 60% 40%', background: R.rat, border: `1.5px solid ${R.ink}` }} />
           <div style={{ position: 'absolute', left: 20, top: 1, width: 5, height: 5, borderRadius: '50%', background: R.rat, border: `1.5px solid ${R.ink}` }} />
           <div style={{ position: 'absolute', left: -6, top: 9, width: 14, height: 2, borderRadius: 2, background: R.rat, transform: 'rotate(-12deg)' }} />
-          {i === 0 && <div style={{ position: 'absolute', left: 25, top: -6, ...coin({ width: 10, height: 10 }) }} />}
-        </div>
+          <div style={{ position: 'absolute', left: 25, top: -6, ...coin({ width: 10, height: 10 }) }} />
+        </div></div>
       ))}
     </>,
     bomb: () => <>
@@ -37,7 +38,9 @@ export default {
       {around(14, (i, a) => <div key={i} className="lgx" style={{ ...center, ...(i % 2 ? coin({ width: 12, height: 12 }) : { width: 13, height: 10, background: R.cheese, border: `1.5px solid ${R.ink}`, clipPath: 'polygon(0 100%, 100% 100%, 50% 0)' }), marginLeft: -6, '--a': `${a}deg`, '--d': `${-80 - (i % 3) * 16}px`, '--spin': `${i % 2 ? 360 : -280}deg`, animation: anim('lgxShard', 850, 480 + (i % 3) * 25) }} />)}
     </>,
     buyTail: () => <>
-      <div className="lgx" style={{ left: '50%', bottom: '6%', width: 70, height: 36, marginLeft: -35, borderRadius: '50%', border: `5px solid ${R.gold}`, borderTopColor: 'transparent', borderRightColor: 'transparent', boxShadow: `0 0 10px ${R.gold}`, animation: anim('lgrRatkingCurl', 780, 0, 'cubic-bezier(.34,1.56,.64,1)') }} />
+      <svg className="lgx" viewBox="0 0 120 70" style={{ left: '50%', bottom: '2%', width: 130, height: 76, marginLeft: -65, overflow: 'visible', filter: `drop-shadow(0 0 8px ${R.gold})` }} aria-hidden="true">
+        {[[R.ink, 11], [R.goldLo, 8], [R.gold, 5], [R.goldHi, 1.6]].map(([c, w], k) => <path key={k} d="M6 62C30 66 60 64 78 50S96 14 76 12 58 34 74 40 96 30 100 20" fill="none" stroke={c} strokeWidth={w} strokeLinecap="round" style={{ strokeDasharray: 230, animation: anim('lgrRatkingTailDraw', 780, 0, 'cubic-bezier(.3,.7,.3,1)') }} />)}
+      </svg>
       {[0, 1, 2, 3].map((i) => <div key={i} className="lgx" style={{ left: `${38 + i * 8}%`, bottom: '10%', width: 5, height: 5, borderRadius: '50%', background: R.goldHi, boxShadow: `0 0 6px ${R.gold}`, '--h': '-34px', animation: anim('lgxRise', 600, 120 + i * 60) }} />)}
     </>,
     tail: () => <>
@@ -58,11 +61,11 @@ export default {
     tail: { size: 'big', shake: 1, flash: 1, hitstop: 1, sfx: 'ratking.tail' },
   },
   css: `
-@keyframes lgrRatkingCoinFlip { 0% { transform: translateY(0) rotateY(0) scale(.6); opacity: 0 } 20% { opacity: 1 } 100% { transform: translateY(70px) rotateY(720deg) scale(1); opacity: 0 } }
-@keyframes lgrRatkingScurry { 0% { transform: translateX(0) translateY(0) } 25% { transform: translateX(70px) translateY(-2px) } 50% { transform: translateX(140px) translateY(0) } 75% { transform: translateX(210px) translateY(-2px) } 100% { transform: translateX(300px) translateY(0) } }
+@keyframes lgrRatkingCoinArc { 0% { transform: translate(0, 0) rotateY(0) scale(.5); opacity: 0 } 15% { opacity: 1 } 50% { transform: translate(calc(var(--tx) * .5), calc(var(--ty) - 24px)) rotateY(360deg) scale(1.15) } 100% { transform: translate(var(--tx), var(--ty)) rotateY(720deg) scale(.8); opacity: 0 } }
+@keyframes lgrRatkingTailDraw { 0% { stroke-dashoffset: 230; opacity: 0 } 10% { opacity: 1 } 55% { stroke-dashoffset: 0 } 80% { stroke-dashoffset: 0; opacity: 1 } 100% { stroke-dashoffset: 0; opacity: 0 } }
+@keyframes lgrRatkingScurry { 0% { transform: translateX(0) translateY(0) } 25% { transform: translateX(80px) translateY(-4px) } 50% { transform: translateX(160px) translateY(0) } 75% { transform: translateX(240px) translateY(-4px) } 100% { transform: translateX(340px) translateY(0) } }
 @keyframes lgrRatkingLob { 0% { transform: translate(-70px, 110px) rotate(-120deg) scale(.6); opacity: 0 } 15% { opacity: 1 } 60% { transform: translate(-25px, -30px) rotate(-30deg) scale(1) } 100% { transform: translate(0, 0) rotate(0) scale(1.1); opacity: 1 } }
 @keyframes lgrRatkingBlast { 0% { transform: scale(.2); opacity: 0 } 15% { transform: scale(1); opacity: 1 } 100% { transform: scale(1.5); opacity: 0 } }
-@keyframes lgrRatkingCurl { 0% { transform: rotate(-200deg) scale(.4); opacity: 0 } 40% { opacity: 1 } 75% { transform: rotate(10deg) scale(1.05) } 100% { transform: rotate(0) scale(1); opacity: 0 } }
 @keyframes lgrRatkingHeartSave { 0% { transform: scale(.4); opacity: 0 } 30% { transform: scale(1.3); opacity: 1 } 60% { transform: scale(1) } 100% { transform: translateY(-20px) scale(1); opacity: 0 } }
 .lgr-ratking-loot { animation: lgrRatkingFlinch 320ms ease-out both }
 @keyframes lgrRatkingFlinch { 0%, 100% { transform: none } 30% { transform: translateX(-6px) rotate(-3deg) } 65% { transform: translateX(2px) } }

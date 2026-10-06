@@ -317,6 +317,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
   const [powerArmed, setPowerArmed] = useState({}) // { shield, sharpen } up now
   const powerArmedRef = useRef({})
   const setPA = (v) => { powerArmedRef.current = v; setPowerArmed(v) }
+  const [powerCast, setPowerCast] = useState(null) // { id, n }: the power just used, for the arena's burst
   const windUsed = useRef(false)
   const streak = useRef({ now: 0, best: 0 }) // clean answers in a row (a drop at DROP.streak)
   const bagLeft = (() => { const b = { ...storedBag }; for (const id of usedRef.current) b[id] = Math.max(0, (b[id] || 0) - 1); return b })()
@@ -709,6 +710,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
       fsRef.current = next
       setFs(next)
     }
+    if (id !== 'wind') setPowerCast((p) => ({ id, n: (p?.n || 0) + 1 }))
     usedOnQ.current.add(q)
     usedRef.current = [...usedRef.current, id]
     setUsedN(usedRef.current.length)
@@ -744,7 +746,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     <div style={{ display: 'grid', gap: 12 }}>
       <div style={{ maxWidth: 680, width: '100%', margin: '0 auto', position: 'sticky', top: 0, zIndex: 5, paddingTop: 4, background: C.bg }}>
         {testMotif && <TestTag t={t} />}
-        <BossArena t={t} area={area} name={bossName} need={dayHp} lives={maxHearts} state={shown} phases={RAID.phases} ability={ability} dayAb={day?.ab || null} focus={focus} getZoom={ctx.getZoom} kind="raids" questionKey={questionKey} />
+        <BossArena t={t} area={area} name={bossName} need={dayHp} lives={maxHearts} state={shown} phases={RAID.phases} ability={ability} dayAb={day?.ab || null} focus={focus} getZoom={ctx.getZoom} kind="raids" questionKey={questionKey} power={powerCast} armed={powerArmed} />
         {phase === 'fight' && <TauntBubble bubble={taunt.bubble} name={bossName} calm={focus} ctx={ctx} />}
         <FightNotice notice={fc.notice} t={t} />
       </div>

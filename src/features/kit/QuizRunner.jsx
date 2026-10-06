@@ -54,6 +54,13 @@ const PLAY_BASE_MS = 2500
 const PLAY_PER_CHAR_MS = 110
 const PLAY_MAX_MS = 20000
 
+// A tool's 50:50 pops the two tiles left in; a hint slides in with a flash (none under reduced motion).
+const POP_CSS = `
+@keyframes kitNarrowIn { 0% { transform: scale(.6) rotate(-3deg); opacity: 0; filter: brightness(2) } 60% { transform: scale(1.05) rotate(1deg); opacity: 1 } 100% { transform: none; filter: none } }
+@keyframes kitHintIn { 0% { transform: translateY(-6px) scale(.9); opacity: 0; text-shadow: 0 0 12px currentColor } 60% { transform: translateY(1px) scale(1.04); opacity: 1 } 100% { transform: none; text-shadow: none } }
+@media (prefers-reduced-motion: reduce) { [data-quiz-pop] { animation: none !important } }
+`
+
 export default function QuizRunner({ questions: given, t, ai, subject, onAnswer, onFinish, onExit, title, confirm, ctx, feedbackExtra, retryMisses = false, judge, canUseChoices, header, tools, onQuestion, resolveQuestion, startChoices }) {
   const [idx, setIdx] = useState(0)
   // The feature's list, plus the misses asked again at the end and anything the feature put in (attacks).
@@ -290,7 +297,8 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
       {header && header(q, asChoice ? 'choice' : 'typed')}
       <div dir="auto" data-quiz-prompt="" style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 22, color: C.ink, lineHeight: glossMap && Object.keys(glossMap).length ? 2.2 : 1.35, whiteSpace: 'pre-wrap' }}>{words(q.prompt, 'q', { guarded: true, gloss: true })}</div>
       {popup('q')}
-      {hintText && phase === 'answer' && <div role="status" dir="auto" style={{ fontSize: 14, fontWeight: 700, color: C.warning }}>{words(hintText, 'h', { guarded: true })}</div>}
+      {(narrow || hintText) && <style>{POP_CSS}</style>}
+      {hintText && phase === 'answer' && <div key={hintText} role="status" dir="auto" data-quiz-pop="" style={{ fontSize: 14, fontWeight: 700, color: C.warning, animation: 'kitHintIn 520ms cubic-bezier(.2,1.2,.4,1) both' }}>{words(hintText, 'h', { guarded: true })}</div>}
       {hintText && phase === 'answer' && popup('h')}
       {q.audio?.text && ctx && (
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -313,7 +321,8 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
             const showWrong = phase === 'feedback' && isPick && i !== view.answerIdx
             const edge = showRight ? C.success : showWrong ? C.danger : isPick ? C.info : C.border
             return (
-              <button key={i} data-quiz-choice="" disabled={phase !== 'answer'} onClick={() => setPicked(i)} className="btn-press" style={{
+              <button key={narrow ? `n${i}` : i} data-quiz-choice="" {...(narrow ? { 'data-quiz-pop': '' } : {})} disabled={phase !== 'answer'} onClick={() => setPicked(i)} className="btn-press" style={{
+                ...(narrow ? { animation: `kitNarrowIn 480ms cubic-bezier(.2,1.4,.4,1) ${i * 90}ms both` } : {}),
                 display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', textAlign: 'left', borderRadius: RADIUS.md,
                 ...depthBorder(edge, { bottomColor: edge }), background: isPick || showRight ? `color-mix(in srgb, ${edge} 12%, ${C.surface})` : C.surface,
                 color: C.ink, fontFamily: FONT.body, fontSize: 16, fontWeight: 700, cursor: phase === 'answer' ? 'pointer' : 'default',

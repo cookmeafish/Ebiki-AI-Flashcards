@@ -11,6 +11,7 @@ import { newFight } from './fight'
 import { MOTIFS, PALETTES } from './map'
 import { RAID, RAID_MOTIFS, RAID_ABILITY, raidBossNumber } from './raid'
 import { raidProfile } from './raidProfiles'
+import { POWERS } from './powers'
 import { RAID_VOICES } from './raidVoices'
 import { bestiaryRows } from './abilities/_triggers'
 import { floaterKeyFor, fxDemoFor, fxLabel } from './fx'
@@ -275,6 +276,8 @@ const IMPACT_DEMOS = [
 ]
 function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot, step, setStep }) {
   const [impact, setImpact] = useState(null) // { id, n }: an impact moment to replay
+  const [cast, setCast] = useState(null) // { id, n }: a raid power used (impact/PowerFx.jsx)
+  const [armedDemo, setArmedDemo] = useState({}) // Shield / Sharpen held up until the next impact moment
   const imp = impact && IMPACT_DEMOS.find((d) => d[0] === impact.id)
   const third = VIEW.demoHp / RAID.phases
   const damage = imp?.[0] === 'ko' ? VIEW.demoHp : Math.min(VIEW.demoHp - 1, Math.round(step * third))
@@ -287,7 +290,7 @@ function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot, step, setStep }
   const state = { ...newFight(), ...(demoAb ? { ab: demoAb } : {}), damage, last: fxLast || impactLast || (step ? { kind: 'hit', damage: Math.round(third), lives: 0, n: step } : null) }
   return (
     <div style={{ display: 'grid', gap: 10 }}>
-      <BossArena key={motif} t={t} area={area} name={motif} need={VIEW.demoHp} lives={raidProfile(motif).hearts} state={state} phases={RAID.phases} ability={ability} getZoom={getZoom} kind="raids" />
+      <BossArena key={motif} t={t} area={area} name={motif} need={VIEW.demoHp} lives={raidProfile(motif).hearts} state={state} phases={RAID.phases} ability={ability} getZoom={getZoom} kind="raids" power={cast} armed={armedDemo} />
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <ChunkyButton variant="ghost" color={C.danger} onClick={() => { onClearShot(); setImpact(null); setStep((n) => (n + 1) % RAID.phases) }} style={{ fontSize: 12, padding: '6px 10px' }}>⚔️ {t('lg_assetsNextPhase')}</ChunkyButton>
       </div>
@@ -295,7 +298,14 @@ function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot, step, setStep }
         <span style={{ fontSize: 11.5, fontWeight: 900, letterSpacing: '.06em', textTransform: 'uppercase', color: C.inkDim }}>{t('lg_assetsImpact')}</span>
         {IMPACT_DEMOS.map(([id, key]) => (
           <ChunkyButton key={id} variant="ghost" color={id === 'ko' ? C.danger : C.purple} data-impact-demo={id}
-            onClick={() => { onClearShot(); setImpact((x) => ({ id, n: (x?.n || 0) + 1 })) }} style={{ fontSize: 11.5, padding: '5px 9px' }}>{t(key)}</ChunkyButton>
+            onClick={() => { onClearShot(); setArmedDemo({}); setImpact((x) => ({ id, n: (x?.n || 0) + 1 })) }} style={{ fontSize: 11.5, padding: '5px 9px' }}>{t(key)}</ChunkyButton>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        <span style={{ fontSize: 11.5, fontWeight: 900, letterSpacing: '.06em', textTransform: 'uppercase', color: C.inkDim }}>{t('lg_assetsPowers')}</span>
+        {['shield', 'fifty', 'sharpen', 'hint'].map((id) => (
+          <ChunkyButton key={id} variant="ghost" color={C.info} data-power-demo={id}
+            onClick={() => { setCast((x) => ({ id, n: (x?.n || 0) + 1 })); if (id === 'shield' || id === 'sharpen') setArmedDemo((a) => ({ ...a, [id]: true })) }} style={{ fontSize: 11.5, padding: '5px 9px' }}>{POWERS[id].icon} {t(`lg_pow_${id}`)}</ChunkyButton>
         ))}
       </div>
     </div>

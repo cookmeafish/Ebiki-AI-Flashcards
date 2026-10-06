@@ -18,9 +18,11 @@ const bat = (key, style) => (
 
 export default {
   effects: {
-    drip: () => (
-      <div className="lgx" style={{ left: '56%', top: '30%', width: 9, height: 13, borderRadius: '50% 50% 50% 50% / 65% 65% 35% 35%', background: `radial-gradient(circle at 40% 35%, ${GLINT}, ${BLOOD} 55%)`, animation: anim('lgxFall', 340, 0, 'ease-in') }} />
-    ),
+    // Drip (tick): two fang marks stab in beside the boss's mouth and three outlined blood drops run down from them.
+    drip: () => <>
+      {[-1, 1].map((s) => <div key={s} className="lgx" style={{ left: `calc(56% + ${s * 7}px)`, top: '30%', width: 8, height: 16, marginLeft: -4, clipPath: 'polygon(0 0, 100% 0, 50% 100%)', background: `linear-gradient(#ffffff, ${GLINT} 50%, ${BLOOD_HOT})`, filter: 'drop-shadow(0 0 2px #2a0008)', animation: anim('lgrVampireStab', 300, s > 0 ? 30 : 0, 'cubic-bezier(.5,0,.3,1)') }} />)}
+      {[0, 1, 2].map((i) => <div key={i} className="lgx" style={{ left: `calc(56% + ${(i - 1) * 7}px)`, top: '38%', width: 10, height: 14, marginLeft: -5, borderRadius: '50% 50% 50% 50% / 65% 65% 35% 35%', background: `radial-gradient(circle at 40% 35%, ${GLINT}, ${BLOOD} 55%)`, boxShadow: '0 0 0 1.5px #2a0008', '--spin': '0deg', animation: anim('lgxFall', 320, 90 + i * 50, 'ease-in') }} />)}
+    </>,
     ward: () => <>
       {/* droplets swirl in */}
       {around(10, (i, a) => (
@@ -42,7 +44,7 @@ export default {
       {ring('#ffffff', 660, 1.2, 3, 420)}
     </>,
     feast: () => <>
-      <div className="lgx lgx-full" style={{ background: 'radial-gradient(circle, rgba(224,16,47,0) 35%, rgba(224,16,47,.55) 70%, rgba(90,0,16,.85))', borderRadius: '25%', animation: anim('lgxVignette', 1150) }} />
+      <div className="lgx lgx-full" style={{ background: 'radial-gradient(closest-side, rgba(224,16,47,0) 55%, rgba(224,16,47,.5) 82%, rgba(90,0,16,0))', borderRadius: '50%', animation: anim('lgxVignette', 1150) }} />
       {around(9, (i, a) => bat(i, { left: '50%', top: '50%', marginLeft: -15, marginTop: -7, '--x0': `${Math.round(Math.cos((a * Math.PI) / 180) * 150)}px`, '--y0': `${Math.round(Math.sin((a * Math.PI) / 180) * 110) - 30}px`, animation: anim('lgxFly', 700, 80 + i * 55, 'cubic-bezier(.55,0,1,.45)') }))}
       {ring(BLOOD_HOT, 700, 1.7, 5, 500)}
     </>,
@@ -57,6 +59,7 @@ export default {
     feast: { size: 'big', shake: 2, flash: 2, hitstop: 1, sfx: 'vampire.feast' },
   },
   css: `
+@keyframes lgrVampireStab { 0% { transform: translateY(-22px) scaleY(1.4); opacity: 0 } 40% { transform: translateY(0) scaleY(1); opacity: 1 } 70% { transform: translateY(2px); opacity: 1 } 100% { transform: translateY(-6px); opacity: 0 } }
 @keyframes lgrVampireSwirl { 0% { transform: rotate(var(--a)) translateY(-90px) rotate(0); opacity: 0 } 20% { opacity: 1 } 100% { transform: rotate(calc(var(--a) + 220deg)) translateY(-8px) rotate(220deg); opacity: .2 } }
 @keyframes lgrVampireHex { 0% { transform: scale(.2) rotate(-30deg); opacity: 0 } 25% { transform: scale(1.1) rotate(0); opacity: 1 } 40% { transform: scale(1) } 70% { transform: scale(1) translate(0, 0); opacity: 1 } 100% { transform: scale(.35) translate(170px, 60px); opacity: 0 } }
 @keyframes lgrVampireShatter { 0% { transform: scale(1); opacity: 1 } 60% { transform: scale(1.12); opacity: 1 } 100% { transform: scale(1.3); opacity: 0 } }

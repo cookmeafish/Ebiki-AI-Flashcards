@@ -32,6 +32,11 @@ function Hud({ t, state, compact }) {
 export default {
   effects: {
     charge: () => <>
+      {/* a four-point silver star flares where the moon gathers, a crescent sketches itself round it */}
+      <svg className="lgx" viewBox="0 0 40 40" style={{ left: '28%', top: '20%', width: 52, height: 52, margin: '-26px 0 0 -26px', overflow: 'visible', filter: `drop-shadow(0 0 8px ${M.glow})`, animation: anim('lgrMoonmawStarFlare', 330, 0, 'cubic-bezier(.2,1.4,.4,1)') }} aria-hidden="true">
+        <path d="M27 6A15 15 0 1 0 34 30 12 12 0 1 1 27 6Z" fill="none" stroke={M.rim} strokeWidth="3" />
+        <path d="M20 4C21 15 25 19 36 20 25 21 21 25 20 36 19 25 15 21 4 20 15 19 19 15 20 4Z" fill={M.core} stroke={M.ink} strokeWidth="1.2" />
+      </svg>
       <div className="lgx" style={{ left: '28%', top: '18%', width: 16, height: 16, borderRadius: '50%', background: `radial-gradient(circle, ${M.core} 0 25%, ${M.rim} 60%, transparent 70%)`, boxShadow: `0 0 12px ${M.glow}`, '--s': 1.8, animation: anim('lgxRing', 340) }} />
       {[0, 1, 2].map((i) => <div key={i} className="lgx" style={{ left: `${26 + i * 4}%`, top: `${17 + (i % 2) * 4}%`, width: 4, height: 4, borderRadius: '50%', background: M.core, boxShadow: `0 0 6px ${M.glow}`, '--h': '-26px', animation: anim('lgxRise', 330, i * 40) }} />)}
     </>,
@@ -60,6 +65,7 @@ export default {
   },
   Hud,
   css: `
+@keyframes lgrMoonmawStarFlare { 0% { transform: scale(.2) rotate(-60deg); opacity: 0 } 45% { transform: scale(1.2) rotate(10deg); opacity: 1 } 70% { transform: scale(1) rotate(0); opacity: 1 } 100% { transform: scale(.8) rotate(20deg); opacity: 0 } }
 @keyframes lgrMoonmawArcUp { 0% { transform: translate(0, 0) scale(.5); opacity: 0 } 12% { opacity: 1 } 70% { transform: translate(-40px, -150px) scale(.9) } 100% { transform: translate(-70px, -175px) scale(.55); opacity: .85 } }
 @keyframes lgrMoonmawStreak { 0% { transform: translate(-60px, -40px) rotate(38deg) scaleX(.2); opacity: 0 } 15% { opacity: 1 } 100% { transform: translate(60px, 105px) rotate(38deg) scaleX(1); opacity: 0 } }
 @keyframes lgrMoonmawCrater { 0%, 26% { transform: scale(0); opacity: 0 } 30% { transform: scale(1.35); opacity: 1 } 42% { transform: scale(.9) } 60% { transform: scale(1); opacity: 1 } 100% { transform: scale(1.6); opacity: 0 } }

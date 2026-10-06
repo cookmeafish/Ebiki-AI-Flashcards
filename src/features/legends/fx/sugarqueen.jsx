@@ -12,8 +12,8 @@ const SPRINKLES = [S.pink, S.blue, S.lemon, S.mint, S.grape, S.white]
 export default {
   effects: {
     cube: () => <>
-      <div className="lgx" style={{ left: '74%', top: '8%', width: 13, height: 13, borderRadius: 3, background: `linear-gradient(135deg, ${S.white}, ${S.ice})`, border: `1.5px solid ${S.ink}`, '--spin': '90deg', animation: anim('lgrSugarCubeDrop', 340, 0, 'ease-in') }} />
-      {[0, 1, 2].map((i) => <div key={i} className="lgx" style={{ left: `${72 + i * 3}%`, top: '34%', width: 5, height: 5, background: S.lemon, clipPath: 'polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%)', '--h': '-18px', animation: anim('lgxRise', 300, 160 + i * 30) }} />)}
+      <div className="lgx" style={{ left: '74%', top: '8%', width: 22, height: 22, borderRadius: 4, boxShadow: `inset -4px -4px 0 ${S.ice}, 0 0 8px ${S.white}`, background: `linear-gradient(135deg, ${S.white}, ${S.ice})`, border: `1.5px solid ${S.ink}`, '--spin': '90deg', animation: anim('lgrSugarCubeDrop', 340, 0, 'ease-in') }} />
+      {[0, 1, 2, 3, 4].map((i) => <div key={i} className="lgx" style={{ left: `${70 + i * 3}%`, top: '34%', width: 11, height: 11, background: i % 2 ? S.lemon : S.white, filter: `drop-shadow(0 0 2px ${S.ink})`, clipPath: 'polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%)', '--h': '-18px', animation: anim('lgxRise', 300, 160 + i * 30) }} />)}
     </>,
     rush: () => <>
       <div className="lgx lgx-full" style={{ background: `radial-gradient(circle, rgba(255, 143, 208, .55), transparent 60%)`, animation: anim('lgxFlash', 600) }} />
@@ -24,7 +24,13 @@ export default {
       <div className="lgx" style={{ left: '62%', top: '18%', fontSize: 22, '--h': '-60px', animation: anim('lgxRise', 900, 500) }}>💋</div>
     </>,
     sweet: () => <>
-      {around(8, (i, a) => <div key={i} className="lgx" style={{ ...center, width: 4, height: 10, marginLeft: -2, borderRadius: 2, background: SPRINKLES[i % SPRINKLES.length], border: `1px solid ${S.ink}`, '--a': `${a + 20}deg`, '--d': '-44px', '--spin': '180deg', animation: anim('lgxShard', 330) }} />)}
+      {/* a wrapped candy pops on the hit and sprinkles burst off it */}
+      <svg className="lgx" viewBox="0 0 48 24" style={{ ...center, width: 60, height: 30, margin: '-15px 0 0 -30px', overflow: 'visible', filter: `drop-shadow(0 0 6px ${S.rose})`, animation: anim('lgrSugarPop', 330, 0, 'cubic-bezier(.3,1.6,.5,1)') }} aria-hidden="true">
+        <path d="M2 4 13 12 2 20ZM46 4 35 12 46 20Z" fill={S.lemon} stroke={S.ink} strokeWidth="1.5" strokeLinejoin="round" />
+        <circle cx="24" cy="12" r="11" fill={S.pink} stroke={S.ink} strokeWidth="1.6" />
+        <path d="M17 8C20 5 28 5 31 8M16 15C20 19 28 19 32 15" fill="none" stroke={S.white} strokeWidth="2.4" strokeLinecap="round" />
+      </svg>
+      {around(12, (i, a) => <div key={i} className="lgx" style={{ ...center, width: 6, height: 14, marginLeft: -3, borderRadius: 2, background: SPRINKLES[i % SPRINKLES.length], border: `1px solid ${S.ink}`, '--a': `${a + 20}deg`, '--d': '-58px', '--spin': '180deg', animation: anim('lgxShard', 330, 40) }} />)}
     </>,
     crash: () => <>
       <div className="lgx" style={{ ...center, width: 54, height: 54, margin: '-27px 0 0 -27px', borderRadius: '50%', background: `repeating-conic-gradient(${S.pink} 0 22.5deg, ${S.white} 22.5deg 45deg)`, border: `3px solid ${S.ink}`, filter: 'saturate(.6)', animation: anim('lgrSugarCrack', 380) }} />
@@ -41,6 +47,7 @@ export default {
     crash: { size: 'medium', shake: 1, sfx: 'sugarqueen.crash' },
   },
   css: `
+@keyframes lgrSugarPop { 0% { transform: scale(.2) rotate(-30deg); opacity: 0 } 45% { transform: scale(1.25) rotate(8deg); opacity: 1 } 70% { transform: scale(1) rotate(0); opacity: 1 } 100% { transform: scale(1.1); opacity: 0 } }
 @keyframes lgrSugarCubeDrop { 0% { transform: translateY(0) rotate(0); opacity: 0 } 15% { opacity: 1 } 80% { transform: translateY(46px) rotate(90deg); opacity: 1 } 100% { transform: translateY(42px) rotate(90deg); opacity: 0 } }
 @keyframes lgrSugarSpinIn { 0% { transform: rotate(-540deg) scale(0); opacity: 0 } 30% { transform: rotate(-60deg) scale(1.25); opacity: 1 } 45% { transform: rotate(0) scale(1) } 80% { transform: rotate(40deg) scale(1.05); opacity: 1 } 100% { transform: rotate(80deg) scale(1.6); opacity: 0 } }
 @keyframes lgrSugarCrack { 0% { transform: scale(1); opacity: 1 } 60% { transform: scale(1.06) rotate(4deg); opacity: 1 } 100% { transform: scale(.9) rotate(-3deg); opacity: 0 } }

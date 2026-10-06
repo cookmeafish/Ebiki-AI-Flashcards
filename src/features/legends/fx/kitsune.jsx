@@ -14,7 +14,10 @@ export default {
   effects: {
     volley: () => <>
       <div className="lgx lgr-kitsune-trail" style={{ top: '40%', right: '6%', height: 10, borderRadius: 5, background: `linear-gradient(90deg, transparent, ${F.violet} 30%, ${F.pink} 70%, ${F.white})`, filter: `drop-shadow(0 0 6px ${F.pink})`, animation: anim('lgrKitsuneVolley', 340, 0, 'cubic-bezier(.22,1,.36,1)') }} />
-      <div className="lgx" style={{ top: '40%', right: '6%', width: 20, height: 20, marginTop: -5, borderRadius: '50%', background: BALL, border: `2px solid ${F.ink}`, boxShadow: `0 0 12px ${F.cyan}`, animation: anim('lgrKitsuneVolley', 340, 0, 'cubic-bezier(.22,1,.36,1)') }} />
+      <div className="lgx" style={{ top: '40%', right: '6%', width: 28, height: 28, marginTop: -9, borderRadius: '50%', background: BALL, border: `2.5px solid ${F.ink}`, boxShadow: `0 0 14px ${F.cyan}, 0 0 4px ${F.white}`, animation: anim('lgrKitsuneVolley', 340, 0, 'cubic-bezier(.22,1,.36,1)') }} />
+      {/* the smack where it lands: a pink star pops and three fox-fire wisps flick off */}
+      <div className="lgx" style={{ left: '50%', top: '42%', width: 44, height: 44, margin: '-22px 0 0 -22px', ...star(F.white), filter: `drop-shadow(0 0 6px ${F.pink}) drop-shadow(0 0 2px ${F.ink})`, animation: anim('lgrKitsuneSmack', 200, 150, 'cubic-bezier(.2,1.5,.4,1)') }} />
+      {[0, 1, 2].map((i) => <div key={i} className="lgx" style={{ left: `${46 + i * 5}%`, top: '42%', width: 10, height: 16, borderRadius: '50% 50% 40% 40% / 70% 70% 30% 30%', background: `linear-gradient(${F.white}, ${F.cyan} 60%, ${F.violet})`, boxShadow: `0 0 0 1px ${F.ink}`, '--h': `${-30 - i * 10}px`, animation: anim('lgxRise', 200, 160 + i * 20) }} />)}
     </>,
     starfall: () => <>
       <div className="lgx" style={{ ...center, width: 34, height: 34, marginLeft: -17, marginTop: -17, borderRadius: '50%', background: BALL, border: `2px solid ${F.ink}`, boxShadow: `0 0 30px ${F.white}, 0 0 60px ${F.pink}`, animation: anim('lgrKitsuneBurst', 420) }} />
@@ -38,6 +41,7 @@ export default {
     caught: { size: 'medium', shake: 1, sfx: 'kitsune.caught' },
   },
   css: `
+@keyframes lgrKitsuneSmack { 0% { transform: scale(.2) rotate(-40deg); opacity: 0 } 50% { transform: scale(1.2) rotate(10deg); opacity: 1 } 100% { transform: scale(1.4) rotate(30deg); opacity: 0 } }
 .lgr-kitsune-trail { width: 22% }
 .lg-boss[data-ab-rally="2"] .lgr-kitsune-trail { width: 40%; height: 12px }
 .lg-boss[data-ab-rally="3"] .lgr-kitsune-trail { width: 62%; height: 14px }

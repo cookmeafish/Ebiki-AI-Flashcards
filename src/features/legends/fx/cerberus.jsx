@@ -32,8 +32,9 @@ const ember = (i, extra) => <div key={i} className="lgx" style={{ width: 6, heig
 export default {
   effects: {
     bindFire: () => <>
-      {chain(9, { left: '-10%', top: '34%', transformOrigin: '0 50%', '--r0': '-40deg', '--r1': '8deg', animation: anim('lgrCerberusLash', 340, 0, 'cubic-bezier(.2,.9,.3,1)') })}
-      {[0, 1, 2, 3].map((i) => ember(i, { left: `${24 + i * 5}%`, top: '38%', '--h': `${-30 - i * 8}px`, animation: anim('lgxRise', 300, 80 + i * 30) }))}
+      {chain(9, { left: '-14%', top: '32%', transformOrigin: '0 50%', filter: `drop-shadow(0 0 4px ${T.fire})`, '--r0': '-40deg', '--r1': '8deg', animation: anim('lgrCerberusLash', 340, 0, 'cubic-bezier(.2,.9,.3,1)') }, 'c', 15)}
+      <div className="lgx" style={{ left: '28%', top: '36%', width: 44, height: 44, borderRadius: '50%', background: `radial-gradient(circle, ${T.fireHi} 0 20%, ${T.fire} 45%, rgba(255,74,28,0) 70%)`, '--s': 1.6, animation: anim('lgxRing', 300, 120) }} />
+      {[0, 1, 2, 3, 4, 5].map((i) => ember(i, { left: `${22 + i * 4}%`, top: '38%', width: 8, height: 8, '--h': `${-34 - i * 8}px`, animation: anim('lgxRise', 300, 80 + i * 25) }))}
     </>,
     bindIron: () => <>
       {chain(8, { left: '22%', top: '50%', width: '56%', animation: anim('lgxFade', 330) })}
@@ -41,8 +42,8 @@ export default {
       {ring(T.ironHi, 60, 1.1, 3, 300)}
     </>,
     bindShadow: () => <>
-      {[0, 1, 2, 3, 4].map((i) => <div key={i} className="lgx" style={{ right: `${6 + i * 6}%`, top: `${30 + (i % 2) * 10}%`, width: 14, height: 14, borderRadius: '50%', background: `radial-gradient(circle, ${T.smokeHi}, ${T.smoke} 60%, transparent 70%)`, '--x0': '40px', '--y0': `${-20 + i * 10}px`, animation: anim('lgxFly', 320, i * 20) }} />)}
-      {chain(7, { right: '-6%', top: '40%', transformOrigin: '100% 50%', '--r0': '35deg', '--r1': '-6deg', animation: anim('lgrCerberusLash', 330, 60, 'cubic-bezier(.2,.9,.3,1)') }, 's')}
+      {[0, 1, 2, 3, 4].map((i) => <div key={i} className="lgx" style={{ right: `${6 + i * 6}%`, top: `${30 + (i % 2) * 10}%`, width: 22, height: 22, borderRadius: '50%', background: `radial-gradient(circle, ${T.smokeHi}, ${T.smoke} 60%, transparent 70%)`, '--x0': '40px', '--y0': `${-20 + i * 10}px`, animation: anim('lgxFly', 320, i * 20) }} />)}
+      {chain(7, { right: '-10%', top: '40%', transformOrigin: '100% 50%', flexDirection: 'row-reverse', filter: `drop-shadow(0 0 5px ${T.smokeHi})`, '--r0': '35deg', '--r1': '-6deg', animation: anim('lgrCerberusLash', 330, 60, 'cubic-bezier(.2,.9,.3,1)') }, 's', 14)}
     </>,
     bound: () => <>
       <div className="lgx lgx-full" style={{ background: `radial-gradient(circle, rgba(95, 240, 210, .28), transparent 60%)`, animation: anim('lgxFlash', 600) }} />
@@ -58,7 +59,8 @@ export default {
     </>,
     snap: () => <>
       {/* links of the broken chain fly off the Fire head, its mane flares */}
-      {around(8, (i, a) => <div key={i} className="lgx" style={{ left: '28%', top: '34%', width: 11, height: 8, borderRadius: '50%', border: `3px solid ${T.iron}`, boxShadow: `0 0 0 1.5px ${T.ink}`, '--a': `${a}deg`, '--d': `${-60 - (i % 3) * 14}px`, '--spin': `${i % 2 ? 300 : -300}deg`, animation: anim('lgxShard', 700, i * 15) }} />)}
+      <div className="lgx" style={{ left: '28%', top: '34%', width: 70, height: 70, borderRadius: '50%', background: `radial-gradient(circle, ${T.fireHi} 0 15%, ${T.fire} 40%, rgba(255,74,28,0) 70%)`, '--s': 1.7, animation: anim('lgxRing', 520) }} />
+      {around(8, (i, a) => <div key={i} className="lgx" style={{ left: '28%', top: '34%', width: 18, height: 13, borderRadius: '50%', border: `4px solid ${T.iron}`, boxShadow: `0 0 0 1.5px ${T.ink}`, '--a': `${a}deg`, '--d': `${-60 - (i % 3) * 14}px`, '--spin': `${i % 2 ? 300 : -300}deg`, animation: anim('lgxShard', 700, i * 15) }} />)}
       {[0, 1, 2].map((i) => <div key={`f${i}`} className="lgx" style={{ left: `${12 + i * 9}%`, top: `${6 + (i % 2) * 6}%`, width: 9, height: 22, borderRadius: '50% 50% 40% 40% / 70% 70% 30% 30%', background: `linear-gradient(${T.fireHi}, ${T.fire} 55%, ${T.ember})`, border: `1.5px solid ${T.ink}`, transformOrigin: '50% 100%', animation: anim('lgrCerberusFlare', 640, 40 + i * 50) }} />)}
     </>,
   },

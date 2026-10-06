@@ -9,9 +9,15 @@ const IRON = '#ffb347'
 export default {
   effects: {
     // Crack (tick): a white-hot crack line flashes across one plate, four sparks fall.
+    // (the crack runs across the chest plate as a drawn, branching white-hot line over a dark groove)
     crack: () => <>
-      <div className="lgx" style={{ ...center, width: '46%', height: 14, marginLeft: '-23%', marginTop: -7, background: HOT, boxShadow: `0 0 10px ${IRON}`, clipPath: 'polygon(0 45%, 18% 20%, 30% 70%, 48% 10%, 62% 80%, 78% 30%, 100% 55%, 100% 70%, 78% 45%, 62% 95%, 48% 25%, 30% 85%, 18% 35%, 0 60%)', animation: anim('lgxFade', 340) }} />
-      {[0, 1, 2, 3].map((i) => <div key={i} className="lgx" style={{ left: `${36 + i * 9}%`, top: '50%', width: 4, height: 4, borderRadius: '50%', background: IRON, boxShadow: `0 0 6px ${FORGE}`, '--spin': '0deg', animation: anim('lgxFall', 340, i * 30, 'ease-in') }} />)}
+      <svg className="lgx" viewBox="0 0 100 60" style={{ left: '14%', top: '30%', width: '72%', height: '42%', overflow: 'visible', filter: `drop-shadow(0 0 6px ${HOT})` }} aria-hidden="true">
+        {[['#2a1408', 10], [FORGE, 6], [HOT, 3]].map(([c, w], k) => (
+          <path key={k} d="M2 30 L18 22 L27 36 L42 18 L55 38 L68 24 L80 34 L98 26 M42 18 L46 6 M55 38 L52 54 M68 24 L76 12" fill="none" stroke={c} strokeWidth={w} strokeLinejoin="bevel" strokeLinecap="round"
+            style={{ strokeDasharray: 160, animation: anim('lgrTitanDraw', 330, 0, 'cubic-bezier(.2,.8,.3,1)') }} />
+        ))}
+      </svg>
+      {[0, 1, 2, 3, 4, 5].map((i) => <div key={i} className="lgx" style={{ left: `${32 + i * 7}%`, top: '50%', width: 6, height: 6, borderRadius: '50%', background: HOT, boxShadow: `0 0 0 1.5px ${FORGE}, 0 0 8px ${IRON}`, '--spin': '0deg', animation: anim('lgxFall', 340, 60 + i * 25, 'ease-in') }} />)}
     </>,
     // Shatter (big): the plates burst outward as tumbling glowing iron shards, a forge-red shockwave ring.
     shatter: () => <>
@@ -20,10 +26,14 @@ export default {
       {ring(FORGE, 0, 2.4, 7, 800)}
       {ring(HOT, 120, 1.8, 3, 700)}
     </>,
-    // Exposed hit (tick): a small orange spark on the hit.
+    // Exposed hit (tick): the strike lands on bare molten core: a jagged white-orange impact star punches in and
+    // eight anvil sparks spray out.
     exposedHit: () => <>
-      <div className="lgx" style={{ ...center, width: 34, height: 34, borderRadius: '50%', background: `radial-gradient(circle, #fff 0 18%, ${IRON} 40%, transparent 70%)`, '--s': 1.6, animation: anim('lgxRing', 330) }} />
-      {around(4, (i, a) => <div key={i} className="lgx" style={{ ...center, width: 4, height: 10, background: IRON, '--a': `${a + 45}deg`, '--d': '-34px', '--spin': '0deg', animation: anim('lgxShard', 320) }} />)}
+      <svg className="lgx" viewBox="0 0 40 40" style={{ ...center, width: 64, height: 64, marginLeft: -32, marginTop: -32, overflow: 'visible', filter: `drop-shadow(0 0 8px ${FORGE})`, animation: anim('lgrTitanStar', 330, 0, 'cubic-bezier(.2,1.4,.4,1)') }} aria-hidden="true">
+        <path d="M20 1 24 13 36 7 28 18 39 22 27 25 32 38 21 29 12 39 14 26 1 24 12 18 5 6 17 12Z" fill={HOT} stroke={FORGE} strokeWidth="2" strokeLinejoin="round" />
+        <circle cx="20" cy="21" r="5" fill="#ffffff" />
+      </svg>
+      {around(8, (i, a) => <div key={i} className="lgx" style={{ ...center, width: 4, height: 12, borderRadius: 2, background: i % 2 ? HOT : IRON, boxShadow: `0 0 6px ${FORGE}`, '--a': `${a + 22}deg`, '--d': `${-44 - (i % 3) * 8}px`, '--spin': '0deg', animation: anim('lgxShard', 330, 30) }} />)}
     </>,
   },
   floaters: { crack: 'lg_fx_crack', shatter: 'lg_fx_plateShatter', exposedHit: 'lg_fx_exposedHit' },
@@ -34,6 +44,8 @@ export default {
     exposedHit: { size: 'tick' },
   },
   css: `
+@keyframes lgrTitanDraw { 0% { stroke-dashoffset: 160; opacity: 1 } 45% { stroke-dashoffset: 0; opacity: 1 } 100% { stroke-dashoffset: 0; opacity: 0 } }
+@keyframes lgrTitanStar { 0% { transform: scale(.2) rotate(-25deg); opacity: 0 } 30% { transform: scale(1.25) rotate(5deg); opacity: 1 } 60% { transform: scale(1) rotate(0); opacity: 1 } 100% { transform: scale(1.1); opacity: 0 } }
 @keyframes lgrTitanRattle { 0%, 100% { transform: none } 20% { transform: translateX(4px) rotate(1deg) } 40% { transform: translateX(-4px) rotate(-1deg) } 60% { transform: translateX(3px) } 80% { transform: translateX(-1px) } }
 @keyframes lgrTitanFlinch { 0%, 100% { transform: none } 40% { transform: translateY(5px) scale(.96) rotate(-2deg) } 75% { transform: translateY(1px) } }
 @keyframes lgrTitanBuckle { 0% { transform: none } 22% { transform: translateY(10px) rotate(4deg) scaleY(.94) } 45% { transform: translateY(9px) rotate(3deg) scaleY(.95) } 100% { transform: none } }

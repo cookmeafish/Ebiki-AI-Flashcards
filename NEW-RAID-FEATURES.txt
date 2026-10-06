@@ -1,4 +1,4 @@
-NEW IN EBIKI 1.34.0: RAID BOSSES WITH THEIR OWN FIGHTS, RUN SIZE, AND POWERS
+NEW IN EBIKI 1.34 TO 1.36: RAID BOSSES WITH THEIR OWN FIGHTS, RUN SIZE, AND POWERS
 ==========================================================================
 
 Before you start: open Anki, and make sure your mode has a deck with due cards.
@@ -81,20 +81,31 @@ Ebi's Help knows all of this: open "Talk to Ebi" during a raid and ask
 "how many hearts does this boss give?" or "what powers do I have?".
 
 
-4. IMPACT: EVERY RAID FIGHT NOW HITS HARDER (1.35.0)
-----------------------------------------------------
-What changed: every raid boss reacts with weight, in its own color:
-  - your hit: sparks and a shockwave, the arena jolts
-  - a critical (every 3rd clean answer in a row): a bigger burst + "CRITICAL!"
-  - the boss lands a blow on a miss: claw slashes and a red glow
-  - a missed boss attack (costs 2 hearts): heavier slashes + "HEAVY BLOW!"
-  - you answer an attack right: a parry + "BLOCKED!"
-  - a Shield saves you: a shield bubble + "SAVED!"; Second wind: a heart rises
-  - the final blow: the boss shudders, flashes and falls; rays + "DEFEATED!"
+4. IMPACT: EVERY RAID BOSS HITS (AND FALLS) ITS OWN WAY (1.36.0)
+----------------------------------------------------------------
+What changed: the shared fight moments now look different for each of the
+26 raid bosses, and the boss's own body moves with them.
+  - your hit: a white flash and the boss's own particles (Chronos sheds
+    gears, the Vampire bats, the Ratking coins), and the boss reacts in its
+    own way (clanks, wobbles, flickers, spins)
+  - a critical: a bigger burst + "CRITICAL!"
+  - the boss's strike when you miss: its own attack. Chronos sweeps its clock
+    hands, the Tempest drops lightning, the Vampire bites, the Reaper swings
+    its scythe, the Showman throws cards, the Hydra snaps its jaws...
+  - a missed boss attack: the same strike, bigger, + "HEAVY BLOW!"
+  - a blocked attack: the strike, smaller, with a parry + "BLOCKED!"
+  - the final blow: its own knockout. The Gorgon turns to stone, Moonmaw
+    is eclipsed, the Showman's curtain falls, the Void implodes...
+  - powers now animate: Shield (a blue dome, then a blue ward on your
+    hearts until it is used), 50:50 (a double snip, the 2 tiles pop in),
+    Sharpen (a blade glint, then a gold target lock on the boss), Hint
+    (golden rays, the hint slides in), Second wind (a heart rises)
+  - boss abilities got a pass too: the weakest ones now move more and
+    stand out from each other
 
 Try it the fast way: cheat mode on (7 clicks on the Legends map title) > Asset
-view > Raid bosses > under the arena, press each "Impact moments" button.
-Step through bosses with the arrow keys: each boss's impact takes its color.
+view > Raid bosses. Under the arena, press each "Impact moments" button and
+each "Powers" button. Step through bosses with the arrow keys and compare.
 
 Try it for real: any raid fight. To turn effects off: "Stop animations" on the
 fight card, or Settings > General > Legends > Focus mode / Still bosses.

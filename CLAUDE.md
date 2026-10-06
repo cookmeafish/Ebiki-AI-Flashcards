@@ -1394,12 +1394,25 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     reactions), FIXED bright colors, skipped in focus mode, Still bosses and reduced motion; a new question fades what
     plays, a new strike cancels the old, at most 2 flashes a second. `abilityfx.test.js` fails a fired `fx` with no
     effect, floater text or asset-view button.
-  - **Plain strike moments give every raid boss weight** (`strikeFx.js` pure + test, `StrikeFxLayer.jsx`): hit,
-    critical, Sharpen, the boss landing a blow (claw slashes + red glow), a missed attack ("HEAVY BLOW!"), a blocked
-    attack (parry), a Shield save, Second wind (`last.kind: 'wind'`, own `wn` counter) and the knockout (`lgBossKO`,
-    rays, "DEFEATED!"), tinted with the boss's `RAID_TINT` (heroState.js). Played by the SAME `useJuice` (its
-    `moment` argument, `STRIKE_FX` juice), so all juice limits apply; an ability's own fx wins except for the
-    knockout. Raids only (`kind === 'raids'`). Asset view: "Impact moments" buttons under the phase demo.
+  - **Plain strike moments are each boss's OWN** (the owner: "make sure all of these hit hard and are unique per raid
+    boss"): `strikeFx.js` (pure) names the moment (hit, critical, Sharpen, the boss's strike, a missed attack, a
+    block, a Shield save, Second wind via `last.kind: 'wind'` + its own `wn` counter, the knockout);
+    `impact/styles.js` (pure data) says how THAT boss plays it: two fixed colors, its own glyph
+    (`impact/glyphs.jsx`), parts for hit / crit / strike / ko (`impact/parts.jsx`: CSS + inline SVG in container
+    units, deterministic) and body moves (`impact/body.js`: lgBodyHit_/Strike_/KO_ keyframes on the boss box; a
+    knockout never fades below 0.2, the result screen keeps the boss in frame). `StrikeFxLayer.jsx` composes them
+    (`momentParts`: a white flash on every hit, the strike smaller behind a parry or a shield bubble, bigger with a
+    red crack on a heavy blow) and adds the labels. `impact.test.js`: every RAID_ORDER boss has a style, no two
+    share a glyph, a strike or a knockout, only known parts/glyphs/moves, fixed hex colors. A new raid boss needs a
+    `RAID_IMPACT` entry. Played by the SAME `useJuice` (`moment`, `STRIKE_FX` juice), so every juice limit
+    applies; an ability's own fx wins except for the knockout. Raids only, and raids skip the old red hit disc (`lgBossFlash`); ability floaters wrap instead of running past the arena. Contact sheet of all 26:
+    `/dev/raid-impact/?moment=hurt` (dev only; `freeze(ms)` in the console). Asset view: "Impact moments" and
+    "Powers" buttons under the phase demo.
+  - **Powers animate** (`impact/PowerFx.jsx`): using one plays its burst in the boss box (`POWER_FX`: Shield's
+    dome, 50:50's double snip, Sharpen's glint, Hint's rays; label `lg_fxCast_<id>`), passed as BossArena's `power`
+    ({id, n}) from RaidRun. While armed (BossArena `armed`), Shield rings the hearts row in a blue ward and Sharpen
+    turns a gold target lock over the boss. QuizRunner pops the two 50:50 tiles in and slides a hint in
+    (`data-quiz-pop`, none under reduced motion).
 - **Asset view** (cheat mode only: `AssetView.jsx`, map header ⚡, sidebar entry `assets` via `AssetScreen.jsx`; a
   `navItems` entry may carry `visible({ registry, featureSettings })`): tabs **Legends**, **Raid bosses** (phases via the
   arena's phase CSS, ability card, live arena with "Next phase") and **Ebi drafts** (`public/assets/ebi-drafts/`, the

@@ -18,10 +18,16 @@ export default {
   effects: {
     // Deeper (tick): a dream bubble floats up out of it.
     deeper: () => <>
+      {/* a thought bubble chain swells up out of its head, the last one holding a sleepy z */}
+      {[0, 1, 2].map((i) => <div key={`t${i}`} className="lgx" style={{ left: `${58 + i * 9}%`, top: `${30 - i * 10}%`, width: 8 + i * 9, height: 8 + i * 9, marginLeft: -(4 + i * 4.5), borderRadius: '50%', background: 'radial-gradient(circle at 35% 30%, #ffffff 0 20%, #e9dcff 55%, #c9b0ff)', border: `2px solid ${NIGHT}`, boxShadow: `0 0 8px ${DREAM}`, display: 'grid', placeItems: 'center', fontWeight: 900, fontSize: 14, color: NIGHT, animation: anim('lgrDreamerBubble', 330, i * 60, POP) }}>{i === 2 ? 'z' : ''}</div>)}
       {[0, 1].map((i) => <div key={i} className="lgx" style={{ left: `${44 + i * 14}%`, top: '40%', width: 16 - i * 5, height: 16 - i * 5, borderRadius: '50%', background: 'radial-gradient(circle at 35% 30%, #ffffff 0 18%, rgba(214,190,255,.55) 45%, rgba(180,140,255,.25) 100%)', border: '1.5px solid #e9dcff', '--h': `${-46 - i * 10}px`, animation: anim('lgxRise', 340, i * 70) }} />)}
     </>,
     // Hum (tick, awake): a first lullaby note drifts up.
-    hum: () => <div className="lgx" style={{ left: '56%', top: '40%', fontSize: 18, fontWeight: 900, color: '#9fe2ff', WebkitTextStroke: '1px #1a1020', '--h': '-44px', animation: anim('lgxRise', 340) }}>♪</div>,
+    hum: () => <>
+      {/* a soft sound arc, and three notes bob up from its mouth */}
+      <div className="lgx" style={{ left: '56%', top: '44%', width: 50, height: 50, borderRadius: '50%', border: '3px solid #9fe2ff', borderLeftColor: 'transparent', borderBottomColor: 'transparent', filter: 'drop-shadow(0 0 4px #9fe2ff)', '--s': 1.6, animation: anim('lgxRing', 330) }} />
+      {['♪', '♫', '♪'].map((n, i) => <div key={i} className="lgx" style={{ left: `${52 + i * 9}%`, top: '42%', fontSize: 22 + (i % 2) * 6, fontWeight: 900, color: ['#9fe2ff', '#ffc4e8', '#fff3a8'][i], WebkitTextStroke: '1.5px #1a1020', '--h': `${-40 - i * 10}px`, animation: anim('lgxRise', 330, i * 50) }}>{n}</div>)}
+    </>,
     // Nightmare (big): a purple-black ripple wipes in, giant eyelids snap open and shut, tendrils lash from the corners.
     nightmare: () => <>
       {flash(DREAM)}
@@ -40,8 +46,13 @@ export default {
     </>,
     // Lullaby (medium): pastel stars and Zs spiral down over it.
     lullaby: () => <>{around(8, (i) => (
-      <div key={i} className="lgx" style={{ left: `${18 + i * 9}%`, top: '18%', fontWeight: 900, fontSize: 13 + (i % 3) * 3, color: ['#ffc4e8', '#bfe6ff', '#fff3a8', '#d9c8ff'][i % 4], WebkitTextStroke: '1px #3a2a55', '--x': `${(i % 2 ? 1 : -1) * (10 + (i % 3) * 6)}px`, animation: anim('lgrDreamerSpiral', 760, i * 55, SETTLE) }}>{i % 2 ? 'z' : '✦'}</div>
-    ))}</>,
+      <div key={i} className="lgx" style={{ left: `${18 + i * 9}%`, top: '18%', fontWeight: 900, fontSize: 20 + (i % 3) * 5, filter: 'drop-shadow(0 0 4px #d9c8ff)', color: ['#ffc4e8', '#bfe6ff', '#fff3a8', '#d9c8ff'][i % 4], WebkitTextStroke: '1px #3a2a55', '--x': `${(i % 2 ? 1 : -1) * (10 + (i % 3) * 6)}px`, animation: anim('lgrDreamerSpiral', 760, i * 55, SETTLE) }}>{i % 2 ? 'z' : '✦'}</div>
+    ))}
+      {/* a crescent-moon cradle rocks above it */}
+      <svg className="lgx" viewBox="0 0 40 40" style={{ left: '50%', top: '0%', width: 52, height: 52, marginLeft: -26, overflow: 'visible', transformOrigin: '50% 0', filter: 'drop-shadow(0 0 8px #fff3a8)', animation: anim('lgrDreamerCradle', 760, 0, 'ease-in-out') }} aria-hidden="true">
+        <path d="M26 4A16 16 0 1 0 36 30 13 13 0 1 1 26 4Z" fill="#fff3a8" stroke="#3a2a55" strokeWidth="2" />
+      </svg>
+    </>,
   },
   floaters: { deeper: 'lg_fx_sleepDeeper', hum: 'lg_fx_sleepHum', nightmare: 'lg_fx_sleepNightmare', wake: 'lg_fx_sleepWake', lullaby: 'lg_fx_sleepLullaby' },
   floaterTone: { deeper: 'purple', hum: 'info', nightmare: 'purple', wake: 'danger', lullaby: 'info' },
@@ -57,6 +68,8 @@ export default {
   // swell, quick settle. Settle: a slow contented sink. Sink / hum: tiny nudges. Drift: the persistent sleep breath
   // (the idle reaction, kept on while it sleeps).
   css: `
+@keyframes lgrDreamerBubble { 0% { transform: scale(0); opacity: 0 } 50% { transform: scale(1.15); opacity: 1 } 75% { transform: scale(1) translateY(-4px); opacity: 1 } 100% { transform: scale(1.05) translateY(-10px); opacity: 0 } }
+@keyframes lgrDreamerCradle { 0% { transform: rotate(-20deg) scale(.6); opacity: 0 } 20% { opacity: 1 } 40% { transform: rotate(16deg) scale(1) } 65% { transform: rotate(-12deg) } 85% { transform: rotate(6deg); opacity: 1 } 100% { transform: rotate(0); opacity: 0 } }
 .lgr-dreamer-deeper { animation: lgrDreamerSink 300ms ease-out both; transform-origin: 50% 100% }
 .lgr-dreamer-hum { animation: lgrDreamerHum 300ms ease-out both; transform-origin: 50% 100% }
 .lgr-dreamer-nightmare { animation: lgrDreamerWrithe 1000ms ease-in-out both; transform-origin: 50% 100% }

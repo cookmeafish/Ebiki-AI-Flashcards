@@ -10,9 +10,10 @@ export default {
     // Absorb (tick): the strike's sparks curve into an orbit around the boss.
     absorb: () => <>
       <div className="lgx" style={{ ...center, width: '74%', height: '74%', animation: anim('lgrVoidFxOrbit', 340, 0, 'ease-in') }}>
-        {[0, 120, 240].map((a) => <div key={a} style={{ position: 'absolute', left: '50%', top: '50%', width: 7, height: 7, marginLeft: -3.5, marginTop: -3.5, borderRadius: '50%', background: HOT, boxShadow: `0 0 8px ${VIOLET}`, transform: `rotate(${a}deg) translateY(-34px)` }} />)}
+        {[0, 72, 144, 216, 288].map((a) => <div key={a} style={{ position: 'absolute', left: '50%', top: '50%', width: 11, height: 11, marginLeft: -5.5, marginTop: -5.5, borderRadius: '50%', background: HOT, boxShadow: `0 0 0 1.5px #1a0830, 0 0 10px ${VIOLET}, -10px 0 8px -2px ${VIOLET}`, transform: `rotate(${a}deg) translateY(-40px)` }} />)}
       </div>
-      {ring(VIOLET, 0, 1.1, 2, 340)}
+      {/* the event horizon itself: a black lens with a violet rim swells round it */}
+      <div className="lgx" style={{ ...center, width: 110, height: 110, borderRadius: '50%', border: `5px solid ${VIOLET}`, boxShadow: `0 0 0 3px #1a0830, 0 0 16px ${VIOLET}, inset 0 0 18px ${VIOLET}`, '--s': 1.3, animation: anim('lgxRing', 340) }} />
     </>,
     // Spill (medium): the ring flickers and drops its sparks into the bar.
     spill: () => <>

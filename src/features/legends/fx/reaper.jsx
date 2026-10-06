@@ -10,8 +10,13 @@ export default {
   effects: {
     // Climb (tick): a red scythe glint slides up the right side, toward his health.
     climb: () => <>
-      <div className="lgx" style={{ left: '80%', top: '64%', width: 26, height: 12, marginLeft: -13, borderTop: `3px solid ${BLOOD}`, borderRadius: '50%', filter: `drop-shadow(0 0 4px ${BLOOD})`, '--h': '-52px', animation: anim('lgxRise', 330) }} />
-      <div className="lgx" style={{ left: '80%', top: '62%', width: 5, height: 5, borderRadius: '50%', background: '#ffffff', boxShadow: `0 0 8px ${BLOOD}`, '--h': '-56px', animation: anim('lgxRise', 330, 40) }} />
+      {/* a bone scythe blade (dark-edged, blood glint on its edge) climbs the right side, leaving a red streak */}
+      <div className="lgx" style={{ left: '82%', top: '22%', width: 4, height: '50%', marginLeft: -2, transformOrigin: 'bottom', background: `linear-gradient(to top, rgba(255,74,61,0), ${BLOOD})`, borderRadius: 2, animation: anim('lgrReaperStreak', 330) }} />
+      <svg className="lgx" viewBox="0 0 40 24" style={{ left: '82%', top: '64%', width: 46, height: 28, marginLeft: -23, overflow: 'visible', filter: `drop-shadow(0 0 5px ${BLOOD})`, '--h': '-64px', animation: anim('lgxRise', 330) }} aria-hidden="true">
+        <path d="M2 18C10 4 28 0 38 6 28 6 18 10 12 20Z" fill={BONE} stroke="#14080a" strokeWidth="2" strokeLinejoin="round" />
+        <path d="M4 17C12 6 26 2 36 6" fill="none" stroke={BLOOD} strokeWidth="1.6" />
+      </svg>
+      <div className="lgx" style={{ left: '82%', top: '62%', width: 6, height: 6, marginLeft: -3, borderRadius: '50%', background: '#ffffff', boxShadow: `0 0 10px ${BLOOD}`, '--h': '-70px', animation: anim('lgxRise', 330, 40) }} />
     </>,
     // Reaped (big): a colossal bone scythe sweeps a 300 deg arc, everything below the arc goes dark, a white cut splits
     // the arena, and ghost wisps flee upward.
@@ -43,6 +48,7 @@ export default {
 .lgr-reaper-climb { animation: lgrReaperLean 300ms ease-out both; transform-origin: 50% 100% }
 .lgr-reaper-reap { animation: lgrReaperSever 1000ms ${SETTLE} both }
 .lg-boss[data-phase="3"] .lgr-reaper-reap { animation-name: lgrReaperSeverP3 }
+@keyframes lgrReaperStreak { 0% { transform: scaleY(0); opacity: 0 } 30% { opacity: 1 } 70% { transform: scaleY(1); opacity: .9 } 100% { transform: scaleY(1); opacity: 0 } }
 @keyframes lgrReaperLean { 0%, 100% { transform: none } 45% { transform: rotate(6deg) translateY(2px) } 80% { transform: rotate(2deg) } }
 @keyframes lgrReaperSever {
   0%, 100% { clip-path: polygon(-30% -30%, 130% -30%, -30% 130%, -30% 130%, -30% 130%, 130% -30%, 130% 130%, -30% 130%); transform: none }

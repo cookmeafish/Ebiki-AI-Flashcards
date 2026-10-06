@@ -22,7 +22,14 @@ export default {
     fallGoat: fall(GOAT, '🐐'),
     fallSerpent: fall(SERPENT, '🐍'),
     // Goat block (medium): a horn-shaped shield flashes over the hearts.
+    // (a huge curled ram horn sweeps in front of the hearts like a shield and takes the blow: clang sparks fly)
     goatBlock: () => <>
+      <svg className="lgx" viewBox="0 0 100 100" style={{ left: '50%', top: '50%', width: 120, height: 120, margin: '-60px 0 0 -60px', overflow: 'visible', filter: `drop-shadow(0 0 8px ${GOAT})`, animation: anim('lgrChimeraHornSweep', 760, 0, 'cubic-bezier(.3,1.3,.4,1)') }} aria-hidden="true">
+        <path d="M50 8C78 8 94 30 90 54S62 86 46 74 34 46 52 42 68 54 60 62" fill="none" stroke="#3a2a12" strokeWidth="20" strokeLinecap="round" />
+        <path d="M50 8C78 8 94 30 90 54S62 86 46 74 34 46 52 42 68 54 60 62" fill="none" stroke={GOAT} strokeWidth="14" strokeLinecap="round" />
+        <path d="M56 12C76 14 88 30 86 50M84 62C76 76 60 80 50 72" fill="none" stroke="#c9b98a" strokeWidth="3" strokeDasharray="4 5" />
+      </svg>
+      {around(10, (i, a) => <div key={i} className="lgx" style={{ ...center, width: 4, height: 12, borderRadius: 2, background: i % 2 ? '#ffffff' : '#ffe08a', boxShadow: '0 0 6px #ffe08a', '--a': `${a}deg`, '--d': `${-58 - (i % 3) * 10}px`, '--spin': '0deg', animation: anim('lgxShard', 420, 260) }} />)}
       <div className="lgx" style={{ left: '50%', top: '78%', width: 70, height: 60, background: `radial-gradient(circle at 50% 30%, #ffffff 0 20%, ${GOAT} 45%, #c9b98a 80%)`, border: '3px solid #3a2a12', clipPath: 'polygon(50% 0, 100% 18%, 92% 62%, 50% 100%, 8% 62%, 0 18%)', '--s': 1.3, animation: anim('lgxRing', 760) }} />
       <div className="lgx" style={{ left: '50%', bottom: '10%', fontSize: 26, marginLeft: -13, animation: anim('lgxFade', 760) }}>🐐</div>
       {ring(GOAT, 80, 1.5, 3, 600)}
@@ -34,7 +41,8 @@ export default {
     </>,
     // Aim (tick): a reticle snaps onto the head.
     aim: () => <>
-      <div className="lgx" style={{ ...center, width: 54, height: 54, marginLeft: -27, marginTop: -27, borderRadius: '50%', border: '3px solid #ff3d3d', boxShadow: '0 0 8px #ff3d3d', background: 'linear-gradient(#ff3d3d, #ff3d3d) center / 2px 100% no-repeat, linear-gradient(#ff3d3d, #ff3d3d) center / 100% 2px no-repeat', animation: anim('lgrChimeraFxLock', 330, 0, 'cubic-bezier(.34,1.56,.64,1)') }} />
+      {[0, 90, 180, 270].map((r) => <div key={r} className="lgx" style={{ ...center, width: 0, height: 0, transform: `rotate(${r}deg)` }}><div style={{ position: 'absolute', left: -44, top: -44, width: 22, height: 22, borderTop: '5px solid #ff3d3d', borderLeft: '5px solid #ff3d3d', filter: 'drop-shadow(0 0 2px #1d1408) drop-shadow(0 0 6px #ff3d3d)', animation: anim('lgrChimeraBracket', 330, 0, 'cubic-bezier(.3,1.5,.5,1)') }} /></div>)}
+      <div className="lgx" style={{ ...center, width: 54, height: 54, marginLeft: -27, marginTop: -27, borderRadius: '50%', border: '3px solid #ff3d3d', boxShadow: '0 0 0 1.5px #1d1408, 0 0 10px #ff3d3d', background: 'linear-gradient(#ff3d3d, #ff3d3d) center / 2px 100% no-repeat, linear-gradient(#ff3d3d, #ff3d3d) center / 100% 2px no-repeat', animation: anim('lgrChimeraFxLock', 330, 0, 'cubic-bezier(.34,1.56,.64,1)') }} />
     </>,
   },
   floaters: { fallLion: 'lg_fx_lionFalls', fallGoat: 'lg_fx_goatFalls', fallSerpent: 'lg_fx_serpentFalls', goatBlock: 'lg_fx_goatBlock', aim: 'lg_fx_aim', maul: 'lg_fx_maul' },
@@ -50,6 +58,8 @@ export default {
   // The asset view's replay buttons fake these strikes.
   demo: { goatBlock: { kind: 'block', damage: 0, lives: 0 }, aim: { kind: 'block', damage: 0, lives: 0 } },
   css: `
+@keyframes lgrChimeraHornSweep { 0% { transform: translateX(-80px) rotate(-120deg) scale(.5); opacity: 0 } 35% { transform: translateX(6px) rotate(8deg) scale(1.1); opacity: 1 } 50% { transform: translateX(0) rotate(0) scale(1) } 80% { opacity: 1 } 100% { transform: scale(1.05); opacity: 0 } }
+@keyframes lgrChimeraBracket { 0% { transform: translate(-26px, -26px); opacity: 0 } 50% { transform: translate(2px, 2px); opacity: 1 } 70% { transform: none; opacity: 1 } 100% { transform: none; opacity: 0 } }
 @keyframes lgrChimeraFxSlam { 0% { transform: translate(-50%, -160%) scale(1.6); opacity: 0 } 25% { opacity: 1 } 45% { transform: translate(-50%, -50%) scale(1) } 60% { transform: translate(-50%, -48%) scale(1.08, .9) } 75% { transform: translate(-50%, -50%) scale(1); opacity: 1 } 100% { transform: translate(-50%, -50%) scale(.2); opacity: 0 } }
 @keyframes lgrChimeraFxLock { 0% { transform: scale(2.2) rotate(45deg); opacity: 0 } 60% { transform: scale(.95) rotate(0); opacity: 1 } 100% { transform: scale(1); opacity: 0 } }
 @keyframes lgrChimeraSag { 0% { transform: none } 25% { transform: translateX(var(--lgr-side, 0)) rotate(calc(var(--lgr-tilt, 0deg))) } 55% { transform: translateX(calc(var(--lgr-side, 0) * .6)) translateY(6px) } 100% { transform: none } }

@@ -14,9 +14,22 @@ const beam = (color, r, d) => (
 export default {
   effects: {
     // Shard (tick): a glass shard flies from the color chip (up right) into its slot in the boss.
-    shard: () => <div className="lgx" style={{ left: '50%', top: '45%', width: 14, height: 22, background: 'linear-gradient(135deg, #ffffff, #ff3b5c 40%, #3dff8a 70%, #3aa8ff)', clipPath: 'polygon(50% 0, 100% 60%, 50% 100%, 0 60%)', '--x0': '110px', '--y0': '-90px', animation: anim('lgxFly', 340) }} />,
+    // (a big faceted shard spins in from the chip, a light streak behind it, and clicks into the boss with a sparkle)
+    shard: () => <>
+      <div className="lgx" style={{ left: '50%', top: '45%', width: 120, height: 5, marginTop: -2.5, transformOrigin: '0 50%', transform: 'rotate(-39deg)', background: 'linear-gradient(90deg, #ffffff, rgba(58,168,255,0))', borderRadius: 3, animation: anim('lgrKaleidoTrail', 330) }} />
+      <svg className="lgx" viewBox="0 0 20 30" style={{ left: '50%', top: '45%', width: 26, height: 38, margin: '-19px 0 0 -13px', overflow: 'visible', filter: 'drop-shadow(0 0 6px #ffffff)', '--x0': '110px', '--y0': '-90px', animation: anim('lgxFly', 300) }} aria-hidden="true">
+        <path d="M10 1 19 18 10 29 1 18Z" fill="#3aa8ff" stroke="#15111c" strokeWidth="1.6" strokeLinejoin="round" />
+        <path d="M10 1 19 18H1Z" fill="#ff3b5c" /><path d="M10 1 14 18H6Z" fill="#3dff8a" /><path d="M10 3 12 12 10 16Z" fill="#ffffff" />
+      </svg>
+      <div className="lgx" style={{ left: '50%', top: '45%', width: 36, height: 36, margin: '-18px 0 0 -18px', background: '#ffffff', clipPath: 'polygon(50% 0, 58% 42%, 100% 50%, 58% 58%, 50% 100%, 42% 58%, 0 50%, 42% 42%)', animation: anim('lgrKaleidoFlare', 200, 260) }} />
+    </>,
     // Overcharge (tick): a color it already held flares hot.
-    overcharge: () => <div className="lgx" style={{ left: '50%', top: '45%', width: 40, height: 40, marginLeft: -20, marginTop: -20, borderRadius: '50%', background: 'radial-gradient(circle, #fff 0 25%, rgba(255,214,90,.9) 45%, transparent 70%)', animation: anim('lgrKaleidoFlare', 340) }} />,
+    // (the held color flares white-hot: a spinning hexagon of light and six sparks)
+    overcharge: () => <>
+      <div className="lgx" style={{ left: '50%', top: '45%', width: 56, height: 56, marginLeft: -28, marginTop: -28, borderRadius: '50%', background: 'radial-gradient(circle, #fff 0 25%, rgba(255,214,90,.9) 45%, transparent 70%)', animation: anim('lgrKaleidoFlare', 340) }} />
+      <div className="lgx" style={{ left: '50%', top: '45%', width: 64, height: 64, marginLeft: -32, marginTop: -32, clipPath: 'polygon(25% 3%, 75% 3%, 100% 50%, 75% 97%, 25% 97%, 0 50%)', background: 'conic-gradient(#ff3b5c, #ffd65a, #3dff8a, #3aa8ff, #c58bff, #ff3b5c)', opacity: 0.85, animation: anim('lgrKaleidoHexSpin', 330) }}><div style={{ position: 'absolute', inset: 6, clipPath: 'inherit', background: 'radial-gradient(circle, #ffffff 0 30%, rgba(255,255,255,.2) 70%)' }} /></div>
+      {around(6, (i, a) => <div key={i} className="lgx" style={{ left: '50%', top: '45%', width: 4, height: 12, marginLeft: -2, borderRadius: 2, background: '#ffffff', boxShadow: '0 0 6px #ffd65a', '--a': `${a}deg`, '--d': '-46px', '--spin': '0deg', animation: anim('lgxShard', 320, 60) }} />)}
+    </>,
     // Prism (big): red, green and blue beams converge from three corners, fuse white, then fan into a rainbow spray.
     prism: () => <>
       {beam(RGB[0], 215, 0)}{beam(RGB[1], 325, 60)}{beam(RGB[2], 90, 120)}
@@ -38,6 +51,8 @@ export default {
   css: `
 @keyframes lgrKaleidoBeam { 0% { transform: rotate(var(--r)) translateX(100%) scaleX(.3); opacity: 0 } 15% { opacity: 1 } 45% { transform: rotate(var(--r)) translateX(0) scaleX(1); opacity: 1 } 70% { transform: rotate(var(--r)) translateX(0) scaleX(.15); opacity: .9 } 100% { transform: rotate(var(--r)) translateX(0) scaleX(0); opacity: 0 } }
 @keyframes lgrKaleidoFuse { 0% { transform: scale(.1); opacity: 0 } 25% { transform: scale(1.4); opacity: 1 } 100% { transform: scale(2.2); opacity: 0 } }
+@keyframes lgrKaleidoTrail { 0% { transform: rotate(-39deg) scaleX(0); opacity: 0 } 30% { opacity: 1 } 70% { transform: rotate(-39deg) scaleX(1); opacity: .8 } 100% { transform: rotate(-39deg) scaleX(1); opacity: 0 } }
+@keyframes lgrKaleidoHexSpin { 0% { transform: rotate(-90deg) scale(.2); opacity: 0 } 45% { transform: rotate(20deg) scale(1.15); opacity: .9 } 100% { transform: rotate(60deg) scale(1.3); opacity: 0 } }
 @keyframes lgrKaleidoFlare { 0% { transform: scale(.3); opacity: 0 } 35% { transform: scale(1.3); opacity: 1 } 100% { transform: scale(1.6); opacity: 0 } }
 @keyframes lgrKaleidoSplit { 0% { filter: none; transform: none } 15% { filter: drop-shadow(-6px 0 0 rgba(255,59,92,.85)) drop-shadow(6px 0 0 rgba(58,168,255,.85)) drop-shadow(0 -6px 0 rgba(61,255,138,.75)); transform: scale(1.1) } 55% { filter: drop-shadow(-6px 0 0 rgba(255,59,92,.7)) drop-shadow(6px 0 0 rgba(58,168,255,.7)) drop-shadow(0 -6px 0 rgba(61,255,138,.6)); transform: scale(1.06) } 70% { filter: none; transform: scale(.95) } 100% { filter: none; transform: none } }
 @keyframes lgrKaleidoGlint { 0%, 100% { transform: none; filter: none } 40% { transform: rotate(5deg) scale(1.04); filter: brightness(1.3) } 75% { transform: rotate(-2deg); filter: brightness(1.1) } }

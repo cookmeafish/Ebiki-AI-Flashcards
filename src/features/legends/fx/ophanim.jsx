@@ -15,11 +15,15 @@ const H = { white: '#ffffff', gold: '#ffd257', deep: '#e7a520', pale: '#fff4cc',
 export default {
   effects: {
     open: () => <>
+      {/* a wheel of gold light rays turns out from around the eye (a ring, so the real eye stays seen) */}
+      <div className="lgx" style={{ left: '50%', top: '46%', width: 150, height: 150, margin: '-75px 0 0 -75px', borderRadius: '50%', background: `repeating-conic-gradient(rgba(255,244,204,.8) 0 6deg, transparent 6deg 30deg)`, WebkitMaskImage: 'radial-gradient(circle, transparent 0 24%, #000 30%, transparent 70%)', maskImage: 'radial-gradient(circle, transparent 0 24%, #000 30%, transparent 70%)', animation: anim('lgrOphanimRays', 780) }} />
+      {ring(H.gold, 0, 1.6, 4, 600)}
+      {[0, 1, 2, 3, 4].map((i) => <div key={`m${i}`} className="lgx" style={{ left: `${36 + i * 7}%`, top: '30%', width: 9, height: 9, background: H.pale, clipPath: 'polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%)', filter: `drop-shadow(0 0 4px ${H.gold})`, '--h': `${-40 - (i % 2) * 18}px`, animation: anim('lgxRise', 700, 80 + i * 60) }} />)}
       {[0, 1, 2].map((i) => <div key={i} className="lgx" style={{ left: `${46 + i * 4}%`, top: '26%', width: 4, height: 4, borderRadius: '50%', background: H.pale, boxShadow: `0 0 6px ${H.gold}`, '--h': '-22px', animation: anim('lgxRise', 320, 40 + i * 40) }} />)}
     </>,
     blink: () => <>
       {/* glints at the eye's corners, never over the eye itself */}
-      {[-1, 1].map((d) => <div key={d} className="lgx" style={{ left: `calc(50% + ${d * 26}px)`, top: '46%', width: 7, height: 7, marginLeft: -3.5, background: H.pale, clipPath: 'polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%)', filter: `drop-shadow(0 0 3px ${H.gold})`, '--h': '-8px', animation: anim('lgxRise', 300, 60) }} />)}
+      {[-1, 1].map((d) => <div key={d} className="lgx" style={{ left: `calc(50% + ${d * 30}px)`, top: '44%', width: 16, height: 16, marginLeft: -8, background: H.pale, clipPath: 'polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%)', filter: `drop-shadow(0 0 3px ${H.gold})`, '--h': '-8px', animation: anim('lgxRise', 300, 60) }} />)}
     </>,
     beam: () => <>
       {/* the spinning gold ring that fills the arena */}
@@ -49,6 +53,7 @@ export default {
     grace: { size: 'big', shake: 1, flash: 1, hitstop: 1, sfx: 'ophanim.grace' },
   },
   css: `
+@keyframes lgrOphanimRays { 0% { transform: rotate(0) scale(.5); opacity: 0 } 25% { opacity: 1 } 100% { transform: rotate(40deg) scale(1.15); opacity: 0 } }
 @keyframes lgrOphanimHalo { 0% { transform: rotate(0) scale(.3); opacity: 0 } 25% { transform: rotate(120deg) scale(1.05); opacity: 1 } 75% { transform: rotate(330deg) scale(1); opacity: .9 } 100% { transform: rotate(420deg) scale(1.15); opacity: 0 } }
 @keyframes lgrOphanimSpear { 0% { transform: scaleY(0) translateY(60%); opacity: 0 } 18% { opacity: 1 } 45% { transform: scaleY(1) translateY(0); opacity: 1 } 100% { transform: scaleY(1) scaleX(.2); opacity: 0 } }
 .lgr-ophanim-open { animation: lgrOphanimRise 620ms cubic-bezier(.22,1,.36,1) both }

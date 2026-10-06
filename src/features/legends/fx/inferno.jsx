@@ -22,10 +22,19 @@ const ember = (key, style) => <div key={key} className="lgx" style={{ width: 7, 
 
 export default {
   effects: {
-    heat: () => <>{[0, 1, 2, 3].map((i) => ember(i, { left: `${25 + i * 16}%`, bottom: '8%', '--h': `${-50 - (i % 2) * 20}px`, animation: anim('lgxRise', 340, i * 25) }))}</>,
+    heat: () => <>
+      {/* three flame tongues lick up from the floor (dark-edged so they read over the fire art), embers ride them */}
+      {[0, 1, 2].map((i) => (
+        <svg key={`f${i}`} className="lgx" viewBox="0 0 20 34" style={{ left: `${26 + i * 22}%`, bottom: '0%', width: 26 + (i % 2) * 8, height: 44 + (i % 2) * 12, marginLeft: -13, overflow: 'visible', transformOrigin: '50% 100%', filter: `drop-shadow(0 0 6px ${ORANGE})`, animation: anim('lgrInfernoLick', 330, i * 40, 'cubic-bezier(.3,1.4,.5,1)') }} aria-hidden="true">
+          <path d="M10 1C13 9 19 13 18 22 17 30 13 33 10 33S2 30 2 22C2 15 7 13 7 7 9 10 9 6 10 1Z" fill={RED} stroke="#3a0c00" strokeWidth="1.5" />
+          <path d="M10 12C12 17 15 20 14 25 13 29 11 31 10 31S6 29 6 25C6 21 9 19 10 12Z" fill={YELLOW} />
+        </svg>
+      ))}
+      {[0, 1, 2, 3].map((i) => ember(i, { left: `${25 + i * 16}%`, bottom: '18%', '--h': `${-50 - (i % 2) * 20}px`, animation: anim('lgxRise', 340, i * 25) }))}
+    </>,
     cool: () => <>
       {[0, 1, 2].map((i) => (
-        <div key={i} className="lgx" style={{ left: `${30 + i * 14}%`, bottom: '10%', width: 30, height: 30, borderRadius: '50%', background: `radial-gradient(circle, ${STEAM}, rgba(242,246,250,0))`, '--h': '-46px', animation: anim('lgxRise', 340, i * 30) }} />
+        <div key={i} className="lgx" style={{ left: `${26 + i * 16}%`, bottom: '12%', width: 46, height: 34, borderRadius: '50% 55% 45% 50%', background: `radial-gradient(circle at 40% 40%, #ffffff, ${STEAM} 40%, #b9dcf2)`, boxShadow: '0 0 0 1.5px #3a6a8a, 0 0 10px #bfe6ff', '--h': `${-50 - i * 6}px`, animation: anim('lgxRise', 340, i * 30) }} />
       ))}
     </>,
     vent: () => <>
@@ -61,6 +70,7 @@ export default {
     erupt: { size: 'big', shake: 3, flash: 2, hitstop: 1, sfx: 'inferno.erupt' },
   },
   css: `
+@keyframes lgrInfernoLick { 0% { transform: scale(.3, .1); opacity: 0 } 40% { transform: scale(1.1, 1.2); opacity: 1 } 65% { transform: scale(.9, 1) skewX(6deg) } 100% { transform: scale(.6, .2); opacity: 0 } }
 @keyframes lgrInfernoCone { 0% { transform: scaleX(0) scaleY(.4); opacity: 0 } 18% { transform: scaleX(calc(.9 * var(--s, 1))) scaleY(1); opacity: 1 } 60% { transform: scaleX(var(--s, 1)) scaleY(1.06); opacity: 1 } 100% { transform: scaleX(var(--s, 1)) scaleY(.2) translateX(10%); opacity: 0 } }
 @keyframes lgrInfernoColumn { 0% { transform: scaleY(0) scaleX(.5); opacity: 0 } 20% { transform: scaleY(1.05) scaleX(1); opacity: 1 } 40% { transform: scaleY(.97) scaleX(1.04) } 70% { opacity: 1 } 100% { transform: scaleY(1) scaleX(.15); opacity: 0 } }
 @keyframes lgrInfernoLava { 0% { transform: translate(0, 0) scale(.6); opacity: 0 } 8% { opacity: 1 } 45% { transform: translate(calc(var(--vx) * .55), var(--vy)) scale(1) } 100% { transform: translate(var(--vx), 70px) scale(.8); opacity: 0 } }

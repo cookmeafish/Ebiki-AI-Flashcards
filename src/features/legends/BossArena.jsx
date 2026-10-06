@@ -16,6 +16,9 @@ import { abilityCss, floaterKeyFor, floaterToneFor, fxForAbility, juiceFor } fro
 import { JUICE, JUICE_CSS, FLOATER_FILL, FLOATER_OUTLINE, juiceOf } from './fx/_juice'
 import { strikeMoment, STRIKE_FX } from './strikeFx'
 import StrikeFxLayer from './StrikeFxLayer'
+import { impactFor } from './impact/styles'
+import { BODY_CSS, bodyAnimation } from './impact/body'
+import { PowerFx, SharpenLock, wardStyle, POWER_ARMED_CSS } from './impact/PowerFx'
 import { AbilityHud, BarMarks } from './fx/_Hud'
 import { PASS } from './map'
 
@@ -80,7 +83,6 @@ const CSS = `
 @keyframes lgBossFloat { 0% { transform: translate(-50%, 0); opacity: 1 } 100% { transform: translate(-50%, -46px); opacity: 0 } }
 @keyframes lgHeartLose { 0% { transform: scale(1) } 40% { transform: scale(1.5) rotate(-12deg) } 100% { transform: scale(.8); opacity: .35 } }
 @keyframes lgBossDown { 0% { transform: rotate(0) } 100% { transform: rotate(-14deg) translateY(12px) } }
-@keyframes lgBossKO { 0% { transform: none; filter: brightness(1) } 6% { transform: translateX(-7px) scale(1.06); filter: brightness(3) } 13% { transform: translateX(7px) scale(1.05) } 20% { transform: translateX(-6px) scale(1.04); filter: brightness(1.8) } 27% { transform: translateX(5px) } 34% { transform: translateX(-3px); filter: brightness(1.2) } 42% { transform: translateX(0) scale(1.02) } 100% { transform: rotate(-14deg) translateY(14px) scale(.94); filter: none } }
 @keyframes lgStageIn { 0% { opacity: 0 } 100% { opacity: 1 } }
 @keyframes lgStripeL { 0% { transform: translateX(-110%) } 100% { transform: translateX(0) } }
 @keyframes lgStripeR { 0% { transform: translateX(110%) } 100% { transform: translateX(0) } }
@@ -500,7 +502,7 @@ function useShortWindow(getZoom) {
 const REFUND_CSS = '@keyframes lgRefundSweat { 0% { transform: translateY(-6px) scale(.4); opacity: 0 } 20% { transform: translateY(0) scale(1.1); opacity: 1 } 80% { transform: translateY(6px) scale(1); opacity: 1 } 100% { transform: translateY(10px) scale(.9); opacity: 0 } }'
   + ' @keyframes lgRefundHeart { 0% { transform: translate(-50%, 0) scale(.5); opacity: 0 } 25% { transform: translate(-50%, -10px) scale(1.25); opacity: 1 } 100% { transform: translate(120%, -90px) scale(.7); opacity: 0 } }'
 
-export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, phases = 2, weak = [], shield = false, focus = false, getZoom, kind = 'bosses', ability = '', dayAb = null, questionKey }) {
+export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, phases = 2, weak = [], shield = false, focus = false, getZoom, kind = 'bosses', ability = '', dayAb = null, questionKey, power = null, armed = null }) {
   const motion = useArtMotionAlways()
   const still = useArtStill()
   const quiet = focus || still // no shake, bob, flash or ability effect (still: the owner's no-animation switch)
@@ -531,6 +533,20 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
   // A raid's plain strike moments (strikeFx.js): every raid boss hits, gets hit and falls with weight.
   const moment = kind === 'raids' ? strikeMoment(last, { down }) : ''
   const juice = useJuice(last, animOk, ability, questionKey, moment)
+  // How a raid boss's own body moves when hit, when it strikes and when it falls (impact/body.js); null = the shared moves.
+  const raidBody = kind === 'raids' && animOk ? impactFor(area.motif).body : null
+  // A raid power just used (impact/PowerFx.jsx): its burst plays once per use, then clears.
+  // A use made before this arena mounted (a remount, the next boss in the asset view) never replays.
+  const [powerShow, setPowerShow] = useState(null)
+  const powerSeen = useRef(power?.n || 0)
+  useEffect(() => {
+    if (!power?.n || power.n === powerSeen.current) return undefined
+    powerSeen.current = power.n
+    if (!animOk) return undefined
+    setPowerShow(power)
+    const id = setTimeout(() => setPowerShow((x) => (x?.n === power.n ? null : x)), 1100)
+    return () => clearTimeout(id)
+  }, [power?.n]) // eslint-disable-line react-hooks/exhaustive-deps
   const fxNow = juice.fx
   const artRef = useRef(null)
   useHitStop(artRef, juice.stop)
@@ -553,12 +569,13 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
       animation: shakeSpec ? `lgJuiceShake${juice.shake} ${shakeSpec.ms}ms linear` : undefined }}>
       <BossStyle />
       {(abMod || kind === 'raids') && <style>{JUICE_CSS}</style>}
+      {kind === 'raids' && <style>{BODY_CSS}</style>}
       {abCssText && <style>{abCssText}</style>}
       {/* F2 flash: a 25% white veil over the arena for one frame */}
       {flashSpec?.veil && <div key={`v${juice.n}`} aria-hidden="true" style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', background: '#fff', opacity: 0, animation: `lgJuiceVeil ${flashSpec.veilMs}ms steps(1, end)`, pointerEvents: 'none', zIndex: 3 }} />}
       <div style={{ position: 'relative', flexShrink: 0, margin: headroomPx(compact ? BOSS.arenaCompact : BOSS.arena) }}>
         <div key={`s${shift}`} style={{ animation: shift && !quiet ? 'lgPhaseShift 1s ease-out both' : 'none' }}>
-        <div key={`b${last?.n || 0}`} style={{ animation: down ? (kind === 'raids' && animOk ? 'lgBossKO 1.1s ease-out both' : 'lgBossDown .6s ease-out both') : quiet ? 'none' : hitNow ? 'lgBossHit .5s ease-out' : missNow ? 'lgBossLunge .45s ease-out' : 'none',
+        <div key={`b${last?.n || 0}`} style={{ animation: down ? ((raidBody && bodyAnimation(raidBody, 'ko')) || 'lgBossDown .6s ease-out both') : quiet ? 'none' : hitNow ? ((raidBody && bodyAnimation(raidBody, 'hit')) || 'lgBossHit .5s ease-out') : missNow ? ((raidBody && bodyAnimation(raidBody, 'strike')) || 'lgBossLunge .45s ease-out') : 'none',
           filter: down ? 'grayscale(.8) opacity(.6)' : rage ? `drop-shadow(0 0 10px ${C.danger}) saturate(1.3)` : 'none' }}>
           {/* the boss's own reaction to its ability (fx/<motif>.jsx css: .lgr-<motif>-<fx>), then its persistent idle
               reaction (.lgr-<motif>-idle-<key>), then its persistent look (artStyle) on the INNERMOST box, so a scale
@@ -582,12 +599,14 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
         </>}
         {/* the raid ability's own effect (a bolt, a wave, a scythe arc...) and its floater, once per strike that fires
             it, inside the boss box; they fade out the moment the next question appears */}
+        {powerShow && <PowerFx t={t} power={powerShow} />}
+        {armed?.sharpen && !down && animOk && <SharpenLock />}
         {juice.show && juice.moment && <StrikeFxLayer t={t} moment={juice.moment} motif={area.motif} n={juice.n} fading={juice.fading} />}
         {juice.show && juice.fx && (
           <div key={`x${juice.n}`} aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1, opacity: juice.fading ? 0 : 1, transition: `opacity ${JUICE.fade}ms ease-in` }}>
             <AbilityFx fx={last?.fx || ''} ability={ability} />
             {!focus && floaterKeyFor(ability, last?.fx) && (
-              <div style={{ position: 'absolute', left: '50%', top: 0, whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 900, fontSize: JUICE.floaterPx[fxSize] || JUICE.floaterPx.big,
+              <div style={{ position: 'absolute', left: '50%', top: 0, width: 'max-content', maxWidth: 'calc(100% + 40px)', whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.05, fontFamily: FONT.display, fontWeight: 900, fontSize: JUICE.floaterPx[fxSize] || JUICE.floaterPx.big,
                 color: FLOATER_FILL[floaterToneFor(ability, last.fx)] || FLOATER_FILL.purple, WebkitTextStroke: `2px ${FLOATER_OUTLINE}`, paintOrder: 'stroke fill', zIndex: 2,
                 animation: `lgJuicePop 900ms cubic-bezier(.22,1,.36,1) ${JUICE.floaterDelay}ms both` }}>
                 {`${last.damage ? `-${last.damage} ` : ''}${t(floaterKeyFor(ability, last.fx), last.fxVars || {})}`}
@@ -597,7 +616,7 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
         )}
         {/* Flash and floater only where they can animate: under the system's reduce-motion their fade was removed and a
             red disc covered the boss after every hit. */}
-        {!quiet && hitNow && (motion || !reducedMotion()) && <div key={`f${last.n}`} aria-hidden="true" style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: C.danger, mixBlendMode: 'screen', animation: 'lgBossFlash .35s ease-out both', pointerEvents: 'none' }} />}
+        {!quiet && hitNow && kind !== 'raids' && (motion || !reducedMotion()) && <div key={`f${last.n}`} aria-hidden="true" style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: C.danger, mixBlendMode: 'screen', animation: 'lgBossFlash .35s ease-out both', pointerEvents: 'none' }} />}
         {/* the plain damage floater. An ability's own floater plays with its effect (above) while effects are on; with
             them off (Still bosses) its text still shows here, so the numbers say what happened */}
         {!focus && (motion || !reducedMotion()) && last && (hitNow || last.shielded || last.kind === 'block' || last.fx) && !(animOk && !last.shielded && last.fx && floaterKeyFor(ability, last.fx)) && (
@@ -630,7 +649,13 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
           <BarMarks marks={abMarks} need={need} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <Lives t={t} lives={lives} left={left} last={heartsLast} bonus={bonus} size={16} />
+          {armed?.shield && !down ? (
+            <span data-power-armed="shield" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, ...(animOk ? wardStyle(true) : { borderRadius: 999, padding: '1px 6px', boxShadow: '0 0 0 2px #6fc3ff' }) }}>
+              {animOk && <style>{POWER_ARMED_CSS}</style>}
+              <span aria-hidden="true" style={{ fontSize: 14 }}>🛡️</span>
+              <Lives t={t} lives={lives} left={left} last={heartsLast} bonus={bonus} size={16} />
+            </span>
+          ) : <Lives t={t} lives={lives} left={left} last={heartsLast} bonus={bonus} size={16} />}
           {shield && chip(st.shieldUsed ? C.inkFaint : C.info, `🛡 ${st.shieldUsed ? t('lg_fightShieldUsed') : t('lg_fightShield')}`, 'sh')}
           {!down && ability && chip(C.purple, `${ABILITY_ICON[ability] || ''} ${t(`lg_ability_${ability}`)}${abNote ? ` · ${t(abNote)}` : ''}`, 'ab')}
           {!down && rage && chip(C.danger, `😡 ${phases > 2 ? t('lg_fightPhase', { n: phase }) : t('lg_fightRage')}`, 'rg')}

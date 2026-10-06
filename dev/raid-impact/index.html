@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Raid impact sheet</title>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: 'Nunito', system-ui, sans-serif; background: #15121c; color: #eee; }
+      body.light { background: #f4f1ea; color: #222; }
+    </style>
+  </head>
+  <body>
+    <!-- Dev-only contact sheet of every raid boss's impact moments (not part of the app build). With the dev server up:
+         http://localhost:3000/dev/raid-impact/?moment=hurt  (moment: hit crit sharpen hurt hurtBig block shield wind ko;
+         &light=1 for the light theme). Freeze a frame from the console: freeze(400) pauses every animation at 400 ms;
+         replay() plays the moment again. -->
+    <div id="root"></div>
+    <script type="module" src="./main.jsx"></script>
+  </body>
+</html>
