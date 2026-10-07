@@ -14,6 +14,8 @@
 // PROGRESSION (docs/raid-powers-guide.md): early powers save ONE heart or help ONE question; mid ones add damage or
 // stop a heal; late ones last a 3-question window or change the whole fight, because late bosses are 2 to 4 times
 // bigger. A window power still needs RIGHT answers to do anything (no power ever turns a wrong answer right).
+import { DAMAGE } from './abilities/_rules'
+
 export const POWERS = {
   shield: { icon: '🛡', kind: 'survival', unlock: 1, normal: false },
   fifty: { icon: '✂', kind: 'aid', unlock: 3, normal: true },
@@ -36,6 +38,29 @@ export const SHARPEN_BONUS = 2
 export const POWER_WINDOW = 3
 export const STEADFAST_HEARTS = 2
 export const FURY_MULT = 2
+// Hearts Second wind gives back at once; hearts Siphon gives back per clean answer in its window.
+export const WIND_HEARTS = 1
+export const SIPHON_HEARTS = 1
+// Momentum's crits deal this many times the usual crit bonus.
+export const MOMENTUM_CRIT_MULT = 2
+// THE NUMBERS A POWER'S TEXT SHOWS, from the constants above and the fight's own damage table, never typed into a
+// locale (the owner: change a number here and every description, armed line and label follows). `{n}` in
+// lg_powDesc_<id> / lg_powUp_<id> / lg_fxCast_<id> / lg_fxProc_<id> is filled from here.
+export function powerVars(id) {
+  switch (id) {
+    case 'fifty': case 'hint': return { n: DAMAGE.choice }
+    case 'wind': return { n: WIND_HEARTS }
+    case 'sharpen': return { n: SHARPEN_BONUS }
+    case 'focus': return { n: POWER_WINDOW }
+    case 'siphon': return { n: POWER_WINDOW, hearts: SIPHON_HEARTS }
+    case 'momentum': return { n: POWER_WINDOW, crit: DAMAGE.crit * MOMENTUM_CRIT_MULT }
+    case 'fury': return { n: POWER_WINDOW, mult: FURY_MULT }
+    case 'steadfast': return { n: STEADFAST_HEARTS }
+    default: return {}
+  }
+}
+// The numbers a power HIT's label shows (lg_fxProc_<id>): Siphon names the hearts it gave back.
+export const procVars = (id) => (id === 'siphon' ? { n: SIPHON_HEARTS } : powerVars(id))
 // The powers pressed with a button during a fight (the rest work between runs or by being brought).
 export const isFightPower = (id) => !!POWERS[id] && POWERS[id].kind !== 'siege' && POWERS[id].kind !== 'passive'
 

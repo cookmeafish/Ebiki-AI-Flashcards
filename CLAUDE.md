@@ -1417,11 +1417,12 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     applies; an ability's own fx wins except for the knockout. Raids only, and raids skip the old red hit disc (`lgBossFlash`); ability floaters wrap instead of running past the arena. Contact sheet of all 26:
     `/dev/raid-impact/?moment=hurt` (dev only; `freeze(ms)` in the console). Asset view: "Impact moments" and
     "Powers" buttons under the phase demo.
-  - **Powers animate** (`impact/PowerFx.jsx`): using one plays its burst in the boss box (`POWER_FX`: Shield's
-    dome, 50:50's double snip, Sharpen's glint, Hint's rays; label `lg_fxCast_<id>`), passed as BossArena's `power`
-    ({id, n}) from RaidRun. While armed (BossArena `armed`), Shield rings the hearts row in a blue ward and Sharpen
-    turns a gold target lock over the boss. QuizRunner pops the two 50:50 tiles in and slides a hint in
-    (`data-quiz-pop`, none under reduced motion).
+  - **Powers animate BESIDE the boss, never over it** (the owner: the boss stays in full view; `impact/PowerFx.jsx`):
+    a cast (`power` {id, n}) and a power hit (`proc`) play in BossArena's POWER STAGE, a square at the start of the
+    info column (`POWER_STAGE`, `data-power-stage`); armed powers are pills in the hearts row (`PowerBadges`: icon in
+    its own moving look + pips), Shield rings the hearts, Steadfast shows gold hearts. Nothing power-related renders
+    in the boss box (`powerfx.test.js` / the asset view check it). QuizRunner pops the two 50:50 tiles in and slides a
+    hint in (`data-quiz-pop`, none under reduced motion).
 - **Asset view** (cheat mode only: `AssetView.jsx`, map header ⚡, sidebar entry `assets` via `AssetScreen.jsx`; a
   `navItems` entry may carry `visible({ registry, featureSettings })`): tabs **Legends**, **Raid bosses** (phases via the
   arena's phase CSS, ability card, live arena with "Next phase") and **Ebi drafts** (`public/assets/ebi-drafts/`, the

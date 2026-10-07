@@ -11,7 +11,7 @@ import { newFight } from './fight'
 import { MOTIFS, PALETTES } from './map'
 import { RAID, RAID_MOTIFS, RAID_ABILITY, raidBossNumber } from './raid'
 import { raidProfile } from './raidProfiles'
-import { POWERS, POWER_IDS } from './powers'
+import { POWERS, POWER_IDS, WIND_HEARTS } from './powers'
 import { POWER_ARMED, POWER_PROC, PowerIcon } from './impact/PowerFx'
 import { RAID_VOICES } from './raidVoices'
 import { bestiaryRows } from './abilities/_triggers'
@@ -275,7 +275,7 @@ const IMPACT_DEMOS = [
   ['wind', 'lg_fxWind', { kind: 'wind' }],
   ['ko', 'lg_fxKo', { kind: 'hit', damage: 5 }],
 ]
-function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot, step, setStep }) {
+function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot, step, setStep, children }) {
   const [impact, setImpact] = useState(null) // { id, n }: an impact moment to replay
   const [cast, setCast] = useState(null) // { id, n }: a raid power used (impact/PowerFx.jsx)
   const [armedDemo, setArmedDemo] = useState({}) // the armed looks shown (POWER_ARMED): a toggle or a countdown each
@@ -299,7 +299,11 @@ function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot, step, setStep }
   const state = { ...newFight(), ...(demoAb ? { ab: demoAb } : {}), damage, last: fxLast || impactLast || (step ? { kind: 'hit', damage: Math.round(third), lives: 0, n: step } : null) }
   return (
     <div style={{ display: 'grid', gap: 10 }}>
-      <BossArena key={motif} t={t} area={area} name={motif} need={VIEW.demoHp} lives={raidProfile(motif).hearts} state={state} phases={RAID.phases} ability={ability} getZoom={getZoom} kind="raids" power={cast} armed={armedDemo} proc={procDemo} />
+      {/* Frozen at the top like a spreadsheet's frozen row (the owner): the demo rows below grow long, and scrolling to
+          them must keep the boss in view to watch what each button plays. */}
+      <div data-arena-pinned="" style={{ maxWidth: 640, position: 'sticky', top: 0, zIndex: 5 }}>
+        <BossArena key={motif} t={t} area={area} name={motif} need={VIEW.demoHp} lives={raidProfile(motif).hearts} state={state} phases={RAID.phases} ability={ability} getZoom={getZoom} kind="raids" power={cast} armed={armedDemo} proc={procDemo} />
+      </div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <ChunkyButton variant="ghost" color={C.danger} onClick={() => { onClearShot(); setImpact(null); setStep((n) => (n + 1) % RAID.phases) }} style={{ fontSize: 12, padding: '6px 10px' }}>⚔️ {t('lg_assetsNextPhase')}</ChunkyButton>
       </div>
@@ -307,7 +311,7 @@ function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot, step, setStep }
         <span style={{ fontSize: 11.5, fontWeight: 900, letterSpacing: '.06em', textTransform: 'uppercase', color: C.inkDim }}>{t('lg_assetsImpact')}</span>
         {IMPACT_DEMOS.map(([id, key]) => (
           <ChunkyButton key={id} variant="ghost" color={id === 'ko' ? C.danger : C.purple} data-impact-demo={id}
-            onClick={() => { onClearShot(); setArmedDemo({}); setImpact((x) => ({ id, n: (x?.n || 0) + 1 })) }} style={{ fontSize: 11.5, padding: '5px 9px' }}>{t(key)}</ChunkyButton>
+            onClick={() => { onClearShot(); setArmedDemo({}); setImpact((x) => ({ id, n: (x?.n || 0) + 1 })) }} style={{ fontSize: 11.5, padding: '5px 9px' }}>{t(key, id === 'wind' ? { n: WIND_HEARTS } : {})}</ChunkyButton>
         ))}
       </div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -335,6 +339,7 @@ function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot, step, setStep }
           <ChunkyButton key={id} variant="ghost" color={C.warning} data-power-proc-demo={id} onClick={() => setProcDemo((x) => ({ id, n: (x?.n || 0) + 1 }))} style={{ fontSize: 11.5, padding: '5px 9px' }}>{POWERS[id]?.icon} {t(`lg_pow_${id}`)}</ChunkyButton>
         ))}
       </div>
+      {children}
     </div>
   )
 }
@@ -547,11 +552,14 @@ export default function AssetView({ ctx, onBack }) {
         {raids && (
           <div style={section}>
             <div style={h}>{t('lg_assetsPhases')}</div>
-            <div style={{ maxWidth: 640 }}><PhaseDemo t={t} area={area} motif={motif} getZoom={ctx.getZoom} shot={shot} onClearShot={() => setShot(null)} step={demoStep} setStep={setDemoStep} /></div>
+            {/* The ability card and lore sit INSIDE the demo, so the pinned arena stays on screen while their Try buttons
+                play on it. */}
+            <PhaseDemo t={t} area={area} motif={motif} getZoom={ctx.getZoom} shot={shot} onClearShot={() => setShot(null)} step={demoStep} setStep={setDemoStep}>
+              <AbilityCard t={t} motif={motif} ability={RAID_ABILITY[motif]} onTry={(fx) => setShot((x) => ({ motif, fx, n: 1000 + ((x && x.n) || 0) + 1 }))} />
+              <RaidLore t={t} motif={motif} />
+            </PhaseDemo>
           </div>
         )}
-        {raids && <AbilityCard t={t} motif={motif} ability={RAID_ABILITY[motif]} onTry={(fx) => setShot((x) => ({ motif, fx, n: 1000 + ((x && x.n) || 0) + 1 }))} />}
-        {raids && <RaidLore t={t} motif={motif} />}
 
         <div style={section}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

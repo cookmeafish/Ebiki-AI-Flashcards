@@ -1,16 +1,17 @@
 // RAID POWERS ON SCREEN (powers.js). Three kinds of motion, each power its OWN (the owner: "every power has its own
 // animations", "super super cool"; powerfx.test.js keeps every cast and proc pairwise distinct):
-//   CAST   (PowerFx, `power` = { id, n }): played once in the boss box the moment a power is used. The power's icon
+//   CAST   (PowerFx, `power` = { id, n }): played once in the power stage BESIDE the boss (BossArena: over the info
+//          column, never over the boss) the moment a power is used. The power's icon
 //          (/assets/legends/powers/<id>.svg, emoji fallback) is the centerpiece, entering its own way, wrapped in its
 //          own shapes: Shield's hex dome assembling, 50:50's shears splitting a card, Second wind's gust lifting a
 //          heart, Sharpen's blade on a spark fan, Hint's scroll unrolling, Bandage's strips crossing under a moon,
 //          Focus's brackets locking on, Siphon's blood drops spiralling in, Ward's rune circle drawing itself and
 //          raising a wall, Momentum's three chevrons launching, Fury's twin blades slamming into a burst, Steadfast's
 //          anchor dropping and cracking the ground.
-//   ARMED  (PowerArmed, `armed` = { shield, sharpen, ward: bool, focus/siphon/momentum/fury: questions left,
-//          steadfast: extra hearts left }): a persistent look while a power is up, and a small tray (bottom left of
-//          the boss box) with the icon and the window's pips. The tray shows even when motion is off (it is
-//          information); the moving looks only while effects may play.
+//   ARMED  (PowerBadges, `armed` = { shield, sharpen, ward: bool, focus/siphon/momentum/fury: questions left,
+//          steadfast: extra hearts left }): a pill per armed power BESIDE the boss (the hearts row; never over the
+//          boss), its icon wearing its own moving look, plus the window's pips. The pills show even with motion off
+//          (they are information); the moving looks only while effects may play.
 //   PROC   (PowerProc, `proc` = { id, n }): a window power (or Ward / Steadfast) just did something on this answer.
 //          Short, low in the box, so it never covers the strike moment's label at the top.
 // PowerCastBadge plays a cast in a small square of its own (the Bandage, used on the intro and result screens).
@@ -19,7 +20,7 @@
 import { useState } from 'react'
 import { FONT } from '../../../config/tokens'
 import { FLOATER_OUTLINE } from '../fx/_juice'
-import { POWERS } from '../powers'
+import { POWERS, powerVars, procVars } from '../powers'
 import { reducedMotion, useArtStill, useArtMotionAlways } from '../art'
 
 // The colored emoji form (a bare 🛡 or ⚔ draws as a thin outline on Windows).
@@ -353,102 +354,85 @@ export function PowerFx({ t, power, fading = false }) {
       </div>
       {t && (
         <div style={{ position: 'absolute', left: '50%', top: '6%', whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 900, fontSize: 20, letterSpacing: '.04em', color: spec.color, WebkitTextStroke: `2px ${FLOATER_OUTLINE}`, paintOrder: 'stroke fill', animation: an('lgpwLabel', spec.ms, 80), zIndex: 3 }}>
-          {t(spec.label)}
+          {t(spec.label, powerVars(power.id))}
         </div>
       )}
     </div>
   )
 }
 
-// Sharpen armed: a gold target lock turning slowly over the boss, until the answer spends it.
-export function SharpenLock() {
-  return (
-    <div aria-hidden="true" data-power-armed="sharpen" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1 }}>
-      <div style={{ position: 'absolute', left: '50%', top: '50%', width: '78%', height: '78%', animation: 'lgpwLockIn 300ms ease-out both' }}>
-        <div style={{ position: 'absolute', inset: 0, animation: 'lgpwLock 2.4s linear infinite' }}>
-          <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true" style={{ overflow: 'visible', filter: 'drop-shadow(0 0 4px #ffd23a)' }}>
-            <circle cx="50" cy="50" r="44" fill="none" stroke="#ffd23a" strokeWidth="2.5" strokeDasharray="20 14" />
-            {[0, 90, 180, 270].map((a) => <path key={a} d="M50 0v14" stroke="#fff6c8" strokeWidth="3.5" strokeLinecap="round" transform={`rotate(${a} 50 50)`} />)}
-          </svg>
-        </div>
-      </div>
-    </div>
+// THE ARMED BADGES (beside the boss, in the hearts row; never over the boss: the owner wants the boss in full view).
+// One pill per armed power: its icon wearing its OWN moving look (POWER_ARMED.look) and, for a window power, its pips
+// (questions left). Shield keeps its ward on the hearts and Steadfast its gold hearts (SteadfastHearts), so they have
+// no pill. The pills show even with motion off (they are information); `anim` adds the moving looks.
+const MINI = 24 // the icon box of a pill, px
+function MiniLook({ id, color }) {
+  const box = { position: 'absolute', inset: -5, pointerEvents: 'none' }
+  if (id === 'sharpen') return (
+    <span style={{ ...box, animation: 'lgpwLock 2.4s linear infinite' }}>
+      <svg viewBox="0 0 100 100" width="100%" height="100%" style={{ overflow: 'visible', filter: `drop-shadow(0 0 2px ${color})` }}>
+        <circle cx="50" cy="50" r="44" fill="none" stroke={color} strokeWidth="7" strokeDasharray="22 16" />
+        {[0, 90, 180, 270].map((a) => <path key={a} d="M50 -4v16" stroke="#fff6c8" strokeWidth="8" strokeLinecap="round" transform={`rotate(${a} 50 50)`} />)}
+      </svg>
+    </span>
   )
-}
-
-// The moving looks of the armed powers (each its own), inside the boss box. Only while effects may play.
-function ArmedLooks({ armed }) {
-  const on = (id) => (POWER_ARMED[id]?.window ? armed[id] > 0 : !!armed[id])
-  return (
-    <>
-      {on('sharpen') && <SharpenLock />}
-      {on('ward') && (
-        <div aria-hidden="true" data-power-armed="ward" style={{ position: 'absolute', left: '-4%', right: '-4%', bottom: '-6%', height: '44%', pointerEvents: 'none', zIndex: 1, transform: 'scaleY(.42)', transformOrigin: 'center bottom' }}>
-          <svg viewBox="0 0 100 100" width="100%" height="100%" preserveAspectRatio="none" style={{ overflow: 'visible', filter: 'drop-shadow(0 0 5px #b07cff)', animation: 'lgpwFloorRune 6s linear infinite', transformOrigin: 'center' }}>
-            <circle cx="50" cy="50" r="46" fill="#b07cff" fillOpacity=".22" stroke="#b07cff" strokeWidth="4" />
-            <circle cx="50" cy="50" r="38" fill="none" stroke="#efe2ff" strokeWidth="1.6" strokeDasharray="6 5" />
-            <polygon points="50,10 85,70 15,70" fill="none" stroke="#efe2ff" strokeWidth="2.4" />
-            <polygon points="50,90 15,30 85,30" fill="none" stroke="#efe2ff" strokeWidth="2.4" />
-          </svg>
-        </div>
-      )}
-      {on('focus') && (
-        <svg aria-hidden="true" data-power-armed="focus" viewBox="0 0 100 100" style={{ ...fill, pointerEvents: 'none', zIndex: 1, filter: 'drop-shadow(0 0 3px #3dffb0)' }}>
-          {[[6, 6, 1, 1], [94, 6, -1, 1], [6, 94, 1, -1], [94, 94, -1, -1]].map(([x, y, sx, sy], i) => (
-            <path key={i} d={`M${x} ${y + sy * 14} L${x} ${y} L${x + sx * 14} ${y}`} fill="none" stroke="#3dffb0" strokeWidth="3.4" strokeLinecap="round"
-              style={{ '--bx': `${sx * 3}px`, '--by': `${sy * 3}px`, animation: `lgpwBreathe 1.4s ease-in-out ${i * 120}ms infinite` }} />
-          ))}
-        </svg>
-      )}
-      {on('siphon') && (
-        <div aria-hidden="true" data-power-armed="siphon" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1, containerType: 'size' }}>
-          <div style={{ position: 'absolute', inset: '4%', borderRadius: '50%', border: '1.5px dashed #ff2e5599' }} />
-          {[0, 120, 240].map((a) => (
-            <div key={a} style={{ position: 'absolute', left: '50%', top: '50%', width: 0, height: 0, '--a': `${a}deg`, animation: 'lgpwOrbitDrop 3.2s linear infinite' }}>
-              <svg viewBox="0 0 10 14" width="11" height="15" style={{ position: 'absolute', left: -5, top: -7, filter: 'drop-shadow(0 0 3px #ff2e55)' }}><path d="M5 0 C2 5 0 8 0 10 A5 4 0 0 0 10 10 C10 8 8 5 5 0 Z" fill="#ff2e55" stroke="#ffb3c2" strokeWidth=".8" /></svg>
-            </div>
-          ))}
-        </div>
-      )}
-      {on('momentum') && (
-        <div aria-hidden="true" data-power-armed="momentum" style={{ position: 'absolute', left: 0, right: '6%', bottom: '-2%', display: 'flex', justifyContent: 'flex-end', gap: 8, pointerEvents: 'none', zIndex: 1 }}>
-          {Array.from({ length: Math.max(1, Math.min(3, armed.momentum)) }, (_, i) => (
-            <svg key={i} viewBox="0 0 20 28" style={{ width: 18, height: 25, transformOrigin: 'center bottom', animation: `lgpwFlicker ${0.6 + i * 0.13}s ease-in-out infinite`, filter: 'drop-shadow(0 0 4px #ff8a1f)' }}>
-              <path d="M10 0 C14 8 20 12 18 20 C17 25 13 28 10 28 C6 28 2 25 2 20 C2 15 6 12 7 6 C8 10 10 11 11 11 C11 7 10 3 10 0 Z" fill="#ff8a1f" />
-              <path d="M10 12 C12 16 14 18 13 22 C12 25 8 25 7 22 C6 19 9 17 10 12 Z" fill="#ffe08a" />
-            </svg>
-          ))}
-        </div>
-      )}
-      {on('fury') && (
-        <div aria-hidden="true" data-power-armed="fury" style={{ position: 'absolute', inset: 0, borderRadius: 14, pointerEvents: 'none', zIndex: 1, animation: 'lgpwRim 1.1s ease-in-out infinite' }}>
-          {[18, 42, 66, 84].map((x, i) => <span key={x} style={{ position: 'absolute', left: `${x}%`, bottom: '4%', width: 5, height: 5, borderRadius: '50%', background: i % 2 ? '#ffe14a' : '#ff3b1f', animation: `lgpwRimEmber ${1.4 + i * 0.25}s ease-out ${i * 300}ms infinite` }} />)}
-        </div>
-      )}
-    </>
+  if (id === 'ward') return (
+    <span style={{ ...box, animation: 'lgpwFloorRune 6s linear infinite' }}>
+      <svg viewBox="0 0 100 100" width="100%" height="100%" style={{ overflow: 'visible', filter: `drop-shadow(0 0 3px ${color})` }}>
+        <circle cx="50" cy="50" r="46" fill="none" stroke={color} strokeWidth="6" strokeDasharray="10 6" />
+        <polygon points="50,10 85,70 15,70" fill="none" stroke="#efe2ff" strokeWidth="5" />
+        <polygon points="50,90 15,30 85,30" fill="none" stroke="#efe2ff" strokeWidth="5" />
+      </svg>
+    </span>
   )
+  if (id === 'focus') return (
+    <svg viewBox="0 0 100 100" style={{ ...box, overflow: 'visible', filter: `drop-shadow(0 0 2px ${color})` }}>
+      {[[2, 2, 1, 1], [98, 2, -1, 1], [2, 98, 1, -1], [98, 98, -1, -1]].map(([x, y, sx, sy], i) => (
+        <path key={i} d={`M${x} ${y + sy * 26} L${x} ${y} L${x + sx * 26} ${y}`} fill="none" stroke={color} strokeWidth="9" strokeLinecap="round"
+          style={{ '--bx': `${sx * 2}px`, '--by': `${sy * 2}px`, animation: `lgpwBreathe 1.4s ease-in-out ${i * 120}ms infinite` }} />
+      ))}
+    </svg>
+  )
+  if (id === 'siphon') return (
+    <span style={{ ...box, containerType: 'size' }}>
+      {[0, 120, 240].map((a) => (
+        <span key={a} style={{ position: 'absolute', left: '50%', top: '50%', width: 0, height: 0, '--a': `${a}deg`, animation: 'lgpwOrbitDrop 3.2s linear infinite' }}>
+          <svg viewBox="0 0 10 14" width="7" height="9" style={{ position: 'absolute', left: -3.5, top: -4.5, filter: `drop-shadow(0 0 2px ${color})` }}><path d="M5 0 C2 5 0 8 0 10 A5 4 0 0 0 10 10 C10 8 8 5 5 0 Z" fill={color} stroke="#ffb3c2" strokeWidth="1" /></svg>
+        </span>
+      ))}
+    </span>
+  )
+  if (id === 'fury') return <span style={{ ...box, inset: -3, borderRadius: 8, animation: 'lgpwRim 1.1s ease-in-out infinite' }} />
+  return null
 }
-
-// The armed tray: each armed power's icon and, for a window power, its pips (questions left). Always shown (it is
-// information, also with motion off); `anim` adds the moving looks over the boss.
-export function PowerArmed({ armed, anim = true }) {
+// Momentum's pips are flames (one per question left), the rest round pips.
+function Pips({ id, n, color, anim }) {
+  return Array.from({ length: 3 }, (_, i) => (id === 'momentum'
+    ? <svg key={i} viewBox="0 0 20 28" style={{ width: 9, height: 13, opacity: i < n ? 1 : 0.25, transformOrigin: 'center bottom', animation: anim && i < n ? `lgpwFlicker ${0.6 + i * 0.13}s ease-in-out infinite` : 'none' }}>
+        <path d="M10 0 C14 8 20 12 18 20 C17 25 13 28 10 28 C6 28 2 25 2 20 C2 15 6 12 7 6 C8 10 10 11 11 11 C11 7 10 3 10 0 Z" fill={color} />
+        <path d="M10 12 C12 16 14 18 13 22 C12 25 8 25 7 22 C6 19 9 17 10 12 Z" fill="#ffe08a" />
+      </svg>
+    : <span key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: i < n ? color : 'transparent', border: `1.5px solid ${color}`, animation: anim && i < n ? `lgpwPipIn .3s ease-out ${i * 60}ms both` : 'none' }} />))
+}
+export function PowerBadges({ armed, anim = true }) {
   if (!armed) return null
   const ids = Object.keys(POWER_ARMED).filter((id) => id !== 'shield' && id !== 'steadfast' && (POWER_ARMED[id].window ? armed[id] > 0 : !!armed[id]))
   if (!ids.length) return null
   return (
     <>
-      {anim && <style>{CSS}</style>}
-      {anim && <ArmedLooks armed={armed} />}
-      <div data-power-tray="" aria-hidden="true" style={{ position: 'absolute', left: 2, bottom: 2, display: 'grid', gap: 3, pointerEvents: 'none', zIndex: 3 }}>
-        {ids.map((id) => (
-          <div key={id} style={{ display: 'flex', alignItems: 'center', gap: 3, padding: '2px 5px 2px 2px', borderRadius: 999, background: '#120c1ccc', boxShadow: `0 0 0 1.5px ${POWER_FX[id].color}` }}>
-            <PowerIcon id={id} size={16} />
-            {POWER_ARMED[id].window && Array.from({ length: 3 }, (_, i) => (
-              <span key={`${id}${i}`} style={{ width: 6, height: 6, borderRadius: '50%', background: i < armed[id] ? POWER_FX[id].color : 'transparent', border: `1.5px solid ${POWER_FX[id].color}`, animation: anim && i < armed[id] ? `lgpwPipIn .3s ease-out ${i * 60}ms both` : undefined }} />
-            ))}
-          </div>
-        ))}
-      </div>
+      <style>{CSS}</style>
+      {ids.map((id) => {
+        const color = POWER_FX[id].color
+        return (
+          <span key={id} data-power-armed={id} aria-hidden="true" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px 2px 3px', borderRadius: 999, background: '#120c1ccc', boxShadow: `0 0 0 1.5px ${color}` }}>
+            <span style={{ position: 'relative', width: MINI, height: MINI, flexShrink: 0 }}>
+              {anim && <MiniLook id={id} color={color} />}
+              <PowerIcon id={id} size={MINI} style={{ position: 'relative', zIndex: 1 }} />
+            </span>
+            {POWER_ARMED[id].window && <Pips id={id} n={armed[id]} color={color} anim={anim} />}
+          </span>
+        )
+      })}
     </>
   )
 }
@@ -535,7 +519,7 @@ export function PowerProc({ t, proc, fading = false }) {
       <Shape {...spec} />
       {t && (
         <div style={{ position: 'absolute', left: '50%', top: '56%', whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 900, fontSize: 16, letterSpacing: '.04em', color: spec.color, WebkitTextStroke: `2px ${FLOATER_OUTLINE}`, paintOrder: 'stroke fill', animation: an('lgpwProcLabel', spec.ms, 40), zIndex: 3 }}>
-          {t(spec.label)}
+          {t(spec.label, procVars(proc.id))}
         </div>
       )}
     </div>

@@ -20,6 +20,7 @@ import Talk from './Talk'
 import { BossIntro, BossArena, BossEnd, bossOdds, forgivenMisses } from './BossArena'
 import { weakItems, WEAK_BONUS_LIVES, PASS, spendHelper } from './map'
 import { powerHint } from './powers'
+import { DAMAGE } from './abilities/_rules'
 import { newFight, strike, fightOutcome, phaseOf, healthLeft, attackSlot, canAttack, weakTo, effortOf, ATTACK_LIVES, refundRunningFight, strikeCost } from './fight'
 import LearnItPanel from '../kit/LearnItPanel'
 import { islandVoice } from '../kit/taunt'
@@ -507,7 +508,7 @@ function NodeRunBody({ ctx: rawCtx, modeId, area, node, misses = [], onFinish, o
           </div>
         )}
         <div style={{ fontSize: 12, fontWeight: 800, color: mode === 'choice' ? C.info : C.warning }}>
-          {mode === 'choice' ? `🛡 ${t('lg_strikeSafeHint')}` : `💥 ${t('lg_strikePowerHint')}`}{fightPhase > 1 && node.kind === 'boss' ? ` · 😡 ${t('lg_rageNoSafe')}` : ''}
+          {mode === 'choice' ? `🛡 ${t('lg_strikeSafeHint', { n: DAMAGE.choice })}` : `💥 ${t('lg_strikePowerHint', { n: DAMAGE.clean })}`}{fightPhase > 1 && node.kind === 'boss' ? ` · 😡 ${t('lg_rageNoSafe')}` : ''}
         </div>
       </div>
     ) : undefined

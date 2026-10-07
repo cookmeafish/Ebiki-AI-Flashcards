@@ -16,7 +16,7 @@
 // only `day`) sees the boss as it is; an older build writes no `siege`, and siegeOf() then starts it from `day`.
 import { abilityForMotif, abilityById } from './abilities'
 import { raidProfile, MAX_HEARTS } from './raidProfiles'
-import { bossesBeaten, POWERS, SHARPEN_BONUS, FURY_MULT } from './powers'
+import { bossesBeaten, POWERS, SHARPEN_BONUS, FURY_MULT, SIPHON_HEARTS } from './powers'
 import { strike, barPhase, canAttack, attackSlot, attackGapFor, MAX_INSERTED, raidRating } from './fight'
 
 // THE ROSTER is append-only: a stored raid state's `boss` is an INDEX into it (older builds on a shared folder read
@@ -265,7 +265,8 @@ export function raidStep(before, q, info, { ability = '', need, lives, dayHp, da
   // Siphon: a clean answer to a raid question in its window gives back one heart this fight lost (never past full,
   // never after the fight is decided).
   if (siphon && own && verdict === 'clean' && next.livesLost > 0 && next.livesLost < lives && next.damage < need) {
-    next = { ...next, livesLost: next.livesLost - 1, last: { ...(next.last || {}), siphoned: true } }
+    const back = Math.min(next.livesLost, SIPHON_HEARTS)
+    next = { ...next, livesLost: next.livesLost - back, last: { ...(next.last || {}), siphoned: back } }
   }
   // A boss heal never crosses a phase line backwards (choices came back and the PHASE flash replayed).
   if (next.last?.gorged > 0 && barPhase(bar, next.damage) < phaseNow) {

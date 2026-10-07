@@ -18,7 +18,7 @@ import { strikeMoment, STRIKE_FX } from './strikeFx'
 import StrikeFxLayer from './StrikeFxLayer'
 import { impactFor } from './impact/styles'
 import { BODY_CSS, bodyAnimation } from './impact/body'
-import { PowerFx, PowerArmed, PowerProc, SteadfastHearts, wardStyle, POWER_ARMED_CSS, castMs, procMs } from './impact/PowerFx'
+import { PowerFx, PowerBadges, PowerProc, SteadfastHearts, wardStyle, POWER_ARMED_CSS, castMs, procMs } from './impact/PowerFx'
 import { AbilityHud, BarMarks } from './fx/_Hud'
 import { PASS } from './map'
 
@@ -27,6 +27,8 @@ import { PASS } from './map'
 // 25 ms a frame in the asset view). false: the old drop-shadow pulse, exactly as before.
 export const INTRO_EYES_GLOW_LAYER = false
 export const BOSS = { intro: 190, arena: 120, arenaCompact: 68 } // px: the boss on the intro card, and above the questions
+// The power stage beside the boss (a cast, a power's hit), as a share of the boss's size.
+const POWER_STAGE = 0.9
 // Below this many layout px of window height the arena shrinks (boss, bar, hearts), so the question and its choices
 // fit under it without scrolling on a short laptop screen (the body zoom is taken out).
 export const ARENA_COMPACT_BELOW = 900
@@ -56,7 +58,7 @@ export const forgivenMisses = (total, hits, opts) => {
 // `bonus`: the last hearts are the Weak spots reward: a gold ring and a "+1" tag, and they go first.
 function Lives({ t, lives, left, last, size = 16, popFrom = 0, bonus = 0 }) {
   return (
-    <div role="img" aria-label={bonus ? `${t('lg_livesAria', { n: left })}. ${t('lg_bonusLife')}` : t('lg_livesAria', { n: left })} style={{ display: 'flex', gap: 4, fontSize: size, flexWrap: 'wrap', justifyContent: 'center' }}>
+    <div role="img" aria-label={bonus ? `${t('lg_livesAria', { n: left })}. ${t('lg_bonusLife', { n: bonus })}` : t('lg_livesAria', { n: left })} style={{ display: 'flex', gap: 4, fontSize: size, flexWrap: 'wrap', justifyContent: 'center' }}>
       {Array.from({ length: lives }, (_, i) => {
         const lost = i >= left
         const justLost = last?.kind === 'miss' && i === left
@@ -350,7 +352,7 @@ export function BossIntro({ t, area, name = '', total, onFight, odds, legendary 
         </div>
         {name && <div style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 15, letterSpacing: '.08em', textTransform: 'uppercase', color: `color-mix(in srgb, ${C.danger} 55%, ${C.white})`, marginTop: -6, animation: `lgStamp .45s cubic-bezier(.3,1.4,.5,1) ${E.title + 0.15}s both` }}>{area.subtitle || t('lg_bossGuards', { area: area.title })}</div>}
         <Lives t={t} lives={lives} left={kind === 'raids' && raidLeft != null ? Math.max(0, Math.min(lives, raidLeft)) : lives} size={28} popFrom={E.lives} bonus={bonus} />
-        {bonus > 0 && <div style={{ fontSize: 14, fontWeight: 800, color: C.warning, marginTop: -4, animation: `lgRise .4s ease-out ${E.lives + lives * 0.12}s both` }}>💖 {t('lg_bonusLife')}</div>}
+        {bonus > 0 && <div style={{ fontSize: 14, fontWeight: 800, color: C.warning, marginTop: -4, animation: `lgRise .4s ease-out ${E.lives + lives * 0.12}s both` }}>💖 {t('lg_bonusLife', { n: bonus })}</div>}
         {legendary && <div style={{ fontSize: 14, fontWeight: 800, color: `color-mix(in srgb, ${C.warning} 70%, ${C.white})`, marginTop: -4 }}>{t('lg_legendaryRules')}</div>}
         {ability && (
           <div style={{ maxWidth: 460, padding: '8px 14px', borderRadius: RADIUS.md, border: `2px solid color-mix(in srgb, ${C.purple} 70%, ${C.white})`, background: `color-mix(in srgb, ${C.purple} 22%, black)`, color: C.white, animation: `lgRise .4s ease-out ${E.lives + lives * 0.12 + 0.1}s both` }}>
@@ -610,10 +612,7 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
         </>}
         {/* the raid ability's own effect (a bolt, a wave, a scythe arc...) and its floater, once per strike that fires
             it, inside the boss box; they fade out the moment the next question appears */}
-        {powerShow && <PowerFx t={t} power={powerShow} />}
-        {armed && !down && <PowerArmed armed={armed} anim={animOk} />}
-        {procShow && <PowerProc t={t} proc={procShow} />}
-        {juice.show && juice.moment && <StrikeFxLayer t={t} moment={juice.moment} motif={area.motif} n={juice.n} fading={juice.fading} />}
+        {juice.show && juice.moment && <StrikeFxLayer t={t} moment={juice.moment} motif={area.motif} n={juice.n} fading={juice.fading} last={last} />}
         {juice.show && juice.fx && (
           <div key={`x${juice.n}`} aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1, opacity: juice.fading ? 0 : 1, transition: `opacity ${JUICE.fade}ms ease-in` }}>
             <AbilityFx fx={last?.fx || ''} ability={ability} />
@@ -649,7 +648,15 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
           </div>
         )}
       </div>
-      <div style={{ flex: 1, minWidth: 0, display: 'grid', gap: compact ? 4 : 8 }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'grid', gap: compact ? 4 : 8, position: 'relative' }}>
+        {/* THE POWER STAGE: a power's cast and its hits play here, BESIDE the boss (the owner: never over it, the boss
+            stays in full view); a square at the start of the info column, over the name, bar and hearts for a moment */}
+        {(powerShow || procShow) && (
+          <div aria-hidden="true" data-power-stage="" style={{ position: 'absolute', left: 0, top: '50%', width: POWER_STAGE * (compact ? BOSS.arenaCompact : BOSS.arena), height: POWER_STAGE * (compact ? BOSS.arenaCompact : BOSS.arena), transform: 'translateY(-50%)', pointerEvents: 'none', zIndex: 4 }}>
+            {powerShow && <PowerFx t={t} power={powerShow} />}
+            {procShow && <PowerProc t={t} proc={procShow} />}
+          </div>
+        )}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: compact ? 15 : 17, color: C.ink }}>{down ? `🏆 ${t('lg_bossDown')}` : `${rage ? '😡' : '👑'} ${name || area.title}`}</span>
           <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 800, color: C.inkDim }}>{t('lg_bossHp', { hp, max: need })}</span>
@@ -669,6 +676,7 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
             </span>
           ) : <Lives t={t} lives={lives} left={left} last={heartsLast} bonus={bonus} size={16} />}
           {!down && armed?.steadfast > 0 && <SteadfastHearts n={armed.steadfast} />}
+          {!down && armed && <PowerBadges armed={armed} anim={animOk} />}
           {shield && chip(st.shieldUsed ? C.inkFaint : C.info, `🛡 ${st.shieldUsed ? t('lg_fightShieldUsed') : t('lg_fightShield')}`, 'sh')}
           {!down && ability && chip(C.purple, `${ABILITY_ICON[ability] || ''} ${t(`lg_ability_${ability}`)}${abNote ? ` · ${t(abNote)}` : ''}`, 'ab')}
           {!down && rage && chip(C.danger, `😡 ${phases > 2 ? t('lg_fightPhase', { n: phase }) : t('lg_fightRage')}`, 'rg')}

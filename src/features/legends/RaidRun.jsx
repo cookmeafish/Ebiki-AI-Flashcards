@@ -20,6 +20,7 @@ import { ChunkyButton, EbiSays, Card, tCount } from '../ui'
 import { QuizRunner, judgeStrike, recordReviews, recordPractice, studyBlock, studyBlockText, fightCtx, generationKey, ensureLetterCue } from '../kit'
 import FightSettings from './FightSettings'
 import { PowerCastBadge } from './impact/PowerFx'
+import { DAMAGE } from './abilities/_rules'
 import LearnItPanel from '../kit/LearnItPanel'
 import { useFightCheck, useBossTaunt, TauntBubble, FightNotice, MissTools, Debrief } from './FightExtras'
 import { FIGHT_EXTRAS, fightExtrasFor, expectedOf, isWrongish, learnItemFor } from './fightCheck'
@@ -30,7 +31,7 @@ import { LegendsArt } from './art'
 import { act, settleFight, phaseOf, raidRating, attackLivesFor, abilityState, refundRunningFight, strikeCost, fightOutcome, newFight } from './fight'
 import { RAID, RAID_MOTIFS, RAID_ABILITY, todayKey, raidToday, raidStep, raidMotif, isRaidMotif, testRaidState, raidAttemptOutcome, raidHelpText, raidWhere, raidReviews, shapeRaid, siegeOf, raidAsked, raidMarkAsked, nextRaidCards, raidMinCards, raidOutOfQuestions, raidRunChoices, raidRunSize, applyBandage } from './raid'
 import { raidProfile } from './raidProfiles'
-import { POWERS, POWER_IDS, LOADOUT_MAX, STEADFAST_HEARTS, POWER_WINDOW, bossesBeaten, unlockedPowers, shapeLoadout, toggleLoadout, isFightPower, nextUnlock, powerUsable, powerAfterAnswer, fiftyFifty, powerHint } from './powers'
+import { POWERS, POWER_IDS, LOADOUT_MAX, STEADFAST_HEARTS, POWER_WINDOW, WIND_HEARTS, powerVars, bossesBeaten, unlockedPowers, shapeLoadout, toggleLoadout, isFightPower, nextUnlock, powerUsable, powerAfterAnswer, fiftyFifty, powerHint } from './powers'
 import { abilityById } from './abilities'
 import { buildRaidPrompt, parseQuestions, RAID_ROLE, RAID_MAX_TOKENS } from './prompt'
 import { readRaid, updateRaid, LEGENDS_ID } from './store'
@@ -697,7 +698,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
       {q._attack && <div role="alert" style={{ padding: '8px 12px', borderRadius: RADIUS.md, background: `color-mix(in srgb, ${C.danger} 14%, ${C.surface})`, border: `2px solid ${C.danger}`, color: C.danger, fontWeight: 900, fontSize: 14 }}>⚔️ {t(attackCost === 1 ? 'lg_attackIncomingOne' : 'lg_attackIncoming', { n: attackCost })}</div>}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ fontSize: 12, fontWeight: 800, color: mode === 'choice' ? C.info : C.warning }}>
-          {mode === 'choice' ? `🛡 ${t('lg_strikeSafeHint')}` : `💥 ${t('lg_strikePowerHint')}`}{fightPhase > 1 ? ` · 😡 ${t('lg_rageNoSafe')}` : ''}
+          {mode === 'choice' ? `🛡 ${t('lg_strikeSafeHint', { n: DAMAGE.choice })}` : `💥 ${t('lg_strikePowerHint', { n: DAMAGE.clean })}`}{fightPhase > 1 ? ` · 😡 ${t('lg_rageNoSafe')}` : ''}
         </div>
         {tagChip(q, mode)}
       </div>
@@ -705,7 +706,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
         <div data-raid-armed="" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 12, fontWeight: 900, color: C.purple }}>
           {armedList(powerArmed).map(([id, v]) => (
             <span key={id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <PowerIcon id={id} size={16} /> {v === true ? t(`lg_powUp_${id}`) : tCount(t, 'lg_powLeft', v, { n: v, name: t(`lg_pow_${id}`) })}
+              <PowerIcon id={id} size={16} /> {v === true ? t(`lg_powUp_${id}`, powerVars(id)) : tCount(t, 'lg_powLeft', v, { n: v, name: t(`lg_pow_${id}`) })}
             </span>
           ))}
         </div>
@@ -726,7 +727,8 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     else if (id === 'wind') {
       const cur = fsRef.current
       // A heart back, and the arena's Second wind moment (strikeFx.js 'wind'; its own counter, so no hit replays).
-      const next = { ...cur, livesLost: Math.max(0, cur.livesLost - 1), last: { ...(cur.last || { n: cur.n || 0 }), kind: 'wind', damage: 0, lives: 0, crit: false, shielded: false, fx: '', wn: (cur.last?.wn || 0) + 1 } }
+      const back = Math.min(cur.livesLost, WIND_HEARTS)
+      const next = { ...cur, livesLost: cur.livesLost - back, last: { ...(cur.last || { n: cur.n || 0 }), kind: 'wind', heartsBack: back, damage: 0, lives: 0, crit: false, shielded: false, fx: '', wn: (cur.last?.wn || 0) + 1 } }
       fsRef.current = next
       setFs(next)
     }
@@ -741,7 +743,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     const ok = powerUsable(id, powerCtx(q, api))
     return (
       <button key={`pw-${id}`} type="button" data-raid-power={id} disabled={!ok} onClick={() => usePower(id, q, api)}
-        className="tip tip-b" data-tip={t(`lg_powDesc_${id}`)}
+        className="tip tip-b" data-tip={t(`lg_powDesc_${id}`, powerVars(id))}
         style={{ fontFamily: FONT.body, fontSize: 12.5, fontWeight: 800, padding: '6px 10px', borderRadius: RADIUS.pill, border: `1.5px solid color-mix(in srgb, ${C.purple} 45%, transparent)`, background: 'transparent', color: C.purple, cursor: ok ? 'pointer' : 'default', opacity: ok ? 1 : 0.5 }}>
         <PowerIcon id={id} size={18} /> {t(`lg_pow_${id}`)}{usedRef.current.includes(id) ? ' ✓' : ''}
       </button>
@@ -914,7 +916,7 @@ function PowerLoadout({ t, beaten, loadout, onToggle = null, test = false, compa
           const on = loadout.includes(id)
           const full = !on && loadout.length >= LOADOUT_MAX
           const can = !!onToggle && unlocked && !full
-          const tip = unlocked ? t(`lg_powDesc_${id}`) : t('lg_powLockedOne', { n: POWERS[id].unlock })
+          const tip = unlocked ? t(`lg_powDesc_${id}`, powerVars(id)) : t('lg_powLockedOne', { n: POWERS[id].unlock })
           return (
             <button key={id} type="button" data-power-tile={id} aria-pressed={on} disabled={!can && !(onToggle && on)} onClick={() => onToggle && unlocked && onToggle(id)}
               className={`tip tip-b${on ? ' ui-tab-current' : ''}`} data-tip={tip}

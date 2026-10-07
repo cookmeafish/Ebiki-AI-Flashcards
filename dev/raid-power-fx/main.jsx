@@ -12,7 +12,7 @@ import { BossArena } from '../../src/features/legends/BossArena'
 import { RAID, RAID_ABILITY } from '../../src/features/legends/raid'
 import { raidProfile } from '../../src/features/legends/raidProfiles'
 import { newFight } from '../../src/features/legends/fight'
-import { PowerFx, PowerArmed, PowerProc, SteadfastHearts, POWER_ARMED, POWER_PROC, POWER_ARMED_CSS, wardStyle } from '../../src/features/legends/impact/PowerFx'
+import { PowerFx, PowerBadges, PowerProc, SteadfastHearts, POWER_ARMED, POWER_PROC, POWER_ARMED_CSS, wardStyle } from '../../src/features/legends/impact/PowerFx'
 
 window.__ebikiArtEager = true
 const q = new URLSearchParams(location.search)
@@ -61,7 +61,7 @@ function Sheet() {
         const foot = id === 'shield'
           ? <span style={{ display: 'inline-flex', gap: 4, ...wardStyle(true) }}>🛡️ ❤️❤️❤️</span>
           : id === 'steadfast' ? <SteadfastHearts n={v} /> : null
-        return <Cell key={`${id}${v}`} label={`${id} ${v === true ? '' : v}`} foot={foot}><PowerArmed armed={{ [id]: v }} anim /></Cell>
+        return <Cell key={`${id}${v}`} label={`${id} ${v === true ? '' : v}`} foot={foot}><PowerBadges armed={{ [id]: v }} anim /></Cell>
       })
     })
   }

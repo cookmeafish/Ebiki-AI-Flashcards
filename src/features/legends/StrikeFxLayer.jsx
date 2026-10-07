@@ -7,6 +7,7 @@
 // the question; BossArena mounts it only while effects may play (not in focus mode, Still bosses or reduced motion) and
 // fades it with the next question.
 import { FONT } from '../../config/tokens'
+import { WIND_HEARTS } from './powers'
 import { FLOATER_OUTLINE } from './fx/_juice'
 import { impactFor } from './impact/styles'
 import { PARTS, PARTS_CSS } from './impact/parts'
@@ -36,7 +37,10 @@ export function momentParts(moment, style) {
   }
 }
 
-export default function StrikeFxLayer({ t, moment, motif, n, fading = false }) {
+// The numbers a moment's label shows come from the strike itself (`last`), never the locale: Second wind's hearts.
+const labelVars = (moment, last) => (moment === 'wind' ? { n: last?.heartsBack || WIND_HEARTS } : {})
+
+export default function StrikeFxLayer({ t, moment, motif, n, fading = false, last = null }) {
   if (!moment) return null
   const style = impactFor(motif)
   const { scale, parts } = momentParts(moment, style)
@@ -55,7 +59,7 @@ export default function StrikeFxLayer({ t, moment, motif, n, fading = false }) {
         <div style={{ position: 'absolute', left: '50%', top: moment === 'ko' ? '38%' : '20%', whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 900,
           fontSize: moment === 'ko' ? 28 : 20, letterSpacing: '.04em', color: LABEL_FILL[moment], WebkitTextStroke: `2px ${FLOATER_OUTLINE}`, paintOrder: 'stroke fill',
           animation: `lgsLabel ${moment === 'ko' ? 1500 : 950}ms cubic-bezier(.22,1,.36,1) 60ms both`, zIndex: 2 }}>
-          {t(label)}
+          {t(label, labelVars(moment, last))}
         </div>
       )}
     </div>

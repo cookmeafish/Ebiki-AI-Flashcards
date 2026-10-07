@@ -12,6 +12,7 @@
 
 import { DAMAGE, ATTACK_LIVES, MISS_LIVES, COMBO_EVERY, MAX_ATTACKS, ATTACK_GAP, RAGE_AT, WEAK_TO_MAX, MAX_INSERTED, phaseOf, barPhase, phaseFloor, hashOf } from './abilities/_rules'
 import { abilityById, ABILITY_IDS } from './abilities'
+import { MOMENTUM_CRIT_MULT } from './powers'
 import { gradeFromStrike, easeFor, isMature, GRADE_EASE } from '../../config/grading'
 
 export { DAMAGE, ATTACK_LIVES, MISS_LIVES, COMBO_EVERY, MAX_ATTACKS, ATTACK_GAP, RAGE_AT, WEAK_TO_MAX, MAX_INSERTED, phaseOf, barPhase, phaseFloor, hashOf }
@@ -117,7 +118,7 @@ export function strike(state, hit, opts = {}) {
       if (hit.verdict === 'glancing') { s.glancing++; res.focused = true } else s.clean++
       res.dmg = DAMAGE.clean; s.combo++
       // Momentum (a raid power) makes every clean answer in its window a critical hit, and its crits hit twice as hard.
-      if (!(mod && mod.noCrit) && (s.combo % COMBO_EVERY === 0 || opts.momentum)) { res.dmg += DAMAGE.crit * (opts.momentum ? 2 : 1); res.crit = true; s.crits++; if (opts.momentum) res.momentum = true }
+      if (!(mod && mod.noCrit) && (s.combo % COMBO_EVERY === 0 || opts.momentum)) { res.dmg += DAMAGE.crit * (opts.momentum ? MOMENTUM_CRIT_MULT : 1); res.crit = true; s.crits++; if (opts.momentum) res.momentum = true }
     }
     if (right && hit.weak) res.dmg += DAMAGE.weak
     if (right) { s.chain++; s.rights = (s.rights || 0) + 1 }
