@@ -49,7 +49,12 @@ export default {
     // Awards made in a window that never loads the player (the overlay). POST {add:[[kind, opts]]} appends;
     // POST {take:true} returns them and empties the file. Machine-local: XP lands on THIS computer's counters.
     const inboxFile = path.join(appRoot, INBOX_FILE)
-    const readInbox = () => { try { const v = readJson(inboxFile); return Array.isArray(v) ? v : [] } catch { return [] } }
+    // `strict`: only a missing or damaged file reads as empty; a locked one (antivirus, EBUSY) throws, so an add never
+    // writes its awards over ones still waiting (the client retries the 500).
+    const readInbox = (strict = false) => {
+      try { const v = readJson(inboxFile); return Array.isArray(v) ? v : [] }
+      catch (e) { if (!strict || e?.code === 'ENOENT' || e instanceof SyntaxError) return []; throw e }
+    }
     server.middlewares.use('/api/game-inbox', async (req, res) => {
       try {
         if (req.method !== 'POST') return send(res, 405, { error: 'method' })
@@ -60,7 +65,7 @@ export default {
           return send(res, 200, { items })
         }
         const add = (Array.isArray(body.add) ? body.add : []).filter((x) => Array.isArray(x) && typeof x[0] === 'string' && x[0].length < 40)
-        if (add.length) writeFileAtomic(inboxFile, JSON.stringify(readInbox().concat(add).slice(-INBOX_MAX)))
+        if (add.length) writeFileAtomic(inboxFile, JSON.stringify(readInbox(true).concat(add).slice(-INBOX_MAX)))
         send(res, 200, { ok: true })
       } catch (e) { send(res, 500, { error: e.message }) }
     })

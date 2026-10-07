@@ -19,6 +19,7 @@ import { useHelpEntry } from '../kit/useHelp'
 import { ChunkyButton, EbiSays, Card, tCount } from '../ui'
 import { QuizRunner, judgeStrike, recordReviews, recordPractice, studyBlock, studyBlockText, fightCtx, generationKey, ensureLetterCue } from '../kit'
 import FightSettings from './FightSettings'
+import { PowerCastBadge } from './impact/PowerFx'
 import LearnItPanel from '../kit/LearnItPanel'
 import { useFightCheck, useBossTaunt, TauntBubble, FightNotice, MissTools, Debrief } from './FightExtras'
 import { FIGHT_EXTRAS, fightExtrasFor, expectedOf, isWrongish, learnItemFor } from './fightCheck'
@@ -27,9 +28,9 @@ import { learnerLevelLine } from '../kit/learnerStore'
 import { BossIntro, BossArena, BossEnd } from './BossArena'
 import { LegendsArt } from './art'
 import { act, settleFight, phaseOf, raidRating, attackLivesFor, abilityState, refundRunningFight, strikeCost, fightOutcome, newFight } from './fight'
-import { RAID, RAID_MOTIFS, RAID_ABILITY, todayKey, raidToday, raidStep, raidMotif, isRaidMotif, testRaidState, raidAttemptOutcome, raidHelpText, raidWhere, raidReviews, shapeRaid, siegeOf, raidAsked, raidMarkAsked, nextRaidCards, raidMinCards, raidOutOfQuestions, raidRunChoices, raidRunSize, applyBandage, applyRunPowers } from './raid'
+import { RAID, RAID_MOTIFS, RAID_ABILITY, todayKey, raidToday, raidStep, raidMotif, isRaidMotif, testRaidState, raidAttemptOutcome, raidHelpText, raidWhere, raidReviews, shapeRaid, siegeOf, raidAsked, raidMarkAsked, nextRaidCards, raidMinCards, raidOutOfQuestions, raidRunChoices, raidRunSize, applyBandage } from './raid'
 import { raidProfile } from './raidProfiles'
-import { POWERS, POWER_IDS, raidWins, unlockedPowers, bagSize, bagCount, nextUnlock, rollDrops, powerUsable, fiftyFifty, powerHint } from './powers'
+import { POWERS, POWER_IDS, LOADOUT_MAX, STEADFAST_HEARTS, POWER_WINDOW, bossesBeaten, unlockedPowers, shapeLoadout, toggleLoadout, isFightPower, nextUnlock, powerUsable, powerAfterAnswer, fiftyFifty, powerHint } from './powers'
 import { abilityById } from './abilities'
 import { buildRaidPrompt, parseQuestions, RAID_ROLE, RAID_MAX_TOKENS } from './prompt'
 import { readRaid, updateRaid, LEGENDS_ID } from './store'
@@ -105,10 +106,19 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
   const day = raid?.day
   const need = day ? Math.max(1, day.hp - day.damage) : 1 // what is left of the boss's health
   const motif = raid ? raidMotif(raid) : testMotif || RAID_MOTIFS[0]
-  // The boss's own fight (raidProfiles.js): its hearts, heal and power slots.
+  // The boss's own fight (raidProfiles.js): its hearts and heal.
   const profile = raidProfile(motif)
   const maxHearts = Math.max(profile.hearts, raid?.siege?.hearts || 0)
   const startHearts = testMotif ? profile.hearts : raid?.siege ? raid.siege.hearts : profile.hearts
+  // POWERS brought into this fight (powers.js): the loadout setting (features.legends.raidLoadout) shaped against the
+  // different bosses beaten. A test fight brings every fight power and Steadfast to try.
+  const beaten = testMotif ? 999 : bossesBeaten(storedRef.current)
+  const loadoutRaw = featureCfg(ctx, LEGENDS_ID).raidLoadout
+  const loadout = testMotif ? POWER_IDS.filter((id) => POWERS[id].kind !== 'siege') : shapeLoadout(loadoutRaw, beaten)
+  const setLoadout = (id) => ctx.setFeatureSettings?.(LEGENDS_ID, { raidLoadout: toggleLoadout(loadoutRaw, id, beaten) })
+  // Steadfast: extra hearts for this fight only, lost first (the siege's hearts are what is left after them).
+  const extraHearts = loadout.includes('steadfast') ? STEADFAST_HEARTS : 0
+  const fightHearts = startHearts + extraHearts
   // Questions per run (the player's setting, Fight settings on the intro).
   const runSize = raidRunSize(featureCfg(ctx, LEGENDS_ID).raidRunSize)
   const runSizeOpt = testMotif ? null : { value: runSize, options: RAID.runSizes, onChange: (n) => ctx.setFeatureSettings?.(LEGENDS_ID, { raidRunSize: n }) }
@@ -236,7 +246,6 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
       if (!alive.current) return
       setRaid(today)
       if (!testMotif && today.day.won) { setPhase('beaten'); return }
-      if (!testMotif && today.siege.hearts <= 0) { setPhase('hearts'); return }
       const ongoing = !testMotif && !!siegeOf(r.value)
       const cards = toCards(eligible.slice(0, runSize))
       // Counted AFTER dropping cards with no readable front. A fresh boss needs a raid's worth; a siege any card.
@@ -297,7 +306,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
   // The deck picked in the fight settings before the fight: the due cards come from it.
   useEffect(() => {
     if (!started.current || !deck || deck === deckRef.current || firstHit.current.size) return
-    if (['intro', 'none', 'error', 'beaten', 'hearts'].includes(phase)) load()
+    if (['intro', 'none', 'error', 'beaten'].includes(phase)) load()
   }, [deck]) // eslint-disable-line react-hooks/exhaustive-deps
   // A new run size on the intro: the run takes that many cards (read again, questions written again).
   const runSizeAt = useRef(runSize)
@@ -308,29 +317,31 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
   }, [runSize]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── POWERS (powers.js; raids only) ──
-  // The bag this run spends from: the stored one (a test fight gets one of each to try, and spends nothing).
-  const storedBag = testMotif ? Object.fromEntries(POWER_IDS.map((id) => [id, 1])) : shapeRaid(storedRef.current).powers
-  const usedRef = useRef([]) // the powers this run used (spent on save)
+  // Each power brought works once per fight (this RaidRun; "Fight again" remounts it).
+  const usedRef = useRef([]) // the powers this fight used
   const [, setUsedN] = useState(0) // re-renders the power buttons after a use
   const usedOnQ = useRef(new WeakSet()) // questions a power was used on (one per question)
   const aidedQ = useRef(new WeakSet()) // questions a 50:50 or hint helped with (recorded as Hard)
-  const [powerArmed, setPowerArmed] = useState({}) // { shield, sharpen } up now
+  const [powerArmed, setPowerArmed] = useState({}) // { shield, sharpen, ward } true; window powers: raid questions left
   const powerArmedRef = useRef({})
   const setPA = (v) => { powerArmedRef.current = v; setPowerArmed(v) }
   const [powerCast, setPowerCast] = useState(null) // { id, n }: the power just used, for the arena's burst
-  const windUsed = useRef(false)
-  const streak = useRef({ now: 0, best: 0 }) // clean answers in a row (a drop at DROP.streak)
-  const bagLeft = (() => { const b = { ...storedBag }; for (const id of usedRef.current) b[id] = Math.max(0, (b[id] || 0) - 1); return b })()
-  const slots = testMotif ? Math.max(3, profile.slots) : profile.slots
+  const [powerProc, setPowerProc] = useState(null) // { id, n }: a brought power that just did something on an answer
+  const proc = (id) => setPowerProc((p) => ({ id, n: (p?.n || 0) + 1 }))
   const [bandageNote, setBandageNote] = useState('')
+  const [bandageDone, setBandageDone] = useState(false) // used and saved (a failed save keeps the button to retry)
+  // Worth offering: brought, not used tonight, and the boss has wounds to keep (on an unhurt boss it was wasted).
+  const bandageWorth = !testMotif && loadout.includes('bandage') && !!(raid?.siege && raid.siege.bandage !== todayKey() && (raid.siege.damage || 0) > 0)
   const bandageNow = async () => {
     if (testMotif) return
     const next = await updateRaid(modeId, (cur) => applyBandage(cur, todayKey()) || cur)
     if (!alive.current) return
     if (next && applyBandage(next, todayKey()) === null && next.siege?.bandage === todayKey()) {
       storedRef.current = next
-      setRaid((r) => (r ? { ...r, siege: { ...r.siege, bandage: todayKey() }, powers: next.powers } : r))
+      setRaid((r) => (r ? { ...r, siege: { ...r.siege, bandage: todayKey() } } : r))
       setSavedRaid((s) => (s ? next : s))
+      setBandageDone(true)
+      setPowerCast((p) => ({ id: 'bandage', n: (p?.n || 0) + 1 }))
       setBandageNote(t('lg_powBandageDone', { n: profile.heal }))
     } else setBandageNote(t('lg_errSave'))
   }
@@ -358,24 +369,21 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     // Re-checks and appeals still running decide the grades first (bounded: the reviews are never lost to a slow reply).
     await fc.settle()
     // An ability holding damage (a bank, a gauge, moons in orbit) lets it go when the fight ends (abilities: settle).
-    const st = settleFight(fsRef.current, { ability, need: dayNow ? Math.max(1, dayNow.hp - dayNow.damage) : 1, lives: startHearts, bar: { total: dayNow ? dayNow.hp : 1, before: dayNow ? dayNow.damage : 0, phases: RAID.phases }, dayAb: dayNow?.ab || null })
+    const st = settleFight(fsRef.current, { ability, need: dayNow ? Math.max(1, dayNow.hp - dayNow.damage) : 1, lives: fightHearts, bar: { total: dayNow ? dayNow.hp : 1, before: dayNow ? dayNow.damage : 0, phases: RAID.phases }, dayAb: dayNow?.ab || null })
     fsRef.current = st
     await recordSoFar()
     const hits = reportRecorded()
     const dayAb = abMod?.dayState ? abMod.dayState(st) : undefined
-    const opts = { date, damage: st.damage, livesLost: st.livesLost, asked: answeredNotes(), dayAb, due: dueAtStart.current, motif }
+    // Steadfast's extra hearts go first: the siege loses only what the fight lost beyond them.
+    const opts = { date, damage: st.damage, livesLost: Math.max(0, st.livesLost - extraHearts), asked: answeredNotes(), dayAb, due: dueAtStart.current, motif }
     let outcome = { won: false, firstWin: false }
     let next = null
-    let drops = []
     if (testMotif) outcome = raidAttemptOutcome(null, { ...opts, test: testMotif })
     else {
-      // The powers this run used are spent and its random drops go into the bag, in the same write as the siege.
       next = await updateRaid(modeId, (cur) => {
         const res = raidAttemptOutcome(cur, opts)
         outcome = res
-        const wins = raidWins(res.state)
-        drops = rollDrops({ wins, bag: shapeRaid(res.state).powers, answered: firstHit.current.size, runSize, bestStreak: streak.current.best, won: res.won, livesLost: st.livesLost, hearts: startHearts })
-        return res.state ? applyRunPowers(res.state, { used: usedRef.current, drops }) : res.state
+        return res.state
       })
     }
     const firstWin = !testMotif && outcome.firstWin && next !== undefined // a trophy that was not saved is not paid
@@ -391,12 +399,15 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     const won = outcome.won
     setSummary({
       won, firstWin, motif, bossName, saveFailed: next === undefined,
-      hearts: testMotif ? Math.max(0, startHearts - st.livesLost) : won ? raidProfile(next ? raidMotif(next) : motif).hearts : after?.siege?.hearts ?? 0,
+      hearts: testMotif ? Math.max(0, startHearts - Math.max(0, st.livesLost - extraHearts)) : won ? raidProfile(next ? raidMotif(next) : motif).hearts : after?.siege?.hearts ?? 0,
       maxHearts,
-      hp: won ? 0 : (dayNow?.hp || 0), left: won ? 0 : Math.max(0, (dayNow?.hp || 0) - (dayNow?.damage || 0) - st.damage),
+      hp: won ? 0 : (dayNow?.hp || 0),
+      // The health left is the SAVED siege's (a run that lost every heart let the boss rally back part of its damage).
+      left: won ? 0 : after?.siege ? Math.max(0, after.siege.hp - after.siege.damage) : Math.max(0, (dayNow?.hp || 0) - (dayNow?.damage || 0) - st.damage),
+      rallied: !won && outcome.fell ? (outcome.rallied || 0) : null,
       unasked: unaskedQs().length, dueLeft, nextMotif: won && next ? raidMotif(next) : '',
-      // Powers: what the bag gained (only when it was saved), and the next one a win unlocks.
-      drops: next ? drops : [], wins: next ? raidWins(next) : raidWins(storedRef.current), bag: next ? shapeRaid(next).powers : null,
+      // Powers: different bosses beaten now (a first win may unlock one).
+      beatenBefore: beaten, beaten: testMotif ? beaten : bossesBeaten(next || storedRef.current),
       bandageOk: !!(next && applyBandage(next, todayKey())),
     })
     setPhase('done')
@@ -420,7 +431,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
   // OUT OF QUESTIONS with the boss alive and hearts left: "Continue?" in the arena, the next due cards looked up now.
   const ranOut = async () => {
     const st = fsRef.current
-    if (raidOutOfQuestions({ damage: st.damage, need, livesLost: st.livesLost, lives: startHearts, next: 1 }) === 'over') { commit(); return }
+    if (raidOutOfQuestions({ damage: st.damage, need, livesLost: st.livesLost, lives: fightHearts, next: 1 }) === 'over') { commit(); return }
     setMore({ cards: null, busy: false, error: '' })
     setPhase('more')
     try {
@@ -496,7 +507,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
   useHelpEntry(ctx, 'raid', raidHelpText({
     view: phase, boss: summary?.bossName || bossName, ability: helpAbility, test: !!testMotif, lives: maxHearts,
     hpLeft: helpLeft, hpMax: helpDay?.hp || 0,
-    livesLeft: phase === 'done' && summary ? summary.hearts : Math.max(0, startHearts - (running ? fs.livesLost : 0)),
+    livesLeft: phase === 'done' && summary ? summary.hearts : Math.max(0, fightHearts - (running ? fs.livesLost : 0)),
     phase: helpDay ? phaseOf(helpLeft, helpDay.hp, RAID.phases) : 1,
     asked: firstHit.current.size, total: questions?.length || 0,
     lapLeft: lapQs ? lapQs.filter((q) => !firstHit.current.has(q._cardId)).length : 0,
@@ -505,12 +516,12 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
   }), ctx.activeTab || 'practice', raidWhere({ view: phase, boss: summary?.bossName || bossName, test: !!testMotif }), 3)
 
   if (phase === 'loading') return <div style={{ maxWidth: 560, margin: '60px auto' }}><EbiSays pose={poseFile('weapon')}>{t('lg_raidLoading')}</EbiSays></div>
-  if (phase === 'error' || phase === 'none' || phase === 'beaten' || phase === 'hearts') {
-    const text = phase === 'error' ? error : phase === 'none' ? t(siegeOf(storedRef.current) ? 'lg_raidNoneLeft' : 'lg_raidTooFew', { n: RAID.minCards }) : phase === 'hearts' ? t('lg_raidNoHearts') : t('lg_raidBeatenToday')
+  if (phase === 'error' || phase === 'none' || phase === 'beaten') {
+    const text = phase === 'error' ? error : phase === 'none' ? t(siegeOf(storedRef.current) ? 'lg_raidNoneLeft' : 'lg_raidTooFew', { n: RAID.minCards }) : t('lg_raidBeatenToday')
     return (
       <div style={{ maxWidth: 560, margin: '40px auto', display: 'grid', gap: 14 }}>
-        <EbiSays pose={poseFile(phase === 'beaten' ? 'party' : phase === 'hearts' ? 'book' : 'confused')}>{text}</EbiSays>
-        {phase === 'hearts' && <SiegeLine t={t} raid={raid} />}
+        <EbiSays pose={poseFile(phase === 'beaten' ? 'party' : 'confused')}>{text}</EbiSays>
+        {/* Out of hearts is when stopping tonight's heal matters most: the Bandage is offered here too. */}
         <Trophies ctx={ctx} raid={raid} />
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <ChunkyButton variant="ghost" color={C.inkDim} onClick={onExit}>{t('lg_back')}</ChunkyButton>
@@ -526,8 +537,8 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
         {testMotif && <TestTag t={t} note />}
         <BossIntro t={t} area={area} name={bossName} total={questions.length} kind="raids" raidLives={maxHearts} raidLeft={startHearts} ability={ability} calm={focus} onFight={() => { if (!rewriting) setPhase('fight') }} />
         <FightSettings ctx={ctx} allowStyle busy={rewriting} runSize={runSizeOpt} />
-        <PowerBag t={t} bag={storedBag} wins={testMotif ? 99 : raidWins(storedRef.current)} slots={slots} test={!!testMotif}
-          bandage={!testMotif && raid?.siege && !day?.won && raid.siege.bandage !== todayKey() && storedBag.bandage > 0 ? bandageNow : null} note={bandageNote} heal={profile.heal} />
+        <PowerLoadout t={t} beaten={beaten} loadout={loadout} onToggle={testMotif ? null : setLoadout} test={!!testMotif}
+          bandage={!day?.won && bandageWorth && !bandageDone ? bandageNow : null} note={bandageNote} heal={profile.heal} cast={powerCast?.id === 'bandage' ? powerCast : null} />
         <div style={{ maxWidth: 640, margin: '0 auto', textAlign: 'center', fontSize: 13.5, color: C.inkDim, lineHeight: 1.5 }}>
           {t('lg_raidRules', { n: questions.length, lives: startHearts })}{day?.damage ? ` ${t('lg_raidWounded', { hp: day.hp - day.damage, max: day.hp })}` : ''}
           {!testMotif && <div style={{ marginTop: 4, fontWeight: 800 }}>🏰 {t('lg_raidSiegeLine', { n: profile.heal })}</div>}
@@ -552,13 +563,14 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
             <Hearts t={t} left={summary.hearts} max={summary.maxHearts} size={22} />
             <div style={{ fontWeight: 800, color: C.inkDim }}>{t('lg_raidCarry', { hearts: summary.hearts, max: summary.maxHearts, hp: summary.left, maxHp: summary.hp })}</div>
             <div style={{ fontSize: 13, color: C.inkDim }}>🏰 {t('lg_raidSiegeLine', { n: profile.heal })}</div>
-            {summary.hearts <= 0 && <div style={{ fontWeight: 800, color: C.warning }}>{t('lg_raidNoHearts')}</div>}
+            {summary.rallied != null && <div style={{ fontWeight: 800, color: C.warning }}>💔 {t('lg_raidRallied', { name: summary.bossName, n: summary.rallied })}</div>}
           </div>
         )}
         {summary.lap > 0 && <div style={{ fontWeight: 800, color: C.success }}>🏁 {tCount(t, 'lg_raidLapDone', summary.lap)}</div>}
-        {!testMotif && <PowerDrops t={t} drops={summary.drops} wins={summary.wins} />}
-        {!testMotif && summary.bag && <PowerBag t={t} bag={summary.bag} wins={summary.wins} slots={0} compact
-          bandage={summary.bandageOk && !summary.won && !bandageNote ? bandageNow : null} note={bandageNote} heal={profile.heal} />}
+        {!testMotif && <PowerUnlocks t={t} before={summary.beatenBefore} beaten={summary.beaten} />}
+        {!testMotif && !summary.won && loadout.includes('bandage') && (summary.bandageOk || bandageDone) && (
+          <PowerLoadout t={t} beaten={summary.beaten} loadout={loadout} compact bandage={bandageDone ? null : bandageNow} note={bandageNote} heal={profile.heal} cast={powerCast?.id === 'bandage' ? powerCast : null} />
+        )}
         {ch.stayDue > 0 && <div style={{ fontSize: 13.5, color: C.inkDim }}>{tCount(t, 'lg_raidStayDue', ch.stayDue)}</div>}
         <div style={{ fontSize: 14.5, fontWeight: 800, color: failed ? C.danger : C.success }}>
           {failed ? tCount(t, 'lg_raidRecordFailed', failed) : tCount(t, 'lg_raidRecorded', recorded)}
@@ -582,12 +594,12 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
   }
 
   // ── The fight (with its "Continue?" and the Victory lap) ──
-  const lives = startHearts
+  const lives = fightHearts
   const outcome = fs.damage >= need ? 'won' : fs.livesLost >= lives ? 'lost' : ''
   // The bar and the phases follow the siege's whole health: earlier runs' wounds are already dealt.
   const dayHp = day ? day.hp : need
-  // The hearts row shows the boss's full hearts, the ones lost in earlier runs greyed.
-  const shown = { ...fs, damage: fs.damage + (day ? day.damage : 0), livesLost: fs.livesLost + (maxHearts - lives) }
+  // The hearts row: the siege's hearts (Steadfast's extra ones show apart, as gold hearts, and are lost first).
+  const shown = { ...fs, damage: fs.damage + (day ? day.damage : 0), livesLost: Math.max(0, fs.livesLost - extraHearts) + (maxHearts - startHearts) }
   const fightPhase = phaseOf(Math.max(0, dayHp - shown.damage), dayHp, RAID.phases)
   const bar = { total: dayHp, before: day ? day.damage : 0, phases: RAID.phases }
   const fightOpts = { ability, need, lives, bar, dayAb: day?.ab || null }
@@ -607,21 +619,25 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     if (!q._attack && !q._inserted && !q._lastStand && q._cardId != null && !firstHit.current.has(q._cardId)) {
       firstHit.current.set(q._cardId, { verdict, mode: aided ? 'choice' : mode, attack: false, lastStand: false, key: q._cardId, q, answer, aid, ...(aided ? { aided: true } : {}) })
     }
-    // The clean streak (a power drop at DROP.streak): only unaided clean typed answers count.
-    if (verdict === 'clean' && mode === 'typed' && !aided) { streak.current.now++; streak.current.best = Math.max(streak.current.best, streak.current.now) } else if (verdict !== 'clean') streak.current.now = 0
     if (verdict === 'miss' && !info.skipped) taunt.onMiss(q, answer, expectedOf(q))
     const armedNow = armedRef.current
     if (Object.keys(armedNow).length) setArmed({})
     const pa = powerArmedRef.current
     const { next, groups } = raidStep(before, q, { verdict, mode, attackQ: info.attackQ, aid, aided }, {
       ability, need, lives, dayHp, dayBefore: day ? day.damage : 0, dayAb: day?.ab || null, pos: pos.current, questions, armed: Object.keys(armedNow).length ? armedNow : null,
-      shield: !!pa.shield, sharpen: !!pa.sharpen,
+      shield: !!pa.shield, sharpen: !!pa.sharpen, ward: !!pa.ward && !!q._attack,
+      focus: pa.focus > 0, momentum: pa.momentum > 0, fury: pa.fury > 0, siphon: pa.siphon > 0,
     })
-    // A Shield is spent when it takes a heart; a Sharpen when it lands.
-    if ((pa.shield && next.last?.shielded) || (pa.sharpen && next.last?.sharpened)) setPA({ ...pa, ...(next.last?.shielded ? { shield: false } : {}), ...(next.last?.sharpened ? { sharpen: false } : {}) })
+    // What each power did on this answer, and what is left of it (powerAfterAnswer, powers.js).
+    const after = powerAfterAnswer(pa, { last: next.last, kind, ward: !!q._attack })
+    if (after.changed) setPA(after.armed)
+    if (after.proc) proc(after.proc)
+    // Steadfast's extra hearts are lost first: its flourish when one goes.
+    if (extraHearts && next.livesLost > before.livesLost && before.livesLost < extraHearts) proc('steadfast')
     fsRef.current = next
     setFs(next)
-    fc.attach(aid, { cost: strikeCost(before, next), kind, mode, cardId: q._cardId })
+    // An aided answer (50:50, Hint) was struck like a choice, so an overturn refunds it like one (1, not a clean 2).
+    fc.attach(aid, { cost: strikeCost(before, next), kind, mode: aided ? 'choice' : mode, cardId: q._cardId })
     pendingRef.current.push(...groups)
     const g = pendingRef.current.shift()
     return g ? { insert: g.insert, at: g.at } : null
@@ -637,7 +653,8 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     setFs(next)
   }
   const judge = async (q, ans) => {
-    const j = await judgeStrike(ai, subject, q, ans, { strictAccents: !subject.accents || subject.strictAccents !== false })
+    // Only languages that write accents grade them (a general mode grades understanding: Quebec for Québec is clean).
+    const j = await judgeStrike(ai, subject, q, ans, { strictAccents: !!subject.accents && subject.strictAccents !== false })
     if (j.verdict === 'error') return { error: true } // could not be checked: QuizRunner asks to try again
     // The verdict lands at once; the note (and a glancing slip's follow-up) arrive later, and a miss or glancing
     // verdict is looked at again in the background (useFightCheck).
@@ -645,7 +662,8 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     const attackQ = q._aftermath ? null : j.attack || (j.fixLater ? { pending: aid } : null)
     return {
       correct: j.verdict !== 'miss', partial: j.verdict === 'glancing', note: j.note || '', accent: !!j.accent && j.verdict !== 'miss',
-      title: q._aftermath ? '' : j.verdict === 'clean' ? t('lg_strikeClean') : j.verdict === 'glancing' ? t('lg_strikeGlancing') : '',
+      // A 50:50 or Hint helped: struck like a choice (1) and recorded as Hard, so never called a power strike.
+      title: q._aftermath ? '' : j.verdict === 'clean' ? t(aidedQ.current.has(q) ? 'lg_strikeAided' : 'lg_strikeClean') : j.verdict === 'glancing' ? t('lg_strikeGlancing') : '',
       info: { verdict: j.verdict, attackQ, aid }, later: j.later,
     }
   }
@@ -683,10 +701,13 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
         </div>
         {tagChip(q, mode)}
       </div>
-      {(powerArmed.shield || powerArmed.sharpen) && (
-        <div data-raid-armed="" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', fontSize: 12, fontWeight: 900, color: C.purple }}>
-          {powerArmed.shield && <span>🛡 {t('lg_powShieldUp')}</span>}
-          {powerArmed.sharpen && <span>⚔ {t('lg_powSharpenUp')}</span>}
+      {armedList(powerArmed).length > 0 && (
+        <div data-raid-armed="" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', fontSize: 12, fontWeight: 900, color: C.purple }}>
+          {armedList(powerArmed).map(([id, v]) => (
+            <span key={id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <PowerIcon id={id} size={16} /> {v === true ? t(`lg_powUp_${id}`) : tCount(t, 'lg_powLeft', v, { n: v, name: t(`lg_pow_${id}`) })}
+            </span>
+          ))}
         </div>
       )}
       {abilityHint(q, mode) && <div style={{ fontSize: 12, fontWeight: 800, color: C.purple }}>{abilityHint(q, mode)}</div>}
@@ -700,10 +721,9 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     if (!powerUsable(id, powerCtx(q, api))) return
     if (id === 'fifty') { const v = fiftyFifty(q.alt); if (!v) return; api.showChoices(v); aidedQ.current.add(q) }
     else if (id === 'hint') { api.hint(`📜 ${t('lg_scrollHint', { hint: powerHint((q.accepted || [])[0]) })}`); aidedQ.current.add(q) }
-    else if (id === 'shield') setPA({ ...powerArmedRef.current, shield: true })
-    else if (id === 'sharpen') setPA({ ...powerArmedRef.current, sharpen: true })
+    else if (id === 'shield' || id === 'sharpen' || id === 'ward') setPA({ ...powerArmedRef.current, [id]: true })
+    else if (POWERS[id]?.window) setPA({ ...powerArmedRef.current, [id]: POWER_WINDOW })
     else if (id === 'wind') {
-      windUsed.current = true
       const cur = fsRef.current
       // A heart back, and the arena's Second wind moment (strikeFx.js 'wind'; its own counter, so no hit replays).
       const next = { ...cur, livesLost: Math.max(0, cur.livesLost - 1), last: { ...(cur.last || { n: cur.n || 0 }), kind: 'wind', damage: 0, lives: 0, crit: false, shielded: false, fx: '', wn: (cur.last?.wn || 0) + 1 } }
@@ -715,14 +735,15 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     usedRef.current = [...usedRef.current, id]
     setUsedN(usedRef.current.length)
   }
-  const powerCtx = (q, api) => ({ q, asChoice: api.asChoice, phase: api.phase, bag: bagLeft, usedRun: usedRef.current.length, slots, usedOnQ: usedOnQ.current.has(q), livesLost: fsRef.current.livesLost, armed: powerArmedRef.current, windUsed: windUsed.current })
-  const powerButtons = (q, api) => POWER_IDS.filter((id) => POWERS[id].kind !== 'siege' && bagLeft[id] > 0).map((id) => {
+  const powerCtx = (q, api) => ({ q, asChoice: api.asChoice, phase: api.phase, loadout, used: usedRef.current, usedOnQ: usedOnQ.current.has(q), livesLost: fsRef.current.livesLost, armed: powerArmedRef.current })
+  // Every brought fight power shows; a used one stays greyed (once per fight), so the player sees what is left.
+  const powerButtons = (q, api) => loadout.filter(isFightPower).map((id) => {
     const ok = powerUsable(id, powerCtx(q, api))
     return (
       <button key={`pw-${id}`} type="button" data-raid-power={id} disabled={!ok} onClick={() => usePower(id, q, api)}
         className="tip tip-b" data-tip={t(`lg_powDesc_${id}`)}
         style={{ fontFamily: FONT.body, fontSize: 12.5, fontWeight: 800, padding: '6px 10px', borderRadius: RADIUS.pill, border: `1.5px solid color-mix(in srgb, ${C.purple} 45%, transparent)`, background: 'transparent', color: C.purple, cursor: ok ? 'pointer' : 'default', opacity: ok ? 1 : 0.5 }}>
-        {POWERS[id].icon} {t(`lg_pow_${id}`)} ×{bagLeft[id]}
+        <PowerIcon id={id} size={18} /> {t(`lg_pow_${id}`)}{usedRef.current.includes(id) ? ' ✓' : ''}
       </button>
     )
   })
@@ -746,7 +767,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     <div style={{ display: 'grid', gap: 12 }}>
       <div style={{ maxWidth: 680, width: '100%', margin: '0 auto', position: 'sticky', top: 0, zIndex: 5, paddingTop: 4, background: C.bg }}>
         {testMotif && <TestTag t={t} />}
-        <BossArena t={t} area={area} name={bossName} need={dayHp} lives={maxHearts} state={shown} phases={RAID.phases} ability={ability} dayAb={day?.ab || null} focus={focus} getZoom={ctx.getZoom} kind="raids" questionKey={questionKey} power={powerCast} armed={powerArmed} />
+        <BossArena t={t} area={area} name={bossName} need={dayHp} lives={maxHearts} state={shown} phases={RAID.phases} ability={ability} dayAb={day?.ab || null} focus={focus} getZoom={ctx.getZoom} kind="raids" questionKey={questionKey} power={powerCast?.id === 'bandage' ? null : powerCast} armed={{ ...powerArmed, ...(extraHearts ? { steadfast: Math.max(0, extraHearts - fs.livesLost) } : {}) }} proc={powerProc} />
         {phase === 'fight' && <TauntBubble bubble={taunt.bubble} name={bossName} calm={focus} ctx={ctx} />}
         <FightNotice notice={fc.notice} t={t} />
       </div>
@@ -855,36 +876,70 @@ function Trophies({ ctx, raid }) {
   )
 }
 
-// THE POWER BAG (raids only, powers.js): what is in it, how many this boss allows per run, and the Bandage (used
-// between runs). Before the first unlock it says how to earn powers. `compact`: the result screen's one-line form.
-function PowerBag({ t, bag, wins, slots, test = false, compact = false, bandage = null, note = '', heal = 0 }) {
-  const open = unlockedPowers(wins)
-  const items = POWER_IDS.filter((id) => bag?.[id] > 0)
+// A power's icon: the drawn badge (public/assets/legends/powers/<id>.svg), the emoji when it cannot load.
+function PowerIcon({ id, size = 18 }) {
+  const [broken, setBroken] = useState(false)
+  if (broken || !POWERS[id]) return <span aria-hidden="true" style={{ fontSize: size * 0.85, lineHeight: 1 }}>{POWERS[id]?.icon}</span>
+  return <img src={`/assets/legends/powers/${id}.svg`} alt="" width={size} height={size} draggable={false} onError={() => setBroken(true)} style={{ display: 'inline-block', verticalAlign: 'middle', flex: 'none' }} />
+}
+// The powers armed now, in POWER_IDS order: [id, true | questions left].
+const armedList = (armed = {}) => POWER_IDS.filter((id) => id !== 'steadfast' && (armed[id] === true || armed[id] > 0)).map((id) => [id, armed[id]])
+
+// THE LOADOUT (raids only, powers.js): every power, unlocked ones as tiles to bring (up to LOADOUT_MAX), locked ones
+// with how many different bosses unlock them, and the Bandage (used between runs) when brought. `onToggle` null = read
+// only (a test fight brings everything). `compact`: the result screen's Bandage-only form.
+function PowerLoadout({ t, beaten, loadout, onToggle = null, test = false, compact = false, bandage = null, note = '', heal = 0, cast = null }) {
+  const open = unlockedPowers(beaten)
+  const bandageRow = (bandage || note || cast) && (
+    <div style={{ display: 'grid', gap: 6, justifyItems: 'center' }}>
+      {cast && <PowerCastBadge id="bandage" n={cast.n} />}
+      {bandage && <ChunkyButton variant="ghost" color={C.purple} onClick={bandage} style={{ fontSize: 13, padding: '6px 12px' }}><PowerIcon id="bandage" size={18} /> {t('lg_powBandageUse', { n: heal })}</ChunkyButton>}
+      {note && <div role="status" style={{ fontSize: 12.5, fontWeight: 800, color: C.purple }}>{note}</div>}
+    </div>
+  )
+  if (compact) return bandageRow || null
   if (!open.length && !test) {
-    const nx = nextUnlock(wins)
-    return nx ? <div style={{ maxWidth: 640, margin: '0 auto', textAlign: 'center', fontSize: 12.5, color: C.inkDim }}>🎒 {t('lg_powLocked', { n: nx.wins, name: t(`lg_pow_${nx.id}`) })}</div> : null
+    const nx = nextUnlock(beaten)
+    return nx ? <div style={{ maxWidth: 640, margin: '0 auto', textAlign: 'center', fontSize: 12.5, color: C.inkDim }}>{t('lg_powLocked', { n: nx.beaten, name: t(`lg_pow_${nx.id}`) })}</div> : null
   }
   return (
-    <div data-raid-bag="" style={{ maxWidth: 640, width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'grid', gap: 6, justifyItems: 'center', textAlign: 'center', padding: compact ? 0 : '8px 12px', borderRadius: RADIUS.md, border: compact ? 'none' : `1.5px solid color-mix(in srgb, ${C.purple} 35%, ${C.border})`, background: compact ? 'transparent' : `color-mix(in srgb, ${C.purple} 6%, ${C.surface})` }}>
-      <div style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>
-        🎒 {t('lg_powBag', { n: bagCount(bag), max: test ? POWER_IDS.length : bagSize(wins) })}{items.length ? ': ' : ''}
-        {items.map((id) => <span key={id} className="tip tip-b" data-tip={t(`lg_powDesc_${id}`)} style={{ marginLeft: 6, whiteSpace: 'nowrap' }}>{POWERS[id].icon} {t(`lg_pow_${id}`)} ×{bag[id]}</span>)}
+    <div data-raid-loadout="" style={{ maxWidth: 640, width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'grid', gap: 8, padding: '10px 12px', borderRadius: RADIUS.md, border: `1.5px solid color-mix(in srgb, ${C.purple} 35%, ${C.border})`, background: `color-mix(in srgb, ${C.purple} 6%, ${C.surface})` }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', justifyContent: 'center', textAlign: 'center' }}>
+        <span style={{ fontSize: 13.5, fontWeight: 900, color: C.ink }}>{t('lg_powLoadout', { n: test ? loadout.length : loadout.length, max: test ? loadout.length : LOADOUT_MAX })}</span>
+        <span style={{ fontSize: 12, color: C.inkDim }}>{test ? t('lg_powTestBag') : t('lg_powLoadoutRule')}</span>
       </div>
-      {!compact && <div style={{ fontSize: 12, color: C.inkDim }}>{t(slots === 1 ? 'lg_powSlotsOne' : 'lg_powSlots', { n: slots })}{test ? ` · ${t('lg_powTestBag')}` : ''}</div>}
-      {bandage && <ChunkyButton variant="ghost" color={C.purple} onClick={bandage} style={{ fontSize: 13, padding: '6px 12px' }}>🩹 {t('lg_powBandageUse', { n: heal })}</ChunkyButton>}
-      {note && <div role="status" style={{ fontSize: 12.5, fontWeight: 800, color: C.purple }}>{note}</div>}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
+        {POWER_IDS.map((id) => {
+          const unlocked = test || open.includes(id)
+          const on = loadout.includes(id)
+          const full = !on && loadout.length >= LOADOUT_MAX
+          const can = !!onToggle && unlocked && !full
+          const tip = unlocked ? t(`lg_powDesc_${id}`) : t('lg_powLockedOne', { n: POWERS[id].unlock })
+          return (
+            <button key={id} type="button" data-power-tile={id} aria-pressed={on} disabled={!can && !(onToggle && on)} onClick={() => onToggle && unlocked && onToggle(id)}
+              className={`tip tip-b${on ? ' ui-tab-current' : ''}`} data-tip={tip}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: FONT.body, fontSize: 12.5, fontWeight: 800, padding: '5px 10px', borderRadius: RADIUS.pill,
+                border: `1.5px solid ${on ? C.purple : `color-mix(in srgb, ${C.purple} 30%, transparent)`}`, background: on ? `color-mix(in srgb, ${C.purple} 18%, ${C.surface})` : 'transparent',
+                color: unlocked ? (on ? C.ink : C.inkDim) : C.inkFaint || C.inkDim, opacity: unlocked ? (full ? 0.55 : 1) : 0.45, cursor: onToggle && unlocked && (on || !full) ? 'pointer' : 'default', filter: unlocked ? 'none' : 'grayscale(1)' }}>
+              <PowerIcon id={id} size={20} /> {unlocked ? t(`lg_pow_${id}`) : `🔒 ${POWERS[id].unlock}`}
+            </button>
+          )
+        })}
+      </div>
+      {bandageRow}
     </div>
   )
 }
 
-// The powers a run found (random drops) and the next unlock.
-function PowerDrops({ t, drops = [], wins = 0 }) {
-  const nx = nextUnlock(wins)
-  if (!drops.length && !nx) return null
+// What a run's win unlocked (a new boss beaten), else how far the next unlock is.
+function PowerUnlocks({ t, before = 0, beaten = 0 }) {
+  const fresh = POWER_IDS.filter((id) => POWERS[id].unlock > before && POWERS[id].unlock <= beaten)
+  const nx = nextUnlock(beaten)
+  if (!fresh.length && !nx) return null
   return (
-    <div data-raid-drops="" style={{ display: 'grid', gap: 4, justifyItems: 'center' }}>
-      {drops.length > 0 && <div style={{ fontWeight: 900, color: C.purple }}>🎁 {t('lg_powFound', { list: drops.map((id) => `${POWERS[id].icon} ${t(`lg_pow_${id}`)}`).join(', ') })}</div>}
-      {nx && <div style={{ fontSize: 12.5, color: C.inkDim }}>{t('lg_powNext', { n: Math.max(0, nx.wins - wins), name: t(`lg_pow_${nx.id}`) })}</div>}
+    <div data-raid-unlocks="" style={{ display: 'grid', gap: 4, justifyItems: 'center' }}>
+      {fresh.map((id) => <div key={id} style={{ fontWeight: 900, color: C.purple, display: 'inline-flex', alignItems: 'center', gap: 6 }}><PowerIcon id={id} size={26} /> {t('lg_powUnlocked', { name: t(`lg_pow_${id}`) })}</div>)}
+      {nx && <div style={{ fontSize: 12.5, color: C.inkDim }}>{tCount(t, 'lg_powNext', Math.max(0, nx.beaten - beaten), { n: Math.max(0, nx.beaten - beaten), name: t(`lg_pow_${nx.id}`) })}</div>}
     </div>
   )
 }

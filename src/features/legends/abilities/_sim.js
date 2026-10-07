@@ -131,7 +131,6 @@ export function simulateSiege({ days = 10, perDay = 8, firstDay = 0, answer = se
       if (due < 1 || (!siegeOf(state) && due < RAID.minCards)) break // a fresh boss needs a raid's worth of cards
       const dueNow = due // a fresh boss's health comes from the cards due when it comes out
       const today = raidToday(state, date, dueNow)
-      if (today.siege.hearts <= 0) break
       const motif = RAID_ROSTER[today.boss]
       const r = simulateRaid(RAID_ABILITY[motif] || '', { n: due, answer, press, dayBefore: today.day.damage, dayHp: today.day.hp, lives: today.siege.hearts })
       const cards = r.log.filter((e) => !e.q._attack && !e.q._inserted && !e.q._lastStand && !e.q._extra).length

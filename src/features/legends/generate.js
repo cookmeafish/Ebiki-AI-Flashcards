@@ -193,12 +193,16 @@ async function makeQuizNow(ctx, modeId, area, node, { misses = [] } = {}) {
   }
   const lang = subject.isLanguage ? subject.learnLangIso : ''
   // Only questions about a taught item stay (their "target" names it), and none the area already asked;
-  // too few left = one stricter retry.
+  // too few left = one stricter retry. `reviewed` turns false when any review did not run (failed, cut off): the
+  // set is then saved WITHOUT the checked stamp, so its next visit reviews it (stamped, it was never looked at).
+  let reviewed = true
   const ask = async (strict, more = {}) => {
     const raw = await call(ctx, buildQuizPrompt(subject, area, node, { ...opts, ...more, strict }), ROLE.quiz, MAX_TOKENS.quiz)
     const qs = parseQuestions(ai.json(raw), ai.clean, { speakLang: lang, dual: boss }).filter((q) => itemIdFor(q, taught) && !seen.has(normQ(q.prompt)))
     if (!qs.length) return qs // nothing to review (never a paid call on an empty list)
-    return (await review(qs)) || qs
+    const checked = await review(qs)
+    if (!checked) reviewed = false
+    return checked || qs
   }
   for (const q of kept || []) seen.add(normQ(q.prompt))
   let qs = kept || await ask(false)
@@ -216,7 +220,7 @@ async function makeQuizNow(ctx, modeId, area, node, { misses = [] } = {}) {
   if (saved.ok) {
     // A fight keeps only what it asked (so the next attempt is new); every other step keeps its set.
     if (fresh) await saveStep(modeId, area.id, node.id, 'fight', 'quiz', { history: [...history, ...qs.map((q) => q.prompt)].slice(-FIGHT_HISTORY_MAX) })
-    else await saveStep(modeId, area.id, node.id, sig, 'quiz', { questions: qs, checked: QUIZ_CHECK_VERSION })
+    else await saveStep(modeId, area.id, node.id, sig, 'quiz', { questions: qs, ...(reviewed ? { checked: QUIZ_CHECK_VERSION } : {}) })
   }
   return kept ? reshuffleQuiz(qs) : qs
 }

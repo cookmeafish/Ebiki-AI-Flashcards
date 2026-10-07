@@ -9,6 +9,7 @@ import { EVENTS } from '../events'
 import { ChunkyButton, EbiSays } from '../ui'
 import { QuizRunner, sanitizeQuestions, pickCardItems, recordPractice } from '../kit'
 import { learnerLevelLine } from '../kit/learnerStore'
+import { useHelpEntry } from '../kit/useHelp'
 import { settlePracticeRun } from '../kit/practiceRun'
 import { buildDrillPrompt, DRILL_ROLE, DRILL_MAX_TOKENS, DRILL_SIZE } from './prompt'
 
@@ -30,6 +31,13 @@ export default function ListenScreen({ onExit }) {
   const aliveRef = useRef(false)
   useActivityBusy(phase !== 'intro' && !(phase === 'run' && quizDone)) // a workout being built or answered would be lost
   useEffect(() => { aliveRef.current = true; return () => { aliveRef.current = false; settleRun(runRef.current, runRef.current?.answers) } }, [])
+  // What Ebi's Help knows (like the other activities): where the learner is, and why answers are typed when no
+  // speech-to-text engine is set up. A running drill's question is reported by the quiz itself.
+  const noStt = !!ctx && !speechEngines(ctx).stt
+  useHelpEntry(ctx, LISTEN_FEATURE_ID, !ctx ? '' : [
+    `Activity open: Listen & Speak (${phase === 'run' ? 'a drill is running' : phase === 'loading' ? 'a drill is being written' : 'the intro'}).`,
+    noStt ? 'No speech-to-text engine is available, so answers meant to be spoken are typed instead (Settings > General > Voice and speech).' : '',
+  ].filter(Boolean).join(' '))
   if (!ctx) return null
   const { t, ai, subject } = ctx
   const engines = speechEngines(ctx)
@@ -46,7 +54,7 @@ export default function ListenScreen({ onExit }) {
         ...q, question: ai.clean(txt(q.question)), explanation: ai.clean(txt(q.explanation)), say: ai.clean(txt(q.say)),
         speak: q.speak === true && !!engines.stt, // no way to listen → typed instead
         open: q.open === true && q.speak === true && !q.say, // only "explain out loud" is open; a dictation has one answer
-      })), { audioLang: voiceLang, speakLang: subject.isLanguage ? subject.learnLangIso : '' })
+      })), { audioLang: voiceLang, speakLang: subject.isLanguage ? subject.learnLangIso : '', clean: ai.clean })
       if (qs.length < MIN_QUESTIONS) throw new Error(t('ls_badWorkout'))
       if (!aliveRef.current) return
       // The practice log gets the cards the learner actually answered about, when the run settles.

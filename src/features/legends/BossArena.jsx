@@ -18,7 +18,7 @@ import { strikeMoment, STRIKE_FX } from './strikeFx'
 import StrikeFxLayer from './StrikeFxLayer'
 import { impactFor } from './impact/styles'
 import { BODY_CSS, bodyAnimation } from './impact/body'
-import { PowerFx, SharpenLock, wardStyle, POWER_ARMED_CSS } from './impact/PowerFx'
+import { PowerFx, PowerArmed, PowerProc, SteadfastHearts, wardStyle, POWER_ARMED_CSS, castMs, procMs } from './impact/PowerFx'
 import { AbilityHud, BarMarks } from './fx/_Hud'
 import { PASS } from './map'
 
@@ -502,7 +502,7 @@ function useShortWindow(getZoom) {
 const REFUND_CSS = '@keyframes lgRefundSweat { 0% { transform: translateY(-6px) scale(.4); opacity: 0 } 20% { transform: translateY(0) scale(1.1); opacity: 1 } 80% { transform: translateY(6px) scale(1); opacity: 1 } 100% { transform: translateY(10px) scale(.9); opacity: 0 } }'
   + ' @keyframes lgRefundHeart { 0% { transform: translate(-50%, 0) scale(.5); opacity: 0 } 25% { transform: translate(-50%, -10px) scale(1.25); opacity: 1 } 100% { transform: translate(120%, -90px) scale(.7); opacity: 0 } }'
 
-export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, phases = 2, weak = [], shield = false, focus = false, getZoom, kind = 'bosses', ability = '', dayAb = null, questionKey, power = null, armed = null }) {
+export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, phases = 2, weak = [], shield = false, focus = false, getZoom, kind = 'bosses', ability = '', dayAb = null, questionKey, power = null, armed = null, proc = null }) {
   const motion = useArtMotionAlways()
   const still = useArtStill()
   const quiet = focus || still // no shake, bob, flash or ability effect (still: the owner's no-animation switch)
@@ -544,9 +544,20 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
     powerSeen.current = power.n
     if (!animOk) return undefined
     setPowerShow(power)
-    const id = setTimeout(() => setPowerShow((x) => (x?.n === power.n ? null : x)), 1100)
+    const id = setTimeout(() => setPowerShow((x) => (x?.n === power.n ? null : x)), castMs(power.id) + 100)
     return () => clearTimeout(id)
   }, [power?.n]) // eslint-disable-line react-hooks/exhaustive-deps
+  // A window power (or Ward, Steadfast) doing its thing on an answer (`proc` = { id, n }): its own short flourish.
+  const [procShow, setProcShow] = useState(null)
+  const procSeen = useRef(proc?.n || 0)
+  useEffect(() => {
+    if (!proc?.n || proc.n === procSeen.current) return undefined
+    procSeen.current = proc.n
+    if (!animOk) return undefined
+    setProcShow(proc)
+    const id = setTimeout(() => setProcShow((x) => (x?.n === proc.n ? null : x)), procMs(proc.id) + 100)
+    return () => clearTimeout(id)
+  }, [proc?.n]) // eslint-disable-line react-hooks/exhaustive-deps
   const fxNow = juice.fx
   const artRef = useRef(null)
   useHitStop(artRef, juice.stop)
@@ -575,7 +586,7 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
       {flashSpec?.veil && <div key={`v${juice.n}`} aria-hidden="true" style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', background: '#fff', opacity: 0, animation: `lgJuiceVeil ${flashSpec.veilMs}ms steps(1, end)`, pointerEvents: 'none', zIndex: 3 }} />}
       <div style={{ position: 'relative', flexShrink: 0, margin: headroomPx(compact ? BOSS.arenaCompact : BOSS.arena) }}>
         <div key={`s${shift}`} style={{ animation: shift && !quiet ? 'lgPhaseShift 1s ease-out both' : 'none' }}>
-        <div key={`b${last?.n || 0}`} style={{ animation: down ? ((raidBody && bodyAnimation(raidBody, 'ko')) || 'lgBossDown .6s ease-out both') : quiet ? 'none' : hitNow ? ((raidBody && bodyAnimation(raidBody, 'hit')) || 'lgBossHit .5s ease-out') : missNow ? ((raidBody && bodyAnimation(raidBody, 'strike')) || 'lgBossLunge .45s ease-out') : 'none',
+        <div key={`b${last?.n || 0}`} style={{ animation: down ? ((raidBody && bodyAnimation(raidBody, 'ko')) || 'lgBossDown .6s ease-out both') : quiet ? 'none' : (raidBody && moment && bodyAnimation(raidBody, moment)) || (hitNow ?((raidBody && bodyAnimation(raidBody, 'hit')) || 'lgBossHit .5s ease-out') : missNow ? ((raidBody && bodyAnimation(raidBody, 'strike')) || 'lgBossLunge .45s ease-out') : 'none'),
           filter: down ? 'grayscale(.8) opacity(.6)' : rage ? `drop-shadow(0 0 10px ${C.danger}) saturate(1.3)` : 'none' }}>
           {/* the boss's own reaction to its ability (fx/<motif>.jsx css: .lgr-<motif>-<fx>), then its persistent idle
               reaction (.lgr-<motif>-idle-<key>), then its persistent look (artStyle) on the INNERMOST box, so a scale
@@ -600,7 +611,8 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
         {/* the raid ability's own effect (a bolt, a wave, a scythe arc...) and its floater, once per strike that fires
             it, inside the boss box; they fade out the moment the next question appears */}
         {powerShow && <PowerFx t={t} power={powerShow} />}
-        {armed?.sharpen && !down && animOk && <SharpenLock />}
+        {armed && !down && <PowerArmed armed={armed} anim={animOk} />}
+        {procShow && <PowerProc t={t} proc={procShow} />}
         {juice.show && juice.moment && <StrikeFxLayer t={t} moment={juice.moment} motif={area.motif} n={juice.n} fading={juice.fading} />}
         {juice.show && juice.fx && (
           <div key={`x${juice.n}`} aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1, opacity: juice.fading ? 0 : 1, transition: `opacity ${JUICE.fade}ms ease-in` }}>
@@ -656,6 +668,7 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
               <Lives t={t} lives={lives} left={left} last={heartsLast} bonus={bonus} size={16} />
             </span>
           ) : <Lives t={t} lives={lives} left={left} last={heartsLast} bonus={bonus} size={16} />}
+          {!down && armed?.steadfast > 0 && <SteadfastHearts n={armed.steadfast} />}
           {shield && chip(st.shieldUsed ? C.inkFaint : C.info, `🛡 ${st.shieldUsed ? t('lg_fightShieldUsed') : t('lg_fightShield')}`, 'sh')}
           {!down && ability && chip(C.purple, `${ABILITY_ICON[ability] || ''} ${t(`lg_ability_${ability}`)}${abNote ? ` · ${t(abNote)}` : ''}`, 'ab')}
           {!down && rage && chip(C.danger, `😡 ${phases > 2 ? t('lg_fightPhase', { n: phase }) : t('lg_fightRage')}`, 'rg')}

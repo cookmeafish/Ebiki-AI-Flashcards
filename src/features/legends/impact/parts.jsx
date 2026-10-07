@@ -42,6 +42,10 @@ export const PARTS_CSS = `
 @keyframes lgiOrbitOut { 0%, 45% { transform: translateX(calc(var(--r) * 1cqw)) scale(1) } 100% { transform: translateX(calc(var(--r) * 3cqw)) scale(1.4) } }
 @keyframes lgiHalo { 0% { transform: translate(-50%, -50%) rotate(var(--r0)) scale(var(--s0), calc(var(--s0) * .32)); opacity: 0 } 15% { opacity: 1 } 70% { opacity: 1 } 100% { transform: translate(-50%, -50%) rotate(var(--r1)) scale(var(--s1), calc(var(--s1) * .32)); opacity: 0 } }
 @keyframes lgiBubble { 0% { transform: translate(-50%, -50%) scale(.3); opacity: 0 } 22% { transform: translate(-50%, -50%) scale(1.08); opacity: .95 } 34% { transform: translate(-50%, -50%) scale(.94, 1.04) } 44% { transform: translate(-50%, -50%) scale(1.03, .97) } 80% { opacity: .8 } 100% { transform: translate(-50%, -50%) scale(1.3); opacity: 0 } }
+@keyframes lgiBlade { 0% { transform: translateX(-60cqw) scaleX(.3); opacity: 0 } 18% { opacity: 1 } 55% { transform: translateX(10cqw) scaleX(1); opacity: 1 } 100% { transform: translateX(60cqw) scaleX(.6); opacity: 0 } }
+@keyframes lgiTwinkle { 0% { transform: rotate(var(--r0)) scale(0); opacity: 0 } 35% { transform: rotate(calc(var(--r1) / 2)) scale(1.2); opacity: 1 } 100% { transform: rotate(var(--r1)) scale(0); opacity: 0 } }
+@keyframes lgiQuake { 0% { transform: translate(-50%, -50%) scale(.15, .3); opacity: 1 } 70% { opacity: .8 } 100% { transform: translate(-50%, -50%) scale(2.1, 1.2); opacity: 0 } }
+@keyframes lgiPulse { 0% { transform: translate(-50%, -50%) scale(.4); opacity: 0 } 18% { transform: translate(-50%, -50%) scale(1.05); opacity: 1 } 34% { transform: translate(-50%, -50%) scale(.85); opacity: .7 } 52% { transform: translate(-50%, -50%) scale(1.25); opacity: .9 } 100% { transform: translate(-50%, -50%) scale(1.7); opacity: 0 } }
 @keyframes lgiDrip { 0% { transform: scaleY(0); opacity: 0 } 15% { opacity: 1 } 60% { transform: scaleY(1) } 100% { transform: scaleY(1.15) translateY(14cqw); opacity: 0 } }
 `
 
@@ -202,7 +206,7 @@ export const PARTS = {
     return Array.from({ length: n }, (_, i) => {
       const o = i - (n - 1) / 2
       return <div key={`cl${i}`} style={{ position: 'absolute', left: `${50 + o * 12}%`, top: `${50 - o * 4}%`, width: `${105 * sz * ctx.scale}cqw`, height: `${2.2 * sz * Math.sqrt(ctx.scale)}cqw`, borderRadius: 6,
-        background: `linear-gradient(90deg, transparent, ${ctx.color} 25%, #fff 50%, ${ctx.color} 75%, transparent)`, boxShadow: `0 0 2cqw ${ctx.color}`, '--a': `${62 + (p.angle || 0)}deg`,
+        background: `linear-gradient(90deg, transparent, ${colorOf(p, ctx)} 25%, #fff 50%, ${colorOf(p, ctx)} 75%, transparent)`, boxShadow: `0 0 2cqw ${colorOf(p, ctx)}`, '--a': `${62 + (p.angle || 0)}deg`,
         animation: `lgiSlash ${520 * ctx.speed}ms cubic-bezier(.2,.9,.3,1) ${i * 55}ms both` }} />
     })
   },
@@ -387,11 +391,113 @@ export const PARTS = {
     animation: `lgiSpin ${p.big ? 340 : 260}ms cubic-bezier(.1,.9,.3,1) both` }}><Glyph name="star4" color="#ffffff" accent="#ffffff" outline={false} /></div>,
   // Shared: a parry (blocked attack), a shield bubble, a heart back.
   parry: (p, ctx) => [45, -45].map((a, i) => (
-    <div key={`pa${i}`} style={{ position: 'absolute', left: '50%', top: '50%', width: `${80 * ctx.scale}cqw`, height: '2.4cqw', borderRadius: 6, background: 'linear-gradient(90deg, transparent, #8fe3ff, #fff, #8fe3ff, transparent)', boxShadow: '0 0 2.5cqw #8fe3ff',
+    <div key={`pa${i}`} style={{ position: 'absolute', left: '50%', top: '50%', width: `${80 * ctx.scale}cqw`, height: '2.4cqw', borderRadius: 6, background: `linear-gradient(90deg, transparent, ${p.color || '#8fe3ff'}, #fff, ${p.color || '#8fe3ff'}, transparent)`, boxShadow: `0 0 2.5cqw ${p.color || '#8fe3ff'}`,
       '--a': `${a}deg`, animation: `lgiSlash 520ms cubic-bezier(.2,.9,.3,1) ${180 + i * 40}ms both` }} />
   )),
   bubble: () => <div key="bb" style={{ position: 'absolute', left: '50%', top: '50%', width: '96cqw', height: '96cqw', borderRadius: '50%', border: '1.2cqw solid #6fc3ff', boxShadow: '0 0 4cqw #6fc3ff, inset 0 0 6cqw #6fc3ff88',
     background: 'radial-gradient(circle at 35% 30%, #ffffff55, transparent 30%)', animation: 'lgiBubble 900ms ease-out 150ms both' }} />,
-  heart: () => fly('hrt', <div style={{ fontSize: '20cqw', lineHeight: 1, textAlign: 'center' }}>💖</div>, { x0: 0, y0: 30, x1: 0, y1: -55, s0: 0.4, s1: 1.4, w: 24, ms: 1150, ease: 'cubic-bezier(.22,1,.36,1)' }),
+  heart: () => fly('hrt', <div style={{ fontSize: '20cqw', lineHeight: 1, textAlign: 'center' }}>💖</div>, { x0: 0, y0: 30, x1: 0, y1: -55, s0: 0.4, s1: 1.2, w: 15, ms: 1150, ease: 'cubic-bezier(.22,1,.36,1)' }),
+
+  // ── MOMENT PARTS: what makes a critical, a Sharpen, a heavy blow, a block, a save and Second wind read as their own
+  // moment (StrikeFxLayer). Each takes the boss's colors and its own params, so no two bosses play one the same way.
+  // A critical: a jagged star (p.points tips, p.spin degrees) slams open behind the hit, a white star inside it.
+  starburst: (p, ctx) => {
+    const n = p.points || 8
+    const pts = Array.from({ length: n * 2 }, (_, i) => {
+      const a = (Math.PI * i) / n - Math.PI / 2
+      const r = i % 2 ? 50 * (p.inner || 0.42) : 50
+      return `${(50 + Math.cos(a) * r).toFixed(1)},${(50 + Math.sin(a) * r).toFixed(1)}`
+    }).join(' ')
+    const c = colorOf(p, ctx)
+    return [0, 1].map((g) => (
+      <div key={`st${g}`} style={{ position: 'absolute', left: '50%', top: '48%', width: `${(g ? 34 : 84) * ctx.scale}cqw`, height: `${(g ? 34 : 84) * ctx.scale}cqw`, filter: `drop-shadow(0 0 2.5cqw ${c})`,
+        '--r0': `${g ? -(p.spin || 40) : 0}deg`, '--r1': `${g ? 0 : p.spin || 40}deg`, '--s0': 0.15, '--s1': g ? 1.15 : 1.35, animation: `lgiSpin ${(g ? 420 : 560) * ctx.speed}ms cubic-bezier(.1,.9,.25,1) ${g * 50}ms both` }}>
+        <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true"><polygon points={pts} fill={g ? '#ffffff' : `${c}4d`} stroke={g ? c : '#ffffff'} strokeWidth={g ? 2 : 3.5} strokeLinejoin="round" opacity={g ? 0.9 : 1} /></svg>
+      </div>
+    ))
+  },
+  // A Sharpen: p.n honed blades sweep across at p.angle, each leaving a white edge, a gold glint at the end.
+  blade: (p, ctx) => {
+    const c = colorOf(p, ctx)
+    return Array.from({ length: p.n || 2 }, (_, i) => (
+      <div key={`bl${i}`} style={{ position: 'absolute', left: '50%', top: '50%', width: 0, height: 0, filter: `drop-shadow(0 0 0.5cqw #000000) drop-shadow(0 0 1.6cqw ${c})`, transform: `rotate(${(p.angle ?? -30) + i * (p.fan ?? 24)}deg)` }}>
+        <div style={{ position: 'absolute', left: '-75cqw', top: `${-3.6 - i * 0.3}cqw`, width: '150cqw', height: `${7.2 + i * 0.6}cqw`, clipPath: 'polygon(0 50%, 14% 0, 100% 38%, 100% 62%, 14% 100%)',
+          background: `linear-gradient(90deg, transparent 0%, ${c} 30%, #ffffff 58%, ${c} 78%, transparent 100%)`, boxShadow: `0 0 3cqw ${c}`,
+          animation: `lgiBlade ${(p.ms || 460) * ctx.speed}ms cubic-bezier(.2,.9,.3,1) ${i * (p.gap || 90)}ms both` }} />
+      </div>
+    ))
+  },
+  // Small four-point twinkles popping at fixed spots (a fresh edge, a holy glint, a sugar sparkle).
+  glint: (p, ctx) => Array.from({ length: p.n || 5 }, (_, i) => {
+    const x = (rnd(i, 141) - 0.5) * 80
+    const y = (rnd(i, 143) - 0.5) * 80
+    const s = (p.size || 1) * (8 + rnd(i, 145) * 8)
+    return <div key={`gl${i}`} style={{ position: 'absolute', left: `calc(50% + ${x}cqw)`, top: `calc(50% + ${y}cqw)`, width: `${s}cqw`, height: `${s}cqw`, filter: `drop-shadow(0 0 1.2cqw ${colorOf(p, ctx)})`,
+      '--r0': '0deg', '--r1': '90deg', '--s0': 0, '--s1': 1, animation: `lgiTwinkle ${520 * ctx.speed}ms ease-out ${120 + rnd(i, 147) * 380}ms both` }}><Glyph name="star4" color={i % 2 ? '#ffffff' : colorOf(p, ctx)} accent={ctx.accent} outline={false} /></div>
+  }),
+  // A heavy blow: the ground ripples out under the boss in p.n flat rings, rubble jumping off it.
+  quake: (p, ctx) => {
+    const c = colorOf(p, ctx)
+    return [
+      ...Array.from({ length: p.n || 2 }, (_, i) => (
+        <div key={`qk${i}`} style={{ position: 'absolute', left: '50%', top: `${p.top || 80}%`, width: '90cqw', height: '22cqw', borderRadius: '50%', border: `${2 - i * 0.5}cqw solid ${c}`, boxShadow: `0 0 3cqw ${c}`,
+          animation: `lgiQuake ${(620 + i * 120) * ctx.speed}ms cubic-bezier(.1,.8,.3,1) ${i * 130}ms both` }} />
+      )),
+      ...Array.from({ length: p.rubble ?? 6 }, (_, i) => {
+        const x = (i - ((p.rubble ?? 6) - 1) / 2) * 13
+        return fly(`qr${i}`, <div style={{ width: '100%', height: '100%', background: i % 2 ? c : ctx.accent, clipPath: 'polygon(20% 0, 100% 30%, 80% 100%, 0 70%)' }} />,
+          { x0: x * 0.6, y0: 32, xm: x, ym: -6 - rnd(i, 151) * 16, x1: x * 1.4, y1: 40, r0: 0, r1: (rnd(i, 153) - 0.5) * 400, s0: 0.6, s1: 1, w: 5, ms: 760 * ctx.speed, delay: 60 + rnd(i, 155) * 90, ease: 'linear' })
+      }),
+    ]
+  },
+  // A block: a p.sides-sided barrier sigil draws itself in a heartbeat, flashes and breaks apart.
+  sigil: (p, ctx) => {
+    const n = p.sides || 6
+    const poly = (r, rot) => Array.from({ length: n }, (_, i) => {
+      const a = (Math.PI * 2 * i) / n + ((rot || 0) * Math.PI) / 180 - Math.PI / 2
+      return `${(50 + Math.cos(a) * r).toFixed(1)},${(50 + Math.sin(a) * r).toFixed(1)}`
+    }).join(' ')
+    const c = colorOf(p, ctx)
+    return (
+      <div key="sg" style={{ position: 'absolute', left: '50%', top: '50%', width: `${84 * ctx.scale}cqw`, height: `${84 * ctx.scale}cqw`, filter: `drop-shadow(0 0 2cqw ${c})`,
+        '--r0': `${p.rot || 0}deg`, '--r1': `${(p.rot || 0) + (p.turn ?? 30)}deg`, '--s0': 0.6, '--s1': 1.15, animation: `lgiSpin ${780 * ctx.speed}ms cubic-bezier(.2,.8,.3,1) both` }}>
+        <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true">
+          <polygon points={poly(46, 0)} fill={`${c}22`} stroke={c} strokeWidth="3" strokeLinejoin="round" style={{ '--len': 320, strokeDasharray: 320, animation: 'lgiDraw 700ms ease-out both' }} />
+          <polygon points={poly(30, 180 / n)} fill="none" stroke="#ffffff" strokeWidth="2" style={{ '--len': 220, strokeDasharray: 220, animation: 'lgiDraw 640ms ease-out 80ms both' }} />
+        </svg>
+      </div>
+    )
+  },
+  // A save: the boss's own glyphs fly at the player, hit the dome and glance off outward.
+  deflect: (p, ctx) => Array.from({ length: p.n || 6 }, (_, i) => {
+    const a = (Math.PI * (p.from === 'side' ? 1 : 1.5)) + ((i - ((p.n || 6) - 1) / 2) * 0.55)
+    const far = 80
+    const hit = 44
+    return fly(`df${i}`, <Glyph name={glyphOf(p, ctx)} color={colorOf(p, ctx)} accent={ctx.accent} />,
+      { x0: Math.cos(a) * far, y0: Math.sin(a) * far, xm: Math.cos(a) * hit, ym: Math.sin(a) * hit, x1: Math.cos(a + (i % 2 ? 0.9 : -0.9)) * far * 1.1, y1: Math.sin(a + (i % 2 ? 0.9 : -0.9)) * far * 1.1,
+        r0: 0, r1: (i % 2 ? 1 : -1) * 260, s0: 1.2, s1: 0.9, w: 18, ms: 760 * ctx.speed, delay: 60 + i * 55, ease: 'linear' })
+  }),
+  // Second wind: p.n curved gusts sweep up around the boss.
+  gust: (p, ctx) => {
+    const c = colorOf(p, ctx)
+    return (
+      <div key="gu" style={{ position: 'absolute', left: '50%', top: '50%', width: '110cqw', height: '110cqw', '--r0': `${p.rot || 0}deg`, '--r1': `${(p.rot || 0) + (p.turn ?? -70)}deg`, '--s0': 0.7, '--s1': 1.1,
+        animation: `lgiSpin ${1000 * ctx.speed}ms cubic-bezier(.3,.7,.4,1) both`, filter: `drop-shadow(0 0 1.2cqw ${c})` }}>
+        <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true">
+          {Array.from({ length: p.n || 3 }, (_, i) => {
+            const r = 22 + i * 8
+            const a0 = (i * 120 * Math.PI) / 180
+            const d = `M ${50 + Math.cos(a0) * r} ${50 + Math.sin(a0) * r} A ${r} ${r} 0 0 1 ${50 + Math.cos(a0 + 2.2) * r} ${50 + Math.sin(a0 + 2.2) * r}`
+            return <path key={i} d={d} fill="none" stroke={c} opacity={1 - i * 0.18} strokeWidth={5 - i * 0.7} strokeLinecap="round" style={{ '--len': 140, strokeDasharray: 140, animation: `lgiDraw ${760 * ctx.speed}ms ease-out ${i * 110}ms both` }} />
+          })}
+        </svg>
+      </div>
+    )
+  },
+  // A heartbeat: lub-dub pulses of soft light (Second wind's life coming back).
+  pulse: (p, ctx) => [0, 1].map((i) => (
+    <div key={`pu${i}`} style={{ position: 'absolute', left: '50%', top: '50%', width: '70cqw', height: '70cqw', borderRadius: '50%', background: `radial-gradient(circle, ${colorOf(p, ctx)}aa, ${colorOf(p, ctx)}33 55%, transparent 70%)`,
+      animation: `lgiPulse ${900 * ctx.speed}ms ease-out ${i * 220}ms both` }} />
+  )),
 }
 export const PART_NAMES = Object.keys(PARTS)

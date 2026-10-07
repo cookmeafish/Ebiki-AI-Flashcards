@@ -69,7 +69,8 @@ function applyRes(s, res, mod, ctx, extra) {
   }
   const kind = res.dmg > 0 ? 'hit' : res.lives > 0 ? 'miss' : 'block'
   s.last = { kind, damage: res.dmg, lives: res.lives, crit: !!res.crit, shielded: !!res.shielded, attack: false, fx: res.fx || '', fxVars: res.fxVars || null,
-    rise: res.fx === 'rise', n: s.n, healed: res.heal || 0, gorged: res.gorge, ...extra }
+    rise: res.fx === 'rise', n: s.n, healed: res.heal || 0, gorged: res.gorge,
+    ...(res.focused ? { focused: true } : {}), ...(res.momentum ? { momentum: true } : {}), ...(res.fury ? { fury: true } : {}), ...(res.warded ? { warded: true } : {}), ...extra }
   return s
 }
 
@@ -108,11 +109,15 @@ export function strike(state, hit, opts = {}) {
       res.lives = MISS_LIVES; s.misses++; s.combo = 0; s.chain = 0
     } else if (hit.mode === 'choice') {
       res.dmg = DAMAGE.choice; s.safe++; s.combo = 0
-    } else if (hit.verdict === 'glancing') {
+    } else if (hit.verdict === 'glancing' && !opts.focus) {
       res.dmg = DAMAGE.glancing; s.glancing++; s.combo = 0
     } else {
-      res.dmg = DAMAGE.clean; s.clean++; s.combo++
-      if (!(mod && mod.noCrit) && s.combo % COMBO_EVERY === 0) { res.dmg += DAMAGE.crit; res.crit = true; s.crits++ }
+      // Clean, or glancing under Focus (a raid power): it hits like a clean answer and keeps the streak. The answer
+      // itself is unchanged (its Anki grade still reads the real verdict).
+      if (hit.verdict === 'glancing') { s.glancing++; res.focused = true } else s.clean++
+      res.dmg = DAMAGE.clean; s.combo++
+      // Momentum (a raid power) makes every clean answer in its window a critical hit, and its crits hit twice as hard.
+      if (!(mod && mod.noCrit) && (s.combo % COMBO_EVERY === 0 || opts.momentum)) { res.dmg += DAMAGE.crit * (opts.momentum ? 2 : 1); res.crit = true; s.crits++; if (opts.momentum) res.momentum = true }
     }
     if (right && hit.weak) res.dmg += DAMAGE.weak
     if (right) { s.chain++; s.rights = (s.rights || 0) + 1 }
@@ -123,7 +128,14 @@ export function strike(state, hit, opts = {}) {
     if (right && kind !== 'normal' && s.unredeemed.includes(key)) s.unredeemed = s.unredeemed.filter((k) => k !== key)
   }
   if (mod && mod.onStrike) mod.onStrike(s, res, hit, ctx)
+  // A raid power's extra damage (Sharpen: opts.bonus) goes in BEFORE applyRes, so a phase line it crosses fires the
+  // ability's onPhase on this strike (added afterwards, the Banshee's scream came one strike late).
+  if (opts.bonus > 0 && right && kind === 'normal') res.dmg = (Number(res.dmg) || 0) + opts.bonus
+  // Fury (a raid power): a clean typed answer to a raid question deals FURY_MULT times its whole damage.
+  if (opts.fury > 1 && kind === 'normal' && hit.verdict === 'clean' && hit.mode !== 'choice') { res.dmg = (Number(res.dmg) || 0) * opts.fury; res.fury = true }
   res.lives = Math.max(0, Number(res.lives) || 0)
+  // Ward (a raid power): the attack it was raised against costs no hearts.
+  if (res.lives > 0 && opts.ward && kind === 'attack') { res.lives = 0; res.warded = true }
   if (res.lives > 0 && opts.shield && !s.shieldUsed) { res.lives--; s.shieldUsed = true; res.shielded = true }
   if (res.lives > 0 && mod && mod.onLifeLoss) mod.onLifeLoss(s, res, ctx)
   return applyRes(s, res, mod, ctx, { attack: !!hit.attack, inserted })

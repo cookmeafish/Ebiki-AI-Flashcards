@@ -51,7 +51,8 @@ export function buildWorkoutPrompt(subject, mistakes, { slips = '', count = QUES
 export function workoutQuestions(j, clean = (s) => String(s ?? '')) {
   const list = Array.isArray(j) ? j : Array.isArray(j?.questions) ? j.questions : []
   return list.filter((q) => q && typeof q === 'object').map((q) => {
-    const out = { ...q, question: clean(q.question), explanation: clean(q.explanation) }
+    // The list names each mistake as "id: x"; a target echoed that way matched nothing (no progress, no practice log).
+    const out = { ...q, question: clean(q.question), explanation: clean(q.explanation), ...(q.target != null ? { target: String(q.target).trim().replace(/^id[\s:#]*/i, '') } : {}) }
     if (!Array.isArray(q.choices)) return out
     out.choices = q.choices.map((c) => clean(c))
     if (typeof q.answer === 'string') {

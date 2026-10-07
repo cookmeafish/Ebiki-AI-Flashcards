@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Raid power: Shield (the next heart you would lose is saved) -->
+  <rect x="1.5" y="2.5" width="61" height="61" rx="16.5" fill="#000" opacity=".35"/>
+  <rect x="2" y="1.5" width="60" height="60" rx="16" fill="#0a0714"/>
+  <rect x="3.5" y="3" width="57" height="57" rx="14.5" fill="#1d4fa8"/>
+  <path d="M3.5 30 V17.5 Q3.5 3 18 3 H46 Q60.5 3 60.5 17.5 V30 Q60.5 12 46 10 H18 Q3.5 12 3.5 30 Z" fill="#8cc0ff" opacity=".85"/>
+  <path d="M8 15 Q9 6.5 18 6 H46" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".55"/>
+  <rect x="7" y="7" width="50" height="50" rx="11" fill="#0f0c18" stroke="#0a0714" stroke-width="1.6"/>
+  <circle cx="32" cy="33" r="24" fill="#4c97ff" opacity=".08"/>
+  <circle cx="32" cy="33" r="18" fill="#4c97ff" opacity=".10"/>
+  <circle cx="32" cy="33" r="12" fill="#4c97ff" opacity=".13"/>
+  <path d="M8.5 22 Q9 8.5 22 8.5 H42 Q55.5 8.5 55.5 22 Q50 15 32 15 Q14 15 8.5 22 Z" fill="#fff" opacity=".06"/>
+  <rect x="7" y="7" width="50" height="50" rx="11" fill="none" stroke="#4c97ff" stroke-width="1" opacity=".45"/>
+  <g transform="translate(32 32.5) scale(.82) translate(-32 -32)">
+
+    <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.03;1" keyTimes="0;.50;1" dur="2.6s" repeatCount="indefinite"/>
+      <path d="M32 6 L52 13 V29 C52 42 43 50.5 32 56 C21 50.5 12 42 12 29 V13 Z" fill="#163f9e" stroke="#0a0714" stroke-width="2.6" stroke-linejoin="round"/>
+      <path d="M32 6 L12 13 V29 C12 42 21 50.5 32 56 Z" fill="#3d86f5"/>
+      <path d="M32 11 L47.5 16.6 V29 C47.5 39.4 40.6 46.4 32 50.8 C23.4 46.4 16.5 39.4 16.5 29 V16.6 Z" fill="none" stroke="#ffd36b" stroke-width="2.4" stroke-linejoin="round"/>
+      <path d="M32 11 L16.5 16.6 V29" fill="none" stroke="#fff3c4" stroke-width="1.2" stroke-linejoin="round" opacity=".9"/>
+      <path d="M32.00 38.47 C26.63 34.73 23.60 31.93 23.60 28.67 C23.60 25.87 25.56 24.00 28.08 24.00 C29.81 24.00 31.16 24.93 32.00 26.43 C32.84 24.93 34.19 24.00 35.92 24.00 C38.44 24.00 40.40 25.87 40.40 28.67 C40.40 31.93 37.37 34.73 32.00 38.47 Z" fill="#ff4f78" stroke="#0a0714" stroke-width="1.8" stroke-linejoin="round"/>
+      <path d="M32.00 26.43 C31.16 24.93 29.81 24.00 28.08 24.00 C25.56 24.00 23.60 25.87 23.60 28.67 C23.60 31.93 26.63 34.73 32.00 38.47 Z" fill="#ff86a2"/>
+      <path d="M26.6 26.6 Q27.6 25 29.4 25.4" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M15 15 L15 29 Q15 34 17.4 38.4" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>
+    </g>
+  </g>
+</svg>

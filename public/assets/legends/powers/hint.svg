@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Raid power: Hint (an unrolled scroll: the first half of each word, the rest dots) -->
+  <rect x="1.5" y="2.5" width="61" height="61" rx="16.5" fill="#000" opacity=".35"/>
+  <rect x="2" y="1.5" width="60" height="60" rx="16" fill="#0a0714"/>
+  <rect x="3.5" y="3" width="57" height="57" rx="14.5" fill="#7c5520"/>
+  <path d="M3.5 30 V17.5 Q3.5 3 18 3 H46 Q60.5 3 60.5 17.5 V30 Q60.5 12 46 10 H18 Q3.5 12 3.5 30 Z" fill="#f8dc9c" opacity=".85"/>
+  <path d="M8 15 Q9 6.5 18 6 H46" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".55"/>
+  <rect x="7" y="7" width="50" height="50" rx="11" fill="#0f0c18" stroke="#0a0714" stroke-width="1.6"/>
+  <circle cx="32" cy="33" r="24" fill="#e8b860" opacity=".08"/>
+  <circle cx="32" cy="33" r="18" fill="#e8b860" opacity=".10"/>
+  <circle cx="32" cy="33" r="12" fill="#e8b860" opacity=".13"/>
+  <path d="M8.5 22 Q9 8.5 22 8.5 H42 Q55.5 8.5 55.5 22 Q50 15 32 15 Q14 15 8.5 22 Z" fill="#fff" opacity=".06"/>
+  <rect x="7" y="7" width="50" height="50" rx="11" fill="none" stroke="#e8b860" stroke-width="1" opacity=".45"/>
+  <g transform="translate(32 32.5) scale(.82) translate(-32 -32)">
+
+    <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="rotate" values="-2;2;-2" keyTimes="0;.5;1" dur="3.4s" repeatCount="indefinite"/>
+      <path d="M13 15 H51 V49 H13 Z" fill="#f5dfa8" stroke="#0a0714" stroke-width="2.4" stroke-linejoin="round"/>
+      <path d="M13 15 H51 V21 H13 Z" fill="#fff3d0"/>
+      <path d="M13 43 H51 V49 H13 Z" fill="#d9ad5c" opacity=".75"/>
+      <rect x="6" y="10" width="10" height="44" rx="5" fill="#b9813a" stroke="#0a0714" stroke-width="2.4"/>
+      <rect x="8" y="12.5" width="3.2" height="39" rx="1.6" fill="#f6d590"/>
+      <rect x="48" y="10" width="10" height="44" rx="5" fill="#b9813a" stroke="#0a0714" stroke-width="2.4"/>
+      <rect x="50" y="12.5" width="3.2" height="39" rx="1.6" fill="#f6d590"/>
+      <circle cx="11" cy="9.4" r="2.4" fill="#ffc23a" stroke="#0a0714" stroke-width="1.6"/><circle cx="11" cy="54.6" r="2.4" fill="#ffc23a" stroke="#0a0714" stroke-width="1.6"/>
+      <circle cx="53" cy="9.4" r="2.4" fill="#ffc23a" stroke="#0a0714" stroke-width="1.6"/><circle cx="53" cy="54.6" r="2.4" fill="#ffc23a" stroke="#0a0714" stroke-width="1.6"/>
+      <g fill="none" stroke="#3e2208" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M19.5 21.5 V31 M19.5 27.4 Q22.4 24.6 24.6 27 Q25 31 19.5 31"/>
+        <path d="M27.6 26 V28.8 Q28.8 31.4 31.4 29 V26"/>
+        <path d="M19.5 41.6 Q19.4 36 23 36.4 Q25 37 23.2 38.8 Q21 40 20.4 38.8 M19.6 40.4 Q22 43 25 41"/>
+        <path d="M27.6 36.6 V41.6 M27.6 38.4 Q30 35.8 31.8 38.2 V41.6"/>
+      </g>
+      <g fill="#9a6c34"><circle cx="35" cy="29.6" r="1.8"/><circle cx="40" cy="29.6" r="1.8"/><circle cx="45" cy="29.6" r="1.8"/>
+        <circle cx="36" cy="40.4" r="1.8"/><circle cx="41" cy="40.4" r="1.8"/><circle cx="46" cy="40.4" r="1.8"/></g>
+    </g>
+  </g>
+</svg>

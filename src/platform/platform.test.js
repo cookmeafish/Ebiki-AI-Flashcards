@@ -86,4 +86,9 @@ describe('platform adapters', () => {
     expect(() => platform.kv.set('a', 'b')).not.toThrow()
     expect(platform.kv.getJson('missing', 7)).toBe(7)
   })
+  it('every device adapter sits where the app reads it', () => {
+    // onDeviceZoom once lived inside platform.history; App called platform.onDeviceZoom and the zoom keys did nothing.
+    for (const fn of ['onDeviceZoom', 'onPageHide', 'beacon', 'isHidden', 'randomId']) expect(typeof platform[fn], fn).toBe('function')
+    for (const fn of ['onDeviceNav', 'onPop', 'push', 'replace', 'go']) expect(typeof platform.history[fn], fn).toBe('function')
+  })
 })

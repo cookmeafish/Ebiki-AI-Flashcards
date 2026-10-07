@@ -135,6 +135,14 @@ const web = {
   },
 }
 
+// Zoom keys the device intercepts before the page sees them (Electron: main.cjs takes Ctrl + = - 0 away from its
+// menu and forwards them). fn('in' | 'out' | 'reset'). The page's own keydown handles a browser tab. On `web` itself,
+// where App reads it (inside web.history it was never found, and the app window's zoom keys did nothing).
+web.onDeviceZoom = (fn) => {
+  if (!hasWindow) return () => {}
+  try { return window.ebikiWindow?.onZoom?.((a) => { if (a === 'in' || a === 'out' || a === 'reset') fn(a) }) || (() => {}) } catch { return () => {} }
+}
+
 // Mouse button 3/4 = back/forward. A browser tab may already step its own history for that click (Chrome does,
 // Firefox too), Electron never does, so a click steps here only when no history step came within this long.
 const NAV_NATIVE_WAIT_MS = 150
@@ -149,12 +157,6 @@ web.history = {
     const h = (e) => fn(e.state)
     window.addEventListener('popstate', h)
     return () => window.removeEventListener('popstate', h)
-  },
-  // Zoom keys the device intercepts before the page sees them (Electron: main.cjs takes Ctrl + = - 0 away from its
-  // menu and forwards them). fn('in' | 'out' | 'reset'). The page's own keydown handles a browser tab.
-  onDeviceZoom: (fn) => {
-    if (!hasWindow) return () => {}
-    try { return window.ebikiWindow?.onZoom?.((a) => { if (a === 'in' || a === 'out' || a === 'reset') fn(a) }) || (() => {}) } catch { return () => {} }
   },
   onDeviceNav: (fn) => {
     if (!hasWindow) return () => {}

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Raid power icons</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: system-ui, sans-serif; background: #888; }
+      .sheet { padding: 18px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 18px 10px; }
+      .dark { background: #15121c; color: #ddd; }
+      .light { background: #f4f1ea; color: #222; }
+      .cell { display: grid; justify-items: center; gap: 6px; }
+      .row { display: flex; align-items: flex-end; gap: 8px; }
+      .id { font-size: 12px; font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <!-- Dev-only contact sheet of the raid power icons (public/assets/legends/powers/<id>.svg), not part of the app
+         build. With the dev server up: http://localhost:3000/dev/raid-powers/ -->
+    <div class="sheet dark" id="dark"></div>
+    <div class="sheet light" id="light"></div>
+    <script>
+      const IDS = ['shield', 'fifty', 'wind', 'sharpen', 'hint', 'bandage', 'focus', 'siphon', 'ward', 'momentum', 'fury', 'steadfast']
+      for (const box of ['dark', 'light']) {
+        const el = document.getElementById(box)
+        for (const id of IDS) {
+          const cell = document.createElement('div')
+          cell.className = 'cell'
+          const row = document.createElement('div')
+          row.className = 'row'
+          for (const px of [24, 48, 96]) {
+            const img = document.createElement('img')
+            img.src = `/assets/legends/powers/${id}.svg`
+            img.width = px
+            img.height = px
+            row.appendChild(img)
+          }
+          const name = document.createElement('div')
+          name.className = 'id'
+          name.textContent = id
+          cell.append(row, name)
+          el.appendChild(cell)
+        }
+      }
+    </script>
+  </body>
+</html>

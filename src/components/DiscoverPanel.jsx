@@ -105,7 +105,7 @@ export default function DiscoverPanel(props) {
             <span style={{ fontSize: 11, color: C.dim }}>{cardedCount} {t('d_made')} · {knownCount} {t('d_known')}</span>
           </div>
           <button onClick={onReanalyze} disabled={profileLoading}
-            style={{ background: 'rgba(81,98,108,0.15)', color: C.dim, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 10, padding: '5px 10px', fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', opacity: profileLoading ? 0.5 : 1 }}>
+            style={{ background: 'rgba(81,98,108,0.15)', color: C.dim, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 10, padding: '5px 10px', fontSize: 11, cursor: profileLoading ? 'default' : 'pointer', fontFamily: 'inherit', opacity: profileLoading ? 0.5 : 1 }}>
             {profileLoading ? t('d_analyzing') : t('d_reanalyze')}
           </button>
         </div>

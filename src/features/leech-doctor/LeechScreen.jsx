@@ -129,7 +129,7 @@ export default function LeechScreen({ onExit }) {
       const raw = await ai.call(system, user, { role: DOCTOR_ROLE, maxTokens: DOCTOR_MAX_TOKENS })
       const m = parseDiagnoses(ai.json(raw), seen)
       for (const [id, d] of m) {
-        d.explanation = ai.clean(d.explanation); d.mentor = ai.clean(d.mentor)
+        d.explanation = ai.clean(d.explanation); d.mentor = ai.clean(d.mentor); d.confusedWith = ai.clean(d.confusedWith || '')
         const p = seen.find((x) => String(x.noteId) === id)
         d.mod = p?.mod // a reconnect reloads the patients: an edit made in Anki meanwhile must still count as "changed"
         if (d.fix) {

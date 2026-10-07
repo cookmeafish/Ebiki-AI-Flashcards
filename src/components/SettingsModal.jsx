@@ -1347,7 +1347,7 @@ export default function SettingsModal(p) {
     <div style={{ ...S.backdrop, width: 'calc(100vw / var(--app-zoom))', height: 'calc(100vh / var(--app-zoom))' }}
       onMouseDown={(e) => { backdropDownRef.current = e.target === e.currentTarget }}
       onClick={(e) => { if (backdropDownRef.current && e.target === e.currentTarget) onClose(); backdropDownRef.current = false }}>
-      <div onClick={(e) => e.stopPropagation()} className="settings-modal ui-pop" style={{
+      <div onClick={(e) => e.stopPropagation()} className="settings-modal ui-pop" role="dialog" aria-modal="true" aria-label={t('settingsTitle')} style={{
         display: 'flex', width: 'min(960px, calc(94vw / var(--app-zoom)))', height: 'min(680px, calc(88vh / var(--app-zoom)))',
         background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl,
         boxShadow: SHADOW.xl, overflow: 'hidden', cursor: 'default',

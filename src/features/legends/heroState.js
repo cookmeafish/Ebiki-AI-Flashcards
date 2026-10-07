@@ -3,7 +3,7 @@
 // forward: hearts back, the boss healed a little per day). RaidHero.jsx renders it.
 import { RAID, RAID_ORDER, RAID_ABILITY, raidToday, raidMotif, raidBossNumber, isRaidMotif, siegeOf, raidAsked } from './raid'
 import { raidProfile } from './raidProfiles'
-import { shapeBag, bagCount } from './powers'
+import { bossesBeaten, unlockedPowers } from './powers'
 
 // Each raid boss's signature color, picked from its own drawing (its fire, eyes, gold...): the hero card's stage is
 // tinted with it. Art data like the drawings themselves, so fixed colors in both themes. A boss missing here uses the
@@ -27,10 +27,10 @@ export const raidUses = (dueNotes, runSize = RAID.runSize) => Math.min(Math.max(
 // Returns { kind, motif, num, total, ability, hp, left, damage, attempts, due, uses, runs, hearts, heartsMax, beaten,
 // beatenToday, healthKnown }:
 //   kind: 'counting' (due not known yet) | 'ready' (a fight is possible) | 'few' (a FRESH boss needs minCards due) |
-//         'none' (0 due) | 'hearts' (no hearts left: tomorrow) | 'beaten' (only with RAID.nextBossSameDay off: `motif`
+//         'none' (0 due) | 'beaten' (only with RAID.nextBossSameDay off: `motif`
 //         is tomorrow's boss, `beaten` today's) | 'anki' | 'nokey' | 'unknown' (count failed)
-//   runs: the runs (runSize each) today's due cards make; heal: what the boss heals each new day; powers: cards in
-//   the power bag; beatenToday: a boss beaten today (the next is out).
+//   runs: the runs (runSize each) today's due cards make; heal: what the boss heals each new day; powers: the powers
+//   unlocked (different bosses beaten); beatenToday: a boss beaten today (the next is out).
 export function raidHeroState({ stored = null, date, due = null, dueIds = null, anki = true, hasKey = true, runSize = RAID.runSize } = {}) {
   const motif = raidMotif(stored)
   const asked = new Set(raidAsked(stored, date).map(String))
@@ -48,11 +48,10 @@ export function raidHeroState({ stored = null, date, due = null, dueIds = null, 
     motif, num: raidBossNumber(motif), total: RAID_ORDER.length, ability: RAID_ABILITY[motif] || '',
     hp: day.hp, damage: day.damage, left: Math.max(0, day.hp - day.damage), attempts: day.attempts, due: counted ? count : null, uses,
     runs: counted ? Math.ceil(count / runSize) : 0, hearts, heartsMax: Math.max(hearts, prof.hearts), heal: prof.heal,
-    powers: bagCount(shapeBag(today.powers)),
+    powers: unlockedPowers(bossesBeaten(today)).length,
     healthKnown: ongoing || counted, beaten: '', beatenToday: won && isRaidMotif(won.motif) ? won.motif : '',
   }
   if (day.won) return { ...base, kind: 'beaten', beaten: base.beatenToday }
-  if (hearts <= 0) return { ...base, kind: 'hearts' }
   if (!anki) return { ...base, kind: 'anki' }
   if (!hasKey) return { ...base, kind: 'nokey' }
   if (count === null || count === undefined) return { ...base, kind: 'counting' }

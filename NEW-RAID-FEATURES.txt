@@ -8,17 +8,23 @@ Raid answers are real Anki reviews.
 1. EVERY RAID BOSS NOW HAS ITS OWN HEALTH AND HEARTS
 -----------------------------------------------------
 What changed: bosses no longer get health from how many cards you have due.
-Each one has its own health, hearts and nightly heal. Later bosses are bigger,
-but always come with more hearts (or an ability that protects you).
-  Chronos (#1): 30 health, 4 hearts   ...   Void (#26): 120 health, 9 hearts
+Each boss has its own health and nightly heal, and sets how many hearts YOU get
+against it. Later bosses are bigger, but you always get more hearts against them
+(or they have an ability that protects you).
+  Chronos (#1): 30 health, you get 4 hearts   ...   Void (#26): 120 health, you get 9
 
 Try it:
-  - Go to Practice. The Daily raid card shows the boss, its hearts, and
+  - Go to Practice. The Daily raid card shows the boss, your hearts against it, and
     "Each new day: your hearts are full again, the boss heals N."
   - Press FIGHT!. The intro card shows your hearts for THIS boss.
   - Fight one run, then press "Stop for now". Come back: the boss keeps its
     wounds and you keep the hearts you have left today.
-  - Tomorrow your hearts are full again and the boss has healed a little.
+  - Lose every heart in a run: the boss RALLIES and heals back half the damage
+    that run dealt. Your hearts are full again at once, so you can fight again
+    right away (as long as you have due cards). No waiting until tomorrow.
+  - Each new day your hearts are full again and the boss has healed a little.
+  - Hint now shows the first half of each word (the question already gives the
+    first letter, so a first-letter hint added nothing).
 
 
 2. QUESTIONS PER RUN (YOUR CHOICE)
@@ -36,41 +42,48 @@ Try it (either place):
 
 3. POWERS (RAIDS ONLY)
 ----------------------
-What changed: beating raid bosses unlocks powers. They drop at random after
-runs into a small bag (3 slots, 4 after 13 wins, 5 after 20).
+What changed: beating DIFFERENT raid bosses unlocks powers for good. No bag,
+no random drops, nothing runs out. Before each fight you choose up to 3 to
+bring, and each one you bring works once in that fight.
 
-  Unlocks after:  1 win  Shield       the next heart you would lose is saved
-                  3 wins 50:50        leaves 2 choices; works even when enraged
-                  5 wins Second wind  get back a heart lost this run
-                  8 wins Sharpen      next clean typed answer deals +2
-                 11 wins Hint         first letter of each word
-                 13 wins Bandage      between runs: the boss doesn't heal tonight
+  Unlocks after beating this many different bosses:
+     1  Shield       the next heart you would lose is saved
+     3  50:50        leaves 2 choices (typed or choices); works when enraged
+     5  Second wind  get back a heart lost this fight
+     8  Sharpen      next clean typed answer deals +2
+    11  Hint         first half of each word
+    13  Bandage      between runs, once a day: the boss doesn't heal tonight
+    15  Focus        3 questions: a small slip hits like a clean answer
+    17  Siphon       3 questions: every clean answer gives a lost heart back
+    19  Ward         used on a boss attack: it can't cost you hearts
+    21  Momentum     3 questions: every clean answer crits, crits deal +2
+    23  Fury         3 questions: clean typed answers deal double damage
+    26  Steadfast    start the fight with 2 extra hearts (lost first)
 
-  Drops: 1 for finishing a run (10+ questions, or your whole run if shorter),
-  1 for 5 clean typed answers in a row, 1 for a win. A rough run (half your
-  hearts lost) tends to drop Shield or Second wind.
-  Limits: each boss allows 1 to 3 powers per run, one per question.
-  Honest Anki: a right answer after a 50:50 or a Hint is saved as Hard.
+  Honest Anki: a right answer after a 50:50 or a Hint is saved as Hard. No
+  power ever turns a wrong answer right.
 
-Try it the fast way (no wins needed, nothing is spent, real reviews still count):
+Try it the fast way (real reviews still count):
   1. Go to Legends and click the map title 7 times quickly (cheat mode on).
   2. Open "Asset view" in the sidebar > "Raid bosses" tab.
-  3. Pick any boss and press "Fight this boss". This test fight gives you one of
-     every power.
-  4. On the intro you'll see the power bag. Press FIGHT!.
-  5. Next to Skip, under each question, the power buttons appear:
-       - Press 50:50 on a typed question: it becomes 2 choices. Answer it.
-       - Press Hint: the first letters show above the answer box.
-       - Press Shield, then answer wrong on purpose: no heart is lost.
-       - Press Sharpen, then type a right answer: the boss takes 2 extra.
-       - After losing a heart, press Second wind: the heart comes back.
-     Watch the purple "Shield up" / "Sharpened" line above the question.
-  6. Turn cheat mode off the same way (7 clicks) or in Settings > General.
+  3. Pick any boss and press "Fight this boss". A test fight brings every power.
+  4. Press FIGHT!. Next to Skip, under each question, the power buttons appear
+     (a used one gets a check mark and greys out):
+       - 50:50 on a typed question: it becomes 2 choices.
+       - Hint: the first half of each word shows above the answer box.
+       - Shield, then answer wrong on purpose: no heart is lost.
+       - Sharpen / Fury / Momentum, then type right answers: bigger hits.
+       - Focus, then answer with a small slip: it still hits hard.
+       - Siphon after losing a heart, then answer right: the heart comes back.
+       - Ward when a boss attack comes: missing it costs nothing.
+       - Steadfast: the hearts row starts with 2 extra.
+     Every power has its own cast animation, and the window powers show how
+     many questions they have left.
 
 Try it for real:
-  - Beat Chronos in Practice > Daily raid. The result screen shows
-    "You found: ..." and how many more wins unlock the next power.
-  - Your bag shows on the next raid's intro card.
+  - Beat Chronos in Practice > Daily raid. The result screen says
+    "New power unlocked: Shield!" and how many more bosses unlock the next.
+  - On the next raid's intro card, tap the powers to choose up to 3.
   - Once you own a Bandage and the boss survives a run, the result screen and
     the intro card offer "Use a Bandage".
 
@@ -78,7 +91,7 @@ Try it for real:
 ASK EBI
 -------
 Ebi's Help knows all of this: open "Talk to Ebi" during a raid and ask
-"how many hearts does this boss give?" or "what powers do I have?".
+"how many hearts do I get against this boss?" or "what powers have I unlocked?".
 
 
 4. IMPACT: EVERY RAID BOSS HITS (AND FALLS) ITS OWN WAY (1.36.0)

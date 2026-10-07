@@ -28,10 +28,12 @@ describe('raid hero state', () => {
     const later = raidHeroState({ stored: { ...stored, day: { ...stored.day, date: '2026-10-02' }, siege: { ...stored.siege, date: '2026-10-02' } }, date: DATE, due: 12 })
     expect(later).toMatchObject({ damage: 6 - raidProfile('titan').heal, attempts: 0, hp: 20, hearts: raidProfile('titan').hearts })
   })
-  it('says when no hearts are left (tomorrow), before anything else', () => {
+  it('never locks the raid for lost hearts (a siege left at 0 by an older build is full again)', () => {
     const boss = raidBossIndex('titan')
     const stored = { boss, day: { date: DATE, hp: 20, damage: 6, attempts: 2, won: false }, trophies: [], siege: { boss, hp: 20, damage: 6, hearts: 0, date: DATE } }
-    expect(raidHeroState({ stored, date: DATE, due: 12, anki: false }).kind).toBe('hearts')
+    const h = raidHeroState({ stored, date: DATE, due: 12, anki: false })
+    expect(h.kind).not.toBe('hearts')
+    expect(h.hearts).toBe(h.heartsMax)
   })
   it('counts only due notes not yet answered today, and the runs they make', () => {
     const boss = raidBossIndex(first)

@@ -71,6 +71,10 @@ describe('workout questions from the model', () => {
     const [q] = workoutQuestions({ questions: [{ question: 'Year?', choices: ['1', '2', '3'], answer: '2' }] }, clean)
     expect(q.answer).toBe('2')
   })
+  it('reads a target echoed in the list format ("id: x") as the id', () => {
+    const [q] = workoutQuestions({ questions: [{ question: 'q', accepted: ['a'], target: 'id: k3j2' }] }, clean)
+    expect(q.target).toBe('k3j2')
+  })
   it('accepts a bare list and drops junk', () => {
     expect(workoutQuestions([null, 'x', { question: 'q', accepted: ['a'] }], clean)).toHaveLength(1)
     expect(workoutQuestions(null, clean)).toEqual([])

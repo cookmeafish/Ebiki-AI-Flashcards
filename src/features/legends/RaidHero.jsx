@@ -77,7 +77,6 @@ export default function RaidHero({ onOpen }) {
   const shownMotif = beaten && s.beaten ? s.beaten : s.motif
   const tint = raidTint(shownMotif, C.danger)
   const ready = s.kind === 'ready' || s.kind === 'unknown'
-  const noHearts = s.kind === 'hearts'
   const pulse = s.kind === 'ready' && !calm
   const name = t(`lg_raidBoss_${shownMotif}`)
   const artSize = narrow ? HERO.artNarrow : HERO.art
@@ -86,7 +85,6 @@ export default function RaidHero({ onOpen }) {
 
   const status = (() => {
     if (beaten) return { icon: '🏆', text: t('lg_raidHeroBeaten'), sub: t('lg_raidHeroNext', { n: s.num }) }
-    if (noHearts) return { icon: '💔', text: t('lg_raidHeroNoHearts'), sub: t('lg_raidHeroStudyStill') }
     if (s.kind === 'anki') return { icon: '🔌', text: t('lg_raidNoDeck') }
     if (s.kind === 'nokey') return { icon: '🔑', text: t('lg_raidNoKey') }
     if (s.kind === 'counting') return { icon: '⏳', text: t('lg_raidHeroCounting') }
@@ -144,7 +142,7 @@ export default function RaidHero({ onOpen }) {
             <div style={{ fontSize: 15, fontWeight: 800, color: C.white }}>{status.icon} {status.text}</div>
             {status.sub && <div style={{ fontSize: 13, fontWeight: 700, color: `color-mix(in srgb, ${C.white} 70%, transparent)` }}>{status.sub}</div>}
           </div>
-          {!beaten && !noHearts && s.kind !== 'none' && s.kind !== 'few' && (
+          {!beaten && s.kind !== 'none' && s.kind !== 'few' && (
             <button type="button" className="duo-cta btn-press" disabled={!ready} onClick={() => ready && onOpen?.()}
               style={{ marginTop: 4, fontSize: 17, padding: '12px 34px', minWidth: 190 }}>
               ⚔️ {t('lg_bossFight')}

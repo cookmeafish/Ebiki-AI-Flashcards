@@ -1,10 +1,10 @@
 // RAID BOSS PROFILES (raidProfiles.js): every boss, simulated with its own ability through the real fight engine
 // (abilities/_sim.js). A learner fights one run of RUN questions a day, hearts full each day, the boss healing its
-// profile's `heal` each night. FAIRNESS (the owner's rule): no boss needs near-perfect play.
+// profile's `heal` each night; a run that loses every heart lets the boss RALLY (heal back RAID.rallyShare of it). FAIRNESS (the owner's rule): no boss needs near-perfect play.
 // PROFILES=1 npx vitest run src/features/legends/profiles.test.js prints the table (runs to beat each boss).
 import { describe, it, expect } from 'vitest'
 import { RAID_PROFILES, raidProfile, MAX_HEARTS, DEFAULT_PROFILE } from './raidProfiles'
-import { RAID_ORDER, RAID_ABILITY, RAID_ROSTER, RAID_RETIRED } from './raid'
+import { RAID, RAID_ORDER, RAID_ABILITY, RAID_ROSTER, RAID_RETIRED } from './raid'
 import { simulateRaid, seededAnswer } from './abilities/_sim'
 
 const RUN = 15
@@ -17,7 +17,8 @@ function runsToBeat(motif, acc, seed) {
   for (let d = 1; d <= MAX_DAYS; d++) {
     if (d > 1) dmg = Math.max(0, dmg - p.heal)
     const r = simulateRaid(RAID_ABILITY[motif] || '', { n: RUN, answer, press: 'greedy', dayBefore: dmg, dayHp: p.hp, lives: p.hearts })
-    dmg += r.state.damage
+    const fell = r.state.livesLost >= p.hearts && dmg + r.state.damage < p.hp
+    dmg += fell ? r.state.damage - Math.floor(r.state.damage * RAID.rallyShare) : r.state.damage
     if (dmg >= p.hp) return d
   }
   return 99
@@ -36,7 +37,6 @@ describe('raid boss profiles', () => {
       expect(p.hp).toBeGreaterThan(0)
       expect(p.hearts).toBeGreaterThanOrEqual(3)
       expect(p.heal).toBeGreaterThanOrEqual(1)
-      expect(p.slots).toBeGreaterThanOrEqual(1)
     }
     expect(MAX_HEARTS).toBe(Math.max(...Object.values(RAID_PROFILES).map((p) => p.hearts)))
     expect(raidProfile('no-such-boss')).toEqual(DEFAULT_PROFILE)
@@ -48,7 +48,7 @@ describe('raid boss profiles', () => {
       if (b.hp >= a.hp + 30 && !protects.has(b.m)) expect(b.hearts, `${b.m} (${b.hp}) vs ${a.m} (${a.hp})`).toBeGreaterThan(a.hearts)
     }
   })
-  it('is fair: a 65% learner beats every boss in a handful of runs, a 60% learner beats them all, later bosses take longer', () => {
+  it('is fair: a 65% learner beats every boss in a handful of runs (12 when unlucky), a 60% learner beats them all, later bosses take longer', () => {
     const rows = []
     const at75 = []
     for (const [i, m] of RAID_ORDER.entries()) {
@@ -59,7 +59,8 @@ describe('raid boss profiles', () => {
       at75.push(s75.median)
       rows.push(`${String(i + 1).padStart(2)} ${m.padEnd(11)} hp ${raidProfile(m).hp} hearts ${raidProfile(m).hearts} | 60% ${s60.median}/${s60.worst} | 65% ${s65.median}/${s65.p90} | 75% ${s75.median} | 95% ${s95.median}`)
       expect(s65.median, `${m} at 65%`).toBeLessThanOrEqual(7)
-      expect(s65.p90, `${m} at 65%, unlucky`).toBeLessThanOrEqual(10)
+      // 12, not 10, since the rally: a run that loses every heart gives half its damage back, but can be retried at once.
+      expect(s65.p90, `${m} at 65%, unlucky`).toBeLessThanOrEqual(12)
       expect(s60.worst, `${m} at 60%`).toBeLessThan(99)
       expect(s95.median, `${m} at 95%`).toBeLessThanOrEqual(4)
     }

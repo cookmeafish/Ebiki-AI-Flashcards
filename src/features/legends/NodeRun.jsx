@@ -19,6 +19,7 @@ import { addItemsToDeck, liveItems, isAdding } from './deck'
 import Talk from './Talk'
 import { BossIntro, BossArena, BossEnd, bossOdds, forgivenMisses } from './BossArena'
 import { weakItems, WEAK_BONUS_LIVES, PASS, spendHelper } from './map'
+import { powerHint } from './powers'
 import { newFight, strike, fightOutcome, phaseOf, healthLeft, attackSlot, canAttack, weakTo, effortOf, ATTACK_LIVES, refundRunningFight, strikeCost } from './fight'
 import LearnItPanel from '../kit/LearnItPanel'
 import { islandVoice } from '../kit/taunt'
@@ -229,8 +230,8 @@ export default function NodeRun(props) {
   )
 }
 
-// The scroll's hint: the first letter of every word, the rest as dots ("buenos días" → "b····· d···").
-const scrollHint = (ans) => ans.split(/(\s+)/).map((w) => (/^\s+$/.test(w) ? w : [...w].map((ch, i) => (i === 0 || !/\p{L}/u.test(ch) ? ch : '·')).join(''))).join('')
+// The scroll's hint is the raid Hint's (powers.js): half of each word, since the cue already gives the first letter.
+const scrollHint = powerHint
 
 function NodeRunBody({ ctx: rawCtx, modeId, area, node, misses = [], onFinish, onQuit, onNewQuestions }) {
   // A boss or Legendary fight speaks the mode's fight language (FightSettings, the same study settings as Study): its
@@ -377,10 +378,11 @@ function NodeRunBody({ ctx: rawCtx, modeId, area, node, misses = [], onFinish, o
       total: Math.max(a.length, Number(total) || 0), correct: a.filter((x) => x.correct).length,
       items: a.filter((x) => x.itemId).map((x) => ({ itemId: x.itemId, correct: x.correct, grade: x.grade })),
       misses: a.filter((x) => !x.correct).map(({ asked, answered, expected }) => ({ asked, answered, expected })),
-      // for "See all answers" (and, after a fight, its debrief: the second look, the note, the appeal)
+      // for "See all answers" (and, after a fight, its debrief: the second look, the note, the appeal). A look still
+      // running past the settle wait never reaches this copy (the step is gone): it shows as not checked, open to appeal.
       answers: a.map(({ asked, answered, expected, correct, aid, itemId, grade, verdict, q: aq }) => {
         const e = aid ? fc.get(aid) : null
-        return { asked, answered, expected, correct, ...(e ? { aid, itemId, grade, verdict, first: e.first, mode: e.mode, note: e.note || '', why: e.why || '', overturned: !!e.overturned, afterFight: !!e.afterFight, by: e.by || '', appeal: e.appeal || null, appealWhy: e.appealWhy || '', status: e.status, q: aq } : {}) }
+        return { asked, answered, expected, correct, ...(e ? { aid, itemId, grade, verdict, first: e.first, mode: e.mode, note: e.note || '', why: e.why || '', overturned: !!e.overturned, afterFight: !!e.afterFight, by: e.by || '', appeal: e.appeal === 'pending' ? 'failed' : e.appeal || null, appealWhy: e.appealWhy || '', status: e.status === 'checking' ? 'failed' : e.status, q: aq } : {}) }
       }),
     })
   }
@@ -485,7 +487,8 @@ function NodeRunBody({ ctx: rawCtx, modeId, area, node, misses = [], onFinish, o
     // Typed answers in a fight are strikes: clean (all right) 2, glancing (the tested thing right, something else
     // wrong) 1, and the slip comes back as an attack. Choices are a safe strike, only before the boss enrages.
     const judge = fight ? async (q, ans) => {
-      const j = await judgeStrike(ai, subject, q, ans, { strictAccents: !subject.accents || subject.strictAccents !== false })
+      // Only languages that write accents grade them (a general mode grades understanding: Quebec for Québec is clean).
+      const j = await judgeStrike(ai, subject, q, ans, { strictAccents: !!subject.accents && subject.strictAccents !== false })
       if (j.verdict === 'error') return { error: true } // could not be checked: QuizRunner asks to try again
       // The verdict lands at once; the note and a glancing slip's follow-up come later, and a miss or glancing verdict
       // is looked at again in the background (useFightCheck).
@@ -528,7 +531,9 @@ function NodeRunBody({ ctx: rawCtx, modeId, area, node, misses = [], onFinish, o
           ? <RuleCardButton ctx={ctx} compact deck={ctx.subject?.modeDeck || ''} source={{ asked: q.prompt, answered: answer, expected: q.kind === 'choice' ? q.choices?.[q.answerIdx] : (q.accepted || [])[0] }} />
           : null)}
         onFinish={() => finish()}
-        onExit={onQuit} />
+        // Once the step is finishing (its result is being saved and will open), the quiz's own Finish button waits for it:
+        // leaving here showed the map and then the result popped up over it.
+        onExit={(...args) => { if (!finished.current) onQuit(...args) }} />
     )
     if (!boss) return <div style={{ display: 'grid', gap: 4 }}>{renewRow}{runner}</div>
     // The fight ends when the boss has no health left (a win: stars count the answers given) or the learner no

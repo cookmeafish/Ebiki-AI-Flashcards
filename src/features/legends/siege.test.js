@@ -86,13 +86,32 @@ describe('the siege carries over', () => {
 })
 
 describe('hearts', () => {
-  it('a fight starts with the hearts left; at 0 no raid until tomorrow, then full', () => {
-    const s = applyRaidAttempt(raidToday(null, D1, 10), D1, 3, undefined, { livesLost: P1.hearts }).state
-    expect(raidToday(s, D1, 10).siege.hearts).toBe(0)
-    expect(raidToday(s, plus(D1, 1), 10).siege.hearts).toBe(P1.hearts)
+  it('a run that keeps some hearts keeps them (and all its damage) for the next run today, full again tomorrow', () => {
+    const r = applyRaidAttempt(raidToday(null, D1, 10), D1, 7, undefined, { livesLost: 1 })
+    expect(r.rallied).toBe(0)
+    expect(raidToday(r.state, D1, 10).siege).toMatchObject({ hearts: P1.hearts - 1, damage: 7 })
+    expect(raidToday(r.state, plus(D1, 1), 10).siege.hearts).toBe(P1.hearts)
   })
-  it('never goes below 0 or above the most any boss gives', () => {
-    expect(applyRaidAttempt(besieged({ hearts: 1 }), D1, 0, undefined, { livesLost: 5 }).state.siege.hearts).toBe(0)
+  it('losing every heart: the boss rallies (heals half the damage of that run, rounded down) and the hearts are full at once', () => {
+    const before = besieged({ damage: 10, hearts: 2 })
+    const r = applyRaidAttempt(before, D1, 7, undefined, { livesLost: 2 })
+    expect(r).toMatchObject({ won: false, rallied: 3, fell: true })
+    expect(r.state.siege).toMatchObject({ damage: 10 + 7 - 3, hearts: P1.hearts })
+    // No lockout: the next run today starts with full hearts.
+    expect(raidToday(r.state, D1, 10).siege.hearts).toBe(P1.hearts)
+    // More hearts lost than were left still only rallies once and never goes below the damage before the run.
+    const over = applyRaidAttempt(besieged({ damage: 10, hearts: 1 }), D1, 0, undefined, { livesLost: 5 })
+    expect(over.state.siege).toMatchObject({ damage: 10, hearts: P1.hearts })
+    expect(over.rallied).toBe(0)
+  })
+  it('a final blow wins even when it came with the last heart (no rally on a win)', () => {
+    const r = applyRaidAttempt(besieged({ damage: P1.hp - 2, hearts: 1 }), D1, 5, undefined, { livesLost: 1 })
+    expect(r.won).toBe(true)
+  })
+  it('a siege an older build left at 0 hearts is full again (no more lockout)', () => {
+    expect(raidToday(besieged({ hearts: 0 }), D1, 10).siege.hearts).toBe(P1.hearts)
+  })
+  it('never goes above the most any boss gives', () => {
     expect(shapeRaid({ ...besieged(), siege: { ...besieged().siege, hearts: 99 } }).siege.hearts).toBe(MAX_HEARTS)
   })
 })
@@ -114,11 +133,6 @@ describe('beating the boss', () => {
     const w2 = raidAttemptOutcome(w.state, { date: D1, damage: 999, due: 30, motif: RAID_ORDER[1] })
     expect(w2.firstWin).toBe(true)
     expect(w2.state.trophies.map((x) => x.motif)).toEqual([RAID_ORDER[0], RAID_ORDER[1]])
-  })
-  it('keeps the power bag across a win', () => {
-    const s = { ...besieged({ damage: P1.hp - 1 }), powers: { shield: 2 } }
-    const w = raidAttemptOutcome(s, { date: D1, damage: 5, due: 6, motif: RAID_ORDER[0] })
-    expect(shapeRaid(w.state).powers).toEqual({ shield: 2 })
   })
   it('never pays twice for a boss beaten on another computer meanwhile', () => {
     const won = raidAttemptOutcome(besieged({ damage: P1.hp - 1 }), { date: D1, damage: 5, due: 10, motif: RAID_ORDER[0] }).state

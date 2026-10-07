@@ -40,7 +40,7 @@ function announceCall(L, n) {
     if (vs.length) ctx.emit(EVENTS.PRACTICE_DONE, { source: CALL_FEATURE_ID, mode: subject.modeId, total: vs.length, correct: vs.filter((v) => v !== 'again').length })
     // Cards the learner could not produce in the call go to the Mistake Gym (the Anki review is separate).
     const missed = targets.filter((tg) => grades[String(tg.cardId)]?.verdict === 'again')
-    if (missed.length) ctx.emit(EVENTS.PRACTICE_MISSED, { source: CALL_FEATURE_ID, mode: subject.modeId, misses: missed.map((tg) => ({ front: tg.front, back: tg.back, question: t('call_missQuestion'), answer: '', expected: tg.front, feedback: grades[String(tg.cardId)]?.why || '' })) })
+    if (missed.length) ctx.emit(EVENTS.PRACTICE_MISSED, { source: CALL_FEATURE_ID, mode: subject.modeId, misses: missed.map((tg) => ({ front: tg.front, back: tg.back, question: t('call_missQuestion'), answer: '', expected: tg.back || tg.front, feedback: grades[String(tg.cardId)]?.why || '' })) })
   }
   if (n) ctx.notify(tCount(t, 'call_saved', n))
 }
@@ -113,12 +113,16 @@ export default function CallScreen({ onExit }) {
   ].filter(Boolean).join('\n'))
   // The first line of the call, once the targets are in state. (Declared before any early return: hook order.)
   const openedRef = useRef('')
+  // The opener grades nothing: the learner has not said a word yet (a stray grade there became a real review). A failed
+  // opener can be asked again (↻ under the error; it used to leave a call with no first line and no way on).
+  const openCall = () => {
+    setBusy(true); setError('')
+    say([]).then((r) => land({ ...r, grades: [] }, [], {})).catch((e) => setError(String(e.message || e))).finally(() => setBusy(false))
+  }
   useEffect(() => {
     if (!ctx || phase !== 'call' || messages.length || openedRef.current === callIdRef.current) return
     openedRef.current = callIdRef.current
-    setBusy(true)
-    // The opener grades nothing: the learner has not said a word yet (a stray grade there became a real review).
-    say([]).then((r) => land({ ...r, grades: [] }, [], {})).catch((e) => setError(String(e.message || e))).finally(() => setBusy(false))
+    openCall()
   }, [phase, targets]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!ctx) return null
   const { t, ai, subject } = ctx
@@ -138,7 +142,8 @@ export default function CallScreen({ onExit }) {
   const land = (reply, history, cur) => {
     if (!aliveRef.current) return // the call was left while Ebi was answering: no toasts, no speech
     const text = ai.clean(reply.say) || '...'
-    const { state, fresh } = applyGrades(cur, reply.grades)
+    // The grade's "why" is shown (chip tooltip, review rows): cleaned like every model text on screen.
+    const { state, fresh } = applyGrades(cur, (reply.grades || []).map((g) => ({ ...g, why: ai.clean(g.why || '') })))
     setGrades(state)
     setMessages([...history, { role: 'ebi', text }])
     for (const g of fresh) {
@@ -194,7 +199,9 @@ export default function CallScreen({ onExit }) {
     speakingRef.current?.stop()
     const text = (typeof spoken === 'string' ? spoken : input).trim()
     // phase: a spoken answer still being transcribed when the learner pressed End landed in the review and added grades.
-    if (!text || busy || phase !== 'call') return
+    if (!text || phase !== 'call') return
+    // A recording that finished while Ebi was still answering goes into the box (it used to vanish): send it after.
+    if (busy) { if (typeof spoken === 'string') setInput((cur) => (cur.trim() ? `${cur.trim()} ${text}` : text)); return }
     const history = [...messages, { role: 'me', text }]
     setMessages(history); setInput(''); setBusy(true); setError('')
     ctx.emit(EVENTS.CHAT_SENT, { mode: subject.modeId })
@@ -331,6 +338,7 @@ export default function CallScreen({ onExit }) {
         {busy && <div style={{ color: C.inkFaint, fontSize: 14 }}>{t('call_typing')}</div>}
       </div>
       {error && <div style={{ color: C.danger, fontSize: 13 }}>{error}</div>}
+      {error && !busy && !messages.length && <button onClick={openCall} style={{ alignSelf: 'flex-start', border: 'none', background: 'transparent', color: C.brand, fontWeight: 800, cursor: 'pointer', fontSize: 13 }}>↻ {t('rp_retry')}</button>}
       <div style={{ display: 'flex', gap: 8 }}>
         {voiceOn && <TalkButton ctx={ctx} lang={subject.isLanguage ? subject.learnLangIso : ''} onText={send} onStart={() => speakingRef.current?.stop()} disabled={busy} compact />}
         <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={t('call_placeholder')}

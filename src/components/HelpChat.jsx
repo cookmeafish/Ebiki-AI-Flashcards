@@ -600,7 +600,7 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
     } catch (err) {
       // Shown, translated, but NOT saved as Ebi's turn: a saved "Error: ..." went back to the model as
       // something Ebi had said, in every later message of that chat. The question itself is saved.
-      setMessages([...newMsgs, { role: 'assistant', text: t('chat_replyError', { msg: String(err?.message || '').slice(0, 160) }), error: true }])
+      setMessages([...newMsgs, { role: 'assistant', text: t('chat_replyError', { msg: String(err?.message || '').slice(0, 160).replace(/(\d)\s*–\s*(\d)/g, '$1-$2').replace(/\s*[—–]\s*/g, ', ') }), error: true }])
       const savedId = await saveMessages(newMsgs, sid)
       if (savedId !== sid) setSessionId(savedId)
     } finally {

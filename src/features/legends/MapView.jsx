@@ -118,8 +118,9 @@ function AreaSection({ ctx, t, area, index, onOpen, onLegendary, preparing, refF
           {area.nemesis?.itemIds?.length > 0 && area.status !== 'done' && <div style={{ fontSize: 12.5, fontWeight: 800, color: C.danger, marginTop: 4 }}>👿 {t('lg_nemesisWaiting', { boss: area.bossName || t('lg_boss') })}</div>}
           <AreaExtras ctx={ctx} modeId={ctx.subject.modeId} area={area} />
           {area.status === 'done' && area.detailed && (
-            <button type="button" onClick={() => onLegendary(area)} className="tip" data-tip={t('lg_legendaryTip')}
-              style={{ marginTop: 8, fontFamily: FONT.body, fontWeight: 900, fontSize: 13, color: C.purple, background: 'transparent', border: `2px solid color-mix(in srgb, ${C.purple} 45%, transparent)`, borderRadius: RADIUS.pill, padding: '4px 12px', cursor: 'pointer' }}>
+            // No key: disabled with the reason in its tip (it was active and said "needs a key" only after the click).
+            <button type="button" onClick={() => onLegendary(area)} disabled={!ctx.ai.hasKey} className="tip" data-tip={ctx.ai.hasKey ? t('lg_legendaryTip') : t('lg_needKey')}
+              style={{ marginTop: 8, fontFamily: FONT.body, fontWeight: 900, fontSize: 13, color: C.purple, background: 'transparent', border: `2px solid color-mix(in srgb, ${C.purple} 45%, transparent)`, borderRadius: RADIUS.pill, padding: '4px 12px', cursor: ctx.ai.hasKey ? 'pointer' : 'default', opacity: ctx.ai.hasKey ? 1 : 0.5 }}>
               🏅 {area.legendary ? t('lg_legendaryAgain') : t('lg_legendaryStart')}
             </button>
           )}

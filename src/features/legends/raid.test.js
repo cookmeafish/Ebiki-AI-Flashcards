@@ -45,7 +45,7 @@ describe('raid rules', () => {
   it('ignores an attempt for another day and survives damaged data', () => {
     const s = raidToday(newRaidState(), '2026-09-29', 6)
     expect(applyRaidAttempt(s, '2026-09-28', 99).state.day.damage).toBe(0)
-    expect(shapeRaid({ boss: 99, trophies: [{ motif: 'nope' }] })).toEqual({ boss: 99 % RAID_ROSTER.length, day: null, trophies: [], siege: null, powers: {} })
+    expect(shapeRaid({ boss: 99, trophies: [{ motif: 'nope' }] })).toEqual({ boss: 99 % RAID_ROSTER.length, day: null, trophies: [], siege: null })
   })
   it("a stored retired boss (today's or tomorrow's) moves on to the next active boss, keeping today's wounds", () => {
     expect(RAID_RETIRED).toContain('glutton')
@@ -174,8 +174,8 @@ describe('raid test fights and the save outcome', () => {
     const stored = { boss: 0, day: { date: '2026-10-03', hp: 20, damage: 5, attempts: 1, won: false }, trophies: [] }
     const before = JSON.stringify(stored)
     const win = raidAttemptOutcome(stored, { date: '2026-10-03', damage: 999, due: 10, test: 'lich' })
-    expect(win).toEqual({ state: null, won: true, firstWin: false })
-    expect(raidAttemptOutcome(stored, { date: '2026-10-03', damage: 1, due: 10, test: 'lich' })).toEqual({ state: null, won: false, firstWin: false })
+    expect(win).toMatchObject({ state: null, won: true, firstWin: false })
+    expect(raidAttemptOutcome(stored, { date: '2026-10-03', damage: 1, due: 10, test: 'lich' })).toMatchObject({ state: null, won: false, firstWin: false })
     expect(JSON.stringify(stored)).toBe(before)
   })
   it('a retired or unknown motif falls back to an active boss', () => {
@@ -202,7 +202,6 @@ describe('raid test fights and the save outcome', () => {
   it('Help hears the fight state, never an answer', () => {
     expect(raidHelpText({ view: 'fight', boss: 'The Lich', hpLeft: 5, hpMax: 10, livesLeft: 2, lives: 3, phase: 2, asked: 3, total: 8 })).toMatch(/health 5\/10, phase 2 of 3, 2\/3 hearts left, 3 of 8/)
     expect(raidHelpText({ view: 'more', boss: 'X', hpLeft: 4, hpMax: 10, livesLeft: 1, nextCards: 6 })).toMatch(/out of questions.*next 6 due cards/)
-    expect(raidHelpText({ view: 'hearts', boss: 'X' })).toMatch(/no hearts left.*tomorrow/)
     expect(raidHelpText({ view: 'intro', boss: 'X' })).toMatch(/SIEGE/)
     expect(raidHelpText({ view: 'done', boss: 'X', result: { won: false, recorded: 4, failed: 1 } })).toMatch(/4 review\(s\) saved.*1 could NOT/)
     expect(raidHelpText({ view: 'fight', test: true })).toMatch(/TEST fight/)

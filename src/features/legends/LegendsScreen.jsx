@@ -289,7 +289,8 @@ export default function LegendsScreen() {
       } catch (e) { if (live()) { setBusy(''); setError(String(e.message || e)) } }
     }
     run()
-  }, [loaded, map?.updatedAt, map?.areas?.length, view, modeId]) // eslint-disable-line react-hooks/exhaustive-deps
+  // hasKey: a key added while this screen waits on "needs a key" starts the planning (it waited for a revisit).
+  }, [loaded, map?.updatedAt, map?.areas?.length, view, modeId, ctx?.ai?.hasKey]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => { workSeq.current++ }, [])
   // Back / Forward (src/nav). A step, fight, raid or test is one entry ('activity'): Back from it returns to the map, but
   // asks first while one is running (it is never thrown away silently); from a result screen it simply goes back. A
@@ -364,7 +365,10 @@ export default function LegendsScreen() {
     }
     const placementDone = async (r) => {
       const pinned = modeId
-      await updateMap(pinned, (m) => (m ? { ...m, start: { ...(m.start || {}), placement: { level: r.level, answered: r.answered.length, at: Date.now() } } } : m))
+      const saved = await updateMap(pinned, (m) => (m ? { ...m, start: { ...(m.start || {}), placement: { level: r.level, answered: r.answered.length, at: Date.now() } } } : m))
+      // A placement that did not save is not shown or paid (the map still asked "Find my level" and the one-time XP was
+      // gone): the map screen shows the error with its retry.
+      if (!saved) { if (pinned === modeIdRef.current) { setError(t('lg_errSave')); setView('map') } return }
       // Quiet (the placement has its own one-time reward; a LEVEL_UP paid again on a retake), and the best level ever
       // reached is kept (a lower placement reset it, and climbing back paid LEVEL_UP again).
       await updateLearner(ctx, pinned, (m) => ({ ...newLearner({ level: r.level, confidence: r.confidence, strengths: r.strengths, gaps: r.gaps, source: 'placement' }), peak: Math.max(m?.peak ?? m?.level ?? 0, r.level) }), { quiet: true })
@@ -519,7 +523,9 @@ export default function LegendsScreen() {
       const bossPaid = areaDone && (await claimReward(pinned, rewardKeyFor('boss', area.title)))
       if (bossPaid) ctx.emit(EVENTS.BOSS_BEATEN, { mode: pinned, area: areaNo })
       // The items it practiced too (Listen and Scenes pick other cards for a while), not only the topic.
-      const stepItems = (node.itemIds || []).map((id) => (area.items || []).find((it) => it.id === id)).filter(Boolean)
+      // Weak spots lists every item of the area but asks only the weakest: the ones it really asked are logged.
+      const askedIds = node.kind === 'weak' ? [...new Set((res.items || []).map((x) => x.itemId).filter(Boolean))] : (node.itemIds || [])
+      const stepItems = askedIds.map((id) => (area.items || []).find((it) => it.id === id)).filter(Boolean)
       recordPractice(ctx, LEGENDS_ID, [{ kind: 'topic', label: area.title }, ...stepItems.map((it) => ({ kind: 'card', label: it.front }))])
       // Its wrong answers go to the Mistake Gym like Study's.
       const lgMisses = (res.misses || []).filter((m) => m && m.asked).map((m) => ({ front: area.title, question: String(m.asked), answer: String(m.answered || ''), expected: String(m.expected || '') }))

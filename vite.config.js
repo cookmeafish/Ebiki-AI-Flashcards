@@ -1371,10 +1371,14 @@ function writeModeFolders(modesDir, modes, activeModeId, deletedIds, changedIds,
 // back and the autosave wrote defaults over the real file. `ok: false` lets the GET answer 503 instead,
 // which the client already treats as "unreachable" (autosave off, banner shown, file left alone).
 function readConfigChecked() {
+  // Only ENOENT is "no config": existsSync is false on ANY stat error (an SMB blip, EPERM), and a save merging its
+  // changed keys onto that {} shrank config.json to just those keys.
   const file = dataPath('config.json')
-  if (!fs.existsSync(file)) return { ok: true, data: {} }
   try { return { ok: true, data: JSON.parse(readUtf8(file)) } }
-  catch (e) { return { ok: false, error: e.message, corrupt: e instanceof SyntaxError } }
+  catch (e) {
+    if (e && e.code === 'ENOENT') return { ok: true, data: {} }
+    return { ok: false, error: e.message, corrupt: e instanceof SyntaxError }
+  }
 }
 
 // What the GET serves. A failed read is retried for about a second first: another computer on the
@@ -2463,12 +2467,12 @@ function apiPlugin() {
       server.middlewares.use('/api/ankiformat', (req, res) => {
         if (req.method === 'GET') {
           res.setHeader('Content-Type', 'application/json')
-          try {
-            const data = fs.existsSync(dataPath('ankiformat.json'))
-              ? fs.readFileSync(dataPath('ankiformat.json'), 'utf-8')
-              : '{}'
-            res.end(data)
-          } catch { res.end('{}') }
+          // Only ENOENT is "no legacy file"; any other read error is a 500 (the client then skips the migration).
+          try { res.end(readUtf8(dataPath('ankiformat.json'))) }
+          catch (e) {
+            if (e && e.code === 'ENOENT') res.end('{}')
+            else { res.statusCode = 500; res.end(JSON.stringify({ error: e.message })) }
+          }
         } else if (req.method === 'POST') {
           const handleBody = (bodyStr) => {
             try {
@@ -3912,14 +3916,15 @@ function apiPlugin() {
         if (!isSafeChatId(id)) { res.statusCode = 400; res.end(JSON.stringify({ error: 'id required' })); return }
         const file = dataPath('chats', `${id}.json`)
         res.setHeader('Content-Type', 'application/json')
+        // Only ENOENT is "not found" (Help treats a 404 as deleted and starts over; existsSync was false on any stat
+        // error, a share blip). readUtf8 strips a BOM a hand edit left, which r.json() refused.
         try {
-          if (file && fs.existsSync(file)) {
-            res.end(fs.readFileSync(file, 'utf8'))
-          } else {
-            res.statusCode = 404
-            res.end(JSON.stringify({ error: 'not found' }))
-          }
-        } catch (e) { res.statusCode = 500; res.end(JSON.stringify({ error: e.message })) }
+          if (!file) throw Object.assign(new Error('not found'), { code: 'ENOENT' })
+          res.end(readUtf8(file))
+        } catch (e) {
+          res.statusCode = e && e.code === 'ENOENT' ? 404 : 500
+          res.end(JSON.stringify({ error: e && e.code === 'ENOENT' ? 'not found' : e.message }))
+        }
       })
 
       // Web search proxy — uses DuckDuckGo HTML lite

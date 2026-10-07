@@ -2648,7 +2648,7 @@ export default function App() {
       apiFetch('/api/keys').then((r) => r.ok ? r.json().then((k) => ({ ...k, _ok: true })) : { _ok: false }).catch(() => ({ _ok: false })),
       apiFetch('/api/config').then((r) => r.ok ? r.json().then((d) => ({ ...d, _reachable: true, _offline: r.headers.get('X-Ebiki-Offline') === '1' })) : { _reachable: false }).catch(() => ({ _reachable: false })),
       apiFetch('/api/modes').then((r) => r.json()).catch(() => null),
-      apiFetch('/api/ankiformat').then((r) => r.json()).catch(() => null),
+      apiFetch('/api/ankiformat').then((r) => (r.ok ? r.json() : null)).catch(() => null),
     ]).then(([keys, config, modesData, legacyFormat]) => {
       // Load modes from /api/modes (per-file storage)
       // Only a SUCCESSFUL read (even an empty one, a genuine first run) unlocks mode saves.
@@ -5897,6 +5897,8 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     } catch (err) {
       setMyStatus('error')
       console.error('[Deck] update failed:', err.message)
+      // Why it failed, not only "Save failed" (the cause went to the console only).
+      setAiErrorNotice(t('deck_saveFailedWhy', { msg: stripDashes(err?.message || String(err)) }))
     }
   }
 
@@ -5928,7 +5930,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       setDeckBrowserRefineInput('')
     } catch (err) {
       console.error('[Deck] refine failed:', err.message)
-      alertDialog(t('deck_refineFailed', { msg: err.message }))  // it used to fail with no sign at all
+      alertDialog(t('deck_refineFailed', { msg: stripDashes(err?.message) }))  // it used to fail with no sign at all
     } finally {
       setDeckBrowserRefining(false)
     }
@@ -9788,7 +9790,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       if (addSid === studySessionRef.current) setStudyCardState(prev => prev.map((c, i) => (i === cardIdx && c.front === cs.front) ? { ...c, addedToAnki: true } : c))
     } catch (err) {
       console.error('[Conjugation] failed to add word to Anki:', err.message)
-      alertDialog(t('chat_addCardFailed', { msg: err?.message || String(err) })) // it used to fail silently
+      alertDialog(t('chat_addCardFailed', { msg: stripDashes(err?.message || String(err)) })) // it used to fail silently
     } finally {
       conjAddingRef.current.delete(cs.front)
     }
@@ -14087,7 +14089,10 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       } else if (ankiDeck) {
         // No deck attached — Ebi still knows (and can update) the learner's long-term notes,
         // so things said in casual chat ("I'm learning Spanish for a trip to Peru") STICK.
-        systemPrompt += `\n\nLEARNER PROGRESS NOTES for their "${ankiDeck}" deck (AI-maintained memory across sessions: struggles, improvements, goals, interests):\n${deckProgressDoc || '(none yet)'}\n\nIf the user shares something DURABLE about themselves (goals, interests, recurring struggles, clear improvements), update the notes: wrap the FULL revised file in <progress-update>...</progress-update> tags. Merge with the existing notes, deduplicate redundant lines, keep it concise. Do not update for trivial chit-chat.`
+        systemPrompt += `\n\nLEARNER PROGRESS NOTES for their "${ankiDeck}" deck (AI-maintained memory across sessions: struggles, improvements, goals, interests):\n${progressOkAtSend
+          ? `${deckProgressDoc || '(none yet)'}\n\nIf the user shares something DURABLE about themselves (goals, interests, recurring struggles, clear improvements), update the notes: wrap the FULL revised file in <progress-update>...</progress-update> tags. Merge with the existing notes, deduplicate redundant lines, keep it concise. Do not update for trivial chit-chat.`
+          // A failed read is not "none yet": an update would be dropped, and Ebi said "I'll remember that" for nothing.
+          : '(the notes could not be read right now. Do not write a <progress-update>, and never say you saved or will remember something.)'}`
       }
 
       // Recurring grammar slips → Ebi can run targeted practice ("let's drill my weak points")
@@ -14357,7 +14362,7 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
     } catch (err) {
       console.error('[Chat] sync card failed:', err)
       // It used to fail silently: the button just did nothing.
-      alertDialog(t('chat_addCardFailed', { msg: err?.message || String(err) }))
+      alertDialog(t('chat_addCardFailed', { msg: stripDashes(err?.message || String(err)) }))
     } finally {
       chatCardsAddingRef.current.delete(card)
     }
@@ -17147,7 +17152,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                       {/* Chat AI model — same override as Settings → AI models (aiModels[provider].chat). */}
                       <div style={labelStyle}>{t('chatMenu_model')}</div>
                       <select value={aiModels[provider]?.chat || ''} onChange={(e) => setAiModels((prev) => ({ ...prev, [provider]: { ...(prev[provider] || {}), chat: e.target.value } }))} style={selStyle}>
-                        <option value="">{t('chatMenu_modelDefault', { model: ROLE_DEFAULTS(providerConfig, intelligence).chat })}</option>
+                        <option value="">{t('chatMenu_modelDefault', { model: ROLE_DEFAULTS(providerConfig, intelligence, provider).chat })}</option>
                         {modelsLoading && !(availableModels[provider] || []).length && <option disabled>{t('chat_loadingDeck')}</option>}
                         {/* The saved override too (a typed id, a model gone from the list, a list not loaded): missing, the select
                             showed "Default" while every chat used the override. */}

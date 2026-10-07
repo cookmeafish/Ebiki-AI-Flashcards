@@ -50,7 +50,7 @@ export function parseScene(raw, clean = (s) => s) {
   if (lines.length < Math.min(3, SCENE_LINES.min)) return null
   const cast = { A: clean(txt(raw.cast?.A).trim().slice(0, 30)) || 'A', B: clean(txt(raw.cast?.B).trim().slice(0, 30)) || 'B' }
   const questions = sanitizeQuestions((Array.isArray(raw.questions) ? raw.questions : []).filter((q) => q && typeof q === 'object')
-    .map((q) => ({ ...q, question: clean(txt(q.question)), explanation: clean(txt(q.explanation)) })))
+    .map((q) => ({ ...q, question: clean(txt(q.question)), explanation: clean(txt(q.explanation)) })), { clean })
   return { title: clean(txt(raw.title).trim().slice(0, 80)), cast, lines, questions }
 }
 

@@ -1091,6 +1091,9 @@ carry `data-no-voice`. The badge portals into `#ebiki-voice-layer` under `<html>
 - **Rule cards** (`kit/ruleCard.js` + `RuleCardButton`): a mistake becomes a card for the RULE behind it (role
   `deck`, editable preview; the model skips one-offs). Used across Mistake Gym (`subject.grammarSlipList`,
   `QuizRunner feedbackExtra`).
+- **`sanitizeQuestions` (kit/grade.js) is the funnel for model questions**: an `answer` index sent as the string "2"
+  is read as the index (unless a choice IS that number; read as text the question was dropped), and its `clean` option
+  cleans choices and accepted answers (they reach the screen). Pass `clean: ai.clean`.
 - **Translations are tested** (`src/features/i18n-coverage.test.js`: `t('key')`, `tCount(t, 'key')`, `*Key: 'key'`
   anywhere in `src/`). It can't see template keys or prefixes (`t('tab_' + id)`): add those to every locale by hand.
 
@@ -1153,7 +1156,8 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   learner's own context) IS visible to quizzes, grader and raids and may shape situations: personalization, not
   hallucination (the owner had hiding it reverted). A REVIEW PASS (`buildQuizCheckPrompt`/`parseQuizCheck`, role
   study) drops questions with a second defensible option, a missing accepted answer, a wrong key or untaught content;
-  fail-soft. Saved sets carry `checked: QUIZ_CHECK_VERSION`; an older one is reviewed ONCE on its next visit.
+  fail-soft. Saved sets carry `checked: QUIZ_CHECK_VERSION` ONLY when every review really ran (`reviewed` in
+  `makeQuiz`; a failed one left it stamped and never looked at); an unstamped set is reviewed ONCE on its next visit.
   **A shrunk set is TOPPED UP** (`QUIZ_TOPUP_BELOW`, under 85%: one more call for exactly the missing count, avoiding
   kept prompts, reviewed too); old sets refill the same way.
   **🔄 New questions is for everyone, not a cheat** (`NewQuestionsButton`, NodeRun: lesson, scene, boss entrance,
@@ -1295,8 +1299,9 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     per fight). Voices: `RAID_VOICES` (raidVoices.js); Legends bosses `islandVoice` + `RAID_VOICE_RULES`/`STOCK_WORDS`.
     `TauntBubble` under the arena; a line arriving after the next question is dropped; Help hears it (`boss-taunt`).
 - **Accent grading is ONE setting** with Study's accent drill (`studyRules.accentDrill`; `subject.strictAccents`,
-  `subject.setStrictAccents`), only for languages with accents. Relaxed: a slip counts clean unless it makes another
-  word or form (`accentChangesWord`).
+  `subject.setStrictAccents`), only for languages with accents: fights pass `strictAccents: !!subject.accents && ...`
+  (a general mode graded "Quebec" for "Québec" glancing, with an accent attack). Relaxed: a slip counts clean unless it
+  makes another word or form (`accentChangesWord`).
 - **Codex** (`Extras.jsx`, `itemTier`/`areaCodex`): an area's items, new → bronze → silver → gold (gold needs Good+ in
   a fight); tiers are computed, so gold fades. Every Legends answer is graded by the shared rule (NodeRun `record`:
   `gradeFromStrike` in fights, else `gradeAnswer`; hint scroll = `hintUsed`) → `items[].grade`: Again = miss, Hard
@@ -1305,7 +1310,7 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
 - **Area extras** (`parseAreaExtras`): `story` (tappable, until "Got it", `storySeen`), `canDo` (**passport**, stamped
   on clear), `bonus` (**chest**: one right recall opens it, `chestOpened`). One optional **Adventure** step per area
   (`goal` mission in Talk; Ebi ends with `GOAL_TAG`; `ADVENTURE_TURNS`).
-- **Helpers** (`map.helpers`, max `HELPERS_MAX`, never bought): first flawless level = 📜 hint scroll (first letters),
+- **Helpers** (`map.helpers`, max `HELPERS_MAX`, never bought): first flawless level = 📜 hint scroll (half of each word),
   first flawless Weak spots = 🛡 shield (next boss fight). **Nemesis rematch**: a lost boss stores missed items
   (`area.nemesis`); the next boss asks `NEMESIS_SHARE` % about them; a win clears it. **Journey heatmap** (`map.days`,
   `logDay`). **First-miss nudge**: result offers first-time misses (`missNudged`) as cards once; off in Settings.
@@ -1326,19 +1331,23 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     later bosses take longer; `PROFILES=1` prints the table). Tune there, never by feel.
   - **Run size is a setting** (`features.legends.raidRunSize`, `RAID.runSizes`, `raidRunSize`; Fight settings on the
     raid intro + Settings > General > Legends), separate from health: it only decides how many runs a boss takes.
-  - **A SIEGE**: wounds stay until the boss is beaten; lost hearts stay lost for the day. Each new local day the hearts
+  - **A SIEGE**: wounds stay until the boss is beaten; lost hearts stay lost for the day; a run that loses EVERY heart makes the boss RALLY (heals back `RAID.rallyShare`, half, of that run's damage) and refills the hearts at once (no lockout; the owner: "why stop them?"). Each new local day the hearts
     are full again and the boss heals its profile `heal`, applied lazily per elapsed day, ONLY FORWARD (`regenSiege`,
-    idempotent: two computers never heal twice). 0 hearts = no raid until tomorrow. Stored
+    idempotent: two computers never heal twice). Stored
     `siege: {boss, hp, damage, hearts, date, bandage?}`; a siege saved by an older build keeps its health until beaten;
     `day.hp/damage` written in step for older builds; a state without `siege` restarts from `day` (`siegeOf`).
-  - **Powers** (`powers.js`, raids ONLY, owner: random drops): Shield, 50:50, Second wind, Sharpen, Hint, Bandage,
-    unlocked by raid wins (`POWERS[id].unlock`), kept in `raid.powers` (bag size grows with wins), dropped at random
-    after a run (`rollDrops`: a full run, a clean streak, a win; a rough run leans to survival), spent and dropped in
-    the run's one raid write (`applyRunPowers`). A run may use the boss's `slots`, one per question (`powerUsable`).
-    **A 50:50 or Hint is `aided`: struck like a choice (1 damage) and recorded as Hard** (`raidRating` passes
-    `hintUsed`); the rest only change the fight. Bandage is used between runs (`applyBandage`: no heal tonight). The
-    50:50 uses QuizRunner's `api.showChoices`. A test fight gets one of each and spends nothing. Bosses are balanced
-    WITHOUT powers.
+  - **Powers** (`powers.js`, raids ONLY). **Making or changing a power? Read `docs/raid-powers-guide.md` FIRST.**
+    12 powers UNLOCKED FOR GOOD by DIFFERENT bosses beaten (`bossesBeaten`; 1 to 26, the last needs the whole roster;
+    no bag, no drops). The player brings up to `LOADOUT_MAX` (3) chosen on the raid intro (`PowerLoadout`,
+    `features.legends.raidLoadout`, `shapeLoadout`); EACH WORKS ONCE PER FIGHT, one per question. Window powers (Focus,
+    Siphon, Momentum, Fury) last `POWER_WINDOW` raid questions (`powerAfterAnswer` counts down, names the `proc`);
+    Ward only on an incoming attack; Steadfast is passive (extra hearts lost first, subtracted before the siege write);
+    Bandage between runs, once a day (`applyBandage`). Effects go INTO `strike` (`opts.bonus/focus/momentum/fury/ward`,
+    before applyRes) or right after it in `raidStep` (Siphon); none changes a verdict or an Anki grade except that a
+    50:50 or Hint is `aided` (struck like a choice, recorded Hard; titled `lg_strikeAided`, refunded like a choice).
+    Icons: `public/assets/legends/powers/<id>.svg` (`/dev/raid-powers/`); animations: `impact/PowerFx.jsx` (cast,
+    armed, proc, all distinct). A test fight brings every power. Bosses are balanced WITHOUT powers; `powers.test.js`
+    caps a power's window damage and keeps later powers stronger.
   - Out of questions with boss alive and hearts left: **Continue?** (`raidOutOfQuestions`), next due cards join the
     SAME fight. A win brings the next boss the same day (`RAID.nextBossSameDay`; overkill never spills; one boss per
     run). **Nothing forced after a run** (`raidRunChoices`; owner: a forced aftermath is "weird and insulting unless

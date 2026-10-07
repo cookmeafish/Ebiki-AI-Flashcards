@@ -31,7 +31,8 @@ export default function GymScreen({ onExit }) {
   useEffect(() => () => { const r = runRef.current; if (r && !r.settled) settleRun(r, r.answers) }, [])
   // What Ebi's Help knows: the mistakes collected, and the workout's diagnosis. While a workout runs only the
   // fronts are named (the quiz itself reports its question; its answers stay secret).
-  const top = (list?.items || []).filter((m) => !m.cleared).slice(0, 10)
+  // Every listed mistake (`cleared` counts right answers; one right answer leaves it on the list, so Help sees it too).
+  const top = (list?.items || []).slice(0, 10)
   useHelpEntry(ctx, 'mistake-gym', [
     `Activity open: Mistake Gym (${phase === 'run' ? 'a workout is running' : 'the overview'}). ${(list?.items || []).length} mistakes collected from studying.`,
     phase !== 'run' && top.length ? `Most recent mistakes: ${top.map((m) => `"${m.front}" (asked "${String(m.question || '').slice(0, 100)}", answered "${String(m.answer || '').slice(0, 60)}"${m.expected ? `, expected "${String(m.expected).slice(0, 60)}"` : ''}${m.n > 1 ? `, missed ${m.n} times` : ''})`).join('; ')}` : '',
@@ -54,7 +55,7 @@ export default function GymScreen({ onExit }) {
       const { system, user } = buildWorkoutPrompt(subject, targets, { slips, level: await learnerLevelLine(ctx, { context: true }) })
       const raw = await ai.call(system, user, { role: WORKOUT_ROLE, maxTokens: WORKOUT_MAX_TOKENS })
       const j = ai.json(raw)
-      const questions = sanitizeQuestions(workoutQuestions(j, ai.clean))
+      const questions = sanitizeQuestions(workoutQuestions(j, ai.clean), { clean: ai.clean })
       if (questions.length < MIN_QUESTIONS) throw new Error(t('gym_badWorkout'))
       const w = { diagnosis: ai.clean(typeof j?.diagnosis === 'string' ? j.diagnosis : ''), questions, targets }
       runRef.current = { answers: [], settled: false, modeId, ctx, workout: w }
@@ -107,7 +108,8 @@ export default function GymScreen({ onExit }) {
             <div key={m.id} style={{ padding: '8px 0', borderTop: `1px solid ${C.border}`, fontSize: 13.5 }}>
               <div style={{ fontWeight: 800, color: C.ink }}>{m.front}{m.n > 1 && <span style={{ marginLeft: 8, color: C.danger, fontSize: 12 }}>×{m.n}</span>}</div>
               <div style={{ color: C.inkDim }}>{m.question}</div>
-              <div style={{ color: C.danger }}>✗ {m.answer}{m.expected && <span style={{ color: C.success }}>  ✓ {m.expected}</span>}</div>
+              {/* No ✗ without an answer (an Ebi Call card the learner could not produce, a skip): it showed an empty cross. */}
+              <div>{m.answer && <span style={{ color: C.danger }}>✗ {m.answer}</span>}{m.expected && <span style={{ color: C.success }}>{m.answer ? '  ' : ''}✓ {m.expected}</span>}</div>
               <div style={{ marginTop: 4 }}><RuleCardButton ctx={ctx} compact source={{ text: m.feedback, card: m.front, asked: m.question, answered: m.answer, expected: m.expected }} /></div>
             </div>
           ))}

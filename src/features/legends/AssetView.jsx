@@ -11,7 +11,8 @@ import { newFight } from './fight'
 import { MOTIFS, PALETTES } from './map'
 import { RAID, RAID_MOTIFS, RAID_ABILITY, raidBossNumber } from './raid'
 import { raidProfile } from './raidProfiles'
-import { POWERS } from './powers'
+import { POWERS, POWER_IDS } from './powers'
+import { POWER_ARMED, POWER_PROC, PowerIcon } from './impact/PowerFx'
 import { RAID_VOICES } from './raidVoices'
 import { bestiaryRows } from './abilities/_triggers'
 import { floaterKeyFor, fxDemoFor, fxLabel } from './fx'
@@ -277,7 +278,15 @@ const IMPACT_DEMOS = [
 function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot, step, setStep }) {
   const [impact, setImpact] = useState(null) // { id, n }: an impact moment to replay
   const [cast, setCast] = useState(null) // { id, n }: a raid power used (impact/PowerFx.jsx)
-  const [armedDemo, setArmedDemo] = useState({}) // Shield / Sharpen held up until the next impact moment
+  const [armedDemo, setArmedDemo] = useState({}) // the armed looks shown (POWER_ARMED): a toggle or a countdown each
+  const [procDemo, setProcDemo] = useState(null) // { id, n }: a window power doing its thing (POWER_PROC)
+  // A window power counts 3, 2, 1, off; Steadfast 2, 1, off; the rest on, off.
+  const stepArmed = (id) => setArmedDemo((a) => {
+    const top = id === 'steadfast' ? 2 : POWER_ARMED[id].window ? 3 : 1
+    const cur = a[id] === true ? 1 : Number(a[id]) || 0
+    const next = cur === 0 ? top : cur - 1
+    return { ...a, [id]: top === 1 ? next > 0 : next }
+  })
   const imp = impact && IMPACT_DEMOS.find((d) => d[0] === impact.id)
   const third = VIEW.demoHp / RAID.phases
   const damage = imp?.[0] === 'ko' ? VIEW.demoHp : Math.min(VIEW.demoHp - 1, Math.round(step * third))
@@ -290,7 +299,7 @@ function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot, step, setStep }
   const state = { ...newFight(), ...(demoAb ? { ab: demoAb } : {}), damage, last: fxLast || impactLast || (step ? { kind: 'hit', damage: Math.round(third), lives: 0, n: step } : null) }
   return (
     <div style={{ display: 'grid', gap: 10 }}>
-      <BossArena key={motif} t={t} area={area} name={motif} need={VIEW.demoHp} lives={raidProfile(motif).hearts} state={state} phases={RAID.phases} ability={ability} getZoom={getZoom} kind="raids" power={cast} armed={armedDemo} />
+      <BossArena key={motif} t={t} area={area} name={motif} need={VIEW.demoHp} lives={raidProfile(motif).hearts} state={state} phases={RAID.phases} ability={ability} getZoom={getZoom} kind="raids" power={cast} armed={armedDemo} proc={procDemo} />
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <ChunkyButton variant="ghost" color={C.danger} onClick={() => { onClearShot(); setImpact(null); setStep((n) => (n + 1) % RAID.phases) }} style={{ fontSize: 12, padding: '6px 10px' }}>⚔️ {t('lg_assetsNextPhase')}</ChunkyButton>
       </div>
@@ -303,9 +312,27 @@ function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot, step, setStep }
       </div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         <span style={{ fontSize: 11.5, fontWeight: 900, letterSpacing: '.06em', textTransform: 'uppercase', color: C.inkDim }}>{t('lg_assetsPowers')}</span>
-        {['shield', 'fifty', 'sharpen', 'hint'].map((id) => (
+        {POWER_IDS.map((id) => (
           <ChunkyButton key={id} variant="ghost" color={C.info} data-power-demo={id}
-            onClick={() => { setCast((x) => ({ id, n: (x?.n || 0) + 1 })); if (id === 'shield' || id === 'sharpen') setArmedDemo((a) => ({ ...a, [id]: true })) }} style={{ fontSize: 11.5, padding: '5px 9px' }}>{POWERS[id].icon} {t(`lg_pow_${id}`)}</ChunkyButton>
+            onClick={() => setCast((x) => ({ id, n: (x?.n || 0) + 1 }))} style={{ fontSize: 11.5, padding: '5px 9px', display: 'inline-flex', alignItems: 'center', gap: 5 }}><PowerIcon id={id} size={16} /> {t(`lg_pow_${id}`)}</ChunkyButton>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        <span style={{ fontSize: 11.5, fontWeight: 900, letterSpacing: '.06em', textTransform: 'uppercase', color: C.inkDim }}>{t('lg_assetsPowersArmed')}</span>
+        {Object.keys(POWER_ARMED).map((id) => {
+          const v = armedDemo[id]
+          const on = v === true || Number(v) > 0
+          return (
+            <ChunkyButton key={id} variant={on ? undefined : 'ghost'} color={C.purple} data-power-armed-demo={id} onClick={() => stepArmed(id)} style={{ fontSize: 11.5, padding: '5px 9px', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              {POWERS[id]?.icon} {t(`lg_pow_${id}`)}{typeof v === 'number' && v > 0 ? ` ${v}` : ''}
+            </ChunkyButton>
+          )
+        })}
+      </div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        <span style={{ fontSize: 11.5, fontWeight: 900, letterSpacing: '.06em', textTransform: 'uppercase', color: C.inkDim }}>{t('lg_assetsPowersProc')}</span>
+        {Object.keys(POWER_PROC).map((id) => (
+          <ChunkyButton key={id} variant="ghost" color={C.warning} data-power-proc-demo={id} onClick={() => setProcDemo((x) => ({ id, n: (x?.n || 0) + 1 }))} style={{ fontSize: 11.5, padding: '5px 9px' }}>{POWERS[id]?.icon} {t(`lg_pow_${id}`)}</ChunkyButton>
         ))}
       </div>
     </div>

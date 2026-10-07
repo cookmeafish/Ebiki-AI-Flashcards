@@ -26,7 +26,8 @@ export function ocrLogTable(label, rows) {
 
 export async function ocrLogFlush() {
   if (lines.length === 0) return
-  const content = lines.join('\n')
+  // Taken BEFORE the await: a second scan logging while this flush is in flight keeps its lines for the next one.
+  const content = lines.splice(0).join('\n')
   try {
     await apiFetch('/api/log', {
       method: 'POST',
@@ -36,5 +37,4 @@ export async function ocrLogFlush() {
   } catch (e) {
     console.warn('[Ebiki] Failed to write log file:', e.message)
   }
-  lines.length = 0
 }

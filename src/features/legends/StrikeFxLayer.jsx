@@ -1,8 +1,8 @@
-// THE IMPACT LAYER of a raid strike (strikeFx.js names the moment). Every raid boss plays its OWN impact
-// (impact/styles.js): its glyph flung by your hits, its own strike on you (Chronos' clock hands, the Tempest's
-// lightning, the Vampire's fangs...), its own knockout. Shared on top, so the moment always reads: a white ring and
-// "CRITICAL!" on a critical, a gold cleave on a Sharpen, a red crack and "HEAVY BLOW!" on a missed attack, a parry on a
-// blocked attack (the strike played smaller behind it), a shield bubble, a heart rising on Second wind, "DEFEATED!".
+// THE IMPACT LAYER of a raid strike (strikeFx.js names the moment). Every raid boss plays its OWN impact for EACH of
+// the nine moments (impact/styles.js): a hit, a critical (its own starburst), a Sharpen (its own honed blades), its plain
+// strike on you, a heavy blow (a different, bigger move: the ground quakes), a block (its own barrier sigil and a parry),
+// a Shield save (its glyphs glancing off the dome), Second wind (the heart and its flourish), its knockout. No moment
+// reuses another's parts with a new label (the owner: every impact needs to be different). The label names the moment.
 // CSS and inline SVG only (impact/parts.jsx), sized in container units of this layer, inside the boss box, never over
 // the question; BossArena mounts it only while effects may play (not in focus mode, Still bosses or reduced motion) and
 // fades it with the next question.
@@ -20,14 +20,17 @@ const LABEL_FILL = { crit: '#ffd23a', sharpen: '#ffd23a', block: '#8fe3ff', shie
 // Which parts a moment plays, and at what scale (the strike smaller under a block or a Shield, bigger on a heavy blow).
 export function momentParts(moment, style) {
   switch (moment) {
+    // Each moment plays the boss's OWN spec for it (impact/styles.js), never another moment's parts with a new label.
     case 'hit': return { scale: 1, parts: [['flash', {}], ...style.hit] }
-    case 'crit': return { scale: 1.1, parts: [['flash', { big: true }], ...style.crit, ['ring', { color: '#ffffff', scale: 2.2, width: 4 }]] }
-    case 'sharpen': return { scale: 1.1, parts: [['flash', { big: true }], ...style.crit, ['cleave', { small: true }], ['ring', { color: '#ffd23a', scale: 2.4, width: 5 }]], cleaveColor: '#ffd23a' }
+    case 'crit': return { scale: 1.1, parts: [['flash', { big: true }], ...style.crit] }
+    case 'sharpen': return { scale: 1.1, parts: style.sharpen || style.crit }
     case 'hurt': return { scale: 1, parts: style.strike }
-    case 'hurtBig': return { scale: 1.25, parts: [['crack', { n: 4, color: '#ff5a4a' }], ...style.strike, ...(style.strike.some(([p]) => p === 'vignette') ? [] : [['vignette', {}]])] }
-    case 'block': return { scale: 0.75, parts: [...style.strike.filter(([p]) => p !== 'vignette'), ['parry', {}], ['sparks', { n: 10, color: '#8fe3ff' }]] }
-    case 'shield': return { scale: 0.75, parts: [...style.strike.filter(([p]) => p !== 'vignette'), ['bubble', {}]] }
-    case 'wind': return { scale: 1, parts: [['heart', {}], ['ring', { color: '#ff6b9a', scale: 1.8 }]] }
+    case 'hurtBig': return { scale: 1.2, parts: style.heavy || [...style.strike, ['quake', {}]] }
+    case 'block': return { scale: 0.85, parts: [...(style.block || []), ['parry', { color: style.color }]] }
+    // A save and Second wind carry the boss's OWN colors and glyphs on top of their shared sign (the dome, the heart):
+    // its blow sparks off the dome in its color; its glyphs scatter away while the heart comes back.
+    case 'shield': return { scale: 0.85, parts: [...(style.shield || [['bubble', {}]]), ['ring', { color: style.color, scale: 1.35, width: 6, delay: 200 }], ['sparks', { n: 12, color: style.color, reach: 1.25 }]] }
+    case 'wind': return { scale: 1, parts: [...(style.wind || [['heart', {}]]), ['burst', { n: 9, size: 0.85, reach: 1.25, spin: 160 }]] }
     case 'ko': return { scale: 1, parts: style.ko }
     default: return { scale: 1, parts: [] }
   }
@@ -36,13 +39,12 @@ export function momentParts(moment, style) {
 export default function StrikeFxLayer({ t, moment, motif, n, fading = false }) {
   if (!moment) return null
   const style = impactFor(motif)
-  const { scale, parts, cleaveColor } = momentParts(moment, style)
+  const { scale, parts } = momentParts(moment, style)
   const ctx = { color: style.color, accent: style.accent, glyph: style.glyph, scale, speed: 1 }
   const nodes = parts.map(([name, params], i) => {
     const draw = PARTS[name]
     if (!draw) return null
-    const c = name === 'cleave' && cleaveColor ? { ...ctx, color: cleaveColor } : ctx
-    return <div key={`${name}${i}`} style={{ position: 'absolute', inset: 0 }}>{draw(params || {}, c)}</div>
+    return <div key={`${name}${i}`} style={{ position: 'absolute', inset: 0 }}>{draw(params || {}, ctx)}</div>
   })
   const label = LABEL[moment]
   return (

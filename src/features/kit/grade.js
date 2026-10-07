@@ -54,11 +54,23 @@ function shuffleChoices(choices, idx) {
 // `audioLang` / `speakLang`: the language the audio is read in and the answer is spoken in.
 // `dual`: a question with BOTH typed answers ("accepted") and choices stays typed and keeps the choices as `alt`
 // ({ choices, answerIdx }): a fight lets the learner answer it either way (a power or a safe strike).
-export function sanitizeQuestions(raw, { maxChoices = 4, audioLang = '', speakLang = '', dual = false } = {}) {
+// `clean`: the shown-text cleaner (dashes, shrimp) for choices and accepted answers, which reach the screen too.
+// An `answer` sent as the string "2" is read as the index (both prompts ask for an index or a text; read as text it
+// matched no choice and the question was dropped), unless a choice IS that number ("1990").
+export function sanitizeQuestions(raw, { maxChoices = 4, audioLang = '', speakLang = '', dual = false, clean = (s) => s } = {}) {
   if (!Array.isArray(raw)) return []
   const out = []
-  for (const q of raw) {
-    if (!q || typeof q !== 'object') continue
+  for (const given of raw) {
+    if (!given || typeof given !== 'object') continue
+    const q = { ...given }
+    if (Array.isArray(q.choices)) {
+      q.choices = q.choices.map((c) => clean(String(c ?? '')))
+      if (typeof q.answer === 'string') {
+        const a = q.answer.trim()
+        q.answer = /^\d+$/.test(a) && Number(a) < q.choices.length && !q.choices.some((c) => String(c).trim() === a) ? Number(a) : clean(q.answer)
+      }
+    }
+    if (Array.isArray(q.accepted)) q.accepted = q.accepted.map((x) => clean(String(x ?? '')))
     const prompt = String(q.question || q.prompt || '').trim()
     if (!prompt) continue
     const explanation = String(q.explanation || '').trim()

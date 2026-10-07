@@ -149,7 +149,9 @@ export default function RoleplayScreen({ onExit, params }) {
   const send = (spoken) => {
     speakingRef.current?.stop()
     const text = (typeof spoken === 'string' ? spoken : input).trim()
-    if (!text || busy || phase !== 'play') return // a recording finished after End: it is not part of the scored scene
+    if (!text || phase !== 'play') return // a recording finished after End: it is not part of the scored scene
+    // A recording that finished while Ebi was still answering goes into the box (it used to vanish): send it after.
+    if (busy) { if (typeof spoken === 'string') setInput((cur) => (cur.trim() ? `${cur.trim()} ${text}` : text)); return }
     const history = [...messages, { role: 'me', text }]
     setMessages(history); setInput('')
     ctx.emit(EVENTS.CHAT_SENT, { mode: subject.modeId })

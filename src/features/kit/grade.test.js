@@ -20,6 +20,20 @@ describe('typed answers', () => {
 })
 
 describe('sanitizeQuestions', () => {
+  it('reads an answer index sent as a string, but never over a choice that is that number', () => {
+    const [q] = sanitizeQuestions([{ question: 'Which?', choices: ['a1', 'b2', 'c3', 'd4'], answer: '2' }])
+    expect(q.choices[q.answerIdx]).toBe('c3')
+    const [y] = sanitizeQuestions([{ question: 'Year?', choices: ['1990', '2', '3'], answer: '2' }])
+    expect(y.choices[y.answerIdx]).toBe('2')
+  })
+  it('cleans choices and accepted answers with the given cleaner', () => {
+    const clean = (s) => String(s).replace(/—/g, ', ')
+    const [c] = sanitizeQuestions([{ question: 'Q?', choices: ['a—b', 'c'], answer: 0 }], { clean })
+    expect(c.choices).toContain('a, b')
+    const [t] = sanitizeQuestions([{ question: 'Q?', accepted: ['x—y'] }], { clean })
+    expect(t.accepted).toEqual(['x, y'])
+  })
+
   it('keeps a valid choice question, shuffled, with the right answer tracked', () => {
     const [q] = sanitizeQuestions([{ question: 'Pick RAID with parity', choices: ['RAID 0', 'RAID 5', 'RAID 1'], answer: 1, explanation: 'x' }])
     expect(q.kind).toBe('choice')

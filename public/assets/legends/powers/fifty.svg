@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Raid power: 50:50 (two choices cut away, two left) -->
+  <rect x="1.5" y="2.5" width="61" height="61" rx="16.5" fill="#000" opacity=".35"/>
+  <rect x="2" y="1.5" width="60" height="60" rx="16" fill="#0a0714"/>
+  <rect x="3.5" y="3" width="57" height="57" rx="14.5" fill="#0b7a70"/>
+  <path d="M3.5 30 V17.5 Q3.5 3 18 3 H46 Q60.5 3 60.5 17.5 V30 Q60.5 12 46 10 H18 Q3.5 12 3.5 30 Z" fill="#6ff0e0" opacity=".85"/>
+  <path d="M8 15 Q9 6.5 18 6 H46" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".55"/>
+  <rect x="7" y="7" width="50" height="50" rx="11" fill="#0f0c18" stroke="#0a0714" stroke-width="1.6"/>
+  <circle cx="32" cy="33" r="24" fill="#19d3c0" opacity=".08"/>
+  <circle cx="32" cy="33" r="18" fill="#19d3c0" opacity=".10"/>
+  <circle cx="32" cy="33" r="12" fill="#19d3c0" opacity=".13"/>
+  <path d="M8.5 22 Q9 8.5 22 8.5 H42 Q55.5 8.5 55.5 22 Q50 15 32 15 Q14 15 8.5 22 Z" fill="#fff" opacity=".06"/>
+  <rect x="7" y="7" width="50" height="50" rx="11" fill="none" stroke="#19d3c0" stroke-width="1" opacity=".45"/>
+  <g transform="translate(32 32.5) scale(.82) translate(-32 -32)">
+
+    <rect x="9" y="9" width="20" height="20" rx="5" fill="#0d9c8f" stroke="#0a0714" stroke-width="2.4"/>
+    <rect x="9" y="9" width="20" height="8" rx="4" fill="#66f2e0"/>
+    <path d="M12 12.5 H22" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".9"/>
+    <rect x="35" y="35" width="20" height="20" rx="5" fill="#0d9c8f" stroke="#0a0714" stroke-width="2.4"/>
+    <rect x="35" y="35" width="20" height="8" rx="4" fill="#66f2e0"/>
+    <path d="M38 38.5 H48" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".9"/>
+    <g>
+      <path d="M35 9 h15 a5 5 0 0 1 5 5 l-4 4 l3 3 l-4 4 l1 4 h-15 a5 5 0 0 1 -5 -5 v-10 a5 5 0 0 1 4 -5 Z" fill="#19d3c0" fill-opacity=".16" stroke="#5ff0dd" stroke-opacity=".7" stroke-width="1.6" stroke-dasharray="3 2.2"/>
+      <path d="M9 40 a5 5 0 0 1 5 -5 h15 l-3 4 l4 3 l-4 4 l3 4 l-2 5 h-13 a5 5 0 0 1 -5 -5 Z" fill="#19d3c0" fill-opacity=".16" stroke="#5ff0dd" stroke-opacity=".7" stroke-width="1.6" stroke-dasharray="3 2.2"/>
+    </g>
+    <path d="M57 7 L7 57" stroke="#0a0714" stroke-width="7" stroke-linecap="round"/>
+    <path d="M57 7 L7 57" stroke="#b9fff6" stroke-width="3.4" stroke-linecap="round"/>
+    <path d="M55 9 L9 55" stroke="#fff" stroke-width="1.2" stroke-linecap="round"/>
+    <g style="transform-box:fill-box;transform-origin:center"><animateTransform class="lg-loop" attributeName="transform" type="scale" values="1;1.3;1" keyTimes="0;.50;1" dur="1.8s" repeatCount="indefinite"/>
+      <path d="M32 23 L34.52 29.48 L41 32 L34.52 34.52 L32 41 L29.48 34.52 L23 32 L29.48 29.48 Z" fill="#fff" stroke="#0a0714" stroke-width="1.3" stroke-linejoin="round"/>
+    </g>
+  </g>
+</svg>
