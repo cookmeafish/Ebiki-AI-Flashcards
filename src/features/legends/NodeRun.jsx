@@ -26,7 +26,7 @@ import { newFight, strike, fightOutcome, phaseOf, healthLeft, attackSlot, canAtt
 import LearnItPanel from '../kit/LearnItPanel'
 import { islandVoice } from '../kit/taunt'
 import { RAID_VOICE_RULES, STOCK_WORDS } from './raidVoices'
-import { useFightCheck, useBossTaunt, TauntBubble, FightNotice, MissTools } from './FightExtras'
+import { useFightCheck, useBossTaunt, useArenaPin, TauntBubble, FightNotice, MissTools } from './FightExtras'
 import { FIGHT_EXTRAS, fightExtrasFor, expectedOf, isWrongish, learnItemFor } from './fightCheck'
 import { updateMap, peekMap, LEGENDS_ID } from './store'
 import { CheatButton, CheatRow } from './CheatUI'
@@ -38,11 +38,6 @@ const scrollScreenTop = (el) => { const p = scrollBoxOf(el); if (p) p.scrollTop 
 // A pinned bar rests below its scroll box's top padding, and the content scrolling past showed through that band:
 // the offset that pins it at the box's very top instead.
 const scrollBoxOf = (el) => { let p = el?.parentElement; while (p && !/(auto|scroll)/.test(getComputedStyle(p).overflowY)) p = p.parentElement; return p }
-function useStickyTop(ref) {
-  const [top, setTop] = useState(0)
-  useLayoutEffect(() => { const p = scrollBoxOf(ref.current); if (p) setTop(-(parseFloat(getComputedStyle(p).paddingTop) || 0)) })
-  return top
-}
 export function ScrollTop({ on, skip = false }) {
   const ref = useRef(null)
   useLayoutEffect(() => { if (!skip) scrollScreenTop(ref.current) }, [on]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -282,7 +277,8 @@ function NodeRunBody({ ctx: rawCtx, modeId, area, node, misses = [], onFinish, o
   // The boss fight: an intro card first, then every answer is a hit on the boss or a lost heart (BossArena.jsx).
   const [fighting, setFighting] = useState(false)
   const arenaRef = useRef(null)
-  const arenaTop = useStickyTop(arenaRef)
+  const extrasRef = useRef(null)
+  const pin = useArenaPin(arenaRef, extrasRef, node.kind === 'boss' || node.kind === 'legendary')
   // A new phase (and the fight starting after the boss entrance) opens at the top: the fight began scrolled down to
   // where the entrance's Fight button was, the question hidden under the pinned arena.
   const firstPhase = useRef(true)
@@ -576,15 +572,21 @@ function NodeRunBody({ ctx: rawCtx, modeId, area, node, misses = [], onFinish, o
     // lives (the rest of the questions count as missed).
     const outcome = fightOutcome(fs, o)
     oddsRef.current = o
+    const extras = (
+      <div ref={extrasRef} data-arena-extras="" style={{ maxWidth: 680, width: '100%', margin: '0 auto' }}>
+        {!outcome && <TauntBubble bubble={taunt.bubble} name={bossName || area.bossName || area.title || ''} calm={focus} ctx={ctx} />}
+        <FightNotice notice={fc.notice} t={t} />
+      </div>
+    )
     if (settling) return <div style={{ maxWidth: 560, margin: '60px auto' }}><EbiSays pose={poseFile('work')}>{t('lg_recheckSettling')}</EbiSays></div>
     return (
       <div style={{ display: 'grid', gap: 12 }}>
         {/* Sticky: a long question or four tall choices scroll UNDER the boss instead of pushing it off screen. */}
-        <div ref={arenaRef} style={{ maxWidth: 680, width: '100%', margin: '0 auto', position: 'sticky', top: arenaTop, zIndex: 5, paddingTop: 4, background: C.bg }}>
+        <div ref={arenaRef} data-arena-pin={pin.mode} style={{ maxWidth: 680, width: '100%', margin: '0 auto', ...(pin.sticky ? { position: 'sticky', top: pin.top, zIndex: 5 } : {}), paddingTop: 4, background: C.bg }}>
           <BossArena t={t} area={area} name={bossName} need={o.need} lives={o.lives} bonus={o.bonus} state={fs} weak={weakNames} shield={shield} focus={focus} getZoom={ctx.getZoom} />
-          {!outcome && <TauntBubble bubble={taunt.bubble} name={bossName || area.bossName || area.title || ''} calm={focus} ctx={ctx} />}
-          <FightNotice notice={fc.notice} t={t} />
+          {pin.mode !== 'arena' && extras}
         </div>
+        {pin.mode === 'arena' && extras}
         {learn && <LearnItPanel ctx={ctx} item={learn} onClose={() => setLearn(null)} closeLabel={t('lg_learnBackToFight')} />}
         {outcome ? <BossEnd t={t} won={outcome === 'won'} onDone={() => finish(outcome === 'lost' ? questions.length : 0)} /> : <div style={{ display: 'grid', gap: 4 }}>{renewRow}<div>{runner}</div></div>}
       </div>

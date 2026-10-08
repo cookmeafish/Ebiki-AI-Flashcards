@@ -5,7 +5,7 @@
 // damage grows to bring the health exactly to the floor. In phase 3 the floor is 0: the boss dies. A hit that crosses
 // the floor by itself starts the next phase, whose line starts at its own floor. Inserted questions do nothing.
 // `ab.line` is in health LEFT on the whole-day bar. The hook contract is abilities/_contract.js.
-import { phaseFloor } from './_rules'
+import { phaseFloor, tuned } from './_rules'
 
 const K = { climb: 1, slip: 1, readyGap: 2 }
 const answers = (q) => !!q && !q._inserted && !q._lastStand
@@ -14,7 +14,7 @@ const floorOf = (ctx, p) => (ctx && ctx.bar ? phaseFloor(ctx.bar, p) : 0)
 const leftOf = (ctx, damage) => (ctx && ctx.bar ? ctx.bar.total - ((ctx.bar.before || 0) + damage) : Infinity)
 // How far his health still is above the line (<= 0: the next right answer reaps).
 const gapOf = (s, ctx) => leftOf(ctx, s.damage || 0) - (s.ab.line || 0)
-const isReady = (s, ctx) => !!(ctx && ctx.bar) && gapOf(s, ctx) <= K.readyGap
+const isReady = (s, ctx) => !!(ctx && ctx.bar) && gapOf(s, ctx) <= tuned(K, ctx).readyGap
 
 export default {
   id: 'execute', icon: '🌾', K, fxKeys: ['climb', 'reap'],
@@ -24,9 +24,10 @@ export default {
   onStrike(s, res, hit, ctx) {
     if (ctx.kind === 'inserted' || !ctx.bar) return
     const ab = s.ab
+    const k = tuned(K, ctx)
     const floor = floorOf(ctx, ctx.phase)
-    if (!ctx.right) { ab.line = Math.max(floor, ab.line - K.slip); return }
-    ab.line += K.climb
+    if (!ctx.right) { ab.line = Math.max(floor, ab.line - k.slip); return }
+    ab.line += k.climb
     const left = leftOf(ctx, s.damage + res.dmg)
     if (left > floor && left <= ab.line) {
       // exactly to the floor (a floor between two whole numbers: the first whole number at or under it)

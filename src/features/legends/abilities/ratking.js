@@ -6,24 +6,27 @@
 // buttons never show on them. Coins left at the end are a score only.
 // K.tail 2 (was 5): saving 5 coins past the 4 a bomb costs almost never happened (a Lucky Tail in 1 raid in 100). With
 // the cheap tail, a 4 coin bomb and the 6 coin auto bomb came too rare: 3 and 5 now.
+import { tuned } from './_rules'
+
 const K = { bomb: 3, bombDmg: 3, tail: 2, cap: 5, pile: 3, pileEvery: 4 }
 const normal = (q) => !q || (!q._attack && !q._inserted && !q._lastStand)
 
 export default {
   id: 'hoard', icon: '💰', K, decision: true, fxKeys: ['loot', 'stolen', 'bomb', 'buyTail', 'tail'],
-  sampleHint: { key: 'lg_hint_hoardAuto', vars: { n: K.bombDmg } },
+  sampleHint: { key: 'lg_hint_hoardAuto', vars: { n: K.bombDmg } }, // tuning-ok: static
   init: () => ({ coins: 0, tail: false, robbed: 0, bombs: 0, saves: 0 }),
   onStrike(s, res, hit, ctx) {
     if (ctx.kind !== 'normal') return
+    const k = tuned(K, ctx)
     if (ctx.right) {
       s.ab.coins++
       s.ab.robbed++
-      if (s.ab.coins >= K.cap) {
-        s.ab.coins -= K.bomb
+      if (s.ab.coins >= k.cap) {
+        s.ab.coins -= k.bomb
         s.ab.bombs++
-        res.dmg += K.bombDmg
+        res.dmg += k.bombDmg
         res.fx = 'bomb'
-        res.fxVars = { n: K.bombDmg }
+        res.fxVars = { n: k.bombDmg }
       } else {
         res.fx = 'loot'
         res.fxVars = { n: s.ab.coins }
@@ -43,30 +46,32 @@ export default {
   },
   actions(s, ctx) {
     if (!normal(ctx && ctx.q)) return []
+    const k = tuned(K, ctx)
     return [
-      { id: 'bomb', icon: '🧀', labelKey: 'lg_act_hoardBomb', vars: { n: K.bomb }, enabled: s.ab.coins >= K.bomb, tone: 'warning' },
-      { id: 'tail', icon: '🐀', labelKey: 'lg_act_hoardTail', vars: { n: K.tail }, enabled: s.ab.coins >= K.tail && !s.ab.tail, tone: 'success' },
+      { id: 'bomb', icon: '🧀', labelKey: 'lg_act_hoardBomb', vars: { n: k.bomb }, enabled: s.ab.coins >= k.bomb, tone: 'warning' },
+      { id: 'tail', icon: '🐀', labelKey: 'lg_act_hoardTail', vars: { n: k.tail }, enabled: s.ab.coins >= k.tail && !s.ab.tail, tone: 'success' },
     ]
   },
-  act(s, res, action) {
-    if (action.type === 'bomb' && s.ab.coins >= K.bomb) {
-      s.ab.coins -= K.bomb
+  act(s, res, action, ctx) {
+    const k = tuned(K, ctx)
+    if (action.type === 'bomb' && s.ab.coins >= k.bomb) {
+      s.ab.coins -= k.bomb
       s.ab.bombs++
-      res.dmg += K.bombDmg
+      res.dmg += k.bombDmg
       res.fx = 'bomb'
-      res.fxVars = { n: K.bombDmg }
-    } else if (action.type === 'tail' && s.ab.coins >= K.tail && !s.ab.tail) {
-      s.ab.coins -= K.tail
+      res.fxVars = { n: k.bombDmg }
+    } else if (action.type === 'tail' && s.ab.coins >= k.tail && !s.ab.tail) {
+      s.ab.coins -= k.tail
       s.ab.tail = true
       res.fx = 'buyTail'
     }
   },
   // Only when the next right answer makes the rats throw a bomb.
-  hint: (s, q) => (normal(q) && q && s.ab.coins === K.cap - 1 ? { icon: '🧀', key: 'lg_hint_hoardAuto', vars: { n: K.bombDmg } } : null),
-  hud: (s) => [
-    { type: 'coins', n: s.ab.coins, icon: '🪙', labelKey: 'lg_hud_hoard', tone: 'warning', ready: s.ab.coins === K.bomb - 1 },
+  hint: (s, q, mode, ctx) => { const k = tuned(K, ctx); return normal(q) && q && s.ab.coins === k.cap - 1 ? { icon: '🧀', key: 'lg_hint_hoardAuto', vars: { n: k.bombDmg } } : null },
+  hud: (s, ctx) => [
+    { type: 'coins', n: s.ab.coins, icon: '🪙', labelKey: 'lg_hud_hoard', tone: 'warning', ready: s.ab.coins === tuned(K, ctx).bomb - 1 },
     { type: 'pips', n: s.ab.tail ? 1 : 0, max: 1, icon: '🐀', labelKey: 'lg_hud_hoardTail', tone: 'success' },
   ],
   // His coin pile in the art: K.pile (full) down to 0 as you rob him.
-  artState: (s) => ({ 'data-ab-hoard': Math.max(0, K.pile - Math.floor((s.ab.robbed || 0) / K.pileEvery)) }),
+  artState: (s, ctx) => { const k = tuned(K, ctx); return { 'data-ab-hoard': Math.max(0, k.pile - Math.floor((s.ab.robbed || 0) / k.pileEvery)) } },
 }

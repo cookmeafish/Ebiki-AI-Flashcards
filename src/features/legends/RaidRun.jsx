@@ -11,7 +11,7 @@
 // Victory lap over the cards the fight never reached (a reward round, recorded like any review, bonus XP) or Done; a
 // loss or a stop leaves those cards due and says so.
 import { ctxErrorText } from '../kit/aiError'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile } from '../../config/shrimp'
 import { srs } from '../../cards'
@@ -22,16 +22,15 @@ import { ChunkyButton, EbiSays, Card, tCount } from '../ui'
 import { QuizRunner, judgeStrike, recordReviews, recordPractice, studyBlock, studyBlockText, fightCtx, generationKey, ensureLetterCue } from '../kit'
 import FightSettings from './FightSettings'
 import { PowerCastBadge } from './impact/PowerFx'
-import { DAMAGE } from './abilities/_rules'
 import LearnItPanel from '../kit/LearnItPanel'
-import { useFightCheck, useBossTaunt, TauntBubble, FightNotice, MissTools, Debrief } from './FightExtras'
+import { useFightCheck, useBossTaunt, useArenaPin, TauntBubble, FightNotice, MissTools, Debrief } from './FightExtras'
 import { FIGHT_EXTRAS, fightExtrasFor, expectedOf, isWrongish, learnItemFor } from './fightCheck'
 import { RAID_VOICES } from './raidVoices'
 import { learnerLevelLine } from '../kit/learnerStore'
 import { BossIntro, BossArena, BossEnd } from './BossArena'
 import { LegendsArt } from './art'
-import { act, settleFight, phaseOf, raidRating, attackLivesFor, abilityState, refundRunningFight, strikeCost, fightOutcome, newFight } from './fight'
-import { RAID, RAID_MOTIFS, RAID_ABILITY, todayKey, raidToday, raidStep, raidMotif, isRaidMotif, testRaidState, raidAttemptOutcome, raidHelpText, raidWhere, raidReviews, raidCardIndex, shapeRaid, siegeOf, raidAsked, raidMarkAsked, nextRaidCards, raidMinCards, raidOutOfQuestions, raidRunChoices, raidRunSize, applyBandage } from './raid'
+import { act, settleFight, phaseOf, raidRating, attackLivesFor, abilityState, refundRunningFight, strikeCost, fightOutcome, newFight, tuneFight, rulesOf, abilityK } from './fight'
+import { RAID, RAID_MOTIFS, RAID_ABILITY, todayKey, raidToday, raidStep, raidMotif, isRaidMotif, testRaidState, raidAttemptOutcome, raidHelpText, raidWhere, raidReviews, raidCardIndex, shapeRaid, siegeOf, raidAsked, raidMarkAsked, nextRaidCards, raidMinCards, raidOutOfQuestions, raidRunChoices, raidRunSize, applyBandage, siegeProfile } from './raid'
 import { raidProfile } from './raidProfiles'
 import { POWERS, POWER_IDS, LOADOUT_MAX, STEADFAST_HEARTS, POWER_WINDOW, WIND_HEARTS, powerVars, bossesBeaten, unlockedPowers, shapeLoadout, toggleLoadout, isFightPower, nextUnlock, powerUsable, powerAfterAnswer, powersHelpLine, fiftyFifty, powerHint } from './powers'
 import { abilityById } from './abilities'
@@ -109,8 +108,10 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
   const day = raid?.day
   const need = day ? Math.max(1, day.hp - day.damage) : 1 // what is left of the boss's health
   const motif = raid ? raidMotif(raid) : testMotif || RAID_MOTIFS[0]
-  // The boss's own fight (raidProfiles.js): its hearts and heal.
-  const profile = raidProfile(motif)
+  // The boss's own fight (raidProfiles.js, the one resolver): its hearts and heal, in the siege's variant (absent = normal).
+  const profile = raidProfile(motif, raid?.siege?.variant)
+  // The fight's rules (damage, phases...): the profile's, carried on the fight (tuneFight at load).
+  const fightRules = rulesOf(fs)
   const maxHearts = Math.max(profile.hearts, raid?.siege?.hearts || 0)
   const startHearts = testMotif ? profile.hearts : raid?.siege ? raid.siege.hearts : profile.hearts
   // POWERS brought into this fight (powers.js): the loadout setting (features.legends.raidLoadout) shaped against the
@@ -251,6 +252,10 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
       const today = testMotif ? testRaidState(testMotif, date, eligible.length) : raidToday(r.value, date, eligible.length)
       if (!alive.current) return
       setRaid(today)
+      // The fight runs on this boss's resolved tunables (its rules and ability K, in the siege's variant).
+      const tunedFs = tuneFight(fsRef.current, siegeProfile(today.siege))
+      fsRef.current = tunedFs
+      setFs(tunedFs)
       if (!testMotif && today.day.won) { setPhase('beaten'); return }
       const ongoing = !testMotif && !!siegeOf(r.value)
       const cards = toCards(eligible.slice(0, runSize))
@@ -375,11 +380,11 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     // Re-checks and appeals still running decide the grades first (bounded: the reviews are never lost to a slow reply).
     await fc.settle()
     // An ability holding damage (a bank, a gauge, moons in orbit) lets it go when the fight ends (abilities: settle).
-    const st = settleFight(fsRef.current, { ability, need: dayNow ? Math.max(1, dayNow.hp - dayNow.damage) : 1, lives: fightHearts, bar: { total: dayNow ? dayNow.hp : 1, before: dayNow ? dayNow.damage : 0, phases: RAID.phases }, dayAb: dayNow?.ab || null })
+    const st = settleFight(fsRef.current, { ability, need: dayNow ? Math.max(1, dayNow.hp - dayNow.damage) : 1, lives: fightHearts, bar: { total: dayNow ? dayNow.hp : 1, before: dayNow ? dayNow.damage : 0, phases: rulesOf(fsRef.current).phases }, dayAb: dayNow?.ab || null })
     fsRef.current = st
     await recordSoFar()
     const hits = reportRecorded()
-    const dayAb = abMod?.dayState ? abMod.dayState(st) : undefined
+    const dayAb = abMod?.dayState ? abMod.dayState(st, { K: abilityK(abMod, st), rules: rulesOf(st) }) : undefined
     // Steadfast's extra hearts go first: the siege loses only what the fight lost beyond them.
     const opts = { date, damage: st.damage, livesLost: Math.max(0, st.livesLost - extraHearts), asked: answeredNotes(), dayAb, due: dueAtStart.current, motif }
     let outcome = { won: false, firstWin: false }
@@ -506,17 +511,12 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
   // Back / the Practice hub ask before leaving only while something would be lost (a fight or its lap); the intro and
   // the result screens leave at once (registry: useActivityBusy).
   useActivityBusy(phase === 'fight' || phase === 'more' || phase === 'lap')
-  // The arena sticks to the top of the screen's scroll box while the questions scroll. Sticky rests BELOW that box's
-  // top padding, and the questions scrolled through the gap above the arena: pulled up by exactly that padding.
+  // The arena pins to the top of the screen while the questions scroll, as much of it as fits (useArenaPin: on a short
+  // or zoomed screen the taunt and notice scroll with the question, or nothing pins).
   const arenaRef = useRef(null)
-  const [arenaTop, setArenaTop] = useState(0)
+  const extrasRef = useRef(null)
   const arenaShown = phase === 'fight' || phase === 'more' || phase === 'lap'
-  useLayoutEffect(() => {
-    if (!arenaShown) return
-    let p = arenaRef.current?.parentElement
-    while (p && !/(auto|scroll)/.test(getComputedStyle(p).overflowY)) p = p.parentElement
-    if (p) setArenaTop(-(parseFloat(getComputedStyle(p).paddingTop) || 0))
-  }, [arenaShown])
+  const pin = useArenaPin(arenaRef, extrasRef, arenaShown)
   // Ebi's Help: the fight's state on screen (raid.js raidHelpText: never an answer; QuizRunner reports the question).
   const helpDay = raid?.day
   const running = phase === 'fight' || phase === 'more' || phase === 'lap'
@@ -527,7 +527,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     powers: powersHelpLine(loadout, usedRef.current, powerArmed),
     hpLeft: helpLeft, hpMax: helpDay?.hp || 0,
     livesLeft: phase === 'done' && summary ? summary.hearts : Math.max(0, fightHearts - (running ? fs.livesLost : 0)),
-    phase: helpDay ? phaseOf(helpLeft, helpDay.hp, RAID.phases) : 1,
+    phase: helpDay ? phaseOf(helpLeft, helpDay.hp, fightRules.phases) : 1,
     asked: firstHit.current.size, total: questions?.length || 0,
     lapLeft: lapQs ? lapQs.filter((q) => !firstHit.current.has(q._cardId)).length : 0,
     nextCards: more?.cards?.length || 0,
@@ -618,8 +618,8 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
   const dayHp = day ? day.hp : need
   // The hearts row: the siege's hearts (Steadfast's extra ones show apart, as gold hearts, and are lost first).
   const shown = { ...fs, damage: fs.damage + (day ? day.damage : 0), livesLost: Math.max(0, fs.livesLost - extraHearts) + (maxHearts - startHearts) }
-  const fightPhase = phaseOf(Math.max(0, dayHp - shown.damage), dayHp, RAID.phases)
-  const bar = { total: dayHp, before: day ? day.damage : 0, phases: RAID.phases }
+  const fightPhase = phaseOf(Math.max(0, dayHp - shown.damage), dayHp, fightRules.phases)
+  const bar = { total: dayHp, before: day ? day.damage : 0, phases: fightRules.phases }
   const fightOpts = { ability, need, lives, bar, dayAb: day?.ab || null }
   fightOver.current = { need, lives }
   const record = (q, correct, answer, info = {}) => {
@@ -686,7 +686,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     }
   }
   // The ability's view of the fight, for its hint, banner and buttons (abilities/<motif>.js).
-  const abCtx = { phase: fightPhase, need, lives, livesLeft: lives - fs.livesLost, damage: fs.damage, bar, dayAb: day?.ab || null, K: abMod?.K || {} }
+  const abCtx = { phase: fightPhase, need, lives, livesLeft: lives - fs.livesLost, damage: fs.damage, bar, dayAb: day?.ab || null, K: abilityK(abMod, fs), rules: fightRules }
   const abS = abMod ? { ...fs, ab: abilityState(fs, abMod, abCtx) } : fs
   // One line under the strike label when the boss's ability applies to THIS question.
   const abilityHint = (q, mode) => {
@@ -715,7 +715,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
       {q._attack && <div role="alert" style={{ padding: '8px 12px', borderRadius: RADIUS.md, background: `color-mix(in srgb, ${C.danger} 14%, ${C.surface})`, border: `2px solid ${C.danger}`, color: C.danger, fontWeight: 900, fontSize: 14 }}>⚔️ {t(attackCost === 1 ? 'lg_attackIncomingOne' : 'lg_attackIncoming', { n: attackCost })}</div>}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ fontSize: 12, fontWeight: 800, color: mode === 'choice' ? C.info : C.warning }}>
-          {mode === 'choice' ? `🛡 ${t('lg_strikeSafeHint', { n: DAMAGE.choice })}` : aidedQ.current.has(q) ? `🤝 ${t('lg_strikeAidedHint', { n: DAMAGE.choice })}` : `💥 ${t('lg_strikePowerHint', { n: DAMAGE.clean })}`}{fightPhase > 1 ? ` · 😡 ${t('lg_rageNoSafe')}` : ''}
+          {mode === 'choice' ? `🛡 ${t('lg_strikeSafeHint', { n: fightRules.damage.choice })}` : aidedQ.current.has(q) ? `🤝 ${t('lg_strikeAidedHint', { n: fightRules.damage.choice })}` : `💥 ${t('lg_strikePowerHint', { n: fightRules.damage.clean })}`}{fightPhase > 1 ? ` · 😡 ${t('lg_rageNoSafe')}` : ''}
         </div>
         {tagChip(q, mode)}
       </div>
@@ -782,14 +782,20 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     })]
   }
   const leftNow = Math.max(0, dayHp - shown.damage)
+  const arenaExtras = (
+    <div ref={extrasRef} data-arena-extras="" style={{ maxWidth: 680, width: '100%', margin: '0 auto' }}>
+      {phase === 'fight' && <TauntBubble bubble={taunt.bubble} name={bossName} calm={focus} ctx={ctx} />}
+      <FightNotice notice={fc.notice} t={t} />
+    </div>
+  )
   return (
     <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'minmax(0, 1fr)' }}>
-      <div ref={arenaRef} data-raid-arena-pin="" style={{ maxWidth: 680, width: '100%', margin: '0 auto', position: 'sticky', top: arenaTop, zIndex: 5, paddingTop: 4, background: C.bg }}>
+      <div ref={arenaRef} data-raid-arena-pin={pin.mode} style={{ maxWidth: 680, width: '100%', margin: '0 auto', ...(pin.sticky ? { position: 'sticky', top: pin.top, zIndex: 5 } : {}), paddingTop: 4, background: C.bg }}>
         {testMotif && <TestTag t={t} />}
-        <BossArena t={t} area={area} name={bossName} need={dayHp} lives={maxHearts} state={shown} phases={RAID.phases} ability={ability} dayAb={day?.ab || null} focus={focus} getZoom={ctx.getZoom} kind="raids" questionKey={questionKey} power={powerCast?.id === 'bandage' ? null : powerCast} armed={{ ...powerArmed, ...(extraHearts ? { steadfast: Math.max(0, extraHearts - fs.livesLost) } : {}) }} proc={powerProc} />
-        {phase === 'fight' && <TauntBubble bubble={taunt.bubble} name={bossName} calm={focus} ctx={ctx} />}
-        <FightNotice notice={fc.notice} t={t} />
+        <BossArena t={t} area={area} name={bossName} need={dayHp} lives={maxHearts} state={shown} phases={fightRules.phases} ability={ability} dayAb={day?.ab || null} focus={focus} getZoom={ctx.getZoom} kind="raids" questionKey={questionKey} power={powerCast?.id === 'bandage' ? null : powerCast} armed={{ ...powerArmed, ...(extraHearts ? { steadfast: Math.max(0, extraHearts - fs.livesLost) } : {}) }} proc={powerProc} />
+        {pin.mode !== 'arena' && arenaExtras}
       </div>
+      {pin.mode === 'arena' && arenaExtras}
       {learnPanel}
       {phase === 'lap' && lapQs ? (
         <div style={{ display: 'grid', gap: 10 }}>

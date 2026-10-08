@@ -5,6 +5,8 @@
 // missed attack's 2 hearts become 1). The burst lands even on a miss (the miss itself still deals nothing). Wards do
 // not carry to the next attempt.
 // K.max 1 (was 2): a Feast needed nine right answers in three clean streaks with no ward spent, about 1 raid in 25.
+import { tuned } from './_rules'
+
 const K = { streak: 3, max: 1, burst: 2, feast: 3 }
 
 export default {
@@ -12,23 +14,27 @@ export default {
   init: () => ({ wards: 0, streak: 0, raised: 0, bursts: 0, feasts: 0 }),
   onStrike(s, res, hit, ctx) {
     if (ctx.kind !== 'normal') return
+    const k = tuned(K, ctx)
     if (!ctx.right) { s.ab.streak = 0; return }
     s.ab.streak++
-    if (s.ab.streak < K.streak) { res.fx = 'drip'; return }
+    if (s.ab.streak < k.streak) { res.fx = 'drip'; return }
     s.ab.streak = 0
-    if (s.ab.wards < K.max) { s.ab.wards++; s.ab.raised++; res.fx = 'ward' } else { res.dmg += K.feast; s.ab.feasts++; res.fx = 'feast' }
+    if (s.ab.wards < k.max) { s.ab.wards++; s.ab.raised++; res.fx = 'ward' } else { res.dmg += k.feast; s.ab.feasts++; res.fx = 'feast' }
   },
-  onLifeLoss(s, res) {
+  onLifeLoss(s, res, ctx) {
     if (!(s.ab.wards > 0) || !(res.lives > 0)) return
     s.ab.wards--
     s.ab.bursts++
     res.lives -= 1
-    res.dmg += K.burst
+    res.dmg += tuned(K, ctx).burst
     res.fx = 'burst'
   },
-  hud: (s) => [
-    { type: 'pips', n: s.ab.wards, max: K.max, icon: '🛡️', labelKey: 'lg_hud_wards', tone: 'danger' },
-    { type: 'pips', n: s.ab.streak, max: K.streak, icon: '🩸', labelKey: 'lg_hud_bloodStreak', tone: 'danger', ready: s.ab.streak === K.streak - 1 },
-  ],
+  hud: (s, ctx) => {
+    const k = tuned(K, ctx)
+    return [
+      { type: 'pips', n: s.ab.wards, max: k.max, icon: '🛡️', labelKey: 'lg_hud_wards', tone: 'danger' },
+      { type: 'pips', n: s.ab.streak, max: k.streak, icon: '🩸', labelKey: 'lg_hud_bloodStreak', tone: 'danger', ready: s.ab.streak === k.streak - 1 },
+    ]
+  },
   artState: (s) => ({ 'data-ab-wards': s.ab.wards }),
 }

@@ -19,11 +19,17 @@ const STAGE = `color-mix(in srgb, ${C.bg} 22%, black)` // the raid stage is dark
 
 const CSS = `
 @keyframes rhStripe { to { transform: translateX(40px) } }
-@keyframes rhPulse { 0%,100% { box-shadow: 0 0 0 2px var(--rh-ring), 0 6px 26px var(--rh-glow-lo) } 50% { box-shadow: 0 0 0 2px var(--rh-ring-hi), 0 8px 40px var(--rh-glow) } }
+@keyframes rhGlowLo { 0%,100% { opacity: 1 } 50% { opacity: 0 } }
+@keyframes rhGlowHi { 0%,100% { opacity: 0 } 50% { opacity: 1 } }
 @keyframes rhAura { 0%,100% { transform: scale(1); opacity: .55 } 50% { transform: scale(1.08); opacity: .9 } }
 @keyframes rhShimmer { 0% { opacity: .35 } 50% { opacity: .7 } 100% { opacity: .35 } }
 .rh-calm, .rh-calm * { animation: none !important }
 `
+// The card's ring and glow, calm and at the top of the pulse (`mix` tints a share of the boss's color).
+const GLOWS = [
+  [(mix) => `0 0 0 2px ${mix(35)}, 0 6px 26px ${mix(22)}`, 'rhGlowLo'],
+  [(mix) => `0 0 0 2px ${mix(75)}, 0 8px 40px ${mix(55)}`, 'rhGlowHi'],
+]
 
 export default function RaidHero({ onOpen }) {
   const ctx = useFeatureCtx()
@@ -99,12 +105,18 @@ export default function RaidHero({ onOpen }) {
   })()
 
   return (
-    <div ref={boxRef} data-practice-hero="raid" className={calm ? 'rh-calm' : undefined} style={{
-      position: 'relative', borderRadius: RADIUS.xl, overflow: 'hidden', marginBottom: 20, color: C.white,
+    <div data-practice-hero="raid" data-lg-idle="" className={calm ? 'rh-calm' : undefined} style={{ position: 'relative', marginBottom: 20 }}>
+      {/* The pulse: two glow layers OUTSIDE the clipped card, the calm and the bright glow, cross-fading their opacity.
+          Animating the card's own box-shadow repainted the whole card every frame (about 450 style recalcs a second
+          while the Practice hub sat idle); opacity runs on the compositor. */}
+      {pulse && GLOWS.map(([shadow, anim]) => (
+        <div key={anim} aria-hidden="true" style={{ position: 'absolute', inset: 0, borderRadius: RADIUS.xl, pointerEvents: 'none',
+          boxShadow: shadow(mix), willChange: 'opacity', animation: `${anim} 2.6s ease-in-out infinite` }} />
+      ))}
+    <div ref={boxRef} style={{
+      position: 'relative', borderRadius: RADIUS.xl, overflow: 'hidden', color: C.white,
       background: `radial-gradient(ellipse at ${narrow ? '50% 30%' : '22% 55%'}, ${mix(beaten ? 18 : 42, STAGE)} 0%, ${STAGE} 70%)`,
-      '--rh-ring': mix(35), '--rh-ring-hi': mix(75), '--rh-glow': mix(55), '--rh-glow-lo': mix(22),
-      boxShadow: `0 0 0 2px ${mix(35)}, 0 6px 26px ${mix(22)}`,
-      animation: pulse ? 'rhPulse 2.6s ease-in-out infinite' : 'none',
+      boxShadow: pulse ? 'none' : GLOWS[0][0](mix),
     }}>
       <style>{CSS}</style>
       {/* The hazard band, like the raid intro's, in this boss's color. */}
@@ -150,6 +162,7 @@ export default function RaidHero({ onOpen }) {
           )}
         </div>
       </div>
+    </div>
     </div>
   )
 }

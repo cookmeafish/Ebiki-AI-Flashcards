@@ -4,15 +4,18 @@
 // right answers in a row sing a LULLABY, +K.lull, and it sleeps again at depth 1; a miss while awake resets the song.
 // Attacks and inserted questions do not change its state. The one persistent idle reaction (IDLE_MOTIFS): the
 // slow sleep drift while it sleeps. The hook contract is abilities/_contract.js.
+import { tuned } from './_rules'
+
 const K = { depth: 3, nightmare: 3, lull: 2, need: 2 }
 const normal = (q) => !!q && !q._attack && !q._inserted && !q._lastStand
 
 export default {
   id: 'sleep', icon: '💤', K, fxKeys: ['deeper', 'nightmare', 'wake', 'hum', 'lullaby'],
-  sampleHint: { key: 'lg_hint_sleep', vars: { n: K.nightmare } },
+  sampleHint: { key: 'lg_hint_sleep', vars: { n: K.nightmare } }, // tuning-ok: static
   init: () => ({ asleep: true, depth: 0, lull: 0, nightmares: 0, lullabies: 0 }),
   onStrike(s, res, hit, ctx) {
     if (ctx.kind !== 'normal') return
+    const k = tuned(K, ctx)
     const ab = s.ab
     if (!ctx.right) {
       if (ab.asleep) res.fx = 'wake'
@@ -22,20 +25,20 @@ export default {
       return
     }
     if (ab.asleep) {
-      if (ab.depth >= K.depth) {
-        res.dmg += K.nightmare
+      if (ab.depth >= k.depth) {
+        res.dmg += k.nightmare
         ab.depth = 1
         ab.nightmares++
         res.fx = 'nightmare'
       } else {
         ab.depth++
         res.fx = 'deeper'
-        res.fxVars = { n: ab.depth, max: K.depth }
+        res.fxVars = { n: ab.depth, max: k.depth }
       }
     } else {
       ab.lull++
-      if (ab.lull >= K.need) {
-        res.dmg += K.lull
+      if (ab.lull >= k.need) {
+        res.dmg += k.lull
         ab.asleep = true
         ab.depth = 1
         ab.lull = 0
@@ -47,18 +50,22 @@ export default {
     }
   },
   // Only when THIS answer triggers something: a Nightmare, or the Lullaby's last note.
-  hint: (s, q) => {
+  hint: (s, q, mode, ctx) => {
     if (!normal(q)) return null
-    if (s.ab.asleep && s.ab.depth >= K.depth) return { icon: '😱', key: 'lg_hint_sleep', vars: { n: K.nightmare } }
-    if (!s.ab.asleep && s.ab.lull === K.need - 1) return { icon: '🎵', key: 'lg_hint_sleepLull', vars: { n: K.lull } }
+    const k = tuned(K, ctx)
+    if (s.ab.asleep && s.ab.depth >= k.depth) return { icon: '😱', key: 'lg_hint_sleep', vars: { n: k.nightmare } }
+    if (!s.ab.asleep && s.ab.lull === k.need - 1) return { icon: '🎵', key: 'lg_hint_sleepLull', vars: { n: k.lull } }
     return null
   },
   // Item 0: asleep or awake. Item 1: the dream's depth (asleep) or the lullaby's notes (awake).
-  hud: (s) => (s.ab.asleep
-    ? [{ type: 'chip', icon: '💤', key: 'lg_hud_sleepAsleep', tone: 'purple' },
-      { type: 'pips', n: Math.min(K.depth, s.ab.depth), max: K.depth, icon: '🫧', labelKey: 'lg_hud_sleepDepth', tone: 'purple', ready: s.ab.depth >= K.depth }]
-    : [{ type: 'chip', icon: '👁', key: 'lg_hud_sleepAwake', tone: 'danger' },
-      { type: 'pips', n: Math.min(K.need, s.ab.lull), max: K.need, icon: '🎵', labelKey: 'lg_hud_sleepLull', tone: 'info', ready: s.ab.lull === K.need - 1 }]),
+  hud: (s, ctx) => {
+    const k = tuned(K, ctx)
+    return s.ab.asleep
+      ? [{ type: 'chip', icon: '💤', key: 'lg_hud_sleepAsleep', tone: 'purple' },
+        { type: 'pips', n: Math.min(k.depth, s.ab.depth), max: k.depth, icon: '🫧', labelKey: 'lg_hud_sleepDepth', tone: 'purple', ready: s.ab.depth >= k.depth }]
+      : [{ type: 'chip', icon: '👁', key: 'lg_hud_sleepAwake', tone: 'danger' },
+        { type: 'pips', n: Math.min(k.need, s.ab.lull), max: k.need, icon: '🎵', labelKey: 'lg_hud_sleepLull', tone: 'info', ready: s.ab.lull === k.need - 1 }]
+  },
   // Eyes shut (asleep) or open (awake): lg-ab-asleep-1 / lg-ab-asleep-0 layers per phase (a later art pass).
   artState: (s) => ({ 'data-ab-asleep': s.ab.asleep ? 1 : 0 }),
   // The slow sleep drift while it sleeps (.lgr-dreamer-idle-asleep in fx/dreamer.jsx).

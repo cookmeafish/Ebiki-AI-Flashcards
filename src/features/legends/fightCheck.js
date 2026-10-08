@@ -70,3 +70,15 @@ export function learnItemFor(found, q, { noteKey = 'noteId', fallback = null } =
   if (fallback) return { front: fallback.front, back: fallback.back }
   return { front: q?.prompt || '', back: expectedOf(q) }
 }
+
+// THE PINNED ARENA on a short or zoomed screen (owner: at zoom 2 the arena, taunt and notice covered two thirds of the
+// screen above the feedback). The arena pins while it uses at most `max` of the scroll box's height (MapView's header
+// rule); the taunt bubble and the re-check notice pin with it only while all of it fits, else they scroll with the
+// question. An arena too tall on its own scrolls too. 'all' | 'arena' | 'none'.
+export const ARENA_PIN_MAX = 0.4
+export function arenaPinMode(arenaH, extrasH, boxH, max = ARENA_PIN_MAX) {
+  if (!(boxH > 0)) return 'all' // not measured yet
+  const room = boxH * max
+  if (arenaH + (extrasH || 0) <= room) return 'all'
+  return arenaH <= room ? 'arena' : 'none'
+}

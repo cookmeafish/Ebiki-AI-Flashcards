@@ -721,7 +721,7 @@ Shared by `/api/modes` and the knowledge endpoints; the POST removes folders the
   `.disabled` copy; a case-different old copy is removed only if another inode. Settings > Knowledge open:
   `handleDrop` → `handleKnowledgeDrop`. UTF-16 decoded by BOM.
 - **App-wide**: `modeKnowledge` + `knowledgeBlock(cap)` feed Chat, `generateCards`, `evaluateCardAnswers`, Discover,
-  Help (12k), Picture explain (4k); `KNOWLEDGE_CAP` 60,000 chars. An `activeModeId` change clears it at once. GET
+  Help (6k, `HELP_KNOWLEDGE_CAP`), Picture explain (4k); `KNOWLEDGE_CAP` 60,000 chars. An `activeModeId` change clears it at once. GET
   skips ENOENT mid-read, else 500; the client keeps its copy on non-OK.
 - **Big KBs: TOC-guided retrieval.** Above the cap the server builds an `outline` (markdown headings, "Chapter N",
   "1.2 Title", or a file named like a TOC: `toc.txt`, "table of contents.md"); sections via
@@ -902,7 +902,7 @@ Shared by `/api/modes` and the knowledge endpoints; the POST removes folders the
   `resetPinBusy()`**; word actions clear their busy flag only while their pin is current. Overlay auto-analyze timers
   are gated on `scanGenRef`; `overlay-reset` clears `window.__autoAnalyze`. Progress text (`pic_prog*`) goes through
   `tLiveRef` (memoized callbacks hold an old `t`). "Add to Anki" and Refine use the open EDITOR's text.
-- **OCR input is opaque**: `preprocessForOCR` paints white + alpha 255 (transparent read as black and was inverted)
+- **OCR input is opaque**: `preprocessForOCR` (`src/utils/ocr.js`, tested, with `tidyOcrWords`) paints a black or white backdrop picked from the content + alpha 255 (transparent read as black; white text on white vanished)
   and resolves the ORIGINAL when the canvas can't be read (else it hung). The clean fast path needs few words under
   70% confidence (else they were silently dropped).
 - **Tesseract fallback translation** checks `stale()` around every chunk; `imageLoadSeqRef` = newest picture wins; a
@@ -1416,7 +1416,12 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   (`nextRaidCards`: one per note, the run size per batch, never a note raided today, `day.asked`), one dual question
   per card (`buildRaidPrompt`), THREE phases.
   - **Each boss has a crafted PROFILE** (`raidProfiles.js`: `hp`, player `hearts`, flat daily `heal`;
-    `bossHp`/`bossHearts`/`bossHeal` in raid.js), never health from the cards due. **Fairness is the owner's rule**: a
+    `bossHp`/`bossHearts`/`bossHeal` in raid.js), never health from the cards due. **No per-boss number lives anywhere
+    else**: `raidProfile(motif, variant)` is the ONE resolver ({hp, hearts, heal, rules, k}: defaults → boss entry →
+    `RAID_VARIANTS[variant]` → the boss's own `variants`; a layer value sets, `{mul}` or `{add}`). The fight carries
+    it (`fight.tune`, `tuneFight`); the engine reads `rulesOf(fight)` (`FIGHT_RULES`, abilities/_rules.js) and hooks
+    read `tuned(K, ctx)`, never the module K (`tuning.test.js`). A siege may store `variant` (absent = normal);
+    `nightmare` is an unwired example. **Fairness is the owner's rule**: a
     bigger boss gets more hearts or an ability that protects the player; no boss needs near-perfect play.
     `profiles.test.js` simulates every boss with its own ability (65% beats each in a handful of runs, 60% beats all,
     later bosses take longer; `PROFILES=1` prints the table). Tune there, never by feel.
@@ -2145,10 +2150,13 @@ Excludes anything revealing the answer (fuzzy `hintRevealsAnswer`); `glossesNeed
   plus every unpriced or user-priced row (`rowsToShow`).
 
 ## Testing (two halves; `npm test` is only the first)
+- **Browser automation must use Playwright's bundled Chromium. Never set executablePath to the installed Chrome/Edge;
+  it causes Windows account lockouts on this machine** (failed logons, event 4625, from chrome.exe). Applies to
+  `drive.mjs`, `check-art.mjs` and every agent or scratch script.
 - `npm test` (vitest) covers pure modules and engines (`*.test.js` across `src/`). Nothing about layout or click
   paths.
 - **run-ebiki skill** (`.claude/skills/run-ebiki/`, committed tooling, never bundled): `npm run dev`, then
-  `npm run drive` (headless Chrome/Chromium/Edge; screenshots + console errors; no AI calls). `--studio "brief"`
+  `npm run drive` (Playwright's bundled headless Chromium; screenshots + console errors; no AI calls). `--studio "brief"`
   exercises Ebi Studio and **spends API credits**. Details and traps: its SKILL.md.
 - Verify UI changes THERE, not by reading JSX: the body zoom breaks `position: fixed` boxes, and only measuring
   catches it (`panelBox()` in `drive.mjs`).

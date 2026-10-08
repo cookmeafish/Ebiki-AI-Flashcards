@@ -10,7 +10,7 @@ import { BossArt, LegendsArt, headroomPx, useArtMotionAlways, useArtStill, reduc
 import { useFeatureCtx } from '../registry'
 import { LEGENDS_ID } from './store'
 import { AbilityFx } from './AbilityFx'
-import { newFight, healthLeft, livesLeft, phaseOf, abilityState } from './fight'
+import { newFight, healthLeft, livesLeft, phaseOf, abilityState, abilityK, rulesOf } from './fight'
 import { abilityById, ABILITY_BY_ID } from './abilities'
 import { abilityCss, floaterKeyFor, floaterToneFor, fxForAbility, juiceFor } from './fx'
 import { JUICE, JUICE_CSS, FLOATER_FILL, FLOATER_OUTLINE, juiceOf, floaterPxFor } from './fx/_juice'
@@ -548,7 +548,7 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
   // The raid ability (abilities/<motif>.js): its visible state, health-bar marks, art state and the effect playing.
   // `st.damage` here is what the bar shows (a raid's whole day), so ctx.bar starts at 0.
   const abMod = abilityById(ability)
-  const abCtx = { phase, need, lives, livesLeft: left, damage: st.damage, bar: { total: need, before: 0, phases }, dayAb, K: abMod?.K || {} }
+  const abCtx = { phase, need, lives, livesLeft: left, damage: st.damage, bar: { total: need, before: 0, phases }, dayAb, K: abilityK(abMod, st), rules: rulesOf(st) }
   const abS = abMod ? { ...st, ab: abilityState(st, abMod, abCtx) } : st
   const abHud = (!down && abMod?.hud?.(abS, abCtx)) || null
   const abMarks = (!down && abMod?.barMarks?.(abS, abCtx)) || null

@@ -44,8 +44,9 @@ npm run drive -- --shots ./out --url http://localhost:3000/
 ```
 
 Works on a fresh clone: `drive.mjs` installs `playwright-core` into `~/.ebiki-drive` on first run (outside the
-repo, so `package.json` is untouched) and drives the machine's Chrome, Chromium or Edge; nothing else is
-downloaded. Override with `CHROME_BIN` / `EBIKI_DRIVE_DEPS` for unusual locations.
+repo, so `package.json` is untouched) plus Playwright's bundled Chromium, and drives ONLY that bundled browser.
+**Never launch the installed Chrome or Edge (`executablePath`, `channel`, `CHROME_BIN`)**: on the owner's Windows
+machine it logged failed logons (event 4625) and locked their account. `EBIKI_DRIVE_DEPS` overrides the folder.
 
 Screenshots go to `<os temp>/ebiki-drive-shots/` by default (`--shots` or `SHOTS` overrides; `--url` or `APP_URL`
 for another host); each path is printed. **Look at them**: a blank frame means the app never loaded. Console errors

@@ -13,6 +13,8 @@ import { learnerLine } from '../kit/learner'
 export const HELP_MAX = 5000
 const BACK_MAX = 90
 const LIVE_VIEWS = new Set(['node', 'raid', 'placement'])
+const OFF_SCREEN_NEAR = 2 // when the map is not shown: areas this close to the current one keep their full line
+const MAP_VIEWS = new Set(['map', 'edit', 'result', 'intro', 'placed'])
 
 // The screen's live state (LegendsScreen sets it; HelpBridge listens). Not React state: Help reads it on any screen.
 let live = { view: 'map' }
@@ -81,7 +83,19 @@ export function buildLegendsHelpText({ map: rawMap, learner, raid, live: lv = { 
     const days = Object.entries(map.days || {}).sort(([a], [b]) => (a < b ? 1 : -1)).slice(0, 7)
     if (days.length) out.push(`Recent Legends days (steps finished): ${days.map(([d, n]) => `${d}: ${n}`).join(', ')}.`)
     out.push('Areas (bottom of the map first):')
-    list(map.areas).slice(0, 24).forEach((a, i) => out.push(areaLine(a, i, a === cur)))
+    const areas = list(map.areas).slice(0, 24)
+    // Every area in full only while the MAP itself is shown. Off the Legends screen (background for Help, the learner
+    // context) and while a step, a raid or the exam covers the map: the areas around the current one in full, the
+    // others by title only (24 full lines cost ~1200 tokens on every message).
+    const mapShown = onLegends && MAP_VIEWS.has(lv.view || 'map')
+    const at = cur ? areas.indexOf(cur) : areas.length - 1 // a finished map: the last areas
+    const near = (i) => mapShown || Math.abs(i - at) <= OFF_SCREEN_NEAR
+    const before = areas.map((a, i) => ({ a, i })).filter(({ i }) => !near(i) && i < at)
+    const after = areas.map((a, i) => ({ a, i })).filter(({ i }) => !near(i) && i > at)
+    const titles = (xs) => xs.map(({ a, i }) => `${i + 1}. "${short(a.title, 40)}"`).join(', ')
+    if (before.length) out.push(`Earlier areas (${before.length}, ${before.filter(({ a }) => a.status === 'done').length} cleared): ${titles(before)}.`)
+    areas.forEach((a, i) => { if (near(i)) out.push(areaLine(a, i, a === cur)) })
+    if (after.length) out.push(`Later areas (${after.length}, ${after.filter(({ a }) => a.status === 'done').length} cleared): ${titles(after)}.`)
     // The current area in detail: its levels and what they teach (fronts always; backs only when nothing is running).
     if (cur?.detailed && onLegends) {
       out.push(`Current area "${cur.title}" levels:`)
@@ -113,7 +127,7 @@ export function buildLegendsHelpText({ map: rawMap, learner, raid, live: lv = { 
     // The siege brought forward to today (hearts back, the daily heal): wounds and hearts carry over between days.
     const g = siegeOf(r) ? (today ? raidToday(r, today, 0).siege : siegeOf(r)) : null
     const runs = r.day && (!today || r.day.date === today) && !r.day.won ? r.day.attempts : 0
-    out.push(`Daily raid (due Anki cards as a boss fight; each card's first answer is a real review; a siege: each boss has its own health and hearts; wounds carry over, each new day the hearts are full again and the boss heals ${raidProfile(motif).heal}): the boss now is the ${motif} (ability: ${RAID_ABILITY[motif]})${g ? `, health ${Math.max(0, g.hp - g.damage)}/${g.hp}, hearts ${g.hearts}/${Math.max(g.hearts, raidProfile(motif).hearts)}, ${runs} run(s) today` : ', not come out yet'}; ${r.trophies.length} raid trophies won; ${bossesBeaten(r)} different raid bosses beaten; powers unlocked (the player brings up to 3 into each fight, each works once per fight): ${unlockedPowers(bossesBeaten(r)).join(', ') || 'none yet'}${nextUnlock(bossesBeaten(r)) ? `; next unlock: ${nextUnlock(bossesBeaten(r)).id} at ${nextUnlock(bossesBeaten(r)).beaten} different bosses` : ''}.`)
+    out.push(`Daily raid (due Anki cards as a boss fight; each card's first answer is a real review; a siege: each boss has its own health and hearts; wounds carry over, each new day the hearts are full again and the boss heals ${raidProfile(motif, g?.variant).heal}): the boss now is the ${motif} (ability: ${RAID_ABILITY[motif]})${g ? `, health ${Math.max(0, g.hp - g.damage)}/${g.hp}, hearts ${g.hearts}/${Math.max(g.hearts, raidProfile(motif, g?.variant).hearts)}, ${runs} run(s) today` : ', not come out yet'}; ${r.trophies.length} raid trophies won; ${bossesBeaten(r)} different raid bosses beaten; powers unlocked (the player brings up to 3 into each fight, each works once per fight): ${unlockedPowers(bossesBeaten(r)).join(', ') || 'none yet'}${nextUnlock(bossesBeaten(r)) ? `; next unlock: ${nextUnlock(bossesBeaten(r)).id} at ${nextUnlock(bossesBeaten(r)).beaten} different bosses` : ''}.`)
   }
   // What is on the Legends screen right now.
   const where = {

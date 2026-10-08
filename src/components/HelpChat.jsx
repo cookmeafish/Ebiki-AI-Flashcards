@@ -27,6 +27,43 @@ export function screenWhere(featureContext, tab) {
   return on[0] ? String(on[0].where) : ''
 }
 
+// SIZE: this prompt goes out with EVERY Help message, so each block has a share (characters). What is on screen keeps
+// its whole entry; the rest is background, cut on a line break with "…" (never dropped: Ebi still knows it exists).
+// helpPromptBudget.test.js builds every screen for a heavy learner and fails over HELP_PROMPT_BUDGET.
+export const HELP_PROMPT_BUDGET = 32000 // about 8000 tokens
+export const HELP_KNOWLEDGE_CAP = 6000 // App's knowledgeRaw(cap) for Help; replies are 2 to 3 sentences
+export const HELP_SHARE = {
+  background: 4000, // one feature entry of ANOTHER screen (the Legends map off Legends, an activity left open...)
+  appWide: 6000, // an entry for no screen (the raid catalog, the game): its producer sizes it per screen
+  chatMsgsOff: 3, // Chat tab messages off the Chat screen...
+  chatMsgOff: 150, // ... and characters of each
+  decks: 900, // the Anki deck names
+  reviewOnStudy: 3000, // what this session got wrong, on the Study screen
+  review: 1500, // ... on any other screen
+  insights: 500,
+}
+// Text cut to n characters on a line break when one is near, marked with "…" (the start is kept).
+export function clipHelp(text, n) {
+  const t = String(text ?? '')
+  if (t.length <= n) return t
+  const head = t.slice(0, Math.max(0, n - 1))
+  const nl = head.lastIndexOf('\n')
+  return `${nl > n * 0.6 ? head.slice(0, nl) : head}…`
+}
+// Rows kept from the END (the newest) until n characters are used; "(N earlier left out)" says what was cut.
+function newestRows(rows, n) {
+  const out = []
+  let used = 0
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const r = rows[i].length > n ? clipHelp(rows[i], n) : rows[i]
+    if (out.length && used + r.length + 1 > n) break
+    out.unshift(r)
+    used += r.length + 1
+  }
+  const left = rows.length - out.length
+  return left ? [`(${left} earlier left out)`, ...out] : out
+}
+
 export function buildSystemPrompt(appContext) {
   if (!appContext) return HELP_BASE
   const parts = [HELP_BASE, '\n--- CURRENT APP STATE ---']
@@ -61,14 +98,22 @@ export function buildSystemPrompt(appContext) {
   // The shared learner context (App builds it with the secrecy guards; a function, so it is built only here). A failure
   // never costs the prompt.
   let learnerCtx = ''
-  try { learnerCtx = typeof appContext.learnerContext === 'function' ? appContext.learnerContext() : String(appContext.learnerContext || '') } catch { learnerCtx = '' }
+  // Feature sections the prompt already carries as their own entries are left out of it (Legends twice).
+  const featureIds = (appContext.featureContext || []).filter((f) => f?.text).map((f) => f.id)
+  try { learnerCtx = typeof appContext.learnerContext === 'function' ? appContext.learnerContext({ omitExtra: featureIds }) : String(appContext.learnerContext || '') } catch { learnerCtx = '' }
   if (learnerCtx) parts.push(`\n${learnerCtx}`)
   if (appContext.chatSettings && Object.values(appContext.chatSettings).some(Boolean)) {
     const c = appContext.chatSettings
     parts.push(`Chat tab settings for this mode: ${[c.focus && c.focus !== 'free' && `focus ${c.focus}`, c.level && `level ${c.level}`, c.explain && c.explain !== 'auto' && `explains in ${c.explain}`, c.attachedDeck && `deck attached: ${c.attachedDeck}`].filter(Boolean).join(', ') || 'defaults'}`)
   }
   parts.push(`Anki connected: ${appContext.ankiConnected ? 'yes' : 'no'}`)
-  if (appContext.ankiDecks?.length) parts.push(`Available Anki decks: ${appContext.ankiDecks.join(', ')}`)
+  if (appContext.ankiDecks?.length) {
+    const names = []
+    let used = 0
+    for (const d of appContext.ankiDecks) { if (used + String(d).length + 2 > HELP_SHARE.decks) break; names.push(d); used += String(d).length + 2 }
+    const more = appContext.ankiDecks.length - names.length
+    parts.push(`Available Anki decks (${appContext.ankiDecks.length}): ${names.join(', ')}${more ? `, and ${more} more` : ''}`)
+  }
 
   // --- PICTURE screen ---
   if (tab === 'picture') {
@@ -96,7 +141,7 @@ export function buildSystemPrompt(appContext) {
     const here = f.screen && f.screen === tab
     parts.push(here
       ? `\nON SCREEN NOW (${f.id}): what the user sees and does here. Answer questions about this screen from it. If a question or fight is running, do NOT give its answer unless they explicitly ask for it; guide them instead:\n${f.text}`
-      : `\nBACKGROUND, ${f.id} (not on screen; what the learner has done there, use it when they ask about their progress or this part of the app):\n${f.text}`)
+      : `\nBACKGROUND, ${f.id} (not on screen; what the learner has done there, use it when they ask about their progress or this part of the app):\n${clipHelp(f.text, f.screen ? HELP_SHARE.background : HELP_SHARE.appWide)}`)
   }
 
   // --- STATS screen ---
@@ -168,8 +213,10 @@ export function buildSystemPrompt(appContext) {
     const r = appContext.studyReview
     const counts = Object.entries(r.counts || {}).map(([k, n]) => `${k} ${n}`).join(', ')
     parts.push(`\nTHIS STUDY SESSION SO FAR (finished cards; ${counts}).`)
-    if (r.wrong?.length) parts.push(`Questions answered WRONG (finished cards, safe to discuss):\n${r.wrong.map((c) => `- "${c.front}" (${c.rating}): ${c.wrong.map((w) => `asked "${w.q}", answered "${w.answer || '(skipped)'}"${w.expected ? `, expected "${w.expected}"` : ''}${w.note ? ` [${w.note}]` : ''}`).join('; ')}`).join('\n')}`)
-    if (r.insights) parts.push(`Session insights shown to the user: ${r.insights}`)
+    // The newest cards survive a cut: "what did I just get wrong?" (more detail on Study, a shorter list elsewhere).
+    const rows = (r.wrong || []).map((c) => `- "${c.front}" (${c.rating}): ${c.wrong.map((w) => `asked "${w.q}", answered "${w.answer || '(skipped)'}"${w.expected ? `, expected "${w.expected}"` : ''}${w.note ? ` [${w.note}]` : ''}`).join('; ')}`)
+    if (rows.length) parts.push(`Questions answered WRONG (finished cards, safe to discuss):\n${newestRows(rows, tab === 'study' ? HELP_SHARE.reviewOnStudy : HELP_SHARE.review).join('\n')}`)
+    if (r.insights) parts.push(`Session insights shown to the user: ${clipHelp(r.insights, HELP_SHARE.insights)}`)
   }
   const prefs = appContext.questionPreferences || ss.questionPreferences
   if (prefs?.length) parts.push(`Saved question-style preferences for this mode:\n${prefs.map((p) => `- ${p}`).join('\n')}`)
@@ -187,15 +234,22 @@ ${appContext.legendsAvailable ? `- If the user asks to change their LEGENDS adve
 - AFTER ANY ACTION: the app automatically appends a verified "Checked by the app" list to your reply that states exactly what was changed and which systems it affects, so the user KNOWS it truly happened. So keep your own confirmation short and natural ("Done!") and NEVER claim you changed something you did not emit an action for. If you only explained something and changed nothing, do not imply anything was saved.`)
 
   if (appContext.chatTabMsgs?.length) {
-    parts.push(`\nRecent Chat tab messages:`)
-    appContext.chatTabMsgs.forEach(m => parts.push(`  [${m.role}]: ${m.content}`))
+    // On the Chat screen they are what is shown; elsewhere the last few, shorter.
+    const msgs = tab === 'chat' ? appContext.chatTabMsgs : appContext.chatTabMsgs.slice(-HELP_SHARE.chatMsgsOff)
+    parts.push(`\nRecent Chat tab messages${tab === 'chat' ? ' (on screen)' : ''}:`)
+    msgs.forEach(m => parts.push(`  [${m.role}]: ${tab === 'chat' ? m.content : clipHelp(m.content, HELP_SHARE.chatMsgOff)}`))
   }
 
+  const closing = '\nUse this context to give informed, specific answers. If the user asks about a word, translation, or card on screen, reference the actual data above.'
   if (appContext.knowledge) {
-    parts.push(`\nKnowledge base for this mode (the user's own reference material: use it when answering subject questions):\n${appContext.knowledge}`)
+    // Last, and it gives way when the rest is big (a long session, a big screen entry).
+    const head = `\nKnowledge base for this mode (the user's own reference material: use it when answering subject questions):\n`
+    const room = HELP_PROMPT_BUDGET - parts.join('\n').length - closing.length - head.length - 2
+    const kb = clipHelp(appContext.knowledge, Math.min(HELP_KNOWLEDGE_CAP, room))
+    if (kb.length > 200) parts.push(`${head}${kb}`)
   }
 
-  parts.push('\nUse this context to give informed, specific answers. If the user asks about a word, translation, or card on screen, reference the actual data above.')
+  parts.push(closing)
   return parts.join('\n')
 }
 

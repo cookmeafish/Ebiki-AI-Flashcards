@@ -160,11 +160,12 @@ export const TRIGGERS = {
 }
 
 // What the bestiary shows for one effect: its two text keys, their vars (from the live K) and whether it is a choice.
-export function triggerOf(motif, fx) {
+// `K` (optional): a resolved K (raidProfiles.js raidProfile(motif, variant).k); default the module's own.
+export function triggerOf(motif, fx, K = null) {
   const entry = TRIGGERS[motif] && TRIGGERS[motif][fx]
   if (!entry) return null
   const mod = ABILITY_BY_MOTIF[motif]
-  return { whenKey: `lg_fxWhen_${motif}_${fx}`, doesKey: `lg_fxDoes_${motif}_${fx}`, vars: entry.vars((mod && mod.K) || {}), choice: !!entry.choice }
+  return { whenKey: `lg_fxWhen_${motif}_${fx}`, doesKey: `lg_fxDoes_${motif}_${fx}`, vars: entry.vars({ ...((mod && mod.K) || {}), ...(K || {}) }), choice: !!entry.choice }
 }
 
 // The bestiary card's "How it works" rows for a raid boss (AssetView.jsx AbilityCard draws them): one per effect the

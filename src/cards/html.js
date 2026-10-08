@@ -49,3 +49,22 @@ export const sanitizeCardHtml = (html) => {
   const s = escapeStrayLt(html)
   try { return (DOMPurify && DOMPurify.isSupported) ? DOMPurify.sanitize(s, { FORBID_TAGS: CARD_FORBID }) : s } catch { return s }
 }
+
+// A card field's HTML made ready to be read as TEXT (rows, Study's front/back, every prompt, the plain-text
+// editor), run before the tags are stripped. Shared decks carry markup whose TEXT is not card text:
+// - <script>/<style>/<template>/<noscript> bodies: never run (the text paths parse inertly) but their source
+//   ("window.x=1", "body{display:none}") showed as the card's answer and went into prompts.
+// - Furigana: <ruby>日本<rt>にほん</rt></ruby> read "日本にほん", a word that does not exist (the Study front, the
+//   tapped term, the question the model wrote). The reading goes in brackets, "日本(にほん)"; <rp> is dropped
+//   (it holds those brackets already for browsers without ruby).
+// - Tables: cells fused ("serpermanentestartemporary"). Cells of a row are joined with " | ", rows end a line.
+// Text only: the result is never rendered as HTML and never written back (a CHANGED field holding any of this
+// is refused by the editor, see hasUnkeepableMarkup in App).
+export const cardHtmlForText = (html) => String(html ?? '')
+  .replace(/<(script|style|template|noscript)\b[^>]*>[\s\S]*?(?:<\/\1\s*>|$)/gi, '')
+  .replace(/<rp\b[^>]*>[\s\S]*?<\/rp\s*>/gi, '')
+  .replace(/<rt\b[^>]*>([\s\S]*?)<\/rt\s*>/gi, (m, r) => (r.trim() ? `(${r.trim()})` : ''))
+  // Inside the cell (text between cells is moved out of the table by the HTML parser).
+  .replace(/<\/(t[dh])\s*>\s*(<t[dh]\b)/gi, ' | </$1>$2')
+  // (A caller may already have turned "</tr>" into a separator: "</td> · <tr>".)
+  .replace(/<\/(t[dh])\s*>((?:\s*<\/tr\s*>)?[^<]*<tr\b)/gi, '\n</$1>$2')

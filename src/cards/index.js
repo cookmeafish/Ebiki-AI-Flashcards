@@ -4,7 +4,7 @@
 import { REQUIRED_METHODS, OPTIONAL_METHODS, missingMethods } from './contract'
 import { ankiBackend } from './anki'
 
-export { sanitizeCardHtml, escapeStrayLt, isHtmlTagName } from './html'
+export { sanitizeCardHtml, escapeStrayLt, isHtmlTagName, cardHtmlForText } from './html'
 export { setTranslator } from './i18n'
 export { oneStepInterval, STORE_DOWN_CODES, CHANGE_MAYBE_APPLIED, isStoreDown } from './contract'
 

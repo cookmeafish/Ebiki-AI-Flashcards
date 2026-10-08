@@ -162,3 +162,14 @@ describe('discoverEvidence', () => {
     expect(discoverEvidence(s, { modeId: 7, deck: 'D' }).chatCount).toBe(null)
   })
 })
+
+describe('omitExtra (a prompt that already has a feature section in full)', () => {
+  const s = buildLearnerSnapshot({ modeId: 7, extra: [{ id: 'legends', title: 'Legends', text: 'map facts' }, { id: 'other', title: 'Other', text: 'other facts' }] })
+  it('leaves those feature sections out and keeps the rest', () => {
+    const all = learnerContextFor(s, 7, 'help')
+    expect(all).toMatch(/LEGENDS:\nmap facts/)
+    const t = learnerContextFor(s, 7, 'help', { omitExtra: ['legends'] })
+    expect(t).not.toMatch(/map facts/)
+    expect(t).toMatch(/other facts/)
+  })
+})

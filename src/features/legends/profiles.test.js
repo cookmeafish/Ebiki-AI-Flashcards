@@ -16,9 +16,9 @@ function runsToBeat(motif, acc, seed) {
   let dmg = 0
   for (let d = 1; d <= MAX_DAYS; d++) {
     if (d > 1) dmg = Math.max(0, dmg - p.heal)
-    const r = simulateRaid(RAID_ABILITY[motif] || '', { n: RUN, answer, press: 'greedy', dayBefore: dmg, dayHp: p.hp, lives: p.hearts })
+    const r = simulateRaid(RAID_ABILITY[motif] || '', { n: RUN, answer, press: 'greedy', dayBefore: dmg, dayHp: p.hp, lives: p.hearts, profile: p })
     const fell = r.state.livesLost >= p.hearts && dmg + r.state.damage < p.hp
-    dmg += fell ? r.state.damage - Math.floor(r.state.damage * RAID.rallyShare) : r.state.damage
+    dmg += fell ? r.state.damage - Math.floor(r.state.damage * p.rules.rallyShare) : r.state.damage
     if (dmg >= p.hp) return d
   }
   return 99
@@ -39,7 +39,7 @@ describe('raid boss profiles', () => {
       expect(p.heal).toBeGreaterThanOrEqual(1)
     }
     expect(MAX_HEARTS).toBe(Math.max(...Object.values(RAID_PROFILES).map((p) => p.hearts)))
-    expect(raidProfile('no-such-boss')).toEqual(DEFAULT_PROFILE)
+    expect(raidProfile('no-such-boss')).toMatchObject(DEFAULT_PROFILE)
   })
   it('a bigger boss comes with more hearts (or is a boss whose ability protects the player)', () => {
     const protects = new Set(['chronos', 'seraph', 'vampire', 'ophanim'])

@@ -346,7 +346,7 @@ function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot, step, setStep, 
   // A demo may also set the ability's state after the moment (`ab`: the hydra shows 5 heads after Grow).
   const demoAb = mine && fxDemoFor(ability, mine.fx)?.ab
   const impactLast = imp && !mine ? { lives: 0, damage: 0, ...imp[2], n: 1000 + impact.n, ...(imp[0] === 'wind' ? { wn: impact.n } : {}) } : null
-  const state = { ...newFight(), ...(demoAb ? { ab: demoAb } : {}), damage, last: fxLast || impactLast || (step ? { kind: 'hit', damage: Math.round(third), lives: 0, n: step } : null) }
+  const state = { ...newFight(raidProfile(motif)), ...(demoAb ? { ab: demoAb } : {}), damage, last: fxLast || impactLast || (step ? { kind: 'hit', damage: Math.round(third), lives: 0, n: step } : null) }
   return (
     <div style={{ display: 'grid', gap: 10 }}>
       {/* Frozen at the top like a spreadsheet's frozen row (the owner): the demo rows below grow long, and scrolling to

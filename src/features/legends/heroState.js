@@ -39,7 +39,7 @@ export function raidHeroState({ stored = null, date, due = null, dueIds = null, 
   // Today as the fight would start it. A boss not out yet takes its health from the due cards, so it waits for the count.
   const today = raidToday(stored, date, counted ? count : 0)
   const day = today.day
-  const prof = raidProfile(motif)
+  const prof = raidProfile(motif, today.siege?.variant)
   const hearts = today.siege ? today.siege.hearts : prof.hearts
   const won = [...(today.trophies || [])].reverse().find((x) => x.date === date)
   const base = {

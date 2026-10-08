@@ -15,11 +15,11 @@ const DEPS = process.env.EBIKI_DRIVE_DEPS || path.join(os.homedir(), '.ebiki-dri
 const pw = path.join(DEPS, 'node_modules', 'playwright-core', 'index.mjs')
 if (!fs.existsSync(pw)) { console.error('playwright-core is missing: run `npm run drive` once to install it.'); process.exit(2) }
 const { chromium } = await import(pathToFileURL(pw).href)
-const CHROME = [process.env.CHROME_BIN, `${process.env.LOCALAPPDATA}\\Google\\Chrome\\Application\\chrome.exe`, 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe', '/usr/bin/google-chrome', '/usr/bin/chromium', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'].find((p) => p && fs.existsSync(p))
+// Playwright's bundled Chromium only (npm run drive installs it): the installed Chrome locked the owner's Windows account.
 const URL = process.env.EBIKI_URL || 'http://localhost:3000/dev/legends-gallery/'
 const HEADROOM = 0.2   // keep equal to art.jsx BOSS_HEADROOM
 const DRIFT = 5        // units a part's centre may travel under an idle scale / skew
-const browser = await chromium.launch({ executablePath: CHROME, headless: true })
+const browser = await chromium.launch({ headless: true }) // never pass executablePath
 const page = await browser.newPage()
 await page.goto(URL, { waitUntil: 'networkidle' })
 const res = await page.evaluate(async ({ HEADROOM, DRIFT }) => {

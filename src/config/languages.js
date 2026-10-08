@@ -67,3 +67,21 @@ export function langFromName(name) {
   for (const [code, names] of LANG_ALIASES) if (names.some((w) => hasWord(n, w))) return opts.find((l) => l.code === code) || null
   return null
 }
+
+// What a LANGS label is called in the app language, for SHOWING it only: the stored value stays the English label
+// (prompts, OCR and saved settings read it). A Spanish screen listed "Spanish, French..." and said "Igual que
+// Spanish". Only an exact label is renamed (a free-text name like "Spanish for travel" or "Cantonese" is shown as
+// written); English, an unknown language or a runtime without Intl.DisplayNames keeps the label.
+const LANG_BCP47 = { spa: 'es', fra: 'fr', deu: 'de', por: 'pt', ita: 'it', jpn: 'ja', kor: 'ko', chi_sim: 'zh-Hans', chi_tra: 'zh-Hant', rus: 'ru', ara: 'ar', hin: 'hi', tha: 'th', vie: 'vi', pol: 'pl', nld: 'nl', eng: 'en' }
+const displayNamesCache = {}
+export function langDisplayName(name, uiLang, { capitalize = false } = {}) {
+  const raw = String(name || '').trim()
+  const l = LANGS.find((x) => x.code !== 'auto' && x.label.toLowerCase() === raw.toLowerCase())
+  if (!l || !uiLang || uiLang === 'en' || !LANG_BCP47[l.code]) return raw
+  try {
+    const dn = displayNamesCache[uiLang] || (displayNamesCache[uiLang] = new Intl.DisplayNames([uiLang], { type: 'language' }))
+    const out = dn.of(LANG_BCP47[l.code])
+    if (!out || out === LANG_BCP47[l.code]) return raw
+    return capitalize ? out.charAt(0).toLocaleUpperCase(uiLang) + out.slice(1) : out
+  } catch { return raw }
+}

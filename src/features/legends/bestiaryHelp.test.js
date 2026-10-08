@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { makeT } from '../../i18n'
-import { raidCatalogText, raidBossFacts, raidProgressText, raidPowersText, bestiaryHelpText, familyOf, CATALOG_MAX, BESTIARY_MAX } from './bestiaryHelp'
+import { raidCatalogText, raidBossFacts, raidProgressText, raidPowersText, bestiaryHelpText, familyOf, CATALOG_MAX, BESTIARY_MAX, CATALOG_COMPACT_MAX, raidCatalogMaxFor } from './bestiaryHelp'
 import { RAID_ORDER, raidBossIndex, raidWhere } from './raid'
 import { legendsWhere } from './helpContext'
 import { screenWhere, buildSystemPrompt } from '../../components/HelpChat'
@@ -148,5 +148,25 @@ describe('raid powers in Help (every screen)', () => {
     const text = raidCatalogText({ t: en, raid: won(['hydra']), today: '2026-10-03', loadout: ['shield'] })
     expect(text).toMatch(/The player's powers: 1 different raid boss\(es\) beaten.*Brought into the next fight.*: Shield\./)
     expect(text.length).toBeLessThanOrEqual(CATALOG_MAX)
+  })
+})
+
+describe('the compact catalog (off the Legends screen and the bestiary)', () => {
+  it('is used everywhere but Legends and the asset view', () => {
+    expect(raidCatalogMaxFor('legends')).toBe(CATALOG_MAX)
+    expect(raidCatalogMaxFor('assets')).toBe(CATALOG_MAX)
+    for (const tab of ['study', 'chat', 'practice', 'stats', '']) expect(raidCatalogMaxFor(tab)).toBe(CATALOG_COMPACT_MAX)
+  })
+  it('names every boss with its ability and family, the current one with its rule, in every language', () => {
+    for (const l of LANGS) {
+      for (const m of RAID_ORDER) {
+        const text = raidCatalogText({ t: makeT(l), raid: raidOn(m), today: '2026-10-03', max: CATALOG_COMPACT_MAX })
+        RAID_ORDER.forEach((_, i) => expect(text, `${l} ${m}`).toContain(`- #${i + 1} `))
+        expect(text).toMatch(/^Current boss: #\d+ /m)
+        expect(text).not.toMatch(/Current boss in full/)
+        expect(text).not.toMatch(/lg_[a-zA-Z]+_/)
+        expect(text.length).toBeLessThan(raidCatalogText({ t: makeT(l), raid: raidOn(m), today: '2026-10-03' }).length)
+      }
+    }
   })
 })

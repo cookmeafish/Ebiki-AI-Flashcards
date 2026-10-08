@@ -19,12 +19,44 @@ export const HINT_MAX_WORDS = 8        // a hint line, in English
 export const TAG_MAX_WORDS = 3         // a per-question tag chip, in English
 export const IDLE_MOTIFS = ['dreamer'] // the only boss allowed a PERSISTENT idle reaction (idle())
 
+// THE FIGHT RULES as one object: the defaults every fight starts from (the constants above are these numbers). A raid
+// fight carries its RESOLVED rules (raidProfiles.js raidProfile(motif, variant): defaults, the boss's own, a variant
+// such as nightmare) as `fight.tune.rules`; the engine reads rulesOf(fight), so a Legends boss (no tune) keeps these.
+//   damage       what each kind of strike deals (clean, glancing, choice, weak bonus, crit bonus, attack counter)
+//   missLives    lives a missed question costs; attackLives: lives a missed ATTACK costs (an ability may change it)
+//   comboEvery   every Nth clean strike in a row is a critical; maxAttacks: attacks one fight can throw
+//   attackGap    questions between a miss and its returning attack; rageAt: health share where a Legends boss enrages
+//   weakToMax    items a Legends boss is weak to; maxInserted: ability-inserted questions per raid attempt
+//   phases       a raid boss's phases; rallyShare: share of a lost run's damage a raid boss heals back (raid.js)
+export const FIGHT_RULES = Object.freeze({
+  damage: Object.freeze({ ...DAMAGE }), missLives: MISS_LIVES, attackLives: ATTACK_LIVES, comboEvery: COMBO_EVERY,
+  maxAttacks: MAX_ATTACKS, attackGap: ATTACK_GAP, rageAt: RAGE_AT, weakToMax: WEAK_TO_MAX, maxInserted: MAX_INSERTED,
+  phases: 3, rallyShare: 0.5,
+})
+// The rules a fight runs on: its resolved `tune.rules` over the defaults (a partial override keeps the rest).
+export function rulesOf(state) {
+  const r = state && state.tune && state.tune.rules
+  if (!r) return FIGHT_RULES
+  return { ...FIGHT_RULES, ...r, damage: { ...FIGHT_RULES.damage, ...(r.damage || {}) } }
+}
+// An ability module's RESOLVED tuning for a fight: its own K (the defaults, the header spec) under the profile's `k`
+// carried on the fight (`tune.k`, only when it was resolved for this ability). Hooks get it as ctx.K.
+export function abilityK(mod, state) {
+  if (!mod) return {}
+  const t = state && state.tune
+  const k = t && t.k && (!t.ability || t.ability === mod.id) ? t.k : null
+  return k ? { ...(mod.K || {}), ...k } : mod.K || {}
+}
+// Inside a module's hook: the tuning to use. `ctx.K` (the resolved K the engine hands every hook) over the module's own
+// K (a test or caller passing no ctx gets the defaults). Hooks NEVER read the module's K directly (tuning.test.js).
+export const tuned = (K, ctx) => (ctx && ctx.K && ctx.K !== K ? { ...K, ...ctx.K } : K)
+
 // Phase of a fight from the health left: a boss has 2 (rage at RAGE_AT), a raid boss 3 (at two thirds, one third).
-export function phaseOf(hpLeft, need, phases = 2) {
+export function phaseOf(hpLeft, need, phases = 2, rageAt = RAGE_AT) {
   if (need <= 0) return 1
   const share = hpLeft / need
   if (phases >= 3) return share <= 1 / 3 ? 3 : share <= 2 / 3 ? 2 : 1
-  return share <= RAGE_AT ? 2 : 1
+  return share <= rageAt ? 2 : 1
 }
 
 // The phase of a raid on its whole-day bar: `bar` = { total: the day's health, before: the damage earlier attempts

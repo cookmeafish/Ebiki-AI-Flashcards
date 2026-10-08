@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { flattenConfig, diffConfig, mergeConfigPatch } from './configDiff'
+import { flattenConfig, diffConfig, mergeConfigPatch, lostConfigPatch } from './configDiff'
 
 const post = (sentObj, mine) => diffConfig(flattenConfig(sentObj), flattenConfig(mine), mine)
 
@@ -74,5 +74,37 @@ describe('feature settings (config.json features[id]) are merged per entry', () 
     expect(disk1.modelAvailability).toEqual({ openai: 'x' })
     const disk2 = mergeConfigPatch({ modelAvailability: { openai: 'x' } }, post({ modelAvailability: { openai: 'x' } }, { modelAvailability: { openai: { chat: 'a' } } }).body)
     expect(disk2.modelAvailability).toEqual({ openai: { chat: 'a' } })
+  })
+})
+
+describe('lostConfigPatch (two computers saving in the same instant)', () => {
+  it('re-applies a change the other computer wrote over', () => {
+    const before = { theme: 'light', aiModels: { anthropic: { chat: 'x' } } }
+    const after = mergeConfigPatch(before, { theme: 'dark', aiModels: { anthropic: { deck: 'd' } } })
+    const now = mergeConfigPatch(before, { appLanguage: 'es' }) // the other side merged into the OLD copy
+    const again = lostConfigPatch(before, after, now)
+    expect(again).toEqual({ theme: 'dark', aiModels: { anthropic: { deck: 'd' } } })
+    expect(mergeConfigPatch(now, again)).toEqual({ theme: 'dark', appLanguage: 'es', aiModels: { anthropic: { chat: 'x', deck: 'd' } } })
+  })
+
+  it('nothing when the change survived', () => {
+    const before = { theme: 'light' }
+    const after = { theme: 'dark' }
+    expect(lostConfigPatch(before, after, { theme: 'dark', appLanguage: 'es' })).toBe(null)
+  })
+
+  it('never undoes a NEWER value the other computer set for the same entry', () => {
+    const before = { theme: 'light', aiModels: { anthropic: { chat: 'x', deck: 'y' } } }
+    const after = mergeConfigPatch(before, { theme: 'dark', aiModels: { anthropic: { chat: 'mine', deck: 'mine' } } })
+    const now = { theme: 'green', aiModels: { anthropic: { chat: 'theirs', deck: 'y' } } }
+    expect(lostConfigPatch(before, after, now)).toEqual({ aiModels: { anthropic: { deck: 'mine' } } })
+  })
+
+  it('re-removes an entry this write removed and the other write brought back', () => {
+    const before = { aiModels: { anthropic: { chat: 'x', deck: 'y' } } }
+    const after = mergeConfigPatch(before, { __unset: [['aiModels', 'anthropic', 'deck']] })
+    const again = lostConfigPatch(before, after, before)
+    expect(again).toEqual({ __unset: [['aiModels', 'anthropic', 'deck']] })
+    expect(mergeConfigPatch(before, again)).toEqual({ aiModels: { anthropic: { chat: 'x' } } })
   })
 })

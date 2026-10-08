@@ -55,3 +55,26 @@ describe('Legends facts off the Legends screen', () => {
     expect(buildLegendsHelpText({ map, learner, held: true })).not.toMatch(/: one\b/)
   })
 })
+
+describe('a long map when the map is not shown', () => {
+  const area = (i, status) => ({ id: `a${i}`, title: `Area ${i}`, status, detailed: true, nodes: [{ id: `n${i}`, kind: 'learn', status: status === 'done' ? 'done' : 'open' }], items: [] })
+  const big = { areas: Array.from({ length: 20 }, (_, i) => area(i, i < 10 ? 'done' : i === 10 ? 'open' : 'locked')) }
+  it('keeps the areas near the current one in full and names the others', () => {
+    const t = buildLegendsHelpText({ map: big, learner: null, onLegends: false })
+    expect(t).toMatch(/^11\. "Area 10": open, CURRENT/m)
+    expect(t).toMatch(/^9\. "Area 8"/m)
+    expect(t).not.toMatch(/^1\. "Area 0"/m)
+    expect(t).toMatch(/Earlier areas \(8, 8 cleared\): 1\. "Area 0", .*8\. "Area 7"\./)
+    expect(t).toMatch(/Later areas \(7, 0 cleared\): 14\. "Area 13", .*20\. "Area 19"\./)
+  })
+  it('lists every area in full while the map is on screen, and windows it while a raid covers the map', () => {
+    expect(buildLegendsHelpText({ map: big, learner: null })).toMatch(/^1\. "Area 0"/m)
+    expect(buildLegendsHelpText({ map: big, learner: null, live: { view: 'raid' } })).not.toMatch(/^1\. "Area 0"/m)
+  })
+  it('a finished map keeps its last areas in full', () => {
+    const done = { areas: big.areas.map((a) => ({ ...a, status: 'done' })) }
+    const t = buildLegendsHelpText({ map: done, learner: null, onLegends: false })
+    expect(t).toMatch(/^20\. "Area 19"/m)
+    expect(t).toMatch(/Earlier areas \(17, 17 cleared\)/)
+  })
+})

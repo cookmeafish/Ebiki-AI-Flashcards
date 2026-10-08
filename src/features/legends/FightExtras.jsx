@@ -4,17 +4,18 @@
 //                  onOverturn: refund the fight while it runs, fix the Anki grade or the item tally after).
 //   useBossTaunt   a boss line after a miss (kit/taunt.js + kit/tauntStore.js), dropped when a newer question came.
 //   MissTools      the row under a miss: re-check status, Appeal, Learn it, Make a rule card.
+//   useArenaPin    the pinned arena above the questions: its sticky top, and how much of it pins (arenaPinMode).
 //   TauntBubble, FightNotice, Debrief   what the screens draw.
 // Async results land only where they were asked: every answer has its own id (aid), a taunt its question token.
 // The DECISIONS (who is re-checked, when an appeal may start, which rows the debrief lists, how a question resolves)
 // and the on/off switch of every piece (FIGHT_EXTRAS) live in fightCheck.js (pure, tested); this file draws them.
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { ChunkyButton, Card } from '../ui'
 import { recheckStrike, RuleCardButton } from '../kit'
 import { fetchTaunt } from '../kit/tauntStore'
 import { useHelpEntry } from '../kit/useHelp'
-import { FIGHT_EXTRAS, isWrongish, expectedOf, needsRecheck, appealOffered, debriefEntries, resolveFightQuestion, missRowParts } from './fightCheck'
+import { FIGHT_EXTRAS, isWrongish, expectedOf, needsRecheck, appealOffered, debriefEntries, resolveFightQuestion, missRowParts, arenaPinMode } from './fightCheck'
 import { imeActive } from '../../utils/keys'
 
 export { isWrongish, expectedOf } // older imports of these from here keep working
@@ -177,6 +178,42 @@ export function useFightWords(ctx) {
 }
 
 // The boss's speech bubble, right under the arena, its tail pointing up at the boss. With `ctx`, its words are tappable.
+// The arena sticks to the top of the screen's scroll box while the questions scroll. Sticky rests BELOW that box's top
+// padding (the questions scrolled through the gap above it): `top` pulls it up by exactly that padding. `mode`
+// (arenaPinMode): 'all' pins arena + extras (taunt, notice), 'arena' leaves the extras to scroll below it, 'none' pins
+// nothing (a short or zoomed screen). pinRef = the sticky box, extrasRef = the extras' box (inside it for 'all' and
+// 'none', right after it for 'arena'). Re-measured on every resize of the screen, the arena or the extras.
+const scrollBoxOf = (el) => { let p = el?.parentElement; while (p && !/(auto|scroll)/.test(getComputedStyle(p).overflowY)) p = p.parentElement; return p }
+export function useArenaPin(pinRef, extrasRef, on = true) {
+  const [top, setTop] = useState(0)
+  const [mode, setMode] = useState('all')
+  // Subscribed to the elements on screen NOW: the arena mounts after the intro, the extras move with the mode.
+  const sub = useRef({ pin: null, ex: null, ro: null })
+  useLayoutEffect(() => {
+    const pin = on ? pinRef.current : null
+    const ex = on ? extrasRef.current : null
+    const cur = sub.current
+    if (cur.pin === pin && cur.ex === ex) return
+    cur.ro?.disconnect()
+    Object.assign(cur, { pin, ex, ro: null })
+    const box = scrollBoxOf(pin)
+    if (!pin || !box) return
+    setTop(-(parseFloat(getComputedStyle(box).paddingTop) || 0))
+    const fit = () => {
+      const exH = ex?.offsetHeight || 0
+      const arenaH = pin.offsetHeight - (ex && pin.contains(ex) ? exH : 0)
+      setMode(arenaPinMode(arenaH, exH, box.clientHeight))
+    }
+    fit()
+    if (typeof ResizeObserver === 'function') {
+      cur.ro = new ResizeObserver(fit)
+      cur.ro.observe(box); cur.ro.observe(pin); if (ex) cur.ro.observe(ex)
+    }
+  })
+  useEffect(() => () => { sub.current.ro?.disconnect() }, [])
+  return { top, mode, sticky: mode !== 'none' }
+}
+
 export function TauntBubble({ bubble, name, calm, ctx = null }) {
   const w = useFightWords(ctx)
   if (!bubble?.text) return null

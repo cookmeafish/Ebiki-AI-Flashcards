@@ -10,28 +10,30 @@
 //              (actions, info) -> [ids to press / arm]: a custom policy
 //     dayBefore  damage earlier attempts dealt (a wounded boss); dayHp the boss's health (default raidHp(n)); lives
 //              the hearts the run starts with (default RAID.lives)
+//     profile  a resolved raid profile (raidProfiles.js raidProfile(motif, variant)): the fight runs on its rules and
+//              its ability K (fight.js tuneFight). Absent = the defaults.
 //   log: one entry per answer { q, hit, before, after, phaseBefore, phaseAfter }
-import { newFight, act, settleFight, fightOutcome, abilityState, barPhase } from '../fight'
-import { raidStep, raidHp, RAID, raidToday, raidAttemptOutcome, RAID_ROSTER, RAID_ABILITY, siegeOf } from '../raid'
+import { newFight, act, settleFight, fightOutcome, abilityState, barPhase, rulesOf, abilityK } from '../fight'
+import { raidStep, raidHp, RAID, raidToday, raidAttemptOutcome, RAID_ROSTER, RAID_ABILITY, siegeOf, siegeProfile } from '../raid'
 import { abilityById } from './index'
 
 export const SIM_MAX_ASKED = 400
 
 const stamp = (s) => JSON.stringify({ d: s.damage, l: s.livesLost, ab: s.ab || null })
 
-export function simulateRaid(ability, { n = 10, answer = () => ({ verdict: 'clean', mode: 'typed' }), press = 'never', dayBefore = 0, dayHp, lives: livesIn } = {}) {
+export function simulateRaid(ability, { n = 10, answer = () => ({ verdict: 'clean', mode: 'typed' }), press = 'never', dayBefore = 0, dayHp, lives: livesIn, profile = null } = {}) {
   const mod = abilityById(ability)
   const hp = dayHp != null ? dayHp : raidHp(n)
   const need = Math.max(1, hp - dayBefore)
   const lives = livesIn != null ? livesIn : RAID.lives // the siege's carried hearts (siege.test.js)
-  const bar = { total: hp, before: dayBefore, phases: RAID.phases }
+  let s = newFight(profile)
+  const bar = { total: hp, before: dayBefore, phases: rulesOf(s).phases }
   const opts = { ability, need, lives, bar }
   const questions = Array.from({ length: n }, (_, i) => ({ kind: 'typed', prompt: `Card ${i}?`, accepted: [`a${i}`], alt: { choices: [`a${i}`, 'x'], answerIdx: 0 }, target: `card ${i}`, _cardId: 1000 + i }))
   const list = [...questions]
   const pending = []
   const log = []
   const pressed = [] // every button press that changed the fight: { idx, action, fx }
-  let s = newFight()
   const over = () => s.damage >= need || s.livesLost >= lives
   let idx = 0
   for (; idx < list.length && idx < SIM_MAX_ASKED && !over(); idx++) {
@@ -47,7 +49,7 @@ export function simulateRaid(ability, { n = 10, answer = () => ({ verdict: 'clea
     let armed = null
     if (mod && mod.decision && mod.actions && press !== 'never' && normal) {
       for (let guard = 0; guard < 24 && !over(); guard++) {
-        const ctx = { phase: barPhase(bar, s.damage), need, lives, livesLeft: lives - s.livesLost, damage: s.damage, bar, mode, q, armed: armed || {}, K: mod.K || {} }
+        const ctx = { phase: barPhase(bar, s.damage), need, lives, livesLeft: lives - s.livesLost, damage: s.damage, bar, mode, q, armed: armed || {}, K: abilityK(mod, s), rules: rulesOf(s) }
         const acts = (mod.actions({ ...s, ab: abilityState(s, mod, ctx) }, ctx) || []).filter((x) => x && x.enabled !== false)
         const pick = typeof press === 'function' ? press(acts, { idx, phase, state: s, q, mode }) || [] : acts.map((x) => x.id)
         let changed = false
@@ -132,7 +134,7 @@ export function simulateSiege({ days = 10, perDay = 8, firstDay = 0, answer = se
       const dueNow = due // a fresh boss's health comes from the cards due when it comes out
       const today = raidToday(state, date, dueNow)
       const motif = RAID_ROSTER[today.boss]
-      const r = simulateRaid(RAID_ABILITY[motif] || '', { n: due, answer, press, dayBefore: today.day.damage, dayHp: today.day.hp, lives: today.siege.hearts })
+      const r = simulateRaid(RAID_ABILITY[motif] || '', { n: due, answer, press, dayBefore: today.day.damage, dayHp: today.day.hp, lives: today.siege.hearts, profile: siegeProfile(today.siege) })
       const cards = r.log.filter((e) => !e.q._attack && !e.q._inserted && !e.q._lastStand && !e.q._extra).length
       due -= cards
       answered += cards

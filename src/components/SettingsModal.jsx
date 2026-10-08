@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { S } from '../styles/theme'
 import { C, RADIUS, SHADOW, FONT } from '../config/tokens'
-import { LANGS, langFromName, isDistinctSpoken } from '../config/languages'
+import { LANGS, langFromName, isDistinctSpoken, langDisplayName } from '../config/languages'
 import { langInfo } from '../pronunciation/langcodes'
 import { PROVIDERS, keyOfOtherProvider } from '../config/providers'
 import { APP_LANGUAGES, langMeta } from '../i18n'
@@ -699,12 +699,12 @@ export default function SettingsModal(p) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 12, color: C.inkDim }}>{t('source')}</span>
           <select aria-label={t('source')} value={language} onChange={(e) => setLanguage(e.target.value)} style={{ ...S.select, flex: 1, minWidth: 130 }}>
-            {LANGS.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
+            {LANGS.map((l) => <option key={l.code} value={l.code}>{l.code === 'auto' ? t('lang_detect') : langDisplayName(l.label, appLanguage, { capitalize: true })}</option>)}
           </select>
           <span style={{ color: C.brand, fontWeight: 700 }}>→</span>
           <span style={{ fontSize: 12, color: C.inkDim }}>{t('target')}</span>
           <select aria-label={t('target')} value={targetLang} onChange={(e) => setTargetLang(e.target.value)} style={{ ...S.select, flex: 1, minWidth: 130 }}>
-            {LANGS.filter((l) => l.code !== 'auto').map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
+            {LANGS.filter((l) => l.code !== 'auto').map((l) => <option key={l.code} value={l.code}>{langDisplayName(l.label, appLanguage, { capitalize: true })}</option>)}
           </select>
         </div>
         <div style={hint}>{t('translationHint')}</div>
@@ -724,6 +724,12 @@ export default function SettingsModal(p) {
   // Real roles only ('' = back on the default): an older build's retired 'question' key showed "Custom" as the
   // active preset while every role ran the preset's models.
   const hasModelOverrides = !!aiModels[provider] && AI_ROLE_META.some(({ role }) => aiModels[provider][role])
+  // Back to the predetermined models: the overrides go, and so do this provider's typed-id boxes (left open, a
+  // role showed an empty custom box instead of "Provider default (...)").
+  const clearModelOverrides = () => {
+    setAiModels((prev) => { const n = { ...prev }; delete n[provider]; return n })
+    setCustomRoles((c) => Object.fromEntries(Object.entries(c).filter(([k]) => !k.startsWith(`${provider}:`))))
+  }
   const reuse = questionReuse || { enabled: false, maxPerCard: 10 }
   // "Clear saved questions" deck: the user's pick, else the mode's deck, else the first one.
   const clearDeckValue = ankiDecks.includes(clearDeck) ? clearDeck : (ankiDecks.includes(ankiDeck) ? ankiDeck : (ankiDecks[0] || ''))
@@ -798,7 +804,7 @@ export default function SettingsModal(p) {
               const active = activeKey === opt.key
               const onPick = () => {
                 if (opt.key === 'custom') return // custom is entered by editing a per-feature dropdown below
-                setAiModels((prev) => { const n = { ...prev }; delete n[provider]; return n }) // revert to predetermined
+                clearModelOverrides() // revert to predetermined
                 setIntelligence(opt.key)
               }
               return (
@@ -882,7 +888,7 @@ export default function SettingsModal(p) {
                 </button>
               )}
               {aiModels[provider] && Object.values(aiModels[provider]).some(Boolean) && (
-                <button onClick={() => setAiModels((prev) => { const n = { ...prev }; delete n[provider]; return n })} style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 8px' }}>{t('resetToDefaults')}</button>
+                <button onClick={clearModelOverrides} style={{ ...S.ghostBtn, fontSize: 10, padding: '3px 8px' }}>{t('resetToDefaults')}</button>
               )}
             </div>
           </div>
@@ -922,7 +928,7 @@ export default function SettingsModal(p) {
                   </select>
                 )}
                 {isCustom && (
-                  <button onClick={() => { setCustomRoles((c) => ({ ...c, [`${provider}:${role}`]: false })); if (current && !(provModels || []).includes(current)) setRole('') }} style={{ ...S.ghostBtn, fontSize: 9, padding: '3px 7px' }} title={t('useList')}>↩</button>
+                  <button onClick={() => { setCustomRoles((c) => ({ ...c, [`${provider}:${role}`]: false })); if (current && !(provModels || []).includes(current)) setRole('') }} aria-label={t('useList')} className="tip tip-r" data-tip={t('useList')} style={{ ...S.ghostBtn, fontSize: 9, padding: '3px 7px' }}>↩</button>
                 )}
               </div>
             )
@@ -948,6 +954,8 @@ export default function SettingsModal(p) {
   // mode's real language, and "correcting" it switched the mode to English.
   const langOption = (name) => (isDistinctSpoken(name) ? String(name).trim() : langFromName(name)?.label) || String(name || '').trim() || 'English' // Cantonese stays Cantonese
   const learnedLabel = langOption(activeMode.studyRules?.studyLanguage || learnLangDefault)
+  // A label as the app language names it, for showing only (values and prompts keep the English label).
+  const langName = (label, capitalize = false) => langDisplayName(label, appLanguage, { capitalize })
 
   const studyRulesBase = activeMode.studyRules || (isLanguage ? defaultStudyRules : defaultGeneralStudyRules)
   const setStudyRule = (patch) => updateActiveMode({ studyRules: { ...studyRulesBase, ...patch } })
@@ -971,7 +979,7 @@ export default function SettingsModal(p) {
     <select aria-label={label || undefined} value={value} onChange={(e) => onChange(e.target.value)} style={{ ...S.select, width: '100%' }}>
       {value && !LANGS.some((l) => l.label === value) && <option value={value}>{value}</option>}
       {extraFirst}
-      {LANGS.filter((l) => l.code !== 'auto').map((l) => <option key={l.code} value={l.label}>{l.label}</option>)}
+      {LANGS.filter((l) => l.code !== 'auto').map((l) => <option key={l.code} value={l.label}>{langName(l.label, true)}</option>)}
     </select>
   )
   const fieldGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 14 }
@@ -1023,7 +1031,7 @@ export default function SettingsModal(p) {
             {fieldLabel(t('quizIn'))}
             {/* '' = follow the learned language (general modes: the app language). It could not be chosen again once
                 a language was picked, so the mode stayed on that language after the learned one changed. */}
-            {langSelect(activeMode.studyRules?.quizLanguage ? langOption(activeMode.studyRules.quizLanguage) : '', (v) => setStudyRule({ quizLanguage: v }), <option value="">{t('set_quizDefault', { lang: isLanguage ? learnedLabel : appLangLabel })}</option>, t('quizIn'))}
+            {langSelect(activeMode.studyRules?.quizLanguage ? langOption(activeMode.studyRules.quizLanguage) : '', (v) => setStudyRule({ quizLanguage: v }), <option value="">{t('set_quizDefault', { lang: isLanguage ? langName(learnedLabel) : appLangLabel })}</option>, t('quizIn'))}
           </div>
           <div>
             {fieldLabel(t('set_hookLang'))}

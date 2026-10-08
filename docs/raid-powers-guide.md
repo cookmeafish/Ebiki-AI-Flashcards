@@ -11,6 +11,8 @@ its numbers, its art, its animations and its tests. Read it before touching `src
   works once per fight** (a fight = one run; "Continue?" keeps the fight, "Fight again" starts a new one). One power
   per question.
 - **Bosses are balanced WITHOUT powers** (`profiles.test.js`), so a power only ever makes a fight easier.
+- **Fight numbers are variables**: a power reads the fight's resolved rules (`rulesOf(fight)`, from
+  `raidProfile(motif, variant)`), never a literal, so a variant (a nightmare boss) changes the fight under the powers too.
 - **Anki stays honest.** No power turns a wrong answer right, skips a question, reveals the whole answer or raises an
   Anki grade. A power that helps with the QUESTION itself (50:50, Hint) makes that card's review Hard (`aided`).
   Fight-only powers (damage, hearts) leave the grade alone; Focus changes the fight damage, never the verdict.

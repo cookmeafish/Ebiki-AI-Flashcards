@@ -4,6 +4,7 @@ import { TRANSLATE_PROMPT, VISION_OCR_PROMPT, WORDLIST_TRANSLATE_PROMPT, WORD_EN
 import { shapeModeType, shapeTagCategories, shapeChatSuggestions, shapeDiscoverKinds } from './config/modeSpec'
 import { dataUrlToImagePart, downscaleDataUrl, estimateImageNoise } from './utils/image'
 import { snapWordsToBoxes, overlayBoxes, hoverTooltipPos, readingLines } from './utils/ocrBoxes'
+import { preprocessForOCR, filterTessWords, dedupeOcrWords, tidyOcrWords } from './utils/ocr'
 // Media types EVERY provider accepts in an image part (GIF/WebP are re-encoded, see utils/image.js).
 const PORTABLE_IMAGE_TYPES = /^image\/(jpeg|jpg|png)$/i
 import { PROVIDERS, keyOfOtherProvider, setUsageListener } from './config/providers'
@@ -28,7 +29,7 @@ import { FREQ_SCALE, REGISTERS, isUsageTag, isRegionTag, sortTagsUsageFirst, nor
 import FormattedText from './components/FormattedText'
 import Pronunciation from './components/Pronunciation'
 import { langInfo } from './pronunciation/langcodes'
-import HelpChat from './components/HelpChat'
+import HelpChat, { HELP_KNOWLEDGE_CAP } from './components/HelpChat'
 import Markdown, { sanitizeHtml } from './components/Markdown'
 import DiscoverPanel from './components/DiscoverPanel'
 import { lazyComponent } from './features/registry'
@@ -54,8 +55,9 @@ import ModeDeckSwitch from './components/ModeDeckSwitch'
 import { S } from './styles/theme'
 import { ocrLog, ocrLogTable, ocrLogFlush } from './utils/logger'
 import { answerLetterCounts, countAnswerLetters, correctLetterHint } from './utils/studyHints'
-import { srs, hasCapability, activeBackend, sanitizeCardHtml, isHtmlTagName, setTranslator as setCardTranslator, CHANGE_MAYBE_APPLIED } from './cards'
+import { srs, hasCapability, activeBackend, sanitizeCardHtml, isHtmlTagName, cardHtmlForText, setTranslator as setCardTranslator, CHANGE_MAYBE_APPLIED } from './cards'
 import { flattenConfig, diffConfig } from './utils/configDiff'
+import { modePatch } from './utils/modePatch'
 import { readBlob, readBlobChecked, writeBlob, setBlobWritesPaused, storageKey as blobStoreKey, DEFAULT_LEDGER } from './discover/storage'
 import { buildProfilePrompt, buildSuggestionPrompt, buildVerifyPrompt } from './discover/prompts'
 import { mergeLedgers, mergeGrammarLogs } from './discover/merge'
@@ -69,6 +71,7 @@ import { shapeConjugationPool, fallbackConjugationPool } from './utils/conjugati
 import { leakNorm, HANGUL, leakLen, hangulLeak, NO_SPACE_SCRIPT, noSpaceLeak, answerInQuestionText, leakAnswers, questionAnswerLeak, scrubAnswerFromQuestion, hintTokenLeaks, hintRevealsAnswer, scrubHint } from './utils/leak'
 import { CUE_QUOTES_PLAIN, CUE_APOS, letterCueRe, cueFold, cueAnswers, hasLetterCue, letterSkeleton, appendLetterCue, needsLetterCue, blankedSubject } from './utils/letterCue'
 import { cardText } from './utils/cardText'
+import { splitCardLabel } from './utils/cardLabel'
 import { stripAiDashes } from './utils/dashes'
 import { shapeProfile } from './discover/profile'
 import { slipKey as grammarSlipKey } from './discover/merge'
@@ -87,6 +90,10 @@ const APP_LANG_NAME = Object.fromEntries(LANGUAGES.map((l) => [l.code, l.name]))
 // comfortably within every supported provider's context window). The knowledge base flows into
 // study question generation, answer grading, chat, help, card generation and Discover, so the
 // whole app shares the same reference material.
+// Deck tab: rows painted on the first frame of a visit; the rest follow a frame later (see deckRowsAll).
+const DECK_FIRST_ROWS = 100
+// A saved scroll past this needs every row at once (the restore would clamp to the shorter list).
+const DECK_FIRST_ROWS_SCROLL = 2000
 const KNOWLEDGE_CAP = 60000
 
 // Visually hidden but read by screen readers (a usage chip's CSS tooltip is invisible to them).
@@ -117,63 +124,6 @@ const FEEDBACK_CATS = {
 }
 const FEEDBACK_CAT_ORDER = ['praise', 'correction', 'grammar', 'terminology', 'detail', 'tip']
 
-
-// ─── Image Preprocessing for OCR ────────────────────────────────────────────
-// Creates a high-contrast grayscale version optimized for Tesseract
-async function preprocessForOCR(dataUrl) {
-  return new Promise((resolve) => {
-    const img = new Image()
-    img.onload = () => { try {
-      // An image that decodes but can't be read back (a tainted canvas: an SVG with foreignObject; a 0x0 SVG) threw
-      // here and the promise never settled: Picture sat on "Preparing image" forever. OCR the original instead.
-      if (!img.width || !img.height) { resolve(dataUrl); return }
-      const c = document.createElement('canvas')
-      c.width = img.width
-      c.height = img.height
-      const ctx = c.getContext('2d')
-      // White first: a transparent background reads as black (0,0,0,0), exactly like dark text, so the page
-      // counted as "dark", was inverted with its text, and Tesseract found nothing to box.
-      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height)
-      ctx.drawImage(img, 0, 0)
-
-      const imageData = ctx.getImageData(0, 0, c.width, c.height)
-      const d = imageData.data
-      const pixelCount = d.length / 4
-
-      // Step 1: Convert to grayscale
-      for (let i = 0; i < d.length; i += 4) {
-        const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]
-        d[i] = d[i + 1] = d[i + 2] = gray
-        d[i + 3] = 255
-      }
-
-      // Step 2: Detect brightness
-      let totalBrightness = 0
-      for (let i = 0; i < d.length; i += 4) totalBrightness += d[i]
-      const avgBrightness = totalBrightness / pixelCount
-      const isDark = avgBrightness < 128
-
-      // Step 3: Moderate contrast enhancement (1.8x — 2.5 was crushing details)
-      const factor = 1.8
-      for (let i = 0; i < d.length; i += 4) {
-        const val = (d[i] - 128) * factor + 128
-        d[i] = d[i + 1] = d[i + 2] = Math.max(0, Math.min(255, val))
-      }
-
-      // Step 4: If dark background, invert (Tesseract prefers dark text on white)
-      if (isDark) {
-        for (let i = 0; i < d.length; i += 4) {
-          d[i] = d[i + 1] = d[i + 2] = 255 - d[i]
-        }
-      }
-
-      ctx.putImageData(imageData, 0, 0)
-      resolve(c.toDataURL('image/png'))
-    } catch { resolve(dataUrl) } }
-    img.onerror = () => resolve(dataUrl) // undecodable: OCR the original rather than never finishing
-    img.src = dataUrl
-  })
-}
 
 // Salvage every complete top-level {...} object from a (possibly truncated) string,
 // respecting quoted strings/escapes. Lets us recover most rows even when an array was
@@ -327,7 +277,7 @@ const decodeEntities = (s) => {
     return s.replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
   }
 }
-const fieldHtmlToPlain = (v) => decodeEntities(String(v || '')
+const fieldHtmlToPlain = (v) => decodeEntities(cardHtmlForText(String(v || '')) // script bodies, furigana, table cells: see cardHtmlForText
   .replace(/<(div|p)>\s*<br\s*\/?>\s*<\/\1>/gi, '<$1></$1>')
   // Lists and nested blocks ("<ul><li>", "</div></div><div>"): one break per run, not a blank line per tag.
   .replace(/(?:<\/(?:div|p|li|tr|ul|ol)>\s*){2,}/gi, '</div>')
@@ -367,6 +317,8 @@ const hasUnkeepableMarkup = (html) => {
   const h = String(html || '')
   // Sub/superscripts carry MEANING (H2O, mc2): flattened, a typo fix on another line changed the formula.
   if (/<(ruby|svg|math|table|sub|sup)\b/i.test(h)) return true
+  // Shared-deck markup plain text hides (a script, a style block, an embed or player): saved, it was deleted.
+  if (/<(script|style|template|noscript|iframe|object|embed|audio|video)\b/i.test(h)) return true
   // A link (not our audio credit, which keepFieldImages restores): the edit kept its text and lost the address.
   // (The credit as Anki's own editor may rewrite it: "&nbsp;" after the speaker, a trailing <br>.)
   return /<a\b/i.test(h.replace(/<div[^>]*>\u{1F50A}(?:\s|&nbsp;)*<a[^>]*>[^<]*<\/a>(?:<br\s*\/?>)?<\/div>/gu, ''))
@@ -1700,7 +1652,8 @@ export default function App() {
     const updated = base.map((m) => m.id === activeModeIdRef.current ? { ...m, ankiDeck: deck } : m)
     modesRef.current = updated
     setModes(updated)
-    postModes({ modes: updated, activeModeId: activeModeIdRef.current, changedIds: [activeModeIdRef.current] }) // save immediately; only this mode is written
+    // Save immediately; only this mode is written, and only its deck (see updateModeById).
+    postModes({ modes: updated, activeModeId: activeModeIdRef.current, changedIds: [activeModeIdRef.current], patches: { [String(activeModeIdRef.current)]: modePatch(base.find((m) => m.id === activeModeIdRef.current), updated.find((m) => m.id === activeModeIdRef.current)) } })
   }
 
   const fileInputRef = useRef(null)
@@ -3264,87 +3217,12 @@ export default function App() {
         w: w.bbox.x1 - w.bbox.x0, h: w.bbox.y1 - w.bbox.y0,
       })))
 
-      const rawWords = allTessWords
-        .filter((w) => {
-          const t = w.text.trim()
-          if (t.length === 0) return false
-          if (!/\p{L}/u.test(t)) return false // any script: a-z only reported "No readable text" for Russian, Greek, Korean...
-          // Clean text first (strip leading/trailing non-letters) — use cleaned length for thresholds
-          const cleaned = t.replace(/^[^\p{L}]+|[^\p{L}]+$/gu, '') || t
-          const letterCount = (cleaned.match(/\p{L}/gu) || []).length
-          if (letterCount < 2) {
-            if (letterCount === 1 && w.confidence >= 85) return true
-            return false
-          }
-          const minConf = cleaned.length <= 2 ? 65 : cleaned.length <= 3 ? 45 : 35
-          if (w.confidence < minConf) {
-            ocrLog(`[FILTERED conf] "${cleaned}" conf=${Math.round(w.confidence)} < ${minConf}`)
-            return false
-          }
-          const bw = w.bbox.x1 - w.bbox.x0, bh = w.bbox.y1 - w.bbox.y0
-          if (bw > 0 && bh > 0 && (bw / bh > 15 || bh / bw > 5)) {
-            ocrLog(`[FILTERED shape] "${cleaned}" aspect=${(bw/bh).toFixed(1)} (${bw}x${bh})`)
-            return false
-          }
-          if (bw < 10 || bh < 10) {
-            ocrLog(`[FILTERED tiny] "${cleaned}" (${bw}x${bh})`)
-            return false
-          }
-          // Reject oversized bboxes (UI banners, not individual words)
-          const scaledBw = bw * bboxScale, scaledBh = bh * bboxScale
-          if (scaledBw * scaledBh > realW * realH * 0.05) {
-            ocrLog(`[FILTERED huge] "${cleaned}" covers ${((scaledBw*scaledBh)/(realW*realH)*100).toFixed(1)}% of image`)
-            return false
-          }
-          if (scaledBw > realW * 0.4) {
-            ocrLog(`[FILTERED wide] "${cleaned}" width=${Math.round(scaledBw)} > 40% of image`)
-            return false
-          }
-          return true
-        })
-        .map((w) => ({
-          text: w.text.trim().replace(/^[^\p{L}\p{M}]+|[^\p{L}\p{M}]+$/gu, '') || w.text.trim(), // any script: Latin-1 only cut "był" to "by" and kept Cyrillic/CJK punctuation
-          bbox: {
-            x0: Math.round(w.bbox.x0 * bboxScale),
-            y0: Math.round(w.bbox.y0 * bboxScale),
-            x1: Math.round(w.bbox.x1 * bboxScale),
-            y1: Math.round(w.bbox.y1 * bboxScale),
-          },
-          confidence: w.confidence,
-        }))
+      const rawWords = filterTessWords(allTessWords, { realW, realH, bboxScale, log: ocrLog }) // src/utils/ocr.js
 
       ocrLogTable(`After filtering: ${rawWords.length} words`, rawWords.map((w) => ({ text: w.text, conf: Math.round(w.confidence), ...w.bbox })))
 
-      // Deduplicate overlapping bounding boxes (Tesseract can detect the same
-      // text region multiple times). Keep the higher-confidence read.
-      const deduped = []
-      for (const w of rawWords) {
-        const area = (w.bbox.x1 - w.bbox.x0) * (w.bbox.y1 - w.bbox.y0)
-        let dominated = false
-        for (let k = deduped.length - 1; k >= 0; k--) {
-          const d = deduped[k]
-          const ix0 = Math.max(w.bbox.x0, d.bbox.x0)
-          const iy0 = Math.max(w.bbox.y0, d.bbox.y0)
-          const ix1 = Math.min(w.bbox.x1, d.bbox.x1)
-          const iy1 = Math.min(w.bbox.y1, d.bbox.y1)
-          if (ix0 >= ix1 || iy0 >= iy1) continue
-          const inter = (ix1 - ix0) * (iy1 - iy0)
-          const dArea = (d.bbox.x1 - d.bbox.x0) * (d.bbox.y1 - d.bbox.y0)
-          // Use IoU (intersection-over-union) so large bad bboxes don't eat valid words
-          const iou = inter / (area + dArea - inter)
-          if (iou > 0.4) {
-            if (w.confidence > d.confidence) {
-              ocrLog(`[DEDUP] "${d.text}" (${Math.round(d.confidence)}%) replaced by "${w.text}" (${Math.round(w.confidence)}%) IoU=${(iou*100).toFixed(0)}%`)
-              deduped.splice(k, 1)
-            } else {
-              ocrLog(`[DEDUP] "${w.text}" (${Math.round(w.confidence)}%) dropped, kept "${d.text}" (${Math.round(d.confidence)}%) IoU=${(iou*100).toFixed(0)}%`)
-              dominated = true
-              break
-            }
-          }
-        }
-        if (!dominated) deduped.push(w)
-      }
+      // One read per piece of text (two passes and Tesseract itself repeat words): src/utils/ocr.js.
+      const deduped = dedupeOcrWords(rawWords, ocrLog)
 
       // Sort in reading order (top-to-bottom, left-to-right) so the AI receives
       // consecutive fragments as consecutive indices for "m" merge detection
@@ -3641,7 +3519,8 @@ export default function App() {
       const ocrLang = tesseractLang()
       const preprocessed = await preprocessForOCR(ocrInput)
       const r = await Tesseract.recognize(preprocessed, ocrLang, {})
-      return (r.data.words || [])
+      // Punctuation and icon reads ("。", "©") are not words: the clean fast path translated them (src/utils/ocr.js).
+      return tidyOcrWords(r.data.words || [])
         .map((w) => ({
           text: (w.text || '').trim(),
           confidence: w.confidence,
@@ -3723,14 +3602,10 @@ export default function App() {
           if (good.length >= 3 && avgConf >= 80 && weak <= Math.max(2, Math.round(good.length * 0.1))) {
             // Geometric reading-order lines (the vision model gives these semantically; here we
             // infer them from boxes: new line when the vertical center jumps ~70% of word height).
-            const sorted = good.slice().sort((a, b) => (a.bbox.y0 - b.bbox.y0) || (a.bbox.x0 - b.bbox.x0))
-            let lineNo = 0, prev = null
-            for (const w of sorted) {
-              const cy = (w.bbox.y0 + w.bbox.y1) / 2, hgt = w.bbox.y1 - w.bbox.y0
-              if (prev && Math.abs(cy - prev.cy) > Math.max(hgt, prev.hgt) * 0.7) lineNo++
-              w._line = lineNo
-              prev = { cy, hgt }
-            }
+            // Words in READING order (line by line; right to left on an Arabic/Hebrew line), so indices and the
+            // translator's context read like the text: sorted by top edge alone, a word sitting 4px higher (が)
+            // jumped ahead of its whole line.
+            const sorted = readingLines(good).flatMap(({ line, idxs }) => idxs.map((i) => Object.assign(good[i], { _line: line })))
             setProgress(tLiveRef.current('pic_progTranslating'))
             const listPayload = JSON.stringify({
               words: sorted.map((w, i) => ({ i, w: w.text })),
@@ -4429,15 +4304,10 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
   const plainFrontHtml = (front) => escapePlainHtml(cardText(front))
   const plainBackHtml = (back) => cardBackToHtml(String(cardText(back) || '').split('\n').map(escapePlainHtml).join('\n'))
   const cardBackToHtml = (back) => String(back || '').split('\n').map((line) => {
-    // Full-width colon too: Chinese/Japanese labels are written 发音：/ 意味： and were never bolded.
-    const m = line.match(/^([^:：\n]{1,30})([:：])(.*)$/)
-    // Never a "[sound:file]" line (bolding it wrote "<b>[sound:</b>file]", so the audio stopped playing
-    // and the ↻ replace no longer recognized it) and never a bare "https:" address.
-    // Nor a cloze ("{{c1::perro}}": bolded, Anki no longer saw the deletion), MathJax ("\(x:y\)"), a clock time
-    // ("10:30"), an address inside the text, or the audio credit ("🔊 User: Foo": the restore no longer found it).
-    // (A time only when minutes follow, "10:30"; "1: step" and "Método HTTP: GET" are still labels.)
-    if (m && (/^\s*\[/.test(line) || /^\s*https?$/i.test(m[1]) || /\{\{|\\[([]/.test(m[1]) || (/https?$/i.test(m[1]) && m[3].startsWith('//')) || (/^\s*\d{1,2}$/.test(m[1]) && /^\d{2}/.test(m[3])) || /^\s*\u{1F50A}/u.test(line))) return line
-    return m ? `<b>${m[1]}${m[2]}</b>${m[3]}` : line
+    // Bold each line's leading "Label:" (any script, full-width colon too). Never a [sound:] line, an address, a
+    // cloze, MathJax, a clock time or the audio credit: one rule for every surface, see splitCardLabel.
+    const m = splitCardLabel(line)
+    return m ? `<b>${m.label}${m.sep}</b>${m.rest}` : line
   }).join('<br>')
 
   // The language the active mode is teaching (Spanish, German, Chinese…) and the user's own language.
@@ -5072,7 +4942,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     return modesSaveRef.current
   }
   // `changedIds`: see writeModeFolders ([] = only which mode is active, e.g. a switch).
-  const saveModes = (modeList, activeId, { deletedIds, changedIds, renamedIds } = {}) => {
+  const saveModes = (modeList, activeId, { deletedIds, changedIds, renamedIds, patches } = {}) => {
     // See setAnkiDeck: an empty list is never a real save, it is a failed load.
     // The server refuses it too; bailing here keeps local state honest as well.
     if (!Array.isArray(modeList) || modeList.length === 0) { console.warn('[Mode] refused to save an empty mode list'); return }
@@ -5082,7 +4952,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     activeModeIdRef.current = id
     setModes(modeList)
     setActiveModeId(id)
-    const payload = { modes: modeList, activeModeId: id, deletedIds: deletedIds || [], renamedIds: Array.isArray(renamedIds) ? renamedIds : [], ...(Array.isArray(changedIds) ? { changedIds } : {}) }
+    const payload = { modes: modeList, activeModeId: id, deletedIds: deletedIds || [], renamedIds: Array.isArray(renamedIds) ? renamedIds : [], ...(Array.isArray(changedIds) ? { changedIds } : {}), ...(patches ? { patches } : {}) }
     console.log('[Mode] saved', payload)
     return postModes(payload) // resolves with the server's name conflicts (see postModes)
   }
@@ -5094,13 +4964,16 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
   const updateModeById = (modeId, updates, { migrate = true } = {}) => {
     if (dataSwitchingRef.current) return false // data folder just switched: see dataSwitchingRef
     if (!modesRef.current.some((m) => m.id === modeId)) return false // the mode was deleted meanwhile
-    const oldName = modesRef.current.find((m) => m.id === modeId)?.name
+    const before = modesRef.current.find((m) => m.id === modeId)
+    const oldName = before?.name
     const updated = modesRef.current.map((m) => (m.id === modeId ? { ...m, ...updates } : m))
     modesRef.current = updated
     setModes(updated)
     // Only THIS mode is written (see writeModeFolders): the rest of the list may be older than the shared folder.
+    // And only what this call CHANGED in it (`patches`, src/utils/modePatch.js): the page's copy of the mode's
+    // other fields may be older than the shared folder too.
     const renaming = typeof updates?.name === 'string' && oldName !== undefined && updates.name !== oldName
-    const saved = postModes({ modes: updated, activeModeId: activeModeIdRef.current, changedIds: [modeId], renamedIds: renaming ? [modeId] : [] })
+    const saved = postModes({ modes: updated, activeModeId: activeModeIdRef.current, changedIds: [modeId], renamedIds: renaming ? [modeId] : [], patches: { [String(modeId)]: modePatch(before, updated.find((m) => m.id === modeId)) } })
     // A rename through here (Ebi Studio edits the whole mode): carry the name-keyed stores over, once the
     // name is final (see migrateAfterSave).
     if (migrate && typeof updates?.name === 'string' && oldName && updates.name !== oldName) migrateAfterSave(modeId, oldName, updates.name, saved)
@@ -5189,7 +5062,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     // Stores move once the name is FINAL: a name another computer already uses comes back as a conflict
     // and is renamed again, and migrating into the taken name first merged this mode's hooks, grammar and
     // Discover history into the OTHER mode's stores.
-    const saved = saveModes(updated, undefined, { changedIds: [id], renamedIds: [id] }) // only the renamed mode is written
+    const saved = saveModes(updated, undefined, { changedIds: [id], renamedIds: [id], patches: { [String(id)]: modePatch(list.find((m) => m.id === id), updated.find((m) => m.id === id)) } }) // only the renamed mode, only its name
     if (oldName && oldName !== trimmed) migrateAfterSave(id, oldName, trimmed, saved)
   }
 
@@ -8243,7 +8116,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     // loaded and RAN its handler inside the app, which can call every /api route as the app itself.
     // A parsed document is inert (no loads, no handlers) and yields the same text (verified in Chromium).
     // Same coercion as innerHTML: null → '', anything else via String().
-    const doc = new DOMParser().parseFromString(html === null ? '' : String(html), 'text/html')
+    const doc = new DOMParser().parseFromString(html === null ? '' : cardHtmlForText(String(html)), 'text/html') // script bodies, furigana, table cells: see cardHtmlForText
     const out = (doc.documentElement.textContent || '').trim()
     if (typeof html === 'string') {
       // The OLDEST entries go, never all of them: a clear-all on a big deck (5,000+ notes with a search or a sort)
@@ -8439,11 +8312,11 @@ Output ONLY raw JSON. No markdown, no backticks.`
   // Card-back text lines with the usual bold "Label:" treatment (any script), every word tappable.
   // The tappable sibling of cardBackToHtml — use it wherever a back renders on a lookup surface.
   const renderTappableBack = (back, source) => String(back || '').replace(SOUND_TAG_RE, '').split('\n').filter((l) => l.trim()).map((line, li) => { // an embedded [sound:] is not text
-    const m = line.match(/^([^:：\n]{1,30})([:：])(.*)$/) // full-width colon too, like cardBackToHtml
+    const m = splitCardLabel(line) // the same rule as cardBackToHtml
     return (
-      <div key={li}>
+      <div key={li} dir="auto">
         {m
-          ? (<><b>{renderTappableText(m[1] + m[2], line, source)}</b>{renderTappableText(m[3], line, source)}</>)
+          ? (<><b>{renderTappableText(m.label + m.sep, line, source)}</b>{renderTappableText(m.rest, line, source)}</>)
           : renderTappableText(line, line, source)}
       </div>
     )
@@ -8664,10 +8537,10 @@ Output ONLY raw JSON. No markdown, no backticks.`
         {open && (
           <div style={{ padding: '2px 14px 10px 44px', fontSize: 12.5, lineHeight: 1.7 }}>
             {lines.map((ln, i) => {
-              const m = ln.match(/^([^:]{1,30}):\s*(.*)$/)
+              const m = splitCardLabel(ln) // never a credit, cloze or MathJax (see splitCardLabel)
               return (
-                <div key={i} style={{ color: 'var(--c-ink-dim)' }}>
-                  {m ? (<><span style={{ fontWeight: 700, color: 'var(--c-ink)' }}>{m[1]}:</span> {m[2]}</>) : ln}
+                <div key={i} dir="auto" style={{ color: 'var(--c-ink-dim)' }}>
+                  {m ? (<><span style={{ fontWeight: 700, color: 'var(--c-ink)' }}>{m.label}{m.sep}</span> {m.rest.trim()}</>) : ln}
                 </div>
               )
             })}
@@ -9308,8 +9181,10 @@ Output ONLY raw JSON. No markdown, no backticks.`
     // Convert HTML line breaks to real newlines BEFORE stripping tags — a bare stripHtml fuses
     // every back line together ("seh-DAHLtraducción: fishing line…"), which breaks the label
     // bolding, the Learn-it panel, and every prompt that reads the back.
-    return stripHtml(String(sorted[1]?.value || card.answer || '').replace(/<(?:br|hr)[^>]*>|<\/(?:div|p|li|tr)>/gi, '\n'))
-      .split('\n').map((l) => l.trim()).filter(Boolean).join('\n')
+    // The embedded audio's [sound:] tag and its credit line are not card text: they went into every question and
+    // grading prompt ("Card back: Traducción: dog [sound:ebiki-perro.mp3]🔊 User:Foo · CC BY-SA 4.0").
+    return stripHtml(String(sorted[1]?.value || card.answer || '').replace(SOUND_TAG_RE, '').replace(/<(?:br|hr)[^>]*>|<\/(?:div|p|li|tr)>/gi, '\n'))
+      .split('\n').map((l) => l.trim()).filter((l) => l && !/^\u{1F50A}/u.test(l)).join('\n')
   }
 
   // Short display label for a card front quoted in dialogs/toasts. General cards can have a
@@ -14921,7 +14796,8 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
       // { front, back, fieldNames } of a note OR a cardsInfo entry, as plain text (line breaks kept).
       noteText: (n) => {
         const fields = Object.entries(n?.fields || {}).sort((a, b) => (a[1]?.order ?? 0) - (b[1]?.order ?? 0))
-        const text = (v) => stripHtml(String(v || '').replace(/<(?:br|hr)[^>]*>|<\/(?:div|p|li|tr)>/gi, '\n')).replace(/\n{3,}/g, '\n\n').trim()
+        // The embedded audio's [sound:] tag and its credit line are not card text (raids and Ebi Call showed them).
+        const text = (v) => stripHtml(String(v || '').replace(SOUND_TAG_RE, '').replace(/<(?:br|hr)[^>]*>|<\/(?:div|p|li|tr)>/gi, '\n')).replace(/^[ \t]*\u{1F50A}.*$/gmu, '').replace(/\n{3,}/g, '\n\n').trim()
         return { front: text(fields[0]?.[1]?.value), back: text(fields[1]?.[1]?.value), fieldNames: fields.map(([k]) => k) }
       },
     },
@@ -16143,6 +16019,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                     return Object.values(n.fields).some((f) => fold(stripHtml(f.value)).includes(s))
                   })
                   .sort(deckNoteCompare(deckBrowserSort))
+                  .filter((note, i) => deckRowsAll || i < DECK_FIRST_ROWS || deckBrowserEditing != null || deckScrollTopRef.current > DECK_FIRST_ROWS_SCROLL)
                   .map((note) => {
                     const fields = Object.entries(note.fields).sort(([,a],[,b]) => a.order - b.order)
                     const front = stripHtml(String(fields[0]?.[1]?.value || '').replace(SOUND_TAG_RE, ''))
@@ -16213,14 +16090,14 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                             style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
                             <span style={{ fontSize: 9, color: 'var(--c-ink-faint)', flexShrink: 0, width: 10 }}>{deckBrowserExpanded === note.noteId ? '▾' : '▸'}</span>
                             <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink)' }}>{front}</span>
+                              <span dir="auto" style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink)' }}>{front}</span>
                               {activeMode.type === 'language' && !noteOwnedElsewhere(note) && (
                                 <span onClick={(e) => e.stopPropagation()}>
                                   <Pronunciation word={pronWord(front)} lang={learnLangName()} region={pronRegion()} config={pronunciationCfg} t={t} compact noteId={note.noteId}
                                     onNative={(r, opts) => embedPronunciationInNote(note.noteId, r, pronWord(front), opts)} />
                                 </span>
                               )}
-                              <span style={{ fontSize: 11, color: 'var(--c-ink-dim)', marginLeft: 8 }}>{back.slice(0, 100)}{back.length > 100 ? '...' : ''}</span>
+                              <span dir="auto" style={{ fontSize: 11, color: 'var(--c-ink-dim)', marginLeft: 8 }}>{back.slice(0, 100)}{back.length > 100 ? '...' : ''}</span>
                             </div>
                             {/* Scheduling badges — from the per-card stats already loaded for sorting */}
                             {note.stats && (
@@ -16260,10 +16137,10 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                                 <div key={name} style={{ marginBottom: 8 }}>
                                   {fields.length > 2 && <div style={{ fontSize: 9, fontWeight: 800, color: 'var(--c-ink-faint)', letterSpacing: '.05em', textTransform: 'uppercase', marginBottom: 3 }}>{name}</div>}
                                   {backTextLines(f.value).map((ln, li) => {
-                                    const m = ln.match(/^([^:：\n]{1,30})([:：])\s*(.*)$/) // "发音：" too
+                                    const m = splitCardLabel(ln) // "发音：" too; never a credit, cloze or MathJax
                                     return (
-                                      <div key={li} style={{ fontSize: 12, color: 'var(--c-ink-dim)', lineHeight: 1.7 }}>
-                                        {m ? (<><span style={{ fontWeight: 700, color: 'var(--c-ink)' }}>{m[1]}{m[2]}</span> {m[3]}</>) : ln}
+                                      <div key={li} dir="auto" style={{ fontSize: 12, color: 'var(--c-ink-dim)', lineHeight: 1.7 }}>
+                                        {m ? (<><span style={{ fontWeight: 700, color: 'var(--c-ink)' }}>{m.label}{m.sep}</span> {m.rest.trim()}</>) : ln}
                                       </div>
                                     )
                                   })}
@@ -17220,7 +17097,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                     </div>
                     <div className="st-bar-row">
                       <div className="st-meta">
-                        <span className="st-pill ink"><b>{completedCount}<span style={{ color: 'var(--c-ink-dim)', fontWeight: 700 }}>/{totalCards}</span></b>{t('cardsLabel')}</span>
+                        <span className="st-pill ink"><b>{completedCount}<span className="st-of">/{totalCards}</span></b>{t('cardsLabel')}</span>
                         <span className="st-pill"><b style={{ color: 'var(--c-brand)' }}>{activeCount}</b>{t('active')}</span>
                         <span className="st-pill">{studyDeckStats.new_count || 0} {t('new')} · {studyDeckStats.learn_count || 0} {t('learn')} · {studyDeckStats.review_count || 0} {t('due')}</span>
                       </div>
@@ -18629,6 +18506,9 @@ ${PALETTE_CSS}
         .st-pill b { color: var(--c-ink); font-weight: 800; font-size: 13px; }
         .st-pill.ink { background: var(--c-ink-solid); border-color: var(--c-ink-solid); color: color-mix(in srgb, var(--c-on-ink) 70%, transparent); }
         .st-pill.ink b { color: var(--c-on-ink); }
+        /* The "/total" beside the count: the pill's own dimmed on-ink text (an opacity on it fell below AA). */
+        .st-pill .st-of { font-weight: 700; color: var(--c-ink-dim); }
+        .st-pill.ink .st-of { color: color-mix(in srgb, var(--c-on-ink) 70%, transparent); }
         .st-actions { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
         .st-grid { display: grid; grid-template-columns: minmax(0, 1fr) 196px; gap: 22px; align-items: start; }
         .st-card { position: relative; background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 24px; padding: 30px 34px 22px;
@@ -19330,7 +19210,7 @@ ${PALETTE_CSS}
         // its prompt. SECRET: the live study card (its front and every answer of its questions) is kept out, on any
         // screen; while a feature quiz, fight, raid or exam runs (its `quiz` Help entry), no card lists, meanings or
         // feature sections at all. The snapshot must be this mode's (checked inside).
-        learnerContext: () => {
+        learnerContext: (more = {}) => {
           const liveCs = studyActive && currentQuestion ? studyCardState[currentQuestion.cardIdx] : null
           const liveAns = liveCs ? (liveCs.questions || []).flatMap((q) => questionAnswers(q)).filter(Boolean) : []
           return learnerContextFor(featureCtxRef.current?.learning?.cached?.(), activeMode.id, 'help', {
@@ -19339,6 +19219,7 @@ ${PALETTE_CSS}
             hideAnswers: [...liveAns, ...(liveCs ? headFormsOf(cardText(liveCs.front)) : [])],
             reveals: liveAns.length ? (text) => hintRevealsAnswer(text, liveAns) : null,
             secret: !!featureHelp.quiz,
+            omitExtra: more.omitExtra, // sections Help already has its own entry for (Legends)
           })
         },
         // Stats screen: what the dashboard actually shows, so Ebi can answer about it accurately.
@@ -19367,7 +19248,7 @@ ${PALETTE_CSS}
         stage,
         // Smaller cap than elsewhere: help replies are capped at 600 tokens and fire often.
         // Big books contribute their TOC so Ebi still knows what the material covers.
-        knowledge: knowledgeRaw(12000),
+        knowledge: knowledgeRaw(HELP_KNOWLEDGE_CAP),
       }} />}
     </div>
     </FeatureContext.Provider>

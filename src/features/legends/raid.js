@@ -13,12 +13,13 @@
 // with full hearts and a fresh health.
 //
 // STORED SHAPE: { boss, day: { date, hp, damage, attempts, won, ab?, asked? }, trophies, siege: { boss, hp, damage,
-// hearts, date } | null }. `day.hp`/`day.damage` are written in step with the siege, so an older build (which reads
+// hearts, date, bandage?, variant? } | null }. `variant` (raidProfiles.js RAID_VARIANTS; absent = 'normal') picks the
+// boss's tunables through raidProfile(motif, variant); an older build ignores it and fights the normal numbers. `day.hp`/`day.damage` are written in step with the siege, so an older build (which reads
 // only `day`) sees the boss as it is; an older build writes no `siege`, and siegeOf() then starts it from `day`.
 import { abilityForMotif, abilityById } from './abilities'
 import { raidProfile, MAX_HEARTS } from './raidProfiles'
 import { bossesBeaten, POWERS, POWER_IDS, LOADOUT_MAX, POWER_WINDOW, STEADFAST_HEARTS, SHARPEN_BONUS, FURY_MULT, SIPHON_HEARTS } from './powers'
-import { strike, barPhase, canAttack, attackSlot, attackGapFor, MAX_INSERTED, raidRating } from './fight'
+import { strike, barPhase, canAttack, attackSlot, attackGapFor, raidRating, rulesOf, abilityK, FIGHT_RULES } from './fight'
 
 // THE ROSTER is append-only: a stored raid state's `boss` is an INDEX into it (older builds on a shared folder read
 // the same indices), so a boss is never removed from it, only RETIRED. A retired boss is skipped by the rotation: a
@@ -60,7 +61,8 @@ export const RAID_ABILITY = Object.fromEntries(RAID_MOTIFS.map((m) => [m, abilit
 // day.asked. profiles.test.js checks the balance.
 // rallyShare: losing every heart in a run lets the boss heal back this share of the damage that run dealt (the owner:
 // a lost run should cost something, but never lock the player out); the hearts are then full again at once.
-export const RAID = { runSize: 15, runSizes: [5, 10, 15, 20, 30], minCards: 1, maxCards: 15, hpPerCard: 1.5, minHp: 7, maxHp: 40, lives: 3, phases: 3, nextBossSameDay: true, askedKeep: 400, rallyShare: 0.5 }
+// phases and rallyShare are the DEFAULT fight rules (abilities/_rules.js FIGHT_RULES); a fight reads its resolved ones.
+export const RAID = { runSize: 15, runSizes: [5, 10, 15, 20, 30], minCards: 1, maxCards: 15, hpPerCard: 1.5, minHp: 7, maxHp: 40, lives: 3, phases: FIGHT_RULES.phases, nextBossSameDay: true, askedKeep: 400, rallyShare: FIGHT_RULES.rallyShare }
 // The run size from the setting (features.legends.raidRunSize): one of RAID.runSizes, else the default.
 export const raidRunSize = (v) => (RAID.runSizes.includes(Number(v)) ? Number(v) : RAID.runSize)
 
@@ -69,11 +71,16 @@ export const todayKey = (d = new Date()) => d.toLocaleDateString('en-CA')
 // Health for `due` cards: the per-run rule the ability tests' simulator uses (abilities/_sim.js). A siege's health is
 // the boss's profile (bossHp), never the cards due.
 export const raidHp = (due) => Math.max(RAID.minHp, Math.min(RAID.maxHp, Math.floor(Math.max(0, due) * RAID.hpPerCard)))
-// A boss's profile numbers, by roster index (a retired boss reads its successor's).
+// A boss's profile numbers, by roster index (a retired boss reads its successor's) and variant (absent = normal): all
+// through the ONE resolver, raidProfiles.js raidProfile(motif, variant).
 const motifAt = (boss) => RAID_ROSTER[activeBossIndex(boss)]
-export const bossHp = (boss) => raidProfile(motifAt(boss)).hp
-export const bossHearts = (boss) => raidProfile(motifAt(boss)).hearts
-export const bossHeal = (boss) => raidProfile(motifAt(boss)).heal
+export const bossProfile = (boss, variant) => raidProfile(motifAt(boss), variant)
+export const bossHp = (boss, variant) => bossProfile(boss, variant).hp
+export const bossHearts = (boss, variant) => bossProfile(boss, variant).hearts
+export const bossHeal = (boss, variant) => bossProfile(boss, variant).heal
+// The tunables of a siege's fight (its boss and variant): what RaidRun puts on the fight (fight.js tuneFight).
+export const siegeProfile = (siege) => (siege ? bossProfile(siege.boss, siege.variant) : null)
+const variantOf = (g) => (g && typeof g.variant === 'string' && /^[a-z][a-z0-9-]{0,23}$/.test(g.variant) ? g.variant : '')
 
 // Whole days from date `a` to date `b` (todayKey strings, 'YYYY-MM-DD'): negative when `b` is earlier. Other strings
 // (tests, damaged data) only compare: equal 0, later 1, earlier -1.
@@ -102,8 +109,9 @@ export function shapeRaid(raw) {
   const trophies = (Array.isArray(s.trophies) ? s.trophies : []).filter((x) => x && typeof x.motif === 'string' && /^[a-z][a-z0-9-]{0,39}$/.test(x.motif) && typeof x.date === 'string').slice(-200)
   // The siege belongs to ONE boss: a siege of another (a retired boss that moved on) is dropped.
   const g = !moved && s.siege && typeof s.siege === 'object' && typeof s.siege.date === 'string' && s.siege.boss === stored ? s.siege : null
-  const hp = g ? clampInt(g.hp, 0, RAID.maxHp * 4, 0) : 0
-  const siege = g && hp > 0 ? { boss, hp, damage: clampInt(g.damage, 0, hp, 0), hearts: clampInt(g.hearts, 0, MAX_HEARTS, bossHearts(boss)), date: g.date, ...(typeof g.bandage === 'string' ? { bandage: g.bandage } : {}) } : null
+  const variant = variantOf(g)
+  const hp = g ? clampInt(g.hp, 0, Math.max(RAID.maxHp * 4, bossHp(boss, variant)), 0) : 0
+  const siege = g && hp > 0 ? { boss, hp, damage: clampInt(g.damage, 0, hp, 0), hearts: clampInt(g.hearts, 0, Math.max(MAX_HEARTS, bossHearts(boss, variant)), bossHearts(boss, variant)), date: g.date, ...(typeof g.bandage === 'string' ? { bandage: g.bandage } : {}), ...(variant ? { variant } : {}) } : null
   return { boss, day, trophies, siege }
 }
 // The siege of the current boss: the stored one, else one started from the day record (an older build wrote the
@@ -125,8 +133,8 @@ export function regenSiege(siege, date) {
   const nights = Math.max(0, days - (bandage === siege.date ? 1 : 0))
   return {
     ...rest, date,
-    hearts: Math.max(siege.hearts, bossHearts(siege.boss)),
-    damage: Math.max(0, siege.damage - nights * bossHeal(siege.boss)),
+    hearts: Math.max(siege.hearts, bossHearts(siege.boss, siege.variant)),
+    damage: Math.max(0, siege.damage - nights * bossHeal(siege.boss, siege.variant)),
   }
 }
 export const raidMotif = (state) => RAID_ROSTER[shapeRaid(state).boss]
@@ -141,7 +149,7 @@ export function raidToday(state, date, due) {
   const had = siegeOf(s)
   const regen = had ? regenSiege(had, date) : null
   // A siege an older build left at 0 hearts (it locked the raid until the next day) is full again: a fall now rallies.
-  const siege = regen ? (regen.hearts > 0 ? regen : { ...regen, hearts: bossHearts(regen.boss) }) : { boss: s.boss, hp: bossHp(s.boss), damage: 0, hearts: bossHearts(s.boss), date }
+  const siege = regen ? (regen.hearts > 0 ? regen : { ...regen, hearts: bossHearts(regen.boss, regen.variant) }) : { boss: s.boss, hp: bossHp(s.boss), damage: 0, hearts: bossHearts(s.boss), date }
   const same = !!(s.day && s.day.date === siege.date)
   const keep = same && !s.day.won // a day whose boss fell: the new boss starts its own tries and ability state
   const day = { date: siege.date, hp: siege.hp, damage: siege.damage, attempts: keep ? s.day.attempts : 0, won: false, ...(keep && s.day.ab ? { ab: s.day.ab } : {}), ...(same && s.day.asked ? { asked: s.day.asked } : {}) }
@@ -164,14 +172,15 @@ export function applyRaidAttempt(state, date, damage, dayAb, { livesLost = 0, as
   const left = Math.max(0, siege.hearts - Math.max(0, Number(livesLost) || 0))
   // Out of hearts without the win: the boss RALLIES (heals back RAID.rallyShare of this run's damage, rounded down) and
   // the hearts are full again, so the player may try again at once. A run that was stopped keeps all its damage.
-  const rallied = !won && left <= 0 ? Math.floor(dealt * RAID.rallyShare) : 0
+  const prof = siegeProfile(siege)
+  const rallied = !won && left <= 0 ? Math.floor(dealt * prof.rules.rallyShare) : 0
   const dmg = Math.min(siege.hp, siege.damage + dealt - rallied)
-  const hearts = !won && left <= 0 ? bossHearts(siege.boss) : left
+  const hearts = !won && left <= 0 ? prof.hearts : left
   // A rally lowers the wounds: the ability's saved day state (a split of those wounds) is told, so it never says the
   // boss is more hurt than the bar (onRally, abilities/_contract.js).
   if (rallied > 0 && dayAb && typeof dayAb === 'object') {
     const mod = abilityById(RAID_ABILITY[RAID_ROSTER[siege.boss]])
-    if (mod?.onRally) { const fixed = mod.onRally(dayAb, { healed: rallied, damage: dmg, hp: siege.hp }); if (fixed && typeof fixed === 'object') dayAb = fixed }
+    if (mod?.onRally) { const fixed = mod.onRally(dayAb, { healed: rallied, damage: dmg, hp: siege.hp, K: abilityK(mod, { tune: prof }) }); if (fixed && typeof fixed === 'object') dayAb = fixed }
   }
   const askedAll = mergeIds(s.day.asked, asked)
   const day = { ...s.day, hp: siege.hp, damage: dmg, attempts: s.day.attempts + 1, ...(dayAb && typeof dayAb === 'object' ? { ab: dayAb } : {}), ...(askedAll.length ? { asked: askedAll } : {}) }
@@ -262,7 +271,8 @@ export function raidStep(before, q, info, { ability = '', need, lives, dayHp, da
   const inserted = q._inserted || (q._lastStand ? 'lastStand' : '')
   const useArmed = armed && mod?.decision && !q._attack && !inserted ? armed : null
   const hit = { verdict, mode: info.mode === 'choice' || info.aided ? 'choice' : 'typed', attack: !!q._attack, inserted, lastStand: inserted === 'lastStand', key: q._cardId, ...(useArmed ? { armed: useArmed } : {}) }
-  const bar = { total: dayHp, before: dayBefore, phases: RAID.phases }
+  const R = rulesOf(before)
+  const bar = { total: dayHp, before: dayBefore, phases: R.phases }
   const phaseNow = barPhase(bar, before.damage)
   // A Shield raised now takes the next lost heart even when an earlier one was already used up in this fight.
   // Sharpen pays on a clean typed hit, or a slip Focus makes hit clean (else it stays armed for the next one).
@@ -280,7 +290,7 @@ export function raidStep(before, q, info, { ability = '', need, lives, dayHp, da
   // A boss heal never crosses a phase line backwards (choices came back and the PHASE flash replayed).
   if (next.last?.gorged > 0 && barPhase(bar, next.damage) < phaseNow) {
     next = { ...next, ab: next.ab ? { ...next.ab } : next.ab, damage: next.damage + next.last.gorged, last: { ...next.last, gorged: 0, fx: '' } }
-    if (mod?.cancelHeal) mod.cancelHeal(next)
+    if (mod?.cancelHeal) mod.cancelHeal(next, { K: abilityK(mod, next), rules: R })
   }
   const over = next.damage >= need || next.livesLost >= lives
   const normal = !q._attack && !inserted
@@ -303,8 +313,8 @@ export function raidStep(before, q, info, { ability = '', need, lives, dayHp, da
   // The shared insert budget (MAX_INSERTED per attempt, every ability insert together): `room` tells the module what
   // still fits. A plan whose inserts no longer fit at all is dropped WHOLE (its `ab` and `attack: false` too: a loop
   // that never comes back must not cancel the attack); one that partly fits keeps its first inserts.
-  const room = Math.max(0, MAX_INSERTED - (next.insertedN || 0))
-  let plan = mod?.afterStrike ? mod.afterStrike(next, { q, hit, over, attack: !!attack, normal, pos, room }) : null
+  const room = Math.max(0, R.maxInserted - (next.insertedN || 0))
+  let plan = mod?.afterStrike ? mod.afterStrike(next, { q, hit, over, attack: !!attack, normal, pos, room, K: abilityK(mod, next), rules: R }) : null
   if (plan && Array.isArray(plan.insert) && plan.insert.length && room === 0) plan = null
   if (plan && plan.attack === false) attack = null
   // The plan may update the ability's own state with what it decided (a minion raised, a card looped).
@@ -336,11 +346,13 @@ export function raidStep(before, q, info, { ability = '', need, lives, dayHp, da
 // for the run's cards), through the normal raid (RaidRun). It is never stored: the answers are real reviews (they
 // count like any review), but the raid's progress (wounds, hearts, trophies, the rotation, the boss-win reward) stays
 // as it is (raidAttemptOutcome with `test`).
-export function testRaidState(motif, date, due) {
+// `variant` (optional, raidProfiles.js RAID_VARIANTS): try the boss in a variant.
+export function testRaidState(motif, date, due, variant = '') {
   const i = RAID_ROSTER.indexOf(motif)
   const boss = i >= 0 ? activeBossIndex(i) : raidBossIndex(RAID_ORDER[0])
-  const hp = bossHp(boss)
-  return { boss, day: { date, hp, damage: 0, attempts: 0, won: false }, trophies: [], siege: { boss, hp, damage: 0, hearts: bossHearts(boss), date } }
+  const v = variantOf({ variant })
+  const hp = bossHp(boss, v)
+  return { boss, day: { date, hp, damage: 0, attempts: 0, won: false }, trophies: [], siege: { boss, hp, damage: 0, hearts: bossHearts(boss, v), date, ...(v ? { variant: v } : {}) } }
 }
 
 // What an ended run does to the stored raid (RaidRun's save): `state` = what to write (null = write nothing, a test

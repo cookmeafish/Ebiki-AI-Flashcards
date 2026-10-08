@@ -5,6 +5,7 @@ import { C, FONT } from '../../config/tokens'
 import { useFeatureCtx, featureCfg } from '../registry'
 import { LEGENDS_ID } from './store'
 import { RAID, raidRunSize } from './raid'
+import { langDisplayName } from '../../config/languages'
 
 function Check({ checked, onChange, label, desc }) {
   return (
@@ -44,7 +45,7 @@ export default function LegendsSettingsCard({ card, fieldLabel, hint }) {
         </select>
       </label>
       {subject?.accents && (
-        <Check checked={subject.strictAccents !== false} onChange={(v) => subject.setStrictAccents?.(v)} label={t('lg_setAccents', { lang: subject.learnLang })} desc={t('lg_setAccentsDesc')} />
+        <Check checked={subject.strictAccents !== false} onChange={(v) => subject.setStrictAccents?.(v)} label={t('lg_setAccents', { lang: langDisplayName(subject.learnLang, ctx.lang) })} desc={t('lg_setAccentsDesc')} />
       )}
     </div>
   )

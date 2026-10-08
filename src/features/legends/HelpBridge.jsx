@@ -6,7 +6,7 @@ import { useFeatureCtx, featureCfg } from '../registry'
 import { useLegendsMap, readRaid, configureLegends, onRaidSaved, LEGENDS_ID } from './store'
 import { useLearner } from '../kit/learnerStore'
 import { buildLegendsHelpText, legendsLive, onLegendsLive, legendsSecretHeld, legendsWhere } from './helpContext'
-import { raidCatalogText } from './bestiaryHelp'
+import { raidCatalogText, raidCatalogMaxFor } from './bestiaryHelp'
 import { todayKey } from './raid'
 
 // The effect names in the raid catalog come from every boss's fx file (fx/index.js, a large module with all the
@@ -57,6 +57,8 @@ export default function HelpBridge() {
   // nothing.
   const loadoutRaw = ctx ? featureCfg(ctx, LEGENDS_ID).raidLoadout : undefined
   const loadoutKey = Array.isArray(loadoutRaw) ? loadoutRaw.join(',') : '*'
+  // The whole catalog where raids are played or browsed; a compact one (every boss still named) elsewhere.
+  const catalogMax = raidCatalogMaxFor(tab)
   const [fx, setFx] = useState(() => fxModule)
   useEffect(() => {
     if (fx) return undefined
@@ -68,9 +70,9 @@ export default function HelpBridge() {
     if (!set || !fx) return
     let text = ''
     const loadout = loadoutKey === '*' ? undefined : loadoutKey.split(',').filter(Boolean)
-    try { text = raidCatalogText({ t, raid, known: raidRead, today: todayKey(), loadout, fxName: (ab, key) => fx.fxLabel(t, ab, key) }) } catch { text = '' }
+    try { text = raidCatalogText({ t, raid, known: raidRead, today: todayKey(), loadout, max: catalogMax, fxName: (ab, key) => fx.fxLabel(t, ab, key) }) } catch { text = '' }
     set('raid-bosses', text ? { screen: '', text } : null)
-  }, [set, t, raid, raidRead, loadoutKey, fx])
+  }, [set, t, raid, raidRead, loadoutKey, fx, catalogMax])
   useEffect(() => () => { set?.('legends', null); set?.('raid-bosses', null) }, [set])
   return null
 }

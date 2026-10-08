@@ -10,21 +10,30 @@
 // and an item the boss is weak to deals +1. A fight ends at 0 health (won) or 0 lives (lost); the outcome decides the
 // pass on its own (applyNodeResult), so a win can never read as a fail and a loss never as a pass.
 
-import { DAMAGE, ATTACK_LIVES, MISS_LIVES, COMBO_EVERY, MAX_ATTACKS, ATTACK_GAP, RAGE_AT, WEAK_TO_MAX, MAX_INSERTED, phaseOf, barPhase, phaseFloor, hashOf, hitClean } from './abilities/_rules'
+import { DAMAGE, ATTACK_LIVES, MISS_LIVES, COMBO_EVERY, MAX_ATTACKS, ATTACK_GAP, RAGE_AT, WEAK_TO_MAX, MAX_INSERTED, FIGHT_RULES, rulesOf, abilityK, phaseOf, barPhase, phaseFloor, hashOf, hitClean } from './abilities/_rules'
 import { abilityById, ABILITY_IDS } from './abilities'
 import { MOMENTUM_CRIT_MULT } from './powers'
 import { gradeFromStrike, easeFor, isMature, GRADE_EASE } from '../../config/grading'
 
-export { DAMAGE, ATTACK_LIVES, MISS_LIVES, COMBO_EVERY, MAX_ATTACKS, ATTACK_GAP, RAGE_AT, WEAK_TO_MAX, MAX_INSERTED, phaseOf, barPhase, phaseFloor, hashOf }
+export { DAMAGE, ATTACK_LIVES, MISS_LIVES, COMBO_EVERY, MAX_ATTACKS, ATTACK_GAP, RAGE_AT, WEAK_TO_MAX, MAX_INSERTED, FIGHT_RULES, rulesOf, abilityK, phaseOf, barPhase, phaseFloor, hashOf }
 
 // The fight's state. `insertedN` = the ability-inserted questions put into this attempt so far (raidStep caps them at
 // MAX_INSERTED). The zero counters after `chain` belong to the v1 raid abilities (ported unchanged into
 // abilities/<motif>.js); a new ability keeps its state in `ab` (its module's init()).
-export const newFight = () => ({ damage: 0, livesLost: 0, combo: 0, crits: 0, attacks: 0, blocked: 0, answers: 0, clean: 0, glancing: 0, safe: 0, misses: 0, shieldUsed: false, last: null, n: 0, insertedN: 0,
+// `tune` (optional: a raid boss's resolved profile, raidProfiles.js raidProfile) = { variant, ability, rules, k }: the
+// fight rules (rulesOf) and the ability's K (abilityK) this fight runs on. Without it the defaults (FIGHT_RULES, the
+// module's own K) apply, as for every Legends boss.
+export const newFight = (profile = null) => tuneFight({ damage: 0, livesLost: 0, combo: 0, crits: 0, attacks: 0, blocked: 0, answers: 0, clean: 0, glancing: 0, safe: 0, misses: 0, shieldUsed: false, last: null, n: 0, insertedN: 0,
   chain: 0, triples: 0, bounces: 0, cuts: 0, unredeemed: [], risen: false, judged: 0, judgedRight: 0, smites: 0,
   surge: false, surfaced: 0, kindled: 0, rewound: [], pacts: 0, bolts: 0, reflects: 0, gorged: 0, snaps: 0, lastBreaths: 0,
   rights: 0, stings: 0, perfects: 0, crumbles: 0, crescendos: 0, harvests: 0, slumbers: 0, novas: [], stolen: 0, steals: 0, starfires: 0, eyes: 0, gazes: 0, coins: 0, loots: 0,
-  sugar: 0, rush: 0, rushes: 0, sugared: 0, crashes: 0 })
+  sugar: 0, rush: 0, rushes: 0, sugared: 0, crashes: 0 }, profile)
+// The fight with a profile's tunables on it (pure; null/undefined profile = the fight as it is).
+export function tuneFight(state, profile) {
+  if (!profile || typeof profile !== 'object') return state
+  const { variant = 'normal', ability = '', rules = null, k = null } = profile
+  return { ...state, tune: { variant, ability, ...(rules ? { rules } : {}), ...(k ? { k } : {}) } }
+}
 
 // RAID BOSS ABILITIES live in abilities/<motif>.js: one pure module per raid boss, picked up by abilities/index.js
 // (the hook contract is abilities/_contract.js). Each changes how the FIGHT plays, never how a question is asked: no
@@ -36,7 +45,7 @@ export const abilityOf = (ability) => abilityById(ability)
 export function abilityState(state, mod, ctx = {}) {
   if (!mod) return (state && state.ab) || {}
   if (state && state.ab) return state.ab
-  return mod.init ? mod.init({ phase: 1, ...ctx, K: mod.K || {} }) || {} : {}
+  return mod.init ? mod.init({ phase: 1, ...ctx, K: ctx.K || abilityK(mod, state) }) || {} : {}
 }
 
 // A working copy of the fight for the hooks: `ab` shallow-copied, a phase change announced (onPhase).
@@ -79,7 +88,7 @@ const baseCtx = (state, mod, opts, kind) => {
   const { shield = false, need = Infinity, lives = Infinity, bar = null } = opts
   const phase = opts.phase != null ? opts.phase : bar ? barPhase(bar, state.damage) : 1
   const livesLost = state.livesLost || 0
-  return { kind, phase, need, lives, livesLost, lastLife: lives - livesLost === 1, shieldReady: shield && !state.shieldUsed, bar, dayAb: opts.dayAb || null, before: state, K: (mod && mod.K) || {} }
+  return { kind, phase, need, lives, livesLost, lastLife: lives - livesLost === 1, shieldReady: shield && !state.shieldUsed, bar, dayAb: opts.dayAb || null, before: state, K: abilityK(mod, state), rules: rulesOf(state) }
 }
 
 // One answer. hit = { verdict: 'clean'|'glancing'|'miss', mode: 'typed'|'choice', weak?: bool, attack?: bool,
@@ -98,29 +107,31 @@ export function strike(state, hit, opts = {}) {
   const s = workCopy(state, mod, ctx)
   const key = hit.key == null ? null : String(hit.key)
   const res = newRes()
+  const R = rulesOf(state)
+  const D = R.damage
   if (inserted) {
     // A question an ability put in (the Lich's last stand...): a miss costs one life unless the ability says otherwise.
-    if (!right) res.lives = MISS_LIVES
+    if (!right) res.lives = R.missLives
   } else if (hit.attack) {
     // An attack: a block counters, a miss hurts twice. It never builds or breaks a combo.
-    if (right) { s.blocked++; res.dmg = DAMAGE.counter } else res.lives = mod && mod.attackLives ? mod.attackLives(s, ctx) : ATTACK_LIVES
+    if (right) { s.blocked++; res.dmg = D.counter } else res.lives = mod && mod.attackLives ? mod.attackLives(s, ctx) : R.attackLives
   } else {
     s.answers++
     if (!right) {
-      res.lives = MISS_LIVES; s.misses++; s.combo = 0; s.chain = 0
+      res.lives = R.missLives; s.misses++; s.combo = 0; s.chain = 0
     } else if (hit.mode === 'choice') {
-      res.dmg = DAMAGE.choice; s.safe++; s.combo = 0
+      res.dmg = D.choice; s.safe++; s.combo = 0
     } else if (hit.verdict === 'glancing' && !opts.focus) {
-      res.dmg = DAMAGE.glancing; s.glancing++; s.combo = 0
+      res.dmg = D.glancing; s.glancing++; s.combo = 0
     } else {
       // Clean, or glancing under Focus (a raid power): it hits like a clean answer and keeps the streak. The answer
       // itself is unchanged (its Anki grade still reads the real verdict).
       if (hit.verdict === 'glancing') { s.glancing++; res.focused = true } else s.clean++
-      res.dmg = DAMAGE.clean; s.combo++
+      res.dmg = D.clean; s.combo++
       // Momentum (a raid power) makes every clean answer in its window a critical hit, and its crits hit twice as hard.
-      if (!(mod && mod.noCrit) && (s.combo % COMBO_EVERY === 0 || opts.momentum)) { res.dmg += DAMAGE.crit * (opts.momentum ? MOMENTUM_CRIT_MULT : 1); res.crit = true; s.crits++; if (opts.momentum) res.momentum = true }
+      if (!(mod && mod.noCrit) && (s.combo % R.comboEvery === 0 || opts.momentum)) { res.dmg += D.crit * (opts.momentum ? MOMENTUM_CRIT_MULT : 1); res.crit = true; s.crits++; if (opts.momentum) res.momentum = true }
     }
-    if (right && hit.weak) res.dmg += DAMAGE.weak
+    if (right && hit.weak) res.dmg += D.weak
     if (right) { s.chain++; s.rights = (s.rights || 0) + 1 }
   }
   // A missed card stays unredeemed until it is answered right again (when it comes back as an attack or is inserted).
@@ -183,19 +194,20 @@ export const livesLeft = (state, lives) => Math.max(0, lives - state.livesLost)
 
 // Where an attack goes: `gap` (ATTACK_GAP) questions after `idx` (or the end), never beyond the list.
 export const attackSlot = (idx, total, gap = ATTACK_GAP) => Math.min(total, idx + 1 + gap)
-// The questions between a miss and its returning attack against this ability (its module's attackGap).
+// The questions between a miss and its returning attack against this ability (its module's attackGap; else the
+// fight's rules).
 export function attackGapFor(ability, state) {
   const mod = abilityById(ability)
-  if (!mod || !mod.attackGap) return ATTACK_GAP
-  return mod.attackGap({ ...(state || {}), ab: abilityState(state, mod) }, { K: mod.K || {} })
+  if (!mod || !mod.attackGap) return rulesOf(state).attackGap
+  return mod.attackGap({ ...(state || {}), ab: abilityState(state, mod) }, { K: abilityK(mod, state), rules: rulesOf(state) })
 }
 // The lives a missed attack costs against this ability (its banner says so).
 export function attackLivesFor(ability, state) {
   const mod = abilityById(ability)
-  if (!mod || !mod.attackLives) return ATTACK_LIVES
-  return mod.attackLives({ ...(state || {}), ab: abilityState(state, mod) }, { K: mod.K || {} })
+  if (!mod || !mod.attackLives) return rulesOf(state).attackLives
+  return mod.attackLives({ ...(state || {}), ab: abilityState(state, mod) }, { K: abilityK(mod, state), rules: rulesOf(state) })
 }
-export const canAttack = (state) => state.attacks < MAX_ATTACKS
+export const canAttack = (state) => state.attacks < rulesOf(state).maxAttacks
 
 // The items a boss is weak to: the area's rule items first (the core of an area), then its first items. Stable.
 export function weakTo(area, max = WEAK_TO_MAX) {
@@ -235,7 +247,8 @@ export function raidRating(hit, sched = null) {
 // spent Shield are put right, never a combo or a combo critical. A raid POWER window that was up on that answer
 // (`cost.boost`, raidStep: { fury, momentum, focus }) does count: its window ticked down on that answer, so the
 // right answer gets what the power would have given it (Focus: glancing hits clean; Momentum: the crit; Fury: times).
-export function refundFor({ kind = 'normal', to = 'clean', mode = 'typed', weak = false } = {}, cost = {}) {
+export function refundFor({ kind = 'normal', to = 'clean', mode = 'typed', weak = false } = {}, cost = {}, rules = FIGHT_RULES) {
+  const DAMAGE = (rules && rules.damage) || FIGHT_RULES.damage
   const right = to === 'clean' || to === 'glancing'
   const lives = Math.max(0, Number(cost.lives) || 0)
   if (!right) return { lives: 0, damage: 0, shield: false }
@@ -280,7 +293,7 @@ export function applyRefund(state, { lives = 0, damage = 0, shield = false, from
 // (fightCheck.js FIGHT_EXTRAS.refund).
 export function refundRunningFight(state, odds, entry = {}, to = 'clean') {
   if (!state || !odds || fightOutcome(state, odds)) return null
-  const r = refundFor({ kind: entry.kind, to, mode: entry.mode, weak: !!entry.weak }, entry.cost || {})
+  const r = refundFor({ kind: entry.kind, to, mode: entry.mode, weak: !!entry.weak }, entry.cost || {}, rulesOf(state))
   if (!r.lives && !r.damage && !r.shield) return null
   return applyRefund(state, { ...r, from: entry.first, to, kind: entry.kind })
 }

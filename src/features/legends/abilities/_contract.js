@@ -6,7 +6,11 @@
 //   id        'regrowth'   unique ability id. The texts: lg_ability_<id> (name), lg_abilityDesc_<id> (rule),
 //                          and whatever keys hint/banner/hud/actions return. Never shared by two modules.
 //   icon      '🐍'         the ability's icon (intro card, arena chip, asset view).
-//   K         { ... }      tuning constants (named, never literals inside the hooks).
+//   K         { ... }      tuning constants (named, never literals inside the hooks). These are the DEFAULTS (and the
+//                          header spec): a fight's resolved K (raidProfiles.js raidProfile(motif, variant).k, e.g. a
+//                          nightmare variant's override) reaches every hook as ctx.K. Hooks read `tuned(K, ctx)`
+//                          (_rules.js: ctx.K over the defaults), NEVER the module's K directly (tuning.test.js); a
+//                          helper that needs a number takes the resolved k as a parameter.
 //   fxKeys    ['cut']      every `res.fx` the module can fire. fx/<motif>.jsx draws each one (effects[key]) and
 //                          names its floater text (floaters[key]); abilityfx.test.js checks both.
 //   noCrit    true         the base "every 3rd clean strike in a row is a critical (+1)" never applies.
@@ -37,7 +41,7 @@
 //        hit  = { verdict: 'clean'|'glancing'|'miss', mode: 'typed'|'choice', attack, inserted, lastStand, key,
 //                 weak, armed: { <toggleId>: true } }   (armed: the toggle actions the player armed for this answer)
 //        ctx  = { kind: 'normal'|'attack'|'inserted', inserted, right, clean, phase, need, lives, livesLost,
-//                 lastLife, shieldReady, bar, K, before }   ctx.clean = clean AND typed; a mechanic that pays a clean
+//                 lastLife, shieldReady, bar, K, rules, before }   ctx.clean = clean AND typed; a mechanic that pays a clean
 //                 typed answer reads hitClean(ctx, res) (_rules.js) instead, so a glancing answer under Focus (a raid
 //                 power that "hits like a clean one", res.focused) counts too.   (bar: { total, before, phases } on raids, else null;
 //                 before = the fight state before this answer)
@@ -46,7 +50,7 @@
 //   attackGap(s, ctx) -> n           questions between a miss and its returning attack (default ATTACK_GAP).
 //   attackLives(s, ctx) -> n         lives a missed ATTACK costs (default ATTACK_LIVES); also shown on its banner.
 //   afterStrike(next, info) -> plan  RaidRun asks after every answer what to put into the run:
-//        info = { q, hit, over, attack (an attack will be inserted), normal, pos, room }
+//        info = { q, hit, over, attack (an attack will be inserted), normal, pos, room, K, rules }
 //                 room = how many inserts still fit in this ATTEMPT (MAX_INSERTED = 4, shared by every ability insert:
 //                 minions, loops, last stands; attacks are separate, MAX_ATTACKS). raidStep keeps only the first
 //                 `room` inserts, and with room 0 drops the WHOLE plan (its ab and attack: false too, so a loop that
@@ -96,17 +100,20 @@
 //                                    Only IDLE_MOTIFS may declare it; slow and small; off in focus mode, with Still
 //                                    bosses and under reduced motion like every reaction. Every other reaction plays
 //                                    ONCE per trigger (fx keys).
-//   dayState(s) -> object            what to keep for today's NEXT attempt (raid day.ab, saved with the day's wounds;
+//   dayState(s, ctx) -> object            what to keep for today's NEXT attempt (raid day.ab, saved with the day's wounds;
 //                                    a new day starts without it). init(ctx) reads it back as ctx.dayAb.
-//   onRally(dayAb, { healed, damage, hp }) -> object
+//   onRally(dayAb, { healed, damage, hp, K }) -> object
 //                                    the run lost every heart and the boss RALLIED: it healed back `healed` of the
 //                                    day's wounds (now `damage` of `hp`). A dayState holding anything tied to damage
 //                                    (a split of the wounds) must be brought in line here; the raid saves what it
 //                                    returns. Optional (a module without it keeps its dayState as is).
-//   cancelHeal(s)                    RaidRun undid this answer's gorge (it would have crossed a phase line back):
+//   cancelHeal(s, ctx)               RaidRun undid this answer's gorge (it would have crossed a phase line back):
 //                                    roll back the module's own heal counter.
 //
-// Ctx for hint/tag/banner/hud/actions/barMarks/artState/artStyle/idle: { phase, need, lives, livesLeft, damage, bar, mode, q, armed, K }.
+// Ctx for hint/tag/banner/hud/actions/barMarks/artState/artStyle/idle: { phase, need, lives, livesLeft, damage, bar, mode, q, armed, K, rules }.
+// TUNING: every ctx (and afterStrike's info, onRally's info, dayState's and cancelHeal's second argument { K, rules })
+// carries K = the fight's resolved ability K and rules = its resolved fight rules (_rules.js FIGHT_RULES: damage,
+// attackGap, maxInserted...; also rulesOf(s) on any fight state). A caller passing no ctx (a test) gets the defaults.
 //
 // LOOKS: fx/<motif>.jsx draws each fx key (effects, floaters) and says how hard it hits (its `juice` map: size
 // tick/medium/big, shake 0..3, flash 0..2, hitstop 0|1, sfx name; fx/_juice.js). BossArena plays it all once, inside the

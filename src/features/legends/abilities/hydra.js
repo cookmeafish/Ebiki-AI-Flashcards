@@ -2,32 +2,35 @@
 // Every right answer (or a blocked attack) cuts a head. Cut all three and the stumps are burned (Cauterize) for
 // K.burn, and three heads stand again. A missed raid answer grows K.grow heads back (at most K.max). Nothing happens
 // at a phase line. Inserted questions: none. A missed attack grows nothing (its 2-life cost is enough).
+import { tuned } from './_rules'
+
 const K = { base: 3, grow: 2, max: 6, burn: 2 }
 
 export default {
   id: 'heads', icon: '🐍', K, fxKeys: ['sever', 'grow', 'cauterize'],
   sampleHint: { key: 'lg_hint_lastHead' },
-  init: () => ({ heads: K.base, burns: 0 }),
+  init: (ctx) => ({ heads: tuned(K, ctx).base, burns: 0 }),
   onStrike(s, res, hit, ctx) {
     if (ctx.kind === 'inserted') return
+    const k = tuned(K, ctx)
     if (ctx.right) {
       // A right raid answer, or a blocked attack: one head off.
       s.ab.heads = Math.max(0, s.ab.heads - 1)
       if (s.ab.heads === 0) {
-        res.dmg += K.burn
-        s.ab.heads = K.base
+        res.dmg += k.burn
+        s.ab.heads = k.base
         s.ab.burns = (s.ab.burns || 0) + 1
         res.fx = 'cauterize'
-        res.fxVars = { n: K.burn }
+        res.fxVars = { n: k.burn }
       } else res.fx = 'sever'
     } else if (ctx.kind === 'normal') {
-      s.ab.heads = Math.min(K.max, s.ab.heads + K.grow)
+      s.ab.heads = Math.min(k.max, s.ab.heads + k.grow)
       res.fx = 'grow'
-      res.fxVars = { n: K.grow }
+      res.fxVars = { n: k.grow }
     }
   },
   // Only when the next right answer burns the stumps.
   hint: (s, q) => (!q._inserted && s.ab.heads === 1 ? { icon: '🔥', key: 'lg_hint_lastHead' } : null),
-  hud: (s) => [{ type: 'pips', n: s.ab.heads, max: K.max, icon: '🐍', labelKey: 'lg_hud_heads', vars: { n: s.ab.heads }, tone: 'success', ready: s.ab.heads === 1 }],
+  hud: (s, ctx) => [{ type: 'pips', n: s.ab.heads, max: tuned(K, ctx).max, icon: '🐍', labelKey: 'lg_hud_heads', vars: { n: s.ab.heads }, tone: 'success', ready: s.ab.heads === 1 }],
   artState: (s) => ({ 'data-ab-heads': s.ab.heads }),
 }

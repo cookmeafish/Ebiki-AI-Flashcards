@@ -7,7 +7,7 @@
 // head first, a clean typed answer to the Iron head, anything else right to the Fire head. With all three chained
 // the hound is BOUND: the gate slams on him for +K.bound, and he tears free again (every head unchained). The Fire head is the hothead: any miss lets it slip its
 // chain (the other two stay chained). The miss costs its life as always; no answer ever costs more.
-import { hitClean } from './_rules'
+import { hitClean, tuned } from './_rules'
 const K = { bound: 4 }
 const HEADS = ['iron', 'fire', 'shadow']
 const free = (s) => HEADS.filter((h) => !s.ab[h])
@@ -44,27 +44,29 @@ export default {
     s.ab[head] = true
     s.ab.binds++
     if (free(s).length === 0) {
-      res.dmg += K.bound
+      const k = tuned(K, ctx)
+      res.dmg += k.bound
       s.ab.fire = false
       s.ab.iron = false
       s.ab.shadow = false
       s.ab.bounds++
       res.fx = 'bound'
-      res.fxVars = { n: K.bound }
+      res.fxVars = { n: k.bound }
       return
     }
     res.fx = FX[head]
   },
   // Only when THIS question can chain the last free head. (The Shadow head is never the last one free right after a
   // miss: that miss let the Fire head slip, so only an attack can be its last chance here.)
-  hint(s, q) {
+  hint(s, q, mode, ctx) {
     if (!q || q._inserted || q._lastStand) return null
+    const k = tuned(K, ctx)
     const left = free(s)
     if (left.length !== 1) return null
     const attack = !!q._attack
-    if (left[0] === 'fire') return { icon: '🔥', key: 'lg_hint_shacklesFire', vars: { n: K.bound } }
-    if (left[0] === 'iron' && !attack) return { icon: '⛓️', key: 'lg_hint_shacklesIron', vars: { n: K.bound } }
-    if (left[0] === 'shadow' && attack) return { icon: '🌑', key: 'lg_hint_shacklesShadow', vars: { n: K.bound } }
+    if (left[0] === 'fire') return { icon: '🔥', key: 'lg_hint_shacklesFire', vars: { n: k.bound } }
+    if (left[0] === 'iron' && !attack) return { icon: '⛓️', key: 'lg_hint_shacklesIron', vars: { n: k.bound } }
+    if (left[0] === 'shadow' && attack) return { icon: '🌑', key: 'lg_hint_shacklesShadow', vars: { n: k.bound } }
     return null
   },
   hud: (s) => {

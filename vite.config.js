@@ -7,17 +7,22 @@ import crypto from 'crypto'
 import os from 'os'
 import { spawn, execFile } from 'child_process'
 import { fileURLToPath, pathToFileURL } from 'url'
-import { mergeConfigPatch } from './src/utils/configDiff.js'
+import { mergeConfigPatch, lostConfigPatch } from './src/utils/configDiff.js'
+import { applyModePatch, isModePatch } from './src/utils/modePatch.js'
 import { featureDataEntries, featureDataRoutes, featureLocalFiles, registerFeatureRoutes } from './src/features/server.js'
 import { createEbiImages } from './src/server/ebi-images.js'
-import { TOC_NAME_RE, extractOutline, sliceSections } from './src/server/knowledgeOutline.js'
-import { planChatSave } from './src/server/chatSave.js'
 import { limitBody } from './src/server/bodyLimit.js'
 import { guardMode } from './src/server/dataGuard.js'
 import { createQuestionBankRoute } from './src/server/questionBankRoute.js'
 import { createAnkiProxy } from './src/server/ankiProxy.js'
 import { createTtsRoute } from './src/server/ttsRoute.js'
 import { createWebSearchRoute } from './src/server/webSearchRoute.js'
+import { createConfigRoute } from './src/server/configRoute.js'
+import { createAnkiformatRoute } from './src/server/ankiformatRoute.js'
+import { createDeckProgressRoute } from './src/server/deckProgressRoute.js'
+import { createDiscoverStoreRoute } from './src/server/discoverStoreRoute.js'
+import { createChatsRoute, createChatLoadRoute } from './src/server/chatsRoute.js'
+import { createKnowledgeRoutes } from './src/server/knowledgeRoute.js'
 import { mergePlayers } from './src/features/game/engine.js'
 
 // Text files a person may have edited by hand (config.json, a mode's config, .env, datadir.json) can start
@@ -426,6 +431,12 @@ function dataEntriesPresentAsync(dir, timeoutMs = 1500) {
       })
     }
   })
+}
+// A joined folder that still holds no data entry (a new EMPTY folder joined after the old share died, or by a
+// computer with no data of its own yet, or with merge:false) never counted as reachable: every data route
+// answered 503 and nothing, onboarding included, could ever be saved there. An empty modes/ makes it one.
+function markJoinedFolder(dir) {
+  if (!DATA_ENTRIES.some((e) => fs.existsSync(path.join(dir, e)))) fs.mkdirSync(path.join(dir, 'modes'), { recursive: true })
 }
 // Move every data entry from `srcDir` into `destDir`. NEVER deletes: if `destDir`
 // already holds an entry, that existing copy is parked in a dated backup first.
@@ -1217,7 +1228,13 @@ function isDefaultTemplate(modesDir, d) {
 // is moved from its same-id folder ONLY when named here: a stale list still showing the old name (another
 // computer renamed it since) moved the folder BACK and undid that rename. It is reported with the folder's
 // current name instead, which the client adopts. No list (an older client) = the old behaviour.
-function writeModeFolders(modesDir, modes, activeModeId, deletedIds, changedIds, renamedIds) {
+// `patches` (optional, { [id]: modePatch }): what a one-mode save CHANGED (src/utils/modePatch.js). That mode's
+// config is the one on disk with the patch applied, so fields another computer changed in the SAME mode since this
+// page loaded are kept (the page's whole stale copy reverted them). A mode reported as renamed elsewhere gets its
+// patch (minus the name) in its current folder: the client then only adopts the name, and its edit is not lost.
+function writeModeFolders(modesDir, modes, activeModeId, deletedIds, changedIds, renamedIds, patches) {
+  const patchFor = (id) => { const p = patches && typeof patches === 'object' ? patches[idKey(id)] : undefined; return isModePatch(p) ? p : null }
+  const readCfg = (d) => { try { return JSON.parse(readUtf8(path.join(modesDir, d, 'config.json'))) } catch { return null } }
   const renamed = Array.isArray(renamedIds) ? new Set(renamedIds.map((x) => (x === undefined || x === null ? undefined : String(x)))) : null
   const changed = Array.isArray(changedIds) ? new Set(changedIds.map((v) => (v === undefined || v === null ? undefined : String(v)))) : null
   const isDir = (d) => { try { return fs.statSync(path.join(modesDir, d)).isDirectory() } catch { return false } }
@@ -1273,6 +1290,14 @@ function writeModeFolders(modesDir, modes, activeModeId, deletedIds, changedIds,
   const tombIds = new Set(tombs.map((x) => idKey(x.id)))
   const deletedElsewhere = []
   const untouched = new Set() // modes this save did not change: never written, moved or re-tagged
+  // A mode renamed elsewhere: its edit goes into the folder it lives in now (never its name or id: the other computer's).
+  const patchHome = (home, mode) => {
+    const patch = patchFor(mode.id)
+    const cfg = patch ? readCfg(home) : null
+    if (!cfg || idKey(cfg.id) !== idKey(mode.id)) return
+    const own = (p) => p[0] !== 'name' && p[0] !== 'id'
+    try { writeFileAtomic(path.join(modesDir, home, 'config.json'), JSON.stringify(applyModePatch(cfg, { set: patch.set.filter((e) => own(e.path)), unset: patch.unset.filter(own) }), null, 2)) } catch (e) { console.log('[Modes] could not save the edit into', JSON.stringify(home), e.message) }
+  }
   modes.forEach((mode, i) => {
     if (changed && !changed.has(idKey(mode.id))) { untouched.add(idKey(mode.id)); return }
     const dir = path.join(modesDir, targets[i])
@@ -1294,6 +1319,7 @@ function writeModeFolders(modesDir, modes, activeModeId, deletedIds, changedIds,
         if (homes.length === 1) {
           let homeName = homes[0]
           try { homeName = JSON.parse(readUtf8(path.join(modesDir, homes[0], 'config.json'))).name || homes[0] } catch { /* the folder name */ }
+          patchHome(homes[0], mode)
           conflicts.push({ id: mode.id, name: mode.name, suggested: homeName, adopt: true })
           skipped.add(idKey(mode.id))
           return
@@ -1343,6 +1369,7 @@ function writeModeFolders(modesDir, modes, activeModeId, deletedIds, changedIds,
       const misnamed = prev !== undefined && folderKey(modeFolderName(prevName, mode.id)) === folderKey(targets[i])
       if (prev !== undefined && renamed && !renamed.has(idKey(mode.id)) && !misnamed) {
         keep.add(folderKey(prev)); leaving.delete(prev)
+        patchHome(prev, mode)
         conflicts.push({ id: mode.id, name: mode.name, suggested: prevName, adopt: true }) // this same mode, renamed elsewhere
         skipped.add(idKey(mode.id))
         return
@@ -1373,6 +1400,7 @@ function writeModeFolders(modesDir, modes, activeModeId, deletedIds, changedIds,
       if (home) {
         let homeName = home
         try { homeName = JSON.parse(readUtf8(path.join(modesDir, home, 'config.json'))).name || home } catch { /* the folder name */ }
+        patchHome(home, mode)
         conflicts.push({ id: mode.id, name: mode.name, suggested: homeName, adopt: true })
         skipped.add(idKey(mode.id))
         return
@@ -1385,7 +1413,9 @@ function writeModeFolders(modesDir, modes, activeModeId, deletedIds, changedIds,
       return
     }
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-    writeFileAtomic(path.join(dir, 'config.json'), JSON.stringify(mode, null, 2))
+    const patch = patchFor(mode.id)
+    const onDisk = patch ? readCfg(targets[i]) : null
+    writeFileAtomic(path.join(dir, 'config.json'), JSON.stringify(onDisk && idKey(onDisk.id) === idKey(mode.id) ? applyModePatch(onDisk, patch) : mode, null, 2))
   })
   const explicit = Array.isArray(deletedIds) ? new Set(deletedIds.map(idKey)) : null
   for (const d of fs.readdirSync(modesDir)) {
@@ -1511,13 +1541,35 @@ function headPublished(git, extra, cb) {
 
 const isConfigPatch = (v) => !!v && typeof v === 'object' && !Array.isArray(v)
 
+const CONFIG_RECHECK_MS = 1200 // after a config save: long enough for another computer's same-instant write to land
+const CONFIG_RECHECKS = 3
 function writeConfig(data) {
   if (!isConfigPatch(data)) throw new TypeError('config.json takes an object of settings')
   const r = readConfigChecked()
   if (!r.ok) throw new Error(`config.json could not be read (${r.error}); not overwriting it`)
   // Nested per-provider / per-model maps merge one level deep (see src/utils/configDiff.js).
   const merged = mergeConfigPatch(r.data, data)
-  writeFileAtomic(dataPath('config.json'), JSON.stringify(merged, null, 2) + '\n')
+  const file = dataPath('config.json')
+  writeFileAtomic(file, JSON.stringify(merged, null, 2) + '\n')
+  // Another computer merging into the same file in the same instant wrote over this change (see lostConfigPatch).
+  // Looked at again a moment later, in the same file only (a folder switch or offline change ends it); a re-apply
+  // can itself meet another write, so up to CONFIG_RECHECKS times.
+  const recheck = (left) => {
+    const t = setTimeout(() => {
+      try {
+        if (dataPath('config.json') !== file) return
+        const now = readConfigChecked()
+        if (!now.ok) return
+        const again = lostConfigPatch(r.data, merged, now.data)
+        if (!again) return
+        writeFileAtomic(file, JSON.stringify(mergeConfigPatch(now.data, again), null, 2) + '\n')
+        console.log('[Config] re-applied a change another computer overwrote:', Object.keys(again).join(', '))
+        if (left > 1) recheck(left - 1)
+      } catch (e) { console.log('[Config] could not re-check the saved settings:', e.message) }
+    }, CONFIG_RECHECK_MS + Math.floor(Math.random() * 400))
+    if (t.unref) t.unref()
+  }
+  recheck(CONFIG_RECHECKS)
 }
 
 // May this request reach an /api route? Every handler parses its body as JSON whatever the
@@ -1531,9 +1583,6 @@ function writeConfig(data) {
 //   1. Host must be a loopback name (the server listens on loopback only).
 //   2. An Origin, when present, must be this same host. 'null' (sandboxed frames, file pages) fails.
 const LOOPBACK_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]'])
-// Chat ids are Date.now() strings. Anything else (a "../" in particular) is refused rather than
-// joined into a path, so a bad id can never read, write or delete a file outside chats/.
-const isSafeChatId = (id) => typeof id === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(id)
 
 // Folder name for a deck's progress log. Anki subdecks are named "Parent::Child", and ":" is not allowed
 // in a Windows file name, so the progress log of every subdeck failed to save (mkdir ENOENT) and
@@ -2489,222 +2538,22 @@ function apiPlugin() {
       // Delayed so it never competes with start-up (the first App.jsx transform); every request resizes on demand anyway.
       if (!process.env.VITEST) { const t = setTimeout(() => { ebiImages.warm().then((n) => { if (n) console.log('[Ebi images] ready:', n, 'resized copies') }).catch((e) => console.log('[Ebi images] warm-up failed:', e?.message || e)) }, 15000); t.unref?.() }
 
-      // Anki format endpoint
-      server.middlewares.use('/api/ankiformat', (req, res) => {
-        if (req.method === 'GET') {
-          res.setHeader('Content-Type', 'application/json')
-          // Only ENOENT is "no legacy file"; any other read error is a 500 (the client then skips the migration).
-          try { res.end(readUtf8(dataPath('ankiformat.json'))) }
-          catch (e) {
-            if (e && e.code === 'ENOENT') res.end('{}')
-            else { res.statusCode = 500; res.end(JSON.stringify({ error: e.message })) }
-          }
-        } else if (req.method === 'POST') {
-          const handleBody = (bodyStr) => {
-            try {
-              // The catch below promised "invalid json" but nothing parsed: any text was saved, and the GET then
-              // served a file the client could not read.
-              const parsed = JSON.parse(bodyStr)
-              if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('object required')
-              writeFileAtomic(dataPath('ankiformat.json'), bodyStr)
-              res.setHeader('Content-Type', 'application/json')
-              res.end('{"ok":true}')
-            } catch {
-              res.statusCode = 400
-              res.end('{"error":"invalid json"}')
-            }
-          }
-          if (req.body) {
-            handleBody(typeof req.body === 'string' ? req.body : JSON.stringify(req.body))
-          } else {
-            let body = ''
-            req.on('data', (chunk) => { body += chunk })
-            req.on('end', () => handleBody(body))
-          }
-        } else {
-          res.statusCode = 405
-          res.end('')
-        }
-      })
+      // Ebiki's legacy card-format file (only ENOENT is '{}'; POST takes a JSON object): src/server/ankiformatRoute.js (tested).
+      server.middlewares.use('/api/ankiformat', createAnkiformatRoute({ dataPath, readUtf8, writeFileAtomic }))
 
       // ── Local TTS proxy + disk cache (pronunciation Tier 2): src/server/ttsRoute.js (strictly opt-in; tested).
       server.middlewares.use('/api/tts', createTtsRoute({ dataMode, readConfig, dataPath, writeFileAtomic, fs, path, crypto }))
 
       // ── Knowledge outline & section slicing ─────────────────────────────
-      // Huge knowledge bases (whole books) can't be prompt-stuffed, so we extract a
-      // navigable OUTLINE (headings) and serve individual sections on demand. A file
-      // whose NAME looks like a table of contents (toc.txt, "table of contents.md" …)
-      // overrides detection: each of its lines is treated as a chapter/section title
-      // and located in the other files — so a user can upload a book + its TOC and
-      // the AI navigates by TOC even when the book text has no markdown headings.
-      const readKnowledgeFiles = (knowledgeDir) => {
-        if (!fs.existsSync(knowledgeDir)) return []
-        return fs.readdirSync(knowledgeDir)
-          .filter((f) => f.match(/\.(txt|md)$/i))
-          // A file listed but already gone (another computer removed it; SMB lists it ~10s longer) is skipped:
-          // thrown, the whole knowledge GET answered 500 and sections came back empty.
-          .map((f) => { try { return { name: f, text: readUtf8(path.join(knowledgeDir, f)) } } catch (e) { if (e && e.code === 'ENOENT') return null; throw e } })
-          .filter(Boolean)
-      }
-      // Outline detection and section slicing: src/server/knowledgeOutline.js (pure, tested).
+      // Huge knowledge bases (whole books) are served as an OUTLINE plus sections on demand (a toc.txt overrides
+      // heading detection). Routes: src/server/knowledgeRoute.js; outline code: src/server/knowledgeOutline.js (both tested).
+      const knowledgeRoutes = createKnowledgeRoutes({ dataPath, modeFolderForName, readUtf8, writeFileAtomic, fs, path })
 
-      // GET /api/knowledge-sections?mode=X&sections=1,4&cap=60000 → slice the requested
-      // outline sections out of the mode's knowledge files. Indices match the `outline`
-      // array returned by GET /api/modes/knowledge (recomputed here from the same files).
-      server.middlewares.use('/api/knowledge-sections', (req, res) => {
-        res.setHeader('Content-Type', 'application/json')
-        try {
-          const url = new URL(req.url, 'http://x')
-          const modeName = modeFolderForName(dataPath('modes'), url.searchParams.get('mode') || '')
-          if (!modeName) { res.end(JSON.stringify({ content: '', titles: [] })); return }
-          const ids = (url.searchParams.get('sections') || '').split(',').map((s) => parseInt(s, 10)).filter((n) => Number.isInteger(n) && n >= 0).slice(0, 8)
-          // Bounded both ways: a negative cap sliced characters off the END (slice(0, -n)).
-          const cap = Math.max(1000, Math.min(200000, parseInt(url.searchParams.get('cap'), 10) || 60000))
-          const all = readKnowledgeFiles(dataPath('modes', modeName, 'knowledge'))
-          const outline = extractOutline(all)
-          const content = sliceSections(all.filter((f) => !TOC_NAME_RE.test(f.name)), outline, ids, cap)
-          res.end(JSON.stringify({ content, titles: ids.map((i) => outline[i]?.title).filter(Boolean) }))
-        } catch (e) { res.end(JSON.stringify({ content: '', titles: [], error: e.message })) }
-      })
+      server.middlewares.use('/api/knowledge-sections', knowledgeRoutes.sections)
 
-      // Knowledge base endpoint — MUST be before /api/modes (prefix matching)
-      // GET ?mode=X → list files + content + outline (headings/TOC for big-KB navigation)
-      // POST ?mode=X (JSON {filename, content}) → upload file
-      // DELETE ?mode=X&file=Y → delete file
-      // PATCH ?mode=X&file=Y → toggle enable/disable
-      server.middlewares.use('/api/modes/knowledge', (req, res) => {
-        res.setHeader('Content-Type', 'application/json')
-        const url = new URL(req.url, 'http://x')
-        const modeName = url.searchParams.get('mode') || ''
-        const sanitized = modeFolderForName(dataPath('modes'), modeName)
-        const knowledgeDir = dataPath('modes', sanitized, 'knowledge')
-
-        if (!sanitized) { res.end(JSON.stringify({ files: [], content: null, fileCount: 0 })); return }
-
-        if (req.method === 'GET') {
-          try {
-            if (!fs.existsSync(knowledgeDir)) { res.end(JSON.stringify({ files: [], content: null, fileCount: 0 })); return }
-            const allFiles = fs.readdirSync(knowledgeDir)
-            // A file listed but already gone (another computer deleted or toggled it; the SMB directory cache
-            // lists it ~10s longer) is skipped, never the whole answer: one ENOENT used to report "no files" and
-            // ran every AI call without the knowledge base.
-            const gone = (e) => e && e.code === 'ENOENT'
-            const files = allFiles.filter(f => f.match(/\.(txt|md)(\.disabled)?$/i)).map(f => {
-              const disabled = f.endsWith('.disabled')
-              const name = disabled ? f.replace(/\.disabled$/, '') : f
-              let size
-              try { size = fs.statSync(path.join(knowledgeDir, f)).size } catch (e) { if (gone(e)) return null; throw e }
-              return { name, disabled, size }
-            }).filter(Boolean)
-            const enabledFiles = allFiles.filter(f => f.match(/\.(txt|md)$/i))
-            const content = enabledFiles.map(f => {
-              let text
-              try { text = readUtf8(path.join(knowledgeDir, f)) } catch (e) { if (gone(e)) return null; throw e }
-              return `--- ${f} ---\n${text}`
-            }).filter((x) => x !== null).join('\n\n')
-            // Outline (capped) so the client can offer TOC-guided section retrieval for big KBs.
-            // Over the cap, keep the TOP levels of the whole book rather than the first 400 entries:
-            // a straight slice made every chapter after entry 400 unreachable. Each entry carries its
-            // original index `i`, which is what /api/knowledge-sections slices by.
-            let full = extractOutline(readKnowledgeFiles(knowledgeDir)).map((h, i) => ({ ...h, i }))
-            for (let maxLevel = 3; full.length > 400 && maxLevel >= 1; maxLevel--) full = full.filter((h) => h.level <= maxLevel)
-            const outline = full.slice(0, 400).map(({ file, title, level, i }) => ({ file, title, level, i }))
-            res.end(JSON.stringify({ files, content: content || null, fileCount: enabledFiles.length, outline }))
-          } catch (e) {
-            // A read that FAILED is not an empty knowledge base: answered as one (200, no files), the list showed
-            // "No files" and every AI call dropped the material. The client keeps what it has on a non-OK answer.
-            res.statusCode = 500
-            res.end(JSON.stringify({ error: e.message }))
-          }
-        } else if (req.method === 'POST') {
-          const handleBody = (bodyStr) => {
-            try {
-              if (!fs.existsSync(knowledgeDir)) fs.mkdirSync(knowledgeDir, { recursive: true })
-              const { filename, content, replace } = JSON.parse(bodyStr)
-              const safeName = (filename || 'file.txt').replace(/[<>:"/\\|?*]/g, '')
-              // Only what GET will list back (.txt/.md), never "." / ".." (the folder itself).
-              if (!/\.(txt|md)$/i.test(safeName) || /^\.+$/.test(safeName)) throw new Error('only .txt, .md or .pdf files can be added')
-              // A file of that name (any case: one file on Windows/macOS), on or switched off, is replaced
-              // only when the client says so: "Book.pdf" is stored as book.txt and silently overwrote the
-              // user's own book.txt.
-              const lower = safeName.toLowerCase()
-              const clash = fs.readdirSync(knowledgeDir).find((f) => f.toLowerCase() === lower || f.toLowerCase() === lower + '.disabled')
-              if (clash && !replace) { res.statusCode = 409; res.end(JSON.stringify({ exists: true, filename: clash.replace(/\.disabled$/i, '') })); return }
-              writeFileAtomic(path.join(knowledgeDir, safeName), content) // a cut-off write left a truncated book that every AI call then read
-              // Re-uploading a file the user had switched off left BOTH copies: the list showed the
-              // name twice, and switching the old one back on renamed it over the new upload. The
-              // upload replaces the file of that name, the switched-off copy included.
-              const staleDisabled = path.join(knowledgeDir, safeName + '.disabled')
-              if (fs.existsSync(staleDisabled)) fs.rmSync(staleDisabled, { force: true })
-              // A case-sensitive file system (Linux) kept "Notes.txt" beside the replacing "notes.txt": the text was
-              // there twice. Removed only when it is really ANOTHER file (on Windows/macOS it is the same one).
-              if (replace) {
-                const mine = fs.statSync(path.join(knowledgeDir, safeName))
-                for (const f of fs.readdirSync(knowledgeDir)) {
-                  if (f === safeName || (f.toLowerCase() !== lower && f.toLowerCase() !== lower + '.disabled')) continue
-                  try { const st = fs.statSync(path.join(knowledgeDir, f)); if (st.ino !== mine.ino || st.dev !== mine.dev) fs.rmSync(path.join(knowledgeDir, f), { force: true }) } catch { /* gone already */ }
-                }
-              }
-              res.end(JSON.stringify({ ok: true, filename: safeName }))
-            } catch (e) { res.statusCode = 400; res.end(JSON.stringify({ error: e.message })) }
-          }
-          if (req.body) { handleBody(typeof req.body === 'string' ? req.body : JSON.stringify(req.body)) }
-          else { let b = ''; req.on('data', c => b += c); req.on('end', () => handleBody(b)) }
-        } else if (req.method === 'DELETE') {
-          try {
-            const fileName = url.searchParams.get('file')
-            if (!fileName) { res.statusCode = 400; res.end('{"error":"no file"}'); return }
-            const safeName = fileName.replace(/[<>:"/\\|?*]/g, '')
-            // "." or ".." named the knowledge folder or the MODE folder itself (a PATCH renamed the whole
-            // mode to "<name>.disabled", dropping it from the list).
-            if (/^[.\s]*$/.test(safeName)) { res.statusCode = 400; res.end('{"error":"bad file name"}'); return }
-            const filePath = path.join(knowledgeDir, safeName)
-            const disabledPath = filePath + '.disabled'
-            // Which copy: a share can hold both (an offline disable is merged as a second file). Deleting the
-            // struck-through row deleted the live one too. No parameter (an older client) = both, as before.
-            const which = url.searchParams.get('disabled')
-            if (which !== '1' && fs.existsSync(filePath)) fs.unlinkSync(filePath)
-            if (which !== '0' && fs.existsSync(disabledPath)) fs.unlinkSync(disabledPath)
-            res.end('{"ok":true}')
-          } catch (e) { res.statusCode = 500; res.end(JSON.stringify({ error: e.message })) }
-        } else if (req.method === 'PATCH') {
-          try {
-            const fileName = url.searchParams.get('file')
-            if (!fileName) { res.statusCode = 400; res.end('{"error":"no file"}'); return }
-            const safeName = fileName.replace(/[<>:"/\\|?*]/g, '')
-            // "." or ".." named the knowledge folder or the MODE folder itself (a PATCH renamed the whole
-            // mode to "<name>.disabled", dropping it from the list).
-            if (/^[.\s]*$/.test(safeName)) { res.statusCode = 400; res.end('{"error":"bad file name"}'); return }
-            const filePath = path.join(knowledgeDir, safeName)
-            const disabledPath = filePath + '.disabled'
-            // `disabled=1|0`: the state the user asked for (a flip undid a double click, and re-enabled a file
-            // another computer had just disabled). Already there = done. No parameter = the old flip.
-            const want = new URL(req.url, 'http://x').searchParams.get('disabled')
-            if (want === '1' && fs.existsSync(disabledPath) && !fs.existsSync(filePath)) { res.end(JSON.stringify({ ok: true, disabled: true })); return }
-            if (want === '0' && fs.existsSync(filePath) && !fs.existsSync(disabledPath)) { res.end(JSON.stringify({ ok: true, disabled: false })); return }
-            // BOTH copies exist (another computer, an offline merge): the flip renamed the switched-off copy over the
-            // live one. With a wanted state nothing is overwritten: the copy in the way is kept beside it, switched off.
-            if ((want === '0' || want === '1') && fs.existsSync(filePath) && fs.existsSync(disabledPath)) {
-              const ext = path.extname(safeName)
-              const kept = path.join(knowledgeDir, `${safeName.slice(0, safeName.length - ext.length)} (kept ${new Date().toISOString().slice(0, 10)} ${Date.now() % 100000})${ext}.disabled`)
-              // want=1: the STALE switched-off copy is the one set aside, then the live file is switched off under
-              // the real name (the other way round, re-enabling later brought back the old text).
-              fs.renameSync(disabledPath, kept)
-              if (want === '1') { fs.renameSync(filePath, disabledPath); res.end(JSON.stringify({ ok: true, disabled: true })); return }
-              res.end(JSON.stringify({ ok: true, disabled: false })); return
-            }
-            if (fs.existsSync(disabledPath)) {
-              fs.renameSync(disabledPath, filePath)
-              res.end(JSON.stringify({ ok: true, disabled: false }))
-            } else if (fs.existsSync(filePath)) {
-              fs.renameSync(filePath, disabledPath)
-              res.end(JSON.stringify({ ok: true, disabled: true }))
-            } else {
-              res.statusCode = 404; res.end('{"error":"file not found"}')
-            }
-          } catch (e) { res.statusCode = 500; res.end(JSON.stringify({ error: e.message })) }
-        } else { res.statusCode = 405; res.end('') }
-      })
+      // Knowledge base (GET list + content + outline, POST upload with 409 on a clash, DELETE, PATCH toggle) — MUST be
+      // before /api/modes (prefix matching). Mounted with /api/knowledge-sections above.
+      server.middlewares.use('/api/modes/knowledge', knowledgeRoutes.knowledge)
 
       // Modes endpoint — per-mode named folders in modes/ directory
       // Each mode: modes/<sanitized-name>/config.json
@@ -2826,7 +2675,7 @@ function apiPlugin() {
                 res.end(JSON.stringify({ error: 'refused: empty modes list' }))
                 return
               }
-              const written = Array.isArray(data.modes) ? writeModeFolders(MODES_DIR, data.modes, data.activeModeId, data.deletedIds, data.changedIds, data.renamedIds) : null
+              const written = Array.isArray(data.modes) ? writeModeFolders(MODES_DIR, data.modes, data.activeModeId, data.deletedIds, data.changedIds, data.renamedIds, data.patches) : null
               res.setHeader('Content-Type', 'application/json')
               res.end(JSON.stringify({ ok: true, conflicts: written?.conflicts || [], renameFailed: written?.renameFailed || [], deletedElsewhere: written?.deletedElsewhere || [] }))
             } catch (e) {
@@ -3208,9 +3057,6 @@ function apiPlugin() {
                   if (sourceOnly.has) { res.end(JSON.stringify({ needsChoice: true, context: 'join', dataDir: next, sourceOnly })); return }
                 }
                 fs.mkdirSync(next, { recursive: true })
-                // A new EMPTY folder (starting fresh after the old share died): with no data entry it never
-                // counted as reachable, every data route answered 503 and nothing could ever be saved there.
-                if (!prevReachable && !DATA_ENTRIES.some((e) => fs.existsSync(path.join(next, e)))) fs.mkdirSync(path.join(next, 'modes'), { recursive: true })
                 if (prevReachable) for (const entry of DATA_ENTRIES) {
                   const from = path.join(prev, entry)
                   const to = path.join(next, entry)
@@ -3221,6 +3067,7 @@ function apiPlugin() {
                   // "kept only the folder's data"). Seeding an empty share (no prompt, merge undefined) still copies.
                   else if (merge !== false && !fs.existsSync(to)) { fs.cpSync(from, to, { recursive: true, filter: (x) => !/\.\d+\.tmp$/.test(x) }); copied.push(entry) }
                 }
+                markJoinedFolder(next)
                 // The switch is recorded FIRST, then this computer's data is stashed. The other order left
                 // the app on its own folder with that folder's data already moved out whenever the pointer
                 // write failed (permissions, a lock): it came up empty, onboarding and all, and saved
@@ -3251,256 +3098,22 @@ function apiPlugin() {
         } else { res.statusCode = 405; res.end('') }
       })
 
-      // Config endpoint
-      server.middlewares.use('/api/config', async (req, res) => {
-        // Unreachable-source handling lives in the shared data-route guard above
-        // (503 when there is nothing to serve, .local-offline when there is), so
-        // an empty read can never reach here and clobber the real file.
-        if (req.method === 'GET') {
-          res.setHeader('Content-Type', 'application/json')
-          const r = await readConfigSettled()
-          if (!r.ok) {
-            console.log('[Config] config.json exists but could not be read; refusing to serve it as empty:', r.error)
-            res.statusCode = 503
-            res.end(JSON.stringify({ unreadable: true, error: r.error }))
-            return
-          }
-          rememberAppLanguage(r.data?.appLanguage)
-          res.end(JSON.stringify(r.data))
-        } else if (req.method === 'POST') {
-          let body = ''
-          req.on('data', (chunk) => { body += chunk })
-          req.on('end', () => {
-            let parsed
-            try { parsed = JSON.parse(body) } catch {
-              res.statusCode = 400
-              res.end('{"error":"invalid json"}')
-              return
-            }
-            // Only an object of settings: a string or a list merged its characters/items in as keys "0", "1", ...
-            if (!isConfigPatch(parsed)) { res.statusCode = 400; res.end('{"error":"settings object required"}'); return }
-            try {
-              writeConfig(parsed)
-              rememberAppLanguage(parsed?.appLanguage)
-              res.setHeader('Content-Type', 'application/json')
-              res.end('{"ok":true}')
-            } catch (e) {
-              res.statusCode = 500
-              res.end(JSON.stringify({ error: `config.json was not saved: ${e.message}` }))
-            }
-          })
-        } else {
-          res.statusCode = 405
-          res.end('')
-        }
-      })
-      // Deck progress observations
-      server.middlewares.use('/api/deck-progress', (req, res) => {
-        if (req.method === 'GET') {
-          const url = new URL(req.url, 'http://localhost')
-          const deck = url.searchParams.get('deck')
-          if (!deck) { res.statusCode = 400; res.end(JSON.stringify({ error: 'deck required' })); return }
-          let file = dataPath('decks', deckDirName(deck), 'progress-observations.md')
-          // A folder saved under the raw name before deckDirName existed (possible on macOS/Linux,
-          // which allow ":"): read it if the new one does not exist yet. Only a name with no path
-          // separators or ".." is tried.
-          if (!fs.existsSync(file) && !/[\\/]|^\.\.?$/.test(deck)) {
-            const legacy = dataPath('decks', deck, 'progress-observations.md')
-            try { if (fs.existsSync(legacy)) file = legacy } catch { /* not a valid path here */ }
-          }
-          res.setHeader('Content-Type', 'application/json')
-          try {
-            // Only a MISSING file is "no notes yet": existsSync answers false on ANY error (a share dropping, a
-            // denied folder), and that empty reply let Insights write a fresh file over the real notes.
-            let content = ''
-            try { content = readUtf8(file) } catch (e) { if (e.code !== 'ENOENT') throw e }
-            res.end(JSON.stringify({ content })) // BOM-free: the client JSON.parses it, and a BOM read as "nothing stored"
-          } catch (e) { res.statusCode = 500; res.end(JSON.stringify({ error: e.message })) }
-        } else if (req.method === 'POST') {
-          let body = ''
-          req.on('data', c => body += c)
-          req.on('end', () => {
-            try {
-              const { deck, content } = JSON.parse(body)
-              // Both required: a missing deck wrote into decks/_, and missing content saved the text "undefined".
-              if (typeof deck !== 'string' || !deck.trim() || typeof content !== 'string') { res.statusCode = 400; res.end(JSON.stringify({ error: 'deck and content required' })); return }
-              const dir = dataPath('decks', deckDirName(deck))
-              if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-              writeFileAtomic(path.join(dir, 'progress-observations.md'), content)
-              console.log('[Deck Progress] saved for:', deck)
-              res.setHeader('Content-Type', 'application/json')
-              res.end(JSON.stringify({ ok: true }))
-            } catch (e) {
-              res.statusCode = 400
-              res.end(JSON.stringify({ error: e.message }))
-            }
-          })
-        } else { res.statusCode = 405; res.end('') }
-      })
+      // Config endpoint (GET: 503 on an unreadable file, never empty; POST: a merged PATCH): src/server/configRoute.js (tested).
+      server.middlewares.use('/api/config', createConfigRoute({ readConfigSettled, writeConfig, isConfigPatch, rememberAppLanguage }))
+      // Deck progress notes (decks/<deck>/progress-observations.md; only ENOENT is empty): src/server/deckProgressRoute.js (tested).
+      server.middlewares.use('/api/deck-progress', createDeckProgressRoute({ dataPath, deckDirName, readUtf8, writeFileAtomic, fs, path }))
 
-      // Discover Mode fallback store — local cache for learner profile + ledger when Anki
-      // (the cloud-synced source of truth) is offline. Stored flat under discover/.
-      server.middlewares.use('/api/discover-store', (req, res) => {
-        const url = new URL(req.url, 'http://localhost')
-        const kind = (url.searchParams.get('kind') || '').replace(/[^a-z]/gi, '')
-        const mode = (url.searchParams.get('mode') || '').replace(/[^a-zA-Z0-9._-]/g, '-')
-        res.setHeader('Content-Type', 'application/json')
-        if (!kind || !mode) { res.statusCode = 400; res.end(JSON.stringify({ error: 'kind and mode required' })); return }
-        const file = dataPath('discover', `${kind}__${mode}.json`)
-        if (req.method === 'GET') {
-          try {
-            // Only a MISSING file is "no notes yet": existsSync answers false on ANY error (a share dropping, a
-            // denied folder), and that empty reply let Insights write a fresh file over the real notes.
-            let content = ''
-            try { content = readUtf8(file) } catch (e) { if (e.code !== 'ENOENT') throw e }
-            // `shared`: the store lives in a data folder other computers write too. Every computer writes each blob
-            // here AND to its own Anki, so this copy is the freshest; its Anki only catches up through AnkiWeb, and
-            // reading Anki first let a lagging copy win (the next write then dropped the other computer's hooks).
-            res.end(JSON.stringify({ content, shared: !sameFolder(DATA_DIR, APP_ROOT) })) // BOM-free: the client JSON.parses it, and a BOM read as "nothing stored"
-          } catch (e) { res.statusCode = 500; res.end(JSON.stringify({ error: e.message })) }
-        } else if (req.method === 'POST') {
-          let body = ''
-          req.on('data', c => body += c)
-          req.on('end', () => {
-            try {
-              const { content } = JSON.parse(body)
-              const dir = dataPath('discover')
-              if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-              writeFileAtomic(file, content)
-              res.end(JSON.stringify({ ok: true }))
-            } catch (e) {
-              res.statusCode = 400
-              res.end(JSON.stringify({ error: e.message }))
-            }
-          })
-        } else { res.statusCode = 405; res.end('') }
-      })
+      // Discover Mode fallback store (profile, ledger, hooks, grammar, dupignore; discover/): src/server/discoverStoreRoute.js (tested).
+      server.middlewares.use('/api/discover-store', createDiscoverStoreRoute({ dataPath, readUtf8, writeFileAtomic, fs, isShared: () => !sameFolder(DATA_DIR, APP_ROOT) }))
 
       // Question reuse (opt-in, Settings > AI & cost): saved question sets per deck and note. The route and its
       // GET/POST/DELETE contract live in src/server/questionBankRoute.js (tested on a temp folder).
       server.middlewares.use('/api/question-bank', createQuestionBankRoute({ dataPath, deckDirName, folderKey, readUtf8, writeFileAtomic, fs, path }))
 
-      // Chat sessions — saved to chats/ folder
-      server.middlewares.use('/api/chats', (req, res) => {
-        const chatsDir = dataPath('chats')
-        try { if (!fs.existsSync(chatsDir)) fs.mkdirSync(chatsDir, { recursive: true }) } catch { /* see the offline-share guard */ }
+      // Chat sessions (chats/<id>.json): list, strict-read save with fork, delete, and load. src/server/chatsRoute.js (tested).
+      server.middlewares.use('/api/chats', createChatsRoute({ dataPath, readUtf8, writeFileAtomic, fs, path }))
 
-        if (req.method === 'GET') {
-          // List all chat sessions
-          try {
-            // One stat per file, not two per COMPARISON: the comparator used to stat inside the sort,
-            // which is O(n log n) disk hits on a folder that may live on a network share.
-            const mtime = new Map()
-            for (const f of fs.readdirSync(chatsDir)) {
-              if (!f.endsWith('.json')) continue
-              try { mtime.set(f, fs.statSync(path.join(chatsDir, f)).mtimeMs) } catch { /* vanished mid-list */ }
-            }
-            const files = [...mtime.keys()].sort((a, b) => mtime.get(b) - mtime.get(a))
-            const sessions = files.map(f => {
-              try {
-                const data = JSON.parse(readUtf8(path.join(chatsDir, f)))
-                // The FILE name is the id: an "id" field inside a merged or hand-edited file must not replace it (the list then
-                // named a chat chat-load refuses, which could never be opened or deleted).
-                return { ...data, id: f.replace('.json', ''), messages: undefined, messageCount: Array.isArray(data.messages) ? data.messages.length : 0 }
-              } catch { return null }
-            }).filter(Boolean)
-            res.setHeader('Content-Type', 'application/json')
-            res.end(JSON.stringify(sessions))
-          } catch (e) {
-            res.statusCode = 500
-            res.end(JSON.stringify({ error: e.message }))
-          }
-        } else if (req.method === 'POST') {
-          // Save or update a chat session
-          let body = ''
-          req.on('data', c => body += c)
-          req.on('end', () => {
-            try {
-              const sent = JSON.parse(body)
-              const { id } = sent || {}
-              // A save with no message list wrote a chat with none (a blank entry in the list), and on an
-              // existing id it could only fork a pointless copy.
-              if (!sent || !Array.isArray(sent.messages)) { res.statusCode = 400; res.end(JSON.stringify({ error: 'messages required' })); return }
-              // A NEW id is the time in ms, and two computers on one shared folder (or a fork in the same ms)
-              // could pick the same one: the second save replaced the first chat. Step until the name is free.
-              const freshChatId = () => { let n = Date.now(); while (fs.existsSync(path.join(chatsDir, `${n}.json`))) n++; return String(n) }
-              let chatId = id || freshChatId()
-              if (!isSafeChatId(String(chatId))) { res.statusCode = 400; res.end(JSON.stringify({ error: 'bad id' })); return }
-              let file = path.join(chatsDir, `${chatId}.json`)
-              // The SAME chat open on two computers (a shared folder, restore-on-refresh): a save whose
-              // messages do not start with what is already on disk would erase the other computer's turns.
-              // It is saved as a COPY under a new id instead (the client adopts the id it gets back).
-              let forked = false
-              // Read what is on disk STRICTLY: only a missing file is "new". A busy/locked file (another computer
-              // mid-write on the share) or a torn read used to count as new too, and this save replaced the chat
-              // (the other computer's turns lost, a rename undone). One retry, then refuse (the client keeps its id).
-              let onDiskChat = null
-              if (id) {
-                for (let attempt = 0; ; attempt++) {
-                  try { onDiskChat = JSON.parse(readUtf8(file)); break }
-                  catch (e) {
-                    if (e && e.code === 'ENOENT') break
-                    if (attempt >= 1) {
-                      // Truly unparseable (not a busy file): kept aside, and this save becomes the chat, like config.json.
-                      // A 503 here refused every later save of this chat forever.
-                      if (e instanceof SyntaxError) {
-                        try { fs.renameSync(file, `${file}.corrupt-${Date.now()}`) } catch { /* left in place; the write below replaces it */ }
-                        break
-                      }
-                      res.statusCode = 503; res.end(JSON.stringify({ error: 'The chat file could not be read right now. Try again.' })); return
-                    }
-                    const until = Date.now() + 300; while (Date.now() < until) { /* short wait for the other writer */ }
-                  }
-                }
-              }
-              // Fork, per-card state, kept title/type/mode and dropped error bubbles: src/server/chatSave.js (tested).
-              const plan = planChatSave({ ...sent, hasId: !!id }, id ? onDiskChat : null)
-              const { messages, title, type, mode } = plan
-              if (plan.fork) {
-                chatId = freshChatId()
-                file = path.join(chatsDir, `${chatId}.json`)
-                forked = true
-                console.log('[Chat] chat', id, 'changed on disk since it was loaded; saved as a copy', chatId)
-              }
-              writeFileAtomic(file, JSON.stringify({ title, messages, date: new Date().toISOString(), ...(type ? { type } : {}), ...(mode ? { mode } : {}) }, null, 2))
-              console.log('[Chat] saved:', chatId, '-', title)
-              res.setHeader('Content-Type', 'application/json')
-              res.end(JSON.stringify({ id: chatId, ok: true, ...(forked ? { forked: true } : {}) }))
-            } catch (e) {
-              res.statusCode = 400
-              res.end(JSON.stringify({ error: e.message }))
-            }
-          })
-        } else if (req.method === 'DELETE') {
-          const url = new URL(req.url, 'http://localhost')
-          const id = url.searchParams.get('id')
-          if (!isSafeChatId(id)) { res.statusCode = 400; res.end(JSON.stringify({ error: 'id required' })); return }
-          const file = path.join(chatsDir, `${id}.json`)
-          res.setHeader('Content-Type', 'application/json')
-          try {
-            if (fs.existsSync(file)) fs.unlinkSync(file)
-            res.end(JSON.stringify({ ok: true }))
-          } catch (e) { res.statusCode = 500; res.end(JSON.stringify({ error: e.message })) }
-        } else { res.statusCode = 405; res.end('') }
-      })
-
-      // Load a single chat session
-      server.middlewares.use('/api/chat-load', (req, res) => {
-        const url = new URL(req.url, 'http://localhost')
-        const id = url.searchParams.get('id')
-        if (!isSafeChatId(id)) { res.statusCode = 400; res.end(JSON.stringify({ error: 'id required' })); return }
-        const file = dataPath('chats', `${id}.json`)
-        res.setHeader('Content-Type', 'application/json')
-        // Only ENOENT is "not found" (Help treats a 404 as deleted and starts over; existsSync was false on any stat
-        // error, a share blip). readUtf8 strips a BOM a hand edit left, which r.json() refused.
-        try {
-          if (!file) throw Object.assign(new Error('not found'), { code: 'ENOENT' })
-          res.end(readUtf8(file))
-        } catch (e) {
-          res.statusCode = e && e.code === 'ENOENT' ? 404 : 500
-          res.end(JSON.stringify({ error: e && e.code === 'ENOENT' ? 'not found' : e.message }))
-        }
-      })
+      server.middlewares.use('/api/chat-load', createChatLoadRoute({ dataPath, readUtf8 }))
 
       // Web search proxy (DuckDuckGo HTML): src/server/webSearchRoute.js (ads skipped, bot check = 502; tested).
       server.middlewares.use('/api/web-search', createWebSearchRoute())
@@ -3564,4 +3177,4 @@ export default defineConfig({
 })
 
 // Exported for the key-safety tests only; Vite consumes the default export above.
-export { readEnvFile, parseEnv, writeEnv, mirrorEnv, ENV_FILE, ENV_BAK, ENV_CLEARED, ENV_DECLINED, readDeclined, readConfigChecked, readConfigSettled, writeConfig, apiRequestAllowed, deckDirName, folderKey, modeFolderName, modeFolderForName, writeModeFolders, deepMergeJson, deepMergeInto, copyNewer }
+export { readEnvFile, parseEnv, writeEnv, mirrorEnv, ENV_FILE, ENV_BAK, ENV_CLEARED, ENV_DECLINED, readDeclined, readConfigChecked, readConfigSettled, writeConfig, apiRequestAllowed, deckDirName, folderKey, modeFolderName, modeFolderForName, writeModeFolders, deepMergeJson, deepMergeInto, copyNewer, markJoinedFolder }

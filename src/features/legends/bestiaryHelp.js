@@ -12,7 +12,14 @@ import { MOTIFS } from './map'
 import { bestiaryRows } from './abilities/_triggers'
 import { FAMILY_TREES, FAMILY_MISFITS, familyMotifs } from './families'
 
-export const CATALOG_MAX = 5800 // the always-on catalog (App keeps at most 6000 per entry)
+export const CATALOG_MAX = 5800 // the full catalog, on the Legends screen and the bestiary (App keeps 6000 per entry)
+// Everywhere else the catalog is COMPACT (Help's prompt goes out with every message; the full one cost ~1450 tokens on
+// every screen): the rules in brief, the progress and powers, the current boss's ability in one line, every boss
+// named with its ability and family. Practice gets it compact too: a raid run there publishes its own entry (boss,
+// ability and its rule, hearts, powers), and an activity's own entry needs the room.
+export const CATALOG_COMPACT_MAX = 3600
+export const RAID_SCREENS = new Set(['legends', 'assets'])
+export const raidCatalogMaxFor = (tab) => (RAID_SCREENS.has(tab) ? CATALOG_MAX : CATALOG_COMPACT_MAX)
 export const BESTIARY_MAX = 3900 // the bestiary screen (useHelpEntry keeps 4000)
 const LORE_MAX = 600
 
@@ -47,6 +54,8 @@ function familyLine(t, motif, withFrom = true) {
 
 // How raids work, for "how do I beat ...": the shared rules every raid boss adds its ability to.
 export const RAID_RULES = `Raid rules (every raid boss): the DUE cards become the questions (each card's first answer is a real Anki review); ${RAID.phases} phases. A clean typed answer deals 2, a glancing one (tested thing right, something else wrong) 1, a choice 1 (choices only before the boss is enraged at half health); every 3rd clean answer in a row is a critical (+1). A miss costs a heart and comes back later as the boss's attack. ${SIEGE_RULE} A win gives a trophy, XP and a streak freeze. Tips: type answers (not choices), keep clean streaks, use the boss's ability below.`
+// The same rules in brief, for the compact catalog (off the raid screens; the full ones come with Legends and Practice).
+export const RAID_RULES_SHORT = `Raid rules in brief: the DUE cards become the questions (each card's first answer is a real Anki review); ${RAID.phases} phases. A clean typed answer deals 2, a glancing one 1, a choice 1; every 3rd clean answer in a row is a critical. A miss costs a heart and comes back as the boss's attack. A SIEGE: wounds stay until the boss is beaten; losing every heart in a run makes the boss rally (heals half that run's damage, hearts full again); each new day the hearts refill and the boss heals a little. Powers unlock for good by beating DIFFERENT bosses; up to ${LOADOUT_MAX} are brought into a fight, each works once. A win gives a trophy, XP and a streak freeze.`
 
 // One raid boss as facts. `full`: also every effect (what the player does, what happens) and the lore.
 export function raidBossFacts(t, motif, { full = false, lore = full, ids = true, madeFrom = true, fxName } = {}) {
@@ -84,7 +93,7 @@ export function raidProgressText(t, raid, today = '', known = true) {
   for (const tr of r.trophies) wins[tr.motif] = (wins[tr.motif] || 0) + 1
   const hall = Object.entries(wins).map(([m, n]) => `${isRaidMotif(m) ? raidBossName(t, m) : `${m} (retired)`}${n > 1 ? ` x${n}` : ''}`)
   return [
-    `The player's raid: current boss #${num} ${raidBossName(t, motif)} of ${RAID_ORDER.length}${g ? `, siege health ${Math.max(0, g.hp - g.damage)}/${g.hp} (wounds carry over), hearts ${g.hearts}/${Math.max(g.hearts, raidProfile(motif).hearts)}, ${runs} run(s) today` : ', not come out yet (fresh health and full hearts at its first fight)'}${beatenToday ? `; a boss was beaten today` : ''}. Next after a win: #${raidBossNumber(next)} ${raidBossName(t, next)}.`,
+    `The player's raid: current boss #${num} ${raidBossName(t, motif)} of ${RAID_ORDER.length}${g ? `, siege health ${Math.max(0, g.hp - g.damage)}/${g.hp} (wounds carry over), hearts ${g.hearts}/${Math.max(g.hearts, raidProfile(motif, g?.variant).hearts)}, ${runs} run(s) today` : ', not come out yet (fresh health and full hearts at its first fight)'}${beatenToday ? `; a boss was beaten today` : ''}. Next after a win: #${raidBossNumber(next)} ${raidBossName(t, next)}.`,
     `Raid trophies: ${r.trophies.length}${hall.length ? ` (${hall.join(', ')})` : ''}.`,
   ].join('\n')
 }
@@ -108,15 +117,18 @@ export function raidPowersText(t, raid, loadout, known = true) {
 
 // THE CATALOG (every screen): the rules, the player's progress, the current boss in full, then every raid boss in
 // progression order, one line each. Lines carry the ability's rule; when the budget runs out, the bosses FARTHEST
-// ahead of the player's current boss lose their rule first (name, ability name and family stay).
-export function raidCatalogText({ t, raid = null, known = true, today = '', fxName, loadout } = {}) {
+// ahead of the player's current boss lose their rule first (name, ability name and family stay). `max` below
+// CATALOG_MAX (off the raid screens, raidCatalogMaxFor) = COMPACT: the current boss's ability in one line instead of
+// every effect, every other boss short; never so small that a boss loses its line.
+export function raidCatalogText({ t, raid = null, known = true, today = '', fxName, loadout, max = CATALOG_MAX } = {}) {
   const cur = raid ? raidMotif(raid) : RAID_ORDER[0]
+  const compact = (Number(max) || CATALOG_MAX) < CATALOG_MAX
   const top = [
     'RAID BOSSES AND THE BESTIARY (facts for questions like "which raid boss is next", "what does the Lich do", "how do I beat the Hydra", "what family is X in"). The bestiary is the asset view (cheat mode): every boss with its ability, effects, lore and family.',
-    RAID_RULES,
+    compact ? RAID_RULES_SHORT : RAID_RULES,
     raidProgressText(t, raid, today, known),
     raidPowersText(t, raid, loadout, known),
-    `Current boss in full:\n${raidBossFacts(t, cur, { full: true, lore: false, fxName })}`,
+    compact ? `Current boss: ${raidBossFacts(t, cur, { madeFrom: false })}` : `Current boss in full:\n${raidBossFacts(t, cur, { full: true, lore: false, fxName })}`,
     'All raid bosses in progression order (a win brings out the next):',
   ].filter(Boolean).join('\n')
   const longLine = (m) => `- ${raidBossFacts(t, m, { ids: false, madeFrom: false })}`
@@ -125,16 +137,19 @@ export function raidCatalogText({ t, raid = null, known = true, today = '', fxNa
     const fam = familyLine(t, m, false)
     return `- #${raidBossNumber(m)} ${raidBossName(t, m)}: ${tx(t, `lg_ability_${ab}`) || ab}${fam ? ` · ${fam}` : ''}`
   }
-  const lines = RAID_ORDER.map(longLine)
+  const lines = RAID_ORDER.map(compact ? shortLine : longLine)
   const n = RAID_ORDER.length
   const at = Math.max(0, RAID_ORDER.indexOf(cur))
   const size = () => top.length + lines.reduce((s, l) => s + l.length + 1, 0)
   // Farthest ahead first (the bosses just behind the current one were beaten already: also far).
-  for (let d = n - 1; d > 0 && size() > CATALOG_MAX; d--) {
+  // Every boss stays named: a budget below the rules plus one short line per boss grows to fit them.
+  const floor = top.length + RAID_ORDER.reduce((s, m) => s + shortLine(m).length + 1, 0) + 1
+  const limit = Math.min(CATALOG_MAX, Math.max(floor, Number(max) || CATALOG_MAX))
+  for (let d = n - 1; d > 0 && size() > limit; d--) {
     const i = (at + d) % n
     lines[i] = shortLine(RAID_ORDER[i])
   }
-  return cap([top, ...lines].join('\n'), CATALOG_MAX)
+  return cap([top, ...lines].join('\n'), limit)
 }
 
 // The bestiary's tabs as Help names them (AssetView.jsx TABS ids).

@@ -6,8 +6,9 @@
 //
 // Self-bootstrapping: playwright-core is installed on first run into a folder
 // OUTSIDE the repo (~/.ebiki-drive, override with EBIKI_DRIVE_DEPS), so a fresh
-// clone needs no setup and package.json gains no dependency. The browser is the
-// one already on the machine (Chrome / Chromium / Edge); nothing is downloaded.
+// clone needs no setup and package.json gains no dependency. The browser is Playwright's
+// own bundled headless Chromium (downloaded once, outside the repo), NEVER the installed
+// Chrome or Edge: driving those locked the owner's Windows account.
 import { spawnSync } from 'child_process'
 import fs from 'fs'
 import os from 'os'
@@ -34,23 +35,13 @@ if (!fs.existsSync(entry)) {
 const { chromium } = await import(pathToFileURL(entry).href)
 
 // ── browser ────────────────────────────────────────────────────────────────
-// Whatever Chromium-family browser the machine already has. Ebiki targets
-// Windows first, so Chrome and Edge paths matter as much as the Linux ones.
-const CANDIDATES = {
-  linux: ['/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/snap/bin/chromium'],
-  darwin: ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/Applications/Chromium.app/Contents/MacOS/Chromium', '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge'],
-  win32: [
-    `${process.env.LOCALAPPDATA}\\Google\\Chrome\\Application\\chrome.exe`,
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
-  ],
-}
-const CHROME = process.env.CHROME_BIN || (CANDIDATES[process.platform] || []).find((p) => p && fs.existsSync(p))
-if (!CHROME) {
-  console.error(`no Chrome/Chromium/Edge found for ${process.platform}. Install one, or set CHROME_BIN to its executable.`)
-  process.exit(1)
+// Playwright's OWN bundled headless Chromium, never the installed Chrome or Edge: driving the installed Google Chrome
+// made Windows log failed logons (event 4625) and LOCKED the owner's account. Installed on first run next to
+// playwright-core (outside the repo); nothing else on the machine is touched.
+if (!fs.existsSync(chromium.executablePath())) {
+  console.log('installing Playwright\'s bundled Chromium (first run only)')
+  const r = spawnSync(process.execPath, [path.join(DEPS, 'node_modules', 'playwright-core', 'cli.js'), 'install', 'chromium'], { stdio: 'inherit' })
+  if (r.status !== 0) { console.error('could not install the bundled Chromium'); process.exit(1) }
 }
 
 // ── drive ──────────────────────────────────────────────────────────────────
@@ -58,7 +49,7 @@ fs.mkdirSync(SHOTS, { recursive: true })
 const errors = []
 let n = 0
 
-const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] })
+const browser = await chromium.launch() // bundled Chromium only: never pass executablePath
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
 const page = await context.newPage()
 // The generic "Failed to load resource" console line names no URL, so it is dropped

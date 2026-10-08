@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { FIGHT_EXTRAS, fightExtrasFor, isWrongish, expectedOf, needsRecheck, appealOpen, appealOffered, debriefEntries, resolveFightQuestion, learnItemFor, missRowParts } from './fightCheck'
+import { FIGHT_EXTRAS, fightExtrasFor, isWrongish, expectedOf, needsRecheck, appealOpen, appealOffered, debriefEntries, resolveFightQuestion, learnItemFor, missRowParts, arenaPinMode } from './fightCheck'
 
 const OFF = Object.fromEntries(Object.keys(FIGHT_EXTRAS).map((k) => [k, false]))
 
@@ -82,5 +82,22 @@ describe('learnItemFor', () => {
     expect(missRowParts({ ...miss, overturned: true }, { rule: true, hasKey: true })).toEqual({ note: false, ruleCard: false })
     expect(missRowParts({ ...miss, note: '  ' }).note).toBe(false)
     expect(missRowParts(null)).toEqual({ note: false, ruleCard: false })
+  })
+})
+
+describe('arenaPinMode', () => {
+  it('pins everything while it fits in 40% of the screen', () => {
+    expect(arenaPinMode(200, 80, 1000)).toBe('all')
+    expect(arenaPinMode(200, 0, 500)).toBe('all')
+  })
+  it('lets the taunt and notice scroll when only the arena fits', () => {
+    expect(arenaPinMode(200, 120, 600)).toBe('arena')
+  })
+  it('unpins an arena too tall on its own', () => {
+    expect(arenaPinMode(260, 0, 600)).toBe('none')
+    expect(arenaPinMode(260, 90, 600)).toBe('none')
+  })
+  it('pins while the screen is not measured', () => {
+    expect(arenaPinMode(260, 90, 0)).toBe('all')
   })
 })

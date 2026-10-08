@@ -7,14 +7,14 @@
 // Sand gained while the hourglass is full OVERFLOWS into Time Stop: the next right raid answer deals double.
 // Why +1 and two questions later (v2.0 had +3, at once): an immediate re-ask right after seeing the answer is near
 // free, and +3 made misses profitable. Two questions of spacing is real retrieval.
-import { MAX_INSERTED } from './_rules'
+import { rulesOf, tuned } from './_rules'
 
 const K = { max: 3, start: 1, every: 3, paradox: 1, gap: 2, maxLoops: 4 }
 const normal = (q) => !!q && !q._attack && !q._inserted && !q._lastStand
 
 // One grain of sand: into the glass, or (full) into Time Stop. Returns 'overflow' when it just stopped time.
-function addSand(ab) {
-  if (ab.sand < K.max) { ab.sand++; return 'grain' }
+function addSand(ab, k) {
+  if (ab.sand < k.max) { ab.sand++; return 'grain' }
   if (ab.stop) return ''
   ab.stop = true
   return 'overflow'
@@ -23,27 +23,28 @@ function addSand(ab) {
 export default {
   id: 'loop', icon: '⏳', K, fxKeys: ['grain', 'rewind', 'paradox', 'timestop', 'overflow'],
   sampleHint: { key: 'lg_hint_timeStop' },
-  init: () => ({ sand: K.start, n3: 0, stop: false, loopKey: null, loops: 0, rewinds: 0, paradoxes: 0, stops: 0 }),
-  onPhase(s) { addSand(s.ab) },
+  init: (ctx) => ({ sand: tuned(K, ctx).start, n3: 0, stop: false, loopKey: null, loops: 0, rewinds: 0, paradoxes: 0, stops: 0 }),
+  onPhase(s, phase, ctx) { addSand(s.ab, tuned(K, ctx)) },
   onStrike(s, res, hit, ctx) {
+    const k = tuned(K, ctx)
     if (ctx.inserted === 'loop') {
-      if (ctx.right) { res.dmg += K.paradox; s.ab.paradoxes++; res.fx = 'paradox' }
+      if (ctx.right) { res.dmg += k.paradox; s.ab.paradoxes++; res.fx = 'paradox' }
       return
     }
     if (ctx.kind !== 'normal') return
     if (ctx.right) {
       if (s.ab.stop) { res.dmg *= 2; s.ab.stop = false; s.ab.stops++; res.fx = 'timestop' }
       s.ab.n3++
-      if (s.ab.n3 % K.every === 0) {
-        const got = addSand(s.ab)
+      if (s.ab.n3 % k.every === 0) {
+        const got = addSand(s.ab, k)
         if (!res.fx && got === 'overflow') res.fx = 'overflow'
         else if (!res.fx && got === 'grain') res.fx = 'grain'
       }
       return
     }
     // A miss: rewound only when it can really loop (sand, the loop cap, the shared insert budget, a card to ask).
-    const room = MAX_INSERTED - (s.insertedN || 0)
-    if (s.ab.sand > 0 && s.ab.loops < K.maxLoops && room > 0 && hit.key != null) {
+    const room = rulesOf(s).maxInserted - (s.insertedN || 0)
+    if (s.ab.sand > 0 && s.ab.loops < k.maxLoops && room > 0 && hit.key != null) {
       s.ab.sand--
       s.ab.rewinds++
       s.ab.loopKey = hit.key
@@ -52,16 +53,17 @@ export default {
     }
   },
   // The rewound miss comes back K.gap questions later, and does not also attack. Only what really goes in is recorded.
-  afterStrike(next, { over, room }) {
+  afterStrike(next, info) {
+    const { over, room } = info
     const key = next.ab && next.ab.loopKey
     if (key == null) return null
     if (over || !room) return { ab: { loopKey: null } }
-    return { insert: [{ key, kind: 'loop' }], at: K.gap, attack: false, ab: { loopKey: null, loops: next.ab.loops + 1 } }
+    return { insert: [{ key, kind: 'loop' }], at: tuned(K, info).gap, attack: false, ab: { loopKey: null, loops: next.ab.loops + 1 } }
   },
   banner: (s, q) => (q && q._inserted === 'loop' ? { icon: '⏳', key: 'lg_hint_timeLoop', tone: 'info' } : null),
   hint: (s, q) => (normal(q) && s.ab.stop ? { icon: '⏸️', key: 'lg_hint_timeStop' } : null),
-  hud: (s) => [
-    { type: 'pips', n: s.ab.sand, max: K.max, icon: '⏳', labelKey: 'lg_hud_sand', tone: 'warning', ready: s.ab.sand >= K.max && !s.ab.stop },
+  hud: (s, ctx) => [
+    { type: 'pips', n: s.ab.sand, max: tuned(K, ctx).max, icon: '⏳', labelKey: 'lg_hud_sand', tone: 'warning', ready: s.ab.sand >= tuned(K, ctx).max && !s.ab.stop },
     { type: 'chip', icon: s.ab.stop ? '⏸️' : '', key: s.ab.stop ? 'lg_hud_timeStop' : '', tone: 'info' },
   ].filter((it) => it.type !== 'chip' || it.key),
   artState: (s) => ({ 'data-ab-sand': s.ab.sand, 'data-ab-stop': s.ab.stop ? 1 : 0 }),

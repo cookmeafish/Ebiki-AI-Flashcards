@@ -13,7 +13,7 @@ import { formatLearnerContext, clip, LC } from './learnerContext'
 // Budget = characters of the body (the heading comes on top). Section order = priority (the formatter cuts the tail).
 export const CONTEXT_USES = {
   help: {
-    budget: 2500,
+    budget: 2000, // Help also has the progress notes, the slips, the session review and every feature's own entry
     sections: ['deck', 'study', 'weak', 'topics', 'practice', 'discover', 'extra', 'studied'],
     header: 'WHAT EBIKI KNOWS ABOUT THE LEARNER IN THIS MODE (gathered from their deck, study sessions, chats and practice; background facts to personalize your help, never a list to read out):',
   },
@@ -101,7 +101,8 @@ export function redactSnapshot(snap, { hideFronts = [], hideAnswers = [], reveal
 export const snapshotForMode = (snap, modeId) => (snap && modeId != null && String(snap.modeId ?? '') === String(modeId) ? snap : null)
 
 // The block for one consumer ('' when there is no snapshot for that mode, or nothing to say).
-// opts: the redaction options above, plus `omit` (sections the prompt already has), `budget`, `sections`.
+// opts: the redaction options above, plus `omit` (sections the prompt already has), `omitExtra` (feature section ids
+// it already has), `budget`, `sections`.
 export function learnerContextFor(snap, modeId, use, opts = {}) {
   const s = snapshotForMode(snap, modeId)
   const u = CONTEXT_USES[use]
@@ -109,7 +110,10 @@ export function learnerContextFor(snap, modeId, use, opts = {}) {
   try {
     const omit = new Set(opts.omit || [])
     const sections = (opts.sections || u.sections).filter((x) => !omit.has(x))
-    const body = formatLearnerContext(redactSnapshot(s, opts), { budget: opts.budget ?? u.budget, sections })
+    // `omitExtra`: feature sections the prompt already has in full (Help gets Legends from its own entry).
+    const skip = new Set((opts.omitExtra || []).map(String))
+    const own = skip.size ? { ...s, extra: (s.extra || []).filter((x) => !skip.has(String(x.id))) } : s
+    const body = formatLearnerContext(redactSnapshot(own, opts), { budget: opts.budget ?? u.budget, sections })
     return body ? `${u.header}\n${body}` : ''
   } catch { return '' }
 }

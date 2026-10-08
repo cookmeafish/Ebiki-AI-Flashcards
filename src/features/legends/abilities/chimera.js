@@ -8,7 +8,7 @@
 // instead when one was lost): the Goat fell at the second phase line, and the block fired in about 1 raid in 10.
 // The optional decision: tap a head to aim at it (raid questions only). Wounds stay on the right heads across today's
 // attempts (dayState).
-import { hitClean } from './_rules'
+import { hitClean, tuned } from './_rules'
 const K = { fall: 1, lion: 1, serpent: 1 }
 export const HEADS = ['lion', 'goat', 'serpent']
 const ICON = { lion: '🦁', goat: '🐐', serpent: '🐍' }
@@ -74,10 +74,11 @@ export default {
   },
   onStrike(s, res, hit, ctx) {
     const ab = s.ab
+    const k = tuned(K, ctx)
     const behind = catchUp(ab, s.damage)
     if (ctx.kind === 'normal' && ctx.right) {
-      if (ab.boons.includes(0) && hitClean(ctx, res)) res.dmg += K.lion
-      if (ab.boons.includes(2)) res.dmg += K.serpent
+      if (ab.boons.includes(0) && hitClean(ctx, res)) res.dmg += k.lion
+      if (ab.boons.includes(2)) res.dmg += k.serpent
     }
     if (!(res.dmg > 0) && !behind.length) return
     // A wound that fells nothing still shows on the head it hit (Maul); a fall below replaces it.
@@ -87,13 +88,13 @@ export default {
     while (fell.length) {
       const more = []
       for (const h of fell) {
-        res.dmg += K.fall
+        res.dmg += k.fall
         ab.falls = (ab.falls || 0) + 1
         if (!ab.boons.includes(h)) ab.boons = [...ab.boons, h]
         if (h === 1) ab.ward = 1
         res.fx = FALL_FX[h]
-        res.fxVars = { n: K.fall }
-        more.push(...wound(ab, K.fall))
+        res.fxVars = { n: k.fall }
+        more.push(...wound(ab, k.fall))
       }
       fell = more
     }

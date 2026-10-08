@@ -107,3 +107,27 @@ export function mergeConfigPatch(existing, data) {
   }
   return merged
 }
+
+// Two computers saving config.json in the same instant each read the file, merged their own patch and wrote it
+// back whole: the second write dropped the first one's change (measured: one side lost every round of 20 when
+// both posted together). The server re-reads a moment after its write and re-applies the part of its patch that
+// was undone. `before` = the config it read, `after` = what it wrote, `now` = what is on disk now. Returns the
+// patch to apply again (null = nothing lost). Only entries now back at their value from BEFORE the write count:
+// anything set to a new value since is the other computer's newer change and is left alone.
+export function lostConfigPatch(before, after, now) {
+  const b = flattenConfig(before), a = flattenConfig(after), n = flattenConfig(now)
+  const out = {}
+  const unset = []
+  for (const p of new Set([...Object.keys(a), ...Object.keys(b)])) {
+    if (a[p] === b[p] || n[p] !== b[p]) continue // not changed by this write, or changed again since
+    const sg = segs(p)
+    if (!(p in a)) { if (sg.length > 1 && !p.endsWith(SEP)) unset.push(sg); continue } // this write removed it
+    if (sg.length === 1 && !p.endsWith(SEP)) { out[p] = after[p]; continue }
+    let node = out
+    const last = p.endsWith(SEP) ? sg.length : sg.length - 1
+    for (let j = 0; j < last; j++) { if (!isPlain(node[sg[j]])) node[sg[j]] = {}; node = node[sg[j]] }
+    if (!p.endsWith(SEP)) node[sg[sg.length - 1]] = getAt(after, sg)
+  }
+  if (unset.length) out.__unset = unset
+  return Object.keys(out).length ? out : null
+}

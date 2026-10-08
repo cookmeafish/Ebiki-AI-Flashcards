@@ -283,6 +283,40 @@ function useArtInView(ref) {
   return near
 }
 
+// ASLEEP: while the window is hidden (minimized, another tab) or not focused (another app in front), every drawing's
+// idle life stops: SMIL paused, CSS animations inside art boxes ([data-lg-art]) and idle cards ([data-lg-idle], the
+// raid hero) on hold. They cost style, layout and paint on every frame (the raid hero alone kept the Practice hub at
+// about 190 layouts a second) for nobody watching. Everything resumes where it stopped on return. Wake unpauses EVERY
+// drawing: one paused by the arena's hit-stop is unpaused by its own cleanup anyway, so nothing stays frozen. The dev
+// gallery (window.__ebikiArtEager, check-art drives the clock itself) never sleeps.
+const ASLEEP_ATTR = 'data-lg-asleep'
+const ASLEEP_CSS = `html[${ASLEEP_ATTR}] [data-lg-art], html[${ASLEEP_ATTR}] [data-lg-art] *, html[${ASLEEP_ATTR}] [data-lg-idle] * { animation-play-state: paused !important }`
+let asleep = false
+let sleepInstalled = false
+const artSvgs = (root) => [...root.querySelectorAll('[data-lg-art] svg, svg[data-lg-art]')].filter((s) => !s.ownerSVGElement)
+function setArtPlaying(svgs, play) {
+  for (const svg of svgs) { try { if (play) svg.unpauseAnimations(); else svg.pauseAnimations() } catch { /* not an SVG document */ } }
+}
+function installArtSleep() {
+  if (sleepInstalled || typeof document === 'undefined' || typeof window === 'undefined' || window.__ebikiArtEager) return
+  sleepInstalled = true
+  let blurred = false
+  const style = document.createElement('style')
+  style.textContent = ASLEEP_CSS
+  document.head.appendChild(style)
+  const apply = () => {
+    const next = !!document.hidden || blurred
+    if (next === asleep) return
+    asleep = next
+    document.documentElement.toggleAttribute(ASLEEP_ATTR, asleep)
+    setArtPlaying(artSvgs(document), !asleep)
+  }
+  document.addEventListener('visibilitychange', apply)
+  window.addEventListener('blur', () => { blurred = true; apply() })
+  window.addEventListener('focus', () => { blurred = false; apply() })
+  apply()
+}
+
 const ANIM_TAGS = new Set(['animatetransform', 'animatemotion'])
 export const reducedMotion = () => { try { return !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches } catch { return false } }
 // The system's "reduce motion" (Windows: Animation effects off) stills every drawing. Two things override it: the
@@ -391,11 +425,14 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
     return figure ? freeFigure(out) : out
   }, [near, url, raw, mode, livePhase, figure, idSuffix])
   const shown = near && !!svg // off screen: out of the page (the box keeps its size)
+  useEffect(installArtSleep, [])
+  // A drawing put in the page while the window sleeps starts paused (its entrance plays on return).
+  useEffect(() => { if (asleep && shown && boxRef.current) setArtPlaying(artSvgs(boxRef.current), false) }, [shown, svg])
   const photo = url === PHOTO_FILE // the photo ophanim's own light layers (PHOTO LIGHT)
   const labels = useContext(ArtLabels)
   const big = (typeof height !== 'number' || height >= LABEL_MIN_PX) && (typeof width !== 'number' || width >= LABEL_MIN_PX)
   const art = (
-    <div ref={boxRef} style={{
+    <div ref={boxRef} data-lg-art="" style={{
       width: labels && big ? '100%' : width, height, borderRadius: round, flexShrink: 0, ...artVars(palette),
       ...(figure ? { overflow: 'visible', clipPath: `inset(-${BOSS_HEADROOM})` } : { overflow: 'hidden' }),
       background: figure ? 'transparent' : 'var(--lg-sky)', filter: locked ? 'grayscale(1) opacity(.55)' : 'none', ...style,

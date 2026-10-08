@@ -4,7 +4,7 @@
 // so a reload or a replay gives the same colors. A right answer collects its color; red, green and blue together burst
 // as a PRISM for 2, and the slots empty. A right answer on a color already held (only after a miss broke a set)
 // OVERCHARGES for 1. Attacks and inserted questions have no facet.
-import { hashOf } from './_rules'
+import { hashOf, tuned } from './_rules'
 
 const K = { burst: 2, over: 1 }
 const COLORS = ['red', 'green', 'blue']
@@ -19,20 +19,21 @@ const heldN = (s) => haveOf(s).filter(Boolean).length
 
 export default {
   id: 'prism', icon: '🔷', K, fxKeys: ['shard', 'overcharge', 'prism'],
-  sampleHint: { vars: { n: K.burst } },
+  sampleHint: { vars: { n: K.burst } }, // tuning-ok: static
   init: () => ({ have: [false, false, false], prisms: 0 }),
   onStrike(s, res, hit, ctx) {
     if (ctx.kind !== 'normal' || !ctx.right) return
+    const k = tuned(K, ctx)
     const c = facetAt(ctx.before.answers || 0)
     const have = haveOf(s)
-    if (have[c]) { res.dmg += K.over; res.fx = 'overcharge'; res.fxVars = { n: K.over, c: COLORS[c] }; return }
+    if (have[c]) { res.dmg += k.over; res.fx = 'overcharge'; res.fxVars = { n: k.over, c: COLORS[c] }; return }
     const next = have.map((v, i) => v || i === c)
     if (next.every(Boolean)) {
-      res.dmg += K.burst
+      res.dmg += k.burst
       s.ab.have = [false, false, false]
       s.ab.prisms = (s.ab.prisms || 0) + 1
       res.fx = 'prism'
-      res.fxVars = { n: K.burst }
+      res.fxVars = { n: k.burst }
     } else {
       s.ab.have = next
       res.fx = 'shard'
@@ -46,10 +47,10 @@ export default {
     return { icon: ICONS[c], key: `lg_tag_prism_${COLORS[c]}`, tone: TONES[c] }
   },
   // Only when this color completes the set.
-  hint: (s, q) => {
+  hint: (s, q, mode, ctx) => {
     if (!normal(q)) return null
     const c = facetAt(s.answers || 0)
-    return heldN(s) === 2 && !haveOf(s)[c] ? { icon: '🔷', key: 'lg_hint_prism', vars: { n: K.burst } } : null
+    return heldN(s) === 2 && !haveOf(s)[c] ? { icon: '🔷', key: 'lg_hint_prism', vars: { n: tuned(K, ctx).burst } } : null
   },
   // Three slots, one per color (stable order red, green, blue); the missing one pulses when two are held.
   hud: (s) => {

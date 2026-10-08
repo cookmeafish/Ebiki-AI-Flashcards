@@ -3,7 +3,7 @@
 // stacked). The next right answer (a raid answer or a blocked attack) with a scream pending SHATTERS it: +K.shatter.
 // Inserted questions do not answer her. The phase-line screams make it fire for a perfect player too.
 // The hook contract is abilities/_contract.js.
-import { barPhase } from './_rules'
+import { barPhase, tuned } from './_rules'
 
 const K = { shatter: 2 }
 const answers = (q) => !!q && !q._inserted && !q._lastStand
@@ -18,7 +18,7 @@ export default {
     if (ctx.kind === 'inserted') return
     const ab = s.ab
     if (ctx.right && ab.scream) {
-      res.dmg += K.shatter
+      res.dmg += tuned(K, ctx).shatter
       ab.scream = false
       ab.shatters++
       res.fx = 'shatter'
