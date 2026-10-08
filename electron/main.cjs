@@ -1,4 +1,4 @@
-const { app, BrowserWindow, globalShortcut, screen, desktopCapturer, ipcMain, Menu, MenuItem, shell } = require('electron')
+const { app, BrowserWindow, globalShortcut, screen, desktopCapturer, ipcMain, Menu, MenuItem, shell, contentTracing } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const http = require('http')
@@ -233,6 +233,26 @@ const openExternally = (url) => {
 // same computer was smooth. logs/app-window-gpu.json records what this window really gets: GPU feature status
 // (gpu_compositing "disabled_software" = no GPU), the GPU and driver, the displays' refresh rates and the frames per
 // second the page measured over 2s. Never throws; nothing reads it but a human.
+// PERFORMANCE TRACE (diagnostics, Ctrl+Alt+Shift+T in the app window): 8 s of Chromium's own timeline (input,
+// scrolling, compositor frames, main-thread work, paint) saved as logs/trace-<stamp>.json, the file a browser's
+// performance panel records. One at a time; the window title says when it is recording.
+let tracing = false
+function recordTrace() {
+  if (tracing || !appWindow) return
+  tracing = true
+  const title = appWindow.getTitle()
+  const cats = ['-*', 'benchmark', 'cc', 'viz', 'gpu', 'input', 'blink', 'toplevel', 'latencyInfo', 'scheduler',
+    'disabled-by-default-devtools.timeline', 'disabled-by-default-devtools.timeline.frame'].join(',')
+  const dir = path.join(__dirname, '..', 'logs')
+  try { fs.mkdirSync(dir, { recursive: true }) } catch { /* exists */ }
+  const file = path.join(dir, `trace-${new Date().toISOString().replace(/[:.]/g, '-')}.json`)
+  contentTracing.startRecording({ included_categories: cats.split(',').filter((c) => c !== '-*'), excluded_categories: ['*'] })
+    .then(() => { try { appWindow.setTitle('Ebiki (recording performance, 8 s)') } catch {} ; return new Promise((r) => setTimeout(r, 8000)) })
+    .then(() => contentTracing.stopRecording(file))
+    .catch((e) => console.warn('[trace] failed:', e.message))
+    .finally(() => { tracing = false; try { appWindow.setTitle(title) } catch {} })
+}
+
 let gpuReported = false
 function writeGpuReport() {
   if (gpuReported || !appWindow) return
@@ -383,6 +403,8 @@ function createAppWindow() {
         return
       }
     }
+    // Ctrl+Alt+Shift+T: an 8-second Chromium performance trace into logs/ (diagnostics: why scrolling stutters).
+    if (input.control && input.alt && input.shift && (input.key === 'T' || input.key === 't')) { event.preventDefault(); recordTrace(); return }
     if (input.key === 'F11') {
       appWindow.setFullScreen(!appWindow.isFullScreen())
     } else if (input.key === 'Escape' && appWindow.isFullScreen()) {

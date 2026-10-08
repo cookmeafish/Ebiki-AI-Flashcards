@@ -346,10 +346,8 @@ function useArtInView(ref) {
 // gallery (window.__ebikiArtEager, check-art drives the clock itself) never sleeps. NOT on mere blur: a visible window
 // behind another app (or under the screenshot tool) froze every boss mid-entrance, wheels still flat, and looked broken.
 const ASLEEP_ATTR = 'data-lg-asleep'
-// While the user SCROLLS, drawings hold still too and resume SCROLL_REST_MS after the last scroll: a boss entrance (SVG
-// animation, main-thread paint every frame) made scrolling choppy in the app window. Each drawing also sits on its own
-// GPU layer (will-change), so an animating boss repaints only itself, never the content scrolling past it.
-const SCROLL_REST_MS = 150
+// Each drawing sits on its own GPU layer (will-change), so an animating boss repaints only itself, never the content
+// scrolling past it. Drawings never pause for scrolling (the owner: frozen bosses mid-scroll look broken).
 const ASLEEP_CSS = `html[${ASLEEP_ATTR}] [data-lg-art], html[${ASLEEP_ATTR}] [data-lg-art] *, html[${ASLEEP_ATTR}] [data-lg-idle] * { animation-play-state: paused !important }
 [data-lg-art] { will-change: transform }`
 let asleep = false
@@ -364,22 +362,14 @@ function installArtSleep() {
   const style = document.createElement('style')
   style.textContent = ASLEEP_CSS
   document.head.appendChild(style)
-  let scrolling = false
-  let restTimer = 0
   const apply = () => {
-    const next = !!document.hidden || scrolling
+    const next = !!document.hidden
     if (next === asleep) return
     asleep = next
     document.documentElement.toggleAttribute(ASLEEP_ATTR, asleep)
     setArtPlaying(artSvgs(document), !asleep)
   }
   document.addEventListener('visibilitychange', apply)
-  // Any scroll box (capture: scroll does not bubble); passive, so it never holds the scroll itself.
-  document.addEventListener('scroll', () => {
-    if (!scrolling) { scrolling = true; apply() }
-    clearTimeout(restTimer)
-    restTimer = setTimeout(() => { scrolling = false; apply() }, SCROLL_REST_MS)
-  }, { capture: true, passive: true })
   apply()
 }
 

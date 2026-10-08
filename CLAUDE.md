@@ -1566,8 +1566,7 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
 - **Art loads near the screen and pauses off it** (`useArtInView`: comes in within `ART_NEAR` (1) screens, leaves past
   `ART_FAR` (3), measured against the nearest VERTICAL scroller (`scrollRootOf`), never the window: <main> clipped it,
   so art arrived on screen empty and popped in;
-  drawings also PAUSE while the user scrolls (resume `SCROLL_REST_MS` after) and sit on their own layer (`will-change`):
-  an entrance made app-window scrolling choppy; `sanitizeQueue` one file per task,
+  drawings sit on their own layer (`will-change`); NEVER pause them for scrolling (the owner: looks broken); `sanitizeQueue` one file per task,
   `pauseAnimations` off screen): mounting every raid boss at once lagged the owner's computer. The dev gallery sets
   `window.__ebikiArtEager = true` (check-art needs it); keep that line.
 - **Boss figures breathe past their frame** (`BOSS_HEADROOM` 20%): boss SVGs render `overflow="visible"` clipped at
