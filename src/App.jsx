@@ -66,7 +66,6 @@ import PbqQuestion from './components/PbqQuestion'
 import { QUESTION_REUSE_DEFAULT, reuseSettings, replaceQuestion, storableQuestion, clearBank, createQuestionReuse, mergeGlosses, updateBank } from './utils/questionBank'
 import { compilePbq, itemKey as pbqItemKey, reshufflePbq, pbqRatingScore, checkCitations, studentView, parseSolverAnswer, gradePbq, compareToKey, PBQ_GEN_SYSTEM, PBQ_SOLVER_SYSTEM, PBQ_JUDGE_SYSTEM, buildGeneratorPrompt as buildPbqGeneratorPrompt, buildSolverPrompt as buildPbqSolverPrompt, buildJudgePrompt as buildPbqJudgePrompt } from './pbq/engine'
 import { apiFetch, platform } from './platform'
-import { startScrollProbe } from './utils/scrollProbe'
 import { boundChatHistory, cleanChatReply, chatTitleText } from './utils/chatReply'
 import { SLASH_ENDING, SLASH_SPELLED, isSlashEnding, expandSlashEnding, GENDERED_ARTICLES, expandSlashAnswers, answerNormalize, stripLeadArticles, stripAccArticlesFor, stripAccentsKeepYot, exactAnswerMatch } from './utils/answers'
 import { shapeConjugationPool, fallbackConjugationPool } from './utils/conjugation'
@@ -471,8 +470,6 @@ export default function App() {
   // A FUNCTION check, never truthiness: in a tab an element id="ebikiWindow" in rendered content IS window.ebikiWindow
   // (named access), and the app took itself for the Electron window and crashed.
   const isElectronApp = typeof window !== 'undefined' && typeof window.ebikiWindow?.isMaximized === 'function'
-  // Scroll smoothness, app window vs browser tab (diagnostics, utils/scrollProbe.js; not in the overlay).
-  useEffect(() => (isOverlay ? undefined : startScrollProbe({ kind: isElectronApp ? 'app-window' : 'browser-tab' })), [isElectronApp]) // eslint-disable-line react-hooks/exhaustive-deps
   const [appMaximized, setAppMaximized] = useState(false)
   useEffect(() => {
     if (!isElectronApp) return

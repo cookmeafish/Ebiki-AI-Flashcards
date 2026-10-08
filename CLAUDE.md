@@ -363,6 +363,11 @@ swallowed other apps' Esc). A failed `Alt+Q` registration exits it (`app.exit(2)
 (`userData/overlay`: Chromium locks a profile's storage to one process). No server = a capture shows nothing. Captures
 use the PRIMARY display (`primaryScreenSource`, by `display_id`), never `sources[0]`.
 
+**Smooth scrolling in the app window (a 480 Hz + 60 Hz two-GPU PC scrolled at 60 fps; Firefox at 480)**: `main.cjs` sets
+`enable-prefer-compositing-to-lcd-text` (at 100% scaling Chromium otherwise repaints every scroll frame) and
+`force_high_performance_gpu`; `S.main` is OPAQUE (`background: C.bg`, only opaque scrollers composite). Never disable
+vsync/frame-rate limits (`disable-gpu-vsync`, `disable-frame-rate-limit`): faster numbers, worse judder (owner). The
+window writes `logs/app-window-gpu.json` once per launch (GPU status, displays, fps).
 **main.cjs**: every `spawn` has an `'error'` listener. `revived` resets only on `did-finish-load`;
 `window-all-closed` waits 500ms so the goodbye leaves. `did-fail-load` sets `navFailed`/`overlayNavFailed`;
 `did-finish-load` counts only after a main-frame navigation TO the app (`isAppUrl`) starts (the error page keeps the app
