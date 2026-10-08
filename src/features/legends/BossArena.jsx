@@ -6,7 +6,7 @@
 import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { ChunkyButton } from '../ui'
-import { BossArt, LegendsArt, headroomPx, useArtMotionAlways, useArtStill, reducedMotion, ArtMotion, useArtMarkup, artGlowMask, HEADROOM_SHARE } from './art'
+import { BossArt, LegendsArt, headroomPx, useArtMotionAlways, useArtStill, reducedMotion, ArtMotion, useArtMarkup, artGlowMask, HEADROOM_SHARE, holdArt } from './art'
 import { useFeatureCtx } from '../registry'
 import { LEGENDS_ID } from './store'
 import { AbilityFx } from './AbilityFx'
@@ -489,11 +489,17 @@ function useJuice(last, on, ability, questionKey, moment = '', ko = null) {
 function useHitStop(ref, stop) {
   useEffect(() => {
     if (!stop || !ref.current || typeof ref.current.querySelectorAll !== 'function') return undefined
+    const who = {}
     const paused = []
-    for (const svg of ref.current.querySelectorAll('svg')) {
+    const held = [...ref.current.querySelectorAll('svg')]
+    for (const svg of held) {
+      holdArt(svg, who, true) // a drawing on the art clock
       try { if (svg.animationsPaused && !svg.animationsPaused()) { svg.pauseAnimations(); paused.push(svg) } } catch { /* not an SVG document */ }
     }
-    return () => { for (const svg of paused) { try { svg.unpauseAnimations() } catch { /* gone */ } } }
+    return () => {
+      for (const svg of held) holdArt(svg, who, false)
+      for (const svg of paused) { try { svg.unpauseAnimations() } catch { /* gone */ } }
+    }
   }, [ref, stop])
 }
 

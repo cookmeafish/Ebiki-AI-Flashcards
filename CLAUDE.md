@@ -3,6 +3,26 @@
 Local-first AI flashcard/study app (React + Vite), grown out of "ScreenLens". Mascot **Ebi**, a red shrimp.
 Brand color **#DF2540**. Themes **Ocean Light** + **Dark**. Fonts Baloo 2 (display) + Nunito (body).
 
+## ⭐ THE VISION: runs well on ANY computer, device, screen and platform
+The owner's standing rule for EVERY change, not only art: Ebiki must feel smooth on a weak laptop with an integrated
+GPU, a 60 Hz office screen, a 480 Hz gaming monitor, a 4K display, a phone (Capacitor / React Native later), and
+whatever comes next. Optimize everything, never at the cost of the look.
+- **Nothing is tied to the frame rate.** Motion runs on real elapsed TIME (`performance.now()` deltas, SMIL/CSS
+  durations, `setCurrentTime`), never "N per frame" or a rAF counter. A 30 Hz, 60 Hz and 240 Hz screen show the
+  same speed; only smoothness differs. Never assume 60 Hz (measure the display period: `displayPeriod`).
+- **Adapt to the machine, don't pick for one.** Costly work gets a BUDGET that measures how the page keeps up and
+  scales itself (the art pace governor below is the model): fall fast when frames come late, rise slowly.
+- **Pay once, reuse forever.** Expensive results are cached in memory AND kept between sessions where the platform
+  allows (Cache Storage, the sprite-rig bake), keyed so a changed input never matches a stale result.
+- **Off the main thread, in slices.** Heavy work yields (`requestIdleCallback`/timeouts, ~6 ms slices) or goes to a
+  worker; nothing blocks input or scrolling. Nothing animates or polls off screen or in a hidden tab.
+- **Device density and size are inputs**, never constants (`devicePixelRatio`, the real box size, `densityBucket`).
+- **Portable code**: browser-only work lives in `.jsx` or `web.js` behind feature checks with a fallback
+  (OffscreenCanvas → canvas, Cache Storage → memory only, no worker → main thread). Pure planning logic stays pure
+  and tested so a phone build reuses it (see "Porting to phones").
+- **Measure, don't guess.** A perf change comes with a before/after number (Chrome trace, frame intervals, raster
+  ms/s) taken in Playwright's bundled Chromium, never the installed Chrome (it once locked the owner's account).
+
 ## Design system (never hardcode colors)
 - `src/config/tokens.js` (`C` = `var(--c-*)`, `FONT`, `RADIUS`, `SHADOW`) is the single source of truth. Palettes:
   CSS variables in App.jsx's global `<style>` (`:root` light, `[data-theme="dark"]`); `appTheme` → `<html
@@ -1569,6 +1589,57 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   drawings sit on their own layer (`will-change`); NEVER pause them for scrolling (the owner: looks broken); `sanitizeQueue` one file per task,
   `pauseAnimations` off screen): mounting every raid boss at once lagged the owner's computer. The dev gallery sets
   `window.__ebikiArtEager = true` (check-art needs it); keep that line.
+- **The art clock** (art.jsx THE ART CLOCK): SMIL in inline SVG is never composited, so EVERY frame of a playing boss
+  re-rasterized the whole drawing (the ophanim lagged on any machine). Now each drawing is PAUSED and set to the real
+  elapsed time with `svg.setCurrentTime` from one shared `setTimeout` loop (never rAF), CSS animations in its box too
+  (`getAnimations({subtree})`, `currentTime`). Speed is real time on every monitor; only redraw frequency changes.
+  `holdArt(svg, who, on)` freezes one (BossArena's hit-stop); sleep/wake keeps the timeline (`clockWake`).
+- **The pace governor** (`artPace.js`, pure, tested): a page-wide redraw BUDGET (`ART_PACE.levels`) shared by the
+  drawings on screen, each at most `maxFps` (30), with staggered credits. Every 3 s it samples 24 rAF intervals and
+  compares their median to the display period (`displayPeriod`, capped at `maxPeriod` 20 ms so a page slow from its
+  first frame is not read as a slow monitor): late → down 1 or 2 levels, 3 calm samples → up one.
+- **Sprite-rig bake** (`bakePlan.js` pure + tested, `bake/web.js` browser half): static runs of a drawing are
+  rasterized ONCE at the device's density and the animation moves those bitmaps. Same look (a sweep of every boss,
+  phase, entrance, ability effect and banner against the vector: no visible difference), raster about 10x cheaper
+  (hydra 444 → 31 ms/s). Rules, each from a real defect:
+  - **What stays live vector**: animated elements and their holders, phase/photo layers, `<image>`, defs; every element
+    the PAGE can reach (`PAGE_CLASS`: `lg-*`, `lgfa-*`, `lgo-*`, `lgs-*`; the ability effects' CSS moves, shows and
+    animates them; their static children still bake inside); the WHOLE of an `lg-fx-*` layer (`SOLID_CLASS`: its CSS
+    selects child shapes; hidden until an effect plays, so free). Hidden state layers (`lg-ab-*`: a Hydra's extra
+    heads) are shown while baking so they bake too. A new class the page targets must match `PAGE_CLASS`.
+  - **A baked run is a SPRITE**: an invisible path tracing the run's exact geometry box, its bitmap drawn by the path's
+    start marker (a marker never counts in a fill box). So every fill-box pivot (the files' own, the effects' CSS)
+    stays EXACTLY where the vector had it, even when moving parts decide the box. Never a plain `<image>`: its stroke
+    padding grew the box and slid pivots (the lab's eye stalks, the vampire's rising figure).
+  - **Size = the LARGEST the part ever gets**: the bake plays the drawing's own timeline (`sampleTimes`, in slices) and
+    reads every live element's CTM; a run is drawn at that scale (a bat that flies in tiny and lands full size, the
+    void's burst). Too big for one bitmap (`minShare` of `maxSide`) stays vector. Padding = how far the strokes really
+    reach (`strokePad`: half the width for round joins, the miter for sharp corners). Pixel art (`crispEdges`) and
+    small drawings (under `BAKE.minShapes`, 100: the arcade's 76) stay vector: they redraw cheaply and any bitmap
+    grid softens their pixel-exact edges.
+  - **Density follows the screen**: device pixels per unit = how the drawing really maps into its box (viewBox +
+    `preserveAspectRatio`, `drawingScale`: a banner is wider than its box and fills it by cropping) × device pixels per
+    CSS pixel. `LegendsArt` measures the box's LAYOUT width × `currentCSSZoom` (fallback
+    `--app-zoom`) × `devicePixelRatio` (never the transformed size: an entrance starts small) and re-bakes when it
+    only GROWS (ResizeObserver + `resize`: Ctrl and +, a sharper monitor); the old bake shows until the new one lands.
+  - **The queue drops what nobody shows**: `bakeArt(..., { wanted })`: a bake for a boss stepped past or a screen
+    left is dropped before it starts or between slices. Memory: 48 bakes (LRU), a dropped bake's bitmaps are revoked
+    only once no drawing shows them.
+  - `var()`s resolved, inherited presentation attributes copied, only referenced defs included; PNGs encode in an
+    OffscreenCanvas worker pool (canvas fallback), work in 6 ms idle slices. ONE bake serves every fight phase (the
+    phase on screen drops the hidden phases' animations again). Bakes are kept in Cache Storage
+    (`ebiki-art-bake-v<BAKE_FORMAT>`, `packBake`, key = FNV hash of format + key + markup, 160 max): a reload shows
+    the baked drawing at once. A failure keeps the vector. **Bump `BAKE_FORMAT` whenever the output changes.**
+  - **Verify a change with the sweep** (`.scratch`-style, Playwright's bundled Chromium): every boss/phase/entrance/
+    effect/banner baked vs `__ebikiNoBake`, frozen at the same moments, pixel-diffed (2026-10: all 319 under 0.3% of
+    pixels). Wait about 600 ms after a seek before the screenshot: a shot right after a seek can catch a bitmap still
+    at the decode size of the moment before. Bake coverage per boss (vector shapes left) and timings are worth
+    re-measuring after an art change (`__ebikiBakeStats`).
+- **Bake tools** (`dev/bake-sweep/`, README there): `compare.mjs` (the sweep), `heat.mjs`, `pair-look.mjs`,
+  `coverage.mjs`, `perf.mjs` (OLD raw SMIL vs CLOCK vs NOW). Run them after any change to the bake or the art.
+- **Diagnostics** (dev tools console): `__ebikiArtPace()` (level, budget, fps per drawing), `__ebikiBakeStats`,
+  `__ebikiNoBake = true` (vector only, to compare), `__ebikiArtFreeze = true` (stop the clock). Gallery/check-art run
+  eager and unbaked.
 - **Boss figures breathe past their frame** (`BOSS_HEADROOM` 20%): boss SVGs render `overflow="visible"` clipped at
   `inset(-20%)`, so flames/wings aren't sliced flat. **That headroom is real LAYOUT space wherever something sits next
   to a figure** (`room` prop / `headroomPx(size)`: asset view, gallery, intro card, arena, results, raid hall), else

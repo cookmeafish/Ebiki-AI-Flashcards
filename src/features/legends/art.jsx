@@ -17,6 +17,9 @@
 // waves). `animated` picks what plays: 'intro' = both, 'idle' = loops only, false = none (the file's own attributes
 // are its resting pose, so a still file shows the finished boss). Reduced motion always gets false.
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { ART_PACE, newPace, paceStep, paceFps, paceBudget, displayPeriod } from './artPace'
+import { densityBucket } from './bakePlan'
+import { bakeArt } from './bake/web'
 import { useFeatureCtx, featureCfg } from '../registry'
 import { LEGENDS_ID } from './store'
 import { RADIUS } from '../../config/tokens'
@@ -345,6 +348,109 @@ function useArtInView(ref) {
 // drawing: one paused by the arena's hit-stop is unpaused by its own cleanup anyway, so nothing stays frozen. The dev
 // gallery (window.__ebikiArtEager, check-art drives the clock itself) never sleeps. NOT on mere blur: a visible window
 // behind another app (or under the screenshot tool) froze every boss mid-entrance, wheels still flat, and looked broken.
+// THE ART CLOCK: Chromium re-rasters a whole inline SVG for every frame while any SMIL animation in it runs (no GPU
+// path): a raid boss cost 120 to 340 ms of main thread per second and about 15 ms of GPU raster per frame at 60 Hz
+// (the ophanim lagged the app), and a 120, 144 or 240 Hz monitor multiplied that. So no drawing plays on its own: each
+// is paused, and ONE shared timer (never requestAnimationFrame, which wakes the page at the monitor's rate) sets every
+// drawing to the real elapsed time with setCurrentTime. Animation SPEED is real time on any machine; only how often
+// the drawings redraw changes, set by the pace governor (artPace.js): a page-wide budget of redraws per second,
+// shared among the drawings on screen (one fight boss gets up to 30 a second, a bestiary full of them a share each,
+// staggered so they never all redraw in the same frame), lower on a computer that falls behind. Holds (the arena's
+// hit-stop, the window asleep) freeze a drawing's time and resume it where it stopped.
+const clocked = new Map() // svg -> { start (ms on the page clock when its time was 0), held: Set, heldAt, credit }
+let clockTimer = 0
+let pace = newPace()
+const activeArt = () => { let n = 0; for (const e of clocked.values()) if (!e.held.size) n++; return n }
+export const artFps = () => paceFps(pace, activeArt())
+// Diagnostics (the perf scripts and the app-window report read it): the governor's state right now.
+if (typeof window !== 'undefined') window.__ebikiArtPace = () => ({ budget: paceBudget(pace), level: pace.level, active: activeArt(), fps: artFps() })
+const clockNow = () => (typeof performance !== 'undefined' ? performance.now() : Date.now())
+function clockTick() {
+  clockTimer = 0
+  if (!clocked.size) return
+  const now = clockNow()
+  const share = paceFps(pace, activeArt()) / ART_PACE.maxFps // this tick's share of a redraw, per drawing
+  for (const [svg, e] of clocked) {
+    if (!svg.isConnected) { clocked.delete(svg); continue }
+    if (e.held.size || asleep || window.__ebikiArtFreeze) continue // (__ebikiArtFreeze: comparisons set the time themselves)
+    e.credit += share
+    if (e.credit < 1) continue
+    e.credit -= 1
+    try { svg.setCurrentTime((now - e.start) / 1000) } catch { clocked.delete(svg) }
+    for (const a of e.css) { try { a.currentTime = now - e.start } catch { /* finished or gone */ } }
+  }
+  clockSchedule()
+}
+function clockSchedule() {
+  if (clockTimer || !clocked.size || asleep || typeof setTimeout === 'undefined') return
+  clockTimer = setTimeout(clockTick, 1000 / ART_PACE.maxFps)
+  paceWatch()
+}
+// `box`/`same`: the drawing's box and what it shows (file + motion): a new SVG for the same drawing in the same box
+// (the baked sprite rig swapping in, a phase change) carries on at the time the old one had, never jumps back.
+function clockAttach(svg, box, same) {
+  if (clocked.has(svg)) return
+  try {
+    const t = svg.getCurrentTime()
+    svg.pauseAnimations()
+    const prev = box && box.__lgClock && box.__lgClock.same === same ? box.__lgClock.start : null
+    const start = prev ?? clockNow() - t * 1000
+    if (box) box.__lgClock = { same, start }
+    // a random first credit staggers drawings that join together (a page of them never redraws all at once)
+    // The CSS animations inside the drawing's box (the photo ophanim's light) run on the same clock: paused, and set
+    // to the drawing's time on its redraws, never at the display's rate.
+    const css = (box && typeof box.getAnimations === 'function' ? box.getAnimations({ subtree: true }) : [])
+      .filter((a) => { try { return a.effect.getComputedTiming().iterations === Infinity } catch { return false } })
+    for (const a of css) { try { a.pause() } catch { /* gone */ } }
+    clocked.set(svg, { start, held: new Set(), heldAt: 0, credit: Math.random(), css })
+    if (prev != null) svg.setCurrentTime((clockNow() - start) / 1000)
+  } catch { return }
+  clockSchedule()
+}
+// Freeze (on = true) or resume one drawing for `who` (a hold per reason, so two reasons never release each other).
+export function holdArt(svg, who, on) {
+  const e = clocked.get(svg)
+  if (!e) return
+  const was = e.held.size > 0
+  if (on) e.held.add(who); else e.held.delete(who)
+  const is = e.held.size > 0
+  if (!was && is) e.heldAt = clockNow()
+  if (was && !is) e.start += clockNow() - e.heldAt
+}
+// The window slept from `since`: every drawing resumes where it stopped.
+function clockWake(since) {
+  const gap = clockNow() - since
+  for (const e of clocked.values()) e.start += gap
+  clockSchedule()
+}
+// THE PACE WATCH: every PACE_EVERY ms while drawings animate, PACE_FRAMES frames are timed with
+// requestAnimationFrame (only then: a short sample, never a loop) and the governor picks the art rate. The display's
+// refresh period is the fastest typical interval seen in this page's life (any monitor, measured).
+const PACE_EVERY = 3000
+const PACE_FRAMES = 24
+let paceAt = 0
+let paceBusy = false
+const seenIntervals = []
+function paceWatch() {
+  const now = clockNow()
+  if (paceBusy || now - paceAt < PACE_EVERY || typeof requestAnimationFrame === 'undefined') return
+  paceBusy = true
+  paceAt = now
+  const sample = []
+  let last = 0
+  const frame = (t) => {
+    if (last) sample.push(t - last)
+    last = t
+    if (sample.length < PACE_FRAMES && !asleep) { requestAnimationFrame(frame); return }
+    paceBusy = false
+    seenIntervals.push(...sample)
+    if (seenIntervals.length > 600) seenIntervals.splice(0, seenIntervals.length - 600)
+    pace = paceStep(pace, sample, displayPeriod(seenIntervals))
+  }
+  requestAnimationFrame(frame)
+}
+let asleepAt = 0
+
 const ASLEEP_ATTR = 'data-lg-asleep'
 // Each drawing sits on its own GPU layer (will-change), so an animating boss repaints only itself, never the content
 // scrolling past it. Drawings never pause for scrolling (the owner: frozen bosses mid-scroll look broken).
@@ -367,7 +473,8 @@ function installArtSleep() {
     if (next === asleep) return
     asleep = next
     document.documentElement.toggleAttribute(ASLEEP_ATTR, asleep)
-    setArtPlaying(artSvgs(document), !asleep)
+    if (asleep) asleepAt = clockNow(); else clockWake(asleepAt)
+    setArtPlaying(artSvgs(document).filter((v) => !clocked.has(v)), !asleep)
   }
   document.addEventListener('visibilitychange', apply)
   apply()
@@ -475,15 +582,73 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
   // `phase`: only the arena (and the asset view's phase cells) pass it; a still drawing has no animations to drop.
   const livePhase = mode ? phase : undefined
   // Built only while near the screen (an off-screen drawing is not in the page anyway), from the shared motion cache.
-  const svg = useMemo(() => {
+  const template = useMemo(() => {
     if (!near || !raw) return ''
-    const out = withIds(motionMarkup(url, raw, mode, livePhase), idSuffix)
+    const out = motionMarkup(url, raw, mode, livePhase)
     return figure ? freeFigure(out) : out
-  }, [near, url, raw, mode, livePhase, figure, idSuffix])
+  }, [near, url, raw, mode, livePhase, figure])
+  // THE SPRITE RIG (bake/web.js, bakePlan.js): an animated drawing is re-rasterized on every frame it moves, thousands
+  // of vector shapes each time. Once it is on screen it is baked in the background: every run of shapes that never
+  // moves becomes one bitmap at this screen's pixel density, and the animation moves those instead. Same look, same
+  // motion, a fraction of the cost per frame; the vector shows until the bake is ready. Still drawings never need it.
+  const [baked, setBaked] = useState(null) // { key, out }
+  const bakeKeyRef = useRef('')
+  // (window.__ebikiArtEager: the gallery and check-art drive raw files; __ebikiNoBake: comparisons against the vector)
+  const bakeOn = !!mode && !(typeof window !== 'undefined' && (window.__ebikiArtEager || window.__ebikiNoBake))
+  // One bake per drawing serves EVERY fight phase: it keeps all phase layers and their animations (the arena's CSS
+  // shows one phase), so a phase change mid-fight never starts a new bake. The key carries the file's length, since
+  // the photo ophanim's markup changes once its photos have loaded.
+  const bakeSource = useMemo(() => {
+    if (!bakeOn || !near || !raw) return ''
+    const out = motionMarkup(url, raw, mode, undefined)
+    return figure ? freeFigure(out) : out
+  }, [bakeOn, near, url, raw, mode, figure])
+  // The drawing this box shows now, without the density: a sharper bake on the way never sends it back to vector.
+  const bakeIdentity = `${url}|${mode}|${raw ? raw.length : 0}|${palette ?? ''}|`
+  const live = !!baked && baked.key.startsWith(bakeIdentity)
+  // The bake keeps every phase's animations; the phase on screen drops the hidden phases' ones again (they would be
+  // computed on every redraw for layers nobody sees), exactly like the vector drawing.
+  const svg = useMemo(() => withIds(live ? motionMarkup(`${baked.key}|baked`, baked.out, mode, livePhase) : template, idSuffix), [live, baked, template, idSuffix, mode, livePhase])
   const shown = near && !!svg // off screen: out of the page (the box keeps its size)
   useEffect(installArtSleep, [])
   // A drawing put in the page while the window sleeps starts paused (its entrance plays on return).
   useEffect(() => { if (asleep && shown && boxRef.current) setArtPlaying(artSvgs(boxRef.current), false) }, [shown, svg])
+  // Animated drawings run on the shared art clock (THE ART CLOCK above, paced by artPace.js), never at the monitor's rate. The dev gallery and
+  // check-art drive their own clocks (window.__ebikiArtEager).
+  useEffect(() => {
+    if (!shown || !mode || !boxRef.current || (typeof window !== 'undefined' && window.__ebikiArtEager)) return
+    for (const v of artSvgs(boxRef.current)) clockAttach(v, boxRef.current, `${url}|${mode}`)
+  }, [shown, svg, mode, url])
+  // Pixels per drawing unit on THIS screen: the box's layout width (never its transformed size: an entrance that starts
+  // small would bake a blurry boss) times the app zoom and the screen's density. It only ever goes UP while shown: a
+  // bigger box, Ctrl and + or a sharper monitor bakes again; a smaller one keeps the sharper bake.
+  const [density, setDensity] = useState(0)
+  useEffect(() => {
+    const box = boxRef.current
+    if (!shown || !bakeOn || !box) return undefined
+    const measure = () => {
+      // (currentCSSZoom: the app zoom on this element; a browser without it reads the app's own --app-zoom)
+      const zoom = box.currentCSSZoom || parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--app-zoom')) || 1
+      const px = box.offsetWidth * zoom * (window.devicePixelRatio || 1)
+      if (px > 0) setDensity((d) => Math.max(d, densityBucket(px / 120)))
+    }
+    measure()
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null
+    if (ro) ro.observe(box)
+    window.addEventListener('resize', measure) // the app zoom and a monitor change both fire it
+    return () => { if (ro) ro.disconnect(); window.removeEventListener('resize', measure) }
+  }, [shown, bakeOn])
+  useEffect(() => {
+    const box = boxRef.current
+    if (!shown || !bakeOn || !bakeSource || !box || !density) return undefined
+    const key = `${bakeIdentity}${density}`
+    bakeKeyRef.current = key
+    if (baked && baked.key === key) return undefined
+    let alive = true
+    const wanted = () => alive && bakeKeyRef.current === key && box.isConnected
+    bakeArt(key, bakeSource, box, { intro: mode === 'intro', density, wanted }).then((out) => { if (alive && out && bakeKeyRef.current === key) setBaked({ key, out }) })
+    return () => { alive = false }
+  }, [shown, bakeOn, bakeSource, bakeIdentity, density]) // eslint-disable-line react-hooks/exhaustive-deps
   const photo = url === PHOTO_FILE && photoSpritesUsable() // the photo ophanim's own light layers (PHOTO LIGHT); never over the painted fallback
   const labels = useContext(ArtLabels)
   const big = (typeof height !== 'number' || height >= LABEL_MIN_PX) && (typeof width !== 'number' || width >= LABEL_MIN_PX)
