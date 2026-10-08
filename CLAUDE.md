@@ -1592,7 +1592,8 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
 - **The art clock** (art.jsx THE ART CLOCK): SMIL in inline SVG is never composited, so EVERY frame of a playing boss
   re-rasterized the whole drawing (the ophanim lagged on any machine). Now each drawing is PAUSED and set to the real
   elapsed time with `svg.setCurrentTime` from one shared `setTimeout` loop (never rAF), CSS animations in its box too
-  (`getAnimations({subtree})`, `currentTime`). Speed is real time on every monitor; only redraw frequency changes.
+  (`getAnimations({subtree})`, `currentTime`). Speed is real time on every monitor; only redraw frequency changes. Alone it cut raster
+  about 3x (ophanim 641 → 270 ms/s, hydra 612 → 197) and main-thread work about 40% (ophanim 121 → 59).
   `holdArt(svg, who, on)` freezes one (BossArena's hit-stop); sleep/wake keeps the timeline (`clockWake`).
 - **The pace governor** (`artPace.js`, pure, tested): a page-wide redraw BUDGET (`ART_PACE.levels`) shared by the
   drawings on screen, each at most `maxFps` (30), with staggered credits. Every 3 s it samples 24 rAF intervals and
@@ -1600,8 +1601,12 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   first frame is not read as a slow monitor): late → down 1 or 2 levels, 3 calm samples → up one.
 - **Sprite-rig bake** (`bakePlan.js` pure + tested, `bake/web.js` browser half): static runs of a drawing are
   rasterized ONCE at the device's density and the animation moves those bitmaps. Same look (a sweep of every boss,
-  phase, entrance, ability effect and banner against the vector: no visible difference), raster about 10x cheaper
-  (hydra 444 → 31 ms/s). Rules, each from a real defect:
+  phase, entrance, ability effect and banner against the vector, at 1x and 2x density: 0 of 239 cases over 0.3% of
+  pixels). Measured (`dev/bake-sweep/perf.mjs 220`, ms of work a second, raw SMIL → art clock → clock + bake): raster
+  hydra 612 → 197 → 103, forest 784 → 266 → 68, chronos 456 → 170 → 120, inferno 578 → 195 → 108, celestial
+  289 → 85 → 74; main thread hydra 59 → 35 → 30, forest 70 → 40 → 26. The ophanim (332 vs 270) and kitsune (137 vs
+  116) raster a little MORE baked than with the clock alone (their big moving parts stay live and the sprites add
+  layers), still half or less of the raw SMIL. Rules, each from a real defect:
   - **What stays live vector**: animated elements and their holders, phase/photo layers, `<image>`, defs; every element
     the PAGE can reach (`PAGE_CLASS`: `lg-*`, `lgfa-*`, `lgo-*`, `lgs-*`; the ability effects' CSS moves, shows and
     animates them; their static children still bake inside); the WHOLE of an `lg-fx-*` layer (`SOLID_CLASS`: its CSS
