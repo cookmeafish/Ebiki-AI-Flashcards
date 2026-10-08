@@ -12,6 +12,14 @@ const APP_ROOT = path.join(__dirname, '..')
 // built-in one while the browser used the card: every frame was drawn on the weak GPU and copied across, and
 // scrolling crawled at a fraction of the monitor's rate (logs/app-window-gpu.json: 167 fps on 480 Hz).
 app.commandLine.appendSwitch('force_high_performance_gpu')
+// NO FRAME PACING to a monitor (Windows): with two monitors at different refresh rates (480 Hz on the card, 60 Hz on the
+// built-in graphics) Chromium paced every frame to 60 Hz: scrolling measured 60 fps in this window against 480 in a
+// browser tab (utils/scrollProbe.js). Windows' compositor still presents at the monitor's own rate; frames are only
+// drawn while something changes. EBIKI_FRAME_PACING=1 restores Chromium's pacing.
+if (process.platform === 'win32' && process.env.EBIKI_FRAME_PACING !== '1') {
+  app.commandLine.appendSwitch('disable-gpu-vsync')
+  app.commandLine.appendSwitch('disable-frame-rate-limit')
+}
 
 // How this computer opens Ebiki - 'app' (this chrome-free window) or 'browser' (an ordinary tab).
 // Machine-local and read straight off disk because the branch below happens BEFORE there is a dev
