@@ -18,7 +18,7 @@
 // only `day`) sees the boss as it is; an older build writes no `siege`, and siegeOf() then starts it from `day`.
 import { abilityForMotif, abilityById } from './abilities'
 import { raidProfile, MAX_HEARTS } from './raidProfiles'
-import { bossesBeaten, POWERS, POWER_IDS, LOADOUT_MAX, POWER_WINDOW, STEADFAST_HEARTS, SHARPEN_BONUS, FURY_MULT, SIPHON_HEARTS } from './powers'
+import { bossesBeaten, POWERS, POWER_IDS, POWER_DEFAULTS, powersOf, shapePowers } from './powers'
 import { strike, barPhase, canAttack, attackSlot, attackGapFor, raidRating, rulesOf, abilityK, FIGHT_RULES } from './fight'
 
 // THE ROSTER is append-only: a stored raid state's `boss` is an INDEX into it (older builds on a shared folder read
@@ -66,7 +66,9 @@ export const RAID = { runSize: 15, runSizes: [5, 10, 15, 20, 30], minCards: 1, m
 // The run size from the setting (features.legends.raidRunSize): one of RAID.runSizes, else the default.
 export const raidRunSize = (v) => (RAID.runSizes.includes(Number(v)) ? Number(v) : RAID.runSize)
 
-export const todayKey = (d = new Date()) => d.toLocaleDateString('en-CA')
+// The LOCAL day as 'YYYY-MM-DD', from the date's own fields (toLocaleDateString('en-CA') is ICU data and has changed
+// format between browser builds, which would split stored day keys from today's).
+export const todayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
 // Health for `due` cards: the per-run rule the ability tests' simulator uses (abilities/_sim.js). A siege's health is
 // the boss's profile (bossHp), never the cards due.
@@ -123,14 +125,14 @@ export function siegeOf(state) {
   return null
 }
 // The siege on `date`: hearts full again and the boss's heal once per whole day since its date (wounds never below 0;
-// a Bandage dated the siege's day skips that first night's heal). Only forward: a siege dated `date` or later is
+// a Bandage dated the siege's day skips that first night's heal, or the variant's `powers.bandage` nights). Only forward: a siege dated `date` or later is
 // returned unchanged (idempotent).
 export function regenSiege(siege, date) {
   if (!siege) return siege
   const days = dayGap(siege.date, date)
   if (days <= 0) return siege
   const { bandage, ...rest } = siege
-  const nights = Math.max(0, days - (bandage === siege.date ? 1 : 0))
+  const nights = Math.max(0, days - (bandage === siege.date ? bossProfile(siege.boss, siege.variant).powers.bandage : 0))
   return {
     ...rest, date,
     hearts: Math.max(siege.hearts, bossHearts(siege.boss, siege.variant)),
@@ -261,10 +263,11 @@ export function raidRunChoices({ won = false, unasked = 0, dueLeft = 0, hearts =
 //   questions). Ability inserts share MAX_INSERTED per attempt (fight.insertedN counts them).
 // POWERS (powers.js): `info.aided` = a 50:50 or hint helped with this question (struck like a choice: 1 damage, never
 // a clean typed answer; recorded as Hard); `shield` = a Shield is up (it takes the next lost heart); `sharpen` = a
-// Sharpen is armed (a clean typed answer to a raid question deals SHARPEN_BONUS more); `ward` = raised against this
+// Sharpen is armed (a clean typed answer to a raid question deals the power's `sharpen` more); `ward` = raised against this
 // attack (it costs no hearts); window powers in their window: `focus` (a glancing answer hits like a clean one),
-// `momentum` (every clean answer crits), `fury` (a clean typed answer deals FURY_MULT times), `siphon` (a clean
-// answer to a raid question gives back one lost heart). None of them changes a verdict or an Anki grade.
+// `momentum` (every clean answer crits), `fury` (a clean typed answer deals `fury` times), `siphon` (a clean
+// answer to a raid question gives back `siphon` lost hearts). None of them changes a verdict or an Anki grade. The
+// numbers are the fight's (powersOf(before): its tune's resolved powers, else the defaults).
 export function raidStep(before, q, info, { ability = '', need, lives, dayHp, dayBefore = 0, dayAb = null, pos = 0, questions = [], armed = null, shield = false, sharpen = false, ward = false, focus = false, momentum = false, fury = false, siphon = false } = {}) {
   const mod = abilityById(ability)
   const verdict = info.verdict
@@ -272,19 +275,20 @@ export function raidStep(before, q, info, { ability = '', need, lives, dayHp, da
   const useArmed = armed && mod?.decision && !q._attack && !inserted ? armed : null
   const hit = { verdict, mode: info.mode === 'choice' || info.aided ? 'choice' : 'typed', attack: !!q._attack, inserted, lastStand: inserted === 'lastStand', key: q._cardId, ...(useArmed ? { armed: useArmed } : {}) }
   const R = rulesOf(before)
+  const P = powersOf(before)
   const bar = { total: dayHp, before: dayBefore, phases: R.phases }
   const phaseNow = barPhase(bar, before.damage)
   // A Shield raised now takes the next lost heart even when an earlier one was already used up in this fight.
   // Sharpen pays on a clean typed hit, or a slip Focus makes hit clean (else it stays armed for the next one).
-  const bonus = sharpen && (verdict === 'clean' || (verdict === 'glancing' && focus)) && hit.mode === 'typed' && !q._attack && !inserted ? SHARPEN_BONUS : 0
+  const bonus = sharpen && (verdict === 'clean' || (verdict === 'glancing' && focus)) && hit.mode === 'typed' && !q._attack && !inserted ? P.sharpen : 0
   const own = !q._attack && !inserted
   let next = strike(shield ? { ...before, shieldUsed: false } : before, hit, { ability, phase: phaseNow, need, lives, bar, dayAb, shield, bonus,
-    ward: ward && !!q._attack, focus: focus && own && hit.mode === 'typed', momentum: momentum && own, fury: fury && own ? FURY_MULT : 0 })
+    ward: ward && !!q._attack, focus: focus && own && hit.mode === 'typed', momentum: momentum && own, fury: fury && own ? P.fury : 0 })
   if (bonus) next = { ...next, last: { ...(next.last || {}), sharpened: true } }
   // Siphon: a clean answer (or a slip Focus made hit clean) to a raid question in its window gives back one heart this fight lost (never past full,
   // never after the fight is decided).
   if (siphon && own && (verdict === 'clean' || !!next.last?.focused) && next.livesLost > 0 && next.livesLost < lives && next.damage < need) {
-    const back = Math.min(next.livesLost, SIPHON_HEARTS)
+    const back = Math.min(next.livesLost, P.siphon)
     next = { ...next, livesLost: next.livesLost - back, last: { ...(next.last || {}), siphoned: back } }
   }
   // A boss heal never crosses a phase line backwards (choices came back and the PHASE flash replayed).
@@ -335,7 +339,7 @@ export function raidStep(before, q, info, { ability = '', need, lives, dayHp, da
   }
   // What a power window up on THIS answer would have given a right answer (an overturn refunds it: fight.refundFor).
   const boost = own ? {
-    ...(fury && hit.mode === 'typed' ? { fury: FURY_MULT } : {}),
+    ...(fury && hit.mode === 'typed' ? { fury: P.fury } : {}),
     ...(momentum && !(mod && mod.noCrit) && hit.mode === 'typed' ? { momentum: true } : {}),
     ...(focus && hit.mode === 'typed' ? { focus: true } : {}),
   } : {}
@@ -384,20 +388,26 @@ const powerHelpName = (id) => POWER_HELP_NAME[id] || id
 const POWER_UNLOCK_LINE = POWER_IDS.map((id) => `${powerHelpName(id)} ${POWERS[id].unlock}`).join(', ')
 const WINDOW_IDS = POWER_IDS.filter((id) => POWERS[id].window).map(powerHelpName)
 const WINDOW_LINE = WINDOW_IDS.length > 1 ? `${WINDOW_IDS.slice(0, -1).join(', ')} and ${WINDOW_IDS[WINDOW_IDS.length - 1]}` : WINDOW_IDS.join('')
-export const SIEGE_RULE = `The raid is a SIEGE: each raid boss has its own fixed health, and the player gets a fixed number of hearts against that boss (later bosses are bigger, and the player gets more hearts against them or the boss has an ability that protects the player). A run is a few questions (the player picks how many in the fight settings); the boss's wounds stay until it is beaten and lost hearts stay lost for the day. Losing every heart in a run makes the boss rally: it heals back half the damage that run dealt, and the hearts are full again at once, so the player can try again right away. Each new day the hearts are full again and the boss heals a little. Several runs a day are fine; each takes the next due cards, and a run that runs out of questions can continue with the next ones. A win brings out the next boss ${RAID.nextBossSameDay ? 'right away' : 'the next day'} with full hearts; the unasked cards can be answered in an optional Victory lap or stay due. POWERS: beating DIFFERENT raid bosses unlocks powers for good (${POWER_UNLOCK_LINE} different bosses); before a fight the player picks up to ${LOADOUT_MAX} to bring, and each brought power works once per fight (${WINDOW_LINE} last ${POWER_WINDOW} questions; ward is raised on an incoming attack; steadfast gives ${STEADFAST_HEARTS} extra hearts that are lost first; bandage is used between runs, once a day). A 50:50 or hint makes that card's review count as Hard; no power changes whether an answer is right.`
+// `powers`: a profile's resolved power numbers (a variant's), default the normal ones. SIEGE_RULE = the normal text.
+export function siegeRule(powers = POWER_DEFAULTS) {
+  const P = powers === POWER_DEFAULTS ? powers : shapePowers(powers)
+  return `The raid is a SIEGE: each raid boss has its own fixed health, and the player gets a fixed number of hearts against that boss (later bosses are bigger, and the player gets more hearts against them or the boss has an ability that protects the player). A run is a few questions (the player picks how many in the fight settings); the boss's wounds stay until it is beaten and lost hearts stay lost for the day. Losing every heart in a run makes the boss rally: it heals back half the damage that run dealt, and the hearts are full again at once, so the player can try again right away. Each new day the hearts are full again and the boss heals a little. Several runs a day are fine; each takes the next due cards, and a run that runs out of questions can continue with the next ones. A win brings out the next boss ${RAID.nextBossSameDay ? 'right away' : 'the next day'} with full hearts; the unasked cards can be answered in an optional Victory lap or stay due. POWERS: beating DIFFERENT raid bosses unlocks powers for good (${POWER_UNLOCK_LINE} different bosses); before a fight the player picks up to ${P.loadoutMax} to bring, and each brought power works once per fight (${WINDOW_LINE} last ${P.window} questions; ward is raised on an incoming attack; steadfast gives ${P.steadfast} extra hearts that are lost first; bandage is used between runs, once a day). A 50:50 or hint makes that card's review count as Hard; no power changes whether an answer is right.`
+}
+export const SIEGE_RULE = siegeRule()
 
 // What Ebi's Help hears about a raid on screen (plain facts, never a question's answer).
 //   view: loading | intro | fight | more | lap | saving | done | hearts | other; boss: its name; hpLeft/hpMax: the
 //   siege's health; livesLeft: hearts left now; lives: the most hearts; phase: 1..3; asked/total: cards answered of
 //   the cards picked; lapLeft: Victory lap cards left; nextCards: the cards a Continue would bring; result: { won,
-//   recorded, failed } on the result screen; test: a cheat-mode test fight.
-export function raidHelpText({ view = '', boss = '', ability = '', hpLeft = 0, hpMax = 0, livesLeft = 0, lives = 0, phase = 1, asked = 0, total = 0, lapLeft = 0, aftermathLeft = 0, nextCards = 0, result = null, test = false, powers = '' } = {}) {
+//   recorded, failed } on the result screen; test: a cheat-mode test fight; powerNums: the fight's resolved power
+//   numbers (raidProfile(...).powers; absent = the normal ones) for the siege rule's power facts.
+export function raidHelpText({ view = '', boss = '', ability = '', hpLeft = 0, hpMax = 0, livesLeft = 0, lives = 0, phase = 1, asked = 0, total = 0, lapLeft = 0, aftermathLeft = 0, nextCards = 0, result = null, test = false, powers = '', powerNums = null } = {}) {
   const who = `${boss || 'the raid boss'}${ability ? ` (ability: ${ability})` : ''}${test ? ' [a TEST fight from the asset view: full hearts, a fresh boss, and the stored raid (wounds, hearts, trophies, boss rotation) is not changed; answers are real Anki reviews]' : ''}`
   const hearts = `${livesLeft}/${lives} hearts`
   const pw = powers ? ` ${powers}` : ''
   const lap = lapLeft || aftermathLeft
   if (view === 'loading') return `Daily raid: Ebi is gathering the due cards and writing the questions for ${who}.`
-  if (view === 'intro') return `Daily raid: the intro card of ${who}, health ${hpLeft}/${hpMax}, ${hearts}, ${total} due cards to fight with. Not started yet.${pw} ${SIEGE_RULE}`
+  if (view === 'intro') return `Daily raid: the intro card of ${who}, health ${hpLeft}/${hpMax}, ${hearts}, ${total} due cards to fight with. Not started yet.${pw} ${powerNums ? siegeRule(powerNums) : SIEGE_RULE}`
   if (view === 'fight') return `Daily raid RUNNING against ${who}: boss health ${hpLeft}/${hpMax}, phase ${phase} of ${RAID.phases}, ${hearts} left, ${asked} of ${total} due cards answered.${pw} Each card's first answer is a real Anki review: never give the answer to the question on screen unless they explicitly ask.`
   if (view === 'more') return `Daily raid against ${who}: this run is out of questions, the boss lives (health ${hpLeft}/${hpMax}) and the player has ${hearts}. ${nextCards ? `Continue brings the next ${nextCards} due cards into the same fight; Stop for now keeps the wounds and hearts for later.` : 'No due cards are left today.'}`
   if (view === 'aftermath' || view === 'lap') return `Victory lap after beating ${who}: an optional reward round over ${lap} due card(s) the fight never asked (no fight rules; each first answer is a real Anki review; "Finish later" leaves them due). Never give the answer on screen unless asked.`

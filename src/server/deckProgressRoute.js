@@ -13,7 +13,10 @@ export function createDeckProgressRoute({ dataPath, deckDirName, readUtf8, write
       // A folder saved under the raw name before deckDirName existed (possible on macOS/Linux,
       // which allow ":"): read it if the new one does not exist yet. Only a name with no path
       // separators or ".." is tried.
-      if (!fs.existsSync(file) && !/[\\/]|^\.\.?$/.test(deck)) {
+      // Never a name made only of dots and spaces ("...", ". .", " .."): no deck folder, only decks/ or its parent
+      // under some path rules.
+      const legacyOk = !/[\\/]/.test(deck) && !/^[.\s]*$/.test(deck)
+      if (!fs.existsSync(file) && legacyOk) {
         const legacy = dataPath('decks', deck, 'progress-observations.md')
         try { if (fs.existsSync(legacy)) file = legacy } catch { /* not a valid path here */ }
       }

@@ -415,6 +415,9 @@ export function spendHelper(map, kind) {
 
 // ── The journey: steps finished per local day, for the heatmap (the last JOURNEY_DAYS kept) ─────────────────────
 export const JOURNEY_DAYS = 120
+// The LOCAL day key 'YYYY-MM-DD' the heatmap files a result under (the same form journeyCells reads; never
+// toLocaleDateString('en-CA'), whose format is ICU data and has changed between browser builds).
+export const journeyDay = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 export function logDay(map, key) {
   if (!map || !key) return map
   const days = { ...(map.days || {}), [key]: (map.days?.[key] || 0) + 1 }
@@ -426,7 +429,7 @@ export function logDay(map, key) {
 // The heatmap's cells: `weeks` columns of Monday-to-Sunday days, the last column the current week, so every row is
 // one weekday. Days after today are `future` (drawn empty); a cell's key is the local YYYY-MM-DD logDay stores.
 export function journeyCells(today, days = {}, weeks = Math.ceil(JOURNEY_DAYS / 7)) {
-  const key = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const key = journeyDay
   const base = new Date(today.getFullYear(), today.getMonth(), today.getDate())
   const start = new Date(base); start.setDate(base.getDate() - ((base.getDay() + 6) % 7) - (weeks - 1) * 7)
   const cells = []

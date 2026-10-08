@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { boundChatHistory, cleanChatReply } from './chatReply'
+import { boundChatHistory, cleanChatReply, chatTitleText } from './chatReply'
 
 describe('cleanChatReply', () => {
   it('removes every machine tag and keeps the text around them', () => {
@@ -55,5 +55,21 @@ describe('boundChatHistory', () => {
   it('handles an empty or missing list', () => {
     expect(boundChatHistory([])).toBe('')
     expect(boundChatHistory(null)).toBe('')
+  })
+})
+
+describe('chatTitleText', () => {
+  it('makes one line of a multi-line first message', () => {
+    expect(chatTitleText('line one\nline two\r\n\tline three')).toBe('line one line two line three')
+  })
+  it('caps the length and never ends on a space', () => {
+    expect(chatTitleText('a'.repeat(39) + ' bcd')).toBe('a'.repeat(39))
+    expect(chatTitleText('x'.repeat(100)).length).toBe(40)
+  })
+  it('is empty for the image marker, blanks and non-text', () => {
+    expect(chatTitleText('(image)')).toBe('')
+    expect(chatTitleText('  \n ')).toBe('')
+    expect(chatTitleText(undefined)).toBe('')
+    expect(chatTitleText({ a: 1 })).toBe('')
   })
 })

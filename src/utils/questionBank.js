@@ -74,14 +74,21 @@ export function pickSavedSet(bank, key, setSize, maxPerCard, usable = null) {
 
 // A new bank with `questions` added as a set. Sets for an older version of the card's text are dropped
 // (they can never match again); sets for other settings stay (see the header), newest MAX_SETS_PER_CARD.
+// `lastAsked` is an ORDER, not a time: a new stamp is always above every stamp already in the bank. A set asked under a
+// clock that ran ahead (or by another computer whose clock does) was stamped in the future, so it stayed "most
+// recently asked" and never came round again until the real clock caught up.
+const askStamp = (sets, now) => Math.max(Number(now) || 0, ...sets.map((s) => (Number(s.lastAsked) || 0) + 1))
+
 export function addSet(bank, key, questions, now = Date.now()) {
   const keep = setsOf(bank).filter((s) => s.text === key.text)
-  const sets = [...keep, { id: `${now.toString(36)}${Math.random().toString(36).slice(2, 6)}`, text: key.text, sig: key.sig, questions, createdAt: now, lastAsked: now }]
+  const sets = [...keep, { id: `${now.toString(36)}${Math.random().toString(36).slice(2, 6)}`, text: key.text, sig: key.sig, questions, createdAt: now, lastAsked: askStamp(setsOf(bank), now) }]
   return { v: 2, sets: sets.slice(-MAX_SETS_PER_CARD) }
 }
 
 export function markAsked(bank, setId, now = Date.now()) {
-  return { v: 2, sets: setsOf(bank).map((s) => (s.id === setId ? { ...s, lastAsked: now } : s)) }
+  const sets = setsOf(bank)
+  const stamp = askStamp(sets.filter((s) => s.id !== setId), now)
+  return { v: 2, sets: sets.map((s) => (s.id === setId ? { ...s, lastAsked: stamp } : s)) }
 }
 
 // "Fix question" rewrote one question: the saved copy is fixed too, or the broken one would come back.

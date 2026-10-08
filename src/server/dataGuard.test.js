@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { guardMode } from './dataGuard.js'
+import { guardMode, isDataRoute } from './dataGuard.js'
 
 // A server whose reachability answer is cached: `cached` is what dataMode() says until invalidated.
 const server = ({ cached = 'online', afterProbe = 'offline', present = true } = {}) => {
@@ -40,5 +40,15 @@ describe('guardMode', () => {
     const off = server({ cached: 'offline', present: false })
     expect(await guardMode({ isWrite: true, shared: true, ...off })).toBe('offline')
     expect(local.probes + off.probes).toBe(0)
+  })
+})
+
+describe('isDataRoute', () => {
+  const ROUTES = ['/config', '/modes', '/chats', '/chat-load', '/feature-data', '/players']
+  it('matches every URL connect would hand to a data route handler', () => {
+    for (const u of ['/config', '/config?x=1', '/CONFIG', '/config/', '/config.json', '/config.x?y', '/modes/knowledge?mode=a', '/Modes.anything', '/chats.json', '/players.x', '/feature-data.', '/chat-load?id=1']) expect(isDataRoute(u, ROUTES), u).toBe(true)
+  })
+  it('leaves routes that only share a prefix alone', () => {
+    for (const u of ['/configx', '/chatsy', '/player-local', '/keys', '/', '', '/modesx/knowledge', '/anki']) expect(isDataRoute(u, ROUTES), u).toBe(false)
   })
 })

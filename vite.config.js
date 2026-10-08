@@ -12,7 +12,7 @@ import { applyModePatch, isModePatch } from './src/utils/modePatch.js'
 import { featureDataEntries, featureDataRoutes, featureLocalFiles, registerFeatureRoutes } from './src/features/server.js'
 import { createEbiImages } from './src/server/ebi-images.js'
 import { limitBody } from './src/server/bodyLimit.js'
-import { guardMode } from './src/server/dataGuard.js'
+import { guardMode, isDataRoute } from './src/server/dataGuard.js'
 import { createQuestionBankRoute } from './src/server/questionBankRoute.js'
 import { createAnkiProxy } from './src/server/ankiProxy.js'
 import { createTtsRoute } from './src/server/ttsRoute.js'
@@ -2494,9 +2494,9 @@ function apiPlugin() {
       // /api/web-search, /api/tts.
       const DATA_ROUTES = ['/config', '/ankiformat', '/modes', '/knowledge-sections', '/deck-progress', '/discover-store', '/question-bank', '/chats', '/chat-load', ...featureDataRoutes()]
       server.middlewares.use('/api', async (req, res, next) => {
-        // Lower-cased: connect routes /api/Players to the players handler too, and the guard must see it.
-        const p = ((req.url || '').split('?')[0].replace(/\/+$/, '') || '/').toLowerCase()
-        if (!DATA_ROUTES.some((r) => p === r || p.startsWith(r + '/'))) return next()
+        // Matched like connect matches a mount (src/server/dataGuard.js): case-insensitive (/api/Players reaches the
+        // players handler) and followed by "/" or "." (/api/config.x reaches the config handler too).
+        if (!isDataRoute(req.url, DATA_ROUTES)) return next()
         // A folder switch runs synchronously for seconds; writes the page sent meanwhile were handled right after it,
         // in the NEW folder, before the page froze its writers. Refused for a short window after the switch.
         if (req.method !== 'GET' && Date.now() - datadirSwitchedAt < 3000) {
@@ -2507,13 +2507,20 @@ function apiPlugin() {
         }
         // A WRITE to a shared folder is confirmed with a fresh probe (src/server/dataGuard.js): on the cached answer a
         // save in the first seconds after the share vanished re-created its folder and masked the outage for good.
-        const mode = await guardMode({
-          isWrite: req.method !== 'GET' && req.method !== 'HEAD',
-          shared: DATA_DIR !== APP_ROOT,
-          dataMode,
-          freshProbe: () => dataEntriesPresentAsync(DATA_DIR),
-          invalidate: () => { reachCache = { at: 0, ok: false } },
-        })
+        // A probe that THROWS is a failed answer, never a hung request (an async middleware's rejection is only logged).
+        let mode
+        try {
+          mode = await guardMode({
+            isWrite: req.method !== 'GET' && req.method !== 'HEAD',
+            shared: DATA_DIR !== APP_ROOT,
+            dataMode,
+            freshProbe: () => dataEntriesPresentAsync(DATA_DIR),
+            invalidate: () => { reachCache = { at: 0, ok: false } },
+          })
+        } catch (e) {
+          console.log('[Data guard] reachability check failed:', e?.message || e)
+          mode = 'down'
+        }
         // 'down' = the share is gone AND there is no local snapshot to fall back
         // on, the only case where the app truly cannot serve data.
         if (mode === 'down') {
@@ -2803,6 +2810,8 @@ function apiPlugin() {
 
       let overlayCheck = { at: 0, running: false, pending: null }
       const untrackedOverlayRunning = () => {
+        // The check is a Windows (WMI) query: elsewhere there is no `powershell` to ask, so don't spawn one every poll.
+        if (process.platform !== 'win32') return Promise.resolve(false)
         if (Date.now() - overlayCheck.at < 15000) return Promise.resolve(overlayCheck.running)
         if (overlayCheck.pending) return overlayCheck.pending
         overlayCheck.pending = new Promise((resolve) => {
@@ -2832,6 +2841,12 @@ function apiPlugin() {
         console.log('[Overlay API] request:', req.method, req.url)
         if (req.method === 'POST') {
           res.setHeader('Content-Type', 'application/json')
+          // A HEADLESS page (test automation, an agent's browser) never launches the overlay: that started the real Electron
+          // app on the owner's desktop. The app skips the request itself too (navigator.webdriver).
+          if (/HeadlessChrome|Headless/i.test(String(req.headers['user-agent'] || ''))) {
+            res.end(JSON.stringify({ ok: false, error: 'headless' }))
+            return
+          }
           const prevLaunch = overlayLaunchChain
           let releaseLaunch
           overlayLaunchChain = new Promise((r) => { releaseLaunch = r })

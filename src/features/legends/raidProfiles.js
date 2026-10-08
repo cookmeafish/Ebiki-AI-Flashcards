@@ -5,6 +5,8 @@
 //   heal    health the boss gets back each new day (flat: a big boss never heals a huge chunk)
 //   rules   (optional) fight-rule overrides for this boss (abilities/_rules.js FIGHT_RULES: damage, attackGap...)
 //   k       (optional) overrides of its ability's tuning (abilities/<motif>.js K)
+//   powers  (optional) overrides of the player's POWER numbers in this fight (powers.js POWER_DEFAULTS: window,
+//           sharpen, fury, momentumCrit, siphon, wind, steadfast, shield, bandage, loadoutMax)
 //   variants (optional) { <variant>: layer }: this boss's own changes in a variant (on top of RAID_VARIANTS)
 // FAIRNESS (the owner's rule): a bigger boss always comes with more hearts, or an ability that protects the player
 // (Chronos' sand, the Seraph's Mercy, the Vampire's wards, the Ophanim's grace). Bosses whose ability punishes misses
@@ -13,13 +15,18 @@
 // bosses take more runs than earlier ones. Tune the numbers here and run that test.
 //
 // THE RESOLVER: raidProfile(motif, variant = 'normal') is the ONE place a raid fight's numbers come from. It returns
-// { motif, variant, ability, hp, hearts, heal, rules, k } built in layers: defaults (DEFAULT_PROFILE, FIGHT_RULES, the
-// ability module's K) -> the boss's RAID_PROFILES entry -> RAID_VARIANTS[variant] -> the boss's own variants[variant].
-// A layer value is a number (set), { mul: x } (multiply) or { add: n } (add), nested the same way (rules.damage.clean,
-// k.grow). Integer numbers stay integers (rounded). An unknown variant reads as 'normal'. Nothing else holds per-boss
-// numbers: raid.js (bossHp, siege), RaidRun, the hero card, Help and the simulator all read this.
+// { motif, variant, ability, hp, hearts, heal, rules, k, powers } built in layers: defaults (DEFAULT_PROFILE,
+// FIGHT_RULES, the ability module's K, powers.js POWER_DEFAULTS) -> the boss's RAID_PROFILES entry ->
+// RAID_VARIANTS[variant] -> the boss's own variants[variant]. A layer value is a number (set), { mul: x } (multiply)
+// or { add: n } (add), nested the same way (rules.damage.clean, k.grow, powers.window). Example, a nightmare that
+// also weakens the player's powers: nightmare: { hp: { mul: 1.5 }, powers: { window: { add: -1 }, sharpen: { add: -1 } } }
+// (a power window of 2 questions, Sharpen +1). Integer numbers are rounded ({ mul: 0.75 } on Fury's 2 rounds back to 2:
+// SET a decimal instead, fury: 1.5). Power floors hold (powers.js POWER_FLOORS: a window lasts 1 question at least,
+// Fury never below 1). Integer numbers stay integers (rounded). An unknown variant reads as 'normal'. Nothing else holds per-boss
+// numbers: raid.js (bossHp, siege, raidStep), RaidRun, the hero card, Help and the simulator all read this.
 import { FIGHT_RULES } from './abilities/_rules'
 import { abilityForMotif } from './abilities'
+import { POWER_DEFAULTS, shapePowers } from './powers'
 
 export const RAID_PROFILES = {
   chronos: { hp: 30, hearts: 4, heal: 3 },
@@ -94,9 +101,10 @@ export function raidProfile(motif, variant = 'normal') {
   const v = raidVariant(variant)
   const mod = abilityForMotif(motif)
   const own = RAID_PROFILES[motif] || null
-  let p = { ...DEFAULT_PROFILE, rules: FIGHT_RULES, k: { ...((mod && mod.K) || {}) } }
+  let p = { ...DEFAULT_PROFILE, rules: FIGHT_RULES, k: { ...((mod && mod.K) || {}) }, powers: POWER_DEFAULTS }
   for (const layer of [own, RAID_VARIANTS[v], own && own.variants && own.variants[v]]) p = applyLayer(p, layer)
   for (const [f, min] of Object.entries(FLOOR)) p[f] = Math.max(min, Number(p[f]) || 0)
   return Object.freeze({ motif, variant: v, ability: (mod && mod.id) || '', hp: p.hp, hearts: p.hearts, heal: p.heal,
-    rules: Object.freeze({ ...p.rules, damage: Object.freeze({ ...p.rules.damage }) }), k: Object.freeze({ ...p.k }) })
+    rules: Object.freeze({ ...p.rules, damage: Object.freeze({ ...p.rules.damage }) }), k: Object.freeze({ ...p.k }),
+    powers: Object.freeze(shapePowers(p.powers)) })
 }

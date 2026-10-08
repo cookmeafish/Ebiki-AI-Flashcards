@@ -15,7 +15,7 @@ import { ChunkyButton, Card } from '../ui'
 import { recheckStrike, RuleCardButton } from '../kit'
 import { fetchTaunt } from '../kit/tauntStore'
 import { useHelpEntry } from '../kit/useHelp'
-import { FIGHT_EXTRAS, isWrongish, expectedOf, needsRecheck, appealOffered, debriefEntries, resolveFightQuestion, missRowParts, arenaPinMode } from './fightCheck'
+import { FIGHT_EXTRAS, isWrongish, expectedOf, needsRecheck, appealOffered, debriefEntries, resolveFightQuestion, missRowParts, arenaPinMode, ARENA_SLIM_EST } from './fightCheck'
 import { imeActive } from '../../utils/keys'
 
 export { isWrongish, expectedOf } // older imports of these from here keep working
@@ -181,12 +181,16 @@ export function useFightWords(ctx) {
 // The arena sticks to the top of the screen's scroll box while the questions scroll. Sticky rests BELOW that box's top
 // padding (the questions scrolled through the gap above it): `top` pulls it up by exactly that padding. `mode`
 // (arenaPinMode): 'all' pins arena + extras (taunt, notice), 'arena' leaves the extras to scroll below it, 'none' pins
-// nothing (a short or zoomed screen). pinRef = the sticky box, extrasRef = the extras' box (inside it for 'all' and
-// 'none', right after it for 'arena'). Re-measured on every resize of the screen, the arena or the extras.
+// nothing (a short or zoomed screen). 'slim': the arena draws as its slim strip (BossArena `slim`, returned here as
+// `slim`) and pins alone, the extras scroll. pinRef = the sticky box, extrasRef = the extras' box (inside it while
+// `extrasIn`, right after it otherwise). Re-measured on every resize of the screen, the arena or the extras.
+// The full arena's height is remembered while the strip shows (and the strip's while the full arena shows); which
+// one is on screen is read from the DOM (`[data-arena-slim]`), never from state that may not have rendered yet.
 const scrollBoxOf = (el) => { let p = el?.parentElement; while (p && !/(auto|scroll)/.test(getComputedStyle(p).overflowY)) p = p.parentElement; return p }
 export function useArenaPin(pinRef, extrasRef, on = true) {
   const [top, setTop] = useState(0)
   const [mode, setMode] = useState('all')
+  const heights = useRef({ full: 0, slim: 0 })
   // Subscribed to the elements on screen NOW: the arena mounts after the intro, the extras move with the mode.
   const sub = useRef({ pin: null, ex: null, ro: null })
   useLayoutEffect(() => {
@@ -202,7 +206,10 @@ export function useArenaPin(pinRef, extrasRef, on = true) {
     const fit = () => {
       const exH = ex?.offsetHeight || 0
       const arenaH = pin.offsetHeight - (ex && pin.contains(ex) ? exH : 0)
-      setMode(arenaPinMode(arenaH, exH, box.clientHeight))
+      const h = heights.current
+      if (pin.querySelector('[data-arena-slim]')) h.slim = arenaH
+      else h.full = arenaH
+      setMode(arenaPinMode(h.full || arenaH, exH, box.clientHeight, { slimH: h.slim || ARENA_SLIM_EST }))
     }
     fit()
     if (typeof ResizeObserver === 'function') {
@@ -211,7 +218,7 @@ export function useArenaPin(pinRef, extrasRef, on = true) {
     }
   })
   useEffect(() => () => { sub.current.ro?.disconnect() }, [])
-  return { top, mode, sticky: mode !== 'none' }
+  return { top, mode, sticky: mode !== 'none', slim: mode === 'slim', extrasIn: mode === 'all' || mode === 'none' }
 }
 
 export function TauntBubble({ bubble, name, calm, ctx = null }) {

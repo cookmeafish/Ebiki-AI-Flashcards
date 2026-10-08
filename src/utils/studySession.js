@@ -27,10 +27,12 @@ export function lastActiveAt(snapshot) {
   return Number.isFinite(at) && at > 0 ? at : 0
 }
 
-// A snapshot (or a live session's { activeAt }) with no progress for maxAgeMs. No timestamp at all = abandoned.
+// A snapshot (or a live session's { activeAt }) with no progress for maxAgeMs. No timestamp at all = abandoned. So is
+// progress stamped more than maxAgeMs in the FUTURE: the clock was moved back since (or was set ahead then), and the
+// session never expired until the real clock caught up with the stamp.
 export function isAbandoned(snapshot, now = Date.now(), maxAgeMs = STUDY_SESSION_MAX_AGE_MS) {
   const at = lastActiveAt(snapshot)
-  return !at || now - at > maxAgeMs
+  return !at || now - at > maxAgeMs || at - now > maxAgeMs
 }
 
 // Rated cards (or cards whose grade is still owed) that Anki has not received, counted in a stored snapshot.

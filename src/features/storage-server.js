@@ -56,7 +56,10 @@ export default {
       req.on('end', () => {
         if (tooLarge) return
         try {
-          const { value } = JSON.parse(body || '{}')
+          const parsed = JSON.parse(body || '{}')
+          // A body that is not an object (null, a list, a string) is a bad request, never a 500.
+          if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return send(res, 400, { error: 'value required' })
+          const { value } = parsed
           if (value === undefined) return send(res, 400, { error: 'value required' })
           fs.mkdirSync(dir, { recursive: true })
           writeFileAtomic(file, JSON.stringify(value))

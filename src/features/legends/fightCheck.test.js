@@ -99,5 +99,23 @@ describe('arenaPinMode', () => {
   })
   it('pins while the screen is not measured', () => {
     expect(arenaPinMode(260, 90, 0)).toBe('all')
+    expect(arenaPinMode(260, 90, 0, { slimH: 60 })).toBe('all')
+  })
+  it('pins the slim strip when even the compact arena is too tall', () => {
+    expect(arenaPinMode(260, 0, 600, { slimH: 60 })).toBe('slim')
+    expect(arenaPinMode(260, 90, 600, { slimH: 60 })).toBe('slim')
+    // 900x700 at zoom 2: a ~350 px box, the compact arena ~190 px (54%)
+    expect(arenaPinMode(190, 0, 350, { slimH: 58 })).toBe('slim')
+  })
+  it('brings the full arena back as soon as it fits again', () => {
+    expect(arenaPinMode(260, 0, 700, { slimH: 60 })).toBe('all')
+    expect(arenaPinMode(260, 90, 700, { slimH: 60 })).toBe('arena')
+  })
+  it('unpins when even the strip does not fit', () => {
+    expect(arenaPinMode(260, 0, 140, { slimH: 60 })).toBe('none')
+    expect(arenaPinMode(260, 0, 600, { slimH: 0 })).toBe('none')
+  })
+  it('takes another budget', () => {
+    expect(arenaPinMode(260, 0, 600, { max: 0.5 })).toBe('all')
   })
 })

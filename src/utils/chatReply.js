@@ -41,3 +41,11 @@ export function cleanChatReply(text) {
     .replace(/([ \t]?)[🦐🦞🦀]️?([ \t]?)/gu, (m, a, b) => (b ? ' ' : ''))
     .trim()
 }
+
+// A chat's default title from its first message: ONE line (a multi-line first message, Shift+Enter or pasted code,
+// put its line breaks in the chat list), at most `max` characters. '' when there is no text (the caller names it).
+export const CHAT_TITLE_MAX = 40
+export function chatTitleText(first, max = CHAT_TITLE_MAX) {
+  if (typeof first !== 'string' || first === '(image)') return ''
+  return first.replace(/\s+/g, ' ').trim().slice(0, max).trim()
+}

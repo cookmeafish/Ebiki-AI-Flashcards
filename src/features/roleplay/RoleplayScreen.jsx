@@ -3,7 +3,7 @@
 // With the optional Voice chat feature on, the learner talks and Ebi's lines are spoken.
 import { useEffect, useRef, useState } from 'react'
 import { useHelpEntry } from '../kit/useHelp'
-import { C, FONT, RADIUS } from '../../config/tokens'
+import { C, FONT, RADIUS, fillFor } from '../../config/tokens'
 import { poseFile, shrimpUrl } from '../../config/shrimp'
 import { downscaleDataUrl, dataUrlToImagePart } from '../../utils/image'
 import { speak } from '../../speech'
@@ -196,7 +196,8 @@ export default function RoleplayScreen({ onExit, params }) {
   }
 
   const back = <button onClick={onExit} style={{ border: 'none', background: 'transparent', color: C.inkDim, fontWeight: 800, cursor: 'pointer', marginBottom: 12, fontSize: 13 }}>← {t('rp_back')}</button>
-  const errorLine = error && <div role="alert" style={{ color: C.danger, fontSize: 13, margin: '8px 0' }}>{error}</div>
+  // data-composer: the app toast stack sits above it (a toast covered the error and the retry beside it).
+  const errorLine = error && <div role="alert" data-composer="" style={{ color: C.danger, fontSize: 13, margin: '8px 0' }}>{error}</div>
 
   if (phase === 'pick') {
     return (
@@ -286,7 +287,7 @@ export default function RoleplayScreen({ onExit, params }) {
                   </div>
                   <button onClick={() => addCard(i)} disabled={!canAdd || added[i] === 'adding' || added[i] === 'done'} style={{
                     padding: '5px 12px', borderRadius: RADIUS.sm, fontSize: 12, fontWeight: 800, border: `1px solid ${C.success}`,
-                    background: added[i] === 'done' ? C.success : 'transparent', color: added[i] === 'done' ? C.white : C.success,
+                    background: added[i] === 'done' ? C.successFill : 'transparent', color: added[i] === 'done' ? C.white : C.success,
                     cursor: !canAdd || added[i] === 'adding' || added[i] === 'done' ? 'default' : 'pointer', opacity: canAdd || added[i] === 'done' ? 1 : 0.5, whiteSpace: 'nowrap',
                   }}>{added[i] === 'done' ? `✓ ${t('rp_added')}` : added[i] === 'adding' ? t('rp_adding') : added[i] === 'failed' ? t('rp_addFailed') : `+ ${t('rp_add')}`}</button>
                 </div>
@@ -330,7 +331,7 @@ export default function RoleplayScreen({ onExit, params }) {
         {busy && <div style={{ color: C.inkFaint, fontSize: 14 }}>{t('rp_typing')}</div>}
         {/* Ebi's line failed (opening or reply): ask again for the same turn instead of a dead scene. */}
         {turnFailed && !busy && phase === 'play' && messages[messages.length - 1]?.role !== 'ebi' && (
-          <button onClick={() => turn(messages)} style={{ alignSelf: 'flex-start', border: 'none', background: 'transparent', color: C.brand, fontWeight: 800, cursor: 'pointer', fontSize: 13 }}>↻ {t('rp_retry')}</button>
+          <button data-composer="" onClick={() => turn(messages)} style={{ alignSelf: 'flex-start', border: 'none', background: 'transparent', color: C.brand, fontWeight: 800, cursor: 'pointer', fontSize: 13 }}>↻ {t('rp_retry')}</button>
         )}
         {ended && !busy && <div style={{ alignSelf: 'center', color: C.success, fontWeight: 800, fontSize: 13.5 }}>🎬 {t('rp_sceneOver')}</div>}
       </div>

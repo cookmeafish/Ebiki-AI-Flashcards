@@ -7,9 +7,10 @@ import { ChunkyButton, EbiSays, ProgressBar, depthBorder } from '../ui'
 import { knownTile } from './knownReason'
 import { ScrollTop } from './NodeRun'
 
+// `lang`: a reason only a LANGUAGE has (a CompTIA map asked "For travel" and "For someone I care about").
 export const REASON_KEYS = [
-  { key: 'work', icon: '💼' }, { key: 'school', icon: '🎓' }, { key: 'travel', icon: '✈️' },
-  { key: 'fun', icon: '🎉' }, { key: 'person', icon: '💞' }, { key: 'other', icon: '✨' },
+  { key: 'work', icon: '💼' }, { key: 'school', icon: '🎓' }, { key: 'travel', icon: '✈️', lang: true },
+  { key: 'fun', icon: '🎉' }, { key: 'person', icon: '💞', lang: true }, { key: 'other', icon: '✨' },
 ]
 export const GOAL_KEYS = [{ key: 'relaxed', icon: '🐢' }, { key: 'normal', icon: '🚶' }, { key: 'serious', icon: '🏃' }, { key: 'intense', icon: '🚀' }]
 const KNOW_LEVELS = [1, 2, 3, 4, 5]
@@ -63,7 +64,7 @@ export default function Questionnaire({ t, subject, onDone, onBack, focus = fals
 
       {name === 'reason' && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-          {REASON_KEYS.map((r) => (
+          {REASON_KEYS.filter((r) => !r.lang || subject?.isLanguage).map((r) => (
             <Tile key={r.key} selected={answers.reason === r.key} onClick={() => set({ reason: r.key })}>
               <span style={{ fontSize: 26 }}>{r.icon}</span>{t(`lg_reason_${r.key}`)}
             </Tile>

@@ -19,7 +19,7 @@ const { chromium } = await import(pathToFileURL(pw).href)
 const URL = process.env.EBIKI_URL || 'http://localhost:3000/dev/legends-gallery/'
 const HEADROOM = 0.2   // keep equal to art.jsx BOSS_HEADROOM
 const DRIFT = 5        // units a part's centre may travel under an idle scale / skew
-const browser = await chromium.launch({ headless: true }) // never pass executablePath
+const browser = await chromium.launch({ headless: true, args: ['--mute-audio'] }) // never pass executablePath; muted
 const page = await browser.newPage()
 await page.goto(URL, { waitUntil: 'networkidle' })
 const res = await page.evaluate(async ({ HEADROOM, DRIFT }) => {

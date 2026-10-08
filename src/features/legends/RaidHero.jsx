@@ -134,7 +134,7 @@ export default function RaidHero({ onOpen }) {
           </div>
           {beaten && <span aria-hidden="true" style={{ position: 'absolute', right: headroomPx(artSize) * 0.6, bottom: headroomPx(artSize) * 0.6, fontSize: 40, filter: `drop-shadow(0 3px 6px ${mix(60, 'black')})` }}>🏆</span>}
         </div>
-        <div style={{ flex: narrow ? '1 1 100%' : '1 1 auto', minWidth: 0, display: 'grid', gap: 8, textAlign: narrow ? 'center' : 'left', justifyItems: narrow ? 'center' : 'start' }}>
+        <div style={{ flex: narrow ? '1 1 100%' : '1 1 auto', minWidth: 0, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 8, textAlign: narrow ? 'center' : 'left', justifyItems: narrow ? 'center' : 'start' }}>
           <div style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 13, letterSpacing: '.12em', textTransform: 'uppercase', color: mix(55, C.white) }}>
             {t('lg_raidHeroNum', { n: raidBossNumber(shownMotif), total: s.total })}
           </div>
@@ -144,7 +144,7 @@ export default function RaidHero({ onOpen }) {
             <div style={{ fontSize: 13.5, lineHeight: 1.4, fontWeight: 700, padding: '6px 12px', borderRadius: RADIUS.md, maxWidth: 520,
               background: mix(16, 'black'), border: `1.5px solid ${mix(45)}` }}>
               <span style={{ fontFamily: FONT.display, fontWeight: 900, color: mix(45, C.white) }}>{ABILITY_ICON[s.ability]} {t(`lg_ability_${s.ability}`)}</span>
-              <span style={{ opacity: 0.92 }}>: {t(`lg_abilityLine_${s.ability}`)}</span>
+              <span style={{ opacity: 0.92 }}>{t('ui_labelSep')}{t(`lg_abilityLine_${s.ability}`)}</span>
             </div>
           )}
           {!beaten && s.beatenToday && <div style={{ fontSize: 13, fontWeight: 800, color: mix(45, C.white) }}>🏆 {t('lg_raidHeroBeatenToday', { name: t(`lg_raidBoss_${s.beatenToday}`) })}</div>}
@@ -156,7 +156,7 @@ export default function RaidHero({ onOpen }) {
           </div>
           {!beaten && s.kind !== 'none' && s.kind !== 'few' && (
             <button type="button" className="duo-cta btn-press" disabled={!ready} onClick={() => ready && onOpen?.()}
-              style={{ marginTop: 4, fontSize: 17, padding: '12px 34px', minWidth: 190 }}>
+              style={{ marginTop: 4, fontSize: 17, padding: '12px 34px', minWidth: 'min(190px, 100%)', maxWidth: '100%' }}>
               ⚔️ {t('lg_bossFight')}
             </button>
           )}

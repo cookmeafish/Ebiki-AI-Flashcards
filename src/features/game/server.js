@@ -35,7 +35,12 @@ export default {
         b += c
         if (b.length > MAX_BODY_BYTES) { tooLarge = true; b = ''; reject(Object.assign(new Error('too large'), { status: 413 })) }
       })
-      req.on('end', () => { if (tooLarge) return; try { resolve(JSON.parse(b || '{}')) } catch (e) { e.badBody = true; reject(e) } })
+      req.on('end', () => { if (tooLarge) return; try {
+        const v = JSON.parse(b || '{}')
+        // Only an object: `null` or a list threw a TypeError in the handler (a 500 for a bad request).
+        if (!v || typeof v !== 'object' || Array.isArray(v)) throw new Error('object body required')
+        resolve(v)
+      } catch (e) { e.badBody = true; reject(e) } })
     })
     // A MISSING file is "nothing yet"; any other read error must not be mistaken for it (a write would
     // then replace real progress with just this computer's).
@@ -83,7 +88,7 @@ export default {
         const add = (Array.isArray(body.add) ? body.add : []).filter((x) => Array.isArray(x) && typeof x[0] === 'string' && x[0].length < 40)
         if (add.length) writeFileAtomic(inboxFile, JSON.stringify(readInbox(true).concat(add).slice(-INBOX_MAX)))
         send(res, 200, { ok: true })
-      } catch (e) { send(res, e?.status || 500, { error: e.message }) }
+      } catch (e) { send(res, e?.badBody ? 400 : e?.status || 500, { error: e.message }) }
     })
 
     // This computer's identity. NOT a data route: it must answer with the share down.
@@ -96,7 +101,7 @@ export default {
         const next = { ...readLocal(), playerId }
         writeFileAtomic(localFile, JSON.stringify(next, null, 2))
         send(res, 200, next)
-      } catch (e) { send(res, e?.status || 500, { error: e.message }) }
+      } catch (e) { send(res, e?.badBody ? 400 : e?.status || 500, { error: e.message }) }
     })
 
     server.middlewares.use('/api/players', async (req, res) => {
@@ -115,7 +120,7 @@ export default {
         }
         if (req.method !== 'POST') return send(res, 405, { error: 'method' })
         const { player } = await readBody(req)
-        if (!player || !ID_RE.test(String(player.id || '')) || typeof player.days !== 'object') return send(res, 400, { error: 'player required' })
+        if (!player || !ID_RE.test(String(player.id || '')) || !player.days || typeof player.days !== 'object' || Array.isArray(player.days)) return send(res, 400, { error: 'player required' })
         const file = path.join(dir, `${player.id}.json`) // id checked above: never a path from raw input
         const merged = mergePlayers(await readPlayerForMerge(file), player)
         fs.mkdirSync(dir, { recursive: true })

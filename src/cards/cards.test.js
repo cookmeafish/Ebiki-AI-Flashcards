@@ -240,8 +240,9 @@ describe('Anki stays behind the facade', () => {
     const SRC = path.resolve(__dirname, '..')
     const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]))
     const rel = (f) => path.relative(SRC, f).split(path.sep).join('/')
-    // The adapter itself, the facade that registers it, and the desktop server halves.
-    const ALLOWED = /^(cards\/anki\/|cards\/index\.js$|.*server\.js$)/
+    // The adapter itself, the facade that registers it, and the desktop server halves (server/ankiProxy.js is the
+    // adapter's: it reads AnkiConnect action names to time out and to refuse actions reaching outside the collection).
+    const ALLOWED = /^(cards\/anki\/|cards\/index\.js$|.*server\.js$|server\/ankiProxy\.js$)/
     const RULES = [
       [/from\s+['"][^'"]*cards\/anki['"/]/, 'imports the Anki adapter (use srs from src/cards)'],
       // (/api/ankiformat is Ebiki's own legacy data file, not AnkiConnect.)

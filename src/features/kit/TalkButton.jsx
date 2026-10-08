@@ -1,6 +1,6 @@
 // Tap to talk, tap to send: records through src/speech (cheapest engine) and hands back the text.
 import { useEffect, useRef, useState } from 'react'
-import { C, RADIUS } from '../../config/tokens'
+import { C, RADIUS, fillFor } from '../../config/tokens'
 import { listen, speechEngines } from '../../speech'
 import { depthBorder } from '../ui'
 import { aiErrorText } from './aiError'
@@ -51,7 +51,7 @@ export default function TalkButton({ ctx, lang = '', onText, onStart, disabled, 
         className={`btn-press${live ? ' ebiki-talk-live' : ''}`} aria-label={live ? t('kit_tapStop') : t('kit_tapTalk')}
         style={{
           padding: compact ? '8px 14px' : '12px 20px', borderRadius: RADIUS.pill, fontWeight: 800, fontSize: compact ? 13 : 15,
-          ...depthBorder(live ? C.danger : C.info), background: live ? C.danger : C.info, color: C.white,
+          ...depthBorder(live ? C.dangerFill : C.infoFill), background: live ? C.dangerFill : C.infoFill, color: C.white,
           cursor: disabled || state === 'hearing' ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1, whiteSpace: 'nowrap',
         }}>
         {state === 'hearing' ? `⏳ ${t('kit_hearing')}` : live ? `■ ${t('kit_tapStop')}` : `🎙️ ${t('kit_tapTalk')}`}

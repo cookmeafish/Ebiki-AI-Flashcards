@@ -1,6 +1,6 @@
 // RAID POWERS ON SCREEN (powers.js). Three kinds of motion, each power its OWN (the owner: "every power has its own
 // animations", "super super cool"; powerfx.test.js keeps every cast and proc pairwise distinct):
-//   CAST   (PowerFx, `power` = { id, n }): played once in the power stage BESIDE the boss (BossArena: over the info
+//   CAST   (PowerFx, `power` = { id, n, vars? }): played once in the power stage BESIDE the boss (BossArena: over the info
 //          column, never over the boss) the moment a power is used. The power's icon
 //          (/assets/legends/powers/<id>.svg, emoji fallback) is the centerpiece, entering its own way, wrapped in its
 //          own shapes: Shield's hex dome assembling, 50:50's shears splitting a card, Second wind's gust lifting a
@@ -12,7 +12,7 @@
 //          steadfast: extra hearts left }): a pill per armed power BESIDE the boss (the hearts row; never over the
 //          boss), its icon wearing its own moving look, plus the window's pips. The pills show even with motion off
 //          (they are information); the moving looks only while effects may play.
-//   PROC   (PowerProc, `proc` = { id, n }): a window power (or Ward / Steadfast) just did something on this answer.
+//   PROC   (PowerProc, `proc` = { id, n, vars? }): a window power (or Ward / Steadfast) just did something on this answer.
 //          Short, low in the box, so it never covers the strike moment's label at the top.
 // PowerCastBadge plays a cast in a small square of its own (the Bandage, used on the intro and result screens).
 // Rules as every effect: fixed bright colors, deterministic, container units inside the box, nothing while effects
@@ -354,7 +354,7 @@ export function PowerFx({ t, power, fading = false }) {
       </div>
       {t && (
         <div style={{ position: 'absolute', left: '50%', top: '6%', whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 900, fontSize: 20, letterSpacing: '.04em', color: spec.color, WebkitTextStroke: `2px ${FLOATER_OUTLINE}`, paintOrder: 'stroke fill', animation: an('lgpwLabel', spec.ms, 80), zIndex: 3 }}>
-          {t(spec.label, powerVars(power.id))}
+          {t(spec.label, power.vars || powerVars(power.id))}
         </div>
       )}
     </div>
@@ -519,7 +519,7 @@ export function PowerProc({ t, proc, fading = false }) {
       <Shape {...spec} />
       {t && (
         <div style={{ position: 'absolute', left: '50%', top: '56%', whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 900, fontSize: 16, letterSpacing: '.04em', color: spec.color, WebkitTextStroke: `2px ${FLOATER_OUTLINE}`, paintOrder: 'stroke fill', animation: an('lgpwProcLabel', spec.ms, 40), zIndex: 3 }}>
-          {t(spec.label, procVars(proc.id))}
+          {t(spec.label, proc.vars || procVars(proc.id))}
         </div>
       )}
     </div>

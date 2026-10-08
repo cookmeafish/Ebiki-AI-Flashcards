@@ -15,7 +15,7 @@ import { recordPractice } from '../kit'
 import { readEvidence, judgeLevelFromEvidence } from '../kit/evidenceJudge'
 import { knownTile, knownThinText } from './knownReason'
 import { useLegendsMap, updateMap, configureLegends, clearStep, claimReward, rewardKeyFor, LEGENDS_ID } from './store'
-import { applyLegendaryResult, createMap, applyNodeResult, needsDetail, needsMoreAreas, starsFor, logDay, OPTIONAL_KINDS, regradeItem } from './map'
+import { applyLegendaryResult, createMap, applyNodeResult, needsDetail, needsMoreAreas, starsFor, logDay, journeyDay, OPTIONAL_KINDS, regradeItem } from './map'
 import { recheckStrike, fightCtx } from '../kit'
 import LearnItPanel from '../kit/LearnItPanel'
 import { gradeFromStrike } from '../../config/grading'
@@ -471,7 +471,7 @@ export default function LegendsScreen() {
       let replays = 0
       let nudgeIds = []
       const nudgeOn = featureCfg(ctx, LEGENDS_ID).nudge !== false
-      const today = new Date().toLocaleDateString('en-CA')
+      const today = journeyDay()
       // After the result lands: the day goes on the journey heatmap, and items missed for the FIRST time (not in the
       // deck yet) are offered as cards once on the result screen (then marked, so it never nags about them again).
       const after = (m) => {

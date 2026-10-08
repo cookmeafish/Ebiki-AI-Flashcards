@@ -98,6 +98,12 @@ export const PHOTO_SPRITES = {
   rings: { url: `${ART_BASE}/raids/ophanim-rings.webp`, w: 1536, h: 750, cw: 768, ch: 150, cols: 2 },
   light: { url: `${ART_BASE}/raids/ophanim-light.webp`, w: 1536, h: 512, cw: 512, ch: 512, cols: 3 },
 }
+// The SVG never crops a sheet: every cell is its own file, raids/ophanim/<sprite>-<n>.webp, cut from the sheets above
+// (the sheets stay as the source; light is a CSS background, so it keeps its sheet). A cell drawn as a nested
+// <svg viewBox> window onto the whole sheet, scaled up from a 1-unit box, came out jumbled and misplaced on Linux.
+export const PHOTO_CELLS = { eye: 4, wings: 8, cloud: 4, rings: 10 }
+export const photoCellUrl = (sprite, n) => `${ART_BASE}/raids/ophanim/${sprite}-${n}.webp`
+export const PHOTO_CELL_URLS = Object.entries(PHOTO_CELLS).flatMap(([k, n]) => Array.from({ length: n }, (_, i) => photoCellUrl(k, i)))
 export const PHOTO_EYE_URL = PHOTO_SPRITES.eye.url
 const PHOTO_FILE = `${ART_BASE}/raids/ophanim.svg`
 const EYE_CELLS = { // class: [sprite cell, center x, center y, size] in the drawing's 120 x 120 units
@@ -105,11 +111,35 @@ const EYE_CELLS = { // class: [sprite cell, center x, center y, size] in the dra
   'lg-photo-iris': [2, 60, 56.4, 32.17], 'lg-photo-iris3': [3, 60, 56.4, 32.17],
 }
 // one sprite cell drawn into the box (x, y, w, h)
-const photoCell = (sprite, cell, x, y, w, h) => {
-  const s = PHOTO_SPRITES[sprite]
-  const vx = (cell % s.cols) * s.cw, vy = Math.floor(cell / s.cols) * s.ch
-  return `<svg x="${x}" y="${y}" width="${w}" height="${h}" viewBox="${vx} ${vy} ${s.cw} ${s.ch}" preserveAspectRatio="none">` +
-    `<image href="${s.url}" width="${s.w}" height="${s.h}"/></svg>`
+const photoCell = (sprite, cell, x, y, w, h) =>
+  `<image href="${photoCellUrl(sprite, cell)}" x="${x}" y="${y}" width="${w}" height="${h}" preserveAspectRatio="none"/>`
+// The photos must really load before the file's painted parts are hidden for them: a sprite that 404s, fails to decode
+// or never arrives left the ophanim as broken-image boxes with no wings, wheels or cloud (seen on a Linux install).
+// Every sprite is fetched and decoded once; if any fails (or takes over PHOTO_CHECK_MS) the painted file shows as is,
+// without the photo light layers. null = not checked yet, then true/false for the page's life.
+const PHOTO_CHECK_MS = 15000
+let photoUsable = null
+let photoCheck = null
+export const photoSpritesUsable = () => photoUsable === true
+function checkPhotoSprites() {
+  if (photoCheck) return photoCheck
+  if (typeof Image === 'undefined') { photoUsable = false; return (photoCheck = Promise.resolve(false)) }
+  const one = (url) => new Promise((resolve) => {
+    const img = new Image()
+    let done = false
+    const end = (ok) => { if (!done) { done = true; resolve(ok) } }
+    const timer = setTimeout(() => end(false), PHOTO_CHECK_MS)
+    img.onload = () => {
+      // decode() catches a file that "loads" but cannot be painted; older engines without it count the load
+      const p = typeof img.decode === 'function' ? img.decode() : Promise.resolve()
+      p.then(() => end(img.naturalWidth > 0), () => end(false)).finally(() => clearTimeout(timer))
+    }
+    img.onerror = () => { clearTimeout(timer); end(false) }
+    img.src = url
+  })
+  photoCheck = Promise.all([...PHOTO_CELL_URLS, PHOTO_SPRITES.light.url].map(one))
+    .then((oks) => (photoUsable = oks.every(Boolean)))
+  return photoCheck
 }
 export function withPhotoEye(svg, url) {
   if (url !== PHOTO_FILE || !svg) return svg
@@ -240,11 +270,13 @@ let sanitizeQueue = Promise.resolve()
 const nextTask = () => new Promise((resolve) => setTimeout(resolve, 0))
 function loadArt(url) {
   if (!cache.has(url)) {
-    cache.set(url, Promise.all([fetch(url).then((r) => (r.ok ? r.text() : '')), import('../../components/Markdown')])
-      .then(([text, m]) => {
+    cache.set(url, Promise.all([fetch(url).then((r) => (r.ok ? r.text() : '')), import('../../components/Markdown'),
+      url === PHOTO_FILE ? checkPhotoSprites() : false])
+      .then(([text, m, photos]) => {
         const job = sanitizeQueue.then(nextTask).then(() => {
           const out = text ? m.sanitizeHtml(text, { USE_PROFILES: { svg: true }, SANITIZE_NAMED_PROPS: false }) /* own files: ids feed url(#id) */ : ''
-          return /<svg[\s>]/i.test(out) ? idTemplate(withPhotoEye(out.replace(/<svg\b/i, '<svg preserveAspectRatio="xMidYMid slice" width="100%" height="100%" aria-hidden="true"'), url)) : ''
+          const sized = out.replace(/<svg\b/i, '<svg preserveAspectRatio="xMidYMid slice" width="100%" height="100%" aria-hidden="true"')
+          return /<svg[\s>]/i.test(out) ? idTemplate(photos ? withPhotoEye(sized, url) : sized) : ''
         })
         sanitizeQueue = job.catch(() => {})
         return job.then((svg) => { ready.set(url, svg); return svg })
@@ -428,7 +460,7 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
   useEffect(installArtSleep, [])
   // A drawing put in the page while the window sleeps starts paused (its entrance plays on return).
   useEffect(() => { if (asleep && shown && boxRef.current) setArtPlaying(artSvgs(boxRef.current), false) }, [shown, svg])
-  const photo = url === PHOTO_FILE // the photo ophanim's own light layers (PHOTO LIGHT)
+  const photo = url === PHOTO_FILE && photoSpritesUsable() // the photo ophanim's own light layers (PHOTO LIGHT); never over the painted fallback
   const labels = useContext(ArtLabels)
   const big = (typeof height !== 'number' || height >= LABEL_MIN_PX) && (typeof width !== 'number' || width >= LABEL_MIN_PX)
   const art = (

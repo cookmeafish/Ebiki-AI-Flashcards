@@ -74,11 +74,18 @@ export function learnItemFor(found, q, { noteKey = 'noteId', fallback = null } =
 // THE PINNED ARENA on a short or zoomed screen (owner: at zoom 2 the arena, taunt and notice covered two thirds of the
 // screen above the feedback). The arena pins while it uses at most `max` of the scroll box's height (MapView's header
 // rule); the taunt bubble and the re-check notice pin with it only while all of it fits, else they scroll with the
-// question. An arena too tall on its own scrolls too. 'all' | 'arena' | 'none'.
+// question. An arena too tall on its own (even compact: a 900x700 window at zoom 2 gave it 51 to 60%) becomes the
+// SLIM strip (thumbnail, health bar, hearts, phase, armed powers; BossArena `slim`) that pins on its own while the
+// extras scroll, when `slimH` (the strip's height) fits; else nothing pins. 'all' | 'arena' | 'slim' | 'none'.
+// `arenaH` is the FULL arena's height (the hook remembers it while the strip shows), so the full arena comes back
+// as soon as there is room for it again.
 export const ARENA_PIN_MAX = 0.4
-export function arenaPinMode(arenaH, extrasH, boxH, max = ARENA_PIN_MAX) {
+// The strip's height before it was ever measured (layout px; measured once it shows).
+export const ARENA_SLIM_EST = 64
+export function arenaPinMode(arenaH, extrasH, boxH, { max = ARENA_PIN_MAX, slimH = 0 } = {}) {
   if (!(boxH > 0)) return 'all' // not measured yet
   const room = boxH * max
   if (arenaH + (extrasH || 0) <= room) return 'all'
-  return arenaH <= room ? 'arena' : 'none'
+  if (arenaH <= room) return 'arena'
+  return slimH > 0 && slimH <= room ? 'slim' : 'none'
 }

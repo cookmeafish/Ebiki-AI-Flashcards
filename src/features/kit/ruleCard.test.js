@@ -24,4 +24,9 @@ describe('rule cards', () => {
     expect(parseRuleCard({ front: 'x' })).toBe(null)
     expect(parseRuleCard(null)).toBe(null)
   })
+  it('never shows an object as text, reads a back sent as a list of lines', () => {
+    expect(parseRuleCard({ front: { text: 'x' }, back: 'y' })).toBe(null)
+    expect(parseRuleCard({ front: 'Rule?', back: ['The rule.', 'Example one.', { x: 1 }] }).back).toBe('The rule.\nExample one.')
+    expect(parseRuleCard({ skip: true, why: { a: 1 } })).toEqual({ skip: true, why: '' })
+  })
 })

@@ -118,6 +118,8 @@ may answer `{needsChoice, context:'join'|'return', sourceOnly}`; the client re-P
   with no or a dead share). Additive both ways, LOCAL wins, **except a key the user TYPED**: `setCurrentKey` sets
   `keyEditedRef`; the save posts `?source=user` (read from `req.originalUrl`: connect rewrites `req.url`) and
   `&providers=` with ONLY the typed providers (else every stale local key overwrote another computer's fix).
+- **One ping per typed key**: `validateKey` goes through `createKeyVerdictCache` (`src/utils/keyVerdicts.js`): definite
+  verdicts kept per exact provider+key (never null), in-flight checks shared; the save path asks with `reuse: true`.
 - **A typed key gets that authority only after `validateKey` accepts it** (true or 'noCredit'); refused = local
   only, unchecked = re-queued (`keyCheckRetryRef`, 5 x 30s); a clear keeps authority. A superseded save
   (`keySaveSeqRef`) yields: re-arms via `setKeySaveRetry`, sets `keyYieldedRef` (one follow-up after the newest save,
@@ -160,7 +162,10 @@ onboarding.
   `X-Frame-Options: DENY` and `Content-Security-Policy: sandbox; frame-ancestors 'none'` (Vite's headers never reach
   them).
 - **Never build a path from raw client input**: chat ids pass `isSafeChatId` (`[A-Za-z0-9_-]`); deck folders go
-  through `deckDirName` (`::` → `--`, Windows-invalid chars → `_`); knowledge uploads take only `.txt`/`.md`.
+  through `deckDirName` (`::` → `--`, Windows-invalid chars → `_`); knowledge uploads take only `.txt`/`.md`, named
+  by `knowledgeFileName` (control chars dropped, a device stem `con.txt` → `con_.txt`). The data guard matches routes
+  like connect does (`isDataRoute`: `/config` AND `/config.x`). `/api/anki` refuses actions reaching outside the
+  collection (`refusedAnkiAction`: import/export packages, `storeMediaFile` with `path`/`url`, also inside `multi`).
 - **Never parse untrusted HTML with `innerHTML` on a live-document element** (a detached `<img onerror>` still runs
   with /api access). `stripHtml` uses `DOMParser`; rendered HTML goes through DOMPurify (`Markdown.jsx`, every
   `dangerouslySetInnerHTML`). `sanitizeHtml` (render-only) forbids media (`img`, `video`, `audio`, `source`, SVG
@@ -214,7 +219,8 @@ an empty payload.
   case-only changes are remove + re-add; wanted children of a removed tag (`a::b`) are re-added.
 - **Config**: a failed save retries (`cfgSaveRetry`). "Run setup again" is LOCAL (`rerunSetup`), never
   `onboarded:false` in the shared config. **The autosave posts only CHANGED keys** (`lastSentCfgRef`; a failed save
-  un-marks only its keys): a whole post reverted another computer's settings. `NESTED_CONFIG_KEYS` (aiModels,
+  un-marks only its keys): a whole post reverted another computer's settings. `writeConfig` re-reads ~1.2s later and
+  re-applies only entries back at their OLD value (up to 3x; simultaneous saves on two computers lost one side). `NESTED_CONFIG_KEYS` (aiModels,
   modelPresets, rejectedModels, modelPlans, modelCards, modelAvailability, availableModels, pronunciation) diff TWO
   levels down (`src/utils/configDiff.js`, shared with `writeConfig`); removals go in `__unset`. The load SEEDS
   `lastSentCfgRef` from the file. An entry under a vanished map is returned in `paths` (not `__unset`) so the App
@@ -350,7 +356,8 @@ passes). `will-navigate` follows only `isAppPage` (root or `?overlay=true`). The
 (lowercase tagName) `target=_blank` too. The overlay's `close` hides instead of closing ONLY while `!appQuitting` (set
 on `before-quit`), else it blocks quit, SIGTERM and Windows shutdown.
 
-**Overlay**: its global Esc is held only while visible AND focused (`registerOverlayEsc`, dropped on `blur`; else it
+**Overlay**: a HEADLESS page never launches it (`navigator.webdriver` skips the auto-launch; `/api/launch-overlay`
+POST refuses a Headless user agent): an agent's test page started the real Electron app. Its global Esc is held only while visible AND focused (`registerOverlayEsc`, dropped on `blur`; else it
 swallowed other apps' Esc). A failed `Alt+Q` registration exits it (`app.exit(2)`); a failed page load
 (`overlayPageOk`) makes Alt+Q reload, not show an invisible full-screen window. It runs on its OWN profile
 (`userData/overlay`: Chromium locks a profile's storage to one process). No server = a capture shows nothing. Captures
@@ -670,7 +677,9 @@ no models.
   `setModes(cleanedModes)`.
 - **One-mode edits write ONE mode** (`changedIds` from `updateModeById`/`setAnkiDeck`; create sends the new id,
   delete `[]` + `deletedIds`); `saveModes` sends the whole list as context. Else a stale list undid another
-  computer's edits/renames.
+  computer's edits/renames. **A one-mode edit sends only its CHANGED fields** (`src/utils/modePatch.js`, `patches`): the
+  server applies them over the copy on disk (a whole stale mode reverted the other computer's fields; a renamed mode's
+  edit lands in its new folder).
 - **Explicit deletes**: `deletedIds` ALWAYS sent; only those folders go, a mode missing from the list stays (no
   `deletedIds` = older client, old rule). Tombstones in `modes/.deleted.json`: never re-created, reported
   `deletedElsewhere` → client drops it (not the active one), `mode_deletedElsewhere`. Read strictly (only
@@ -880,6 +889,8 @@ Shared by `/api/modes` and the knowledge endpoints; the POST removes folders the
    `npx vite build`.
 
 ## Picture tab (vision OCR, Tesseract for boxes)
+- **No key = local OCR, never a dead end**: `analyzeImage` runs `analyzeImageTesseract` (own scan generation), words get
+  boxes untranslated (`untranslatedOcrWords`), a hint + "Add a key" button; `lazyTranslate` returns early without a key.
 - With a key: `analyzeImageVision`, one `aiCall` with `resolveModel('picture')`, `images`, `maxTokens: 8000`, returns
   words with in-context meaning, reading-order `line` and a box. No key: `analyzeImageTesseract`. `aiCall` passes
   `opts.images` to every provider (`src/utils/image.js`: `dataUrlToImagePart`, `downscaleDataUrl`, which paints white before JPEG: transparent PNGs turned black).
@@ -1317,7 +1328,7 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   and a cleanup-only flag paired with a run-once guard (`opened`/`ran`) dropped the only answer (Talk stuck on "Ebi is
   thinking"). Never pair a one-shot guard with a cleanup-only flag.
 - **`/features/` (data folder) is GITIGNORED**: maps, saved questions, levels, practice log are personal.
-- **Cheat mode (hidden, testing)**: 7 quick clicks on the map title (`useCheatToggle`, `CheatUI.jsx`) flip
+- **Cheat mode (hidden, testing)**: 7 quick clicks on the map title OR the Legends heading in Settings > General (reachable with no key and no map: the asset view must be showable on a fresh install; `useCheatToggle`, `CheatUI.jsx`) flip
   `features.legends.cheats`; ⚡ buttons complete/reset/unlock/regenerate areas and steps (`cheats.js`), open locked
   steps (a win records via `cheatCompleteNode`), set the level (`updateLearner(..., { quiet: true })`: no LEVEL_UP XP),
   retake placement; "Win now"/"Fail now" finish a step through the NORMAL path (rewards included). Map cheats pay
@@ -1421,7 +1432,11 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     `RAID_VARIANTS[variant]` → the boss's own `variants`; a layer value sets, `{mul}` or `{add}`). The fight carries
     it (`fight.tune`, `tuneFight`); the engine reads `rulesOf(fight)` (`FIGHT_RULES`, abilities/_rules.js) and hooks
     read `tuned(K, ctx)`, never the module K (`tuning.test.js`). A siege may store `variant` (absent = normal);
-    `nightmare` is an unwired example. **Fairness is the owner's rule**: a
+    `nightmare` is an unwired example. **The player's POWER numbers resolve the same way** (profile `powers`, defaults
+    `POWER_DEFAULTS` in powers.js = the old constants: `window`, `sharpen`, `fury`, `momentumCrit`, `siphon`, `wind`,
+    `steadfast`, `shield`, `bandage`, `loadoutMax`; floors `POWER_FLOORS`): a variant layer may weaken or strengthen
+    them (`powers: { window: { add: -1 } }`). The engine reads `powersOf(fight)`; RaidRun, `siegeRule(powers)`
+    (Help) and `powerVars(id, powers, damage)` (every `lg_pow*`/`lg_fx*` number) read the profile's. **Fairness is the owner's rule**: a
     bigger boss gets more hearts or an ability that protects the player; no boss needs near-perfect play.
     `profiles.test.js` simulates every boss with its own ability (65% beats each in a handful of runs, 60% beats all,
     later bosses take longer; `PROFILES=1` prints the table). Tune there, never by feel.
@@ -1479,10 +1494,12 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
     locales) and a `RAID_VOICES` entry. Each has its own card entrance in `ENTRANCES` (names there; a test keeps all
     Legends + raid entrance names distinct).
   - **Photo ophanim (experiment, ophanim only, live)**: `withPhotoEye` (art.jsx PHOTO LAYERS) fills the file's empty
-    `lg-photo-*` groups with sprites `raids/ophanim-{eye,wings,rings,cloud,light}.webp` after sanitizing (the file
-    holds no URL); painted parts it replaces are `lg-photo-hide`. Sky and light are HTML layers (art.jsx PHOTO LIGHT,
+    `lg-photo-*` groups after sanitizing (the file holds no URL), ONE FILE PER CELL: `raids/ophanim/<sprite>-<n>.webp`
+    (`PHOTO_CELLS`, `photoCellUrl`, cut from the `raids/ophanim-*.webp` sheets) as plain `<image>`, never a nested
+    `<svg viewBox>` window onto a sheet (rendered jumbled and misplaced on Linux); used only if every cell loads
+    (`checkPhotoSprites`), else the painted file shows; painted parts it replaces are `lg-photo-hide`. Sky and light are HTML layers (art.jsx PHOTO LIGHT,
     `mix-blend-mode: screen` + `blur`). The great eye is MASKED to an almond (no plate or bezel: owner rejected one).
-    Revert = delete both blocks + their uses (loadArt call, `photo` in LegendsArt) + the five webps, restore
+    Revert = delete both blocks + their uses (loadArt call, `photo` in LegendsArt) + the five webps and `raids/ophanim/`, restore
     `ophanim.svg` from the painted backup (ophanim-backup-before-photo-eye).
 - **Raid abilities (v2.1)** (owner: they change how the FIGHT plays, never how a question is asked: no timers, nothing
   hidden, a right answer never marked wrong). ONE module per boss, `abilities/<motif>.js`, whose header comment is the
@@ -2152,7 +2169,8 @@ Excludes anything revealing the answer (fuzzy `hintRevealsAnswer`); `glossesNeed
 ## Testing (two halves; `npm test` is only the first)
 - **Browser automation must use Playwright's bundled Chromium. Never set executablePath to the installed Chrome/Edge;
   it causes Windows account lockouts on this machine** (failed logons, event 4625, from chrome.exe). Applies to
-  `drive.mjs`, `check-art.mjs` and every agent or scratch script.
+  `drive.mjs`, `check-art.mjs` and every agent or scratch script. **Launch it MUTED** (`args: ['--mute-audio']`, and stub
+  `speechSynthesis.speak` in pages): headless pages still spoke through Windows voices.
 - `npm test` (vitest) covers pure modules and engines (`*.test.js` across `src/`). Nothing about layout or click
   paths.
 - **run-ebiki skill** (`.claude/skills/run-ebiki/`, committed tooling, never bundled): `npm run dev`, then

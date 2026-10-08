@@ -12,7 +12,7 @@
 
 import { DAMAGE, ATTACK_LIVES, MISS_LIVES, COMBO_EVERY, MAX_ATTACKS, ATTACK_GAP, RAGE_AT, WEAK_TO_MAX, MAX_INSERTED, FIGHT_RULES, rulesOf, abilityK, phaseOf, barPhase, phaseFloor, hashOf, hitClean } from './abilities/_rules'
 import { abilityById, ABILITY_IDS } from './abilities'
-import { MOMENTUM_CRIT_MULT } from './powers'
+import { POWER_DEFAULTS, powersOf } from './powers'
 import { gradeFromStrike, easeFor, isMature, GRADE_EASE } from '../../config/grading'
 
 export { DAMAGE, ATTACK_LIVES, MISS_LIVES, COMBO_EVERY, MAX_ATTACKS, ATTACK_GAP, RAGE_AT, WEAK_TO_MAX, MAX_INSERTED, FIGHT_RULES, rulesOf, abilityK, phaseOf, barPhase, phaseFloor, hashOf }
@@ -20,8 +20,9 @@ export { DAMAGE, ATTACK_LIVES, MISS_LIVES, COMBO_EVERY, MAX_ATTACKS, ATTACK_GAP,
 // The fight's state. `insertedN` = the ability-inserted questions put into this attempt so far (raidStep caps them at
 // MAX_INSERTED). The zero counters after `chain` belong to the v1 raid abilities (ported unchanged into
 // abilities/<motif>.js); a new ability keeps its state in `ab` (its module's init()).
-// `tune` (optional: a raid boss's resolved profile, raidProfiles.js raidProfile) = { variant, ability, rules, k }: the
-// fight rules (rulesOf) and the ability's K (abilityK) this fight runs on. Without it the defaults (FIGHT_RULES, the
+// `tune` (optional: a raid boss's resolved profile, raidProfiles.js raidProfile) = { variant, ability, rules, k, powers }:
+// the fight rules (rulesOf), the ability's K (abilityK) and the raid powers' numbers (powers.js powersOf) this fight
+// runs on. Without it the defaults (FIGHT_RULES, the
 // module's own K) apply, as for every Legends boss.
 export const newFight = (profile = null) => tuneFight({ damage: 0, livesLost: 0, combo: 0, crits: 0, attacks: 0, blocked: 0, answers: 0, clean: 0, glancing: 0, safe: 0, misses: 0, shieldUsed: false, last: null, n: 0, insertedN: 0,
   chain: 0, triples: 0, bounces: 0, cuts: 0, unredeemed: [], risen: false, judged: 0, judgedRight: 0, smites: 0,
@@ -31,8 +32,8 @@ export const newFight = (profile = null) => tuneFight({ damage: 0, livesLost: 0,
 // The fight with a profile's tunables on it (pure; null/undefined profile = the fight as it is).
 export function tuneFight(state, profile) {
   if (!profile || typeof profile !== 'object') return state
-  const { variant = 'normal', ability = '', rules = null, k = null } = profile
-  return { ...state, tune: { variant, ability, ...(rules ? { rules } : {}), ...(k ? { k } : {}) } }
+  const { variant = 'normal', ability = '', rules = null, k = null, powers = null } = profile
+  return { ...state, tune: { variant, ability, ...(rules ? { rules } : {}), ...(k ? { k } : {}), ...(powers ? { powers } : {}) } }
 }
 
 // RAID BOSS ABILITIES live in abilities/<motif>.js: one pure module per raid boss, picked up by abilities/index.js
@@ -109,6 +110,7 @@ export function strike(state, hit, opts = {}) {
   const res = newRes()
   const R = rulesOf(state)
   const D = R.damage
+  const P = powersOf(state)
   if (inserted) {
     // A question an ability put in (the Lich's last stand...): a miss costs one life unless the ability says otherwise.
     if (!right) res.lives = R.missLives
@@ -129,7 +131,7 @@ export function strike(state, hit, opts = {}) {
       if (hit.verdict === 'glancing') { s.glancing++; res.focused = true } else s.clean++
       res.dmg = D.clean; s.combo++
       // Momentum (a raid power) makes every clean answer in its window a critical hit, and its crits hit twice as hard.
-      if (!(mod && mod.noCrit) && (s.combo % R.comboEvery === 0 || opts.momentum)) { res.dmg += D.crit * (opts.momentum ? MOMENTUM_CRIT_MULT : 1); res.crit = true; s.crits++; if (opts.momentum) res.momentum = true }
+      if (!(mod && mod.noCrit) && (s.combo % R.comboEvery === 0 || opts.momentum)) { res.dmg += D.crit * (opts.momentum ? P.momentumCrit : 1); res.crit = true; s.crits++; if (opts.momentum) res.momentum = true }
     }
     if (right && hit.weak) res.dmg += D.weak
     if (right) { s.chain++; s.rights = (s.rights || 0) + 1 }
@@ -147,16 +149,17 @@ export function strike(state, hit, opts = {}) {
   // ability's onPhase on this strike (added afterwards, the Banshee's scream came one strike late).
   if (opts.bonus > 0 && right && kind === 'normal') res.dmg = (Number(res.dmg) || 0) + opts.bonus
   // Fury (a raid power): a clean typed answer to a raid question (a slip under Focus counts: it hits like a clean one)
-  // deals FURY_MULT times its strike damage. Only the strike's own part is multiplied (an ability that lowered the hit,
+  // deals Fury's multiplier (powersOf: FURY_MULT unless a variant changed it) times its strike damage. Only the strike's own part is multiplied (an ability that lowered the hit,
   // armor or a bank, lowers the extra too: min of the two); a burst the ability added is not.
   if (opts.fury > 1 && kind === 'normal' && hit.mode !== 'choice' && hitClean(ctx, res)) {
     const dmg = Math.max(0, Number(res.dmg) || 0)
-    res.dmg = dmg + Math.min(strikeDmg, dmg) * (opts.fury - 1); res.fury = true
+    res.dmg = dmg + Math.round(Math.min(strikeDmg, dmg) * (opts.fury - 1)); res.fury = true
   }
   res.lives = Math.max(0, Number(res.lives) || 0)
   // Ward (a raid power): the attack it was raised against costs no hearts.
   if (res.lives > 0 && opts.ward && kind === 'attack') { res.lives = 0; res.warded = true }
-  if (res.lives > 0 && opts.shield && !s.shieldUsed) { res.lives--; s.shieldUsed = true; res.shielded = true }
+  // A Shield takes P.shield lost hearts (1 normally), once a fight.
+  if (res.lives > 0 && opts.shield && !s.shieldUsed && P.shield > 0) { res.lives = Math.max(0, res.lives - P.shield); s.shieldUsed = true; res.shielded = true }
   if (res.lives > 0 && mod && mod.onLifeLoss) mod.onLifeLoss(s, res, ctx)
   return applyRes(s, res, mod, ctx, { attack: !!hit.attack, inserted })
 }
@@ -247,7 +250,8 @@ export function raidRating(hit, sched = null) {
 // spent Shield are put right, never a combo or a combo critical. A raid POWER window that was up on that answer
 // (`cost.boost`, raidStep: { fury, momentum, focus }) does count: its window ticked down on that answer, so the
 // right answer gets what the power would have given it (Focus: glancing hits clean; Momentum: the crit; Fury: times).
-export function refundFor({ kind = 'normal', to = 'clean', mode = 'typed', weak = false } = {}, cost = {}, rules = FIGHT_RULES) {
+// `powers`: the fight's power numbers (powersOf; Momentum's crit multiplier), default the normal ones.
+export function refundFor({ kind = 'normal', to = 'clean', mode = 'typed', weak = false } = {}, cost = {}, rules = FIGHT_RULES, powers = POWER_DEFAULTS) {
   const DAMAGE = (rules && rules.damage) || FIGHT_RULES.damage
   const right = to === 'clean' || to === 'glancing'
   const lives = Math.max(0, Number(cost.lives) || 0)
@@ -257,7 +261,7 @@ export function refundFor({ kind = 'normal', to = 'clean', mode = 'typed', weak 
   if (kind === 'attack') due = DAMAGE.counter
   else if (kind === 'normal') {
     const hitsClean = mode !== 'choice' && (to === 'clean' || (to === 'glancing' && b.focus))
-    due = (mode === 'choice' ? DAMAGE.choice : hitsClean ? DAMAGE.clean : DAMAGE.glancing) + (hitsClean && b.momentum ? DAMAGE.crit * MOMENTUM_CRIT_MULT : 0) + (weak ? DAMAGE.weak : 0)
+    due = (mode === 'choice' ? DAMAGE.choice : hitsClean ? DAMAGE.clean : DAMAGE.glancing) + (hitsClean && b.momentum ? DAMAGE.crit * ((powers && powers.momentumCrit) ?? POWER_DEFAULTS.momentumCrit) : 0) + (weak ? DAMAGE.weak : 0)
     if (hitsClean && b.fury > 1) due *= b.fury
   }
   return { lives, damage: Math.max(0, due - Math.max(0, Number(cost.damage) || 0)), shield: !!cost.shielded }
@@ -293,7 +297,7 @@ export function applyRefund(state, { lives = 0, damage = 0, shield = false, from
 // (fightCheck.js FIGHT_EXTRAS.refund).
 export function refundRunningFight(state, odds, entry = {}, to = 'clean') {
   if (!state || !odds || fightOutcome(state, odds)) return null
-  const r = refundFor({ kind: entry.kind, to, mode: entry.mode, weak: !!entry.weak }, entry.cost || {}, rulesOf(state))
+  const r = refundFor({ kind: entry.kind, to, mode: entry.mode, weak: !!entry.weak }, entry.cost || {}, rulesOf(state), powersOf(state))
   if (!r.lives && !r.damage && !r.shield) return null
   return applyRefund(state, { ...r, from: entry.first, to, kind: entry.kind })
 }

@@ -9,6 +9,8 @@ import { newFight, strike, tuneFight, canAttack, attackGapFor, refundFor } from 
 import { RAID_ORDER, RAID_ROSTER, raidBossIndex, bossHp, bossHearts, bossHeal, shapeRaid, regenSiege, applyRaidAttempt, raidToday, testRaidState } from './raid'
 import { abilityForMotif } from './abilities'
 import { simulateRaid, ALL_CLEAN } from './abilities/_sim'
+import { POWER_DEFAULTS, LOADOUT_MAX, POWER_WINDOW, SHARPEN_BONUS, FURY_MULT, MOMENTUM_CRIT_MULT, SIPHON_HEARTS, WIND_HEARTS, STEADFAST_HEARTS, SHIELD_HEARTS, BANDAGE_NIGHTS, powersOf, powerVars, procVars, shapeLoadout } from './powers'
+import { raidStep, siegeRule, SIEGE_RULE } from './raid'
 
 const CLEAN = { verdict: 'clean', mode: 'typed' }
 const MISS = { verdict: 'miss', mode: 'typed' }
@@ -135,5 +137,67 @@ describe('ability hooks never read the module K directly', () => {
         expect(/(^|[^\w.$])K\s*[.[]/.test(code), `${f}:${i + 1}: ${raw.trim()}`).toBe(false)
       })
     }
+  })
+})
+
+describe("the player's power numbers resolve like the boss numbers", () => {
+  const typedQ = { kind: 'typed', prompt: 'p', accepted: ['a'], _cardId: 1 }
+  const clean = { verdict: 'clean', mode: 'typed' }
+  const opts = { need: 99, lives: 5, dayHp: 99 }
+  const withVariant = (layer, fn) => {
+    RAID_VARIANTS.__powTest = layer
+    try { return fn() } finally { delete RAID_VARIANTS.__powTest }
+  }
+  it("the defaults are today's constants, on every boss in normal and on an unknown variant", () => {
+    expect(POWER_DEFAULTS).toEqual({ loadoutMax: LOADOUT_MAX, window: POWER_WINDOW, sharpen: SHARPEN_BONUS, fury: FURY_MULT,
+      momentumCrit: MOMENTUM_CRIT_MULT, siphon: SIPHON_HEARTS, wind: WIND_HEARTS, steadfast: STEADFAST_HEARTS, shield: SHIELD_HEARTS, bandage: BANDAGE_NIGHTS })
+    expect(POWER_DEFAULTS).toMatchObject({ loadoutMax: 3, window: 3, sharpen: 2, fury: 2, momentumCrit: 2, siphon: 1, wind: 1, steadfast: 2, shield: 1, bandage: 1 })
+    for (const m of RAID_ORDER) {
+      expect(raidProfile(m).powers).toEqual(POWER_DEFAULTS)
+      expect(raidProfile(m, 'no-such-variant').powers).toEqual(POWER_DEFAULTS)
+    }
+    expect(powersOf(newFight())).toBe(POWER_DEFAULTS)
+    expect(powersOf(newFight(raidProfile('hydra')))).toEqual(POWER_DEFAULTS)
+    expect(siegeRule()).toBe(SIEGE_RULE)
+    expect(siegeRule(raidProfile('titan').powers)).toBe(SIEGE_RULE)
+    expect(powerVars('fury', raidProfile('titan').powers)).toEqual(powerVars('fury'))
+  })
+  it('a variant layer changes what a power does in the fight and what its text says', () => {
+    withVariant({ powers: { window: { add: -1 }, sharpen: { add: 1 }, fury: 3, momentumCrit: { add: 1 }, siphon: 2, steadfast: { add: -2 }, shield: 2, loadoutMax: 2 } }, () => {
+      const P = raidProfile('titan', '__powTest').powers
+      expect(P).toMatchObject({ window: 2, sharpen: 3, fury: 3, momentumCrit: 3, siphon: 2, steadfast: 0, shield: 2, loadoutMax: 2, wind: 1 })
+      const normal = newFight(raidProfile('titan')), tuned = newFight(raidProfile('titan', '__powTest'))
+      expect(powersOf(tuned)).toEqual(P)
+      // Sharpen and Fury hit by the variant's numbers.
+      expect(raidStep(normal, typedQ, clean, { ...opts, sharpen: true }).next.damage).toBe(2 + SHARPEN_BONUS)
+      expect(raidStep(tuned, typedQ, clean, { ...opts, sharpen: true }).next.damage).toBe(2 + 3)
+      expect(raidStep(normal, typedQ, clean, { ...opts, fury: true }).next.damage).toBe(2 * FURY_MULT)
+      expect(raidStep(tuned, typedQ, clean, { ...opts, fury: true }).next.damage).toBe(2 * 3)
+      expect(raidStep(tuned, typedQ, clean, { ...opts, fury: true }).boost.fury).toBe(3)
+      // Momentum's crit and its refund.
+      expect(strike(tuned, CLEAN, { need: 99, lives: 5, momentum: true }).damage).toBe(2 + FIGHT_RULES.damage.crit * 3)
+      expect(refundFor({ to: 'clean' }, { boost: { momentum: true } }, rulesOf(tuned), powersOf(tuned)).damage).toBe(2 + 3)
+      expect(refundFor({ to: 'clean' }, { boost: { momentum: true } }).damage).toBe(2 + FIGHT_RULES.damage.crit * MOMENTUM_CRIT_MULT)
+      // Siphon gives back the variant's hearts; a Shield takes the variant's hearts.
+      const hurt = { ...tuned, livesLost: 3 }
+      expect(raidStep(hurt, typedQ, clean, { ...opts, siphon: true }).next.livesLost).toBe(1)
+      expect(raidStep({ ...normal, livesLost: 3 }, typedQ, clean, { ...opts, siphon: true }).next.livesLost).toBe(3 - SIPHON_HEARTS)
+      const atk = { kind: 'typed', prompt: 'p', accepted: ['a'], _cardId: 2, _attack: true }
+      const miss = { verdict: 'miss', mode: 'typed' }
+      expect(raidStep(tuned, atk, miss, { ...opts, shield: true }).next.livesLost).toBe(0) // the 2-heart attack, both taken
+      expect(raidStep(normal, atk, miss, { ...opts, shield: true }).next.livesLost).toBe(FIGHT_RULES.attackLives - 1)
+      // The text the screens show follows.
+      expect(powerVars('focus', P)).toEqual({ n: 2 })
+      expect(powerVars('fury', P)).toEqual({ n: 2, mult: 3 })
+      expect(procVars('siphon', P)).toEqual({ n: 2 })
+      expect(siegeRule(P)).toContain('last 2 questions')
+      expect(siegeRule(P)).toContain('up to 2 to bring')
+      expect(shapeLoadout(undefined, 26, P.loadoutMax)).toHaveLength(2)
+    })
+  })
+  it('floors hold: a window lasts one question, Fury never shrinks a hit', () => {
+    withVariant({ powers: { window: { add: -9 }, fury: 0, wind: -3 } }, () => {
+      expect(raidProfile('chronos', '__powTest').powers).toMatchObject({ window: 1, fury: 1, wind: 0 })
+    })
   })
 })

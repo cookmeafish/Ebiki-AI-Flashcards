@@ -5,6 +5,7 @@ import { C, FONT } from '../../config/tokens'
 import { useFeatureCtx, featureCfg } from '../registry'
 import { LEGENDS_ID } from './store'
 import { RAID, raidRunSize } from './raid'
+import { useCheatToggle, cheatsOn } from './CheatUI'
 import { langDisplayName } from '../../config/languages'
 
 function Check({ checked, onChange, label, desc }) {
@@ -21,13 +22,16 @@ function Check({ checked, onChange, label, desc }) {
 
 export default function LegendsSettingsCard({ card, fieldLabel, hint }) {
   const ctx = useFeatureCtx()
+  const titleClick = useCheatToggle(ctx)
   if (!ctx) return null
   const { t, subject } = ctx
   const cfg = featureCfg(ctx, LEGENDS_ID)
   const set = (patch) => ctx.setFeatureSettings(LEGENDS_ID, patch)
   return (
     <div style={card}>
-      {fieldLabel(`🗺️ ${t('lg_setTitle')}`)}
+      {/* The hidden cheat toggle (CHEAT_CLICKS quick clicks), here too: reachable on a fresh install with no key and no map
+          (the map title needs a map), e.g. to open the asset view. */}
+      <div onClick={titleClick} style={{ userSelect: 'none' }}>{fieldLabel(`🗺️ ${t('lg_setTitle')}${cheatsOn(ctx) ? ' ⚡' : ''}`)}</div>
       <div style={hint}>{t('lg_setDesc')}</div>
       <Check checked={cfg.focus === true} onChange={(v) => set({ focus: v })} label={t('lg_setFocus')} desc={t('lg_setFocusDesc')} />
       <Check checked={cfg.still === true} onChange={(v) => set({ still: v })} label={t('lg_setStill')} desc={t('lg_setStillDesc')} />

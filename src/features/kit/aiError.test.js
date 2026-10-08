@@ -41,7 +41,9 @@ describe('describeAiError (the app toast) and ctxErrorText', () => {
     expect(describeAiError(t, 'API 503: The model is overloaded')).toBe('aiErr_rateLimit')
     expect(describeAiError(t, 'API 502: bad gateway')).toBe('aiErr_network')
     expect(describeAiError(t, 'TimeoutError: signal timed out')).toBe('aiErr_network')
-    expect(describeAiError(t, 'API 200: blocked (content_filter)')).toBe('aiErr_generic:{"msg":"API 200: blocked (content_filter)"}')
+    expect(describeAiError(t, 'API 200: blocked (content_filter)')).toBe('aiErr_blocked')
+    expect(describeAiError(t, 'Could not plan: API 200: blocked (refusal)')).toBe('aiErr_blocked')
+    expect(describeAiError(t, 'API 200: empty')).toBe('aiErr_generic:{"msg":"API 200: empty"}')
   })
   it('a 5xx body naming a quota is credits, a 401 is the key even without key words', () => {
     expect(describeAiError(t, 'API 500: insufficient credit balance')).toBe('aiErr_credits')

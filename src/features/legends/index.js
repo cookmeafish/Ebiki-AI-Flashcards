@@ -42,7 +42,7 @@ export default {
   practiceActivities: [{ id: 'raid', order: 3, icon: '⚔️', titleKey: 'lg_raidTile', descKey: 'lg_raidTileDesc', Screen: RaidTile }],
   // ...and its hero card at the top of the hub: today's boss, its health and the cards due (RaidHero.jsx, read only).
   practiceHero: [{ id: 'raid', order: 10, activity: 'raid', Component: RaidHero }],
-  // Hidden: renders nothing until cheat mode is on (7 quick clicks on the map's title).
+  // Hidden: renders nothing until cheat mode is on (7 quick clicks on the map's title or the Legends heading in Settings > General).
   settingsCards: [
     { id: 'legends-settings', section: 'general', order: 85, Component: LegendsSettingsCard },
     { id: 'legends-cheats', section: 'general', order: 90, Component: CheatSettingsCard },

@@ -34,13 +34,17 @@ export function buildRuleCardPrompt(subject, source, { avoid = [] } = {}) {
   }
 }
 
+// Model text only: an object where text belongs showed "[object Object]" on the card; a back sent as a list of lines is
+// read as those lines.
+const txt = (v) => (typeof v === 'string' || typeof v === 'number' ? String(v) : Array.isArray(v) ? v.filter((x) => typeof x === 'string' || typeof x === 'number').join('\n') : '')
+
 // { front, back, tags } or { skip: true, why } or null when unreadable.
 export function parseRuleCard(raw, clean = (s) => s) {
   if (!raw || typeof raw !== 'object') return null
   // Models answer the flag as text too ("yes", "True"): read as a card, it was refused as incomplete ("unreadable").
-  if (raw.skip === true || /^\s*(true|yes|1)\s*$/i.test(typeof raw.skip === 'string' ? raw.skip : '')) return { skip: true, why: clean(String(raw.why || '').slice(0, 200)) }
-  const front = clean(String(raw.front ?? '').replace(/\s+/g, ' ').trim()).slice(0, FRONT_MAX)
-  const back = clean(String(raw.back ?? '').replace(/\\n/g, '\n').replace(/[ \t]+/g, ' ').trim()).slice(0, BACK_MAX)
+  if (raw.skip === true || /^\s*(true|yes|1)\s*$/i.test(typeof raw.skip === 'string' ? raw.skip : '')) return { skip: true, why: clean(txt(raw.why).slice(0, 200)) }
+  const front = clean(txt(raw.front).replace(/\s+/g, ' ').trim()).slice(0, FRONT_MAX)
+  const back = clean(txt(raw.back).replace(/\\n/g, '\n').replace(/[ \t]+/g, ' ').trim()).slice(0, BACK_MAX)
   if (!front || !back) return null
   const tags = (Array.isArray(raw.tags) ? raw.tags : typeof raw.tags === 'string' ? raw.tags.split(/[,;]/) : [])
     .map((x) => String(x).toLowerCase().trim().replace(/\s+/g, '-').replace(/[^\p{L}\p{N}_:-]/gu, ''))

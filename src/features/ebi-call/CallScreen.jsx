@@ -3,7 +3,7 @@
 // reviews. No due cards → a practice call that saves nothing. With the optional Voice chat feature on, the
 // learner talks (tap to talk) and Ebi's replies are spoken by the cheapest voice (src/speech).
 import { useEffect, useRef, useState } from 'react'
-import { C, FONT, RADIUS } from '../../config/tokens'
+import { C, FONT, RADIUS, fillFor } from '../../config/tokens'
 import { poseFile, shrimpUrl } from '../../config/shrimp'
 import { srs } from '../../cards'
 import { platform } from '../../platform'
@@ -212,6 +212,13 @@ export default function CallScreen({ onExit }) {
     ctx.emit(EVENTS.CHAT_SENT, { mode: subject.modeId })
     try { land(await say(history, grades), history, grades) } catch (e) { setError(aiErrorText(t, e)) } finally { setBusy(false) }
   }
+  // Ebi's reply to the learner's last line failed: ask again for that same turn (the learner's line stayed unanswered, and
+  // a second line sent after it was graded against a conversation Ebi never answered).
+  const retryReply = async () => {
+    if (busy || phase !== 'call' || messages[messages.length - 1]?.role !== 'me') return
+    setBusy(true); setError('')
+    try { land(await say(messages, grades), messages, grades) } catch (e) { setError(aiErrorText(t, e)) } finally { setBusy(false) }
+  }
 
   const save = async () => {
     const ratings = ratingsFrom(targets, grades)
@@ -241,7 +248,7 @@ export default function CallScreen({ onExit }) {
         return (
           <span key={tg.cardId} className={g?.why ? 'tip' : undefined} data-tip={g?.why || undefined} style={{
             fontSize: 12, fontWeight: 800, padding: '3px 10px', borderRadius: RADIUS.pill, border: `2px solid ${col}`,
-            color: g ? C.white : C.inkDim, background: g ? col : 'transparent',
+            color: g ? C.white : C.inkDim, background: g ? fillFor(col) : 'transparent', // white text sits on the fill token
           }}>{g ? '✓ ' : ''}{phase === 'call' && !g ? '?' : tg.front}</span>
         )
       })}
@@ -292,7 +299,7 @@ export default function CallScreen({ onExit }) {
                   // Locked while saving: the reviews already sent are what Anki gets.
                   <button key={v} disabled={phase === 'saving'} onClick={() => setGrades((s) => ({ ...s, [String(tg.cardId)]: { ...g, verdict: v } }))} className={g.verdict === v ? 'ui-tab-current' : undefined}
                     style={{ padding: '4px 10px', borderRadius: RADIUS.sm, fontSize: 12, fontWeight: 800, cursor: g.verdict === v || phase === 'saving' ? 'default' : 'pointer', opacity: phase === 'saving' && g.verdict !== v ? 0.5 : 1,
-                      border: `2px solid ${VERDICT_COLOR[v]}`, background: g.verdict === v ? VERDICT_COLOR[v] : 'transparent', color: g.verdict === v ? C.white : VERDICT_COLOR[v] }}>
+                      border: `2px solid ${VERDICT_COLOR[v]}`, background: g.verdict === v ? fillFor(VERDICT_COLOR[v]) : 'transparent', color: g.verdict === v ? C.white : VERDICT_COLOR[v] }}>
                     {t(`call_v_${v}`)}
                   </button>
                 ))}
@@ -330,7 +337,7 @@ export default function CallScreen({ onExit }) {
           <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 18, color: C.ink }}>{practice ? t('call_practiceTitle') : t('call_title')}</div>
           {chips}
         </div>
-        <ChunkyButton onClick={() => { speakingRef.current?.stop(); setPhase('review') }} color={C.danger} disabled={busy}>{t('call_end')}</ChunkyButton>
+        <ChunkyButton onClick={() => { speakingRef.current?.stop(); setError(''); setPhase('review') }} color={C.danger} disabled={busy}>{t('call_end')}</ChunkyButton>
       </div>
       <div ref={listRef} role="log" aria-live="polite" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, padding: 4 }}>
         {messages.map((m, i) => (
@@ -342,8 +349,9 @@ export default function CallScreen({ onExit }) {
         ))}
         {busy && <div style={{ color: C.inkFaint, fontSize: 14 }}>{t('call_typing')}</div>}
       </div>
-      {error && <div role="alert" style={{ color: C.danger, fontSize: 13 }}>{error}</div>}
-      {error && !busy && !messages.length && <button onClick={openCall} style={{ alignSelf: 'flex-start', border: 'none', background: 'transparent', color: C.brand, fontWeight: 800, cursor: 'pointer', fontSize: 13 }}>↻ {t('rp_retry')}</button>}
+      {/* data-composer: the app toast stack sits above these too (it covered the error and its retry). */}
+      {error && <div role="alert" data-composer="" style={{ color: C.danger, fontSize: 13 }}>{error}</div>}
+      {error && !busy && (!messages.length || messages[messages.length - 1]?.role === 'me') && <button data-composer="" onClick={messages.length ? retryReply : openCall} style={{ alignSelf: 'flex-start', border: 'none', background: 'transparent', color: C.brand, fontWeight: 800, cursor: 'pointer', fontSize: 13 }}>↻ {t('rp_retry')}</button>}
       <div data-composer="" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'stretch' }}>
         {voiceOn && <TalkButton ctx={ctx} lang={subject.isLanguage ? subject.learnLangIso : ctx.lang || ''} onText={send} onStart={() => speakingRef.current?.stop()} disabled={busy} compact />}
         {/* Input and Send stay together (a narrow window puts the Talk button on its own line). */}

@@ -14,3 +14,13 @@ export async function guardMode({ isWrite, shared, dataMode, freshProbe, invalid
   invalidate()
   return dataMode()
 }
+
+// Is this /api request (url relative to the /api mount) one of the data routes the guard fronts? Matched the way
+// connect matches a mount: case-insensitively, and the route may be followed by "/" or "." or nothing. Matching only
+// "/" let /api/config.x, /api/chats.json or /api/modes.anything reach their handler with NO guard (connect hands
+// "/config.x" to the /api/config handler): no 503 on a dead share, no fresh probe before a write, no refusal in the
+// seconds after a folder switch.
+export function isDataRoute(url, routes) {
+  const p = (String(url || '').split('?')[0].split('#')[0].replace(/\/+$/, '') || '/').toLowerCase()
+  return routes.some((r) => { const k = String(r).toLowerCase(); return p === k || p.startsWith(k + '/') || p.startsWith(k + '.') })
+}

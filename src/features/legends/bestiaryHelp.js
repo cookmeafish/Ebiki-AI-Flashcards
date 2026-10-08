@@ -106,11 +106,14 @@ export function raidPowersText(t, raid, loadout, known = true) {
   const name = (id) => tx(t, `lg_pow_${id}`) || id
   const beaten = bossesBeaten(raid ? shapeRaid(raid) : null)
   const open = unlockedPowers(beaten)
-  const bring = shapeLoadout(loadout, beaten)
+  // The current siege's power numbers (a variant may change how many powers come along), else the normal ones.
+  const g = raid ? siegeOf(raid) : null
+  const max = g ? raidProfile(raidMotif(raid), g.variant).powers.loadoutMax : LOADOUT_MAX
+  const bring = shapeLoadout(loadout, beaten, max)
   const next = nextUnlock(beaten)
   return [
     `The player's powers: ${beaten} different raid boss(es) beaten; unlocked ${open.length} of ${POWER_IDS.length}${open.length ? ` (${open.map(name).join(', ')})` : ' (none yet: the first unlocks at 1 boss beaten)'}.`,
-    open.length ? `Brought into the next fight (up to ${LOADOUT_MAX}, picked on the raid intro): ${bring.length ? bring.map(name).join(', ') : 'none'}.` : '',
+    open.length ? `Brought into the next fight (up to ${max}, picked on the raid intro): ${bring.length ? bring.map(name).join(', ') : 'none'}.` : '',
     next ? `Next unlock: ${name(next.id)} at ${next.beaten} different bosses beaten (${next.beaten - beaten} to go).` : 'Every power is unlocked.',
   ].filter(Boolean).join(' ')
 }

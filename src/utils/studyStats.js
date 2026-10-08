@@ -4,7 +4,19 @@
 // or a `now` Date, so the midnight and rollover cases are testable.
 
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0 }
-export const localDay = (d) => d.toLocaleDateString('en-CA')
+// Built from the date's own fields, never toLocaleDateString('en-CA'): that format is ICU data and has changed
+// between browser builds (one shipped 'M/D/YYYY'), which would split every stored day key from today's.
+export const localDay = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+// Anki's default "next day starts at" hour (Preferences > Review): its per-day counts follow it.
+export const ANKI_ROLLOVER_HOURS = 4
+// The day ANKI files a review made at `now` under: before the rollover hour it is still yesterday. By the WALL clock:
+// `now - 4h` in milliseconds put a 04:30 session on a spring-forward day (only 3 wall hours after midnight) under
+// yesterday, and a 03:30 one on a fall-back day under today.
+export function ankiDayOf(now = new Date(), rolloverHours = ANKI_ROLLOVER_HOURS) {
+  if (now.getHours() >= rolloverHours) return localDay(now)
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 12)
+  return localDay(d)
+}
 
 // Only real entries (a null row or a non-list value threw and took the app down every time Stats opened); a count
 // stored as text ("5") is a number here, never string-joined into "05".

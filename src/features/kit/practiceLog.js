@@ -42,18 +42,23 @@ export function lastPracticed(log, label, kind = 'card', { excludeSrc = '' } = {
   return hit && (!excludeSrc || hit.src !== excludeSrc) ? (Number(hit.at) || 0) : 0
 }
 
+// A stamp further in the FUTURE than the window itself came from a clock that was wrong (set ahead, or another
+// computer on the share): it says nothing about when the practice happened. Counted as recent, it held the card or
+// topic "just practiced" until the real clock caught up (a year, for a clock once set a year ahead).
+const recentWithin = (at, now, within) => !!at && now - at < within && at - now <= within
+
 // Items ordered freshest-to-practice first: never practiced, then longest ago. Those inside the cooldown go
 // last and are only used when nothing else is left (`strict` drops them instead).
 export function rankFresh(items, log, { now = Date.now(), cooldown = COOLDOWN_MS, labelOf = (x) => x.front, strict = false } = {}) {
   const scored = (items || []).map((x, i) => ({ x, i, at: lastPracticed(log, labelOf(x)) }))
-  const cold = scored.filter((s) => !s.at || now - s.at >= cooldown).sort((a, b) => a.at - b.at || a.i - b.i)
-  const hot = scored.filter((s) => s.at && now - s.at < cooldown).sort((a, b) => a.at - b.at)
+  const cold = scored.filter((s) => !recentWithin(s.at, now, cooldown)).sort((a, b) => a.at - b.at || a.i - b.i)
+  const hot = scored.filter((s) => recentWithin(s.at, now, cooldown)).sort((a, b) => a.at - b.at)
   return [...cold, ...(strict ? [] : hot)].map((s) => s.x)
 }
 
 // Topics practiced recently, newest first, for "pick something else" lines in prompts.
 export function recentTopics(log, { now = Date.now(), within = TOPIC_COOLDOWN_MS, limit = AVOID_TOPICS } = {}) {
-  return rows(log).filter((x) => x.kind === 'topic' && x.label && now - (Number(x.at) || 0) < within).slice(0, limit).map((x) => String(x.label))
+  return rows(log).filter((x) => x.kind === 'topic' && x.label && recentWithin(Number(x.at) || 0, now, within)).slice(0, limit).map((x) => String(x.label))
 }
 
 export const avoidLine = (topics) => (topics?.length ? `Recently practiced already (choose different ones): ${topics.join('; ')}` : '')

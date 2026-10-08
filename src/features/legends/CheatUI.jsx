@@ -1,4 +1,5 @@
-// Cheat mode UI (hidden, for testing Legends). Turned on by clicking the map's title CHEAT_CLICKS times quickly;
+// Cheat mode UI (hidden, for testing Legends). Turned on by clicking the map's title, or the Legends heading in Settings >
+// General (works with no key and no map, e.g. to show the asset view), CHEAT_CLICKS times quickly;
 // while on, the map and the steps show small ⚡ buttons and Settings > General shows a card to turn it off.
 // Stored in the feature settings (config.json `features.legends.cheats`).
 import { useRef } from 'react'

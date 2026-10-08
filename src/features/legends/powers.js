@@ -43,24 +43,61 @@ export const WIND_HEARTS = 1
 export const SIPHON_HEARTS = 1
 // Momentum's crits deal this many times the usual crit bonus.
 export const MOMENTUM_CRIT_MULT = 2
-// THE NUMBERS A POWER'S TEXT SHOWS, from the constants above and the fight's own damage table, never typed into a
-// locale (the owner: change a number here and every description, armed line and label follows). `{n}` in
-// lg_powDesc_<id> / lg_powUp_<id> / lg_fxCast_<id> / lg_fxProc_<id> is filled from here.
-export function powerVars(id) {
+// A Shield takes this many lost hearts (once); a Bandage skips this many nights of the boss's heal.
+export const SHIELD_HEARTS = 1
+export const BANDAGE_NIGHTS = 1
+
+// THE POWER NUMBERS AS ONE OBJECT (the constants above are these numbers), so a raid variant can weaken or strengthen
+// powers like it changes a boss: raidProfiles.js raidProfile(motif, variant) resolves `powers` in the same layers
+// (defaults here -> the boss -> RAID_VARIANTS[variant] -> the boss's own variant), and the fight carries the result
+// as `fight.tune.powers` (fight.js tuneFight). The engine reads powersOf(fight); the screens and Help read the
+// profile's `powers`, so every number shown follows the variant. Keys:
+//   loadoutMax  powers one fight may bring; window: a window power's length in raid questions
+//   sharpen     Sharpen's extra damage; fury: Fury's damage multiplier; momentumCrit: Momentum's crit multiplier
+//   siphon      hearts Siphon gives back per clean answer; wind: hearts Second wind gives back
+//   steadfast   Steadfast's extra hearts; shield: hearts a Shield takes; bandage: nights of heal a Bandage skips
+export const POWER_DEFAULTS = Object.freeze({
+  loadoutMax: LOADOUT_MAX, window: POWER_WINDOW, sharpen: SHARPEN_BONUS, fury: FURY_MULT, momentumCrit: MOMENTUM_CRIT_MULT,
+  siphon: SIPHON_HEARTS, wind: WIND_HEARTS, steadfast: STEADFAST_HEARTS, shield: SHIELD_HEARTS, bandage: BANDAGE_NIGHTS,
+})
+// Floors no variant can push below (a window lasts at least one question, Fury never shrinks a hit).
+export const POWER_FLOORS = Object.freeze({ loadoutMax: 0, window: 1, sharpen: 0, fury: 1, momentumCrit: 0, siphon: 0, wind: 0, steadfast: 0, shield: 0, bandage: 0 })
+// Power numbers shaped: known keys only, numbers only, floors held, missing ones from the defaults.
+export function shapePowers(raw) {
+  const out = { ...POWER_DEFAULTS }
+  if (raw && typeof raw === 'object') {
+    for (const k of Object.keys(POWER_DEFAULTS)) {
+      const v = Number(raw[k])
+      if (raw[k] != null && Number.isFinite(v)) out[k] = Math.max(POWER_FLOORS[k], v)
+    }
+  }
+  return out
+}
+// The power numbers a fight runs on: its resolved `tune.powers` over the defaults (no tune = the defaults).
+export function powersOf(state) {
+  const p = state && state.tune && state.tune.powers
+  return p ? shapePowers(p) : POWER_DEFAULTS
+}
+// THE NUMBERS A POWER'S TEXT SHOWS, from the power numbers (`P`: a profile's resolved `powers`, default the normal
+// ones) and the fight's own damage table (`D`), never typed into a locale (the owner: change a number here or in a
+// variant and every description, armed line and label follows). `{n}` in lg_powDesc_<id> / lg_powUp_<id> /
+// lg_fxCast_<id> / lg_fxProc_<id> is filled from here.
+export function powerVars(id, P = POWER_DEFAULTS, D = DAMAGE) {
+  const p = P === POWER_DEFAULTS ? P : shapePowers(P)
   switch (id) {
-    case 'fifty': case 'hint': return { n: DAMAGE.choice }
-    case 'wind': return { n: WIND_HEARTS }
-    case 'sharpen': return { n: SHARPEN_BONUS }
-    case 'focus': return { n: POWER_WINDOW }
-    case 'siphon': return { n: POWER_WINDOW, hearts: SIPHON_HEARTS }
-    case 'momentum': return { n: POWER_WINDOW, crit: DAMAGE.crit * MOMENTUM_CRIT_MULT }
-    case 'fury': return { n: POWER_WINDOW, mult: FURY_MULT }
-    case 'steadfast': return { n: STEADFAST_HEARTS }
+    case 'fifty': case 'hint': return { n: D.choice }
+    case 'wind': return { n: p.wind }
+    case 'sharpen': return { n: p.sharpen }
+    case 'focus': return { n: p.window }
+    case 'siphon': return { n: p.window, hearts: p.siphon }
+    case 'momentum': return { n: p.window, crit: D.crit * p.momentumCrit }
+    case 'fury': return { n: p.window, mult: p.fury }
+    case 'steadfast': return { n: p.steadfast }
     default: return {}
   }
 }
 // The numbers a power HIT's label shows (lg_fxProc_<id>): Siphon names the hearts it gave back.
-export const procVars = (id) => (id === 'siphon' ? { n: SIPHON_HEARTS } : powerVars(id))
+export const procVars = (id, P = POWER_DEFAULTS, D = DAMAGE) => (id === 'siphon' ? { n: shapePowers(P).siphon } : powerVars(id, P, D))
 // The powers pressed with a button during a fight (the rest work between runs or by being brought).
 export const isFightPower = (id) => !!POWERS[id] && POWERS[id].kind !== 'siege' && POWERS[id].kind !== 'passive'
 
@@ -72,16 +109,17 @@ export const nextUnlock = (beaten) => { const id = POWER_IDS.find((x) => POWERS[
 
 // THE LOADOUT: the powers brought into fights. From the setting (known, unlocked, no repeats, at most LOADOUT_MAX);
 // no setting yet = the first LOADOUT_MAX unlocked. An explicit empty list stays empty (bringing none is a choice).
-export function shapeLoadout(raw, beaten) {
+// `max`: the resolved loadoutMax (a variant may change it).
+export function shapeLoadout(raw, beaten, max = LOADOUT_MAX) {
   const open = unlockedPowers(beaten)
-  if (!Array.isArray(raw)) return open.slice(0, LOADOUT_MAX)
-  return [...new Set(raw)].filter((id) => open.includes(id)).slice(0, LOADOUT_MAX)
+  if (!Array.isArray(raw)) return open.slice(0, max)
+  return [...new Set(raw)].filter((id) => open.includes(id)).slice(0, max)
 }
 // The loadout with one power toggled: removed when in it, added when there is room (else unchanged).
-export function toggleLoadout(loadout, id, beaten) {
-  const cur = shapeLoadout(loadout, beaten)
+export function toggleLoadout(loadout, id, beaten, max = LOADOUT_MAX) {
+  const cur = shapeLoadout(loadout, beaten, max)
   if (cur.includes(id)) return cur.filter((x) => x !== id)
-  if (!unlockedPowers(beaten).includes(id) || cur.length >= LOADOUT_MAX) return cur
+  if (!unlockedPowers(beaten).includes(id) || cur.length >= max) return cur
   return [...cur, id]
 }
 

@@ -4,14 +4,15 @@ import { TRANSLATE_PROMPT, VISION_OCR_PROMPT, WORDLIST_TRANSLATE_PROMPT, WORD_EN
 import { shapeModeType, shapeTagCategories, shapeChatSuggestions, shapeDiscoverKinds } from './config/modeSpec'
 import { dataUrlToImagePart, downscaleDataUrl, estimateImageNoise } from './utils/image'
 import { snapWordsToBoxes, overlayBoxes, hoverTooltipPos, readingLines } from './utils/ocrBoxes'
-import { preprocessForOCR, filterTessWords, dedupeOcrWords, tidyOcrWords } from './utils/ocr'
+import { preprocessForOCR, filterTessWords, dedupeOcrWords, tidyOcrWords, untranslatedOcrWords } from './utils/ocr'
+import { createKeyVerdictCache } from './utils/keyVerdicts'
 // Media types EVERY provider accepts in an image part (GIF/WebP are re-encoded, see utils/image.js).
 const PORTABLE_IMAGE_TYPES = /^image\/(jpeg|jpg|png)$/i
 import { PROVIDERS, keyOfOtherProvider, setUsageListener } from './config/providers'
 import { recordUsage } from './utils/tokenUsage'
 import { shapeLegacyModes } from './utils/legacyModes'
 import { editorTagTarget } from './utils/deckTags'
-import { shapeHistory, studyStreak, todayNumbers, chartDays as statsChartDays, groupSessions, deckBreakdown } from './utils/studyStats'
+import { shapeHistory, studyStreak, todayNumbers, chartDays as statsChartDays, groupSessions, deckBreakdown, localDay, ankiDayOf } from './utils/studyStats'
 import { activitySignature, isAbandoned, lastActiveAt, unsyncedInSnapshot, pendingRatings, hadProgress, STUDY_SESSION_MAX_AGE_MS } from './utils/studySession'
 import TokenUsageMeter from './components/TokenUsageMeter'
 import { pickUpgrade, pickNewest, parseModelId, compareModels } from './config/modelVersions'
@@ -65,7 +66,7 @@ import PbqQuestion from './components/PbqQuestion'
 import { QUESTION_REUSE_DEFAULT, reuseSettings, replaceQuestion, storableQuestion, clearBank, createQuestionReuse, mergeGlosses, updateBank } from './utils/questionBank'
 import { compilePbq, itemKey as pbqItemKey, reshufflePbq, pbqRatingScore, checkCitations, studentView, parseSolverAnswer, gradePbq, compareToKey, PBQ_GEN_SYSTEM, PBQ_SOLVER_SYSTEM, PBQ_JUDGE_SYSTEM, buildGeneratorPrompt as buildPbqGeneratorPrompt, buildSolverPrompt as buildPbqSolverPrompt, buildJudgePrompt as buildPbqJudgePrompt } from './pbq/engine'
 import { apiFetch, platform } from './platform'
-import { boundChatHistory, cleanChatReply } from './utils/chatReply'
+import { boundChatHistory, cleanChatReply, chatTitleText } from './utils/chatReply'
 import { SLASH_ENDING, SLASH_SPELLED, isSlashEnding, expandSlashEnding, GENDERED_ARTICLES, expandSlashAnswers, answerNormalize, stripLeadArticles, stripAccArticlesFor, stripAccentsKeepYot, exactAnswerMatch } from './utils/answers'
 import { shapeConjugationPool, fallbackConjugationPool } from './utils/conjugation'
 import { leakNorm, HANGUL, leakLen, hangulLeak, NO_SPACE_SCRIPT, noSpaceLeak, answerInQuestionText, leakAnswers, questionAnswerLeak, scrubAnswerFromQuestion, hintTokenLeaks, hintRevealsAnswer, scrubHint } from './utils/leak'
@@ -74,6 +75,8 @@ import { cardText } from './utils/cardText'
 import { splitCardLabel } from './utils/cardLabel'
 import { stripAiDashes } from './utils/dashes'
 import { shapeProfile } from './discover/profile'
+import { termIn, termIndex, termKeys } from './discover/dupes'
+import { shapeSuggestion, asText as suggestionText } from './discover/suggestion'
 import { slipKey as grammarSlipKey } from './discover/merge'
 import { ZOOM, parseZoom, clampZoom, zoomKeyAction, applyZoomAction } from './config/zoom'
 const SIDEBAR_KV = 'ebiki-sidebar-collapsed'
@@ -389,6 +392,7 @@ const dashText = (v) => stripDashes(cardText(v))
 const helpText = (x) => stripDashes(x).replace(/[🦐🦞🦀]\uFE0F?/gu, '').replace(/[ \t]{2,}/g, ' ').trim()
 // Cited sources kept only when the SEARCH returned them: a made-up URL in <sources> was shown as a real
 // citation. None left (or no search ran) = the search's own results.
+const CHAT_INPUT_MAX_H = 168 // the Chat composer's tallest (about six lines), then it scrolls
 const sourceKey = (u) => String(u || '').trim().replace(/#.*$/, '').replace(/\/+$/, '').replace(/^https?:\/\/(www\.)?/i, '').toLowerCase()
 const keepRealSources = (cited, results) => {
   const real = new Set((results || []).map((r) => sourceKey(r.url)))
@@ -454,8 +458,6 @@ const defaultMode = {
   tagRules: 'Always include:\n- part of speech (e.g. verb, noun, adjective)\n- source language (e.g. spanish, french)\n- "ebiki"\n\nAlso include when relevant:\n- verb tense (e.g. present, past, subjunctive)\n- difficulty (e.g. common, intermediate, advanced)\n- topic (e.g. food, emotion, travel, nature)',
   studyRules: defaultStudyRules,
 }
-// Anki's default day rollover (Preferences > Review > Next day starts at): its per-day counts follow it.
-const ANKI_ROLLOVER_HOURS = 4
 
 export default function App() {
   // ─── State ───────────────────────────────────────────────────────────────────
@@ -1526,6 +1528,15 @@ export default function App() {
   const [chatTabStatus, setChatTabStatus] = useState(null) // null | 'searching' | 'thinking' | 'search-done' | 'search-empty' | 'search-failed'
   const chatTabScrollRef = useRef(null)
   const chatTabInputRef = useRef(null)
+  // The composer grows with its text (Shift+Enter lines, a pasted paragraph) up to CHAT_INPUT_MAX_H, then scrolls.
+  // On every value change, typed or set by code (a suggestion chip, the clear after a send).
+  useLayoutEffect(() => {
+    const el = chatTabInputRef.current
+    if (!el || el.tagName !== 'TEXTAREA') return
+    el.style.height = 'auto'
+    // Empty: one row (a narrow box's wrapped PLACEHOLDER counts in scrollHeight and made it several lines tall).
+    if (el.value) el.style.height = Math.min(el.scrollHeight + 2, CHAT_INPUT_MAX_H) + 'px'
+  }, [chatTabInput, activeTab])
   const chatSpacerRef = useRef(null) // bottom spacer so the latest turn can scroll to the top
 
   // Claude-style scroll: pin the latest USER message near the top of the viewport (with a
@@ -2852,7 +2863,8 @@ export default function App() {
         const k = String(apiKeys?.[prov] || '').trim()
         if (!k) { authority.push(prov); continue } // a deliberate clear
         let r = null
-        try { r = await validateKey(prov, k) } catch { r = null }
+        // { reuse }: the verdict Settings/onboarding already got for this EXACT key (no second ping).
+        try { r = await validateKey(prov, k, { reuse: true }) } catch { r = null }
         if (r === true || r === 'noCredit') authority.push(prov)
         else if (r === null) {
           keyEditedRef.current = [...new Set([...(Array.isArray(keyEditedRef.current) ? keyEditedRef.current : []), prov])]
@@ -2946,6 +2958,8 @@ export default function App() {
   useEffect(() => {
     // Not during first-run setup: the overlay's global Alt+Q opened a full-screen capture over the wizard.
     if (isOverlay || !configLoaded || !onboarded || overlayAutoLaunchedRef.current) return
+    // A page driven by automation (tests, agents) never starts the overlay: it launched the real Electron app.
+    if (typeof navigator !== 'undefined' && navigator.webdriver) return
     if (overlayEnabled && !overlayRunning) {
       overlayAutoLaunchedRef.current = true
       apiFetch('/api/launch-overlay', { method: 'POST' })
@@ -2976,7 +2990,19 @@ export default function App() {
   // someone off to debug a network that is working. The two classifications also
   // disagree in the other direction - a renamed or missing MODEL says nothing at
   // all about the key, and must not be reported as a bad one.
-  const validateKey = async (prov, key) => {
+  // One key, one ping (src/utils/keyVerdicts.js): Settings' and onboarding's check keeps its verdict per exact
+  // provider + key, and the key-save path passes { reuse: true } to take it instead of pinging again. A check
+  // still running is shared; "could not tell" (null) is never kept, so an unchecked key is re-queued and retried.
+  const keyVerdictsRef = useRef(null)
+  if (!keyVerdictsRef.current) keyVerdictsRef.current = createKeyVerdictCache()
+  // Settings/onboarding call it plain: a fresh ping, except a verdict the save path got seconds ago for the
+  // same keystroke (the save debounce fires 100ms before Settings' typing check).
+  const validateKey = (prov, key, opts = { maxAgeMs: 5000 }) => {
+    const k = (key || '').trim()
+    if (!k || !PROVIDERS[prov]) return Promise.resolve(null)
+    return keyVerdictsRef.current.run(prov, k, checkKeyNow, opts)
+  }
+  const checkKeyNow = async (prov, key) => {
     const k = (key || '').trim(); const pc = PROVIDERS[prov]
     if (!k || !pc) return null
     if (keyMisfits(pc, k)) return false // another provider's key: refused WITHOUT sending it anywhere
@@ -3121,19 +3147,18 @@ export default function App() {
   // checking only cancelRef let an abandoned OCR repaint the old picture's words minutes later.
   const analyzeImageTesseract = useCallback(async (dataUrl, gen = null) => {
     if (!dataUrl) return
-    const stale = () => cancelRef.current || (gen != null && gen !== scanGenRef.current)
-    setHoveredIdx(null); setPinnedIdx(null) // clear any stale pin from the previous scan
-    if (gen == null) setAnkiSynced({}) // a standalone re-scan (no key): "Added" flags are keyed by index (as in analyzeImageVision)
-    if (!apiKey) {
-      // The overlay never saves settings (its config autosave and mode saves are off): a provider picked there snapped
-      // back on the next capture. Send the user to the main window instead.
-      if (isOverlay) { setError(tLiveRef.current('pic_errSetKeyOverlay', { provider: providerConfig.label })); return }
-      setSettingsCategory('models'); setSettingsOpen(true)
-      setError(tLiveRef.current('pic_errSetKey', { provider: providerConfig.label }))
-      return
-    }
-
     cancelRef.current = false
+    if (gen == null) {
+      // A standalone scan (no API key): its own generation, like analyzeImageVision, so a newer scan or a new
+      // picture retires it and a late result never repaints the old picture's words.
+      gen = ++scanGenRef.current
+      pinGenRef.current++; resetPinBusy() // a pinned word's late lookup belongs to the old list
+      setAnkiSynced({}) // "Added" flags are keyed by index (as in analyzeImageVision)
+      enrichWordRef.current.clear(); lazyTranslateRef.current.clear() // word indices are reused across scans
+    }
+    const stale = () => cancelRef.current || gen !== scanGenRef.current
+    setHoveredIdx(null); setPinnedIdx(null) // clear any stale pin from the previous scan
+
     setLoading(true)
     setStage('ocr')
     setError(null)
@@ -3246,17 +3271,15 @@ export default function App() {
       // ── Stage 2: AI Translation ────────────────────────────────────────────
       if (stale()) return
 
-      // In "click" mode, skip batch translation — words get translated on click
-      if (activeMode.translateMode === 'click') {
-        const mapped = finalWords.map((w, idx) => ({
-          ...w, _untranslated: true, translation: '', synonyms: [], category: 'foreign',
-          partOfSpeech: '', pronunciation: '', isEnglish: false, _globalIdx: idx,
-        }))
+      // In "click" mode, skip batch translation: words get translated on click. With NO key there is nothing to
+      // translate with: the words and boxes still show, and the Picture tab says a key adds meanings.
+      if (activeMode.translateMode === 'click' || !apiKey) {
+        const mapped = untranslatedOcrWords(finalWords) // src/utils/ocr.js
         setOcrWords(mapped)
         setOcrLines(readingLines(mapped))
         setStage('done')
         setLoading(false)
-        ocrLog(`Click-to-translate mode: ${mapped.length} words ready, skipping batch translation`)
+        ocrLog(`${apiKey ? 'Click-to-translate mode' : 'No API key'}: ${mapped.length} words ready, skipping batch translation`)
         ocrLogFlush()
         return
       }
@@ -3479,7 +3502,7 @@ export default function App() {
       ocrLogFlush()
       console.error(err)
       if (stale()) return
-      setError(tLiveRef.current('pic_errAnalysis', { msg: aiErrMsg(err) }))
+      setError(/importScripts|traineddata|tesseract/i.test(String(err?.message || err || '')) ? tLiveRef.current('pic_errOcrDownload') : tLiveRef.current('pic_errAnalysis', { msg: aiErrMsg(err) }))
       setStage('captured')
     } finally {
       // Never clear a NEWER scan's spinner.
@@ -3772,19 +3795,13 @@ export default function App() {
     }
   }, [apiKey, language, targetLang, activeMode, appLanguage, analyzeImageTesseract])
 
-  // Dispatcher: vision when a key is set (primary), otherwise prompt for one.
+  // Dispatcher: vision when a key is set (primary), otherwise local Tesseract OCR: the words and their boxes
+  // show untranslated, with a gentle "a key adds meanings" line (never a dead end that only opens Settings).
   const analyzeImage = useCallback(async (dataUrl) => {
     if (!dataUrl) return
-    if (!apiKey) {
-      // The overlay never saves settings (its config autosave and mode saves are off): a provider picked there snapped
-      // back on the next capture. Send the user to the main window instead.
-      if (isOverlay) { setError(tLiveRef.current('pic_errSetKeyOverlay', { provider: providerConfig.label })); return }
-      setSettingsCategory('models'); setSettingsOpen(true)
-      setError(tLiveRef.current('pic_errSetKey', { provider: providerConfig.label }))
-      return
-    }
+    if (!apiKey) return analyzeImageTesseract(dataUrl)
     return analyzeImageVision(dataUrl)
-  }, [apiKey, providerConfig, analyzeImageVision])
+  }, [apiKey, analyzeImageVision, analyzeImageTesseract])
 
   // ─── Keyboard Shortcuts ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -3896,10 +3913,10 @@ export default function App() {
     const entry = {
       // LOCAL calendar day (like the Stats tab and Anki's review days), never the UTC date: an
       // evening session west of UTC used to be filed under tomorrow and missed today's numbers.
-      date: new Date().toLocaleDateString('en-CA'),
+      date: localDay(new Date()),
       // The day ANKI files it under (its default 4am rollover): the chart and streak compare the two sources per day,
       // and a 00:30 session counted on yesterday (Anki) AND today (here), a 2-day streak from one session.
-      ankiDay: new Date(Date.now() - ANKI_ROLLOVER_HOURS * 3600000).toLocaleDateString('en-CA'),
+      ankiDay: ankiDayOf(new Date()),
       deck: studyDeck,
       mode: activeMode.name,
       cardsStudied: totalCards,
@@ -3954,7 +3971,7 @@ export default function App() {
       if (seq !== ankiStatsSeqRef.current) return
       // Every read failed: keep what is on screen (an all-zero result looked like a lost streak).
       if (today === null && byDayRaw === null && todayReviews === null) return
-      const dayStr = new Date().toLocaleDateString('en-CA')
+      const dayStr = localDay(new Date())
       // Measured for another day (the read crossed midnight): not today's numbers.
       if (todayReviews && todayReviews.day && todayReviews.day !== dayStr) todayReviews = null
       // A part that failed keeps its last-known value (same day only for the "today" numbers): one timed-out
@@ -4044,6 +4061,7 @@ export default function App() {
   // ─── Lazy translate on hover for missed words ──────────────────────────────
   const lazyTranslateRef = useRef(new Set()) // track in-flight requests
   const lazyTranslate = useCallback(async (idx, words = ocrWords) => {
+    if (!apiKey) return // a keyless scan: the popup says a key adds meanings; nothing is marked in flight, so a key added later translates on hover
     if (lazyTranslateRef.current.has(idx)) return
     lazyTranslateRef.current.add(idx)
     const gen = scanGenRef.current
@@ -4638,7 +4656,8 @@ Rules for this audit:
         : `practical example or scenario illustrating this concept`,
     }
     const fieldRequests = []
-    Object.entries(fmt.fields).forEach(([field, enabled]) => {
+    // A mode config with no field map (damaged, or written by hand) failed every card with "Cannot convert undefined or null to object".
+    Object.entries(fmt.fields && typeof fmt.fields === 'object' ? fmt.fields : {}).forEach(([field, enabled]) => {
       if (!enabled) return
       const hint = fieldDescriptions[field] || `${field} - provide relevant content for this field`
       fieldRequests.push(`"${field}": ${hint}`)
@@ -6878,7 +6897,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       for (let i = 0; i < ids.length; i += 500) {
         for (const n of await srs.notesInfo(ids.slice(i, i + 500))) {
           const first = Object.values(n.fields).sort((a, b) => a.order - b.order)[0]
-          for (const form of headwordForms(stripHtml(first?.value || ''))) all.add(termFold(form))
+          for (const k of termKeys(stripHtml(first?.value || ''))) all.add(k) // articles, slashes, punctuation: src/discover/dupes.js
         }
         if (!live()) return
       }
@@ -7110,18 +7129,19 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       const text = await aiCall(apiKey, 'You suggest new study items. Always respond with valid JSON only.', prompt, resolveModel('discover'))
       let suggestion = parseAiJson(text)
       if (!live()) return
-      // Text fields as TEXT: an object ("translation": {"en": ...}) rendered raw threw "Objects are not
-      // valid as a React child" and blanked the app. Same after the verify pass below.
-      const asText = (v) => (v == null ? '' : typeof v === 'string' ? v : Array.isArray(v) ? v.map(asText).filter(Boolean).join(', ') : typeof v === 'object' ? asText(Object.values(v).find((x) => typeof x === 'string') ?? '') : String(v))
-      const textify = (sg) => (sg && typeof sg === 'object' && !Array.isArray(sg)
-        ? { ...sg, ...Object.fromEntries(['term', 'translation', 'draftMeaning', 'why', 'partOfSpeech', 'difficulty'].map((k) => [k, asText(sg[k]).trim()])) }
-        : null)
+      // Text fields as TEXT, a list or wrapped reply read as its first item (src/discover/suggestion.js).
+      // Same after the verify pass below.
+      const asText = suggestionText
+      const textify = shapeSuggestion
       suggestion = textify(suggestion)
       if (!suggestion?.term) throw new Error(tLiveRef.current('d_errUnusable'))
       // Already a card in this deck (the prompt only lists a sample of existing fronts): record it as
       // offered so it is never suggested again, and ask for another. Twice at most, then show it.
-      const termKey = termFold(headwordForms(String(suggestion.term))[0] || suggestion.term)
-      const inLedger = discoverExcludeList(discoverLedgerRef.current || ledger).some((x) => termFold(headwordForms(String(x))[0] || x) === termKey)
+      // Keys, not one folded string (src/discover/dupes.js): a deck card "el perro" is the suggestion "perro",
+      // "niño/a" covers "niña", "¡Hola!" is "hola". Only the FIRST slash form was compared before, and the deck set
+      // held "a" for "niño/a" but never "niña".
+      const inLedger = termIn(suggestion.term, termIndex(discoverExcludeList(discoverLedgerRef.current || ledger)))
+      const inDeck = termIn(suggestion.term, discoverAllFrontsRef.current)
       // A term the user marked known or skipped is excluded FOREVER. The prompt carries only the newest
       // part of a big ledger, so the model can land on an older one repeatedly; after the retries it
       // was shown anyway. Now it never is: the user gets a "try again" message instead.
@@ -7129,12 +7149,12 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       // ("offered", passed over with Next) may come back, as it did before. Blocking those too gave "only
       // repeats" on every big ledger.
       const cur = discoverLedgerRef.current || ledger || {}
-      const hardExcluded = discoverAllFrontsRef.current.has(termKey) || (discoverDeckTermsRef.current || []).some((x) => termFold(headwordForms(String(x))[0] || x) === termKey) || ['known', 'declined', 'carded'].some((k) => (cur[k] || []).some((x) => termFold(headwordForms(String(x?.term ?? x))[0] || (x?.term ?? x)) === termKey))
+      const hardExcluded = inDeck || termIn(suggestion.term, termIndex([...(discoverDeckTermsRef.current || []), ...['known', 'declined', 'carded'].flatMap((k) => (Array.isArray(cur[k]) ? cur[k] : []))]))
       if (dupRetry >= 2 && hardExcluded) {
         if (live()) setDiscoverError(t('d_errOnlyRepeats'))
         return
       }
-      if (dupRetry < 2 && (discoverAllFrontsRef.current.has(termKey) || inLedger)) {
+      if (dupRetry < 2 && (inDeck || inLedger)) {
         const ledgerNow = ledgerArg || discoverLedger
         const liveNow = discoverLedgerRef.current || ledgerNow
         const skipLedger = { ...liveNow, offered: [...new Set([...(liveNow.offered || []), ...(ledgerNow.offered || []), suggestion.term])] }
@@ -11470,8 +11490,7 @@ Your output keeps: the same method, the same language (${explainLang}), the same
   const foldHookWord = (s) => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
   // Accents kept (case folded): "té" and "te" are different words, and one key showed the hooks of one on the
   // other's card. (An accentless word keeps exactly its old key.)
-  // Discover's term identity keeps accents: folded, "té" counted as the card "te" and a known "papa" blocked "papá" forever.
-  const termFold = (s) => String(s).normalize('NFC').toLowerCase().trim()
+  // (Discover's term identity, accents kept, lives in src/discover/dupes.js.)
   const wordHookKey = (w) => 'word:' + String(w).normalize('NFC').toLowerCase().trim()
   // "cálido/cálida (adjetivo)" → ['cálido', 'cálida'] — the headword forms a tapped word matches
   const headwordForms = (front) => String(front || '').replace(/\s*\([^)]*\)\s*$/, '').split('/').map((f) => f.trim()).filter(Boolean)
@@ -13408,6 +13427,11 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, activeModeId, apiKey])
 
+  // A reply's <anki-card> widgets (a normal send and an accepted web search): shaped as text, usage tags through
+  // their funnel in language modes only (see generateCards).
+  const chatReplyCards = (text) => [...String(text || '').matchAll(/<anki-card>(.*?)<\/anki-card>/gs)]
+    .map((m) => parseAiObject(m[1])).filter((c) => c && (c.front || c.back)).map(normalizeChatCard)
+    .map((c) => (activeMode.type === 'language' && Array.isArray(c.tags) && c.tags.length ? { ...c, tags: foldUsageTags(c.tags) } : c))
   const sendChatTabMessage = async () => {
     const q = chatTabInput.trim()
     const photoPending = chatImagePendingRef.current > 0
@@ -13571,9 +13595,7 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       const text = await aiCall(apiKey, systemPrompt, convo, resolveModel('chat'), imageParts.length ? { images: imageParts } : undefined)
 
       // Parse anki cards from response
-      const cardMatches = [...text.matchAll(/<anki-card>(.*?)<\/anki-card>/gs)]
-      const parsedCards = cardMatches.map(m => parseAiObject(m[1])).filter((c) => c && (c.front || c.back)).map(normalizeChatCard)
-        .map((c) => (activeMode.type === 'language' && Array.isArray(c.tags) && c.tags.length ? { ...c, tags: foldUsageTags(c.tags) } : c)) // usage-tag funnel, language modes only (see generateCards)
+      const parsedCards = chatReplyCards(text)
 
       // Parse progress updates — the write target is the attached deck, or the mode's own deck
       // when nothing is attached (so casual chat can still teach Ebi durable facts).
@@ -13688,16 +13710,18 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
           ? `You are Ebi. A web search for "${query}" could not be run right now (the search service did not answer). Briefly tell the user the search did not work, then answer from your own knowledge if you can, saying it is not verified. Never use em-dashes (—).`
           : `You are Ebi. A web search for "${query}" returned nothing. Briefly tell the user you couldn't find it. Never use em-dashes (—).`
       const convo = boundChatHistory(baseMsgs) // same cap as a normal send: a long chat failed every search
-      const text = stripDashes(await aiCall(apiKey, sys, convo, resolveModel('chat'), { maxTokens: 1500 }) || '').replace(/[🦐🦞🦀]️?/gu, '')
+      const text = String(await aiCall(apiKey, sys, convo, resolveModel('chat'), { maxTokens: 1500 }) || '')
       const sm = text.match(/<sources>([\s\S]*?)<\/sources>/)
       let sources = results.length ? results.map((r) => ({ title: r.title, url: r.url })) : null
       if (sm) {
         sources = keepRealSources(parseCitedSources(sm[1]), results)
       }
-      const clean = text.replace(/<sources>[\s\S]*?<\/sources>/g, '').replace(/<sources>[\s\S]*$/, '')
-        .replace(/[🦐🦞🦀]️?/gu, '').trim() // same hard rule as every other Ebi reply: no shrimp emoji
+      // The same cleanup as a normal reply (utils/chatReply): only <sources> came out here, so a card, a progress
+      // note or another search offer in the answer showed as raw JSON and tag text, and stripDashes joined lines.
+      const clean = cleanChatReply(text)
+      const cards = chatReplyCards(text) // the question was often "make a card for X": its card is a widget, as in a normal reply
       const poseF = await choosePose(clean)
-      const msg = { role: 'assistant', content: clean, mascot: poseF || pickShrimp(clean), sources: sources || undefined }
+      const msg = { role: 'assistant', content: clean, mascot: poseF || pickShrimp(clean), cards: cards.length ? cards : undefined, sources: sources || undefined }
       // The LIVE list, not the copy taken before the search: a card added meanwhile ("+ Add to Anki"
       // stays enabled) lost its added flag, so it offered Add again and made a duplicate note.
       const liveMsgs = (chatTabMsgsRef.current || baseMsgs).map((m, i) => (i === msgIdx ? { ...m, offerSearch: undefined } : m))
@@ -13799,7 +13823,8 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
     // An image-only first message is the internal "(image)" marker, and "Untitled" was English: with keepTitle
     // either one stayed the chat's name for good, in every language.
     const first = msgs[0]?.content
-    const chatTitle = title || (first && first !== '(image)' ? first.slice(0, 40) : t(first === '(image)' ? 'chat_imageTitle' : 'chat_untitled'))
+    // One line (chatTitleText): a multi-line first message (Shift+Enter, pasted code) put its line breaks in the title.
+    const chatTitle = title || chatTitleText(first) || t(first === '(image)' ? 'chat_imageTitle' : 'chat_untitled')
     chatLastSaveOkRef.current = false
     try {
       const res = await apiFetch('/api/chats', {
@@ -14525,7 +14550,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                 Anki folder, and a dead end is worse than a redundant button. The
                 script itself is idempotent: it never overwrites an add-on that is
                 already there, it reports it. */}
-            {a?.canInstall && addonState !== 'done' && state !== 'setup' && state !== 'waiting' && state !== 'launcherStuck' && (
+            {a?.canInstall && addonState !== 'done' && state !== 'setup' && state !== 'waiting' && state !== 'launcherStuck' && state !== 'notRunning' && (
               <button className="btn-press" onClick={installAnkiAddon} style={btn}>
                 {state === 'missing' ? t('ankiAddonInstall') : t('ankiAddonRepair')}
               </button>
@@ -15216,7 +15241,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
           t={t}
           // A first run stamps the daily model check: onboarding already adopted the newest models, and the
           // poll asked the brand-new user "a newer model is available?" when the adoption had run out of retries.
-          onFinish={() => { if (!onboarded) setLastModelCheck(Date.now()); setOnboarded(true); setRerunSetup(false) }}
+          onFinish={() => { if (!onboarded) { setLastModelCheck(Date.now()); setActiveTab('study') } setOnboarded(true); setRerunSetup(false) }}
           onClose={rerunSetup ? () => setRerunSetup(false) : null}
           appLanguage={appLanguage} setAppLanguage={setAppLanguage}
           appTheme={appTheme} setAppTheme={setAppTheme}
@@ -16346,14 +16371,16 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
 
       {/* ── Chat Tab ─────────────────────────────────────────────────────────── */}
       {activeTab === 'chat' && (
-        <main style={{ ...S.main, display: 'flex', padding: 0, overflow: 'hidden', containerType: 'inline-size', containerName: 'chmain' }}>
+        // Phone width: the chat list is a strip ABOVE the conversation (ch-phone CSS). As a side column it took a third of the
+        // screen: Ebi's reply wrapped one word per line and the composer's text box was narrower than a word.
+        <main className={isPhoneWidth(viewportW) ? 'ch-phone' : undefined} style={{ ...S.main, display: 'flex', padding: 0, overflow: 'hidden', containerType: 'inline-size', containerName: 'chmain' }}>
           {/* Session sidebar (width in CSS: `.ch-list` narrows on small windows, else Send ran past the composer) */}
           <div className="ch-list" style={{ borderRight: '1px solid var(--c-border)', display: 'flex', flexDirection: 'column', flexShrink: 0, background: 'color-mix(in srgb, var(--c-surface) 55%, transparent)' }}>
             {/* Second pass: a slim drawer. New chat is a quiet full-width row (the composer is the primary action). */}
             <button onClick={chatTabNewChat} className="ui-btn ch-new" style={{ ...S.ghostBtn, margin: '14px 12px 10px', borderRadius: 12, fontSize: 13, padding: '10px 12px', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 8, color: 'var(--c-ink)', boxShadow: 'var(--sh-sm)' }}>
               {t('newChat')}
             </button>
-            <div style={{ flex: 1, overflow: 'auto', padding: '0 10px 10px' }}>
+            <div className="ch-sessions" style={{ flex: 1, overflow: 'auto', padding: '0 10px 10px' }}>
               {chatTabSessions.map(s => (
                 // The row stays mouse-clickable anywhere; keyboard and screen readers reach the chat through the title BUTTON
                 // (a role=button row holding the delete button was nested-interactive).
@@ -16578,7 +16605,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                   <button onClick={() => setChatTabImage(null)} style={{ ...S.ghostBtn, fontSize: 10 }}>{t('removeImage')}</button>
                 </div>
               )}
-              <div className="ch-composer" data-composer="" style={{ display: 'flex', gap: 6, alignItems: 'center', position: 'relative' }}>
+              <div className="ch-composer" data-composer="" style={{ display: 'flex', gap: 6, alignItems: 'flex-end', position: 'relative' }}>
                 <input ref={chatImageInputRef} type="file" accept="image/*" style={{ display: 'none' }}
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) attachChatImageFile(f); e.target.value = ''; setChatPlusOpen(false) }} />
                 {/* "+" learning-focused options menu */}
@@ -16590,7 +16617,8 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                   const labelStyle = { fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--c-ink-dim)', padding: '6px 8px 2px' }
                   const selStyle = { ...S.select, fontSize: 11, padding: '5px 6px', margin: '0 6px' }
                   return (
-                    <div className="ui-pop" style={{ position: 'absolute', bottom: 'calc(100% + 10px)', left: 0, width: 250, background: 'var(--c-surface-raised)', border: '1px solid var(--c-border)', borderRadius: 16, boxShadow: SHADOW.lg, padding: 8, zIndex: 50, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    // Capped to the window (it scrolls): at zoom 2 its top, with Attach photo and Web search, ran off the screen.
+                    <div className="ui-pop" style={{ position: 'absolute', bottom: 'calc(100% + 10px)', left: 0, width: 250, maxWidth: 'calc(100vw / var(--app-zoom, 1) - 32px)', maxHeight: 'calc(100vh / var(--app-zoom, 1) - 190px)', overflowY: 'auto', boxSizing: 'border-box', background: 'var(--c-surface-raised)', border: '1px solid var(--c-border)', borderRadius: 16, boxShadow: SHADOW.lg, padding: 8, zIndex: 50, display: 'flex', flexDirection: 'column', gap: 2 }}>
                       <button onClick={() => chatImageInputRef.current?.click()} style={itemStyle}>📷 {t('chatMenu_attachPhoto')}</button>
                       <button onClick={() => setChatTabWebSearch((v) => !v)} style={itemStyle}>🌐 {t('chatMenu_webSearch')} {chatTabWebSearch ? '✓' : ''}</button>
                       {/* Entries contributed by features (chatMenuItems slot), e.g. Roleplay. */}
@@ -16655,13 +16683,16 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                     transition: 'all 0.15s',
                   }}
                 >&#127760;</button>
-                <input
+                {/* A textarea (one row, grows with its text; see the layout effect by chatTabInputRef): as an <input>,
+                    Shift+Enter did nothing and pasted code or a pasted paragraph lost every line break. */}
+                <textarea
                   ref={chatTabInputRef}
+                  rows={1}
                   value={chatTabInput}
                   onChange={(e) => setChatTabInput(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e) && !e.shiftKey) { e.preventDefault(); sendChatTabMessage() } }}
                   placeholder={chatTabWebSearch ? t('chat_searchAndAsk') : t('chat_placeholder')}
-                  style={{ ...S.keyInput, flex: 1, minWidth: 0, fontSize: 15, padding: '10px 8px' }}
+                  style={{ ...S.keyInput, flex: 1, minWidth: 0, fontSize: 15, padding: '10px 8px', resize: 'none', lineHeight: 1.4, maxHeight: CHAT_INPUT_MAX_H, overflowY: 'auto', boxSizing: 'border-box', display: 'block' }}
                 />
                 <button
                   onClick={sendChatTabMessage}
@@ -17790,7 +17821,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
               <img src={shrimpUrl(poseFile('camera'))} alt="Ebi" style={{ width: 'clamp(56px, calc(16vh / var(--app-zoom, 1)), 120px)', height: 'clamp(56px, calc(16vh / var(--app-zoom, 1)), 120px)', objectFit: 'contain', marginBottom: 6 }} />
               <h2 className="ui-page-title" style={{ fontSize: 34, marginBottom: 10 }}>{t('pic_emptyTitle')}</h2>
               <p style={{ ...S.emptyDesc, margin: '0 auto' }}>
-                {t('pic_emptyDescPre')}<kbd className="ui-kbd" style={{ verticalAlign: 'middle', margin: '0 2px' }}>Alt+Q</kbd>{t('pic_emptyDescPost', { provider: providerConfig.label })}
+                {t('pic_emptyDescPre')}<kbd className="ui-kbd" style={{ verticalAlign: 'middle', margin: '0 2px' }}>Alt+Q</kbd>{t(activeMode.type === 'language' ? 'pic_emptyDescPost' : 'pic_emptyDescPostGeneral', { provider: providerConfig.label })}
               </p>
               <div className="pc-methods">
                 <div onClick={captureScreen} className="pc-method ui-lift" role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); captureScreen() } }}
@@ -17928,16 +17959,27 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
             {stage === 'done' && !isOverlay && (
               <div style={S.stats}>
                 <span style={S.stat}>{t(ocrWords.length === 1 ? 'pic_wordsOne' : 'pic_words', { n: ocrWords.length })}</span>
-                <span style={{ ...S.stat, color: 'var(--c-purple)' }}>
+                {/* With no key nothing was translated: "to translate" / "your language" would be guesses. */}
+                {!!apiKey && <span style={{ ...S.stat, color: 'var(--c-purple)' }}>
                   {/* Not the global source setting's English name ("12 Detect Language"; a language mode reads its own language) */}
                   {t('pic_toTranslate', { n: ocrWords.filter((w) => !w.isEnglish).length })}
-                </span>
-                <span style={{ ...S.stat, color: 'var(--c-success)' }}>
+                </span>}
+                {!!apiKey && <span style={{ ...S.stat, color: 'var(--c-success)' }}>
                   {t('pic_ownWords', { n: ocrWords.filter((w) => w.isEnglish).length })}
-                </span>
-                <span style={S.stat}>
+                </span>}
+                {ocrWords.length > 0 && <span style={S.stat}>
                   {t('pic_avgConfidence', { n: Math.round(ocrWords.reduce((a, w) => a + w.confidence, 0) / ocrWords.length) })}
-                </span>
+                </span>}
+              </div>
+            )}
+            {/* A keyless scan (local OCR): a gentle way to meanings, never a dead end. */}
+            {stage === 'done' && !isOverlay && !apiKey && ocrWords.length > 0 && (
+              <div data-nokey-hint="true" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 8, marginTop: 8, fontSize: 12, color: 'var(--c-ink-dim)' }}>
+                <span>{t('pic_noKeyHint', { provider: providerConfig.label })}</span>
+                <button onClick={() => { setSettingsCategory('models'); setSettingsOpen(true) }}
+                  style={{ ...S.ghostBtn, fontSize: 11, color: 'var(--c-brand)', borderColor: 'color-mix(in srgb, var(--c-brand) 30%, transparent)' }}>
+                  {t('pic_noKeyAdd')}
+                </button>
               </div>
             )}
 
@@ -18075,7 +18117,9 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
             </div>
           </div>
           {(activeWord.translation || activeWord._untranslated) && (
-            <div style={S.ttTrans}>→ {activeWord.translation || (activeWord._untranslated ? t('loading') : '')}</div>
+            activeWord._untranslated && !activeWord.translation && !apiKey
+              ? <div style={{ fontSize: 12, color: 'var(--c-ink-dim)', marginBottom: 6 }}>{t('pic_noKeyMeaning')}</div>
+              : <div style={S.ttTrans}>→ {activeWord.translation || (activeWord._untranslated ? t('loading') : '')}</div>
           )}
           {/* In-context meaning (green) + other senses (purple), like the Study legend */}
           {activeWord.sense && (
@@ -18113,7 +18157,14 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
             <div style={S.ttActions}>
               {/* Primary button row — always visible when pinned */}
               <div style={S.ttBtnRow}>
-                {!explanation && (
+                {/* No key: Explain and Make card need the AI. One way forward instead (the overlay never opens Settings). */}
+                {!apiKey && !isOverlay && (
+                  <button onClick={() => { dismissPin(); setSettingsCategory('models'); setSettingsOpen(true) }}
+                    style={{ ...S.ghostBtn, fontSize: 11, color: 'var(--c-brand)', borderColor: 'color-mix(in srgb, var(--c-brand) 30%, transparent)' }}>
+                    {t('pic_noKeyAdd')}
+                  </button>
+                )}
+                {apiKey && !explanation && (
                   <button
                     onClick={() => autoExplain(activeWord)}
                     disabled={explaining}
@@ -18122,7 +18173,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                     {explaining ? t('pic_thinking') : t('pic_explain')}
                   </button>
                 )}
-                {!ankiCard && !ankiSynced[activeIdx] && (
+                {apiKey && !ankiCard && !ankiSynced[activeIdx] && (
                   <button
                     onClick={() => generateAnkiCard(activeWord)}
                     // Not before the word is translated (language modes): without it a word in the user's OWN
@@ -18600,6 +18651,13 @@ ${PALETTE_CSS}
         .ch-list { width: clamp(168px, 24%, 240px); }
         @container chmain (max-width: 640px) { .ch-list { width: 128px; } .ch-new { margin: 10px 8px 8px !important; padding: 8px 6px !important; font-size: 12px !important; } }
         @container chmain (max-width: 440px) { .ch-list { width: 100px; } }
+        /* Phones: the chat list is a scrolling strip above the conversation (see the Chat <main>). */
+        .ch-phone { flex-direction: column; }
+        .ch-phone > :last-child { min-height: 0; } /* the conversation scrolls inside the screen, not past it */
+        .ch-phone .ch-list { width: auto !important; flex-direction: row !important; align-items: center; border-right: none !important; border-bottom: 1px solid var(--c-border); }
+        .ch-phone .ch-new { flex: none; margin: 6px 4px 6px 8px !important; padding: 7px 10px !important; font-size: 12px !important; }
+        .ch-phone .ch-sessions { display: flex; gap: 4px; overflow-x: auto; overflow-y: hidden; padding: 6px 8px 6px 2px !important; }
+        .ch-phone .chat-session { flex: none; max-width: 150px; margin-bottom: 0 !important; }
         @container chcol (max-width: 330px) { .ch-globe { display: none; } .ch-send { padding: 11px 12px !important; } }
         /* Settings: below this width the sidebar folds to icons (labels stay for screen readers). */
         .set-side { width: 220px; }
@@ -18610,7 +18668,9 @@ ${PALETTE_CSS}
           .set-content { padding: 4px 14px 22px !important; }
         }
         .ch-composer:focus-within { border-color: color-mix(in srgb, var(--c-brand) 45%, var(--c-border)); }
-        .ch-composer textarea, .ch-composer input:not([type="file"]) { border-color: transparent !important; background: transparent !important; box-shadow: none !important; }
+        /* :focus too: the global input:focus ring (later in this sheet) drew a second red box inside the composer's own focus border. */
+        .ch-composer textarea, .ch-composer input:not([type="file"]), .ch-composer textarea:focus, .ch-composer input:not([type="file"]):focus { border-color: transparent !important; background: transparent !important; box-shadow: none !important; }
+        .ch-composer textarea::placeholder { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         /* Deck: one list, hairline rows. */
         .dk-list { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 20px; box-shadow: var(--sh-card); overflow: hidden; }
@@ -18628,6 +18688,8 @@ ${PALETTE_CSS}
         .dc-stack::before { left: 16px; right: 16px; top: 12px; bottom: -10px; opacity: .75; box-shadow: var(--sh-sm); }
         .dc-stack::after { left: 34px; right: 34px; top: 24px; bottom: -20px; opacity: .45; }
         .dc-card { position: relative; z-index: 1; border-radius: 26px; padding: 28px 30px 22px; background: var(--c-surface); border: 1px solid var(--c-border); box-shadow: var(--sh-lg); animation: uiPop .28s var(--ease-out) both; }
+        /* Phones: the 30px sides left the suggestion and its card editor a sliver at a large zoom. */
+        @media (max-width: 560px) { .dc-card { padding: 18px 14px 16px; border-radius: 20px; } .dc-stack::before { left: 10px; right: 10px; } .dc-stack::after { left: 20px; right: 20px; } }
         /* Picture (idle): a drop zone with three ways in. */
         .pc-drop { width: 100%; max-width: 760px; box-sizing: border-box; padding: 34px 32px 30px; border-radius: 30px; text-align: center;
           border: 2px dashed var(--c-border-strong); background: color-mix(in srgb, var(--c-surface) 70%, transparent); }
@@ -18823,7 +18885,9 @@ ${PALETTE_CSS}
         .chip:hover .chip-inner { transform: translateY(-1px); }
 
         /* Rendered markdown (chat + help messages). Themed via CSS vars so it flips with the theme. */
-        .md-body { color: var(--c-ink); word-break: break-word; }
+        /* contain: paint keeps a reply's own inline styles inside its bubble: "position: relative; top: -400px;
+           z-index: 99999" or a transform drew a fake message or a red sheet over the rest of the chat. */
+        .md-body { color: var(--c-ink); word-break: break-word; contain: paint; }
         .md-body > :first-child { margin-top: 0; }
         .md-body > :last-child { margin-bottom: 0; }
         .md-body p { margin: 0 0 8px; }

@@ -21,6 +21,31 @@ export function actionOf(bodyStr) {
   try { const a = JSON.parse(bodyStr); return a && typeof a === 'object' && typeof a.action === 'string' ? a.action : '' } catch { return '' }
 }
 
+// AnkiConnect actions that reach OUTSIDE Anki's collection: they read or write any path on this computer
+// (importPackage, exportPackage, guiImportFile) or make Anki fetch a file path or URL into its media folder
+// (storeMediaFile with `path` or `url`). Ebiki never sends them (media goes in as base64 `data`), so the proxy refuses
+// them, also inside a `multi`: any script running in the app's origin (an injected reply, a shared deck's markup that
+// slipped past the sanitizer) could otherwise read local files through Anki or reach other hosts from it.
+const OUTSIDE_ACTIONS = new Set(['importpackage', 'exportpackage', 'guiimportfile'])
+export function refusedAnkiAction(bodyStr) {
+  let parsed
+  try { parsed = typeof bodyStr === 'string' ? JSON.parse(bodyStr) : bodyStr } catch { return '' }
+  const check = (req, depth) => {
+    if (!req || typeof req !== 'object') return ''
+    const action = typeof req.action === 'string' ? req.action : ''
+    const a = action.toLowerCase()
+    const params = req.params && typeof req.params === 'object' ? req.params : {}
+    if (OUTSIDE_ACTIONS.has(a)) return action
+    if (a === 'storemediafile' && (params.path != null || params.url != null)) return action
+    if (a === 'multi' && Array.isArray(params.actions)) {
+      if (depth > 4) return action
+      for (const inner of params.actions) { const hit = check(inner, depth + 1); if (hit) return hit }
+    }
+    return ''
+  }
+  return check(parsed, 0)
+}
+
 // The { code, error } reply for a request that failed before Anki answered.
 export function ankiProxyError(err, action) {
   const timedOut = /timed out/.test(String((err && err.message) || ''))
@@ -40,6 +65,13 @@ export function createAnkiProxy({ request, hostname = '127.0.0.1', port = 8765, 
       res.end(typeof obj === 'string' ? obj : JSON.stringify(obj))
     }
     const forward = (bodyStr) => {
+      const refused = refusedAnkiAction(bodyStr)
+      if (refused) {
+        log.log('[Anki proxy] refused an action that reaches outside the collection:', refused)
+        res.statusCode = 403
+        answer({ code: 'refused', error: `Ebiki does not send "${refused}" to Anki.` })
+        return
+      }
       log.log('[Anki proxy] forwarding:', bodyStr.substring(0, 200))
       const action = actionOf(bodyStr)
       let ankiReq

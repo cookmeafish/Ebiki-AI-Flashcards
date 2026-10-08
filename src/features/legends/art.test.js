@@ -6,7 +6,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { MOTIFS } from './map'
 import { RAID_MOTIFS } from './raid'
-import { artUrl, artVars, ORIGINAL_PALETTE, REALISTIC_ART, idTemplate, withIds, withPhotoEye, PHOTO_EYE_URL, PHOTO_SPRITES } from './art'
+import { artUrl, artVars, ORIGINAL_PALETTE, REALISTIC_ART, idTemplate, withIds, withPhotoEye, PHOTO_EYE_URL, PHOTO_SPRITES, PHOTO_CELL_URLS, photoCellUrl } from './art'
 
 const PUBLIC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../public')
 const read = (url) => fs.readFileSync(path.join(PUBLIC, url), 'utf8')
@@ -121,18 +121,22 @@ describe('Legends art files', () => {
     expect(Object.keys(PHOTO_SPRITES)).toHaveLength(5)
     expect(PHOTO_EYE_URL).toBe(urls[0])
     for (const u of urls) expect(fs.existsSync(path.join(PUBLIC, u)), u).toBe(true)
+    // every cell the drawing uses is its own file (never a nested <svg viewBox> window onto a sheet)
+    expect(PHOTO_CELL_URLS).toHaveLength(26)
+    for (const u of PHOTO_CELL_URLS) expect(fs.existsSync(path.join(PUBLIC, u)), u).toBe(true)
     const marked = '<svg><g class="lg-photo-ball"></g><g class="lg-photo-iris3"></g><circle class="lg-photo-hide"></circle>' +
       '<g class="lg-photo-hide lg-pwh-3"></g><g class="lg-photo-wing lg-pw-2" transform="scale(2 1)"></g>' +
       '<g class="lg-photo-cloud lg-pc-3" transform="translate(1 2)"></g></svg>'
     const out = withPhotoEye(marked, artUrl('raids', 'ophanim'))
     // eye 2, a wing twice (white for phases 1 and 2, warm for phase 3), the cloud once
     expect(out.match(/<image /g)).toHaveLength(5)
-    expect([...out.matchAll(/href="([^"]*)"/g)].map((m) => m[1])).toEqual([urls[0], urls[0], urls[1], urls[1], urls[2]])
+    expect([...out.matchAll(/href="([^"]*)"/g)].map((m) => m[1])).toEqual([photoCellUrl('eye', 0), photoCellUrl('eye', 3), photoCellUrl('wings', 2), photoCellUrl('wings', 6), photoCellUrl('cloud', 3)])
+    expect(out).not.toMatch(/<svg x=|viewBox="d/)
     expect(out).toContain('class="lg-photo-hide" style="display:none"')
     expect(out).toContain('class="lg-photo-hide lg-pwh-3" style="display:none"')
     expect(out).toContain('<g class="lg-photo-wing" transform="scale(2 1)"><g class="lg-p12">')
-    expect(out).toContain('<g class="lg-p3" style="display:none"><svg x="0" y="0" width="1" height="1" viewBox="1280 240 640 240"')
-    expect(out).toContain('<g class="lg-photo-cloud" transform="translate(1 2)"><svg x="0" y="0" width="1" height="1" viewBox="640 240 640 240"')
+    expect(out).toContain(`<g class="lg-p3" style="display:none"><image href="${photoCellUrl('wings', 6)}" x="0" y="0" width="1" height="1" preserveAspectRatio="none"/>`)
+    expect(out).toContain(`<g class="lg-photo-cloud" transform="translate(1 2)"><image href="${photoCellUrl('cloud', 3)}" x="0" y="0" width="1" height="1"`)
     // Any other drawing, even one carrying the same marks, is left exactly as it was.
     expect(withPhotoEye(marked, artUrl('raids', 'seraph'))).toBe(marked)
     // The file itself never holds an image or a URL; it only marks the places.
@@ -150,7 +154,7 @@ describe('Legends art files', () => {
     expect(svg.match(/class="lg-photo-hide"/g).length).toBeGreaterThan(60)
     const injected = withPhotoEye(svg, artUrl('raids', 'ophanim'))
     expect(injected).not.toMatch(/<g class="lg-photo-(wing|cloud|ring|light)[^"]*"[^>]*><\/g>/) // every marker filled
-    for (const m of injected.matchAll(/<image [^>]*href="([^"]*)"/g)) expect(urls).toContain(m[1])
+    for (const m of injected.matchAll(/<image [^>]*href="([^"]*)"/g)) expect(PHOTO_CELL_URLS).toContain(m[1])
   })
   it('names a real file for an unknown motif', () => {
     expect(artUrl('areas', 'atlantis')).toBe(artUrl('areas', MOTIFS[0]))

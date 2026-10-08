@@ -9,6 +9,16 @@
 // Pure of the dev server: the caller passes the data-folder helpers, so tests run it on a temp folder.
 import { TOC_NAME_RE, extractOutline, sliceSections } from './knowledgeOutline.js'
 
+// The stored name of an uploaded knowledge file. Characters no file system takes are dropped, control characters too
+// (a newline made a file Windows lists but cannot open). A Windows DEVICE name before the first dot ("con.txt",
+// "nul.md", "com1.txt", superscript digits too) is no file on Windows 10 and older: the write went to the device,
+// answered "saved", and the upload was gone (on a share, for every computer). It is stored as "con_.txt" instead,
+// on every system, so computers sharing a folder agree on the name.
+const WIN_DEVICE_STEM = /^(con|prn|aux|nul|conin\$|conout\$|com[1-9¹²³]|lpt[1-9¹²³])(?=\s*(\.|$))/i
+export function knowledgeFileName(name) {
+  return String(name || 'file.txt').replace(/[<>:"/\\|?*\u0000-\u001f\u007f]/g, '').replace(WIN_DEVICE_STEM, '$1_')
+}
+
 export function createKnowledgeRoutes({ dataPath, modeFolderForName, readUtf8, writeFileAtomic, fs, path }) {
   const readKnowledgeFiles = (knowledgeDir) => {
     if (!fs.existsSync(knowledgeDir)) return []
@@ -35,7 +45,12 @@ export function createKnowledgeRoutes({ dataPath, modeFolderForName, readUtf8, w
       const outline = extractOutline(all)
       const content = sliceSections(all.filter((f) => !TOC_NAME_RE.test(f.name)), outline, ids, cap)
       res.end(JSON.stringify({ content, titles: ids.map((i) => outline[i]?.title).filter(Boolean) }))
-    } catch (e) { res.end(JSON.stringify({ content: '', titles: [], error: e.message })) }
+    } catch (e) {
+      // A read that FAILED is not "nothing in these sections": a 500, with the same body shape (the client's fallback
+      // to the outline is unchanged).
+      res.statusCode = 500
+      res.end(JSON.stringify({ content: '', titles: [], error: e.message }))
+    }
   }
 
   const knowledge = (req, res) => {
@@ -85,11 +100,17 @@ export function createKnowledgeRoutes({ dataPath, modeFolderForName, readUtf8, w
     } else if (req.method === 'POST') {
       const handleBody = (bodyStr) => {
         try {
-          if (!fs.existsSync(knowledgeDir)) fs.mkdirSync(knowledgeDir, { recursive: true })
-          const { filename, content, replace } = JSON.parse(bodyStr)
-          const safeName = (filename || 'file.txt').replace(/[<>:"/\\|?*]/g, '')
+          const body = JSON.parse(bodyStr)
+          if (!body || typeof body !== 'object' || Array.isArray(body)) throw new Error('upload object required')
+          const { filename, content, replace } = body
+          // Only text: a missing content was refused only by the file system's own type check, deep in the write.
+          if (typeof content !== 'string') throw new Error('content required')
+          if (filename !== undefined && filename !== null && typeof filename !== 'string') throw new Error('bad file name')
+          const safeName = knowledgeFileName(filename)
           // Only what GET will list back (.txt/.md), never "." / ".." (the folder itself).
           if (!/\.(txt|md)$/i.test(safeName) || /^\.+$/.test(safeName)) throw new Error('only .txt, .md or .pdf files can be added')
+          // Made only for a valid upload: a refused one (bad JSON, wrong type) left an empty knowledge folder behind.
+          if (!fs.existsSync(knowledgeDir)) fs.mkdirSync(knowledgeDir, { recursive: true })
           // A file of that name (any case: one file on Windows/macOS), on or switched off, is replaced
           // only when the client says so: "Book.pdf" is stored as book.txt and silently overwrote the
           // user's own book.txt.

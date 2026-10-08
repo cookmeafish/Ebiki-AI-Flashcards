@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { preprocessPixels, filterTessWords, dedupeOcrWords, tidyOcrWords, fitCjkBox } from './ocr'
+import { preprocessPixels, filterTessWords, dedupeOcrWords, tidyOcrWords, fitCjkBox, untranslatedOcrWords } from './ocr'
 
 const box = (x0, y0, x1, y1) => ({ x0, y0, x1, y1 })
 const tw = (text, b, confidence = 90) => ({ text, bbox: b, confidence })
@@ -109,5 +109,18 @@ describe('fitCjkBox', () => {
   it('applies inside filterTessWords and tidyOcrWords', () => {
     expect(filterTessWords([tw('天気', box(134, 46, 363, 76))], { realW: 900, realH: 300 })[0].bbox.x1).toBe(200)
     expect(tidyOcrWords([tw('天気。', box(134, 46, 363, 76))])[0].bbox.x1).toBe(200)
+  })
+})
+
+describe('untranslatedOcrWords', () => {
+  it('keeps text, box and confidence and marks every word untranslated', () => {
+    const out = untranslatedOcrWords([tw(' perro ', box(0, 0, 10, 10), 88), tw('gato', box(12, 0, 20, 10))])
+    expect(out.map((w) => w.text)).toEqual(['perro', 'gato'])
+    expect(out[0]).toMatchObject({ bbox: box(0, 0, 10, 10), confidence: 88, _untranslated: true, translation: '', isEnglish: false, _globalIdx: 0 })
+    expect(out[1]._globalIdx).toBe(1)
+  })
+  it('drops empty or boxless reads and tolerates junk input', () => {
+    expect(untranslatedOcrWords([tw('  ', box(0, 0, 1, 1)), { text: 'x' }, null])).toEqual([])
+    expect(untranslatedOcrWords(null)).toEqual([])
   })
 })

@@ -26,7 +26,7 @@ import { PASS } from './map'
 // compositor runs it; the old `filter: drop-shadow` pulse repainted and re-layerized the whole page every frame, 13 to
 // 25 ms a frame in the asset view). false: the old drop-shadow pulse, exactly as before.
 export const INTRO_EYES_GLOW_LAYER = false
-export const BOSS = { intro: 190, arena: 120, arenaCompact: 68 } // px: the boss on the intro card, and above the questions
+export const BOSS = { intro: 190, arena: 120, arenaCompact: 68, arenaSlim: 40 } // px: the boss on the intro card, and above the questions
 // The power stage (a cast, a power's hit): the lower part of the boss box, as a share of its height.
 const POWER_STAGE = 0.5
 // Below this many layout px of window height the arena shrinks (boss, bar, hearts), so the question and its choices
@@ -393,16 +393,19 @@ export function BossEnd({ t, won, onDone, lostKey = 'lg_bossLost' }) {
 
 // The obvious on/off for boss animations (features.legends.still), on the intro card and the fight itself, for a
 // learner who wants the fight without the motion. Settings > General > Legends has the same switch.
-export function MotionToggle({ t, dark = false }) {
+// `small`: the icon alone (the slim strip), its words in the tooltip and the accessible name.
+export function MotionToggle({ t, dark = false, small = false }) {
   const ctx = useFeatureCtx()
   const forced = useContext(ArtMotion) // the asset view always animates: the switch would do nothing there
   if (!ctx || forced) return null
   const still = ctx.featureSettings?.[LEGENDS_ID]?.still === true
   const color = dark ? C.white : C.inkDim
+  const label = still ? t('lg_animPlay') : t('lg_animStop')
   return (
     <button type="button" aria-pressed={still} onClick={() => ctx.setFeatureSettings(LEGENDS_ID, { still: !still })}
-      style={{ fontFamily: FONT.body, fontSize: 12, fontWeight: 800, color, background: dark ? 'rgba(0,0,0,.35)' : C.surface, border: `1.5px solid color-mix(in srgb, ${color} 40%, transparent)`, borderRadius: RADIUS.pill, padding: '3px 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-      {still ? `▶ ${t('lg_animPlay')}` : `⏸ ${t('lg_animStop')}`}
+      {...(small ? { 'aria-label': label, className: 'tip tip-b', 'data-tip': label } : {})}
+      style={{ fontFamily: FONT.body, fontSize: small ? 11 : 12, fontWeight: 800, color, background: dark ? 'rgba(0,0,0,.35)' : C.surface, border: `1.5px solid color-mix(in srgb, ${color} 40%, transparent)`, borderRadius: RADIUS.pill, padding: small ? '1px 7px' : '3px 10px', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+      {still ? '▶' : '⏸'}{small ? '' : ` ${label}`}
     </button>
   )
 }
@@ -529,7 +532,7 @@ function useShortWindow(getZoom) {
 const REFUND_CSS = '@keyframes lgRefundSweat { 0% { transform: translateY(-6px) scale(.4); opacity: 0 } 20% { transform: translateY(0) scale(1.1); opacity: 1 } 80% { transform: translateY(6px) scale(1); opacity: 1 } 100% { transform: translateY(10px) scale(.9); opacity: 0 } }'
   + ' @keyframes lgRefundHeart { 0% { transform: translate(-50%, 0) scale(.5); opacity: 0 } 25% { transform: translate(-50%, -10px) scale(1.25); opacity: 1 } 100% { transform: translate(120%, -90px) scale(.7); opacity: 0 } }'
 
-export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, phases = 2, weak = [], shield = false, focus = false, getZoom, kind = 'bosses', ability = '', dayAb = null, questionKey, power = null, armed = null, proc = null }) {
+export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, phases = 2, weak = [], shield = false, focus = false, getZoom, kind = 'bosses', ability = '', dayAb = null, questionKey, power = null, armed = null, proc = null, slim = false }) {
   const motion = useArtMotionAlways()
   const still = useArtStill()
   const quiet = focus || still // no shake, bob, flash or ability effect (still: the owner's no-animation switch)
@@ -602,6 +605,67 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
   const chip = (color, text, key, wrap = false) => (
     <span key={key} style={{ fontSize: 11.5, fontWeight: 800, color, border: `1.5px solid color-mix(in srgb, ${color} 45%, transparent)`, borderRadius: RADIUS.pill, padding: '1px 8px', ...(wrap ? { whiteSpace: 'normal', overflowWrap: 'anywhere', minWidth: 0 } : { whiteSpace: 'nowrap' }) }}>{text}</span>
   )
+  // THE SLIM STRIP (useArenaPin 'slim': even the compact arena took over 40% of a short, zoomed window, so it would
+  // scroll away): a small boss tile, the health bar, hearts, the phase and armed powers, pinned while the question
+  // scrolls. The arena box still shakes and flashes and the boss tile still flinches and lunges; the strike moments,
+  // ability effects, power casts and phase ring are skipped (no room to read them), the numbers say what happened.
+  if (slim) {
+    const thumb = BOSS.arenaSlim
+    return (
+      <div data-arena-slim="" className={(motion ? 'lg-boss lg-motion' : 'lg-boss') + (animOk ? '' : ' lg-fx-off')} data-phase={phase} {...abAttrs} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 8, padding: '3px 8px 3px 3px', borderRadius: RADIUS.lg, minWidth: 0,
+        background: `color-mix(in srgb, ${C.danger} ${rage ? 14 : 7}%, ${C.surface})`, border: `2px solid color-mix(in srgb, ${C.danger} ${rage ? 60 : 30}%, ${C.border})`, transition: 'background .4s, border-color .4s',
+        animation: shakeSpec ? `lgJuiceShake${juice.shake} ${shakeSpec.ms}ms linear` : undefined }}>
+        <BossStyle />
+        {(abMod || kind === 'raids') && <style>{JUICE_CSS}</style>}
+        {kind === 'raids' && <style>{BODY_CSS}</style>}
+        {abCssText && <style>{abCssText}</style>}
+        {flashSpec?.veil && <div key={`v${juice.n}`} aria-hidden="true" style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', background: '#fff', opacity: 0, animation: `lgJuiceVeil ${flashSpec.veilMs}ms steps(1, end)`, pointerEvents: 'none', zIndex: 3 }} />}
+        <div style={{ position: 'relative', flexShrink: 0, width: thumb, height: thumb, borderRadius: RADIUS.md, overflow: 'hidden', background: C.surfaceSunken }}>
+          <div key={`b${last?.n || 0}`} style={{ animation: down || quiet ? 'none' : hitNow ? 'lgBossHit .5s ease-out' : missNow ? 'lgBossLunge .45s ease-out' : 'none',
+            filter: down ? 'grayscale(.8) opacity(.6)' : rage ? 'saturate(1.3)' : 'none' }}>
+            <div ref={artRef} className={juice.stop ? 'lg-hitstop' : undefined} style={{ animation: flashSpec ? `lgJuiceFlash${juice.flash} ${flashSpec.ms}ms steps(1, end)` : undefined }}>
+              {kind === 'bosses'
+                ? <BossArt area={area} size={thumb} animated={down ? false : 'idle'} roomed />
+                : <LegendsArt kind={kind} motif={area.motif} palette={area.palette} height={thumb} width={thumb} round={0} animated={down ? false : 'idle'} phase={phase} roomed />}
+            </div>
+          </div>
+          {!focus && (motion || !reducedMotion()) && last && (hitNow || last.shielded || last.kind === 'block' || last.fx || (last.kind === 'refund' && last.damage > 0)) && (
+            <div key={`d${last.n}-${last.rn || 0}`} aria-hidden="true" style={{ position: 'absolute', left: '50%', top: 2, whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 900, fontSize: 15, color: last.shielded ? C.info : last.kind === 'refund' ? C.success : last.crit ? C.warning : C.danger, WebkitTextStroke: `2px ${FLOATER_OUTLINE}`, paintOrder: 'stroke fill', animation: 'lgBossFloat .9s ease-out both', pointerEvents: 'none' }}>
+              {last.shielded ? '🛡' : `-${last.damage || 0}${last.crit ? '!' : ''}`}
+            </div>
+          )}
+        </div>
+        <div style={{ flex: '1 1 0', minWidth: 0, display: 'grid', gap: 3 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: FONT.display, fontWeight: 900, fontSize: 13.5, color: C.ink }}>{down ? `🏆 ${t('lg_bossDown')}` : `${rage ? '😡' : '👑'} ${name || area.title}`}</span>
+            {!down && rage && <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 900, color: C.danger }}>{phases > 2 ? t('lg_fightPhase', { n: phase }) : t('lg_fightRage')}</span>}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+          <div role="progressbar" aria-valuemin={0} aria-valuemax={need} aria-valuenow={hp} aria-label={t('lg_bossHpLabel')}
+            style={{ flex: 1, minWidth: 24, position: 'relative', height: 9, borderRadius: RADIUS.pill, background: C.surfaceSunken, overflow: 'hidden', border: `1.5px solid color-mix(in srgb, ${C.danger} 35%, transparent)` }}>
+            <div style={{ width: `${(hp / need) * 100}%`, height: '100%', background: `linear-gradient(90deg, ${hpColor}, color-mix(in srgb, ${hpColor} 70%, white))`, transition: 'width .45s cubic-bezier(.3,1.3,.5,1), background .3s' }} />
+            <BarMarks marks={abMarks} need={need} />
+          </div>
+          <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 800, color: C.inkDim, whiteSpace: 'nowrap' }}>{t('lg_bossHp', { hp, max: need })}</span>
+          </div>
+        </div>
+        {/* the hearts and what is armed, beside the bar (a third row made the strip too tall for a 900x700 window at zoom 2) */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4, flexWrap: 'wrap', flexShrink: 1, minWidth: 0, maxWidth: '40%' }}>
+            {armed?.shield && !down ? (
+              <span data-power-armed="shield" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, borderRadius: 999, padding: '0 5px', boxShadow: '0 0 0 2px #6fc3ff' }}>
+                <span aria-hidden="true" style={{ fontSize: 11 }}>🛡️</span>
+                <Lives t={t} lives={lives} left={left} last={heartsLast} bonus={bonus} size={12} />
+              </span>
+            ) : <Lives t={t} lives={lives} left={left} last={heartsLast} bonus={bonus} size={12} />}
+            {!down && armed?.steadfast > 0 && <SteadfastHearts n={armed.steadfast} size={12} />}
+            {!down && armed && <PowerBadges armed={armed} anim={animOk} />}
+            {shield && !st.shieldUsed && <span role="img" style={{ fontSize: 11 }} aria-label={t('lg_fightShield')}>🛡</span>}
+            {!focus && st.combo >= 2 && <span style={{ fontSize: 11, fontWeight: 800, color: C.warning, whiteSpace: 'nowrap' }}>🔥 {st.combo}</span>}
+            <MotionToggle t={t} small />
+        </div>
+      </div>
+    )
+  }
   return (
     <div className={(motion ? 'lg-boss lg-motion' : 'lg-boss') + (animOk ? '' : ' lg-fx-off')} data-phase={phase} data-fx={fxNow || undefined} data-fx-size={fxNow ? fxSize : undefined} {...abAttrs} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: compact ? 10 : 16, padding: compact ? '0 12px 0 0' : '0 14px 0 0', borderRadius: RADIUS.lg,
       background: `color-mix(in srgb, ${C.danger} ${rage ? 14 : 7}%, ${C.surface})`, border: `2px solid color-mix(in srgb, ${C.danger} ${rage ? 60 : 30}%, ${C.border})`, transition: 'background .4s, border-color .4s',

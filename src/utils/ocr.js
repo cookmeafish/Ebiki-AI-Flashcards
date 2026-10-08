@@ -203,3 +203,14 @@ export function tidyOcrWords(words) {
     })
     .filter((w) => w.bbox && /[\p{L}\p{N}]/u.test(w.text))
 }
+
+// OCR words with no translation yet (click-to-translate mode, or a scan with no API key): each keeps its
+// text, box and confidence and gets an empty translation, so the boxes and the reading panel show the words
+// and a hover/click (or a key added later) fills the meaning in. Never a "Loading…" text stored as the
+// translation (it stayed when the retry failed).
+export function untranslatedOcrWords(words) {
+  return (Array.isArray(words) ? words : []).filter((w) => w && w.bbox && String(w.text ?? '').trim()).map((w, idx) => ({
+    ...w, text: String(w.text).trim(), _untranslated: true, translation: '', synonyms: [], category: 'foreign',
+    partOfSpeech: '', pronunciation: '', isEnglish: false, _own: false, _globalIdx: idx,
+  }))
+}

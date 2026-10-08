@@ -49,7 +49,7 @@ fs.mkdirSync(SHOTS, { recursive: true })
 const errors = []
 let n = 0
 
-const browser = await chromium.launch() // bundled Chromium only: never pass executablePath
+const browser = await chromium.launch({ args: ['--mute-audio'] }) // bundled Chromium only (never executablePath), muted (test runs spoke out loud)
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
 const page = await context.newPage()
 // The generic "Failed to load resource" console line names no URL, so it is dropped

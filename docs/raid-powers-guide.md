@@ -13,6 +13,11 @@ its numbers, its art, its animations and its tests. Read it before touching `src
 - **Bosses are balanced WITHOUT powers** (`profiles.test.js`), so a power only ever makes a fight easier.
 - **Fight numbers are variables**: a power reads the fight's resolved rules (`rulesOf(fight)`, from
   `raidProfile(motif, variant)`), never a literal, so a variant (a nightmare boss) changes the fight under the powers too.
+- **Power numbers are variables too**: every power number lives in `POWER_DEFAULTS` (powers.js; the named constants
+  are its values) and resolves through the profile's `powers` layer, so a variant can weaken or strengthen powers
+  (`nightmare: { powers: { window: { add: -1 }, sharpen: { add: -1 } } }`; integers round, so SET a decimal like
+  `fury: 1.5`; `POWER_FLOORS` hold). The engine reads `powersOf(fight)`, screens and Help read `profile.powers`
+  through `powerVars(id, powers, damage)` / `siegeRule(powers)`. Tests: `tuning.test.js`.
 - **Anki stays honest.** No power turns a wrong answer right, skips a question, reveals the whole answer or raises an
   Anki grade. A power that helps with the QUESTION itself (50:50, Hint) makes that card's review Hard (`aided`).
   Fight-only powers (damage, hearts) leave the grade alone; Focus changes the fight damage, never the verdict.
@@ -62,7 +67,8 @@ replace it. Each power should be the best pick for SOME situation or boss, so th
 
 1. **powers.js**: an entry in `POWERS` (keep unlocks increasing; move later ones if needed and update the table above
    and `SIEGE_RULE` in raid.js), its condition in `powerUsable`, how it is spent in `powerAfterAnswer` (and its `proc`
-   flag if it can visibly fire on an answer). Any number goes in a named constant at the top.
+   flag if it can visibly fire on an answer). Any number goes in a named constant at the top AND a `POWER_DEFAULTS`
+   key (+ its `POWER_FLOORS` floor); the effect reads it from `powersOf(fight)`, its text from `powerVars`.
 2. **The effect**:
    - Changes a strike: an `opts.<id>` in `strike()` (fight.js), set before `applyRes` so phase lines it crosses fire
      the ability's `onPhase` on that strike; mark it on `res` and copy it into `s.last` (like `focused`, `fury`,

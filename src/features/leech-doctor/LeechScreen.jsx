@@ -1,7 +1,7 @@
 // Leech Doctor: cards you keep failing, why, a short mentoring lesson, and a proposed card fix you accept or
 // skip (before/after shown; nothing is written without Apply). A card edited since the diagnosis is skipped.
 import { useEffect, useRef, useState } from 'react'
-import { C, FONT, RADIUS } from '../../config/tokens'
+import { C, FONT, RADIUS, fillFor } from '../../config/tokens'
 import { poseFile } from '../../config/shrimp'
 import { srs, hasCapability } from '../../cards'
 import { useFeatureCtx, useActivityBusy } from '../registry'
@@ -30,7 +30,7 @@ function Side({ label, before, after }) {
   return (
     <div style={{ marginTop: 8 }}>
       <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: C.inkFaint }}>{label}</div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 13, whiteSpace: 'pre-wrap' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 8, fontSize: 13, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
         <div style={{ background: C.dangerTint, borderRadius: RADIUS.sm, padding: 8, textDecoration: 'line-through', color: C.inkDim }}>{before}</div>
         <div style={{ background: C.successTint, borderRadius: RADIUS.sm, padding: 8, color: C.ink }}>{after}</div>
       </div>
@@ -197,14 +197,15 @@ export default function LeechScreen({ onExit }) {
           const status = done[p.noteId]
           return (
             <Card key={p.noteId}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'baseline' }}>
-                <div style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 16, color: C.ink }}>{p.front}</div>
+              {/* Wraps: at phone width and zoom 2 the lapse count ran off the screen. */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '4px 10px', alignItems: 'baseline', flexWrap: 'wrap' }}>
+                <div style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 16, color: C.ink, minWidth: 0, overflowWrap: 'anywhere' }}>{p.front}</div>
                 <div style={{ fontSize: 12, color: C.danger, fontWeight: 800, whiteSpace: 'nowrap' }}>{tCount(t, 'doc_lapses', p.lapses)}</div>
               </div>
               {d && (
                 <>
                   <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <span style={{ background: CAUSE_COLOR[d.cause], color: C.white, borderRadius: RADIUS.pill, padding: '2px 10px', fontSize: 11.5, fontWeight: 800 }}>{t(`doc_cause_${d.cause}`)}</span>
+                    <span style={{ background: fillFor(CAUSE_COLOR[d.cause]), color: C.white, borderRadius: RADIUS.pill, padding: '2px 10px', fontSize: 11.5, fontWeight: 800 }}>{t(`doc_cause_${d.cause}`)}</span>
                     {d.confusedWith && <span style={{ fontSize: 13, color: C.purple, fontWeight: 700 }}>{t('doc_vs', { x: d.confusedWith })}</span>}
                   </div>
                   <div style={{ fontSize: 13.5, color: C.ink, marginTop: 8, lineHeight: 1.5 }}>{d.explanation}</div>
@@ -220,16 +221,18 @@ export default function LeechScreen({ onExit }) {
                     <>
                       <Side label={t('doc_front')} before={p.front} after={d.fix.front} />
                       <Side label={t('doc_backSide')} before={p.back} after={d.fix.back} />
-                      {!status && p.suspendedIds?.length > 0 && (
+                      {(!status || status === 'failed') && p.suspendedIds?.length > 0 && (
                         <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10, fontSize: 13, color: C.ink, cursor: 'pointer' }}>
                           <input type="checkbox" checked={unsuspend[p.noteId] !== false} onChange={(e) => setUnsuspend((x) => ({ ...x, [p.noteId]: e.target.checked }))} />
                           {t('doc_unsuspend')}
                         </label>
                       )}
-                      <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
-                        {status ? (
+                      <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                        {/* A failed write (Anki closed for a moment) keeps Fix and Keep: the paid diagnosis is not lost. */}
+                        {status && (
                           <span style={{ fontSize: 13, fontWeight: 800, color: status === 'applied' || status === 'appliedBack' ? C.success : status === 'skipped' ? C.inkDim : status === 'unsuspendFailed' ? C.warning : C.danger }}>{t(`doc_status_${status}`)}</span>
-                        ) : (
+                        )}
+                        {(!status || status === 'failed') && (
                           <>
                             <ChunkyButton onClick={() => apply(p)} color={C.success}>{t('doc_apply')}</ChunkyButton>
                             <ChunkyButton variant="ghost" color={C.inkDim} onClick={() => { if (!applyingRef.current.has(p.noteId)) setDone((x) => ({ ...x, [p.noteId]: 'skipped' })) }}>{t('doc_skip')}</ChunkyButton>

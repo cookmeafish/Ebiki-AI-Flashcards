@@ -29,7 +29,11 @@ export function createDiscoverStoreRoute({ dataPath, readUtf8, writeFileAtomic, 
       req.on('data', c => body += c)
       req.on('end', () => {
         try {
-          const { content } = JSON.parse(body)
+          const parsed = JSON.parse(body)
+          const content = parsed && typeof parsed === 'object' ? parsed.content : undefined
+          // Only text is stored (the GET serves it back as `content`): a missing one threw deep in the write, and
+          // with a looser write helper it would have saved the text "undefined" over the real blob.
+          if (typeof content !== 'string') { res.statusCode = 400; res.end(JSON.stringify({ error: 'content required' })); return }
           const dir = dataPath('discover')
           if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
           writeFileAtomic(file, content)

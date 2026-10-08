@@ -24,7 +24,9 @@ export function aiErrorInfo(e) {
   if (status === 529 || /rate.?limit|too many requests|overloaded/.test(body)) return { key: 'aiErr_rateLimit' }
   if (status === 401 || status === 403 || /invalid.*api.*key|invalid x-api-key|unauthori|authentication/.test(body)) return { key: 'aiErr_badKey' }
   if (net || (status >= 500 && status <= 599)) return { key: 'aiErr_network' }
-  // Another status (a 400 the provider explains, "API 200: blocked"): its first words, never the whole JSON body.
+  // The provider refused to answer (a safety filter, a refusal): said in the learner's language, never the raw tag.
+  if (status === 200 && /^api 200: blocked\b/.test(body)) return { key: 'aiErr_blocked' }
+  // Another status (a 400 the provider explains, "API 200: empty"): its first words, never the whole JSON body.
   const tail = raw.slice(at >= 0 ? at : 0)
   return { key: 'aiErr_generic', vars: { msg: (tail.replace(/\s*\{[\s\S]*$/, '') || tail).slice(0, 120) } }
 }

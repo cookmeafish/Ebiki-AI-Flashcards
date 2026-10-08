@@ -251,7 +251,7 @@ async function ankiGetTodayReviewStats() {
   const midnight = new Date(); midnight.setHours(0, 0, 0, 0)
   const startID = midnight.getTime() // revlog ids are unix-ms timestamps
   // The day these numbers are FOR: a slow read that crossed midnight stamped yesterday's total as today's.
-  const day = midnight.toLocaleDateString('en-CA')
+  const day = `${midnight.getFullYear()}-${String(midnight.getMonth() + 1).padStart(2, '0')}-${String(midnight.getDate()).padStart(2, '0')}`
   let reviews = 0, passed = 0
   const all = []
   for (const deck of decks) {

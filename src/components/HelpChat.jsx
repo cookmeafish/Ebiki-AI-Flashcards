@@ -783,12 +783,13 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
     const rect = btn?.getBoundingClientRect()
     // No floating button to anchor to (e.g. opened via "Ask Ebi" during study): show a
     // normal chat panel docked to the bottom-left corner instead of filling the screen.
-    if (!rect) return { position: 'fixed', left: 20, bottom: 20, width: 360, height: 'min(460px, calc(80vh / var(--app-zoom)))' }
+    // Never wider than the window (a phone at the default zoom is ~290 layout px: a fixed 360 ran off the right edge).
+    if (!rect) return { position: 'fixed', left: 'min(20px, calc(100vw / var(--app-zoom, 1) / 20))', bottom: 20, width: 'min(360px, calc(100vw / var(--app-zoom, 1) - 2 * min(20px, calc(100vw / var(--app-zoom, 1) / 20))))', height: 'min(460px, calc(80vh / var(--app-zoom)))' }
     const zoom = getZoom()
     const left = rect.left / zoom, right = rect.right / zoom
     const top = rect.top / zoom, bottom = rect.bottom / zoom
     const vw = window.innerWidth / zoom, vh = window.innerHeight / zoom
-    const chatW = 340, chatH = 400
+    const chatW = Math.min(340, vw - 10), chatH = 400
     const btnCX = (left + right) / 2
     const btnCY = (top + bottom) / 2
     const style = { position: 'fixed', width: chatW, height: `min(${chatH}px, calc(80vh / var(--app-zoom)))` }
@@ -817,9 +818,9 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
         style={{ padding: '10px 14px', borderBottom: '1px solid var(--c-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, cursor: snapDragging ? 'grabbing' : 'grab', userSelect: 'none' }}
         title={t('help_dragTip')}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, flex: '1 1 auto' }}>
           <span style={{ color: 'var(--c-ink-faint)', fontSize: 12, lineHeight: 1, letterSpacing: -1 }}>⠿</span>
-          <span style={{ fontSize: 12, fontWeight: 700, background: 'linear-gradient(90deg, var(--c-brand), var(--c-purple))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{t('help_title')}</span>
+          <span style={{ fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0, background: 'linear-gradient(90deg, var(--c-brand), var(--c-purple))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>{t('help_title')}</span>
           {messages.length > 0 && (
             <span
               onMouseDown={(e) => e.stopPropagation()}
@@ -827,11 +828,11 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
               {...keyPress(newChat)}
               aria-label={t('help_newChat')}
               title={t('help_newChat')}
-              style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 11, padding: '1px 6px', border: '1px solid var(--c-border)', borderRadius: 4, lineHeight: '16px' }}
+              style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 11, padding: '1px 6px', border: '1px solid var(--c-border)', borderRadius: 4, lineHeight: '16px', flexShrink: 0 }}
             >+</span>
           )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           {/* Ebi on the right of the title line — reflects the context-aware pose (mascotFile).
               Sized up but with negative vertical margins so it doesn't bloat the header height. */}
           <img src={shrimpUrl(mascotFile || IDLE_SHRIMP)} alt="Ebi" draggable={false} style={{ width: 46, height: 46, objectFit: 'contain', pointerEvents: 'none', margin: '-10px 0', transition: 'opacity .2s' }} />

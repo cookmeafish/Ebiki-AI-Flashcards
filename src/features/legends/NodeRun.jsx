@@ -583,10 +583,10 @@ function NodeRunBody({ ctx: rawCtx, modeId, area, node, misses = [], onFinish, o
       <div style={{ display: 'grid', gap: 12 }}>
         {/* Sticky: a long question or four tall choices scroll UNDER the boss instead of pushing it off screen. */}
         <div ref={arenaRef} data-arena-pin={pin.mode} style={{ maxWidth: 680, width: '100%', margin: '0 auto', ...(pin.sticky ? { position: 'sticky', top: pin.top, zIndex: 5 } : {}), paddingTop: 4, background: C.bg }}>
-          <BossArena t={t} area={area} name={bossName} need={o.need} lives={o.lives} bonus={o.bonus} state={fs} weak={weakNames} shield={shield} focus={focus} getZoom={ctx.getZoom} />
-          {pin.mode !== 'arena' && extras}
+          <BossArena t={t} area={area} name={bossName} need={o.need} lives={o.lives} bonus={o.bonus} state={fs} weak={weakNames} shield={shield} focus={focus} getZoom={ctx.getZoom} slim={pin.slim} />
+          {pin.extrasIn && extras}
         </div>
-        {pin.mode === 'arena' && extras}
+        {!pin.extrasIn && extras}
         {learn && <LearnItPanel ctx={ctx} item={learn} onClose={() => setLearn(null)} closeLabel={t('lg_learnBackToFight')} />}
         {outcome ? <BossEnd t={t} won={outcome === 'won'} onDone={() => finish(outcome === 'lost' ? questions.length : 0)} /> : <div style={{ display: 'grid', gap: 4 }}>{renewRow}<div>{runner}</div></div>}
       </div>
