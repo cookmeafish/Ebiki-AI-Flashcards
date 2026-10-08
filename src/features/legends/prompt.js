@@ -1,7 +1,7 @@
 // LEGENDS PROMPTS (pure): every AI request Legends makes, and the parsers for the replies. Subject-agnostic:
 // `subject.isLanguage` only changes wording (a Spanish map teaches Spanish; a CompTIA map teaches CompTIA, never
 // "CompTIA vocabulary in Spanish"). Replies are parsed with ai.json and checked here before anything is shown.
-import { sanitizeQuestions } from '../kit/grade'
+import { sanitizeQuestions, leaksAnswer } from '../kit/grade'
 import { MOTIFS, PALETTES, AREAS, ITEMS, NODES, LESSONS, PER_LESSON, STORY, CAN_DO, cleanBossName } from './map'
 import { TIERS } from './placement'
 
@@ -56,11 +56,58 @@ export function buildPlacementPrompt(subject, tier, n, { avoid = [], knowledge =
 
 // Questions for QuizRunner: [{ kind, prompt, ... , target }] (sanitized; unusable ones dropped).
 export function parseQuestions(raw, clean, opts = {}) {
-  const list = Array.isArray(raw) ? raw : Array.isArray(raw?.questions) ? raw.questions : []
+  // The list under another key ({"quiz": [...]}, {"items": [...]}): the first list of question objects.
+  const other = raw && typeof raw === 'object' && !Array.isArray(raw)
+    ? Object.values(raw).find((v) => Array.isArray(v) && v.some((q) => q && typeof q === 'object' && 'question' in q))
+    : null
+  const list = Array.isArray(raw) ? raw : Array.isArray(raw?.questions) ? raw.questions : other || []
   return sanitizeQuestions(list.map((q) => ({
     ...q, question: clean(String(q?.question || '')), explanation: clean(String(q?.explanation || '')),
     ...(Array.isArray(q?.choices) ? { choices: q.choices.map((c) => clean(String(c))) } : {}),
   })), opts)
+}
+
+// What a step's screen promises about its questions, enforced on what the model sent. Legendary says "every answer
+// typed": a choice-only question (it rendered as tiles) goes, and a dual one loses its choices (nothing offers them
+// there, but they would make it a choice in everything that reads `alt`). The set is then topped up like any other.
+// A boss or raid fight says "no safe strikes" once the boss enrages, yet a choice-only question still showed tiles and
+// dealt a safe strike: in a fight every question must stand TYPED, its choices only the optional `alt` (offered in
+// phase 1). A choice-only question becomes typed (the right option is the answer, the options its alt), unless it
+// cannot stand without them ("which of these", true/false, "all of the above") or would then give its answer away.
+export function fitQuestionsToKind(qs, kind) {
+  const list = Array.isArray(qs) ? qs : []
+  if (kind === 'legendary') {
+    return list.filter((q) => q && typeof q === 'object' && q.kind !== 'choice').map((q) => {
+      if (!q.alt) return q
+      const { alt, ...rest } = q
+      return rest
+    })
+  }
+  if (kind !== 'boss' && kind !== 'raid') return list
+  const out = []
+  for (const q of list) {
+    if (!q || typeof q !== 'object') continue
+    if (q.kind !== 'choice') { out.push(q); continue }
+    const typedQ = choiceToTyped(q)
+    if (typedQ) out.push(typedQ)
+  }
+  return out
+}
+
+// The question names its options ("which of these", "pick", "choose", "cuál de", "以下哪", "次のうち"...).
+const NEEDS_OPTIONS_RE = /\b(which\s+(?:of|one)|choose|pick|select|the\s+following|these\s+options|from\s+the\s+(?:list|options))\b|\bcu[aá]l(?:es)?\s+de\b|\belige\b|\bescoge\b|\bselecciona\b|以下|下列|哪(?:个|一|些|項|项)|どれ|次のうち|選んで|选择|選擇/iu
+const OPTION_ANSWER_RE = /^(all|none|both|neither)\s+(of\s+)?(the\s+)?(above|these|them|options)$|^(true|false|yes|no|verdadero|falso|sí|si|vrai|faux|wahr|falsch|对|错|是|否|正しい|間違い|はい|いいえ)$/iu
+
+function choiceToTyped(q) {
+  const choices = Array.isArray(q.choices) ? q.choices.map((c) => String(c ?? '').trim()) : []
+  const idx = Number.isInteger(q.answerIdx) ? q.answerIdx : -1
+  if (choices.length < 2 || idx < 0 || idx >= choices.length || !choices[idx]) return null
+  const prompt = String(q.prompt || '')
+  const key = choices[idx]
+  if (NEEDS_OPTIONS_RE.test(prompt) || OPTION_ANSWER_RE.test(key)) return null
+  if (leaksAnswer(prompt, [key])) return null
+  const { choices: _c, answerIdx: _a, ...rest } = q
+  return { ...rest, kind: 'typed', accepted: [key], open: false, alt: { choices, answerIdx: idx } }
 }
 
 // ── The map plan ────────────────────────────────────────────────────────────────────────────────────────────
@@ -147,7 +194,7 @@ export function buildQuizPrompt(subject, area, node, { choiceItems = [], typedIt
     learn: 'These items were JUST taught in this level: for each one, first a recognition question (multiple choice), then a recall or use question (typed). Gentle, one step at a time.',
     practice: 'Practice these items: recall and use them.',
     rule: 'Drill the RULE(S) among these items: questions that make the learner apply the rule to new cases.',
-    boss: `BOSS TEST of the whole area. Push the learner to the limit of what the area taught, so passing proves real understanding: use the items in NEW sentences and situations (never a copy of an example), combine two items in one question, make them produce rather than recognize. Mostly questions answered with a ${subject.isLanguage ? `${subject.learnLang} sentence` : 'sentence'} ("open": true with a model answer in "accepted"); a few multiple choice whose wrong options are CLOSE (the tempting mistake), yet only one is right. Hard, never unfair: every answer still follows from the material.`,
+    boss: `BOSS TEST of the whole area. Push the learner to the limit of what the area taught, so passing proves real understanding: use the items in NEW sentences and situations (never a copy of an example), combine two items in one question, make them produce rather than recognize. Mostly questions answered with a ${subject.isLanguage ? `${subject.learnLang} sentence` : 'sentence'} ("open": true with a model answer in "accepted"). Every question is answered TYPED and has its answers in "accepted"; for a few, ALSO add 4 "choices" (the right one plus CLOSE wrong ones, the tempting mistake, only one right) as an easier way to answer, but the question must make full sense without them (never "which of these", "which of the following", "choose", "true or false", "all of the above"). Hard, never unfair: every answer still follows from the material.`,
     legendary: `LEGENDARY TEST of an area the learner already beat: the hardest version. EVERY question typed (no multiple choice) and produced by the learner: ${subject.isLanguage ? `${subject.learnLang} sentences` : 'explanations and applications'} in new situations, combining items. Still only what the material taught.`,
     weak: 'WEAK SPOTS: these are the items this learner got wrong most often. Ask each one from a new angle (not the way it was asked before), starting easier and ending harder, so the gap closes.',
   }[node.kind] || 'Practice these items.'
@@ -211,7 +258,9 @@ export function itemIdFor(question, items) {
   if (!t) return ''
   // A partial match needs at least 3 characters on the shorter side: a target like "a" or "el" sits inside nearly
   // every item and let unrelated questions through the "only what was taught" filter.
-  const part = (a, b) => Math.min(a.length, b.length) >= ITEM_MATCH_MIN && (a.includes(b) || b.includes(a))
+  // Han and kana pack a word into 1 to 2 characters, so 2 is enough there (你好 inside "你好吗").
+  const min = (a, b) => (/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(a + b) ? 2 : ITEM_MATCH_MIN)
+  const part = (a, b) => Math.min(a.length, b.length) >= min(a, b) && (a.includes(b) || b.includes(a))
   const hit = items.find((it) => it.front.toLowerCase() === t) || items.find((it) => part(it.front.toLowerCase(), t))
   return hit?.id || ''
 }
@@ -249,11 +298,50 @@ export function buildTalkHintPrompt(subject, area, items, history, { scene = '',
   }
 }
 // A hint that shows the learned-language words it must not (a practice phrase, or 3+ words of the partner's line).
-export function hintGivesAway(hint, subject, items) {
+// `partner`: the partner's (Ebi's) lines so far; checked only when the hint language differs from the learned one
+// (with full immersion the hint is in the learned language anyway and shares ordinary words with any line).
+export const PARTNER_RUN = { words: 3, chars: 4 }
+export function hintGivesAway(hint, subject, items, partner = []) {
   if (!subject.isLanguage) return false
   const norm = (s) => ` ${String(s || '').toLowerCase().normalize('NFKC').replace(/[^\p{L}\p{N}']+/gu, ' ').trim()} `
   const h = norm(hint)
-  return items.some((it) => { const f = norm(String(it.front).replace(/\([^)]*\)/g, '')); return f.trim().length >= 3 && h.includes(f) })
+  // Scripts written without spaces (Han, kana, Thai): a phrase sits inside a run of letters, so it is matched as a
+  // plain substring, from 2 characters (你好 is a whole phrase).
+  const unspaced = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}]/u
+  const phrase = (items || []).some((it) => {
+    const f = norm(String(it?.front ?? '').replace(/\([^)]*\)/g, ''))
+    if (unspaced.test(f)) return f.trim().length >= 2 && h.includes(f.trim())
+    return f.trim().length >= 3 && h.includes(f)
+  })
+  if (phrase) return true
+  const sameLang = String(subject.userLang || '').trim().toLowerCase() === String(subject.learnLang || '').trim().toLowerCase()
+  if (sameLang) return false
+  return (Array.isArray(partner) ? partner : []).some((line) => {
+    const p = norm(line).trim()
+    if (!p) return false
+    if (unspaced.test(p)) {
+      const runs = p.replace(/\s+/g, '')
+      for (let i = 0; i + PARTNER_RUN.chars <= runs.length; i++) if (h.replace(/\s+/g, '').includes(runs.slice(i, i + PARTNER_RUN.chars))) return true
+      return false
+    }
+    const w = p.split(' ')
+    for (let i = 0; i + PARTNER_RUN.words <= w.length; i++) if (h.includes(` ${w.slice(i, i + PARTNER_RUN.words).join(' ')} `)) return true
+    return false
+  })
+}
+// Ebi's turn as the model wrote it: the goal tag read (any spacing or case, "[goal done]", "[GOAL_DONE]") and
+// dropped, a leading "Ebi:" dropped, and anything after the model went on to write the LEARNER's next line cut
+// (the turn prompt is a transcript ending in "Ebi:", so a model sometimes continues it).
+const GOAL_TAG_RE = /\[\s*goal[\s_-]*(?:done|reached)\s*\]/gi
+export function parseTalkReply(raw) {
+  let s = String(raw ?? '')
+  const reached = GOAL_TAG_RE.test(s)
+  GOAL_TAG_RE.lastIndex = 0
+  s = s.replace(GOAL_TAG_RE, '')
+  const cut = s.search(/(^|\n)\s*(?:Learner|Student|User)\s*:/i)
+  if (cut > 0) s = s.slice(0, cut)
+  s = s.replace(/^\s*Ebi\s*:\s*/i, '').trim()
+  return { text: s, reached }
 }
 export const buildTalkTurn = (history) => (history.length
   ? history.map((m) => `${m.role === 'ebi' ? 'Ebi' : 'Learner'}: ${m.text}`).join('\n') + '\nEbi:'
@@ -276,10 +364,15 @@ export function buildTalkScorePrompt(subject, area, history, { hints = 0, goal =
   }
 }
 export function parseTalkScore(raw, clean) {
-  const s = raw?.score === '' || raw?.score == null ? NaN : Number(raw.score) // "" read as a real 0
+  // "" read as a real 0; "85%" and "8/10" are read too. Scales: 0..1 as is, above 10 out of 100, 1..10 out of 10 (an
+  // "8" was a near fail at 0.08).
+  const v = typeof raw?.score === 'string' ? raw.score.trim() : raw?.score
+  const frac = typeof v === 'string' && /^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/.exec(v)
+  let s = v === '' || v == null ? NaN : frac ? Number(frac[1]) / (Number(frac[2]) || NaN) : Number(typeof v === 'string' ? v.replace(/\s*%$/, '') : v)
+  if (Number.isFinite(s) && !frac) s = s > 10 ? s / 100 : s > 1 ? s / 10 : s
   if (!raw || !Number.isFinite(s)) return null
   const list = (v) => (Array.isArray(v) ? v : []).map((x) => String(x).trim().slice(0, 60)).filter(Boolean).slice(0, 3)
-  return { score: Math.max(0, Math.min(1, s > 1 ? s / 100 : s)), note: clean(String(raw.note || '')).slice(0, 400), strengths: list(raw.strengths), gaps: list(raw.gaps) }
+  return { score: Math.max(0, Math.min(1, s)), note: clean(String(raw.note || '')).slice(0, 400), strengths: list(raw.strengths), gaps: list(raw.gaps) }
 }
 
 // ── Ebi's edits ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -312,8 +405,8 @@ export function buildRaidPrompt(subject, cards, { level = '' } = {}) {
       `Exactly ONE question per card below, in the same order, testing ONLY what that card says (never another card, never outside knowledge).`,
       subject.isLanguage
         ? `Ask in ${subject.userLang} for the ${subject.learnLang} word or phrase (recall), or give a short ${subject.learnLang} sentence with a blank for it. "accepted": every correct ${subject.learnLang} answer. ${cueRule(subject)} ${subject.rules || ''}`.trim()
-        : `Ask for the term, or to apply the idea to a short new case. "accepted": the correct short answers (terms stay as written).`,
-      '"choices": 4 options, the right one plus 3 CLOSE but clearly wrong ones (the tempting mistakes). The question must never contain its own answer.',
+        : `Ask for the term, or to apply the idea to a short new case. "accepted": the correct short answers (terms stay as written). Write questions and choices in ${subject.userLang}; subject terms, acronyms, code and numbers stay as written.`,
+      '"choices": 4 options, the right one plus 3 CLOSE but clearly wrong ones (the tempting mistakes), an easier way to answer that is offered only at first. Every question must be answerable TYPED without its options, with its answers in "accepted": never "which of these", "which of the following", "choose", "true or false" or "all of the above". The question must never contain its own answer.',
       'Situations are everyday or from the learner\'s own context above: never a city, region, country or person that neither the card nor that context names.',
       `Cards:\n${cards.map((c, i) => `${i + 1}. FRONT: ${c.front}\n   BACK: ${String(c.back || '').replace(/\n+/g, ' / ')}`).join('\n')}`,
     ].filter(Boolean).join('\n'),

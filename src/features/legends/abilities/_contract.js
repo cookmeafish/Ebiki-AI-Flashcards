@@ -37,7 +37,9 @@
 //        hit  = { verdict: 'clean'|'glancing'|'miss', mode: 'typed'|'choice', attack, inserted, lastStand, key,
 //                 weak, armed: { <toggleId>: true } }   (armed: the toggle actions the player armed for this answer)
 //        ctx  = { kind: 'normal'|'attack'|'inserted', inserted, right, clean, phase, need, lives, livesLost,
-//                 lastLife, shieldReady, bar, K, before }   (bar: { total, before, phases } on raids, else null;
+//                 lastLife, shieldReady, bar, K, before }   ctx.clean = clean AND typed; a mechanic that pays a clean
+//                 typed answer reads hitClean(ctx, res) (_rules.js) instead, so a glancing answer under Focus (a raid
+//                 power that "hits like a clean one", res.focused) counts too.   (bar: { total, before, phases } on raids, else null;
 //                 before = the fight state before this answer)
 //   onLifeLoss(s, res, ctx)          after the Legends shield, when res.lives > 0 is about to be taken (wards, a
 //                                    lucky tail): lower res.lives, set res.fx.
@@ -96,6 +98,11 @@
 //                                    ONCE per trigger (fx keys).
 //   dayState(s) -> object            what to keep for today's NEXT attempt (raid day.ab, saved with the day's wounds;
 //                                    a new day starts without it). init(ctx) reads it back as ctx.dayAb.
+//   onRally(dayAb, { healed, damage, hp }) -> object
+//                                    the run lost every heart and the boss RALLIED: it healed back `healed` of the
+//                                    day's wounds (now `damage` of `hp`). A dayState holding anything tied to damage
+//                                    (a split of the wounds) must be brought in line here; the raid saves what it
+//                                    returns. Optional (a module without it keeps its dayState as is).
 //   cancelHeal(s)                    RaidRun undid this answer's gorge (it would have crossed a phase line back):
 //                                    roll back the module's own heal counter.
 //

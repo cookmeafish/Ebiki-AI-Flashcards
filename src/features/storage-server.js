@@ -45,9 +45,16 @@ export default {
         }
       }
       if (req.method !== 'POST') return send(res, 405, { error: 'method' })
+      // Too big: answer 413 and drop the rest (destroying the socket left the client with a bare network error).
       let body = ''
-      req.on('data', (c) => { body += c; if (body.length > MAX_BODY_BYTES) req.destroy() })
+      let tooLarge = false
+      req.on('data', (c) => {
+        if (tooLarge) return
+        body += c
+        if (body.length > MAX_BODY_BYTES) { tooLarge = true; body = ''; send(res, 413, { error: 'too large' }) }
+      })
       req.on('end', () => {
+        if (tooLarge) return
         try {
           const { value } = JSON.parse(body || '{}')
           if (value === undefined) return send(res, 400, { error: 'value required' })

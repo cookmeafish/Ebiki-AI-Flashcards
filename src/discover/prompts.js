@@ -41,8 +41,18 @@ Base the estimate on real evidence. Be honest: if there is little evidence, lowe
 // anything the learner already has / knows / declined.
 // `learnerLevel`: the measured level from Legends (placement + results), only when the learner opted in.
 export function buildSuggestionPrompt({ profile, modeType, modeName, modeDescription, studyLanguage, excludeList, itemType, focus, knowledge, difficulty, customKind, userLanguage = 'English', learnerLevel = '' }) {
-  const level = profile?.level || { scale: 'tiers', estimate: 'beginner' }
-  const weak = (profile?.domains || []).filter((d) => d.status !== 'strong').map((d) => d.name)
+  // An estimate the model left out (or the profile lost) read "Learner level: tiers = undefined".
+  const level = { scale: profile?.level?.scale || 'tiers', estimate: profile?.level?.estimate || (profile?.level ? 'unknown' : 'beginner') }
+  const weak = (Array.isArray(profile?.domains) ? profile.domains : []).filter((d) => d && d.name && d.status !== 'strong').map((d) => d.name)
+  // Each term once: the ledger lists and the deck's own terms overlap ("perro" offered, carded AND in the
+  // deck), and every copy cost tokens on every suggestion.
+  const seenEx = new Set()
+  const excludes = (Array.isArray(excludeList) ? excludeList : []).map((x) => String(x ?? '').trim()).filter((x) => {
+    const k = x.toLowerCase()
+    if (!x || seenEx.has(k)) return false
+    seenEx.add(k)
+    return true
+  })
   const isLang = modeType === 'language'
 
   // What kind of item to suggest. [itemKind for the intro sentence, the concrete rule].
@@ -59,7 +69,7 @@ export function buildSuggestionPrompt({ profile, modeType, modeName, modeDescrip
     term: ['key term or concept', '- Suggest a KEY TERM or concept from the subject.'],
     acronym: ['acronym', '- Suggest an ACRONYM or abbreviation from the subject. "term" is the acronym itself, "translation" is its expansion, and the explanation says what it is and why it matters.'],
     comparison: ['commonly-confused pair', '- Suggest a COMMONLY-CONFUSED PAIR as "X vs Y" (e.g. "symmetric vs asymmetric encryption"). The explanation contrasts them in one or two crisp sentences.'],
-    scenario: ['applied concept', '- Suggest a concept via an APPLIED SCENARIO: the explanation opens with a short realistic situation, then names the concept that answers it (exam-style application, not bare recall).'],
+    scenario: ['applied concept', '- Suggest a concept via an APPLIED SCENARIO: the explanation opens with a short realistic situation, then names the concept that answers it (applying it, not bare recall).'],
     both: ['concept or term', '- It may be a term, acronym, commonly-confused pair, or applied-scenario concept: whichever is most useful right now.'],
   }
   const table = isLang ? LANG_TYPES : GEN_TYPES
@@ -90,16 +100,16 @@ ${knowledge ? `\nREFERENCE MATERIAL (the learner's own study material for this m
 RULES:
 - Write the "translation", "why" and "draftMeaning" fields in ${userLanguage} (the ${isLang ? '"term" stays in the target language' : '"term" stays in the subject\'s own wording'}). Keep proper nouns/acronyms/technical terms original. Do NOT use em dashes or en dashes.
 - Suggest exactly ONE item. ${difficultyRule}
-${itemTypeRule ? itemTypeRule + '\n' : ''}- ${isLang ? `${difficulty === 'easier' ? 'Even easier items must still be worth carding: no absolute-beginner filler unless they truly are a beginner.' : 'Do NOT suggest beginner vocabulary if they are intermediate or above (no "manzana" for a B1+ learner). For an advanced learner prefer nuanced/idiomatic/formal items.'}` : `Prefer a term from an under-covered exam domain or a gap in their knowledge.`}
+${itemTypeRule ? itemTypeRule + '\n' : ''}- ${isLang ? `${difficulty === 'easier' ? 'Even easier items must still be worth carding: no absolute-beginner filler unless they truly are a beginner.' : 'Do NOT suggest beginner vocabulary if they are intermediate or above (no "manzana" for a B1+ learner). For an advanced learner prefer nuanced/idiomatic/formal items.'}` : `Prefer a term from an under-covered domain or area (an exam objective domain when the subject is an exam) or a gap in their knowledge.`}
 - ${focus ? 'Match the focus request above.' : 'Prefer the weak/under-covered areas listed above when sensible.'}
 - Do NOT suggest anything in this exclude list (already known, declined, or already a card):
-${excludeList.length ? excludeList.map((t) => `  - ${t}`).join('\n') : '  (none yet)'}
+${excludes.length ? excludes.map((t) => `  - ${t}`).join('\n') : '  (none yet)'}
 ${isLang && studyLanguage ? `- The item must be in ${studyLanguage}. Provide its ${userLanguage} translation.` : ''}
 
 Return ONLY a JSON object (no markdown, no commentary):
 {
   "term": "<the ${isLang ? 'word/phrase in the target language' : 'concept/term'}>",
-  "partOfSpeech": "<part of speech in ${userLanguage} if a word, else empty string>",
+  "partOfSpeech": ${isLang ? `"<part of speech in ${userLanguage} if a word, else empty string>"` : '"" (always empty for this subject)'},
   "translation": "<${userLanguage} translation/gloss, or short definition for non-language subjects>",
   "difficulty": "<level label in ${userLanguage}, e.g. ${level.estimate}>",
   "domain": "<which topic/area this belongs to>",

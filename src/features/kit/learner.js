@@ -31,7 +31,9 @@ export const TARGET_RATIO = 0.7
 export const STEP = { study: 0.4, gym: 1.5, call: 1.5, roleplay: 2, legends: 0.6, boss: 2, practice: 1 }
 export const CONFIDENCE_STEP = 0.02
 
-const clampLevel = (n) => Math.max(LEVEL_MIN, Math.min(LEVEL_MAX, Math.round((Number(n) || 0) * 10) / 10))
+// Numbers from a stored model: only a number or a numeric string counts (Number() of an odd object can throw).
+const num = (v) => (typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : NaN)
+const clampLevel = (n) => Math.max(LEVEL_MIN, Math.min(LEVEL_MAX, Math.round((num(n) || 0) * 10) / 10))
 
 export const bandsFor = (isLanguage) => (isLanguage ? LANGUAGE_BANDS : GENERAL_BANDS)
 export function bandFor(level, isLanguage) {
@@ -59,15 +61,15 @@ export function newLearner({ level = 0, confidence = 0.5, strengths = [], gaps =
 
 // A stored model in a usable shape (a damaged or older one never breaks a screen), or null.
 export function shapeLearner(raw) {
-  if (!raw || typeof raw !== 'object' || !Number.isFinite(Number(raw.level))) return null
+  if (!raw || typeof raw !== 'object' || !Number.isFinite(num(raw.level))) return null
   const level = clampLevel(raw.level)
   return {
     level,
     peak: Math.max(level, clampLevel(raw.peak)), // the highest level ever reached (level-up rewards are paid once)
-    confidence: Math.max(0, Math.min(1, Number(raw.confidence) || 0)),
+    confidence: Math.max(0, Math.min(1, num(raw.confidence) || 0)),
     strengths: topics(raw.strengths),
     gaps: topics(raw.gaps),
-    history: (Array.isArray(raw.history) ? raw.history : []).filter((h) => h && Number.isFinite(Number(h.delta))).slice(-HISTORY_MAX),
+    history: (Array.isArray(raw.history) ? raw.history : []).filter((h) => h && Number.isFinite(num(h.delta))).slice(-HISTORY_MAX),
   }
 }
 

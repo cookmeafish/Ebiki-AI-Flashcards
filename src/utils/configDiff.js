@@ -65,6 +65,10 @@ export function diffConfig(sent, cur, curObj) {
       // value picked again posted only an empty map and the override was lost on disk).
       if (!(parentMarker(p) in cur)) { paths.push(p); continue }
       paths.push(p)
+      // The same entry is still there, as a map now holding a value or the other way round: the body already
+      // posts its new form, and unsetting it too deleted what was just posted (the entry vanished on disk).
+      const base = s.join(SEP)
+      if (base in cur || (base + SEP) in cur) continue
       unset.push(s)
     }
   }

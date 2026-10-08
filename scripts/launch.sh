@@ -337,7 +337,12 @@ check_update() {
         else
           log_update "refused: this copy has commits on master that were never published (kept)"
         fi
+      else
+        # The skip reason, not only the generic "HEAD did not move" below.
+        log_update "refused: tracked files have local changes (kept)"
       fi
+    else
+      log_update "fetch of origin master failed"
     fi
     # Only a HEAD that actually moved is an update. A Yes that changed nothing (no network, a
     # hand-edited tracked file, a refused merge) used to run npm install and say nothing.

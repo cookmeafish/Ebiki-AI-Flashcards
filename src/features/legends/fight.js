@@ -10,7 +10,7 @@
 // and an item the boss is weak to deals +1. A fight ends at 0 health (won) or 0 lives (lost); the outcome decides the
 // pass on its own (applyNodeResult), so a win can never read as a fail and a loss never as a pass.
 
-import { DAMAGE, ATTACK_LIVES, MISS_LIVES, COMBO_EVERY, MAX_ATTACKS, ATTACK_GAP, RAGE_AT, WEAK_TO_MAX, MAX_INSERTED, phaseOf, barPhase, phaseFloor, hashOf } from './abilities/_rules'
+import { DAMAGE, ATTACK_LIVES, MISS_LIVES, COMBO_EVERY, MAX_ATTACKS, ATTACK_GAP, RAGE_AT, WEAK_TO_MAX, MAX_INSERTED, phaseOf, barPhase, phaseFloor, hashOf, hitClean } from './abilities/_rules'
 import { abilityById, ABILITY_IDS } from './abilities'
 import { MOMENTUM_CRIT_MULT } from './powers'
 import { gradeFromStrike, easeFor, isMature, GRADE_EASE } from '../../config/grading'
@@ -128,12 +128,20 @@ export function strike(state, hit, opts = {}) {
     if (!right && !s.unredeemed.includes(key)) s.unredeemed.push(key)
     if (right && kind !== 'normal' && s.unredeemed.includes(key)) s.unredeemed = s.unredeemed.filter((k) => k !== key)
   }
+  // Fury multiplies the STRIKE'S OWN damage (clean/crit/weak), never an ability's banked burst (Chronos' Time Stop,
+  // the Void's collapse, Cerberus' bound): times the whole hit made one window worth 7 to 13 extra on some bosses.
+  const strikeDmg = Math.max(0, Number(res.dmg) || 0)
   if (mod && mod.onStrike) mod.onStrike(s, res, hit, ctx)
   // A raid power's extra damage (Sharpen: opts.bonus) goes in BEFORE applyRes, so a phase line it crosses fires the
   // ability's onPhase on this strike (added afterwards, the Banshee's scream came one strike late).
   if (opts.bonus > 0 && right && kind === 'normal') res.dmg = (Number(res.dmg) || 0) + opts.bonus
-  // Fury (a raid power): a clean typed answer to a raid question deals FURY_MULT times its whole damage.
-  if (opts.fury > 1 && kind === 'normal' && hit.verdict === 'clean' && hit.mode !== 'choice') { res.dmg = (Number(res.dmg) || 0) * opts.fury; res.fury = true }
+  // Fury (a raid power): a clean typed answer to a raid question (a slip under Focus counts: it hits like a clean one)
+  // deals FURY_MULT times its strike damage. Only the strike's own part is multiplied (an ability that lowered the hit,
+  // armor or a bank, lowers the extra too: min of the two); a burst the ability added is not.
+  if (opts.fury > 1 && kind === 'normal' && hit.mode !== 'choice' && hitClean(ctx, res)) {
+    const dmg = Math.max(0, Number(res.dmg) || 0)
+    res.dmg = dmg + Math.min(strikeDmg, dmg) * (opts.fury - 1); res.fury = true
+  }
   res.lives = Math.max(0, Number(res.lives) || 0)
   // Ward (a raid power): the attack it was raised against costs no hearts.
   if (res.lives > 0 && opts.ward && kind === 'attack') { res.lives = 0; res.warded = true }
@@ -222,23 +230,34 @@ export function raidRating(hit, sched = null) {
 // verdict cost and deals what the answer should have dealt. `cost` = what the first verdict really did to the fight:
 // { lives: the lives it took (after a shield or an ability), damage: what it dealt }. `kind` = 'normal' | 'attack' |
 // 'inserted' (the question asked), `mode` = 'typed' | 'choice', `weak` = an item the boss is weak to.
-// → { lives: lives to give back, damage: damage still due } (both >= 0). An ability's own state (a hydra's new heads,
-// a crashed sugar jar) is left as it is: only hearts and damage are put right, never a combo or a critical.
+// → { lives: lives to give back, damage: damage still due, shield: a Shield the verdict used up comes back } (all
+// >= 0). An ability's own state (a hydra's new heads, a crashed sugar jar) is left as it is: only hearts, damage and a
+// spent Shield are put right, never a combo or a combo critical. A raid POWER window that was up on that answer
+// (`cost.boost`, raidStep: { fury, momentum, focus }) does count: its window ticked down on that answer, so the
+// right answer gets what the power would have given it (Focus: glancing hits clean; Momentum: the crit; Fury: times).
 export function refundFor({ kind = 'normal', to = 'clean', mode = 'typed', weak = false } = {}, cost = {}) {
   const right = to === 'clean' || to === 'glancing'
   const lives = Math.max(0, Number(cost.lives) || 0)
-  if (!right) return { lives: 0, damage: 0 }
+  if (!right) return { lives: 0, damage: 0, shield: false }
+  const b = (kind === 'normal' && mode !== 'choice' && cost.boost) || {}
   let due = 0
   if (kind === 'attack') due = DAMAGE.counter
-  else if (kind === 'normal') due = (mode === 'choice' ? DAMAGE.choice : to === 'clean' ? DAMAGE.clean : DAMAGE.glancing) + (weak ? DAMAGE.weak : 0)
-  return { lives, damage: Math.max(0, due - Math.max(0, Number(cost.damage) || 0)) }
+  else if (kind === 'normal') {
+    const hitsClean = mode !== 'choice' && (to === 'clean' || (to === 'glancing' && b.focus))
+    due = (mode === 'choice' ? DAMAGE.choice : hitsClean ? DAMAGE.clean : DAMAGE.glancing) + (hitsClean && b.momentum ? DAMAGE.crit * MOMENTUM_CRIT_MULT : 0) + (weak ? DAMAGE.weak : 0)
+    if (hitsClean && b.fury > 1) due *= b.fury
+  }
+  return { lives, damage: Math.max(0, due - Math.max(0, Number(cost.damage) || 0)), shield: !!cost.shielded }
 }
 
 // Apply a refund to a running fight (the caller checks it is still running: fightOutcome ''). `from`/`to` = the
 // verdicts, so the counters (misses, clean, glancing) tell the truth. `last` becomes { kind: 'refund' } with its own
 // counter (refundN): the arena plays the heart flying back and a sheepish boss, never a new hit or lunge.
-export function applyRefund(state, { lives = 0, damage = 0, from = 'miss', to = 'clean', kind = 'normal' } = {}) {
+export function applyRefund(state, { lives = 0, damage = 0, shield = false, from = 'miss', to = 'clean', kind = 'normal' } = {}) {
   const s = { ...state }
+  // A Shield that absorbed the wrongly judged answer is up again (it was never meant to be spent).
+  const shieldBack = !!shield && !!s.shieldUsed
+  if (shieldBack) s.shieldUsed = false
   const back = Math.max(0, Math.min(Number(lives) || 0, s.livesLost || 0))
   const dealt = Math.max(0, Number(damage) || 0)
   s.livesLost = (s.livesLost || 0) - back
@@ -251,7 +270,7 @@ export function applyRefund(state, { lives = 0, damage = 0, from = 'miss', to = 
   }
   s.refunds = (s.refunds || 0) + 1
   s.refundN = (s.refundN || 0) + 1
-  s.last = { kind: 'refund', refund: true, damage: dealt, lives: 0, healedLives: back, n: s.n, rn: s.refundN, fx: '', fxVars: null, crit: false, shielded: false, attack: false }
+  s.last = { kind: 'refund', refund: true, damage: dealt, lives: 0, healedLives: back, n: s.n, rn: s.refundN, fx: '', fxVars: null, crit: false, shielded: false, attack: false, ...(shieldBack ? { shieldBack: true } : {}) }
   return s
 }
 
@@ -262,9 +281,10 @@ export function applyRefund(state, { lives = 0, damage = 0, from = 'miss', to = 
 export function refundRunningFight(state, odds, entry = {}, to = 'clean') {
   if (!state || !odds || fightOutcome(state, odds)) return null
   const r = refundFor({ kind: entry.kind, to, mode: entry.mode, weak: !!entry.weak }, entry.cost || {})
-  if (!r.lives && !r.damage) return null
+  if (!r.lives && !r.damage && !r.shield) return null
   return applyRefund(state, { ...r, from: entry.first, to, kind: entry.kind })
 }
 
 // What a verdict did to the fight, from the states around the strike (for refundFor).
-export const strikeCost = (before, after) => ({ lives: Math.max(0, (after?.livesLost || 0) - (before?.livesLost || 0)), damage: Math.max(0, (after?.damage || 0) - (before?.damage || 0)) })
+// `shielded`: a Shield took this verdict's heart (a refund gives the Shield back).
+export const strikeCost = (before, after) => ({ lives: Math.max(0, (after?.livesLost || 0) - (before?.livesLost || 0)), damage: Math.max(0, (after?.damage || 0) - (before?.damage || 0)), ...(after?.last?.shielded ? { shielded: true } : {}) })

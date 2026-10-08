@@ -8,10 +8,12 @@
 // incomplete without where + how often, so every surface that shows a word must be able to show
 // these, and every generator must be asked for them in the SAME vocabulary.
 //
-// PURE (no React, no app imports) so it can be unit-tested — see usage.test.js.
+// PURE (no React; only the pure language-name table) so it can be unit-tested — see usage.test.js.
 
 // Frequency, ordered from most to least common. The index IS the rarity, so "be conservative"
 // is expressible as a max() — see reconcileUsageTags.
+import { langFromName } from '../config/languages.js'
+
 export const FREQ_SCALE = ['freq-core', 'freq-common', 'freq-uncommon', 'freq-rare']
 
 // CLOSED register vocabulary. Deliberately not free text: these become real Anki tags, and a model
@@ -33,7 +35,8 @@ export const isUsageTag = (t) => isRegionTag(t) || isFreqTag(t) || isRegisterTag
 // Usage tags LEAD the tag row in the order a learner reads them: where → how often → what context.
 const tagRank = (t) => (isRegionTag(t) ? 0 : isFreqTag(t) ? 1 : isRegisterTag(t) ? 2 : 3)
 // Stable: non-usage tags keep their original relative order.
-export const sortTagsUsageFirst = (tags) => [...(tags || [])].sort((a, b) => tagRank(a) - tagRank(b))
+// A string (a model slip) was spread letter by letter into one-letter "tags"; anything but a list is no tags.
+export const sortTagsUsageFirst = (tags) => (Array.isArray(tags) ? [...tags] : []).sort((a, b) => tagRank(a) - tagRank(b))
 
 // Models paraphrase tag names no matter how closed the list is. Fold the near-misses onto the
 // real vocabulary rather than letting "register-politics" and "region-usa" fragment the tag tree.
@@ -66,7 +69,13 @@ const REGION_ALIASES = {
   'region-britain': 'region-uk', 'region-united-kingdom': 'region-uk', 'region-england': 'region-uk',
 }
 
-const clean = (t) => String(t || '').trim().toLowerCase().replace(/\s+/g, '-').replace(/-+/g, '-')
+// "region_global" / "freq core": a usage family spelled with underscores or spaces is the same tag (it
+// passed through as an unknown tag and never showed as a usage chip). Other tags keep their underscores.
+const clean = (t) => {
+  const s = String(t || '').trim().toLowerCase()
+  const u = /^(region|freq|register)[_\s]/.test(s) ? s.replace(/_/g, '-') : s
+  return u.replace(/\s+/g, '-').replace(/-+/g, '-')
+}
 
 // Canonicalize ONE tag. Returns null for a tag that should be dropped (unknown register, junk).
 export const normalizeUsageTag = (tag) => {
@@ -128,7 +137,10 @@ export const REGION_SPANS = {
 // Collapse any spanning set down to region-global. Only fires on a set that FULLY spans: naming
 // Spain alone, or Spain plus Mexico, stays exactly as claimed.
 export const collapseSpanningRegions = (tags, language) => {
-  const spans = REGION_SPANS[String(language || '').trim().toLowerCase()]
+  // The saved studyLanguage is free text ("Español", "Spanish (Mexico)", "Inglés"): resolved through the one
+  // language-name table, else only the exact English name ever collapsed.
+  const key = String(language || '').trim().toLowerCase()
+  const spans = REGION_SPANS[key] || REGION_SPANS[String(langFromName(key)?.label || '').toLowerCase()]
   if (!spans) return tags
   const regions = (tags || []).filter(isRegionTag)
   if (regions.length < 2) return tags
@@ -207,15 +219,20 @@ export const reconcileUsageTags = (a, b) => {
 // Chip styling, shared by every tag surface. GREEN = safe to use (everywhere / everyday),
 // AMBER = heads-up (restricted place, rare, or context-bound), GRAY DASHED = the two checks
 // disagreed. Same visual grammar the region chips already established.
+// Tints MIX from the theme tokens (light mode's deeper success/warning), never fixed dark-theme rgba.
 const GREEN_TAGS = new Set(['region-global', 'freq-core', 'freq-common'])
+const mix = (v, pct) => `color-mix(in srgb, var(${v}) ${pct}%, transparent)`
+// Chip TEXT is the family color pulled a little toward the ink: 9px amber on its own tint measured 4.05:1 in
+// light mode (under WCAG's 4.5); ink is dark in light mode and light in dark mode, so both themes gain contrast.
+const ink = (v) => `color-mix(in srgb, var(${v}) 78%, var(--c-ink))`
 export const usageTagStyle = (tag, opts = {}) => {
   if (opts.unverified) {
-    return { background: 'rgba(125,133,144,.10)', color: 'var(--c-ink-dim)', border: '1px dashed rgba(125,133,144,.45)', fontWeight: 700 }
+    return { background: mix('--c-ink-dim', 10), color: 'var(--c-ink-dim)', border: `1px dashed ${mix('--c-ink-dim', 55)}`, fontWeight: 700 }
   }
   if (!isUsageTag(tag)) return {}
   return GREEN_TAGS.has(tag)
-    ? { background: 'rgba(24,169,87,.12)', color: 'var(--c-success)', border: '1px solid rgba(24,169,87,.35)', fontWeight: 700 }
-    : { background: 'rgba(232,147,12,.12)', color: 'var(--c-warning)', border: '1px solid rgba(232,147,12,.35)', fontWeight: 700 }
+    ? { background: mix('--c-success', 12), color: ink('--c-success'), border: `1px solid ${mix('--c-success', 40)}`, fontWeight: 700 }
+    : { background: mix('--c-warning', 12), color: ink('--c-warning'), border: `1px solid ${mix('--c-warning', 40)}`, fontWeight: 700 }
 }
 
 // Human explanation for the chip tooltip — the chip name alone ("freq-uncommon") does not tell a
@@ -252,4 +269,13 @@ export const usageTagTip = (tag, opts = {}) => {
       : t('tag_registerGeneric')
   } else return ''
   return opts.unverified ? `${base} · ${t('tag_unconfirmed')}` : base
+}
+
+// What a SCREEN READER hears for a chip: the CSS tooltip (`data-tip`) is invisible to it and the colors
+// carry the safe / heads-up / unconfirmed meaning, so the label spells it all out ("freq-uncommon: …").
+// Non-usage tags read as themselves. Empty without a `t` (never a raw key).
+export const usageTagLabel = (tag, opts = {}) => {
+  const name = String(tag ?? '')
+  const tip = usageTagTip(tag, opts)
+  return tip ? `${name}: ${tip}` : name
 }

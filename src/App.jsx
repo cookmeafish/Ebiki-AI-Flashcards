@@ -1,11 +1,16 @@
 import { useState, useRef, useCallback, useEffect, useLayoutEffect } from 'react'
 import Tesseract from 'tesseract.js'
-import { TRANSLATE_PROMPT, VISION_OCR_PROMPT, WORDLIST_TRANSLATE_PROMPT, WORD_ENRICH_PROMPT, LANGUAGE_CARD_PROMPT, GENERIC_CARD_PROMPT, POS_COLORS, CATEGORY_COLORS } from './config/prompts'
+import { TRANSLATE_PROMPT, VISION_OCR_PROMPT, WORDLIST_TRANSLATE_PROMPT, WORD_ENRICH_PROMPT, LANGUAGE_CARD_PROMPT, buildGenericCardPrompt, POS_COLORS, CATEGORY_COLORS } from './config/prompts'
+import { shapeModeType, shapeTagCategories, shapeChatSuggestions, shapeDiscoverKinds } from './config/modeSpec'
 import { dataUrlToImagePart, downscaleDataUrl, estimateImageNoise } from './utils/image'
+import { snapWordsToBoxes, overlayBoxes, hoverTooltipPos, readingLines } from './utils/ocrBoxes'
 // Media types EVERY provider accepts in an image part (GIF/WebP are re-encoded, see utils/image.js).
 const PORTABLE_IMAGE_TYPES = /^image\/(jpeg|jpg|png)$/i
 import { PROVIDERS, keyOfOtherProvider, setUsageListener } from './config/providers'
 import { recordUsage } from './utils/tokenUsage'
+import { shapeLegacyModes } from './utils/legacyModes'
+import { editorTagTarget } from './utils/deckTags'
+import { shapeHistory, studyStreak, todayNumbers, chartDays as statsChartDays, groupSessions, deckBreakdown } from './utils/studyStats'
 import { activitySignature, isAbandoned, lastActiveAt, unsyncedInSnapshot, pendingRatings, hadProgress, STUDY_SESSION_MAX_AGE_MS } from './utils/studySession'
 import TokenUsageMeter from './components/TokenUsageMeter'
 import { pickUpgrade, pickNewest, parseModelId, compareModels } from './config/modelVersions'
@@ -13,6 +18,7 @@ import { buildModelResearchPrompt, buildPresetDecisionPrompt } from './config/mo
 import { LANGS, langFromName, isDistinctSpoken } from './config/languages'
 import { splitTapTokens, tapClean, tapLongEnough, tapAllowed, splitCueParts } from './utils/tapTokens'
 import { makeT, APP_LANGUAGES, LANGUAGES, langMeta } from './i18n'
+import { useLocale } from './i18n/useLocale'
 import { ADAPTIVE_STRUGGLE_LAPSES } from './config/study'
 import { questionDepthOf, depthPlan as depthPlanFor, rateStudyCard, oneQMissNeedsRequeue, DEFAULT_QUESTION_DEPTH } from './utils/studyDepth'
 import { pickShrimp, shrimpUrl, DEFAULT_SHRIMP, IDLE_SHRIMP, POSE_NAMES, poseFile, SHRIMP } from './config/shrimp'
@@ -25,8 +31,11 @@ import { langInfo } from './pronunciation/langcodes'
 import HelpChat from './components/HelpChat'
 import Markdown, { sanitizeHtml } from './components/Markdown'
 import DiscoverPanel from './components/DiscoverPanel'
-import SettingsModal from './components/SettingsModal'
-import ModeStudio from './components/ModeStudio'
+import { lazyComponent } from './features/registry'
+// Fetched on first use (and prefetched a moment after start-up, so opening one is instant): none is on screen at
+// start, and together they were a large share of the start-up bundle. OnboardingWizard below too.
+const SettingsModal = lazyComponent(() => import('./components/SettingsModal'), { prefetchMs: 2500 })
+const ModeStudio = lazyComponent(() => import('./components/ModeStudio'), { prefetchMs: 4000 })
 import { registry, EVENTS, SLOT, FeatureContext, FeatureSlot, OptionalFeaturesCard, requestIntent } from './features'
 import { useLearner, readLearner } from './features/kit/learnerStore'
 import { readPracticeLog } from './features/kit/practiceLogStore'
@@ -34,10 +43,12 @@ import { createLearnerContextCache, LC as LEARNER_LC } from './features/kit/lear
 import { learnerContextFor, discoverEvidence, headForms as headFormsOf } from './features/kit/learnerContextUse'
 import { gatherLearnerContext } from './features/kit/learnerContextGather'
 import { learnerLine } from './features/kit/learner'
+import { describeAiError as describeAiErrorText, aiErrorText } from './features/kit/aiError'
+import { toastClearance, TOAST_BASE } from './utils/toastClearance'
 import Sidebar from './shell/Sidebar'
 import Rail from './shell/Rail'
-import { SHELL, CORE_NAV, railWanted, useViewportWidth } from './shell/layout'
-import OnboardingWizard from './components/OnboardingWizard'
+import { SHELL, CORE_NAV, railWanted, useViewportWidth, isPhoneWidth } from './shell/layout'
+const OnboardingWizard = lazyComponent(() => import('./components/OnboardingWizard'), { prefetchMs: 4000 })
 import Dropdown from './components/Dropdown'
 import ModeDeckSwitch from './components/ModeDeckSwitch'
 import { S } from './styles/theme'
@@ -47,15 +58,26 @@ import { srs, hasCapability, activeBackend, sanitizeCardHtml, isHtmlTagName, set
 import { flattenConfig, diffConfig } from './utils/configDiff'
 import { readBlob, readBlobChecked, writeBlob, setBlobWritesPaused, storageKey as blobStoreKey, DEFAULT_LEDGER } from './discover/storage'
 import { buildProfilePrompt, buildSuggestionPrompt, buildVerifyPrompt } from './discover/prompts'
+import { mergeLedgers, mergeGrammarLogs } from './discover/merge'
 import PbqQuestion from './components/PbqQuestion'
 import { QUESTION_REUSE_DEFAULT, reuseSettings, replaceQuestion, storableQuestion, clearBank, createQuestionReuse, mergeGlosses, updateBank } from './utils/questionBank'
 import { compilePbq, itemKey as pbqItemKey, reshufflePbq, pbqRatingScore, checkCitations, studentView, parseSolverAnswer, gradePbq, compareToKey, PBQ_GEN_SYSTEM, PBQ_SOLVER_SYSTEM, PBQ_JUDGE_SYSTEM, buildGeneratorPrompt as buildPbqGeneratorPrompt, buildSolverPrompt as buildPbqSolverPrompt, buildJudgePrompt as buildPbqJudgePrompt } from './pbq/engine'
 import { apiFetch, platform } from './platform'
+import { boundChatHistory, cleanChatReply } from './utils/chatReply'
+import { SLASH_ENDING, SLASH_SPELLED, isSlashEnding, expandSlashEnding, GENDERED_ARTICLES, expandSlashAnswers, answerNormalize, stripLeadArticles, stripAccArticlesFor, stripAccentsKeepYot, exactAnswerMatch } from './utils/answers'
+import { shapeConjugationPool, fallbackConjugationPool } from './utils/conjugation'
+import { leakNorm, HANGUL, leakLen, hangulLeak, NO_SPACE_SCRIPT, noSpaceLeak, answerInQuestionText, leakAnswers, questionAnswerLeak, scrubAnswerFromQuestion, hintTokenLeaks, hintRevealsAnswer, scrubHint } from './utils/leak'
+import { CUE_QUOTES_PLAIN, CUE_APOS, letterCueRe, cueFold, cueAnswers, hasLetterCue, letterSkeleton, appendLetterCue, needsLetterCue, blankedSubject } from './utils/letterCue'
+import { cardText } from './utils/cardText'
+import { stripAiDashes } from './utils/dashes'
+import { shapeProfile } from './discover/profile'
+import { slipKey as grammarSlipKey } from './discover/merge'
 import { ZOOM, parseZoom, clampZoom, zoomKeyAction, applyZoomAction } from './config/zoom'
 const SIDEBAR_KV = 'ebiki-sidebar-collapsed'
 const RAIL_KV = 'ebiki-rail-collapsed'
 import { nav } from './nav'
 import { useNavEntry } from './nav/react'
+import { imeActive, choiceIndex } from './utils/keys'
 
 // App-language code → English name, for prompting the AI to reply in the user's language.
 // App language code -> its English name for prompts (from the one list, src/i18n/languages.js).
@@ -66,6 +88,9 @@ const APP_LANG_NAME = Object.fromEntries(LANGUAGES.map((l) => [l.code, l.name]))
 // study question generation, answer grading, chat, help, card generation and Discover, so the
 // whole app shares the same reference material.
 const KNOWLEDGE_CAP = 60000
+
+// Visually hidden but read by screen readers (a usage chip's CSS tooltip is invisible to them).
+const SR_ONLY = { position: 'absolute', width: 1, height: 1, margin: -1, padding: 0, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 }
 
 // Short human name for a model id — used in UI labels like "Explain further (Opus)" so buttons
 // reflect the model the user actually configured (Settings → AI models), never a hardcoded name.
@@ -186,6 +211,9 @@ function salvageJsonObjects(str) {
     if (ch === '"') { inStr = true; continue }
     if (ch === '{') { if (depth === 0) start = i; depth++ }
     else if (ch === '}') {
+      // A stray '}' between rows (the model closed a row twice) never takes the depth below 0: it went negative
+      // and every row after it was lost.
+      if (depth === 0) continue
       depth--
       if (depth === 0 && start !== -1) {
         try { out.push(JSON.parse(str.slice(start, i + 1))); out.starts.push(start) } catch {
@@ -312,143 +340,6 @@ const fieldHtmlToPlain = (v) => decodeEntities(String(v || '')
   .replace(/<\/?([a-zA-Z][\w-]*)(?:\s[^<>]*)?\/?>/g, (m, name) => (isHtmlTagName(name) ? '' : m)))
   .replace(/\u00a0/g, ' ')
 
-// Accepted answers the model packs into ONE string ("repleto/repleta", "actor/actriz") are also listed
-// as their parts. Only the letter-count hint understood that shape: local matching marked a typed
-// "repleta" wrong (red shake + hint), the leak guards missed "repleta" in the question or hint, and the
-// letter-cue skeleton counted both halves. Split only when every part is a word ("km/h" stays one answer).
-// A slash piece that is an ENDING of the word before it ("nosotros/as", "bonito/-a", "trabajador/ora"), not a
-// word of its own: 2-letter endings used to count as full answers ("as" alone passed) and expanded to
-// "nosotrosas". Needs a real base word (4+ letters), so "nos/os" stays two pronouns.
-// Longer endings too ("inglés/esa", "catalán/ana", "campeón/ona", "bailarín/ina"): unknown, "esa" (that) became a
-// standalone correct answer and "inglesa" was refused.
-const SLASH_ENDING = /^-?(?:[aeo]s?|s|oras?|esas?|anas?|onas?|inas?|se|ve|ne|le|la|ère|ere|euse|rice|trice|in|essa|ssa|ã|ães|ões|ãos|ая|ое|ые|яя|ее|ка)$/i
-// Endings whose spelling change is known (mostly French): the base must end in the letters shown, and the
-// form is built from them (heureux/se = heureuse, lavar/se = lavarse, actif/ve = active, bon/ne = bonne, gentil/le = gentille,
-// aquel/la = aquella, premier/ère = première, chanteur/euse = chanteuse, acteur/rice = actrice). A bare "se" or
-// "la" used to count as a whole answer.
-const SLASH_SPELLED = {
-  se: [/[xr]$/i, (b) => (/x$/i.test(b) ? b.slice(0, -1) : b) + 'se'], ve: [/f$/i, (b) => b.slice(0, -1) + 've'],
-  ne: [/n$/i, (b) => b + 'ne'], le: [/l$/i, (b) => b + 'le'], la: [/l$/i, (b) => b + 'la'],
-  'ère': [/er$/i, (b) => b.slice(0, -2) + 'ère'], ere: [/er$/i, (b) => b.slice(0, -2) + 'ère'],
-  euse: [/eur$/i, (b) => b.slice(0, -3) + 'euse'], rice: [/eur$/i, (b) => b.slice(0, -3) + 'rice'], trice: [/teur$/i, (b) => b.slice(0, -4) + 'trice'],
-  // German -in (Freund/in = Freundin, Kollege/in = Kollegin), Italian -essa (professore/essa, studente/ssa = studentessa),
-  // Portuguese -ão forms (alemão/ã = alemã, irmão/ãos), Russian adjective endings (новый/ая = новая, синий/яя = синяя) and
-  // the noun suffix -ка (студент/ка). Unknown, the bare ending ("in", "essa", "ая") passed as a whole answer and the
-  // real form was refused.
-  // Only noun-shaped bases (Lehrer, Student, Freund; a capitalised Kollege): "into/in", "sign/in", "noch/in" are two words,
-  // and esse/essa (Portuguese "that") stays two words.
-  in: [/(?:(?:er|ent|ant|ist|ling|nd|og|at)|^\p{Lu}\p{L}{2,}e)$/u, (b) => (/e$/i.test(b) ? b.slice(0, -1) : b) + 'in'],
-  essa: [/[^s]e$/i, (b) => b.slice(0, -1) + 'essa'], ssa: [/[^s]e$/i, (b) => b.slice(0, -1) + 'essa'],
-  'ã': [/ão$/i, (b) => b.slice(0, -2) + 'ã'], 'ães': [/ão$/i, (b) => b.slice(0, -2) + 'ães'], 'ões': [/ão$/i, (b) => b.slice(0, -2) + 'ões'], 'ãos': [/ão$/i, (b) => b.slice(0, -2) + 'ãos'],
-  'ая': [/(ый|ий|ой)$/i, (b) => b.slice(0, -2) + 'ая'], 'ое': [/(ый|ий|ой)$/i, (b) => b.slice(0, -2) + 'ое'], 'ые': [/(ый|ой)$/i, (b) => b.slice(0, -2) + 'ые'],
-  'яя': [/ий$/i, (b) => b.slice(0, -2) + 'яя'], 'ее': [/ий$/i, (b) => b.slice(0, -2) + 'ее'], 'ка': [/(?:ент|ист|ант)$/i, (b) => b + 'ка'],
-}
-// A 3+ letter ending must echo the base's last two letters (ingl(és)/esa, catal(án)/ana, trabaj(ador)/ora): else
-// "esta/esa", "esos/esas", "hermano/ana" are two WORDS and were glued into "estesa".
-const slashNoAcc = (x) => String(x).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-const isSlashEnding = (piece, base) => {
-  const e = String(piece || '').replace(/^-/, '')
-  if (!SLASH_ENDING.test(String(piece || '')) || !base || /\s/.test(base)) return false
-  const n = [...String(base)].length
-  const spelled = SLASH_SPELLED[e.toLowerCase()]
-  if (spelled) return n >= 3 && spelled[0].test(base)
-  // Short words take a one-letter a/o/e ending too ("tío/a", "feo/a", "mío/a", "uno/a", French "ami/e"): neither
-  // form matched before. 2+ letter endings still need a 4+ letter base, so "nos/os" stays two pronouns.
-  if (n < 4 && !(n === 3 && /^[aoe]$/i.test(e) && /[aeiouáéíóú]$/i.test(base))) return false
-  // A plural "/s" ("estudiante/s") only after a vowel.
-  if (e.toLowerCase() === 's') return /[aeiouáéíóú]$/i.test(base)
-  return e.length < 3 || slashNoAcc(base).endsWith(slashNoAcc(e.slice(0, 2)))
-}
-const expandSlashEnding = (base, piece) => {
-  const e = String(piece).replace(/^-/, '')
-  if (e.toLowerCase() === 's') return base + e // estudiante/s
-  const spelled = SLASH_SPELLED[e.toLowerCase()]
-  if (spelled && spelled[0].test(base)) return spelled[1](base)
-  // The ending repeats the base's last letters: trabajad(or) + ora.
-  // Compared without accents: ingl(és) + esa, catal(án) + ana.
-  const noAcc = (x) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
-  for (let k = Math.min(e.length - 1, 3); k >= 2; k--) if (noAcc(base).endsWith(noAcc(e.slice(0, k)))) return base.slice(0, -k) + e
-  if (/[aeo]s$/i.test(base) && /s$/i.test(e)) return base.slice(0, -2) + e   // nosotr(os) + as
-  if (/[aeo]$/i.test(base)) return base.slice(0, -1) + e                     // bonit(o) + a, president(e) + a
-  if (/[iu]$/i.test(base)) return base + e                                     // French ami + e = amie, joli + e = jolie
-  // A final ACCENTED vowel stays and the ending is appended (French fatigué/e = fatiguée, marié/e = mariée): replacing
-  // it gave another real word ("fatigue", "marie") that was graded correct while "fatiguée" was refused.
-  if (/[áéíóúàèìòù]$/i.test(base)) return base + e
-  // profesor + a. A written accent on the last syllable goes once a syllable is added (alemán + a = alemana,
-  // francés + a = francesa): kept, "alemána" was the accepted form and the accent drill demanded it.
-  const i = base.search(/[áéíóú](?=[^aeiouáéíóú]*$)/i)
-  const b = i < 0 ? base : base.slice(0, i) + base[i].normalize('NFD')[0] + base.slice(i + 1)
-  return b + e
-}
-
-// Articles that carry a gender (data, per language): beside a gendered word with a slash ending they fix which form is meant.
-const GENDERED_ARTICLES = new Set(['el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas', 'il', 'lo', 'le', 'gli', 'une', 'o', 'os', 'as', 'um', 'uma', 'umas', 'uns', 'der', 'die', 'das', 'ein', 'eine'])
-const expandSlashAnswers = (list) => {
-  const out = []
-  for (const a of list || []) {
-    const s = String(a).trim()
-    if (!s) continue
-    if (!out.includes(s)) out.push(s)
-    const parts = s.includes('/') ? s.split('/').map((x) => x.trim()) : []
-    // Every part needs 2+ letters: "km/h" is one answer ("km" alone must not pass). And "el/la estudiante"
-    // is one phrase whose slash only covers the article: a SHORT lone word (3 letters or fewer) beside a
-    // phrase is not an alternative, or a bare "el" was a correct answer. Real alternatives still split,
-    // phrases included ("echar de menos/extrañar", "tener que/deber").
-    const letters = (p) => [...p.replace(/[^\p{L}]/gu, '')].length
-    // A gender ENDING inside a phrase ("compañero/a de clase", "chico/a guapo/a", "los/las alumnos/as") expands WORD
-    // BY WORD, genders aligned: split on the slash as a whole, it gave "compañero" and "a de clase" (junk that
-    // passed) and never "compañera de clase". Word alternatives in the same phrase (los/las) align by position.
-    // A fraction ("1/2 taza", "3/4 cup") is a number, never two answers: split, "1 taza" and "2 taza" passed.
-    if (/\d\s*\/\s*\d/.test(s)) continue
-    const words = /\s/.test(s) ? s.split(/\s+/) : []
-    const slashWords = words.filter((w) => w.includes('/')).length
-    const wordForms = words.map((w) => {
-      if (!w.includes('/')) return null
-      const ps = w.split('/')
-      if (!(ps.length > 1 && ps.slice(1).every((p) => isSlashEnding(p, ps[0])))) return null
-      // A plural ending beside ANOTHER slash ("el/la joven/es") is a different axis: paired by position it made
-      // "la jovenes". Only the singular is kept there.
-      if (slashWords > 1 && ps.slice(1).every((p) => /^-?e?s$/i.test(p))) return [ps[0]]
-      return [ps[0], ...ps.slice(1).map((p) => expandSlashEnding(ps[0], p))]
-    })
-    if (wordForms.some(Boolean)) {
-      const opts = words.map((w, i) => wordForms[i] || (w.includes('/') && w.split('/').every((p) => letters(p) >= 1) ? w.split('/') : [w]))
-      // An article WITHOUT a slash fixes the gender ("el médico/a"): pairing it with the other ending gave "el médica"
-      // (accepted, while "la médica" was not). Only the form that agrees with it is expanded then.
-      const fixedArticle = words.some((w, i) => !wordForms[i] && !w.includes('/') && GENDERED_ARTICLES.has(w.toLowerCase()))
-      const n = fixedArticle ? 1 : Math.max(...opts.map((o) => o.length))
-      for (let k = 0; k < n; k++) {
-        const form = opts.map((o) => o[Math.min(k, o.length - 1)]).join(' ')
-        if (!out.includes(form)) out.push(form)
-      }
-      continue
-    }
-    const hasPhrase = parts.some((p) => /\s/.test(p))
-    const articleSlash = hasPhrase && parts.some((p) => !/\s/.test(p) && letters(p) <= 3)
-    // A one-letter ENDING ("bonito/-a", "niño/a") is a form, not a stray letter: it passed the 2-letter gate
-    // only in theory, so "bonita" typed against "bonito/-a" was graded wrong.
-    if (parts.length > 1 && !articleSlash && parts.every((p, i) => letters(p) >= 2 || (i > 0 && isSlashEnding(p, parts[0])))) {
-      for (const [i, p] of parts.entries()) {
-        const form = i > 0 && isSlashEnding(p, parts[0]) ? expandSlashEnding(parts[0], p) : p
-        if (!out.includes(form)) out.push(form)
-      }
-    }
-    // "el/la estudiante": each article with the phrase's tail ("el estudiante", "la estudiante"), never the
-    // bare article. The phrase stayed whole, so "el estudiante" typed against it was graded wrong.
-    if (parts.length > 1 && articleSlash) {
-      // The lone piece replaces the phrase's FIRST word when it comes before it ("el/la estudiante"), its LAST
-      // word when it comes after ("hace frío/sol" → "hace sol", never "sol frío").
-      const pi = parts.findIndex((p) => /\s/.test(p))
-      const phrase = parts[pi]
-      const head = phrase.match(/^(\S+)\s+(.+)$/), tail = phrase.match(/^(.+)\s+(\S+)$/)
-      for (const [i, p] of parts.entries()) {
-        const form = i === pi ? p : i < pi ? (head ? `${p} ${head[2]}` : null) : (tail ? `${tail[1]} ${p}` : null)
-        if (form && !out.includes(form)) out.push(form)
-      }
-    }
-  }
-  return out
-}
 
 // The editor, bulk edit and merges hold PLAIN text (fieldHtmlToPlain decoded the entities), so it goes
 // back HTML-escaped: a card about "&lt;div&gt;" was otherwise written as a real <div> and the text vanished.
@@ -520,15 +411,6 @@ const keyMisfits = (pc, key) => {
   const k = String(key || '').trim()
   return !!(pc && k && ((pc.keyPrefix && !k.startsWith(pc.keyPrefix)) || keyOfOtherProvider(pc, k)))
 }
-const cardText = (v) => {
-  if (v == null) return ''
-  if (typeof v === 'string') return v
-  if (Array.isArray(v)) return v.map(cardText).filter(Boolean).join('\n')
-  // A list under a label stays on that label's line ("Traducción: cat, tomcat"); split into lines, its later
-  // items landed unlabeled and unbolded on lines of their own.
-  if (typeof v === 'object') return Object.entries(v).map(([k, x]) => `${k}: ${Array.isArray(x) ? x.map(cardText).filter(Boolean).join(', ') : cardText(x)}`).join('\n')
-  return String(v)
-}
 // Mode config written by a MODEL (createMode, Ebi Studio, Ask AI edits) in the shape the app reads.
 // A tagRules/template that came back as a list or an object was saved as-is: generateCards' .split on it
 // threw (Quick Add failed for that mode for good), an object template became "[object Object]" on
@@ -542,7 +424,6 @@ const modeFields = (v, fallback) => {
   if (!(v && typeof v === 'object' && Object.keys(v).length)) return fallback
   return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, modeFlag(x)]))
 }
-const modeType = (v) => (String(v || '').trim().toLowerCase() === 'language' ? 'language' : 'general')
 const clampRule = (v, lo, hi, dflt) => { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt }
 
 // Em/en dashes out of AI text, but a digit range stays a range ("10–20" → "10-20", not "10, 20").
@@ -614,7 +495,7 @@ const defaultGeneralStudyRules = {
   ratingRules: 'All correct = Easy, 1 wrong = AI judges Good or Hard based on answer quality, 2 wrong = Hard, All wrong = Again',
 }
 const defaultMode = {
-  id: 1, name: 'Language Learning', type: 'language', description: '', ankiDeck: '', translateMode: 'all', areaSelectTransparent: true,
+  id: 1, name: 'Language Learning', type: 'language', description: '', ankiDeck: '', translateMode: 'all',
   fields: { pronunciation: true, translation: true, synonyms: true, definition: true, example: true },
   frontTemplate: '{word} ({partOfSpeech})',
   backTemplate: 'Pronunciación: {pronunciation}\nTraducción: {translation}\nSinónimos: {synonyms}\nDefinición: {definition}\nEjemplo: {example}',
@@ -700,7 +581,8 @@ export default function App() {
   useEffect(() => {
     if (!isOverlay) return
     const handleEsc = (e) => {
-      if (e.key === 'Escape') {
+      // Not while an IME composition owns Esc (typing in the overlay's chat/refine box: it dismissed the capture)
+      if (e.key === 'Escape' && !imeActive(e)) {
         e.preventDefault()
         e.stopPropagation()
         // Also dismiss from here: the global Esc shortcut can fail to register (another program holds
@@ -769,7 +651,6 @@ export default function App() {
     }
   }, [isOverlay])
   const [activeTab, setActiveTab] = useState(null) // 'chat' | 'study' | 'deck' | 'picture' | 'stats' — null until config loads
-  const [chatSidePanel, setChatSidePanel] = useState(false) // split-screen chat alongside another tab
   const [provider, setProvider] = useState('anthropic')
   const [configLoaded, setConfigLoaded] = useState(false)
   // Belt-and-braces on top of the try/catch around the config-load effect below:
@@ -900,6 +781,22 @@ export default function App() {
   const [aiErrorNotice, setAiErrorNotice] = useState(null)
   // Transient green success toast (e.g. "mode created") — auto-dismisses.
   const [successNotice, setSuccessNotice] = useState(null)
+  // Where the toast stack sits (layout px from the bottom): above any composer on screen (`data-composer`: Chat,
+  // Ebi Call, Roleplay, Talk), else 16. At 900px and zoom 2 a toast covered Ebi Call's input and Send. Measured
+  // only while a toast shows (src/utils/toastClearance.js, tested).
+  const [toastBottom, setToastBottom] = useState(TOAST_BASE)
+  const anyToast = !!(modelHealNotice || aiErrorNotice || successNotice || modelFailover)
+  useEffect(() => {
+    if (!anyToast || isOverlay) { setToastBottom(TOAST_BASE); return }
+    const measure = () => {
+      const rects = Array.from(document.querySelectorAll('[data-composer]'), (el) => el.getBoundingClientRect())
+      setToastBottom(toastClearance(rects, window.innerHeight, parseFloat(document.body.style.zoom) || 1))
+    }
+    measure()
+    const iv = setInterval(measure, 600) // a tab switch or a growing textarea moves the composer
+    window.addEventListener('resize', measure)
+    return () => { clearInterval(iv); window.removeEventListener('resize', measure) }
+  }, [anyToast, isOverlay])
   // In-app confirm modal replacing window.confirm (native dialogs render tiny, unstyleable
   // text). Promise-based drop-in: `await confirmDialog(msg)` resolves true (OK) / false (Cancel).
   const [appConfirm, setAppConfirm] = useState(null) // { message, resolve }
@@ -1076,7 +973,11 @@ export default function App() {
     try { localStorage.setItem('ebiki-app-language', appLanguage) } catch {}
     document.documentElement.lang = appLanguage // CJK glyph forms and screen-reader voices follow it
   }, [appLanguage])
-  const t = makeT(appLanguage)
+  // Only English is in the start-up bundle; another language loads on demand. Until it's in, `uiLanguage` is the
+  // last language that was ready (null at the very start: the first paint below waits for it).
+  const [uiLanguage, uiLanguageSettled] = useLocale(appLanguage)
+  const firstPaintDoneRef = useRef(false)
+  const t = makeT(uiLanguage || appLanguage)
   // The live t for memoized callbacks (the Picture scan's progress lines): their own t is the one from the
   // render that created them, in the language of that moment.
   const tLiveRef = useRef(t)
@@ -1203,13 +1104,6 @@ export default function App() {
   const [overlayRunning, setOverlayRunning] = useState(false)
   // Persisted user preference: launch the screen overlay on startup. Defaults ON.
   const [overlayEnabled, setOverlayEnabled] = useState(true)
-  const [selectionMode, setSelectionMode] = useState(false)
-  const [selRect, setSelRect] = useState(null) // { x1, y1, x2, y2 } in viewport coords
-  const [selectionOffset, setSelectionOffset] = useState(null) // { x, y } in full-image pixels
-  const [selectionViewport, setSelectionViewport] = useState(null) // { x, y, w, h } in viewport px
-  const [selectionCrop, setSelectionCrop] = useState(null) // { dataUrl, w, h } for transparent mode
-  const [areaSelectBounds, setAreaSelectBounds] = useState(null) // original small window bounds to restore on dismiss
-  const selStartRef = useRef(null)
   const [ankiConnected, setAnkiConnected] = useState(null)
 
   // ── Anki setup: the add-on, and the AnkiWeb account ───────────────────────
@@ -1237,6 +1131,11 @@ export default function App() {
   // Is the add-on on disk? Asked whenever Anki is NOT answering, because that is
   // the only time the answer changes anything: connected means it is obviously
   // there. Re-checked on reconnect attempts through the same effect.
+  // Connected again: an install's "✓ installed, restart Anki" (or its error) is done with. Kept, it came back word for
+  // word on a LATER disconnect, telling the user to restart Anki for an install that already worked.
+  useEffect(() => {
+    if (ankiConnected === true) { setAddonState((s) => (s === 'installing' ? s : 'idle')); setAddonMsg('') }
+  }, [ankiConnected])
   useEffect(() => {
     if (isOverlay || !configLoaded || ankiConnected !== false) return
     let stop = false
@@ -1272,7 +1171,8 @@ export default function App() {
     let focused = false
     try { focused = !!(await srs.focusApp()).ok } catch { /* nothing to focus */ }
     // Anki is running but waiting on a question: starting it again does nothing (and said "Starting Anki").
-    if (!focused && !ankiAddon?.ankiAwaitingInput) {
+    // A stuck launcher always gets the start (it is what repairs it), even if its window also read as a question.
+    if (!focused && (!ankiAddon?.ankiAwaitingInput || ankiAddon?.ankiLauncherStuck)) {
       try {
         const d = await srs.startApp()
         if (d.ok) {
@@ -1468,6 +1368,8 @@ export default function App() {
   const [deckBrowserDeck, setDeckBrowserDeck] = useState(() => { try { return localStorage.getItem('ebiki-deck') || '' } catch { return '' } })
   const [deckBrowserNotes, setDeckBrowserNotes] = useState([])
   const [deckBrowserLoading, setDeckBrowserLoading] = useState(false)
+  // The deck a SUCCESSFUL load found empty (the empty-deck hint shows only then, never after a failed load).
+  const [deckLoadedEmpty, setDeckLoadedEmpty] = useState(null)
   const [deckBrowserEditing, setDeckBrowserEditing] = useState(null) // noteId being edited
   const [deckBrowserEditFields, setDeckBrowserEditFields] = useState({})
   const [deckBrowserEditTags, setDeckBrowserEditTags] = useState('') // space-separated tag editor
@@ -1535,6 +1437,7 @@ export default function App() {
   const [deckDupEmpty, setDeckDupEmpty] = useState(false)
   const [deckDupExpanded, setDeckDupExpanded] = useState({}) // noteId -> bool (show full card)
   const [deckDupIgnore, setDeckDupIgnore] = useState([]) // ["minId-maxId", ...] pairs never to suggest
+  const deckDupIgnoreRef = useRef([]) // the live list: two quick dismissals in one render each wrote a list missing the other's pairs
   // Discover Mode (adaptive new-card discovery)
   const [discoverProfile, setDiscoverProfile] = useState(null)
   const [discoverProfileLoading, setDiscoverProfileLoading] = useState(false)
@@ -1629,7 +1532,7 @@ export default function App() {
   useEffect(() => {
     if (!chatPlusOpen) return
     // Not while something sits above it (Settings, the wizard, Studio, a dialog): its Esc was taken and needed a second press.
-    const onKey = (e) => { if (e.key === 'Escape' && !e.defaultPrevented && !settingsOpenRef.current && !wizardShownRef.current && !document.querySelector('[data-top-overlay],[data-app-dialog]')) { e.preventDefault(); setChatPlusOpen(false) } }
+    const onKey = (e) => { if (e.key === 'Escape' && !imeActive(e) && !e.defaultPrevented && !settingsOpenRef.current && !wizardShownRef.current && !document.querySelector('[data-top-overlay],[data-app-dialog]')) { e.preventDefault(); setChatPlusOpen(false) } }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [chatPlusOpen])
@@ -1657,11 +1560,15 @@ export default function App() {
   }
   // A file (paste, drop, the photo menu): counted from BEFORE the read, which is part of the wait too.
   const attachChatImageFile = (file) => {
+    // A clipboard item can hand back no file (getAsFile() is null): readAsDataURL threw after the count went up,
+    // so it never came down and every later send waited its full 10 seconds for a photo that did not exist.
+    if (!(file instanceof Blob)) return
     chatImagePendingRef.current++
     const r = new FileReader()
-    r.onload = (ev) => { attachChatImage(ev.target.result).finally(() => { chatImagePendingRef.current-- }) }
+    r.onload = (ev) => { attachChatImage(ev.target.result).catch(() => {}).finally(() => { chatImagePendingRef.current-- }) }
     r.onerror = () => { chatImagePendingRef.current-- }
-    r.readAsDataURL(file)
+    r.onabort = () => { chatImagePendingRef.current-- }
+    try { r.readAsDataURL(file) } catch { chatImagePendingRef.current-- }
   }
   const chatImageInputRef = useRef(null)
   const [chatTabStatus, setChatTabStatus] = useState(null) // null | 'searching' | 'thinking' | 'search-done' | 'search-empty' | 'search-failed'
@@ -1869,7 +1776,10 @@ export default function App() {
   //   cheap   = pose (fires every message), help (short Q&A), discover (suggestions are reviewed)
   //   normal  = chat, picture (vision), study (has answer-leak/cue guards), general
   //   max     = deck (card generation gets MEMORIZED — never cheap out here)
-  const ROLE_TIER = { pose: 'cheap', help: 'cheap', discover: 'cheap', chat: 'normal', picture: 'normal', study: 'normal', general: 'normal', deck: 'max' }
+  // The presets this build knows. A newer computer on the share may save one this build lacks: it ran every
+  // role on the provider's fallback model, and the first autosave posted 'normal' over the other computer's pick.
+  const INTELLIGENCE_PRESETS = ['optimized', 'normal', 'max']
+  const ROLE_TIER = { pose: 'cheap',help: 'cheap', discover: 'cheap', chat: 'normal', picture: 'normal', study: 'normal', general: 'normal', deck: 'max' }
   const ROLE_DEFAULTS = (pc, intel = 'normal', prov = aiStateRef.current.provider) => {
     const normal = presetModel(pc, prov, 'normal')
     // Tier-based baseline (also the fallback for any role the advisor didn't decide).
@@ -2039,25 +1949,27 @@ export default function App() {
   // below matched, and the heal wrote an OLDER model into the shared config for good (failover is the right path).
   const isRetiredModelError = (msg = '') => !/^API (429|5\d\d)\b/.test(String(msg)) && /\b404\b|not[_ ]?found|model.*(not found|does not exist|unavailable|retired|deprecated)/i.test(msg)
 
-  // Turn a raw AI/provider error into a clear, user-facing explanation (or null if it
-  // isn't a recognizable provider error — e.g. a JSON parse issue in the caller).
-  const describeAiError = (msg = '') => {
-    const m = String(msg).toLowerCase()
-    // A per-minute limit worded like a quota ("You exceeded your current quota", one provider's 429) is a
-    // RATE limit: it clears by itself. Out of credits carries insufficient_quota / credit / balance wording.
-    if (/resource_exhausted/.test(m) || (/429/.test(m) && !/insufficient|credit|balance|payment|billing_hard_limit/.test(m))) return t('aiErr_rateLimit')
-    if (/insufficient|credit|quota|billing|exceeded|payment|balance|out of/.test(m)) return t('aiErr_credits')
-    if (/\b429\b|rate.?limit|too many requests|overloaded/.test(m)) return t('aiErr_rateLimit')
-    if (/\b401\b|\b403\b|invalid.*api.*key|invalid x-api-key|unauthor|authentication|permission/.test(m)) return t('aiErr_badKey')
-    if (/\b5\d\d\b|network|failed to fetch|timeout|econn|fetch failed/.test(m)) return t('aiErr_network')
-    if (/^api \d+/.test(m)) return t('aiErr_generic', { msg })
-    return null
-  }
+  // Turn a raw AI/provider error into a clear, user-facing explanation, or null when it is not one (a JSON parse
+  // issue in the caller). ONE classifier for the app toast and every feature (src/features/kit/aiError.js, tested):
+  // the loose copy here read "network"/"permission"/"out of" in an unrelated message as a provider failure and missed
+  // the call timeout ("signal timed out").
+  const describeAiError = (msg = '') => describeAiErrorText(tLiveRef.current, msg)
+  // A failed call's {msg} for a line on screen: the friendly provider text, never "API 500: {...}" (else its own message).
+  const aiErrMsg = (err) => aiErrorText(tLiveRef.current, err)
   // Surface a provider error as a toast. Returns true if it was a recognizable AI error.
+  // The last toast an AI call raised: a later AI success clears only THAT one (see aiCall).
+  const aiCallErrorRef = useRef(null)
   const reportAiError = (e) => {
     const d = describeAiError(e?.message || e || '')
-    if (d) { setAiErrorNotice(d); return true }
+    if (d) { aiCallErrorRef.current = d; setAiErrorNotice(d); return true }
     return false
+  }
+  // Raise an error toast. The NEWEST wins: `prev || msg` let an old, unrelated notice (still waiting to be
+  // dismissed) hide a new failure. `keepAi`: a caller whose aiCall may have just raised the friendlier provider
+  // toast for this same failure keeps THAT one (only the toast an AI call raised, never another notice).
+  const raiseNotice = (msg, { keepAi = false } = {}) => {
+    if (!msg) return
+    setAiErrorNotice((prev) => (keepAi && prev && prev === aiCallErrorRef.current ? prev : msg))
   }
 
   // On a retired-model error, find a current model, persist it as the role's
@@ -2125,7 +2037,7 @@ export default function App() {
       if (!subs || !Object.values(subs).includes(failedModel)) return prev
       return { ...prev, [prov]: Object.fromEntries(Object.entries(subs).map(([k, v]) => [k, v === failedModel ? replacement : v])) }
     })
-    setModelHealNotice(t('modelHealed', { from: failedModel, to: replacement }))
+    setModelHealNotice(tLiveRef.current('modelHealed', { from: failedModel, to: replacement })) // aiCall runs from memoized callbacks
     return replacement
   }
 
@@ -2293,12 +2205,6 @@ export default function App() {
   // Line-aware: "\s" joined lines, so a Spanish dialogue ("—Hola" lines) or a "– then" list step fused onto the
   // line above before any line-safe strip downstream saw it. A dash that starts or ends a line (a real line
   // break, or a "\n" escape inside a JSON string) is dropped; only one inside a line becomes ", ".
-  const stripAiDashes = (s) => typeof s === 'string'
-    ? s.replace(/(\d)[ \t]*[—–][ \t]*(\d)/g, '$1-$2')
-      .replace(/(^|\n|\\n)[ \t]*[—–][ \t]*/g, '$1')
-      .replace(/[ \t]*[—–][ \t]*(?=\n|\\n|$)/g, '')
-      .replace(/[ \t]*[—–][ \t]*/g, ', ')
-    : s
   // A verified exercise after the dash strip: an item that WAS a dash ("—", "–") became an empty chip, and two of them
   // could not be told apart (the solve and the checks ran before the strip). Such an exercise is rebuilt.
   const DASH_ITEM_FAILURE = 'some items consisted of dash characters, which cannot be shown; use items that do not consist of or depend on dash characters'
@@ -2375,7 +2281,9 @@ export default function App() {
     const finish = (text) => opts.keepDashes ? text : stripAiDashes(text)
     try {
       const out = await PROVIDERS[prov].call(key, systemPrompt, userContent, model, images, maxTokens)
-      setAiErrorNotice((prev) => prev ? null : prev) // clear a stale error toast on success
+      // Clear a stale AI error toast on success. Only one an AI call raised: the pose call on every message
+      // wiped "mode save failed", "rename failed" and other notices a second after they appeared.
+      setAiErrorNotice((prev) => (prev && prev === aiCallErrorRef.current ? null : prev))
       return finish(out)
     } catch (e) {
       const msg = e?.message || ''
@@ -2618,7 +2526,7 @@ export default function App() {
         if (ok === true) {
           setSessionSubs((p) => { const n = { ...(p[provider] || {}) }; delete n[downId]; return { ...p, [provider]: n } })
           setModelAvailability((p) => ({ ...p, [provider]: { ...(p[provider] || {}), [downId]: { ok: true, at: Date.now() } } }))
-          setSuccessNotice(t('fo_restored', { model: downId }))
+          setSuccessNotice(tLiveRef.current('fo_restored', { model: downId }))
           // Functional: this interval's closure holds the prompt from when it was armed, not now.
           setModelFailover((cur) => (cur?.down === downId ? null : cur))
         }
@@ -2711,22 +2619,17 @@ export default function App() {
         // Only after a SUCCESSFUL read that found no modes: a failed read (null, or the server's error
         // object) must never trigger a migration that posts the old legacy modes over the real ones.
         // Migrate from legacy ankiformat.json
-        let migrated = null
-        if (legacyFormat.modes) {
-          migrated = legacyFormat.modes
-          if (legacyFormat.activeModeId) setActiveModeId(legacyFormat.activeModeId)
-        } else if (legacyFormat.profiles) {
-          migrated = legacyFormat.profiles.map((p) => ({
-            ...p, type: 'language', description: '', tagRules: defaultMode.tagRules,
-          }))
-          if (legacyFormat.activeProfileId) setActiveModeId(legacyFormat.activeProfileId)
-        } else if (legacyFormat.fields) {
-          migrated = [{ ...defaultMode, ...legacyFormat, id: 1, name: 'Language Learning', type: 'language' }]
-        }
-        if (migrated) {
+        // Ids repaired and the active id checked (utils/legacyModes.js): the screen showed the legacy active
+        // mode while the save recorded the first, and the load's id repair never ran on these.
+        const legacy = shapeLegacyModes(legacyFormat, defaultMode)
+        if (legacy) {
+          const { modes: migrated, activeId } = legacy
+          modesRef.current = migrated
+          activeModeIdRef.current = activeId
           setModes(migrated)
+          setActiveModeId(activeId)
           // Save to new format
-          postModes({ modes: migrated, activeModeId: migrated[0]?.id || 1 })
+          postModes({ modes: migrated, activeModeId: activeId })
           console.log('[Mode] migrated from legacy ankiformat.json')
         }
       }
@@ -2761,7 +2664,7 @@ export default function App() {
       if (config.targetLang) setTargetLang(config.targetLang)
       else setTargetLang(langMeta(config.appLanguage || appLanguage).ocr)
       if (config.showHighlights !== undefined) setShowHighlights(config.showHighlights)
-      if (config.intelligence) setIntelligence(config.intelligence)
+      if (INTELLIGENCE_PRESETS.includes(config.intelligence)) setIntelligence(config.intelligence) // like provider: a preset a newer build added is ignored
       if (typeof config.studyAutoSync === 'boolean') setStudyAutoSync(config.studyAutoSync)
       if (config.features && typeof config.features === 'object' && !Array.isArray(config.features)) setFeatureSettingsState(config.features)
       if (Number.isFinite(config.studyAutoSyncMinutes)) setStudyAutoSyncMinutes(config.studyAutoSyncMinutes)
@@ -2793,6 +2696,7 @@ export default function App() {
       if (cfgReachable) {
         const seed = flattenConfig(Object.fromEntries(Object.entries(config).filter(([k]) => !k.startsWith('_'))))
         if (config.provider && !PROVIDERS[config.provider]) seed.provider = JSON.stringify(provider) // ignored above: never "switch" it back
+        if (config.intelligence && !INTELLIGENCE_PRESETS.includes(config.intelligence)) seed.intelligence = JSON.stringify(intelligence)
         lastSentCfgRef.current = seed
       }
       setKeysLoaded(true)
@@ -2828,7 +2732,7 @@ export default function App() {
     const loadOverlayScreenshot = (onLoaded) => {
       const url = window.__overlayScreenshot
       if (!url) return
-      fetch(url).then(r => r.blob()).then(blob => {
+      apiFetch(url).then(r => r.blob()).then(blob => {
         const reader = new FileReader()
         reader.onload = (e) => {
           const dataUrl = e.target.result
@@ -2864,79 +2768,12 @@ export default function App() {
     // Full-screen capture (Alt+Q)
     const handleOverlayCapture = () => {
       console.log('[Overlay] Full capture')
-      window.__selectionMode = false
-      setSelectionMode(false)
-      setSelectionOffset(null)
-      setSelectionViewport(null)
-      setSelectionCrop(null)
       loadOverlayScreenshot((dataUrl) => {
         { const g = scanGenRef.current; setTimeout(() => { if (g === scanGenRef.current) window.__autoAnalyze = dataUrl }, 100) } // not after a reset (a queued one scanned the previous screen)
       })
     }
     window.addEventListener('overlay-capture', handleOverlayCapture)
 
-    // Area-select: selector window already captured, we receive the rect + screenshot
-    const handleAreaCaptured = async () => {
-      const rect = window.__areaSelectRect
-      const url = window.__overlayScreenshot
-      if (!rect || !url) return
-      window.__areaSelectRect = null
-      console.log('[Overlay] Area captured:', rect)
-
-      try {
-        const resp = await fetch(url)
-        const blob = await resp.blob()
-        const dataUrl = await new Promise((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = (e) => resolve(e.target.result)
-          reader.onerror = () => reject(new Error('the screenshot could not be read'))
-          reader.readAsDataURL(blob)
-        })
-        // onerror: a missing/garbled screenshot never loads, and the capture hung with the overlay dimmed.
-        const img = await new Promise((resolve, reject) => {
-          const i = new window.Image()
-          i.onload = () => resolve(i)
-          i.onerror = () => reject(new Error('the screenshot could not be decoded'))
-          i.src = dataUrl
-        })
-
-        // Use screen dimensions (not window.innerWidth which is now the small window)
-        const scaleX = img.naturalWidth / rect.screenW
-        const scaleY = img.naturalHeight / rect.screenH
-        const cx = Math.round(rect.x * scaleX)
-        const cy = Math.round(rect.y * scaleY)
-        const cw = Math.round(rect.w * scaleX)
-        const ch = Math.round(rect.h * scaleY)
-
-        const canvas = document.createElement('canvas')
-        canvas.width = cw
-        canvas.height = ch
-        canvas.getContext('2d').drawImage(img, cx, cy, cw, ch, 0, 0, cw, ch)
-        const croppedDataUrl = canvas.toDataURL('image/png')
-
-        const pad = rect.pad || 6
-        // Window is sized to selection — render crop at (0,0) with padding
-        setImgDims({ w: cw, h: ch })
-        setScreenshot(croppedDataUrl)
-        setSelectionOffset(null) // no offset needed — crop IS the image
-        setSelectionViewport(null) // no viewport positioning — window IS the selection
-        setSelectionCrop(null) // not using the separate crop rendering path
-        setStage('captured')
-        setOcrWords([])
-        setError(null)
-        setSelectionMode(false)
-        window.__selectionMode = false
-        // Save the small window bounds so we can restore after tooltip dismiss
-        setAreaSelectBounds({ x: window.screenX, y: window.screenY, width: window.innerWidth, height: window.innerHeight })
-        document.body.style.opacity = '1'
-        { const g = scanGenRef.current; setTimeout(() => { if (g === scanGenRef.current) window.__autoAnalyze = croppedDataUrl }, 100) } // not after a reset (a queued one scanned the previous screen)
-      } catch (err) {
-        console.error('[Overlay] Area capture failed:', err)
-        document.body.style.opacity = '1'
-        setError(tLiveRef.current('pic_errCaptureEsc')) // it just came back with nothing
-      }
-    }
-    window.addEventListener('overlay-area-captured', handleAreaCaptured)
 
     // Overlay reset: clear old screenshot before new capture to prevent flash
     const handleOverlayReset = () => {
@@ -2950,13 +2787,6 @@ export default function App() {
       setScreenshot(null)
       setStage('idle')
       setOcrWords([])
-      window.__selectionMode = false
-      setSelectionMode(false)
-      setSelRect(null)
-      setSelectionOffset(null)
-      setSelectionViewport(null)
-      setSelectionCrop(null)
-      setAreaSelectBounds(null)
       // The overlay page lives all session and read settings once, at startup (often BEFORE onboarding
       // asked for a key): every Alt+Q then said "set your API key first" until a restart, and a later
       // provider, key, mode or language change never reached it. Re-read them per capture, read-only.
@@ -2982,7 +2812,7 @@ export default function App() {
           if (config.modelPresets) setModelPresets(config.modelPresets)
           if (config.modelPlans) setModelPlans(config.modelPlans) // a plan decided or healed since the overlay started
           if (config.rejectedModels) setRejectedModels(config.rejectedModels)
-          if (config.intelligence) setIntelligence(config.intelligence)
+          if (INTELLIGENCE_PRESETS.includes(config.intelligence)) setIntelligence(config.intelligence)
           if (config.appLanguage) setAppLanguage(config.appLanguage)
           if (config.appTheme) setAppTheme(config.appTheme)
           if (config.language) setLanguage(config.language)
@@ -3031,7 +2861,6 @@ export default function App() {
     return () => {
       clearInterval(overlayPoll)
       window.removeEventListener('overlay-capture', handleOverlayCapture)
-      window.removeEventListener('overlay-area-captured', handleAreaCaptured)
       window.removeEventListener('overlay-reset', handleOverlayReset)
       window.removeEventListener('overlay-hidden', handleOverlayHidden)
     }
@@ -3333,105 +3162,6 @@ export default function App() {
     }
   }, [loadImageFromDataUrl])
 
-  // ─── Area Selection (drag inside the Alt+Q overlay) ─────────────────────────
-  const selRectRef = useRef(null)
-  const screenshotRef = useRef(screenshot)
-  screenshotRef.current = screenshot
-
-  const handleSelectionDown = useCallback((e) => {
-    e.preventDefault()
-    const rect = { x1: e.clientX, y1: e.clientY, x2: e.clientX, y2: e.clientY }
-    selStartRef.current = { x: e.clientX, y: e.clientY }
-    selRectRef.current = rect
-    setSelRect(rect)
-  }, [])
-
-  const handleSelectionMove = useCallback((e) => {
-    if (!selStartRef.current) return
-    e.preventDefault()
-    const updated = { ...selRectRef.current, x2: e.clientX, y2: e.clientY }
-    selRectRef.current = updated
-    setSelRect(updated)
-  }, [])
-
-  const handleSelectionUp = useCallback(async () => {
-    if (!selStartRef.current) return
-    selStartRef.current = null
-    const r = selRectRef.current
-    if (!r) return
-    const x = Math.min(r.x1, r.x2)
-    const y = Math.min(r.y1, r.y2)
-    const w = Math.abs(r.x2 - r.x1)
-    const h = Math.abs(r.y2 - r.y1)
-    if (w < 10 || h < 10) return // too small, ignore
-
-    // Hide drawing UI immediately
-    window.__selectionMode = false
-    setSelectionMode(false)
-    setSelRect(null)
-    selRectRef.current = null
-
-    // Hide overlay so we capture the actual screen, not the overlay
-    document.body.style.opacity = '0'
-    await new Promise(resolve => setTimeout(resolve, 50))
-
-    // Capture screenshot now via Electron IPC (or via fetch for non-Electron)
-    let screenshotUrl
-    if (window.overlayAPI?.captureScreenshot) {
-      screenshotUrl = await window.overlayAPI.captureScreenshot()
-    }
-    if (!screenshotUrl) { document.body.style.opacity = '1'; return }
-
-    // Load the full screenshot, crop to selection, show only the crop
-    try {
-      const resp = await fetch(screenshotUrl)
-      const blob = await resp.blob()
-      const dataUrl = await new Promise((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = (e) => resolve(e.target.result)
-        reader.onerror = () => reject(new Error('the screenshot could not be read'))
-        reader.readAsDataURL(blob)
-      })
-      // onerror: a missing/garbled screenshot never loads, and the capture hung with the overlay dimmed.
-      const img = await new Promise((resolve, reject) => {
-        const i = new window.Image()
-        i.onload = () => resolve(i)
-        i.onerror = () => reject(new Error('the screenshot could not be decoded'))
-        i.src = dataUrl
-      })
-
-      const scaleX = img.naturalWidth / window.innerWidth
-      const scaleY = img.naturalHeight / window.innerHeight
-      const cx = Math.round(x * scaleX)
-      const cy = Math.round(y * scaleY)
-      const cw = Math.round(w * scaleX)
-      const ch = Math.round(h * scaleY)
-
-      const canvas = document.createElement('canvas')
-      canvas.width = cw
-      canvas.height = ch
-      canvas.getContext('2d').drawImage(img, cx, cy, cw, ch, 0, 0, cw, ch)
-      const croppedDataUrl = canvas.toDataURL('image/png')
-
-      // Store full screenshot for non-transparent mode fallback
-      setImgDims({ w: img.naturalWidth, h: img.naturalHeight })
-      setScreenshot(dataUrl)
-      setSelectionOffset({ x: cx, y: cy })
-      setSelectionViewport({ x, y, w, h })
-      setSelectionCrop({ dataUrl: croppedDataUrl, w: cw, h: ch })
-      setStage('captured')
-      setOcrWords([])
-      setError(null)
-      document.body.style.opacity = '1'
-      // Auto-analyze the cropped region
-      { const g = scanGenRef.current; setTimeout(() => { if (g === scanGenRef.current) window.__autoAnalyze = croppedDataUrl }, 100) } // not after a reset (a queued one scanned the previous screen)
-    } catch (err) {
-      console.error('[Overlay] Area-select capture failed:', err)
-      document.body.style.opacity = '1'
-      setError(tLiveRef.current('pic_errCaptureEsc')) // it just came back with nothing
-    }
-  }, [])
-
   // ─── Analysis Pipeline ──────────────────────────────────────────────────────
   // `gen`: the scan generation this run belongs to (the vision path passes its own when it falls
   // back here). A reset, a new picture or a newer scan retires it, exactly like the vision path;
@@ -3455,6 +3185,7 @@ export default function App() {
     setStage('ocr')
     setError(null)
     setOcrWords([])
+    setOcrLines([])
 
     try {
       // ── Stage 1: Tesseract OCR ──────────────────────────────────────────────
@@ -3644,6 +3375,7 @@ export default function App() {
           partOfSpeech: '', pronunciation: '', isEnglish: false, _globalIdx: idx,
         }))
         setOcrWords(mapped)
+        setOcrLines(readingLines(mapped))
         setStage('done')
         setLoading(false)
         ocrLog(`Click-to-translate mode: ${mapped.length} words ready, skipping batch translation`)
@@ -3763,11 +3495,14 @@ export default function App() {
       // The AI detects OCR fragments via "m" field (e.g. "Sob"+"reguardia" → "Sobreguardia")
       // Only merge if words are spatially adjacent (same row, close horizontally)
       const mergedAway = new Set() // indices to hide (absorbed into another word)
-      for (const [, item] of Object.entries(allTranslations)) {
+      const mergedFirsts = new Set() // indices that became a joined word
+      for (const item of Object.values(allTranslations)) {
         if (item.m && Array.isArray(item.m) && item.m.length > 1) {
           const indices = [...new Set(item.m.map(Number))].filter((idx) => Number.isInteger(idx) && idx >= 0 && idx < finalWords.length) // "4" as a string never matched mergedAway.has(4): the fragment showed twice
           if (indices.length < 2) continue
           indices.sort((a, b) => a - b)
+          // Two groups sharing a fragment ([3,4] and [4,5]): the second hid its own first word and lost its text.
+          if (indices.some((idx) => mergedAway.has(idx) || mergedFirsts.has(idx))) continue
           // Verify spatial adjacency — all words must be on the same row and close together
           let spatiallyValid = true
           for (let k = 1; k < indices.length; k++) {
@@ -3794,6 +3529,10 @@ export default function App() {
           }
           ocrLog(`[AI MERGE] ${indices.map((i) => `"${finalWords[i].text}"`).join(' + ')} → "${mergedText}" (translation: "${item.t}")`)
           finalWords[first] = { ...finalWords[first], text: mergedText, bbox: mergedBbox }
+          // The whole word's translation is the row that asked for the merge: when the model put "m" on a later
+          // fragment, the joined word showed the first fragment's translation ("Sobreguardia" → "about").
+          allTranslations[String(first)] = item
+          mergedFirsts.add(first)
           for (let k = 1; k < indices.length; k++) {
             mergedAway.add(indices[k])
           }
@@ -3844,6 +3583,9 @@ export default function App() {
 
       if (stale()) return
       setOcrWords(translatedWords)
+      // Reading panel lines from the boxes: this path never set them, so a vision scan that fell back here (or
+      // a standalone OCR) showed no reading panel at all.
+      setOcrLines(readingLines(translatedWords))
       setStage('done')
 
       // Auto-retry any missed words in background. By POSITION in translatedWords, with that list
@@ -3859,7 +3601,7 @@ export default function App() {
       ocrLogFlush()
       console.error(err)
       if (stale()) return
-      setError(tLiveRef.current('pic_errAnalysis', { msg: err.message }))
+      setError(tLiveRef.current('pic_errAnalysis', { msg: aiErrMsg(err) }))
       setStage('captured')
     } finally {
       // Never clear a NEWER scan's spinner.
@@ -4032,14 +3774,9 @@ export default function App() {
                 })
               })
               if (out.some((w) => !w._untranslated)) { // nothing translated at all: fall through to vision
-                const lineMap = new Map()
-                out.forEach((w, i) => {
-                  if (!lineMap.has(w.line)) lineMap.set(w.line, [])
-                  lineMap.get(w.line).push(i)
-                })
-                const lines = [...lineMap.entries()]
-                  .sort((a, b) => a[0] - b[0])
-                  .map(([line, idxs]) => ({ line, idxs: idxs.sort((x, y) => out[x].bbox.x0 - out[y].bbox.x0) })) // Tesseract lines: by x (its list is y-sorted)
+                // Lines from the boxes, each in READING order (right to left for Arabic/Hebrew: sorted by x
+                // alone, the reading panel showed every RTL line backwards). src/utils/ocrBoxes.js.
+                const lines = readingLines(out)
                 ocrLog(`Clean fast path complete: ${out.length} words, ${lines.length} lines (no vision call)`)
                 ocrLogFlush()
                 setOcrWords(out)
@@ -4125,29 +3862,11 @@ export default function App() {
       // (they still appear in the reading panel) so we never draw a misplaced overlay.
       const tessWords = (await tessPromise) || []
       if (stale()) return
-      // NFD decomposes accents into combining marks; [^a-z0-9] then strips marks + punctuation.
-      // Any script, not just a-z: Cyrillic/Greek/Korean/Arabic words normalized to '' here, so none of
-      // them ever snapped to a Tesseract box (no highlight drawn on the picture at all).
-      const norm = (s) => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\p{L}\p{N}]/gu, '')
-      const tess = tessWords.map((tw) => ({
-        n: norm(tw.text), bbox: tw.bbox, confidence: tw.confidence, used: false,
-        cx: (tw.bbox.x0 + tw.bbox.x1) / 2, cy: (tw.bbox.y0 + tw.bbox.y1) / 2,
-      })).filter((tw) => tw.n)
-      let snappedCount = 0
-      words.forEach((w) => {
-        const wn = norm(w.text)
-        if (!wn) { w._approxBox = true; return }
-        const wcx = (w.bbox.x0 + w.bbox.x1) / 2, wcy = (w.bbox.y0 + w.bbox.y1) / 2
-        let best = null, bestD = Infinity
-        for (const tw of tess) {
-          if (tw.used || tw.n !== wn) continue
-          const d = (tw.cx - wcx) ** 2 + (tw.cy - wcy) ** 2
-          if (d < bestD) { bestD = d; best = tw }
-        }
-        if (best) { best.used = true; w.bbox = best.bbox; w.confidence = best.confidence; w._snapped = true; snappedCount++ }
-        else { w._approxBox = true }
-      })
-      ocrLog(`Snapped ${snappedCount}/${words.length} vision words onto Tesseract boxes (${tess.length} tess words)`)
+      // Matched by text in any script; a phrase or a CJK word also matches a RUN of Tesseract words or a
+      // SLICE of one (src/utils/ocrBoxes.js): matched one-to-one only, "por favor" and every CJK word
+      // Tesseract cut differently got no highlight on the picture at all.
+      const snappedCount = snapWordsToBoxes(words, tessWords)
+      ocrLog(`Snapped ${snappedCount}/${words.length} vision words onto Tesseract boxes (${tessWords.length} tess words)`)
 
       // Group into reading-order lines for the reading panel.
       const lineMap = new Map()
@@ -4196,7 +3915,8 @@ export default function App() {
   useEffect(() => {
     const handler = (e) => {
       // Alt+Q → Screen capture
-      if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && e.key.toLowerCase() === 'q') {
+      // e.code fallback: Cyrillic/Greek/macOS-Option layouts report 'й'/';'/'œ' for the Q key; a held key never re-captures
+      if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.repeat && (e.key?.toLowerCase() === 'q' || e.code === 'KeyQ')) {
         e.preventDefault()
         if (wizardShownRef.current) return // behind the setup wizard: nothing to show it on
         // The capture lands in the Picture tab: go there, so it is not replacing a finished (paid)
@@ -4395,7 +4115,7 @@ export default function App() {
   useEffect(() => {
     if (!isOverlay) return
     const interval = setInterval(() => {
-      if (window.__autoAnalyze && stage === 'captured' && !window.__selectionMode && overlaySettingsReadyRef.current) {
+      if (window.__autoAnalyze && stage === 'captured' && overlaySettingsReadyRef.current) {
         const dataUrl = window.__autoAnalyze
         window.__autoAnalyze = null
         analyzeImage(dataUrl)
@@ -4549,21 +4269,8 @@ export default function App() {
   const handleWordHover = (idx, e) => {
     if (pinnedIdx !== null) return // don't override pinned tooltip
     setHoveredIdx(idx)
-    const z = getZoom()
-    const rect = e.currentTarget.getBoundingClientRect()
-    const vw = window.innerWidth / z
-    const ttHalf = 160 // ~half of tooltip maxWidth (300/2 + margin)
-    let x = (rect.left + rect.width / 2) / z
-    let y = rect.top / z - 6
-    let anchor = 'above'
-    // If not enough room above the word, show below
-    if (rect.top / z < 180) {
-      y = rect.bottom / z + 6
-      anchor = 'below'
-    }
-    // Clamp horizontal so tooltip doesn't clip left/right edges
-    x = Math.max(ttHalf, Math.min(vw - ttHalf, x))
-    setTooltipPos({ x, y, anchor })
+    // Above the word (below it near the top), kept inside both edges; real px → layout px (src/utils/ocrBoxes.js).
+    setTooltipPos(hoverTooltipPos(e.currentTarget.getBoundingClientRect(), getZoom(), window.innerWidth))
     if (ocrWords[idx]?._untranslated) lazyTranslate(idx)
     if (ocrWords[idx]?._needsEnrich) enrichWord(idx)
   }
@@ -4592,18 +4299,7 @@ export default function App() {
       const z = getZoom()
       const rect = e.currentTarget.getBoundingClientRect()
       setTooltipPos({ x: (rect.left + rect.width / 2) / z, y: rect.top / z - 6 })
-      // In area-select overlay (small window), expand to full screen so tooltip has room
-      if (isOverlay && areaSelectBounds && window.overlayAPI?.resizeWindow) {
-        window.overlayAPI.resizeWindow({ x: 0, y: 0, width: screen.width, height: screen.height })
-        // Default tooltip position: to the right of the selection area, or use saved pos
-        if (!pinnedTooltipPos) {
-          const selRight = areaSelectBounds.x + areaSelectBounds.width
-          setPinnedTooltipPos({
-            x: selRight + 20 < screen.width - 400 ? selRight + 20 : Math.max(10, areaSelectBounds.x - 420),
-            y: areaSelectBounds.y,
-          })
-        }
-      } else if (!pinnedTooltipPos) {
+      if (!pinnedTooltipPos) {
         setPinnedTooltipPos({ x: Math.max(10, rect.left / z - 100), y: Math.max(10, rect.bottom / z + 10) })
       }
       // Lazy translate if in click mode and word hasn't been translated yet
@@ -4632,10 +4328,6 @@ export default function App() {
     setChatMessages([])
     setChatInput('')
     setHoveredIdx(null)
-    // In area-select overlay, shrink window back to selection bounds
-    if (isOverlay && areaSelectBounds && window.overlayAPI?.resizeWindow) {
-      window.overlayAPI.resizeWindow(areaSelectBounds)
-    }
   }
 
   // ─── Draggable pinned tooltip ─────────────────────────────────────────────
@@ -4691,7 +4383,7 @@ In 1-2 short sentences: explain "${word.text}" in the context of ${activeMode.na
       if (gen === pinGenRef.current) setExplanation(popupDash(text))
     } catch (err) {
       // Not stored as the result: its button renders only while the result is empty, so a failure could never be retried.
-      if (gen === pinGenRef.current) { setExplanation(null); setAiErrorNotice((prev) => prev || tLiveRef.current('pic_explainFailed', { msg: err?.message || String(err) })) }
+      if (gen === pinGenRef.current) { setExplanation(null); raiseNotice(tLiveRef.current('pic_explainFailed', { msg: aiErrMsg(err) }), { keepAi: true }) }
     } finally {
       if (gen === pinGenRef.current) setExplaining(false) // a new pin already reset it (resetPinBusy); never clear ITS run
     }
@@ -4973,13 +4665,8 @@ Rules for this audit:
         ? `\n  This mode has a FIXED card format. Follow it. Fill each {placeholder} with content for the term, keep the labels and line order exactly (drop a line ONLY if it truly doesn't apply to that term):\n${backTpl.split('\n').map((l) => `    ${l}`).join('\n')}`
         : ' Choose whatever labels best teach this subject, and keep them consistent across all cards.'
       const tagRules = activeMode.tagRules ? `\n  TAG RULES for this mode:\n${activeMode.tagRules.split('\n').map((l) => `    ${l}`).join('\n')}` : ''
-      prompt = GENERIC_CARD_PROMPT
-        .replace('{MODE}', () => activeMode.name)
-        .replace('{TYPE}', () => activeMode.type)
-        .replace('{USER_LANG}', () => userLangName())
-        .replace('{DESCRIPTION}', () => desc)
-        .replace('{FORMAT}', () => format)
-        .replace('{TAG_RULES}', () => tagRules)
+      // Fills EVERY copy of each placeholder, literally (the old .replace chain filled only the first).
+      prompt = buildGenericCardPrompt({ mode: activeMode.name, type: activeMode.type, userLang: userLangName(), description: desc, format, tagRules })
     }
     // BATCHED, like the deck check: one call for 30 pasted words ran into the output limit, and parseAiJson's
     // salvage returned the first ~18 cards as if that were all (the rest vanished without a word).
@@ -5280,7 +4967,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       setAnkiEditFront(refined.front); setAnkiEditBack(refined.back)
       setAnkiRefineInput('')
     } catch (err) {
-      if (gen === pinGenRef.current) setAnkiError(tLiveRef.current('pic_refineFailed', { msg: err?.message || String(err) })) // not under another word's card
+      if (gen === pinGenRef.current) setAnkiError(tLiveRef.current('pic_refineFailed', { msg: aiErrMsg(err) })) // not under another word's card
     } finally {
       if (gen === pinGenRef.current) setAnkiRefining(false) // a new pin already reset it (resetPinBusy); never clear ITS run
     }
@@ -5345,6 +5032,8 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       const d = res && res.ok ? await res.json().catch(() => null) : null
       // A refused save said nothing: the change looked saved and was gone after a reload.
       if (res && !res.ok) setAiErrorNotice(tLiveRef.current('mode_saveFailed'))
+      // A later save that went through clears an earlier "could not save" toast (it lingered over Ebi Studio's buttons).
+      if (res && res.ok) setAiErrorNotice((n) => (n === tLiveRef.current('mode_saveFailed') ? null : n))
       // A rename whose folder could not be moved (a file inside open in another program) was NOT saved:
       // the server left the mode as it was. Put the old name back here too, so the screen matches.
       for (const f of (Array.isArray(d?.renameFailed) ? d.renameFailed : [])) {
@@ -5374,7 +5063,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         // them over gave this mode its hooks, grammar notes and Discover history (renameMode moves ours).
         // Already the live name: "adopting" it would post the same save and get the same answer, forever.
         if (c.adopt && modesRef.current.find((m) => m.id === c.id)?.name === c.suggested) continue
-        if (updateModeById(c.id, { name: c.suggested }, { migrate: false })) setAiErrorNotice(t(c.adopt ? 'mode_renamedElsewhere' : 'mode_nameTakenElsewhere', { name: c.name, newName: c.suggested })) // adopt: our own mode, renamed on another computer
+        if (updateModeById(c.id, { name: c.suggested }, { migrate: false })) setAiErrorNotice(tLiveRef.current(c.adopt ? 'mode_renamedElsewhere' : 'mode_nameTakenElsewhere', { name: c.name, newName: c.suggested })) // adopt: our own mode, renamed on another computer
       }
       // `saveOk` rides on the list (callers still read it as the conflicts): onboarding must not finish on a
       // first mode that never reached the disk.
@@ -5470,7 +5159,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     if (modesRef.current.length <= 1) return
     // With the modes read failed nothing can be saved: the mode vanished on screen and came back on the
     // next start, as if the delete had been ignored. Say so instead, like createMode.
-    if (!modesLoadedRef.current) { setAiErrorNotice((prev) => prev || t('mode_cannotSave')); return }
+    if (!modesLoadedRef.current) { raiseNotice(t('mode_cannotSave')); return }
     if (id === activeModeIdRef.current && !(await endStudyForModeSwitchRef.current())) return // deleting the active mode switches modes
     const list = modesRef.current
     if (list.length <= 1) return
@@ -5482,7 +5171,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
   const renameMode = (id, newName) => {
     const trimmed = newName.trim()
     if (!trimmed) { setEditingModeName(null); return }
-    if (!modesLoadedRef.current) { setEditingModeName(null); setAiErrorNotice((prev) => prev || t('mode_cannotSave')); return } // see deleteMode
+    if (!modesLoadedRef.current) { setEditingModeName(null); raiseNotice(t('mode_cannotSave')); return } // see deleteMode
     // Check for name conflict
     const list = modesRef.current
     const conflict = list.find((m) => m.id !== id && modeNamesClash(m.name, trimmed))
@@ -5520,19 +5209,10 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         }
         return out
       }
-      if (kind === 'grammar' && Array.isArray(a) && Array.isArray(b)) {
-        const byKey = new Map()
-        for (const e of [...a, ...b]) {
-          if (!e || !e.t) continue
-          const k = grammarSlipKey(e.t), hit = byKey.get(k) // accents kept apart, like addGrammarSlips
-          byKey.set(k, hit ? { ...hit, n: Math.max(hit.n || 1, e.n || 1), at: Math.max(hit.at || 0, e.at || 0) } : e)
-        }
-        return [...byKey.values()].sort((x, y) => (x.at || 0) - (y.at || 0)).slice(-200)
-      }
+      if (kind === 'grammar' && Array.isArray(a) && Array.isArray(b)) return mergeGrammarLogs(a, b, grammarSlipKey) // accents kept apart, like addGrammarSlips
       if (kind === 'profile') return ((b?.savedAt || 0) > (a?.savedAt || 0)) ? b : undefined // the newer one
       if (kind === 'ledger' && a && b && typeof a === 'object' && typeof b === 'object') {
-        const byTerm = (x = [], y = []) => { const seen = new Set(); return [...x, ...y].filter((e) => { const k = String(e?.term ?? e); if (seen.has(k)) return false; seen.add(k); return true }) }
-        return { ...b, ...a, offered: [...new Set([...(a.offered || []), ...(b.offered || [])])], known: byTerm(a.known, b.known), declined: byTerm(a.declined, b.declined), carded: byTerm(a.carded, b.carded) }
+        return mergeLedgers(a, b) || undefined
       }
     } catch { /* odd shapes: leave the destination alone */ }
     return undefined
@@ -5577,7 +5257,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     try { await addDefaultModeNow() } finally { addingDefaultModeRef.current = false }
   }
   const addDefaultModeNow = async () => {
-    if (!modesLoadedRef.current) { setAiErrorNotice((prev) => prev || t('mode_cannotSave')); return }
+    if (!modesLoadedRef.current) { raiseNotice(t('mode_cannotSave')); return }
     // The new mode becomes the active one: a live study session ends first (declining still adds it).
     const canSwitch = await endStudyForModeSwitchRef.current()
     // Same collision rules as the mode FOLDERS (trailing dots/spaces, case, illegal characters): a plain
@@ -5629,7 +5309,10 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
           // Linking the deck makes that mode active; a live study session in another mode ends first
           // (declining still links the deck, without switching).
           const canSwitch = existing.id === activeModeIdRef.current || await endStudyForModeSwitchRef.current()
-          saveModes(modesRef.current.map(m => m.id === existing.id ? { ...m, ankiDeck: name } : m), canSwitch ? existing.id : activeModeIdRef.current, { changedIds: [existing.id] }) // one mode (see writeModeFolders)
+          // Deleted while the end-session question was open (see switchActiveMode): saved as the active mode, the
+          // app ran on an id that no longer existed. The deck is still created and opened.
+          if (!modesRef.current.some((m) => m.id === existing.id)) setAiErrorNotice(t('mode_cannotSave'))
+          else saveModes(modesRef.current.map(m => m.id === existing.id ? { ...m, ankiDeck: name } : m), canSwitch ? existing.id : activeModeIdRef.current, { changedIds: [existing.id] }) // one mode (see writeModeFolders)
         } else {
           const deckBefore = deckBrowserDeckRef.current, runsBefore = `${deckAnalyzeRunRef.current}:${dupScanRunRef.current}`
           await createMode(purpose, name)
@@ -5737,6 +5420,8 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
           await new Promise((r) => setTimeout(r, 400 * (attempt + 1)))
         }
       }
+      // No list (Anki down answers null): `noteIds.length` threw a TypeError instead of the readable message below.
+      if (!Array.isArray(noteIds)) throw new Error(tLiveRef.current('anki_errIncomplete'))
       // A note deleted between findNotes and notesInfo comes back as {} (no fields), and rendering it
       // threw in the search filter and the row: the whole app fell to the recovery screen.
       const notes = noteIds.length > 0 ? ((await srs.notesInfo(noteIds)) || []).filter((n) => n && n.noteId && n.fields) : []
@@ -5767,6 +5452,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       // (or still coming), so this stale response must not stomp it with fewer/zero notes.
       if (reqId !== deckNotesReqRef.current) { console.log('[Deck] discarding stale load for:', deck); return }
       setDeckBrowserNotes(notes)
+      setDeckLoadedEmpty(notes.length === 0 ? deck : null)
       deckNotesDeckRef.current = deck
       deckNotesLoadedReqRef.current = reqId
       console.log('[Deck] loaded', notes.length, 'notes from:', deck)
@@ -5776,6 +5462,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       // name: Check quality, Delete, Reset and "do not merge" would then act on the wrong deck's cards.
       if (reqId === deckNotesReqRef.current && deckNotesDeckRef.current !== deck) {
         setDeckBrowserNotes([])
+        setDeckLoadedEmpty(null)
         deckNotesDeckRef.current = deck
         setAiErrorNotice(t('deck_loadFailed', { deck }))
       }
@@ -5875,11 +5562,8 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       const newTags = deckBrowserEditTags.split(/\s+/).map((s) => s.trim()).filter(Boolean)
       const openTags = origTags
       if (note && newTags.join(' ') !== openTags.join(' ')) {
-        const lc = (x) => x.toLowerCase()
-        const removed = new Set(openTags.filter((x) => !newTags.includes(x)).map(lc))
-        const added = newTags.filter((x) => !openTags.includes(x))
         const cur = note.tags || []
-        const target = [...cur.filter((x) => !removed.has(lc(x)) || added.includes(x)), ...added.filter((x) => !cur.includes(x))]
+        const target = editorTagTarget(openTags, newTags, cur)
         if (target.join(' ') !== cur.join(' ')) await srs.setNoteTags(noteId, cur, target)
       }
       srs.syncSoon()
@@ -5992,11 +5676,31 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     }
   }
 
+  // Notes deleted from the Deck tab: a live study session's pull skips them (the pool was read before the delete,
+  // and the next pull generated questions for a card Anki no longer has). Note ids are never reused.
+  const deletedNoteIdsRef = useRef(new Set())
   const deleteNote = async (noteId) => {
+    // The note's cards, read BEFORE the await (ids only: they never change).
+    const listed = deckBrowserNotes.find((n) => n.noteId === noteId)
+    const goneCardIds = new Set([
+      ...(Array.isArray(listed?.cards) ? listed.cards : []),
+      ...studyAllCards.filter((c) => c && c.note === noteId).map((c) => c.cardId),
+    ])
     try {
       await srs.deleteNotes([noteId])
       srs.syncSoon()
       setDeckBrowserNotes((prev) => prev.filter((n) => n.noteId !== noteId))
+      deletedNoteIdsRef.current.add(noteId)
+      // Its memory hooks were left under an id that no longer exists (a merge moves them; a delete has nowhere to
+      // move them). Word-key hooks stay: they belong to the word, not the note. Through the one writer, so a store
+      // not yet read is never written over.
+      writeModeHooks((prev) => {
+        if (!prev[noteId]) return prev
+        const next = { ...prev }
+        delete next[noteId]
+        return next
+      })
+      setAsideDeletedStudyCards(goneCardIds)
       console.log('[Deck] note deleted:', noteId)
     } catch (err) {
       console.error('[Deck] delete failed:', err.message)
@@ -6391,6 +6095,9 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     setDeckAnalyzeRecs((prev) => prev.map((r, i) => i === idx ? { ...r, refineInput: value } : r))
   }
 
+  // The live list (a refine fails seconds later; Cancel all meanwhile retires its row and its error).
+  const deckAnalyzeRecsRef = useRef(deckAnalyzeRecs)
+  deckAnalyzeRecsRef.current = deckAnalyzeRecs
   const refineRec = async (idx) => {
     const rec = deckAnalyzeRecs[idx]
     if (!rec || !rec.refineInput.trim() || rec.refining || !apiKey) return
@@ -6400,6 +6107,9 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       const prompt = `Here is a flashcard recommendation:\n\n${fieldsDesc}\n\nTags: ${parseRecTags(rec).join(' ') || '(none)'}\n\nThe user wants this change: "${rec.refineInput}"\n\nReturn a JSON object with the updated fields: { ${Object.keys(rec.recommendedFields).map((k) => `"${k}": "..."`).join(', ')}, "tags": ["the", "complete", "tag-list"] }\nKeep any fields/tags the user didn't ask to change ("tags" is the FULL replacement list, so carry unchanged tags over). Use plain text with newlines (no HTML). Output ONLY raw JSON, no markdown.`
       const text = await aiCall(apiKey, 'You edit Anki flashcard content. Always respond with valid JSON only.', prompt, resolveModel('deck'))
       const updated = parseAiJson(text)
+      // An unreadable reply threw a TypeError deep in here (Object.entries(null)), and the row just stopped
+      // refining with no word of why.
+      if (!updated || typeof updated !== 'object' || Array.isArray(updated)) throw new Error(tLiveRef.current('err_replyUnreadable'))
       const newFields = { ...rec.recommendedFields }
       // cardText, not String(): a field returned as a list of lines became "a,b,c" (or "[object Object]"), and
       // saving wrote that to Anki.
@@ -6433,6 +6143,8 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         : r))
     } catch (err) {
       console.error('[Deck] rec refine failed:', err.message)
+      // Said, like the card editor's refine: the row used to just stop refining.
+      if (deckAnalyzeRecsRef.current.some((r) => r.noteId === rec.noteId && r.refining)) setDeckAnalyzeError(tLiveRef.current('deck_refineFailed', { msg: stripDashes(err?.message) }))
       setDeckAnalyzeRecs((prev) => prev.map((r) => r.noteId === rec.noteId && r.refining ? { ...r, refining: false } : r))
     }
   }
@@ -6660,7 +6372,8 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       for (const d of related) {
         try { for (const p of ((await readBlob('dupignore', d))?.pairs || [])) ignoreSet.add(p) } catch { /* skip */ }
       }
-      setDeckDupIgnore(ignoreData.pairs || [])
+      deckDupIgnoreRef.current = ignoreData.pairs || []
+      setDeckDupIgnore(deckDupIgnoreRef.current)
       const htmlToPlain = (v) => fieldHtmlToPlain(v).trim()
       const frontOf = (n) => Object.values(n.fields).sort((a, b) => a.order - b.order)[0]?.value || ''
       const plainFields = (n) => Object.fromEntries(Object.entries(n.fields).map(([name, f]) => [name, htmlToPlain(f.value)]))
@@ -6855,8 +6568,14 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
         // so one word's content can never land on another word's card.
         const aiEntry = aiMerges[i]
         const groupKeys = new Set(notes.map((n) => normKey(htmlToPlain(frontOf(n)))))
+        // normKey drops the "(sense)": the two sense groups of one word ("banco (bank)" x2, "banco (bench)" x2) share
+        // a key, so a reply that swapped them passed the check and wrote the bench merge onto the bank card. When
+        // another group shares the key, the echoed sense must be this group's too.
+        const echoSense = (stripAccents(String(aiEntry?.headword || '').toLowerCase()).match(/\(([^)]*)\)/g) || []).join(' ').replace(/\s+/g, ' ').trim()
+        const keyShared = dupNoteGroups.some((other, j) => j !== i && other.some((n) => groupKeys.has(normKey(htmlToPlain(frontOf(n))))))
+        const senseOk = !keyShared || notes.some((n) => senseOf(n) === echoSense)
         // The echoed headword is REQUIRED: an empty one skipped this check entirely.
-        const ai = (aiEntry && aiEntry.headword && groupKeys.has(normKey(aiEntry.headword))) ? aiEntry.fields : null
+        const ai = (aiEntry && aiEntry.headword && groupKeys.has(normKey(aiEntry.headword)) && senseOk) ? aiEntry.fields : null
         if (aiEntry && !ai) console.warn('[Deck] dup merge: headword mismatch for group', i, '— using deterministic merge', { echoed: aiEntry.headword })
         const mergedFields = {}
         Object.keys(keepNote.fields).forEach((name) => {
@@ -6911,7 +6630,8 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
   const dismissDup = async (key) => {
     const group = deckDupGroups.find((g) => dupGroupKey(g) === key)
     if (!group) return
-    const newPairs = [...new Set([...deckDupIgnore, ...pairsOf(group.noteIds)])]
+    const newPairs = [...new Set([...deckDupIgnoreRef.current, ...pairsOf(group.noteIds)])]
+    deckDupIgnoreRef.current = newPairs
     setDeckDupIgnore(newPairs)
     setDeckDupGroups((prev) => prev.filter((g) => dupGroupKey(g) !== key))
     // To the SCANNED deck: after switching decks the browser shows another one, and writing these pairs
@@ -7447,7 +7167,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       return profile
     } catch (err) {
       console.error('[Discover] profile failed:', err.message)
-      if (live()) setDiscoverError(t('d_errProfile', { msg: err.message }))
+      if (live()) setDiscoverError(t('d_errProfile', { msg: describeAiError(err?.message || '') || err?.message || String(err) })) // not the provider's raw JSON
       return null
     } finally {
       if (live()) setDiscoverProfileLoading(false)
@@ -7476,7 +7196,8 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       ...newest(l.known, 150).map((x) => x?.term).filter(Boolean),
       ...newest(l.declined, 150).map((x) => x?.term).filter(Boolean),
       ...newest(l.carded, 150).map((x) => x?.term).filter(Boolean),
-      ...discoverDeckTermsRef.current,
+      // Capped too (a big deck put thousands of fronts in every prompt); the full set still guards the reply.
+      ...newest(discoverDeckTermsRef.current, 300),
     ].filter(Boolean)
   }
 
@@ -7579,7 +7300,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       if (discoverLedgerWritableRef.current) writeBlob('ledger', activeMode.name, nextLedger).catch(() => {})
     } catch (err) {
       console.error('[Discover] suggestion failed:', err.message)
-      if (live()) setDiscoverError(t('d_errSuggest', { msg: err.message }))
+      if (live()) setDiscoverError(t('d_errSuggest', { msg: describeAiError(err?.message || '') || err?.message || String(err) }))
     } finally {
       if (live()) { setDiscoverSuggestionLoading(false); setDiscoverStatus(null) }
     }
@@ -7624,7 +7345,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       })
       if (gen === discoverGenRef.current && discoverSuggestionLiveRef.current === s) setDiscoverCard(card)
     } catch (err) {
-      if (gen === discoverGenRef.current) setDiscoverError(t('d_errCard', { msg: err.message }))
+      if (gen === discoverGenRef.current) setDiscoverError(t('d_errCard', { msg: describeAiError(err?.message || '') || err?.message || String(err) }))
     } finally {
       // Only while still its own: Adjust / Re-analyze / a deck switch already freed the buttons for the next one.
       if (gen === discoverGenRef.current) { discoverCardMakingRef.current = false; setDiscoverCardLoading(false) }
@@ -7693,22 +7414,6 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
 
   // Switch which deck Discover targets (evidence, exclusions, and where cards save).
   // Returns to the setup screen and re-profiles against the new deck in the background.
-  // The profile's rendered text fields as TEXT, for a built profile AND one read back from the cache or
-  // the Anki blob: an older build (or another computer) stored summary/level as objects, and the panel
-  // crashed on every visit with Re-analyze inside the crashed panel. Mutates and returns it.
-  const shapeProfile = (p) => {
-    if (!p || typeof p !== 'object') return p
-    p.summary = cardText(p.summary)
-    if (p.level && typeof p.level === 'object' && !Array.isArray(p.level)) p.level = { ...p.level, estimate: stripAiDashes(cardText(p.level.estimate)), scale: cardText(p.level.scale) } // "B1–B2" shown raw
-    else delete p.level
-    // A list of {name, status}: an object map ({"Grammar": 0.4}) or a null entry made every suggestion throw
-    // until a Re-analyze happened to return a list.
-    p.domains = Array.isArray(p.domains)
-      ? p.domains.map((d) => (typeof d === 'string' ? { name: d } : d)).filter((d) => d && typeof d === 'object')
-        .map((d) => ({ ...d, name: cardText(d.name), status: cardText(d.status) })).filter((d) => d.name)
-      : []
-    return p
-  }
   const discoverDeckSwitchRef = useRef(0)
   // A stored profile is the mode deck's only if it was built for the deck the mode has NOW (older ones carry no deck).
   const profileFitsModeDeck = (p) => !p || typeof p.deck !== 'string' || p.deck === (ankiDeck || '')
@@ -7755,13 +7460,9 @@ Return ONLY a JSON array (no markdown):
 [{ "key": "short-kebab-slug", "label": "<chip label, 1-3 words, in ${APP_LANG_NAME[appLanguage] || 'English'}>", "rule": "<one imperative sentence telling the tutor exactly what kind of item to suggest and what to put in term/translation/explanation>" }]`
       const text = await aiCall(apiKey, 'You design study-content category systems. Respond with valid JSON only.', prompt, resolveModel('discover'))
       const kinds = parseAiJson(text)
-      // As text and one chip per key: an object label rendered "[object Object]", and two categories with one
-      // key lit up together.
-      const seen = new Set()
-      const clean = (Array.isArray(kinds) ? kinds : [])
-        .map((k) => (k && typeof k === 'object' ? { key: cardText(k.key).trim(), label: stripAiDashes(cardText(k.label)).trim(), rule: stripAiDashes(cardText(k.rule)).trim() } : null))
-        .filter((k) => k && k.key && k.label && k.rule && !seen.has(k.key) && seen.add(k.key))
-        .slice(0, 6)
+      // As text and one chip per key: an object label rendered "[object Object]", two categories with one
+      // key lit up together, and one keyed "both" was indistinguishable from the Anything chip.
+      const clean = shapeDiscoverKinds(kinds, 6, stripAiDashes)
       // An unusable reply is a failure too: the in-flight mark stayed, so no retry happened all session.
       if (clean.length === 0 || !updateModeById(modeId, { discoverKinds: clean })) throw new Error('no usable categories')
       // A static chip picked before these arrived is no longer offered (no chip lit, an empty summary pill).
@@ -7833,15 +7534,7 @@ Return ONLY a JSON array (no markdown):
       // MERGED, not "blob wins": the ledger lists only ever grow, and Skip / I know this made while Anki
       // was closed live only in the local cache, so replacing it with the older blob offered those terms
       // again. Union per list (offered by value, the rest by term).
-      // Shape-checked: a list stored as null or an object threw here on every visit, and no write could repair it.
-      const shapeLedger = (l) => (l && typeof l === 'object' && !Array.isArray(l)
-        ? { ...l, ...Object.fromEntries(['offered', 'known', 'declined', 'carded'].map((k) => [k, Array.isArray(l[k]) ? l[k].filter((e) => e != null) : []])) } : null)
-      const mergeLedgers = (a0, b0) => {
-        const a = shapeLedger(a0), b = shapeLedger(b0)
-        if (!a) return b; if (!b) return a
-        const byTerm = (x = [], y = []) => { const seen = new Set(); return [...x, ...y].filter((e) => { const k = String(e?.term ?? e); if (seen.has(k)) return false; seen.add(k); return true }) }
-        return { ...b, ...a, offered: [...new Set([...(a.offered || []), ...(b.offered || [])])], known: byTerm(a.known, b.known), declined: byTerm(a.declined, b.declined), carded: byTerm(a.carded, b.carded) }
-      }
+      // Shape-checked (mergeLedgers, src/discover/merge.js): a list stored as null or an object threw here on every visit.
       const ledger = mergeLedgers(ledgerRead.value, cached.ledger) || DEFAULT_LEDGER
       // Every ledger write REPLACES the stored one. Starting from an empty default because the read
       // failed would wipe the whole known/declined/carded history on the first suggestion.
@@ -8007,6 +7700,16 @@ Return ONLY a JSON array (no markdown):
   const deckMainRef = useRef(null)
   const deckScrollTopRef = useRef(0)
   const deckLeftAtRef = useRef(0)   // when the Deck tab was last left — used to expire the saved scroll
+  // Big decks: entering the tab used to render every row at once (300 rows ~180ms, one long task). The list now
+  // paints DECK_FIRST_ROWS first and the rest a frame later. Rows are never held back while a note is being edited
+  // (its editor must not unmount) or when the saved scroll position lies past the first rows (the restore needs them).
+  const [deckRowsAll, setDeckRowsAll] = useState(false)
+  useEffect(() => {
+    if (activeTab !== 'deck' || deckRowsAll) return
+    let raf = 0
+    const timer = setTimeout(() => { raf = requestAnimationFrame(() => setDeckRowsAll(true)) }, 0)
+    return () => { clearTimeout(timer); cancelAnimationFrame(raf) }
+  }, [activeTab, deckRowsAll, deckBrowserNotes.length])
   useEffect(() => {
     if (activeTab === 'deck' && ankiConnected) {
       if (!deckBrowserActive) {
@@ -8021,6 +7724,7 @@ Return ONLY a JSON array (no markdown):
     if (prevTabRef.current === 'deck' && activeTab !== 'deck' && activeTab !== null) {
       syncDeckEditsToStudy()
       deckLeftAtRef.current = Date.now()
+      setDeckRowsAll(false) // the next visit paints the first rows at once, the rest a frame later
     }
     prevTabRef.current = activeTab
   }, [activeTab, ankiConnected])
@@ -8055,9 +7759,9 @@ Return ONLY a JSON array (no markdown):
       if (seq !== knowledgeFilesSeqRef.current) return
       // A failed read (503 share down, 500) keeps the list and says so: shown as "No files", the user thought the
       // knowledge base was gone and uploaded it again.
-      if (!r.ok) { setAiErrorNotice((prev) => prev || t('knowledgeActionFailed')); return }
+      if (!r.ok) { raiseNotice(t('knowledgeActionFailed')); return }
       setKnowledgeFiles(res.files || [])
-    } catch { if (seq === knowledgeFilesSeqRef.current) setAiErrorNotice((prev) => prev || t('knowledgeActionFailed')) }
+    } catch { if (seq === knowledgeFilesSeqRef.current) raiseNotice(t('knowledgeActionFailed')) }
   }
 
   // Keep the active mode's knowledge content in state so every AI feature can use it without
@@ -8337,7 +8041,10 @@ Return ONLY a JSON array (no markdown):
       // the busy text and say nothing: the file just silently wasn't there.
       // The app's own sentence first (the server's text is English: an IO error, "the data folder just changed"),
       // with that detail after it.
-      const uploadErr = () => (data?.unreachable ? t('dataUnreachable') : `${tLiveRef.current('kb_uploadFailed', { status: res.status })}${data?.error ? ` (${data.error})` : ''}`)
+      // A 200 with ok:false is not an HTTP failure: "error 200" read as nonsense, so it gets the generic action message.
+      const uploadErr = () => (data?.unreachable ? t('dataUnreachable')
+        : !res.ok ? `${tLiveRef.current('kb_uploadFailed', { status: res.status })}${data?.error ? ` (${data.error})` : ''}`
+        : `${tLiveRef.current('knowledgeActionFailed')}${data?.error ? ` (${data.error})` : ''}`)
       if (!res.ok || data?.error) throw new Error(uploadErr())
       console.log('[Knowledge] upload result:', data)
       // A refused upload (share down, a name Windows will not take) used to look like success.
@@ -8420,7 +8127,7 @@ Return ONLY a JSON array (no markdown):
   }
   // Ask the AI for changes but DON'T apply them — store a proposal to review.
   const proposeModeEdit = async (instruction, scope) => {
-    if (!apiKey) { setAiErrorNotice((prev) => prev || t('study_addApiKeyFirst')); return } // it did nothing, silently
+    if (!apiKey) { raiseNotice(t('study_addApiKeyFirst')); return } // it did nothing, silently
     if (modeEditBusy || !instruction?.trim()) return
     const modeId = activeModeIdRef.current // the proposal belongs to THIS mode, even if the user switches
     setModeEditBusy(true); setAnkiError(null)
@@ -8455,7 +8162,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       if (changes.length === 0) { setModeEditProposal(null); setAiErrorNotice(t('modeEditNoChanges')) }
       else setModeEditProposal({ scope, changes, modeId })
     } catch (e) {
-      setAiErrorNotice((prev) => prev || t('modeEditFailed', { msg: e.message })) // keep aiCall's own friendlier toast when it already raised one
+      raiseNotice(t('modeEditFailed', { msg: e.message }), { keepAi: true }) // keep aiCall's own friendlier toast when it already raised one
     } finally {
       setModeEditBusy(false)
     }
@@ -8496,10 +8203,10 @@ Output ONLY raw JSON. No markdown, no backticks.`
       const sr = { ...(target.studyRules || (target.type === 'language' ? defaultStudyRules : defaultGeneralStudyRules)) }
       changes.forEach((c) => { sr[c.key] = shaped(c.key, c.after, sr[c.key]) })
       // Not saved (modes unreadable): say so and keep the proposal, instead of closing it as if applied.
-      if (!updateModeById(modeId, { studyRules: sr })) { setAiErrorNotice((prev) => prev || t('mode_cannotSave')); return false }
+      if (!updateModeById(modeId, { studyRules: sr })) { raiseNotice(t('mode_cannotSave')); return false }
     } else {
       const upd = {}; changes.forEach((c) => { upd[c.key] = shaped(c.key, c.after, target[c.key]) })
-      if (!updateModeById(modeId, upd)) { setAiErrorNotice((prev) => prev || t('mode_cannotSave')); return false }
+      if (!updateModeById(modeId, upd)) { raiseNotice(t('mode_cannotSave')); return false }
     }
     setModeEditProposal(null)
     return true
@@ -8758,9 +8465,9 @@ Output ONLY raw JSON. No markdown, no backticks.`
           const unconfirmed = isUsageTag(tag) && (unverified || []).includes(tag)
           const tip = usageTagTip(tag, { unverified: unconfirmed, t })
           return (
-            <span key={ti} className={tip ? 'tip tip-r' : undefined} data-tip={tip || undefined}
+            <span key={ti} className={tip ? 'tip tip-r' : undefined} data-tip={tip || undefined} tabIndex={tip ? 0 : undefined}
               style={{ fontSize: size, padding: '1px 5px', borderRadius: 3, background: 'rgba(125,133,144,.15)', color: 'var(--c-ink-dim)', ...(tip ? { cursor: 'help' } : {}), ...usageTagStyle(tag, { unverified: unconfirmed }) }}>
-              {tag}{unconfirmed ? ' ?' : ''}
+              {tag}{unconfirmed ? ' ?' : ''}{tip && <span style={SR_ONLY}>{`: ${tip}`}</span>}
             </span>
           )
         })}
@@ -8816,7 +8523,8 @@ Output ONLY raw JSON. No markdown, no backticks.`
               )}
             </span>
           )}
-          <span onClick={() => setStudyWordLookup(null)} title={t('close')} style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 13, lineHeight: 1 }}>×</span>
+          <button type="button" onClick={() => setStudyWordLookup(null)} aria-label={t('close')} className="tip tip-l" data-tip={t('close')}
+            style={{ background: 'none', border: 'none', padding: '2px 6px', margin: '-2px -4px', borderRadius: 4, cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 13, lineHeight: 1 }}>×</button>
         </div>
 
         {/* Row 1b: WHERE it is used · HOW OFTEN natives say it · WHAT CONTEXT it belongs to. This is
@@ -8843,13 +8551,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
                 {leaks(stripHtml(studyWordLookup.existing.backHtml)) ? wouldReveal : (
                 <div style={{ fontSize: 11, color: 'var(--c-ink)', background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 5, padding: '6px 9px', lineHeight: 1.55, maxHeight: 150, overflowY: 'auto' }}
                   dangerouslySetInnerHTML={{ __html: sanitizeHtml(studyWordLookup.existing.backHtml) }} />)}
-                {studyWordLookup.existing.tags?.length > 0 && (
-                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                    {sortTagsUsageFirst(studyWordLookup.existing.tags).map((tag, ti) => (
-                      <span key={ti} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: 'rgba(125,133,144,.15)', color: 'var(--c-ink-dim)', ...usageTagStyle(tag) }}>{tag}</span>
-                    ))}
-                  </div>
-                )}
+                {studyWordLookup.existing.tags?.length > 0 && renderUsageTagChips(studyWordLookup.existing.tags)}
               </div>
             ) : studyWordLookup.card ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%' }}>
@@ -8862,13 +8564,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
                 {studyWordLookup.card.correction && (
                   <div style={{ fontSize: 10, color: 'var(--c-warning)' }}>⚠ {studyWordLookup.card.correction}</div>
                 )}
-                {studyWordLookup.card.tags?.length > 0 && (
-                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                    {sortTagsUsageFirst(studyWordLookup.card.tags).map((tag, ti) => (
-                      <span key={ti} style={{ fontSize: 9, padding: '1px 5px', borderRadius: 3, background: 'rgba(125,133,144,.15)', color: 'var(--c-ink-dim)', ...usageTagStyle(tag) }}>{tag}</span>
-                    ))}
-                  </div>
-                )}
+                {studyWordLookup.card.tags?.length > 0 && renderUsageTagChips(studyWordLookup.card.tags)}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
                   <button onClick={studyWordSyncCard} disabled={studyWordLookup.cardSyncing || !ankiConnected}
                     title={ankiConnected ? t('lookup_addTo', { deck: studyWordCardDeck() }) : t('lookup_ankiOff')}
@@ -9033,7 +8729,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
           style={{ ...S.ghostBtn, fontSize: fs, padding: compact ? '3px 10px' : '2px 10px', fontWeight: 700, color: 'var(--c-purple)', background: 'rgba(139,92,246,.14)', borderColor: 'rgba(139,92,246,.5)', opacity: disabled ? 0.5 : 1 }}>
           🧠 {t('study_memoryHook')}
         </button>
-        <button onClick={() => setHookStylesOpen(p => ({ ...p, [surfaceKey]: !open }))} disabled={disabled}
+        <button onClick={() => setHookStylesOpen(p => ({ ...p, [surfaceKey]: !open }))} disabled={disabled} aria-expanded={open}
           className="tip tip-r" data-tip={t('study_chooseStyleTip')}
           style={{ ...S.ghostBtn, fontSize: fs, padding: compact ? '3px 10px' : '2px 9px', background: 'transparent', color: 'var(--c-ink-dim)', borderColor: 'var(--c-border)', opacity: disabled ? 0.5 : 1 }}>
           {open ? t('study_stylesOpen') : t('study_stylesClosed')}
@@ -9064,9 +8760,9 @@ Output ONLY raw JSON. No markdown, no backticks.`
           <div key={hi} style={{ fontSize: 11, color: 'var(--c-ink)', background: 'rgba(139,92,246,.08)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 6, padding: '8px 10px', lineHeight: 1.6 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
               <div style={{ fontWeight: 700, color: 'var(--c-purple)', marginBottom: 3, flex: 1 }}>🧠 {t('study_ebisMemoryHook')}{hooks.length > 1 ? ` #${hi + 1}` : ''}</div>
-              <span onClick={async () => { if (await deleteNoteHook(studyNoteId(cs), hook, cs.front)) setStudyCardState(prev => { const u = [...prev]; if (u[ci]) u[ci] = { ...u[ci], mnemonics: (u[ci].mnemonics || []).filter((h) => h !== hook) }; return u }) }}
-                title={t('study_deleteHook')} className="click-dim"
-                style={{ cursor: 'pointer', color: 'var(--c-ink-faint)', fontSize: 13, lineHeight: 1, padding: '1px 5px', borderRadius: 4, flexShrink: 0 }}>×</span>
+              <button type="button" onClick={async () => { if (await deleteNoteHook(studyNoteId(cs), hook, cs.front)) setStudyCardState(prev => { const u = [...prev]; if (u[ci]) u[ci] = { ...u[ci], mnemonics: (u[ci].mnemonics || []).filter((h) => h !== hook) }; return u }) }}
+                aria-label={t('study_deleteHook')} data-tip={t('study_deleteHook')} className="tip tip-l"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--c-ink-faint)', fontSize: 13, lineHeight: 1, padding: '1px 5px', borderRadius: 4, flexShrink: 0 }}>×</button>
             </div>
             <div className="hook-md">{renderTappableRich(hook, `mnemonic-${ci}`)}</div>
           </div>
@@ -9104,186 +8800,6 @@ Output ONLY raw JSON. No markdown, no backticks.`
       )}
     </div>
   )
-  // ── HARD GUARANTEE: the answer must never appear inside a question's own text ──────────────
-  // The model sometimes writes the target word INTO the disambiguating cue ("…rollo de papel o
-  // pergamino…" when the answer IS "pergamino"), which destroys the question. Detection is
-  // accent-insensitive and whole-word; explanation questions (no exact answer) are exempt.
-  // Latin accents plus Arabic harakat and Hebrew niqqud: a vowel-marked question never matched an
-  // unmarked answer (or the reverse), so those leaks went through unseen.
-  // Recomposed (NFC) at the end: NFD splits every Hangul syllable into jamo, so Korean lengths and
-  // prefixes were measured in jamo.
-  // Apostrophes folded too: a question holding "aujourd’hui" never matched an accepted "aujourd'hui".
-  const leakNorm = (s) => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f\u064b-\u065f\u0670\u05b0-\u05c7]/g, '').normalize('NFC').replace(/[\u2019\u2018\u02bc`\u00b4]/g, "'")
-  // Korean attaches particles to the word (사과를, 고양이는), so a whole-word test never fires: a token
-  // that STARTS WITH a 2+ syllable Hangul answer is a leak.
-  const HANGUL = /\p{Script=Hangul}/u
-  // Length for the "too short to check" floors: Hangul counted in JAMO, as before NFC (a one-syllable
-  // answer like 물 is 3 jamo and must stay protected; counted as 1 it slipped into questions and hints).
-  const leakLen = (na) => (HANGUL.test(na) ? na.normalize('NFD').length : na.length)
-  const hangulLeak = (normText, na) => HANGUL.test(na) && [...na].length >= 2 && normText.split(/[^\p{L}\p{N}]+/u).some((tok) => tok.startsWith(na))
-  // Scripts written WITHOUT spaces between words. Whole-word matching can never fire there (no
-  // boundary precedes the answer) and most answers are 1-2 characters, below the length floor, so
-  // for Chinese/Japanese/Thai the guard did nothing. There: substring match from 2 characters.
-  const NO_SPACE_SCRIPT = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}]/u
-  const noSpaceLeak = (normText, na) => NO_SPACE_SCRIPT.test(na) && [...na].length >= 2 && normText.includes(na)
-  const answerInQuestionText = (text, a) => {
-    const na = leakNorm(a).trim()
-    if (NO_SPACE_SCRIPT.test(na)) return noSpaceLeak(text, na)
-    if (hangulLeak(text, na)) return true
-    if (leakLen(na) < 3) return false // 1-2 letter "answers" would false-positive on articles/particles
-    return new RegExp(`(^|[^\\p{L}\\p{N}])${na.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\p{L}\\p{N}])`, 'u').test(text)
-  }
-  // The answers a question must not show: the accepted ones plus the CORRECT choice (buildChoices keeps the model's
-  // pick when it matches no accepted answer, so "Transmission Control Protocol" shipped in its own question). The
-  // choice counts only when no distractor is named too ("True or false: ...", "Is it A or B?" name every option).
-  const leakAnswers = (q) => {
-    const accepted = Array.isArray(q?.acceptedAnswers) ? q.acceptedAnswers.map(String) : []
-    if (!q || !Array.isArray(q.choices) || !Number.isInteger(q.answerIdx) || !q.choices[q.answerIdx]) return accepted
-    const text = leakNorm(q.question || '')
-    const others = q.choices.filter((c, i) => i !== q.answerIdx && c)
-    // The question names the options ("True or false: ...", "a fruit or a vegetable?"): the correct option is
-    // among the accepted answers too (the prompt requires it), so it "leaked", cost two regenerations and shipped
-    // blanked ("___ or false"). Accepted answers that ARE one of the choices are left out; every other word stays guarded.
-    if (others.some((c) => answerInQuestionText(text, String(c)))) {
-      const choiceSet = new Set(q.choices.filter(Boolean).map((c) => leakNorm(String(c)).trim()))
-      return accepted.filter((a) => !choiceSet.has(leakNorm(a).trim()))
-    }
-    return [...accepted, String(q.choices[q.answerIdx])]
-  }
-  const questionAnswerLeak = (q) => {
-    if (!q || q.type === 'explanation') return null
-    const accepted = leakAnswers(q)
-    if (accepted.length === 0) return null
-    const text = leakNorm(q.question || '')
-    for (const a of accepted) if (answerInQuestionText(text, a)) return a
-    return null
-  }
-  // Last-resort scrub (when even the regeneration leaked): blank the answer tokens out of the
-  // question text so a leak can NEVER reach the student. "…papel o pergamino que…" → "…papel o ___ que…".
-  const scrubAnswerFromQuestion = (q) => {
-    if (!questionAnswerLeak(q)) return q
-    const answers = leakAnswers(q)
-    const acceptedNorm = new Set(answers.map((a) => leakNorm(a).trim()).filter((a) => leakLen(a) >= 3))
-    // Tokens include combining marks (\p{M}): split on letters alone, a vowel-marked Arabic/Hebrew word
-    // broke into pieces and never matched the unmarked answer, so the scrub changed nothing.
-    const hangulAnswers = answers.map((a) => leakNorm(a).trim()).filter((a) => HANGUL.test(a) && [...a].length >= 2)
-    let question = String(q.question).split(/([\p{L}\p{M}]+)/u).map((tok) => {
-      if (acceptedNorm.has(leakNorm(tok))) return '___'
-      const hit = hangulAnswers.find((na) => leakNorm(tok).startsWith(na))
-      return hit ? '___' + leakNorm(tok).slice(hit.length) : tok // keep the particle: 사과를 → ___를
-    }).join('')
-    // No-space scripts (Chinese/Japanese/Thai): the detector matches a 2+ character answer as a
-    // SUBSTRING, so the scrub must too; the length floor above skipped most Chinese words entirely.
-    for (const a of answers) {
-      const raw = String(a).trim()
-      if (NO_SPACE_SCRIPT.test(raw) && [...raw].length >= 2) {
-        question = question.split(raw).join('___')
-        const nfc = raw.normalize('NFC'); if (nfc !== raw) question = question.split(nfc).join('___')
-      }
-    }
-    // Multi-word answers survive the token pass — strike them directly, case-insensitively.
-    if (questionAnswerLeak({ ...q, question })) {
-      for (const a of answers) {
-        if (String(a).trim().length < 3) continue
-        question = question.replace(new RegExp(String(a).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/'/g, "['\u2019\u2018\u02bc]"), 'gi'), '___') // any apostrophe form, like leakNorm
-      }
-    }
-    return { ...q, question }
-  }
-
-  // FUZZY variant for HINTS: also catches plural/gender/derived forms ("pergaminos" when the
-  // answer is "pergamino"). Questions keep the exact whole-word check (a fuzzy match could
-  // wrongly scrub legitimate context words from a fill-in-the-blank sentence); for a HINT,
-  // over-scrubbing is harmless and revealing the answer is fatal.
-  const hintTokenLeaks = (tok, na) =>
-    tok === na || (na.length >= 6 && tok.startsWith(na.slice(0, na.length - 2)) && tok.length <= na.length + 3)
-  const hintRevealsAnswer = (text, accepted) => {
-    const normText = leakNorm(text)
-    const toks = normText.split(/[^\p{L}\p{N}]+/u).filter(Boolean)
-    const all = (accepted || []).map((a) => leakNorm(a).trim())
-    if (all.some((na) => noSpaceLeak(normText, na) || hangulLeak(normText, na))) return true
-    const answers = all.filter((a) => leakLen(a) >= 3 && !NO_SPACE_SCRIPT.test(a))
-    // Any non-letter in the answer (a space, an apostrophe, a hyphen: "aujourd'hui", "week-end") means the token
-    // split can never match it whole: the substring test decides.
-    // Bounded by non-letters: "qu'il" must not match inside "puisqu'il".
-    const bounded = (na) => new RegExp(`(^|[^\\p{L}\\p{N}])${na.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\p{L}\\p{N}])`, 'u').test(normText)
-    return answers.some((na) => (/[^\p{L}\p{N}]/u.test(na) ? bounded(na) : toks.some((tok) => hintTokenLeaks(tok, na))))
-  }
-  const scrubHint = (text, accepted) => {
-    const answers = (accepted || []).map((a) => leakNorm(a).trim()).filter((a) => leakLen(a) >= 3)
-    let out = String(text).split(/([\p{L}\p{M}]+)/u).map((tok) => { // marks included: see scrubAnswerFromQuestion
-      if (!/\p{L}/u.test(tok)) return tok
-      const nt = leakNorm(tok)
-      if ((accepted || []).some((a) => hangulLeak(nt, leakNorm(a).trim()))) return '___' // Korean: answer + particle
-      return answers.some((na) => !/[^\p{L}\p{N}]/u.test(na) && hintTokenLeaks(nt, na)) ? '___' : tok
-    }).join('')
-    for (const a of accepted || []) {
-      const raw = String(a).trim()
-      if (/[^\p{L}\p{N}]/u.test(raw) && raw.length >= 3) out = out.replace(new RegExp(`(^|[^\\p{L}\\p{N}])${raw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/'/g, "['\u2019\u2018\u02bc]")}(?![\\p{L}\\p{N}])`, 'giu'), '$1___')
-      // No-space scripts: blank the answer wherever it appears (see NO_SPACE_SCRIPT).
-      if (NO_SPACE_SCRIPT.test(raw) && [...raw].length >= 2) out = out.split(raw).join('___')
-    }
-    return out
-  }
-
-  // ── First-letter cue guarantee (LANGUAGE-AGNOSTIC) ────────────────────────────────────────────
-  // A typed translation / fill-in-the-blank is only fair if the student can tell WHICH word is
-  // wanted — "hat" is sombrero OR gorra, "run" is correr OR huir. The generator is told to ALWAYS
-  // pin the target with a parenthetical cue that carries the answer's first letter, phrased in
-  // whatever language Ebi speaks. These are the deterministic safety net around the prompt, working
-  // for ANY learned language + ANY Ebi-speaks language:
-  //   • hasLetterCue  — detect a first-letter cue already present. Language-neutral: a single letter
-  //     inside quotes ('…"s"…', '…«s»…', '…「や」…') OR a letter-skeleton ("s···"). Covers the way the
-  //     model writes the cue in every language (the letter is always quoted), not English phrases.
-  //   • appendLetterCue — last resort: append a letter skeleton (first letter + a dot per remaining
-  //     letter), which needs NO natural language, so it is correct regardless of script/tongue.
-  // Apostrophe-type quotes are also contraction marks ("I'm", "don't", "What's 'umbrella'"), which
-  // read as a quoted letter and switched the cue guarantee OFF. For those, the quote must not touch a
-  // letter on the outside; the other quote kinds keep the plain rule (「ぼ」で has a letter after 」).
-  const CUE_QUOTES_PLAIN = '"«»‹›“”„「」『』' // „S“ (German, Polish, Czech) too: missed, every such card was regenerated
-  const CUE_APOS = "'`‘’‚"
-  // Each alternative captures the cue's letter, so the cue is checked against the ANSWER: a quoted
-  // one-character meaning (Chinese “雨”) or a kana before a blank (公園で___) looked like a cue, and so
-  // did a cue naming the wrong letter; all three shipped the question with no real cue.
-  const letterCueRe = new RegExp(`[${CUE_QUOTES_PLAIN}]\\s*(\\p{L})\\s*[${CUE_QUOTES_PLAIN}]|(?<![\\p{Lu}\\p{Ll}])[${CUE_APOS}]\\s*(\\p{L})\\s*[${CUE_APOS}](?![\\p{Lu}\\p{Ll}])|(\\p{L})[·_]{2,}`, 'gu')
-  const cueFold = (c) => String(c || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
-  const cueAnswers = (q) => (q.acceptedAnswers || []).map((x) => String(x).trim()).filter(Boolean)
-  // A cue counts only when its letter starts an accepted answer (or one of its words: "el sombrero").
-  const hasLetterCue = (q) => {
-    const firsts = new Set()
-    // Apostrophes split too: in "l'arbre" the cue names the a, not the l.
-    for (const a of cueAnswers(q)) for (const w of a.split(/[\s/'’]+/)) { const c = [...w].find((ch) => /\p{L}/u.test(ch)); if (c) firsts.add(cueFold(c)) }
-    // A kanji answer is cued by its READING's first kana (走る: 「は」), which no spelling check can derive.
-    const kanjiAnswer = [...firsts].some((c) => /\p{Script=Han}/u.test(c))
-    for (const m of String(q.question || '').matchAll(letterCueRe)) {
-      const c = cueFold(m[1] || m[2] || m[3])
-      // A Han answer is cued by its reading's first sound: a kana (走る: は) or a Latin pinyin initial (雨伞: y).
-      // A quoted Latin letter only through a pinyin/romaji answer (in firsts): a quoted English "I" in
-      // 'How do you say "I"' read as the reading cue for 私.
-      if (firsts.has(c) || (kanjiAnswer && /[\p{Script=Hiragana}\p{Script=Katakana}]/u.test(c) && !m[3])) return true
-    }
-    return false
-  }
-  // Skeleton from the SHORTEST accepted answer (letters only): first letter + '·' per remaining letter.
-  const letterSkeleton = (q) => {
-    // Not from a Han answer: its first character is half the word (走る → "走·"). A kana or pinyin reading
-    // among the answers is used instead, else no skeleton.
-    const ans = cueAnswers(q).map((a) => [...a].filter((c) => /\p{L}/u.test(c))).filter((l) => l.length && !/\p{Script=Han}/u.test(l[0]))
-    const shortest = ans.filter((l) => l.length).sort((a, b) => a.length - b.length)[0]
-    if (!shortest || shortest.length < 2) return ''
-    return shortest[0] + '·'.repeat(shortest.length - 1)
-  }
-  const appendLetterCue = (q) => {
-    const skel = letterSkeleton(q)
-    if (!skel) return q
-    let text = String(q.question || '').trimEnd()
-    const m = text.match(/([?？!！.。]+)$/u) // keep trailing sentence punctuation after the cue
-    const cue = ` (${skel})`
-    text = m ? text.slice(0, text.length - m[1].length).trimEnd() + cue + m[1] : text + cue
-    return { ...q, question: text }
-  }
-  // Which questions MUST carry a first-letter cue: typed (non-MC) LANGUAGE recall/fill_blank that
-  // have a concrete word answer. Explanation questions and general-mode blind recall are exempt.
   // ADAPTIVE CARDS (per mode, studyRules.adaptive, default OFF; flashcards only). A NEW card opens with the
   // Learn-it lesson first, then its questions; new and STRUGGLING cards (ADAPTIVE_STRUGGLE_LAPSES+ lapses) are
   // asked multiple choice in a typed session (recorded in Anki like any MC card: capped at Good). Relearn
@@ -9300,9 +8816,6 @@ Output ONLY raw JSON. No markdown, no backticks.`
   // QUESTION DEPTH (per mode, studyRules.questionDepth; the rule is utils/studyDepth.js depthPlan): a due review gets
   // ONE production question; the study type defaults to the session's.
   const depthPlan = (card, rules, kind = studyMode) => depthPlanFor(card, rules, kind)
-  const needsLetterCue = (q, isLanguage, wantChoices) =>
-    isLanguage && !wantChoices && (q.type === 'recall' || q.type === 'fill_blank') &&
-    cueAnswers(q).length > 0 && !hasLetterCue(q)
 
   // Multiple-choice options from a model reply: deduped, max 4, SHUFFLED (models bias the correct
   // slot). The correct option is checked against acceptedAnswers, not taken on the model's word: a
@@ -9336,9 +8849,6 @@ Output ONLY raw JSON. No markdown, no backticks.`
     return { choices: opts, answerIdx: opts.indexOf(correctText) }
   }
 
-  // A scrub that blanked the whole quoted subject ("Translate: '___'"): nothing left to answer from (generation and
-  // Fix question both drop it).
-  const blankedSubject = (q) => new RegExp(`[${CUE_QUOTES_PLAIN}${CUE_APOS}]\\s*___\\s*[${CUE_QUOTES_PLAIN}${CUE_APOS}]|[:：]\\s*___\\s*(?:[(（]|[?？.。!！]*\\s*$)`, 'u').test(String(q.question || ''))
   // `split` (the session's first card only, see beginStudy): { part: 'first' } writes Q1 alone (a small reply, back
   // fast, so the session opens sooner); { part: 'rest', firstQuestion } writes Q2..Qn told what Q1 asked. Every guard
   // below (leak check, letter cue, rewrites, give-up set) applies to each part as to a whole set.
@@ -9642,7 +9152,8 @@ Output ONLY raw JSON. No markdown, no backticks.`
         if (!raw) { priorFailure = 'the response was not a single valid JSON object'; continue }
         // Relevance gate: an off-subject card (e.g. a stray vocab card in a cert deck) is skipped
         // outright — no retry, which would only pressure the model into inventing a connection.
-        if (raw.kind === 'skip') { console.log('[PBQ] card skipped as off-subject:', front, '—', raw.reason || ''); return null }
+        // "Skip" or " skip" too: an exact match compiled it as a broken exercise.
+        if (String(raw.kind || '').trim().toLowerCase() === 'skip') { console.log('[PBQ] card skipped as off-subject:', front, '—', raw.reason || ''); return null }
         const compiled = compilePbq(raw)
         if (!compiled.ok) { priorFailure = `structural problems: ${compiled.errors.join('; ')}`; continue }
         if (kctx) {
@@ -9708,28 +9219,14 @@ Use up to 40 words total. No duplicates. Output ONLY raw JSON. No markdown, no b
       // One entry per verb (folded), preferring the deck's copy: the model often lists a deck verb again as a
       // "common" supplement, so the same verb was drilled twice and the second got an Add-to-Anki button
       // for a word the deck already has. Non-string words (a model sending objects) are dropped.
-      const fold = (w) => w.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').trim()
-      const byKey = new Map()
-      for (const w of (Array.isArray(parsed?.words) ? parsed.words : [])) {
-        if (!w || typeof w.word !== 'string' || !w.word.trim()) continue // a word without a meaning is still a word (all-missing dropped the whole list)
-        const k = fold(w.word)
-        const prev = byKey.get(k)
-        if (!prev || (w.fromDeck && !prev.fromDeck)) byKey.set(k, { ...w, meaning: cardText(w.meaning) }) // an object meaning showed "[object Object]"
-      }
-      const words = [...byKey.values()]
+      // fromDeck is also checked against the deck's own headwords: a deck verb marked "false" (or the string
+      // "false") got an Add-to-Anki button and was added a second time. Tested in utils/conjugation.js.
+      const words = shapeConjugationPool(parsed, (cards || []).map((c) => getCardFront(c)), { cardText })
       if (!words.length) throw new Error('no usable words') // a reply with no list started an empty drill: use the deck's own fronts
       return { words, language }
     } catch {
       // Headwords only ("el perro (sustantivo)" / "cálido/cálida" were drilled as verbs as written), once each.
-      const seenW = new Set()
-      const fb = []
-      for (const f of deckFronts) {
-        const w = String(f || '').replace(/\([^)]*\)/g, ' ').split('/')[0].replace(/\s+/g, ' ').trim()
-        const k = w.toLowerCase().normalize('NFC')
-        if (!w || seenW.has(k)) continue
-        seenW.add(k); fb.push({ word: w, meaning: '', fromDeck: true })
-        if (fb.length >= 20) break
-      }
+      const fb = fallbackConjugationPool(deckFronts, 20)
       return { words: fb, language: (activeMode.studyRules?.studyLanguage || learnLangName()) } // the deck's language, never a hardcoded English
     }
   }
@@ -10514,16 +10011,16 @@ Output ONLY raw JSON. No markdown, no backticks.`
     // Also: Arabic/Hebrew vowel marks (كتاب vs كِتَاب is one word; the accent drill never demands them), and a French/
     // Italian ELIDED article before the apostrophes go ("l'eau" became "leau" and never matched "eau").
     // Russian \u0451 is optional in writing (\u0435\u0449\u0435 = \u0435\u0449\u0451): the same letter, never an accent slip for the drill.
-    const normalize = (s) => s.normalize('NFC').toLowerCase().trim().replace(/\u0451/g, '\u0435').replace(/[\u064B-\u065F\u0670\u0591-\u05C7]/g, '').replace(/^(?:l|un)['’ʼ]\s*/, '') /* never all'/dell'/nell': those prepositions are what a blank tests */.replace(/[.!?,;:¿¡«»"“”‘’'ʼ`´。，、？！：；]/g, '').replace(/\s+/g, ' ').trim()
-    const stripArticles = (s) => s.replace(/^(el|la|los|las|un|una|unos|unas|lo|al|del|the|a|an|to)\s+/, '')
+    const normalize = answerNormalize
+    const stripArticles = stripLeadArticles
     // SPANISH expected answers lose only true articles: "a menudo" / "lo siento" / "al final" are phrases
     // whose first word is part of the answer, and stripping it let a bare "menudo" flash green (hint
     // skipped), then the grader marked it wrong. Every other language keeps the full list ("a casa" is
     // Portuguese's article; English "to run" still accepts "run").
     const spanishTarget = /\bspanish\b|español|castellano/i.test(String(learnLangName() || ''))
-    const stripAccArticles = (s) => (spanishTarget ? s.replace(/^(el|la|los|las|un|una|unos|unas|the|an)\s+/, '') : stripArticles(s))
+    const stripAccArticles = (s) => stripAccArticlesFor(s, spanishTarget)
     // й is its own letter (мой/мои are different words), not и with an accent: kept through the strip.
-    const stripAccents = (s) => s.replace(/й/g, '').replace(/Й/g, '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(//g, 'й').replace(//g, 'Й')
+    const stripAccents = stripAccentsKeepYot
     const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
     // ACCENT DRILL resolution: a previous submit was correct except for accents and the advance
@@ -10548,19 +10045,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     const ans = normalize(answer)
     const ansNoArt = stripArticles(ans)
     // Exact match (accent- and spelling-sensitive)
-    const matchesExact = (a) => {
-      // Conjugation drills compare the form as written: stripping "a"/"lo"/"la" made a bare "hablo" match
-      // an expected "lo hablo" (and the reverse), the pronoun being part of the drilled form.
-      if (cs.isConjugation) { const acc = normalize(a); return acc === ans || (acc.length >= 3 && new RegExp(`(^|\\s)${escapeRe(acc)}(\\s|$)`).test(ans)) }
-      const acc = normalize(a)
-      const accNoArt = stripAccArticles(acc)
-      if (acc === ans || accNoArt === ansNoArt || acc === ansNoArt || accNoArt === ans) return true
-      // accept the exact correct word/phrase appearing as a whole token within the answer
-      // Also test the answer AS TYPED: the typed side loses a leading "lo"/"a", so "Lo siento mucho" no
-      // longer contained the expected "lo siento" (which keeps its first word, see stripAccArticles).
-      const tokRe = new RegExp(`(^|\\s)${escapeRe(accNoArt)}(\\s|$)`)
-      return accNoArt.length >= 3 && (tokRe.test(ansNoArt) || tokRe.test(ans))
-    }
+    const matchesExact = (a) => exactAnswerMatch(a, { ans, ansNoArt, isConjugation: !!cs.isConjugation, spanishTarget })
     // Lenient match (accent-insensitive): "brujula" accepted for "brújula".
     const ansNA = stripAccents(ans)
     const ansNoArtNA = stripAccents(ansNoArt)
@@ -10792,8 +10277,13 @@ Output ONLY raw JSON. No markdown, no backticks.`
       if (e.ctrlKey || e.metaKey || e.altKey) return
       const tag = document.activeElement?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || document.activeElement?.isContentEditable) return
-      const num = parseInt(e.key, 10)
-      if (num >= 1 && num <= questionObj.choices.length) submitStudyChoice(num - 1)
+      if (e.repeat || imeActive(e)) return // a held key must not race through the next questions
+      // The tiles are LABELLED A to D, so their letters answer too (only the digits did: pressing the letter on
+      // screen did nothing).
+      const letter = typeof e.key === 'string' && e.key.length === 1 ? 'abcdef'.indexOf(e.key.toLowerCase()) : -1
+      // Digits by e.code too: AZERTY's top row types "&é\"'" without Shift.
+      const num = letter >= 0 ? letter + 1 : ((choiceIndex(e, 9) + 1) || parseInt(e.key, 10))
+      if (num >= 1 && num <= questionObj.choices.length) { e.preventDefault(); submitStudyChoice(num - 1) }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -10934,7 +10424,8 @@ Output ONLY raw JSON. No markdown, no backticks.`
   // is untouched; the card is re-queued ~2 cards ahead as a PRACTICE pass (noSync — the Again
   // stays the only Anki review) so the user retrieves it while it's still warm.
   const requeueForRelearn = (cs) => {
-    if (studyMode !== 'flashcards' || !cs.cardId || studyWrappingUpRef.current) return false // Wrap Up pulls nothing more
+    // Wrap Up and End Now pull nothing more: a grade landing after End Now still re-queued a copy into the ended pool.
+    if (studyMode !== 'flashcards' || !cs.cardId || studyWrappingUpRef.current || studyEndedRef.current) return false
     const card = studyAllCards.find((c) => c.cardId === cs.cardId)
     if (!card) return false
     setStudyAllCards((prev) => {
@@ -11032,7 +10523,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       if (!clean) throw new Error('empty reply') // an empty bubble looked like Ebi had nothing to say
       setStudyLearnMoment((p) => (p && p.id === lm.id) ? { ...p, chat: [...p.chat, { role: 'assistant', content: clean }], chatLoading: false } : p) // not into the next card's chat
     } catch (e) {
-      const msg = String(e?.message || '').replace(/\s*[—–]\s*/g, ', ').slice(0, 160)
+      const msg = aiErrMsg(e).replace(/\s*[—–]\s*/g, ', ').slice(0, 160)
       setStudyLearnMoment((p) => (p && p.id === lm.id) ? { ...p, chat: [...p.chat, { role: 'assistant', content: t('chat_replyError', { msg }) }], chatLoading: false } : p)
     }
   }
@@ -11555,7 +11046,7 @@ ${usageTagsContract(`"${target}" in this sense`)}
     const revealsAnswer = (f) => !!liveAccepted && hintRevealsAnswer([f.target, f.primary, f.usage, ...(f.alternatives || [])].filter(Boolean).join(' '), liveAccepted)
     // Saved hooks (a meaning hook ends AT the meaning) are shown on the live question only when they give nothing away.
     const safeHooks = (list) => (liveAccepted ? list.filter((h) => !hintRevealsAnswer(String(h || ''), liveAccepted)) : list)
-    const blockedPopup = { word, target: word, primary: tLiveRef.current('lookup_wouldReveal'), alternatives: [], pron: '', usage: '', usageTags: [], otherTags: [], usageUnverified: [], usageChecking: false, loading: false, blocked: true, lookupId: myId, source }
+    const blockedPopup = { word, target: word, primary: tLiveRef.current('lookup_wouldReveal'), alternatives: [], pron: '', usage: '', usageTags: [], otherTags: [], usageUnverified: [], usageChecking: false, loading: false, blocked: true, lookupId: myId, source, existing: undefined, hookNoteId: undefined }
     const cachedLookup = wordLookupCacheRef.current.get(wordLookupKey(word, sentence))
     if (cachedLookup && revealsAnswer(cachedLookup)) { setStudyWordLookup({ ...blockedPopup, hooks: [] }); return }
     if (cachedLookup) {
@@ -11571,7 +11062,8 @@ ${usageTagsContract(`"${target}" in this sense`)}
           if (!prev || prev.lookupId !== myId || prev.blocked) return prev
           const merged = [...(prev.hooks || [])]
           for (const h of safeHooks(hooksForItem(ex.noteId, ex.front))) if (!merged.includes(h)) merged.push(h)
-          return { ...prev, hookNoteId: ex.noteId, hooks: merged }
+          // The card already exists: say so at once instead of offering "Make Anki card" (it was found only on click).
+          return { ...prev, hookNoteId: ex.noteId, hooks: merged, ...(prev.card ? {} : { existing: ex }) }
         })
       }).catch(() => {})
       return
@@ -11596,7 +11088,9 @@ ${usageTagsContract(`"${target}" in this sense`)}
         if (!prev || prev.lookupId !== myId || prev.blocked || (prev.target && foldHookWord(prev.target) !== foldHookWord(word))) return prev
         const merged = [...(prev.hooks || [])]
         for (const h of safeHooks(hooksForItem(ex.noteId, ex.front))) if (!merged.includes(h)) merged.push(h)
-        return { ...prev, hookNoteId: ex.noteId, hooks: merged }
+        // Shown as "already in the deck" only once the lookup confirms the tapped word IS the target (a flip
+        // re-resolves the target's note below); until then the card row isn't shown anyway (loading).
+        return { ...prev, hookNoteId: ex.noteId, hooks: merged, ...(prev.card ? {} : { existing: ex }) }
       })
     }).catch(() => {})
     try {
@@ -11712,15 +11206,15 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text, never an em da
         // word in the other language, and a hook made now must save under the target instead.
         setStudyWordLookup((prev) => {
           if (!prev || prev.lookupId !== myId) return prev
-          return { ...prev, hooks: [...hooksForItem(null, target)], hookNoteId: undefined }
+          return { ...prev, hooks: [...hooksForItem(null, target)], hookNoteId: undefined, existing: undefined }
         })
         studyWordFindExisting(target).then((ex) => {
           if (!ex) return
           setStudyWordLookup((prev) => {
-            if (!prev || prev.lookupId !== myId) return prev
+            if (!prev || prev.lookupId !== myId || prev.blocked) return prev
             const merged = [...(prev.hooks || [])]
             for (const h of hooksForItem(ex.noteId, ex.front)) if (!merged.includes(h)) merged.push(h)
-            return { ...prev, hookNoteId: ex.noteId, hooks: merged }
+            return { ...prev, hookNoteId: ex.noteId, hooks: merged, ...(prev.card ? {} : { existing: ex }) }
           })
         }).catch(() => {})
       }
@@ -11771,7 +11265,8 @@ Reply in ${explainLang} as JSON ONLY (no markdown, no extra text, never an em da
     if (!ankiConnected) return null
     const deck = studyWordCardDeck()
     const fold = (s) => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
-    const safe = String(word).replace(/["*_()\\:]/g, '')
+    // Kept whole: compileQuery escapes Anki's search operators (deleting them searched "dog_house" as "doghouse").
+    const safe = String(word ?? '').trim()
     if (!safe) return null
     try {
       // nc: = Anki's accent-insensitive search, so "preterito" finds a stored "pretérito" AND the
@@ -12074,9 +11569,12 @@ Your output keeps: the same method, the same language (${explainLang}), the same
     hooksPendingRef.current = false
     hooksModeIdRef.current = activeModeId
     const modeName = storeOwnerName(activeModeId) || activeMode.name // where the writes go (a rename still pending)
-    readBlobChecked('hooks', modeName, { siblings: modesRef.current.map((m) => m.name) }).then(({ ok, value }) => {
+    // A failed read is tried again every 30s (the share or Anki back): it used to stay unread for the whole session,
+    // so no hook made meanwhile was ever saved. Hooks made before the read merge in on success.
+    let retry = null
+    const load = () => readBlobChecked('hooks', modeName, { siblings: modesRef.current.map((m) => m.name) }).then(({ ok, value }) => {
       if (cancelled) return
-      if (!ok) { console.warn('[Hooks] stored hooks could not be read; new hooks are kept for this session only'); return }
+      if (!ok) { console.warn('[Hooks] stored hooks could not be read; trying again shortly'); retry = setTimeout(load, 30000); return }
       hooksReadyRef.current = true
       const stored = value && typeof value === 'object' && !Array.isArray(value) ? value : {}
       // Hooks made before this read finished are MERGED in, never dropped, then saved together.
@@ -12089,8 +11587,9 @@ Your output keeps: the same method, the same language (${explainLang}), the same
         if (hooksPendingRef.current) { hooksPendingRef.current = false; writeBlob('hooks', storeOwnerName(hooksModeIdRef.current) || modeName, merged).catch(() => {}) }
         return merged
       })
-    }).catch(() => {})
-    return () => { cancelled = true }
+    }).catch(() => { if (!cancelled) retry = setTimeout(load, 30000) })
+    load()
+    return () => { cancelled = true; clearTimeout(retry) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeModeId, configLoaded])
   const foldHookWord = (s) => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
@@ -12148,9 +11647,10 @@ Your output keeps: the same method, the same language (${explainLang}), the same
     grammarPendingRef.current = false
     grammarModeIdRef.current = activeModeId
     const modeName = storeOwnerName(activeModeId) || activeMode.name // where the writes go (a rename still pending)
-    readBlobChecked('grammar', modeName, { siblings: modesRef.current.map((m) => m.name) }).then(({ ok, value }) => {
+    let retry = null // a failed read is tried again (see the hooks load)
+    const load = () => readBlobChecked('grammar', modeName, { siblings: modesRef.current.map((m) => m.name) }).then(({ ok, value }) => {
       if (cancelled) return
-      if (!ok) { console.warn('[Grammar] log could not be read; new slips are kept for this session only'); return }
+      if (!ok) { console.warn('[Grammar] log could not be read; trying again shortly'); retry = setTimeout(load, 30000); return }
       grammarReadyRef.current = true
       const stored = Array.isArray(value) ? value : []
       // Slips graded before this read finished are merged in (same dedupe as addGrammarSlips).
@@ -12165,12 +11665,11 @@ Your output keeps: the same method, the same language (${explainLang}), the same
         if (grammarPendingRef.current) { grammarPendingRef.current = false; writeBlob('grammar', storeOwnerName(grammarModeIdRef.current) || modeName, capped).catch(() => {}) }
         return capped
       })
-    }).catch(() => {})
-    return () => { cancelled = true }
+    }).catch(() => { if (!cancelled) retry = setTimeout(load, 30000) })
+    load()
+    return () => { cancelled = true; clearTimeout(retry) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeModeId, configLoaded])
-  // Case and spacing only: folding ACCENTS merged "use él, not el" with "use el, not él", the very slips this tracks.
-  const grammarSlipKey = (x) => String(x || '').normalize('NFC').toLowerCase().replace(/\s+/g, ' ').trim()
   const addGrammarSlips = (front, notes) => {
     const fresh = (notes || []).filter((n) => n && n.type === 'grammar' && n.text)
     if (!fresh.length) return
@@ -12321,6 +11820,9 @@ Your output keeps: the same method, the same language (${explainLang}), the same
       return updated
     })
     if (wasDone && cs.rating && !cs.relearn) setStudyStats(prev => ({ ...prev, [cs.rating]: Math.max(0, (Number(prev[cs.rating]) || 0) - 1) }))
+    // A one-question miss re-queued a practice copy of this card: its grade is undone, so is the copy. Else a card
+    // re-answered correctly after Back was drilled again.
+    if (wasDone && !cs.relearn) dropPendingRelearn(cs.cardId)
     setStudyAnswerHistory(prev => prev.slice(0, -1))
     setCurrentQuestion({ cardIdx, questionIdx })
     setStudyCurrentHint(null)
@@ -12340,6 +11842,16 @@ Your output keeps: the same method, the same language (${explainLang}), the same
   // A one-question review answered wrong comes back as a relearn copy (oneQMissNeedsRequeue decides; this re-queues).
   const requeueOneQMiss = (cs, label) => {
     if (oneQMissNeedsRequeue(cs, label, { learnMoment: (activeMode.studyRules || defaultStudyRules).learnMoment !== false })) requeueForRelearn(cs)
+  }
+  // The practice copy a one-question miss re-queued, removed while still UNPULLED (past the cursor it already has its
+  // own state): for a grade that no longer stands (Back, a feedback-chat overturn).
+  const dropPendingRelearn = (cardId) => {
+    if (!cardId) return
+    const cursor = pbqPullRef.current
+    setStudyAllCards((prev) => {
+      const at = prev.findIndex((c, i) => i >= cursor && c && c._relearn && c.cardId === cardId)
+      return at < 0 ? prev : [...prev.slice(0, at), ...prev.slice(at + 1)]
+    })
   }
 
   const evaluateCardLocally = (cardIdx, cs) => {
@@ -12620,8 +12132,9 @@ Your output keeps: the same method, the same language (${explainLang}), the same
       // Reservation goes through pbqPullRef so sequential tries can't double-consume a card.
       const pbqFlags = { pbq: true, ...(studyPracticeSync ? {} : { noSync: true }) }
       for (let tries = 0; tries < 3; tries++) {
-        const bi = pbqPullRef.current
-        if (bi >= studyAllCards.length) return
+        let bi = pbqPullRef.current
+        while (bi < studyAllCards.length && deletedNoteIdsRef.current.has(studyAllCards[bi]?.note)) bi++ // deleted meanwhile
+        if (bi >= studyAllCards.length) { pbqPullRef.current = bi; setStudyBatchIdx(bi); return }
         pbqPullRef.current = bi + 1
         setStudyBatchIdx(bi + 1)
         const card = studyAllCards[bi]
@@ -12639,8 +12152,10 @@ Your output keeps: the same method, the same language (${explainLang}), the same
         }
       }
     } else {
-      const bi = pbqPullRef.current // reserved from the ref (see conjugations above)
-      if (bi >= studyAllCards.length) return
+      let bi = pbqPullRef.current // reserved from the ref (see conjugations above)
+      // A note deleted from the Deck tab during the session is passed over (Anki no longer has the card).
+      while (bi < studyAllCards.length && deletedNoteIdsRef.current.has(studyAllCards[bi]?.note)) bi++
+      if (bi >= studyAllCards.length) { pbqPullRef.current = bi; setStudyBatchIdx(bi); return }
       const card = studyAllCards[bi]
       if (!card) return
       pbqPullRef.current = bi + 1
@@ -13258,8 +12773,11 @@ Your output keeps: the same method, the same language (${explainLang}), the same
     setActiveModeId(id); saveModes(modesRef.current, id, { changedIds: [] }) // a switch writes no mode (a stale copy undid other computers' edits)
     // The new mode's deck, else the first deck: keeping the old mode's deck on the start screen started a
     // session on the previous subject's cards under the new mode's prompts.
+    // The LIVE deck list: this runs after the end-session question, and the render-time list may predate a refresh
+    // (a deck created or deleted in Anki meanwhile).
     const nm = modesRef.current.find((m) => m.id === id)
-    setStudyDeck((nm?.ankiDeck && (!ankiDecks.length || ankiDecks.includes(nm.ankiDeck))) ? nm.ankiDeck : (ankiDecks[0] || ''))
+    const decksNow = ankiDecksRef.current.length ? ankiDecksRef.current : ankiDecks
+    setStudyDeck((nm?.ankiDeck && (!decksNow.length || decksNow.includes(nm.ankiDeck))) ? nm.ankiDeck : (decksNow[0] || ''))
   }
 
   // EVERY active-mode change (delete, create, Studio, "+ Default mode" too, not only the switcher) moves the
@@ -13535,7 +13053,7 @@ learner's goals or interests that already exist.`
         } catch {}
       }
     } catch (err) {
-      if (insightSid === studySessionRef.current) setStudyInsightsError(t('study_insightsFailed', { error: err.message }))
+      if (insightSid === studySessionRef.current) setStudyInsightsError(t('study_insightsFailed', { error: aiErrMsg(err) }))
     } finally {
       if (insightSid === studySessionRef.current) setStudyInsightsLoading(false) // not a newer session's spinner
     }
@@ -13643,11 +13161,51 @@ learner's goals or interests that already exist.`
     }
   }
 
+  // A note deleted from the Deck tab while a study session runs: its cards in the session are set aside like "I know
+  // this" (rating 'deleted': never synced, out of the summary and history), unless Anki already has (or may have)
+  // their review. The question on screen moves on and a replacement is pulled for each unfinished card.
+  const setAsideDeletedStudyCards = (cardIds) => {
+    if (!cardIds || cardIds.size === 0) return
+    const sid = studySessionRef.current
+    const prev = studyCardStateRef.current
+    const hits = []
+    prev.forEach((cs, idx) => {
+      if (!cs || !cardIds.has(cs.cardId) || cs.rating === 'deleted' || cs.synced) return
+      if (studySyncedIdsRef.current.has(cs.cardId) || syncInFlightIdsRef.current.has(cs.cardId) || uncertainSyncRef.current.has(cs.cardId)) return
+      hits.push(idx)
+    })
+    if (hits.length === 0) return
+    const ratingsBack = hits.map((i) => prev[i]).filter((cs) => cs.rating && !cs.relearn && ['easy', 'good', 'hard', 'again'].includes(cs.rating)).map((cs) => cs.rating)
+    if (ratingsBack.length) setStudyStats((s) => { const n = { ...s }; ratingsBack.forEach((r) => { n[r] = Math.max(0, (n[r] || 0) - 1) }); return n })
+    const unfinished = hits.filter((i) => !prev[i].done && !prev[i].evaluating).length
+    const newStates = prev.map((cs, idx) => (hits.includes(idx) ? { ...cs, done: true, evaluating: false, rating: 'deleted' } : cs))
+    const hitIds = new Set(hits.map((i) => prev[i].cardId))
+    setStudyCardState((p) => p.map((cs, idx) => (hits.includes(idx) && cs && hitIds.has(cs.cardId) ? { ...cs, done: true, evaluating: false, rating: 'deleted' } : cs)))
+    // A grading still running for one of them must not land (evaluateCardAnswers checks this token).
+    hits.forEach((idx) => { const k = `${sid}:${idx}`; evalTokenRef.current[k] = (evalTokenRef.current[k] || 0) + 1 })
+    if (currentQuestion && hits.includes(currentQuestion.cardIdx)) {
+      setStudyInput('')
+      setStudyHintLevel(0); setStudyCurrentHint(null)
+      setStudyMeaningHint(null); setStudyWordLookup(null)
+      setCurrentQuestion(getNextStudyQuestion(newStates, currentQuestion.cardIdx))
+    }
+    for (let i = 0; i < unfinished; i++) pullNewCard()
+  }
+
   // Chat about feedback for a specific card — can fix typos, re-rate, update card
   const sendStudyFeedbackChat = async (cardIdx) => {
     const chat = studyFeedbackChat[cardIdx] || { messages: [], input: '', loading: false }
     const q = chat.input?.trim()
     if (!q || !apiKey || chat.loading) return
+    // Claimed synchronously: a double Enter (both presses see the same render, loading still false) sent the
+    // message twice, and the second reply could apply its grade action again.
+    const sendKey = `${studySessionRef.current}:${cardIdx}`
+    if (feedbackSendingRef.current.has(sendKey)) return
+    feedbackSendingRef.current.add(sendKey)
+    try { await sendStudyFeedbackChatNow(cardIdx, chat, q) } finally { feedbackSendingRef.current.delete(sendKey) }
+  }
+  const feedbackSendingRef = useRef(new Set())
+  const sendStudyFeedbackChatNow = async (cardIdx, chat, q) => {
     const cs = studyCardState[cardIdx]
     const studyLang = interactionLangName()  // Ebi speaks (all modes)
     const feedbackModeId = activeModeIdRef.current // pin — this resolves async, writes must target THIS mode
@@ -13884,6 +13442,11 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
           if (oldRating && oldRating !== label) setStudyStats(prev => ({ ...prev, [oldRating]: Math.max(0, (prev[oldRating] || 0) - 1), [label]: (prev[label] || 0) + 1 }))
           else if (!oldRating) setStudyStats(prev => ({ ...prev, [label]: (prev[label] || 0) + 1 }))
         }
+        // A one-question miss overturned: the practice copy its Again re-queued goes with it (the grader's own rule decides).
+        if (!correctionFailed && feedbackSid === studySessionRef.current && oldRating !== label
+            && oneQMissNeedsRequeue(liveNow, oldRating, { learnMoment: (activeMode.studyRules || defaultStudyRules).learnMoment !== false })) {
+          dropPendingRelearn(liveNow.cardId)
+        }
         // ONE card, merged into the live list. Writing the whole array back (a copy taken when the
         // message was sent) reverted everything that happened during the reply: grades that landed
         // (those cards then sat on "Evaluating" forever), cards pulled in, sync flags.
@@ -13904,7 +13467,7 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
     } catch (err) {
       if (feedbackSid === studySessionRef.current) setStudyFeedbackChat(prev => ({
         ...prev,
-        [cardIdx]: { messages: [...newMessages, { role: 'assistant', text: t('chat_replyError', { msg: String(err?.message || '').replace(/\s*[—–]\s*/g, ', ').slice(0, 160) }) }], input: prev[cardIdx]?.input || '', loading: false }
+        [cardIdx]: { messages: [...newMessages, { role: 'assistant', text: t('chat_replyError', { msg: aiErrMsg(err).replace(/\s*[—–]\s*/g, ', ').slice(0, 160) }) }], input: prev[cardIdx]?.input || '', loading: false }
       }))
     }
   }
@@ -13941,7 +13504,7 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
       if (seq === chatAttachSeqRef.current) setChatTabAttachedDeck({ name: deckName, cards, total: noteIds.length, progress, progressOk })
     } catch (err) {
       console.error('[Chat] attach deck failed:', err)
-      if (seq === chatAttachSeqRef.current) setAiErrorNotice((prev) => prev || t('chat_attachFailed', { deck: deckName })) // the pick looked ignored
+      if (seq === chatAttachSeqRef.current) raiseNotice(t('chat_attachFailed', { deck: deckName })) // the pick looked ignored
     } finally {
       if (seq === chatAttachSeqRef.current) setChatTabAttachLoading(false)
     }
@@ -13973,6 +13536,9 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
   const sendChatTabMessage = async () => {
     const q = chatTabInput.trim()
     const photoPending = chatImagePendingRef.current > 0
+    // Say why nothing happens: with a chat already on screen (no empty-state "Add your API key" button) a
+    // removed or never-set key made Enter and Send silently do nothing.
+    if (!apiKey && (q || chatTabImage || photoPending)) { raiseNotice(t('study_addApiKeyFirst')); return }
     if ((!q && !chatTabImage && !photoPending) || !apiKey || chatTabLoading || chatSwitchingRef.current || chatSendingRef.current) return
     chatSendingRef.current = true
     // A photo still being prepared goes WITH this message: Enter pressed right after pasting sent the text
@@ -14005,7 +13571,7 @@ Respond in 1-2 sentences max, written ENTIRELY in ${studyLang} (the language the
 
 ACCURACY IS CRITICAL. This is a learning app and the user will MEMORIZE what you teach, so a single error is harmful. Rules:
 - NEVER invent words or state facts you are not sure are correct. Do not guess.
-- Before stating any word, translation, conjugation, gender, definition, or fact, double-check it is correct and that the word actually EXISTS and is spelled correctly in the target language.
+${activeMode.type === 'language' ? '- Before stating any word, translation, conjugation, gender, definition, or fact, double-check it is correct and that the word actually EXISTS and is spelled correctly in the target language.' : '- Before stating any term, definition, figure, or fact, double-check it is correct: every term, figure and fact is correct, and anything that depends on an edition, country, or jurisdiction says so.'}
 - Silently re-read your answer before sending and fix any mistakes. If you realize a word may not exist, correct it.
 - If you are not fully certain, say so honestly instead of presenting a guess as fact.
 
@@ -14030,7 +13596,7 @@ IMPORTANT BEHAVIOR RULES:
 ${activeMode.type === 'language' ? `   - LANGUAGE MODE (learning ${learnLangName()}, user speaks ${userLangName()}): use this back format, each label on its own line, with the LABELS WRITTEN IN ${learnLangName()}:
      front: "<word> (<part of speech written in ${learnLangName()}>)"
      back lines: pronunciation (phonetics for a ${userLangName()} speaker, stress in CAPS), translation (to ${userLangName()}), direct/literal translation (omit the line if none), synonyms (in ${userLangName()}), definition (written IN ${learnLangName()}), example (a natural ${learnLangName()} sentence with its ${userLangName()} translation in parentheses).
-     tags: include part of speech, level, topic, and "ebiki".${usageTagsRule()} Only use REAL, correctly-spelled ${learnLangName()} words.${dialectRule()}${preferredTermRule()}` : `   - Design a back that best teaches this subject (definition, key points, formula, example as fits). Always include an "ebiki" tag. Write the back content in ${userLangName()} (keep the front term, proper nouns, technical terms, code, and formulas in their original form) so the learner studies in their own language, including when reviewing in Anki.`}
+     tags: include part of speech, level, topic, and "ebiki".${usageTagsRule()} Only use REAL, correctly-spelled ${learnLangName()} words.${dialectRule()}${preferredTermRule()}` : `   - Design a back that best teaches this subject (definition, key points, formula, example as fits). Always include an "ebiki" tag. Write the back content in ${userLangName()} (keep the front term, proper nouns, technical terms, code, and formulas in their original form) so the learner studies in their own language, including when reviewing in Anki.${(() => { const bt = String(activeMode.backTemplate || '').replace(/\\n/g, '\n'); return bt.includes('{') ? ` Use this mode's fixed card format for the back (fill each {placeholder}, keep the labels and line order): ${bt.replace(/\n/g, ' | ')}` : '' })()}`}
 
 3. For general questions: be concise and helpful. Explain concepts clearly.
 
@@ -14184,12 +13750,8 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       // Offer-to-search: the model emits <offer-search>query</offer-search> when it won't guess.
       const offerMatch = text.match(/<offer-search>([\s\S]*?)<\/offer-search>/)
       const offerSearch = (!chatTabWebSearch && offerMatch) ? offerMatch[1].trim() : undefined
-      const cleanText = text.replace(/<anki-card>.*?<\/anki-card>/gs, '').replace(/<progress-update>[\s\S]*?<\/progress-update>/g, '').replace(/<sources>[\s\S]*?<\/sources>/g, '').replace(/<offer-search>[\s\S]*?<\/offer-search>/g, '')
-        .replace(/<(anki-card|progress-update|sources|offer-search)>[\s\S]*$/, '') // a reply cut off mid-tag: never show its half-written JSON
-        .replace(/(\d)[ \t]*–[ \t]*(\d)/g, '$1-$2').replace(/[ \t]*[—–][ \t]*/g, ', ') // strip em/en dashes (AI tell); a digit range stays a range
-        // Hard rule: Ebi never emits a shrimp emoji (mascot art shows that). Only the gap it leaves closes: collapsing
-        // every run of spaces flattened code indentation and nested lists in every reply.
-        .replace(/([ \t]?)[🦐🦞🦀]\uFE0F?([ \t]?)/gu, (m, a, b) => (b ? ' ' : '')).trim()
+      // Tags out (also one the reply was cut off inside), dashes and shrimp emoji out, whitespace kept (utils/chatReply).
+      const cleanText = cleanChatReply(text)
       // Let the Mascot AI analyze the reply and pick the best-fitting pose, but AWAIT it so the
       // message appears ONCE already wearing the final pose — no instant-then-swap flicker.
       // (choosePose never throws: it falls back to the keyword pose on no-key/error.)
@@ -14209,7 +13771,7 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       // id, but only while this chat is still the one open.
       if (savedId && savedId !== chatTabSessionId) setChatTabSessionId((cur) => (cur === chatTabSessionId ? savedId : cur))
     } catch (err) {
-      setChatTabMsgs(prev => [...prev, { role: 'assistant', content: t('chat_replyError', { msg: stripDashes(err?.message || String(err)).slice(0, 300) }), error: true }])
+      setChatTabMsgs(prev => [...prev, { role: 'assistant', content: t('chat_replyError', { msg: stripDashes(aiErrMsg(err)).slice(0, 300) }), error: true }])
     } finally {
       chatSendingRef.current = false
       setChatTabLoading(false)
@@ -14222,28 +13784,8 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
     setChatTabMsgs((prev) => prev.map((m, i) => i === msgIdx ? { ...m, offerSearch: undefined } : m))
   }
   // User accepted the offered web search — run the search and answer from the results.
-  // Bounded history: the whole chat went to the model every turn, so cost grew quadratically and a
-  // long chat past the context window failed on EVERY later message (dead for good). Newest turns
-  // up to ~60k characters, plus the opening message (it usually sets the topic).
-  const boundChatHistory = (msgs) => {
-    // Error bubbles are the app's, not Ebi's: sent back as the assistant's turn, the model read its own
-    // "Ebi could not answer: API 529 ..." in every later message of that chat.
-    // An assistant turn's cards ride along: they were cut out of its text, so "add an example to that card"
-    // reached a model that could not see the card.
-    const cardsOf = (m) => (m.role !== 'user' && Array.isArray(m.cards) && m.cards.length
-      ? '\n' + m.cards.map((c) => `<anki-card>${JSON.stringify({ front: c.front, back: c.back, tags: c.tags })}</anki-card>`).join('\n') : '')
-    const convoLines = msgs.filter((m) => !m.error).map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content ?? ''}${cardsOf(m)}`)
-    let kept = [], used = 0
-    for (let i = convoLines.length - 1; i >= 0; i--) {
-      if (kept.length && used + convoLines[i].length > 60000) break
-      kept.unshift(convoLines[i]); used += convoLines[i].length
-    }
-    // The opening message sets the topic, so it comes back, but capped: a pasted chapter as the first message
-    // rode along in full on every later send and pushed the chat past the model's limit for good.
-    const first = convoLines[0] && convoLines[0].length > 4000 ? convoLines[0].slice(0, 4000) + ' …(cut)' : convoLines[0]
-    if (kept.length < convoLines.length) kept = [first, '(earlier messages omitted)', ...kept]
-    return kept.join('\n\n')
-  }
+  // History for every chat call goes through boundChatHistory (utils/chatReply: newest ~60k characters plus the
+  // capped opening message, error bubbles out, each turn's cards in).
   const chatOfferSearchAccept = async (query, msgIdx) => {
     // Claimed like a normal send (a REF, not the render-time loading flag): a double click ran the search
     // and the answer twice, and a chat switch in the same instant could slip past the loading flag.
@@ -14292,7 +13834,7 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       const savedId = await chatTabSaveCurrent(updated, chatTabSessionId)
       if (savedId && savedId !== chatTabSessionId) setChatTabSessionId((cur) => (cur === chatTabSessionId ? savedId : cur))
     } catch (err) {
-      setChatTabMsgs((prev) => [...prev, { role: 'assistant', content: t('chat_searchError', { msg: stripDashes(err?.message || String(err)).slice(0, 300) }), error: true }])
+      setChatTabMsgs((prev) => [...prev, { role: 'assistant', content: t('chat_searchError', { msg: stripDashes(aiErrMsg(err)).slice(0, 300) }), error: true }])
     } finally {
       chatSendingRef.current = false
       setChatTabLoading(false)
@@ -14445,8 +13987,13 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
     if (session.id && session.id === chatTabSessionId && chatTabMsgs.length > 0) return
     // Save current first (don't refresh list — avoid reordering)
     if (chatTabMsgs.length > 0 && chatTabSessionId !== session.id && (!chatTabSessionId || chatTabMsgs !== chatSavedMsgsRef.current)) {
-      await chatTabSaveCurrent(chatTabMsgs, chatTabSessionId, undefined, { refreshList: false })
+      const savedId = await chatTabSaveCurrent(chatTabMsgs, chatTabSessionId, undefined, { refreshList: false })
       if (!(await leaveUnsavedChatOk())) return
+      // Saved as a NEW chat (it had no id yet: its first reply failed) or as a copy (it changed elsewhere): not
+      // re-read, the list never showed it, so the conversation just left looked lost until the next reload.
+      if (savedId && savedId !== chatTabSessionId) {
+        apiFetch('/api/chats').then((r) => (r.ok ? r.json() : null)).then((list) => { if (Array.isArray(list)) setChatTabSessions(list) }).catch(() => {})
+      }
     }
     // Load full messages from disk
     // A chat that could not be READ must not be opened as an empty one: its id would then take the
@@ -14482,7 +14029,7 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       if (!r.ok) throw new Error(`delete ${r.status}`) // not deleted on disk, so the row stays (it would reappear on reload anyway)
       setChatTabSessions(prev => prev.filter(s => s.id !== id))
       if (chatTabSessionIdRef.current === id) { setChatTabMsgs([]); setChatTabSessionId(null) } // live: it may have opened during the confirm
-    } catch { setAiErrorNotice((prev) => prev || t('chat_deleteFailed')) } // the × just seemed to do nothing
+    } catch { raiseNotice(t('chat_deleteFailed')) } // the × just seemed to do nothing
   }
 
   const chatRenamingRef = useRef(null)
@@ -14498,7 +14045,7 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
     // The open chat mid-reply (or mid card-add): the rename re-saves the copy on disk, which the reply is about to
     // extend, and the server kept it as a cut-off renamed duplicate. Ask again once Ebi has answered.
     if (id === chatTabSessionIdRef.current && (chatSendingRef.current || chatSwitchingRef.current || chatCardSavesRef.current > 0 || chatCardsAddingRef.current.size > 0)) {
-      setAiErrorNotice((prev) => prev || t('chat_renameBusy')); return
+      raiseNotice(t('chat_renameBusy')); return
     }
     chatRenamingRef.current = id
     try {
@@ -14506,6 +14053,8 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       const data = await r.json()
       // Renaming re-saves the whole chat: from a failed read it would save it with NO messages.
       if (!r.ok || !Array.isArray(data?.messages)) throw new Error(data?.error || `load ${r.status}`)
+      // Frozen during the read (a folder switch, or the share came back): this page's copy belongs to the old folder.
+      if (dataSwitchingRef.current) return
       const saved = await apiFetch('/api/chats', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -14519,7 +14068,7 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
       if (sd.forked) { const list = await apiFetch('/api/chats').then((x) => (x.ok ? x.json() : null)).catch(() => null); if (Array.isArray(list)) setChatTabSessions(list) }
       else setChatTabSessions(prev => prev.map(s => s.id === id ? { ...s, title: newTitle } : s))
       setChatTabEditingTitle(null)
-    } catch { setAiErrorNotice((prev) => prev || t('chat_renameFailed')) } // the old title silently came back
+    } catch { raiseNotice(t('chat_renameFailed')) } // the old title silently came back
     finally { chatRenamingRef.current = null }
   }
 
@@ -14527,10 +14076,10 @@ Focus on their weak areas. If you discover new struggles or notice improvement, 
   const modeCreatingRef = useRef(false) // double-click guard (the state flag is read from a stale closure)
   const createMode = async (description, ankiDeckForMode = '') => {
     // Say why nothing happens: Settings cleared the box and nothing was created, with no message.
-    if (!apiKey) { setAiErrorNotice((prev) => prev || t('study_addApiKeyFirst')); return false }
+    if (!apiKey) { raiseNotice(t('study_addApiKeyFirst')); return false }
     // The modes could not be read at startup: nothing can be saved, so say so BEFORE paying for the AI call
     // (it used to show the mode, confirm it, and lose it on the next launch).
-    if (!modesLoadedRef.current) { setAiErrorNotice((prev) => prev || t('mode_cannotSave')); return false }
+    if (!modesLoadedRef.current) { raiseNotice(t('mode_cannotSave')); return false }
     if (modeCreating || modeCreatingRef.current) return false
     modeCreatingRef.current = true
     setModeCreating(true)
@@ -14550,7 +14099,7 @@ Generate a JSON config for this study mode:
 - "questionPrompt": instructions for AI when generating study/quiz questions for flashcards in this mode. Describe what kinds of questions to ask (e.g. definitions, real-world scenarios, comparisons). Be specific to the subject matter.
 - "chatSuggestions": an array of exactly 3 short example prompts (3-6 words each) the user could tap to start chatting with Ebi about THIS subject: a natural mix like asking a concept question, requesting a flashcard, and asking to be quizzed. Make them specific to the subject (e.g. for Spanish: "Help me with verb conjugations", "Make a flashcard for 'correr'", "Quiz me on common phrases"; for Security+: "Explain subnetting", "Make a flashcard about DNS", "Quiz me on the OSI model").
 - "mnemonicHints": 2-3 sentences instructing a memory coach what KINDS of memory hooks work best for THIS subject: e.g. for a language: sound-alikes bridging to the learner's language plus vivid imagery, and morphology chunking for compound words; for a certification: acronym expansions, number anchors (ports, sizes), and real-world scenario associations; for music: interval patterns and reference songs. Be concrete and subject-specific.
-- "tagCategories": array of 6-12 lowercase tag strings that make USEFUL card filters for this subject: the part-of-speech names in the relevant language(s) exactly as the tag rules would produce them, the difficulty-level tags, and the 2-4 most important category tags or prefixes (a prefix ends with "-", e.g. "verbs-").
+- "tagCategories": array of 6-12 lowercase tag strings that make USEFUL card filters for this subject: for a LANGUAGE mode, the part-of-speech names in the learned language exactly as the tag rules would produce them; for a general mode, the subject's main category tags (never parts of speech). Then the difficulty-level tags, and the 2-4 most important category tags or prefixes (a prefix ends with "-", e.g. "verbs-").
 
 Output ONLY raw JSON. No markdown, no backticks.`
 
@@ -14572,7 +14121,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       const newMode = {
         id: newId,
         name: uniqueModeName(modeText(config.name, '').slice(0, 60).trim() || description.slice(0, 20)), // a list/object name broke the folder
-        type: modeType(config.type),
+        type: shapeModeType(config.type), // "Language learning" / "foreign language" are language modes too
         description,
         fields: modeFields(config.fields, { definition: true, example: true }),
         // No dashes in what the model wrote (a "Example — {example}" label landed on every card); lines kept.
@@ -14583,17 +14132,18 @@ Output ONLY raw JSON. No markdown, no backticks.`
           questionsPerCard: 3,
           // The learned language, saved: left out, it was guessed from the mode NAME and then the Picture translation
           // setting, so "JLPT N5" studied Spanish (or the literal language "JLPT N5").
-          ...(modeType(config.type) === 'language' && modeText(config.studyLanguage, '') ? { studyLanguage: (!isDistinctSpoken(modeText(config.studyLanguage, '')) && langFromName(modeText(config.studyLanguage, ''))?.label) || modeText(config.studyLanguage, '') } : {}),
-          questionPrompt: stripDashesInline(modeText(config.questionPrompt, (modeType(config.type) === 'language' ? defaultStudyRules : defaultGeneralStudyRules).questionPrompt)),
+          ...(shapeModeType(config.type) === 'language' && modeText(config.studyLanguage, '') ? { studyLanguage: (!isDistinctSpoken(modeText(config.studyLanguage, '')) && langFromName(modeText(config.studyLanguage, ''))?.label) || modeText(config.studyLanguage, '') } : {}),
+          questionPrompt: stripDashesInline(modeText(config.questionPrompt, (shapeModeType(config.type) === 'language' ? defaultStudyRules : defaultGeneralStudyRules).questionPrompt)),
           ratingRules: defaultStudyRules.ratingRules,
         },
-        chatSuggestions: Array.isArray(config.chatSuggestions) ? config.chatSuggestions.filter(Boolean).slice(0, 3).map((x) => stripDashes(cardText(x))).filter(Boolean) : [], // text: an object chip showed "[object Object]"
-        mnemonicHints: typeof config.mnemonicHints === 'string' ? stripDashes(config.mnemonicHints).slice(0, 600) : '',
-        tagCategories: Array.isArray(config.tagCategories) ? config.tagCategories.filter(Boolean).slice(0, 12).map((s) => String(s).toLowerCase()) : [],
+        // Text only (an object chip showed "[object Object]"); one string of chips is split, not lost.
+        chatSuggestions: shapeChatSuggestions(config.chatSuggestions, 3, stripDashes),
+        mnemonicHints: stripDashes(cardText(config.mnemonicHints)).slice(0, 600), // a list is joined, not dropped
+        tagCategories: shapeTagCategories(config.tagCategories),
         ankiDeck: ankiDeckForMode || '',
       }
       // Frozen for a data-folder switch: saveModes writes nothing, so "created" (and onboarding moving on) lied.
-      if (dataSwitchingRef.current) { setAiErrorNotice((prev) => prev || t('mode_cannotSave')); return false }
+      if (dataSwitchingRef.current) { raiseNotice(t('mode_cannotSave')); return false }
       // Replacing the placeholder, the new mode is active whatever the answer: the old active id is gone.
       const replacingPlaceholder = modesToAddTo() !== modesRef.current
       const listBefore = modesRef.current, activeBefore = activeModeIdRef.current
@@ -14614,7 +14164,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
       return true
     } catch (err) {
       console.error('[Mode] creation failed:', err.message)
-      setAiErrorNotice((prev) => prev || t('modeCreateFailed', { msg: err.message }))
+      raiseNotice(t('modeCreateFailed', { msg: err.message }), { keepAi: true })
       return false // onboarding checks this (it used to move on as if the mode existed)
     } finally {
       modeCreatingRef.current = false
@@ -14648,7 +14198,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
   const buildModeFromSpec = (spec, existing) => {
     // On edit, keep the existing type (language vs general drive different study
     // rules; a flip would be surprising). On create, take the model's choice.
-    const type = existing ? existing.type : modeType(spec.type)
+    const type = existing ? existing.type : shapeModeType(spec.type)
     const baseSR = type === 'language' ? defaultStudyRules : defaultGeneralStudyRules
     const sr = { ...(existing?.studyRules || baseSR), ...(spec.studyRules && typeof spec.studyRules === 'object' ? spec.studyRules : {}) }
     // Numbers as NUMBERS in Settings' 1-10 range: a Studio "3" (string) made beginStudy compute
@@ -14664,9 +14214,11 @@ Output ONLY raw JSON. No markdown, no backticks.`
     // Switches as real booleans ("false" as a string was ON), language settings as text.
     for (const k of ['wordHints', 'grammarFeedback', 'learnMoment', 'accentDrill', 'adaptive']) if (sr[k] !== undefined && typeof sr[k] !== 'boolean') sr[k] = modeFlag(sr[k])
     for (const k of ['studyLanguage', 'quizLanguage', 'hookLanguage', 'dialect']) if (sr[k] !== undefined && typeof sr[k] !== 'string') sr[k] = modeText(sr[k], '')
+    // A language mode whose spec names the learned language at the TOP level (like createMode's prompt asks):
+    // left out, it was guessed from the mode name.
+    if (type === 'language' && !sr.studyLanguage && modeText(spec.studyLanguage, '')) sr.studyLanguage = modeText(spec.studyLanguage, '')
     // Language names as the app knows them (like createMode): "Mandarin Chinese" left pronunciation silent.
     for (const k of ['studyLanguage', 'quizLanguage', 'hookLanguage']) if (sr[k] && typeof sr[k] === 'string' && !isDistinctSpoken(sr[k])) sr[k] = langFromName(sr[k])?.label || sr[k]
-    const arr3 = (v, fallback) => Array.isArray(v) ? v.map(cardText).filter(Boolean).slice(0, 3) : (fallback || [])
     const built = {
       ...(existing || {}),
       // An EXISTING name is kept exactly (never cut to 40); only a new name from the spec is capped.
@@ -14684,15 +14236,17 @@ Output ONLY raw JSON. No markdown, no backticks.`
       // An EDIT keeps every field the mode has (Ebi lists only the ones ON: a switched-off field vanished from Settings
       // for good); the same shaping as Ask AI's review.
       fields: existing?.fields && spec.fields != null ? shapeModeEditValue('fields', spec.fields, existing.fields) : modeFields(spec.fields, existing?.fields || { definition: true, example: true }),
-      frontTemplate: modeText(spec.frontTemplate, existing?.frontTemplate || '{term}'),
-      backTemplate: modeText(spec.backTemplate, existing?.backTemplate || 'Definition: {definition}'),
+      // No dashes in what the model wrote, like createMode (a "Example — {example}" label landed on every card).
+      frontTemplate: stripDashesInline(modeText(spec.frontTemplate, existing?.frontTemplate || '{term}')),
+      backTemplate: stripDashesInline(modeText(spec.backTemplate, existing?.backTemplate || 'Definition: {definition}')),
       // On an EDIT, "" is a real change ("drop all tag rules"), like Ask AI.
-      tagRules: existing && typeof spec.tagRules === 'string' ? spec.tagRules : modeText(spec.tagRules, existing?.tagRules || 'Include: ebiki'),
+      tagRules: stripDashes(existing && typeof spec.tagRules === 'string' ? spec.tagRules : modeText(spec.tagRules, existing?.tagRules || 'Include: ebiki')),
       studyRules: sr,
-      chatSuggestions: arr3(spec.chatSuggestions, existing?.chatSuggestions),
-      mnemonicHints: typeof spec.mnemonicHints === 'string' ? spec.mnemonicHints.slice(0, 600) : (existing?.mnemonicHints || ''),
-      tagCategories: Array.isArray(spec.tagCategories) ? spec.tagCategories.filter(Boolean).slice(0, 12).map((s) => String(s).toLowerCase()) : (existing?.tagCategories || []),
-      discoverKinds: Array.isArray(spec.discoverKinds) ? spec.discoverKinds.filter((k) => k && k.key && k.label && k.rule).map((k) => ({ key: cardText(k.key), label: cardText(k.label), rule: cardText(k.rule) })).slice(0, 6) : (existing?.discoverKinds || []), // text, like ensureDiscoverKinds
+      chatSuggestions: Array.isArray(spec.chatSuggestions) || typeof spec.chatSuggestions === 'string' ? shapeChatSuggestions(spec.chatSuggestions, 3, stripDashes) : (existing?.chatSuggestions || []),
+      mnemonicHints: spec.mnemonicHints != null && typeof spec.mnemonicHints !== 'boolean' ? stripDashes(cardText(spec.mnemonicHints)).slice(0, 600) : (existing?.mnemonicHints || ''),
+      tagCategories: spec.tagCategories != null ? shapeTagCategories(spec.tagCategories) : (existing?.tagCategories || []),
+      // Text, one per key, never the reserved "both" (the Anything chip), like ensureDiscoverKinds.
+      discoverKinds: Array.isArray(spec.discoverKinds) ? shapeDiscoverKinds(spec.discoverKinds, 6, stripAiDashes) : (existing?.discoverKinds || []),
     }
     if (!existing) {
       built.id = mintModeId(modesRef.current)
@@ -14710,11 +14264,16 @@ Output ONLY raw JSON. No markdown, no backticks.`
     if (editing && modeStudio?.focus && modeStudio.focus !== 'all') spec = { ...spec, name: undefined }
     // The modes could not be read at startup: nothing can be saved, so say so instead of "Applied".
     if (!modesLoadedRef.current) throw new Error(t('mode_cannotSave'))
+    // The mode being edited was deleted while Studio was open: never fall through to CREATE (a duplicate mode).
+    if (editing && !existing) throw new Error(t('mode_cannotSave'))
     if (existing) {
       const built = buildModeFromSpec(spec, existing)
       if (!updateModeById(built.id, built)) throw new Error(t('mode_cannotSave'))
       setActiveModeId(built.id)
-      return built.name
+      // "Updated" only once the save really landed (a refused save only showed a toast).
+      const r = await modesSaveRef.current
+      if (r && r.saveOk === false) throw new Error(t('mode_saveFailed'))
+      return modesRef.current.find((m) => m.id === built.id)?.name || built.name
     }
     // A new mode becomes the active one, which ends a live study session first; declining that
     // still creates the mode, it just doesn't switch to it. Asked BEFORE the id and name are picked
@@ -14806,7 +14365,7 @@ In 3-4 short sentences, explain why "${word.text}" means "${word.translation}" i
       const text = await aiCall(apiKey, 'You are a concise language tutor. Explain in 3-4 sentences max. No fluff.', prompt, resolveModel('picture'))
       if (gen === pinGenRef.current) setDeepExplanation(popupDash(text))
     } catch (err) {
-      if (gen === pinGenRef.current) { setDeepExplanation(null); setAiErrorNotice((prev) => prev || tLiveRef.current('pic_explainFailed', { msg: err?.message || String(err) })) }
+      if (gen === pinGenRef.current) { setDeepExplanation(null); raiseNotice(tLiveRef.current('pic_explainFailed', { msg: aiErrMsg(err) }), { keepAi: true }) }
     } finally {
       if (gen === pinGenRef.current) setDeepExplaining(false) // a new pin already reset it (resetPinBusy); never clear ITS run
     }
@@ -14843,7 +14402,7 @@ No paragraphs. No explanations. Just the facts. Use the section labels above. Wr
       const text = await aiCall(apiKey, 'You are a concise dictionary. Short bullet points only. No paragraphs, no filler.', prompt, resolveModel('picture'))
       if (gen === pinGenRef.current) setWordStudy(popupDash(text))
     } catch (err) {
-      if (gen === pinGenRef.current) { setWordStudy(null); setAiErrorNotice((prev) => prev || tLiveRef.current('pic_explainFailed', { msg: err?.message || String(err) })) }
+      if (gen === pinGenRef.current) { setWordStudy(null); raiseNotice(tLiveRef.current('pic_explainFailed', { msg: aiErrMsg(err) }), { keepAi: true }) }
     } finally {
       if (gen === pinGenRef.current) setWordStudyLoading(false) // a new pin already reset it (resetPinBusy); never clear ITS run
     }
@@ -14877,7 +14436,7 @@ No explanations. Just the forms. Use the section labels above.`
       const text = await aiCall(apiKey, 'You are a conjugation table generator. Only output the forms, no commentary.', prompt, resolveModel('picture'))
       if (gen === pinGenRef.current) setConjugation(popupDash(text))
     } catch (err) {
-      if (gen === pinGenRef.current) { setConjugation(null); setAiErrorNotice((prev) => prev || tLiveRef.current('pic_conjFailed', { msg: err?.message || String(err) })) }
+      if (gen === pinGenRef.current) { setConjugation(null); raiseNotice(tLiveRef.current('pic_conjFailed', { msg: aiErrMsg(err) }), { keepAi: true }) }
     } finally {
       if (gen === pinGenRef.current) setConjugationLoading(false) // a new pin already reset it (resetPinBusy); never clear ITS run
     }
@@ -14908,7 +14467,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
       const text = await aiCall(apiKey, systemPrompt, fullPrompt, resolveModel('picture'))
       if (gen === pinGenRef.current) setChatMessages((prev) => [...prev, { role: 'assistant', text: popupDash(text) }])
     } catch (err) {
-      if (gen === pinGenRef.current) setChatMessages((prev) => [...prev, { role: 'assistant', text: tLiveRef.current('chat_replyError', { msg: stripDashes(err?.message || String(err)).slice(0, 300) }), error: true }])
+      if (gen === pinGenRef.current) setChatMessages((prev) => [...prev, { role: 'assistant', text: tLiveRef.current('chat_replyError', { msg: stripDashes(aiErrMsg(err)).slice(0, 300) }), error: true }])
     } finally {
       if (gen === pinGenRef.current) setChatLoading(false) // a new pin already reset it (resetPinBusy); never clear ITS run
     }
@@ -14927,36 +14486,17 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
   }
 
   // ─── Word Overlay Renderer ─────────────────────────────────────────────────
-  const renderWordOverlays = (cropMode) => {
+  const renderWordOverlays = () => {
     if (!imgDims.w || !imgDims.h) return null
 
-    // In crop mode (transparent area-select), bboxes are relative to the crop — no offset needed
-    // Otherwise, offset bboxes to full-image coordinates
-    const off = cropMode ? { x: 0, y: 0 } : (selectionOffset || { x: 0, y: 0 })
-    // In crop mode, use the crop's pixel dimensions for percentage calculation
-    const refW = cropMode && selectionCrop ? selectionCrop.w : imgDims.w
-    const refH = cropMode && selectionCrop ? selectionCrop.h : imgDims.h
+    // Boxes are in the picture's own pixels (the overlay always shows the whole capture).
+    const off = { x: 0, y: 0 }
+    const refW = imgDims.w
+    const refH = imgDims.h
 
-    const boxes = ocrWords.map((word) => {
-      const { x0, y0, x1, y1 } = word.bbox
-      const h = y1 - y0
-      const vPad = Math.round(h * 0.1)
-      return { x0: x0 + off.x, y0: y0 + vPad + off.y, x1: x1 + off.x, y1: y1 - vPad + off.y }
-    })
-
-    // Clamp same-row overlaps
-    // Only between boxes that are DRAWN: an unplaced word's imprecise box clipped a real neighbour to a sliver.
-    for (let i = 0; i < boxes.length; i++) {
-      if (ocrWords[i]?._approxBox) continue
-      for (let j = i + 1; j < boxes.length; j++) {
-        if (ocrWords[j]?._approxBox) continue
-        const a = boxes[i], b = boxes[j]
-        const avgH = ((a.y1 - a.y0) + (b.y1 - b.y0)) / 2
-        if (Math.abs(a.y0 - b.y0) > avgH * 0.5) continue
-        if (a.x1 > b.x0 && a.x0 < b.x0) a.x1 = b.x0 - 1
-        else if (b.x1 > a.x0 && b.x0 < a.x0) b.x1 = a.x0 - 1
-      }
-    }
+    // Same-row overlaps clamped, only between boxes that are DRAWN: an unplaced word's imprecise box clipped
+    // a real neighbour to a sliver (src/utils/ocrBoxes.js).
+    const boxes = overlayBoxes(ocrWords, off, (i) => !!ocrWords[i]?._approxBox)
 
     return ocrWords.map((word, i) => {
       // Skip words we couldn't localize precisely (vision boxes are unreliable) — they live
@@ -15055,9 +14595,12 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
     // A launcher STUCK in its console (a failed update waiting on "Press enter to close") outranks the
     // rest: Anki itself never started, so nothing about add-ons or setup applies, and "close Anki and
     // reopen it" (what this reported before) cannot help. Open Anki fixes it (see openAnkiWindow).
+    // The stuck launcher is checked FIRST (CLAUDE.md order): its own anki.exe counts as an Anki process, so a
+    // visible window of it also reads as "awaiting input", which showed "answer the question in Anki" and made
+    // Open Anki skip the start that repairs it.
     const state = !a ? 'unknown'
-      : a.ankiAwaitingInput ? 'waiting'
-        : a.ankiLauncherStuck ? 'launcherStuck'
+      : a.ankiLauncherStuck ? 'launcherStuck'
+        : a.ankiAwaitingInput ? 'waiting'
         // AnkiConnect's port is open but it does not answer: Anki's UI thread is on a modal dialog (a sync
         // question). It said "close Anki completely", which throws that decision away.
         : a.ankiListening && a.ankiRunning ? 'waiting'
@@ -15080,12 +14623,13 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
     // Anki diagnosis above: just its name and Refresh.
     const setupAble = hasCapability('setup')
     const shown = setupAble ? message : t('cardStoreOffline', { name: activeBackend()?.label || '' })
-    const btn = { ...S.ghostBtn, fontSize: 11, color: 'var(--c-warning)', borderColor: 'rgba(232,147,12,.4)', flexShrink: 0 }
+    // Theme tokens, not the old dark-mode amber: light mode's warning is deeper (#B36A00) and the fixed rgba read faint there.
+    const btn = { ...S.ghostBtn, fontSize: 11, color: 'var(--c-warning)', borderColor: 'color-mix(in srgb, var(--c-warning) 40%, transparent)', flexShrink: 0 }
     const busy = addonState === 'installing'
     return (
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10, padding: '9px 13px', borderRadius: RADIUS.sm,
-        background: 'rgba(232,147,12,.12)', border: '1px solid rgba(232,147,12,.35)',
+        background: 'color-mix(in srgb, var(--c-warning) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--c-warning) 35%, transparent)',
         color: C.ink, fontSize: 12, fontWeight: 600, lineHeight: 1.5, textAlign: 'left', flexWrap: 'wrap', ...style,
       }}>
         <span>⚠️ {shown}</span>
@@ -15125,7 +14669,9 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
         {/* Numbered, because this is a task with an order and the sign-in half is
             the part people skip - and skipping it means the cards only ever exist
             on this computer. */}
-        {(state === 'setup' || (state === 'waiting' && a.ankiAwaitingInput)) && (
+        {/* The first-run steps only while Anki is not set up: a later dialog (a sync or profile question on a
+            working Anki) was told to "choose a language". */}
+        {(state === 'setup' || (state === 'waiting' && a.ankiAwaitingInput && a.configured === false)) && (
           <span style={{ width: '100%', color: C.ink, fontWeight: 600, display: 'flex', flexDirection: 'column', gap: 2, marginTop: 2 }}>
             <span>{t('ankiSetupStep1')}</span>
             <span>{t('ankiSetupStep2')}</span>
@@ -15148,7 +14694,6 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
   const featureScreen = featureNav.find((n) => n.id === activeTab) || null
   const pickTab = (tab) => {
     setActiveTab(tab)
-    setChatSidePanel(false)
     setSettingsOpen(false) // switching tabs closes the settings modal
   }
   // A saved tab whose feature was removed (or never existed) falls back to Study.
@@ -15179,15 +14724,28 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
   }, { enabled: navOn, rest: null })
   // Study: starting a session is an entry. Back from a live session never ends it silently: it asks, then runs the
   // normal Exit flow (which may ask more, e.g. cards still being graded). A finished session cannot be reopened.
+  // The START screen ('setup', after STUDY NOW) is an entry too: Back from it returned past the Study home to the
+  // previous tab. Leaving it asks nothing; Forward reopens a fresh start screen (never the session).
   const studyLiveNav = studyActive && (studyPhase !== 'pick' || studyLoading)
-  useNavEntry('study', studyLiveNav ? 'session' : 'pick', () => {}, {
+  const studyNavValue = studyLiveNav ? 'session' : (studyActive ? 'setup' : 'pick')
+  const studyNavExitedRef = useRef(false) // a Back that just ended a live session must not reopen the start screen
+  useNavEntry('study', studyNavValue, (to) => {
+    const justExited = studyNavExitedRef.current
+    studyNavExitedRef.current = false
+    if (justExited) return // the guard's exitStudy already took the session down (state lands next render)
+    if (to === 'setup') { if (!studyActive) startStudySession() }
+    else if (to === 'pick' && studyActive && !studyLiveNav) exitStudy()
+  }, {
     enabled: navOn, rest: 'pick',
-    guard: async (to) => {
+    guard: async (to, from) => {
       if (to === 'session') return 'skip'
+      if (from !== 'session') return true // the start screen holds nothing to lose
       if (studyPhase !== 'summary' && !(await confirmDialog(t('nav_leaveStudy')))) return false
       const sid = studySessionRef.current
       await exitStudy()
-      return studySessionRef.current !== sid
+      const ended = studySessionRef.current !== sid
+      if (ended) studyNavExitedRef.current = true
+      return ended
     },
   })
   // Chat: opening another chat (or a new one) is an entry, while the Chat screen is open. A new chat getting its id on
@@ -15210,11 +14768,18 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
   const toggleSidebar = () => setSidebarPinned((v) => { const n = !v; platform.kv.set(SIDEBAR_KV, n ? '1' : '0'); return n })
   const sidebarForced = viewportW < SHELL.collapseBelow // narrow window: icon-only whatever the choice
   const sidebarCollapsed = sidebarForced || sidebarPinned
+  // A narrow window (or high zoom) packs the header: no LOCAL badge, no Alt+Q hint, the Settings button as a gear.
+  // It took 3 to 4 rows at 900px and zoom 2, a third of the window.
+  const compactHeader = viewportW < 760
   const showRail = shellOn && viewportW >= SHELL.railHideBelow && (railWanted(activeTab, { studyActive }) || !!featureScreen?.rail)
 
   // Wait for config + modes before the first real paint so the saved tab/mode are already
   // applied — otherwise the UI briefly flashes the default mode/tab before load (the flicker).
-  if (!isOverlay && !configLoaded) {
+  // The first paint also waits for the UI language's strings (fetched on demand), so it never flashes English;
+  // a later language switch keeps the old language up meanwhile instead (useLocale).
+  const firstPaintWaitsForLanguage = !firstPaintDoneRef.current && !uiLanguageSettled
+  if (!isOverlay && configLoaded && !firstPaintWaitsForLanguage) firstPaintDoneRef.current = true
+  if (!isOverlay && (!configLoaded || firstPaintWaitsForLanguage)) {
     // Normally on screen for a fraction of a second, so it stays bare. Past the
     // stuck threshold it earns a real message and a way out - see startupStuck
     // above for why this exists at all. isElectronApp / window.ebikiWindow are
@@ -15313,6 +14878,9 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
         aiCall(apiKey, system, user, resolveModel(role), { ...(maxTokens ? { maxTokens } : {}), ...(images ? { images } : {}), ...(silent ? { silent } : {}) }),
       json: parseAiJson,
       clean: (text) => stripDashes(text).replace(/[🦐🦞🦀]️?/gu, '').trim(), // no dashes or shrimp in anything shown
+      // What to show for a failed call: the app's friendly provider/network text (never "API 500: {...}"), else the
+      // error's own message. The same classifier as the app's toast (kit/aiError.js).
+      errorText: (e) => aiErrorText(tLiveRef.current, e),
     },
     // The active mode, described for prompts. ANY subject: `isLanguage` only switches wording, never features.
     subject: {
@@ -15430,7 +14998,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
       onDrop={handleDrop}
       style={isOverlay ? {
         ...S.app, height: '100vh', overflow: 'hidden',
-        background: ((selectionMode || selectionViewport || (areaSelectBounds && pinnedIdx !== null)) && activeMode.areaSelectTransparent !== false) ? 'transparent' : S.app.background,
+        background: S.app.background,
       } : {
         // Divide out the body zoom so the root still fills exactly one viewport
         // (otherwise 100vh × zoom overflows and vh-centered layouts sit too low).
@@ -15568,7 +15136,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
           Electron mode so the cluster (position:absolute, escaping that padding) never sits over
           real header content (Settings/language) - both this and the cluster's own width must
           stay in sync, which is why it's one constant instead of two guessed numbers. */}
-      {!isOverlay && <header {...(wizardShown ? { inert: '', 'aria-hidden': true } : {})} style={{ ...S.header, ...(isElectronApp ? { paddingRight: 20 + WIN_CTRL_W } : {}) }}>
+      {!isOverlay && <header {...(wizardShown ? { inert: '', 'aria-hidden': true } : {})} style={{ ...S.header, ...(compactHeader ? { padding: '8px 12px', gap: 6 } : {}), ...(isElectronApp ? { paddingRight: (compactHeader ? 12 : 20) + WIN_CTRL_W } : {}) }}>
         {/* Drag handle for the Electron app window (electron/main.cjs, frame:false so
             there is no native title bar left to grab or restore-from-maximized with). Sits INSIDE
             the header (position:relative) so it stays visually seamless (no separate colored
@@ -15595,11 +15163,11 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
             </svg>
           </span>
           <h1 style={S.title}>Ebiki</h1>
-          <span style={S.badge}>{t('badge_local')}</span>
+          {!compactHeader && <span style={S.badge}>{t('badge_local')}</span>}
           {/* Talk to Ebi — opens Ebi's chat (replaces the old floating shrimp button). Not "Ask Ebi":
               Ebi also ACTS on requests (bulk edits, dialect, preferences), not just answers. */}
           <button onClick={() => setAskEbiSignal((n) => n + 1)} data-tip={t('hdr_talkToEbiTip')} className="ui-btn tip tip-b"
-            style={{ ...S.ghostBtn, marginLeft: 8, color: 'var(--c-ink)', borderColor: 'var(--c-border)', background: 'var(--c-surface)', borderRadius: 999, padding: '7px 15px 7px 12px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 8, boxShadow: 'var(--sh-sm)' }}>
+            style={{ ...S.ghostBtn, marginLeft: compactHeader ? 2 : 8, color: 'var(--c-ink)', borderColor: 'var(--c-border)', background: 'var(--c-surface)', borderRadius: 999, padding: '7px 15px 7px 12px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 8, boxShadow: 'var(--sh-sm)' }}>
             <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--c-brand)', boxShadow: '0 0 0 3px var(--c-brand-tint)' }} />
             {t('hdr_talkToEbi')}
           </button>
@@ -15673,7 +15241,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                 {overlayRunning ? '\u25CF' : '\u25CB'} {t('overlay')}
               </button>
 
-              <kbd style={S.kbd}>Alt+Q</kbd>
+              {!compactHeader && <kbd style={S.kbd}>Alt+Q</kbd>}
             </>
           )}
 
@@ -15681,6 +15249,10 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
               on the right (the same setting as Settings > Cards & Anki, which Study, Practice, raids, Legends and
               Discover all read). "+ Add mode" opens the Learning-modes panel in Settings. The deck segment shows
               while Anki answers; with Anki known to be down it stays, disabled, so the pair is still visible. */}
+          {/* Phone width: the switch and the gear share ONE row that never wraps (the switch shrinks, ellipsized);
+              apart, they took two of the header's four rows (216 of 844px). Elsewhere these wrappers are display:contents. */}
+          <div style={isPhoneWidth(viewportW) ? { display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: 6, flex: '1 1 100%', minWidth: 0 } : { display: 'contents' }}>
+          <div style={isPhoneWidth(viewportW) ? { display: 'flex', flex: '1 1 0', minWidth: 0 } : { display: 'contents' }}>
           <ModeDeckSwitch
             getZoom={getZoom}
             tip={t('hdr_modeDeckTip')}
@@ -15710,12 +15282,14 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
               ariaLabel: t('hdr_deckOffline'),
             } : null}
           />
+          </div>
 
           {/* Single Settings entry \u2014 opens the unified modal (right-most, like every tab) */}
-          <button onClick={() => setSettingsOpen(true)} title={t('settingsTitle')} className="ui-btn" style={{ ...S.ghostBtn, position: 'relative', padding: '6px 10px', color: 'var(--c-ink-dim)' }}>
-            {'\u2699\uFE0F'} {t('settingsTitle')}
+          <button onClick={() => setSettingsOpen(true)} title={t('settingsTitle')} aria-label={t('settingsTitle')} className="ui-btn" style={{ ...S.ghostBtn, position: 'relative', padding: '6px 10px', color: 'var(--c-ink-dim)' }}>
+            {'\u2699\uFE0F'}{!compactHeader && <> {t('settingsTitle')}</>}
             {!apiKey && <span style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: '50%', background: 'var(--c-danger)' }} />}
           </button>
+          </div>
           {/* Minimize/maximize/close - frame:false took the native ones with it. ALWAYS
               position:absolute, top:0, right:0 - flush to the window's actual top-right corner,
               exactly like every native app, and NEVER moves regardless of what the header's
@@ -15894,7 +15468,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                   placeholder={t('deck_namePlaceholder')}
                   value={deckBrowserAddName}
                   onChange={(e) => setDeckBrowserAddName(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing && deckBrowserAddName.trim() && !deckBrowserAddLoading) handleAddDeck() }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e) && deckBrowserAddName.trim() && !deckBrowserAddLoading) handleAddDeck() }}
                   style={{ ...S.keyInput, fontSize: 12 }}
                   autoFocus
                 />
@@ -15902,7 +15476,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                   placeholder={t('deck_purposePlaceholder')}
                   value={deckBrowserAddPurpose}
                   onChange={(e) => setDeckBrowserAddPurpose(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing && deckBrowserAddName.trim() && !deckBrowserAddLoading) handleAddDeck() }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e) && deckBrowserAddName.trim() && !deckBrowserAddLoading) handleAddDeck() }}
                   style={{ ...S.keyInput, fontSize: 12 }}
                 />
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -15936,7 +15510,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
             <div className="dk-sticky">
             {/* Deck picker + search */}
             <div style={{ display: 'flex', gap: 8, marginBottom: deckBrowserDeck ? 10 : 0, flexWrap: 'wrap', alignItems: 'center' }}>
-              <select value={deckBrowserDeck} onChange={async (e) => {
+              <select aria-label={t('deck_selectDeck')} value={deckBrowserDeck} onChange={async (e) => {
                   const nextDeck = e.target.value // capture before the await (event object may be stale after)
                   if ((deckAnalyzeRecs.length > 0 || deckDupGroups.length > 0) && !(await confirmDialog(t('deck_switchDiscard')))) return
                   setDeckBrowserDeck(nextDeck)
@@ -15955,13 +15529,17 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                 {ankiDecks.map((d) => <option key={d} value={d}>{d}</option>)}
               </select>
               {deckBrowserLoading && <span style={{ fontSize: 11, color: 'var(--c-ink-dim)' }}>{t('loading')}</span>}
+              {/* No decks at all (only once Anki answered: the list starts as [] before it does): say how to make one. */}
+              {ankiConnected === true && Array.isArray(ankiDecks) && !deckBrowserDeck && (ankiDecks.length === 0 || (ankiDecks.length === 1 && ankiDecks[0] === 'Default')) && (
+                <div data-deck-none="" style={{ flexBasis: '100%', fontSize: 12, color: 'var(--c-ink-dim)', lineHeight: 1.5 }}>{t('deck_noDecksHint')}</div>
+              )}
               {deckBrowserNotes.length > 0 && (
                 <input value={deckBrowserSearch} onChange={(e) => setDeckBrowserSearch(e.target.value)}
                   placeholder={t('deck_searchCards')} style={{ ...S.keyInput, flex: 1, fontSize: 12 }} />
               )}
               {deckBrowserNotes.length > 0 && (
                 <select value={deckBrowserSort} onChange={(e) => setDeckBrowserSort(e.target.value)}
-                  title={t('deck_sortTitle')} style={{ ...S.select, minWidth: 170, fontSize: 12 }}>
+                  title={t('deck_sortTitle')} aria-label={t('deck_sortTitle')} style={{ ...S.select, minWidth: 170, fontSize: 12 }}>
                   <option value="created-desc">{t('deck_sortNewest')}</option>
                   <option value="created-asc">{t('deck_sortOldest')}</option>
                   <option value="alpha-asc">{t('deck_sortAZ')}</option>
@@ -15999,7 +15577,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                 if (allTags.length === 0) return null
                 return (
                   <select value={deckBrowserTagFilter} onChange={(e) => setDeckBrowserTagFilter(e.target.value)}
-                    title={t('deck_filterTitle')} style={{ ...S.select, minWidth: 130, fontSize: 12, color: deckBrowserTagFilter ? 'var(--c-purple)' : undefined, borderColor: deckBrowserTagFilter ? 'rgba(139,92,246,.4)' : undefined }}>
+                    title={t('deck_filterTitle')} aria-label={t('deck_filterTitle')} style={{ ...S.select, minWidth: 130, fontSize: 12, color: deckBrowserTagFilter ? 'var(--c-purple)' : undefined, borderColor: deckBrowserTagFilter ? 'rgba(139,92,246,.4)' : undefined }}>
                     <option value="">{t('deck_allTags')}</option>
                     {allTags.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
                   </select>
@@ -16227,7 +15805,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                 {/* Optional AI generation from a word */}
                 <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
                   <input value={deckAddTerm} onChange={(e) => setDeckAddTerm(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) generateAddCard() }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e)) generateAddCard() }}
                     placeholder={t('deck_typeWordGen')}
                     style={{ ...S.keyInput, flex: 1, fontSize: 12 }} />
                   <button onClick={generateAddCard} disabled={deckAddGenerating || !deckAddTerm.trim() || !apiKey}
@@ -16386,7 +15964,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                               type="text"
                               value={rec.refineInput}
                               onChange={(e) => setRecRefineInput(idx, e.target.value)}
-                              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) refineRec(idx) }}
+                              onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e)) refineRec(idx) }}
                               placeholder={t('deck_refinePlaceholder')}
                               disabled={rec.refining}
                               style={{ flex: 1, background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', color: 'var(--c-ink)', border: '1px solid var(--c-border)', borderRadius: 4, padding: '5px 8px', fontSize: 11, fontFamily: 'inherit', outline: 'none' }}
@@ -16544,6 +16122,14 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
               )
             })()}
 
+            {/* An empty deck (a SUCCESSFUL load found no cards) says what to do instead of showing a blank area. */}
+            {deckBrowserDeck && !deckBrowserLoading && deckBrowserNotes.length === 0 && deckLoadedEmpty === deckBrowserDeck && (
+              <div data-deck-empty="" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '18px 4px' }}>
+                <img src={shrimpUrl(poseFile('book'))} alt="" style={{ width: 60, height: 60, objectFit: 'contain', flex: 'none' }} />
+                <div style={{ fontSize: 13, color: 'var(--c-ink-dim)', lineHeight: 1.5 }}>{t('deck_emptyHint')}</div>
+              </div>
+            )}
+
             {/* Card list */}
             {deckBrowserNotes.length > 0 && (
               <div className="dk-list" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -16595,7 +16181,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                                 type="text"
                                 value={deckBrowserRefineInput}
                                 onChange={(e) => setDeckBrowserRefineInput(e.target.value)}
-                                onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) refineDeckBrowserCard() }}
+                                onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e)) refineDeckBrowserCard() }}
                                 placeholder={t('deck_refineCardPlaceholder')}
                                 style={{ flex: 1, background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', color: 'var(--c-ink)', border: '1px solid var(--c-border)', borderRadius: 4, padding: '5px 8px', fontSize: 11, fontFamily: 'inherit', outline: 'none' }}
                               />
@@ -16687,10 +16273,15 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
                                   {/* Usage tags explain themselves on hover (what a region/frequency/
                                       register claim means for the learner); other tags are literal. */}
-                                  {sortTagsUsageFirst(note.tags).map((tag) => (
-                                    <span key={tag} className={isUsageTag(tag) ? 'tip tip-r' : undefined} data-tip={usageTagTip(tag, { t }) || undefined}
-                                      style={{ fontSize: 9, fontWeight: 700, color: 'var(--c-purple)', border: '1px solid rgba(139,92,246,.3)', borderRadius: 999, padding: '1px 7px', ...(isUsageTag(tag) ? { cursor: 'help' } : {}), ...usageTagStyle(tag) }}>{tag}</span>
-                                  ))}
+                                  {sortTagsUsageFirst(note.tags).map((tag) => {
+                                    const tip = isUsageTag(tag) ? usageTagTip(tag, { t }) : ''
+                                    return (
+                                      <span key={tag} className={tip ? 'tip tip-r' : undefined} data-tip={tip || undefined} tabIndex={tip ? 0 : undefined}
+                                        style={{ fontSize: 9, fontWeight: 700, color: 'var(--c-purple)', border: '1px solid color-mix(in srgb, var(--c-purple) 30%, transparent)', borderRadius: 999, padding: '1px 7px', ...(tip ? { cursor: 'help' } : {}), ...usageTagStyle(tag) }}>
+                                        {tag}{tip && <span style={SR_ONLY}>{`: ${tip}`}</span>}
+                                      </span>
+                                    )
+                                  })}
                                 </div>
                               )}
                               {note.stats && (
@@ -16706,8 +16297,8 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                                   <div key={hi} style={{ fontSize: 11, color: 'var(--c-ink)', background: 'rgba(139,92,246,.08)', border: '1px solid rgba(139,92,246,.25)', borderRadius: 6, padding: '8px 10px', lineHeight: 1.6, marginBottom: 6 }}>
                                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
                                       <div style={{ fontWeight: 700, color: 'var(--c-purple)', marginBottom: 3, flex: 1 }}>🧠 {t('study_ebisMemoryHook')}{arr.length > 1 ? ` #${hi + 1}` : ''}</div>
-                                      <span onClick={() => deleteNoteHook(note.noteId, hook, front)} title={t('study_deleteHook')} className="click-dim"
-                                        style={{ cursor: 'pointer', color: 'var(--c-ink-faint)', fontSize: 13, lineHeight: 1, padding: '1px 5px', borderRadius: 4, flexShrink: 0 }}>×</span>
+                                      <button type="button" onClick={() => deleteNoteHook(note.noteId, hook, front)} aria-label={t('study_deleteHook')} data-tip={t('study_deleteHook')} className="tip tip-l"
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--c-ink-faint)', fontSize: 13, lineHeight: 1, padding: '1px 5px', borderRadius: 4, flexShrink: 0 }}>×</button>
                                     </div>
                                     <div className="hook-md">{renderTappableRich(hook, `deck-hook-${note.noteId}`)}</div>
                                   </div>
@@ -16878,16 +16469,19 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
 
       {/* ── Chat Tab ─────────────────────────────────────────────────────────── */}
       {activeTab === 'chat' && (
-        <main style={{ ...S.main, display: 'flex', padding: 0, overflow: 'hidden' }}>
-          {/* Session sidebar */}
-          <div style={{ width: 'clamp(168px, 24%, 240px)', borderRight: '1px solid var(--c-border)', display: 'flex', flexDirection: 'column', flexShrink: 0, background: 'color-mix(in srgb, var(--c-surface) 55%, transparent)' }}>
+        <main style={{ ...S.main, display: 'flex', padding: 0, overflow: 'hidden', containerType: 'inline-size', containerName: 'chmain' }}>
+          {/* Session sidebar (width in CSS: `.ch-list` narrows on small windows, else Send ran past the composer) */}
+          <div className="ch-list" style={{ borderRight: '1px solid var(--c-border)', display: 'flex', flexDirection: 'column', flexShrink: 0, background: 'color-mix(in srgb, var(--c-surface) 55%, transparent)' }}>
             {/* Second pass: a slim drawer. New chat is a quiet full-width row (the composer is the primary action). */}
-            <button onClick={chatTabNewChat} className="ui-btn" style={{ ...S.ghostBtn, margin: '14px 12px 10px', borderRadius: 12, fontSize: 13, padding: '10px 12px', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 8, color: 'var(--c-ink)', boxShadow: 'var(--sh-sm)' }}>
+            <button onClick={chatTabNewChat} className="ui-btn ch-new" style={{ ...S.ghostBtn, margin: '14px 12px 10px', borderRadius: 12, fontSize: 13, padding: '10px 12px', justifyContent: 'center', display: 'flex', alignItems: 'center', gap: 8, color: 'var(--c-ink)', boxShadow: 'var(--sh-sm)' }}>
               {t('newChat')}
             </button>
             <div style={{ flex: 1, overflow: 'auto', padding: '0 10px 10px' }}>
               {chatTabSessions.map(s => (
-                <div key={s.id} className="chat-session" onClick={() => chatTabLoadSession(s)} style={{
+                // The row stays mouse-clickable anywhere; keyboard and screen readers reach the chat through the title BUTTON
+                // (a role=button row holding the delete button was nested-interactive).
+                <div key={s.id} className="chat-session" onClick={() => chatTabLoadSession(s)}
+                  style={{
                   padding: '9px 10px 9px 12px', borderRadius: 10, fontSize: 12.5, fontWeight: chatTabSessionId === s.id ? 800 : 600, color: chatTabSessionId === s.id ? 'var(--c-ink)' : 'var(--c-ink-dim)',
                   background: chatTabSessionId === s.id ? 'var(--c-surface)' : 'transparent',
                   border: chatTabSessionId === s.id ? '1px solid var(--c-border)' : '1px solid transparent',
@@ -16900,17 +16494,25 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                       autoFocus
                       defaultValue={s.title}
                       onClick={(e) => e.stopPropagation()}
-                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) chatTabRenameSession(s.id, e.target.value); if (e.key === 'Escape' && !e.nativeEvent?.isComposing && e.keyCode !== 229) { e.currentTarget.dataset.cancel = '1'; e.preventDefault(); setChatTabEditingTitle(null) } }}
-                      onBlur={(e) => { if (e.currentTarget.dataset.cancel) return; chatTabRenameSession(s.id, e.target.value) }} // Esc's unmount blurs: the cancelled title was saved
+                      onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e)) { e.currentTarget.dataset.sent = e.currentTarget.value; chatTabRenameSession(s.id, e.target.value) } if (e.key === 'Escape' && !imeActive(e) && e.keyCode !== 229) { e.currentTarget.dataset.cancel = '1'; e.preventDefault(); setChatTabEditingTitle(null) } }}
+                      // Esc's unmount blurs: the cancelled title was saved. Enter's too: the success closed the box and its
+                      // blur (a handler from before the list showed the new title) re-read and re-posted the whole chat.
+                      onBlur={(e) => { if (e.currentTarget.dataset.cancel || e.currentTarget.dataset.sent === e.currentTarget.value) return; chatTabRenameSession(s.id, e.target.value) }}
                       style={{ background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', color: 'var(--c-ink)', border: '1px solid var(--c-border)', borderRadius: 3, fontSize: 10, padding: '2px 4px', width: '100%', fontFamily: 'inherit' }}
                     />
                   ) : (
-                    <span onDoubleClick={(e) => { e.stopPropagation(); setChatTabEditingTitle(s.id) }} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                    <button type="button" className="chat-session-title" aria-current={chatTabSessionId === s.id ? 'true' : undefined}
+                      onClick={(e) => { e.stopPropagation(); chatTabLoadSession(s) }}
+                      onDoubleClick={(e) => { e.stopPropagation(); setChatTabEditingTitle(s.id) }}
+                      // Explicit resets, not `all: unset` (inline it would also wipe the global :focus-visible ring).
+                      style={{ background: 'none', border: 'none', padding: 0, margin: 0, font: 'inherit', color: 'inherit', textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0, cursor: 'pointer', borderRadius: 4 }}>
                       {s.type === 'help' && <span style={{ color: 'var(--c-brand)', marginRight: 4, fontSize: 9 }}>?</span>}
                       {s.title}
-                    </span>
+                    </button>
                   )}
-                  <span onClick={(e) => { e.stopPropagation(); chatTabDeleteSession(s.id) }} style={{ color: 'var(--c-ink-faint)', cursor: 'pointer', marginLeft: 4 }}>&times;</span>
+                  <button type="button" aria-label={`${t('delete')}: ${s.title || ''}`} onKeyDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); chatTabDeleteSession(s.id) }} style={{ color: 'var(--c-ink-faint)', cursor: 'pointer', marginLeft: 4, background: 'transparent', border: 'none', padding: 0, fontSize: 15, fontFamily: 'inherit', lineHeight: 1, borderRadius: 6,
+                    /* A real hit area (about 32px at the default zoom; it was 17x13), pulled into the row's padding so the row keeps its height. */
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none', minWidth: 24, minHeight: 24, margin: '-5px -6px -5px 2px' }}>&times;</button>
                 </div>
               ))}
               {chatTabSessions.length === 0 && <div style={{ fontSize: 10, color: 'var(--c-ink-faint)', padding: 8, textAlign: 'center' }}>{t('chat_noSaved')}</div>}
@@ -16927,7 +16529,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
             <div ref={chatTabScrollRef} style={{ flex: 1, overflow: 'auto', padding: '24px max(20px, calc((100% - 880px) / 2))', position: 'relative' }}>
               {chatTabMsgs.length === 0 && (
                 <div style={{ textAlign: 'center', padding: '52px 20px' }}>
-                  <img src={shrimpUrl(poseFile('singer'))} alt="Ebi" style={{ width: 120, height: 120, objectFit: 'contain', marginBottom: 6 }} />
+                  <img src={shrimpUrl(poseFile('singer'))} alt="Ebi" style={{ width: 'clamp(56px, calc(16vh / var(--app-zoom, 1)), 120px)', height: 'clamp(56px, calc(16vh / var(--app-zoom, 1)), 120px)', objectFit: 'contain', marginBottom: 6 }} />
                   <div className="duo-title" style={{ fontSize: 30, marginBottom: 12 }}>{t('chat_withEbi')}</div>
                   <div className="duo-bubble" style={{ fontSize: 13.5, maxWidth: 480, margin: '0 auto 22px' }}>
                     {apiKey ? <>{t('chat_introPre')}<strong>{activeMode.name}</strong>{t('chat_introPost')}</> : t('chat_noKeyLine')}
@@ -17074,12 +16676,13 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
               {chatTabAttachedDeck ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--c-brand)' }}>
                   <span>{t((chatTabAttachedDeck.total || chatTabAttachedDeck.cards.length) === 1 ? 'chat_attachedOne' : 'chat_attached', { deck: chatTabAttachedDeck.name, n: chatTabAttachedDeck.total || chatTabAttachedDeck.cards.length })}</span>
-                  <span onClick={() => setChatTabAttachedDeck(null)} style={{ cursor: 'pointer', color: 'var(--c-ink-dim)' }}>&times;</span>
+                  <button type="button" aria-label={t('close')} onClick={() => { chatAttachSeqRef.current++; setChatTabAttachedDeck(null) }} style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', background: 'transparent', border: 'none', padding: '0 4px', fontSize: 'inherit', fontFamily: 'inherit', lineHeight: 1, borderRadius: 4 }}>&times;</button>
                 </div>
               ) : (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <select
                     value=""
+                    aria-label={t('chat_attachDeck')}
                     disabled={!ankiConnected}
                     onChange={(e) => { if (e.target.value) chatTabAttachDeck(e.target.value) }}
                     style={{ ...S.select, fontSize: 10, padding: '3px 6px', color: 'var(--c-ink-dim)', maxWidth: 160, ...(ankiConnected ? {} : { opacity: .5, cursor: 'default' }) }}
@@ -17098,7 +16701,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                   <button onClick={() => setChatTabImage(null)} style={{ ...S.ghostBtn, fontSize: 10 }}>{t('removeImage')}</button>
                 </div>
               )}
-              <div className="ch-composer" style={{ display: 'flex', gap: 6, alignItems: 'center', position: 'relative' }}>
+              <div className="ch-composer" data-composer="" style={{ display: 'flex', gap: 6, alignItems: 'center', position: 'relative' }}>
                 <input ref={chatImageInputRef} type="file" accept="image/*" style={{ display: 'none' }}
                   onChange={(e) => { const f = e.target.files?.[0]; if (f) attachChatImageFile(f); e.target.value = ''; setChatPlusOpen(false) }} />
                 {/* "+" learning-focused options menu */}
@@ -17165,6 +16768,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                 <button
                   onClick={() => setChatTabWebSearch(prev => !prev)}
                   title={chatTabWebSearch ? t('chat_webSearchOn') : t('chat_webSearchOff')}
+                  className="ch-globe"
                   style={{
                     background: chatTabWebSearch ? 'var(--c-brand-tint)' : 'var(--c-surface-alt)',
                     border: `1px solid ${chatTabWebSearch ? 'var(--c-brand-line)' : 'transparent'}`,
@@ -17178,14 +16782,14 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                   ref={chatTabInputRef}
                   value={chatTabInput}
                   onChange={(e) => setChatTabInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing && !e.shiftKey) { e.preventDefault(); sendChatTabMessage() } }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e) && !e.shiftKey) { e.preventDefault(); sendChatTabMessage() } }}
                   placeholder={chatTabWebSearch ? t('chat_searchAndAsk') : t('chat_placeholder')}
                   style={{ ...S.keyInput, flex: 1, minWidth: 0, fontSize: 15, padding: '10px 8px' }}
                 />
                 <button
                   onClick={sendChatTabMessage}
                   disabled={chatTabLoading || (!chatTabInput.trim() && !chatTabImage)}
-                  className="btn-press"
+                  className="btn-press ch-send"
                   style={{ ...S.captureBtn, borderRadius: 14, padding: '11px 20px', flexShrink: 0, opacity: chatTabLoading || (!chatTabInput.trim() && !chatTabImage) ? 0.45 : 1 }}
                 >
                   {t('chat_send')}
@@ -17200,57 +16804,15 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
       {activeTab === 'stats' && (() => {
         // Only real entries: a null row or a non-list value (hand-edited, another build) threw here and took
         // the whole app down to the recovery screen every time Stats opened.
-        const history = (() => { try { const h = JSON.parse(localStorage.getItem('screenlens-study-history') || '[]'); return Array.isArray(h) ? h.filter((x) => x && typeof x === 'object' && typeof x.date === 'string').map((x) => ({ ...x, deck: cardText(x.deck) })) : [] } catch { return [] } })()
-        // Use LOCAL date strings (YYYY-MM-DD) so they line up with Anki's local review days.
-        const today = new Date().toLocaleDateString('en-CA')
-        const todayStats = history.filter(h => h.date === today)
-        const todayCorrect = todayStats.reduce((s, h) => s + (h.correct || 0), 0)
-        const todayTotal = todayStats.reduce((s, h) => s + (h.totalQuestions || 0), 0)
-
-        // Prefer live Anki review data (reflects what you actually did today) when connected;
-        // fall back to locally-recorded session history when Anki is offline.
-        const usingAnki = !!ankiStats
-        // The larger of Anki's count and the local history per day: an old cached copy (or one with no byDay)
-        // blanked the chart and the streak while the local history held the sessions.
-        const dayCount = (ds) => Math.max(Number(ankiStats?.byDay?.[ds]) || 0, history.filter(h => (h.ankiDay || h.date) === ds).reduce((s, h) => s + (Number(h.cardsStudied) || 0), 0))
-        // Today's two numbers only from a copy fetched TODAY (see refreshAnkiStats); an older cache still
-        // serves the per-day chart and streak, which are keyed by date.
-        const ankiToday = usingAnki && ankiStats.day === today
-        // The larger of Anki's answers and local history, like the chart's bar: practice-only sessions (unrecorded MC,
-        // PBQ, conjugations) are in history but not in Anki, and the tile said 0 beside a bar showing the day's work.
-        const localTodayCards = todayStats.reduce((s, h) => s + (h.cardsStudied || 0), 0)
-        const todayCards = ankiToday ? Math.max(ankiStats.today || 0, localTodayCards) : localTodayCards
-        const accuracyToday = ankiToday && ankiStats.accuracy != null ? ankiStats.accuracy : (todayTotal > 0 ? Math.round(todayCorrect / todayTotal * 100) : null) // nothing answered today: unknown, never 0%
-
-        // Streak: count consecutive days with any reviews (from Anki when connected)
-        let streak = 0
-        const d = new Date()
-        for (let i = 0; i < 20000; i++) { // until the first gap (a 365 cap showed a 400-day streak as 365)
-          const dateStr = d.toLocaleDateString('en-CA')
-          if (dayCount(dateStr) > 0) { streak++; d.setDate(d.getDate() - 1) }
-          else if (i === 0) { d.setDate(d.getDate() - 1) } // allow today to not be studied yet
-          else break
-        }
-
-        // Last 14 days chart
-        const chartDays = []
-        for (let i = 13; i >= 0; i--) {
-          const dd = new Date(); dd.setDate(dd.getDate() - i)
-          // Local day, matching Anki's byDay keys and the weekday label below (a UTC key shifted
-          // every bar by a day in the evening and showed today's reviews as 0).
-          const ds = dd.toLocaleDateString('en-CA')
-          chartDays.push({ date: ds, label: dd.toLocaleDateString(appLanguage || 'en', { weekday: 'short' }) /* the app language, not always English */, cards: dayCount(ds) })
-        }
+        // The numbers live in src/utils/studyStats.js (tested), shared with Ebi's Help so both say the same.
+        const history = (() => { try { return shapeHistory(JSON.parse(localStorage.getItem('screenlens-study-history') || '[]'), cardText) } catch { return [] } })()
+        const now = new Date()
+        const { today, cards: todayCards, accuracy: accuracyToday } = todayNumbers(ankiStats, history, now)
+        const streak = studyStreak(ankiStats, history, now)
+        // Local days, matching Anki's byDay keys; weekday labels in the app language.
+        const chartDays = statsChartDays(ankiStats, history, now).map((c) => ({ date: c.date, cards: c.cards, label: c.d.toLocaleDateString(appLanguage || 'en', { weekday: 'short' }) }))
         const maxCards = Math.max(1, ...chartDays.map(d => d.cards))
-
-        // Per-deck breakdown
-        const deckMap = Object.create(null) // deck names are user text ("constructor", "__proto__")
-        history.forEach(h => {
-          if (!deckMap[h.deck]) deckMap[h.deck] = { sessions: 0, cards: 0, lastDate: h.date }
-          deckMap[h.deck].sessions++
-          deckMap[h.deck].cards += h.cardsStudied || 0
-          if (h.date > deckMap[h.deck].lastDate) deckMap[h.deck].lastDate = h.date
-        })
+        const decksStudied = deckBreakdown(history)
 
         return (
         <main style={{ ...S.main, padding: 24 }}>
@@ -17305,8 +16867,8 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
             {/* Per-deck breakdown */}
             <div className="stx-span4" style={{ ...S.panel, borderRadius: 22, minWidth: 0 }}>
               <div style={S.panelTitle}>{t('decks')}</div>
-              {Object.keys(deckMap).length === 0 && <div style={{ fontSize: 12.5, color: 'var(--c-ink-faint)', lineHeight: 1.5 }}>{t('noStudyHistory')}</div>}
-              {Object.entries(deckMap).map(([deck, data]) => (
+              {decksStudied.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--c-ink-faint)', lineHeight: 1.5 }}>{t('noStudyHistory')}</div>}
+              {decksStudied.map(({ deck, ...data }) => (
                 <div key={deck} style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '9px 0', borderBottom: '1px solid var(--c-border)', fontSize: 12 }}>
                   <span style={{ color: 'var(--c-ink)', fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{deck}</span>
                   <span style={{ color: 'var(--c-ink-dim)' }}>{data.cards} {t(data.cards === 1 ? 'cardLabelOne' : 'cardsLabel')} · {data.sessions} {t(data.sessions === 1 ? 'sessionLabelOne' : 'sessionsLabel')} · {t('lastLabel')}: {data.lastDate}</span>
@@ -17319,26 +16881,10 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
               <div style={S.panelTitle}>{t('recentSessions')}</div>
               {history.length === 0 && <div style={{ fontSize: 11, color: 'var(--c-ink-faint)' }}>{t('noSessions')}</div>}
               {(() => {
-                // One study sitting can still leave several entries (older builds added one per change
-                // on the summary screen; several sessions a day on one deck). Group by (date, deck) for display: cards sum, accuracy
-                // is card-weighted. Fixed grid columns so every row aligns (flex space-between let
-                // each column drift with the deck name's width).
-                const byKey = {}
-                const grouped = []
-                for (const h of history) {
-                  const k = `${h.date}|${h.deck}`
-                  if (byKey[k]) {
-                    byKey[k].cardsStudied += h.cardsStudied || 0
-                    // Accuracy weighted only over sessions that HAVE one (a session with no graded answer is unknown).
-                    if (Number.isFinite(h.accuracy)) { byKey[k].accSum += h.accuracy * (h.cardsStudied || 0); byKey[k].accW += h.cardsStudied || 0 }
-                  } else {
-                    const known = Number.isFinite(h.accuracy)
-                    byKey[k] = { date: h.date, deck: h.deck, cardsStudied: h.cardsStudied || 0, accSum: known ? h.accuracy * (h.cardsStudied || 0) : 0, accW: known ? (h.cardsStudied || 0) : 0 }
-                    grouped.push(byKey[k])
-                  }
-                }
-                return grouped.slice(0, 20).map((g, i) => {
-                  const acc = g.accW > 0 ? Math.round(g.accSum / g.accW) : null
+                // One row per (date, deck) (several sessions a day on one deck; older builds added one entry per
+                // change on the summary screen): see groupSessions. Fixed grid columns so every row aligns.
+                return groupSessions(history, 20).map((g, i) => {
+                  const acc = g.accuracy
                   return (
                     <div key={i} style={{ display: 'grid', gridTemplateColumns: '92px minmax(0,1fr) 96px 56px', alignItems: 'center', columnGap: 12, padding: '10px 0', borderBottom: '1px solid var(--c-border)', fontSize: 12.5 }}>
                       <span style={{ color: 'var(--c-ink-dim)' }}>{g.date}</span>
@@ -17669,12 +17215,12 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                     return (
                   <div className="st-bar">
                     {/* Session progress — cards completed out of everything this session will cover (a slim top bar) */}
-                    <div className="st-progress" role="progressbar" aria-valuemin={0} aria-valuemax={totalCards} aria-valuenow={completedCount}>
+                    <div className="st-progress" role="progressbar" aria-label={t('ui_progress')} aria-valuemin={0} aria-valuemax={totalCards} aria-valuenow={completedCount}>
                       <div style={{ width: `${totalCards ? Math.max(2, Math.round((completedCount / totalCards) * 100)) : 0}%` }} />
                     </div>
                     <div className="st-bar-row">
                       <div className="st-meta">
-                        <span className="st-pill ink"><b>{completedCount}<span style={{ opacity: 0.55, fontWeight: 700 }}>/{totalCards}</span></b>{t('cardsLabel')}</span>
+                        <span className="st-pill ink"><b>{completedCount}<span style={{ color: 'var(--c-ink-dim)', fontWeight: 700 }}>/{totalCards}</span></b>{t('cardsLabel')}</span>
                         <span className="st-pill"><b style={{ color: 'var(--c-brand)' }}>{activeCount}</b>{t('active')}</span>
                         <span className="st-pill">{studyDeckStats.new_count || 0} {t('new')} · {studyDeckStats.learn_count || 0} {t('learn')} · {studyDeckStats.review_count || 0} {t('due')}</span>
                       </div>
@@ -17763,7 +17309,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                           <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
                             <input value={lm.chatInput}
                               onChange={(e) => { const v = e.target.value; setStudyLearnMoment((p) => p ? { ...p, chatInput: v } : p) }}
-                              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) sendLearnChat() }}
+                              onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e)) sendLearnChat() }}
                               placeholder={t('learnIt_askPlaceholder')} disabled={!apiKey}
                               style={{ flex: 1, background: 'var(--c-surface)', color: 'var(--c-ink)', border: '1px solid var(--c-border)', borderRadius: 6, padding: '7px 10px', fontSize: 12, fontFamily: 'inherit', outline: 'none', opacity: apiKey ? 1 : 0.5 }} />
                             <button onClick={sendLearnChat} disabled={!apiKey || lm.chatLoading || !lm.chatInput.trim()} className="ui-btn"
@@ -17778,14 +17324,25 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                             </div>
                             <div className="st-answer" style={typedOk ? { borderColor: 'var(--c-success)' } : undefined}>
                               <input value={lm.typed} autoFocus
-                                onChange={(e) => { const v = e.target.value; setStudyLearnMoment((p) => p ? { ...p, typed: v } : p) }}
-                                onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing && typedOk) { emitAppEvent(EVENTS.LEARN_DONE); setStudyLearnMoment(null) } }}
+                                onChange={(e) => { const v = e.target.value; setStudyLearnMoment((p) => p ? { ...p, typed: v, typedMiss: false } : p) }}
+                                onKeyDown={(e) => {
+                                  if (e.key !== 'Enter' || imeActive(e)) return
+                                  if (typedOk) { emitAppEvent(EVENTS.LEARN_DONE); setStudyLearnMoment(null); return }
+                                  // Enter on a word that does not match said nothing (the button just stayed grey).
+                                  if (String(lm.typed || '').trim()) setStudyLearnMoment((p) => p ? { ...p, typedMiss: true } : p)
+                                }}
+                                aria-invalid={lm.typedMiss ? true : undefined}
                                 placeholder={t('learnIt_typePlaceholder')} />
                               <button onClick={() => { emitAppEvent(EVENTS.LEARN_DONE); setStudyLearnMoment(null) }} disabled={!typedOk} className="st-submit btn-press"
                                 style={typedOk ? { background: 'var(--c-success)', boxShadow: 'inset 0 -3px 0 color-mix(in srgb, var(--c-success) 70%, black)' } : undefined}>
                                 {t('pbqContinue')}
                               </button>
                             </div>
+                            {lm.typedMiss && !typedOk && (
+                              <div role="status" style={{ fontSize: 11, color: 'var(--c-warning)', marginTop: 6 }}>
+                                {t('learnIt_typeMismatch').split('{word}').map((part, pi) => (pi === 0 ? part : <span key={pi}><b>{headWord}</b>{part}</span>))}
+                              </div>
+                            )}
                           </div>
                         </>)
                       })() : studyChoiceFlash ? (<>
@@ -17822,7 +17379,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                       </>) : (<>
                       {/* Conjugation mode: show the word being conjugated + option to add it to Anki */}
                       {studyMode === 'conjugations' && cs && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, padding: '6px 10px', background: 'rgba(223,37,64,.06)', border: '1px solid rgba(223,37,64,.2)', borderRadius: 6 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, padding: '6px 10px', background: 'color-mix(in srgb, var(--c-brand) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--c-brand) 20%, transparent)', borderRadius: 6 }}>
                           <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-brand)' }}>{cs.front}</span>
                           {cs.back && <span style={{ fontSize: 12, color: 'var(--c-ink-dim)' }}>· <em>{cs.back}</em></span>}
                           <div style={{ marginLeft: 'auto' }}>
@@ -17830,7 +17387,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                               <span style={{ fontSize: 11, color: 'var(--c-success)' }}>{t('card_addedToDeck')}</span>
                             ) : !cs.fromDeck ? (
                               <button onClick={() => addConjugationWordToAnki(cq.cardIdx)}
-                                style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-brand)', borderColor: 'rgba(223,37,64,.3)', padding: '3px 8px' }}>
+                                style={{ ...S.ghostBtn, fontSize: 10, color: 'var(--c-brand)', borderColor: 'color-mix(in srgb, var(--c-brand) 30%, transparent)', padding: '3px 8px' }}>
                                 {t('card_addToAnki')}
                               </button>
                             ) : null}
@@ -17867,6 +17424,8 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                               const viewing = currentQuestion && cq.cardIdx === currentQuestion.cardIdx && qi === currentQuestion.questionIdx
                               return (
                                 <button key={qi} disabled={!clickable}
+                                  aria-label={`${t('studyQuestionOf')} ${qi + 1}/${cardQuestionCount(cs)}`}
+                                  aria-current={viewing ? 'step' : undefined}
                                   onClick={clickable ? () => viewCardQuestion(cq.cardIdx, qi) : undefined}
                                   title={answered ? t('studyDotJump') : undefined}
                                   style={{
@@ -17970,7 +17529,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                       ) : (<>
                       {/* Accent drill: correct answer, wrong/missing accents — type the accented form once */}
                       {studyAccentRetype && (
-                        <div style={{ fontSize: 12, background: 'rgba(232,147,12,.08)', border: '1px solid rgba(232,147,12,.25)', borderRadius: 6, padding: '6px 10px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <div role="status" style={{ fontSize: 12, background: 'color-mix(in srgb, var(--c-warning) 8%, transparent)', border: '1px solid color-mix(in srgb, var(--c-warning) 30%, transparent)', borderRadius: 6, padding: '6px 10px', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                           <span style={{ color: 'var(--c-success)', fontWeight: 700 }}>✓ {t('studyFlashCorrect')}</span>
                           <span style={{ color: 'var(--c-warning)' }}>{t('studyAccentPrompt')} <b style={{ color: 'var(--c-ink)', fontSize: 13 }}>{studyAccentRetype.canonical}</b></span>
                           <button onClick={() => submitStudyAnswer(studyAccentRetype.canonical)} className="ui-btn"
@@ -17987,7 +17546,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                         <input
                           value={studyInput}
                           onChange={(e) => setStudyInput(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) submitStudyAnswer() }}
+                          onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e)) submitStudyAnswer() }}
                           placeholder={studyAccentRetype ? t('studyAccentPlaceholder') : studyCurrentHint ? t('tryAgain') + '...' : t('typeYourAnswer')}
                           ref={studyAnswerInputRef}
                           autoFocus
@@ -18005,7 +17564,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                             <input value={studyFixQ.input} autoFocus
                               onChange={(e) => setStudyFixQ((p) => ({ ...p, input: e.target.value }))}
-                              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) fixCurrentQuestion() }}
+                              onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e)) fixCurrentQuestion() }}
                               placeholder={t('fixQuestionPlaceholder')}
                               style={{ ...S.keyInput, flex: 1, fontSize: 12, padding: '8px 12px', borderColor: 'rgba(139,92,246,.4)' }} />
                             <button onClick={fixCurrentQuestion} disabled={!studyFixQ.input.trim() || studyFixQ.loading}
@@ -18082,7 +17641,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                       {!studyLearnMoment && !studyPbqReview && questionObj?.type !== 'pbq' && (
                         <div className="st-keys">
                           {questionHasChoices(questionObj)
-                            ? <div><span style={{ display: 'inline-flex', gap: 3 }}>{[1, 2, 3, 4].map((k) => <span key={k} className="ui-kbd">{k}</span>)}</span>{t('study_kbdChoose')}</div>
+                            ? <div><span style={{ display: 'inline-flex', gap: 3 }}>{['A', 'B', 'C', 'D', 'E', 'F'].slice(0, Math.max(2, Math.min(6, questionObj.choices.length))).map((k) => <span key={k} className="ui-kbd">{k}</span>)}</span>{t('study_kbdChoose')}</div>
                             : <div><span className="ui-kbd">↵</span>{t('study_kbdSubmit')}</div>}
                         </div>
                       )}
@@ -18212,7 +17771,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                             ))}
                             {studyFeedbackChat[ci]?.loading && <div style={{ fontSize: 10, color: 'var(--c-ink-dim)', padding: '2px 8px' }}>{t('study_thinking')}</div>}
                             <div style={{ display: 'flex', gap: 4 }}>
-                              <input value={studyFeedbackChat[ci]?.input || ''} onChange={(e) => setStudyFeedbackChat(prev => ({ ...prev, [ci]: { ...(prev[ci] || { messages: [], loading: false }), input: e.target.value } }))} onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) sendStudyFeedbackChat(ci) }} placeholder={t('study_feedbackChatPlaceholder')} style={{ ...S.keyInput, flex: 1, fontSize: 10, padding: '4px 8px' }} />
+                              <input value={studyFeedbackChat[ci]?.input || ''} onChange={(e) => setStudyFeedbackChat(prev => ({ ...prev, [ci]: { ...(prev[ci] || { messages: [], loading: false }), input: e.target.value } }))} onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e)) sendStudyFeedbackChat(ci) }} placeholder={t('study_feedbackChatPlaceholder')} style={{ ...S.keyInput, flex: 1, fontSize: 10, padding: '4px 8px' }} />
                               <button onClick={() => sendStudyFeedbackChat(ci)} disabled={studyFeedbackChat[ci]?.loading || !(studyFeedbackChat[ci]?.input?.trim())} style={{ ...S.ghostBtn, fontSize: 9, padding: '4px 8px', opacity: (studyFeedbackChat[ci]?.loading || !(studyFeedbackChat[ci]?.input?.trim())) ? 0.4 : 1 }}>{t('study_reply')}</button>
                             </div>
                           </div>
@@ -18316,7 +17875,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                           <input
                             value={studyFeedbackChat[ci]?.input || ''}
                             onChange={(e) => setStudyFeedbackChat(prev => ({ ...prev, [ci]: { ...(prev[ci] || { messages: [], loading: false }), input: e.target.value } }))}
-                            onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) sendStudyFeedbackChat(ci) }}
+                            onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e)) sendStudyFeedbackChat(ci) }}
                             placeholder={t('study_feedbackChatPlaceholder')}
                             style={{ ...S.keyInput, flex: 1, fontSize: 10, padding: '4px 8px' }}
                           />
@@ -18351,7 +17910,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
           <div style={S.emptyState}>
             {/* Second pass: one big drop zone (drops work anywhere on the tab), three ways in as tiles. */}
             <div className="pc-drop">
-              <img src={shrimpUrl(poseFile('camera'))} alt="Ebi" style={{ width: 120, height: 120, objectFit: 'contain', marginBottom: 6 }} />
+              <img src={shrimpUrl(poseFile('camera'))} alt="Ebi" style={{ width: 'clamp(56px, calc(16vh / var(--app-zoom, 1)), 120px)', height: 'clamp(56px, calc(16vh / var(--app-zoom, 1)), 120px)', objectFit: 'contain', marginBottom: 6 }} />
               <h2 className="ui-page-title" style={{ fontSize: 34, marginBottom: 10 }}>{t('pic_emptyTitle')}</h2>
               <p style={{ ...S.emptyDesc, margin: '0 auto' }}>
                 {t('pic_emptyDescPre')}<kbd className="ui-kbd" style={{ verticalAlign: 'middle', margin: '0 2px' }}>Alt+Q</kbd>{t('pic_emptyDescPost', { provider: providerConfig.label })}
@@ -18444,40 +18003,9 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
             <div className={!isOverlay && stage === 'done' && ocrLines.length > 0 ? 'pc-split' : undefined} style={isOverlay ? { display: 'contents' } : undefined}>
             <div style={isOverlay ? { display: 'contents' } : { minWidth: 0 }}>
             {/* Image container */}
-            {isOverlay && selectionViewport && selectionCrop && activeMode.areaSelectTransparent !== false ? (
-              /* Transparent area-select mode: only show the cropped selection, rest is transparent */
-              <div style={{
-                position: 'fixed',
-                left: selectionViewport.x, top: selectionViewport.y,
-                width: selectionViewport.w, height: selectionViewport.h,
-                borderRadius: 4, overflow: 'hidden',
-                border: '2px solid rgba(223,37,64,0.4)',
-                boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
-              }}>
-                <img src={selectionCrop.dataUrl} alt={t('img_selection')} style={{
-                  display: 'block', width: '100%', height: '100%', objectFit: 'fill',
-                }} />
-                {/* Word overlays positioned within the crop */}
-                {stage === 'done' && ocrWords.length > 0 && (
-                  <div style={{ position: 'absolute', inset: 0 }}>
-                    {renderWordOverlays(true)}
-                  </div>
-                )}
-              </div>
-            ) : (
             <div
               style={isOverlay
-                ? (areaSelectBounds && pinnedIdx !== null)
-                  ? { position: 'fixed', overflow: 'hidden',
-                      left: areaSelectBounds.x, top: areaSelectBounds.y,
-                      width: areaSelectBounds.width, height: areaSelectBounds.height,
-                      background: '#000', borderRadius: 4,
-                      border: '2px solid rgba(223,37,64,0.4)',
-                      boxShadow: '0 4px 24px rgba(0,0,0,0.5)' }
-                  : areaSelectBounds
-                    ? { position: 'relative', overflow: 'hidden', width: '100%', height: '100%', background: '#000',
-                        borderRadius: 4, border: '2px solid rgba(223,37,64,0.4)' }
-                    : { position: 'relative', overflow: 'hidden', width: '100vw', height: '100vh', background: '#000' }
+                ? { position: 'relative', overflow: 'hidden', width: '100vw', height: '100vh', background: '#000' }
                 : S.imageContainer}
               onClick={() => !isOverlay && stage === 'done' && ocrWords.length > 0 && setExpanded(true)}
             >
@@ -18508,7 +18036,6 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
               )}
 
             </div>
-            )}
               {/* Expand hint (below image, hidden in overlay) */}
               {stage === 'done' && ocrWords.length > 0 && !isOverlay && (
                 <div style={{ color: 'var(--c-ink-dim)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', marginTop: 6 }}>
@@ -18595,64 +18122,6 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
           <div style={S.expandedWrap} onClick={(e) => e.stopPropagation()}>
             <img src={screenshot} alt={t('img_expanded')} style={S.expandedImg} />
             <div style={S.overlayLayer}>{renderWordOverlays()}</div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Chat Side Panel (split-screen) ──────────────────────────────────── */}
-      {false && (
-        <div style={{ position: 'fixed', right: 0, top: 0, bottom: 0, width: 380, background: 'var(--c-surface)', borderLeft: '1px solid var(--c-border)', zIndex: 9000, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--c-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-ink)' }}>Chat</span>
-            <button onClick={() => setChatSidePanel(false)} style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 8px' }}>&times;</button>
-          </div>
-          {chatTabAttachedDeck && (
-            <div style={{ padding: '4px 12px', borderBottom: '1px solid var(--c-border)', fontSize: 10, color: 'var(--c-brand)', display: 'flex', alignItems: 'center', gap: 4 }}>
-              Attached: {chatTabAttachedDeck.name} ({chatTabAttachedDeck.total || chatTabAttachedDeck.cards.length} cards)
-              <span onClick={() => setChatTabAttachedDeck(null)} style={{ cursor: 'pointer', color: 'var(--c-ink-dim)' }}>&times;</span>
-            </div>
-          )}
-          <div ref={chatTabScrollRef} style={{ flex: 1, overflow: 'auto', padding: '12px' }}>
-            {chatTabMsgs.length === 0 && <div style={{ textAlign: 'center', color: 'var(--c-ink-faint)', fontSize: 11, padding: 20 }}>Start a conversation...</div>}
-            {chatTabMsgs.map((m, i) => (
-              <div key={i} style={{ marginBottom: 8, display: 'flex', flexDirection: 'column', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                <div style={{ maxWidth: '90%', padding: '8px 12px', borderRadius: 8, fontSize: 12, lineHeight: 1.4, background: m.role === 'user' ? 'rgba(223,37,64,.12)' : 'var(--c-surface-alt)', border: `1px solid ${m.role === 'user' ? 'rgba(223,37,64,.2)' : 'var(--c-border)'}`, color: 'var(--c-ink)', ...(m.role === 'user' ? { whiteSpace: 'pre-wrap' } : {}) }}>
-                  {m.role === 'user' ? m.content : <Markdown text={m.content} />}
-                </div>
-                {m.cards?.map((card, ci) => (
-                  <div key={ci} style={{ maxWidth: '90%', marginTop: 4, padding: '8px 10px', borderRadius: 6, background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', border: '1px solid var(--c-border)', fontSize: 11 }}>
-                    <div style={{ fontWeight: 600, color: 'var(--c-ink)', marginBottom: 2 }}>
-                      {cardText(card.front)}
-                      {activeMode.type === 'language' && (
-                        <Pronunciation word={pronWord(cardText(card.front))} lang={learnLangName()} region={pronRegion()} config={pronunciationCfg} t={t} compact />
-                      )}
-                    </div>
-                    <div style={{ color: 'var(--c-ink)', whiteSpace: 'pre-line', marginBottom: 4 }}>{cardText(card.back)}</div>
-                    {card.synced ? <span style={{ fontSize: 9, color: 'var(--c-success)' }}>{t('card_addedTo', { deck: card.addedTo || chatCardDeck() })}</span> : (
-                      <button onClick={() => chatTabSyncCard(card, i)} disabled={!ankiConnected}
-                        style={{ fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 6, border: 'none', background: ankiConnected ? 'var(--c-success)' : 'var(--c-surface-sunken)', color: ankiConnected ? '#fff' : 'var(--c-ink-dim)', cursor: ankiConnected ? 'pointer' : 'not-allowed' }}>
-                        {t('card_addTo', { deck: chatCardDeck() })}
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ))}
-            {chatTabLoading && <div style={{ fontSize: 11, color: chatTabStatus === 'searching' ? 'var(--c-brand)' : 'var(--c-ink-dim)', padding: '4px 0' }}>
-              {chatTabStatus === 'searching' ? t('chat_searchingWeb') : chatTabStatus === 'search-done' ? t('chat_analyzingResults') : t('chat_thinking')}
-            </div>}
-          </div>
-          <div style={{ padding: '8px 12px', borderTop: '1px solid var(--c-border)' }}>
-            {!chatTabAttachedDeck && ankiConnected && (
-              <select value="" onChange={(e) => { if (e.target.value) chatTabAttachDeck(e.target.value) }} style={{ ...S.select, fontSize: 9, padding: '2px 4px', marginBottom: 4, width: '100%' }}>
-                <option value="">{t('chat_attachDeck')}</option>
-                {ankiDecks.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
-            )}
-            <div style={{ display: 'flex', gap: 4 }}>
-              <input value={chatTabInput} onChange={(e) => setChatTabInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing && !e.shiftKey) { e.preventDefault(); sendChatTabMessage() } }} placeholder={t('chat_placeholderShort')} style={{ ...S.keyInput, flex: 1, fontSize: 11, padding: '8px 10px' }} disabled={chatTabLoading} />
-              <button onClick={sendChatTabMessage} disabled={chatTabLoading || !chatTabInput.trim()} style={{ ...S.captureBtn, borderRadius: 4, fontSize: 10, opacity: chatTabLoading || !chatTabInput.trim() ? 0.5 : 1 }}>{t('chat_send')}</button>
-            </div>
           </div>
         </div>
       )}
@@ -18899,7 +18368,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                         type="text"
                         value={ankiRefineInput}
                         onChange={(e) => setAnkiRefineInput(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) refineAnkiCard() }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e)) refineAnkiCard() }}
                         placeholder={t('pic_refinePlaceholder')}
                         style={{ flex: 1, background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', color: 'var(--c-ink)', border: '1px solid var(--c-border)', borderRadius: 4, padding: '4px 8px', fontSize: 11, fontFamily: 'inherit', outline: 'none' }}
                       />
@@ -19017,7 +18486,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                       type="text"
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) sendChat(activeWord) }}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e)) sendChat(activeWord) }}
                       placeholder={t('pic_chatPlaceholder')}
                       style={S.ttChatInput}
                     />
@@ -19173,7 +18642,7 @@ ${PALETTE_CSS}
         .st-answer input { flex: 1; min-width: 0; border: none !important; outline: none; background: transparent; color: var(--c-ink);
           font: 600 19px/1.3 'Nunito', system-ui, sans-serif; padding: 12px 10px; box-shadow: none !important; }
         .st-answer .st-submit { flex-shrink: 0; border: none; border-radius: 13px; padding: 13px 22px; font: 800 14px/1 'Nunito', system-ui, sans-serif;
-          letter-spacing: .02em; color: var(--c-on-brand); background: var(--c-brand); cursor: pointer; box-shadow: inset 0 -3px 0 var(--c-brand-dark); }
+          letter-spacing: .02em; color: var(--c-on-brand); background: var(--c-brand-fill); cursor: pointer; box-shadow: inset 0 -3px 0 var(--c-brand-dark); }
         .st-answer .st-submit:disabled { background: var(--c-border-strong); box-shadow: none; color: var(--c-surface); opacity: 1; cursor: default; }
         .st-tools { display: flex; justify-content: space-between; align-items: center; gap: 6px 10px; flex-wrap: wrap; margin-top: 18px;
           padding-top: 14px; border-top: 1px solid var(--c-border); }
@@ -19187,7 +18656,7 @@ ${PALETTE_CSS}
           background: none; }
         .st-companion .st-ebi img { width: 132px; height: 132px; object-fit: contain; }
         .st-ask { width: 100%; justify-content: center; display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px; border-radius: 12px;
-          border: 1px solid var(--c-brand-line); background: var(--c-brand-tint); color: var(--c-brand); font: 800 13px/1.2 'Nunito', system-ui, sans-serif; cursor: pointer; }
+          border: 1px solid var(--c-brand-line); background: var(--c-brand-tint); color: var(--c-brand-text); font: 800 13px/1.2 'Nunito', system-ui, sans-serif; cursor: pointer; }
         .st-keys { width: 100%; display: flex; flex-direction: column; gap: 7px; padding-top: 12px; border-top: 1px solid var(--c-border);
           font-size: 11.5px; color: var(--c-ink-faint); font-weight: 600; }
         .st-keys > div { display: flex; align-items: center; gap: 8px; }
@@ -19241,9 +18710,25 @@ ${PALETTE_CSS}
         select.rate-chip { appearance: auto; font-family: inherit; cursor: pointer; padding: 3px 6px 3px 10px; }
 
         /* Chat: a floating composer. */
+        /* Toasts on a phone: one readable width each (the stack spans the window). */
+        .toast-stack-phone > * { width: min(calc(92vw / var(--app-zoom, 1)), 420px); max-width: calc(92vw / var(--app-zoom, 1)) !important; box-sizing: border-box; }
         .ch-composer { margin: 0 auto; width: 100%; max-width: 860px; box-sizing: border-box; background: var(--c-surface); border: 1px solid var(--c-border);
           border-radius: 22px; box-shadow: var(--sh-lg); padding: 8px; }
         @container chcol (max-width: 600px) { .ch-mascot { width: 52px !important; height: 52px !important; } }
+        /* Narrow chat (small window or high zoom): the chat list shrinks, and the composer drops the globe (web search
+           stays in the "+" menu) so Send stays inside it. */
+        .ch-list { width: clamp(168px, 24%, 240px); }
+        @container chmain (max-width: 640px) { .ch-list { width: 128px; } .ch-new { margin: 10px 8px 8px !important; padding: 8px 6px !important; font-size: 12px !important; } }
+        @container chmain (max-width: 440px) { .ch-list { width: 100px; } }
+        @container chcol (max-width: 330px) { .ch-globe { display: none; } .ch-send { padding: 11px 12px !important; } }
+        /* Settings: below this width the sidebar folds to icons (labels stay for screen readers). */
+        .set-side { width: 220px; }
+        @container setm (max-width: 640px) {
+          .set-side { width: 58px; padding: 14px 6px !important; }
+          .set-side-title, .set-side-group, .set-side-label { display: none; }
+          .set-side-item { justify-content: center; padding: 9px 0 !important; }
+          .set-content { padding: 4px 14px 22px !important; }
+        }
         .ch-composer:focus-within { border-color: color-mix(in srgb, var(--c-brand) 45%, var(--c-border)); }
         .ch-composer textarea, .ch-composer input:not([type="file"]) { border-color: transparent !important; background: transparent !important; box-shadow: none !important; }
 
@@ -19309,7 +18794,7 @@ ${PALETTE_CSS}
            Dark surfaces need a stronger black to register. */
         /* UI overhaul: a TINT (--c-hover: ink in light, white in dark; dark used to go a muddy black)
            instead of a darken. .ui-lift controls (cards, tiles) raise their shadow instead (see below). */
-        button:not(:disabled):not(.ui-tab-current):not(.ui-lift):not(.duo-tile):not(.duo-cta):not(.ui-chunky):hover,
+        button:not(:disabled):not(.ui-tab-current):not(.ui-lift):not(.duo-tile):not(.duo-cta):not(.ui-chunky):not(.chat-session-title):hover,
         select:not(:disabled):hover,
         input[type="checkbox"]:not(:disabled):hover {
           box-shadow: inset 0 0 0 999px var(--c-hover);
@@ -19342,7 +18827,7 @@ ${PALETTE_CSS}
         /* Instant hover tooltip (the native title attribute has a ~1s delay and reads as dead).
            Usage: <span className="tip" data-tip="explanation">ⓘ</span> */
         .tip { position: relative; cursor: help; }
-        .tip:hover::after {
+        .tip:hover::after, .tip:focus-visible::after {
           content: attr(data-tip);
           position: absolute; left: 50%; bottom: calc(100% + 7px); transform: translateX(-50%);
           width: max-content; max-width: 240px; padding: 7px 10px; border-radius: 8px;
@@ -19352,20 +18837,20 @@ ${PALETTE_CSS}
           box-shadow: 0 4px 14px rgba(0,0,0,.35); z-index: 80; pointer-events: none;
           animation: fadeIn .12s ease;
         }
-        .tip:hover::before {
+        .tip:hover::before, .tip:focus-visible::before {
           content: ''; position: absolute; left: 50%; bottom: calc(100% + 2px); transform: translateX(-50%);
           border: 5px solid transparent; border-top-color: var(--c-ink); z-index: 80; pointer-events: none;
         }
         /* Left-anchored variant: grows rightward from the control instead of centering, for
            controls that sit near a left edge (the centered 240px box gets clipped there). */
-        .tip-r:hover::after { left: 0; transform: none; }
-        .tip-r:hover::before { left: 14px; transform: none; }
+        .tip-r:hover::after, .tip-r:focus-visible::after { left: 0; transform: none; }
+        .tip-r:hover::before, .tip-r:focus-visible::before { left: 14px; transform: none; }
         /* Right-anchored: grows leftward, for controls near the right edge (the rail's toggle). */
-        .tip-l:hover::after { left: auto; right: 0; transform: none; }
-        .tip-l:hover::before { left: auto; right: 14px; transform: none; }
+        .tip-l:hover::after, .tip-l:focus-visible::after { left: auto; right: 0; transform: none; }
+        .tip-l:hover::before, .tip-l:focus-visible::before { left: auto; right: 14px; transform: none; }
         /* Opens DOWNWARD, for controls at the top of the window (the header), where an upward tip is cut off. */
-        .tip-b:hover::after { bottom: auto; top: calc(100% + 7px); }
-        .tip-b:hover::before { bottom: auto; top: calc(100% + 2px); border-top-color: transparent; border-bottom-color: var(--c-ink); }
+        .tip-b:hover::after, .tip-b:focus-visible::after { bottom: auto; top: calc(100% + 7px); }
+        .tip-b:hover::before, .tip-b:focus-visible::before { bottom: auto; top: calc(100% + 2px); border-top-color: transparent; border-bottom-color: var(--c-ink); }
         /* A tip around a Dropdown (the header's mode + deck switch) hides while its menu is open: it covered the list. */
         .tip:has([aria-expanded="true"]):hover::after, .tip:has([aria-expanded="true"]):hover::before { display: none; }
         /* A button that explains itself stays a button: no help cursor. */
@@ -19438,11 +18923,11 @@ ${PALETTE_CSS}
         .chip { transition: border-color .16s ease, color .16s ease, background .16s ease; }
         /* Chunky 3D CTA, modernised (UI overhaul): a lit gradient face, a darker 4px edge, a colored glow. */
         .duo-cta { font-family: 'Nunito', system-ui, sans-serif; font-weight: 800; font-size: 15px; letter-spacing: .05em; text-transform: uppercase;
-          color: var(--c-on-brand, #fff); background: var(--c-brand);
+          color: var(--c-on-brand, #fff); background: var(--c-brand-fill);
           border: 1px solid var(--c-brand-dark); border-bottom-width: 4px; border-radius: 16px; padding: 13px 30px; cursor: pointer; max-width: 100%; box-sizing: border-box;
           box-shadow: inset 0 1px 0 rgba(255,255,255,.22), var(--sh-sm); }
-        .duo-cta.green { background: var(--c-success);
-          border-color: color-mix(in srgb, var(--c-success) 70%, black);
+        .duo-cta.green { background: var(--c-success-fill);
+          border-color: color-mix(in srgb, var(--c-success-fill) 70%, black);
           box-shadow: inset 0 1px 0 rgba(255,255,255,.2), var(--sh-sm); }
         .duo-cta:not(:disabled):hover { filter: brightness(1.07); }
         .duo-cta:disabled { opacity: .5; cursor: default; }
@@ -19497,7 +18982,7 @@ ${PALETTE_CSS}
             {appConfirm.input && (
               <input autoFocus value={appConfirm.value}
                 onChange={(e) => { const v = e.target.value; setAppConfirm((cur) => (cur ? { ...cur, value: v } : cur)) }}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) resolveConfirm(true) }}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e)) resolveConfirm(true) }}
                 style={{ ...S.keyInput, fontSize: 13, width: '100%', boxSizing: 'border-box' }} />
             )}
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
@@ -19558,7 +19043,17 @@ ${PALETTE_CSS}
 
       {/* ONE bottom-centre stack for every toast: each used to sit on the same spot, so the red error
           (which stays until dismissed) covered a later success toast and the failover's Retry button. */}
-      <div style={{ position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 12001, /* above Ebi Studio (12000): a toast under its backdrop took the click and closed Studio */ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, pointerEvents: 'none' }}>
+      {/* While Ebi Studio is open the stack moves to the bottom-right, beside its centred panel: in the middle it sat
+          over Studio's Done/Apply and composer (a save-failed toast blocked them). */}
+      {/* Phone width: above the bottom nav bar, full width (centred at left 50% the column was half the window and
+          each toast wrapped one word per line). */}
+      <div className={isPhoneWidth(viewportW) ? 'toast-stack-phone' : undefined}
+        style={{ position: 'fixed', bottom: isPhoneWidth(viewportW) ? Math.max(toastBottom, SHELL.barHeight + 12) : toastBottom, zIndex: 12001, /* above Ebi Studio (12000): a toast under its backdrop took the click and closed Studio */ display: 'flex', flexDirection: 'column', gap: 8, pointerEvents: 'none',
+        ...(isPhoneWidth(viewportW)
+          ? { left: 0, right: 0, alignItems: 'center' }
+          : modeStudio
+          ? { right: 16, alignItems: 'flex-end', maxWidth: 'max(240px, calc((100vw / var(--app-zoom)) / 2 - 300px))' }
+          : { left: '50%', transform: 'translateX(-50%)', alignItems: 'center' }) }}>
       {modelHealNotice && (
         <div style={{
           pointerEvents: 'auto',
@@ -19848,21 +19343,14 @@ ${PALETTE_CSS}
         },
         // Stats screen: what the dashboard actually shows, so Ebi can answer about it accurately.
         stats: activeTab === 'stats' ? (() => {
-          const hist = (() => { try { const h = JSON.parse(localStorage.getItem('screenlens-study-history') || '[]'); return Array.isArray(h) ? h.filter((x) => x && typeof x === 'object' && typeof x.date === 'string').map((x) => ({ ...x, deck: cardText(x.deck) })) : [] } catch { return [] } })() // see the Stats tab
-          const dayCount = (ds) => Math.max(Number(ankiStats?.byDay?.[ds]) || 0, hist.filter((h) => (h.ankiDay || h.date) === ds).reduce((s, h) => s + (Number(h.cardsStudied) || 0), 0)) // as the Stats tab
-          let streak = 0; const dd = new Date()
-          for (let i = 0; i < 20000; i++) { const ds = dd.toLocaleDateString('en-CA'); if (dayCount(ds) > 0) { streak++; dd.setDate(dd.getDate() - 1) } else if (i === 0) { dd.setDate(dd.getDate() - 1) } else break }
+          const hist = (() => { try { return shapeHistory(JSON.parse(localStorage.getItem('screenlens-study-history') || '[]'), cardText) } catch { return [] } })() // the Stats tab's numbers (utils/studyStats)
+          const streak = studyStreak(ankiStats, hist)
           // History is NEWEST-first (unshift): slice(-8).reverse() handed Ebi the 8 OLDEST sessions as "recent".
           const recent = hist.slice(0, 8).map((h) => ({ date: h.date, deck: h.deck, cards: h.cardsStudied || 0, accuracy: h.totalQuestions ? Math.round((h.correct / h.totalQuestions) * 100) : null }))
           // Today's numbers the way the Stats screen shows them: Anki's when fetched today, else the local
           // history (Ebi said 0 while the screen showed a number).
-          const todayStr = new Date().toLocaleDateString('en-CA')
-          const ankiToday = ankiStats && ankiStats.day === todayStr
-          const todayHist = hist.filter((h) => h.date === todayStr)
-          const tq = todayHist.reduce((n, h) => n + (h.totalQuestions || 0), 0)
-          const tc = todayHist.reduce((n, h) => n + (h.correct || 0), 0)
-          const localToday = todayHist.reduce((n, h) => n + (h.cardsStudied || 0), 0)
-          return { cardsToday: ankiToday ? Math.max(ankiStats.today || 0, localToday) : localToday, accuracyToday: ankiToday && ankiStats.accuracy != null ? ankiStats.accuracy : (tq ? Math.round(tc / tq * 100) : null), streak, recentSessions: recent, source: ankiToday ? 'Anki' : 'local history' }
+          const tn = todayNumbers(ankiStats, hist)
+          return { cardsToday: tn.cards, accuracyToday: tn.accuracy, streak, recentSessions: recent, source: tn.ankiToday ? 'Anki' : 'local history' }
         })() : null,
         // Long-term learner memory (AI-maintained progress-observations.md for the mode's deck)
         progressObservations: (deckProgressDoc || '').slice(0, 2500),

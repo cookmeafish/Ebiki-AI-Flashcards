@@ -129,6 +129,13 @@ describe('Help secrecy', () => {
     expect(t).not.toContain('LEGENDS')
     expect(t).toContain('DECK "Español"') // counts are not secret
   })
+  it('while secret, the practice log keeps topics but drops the CARD fronts practiced (a raid asks those cards)', () => {
+    const s = buildLearnerSnapshot({ modeId: 7, practice: { ok: true, items: [{ kind: 'card', label: 'perro', src: 'ebi-call', at: 3 }, { kind: 'topic', label: 'restaurant talk', src: 'roleplay', at: 2 }] } })
+    const r = redactSnapshot(s, { secret: true })
+    expect(r.practice.recent.join(' ')).not.toContain('perro')
+    expect(r.practice.recent.join(' ')).toContain('restaurant talk')
+    expect(redactSnapshot(s, { hideAnswers: ['xyz'] }).practice.recent.join(' ')).toContain('perro')
+  })
   it('does not touch the original snapshot', () => {
     const s = snapFor()
     redactSnapshot(s, { secret: true, hideAnswers: ['perro'] })

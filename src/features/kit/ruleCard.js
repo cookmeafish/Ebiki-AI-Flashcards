@@ -37,11 +37,12 @@ export function buildRuleCardPrompt(subject, source, { avoid = [] } = {}) {
 // { front, back, tags } or { skip: true, why } or null when unreadable.
 export function parseRuleCard(raw, clean = (s) => s) {
   if (!raw || typeof raw !== 'object') return null
-  if (raw.skip === true || raw.skip === 'true') return { skip: true, why: clean(String(raw.why || '').slice(0, 200)) }
+  // Models answer the flag as text too ("yes", "True"): read as a card, it was refused as incomplete ("unreadable").
+  if (raw.skip === true || /^\s*(true|yes|1)\s*$/i.test(typeof raw.skip === 'string' ? raw.skip : '')) return { skip: true, why: clean(String(raw.why || '').slice(0, 200)) }
   const front = clean(String(raw.front ?? '').replace(/\s+/g, ' ').trim()).slice(0, FRONT_MAX)
   const back = clean(String(raw.back ?? '').replace(/\\n/g, '\n').replace(/[ \t]+/g, ' ').trim()).slice(0, BACK_MAX)
   if (!front || !back) return null
-  const tags = (Array.isArray(raw.tags) ? raw.tags : [])
+  const tags = (Array.isArray(raw.tags) ? raw.tags : typeof raw.tags === 'string' ? raw.tags.split(/[,;]/) : [])
     .map((x) => String(x).toLowerCase().trim().replace(/\s+/g, '-').replace(/[^\p{L}\p{N}_:-]/gu, ''))
     .filter(Boolean).slice(0, 2)
   return { front, back, tags: [...new Set([...RULE_TAGS, ...tags])] }

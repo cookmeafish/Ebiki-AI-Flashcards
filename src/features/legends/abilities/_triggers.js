@@ -71,9 +71,9 @@ export const TRIGGERS = {
     feast: { vars: (K) => ({ n: K.streak, d: K.feast }) },
   },
   tempest: {
-    drum: { vars: none },
-    dud: { vars: none },
-    thunder: { vars: (K) => ({ n: K.per }) },
+    drum: { vars: (K) => ({ d: K.measure - 1 }) },
+    dud: { vars: (K) => ({ d: K.measure - 1, b: K.measure }) },
+    thunder: { vars: (K) => ({ n: K.per, b: K.measure }) },
   },
   kaleido: {
     shard: { vars: none },

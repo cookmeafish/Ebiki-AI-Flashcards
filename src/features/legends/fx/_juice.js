@@ -29,6 +29,15 @@ export const JUICE = {
   flashGap: 500, // photosensitivity: at most 2 flashes per second
   floaterPx: { tick: 14, medium: 18, big: 26 },
 }
+// The floater's font size for its text: the size's JUICE.floaterPx, a step smaller for a long line (wrapped at 26 px,
+// "-3 Serpent falls! Serpent's Venom" took four lines over the boss's face). Wide CJK characters count twice.
+export const FLOATER_LONG = { chars: 16, longer: 26, step: 0.78, smallest: 0.62, minPx: 13 }
+export function floaterPxFor(size, text) {
+  const base = JUICE.floaterPx[size] || JUICE.floaterPx.big
+  const len = [...String(text || '')].reduce((n, ch) => n + (/[⺀-鿿가-힯豈-﫿＀-￯]/.test(ch) ? 2 : 1), 0)
+  const k = len > FLOATER_LONG.longer ? FLOATER_LONG.smallest : len > FLOATER_LONG.chars ? FLOATER_LONG.step : 1
+  return Math.max(Math.min(base, FLOATER_LONG.minPx), Math.round(base * k))
+}
 export const JUICE_DEFAULT = { size: 'big', shake: 0, flash: 0, hitstop: 0, sfx: '' }
 
 // A juice entry made safe: unknown sizes fall back to the default, numbers are clamped.

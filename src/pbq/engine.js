@@ -21,6 +21,31 @@
 // null = unanswered).
 
 export const PBQ_KINDS = ['matching', 'ordering', 'categorize']
+const KIND_ALIASES = {
+  match: 'matching', matches: 'matching', pairing: 'matching', pairs: 'matching',
+  order: 'ordering', sequence: 'ordering', sequencing: 'ordering', sort_order: 'ordering',
+  categorise: 'categorize', categorization: 'categorize', categorisation: 'categorize', categories: 'categorize',
+  classify: 'categorize', classification: 'categorize', sorting: 'categorize', grouping: 'categorize',
+}
+// A pair written as an object ({"left": .., "right": ..}, {"term": .., "definition": ..}) instead of a 2-item list.
+const PAIR_FIELDS = [['left', 'right'], ['term', 'definition'], ['term', 'match'], ['item', 'match'], ['prompt', 'answer'], ['key', 'value'], ['a', 'b']]
+const asPair = (p) => {
+  if (Array.isArray(p)) return p.length === 2 ? p : null
+  if (!p || typeof p !== 'object') return null
+  for (const [l, r] of PAIR_FIELDS) if (p[l] != null && p[r] != null) return [p[l], p[r]]
+  const vals = Object.values(p)
+  return vals.length === 2 ? vals : null
+}
+// Groups written as a list ([{"name": .., "items": [..]}]) instead of an object: as [name, items] entries in order.
+const groupEntries = (groups) => {
+  if (Array.isArray(groups)) {
+    return groups.filter((g) => g && typeof g === 'object' && !Array.isArray(g)).map((g) => [
+      g.name ?? g.category ?? g.title ?? g.label ?? g.group ?? '',
+      g.items ?? g.members ?? g.list ?? g.values ?? [],
+    ])
+  }
+  return groups && typeof groups === 'object' ? Object.entries(groups) : null
+}
 
 const LIMITS = {
   matching: { min: 4, max: 6 },
@@ -32,21 +57,39 @@ const LIMITS = {
 // text normalization (shared by dedupe, citation checks, and solver matching)
 // ---------------------------------------------------------------------------
 export const norm = (s) => String(s ?? '')
+  .normalize('NFKC') // full-width "ＣＰＵ" is "CPU"
   .toLowerCase()
   .normalize('NFD').replace(/[̀-ͯ]/g, '')
   .replace(/[^\p{L}\p{N}]+/gu, ' ')
   .trim()
 
-const clean = (s) => String(s ?? '').replace(/\s+/g, ' ').trim()
+// The text of one authored value. Models send numbers (ports: 443) and objects ({"text": "Identify"}); String() of an
+// object shipped "[object Object]" as a chip. An object gives its first text-like field, else its first plain value.
+const TEXT_FIELDS = ['text', 'step', 'item', 'name', 'label', 'title', 'value', 'term']
+const textOf = (v) => {
+  if (v == null) return ''
+  if (typeof v === 'string') return v
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v)
+  if (Array.isArray(v) || typeof v !== 'object') return ''
+  for (const k of TEXT_FIELDS) if (typeof v[k] === 'string' || typeof v[k] === 'number') return String(v[k])
+  const first = Object.values(v).find((x) => typeof x === 'string' || typeof x === 'number')
+  return first == null ? '' : String(first)
+}
+const clean = (s) => textOf(s).replace(/\s+/g, ' ').trim()
 // Identity of an item: case, accents and spacing aside, SYMBOLS KEPT. `norm` drops them, so "C++", "C#" and "C"
 // were one "duplicate" (every programming/operator exercise was rejected) and "<" / ">" were both empty.
 // Only the Latin combining accents (like norm): Devanagari/Thai vowel signs are marks too, and "कम"/"काम" became one.
-export const itemKey = (s) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim()
+// Full-width forms fold (NFKC) and one sentence-final period after a letter or digit goes: "Identify" and
+// "Identify." were two chips the learner could not tell apart. itemKeyV1 = the key before that (saved icon maps).
+export const itemKey = (s) => itemKeyV1(String(s ?? '').normalize('NFKC')).replace(/(?<=[\p{L}\p{N}])[.。]$/u, '')
+const itemKeyV1 = (s) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim()
 // A step the model numbered ("1. Identify", "Step 2: Test", "b) Plan") gives its position away: the numbers are
 // stripped when (nearly) every step carries one.
 // Digits need no space after the mark and may be full-width or CJK ("1、", "1.识别", "１．", "①", "第一步："); letter
 // marks still need one, so "e.g." is never touched.
-const STEP_MARK = /^\s*(?:step\s*|第\s*)?(?:(?:\d{1,2}|[０-９]{1,2}|[一二三四五六七八九十]{1,3})\s*(?:[.):．）：、]|步\s*[：:、]?)(?!\d)\s*|[a-h]\s*[.):]\s+|[ivx]{1,4}\s*[.):]\s+|[①-⑳]\s*)/i
+// Also "Step 1 Identify" / "Step 1 - Identify", "1 – Identify" (a dash with a space after it, so "1-2 hours" and
+// "10-minute" stay) and "(1) Identify".
+const STEP_MARK = /^\s*(?:step\s*\d{1,2}(?!\d)\s*(?:[-–—:.)]\s*)?|[(（]\s*\d{1,2}\s*[)）]\s*|\d{1,2}\s*[-–—]\s+|(?:step\s*|第\s*)?(?:(?:\d{1,2}|[０-９]{1,2}|[一二三四五六七八九十]{1,3})\s*(?:[.):．）：、]|步\s*[：:、]?)(?!\d)\s*|[a-h]\s*[.):]\s+|[ivx]{1,4}\s*[.):]\s+|[①-⑳]\s*))/i
 
 // Fisher–Yates over index array; injectable rng for deterministic tests
 const shuffledIndices = (n, rng = Math.random) => {
@@ -86,7 +129,7 @@ const legacyIcons = (pbq) => pbq?.iconKeys !== 'item'
 export const iconFor = (pbq, text) => {
   const icons = pbq?.icons
   if (!icons) return null
-  return icons[itemKey(text)] || (legacyIcons(pbq) ? icons[norm(text)] : null) || null
+  return icons[itemKey(text)] || icons[itemKeyV1(text)] || (legacyIcons(pbq) ? icons[norm(text)] : null) || null
 }
 
 // ---------------------------------------------------------------------------
@@ -95,7 +138,8 @@ export const iconFor = (pbq, text) => {
 export const compilePbq = (raw, rng = Math.random) => {
   const errors = []
   if (!raw || typeof raw !== 'object') return { ok: false, errors: ['not an object'] }
-  const kind = String(raw.kind || '').trim().toLowerCase() // "matching " cost a whole generation attempt
+  const kindRaw = String(raw.kind || '').trim().toLowerCase() // "matching " cost a whole generation attempt
+  const kind = KIND_ALIASES[kindRaw] || kindRaw // and so did "categorise" or "sequence"
   if (!PBQ_KINDS.includes(kind)) return { ok: false, errors: [`unknown kind "${raw.kind}"`] }
   const title = clean(raw.title)
   const scenario = clean(raw.scenario)
@@ -110,7 +154,7 @@ export const compilePbq = (raw, rng = Math.random) => {
 
   let pbq = null
   if (kind === 'matching') {
-    const pairs = Array.isArray(raw.pairs) ? raw.pairs.filter(p => Array.isArray(p) && p.length === 2) : []
+    const pairs = Array.isArray(raw.pairs) ? raw.pairs.map(asPair).filter(Boolean) : []
     if (pairs.length < LIMITS.matching.min || pairs.length > LIMITS.matching.max) {
       errors.push(`matching needs ${LIMITS.matching.min}-${LIMITS.matching.max} pairs, got ${pairs.length}`)
     } else {
@@ -148,9 +192,9 @@ export const compilePbq = (raw, rng = Math.random) => {
       }
     }
   } else if (kind === 'categorize') {
-    const groups = (raw.groups && typeof raw.groups === 'object' && !Array.isArray(raw.groups)) ? raw.groups : null
-    const categories = groups ? Object.keys(groups).map(clean) : []
-    const catItems = groups ? Object.values(groups).map(v => (Array.isArray(v) ? v.map(clean) : [])) : []
+    const groups = groupEntries(raw.groups)
+    const categories = groups ? groups.map(([k]) => clean(k)) : []
+    const catItems = groups ? groups.map(([, v]) => (Array.isArray(v) ? v.map(clean) : [])) : []
     const items = catItems.flat()
     if (!groups || categories.length < LIMITS.categorize.minCats || categories.length > LIMITS.categorize.maxCats) {
       errors.push(`categorize needs ${LIMITS.categorize.minCats}-${LIMITS.categorize.maxCats} categories, got ${categories.length}`)
@@ -184,7 +228,8 @@ export const compilePbq = (raw, rng = Math.random) => {
 // citations: every quoted claim must literally appear in the source material
 // ---------------------------------------------------------------------------
 export const checkCitations = (raw, sourceText) => {
-  const quotes = Array.isArray(raw?.citations) ? raw.citations.map(c => clean(c?.quote)).filter(q => q.length >= 12) : []
+  // The length counts what is COMPARED: "............" normalized to "", which every source "contains".
+  const quotes = Array.isArray(raw?.citations) ? raw.citations.map(c => clean(c?.quote)).filter(q => q.length >= 12 && norm(q).length >= 8) : []
   if (quotes.length === 0) return { ok: false, missing: ['no usable citations (need quotes of 12+ chars)'] }
   const hay = norm(sourceText)
   const missing = quotes.filter(q => !hay.includes(norm(q)))
@@ -219,7 +264,8 @@ const resolveText = (text, list) => {
   const exact = list.map((x, i) => (norm(x) === n ? i : -1)).filter((i) => i !== -1)
   if (exact.length === 1) return exact[0]
   if (exact.length > 1) return -1
-  const contains = list.map((x, i) => ({ i, n: norm(x) })).filter(e => e.n.includes(n) || n.includes(e.n))
+  // A symbol-only item ("<") norms to "", which every string "contains": an echo naming nothing resolved to it.
+  const contains = list.map((x, i) => ({ i, n: norm(x) })).filter(e => e.n && (e.n.includes(n) || n.includes(e.n)))
   return contains.length === 1 ? contains[0].i : -1
 }
 

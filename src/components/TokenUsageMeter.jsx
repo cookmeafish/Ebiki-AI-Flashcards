@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { FONT } from '../config/tokens'
-import { sessionUsage, subscribeUsage, summarize, formatTokens, formatCost, flushUsageNow } from '../utils/tokenUsage'
+import { sessionUsage, subscribeUsage, summarize, rowsToShow, formatTokens, formatCost, flushUsageNow } from '../utils/tokenUsage'
 import { apiFetch } from '../platform'
 
 // The token and cost counter at the bottom right (Settings > AI & cost > "Show token and cost usage", off by
@@ -45,7 +45,7 @@ export default function TokenUsageMeter({ t, getZoom, confirmDialog }) {
   }
   useEffect(() => {
     if (!open) return
-    const onKey = (e) => { if (e.key === 'Escape' && !e.defaultPrevented && !e.isComposing) { e.preventDefault(); setOpen(false) } }
+    const onKey = (e) => { if (e.key === 'Escape' && !e.defaultPrevented && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); setOpen(false) } }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [open])
@@ -54,6 +54,9 @@ export default function TokenUsageMeter({ t, getZoom, confirmDialog }) {
   const s = summarize(sessionUsage(), prices)
   const all = total ? summarize(total.byModel, prices) : null
   const z = (typeof getZoom === 'function' && getZoom()) || 1
+  // The panel is scaled by z, so its height cap is in PRE-scale px: '60vh' grew to 120vh of real screen at zoom 2
+  // and ran off the top. Capped to the window minus the pill below it (about 44 px before scaling).
+  const panelMaxH = `min(60vh, calc((100vh - 24px) / ${z} - 44px))`
   const costText = (sum) => (sum.cost > 0 || sum.unpricedTokens === 0 ? formatCost(sum.cost) : null)
 
   const block = (label, sum, extra) => (
@@ -72,7 +75,7 @@ export default function TokenUsageMeter({ t, getZoom, confirmDialog }) {
   return createPortal(
     <div style={{ position: 'fixed', right: 10, bottom: 10, zIndex: 900, transform: `scale(${z})`, transformOrigin: 'bottom right', fontFamily: FONT.body }}>
       {open && (
-        <div role="dialog" aria-label={t('usage_title')} style={{ width: 300, maxHeight: '60vh', overflowY: 'auto', marginBottom: 6, background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.35)', padding: 12 }}>
+        <div role="dialog" aria-label={t('usage_title')} style={{ width: 300, maxHeight: panelMaxH, overflowY: 'auto', marginBottom: 6, background: 'var(--c-surface)', border: '1px solid var(--c-border)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.35)', padding: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--c-ink)' }}>{t('usage_title')}</div>
             <button type="button" onClick={() => setOpen(false)} aria-label={t('usage_close')} style={{ background: 'none', border: 'none', color: 'var(--c-ink-dim)', cursor: 'pointer', fontSize: 14 }}>✕</button>
@@ -82,7 +85,7 @@ export default function TokenUsageMeter({ t, getZoom, confirmDialog }) {
           {all && all.rows.length > 0 && (
             <div style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--c-ink)', marginBottom: 4 }}>{t('usage_byModel')}</div>
-              {all.rows.slice(0, 10).map((r) => {
+              {rowsToShow(all.rows, 10).map((r) => {
                 const key = `${r.provider}|${r.model}`
                 const editing = priceEdit && priceEdit.key === key
                 const own = prices && prices[key]

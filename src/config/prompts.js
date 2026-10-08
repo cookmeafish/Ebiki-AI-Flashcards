@@ -159,7 +159,18 @@ For EACH input term output one card object designed to best teach THAT subject:
 - "back": the back content as plain text. Put each labeled line as "Label: value" on its own line
   (newline-separated) so labels can be bolded.{FORMAT}
 - "tags": array of relevant tags. Always include "ebiki".{TAG_RULES}
+- "correction": if the input term is misspelled or is not a real term of this subject (a wrong acronym, a misremembered name), set this to the correct term and base the card on it; omit otherwise.
+
+ACCURACY IS CRITICAL: the student will MEMORIZE these, so one wrong number, date, port, formula, rule or regulation is harmful. Only state facts you are sure of; never invent a term, a figure or a source. If a detail is uncertain or varies (by edition, country, version or jurisdiction), leave it out or say what it depends on instead of guessing. Do not use em dashes or en dashes.
 Output ONLY the raw JSON array. No markdown, no backticks, no commentary.`
+
+// Fills GENERIC_CARD_PROMPT. Every placeholder is replaced EVERYWHERE (a plain .replace() fills only the first:
+// a second {USER_LANG} added to the prompt would have reached the model raw). Values are inserted literally
+// (a "$&" in a mode description is text, not a replacement pattern).
+export function buildGenericCardPrompt({ mode = '', type = 'general', userLang = 'English', description = '', format = '', tagRules = '' } = {}) {
+  const fill = { MODE: mode, TYPE: type, USER_LANG: userLang, DESCRIPTION: description, FORMAT: format, TAG_RULES: tagRules }
+  return GENERIC_CARD_PROMPT.replace(/\{(MODE|TYPE|USER_LANG|DESCRIPTION|FORMAT|TAG_RULES)\}/g, (_, k) => String(fill[k] ?? ''))
+}
 
 // Language-agnostic flashcard generator — works for ANY language being learned (Spanish, German,
 // Chinese, etc.). The model writes the back labels IN the learned language. Returns a JSON ARRAY.

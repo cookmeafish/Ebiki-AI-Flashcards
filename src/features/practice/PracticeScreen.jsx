@@ -57,23 +57,23 @@ export default function PracticeScreen() {
   }
   return (
     <div style={{ maxWidth: MAX_W, margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
-        <img src={shrimpUrl(poseFile(HEADER_POSE))} alt="" width={84} />
-        <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20, flexWrap: 'wrap' }}>
+        <img src={shrimpUrl(poseFile(HEADER_POSE))} alt="" width={64} height={64} style={{ flexShrink: 0, objectFit: 'contain' }} />
+        <div style={{ flex: '1 1 180px', minWidth: 0, overflowWrap: 'anywhere' }}>
           <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 28, color: C.ink }}>{t('practice_title')}</div>
           <div style={{ fontSize: 14, color: C.inkDim, fontWeight: 600 }}>{t('practice_sub', { mode: subject?.name || '' })}</div>
         </div>
       </div>
       {hero && <hero.Component key={`${heroKey}:${subject?.modeId ?? ''}`} onOpen={(p) => { setParams(p || null); setOpen(heroKey) }} />}
       {!acts.length && <div style={{ color: C.inkDim }}>{t('practice_empty')}</div>}
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${TILE_MIN}px, 1fr))`, gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(min(${TILE_MIN}px, 100%), 1fr))`, gap: 14 }}>
         {tiles.map((a) => (
           <button key={`${a.feature}:${a.id}`} onClick={() => { setParams(null); setOpen(`${a.feature}:${a.id}`) }} className="btn-press ui-card ui-lift" style={{
             textAlign: 'left', padding: 18, borderRadius: RADIUS.lg, background: C.surface, cursor: 'pointer',
             display: 'flex', gap: 14, alignItems: 'flex-start', // surface, hairline and shadow: .ui-card
           }}>
             <span aria-hidden="true" style={{ fontSize: 28, lineHeight: 1, width: 52, height: 52, flexShrink: 0, display: 'grid', placeItems: 'center', borderRadius: RADIUS.md, background: C.surfaceAlt, boxShadow: SHADOW.hi }}>{a.icon}</span>
-            <span style={{ flex: 1 }}>
+            <span style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 18, color: C.ink }}>{t(a.titleKey)}</span>
                 {a.Badge && <a.Badge />}

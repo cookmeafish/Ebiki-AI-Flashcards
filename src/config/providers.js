@@ -106,7 +106,8 @@ async function openAiCompatibleCall({ provider = 'openai', endpoint, apiKey, sys
 
   const budget = maxTokens || OPENAI_COMPAT_DEFAULT_TOKENS
   // One step up, bounded, for the two ways a reasoning model can exhaust its budget.
-  const roomier = Math.min(Math.max(budget * 4, 4000), 32000)
+  // `let`: once the model names its output cap, no later retry may ask past it (it only met the cap error again).
+  let roomier = Math.min(Math.max(budget * 4, 4000), 32000)
   let tokenParam = 'max_completion_tokens'
   let r = await post(tokenParam, budget)
 
@@ -129,6 +130,7 @@ async function openAiCompatibleCall({ provider = 'openai', endpoint, apiKey, sys
   if (cap && cap < sent && cap >= MIN_CONTENT_BUDGET) {
     r = await post(tokenParam, cap)
     sent = cap
+    roomier = Math.min(roomier, cap)
   }
   // BUDGET EXHAUSTED, ERROR FORM. The same underlying situation as the empty-content case below,
   // but OpenAI reports it two different ways depending on the request - measured live: o4-mini with

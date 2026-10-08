@@ -15,7 +15,9 @@
         color: #16242C;
         overflow: hidden;
       }
-      #root { min-height: 100vh; display: flex; flex-direction: column; }
+      /* Inside the zoomed body 100vh is the viewport x zoom: the root was taller than the window and a programmatic
+         scroll (scrollIntoView, focus) moved the page itself, leaving a blank band. --app-zoom undoes it (zoom.js). */
+      #root { min-height: calc(100vh / var(--app-zoom, 1)); display: flex; flex-direction: column; }
       html[data-theme="dark"] body { background: #0E1419; color: #E8EEF2; }
     </style>
   </head>

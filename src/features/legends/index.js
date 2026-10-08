@@ -2,20 +2,26 @@
 // level; Ebi plans themed areas, each a ladder of steps (learn, practice, rule, scene, talk) with a boss on top.
 // Works for ANY subject. The learner level it sets lives in the kit (kit/learner.js) so other features read it.
 // Remove this folder and its line in ../index.js to drop it (the game then never offers the Legends quest).
-import LegendsScreen from './LegendsScreen'
-import AssetScreen from './AssetScreen'
+import { lazyComponent } from '../registry'
 import { cheatsOn } from './CheatUI'
 import LevelCard from './LevelCard'
 import { LEGENDS_ID } from './store'
 import { CheatSettingsCard } from './CheatUI'
 import LegendsSettingsCard from './SettingsCard'
-import RaidTile from './RaidTile'
-import RaidHero from './RaidHero'
 import HelpBridge from './HelpBridge'
 import { EVENTS } from '../events'
 import { peekMap, updateMap, configureLegends } from './store'
 import { tallyStudiedCard } from './map'
 import './learnerSource' // map progress and raids in the app-wide learner context (kit/learnerContext.js)
+
+// The screens, the raid fight and the asset view load ON DEMAND (most of Legends' code: the map, every boss's art,
+// effects and impact moments), so they stay out of the startup bundle. They are fetched in the background a few
+// seconds after start (the hub's raid hero must paint at once when Practice opens); the asset view only when opened.
+const PREFETCH_MS = 6000
+const LegendsScreen = lazyComponent(() => import('./LegendsScreen'), { prefetchMs: PREFETCH_MS })
+const AssetScreen = lazyComponent(() => import('./AssetScreen'))
+const RaidTile = lazyComponent(() => import('./RaidTile'), { prefetchMs: PREFETCH_MS })
+const RaidHero = lazyComponent(() => import('./RaidHero'), { prefetchMs: PREFETCH_MS })
 
 // Other features' results move the level through the learner feature (../learner); Legends applies its own.
 

@@ -60,7 +60,9 @@ function Install-AnkiConnect($addonDir) {
     try {
       Write-Host ("  " + (Tr 'ln_inst_downloading' @{ source = $src.name }))
       try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
-      Invoke-WebRequest -Uri $src.url -OutFile $zip -UseBasicParsing -ErrorAction Stop
+      # Capped per source: the server runs this whole script under a 120s limit (/api/ankiconnect), so a
+      # stalled AnkiWeb download used all of it and the GitHub fallback never got its turn.
+      Invoke-WebRequest -Uri $src.url -OutFile $zip -UseBasicParsing -TimeoutSec 50 -ErrorAction Stop
       New-Item -ItemType Directory -Force -Path $stage | Out-Null
       Expand-Archive -Path $zip -DestinationPath $stage -Force -ErrorAction Stop
       # Where the add-on's own files ended up: the AnkiWeb .ankiaddon is flat, the

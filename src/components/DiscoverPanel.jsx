@@ -3,15 +3,25 @@
 // proposes one new item at a time. Make a card, mark it known, skip, or move on. All logic
 // lives in App.jsx; this is presentational.
 import { sortTagsUsageFirst, usageTagStyle, usageTagTip } from '../tags/usage'
+import { resolveKind, shownSources } from '../discover/panel'
 
 const C = {
   blue: 'var(--c-brand)', info: 'var(--c-info)', purple: 'var(--c-purple)', green: 'var(--c-success)', orange: 'var(--c-warning)',
   red: 'var(--c-danger)', dim: 'var(--c-ink-dim)', text: 'var(--c-ink)',
 }
+// Tints from the theme tokens (light mode's semantic colors are deeper than dark's): hardcoded dark-mode rgba
+// values read washed out in light mode.
+const tint = (color, pct) => `color-mix(in srgb, ${color} ${pct}%, transparent)`
+const FIELD_BORDER = `1px solid ${tint(C.dim, 30)}`
+
+// A disabled button LOOKS disabled (the house rule): dimmed, no pointer.
+const dim = (off) => ({ opacity: off ? 0.5 : 1, cursor: off ? 'default' : 'pointer' })
+// Text only a screen reader hears (a chip's tooltip is CSS, invisible to it).
+const SR_ONLY = { position: 'absolute', width: 1, height: 1, margin: -1, padding: 0, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 }
 
 function StatusLine({ status, t }) {
   const labels = { thinking: t('d_statusThinking'), searching: t('d_statusSearching'), verifying: t('d_statusVerifying') }
-  return <div style={{ fontSize: 12, color: C.dim, padding: '20px 0' }}>{labels[status] || t('d_statusWorking')}</div>
+  return <div role="status" aria-live="polite" style={{ fontSize: 12, color: C.dim, padding: '20px 0' }}>{labels[status] || t('d_statusWorking')}</div>
 }
 
 // The profile prompt answers tiers as fixed English words; they are shown in the app language.
@@ -28,7 +38,8 @@ function LevelBadge({ profile, t }) {
     : scale === 'domain-coverage' ? `${estimate || t('d_inProgress')}`
     : tierLabel(estimate, t)
   return (
-    <span style={{ fontSize: 12, color: 'var(--c-on-ink)', background: 'var(--c-ink-solid)', borderRadius: 999, padding: '4px 11px', fontWeight: 800 }}>
+    // A tinted chip in both themes (a solid ink chip turned into a bright white slab in dark mode).
+    <span style={{ fontSize: 12, color: 'var(--c-purple)', background: 'color-mix(in srgb, var(--c-purple) 9%, transparent)', border: '1px solid color-mix(in srgb, var(--c-purple) 32%, transparent)', borderRadius: 999, padding: '3px 10px', fontWeight: 800 }}>
       {t('d_level')} {label}{typeof confidence === 'number' ? ` · ${t('d_sureSuffix', { pct: Math.round(confidence * 100) })}` : ''}
     </span>
   )
@@ -66,15 +77,15 @@ export default function DiscoverPanel(props) {
       ? [...customKinds.map((k) => [k.key, k.label]), ['both', t('d_any')]]
       : [['term', t('d_terms')], ['acronym', t('d_acronyms')], ['comparison', t('d_comparisons')], ['scenario', t('d_scenarios')], ['both', t('d_any')]]
   const diffOptions = [['easier', t('d_diffEasier')], ['level', t('d_diffLevel')], ['stretch', t('d_diffStretch')]]
-  const itemType = config.itemType || 'both'
+  const itemType = resolveKind(config.itemType || 'both', typeOptions)
   const difficulty = config.difficulty || 'stretch'
   const typeLabel = (typeOptions.find(([k]) => k === itemType) || [])[1]
   const diffLabel = (diffOptions.find(([k]) => k === difficulty) || [])[1]
 
-  const chipRow = (options, current, onPick) => (
-    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', background: 'var(--c-surface-alt)', borderRadius: 12, padding: 4, width: 'fit-content' }}>
+  const chipRow = (options, current, onPick, label) => (
+    <div role="group" aria-label={label} style={{ display: 'flex', gap: 4, flexWrap: 'wrap', background: 'var(--c-surface-alt)', borderRadius: 12, padding: 4, width: 'fit-content', maxWidth: '100%' }}>
       {options.map(([k, label]) => (
-        <button key={k} onClick={() => onPick(k)} className={current === k ? 'ui-tab-current' : undefined}
+        <button key={k} type="button" aria-pressed={current === k} onClick={() => onPick(k)} className={current === k ? 'ui-tab-current' : undefined}
           style={{ background: current === k ? 'var(--c-surface-raised)' : 'transparent', color: current === k ? C.text : C.dim, border: 'none', borderRadius: 9, padding: '7px 14px', fontSize: 13, fontWeight: current === k ? 800 : 600, cursor: current === k ? 'default' : 'pointer', fontFamily: 'inherit', ...(current === k ? { boxShadow: 'var(--sh-sm)' } : {}) }}>
           {label}
         </button>
@@ -92,7 +103,7 @@ export default function DiscoverPanel(props) {
             <span style={{ fontSize: 11, color: C.dim, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
               {t('deck')}:
               {onDeckChange && decks.length > 0 ? (
-                <select value={deck || ''} onChange={(e) => onDeckChange(e.target.value)}
+                <select value={deck || ''} onChange={(e) => onDeckChange(e.target.value)} aria-label={t('deck')}
                   style={{ background: 'var(--c-surface)', color: C.text, border: '1px solid var(--c-border)', borderRadius: 10, padding: '3px 6px', fontSize: 11, fontWeight: 700, fontFamily: 'inherit', cursor: 'pointer', maxWidth: 200 }}>
                   {!deck && <option value="">·</option>}
                   {deck && !decks.includes(deck) && <option value={deck}>{deck}</option>}
@@ -104,8 +115,8 @@ export default function DiscoverPanel(props) {
             </span>
             <span style={{ fontSize: 11, color: C.dim }}>{cardedCount} {t('d_made')} · {knownCount} {t('d_known')}</span>
           </div>
-          <button onClick={onReanalyze} disabled={profileLoading}
-            style={{ background: 'rgba(81,98,108,0.15)', color: C.dim, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 10, padding: '5px 10px', fontSize: 11, cursor: profileLoading ? 'default' : 'pointer', fontFamily: 'inherit', opacity: profileLoading ? 0.5 : 1 }}>
+          <button type="button" onClick={onReanalyze} disabled={profileLoading}
+            style={{ background: tint(C.dim, 12), color: C.dim, border: `1px solid ${tint(C.dim, 25)}`, borderRadius: 10, padding: '5px 10px', fontSize: 11, fontFamily: 'inherit', ...dim(profileLoading) }}>
             {profileLoading ? t('d_analyzing') : t('d_reanalyze')}
           </button>
         </div>
@@ -113,7 +124,7 @@ export default function DiscoverPanel(props) {
         {profileLoading && !profile && <div style={{ fontSize: 12, color: C.dim }}>{t('d_analyzingProfile')}</div>}
       </div>
 
-      {error && <div style={{ fontSize: 11, color: C.red, marginBottom: 10 }}>{error}</div>}
+      {error && <div role="alert" style={{ fontSize: 11, color: C.red, marginBottom: 10, overflowWrap: 'anywhere' }}>{error}</div>}
 
       {/* ── Setup screen (before starting) ─────────────────────────────────── */}
       {!started && (
@@ -123,12 +134,12 @@ export default function DiscoverPanel(props) {
           <fieldset disabled={profileLoading} style={{ border: 0, padding: 0, margin: 0, minWidth: 0, opacity: profileLoading ? 0.6 : 1 }}>
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 11, color: C.dim, marginBottom: 6, fontWeight: 600 }}>{t('d_suggest')}</div>
-            {chipRow(typeOptions, itemType, (k) => setConfig({ ...config, itemType: k }))}
+            {chipRow(typeOptions, itemType, (k) => setConfig({ ...config, itemType: k }), t('d_suggest'))}
           </div>
 
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 11, color: C.dim, marginBottom: 6, fontWeight: 600 }}>{t('d_difficulty')}</div>
-            {chipRow(diffOptions, difficulty, (k) => setConfig({ ...config, difficulty: k }))}
+            {chipRow(diffOptions, difficulty, (k) => setConfig({ ...config, difficulty: k }), t('d_difficulty'))}
             {/* Opt-in: pitch suggestions at the level Legends measured (placement + results). Off by default. */}
             {legendsLevel != null && onUseLegendsLevel && (
               <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: C.dim, marginTop: 8, cursor: 'pointer' }}>
@@ -141,9 +152,9 @@ export default function DiscoverPanel(props) {
 
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 11, color: C.dim, marginBottom: 6, fontWeight: 600 }}>{t('d_focusOptional')}</div>
-            <textarea value={config.focus} onChange={(e) => setConfig({ ...config, focus: e.target.value })}
-              placeholder={focusPlaceholder}
-              style={{ width: '100%', boxSizing: 'border-box', minHeight: 60, resize: 'vertical', background: 'var(--c-surface)', color: C.text, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 10, padding: 8, fontSize: 12, fontFamily: 'inherit' }} />
+            <textarea value={config.focus || ''} onChange={(e) => setConfig({ ...config, focus: e.target.value })}
+              placeholder={focusPlaceholder} aria-label={t('d_focusOptional')}
+              style={{ width: '100%', boxSizing: 'border-box', minHeight: 60, resize: 'vertical', background: 'var(--c-surface)', color: C.text, border: FIELD_BORDER, borderRadius: 10, padding: 8, fontSize: 12, fontFamily: 'inherit' }} />
           </div>
 
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: C.dim, marginBottom: 14, cursor: 'pointer' }}>
@@ -171,7 +182,7 @@ export default function DiscoverPanel(props) {
             <span style={{ fontSize: 10, color: C.dim, border: '1px solid var(--c-border)', borderRadius: 999, padding: '2px 8px' }}>{typeLabel}</span>
             <span style={{ fontSize: 10, color: C.dim, border: '1px solid var(--c-border)', borderRadius: 999, padding: '2px 8px' }}>{diffLabel}</span>
             {config.focus?.trim() && (
-              <span title={config.focus} style={{ fontSize: 10, color: C.purple, border: '1px solid rgba(139,92,246,.3)', borderRadius: 999, padding: '2px 8px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🎯 {config.focus}</span>
+              <span className="tip" data-tip={config.focus} style={{ fontSize: 10, color: C.purple, border: `1px solid ${tint(C.purple, 30)}`, borderRadius: 999, padding: '2px 8px', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>🎯 {config.focus}</span>
             )}
           </div>
           {/* Prominent back-to-setup control: a faint ghost chip read as "just another tag", so the
@@ -196,7 +207,7 @@ export default function DiscoverPanel(props) {
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
               <span style={{ fontSize: 36, lineHeight: 1.1, fontWeight: 800, fontFamily: "'Baloo 2', 'Nunito', system-ui, sans-serif", letterSpacing: '-0.02em', color: C.text, overflowWrap: 'anywhere', minWidth: 0 }}>{suggestion.term}</span>
               {suggestion.partOfSpeech && <span style={{ fontSize: 12, color: C.dim }}>({suggestion.partOfSpeech})</span>}
-              {suggestion.difficulty && <span style={{ fontSize: 10, color: C.purple, background: 'rgba(139,92,246,0.12)', borderRadius: 8, padding: '2px 6px' }}>{tierLabel(suggestion.difficulty, t)}</span>}
+              {suggestion.difficulty && <span style={{ fontSize: 10, color: C.purple, background: tint(C.purple, 12), borderRadius: 8, padding: '2px 6px' }}>{tierLabel(suggestion.difficulty, t)}</span>}
               {webVerify && 'verified' in suggestion && (
                 <span style={{ fontSize: 10, color: suggestion.verified ? C.green : C.orange }}>{suggestion.verified ? t('d_verified') : t('d_unverified')}</span>
               )}
@@ -205,66 +216,71 @@ export default function DiscoverPanel(props) {
             {suggestion.draftMeaning && <div style={{ fontSize: 14, color: C.dim, lineHeight: 1.6, marginBottom: 12 }}>{suggestion.draftMeaning}</div>}
             {suggestion.why && <div style={{ fontSize: 12.5, color: C.dim, marginBottom: 12, padding: '10px 12px', borderRadius: 12, background: 'var(--c-surface-sunken)' }}>{t('d_why')} {suggestion.why}</div>}
 
-            {sources?.length > 0 && (
+            {shownSources(sources).length > 0 && (
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-                {sources.map((s, i) => (
-                  // The search proxy returns scheme-less urls ("en.wiktionary.org/wiki/..."), which as a
-                  // bare href resolved RELATIVE to the app and opened a blank localhost page. Same guard
-                  // as the Chat tab's sources (it also turns any non-http scheme into a harmless https url).
-                  <a key={i} href={/^https?:\/\//i.test(s.url || '') ? s.url : `https://${s.url || ''}`} target="_blank" rel="noopener noreferrer"
-                    style={{ fontSize: 10, color: C.blue, background: 'rgba(223,37,64,0.1)', borderRadius: 8, padding: '2px 6px', textDecoration: 'none', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {s.title || s.url}
+                {/* shownSources: scheme-less urls get https (a bare one resolved RELATIVE to the app and opened a
+                    blank localhost page), other schemes become harmless https urls, and an entry with no url is
+                    left out (it opened an empty tab). */}
+                {shownSources(sources).map((s) => (
+                  <a key={s.href} href={s.href} target="_blank" rel="noopener noreferrer"
+                    style={{ fontSize: 10, color: C.blue, background: tint(C.blue, 10), borderRadius: 8, padding: '2px 6px', textDecoration: 'none', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {s.label}
                   </a>
                 ))}
               </div>
             )}
 
             {card ? (
-              <div style={{ borderTop: '1px solid rgba(81,98,108,0.2)', paddingTop: 10, marginTop: 6 }}>
+              <div style={{ borderTop: `1px solid ${tint(C.dim, 20)}`, paddingTop: 10, marginTop: 6 }}>
                 <div style={{ fontSize: 10, color: C.dim, marginBottom: 4 }}>{t('d_front')}</div>
-                <textarea value={card.front} readOnly={cardSaving} onChange={(e) => setCard({ ...card, front: e.target.value })}
-                  style={{ width: '100%', background: 'var(--c-surface)', color: C.text, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 8, padding: 8, fontSize: 12, fontFamily: 'inherit', resize: 'vertical', marginBottom: 8, boxSizing: 'border-box' }} rows={1} />
+                <textarea value={card.front} readOnly={cardSaving} aria-label={t('d_front')} onChange={(e) => setCard({ ...card, front: e.target.value })}
+                  style={{ width: '100%', background: 'var(--c-surface)', color: C.text, border: FIELD_BORDER, borderRadius: 8, padding: 8, fontSize: 12, fontFamily: 'inherit', resize: 'vertical', marginBottom: 8, boxSizing: 'border-box' }} rows={1} />
                 <div style={{ fontSize: 10, color: C.dim, marginBottom: 4 }}>{t('d_back')}</div>
-                <textarea value={card.back} readOnly={cardSaving} onChange={(e) => setCard({ ...card, back: e.target.value })}
-                  style={{ width: '100%', background: 'var(--c-surface)', color: C.text, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 8, padding: 8, fontSize: 12, fontFamily: 'inherit', resize: 'vertical', marginBottom: 8, boxSizing: 'border-box' }} rows={5} />
+                <textarea value={card.back} readOnly={cardSaving} aria-label={t('d_back')} onChange={(e) => setCard({ ...card, back: e.target.value })}
+                  style={{ width: '100%', background: 'var(--c-surface)', color: C.text, border: FIELD_BORDER, borderRadius: 8, padding: 8, fontSize: 12, fontFamily: 'inherit', resize: 'vertical', marginBottom: 8, boxSizing: 'border-box' }} rows={5} />
                 {card.tags?.length > 0 && (
                   <div style={{ fontSize: 10, color: C.dim, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                     {t('d_tagsLabel')}
                     {/* Usage tags (where · how often · what context) lead the row and are highlighted,
                         via the SAME shared helpers the App-side chips use: green = safe to use,
                         amber = heads-up. Tooltips explain what each one means for the learner. */}
-                    {sortTagsUsageFirst(card.tags).map((tag, i) => (
-                      <span key={i} className={usageTagTip(tag, { t }) ? 'tip' : undefined} data-tip={usageTagTip(tag, { t }) || undefined}
-                        style={{ padding: '1px 6px', borderRadius: 3, background: 'rgba(81,98,108,0.12)', ...usageTagStyle(tag) }}>{tag}</span>
-                    ))}
+                    {sortTagsUsageFirst(card.tags).map((tag, i) => {
+                      const tip = usageTagTip(tag, { t })
+                      return (
+                        <span key={i} className={tip ? 'tip' : undefined} data-tip={tip || undefined}
+                          style={{ position: 'relative', padding: '1px 6px', borderRadius: 3, background: tint(C.dim, 12), ...usageTagStyle(tag) }}>
+                          {tag}{tip && <span style={SR_ONLY}>{`: ${tip}`}</span>}
+                        </span>
+                      )
+                    })}
                   </div>
                 )}
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <button onClick={onSaveCard} disabled={cardSaving || ankiConnected === false || !String(card.front || '').trim()}
-                    style={{ background: 'rgba(24,169,87,0.15)', color: C.green, border: '1px solid rgba(24,169,87,0.3)', borderRadius: 10, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: (cardSaving || ankiConnected === false || !String(card.front || '').trim()) ? 0.5 : 1 }}>
+                    style={{ background: tint(C.green, 15), color: C.green, border: `1px solid ${tint(C.green, 30)}`, borderRadius: 10, padding: '6px 14px', fontSize: 12, fontWeight: 600, fontFamily: 'inherit', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...dim(cardSaving || ankiConnected === false || !String(card.front || '').trim()) }}>
                     {cardSaving ? t('d_saving') : `${t('d_saveTo')} ${saveDeck || deck || 'Anki'}`}
                   </button>
                   <button onClick={onCancelCard} disabled={cardSaving}
-                    style={{ background: 'transparent', color: C.dim, border: '1px solid rgba(81,98,108,0.25)', borderRadius: 10, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit' }}>{t('cancel')}</button>
+                    style={{ background: 'transparent', color: C.dim, border: FIELD_BORDER, borderRadius: 10, padding: '6px 12px', fontSize: 12, fontFamily: 'inherit', ...dim(cardSaving) }}>{t('cancel')}</button>
                   {ankiConnected === false && <span style={{ fontSize: 10, color: C.orange }}>{t('d_openAnki')}</span>}
                 </div>
               </div>
             ) : (
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', borderTop: '1px solid rgba(81,98,108,0.2)', paddingTop: 12, marginTop: 4 }}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', borderTop: `1px solid ${tint(C.dim, 20)}`, paddingTop: 12, marginTop: 4 }}>
                 <button onClick={onMakeCard} disabled={cardLoading} className="btn-press"
-                  style={{ background: 'var(--c-brand)', color: '#fff', border: 'none', borderRadius: 12, padding: '10px 18px', fontSize: 13, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', boxShadow: 'inset 0 -3px 0 var(--c-brand-dark)', opacity: cardLoading ? 0.5 : 1 }}>
+                  style={{ background: 'var(--c-brand)', color: '#fff', border: 'none', borderRadius: 12, padding: '10px 18px', fontSize: 13, fontWeight: 800, fontFamily: 'inherit', boxShadow: 'inset 0 -3px 0 var(--c-brand-dark)', ...dim(cardLoading) }}>
                   {cardLoading ? t('d_building') : t('d_makeCard')}
                 </button>
                 <button onClick={onKnow} disabled={cardLoading}
-                  style={{ background: 'var(--c-surface)', color: C.green, border: '1px solid var(--c-border)', borderRadius: 12, padding: '10px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: 'var(--sh-sm)' }}>
+                  style={{ background: 'var(--c-surface)', color: C.green, border: '1px solid var(--c-border)', borderRadius: 12, padding: '10px 16px', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', boxShadow: 'var(--sh-sm)', ...dim(cardLoading) }}>
                   {t('d_iKnowThis')}
                 </button>
                 <button onClick={onSkip} disabled={cardLoading}
-                  style={{ background: 'var(--c-surface)', color: C.dim, border: '1px solid var(--c-border)', borderRadius: 12, padding: '10px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: 'var(--sh-sm)' }}>
+                  style={{ background: 'var(--c-surface)', color: C.dim, border: '1px solid var(--c-border)', borderRadius: 12, padding: '10px 16px', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', boxShadow: 'var(--sh-sm)', ...dim(cardLoading) }}>
                   {t('d_skip')}
                 </button>
-                <button onClick={onNext} disabled={cardLoading} title={t('d_skipNoRecord')}
-                  style={{ background: 'transparent', color: C.dim, border: 'none', borderRadius: 12, padding: '10px 12px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginLeft: 'auto' }}>
+                <button onClick={onNext} disabled={cardLoading} className="tip" data-tip={t('d_skipNoRecord')}
+                  style={{ background: 'transparent', color: C.dim, border: 'none', borderRadius: 12, padding: '10px 12px', fontSize: 13, fontWeight: 700, fontFamily: 'inherit', marginLeft: 'auto', ...dim(cardLoading) }}>
                   {t('d_next')}
                 </button>
               </div>

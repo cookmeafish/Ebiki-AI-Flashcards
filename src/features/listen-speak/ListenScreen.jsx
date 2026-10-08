@@ -13,7 +13,9 @@ import { useHelpEntry } from '../kit/useHelp'
 import { settlePracticeRun } from '../kit/practiceRun'
 import { buildDrillPrompt, DRILL_ROLE, DRILL_MAX_TOKENS, DRILL_SIZE } from './prompt'
 
-export const LISTEN_FEATURE_ID = 'listen-speak'
+import { LISTEN_FEATURE_ID } from './featureId'
+import { aiErrorText } from '../kit/aiError'
+export { LISTEN_FEATURE_ID }
 const MIN_QUESTIONS = 3
 const KNOWLEDGE_CAP = 3000
 const SLIPS = 8
@@ -54,13 +56,14 @@ export default function ListenScreen({ onExit }) {
         ...q, question: ai.clean(txt(q.question)), explanation: ai.clean(txt(q.explanation)), say: ai.clean(txt(q.say)),
         speak: q.speak === true && !!engines.stt, // no way to listen → typed instead
         open: q.open === true && q.speak === true && !q.say, // only "explain out loud" is open; a dictation has one answer
-      })), { audioLang: voiceLang, speakLang: subject.isLanguage ? subject.learnLangIso : '', clean: ai.clean })
+      // A general subject is explained out loud in the app language: the recognizer must listen for it, not the browser's.
+      })), { audioLang: voiceLang, speakLang: voiceLang, clean: ai.clean })
       if (qs.length < MIN_QUESTIONS) throw new Error(t('ls_badWorkout'))
       if (!aliveRef.current) return
       // The practice log gets the cards the learner actually answered about, when the run settles.
       runRef.current = { source: LISTEN_FEATURE_ID, modeId: subject.modeId, ctx, items, answers: [], settled: false }
       setQuestions(qs); setQuizDone(false); setPhase('run')
-    } catch (e) { if (aliveRef.current) { setError(String(e.message || e)); setPhase('intro') } }
+    } catch (e) { if (aliveRef.current) { setError(aiErrorText(t, e)); setPhase('intro') } }
   }
 
   if (phase === 'run') {
@@ -81,7 +84,7 @@ export default function ListenScreen({ onExit }) {
       <div style={{ fontSize: 13, color: C.inkDim, margin: '14px 0', lineHeight: 1.5 }}>{t('ls_how')}</div>
       {!ai.hasKey && <div style={{ color: C.warning, fontSize: 13, marginBottom: 10 }}>{t('ls_needKey')}</div>}
       {!engines.stt && <div style={{ color: C.warning, fontSize: 13, marginBottom: 10 }}>{t('ls_noStt')}</div>}
-      {error && <div style={{ color: C.danger, fontSize: 13, marginBottom: 10 }}>{error}</div>}
+      {error && <div role="alert" style={{ color: C.danger, fontSize: 13, marginBottom: 10 }}>{error}</div>}
       <ChunkyButton onClick={start} disabled={phase === 'loading' || !ai.hasKey} color={C.success}>
         🎧 {phase === 'loading' ? t('ls_loading') : t('ls_start')}
       </ChunkyButton>

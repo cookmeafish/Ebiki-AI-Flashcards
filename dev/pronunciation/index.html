@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pronunciation harness</title>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; }
+      body { margin: 0; font-family: 'Nunito', system-ui, sans-serif; background: var(--c-bg); color: var(--c-ink); }
+    </style>
+  </head>
+  <body>
+    <!-- Dev-only page (not part of the app build): several pronunciation players side by side, so playback,
+         "different speaker" cycling, credits and the fallbacks can be checked with the network stubbed.
+         With the dev server up: http://localhost:3000/dev/pronunciation/  (&light=1 light theme, &zoom=2 app zoom). -->
+    <div id="root"></div>
+    <script type="module" src="./main.jsx"></script>
+  </body>
+</html>

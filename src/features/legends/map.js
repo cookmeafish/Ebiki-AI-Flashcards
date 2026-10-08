@@ -72,7 +72,8 @@ export function slug(text, used = new Set(), fallback = 'area') {
 
 // Map plan → [{ title, theme, motif, palette }] or null when too little came back.
 export function parseMapPlan(raw, clean) {
-  const list = Array.isArray(raw) ? raw : Array.isArray(raw?.areas) ? raw.areas : []
+  const list = (Array.isArray(raw) ? raw : Array.isArray(raw?.areas) ? raw.areas : [])
+    .map((a) => (typeof a === 'string' ? { title: a } : a)) // a plain list of titles is still a plan
   const out = []
   const seen = new Set()
   const motifs = new Set()
@@ -115,6 +116,13 @@ export function ensureWeakNodes(map) {
 export const BOSS_NAME_MAX = 40
 export const cleanBossName = (v, clean) => str(typeof v === 'string' ? v : '', BOSS_NAME_MAX, clean) // an object was stored as "[object Object]" for good
     .replace(/^["'«»“”‘’\s]+|["'«»“”‘’\s]+$/g, '')
+// Model kind names that mean one of the three item kinds ("grammar", "principle", "procedure"...).
+const KIND_ALIASES = { grammar: 'rule', orthography: 'rule', spelling: 'rule', principle: 'rule', law: 'rule', formula: 'rule',
+  procedure: 'skill', task: 'skill', technique: 'skill', process: 'skill', word: 'term', phrase: 'term', vocabulary: 'term', vocab: 'term',
+  expression: 'term', concept: 'term', definition: 'term', fact: 'term' }
+const itemKind = (v) => { const k = String(v || '').trim().toLowerCase(); return ITEM_KINDS.includes(k) ? k : KIND_ALIASES[k] || 'term' }
+// A back written as a list of lines reads as those lines (String() joined them with commas).
+const backText = (v) => (Array.isArray(v) ? v.map((x) => String(x ?? '').trim()).filter(Boolean).join('\n') : String(v ?? ''))
 export function parseAreaDetail(raw, clean, { areaId = 'a' } = {}) {
   if (!raw || typeof raw !== 'object') return null
   const used = new Set()
@@ -126,13 +134,19 @@ export function parseAreaDetail(raw, clean, { areaId = 'a' } = {}) {
   for (let r = 0; r < rawItems.length; r++) {
     const it = rawItems[r]
     const front = str(it?.front, FRONT_MAX, clean)
-    const back = clean(String(it?.back ?? '').replace(/\\n/g, '\n').replace(/[ \t]+/g, ' ').trim()).slice(0, BACK_MAX)
+    const back = clean(backText(it?.back).replace(/\\n/g, '\n').replace(/[ \t]+/g, ' ').trim()).slice(0, BACK_MAX)
     if (!front || !back || items.some((x) => x.front.toLowerCase() === front.toLowerCase())) continue
     rawToKept.set(r, items.length)
-    items.push({ id: `${areaId}-i${items.length + 1}`, kind: pick(it?.kind, ITEM_KINDS, 'term'), front, back, cardNoteId: null, seen: 0, right: 0 })
+    items.push({ id: `${areaId}-i${items.length + 1}`, kind: itemKind(it?.kind), front, back, cardNoteId: null, seen: 0, right: 0 })
     if (items.length >= ITEMS.max) break
   }
   if (items.length < ITEMS.min) return null
+  const rawFront = rawItems.map((it) => String(it?.front ?? '').replace(/\s+/g, ' ').trim().toLowerCase())
+  const rawIndexOf = (x) => {
+    if (typeof x === 'number' || /^\s*\d+\s*$/.test(String(x))) return Number(x) - 1
+    const t = String(x ?? '').replace(/\s+/g, ' ').trim().toLowerCase()
+    return t ? rawFront.indexOf(t) : -1
+  }
   const nodes = []
   const opt = (x) => OPTIONAL_KINDS.has(x.kind)
   const rawNodes = (Array.isArray(raw.nodes) ? raw.nodes : []).filter((n) => String(n?.kind || '').toLowerCase() !== 'boss')
@@ -147,7 +161,8 @@ export function parseAreaDetail(raw, clean, { areaId = 'a' } = {}) {
     const goal = kind === 'adventure' ? str(n?.goal, GOAL_MAX, clean) : ''
     if (kind === 'adventure' && !goal) continue // an Adventure is its goal
     // An item is taught by ONE level: a later level naming it again drops it (and gets the untaught ones below).
-    const all = (Array.isArray(n?.items) ? n.items : []).map((x) => rawToKept.get(Number(x) - 1)).filter((i) => Number.isInteger(i))
+    // An item named by its number ("3", 3) or, as models sometimes do, by its own front text.
+    const all = (Array.isArray(n?.items) ? n.items : []).map((x) => rawToKept.get(rawIndexOf(x))).filter((i) => Number.isInteger(i))
     const idx = OPTIONAL_KINDS.has(kind) ? all : all.filter((i) => !nodes.some((o) => !opt(o) && o.itemIdx.includes(i)))
     nodes.push({ kind, title: str(n?.title, TITLE_MAX, clean), itemIdx: [...new Set(idx)], ...(goal ? { goal } : {}) })
   }
@@ -406,6 +421,21 @@ export function logDay(map, key) {
   const keys = Object.keys(days).sort()
   for (const k of keys.slice(0, Math.max(0, keys.length - JOURNEY_DAYS))) delete days[k]
   return { ...map, days }
+}
+
+// The heatmap's cells: `weeks` columns of Monday-to-Sunday days, the last column the current week, so every row is
+// one weekday. Days after today are `future` (drawn empty); a cell's key is the local YYYY-MM-DD logDay stores.
+export function journeyCells(today, days = {}, weeks = Math.ceil(JOURNEY_DAYS / 7)) {
+  const key = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const base = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const start = new Date(base); start.setDate(base.getDate() - ((base.getDay() + 6) % 7) - (weeks - 1) * 7)
+  const cells = []
+  for (let i = 0; i < weeks * 7; i++) {
+    const d = new Date(start); d.setDate(start.getDate() + i)
+    const k = key(d)
+    cells.push({ key: k, n: (d > base ? 0 : days[k] || 0), future: d > base })
+  }
+  return cells
 }
 
 // One area's own flags (storySeen, chestOpened, an item's missNudged): a plain merge, no status change.

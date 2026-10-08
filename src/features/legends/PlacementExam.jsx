@@ -1,5 +1,6 @@
 // The placement exam: batches of questions through the shared QuizRunner, each batch deciding the next tier
 // (./placement.js). Sentence answers are graded by the AI judge (QuizRunner does that for open questions).
+import { ctxErrorText } from '../kit/aiError'
 import { useEffect, useRef, useState } from 'react'
 import { C, FONT } from '../../config/tokens'
 import { poseFile } from '../../config/shrimp'
@@ -7,6 +8,7 @@ import { ChunkyButton, EbiSays } from '../ui'
 import { QuizRunner } from '../kit'
 import { newPlacement, afterBatch, placementLevel, placementConfidence, BATCH, MAX_QUESTIONS } from './placement'
 import { makePlacementBatch } from './generate'
+import { ScrollTop } from './NodeRun'
 
 const TOPICS_KEPT = 5
 
@@ -46,7 +48,7 @@ export default function Placement({ ctx, selfRating, onDone, onQuit }) {
       if (seq !== loadSeq.current || !alive.current) return
       asked.current = [...asked.current, ...qs.map((q) => q.prompt)]
       setQuestions(qs)
-    } catch (e) { if (seq === loadSeq.current && alive.current) setError(String(e.message || e)) }
+    } catch (e) { if (seq === loadSeq.current && alive.current) setError(ctxErrorText(ctx, e)) }
   }
   useEffect(() => {
     alive.current = true
@@ -54,11 +56,18 @@ export default function Placement({ ctx, selfRating, onDone, onQuit }) {
     return () => { alive.current = false }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The last batch's result is being saved (LegendsScreen opens the level screen when it lands): the runner's own
+  // Finish and Quit wait for it (leaving showed the map, then the level screen popped up over it). One finish per batch.
+  const finished = useRef(false)
+  const batchDone = useRef(-1)
   const finishBatch = (res) => {
+    if (batchDone.current === batchNo) return
+    batchDone.current = batchNo
     results.current = [...results.current, ...res]
     const next = afterBatch(state, res)
     setState(next)
     if (next.done) {
+      finished.current = true
       onDone({ answered: next.answered, level: placementLevel(next.answered), confidence: placementConfidence(next.answered), ...topicsOf(results.current) })
       return
     }
@@ -85,10 +94,14 @@ export default function Placement({ ctx, selfRating, onDone, onQuit }) {
       </div>
     )
   }
+  // Each batch opens at its top (the last batch's Finish left the next one scrolled down).
   return (
-    <QuizRunner key={batchNo} questions={questions} t={t} ai={ai} subject={subject} ctx={ctx} confirm={ctx.confirm}
-      title={t('lg_placementTitle')}
-      onFinish={finishBatch}
-      onExit={onQuit} />
+    <>
+      <ScrollTop on={batchNo} />
+      <QuizRunner key={batchNo} questions={questions} t={t} ai={ai} subject={subject} ctx={ctx} confirm={ctx.confirm}
+        title={t('lg_placementTitle')}
+        onFinish={finishBatch}
+        onExit={(...args) => { if (!finished.current) onQuit(...args) }} />
+    </>
   )
 }

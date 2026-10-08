@@ -9,6 +9,7 @@ import { useGame, initGame, configureGame, ensureToday, closeGamePanel, choosePl
 import { computeStreak, dateKey } from './engine'
 import { WeekDots } from './Rail'
 import StreakFlame, { StreakFxStyle } from './StreakFlame'
+import { celebrateWait } from './celebrate'
 import { gameHelpText } from './helpText'
 import { useHelpEntry } from '../kit/useHelp'
 
@@ -55,8 +56,8 @@ function Chooser({ g, t, onDone }) {
       {g.others.map((p) => (
         <button key={p.id} disabled={busy} onClick={() => run(() => choosePlayer(p.id))} className="btn-press" style={{
           display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 14px', marginBottom: 8, textAlign: 'left',
-          ...depthBorder(C.border, { bottomColor: C.border }), borderRadius: RADIUS.md, background: C.surface, cursor: 'pointer',
-          fontSize: 15, fontWeight: 800, color: C.ink,
+          ...depthBorder(C.border, { bottomColor: C.border }), borderRadius: RADIUS.md, background: C.surface, cursor: busy ? 'default' : 'pointer',
+          fontSize: 15, fontWeight: 800, color: C.ink, opacity: busy ? 0.5 : 1,
         }}>🦐 {p.name || t('game_unnamed')} <span style={{ marginLeft: 'auto', color: C.warning }}>🔥 {computeStreak(p).streak}</span></button>
       ))}
       <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
@@ -106,18 +107,34 @@ export default function GameMount() {
   // The first XP of the day extends the streak: celebrate, but never in the middle of a question.
   const done = g.player ? computeStreak(g.player).todayDone : null
   const playerIdRef = useRef(null)
+  const doneDayRef = useRef(dateKey()) // the day `lastDone` describes
   useEffect(() => {
     // Another player ("Switch player"): what the previous one had done today says nothing about this one (a player who
     // already played today got a false "streak extended" celebration).
     if (g.player?.id !== playerIdRef.current) { playerIdRef.current = g.player?.id ?? null; lastDone.current = null }
     if (done == null) return
+    // A new day since `lastDone` was seen (the first XP after midnight can land before the minute check, or right
+    // after waking from sleep): yesterday's "done" says nothing about today, else that day's celebration was skipped.
+    const today = dateKey()
+    if (doneDayRef.current !== today) { doneDayRef.current = today; if (lastDone.current != null) lastDone.current = false }
     if (lastDone.current === false && done) owed.current = true
     lastDone.current = done
-  }, [done, g.player?.id])
+  }, [done, g.player])
   const held = useFocusHeld()
   const busy = !!ctx?.busy || held
+  // Shown only after the user has been free for a moment (celebrate.js): a gap between two questions or batches
+  // is not "finished".
+  const freeSince = useRef(Date.now())
+  useEffect(() => { if (busy) freeSince.current = NaN; else if (!Number.isFinite(freeSince.current)) freeSince.current = Date.now() }, [busy])
   useEffect(() => {
-    if (owed.current && !busy) { owed.current = false; setCelebrate(true) }
+    const wait = celebrateWait({ owed: owed.current, busy, freeSince: freeSince.current, now: Date.now() })
+    if (wait < 0) return
+    const id = setTimeout(() => {
+      if (!owed.current) return
+      owed.current = false
+      setCelebrate(true)
+    }, wait)
+    return () => clearTimeout(id)
   }, [busy, done])
 
   if (!ctx || !onboarded) return null
@@ -125,7 +142,7 @@ export default function GameMount() {
   const zoom = ctx.getZoom?.() || 1
   return (
     <>
-      <Modal open={g.status === 'choose'} dismissable={false} zoom={zoom}>
+      <Modal open={g.status === 'choose'} dismissable={false} zoom={zoom} label={t('game_chooseTitle')}>
         <Chooser g={g} t={t} />
       </Modal>
       <Modal open={!!g.player && (celebrate || g.panel === 'streak')} zoom={zoom} onClose={() => { setCelebrate(false); closeGamePanel() }}>

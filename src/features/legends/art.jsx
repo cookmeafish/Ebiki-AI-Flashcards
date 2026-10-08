@@ -243,7 +243,7 @@ function loadArt(url) {
     cache.set(url, Promise.all([fetch(url).then((r) => (r.ok ? r.text() : '')), import('../../components/Markdown')])
       .then(([text, m]) => {
         const job = sanitizeQueue.then(nextTask).then(() => {
-          const out = text ? m.sanitizeHtml(text, { USE_PROFILES: { svg: true } }) : ''
+          const out = text ? m.sanitizeHtml(text, { USE_PROFILES: { svg: true }, SANITIZE_NAMED_PROPS: false }) /* own files: ids feed url(#id) */ : ''
           return /<svg[\s>]/i.test(out) ? idTemplate(withPhotoEye(out.replace(/<svg\b/i, '<svg preserveAspectRatio="xMidYMid slice" width="100%" height="100%" aria-hidden="true"'), url)) : ''
         })
         sanitizeQueue = job.catch(() => {})
@@ -425,7 +425,9 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
   }
   if (!labels || !big) return pad && !roomed ? <div style={{ padding: pad, flexShrink: 0, lineHeight: 0 }}>{art}</div> : art
   return (
-    <div style={{ width: typeof width === 'number' ? width + pad * 2 : width, padding: pad, boxSizing: 'border-box', display: 'grid', gap: 4, justifyItems: 'start', flexShrink: 0 }}>
+    // A banner never runs past its column (a 620px map banner spilled off the asset view's card on a narrow window);
+    // a figure keeps its exact size and headroom.
+    <div style={{ width: typeof width === 'number' ? width + pad * 2 : width, ...(figure ? {} : { maxWidth: '100%' }), padding: pad, boxSizing: 'border-box', display: 'grid', gap: 4, justifyItems: 'start', flexShrink: 0 }}>
       {art}
       <span style={{ marginTop: pad, padding: '1px 6px', borderRadius: 4, background: 'rgba(0,0,0,.72)', color: '#fff',
         font: '700 10px/1.4 monospace', textTransform: 'none', letterSpacing: 'normal', whiteSpace: 'nowrap' }}>

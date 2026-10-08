@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { C, FONT, RADIUS, SHADOW } from '../config/tokens'
-import { SHELL } from './layout'
+import { SHELL, isPhoneWidth, useViewportWidth } from './layout'
 
 const ROW_H = 46
 const ICON_SIZE = 22
@@ -20,6 +20,7 @@ const FLYOUT = {
   maxWidth: 260, // CSS px before the zoom scale
   arrow: 7,      // arrow square size (CSS px)
 }
+const FOCUS_TRIES = 10 // frames to wait for the picked screen's <main> to appear
 const FLYOUT_ID = 'ebiki-nav-flyout'
 // A host <div> under <html> (outside the body zoom). React warns about a <div> rendered straight into <html>.
 function flyoutHost() {
@@ -75,11 +76,34 @@ function NavFlyout({ anchor, title, desc, z }) {
   )
 }
 
-export default function Sidebar({ items, active, onPick, collapsed, onToggle, toggleLabel, getZoom }) {
+// PHONE WIDTH (SHELL.phoneBelow): the nav becomes a BOTTOM BAR of icon buttons (a side column took a third of a
+// phone's width). The shell row is flipped to a column with the nav last (column-reverse on the nav's parent), so the
+// bar sits under the screen; it scrolls sideways when the icons don't fit and keeps the current one in view. No
+// flyouts there (touch has no hover). `bar` lets the App decide; left out, the Sidebar measures the window itself.
+const BAR_BTN = 48 // touch target height (CSS px)
+const BAR_BTN_W = 44 // narrowest button: on a phone a cut-off icon at the edge shows the bar scrolls
+
+export default function Sidebar({ items, active, onPick, collapsed, onToggle, toggleLabel, getZoom, bar }) {
+  const viewportW = useViewportWidth(getZoom)
+  const asBar = typeof bar === 'boolean' ? bar : isPhoneWidth(viewportW)
   const [tip, setTip] = useState(null) // { key, title, desc, anchor, z }
   const timer = useRef(null)
   const clearTimer = () => { if (timer.current) { clearTimeout(timer.current); timer.current = null } }
   const hide = useCallback(() => { clearTimer(); setTip(null) }, [])
+  // A screen picked from the KEYBOARD (Enter/Space: click detail 0) takes the focus, so the next Tab is inside it, not
+  // in the nav again. Mouse clicks, the first load and Back/Forward leave focus alone. The screen's <main> gets
+  // tabIndex -1 (focusable by script only) and no outline: it is a region, not a control.
+  const navRef = useRef(null)
+  const focusScreen = () => {
+    let tries = 0
+    const step = () => {
+      const main = navRef.current?.parentElement?.querySelector('main')
+      if (!main) { if (++tries < FOCUS_TRIES) requestAnimationFrame(step); return }
+      if (!main.hasAttribute('tabindex')) { main.setAttribute('tabindex', '-1'); main.style.outline = 'none' }
+      main.focus({ preventScroll: true })
+    }
+    requestAnimationFrame(() => requestAnimationFrame(step)) // after the new screen renders
+  }
   const show = (el, key, title, desc) => {
     clearTimer()
     const r = el.getBoundingClientRect()
@@ -107,10 +131,57 @@ export default function Sidebar({ items, active, onPick, collapsed, onToggle, to
     }
   }, [tip, hide])
   useEffect(() => hide, [hide]) // unmount: no timer left behind
-  useEffect(() => { hide() }, [collapsed, active, hide]) // the row moved or changed under the flyout
+  useEffect(() => { hide() }, [collapsed, active, asBar, hide]) // the row moved or changed under the flyout
+  // Bar mode: the shell row (the nav's parent) stacks the screen over the bar. Only this one style property is set,
+  // and put back when the bar goes away (a wider window, or unmount).
+  useLayoutEffect(() => {
+    const row = navRef.current?.parentElement
+    if (!row || !asBar) return
+    const before = row.style.flexDirection
+    row.style.flexDirection = 'column-reverse'
+    return () => { row.style.flexDirection = before }
+  }, [asBar])
+  // Bar mode: keep the current screen's icon in view (scrolls the bar only, never the page).
+  useLayoutEffect(() => {
+    const nav = navRef.current
+    if (!asBar || !nav) return
+    const cur = nav.querySelector('[aria-current="page"]')
+    if (!cur) return
+    const left = cur.offsetLeft - (nav.clientWidth - cur.offsetWidth) / 2
+    nav.scrollLeft = Math.max(0, left)
+  }, [asBar, active, items.length])
+
+  if (asBar) {
+    return (
+      <nav ref={navRef} aria-label="Ebiki" data-nav-bar="" style={{
+        width: '100%', height: SHELL.barHeight, flexShrink: 0, boxSizing: 'border-box', padding: '3px 6px',
+        borderTop: `1px solid ${C.border}`, display: 'flex', flexDirection: 'row', alignItems: 'center', gap: 2,
+        overflowX: 'auto', overflowY: 'hidden', scrollbarWidth: 'none', background: C.surface,
+      }}>
+        {items.map((it) => {
+          const on = it.id === active
+          return (
+            <button key={it.id} onClick={(e) => { if (!on) { onPick(it.id); if (e.detail === 0) focusScreen() } }}
+              aria-current={on ? 'page' : undefined} aria-label={it.label}
+              className={on ? 'ui-tab-current' : 'click-dim'}
+              style={{
+                flex: `1 0 ${BAR_BTN_W}px`, minWidth: BAR_BTN_W, height: BAR_BTN, padding: 0, boxSizing: 'border-box',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: RADIUS.md,
+                border: `1px solid ${on ? C.border : 'transparent'}`, background: on ? C.surfaceRaised : 'transparent',
+                ...(on ? { boxShadow: `inset 0 -3px 0 ${C.brand}` } : {}), cursor: on ? 'default' : 'pointer',
+              }}>
+              {it.art
+                ? <img src={`/assets/nav/${it.art}.svg`} alt="" aria-hidden="true" draggable={false} width={ART_SIZE} height={ART_SIZE} style={{ display: 'block' }} />
+                : <span aria-hidden="true" style={{ fontSize: ICON_SIZE, lineHeight: 1 }}>{it.icon}</span>}
+            </button>
+          )
+        })}
+      </nav>
+    )
+  }
 
   return (
-    <nav aria-label="Ebiki" style={{
+    <nav ref={navRef} aria-label="Ebiki" style={{
       width: collapsed ? SHELL.sidebarCollapsed : SHELL.sidebarWidth, flexShrink: 0, boxSizing: 'border-box',
       // UI overhaul (docs/ui-overhaul.md): a quiet glass column with a hairline edge.
       padding: '14px 10px', borderRight: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', gap: 4,
@@ -119,7 +190,7 @@ export default function Sidebar({ items, active, onPick, collapsed, onToggle, to
       {items.map((it) => {
         const on = it.id === active
         return (
-          <button key={it.id} onClick={() => { hide(); if (!on) onPick(it.id) }} aria-current={on ? 'page' : undefined} aria-label={it.label}
+          <button key={it.id} onClick={(e) => { hide(); if (!on) { onPick(it.id); if (e.detail === 0) focusScreen() } }} aria-current={on ? 'page' : undefined} aria-label={it.label}
             className={on ? 'ui-tab-current' : 'click-dim'}
             {...tipProps(it.id, it.label, it.desc)}
             style={{

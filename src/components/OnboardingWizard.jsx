@@ -6,6 +6,7 @@ import { APP_LANGUAGES } from '../i18n'
 import { shrimpUrl, poseFile, DEFAULT_SHRIMP } from '../config/shrimp'
 import { LaunchModeOptions, choiceProps } from './LaunchModeChoice'
 import { apiFetch } from '../platform'
+import { imeActive } from '../utils/keys'
 
 // First-run, Ebi-guided onboarding. Hand-holds a new user through:
 // language → appearance → AI provider+key → first study mode → done.
@@ -77,8 +78,12 @@ export default function OnboardingWizard(p) {
     const seq = ++keyCheckSeq.current
     if (!key) { setKeyCheck(null); return }
     // Free and instant: the wrong provider's key can be rejected without a call.
+    // A wrong prefix names the provider the key does belong to, if any (an OpenAI "sk-proj-" key pasted under
+    // Anthropic read as "rejected", although nothing was sent and the fix is just picking OpenAI).
+    const wrongPrefix = !!providerConfig?.keyPrefix && !key.startsWith(providerConfig.keyPrefix)
     const other = keyOfOtherProvider(providerConfig, key)
-    if ((providerConfig?.keyPrefix && !key.startsWith(providerConfig.keyPrefix)) || other) { setKeyCheck({ state: 'invalid', other: other?.label || '' }); return }
+      || (wrongPrefix ? Object.values(PROVIDERS).find((pr) => pr !== providerConfig && pr.keyPrefix && key.startsWith(pr.keyPrefix)) : null)
+    if (wrongPrefix || other) { setKeyCheck({ state: 'invalid', other: other?.label || '' }); return }
     if (!validateKey) { setKeyCheck(null); return }
     setKeyCheck({ state: 'checking' })
     // Debounced, because this input is bound on every keystroke: someone typing a
@@ -105,6 +110,8 @@ export default function OnboardingWizard(p) {
   const poseUrls = useMemo(() => poses.map((n) => shrimpUrl(poseFile(n) || DEFAULT_SHRIMP)), [])
 
   const steps = ['welcome', 'language', 'appearance', 'launch', 'provider', 'intelligence', 'mode', 'finish']
+  // The dialog is named after the step on screen (screen readers announced an unnamed dialog).
+  const STEP_TITLE = { welcome: 'obWelcomeTitle', language: 'obLanguageTitle', appearance: 'obThemeTitle', launch: 'obLaunchTitle', provider: 'obProviderTitle', intelligence: 'obIntelTitle', mode: 'obModeTitle', finish: 'obDoneTitle' }
   const last = steps.length - 1
   const next = () => setStep((s) => Math.min(s + 1, last))
   const back = () => setStep((s) => Math.max(s - 1, 0))
@@ -115,7 +122,7 @@ export default function OnboardingWizard(p) {
   const choiceCard = (active) => ({
     cursor: 'pointer', padding: '14px 18px', borderRadius: RADIUS.md, fontWeight: 700, fontSize: 14,
     border: `2px solid ${active ? C.brand : C.border}`, background: active ? C.brandTint : C.surface,
-    color: active ? C.brand : C.ink, transition: 'all .15s ease',
+    color: active ? C.brandText : C.ink, transition: 'all .15s ease',
   })
 
   // How Ebiki opens on this computer. Machine-local (launchmode.json via /api/launchmode), NOT part
@@ -208,9 +215,9 @@ export default function OnboardingWizard(p) {
           <div style={sub}>{t('obProviderBody')}</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 18 }}>
             {Object.entries(PROVIDERS).map(([key, pr]) => (
-              <button key={key} onClick={() => setProvider(key)} style={{
+              <button key={key} aria-pressed={provider === key} onClick={() => setProvider(key)} style={{
                 ...S.ghostBtn, fontSize: 13, padding: '7px 14px',
-                color: provider === key ? pr.color : C.inkDim,
+                color: provider === key ? C.ink : C.inkDim, // the provider's own color stays on the border and tint: as text it failed contrast (xAI's #e6e6e6 was invisible in light)
                 borderColor: provider === key ? `${pr.color}66` : C.border,
                 background: provider === key ? `${pr.color}14` : C.surface,
               }}>
@@ -221,7 +228,9 @@ export default function OnboardingWizard(p) {
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', maxWidth: 460, margin: '16px auto 0' }}>
             <input type="password" data-no-voice="" value={apiKey} onChange={(e) => setCurrentKey(e.target.value.replace(/\s+/g, ''))} placeholder={providerConfig.placeholder}
-              style={{ ...S.keyInput, flex: 1, ...(keyStateColor ? { borderColor: keyStateColor } : {}) }} />
+              /* The whole `border` shorthand, never a borderColor toggled over it: removing the longhand left the
+                 field without its themed border colour after a key was cleared (React warns about exactly this). */
+              style={{ ...S.keyInput, flex: 1, border: `1px solid ${keyStateColor || C.border}` }} />
             <a href={providerConfig.url} target="_blank" rel="noopener noreferrer" style={S.getKeyLink}>{t('getKey')}</a>
           </div>
           {/* The verdict sits where the reassurance used to, so it cannot be missed. */}
@@ -240,7 +249,7 @@ export default function OnboardingWizard(p) {
                     a pasted id with a trailing space broke the first mode's creation. */}
                 <input key={provider} defaultValue={aiModels[provider]?.general || ''}
                   onBlur={(e) => { const v = e.target.value.replace(/\s+/g, ''); e.target.value = v; customTypedRef.current = !!v; setAiModels((prev) => ({ ...prev, [provider]: { ...(prev[provider] || {}), general: v } })) }}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) e.currentTarget.blur() }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e)) e.currentTarget.blur() }}
                   placeholder={t('obCustomModelPlaceholder')} spellCheck={false} style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box', fontSize: 12 }} />
               </div>
             )}
@@ -261,7 +270,7 @@ export default function OnboardingWizard(p) {
             ].map((opt) => {
               const active = (intelligence || 'normal') === opt.key
               return (
-                <button key={opt.key} onClick={() => {
+                <button key={opt.key} aria-pressed={active} onClick={() => {
                   // A re-run: the preset applies to the whole app, as the step says, so per-feature overrides from
                   // Settings go (Settings' own preset tiles do the same). A custom model typed here stays.
                   if (onClose) {
@@ -281,7 +290,7 @@ export default function OnboardingWizard(p) {
                   border: `2px solid ${active ? C.brand : C.border}`, background: active ? C.brandTint : C.surface,
                   transition: 'all .15s ease',
                 }}>
-                  <div style={{ fontSize: 15, fontWeight: 800, color: active ? C.brand : C.ink }}>{active ? '● ' : '○ '}{opt.title}</div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: active ? C.brandText : C.ink }}>{active ? '● ' : '○ '}{opt.title}</div>
                   <div style={{ fontSize: 12, color: C.inkDim, margin: '6px 0' }}>{opt.desc}</div>
                   <div style={{ fontSize: 10, color: C.inkFaint, fontFamily: 'monospace' }}>{opt.model}</div>
                 </button>
@@ -309,7 +318,7 @@ export default function OnboardingWizard(p) {
           <div style={sub}>{t('obModeBody')}</div>
           <div style={{ display: 'flex', gap: 8, maxWidth: 480, margin: '20px auto 0' }}>
             <input value={modeInput} onChange={(e) => setModeInput(e.target.value)} autoFocus
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing && modeInput.trim() && apiKey && !creatingFirst && !modeCreating) createFirstMode() }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e) && modeInput.trim() && apiKey && !creatingFirst && !modeCreating) createFirstMode() }}
               placeholder={t('createModePlaceholder')} style={{ ...S.keyInput, flex: 1 }} disabled={creatingFirst || modeCreating} />
           </div>
           {!apiKey && <div style={{ fontSize: 12, color: C.warning, marginTop: 10 }}>{t('obModeNeedsKey')}</div>}
@@ -336,7 +345,7 @@ export default function OnboardingWizard(p) {
     // Sized for body{zoom (the app zoom, --app-zoom)} like SettingsModal: a bare inset:0 backdrop covered zoom x 100% of the window,
     // pushing the panel down-right so tall steps hid their Next/Back footer during first run.
     // Second pass: a full-screen flow on the app's own canvas (opaque, no blurred app behind it), a step bar on top.
-    <div role="dialog" aria-modal="true" style={{ ...S.backdrop, cursor: 'default', width: 'calc(100vw / var(--app-zoom))', height: 'calc(100vh / var(--app-zoom))',
+    <div role="dialog" aria-modal="true" aria-label={t(STEP_TITLE[steps[step]] || 'obWelcomeTitle')} style={{ ...S.backdrop, cursor: 'default', width: 'calc(100vw / var(--app-zoom))', height: 'calc(100vh / var(--app-zoom))',
       background: `radial-gradient(900px 520px at 85% -10%, color-mix(in srgb, ${C.brand} 9%, transparent), transparent 65%), radial-gradient(800px 520px at 0% 110%, color-mix(in srgb, ${C.teal} 9%, transparent), transparent 60%), ${C.bg}`,
       backdropFilter: 'none', WebkitBackdropFilter: 'none' }}>
       <div ref={panelRef} tabIndex={-1} style={{ outline: 'none', position: 'relative',

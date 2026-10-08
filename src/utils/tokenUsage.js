@@ -25,6 +25,7 @@ export const PRICE_TABLE = [
   { provider: 'openai', re: /^gpt-4\.1-mini/, price: [0.4, 1.6] },
   { provider: 'openai', re: /^gpt-4\.1/, price: [2, 8] },
   { provider: 'openai', re: /^gpt-4o-mini/, price: [0.15, 0.6] },
+  { provider: 'openai', re: /^gpt-4o-2024-05-13$|^chatgpt-4o-latest$/, price: [5, 15] }, // kept the launch price
   { provider: 'openai', re: /^(gpt-4o|chatgpt-4o)/, price: [2.5, 10] },
   { provider: 'openai', re: /^gpt-4-turbo/, price: [10, 30] },
   { provider: 'openai', re: /^gpt-4(-\d{4})?$/, price: [30, 60] },
@@ -51,6 +52,10 @@ export const PRICE_TABLE = [
   { provider: 'grok', re: /^grok-(3|4)(-\d{4})?$|^grok-4-\d{4}/, price: [3, 15] },
 ]
 
+// Audio, realtime, speech, transcription, image and embedding models bill at their own (higher, or per-minute)
+// rates: a text price above would be a guess for them, so they stay unpriced unless the user types one.
+const NON_TEXT = /realtime|audio|tts|transcribe|image|embed|-live/
+
 // Prices the user typed (the counter panel, "Set price"), keyed "provider|model": a model newer than this table
 // has no built-in price, and guessing one would be worse than asking. They win over the table.
 export const priceKey = (provider, model) => `${provider}|${model}`
@@ -61,6 +66,7 @@ export function priceFor(provider, model, prices = null) {
   const own = prices && prices[priceKey(provider, model)]
   if (validPrice(own)) return own
   const id = String(model || '').toLowerCase().replace(/^models\//, '')
+  if (NON_TEXT.test(id)) return null
   const hit = PRICE_TABLE.find((p) => p.provider === provider && p.re.test(id))
   return hit ? hit.price : null
 }
@@ -71,6 +77,11 @@ export function costOf(provider, model, input, output, prices = null) {
   if (!p) return null
   return (Number(input) || 0) / 1e6 * p[0] + (Number(output) || 0) / 1e6 * p[1]
 }
+
+// The by-model rows the panel lists: the biggest `top`, plus every unpriced one further down (its "Set price"
+// button must stay reachable, else its tokens count as unpriced with no way to fix it) and every one priced by the
+// user (else saving a price made the row vanish, and its "Remove my price" with it).
+export const rowsToShow = (rows, top = 10) => (rows || []).filter((r, i) => i < top || r.cost === null || r.ownPrice)
 
 // { byModel: { "provider|model": { provider, model, input, output, calls } } } -> totals.
 export function summarize(byModel, prices = null) {

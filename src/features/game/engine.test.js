@@ -66,6 +66,15 @@ describe('quests', () => {
     expect(questProgress('cards:10', { cards: 4 })).toMatchObject({ value: 4, target: 10, done: false })
     expect(questProgress('gym:1', { gymDone: 2 })).toMatchObject({ value: 1, done: true })
   })
+  it('a quest kind from a newer build never blocks the freeze here', () => {
+    expect(questProgress('dance:3', {})).toMatchObject({ unknown: true, done: true })
+    const freezes = (quests, cards) => computeStreak(player({ '2026-09-25': { xp: 50, cards, quests } }), '2026-09-25').freezes
+    const base = computeStreak(player({ '2026-09-25': 50 }), '2026-09-25').freezes
+    expect(freezes(['xp:40', 'cards:5', 'dance:1'], 6)).toBe(base + 1)
+    expect(freezes(['xp:40', 'cards:5', 'dance:1'], 2)).toBe(base)
+    // only unknown quests: nothing measurable, no free freeze
+    expect(freezes(['dance:1', 'sing:2'], 0)).toBe(base)
+  })
 })
 
 describe('streak', () => {
@@ -174,5 +183,26 @@ describe('league tier and a later goal change', () => {
     const p = { id: 'p', days: { '2026-06-01': day(80), '2026-06-02': day(80), '2026-06-08': day(100), '2026-06-09': day(100) } }
     const mon = weekStart('2026-06-17')
     expect(tierFor(p, mon, 50)).toBe(tierFor(p, mon, 30))
+  })
+})
+
+// What the rail and the streak panel show, cross-checked against a seeded player (round 4 game QA).
+describe('what the game screens show', () => {
+  it('a rest day today keeps the streak and shows as rest, not as a day still to play', () => {
+    // 2026-10-04 is a Sunday; Sundays are rest days; no XP that day.
+    const p = player({ '2026-10-01': 20, '2026-10-02': 20, '2026-10-03': 20 }, { restDays: [6] })
+    const s = computeStreak(p, '2026-10-04')
+    expect(s.streak).toBe(3)
+    expect(s.todayDone).toBe(false)
+    expect(weekRow(p, '2026-10-04').at(-1)).toEqual({ date: '2026-10-04', status: 'rest' })
+    // The next day it is still bridged, not frozen.
+    const t = computeStreak(p, '2026-10-05')
+    expect(t.frozen).toEqual([])
+    expect(t.rested).toContain('2026-10-04')
+  })
+  it('a ghost row carries its whole week, raced by the same weekday', () => {
+    const p = player({ '2026-09-28': 10, '2026-09-30': 30, '2026-10-02': 50, '2026-10-05': 15, '2026-10-07': 5 })
+    const ghost = leagueBoard(p, [], '2026-10-07').rows.find((r) => r.kind === 'ghost')
+    expect(ghost).toMatchObject({ weeksAgo: 1, xp: 40, finalXp: 90 }) // Mon..Wed of last week vs its whole week
   })
 })

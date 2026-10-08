@@ -51,8 +51,9 @@ export default {
       {chain(10, { left: '-20%', top: '40%', transformOrigin: '0 50%', '--r0': '-50deg', '--r1': '6deg', animation: anim('lgrCerberusLash', 420, 0, 'cubic-bezier(.2,.9,.3,1)') }, 'a')}
       {chain(10, { right: '-20%', top: '44%', transformOrigin: '100% 50%', flexDirection: 'row-reverse', '--r0': '50deg', '--r1': '-6deg', animation: anim('lgrCerberusLash', 420, 90, 'cubic-bezier(.2,.9,.3,1)') }, 'b')}
       {chain(8, { left: '50%', top: '-18%', transformOrigin: '0 50%', '--r0': '20deg', '--r1': '90deg', animation: anim('lgrCerberusLash', 420, 180, 'cubic-bezier(.2,.9,.3,1)') }, 'c')}
-      {/* the gate's iron bars crash down in front of him */}
-      {[0, 1, 2, 3, 4, 5].map((i) => <div key={`bar${i}`} className="lgx" style={{ left: `${8 + i * 16}%`, top: '-40%', width: 7, height: '130%', background: `linear-gradient(90deg, ${T.ironLo}, ${T.iron} 45%, ${T.ironLo})`, border: `1.5px solid ${T.ink}`, borderRadius: '3px 3px 1px 1px', clipPath: 'polygon(50% 0, 100% 6%, 100% 100%, 0 100%, 0 6%)', animation: anim('lgrCerberusBars', 1100, 260 + (i % 3) * 40, 'cubic-bezier(.5,0,.7,1)') }} />)}
+      {/* the gate's iron bars crash down in front of him (hidden until they fall: held at their start they hung above
+          the arena; at rest they stay inside the frame and its headroom) */}
+      {[0, 1, 2, 3, 4, 5].map((i) => <div key={`bar${i}`} className="lgx" style={{ left: `${8 + i * 16}%`, top: '-12%', width: 7, height: '104%', background: `linear-gradient(90deg, ${T.ironLo}, ${T.iron} 45%, ${T.ironLo})`, border: `1.5px solid ${T.ink}`, borderRadius: '3px 3px 1px 1px', clipPath: 'polygon(50% 0, 100% 6%, 100% 100%, 0 100%, 0 6%)', animation: anim('lgrCerberusBars', 1100, 260 + (i % 3) * 40, 'cubic-bezier(.5,0,.7,1)') }} />)}
       {padlock({ ...center, top: '56%', animation: anim('lgrCerberusClamp', 700, 480, 'cubic-bezier(.3,1.6,.5,1)') }, 'big', 1.7)}
       {ring(T.soul, 520, 1.8, 4, 650)}
       {shards(10, T.iron, -80, 9)}
@@ -77,7 +78,7 @@ export default {
   css: `
 @keyframes lgrCerberusLash { 0% { transform: rotate(var(--r0)) scaleX(.1); opacity: 0 } 20% { opacity: 1 } 60% { transform: rotate(var(--r1)) scaleX(1.05) } 80% { transform: rotate(var(--r1)) scaleX(1); opacity: 1 } 100% { transform: rotate(var(--r1)) scaleX(1); opacity: 0 } }
 @keyframes lgrCerberusClamp { 0% { transform: translateY(-30px) scale(1.6); opacity: 0 } 30% { opacity: 1 } 55% { transform: translateY(0) scale(.9) } 75% { transform: scale(1.06) } 88% { transform: scale(1); opacity: 1 } 100% { opacity: 0 } }
-@keyframes lgrCerberusBars { 0% { transform: translateY(-60%) } 34% { transform: translateY(0) } 42% { transform: translateY(-4%) } 50% { transform: translateY(0) } 85% { transform: translateY(0); opacity: 1 } 100% { transform: translateY(0); opacity: 0 } }
+@keyframes lgrCerberusBars { 0% { transform: translateY(-55%); opacity: 0 } 12% { opacity: 1 } 34% { transform: translateY(0) } 42% { transform: translateY(-4%) } 50% { transform: translateY(0) } 85% { transform: translateY(0); opacity: 1 } 100% { transform: translateY(0); opacity: 0 } }
 @keyframes lgrCerberusFlare { 0% { transform: scale(.4); opacity: 0 } 25% { transform: scale(1.25); opacity: 1 } 100% { transform: scale(1.5) translateY(-20px); opacity: 0 } }
 .lgr-cerberus-bindFire { animation: lgrCerberusYankL 330ms cubic-bezier(.2,.9,.3,1) both; transform-origin: 50% 100% }
 @keyframes lgrCerberusYankL { 0%, 100% { transform: none } 35% { transform: translate(-6px, 4px) rotate(-6deg) } 70% { transform: translate(-1px, 1px) rotate(-1.5deg) } }

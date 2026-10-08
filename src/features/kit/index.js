@@ -7,6 +7,7 @@ export { default as RuleCardButton } from './RuleCardButton'
 // The optional "Voice chat" switch (defined by src/features/speech). Read here so features never import each other.
 export const VOICE_CHAT_ID = 'voice-chat'
 export const voiceChatOn = (ctx) => !!ctx?.registry?.isActive?.(VOICE_CHAT_ID)
+export { useVoiceChat } from './useVoiceChat'
 export { judgeAnswer, judgeStrike, explainStrike, recheckStrike } from './judge'
 export { recordReviews } from './reviews'
 export { pickCardItems } from './items'

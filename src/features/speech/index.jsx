@@ -21,7 +21,7 @@ function EngineSelect({ kind, value, onChange, t, keys }) {
   }
   const engines = Object.keys(COSTS[kind]).sort((a, b) => COSTS[kind][a] - COSTS[kind][b])
   return (
-    <select value={value || 'auto'} onChange={(e) => onChange(e.target.value)} style={{ width: '100%', padding: '7px 8px', borderRadius: RADIUS.sm, border: `1px solid ${C.border}`, background: C.surfaceAlt, color: C.ink, fontSize: 12.5 }}>
+    <select value={value || 'auto'} onChange={(e) => onChange(e.target.value)} aria-label={t(kind === 'stt' ? 'speech_sttLabel' : 'speech_ttsLabel')} style={{ width: '100%', padding: '7px 8px', borderRadius: RADIUS.sm, border: `1px solid ${C.border}`, background: C.surfaceAlt, color: C.ink, fontSize: 12.5 }}>
       <option value="auto">{t(kind === 'stt' ? 'speech_autoStt' : 'speech_autoTts')}</option>
       {engines.map((e) => <option key={e} value={e} disabled={!usable(e)}>{label(e)}</option>)}
     </select>

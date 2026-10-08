@@ -104,8 +104,11 @@ export function eventDelta(kind, opts = {}, today = {}) {
 
 // Merge two player files (server side on every write, and client side after a read): counters take the
 // max PER MACHINE, so each computer's own progress is monotonic and nothing is summed twice.
-export function mergePlayers(a, b) {
-  if (!a) return b || null
+export function mergePlayers(a0, b0) {
+  const asPlayer = (p) => (p && typeof p === 'object' && !Array.isArray(p) ? p : null) // a damaged file is no player
+  const a = asPlayer(a0)
+  const b = asPlayer(b0)
+  if (!a) return b
   if (!b) return a
   const out = { ...a, ...b, days: { ...(a.days || {}) } }
   for (const [key, recs] of Object.entries(b.days || {})) {
@@ -151,6 +154,23 @@ export function restDaysPatch(player, days, today) {
   const hist = (Array.isArray(player?.restDaysHistory) ? player.restDaysHistory : []).filter((h) => h && h.until !== today)
   const before = restDaysOn(player, addDays(today, -1))
   return { restDays: days, restDaysHistory: [...hist, { until: today, days: before }].sort((a, b) => String(a.until).localeCompare(String(b.until))).slice(-REST_HISTORY_MAX) }
+}
+// The restDates list after planning `pick` (a date key, today or later), kept at REST_DATES_MAX. A full list used to
+// drop its OLDEST date, and a past rest date may be what bridged a day with no XP: dropping it broke the streak after
+// the fact. Dates that bridge nothing go first (past days with XP, days before the first played day); a bridging past
+// date goes only when nothing else can; `null` = nothing to add.
+export function addRestDate(player, pick, today = dateKey()) {
+  const all = Array.isArray(player?.restDates) ? player.restDates : []
+  if (!pick || pick < today || all.includes(pick)) return null
+  const next = [...all, pick].sort()
+  if (next.length <= REST_DATES_MAX) return next
+  const played = Object.keys(player?.days || {}).filter((k) => dayTotals(player, k).xp > 0).sort()
+  const first = played[0] || today
+  const idle = (d) => d < today && (d < first || dayTotals(player, d).xp > 0)
+  const out = [...next]
+  for (let i = 0; i < out.length && out.length > REST_DATES_MAX;) { if (idle(out[i])) out.splice(i, 1); else i++ }
+  while (out.length > REST_DATES_MAX && out[0] < today) out.shift()
+  return out.length > REST_DATES_MAX ? out.slice(0, REST_DATES_MAX) : out
 }
 export function isRestDay(player, key) {
   const days = restDaysOn(player, key)
@@ -199,8 +219,17 @@ export function questProgress(id, totals) {
   const [kind, target] = String(id).split(':')
   const q = QUESTS[kind]
   const need = Math.max(1, Number(target) || 1)
-  const have = q ? Number(totals?.[q.metric]) || 0 : 0
+  // A kind this build doesn't know (a NEWER computer on the share picked it): it can't be measured here, so it never
+  // blocks the all-quests freeze; `unknown` hides it from the rail and Help.
+  if (!q) return { id, kind, target: need, value: need, done: true, unknown: true }
+  const have = Number(totals?.[q.metric]) || 0
   return { id, kind, target: need, value: Math.min(have, need), done: have >= need }
+}
+
+// Did the day's quests earn the freeze? Every quest done, and at least one this build can actually measure.
+export function questsAllDone(quests, totals) {
+  const prog = (quests || []).map((q) => questProgress(q, totals))
+  return prog.some((p) => !p.unknown) && prog.every((p) => p.done)
 }
 
 // ─── Streak and freezes ────────────────────────────────────────────────────────
@@ -220,7 +249,7 @@ export function computeStreak(player, today = dateKey()) {
       streak++
       longest = Math.max(longest, streak)
       const { quests } = dayMeta(player, d)
-      if (quests && quests.length && quests.every((q) => questProgress(q, tot).done)) freezes = Math.min(MAX_FREEZES, freezes + 1)
+      if (questsAllDone(quests, tot)) freezes = Math.min(MAX_FREEZES, freezes + 1)
       if (tot.bossWins > 0) freezes = Math.min(MAX_FREEZES, freezes + tot.bossWins)
     } else if (d === today) {
       // Today isn't over: the streak stands until midnight.
@@ -300,7 +329,7 @@ export function leagueBoard(player, friends = [], today = dateKey(), goalXp = DE
     if (g < firstWeek) continue
     rows.push({ kind: 'ghost', weeksAgo: n, xp: weekXp(player, g, dayIdx), finalXp: weekXp(player, g) })
   }
-  for (const f of friends) rows.push({ kind: 'friend', id: f.id, name: f.name, avatar: f.avatar, xp: weekXp(f, mon, dayIdx) })
+  for (const f of Array.isArray(friends) ? friends : []) if (f && typeof f === 'object') rows.push({ kind: 'friend', id: f.id, name: f.name, avatar: f.avatar, xp: weekXp(f, mon, dayIdx) })
   rows.sort((a, b) => b.xp - a.xp || (a.kind === 'me' ? -1 : b.kind === 'me' ? 1 : 0))
   return { tier: tierFor(player, mon, goalXp), rows, daysLeft: 6 - dayIdx }
 }

@@ -167,7 +167,8 @@ function readUtf8(path) {
     var st = new ActiveXObject('ADODB.Stream');
     st.Type = 2; st.Charset = 'utf-8'; st.Open(); st.LoadFromFile(path);
     var txt = st.ReadText(); st.Close();
-    return txt.replace(/^﻿/, '');
+    // An escape, not a literal BOM in the source: decoded as anything but UTF-8 the literal became three chars.
+    return txt.replace(/^\uFEFF/, '');
   } catch (e) { return ''; }
 }
 // This window's text comes from the app's locale files, through their generated copy

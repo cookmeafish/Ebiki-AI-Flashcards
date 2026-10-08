@@ -7,21 +7,26 @@ export const PALETTE_CSS = `
         :root {
           color-scheme: light; /* native controls (select popups, scrollbars) match light theme */
           /* UI overhaul 2026-10 (docs/ui-overhaul.md): this block is the main lever of the look. */
-          --c-brand: #DF2540; --c-brand-dark: #BE0E2B; --c-brand-soft: #FF5468;
+          --c-brand: #DF2540; --c-brand-dark: #BE0E2B; --c-brand-soft: #FF5468; --c-brand-text: #BE0E2B;
           --c-bg: #F4F6F8; --c-bg-grad1: rgba(223,37,64,.025); --c-bg-grad2: rgba(17,168,160,.035);
           --c-surface: #FFFFFF; --c-surface-alt: #EDF0F3; --c-surface-sunken: #F3F5F7; --c-surface-raised: #FFFFFF;
           --c-border: #E3E7EB; --c-border-strong: #CBD2D9;
-          --c-ink: #101820; --c-ink-dim: #4A5866; --c-ink-faint: #788693;
+          /* Contrast pass (src/config/contrast.js + test): every text token is WCAG AA (4.5:1) on every surface,
+             hover and its own 12% chip tint. Brand stays #DF2540 (identity: AA on cards, 4.2 on the page). */
+          --c-ink: #101820; --c-ink-dim: #4A5866; --c-ink-faint: #626F7B;
           --c-on-brand: #FFFFFF;
           /* Second pass: a solid ink surface (the selected segment, keyboard keys, the session pill). */
           --c-ink-solid: #101820; --c-on-ink: #FFFFFF;
           --c-brand-tint: rgba(223,37,64,.07); --c-brand-line: rgba(223,37,64,.24);
           --c-glass: rgba(255,255,255,.78); --c-glass-strong: rgba(255,255,255,.96);
           --c-hover: rgba(17,28,36,.05);
-          --c-teal: #11A8A0; --c-teal-dark: #0C857F;
+          --c-teal: #0A716C; --c-teal-dark: #075A56;
           /* Light-mode semantic colors run DEEPER than dark mode's: at small sizes on the light
              background, #18A957 green and #E8930C amber shared the same luminance and blended. */
-          --c-success: #0E8746; --c-warning: #B36A00; --c-danger: #D32F24; --c-info: #2D86C9; --c-purple: #7C4DEF;
+          --c-success: #0D7B40; --c-warning: #9C5C00; --c-danger: #C82C22; --c-info: #2670A8; --c-purple: #7847EE;
+          /* Solid fills under white text (CTAs, badges): AA with white in BOTH themes (dark mode's bright text
+             colors gave white only 2 to 3.2:1), so the same deep values serve both. */
+          --c-brand-fill: #DF2540; --c-success-fill: #0D7B40; --c-danger-fill: #C82C22; --c-warning-fill: #9C5C00; --c-purple-fill: #7847EE; --c-info-fill: #2670A8;
           /* Layered elevation: tight contact + wide ambient. --sh-sm stays ONE shadow (used in drop-shadow()). */
           --sh-hi: inset 0 1px 0 rgba(255,255,255,.7);
           --sh-sm: 0 1px 2px rgba(17,28,36,.07);
@@ -37,11 +42,11 @@ export const PALETTE_CSS = `
         }
         [data-theme="dark"] {
           color-scheme: dark; /* dark native select popups + scrollbars */
-          --c-brand: #FF4D63; --c-brand-dark: #C81F38; --c-brand-soft: #FF6F80;
+          --c-brand: #FF4D63; --c-brand-dark: #C81F38; --c-brand-soft: #FF6F80; --c-brand-text: #FF4D63;
           --c-bg: #0A0E13; --c-bg-grad1: rgba(255,77,99,.035); --c-bg-grad2: rgba(43,196,187,.045);
           --c-surface: #121A21; --c-surface-alt: #19232C; --c-surface-sunken: #0D1419; --c-surface-raised: #18222B;
           --c-border: #212D37; --c-border-strong: #33424E;
-          --c-ink: #EAF0F4; --c-ink-dim: #A6B4BF; --c-ink-faint: #71838F;
+          --c-ink: #EAF0F4; --c-ink-dim: #A6B4BF; --c-ink-faint: #80909B;
           --c-on-brand: #FFFFFF;
           --c-ink-solid: #EAF0F4; --c-on-ink: #0A0E13;
           --c-brand-tint: rgba(255,77,99,.10); --c-brand-line: rgba(255,77,99,.32);
@@ -49,6 +54,7 @@ export const PALETTE_CSS = `
           --c-hover: rgba(255,255,255,.06);
           --c-teal: #2BC4BB; --c-teal-dark: #17A8A0;
           --c-success: #3BC873; --c-warning: #F2A93A; --c-danger: #FF5A4E; --c-info: #4FA3E0; --c-purple: #A684F7;
+          --c-brand-fill: #DF2540; --c-success-fill: #0D7B40; --c-danger-fill: #C82C22; --c-warning-fill: #9C5C00; --c-purple-fill: #7847EE; --c-info-fill: #2670A8;
           --sh-hi: inset 0 1px 0 rgba(255,255,255,.045);
           --sh-sm: 0 1px 2px rgba(0,0,0,.45);
           --sh-card: inset 0 1px 0 rgba(255,255,255,.045), 0 1px 2px rgba(0,0,0,.35), 0 6px 18px -8px rgba(0,0,0,.6);

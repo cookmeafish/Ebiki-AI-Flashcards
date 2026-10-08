@@ -147,6 +147,15 @@ describe('OpenAI-compatible per-model output cap', () => {
     expect(await PROVIDERS.openai.call('k', 'sys', 'user', 'gpt-4-0613', undefined, 6000)).toBe('fine')
     expect(calls.map((c) => c.body.max_completion_tokens)).toEqual([6000, 4096])
   })
+  it('never grows a later retry past the cap the model already named', async () => {
+    // Capped at 4096, the reply still ran out: a "roomier" 24000 retry only hit the cap error again and
+    // reported that instead of the real "empty (output limit reached)".
+    const calls = stub((n, body) => (body.max_completion_tokens > 4096
+      ? badRequest('max_tokens is too large: 6000. This model supports at most 4096 completion tokens, whereas you provided 6000.')
+      : okOpenAi('', 'length')))
+    await expect(PROVIDERS.openai.call('k', 'sys', 'user', 'gpt-4-0613', undefined, 6000)).rejects.toThrow(/API 200: empty/)
+    expect(calls.map((c) => c.body.max_completion_tokens)).toEqual([6000, 4096])
+  })
   it('does not retry a 400 that names no cap', async () => {
     const calls = stub(() => badRequest('Invalid value for messages'))
     await expect(PROVIDERS.openai.call('k', 'sys', 'user', 'gpt-4o', undefined, 6000)).rejects.toThrow(/API 400/)

@@ -28,7 +28,34 @@
 //   on            { [EVENTS.X]: (payload, ctx) => void } reactions to app facts
 //
 // Components receive nothing; they read the shared context with useFeatureCtx().
-import { createContext, useContext, Fragment, useEffect, useSyncExternalStore } from 'react'
+import { createContext, useContext, Fragment, useEffect, useSyncExternalStore, useState, lazy, Suspense } from 'react'
+
+// A slot component loaded ON DEMAND (a whole screen, the raid fight, the asset view): keeps it out of the startup
+// bundle. `loader` = () => import('./Screen') (default export). The module is fetched once when first shown, or ahead
+// of time `prefetchMs` after startup (0 = only when shown) so opening it later is instant. Once loaded it renders
+// synchronously, with no Suspense pass. Its own Suspense boundary (fallback: nothing) means callers that render
+// `<Screen />` need none. Still a plain function, as the slot contract (features.test.js) wants.
+export function lazyComponent(loader, { prefetchMs = 0 } = {}) {
+  let Comp = null
+  let pending = null
+  const load = () => (pending ||= Promise.resolve().then(loader).then((m) => { Comp = m.default; return m }).catch((e) => { pending = null; throw e }))
+  const Lazy = lazy(load)
+  function LazyComponent(props) {
+    // Fixed per instance: switching between the two trees after the load would remount the screen (lost state).
+    const [direct] = useState(() => !!Comp)
+    // `Comp &&`: a hot reload swaps in a fresh closure (Comp still null) under a kept `direct` state; rendering
+    // <null> there crashed the whole app into the error screen (seen while files changed under an open page).
+    if (direct && Comp) return <Comp {...props} />
+    return <Suspense fallback={null}><Lazy {...props} /></Suspense>
+  }
+  LazyComponent.preload = load
+  // Only in a page (tests and other hosts import the registry without wanting the screens fetched). `gate` (set by
+  // createRegistry for an OPTIONAL feature's components) skips the prefetch while that feature is switched off.
+  if (prefetchMs > 0 && typeof window !== 'undefined' && typeof setTimeout === 'function') {
+    setTimeout(() => { if (typeof LazyComponent.gate === 'function' && !LazyComponent.gate()) return; load().catch(() => {}) }, prefetchMs)
+  }
+  return LazyComponent
+}
 
 export const SLOT = {
   MOUNT: 'Mount',
@@ -54,6 +81,14 @@ export function createRegistry(features) {
   // Which optional features the user switched on (App installs this from config each render).
   let isOn = () => false
   const active = () => features.filter((f) => !f.optional || isOn(f.id))
+  // An OFF optional feature does no background work: its on-demand screens are not prefetched (lazyComponent.gate).
+  for (const f of features) {
+    if (!f.optional) continue
+    for (const name of Object.values(SLOT)) {
+      const comps = name === SLOT.MOUNT ? [f.Mount] : (Array.isArray(f[name]) ? f[name] : []).flatMap((i) => [i?.Screen, i?.Component, i?.Badge])
+      for (const c of comps) if (typeof c === 'function' && c.preload) c.gate = () => isOn(f.id)
+    }
+  }
   return {
     features,
     optional: () => features.filter((f) => f.optional),
@@ -99,8 +134,10 @@ export function useActivityBusy(busy) {
   useEffect(() => { activityReporters++; return () => { activityReporters-- } }, [])
   useEffect(() => {
     if (!busy) return
+    // A busy activity also HOLDS FOCUS (a raid between questions, a Continue? card): nothing pops up over it.
     activityBusy++
-    return () => { activityBusy-- }
+    setHolds(holds + 1)
+    return () => { activityBusy--; setHolds(holds - 1) }
   }, [busy])
 }
 // true = nothing to lose: the open activity reports, and nothing in it is running.

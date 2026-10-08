@@ -125,6 +125,19 @@ export function powerAfterAnswer(armed = {}, { last = {}, kind = 'normal' } = {}
   return { armed: out, changed, proc: hit ? hit[0] : null }
 }
 
+// THE POWERS FOR EBI'S HELP (plain English facts, raidHelpText): what was brought, what is used up this fight, what is
+// up now (a window with its questions left). '' when nothing was brought.
+export function powersHelpLine(loadout = [], used = [], armed = {}) {
+  if (!loadout.length) return ''
+  const one = (id) => {
+    if (POWERS[id]?.kind === 'passive') return `${id} (always on this fight)`
+    if (POWERS[id]?.kind === 'siege') return `${id} (between runs)`
+    const up = armed[id] === true ? 'up now' : armed[id] > 0 ? `up now, ${armed[id]} question(s) left` : ''
+    return `${id} (${up || (used.includes(id) ? 'used this fight' : 'ready')})`
+  }
+  return `Powers brought: ${loadout.map(one).join(', ')}.`
+}
+
 // 50:50: the right choice and ONE wrong one (picked by `rnd`), in their original order.
 export function fiftyFifty(alt, rnd = Math.random) {
   const choices = alt?.choices || []

@@ -44,6 +44,11 @@ describe('talk steps', () => {
     expect(hintGivesAway('Say "¿Cómo estás?" to him.', spanish, items)).toBe(true)
     expect(hintGivesAway('Try: mucho gusto!', spanish, items)).toBe(true) // the "(formal)" label is not part of the phrase
     expect(hintGivesAway('Say ¿Cómo estás?', comptia, items)).toBe(false) // general subjects: naming a term is fine
+    const chinese = { ...spanish, name: 'Chinese', learnLang: 'Chinese' }
+    const zh = [{ id: 'z1', front: '你好', back: 'hello' }, { id: 'z2', front: '谢谢你', back: 'thank you' }]
+    expect(hintGivesAway('Greet him with 你好.', chinese, zh)).toBe(true) // a 2-character phrase, no spaces around it
+    expect(hintGivesAway('Say你好吗', chinese, zh)).toBe(true)
+    expect(hintGivesAway('Thank him for the tea.', chinese, zh)).toBe(false)
   })
   it('tells the scorer how many hints were used', () => {
     const history = [{ role: 'ebi', text: 'Hola' }, { role: 'me', text: 'Hola' }]

@@ -1,12 +1,15 @@
 // "Change my map": the learner (or Ebi's Help, through a legends_edit action) asks for a change, Ebi proposes
 // the whole map, and the review shows each area as kept, changed, added or removed. Nothing is saved until
 // Accept. Started and finished areas are never touched (see mergeEdit in ./map.js).
+import { ctxErrorText } from '../kit/aiError'
 import { useEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile } from '../../config/shrimp'
 import { ChunkyButton, EbiSays } from '../ui'
 import { proposeEdit, acceptEdit } from './generate'
 import { editChanged } from './map'
+import { ScrollTop } from './NodeRun'
+import { imeActive } from '../../utils/keys'
 
 const EXAMPLES = ['lg_editEx1', 'lg_editEx2', 'lg_editEx3']
 const KIND = {
@@ -37,26 +40,29 @@ export default function EditPanel({ ctx, modeId, initial = '', autoRun = false, 
       const p = await proposeEdit(ctx, modeId, req)
       if (my !== seq.current || !alive.current) return
       setProposal(p); setPhase('review')
-    } catch (e) { if (my === seq.current && alive.current) { setError(String(e.message || e)); setPhase('ask') } }
+    } catch (e) { if (my === seq.current && alive.current) { setError(ctxErrorText(ctx, e)); setPhase('ask') } }
   }
   const ran = useRef(false)
   useEffect(() => { if (autoRun && initial && !ran.current) { ran.current = true; run(initial) } }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const accept = async () => {
     setPhase('saving'); setError('')
-    try { await acceptEdit(ctx, modeId, proposal.map, proposal.baseIds); onClose(true) } catch (e) { setError(String(e.message || e)); setPhase('review') }
+    try { await acceptEdit(ctx, modeId, proposal.map, proposal.baseIds); onClose(true) } catch (e) { setError(ctxErrorText(ctx, e)); setPhase('review') }
   }
 
   const changes = proposal?.changes || []
   const anything = editChanged(changes)
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', display: 'grid', gap: 14 }}>
+      {/* The review opens at its top: Ebi's note on what changed was scrolled away with the Ask button. */}
+      <ScrollTop on={phase === 'review'} />
       <button onClick={() => onClose(false)} disabled={phase === 'saving'} style={{ fontFamily: FONT.body, justifySelf: 'start', border: 'none', background: 'transparent', color: C.inkDim, fontWeight: 800, cursor: phase === 'saving' ? 'default' : 'pointer', opacity: phase === 'saving' ? 0.5 : 1, fontSize: 13 }}>← {t('lg_toMap')}</button>
       <EbiSays pose={poseFile('artist')}>{phase === 'review' ? (proposal?.note || t('lg_editReview')) : t('lg_editIntro')}</EbiSays>
 
       {(phase === 'ask' || phase === 'thinking') && (
         <>
-          <textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} placeholder={t('lg_editPlaceholder')} disabled={phase === 'thinking'}
+          <textarea autoFocus value={text} onChange={(e) => setText(e.target.value)} rows={3} placeholder={t('lg_editPlaceholder')} disabled={phase === 'thinking'}
+            onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !imeActive(e)) { e.preventDefault(); run() } }}
             style={{ width: '100%', boxSizing: 'border-box', padding: '11px 13px', fontSize: 15, fontFamily: FONT.body, borderRadius: RADIUS.md, border: `2px solid ${C.border}`, background: C.surfaceAlt, color: C.ink, resize: 'vertical' }} />
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {EXAMPLES.map((k) => (
@@ -98,7 +104,7 @@ export default function EditPanel({ ctx, modeId, initial = '', autoRun = false, 
           </div>
         </>
       )}
-      {error && <div style={{ color: C.danger, fontSize: 13 }}>{error}</div>}
+      {error && <div role="alert" style={{ color: C.danger, fontSize: 13 }}>{error}</div>}
     </div>
   )
 }

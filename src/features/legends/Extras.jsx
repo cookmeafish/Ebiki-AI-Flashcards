@@ -5,6 +5,7 @@
 //   🛂 Passport  the area's "I can..." lines, stamped once the area is cleared (and a map-wide passport)
 //   🎁 Chest     a cleared area's treasure (a bonus phrase or fact), opened by answering one question
 //   🗓 Journey   a heatmap of the days Legends was played (map header)
+import { ctxErrorText } from '../kit/aiError'
 import { useEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile } from '../../config/shrimp'
@@ -12,9 +13,10 @@ import { EVENTS } from '../events'
 import { ChunkyButton, EbiSays, Modal, ProgressBar, tCount } from '../ui'
 import { holdLegendsSecret } from './helpContext'
 import { matchTyped } from '../kit/grade'
-import { itemTier, areaCodex, patchArea, patchItem, CODEX_TIERS, JOURNEY_DAYS } from './map'
+import { itemTier, areaCodex, patchArea, patchItem, CODEX_TIERS, JOURNEY_DAYS, journeyCells } from './map'
 import { updateMap, LEGENDS_ID } from './store'
 import { addItemsToDeck } from './deck'
+import { imeActive } from '../../utils/keys'
 
 export const TIER_LOOK = { new: { icon: '⚪', color: 'var(--c-ink-faint)' }, bronze: { icon: '🥉', color: 'color-mix(in srgb, var(--c-warning) 55%, var(--c-danger))' }, silver: { icon: '🥈', color: 'var(--c-ink-dim)' }, gold: { icon: '🥇', color: 'var(--c-warning)' } } // theme tokens: both themes
 export const BLITZ = { minGold: 3, max: 8, seconds: 10 }
@@ -116,11 +118,12 @@ function Blitz({ ctx, modeId, area, onDone }) {
     finishing.current = true
     const res = results.current
     // Every answer counts toward the item's record: a slipped gold item fades to silver on its own.
-    await updateMap(modeId, (m) => res.reduce((mm, x) => {
+    const saved = await updateMap(modeId, (m) => res.reduce((mm, x) => {
       const cur = mm?.areas?.find((a) => a.id === area.id)?.items?.find((y) => y.id === x.id)
       return cur ? patchItem(mm, area.id, x.id, { seen: (cur.seen || 0) + 1, right: (cur.right || 0) + (x.ok ? 1 : 0) }) : mm
     }, m))
-    ctx.emit(EVENTS.PRACTICE_DONE, { source: `${LEGENDS_ID}-blitz`, mode: modeId, total: res.length, correct: res.filter((x) => x.ok).length })
+    // XP only once the tallies saved (updateMap answers undefined on a failed read or write), like every other step.
+    if (saved !== undefined) ctx.emit(EVENTS.PRACTICE_DONE, { source: `${LEGENDS_ID}-blitz`, mode: modeId, total: res.length, correct: res.filter((x) => x.ok).length })
     onDone(res)
   }
   if (!it) return <EbiSays pose={poseFile('confused')}>{t('lg_blitzNone', { n: BLITZ.minGold })}</EbiSays>
@@ -130,11 +133,12 @@ function Blitz({ ctx, modeId, area, onDone }) {
         <span style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 18, color: C.warning }}>⚡ {t('lg_blitz')}</span>
         <span style={{ marginLeft: 'auto', fontSize: 12.5, fontWeight: 800, color: C.inkDim }}>{i + 1} / {pool.length}</span>
       </div>
-      <ProgressBar value={shown ? 0 : left} max={BLITZ.seconds} color={left <= 3 ? C.danger : C.warning} />
+      <ProgressBar value={shown ? 0 : left} max={BLITZ.seconds} color={left <= 3 ? C.danger : C.warning} label={t('lg_blitz')} />
       <div style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 20, color: C.ink }}>{r.cue}</div>
-      {/* readOnly, not disabled, once answered: a disabled box never gets the Enter that continues. */}
+      {/* readOnly, not disabled, once answered: a disabled box never gets the Enter that continues. Enter on an empty
+          box waits like the disabled Check (it recorded a miss on the gold item, fading it). */}
       <input ref={inputRef} value={text} readOnly={!!shown} onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) { e.preventDefault(); shown ? next() : answer() } }}
+        onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e)) { e.preventDefault(); if (shown) next(); else if (text.trim()) answer() } }}
         placeholder={t('kit_typePlaceholder')} style={{ padding: '10px 12px', fontSize: 16, fontFamily: FONT.body, borderRadius: RADIUS.md, border: `2px solid ${C.border}`, background: C.surfaceAlt, color: C.ink }} />
       {shown && <div style={{ fontWeight: 900, color: shown.ok ? C.success : C.danger }}>{shown.ok ? `✓ ${t('kit_correct')}` : `✗ ${t('kit_answerWas', { a: shown.answer })}`}</div>}
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -155,6 +159,8 @@ function CodexModal({ ctx, modeId, area, onClose }) {
   const unadded = area.items.filter((it) => !it.cardNoteId)
   const [addingAll, setAddingAll] = useState(false)
   const addingAllRef = useRef(false)
+  // Anki closed or no deck for the mode: nothing can be added (the button stayed live and failed on the click).
+  const canAdd = !!ctx.subject.modeDeck && ctx.ankiConnected !== false
   return (
     <Modal open onClose={onClose} width={720} zoom={zoomOf(ctx)}>
       {blitz === 'run' ? <Blitz ctx={ctx} modeId={modeId} area={area} onDone={(res) => setBlitz(res)} /> : (
@@ -168,11 +174,12 @@ function CodexModal({ ctx, modeId, area, onClose }) {
             {codex.complete && <span style={{ color: C.warning }}>🏆 {t('lg_codexComplete')}</span>}
           </div>
           <div style={{ fontSize: 12.5, color: C.inkDim, lineHeight: 1.45 }}>{t('lg_codexHow')}</div>
-          {Array.isArray(blitz) && <div style={{ fontWeight: 900, color: C.success }}>⚡ {t('lg_blitzDone', { c: blitz.filter((x) => x.ok).length, n: blitz.length })}</div>}
+          {Array.isArray(blitz) && <div style={{ fontWeight: 900, color: blitz.filter((x) => x.ok).length * 2 >= blitz.length ? C.success : C.warning }}>⚡ {t('lg_blitzDone', { c: blitz.filter((x) => x.ok).length, n: blitz.length })}</div>}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             <ChunkyButton color={C.warning} disabled={goldRecall < BLITZ.minGold} onClick={() => setBlitz('run')}>⚡ {t('lg_blitzStart', { n: Math.min(BLITZ.max, goldRecall) })}</ChunkyButton>
             {goldRecall < BLITZ.minGold && <span style={{ fontSize: 12.5, color: C.inkDim }}>{t('lg_blitzNone', { n: BLITZ.minGold })}</span>}
-            {unadded.length > 0 && <ChunkyButton variant="ghost" color={C.success} disabled={addingAll} onClick={async () => { if (addingAllRef.current) return; addingAllRef.current = true; setAddingAll(true); try { const r = await addItemsToDeck(ctx, modeId, area.id, unadded); const msg = r.added ? t('lg_codexAdded', { n: r.added }) : r.failed ? (r.message || t('lg_noDeck')) : ''; if (msg) ctx.notify?.(msg) } finally { addingAllRef.current = false; setAddingAll(false) } }}>＋ {t('lg_codexAddAll', { n: unadded.length })}</ChunkyButton>}
+            {unadded.length > 0 && <ChunkyButton variant="ghost" color={C.success} disabled={addingAll || !canAdd} onClick={async () => { if (addingAllRef.current) return; addingAllRef.current = true; setAddingAll(true); try { const r = await addItemsToDeck(ctx, modeId, area.id, unadded); const msg = r.added ? t('lg_codexAdded', { n: r.added }) : r.failed ? (r.message || t('lg_noDeck')) : ''; if (msg) ctx.notify?.(msg) } finally { addingAllRef.current = false; setAddingAll(false) } }}>＋ {t('lg_codexAddAll', { n: unadded.length })}</ChunkyButton>}
+            {unadded.length > 0 && !canAdd && <span style={{ fontSize: 12.5, color: C.warning }}>{t('lg_noDeck')}</span>}
           </div>
           {levels.length > 0 && (
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -184,7 +191,7 @@ function CodexModal({ ctx, modeId, area, onClose }) {
               const tier = itemTier(it)
               return (
                 <div key={it.id} style={{ display: 'flex', gap: 10, alignItems: 'baseline', padding: '6px 0', borderBottom: `1px solid ${C.border}` }}>
-                  <span title={t(`lg_tier_${tier}`)} style={{ fontSize: 16 }}>{TIER_LOOK[tier].icon}</span>
+                  <span role="img" aria-label={t(`lg_tier_${tier}`)} title={t(`lg_tier_${tier}`)} style={{ fontSize: 16 }}>{TIER_LOOK[tier].icon}</span>
                   <span style={{ fontWeight: 900, color: C.ink, minWidth: 120, overflowWrap: 'anywhere' }}>{it.front}</span>
                   <span style={{ flex: 1, fontSize: 13, color: C.inkDim, overflowWrap: 'anywhere' }}>{String(it.back || '').split('\n')[0]}</span>
                   <span style={{ fontSize: 11.5, color: C.inkFaint, whiteSpace: 'nowrap' }}>{it.seen ? `${it.right || 0}/${it.seen}` : ''}{it.cardNoteId ? ' · 🃏' : ''}</span>
@@ -212,7 +219,8 @@ function ChestModal({ ctx, modeId, area, onClose }) {
   const open = () => { setState('open'); if (!area.chestOpened) updateMap(modeId, (m) => (m ? patchArea(m, area.id, { chestOpened: true }) : m)) }
   // Nothing to recall (rule items, long fronts): it opens straight away, and is recorded as opened (the map kept 🔒🎁).
   useEffect(() => { if (!pick && !area.chestOpened) updateMap(modeId, (m) => (m ? patchArea(m, area.id, { chestOpened: true }) : m)) }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  const check = () => { if (pick && matchTyped(text, pick.r.accepted)) open(); else setState('wrong') }
+  // Enter on an empty box is not an answer (Check is disabled then; Enter said "wrong" before anything was typed).
+  const check = () => { if (!text.trim()) return; if (pick && matchTyped(text, pick.r.accepted)) open(); else setState('wrong') }
   const add = async () => {
     if (addedRef.current || adding) return
     setAdding(true)
@@ -222,7 +230,7 @@ function ChestModal({ ctx, modeId, area, onClose }) {
       setAddedNow(true)
       await updateMap(modeId, (m) => (m ? patchArea(m, area.id, (a) => ({ bonus: { ...a.bonus, added: true } })) : m))
       ctx.notify?.(t('lg_chestAdded'))
-    } catch (e) { ctx.notify?.(String(e?.message || e)) } finally { setAdding(false) }
+    } catch (e) { ctx.notify?.(ctxErrorText(ctx, e)) } finally { setAdding(false) }
   }
   return (
     <Modal open onClose={onClose} width={520} zoom={zoomOf(ctx)}>
@@ -233,7 +241,7 @@ function ChestModal({ ctx, modeId, area, onClose }) {
             <EbiSays pose={poseFile('happy')}>{t('lg_chestAsk')}</EbiSays>
             <div style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 19, color: C.ink }}>{pick.r.cue}</div>
             <input autoFocus value={text} onChange={(e) => { setText(e.target.value); if (state === 'wrong') setState('ask') }}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) { e.preventDefault(); check() } }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e)) { e.preventDefault(); check() } }}
               placeholder={t('kit_typePlaceholder')} style={{ padding: '10px 12px', fontSize: 16, fontFamily: FONT.body, borderRadius: RADIUS.md, border: `2px solid ${state === 'wrong' ? C.danger : C.border}`, background: C.surfaceAlt, color: C.ink }} />
             {state === 'wrong' && <div style={{ color: C.danger, fontWeight: 800 }}>{t('lg_chestWrong')}</div>}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
@@ -251,7 +259,7 @@ function ChestModal({ ctx, modeId, area, onClose }) {
                 : <ChunkyButton color={C.success} disabled={adding || !ctx.subject.modeDeck || ctx.ankiConnected === false} onClick={add}>＋ {t('lg_chestAdd')}</ChunkyButton>}
               <ChunkyButton variant="ghost" color={C.inkDim} onClick={onClose}>{t('lg_back')}</ChunkyButton>
             </div>
-            {!ctx.subject.modeDeck && <div style={{ fontSize: 12.5, color: C.inkDim, textAlign: 'center' }}>{t('lg_noDeck')}</div>}
+            {!(area.bonus.added || addedNow) && (!ctx.subject.modeDeck || ctx.ankiConnected === false) && <div style={{ fontSize: 12.5, color: C.inkDim, textAlign: 'center' }}>{t('lg_noDeck')}</div>}
           </>
         )}
       </div>
@@ -276,7 +284,7 @@ export function PassportModal({ ctx, map, onClose }) {
           const stamped = a.status === 'done'
           return (
             <div key={a.id} style={{ padding: '10px 12px', borderRadius: RADIUS.md, border: `2px ${stamped ? 'solid' : 'dashed'} ${stamped ? C.success : C.border}`, position: 'relative' }}>
-              <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 16, color: stamped ? C.ink : C.inkDim }}>{a.title}</div>
+              <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 16, color: stamped ? C.ink : C.inkDim, paddingRight: stamped ? 104 : 0 }}>{a.title}</div>
               {a.canDo.map((line, i) => <div key={i} style={{ fontSize: 13.5, color: stamped ? C.ink : C.inkFaint, lineHeight: 1.5 }}>{stamped ? '✅' : '▫️'} {line}</div>)}
               {stamped && <span aria-hidden="true" style={{ position: 'absolute', right: 10, top: 8, transform: 'rotate(-12deg)', border: `3px solid ${C.success}`, color: C.success, borderRadius: 8, padding: '2px 8px', fontFamily: FONT.display, fontWeight: 900, fontSize: 13, letterSpacing: '.1em', opacity: 0.85 }}>{t('lg_stamped')}</span>}
             </div>
@@ -288,17 +296,13 @@ export function PassportModal({ ctx, map, onClose }) {
 }
 
 // ── Journey heatmap (map header) ───────────────────────────────────────────────────────────────────────────────
-const dayKey = (d) => d.toLocaleDateString('en-CA')
 export function Journey({ t, days = {} }) {
-  const today = new Date()
-  const start = new Date(today); start.setDate(start.getDate() - (JOURNEY_WEEKS * 7 - 1) - ((today.getDay() + 6) % 7 === 6 ? 0 : 0))
-  const cells = []
-  for (let i = 0; i < JOURNEY_WEEKS * 7; i++) { const d = new Date(start); d.setDate(start.getDate() + i); cells.push({ key: dayKey(d), n: days[dayKey(d)] || 0 }) }
+  const cells = journeyCells(new Date(), days, JOURNEY_WEEKS)
   const played = cells.filter((c) => c.n > 0).length
   const shadeFor = (n) => (!n ? 'var(--c-surface-sunken)' : n < 2 ? 'color-mix(in srgb, var(--c-success) 40%, var(--c-surface))' : n < 4 ? 'color-mix(in srgb, var(--c-success) 70%, var(--c-surface))' : 'var(--c-success)')
   return (
-    <div className="tip" data-tip={tCount(t, 'lg_journeyTip', played)} style={{ display: 'grid', gridTemplateRows: 'repeat(7, 7px)', gridAutoFlow: 'column', gap: 2 }} aria-label={tCount(t, 'lg_journeyTip', played)}>
-      {cells.map((c) => <span key={c.key} style={{ width: 7, height: 7, borderRadius: 2, background: shadeFor(c.n) }} />)}
+    <div className="tip" data-tip={tCount(t, 'lg_journeyTip', played)} style={{ display: 'grid', gridTemplateRows: 'repeat(7, 7px)', gridAutoFlow: 'column', gap: 2 }} role="img" aria-label={tCount(t, 'lg_journeyTip', played)}>
+      {cells.map((c) => <span key={c.key} style={{ width: 7, height: 7, borderRadius: 2, background: shadeFor(c.n), opacity: c.future ? 0.35 : 1 }} />)}
     </div>
   )
 }

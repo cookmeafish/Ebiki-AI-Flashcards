@@ -22,6 +22,9 @@
 // localStorage, window or document directly (src/platform/platform.test.js enforces it for src/features).
 
 const hasWindow = typeof window !== 'undefined'
+// The device voice line now speaking, and queued lines stopped before they started (skipped when they start).
+let speakingLine = null
+const cancelledLines = new WeakSet()
 
 const web = {
   kind: hasWindow && /Electron/i.test(navigator.userAgent || '') ? 'electron' : 'browser',
@@ -47,25 +50,38 @@ const web = {
   speech: {
     canSpeak: () => hasWindow && 'speechSynthesis' in window,
     // The device's own (free) voice. Resolves when it finishes (or fails); never rejects.
-    speak: (text, lang, { rate = 1, voiceIndex = 0 } = {}) => new Promise((resolve) => {
+    // `onHandle(u)` hands back a token for stop(u), which stops only that line.
+    speak: (text, lang, { rate = 1, voiceIndex = 0, onHandle } = {}) => new Promise((resolve) => {
       try {
         if (!hasWindow || !('speechSynthesis' in window) || !text) return resolve()
         const u = new SpeechSynthesisUtterance(text)
+        onHandle?.(u)
+        u.onstart = () => { if (cancelledLines.has(u)) { try { window.speechSynthesis.cancel() } catch { /* gone */ } } else speakingLine = u }
         if (lang) u.lang = lang
         u.rate = rate
         // A second character in a dialogue gets a different voice of the same language when one exists.
         const voices = window.speechSynthesis.getVoices().filter((v) => !lang || v.lang?.toLowerCase().startsWith(String(lang).toLowerCase().slice(0, 2)))
         if (voices.length) u.voice = voices[voiceIndex % voices.length]
-        u.onend = () => resolve()
-        u.onerror = () => resolve()
+        const end = () => { if (speakingLine === u) speakingLine = null; resolve() }
+        u.onend = end
+        u.onerror = end
         window.speechSynthesis.speak(u)
       } catch { resolve() }
     }),
-    stop: () => { try { window.speechSynthesis?.cancel() } catch { /* nothing playing */ } },
+    // stop() silences everything; stop(u) only that line: cancelled now if it is speaking, skipped when it starts if
+    // still queued (the device queue has no per-line remove).
+    stop: (u) => {
+      try {
+        if (!u) return window.speechSynthesis?.cancel()
+        if (speakingLine === u) { speakingLine = null; window.speechSynthesis?.cancel() } else cancelledLines.add(u)
+      } catch { /* nothing playing */ }
+    },
     // A FREE built-in recognizer (Chrome/Edge tabs; never inside Electron, where it always fails "network").
     canRecognize: () => hasWindow && !!(window.SpeechRecognition || window.webkitSpeechRecognition) && !/Electron/i.test(navigator.userAgent || ''),
-    // Live recognition: { stop(): Promise<text>, cancel() }.
-    recognize: ({ lang = '' } = {}) => {
+    // Live recognition: { stop(): Promise<text>, cancel() }. `onFail(code)` reports a recognizer that died on its
+    // own ('nomic' = permission refused or no microphone, else the browser's error name), so the caller can say so at
+    // once instead of showing "Listening" over a dead recognizer until the learner presses stop.
+    recognize: ({ lang = '', onFail } = {}) => {
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition
       const rec = new SR()
       rec.continuous = true
@@ -80,8 +96,10 @@ const web = {
       rec.onerror = (e) => {
         // Only a silence is worth a restart: any other error repeats forever, and an abort we did not ask for (our own
         // stop/cancel already cleared `wanted`) is another recognizer taking the mic: restarting ping-ponged the two.
+        const ours = !wanted // our own stop/cancel: not a failure
         if (e.error !== 'no-speech') wanted = false
         if (e.error === 'not-allowed' || e.error === 'service-not-allowed' || e.error === 'audio-capture') { denied = true; text = '' }
+        if (!ours && e.error !== 'no-speech' && e.error !== 'aborted') { try { onFail?.(denied ? 'nomic' : String(e.error || 'error')) } catch { /* caller gone */ } }
       }
       // Ended by itself (a pause, Chrome's session limit) while the learner is still talking: listen again, or
       // everything said after the pause was lost while the badge kept saying "Listening".
@@ -102,11 +120,14 @@ const web = {
     record: async () => {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'].find((m) => window.MediaRecorder?.isTypeSupported?.(m)) || ''
-      const mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined)
+      const release = () => stream.getTracks().forEach((tr) => tr.stop())
+      let mr
+      try {
+        mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined)
+        mr.start()
+      } catch (e) { release(); throw e } // else the mic stayed open (the browser's recording dot) with nothing recording
       const chunks = []
       mr.ondataavailable = (e) => { if (e.data?.size) chunks.push(e.data) }
-      const release = () => stream.getTracks().forEach((tr) => tr.stop())
-      mr.start()
       return {
         stop: () => new Promise((resolve) => {
           mr.onstop = () => { release(); resolve(new Blob(chunks, { type: mr.mimeType || mime || 'audio/webm' })) }
@@ -121,7 +142,9 @@ const web = {
     play: (blob) => {
       let el = null
       let url = ''
+      let finish = () => {}
       const done = new Promise((resolve) => {
+        finish = resolve // stop() settles it too: a paused clip fires no 'ended' (awaiting callers hung, the URL leaked)
         try {
           url = URL.createObjectURL(blob)
           el = new Audio(url)
@@ -130,7 +153,7 @@ const web = {
           el.play().catch(() => resolve())
         } catch { resolve() }
       }).finally(() => { try { if (url) URL.revokeObjectURL(url) } catch { /* gone */ } })
-      return { done, stop: () => { try { el?.pause() } catch { /* gone */ } } }
+      return { done, stop: () => { try { el?.pause() } catch { /* gone */ } finish() } }
     },
   },
 }

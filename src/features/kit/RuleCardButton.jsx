@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import { C, RADIUS } from '../../config/tokens'
 import { buildRuleCardPrompt, parseRuleCard, RULE_ROLE, RULE_MAX_TOKENS } from './ruleCard'
 import { recordPractice } from './practiceLogStore'
+import { aiErrorText } from './aiError'
 
 // Rule cards made this app session (per mode), fed back so the model doesn't write the same rule twice.
 const madeThisSession = new Map()
@@ -24,12 +25,13 @@ export default function RuleCardButton({ ctx, source, compact = false, deck: dec
     busyRef.current = true
     setState('making'); setNote('')
     try {
-      const { system, user } = buildRuleCardPrompt(subject, source, { avoid: made })
+      // The live list (a card added by another button since this one rendered is avoided too).
+      const { system, user } = buildRuleCardPrompt(subject, source, { avoid: madeThisSession.get(subject.modeId) || made })
       const c = parseRuleCard(ai.json(await ai.call(system, user, { role: RULE_ROLE, maxTokens: RULE_MAX_TOKENS })), ai.clean)
       if (!c) throw new Error(t('kit_ruleBad'))
       if (c.skip) { setNote(c.why || t('kit_ruleNone')); setState('skipped'); return }
       setCard({ ...c, modeId: subject.modeId }); setState('preview')
-    } catch (e) { setNote(String(e.message || e)); setState('failed') } finally { busyRef.current = false }
+    } catch (e) { setNote(aiErrorText(t, e)); setState('failed') } finally { busyRef.current = false }
   }
   const add = async () => {
     if (busyRef.current || !card || !targetDeck) return
@@ -42,7 +44,7 @@ export default function RuleCardButton({ ctx, source, compact = false, deck: dec
       madeThisSession.set(subject.modeId, [...(madeThisSession.get(subject.modeId) || []), card.front].slice(-30)) // live list: two buttons adding at once kept only one
       recordPractice(ctx, 'rule-card', [{ kind: 'topic', label: card.front }])
       setState('added')
-    } catch (e) { setNote(String(e.message || e)); setState('preview') } finally { busyRef.current = false }
+    } catch (e) { setNote(aiErrorText(t, e)); setState('preview') } finally { busyRef.current = false }
   }
 
   const small = { padding: compact ? '3px 9px' : '5px 12px', borderRadius: RADIUS.sm, fontSize: compact ? 11.5 : 12.5, fontWeight: 800, cursor: 'pointer', background: 'transparent' }

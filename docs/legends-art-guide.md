@@ -222,6 +222,10 @@ hair that floats").
 
 ## How the owner wants RAID bosses made (2026-10: "i love the new raid bosses")
 
+**Art is half of it.** How the fight FEELS is the other half: nine unique impact moments per boss, a dramatic themed
+knockout, power effects in the lower half never over the face, numbers from the game, fair crafted health and hearts.
+Read "The owner's vision for the FIGHT" in `docs/raid-bosses-plan.md` before making or redesigning a raid boss.
+
 The owner loved the third and fourth waves (leviathan to dreamer) and the 2026-10 redraws of lich, chimera, hydra,
 titan, void and seraph. On top of everything above:
 - **"Super crazy bonkers", "like WTF is that".** The most extreme drawings in the app: a creature nobody has seen, not a

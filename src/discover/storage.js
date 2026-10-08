@@ -7,6 +7,7 @@
 
 import { srs } from '../cards'
 import { apiFetch } from '../platform'
+import { BLOB_MERGERS } from './merge'
 
 // UTF-8 safe base64 (btoa only handles latin1)
 const b64encode = (str) => btoa(unescape(encodeURIComponent(str)))
@@ -59,6 +60,15 @@ const writeSeq = new Map()
 const blobChains = new Map()   // dirty key -> promise of the last queued write
 const blobLatest = new Map()   // dirty key -> { json, seq } of the newest write asked for
 
+// Whether the store lives in a SHARED data folder, as its last good answer said (per browser, so it survives a
+// reload). Unknown until the store has answered once.
+const SHARED_KEY = 'ebiki-blob-store-shared'
+const rememberShared = (on) => { try { localStorage.setItem(SHARED_KEY, on ? '1' : '0') } catch {} }
+const knownShared = () => { try { return localStorage.getItem(SHARED_KEY) === '1' } catch { return false } }
+// Is this store refusal the SHARED copy being unreadable? A 503 {unreachable} only ever comes from a share (the
+// app folder is never "down"); any other refusal counts only when the store is known to be shared.
+export const storeRefusalIsShared = (r, body) => !!r && !r.ok && (!!(body && body.unreachable) || knownShared())
+
 async function readKeyChecked(kind, key) {
   if (isLocalNewer(kind, key)) {
     try {
@@ -87,12 +97,25 @@ async function readKeyChecked(kind, key) {
       }
     } catch { /* fall through to the normal order */ }
   }
+  // Anki holds a write the store missed (the share was down), and the share may since have taken another computer's
+  // writes: for kinds that merge, both copies are read and merged (see readMergedAnkiNewer).
+  const merger = BLOB_MERGERS[kind]
+  if (merger && isAnkiNewer(kind, key)) {
+    const merged = await readMergedAnkiNewer(kind, key, merger)
+    if (merged) return merged
+  }
   // Shared data folder: the store copy is the freshest (see /api/discover-store `shared`), so it wins when it
   // holds something. Anki (synced through AnkiWeb, minutes or days behind) is only the fallback.
   if (!isAnkiNewer(kind, key)) {
     try {
       const r = await apiFetch(`/api/discover-store?kind=${kind}&mode=${encodeURIComponent(key)}`)
-      const d = r.ok ? await r.json() : null
+      const d = await r.json().catch(() => null)
+      if (r.ok && d && typeof d.shared === 'boolean') rememberShared(d.shared)
+      // The SHARED store refused (the share is down with no offline copy: 503 {unreachable}; or a read error on a
+      // store known to be shared). Its copy is the freshest one, so Anki's is possibly older: returned as a good
+      // read, the caller's next write put that older copy back as "newest" (and marked Anki newer), and the share's
+      // newer items (another computer's hooks, Discover skips) were lost when it came back. Not readable.
+      if (storeRefusalIsShared(r, d)) return { ok: false, value: null }
       if (d && d.shared && d.content) {
         try { return { ok: true, value: JSON.parse(d.content) } } catch { return { ok: true, value: null } }
       }
@@ -128,6 +151,43 @@ async function readKeyChecked(kind, key) {
   } catch {
     return { ok: false, value: null }
   }
+}
+// "Anki is newer" read for a mergeable kind. Before, Anki's copy was simply taken, and the caller's next write
+// replaced whatever another computer had written to the share during the outage. Now:
+// - store refused (still down, or a read error): null, so the caller keeps the old rule (Anki's copy, mark kept);
+// - Anki unreachable: a FAILED read (Anki holds our newer items; the store copy alone would lose them);
+// - both answered: the merge of both (ours first), written back to BOTH in the blob's write queue (skipped if a
+//   write came after this read, which then carries the merged content forward; nothing while writes are paused).
+//   A write-back that reaches the store clears the mark (writeBlobNow).
+async function readMergedAnkiNewer(kind, key, merger) {
+  const dk = dirtyKey(kind, key)
+  const seq = writeSeq.get(dk) || 0
+  let storeVal = null
+  try {
+    const r = await apiFetch(`/api/discover-store?kind=${kind}&mode=${encodeURIComponent(key)}`)
+    const d = await r.json().catch(() => null)
+    if (!r.ok || !d || typeof d !== 'object') return null
+    if (typeof d.shared === 'boolean') rememberShared(d.shared)
+    if (d.content) { try { storeVal = JSON.parse(d.content) } catch { storeVal = null } }
+  } catch { return null }
+  let ankiVal = null
+  try {
+    const b64 = await srs.readFile(mediaName(kind, key))
+    if (b64 && b64 !== false) { try { ankiVal = JSON.parse(b64decode(b64)) } catch { ankiVal = null } }
+  } catch (err) {
+    console.warn(`[Discover] media read failed for ${kind} while Anki holds the newer copy`, err.message)
+    return { ok: false, value: null }
+  }
+  const merged = merger(ankiVal, storeVal) ?? null
+  if (merged === null) return { ok: true, value: null }
+  const json = JSON.stringify(merged, null, 2)
+  const push = (blobChains.get(dk) || Promise.resolve()).catch(() => false).then(async () => {
+    if ((writeSeq.get(dk) || 0) !== seq) return null
+    return writeBlobNow(kind, key, json, false)
+  }).catch(() => false)
+  blobChains.set(dk, push)
+  push.finally(() => { if (blobChains.get(dk) === push) blobChains.delete(dk) }).catch(() => {})
+  return { ok: true, value: merged }
 }
 async function readKey(kind, key) {
   return (await readKeyChecked(kind, key)).value

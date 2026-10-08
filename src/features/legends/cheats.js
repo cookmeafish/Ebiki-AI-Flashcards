@@ -9,7 +9,8 @@ const withArea = (map, areaId, fn, now = Date.now()) => {
   return normalizeMap({ ...map, areas: map.areas.map((a, k) => (k === i ? fn(a) : a)), updatedAt: now })
 }
 const doneNode = (n) => ({ ...n, status: 'done', stars: 3, bestScore: 1, attempts: (n.attempts || 0) + 1 })
-const freshNode = (n) => ({ ...n, status: 'open', stars: 0, bestScore: 0, attempts: 0 })
+// Its badges go too: a kept "flawless" showed ✨ on a reset step and never paid the first-flawless scroll again.
+const freshNode = ({ flawless, allPower, ...n }) => ({ ...n, status: 'open', stars: 0, bestScore: 0, attempts: 0 })
 
 // One step done with 3 stars, locked or not; the boss finishes its area.
 export function cheatCompleteNode(map, areaId, nodeId, now) {
@@ -46,7 +47,8 @@ export function cheatResetNode(map, areaId, nodeId, now) {
 export function cheatResetArea(map, areaId, now) {
   return withArea(map, areaId, (a) => ({
     ...a, status: 'open', frozen: false, bonusLife: false, legendary: false, storySeen: false, chestOpened: false, nemesis: null, nodes: (a.nodes || []).map(freshNode),
-    items: (a.items || []).map(({ seen, right, ...it }) => it),
+    // Every tally (a kept bossRight made an item gold again after three right answers, without a fight).
+    items: (a.items || []).map(({ seen, right, bossRight, missNudged, ...it }) => it),
   }), now)
 }
 

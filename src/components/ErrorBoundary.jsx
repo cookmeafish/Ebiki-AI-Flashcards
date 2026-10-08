@@ -1,9 +1,11 @@
 import React from 'react'
-import { makeT } from '../i18n'
+import { isLocaleLoaded, loadLocale, makeT } from '../i18n'
 import { apiFetch, platform } from '../platform'
 
 // The last language this browser used (App keeps it in localStorage): the crash screen has no App state to read.
-const crashT = () => { let l = 'en'; try { l = localStorage.getItem('ebiki-app-language') || 'en' } catch { /* storage unavailable */ } return makeT(l) }
+// Locales load on demand, so a crash before the chosen one arrived would show English: fetch it, then re-render.
+const crashLang = () => { try { return localStorage.getItem('ebiki-app-language') || 'en' } catch { return 'en' } }
+const crashT = () => { try { return makeT(crashLang()) } catch { return makeT('en') } }
 
 // Last line of defence for a RENDER crash. With no boundary, one exception thrown while rendering
 // blanked the whole window, and when the data that caused it was saved (a chat, a study session, a
@@ -26,6 +28,10 @@ export default class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, info) {
     console.error('[Ebiki] render crash:', error, info?.componentStack)
+    try {
+      const lang = crashLang()
+      if (!isLocaleLoaded(lang)) loadLocale(lang).then((ok) => { if (ok && this.state.error) this.forceUpdate() }).catch(() => {})
+    } catch { /* stays in English */ }
     const isOverlay = new URLSearchParams(window.location.search).has('overlay')
     if (!isOverlay && !this.beat) {
       // Same contract as App's heartbeat: beat, answer the server's HMR ping (it asks before acting on a

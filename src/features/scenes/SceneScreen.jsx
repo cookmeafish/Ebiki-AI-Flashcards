@@ -13,7 +13,10 @@ import { QuizRunner, pickCardItems, buildScenePrompt, parseScene, voiceFor, SCEN
 import { learnerLevelLine } from '../kit/learnerStore'
 import { settlePracticeRun } from '../kit/practiceRun'
 
-export const SCENES_FEATURE_ID = 'scenes'
+import { SCENES_FEATURE_ID } from './featureId'
+import { aiErrorText } from '../kit/aiError'
+import { imeActive } from '../../utils/keys'
+export { SCENES_FEATURE_ID }
 const ITEMS = 8
 const DUE_ITEMS = 2
 const KNOWLEDGE_CAP = 3000
@@ -37,6 +40,7 @@ export default function SceneScreen({ onExit }) {
   const audioRef = useRef(null)
   const listRef = useRef(null)
   const sidRef = useRef('') // tapped-word popups belong to one story (a new story gets new sources)
+  const startingRef = useRef(false)
   useFocusHold(phase === 'story')
   useActivityBusy(phase !== 'intro' && !(phase === 'quiz' && quizDone)) // a story being written, read or quizzed would be lost
   // aliveRef: set on mount too (StrictMode mounts twice). A reply landing after the screen closed is never spoken.
@@ -59,6 +63,9 @@ export default function SceneScreen({ onExit }) {
   }
 
   const start = async () => {
+    // Claimed at once: a double click (or Enter, then a click) before the 'loading' render wrote two stories.
+    if (startingRef.current) return
+    startingRef.current = true
     setError(''); setPhase('loading')
     try {
       const items = await pickCardItems(ctx, ITEMS, { due: DUE_ITEMS })
@@ -71,7 +78,7 @@ export default function SceneScreen({ onExit }) {
       setScene(s); setShown(1); setPhase('story')
       recordPractice(ctx, SCENES_FEATURE_ID, [...items.map((it) => ({ kind: 'card', label: it.front })), { kind: 'topic', label: s.title || theme.trim() }])
       if (readAloud && aliveRef.current) say(s.lines[0])
-    } catch (e) { if (aliveRef.current) { setError(String(e.message || e)); setPhase('intro') } }
+    } catch (e) { if (aliveRef.current) { setError(aiErrorText(t, e)); setPhase('intro') } } finally { startingRef.current = false }
   }
 
   const next = () => {
@@ -117,7 +124,7 @@ export default function SceneScreen({ onExit }) {
             </label>
           )}
         </div>
-        <ProgressBar value={shown} max={scene.lines.length} color={C.success} style={{ height: 12 }} />
+        <ProgressBar value={shown} max={scene.lines.length} color={C.success} style={{ height: 12 }} label={t('ui_progress')} />
         <div ref={listRef} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, padding: 4 }}>
           {scene.lines.slice(0, shown).map((l, i) => (
             <div key={i} style={{ alignSelf: SIDE[l.speaker], maxWidth: l.speaker === 'N' ? '90%' : '80%', textAlign: l.speaker === 'N' ? 'center' : 'left' }}>
@@ -150,9 +157,9 @@ export default function SceneScreen({ onExit }) {
       <button onClick={onExit} style={{ border: 'none', background: 'transparent', color: C.inkDim, fontWeight: 800, cursor: 'pointer', marginBottom: 12, fontSize: 13 }}>← {t('sc_back')}</button>
       <EbiSays pose={poseFile('book')}>{subject.isLanguage ? t('sc_introLang', { lang: subject.learnLang }) : t('sc_introGeneral', { subject: subject.name })}</EbiSays>
       {!ai.hasKey && <div style={{ color: C.warning, fontSize: 13, marginTop: 12 }}>{t('sc_needKey')}</div>}
-      {error && <div style={{ color: C.danger, fontSize: 13, marginTop: 10 }}>{error}</div>}
+      {error && <div role="alert" style={{ color: C.danger, fontSize: 13, marginTop: 10 }}>{error}</div>}
       <input value={theme} onChange={(e) => setTheme(e.target.value)} placeholder={t('sc_themePlaceholder')}
-        onKeyDown={(e) => { if (e.key === 'Enter' && phase !== 'loading' && ai.hasKey && !e.nativeEvent?.isComposing) start() }}
+        onKeyDown={(e) => { if (e.key === 'Enter' && phase !== 'loading' && ai.hasKey && !imeActive(e)) start() }}
         style={{ width: '100%', boxSizing: 'border-box', margin: '16px 0 10px', padding: '11px 13px', fontSize: 14, borderRadius: RADIUS.md, border: `1px solid ${C.border}`, background: C.surfaceAlt, color: C.ink }} />
       <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, color: C.ink, marginBottom: 16, cursor: 'pointer' }}>
         <input type="checkbox" checked={readAloud} onChange={(e) => { setReadAloud(e.target.checked); platform.kv.set(AUTO_READ_KEY, e.target.checked ? '1' : '0') }} style={{ accentColor: C.brand }} />

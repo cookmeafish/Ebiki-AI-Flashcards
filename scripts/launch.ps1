@@ -472,7 +472,12 @@ function Check-Update {
       } elseif (-not (& git -C $app status --porcelain --untracked-files=no 2>$null)) {
         if (Test-HeadPublished $app $oldOrigin) { & git -C $app reset --hard FETCH_HEAD 2>&1 | Out-Null }
         else { Write-UpdateLog 'refused: this copy has commits on master that were never published (kept)' }
+      } else {
+        # The skip reason, not only the generic "update FAILED" below (launch.sh logs the same).
+        Write-UpdateLog 'refused: tracked files have local changes (kept)'
       }
+    } else {
+      Write-UpdateLog 'fetch of origin master failed'
     }
     $now = (& git -C $app rev-parse HEAD 2>$null)
     if ($now -eq $local) {

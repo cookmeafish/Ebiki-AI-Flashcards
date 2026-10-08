@@ -2,7 +2,7 @@
 import { describe, it, expect } from 'vitest'
 import { newFight, strike, fightOutcome, phaseOf, weakTo, effortOf, raidRating, attackSlot, attackGapFor, canAttack, DAMAGE, ATTACK_LIVES, MAX_ATTACKS, COMBO_EVERY, ABILITIES } from './fight'
 import { bossOdds } from './BossArena'
-import { applyNodeResult, applyLegendaryResult, fightStars, itemTier, areaCodex, earnHelper, spendHelper, helperCount, HELPERS_MAX, logDay, JOURNEY_DAYS, parseAreaDetail, createMap, applyAreaDetail } from './map'
+import { applyNodeResult, applyLegendaryResult, fightStars, itemTier, areaCodex, earnHelper, spendHelper, helperCount, HELPERS_MAX, logDay, journeyCells, JOURNEY_DAYS, parseAreaDetail, createMap, applyAreaDetail } from './map'
 
 const hit = (verdict, mode = 'typed', extra = {}) => ({ verdict, mode, ...extra })
 const run = (hits, opts) => hits.reduce((s, h) => strike(s, h, opts), newFight())
@@ -168,6 +168,19 @@ describe('codex, helpers, journey', () => {
     expect(m.days['2026-01-01']).toBe(2)
     for (let i = 0; i < JOURNEY_DAYS + 5; i++) m = logDay(m, `2027-${String(1 + Math.floor(i / 28)).padStart(2, '0')}-${String(1 + (i % 28)).padStart(2, '0')}`)
     expect(Object.keys(m.days).length).toBe(JOURNEY_DAYS)
+  })
+  it('lays the heatmap out in Monday-first weeks ending with this week', () => {
+    const today = new Date(2026, 9, 7) // a Wednesday
+    const cells = journeyCells(today, { '2026-10-07': 2, '2026-10-01': 1 }, 3)
+    expect(cells).toHaveLength(21)
+    expect(cells[0].key).toBe('2026-09-21') // a Monday
+    for (let i = 0; i < cells.length; i += 7) expect(new Date(cells[i].key + 'T12:00').getDay()).toBe(1)
+    const t = cells.find((c) => c.key === '2026-10-07')
+    expect(t.n).toBe(2); expect(t.future).toBe(false)
+    expect(cells.find((c) => c.key === '2026-10-01').n).toBe(1)
+    expect(cells.at(-1)).toMatchObject({ key: '2026-10-11', future: true, n: 0 })
+    // a Sunday still ends its own week
+    expect(journeyCells(new Date(2026, 9, 11), {}, 1).map((c) => c.future)).toEqual([false, false, false, false, false, false, false])
   })
 })
 

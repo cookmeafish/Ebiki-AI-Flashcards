@@ -49,10 +49,12 @@ function adoptAbandoned() {
   const keep = []
   let took = false
   for (const b of stored) {
-    if (!b || b.modeId == null || !(b.total > 0)) continue
+    // Counts as numbers: a "3" from a hand-edited or older copy joined as text ("0" + "3" + ...).
+    const total = Math.floor(Number(b?.total)) || 0
+    if (!b || b.modeId == null || !(total > 0)) continue
     if (b.owner === PAGE_ID || (b.owner && now - (Number(b.seenAt) || 0) < ADOPT_AFTER_MS)) { keep.push(b); continue }
     const p = pending.get(b.modeId) || { total: 0, correct: 0 }
-    p.total += b.total; p.correct += Math.min(b.correct || 0, b.total)
+    p.total += total; p.correct += Math.max(0, Math.min(Math.floor(Number(b.correct)) || 0, total))
     pending.set(b.modeId, p)
     took = true
   }
@@ -61,6 +63,13 @@ function adoptAbandoned() {
 adoptAbandoned()
 let flushTimer = null
 let lastCtx = null
+// The feature context is a new object per App render, so one held by a timer is a snapshot: after a mode switch its
+// subject still named the OLD mode, and the batch flush 20s later seeded that (no longer active) mode. The Mount keeps
+// the newest one here; every "is it still the active mode?" check reads it.
+let liveCtx = null
+export function setLiveCtx(ctx) { if (ctx) liveCtx = ctx }
+const currentCtx = () => liveCtx || lastCtx
+const activeModeId = () => currentCtx()?.subject?.modeId
 const seedTried = new Set()     // modes whose level was already read from evidence this app session
 
 function nudge(ctx, modeId, source, total, correct, { gaps = [], strengths = [] } = {}) {
@@ -71,8 +80,9 @@ function nudge(ctx, modeId, source, total, correct, { gaps = [], strengths = [] 
 }
 
 // A mode with no level and enough evidence gets one, quietly (no LEVEL_UP reward for a first level).
-async function maybeSeed(ctx, modeId) {
-  if (!ctx || modeId == null || seedTried.has(modeId) || ctx.subject?.modeId !== modeId || !ctx.ai?.hasKey) return
+async function maybeSeed(ctxIn, modeId) {
+  const ctx = currentCtx() || ctxIn
+  if (!ctx || modeId == null || seedTried.has(modeId) || activeModeId() !== modeId || !ctx.ai?.hasKey) return
   if (ctx.isDataSwitching?.()) return
   seedTried.add(modeId) // claimed before any await: two triggers at once read and paid twice
   const cur = await readLearner(ctx, modeId)
@@ -81,13 +91,13 @@ async function maybeSeed(ctx, modeId) {
   // The shared learner context (cached a minute): deck cards with their stats and new cards, study sessions, chats...
   const r = await judgeLevelFromEvidence(ctx, { fresh: false })
   if (r.error) { if (r.error === 'thin' || r.error === 'read') seedTried.delete(modeId); return } // try again after more study
-  if (ctx.subject?.modeId !== modeId) return
+  if (activeModeId() !== modeId) { seedTried.delete(modeId); return } // switched away mid-judge: try when it is active again
   await updateLearner(ctx, modeId, (m) => m || newLearner({ level: r.level, confidence: r.confidence, strengths: r.strengths, gaps: r.gaps, source: 'evidence' }), { quiet: true })
 }
 
 function flushStudy() {
   clearTimeout(flushTimer); flushTimer = null
-  const ctx = lastCtx
+  const ctx = currentCtx()
   if (!ctx) return
   adoptAbandoned()
   for (const [modeId, p] of pending) {
@@ -99,7 +109,16 @@ function flushStudy() {
       const id = ++inflightSeq
       inflight.set(id, { modeId, total: p.total, correct: p.correct })
       updateLearner(ctx, modeId, (m) => (m ? applyLearnerDelta(m, d, 'study') : m)).then((ok) => {
-        if (ok) { inflight.delete(id); persistPending() }
+        inflight.delete(id)
+        // A refused write (share down, folder switching) goes back into the next batch: kept as this page's own
+        // in-flight entry it was never tried again while the page lived (only another page adopted it, after close).
+        if (!ok) {
+          const p2 = pending.get(modeId) || { total: 0, correct: 0 }
+          p2.total += p.total; p2.correct += p.correct
+          pending.set(modeId, p2)
+          if (!flushTimer) flushTimer = setTimeout(flushStudy, STUDY_FLUSH_MS)
+        }
+        persistPending()
       })
     }
     maybeSeed(ctx, modeId).catch(() => {})

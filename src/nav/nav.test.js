@@ -269,3 +269,91 @@ describe('nav service: after a move', () => {
     expect(st.tab).toBe('chat')
   })
 })
+
+// A layer (a feature Modal: the game panel, Codex, Learn it): Back closes it instead of changing the screen underneath.
+describe('nav service: layers', () => {
+  it('Back closes an open layer and leaves the screen; a second Back moves the screen', async () => {
+    const { nav, state, add, set, tick } = setup()
+    add('tab', 'study')
+    nav.start()
+    set('tab', 'deck')
+    let closed = 0
+    const off = nav.layer('ui.modal.1', { onClose: () => { closed++; off() } })
+    nav.back(); await tick(); await tick()
+    expect(closed).toBe(1)
+    expect(state.tab).toBe('deck')
+    nav.back(); await tick(); await tick()
+    expect(state.tab).toBe('study')
+  })
+
+  it('closing a layer by its own button steps back (no dead entry left behind)', async () => {
+    const { nav, state, add, set, tick } = setup()
+    add('tab', 'study')
+    nav.start()
+    set('tab', 'deck')
+    const off = nav.layer('ui.modal.2', { onClose: () => {} })
+    expect(nav._stack.index).toBe(2)
+    off() // the ✕
+    await tick(); await tick()
+    expect(nav._stack.index).toBe(1)
+    nav.back(); await tick(); await tick()
+    expect(state.tab).toBe('study') // one press, not a silent one first
+  })
+
+  it('Forward never reopens a closed layer', async () => {
+    const { nav, state, add, set, tick } = setup()
+    add('tab', 'study')
+    nav.start()
+    set('tab', 'deck')
+    let closed = 0
+    const off = nav.layer('ui.modal.3', { onClose: () => { closed++; off() } })
+    nav.back(); await tick(); await tick()
+    const at = nav._stack.index
+    nav.forward(); await tick(); await tick(); await tick()
+    expect(closed).toBe(1)
+    expect(state.tab).toBe('deck')
+    expect(nav._stack.index).toBe(at) // not parked on the closed layer's entry (a dead step)
+    nav.back(); await tick(); await tick()
+    expect(state.tab).toBe('study') // so the next Back moves at once
+  })
+
+  it('a screen change made while a layer is up is undone first (the layer stays)', async () => {
+    const { nav, state, add, set, tick } = setup()
+    add('tab', 'study')
+    nav.start()
+    const off = nav.layer('ui.modal.5', { onClose: () => { off() } })
+    set('tab', 'deck') // (a screen change made while it was up)
+    nav.back(); await tick(); await tick()
+    expect(state.tab).toBe('study')
+    expect(nav._stack.current().values['ui.modal.5']).toBe('open')
+    nav.forward(); await tick(); await tick(); await tick()
+    expect(state.tab).toBe('deck')
+  })
+
+  it('a layer that cannot be dismissed refuses Back (the screen does not change under it)', async () => {
+    const { dev, nav, state, add, set, tick } = setup()
+    add('tab', 'study')
+    nav.start()
+    set('tab', 'deck')
+    let closed = 0
+    nav.layer('ui.modal.4', { onClose: () => { closed++ }, closable: () => false })
+    const pos = dev.position
+    nav.back(); await tick(); await tick(); await tick()
+    expect(closed).toBe(0)
+    expect(state.tab).toBe('deck')
+    expect(dev.position).toBe(pos)
+  })
+
+  it('two layers close innermost first', async () => {
+    const { nav, add, tick } = setup()
+    add('tab', 'study')
+    nav.start()
+    const order = []
+    const offA = nav.layer('ui.modal.a', { onClose: () => { order.push('a'); offA() } })
+    const offB = nav.layer('ui.modal.b', { onClose: () => { order.push('b'); offB() } })
+    nav.back(); await tick(); await tick()
+    expect(order).toEqual(['b'])
+    nav.back(); await tick(); await tick()
+    expect(order).toEqual(['b', 'a'])
+  })
+})

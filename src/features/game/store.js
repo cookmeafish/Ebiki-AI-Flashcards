@@ -110,7 +110,11 @@ async function refresh() {
   try {
     const { players } = await getJson(API.players)
     const me = state.player && players.find((p) => p.id === state.player.id)
-    set({ others: players.filter((p) => p.id !== state.player?.id), ...(me ? { player: mergePlayers(me, state.player) } : {}) })
+    const patch = { others: players.filter((p) => p.id !== state.player?.id), ...(me ? { player: mergePlayers(me, state.player) } : {}) }
+    // Nothing new (the usual case every 2 minutes): no new objects, so the header, rail and panels don't re-render.
+    const same = (a, b) => { try { return JSON.stringify(a) === JSON.stringify(b) } catch { return false } }
+    if (same(patch.others, state.others) && (!patch.player || same(patch.player, state.player))) return
+    set(patch)
   } catch { /* try again next time */ }
 }
 

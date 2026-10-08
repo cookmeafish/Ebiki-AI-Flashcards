@@ -25,6 +25,11 @@ describe('contract', () => {
     expect(oneStepInterval(4, 1, 2500).next).toBe(4) // Easy always lands past Good (3)
     expect(oneStepInterval(3, 0, 0)).toEqual({ curIvl: 1, factor: 2500, next: 3 }) // new card, no factor
     expect(oneStepInterval(3, 30000, 2500).next).toBe(36500) // capped at 100 years
+    // Stored values may come back as strings; never read as Easy (the most generous step).
+    expect(oneStepInterval('1', '30', '2500')).toEqual({ curIvl: 30, factor: 2500, next: 0 })
+    expect(oneStepInterval('3', '30', '2500').next).toBe(75)
+    expect(oneStepInterval(0, 30, 2500).next).toBe(0) // out of range: clamped to Again, never Easy
+    expect(oneStepInterval(9, 30, 2500).next).toBe(98)
   })
 })
 
@@ -78,13 +83,20 @@ describe('Anki queries', () => {
     expect(compileQuery({ cardId: 5, state: 'dueOrNew', excludeSuspended: true, excludeBuried: true })).toBe('cid:5 (is:due OR is:new) -is:suspended -is:buried')
     expect(compileQuery({ cardId: 5, state: 'new' })).toBe('cid:5 is:new')
   })
-  it('escapes deck wildcards and strips search operators from text', () => {
+  it('escapes deck wildcards and search operators in text (never deletes them)', () => {
     expect(deckTerm('Unit_1*')).toBe('deck:"Unit\\_1\\*"')
-    expect(compileQuery({ text: 'a"b*(c):' })).toBe('"abc"')
+    expect(compileQuery({ text: 'a"b*(c):' })).toBe('"a\\"b\\*(c)\\:"')
+    // A tapped word keeps its underscore: "dog_house" must not search for "doghouse".
+    expect(compileQuery({ text: 'dog_house' })).toBe('"dog\\_house"')
+    expect(compileQuery({ text: 'C:\\x', ignoreAccents: true })).toBe('"nc:C\\:\\\\x"')
+    // A leading hyphen stays literal inside the quotes (negation is parsed outside them).
+    expect(compileQuery({ text: '-ito' })).toBe('"-ito"')
+    // Wildcards alone are a literal search, not "everything".
+    expect(compileQuery({ text: '**' })).toBe('"\\*\\*"')
   })
   it('never compiles to "everything"', () => {
     expect(() => compileQuery({})).toThrow(/empty/)
-    expect(() => compileQuery({ text: '**' })).toThrow(/empty/)
+    expect(() => compileQuery({ text: '   ' })).toThrow(/empty/)
     expect(() => compileQuery({ deck: 'x', state: 'someday' })).toThrow(/unknown/)
     expect(() => compileQuery('deck:x')).toThrow()
   })
@@ -159,6 +171,39 @@ describe('Anki recordRatings', () => {
     const rev = calls.find(([a]) => a === 'insertReviews')[1].reviews[0]
     expect(rev.slice(1, 7)).toEqual([7, -1, 3, 2, 0, 2500])
     expect(log.recorded.map((c) => c.cardId)).toEqual([7])
+  })
+  it('reports the grade Anki RECORDED when the reviewer had to cap it', async () => {
+    const queue = [{ cardId: 1, buttons: [1, 2, 3] }]
+    fakeAnki({
+      guiDeckReview: () => true, guiCurrentCard: () => queue[0] || null, guiShowAnswer: () => true,
+      guiAnswerCard: () => { queue.shift(); return true }, guiDeckBrowser: () => true,
+    })
+    const { log, hooks } = hookRecorder()
+    await srs.recordRatings({ deck: 'D', ratings: [{ cardId: 1, ease: 4, rating: 'easy', front: 'x' }], hooks })
+    expect(log.recorded).toEqual([{ cardId: 1, ease: 3, rating: 'good', front: 'x' }])
+  })
+  it('the answerCards retry at a capped ease reports the capped grade', async () => {
+    let n = 0
+    const calls = fakeAnki({
+      guiDeckReview: () => true, guiCurrentCard: () => null, guiDeckBrowser: () => true,
+      findCards: () => [5], answerCards: () => [n++ > 0],
+    })
+    const { log, hooks } = hookRecorder()
+    await srs.recordRatings({ deck: 'D', ratings: [{ cardId: 5, ease: 4, rating: 'easy' }], hooks })
+    expect(calls.filter(([a]) => a === 'answerCards').map(([, p]) => p.answers[0].ease)).toEqual([4, 3])
+    expect(log.recorded).toEqual([{ cardId: 5, ease: 3, rating: 'good' }])
+  })
+  it('an ease sent as text is read as its number, never as Again on the new-card path', async () => {
+    const calls = fakeAnki({
+      guiDeckReview: () => true, guiCurrentCard: () => null, guiDeckBrowser: () => true,
+      findCards: () => [7], answerCards: () => { throw new Error('card 7 not at top of queue') },
+      setDueDate: () => true, insertReviews: () => true,
+    })
+    const { log, hooks } = hookRecorder()
+    await srs.recordRatings({ deck: 'D', ratings: [{ cardId: 7, ease: '3', rating: 'good' }], hooks })
+    expect(calls.find(([a]) => a === 'setDueDate')[1].days).toBe('2!')
+    expect(calls.find(([a]) => a === 'insertReviews')[1].reviews[0][3]).toBe(3)
+    expect(log.recorded[0].ease).toBe(3)
   })
   it('settles an earlier lost answer from the review log with the grade Anki kept', async () => {
     fakeAnki({
@@ -247,5 +292,48 @@ describe('rating writes are serialized', () => {
     release()
     await a; await expect(b).rejects.toThrow('boom'); await c
     expect(order).toEqual(['start A', 'end A', 'start B', 'correct'])
+  })
+})
+
+describe('Anki adapter writes', () => {
+  it('addNote: one tag per entry, duplicates judged in the target deck, stray "<" kept as text', async () => {
+    const calls = fakeAnki({ modelFieldNames: () => ['Front', 'Back'], addNote: () => 42 })
+    expect(await ankiBackend.addNote('Lang::ES', 'vector<int>', 'b', ['machine learning', ' x ', 'x'])).toBe(42)
+    const note = calls.find(([a]) => a === 'addNote')[1].note
+    expect(note.tags).toEqual(['machine-learning', 'x'])
+    expect(note.options).toMatchObject({ duplicateScope: 'deck', duplicateScopeOptions: { deckName: 'Lang::ES', checkChildren: true } })
+    expect(note.fields.Front).toBe('vector&lt;int>')
+  })
+  it('setNoteTags: adds before removes, escapes removal patterns, re-adds a wanted child of a removed tag', async () => {
+    const calls = fakeAnki({ addTags: () => null, removeTags: () => null })
+    await ankiBackend.setNoteTags(1, ['Lesson_1', 'a', 'a::b', 'Keep'], ['a::b', 'Keep', 'new tag'])
+    expect(calls.map(([a, p]) => [a, p.tags])).toEqual([
+      ['addTags', 'new-tag'], ['removeTags', String.raw`Lesson\_1 a`], ['addTags', 'a::b'],
+    ])
+  })
+  it('setNoteTags: a case-only change is a remove and a re-add', async () => {
+    const calls = fakeAnki({ addTags: () => null, removeTags: () => null })
+    await ankiBackend.setNoteTags(1, ['Verb'], ['verb'])
+    expect(calls.map(([a, p]) => [a, p.tags])).toEqual([['removeTags', 'Verb'], ['addTags', 'verb']])
+  })
+  it("the proxy's own error codes come back translated and keep their code", async () => {
+    fakeAnki({ deckNames: () => { throw new Error('x') } })
+    globalThis.fetch = vi.fn(async () => ({ json: async () => ({ result: null, error: 'Anki took too long', code: 'timeoutChange' }) }))
+    const err = await ankiBackend.getDecks().catch((e) => e)
+    expect(err.code).toBe('timeoutChange')
+  })
+  it('syncSoon: a burst becomes ONE sync after the quiet period, and a steady drip still syncs by the max wait', async () => {
+    vi.useFakeTimers()
+    try {
+      const calls = fakeAnki({ sync: () => null })
+      ankiBackend.syncSoon(); ankiBackend.syncSoon(); ankiBackend.syncSoon()
+      await vi.advanceTimersByTimeAsync(7999)
+      expect(calls.filter(([a]) => a === 'sync').length).toBe(0)
+      await vi.advanceTimersByTimeAsync(1)
+      expect(calls.filter(([a]) => a === 'sync').length).toBe(1)
+      for (let t = 0; t < 20; t++) { ankiBackend.syncSoon(); await vi.advanceTimersByTimeAsync(5000) }
+      expect(calls.filter(([a]) => a === 'sync').length).toBe(2) // the 90s cap fired once inside the 100s drip
+      await vi.advanceTimersByTimeAsync(8000)
+    } finally { vi.useRealTimers() }
   })
 })

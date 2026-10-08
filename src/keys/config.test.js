@@ -68,6 +68,13 @@ describe('writeConfig', () => {
     writeConfig({ onboarded: true })
     expect(readConfigChecked()).toEqual({ ok: true, data: { onboarded: true } })
   })
+
+  it('refuses anything but an object of settings, leaving the file untouched', () => {
+    // A string or list merged in as keys "0", "1", ... (Object.entries of a string is its characters).
+    fs.writeFileSync(FILE, JSON.stringify({ onboarded: true }), 'utf-8')
+    for (const bad of ['dark', ['a', 'b'], null, 5]) expect(() => writeConfig(bad)).toThrow()
+    expect(JSON.parse(fs.readFileSync(FILE, 'utf-8'))).toEqual({ onboarded: true })
+  })
 })
 
 describe('a file saved with a UTF-8 byte-order mark', () => {

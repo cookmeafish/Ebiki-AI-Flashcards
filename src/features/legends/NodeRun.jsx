@@ -2,7 +2,8 @@
 // that is a quiz runs through the shared QuizRunner; a Scene step tells a story or case study line by line,
 // then asks about it; a Talk step is its own conversation (./Talk.jsx). When it ends, `onFinish(result)` gets
 // { total, correct, items: [{ itemId, correct }], misses: [{ asked, answered, expected }] }.
-import { useEffect, useRef, useState } from 'react'
+import { ctxErrorText } from '../kit/aiError'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile } from '../../config/shrimp'
 import { speak } from '../../speech'
@@ -30,6 +31,24 @@ import { FIGHT_EXTRAS, fightExtrasFor, expectedOf, isWrongish, learnItemFor } fr
 import { updateMap, peekMap, LEGENDS_ID } from './store'
 import { CheatButton, CheatRow } from './CheatUI'
 
+// A new screen starts at its top: the Legends screen's scroll box kept the last one's position (a step's result
+// opened scrolled down by the quiz before it). LegendsScreen renders one marker per view; a step's own phases
+// (lesson, story, questions) scroll through it too.
+const scrollScreenTop = (el) => { const p = scrollBoxOf(el); if (p) p.scrollTop = 0 }
+// A pinned bar rests below its scroll box's top padding, and the content scrolling past showed through that band:
+// the offset that pins it at the box's very top instead.
+const scrollBoxOf = (el) => { let p = el?.parentElement; while (p && !/(auto|scroll)/.test(getComputedStyle(p).overflowY)) p = p.parentElement; return p }
+function useStickyTop(ref) {
+  const [top, setTop] = useState(0)
+  useLayoutEffect(() => { const p = scrollBoxOf(ref.current); if (p) setTop(-(parseFloat(getComputedStyle(p).paddingTop) || 0)) })
+  return top
+}
+export function ScrollTop({ on, skip = false }) {
+  const ref = useRef(null)
+  useLayoutEffect(() => { if (!skip) scrollScreenTop(ref.current) }, [on]) // eslint-disable-line react-hooks/exhaustive-deps
+  return <span ref={ref} hidden data-lg-top="" />
+}
+
 // Every level teaches its items before asking (a story level too: its story brings in new items).
 const TEACH_KINDS = new Set(['learn', 'rule', 'scene'])
 const SIDE = { A: 'flex-start', B: 'flex-end', N: 'center' }
@@ -41,18 +60,21 @@ function AddOne({ ctx, modeId, areaId, it }) {
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
   if (it.cardNoteId) return <span style={{ fontSize: 11.5, fontWeight: 800, color: C.success, whiteSpace: 'nowrap' }}>✓ {t('lg_inDeck')}</span>
-  const noDeck = !subject.modeDeck
+  // Anki closed: nothing can be added (the button stayed live beside "Open Anki" and failed on the click).
+  const offline = ctx.ankiConnected === false
+  const noDeck = !subject.modeDeck || offline
   const add = async () => {
-    if (busy || isAdding(modeId, it.id)) return
+    if (busy || noDeck || isAdding(modeId, it.id)) return
     setBusy(true); setNote('')
     const r = await addItemsToDeck(ctx, modeId, areaId, [it])
     setBusy(false)
-    if (!r.added) setNote(r.message || t('lg_addFailed'))
+    // Nothing added and nothing failed = another button is adding it right now (in flight): no error to show.
+    if (!r.added && (r.failed || r.message)) setNote(r.message || t('lg_addFailed'))
   }
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
       {note && <span style={{ fontSize: 11.5, color: C.warning }}>{note}</span>}
-      <button type="button" onClick={add} disabled={busy || noDeck} className={noDeck ? 'tip' : undefined} data-tip={noDeck ? t('lg_pickDeckFirst') : undefined}
+      <button type="button" onClick={add} disabled={busy || noDeck} className={noDeck ? 'tip' : undefined} data-tip={noDeck ? t(offline ? 'lg_noDeck' : 'lg_pickDeckFirst') : undefined}
         style={{ fontFamily: FONT.body, fontSize: 11.5, fontWeight: 800, padding: '4px 10px', borderRadius: RADIUS.pill, border: `1px solid color-mix(in srgb, ${C.success} 35%, transparent)`,
           background: 'transparent', color: C.success, whiteSpace: 'nowrap', cursor: busy || noDeck ? 'default' : 'pointer', opacity: busy || noDeck ? 0.5 : 1 }}>
         {busy ? t('lg_adding') : `+ ${t('lg_addItem')}`}
@@ -126,21 +148,22 @@ export function AddToDeck({ ctx, modeId, areaId, itemIds, label }) {
   const items = liveItems(modeId, areaId, itemIds)
   const todo = items.filter((it) => !it.cardNoteId)
   const add = async () => {
-    if (busy || !todo.length) return
+    if (busy || !todo.length || ctx.ankiConnected === false) return
     setBusy(true); setNote('')
     const r = await addItemsToDeck(ctx, modeId, areaId, todo)
     setBusy(false)
-    setNote(r.added ? t('lg_added', { n: r.added, deck: subject.modeDeck }) + (r.failed ? ` ${r.message || ''}` : '') : r.message || t('lg_addFailed'))
+    setNote(r.added ? t('lg_added', { n: r.added, deck: subject.modeDeck }) + (r.failed ? ` ${r.message || ''}` : '') : r.failed || r.message ? r.message || t('lg_addFailed') : '')
     force((n) => n + 1)
   }
   if (!items.length) return null
   const deck = subject.modeDeck
+  const offline = ctx.ankiConnected === false
   return (
     <div style={{ display: 'grid', gap: 8 }}>
       {todo.length > 0 && <DeckPicker ctx={ctx} />}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
         {todo.length ? (
-          <ChunkyButton variant="ghost" color={C.success} onClick={add} disabled={busy || !deck} style={{ fontSize: 12.5, padding: '8px 12px' }}>
+          <ChunkyButton variant="ghost" color={C.success} onClick={add} disabled={busy || !deck || offline} style={{ fontSize: 12.5, padding: '8px 12px' }}>
             + {busy ? t('lg_adding') : label || (deck ? t('lg_addAll', { n: todo.length, deck }) : t('lg_addN', { n: todo.length }))}
           </ChunkyButton>
         ) : <span style={{ fontSize: 13, fontWeight: 800, color: C.success }}>✓ {t('lg_allInDeck')}</span>}
@@ -174,7 +197,7 @@ function Story({ ctx, scene, onDone, onQuit }) {
           </label>
         )}
       </div>
-      <ProgressBar value={shown} max={scene.lines.length} color={C.success} style={{ height: 12 }} />
+      <ProgressBar value={shown} max={scene.lines.length} color={C.success} style={{ height: 12 }} label={t('ui_progress')} />
       <div ref={listRef} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, padding: 4 }}>
         {scene.lines.slice(0, shown).map((l, i) => (
           <div key={i} style={{ alignSelf: SIDE[l.speaker], maxWidth: l.speaker === 'N' ? '90%' : '80%', textAlign: l.speaker === 'N' ? 'center' : 'left' }}>
@@ -226,7 +249,7 @@ export default function NodeRun(props) {
         <CheatButton onClick={() => end(true)}>⚡ {ctx.t('lg_cheatWin')}</CheatButton>
         <CheatButton onClick={() => end(false)}>⚡ {ctx.t('lg_cheatLose')}</CheatButton>
       </CheatRow>
-      <NodeRunBody {...props} />
+      <div><NodeRunBody {...props} /></div>
     </div>
   )
 }
@@ -258,6 +281,15 @@ function NodeRunBody({ ctx: rawCtx, modeId, area, node, misses = [], onFinish, o
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // The boss fight: an intro card first, then every answer is a hit on the boss or a lost heart (BossArena.jsx).
   const [fighting, setFighting] = useState(false)
+  const arenaRef = useRef(null)
+  const arenaTop = useStickyTop(arenaRef)
+  // A new phase (and the fight starting after the boss entrance) opens at the top: the fight began scrolled down to
+  // where the entrance's Fight button was, the question hidden under the pinned arena.
+  const firstPhase = useRef(true)
+  useLayoutEffect(() => {
+    if (firstPhase.current) { firstPhase.current = false; return }
+    scrollScreenTop(document.querySelector('[data-lg-top]'))
+  }, [phase, fighting])
   // The fight (fight.js). A ref mirrors it: onAnswer must read the state the previous answer left, not a render's.
   const [fs, setFs] = useState(newFight)
   const fsRef = useRef(fs)
@@ -267,8 +299,8 @@ function NodeRunBody({ ctx: rawCtx, modeId, area, node, misses = [], onFinish, o
   const focus = cfg.focus === true
   // A shield (a helper earned in Weak spots) is taken into the fight when one is held; it absorbs one lost life.
   const [shield] = useState(() => node.kind === 'boss' && (peekMap(modeId)?.helpers?.shield || 0) > 0)
-  // Hint scrolls (earned by a first flawless level, held at most HELPERS_MAX): one shows the answer's first letter
-  // and length on a typed question.
+  // Hint scrolls (earned by a first flawless level, held at most HELPERS_MAX): one shows the first half of each word
+  // of the answer on a typed question (scrollHint).
   const [scrolls, setScrolls] = useState(() => peekMap(modeId)?.helpers?.scroll || 0)
   // One scroll per question: the button stays on screen after use, and each click spent another scroll.
   const scrolledFor = useRef(new Set())
@@ -340,7 +372,7 @@ function NodeRunBody({ ctx: rawCtx, modeId, area, node, misses = [], onFinish, o
         if (my !== seq.current) return
         setQuestions(qs); setPhase('quiz')
       }
-    } catch (e) { if (my === seq.current) { setError(String(e.message || e)); setPhase('error') } }
+    } catch (e) { if (my === seq.current) { setError(ctxErrorText(ctx, e)); setPhase('error') } }
   }
   useEffect(() => { if (phase === 'loading') load(); return () => { seq.current++ } }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // A fight setting that changes what the questions are written in (learned language, "Ebi speaks", dialect), changed
@@ -525,6 +557,7 @@ function NodeRunBody({ ctx: rawCtx, modeId, area, node, misses = [], onFinish, o
         onAnswer={record} judge={judge} header={header} canUseChoices={canUseChoices} tools={tools}
         startChoices={node.kind === 'boss' ? () => fightRulesNow.answerStyle === 'choices' : undefined}
         onQuestion={fight ? () => taunt.onQuestion() : undefined} resolveQuestion={fight ? fc.resolveQuestion : undefined}
+        overturnedFor={fight ? (q) => !!fc.entryFor(q)?.overturned : undefined}
         feedbackExtra={(q, correct, answer) => fight ? (() => {
           const e = fc.entryFor(q)
           return e && isWrongish(e.first) ? <MissTools ctx={ctx} entry={e} onAppeal={fc.appeal} onLearn={learnOn ? () => openLearn(e) : null} rule expected={expectedOf(q)} /> : null
@@ -536,7 +569,9 @@ function NodeRunBody({ ctx: rawCtx, modeId, area, node, misses = [], onFinish, o
         // leaving here showed the map and then the result popped up over it.
         onExit={(...args) => { if (!finished.current) onQuit(...args) }} />
     )
-    if (!boss) return <div style={{ display: 'grid', gap: 4 }}>{renewRow}{runner}</div>
+    // The runner sits in a plain block: as a grid item its auto margins shrank it to its content (a short question made
+    // a narrow quiz, and the column changed width from question to question).
+    if (!boss) return <div style={{ display: 'grid', gap: 4 }}>{renewRow}<div>{runner}</div></div>
     // The fight ends when the boss has no health left (a win: stars count the answers given) or the learner no
     // lives (the rest of the questions count as missed).
     const outcome = fightOutcome(fs, o)
@@ -545,13 +580,13 @@ function NodeRunBody({ ctx: rawCtx, modeId, area, node, misses = [], onFinish, o
     return (
       <div style={{ display: 'grid', gap: 12 }}>
         {/* Sticky: a long question or four tall choices scroll UNDER the boss instead of pushing it off screen. */}
-        <div style={{ maxWidth: 680, width: '100%', margin: '0 auto', position: 'sticky', top: 0, zIndex: 5, paddingTop: 4, background: C.bg }}>
+        <div ref={arenaRef} style={{ maxWidth: 680, width: '100%', margin: '0 auto', position: 'sticky', top: arenaTop, zIndex: 5, paddingTop: 4, background: C.bg }}>
           <BossArena t={t} area={area} name={bossName} need={o.need} lives={o.lives} bonus={o.bonus} state={fs} weak={weakNames} shield={shield} focus={focus} getZoom={ctx.getZoom} />
-          {!outcome && <TauntBubble bubble={taunt.bubble} name={bossName} calm={focus} ctx={ctx} />}
+          {!outcome && <TauntBubble bubble={taunt.bubble} name={bossName || area.bossName || area.title || ''} calm={focus} ctx={ctx} />}
           <FightNotice notice={fc.notice} t={t} />
         </div>
         {learn && <LearnItPanel ctx={ctx} item={learn} onClose={() => setLearn(null)} closeLabel={t('lg_learnBackToFight')} />}
-        {outcome ? <BossEnd t={t} won={outcome === 'won'} onDone={() => finish(outcome === 'lost' ? questions.length : 0)} /> : <div style={{ display: 'grid', gap: 4 }}>{renewRow}{runner}</div>}
+        {outcome ? <BossEnd t={t} won={outcome === 'won'} onDone={() => finish(outcome === 'lost' ? questions.length : 0)} /> : <div style={{ display: 'grid', gap: 4 }}>{renewRow}<div>{runner}</div></div>}
       </div>
     )
   }

@@ -11,7 +11,7 @@ import { C, RADIUS, FONT, SHADOW } from '../config/tokens'
 const SEG_MAX = 220 // CSS px per segment before the name ellipsizes
 
 const segStyle = (color, side) => ({
-  padding: '7px 11px', fontSize: 13, fontFamily: FONT.body, fontWeight: 700, cursor: 'pointer', outline: 'none',
+  padding: '7px 11px', fontSize: 13, fontFamily: FONT.body, fontWeight: 700, cursor: 'pointer', // no inline outline: it hid the global :focus-visible ring (keyboard focus was invisible)
   color, background: 'transparent', border: 'none',
   borderRadius: side === 'both' ? RADIUS.md - 1
     : side === 'left' ? `${RADIUS.md - 1}px 0 0 ${RADIUS.md - 1}px` : `0 ${RADIUS.md - 1}px ${RADIUS.md - 1}px 0`,

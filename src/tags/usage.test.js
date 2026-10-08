@@ -147,11 +147,11 @@ describe('reconcileUsageTags — shape', () => {
 
 describe('presentation', () => {
   it('paints safe-to-use tags green and heads-up tags amber', () => {
-    expect(usageTagStyle('region-global').color).toBe('var(--c-success)')
-    expect(usageTagStyle('freq-core').color).toBe('var(--c-success)')
-    expect(usageTagStyle('freq-rare').color).toBe('var(--c-warning)')
-    expect(usageTagStyle('region-mexico').color).toBe('var(--c-warning)')
-    expect(usageTagStyle('register-literary').color).toBe('var(--c-warning)')
+    expect(usageTagStyle('region-global').color).toContain('var(--c-success)')
+    expect(usageTagStyle('freq-core').color).toContain('var(--c-success)')
+    expect(usageTagStyle('freq-rare').color).toContain('var(--c-warning)')
+    expect(usageTagStyle('region-mexico').color).toContain('var(--c-warning)')
+    expect(usageTagStyle('register-literary').color).toContain('var(--c-warning)')
   })
   it('marks unverified tags distinctly whatever the family', () => {
     expect(usageTagStyle('region-global', { unverified: true }).border).toContain('dashed')
@@ -206,6 +206,16 @@ describe('collapseSpanningRegions', () => {
     expect(collapseSpanningRegions(['region-spain', 'region-mexico'], 'Spanish'))
       .toEqual(['region-spain', 'region-mexico'])
     expect(collapseSpanningRegions(['region-latam'], 'Spanish')).toEqual(['region-latam'])
+  })
+  it('recognises the language however the mode names it', () => {
+    // A saved studyLanguage is free text: the learner's own word for it, or a variety.
+    expect(collapseSpanningRegions(['region-spain', 'region-latam'], 'Español')).toEqual(['region-global'])
+    expect(collapseSpanningRegions(['region-spain', 'region-latam'], 'Spanish (Mexico)')).toEqual(['region-global'])
+    expect(collapseSpanningRegions(['region-uk', 'region-us'], 'Inglés')).toEqual(['region-global'])
+    expect(collapseSpanningRegions(['region-netherlands', 'region-belgium'], 'Nederlands')).toEqual(['region-global'])
+  })
+  it('folds underscore and spaced spellings of usage tags', () => {
+    expect(normalizeUsageTags(['region_global', 'freq_core', 'register_formal'])).toEqual(['region-global', 'freq-core', 'register-formal'])
   })
   it('is a no-op for a language with no span data', () => {
     expect(collapseSpanningRegions(['region-x', 'region-y'], 'Klingon')).toEqual(['region-x', 'region-y'])

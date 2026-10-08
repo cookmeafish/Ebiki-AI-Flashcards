@@ -19,14 +19,22 @@ const chipBase = {
   background: 'var(--c-surface)', color: 'var(--c-ink)', cursor: 'pointer', maxWidth: '100%',
 }
 
-const Chip = ({ text, icon, selected, correct, onClick, dragProps }) => (
-  <button onClick={onClick} disabled={!onClick && !dragProps} {...(dragProps || {})} style={{
+const SR_ONLY = { position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap' }
+
+// Tints from the theme tokens (light mode's deeper success/danger), never fixed rgba.
+const tint = (token, pct) => `color-mix(in srgb, var(${token}) ${pct}%, transparent)`
+
+const Chip = ({ text, icon, selected, correct, onClick, dragProps, label }) => (
+  <button onClick={onClick} disabled={!onClick && !dragProps} {...(dragProps || {})}
+    // A pool chip is a toggle (picked or not); a screen reader heard only its text.
+    aria-pressed={selected === undefined ? undefined : !!selected} aria-label={label} style={{
     ...chipBase,
+    textAlign: 'left', // a long item wraps inside the chip: centred lines read as a blob
     cursor: dragProps ? 'grab' : onClick ? 'pointer' : 'default',
     borderColor: correct === true ? 'var(--c-success)' : correct === false ? 'var(--c-danger)' : selected ? 'var(--c-brand)' : 'var(--c-border)',
-    background: correct === true ? 'rgba(24,169,87,.10)' : correct === false ? 'rgba(229,57,46,.08)' : selected ? 'rgba(223,37,64,.08)' : 'var(--c-surface)',
+    background: correct === true ? tint('--c-success', 10) : correct === false ? tint('--c-danger', 8) : selected ? tint('--c-brand', 8) : 'var(--c-surface)',
     color: correct === false ? 'var(--c-danger)' : 'var(--c-ink)',
-    ...(selected ? { boxShadow: '0 0 0 3px rgba(223,37,64,.15)' } : {}), // never 'none': it would block the global hover shadow
+    ...(selected ? { boxShadow: `0 0 0 3px ${tint('--c-brand', 15)}` } : {}), // never 'none': it would block the global hover shadow
   }}>
     {correct === true && <span style={{ color: 'var(--c-success)' }}>✓</span>}
     {correct === false && <span>✗</span>}
@@ -35,8 +43,10 @@ const Chip = ({ text, icon, selected, correct, onClick, dragProps }) => (
   </button>
 )
 
+// The correct answer beside a wrong one. It WRAPS: a long matching description on one line ran the graded card past
+// the screen's edge (900px, zoom 2).
 const Expected = ({ text }) => (
-  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-success)', whiteSpace: 'nowrap' }}>→ {text}</span>
+  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-success)', minWidth: 0, overflowWrap: 'anywhere' }}>→ {text}</span>
 )
 
 export default function PbqQuestion({ pbq, t, onSubmit, review = null }) {
@@ -48,6 +58,7 @@ export default function PbqQuestion({ pbq, t, onSubmit, review = null }) {
   const [dragIdx, setDragIdx] = useState(null)    // pool item index being dragged (matching/categorize)
   const [dragOverT, setDragOverT] = useState(null) // target idx (or 'pool') currently hovered by a drag
   const [dragRow, setDragRow] = useState(null)     // ordering: display position of the row being dragged
+  const [announce, setAnnounce] = useState('')     // ordering: where the moved step landed (read by screen readers)
 
   const liveAssign = review ? review.assign : assign
   const per = review ? review.perItem : null
@@ -64,9 +75,12 @@ export default function PbqQuestion({ pbq, t, onSubmit, review = null }) {
       if (to < 0 || to >= shownSeq.length) return
       const next = [...shownSeq]; [next[pos], next[to]] = [next[to], next[pos]]
       setSeq(next)
+      // The arrow keeps focus while its row moves, but nothing said where the step went.
+      setAnnounce(t('pbqMovedTo', { item: pool[next[to]], n: to + 1, total: next.length }))
     }
     return (
       <div>
+        <div aria-live="polite" style={SR_ONLY}>{announce}</div>
         <div style={{ fontSize: 11, color: 'var(--c-ink-dim)', marginBottom: 8 }}>{t('pbqOrderHint')}</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {shownSeq.map((itemIdx, pos) => {
@@ -107,8 +121,8 @@ export default function PbqQuestion({ pbq, t, onSubmit, review = null }) {
                   <span style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                     {/* aria-disabled, not disabled: the focused arrow travels with its row, and a disabled one at the
                         end dropped keyboard focus to the page (Tab all the way back for every step). */}
-                    <button onClick={() => { if (pos > 0) move(pos, -1) }} aria-disabled={pos === 0} style={{ ...chipBase, padding: '3px 9px', opacity: pos === 0 ? 0.35 : 1, cursor: pos === 0 ? 'default' : 'pointer' }}>▲</button>
-                    <button onClick={() => { if (pos < shownSeq.length - 1) move(pos, +1) }} aria-disabled={pos === shownSeq.length - 1} style={{ ...chipBase, padding: '3px 9px', opacity: pos === shownSeq.length - 1 ? 0.35 : 1, cursor: pos === shownSeq.length - 1 ? 'default' : 'pointer' }}>▼</button>
+                    <button onClick={() => { if (pos > 0) move(pos, -1) }} aria-disabled={pos === 0} aria-label={t('pbqMoveUp')} style={{ ...chipBase, padding: '3px 9px', opacity: pos === 0 ? 0.35 : 1, cursor: pos === 0 ? 'default' : 'pointer' }}>▲</button>
+                    <button onClick={() => { if (pos < shownSeq.length - 1) move(pos, +1) }} aria-disabled={pos === shownSeq.length - 1} aria-label={t('pbqMoveDown')} style={{ ...chipBase, padding: '3px 9px', opacity: pos === shownSeq.length - 1 ? 0.35 : 1, cursor: pos === shownSeq.length - 1 ? 'default' : 'pointer' }}>▼</button>
                   </span>
                 )}
               </div>
@@ -170,7 +184,8 @@ export default function PbqQuestion({ pbq, t, onSubmit, review = null }) {
   }
 
   return (
-    <div>
+    // Esc puts a picked chip down again (only then: the key stays free for whatever is around the exercise).
+    <div onKeyDown={(e) => { if (e.key === 'Escape' && selected !== null && !done) { e.preventDefault(); e.stopPropagation(); setSelected(null) } }}>
       {!done && (
         <div style={{ fontSize: 11, color: 'var(--c-ink-dim)', marginBottom: 8 }}>{t('pbqSelectHint')}</div>
       )}
@@ -179,7 +194,7 @@ export default function PbqQuestion({ pbq, t, onSubmit, review = null }) {
         <div {...dropZoneProps('pool', (ii) => unplaceItem(ii))} style={{
           display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10, minHeight: 34, padding: '6px 8px',
           border: `1px dashed ${dragOverT === 'pool' ? 'var(--c-brand)' : 'var(--c-border)'}`, borderRadius: 10,
-          background: dragOverT === 'pool' ? 'rgba(223,37,64,.05)' : 'transparent',
+          background: dragOverT === 'pool' ? tint('--c-brand', 5) : 'transparent',
         }}>
           {unplaced.length === 0
             ? <span style={{ fontSize: 11, color: 'var(--c-ink-faint)', alignSelf: 'center' }}>✓</span>
@@ -198,15 +213,15 @@ export default function PbqQuestion({ pbq, t, onSubmit, review = null }) {
             <div key={ti} onClick={() => { if (!done && selected !== null) placeItem(selected, ti) }}
               // Keyboard: a chip is picked with Tab + Enter, and the box must be reachable the same way, or a
               // keyboard-only user could never finish (Submit needs every item placed).
-              tabIndex={done ? -1 : 0} role="button" aria-label={String(tg)}
+              tabIndex={done ? -1 : 0} role={done ? undefined : "button"} aria-label={placedHere.length ? `${tg}: ${placedHere.map((i) => pool[i]).join(', ')}` : String(tg)}
               onKeyDown={(e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ') && !done && selected !== null) { e.preventDefault(); placeItem(selected, ti) } }}
               {...dropZoneProps(ti, (ii) => placeItem(ii, ti))} style={{
               ...box,
               cursor: !done && selected !== null ? 'pointer' : 'default',
               borderColor: dragOverT === ti ? 'var(--c-brand)' : droppable ? 'var(--c-brand)' : 'var(--c-border)',
               borderStyle: droppable && dragOverT !== ti ? 'dashed' : 'solid',
-              background: dragOverT === ti ? 'rgba(223,37,64,.06)' : box.background,
-              boxShadow: dragOverT === ti ? '0 0 0 3px rgba(223,37,64,.12)' : 'none',
+              background: dragOverT === ti ? tint('--c-brand', 6) : box.background,
+              boxShadow: dragOverT === ti ? `0 0 0 3px ${tint('--c-brand', 12)}` : undefined,
             }}>
               <div style={{ fontSize: isMatching ? 12 : 12.5, fontWeight: isMatching ? 500 : 800, color: isMatching ? 'var(--c-ink)' : 'var(--c-brand)', marginBottom: placedHere.length || !done ? 6 : 0, lineHeight: 1.5 }}>
                 {!isMatching && iconFor(pbq, tg) && <span style={{ fontSize: 14, marginRight: 6 }}>{iconFor(pbq, tg)}</span>}
@@ -216,7 +231,7 @@ export default function PbqQuestion({ pbq, t, onSubmit, review = null }) {
                 {placedHere.map(ii => {
                   const p = per?.[ii]
                   return (
-                    <span key={ii} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: '100%' }}>
+                    <span key={ii} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, maxWidth: '100%', minWidth: 0, flexWrap: 'wrap' }}>
                       <Chip text={pool[ii]} icon={iconFor(pbq, pool[ii])} correct={p ? p.correct : undefined} dragProps={chipDragProps(ii)}
                         onClick={!done ? (e) => { e.stopPropagation(); unplaceItem(ii, true) } : undefined} />
                       {p && !p.correct && <Expected text={p.expectedText} />}

@@ -5,7 +5,7 @@ import { C } from '../config/tokens'
 // border color, so the section rule never showed.
 export default function FormattedText({ text, accentColor = C.brand }) {
   if (!text) return null
-  const lines = text.split('\n')
+  const lines = String(text).split('\n') // a non-string (an AI field that came back as a list) threw on .split
   const sections = []
   let current = null
 
@@ -51,7 +51,7 @@ export default function FormattedText({ text, accentColor = C.brand }) {
             {section.lines.map((line, j) => {
               if (!line) return <div key={j} style={{ height: 6 }} />
               const isBullet = /^[-•–]/.test(line)
-              const isExample = /^[""]/.test(line) || /ejemplo|example|translation/i.test(line)
+              const isExample = /^["“„«]/.test(line) || /ejemplo|example|translation/i.test(line)
               return (
                 <div key={j} style={{
                   paddingLeft: isBullet ? 12 : 0,

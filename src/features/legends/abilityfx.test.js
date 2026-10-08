@@ -13,7 +13,7 @@ import { simulateRaid, mixed } from './abilities/_sim'
 import { RAID_MOTIFS, RAID_ABILITY } from './raid'
 import { AbilityHud, BarMarks, trackBumps } from './fx/_Hud'
 import { juiceFor } from './fx'
-import { JUICE, JUICE_SIZES, JUICE_CSS, juiceOf } from './fx/_juice'
+import { JUICE, JUICE_SIZES, JUICE_CSS, juiceOf, floaterPxFor, FLOATER_LONG } from './fx/_juice'
 import { registerAbilityForTest } from './abilities'
 
 // Every raid boss has an ability module (abilities/<motif>.js) and an effects file (fx/<motif>.jsx). Every effect a
@@ -110,6 +110,21 @@ describe('raid ability registry and effects', () => {
         const st = { ...e.after, damage: e.after.damage }
         expect(() => renderToStaticMarkup(createElement(BossArena, { t, area: { motif: m, palette: 'night', title: m }, need: r.hp, lives: 3, phases: 3, ability: a.id, kind: 'raids', state: st })), m).not.toThrow()
       }
+    }
+  })
+})
+
+describe('floater size', () => {
+  it('keeps the size for a short word and steps down for a long line (it wrapped over the boss face)', () => {
+    expect(floaterPxFor('big', '-4 Cauterize!')).toBe(JUICE.floaterPx.big)
+    expect(floaterPxFor('big', "-3 Lion falls! Lion's Heart")).toBeLessThan(JUICE.floaterPx.big)
+    expect(floaterPxFor('big', "-3 Serpent falls! Serpent's Venom")).toBe(Math.round(JUICE.floaterPx.big * FLOATER_LONG.smallest))
+    // wide CJK characters count twice
+    expect(floaterPxFor('big', '蛇が倒れた！蛇の毒')).toBeLessThan(JUICE.floaterPx.big)
+    // never below the minimum, never above the size's own
+    for (const size of JUICE_SIZES) {
+      expect(floaterPxFor(size, 'x'.repeat(80))).toBeGreaterThanOrEqual(Math.min(JUICE.floaterPx[size], FLOATER_LONG.minPx))
+      expect(floaterPxFor(size, 'x')).toBe(JUICE.floaterPx[size])
     }
   })
 })

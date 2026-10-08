@@ -15,6 +15,9 @@ const rel = (f) => path.relative(SRC, f).split(path.sep).join('/')
 const FORBIDDEN_IN_LOGIC = [
   [/\bwindow\./, 'window'], [/\bdocument\./, 'document'], [/\blocalStorage\b/, 'localStorage'],
   [/\bsessionStorage\b/, 'sessionStorage'], [/\bnavigator\./, 'navigator'],
+  // Other doors to the browser: aliases of window, and web-only APIs a phone build doesn't have.
+  [/(?<![.\w$])(?:globalThis|self|location)\./, 'globalThis/self/location'],
+  [/\b(?:XMLHttpRequest|EventSource|WebSocket|indexedDB|speechSynthesis|matchMedia)\b/, 'a web-only API'],
 ]
 const EXEMPT_LOGIC = /(\.test\.js|(^|\/)server\.js|storage-server\.js|(^|\/)web\.js)$/
 
@@ -66,9 +69,36 @@ describe('portability', () => {
     const bad = []
     for (const f of walk(SRC).filter((x) => /\.(js|jsx)$/.test(x) && !/\.test\.js$/.test(x) && !rel(x).startsWith('platform/') && !/server\.js$/.test(x))) {
       const text = fs.readFileSync(f, 'utf8')
-      if (/\bfetch\(\s*['"`]\/api/.test(text) || /sendBeacon\(\s*['"`]\/api/.test(text)) bad.push(rel(f))
+      if (/\b(?:fetch|sendBeacon|EventSource|WebSocket)\(\s*['"`]\/api/.test(text) || /\.open\(\s*['"`][A-Z]+['"`]\s*,\s*['"`]\/api/.test(text)) bad.push(rel(f))
     }
     expect(bad).toEqual([])
+  })
+})
+
+// CLAUDE.md lists every /api route as one a phone build must answer or as desktop-only. A route added on the server
+// without a place in that list is a hole in the phone port, so the two are kept equal here.
+describe('the phone route list', () => {
+  it('names every /api route the server answers, once', () => {
+    const ROOT = path.resolve(SRC, '..')
+    const serverFiles = [path.join(ROOT, 'vite.config.js'), ...walk(path.join(SRC, 'server')), ...walk(path.join(SRC, 'features'))]
+      .filter((f) => /\.(js|cjs|mjs)$/.test(f) && !/\.test\./.test(f) && (/vite\.config\.js$/.test(f) || /[\\/]server[\\/]/.test(f) || /(server|storage-server)\.js$/.test(f)))
+    const served = new Set()
+    for (const f of serverFiles) {
+      for (const m of fs.readFileSync(f, 'utf8').matchAll(/middlewares\.use\(\s*['"`]\/api\/([\w/-]+)['"`]/g)) served.add(m[1])
+    }
+    const doc = fs.readFileSync(path.join(ROOT, 'CLAUDE.md'), 'utf8')
+    const section = doc.slice(doc.indexOf('**Routes an on-device router must answer**'), doc.indexOf('Keep this list current when adding a route'))
+    expect(section.length, 'the route list section of CLAUDE.md moved').toBeGreaterThan(100)
+    const [phonePart, desktopPart] = section.split('**Desktop-only**')
+    const names = (s) => [...s.matchAll(/`([a-z][\w/-]*)`/g)].map((m) => m[1])
+    const phone = names(phonePart); const desktop = names(desktopPart)
+    expect(phone.filter((r) => desktop.includes(r)), 'listed as both').toEqual([])
+    const listed = new Set([...phone, ...desktop])
+    // A sub-path (launchmode/hello, update/restart) belongs to its parent route.
+    const unlisted = [...served].filter((r) => !listed.has(r) && !listed.has(r.split('/')[0]))
+    expect(unlisted, 'served but missing from the CLAUDE.md phone route list').toEqual([])
+    const stale = [...listed].filter((r) => ![...served].some((s) => s === r || s.startsWith(`${r}/`) || r.startsWith(`${s}/`)))
+    expect(stale, 'listed in CLAUDE.md but not served').toEqual([])
   })
 })
 
@@ -90,5 +120,26 @@ describe('platform adapters', () => {
     // onDeviceZoom once lived inside platform.history; App called platform.onDeviceZoom and the zoom keys did nothing.
     for (const fn of ['onDeviceZoom', 'onPageHide', 'beacon', 'isHidden', 'randomId']) expect(typeof platform[fn], fn).toBe('function')
     for (const fn of ['onDeviceNav', 'onPop', 'push', 'replace', 'go']) expect(typeof platform.history[fn], fn).toBe('function')
+  })
+})
+
+describe('audio.play', () => {
+  it('stop() settles done and frees the clip URL (a paused clip fires no ended event)', async () => {
+    const revoked = []
+    const oldAudio = globalThis.Audio
+    const oldCreate = URL.createObjectURL
+    const oldRevoke = URL.revokeObjectURL
+    globalThis.Audio = class { constructor() { this.paused = false } play() { return Promise.resolve() } pause() { this.paused = true } }
+    URL.createObjectURL = () => 'blob:clip'
+    URL.revokeObjectURL = (u) => revoked.push(u)
+    try {
+      const h = platform.audio.play(new Blob(['x']))
+      h.stop()
+      const r = await Promise.race([h.done.then(() => 'done'), new Promise((res) => setTimeout(() => res('hung'), 200))])
+      expect(r).toBe('done')
+      expect(revoked).toEqual(['blob:clip'])
+    } finally {
+      globalThis.Audio = oldAudio; URL.createObjectURL = oldCreate; URL.revokeObjectURL = oldRevoke
+    }
   })
 })

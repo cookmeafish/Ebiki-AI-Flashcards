@@ -3,6 +3,7 @@ const path = require('path')
 const fs = require('fs')
 const http = require('http')
 const { spawn } = require('child_process')
+const { makeUrlChecks, isExternalHttpUrl, parseLaunchMode, pickPrimarySource, cleanBounds, relaunchArgs } = require('./helpers.cjs')
 
 const APP_ROOT = path.join(__dirname, '..')
 
@@ -11,10 +12,7 @@ const APP_ROOT = path.join(__dirname, '..')
 // server to ask. Kept in step with readLaunchMode in vite.config.js and Get-LaunchMode in
 // scripts/launch.ps1; anything missing or unreadable means 'app', today's default.
 function readLaunchMode() {
-  try {
-    const m = JSON.parse(fs.readFileSync(path.join(APP_ROOT, 'launchmode.json'), 'utf-8').replace(/^\uFEFF/, ''))?.mode // a BOM (hand edit in PowerShell 5.1) must not reset the choice
-    return m === 'browser' ? 'browser' : 'app'
-  } catch { return 'app' }
+  try { return parseLaunchMode(fs.readFileSync(path.join(APP_ROOT, 'launchmode.json'), 'utf-8')) } catch { return 'app' } // BOM-safe (helpers.cjs)
 }
 
 // Hand the launch back to the real launcher (scripts/launch.ps1 / launch.sh), the ONLY thing that
@@ -211,23 +209,14 @@ function waitForServer(url, timeoutMs = 60000) {
   })
 }
 
-// Is this URL the app itself? Compared by ORIGIN, never with startsWith: "http://localhost:3000@evil.example/"
-// starts with VITE_URL (everything before "@" is a user name) and would have navigated the chrome-free
-// window, which has no address bar to give it away, to someone else's page.
-const isAppUrl = (url) => {
-  try { return new URL(url).origin === VITE_URL } catch { return false }
-}
-// The app's own PAGE (the root, or the overlay's), the only thing a window may navigate to by itself. Any other
-// same-origin path ("/api/keys" from an SVG link in rendered content) left the frameless window on raw JSON with
-// no controls and no way back.
-const isAppPage = (url) => {
-  try { const u = new URL(url); return u.origin === VITE_URL && u.pathname === '/' && (u.search === '' || u.search === '?overlay=true') } catch { return false }
-}
+// Is this URL the app itself (ORIGIN equality, never a prefix: "http://localhost:3000@evil.example/") / the app's
+// own page (root or overlay; any other same-origin path is not followed)? See helpers.cjs.
+const { isAppUrl, isAppPage } = makeUrlChecks(VITE_URL)
 
-// Hand an outbound link to the OS browser. http(s) only: openExternal will launch other protocol
-// handlers too, and a page must not get to choose one. Shared by the app window and the overlay.
+// Hand an outbound link to the OS browser. http(s) only (isExternalHttpUrl): openExternal will launch other
+// protocol handlers too, and a page must not get to choose one. Shared by the app window and the overlay.
 const openExternally = (url) => {
-  if (!/^https?:\/\//i.test(url || '')) return
+  if (!isExternalHttpUrl(url)) return
   shell.openExternal(url).catch((e) => console.warn('[Ebiki] openExternal failed:', e.message))
 }
 
@@ -319,7 +308,7 @@ function createAppWindow() {
     // carries --from-launcher, so the "bare" relaunch was not bare: it skipped the launch-mode check
     // and never started a server, leaving the window on the holding page until the retry loop's
     // own revive kicked in.
-    const args = process.argv.slice(1).filter((a) => a !== '--from-launcher')
+    const args = relaunchArgs(process.argv)
     try { app.relaunch({ args }) } catch (e) { console.warn('[Restart] relaunch failed:', e.message) }
     app.quit()
   })
@@ -576,8 +565,7 @@ function createAppWindow() {
 // is whichever screen the OS lists first, which on a multi-monitor setup can be another monitor:
 // the user dragged a box over one screen and got the text from a different one.
 function primaryScreenSource(sources) {
-  const id = String(screen.getPrimaryDisplay().id)
-  return sources.find((s) => s.display_id === id) || sources[0]
+  return pickPrimarySource(sources, screen.getPrimaryDisplay().id)
 }
 
 function capturePixelSize() {
@@ -597,6 +585,9 @@ function createOverlay() {
     show: false,
     backgroundColor: '#00000000',
     webPreferences: {
+      // The defaults, stated: this page renders AI output and card HTML, so Node must never reach it.
+      contextIsolation: true,
+      nodeIntegration: false,
       preload: path.join(__dirname, 'preload.cjs'),
     },
   })
@@ -739,11 +730,10 @@ ipcMain.on('overlay-dismiss', () => {
 
 ipcMain.on('resize-overlay', (_, bounds) => {
   if (!overlayWindow || overlayWindow.isDestroyed()) return
-  // Whole numbers only: setBounds THROWS on a fractional or missing value (a zoomed page measures in
-  // fractions), and a throw in an IPC listener is an uncaught exception in the main process.
-  const b = bounds && typeof bounds === 'object' ? bounds : {}
-  const n = (v) => (Number.isFinite(Number(v)) ? Math.round(Number(v)) : undefined)
-  const clean = Object.fromEntries(['x', 'y', 'width', 'height'].map((k) => [k, n(b[k])]).filter(([, v]) => v !== undefined))
+  // Whole, positive numbers only (cleanBounds, helpers.cjs): setBounds THROWS on a fractional or missing value
+  // (a zoomed page measures in fractions), and a throw in an IPC listener is an uncaught exception in the main process.
+  const clean = cleanBounds(bounds)
+  if (!Object.keys(clean).length) return
   try {
     overlayWindow.setBounds(clean)
     overlayWindow.setAlwaysOnTop(true, 'screen-saver')

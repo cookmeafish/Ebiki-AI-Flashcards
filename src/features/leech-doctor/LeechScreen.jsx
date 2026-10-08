@@ -12,6 +12,7 @@ import { ChunkyButton, Card, EbiSays, tCount } from '../ui'
 import { findLeeches, parseDiagnoses, MAX_PATIENTS, cardTextOnly, soundTags, fixChangesCard, isTreated, mentorLabelKey } from './leeches'
 import { readTreated, saveTreated, DOCTOR_FEATURE_ID } from './store'
 import { buildDoctorPrompt, DOCTOR_ROLE, DOCTOR_MAX_TOKENS } from './prompt'
+import { aiErrorText } from '../kit/aiError'
 
 const INFO_BATCH = 300        // cardsInfo per request
 const NOTES_BATCH = 100
@@ -100,7 +101,7 @@ export default function LeechScreen({ onExit }) {
         if (stop) return
         visitRef.current = { ...visitRef.current, ctx, modeId }
         setPatients(list); setOthers(fronts); setState('ready')
-      } catch (e) { if (!stop) { setState('error'); setError(String(e.message || e)) } }
+      } catch (e) { if (!stop) { setState('error'); setError(aiErrorText(t, e)) } }
     })()
     return () => { stop = true }
   }, [deck, ctx?.ankiConnected]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -141,7 +142,7 @@ export default function LeechScreen({ onExit }) {
       if (run !== deckRunRef.current) return // the deck changed while the doctor was thinking
       if (!m.size) throw new Error(t('doc_noAnswer'))
       setDx(m)
-    } catch (e) { if (run === deckRunRef.current) setError(String(e.message || e)) } finally { diagnosingRef.current = false; setDiagnosing(false) }
+    } catch (e) { if (run === deckRunRef.current) setError(aiErrorText(t, e)) } finally { diagnosingRef.current = false; setDiagnosing(false) }
   }
 
   // Apply a fix: re-read the note first; a card edited since the diagnosis is left alone.
@@ -160,7 +161,9 @@ export default function LeechScreen({ onExit }) {
       if (d.fix.back && d.fix.back !== p.back && p.fieldNames[1] && !put(p.fieldNames[1], d.fix.back, 'back')) { setDone((x) => ({ ...x, [p.noteId]: 'markup' })); return }
       // Every recording must survive: the rewrite brings back only ONE lost [sound:] (a card with two lost the other).
       if (Object.entries(fields).some(([name, html]) => soundTags(orig(name)).some((x) => !html.includes(x)))) { setDone((x) => ({ ...x, [p.noteId]: 'audio' })); return }
-      if (Object.keys(fields).length) await srs.updateNoteFields(p.noteId, fields)
+      // Nothing writable (a back fix on a one-field note): "applied" would be a lie, and treating it hid the leech.
+      if (!Object.keys(fields).length) { setDone((x) => ({ ...x, [p.noteId]: 'failed' })); return }
+      await srs.updateNoteFields(p.noteId, fields)
       // Treated: not a patient again until it lapses after this fix. Filed under the mode it was loaded in.
       const v = visitRef.current
       saveTreated(v.ctx || ctx, v.modeId ?? subject.modeId, p.noteId, p.lapses)
@@ -187,7 +190,7 @@ export default function LeechScreen({ onExit }) {
           {!ai.hasKey && <div style={{ color: C.warning, fontSize: 13, marginTop: 8 }}>{t('doc_needKey')}</div>}
         </div>
       )}
-      {error && state !== 'error' && <div style={{ color: C.danger, fontSize: 13, margin: '10px 0' }}>{error}</div>}
+      {error && state !== 'error' && <div role="alert" style={{ color: C.danger, fontSize: 13, margin: '10px 0' }}>{error}</div>}
       <div style={{ display: 'grid', gap: 12, marginTop: 16 }}>
         {patients.map((p) => {
           const d = dx.get(String(p.noteId))

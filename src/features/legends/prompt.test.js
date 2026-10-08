@@ -83,11 +83,20 @@ describe('parsers', () => {
     expect(itemIdFor({ target: 'manzana' }, items)).toBe('a1-i1')
     expect(itemIdFor({ target: '' }, items)).toBe('')
     expect(itemIdFor({}, items)).toBe('')
+    const zh = [{ id: 'z1', front: '你好', back: 'hello' }, { id: 'z2', front: '是', back: 'to be' }]
+    expect(itemIdFor({ target: '你好吗' }, zh)).toBe('z1')
+    expect(itemIdFor({ target: '是不是' }, zh)).toBe('') // one character is still too little
   })
   it('reads a talk score in either scale', () => {
     expect(parseTalkScore({ score: 80, note: 'Good', gaps: ['ser vs estar', 1] }, id)).toMatchObject({ score: 0.8, gaps: ['ser vs estar', '1'] })
     expect(parseTalkScore({ score: 0.5 }, id).score).toBe(0.5)
     expect(parseTalkScore({ score: 'x' }, id)).toBeNull()
+    expect(parseTalkScore({ score: 8 }, id).score).toBe(0.8) // out of 10, not a near fail
+    expect(parseTalkScore({ score: '85%' }, id).score).toBe(0.85)
+    expect(parseTalkScore({ score: '7/10' }, id).score).toBe(0.7)
+    expect(parseTalkScore({ score: '0.6' }, id).score).toBe(0.6)
+    expect(parseTalkScore({ score: 1 }, id).score).toBe(1)
+    expect(parseTalkScore({ score: '' }, id)).toBeNull()
   })
 })
 

@@ -10,10 +10,19 @@ export const AVOID_TOPICS = 12                         // recent topics named in
 export const foldKey = (s) => String(s || '').toLowerCase().normalize('NFC').replace(/<[^>]*>/g, ' ').replace(/[\s.,;:!?¡¿"'`()[\]]+/g, ' ').trim().slice(0, 120)
 export const emptyLog = () => ({ items: [] })
 
+// The log as read from disk, made safe: a null or keyless row (a damaged file on a shared folder) threw in every
+// lookup, so pickCardItems silently gave activities none of the learner's cards and nothing was logged again.
+export function shapeLog(log) {
+  const items = (Array.isArray(log?.items) ? log.items : []).filter((x) => x && typeof x === 'object' && typeof x.key === 'string' && x.key)
+    .map((x) => ({ kind: x.kind === 'topic' ? 'topic' : 'card', key: x.key.slice(0, 120), label: String(x.label ?? x.key).slice(0, 160), src: String(x.src || ''), at: Number.isFinite(Number(x.at)) ? Number(x.at) : 0, n: Math.max(1, Math.round(Number(x.n) || 1)) }))
+  return { items: items.slice(0, LOG_MAX) }
+}
+const rows = (log) => (Array.isArray(log?.items) ? log.items : []).filter((x) => x && typeof x === 'object')
+
 // entries: [{ kind: 'card'|'topic', label, src }]. Repeats bump n/at; newest first, capped.
 export function logPractice(log, entries, now = Date.now()) {
-  const items = [...(log?.items || [])]
-  for (const e of entries || []) {
+  const items = [...shapeLog(log).items]
+  for (const e of Array.isArray(entries) ? entries : []) {
     const kind = e?.kind === 'topic' ? 'topic' : 'card'
     const key = foldKey(e?.label)
     if (!key) continue
@@ -29,8 +38,8 @@ export function logPractice(log, entries, now = Date.now()) {
 // When was this card/topic last practiced (0 = never)? `excludeSrc`: ignore an activity's own entries.
 export function lastPracticed(log, label, kind = 'card', { excludeSrc = '' } = {}) {
   const key = foldKey(label)
-  const hit = (log?.items || []).find((x) => x.kind === kind && x.key === key)
-  return hit && (!excludeSrc || hit.src !== excludeSrc) ? hit.at : 0
+  const hit = rows(log).find((x) => x.kind === kind && x.key === key)
+  return hit && (!excludeSrc || hit.src !== excludeSrc) ? (Number(hit.at) || 0) : 0
 }
 
 // Items ordered freshest-to-practice first: never practiced, then longest ago. Those inside the cooldown go
@@ -44,7 +53,7 @@ export function rankFresh(items, log, { now = Date.now(), cooldown = COOLDOWN_MS
 
 // Topics practiced recently, newest first, for "pick something else" lines in prompts.
 export function recentTopics(log, { now = Date.now(), within = TOPIC_COOLDOWN_MS, limit = AVOID_TOPICS } = {}) {
-  return (log?.items || []).filter((x) => x.kind === 'topic' && now - x.at < within).slice(0, limit).map((x) => x.label)
+  return rows(log).filter((x) => x.kind === 'topic' && x.label && now - (Number(x.at) || 0) < within).slice(0, limit).map((x) => String(x.label))
 }
 
 export const avoidLine = (topics) => (topics?.length ? `Recently practiced already (choose different ones): ${topics.join('; ')}` : '')

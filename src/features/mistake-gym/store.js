@@ -2,7 +2,7 @@
 // Writes are serialized and only follow a successful read of the same list (never a blind overwrite).
 import { useEffect, useSyncExternalStore } from 'react'
 import { featureStore } from '../storage'
-import { emptyList } from './mistakes'
+import { shapeList } from './mistakes'
 
 export const GYM_FEATURE_ID = 'mistake-gym'
 
@@ -28,7 +28,7 @@ async function ensure(key, { fresh = false } = {}) {
   if (!fresh && cache.has(key)) return cache.get(key)
   if (!r.ok) { failed.add(key); notify(); return null }
   failed.delete(key)
-  cache.set(key, r.value && Array.isArray(r.value.items) ? r.value : emptyList())
+  cache.set(key, shapeList(r.value)) // damaged rows dropped here: the screen, the badge and every write see a clean list
   notify()
   return cache.get(key)
 }

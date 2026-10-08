@@ -25,6 +25,7 @@ export function createNav({ adapter, cap = NAV_CAP, now = () => Date.now(), rand
   const dev = () => (typeof adapter === 'function' ? adapter() : adapter)
   const stack = createNavStack({ cap })
   const slices = new Map()
+  const layers = new Set() // keys registered by layer(): an entry holding one that is no longer open is a dead step
   let regOrder = 0
   let started = false
   let sid = ''
@@ -102,6 +103,8 @@ export function createNav({ adapter, cap = NAV_CAP, now = () => Date.now(), rand
   async function attempt(t) {
     const target = stack.at(t)
     const vals = live()
+    // A layer (a closed Modal) cannot be shown again: its entry is passed over, never parked on as a dead step.
+    for (const [k, v] of Object.entries(target.values)) if (v === 'open' && layers.has(k) && vals[k] !== 'open') return 'skip'
     const keys = innermostFirst().filter((k) => k in target.values && !same(target.values[k], vals[k]))
     for (const k of keys) {
       const s = slices.get(k)
@@ -203,6 +206,30 @@ export function createNav({ adapter, cap = NAV_CAP, now = () => Date.now(), rand
       slices.set(key, s)
       if (started) restoreOne(key, s)
       return () => { if (slices.get(key) === s) slices.delete(key) }
+    },
+    // A LAYER over the screen (a feature Modal): open while registered. Opening is an entry, so Back closes it
+    // (opts.onClose) instead of changing the screen underneath it; Forward never reopens it; one that cannot be
+    // dismissed (opts.closable() === false) refuses Back. Returns off(): closing it any other way (its ✕, Esc, a
+    // parent unmounting it) steps back, so no dead entry is left for the next Back to waste.
+    layer(key, opts = {}) {
+      const st = { open: false }
+      layers.add(key)
+      const off = api.register(key, {
+        get: () => (st.open ? 'open' : null),
+        apply: (v) => {
+          if (v != null || !st.open) return
+          st.open = false
+          try { opts.onClose?.() } catch (e) { warn(`layer ${key}`, e) }
+        },
+        guard: (to) => (to === 'open' ? 'skip' : (opts.closable?.() === false ? false : true)),
+        rest: null,
+      })
+      st.open = true
+      flush()
+      return () => {
+        if (st.open) { st.open = false; flush() }
+        off()
+      }
     },
     changed: () => flush(),
     // Side data for the CURRENT entry (e.g. a scroll position, taken before the view changes); apply() gets it back.

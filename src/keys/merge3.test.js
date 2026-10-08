@@ -9,7 +9,7 @@ import path from 'path'
 const DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'ebiki-merge3-'))
 process.env.EBIKI_DATA_DIR = DIR
 process.env.EBIKI_ENV_DIR = DIR
-const { deepMergeJson } = await import('../../vite.config.js')
+const { deepMergeJson, deepMergeInto } = await import('../../vite.config.js')
 afterAll(() => fs.rmSync(DIR, { recursive: true, force: true }))
 
 describe('deepMergeJson with a base (offline reconcile)', () => {
@@ -122,5 +122,41 @@ describe('deepMergeJson on lists of records', () => {
   })
   it('lists that are not records (duplicate ids, plain values) keep the union', () => {
     expect(deepMergeJson({ l: [{ id: 1 }, { id: 1, z: 1 }] }, { l: [{ id: 2 }] }, { l: [] })).toEqual({ l: [{ id: 1 }, { id: 1, z: 1 }, { id: 2 }] })
+  })
+})
+
+describe('deepMergeInto: a chat one side only continued keeps cards added to Anki on either side', () => {
+  const card = (synced) => ({ front: 'perro', back: 'dog', ...(synced ? { synced: true, addedTo: 'Spanish' } : {}) })
+  const turns = (n, synced) => [{ role: 'user', content: 'hi' }, { role: 'assistant', content: 'card', cards: [card(synced)] }].concat(n > 2 ? [{ role: 'user', content: 'more' }] : [])
+  const write = (file, messages) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify({ id: '1', title: 't', messages })) }
+  const read = (file) => JSON.parse(fs.readFileSync(file, 'utf8'))
+
+  it('the share continued, the offline copy added the card: the card stays Added', () => {
+    const root = fs.mkdtempSync(path.join(DIR, 'chat-a-'))
+    const share = path.join(root, 'share', 'chats', '1.json'), mine = path.join(root, 'mine', 'chats', '1.json')
+    write(share, turns(3, false)); write(mine, turns(2, true))
+    deepMergeInto(mine, share, 'x', { added: 0, merged: 0, keptBoth: 0 })
+    const out = read(share)
+    expect(out.messages).toHaveLength(3)
+    expect(out.messages[1].cards[0]).toMatchObject({ synced: true, addedTo: 'Spanish' })
+  })
+
+  it('the offline copy continued, the share added the card: the card stays Added', () => {
+    const root = fs.mkdtempSync(path.join(DIR, 'chat-b-'))
+    const share = path.join(root, 'share', 'chats', '1.json'), mine = path.join(root, 'mine', 'chats', '1.json')
+    write(share, turns(2, true)); write(mine, turns(3, false))
+    deepMergeInto(mine, share, 'x', { added: 0, merged: 0, keptBoth: 0 })
+    const out = read(share)
+    expect(out.messages).toHaveLength(3)
+    expect(out.messages[1].cards[0].synced).toBe(true)
+  })
+
+  it('another card with the same front is not marked', () => {
+    const root = fs.mkdtempSync(path.join(DIR, 'chat-c-'))
+    const share = path.join(root, 'share', 'chats', '1.json'), mine = path.join(root, 'mine', 'chats', '1.json')
+    const other = [{ role: 'user', content: 'hi' }, { role: 'assistant', content: 'card', cards: [{ front: 'perro', back: 'a hound' }] }, { role: 'user', content: 'more' }]
+    write(share, other); write(mine, turns(2, true))
+    deepMergeInto(mine, share, 'x', { added: 0, merged: 0, keptBoth: 0 })
+    expect(read(share).messages[1].cards[0].synced).toBeUndefined()
   })
 })

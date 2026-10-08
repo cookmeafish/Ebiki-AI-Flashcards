@@ -1,7 +1,7 @@
 // The practice log's storage: one list per mode in the framework JSON store (features/practice-log/ in the
 // data folder). Same clobber rules as every store: writes are serialized and only follow a successful read.
 import { featureStore } from '../storage'
-import { emptyLog, logPractice } from './practiceLog'
+import { emptyLog, logPractice, shapeLog } from './practiceLog'
 
 export const PRACTICE_LOG_ID = 'practice-log'
 
@@ -21,7 +21,7 @@ async function ensure(key, { fresh = false } = {}) {
   // A plain read that lost a race with a write: the written log is newer (this read's copy hid the new entries).
   if (!fresh && cache.has(key)) return cache.get(key)
   if (!r.ok) return null
-  cache.set(key, r.value && Array.isArray(r.value.items) ? r.value : emptyLog())
+  cache.set(key, shapeLog(r.value))
   return cache.get(key)
 }
 

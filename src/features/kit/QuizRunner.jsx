@@ -28,6 +28,8 @@
 //                          time, or one a re-check cancelled). Skipped questions record nothing.
 // startChoices(q)          a typed question with `alt` choices opens on its choices (the fight's "choices first" style);
 //                          the learner can still switch to typing.
+// overturnedFor(q)         true once a later check (a re-check or an Appeal) found this answer RIGHT after all: the
+//                          feedback strip turns green and drops the grader's old note (it said "wrong").
 // WORDS (with `ctx.words`): Study's question formatting everywhere. "(...)" sense cues render muted italic, word hints
 // (the mode's Word hints setting, language modes) sit above the words, and every word of the question, its choices,
 // the hint, the feedback and the explanation is tappable for a lookup when the text is not in the app language
@@ -44,6 +46,7 @@ import { judgeAnswer } from './judge'
 import { questionAnswersOf } from './fightSettings'
 import TalkButton from './TalkButton'
 import { speak } from '../../speech'
+import { imeActive, choiceIndex } from '../../utils/keys'
 
 const MAX_W = 640
 const POSE = { right: 'happy', wrong: 'confused', done: 'party' }
@@ -61,7 +64,7 @@ const POP_CSS = `
 @media (prefers-reduced-motion: reduce) { [data-quiz-pop] { animation: none !important } }
 `
 
-export default function QuizRunner({ questions: given, t, ai, subject, onAnswer, onFinish, onExit, title, confirm, ctx, feedbackExtra, retryMisses = false, judge, canUseChoices, header, tools, onQuestion, resolveQuestion, startChoices }) {
+export default function QuizRunner({ questions: given, t, ai, subject, onAnswer, onFinish, onExit, title, confirm, ctx, feedbackExtra, retryMisses = false, judge, canUseChoices, header, tools, onQuestion, resolveQuestion, startChoices, overturnedFor }) {
   const [idx, setIdx] = useState(0)
   // The feature's list, plus the misses asked again at the end and anything the feature put in (attacks).
   const [retries, setRetries] = useState([])
@@ -78,7 +81,7 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
   const [narrowed, setNarrowed] = useState(null) // { i, choices, answerIdx }: a tool's own choices for question i
   const [picked, setPicked] = useState(null)
   const [text, setText] = useState('')
-  const [phase, setPhase] = useState('answer')    // answer | checking | feedback | done
+  const [phase, setPhase] = useState('answer')    // answer | checking | self (no key: the learner grades) | feedback | done
   const [verdict, setVerdict] = useState(null)     // { correct, note, accent }
   const [checkErr, setCheckErr] = useState(false)  // the AI check failed: the answer was NOT graded, try again
   const results = useRef([])
@@ -191,21 +194,31 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
     }
   }
 
+  // One answer per question, claimed SYNCHRONOUSLY (two Enters or a double click before the re-render both saw
+  // phase 'answer': the judge ran twice and the answer was recorded twice, in a raid as two reviews). Freed when the
+  // check could not grade (the learner tries again).
+  const claimed = useRef(-1)
+  const advanced = useRef(-1) // the question Continue already left (a double Enter finished the run twice)
   const check = async (skip = false) => {
-    if (!q || phase !== 'answer') return
+    if (!q || phase !== 'answer' || claimed.current === idx) return
     setCheckErr(false)
-    if (skip) return record(false, '', {}, { skipped: true })
+    if (skip) { claimed.current = idx; return record(false, '', {}, { skipped: true }) }
     if (asChoice) {
       if (picked == null) return
+      claimed.current = idx
       return record(picked === view.answerIdx, view.choices[picked])
     }
     const ans = text.trim()
     if (!ans) return
+    claimed.current = idx
+    const at = idx
     if (judge) {
       setPhase('checking')
-      const j = await Promise.resolve(judge(q, ans, 'typed')).catch(() => null)
+      // A judge that THROWS (or answers nothing) is a failed check too: as "wrong" it became a real Again in a raid.
+      const j = await Promise.resolve().then(() => judge(q, ans, 'typed')).catch(() => ({ error: true }))
       setPhase('answer') // record() moves on
-      if (j?.error) { setCheckErr(true); return } // never graded: a failed check is not a wrong answer
+      // Never graded: a failed check is not a wrong answer. Without a key it can never be checked: say so.
+      if (!j || j.error) { if (claimed.current === at) claimed.current = -1; setCheckErr(j?.noKey || ai?.hasKey === false ? 'nokey' : true); return }
       const later = j?.later && typeof j.later.then === 'function' ? j.later : null
       record(!!j?.correct, ans, { note: j?.note || '', partial: !!j?.partial, title: j?.title || '', accent: !!j?.accent, noteLoading: !!later && !j?.note }, j?.info || {})
       if (later) {
@@ -217,14 +230,27 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
     }
     const local = q.open ? null : matchTyped(ans, q.accepted)
     if (local) return record(true, ans, local === 'accent' ? { accent: true } : {})
+    // No key: nothing can judge a synonym or an open answer. Never a silent "wrong": show the reference answer and
+    // let the learner grade themselves, like a flashcard.
+    if (!ai?.hasKey) { lastAnswer.current = ans; setPhase('self'); return }
     setPhase('checking')
     const j = await judgeAnswer(ai, subject, q, ans)
     setPhase('answer') // record() moves on
-    if (j == null && ai?.hasKey) { setCheckErr(true); return } // the check failed (a timeout, an unreadable reply): try again
+    if (j == null) { if (claimed.current === at) claimed.current = -1; setCheckErr(true); return } // the check failed (a timeout, an unreadable reply): try again
     record(!!j?.correct, ans, { note: j?.note || '' })
+  }
+  // The learner's own grade (no key): recorded like any answer, marked `selfGraded` for the feature.
+  const selfAt = useRef(-1) // claimed once, like check (a double click recorded it twice)
+  const selfGrade = (right) => {
+    if (phase !== 'self' || selfAt.current === idx) return
+    selfAt.current = idx
+    setPhase('answer') // record() moves on
+    record(right, lastAnswer.current, { note: '', self: true }, { selfGraded: true })
   }
 
   const next = () => {
+    if (advanced.current === idx) return
+    advanced.current = idx
     let i = idx + 1
     let over = null
     while (i < total) {
@@ -241,7 +267,7 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
   // Keys: 1-6 pick a tile, Enter checks / continues.
   useEffect(() => {
     const onKey = (e) => {
-      if (e.isComposing || e.defaultPrevented) return
+      if (imeActive(e) || e.defaultPrevented) return // Safari's committing Enter has isComposing false, keyCode 229
       // Keys meant for something else: Ebi's Help input (its "2" picked a tile, its Enter submitted the answer, in a
       // raid as a real Anki review), the rule-card editor (Enter for a new line skipped the question) and an open
       // dialog (Enter on "Quit?" submitted the picked tile, or finished the run).
@@ -252,10 +278,11 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
       // submitted the picked tile instead, in a raid as a real Anki review. The runner's own choice tiles still count.
       if (e.key === 'Enter' && el?.closest?.('button,a,[role=button]') && !el.closest('[data-quiz-choice]')) return
       if (phase === 'answer' && asChoice) {
-        const n = CHOICE_KEYS.indexOf(e.key)
-        if (n >= 0 && n < view.choices.length) { setPicked(n); return }
+        // Not Ctrl/Alt+digit (the browser's tab switch picked a tile too), not a held key, AZERTY's top row by e.code.
+        const n = choiceIndex(e, Math.min(view.choices.length, CHOICE_KEYS.length))
+        if (n >= 0) { setPicked(n); return }
       }
-      if (e.key === 'Enter' && !e.shiftKey) {
+      if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey && !e.repeat) {
         if (phase === 'feedback') { e.preventDefault(); next() }
         else if (phase === 'answer' && (asChoice || document.activeElement === inputRef.current)) { e.preventDefault(); check() }
       }
@@ -281,17 +308,33 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
   const quit = async () => {
     if (!results.current.length || !confirm || (await confirm(t('kit_quitConfirm')))) { exited.current = true; onExit?.(results.current) }
   }
-  const good = verdict?.correct
-  const partial = good && verdict?.partial // right, with something else to fix (a glancing strike)
+  // Found right after all (re-check / Appeal): the strip says so instead of "Not quite" over "Appeal won".
+  let overturned = false
+  if (phase === 'feedback' && verdict && (!verdict.correct || verdict.partial) && overturnedFor) {
+    try { overturned = !!overturnedFor(q) } catch { overturned = false }
+  }
+  const good = verdict?.correct || overturned
+  const partial = good && verdict?.partial && !overturned // right, with something else to fix (a glancing strike)
+  const note = overturned ? '' : verdict?.note // the grader's note argued the old verdict
   const tone = partial ? C.warning : good ? C.success : C.danger
   const reveal = asChoice ? view.choices[view.answerIdx] : (q.accepted || [])[0]
   const switchable = !asChoice && !!q.alt && !!canUseChoices?.(q)
+  // Screen readers hear the result once the feedback is on screen (never earlier: the answer is still secret before).
+  const announce = phase !== 'feedback' ? '' : [
+    (overturned ? '' : verdict?.title) || (partial ? t('kit_partial') : good ? t('kit_correct') : t('kit_wrong')),
+    verdict?.accent && !overturned && reveal ? t('kit_accent', { a: reveal })
+      : (!good || partial) && reveal && !q.open ? t('kit_answerWas', { a: reveal }) : '',
+  ].filter(Boolean).join('. ')
   return (
     <div style={{ maxWidth: MAX_W, margin: '0 auto', display: 'flex', flexDirection: 'column', minHeight: '100%', gap: 18 }}>
+      <div role="status" aria-live="polite" aria-atomic="true" data-quiz-announce=""
+        style={{ position: 'absolute', width: 1, height: 1, margin: -1, padding: 0, overflow: 'hidden', clip: 'rect(0 0 0 0)', whiteSpace: 'nowrap', border: 0 }}>
+        {announce}
+      </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
         <button onClick={quit} aria-label={t('kit_quit')} data-tip={t('kit_quit')} className="tip tip-b"
           style={{ border: 'none', background: 'transparent', color: C.inkFaint, fontSize: 22, cursor: 'pointer', padding: 4 }}>✕</button>
-        <ProgressBar value={idx + (phase === 'feedback' ? 1 : 0)} max={total} color={C.success} style={{ flex: 1, height: 16 }} />
+        <ProgressBar value={idx + (phase === 'feedback' ? 1 : 0)} max={total} color={C.success} style={{ flex: 1, height: 16 }} label={t('ui_progress')} />
       </div>
       {title && <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: C.purple }}>{title} · {t('kit_progress', { i: idx + 1, n: total })}{q._retry ? ` · 🔁 ${t('kit_again')}` : ''}</div>}
       {header && header(q, asChoice ? 'choice' : 'typed')}
@@ -365,18 +408,30 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
           }}>
             <img src={shrimpUrl(poseFile(good ? POSE.right : POSE.wrong))} alt="" width={54} />
             <div style={{ flex: 1, minWidth: 200 }}>
-              <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 20, color: tone }}>{verdict?.title || (partial ? t('kit_partial') : good ? t('kit_correct') : t('kit_wrong'))}</div>
-              {verdict?.accent && <div dir="auto" style={{ fontSize: 14, color: C.ink, fontWeight: 700 }}>{around('kit_accent', words(reveal, 'a'))}</div>}
+              <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 20, color: tone }}>{(overturned ? '' : verdict?.title) || (partial ? t('kit_partial') : good ? t('kit_correct') : t('kit_wrong'))}</div>
+              {verdict?.accent && !overturned && <div dir="auto" style={{ fontSize: 14, color: C.ink, fontWeight: 700 }}>{around('kit_accent', words(reveal, 'a'))}</div>}
               {(!good || partial) && reveal && !q.open && !verdict?.accent && <div dir="auto" style={{ fontSize: 14, color: C.ink, fontWeight: 700 }}>{around('kit_answerWas', words(reveal, 'a'))}</div>}
               {popup('a')}
-              {verdict?.note && <div dir="auto" style={{ fontSize: 13.5, color: C.ink, marginTop: 4, lineHeight: 1.45 }}>{words(verdict.note, 'n')}</div>}
-              {verdict?.note && popup('n')}
-              {!verdict?.note && verdict?.noteLoading && <div role="status" style={{ fontSize: 12.5, color: C.inkDim, marginTop: 4 }}>📝 {t('kit_noteLoading')}</div>}
+              {note && <div dir="auto" style={{ fontSize: 13.5, color: C.ink, marginTop: 4, lineHeight: 1.45 }}>{words(note, 'n')}</div>}
+              {note && popup('n')}
+              {!overturned && !verdict?.note && verdict?.noteLoading && <div role="status" style={{ fontSize: 12.5, color: C.inkDim, marginTop: 4 }}>📝 {t('kit_noteLoading')}</div>}
               {q.explanation && <div dir="auto" style={{ fontSize: 13.5, color: C.inkDim, marginTop: 4, lineHeight: 1.45 }}>{words(q.explanation, 'x')}</div>}
               {q.explanation && popup('x')}
               {feedbackExtra && <div key={idx} style={{ marginTop: 6 }}>{feedbackExtra(q, !!good, lastAnswer.current || '')}</div>}
             </div>
             <ChunkyButton onClick={next} color={tone}>{t('kit_continue')}</ChunkyButton>
+          </div>
+        ) : phase === 'self' ? (
+          <div data-quiz-self="" style={{ borderRadius: RADIUS.lg, padding: '14px 16px', display: 'grid', gap: 8, background: C.surfaceAlt, border: `2px solid ${C.border}` }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: C.inkDim }}>{t('kit_selfGradeWhy')}</div>
+            {reveal && <div dir="auto" style={{ fontSize: 15, color: C.ink, fontWeight: 800 }}>{around('kit_answerWas', words(reveal, 'a'))}</div>}
+            {reveal && popup('a')}
+            {q.explanation && <div dir="auto" style={{ fontSize: 13.5, color: C.inkDim, lineHeight: 1.45 }}>{words(q.explanation, 'x')}</div>}
+            {q.explanation && popup('x')}
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              <ChunkyButton variant="ghost" color={C.danger} onClick={() => selfGrade(false)}>{t('kit_selfWrong')}</ChunkyButton>
+              <ChunkyButton color={C.success} onClick={() => selfGrade(true)}>{t('kit_selfRight')}</ChunkyButton>
+            </div>
           </div>
         ) : (
           <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -384,7 +439,7 @@ export default function QuizRunner({ questions: given, t, ai, subject, onAnswer,
               <ChunkyButton variant="ghost" color={C.inkDim} onClick={() => check(true)} disabled={phase !== 'answer'}>{t('kit_skip')}</ChunkyButton>
               {tools && tools(q, { hint: setHintText, phase, asChoice, showChoices: (v) => { if (v && Array.isArray(v.choices)) { setNarrowed({ i: idx, choices: v.choices, answerIdx: v.answerIdx }); setPicked(null) } } })}
             </div>
-            {checkErr && phase === 'answer' && <div role="alert" style={{ flexBasis: '100%', order: -1, fontSize: 13, fontWeight: 700, color: C.danger }}>{t('kit_checkFailed')}</div>}
+            {checkErr && phase === 'answer' && <div role="alert" style={{ flexBasis: '100%', order: -1, fontSize: 13, fontWeight: 700, color: C.danger }}>{t(checkErr === 'nokey' ? 'kit_checkNoKey' : 'kit_checkFailed')}</div>}
             <ChunkyButton onClick={() => check()} color={C.success}
               disabled={phase !== 'answer' || (asChoice ? picked == null : !text.trim())}>
               {phase === 'checking' ? t('kit_checking') : t('kit_check')}

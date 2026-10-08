@@ -11,6 +11,7 @@ import { useHelpEntry } from '../kit/useHelp'
 import { useMistakes, updateMistakes, configureGym, GYM_FEATURE_ID } from './store'
 import { pickForWorkout, applyPractice, WORKOUT_SIZE, GYM_SRC } from './mistakes'
 import { buildWorkoutPrompt, workoutQuestions, WORKOUT_ROLE, WORKOUT_MAX_TOKENS } from './prompt'
+import { aiErrorText } from '../kit/aiError'
 
 const PREVIEW = 6          // mistakes listed on the overview
 const SLIPS = 10           // grammar slips fed to the workout
@@ -28,13 +29,15 @@ export default function GymScreen({ onExit }) {
   // The running workout's first answers, its mode and the context it started in. Left by Back, a mode switch (the hub
   // closes the activity) or a tab change, the answers given still count (they were lost: no progress, no log).
   const runRef = useRef(null) // { answers, settled, modeId, ctx, workout }
-  useEffect(() => () => { const r = runRef.current; if (r && !r.settled) settleRun(r, r.answers) }, [])
+  // aliveRef: set on mount too (StrictMode mounts twice). A workout written after the learner left is dropped.
+  const aliveRef = useRef(false)
+  useEffect(() => { aliveRef.current = true; return () => { aliveRef.current = false; const r = runRef.current; if (r && !r.settled) settleRun(r, r.answers) } }, [])
   // What Ebi's Help knows: the mistakes collected, and the workout's diagnosis. While a workout runs only the
   // fronts are named (the quiz itself reports its question; its answers stay secret).
   // Every listed mistake (`cleared` counts right answers; one right answer leaves it on the list, so Help sees it too).
   const top = (list?.items || []).slice(0, 10)
   useHelpEntry(ctx, 'mistake-gym', [
-    `Activity open: Mistake Gym (${phase === 'run' ? 'a workout is running' : 'the overview'}). ${(list?.items || []).length} mistakes collected from studying.`,
+    `Activity open: Mistake Gym (${phase === 'run' ? (quizDone ? 'the result of the finished workout' : 'a workout is running') : 'the overview'}). ${(list?.items || []).length} mistakes collected from studying.`,
     phase !== 'run' && top.length ? `Most recent mistakes: ${top.map((m) => `"${m.front}" (asked "${String(m.question || '').slice(0, 100)}", answered "${String(m.answer || '').slice(0, 60)}"${m.expected ? `, expected "${String(m.expected).slice(0, 60)}"` : ''}${m.n > 1 ? `, missed ${m.n} times` : ''})`).join('; ')}` : '',
     phase !== 'run' && workout?.diagnosis ? `The workout's diagnosis: ${String(workout.diagnosis).slice(0, 500)}` : '',
   ].filter(Boolean).join('\n'))
@@ -57,11 +60,12 @@ export default function GymScreen({ onExit }) {
       const j = ai.json(raw)
       const questions = sanitizeQuestions(workoutQuestions(j, ai.clean), { clean: ai.clean })
       if (questions.length < MIN_QUESTIONS) throw new Error(t('gym_badWorkout'))
+      if (!aliveRef.current) return
       const w = { diagnosis: ai.clean(typeof j?.diagnosis === 'string' ? j.diagnosis : ''), questions, targets }
       runRef.current = { answers: [], settled: false, modeId, ctx, workout: w }
       setWorkout(w)
       setPhase('run')
-    } catch (e) { setError(String(e.message || e)); setPhase('overview') }
+    } catch (e) { if (aliveRef.current) { setError(aiErrorText(t, e)); setPhase('overview') } }
   }
 
   // The mistake a question targets (for the rule card and the practice log).
@@ -97,7 +101,7 @@ export default function GymScreen({ onExit }) {
         {phase === 'loading' ? t('gym_building') : items.length ? tCount(t, 'gym_intro', items.length) : slips ? t('gym_introSlips') : t('gym_empty')}
       </EbiSays>
       {failed && <div style={{ color: C.danger, fontSize: 13, marginTop: 12 }}>{t('gym_unreadable')}</div>}
-      {error && <div style={{ color: C.danger, fontSize: 13, marginTop: 12 }}>{error}</div>}
+      {error && <div role="alert" style={{ color: C.danger, fontSize: 13, marginTop: 12 }}>{error}</div>}
       {!ai.hasKey && <div style={{ color: C.warning, fontSize: 13, marginTop: 12 }}>{t('gym_needKey')}</div>}
       <div style={{ margin: '18px 0' }}>
         <ChunkyButton onClick={start} disabled={!canTrain || phase === 'loading'} color={C.success}>{phase === 'loading' ? t('gym_building') : t('gym_start')}</ChunkyButton>
@@ -154,5 +158,5 @@ export function GymBadge() {
   const { list } = useMistakes(ctx?.subject?.modeId)
   const n = list?.items?.length || 0
   if (!n) return null
-  return <span style={{ background: C.danger, color: C.white, borderRadius: RADIUS.pill, padding: '1px 8px', fontSize: 12, fontWeight: 800, fontFamily: FONT.body }}>{n}</span>
+  return <span style={{ background: C.dangerFill, color: C.white, borderRadius: RADIUS.pill, padding: '1px 8px', fontSize: 12, fontWeight: 800, fontFamily: FONT.body }}>{n}</span>
 }

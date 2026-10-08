@@ -39,6 +39,13 @@ export const appealOffered = (e, { hasKey = false } = {}, extras = FIGHT_EXTRAS)
 export const debriefEntries = (entries = [], extras = FIGHT_EXTRAS) =>
   (extras.debrief ? (entries || []).filter((e) => e && isWrongish(e.first) && e.attached) : [])
 
+// What a miss row shows besides its verdict: the grader's note and the rule-card offer only while the answer still
+// stands as wrong (an overturned answer was right: "Not the word asked for" and "make a rule card" would contradict it).
+export const missRowParts = (e, { rule = false, hasKey = false } = {}) => {
+  const stands = !!e && !e.overturned
+  return { note: stands && !!String(e.note || '').trim(), ruleCard: stands && !!rule && !!hasKey }
+}
+
 // A question of the run, as it should be asked now: an attack whose answer was overturned is cancelled (null), a
 // glancing slip's follow-up replaces its placeholder once written (still unwritten = skipped, null).
 // cancelled: Set of answer ids; fixes: Map answer id -> { prompt, accepted }.

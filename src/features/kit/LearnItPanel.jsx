@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { Modal, ChunkyButton } from '../ui'
 import { buildLearnChatPrompt, boldParts, LEARN_ROLE, LEARN_MAX_TOKENS } from './learnIt'
+import { imeActive } from '../../utils/keys'
 
 // `tap(text, key)` makes the words tappable (ctx.words); all parts of one text share its popup (`k`).
 const Rich = ({ text, tap, k = '' }) => boldParts(text).map((p, i) => (p.bold ? <b key={i}>{tap ? tap(p.text, k) : p.text}</b> : <span key={i}>{tap ? tap(p.text, k) : p.text}</span>))
@@ -97,7 +98,7 @@ export default function LearnItPanel({ ctx, item, onClose, closeLabel }) {
         )}
         <div style={{ display: 'flex', gap: 6 }}>
           <input value={input} onChange={(e) => setInput(e.target.value)} disabled={!ai.hasKey}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) { e.preventDefault(); send() } }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e)) { e.preventDefault(); send() } }}
             placeholder={t('kit_learnAsk')}
             style={{ flex: 1, minWidth: 0, fontFamily: FONT.body, fontSize: 13.5, padding: '8px 10px', borderRadius: RADIUS.sm, border: `1px solid ${C.border}`, background: C.surfaceAlt, color: C.ink }} />
           <button type="button" onClick={send} disabled={!ai.hasKey || chatBusy || !input.trim()}

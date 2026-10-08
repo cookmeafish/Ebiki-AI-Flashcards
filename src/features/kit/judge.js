@@ -32,7 +32,9 @@ export async function judgeStrike(ai, subject, q, answer, { strictAccents = true
     return changes ? { verdict: 'miss', note: changes, accent: true } : { verdict: 'clean', note: '', accent: true }
   }
   if (q.exact) return { verdict: 'miss', note: '' }
-  if (!ai?.hasKey) return { verdict: 'miss', note: '' }
+  // No key: the answer could not be checked. Never a silent miss (a lost heart, a real Again in a raid): 'error' with
+  // `noKey` (QuizRunner says so; the learner can type the exact answer, use the choices or skip).
+  if (!ai?.hasKey) return { verdict: 'error', note: '', noKey: true }
   try {
     const { system, user } = buildVerdictPrompt(subject, q, ans)
     const flags = parseVerdict(ai.json(await ai.call(system, user, { role: JUDGE_ROLE, maxTokens: VERDICT_MAX_TOKENS, silent: true })))

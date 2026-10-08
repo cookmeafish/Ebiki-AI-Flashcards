@@ -25,10 +25,11 @@ export function StreakChip() {
   const goal = g.player.goalXp || DEFAULT_GOAL
   const lit = s.todayDone
   return (
-    <button onClick={() => openGamePanel('streak')} className="ui-btn tip tip-b"
+    <button type="button" onClick={() => openGamePanel('streak')} className="ui-btn tip tip-b"
+      aria-label={`${tCount(t, 'game_streakChip', s.streak)} · ${t('game_goalProgress', { xp, goal })}`}
       data-tip={`${tCount(t, 'game_streakChip', s.streak)} · ${t('game_goalProgress', { xp, goal })}`}
       style={{
-        position: 'relative', display: 'flex', alignItems: 'center', gap: 10, padding: '5px 12px', marginLeft: 8,
+        position: 'relative', display: 'flex', alignItems: 'center', gap: 10, padding: '5px 12px', marginLeft: 8, minHeight: 32, // a touch target
         border: `1px solid ${C.border}`, borderRadius: RADIUS.pill, background: C.surface, cursor: 'pointer',
         fontFamily: FONT.display, fontWeight: 800, fontSize: 15, lineHeight: 1,
       }}>

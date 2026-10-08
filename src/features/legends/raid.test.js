@@ -233,3 +233,12 @@ describe('raid reviews: a test fight grades exactly like a normal raid', () => {
     expect(raidReviews(new Map(), pre)).toEqual([])
   })
 })
+
+describe('raidHelpText: powers', () => {
+  it('carries the powers line on the intro and in the fight, and nothing when none', () => {
+    const powers = 'Powers brought: shield (ready).'
+    expect(raidHelpText({ view: 'fight', boss: 'X', hpLeft: 5, hpMax: 10, livesLeft: 5, lives: 5, phase: 1, asked: 1, total: 8, powers })).toContain(powers)
+    expect(raidHelpText({ view: 'intro', boss: 'X', powers })).toContain(powers)
+    expect(raidHelpText({ view: 'fight', boss: 'X', hpLeft: 5, hpMax: 10, livesLeft: 2, lives: 3, phase: 1, asked: 1, total: 8 })).not.toMatch(/Powers brought/)
+  })
+})

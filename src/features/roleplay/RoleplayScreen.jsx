@@ -10,7 +10,7 @@ import { speak } from '../../speech'
 import { useFeatureCtx, useFocusHold, useActivityBusy } from '../registry'
 import { EVENTS } from '../events'
 import { ChunkyButton, EbiSays, depthBorder } from '../ui'
-import { TalkButton, voiceChatOn, readPracticeLog, recordPractice, recentTopics } from '../kit'
+import { TalkButton, voiceChatOn, useVoiceChat, readPracticeLog, recordPractice, recentTopics } from '../kit'
 import { learnerLevelLine } from '../kit/learnerStore'
 import { parseScenarios, cleanScenario, normalizeScorecard, axesFor, scoreAsPractice, mistakesAsMisses, SCORE_MAX, MIN_TURNS_TO_SCORE } from './scoring'
 import {
@@ -18,7 +18,10 @@ import {
   buildScorecardPrompt, splitSceneReply, RP_ROLE, RP_MAX_TOKENS, RP_SETUP_ROLE, RP_SETUP_MAX_TOKENS, RP_SCORE_MAX_TOKENS,
 } from './prompt'
 
-export const ROLEPLAY_FEATURE_ID = 'roleplay'
+import { ROLEPLAY_FEATURE_ID } from './featureId'
+import { aiErrorText } from '../kit/aiError'
+import { imeActive } from '../../utils/keys'
+export { ROLEPLAY_FEATURE_ID }
 const SLIPS = 8
 const KNOWLEDGE_CAP = 3000
 const IMAGE_EDGE = 1200
@@ -83,6 +86,8 @@ export default function RoleplayScreen({ onExit, params }) {
     messages.length ? `Conversation (latest turns):\n${messages.slice(-8).map((m) => `${m.role === 'ebi' ? 'Ebi' : 'Learner'}: ${String(m.text || '').slice(0, 220)}`).join('\n')}` : '',
     card ? `Scorecard shown: overall ${card.overall} of 5${card.summary ? `. ${card.summary}` : ''}${card.strengths?.length ? `. Strengths: ${card.strengths.join('; ')}` : ''}${card.tips?.length ? `. Tips (what they said and a better version): ${card.tips.join('; ')}` : ''}` : '',
   ].filter(Boolean).join('\n'))
+  // Live: a reply landing after voice chat was switched off is not spoken; switching it off cuts the line.
+  const voiceOnRef = useVoiceChat(voiceChatOn(ctx), speakingRef)
   if (!ctx) return null
   const { t, ai, subject } = ctx
   const voiceOn = voiceChatOn(ctx)
@@ -100,7 +105,7 @@ export default function RoleplayScreen({ onExit, params }) {
       const list = parseScenarios(ai.json(await ai.call(system, user, { role: RP_SETUP_ROLE, maxTokens: RP_SETUP_MAX_TOKENS })), ai.clean)
       if (!list.length) throw new Error(t('rp_noIdeas'))
       ideasCache.set(subject.modeId, list); setIdeas(list)
-    } catch (e) { setError(String(e.message || e)) } finally { setLoadingIdeas(false) }
+    } catch (e) { setError(aiErrorText(t, e)) } finally { setLoadingIdeas(false) }
   }
 
   async function makeFrom({ system, user }, images) {
@@ -109,7 +114,7 @@ export default function RoleplayScreen({ onExit, params }) {
       const s = cleanScenario(ai.json(await ai.call(system, user, { role: RP_SETUP_ROLE, maxTokens: RP_SETUP_MAX_TOKENS, ...(images ? { images } : {}) })), ai.clean)
       if (!s) throw new Error(t('rp_noScene'))
       if (aliveRef.current) begin(s) // left the screen meanwhile: no scene, nothing logged as practiced
-    } catch (e) { setError(String(e.message || e)) } finally { setMaking(false) }
+    } catch (e) { setError(aiErrorText(t, e)) } finally { setMaking(false) }
   }
 
   const onPhoto = async (file) => {
@@ -122,7 +127,7 @@ export default function RoleplayScreen({ onExit, params }) {
       // A format the browser cannot decode comes back as is, and every provider refuses it with an unreadable 400.
       if (!PORTABLE_IMAGE.test(url)) { setError(t('chat_imageUnsupported')); setMaking(false); return }
       await makeFrom(buildImageScenarioPrompt(subject, custom.trim()), [dataUrlToImagePart(url)])
-    } catch (e) { setError(String(e.message || e)); setMaking(false) }
+    } catch (e) { setError(aiErrorText(t, e)); setMaking(false) }
   }
 
   const begin = (s) => {
@@ -142,8 +147,8 @@ export default function RoleplayScreen({ onExit, params }) {
       const line = ai.clean(text) || '...'
       setMessages([...history, { role: 'ebi', text: line }])
       if (done) setEnded(true)
-      if (voiceOn && aliveRef.current) { speakingRef.current?.stop(); speakingRef.current = speak(ctx, line, { lang: speakLang }) }
-    } catch (e) { if (id === sceneIdRef.current) { setError(String(e.message || e)); setTurnFailed(true) } } finally { if (id === sceneIdRef.current) setBusy(false) }
+      if (voiceOnRef.current && aliveRef.current) { speakingRef.current?.stop(); speakingRef.current = speak(ctx, line, { lang: speakLang }) }
+    } catch (e) { if (id === sceneIdRef.current) { setError(aiErrorText(t, e)); setTurnFailed(true) } } finally { if (id === sceneIdRef.current) setBusy(false) }
   }
 
   const send = (spoken) => {
@@ -177,7 +182,7 @@ export default function RoleplayScreen({ onExit, params }) {
       // What they said wrong reaches the Mistake Gym, like the misses of every other practice activity.
       const misses = mistakesAsMisses(sc.mistakes, t('rp_missQuestion', { scene: scene.title || '' }))
       if (misses.length) ctx.emit(EVENTS.PRACTICE_MISSED, { source: ROLEPLAY_FEATURE_ID, mode: subject.modeId, misses })
-    } catch (e) { if (aliveRef.current) { setError(String(e.message || e)); setPhase('play') } }
+    } catch (e) { if (aliveRef.current) { setError(aiErrorText(t, e)); setPhase('play') } }
   }
 
   const addCard = async (i) => {
@@ -191,7 +196,7 @@ export default function RoleplayScreen({ onExit, params }) {
   }
 
   const back = <button onClick={onExit} style={{ border: 'none', background: 'transparent', color: C.inkDim, fontWeight: 800, cursor: 'pointer', marginBottom: 12, fontSize: 13 }}>← {t('rp_back')}</button>
-  const errorLine = error && <div style={{ color: C.danger, fontSize: 13, margin: '8px 0' }}>{error}</div>
+  const errorLine = error && <div role="alert" style={{ color: C.danger, fontSize: 13, margin: '8px 0' }}>{error}</div>
 
   if (phase === 'pick') {
     return (
@@ -218,8 +223,8 @@ export default function RoleplayScreen({ onExit, params }) {
         <div style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 17, color: C.ink, margin: '20px 0 8px' }}>{t('rp_ownTitle')}</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder={subject.isLanguage ? t('rp_ownPlaceholderLang') : t('rp_ownPlaceholderGeneral')}
-            onKeyDown={(e) => { if (e.key === 'Enter' && custom.trim() && !making && ai.hasKey && !e.nativeEvent?.isComposing) makeFrom(buildCustomScenarioPrompt(subject, custom.trim())) }}
-            style={{ flex: '1 1 260px', padding: '11px 13px', fontSize: 14, borderRadius: RADIUS.md, border: `1px solid ${C.border}`, background: C.surfaceAlt, color: C.ink }} />
+            onKeyDown={(e) => { if (e.key === 'Enter' && custom.trim() && !making && ai.hasKey && !imeActive(e)) makeFrom(buildCustomScenarioPrompt(subject, custom.trim())) }}
+            style={{ flex: '1 1 260px', minWidth: 0, padding: '11px 13px', fontSize: 14, borderRadius: RADIUS.md, border: `1px solid ${C.border}`, background: C.surfaceAlt, color: C.ink }} />
           <ChunkyButton onClick={() => makeFrom(buildCustomScenarioPrompt(subject, custom.trim()))} disabled={!custom.trim() || making || !ai.hasKey}>{making ? t('rp_making') : t('rp_play')}</ChunkyButton>
           <ChunkyButton onClick={() => fileRef.current?.click()} disabled={making || !ai.hasKey} variant="ghost" color={C.info}>📷 {t('rp_fromPhoto')}</ChunkyButton>
           <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; onPhoto(f) }} />
@@ -264,7 +269,7 @@ export default function RoleplayScreen({ onExit, params }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 12.5, color: C.warning, marginBottom: 6 }}>
                   {t('rp_noDeck')}
                   {decks.length > 0 && (
-                    <select value="" onChange={(e) => { if (e.target.value) ctx.cards.setModeDeck(e.target.value) }}
+                    <select value="" aria-label={t('rp_pickDeck')} onChange={(e) => { if (e.target.value) ctx.cards.setModeDeck(e.target.value) }}
                       style={{ padding: '4px 8px', borderRadius: RADIUS.sm, border: `1px solid ${C.border}`, background: C.surfaceAlt, color: C.ink, fontSize: 12.5 }}>
                       <option value="">{t('rp_pickDeck')}</option>
                       {decks.map((d) => <option key={d} value={d}>{d}</option>)}
@@ -300,9 +305,9 @@ export default function RoleplayScreen({ onExit, params }) {
   // play | scoring
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', flexDirection: 'column', height: '100%', minHeight: 420, gap: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 34 }}>{scene.emoji}</span>
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ flex: '1 1 180px', minWidth: 0 }}>
           <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 18, color: C.ink }}>{scene.title}</div>
           <div style={{ fontSize: 12.5, color: C.inkDim }}>{t('rp_youGoal', { goal: scene.goal || scene.setting })}</div>
         </div>
@@ -311,7 +316,7 @@ export default function RoleplayScreen({ onExit, params }) {
         </ChunkyButton>
       </div>
       <div style={{ fontSize: 12.5, color: C.inkFaint, fontStyle: 'italic' }}>{scene.setting} · {t('rp_ebiPlays', { role: scene.role })}</div>
-      <div ref={listRef} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, padding: 4 }}>
+      <div ref={listRef} role="log" aria-live="polite" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, padding: 4 }}>
         {messages.map((m, i) => (
           <div key={i} style={{ alignSelf: m.role === 'me' ? 'flex-end' : 'flex-start', maxWidth: '80%' }}>
             <div style={{
@@ -330,15 +335,18 @@ export default function RoleplayScreen({ onExit, params }) {
         {ended && !busy && <div style={{ alignSelf: 'center', color: C.success, fontWeight: 800, fontSize: 13.5 }}>🎬 {t('rp_sceneOver')}</div>}
       </div>
       {errorLine}
-      <div style={{ display: 'flex', gap: 8 }}>
-        {voiceOn && <TalkButton ctx={ctx} lang={subject.isLanguage ? subject.learnLangIso : ''} onText={send} onStart={() => speakingRef.current?.stop()} disabled={busy || phase === 'scoring'} compact />}
-        <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={t('rp_placeholder')} disabled={phase === 'scoring'}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) send() }}
-          style={{ flex: 1, padding: '12px 14px', fontSize: 15, borderRadius: RADIUS.md, border: `1px solid ${C.border}`, background: C.surfaceAlt, color: C.ink }} />
-        <button onClick={send} disabled={busy || !input.trim()} className="btn-press" style={{
-          padding: '0 18px', borderRadius: RADIUS.md, ...depthBorder(C.success), background: C.success, color: C.white,
-          fontWeight: 800, cursor: busy || !input.trim() ? 'default' : 'pointer', opacity: busy || !input.trim() ? 0.5 : 1,
-        }}>{t('rp_send')}</button>
+      <div data-composer="" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'stretch' }}>
+        {voiceOn && <TalkButton ctx={ctx} lang={subject.isLanguage ? subject.learnLangIso : ctx.lang || ''} onText={send} onStart={() => speakingRef.current?.stop()} disabled={busy || phase === 'scoring'} compact />}
+        {/* Input and Send stay together (a narrow window puts the Talk button on its own line). */}
+        <div style={{ flex: '1 1 220px', minWidth: 0, display: 'flex', gap: 8 }}>
+          <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={t('rp_placeholder')} disabled={phase === 'scoring'}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e)) send() }}
+            style={{ flex: 1, minWidth: 0, padding: '12px 14px', fontSize: 15, borderRadius: RADIUS.md, border: `1px solid ${C.border}`, background: C.surfaceAlt, color: C.ink }} />
+          <button onClick={send} disabled={busy || !input.trim()} className="btn-press" style={{
+            flexShrink: 0, padding: '0 18px', borderRadius: RADIUS.md, ...depthBorder(C.successFill), background: C.successFill, color: C.white,
+            fontWeight: 800, cursor: busy || !input.trim() ? 'default' : 'pointer', opacity: busy || !input.trim() ? 0.5 : 1,
+          }}>{t('rp_send')}</button>
+        </div>
       </div>
     </div>
   )

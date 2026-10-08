@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { S } from '../styles/theme'
 import { C, RADIUS } from '../config/tokens'
 import { apiFetch } from '../platform'
+import { imeActive } from '../utils/keys'
 
 // ── How Ebiki opens on THIS computer ────────────────────────────────────────
 // 'app' = the chrome-free Electron window, 'browser' = an ordinary browser tab. The preference is
@@ -23,7 +24,7 @@ export const choiceProps = (active, onPick, off = false) => ({
   'aria-disabled': off || undefined,
   tabIndex: off ? -1 : 0,
   onKeyDown: off ? undefined : (e) => {
-    if ((e.key === 'Enter' || e.key === ' ') && !e.nativeEvent?.isComposing) { e.preventDefault(); onPick() }
+    if ((e.key === 'Enter' || e.key === ' ') && !imeActive(e)) { e.preventDefault(); onPick() }
   },
 })
 
@@ -41,7 +42,7 @@ export function LaunchModeOptions({ t, mode, onPick, disabled, electronAvailable
           border: `2px solid ${active ? C.brand : C.border}`, background: active ? C.brandTint : C.surface,
           cursor: off ? 'default' : 'pointer', opacity: off ? 0.5 : 1, transition: 'all .15s ease',
         }}>
-        <div style={{ fontSize: 14, fontWeight: 800, color: active ? C.brand : C.ink, display: 'flex', alignItems: 'center', gap: 7 }}>
+        <div style={{ fontSize: 14, fontWeight: 800, color: active ? C.brandText : C.ink, display: 'flex', alignItems: 'center', gap: 7 }}>
           <span style={{ fontSize: 17 }}>{icon}</span>{label}
         </div>
         <div style={{ fontSize: 11.5, color: C.inkDim, lineHeight: 1.5, marginTop: 6, fontWeight: 400 }}>{desc}</div>

@@ -6,11 +6,59 @@
 // and the orchestrator doesn't cache them, so a retry gets a fresh chance.
 // Native results also get a ↻ "different speaker" button that cycles through the other
 // ranked recordings of the word; picking one re-embeds it into the Anki card (replace).
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { getPronunciation } from '../pronunciation'
 import { FONT } from '../config/tokens'
 
 let playingAudio = null // the one Audio element playing now (see playResult)
+
+// Where a floating note goes, in LAYOUT px for a position:fixed box inside the zoomed body: above the anchor,
+// below it when there is no room, always inside the viewport. `rect` is the anchor's real-px client rect.
+export function floatNotePos(rect, size, viewport, zoom = 1) {
+  const z = zoom > 0 ? zoom : 1
+  const vw = viewport.width / z
+  const vh = viewport.height / z
+  const a = { left: rect.left / z, top: rect.top / z, bottom: rect.bottom / z }
+  const w = Math.min(size.width, vw - 8)
+  const left = Math.max(4, Math.min(a.left, vw - w - 4))
+  const above = a.top - size.height - 4
+  const top = above >= 4 ? above : Math.min(a.bottom + 4, Math.max(4, vh - size.height - 4))
+  return { left: Math.round(left), top: Math.round(top) }
+}
+
+// A small note floating over the page, portaled out of the row: deck rows and graded study rows clip with
+// overflow:hidden, so a note or the credit tooltip drawn inside them was cut off.
+function FloatNote({ anchorRef, children }) {
+  const ref = useRef(null)
+  const [pos, setPos] = useState(null)
+  // Follows its anchor when the page scrolls or resizes while it shows.
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const on = () => setTick((n) => n + 1)
+    window.addEventListener('scroll', on, true)
+    window.addEventListener('resize', on)
+    return () => { window.removeEventListener('scroll', on, true); window.removeEventListener('resize', on) }
+  }, [])
+  useLayoutEffect(() => {
+    const a = anchorRef.current, n = ref.current
+    if (!a || !n) return
+    const zoom = parseFloat(document.body.style.zoom) || 1
+    const r = n.getBoundingClientRect()
+    const next = floatNotePos(a.getBoundingClientRect(), { width: r.width / zoom, height: r.height / zoom }, { width: window.innerWidth, height: window.innerHeight }, zoom)
+    setPos((p) => (p && p.left === next.left && p.top === next.top ? p : next)) // same spot: no re-render loop
+  })
+  if (typeof document === 'undefined') return null
+  return createPortal(
+    <span ref={ref} role="status" style={{
+      position: 'fixed', left: pos?.left ?? 0, top: pos?.top ?? 0, visibility: pos ? 'visible' : 'hidden', zIndex: 11990, // under dialogs and toasts
+      fontSize: 10, fontFamily: FONT.body, whiteSpace: 'nowrap', maxWidth: 'calc(100vw / var(--app-zoom, 1) - 8px)', overflow: 'hidden', textOverflow: 'ellipsis',
+      color: 'var(--c-ink-dim)', background: 'var(--c-surface)', border: '1px solid var(--c-border)',
+      borderRadius: 4, padding: '2px 7px', boxShadow: '0 2px 8px rgba(0,0,0,.25)', pointerEvents: 'none',
+    }}>{children}</span>,
+    document.body,
+  )
+}
 
 export default function Pronunciation({ word, lang, region = '', config = {}, noteId = null, cardId = null, t = (k) => k, onNative, compact = false, style }) {
   const [state, setState] = useState('idle') // idle | loading | ready | none (none = retryable)
@@ -19,6 +67,8 @@ export default function Pronunciation({ word, lang, region = '', config = {}, no
   const [noMoreVoices, setNoMoreVoices] = useState(false)
   const [notice, setNotice] = useState(null) // transient inline note ("only one recording")
   const audioRef = useRef(null)
+  const anchorRef = useRef(null)
+  const [showCredit, setShowCredit] = useState(false)
   const noticeTimer = useRef(null)
   // Browser speech too: it kept talking over the next word, or over a recording started elsewhere.
   const stopSpeech = () => { try { window.speechSynthesis?.cancel() } catch { /* no speech */ } }
@@ -143,10 +193,14 @@ export default function Pronunciation({ word, lang, region = '', config = {}, no
 
   if (!word || !lang) return null
   const isNative = result?.source === 'wiktionary' || result?.source === 'anki'
+  // The CC-BY-SA credit, in the app language when Commons named no author.
+  const attr = result?.source === 'wiktionary' ? result.attribution : null
+  const author = attr && (attr.authorUnknown || !attr.author ? t('pronUnknownAuthor') : attr.author)
+  const credit = attr ? `🎙 ${author}${attr.license ? ` · ${attr.license}` : ''}` : ''
   const icon = state === 'loading' ? '⏳' : state === 'none' ? '🔇' : '🔊'
   const title = state === 'none' ? `${t('pronNone')} · ${t('pronRetry')}`
     : result?.source === 'anki' ? t('pronFromAnki')
-    : result?.source === 'wiktionary' ? `${t('pronNative')}: ${result.attribution?.author || ''} · ${result.attribution?.license || ''}`
+    : result?.source === 'wiktionary' ? `${t('pronNative')}: ${credit.replace(/^🎙 /, '')}`
     : result ? t('pronTts') : t('pronPlay')
   // Offer ↻ on ANY native result until a cycle attempt proves there's nothing else —
   // the initial play may not have merged the Commons-wide search yet, so variantCount
@@ -154,8 +208,10 @@ export default function Pronunciation({ word, lang, region = '', config = {}, no
   const showNext = isNative && !noMoreVoices
 
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, verticalAlign: 'middle', position: 'relative', ...style }}>
-      <button onClick={(e) => { e.stopPropagation(); play() }} title={title} aria-label={t('pronPlay')}
+    <span ref={anchorRef} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, verticalAlign: 'middle', position: 'relative', ...style }}>
+      {/* The label follows the state (a screen reader heard "Play" on a muted 🔇 too). */}
+      <button type="button" onClick={(e) => { e.stopPropagation(); play() }} title={title}
+        aria-label={state === 'none' ? title : t('pronPlay')} aria-busy={state === 'loading' || undefined}
         style={{
           background: 'none', border: 'none', cursor: 'pointer',
           fontSize: compact ? 13 : 15, lineHeight: 1, padding: '2px 3px',
@@ -164,27 +220,22 @@ export default function Pronunciation({ word, lang, region = '', config = {}, no
         {icon}
       </button>
       {showNext && (
-        <button onClick={(e) => { e.stopPropagation(); nextVoice() }}
+        <button type="button" onClick={(e) => { e.stopPropagation(); nextVoice() }}
           title={`${t('pronNextVoice')}${result?.variantCount > 1 ? ` (${(variant % result.variantCount) + 1}/${result.variantCount})` : ''}`}
           aria-label={t('pronNextVoice')}
           style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: compact ? 11 : 12, lineHeight: 1, padding: '2px 2px', opacity: 0.6 }}>
           ↻
         </button>
       )}
-      {notice && (
-        // Floating tooltip — absolutely positioned so it NEVER pushes the surrounding layout.
-        <span style={{
-          position: 'absolute', bottom: '100%', left: 0, marginBottom: 3, zIndex: 30,
-          fontSize: 9, fontFamily: FONT.body, fontStyle: 'italic', whiteSpace: 'nowrap',
-          color: 'var(--c-ink-dim)', background: 'var(--c-surface)', border: '1px solid var(--c-border)',
-          borderRadius: 4, padding: '2px 7px', boxShadow: '0 2px 8px rgba(0,0,0,.25)', pointerEvents: 'none',
-        }}>{notice}</span>
-      )}
+      {/* Floating notes: portaled, so a clipping row can't cut them off, and they never push the layout. */}
+      {notice ? <FloatNote anchorRef={anchorRef}><i>{notice}</i></FloatNote>
+        : showCredit && credit ? <FloatNote anchorRef={anchorRef}>{credit}</FloatNote> : null}
       {/* Compact surfaces (every one in the app) showed the CC-BY-SA credit only in a bare title with no link. */}
       {result && compact && result.source === 'wiktionary' && result.attribution?.sourceUrl && (
         <a href={result.attribution.sourceUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
-          className="tip" data-tip={`🎙 ${result.attribution.author}${result.attribution.license ? ` · ${result.attribution.license}` : ''}`}
-          aria-label={`${result.attribution.author} · ${result.attribution.license || ''}`}
+          onMouseEnter={() => setShowCredit(true)} onMouseLeave={() => setShowCredit(false)}
+          onFocus={() => setShowCredit(true)} onBlur={() => setShowCredit(false)}
+          aria-label={credit}
           style={{ fontSize: 9, color: 'var(--c-ink-faint)', textDecoration: 'none', lineHeight: 1 }}>ⓘ</a>
       )}
       {result && !compact && (
@@ -192,8 +243,8 @@ export default function Pronunciation({ word, lang, region = '', config = {}, no
           {result.source === 'wiktionary' ? (
             <a href={result.attribution?.sourceUrl} target="_blank" rel="noreferrer"
               style={{ color: 'var(--c-ink-faint)', textDecoration: 'none' }}
-              title={`${result.attribution?.author} · ${result.attribution?.license}`}>
-              🎙 {result.attribution?.author}{result.attribution?.license ? ` · ${result.attribution.license}` : ''}
+              title={credit}>
+              {credit}
             </a>
           ) : isNative ? (
             <span title={t('pronFromAnki')}>🎙 {t('pronFromAnki')}</span>

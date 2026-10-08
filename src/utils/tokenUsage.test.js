@@ -100,3 +100,78 @@ describe('prices the user typed', () => {
     expect(validPrice([0, 0])).toBe(true)
   })
 })
+
+describe('prices: snapshots with their own published price, and non-text models', () => {
+  it('the first gpt-4o snapshot and chatgpt-4o-latest kept the older, higher price', () => {
+    expect(priceFor('openai', 'gpt-4o-2024-05-13')).toEqual([5, 15])
+    expect(priceFor('openai', 'chatgpt-4o-latest')).toEqual([5, 15])
+    expect(priceFor('openai', 'gpt-4o-2024-08-06')).toEqual([2.5, 10])
+  })
+  it('audio, realtime, speech, image and embedding models are never priced at the text rate', () => {
+    for (const [prov, id] of [['openai', 'gpt-4o-realtime-preview'], ['openai', 'gpt-4o-audio-preview'], ['openai', 'gpt-4o-mini-tts'],
+      ['openai', 'gpt-4o-transcribe'], ['openai', 'gpt-4o-mini-transcribe'], ['gemini', 'gemini-2.5-flash-image-preview'],
+      ['gemini', 'gemini-2.5-flash-preview-tts'], ['gemini', 'gemini-2.0-flash-live-001'], ['gemini', 'gemini-2.5-flash-native-audio-dialog']]) {
+      expect(priceFor(prov, id), id).toBeNull()
+    }
+    // a price the user typed still wins
+    expect(priceFor('openai', 'gpt-4o-mini-tts', { 'openai|gpt-4o-mini-tts': [0.6, 12] })).toEqual([0.6, 12])
+  })
+  it('current ids without a published table price stay unpriced', () => {
+    for (const [prov, id] of [['anthropic', 'claude-sonnet-5-5'], ['anthropic', 'claude-fable-5-1'], ['gemini', 'gemini-3-pro-preview'], ['openai', 'gpt-5.1']]) {
+      expect(priceFor(prov, id), id).toBeNull()
+    }
+  })
+  it('a total whose numbers were saved as text still adds up (never string concatenation)', () => {
+    const sum = summarize({ a: { provider: 'openai', model: 'gpt-4o', input: '1000', output: '500', calls: '2' } })
+    expect(sum.tokens).toBe(1500)
+    expect(sum.calls).toBe(2)
+  })
+})
+
+describe('the tracker keeps a batch the server did not take', () => {
+  afterEach(() => { vi.unstubAllGlobals(); vi.resetModules() })
+  it('a failed flush is sent again with the next one', async () => {
+    vi.resetModules()
+    const mod = await import('./tokenUsage')
+    const bodies = []
+    let fail = true
+    vi.stubGlobal('fetch', vi.fn(async (url, init) => {
+      if (fail) throw new Error('server restarting')
+      bodies.push(JSON.parse(init.body))
+      return { ok: true, status: 200, json: async () => ({}) }
+    }))
+    mod.recordUsage({ provider: 'openai', model: 'gpt-4o', input: 10, output: 5 })
+    await mod.flushUsageNow()
+    fail = false
+    mod.recordUsage({ provider: 'openai', model: 'gpt-4o', input: 20, output: 6 })
+    await mod.flushUsageNow()
+    expect(bodies).toHaveLength(1)
+    expect(bodies[0].add.map((u) => u.input)).toEqual([10, 20])
+  })
+  it('a refused flush (server answered non-OK) is kept too', async () => {
+    vi.resetModules()
+    const mod = await import('./tokenUsage')
+    const bodies = []
+    let status = 503
+    vi.stubGlobal('fetch', vi.fn(async (url, init) => { bodies.push(JSON.parse(init.body)); return { ok: status === 200, status, json: async () => ({}) } }))
+    mod.recordUsage({ provider: 'grok', model: 'grok-4', input: 1, output: 1 })
+    await mod.flushUsageNow()
+    status = 200
+    await mod.flushUsageNow()
+    expect(bodies).toHaveLength(2)
+    expect(bodies[1].add).toHaveLength(1)
+  })
+})
+
+describe('the by-model list never hides a model that needs a price', () => {
+  it('rowsToShow keeps the top rows plus every unpriced one', async () => {
+    const { rowsToShow } = await import('./tokenUsage')
+    const rows = Array.from({ length: 14 }, (_, i) => ({ provider: 'openai', model: `m${i}`, cost: i === 12 ? null : 1 }))
+    const shown = rowsToShow(rows, 10)
+    expect(shown.map((r) => r.model)).toEqual([...rows.slice(0, 10).map((r) => r.model), 'm12'])
+    expect(rowsToShow(rows.slice(0, 3), 10)).toHaveLength(3)
+    // a row the user just priced stays reachable (to edit or remove the price)
+    const priced = rows.map((r, i) => (i === 12 ? { ...r, cost: 3, ownPrice: true } : r))
+    expect(rowsToShow(priced, 10).map((r) => r.model)).toContain('m12')
+  })
+})

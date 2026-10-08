@@ -16,6 +16,7 @@ const INBOX_FILE = 'game-inbox.json' // awards the Alt+Q overlay relayed for the
 const INBOX_MAX = 500
 const ID_RE = /^[a-z0-9-]{6,48}$/
 const MAX_BODY_BYTES = 2 * 1024 * 1024
+const CORRUPT_RETRY_MS = 1000
 
 const newId = (crypto) => crypto.randomUUID().replace(/-/g, '').slice(0, 16)
 
@@ -28,13 +29,28 @@ export default {
     const send = (res, status, body) => { res.statusCode = status; res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(body)) }
     const readBody = (req) => new Promise((resolve, reject) => {
       let b = ''
-      req.on('data', (c) => { b += c; if (b.length > MAX_BODY_BYTES) { reject(new Error('too large')); req.destroy() } })
-      req.on('end', () => { try { resolve(JSON.parse(b || '{}')) } catch (e) { reject(e) } })
+      let tooLarge = false
+      req.on('data', (c) => {
+        if (tooLarge) return
+        b += c
+        if (b.length > MAX_BODY_BYTES) { tooLarge = true; b = ''; reject(Object.assign(new Error('too large'), { status: 413 })) }
+      })
+      req.on('end', () => { if (tooLarge) return; try { resolve(JSON.parse(b || '{}')) } catch (e) { e.badBody = true; reject(e) } })
     })
     // A MISSING file is "nothing yet"; any other read error must not be mistaken for it (a write would
     // then replace real progress with just this computer's).
     const readJson = (file) => {
       try { return JSON.parse(readUtf8(file)) } catch (e) { if (e?.code === 'ENOENT') return null; throw e }
+    }
+    // A player file that does not parse: another computer may be mid-write on the share, so read again after a
+    // pause; still damaged → park it as `.corrupt-<stamp>` (kept, never deleted) and merge from nothing. It used to
+    // answer 400 to every save, so that player's progress stopped saving for good.
+    const readPlayerForMerge = async (file) => {
+      try { return readJson(file) } catch (e) { if (!(e instanceof SyntaxError)) throw e }
+      await new Promise((r) => setTimeout(r, CORRUPT_RETRY_MS))
+      try { return readJson(file) } catch (e) { if (!(e instanceof SyntaxError)) throw e }
+      fs.renameSync(file, `${file}.corrupt-${new Date().toISOString().replace(/[:.]/g, '-')}`)
+      return null
     }
     const localFile = path.join(appRoot, LOCAL_FILE)
     const readLocal = () => {
@@ -67,7 +83,7 @@ export default {
         const add = (Array.isArray(body.add) ? body.add : []).filter((x) => Array.isArray(x) && typeof x[0] === 'string' && x[0].length < 40)
         if (add.length) writeFileAtomic(inboxFile, JSON.stringify(readInbox(true).concat(add).slice(-INBOX_MAX)))
         send(res, 200, { ok: true })
-      } catch (e) { send(res, 500, { error: e.message }) }
+      } catch (e) { send(res, e?.status || 500, { error: e.message }) }
     })
 
     // This computer's identity. NOT a data route: it must answer with the share down.
@@ -80,7 +96,7 @@ export default {
         const next = { ...readLocal(), playerId }
         writeFileAtomic(localFile, JSON.stringify(next, null, 2))
         send(res, 200, next)
-      } catch (e) { send(res, 500, { error: e.message }) }
+      } catch (e) { send(res, e?.status || 500, { error: e.message }) }
     })
 
     server.middlewares.use('/api/players', async (req, res) => {
@@ -101,11 +117,11 @@ export default {
         const { player } = await readBody(req)
         if (!player || !ID_RE.test(String(player.id || '')) || typeof player.days !== 'object') return send(res, 400, { error: 'player required' })
         const file = path.join(dir, `${player.id}.json`) // id checked above: never a path from raw input
-        const merged = mergePlayers(readJson(file), player)
+        const merged = mergePlayers(await readPlayerForMerge(file), player)
         fs.mkdirSync(dir, { recursive: true })
         writeFileAtomic(file, JSON.stringify(merged))
         send(res, 200, { player: merged })
-      } catch (e) { send(res, e instanceof SyntaxError ? 400 : 500, { error: e.message }) }
+      } catch (e) { send(res, e?.badBody ? 400 : e?.status || 500, { error: e.message }) }
     })
   },
 }

@@ -8,7 +8,7 @@ import { poseFile, shrimpUrl } from '../../config/shrimp'
 import { srs } from '../../cards'
 import { platform } from '../../platform'
 import { speak } from '../../speech'
-import { TalkButton, voiceChatOn, readPracticeLog, recordPractice, rankFresh, studyBlock, studyBlockText } from '../kit'
+import { TalkButton, voiceChatOn, useVoiceChat, readPracticeLog, recordPractice, rankFresh, studyBlock, studyBlockText } from '../kit'
 import { useFeatureCtx, useFocusHold, useActivityBusy } from '../registry'
 import { EVENTS } from '../events'
 import { ChunkyButton, EbiSays, tCount, depthBorder } from '../ui'
@@ -18,7 +18,10 @@ import { learnerLevelLine } from '../kit/learnerStore'
 import { recordCall } from './recorder'
 import { useHelpEntry } from '../kit/useHelp'
 
-export const CALL_FEATURE_ID = 'ebi-call'
+import { CALL_FEATURE_ID } from './featureId'
+import { aiErrorText } from '../kit/aiError'
+import { imeActive } from '../../utils/keys'
+export { CALL_FEATURE_ID }
 const SLIPS = 8
 const READ_ALOUD_KEY = 'ebiki-call-read-aloud'
 const VERDICT_COLOR = { good: C.success, hard: C.warning, again: C.danger }
@@ -117,13 +120,15 @@ export default function CallScreen({ onExit }) {
   // opener can be asked again (↻ under the error; it used to leave a call with no first line and no way on).
   const openCall = () => {
     setBusy(true); setError('')
-    say([]).then((r) => land({ ...r, grades: [] }, [], {})).catch((e) => setError(String(e.message || e))).finally(() => setBusy(false))
+    say([]).then((r) => land({ ...r, grades: [] }, [], {})).catch((e) => setError(aiErrorText(t, e))).finally(() => setBusy(false))
   }
   useEffect(() => {
     if (!ctx || phase !== 'call' || messages.length || openedRef.current === callIdRef.current) return
     openedRef.current = callIdRef.current
     openCall()
   }, [phase, targets]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Live: a reply landing after voice chat was switched off is not spoken; switching it off cuts the line (unless read-aloud is on).
+  const voiceOnRef = useVoiceChat(voiceChatOn(ctx), speakingRef, readAloud)
   if (!ctx) return null
   const { t, ai, subject } = ctx
   // Pinned to the call's own mode: a mode switch renders this once more with the NEW mode before the hub closes it, and
@@ -150,7 +155,7 @@ export default function CallScreen({ onExit }) {
       const tg = targets.find((x) => String(x.cardId) === g.id)
       if (tg) ctx.notify(t('call_graded', { card: tg.front, verdict: t(`call_v_${g.verdict}`) }))
     }
-    if (readAloud || voiceOn) { speakingRef.current?.stop(); speakingRef.current = speak(ctx, text, { lang: subject.isLanguage ? subject.learnLangIso : ctx.lang }) }
+    if (readAloud || voiceOnRef.current) { speakingRef.current?.stop(); speakingRef.current = speak(ctx, text, { lang: subject.isLanguage ? subject.learnLangIso : ctx.lang }) }
   }
 
   const start = async () => {
@@ -192,7 +197,7 @@ export default function CallScreen({ onExit }) {
       callIdRef.current = `call-${Date.now()}`
       setTargets(tg); setPractice(isPractice); setGrades({}); setMessages([])
       setPhase('call')
-    } catch (e) { setError(String(e.message || e)); setPhase('intro') }
+    } catch (e) { setError(aiErrorText(t, e)); setPhase('intro') }
   }
 
   const send = async (spoken) => {
@@ -205,7 +210,7 @@ export default function CallScreen({ onExit }) {
     const history = [...messages, { role: 'me', text }]
     setMessages(history); setInput(''); setBusy(true); setError('')
     ctx.emit(EVENTS.CHAT_SENT, { mode: subject.modeId })
-    try { land(await say(history, grades), history, grades) } catch (e) { setError(String(e.message || e)) } finally { setBusy(false) }
+    try { land(await say(history, grades), history, grades) } catch (e) { setError(aiErrorText(t, e)) } finally { setBusy(false) }
   }
 
   const save = async () => {
@@ -219,7 +224,7 @@ export default function CallScreen({ onExit }) {
     } catch (e) {
       settledRef.current = false
       if (!aliveRef.current) { ctx.notify(tCount(t, 'call_failed', ratings.length)); return } // left while saving: say so
-      setError(String(e.message || e)); setPhase('review')
+      setError(aiErrorText(t, e)); setPhase('review')
     }
   }
   const finish = (n, failed = 0) => {
@@ -257,7 +262,7 @@ export default function CallScreen({ onExit }) {
         )}
         {!ai.hasKey && <div style={{ color: C.warning, fontSize: 13, marginBottom: 10 }}>{t('call_needKey')}</div>}
         {!ctx.ankiConnected && <div style={{ color: C.warning, fontSize: 13, marginBottom: 10 }}>{t('call_needAnki')}</div>}
-        {error && <div style={{ color: C.danger, fontSize: 13, marginBottom: 10 }}>{error}</div>}
+        {error && <div role="alert" style={{ color: C.danger, fontSize: 13, marginBottom: 10 }}>{error}</div>}
         <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, color: C.ink, marginBottom: 16, cursor: 'pointer' }}>
           <input type="checkbox" checked={readAloud} onChange={(e) => { setReadAloud(e.target.checked); platform.kv.set(READ_ALOUD_KEY, e.target.checked ? '1' : '0') }} style={{ accentColor: C.brand }} />
           🔊 {t('call_readAloud')}
@@ -295,7 +300,7 @@ export default function CallScreen({ onExit }) {
             )
           })}
         </div>
-        {error && <div style={{ color: C.danger, fontSize: 13, marginBottom: 10 }}>{error}</div>}
+        {error && <div role="alert" style={{ color: C.danger, fontSize: 13, marginBottom: 10 }}>{error}</div>}
         <ChunkyButton onClick={save} disabled={phase === 'saving'} color={C.success}>
           {phase === 'saving' ? t('call_saving') : practice || !graded.length ? t('call_finish') : tCount(t, 'call_save', graded.length)}
         </ChunkyButton>
@@ -319,15 +324,15 @@ export default function CallScreen({ onExit }) {
   // The call itself.
   return (
     <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', flexDirection: 'column', height: '100%', minHeight: 420, gap: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <img src={shrimpUrl(poseFile('singer'))} alt="" width={48} />
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: '1 1 180px', minWidth: 0 }}>
           <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 18, color: C.ink }}>{practice ? t('call_practiceTitle') : t('call_title')}</div>
           {chips}
         </div>
         <ChunkyButton onClick={() => { speakingRef.current?.stop(); setPhase('review') }} color={C.danger} disabled={busy}>{t('call_end')}</ChunkyButton>
       </div>
-      <div ref={listRef} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, padding: 4 }}>
+      <div ref={listRef} role="log" aria-live="polite" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10, padding: 4 }}>
         {messages.map((m, i) => (
           <div key={i} style={{
             alignSelf: m.role === 'me' ? 'flex-end' : 'flex-start', maxWidth: '80%', padding: '10px 14px', borderRadius: RADIUS.lg,
@@ -337,17 +342,20 @@ export default function CallScreen({ onExit }) {
         ))}
         {busy && <div style={{ color: C.inkFaint, fontSize: 14 }}>{t('call_typing')}</div>}
       </div>
-      {error && <div style={{ color: C.danger, fontSize: 13 }}>{error}</div>}
+      {error && <div role="alert" style={{ color: C.danger, fontSize: 13 }}>{error}</div>}
       {error && !busy && !messages.length && <button onClick={openCall} style={{ alignSelf: 'flex-start', border: 'none', background: 'transparent', color: C.brand, fontWeight: 800, cursor: 'pointer', fontSize: 13 }}>↻ {t('rp_retry')}</button>}
-      <div style={{ display: 'flex', gap: 8 }}>
-        {voiceOn && <TalkButton ctx={ctx} lang={subject.isLanguage ? subject.learnLangIso : ''} onText={send} onStart={() => speakingRef.current?.stop()} disabled={busy} compact />}
-        <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={t('call_placeholder')}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) send() }}
-          style={{ flex: 1, padding: '12px 14px', fontSize: 15, borderRadius: RADIUS.md, border: `1px solid ${C.border}`, background: C.surfaceAlt, color: C.ink }} />
-        <button onClick={send} disabled={busy || !input.trim()} className="btn-press" style={{
-          padding: '0 18px', borderRadius: RADIUS.md, ...depthBorder(C.success), background: C.success, color: C.white,
-          fontWeight: 800, cursor: busy || !input.trim() ? 'default' : 'pointer', opacity: busy || !input.trim() ? 0.5 : 1,
-        }}>{t('call_send')}</button>
+      <div data-composer="" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'stretch' }}>
+        {voiceOn && <TalkButton ctx={ctx} lang={subject.isLanguage ? subject.learnLangIso : ctx.lang || ''} onText={send} onStart={() => speakingRef.current?.stop()} disabled={busy} compact />}
+        {/* Input and Send stay together (a narrow window puts the Talk button on its own line). */}
+        <div style={{ flex: '1 1 220px', minWidth: 0, display: 'flex', gap: 8 }}>
+          <input value={input} onChange={(e) => setInput(e.target.value)} placeholder={t('call_placeholder')}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e)) send() }}
+            style={{ flex: 1, minWidth: 0, padding: '12px 14px', fontSize: 15, borderRadius: RADIUS.md, border: `1px solid ${C.border}`, background: C.surfaceAlt, color: C.ink }} />
+          <button onClick={send} disabled={busy || !input.trim()} className="btn-press" style={{
+            flexShrink: 0, padding: '0 18px', borderRadius: RADIUS.md, ...depthBorder(C.successFill), background: C.successFill, color: C.white,
+            fontWeight: 800, cursor: busy || !input.trim() ? 'default' : 'pointer', opacity: busy || !input.trim() ? 0.5 : 1,
+          }}>{t('call_send')}</button>
+        </div>
       </div>
     </div>
   )

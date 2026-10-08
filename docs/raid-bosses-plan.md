@@ -48,6 +48,54 @@ steady streaks). Contract: `abilities/_contract.js`; shared limits: `abilities/_
   through `data-ab-<name>` (`lg-ab-<name>-<value>` show, `lg-abh-*` hide) and `lg-fx-<key>` face layers. Every fx key
   has an effect and juice in `fx/<motif>.jsx` (`abilityfx.test.js`).
 
+## The owner's vision for the FIGHT (2026-10): every boss must feel like its own game
+
+Art is half of a raid boss. The other half is how fighting it feels. These are the owner's own rulings from the
+2026-10 sessions; a new or redesigned boss meets every one before the owner sees it.
+
+**Fair, crafted numbers, never by feel**
+- Each boss has its own fixed health and gives the player its own number of hearts (`raidProfiles.js`); a bigger boss
+  comes with more hearts or an ability that protects the player. Tune with `PROFILES=1 npx vitest run
+  src/features/legends/profiles.test.js`: a 65% learner beats it in a handful of runs (12 when unlucky), a 60% learner
+  always can, later bosses take longer. No boss needs near-perfect play.
+- The fight has stakes but never locks the player out: losing every heart makes the boss RALLY (heals back half that
+  run's damage), the hearts refill at once and the player may fight again ("why stop them?"). Wounds stay until it is
+  beaten; a small heal each night.
+- Bosses are balanced WITHOUT powers. Each new boss beaten (a DIFFERENT one) can unlock a power
+  (`docs/raid-powers-guide.md`); the 26th unlock needs the whole roster, so adding a boss is part of that ladder.
+
+**Every hit feels like THIS boss** (`impact/styles.js`, `impact/parts.jsx`, `impact/body.js`, `StrikeFxLayer.jsx`)
+- Nine impact moments per boss (hit, critical, sharpened, the boss strikes, heavy blow, blocked, saved, heart back,
+  defeated), each a different animation and body move. The owner's complaint that started this: "a lot of the impact
+  moments have the same exact animations but with different words". Within a boss no two moments share parts or a
+  body move; across bosses no two play the same moment the same way (`impact.test.js` enforces both).
+- They "hit hard": weight (hitstop, shake, flash within the juice limits), the boss's own two colors and glyph.
+- **The knockout is the payoff** ("very dramatic to make the feeling of killing one feel good", "very creative,
+  dramatic, and unique"): a short cinematic in the boss's own theme, its story ending (Chronos shatters into sand and
+  gears, the Lich crumbles to bones, the Void implodes), a shockwave, debris, a weighty DEFEATED! stamp. Never a
+  recolored template. The boss stays visible afterwards (never below 0.2 opacity, in frame for the result screen).
+
+**The boss stays in view**
+- Power casts, power hits and anything else layered on the fight play in the LOWER HALF of the boss box (the power
+  stage), never over the face; armed powers are badges in the hearts row. Strike labels own the top.
+- Labels never clip ("COND WIN" was a cast label cut by a too-narrow stage).
+
+**Numbers come from the game, never typed into text**
+- Every number a player reads (damage floaters, "+N heart", "for N questions", "deals N", bonus hearts) is filled
+  from the game's own values (`powerVars`, `DAMAGE`, the strike itself). Adding a power or a damage bonus later must
+  update every label by itself.
+
+**The asset view is the test bench**
+- Every boss's phases, ability effects (Try it), nine impact moments, power casts, armed looks and power hits can be
+  played from the Raid bosses tab, with the arena PINNED at the top by default (like a frozen spreadsheet row, flush under the app header, only the
+  card, no dark band) so the boss stays on screen while scrolling the growing button rows; a Pin / Unpin button at the
+  card's top right lets it scroll away, remembered per device (`ebiki-assets-arena-pinned`).
+
+**Checklist for a new raid boss** (on top of the art rules above): profile in `raidProfiles.js` and a balance run;
+ability module + `_triggers.js` rows + bestiary text; `fx/<motif>.jsx` for every fx key; a `RAID_IMPACT` entry with
+all nine moments unique, including a themed knockout; `ENTRANCES` entry; lore and a voice; then 10 QA passes over its
+moments and knockout in the asset view (light and dark) before the owner looks.
+
 ## 1. Hydra: the Tide Hydra
 
 - **Concept**: a many-headed sea serpent wrecking a harbor in a night storm. One creature (pewter scales, red crest
@@ -281,6 +329,8 @@ trophies work. Do not recreate it.
 - **Ability (grace)**: open eyes needed = 2, 4, 6 by phase; a right answer lights one, a miss darkens one; all lit = Grace
   (a lost heart back, once per phase) or else a Holy Beam for phase + 1. Art: `lg-ab-lit-1..6`.
 - **Tint**: the small eyes' irises. **Card**: `lgGyroAlign`. **Owner**: "the craziest raid boss ever", no scroll.
+- **The great eye panics as health drops** (owner): phase 1 still (folded shut), phase 2 a SLOW look-around (16s loop,
+  4 long holds), phase 3 RAPID darting (13s loop, 10 darts). Keep that escalation if the eye is ever redone.
 
 ## 24. Ratking: the Sewer Kingpin
 

@@ -3,11 +3,12 @@ import { shrimpUrl, DEFAULT_SHRIMP, IDLE_SHRIMP } from '../config/shrimp'
 import { FONT } from '../config/tokens'
 import Markdown from './Markdown'
 import { apiFetch } from '../platform'
+import { imeActive } from '../utils/keys'
 
 const HELP_BASE = `You are Ebi, the friendly helper inside the Ebiki study app, a cheerful little red shrimp. Speak naturally in first person as Ebi. Do NOT call yourself a "mascot" or break character; you're just Ebi, here to help. If asked who you are, say you're Ebi and you help with their studies. LORE: Ebi is a shrimp and is completely at peace with being eaten. Ebi knows shrimp are nutritious, delicious, and healthy, so if it ever comes up, Ebi cheerfully reassures the user it's totally fine and even encourages them to enjoy eating shrimp. You are context-aware: you can answer questions about the app AND about whatever the user is currently working on (screenshots, translations, study sessions, Anki cards, etc). Answer briefly and conversationally, 2-3 sentences max unless the user asks for details. NEVER use em-dashes (—) or en-dashes (–); they read as fake/AI. Use commas, periods, or parentheses instead. HARD RULE: NEVER put a shrimp emoji (🦐) or any shrimp/prawn/crustacean emoji in your text, not even to sign off or refer to yourself. Ebi's shrimp presence is shown by the app's mascot art, never by an emoji in the message. Other emoji are fine in moderation. You may use light markdown (bold, bullet lists) when it genuinely helps readability, but keep it minimal. The user can ask follow-up questions.
 
 About Ebiki:
-Ebiki is an AI-powered study app whose mascot is Ebi, a red shrimp. It turns what you study into Anki flashcards, quizzes you on them with AI-written questions, and can read and translate text in any picture or on screen.
+Ebiki is an AI-powered study app, and you, Ebi, a red shrimp, are its friendly guide. It turns what you study into Anki flashcards, quizzes you on them with AI-written questions, and can read and translate text in any picture or on screen.
 
 Where things are (describe ONLY these; never invent a button):
 - Screens in the sidebar on the left (the exact list the user has is given below as SIDEBAR SCREENS): Chat (talk with Ebi, make cards, attach a deck), Study (AI quiz sessions on your Anki cards), Deck (browse, edit, search, add, Quick Add, copy/move, check card quality, scan for duplicates, Ebi bulk edit), Discover (AI suggestions for new cards at your level), Picture (capture, upload, paste or drop an image to translate its words), Stats (Anki review streak, cards today, accuracy, 14-day chart), and the feature screens such as Legends (an adventure map with lessons, bosses and the daily raid) and Practice (a hub of activities, listed below as PRACTICE ACTIVITIES).
@@ -198,6 +199,58 @@ ${appContext.legendsAvailable ? `- If the user asks to change their LEGENDS adve
   return parts.join('\n')
 }
 
+// Turns Ebi's raw reply into what the panel shows: runs each <action>{...}</action> through `run` and collects an
+// APP-GENERATED receipt for it (only a non-empty receipt STRING is a verified change; anything else, including an
+// unreadable action or a promise, says hr_notApplied), strips the tags (a reply cut off inside one says hr_cutOff),
+// the dashes (line-aware: a dash at a line start/end is dropped, one inside a line becomes ", ", digit ranges keep
+// "-") and every shrimp/crustacean emoji (Ebi's shrimp-ness is the mascot art, never an emoji).
+export function processHelpReply(raw, { t = (k) => k, parse = JSON.parse, run = () => null } = {}) {
+  const text = typeof raw === 'string' ? raw : ''
+  const receipts = []
+  for (const am of text.matchAll(/<action>([\s\S]*?)<\/action>/g)) {
+    let r = null
+    try {
+      const action = parse(am[1])
+      r = action && typeof action === 'object' ? run(action) : null
+    } catch { r = null }
+    receipts.push(typeof r === 'string' && r.trim() ? r : t('hr_notApplied'))
+  }
+  if (/<action>(?![\s\S]*<\/action>)[\s\S]*$/.test(text)) receipts.push(t('hr_cutOff'))
+  let out = text.replace(/<action>[\s\S]*?<\/action>/g, '').replace(/<action>[\s\S]*$/, '')
+    .replace(/(\d)[ \t]*[—–][ \t]*(\d)/g, '$1-$2')
+    .replace(/(^|\n)[ \t]*[—–][ \t]*/g, '$1')
+    .replace(/[ \t]*[—–][ \t]*(?=\n|$)/g, '')
+    .replace(/[ \t]*[—–][ \t]*/g, ', ')
+    // Before punctuation or a line end the emoji takes its space with it ("enjoy 🦐!" → "enjoy!").
+    .replace(/[ \t]*(?:[🦐🦞🦀]️?)+(?=[ \t]*(?:[!?.,;:)\]]|\n|$))/gu, '')
+    .replace(/([ \t]?)(?:[🦐🦞🦀]️?)+([ \t]?)/gu, (m, a, b) => (a || b ? ' ' : ''))
+    .replace(/\n{3,}/g, '\n\n')
+    .trim() || '…'
+  if (receipts.length) out += `\n\n**${t('hr_header')}**\n` + receipts.map((r) => `- ${r}`).join('\n')
+  return out
+}
+
+// The dock chooser's zones in keyboard order (arrow keys step through them).
+const DOCK_ZONES = ['left', 'right', 'bottom']
+
+// Docked and floating sizes in LAYOUT px (the body zoom already divided out of the window size), so the dock takes a
+// fair SHARE of a narrow or zoomed window: a fixed 250px side dock was 56% of a 900px window at zoom 2 and 71% at
+// 700px. Big screens keep the old clamp(250, 24%, 380). Narrow ones cap the side dock at 42% of the width; below
+// DOCK_DRAWER_BELOW there is no room for a side-by-side dock at all, so the side zones become a drawer over the page
+// (closed with × or Esc) instead of a sliver too thin to read. The drop-zone previews use the same rects.
+export const DOCK_DRAWER_BELOW = 440
+export function dockSizes(lw, lh) {
+  const w = Math.max(200, Number(lw) || 0), h = Math.max(200, Number(lh) || 0)
+  const clamp = (lo, v, hi) => Math.min(hi, Math.max(lo, v))
+  const drawer = w < DOCK_DRAWER_BELOW
+  return {
+    drawer,
+    side: drawer ? Math.floor(Math.min(340, w - 32)) : Math.floor(clamp(Math.min(250, w * 0.42), w * 0.24, 380)),
+    bottom: Math.round(clamp(Math.min(220, h * 0.45), h * 0.38, 340)),
+    freeW: Math.round(Math.min(340, w - 10)),
+  }
+}
+
 export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'claude-sonnet-4-6', askAI, parseAiObject, mascotFile = DEFAULT_SHRIMP, onAiReply, onAction, askEbiSignal, hideButton, onOpenSettings, canSave }) {
   const [open, setOpen] = useState(false)
   // The LIVE handler: a reply lands seconds after Send, and the send-time render's onAction judged Anki,
@@ -329,14 +382,31 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
     }, 50)
   }, [messages])
 
-  // While choosing a dock spot, Esc cancels.
+  // While choosing a dock spot, Esc cancels; the arrow keys move between the zones (keyboard users had no way to pick
+  // one), Enter/Space on a focused zone docks there (its own onKeyDown).
+  const zoneRefs = useRef({})
   useEffect(() => {
     if (!choosingZone) return
+    // Moving from a dock starts on ANOTHER zone (the current one is where it already is).
+    zoneRefs.current[DOCK_ZONES.find((z) => z !== snapZone) || DOCK_ZONES[0]]?.focus()
     // Capture phase + preventDefault: this Esc is used up here (App's Esc handler skips a handled Esc,
     // which otherwise also threw away a finished Picture analysis).
-    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); setChoosingZone(false); setHoverZone(null) } }
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); setChoosingZone(false); setHoverZone(null); return }
+      const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key]
+      if (!step) return
+      e.preventDefault()
+      const at = DOCK_ZONES.indexOf(document.activeElement?.dataset?.dockZone)
+      const next = DOCK_ZONES[(at < 0 ? 0 : at + step + DOCK_ZONES.length) % DOCK_ZONES.length]
+      zoneRefs.current[next]?.focus()
+    }
     window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
+    return () => {
+      window.removeEventListener('keydown', onKey, true)
+      // The zones unmount with the focus on one of them: hand it back to the panel's input (a no-op once closed).
+      setTimeout(() => { if (inputRef.current && !document.querySelector('[data-dock-zone]')) inputRef.current.focus() }, 60)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [choosingZone])
 
   // Docking / undocking renders another panel element, which started scrolled to the OLDEST message.
@@ -357,6 +427,25 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
     window.addEventListener('keydown', onKey, true) // capture: first, so the Picture tab's Esc sees it handled
     return () => window.removeEventListener('keydown', onKey, true)
   }, [open, choosingZone])
+  // Closing gives focus back to what opened the panel ("Talk to Ebi"): Esc or × left it on the page body, so a
+  // keyboard user started over from the top of the app.
+  // The panel's input takes focus as it mounts, so the opener is remembered as the LAST element focused outside the
+  // panel (the header button that opened it), tracked all along.
+  const returnFocusRef = useRef(null)
+  useEffect(() => {
+    const onFocus = (e) => { const el = e.target; if (el && el !== document.body && el.closest && !el.closest('[data-help-panel],[data-dock-zone]')) returnFocusRef.current = el }
+    document.addEventListener('focusin', onFocus, true)
+    return () => document.removeEventListener('focusin', onFocus, true)
+  }, [])
+  const wasOpenRef = useRef(open)
+  useEffect(() => {
+    const was = wasOpenRef.current
+    wasOpenRef.current = open
+    if (open || !was) return
+    const back = returnFocusRef.current
+    const a = document.activeElement
+    if (back && back.isConnected && !back.closest('[inert]') && (!a || a === document.body)) setTimeout(() => { try { back.focus({ preventScroll: true }) } catch { /* gone */ } }, 0)
+  }, [open])
   // On open, jump to the bottom so the most recent message is visible (history loads scrolled up).
   useEffect(() => {
     if (!open) return
@@ -417,18 +506,58 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
   // ─── FancyZones-style chat snapping ──────────────────────────────────────
   // Grab the chat header and drag: edge zones light up, the panel previews into the
   // hovered zone, and dropping commits it (or 'free' if dropped in open space).
-  // Docked panel size is VIEWPORT-RELATIVE (with px clamps) so it takes the same SHARE of the
-  // screen on a laptop as on a big monitor — a fixed 360px dock ate half a small display. The
-  // / var(--app-zoom) divides out the body zoom (same convention as the app root / settings modal).
-  const ZONE_W = 'clamp(250px, calc(24vw / var(--app-zoom)), 380px)'
-  const ZONE_H = 'clamp(220px, calc(38vh / var(--app-zoom)), 340px)'
-  const FREE_W = 340, FREE_H = 440
+  // Docked panel size is VIEWPORT-RELATIVE (dockSizes, layout px) so it takes a fair SHARE of the window on a
+  // laptop, a big monitor or at zoom 2. Measured from the live window (resize also fires on a zoom change).
+  // Docks also leave the app's NAVIGATION clear: docked over the sidebar (left, or the bottom dock's left end) or over
+  // the narrow window's bottom tab bar, Help hid the screens' buttons and there was no way to switch screens.
+  const readLayoutVp = () => {
+    let z = 1
+    try { z = parseFloat(getComputedStyle(document.body).zoom) || 1 } catch { /* no DOM */ }
+    let navLeft = 0, navBottom = 0
+    try {
+      const bar = document.querySelector('nav[data-nav-bar]')
+      const side = document.querySelector('nav[aria-label="Ebiki"]:not([data-nav-bar])')
+      if (bar && bar.offsetHeight) { const r = bar.getBoundingClientRect(); if (r.bottom >= window.innerHeight - 2) navBottom = Math.round((window.innerHeight - r.top) / z) }
+      else if (side && side.offsetWidth) { const r = side.getBoundingClientRect(); if (r.left <= 2) navLeft = Math.round(r.right / z) }
+    } catch { /* no DOM */ }
+    return { w: window.innerWidth / z, h: window.innerHeight / z, navLeft, navBottom }
+  }
+  const [layoutVp, setLayoutVp] = useState(readLayoutVp)
+  useEffect(() => {
+    const onResize = () => setLayoutVp((v) => { const n = readLayoutVp(); return Math.abs(n.w - v.w) < 1 && Math.abs(n.h - v.h) < 1 && n.navLeft === v.navLeft && n.navBottom === v.navBottom ? v : n })
+    onResize()
+    window.addEventListener('resize', onResize)
+    // The sidebar collapses / the bar replaces it without a window resize: watch the nav itself.
+    let ro = null
+    try {
+      const nav = document.querySelector('nav[aria-label="Ebiki"]')
+      if (nav && typeof ResizeObserver !== 'undefined') { ro = new ResizeObserver(onResize); ro.observe(nav) }
+    } catch { /* no observer */ }
+    return () => { window.removeEventListener('resize', onResize); ro?.disconnect() }
+  }, [open])
+  const navLeft = layoutVp.navLeft || 0, navBottom = layoutVp.navBottom || 0
+  const dock = dockSizes(layoutVp.w - navLeft, layoutVp.h - navBottom)
+  const ZONE_W = dock.side
+  const ZONE_H = dock.bottom
+  const FREE_W = dock.freeW, FREE_H = 440
+  // Docking under the question while the page's first text field (the answer box) sits under the dock: scroll it
+  // into view above the panel (the <main> padding below gives it the room).
+  useEffect(() => {
+    if (!open || snapZone !== 'bottom') return
+    const id = setTimeout(() => {
+      const panel = panelRef.current
+      const field = [...document.querySelectorAll('main input:not([type=checkbox]):not([type=radio]):not([type=range]), main textarea')].find((e) => e.offsetParent && !panel?.contains(e))
+      if (!panel || !field) return
+      if (field.getBoundingClientRect().bottom > panel.getBoundingClientRect().top) field.scrollIntoView({ block: 'nearest' })
+    }, 220) // after the panel's size transition
+    return () => clearTimeout(id)
+  }, [open, snapZone, ZONE_H])
   // The exact docked rectangle for each zone. Shared by the live panel AND the drop-zone preview
   // overlays so the preview outlines precisely where Ebi's Help will land.
   const ZONE_RECTS = {
-    left: { left: 0, top: 0, bottom: 0, width: ZONE_W },
-    right: { right: 0, top: 0, bottom: 0, width: ZONE_W },
-    bottom: { bottom: 0, left: 0, right: 0, height: ZONE_H },
+    left: { left: navLeft, top: 0, bottom: navBottom, width: ZONE_W },
+    right: { right: 0, top: 0, bottom: navBottom, width: ZONE_W },
+    bottom: { bottom: navBottom, left: navLeft, right: 0, height: ZONE_H },
   }
   // Keeps the WHOLE free panel on screen: only its top 60px were kept in view, so a drop low on a short
   // window hid the composer below the edge. Height mirrors panelStyle's min(FREE_H, 80vh / var(--app-zoom)).
@@ -566,34 +695,17 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
       if (kept.length < convoLines.length) kept = [first, '(earlier messages omitted)', ...kept]
       const convo = kept.join('\n\n')
       const raw = (await askAI(sys, convo) || '')
-      // Execute any adjustment actions Ebi emitted, and collect an APP-GENERATED receipt for each
-      // (onAction returns a factual "what changed + what it affects" string ONLY when the change
-      // truly applied). These are the ground truth the user can trust — not the model's own claim.
-      const receipts = []
-      for (const am of raw.matchAll(/<action>(.*?)<\/action>/gs)) {
-        let r = null
-        try {
-          // Tolerant parse (the host's parseAiObject when given): a stray character inside the tag
-          // used to drop the action silently while Ebi's reply claimed the change was made.
-          const action = parseAiObject ? parseAiObject(am[1]) : JSON.parse(am[1])
-          r = action ? onActionRef.current?.(action, { modeId: modeIdAtSend }) : null
-        } catch { r = null }
-        // Unreadable, unknown or missing its value: nothing changed, and the reply's own claim must not stand alone.
-        receipts.push(r || t('hr_notApplied'))
-      }
-      // Strip shrimp/crustacean emoji as a hard guarantee (the prompt forbids them, but prompts leak):
-      // Ebi's shrimp-ness is the mascot art, never an emoji in the text.
-      // A reply cut off inside an <action> tag (the 600-token cap) showed the raw JSON, and the change it
-      // described never ran: strip it and say so.
-      const cutAction = /<action>(?![\s\S]*<\/action>)[\s\S]*$/.test(raw)
-      if (cutAction) receipts.push(t('hr_cutOff'))
-      let replyText = raw.replace(/<action>.*?<\/action>/gs, '').replace(/<action>[\s\S]*$/, '').replace(/(\d)[ \t]*[—–][ \t]*(\d)/g, '$1-$2').replace(/(^|\n)[ \t]*[—–][ \t]*/g, '$1').replace(/[ \t]*[—–][ \t]*(?=\n|$)/g, '').replace(/[ \t]*[—–][ \t]*/g, ', ').replace(/([ \t]?)(?:[🦐🦞🦀]️?)+([ \t]?)/gu, (m, a, b) => (a || b ? ' ' : '')).trim() || '…' // line-aware; indentation kept (nested list items, code)
-      // Append the verified change log so the user can confirm, for a fact, what the app actually did.
-      if (receipts.length) replyText += `\n\n**${t('hr_header')}**\n` + receipts.map((r) => `- ${r}`).join('\n')
+      const replyText = processHelpReply(raw, {
+        t,
+        parse: (s) => (parseAiObject ? parseAiObject(s) : JSON.parse(s)),
+        run: (action) => onActionRef.current?.(action, { modeId: modeIdAtSend }),
+      })
       const updatedMsgs = [...newMsgs, { role: 'assistant', text: replyText }]
       // Pick Ebi's pose FIRST (awaited) so his face changes WITH the reply, not a beat after it. The
       // Mascot model resolves the pose, then the message + new pose land together (Chat-tab parity).
-      await onAiReply?.(replyText)
+      // A failed pose pick must not cost the reply: the actions above already ran, and losing the text
+      // hid their receipts behind an error bubble.
+      try { await onAiReply?.(replyText) } catch { /* keep the current pose */ }
       setMessages(updatedMsgs)
       const savedId = await saveMessages(updatedMsgs, sid)
       if (savedId !== sid) setSessionId(savedId) // new, or a copy the server made (changed on another computer)
@@ -640,6 +752,9 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
     return style
   }
 
+  // Header icon controls are spans (inside the drag handle): make them reachable and pressable by keyboard too.
+  const keyPress = (fn) => ({ role: 'button', tabIndex: 0, onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn() } } })
+
   const chatContent = (isSidePanel) => (
     <>
       {/* Header */}
@@ -655,6 +770,8 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
             <span
               onMouseDown={(e) => e.stopPropagation()}
               onClick={newChat}
+              {...keyPress(newChat)}
+              aria-label={t('help_newChat')}
               title={t('help_newChat')}
               style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 11, padding: '1px 6px', border: '1px solid var(--c-border)', borderRadius: 4, lineHeight: '16px' }}
             >+</span>
@@ -664,29 +781,34 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
           {/* Ebi on the right of the title line — reflects the context-aware pose (mascotFile).
               Sized up but with negative vertical margins so it doesn't bloat the header height. */}
           <img src={shrimpUrl(mascotFile || IDLE_SHRIMP)} alt="Ebi" draggable={false} style={{ width: 46, height: 46, objectFit: 'contain', pointerEvents: 'none', margin: '-10px 0', transition: 'opacity .2s' }} />
-          {isSidePanel ? (
+          {/* The zone chooser is offered in EVERY state: once docked there was only Pop out, so moving to another
+              side took a pop-out first (and a drag, which keyboard users can't do). */}
+          <span
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={() => { setChoosingZone(true) }}
+            {...keyPress(() => setChoosingZone(true))}
+            aria-label={t(isSidePanel && snapZone !== 'free' ? 'help_dockMove' : 'help_dockPick')}
+            title={t(isSidePanel && snapZone !== 'free' ? 'help_dockMove' : 'help_dockPick')}
+            className="click-dim"
+            style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 13, lineHeight: 1, padding: '3px 5px', borderRadius: 5 }}
+          >&#9699;</span>
+          {isSidePanel && (
             <span
               onMouseDown={(e) => e.stopPropagation()}
               onClick={() => { setSnapZone(null) }}
+              {...keyPress(() => setSnapZone(null))}
+              aria-label={t('help_popOut')}
               title={t('help_popOut')}
               className="click-dim"
               style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 13, lineHeight: 1, padding: '3px 5px', borderRadius: 5 }}
             >&#8599;</span>
-          ) : (
-            <span
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={() => { setChoosingZone(true) }}
-              title={t('help_dockPick')}
-              className="click-dim"
-              style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 13, lineHeight: 1, padding: '3px 5px', borderRadius: 5 }}
-            >&#9699;</span>
           )}
           <span onMouseDown={(e) => e.stopPropagation()} onClick={() => { setOpen(false); setChoosingZone(false); setHoverZone(null) }} role="button" tabIndex={0} aria-label={t('close')} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(false); setChoosingZone(false); setHoverZone(null) } }} className="click-dim" style={{ cursor: 'pointer', color: 'var(--c-ink-dim)', fontSize: 16, lineHeight: 1, padding: '2px 5px', borderRadius: 5 }}>&times;</span>
         </div>
       </div>
 
       {/* Messages */}
-      <div ref={msgTopRef} style={{ flex: 1, overflow: 'auto', padding: '10px 14px' }}>
+      <div ref={msgTopRef} role="log" tabIndex={0} aria-label={t('help_messages')} style={{ flex: 1, overflow: 'auto', padding: '10px 14px' }}>
         {messages.length === 0 && !apiKey && (
           // No API key: Ebi can't answer, so point the user straight at where to add one.
           <div style={{ color: 'var(--c-ink-dim)', fontSize: 12, textAlign: 'center', padding: '28px 12px', lineHeight: 1.6 }}>
@@ -730,12 +852,12 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
           autoFocus
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) sendMessage() }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e)) sendMessage() }}
           placeholder={apiKey ? (loading ? t('help_thinking') : t('help_placeholder')) : t('help_placeholderNoKey')}
           disabled={!apiKey}
           style={{
             flex: 1, padding: '7px 11px', background: 'var(--c-surface)', color: 'var(--c-ink)',
-            border: '1px solid rgba(255,255,255,.1)', borderRadius: 8, fontSize: 11,
+            border: '1px solid var(--c-border)', borderRadius: 8, fontSize: 11,
             fontFamily: 'inherit', outline: 'none',
           }}
         />
@@ -813,7 +935,7 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
       {open && !snapZone && (() => {
         const chatStyle = getChatStyle()
         return (
-          <div ref={panelRef} data-help-panel="" style={{
+          <div ref={panelRef} data-help-panel="" role="complementary" aria-label={t('help_title')} style={{
             ...chatStyle,
             background: 'color-mix(in srgb, var(--c-surface) 94%, transparent)',
             backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
@@ -829,9 +951,16 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
         )
       })()}
 
+      {/* Docked UNDER the question, the panel covered the bottom of the screen: at zoom 2 it sat over the answer box
+          with no way to scroll it clear. While docked there, every screen's <main> gets that much room at its end
+          (scroll-padding too, so a focused field scrolls above the dock). */}
+      {open && snapZone === 'bottom' && (
+        <style>{`main { padding-bottom: ${ZONE_H + 16}px !important; scroll-padding-bottom: ${ZONE_H + 8}px; }`}</style>
+      )}
+
       {/* Snapped / detached panel (left·right·top·bottom edge zones, or free-floating) */}
       {open && snapZone && (
-        <div ref={panelRef} data-help-panel="" style={{
+        <div ref={panelRef} data-help-panel="" role="complementary" aria-label={t('help_title')} style={{
           ...panelStyle(),
           background: 'color-mix(in srgb, var(--c-surface) 94%, transparent)',
           backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
@@ -869,11 +998,18 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
             { id: 'right', label: t('help_dockRight') },
             { id: 'bottom', label: t('help_dockUnder') },
           ].map(z => (
-            <div key={z.id}
+            <div key={z.id} data-dock-zone={z.id}
+              ref={(el) => { zoneRefs.current[z.id] = el }}
+              role={choosingZone ? 'button' : undefined} tabIndex={choosingZone ? 0 : undefined} aria-label={choosingZone ? z.label : undefined}
               onMouseEnter={() => choosingZone && setHoverZone(z.id)}
               onMouseLeave={() => choosingZone && setHoverZone(null)}
+              onFocus={() => choosingZone && setHoverZone(z.id)}
               onClick={choosingZone ? () => { setSnapZone(z.id); setChoosingZone(false); setHoverZone(null) } : undefined}
+              onKeyDown={choosingZone ? (e) => {
+                if ((e.key === 'Enter' || e.key === ' ') && !imeActive(e)) { e.preventDefault(); setSnapZone(z.id); setChoosingZone(false); setHoverZone(null) }
+              } : undefined}
               style={{
+                outline: 'none',
                 position: 'fixed', ...ZONE_RECTS[z.id],
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontFamily: FONT.body, fontSize: 14, fontWeight: 700,

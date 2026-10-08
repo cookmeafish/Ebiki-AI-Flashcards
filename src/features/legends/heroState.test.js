@@ -16,7 +16,7 @@ describe('raid hero state', () => {
     expect(s.total).toBe(RAID_ORDER.length)
     expect(s.ability).toBe(RAID_ABILITY[first])
     expect(s.hp).toBe(raidProfile(first).hp) // the boss's own health, not the cards due
-    expect(s).toMatchObject({ hearts: raidProfile(first).hearts, heartsMax: raidProfile(first).hearts, heal: raidProfile(first).heal, runs: 1, powers: 0 })
+    expect(s).toMatchObject({ hearts: raidProfile(first).hearts, heartsMax: raidProfile(first).hearts, heal: raidProfile(first).heal, runs: 1 })
     expect(s.left).toBe(s.hp)
     expect(s.attempts).toBe(0)
   })

@@ -5,17 +5,17 @@ import { poseFile, shrimpUrl } from '../../config/shrimp'
 import { useFeatureCtx } from '../registry'
 import { Card, ProgressBar, tCount } from '../ui'
 import { useGame, openGamePanel, todayTotals, updateProfile } from './store'
-import { computeStreak, weekRow, questProgress, leagueBoard, friendStreak, TIERS, GOALS, DEFAULT_GOAL, MAX_FREEZES, dateKey, dayTotals, dayMeta } from './engine'
+import { computeStreak, weekRow, questProgress, leagueBoard, friendStreak, isRestDay, TIERS, GOALS, DEFAULT_GOAL, MAX_FREEZES, dateKey, dayTotals, dayMeta } from './engine'
 
 const DOT = 26                    // weekday circle size
 const LEAGUE_ROWS = 6             // board rows shown
 const TIER_POSE = ['cute', 'chill', 'happy', 'cool', 'rockstar', 'king', 'angel'] // Ebi per league tier
 const STATUS_COLOR = { done: C.warning, frozen: C.info, rest: `color-mix(in srgb, ${C.purple} 30%, ${C.surfaceSunken})`, missed: C.surfaceSunken, today: C.surfaceSunken, future: C.surfaceSunken, none: C.surfaceSunken }
 
-// Weekday initials in the app language, Monday first.
-export function weekdayLetters(lang) {
+// Weekday initials (or full names: width 'long') in the app language, Monday first.
+export function weekdayLetters(lang, width = 'narrow') {
   const monday = new Date(2024, 0, 1) // a Monday
-  const fmt = new Intl.DateTimeFormat(lang || 'en', { weekday: 'narrow' })
+  const fmt = new Intl.DateTimeFormat(lang || 'en', { weekday: width })
   return Array.from({ length: 7 }, (_, i) => fmt.format(new Date(monday.getFullYear(), 0, 1 + i)))
 }
 
@@ -52,7 +52,7 @@ export function StreakCard() {
         <span style={{ fontSize: 30, filter: s.todayDone ? 'none' : 'grayscale(1)' }}>🔥</span>
         <div>
           <div style={{ fontFamily: FONT.display, fontWeight: 800, fontSize: 18, color: s.todayDone ? C.warning : C.ink }}>{tCount(t, 'game_streakChip', s.streak)}</div>
-          <div style={{ fontSize: 12, color: C.inkDim }}>{s.streak === 0 ? t('game_streakStart') : s.todayDone ? t('game_streakTodayDone') : t('game_streakTodayOpen')}</div>
+          <div style={{ fontSize: 12, color: C.inkDim }}>{s.streak === 0 ? t('game_streakStart') : s.todayDone ? t('game_streakTodayDone') : isRestDay(g.player, dateKey()) ? t('game_streakTodayRest') : t('game_streakTodayOpen')}</div>
         </div>
       </div>
       <WeekDots player={g.player} lang={ctx.lang} />
@@ -75,17 +75,17 @@ export function GoalCard() {
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, color: C.inkDim, marginBottom: 6 }}>
         <span>{xp >= goal ? `🎉 ${t('game_goalDone')}` : t('game_goalProgress', { xp, goal })}</span>
       </div>
-      <ProgressBar value={xp} max={goal} color={xp >= goal ? C.success : C.warning} />
+      <ProgressBar value={xp} max={goal} color={xp >= goal ? C.success : C.warning} label={t('game_goalTitle')} />
       {/* Two per row: four in a row did not fit the rail, and flex items allowed to shrink to 0 never wrapped,
           so the labels spilled past their boxes. */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6, marginTop: 12 }}>
         {GOALS.map((opt) => (
-          <button key={opt.key} onClick={() => updateProfile({ goalXp: opt.xp })} className={goal === opt.xp ? 'tip ui-tab-current' : 'tip'}
+          <button key={opt.key} type="button" aria-pressed={goal === opt.xp} onClick={() => updateProfile({ goalXp: opt.xp })} className={goal === opt.xp ? 'tip ui-tab-current' : 'tip'}
             data-tip={t('game_goalMinutes', { m: opt.minutes })}
             style={{
               minWidth: 0, padding: '6px 4px', borderRadius: RADIUS.sm, fontSize: 11, fontWeight: 800,
               border: `2px solid ${goal === opt.xp ? C.brand : C.border}`, background: goal === opt.xp ? C.brandTint : C.surface,
-              color: goal === opt.xp ? C.brand : C.inkDim, cursor: goal === opt.xp ? 'default' : 'pointer',
+              color: goal === opt.xp ? C.brandText : C.inkDim, cursor: goal === opt.xp ? 'default' : 'pointer',
             }}>{t(`game_goal_${opt.key}`)}</button>
         ))}
       </div>
@@ -102,7 +102,8 @@ export function QuestsCard() {
   const quests = dayMeta(g.player, key).quests || [] // the SAME list computeStreak judges the freeze on
   if (!quests.length) return null
   const totals = dayTotals(g.player, key)
-  const prog = quests.map((q) => questProgress(q, totals))
+  const prog = quests.map((q) => questProgress(q, totals)).filter((p) => !p.unknown)
+  if (!prog.length) return null
   const all = prog.every((p) => p.done)
   const s = computeStreak(g.player)
   return (
@@ -113,11 +114,11 @@ export function QuestsCard() {
             <span>{p.done ? '✅ ' : '⚡ '}{tCount(t, `game_q_${p.kind}`, p.target)}</span>
             <span style={{ color: C.inkFaint, fontSize: 12 }}>{p.value}/{p.target}</span>
           </div>
-          <ProgressBar value={p.value} max={p.target} color={p.done ? C.success : C.warning} />
+          <ProgressBar value={p.value} max={p.target} color={p.done ? C.success : C.warning} label={tCount(t, `game_q_${p.kind}`, p.target)} />
         </div>
       ))}
       <div style={{ fontSize: 12, color: all ? C.success : C.inkDim, fontWeight: all ? 800 : 600, lineHeight: 1.4 }}>
-        {all ? (s.freezes >= MAX_FREEZES ? t('game_questsAllFull') : t('game_questsAll')) : `❄ ${t('game_freezeHow')}`}
+        {all ? (s.freezes >= MAX_FREEZES ? t('game_questsAllFull') : t('game_questsAll')) : `❄ ${t('game_freezeHow', { max: MAX_FREEZES })}`}
       </div>
     </Card>
   )
@@ -151,7 +152,9 @@ export function LeagueCard() {
             <span style={{ width: 18, color: C.inkFaint, fontWeight: 800 }}>{rank}</span>
             <span style={{ width: 20 }}>{me ? '⭐' : r.kind === 'ghost' ? '👻' : '🦐'}</span>
             <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: r.kind === 'ghost' ? 0.75 : 1 }}>{label}</span>
-            <span style={{ color: C.inkDim, fontWeight: 800 }}>{r.xp} XP</span>
+            {/* A ghost races by the same weekday; its whole week's total is the bar to clear by Sunday. */}
+            <span className={r.kind === 'ghost' ? 'tip tip-l' : undefined} data-tip={r.kind === 'ghost' ? t('game_ghostFinal', { xp: `${r.finalXp} XP` }) : undefined}
+              style={{ color: C.inkDim, fontWeight: 800 }}>{r.xp} XP</span>
           </div>
         )
       })}

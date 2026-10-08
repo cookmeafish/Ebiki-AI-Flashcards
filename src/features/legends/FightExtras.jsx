@@ -14,7 +14,8 @@ import { ChunkyButton, Card } from '../ui'
 import { recheckStrike, RuleCardButton } from '../kit'
 import { fetchTaunt } from '../kit/tauntStore'
 import { useHelpEntry } from '../kit/useHelp'
-import { FIGHT_EXTRAS, isWrongish, expectedOf, needsRecheck, appealOpen, appealOffered, debriefEntries, resolveFightQuestion } from './fightCheck'
+import { FIGHT_EXTRAS, isWrongish, expectedOf, needsRecheck, appealOffered, debriefEntries, resolveFightQuestion, missRowParts } from './fightCheck'
+import { imeActive } from '../../utils/keys'
 
 export { isWrongish, expectedOf } // older imports of these from here keep working
 
@@ -103,11 +104,12 @@ export function useFightCheck(ctx, { onOverturn, isOver } = {}) {
 
   const appeal = useCallback(async (aid, reason) => {
     const e = store.current.get(aid)
-    if (!appealOpen(e) || !ai.hasKey) return
+    if (!appealOffered(e, { hasKey: ai.hasKey })) return // the same rule as the button: never during the re-check
     patch(aid, { appeal: 'pending', reason: String(reason || '').slice(0, REASON_MAX) })
     const r = await recheckStrike(ai, subject, e.q, e.answer, { verdict: e.verdict, reason })
     const cur = store.current.get(aid)
     if (!cur) return
+    if (cur.overturned) { patch(aid, { appeal: null }); return } // the re-check already found it right meanwhile
     if (!r) { patch(aid, { appeal: 'failed' }); return }
     if (r.overturned) { cur.appeal = 'won'; cur.appealWhy = r.why; overturn(aid, r.verdict, r.why, 'appeal') } else patch(aid, { appeal: 'lost', appealWhy: r.why })
   }, [ai, subject]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -226,7 +228,7 @@ export function MissTools({ ctx, entry, onAppeal, onLearn, rule = false, after =
       {open ? (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
           <input value={reason} autoFocus maxLength={REASON_MAX} onChange={(e) => setReason(e.target.value)} placeholder={t('lg_appealPlaceholder')}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) { e.preventDefault(); send() } else if (e.key === 'Escape') { e.preventDefault(); setOpen(false) } }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e)) { e.preventDefault(); send() } else if (e.key === 'Escape' && !imeActive(e)) { e.preventDefault(); setOpen(false) } }}
             style={{ flex: '1 1 220px', minWidth: 0, fontFamily: FONT.body, fontSize: 13, padding: '6px 9px', borderRadius: RADIUS.sm, border: `1px solid ${C.border}`, background: C.surfaceAlt, color: C.ink }} />
           <button type="button" onClick={send} style={{ ...small, color: C.purple, border: `1px solid color-mix(in srgb, ${C.purple} 40%, transparent)` }}>⚖ {t('lg_appealSend')}</button>
           <button type="button" onClick={() => setOpen(false)} style={{ ...small, color: C.inkDim, border: `1px solid ${C.border}` }}>{t('lg_appealCancel')}</button>
@@ -241,7 +243,7 @@ export function MissTools({ ctx, entry, onAppeal, onLearn, rule = false, after =
             <button type="button" onClick={onLearn} className="tip" data-tip={t('lg_learnItTip')}
               style={{ ...small, color: C.brand, border: `1px solid color-mix(in srgb, ${C.brand} 40%, transparent)` }}>📖 {t('lg_learnIt')}</button>
           )}
-          {rule && ai.hasKey && <RuleCardButton ctx={ctx} compact deck={ctx.subject?.modeDeck || ''} source={{ asked: entry.q?.prompt || '', answered: entry.answer, expected }} />}
+          {missRowParts(entry, { rule, hasKey: ai.hasKey }).ruleCard && <RuleCardButton ctx={ctx} compact deck={ctx.subject?.modeDeck || ''} source={{ asked: entry.q?.prompt || '', answered: entry.answer, expected }} />}
         </div>
       )}
     </div>
@@ -266,8 +268,8 @@ export function Debrief({ ctx, fc, onLearn, expectedOf }) {
               <div dir="auto" style={{ color: e.overturned ? C.success : C.danger }}>{e.overturned ? '✓' : '✗'} {e.answer || t('lg_debriefNoAnswer')}</div>
               {expected && <div dir="auto" style={{ color: C.success }}>✓ {w.text(expected, `debrief-${e.aid}-x`)}</div>}
               {expected && w.popup(`debrief-${e.aid}-x`)}
-              {e.note && <div dir="auto" style={{ color: C.inkDim }}>{w.text(e.note, `debrief-${e.aid}-n`)}</div>}
-              {e.note && w.popup(`debrief-${e.aid}-n`)}
+              {missRowParts(e).note && <div dir="auto" style={{ color: C.inkDim }}>{w.text(e.note, `debrief-${e.aid}-n`)}</div>}
+              {missRowParts(e).note && w.popup(`debrief-${e.aid}-n`)}
               <MissTools ctx={ctx} entry={e} onAppeal={fc.appeal} after rule onLearn={onLearn ? () => onLearn(e) : null} expected={expected} />
             </div>
           )

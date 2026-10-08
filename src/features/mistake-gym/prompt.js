@@ -12,7 +12,7 @@ export function buildWorkoutPrompt(subject, mistakes, { slips = '', count = QUES
     `- id: ${m.id}`,
     `  card: ${m.front}${m.back ? ` = ${m.back.slice(0, 300)}` : ''}`,
     `  asked: ${m.question}`,
-    `  learner answered: ${m.answer}`,
+    `  learner answered: ${m.answer || '(no answer)'}`, // Ebi Call misses: the card could not be produced at all
     m.expected ? `  expected: ${m.expected}` : '',
     m.feedback ? `  grader said: ${m.feedback}` : '',
     m.n > 1 ? `  missed ${m.n} times` : '',

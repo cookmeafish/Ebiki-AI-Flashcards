@@ -42,5 +42,14 @@ async function pickFrom(ctx, deck, n, { due = 0 }) {
   const withText = seen.map((c) => ({ c, ...ctx.cards.noteText(c) })).filter((x) => x.front)
   const dueFirst = rankFresh(withText.filter((x) => dueSet.has(String(x.c.cardId))), log)
   const rest = rankFresh(shuffle(withText.filter((x) => !dueSet.has(String(x.c.cardId)))), log)
-  return shuffle([...dueFirst, ...rest].slice(0, n)).map(({ c, front, back, fieldNames }) => ({ cardId: c.cardId, front, back, fieldNames }))
+  // One card per note (and per front): a reversed note's two cards carry the same fields, and the activity drilled
+  // the same word twice in one run.
+  const seenNotes = new Set()
+  const once = [...dueFirst, ...rest].filter(({ c, front }) => {
+    const keys = [c.note != null ? `n:${c.note}` : null, `f:${front.trim().toLowerCase()}`].filter(Boolean)
+    if (keys.some((k) => seenNotes.has(k))) return false
+    keys.forEach((k) => seenNotes.add(k))
+    return true
+  })
+  return shuffle(once.slice(0, n)).map(({ c, front, back, fieldNames }) => ({ cardId: c.cardId, front, back, fieldNames }))
 }

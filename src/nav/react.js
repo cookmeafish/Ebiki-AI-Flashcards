@@ -37,3 +37,16 @@ export function useNavEntry(key, value, apply, opts = {}) {
   useEffect(() => { if (enabled) nav.changed() }, [sig, enabled, key])
   return useMemo(() => ({ remember: (data) => nav.remember(key, data) }), [key])
 }
+
+// A LAYER over the screen while `open` (a feature Modal): Back closes it (onClose) instead of changing the screen under
+// it; closing it any other way steps back; Forward never reopens it; closable false = Back is refused while it is up.
+// The key only has to be unique among layers open at once.
+export function useNavLayer(key, open, onClose, { closable = true } = {}) {
+  const ref = useRef(null)
+  ref.current = { onClose, closable }
+  const on = !!open && !!key
+  useEffect(() => {
+    if (!on) return undefined
+    return nav.layer(key, { onClose: () => ref.current.onClose?.(), closable: () => ref.current.closable !== false })
+  }, [key, on])
+}

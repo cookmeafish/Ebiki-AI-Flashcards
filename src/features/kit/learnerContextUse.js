@@ -86,7 +86,13 @@ export function redactSnapshot(snap, { hideFronts = [], hideAnswers = [], reveal
       items: (snap.chats?.items || []).map((c) => ({ ...c, title: leaks(c.title) ? '' : c.title, learner: c.learner.filter((l) => !leaks(l)), ebi: c.ebi.filter((l) => !leaks(l)) })),
     },
     discover: { ...snap.discover, profile: profile && !leaks(profile.summary) ? profile : null },
-    practice: { ...snap.practice, recent: (snap.practice?.recent || []).filter((x) => !leaks(x)) },
+    // A practiced CARD is a card list too (its front, which a raid may be asking); topics stay.
+    practice: (() => {
+      const recent = snap.practice?.recent || []
+      const cards = snap.practice?.recentCards || []
+      const keep = recent.map((x, i) => !leaks(x) && !(secret && cards[i] !== false))
+      return { ...snap.practice, recent: recent.filter((_, i) => keep[i]), recentCards: cards.filter((_, i) => keep[i]) }
+    })(),
     extra: secret ? [] : (snap.extra || []).map((x) => ({ ...x, text: String(x.text || '').split('\n').filter((l) => !leaks(l)).join('\n') })),
   }
 }

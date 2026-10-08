@@ -2,7 +2,7 @@
 // bosses. Every drawing of ONE item at a time, in every place the app shows it: the entrance, the fight (full and
 // compact), the map icon, locked, the banner on the map and whole, raid phases 1 to 3, then every palette. A strip
 // picks one; ← and → step through them. Every drawing carries its file name UNDER it (ArtLabels): only here.
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { ChunkyButton, Card } from '../ui'
 import { AreaArt, ArtLabels, BossArt, LegendsArt, artUrl, BANNER, ArtMotion } from './art'
@@ -34,7 +34,7 @@ import { FAMILY_TREES } from './families'
 // and fight-size copies show still and animate only while hovered or focused (each live raid boss costs about 5 ms a
 // frame; the owner found copies animating after an ability Play confusing). 'always': all of them animate, as before.
 const ASSET_RAID_ANIMATE_COPIES = 'hover'
-const VIEW = { mapW: 620, mapH: 132, thumb: 56, paletteBoss: 72, paletteBannerW: 260, phase: 180, demoHp: 30 }
+const VIEW = { mapW: 620, mapH: 132, thumb: 56, paletteBoss: 72, paletteBannerW: 260, phase: 180 }
 const TABS = [
   { id: 'legends', icon: '🗺️', labelKey: 'lg_assetsTabLegends', list: MOTIFS },
   { id: 'raids', icon: '⚔️', labelKey: 'lg_assetsTabRaids', list: RAID_MOTIFS }, // progression order (RAID_ORDER)
@@ -220,7 +220,28 @@ function EbiDrafts({ t, stepRef, onPick }) {
 const Label = ({ children }) => (
   <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.06em', textTransform: 'uppercase', color: C.inkFaint }}>{children}</div>
 )
-const Cell = ({ label, children }) => <div style={{ display: 'grid', gap: 6, justifyItems: 'center' }}>{children}<Label>{label}</Label></div>
+const Cell = ({ label, children }) => <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', minWidth: 0, gap: 6, justifyItems: 'center' }}>{children}<Label>{label}</Label></div>
+// A FOLDABLE SECTION (the owner: fold away what is not being reviewed so the demo rows sit closer): a header button
+// with a chevron, the open state remembered per device and per section (`ebiki-assets-fold-<id>`).
+const FOLD_H = { fontFamily: FONT.display, fontWeight: 900, fontSize: 18, color: C.ink }
+function Fold({ id, title, defaultOpen = true, extra = null, children }) {
+  const key = `ebiki-assets-fold-${id}`
+  const [open, setOpenState] = useState(() => { try { const v = platform.kv.get(key); return v == null ? defaultOpen : v === '1' } catch { return defaultOpen } })
+  const toggle = () => { const v = !open; setOpenState(v); try { platform.kv.set(key, v ? '1' : '0') } catch { /* kept for this visit */ } }
+  return (
+    <div data-fold={id} style={{ display: 'grid', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <button type="button" aria-expanded={open} onClick={toggle} style={{ ...FOLD_H, display: 'inline-flex', alignItems: 'center', gap: 8, background: 'none', border: 'none', padding: '2px 4px', margin: '0 -4px', borderRadius: RADIUS.sm, cursor: 'pointer' }}>
+          <span aria-hidden="true" style={{ display: 'inline-block', fontSize: 13, color: C.inkDim, transition: 'transform .15s', transform: open ? 'rotate(90deg)' : 'none' }}>▶</span>
+          {title}
+        </button>
+        {open && extra}
+      </div>
+      {open && children}
+    </div>
+  )
+}
+
 // A raid boss's story (lg_raidLore_<motif>) and its voice for a future boss dialogue (raidVoices.js: the sample line
 // as a quote, the English persona prompt below it, labeled as text for the AI).
 function RaidLore({ t, motif }) {
@@ -275,7 +296,35 @@ const IMPACT_DEMOS = [
   ['wind', 'lg_fxWind', { kind: 'wind' }],
   ['ko', 'lg_fxKo', { kind: 'hit', damage: 5 }],
 ]
+// The demo arena is PINNED by default (the owner: like a spreadsheet's frozen row, as high as it can go under the app
+// header); the choice is remembered per device.
+const ARENA_PIN_KEY = 'ebiki-assets-arena-pinned'
+const PIN_ROOM = 110 // layout px the Pin button needs beside the arena (the longest label, "Unpin" / "取消固定", plus the gap)
+const readPinned = () => { try { return platform.kv.get(ARENA_PIN_KEY) !== '0' } catch { return true } }
+
 function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot, step, setStep, children }) {
+  const [pinned, setPinnedState] = useState(readPinned)
+  const setPinned = (v) => { setPinnedState(v); try { platform.kv.set(ARENA_PIN_KEY, v ? '1' : '0') } catch { /* kept for this visit */ } }
+  // Sticky rests below the scroll box's top padding (the content showed through that gap): pull it up by exactly that.
+  const pinRef = useRef(null)
+  const [pinTop, setPinTop] = useState(0)
+  useLayoutEffect(() => {
+    let p = pinRef.current?.parentElement
+    while (p && !/(auto|scroll)/.test(getComputedStyle(p).overflowY)) p = p.parentElement
+    if (p) setPinTop(-(parseFloat(getComputedStyle(p).paddingTop) || 0))
+  }, [])
+  // The Pin button sits beside the arena when the column has room for it, else (a narrow window) as an icon inside the
+  // arena's bottom-right corner: beside it, it ran off the screen and scrolled the page sideways.
+  const [pinBeside, setPinBeside] = useState(true)
+  useLayoutEffect(() => {
+    const box = pinRef.current, col = box?.parentElement
+    if (!box || !col || typeof ResizeObserver === 'undefined') return
+    const fit = () => setPinBeside(col.clientWidth - box.offsetWidth >= PIN_ROOM)
+    fit()
+    const ro = new ResizeObserver(fit)
+    ro.observe(col)
+    return () => ro.disconnect()
+  }, [])
   const [impact, setImpact] = useState(null) // { id, n }: an impact moment to replay
   const [cast, setCast] = useState(null) // { id, n }: a raid power used (impact/PowerFx.jsx)
   const [armedDemo, setArmedDemo] = useState({}) // the armed looks shown (POWER_ARMED): a toggle or a countdown each
@@ -288,8 +337,9 @@ function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot, step, setStep, 
     return { ...a, [id]: top === 1 ? next > 0 : next }
   })
   const imp = impact && IMPACT_DEMOS.find((d) => d[0] === impact.id)
-  const third = VIEW.demoHp / RAID.phases
-  const damage = imp?.[0] === 'ko' ? VIEW.demoHp : Math.min(VIEW.demoHp - 1, Math.round(step * third))
+  const hp = raidProfile(motif).hp // the boss's own health (raidProfiles.js), never one demo number for all
+  const third = hp / RAID.phases
+  const damage = imp?.[0] === 'ko' ? hp : Math.min(hp - 1, Math.round(step * third))
   const ability = RAID_ABILITY[motif]
   const mine = shot && shot.motif === motif ? shot : null
   const fxLast = mine && { kind: 'hit', damage: 3, lives: 0, ...(fxDemoFor(ability, mine.fx) || {}), fx: mine.fx, n: mine.n }
@@ -301,8 +351,13 @@ function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot, step, setStep, 
     <div style={{ display: 'grid', gap: 10 }}>
       {/* Frozen at the top like a spreadsheet's frozen row (the owner): the demo rows below grow long, and scrolling to
           them must keep the boss in view to watch what each button plays. */}
-      <div data-arena-pinned="" style={{ maxWidth: 640, position: 'sticky', top: 0, zIndex: 5 }}>
-        <BossArena key={motif} t={t} area={area} name={motif} need={VIEW.demoHp} lives={raidProfile(motif).hearts} state={state} phases={RAID.phases} ability={ability} getZoom={getZoom} kind="raids" power={cast} armed={armedDemo} proc={procDemo} />
+      <div ref={pinRef} data-arena-pinned={pinned ? '' : undefined} style={{ maxWidth: 640, position: pinned ? 'sticky' : 'relative', top: pinned ? pinTop : undefined, zIndex: 5 }}>
+        <button type="button" data-arena-pin="" onClick={() => setPinned(!pinned)} className={pinBeside ? 'tip tip-b' : 'tip'} data-tip={t(pinned ? 'lg_assetsUnpinTip' : 'lg_assetsPinTip')}
+          aria-label={t(pinned ? 'lg_assetsUnpin' : 'lg_assetsPin')} aria-pressed={pinned}
+          style={{ ...S.ghostBtn, position: 'absolute', ...(pinBeside ? { top: 0, left: 'calc(100% + 8px)' } : { bottom: 6, right: 6, zIndex: 6 }), fontSize: 11, padding: '4px 9px', whiteSpace: 'nowrap', color: C.purple, borderColor: `color-mix(in srgb, ${C.purple} 35%, transparent)`, background: C.bg }}>
+          📌{pinBeside ? ` ${t(pinned ? 'lg_assetsUnpin' : 'lg_assetsPin')}` : ''}
+        </button>
+        <BossArena key={motif} t={t} area={area} name={motif} need={hp} lives={raidProfile(motif).hearts} state={state} phases={RAID.phases} ability={ability} getZoom={getZoom} kind="raids" power={cast} armed={armedDemo} proc={procDemo} />
       </div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <ChunkyButton variant="ghost" color={C.danger} onClick={() => { onClearShot(); setImpact(null); setStep((n) => (n + 1) % RAID.phases) }} style={{ fontSize: 12, padding: '6px 10px' }}>⚔️ {t('lg_assetsNextPhase')}</ChunkyButton>
@@ -413,6 +468,16 @@ export default function AssetView({ ctx, onBack }) {
   const { list } = TABS.find((x) => x.id === tab)
   const raids = tab === 'raids'
   const motif = list[Math.min(idx, list.length - 1)]
+  const [find, setFind] = useState('')
+  // The bosses the search keeps (indexes into list): file name, the raid boss's name, its number.
+  const q = find.trim().toLowerCase()
+  const matches = list.map((m, i) => i).filter((i) => {
+    if (!q) return true
+    const m = list[i]
+    const name = raids ? t(`lg_raidBoss_${m}`) : ''
+    const num = String(raids ? raidBossNumber(m) : i + 1)
+    return m.toLowerCase().includes(q) || name.toLowerCase().includes(q) || num === q.replace(/^#/, '')
+  })
   const area = { id: motif, title: motif, motif, palette }
   const ebiStepRef = useRef(null)
   // Ebi's Help: what the bestiary shows (bestiaryHelp.js: plain facts, names and rules in the app language). The phase
@@ -462,7 +527,7 @@ export default function AssetView({ ctx, onBack }) {
     const late = setTimeout(put, ASSET_SCROLL_SETTLE_MS)
     return () => { cancelAnimationFrame(raf); clearTimeout(late) }
   }, [tab])
-  const pickTab = (id) => { keepScroll(); setTab(id); setIdx(0); setReplay(0) }
+  const pickTab = (id) => { keepScroll(); setTab(id); setIdx(0); setReplay(0); setFind('') } // a search is per tab ("reaper" left Legends showing no boss)
 
   // The key handler is installed once; it calls the CURRENT step function (the list changes with the tab).
   const goRef = useRef(go)
@@ -472,7 +537,11 @@ export default function AssetView({ ctx, onBack }) {
   useEffect(() => {
     const on = (e) => {
       if (testFightRef.current) return // the fight's own keys
-      if (e.defaultPrevented || e.altKey || /input|textarea|select/i.test(e.target?.tagName || '')) return // Alt+Left is Back
+      // Alt+Left is Back; Ctrl/Cmd/Shift+arrow belong to the browser and text selection; a contenteditable or an open
+      // dialog keeps its arrows.
+      if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.isComposing || e.keyCode === 229) return
+      if (/input|textarea|select/i.test(e.target?.tagName || '') || e.target?.isContentEditable) return
+      if (document.querySelector('[data-app-dialog],[data-top-overlay]')) return
       if (e.key === 'ArrowLeft') goRef.current(-1)
       else if (e.key === 'ArrowRight') goRef.current(1)
       else return
@@ -496,7 +565,9 @@ export default function AssetView({ ctx, onBack }) {
     <ArtMotion.Provider value>
     <ArtLabels.Provider value>
     <BossStyle />
-    <div ref={rootRef} style={{ maxWidth: 1100, margin: '0 auto', display: 'grid', gap: 16 }}>
+    {/* minmax(0, 1fr): a grid's implicit column grows to its widest child's min-content (a big drawing), which pushed
+        the header's palette select and the tabs off a narrow screen instead of letting them wrap. */}
+    <div ref={rootRef} style={{ maxWidth: 1100, margin: '0 auto', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
         <ChunkyButton variant="ghost" color={C.inkDim} onClick={onBack} style={{ fontSize: 12, padding: '7px 12px' }}>← {t('lg_back')}</ChunkyButton>
         <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 24, color: C.ink, marginRight: 'auto' }}>⚡ {t('lg_cheatAssets')}</div>
@@ -512,25 +583,34 @@ export default function AssetView({ ctx, onBack }) {
           return (
             <button key={x.id} type="button" role="tab" aria-selected={on} onClick={() => pickTab(x.id)} className={`ui-tab${on ? ' ui-tab-current' : ''}`}
               style={{ padding: '8px 14px', borderRadius: RADIUS.md, cursor: on ? 'default' : 'pointer', fontFamily: FONT.display, fontWeight: 900, fontSize: 15,
-                border: `2px solid ${on ? C.brand : C.border}`, background: on ? `color-mix(in srgb, ${C.brand} 12%, ${C.surface})` : C.surface, color: on ? C.brand : C.inkDim }}>
+                border: `2px solid ${on ? C.brand : C.border}`, background: on ? `color-mix(in srgb, ${C.brand} 12%, ${C.surface})` : C.surface, color: on ? C.brandText : C.inkDim }}>
               {x.icon} {t(x.labelKey, { n: x.list.length })}
             </button>
           )
         })}
       </div>
 
-      {tab === 'families' ? <BossFamilies t={t} onOpen={(to, m) => { keepScroll(); setTab(to); setIdx(Math.max(0, TABS.find((x) => x.id === to).list.indexOf(m))); setReplay(0); const box = scrollBox(); if (box) box.scrollTop = 0 }} /> : tab === 'ebi' ? <EbiDrafts t={t} stepRef={ebiStepRef} onPick={setEbiPick} /> : <>
-      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 6 }}>
-        {list.map((m, i) => (
+      {tab === 'families' ? <BossFamilies t={t} onOpen={(to, m) => { keepScroll(); setFind(''); setTab(to); setIdx(Math.max(0, TABS.find((x) => x.id === to).list.indexOf(m))); setReplay(0); const box = scrollBox(); if (box) box.scrollTop = 0 }} /> : tab === 'ebi' ? <EbiDrafts t={t} stepRef={ebiStepRef} onPick={setEbiPick} /> : <>
+      {/* THE BOSS PICKER (the owner: reach #20 without stepping): every boss as a thumbnail in a wrapping grid, and a
+          search over the file name, the boss's name and its number; Enter opens the first match. */}
+      <Fold id="picker" title={t('lg_assetsPickerTitle', { n: list.length })} extra={
+        <input type="search" value={find} onChange={(e) => setFind(e.target.value)} placeholder={t('lg_assetsSearch')} aria-label={t('lg_assetsSearch')}
+          onKeyDown={(e) => { if (e.key === 'Enter' && matches.length) { setIdx(matches[0]); e.preventDefault() } }}
+          style={{ ...S.keyInput, flex: '0 1 240px', minWidth: 0, fontSize: 13, padding: '6px 10px' }} />
+      }>
+      {matches.length === 0 && <div style={{ fontSize: 13, color: C.inkDim }}>{t('lg_assetsNoMatch')}</div>}
+      <div data-boss-grid="" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', paddingBottom: 6 }}>
+        {list.map((m, i) => matches.includes(i) && (
           <button key={m} type="button" onClick={() => setIdx(i)} className={i === idx ? 'ui-tab-current' : undefined}
             style={{ flex: '0 0 auto', display: 'grid', justifyItems: 'center', gap: 2, padding: 4, borderRadius: RADIUS.md, cursor: i === idx ? 'default' : 'pointer',
               border: `2px solid ${i === idx ? C.brand : C.border}`, background: i === idx ? `color-mix(in srgb, ${C.brand} 12%, ${C.surface})` : C.surface,
-              fontFamily: FONT.body, fontSize: 10, fontWeight: 800, color: i === idx ? C.brand : C.inkDim }}>
+              fontFamily: FONT.body, fontSize: 10, fontWeight: 800, color: i === idx ? C.brandText : C.inkDim }}>
             {thumb(m)}
             <span>{raids ? raidBossNumber(m) : i + 1}. {m}{raids && RAID_ABILITY[m] ? ` ${ABILITY_ICON[RAID_ABILITY[m]]}` : ''}</span>
           </button>
         ))}
       </div>
+      </Fold>
 
       <Card style={{ display: 'grid', gap: 18 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -556,25 +636,21 @@ export default function AssetView({ ctx, onBack }) {
                 play on it. */}
             <PhaseDemo t={t} area={area} motif={motif} getZoom={ctx.getZoom} shot={shot} onClearShot={() => setShot(null)} step={demoStep} setStep={setDemoStep}>
               <AbilityCard t={t} motif={motif} ability={RAID_ABILITY[motif]} onTry={(fx) => setShot((x) => ({ motif, fx, n: 1000 + ((x && x.n) || 0) + 1 }))} />
-              <RaidLore t={t} motif={motif} />
+              <Fold id="lore" title={t('lg_assetsLoreFold')} defaultOpen={false}><RaidLore t={t} motif={motif} /></Fold>
             </PhaseDemo>
           </div>
         )}
 
-        <div style={section}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={h}>{t('lg_assetsEntrance')}</div>
-            <ChunkyButton variant="ghost" color={C.brand} onClick={() => setReplay((n) => n + 1)} style={{ fontSize: 12, padding: '6px 10px' }}>▶ {t('lg_assetsReplay')}</ChunkyButton>
-          </div>
+        <Fold id="entrance" title={t('lg_assetsEntrance')} defaultOpen={false}
+          extra={<ChunkyButton variant="ghost" color={C.brand} onClick={() => setReplay((n) => n + 1)} style={{ fontSize: 12, padding: '6px 10px' }}>▶ {t('lg_assetsReplay')}</ChunkyButton>}>
           <div style={{ maxWidth: 560 }}>
             <BossIntro key={`${tab}-${motif}-${palette}-${replay}`} t={t} area={area} name={motif} total={20} onFight={() => setReplay((n) => n + 1)}
               {...(raids ? { kind: 'raids', raidLives: raidProfile(motif).hearts, ability: RAID_ABILITY[motif] } : {})} />
           </div>
-        </div>
+        </Fold>
 
         {raids ? (
-          <div style={section}>
-            <div style={h}>{t('lg_assetsPhases')}</div>
+          <Fold id="phaseCopies" title={t('lg_assetsPhaseCopies')}>
             <div style={row}>
               {Array.from({ length: RAID.phases }, (_, i) => (
                 <Cell key={i} label={t('lg_assetsPhase', { n: i + 1 })}><LiveCopy>{(on) => <RaidPhase motif={motif} palette={palette} phase={i + 1} size={VIEW.phase} animate={on} />}</LiveCopy></Cell>
@@ -584,7 +660,7 @@ export default function AssetView({ ctx, onBack }) {
               <Cell label={t('lg_assetsFight', { px: BOSS.arena })}><LiveCopy>{(on) => <RaidPhase motif={motif} palette={palette} phase={1} size={BOSS.arena} animate={on} />}</LiveCopy></Cell>
               <Cell label={t('lg_assetsFight', { px: BOSS.arenaCompact })}><LiveCopy>{(on) => <RaidPhase motif={motif} palette={palette} phase={1} size={BOSS.arenaCompact} animate={on} />}</LiveCopy></Cell>
             </div>
-          </div>
+          </Fold>
         ) : (
           <>
             <div style={section}>
@@ -600,14 +676,14 @@ export default function AssetView({ ctx, onBack }) {
             <div style={section}>
               <div style={h}>{t('lg_assetsBanner')}</div>
               <Cell label={t('lg_assetsBannerMap', { w: VIEW.mapW, h: VIEW.mapH })}><AreaArt area={area} height={VIEW.mapH} width={Math.min(VIEW.mapW, 1000)} /></Cell>
-              <Cell label={t('lg_assetsBannerWhole')}><AreaArt area={area} height={Math.round(VIEW.mapW * BANNER.h / BANNER.w)} width={VIEW.mapW} animated={false} /></Cell>
+              <Cell label={t('lg_assetsBannerWhole')}><AreaArt area={area} height={Math.round(VIEW.mapW * BANNER.h / BANNER.w)} width={VIEW.mapW} animated={false}
+                style={{ height: 'auto', aspectRatio: `${BANNER.w} / ${BANNER.h}` }} /></Cell>
               <Cell label={t('lg_assetsLocked')}><AreaArt area={area} height={VIEW.mapH} width={VIEW.mapW} locked /></Cell>
             </div>
           </>
         )}
 
-        <div style={section}>
-          <div style={h}>{t('lg_assetsPalettes')}</div>
+        <Fold id="palettes" title={t('lg_assetsPalettes')} defaultOpen={false}>
           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
             {PALETTES.map((p) => (
               <div key={p} style={{ display: 'grid', gap: 6, justifyItems: 'center', padding: 8, borderRadius: RADIUS.md, border: `2px solid ${p === palette ? C.brand : C.border}` }}>
@@ -621,7 +697,7 @@ export default function AssetView({ ctx, onBack }) {
               </div>
             ))}
           </div>
-        </div>
+        </Fold>
       </Card>
       </>}
     </div>

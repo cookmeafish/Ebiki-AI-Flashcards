@@ -9,6 +9,9 @@ import { ADAPTIVE_STRUGGLE_LAPSES } from '../config/study'
 import { LaunchModeCard } from './LaunchModeChoice'
 import { ZOOM, stepZoom, canZoomIn, canZoomOut, isDefaultZoom, formatZoom } from '../config/zoom'
 import { apiFetch } from '../platform'
+import { fileSizeLabel } from '../utils/fileSize'
+import { checkStateFor, updateResultState, verifyOutcome, restartOffered, pollUntilAnswered } from './updatesState'
+import { imeActive } from '../utils/keys'
 
 // ── Data folder (optional shared data directory) ──
 // Self-contained: talks to /api/datadir directly. The data-folder pointer is
@@ -97,6 +100,7 @@ function DataFolderCard({ t, card, fieldLabel, hint, onChanged }) {
   const canApply = !busy && input.trim()
   // Human-readable list of what this computer has that the target lacks.
   const summaryLines = (s) => {
+    s = s && typeof s === 'object' ? s : {}
     const names = (arr) => { const shown = arr.slice(0, 4).join(', '); return arr.length > 4 ? `${shown} +${arr.length - 4}` : shown }
     const out = []
     if (s.modes?.length) out.push(t('dataFolderMergeModes', { names: names(s.modes) }))
@@ -116,13 +120,14 @@ function DataFolderCard({ t, card, fieldLabel, hint, onChanged }) {
         <div style={hint}>{t('dataFolderEnvNote')}</div>
       ) : (
         <>
-          <div style={{ display: 'flex', gap: 8 }}>
+          {/* Wraps on a narrow pane: keyInput's 200px minimum pushed the button onto the card's border. */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <input value={input} onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing && canApply) apply(input.trim()) }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e) && canApply) apply(input.trim()) }}
               placeholder={t('dataFolderPlaceholder')} disabled={busy}
-              style={{ ...S.keyInput, flex: 1, fontSize: 12 }} />
+              style={{ ...S.keyInput, flex: '1 1 180px', minWidth: 0, fontSize: 12 }} />
             <button onClick={() => canApply && apply(input.trim())} disabled={!canApply}
-              style={{ ...S.getKeyLink, opacity: canApply ? 1 : 0.5, cursor: canApply ? 'pointer' : 'default' }}>
+              style={{ ...S.getKeyLink, flexShrink: 0, opacity: canApply ? 1 : 0.5, cursor: canApply ? 'pointer' : 'default' }}>
               {busy ? '…' : t('dataFolderApply')}
             </button>
           </div>
@@ -203,24 +208,14 @@ function DataFolderCard({ t, card, fieldLabel, hint, onChanged }) {
 // and ask the repository what actually happened. The commit sha is the truth here,
 // not the socket.
 async function confirmUpdateApplied(beforeSha, ms = 45000) {
-  const deadline = Date.now() + ms
-  while (Date.now() < deadline) {
-    await new Promise((r) => setTimeout(r, 3000))
-    try {
-      // ?local=1: only the checked-out commit matters here, and asking GitHub for it
-      // can cost a 25s round trip on a bad connection - which is what made this look
-      // frozen. This answers as fast as git can read HEAD.
-      const d = await (await apiFetch('/api/update?local=1')).json()
-      // ONE answer from the server settles it, whichever way it goes. This used to
-      // return only when the sha had MOVED, so the common case where the service
-      // came back and the update had NOT applied matched nothing and the loop kept
-      // polling in silence for three minutes behind "Finishing up..." - a hang, and
-      // for the one user most in need of a straight answer. The repository is the
-      // truth: if it can be read at all, it has already answered.
-      if (d?.current) return d
-    } catch { /* the service is still down; that is what the deadline is for */ }
+  // ?local=1: only the checked-out commit matters here (asking GitHub could cost a 25s round trip). ONE answer
+  // from the server settles it either way (see verifyOutcome); each poll is bounded so a half-started server
+  // holding the connection open cannot keep "Finishing up..." on past the deadline.
+  const fetchLocal = async (limit) => {
+    const signal = typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(limit) : undefined
+    return (await apiFetch('/api/update?local=1', signal ? { signal } : undefined)).json()
   }
-  return null   // never came back: it cannot be asked, so the caller must offer a restart
+  return pollUntilAnswered({ fetchLocal, ms })
 }
 
 function UpdatesCard({ t, card, fieldLabel, hint, serverDown }) {
@@ -251,19 +246,9 @@ function UpdatesCard({ t, card, fieldLabel, hint, serverDown }) {
       setInfo(d)   // BEFORE the early returns: the version line is worth showing even when
                    // the check itself could not run, which is exactly when someone is asking
                    // "what version is this machine actually on?"
-      if (!d.gitAvailable) { setState('nogit'); return }
-      // Updated since this server started: it still runs the old code, so the restart stays on offer (this said "up to
-      // date" and hid it on the next check or a reopen of Settings).
-      if (d.restartPending) { setState('done'); return }
-      // Updates come from master; a copy parked on another branch can never apply one,
-      // so say which branch rather than offering an update that would fail.
-      if (d.branch && !d.onMaster) { setState('branch'); return }
-      if (!d.reachable) { setState('offline'); return }
-      // Reachable, but the release branch is gone (renamed or removed upstream).
-      // Saying "you're up to date" here would hide it indefinitely.
-      if (d.remoteMissing) { setState('remoteMissing'); return }
-      if (d.localCommits) { setState('localCommits'); return } // own commits on master: an update would be refused
-      setState(d.updateAvailable ? 'available' : 'uptodate')
+      // Order and reasons live in checkStateFor (updatesState.js): a pending restart first, another branch,
+      // unreachable, a missing master (never "up to date"), own commits (never offered).
+      setState(checkStateFor(d))
     } catch (e) {
       if (seq !== checkSeq.current) return
       if (attempt === 0) {
@@ -291,35 +276,40 @@ function UpdatesCard({ t, card, fieldLabel, hint, serverDown }) {
     if (window.ebikiWindow?.restart) { window.ebikiWindow.restart(); return }
     setState('done')   // a browser tab cannot restart itself; the wording says so
   }
+  // A ref, not the state: two quick clicks both read 'available' from one render and sent two updates; the
+  // second answered "busy" over the first one's progress.
+  const updatingRef = useRef(false)
   const doUpdate = async () => {
+    if (updatingRef.current) return
+    updatingRef.current = true
+    try { await runUpdate() } finally { updatingRef.current = false }
+  }
+  const runUpdate = async () => {
     const beforeSha = info?.current || null
     setState('updating'); setErr(null)
     ++checkSeq.current   // a check still in flight must not land over this update's result
     try {
       const d = await (await apiFetch('/api/update', { method: 'POST' })).json()
-      if (d.busy) { setState('busy'); return }
-      if (d.dirty) { setState('dirty'); return }
-      if (d.localCommits) { setState('localCommits'); return }
-      if (d.wrongBranch) { setInfo((i) => ({ ...(i || {}), branch: d.wrongBranch, onMaster: false })); setState('branch'); return }
-      // The code moved but npm install failed: a restart is exactly what finishes it (the launcher installs
-      // the pending dependencies), and a Retry would only report "up to date".
-      if (d.updated && !d.ok) { setState('done'); setErr(t('updatesDepsPending')); return }
-      if (!d.ok) { setState('error'); setErr(t('updatesErrOther', { msg: d.error || '?' })); return }
-      setState('done')
+      const out = updateResultState(d)
+      if (d?.wrongBranch) setInfo((i) => ({ ...(i || {}), branch: d.wrongBranch, onMaster: false }))
+      // The POST says whether this server can restart itself; the restart offer follows it.
+      if (d && typeof d.canRestart === 'boolean') setInfo((i) => ({ ...(i || {}), canRestart: d.canRestart }))
+      setState(out.state)
+      if (out.err === 'updatesDepsPending') setErr(t('updatesDepsPending'))
+      else if (out.err) setErr(t('updatesErrOther', { msg: d?.error || '?' }))
     } catch (e) {
       // A dropped connection here usually means the update WORKED and took the server
       // down with it (npm install replaced node_modules). Go and look instead of guessing.
       if (/failed to fetch|networkerror|load failed/i.test(String(e.message || e))) {
         setState('verifying')
         const d = await confirmUpdateApplied(beforeSha)
-        if (d && beforeSha && d.current !== beforeSha) { setInfo(d); setState('done'); return }
-        // Answered, nothing moved: report what is actually true now instead of
-        // polling on behind "Finishing up..." for a deadline that cannot help.
-        // The local answer never carries updateAvailable, so reading it said "up to date" for an
-        // update that did NOT apply. Nothing moved and an update was being installed, so it is still
-        // available; with no starting sha to compare, run a real check instead of guessing.
-        if (d) { setInfo(d); if (!beforeSha) { check(); return } setState('available'); return }
-        setState('down')
+        // Answered, nothing moved = still available (the local answer never carries updateAvailable, so reading
+        // it said "up to date" for an update that did NOT apply); no starting sha = a real check. Merged, not
+        // replaced: the local answer lacks canRestart and the remote facts.
+        const outcome = verifyOutcome(beforeSha, d)
+        if (d) setInfo((i) => ({ ...(i || {}), ...d }))
+        if (outcome === 'recheck') { check(); return }
+        setState(outcome)
         return
       }
       setState('error')
@@ -393,7 +383,7 @@ function UpdatesCard({ t, card, fieldLabel, hint, serverDown }) {
         <div style={{ marginTop: 8 }}>
           <div style={{ fontSize: 11, color: C.success, fontWeight: 700, lineHeight: 1.5 }}>✓ {t('updateBannerNeedsRestart')}</div>
           {err && <div style={{ ...hint, marginTop: 4 }}>{err}</div>}
-          {window.ebikiWindow
+          {restartOffered({ electron: !!window.ebikiWindow, canRestart: info?.canRestart })
             ? <button className="btn-press" onClick={restartNow} style={{ ...S.keyDone, fontSize: 12, marginTop: 6 }}>{t('updateBannerRestart')}</button>
             : <div style={{ ...hint, marginTop: 4 }}>{t('updateBannerManual')}</div>}
         </div>
@@ -442,7 +432,7 @@ function UpdatesCard({ t, card, fieldLabel, hint, serverDown }) {
 // commitOnBlur: commit when the box is left (or Enter), not per keystroke. For values that take effect AT
 // ONCE: typing "15" into the auto-sync minutes committed 1 first, and a live session synced and locked
 // its cards before the 5 was typed.
-function ClampedNumber({ value, min, max, onCommit, style, commitOnBlur = false }) {
+function ClampedNumber({ value, min, max, onCommit, style, commitOnBlur = false, label }) {
   const [text, setText] = useState(String(value))
   useEffect(() => { setText(String(value)) }, [value])
   const valid = (v) => { const n = Number(v); return v !== '' && Number.isInteger(n) && n >= min && n <= max ? n : null }
@@ -453,23 +443,34 @@ function ClampedNumber({ value, min, max, onCommit, style, commitOnBlur = false 
   useEffect(() => () => {
     if (!commitOnBlur) return
     const { text: tx, value: v, onCommit: commit, valid: ok } = pendingRef.current
-    const n = ok(tx)
+    const n = ok(tx) ?? clampTyped(tx, min, max)
     if (n !== null && n !== v) commit(n)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <input type="number" min={min} max={max} step={1} value={text} style={style}
+    <input type="number" min={min} max={max} step={1} value={text} style={style} aria-label={label || undefined}
       onChange={(e) => {
         setText(e.target.value)
         const n = valid(e.target.value)
         if (!commitOnBlur && n !== null) onCommit(n)
       }}
-      onKeyDown={commitOnBlur ? (e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) e.currentTarget.blur() } : undefined}
+      onKeyDown={commitOnBlur ? (e) => { if (e.key === 'Enter' && !imeActive(e)) e.currentTarget.blur() } : undefined}
       onBlur={() => {
+        // A whole number past the limits commits the LIMIT: typing "15" into a 1..10 box committed "1" on the first
+        // keystroke, refused "15", and snapped back to 1, the opposite of what was meant.
         const n = commitOnBlur ? valid(text) : null
-        if (n !== null && n !== value) onCommit(n)
+        const clamped = n === null ? clampTyped(text, min, max) : null
+        const next = n !== null ? n : clamped
+        if (next !== null && next !== value) { onCommit(next); setText(String(next)) }
         else setText(String(value))
       }} />
   )
+}
+// A typed whole number outside [min, max] → the nearest limit; anything else (empty, "1.5", "abc") → null.
+export function clampTyped(text, min, max) {
+  const s = String(text ?? '').trim()
+  if (!/^-?\d+$/.test(s)) return null
+  const n = Number(s)
+  return n < min ? min : n > max ? max : null
 }
 
 export default function SettingsModal(p) {
@@ -591,16 +592,16 @@ export default function SettingsModal(p) {
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
       <span style={{ fontSize: 12, color: C.inkDim, fontWeight: 700 }}>{t('configuring')}</span>
       <select value={activeModeId} onChange={(e) => { const id = parseInt(e.target.value); if (p.switchMode) p.switchMode(id); else { setActiveModeId(id); saveModes(modes, id, { changedIds: [] }) } }}
-        style={{ ...S.select, color: C.brand, borderColor: C.brandRing, background: C.brandTint }}>
+        aria-label={t('configuring')} style={{ ...S.select, color: C.brandText, borderColor: C.brandRing, background: C.brandTint }}>
         {modes.map((m) => <option key={m.id} value={m.id}>{m.type === 'language' ? '\u{1F310}' : '\u{1F4DA}'} {m.name}</option>)}
       </select>
       {editingModeName === activeModeId ? (
         <input autoFocus defaultValue={activeMode.name}
           onBlur={(e) => { if (e.target.dataset.cancel !== '1') renameMode(activeModeId, e.target.value || activeMode.name) }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.nativeEvent?.isComposing) { e.currentTarget.dataset.cancel = '1'; renameMode(activeModeId, e.target.value || activeMode.name) } // the unmount blur must not rename again
+            if (e.key === 'Enter' && !imeActive(e)) { e.currentTarget.dataset.cancel = '1'; renameMode(activeModeId, e.target.value || activeMode.name) } // the unmount blur must not rename again
             // Esc cancels: marked first, so a blur fired as the box unmounts can't save the typed name.
-            else if (e.key === 'Escape' && !e.nativeEvent?.isComposing && e.keyCode !== 229) { e.preventDefault(); e.currentTarget.dataset.cancel = '1'; setEditingModeName(null) }
+            else if (e.key === 'Escape' && !imeActive(e) && e.keyCode !== 229) { e.preventDefault(); e.currentTarget.dataset.cancel = '1'; setEditingModeName(null) }
           }}
           style={{ ...S.keyInput, width: 140, fontSize: 12, padding: '4px 8px' }} />
       ) : (
@@ -617,7 +618,7 @@ export default function SettingsModal(p) {
       <div style={{ marginTop: 10 }}>
         <div style={{ display: 'flex', gap: 8 }}>
           <input value={modeEditInput} onChange={(e) => setModeEditInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing && modeEditInput.trim() && !modeEditBusy) { proposeModeEdit(modeEditInput.trim(), scope); } }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e) && modeEditInput.trim() && !modeEditBusy) { proposeModeEdit(modeEditInput.trim(), scope); } }}
             placeholder={placeholder} style={{ ...S.keyInput, flex: 1, fontSize: 12 }} disabled={modeEditBusy} />
           <button onClick={() => { if (modeEditInput.trim()) proposeModeEdit(modeEditInput.trim(), scope) }}
             disabled={modeEditBusy || !modeEditInput.trim()} style={{ ...S.getKeyLink, opacity: (modeEditBusy || !modeEditInput.trim()) ? 0.5 : 1, cursor: (modeEditBusy || !modeEditInput.trim()) ? 'default' : 'pointer' }}>
@@ -643,7 +644,7 @@ export default function SettingsModal(p) {
             ))}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <button onClick={() => { if (acceptModeEdit()) setModeEditInput('') }} style={{ ...S.keyDone, fontSize: 12, padding: '7px 16px' }}>✓ {t('accept')}</button>
-              <button onClick={denyModeEdit} style={{ ...S.ghostBtn, fontSize: 12, padding: '7px 14px', color: C.danger, borderColor: 'rgba(229,57,46,.3)' }}>✗ {t('deny')}</button>
+              <button onClick={denyModeEdit} style={{ ...S.ghostBtn, fontSize: 12, padding: '7px 14px', color: C.danger, borderColor: 'color-mix(in srgb, var(--c-danger) 30%, transparent)' }}>✗ {t('deny')}</button>
               <span style={{ fontSize: 11, color: C.inkFaint, marginLeft: 4 }}>{t('orModify')}</span>
             </div>
           </div>
@@ -675,11 +676,11 @@ export default function SettingsModal(p) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <button type="button" onClick={() => setAppZoom(stepZoom(appZoom, -1))} disabled={!canZoomOut(appZoom)} aria-label={t('set_zoomOut')}
               className="tip tip-r" data-tip={t('set_zoomOut')}
-              style={{ ...S.ghostBtn, fontSize: 16, fontWeight: 800, width: 36, padding: '4px 0', color: C.brand, borderColor: 'rgba(223,37,64,.3)', ...(!canZoomOut(appZoom) ? { opacity: .5, cursor: 'default' } : {}) }}>−</button>
+              style={{ ...S.ghostBtn, fontSize: 16, fontWeight: 800, width: 36, padding: '4px 0', color: C.brand, borderColor: 'color-mix(in srgb, var(--c-brand) 30%, transparent)', ...(!canZoomOut(appZoom) ? { opacity: .5, cursor: 'default' } : {}) }}>−</button>
             <span aria-live="polite" style={{ minWidth: 52, textAlign: 'center', fontWeight: 800, fontSize: 14, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>{formatZoom(appZoom)}</span>
             <button type="button" onClick={() => setAppZoom(stepZoom(appZoom, 1))} disabled={!canZoomIn(appZoom)} aria-label={t('set_zoomIn')}
               className="tip" data-tip={t('set_zoomIn')}
-              style={{ ...S.ghostBtn, fontSize: 16, fontWeight: 800, width: 36, padding: '4px 0', color: C.brand, borderColor: 'rgba(223,37,64,.3)', ...(!canZoomIn(appZoom) ? { opacity: .5, cursor: 'default' } : {}) }}>+</button>
+              style={{ ...S.ghostBtn, fontSize: 16, fontWeight: 800, width: 36, padding: '4px 0', color: C.brand, borderColor: 'color-mix(in srgb, var(--c-brand) 30%, transparent)', ...(!canZoomIn(appZoom) ? { opacity: .5, cursor: 'default' } : {}) }}>+</button>
             <button type="button" onClick={() => setAppZoom(ZOOM.default)} disabled={isDefaultZoom(appZoom)}
               style={{ ...S.ghostBtn, fontSize: 12, color: C.inkDim, ...(isDefaultZoom(appZoom) ? { opacity: .5, cursor: 'default' } : {}) }}>↺ {t('set_zoomReset')}</button>
           </div>
@@ -688,7 +689,7 @@ export default function SettingsModal(p) {
       )}
       <div style={card}>
         {fieldLabel(t('appLanguage'))}
-        <select value={appLanguage} onChange={(e) => setAppLanguage(e.target.value)} style={{ ...S.select, width: '100%' }}>
+        <select aria-label={t('appLanguage')} value={appLanguage} onChange={(e) => setAppLanguage(e.target.value)} style={{ ...S.select, width: '100%' }}>
           {APP_LANGUAGES.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
         </select>
         <div style={hint}>{t('appLanguageHint')}</div>
@@ -697,12 +698,12 @@ export default function SettingsModal(p) {
         {fieldLabel(t('translation'))}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 12, color: C.inkDim }}>{t('source')}</span>
-          <select value={language} onChange={(e) => setLanguage(e.target.value)} style={{ ...S.select, flex: 1, minWidth: 130 }}>
+          <select aria-label={t('source')} value={language} onChange={(e) => setLanguage(e.target.value)} style={{ ...S.select, flex: 1, minWidth: 130 }}>
             {LANGS.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
           </select>
           <span style={{ color: C.brand, fontWeight: 700 }}>→</span>
           <span style={{ fontSize: 12, color: C.inkDim }}>{t('target')}</span>
-          <select value={targetLang} onChange={(e) => setTargetLang(e.target.value)} style={{ ...S.select, flex: 1, minWidth: 130 }}>
+          <select aria-label={t('target')} value={targetLang} onChange={(e) => setTargetLang(e.target.value)} style={{ ...S.select, flex: 1, minWidth: 130 }}>
             {LANGS.filter((l) => l.code !== 'auto').map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
           </select>
         </div>
@@ -734,7 +735,7 @@ export default function SettingsModal(p) {
           {Object.entries(PROVIDERS).map(([key, pr]) => (
             <button key={key} onClick={() => setProvider(key)} className={provider === key ? 'ui-tab-current' : undefined} style={{
               ...S.ghostBtn, fontSize: 12, padding: '5px 12px',
-              color: provider === key ? pr.color : C.inkDim,
+              color: provider === key ? C.ink : C.inkDim, // the provider's own color stays on the border and tint: as text it failed contrast (xAI's #e6e6e6 was invisible in light)
               borderColor: provider === key ? `${pr.color}66` : C.border,
               background: provider === key ? `${pr.color}14` : C.surface,
               cursor: provider === key ? 'default' : 'pointer',
@@ -804,8 +805,8 @@ export default function SettingsModal(p) {
                 <button key={opt.key} onClick={onPick} className={active ? 'ui-tab-current' : undefined} aria-disabled={opt.key === 'custom' || undefined}
                   style={{ flex: 1, minWidth: 150, textAlign: 'left', cursor: (active || opt.key === 'custom') ? 'default' : 'pointer', fontFamily: 'inherit', padding: '8px 10px', borderRadius: 7,
                     border: `1px solid ${active ? C.brandRing : 'var(--c-border)'}`,
-                    background: active ? 'rgba(223,37,64,.10)' : 'transparent' }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: active ? C.brand : C.ink }}>{active ? '● ' : '○ '}{opt.title}</div>
+                    background: active ? 'color-mix(in srgb, var(--c-brand) 10%, transparent)' : 'transparent' }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: active ? C.brandText : C.ink }}>{active ? '● ' : '○ '}{opt.title}</div>
                   <div style={{ fontSize: 9.5, color: C.inkDim, marginTop: 2 }}>{opt.desc}</div>
                 </button>
               )
@@ -836,7 +837,7 @@ export default function SettingsModal(p) {
         {reuse.enabled && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 12, color: C.inkDim }}>{t('reuse_keep')}</span>
-            <ClampedNumber min={1} max={50} value={reuse.maxPerCard} onCommit={(n) => setQuestionReuse?.((prev) => ({ ...(prev || reuse), maxPerCard: n }))} commitOnBlur
+            <ClampedNumber label={t('reuse_keep')} min={1} max={50} value={reuse.maxPerCard} onCommit={(n) => setQuestionReuse?.((prev) => ({ ...(prev || reuse), maxPerCard: n }))} commitOnBlur
               style={{ ...S.keyInput, flex: 'none', minWidth: 0, width: 70, fontSize: 12, padding: '6px 8px', textAlign: 'center' }} />
             <span style={{ fontSize: 12, color: C.inkDim }}>{t(reuse.maxPerCard === 1 ? 'reuse_perCardOne' : 'reuse_perCard')}</span>
           </div>
@@ -847,13 +848,13 @@ export default function SettingsModal(p) {
           <div style={{ marginTop: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 12, color: C.inkDim }}>{t('deck')}:</span>
-              <select value={clearDeckValue} onChange={(e) => setClearDeck(e.target.value)} disabled={!ankiDecks.length}
+              <select aria-label={t('deck')} value={clearDeckValue} onChange={(e) => setClearDeck(e.target.value)} disabled={!ankiDecks.length}
                 style={{ ...S.select, minWidth: 160, opacity: ankiDecks.length ? 1 : 0.5 }}>
                 {!ankiDecks.length && <option value="">{t('notConnected')}</option>}
                 {ankiDecks.map((d) => <option key={d} value={d}>{d}</option>)}
               </select>
               <button onClick={() => clearSavedQuestions(clearDeckValue)} disabled={!clearDeckValue}
-                style={{ ...S.ghostBtn, fontSize: 11, color: C.danger, borderColor: 'rgba(229,57,46,.3)', opacity: clearDeckValue ? 1 : 0.5, cursor: clearDeckValue ? 'pointer' : 'default' }}>{t('reuse_clear')}</button>
+                style={{ ...S.ghostBtn, fontSize: 11, color: C.danger, borderColor: 'color-mix(in srgb, var(--c-danger) 30%, transparent)', opacity: clearDeckValue ? 1 : 0.5, cursor: clearDeckValue ? 'pointer' : 'default' }}>{t('reuse_clear')}</button>
             </div>
             <div style={{ ...hint, marginTop: 6 }}>{t('reuse_clearHint')}</div>
           </div>
@@ -910,11 +911,11 @@ export default function SettingsModal(p) {
                   // and a background call's retired-model heal then rewrote the box while typing.
                   <input key={`${provider}:${role}:${current}`} defaultValue={current} spellCheck={false}
                     onBlur={(e) => { const v = e.target.value.replace(/\s+/g, ''); if (v !== current) setRole(v) }}
-                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) e.currentTarget.blur() }}
-                    placeholder={t('set_customModelIdPlaceholder')} style={{ ...S.keyInput, flex: 1, fontSize: 11, padding: '6px 9px' }} />
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e)) e.currentTarget.blur() }}
+                    placeholder={t('set_customModelIdPlaceholder')} style={{ ...S.keyInput, flex: 1, minWidth: 0, fontSize: 11, padding: '6px 9px' }} />
                 ) : (
-                  <select value={current} onChange={(e) => { if (e.target.value === '__custom__') { setCustomRoles((c) => ({ ...c, [`${provider}:${role}`]: true })) } else setRole(e.target.value) }}
-                    style={{ ...S.select, flex: 1, fontSize: 11, padding: '6px 9px' }}>
+                  <select aria-label={t('aiRole_' + role)} value={current} onChange={(e) => { if (e.target.value === '__custom__') { setCustomRoles((c) => ({ ...c, [`${provider}:${role}`]: true })) } else setRole(e.target.value) }}
+                    style={{ ...S.select, flex: 1, minWidth: 0, fontSize: 11, padding: '6px 9px' }}>
                     <option value="">{t('providerDefault')} ({planDeciding && !current ? t('set_choosing') : def})</option>
                     {opts.map((m) => <option key={m} value={m}>{m}</option>)}
                     <option value="__custom__">✏️ {t('customModel')}</option>
@@ -966,8 +967,8 @@ export default function SettingsModal(p) {
       {label}
     </label>
   )
-  const langSelect = (value, onChange, extraFirst) => (
-    <select value={value} onChange={(e) => onChange(e.target.value)} style={{ ...S.select, width: '100%' }}>
+  const langSelect = (value, onChange, extraFirst, label) => (
+    <select aria-label={label || undefined} value={value} onChange={(e) => onChange(e.target.value)} style={{ ...S.select, width: '100%' }}>
       {value && !LANGS.some((l) => l.label === value) && <option value={value}>{value}</option>}
       {extraFirst}
       {LANGS.filter((l) => l.code !== 'auto').map((l) => <option key={l.code} value={l.label}>{l.label}</option>)}
@@ -983,20 +984,20 @@ export default function SettingsModal(p) {
         <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
           <div>
             {fieldLabel(t('questionsPerCard'))}
-            <ClampedNumber min={1} max={10} value={activeMode.studyRules?.questionsPerCard || 3}
+            <ClampedNumber label={t('questionsPerCard')} min={1} max={10} value={activeMode.studyRules?.questionsPerCard || 3}
               onCommit={(n) => updateActiveMode({ studyRules: { ...studyRulesBase, questionsPerCard: n } })}
               style={{ ...S.keyInput, flex: 'none', minWidth: 0, width: 70 }} />
           </div>
           <div>
             {fieldLabel(t('cardsAtOnce'))}
-            <ClampedNumber min={1} max={10} value={activeMode.studyRules?.cardsAtOnce || 3}
+            <ClampedNumber label={t('cardsAtOnce')} min={1} max={10} value={activeMode.studyRules?.cardsAtOnce || 3}
               onCommit={(n) => updateActiveMode({ studyRules: { ...studyRulesBase, cardsAtOnce: n } })}
               style={{ ...S.keyInput, flex: 'none', minWidth: 0, width: 70 }} />
           </div>
         </div>
         <div style={{ marginTop: 12 }}>
           {fieldLabel(<>{t('questionDepth')} <span className="tip" data-tip={t('questionDepthDesc')} style={{ textTransform: 'none', color: C.inkFaint }}>ⓘ</span></>)}
-          <select value={activeMode.studyRules?.questionDepth === 'thorough' ? 'thorough' : 'adaptive'}
+          <select aria-label={t('questionDepth')} value={activeMode.studyRules?.questionDepth === 'thorough' ? 'thorough' : 'adaptive'}
             onChange={(e) => updateActiveMode({ studyRules: { ...studyRulesBase, questionDepth: e.target.value } })}
             style={{ ...S.select, maxWidth: 360, width: '100%' }}>
             <option value="adaptive">{t('questionDepthAdaptive')}</option>
@@ -1015,18 +1016,18 @@ export default function SettingsModal(p) {
           {isLanguage && (
             <div>
               {fieldLabel(t('studyLearning'))}
-              {langSelect(learnedLabel, (v) => updateActiveMode({ studyRules: { ...studyRulesBase, studyLanguage: v } }))}
+              {langSelect(learnedLabel, (v) => updateActiveMode({ studyRules: { ...studyRulesBase, studyLanguage: v } }), undefined, t('studyLearning'))}
             </div>
           )}
           <div>
             {fieldLabel(t('quizIn'))}
             {/* '' = follow the learned language (general modes: the app language). It could not be chosen again once
                 a language was picked, so the mode stayed on that language after the learned one changed. */}
-            {langSelect(activeMode.studyRules?.quizLanguage ? langOption(activeMode.studyRules.quizLanguage) : '', (v) => setStudyRule({ quizLanguage: v }), <option value="">{t('set_quizDefault', { lang: isLanguage ? learnedLabel : appLangLabel })}</option>)}
+            {langSelect(activeMode.studyRules?.quizLanguage ? langOption(activeMode.studyRules.quizLanguage) : '', (v) => setStudyRule({ quizLanguage: v }), <option value="">{t('set_quizDefault', { lang: isLanguage ? learnedLabel : appLangLabel })}</option>, t('quizIn'))}
           </div>
           <div>
             {fieldLabel(t('set_hookLang'))}
-            {langSelect(activeMode.studyRules?.hookLanguage || '', (v) => setStudyRule({ hookLanguage: v }), <option value="">{t('set_hookLangDefault')}</option>)}
+            {langSelect(activeMode.studyRules?.hookLanguage || '', (v) => setStudyRule({ hookLanguage: v }), <option value="">{t('set_hookLangDefault')}</option>, t('set_hookLang'))}
             <div style={{ fontSize: 10, color: C.inkFaint, marginTop: 3 }}>{t('set_hookLangDesc')}</div>
           </div>
           {isLanguage && (
@@ -1070,7 +1071,7 @@ export default function SettingsModal(p) {
         <div style={{ fontSize: 11, color: C.inkFaint, margin: '2px 0 6px', lineHeight: 1.5 }}>{t('qPrefsDesc')}</div>
         {qPrefs.map((pref, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-            <span style={{ flex: 1, fontSize: 12, color: C.inkDim, background: 'rgba(139,92,246,.07)', border: '1px solid rgba(139,92,246,.22)', borderRadius: 6, padding: '5px 9px', lineHeight: 1.5 }}>{pref}</span>
+            <span style={{ flex: 1, fontSize: 12, color: C.inkDim, background: 'color-mix(in srgb, var(--c-purple) 7%, transparent)', border: '1px solid color-mix(in srgb, var(--c-purple) 22%, transparent)', borderRadius: 6, padding: '5px 9px', lineHeight: 1.5 }}>{pref}</span>
             <button onClick={async () => { const id = activeModeId; if (!(await confirmDialog(t('qPrefsRemoveConfirm', { rule: pref })))) return; if (getActiveModeId && getActiveModeId() !== id) return /* another mode became active during the confirm (a create finished): this mode's rules would overwrite it */; const live = getActiveMode?.()?.studyRules /* rules and dialect saved while the dialog was open (Fix question, a chat action) stay */; updateActiveMode({ studyRules: { ...studyRulesBase, ...(live || {}), questionPreferences: (live?.questionPreferences || qPrefs).filter((x) => x !== pref) } }) }}
               aria-label={t('qPrefsRemove')} className="tip" data-tip={t('qPrefsRemove')}
               style={{ ...S.ghostBtn, fontSize: 10, padding: '4px 9px', color: C.danger, flexShrink: 0 }}>✕</button>
@@ -1078,7 +1079,7 @@ export default function SettingsModal(p) {
         ))}
         <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
           <input value={qPrefInput} onChange={(e) => setQPrefInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing && qPrefInput.trim()) addQPref() }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e) && qPrefInput.trim()) addQPref() }}
             placeholder={t('qPrefsPlaceholder')} style={{ ...S.keyInput, flex: 1, fontSize: 12 }} />
           <button onClick={addQPref} disabled={!qPrefInput.trim()}
             style={{ ...S.ghostBtn, fontSize: 11, padding: '5px 12px', opacity: qPrefInput.trim() ? 1 : 0.5 }}>{t('qPrefsAdd')}</button>
@@ -1086,7 +1087,7 @@ export default function SettingsModal(p) {
         {askAi('study', t('askAiStudyPlaceholder'))}
         {openModeStudio && activeMode && (
           <button onClick={() => openModeStudio({ kind: 'edit', focus: 'study', modeId: activeModeId })}
-            style={{ ...S.getKeyLink, fontSize: 12, marginTop: 10, color: C.purple, borderColor: 'rgba(124,77,239,.35)' }}>
+            style={{ ...S.getKeyLink, fontSize: 12, marginTop: 10, color: C.purple, borderColor: 'color-mix(in srgb, var(--c-purple) 35%, transparent)' }}>
             {'✨'} {t('studioStudyEntry')}
           </button>
         )}
@@ -1120,7 +1121,7 @@ export default function SettingsModal(p) {
           <span style={{ fontSize: 12, color: C.inkDim }}>{ankiConnected ? t('connected') : ankiConnected === false ? t('notConnected') : t('checkingAnki')}</span>
           {ankiConnected && ankiDecks.length > 0 && (<>
             <span style={{ fontSize: 12, color: C.inkDim, marginLeft: 4 }}>{t('deck')}:</span>
-            <select value={ankiDecks.includes(ankiDeck) ? ankiDeck : ''} onChange={(e) => setAnkiDeck(e.target.value)} style={{ ...S.select, minWidth: 140 }}>
+            <select aria-label={t('deck')} value={ankiDecks.includes(ankiDeck) ? ankiDeck : ''} onChange={(e) => setAnkiDeck(e.target.value)} style={{ ...S.select, minWidth: 140 }}>
               {/* No saved deck (or it was deleted): without this the first deck LOOKED chosen, and picking it
                   fired no change, so nothing was saved and the fallback followed whichever deck sorted first. */}
               {!ankiDecks.includes(ankiDeck) && <option value="" disabled>{t('deck_selectDeck')}</option>}
@@ -1136,7 +1137,7 @@ export default function SettingsModal(p) {
         {askAi('cards', t('aiEditPlaceholder'))}
         {openModeStudio && activeMode && (
           <button onClick={() => openModeStudio({ kind: 'edit', focus: 'cards', modeId: activeModeId })}
-            style={{ ...S.getKeyLink, fontSize: 12, marginTop: 10, color: C.purple, borderColor: 'rgba(124,77,239,.35)' }}>
+            style={{ ...S.getKeyLink, fontSize: 12, marginTop: 10, color: C.purple, borderColor: 'color-mix(in srgb, var(--c-purple) 35%, transparent)' }}>
             {'✨'} {t('studioDeckEntry')}
           </button>
         )}
@@ -1148,9 +1149,9 @@ export default function SettingsModal(p) {
           ))}
         </div>
         {fieldLabel(t('frontTemplate'))}
-        <input value={ankiFormat.frontTemplate || ''} onChange={(e) => updateActiveMode({ frontTemplate: e.target.value })} style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box', fontSize: 12, marginBottom: 8 }} />
+        <input aria-label={t('frontTemplate')} value={ankiFormat.frontTemplate || ''} onChange={(e) => updateActiveMode({ frontTemplate: e.target.value })} style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box', fontSize: 12, marginBottom: 8 }} />
         {fieldLabel(t('backTemplate'))}
-        <textarea value={ankiFormat.backTemplate || ''} onChange={(e) => updateActiveMode({ backTemplate: e.target.value })} style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box', fontSize: 12, minHeight: 70, resize: 'vertical' }} />
+        <textarea aria-label={t('backTemplate')} value={ankiFormat.backTemplate || ''} onChange={(e) => updateActiveMode({ backTemplate: e.target.value })} style={{ ...S.keyInput, width: '100%', boxSizing: 'border-box', fontSize: 12, minHeight: 70, resize: 'vertical' }} />
         <div style={hint}>{t('set_placeholders')} {'{word} {term} {partOfSpeech} {pronunciation} {translation} {synonyms} {definition} {example}'}</div>
       </div>
       <div style={card}>
@@ -1169,17 +1170,21 @@ export default function SettingsModal(p) {
         {/* Big-KB status: warn when it's giant with no navigable TOC (Ebi can only see the first
             slice); reassure when a TOC was found (Ebi navigates it section by section). */}
         {knowledgeStatus?.big && !knowledgeStatus?.hasToc && (
-          <div style={{ padding: '8px 12px', marginBottom: 10, borderRadius: RADIUS.sm, background: 'rgba(232,147,12,.12)', border: '1px solid rgba(232,147,12,.35)', color: C.ink, fontSize: 11, lineHeight: 1.5 }}>
+          <div style={{ padding: '8px 12px', marginBottom: 10, borderRadius: RADIUS.sm, background: 'color-mix(in srgb, var(--c-warning) 12%, transparent)', border: '1px solid color-mix(in srgb, var(--c-warning) 35%, transparent)', color: C.ink, fontSize: 11, lineHeight: 1.5 }}>
             ⚠️ {t('knowledgeBigNoToc').replace('{kb}', Math.round(knowledgeStatus.chars / 1024).toLocaleString())}
           </div>
         )}
         {knowledgeStatus?.big && knowledgeStatus?.hasToc && (
-          <div style={{ padding: '8px 12px', marginBottom: 10, borderRadius: RADIUS.sm, background: C.successTint, border: '1px solid rgba(24,169,87,.25)', color: C.inkDim, fontSize: 11, lineHeight: 1.5 }}>
+          <div style={{ padding: '8px 12px', marginBottom: 10, borderRadius: RADIUS.sm, background: C.successTint, border: '1px solid color-mix(in srgb, var(--c-success) 25%, transparent)', color: C.inkDim, fontSize: 11, lineHeight: 1.5 }}>
             📖 {t('knowledgeBigToc').replace('{kb}', Math.round(knowledgeStatus.chars / 1024).toLocaleString()).replace('{n}', String(knowledgeStatus.outlineCount))}
           </div>
         )}
-        <div onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setKnowledgeDragging(true) }} onDragLeave={() => setKnowledgeDragging(false)} onDrop={handleKnowledgeDrop}
+        {/* Files only (dragging selected text lit the zone up as a drop target), and keyboard-usable like a button. */}
+        <div onDragOver={(e) => { if (!Array.from(e.dataTransfer?.types || []).includes('Files')) return; e.preventDefault(); e.stopPropagation(); setKnowledgeDragging(true) }}
+          onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setKnowledgeDragging(false) }} onDrop={handleKnowledgeDrop}
           onClick={() => document.getElementById('knowledge-file-input').click()}
+          role="button" tabIndex={0} aria-label={t('dropZone')} className="click-dim"
+          onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && !imeActive(e) && e.target === e.currentTarget) { e.preventDefault(); document.getElementById('knowledge-file-input').click() } }}
           style={{ padding: 18, borderRadius: RADIUS.md, textAlign: 'center', cursor: 'pointer', border: `2px dashed ${knowledgeDragging ? C.brand : C.border}`, background: knowledgeDragging ? C.brandTint2 : C.surfaceSunken, color: C.inkDim, fontSize: 12 }}>
           {knowledgeBusy ? `⏳ ${knowledgeBusy}` : knowledgeDragging ? t('dropHere') : t('dropZone')}
           <input id="knowledge-file-input" type="file" accept=".txt,.md,.pdf" multiple onChange={handleKnowledgeFileInput} style={{ display: 'none' }} />
@@ -1187,12 +1192,14 @@ export default function SettingsModal(p) {
         {knowledgeFiles.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10 }}>
             {knowledgeFiles.map((f) => (
-              <div key={`${f.name}|${f.disabled ? 1 : 0}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: f.disabled ? C.surfaceSunken : C.successTint, border: `1px solid ${f.disabled ? C.border : 'rgba(24,169,87,.2)'}`, borderRadius: RADIUS.sm, fontSize: 12 }}>
-                <span style={{ flex: 1, color: f.disabled ? C.inkFaint : C.ink, textDecoration: f.disabled ? 'line-through' : 'none' }}>{f.name}</span>
-                <span style={{ color: C.inkFaint, fontSize: 10 }}>{(f.size / 1024).toFixed(1)}KB</span>
+              <div key={`${f.name}|${f.disabled ? 1 : 0}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: f.disabled ? C.surfaceSunken : C.successTint, border: `1px solid ${f.disabled ? C.border : 'color-mix(in srgb, var(--c-success) 20%, transparent)'}`, borderRadius: RADIUS.sm, fontSize: 12 }}>
+                {/* A long name ("Network+ Study Guide, chapter 12 ...") wraps instead of pushing the buttons out. */}
+                <span style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere', color: f.disabled ? C.inkFaint : C.ink, textDecoration: f.disabled ? 'line-through' : 'none' }}>{f.name}</span>
+                <span style={{ color: C.inkFaint, fontSize: 10, whiteSpace: 'nowrap' }}>{fileSizeLabel(f.size)}</span>
                 <button onClick={() => toggleKnowledgeFile(f.name, !f.disabled)} disabled={knowledgeBusyFiles?.has?.(f.name)}
+                  aria-label={`${f.disabled ? t('enable') : t('disable')}: ${f.name}`}
                   style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 7px', ...(knowledgeBusyFiles?.has?.(f.name) ? { opacity: 0.5, cursor: 'default' } : {}) }}>{f.disabled ? t('enable') : t('disable')}</button>
-                <button onClick={async () => { const id = activeModeId; if (!(await confirmDialog(t('deck_deleteConfirm', { front: f.name })))) return; if (getActiveModeId && getActiveModeId() !== id) return /* the file belongs to the mode that was active when asked */; deleteKnowledgeFile(f.name, !!f.disabled) }} disabled={knowledgeBusyFiles?.has?.(f.name)} style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 7px', color: C.danger, borderColor: 'rgba(229,57,46,.25)', ...(knowledgeBusyFiles?.has?.(f.name) ? { opacity: 0.5, cursor: 'default' } : {}) }}>{t('delete')}</button>
+                <button onClick={async () => { const id = activeModeId; if (!(await confirmDialog(t('deck_deleteConfirm', { front: f.name })))) return; if (getActiveModeId && getActiveModeId() !== id) return /* the file belongs to the mode that was active when asked */; deleteKnowledgeFile(f.name, !!f.disabled) }} disabled={knowledgeBusyFiles?.has?.(f.name)} aria-label={`${t('delete')}: ${f.name}`} style={{ ...S.ghostBtn, fontSize: 10, padding: '2px 7px', color: C.danger, borderColor: 'color-mix(in srgb, var(--c-danger) 25%, transparent)', ...(knowledgeBusyFiles?.has?.(f.name) ? { opacity: 0.5, cursor: 'default' } : {}) }}>{t('delete')}</button>
               </div>
             ))}
           </div>
@@ -1222,7 +1229,7 @@ export default function SettingsModal(p) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
             <span style={{ fontSize: 12, color: C.inkDim }}>{t('set_graceWindow')}</span>
             {/* ClampedNumber: clamping every keystroke turned a cleared box into 1, so typing "10" saved 110. */}
-            <ClampedNumber min={1} max={120} value={studyAutoSyncMinutes} onCommit={setStudyAutoSyncMinutes} commitOnBlur
+            <ClampedNumber label={t('set_graceWindow')} min={1} max={120} value={studyAutoSyncMinutes} onCommit={setStudyAutoSyncMinutes} commitOnBlur
               style={{ ...S.keyInput, flex: 'none', minWidth: 0, width: 70, fontSize: 12, padding: '6px 8px', textAlign: 'center' }} />
             <span style={{ fontSize: 12, color: C.inkDim }}>{t('set_minutes')}</span>
           </div>
@@ -1287,15 +1294,15 @@ export default function SettingsModal(p) {
                 <input autoFocus defaultValue={m.name}
                   onBlur={(e) => { if (e.target.dataset.cancel !== '1') renameMode(m.id, e.target.value || m.name) }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.nativeEvent?.isComposing) { e.currentTarget.dataset.cancel = '1'; renameMode(m.id, e.target.value || m.name) } // see the mode bar
-                    else if (e.key === 'Escape' && !e.nativeEvent?.isComposing && e.keyCode !== 229) { e.preventDefault(); e.currentTarget.dataset.cancel = '1'; setEditingModeName(null) } // see the mode bar
+                    if (e.key === 'Enter' && !imeActive(e)) { e.currentTarget.dataset.cancel = '1'; renameMode(m.id, e.target.value || m.name) } // see the mode bar
+                    else if (e.key === 'Escape' && !imeActive(e) && e.keyCode !== 229) { e.preventDefault(); e.currentTarget.dataset.cancel = '1'; setEditingModeName(null) } // see the mode bar
                   }}
                   style={{ ...S.keyInput, width: 160, fontSize: 12, padding: '4px 8px' }} />
               ) : (
               <button onClick={() => { if (m.id === activeModeId) setEditingModeName(m.id); else if (p.switchMode) p.switchMode(m.id); else { setActiveModeId(m.id); saveModes(modes, m.id, { changedIds: [] }) } }}
                 title={`${m.description || m.name}`}
                 style={{ padding: '5px 12px', borderRadius: RADIUS.pill, fontSize: 12, fontFamily: 'inherit', cursor: 'pointer',
-                  background: m.id === activeModeId ? C.brandTint : C.surfaceAlt, color: m.id === activeModeId ? C.brand : C.inkDim,
+                  background: m.id === activeModeId ? C.brandTint : C.surfaceAlt, color: m.id === activeModeId ? C.brandText : C.inkDim,
                   border: m.id === activeModeId ? `1px solid ${C.brandRing}` : `1px solid ${C.border}`, fontWeight: m.id === activeModeId ? 700 : 500 }}>
                 {m.type === 'language' ? '\u{1F310}' : '\u{1F4DA}'} {m.name}
               </button>
@@ -1308,7 +1315,7 @@ export default function SettingsModal(p) {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <input value={modeEditInput} onChange={(e) => setModeEditInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing && modeEditInput.trim()) { const text = modeEditInput.trim(); createMode(text).then((ok) => { if (ok) setModeEditInput((cur) => (cur.trim() === text ? '' : cur)) }) } }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e) && modeEditInput.trim()) { const text = modeEditInput.trim(); createMode(text).then((ok) => { if (ok) setModeEditInput((cur) => (cur.trim() === text ? '' : cur)) }) } }}
             placeholder={t('createModePlaceholder')} style={{ ...S.keyInput, flex: 1 }} disabled={modeCreating} />
           <button onClick={() => { if (modeEditInput.trim()) { const text = modeEditInput.trim(); createMode(text).then((ok) => { if (ok) setModeEditInput((cur) => (cur.trim() === text ? '' : cur)) }) } }}
             disabled={modeCreating || !modeEditInput.trim()} style={{ ...S.keyDone, opacity: modeCreating || !modeEditInput.trim() ? 0.5 : 1 }}>{modeCreating ? t('creating') : t('create')}</button>
@@ -1317,15 +1324,15 @@ export default function SettingsModal(p) {
           // Whatever is already typed in the box above rides into the studio as the
           // opening brief, so the two controls are one flow and not two dead ends.
           <button onClick={() => openModeStudio({ kind: 'create', focus: 'all', seed: modeEditInput.trim() })}
-            style={{ ...S.getKeyLink, fontSize: 12, marginTop: 10, width: '100%', color: C.purple, borderColor: 'rgba(124,77,239,.35)' }}>
+            style={{ ...S.getKeyLink, fontSize: 12, marginTop: 10, width: '100%', color: C.purple, borderColor: 'color-mix(in srgb, var(--c-purple) 35%, transparent)' }}>
             {'✨'} {t('studioCreateEntry')}
           </button>
         )}
         <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-          <button onClick={addDefaultMode} style={{ ...S.ghostBtn, fontSize: 11, color: C.success, borderColor: 'rgba(24,169,87,.3)' }}>+ {t('defaultMode')}</button>
+          <button onClick={addDefaultMode} style={{ ...S.ghostBtn, fontSize: 11, color: C.success, borderColor: 'color-mix(in srgb, var(--c-success) 30%, transparent)' }}>+ {t('defaultMode')}</button>
           {openModeStudio && activeMode && (
             <button onClick={() => openModeStudio({ kind: 'edit', focus: 'all', modeId: activeModeId })}
-              style={{ ...S.ghostBtn, fontSize: 11, color: C.purple, borderColor: 'rgba(124,77,239,.35)' }}>
+              style={{ ...S.ghostBtn, fontSize: 11, color: C.purple, borderColor: 'color-mix(in srgb, var(--c-purple) 35%, transparent)' }}>
               {'✨'} {t('studioEditEntry', { name: activeMode.name })}
             </button>
           )}
@@ -1350,16 +1357,18 @@ export default function SettingsModal(p) {
       <div onClick={(e) => e.stopPropagation()} className="settings-modal ui-pop" role="dialog" aria-modal="true" aria-label={t('settingsTitle')} style={{
         display: 'flex', width: 'min(960px, calc(94vw / var(--app-zoom)))', height: 'min(680px, calc(88vh / var(--app-zoom)))',
         background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl,
-        boxShadow: SHADOW.xl, overflow: 'hidden', cursor: 'default',
+        boxShadow: SHADOW.xl, overflow: 'hidden', cursor: 'default', containerType: 'inline-size', containerName: 'setm',
       }}>
         {/* Sidebar */}
-        <div style={{ width: 220, flexShrink: 0, background: C.surfaceSunken, borderRight: `1px solid ${C.border}`, padding: '18px 12px', overflowY: 'auto' }}>
-          <div style={{ fontSize: 22, fontWeight: 800, fontFamily: FONT.display, letterSpacing: '-0.02em', color: C.ink, padding: '0 10px 14px' }}>{t('settingsTitle')}</div>
+        {/* Narrow windows (high zoom): the sidebar folds to icons (App.jsx `@container setm`), else the 220px column left
+            the pane ~140px and its controls spilled out of their cards. */}
+        <div className="set-side" style={{ flexShrink: 0, background: C.surfaceSunken, borderRight: `1px solid ${C.border}`, padding: '18px 12px', overflowY: 'auto' }}>
+          <div className="set-side-title" style={{ fontSize: 22, fontWeight: 800, fontFamily: FONT.display, letterSpacing: '-0.02em', color: C.ink, padding: '0 10px 14px' }}>{t('settingsTitle')}</div>
           {NAV.map((grp) => (
             <div key={grp.group} style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: C.inkFaint, padding: '4px 8px' }}>{grp.group}</div>
+              <div className="set-side-group" style={{ fontSize: 9, fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase', color: C.inkFaint, padding: '4px 8px' }}>{grp.group}</div>
               {grp.items.map((it) => (
-                <button key={it.id} onClick={() => setCategory(it.id)} style={{
+                <button key={it.id} onClick={() => setCategory(it.id)} aria-label={it.label} aria-current={currentPane === it.id ? 'page' : undefined} className="set-side-item" style={{
                   display: 'flex', alignItems: 'center', gap: 8, width: '100%', textAlign: 'left',
                   padding: '9px 10px', borderRadius: RADIUS.md, border: `1px solid ${currentPane === it.id ? C.border : 'transparent'}`, cursor: 'pointer', fontFamily: 'inherit',
                   fontSize: 13, fontWeight: currentPane === it.id ? 800 : 600, marginBottom: 2,
@@ -1368,7 +1377,7 @@ export default function SettingsModal(p) {
                   ...(currentPane === it.id ? { boxShadow: `inset 3px 0 0 ${C.brand}, ${SHADOW.sm}` } : {}),
                   color: currentPane === it.id ? C.ink : C.inkDim,
                 }}>
-                  <span style={{ width: 16, textAlign: 'center' }}>{it.icon}</span>{it.label}
+                  <span aria-hidden="true" style={{ width: 16, textAlign: 'center', flexShrink: 0 }}>{it.icon}</span><span className="set-side-label">{it.label}</span>
                 </button>
               ))}
             </div>
@@ -1380,7 +1389,7 @@ export default function SettingsModal(p) {
             <button onClick={onClose} style={{ ...S.ghostBtn, fontSize: 12, padding: '4px 12px' }}>{t('close')}</button>
           </div>
           {/* key: a new pane starts at the top, not at the previous pane's scroll position. */}
-          <div key={currentPane} style={{ flex: 1, overflowY: 'auto', padding: '4px 30px 28px' }}>
+          <div key={currentPane} className="set-content" style={{ flex: 1, overflowY: 'auto', padding: '4px 30px 28px' }}>
             {panes[currentPane] || General}
           </div>
         </div>

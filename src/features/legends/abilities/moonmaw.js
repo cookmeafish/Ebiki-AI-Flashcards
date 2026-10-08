@@ -2,6 +2,7 @@
 // Every K.every-th clean typed raid answer flings a moon into orbit; K.delay raid answers later it crashes into him for
 // K.hit, even when that answer is a miss (the miss itself still deals nothing). Attacks and inserted questions neither
 // charge nor tick the moons. Moons still in orbit when the questions run out crash at once (settle).
+import { hitClean } from './_rules'
 const K = { every: 3, delay: 2, hit: 2, maxOrbit: 3 }
 const normal = (q) => !!q && !q._attack && !q._inserted && !q._lastStand
 const dueNow = (orbit) => (orbit || []).filter((t) => t <= 1).length
@@ -21,7 +22,7 @@ export default {
       res.fx = 'impact'
       res.fxVars = { n: due * K.hit }
     }
-    if (!ctx.clean) return
+    if (!hitClean(ctx, res)) return
     s.ab.cleans++
     if (s.ab.cleans % K.every === 0) {
       s.ab.orbit = [...s.ab.orbit, K.delay].slice(-K.maxOrbit)

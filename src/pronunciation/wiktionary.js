@@ -57,8 +57,12 @@ const fetchWikitextFiles = async (edition, title) => {
 // links no audio, yet Commons holds "LL-Q1321 (spa)-Eavqwiki-paraguas.wav"). Runs only
 // when every edition page came up empty.
 const searchCommonsFiles = async (word) => {
+  // QUOTED: a bare `intitle:buenos días` limited only "buenos" to the title, so "días" became a free-text word
+  // and the 20 hits were mostly other phrases with "buenos" in their name.
+  const phrase = String(word).replace(/["\\]/g, ' ').replace(/\s+/g, ' ').trim()
+  if (!phrase) return []
   try {
-    const r = await politeFetch(`https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(`intitle:${word} filetype:audio`)}&srnamespace=6&srlimit=20&format=json&origin=*`)
+    const r = await politeFetch(`https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(`intitle:"${phrase}" filetype:audio`)}&srnamespace=6&srlimit=20&format=json&origin=*`)
     if (!r.ok) return []
     const j = await r.json()
     return (j.query?.search || []).map((x) => x.title)
@@ -91,7 +95,7 @@ const fetchFileInfo = async (fileName, edition) => {
   return {
     url: info.url,
     categories: hit.categories || [],
-    attribution: { author: author || 'Unknown author', license: license || 'see file page', sourceUrl: info.descriptionurl || `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(fileName)}` },
+    attribution: { author: author || 'Unknown author', ...(author ? {} : { authorUnknown: true }), license: license || 'see file page', sourceUrl: info.descriptionurl || `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(fileName)}` },
   }
 }
 

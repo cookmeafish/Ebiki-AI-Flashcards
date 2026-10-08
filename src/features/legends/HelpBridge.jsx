@@ -2,13 +2,19 @@
 // every screen, so Ebi can talk about it anywhere. The facts are built by helpContext.js (no answers while a
 // question runs).
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import { useFeatureCtx } from '../registry'
-import { useLegendsMap, readRaid, configureLegends, onRaidSaved } from './store'
+import { useFeatureCtx, featureCfg } from '../registry'
+import { useLegendsMap, readRaid, configureLegends, onRaidSaved, LEGENDS_ID } from './store'
 import { useLearner } from '../kit/learnerStore'
 import { buildLegendsHelpText, legendsLive, onLegendsLive, legendsSecretHeld, legendsWhere } from './helpContext'
 import { raidCatalogText } from './bestiaryHelp'
-import { fxLabel } from './fx'
 import { todayKey } from './raid'
+
+// The effect names in the raid catalog come from every boss's fx file (fx/index.js, a large module with all the
+// effects' drawings). Loaded once, a moment after start, so it stays out of the startup bundle; the catalog waits for it
+// (never raw fx keys in Help's text).
+const FX_LOAD_DELAY_MS = 2500
+let fxModule = null
+const loadFx = () => import('./fx').then((m) => { fxModule = m; return m })
 
 export default function HelpBridge() {
   const ctx = useFeatureCtx()
@@ -47,12 +53,24 @@ export default function HelpBridge() {
   // The raid bosses for questions from ANY screen ("which raid boss is next", "what does the Lich do", "how do I beat
   // the Hydra", "what family is X in"): the rules, the player's own raid progress and every boss, in the app language.
   const t = ctx?.t
+  // The loadout the raid intro would bring (features.legends.raidLoadout); a key so a new array each render re-runs
+  // nothing.
+  const loadoutRaw = ctx ? featureCfg(ctx, LEGENDS_ID).raidLoadout : undefined
+  const loadoutKey = Array.isArray(loadoutRaw) ? loadoutRaw.join(',') : '*'
+  const [fx, setFx] = useState(() => fxModule)
   useEffect(() => {
-    if (!set) return
+    if (fx) return undefined
+    let stop = false
+    const timer = setTimeout(() => { loadFx().then((m) => { if (!stop) setFx(m) }, () => {}) }, FX_LOAD_DELAY_MS)
+    return () => { stop = true; clearTimeout(timer) }
+  }, [fx])
+  useEffect(() => {
+    if (!set || !fx) return
     let text = ''
-    try { text = raidCatalogText({ t, raid, known: raidRead, today: todayKey(), fxName: (ab, fx) => fxLabel(t, ab, fx) }) } catch { text = '' }
+    const loadout = loadoutKey === '*' ? undefined : loadoutKey.split(',').filter(Boolean)
+    try { text = raidCatalogText({ t, raid, known: raidRead, today: todayKey(), loadout, fxName: (ab, key) => fx.fxLabel(t, ab, key) }) } catch { text = '' }
     set('raid-bosses', text ? { screen: '', text } : null)
-  }, [set, t, raid, raidRead])
+  }, [set, t, raid, raidRead, loadoutKey, fx])
   useEffect(() => () => { set?.('legends', null); set?.('raid-bosses', null) }, [set])
   return null
 }

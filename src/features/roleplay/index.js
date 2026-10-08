@@ -1,6 +1,10 @@
 // ROLEPLAY: act out a scene with Ebi in character (any subject), scored at the end. A Practice activity, also
 // reachable from the Chat "+" menu. Remove this folder and its line in ../index.js to drop it.
-import RoleplayScreen, { ROLEPLAY_FEATURE_ID } from './RoleplayScreen'
+import { lazyComponent } from '../registry'
+import { ROLEPLAY_FEATURE_ID } from './featureId'
+
+// The screen loads on demand (fetched in the background a few seconds after start), outside the startup bundle.
+const RoleplayScreen = lazyComponent(() => import('./RoleplayScreen'), { prefetchMs: 8000 })
 
 const ACTIVITY_ID = 'roleplay'
 const PRACTICE_NAV = 'practice' // the Practice hub (feature id = its sidebar id); without it the menu entry hides

@@ -111,8 +111,12 @@ export function missingMethods(backend) {
 // Anki-style one-step interval for a rating: the SM-2 step every backend without its own scheduler can
 // use, and the math the Anki adapter falls back to when its reviewer is blocked.
 export function oneStepInterval(ease, interval, factor) {
-  const curIvl = interval > 0 ? interval : 1
-  const f = factor >= 1300 ? factor : 2500 // permille (2500 = 2.5x)
+  // Numbers only (a string "1" from a stored snapshot skipped every branch and stepped as EASY, the most
+  // generous outcome), ease clamped to the four buttons.
+  const iv = Number(interval), fc = Number(factor)
+  const curIvl = iv > 0 ? Math.round(iv) : 1
+  const f = fc >= 1300 ? fc : 2500 // permille (2500 = 2.5x)
+  ease = Math.min(4, Math.max(1, Math.round(Number(ease)) || 1))
   let next
   if (ease === 1) next = 0                                                  // Again → relearn (due today)
   else if (ease === 2) next = Math.max(1, Math.round(curIvl * 1.2))         // Hard

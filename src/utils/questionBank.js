@@ -23,7 +23,8 @@ const MAX_SETS_PER_CARD = 40 // across every sig, newest kept: a file can't grow
 
 export function reuseSettings(raw) {
   const r = raw && typeof raw === 'object' ? raw : {}
-  const n = Math.round(Number(r.maxPerCard))
+  // A cleared box saves null or '' and Number() reads both as 0: the cap became 1 (reuse after a single set).
+  const n = r.maxPerCard == null || r.maxPerCard === '' ? NaN : Math.round(Number(r.maxPerCard))
   return {
     enabled: r.enabled === true,
     maxPerCard: Number.isFinite(n) ? Math.min(REUSE_MAX, Math.max(REUSE_MIN, n)) : QUESTION_REUSE_DEFAULT.maxPerCard,
@@ -61,9 +62,10 @@ export const savedQuestionCount = (bank, key) => matching(bank, key).reduce((n, 
 // The set to ask again, or null when a NEW generation is due. New ones are generated until adding one
 // more set would pass the cap (so the saved total stays at or under maxPerCard; a cap below one set's
 // size still keeps that first set). Among the saved sets the least recently asked goes first, so they
-// rotate instead of one repeating.
-export function pickSavedSet(bank, key, setSize, maxPerCard) {
-  const sets = matching(bank, key)
+// rotate instead of one repeating. `usable(set)` (optional) leaves out a damaged set: it neither counts toward
+// the cap nor gets asked, so a fresh one is generated in its place.
+export function pickSavedSet(bank, key, setSize, maxPerCard, usable = null) {
+  const sets = matching(bank, key).filter((s) => !usable || usable(s))
   if (!sets.length) return null
   const have = sets.reduce((n, s) => n + s.questions.length, 0)
   if (have + Math.max(1, setSize) <= maxPerCard) return null
@@ -191,17 +193,21 @@ export function createQuestionReuse({ getSettings, getEpoch = () => 0, load = lo
     const epoch = getEpoch()
     const mayWrite = () => on() && getEpoch() === epoch
     const isPbq = sigParts?.kind === 'pbq'
+    // A saved set from a hand-edited, merged or older file can hold entries with no question text: asked, the
+    // card showed an empty question. A PBQ is saved whole, so it only needs to be an object.
+    const usable = (s) => s.questions.every((q) => q && typeof q === 'object' && (isPbq || (typeof q.question === 'string' && q.question.trim())))
     // A write for this card still in flight (the previous set's save) lands first, so this read sees it; capped,
     // since a hung save must not hold the question up.
     const pending = bankChains.get(bankChainKey(deck, noteId))
     if (pending) await Promise.race([pending, new Promise((r) => setTimeout(r, 3000))])
     const read = await load(deck, noteId)
     if (read.ok && on()) {
-      const set = pickSavedSet(read.bank, key, setSize, cfg.maxPerCard)
+      const set = pickSavedSet(read.bank, key, setSize, cfg.maxPerCard, usable)
       if (set) {
         // Through updateBank (re-read, serialized per card): a whole-file save from this read reverted a Fix or a
-        // clear made meanwhile (another window or computer). Rotation only; fail-soft.
-        if (mayWrite()) updateBank(deck, noteId, (b) => (mayWrite() ? markAsked(b, set.id) : null), { load, save })
+        // clear made meanwhile (another window or computer). Rotation only; fail-soft. A set gone from the fresh
+        // read (cleared, or the card edited elsewhere) writes nothing.
+        if (mayWrite()) updateBank(deck, noteId, (b) => (mayWrite() && setsOf(b).some((s) => s.id === set.id) ? markAsked(b, set.id) : null), { load, save })
         log('reuse', noteId)
         return set.questions.map((q, qi) => ({ ...(isPbq ? q : reshuffleChoices(q)), _bank: { noteId, deck, setId: set.id, qi } }))
       }

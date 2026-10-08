@@ -35,6 +35,11 @@ Power should grow with the unlock, because late bosses have 2 to 4 times the hea
 Sanity limits (tested in `powers.test.js` "balance"):
 - Over its window, no damage power adds more than 8 damage to 3 clean answers.
 - Later damage powers are worth more than earlier ones (Sharpen < Momentum < Fury).
+- The cap holds WITH every boss's ability too (`furycap.test.js`): a multiplier power multiplies the STRIKE'S own
+  damage only, never an ability's banked burst (Fury once turned Chronos' Time Stop x2 into x4). An ability that
+  lowers a hit (a bank, armor) lowers the extra too.
+- "Clean" means Focus-aware clean everywhere (`hitClean` in `abilities/_rules.js`, `res.focused`): a slip Focus made
+  hit clean also pays Fury, Sharpen and Siphon.
 - Window powers still need RIGHT answers to do anything: a struggling player gets little, a strong one a lot.
 - A survival power gives back at most what one bad answer cost (Shield 1 heart, Ward one attack, Second wind 1,
   Siphon at most 1 per clean answer in its window, Steadfast 2 for the fight).
@@ -60,6 +65,13 @@ replace it. Each power should be the best pick for SOME situation or boss, so th
    - Changes a strike: an `opts.<id>` in `strike()` (fight.js), set before `applyRes` so phase lines it crosses fire
      the ability's `onPhase` on that strike; mark it on `res` and copy it into `s.last` (like `focused`, `fury`,
      `warded`). Passed from `raidStep` (raid.js), which decides when it applies (own question vs attack).
+   - **Overturns stay fair**: a window power that changes damage also goes into `raidStep`'s `boost` (what it would
+     give a RIGHT answer to this question); `fight.refundFor` pays it when a re-check or appeal finds a miss was
+     right (the window already ticked down on that answer). A Shield spent on a wrongly judged answer comes back
+     (`strikeCost.shielded` → `applyRefund` → RaidRun re-arms it). Focus also stops a glancing slip coming back as
+     an attack (it hit like a clean answer).
+   - A rally (a run that lost every heart heals the boss back) calls the ability's optional `onRally(dayAb, {healed,
+     damage, hp})`, so any saved day state tied to the wounds shrinks with the bar.
    - Changes hearts after a strike: in `raidStep` after `strike` (like Siphon), never past full, never after the fight
      is decided.
    - Changes the fight's start: in RaidRun (like Steadfast's `extraHearts`, lost first and subtracted before the siege

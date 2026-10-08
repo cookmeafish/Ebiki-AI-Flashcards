@@ -98,6 +98,11 @@ describe('checkCitations', () => {
     expect(checkCitations({ citations: [] }, source).ok).toBe(false)
     expect(checkCitations({}, source).ok).toBe(false)
   })
+  it('a quote that is mostly punctuation proves nothing', () => {
+    // Its 12 characters normalized to "" or one letter, which every source "contains".
+    expect(checkCitations({ citations: [{ quote: '............' }] }, source).ok).toBe(false)
+    expect(checkCitations({ citations: [{ quote: '- - - - - - s' }] }, source).ok).toBe(false)
+  })
 })
 
 describe('studentView', () => {
@@ -288,5 +293,19 @@ describe('item identity across scripts and icons', () => {
   })
   it('an exercise saved before item keys still finds its loose-keyed icons', () => {
     expect(iconFor({ icons: { firewall: '🧱' } }, 'Firewall.')).toBe('🧱')
+  })
+})
+
+describe('solver answers against symbol-only items', () => {
+  // A symbol item ("<", ">") normalizes to "", and every string "contains" the empty string: an unknown solver echo
+  // resolved to the symbol item, so a solver answer that named nothing could still agree with the key.
+  const pbq = { kind: 'matching', title: 't', scenario: 's', left: ['Less than', 'Greater than', 'Equal', 'Not equal'], right: ['<', 'Bigger', 'Same', 'Different'], answer: [0, 1, 2, 3] }
+  it('an echo that names no item resolves to nothing', () => {
+    const assign = parseSolverAnswer(pbq, { pairs: [['Less than', 'a made-up thing']] })
+    expect(assign[0]).toBe(null)
+  })
+  it('a symbol item still resolves when the solver echoes it', () => {
+    const assign = parseSolverAnswer(pbq, { pairs: [['Less than', '<'], ['Greater than', 'Bigger']] })
+    expect(assign.slice(0, 2)).toEqual([0, 1])
   })
 })

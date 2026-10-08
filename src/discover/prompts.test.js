@@ -14,3 +14,28 @@ describe('Discover and the Legends level', () => {
     expect(buildSuggestionPrompt({ ...base, learnerLevel: 'level 3 of 130, A1' })).not.toMatch(/[\u2013\u2014]/)
   })
 })
+
+describe('Discover prompts fit any subject', () => {
+  const general = { ...base, modeType: 'general', modeName: 'Italian cooking', studyLanguage: '', itemType: 'term' }
+  it('never frames a non-exam subject as an exam', () => {
+    const p = buildSuggestionPrompt(general)
+    expect(p).not.toMatch(/under-covered exam domain/)
+    expect(p).toMatch(/under-covered domain or area/)
+  })
+  it('never prints an undefined level', () => {
+    expect(buildSuggestionPrompt({ ...general, profile: { level: { scale: 'tiers' } } })).not.toMatch(/undefined/)
+    expect(buildSuggestionPrompt({ ...general, profile: null })).toMatch(/tiers = beginner/)
+    expect(buildSuggestionPrompt({ ...general, profile: { level: { scale: 'tiers' } } })).toMatch(/tiers = unknown/)
+  })
+})
+
+describe('the exclude list in the prompt', () => {
+  it('lists each term once (the ledger and the deck repeat terms)', () => {
+    const p = buildSuggestionPrompt({ ...base, excludeList: ['perro', 'Perro', 'gato', 'perro ', 'gato'] })
+    expect(p.match(/^ {2}- /gm)).toHaveLength(2)
+  })
+  it('survives a missing list and a damaged domains entry', () => {
+    expect(() => buildSuggestionPrompt({ ...base, excludeList: undefined, profile: { domains: [null, { name: 'food' }] } })).not.toThrow()
+    expect(buildSuggestionPrompt({ ...base, excludeList: undefined })).toMatch(/\(none yet\)/)
+  })
+})

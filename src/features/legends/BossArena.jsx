@@ -13,10 +13,10 @@ import { AbilityFx } from './AbilityFx'
 import { newFight, healthLeft, livesLeft, phaseOf, abilityState } from './fight'
 import { abilityById, ABILITY_BY_ID } from './abilities'
 import { abilityCss, floaterKeyFor, floaterToneFor, fxForAbility, juiceFor } from './fx'
-import { JUICE, JUICE_CSS, FLOATER_FILL, FLOATER_OUTLINE, juiceOf } from './fx/_juice'
+import { JUICE, JUICE_CSS, FLOATER_FILL, FLOATER_OUTLINE, juiceOf, floaterPxFor } from './fx/_juice'
 import { strikeMoment, STRIKE_FX } from './strikeFx'
-import StrikeFxLayer from './StrikeFxLayer'
-import { impactFor } from './impact/styles'
+import StrikeFxLayer, { KoTag } from './StrikeFxLayer'
+import { impactFor, koTiming } from './impact/styles'
 import { BODY_CSS, bodyAnimation } from './impact/body'
 import { PowerFx, PowerBadges, PowerProc, SteadfastHearts, wardStyle, POWER_ARMED_CSS, castMs, procMs } from './impact/PowerFx'
 import { AbilityHud, BarMarks } from './fx/_Hud'
@@ -27,8 +27,8 @@ import { PASS } from './map'
 // 25 ms a frame in the asset view). false: the old drop-shadow pulse, exactly as before.
 export const INTRO_EYES_GLOW_LAYER = false
 export const BOSS = { intro: 190, arena: 120, arenaCompact: 68 } // px: the boss on the intro card, and above the questions
-// The power stage beside the boss (a cast, a power's hit), as a share of the boss's size.
-const POWER_STAGE = 0.9
+// The power stage (a cast, a power's hit): the lower part of the boss box, as a share of its height.
+const POWER_STAGE = 0.5
 // Below this many layout px of window height the arena shrinks (boss, bar, hearts), so the question and its choices
 // fit under it without scrolling on a short laptop screen (the body zoom is taken out).
 export const ARENA_COMPACT_BELOW = 900
@@ -221,6 +221,8 @@ function EyesGlow({ kind, motif, delay }) {
 // The entrance: the stage darkens, hazard stripes close in, the boss slams down (the stage quakes, a shockwave and
 // dust), its eyes flash, the title stamps in, the lives pop in one by one and the Fight button rises. ~2s, CSS only.
 export const ENTRANCE = { stripes: 0.15, slam: 0.45, impact: 0.95, title: 1.15, lives: 1.45, fight: 1.9 } // s
+// How many times the Fight! button pulses after it appears, then it rests.
+export const FIGHT_CALL_PULSES = 4
 // Every boss arrives its own way (keyed by the area's motif; the file's own lg-in animations add the rest: eyes
 // open, a roar). Each lands at ENTRANCE.impact (starts at `slam`, lasts `dur`), where the quake and shockwave hit.
 // Every motif moves in a COMPLETELY different way (owner's rule: no two entrances alike, not even the same move from
@@ -361,7 +363,9 @@ export function BossIntro({ t, area, name = '', total, onFight, odds, legendary 
           </div>
         )}
         <div style={{ animation: `lgRise .4s ease-out ${E.fight}s both` }}>
-          <div className="lg-loop1" style={{ animation: `lgCall 1.1s ease-in-out ${E.fight + 0.4}s infinite` }}>
+          {/* The call to fight pulses a few times, then rests (it pulsed forever: a button that never holds still is hard
+              to aim at, and drew the eye away from the boss long after the learner saw it). Calm modes never pulse. */}
+          <div className="lg-loop1" style={{ animation: `lgCall 1.1s ease-in-out ${E.fight + 0.4}s ${FIGHT_CALL_PULSES}` }}>
             <ChunkyButton color={C.danger} onClick={onFight} style={{ minWidth: 200, fontSize: 18 }}>⚔️ {t('lg_bossFight')}</ChunkyButton>
           </div>
         </div>
@@ -372,14 +376,15 @@ export function BossIntro({ t, area, name = '', total, onFight, odds, legendary 
 }
 
 // `hits`/`misses` so far; `last` = { kind: 'hit' | 'miss', n } (n changes per answer, so the animation replays).
-// The end of the fight, under the arena: the win, or out of lives. `onDone` goes to the result.
-export function BossEnd({ t, won, onDone }) {
+// The end of the fight, under the arena: the win, or out of lives. `onDone` goes to the result. `lostKey` = the loss line
+// (a raid loss is not the end: the boss rallies and the siege goes on).
+export function BossEnd({ t, won, onDone, lostKey = 'lg_bossLost' }) {
   const motion = useArtMotionAlways()
   const still = useArtStill()
   return (
     <div className={motion ? 'lg-boss lg-motion' : 'lg-boss'} style={{ display: 'grid', gap: 12, justifyItems: 'center', textAlign: 'center', padding: '10px 0' }}>
       <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 24, color: won ? C.success : C.danger, animation: still ? 'none' : 'lgBossBob 1.6s ease-in-out 2' }}>
-        {won ? `🏆 ${t('lg_bossWon')}` : `💔 ${t('lg_bossLost')}`}
+        {won ? `🏆 ${t('lg_bossWon')}` : `💔 ${t(lostKey)}`}
       </div>
       <ChunkyButton color={won ? C.success : C.warning} onClick={onDone}>{t('lg_bossSeeResult')}</ChunkyButton>
     </div>
@@ -412,10 +417,15 @@ export const ABILITY_ICON = Object.fromEntries(Object.values(ABILITY_BY_ID).map(
 // (`questionKey` changes) everything still playing fades out over JUICE.fade and is gone: the next question is never
 // delayed and a floater never sits over it. `on` false (focus mode, Still bosses, reduced motion) plays nothing.
 const FLOAT_TONE = { purple: C.purple, danger: C.danger, warning: C.warning, success: C.success, info: C.info, brand: C.brand }
-const IDLE_JUICE = { fx: '', moment: '', show: false, fading: false, shake: 0, flash: 0, stop: 0, n: 0, size: 'big' }
+// `ofx`: the fx key whose FLOATER still plays. data-fx, the reaction class and the effect end with the moment's size
+// (`fx`), but the floater keeps its full pop until JUICE.linger: tied to `fx`, a tick's word showed for about 200 ms.
+const IDLE_JUICE = { fx: '', ofx: '', moment: '', show: false, fading: false, shake: 0, flash: 0, stop: 0, n: 0, size: 'big' }
 // `moment`: a plain strike moment (strikeFx.js: a hit, a critical, the boss landing a blow, the knockout...) that plays
 // with the same rules when the strike fired no ability fx (the knockout plays either way).
-function useJuice(last, on, ability, questionKey, moment = '') {
+// `ko`: the knockout's clock (impact/styles.js koTiming) when `moment` is the knockout.
+// The knockout's hit-stop is longer than any other: the killing blow freezes the boss (its body move holds it too).
+const KO_HITSTOP = 180
+function useJuice(last, on, ability, questionKey, moment = '', ko = null) {
   const [st, setSt] = useState(IDLE_JUICE)
   const key = last?.fx || moment ? `${last?.n}:${last?.wn || 0}:${last?.fx || ''}:${moment}` : ''
   const timers = useRef([])
@@ -434,13 +444,28 @@ function useJuice(last, on, ability, questionKey, moment = '') {
       // Photosensitivity: at most 2 flashes a second, whatever the data asks.
       const flash = j.flash && now - lastFlashAt.current >= JUICE.flashGap ? j.flash : 0
       if (flash) lastFlashAt.current = now
-      const stop = j.hitstop ? JUICE.hitstop[j.size] : 0
-      setSt({ fx, moment, show: true, fading: false, shake: j.shake, flash, stop, n, size: j.size })
+      const stop = moment === 'ko' ? KO_HITSTOP : j.hitstop ? JUICE.hitstop[j.size] : 0
+      setSt({ fx, ofx: fx, moment, show: true, fading: false, shake: j.shake, flash, stop, n, size: j.size })
       if (stop) later(stop, () => setSt((x) => (x.n === n ? { ...x, stop: 0 } : x)))
-      later(Math.min(JUICE.maxMs, j.ms), () => setSt((x) => (x.n === n ? { ...x, fx: '', shake: 0, flash: 0 } : x)))
-      // The knockout's own layer stays a little longer (rays, the stamp).
-      if (moment === 'ko') later(JUICE.linger + 300, () => setSt((x) => (x.n === n ? IDLE_JUICE : x)))
-      if (moment !== 'ko') later(JUICE.linger, () => setSt((x) => (x.n === n ? IDLE_JUICE : x)))
+      if (moment !== 'ko' || !ko) {
+        later(Math.min(JUICE.maxMs, j.ms), () => setSt((x) => (x.n === n ? { ...x, fx: '', shake: 0, flash: 0 } : x)))
+        later(moment === 'ko' ? JUICE.linger + 300 : JUICE.linger, () => setSt((x) => (x.n === n ? IDLE_JUICE : x)))
+        return
+      }
+      // THE KNOCKOUT CINEMATIC (impact/styles.js koTiming): the killing blow above, then at the climax the arena shakes
+      // and flashes once more (the flash only if the photosensitivity gap allows it), a smaller jolt as the DEFEATED
+      // stamp lands, and the layer stays until the whole cinematic has played.
+      const set = (patch) => setSt((x) => (x.n === n ? { ...x, ...patch } : x))
+      later(500, () => set({ fx: '', ofx: '', shake: 0, flash: 0 }))
+      later(ko.peak, () => {
+        const at = Date.now()
+        const again = at - lastFlashAt.current >= JUICE.flashGap ? 1 : 0
+        if (again) lastFlashAt.current = at
+        set({ shake: 2, flash: again })
+      })
+      later(ko.land, () => set({ shake: 1, flash: 0 }))
+      later(ko.land + 400, () => set({ shake: 0 }))
+      later(ko.ms + 250, () => setSt((x) => (x.n === n ? IDLE_JUICE : x)))
     })
     return clear
   }, [key, on]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -534,7 +559,8 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
   const animOk = !quiet && (motion || !reducedMotion())
   // A raid's plain strike moments (strikeFx.js): every raid boss hits, gets hit and falls with weight.
   const moment = kind === 'raids' ? strikeMoment(last, { down }) : ''
-  const juice = useJuice(last, animOk, ability, questionKey, moment)
+  const koClock = kind === 'raids' ? koTiming(area.motif) : null
+  const juice = useJuice(last, animOk, ability, questionKey, moment, koClock)
   // How a raid boss's own body moves when hit, when it strikes and when it falls (impact/body.js); null = the shared moves.
   const raidBody = kind === 'raids' && animOk ? impactFor(area.motif).body : null
   // A raid power just used (impact/PowerFx.jsx): its burst plays once per use, then clears.
@@ -566,6 +592,7 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
   // A persistent idle reaction (only IDLE_MOTIFS: abilities/_rules.js), off with every other reaction.
   const idleKey = !down && animOk && abMod?.idle ? abMod.idle(abS, abCtx) : ''
   const fxSize = juice.size
+  const abFloater = last?.fx && floaterKeyFor(ability, last.fx) ? `${last.damage ? `-${last.damage} ` : ''}${t(floaterKeyFor(ability, last.fx), last.fxVars || {})}` : ''
   const shakeSpec = juice.shake ? JUICE.shake[juice.shake] : null
   const flashSpec = juice.flash ? JUICE.flash[juice.flash] : null
   const abCssText = abMod ? abilityCss(ability, abAttrs) : ''
@@ -588,7 +615,7 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
       {flashSpec?.veil && <div key={`v${juice.n}`} aria-hidden="true" style={{ position: 'absolute', inset: 0, borderRadius: 'inherit', background: '#fff', opacity: 0, animation: `lgJuiceVeil ${flashSpec.veilMs}ms steps(1, end)`, pointerEvents: 'none', zIndex: 3 }} />}
       <div style={{ position: 'relative', flexShrink: 0, margin: headroomPx(compact ? BOSS.arenaCompact : BOSS.arena) }}>
         <div key={`s${shift}`} style={{ animation: shift && !quiet ? 'lgPhaseShift 1s ease-out both' : 'none' }}>
-        <div key={`b${last?.n || 0}`} style={{ animation: down ? ((raidBody && bodyAnimation(raidBody, 'ko')) || 'lgBossDown .6s ease-out both') : quiet ? 'none' : (raidBody && moment && bodyAnimation(raidBody, moment)) || (hitNow ?((raidBody && bodyAnimation(raidBody, 'hit')) || 'lgBossHit .5s ease-out') : missNow ? ((raidBody && bodyAnimation(raidBody, 'strike')) || 'lgBossLunge .45s ease-out') : 'none'),
+        <div key={`b${last?.n || 0}`} style={{ animation: down ? ((raidBody && bodyAnimation(raidBody, 'ko', koClock.ms, JUICE.delay)) || (kind === 'raids' ? 'none' : 'lgBossDown .6s ease-out both')) : quiet ? 'none' : (raidBody && moment && bodyAnimation(raidBody, moment)) || (hitNow ?((raidBody && bodyAnimation(raidBody, 'hit')) || 'lgBossHit .5s ease-out') : missNow ? ((raidBody && bodyAnimation(raidBody, 'strike')) || 'lgBossLunge .45s ease-out') : 'none'),
           filter: down ? 'grayscale(.8) opacity(.6)' : rage ? `drop-shadow(0 0 10px ${C.danger}) saturate(1.3)` : 'none' }}>
           {/* the boss's own reaction to its ability (fx/<motif>.jsx css: .lgr-<motif>-<fx>), then its persistent idle
               reaction (.lgr-<motif>-idle-<key>), then its persistent look (artStyle) on the INNERMOST box, so a scale
@@ -612,15 +639,26 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
         </>}
         {/* the raid ability's own effect (a bolt, a wave, a scythe arc...) and its floater, once per strike that fires
             it, inside the boss box; they fade out the moment the next question appears */}
+        {/* THE POWER STAGE: a power's cast and its hits play in the LOWER HALF of the boss box (the owner: the best mix
+            of visibility and position; the face and the strike labels at the top stay clear). Not once the boss is down:
+            the knockout cinematic owns the killing blow (a Fury proc on it played over the death). */}
+        {!down && (powerShow || procShow) && (
+          <div aria-hidden="true" data-power-stage="" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: `${POWER_STAGE * 100}%`, pointerEvents: 'none', zIndex: 2 }}>
+            {powerShow && <PowerFx t={t} power={powerShow} />}
+            {procShow && <PowerProc t={t} proc={procShow} />}
+          </div>
+        )}
         {juice.show && juice.moment && <StrikeFxLayer t={t} moment={juice.moment} motif={area.motif} n={juice.n} fading={juice.fading} last={last} />}
-        {juice.show && juice.fx && (
+        {/* a beaten raid boss: the defeated tag under it (after its knockout cinematic; at once and still when effects are off) */}
+        {down && kind === 'raids' && <KoTag key={`k${last?.n || 0}`} t={t} motif={area.motif} delay={animOk ? JUICE.delay + koClock.ms - 200 : null} />}
+        {juice.show && juice.ofx && (
           <div key={`x${juice.n}`} aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1, opacity: juice.fading ? 0 : 1, transition: `opacity ${JUICE.fade}ms ease-in` }}>
-            <AbilityFx fx={last?.fx || ''} ability={ability} />
+            {juice.fx && <AbilityFx fx={last?.fx || ''} ability={ability} />}
             {!focus && floaterKeyFor(ability, last?.fx) && (
-              <div style={{ position: 'absolute', left: '50%', top: 0, width: 'max-content', maxWidth: 'calc(100% + 40px)', whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.05, fontFamily: FONT.display, fontWeight: 900, fontSize: JUICE.floaterPx[fxSize] || JUICE.floaterPx.big,
+              <div style={{ position: 'absolute', left: '50%', top: 0, width: 'max-content', maxWidth: 'calc(100% + 40px)', whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.05, fontFamily: FONT.display, fontWeight: 900, fontSize: floaterPxFor(fxSize, abFloater),
                 color: FLOATER_FILL[floaterToneFor(ability, last.fx)] || FLOATER_FILL.purple, WebkitTextStroke: `2px ${FLOATER_OUTLINE}`, paintOrder: 'stroke fill', zIndex: 2,
                 animation: `lgJuicePop 900ms cubic-bezier(.22,1,.36,1) ${JUICE.floaterDelay}ms both` }}>
-                {`${last.damage ? `-${last.damage} ` : ''}${t(floaterKeyFor(ability, last.fx), last.fxVars || {})}`}
+                {abFloater}
               </div>
             )}
           </div>
@@ -648,15 +686,7 @@ export function BossArena({ t, area, name = '', need, lives, bonus = 0, state, p
           </div>
         )}
       </div>
-      <div style={{ flex: 1, minWidth: 0, display: 'grid', gap: compact ? 4 : 8, position: 'relative' }}>
-        {/* THE POWER STAGE: a power's cast and its hits play here, BESIDE the boss (the owner: never over it, the boss
-            stays in full view); a square at the start of the info column, over the name, bar and hearts for a moment */}
-        {(powerShow || procShow) && (
-          <div aria-hidden="true" data-power-stage="" style={{ position: 'absolute', left: 0, top: '50%', width: POWER_STAGE * (compact ? BOSS.arenaCompact : BOSS.arena), height: POWER_STAGE * (compact ? BOSS.arenaCompact : BOSS.arena), transform: 'translateY(-50%)', pointerEvents: 'none', zIndex: 4 }}>
-            {powerShow && <PowerFx t={t} power={powerShow} />}
-            {procShow && <PowerProc t={t} proc={procShow} />}
-          </div>
-        )}
+      <div style={{ flex: 1, minWidth: 0, display: 'grid', gap: compact ? 4 : 8 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: compact ? 15 : 17, color: C.ink }}>{down ? `🏆 ${t('lg_bossDown')}` : `${rage ? '😡' : '👑'} ${name || area.title}`}</span>
           <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 800, color: C.inkDim }}>{t('lg_bossHp', { hp, max: need })}</span>

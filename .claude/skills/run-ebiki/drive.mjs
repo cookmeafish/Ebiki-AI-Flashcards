@@ -85,7 +85,7 @@ try {
   await page.waitForSelector('text=Talk to Ebi', { timeout: 30000 })
   await shot('app')
 
-  await page.getByRole('button', { name: /⚙/ }).first().click()
+  await page.getByRole('button', { name: /⚙|^Settings$/ }).first().click()
   await page.waitForSelector('text=Settings', { timeout: 10000 })
   await page.getByRole('button', { name: 'Learning modes' }).first().click()
   await page.waitForSelector('input[placeholder^="What do you want to learn"]', { timeout: 10000 })

@@ -2,7 +2,9 @@
 // (params, ctx) -> elements; ctx = { color, accent, glyph, scale, speed }. Everything is CSS (and inline SVG) inside the
 // boss box, sized in container units of the impact layer (cqw = 1% of the boss box), so a part looks the same at any
 // arena size. Deterministic (no Math.random): the same moment looks the same every time. Fixed bright colors over the
-// art (both themes). Nothing here may last longer than ~1.4 s (fx/_juice.js JUICE.maxMs and the layer's linger).
+// art (both themes). Nothing here may last longer than ~1.4 s (fx/_juice.js JUICE.maxMs and the layer's linger), except
+// the knockout's parts, which play staged over the boss's whole death (styles.js koMs, at most KO_MS_MAX).
+import { cloneElement, isValidElement } from 'react'
 import { Glyph } from './glyphs'
 
 const RAINBOW = ['#ff4a4a', '#ffb23a', '#ffe94a', '#5dff9a', '#4ac8ff', '#9a6bff']
@@ -47,7 +49,113 @@ export const PARTS_CSS = `
 @keyframes lgiQuake { 0% { transform: translate(-50%, -50%) scale(.15, .3); opacity: 1 } 70% { opacity: .8 } 100% { transform: translate(-50%, -50%) scale(2.1, 1.2); opacity: 0 } }
 @keyframes lgiPulse { 0% { transform: translate(-50%, -50%) scale(.4); opacity: 0 } 18% { transform: translate(-50%, -50%) scale(1.05); opacity: 1 } 34% { transform: translate(-50%, -50%) scale(.85); opacity: .7 } 52% { transform: translate(-50%, -50%) scale(1.25); opacity: .9 } 100% { transform: translate(-50%, -50%) scale(1.7); opacity: 0 } }
 @keyframes lgiDrip { 0% { transform: scaleY(0); opacity: 0 } 15% { opacity: 1 } 60% { transform: scaleY(1) } 100% { transform: scaleY(1.15) translateY(14cqw); opacity: 0 } }
+@keyframes lgiGate { 0% { opacity: 0 } 100% { opacity: 1 } }
+@keyframes lgkSpeed { 0% { transform: scale(1.3); opacity: 0 } 6% { transform: scale(1); opacity: 1 } 55% { transform: scale(.97); opacity: .9 } 100% { transform: scale(.9); opacity: 0 } }
+@keyframes lgkCore { 0% { transform: scale(.1); opacity: 0 } 20% { opacity: .85 } 75% { transform: scale(.8); opacity: 1 } 88% { transform: scale(1.3); opacity: 1 } 100% { transform: scale(1.7); opacity: 0 } }
+@keyframes lgkDial { 0% { transform: scale(.5) rotate(20deg); opacity: 0 } 12% { transform: scale(1.06) rotate(-2deg); opacity: .95 } 20% { transform: scale(1) rotate(0deg) } 60% { transform: scale(1) rotate(0deg); opacity: .95 } 64% { transform: scale(1.03) rotate(-5deg) } 68% { transform: scale(1) rotate(3deg); animation-timing-function: cubic-bezier(.5,0,.9,.5) } 100% { transform: translateY(42cqw) rotate(-34deg) scale(.86); opacity: 0 } }
+@keyframes lgkFlat { 0% { transform: scaleY(1.6); opacity: 0 } 8% { opacity: 1 } 42% { transform: scaleY(1) } 52% { transform: scaleY(.02) } 88% { transform: scaleY(.02); opacity: 1 } 100% { transform: scaleY(.02); opacity: 0 } }
+@keyframes lgkWing { 0% { transform: rotate(55deg) scale(.4); opacity: 0; filter: brightness(1) saturate(1) sepia(0) hue-rotate(0deg) } 18% { transform: rotate(-10deg) scale(1.05); opacity: .92; filter: brightness(1) saturate(1) sepia(0) hue-rotate(0deg) } 30% { transform: rotate(-5deg) scale(1) } 50% { filter: brightness(1.9) saturate(2.4) sepia(.5) hue-rotate(0deg) } 72% { opacity: .85; filter: brightness(.65) saturate(3) sepia(1) hue-rotate(-25deg) } 100% { transform: rotate(22deg) translateY(16cqw) scale(.9); opacity: 0; filter: brightness(.4) saturate(1) sepia(1) hue-rotate(-25deg) } }
+@keyframes lgkBlast { 0% { transform: scale(.1); opacity: 0 } 15% { transform: scale(1.1); opacity: 1 } 100% { transform: scale(1.7); opacity: 0 } }
+@keyframes lgkFront { 0% { transform: translateY(100cqw); opacity: 0 } 8% { opacity: 1 } 70% { transform: translateY(0); opacity: 1 } 84% { opacity: .9 } 100% { transform: translateY(-8cqw); opacity: 0 } }
+@keyframes lgkRoar { 0% { transform: scale(.3) rotate(0deg); opacity: 0 } 12% { transform: scale(.9) rotate(calc(var(--rr) * .2)); opacity: 1 } 100% { transform: scale(1.9) rotate(var(--rr)); opacity: 0 } }
+@keyframes lgkCrown { 0% { transform: translate(0, -28cqw) rotate(0deg); opacity: 0; animation-timing-function: cubic-bezier(.2,.8,.4,1) } 6% { opacity: 1 }
+  22% { transform: translate(-6cqw, -54cqw) rotate(-50deg); animation-timing-function: cubic-bezier(.5,0,.9,.5) } 46% { transform: translate(6cqw, 32cqw) rotate(-210deg); animation-timing-function: cubic-bezier(.2,.8,.4,1) }
+  54% { transform: translate(10cqw, 20cqw) rotate(-250deg); animation-timing-function: cubic-bezier(.5,0,.9,.5) } 62% { transform: translate(14cqw, 32cqw) rotate(-300deg); animation-timing-function: cubic-bezier(.2,.8,.4,1) }
+  67% { transform: translate(16cqw, 27cqw) rotate(-322deg); animation-timing-function: cubic-bezier(.5,0,.9,.5) } 72% { transform: translate(18cqw, 32cqw) rotate(-345deg); animation-timing-function: linear }
+  90% { transform: translate(40cqw, 32cqw) rotate(-560deg); opacity: 1 } 100% { transform: translate(48cqw, 32cqw) rotate(-640deg); opacity: 0 } }
+@keyframes lgkSpot { 0% { transform: translateX(-50%) scaleX(1.4); opacity: 0 } 14% { transform: translateX(-50%) scaleX(1); opacity: .8 } 62% { transform: translateX(-50%) scaleX(.5); opacity: .8 } 70% { transform: translateX(-50%) scaleX(.45); opacity: 1 } 74% { opacity: 0 } 100% { transform: translateX(-50%) scaleX(.45); opacity: 0 } }
+@keyframes lgkScytheA { 0% { transform: scale(.6) rotate(-30deg); opacity: 0 } 14% { transform: scale(1) rotate(0deg); opacity: 1 } 40% { transform: rotate(5deg) } 46% { transform: translate(-2cqw, -2cqw) rotate(-8deg); animation-timing-function: cubic-bezier(.5,0,.9,.5) } 100% { transform: translate(-34cqw, 42cqw) rotate(-130deg); opacity: 0 } }
+@keyframes lgkScytheB { 0% { transform: scale(.6) rotate(-30deg); opacity: 0 } 14% { transform: scale(1) rotate(0deg); opacity: 1 } 40% { transform: rotate(5deg) } 46% { transform: translate(2cqw, 2cqw) rotate(8deg); animation-timing-function: cubic-bezier(.5,0,.9,.5) } 100% { transform: translate(26cqw, 46cqw) rotate(90deg); opacity: 0 } }
+@keyframes lgkFlood { 0% { transform: translateY(100%); opacity: 0 } 10% { opacity: .9 } 45% { transform: translateY(18%) } 58% { transform: translateY(26%) } 72% { transform: translateY(14%) } 86% { opacity: .9 } 100% { transform: translateY(100%); opacity: 0 } }
+@keyframes lgkSlosh { 0%, 100% { transform: translateX(-6cqw) } 50% { transform: translateX(6cqw) } }
+@keyframes lgkGem { 0% { transform: scale(.2); opacity: 0 } 12% { transform: scale(1.1); opacity: 1 } 20% { transform: scale(1) } 34% { transform: scale(1.12) } 40% { transform: scale(1) } 52% { transform: scale(1.16) } 57% { transform: scale(1) } 66% { transform: scale(1.22) } 70% { transform: scale(1) } 76% { transform: scale(1.32); opacity: 1 } 80% { transform: scale(1.42); opacity: 0 } 100% { transform: scale(1.42); opacity: 0 } }
+@keyframes lgkChainL { 0% { transform: translateX(-60cqw); opacity: 0 } 18% { transform: translateX(0); opacity: 1 } 38% { transform: translateX(-1.5cqw) } 42% { transform: translateX(1cqw) } 46% { transform: translateX(0) rotate(0deg); animation-timing-function: cubic-bezier(.5,0,.9,.5) } 100% { transform: translate(-10cqw, 30cqw) rotate(55deg); opacity: 0 } }
+@keyframes lgkChainR { 0% { transform: translateX(60cqw); opacity: 0 } 18% { transform: translateX(0); opacity: 1 } 38% { transform: translateX(1.5cqw) } 42% { transform: translateX(-1cqw) } 46% { transform: translateX(0) rotate(0deg); animation-timing-function: cubic-bezier(.5,0,.9,.5) } 100% { transform: translate(10cqw, 30cqw) rotate(-55deg); opacity: 0 } }
+@keyframes lgkGutter { 0% { transform: scale(.6); opacity: 0 } 10% { transform: scale(1.15); opacity: 1 } 30% { transform: scale(1) } 45% { transform: scale(1.08, .9) } 60% { transform: scale(.7); opacity: .95 } 68% { transform: scale(.85) } 85% { transform: scale(.25); opacity: .7 } 100% { transform: translateY(-6cqw) scale(0); opacity: 0 } }
+@keyframes lgkBubbleLife { 0% { transform: scale(0); opacity: 0 } 14% { transform: scale(1.06); opacity: 1 } 24% { transform: scale(.94, 1.06) } 34% { transform: scale(1.04, .96) } 44% { transform: scale(1) } 86% { transform: scale(1.06); opacity: 1 } 90% { transform: scale(1.3); opacity: 0 } 100% { transform: scale(1.3); opacity: 0 } }
+@keyframes lgkAxe { 0% { transform: translate(-14cqw, -80cqw) rotate(-160deg); opacity: 0; animation-timing-function: cubic-bezier(.5,0,.9,.5) } 8% { opacity: 1 }
+  42% { transform: translate(20cqw, 24cqw) rotate(160deg); animation-timing-function: ease-out } 47% { transform: translate(20cqw, 24cqw) rotate(150deg) } 53% { transform: translate(20cqw, 24cqw) rotate(166deg) }
+  59% { transform: translate(20cqw, 24cqw) rotate(155deg) } 65% { transform: translate(20cqw, 24cqw) rotate(161deg) } 72% { transform: translate(20cqw, 24cqw) rotate(158deg) } 88% { opacity: 1 } 100% { transform: translate(20cqw, 24cqw) rotate(158deg); opacity: 0 } }
+@keyframes lgkBead { 0% { transform: scale(0) rotate(0deg); opacity: 0 } 40% { transform: scale(1.7) rotate(45deg); opacity: 1 } 60% { transform: scale(1) rotate(60deg); opacity: 1 } 100% { transform: scale(.5) rotate(90deg); opacity: 0 } }
+@keyframes lgkHead { 0% { transform: translateY(-24cqw); opacity: 0 } 14% { transform: translateY(0); opacity: 1 } 34% { transform: rotate(calc(var(--sd) * -6deg)) } 50% { transform: rotate(calc(var(--sd) * 8deg)); animation-timing-function: cubic-bezier(.5,0,.9,.5) } 62% { transform: rotate(calc(var(--sd) * 72deg)) } 70% { transform: rotate(calc(var(--sd) * 60deg)) } 78% { transform: rotate(calc(var(--sd) * 70deg)); opacity: 1 } 100% { transform: rotate(calc(var(--sd) * 78deg)) translateY(26cqw); opacity: 0 } }
+@keyframes lgkMandala { 0% { transform: scale(.3) rotate(0deg); opacity: 0 } 14% { transform: scale(1) rotate(40deg); opacity: .9 } 70% { transform: scale(1.04) rotate(230deg); opacity: .9 } 76% { transform: scale(1.14) rotate(250deg); opacity: 1 } 80% { transform: scale(1.22) rotate(258deg); opacity: 0 } 100% { transform: scale(1.22) rotate(258deg); opacity: 0 } }
+@keyframes lgkSnip { 0% { transform: rotate(calc(var(--s) * 38deg)) scale(.6); opacity: 0 } 14% { transform: rotate(calc(var(--s) * 38deg)) scale(1); opacity: 1 } 40% { transform: rotate(calc(var(--s) * 38deg)) } 50% { transform: rotate(0deg) } 58% { transform: rotate(calc(var(--s) * 22deg)) } 66% { transform: rotate(0deg) } 88% { transform: rotate(0deg); opacity: 1 } 100% { transform: translateY(-10cqw) rotate(0deg); opacity: 0 } }
+@keyframes lgkPuddle { 0% { transform: scale(.1, .4); opacity: 0 } 20% { opacity: 1 } 60% { transform: scale(1) } 86% { transform: scale(1.03); opacity: 1 } 100% { transform: scale(1.06); opacity: 0 } }
+@keyframes lgkTail { 0% { transform: rotate(0deg) scaleY(.2); opacity: 0 } 24% { transform: rotate(var(--ta)) scaleY(1); opacity: .85 } 52% { transform: rotate(var(--ta)) scaleY(1.06) } 70% { transform: rotate(var(--ta)) translateY(-26cqw) scale(.6); opacity: .9 } 100% { transform: rotate(var(--ta)) translateY(-66cqw) scale(.25); opacity: 0 } }
+@keyframes lgkEye { 0% { transform: scaleY(.05); opacity: 0 } 12% { transform: scaleY(1.06); opacity: .9 } 20% { transform: scaleY(1) } 54% { transform: scaleY(1) } 60% { transform: scaleY(.45) } 66% { transform: scaleY(.75) } 78% { transform: scaleY(.04) } 92% { transform: scaleY(.04); opacity: .9 } 100% { transform: scaleY(.04); opacity: 0 } }
+@keyframes lgkCross { 0% { transform: translateX(95cqw) scale(.9); opacity: 0 } 12% { opacity: 1 } 50% { transform: translateX(0) scale(1) } 88% { opacity: 1 } 100% { transform: translateX(-95cqw) scale(.9); opacity: 0 } }
+@keyframes lgkCoal { 0% { transform: scale(0); opacity: 0; filter: brightness(2) saturate(1) } 15% { transform: scale(1.2); opacity: 1; filter: brightness(1.8) saturate(1) } 50% { transform: scale(1); filter: brightness(1.2) saturate(1) } 85% { opacity: .85; filter: brightness(.55) saturate(.6) } 100% { transform: scale(.9); opacity: 0; filter: brightness(.3) saturate(.3) } }
+@keyframes lgkSing { 0% { transform: scale(.2) rotate(0deg); opacity: 0 } 14% { transform: scale(1) rotate(60deg); opacity: .95 } 74% { transform: scale(.08) rotate(600deg); opacity: 1 } 86% { transform: scale(.08) rotate(700deg); opacity: 1 } 89% { transform: scale(.02) rotate(720deg); opacity: 1 } 90% { opacity: 0 } 100% { transform: scale(.02) rotate(720deg); opacity: 0 } }
 `
+
+// A STAGED part (the knockout's stages, StrikeFxLayer): every animation inside it starts `at` ms later (its own delay
+// kept), so the whole cinematic is plain CSS: it plays the same every time and a paused page (the dev sheet's
+// freeze(ms)) shows any moment of it. Only DOM elements are walked; a component (a Glyph) carries no animation.
+const TIME = /^-?[\d.]+m?s$/
+const msOf = (tok) => (tok.endsWith('ms') ? parseFloat(tok) : parseFloat(tok) * 1000)
+// Splits on commas or spaces outside parentheses (cubic-bezier(.2,.8,.3,1), steps(1, end), var(--x)).
+function splitTop(s, space) {
+  const out = []
+  let depth = 0
+  let cur = ''
+  for (const ch of s) {
+    if (ch === '(') depth++
+    if (ch === ')') depth--
+    if (depth === 0 && (space ? /\s/.test(ch) : ch === ',')) { out.push(cur); cur = '' } else cur += ch
+  }
+  out.push(cur)
+  return out.map((x) => x.trim()).filter(Boolean)
+}
+// One animation shorthand (or a list of them) started `at` ms later: the second time is the delay.
+export function shiftAnimation(anim, at) {
+  return splitTop(String(anim), false).map((one) => {
+    const toks = splitTop(one, true)
+    const times = toks.map((tok, i) => (TIME.test(tok) ? i : -1)).filter((i) => i >= 0)
+    if (times.length >= 2) toks[times[1]] = `${Math.round(msOf(toks[times[1]]) + at)}ms`
+    else if (times.length === 1) toks.splice(times[0] + 1, 0, `${Math.round(at)}ms`)
+    return toks.join(' ')
+  }).join(', ')
+}
+// When everything a part plays has finished (ms): the latest delay + duration x iterations in it.
+export function animationEnd(node) {
+  if (Array.isArray(node)) return node.reduce((m, n) => Math.max(m, animationEnd(n)), 0)
+  if (!isValidElement(node) || typeof node.type !== 'string') return 0
+  const { style, children } = node.props
+  let end = 0
+  if (style && typeof style.animation === 'string') {
+    for (const one of splitTop(style.animation, false)) {
+      const toks = splitTop(one, true)
+      const times = toks.filter((tok) => TIME.test(tok)).map(msOf)
+      const count = Number(toks.find((tok) => /^\d+$/.test(tok)) || 1)
+      end = Math.max(end, (times[1] || 0) + (times[0] || 0) * count)
+    }
+  }
+  return children != null && typeof children !== 'string' ? Math.max(end, animationEnd(children)) : end
+}
+// A part drawn so it has finished by `by` ms after its start: drawn again faster (ctx.speed) until it fits.
+export function drawWithin(draw, p, ctx, by) {
+  let speed = ctx.speed
+  let node = draw(p, ctx)
+  for (let i = 0; i < 6; i++) {
+    const end = animationEnd(node)
+    if (end <= by || end <= 0) break
+    speed *= (by / end) * 0.98
+    node = draw(p, { ...ctx, speed })
+  }
+  return node
+}
+export function withDelay(node, at) {
+  if (!at) return node
+  // Static JSX children come back as an ARRAY prop, which React then checks as a list: key the unkeyed ones (by
+  // position: the list never reorders) so a staged part with several children draws no key warning.
+  if (Array.isArray(node)) return node.map((n, i) => { const d = withDelay(n, at); return isValidElement(d) && d.key == null ? cloneElement(d, { key: `d${i}` }) : d })
+  if (!isValidElement(node) || typeof node.type !== 'string') return node
+  const { style, children } = node.props
+  const next = {}
+  if (style && typeof style.animation === 'string') next.style = { ...style, animation: shiftAnimation(style.animation, at) }
+  if (children != null && typeof children !== 'string') next.children = withDelay(children, at)
+  return Object.keys(next).length ? cloneElement(node, next) : node
+}
 
 // One flying particle (a glyph or any node) through lgiMove (or lgiArcPath when `mid` is given).
 function fly(key, node, { x0 = 0, y0 = 0, x1, y1, xm, ym, r0 = 0, r1 = 0, s0 = 0.6, s1 = 1, w = 12, ms = 650, delay = 0, ease = 'cubic-bezier(.15,.8,.3,1)', midOpacity = 1 }) {
@@ -59,6 +167,8 @@ function fly(key, node, { x0 = 0, y0 = 0, x1, y1, xm, ym, r0 = 0, r1 = 0, s0 = 0
   )
 }
 const glyphOf = (p, ctx) => p.glyph || ctx.glyph
+// A band across the box that melts away at both sides instead of ending on a hard edge.
+const SIDE_FADE = 'linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent)'
 const colorOf = (p, ctx) => p.color || ctx.color
 const svgBox = (key, children, extra = {}) => (
   <svg key={key} viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: 'absolute', left: '-15%', top: '-15%', width: '130%', height: '130%', overflow: 'visible', ...extra }} aria-hidden="true">{children}</svg>
@@ -254,10 +364,10 @@ export const PARTS = {
     return fly(`cd${i}`, <Glyph name="card" color={ctx.color} accent={ctx.accent} />,
       { x0: 0, y0: -6, x1: o * 18 * ctx.scale, y1: 46 * ctx.scale, r0: o * 10, r1: o * 30 + 720, s0: 0.3, s1: 2.1, w: 12, ms: 600 * ctx.speed, delay: Math.abs(o) * 45, ease: 'cubic-bezier(.4,0,.6,1)' })
   }),
-  // The Showman's knockout: the curtain falls.
-  curtain: () => [
-    <div key="cl" style={{ position: 'absolute', top: '-10%', bottom: '-10%', left: '-10%', width: '62%', background: 'repeating-linear-gradient(90deg, #8a0a2a 0 7cqw, #b0123a 7cqw 12cqw)', animation: 'lgiCurtainL 1300ms cubic-bezier(.5,0,.3,1) 250ms both' }} />,
-    <div key="cr" style={{ position: 'absolute', top: '-10%', bottom: '-10%', right: '-10%', width: '62%', background: 'repeating-linear-gradient(90deg, #b0123a 0 5cqw, #8a0a2a 5cqw 12cqw)', animation: 'lgiCurtainR 1300ms cubic-bezier(.5,0,.3,1) 250ms both' }} />,
+  // The Showman's knockout: the curtains close (p.part: how far each comes in, % of the box; 62 meets in the middle).
+  curtain: (p) => [
+    <div key="cl" style={{ position: 'absolute', top: '-10%', bottom: '-10%', left: '-10%', width: `${p.part || 62}%`, boxShadow: '0.6cqw 0 1.4cqw #0008', background: 'repeating-linear-gradient(90deg, #8a0a2a 0 7cqw, #b0123a 7cqw 12cqw)', animation: 'lgiCurtainL 1300ms cubic-bezier(.5,0,.3,1) 250ms both' }} />,
+    <div key="cr" style={{ position: 'absolute', top: '-10%', bottom: '-10%', right: '-10%', width: `${p.part || 62}%`, boxShadow: '-0.6cqw 0 1.4cqw #0008', background: 'repeating-linear-gradient(90deg, #b0123a 0 5cqw, #8a0a2a 5cqw 12cqw)', animation: 'lgiCurtainR 1300ms cubic-bezier(.5,0,.3,1) 250ms both' }} />,
   ],
   // The Reaper: a scythe crescent sweeps across, with two afterimages.
   arc: (p, ctx) => [0, 1, 2].map((g) => (
@@ -350,8 +460,12 @@ export const PARTS = {
       filter: `drop-shadow(0 0 2cqw ${ctx.color})`, '--r0': '-70deg', '--r1': '40deg', animation: `lgiSpin ${480 * ctx.speed}ms cubic-bezier(.3,.9,.3,1) ${i * 50}ms both` }} />
   )),
   // Moonmaw's knockout: a dark disc with a burning rim slides over.
-  eclipse: (p, ctx) => <div key="ec" style={{ position: 'absolute', left: '50%', top: '50%', width: '96cqw', height: '96cqw', borderRadius: '50%', background: 'radial-gradient(circle, #05030f 62%, #1a1240 70%, transparent 72%)',
-    boxShadow: `0 0 4cqw 1cqw ${ctx.color}`, animation: `lgiEclipse ${1300 * ctx.speed}ms cubic-bezier(.3,.7,.3,1) both` }} />,
+  // p.cross: it sweeps right across the boss and away (Moonmaw's knockout: totality passes, the face is never hidden for long).
+  eclipse: (p, ctx) => p.cross
+    ? <div key="ec" style={{ position: 'absolute', left: '50%', top: '46%', width: '90cqw', height: '90cqw', marginLeft: '-45cqw', marginTop: '-45cqw', borderRadius: '50%', background: 'radial-gradient(circle, #05030fe6 60%, #1a1240cc 68%, transparent 71%)',
+      boxShadow: `0 0 4cqw 1cqw ${ctx.color}`, animation: `lgkCross ${(p.ms || 1300) * ctx.speed}ms cubic-bezier(.45,.05,.55,.95) both` }} />
+    : <div key="ec" style={{ position: 'absolute', left: '50%', top: '50%', width: '96cqw', height: '96cqw', borderRadius: '50%', background: 'radial-gradient(circle, #05030f 62%, #1a1240 70%, transparent 72%)',
+      boxShadow: `0 0 4cqw 1cqw ${ctx.color}`, animation: `lgiEclipse ${1300 * ctx.speed}ms cubic-bezier(.3,.7,.3,1) both` }} />,
   // The Puppeteer: strings drop from above; yanked, or cut and falling.
   strings: (p, ctx) => Array.from({ length: p.n || 4 }, (_, i) => {
     const x = 20 + (60 * i) / Math.max(1, (p.n || 4) - 1)
@@ -499,5 +613,417 @@ export const PARTS = {
     <div key={`pu${i}`} style={{ position: 'absolute', left: '50%', top: '50%', width: '70cqw', height: '70cqw', borderRadius: '50%', background: `radial-gradient(circle, ${colorOf(p, ctx)}aa, ${colorOf(p, ctx)}33 55%, transparent 70%)`,
       animation: `lgiPulse ${900 * ctx.speed}ms ease-out ${i * 220}ms both` }} />
   )),
+
+  // ── KNOCKOUT PARTS: the pieces of each raid boss's death (impact/styles.js `ko`, staged by their `at`). Each tells
+  // one boss's own ending (a clock face shattering, a scream cut to a flat line, a crown rolling away...). They may run
+  // as long as the boss's koMs (2 to 2.5 s), never longer, and none stays over the boss when it ends.
+  // The killing blow's freeze frame: manga focus lines snap in round the rim and a dark rim closes, then both let go.
+  speedlines: (p, ctx) => {
+    const c = colorOf(p, ctx)
+    const n = p.n || 40
+    const ms = (p.ms || 560) * ctx.speed
+    const mask = 'radial-gradient(circle, transparent 28%, #000 40%, #000 56%, transparent 64%)'
+    return [
+      <div key="sld" style={{ position: 'absolute', inset: '-20%', background: 'radial-gradient(closest-side, transparent 52%, #0a0612aa 82%, transparent 100%)', animation: `lgiFade ${ms}ms ease-out both` }} />,
+      <div key="sll" style={{ position: 'absolute', left: '50%', top: '50%', width: '170cqw', height: '170cqw', marginLeft: '-85cqw', marginTop: '-85cqw', borderRadius: '50%',
+        background: `repeating-conic-gradient(from ${p.rot || 0}deg, ${c} 0deg 1.1deg, transparent 1.1deg ${(360 / n).toFixed(2)}deg)`, WebkitMaskImage: mask, maskImage: mask,
+        animation: `lgkSpeed ${ms}ms cubic-bezier(.2,.8,.3,1) both` }} />,
+    ]
+  },
+  // Power gathering before it bursts: a hot core swells while the boss's glyphs are sucked into it.
+  charge: (p, ctx) => {
+    const c = colorOf(p, ctx)
+    const ms = (p.ms || 820) * ctx.speed
+    const n = p.n || 12
+    return [
+      <div key="cc" style={{ position: 'absolute', left: '50%', top: '50%', width: '56cqw', height: '56cqw', marginLeft: '-28cqw', marginTop: '-28cqw', borderRadius: '50%',
+        background: `radial-gradient(circle, #ffffff 0, ${c} 26%, ${c}77 46%, transparent 68%)`, animation: `lgkCore ${ms}ms cubic-bezier(.5,0,.7,1) both` }} />,
+      ...Array.from({ length: n }, (_, i) => {
+        const a = (Math.PI * 2 * i) / n + rnd(i, 161) * 0.4
+        const r = 58 * (0.8 + rnd(i, 163) * 0.4)
+        return fly(`cg${i}`, <Glyph name={glyphOf(p, ctx)} color={c} accent={ctx.accent} />,
+          { x0: Math.cos(a) * r, y0: Math.sin(a) * r, x1: 0, y1: 0, r0: 0, r1: 200, s0: 1, s1: 0.2, w: 7 * (p.size || 1), ms: ms * 0.7, delay: rnd(i, 165) * ms * 0.2, ease: 'cubic-bezier(.6,0,.9,.5)' })
+      }),
+    ]
+  },
+  // Chronos: its clock face stands over it, holds still (time stopped), then shudders and falls away.
+  dial: (p, ctx) => {
+    const c = colorOf(p, ctx)
+    const ticks = Array.from({ length: 12 }, (_, i) => {
+      const a = (Math.PI * i) / 6
+      const r0 = i % 3 ? 39 : 34
+      return <line key={i} x1={50 + Math.cos(a) * r0} y1={50 + Math.sin(a) * r0} x2={50 + Math.cos(a) * 44} y2={50 + Math.sin(a) * 44} stroke={i % 3 ? c : '#ffffff'} strokeWidth={i % 3 ? 1.6 : 3} strokeLinecap="round" />
+    })
+    return (
+      <div key="dl" style={{ position: 'absolute', left: '50%', top: '50%', width: '92cqw', height: '92cqw', marginLeft: '-46cqw', marginTop: '-46cqw', filter: `drop-shadow(0 0 1.5cqw ${c})`, animation: `lgkDial ${(p.ms || 1500) * ctx.speed}ms cubic-bezier(.3,.7,.4,1) both` }}>
+        <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true">
+          <circle cx="50" cy="50" r="47" fill={`${c}14`} stroke={c} strokeWidth="2.4" />
+          <circle cx="50" cy="50" r="44" fill="none" stroke="#ffffff" strokeWidth=".8" opacity=".7" />
+          {ticks}
+          <circle cx="50" cy="50" r="2.6" fill="#ffffff" stroke={c} />
+        </svg>
+      </div>
+    )
+  },
+  // The Banshee: its last scream as a waveform across the box, crushed flat in an instant (silence), then gone.
+  flatline: (p, ctx) => {
+    const c = colorOf(p, ctx)
+    const pts = Array.from({ length: 41 }, (_, i) => {
+      const env = Math.sin((i / 40) * Math.PI)
+      return `${i * 2.5},${(50 + (i % 2 ? 1 : -1) * env * (18 + rnd(i, 171) * 28)).toFixed(1)}`
+    }).join(' ')
+    return (
+      <div key="fln" style={{ position: 'absolute', left: '-15%', width: '130%', top: '28%', height: '44%', filter: `drop-shadow(0 0 1.4cqw ${c})`, animation: `lgkFlat ${(p.ms || 1300) * ctx.speed}ms cubic-bezier(.5,0,.3,1) both` }}>
+        <svg viewBox="0 0 100 100" width="100%" height="100%" preserveAspectRatio="none" aria-hidden="true">
+          <polyline points={pts} fill="none" stroke={c} strokeWidth="5" strokeLinejoin="round" vectorEffect="non-scaling-stroke" opacity=".7" />
+          <polyline points={pts} fill="none" stroke="#ffffff" strokeWidth="2" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        </svg>
+      </div>
+    )
+  },
+  // Soft puffs (smoke rising, or a mist / storm clouds rolling outward from the rim, p.dir 'out'), growing as they
+  // fade; the outward ones start at the rim so the face stays clear.
+  smoke: (p, ctx) => Array.from({ length: p.n || 10 }, (_, i) => {
+    const n = p.n || 10
+    const c = colorOf(p, ctx)
+    const out = p.dir === 'out'
+    const a = (Math.PI * 2 * i) / n + rnd(i, 173) * 0.5
+    const x0 = out ? Math.cos(a) * 30 : (rnd(i, 175) - 0.5) * 40
+    const y0 = out ? Math.sin(a) * 30 : 10 + rnd(i, 177) * 20
+    return fly(`sm${i}`, <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: `radial-gradient(circle, ${c}dd, ${c}88 40%, ${c}00 70%)` }} />,
+      { x0, y0, x1: out ? Math.cos(a) * 64 : x0 + (rnd(i, 179) - 0.5) * 30, y1: out ? Math.sin(a) * 64 : -58 - rnd(i, 181) * 12, s0: 0.5, s1: 2.2, w: 20 * (p.size || 1), ms: (p.ms || 1200) * ctx.speed, delay: rnd(i, 183) * 300, ease: 'cubic-bezier(.2,.6,.4,1)', midOpacity: 0.7 })
+  }),
+  // The Seraph: its wings spread wide one last time, catch fire, char and fall away.
+  wings: (p, ctx) => {
+    const c = colorOf(p, ctx)
+    const feathers = Array.from({ length: 7 }, (_, k) => {
+      const th = ((150 + k * 11) * Math.PI) / 180
+      const len = 88 - Math.abs(k - 3) * 7
+      const tx = 100 + Math.cos(th) * len
+      const ty = 50 + Math.sin(th) * len
+      const mx = 100 + Math.cos(th) * len * 0.55
+      const my = 50 + Math.sin(th) * len * 0.55
+      const nx = -Math.sin(th) * 7
+      const ny = Math.cos(th) * 7
+      return <path key={k} d={`M100 50Q${(mx + nx).toFixed(1)} ${(my + ny).toFixed(1)} ${tx.toFixed(1)} ${ty.toFixed(1)}Q${(mx - nx).toFixed(1)} ${(my - ny).toFixed(1)} 100 50Z`} fill={k % 2 ? '#ffb300' : c} stroke={ctx.accent} strokeWidth="1.4" />
+    })
+    return [-1, 1].map((s) => (
+      <div key={`wg${s}`} style={{ position: 'absolute', left: '50%', top: '40%', width: 0, height: 0, transform: s > 0 ? 'scaleX(-1)' : undefined }}>
+        <div style={{ position: 'absolute', right: 0, top: '-34cqw', width: '68cqw', height: '68cqw', transformOrigin: '100% 50%', animation: `lgkWing ${(p.ms || 1300) * ctx.speed}ms cubic-bezier(.3,.7,.4,1) both` }}>
+          <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true" style={{ overflow: 'visible', filter: `drop-shadow(0 0 0.4cqw #3a2400) drop-shadow(0 0 2cqw ${c})` }}>{feathers}</svg>
+        </div>
+      </div>
+    ))
+  },
+  // The Titan: its armor plates blow off one after another (a chain of blasts), each plate tumbling away.
+  popchain: (p, ctx) => {
+    const c = colorOf(p, ctx)
+    const gap = (p.gap || 170) * ctx.speed
+    const SPOTS = [[-24, -16], [22, -8], [-12, 16], [26, 18], [-28, 6], [4, -28], [10, 10]]
+    return SPOTS.slice(0, p.n || 6).flatMap(([x, y], i) => [
+      <div key={`pb${i}`} style={{ position: 'absolute', left: `calc(50% + ${x}cqw)`, top: `calc(50% + ${y}cqw)`, width: '30cqw', height: '30cqw', marginLeft: '-15cqw', marginTop: '-15cqw', borderRadius: '50%',
+        background: `radial-gradient(circle, #ffffff 0, #fff2b0 18%, ${c} 40%, ${c}00 68%)`, animation: `lgkBlast ${440 * ctx.speed}ms ease-out ${i * gap}ms both` }} />,
+      fly(`pp${i}`, <div style={{ width: '100%', height: '70%', marginTop: '15%', borderRadius: '1.2cqw', background: `linear-gradient(135deg, #ffd9a8, ${c} 45%, ${ctx.accent})`, border: '0.5cqw solid #1a0a02', boxShadow: 'inset 0 0 0 0.6cqw #ffffff44' }} />,
+        { x0: x, y0: y, xm: x * 1.7, ym: y * 1.4 - 22, x1: x * 2.2, y1: y + 44, r0: 0, r1: (i % 2 ? 1 : -1) * 520, s0: 0.9, s1: 1, w: 13, ms: 920 * ctx.speed, delay: i * gap + 40, ease: 'linear' }),
+    ])
+  },
+  // The Gorgon: a front of stone climbs the body from the feet up (its own gaze turned on it), then fades.
+  front: (p, ctx) => {
+    const c = colorOf(p, ctx)
+    return (
+      <div key="fr" style={{ position: 'absolute', left: '-12%', width: '124%', top: '-5%', height: '110%', overflow: 'hidden', WebkitMaskImage: SIDE_FADE, maskImage: SIDE_FADE }}>
+        <div style={{ position: 'absolute', left: 0, right: 0, top: 0, height: '130cqw', background: `linear-gradient(#ffffff 0, ${c} 1.4cqw, #b9c2bc88 3cqw, #8b938e4d 30%, #6f776f33 100%)`, boxShadow: `0 -1cqw 3cqw ${c}`,
+          animation: `lgkFront ${(p.ms || 1000) * ctx.speed}ms cubic-bezier(.4,0,.5,1) both` }} />
+      </div>
+    )
+  },
+  // A roar as a jagged shock shape (with two echoes): the Chimera roars once per head, each in its own color.
+  roar: (p, ctx) => {
+    const c = colorOf(p, ctx)
+    const n = p.spikes || 11
+    const pts = Array.from({ length: n * 2 }, (_, i) => {
+      const a = (Math.PI * i) / n
+      const r = i % 2 ? 30 + rnd(i + n, 185) * 6 : 46 + rnd(i + n, 187) * 4
+      return `${(50 + Math.cos(a) * r).toFixed(1)},${(50 + Math.sin(a) * r).toFixed(1)}`
+    }).join(' ')
+    return [0, 1, 2].map((g) => (
+      <div key={`ro${g}`} style={{ position: 'absolute', left: '50%', top: '46%', width: '80cqw', height: '80cqw', marginLeft: '-40cqw', marginTop: '-40cqw', '--rr': `${(p.turn ?? 24) * (g % 2 ? -1 : 1)}deg`,
+        filter: `drop-shadow(0 0 1.6cqw ${c})`, animation: `lgkRoar ${(p.ms || 620) * ctx.speed}ms cubic-bezier(.15,.85,.35,1) ${g * 90}ms both` }}>
+        <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true"><polygon points={pts} fill={g ? 'none' : `${c}26`} stroke={g ? c : '#ffffff'} strokeWidth={g ? 2.4 : 3.2} strokeLinejoin="round" /></svg>
+      </div>
+    ))
+  },
+  // The Rat King: its crown pops off its head, falls, bounces twice and rolls away out of the frame.
+  crown: (p, ctx) => {
+    const c = colorOf(p, ctx)
+    return (
+      <div key="cr" style={{ position: 'absolute', left: '50%', top: '50%', width: '28cqw', height: '28cqw', marginLeft: '-14cqw', marginTop: '-14cqw', filter: `drop-shadow(0 0 1.4cqw ${c}) drop-shadow(0 0.6cqw 0 #0007)`, animation: `lgkCrown ${(p.ms || 1700) * ctx.speed}ms linear both` }}>
+        <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true">
+          <path d="M12 74 20 30 37 52 50 18 63 52 80 30 88 74Z" fill={c} stroke="#5a3a00" strokeWidth="3" strokeLinejoin="round" />
+          <rect x="12" y="70" width="76" height="13" rx="3" fill={c} stroke="#5a3a00" strokeWidth="3" />
+          <path d="M22 62H78" stroke="#ffffff99" strokeWidth="2" />
+          <circle cx="50" cy="18" r="5" fill="#ff3b52" stroke="#5a3a00" strokeWidth="2" />
+          <circle cx="20" cy="30" r="4" fill="#4ac8ff" stroke="#5a3a00" strokeWidth="2" />
+          <circle cx="80" cy="30" r="4" fill="#5dff9a" stroke="#5a3a00" strokeWidth="2" />
+          <circle cx="50" cy="76.5" r="3.4" fill="#ff3b52" />
+        </svg>
+      </div>
+    )
+  },
+  // The Showman: a spotlight finds it, narrows to a pin, and snaps off (its pool of light on the floor with it).
+  spotlight: (p, ctx) => {
+    const c = colorOf(p, ctx)
+    const ms = (p.ms || 1400) * ctx.speed
+    return [
+      <div key="spc" style={{ position: 'absolute', left: '50%', top: '-35%', width: '100cqw', height: '135cqw', transformOrigin: '50% 0', clipPath: 'polygon(46% 0, 54% 0, 100% 100%, 0 100%)',
+        background: `linear-gradient(${c}cc, ${c}55 60%, ${c}00)`, animation: `lgkSpot ${ms}ms cubic-bezier(.4,0,.3,1) both` }} />,
+      <div key="spf" style={{ position: 'absolute', left: '50%', top: '80%', width: '84cqw', height: '16cqw', borderRadius: '50%', background: `radial-gradient(closest-side, ${c}dd, ${c}00)`,
+        animation: `lgkSpot ${ms}ms cubic-bezier(.4,0,.3,1) both` }} />,
+    ]
+  },
+  // The Reaper: its scythe strains, SNAPS in two at the shaft, and both halves tumble away.
+  scythe: (p, ctx) => {
+    const c = colorOf(p, ctx)
+    const ms = (p.ms || 1300) * ctx.speed
+    const art = (
+      <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true">
+        <path d="M30 94 66 8" stroke="#1c1418" strokeWidth="6.5" strokeLinecap="round" />
+        <path d="M30 94 66 8" stroke="#8a6a52" strokeWidth="3.2" strokeLinecap="round" />
+        <path d="M66 8C42-2 14 8 4 34 22 20 42 16 64 22Z" fill="#e8fbff" stroke={c} strokeWidth="2" strokeLinejoin="round" />
+      </svg>
+    )
+    return [
+      ...[['A', 'inset(0 0 52% 0)'], ['B', 'inset(48% 0 0 0)']].map(([h, clip]) => (
+        <div key={`sc${h}`} style={{ position: 'absolute', left: '50%', top: '50%', width: '84cqw', height: '84cqw', marginLeft: '-42cqw', marginTop: '-42cqw', clipPath: clip, filter: `drop-shadow(0 0 1.6cqw ${c})`, animation: `lgkScythe${h} ${ms}ms cubic-bezier(.3,.7,.4,1) both` }}>{art}</div>
+      )),
+      <div key="scs" style={{ position: 'absolute', left: 'calc(50% - 1cqw)', top: '50%', width: '28cqw', height: '28cqw', marginLeft: '-14cqw', marginTop: '-14cqw', '--r0': '0deg', '--r1': '90deg', animation: `lgiTwinkle ${420 * ctx.speed}ms ease-out ${ms * 0.44}ms both` }}><Glyph name="star4" color="#ffffff" accent="#ffffff" outline={false} /></div>,
+    ]
+  },
+  // The Leviathan: the water rises over it (translucent, it shows through), sloshes and drains away.
+  flood: (p, ctx) => {
+    const c = colorOf(p, ctx)
+    const ms = (p.ms || 1800) * ctx.speed
+    return (
+      <div key="fd" style={{ position: 'absolute', left: '-14%', width: '128%', bottom: '-6%', height: '74%', overflow: 'hidden', WebkitMaskImage: SIDE_FADE, maskImage: SIDE_FADE }}>
+        <div style={{ position: 'absolute', inset: 0, animation: `lgkFlood ${ms}ms cubic-bezier(.4,0,.4,1) both` }}>
+          <div style={{ position: 'absolute', left: '-10%', width: '120%', top: 0, height: '100%', animation: `lgkSlosh ${Math.round(ms / 2)}ms ease-in-out 2` }}>
+            <svg viewBox="0 0 120 100" width="100%" height="100%" preserveAspectRatio="none" aria-hidden="true">
+              <path d="M0 10C10 2 20 2 30 10S50 18 60 10 80 2 90 10 110 18 120 10V100H0Z" fill={c} opacity=".55" />
+              <path d="M0 10C10 2 20 2 30 10S50 18 60 10 80 2 90 10 110 18 120 10" fill="none" stroke="#ffffff" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+              <path d="M0 22C12 16 22 18 34 24S56 30 70 22 96 16 120 24" fill="none" stroke="#e8f8ff" strokeWidth="1.2" opacity=".6" vectorEffect="non-scaling-stroke" />
+            </svg>
+          </div>
+        </div>
+      </div>
+    )
+  },
+  // The Lich: its phylactery appears, pulses faster and faster, cracks, and is gone (the shards fly as another part).
+  gem: (p, ctx) => {
+    const c = colorOf(p, ctx)
+    const ms = (p.ms || 1450) * ctx.speed
+    return (
+      <div key="gm" style={{ position: 'absolute', left: '50%', top: `${p.top || 44}%`, width: '28cqw', height: '28cqw', marginLeft: '-14cqw', marginTop: '-14cqw', filter: `drop-shadow(0 0 2.4cqw ${c})`, animation: `lgkGem ${ms}ms ease-in-out both` }}>
+        <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true">
+          <path d="M50 4 82 30 66 94H34L18 30Z" fill={`${c}cc`} stroke="#ffffff" strokeWidth="3" strokeLinejoin="round" />
+          <path d="M18 30H82M50 4 38 30 50 94 62 30Z" fill="none" stroke="#ffffff" strokeWidth="1.6" opacity=".7" />
+          <polyline points="52,8 44,30 56,48 46,70 54,90" fill="none" stroke="#062a14" strokeWidth="2.6" style={{ '--len': 110, strokeDasharray: 110, animation: `lgiDraw ${Math.round(ms * 0.35)}ms ease-out ${Math.round(ms * 0.45)}ms both` }} />
+        </svg>
+      </div>
+    )
+  },
+  // Cerberus: the chain that held it stretches across the box, strains and SNAPS, both ends swinging down.
+  chainsnap: (p, ctx) => {
+    const c = colorOf(p, ctx)
+    const ms = (p.ms || 1300) * ctx.speed
+    const links = (
+      <svg viewBox="0 0 110 14" width="100%" height="100%" preserveAspectRatio="none" aria-hidden="true" style={{ overflow: 'visible' }}>
+        {Array.from({ length: 10 }, (_, i) => <ellipse key={`u${i}`} cx={6 + i * 10.5} cy="7" rx="6.4" ry={i % 2 ? 1.8 : 4.4} fill="none" stroke="#06302a" strokeWidth="3.6" />)}
+        {Array.from({ length: 10 }, (_, i) => <ellipse key={`h${i}`} cx={6 + i * 10.5} cy="7" rx="6.4" ry={i % 2 ? 1.8 : 4.4} fill="none" stroke={i % 2 ? '#ffffff' : c} strokeWidth="2" />)}
+      </svg>
+    )
+    const half = { position: 'absolute', top: `${p.top || 52}%`, width: '62cqw', height: '12cqw', marginTop: '-6cqw', filter: `drop-shadow(0 0 1.2cqw ${c})` }
+    return [
+      <div key="chl" style={{ ...half, right: '50%', transformOrigin: '0 50%', animation: `lgkChainL ${ms}ms cubic-bezier(.3,.7,.4,1) both` }}>{links}</div>,
+      <div key="chr" style={{ ...half, left: '50%', transformOrigin: '100% 50%', animation: `lgkChainR ${ms}ms cubic-bezier(.3,.7,.4,1) both` }}>{links}</div>,
+      <div key="chs" style={{ position: 'absolute', left: '50%', top: `${p.top || 52}%`, width: '30cqw', height: '30cqw', marginLeft: '-15cqw', marginTop: '-15cqw', '--r0': '0deg', '--r1': '90deg', animation: `lgiTwinkle ${440 * ctx.speed}ms ease-out ${Math.round(ms * 0.44)}ms both` }}><Glyph name="star4" color="#ffffff" accent="#ffffff" outline={false} /></div>,
+    ]
+  },
+  // Flames over the heads gutter out one by one (Cerberus's three fires dying).
+  gutter: (p, ctx) => {
+    const n = p.n || 3
+    const c = colorOf(p, ctx)
+    const ms = (p.ms || 1200) * ctx.speed
+    return Array.from({ length: n }, (_, i) => {
+      const o = i - (n - 1) / 2
+      const x = o * (p.spread || 26)
+      const y = (p.y ?? -30) + Math.abs(o) * 6
+      return <div key={`gt${i}`} style={{ position: 'absolute', left: `calc(50% + ${x}cqw)`, top: `calc(50% + ${y}cqw)`, width: '18cqw', height: '18cqw', marginLeft: '-9cqw', marginTop: '-9cqw', transformOrigin: '50% 90%',
+        filter: `drop-shadow(0 0 1.6cqw ${c})`, animation: `lgkGutter ${ms}ms ease-in-out ${i * (p.gap || 140)}ms both` }}><Glyph name="flame" color={c} accent={ctx.accent} /></div>
+    })
+  },
+  // The Dreamer: bubbles bloom all round it, wobble, and pop one after another (each pop a ring).
+  bubbles: (p, ctx) => {
+    const n = p.n || 9
+    const c = colorOf(p, ctx)
+    const base = (p.ms || 700) * ctx.speed
+    const gap = (p.gap || 70) * ctx.speed
+    return Array.from({ length: n }, (_, i) => {
+      const a = (Math.PI * 2 * i) / n + rnd(i, 191) * 0.5
+      const r = 22 + rnd(i, 193) * 18
+      const x = Math.cos(a) * r
+      const y = Math.sin(a) * r
+      const s = 14 + rnd(i, 195) * 10
+      const life = base + i * gap
+      const at = { position: 'absolute', left: `calc(50% + ${x.toFixed(1)}cqw)`, top: `calc(50% + ${y.toFixed(1)}cqw)`, width: `${s.toFixed(1)}cqw`, height: `${s.toFixed(1)}cqw`, borderRadius: '50%' }
+      return [
+        <div key={`bu${i}`} style={{ ...at, marginLeft: `${(-s / 2).toFixed(1)}cqw`, marginTop: `${(-s / 2).toFixed(1)}cqw`, border: `0.7cqw solid ${c}`, boxShadow: `0 0 1.5cqw ${c}`,
+          background: `radial-gradient(circle at 32% 30%, #ffffffdd 0 12%, ${c}33 30%, ${c}11 60%, ${c}55 100%)`, animation: `lgkBubbleLife ${Math.round(life)}ms ease-in-out both` }} />,
+        <div key={`bp${i}`} style={{ ...at, border: '0.5cqw solid #ffffff', '--s0': 0.6, '--s1': 1.8, animation: `lgiRing ${Math.round(300 * ctx.speed)}ms ease-out ${Math.round(life * 0.88)}ms both` }} />,
+      ]
+    }).flat()
+  },
+  // The Berserker: its axe slips from its grip, spins down and bites into the ground beside it, quivering.
+  axefall: (p, ctx) => (
+    <div key="ax" style={{ position: 'absolute', left: '50%', top: '50%', width: '58cqw', height: '58cqw', marginLeft: '-29cqw', marginTop: '-29cqw', filter: `drop-shadow(0 0 0.5cqw #ffffff) drop-shadow(0 0 2cqw ${ctx.color}) drop-shadow(0 0.8cqw 0 #0008)`, animation: `lgkAxe ${(p.ms || 1500) * ctx.speed}ms linear both` }}>
+      <Glyph name="axe" color={ctx.color} accent={ctx.accent} />
+    </div>
+  ),
+  // The Swarm Queen: her swarm deserts her, bees zigzagging off in every direction.
+  swarm: (p, ctx) => Array.from({ length: p.n || 28 }, (_, i) => {
+    const n = p.n || 28
+    const a = (Math.PI * 2 * i) / n + rnd(i, 201) * 0.6
+    const r = 62 + rnd(i, 203) * 14
+    const wig = (i % 2 ? 1 : -1) * (8 + rnd(i, 205) * 10)
+    const bee = <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'repeating-linear-gradient(90deg, #ffd21a 0 28%, #2a1800 28% 46%)', boxShadow: '0 0 0 0.3cqw #2a1800, -0.6cqw -0.8cqw 0 -0.2cqw #ffffffcc' }} />
+    return fly(`sw${i}`, bee, { x0: Math.cos(a) * 8, y0: Math.sin(a) * 8, xm: Math.cos(a) * r * 0.45 - Math.sin(a) * wig, ym: Math.sin(a) * r * 0.45 + Math.cos(a) * wig, x1: Math.cos(a) * r, y1: Math.sin(a) * r,
+      r0: deg(a), r1: deg(a) + wig * 4, s0: 0.7, s1: 1.2, w: 5.5, ms: (p.ms || 900) * ctx.speed, delay: rnd(i, 207) * 500, ease: 'cubic-bezier(.3,.5,.6,1)' })
+  }),
+  // Moonmaw: totality's diamond ring, a thin bright rim with one blinding bead flaring on it.
+  diamondring: (p, ctx) => {
+    const c = colorOf(p, ctx)
+    const ms = (p.ms || 1000) * ctx.speed
+    return [
+      <div key="dr" style={{ position: 'absolute', left: '50%', top: '50%', width: '92cqw', height: '92cqw', borderRadius: '50%', border: `0.8cqw solid ${c}`, boxShadow: `0 0 3cqw ${c}, inset 0 0 3cqw ${c}`, '--s0': 0.94, '--s1': 1.06, animation: `lgiRing ${ms}ms ease-out both` }} />,
+      <div key="db" style={{ position: 'absolute', left: 'calc(50% + 32cqw)', top: 'calc(50% - 32cqw)', width: '30cqw', height: '30cqw', marginLeft: '-15cqw', marginTop: '-15cqw', filter: `drop-shadow(0 0 2.4cqw #ffffff) drop-shadow(0 0 4cqw ${c})`, animation: `lgkBead ${Math.round(ms * 0.8)}ms ease-out ${Math.round(ms * 0.15)}ms both` }}>
+        <Glyph name="star4" color="#ffffff" accent="#ffffff" outline={false} />
+      </div>,
+    ]
+  },
+  // The Hydra: its heads (at the edges of the frame, clear of its face) droop and drop off one by one.
+  heads: (p, ctx) => {
+    const c = colorOf(p, ctx)
+    const ms = (p.ms || 1000) * ctx.speed
+    const gap = (p.gap || 160) * ctx.speed
+    const SPOTS = [[-44, 1], [44, -1], [-30, 1], [30, -1], [0, 1]]
+    return SPOTS.slice(0, p.n || 5).map(([x, sd], i) => (
+      <div key={`hd${i}`} style={{ position: 'absolute', left: `calc(50% + ${x}cqw)`, top: x ? '-14%' : '-24%', width: '19cqw', height: '58cqw', marginLeft: '-9.5cqw', transformOrigin: '50% 0', '--sd': sd,
+        filter: `drop-shadow(0 0 1.2cqw ${c})`, animation: `lgkHead ${ms}ms cubic-bezier(.4,0,.5,1) ${i * gap}ms both` }}>
+        <svg viewBox="0 0 20 62" width="100%" height="100%" aria-hidden="true" style={{ overflow: 'visible' }}>
+          <path d="M10 0C3 16 17 28 10 44" fill="none" stroke="#062436" strokeWidth="7.5" strokeLinecap="round" />
+          <path d="M10 0C3 16 17 28 10 44" fill="none" stroke={c} strokeWidth="5" strokeLinecap="round" />
+          <path d="M3 44C3 38 17 38 17 44L15 56C13 60 7 60 5 56Z" fill={c} stroke="#062436" strokeWidth="1.4" />
+          <circle cx="7" cy="46" r="1.4" fill="#ffffff" />
+          <circle cx="13" cy="46" r="1.4" fill="#ffffff" />
+          <path d="M6 56 7.5 61 9 56M11 56 12.5 61 14 56" fill="#ffffff" />
+        </svg>
+      </div>
+    ))
+  },
+  // The Kaleidoscope: a rainbow rosette (open in the middle) spins up round it, then flies apart.
+  mandala: (p, ctx) => {
+    const n = p.n || 12
+    const petals = Array.from({ length: n }, (_, i) => (
+      <g key={i} transform={`rotate(${(360 / n) * i} 50 50)`}>
+        <path d="M50 28 45 16 50 3 55 16Z" fill={RAINBOW[i % RAINBOW.length]} opacity=".85" stroke="#ffffff" strokeWidth=".8" />
+        <path d="M50 30 47.5 25 50 20 52.5 25Z" fill="#ffffff" opacity=".8" transform={`rotate(${180 / n} 50 50)`} />
+      </g>
+    ))
+    return (
+      <div key="md" style={{ position: 'absolute', left: '50%', top: '50%', width: '96cqw', height: '96cqw', marginLeft: '-48cqw', marginTop: '-48cqw', filter: 'drop-shadow(0 0 1.4cqw #ffffff)', animation: `lgkMandala ${(p.ms || 1300) * ctx.speed}ms cubic-bezier(.4,.1,.6,1) both` }}>
+        <svg viewBox="0 0 100 100" width="100%" height="100%" aria-hidden="true">
+          {petals}
+          <circle cx="50" cy="50" r="31" fill="none" stroke="#ffffff" strokeWidth=".8" strokeDasharray="2 2" />
+        </svg>
+      </div>
+    )
+  },
+  // The Puppeteer: a pair of shears closes over its strings, snip, snip.
+  snip: (p, ctx) => {
+    const c = colorOf(p, ctx)
+    const ms = (p.ms || 800) * ctx.speed
+    const top = `${p.top || 14}%`
+    const blade = (s) => (
+      <div key={`sn${s}`} style={{ position: 'absolute', left: '50%', top, width: '72cqw', height: '13cqw', marginLeft: '-36cqw', marginTop: '-6.5cqw', '--s': s, filter: `drop-shadow(0 0 0.5cqw #ffffff) drop-shadow(0 0 1.6cqw ${c})`, animation: `lgkSnip ${ms}ms cubic-bezier(.5,0,.3,1) both` }}>
+        <svg viewBox="0 0 100 18" width="100%" height="100%" aria-hidden="true" style={{ overflow: 'visible', transform: s < 0 ? 'scaleX(-1)' : undefined }}>
+          <path d="M50 7 98 7.5 50 12.5Z" fill="#ffffff" stroke="#1a0006" strokeWidth="1.2" strokeLinejoin="round" />
+          <circle cx="16" cy="9" r="7" fill="none" stroke={c} strokeWidth="3" />
+          <path d="M23 9H50" stroke={c} strokeWidth="3" />
+          <circle cx="50" cy="9" r="2" fill="#ffffff" />
+        </svg>
+      </div>
+    )
+    return [blade(1), blade(-1),
+      <div key="sns" style={{ position: 'absolute', left: '50%', top, width: '24cqw', height: '24cqw', marginLeft: '-12cqw', marginTop: '-12cqw', '--r0': '0deg', '--r1': '90deg', animation: `lgiTwinkle ${380 * ctx.speed}ms ease-out ${Math.round(ms * 0.48)}ms both` }}><Glyph name="star4" color="#ffffff" accent="#ffffff" outline={false} /></div>]
+  },
+  // The Sugar Queen: a glossy pool of syrup spreads under it as it melts.
+  puddle: (p, ctx) => {
+    const c = colorOf(p, ctx)
+    return <div key="pd" style={{ position: 'absolute', left: '50%', top: `${p.top || 86}%`, width: '120cqw', height: '22cqw', marginLeft: '-60cqw', marginTop: '-11cqw', borderRadius: '50%',
+      background: `radial-gradient(ellipse at 40% 35%, #ffffffcc 0 6%, ${c}ee 20%, ${c}cc 55%, ${c}00 72%)`, animation: `lgkPuddle ${(p.ms || 1600) * ctx.speed}ms cubic-bezier(.3,.7,.4,1) both` }} />
+  },
+  // The Kitsune: its nine tails fan out like a peacock's, then each breaks loose as a flame of foxfire.
+  tails: (p, ctx) => {
+    const n = p.n || 9
+    const c = colorOf(p, ctx)
+    const tip = p.tip || '#7fe8ff'
+    const ms = (p.ms || 1300) * ctx.speed
+    return Array.from({ length: n }, (_, i) => (
+      <div key={`tl${i}`} style={{ position: 'absolute', left: '50%', top: `${p.top || 92}%`, width: 0, height: 0, opacity: 0.8 }}>
+        <div style={{ position: 'absolute', left: '-6cqw', bottom: 0, width: '12cqw', height: '50cqw', transformOrigin: '50% 100%', '--ta': `${(-100 + (200 * i) / Math.max(1, n - 1)).toFixed(1)}deg`, filter: `drop-shadow(0 0 1.4cqw ${tip})`,
+          animation: `lgkTail ${ms}ms cubic-bezier(.3,.7,.4,1) ${Math.round(Math.abs(i - (n - 1) / 2) * 40)}ms both` }}>
+          <svg viewBox="0 0 20 80" width="100%" height="100%" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M10 80C2 62 0 40 6 22 8 12 12 4 10 0 16 10 20 30 18 50 17 64 14 74 10 80Z" fill={c} opacity=".8" />
+            <path d="M10 6C14 14 15 26 13 36 11 26 9 16 10 6Z" fill={tip} />
+          </svg>
+        </div>
+      </div>
+    ))
+  },
+  // The Ophanim: a great eye of light opens over it, flutters, and closes for good.
+  eyeclose: (p, ctx) => {
+    const c = colorOf(p, ctx)
+    return (
+      <div key="ey" style={{ position: 'absolute', left: '50%', top: `${p.top || 50}%`, width: '84cqw', height: '46cqw', marginLeft: '-42cqw', marginTop: '-23cqw', filter: `drop-shadow(0 0 2cqw ${c})`, animation: `lgkEye ${(p.ms || 1400) * ctx.speed}ms cubic-bezier(.4,0,.4,1) both` }}>
+        <svg viewBox="0 0 100 50" width="100%" height="100%" aria-hidden="true">
+          <path d="M2 25C22 2 78 2 98 25 78 48 22 48 2 25Z" fill={`${c}22`} stroke={c} strokeWidth="2.6" />
+          <circle cx="50" cy="25" r="13" fill="none" stroke="#ffffff" strokeWidth="2" />
+          <circle cx="50" cy="25" r="6" fill={c} />
+          <path d="M2 25C22 2 78 2 98 25" fill="none" stroke="#ffffff" strokeWidth="1.2" opacity=".8" />
+        </svg>
+      </div>
+    )
+  },
+  // Inferno: what is left of it, a bed of coals at its feet glowing white hot and cooling to ash.
+  embers: (p, ctx) => Array.from({ length: p.n || 11 }, (_, i) => {
+    const n = p.n || 11
+    const c = colorOf(p, ctx)
+    const x = (i - (n - 1) / 2) * (84 / n) + (rnd(i, 211) - 0.5) * 4
+    const y = 38 + rnd(i, 213) * 8 - Math.abs(i - (n - 1) / 2) * 0.8
+    const s = 7 + rnd(i, 215) * 6
+    return <div key={`em${i}`} style={{ position: 'absolute', left: `calc(50% + ${x.toFixed(1)}cqw)`, top: `calc(50% + ${y.toFixed(1)}cqw)`, width: `${s.toFixed(1)}cqw`, height: `${(s * 0.7).toFixed(1)}cqw`, marginLeft: `${(-s / 2).toFixed(1)}cqw`, marginTop: `${(-s * 0.35).toFixed(1)}cqw`,
+      borderRadius: '45% 55% 40% 50%', background: `radial-gradient(circle at 45% 40%, #fff6c8 0, #ffd23a 22%, ${c} 50%, #5a1400 85%)`, boxShadow: `0 0 2cqw ${c}`,
+      animation: `lgkCoal ${(p.ms || 1300) * ctx.speed}ms ease-out ${Math.round(rnd(i, 217) * 160)}ms both` }} />
+  }),
+  // The Void: a black hole with a burning accretion ring swallows the light, shrinks to a point, and is gone.
+  singularity: (p, ctx) => {
+    const c = colorOf(p, ctx)
+    const ring = 'radial-gradient(circle, transparent 36%, #000 40%, transparent 64%)'
+    return (
+      <div key="sg" style={{ position: 'absolute', left: '50%', top: '50%', width: '52cqw', height: '52cqw', marginLeft: '-26cqw', marginTop: '-26cqw', borderRadius: '50%', boxShadow: `0 0 4cqw ${c}, 0 0 1.5cqw #ffffff`,
+        background: `radial-gradient(circle, #05010cdd 0 34%, #ffffff 38%, ${c} 44%, ${c}66 54%, transparent 66%)`, animation: `lgkSing ${(p.ms || 1200) * ctx.speed}ms cubic-bezier(.55,0,.8,.6) both` }}>
+        <div style={{ position: 'absolute', inset: '-30%', borderRadius: '50%', background: `conic-gradient(from 0deg, transparent, ${c}aa, transparent 30%, #ffffff88, transparent 60%, ${c}aa, transparent)`, WebkitMaskImage: ring, maskImage: ring }} />
+      </div>
+    )
+  },
 }
 export const PART_NAMES = Object.keys(PARTS)

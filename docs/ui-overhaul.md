@@ -28,7 +28,7 @@ new, add it to a shared layer first.
 | Segmented / chip ground | `--c-surface-alt` | `#EDF0F3` | `#19232C` |
 | Hairline | `--c-border` | `#E3E7EB` | `#212D37` |
 | Strong line | `--c-border-strong` | `#CBD2D9` | `#33424E` |
-| Text | `--c-ink` / `-dim` / `-faint` | `#101820` / `#4A5866` / `#788693` | `#EAF0F4` / `#A6B4BF` / `#71838F` |
+| Text | `--c-ink` / `-dim` / `-faint` | `#101820` / `#4A5866` / `#626F7B` | `#EAF0F4` / `#A6B4BF` / `#80909B` |
 | Brand | `--c-brand` | `#DF2540` | `#FF4D63` |
 | Brand accents | `--c-brand-tint` / `--c-brand-line` (`C.brandTint`, `C.brandRing`) | theme-tuned | theme-tuned |
 | Solid ink | `--c-ink-solid` / `--c-on-ink` (`C.inkSolid`, `C.onInk`) | near black | near white |

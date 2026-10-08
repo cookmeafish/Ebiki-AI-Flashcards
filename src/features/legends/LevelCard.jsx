@@ -4,8 +4,8 @@ import { C, FONT } from '../../config/tokens'
 import { useFeatureCtx } from '../registry'
 import { Card } from '../ui'
 import { useLearner } from '../kit/learnerStore'
-import { LevelChip } from './MapView'
-import { LEGENDS_INTENT } from './LegendsScreen'
+import { LevelChip } from './LevelChip'
+import { LEGENDS_INTENT } from './store'
 
 export default function LevelCard() {
   const ctx = useFeatureCtx()

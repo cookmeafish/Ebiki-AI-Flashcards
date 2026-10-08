@@ -440,9 +440,13 @@ export function compileQuery(q) {
   if (q.noteId != null) terms.push(`nid:${Number(q.noteId)}`)
   if (q.cardId != null) terms.push(`cid:${Number(q.cardId)}`)
   if (q.text != null) {
-    // Search operators out: a quote, wildcard, paren or colon in a tapped word changed what was searched.
-    const safe = String(q.text).replace(/["*_()\\:]/g, '').trim()
-    if (!safe) throw new Error('card query text is empty')
+    // Search operators ESCAPED, never deleted (deleting turned "dog_house" into a search for "doghouse" and
+    // missed the card that exists): inside quotes `_`/`*` are wildcards, `:` starts a field search, `\` and
+    // `"` end or escape the term. Parens and a leading `-` are literal inside quotes (negation and grouping
+    // are parsed outside them).
+    const raw = String(q.text).trim()
+    if (!raw) throw new Error('card query text is empty')
+    const safe = raw.replace(/[\\"*_:]/g, (c) => '\\' + c)
     // nc: = Anki's accent-insensitive search.
     terms.push(q.ignoreAccents ? `"nc:${safe}"` : `"${safe}"`)
   }
@@ -468,8 +472,16 @@ export function compileQuery(q) {
 //     recorded); try answerCards; a NEW card gets an approximate first interval + revlog row; a REVIEW
 //     card is nudged due and answered by the reviewer; if still blocked, one SM-2 step from its own
 //     interval.
+const RATING_NAMES = ['again', 'hard', 'good', 'easy']
+// The 1-4 button a rating stands for. A text "3" fell through every `=== 3` test (a new card then got
+// the Again interval), and 0 or 5 reached Anki's answer calls as is.
+const easeNum = (e) => Math.min(4, Math.max(1, Math.round(Number(e)) || 1))
+// The rating as Anki RECORDED it. Capped to the card's buttons (Easy on a 3-button learning card is Good)
+// and reported back as sent: the app locks the card showing this, and it used to show Easy for a Good.
+const asSent = (cs, e) => (e === cs.ease ? cs : { ...cs, ease: e, rating: RATING_NAMES[e - 1] })
+
 async function recordRatings({ deck, ratings, preSchedule = () => undefined, hooks }) {
-  const wanted = new Map(ratings.map((cs) => [cs.cardId, cs]))
+  const wanted = new Map(ratings.map((cs) => [cs.cardId, Number.isInteger(cs.ease) && cs.ease >= 1 && cs.ease <= 4 ? cs : { ...cs, ease: easeNum(cs.ease) }]))
   let recordedCount = 0
   const recorded = (cs) => { recordedCount++; wanted.delete(cs.cardId); hooks.recorded(cs) }
   const syncStartedAt = Date.now()
@@ -486,7 +498,7 @@ async function recordRatings({ deck, ratings, preSchedule = () => undefined, hoo
         // answer call, and that row alone locked the card "Synced" though its rating never reached Anki.
         // Locked with the grade Anki RECORDED (the card's rating may have changed since the call that threw).
         const hit = rows.filter((r) => Number(r?.ease) >= 1 && Number(r?.id) >= since - 1000).sort((a, b) => Number(b.id) - Number(a.id))[0]
-        if (hit) { const cs = wanted.get(id); const e = Math.min(4, Number(hit.ease)); if (cs) recorded({ ...cs, ease: e, rating: ['again', 'hard', 'good', 'easy'][e - 1] }) }
+        if (hit) { const cs = wanted.get(id); const e = easeNum(hit.ease); if (cs) recorded(asSent(cs, e)) }
         hooks.forgetUncertain(id)
       }
     } catch {
@@ -516,7 +528,7 @@ async function recordRatings({ deck, ratings, preSchedule = () => undefined, hoo
           await ankiRequest('guiShowAnswer')
           hooks.markUncertain(cs.cardId, Date.now()) // before the call: see clearUncertain
           const ok = await ankiRequest('guiAnswerCard', { ease })
-          if (ok !== false) recorded(cs)
+          if (ok !== false) recorded(asSent(cs, ease))
           else { hooks.clearUncertain(cs.cardId); break } // a clean refusal: nothing recorded
         } catch {
           // Anki may have RECORDED it before the reply was lost (a timeout): the fallback below would then
@@ -558,11 +570,12 @@ async function recordRatings({ deck, ratings, preSchedule = () => undefined, hoo
     try {
       console.log('[Anki sync] answering card (fallback)', cs.cardId, 'ease', cs.ease, 'rating', cs.rating)
       let result
+      let sentEase = cs.ease
       try {
         hooks.markUncertain(cs.cardId, Date.now()) // before the call: see clearUncertain
         result = await ankiRequest('answerCards', { answers: [{ cardId: cs.cardId, ease: cs.ease }] })
         // Retry once with a capped ease in case it was out of range (a new card with only 3 buttons).
-        if (!ansOk(result)) result = await ankiRequest('answerCards', { answers: [{ cardId: cs.cardId, ease: Math.min(cs.ease, 3) }] })
+        if (!ansOk(result)) { sentEase = Math.min(cs.ease, 3); result = await ankiRequest('answerCards', { answers: [{ cardId: cs.cardId, ease: sentEase }] }) }
         if (!ansOk(result)) hooks.clearUncertain(cs.cardId) // refused both times: nothing recorded
       } catch (eAns) {
         // "Not at top of queue" is a clean refusal (the fallbacks below). Anything else (a timeout: Anki
@@ -575,7 +588,7 @@ async function recordRatings({ deck, ratings, preSchedule = () => undefined, hoo
         hooks.clearUncertain(cs.cardId) // "not at top of queue": refused, nothing recorded
         throw eAns
       }
-      if (ansOk(result)) { recorded(cs); continue }
+      if (ansOk(result)) { recorded(asSent(cs, sentEase)); continue }
       throw new Error('not at top of queue')
     } catch {
       try {
@@ -583,7 +596,7 @@ async function recordRatings({ deck, ratings, preSchedule = () => undefined, hoo
         if (isNew) {
           // Brand-new card: approximate first interval + revlog row. No existing schedule to corrupt.
           const days = easeToDueDays(cs.ease)
-          const ease = Math.min(Math.max(cs.ease, 1), 4)
+          const ease = cs.ease
           console.log('[Anki sync] setDueDate+insertReviews fallback (new card)', cs.cardId, 'days', days, 'ease', ease)
           // "!" also sets the interval (not just the due date) so the new card graduates with the
           // right interval instead of staying ivl=0 (which Anki would then reschedule oddly).
@@ -616,10 +629,11 @@ async function recordRatings({ deck, ratings, preSchedule = () => undefined, hoo
               const maxEase2 = validEases2.length ? Math.max(...validEases2) : 4
               await ankiRequest('guiShowAnswer')
               let ok2
+              const ease2 = Math.min(cs.ease, maxEase2)
               hooks.markUncertain(cs.cardId, Date.now()) // before the call: see clearUncertain
-              try { ok2 = await ankiRequest('guiAnswerCard', { ease: Math.min(cs.ease, maxEase2) }) }
+              try { ok2 = await ankiRequest('guiAnswerCard', { ease: ease2 }) }
               catch { hooks.markUncertain(cs.cardId, syncStartedAt); answered = 'uncertain'; break } // may be recorded (see above)
-              if (ok2 !== false) { recorded(cs); answered = true; break }
+              if (ok2 !== false) { recorded(asSent(cs, ease2)); answered = true; break }
               hooks.clearUncertain(cs.cardId) // refused: nothing recorded
             }
             if (cur2?.cardId && cur2.cardId !== cs.cardId) break // a different card is genuinely ahead — polling won't change that

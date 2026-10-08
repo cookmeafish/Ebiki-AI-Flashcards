@@ -198,8 +198,10 @@ export function shapePractice(raw) {
   const d = obj(raw) || {}
   if (d.ok === false) return { ok: false, count: 0, recent: [] }
   const list = arr(d.items).filter((x) => obj(x) && String(x.label || '').trim())
-  const recent = [...list].sort((a, b) => num(b.at) - num(a.at)).slice(0, LC.practiceShown).map((x) => `${clip(x.label, 80)}${x.src ? ` (${clip(x.src, 20)})` : ''}`)
-  return { ok: true, count: list.length, recent }
+  const shown = [...list].sort((a, b) => num(b.at) - num(a.at)).slice(0, LC.practiceShown)
+  const recent = shown.map((x) => `${clip(x.label, 80)}${x.src ? ` (${clip(x.src, 20)})` : ''}`)
+  // Which lines are CARDS (a card's front) and which topics: a secret redaction drops the cards (learnerContextUse.js).
+  return { ok: true, count: list.length, recent, recentCards: shown.map((x) => x.kind !== 'topic') }
 }
 
 // The whole snapshot from the raw parts App gathered.

@@ -1,6 +1,7 @@
 // LEGENDS: the per-mode adventure map. First visit: a short questionnaire, then "I'm new" or a placement exam;
 // Ebi plans the map; areas are detailed lazily as the learner climbs. This screen only orchestrates: rules in
 // ./map.js and ./placement.js, AI in ./generate.js, storage in ./store.js.
+import { ctxErrorText } from '../kit/aiError'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile, shrimpUrl } from '../../config/shrimp'
@@ -24,7 +25,7 @@ import { planMap, detailAreas, extendIfNeeded, detailAreaNow, forgetRunning } fr
 import Questionnaire from './Questionnaire'
 import Placement from './PlacementExam'
 import MapView from './MapView'
-import NodeRun, { ItemAddList, NewQuestionsButton } from './NodeRun'
+import NodeRun, { ItemAddList, NewQuestionsButton, ScrollTop } from './NodeRun'
 import EditPanel from './EditPanel'
 import AssetView from './AssetView'
 import RaidRun from './RaidRun'
@@ -33,7 +34,8 @@ import { BossStyle } from './BossArena'
 import { cheatsOn } from './CheatUI'
 import { cheatCompleteNode, cheatCompleteArea, cheatUnlockTo, cheatResetNode, cheatResetArea, cheatClearArea } from './cheats'
 
-export const LEGENDS_INTENT = 'legends' // = the nav id; payload { edit: '<request>' } opens "Change my map"
+import { LEGENDS_INTENT } from './store'
+export { LEGENDS_INTENT }
 // A learner who picks "I'm new" starts near the bottom whatever they rated; the rating still nudges it.
 const NEW_LEVEL = [0, 0, 3, 8, 14, 20]
 const PLACEMENT_SOURCE = 'legends-placement' // the game gives the placement XP for this source
@@ -286,7 +288,7 @@ export default function LegendsScreen() {
         if (!live()) return
         if (needsMoreAreas(map)) { setBusy(ctx.t('lg_planningMore')); await extendIfNeeded(ctx, pinned) }
         if (live()) { setBusy(''); setError('') }
-      } catch (e) { if (live()) { setBusy(''); setError(String(e.message || e)) } }
+      } catch (e) { if (live()) { setBusy(''); setError(ctxErrorText(ctx, e)) } }
     }
     run()
   // hasKey: a key added while this screen waits on "needs a key" starts the planning (it waited for a revisit).
@@ -419,7 +421,7 @@ export default function LegendsScreen() {
           <EbiSays pose={poseFile('king')}>{t('lg_welcome', { subject: subject.name })}</EbiSays>
           <div style={{ fontSize: 14.5, color: C.inkDim, lineHeight: 1.55 }}>{t('lg_welcomeBody')}</div>
           {!ai.hasKey && <div style={{ color: C.warning, fontSize: 13 }}>{t('lg_needKey')}</div>}
-          {error && <div style={{ color: C.danger, fontSize: 13 }}>{error}</div>}
+          {error && <div role="alert" style={{ color: C.danger, fontSize: 13 }}>{error}</div>}
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <ChunkyButton color={C.success} onClick={() => setView('questionnaire')} disabled={!ai.hasKey}>{t('lg_begin')}</ChunkyButton>
           </div>
@@ -434,7 +436,7 @@ export default function LegendsScreen() {
       return (
         <div style={{ maxWidth: 600, margin: '30px auto', display: 'grid', gap: 18 }}>
           <EbiSays pose={poseFile('book')}>{t('lg_resumePlacement')}</EbiSays>
-          {error && <div style={{ color: C.danger, fontSize: 13 }}>{error}</div>}
+          {error && <div role="alert" style={{ color: C.danger, fontSize: 13 }}>{error}</div>}
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
             <ChunkyButton variant="ghost" color={C.inkDim} onClick={() => saveStart({ ...map.start, path: 'new' })}>🌱 {t('lg_startNew')}</ChunkyButton>
             {knownOk && <ChunkyButton variant="ghost" color={C.purple} onClick={() => knownFromEvidence(map.start)} disabled={!ai.hasKey}>🧠 {t('lg_startKnown')}</ChunkyButton>}
@@ -508,7 +510,8 @@ export default function LegendsScreen() {
       })
       // undefined = the write failed (folder switching, share down): nothing was saved, so nothing is paid or shown
       // as cleared (it paid the step and the boss's one-time reward, and the step stayed open on the map).
-      if (!outcome || savedMap === undefined) { setError(t('lg_errSave')); setView('map'); return }
+      // (Only on the mode it was for: after a switch the other mode's map showed this step's save error.)
+      if (!outcome || savedMap === undefined) { if (pinned === modeIdRef.current) { setError(t('lg_errSave')); setView('map') } return }
       const { passed, stars, areaDone, nextAreaId } = outcome
       const earnedLife = node.kind === 'weak' && passed && !hadLife // the Weak spots heart, once per island
       const source = node.kind === 'boss' ? 'boss' : 'legends'
@@ -597,7 +600,7 @@ export default function LegendsScreen() {
       detailNow: async (a) => {
         const pinned = modeId
         setBusy(t('lg_preparingArea')); setError('')
-        try { await detailAreaNow(ctx, pinned, a) } catch (e) { setError(String(e.message || e)) } finally { setBusy('') }
+        try { await detailAreaNow(ctx, pinned, a) } catch (e) { setError(ctxErrorText(ctx, e)) } finally { setBusy('') }
       },
       assets: () => setView('assets'),
       setLevel: async () => {
@@ -626,7 +629,8 @@ export default function LegendsScreen() {
     if (held.current && !slow) return held.current
     return <div style={{ padding: 30, color: C.inkDim, fontWeight: 700 }}>{t('lg_loading')}</div>
   }
-  const out = screen()
+  // A new view starts at its top (a step's result opened scrolled down by the quiz before it; the map centers itself).
+  const out = <><ScrollTop on={view} skip={view === 'map'} />{screen()}</>
   held.current = out
   return out
 }

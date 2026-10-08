@@ -15,6 +15,10 @@ $app = Split-Path $PSScriptRoot -Parent
 # Chinese and Japanese print correctly in the console.
 try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch {}
 . (Join-Path $PSScriptRoot 'launcher-i18n.ps1')
+# Git never prompts here either (as in launch.ps1 and /api/update): the repository is public, so a sign-in
+# request means it moved or a proxy wants credentials, and a Credential Manager window or a console prompt
+# would hold the installer with no timeout. A failed fetch is reported instead (ln_inst_noGithub).
+$env:GIT_TERMINAL_PROMPT = '0'; $env:GCM_INTERACTIVE = 'never'; $env:GIT_ASKPASS = 'echo'
 
 function Section($t) { Write-Host ''; Write-Host "== $t ==" -ForegroundColor Cyan }
 function Ok($t)      { Write-Host "  $t" -ForegroundColor Green }
@@ -118,7 +122,7 @@ function Link-ToGit($dir, $repo) {
   # this repo it costs about 8.7 MB and one second - nothing beside the npm
   # install this same script runs - so a ZIP user gets the same real repository a
   # git user has, and can pull, log, diff and revert by hand like anyone else.
-  & git -C $dir fetch origin master:refs/remotes/origin/master 2>&1 | Out-Null
+  & git -C $dir -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=20 fetch origin master:refs/remotes/origin/master 2>&1 | Out-Null
   if ($LASTEXITCODE -ne 0) { throw (Tr 'ln_inst_noGithub') }
   & git -C $dir checkout -B master refs/remotes/origin/master -f 2>&1 | Out-Null
   if ($LASTEXITCODE -ne 0) { throw (Tr 'ln_inst_noCheckout') }
@@ -251,7 +255,7 @@ try {
     # offline just leaves it as it was, and the next run tries again.
     if (Test-Path (Join-Path $app '.git\shallow')) {
       Info (Tr 'ln_inst_filling')
-      & git -C $app fetch --unshallow 2>&1 | Out-Null
+      & git -C $app -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=20 fetch --unshallow 2>&1 | Out-Null
       if ($LASTEXITCODE -eq 0) { Ok (Tr 'ln_inst_historyOk') } else { Warn (Tr 'ln_inst_historyFail') }
     }
     if ($sha) { Ok (Tr 'ln_inst_version' @{ sha = $sha }) }
@@ -260,7 +264,7 @@ try {
   } elseif ($git -and (Test-RealClone $app)) {
     $branch = (& git -C $app rev-parse --abbrev-ref HEAD 2>$null)
     if ($branch -eq 'master') {
-      & git -C $app fetch origin master:refs/remotes/origin/master 2>&1 | Out-Null
+      & git -C $app -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=20 fetch origin master:refs/remotes/origin/master 2>&1 | Out-Null
       & git -C $app branch --set-upstream-to=origin/master master 2>&1 | Out-Null
       if ($LASTEXITCODE -eq 0) { Ok (Tr 'ln_inst_trackingFixed') }
       else { Warn (Tr 'ln_inst_trackingFail') }

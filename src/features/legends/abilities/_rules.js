@@ -47,3 +47,8 @@ export function hashOf(...parts) {
   for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0 }
   return h >>> 0
 }
+
+// "Clean" for an ability's own mechanics: a clean typed answer, OR a glancing one under Focus (a raid power: it "hits
+// like a clean one", fight.js marks it res.focused before onStrike). Every module that pays a clean typed answer reads
+// this, never ctx.clean alone, so Focus cracks Titan's plates, charges Moonmaw's moons, chains Cerberus's iron head.
+export const hitClean = (ctx, res) => !!((ctx && ctx.clean) || (res && res.focused))

@@ -12,6 +12,11 @@ describe('gameHelpText', () => {
     expect(text).toContain('Friends on this data folder: Bo')
     expect(text).not.toMatch(/[—–]/)
   })
+  it('names the goal the header shows, also after a change today', () => {
+    const today = '2026-10-01'
+    const player = { id: 'p1', goalXp: 50, days: { [today]: { m1: { xp: 12, goal: 30 } } } }
+    expect(gameHelpText(player, [], today)).toContain('12 XP of a daily goal of 50 XP')
+  })
   it('is empty without a player and survives junk', () => {
     expect(gameHelpText(null)).toBe('')
     expect(() => gameHelpText({ id: 'x', days: { bad: null } }, [])).not.toThrow()

@@ -9,12 +9,12 @@ A local-first study app built on Anki: AI-written study questions, an AI tutor, 
 - **Study** - Anki sessions with AI-written questions, multiple choice, verified PBQ exercises for cert subjects, and insights. Ratings go back to Anki.
 - **Legends** - an adventure map per mode. Areas of lessons, stories, rule drills and chats with Ebi, each ending in a named boss fight; clear Weak spots first for an extra life, and replay a cleared area as a Legendary challenge. A short placement test, or what Ebiki already knows about you, sets your level (A1 to C2 for languages, Beginner to Expert otherwise). Ask Ebi to change the map; areas you started never change.
 - **Practice** - extra practice from your cards and mistakes:
-  - **Daily raid** - your due cards as a boss fight; every answer is a real Anki review. Bosses keep their wounds between days, you get a heart back each day, and a beaten boss is followed by the next.
+  - **Daily raid** - your due cards as a boss fight against a roster of 26 bosses, each with its own ability; every answer is a real Anki review. Bosses keep their wounds between days (healing a little overnight) and your hearts refill each day. Lose every heart and the boss rallies, healing back half that run's damage, but you can fight on at once. Each different boss you beat unlocks a **power** for good; bring up to three to a fight, each usable once.
   - **Ebi Call** - a chat that weaves your due cards into the conversation and grades each one you use.
   - **Roleplay** - act out a situation with Ebi in character, then get a scorecard, tips and cards to add.
   - **Mistake Gym** - fresh questions aimed at what you got wrong lately.
   - **Leech Doctor** - cards you keep failing, why, and a fix.
-  - **Listen & Speak** and **Scenes** (optional, Settings → General → Optional features) - audio drills and short stories read aloud, built from your cards.
+  - **Listen & Speak** and **Scenes** (optional, Settings → General → Optional features) - audio drills and short stories read aloud, built from your cards. **Voice chat with Ebi** (also optional) lets you talk out loud in Ebi Call and Roleplay.
 - **Chat** - AI tutor that makes Anki cards inline, tutors from an attached deck, searches the web and saves conversations.
 - **Deck** - browse, search and edit cards; add them by hand or with AI; bulk-edit, check quality, merge duplicates.
 - **Discover** - suggests *new* cards at your level, web-verified.
@@ -54,6 +54,8 @@ npm run dev
 ```
 
 Open `http://localhost:3000`; the wizard asks for an AI provider and key.
+
+**Updates** - each shortcut launch checks for a new version and asks before installing it; you can also check in Settings → Data & updates.
 
 **The shortcut** opens Ebiki as its own window (no tabs or address bar, maximized; F11 for fullscreen) or as a browser tab, handy for looking words up in other tabs. Pick per computer in onboarding or Settings → General. The window needs the optional `electron` dependency; without it Ebiki opens in a tab.
 

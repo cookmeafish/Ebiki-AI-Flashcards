@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { C, RADIUS } from '../../config/tokens'
 import { useFeatureCtx } from '../registry'
 import { useGame, updateProfile, initGame, saveGameNow } from './store'
-import { GOALS, DEFAULT_GOAL, REST_DATES_MAX, dateKey, restDaysPatch } from './engine'
+import { GOALS, DEFAULT_GOAL, dateKey, restDaysPatch, addRestDate, MAX_FREEZES } from './engine'
 import { weekdayLetters } from './Rail'
 import { apiFetch } from '../../platform'
 
@@ -20,19 +20,20 @@ function RestDays({ t, lang, player }) {
   const dates = all.filter((d) => d >= dateKey()).sort()
   const [pick, setPick] = useState('')
   const letters = weekdayLetters(lang)
+  const names = weekdayLetters(lang, 'long') // spoken: two T's and two S's are ambiguous
   const toggle = (i) => updateProfile(restDaysPatch(player, days.includes(i) ? days.filter((d) => d !== i) : [...days, i].sort(), dateKey()))
   // A PAST date (typed: min only limits the picker) revived a broken streak, and the list could not show it to undo.
-  const addDate = () => { if (pick && pick >= dateKey() && !all.includes(pick)) updateProfile({ restDates: [...all, pick].sort().slice(-REST_DATES_MAX) }); setPick('') }
+  const addDate = () => { const next = addRestDate(player, pick, dateKey()); if (next) updateProfile({ restDates: next }); setPick('') }
   const btn = (on) => ({ width: 32, height: 32, borderRadius: '50%', fontSize: 12, fontWeight: 800, cursor: 'pointer', border: `1px solid ${on ? C.info : C.border}`, background: on ? `color-mix(in srgb, ${C.info} 18%, ${C.surface})` : C.surface, color: on ? C.info : C.ink })
   return (
     <div style={{ marginTop: 12 }}>
       <div style={{ fontSize: 12, color: C.inkDim, marginBottom: 4 }}>🌙 {t('game_restDays')}</div>
       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-        {letters.map((l, i) => <button key={i} type="button" aria-pressed={days.includes(i)} onClick={() => toggle(i)} style={btn(days.includes(i))}>{l}</button>)}
+        {letters.map((l, i) => <button key={i} type="button" aria-label={names[i]} aria-pressed={days.includes(i)} onClick={() => toggle(i)} style={btn(days.includes(i))}>{l}</button>)}
       </div>
       <div style={{ fontSize: 12, color: C.inkDim, margin: '10px 0 4px' }}>{t('game_restDates')}</div>
       <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-        <input type="date" value={pick} min={dateKey()} onChange={(e) => setPick(e.target.value)} style={{ padding: '5px 8px', borderRadius: RADIUS.sm, border: `1px solid ${C.border}`, background: C.surfaceAlt, color: C.ink, fontSize: 12 }} />
+        <input type="date" aria-label={t('game_restDates')} value={pick} min={dateKey()} onChange={(e) => setPick(e.target.value)} style={{ padding: '5px 8px', borderRadius: RADIUS.sm, border: `1px solid ${C.border}`, background: C.surfaceAlt, color: C.ink, fontSize: 12 }} />
         <button type="button" onClick={addDate} disabled={!pick} style={{ padding: '5px 10px', borderRadius: RADIUS.sm, border: `1px solid ${C.info}`, background: 'transparent', color: C.info, fontSize: 12, fontWeight: 800, cursor: pick ? 'pointer' : 'default', opacity: pick ? 1 : 0.5 }}>＋ {t('game_restAdd')}</button>
         {dates.map((d) => (
           <span key={d} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: RADIUS.pill, border: `1px solid ${C.border}`, fontSize: 12 }}>
@@ -80,13 +81,13 @@ export default function GameSettingsCard({ card, fieldLabel, hint }) {
       <div style={{ fontSize: 12, color: C.inkDim, margin: '12px 0 4px' }}>{t('game_goalPick')}</div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {GOALS.map((o) => (
-          <button key={o.key} onClick={() => updateProfile({ goalXp: o.xp })} className={goal === o.xp ? 'ui-tab-current' : undefined} style={{
+          <button key={o.key} type="button" aria-pressed={goal === o.xp} onClick={() => updateProfile({ goalXp: o.xp })} className={goal === o.xp ? 'ui-tab-current' : undefined} style={{
             padding: '6px 10px', borderRadius: RADIUS.sm, fontSize: 12, fontWeight: 700, cursor: goal === o.xp ? 'default' : 'pointer',
-            border: `1px solid ${goal === o.xp ? C.brand : C.border}`, background: goal === o.xp ? C.brandTint : C.surface, color: goal === o.xp ? C.brand : C.ink,
+            border: `1px solid ${goal === o.xp ? C.brand : C.border}`, background: goal === o.xp ? C.brandTint : C.surface, color: goal === o.xp ? C.brandText : C.ink,
           }}>{t(`game_goal_${o.key}`)} · {t('game_goalMinutes', { m: o.minutes })}</button>
         ))}
       </div>
-      <div style={hint}>{t('game_freezeHow')}</div>
+      <div style={hint}>{t('game_freezeHow', { max: MAX_FREEZES })}</div>
       <RestDays t={t} lang={ctx.lang} player={g.player} />
       <button onClick={switchPlayer} style={{ marginTop: 10, padding: '5px 10px', borderRadius: RADIUS.sm, border: `1px solid ${C.border}`, background: C.surface, color: C.inkDim, fontSize: 12, cursor: 'pointer' }}>
         {t('game_switchPlayer')}

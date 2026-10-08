@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useId } from 'react'
 import { createPortal } from 'react-dom'
 import { FONT } from '../config/tokens'
+import { imeActive } from '../utils/keys'
 
 // A custom, always-scrollable dropdown to replace native <select> for lists that can grow long
 // (modes, languages, decks). Native popups are positioned by the OS and can push items off the top
@@ -18,12 +19,25 @@ import { FONT } from '../config/tokens'
 // options: [{ value, label, icon?, color?, divider? }]. `divider:true` draws a separator above the row.
 // `ariaLabel` names the button for screen readers; `wrapStyle` merges into the wrapper (e.g. `minWidth: 0`
 // so the button can shrink and ellipsize inside a flex row).
+// The menu's own host element under <html> (outside the body's zoom): React warns about rendering a <div> straight
+// into <html> ("div cannot appear as a child of html"). The host is unstyled, so the menu's position:fixed is still
+// relative to the viewport.
+const dropdownHost = () => {
+  let h = document.getElementById('ebiki-dropdown-host')
+  if (!h) { h = document.createElement('div'); h.id = 'ebiki-dropdown-host'; document.documentElement.appendChild(h) }
+  return h
+}
+
 export default function Dropdown({ value, onChange, options, style = {}, menuAlign = 'left', title, getZoom, ariaLabel, wrapStyle }) {
   const [open, setOpen] = useState(false)
   const [menu, setMenu] = useState({ left: 0, top: undefined, bottom: undefined, width: 0, maxH: 300 })
   const wrapRef = useRef(null)
   const btnRef = useRef(null)
   const menuRef = useRef(null)
+  // Keyboard: focus stays on the button; the highlighted option is `active` (aria-activedescendant).
+  const [active, setActive] = useState(-1)
+  const [kbd, setKbd] = useState(false) // the ring shows only while the keyboard drives it (hover keeps the old look)
+  const baseId = useId()
 
   const current = options.find((o) => String(o.value) === String(value))
 
@@ -59,11 +73,40 @@ export default function Dropdown({ value, onChange, options, style = {}, menuAli
     })
   }, [getZoom, menuAlign])
 
-  const toggle = () => {
-    if (open) { setOpen(false); return }
+  const openMenu = () => {
     place()
+    setActive(Math.max(0, options.findIndex((o) => String(o.value) === String(value))))
+    setKbd(false)
     setOpen(true)
   }
+  const toggle = () => {
+    if (open) { setOpen(false); return }
+    openMenu()
+  }
+  const pick = (o) => { onChange(o.value); setOpen(false) }
+  // Arrow keys / Home / End move, Enter or Space picks, Tab closes (the menu was mouse-only).
+  const onBtnKey = (e) => {
+    if (imeActive(e)) return
+    const k = e.key
+    if (!open) {
+      if (k === 'ArrowDown' || k === 'ArrowUp') { e.preventDefault(); openMenu() }
+      return
+    }
+    if (k === 'Tab') { setOpen(false); return }
+    const n = options.length
+    if (!n) return
+    setKbd(true)
+    if (k === 'ArrowDown') { e.preventDefault(); setActive((i) => (i + 1) % n) }
+    else if (k === 'ArrowUp') { e.preventDefault(); setActive((i) => (i <= 0 ? n - 1 : i - 1)) }
+    else if (k === 'Home') { e.preventDefault(); setActive(0) }
+    else if (k === 'End') { e.preventDefault(); setActive(n - 1) }
+    else if (k === 'Enter' || k === ' ') { e.preventDefault(); if (options[active]) pick(options[active]) }
+  }
+  // Keep the highlighted option in view while stepping through a long list.
+  useEffect(() => {
+    if (!open || active < 0) return
+    try { document.getElementById(`${baseId}-o${active}`)?.scrollIntoView({ block: 'nearest' }) } catch { /* not mounted */ }
+  }, [open, active, baseId])
 
   useEffect(() => {
     if (!open) return
@@ -98,8 +141,9 @@ export default function Dropdown({ value, onChange, options, style = {}, menuAli
     // A width passed in `style` must apply to the WRAPPER (the button's width:100% would be
     // circular against an inline-block wrapper that shrink-wraps its content).
     <div ref={wrapRef} style={{ position: 'relative', display: 'inline-block', width: style.width, ...wrapStyle }}>
-      <button ref={btnRef} type="button" onClick={toggle} title={title} className="ui-btn"
+      <button ref={btnRef} type="button" onClick={toggle} onKeyDown={onBtnKey} title={title} className="ui-btn"
         aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open}
+        aria-controls={open ? `${baseId}-menu` : undefined} aria-activedescendant={open && active >= 0 ? `${baseId}-o${active}` : undefined}
         style={{ boxSizing: 'border-box', ...style, display: 'inline-flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
         <span style={{ flex: 1, textAlign: 'left', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {current ? `${current.icon ? current.icon + ' ' : ''}${current.label}` : ''}
@@ -112,7 +156,7 @@ export default function Dropdown({ value, onChange, options, style = {}, menuAli
         // hit-test box (only 1/zoom tall, top-anchored), so its lower items are unclickable (the
         // "can't select past the middle of the mode list" bug). Escaping the zoom and scaling via a
         // TRANSFORM (which hit-tests correctly) makes every item clickable at the right visual size.
-        <div ref={menuRef} role="listbox" style={{
+        <div ref={menuRef} id={`${baseId}-menu`} role="listbox" style={{
           position: 'fixed', zIndex: 10000,
           left: menu.left, top: menu.top, bottom: menu.bottom,
           transform: `scale(${menu.z || 1})`, transformOrigin: menu.up ? 'bottom left' : 'top left',
@@ -124,27 +168,28 @@ export default function Dropdown({ value, onChange, options, style = {}, menuAli
           // explicitly or the menu falls back to the browser default (serif).
           fontFamily: FONT.body,
         }}>
-          {options.map((o) => {
+          {options.map((o, i) => {
             const selected = String(o.value) === String(value)
+            const lit = i === active && !selected
             return (
-              <div key={o.value} role="option" aria-selected={selected}
-                onClick={() => { onChange(o.value); setOpen(false) }}
+              <div key={o.value} id={`${baseId}-o${i}`} role="option" aria-selected={selected}
+                onClick={() => pick(o)}
                 style={{
                   padding: '7px 10px', borderRadius: 8, cursor: 'pointer', whiteSpace: 'nowrap', fontSize: 13,
                   overflow: 'hidden', textOverflow: 'ellipsis',
                   fontWeight: selected ? 700 : 500, color: o.color || 'var(--c-ink)',
-                  background: selected ? 'var(--c-brand-tint)' : 'transparent',
+                  background: selected ? 'var(--c-brand-tint)' : lit ? 'var(--c-surface-alt)' : 'transparent',
+                  outline: kbd && i === active ? '2px solid var(--c-brand-line)' : undefined, outlineOffset: -2,
                   borderTop: o.divider ? '1px solid var(--c-border)' : undefined,
                   marginTop: o.divider ? 4 : 0, paddingTop: o.divider ? 8 : 6,
                 }}
-                onMouseEnter={(e) => { if (!selected) e.currentTarget.style.background = 'var(--c-surface-alt)' }}
-                onMouseLeave={(e) => { if (!selected) e.currentTarget.style.background = 'transparent' }}>
+                onMouseEnter={() => { setActive(i); setKbd(false) }}>
                 {o.icon ? `${o.icon} ` : ''}{o.label}
               </div>
             )
           })}
         </div>,
-        document.documentElement
+        dropdownHost()
       )}
     </div>
   )

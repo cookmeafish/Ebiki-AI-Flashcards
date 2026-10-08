@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Usage tag chips</title>
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; }
+      body { margin: 0; font-family: 'Nunito', system-ui, sans-serif; background: var(--c-bg); color: var(--c-ink); }
+      .tip { position: relative; cursor: help; }
+      .tip:hover::after { content: attr(data-tip); position: absolute; left: 0; bottom: calc(100% + 7px); width: max-content; max-width: 240px;
+        padding: 7px 10px; border-radius: 8px; background: var(--c-ink); color: var(--c-bg); font-size: 10.5px; z-index: 80; }
+    </style>
+  </head>
+  <body>
+    <!-- Dev-only page (not part of the app build): the usage-tag chips as every surface renders them, through
+         the shared helpers in src/tags/usage.js. http://localhost:3000/dev/usage-tags/  (&light=1, &zoom=2, &lang=es). -->
+    <div id="root"></div>
+    <script type="module" src="./main.jsx"></script>
+  </body>
+</html>

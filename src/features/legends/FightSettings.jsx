@@ -55,7 +55,7 @@ export default function FightSettings({ ctx, allowStyle = false, busy = false, d
       <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="card-head"
         style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: FONT.body, textAlign: 'left', borderRadius: RADIUS.lg }}>
         <span style={{ fontSize: 13, fontWeight: 900, color: C.ink, whiteSpace: 'nowrap' }}>⚙ {t('lg_fsTitle')}</span>
-        <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 700, color: C.inkDim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{summary.join(' · ')}</span>
+        <span style={{ flex: '1 1 0', width: 0, minWidth: 0, fontSize: 12.5, fontWeight: 700, color: C.inkDim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{summary.join(' · ')}</span>
         <span aria-hidden="true" style={{ fontSize: 11, color: C.inkFaint }}>{open ? '▾' : '▸'}</span>
       </button>
       {open && (
@@ -106,7 +106,7 @@ export default function FightSettings({ ctx, allowStyle = false, busy = false, d
                   return (
                     <button key={s} type="button" role="radio" aria-checked={on} disabled={busy} onClick={() => { if (!on) set({ answerStyle: s }) }}
                       className={`ui-tab${on ? ' ui-tab-current' : ''}`}
-                      style={{ fontFamily: FONT.body, fontSize: 12.5, fontWeight: 800, padding: '5px 12px', borderRadius: RADIUS.pill, border: `1.5px solid ${on ? C.brand : C.border}`, background: on ? `color-mix(in srgb, ${C.brand} 10%, ${C.surface})` : 'transparent', color: on ? C.brand : C.inkDim, cursor: on ? 'default' : 'pointer' }}>
+                      style={{ fontFamily: FONT.body, fontSize: 12.5, fontWeight: 800, padding: '5px 12px', borderRadius: RADIUS.pill, border: `1.5px solid ${on ? C.brand : C.border}`, background: on ? `color-mix(in srgb, ${C.brand} 10%, ${C.surface})` : 'transparent', color: on ? C.brandText : C.inkDim, cursor: on ? 'default' : 'pointer' }}>
                       {s === 'typed' ? `⌨ ${t('lg_fsTyped')}` : `🛡 ${t('lg_fsChoices')}`}
                     </button>
                   )
@@ -123,7 +123,7 @@ export default function FightSettings({ ctx, allowStyle = false, busy = false, d
                   return (
                     <button key={n} type="button" role="radio" aria-checked={on} disabled={busy} onClick={() => { if (!on) runSize.onChange(n) }}
                       className={`ui-tab${on ? ' ui-tab-current' : ''}`}
-                      style={{ fontFamily: FONT.body, fontSize: 12.5, fontWeight: 800, padding: '5px 11px', borderRadius: RADIUS.pill, border: `1.5px solid ${on ? C.brand : C.border}`, background: on ? `color-mix(in srgb, ${C.brand} 10%, ${C.surface})` : 'transparent', color: on ? C.brand : C.inkDim, cursor: on ? 'default' : 'pointer' }}>
+                      style={{ fontFamily: FONT.body, fontSize: 12.5, fontWeight: 800, padding: '5px 11px', borderRadius: RADIUS.pill, border: `1.5px solid ${on ? C.brand : C.border}`, background: on ? `color-mix(in srgb, ${C.brand} 10%, ${C.surface})` : 'transparent', color: on ? C.brandText : C.inkDim, cursor: on ? 'default' : 'pointer' }}>
                       {n}
                     </button>
                   )

@@ -56,6 +56,7 @@ describe('readBlobChecked', () => {
 
   it('a damaged blob counts as read, so it can be replaced instead of blocking writes forever', async () => {
     anki.retrieve = async () => Buffer.from('{not json', 'utf8').toString('base64')
+    local = reply(200, { content: '' })
     expect(await readBlobChecked('hooks', 'Spanish')).toEqual({ ok: true, value: null })
   })
 
@@ -115,5 +116,43 @@ describe('"local is newer" mark', () => {
     const b = writeBlob('hooks', 'French', { v: 2 })
     await Promise.all([a, b])
     expect(JSON.parse(Buffer.from(stored[stored.length - 1], 'base64').toString())).toEqual({ v: 2 })
+  })
+})
+
+describe('shared store refused (the share is down)', () => {
+  const mem = new Map()
+  beforeEach(() => {
+    mem.clear()
+    globalThis.localStorage = { getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) }
+  })
+  afterEach(() => { delete globalThis.localStorage; anki.store = async () => true })
+
+  it("a 503 unreachable share is a FAILED read even when Anki holds a (possibly older) copy", async () => {
+    anki.retrieve = async () => b64({ '1': ['older, from Anki'] })
+    local = reply(503, { unreachable: true })
+    expect(await readBlobChecked('hooks', 'Spanish')).toEqual({ ok: false, value: null })
+  })
+
+  it('a read error on a store KNOWN to be shared is a failed read too', async () => {
+    anki.retrieve = async () => b64({ v: 0 })
+    local = reply(200, { content: JSON.stringify({ v: 1 }), shared: true })
+    expect((await readBlobChecked('grammar', 'French')).value).toEqual({ v: 1 }) // learns: shared
+    local = reply(500, { error: 'EIO' })
+    expect((await readBlobChecked('grammar', 'French')).ok).toBe(false)
+  })
+
+  it('an app-folder store that errors still reads Anki (Anki is its source of truth)', async () => {
+    anki.retrieve = async () => b64({ v: 3 })
+    local = reply(200, { content: '', shared: false })
+    await readBlobChecked('grammar', 'French')                // learns: not shared
+    local = reply(500, { error: 'EIO' })
+    expect(await readBlobChecked('grammar', 'French')).toEqual({ ok: true, value: { v: 3 } })
+  })
+
+  it("Anki marked newer (the share missed our last write) still reads Anki while the share is down", async () => {
+    local = reply(503, { unreachable: true })
+    await writeBlob('hooks', 'German', { v: 9 })               // Anki took it, the store did not: Anki newer
+    anki.retrieve = async () => b64({ v: 9 })
+    expect(await readBlobChecked('hooks', 'German')).toEqual({ ok: true, value: { v: 9 } })
   })
 })

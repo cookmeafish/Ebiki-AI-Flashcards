@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import { S } from '../styles/theme'
 import Markdown from './Markdown'
 import { C, RADIUS, SHADOW, FONT } from '../config/tokens'
+import { studioReply } from './studioReply'
+import { imeActive } from '../utils/keys'
 
 // ── Ebi Studio ─────────────────────────────────────────────────────────────
 // One conversational panel for THREE jobs, all with the same shape (chat with
@@ -47,6 +49,24 @@ export default function ModeStudio({ t, kind = 'create', focus = 'all', existing
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose, loading])
+
+  // Tab stays in the panel: it walked on into Settings underneath (its buttons acted unseen behind the backdrop).
+  const panelRef = useRef(null)
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key !== 'Tab' || document.querySelector('[data-app-dialog]')) return
+      const panel = panelRef.current
+      if (!panel) return
+      const items = [...panel.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')]
+        .filter((el) => !el.disabled && el.offsetParent !== null)
+      if (!items.length) return
+      const first = items[0], last = items[items.length - 1], a = document.activeElement
+      if (e.shiftKey && (!panel.contains(a) || a === first)) { e.preventDefault(); last.focus() }
+      else if (!e.shiftKey && (!panel.contains(a) || a === last)) { e.preventDefault(); first.focus() }
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [])
 
   useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight }, [messages, spec, loading])
   useEffect(() => { inputRef.current?.focus() }, [])
@@ -110,28 +130,21 @@ Do NOT include the <mode> block while you are still asking questions. Include it
       const convo = next.filter((m, i) => !(i === 0 && m.role === 'assistant')) // drop the local intro
         .map((m) => `${m.role === 'user' ? 'User' : 'Ebi'}: ${m.text}`).join('\n\n')
       const raw = await askAI(systemPrompt(), convo || text)
-      const m = String(raw || '').match(/<mode>([\s\S]*?)<\/mode>/i)
-      let display = String(raw || '')
-      if (m) {
-        const parsed = parseAiJson(m[1])
-        if (parsed && typeof parsed === 'object' && parsed.name) { setSpec(parsed); setApplied(null) }
-        // A proposal that cannot be read must not leave the PREVIOUS one's Apply under this reply.
-        else { setSpec(null); setError(t('studioCutOff')) }
-        display = display.replace(/<mode>[\s\S]*?<\/mode>/i, '').trim()
-      } else if (/<mode>/i.test(display)) {
-        // Cut off inside the proposal: never show its half-written JSON, and never leave an OLDER proposal's
-        // Apply under a reply that looks new.
-        display = display.replace(/<mode>[\s\S]*$/i, '').trim()
-        setSpec(null)
-        setError(t('studioCutOff'))
-      }
-      // Same hard guarantee as Chat and Help: the prompt forbids dashes and shrimp emoji, prompts leak.
-      display = display.replace(/(^|\n)[ \t]*[—–][ \t]*/g, '$1').replace(/[ \t]*[—–][ \t]*(?=\n|$)/g, '').replace(/[ \t]*[—–][ \t]*/g, ', ').replace(/[🦐🦞🦀]️?/gu, '') // line-aware (never joins lines)
-      setMessages([...next, { role: 'assistant', text: display || t('studioProposed') }])
+      // A cut-off or unreadable proposal never shows its half-written JSON and never leaves the PREVIOUS
+      // proposal's Apply under a reply that looks new (studioReply.js).
+      const { display, spec: nextSpec, cutOff } = studioReply(raw, parseAiJson, { edit: isEdit })
+      if (nextSpec) { setSpec(nextSpec); setApplied(null) }
+      else if (cutOff) { setSpec(null); setError(t('studioCutOff')) }
+      // An empty reply around a cut-off block adds no bubble (the error says it); "here's my proposal below" with
+      // nothing below read as a bug.
+      setMessages(display || !cutOff ? [...next, { role: 'assistant', text: display || t('studioProposed') }] : next)
     } catch (e) {
       // In words ("out of credits", "the key was refused"), not the provider's raw "API 429: {...}" body.
       setError((describeError && describeError(e)) || String(e?.message || e))
-      setMessages(next)
+      // The unanswered message goes back into the composer (Enter retries it as is) instead of staying in the
+      // history, where the next message was sent after it and Ebi answered both at once.
+      setMessages(next.slice(0, -1))
+      setInput((cur) => cur || text)
     } finally { sendingRef.current = false; setLoading(false) }
   }
 
@@ -155,7 +168,7 @@ Do NOT include the <mode> block while you are still asking questions. Include it
     setLoading(true); setError(null)
     try {
       const name = await onApply(spec)
-      setApplied(name || asText(spec.name) || 'mode')
+      setApplied(name || asText(spec.name) || existing?.name || '')
     } catch (e) { setError(String(e?.message || e)) }
     finally { applyingRef.current = false; setLoading(false) }
   }
@@ -174,9 +187,11 @@ Do NOT include the <mode> block while you are still asking questions. Include it
     // of the visual viewport and the flex-centered panel lands down and to the right, off-screen.
     // Cancel the zoom on the backdrop and divide the panel's viewport cap by var(--app-zoom), the same
     // convention SettingsModal and the app root use.
-    <div data-top-overlay="1" onMouseDown={(e) => { if (e.target === e.currentTarget && !loading) onClose() }}
+    // A click outside closes only while nothing has been said yet: a stray click beside the panel threw away
+    // the whole design conversation (Close and Esc still leave at any time).
+    <div data-top-overlay="1" onMouseDown={(e) => { if (e.target === e.currentTarget && !loading && !messages.some((m) => m.role === 'user')) onClose() }}
       style={{ position: 'fixed', top: 0, left: 0, width: 'calc(100vw / var(--app-zoom))', height: 'calc(100vh / var(--app-zoom))', zIndex: 12000, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ width: 'min(560px, 100%)', maxHeight: '100%', display: 'flex', flexDirection: 'column', background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, boxShadow: SHADOW.lg, overflow: 'hidden' }}>
+      <div ref={panelRef} role="dialog" aria-modal="true" aria-label={title} style={{ width: 'min(560px, 100%)', maxHeight: '100%', display: 'flex', flexDirection: 'column', background: C.bg, border: `1px solid ${C.border}`, borderRadius: RADIUS.lg, boxShadow: SHADOW.lg, overflow: 'hidden' }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 16px', borderBottom: `1px solid ${C.border}` }}>
           <span style={{ fontSize: 16 }}>{'✨'}</span>
@@ -203,7 +218,9 @@ Do NOT include the <mode> block while you are still asking questions. Include it
           {spec && !applied && (
             <div style={{ ...card, borderColor: C.brandRing, background: C.brandTint2 || C.surface }}>
               <div style={{ fontSize: 11, fontWeight: 800, color: C.brand, letterSpacing: '.03em', marginBottom: 6 }}>{t('studioPlan')}</div>
-              <div style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>{spec.type === 'language' ? '\u{1F310}' : '\u{1F4DA}'} {isEdit && focus !== 'all' ? (existing?.name || '') : asText(spec.name)}</div>
+              {/* An edit never changes the mode's type (buildModeFromSpec keeps it), so the icon follows the mode,
+                  not the proposal: a language mode showed the book icon whenever the model wrote "general". */}
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>{((isEdit && existing?.type) || spec.type) === 'language' ? '\u{1F310}' : '\u{1F4DA}'} {isEdit && focus !== 'all' ? (existing?.name || '') : (asText(spec.name) || existing?.name || '')}</div>
               {specLine(t('studioLblGoal'), spec.description)}
               {focus !== 'study' && specLine(t('studioLblBack'), spec.backTemplate)}
               {focus !== 'study' && specLine(t('studioLblTags'), spec.tagRules)}
@@ -230,7 +247,7 @@ Do NOT include the <mode> block while you are still asking questions. Include it
         {!applied && (
           <div style={{ display: 'flex', gap: 8, padding: 12, borderTop: `1px solid ${C.border}` }}>
             <input ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent?.isComposing) send() }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e)) send() }}
               placeholder={apiKey ? t('studioPlaceholder') : t('studioNeedKey')} disabled={loading || !apiKey}
               style={{ ...S.keyInput, flex: 1, fontSize: 12.5 }} />
             <button onClick={() => send()} disabled={loading || !apiKey || !input.trim()} className="btn-press"

@@ -5,6 +5,7 @@ import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile } from '../../config/shrimp'
 import { ChunkyButton, EbiSays, ProgressBar, depthBorder } from '../ui'
 import { knownTile } from './knownReason'
+import { ScrollTop } from './NodeRun'
 
 export const REASON_KEYS = [
   { key: 'work', icon: '💼' }, { key: 'school', icon: '🎓' }, { key: 'travel', icon: '✈️' },
@@ -51,10 +52,12 @@ export default function Questionnaire({ t, subject, onDone, onBack, focus = fals
 
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 22, paddingTop: 8 }}>
+      {/* Each question opens at its top (Continue sits at the bottom: the next one opened scrolled past Ebi's question). */}
+      <ScrollTop on={step} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
         <button onClick={() => (step ? setStep(step - 1) : onBack?.())} aria-label={t('lg_back')}
           style={{ border: 'none', background: 'transparent', color: C.inkFaint, fontSize: 22, cursor: 'pointer', padding: 4 }}>←</button>
-        <ProgressBar value={step + 1} max={STEPS.length} color={C.success} style={{ flex: 1, height: 14 }} />
+        <ProgressBar value={step + 1} max={STEPS.length} color={C.success} style={{ flex: 1, height: 14 }} label={t('ui_progress')} />
       </div>
       <EbiSays pose={poseFile(POSE[name])}>{question}</EbiSays>
 

@@ -85,3 +85,23 @@ describe('raid ability: chimera (threeheads)', () => {
     expect(simulateRaid('threeheads', { n: 15, answer: mixed(0.2) }).asked).toBeLessThanOrEqual(15)
   })
 })
+
+describe('chimera: the heads always add up to the health bar', () => {
+  const sum = (a) => a.reduce((x, y) => x + y, 0)
+  it('damage added after the ability (Sharpen, Fury) reaches the heads by the next answer, and in what the HUD and dayState show', () => {
+    let s = strike(newFight(), hit('clean'), { ...o, bonus: 2 }) // 2 + Sharpen 2
+    expect(s.damage).toBe(4)
+    expect(sum(mod.dayState(s).hurt)).toBe(4)
+    const bars = mod.hud(s, {})[0].bars
+    expect(sum(bars.map((b) => b.max - b.value))).toBe(4)
+    s = strike(s, hit('clean'), { ...o, fury: 2 }) // a clean answer at Fury x2
+    s = strike(s, hit('glancing'), o)
+    expect(sum(s.ab.hurt)).toBeCloseTo(s.damage, 6)
+  })
+  it('a boss that rallied (healed) since the saved split never has heads more hurt than the bar', () => {
+    const rallied = { ...bar, before: 6 } // the saved split says 12, the bar after the rally 6
+    const s = strike(newFight(), hit('glancing'), { ...o, bar: rallied, need: 24, dayAb: { hurt: [0, 10, 2] } })
+    expect(sum(s.ab.hurt)).toBeCloseTo(rallied.before + s.damage, 6)
+    expect(s.ab.dead).toEqual([false, false, false])
+  })
+})

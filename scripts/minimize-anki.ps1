@@ -76,7 +76,10 @@ function Get-AnkiPids {
   foreach ($p in (Get-Process -Name 'pythonw' -ErrorAction SilentlyContinue)) {
     try { if ($p.Path -match '[\\/](Anki|AnkiProgramFiles)[\\/]') { [void]$pids.Add([uint32]$p.Id) } } catch {}
   }
-  $pids
+  # The comma keeps the SET: PowerShell unrolls a returned collection, so an empty one arrived as $null and
+  # threw inside the EnumWindows callback on every poll before Anki's process appeared (only the
+  # SilentlyContinue preference hid it).
+  ,$pids
 }
 
 # 25s is well past the ~1s the main window takes to appear even on a cold start;

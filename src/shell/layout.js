@@ -6,6 +6,8 @@ export const SHELL = {
   sidebarWidth: 200,          // full sidebar (icon + label)
   sidebarCollapsed: 68,       // icon-only sidebar
   collapseBelow: 880,         // narrower than this: icon-only sidebar
+  phoneBelow: 560,            // narrower than this (a phone): the sidebar becomes a bottom bar
+  barHeight: 58,              // the bottom bar's height
   railWidth: 300,
   railHideBelow: 1080,        // narrower than this: no rail (the screen needs the room)
   gap: 16,
@@ -24,6 +26,9 @@ export const CORE_NAV = [
 
 // Screens that show the rail (home-like screens; never mid-session, where focus matters most).
 export const railWanted = (tab, { studyActive } = {}) => (tab === 'study' && !studyActive) || tab === 'stats'
+
+// A phone-width window (CSS px after the zoom): the sidebar becomes a bottom bar, the rail never shows.
+export const isPhoneWidth = (w) => w < SHELL.phoneBelow
 
 // Viewport width in CSS px (after the body zoom), live.
 export function useViewportWidth(getZoom) {

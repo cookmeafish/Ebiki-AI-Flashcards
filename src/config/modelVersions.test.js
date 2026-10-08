@@ -160,3 +160,15 @@ describe('zero-padded build numbers', () => {
     expect(pickUpgrade('gemini-2.0-flash', ['gemini-2.0-flash', 'gemini-2.0-flash-001'])).toBeNull()
   })
 })
+
+describe('current id shapes (2026)', () => {
+  it('moves within each family and never across', () => {
+    expect(pickUpgrade('claude-opus-5', ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-fable-5-1'])).toBe('claude-opus-5-5')
+    expect(pickUpgrade('claude-opus-5-5', ['claude-opus-5-5-20260301'])).toBeNull() // a dated build of the alias
+    expect(pickUpgrade('gpt-5', ['gpt-5.1', 'gpt-5.1-mini', 'gpt-5.1-codex-max', 'gpt-5-2025-08-07'])).toBe('gpt-5.1')
+    expect(pickUpgrade('gpt-5-mini', ['gpt-5-mini-2025-08-07', 'gpt-5.1-mini'])).toBe('gpt-5.1-mini')
+    expect(pickUpgrade('gemini-2.5-pro', ['gemini-3-pro', 'gemini-3-pro-preview', 'gemini-3-flash'])).toBe('gemini-3-pro')
+    expect(pickUpgrade('grok-4', ['grok-4-0709', 'grok-4.1', 'grok-4-1-fast-reasoning'])).toBe('grok-4.1')
+    expect(pickUpgrade('grok-4-fast-reasoning', ['grok-4-1-fast-reasoning', 'grok-4.1'])).toBe('grok-4-1-fast-reasoning')
+  })
+})

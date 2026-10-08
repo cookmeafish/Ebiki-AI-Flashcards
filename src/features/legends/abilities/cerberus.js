@@ -7,6 +7,7 @@
 // head first, a clean typed answer to the Iron head, anything else right to the Fire head. With all three chained
 // the hound is BOUND: the gate slams on him for +K.bound, and he tears free again (every head unchained). The Fire head is the hothead: any miss lets it slip its
 // chain (the other two stay chained). The miss costs its life as always; no answer ever costs more.
+import { hitClean } from './_rules'
 const K = { bound: 4 }
 const HEADS = ['iron', 'fire', 'shadow']
 const free = (s) => HEADS.filter((h) => !s.ab[h])
@@ -37,7 +38,7 @@ export default {
       }
       return
     }
-    const head = headFor(s.ab, { recover: attack || s.ab.afterMiss, clean: ctx.clean })
+    const head = headFor(s.ab, { recover: attack || s.ab.afterMiss, clean: hitClean(ctx, res) })
     s.ab.afterMiss = false
     if (!head) return
     s.ab[head] = true

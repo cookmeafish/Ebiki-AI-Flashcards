@@ -2,14 +2,16 @@
 // made harder (raid.js: 3 phases, choices only in phase 1). Every card's FIRST answer is recorded in Anki as a real
 // review, whether the run is won, lost or left early.
 // THE SIEGE (raid.js): the boss's wounds and the player's hearts carry over between runs and days; a run starts with
-// the hearts left, and with none no run starts until tomorrow.
+// the hearts left; a run that loses every heart makes the boss rally (it heals back part of that run's damage) and the
+// hearts refill at once.
 // A RUN THAT RUNS OUT OF QUESTIONS while the boss lives and hearts are left asks "Continue?" in the arena: the next
 // due cards join the SAME fight (hearts, combo, ability state and phase kept). The answers so far are recorded first,
 // so nothing is ever recorded twice. "Stop for now" ends the run (wounds and hearts carry over).
 // NOTHING IS FORCED AFTER THE FIGHT: a win offers the next boss (out the same day, RAID.nextBossSameDay), an optional
 // Victory lap over the cards the fight never reached (a reward round, recorded like any review, bonus XP) or Done; a
 // loss or a stop leaves those cards due and says so.
-import { useEffect, useRef, useState } from 'react'
+import { ctxErrorText } from '../kit/aiError'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { poseFile } from '../../config/shrimp'
 import { srs } from '../../cards'
@@ -29,11 +31,11 @@ import { learnerLevelLine } from '../kit/learnerStore'
 import { BossIntro, BossArena, BossEnd } from './BossArena'
 import { LegendsArt } from './art'
 import { act, settleFight, phaseOf, raidRating, attackLivesFor, abilityState, refundRunningFight, strikeCost, fightOutcome, newFight } from './fight'
-import { RAID, RAID_MOTIFS, RAID_ABILITY, todayKey, raidToday, raidStep, raidMotif, isRaidMotif, testRaidState, raidAttemptOutcome, raidHelpText, raidWhere, raidReviews, shapeRaid, siegeOf, raidAsked, raidMarkAsked, nextRaidCards, raidMinCards, raidOutOfQuestions, raidRunChoices, raidRunSize, applyBandage } from './raid'
+import { RAID, RAID_MOTIFS, RAID_ABILITY, todayKey, raidToday, raidStep, raidMotif, isRaidMotif, testRaidState, raidAttemptOutcome, raidHelpText, raidWhere, raidReviews, raidCardIndex, shapeRaid, siegeOf, raidAsked, raidMarkAsked, nextRaidCards, raidMinCards, raidOutOfQuestions, raidRunChoices, raidRunSize, applyBandage } from './raid'
 import { raidProfile } from './raidProfiles'
-import { POWERS, POWER_IDS, LOADOUT_MAX, STEADFAST_HEARTS, POWER_WINDOW, WIND_HEARTS, powerVars, bossesBeaten, unlockedPowers, shapeLoadout, toggleLoadout, isFightPower, nextUnlock, powerUsable, powerAfterAnswer, fiftyFifty, powerHint } from './powers'
+import { POWERS, POWER_IDS, LOADOUT_MAX, STEADFAST_HEARTS, POWER_WINDOW, WIND_HEARTS, powerVars, bossesBeaten, unlockedPowers, shapeLoadout, toggleLoadout, isFightPower, nextUnlock, powerUsable, powerAfterAnswer, powersHelpLine, fiftyFifty, powerHint } from './powers'
 import { abilityById } from './abilities'
-import { buildRaidPrompt, parseQuestions, RAID_ROLE, RAID_MAX_TOKENS } from './prompt'
+import { buildRaidPrompt, parseQuestions, fitQuestionsToKind, RAID_ROLE, RAID_MAX_TOKENS } from './prompt'
 import { readRaid, updateRaid, LEGENDS_ID } from './store'
 
 const INFO_BATCH = 40
@@ -195,6 +197,8 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     if (!next) return false
     fsRef.current = next
     setFs(next)
+    // The Shield power that took this wrongly judged answer's heart is up again.
+    if (next.last?.shieldBack && powerArmedRef.current.shield === false) setPA({ ...powerArmedRef.current, shield: true })
     return true
   }
   const isOver = () => phaseRef.current !== 'fight' || !fightOver.current || !!fightOutcome(fsRef.current, fightOver.current)
@@ -207,6 +211,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
   }
   const learnPanel = learn && <LearnItPanel ctx={ctx} item={learn} onClose={() => setLearn(null)} closeLabel={phase === 'fight' ? t('lg_learnBackToFight') : undefined} />
   const learnOn = fightRulesNow.learnMoment !== false // the mode's Learn-it moments (one setting with Study)
+  const overturnedFor = (q) => !!fc.entryFor(q)?.overturned // the strip turns green once a re-check / Appeal wins
   const missTools = (q) => {
     const e = fc.entryFor(q)
     return e && isWrongish(e.first) ? <MissTools ctx={ctx} entry={e} onAppeal={fc.appeal} onLearn={learnOn ? () => openLearn(e) : null} /> : null
@@ -258,7 +263,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
       setQuestions(qs)
       setSegQs(qs)
       setPhase('intro')
-    } catch (e) { if (alive.current) { setError(String(e.message || e)); setPhase('error') } }
+    } catch (e) { if (alive.current) { setError(ctxErrorText(ctx, e)); setPhase('error') } }
   }
   // The questions, written with the LIVE fight settings (learned language, "Ebi speaks", dialect). null = superseded.
   const writeSeq = useRef(0)
@@ -276,10 +281,10 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     const qs = []
     const used = new Set()
     for (const q of list) {
-      const i = Number(q?.card) - 1
+      const i = raidCardIndex(q?.card)
       const card = cards[i]
       if (!card || used.has(card.cardId)) continue
-      const [one] = parseQuestions([q], c.ai.clean, { speakLang: s.learnLangIso, dual: true })
+      const [one] = fitQuestionsToKind(parseQuestions([q], c.ai.clean, { speakLang: s.learnLangIso, dual: true }), 'raid') // every fight question stands typed
       if (!one) continue
       used.add(card.cardId)
       // Study's first-letter cue guarantee for a typed language answer (kit/fightSettings.js).
@@ -300,7 +305,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
       setQuestions(qs)
       setSegQs(qs)
       setRewriting(false)
-    }).catch((e) => { if (alive.current) { setRewriting(false); setError(String(e.message || e)); setPhase('error') } })
+    }).catch((e) => { if (alive.current) { setRewriting(false); setError(ctxErrorText(ctx, e)); setPhase('error') } })
   }, [genKey, phase]) // eslint-disable-line react-hooks/exhaustive-deps
   const started = useRef(false)
   useEffect(() => { if (!started.current) { started.current = true; load() } }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -405,7 +410,8 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
       hp: won ? 0 : (dayNow?.hp || 0),
       // The health left is the SAVED siege's (a run that lost every heart let the boss rally back part of its damage).
       left: won ? 0 : after?.siege ? Math.max(0, after.siege.hp - after.siege.damage) : Math.max(0, (dayNow?.hp || 0) - (dayNow?.damage || 0) - st.damage),
-      rallied: !won && outcome.fell ? (outcome.rallied || 0) : null,
+      // A rally that was not saved did not happen (the save failed: the stored siege is unchanged).
+      rallied: !won && outcome.fell && (testMotif || next !== undefined) ? (outcome.rallied || 0) : null,
       unasked: unaskedQs().length, dueLeft, nextMotif: won && next ? raidMotif(next) : '',
       // Powers: different bosses beaten now (a first win may unlock one).
       beatenBefore: beaten, beaten: testMotif ? beaten : bossesBeaten(next || storedRef.current),
@@ -440,7 +446,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
       // Their schedule BEFORE any review (what a fallback interval and a later correction step from).
       for (const c of picked) if (!preRef.current.has(c.cardId)) preRef.current.set(c.cardId, { interval: c.interval, factor: c.factor })
       if (alive.current) setMore({ cards: toCards(picked), busy: false, error: '' })
-    } catch (e) { if (alive.current) setMore({ cards: [], busy: false, error: String(e.message || e) }) }
+    } catch (e) { if (alive.current) setMore({ cards: [], busy: false, error: ctxErrorText(ctx, e) }) }
   }
   const continueRun = async () => {
     const cards = more?.cards || []
@@ -459,7 +465,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
       setSeg((n) => n + 1)
       setMore(null)
       setPhase('fight')
-    } catch (e) { if (alive.current) setMore({ cards, busy: false, error: String(e.message || e) }) }
+    } catch (e) { if (alive.current) setMore({ cards, busy: false, error: ctxErrorText(ctx, e) }) }
   }
 
   // THE VICTORY LAP (a win's optional reward round): the cards the fight never asked, no fight math, each first answer
@@ -500,13 +506,25 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
   // Back / the Practice hub ask before leaving only while something would be lost (a fight or its lap); the intro and
   // the result screens leave at once (registry: useActivityBusy).
   useActivityBusy(phase === 'fight' || phase === 'more' || phase === 'lap')
+  // The arena sticks to the top of the screen's scroll box while the questions scroll. Sticky rests BELOW that box's
+  // top padding, and the questions scrolled through the gap above the arena: pulled up by exactly that padding.
+  const arenaRef = useRef(null)
+  const [arenaTop, setArenaTop] = useState(0)
+  const arenaShown = phase === 'fight' || phase === 'more' || phase === 'lap'
+  useLayoutEffect(() => {
+    if (!arenaShown) return
+    let p = arenaRef.current?.parentElement
+    while (p && !/(auto|scroll)/.test(getComputedStyle(p).overflowY)) p = p.parentElement
+    if (p) setArenaTop(-(parseFloat(getComputedStyle(p).paddingTop) || 0))
+  }, [arenaShown])
   // Ebi's Help: the fight's state on screen (raid.js raidHelpText: never an answer; QuizRunner reports the question).
   const helpDay = raid?.day
   const running = phase === 'fight' || phase === 'more' || phase === 'lap'
   const helpLeft = phase === 'done' && summary ? summary.left : helpDay ? Math.max(0, helpDay.hp - helpDay.damage - (running ? fs.damage : 0)) : 0
   const helpAbility = ability ? `${t(`lg_ability_${ability}`)}: ${t(`lg_abilityDesc_${ability}`)}` : ''
   useHelpEntry(ctx, 'raid', raidHelpText({
-    view: phase, boss: summary?.bossName || bossName, ability: helpAbility, test: !!testMotif, lives: maxHearts,
+    view: phase, boss: summary?.bossName || bossName, ability: helpAbility, test: !!testMotif, lives: phase === 'done' && summary ? maxHearts : maxHearts + extraHearts,
+    powers: powersHelpLine(loadout, usedRef.current, powerArmed),
     hpLeft: helpLeft, hpMax: helpDay?.hp || 0,
     livesLeft: phase === 'done' && summary ? summary.hearts : Math.max(0, fightHearts - (running ? fs.livesLost : 0)),
     phase: helpDay ? phaseOf(helpLeft, helpDay.hp, RAID.phases) : 1,
@@ -522,7 +540,6 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     return (
       <div style={{ maxWidth: 560, margin: '40px auto', display: 'grid', gap: 14 }}>
         <EbiSays pose={poseFile(phase === 'beaten' ? 'party' : 'confused')}>{text}</EbiSays>
-        {/* Out of hearts is when stopping tonight's heal matters most: the Bandage is offered here too. */}
         <Trophies ctx={ctx} raid={raid} />
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <ChunkyButton variant="ghost" color={C.inkDim} onClick={onExit}>{t('lg_back')}</ChunkyButton>
@@ -534,14 +551,14 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
   }
   if (phase === 'intro') {
     return (
-      <div style={{ display: 'grid', gap: 8 }}>
+      <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'minmax(0, 1fr)' }}>
         {testMotif && <TestTag t={t} note />}
         <BossIntro t={t} area={area} name={bossName} total={questions.length} kind="raids" raidLives={maxHearts} raidLeft={startHearts} ability={ability} calm={focus} onFight={() => { if (!rewriting) setPhase('fight') }} />
         <FightSettings ctx={ctx} allowStyle busy={rewriting} runSize={runSizeOpt} />
         <PowerLoadout t={t} beaten={beaten} loadout={loadout} onToggle={testMotif ? null : setLoadout} test={!!testMotif}
           bandage={!day?.won && bandageWorth && !bandageDone ? bandageNow : null} note={bandageNote} heal={profile.heal} cast={powerCast?.id === 'bandage' ? powerCast : null} />
         <div style={{ maxWidth: 640, margin: '0 auto', textAlign: 'center', fontSize: 13.5, color: C.inkDim, lineHeight: 1.5 }}>
-          {t('lg_raidRules', { n: questions.length, lives: startHearts })}{day?.damage ? ` ${t('lg_raidWounded', { hp: day.hp - day.damage, max: day.hp })}` : ''}
+          {t('lg_raidRules', { n: questions.length, lives: fightHearts })}{day?.damage ? ` ${t('lg_raidWounded', { hp: day.hp - day.damage, max: day.hp })}` : ''}
           {!testMotif && <div style={{ marginTop: 4, fontWeight: 800 }}>🏰 {t('lg_raidSiegeLine', { n: profile.heal })}</div>}
         </div>
         <div style={{ display: 'flex', justifyContent: 'center' }}><ChunkyButton variant="ghost" color={C.inkDim} onClick={onExit}>{t('lg_back')}</ChunkyButton></div>
@@ -624,7 +641,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     const armedNow = armedRef.current
     if (Object.keys(armedNow).length) setArmed({})
     const pa = powerArmedRef.current
-    const { next, groups } = raidStep(before, q, { verdict, mode, attackQ: info.attackQ, aid, aided }, {
+    const { next, groups, boost } = raidStep(before, q, { verdict, mode, attackQ: info.attackQ, aid, aided }, {
       ability, need, lives, dayHp, dayBefore: day ? day.damage : 0, dayAb: day?.ab || null, pos: pos.current, questions, armed: Object.keys(armedNow).length ? armedNow : null,
       shield: !!pa.shield, sharpen: !!pa.sharpen, ward: !!pa.ward && !!q._attack,
       focus: pa.focus > 0, momentum: pa.momentum > 0, fury: pa.fury > 0, siphon: pa.siphon > 0,
@@ -638,7 +655,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
     fsRef.current = next
     setFs(next)
     // An aided answer (50:50, Hint) was struck like a choice, so an overturn refunds it like one (1, not a clean 2).
-    fc.attach(aid, { cost: strikeCost(before, next), kind, mode: aided ? 'choice' : mode, cardId: q._cardId })
+    fc.attach(aid, { cost: { ...strikeCost(before, next), ...(boost && Object.keys(boost).length ? { boost } : {}) }, kind, mode: aided ? 'choice' : mode, cardId: q._cardId })
     pendingRef.current.push(...groups)
     const g = pendingRef.current.shift()
     return g ? { insert: g.insert, at: g.at } : null
@@ -698,7 +715,7 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
       {q._attack && <div role="alert" style={{ padding: '8px 12px', borderRadius: RADIUS.md, background: `color-mix(in srgb, ${C.danger} 14%, ${C.surface})`, border: `2px solid ${C.danger}`, color: C.danger, fontWeight: 900, fontSize: 14 }}>⚔️ {t(attackCost === 1 ? 'lg_attackIncomingOne' : 'lg_attackIncoming', { n: attackCost })}</div>}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ fontSize: 12, fontWeight: 800, color: mode === 'choice' ? C.info : C.warning }}>
-          {mode === 'choice' ? `🛡 ${t('lg_strikeSafeHint', { n: DAMAGE.choice })}` : `💥 ${t('lg_strikePowerHint', { n: DAMAGE.clean })}`}{fightPhase > 1 ? ` · 😡 ${t('lg_rageNoSafe')}` : ''}
+          {mode === 'choice' ? `🛡 ${t('lg_strikeSafeHint', { n: DAMAGE.choice })}` : aidedQ.current.has(q) ? `🤝 ${t('lg_strikeAidedHint', { n: DAMAGE.choice })}` : `💥 ${t('lg_strikePowerHint', { n: DAMAGE.clean })}`}{fightPhase > 1 ? ` · 😡 ${t('lg_rageNoSafe')}` : ''}
         </div>
         {tagChip(q, mode)}
       </div>
@@ -766,8 +783,8 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
   }
   const leftNow = Math.max(0, dayHp - shown.damage)
   return (
-    <div style={{ display: 'grid', gap: 12 }}>
-      <div style={{ maxWidth: 680, width: '100%', margin: '0 auto', position: 'sticky', top: 0, zIndex: 5, paddingTop: 4, background: C.bg }}>
+    <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'minmax(0, 1fr)' }}>
+      <div ref={arenaRef} data-raid-arena-pin="" style={{ maxWidth: 680, width: '100%', margin: '0 auto', position: 'sticky', top: arenaTop, zIndex: 5, paddingTop: 4, background: C.bg }}>
         {testMotif && <TestTag t={t} />}
         <BossArena t={t} area={area} name={bossName} need={dayHp} lives={maxHearts} state={shown} phases={RAID.phases} ability={ability} dayAb={day?.ab || null} focus={focus} getZoom={ctx.getZoom} kind="raids" questionKey={questionKey} power={powerCast?.id === 'bandage' ? null : powerCast} armed={{ ...powerArmed, ...(extraHearts ? { steadfast: Math.max(0, extraHearts - fs.livesLost) } : {}) }} proc={powerProc} />
         {phase === 'fight' && <TauntBubble bubble={taunt.bubble} name={bossName} calm={focus} ctx={ctx} />}
@@ -785,18 +802,18 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
             <ChunkyButton variant="ghost" color={C.inkDim} onClick={finishLap} style={{ fontSize: 13, padding: '7px 12px' }}>{t('lg_aftermathLater')}</ChunkyButton>
           </div>
           <QuizRunner questions={lapQs} t={t} ai={ai} subject={subject} ctx={ctx} confirm={ctx.confirm}
-            title={`🏁 ${t('lg_raidLapTitle')}`} onAnswer={recordLap} judge={judge} feedbackExtra={missTools}
+            title={`🏁 ${t('lg_raidLapTitle')}`} onAnswer={recordLap} judge={judge} feedbackExtra={missTools} overturnedFor={overturnedFor}
             onFinish={finishLap} onExit={leave} />
         </div>
       ) : phase === 'more' ? (
         <MoreCard t={t} name={bossName} left={leftNow} more={more} onContinue={continueRun} onStop={commit} />
-      ) : outcome ? <BossEnd t={t} won={outcome === 'won'} onDone={commit} /> : (
+      ) : outcome ? <BossEnd t={t} won={outcome === 'won'} onDone={commit} lostKey={testMotif ? 'lg_bossLost' : 'lg_raidBossLost'} /> : (
         <QuizRunner key={seg} questions={segQs || questions} t={t} ai={ai} subject={subject} ctx={ctx} confirm={ctx.confirm}
           title={`⚔️ ${bossName}`} onAnswer={record} judge={judge} header={header} tools={tools}
           canUseChoices={(q) => !q._attack && fightPhase === 1}
           startChoices={() => fightRulesNow.answerStyle === 'choices'}
           onQuestion={() => { setQuestionKey((k) => k + 1); taunt.onQuestion() }}
-          resolveQuestion={fc.resolveQuestion} feedbackExtra={missTools}
+          resolveQuestion={fc.resolveQuestion} feedbackExtra={missTools} overturnedFor={overturnedFor}
           onFinish={ranOut} onExit={leave} />
       )}
     </div>
@@ -807,8 +824,11 @@ function RaidRunOne({ ctx: rawCtx, onExit, onAgain, test = null }) {
 function MoreCard({ t, name, left, more, onContinue, onStop }) {
   const n = more?.cards?.length || 0
   const looking = !more || more.cards === null
+  // A dialog takes the focus once its answer is known (the quiz that had it is gone): Continue, else See the result.
+  const boxRef = useRef(null)
+  useEffect(() => { if (!looking) boxRef.current?.querySelector('button:not([disabled])')?.focus({ preventScroll: true }) }, [looking])
   return (
-    <div data-raid-more="" role="dialog" aria-label={t('lg_raidOutTitle')} style={{ maxWidth: 560, width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'grid', gap: 10, justifyItems: 'center', textAlign: 'center',
+    <div ref={boxRef} data-raid-more="" role="dialog" aria-label={t('lg_raidOutTitle')} style={{ maxWidth: 560, width: '100%', margin: '0 auto', boxSizing: 'border-box', display: 'grid', gap: 10, justifyItems: 'center', textAlign: 'center',
       padding: '16px 18px', borderRadius: RADIUS.lg, border: `2px solid color-mix(in srgb, ${C.warning} 55%, ${C.border})`, background: `color-mix(in srgb, ${C.warning} 8%, ${C.surface})` }}>
       <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 20, color: C.ink }}>⏳ {t('lg_raidOutTitle')}</div>
       <div style={{ fontSize: 15, color: C.ink, lineHeight: 1.45 }}>
@@ -843,19 +863,6 @@ export function Hearts({ t, left, max = RAID.lives, size = 18 }) {
   )
 }
 
-// The siege's carried state for the "no hearts" screen: hearts, the boss's health, when the next heart comes.
-function SiegeLine({ t, raid }) {
-  const s = raid?.siege
-  if (!s) return null
-  return (
-    <div style={{ display: 'grid', gap: 4, justifyItems: 'center', textAlign: 'center', color: C.inkDim, fontWeight: 800 }}>
-      <Hearts t={t} left={s.hearts} max={Math.max(s.hearts, raidProfile(raidMotif(raid)).hearts)} size={22} />
-      <div>{t('lg_raidCarry', { hearts: s.hearts, max: Math.max(s.hearts, raidProfile(raidMotif(raid)).hearts), hp: Math.max(0, s.hp - s.damage), maxHp: s.hp })}</div>
-      <div style={{ fontSize: 13, fontWeight: 700 }}>🏰 {t('lg_raidSiegeLine', { n: raidProfile(raidMotif(raid)).heal })}</div>
-    </div>
-  )
-}
-
 // The raid hall: every raid boss beaten, the newest first.
 function Trophies({ ctx, raid }) {
   const { t } = ctx
@@ -863,16 +870,23 @@ function Trophies({ ctx, raid }) {
   if (!list.length) return null
   return (
     <Card title={`🏆 ${t('lg_raidHall')}`} style={{ width: '100%', boxSizing: 'border-box' }}>
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        {list.slice(0, 20).map((x, i) => (
-          <div key={i} style={{ display: 'grid', justifyItems: 'center', gap: 2, fontSize: 11, fontWeight: 800, color: C.inkDim }}>
-            {/* A trophy of a retired boss (or one from a newer build) keeps its place, drawn as a plain cup: no art fetch. */}
-            {isRaidMotif(x.motif)
-              ? <LegendsArt kind="raids" motif={x.motif} palette="night" height={48} width={48} round={0} room />
-              : <div title={t('lg_raidRetired')} style={{ width: 48, height: 48, display: 'grid', placeItems: 'center', fontSize: 30 }}>🏆</div>}
-            {x.date}
-          </div>
-        ))}
+      <div role="list" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        {list.slice(0, 20).map((x, i) => {
+          // The drawing alone named nobody (only the date showed): the boss's name is the tooltip and what a screen
+          // reader hears. A trophy of a retired boss (or one from a newer build) keeps its place, drawn as a plain
+          // cup: no art fetch.
+          const known = isRaidMotif(x.motif)
+          const name = known ? t(`lg_raidBoss_${x.motif}`) : t('lg_raidRetired')
+          return (
+            <div key={i} role="listitem" data-trophy={x.motif} aria-label={`${name} · ${x.date}`} className="tip" data-tip={name}
+              style={{ display: 'grid', justifyItems: 'center', gap: 2, fontSize: 11, fontWeight: 800, color: C.inkDim }}>
+              {known
+                ? <LegendsArt kind="raids" motif={x.motif} palette="night" height={48} width={48} round={0} room />
+                : <div aria-hidden="true" style={{ width: 48, height: 48, display: 'grid', placeItems: 'center', fontSize: 30 }}>🏆</div>}
+              <span aria-hidden="true">{x.date}</span>
+            </div>
+          )
+        })}
       </div>
     </Card>
   )
@@ -917,13 +931,19 @@ function PowerLoadout({ t, beaten, loadout, onToggle = null, test = false, compa
           const full = !on && loadout.length >= LOADOUT_MAX
           const can = !!onToggle && unlocked && !full
           const tip = unlocked ? t(`lg_powDesc_${id}`, powerVars(id)) : t('lg_powLockedOne', { n: POWERS[id].unlock })
+          // The dimming sits on the CONTENT, never the button: the house tooltip is the button's own pseudo-element, and
+          // a faded or greyscaled button faded its tip too (unreadable over the rules text below). Screen readers get the
+          // name + what it does (or the unlock rule): the tooltip is CSS only and a locked tile shows just "🔒 N".
           return (
             <button key={id} type="button" data-power-tile={id} aria-pressed={on} disabled={!can && !(onToggle && on)} onClick={() => onToggle && unlocked && onToggle(id)}
-              className={`tip tip-b${on ? ' ui-tab-current' : ''}`} data-tip={tip}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontFamily: FONT.body, fontSize: 12.5, fontWeight: 800, padding: '5px 10px', borderRadius: RADIUS.pill,
-                border: `1.5px solid ${on ? C.purple : `color-mix(in srgb, ${C.purple} 30%, transparent)`}`, background: on ? `color-mix(in srgb, ${C.purple} 18%, ${C.surface})` : 'transparent',
-                color: unlocked ? (on ? C.ink : C.inkDim) : C.inkFaint || C.inkDim, opacity: unlocked ? (full ? 0.55 : 1) : 0.45, cursor: onToggle && unlocked && (on || !full) ? 'pointer' : 'default', filter: unlocked ? 'none' : 'grayscale(1)' }}>
-              <PowerIcon id={id} size={20} /> {unlocked ? t(`lg_pow_${id}`) : `🔒 ${POWERS[id].unlock}`}
+              className={`tip tip-b${on ? ' ui-tab-current' : ''}`} data-tip={tip} aria-label={unlocked ? `${t(`lg_pow_${id}`)}: ${tip}` : tip}
+              style={{ display: 'inline-flex', alignItems: 'center', fontFamily: FONT.body, fontSize: 12.5, fontWeight: 800, padding: '5px 10px', borderRadius: RADIUS.pill,
+                border: `1.5px solid ${on ? C.purple : `color-mix(in srgb, ${C.purple} ${unlocked && !full ? 30 : 16}%, transparent)`}`, background: on ? `color-mix(in srgb, ${C.purple} 18%, ${C.surface})` : 'transparent',
+                color: unlocked ? (on ? C.ink : C.inkDim) : C.inkFaint || C.inkDim, cursor: onToggle && unlocked && (on || !full) ? 'pointer' : 'default',
+                opacity: 1 /* beats the global button:disabled dim (it faded the tip too); the span below dims */ }}>
+              <span aria-hidden="true" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, opacity: unlocked ? (full ? 0.55 : 1) : 0.45, filter: unlocked ? 'none' : 'grayscale(1)' }}>
+                <PowerIcon id={id} size={20} /> {unlocked ? t(`lg_pow_${id}`) : `🔒 ${POWERS[id].unlock}`}
+              </span>
             </button>
           )
         })}

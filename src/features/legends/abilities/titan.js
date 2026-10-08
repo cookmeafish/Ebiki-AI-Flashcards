@@ -2,9 +2,11 @@
 // He starts with K.plates plates. A CLEAN TYPED raid answer cracks one (and deals its normal damage); choices and
 // glancing answers deal their normal damage and crack nothing. The last crack SHATTERS the plates: +K.shatter, and he is
 // EXPOSED for the next K.window right raid answers: each deals +K.exposed. Then he forges new plates. A phase line
-// re-forges cracked plates (never during an opening). Attacks and inserted questions: no effect.
+// re-forges cracked plates (never during an opening). Attacks and inserted questions: no effect. A glancing answer
+// under Focus (a raid power) counts as clean and cracks a plate (hitClean, _rules.js).
 // Why a window of answers, not "until the next phase line" (the first version): two cracks and the shatter dealt 6, a
 // whole phase of a typical raid, so the shatter itself crossed the line and the opening never lasted one answer.
+import { hitClean } from './_rules'
 const K = { plates: 2, shatter: 2, exposed: 1, window: 3 }
 
 export default {
@@ -22,7 +24,7 @@ export default {
       if (!s.ab.open) { s.ab.exposed = false; s.ab.plates = K.plates }
       return
     }
-    if (!ctx.clean) return
+    if (!hitClean(ctx, res)) return
     s.ab.plates = Math.max(0, s.ab.plates - 1)
     if (s.ab.plates === 0) {
       res.dmg += K.shatter

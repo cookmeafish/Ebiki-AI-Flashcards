@@ -53,6 +53,45 @@ describe('Ebi images', () => {
     expect((await sharp(r.file).metadata()).width).toBe(200)
   })
 
+  it('makes a new copy when the original is replaced by one with an OLDER date', async () => {
+    if (!sharp) return
+    const ebi = createEbiImages({ srcDir: SRC, cacheDir: CACHE, loadSharp })
+    await makePng('old.png', 300, 300)
+    await ebi.resolve('old.png')
+    await makePng('old.png', 120, 60)
+    const earlier = new Date(Date.now() - 86400000)
+    fs.utimesSync(path.join(SRC, 'old.png'), earlier, earlier)
+    const r = await ebi.resolve('old.png')
+    expect((await sharp(r.file).metadata()).width).toBe(120)
+  })
+
+  it('serves the original when a picture cannot be resized', async () => {
+    if (!sharp) return
+    const ebi = createEbiImages({ srcDir: SRC, cacheDir: CACHE, loadSharp })
+    fs.writeFileSync(path.join(SRC, 'broken.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x01, 0x02]))
+    const r = await ebi.resolve('broken.png')
+    expect(r.resized).toBe(false)
+    expect(r.file).toBe(path.join(SRC, 'broken.png'))
+    expect(fs.readdirSync(CACHE).some((f) => f.endsWith('.tmp'))).toBe(false)
+  })
+
+  it('turns sharp\'s file cache off', async () => {
+    let cacheArg
+    const fake = Object.assign(() => ({ resize() { return this }, webp() { return this }, toFile: async () => { throw new Error('x') } }), { cache: (v) => { cacheArg = v } })
+    const ebi = createEbiImages({ srcDir: SRC, cacheDir: path.join(ROOT, 'fake'), loadSharp: () => fake })
+    await ebi.resolve('raw.png').catch(() => {})
+    fs.writeFileSync(path.join(SRC, 'raw2.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47]))
+    await ebi.resolve('raw2.png')
+    expect(cacheArg).toBe(false)
+  })
+
+  it('refuses Windows stream and device-style names', async () => {
+    const ebi = createEbiImages({ srcDir: SRC, cacheDir: CACHE, loadSharp })
+    for (const n of ['big.png::$DATA', 'big.png.', 'big.png ', 'C:big.png', 'big%2Fpng']) {
+      expect(await ebi.resolve(n)).toBe(null)
+    }
+  })
+
   it('serves the original when resizing is not available', async () => {
     const ebi = createEbiImages({ srcDir: SRC, cacheDir: path.join(ROOT, 'none'), loadSharp: () => { throw new Error('missing') } })
     fs.writeFileSync(path.join(SRC, 'raw.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))

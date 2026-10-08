@@ -45,7 +45,7 @@ export const S = {
     color: C.inkFaint, background: 'transparent',
     padding: '3px 8px', borderRadius: RADIUS.pill, border: `1px solid ${C.border}`,
   },
-  headerRight: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  headerRight: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', minWidth: 0, maxWidth: '100%' },
   select: {
     padding: '8px 12px', background: C.surface, color: C.ink,
     border: `1px solid ${C.border}`, borderRadius: RADIUS.md, fontSize: 13,
@@ -73,7 +73,7 @@ export const S = {
   },
   captureGroup: { display: 'flex', gap: 0, borderRadius: RADIUS.md, boxShadow: SHADOW.sm },
   captureBtn: {
-    padding: '8px 15px', background: C.brand, color: C.white,
+    padding: '8px 15px', background: C.brandFill, color: C.white,
     border: 'none', borderRadius: `${RADIUS.md}px 0 0 ${RADIUS.md}px`, fontWeight: 800,
     fontSize: 13, fontFamily: FONT.body, cursor: 'pointer',
     display: 'flex', alignItems: 'center', boxShadow: `inset 0 -3px 0 ${C.brandDark}`,
@@ -108,13 +108,13 @@ export const S = {
     fontSize: 13, fontFamily: FONT.body, outline: 'none', fontWeight: 500,
   },
   getKeyLink: {
-    padding: '8px 13px', background: C.brandTint, color: C.brand,
+    padding: '8px 13px', background: C.brandTint, color: C.brandText,
     border: `1px solid ${C.brandRing}`, borderRadius: RADIUS.md, fontWeight: 700,
     fontSize: 12, fontFamily: FONT.body, cursor: 'pointer', textDecoration: 'none',
     whiteSpace: 'nowrap',
   },
   keyDone: {
-    padding: '8px 16px', background: C.brand, color: C.white,
+    padding: '8px 16px', background: C.brandFill, color: C.white,
     border: 'none', borderRadius: RADIUS.md, fontWeight: 800, fontSize: 13,
     fontFamily: FONT.body, cursor: 'pointer', boxShadow: `inset 0 -3px 0 ${C.brandDark}`,
   },
@@ -162,7 +162,7 @@ export const S = {
     display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, flexWrap: 'wrap',
   },
   errorLink: {
-    padding: '8px 14px', background: C.danger, color: C.white,
+    padding: '8px 14px', background: C.dangerFill, color: C.white,
     borderRadius: RADIUS.md, fontWeight: 700, fontSize: 12, textDecoration: 'none',
     fontFamily: FONT.body,
   },
@@ -282,7 +282,7 @@ export const S = {
   },
   ttSynList: { display: 'flex', flexWrap: 'wrap', gap: 4 },
   ttSynChip: {
-    fontSize: 11, background: C.brandTint, color: C.brand,
+    fontSize: 11, background: C.brandTint, color: C.brandText,
     padding: '3px 8px', borderRadius: RADIUS.sm, fontWeight: 700,
   },
   ttConf: {
@@ -302,7 +302,7 @@ export const S = {
   },
   ttExplainBtn: {
     display: 'flex', alignItems: 'center', width: '100%',
-    padding: '8px 12px', background: C.brandTint, color: C.brand,
+    padding: '8px 12px', background: C.brandTint, color: C.brandText,
     border: `1px solid ${C.brandRing}`, borderRadius: RADIUS.md,
     fontWeight: 700, fontSize: 12, fontFamily: FONT.body, cursor: 'pointer',
     justifyContent: 'center',
@@ -336,7 +336,7 @@ export const S = {
     textAlign: 'center',
   },
   ttAnkiBtn: {
-    flex: 1, padding: '8px 10px', background: C.brandTint, color: C.brand,
+    flex: 1, padding: '8px 10px', background: C.brandTint, color: C.brandText,
     border: `1px solid ${C.brandRing}`, borderRadius: RADIUS.md,
     fontWeight: 700, fontSize: 12, fontFamily: FONT.body, cursor: 'pointer',
     textAlign: 'center',
@@ -354,7 +354,7 @@ export const S = {
     color: C.ink, marginBottom: 8,
   },
   ttAnkiSyncBtn: {
-    padding: '6px 12px', background: C.brand, color: C.white,
+    padding: '6px 12px', background: C.brandFill, color: C.white,
     border: 'none', borderRadius: RADIUS.sm,
     fontWeight: 700, fontSize: 10, fontFamily: FONT.body, cursor: 'pointer',
   },
@@ -405,7 +405,7 @@ export const S = {
     fontFamily: FONT.body, outline: 'none',
   },
   ttChatSend: {
-    padding: '7px 11px', background: C.brand, color: C.white,
+    padding: '7px 11px', background: C.brandFill, color: C.white,
     border: 'none', borderRadius: RADIUS.md, fontWeight: 700, fontSize: 11,
     fontFamily: FONT.body, cursor: 'pointer',
   },

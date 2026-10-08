@@ -18,8 +18,10 @@ const REASON_MAX = 300
 export const flagOf = (v) => {
   if (v === true || v === 1) return true
   if (v === false || v === 0) return false
-  const s = String(v ?? '').trim().toLowerCase()
-  return /^(true|yes|correct)$/.test(s) ? true : /^(false|no|incorrect|wrong)$/.test(s) ? false : null
+  // "True." and "sí" happen (a reply that drifted into the learner's language): trailing punctuation off, a few languages.
+  const s = String(v ?? '').trim().toLowerCase().replace(/[\s.!?。！？]+$/u, '')
+  return /^(true|yes|y|correct|right|sí|si|oui|ja|vrai|verdadero|wahr|vero)$/.test(s) ? true
+    : /^(false|no|n|incorrect|wrong|non|nein|faux|falso|falsch)$/.test(s) ? false : null
 }
 
 // `phrasing` (a fight's language line, kit/fightSettings.js) tells the grader which language the learner reads, and in
@@ -48,9 +50,14 @@ export function buildVerdictPrompt(subject, q, ans) {
   }
 }
 // → { target, all, accentsOnly } (booleans) or null when the reply holds no readable "target".
+// A reply that answered the plain question instead ({"correct": true}) is read as a whole verdict: right = clean.
 export function parseVerdict(j) {
-  const target = j && typeof j === 'object' ? flagOf(j.target) : null
-  if (target == null) return null
+  if (!j || typeof j !== 'object') return null
+  if (flagOf(j.target) == null) {
+    const c = flagOf(j.correct ?? j.right)
+    return c == null ? null : { target: c, all: c, accentsOnly: false }
+  }
+  const target = flagOf(j.target)
   return { target, all: flagOf(j.all) === true, accentsOnly: flagOf(j.accentsOnly) === true }
 }
 // The verdict the flags mean, under the mode's accent setting.

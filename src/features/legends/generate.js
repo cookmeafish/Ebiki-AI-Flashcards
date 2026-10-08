@@ -8,7 +8,7 @@ import {
 } from './map'
 import {
   buildMapPrompt, buildAreaPrompt, buildQuizPrompt, buildMapEditPrompt, buildPlacementPrompt,
-  parseQuestions, itemIdFor, buildBossNamePrompt, parseBossName, buildQuizCheckPrompt, parseQuizCheck, ROLE, MAX_TOKENS, QUIZ_SIZE, QUIZ_PER_ITEM_MAX,
+  parseQuestions, fitQuestionsToKind, itemIdFor, buildBossNamePrompt, parseBossName, buildQuizCheckPrompt, parseQuizCheck, ROLE, MAX_TOKENS, QUIZ_SIZE, QUIZ_PER_ITEM_MAX,
 } from './prompt'
 import { updateMap, peekMap, readStep, readStepAny, saveStep, stepSig } from './store'
 
@@ -142,6 +142,17 @@ export function reshuffleQuiz(qs) {
     return { ...q, choices: order.map((i) => q.choices[i]), answerIdx: order.indexOf(q.answerIdx) }
   })
 }
+// Two sets for the same step as one, the first's questions first, a question already there (same words) never twice.
+export function mergeQuestionSets(a, b) {
+  const seen = new Set()
+  const out = []
+  for (const q of [...(a || []), ...(b || [])]) {
+    const k = normQ(q?.prompt)
+    if (!k || seen.has(k)) continue
+    seen.add(k); out.push(q)
+  }
+  return out
+}
 const askedIn = (data) => (Array.isArray(data?.questions) ? data.questions : []).map((q) => q?.prompt || q?.question || '').filter(Boolean)
 
 export function makeQuiz(ctx, modeId, area, node, opts = {}) {
@@ -198,7 +209,7 @@ async function makeQuizNow(ctx, modeId, area, node, { misses = [] } = {}) {
   let reviewed = true
   const ask = async (strict, more = {}) => {
     const raw = await call(ctx, buildQuizPrompt(subject, area, node, { ...opts, ...more, strict }), ROLE.quiz, MAX_TOKENS.quiz)
-    const qs = parseQuestions(ai.json(raw), ai.clean, { speakLang: lang, dual: boss }).filter((q) => itemIdFor(q, taught) && !seen.has(normQ(q.prompt)))
+    const qs = fitQuestionsToKind(parseQuestions(ai.json(raw), ai.clean, { speakLang: lang, dual: boss }), node.kind).filter((q) => itemIdFor(q, taught) && !seen.has(normQ(q.prompt)))
     if (!qs.length) return qs // nothing to review (never a paid call on an empty list)
     const checked = await review(qs)
     if (!checked) reviewed = false
@@ -206,7 +217,8 @@ async function makeQuizNow(ctx, modeId, area, node, { misses = [] } = {}) {
   }
   for (const q of kept || []) seen.add(normQ(q.prompt))
   let qs = kept || await ask(false)
-  if (!enough(qs.length)) qs = await ask(true)
+  // The stricter retry ADDS to what the first ask kept (it replaced them: 3 good questions and a retry of 1 failed the step).
+  if (!enough(qs.length)) qs = mergeQuestionSets(qs, await ask(true))
   // Refill what the review (or the filters) took out: new questions for the missing places, never repeats.
   const target = Math.max(2, Math.min(opts.count, taught.length * QUIZ_PER_ITEM_MAX))
   if (qs.length && qs.length < target * QUIZ_TOPUP_BELOW) {
@@ -242,7 +254,9 @@ export function sceneFor(modeId, area, node, make) {
 export async function makePlacementBatch(ctx, tier, n, avoid) {
   const { subject, ai, t } = ctx
   const raw = await call(ctx, buildPlacementPrompt(subject, tier, n, { avoid, knowledge: subject.knowledge(KNOWLEDGE_CAP.quiz) }), ROLE.placement, MAX_TOKENS.placement)
-  const qs = parseQuestions(ai.json(raw), ai.clean).slice(0, n)
+  // The prompt asks for no repeats; a model that repeats one anyway (same words) does not get it asked twice.
+  const asked = new Set((avoid || []).map(normQ))
+  const qs = parseQuestions(ai.json(raw), ai.clean).filter((q) => { const k = normQ(q.prompt); if (!k || asked.has(k)) return false; asked.add(k); return true }).slice(0, n)
   if (!qs.length) throw new Error(t('lg_errQuiz'))
   return qs
 }

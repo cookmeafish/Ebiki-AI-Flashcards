@@ -7,6 +7,9 @@ import { featureStore } from '../storage'
 import { shapeMap } from './map'
 
 export const LEGENDS_ID = 'legends'
+// The intent that opens the Legends screen (= the nav id); payload { edit: '<request>' } opens "Change my map". Here,
+// not in LegendsScreen, so the rail's LevelCard can open it without pulling the whole screen into the startup bundle.
+export const LEGENDS_INTENT = 'legends'
 
 let blocked = () => false
 export const configureLegends = (ctx) => { if (ctx?.isDataSwitching) blocked = () => !!ctx.isDataSwitching() }

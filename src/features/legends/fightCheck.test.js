@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { FIGHT_EXTRAS, fightExtrasFor, isWrongish, expectedOf, needsRecheck, appealOpen, appealOffered, debriefEntries, resolveFightQuestion, learnItemFor } from './fightCheck'
+import { FIGHT_EXTRAS, fightExtrasFor, isWrongish, expectedOf, needsRecheck, appealOpen, appealOffered, debriefEntries, resolveFightQuestion, learnItemFor, missRowParts } from './fightCheck'
 
 const OFF = Object.fromEntries(Object.keys(FIGHT_EXTRAS).map((k) => [k, false]))
 
@@ -72,5 +72,15 @@ describe('learnItemFor', () => {
     expect(learnItemFor(null, q)).toEqual({ front: 'Which port?', back: '22' })
     expect(learnItemFor(undefined, null, { fallback: { front: 'a', back: 'b' } })).toEqual({ front: 'a', back: 'b' })
     expect(expectedOf({ kind: 'choice', choices: ['x', 'y'], answerIdx: 1 })).toBe('y')
+  })
+
+  it('a miss row hides the grader note and the rule card once the answer was found right', () => {
+    const miss = { first: 'miss', note: 'Not the word asked for.', overturned: false }
+    expect(missRowParts(miss, { rule: true, hasKey: true })).toEqual({ note: true, ruleCard: true })
+    expect(missRowParts(miss, { rule: true, hasKey: false }).ruleCard).toBe(false)
+    expect(missRowParts(miss).ruleCard).toBe(false)
+    expect(missRowParts({ ...miss, overturned: true }, { rule: true, hasKey: true })).toEqual({ note: false, ruleCard: false })
+    expect(missRowParts({ ...miss, note: '  ' }).note).toBe(false)
+    expect(missRowParts(null)).toEqual({ note: false, ruleCard: false })
   })
 })

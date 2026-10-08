@@ -19,10 +19,11 @@ export function speechEngines(ctx) {
 }
 
 // Start listening. Returns { stop(): Promise<text>, cancel() }; throws when there is no engine or no mic.
-export async function listen(ctx, { lang = '' } = {}) {
+// `onFail(code)`: the browser recognizer died on its own mid-session ('nomic' = permission refused).
+export async function listen(ctx, { lang = '', onFail } = {}) {
   const { stt } = speechEngines(ctx)
   if (!stt) throw new Error('no-engine')
-  if (stt === 'browser') return platform.speech.recognize({ lang })
+  if (stt === 'browser') return platform.speech.recognize({ lang, onFail })
   const rec = await platform.speech.record()
   return {
     stop: async () => {
@@ -41,7 +42,17 @@ export function speak(ctx, text, { lang = '', voice = 0 } = {}) {
   const { tts } = speechEngines(ctx)
   let stopped = false
   let handle = null
-  const device = () => { handle = { stop: platform.speech.stop }; return platform.speech.speak(clean, lang, { voiceIndex: voice }) }
+  let release = null
+  // The device voice is ONE shared queue: stop only THIS line (its own token), never every feature's speech, and
+  // settle `done` at once (a cancelled line's end event may never come).
+  const device = () => {
+    let token = null
+    handle = { stop: () => { platform.speech.stop(token); release?.() } }
+    return new Promise((resolve) => {
+      release = resolve
+      platform.speech.speak(clean, lang, { voiceIndex: voice, onHandle: (u) => { token = u } }).then(resolve, resolve)
+    })
+  }
   const done = (async () => {
     if (tts === 'device') return device()
     const key = `${tts}|${voice}|${lang}|${clean}`

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { C, RADIUS } from '../../config/tokens'
 import { listen, speechEngines } from '../../speech'
 import { depthBorder } from '../ui'
+import { aiErrorText } from './aiError'
 
 const MAX_MS = 60000 // one turn stops itself after this long
 
@@ -26,7 +27,7 @@ export default function TalkButton({ ctx, lang = '', onText, onStart, disabled, 
     setState('hearing')
     // The LIVE onText: the 60s cap's timer held the render that opened the mic, and its old send() wrote back an old
     // message list over a typed turn and Ebi's reply (a grade in it was lost).
-    try { const text = (await s.stop())?.trim(); if (text && aliveRef.current) onTextRef.current?.(text) } catch (e) { if (aliveRef.current) setNote(e?.code === 'nomic' ? t('kit_noMic') : String(e.message || e).slice(0, 140)) }
+    try { const text = (await s.stop())?.trim(); if (text && aliveRef.current) onTextRef.current?.(text) } catch (e) { if (aliveRef.current) setNote(e?.code === 'nomic' ? t('kit_noMic') : aiErrorText(t, e).slice(0, 140)) }
     if (aliveRef.current) setState('idle')
   }
   const start = async () => {

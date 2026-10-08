@@ -7,6 +7,7 @@ export const C = {
   // ── Brand (the one focus color — Ebi's red) ──
   brand: 'var(--c-brand)',
   brandDark: 'var(--c-brand-dark)',
+  brandText: 'var(--c-brand-text)', // brand-colored TEXT on a brand tint (a selected tab or tile): AA in both themes
   brandSoft: 'var(--c-brand-soft)',
   brandTint: 'var(--c-brand-tint)', // the faint brand wash (a current item, a selected tile): theme-tuned
   brandTint2: 'rgba(223,37,64,.05)',
@@ -48,7 +49,22 @@ export const C = {
   infoTint: 'rgba(45,134,201,.12)',
   purple: 'var(--c-purple)',
   purpleTint: 'rgba(139,92,246,.12)',
+
+  // ── Solid fills under white text (CTAs, badges): WCAG AA with white in both themes (src/config/contrast.js).
+  // The plain tokens above are TEXT colors; in dark mode they are bright and give white text only 2 to 3.2:1.
+  brandFill: 'var(--c-brand-fill)',
+  infoFill: 'var(--c-info-fill)',
+  successFill: 'var(--c-success-fill)',
+  dangerFill: 'var(--c-danger-fill)',
+  warningFill: 'var(--c-warning-fill)',
+  purpleFill: 'var(--c-purple-fill)',
 }
+
+// The fill to use under white text for a token color (ChunkyButton and friends take a text color as `color`).
+export const fillFor = (color) => ({
+  [C.brand]: C.brandFill, [C.success]: C.successFill, [C.danger]: C.dangerFill,
+  [C.warning]: C.warningFill, [C.purple]: C.purpleFill, [C.info]: C.infoFill,
+})[color] || color
 
 export const FONT = {
   display: "'Baloo 2', 'Nunito', system-ui, -apple-system, sans-serif",

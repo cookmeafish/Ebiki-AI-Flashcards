@@ -1,32 +1,21 @@
 // The map: a vertical scroll of areas (the first at the bottom), each an illustrated banner over a winding
 // ladder of round steps climbed bottom to top, the boss on top. Drawn by the app, never by the AI: the banner
 // and the boss are the hand-made files in public/assets/legends (./art.jsx). Scrolls to the learner's current area.
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { C, FONT, RADIUS } from '../../config/tokens'
 import { bandFor, bandProgress } from '../kit/learner'
 import { ChunkyButton, ProgressBar, depthBorder, shade } from '../ui'
 import { AreaArt, BossArt, paletteColors } from './art'
 import { mapProgress } from './map'
+import { LevelChip } from './LevelChip'
+export { LevelChip }
 import { CheatButton, CheatRow, useCheatToggle } from './CheatUI'
 import { AreaExtras, Journey, PassportModal } from './Extras'
 
 export const KIND_ICON = { learn: '📘', practice: '✏️', scene: '📖', rule: '📐', talk: '💬', adventure: '🧭', weak: '🎯', boss: '👑' }
 const NODE = { size: 66, boss: 88, swing: 72, gap: 26 }  // px: step button, boss button, sideways swing, vertical gap
 const MAX_W = 620
-
-export function LevelChip({ t, learner, isLanguage, compact = false }) {
-  if (!learner) return null
-  const band = bandFor(learner.level, isLanguage)
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: compact ? 0 : 180 }}>
-      <div style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: compact ? 18 : 22, color: C.purple, lineHeight: 1 }}>{Math.round(learner.level)}</div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t(`lg_band_${band.key}`)}</div>
-        <ProgressBar value={bandProgress(learner.level, isLanguage)} max={1} color={C.purple} height={8} />
-      </div>
-    </div>
-  )
-}
+const HEAD_STICKY_MAX = 0.4 // share of the screen's height the pinned map header may take
 
 function Stars({ n, size = 14 }) {
   return (
@@ -48,7 +37,7 @@ function StepButton({ t, area, node, colors, onOpen, index, focusRef, cheat }) {
   const x = boss ? 0 : Math.round(Math.sin(index * 0.95) * NODE.swing)
   const label = node.title || t(`lg_kind_${node.kind}`)
   return (
-    <div ref={focusRef} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', transform: `translateX(${x}px)`, gap: 4 }}>
+    <div ref={focusRef} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', alignSelf: 'center', maxWidth: '100%', transform: `translateX(${x}px)`, gap: 4 }}>
       <button type="button" disabled={locked && !cheat} onClick={() => onOpen(node)} className={locked && !cheat ? undefined : 'btn-press'}
         aria-label={`${label}${locked ? ` (${t('lg_locked')})` : done ? ` (${t('lg_done')})` : ''}`}
         style={{
@@ -151,6 +140,24 @@ export default function MapView({ ctx, map, learner, busy, error, onRetry, onOpe
   const currentRef = useRef(null)
   const stepRef = useRef(null)
   const scrolled = useRef(false)
+  // The sticky header rests below the screen's scroll padding, and the map showed through that band above it: pull it
+  // up by exactly that padding (the asset view's pinned arena does the same).
+  // On a short or zoomed screen the header (title, heatmap, buttons) took most of the height and the map scrolled in a
+  // sliver under it: it stays pinned only while it uses at most HEAD_STICKY_MAX of the screen's height.
+  const headRef = useRef(null)
+  const [headTop, setHeadTop] = useState(0)
+  const [stick, setStick] = useState(true)
+  useLayoutEffect(() => {
+    let p = headRef.current?.parentElement
+    while (p && !/(auto|scroll)/.test(getComputedStyle(p).overflowY)) p = p.parentElement
+    if (!p) return undefined
+    setHeadTop(-(parseFloat(getComputedStyle(p).paddingTop) || 0))
+    const fit = () => { const h = headRef.current?.offsetHeight || 0; setStick(!p.clientHeight || h <= p.clientHeight * HEAD_STICKY_MAX) }
+    fit()
+    const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null
+    ro?.observe(p); if (headRef.current) ro?.observe(headRef.current)
+    return () => ro?.disconnect()
+  }, [])
   const current = map.areas.findIndex((a) => a.status === 'open')
   // Center the current area inside the SCREEN's own scroll box: scrollIntoView also scrolled the page root
   // (the header left the window and a blank band stayed at the bottom).
@@ -171,7 +178,7 @@ export default function MapView({ ctx, map, learner, busy, error, onRetry, onOpe
   return (
     <div style={{ maxWidth: MAX_W, margin: '0 auto' }}>
       <style>{'@keyframes lgPulse { 0%,100% { transform: scale(1) } 50% { transform: scale(1.06) } } @media (prefers-reduced-motion: reduce) { [style*="lgPulse"] { animation: none !important } }'}</style>
-      <div style={{ position: 'sticky', top: 0, zIndex: 2, padding: '8px 12px 10px', margin: '0 -12px', borderRadius: 16, background: `color-mix(in srgb, ${C.bg} 86%, transparent)`, backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
+      <div ref={headRef} style={{ position: stick ? 'sticky' : 'relative', top: stick ? headTop : undefined, zIndex: 2, padding: `${8 - headTop}px 12px 10px`, margin: `${headTop}px -12px 0`, borderRadius: '0 0 16px 16px', background: `color-mix(in srgb, ${C.bg} 86%, transparent)`, backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
           <div style={{ flex: '1 1 200px', minWidth: 0 }}>
             <div onClick={titleClick} style={{ fontFamily: FONT.display, fontWeight: 900, fontSize: 26, color: C.ink, lineHeight: 1.1, userSelect: 'none' }}>🗺️ {t('lg_title')}{cheat ? ' ⚡' : ''}</div>

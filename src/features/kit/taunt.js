@@ -15,8 +15,8 @@ export const PHRASE_WORDS = 3
 
 const words = (text) => String(text || '').toLowerCase().normalize('NFKC')
   .replace(/[^\p{L}\p{N}\s']/gu, ' ').split(/\s+/).map((w) => w.replace(/^'+|'+$/g, '')).filter(Boolean)
-// Scripts written without spaces (Chinese, Japanese): their "words" are characters, so phrases are character runs.
-const NO_SPACES = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u
+// Scripts written without spaces (Chinese, Japanese, Thai, Lao, Khmer, Burmese): their "words" are characters, so phrases are character runs.
+const NO_SPACES = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Thai}\p{Script=Lao}\p{Script=Khmer}\p{Script=Myanmar}]/u
 
 // Every run of `n` words of a line (characters, for a line in a script without spaces), as strings.
 export function phrasesOf(text, n = PHRASE_WORDS) {

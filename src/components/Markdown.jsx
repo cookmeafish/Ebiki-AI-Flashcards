@@ -47,7 +47,10 @@ DOMPurify.addHook('uponSanitizeAttribute', (node, data) => {
   // image-set(), which loads a URL given as a plain string, without url(.
   if (/[\\]|\/\*/.test(v) || /url\s*\(|image-set|@import|expression\s*\(|position\s*:\s*(fixed|absolute|sticky)/i.test(v)) data.keepAttr = false
 })
-export const sanitizeHtml = (html, opts = {}) => DOMPurify.sanitize(String(html ?? ''), { ...opts, FORBID_TAGS, FORBID_ATTR })
+// SANITIZE_NAMED_PROPS by default: an id or name in content the app did not write ("<i id=ebikiWindow>" in a reply or a
+// shared-deck card back) became a window property and the app took itself for the Electron window. Only first-party
+// files (the Legends art, whose ids carry local url(#id) references) turn it off.
+export const sanitizeHtml = (html, opts = {}) => DOMPurify.sanitize(String(html ?? ''), { SANITIZE_NAMED_PROPS: true, ...opts, FORBID_TAGS, FORBID_ATTR })
 
 export default function Markdown({ text, style }) {
   const html = useMemo(() => {

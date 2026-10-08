@@ -34,5 +34,7 @@ $vbs = Join-Path $app 'launch-ebiki.vbs'
 if (Test-Path $vbs) {
   # Through wscript.exe so the splash appears exactly as it does from the
   # shortcut - a restart that shows nothing would read as a crash.
-  Start-Process -FilePath 'wscript.exe' -ArgumentList ('"' + $vbs + '"') -WorkingDirectory $app
+  # -WindowStyle Normal like every other Start-Process in these scripts: this one runs hidden, and the
+  # splash the VBS opens must not inherit that.
+  Start-Process -FilePath 'wscript.exe' -ArgumentList ('"' + $vbs + '"') -WorkingDirectory $app -WindowStyle Normal
 }

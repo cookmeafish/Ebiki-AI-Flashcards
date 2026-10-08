@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { makeT } from '../../i18n'
-import { raidCatalogText, raidBossFacts, raidProgressText, bestiaryHelpText, familyOf, CATALOG_MAX, BESTIARY_MAX } from './bestiaryHelp'
+import { raidCatalogText, raidBossFacts, raidProgressText, raidPowersText, bestiaryHelpText, familyOf, CATALOG_MAX, BESTIARY_MAX } from './bestiaryHelp'
 import { RAID_ORDER, raidBossIndex, raidWhere } from './raid'
 import { legendsWhere } from './helpContext'
 import { screenWhere, buildSystemPrompt } from '../../components/HelpChat'
@@ -124,5 +124,29 @@ describe('what part of the screen Help names', () => {
     const study = buildSystemPrompt({ activeTab: 'study', featureContext: fc })
     expect(study).not.toMatch(/and on it:/)
     expect(study).toMatch(/BACKGROUND, bestiary/)
+  })
+})
+
+describe('raid powers in Help (every screen)', () => {
+  const won = (motifs) => ({ boss: 0, trophies: motifs.map((motif, i) => ({ motif, date: `2026-09-0${(i % 9) + 1}` })) })
+  it('counts DIFFERENT bosses beaten, names the unlocked powers, the loadout and the next unlock', () => {
+    // chronos twice + glutton (retired, still a boss beaten): 2 different.
+    const text = raidPowersText(en, won(['chronos', 'chronos', 'glutton']), ['shield', 'fifty'])
+    expect(text).toMatch(/2 different raid boss\(es\) beaten; unlocked 1 of 12 \(Shield\)/)
+    expect(text).toMatch(/Brought into the next fight \(up to 3, picked on the raid intro\): Shield\./) // 50:50 is not unlocked yet
+    expect(text).toMatch(/Next unlock: 50:50 at 3 different bosses beaten \(1 to go\)/)
+  })
+  it('no boss beaten yet, no saved loadout, everything unlocked, unknown progress', () => {
+    expect(raidPowersText(en, null, undefined)).toMatch(/unlocked 0 of 12 \(none yet.*Next unlock: Shield at 1/)
+    const all = won(RAID_ORDER)
+    const text = raidPowersText(en, all, undefined)
+    expect(text).toMatch(/Every power is unlocked/)
+    expect(text).toMatch(/Brought into the next fight.*: Shield, 50:50, Second wind\./) // no saved pick: the first three, as the intro does
+    expect(raidPowersText(en, all, [], false)).toBe('')
+  })
+  it('the catalog carries the powers line', () => {
+    const text = raidCatalogText({ t: en, raid: won(['hydra']), today: '2026-10-03', loadout: ['shield'] })
+    expect(text).toMatch(/The player's powers: 1 different raid boss\(es\) beaten.*Brought into the next fight.*: Shield\./)
+    expect(text.length).toBeLessThanOrEqual(CATALOG_MAX)
   })
 })

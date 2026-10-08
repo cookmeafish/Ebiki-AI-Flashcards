@@ -53,3 +53,34 @@ describe('same-origin subresources', () => {
     expect(apiRequestAllowed({ host: 'localhost:3000', 'sec-fetch-site': 'none', 'sec-fetch-dest': 'document' })).toBe(true)
   })
 })
+
+describe('header edge cases', () => {
+  it('compares the Origin with the Host as a host, not as raw text', () => {
+    // A Host typed in another case or with the default port is the same host: refusing it broke a real caller.
+    expect(apiRequestAllowed({ host: 'LOCALHOST:3000', origin: 'http://localhost:3000' })).toBe(true)
+    expect(apiRequestAllowed({ host: 'localhost:80', origin: 'http://localhost' })).toBe(true)
+    // ...but never another port or a hostname that only CONTAINS the loopback name.
+    expect(apiRequestAllowed({ host: 'localhost:3000', origin: 'http://localhost:3001' })).toBe(false)
+    expect(apiRequestAllowed({ host: 'localhost:3000', origin: 'http://localhost:3000.evil.example' })).toBe(false)
+    expect(apiRequestAllowed({ host: 'localhost:3000', origin: 'http://localhost.evil.example:3000' })).toBe(false)
+  })
+  it('refuses lookalike and malformed hosts', () => {
+    expect(apiRequestAllowed({ host: 'localhost.evil.example:3000' })).toBe(false)
+    expect(apiRequestAllowed({ host: '127.0.0.1.nip.io:3000' })).toBe(false)
+    expect(apiRequestAllowed({ host: 'localhost:3000@evil.example' })).toBe(false)
+    expect(apiRequestAllowed({ host: '[::1' })).toBe(false)
+    expect(apiRequestAllowed({ host: '0.0.0.0:3000' })).toBe(false)
+  })
+  it('refuses an Origin that is not a plain http(s) origin', () => {
+    expect(apiRequestAllowed({ host: 'localhost:3000', origin: 'file://' })).toBe(false)
+    expect(apiRequestAllowed({ host: 'localhost:3000', origin: 'chrome-extension://abc' })).toBe(false)
+    expect(apiRequestAllowed({ host: 'localhost:3000', origin: '' })).toBe(false)
+    expect(apiRequestAllowed({ origin: 'http://localhost:3000' })).toBe(false) // Origin without a Host
+  })
+  it('reads Sec-Fetch values whatever their case', () => {
+    expect(apiRequestAllowed({ host: 'localhost:3000', 'sec-fetch-site': 'Cross-Site' })).toBe(false)
+    expect(apiRequestAllowed({ host: 'localhost:3000', 'sec-fetch-dest': 'IMAGE' })).toBe(false)
+    expect(apiRequestAllowed({ host: 'localhost:3000', 'sec-fetch-dest': 'iframe' })).toBe(false)
+    expect(apiRequestAllowed({ host: 'localhost:3000', 'sec-fetch-dest': 'script' })).toBe(false)
+  })
+})

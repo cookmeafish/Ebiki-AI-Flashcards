@@ -50,4 +50,15 @@ describe('Legends cheats', () => {
     expect(area(m, 1)).toMatchObject({ detailed: false, frozen: false, items: [], nodes: [] })
     expect(applyAreaDetail(m, area(m, 1).id, detail).areas[1].detailed).toBe(true)
   })
+  it('a reset area forgets every tally and badge (no gold without a new fight, no stale flawless)', () => {
+    let m = mapWithDetail()
+    const id = area(m, 0).id
+    m = { ...m, areas: m.areas.map((a, k) => (k ? a : { ...a, frozen: true, items: a.items.map((it) => ({ ...it, seen: 5, right: 5, bossRight: 2, missNudged: true })), nodes: a.nodes.map((n) => ({ ...n, status: 'done', flawless: true, allPower: true })) })) }
+    m = cheatResetArea(m, id)
+    for (const it of area(m, 0).items) { expect(it.bossRight).toBeUndefined(); expect(it.missNudged).toBeUndefined(); expect(it.seen).toBeUndefined() }
+    for (const n of area(m, 0).nodes) { expect(n.flawless).toBeUndefined(); expect(n.allPower).toBeUndefined() }
+    let one = cheatCompleteNode(mapWithDetail(), id, 'n1')
+    one = { ...one, areas: one.areas.map((a, k) => (k ? a : { ...a, nodes: a.nodes.map((n) => (n.id === 'n1' ? { ...n, flawless: true } : n)) })) }
+    expect(node(cheatResetNode(one, id, 'n1'), 0, 'n1').flawless).toBeUndefined()
+  })
 })

@@ -68,3 +68,14 @@ describe('quiz review pass', () => {
     expect(buildQuizCheckPrompt(texan, items, []).user).toMatch(/Texas/)
   })
 })
+
+describe('a stricter retry adds to the first set', () => {
+  it('keeps the first set, adds new questions, never the same words twice', async () => {
+    const { mergeQuestionSets } = await import('./generate')
+    const a = [{ prompt: 'Say hello' }, { prompt: 'Say good morning' }, { prompt: 'Say bye' }]
+    const b = [{ prompt: 'say  HELLO!' }, { prompt: 'Say thanks' }, { prompt: '' }]
+    expect(mergeQuestionSets(a, b).map((q) => q.prompt)).toEqual(['Say hello', 'Say good morning', 'Say bye', 'Say thanks'])
+    expect(mergeQuestionSets(a, [])).toHaveLength(3)
+    expect(mergeQuestionSets([], b).map((q) => q.prompt)).toEqual(['say  HELLO!', 'Say thanks'])
+  })
+})

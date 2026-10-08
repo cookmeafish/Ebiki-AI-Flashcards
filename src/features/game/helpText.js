@@ -4,10 +4,12 @@ import { computeStreak, dayTotals, dateKey, dayMeta, questProgress, leagueBoard,
 
 export function gameHelpText(player, others = [], today = dateKey()) {
   if (!player) return ''
-  const goal = dayMeta(player, today).goal || player.goalXp || DEFAULT_GOAL
+  // The goal the header and the rail show (the CURRENT setting): today's record keeps the goal of the day's first award,
+  // so after a goal change Help named the old one beside a header showing the new one.
+  const goal = player.goalXp || dayMeta(player, today).goal || DEFAULT_GOAL
   const totals = dayTotals(player, today)
   const s = computeStreak(player, today)
-  const quests = (dayMeta(player, today).quests || []).map((q) => questProgress(q, totals))
+  const quests = (dayMeta(player, today).quests || []).map((q) => questProgress(q, totals)).filter((q) => !q.unknown)
   const board = leagueBoard(player, others, today, player.goalXp || DEFAULT_GOAL)
   const rank = board.rows.findIndex((r) => r.kind === 'me') + 1
   const lines = [

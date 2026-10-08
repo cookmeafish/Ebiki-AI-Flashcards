@@ -1,10 +1,14 @@
 // Local grading for typed answers (no AI): exact after normalizing, or exact except for accents.
 // Subject-agnostic: "accents" only matter where the text has them.
 
-const TRAILING_PUNCT = /[\s.,;:!?¡¿"'`´“”‘’«»()[\]]+$/u
-const LEADING_PUNCT = /^[\s.,;:!?¡¿"'`´“”‘’«»()[\]]+/u
-export const normalizeAnswer = (s) => String(s ?? '').toLowerCase().normalize('NFC').replace(LEADING_PUNCT, '').replace(TRAILING_PUNCT, '').replace(/\s+/g, ' ').trim()
-export const stripAccents = (s) => String(s).normalize('NFD').replace(/\p{M}/gu, '').normalize('NFC')
+// Edge punctuation, Latin and CJK (猫。 is 猫). NFKC folds full-width letters and half-width kana (ＲＡＩＤ is RAID).
+const TRAILING_PUNCT = /[\s.,;:!?¡¿"'`´“”‘’«»()[\]。、，．！？：；「」『』【】（）〈〉《》・…]+$/u
+const LEADING_PUNCT = /^[\s.,;:!?¡¿"'`´“”‘’«»()[\]。、，．！？：；「」『』【】（）〈〉《》・…]+/u
+export const normalizeAnswer = (s) => String(s ?? '').normalize('NFKC').toLowerCase().replace(LEADING_PUNCT, '').replace(TRAILING_PUNCT, '').replace(/\s+/g, ' ').trim()
+// Only ACCENT marks: Latin/Greek/Cyrillic diacritics and Arabic/Hebrew vowel points. Kana dakuten (か/が), Indic vowel
+// signs (क/का) and Thai vowels are part of the letter: dropping them made another word count as "an accent slip".
+const ACCENT_MARKS = /[\u0300-\u036f\u1ab0-\u1aff\u1dc0-\u1dff\u20d0-\u20ff\ufe20-\ufe2f\u0591-\u05c7\u064b-\u065f\u0670]/gu
+export const stripAccents = (s) => String(s).normalize('NFD').replace(ACCENT_MARKS, '').normalize('NFC')
 
 // 'exact' | 'accent' (right letters, wrong or missing accents) | null (no local match; maybe ask the AI).
 export function matchTyped(answer, accepted = []) {
@@ -98,7 +102,8 @@ export function sanitizeQuestions(raw, { maxChoices = 4, audioLang = '', speakLa
       out.push({ kind: 'choice', prompt, choices: order.map((i) => choices[i]), answerIdx: order.indexOf(idx), explanation, target, ...extra })
       continue
     }
-    const accepted = [...new Set([...(Array.isArray(q.accepted) ? q.accepted : []), ...(q.answer != null && typeof q.answer !== 'number' ? [q.answer] : [])].map((x) => String(x).trim()).filter(Boolean))]
+    // With no choices a number IS the answer (a port, a year: 443 came back as JSON 443 and the question was dropped).
+    const accepted = [...new Set([...(Array.isArray(q.accepted) ? q.accepted : []), ...(q.answer != null && (typeof q.answer !== 'number' || !Array.isArray(q.choices)) ? [q.answer] : [])].map((x) => String(x).trim()).filter(Boolean))]
     if (!accepted.length) continue
     if (leaksAnswer(prompt, accepted)) continue
     out.push({ kind: 'typed', prompt, accepted, explanation, target, open: !!q.open, ...extra })

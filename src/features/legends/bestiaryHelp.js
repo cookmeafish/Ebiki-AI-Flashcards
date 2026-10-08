@@ -7,6 +7,7 @@
 // screen, without its key). Published by HelpBridge.jsx (the catalog, every screen) and AssetView.jsx (the bestiary).
 import { RAID, RAID_ORDER, RAID_ABILITY, raidBossNumber, shapeRaid, raidMotif, isRaidMotif, SIEGE_RULE, raidToday, siegeOf } from './raid'
 import { raidProfile } from './raidProfiles'
+import { POWER_IDS, LOADOUT_MAX, bossesBeaten, unlockedPowers, nextUnlock, shapeLoadout } from './powers'
 import { MOTIFS } from './map'
 import { bestiaryRows } from './abilities/_triggers'
 import { FAMILY_TREES, FAMILY_MISFITS, familyMotifs } from './families'
@@ -88,18 +89,36 @@ export function raidProgressText(t, raid, today = '', known = true) {
   ].join('\n')
 }
 
+// The player's POWERS (powers.js), for "which powers do I have", "what unlocks next", "what am I bringing": unlocked by
+// DIFFERENT raid bosses beaten (trophies), the loadout picked for the next fight (features.legends.raidLoadout, shaped
+// like the raid intro shapes it), and the next unlock. Unknown progress says so.
+export function raidPowersText(t, raid, loadout, known = true) {
+  if (!known) return ''
+  const name = (id) => tx(t, `lg_pow_${id}`) || id
+  const beaten = bossesBeaten(raid ? shapeRaid(raid) : null)
+  const open = unlockedPowers(beaten)
+  const bring = shapeLoadout(loadout, beaten)
+  const next = nextUnlock(beaten)
+  return [
+    `The player's powers: ${beaten} different raid boss(es) beaten; unlocked ${open.length} of ${POWER_IDS.length}${open.length ? ` (${open.map(name).join(', ')})` : ' (none yet: the first unlocks at 1 boss beaten)'}.`,
+    open.length ? `Brought into the next fight (up to ${LOADOUT_MAX}, picked on the raid intro): ${bring.length ? bring.map(name).join(', ') : 'none'}.` : '',
+    next ? `Next unlock: ${name(next.id)} at ${next.beaten} different bosses beaten (${next.beaten - beaten} to go).` : 'Every power is unlocked.',
+  ].filter(Boolean).join(' ')
+}
+
 // THE CATALOG (every screen): the rules, the player's progress, the current boss in full, then every raid boss in
 // progression order, one line each. Lines carry the ability's rule; when the budget runs out, the bosses FARTHEST
 // ahead of the player's current boss lose their rule first (name, ability name and family stay).
-export function raidCatalogText({ t, raid = null, known = true, today = '', fxName } = {}) {
+export function raidCatalogText({ t, raid = null, known = true, today = '', fxName, loadout } = {}) {
   const cur = raid ? raidMotif(raid) : RAID_ORDER[0]
   const top = [
     'RAID BOSSES AND THE BESTIARY (facts for questions like "which raid boss is next", "what does the Lich do", "how do I beat the Hydra", "what family is X in"). The bestiary is the asset view (cheat mode): every boss with its ability, effects, lore and family.',
     RAID_RULES,
     raidProgressText(t, raid, today, known),
+    raidPowersText(t, raid, loadout, known),
     `Current boss in full:\n${raidBossFacts(t, cur, { full: true, lore: false, fxName })}`,
     'All raid bosses in progression order (a win brings out the next):',
-  ].join('\n')
+  ].filter(Boolean).join('\n')
   const longLine = (m) => `- ${raidBossFacts(t, m, { ids: false, madeFrom: false })}`
   const shortLine = (m) => {
     const ab = RAID_ABILITY[m]

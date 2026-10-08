@@ -9,7 +9,7 @@ describe('refunds (a re-check or an appeal says the answer was right)', () => {
     const after = strike(before, { verdict: 'miss', mode: 'typed' })
     expect(after.livesLost).toBe(1)
     const r = refundFor({ to: 'clean' }, strikeCost(before, after))
-    expect(r).toEqual({ lives: 1, damage: DAMAGE.clean })
+    expect(r).toEqual({ lives: 1, damage: DAMAGE.clean, shield: false })
     const s = applyRefund(after, { ...r, from: 'miss', to: 'clean' })
     expect(s.livesLost).toBe(0)
     expect(s.damage).toBe(DAMAGE.clean)
@@ -22,7 +22,7 @@ describe('refunds (a re-check or an appeal says the answer was right)', () => {
     const before = newFight()
     const after = strike(before, { verdict: 'glancing', mode: 'typed' })
     const r = refundFor({ to: 'clean' }, strikeCost(before, after))
-    expect(r).toEqual({ lives: 0, damage: DAMAGE.clean - DAMAGE.glancing })
+    expect(r).toEqual({ lives: 0, damage: DAMAGE.clean - DAMAGE.glancing, shield: false })
     const s = applyRefund(after, { ...r, from: 'glancing', to: 'clean' })
     expect(s.glancing).toBe(0)
     expect(s.clean).toBe(1)
@@ -38,11 +38,36 @@ describe('refunds (a re-check or an appeal says the answer was right)', () => {
     expect(refundFor({ to: 'clean', weak: true }, { lives: 1 }).damage).toBe(DAMAGE.clean + DAMAGE.weak)
     expect(refundFor({ to: 'clean', mode: 'choice' }, { lives: 1 }).damage).toBe(DAMAGE.choice)
   })
-  it('a shielded miss gives no heart (none was lost), still the damage', () => {
+  it('a shielded miss gives no heart (none was lost), the damage, and the Shield back', () => {
     const before = newFight()
     const after = strike(before, { verdict: 'miss', mode: 'typed' }, { shield: true })
     expect(after.livesLost).toBe(0)
-    expect(refundFor({ to: 'clean' }, strikeCost(before, after))).toEqual({ lives: 0, damage: DAMAGE.clean })
+    expect(after.shieldUsed).toBe(true)
+    const r = refundFor({ to: 'clean' }, strikeCost(before, after))
+    expect(r).toEqual({ lives: 0, damage: DAMAGE.clean, shield: true })
+    const s = applyRefund(after, { ...r, from: 'miss', to: 'clean' })
+    expect(s.shieldUsed).toBe(false)
+    expect(s.last.shieldBack).toBe(true)
+    // The Shield takes the next lost heart again.
+    expect(strike(s, { verdict: 'miss', mode: 'typed' }, { shield: true }).livesLost).toBe(0)
+  })
+  it('a power window up on the overturned answer counts (Fury, Momentum, Focus), never on a choice', () => {
+    const miss = { lives: 1, damage: 0 }
+    expect(refundFor({ to: 'clean' }, { ...miss, boost: { fury: 2 } }).damage).toBe(DAMAGE.clean * 2)
+    expect(refundFor({ to: 'clean' }, { ...miss, boost: { momentum: true } }).damage).toBe(DAMAGE.clean + DAMAGE.crit * 2)
+    expect(refundFor({ to: 'glancing' }, { ...miss, boost: { focus: true } }).damage).toBe(DAMAGE.clean)
+    expect(refundFor({ to: 'glancing' }, { ...miss, boost: { fury: 2 } }).damage).toBe(DAMAGE.glancing)
+    expect(refundFor({ to: 'clean', mode: 'choice' }, { ...miss, boost: { fury: 2, momentum: true } }).damage).toBe(DAMAGE.choice)
+    expect(refundFor({ to: 'clean', kind: 'attack' }, { ...miss, boost: { fury: 2 } }).damage).toBe(DAMAGE.counter)
+  })
+  it('the refund matches what a right answer would have dealt in that window', () => {
+    for (const [verdict, flag, opts] of [['clean', 'fury', { fury: 2 }], ['clean', 'momentum', { momentum: true }], ['glancing', 'focus', { focus: true }]]) {
+      const right = strike(newFight(), { verdict, mode: 'typed' }, opts)
+      const before = newFight()
+      const after = strike(before, { verdict: 'miss', mode: 'typed' }, opts)
+      const r = refundFor({ to: verdict }, { ...strikeCost(before, after), boost: { [flag]: opts[flag] } })
+      expect(r.damage).toBe(right.damage)
+    }
   })
   it('never gives back more hearts than were lost; a refund can win the fight', () => {
     const s = applyRefund(newFight(), { lives: 3, damage: 5 })
@@ -50,7 +75,7 @@ describe('refunds (a re-check or an appeal says the answer was right)', () => {
     expect(fightOutcome(s, { need: 5, lives: 3 })).toBe('won')
   })
   it('an upheld verdict refunds nothing', () => {
-    expect(refundFor({ to: 'miss' }, { lives: 1 })).toEqual({ lives: 0, damage: 0 })
+    expect(refundFor({ to: 'miss' }, { lives: 1 })).toEqual({ lives: 0, damage: 0, shield: false })
   })
 })
 
@@ -78,6 +103,20 @@ describe('raidStep tags attacks for the second look', () => {
   it('a glancing follow-up still being written is a placeholder', () => {
     const { groups } = raidStep(newFight(), { prompt: 'p', accepted: ['a'], _cardId: 1 }, { verdict: 'glancing', mode: 'typed', aid: 'x2', attackQ: { pending: 'x2' } }, opts)
     expect(groups[0].insert[0]).toMatchObject({ _attack: true, _pending: 'x2', prompt: '' })
+  })
+  it('under Focus a glancing slip hits clean and does not come back as an attack', () => {
+    const q = { prompt: 'p', accepted: ['a'], _cardId: 1 }
+    const { next, groups } = raidStep(newFight(), q, { verdict: 'glancing', mode: 'typed', aid: 'x3', attackQ: { prompt: 'fix', accepted: ['b'] } }, { ...opts, focus: true })
+    expect(next.last.focused).toBe(true)
+    expect(groups).toEqual([])
+    // A miss under Focus still comes back.
+    expect(raidStep(newFight(), q, { verdict: 'miss', mode: 'typed', aid: 'x4' }, { ...opts, focus: true }).groups.length).toBe(1)
+  })
+  it('names the power windows up on the answer (for a refund), none on attacks', () => {
+    const q = { prompt: 'p', accepted: ['a'], _cardId: 1 }
+    expect(raidStep(newFight(), q, { verdict: 'miss', mode: 'typed' }, { ...opts, fury: true, momentum: true, focus: true }).boost).toEqual({ fury: 2, momentum: true, focus: true })
+    expect(raidStep(newFight(), q, { verdict: 'miss', mode: 'choice' }, { ...opts, fury: true, momentum: true }).boost).toEqual({})
+    expect(raidStep(newFight(), { ...q, _attack: true }, { verdict: 'miss', mode: 'typed' }, { ...opts, fury: true }).boost).toEqual({})
   })
 })
 

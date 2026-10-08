@@ -36,6 +36,14 @@ describe('pickCardItems', () => {
     expect(ids.length).toBeLessThanOrEqual(30)
     expect(infoCalls).toBeLessThanOrEqual(12)
   })
+  it('takes one card per note: a reversed note never drills the same word twice', async () => {
+    // Every studied card has a sibling (the same note, the same fields).
+    const sib = { ...ctx, cards: { noteText: (c) => ({ front: `w${Math.ceil(c.cardId / 2)}`, back: 'b', fieldNames: ['F'] }) } }
+    const items = await pickCardItems(sib, 30)
+    const fronts = items.map((x) => x.front)
+    expect(fronts.length).toBeGreaterThan(0)
+    expect(new Set(fronts).size).toBe(fronts.length)
+  })
   it('returns [] without a card store or deck', async () => {
     expect(await pickCardItems({ ...ctx, ankiConnected: false }, 5)).toEqual([])
     expect(await pickCardItems({ ...ctx, subject: {} }, 5)).toEqual([])

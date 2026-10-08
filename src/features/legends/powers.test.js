@@ -1,6 +1,6 @@
 // RAID POWERS (powers.js + raid.js raidStep/applyBandage, fight.js raidRating).
 import { describe, it, expect } from 'vitest'
-import { POWERS, POWER_IDS, LOADOUT_MAX, POWER_WINDOW, FURY_MULT, SHARPEN_BONUS, bossesBeaten, unlockedPowers, nextUnlock, shapeLoadout, toggleLoadout, isFightPower, powerUsable, powerAfterAnswer, fiftyFifty, powerHint } from './powers'
+import { POWERS, POWER_IDS, LOADOUT_MAX, POWER_WINDOW, FURY_MULT, SHARPEN_BONUS, bossesBeaten, unlockedPowers, nextUnlock, shapeLoadout, toggleLoadout, isFightPower, powerUsable, powerAfterAnswer, fiftyFifty, powerHint, powersHelpLine } from './powers'
 import { raidStep, applyBandage, raidToday, raidBossIndex, RAID_ORDER, shapeRaid, raidAttemptOutcome } from './raid'
 import { newFight, raidRating } from './fight'
 
@@ -208,5 +208,16 @@ describe('the Bandage in the stored raid', () => {
     expect(applyBandage(b, D)).toBeNull()
     expect(applyBandage(raidToday({ boss, trophies: trophies(RAID_ORDER.slice(0, 12)) }, D, 10), D)).toBeNull()
     expect(shapeRaid(b).siege.bandage).toBe(D)
+  })
+})
+
+describe('powers for Ebi\'s Help', () => {
+  it('names each power brought and its state this fight', () => {
+    expect(powersHelpLine(['shield', 'focus', 'steadfast'], ['shield'], { focus: 2 })).toBe('Powers brought: shield (used this fight), focus (up now, 2 question(s) left), steadfast (always on this fight).')
+    expect(powersHelpLine(['sharpen', 'bandage'], [], { sharpen: true })).toBe('Powers brought: sharpen (up now), bandage (between runs).')
+    expect(powersHelpLine(['wind'], [], {})).toBe('Powers brought: wind (ready).')
+  })
+  it('says nothing when none were brought', () => {
+    expect(powersHelpLine([])).toBe('')
   })
 })

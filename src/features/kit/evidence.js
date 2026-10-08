@@ -114,11 +114,19 @@ export function buildEvidenceLevelPrompt(subject, snap, { bands = [], levelMax =
   }
 }
 
+// A number the model may have written with words or units around it ("45 of 130", "60%"); NaN when there is none.
+const leadNumber = (v) => {
+  if (typeof v === 'number') return v
+  const m = /^\s*(-?\d+(?:[.,]\d+)?)/.exec(String(v ?? ''))
+  return m ? Number(m[1].replace(',', '.')) : NaN
+}
 export function parseEvidenceLevel(raw, clean = (s) => s, levelMax = 130, { cautious = false } = {}) {
-  const lv = raw?.level === '' || raw?.level == null ? NaN : Number(raw.level)
+  const lv = leadNumber(raw?.level)
   if (!raw || typeof raw !== 'object' || !Number.isFinite(lv)) return null
-  const conf = raw.confidence === '' || raw.confidence == null ? NaN : Number(raw.confidence)
-  const list = (v) => (Array.isArray(v) ? v : []).map((x) => String(x).trim().slice(0, 60)).filter(Boolean).slice(0, 5)
+  const pct = typeof raw.confidence === 'string' && /%\s*$/.test(raw.confidence)
+  const conf = leadNumber(raw.confidence) / (pct ? 100 : 1)
+  // A comma separated string reads as its parts (a list was asked, "greetings, numbers" came back).
+  const list = (v) => (Array.isArray(v) ? v : typeof v === 'string' ? v.split(/[,;\n]/) : []).map((x) => String(x).trim().slice(0, 60)).filter(Boolean).slice(0, 5)
   const cap = cautious ? EVIDENCE.cautiousMax : EVIDENCE.confidenceMax
   return {
     level: Math.max(0, Math.min(levelMax, Math.round(lv))),
