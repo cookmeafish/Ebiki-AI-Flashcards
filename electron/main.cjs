@@ -15,14 +15,6 @@ app.commandLine.appendSwitch('force_high_performance_gpu')
 // Scroll by moving GPU layers, not repainting: on a 100%-scaled screen Chromium keeps LCD text by NOT compositing scroll
 // boxes, so every wheel step repainted the whole page on the CPU (the browser tab, Firefox, never did).
 app.commandLine.appendSwitch('enable-prefer-compositing-to-lcd-text')
-// NO FRAME PACING to a monitor (Windows): with two monitors at different refresh rates (480 Hz on the card, 60 Hz on the
-// built-in graphics) Chromium paced every frame to 60 Hz: scrolling measured 60 fps in this window against 480 in a
-// browser tab (utils/scrollProbe.js). Windows' compositor still presents at the monitor's own rate; frames are only
-// drawn while something changes. EBIKI_FRAME_PACING=1 restores Chromium's pacing.
-if (process.platform === 'win32' && process.env.EBIKI_FRAME_PACING !== '1') {
-  app.commandLine.appendSwitch('disable-gpu-vsync')
-  app.commandLine.appendSwitch('disable-frame-rate-limit')
-}
 
 // How this computer opens Ebiki - 'app' (this chrome-free window) or 'browser' (an ordinary tab).
 // Machine-local and read straight off disk because the branch below happens BEFORE there is a dev
