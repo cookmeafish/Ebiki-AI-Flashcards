@@ -120,7 +120,9 @@ export const S = {
   },
 
   // Main
-  main: { flex: 1, padding: 24, overflow: 'auto', animation: 'fadeIn .28s ease' },
+  // An OPAQUE scroller (the page's own color): Chromium composites only opaque scroll boxes on a 100%-scaled screen, so a
+  // transparent <main> was repainted on every scroll frame (about 10 ms each at 2560x1440: choppy wheel scrolling).
+  main: { flex: 1, padding: 24, overflow: 'auto', background: C.bg, animation: 'fadeIn .28s ease' },
 
   // Screen anatomy (UI overhaul): a display title, then panels (the same card anatomy as features/ui.jsx Card).
   screenTitle: { fontSize: 30, fontWeight: 800, color: C.ink, fontFamily: FONT.display, letterSpacing: '-0.01em', margin: '0 0 18px' },
