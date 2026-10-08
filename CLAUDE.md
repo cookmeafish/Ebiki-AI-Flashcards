@@ -1563,7 +1563,9 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   arena's phase CSS, ability card, live arena with "Next phase") and **Ebi drafts** (`public/assets/ebi-drafts/`, the
   current `SHRIMP` Ebi first); every palette; ←/→ step. **File names ONLY there** (and the dev gallery): `ArtLabels`
   puts a tag UNDER drawings of 100px+, never on them, never in gameplay (the owner).
-- **Art loads near the screen and pauses off it** (`useArtInView`, `ART_NEAR`, `sanitizeQueue` one file per task,
+- **Art loads near the screen and pauses off it** (`useArtInView`: comes in within `ART_NEAR` (1) screens, leaves past
+  `ART_FAR` (3), measured against the nearest VERTICAL scroller (`scrollRootOf`), never the window: <main> clipped it,
+  so art arrived on screen empty and popped in; `sanitizeQueue` one file per task,
   `pauseAnimations` off screen): mounting every raid boss at once lagged the owner's computer. The dev gallery sets
   `window.__ebikiArtEager = true` (check-art needs it); keep that line.
 - **Boss figures breathe past their frame** (`BOSS_HEADROOM` 20%): boss SVGs render `overflow="visible"` clipped at

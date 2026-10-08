@@ -292,7 +292,28 @@ function loadArt(url) {
 // box keeps its size and the sanitized markup stays in state, so scrolling back in shows it at once (its idle loop
 // starts over). The dev gallery (check-art measures every drawing at fixed moments) sets window.__ebikiArtEager to keep
 // them all live.
-const ART_NEAR = '400px'
+// Hysteresis, in screens: a drawing comes in once it is within ART_NEAR viewports of the screen and leaves only past
+// ART_FAR. A single 400px margin made art blink: smooth, fast scrolling crossed it in a frame, so a drawing arrived empty
+// and popped in, and scrolling back and forth took it out and put it back.
+const ART_NEAR = 1 // viewports: mount
+const ART_FAR = 3 // viewports: unmount
+const distanceInScreens = (el) => {
+  const r = el.getBoundingClientRect()
+  const vh = window.innerHeight || 1, vw = window.innerWidth || 1
+  const dy = r.bottom < 0 ? -r.bottom / vh : r.top > vh ? (r.top - vh) / vh : 0
+  const dx = r.right < 0 ? -r.right / vw : r.left > vw ? (r.left - vw) / vw : 0
+  return Math.max(dy, dx)
+}
+// The margins must be measured against the box that SCROLLS (<main>, a modal, a panel), not the window: an element
+// clipped by its scroll box counts as not intersecting no matter how wide the window's margin, so art only arrived
+// once it was already on screen.
+const scrollRootOf = (el) => {
+  for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+    const o = getComputedStyle(p)
+    if (/^(auto|scroll|overlay)$/.test(o.overflowY)) return p // the nearest VERTICAL scroller (a horizontal strip is not it)
+  }
+  return null
+}
 function useArtInView(ref) {
   const eager = typeof window === 'undefined' || typeof IntersectionObserver === 'undefined' || !!window.__ebikiArtEager
   const [near, setNear] = useState(eager)
@@ -301,16 +322,18 @@ function useArtInView(ref) {
   useLayoutEffect(() => {
     const el = ref.current
     if (eager || !el) return
-    const r = el.getBoundingClientRect()
-    const m = parseInt(ART_NEAR, 10)
-    if (r.bottom >= -m && r.top <= window.innerHeight + m && r.right >= -m && r.left <= window.innerWidth + m) setNear(true)
+    if (distanceInScreens(el) <= ART_NEAR) setNear(true)
   }, [eager, ref])
   useEffect(() => {
     const el = ref.current
     if (eager || !el) return undefined
-    const io = new IntersectionObserver(([e]) => setNear(e.isIntersecting), { rootMargin: ART_NEAR })
-    io.observe(el)
-    return () => io.disconnect()
+    // Two observers (margins are a share of the viewport): one says "come in", the other "you may leave".
+    const root = scrollRootOf(el)
+    const comeIn = new IntersectionObserver(([e]) => { if (e.isIntersecting) setNear(true) }, { root, rootMargin: `${ART_NEAR * 100}% ${ART_NEAR * 100}%` })
+    const leave = new IntersectionObserver(([e]) => { if (!e.isIntersecting) setNear(false) }, { root, rootMargin: `${ART_FAR * 100}% ${ART_FAR * 100}%` })
+    comeIn.observe(el)
+    leave.observe(el)
+    return () => { comeIn.disconnect(); leave.disconnect() }
   }, [eager, ref])
   return near
 }
