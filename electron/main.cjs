@@ -7,6 +7,12 @@ const { makeUrlChecks, isExternalHttpUrl, parseLaunchMode, pickPrimarySource, cl
 
 const APP_ROOT = path.join(__dirname, '..')
 
+// The DISCRETE GPU, always (before app ready: Chromium reads switches at start). On a laptop/desktop with two GPUs
+// (here an NVIDIA card driving a 480 Hz monitor plus the CPU's built-in AMD graphics) Windows ran this window on the
+// built-in one while the browser used the card: every frame was drawn on the weak GPU and copied across, and
+// scrolling crawled at a fraction of the monitor's rate (logs/app-window-gpu.json: 167 fps on 480 Hz).
+app.commandLine.appendSwitch('force_high_performance_gpu')
+
 // How this computer opens Ebiki - 'app' (this chrome-free window) or 'browser' (an ordinary tab).
 // Machine-local and read straight off disk because the branch below happens BEFORE there is a dev
 // server to ask. Kept in step with readLaunchMode in vite.config.js and Get-LaunchMode in
@@ -231,11 +237,12 @@ function writeGpuReport() {
   const fps = appWindow.webContents.executeJavaScript(
     'new Promise((r) => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 2000) requestAnimationFrame(f); else r(Math.round(n / ((performance.now() - t0) / 1000))) }; requestAnimationFrame(f) })',
   ).catch(() => null)
-  Promise.all([app.getGPUInfo('basic').catch((e) => ({ error: e.message })), fps]).then(([info, rafFps]) => {
+  Promise.all([app.getGPUInfo('complete').catch((e) => ({ error: e.message })), fps]).then(([info, rafFps]) => {
     const report = {
       at: new Date().toISOString(), electron: process.versions.electron, chrome: process.versions.chrome,
       features: app.getGPUFeatureStatus(), rafFps, focused: appWindow && appWindow.isFocused(),
       gpu: (info.gpuDevice || []).map((d) => ({ vendor: d.vendorId, device: d.deviceId, active: d.active, driver: d.driverVersion })),
+      renderer: info.auxAttributes ? { gl: info.auxAttributes.glRenderer, angle: info.auxAttributes.displayType, highPerf: info.auxAttributes.forceHighPerformanceGPU } : null,
       displays: screen.getAllDisplays().map((d) => ({ hz: d.displayFrequency, size: d.size, scale: d.scaleFactor })),
       switches: process.argv.slice(1).filter((a) => a.startsWith('--')),
     }
