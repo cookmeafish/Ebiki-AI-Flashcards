@@ -467,6 +467,10 @@ A bug fix (a popup hid UNDER the splash, froze launch, then snoozed a week). Don
   `/api/update` writes the install `pid` into it; launchers wait (15 min cap) while it lives, only for a node/npm
   process that STARTED before the marker (a reused PID). `launch.sh`: `etimes`, else parses `etime` (macOS). Name check
   = the basename's first word ("npm install" title).
+- **The Electron binary is ensured by OUR postinstall** (`scripts/brand-electron-exe.mjs` `ensureElectronBinary`): npm 11
+  may skip dependency install scripts (allow-scripts), which left `node_modules/electron` with no program after the 33 to
+  44 upgrade. A running app window locks `dist/` (EBUSY): close every `Ebiki.exe`/`electron.exe` under the app folder
+  before installing; the pending-install marker retries at the next fresh start.
 - **Never `execFile` a `.cmd`/`.bat` without a shell** (sync EINVAL, CVE-2024-27980, kills the server in a callback):
   `/api/update` runs `cmd /d /s /c "npm install ..."`.
 

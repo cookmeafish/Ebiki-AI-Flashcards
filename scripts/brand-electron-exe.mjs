@@ -33,7 +33,8 @@
 // handled correctly via scripts/setup.sh's .desktop entry (Icon= + StartupWMClass), and a bare
 // `electron` launch on Linux isn't a real scenario here (scripts/launch.sh always passes the app
 // path explicitly).
-import { existsSync, copyFileSync, mkdirSync, writeFileSync } from 'fs'
+import { existsSync, copyFileSync, mkdirSync, writeFileSync, readFileSync } from 'fs'
+import { spawnSync } from 'child_process'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
@@ -51,7 +52,27 @@ function setUpBareLaunch(electronDistDir) {
   console.log('[brand-electron-exe] Bare (argument-less) launches now open Ebiki instead of the Electron demo screen.')
 }
 
+// Electron's own install script downloads the real binary (dist/ + path.txt). npm 11 can skip dependency install
+// scripts (allow-scripts), which left node_modules/electron with no program after an upgrade: the app window could not
+// start. So this step (the PROJECT's postinstall, which npm runs) runs it whenever the binary is missing. Every
+// platform; fail-soft (electron is optional).
+function ensureElectronBinary() {
+  const pkgDir = path.join(appRoot, 'node_modules', 'electron')
+  const installer = path.join(pkgDir, 'install.js')
+  if (!existsSync(installer)) return
+  let have = false
+  try {
+    const rel = readFileSync(path.join(pkgDir, 'path.txt'), 'utf8').trim()
+    have = !!rel && existsSync(path.join(pkgDir, 'dist', rel))
+  } catch { /* no path.txt yet */ }
+  if (have) return
+  console.log('[brand-electron-exe] the Electron binary is missing; downloading it (electron/install.js)')
+  const r = spawnSync(process.execPath, [installer], { cwd: pkgDir, stdio: 'inherit' })
+  if (r.error || r.status !== 0) console.log('[brand-electron-exe] Electron download failed:', r.error ? r.error.message : `exit ${r.status}`)
+}
+
 async function main() {
+  try { ensureElectronBinary() } catch (err) { console.log('[brand-electron-exe] could not check the Electron binary:', err.message) }
   if (process.platform !== 'win32') return
 
   const electronDistDir = path.join(appRoot, 'node_modules', 'electron', 'dist')
