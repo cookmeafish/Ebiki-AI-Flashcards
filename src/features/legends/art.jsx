@@ -315,12 +315,13 @@ function useArtInView(ref) {
   return near
 }
 
-// ASLEEP: while the window is hidden (minimized, another tab) or not focused (another app in front), every drawing's
+// ASLEEP: while the window is HIDDEN (minimized, another tab, covered on a platform that reports it), every drawing's
 // idle life stops: SMIL paused, CSS animations inside art boxes ([data-lg-art]) and idle cards ([data-lg-idle], the
 // raid hero) on hold. They cost style, layout and paint on every frame (the raid hero alone kept the Practice hub at
 // about 190 layouts a second) for nobody watching. Everything resumes where it stopped on return. Wake unpauses EVERY
 // drawing: one paused by the arena's hit-stop is unpaused by its own cleanup anyway, so nothing stays frozen. The dev
-// gallery (window.__ebikiArtEager, check-art drives the clock itself) never sleeps.
+// gallery (window.__ebikiArtEager, check-art drives the clock itself) never sleeps. NOT on mere blur: a visible window
+// behind another app (or under the screenshot tool) froze every boss mid-entrance, wheels still flat, and looked broken.
 const ASLEEP_ATTR = 'data-lg-asleep'
 const ASLEEP_CSS = `html[${ASLEEP_ATTR}] [data-lg-art], html[${ASLEEP_ATTR}] [data-lg-art] *, html[${ASLEEP_ATTR}] [data-lg-idle] * { animation-play-state: paused !important }`
 let asleep = false
@@ -332,20 +333,17 @@ function setArtPlaying(svgs, play) {
 function installArtSleep() {
   if (sleepInstalled || typeof document === 'undefined' || typeof window === 'undefined' || window.__ebikiArtEager) return
   sleepInstalled = true
-  let blurred = false
   const style = document.createElement('style')
   style.textContent = ASLEEP_CSS
   document.head.appendChild(style)
   const apply = () => {
-    const next = !!document.hidden || blurred
+    const next = !!document.hidden
     if (next === asleep) return
     asleep = next
     document.documentElement.toggleAttribute(ASLEEP_ATTR, asleep)
     setArtPlaying(artSvgs(document), !asleep)
   }
   document.addEventListener('visibilitychange', apply)
-  window.addEventListener('blur', () => { blurred = true; apply() })
-  window.addEventListener('focus', () => { blurred = false; apply() })
   apply()
 }
 

@@ -220,6 +220,31 @@ const openExternally = (url) => {
   shell.openExternal(url).catch((e) => console.warn('[Ebiki] openExternal failed:', e.message))
 }
 
+// GPU REPORT (diagnostics, once per process): the app window scrolled at a low frame rate while a browser tab on the
+// same computer was smooth. logs/app-window-gpu.json records what this window really gets: GPU feature status
+// (gpu_compositing "disabled_software" = no GPU), the GPU and driver, the displays' refresh rates and the frames per
+// second the page measured over 2s. Never throws; nothing reads it but a human.
+let gpuReported = false
+function writeGpuReport() {
+  if (gpuReported || !appWindow) return
+  gpuReported = true
+  const fps = appWindow.webContents.executeJavaScript(
+    'new Promise((r) => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 2000) requestAnimationFrame(f); else r(Math.round(n / ((performance.now() - t0) / 1000))) }; requestAnimationFrame(f) })',
+  ).catch(() => null)
+  Promise.all([app.getGPUInfo('basic').catch((e) => ({ error: e.message })), fps]).then(([info, rafFps]) => {
+    const report = {
+      at: new Date().toISOString(), electron: process.versions.electron, chrome: process.versions.chrome,
+      features: app.getGPUFeatureStatus(), rafFps, focused: appWindow && appWindow.isFocused(),
+      gpu: (info.gpuDevice || []).map((d) => ({ vendor: d.vendorId, device: d.deviceId, active: d.active, driver: d.driverVersion })),
+      displays: screen.getAllDisplays().map((d) => ({ hz: d.displayFrequency, size: d.size, scale: d.scaleFactor })),
+      switches: process.argv.slice(1).filter((a) => a.startsWith('--')),
+    }
+    const dir = path.join(__dirname, '..', 'logs')
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(path.join(dir, 'app-window-gpu.json'), JSON.stringify(report, null, 2))
+  }).catch(() => {})
+}
+
 function createAppWindow() {
   const iconPath = path.join(__dirname, '..', 'ebiki.ico')
   appWindow = new BrowserWindow({
@@ -531,6 +556,7 @@ function createAppWindow() {
       loaded = true
       revived = false // a server that answers the probe but whose page never loads must not re-launch every minute
       if (!readySignaled) { readySignaled = true; try { fs.writeFileSync(path.join(__dirname, '..', '.app-ready'), '') } catch {} } // retire the start-up splash (see ready-to-show)
+      writeGpuReport()
     }
   })
   // Covers a server that dies between waitForServer answering and the load.

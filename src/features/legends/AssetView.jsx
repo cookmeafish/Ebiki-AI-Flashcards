@@ -339,7 +339,7 @@ function PhaseDemo({ t, area, motif, getZoom, shot, onClearShot, step, setStep, 
   const imp = impact && IMPACT_DEMOS.find((d) => d[0] === impact.id)
   const hp = raidProfile(motif).hp // the boss's own health (raidProfiles.js), never one demo number for all
   const third = hp / RAID.phases
-  const damage = imp?.[0] === 'ko' ? hp : Math.min(hp - 1, Math.round(step * third))
+  const damage = imp?.[0] === 'ko' ? hp : Math.min(hp - 1, Math.ceil(step * third)) // rounded UP: a boss whose hp does not split in three (70) stayed in phase 1
   const ability = RAID_ABILITY[motif]
   const mine = shot && shot.motif === motif ? shot : null
   const fxLast = mine && { kind: 'hit', damage: 3, lives: 0, ...(fxDemoFor(ability, mine.fx) || {}), fx: mine.fx, n: mine.n }
@@ -478,6 +478,23 @@ export default function AssetView({ ctx, onBack }) {
     const num = String(raids ? raidBossNumber(m) : i + 1)
     return m.toLowerCase().includes(q) || name.toLowerCase().includes(q) || num === q.replace(/^#/, '')
   })
+  // One width for every picker tile = the widest label + padding and border (12), measured after layout and again
+  // once the web font has loaded (it changes the widths). scrollWidth is the label's full width even when clipped.
+  const gridRef = useRef(null)
+  const [tileW, setTileW] = useState(undefined)
+  useLayoutEffect(() => {
+    const grid = gridRef.current
+    if (!grid) return
+    let live = true
+    const measure = () => {
+      if (!live) return
+      const widest = Math.max(0, ...Array.from(grid.querySelectorAll('[data-tile-label]'), (s) => s.scrollWidth))
+      setTileW(Math.max(VIEW.thumb, widest + 1) + 12)
+    }
+    measure()
+    document.fonts?.ready.then(measure)
+    return () => { live = false }
+  }, [list])
   const area = { id: motif, title: motif, motif, palette }
   const ebiStepRef = useRef(null)
   // Ebi's Help: what the bestiary shows (bestiaryHelp.js: plain facts, names and rules in the app language). The phase
@@ -599,14 +616,16 @@ export default function AssetView({ ctx, onBack }) {
           style={{ ...S.keyInput, flex: '0 1 240px', minWidth: 0, fontSize: 13, padding: '6px 10px' }} />
       }>
       {matches.length === 0 && <div style={{ fontSize: 13, color: C.inkDim }}>{t('lg_assetsNoMatch')}</div>}
-      <div data-boss-grid="" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', paddingBottom: 6 }}>
+      <div data-boss-grid="" ref={gridRef} style={{ display: 'flex', gap: 6, flexWrap: 'wrap', paddingBottom: 6 }}>
         {list.map((m, i) => matches.includes(i) && (
           <button key={m} type="button" onClick={() => setIdx(i)} className={i === idx ? 'ui-tab-current' : undefined}
-            style={{ flex: '0 0 auto', display: 'grid', justifyItems: 'center', gap: 2, padding: 4, borderRadius: RADIUS.md, cursor: i === idx ? 'default' : 'pointer',
+            // Every tile gets the width of the WIDEST label (`tileW`) so the rows line up (swarmqueen and sugarqueen
+            // made their tiles wider).
+            style={{ flex: '0 0 auto', boxSizing: 'border-box', width: tileW, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', justifyItems: 'center', gap: 2, padding: 4, borderRadius: RADIUS.md, cursor: i === idx ? 'default' : 'pointer',
               border: `2px solid ${i === idx ? C.brand : C.border}`, background: i === idx ? `color-mix(in srgb, ${C.brand} 12%, ${C.surface})` : C.surface,
               fontFamily: FONT.body, fontSize: 10, fontWeight: 800, color: i === idx ? C.brandText : C.inkDim }}>
             {thumb(m)}
-            <span>{raids ? raidBossNumber(m) : i + 1}. {m}{raids && RAID_ABILITY[m] ? ` ${ABILITY_ICON[RAID_ABILITY[m]]}` : ''}</span>
+            <span data-tile-label="" style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{raids ? raidBossNumber(m) : i + 1}. {m}{raids && RAID_ABILITY[m] ? ` ${ABILITY_ICON[RAID_ABILITY[m]]}` : ''}</span>
           </button>
         ))}
       </div>
