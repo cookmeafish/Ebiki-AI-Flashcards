@@ -20,6 +20,7 @@ import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef,
 import { ART_PACE, newPace, paceStep, paceFps, paceBudget, displayPeriod } from './artPace'
 import { densityBucket } from './bakePlan'
 import { bakeArt } from './bake/web'
+import { fileSig, readSnap, makeSnap, snapKey } from './snap/web'
 import { useFeatureCtx, featureCfg } from '../registry'
 import { LEGENDS_ID } from './store'
 import { RADIUS } from '../../config/tokens'
@@ -572,6 +573,22 @@ export const HEADROOM_SHARE = 0.2
 // The space a figure of `size` px may draw past its frame: give it as margin wherever text or controls sit next to one.
 export const headroomPx = (size) => Math.round(size * HEADROOM_SHARE)
 const BOSS_HEADROOM = `${HEADROOM_SHARE * 100}%`
+const BOSS_HEADROOM_NEG = `-${HEADROOM_SHARE * 100}%`
+const SNAP_FIGURE_SPAN = `${(1 + 2 * HEADROOM_SHARE) * 100}%`
+// Still drawings up to this size (CSS px, before the app zoom) are shown as snapshots (STILL SNAPSHOTS in LegendsArt).
+const SNAP_MAX_PX = 260
+// Bumps when the app theme changes (a snapshot holds the colors it resolved, so a new theme needs new snapshots).
+function useThemeTick() {
+  const read = () => (typeof document !== 'undefined' ? document.documentElement.getAttribute('data-theme') || '' : '')
+  const [theme, setTheme] = useState(read)
+  useEffect(() => {
+    if (typeof MutationObserver !== 'function') return undefined
+    const mo = new MutationObserver(() => setTheme(read()))
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => mo.disconnect()
+  }, [])
+  return theme
+}
 const freeFigure = (svg) => svg.replace(/<svg\b/, '<svg overflow="visible"')
 
 // One art file, colored for `palette`. While it loads (or if it is missing) the frame shows the palette's sky.
@@ -582,17 +599,47 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
   const [html, setHtml] = useState(() => (ready.has(url) ? { url, svg: ready.get(url) } : { url: '', svg: '' }))
   const boxRef = useRef(null)
   const near = useArtInView(boxRef)
-  useEffect(() => {
-    if (!near) return undefined
-    let live = true
-    loadArt(url).then((svg) => { if (live) setHtml((h) => (h.url === url && h.svg === svg ? h : { url, svg })) })
-    return () => { live = false }
-  }, [url, near])
   const always = useArtMotionAlways()
   const still = useArtStill()
   const mode = locked || still || (!always && reducedMotion()) ? false : animated
-  const raw = html.url === url ? html.svg : ''
   const figure = kind !== 'areas'
+  // STILL SNAPSHOTS (snap/web.js): a small drawing that never moves is shown as a bitmap of itself, drawn once at its
+  // size on this screen and kept between sessions, so a page of tiles appears at once instead of fetching, sanitizing
+  // and rastering every file. Its SVG file is read only when no snapshot exists yet (the vector shows meanwhile).
+  const theme = useThemeTick()
+  const snapOn = !mode && phase == null && typeof height === 'number' && typeof width === 'number' && Math.max(height, width) <= SNAP_MAX_PX
+    && url !== PHOTO_FILE && !(typeof window !== 'undefined' && (window.__ebikiArtEager || window.__ebikiNoBake || window.__ebikiNoSnap))
+  const snapIdent = `${url}|${palette ?? ''}|${theme}`
+  const [snap, setSnap] = useState(null) // { ident, href }
+  const [snapNeed, setSnapNeed] = useState(null) // { ident, key, pxW, pxH } once no kept snapshot answered (key '' = none possible)
+  useEffect(() => {
+    const box = boxRef.current
+    if (!near || !snapOn || !box) return undefined
+    let alive = true
+    ;(async () => {
+      // Exactly the device pixels the box covers (its on-screen rect already carries the app zoom): a bitmap even a few
+      // pixels off is resampled when shown, and at tile size that reads as blur.
+      const r = box.getBoundingClientRect(), dpr = window.devicePixelRatio || 1
+      const pxW = Math.round(r.width * dpr), pxH = Math.round(r.height * dpr)
+      const sig = pxW && pxH ? await fileSig(url) : ''
+      if (!alive) return
+      const key = sig ? snapKey(url, sig, box, pxW, pxH) : ''
+      const href = key ? await readSnap(key) : null
+      if (!alive) return
+      if (href) setSnap({ ident: snapIdent, href })
+      else setSnapNeed({ ident: snapIdent, key, pxW, pxH })
+    })()
+    return () => { alive = false }
+  }, [near, snapOn, snapIdent]) // eslint-disable-line react-hooks/exhaustive-deps
+  const snapShown = snapOn && !!snap && snap.ident === snapIdent
+  const needVector = !snapOn || (!!snapNeed && snapNeed.ident === snapIdent)
+  useEffect(() => {
+    if (!near || !needVector) return undefined
+    let live = true
+    loadArt(url).then((svg) => { if (live) setHtml((h) => (h.url === url && h.svg === svg ? h : { url, svg })) })
+    return () => { live = false }
+  }, [url, near, needVector])
+  const raw = html.url === url ? html.svg : ''
   const [idSuffix] = useState(() => `a${++artSeq}`) // this drawing's own ids (idTemplate)
   // `phase`: only the arena (and the asset view's phase cells) pass it; a still drawing has no animations to drop.
   const livePhase = mode ? phase : undefined
@@ -624,7 +671,16 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
   // The bake keeps every phase's animations; the phase on screen drops the hidden phases' ones again (they would be
   // computed on every redraw for layers nobody sees), exactly like the vector drawing.
   const svg = useMemo(() => withIds(live ? motionMarkup(`${baked.key}|baked`, baked.out, mode, livePhase) : template, idSuffix), [live, baked, template, idSuffix, mode, livePhase])
-  const shown = near && !!svg // off screen: out of the page (the box keeps its size)
+  const shown = near && !!svg && !snapShown // off screen: out of the page (the box keeps its size)
+  useEffect(() => {
+    const box = boxRef.current
+    if (!shown || !snapOn || !snapNeed || snapNeed.ident !== snapIdent || !snapNeed.key || !box) return undefined
+    let alive = true
+    const ident = snapIdent
+    makeSnap(snapNeed.key, svg, box, snapNeed.pxW, snapNeed.pxH, figure ? HEADROOM_SHARE : 0)
+      .then((href) => { if (alive && href) setSnap({ ident, href }) })
+    return () => { alive = false }
+  }, [shown, snapOn, snapNeed, snapIdent, svg, figure])
   useEffect(installArtSleep, [])
   // A drawing put in the page while the window sleeps starts paused (its entrance plays on return).
   useEffect(() => { if (asleep && shown && boxRef.current) setArtPlaying(artSvgs(boxRef.current), false) }, [shown, svg])
@@ -674,7 +730,11 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
       ...(figure ? { overflow: 'visible', clipPath: `inset(-${BOSS_HEADROOM})` } : { overflow: 'hidden' }),
       background: figure ? 'transparent' : 'var(--lg-sky)', filter: locked ? 'grayscale(1) opacity(.55)' : 'none', ...style,
       ...(photo ? { position: 'relative', isolation: 'isolate' } : {}),
+      ...(snapShown ? { position: 'relative' } : {}),
     }}>
+      {snapShown && near && <img src={snap.href} alt="" draggable={false} style={figure
+        ? { position: 'absolute', left: BOSS_HEADROOM_NEG, top: BOSS_HEADROOM_NEG, width: SNAP_FIGURE_SPAN, height: SNAP_FIGURE_SPAN, display: 'block', maxWidth: 'none' }
+        : { width: '100%', height: '100%', display: 'block' }} />}
       {photo && near && <PhotoLightBack motion={!!mode} />}
       {shown && <div style={{ width: '100%', height: '100%', ...(photo ? { position: 'relative', zIndex: 1 } : {}) }} dangerouslySetInnerHTML={{ __html: svg }} />}
       {photo && shown && <PhotoLightFront motion={!!mode} />}

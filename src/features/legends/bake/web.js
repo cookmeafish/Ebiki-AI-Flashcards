@@ -139,7 +139,7 @@ function encoders() {
   } catch { pool = null }
   return pool
 }
-async function encodePng(source, width, height) {
+export async function encodePng(source, width, height) {
   const workers = encoders()
   if (workers) {
     try {

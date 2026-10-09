@@ -1583,6 +1583,12 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   arena's phase CSS, ability card, live arena with "Next phase") and **Ebi drafts** (`public/assets/ebi-drafts/`, the
   current `SHRIMP` Ebi first); every palette; ←/→ step. **File names ONLY there** (and the dev gallery): `ArtLabels`
   puts a tag UNDER drawings of 100px+, never on them, never in gameplay (the owner).
+- **Small STILL drawings are bitmaps** (`snap/web.js`, STILL SNAPSHOTS in `LegendsArt`): still, no `phase`, both sizes
+  numeric and at most `SNAP_MAX_PX` (260), not the photo ophanim. Drawn once at the box's EXACT device pixels (rounding
+  read as blur), colors resolved from the box (`resolveVars`), kept in Cache Storage `ebiki-art-snap-v1` keyed by the
+  file's ETag (a HEAD), size and colors; a theme change re-keys (`useThemeTick`). The SVG file is read only on a miss.
+  26 raid tiles: about 1.8 s of fetch + sanitize + raster before, about 0.1 s from the kept snapshots.
+  `__ebikiNoSnap` (and `__ebikiArtEager`/`__ebikiNoBake`) turn it off.
 - **Art loads near the screen and pauses off it** (`useArtInView`: comes in within `ART_NEAR` (1) screens, leaves past
   `ART_FAR` (3), measured against the nearest VERTICAL scroller (`scrollRootOf`), never the window: <main> clipped it,
   so art arrived on screen empty and popped in;
