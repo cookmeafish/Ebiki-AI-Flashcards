@@ -72,6 +72,7 @@ import PbqQuestion from './components/PbqQuestion'
 import { QUESTION_REUSE_DEFAULT, reuseSettings, replaceQuestion, storableQuestion, clearBank, createQuestionReuse, mergeGlosses, updateBank } from './utils/questionBank'
 import { compilePbq, itemKey as pbqItemKey, reshufflePbq, pbqRatingScore, checkCitations, studentView, parseSolverAnswer, gradePbq, compareToKey, PBQ_GEN_SYSTEM, PBQ_SOLVER_SYSTEM, PBQ_JUDGE_SYSTEM, buildGeneratorPrompt as buildPbqGeneratorPrompt, buildSolverPrompt as buildPbqSolverPrompt, buildJudgePrompt as buildPbqJudgePrompt } from './pbq/engine'
 import { apiFetch, platform } from './platform'
+import { pressable } from './utils/pressable'
 import { boundChatHistory, cleanChatReply, chatTitleText } from './utils/chatReply'
 import { SLASH_ENDING, SLASH_SPELLED, isSlashEnding, expandSlashEnding, GENDERED_ARTICLES, expandSlashAnswers, answerNormalize, stripLeadArticles, stripAccArticlesFor, stripAccentsKeepYot, exactAnswerMatch } from './utils/answers'
 import { shapeConjugationPool, fallbackConjugationPool } from './utils/conjugation'
@@ -2659,9 +2660,17 @@ export default function App() {
       setAiErrorNotice(tLiveRef.current('start_configFailed', { msg: e?.message || e }))
     })
     // Check overlay status immediately and poll
-    const checkOverlay = () => apiFetch('/api/launch-overlay').then(r => r.json()).then(d => setOverlayRunning(d.running)).catch(() => {})
+    // Only what the header toggle shows: never in the overlay itself (no header) and never while this page is hidden
+    // (each GET can run `tasklist` on the server; a minimized window or background tab polled it every 3 s all day).
+    // Coming back into view checks at once.
+    const checkOverlay = () => {
+      if (isOverlay || platform.isHidden()) return
+      apiFetch('/api/launch-overlay').then(r => r.json()).then(d => setOverlayRunning(!!d.running)).catch(() => {})
+    }
     checkOverlay()
     const overlayPoll = setInterval(checkOverlay, 3000)
+    const onOverlayVisible = () => { if (!document.hidden) checkOverlay() }
+    document.addEventListener('visibilitychange', onOverlayVisible)
 
     // Overlay mode: load screenshot from Electron capture
     const loadOverlayScreenshot = (onLoaded) => {
@@ -2804,6 +2813,7 @@ export default function App() {
     // `tasklist` on the server) and every Alt+Q capture event fired its handler twice.
     return () => {
       clearInterval(overlayPoll)
+      document.removeEventListener('visibilitychange', onOverlayVisible)
       window.removeEventListener('overlay-capture', handleOverlayCapture)
       window.removeEventListener('overlay-reset', handleOverlayReset)
       window.removeEventListener('overlay-hidden', handleOverlayHidden)
@@ -4918,7 +4928,8 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     })).then(async (res) => {
       // A mode named like one ANOTHER computer created meanwhile was not written (its folder belongs to
       // that mode). Rename ours to the free name the server suggests and save again, and say so.
-      const d = res && res.ok ? await res.json().catch(() => null) : null
+      // A 503 still carries the save's report (`unreadable`: modes not written because a folder could not be read).
+      const d = res && (res.ok || res.status === 503) ? await res.json().catch(() => null) : null
       // A refused save said nothing: the change looked saved and was gone after a reload.
       if (res && !res.ok) setAiErrorNotice(tLiveRef.current('mode_saveFailed'))
       // A later save that went through clears an earlier "could not save" toast (it lingered over Ebi Studio's buttons).
@@ -4942,6 +4953,11 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
           setModes(rest)
         }
         setAiErrorNotice(tLiveRef.current('mode_deletedElsewhere', { name: g.name || '' }))
+      }
+      // A deleted mode whose folder could not be removed (a file inside open in another program): the delete is
+      // recorded, but the folder (and its knowledge files) stays on disk until it is closed and deleted again.
+      for (const f of (Array.isArray(d?.removeFailed) ? d.removeFailed : [])) {
+        if (typeof f === 'string' && f) setAiErrorNotice(tLiveRef.current('mode_removeFailed', { name: f }))
       }
       const conflicts = Array.isArray(d?.conflicts) ? d.conflicts : []
       for (const c of conflicts) {
@@ -5056,8 +5072,20 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     const list = modesRef.current
     if (list.length <= 1) return
     const updated = list.filter((m) => m.id !== id)
-    const newActiveId = id === activeModeIdRef.current ? updated[0].id : activeModeIdRef.current
-    saveModes(updated, newActiveId, { deletedIds: [id], changedIds: [] }) // writes no other mode: a whole-list save from a stale copy reverted another computer's renames and edits
+    const wasActive = id === activeModeIdRef.current
+    const newActiveId = wasActive ? updated[0].id : activeModeIdRef.current
+    const saved = await saveModes(updated, newActiveId, { deletedIds: [id], changedIds: [] }) // writes no other mode: a whole-list save from a stale copy reverted another computer's renames and edits
+    // Not deleted on disk (a refused or failed POST, already reported): put the mode back on screen, like createMode
+    // rolls back. Left gone, it reappeared after the next reload as if the delete had worked and then undone itself.
+    if (saved && saved.saveOk === false && !modesRef.current.some((m) => m.id === id)) {
+      const gone = list.find((m) => m.id === id)
+      const back = [...modesRef.current]
+      back.splice(Math.min(list.indexOf(gone), back.length), 0, gone)
+      // Back to it only if nothing else switched modes meanwhile; saved as the active one (no mode written), so a save
+      // that went out in between with the other id does not open the app on that mode after a reload.
+      if (wasActive && activeModeIdRef.current === newActiveId) saveModes(back, id, { changedIds: [] })
+      else { modesRef.current = back; setModes(back) }
+    }
   }
 
   const renameMode = (id, newName) => {
@@ -5156,7 +5184,7 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     // lowercase compare let "Language Learning" coexist with "Language Learning." in ONE folder.
     // The placeholder is REPLACED (like createMode): kept, it and the new mode shared one name and folder.
     const list = modesToAddTo()
-    const name = uniqueModeName('Language Learning')
+    const name = uniqueModeName(t('mode_defaultLanguageName')) // in the app language (an English name for every user before)
     const newId = mintModeId(modesRef.current)
     const newMode = { ...defaultMode, id: newId, name }
     saveModes([...list, newMode], canSwitch || list !== modesRef.current ? newId : activeModeIdRef.current, { changedIds: [newId] }) // only the new mode (see deleteMode)
@@ -5204,7 +5232,12 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
           // Deleted while the end-session question was open (see switchActiveMode): saved as the active mode, the
           // app ran on an id that no longer existed. The deck is still created and opened.
           if (!modesRef.current.some((m) => m.id === existing.id)) setAiErrorNotice(t('mode_cannotSave'))
-          else saveModes(modesRef.current.map(m => m.id === existing.id ? { ...m, ankiDeck: name } : m), canSwitch ? existing.id : activeModeIdRef.current, { changedIds: [existing.id] }) // one mode (see writeModeFolders)
+          else {
+            // One mode, and only its deck (a patch): the whole stale copy reverted fields another computer had changed.
+            const before = modesRef.current.find((m) => m.id === existing.id)
+            const after = { ...before, ankiDeck: name }
+            saveModes(modesRef.current.map((m) => (m.id === existing.id ? after : m)), canSwitch ? existing.id : activeModeIdRef.current, { changedIds: [existing.id], patches: { [String(existing.id)]: modePatch(before, after) } })
+          }
         } else {
           const deckBefore = deckBrowserDeckRef.current, runsBefore = `${deckAnalyzeRunRef.current}:${dupScanRunRef.current}`
           await createMode(purpose, name)
@@ -5247,8 +5280,10 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       if (Array.isArray(decksRead)) setAnkiDecks(decksRead)
       name = decks.find((d) => d.toLowerCase() === name.toLowerCase()) || name // Anki's own spelling (see handleAddDeck)
       // The deck exists either way; "linked" only when the link was really saved.
-      if (updateModeById(modeId, { ankiDeck: name })) setSuccessNotice(t('deck_linkedToMode', { deck: name, mode: mode.name }))
-      else setAiErrorNotice(t('mode_cannotSave'))
+      // "Linked" once the save answered: shown at once, it sat beside "could not save" when the POST failed.
+      // Not awaited: the deck opens at once (a slow share held it closed, and a deck picked meanwhile was replaced).
+      if (!updateModeById(modeId, { ankiDeck: name })) setAiErrorNotice(t('mode_cannotSave'))
+      else modesSaveRef.current.then((r) => { if (!(r && r.saveOk === false)) setSuccessNotice(tLiveRef.current('deck_linkedToMode', { deck: name, mode: mode.name })) }).catch(() => {})
       resetDeckReview() // the review list belonged to the previous deck
       setDeckBrowserNotes([]); deckNotesDeckRef.current = null // not the old deck's cards under the new name while it loads
       setDeckBrowserDeck(name)
@@ -7280,7 +7315,8 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
     try {
       const connected = await srs.ping()
       setAnkiConnected(connected)
-      if (!connected) { setDiscoverError(t('d_errAnkiClosed')); return }
+      // Not under another mode's Discover either (the ping can take seconds while Anki shows a dialog).
+      if (!connected) { if (modeAtClick === activeModeIdRef.current) setDiscoverError(t('d_errAnkiClosed')); return }
       // Same non-persistent fallback as the Chat cards: with no deck picked anywhere, the add went to a
       // deck named '' and failed.
       const targetDeck = discoverDeck || ankiDeck || ankiDecks[0] || 'Default'
@@ -7315,7 +7351,8 @@ Keep any fields the user didn't ask to change. Output ONLY raw JSON, no markdown
       setDiscoverCard(null)
       fetchNextSuggestion(discoverProfile, nextLedger)
     } catch (err) {
-      setDiscoverError(t('d_errSave', { msg: err.message }))
+      // Not under another mode's Discover (the mode was switched while Anki answered).
+      if (modeAtClick === activeModeIdRef.current) setDiscoverError(t('d_errSave', { msg: err?.message || String(err) }))
     } finally {
       discoverSavingRef.current = false
       setDiscoverCardSaving(false)
@@ -7676,8 +7713,16 @@ Return ONLY a JSON array (no markdown):
 
   // Keep the active mode's knowledge content in state so every AI feature can use it without
   // its own fetch. Refreshed on mode switch and after any knowledge file change.
-  const refreshModeKnowledge = async () => {
+  // A failed read is tried again a few times (a 503 while a share wakes, a server restart): after a mode switch
+  // the material is already cleared, and with no retry every AI call in that mode ran without its knowledge base
+  // until the next switch or file change.
+  const KNOWLEDGE_RETRY_MS = [3000, 10000, 30000]
+  const refreshModeKnowledge = async (attempt = 0) => {
     const seq = ++modeKnowledgeSeqRef.current
+    const retry = () => {
+      if (attempt >= KNOWLEDGE_RETRY_MS.length) return
+      setTimeout(() => { if (seq === modeKnowledgeSeqRef.current) refreshModeKnowledgeRef.current(attempt + 1) }, KNOWLEDGE_RETRY_MS[attempt])
+    }
     try {
       await settleModesSaves()
       // The LIVE active mode, not this render's: an upload that finishes after a mode switch calls these
@@ -7687,15 +7732,17 @@ Return ONLY a JSON array (no markdown):
       if (seq !== modeKnowledgeSeqRef.current) return
       // A failed read keeps the material already loaded (a mode switch cleared it first): an error answer or a
       // dropped connection used to blank the knowledge base for every AI call until the next switch.
-      if (!r.ok) return
+      if (!r.ok) { retry(); return }
       const res = await r.json()
       if (seq !== modeKnowledgeSeqRef.current) return
       setModeKnowledge({ content: res.content || '', fileCount: res.fileCount || 0, outline: res.outline || [] })
       // Cached section picks are POSITIONS in the old outline; after a file is added, removed or
       // toggled they point at different chapters, which were then fed in as "authoritative".
       knowledgeSelectRef.current.clear()
-    } catch { /* kept as it was (see above) */ }
+    } catch { if (seq === modeKnowledgeSeqRef.current) retry() /* kept as it was (see above) */ }
   }
+  const refreshModeKnowledgeRef = useRef(refreshModeKnowledge)
+  refreshModeKnowledgeRef.current = refreshModeKnowledge // the retry runs the newest render's (live refs inside anyway)
   // A switch clears the previous mode's material AT ONCE (the reload first waits for the switch's own mode
   // save): a message sent in that gap was given mode A's book as "the knowledge base for B". A rename (same
   // id) keeps it.
@@ -7920,6 +7967,9 @@ Return ONLY a JSON array (no markdown):
           return
         }
       } else {
+        // A text file shows it is being added too: a big one posted with the drop zone looking idle, and after a PDF
+        // in the same drop its last "page N of N" line stayed up.
+        setKnowledgeBusy(tLiveRef.current('kb_uploading', { file: file.name }))
         // A UTF-16 file (Notepad's "Unicode" save) read as UTF-8 was stored as garbage and fed to every AI call.
         const buf = new Uint8Array(await file.arrayBuffer())
         const enc = buf[0] === 0xFF && buf[1] === 0xFE ? 'utf-16le' : buf[0] === 0xFE && buf[1] === 0xFF ? 'utf-16be' : 'utf-8'
@@ -7979,7 +8029,10 @@ Return ONLY a JSON array (no markdown):
       const modeId = activeModeIdRef.current
       await settleModesSaves()
       if (dataSwitchingRef.current) { setAiErrorNotice(t('mode_cannotSave')); return } // writers frozen (folder switch, share back)
-      const name = modesRef.current.find((m) => m.id === modeId)?.name || activeMode.name
+      // The mode it was clicked in is gone (deleted meanwhile): never fall back to another mode's folder, where a
+      // file of the same name would be the one deleted or switched off.
+      const name = modesRef.current.find((m) => m.id === modeId)?.name
+      if (!name) { setAiErrorNotice(t('knowledgeActionFailed')); return }
       const res = await apiFetch(`/api/modes/knowledge?mode=${encodeURIComponent(name)}&file=${encodeURIComponent(fileName)}${extra}`, { method }).catch(() => null)
       if (!res || !res.ok) setAiErrorNotice(t('knowledgeActionFailed'))
       loadKnowledgeFiles()
@@ -8531,6 +8584,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     return (
       <div key={qi} style={{ borderTop: '1px solid var(--c-border)' }}>
         <div className="row-head" onClick={() => setStudyQaOpen((p) => ({ ...p, [src]: !p[src] }))} title={meta.title}
+          {...pressable(() => setStudyQaOpen((p) => ({ ...p, [src]: !p[src] })), { expanded: open })}
           style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', background: meta.bg }}>
           <span style={{ fontSize: 12.5, fontWeight: 800, color: meta.color, minWidth: 26, flexShrink: 0 }}>{meta.icon}</span>
           <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--c-ink-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{gq}</span>
@@ -8565,6 +8619,7 @@ Output ONLY raw JSON. No markdown, no backticks.`
     return (
       <div style={{ borderTop: '1px solid var(--c-border)' }}>
         <div className="row-head" onClick={() => setStudyQaOpen((p) => ({ ...p, [key]: !p[key] }))}
+          {...pressable(() => setStudyQaOpen((p) => ({ ...p, [key]: !p[key] })), { expanded: open })}
           title={t('studyCardBackDesc')}
           style={{ padding: '7px 12px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
           <span style={{ fontSize: 11, minWidth: 24, flexShrink: 0 }}>🗂</span>
@@ -10364,6 +10419,9 @@ Output ONLY raw JSON. No markdown, no backticks.`
       const tag = document.activeElement?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || document.activeElement?.isContentEditable) return
       if (e.repeat || imeActive(e)) return // a held key must not race through the next questions
+      // Not under the setup wizard ("Run setup again" leaves Study mounted behind it) or Ebi Studio: a digit pressed
+      // on a wizard tile answered the hidden question.
+      if (wizardShownRef.current || document.querySelector('[data-top-overlay],[data-app-dialog]')) return
       // The tiles are LABELLED A to D, so their letters answer too (only the digits did: pressing the letter on
       // screen did nothing).
       const letter = typeof e.key === 'string' && e.key.length === 1 ? 'abcdef'.indexOf(e.key.toLowerCase()) : -1
@@ -14456,7 +14514,8 @@ Output ONLY raw JSON. No markdown, no backticks.`
     if (existing) {
       const built = buildModeFromSpec(spec, existing)
       if (!updateModeById(built.id, built)) throw new Error(t('mode_cannotSave'))
-      setActiveModeId(built.id)
+      // No mode switch here: an edit is about the mode it opened on, and a switch outside switchActiveMode skipped
+      // ending a live study session (it then ran with the other mode's deck).
       // "Updated" only once the save really landed (a refused save only showed a toast).
       const r = await modesSaveRef.current
       if (r && r.saveOk === false) throw new Error(t('mode_saveFailed'))
@@ -15422,7 +15481,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
 
           {/* Explicit exit — leaves the analysis and returns to the empty Picture state */}
           {activeTab === 'picture' && stage !== 'idle' && (
-            <button onClick={reset} style={{ ...S.ghostBtn, padding: '6px 9px' }} className="tip tip-b" data-tip={t('pic_exitTip')}>✕</button>
+            <button onClick={reset} style={{ ...S.ghostBtn, padding: '6px 9px' }} className="tip tip-b" data-tip={t('pic_exitTip')} aria-label={t('pic_exitTip')}>✕</button>
           )}
 
           {/* Picture tab: Capture, Upload, Overlay (kept left of the mode + Settings cluster so
@@ -16027,7 +16086,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
             {deckAddOpen && (
               <div style={{ marginBottom: 12, border: '1px solid rgba(223,37,64,0.25)', borderRadius: 6, padding: '12px', background: 'rgba(223,37,64,0.04)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <div style={{ fontSize: 12, color: 'var(--c-brand)', fontWeight: 600 }}>{t('deck_newCardTo', { deck: deckBrowserDeck })}</div>
+                  <div style={{ fontSize: 12, color: 'var(--c-brand-text)', fontWeight: 600 }}>{t('deck_newCardTo', { deck: deckBrowserDeck })}</div>
                   <button onClick={closeAddCard} style={{ ...S.ghostBtn, fontSize: 11 }}>{t('cancel')}</button>
                 </div>
 
@@ -16281,7 +16340,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                               const expanded = !!deckDupExpanded[c.noteId]
                               return (
                                 <div key={c.noteId} style={{ fontSize: 10, color: 'var(--c-ink-dim)', background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', borderRadius: 4, overflow: 'hidden' }}>
-                                  <div onClick={() => toggleDupExpanded(c.noteId)} style={{ padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <div onClick={() => toggleDupExpanded(c.noteId)} {...pressable(() => toggleDupExpanded(c.noteId), { expanded: !!expanded })} style={{ padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
                                     <span style={{ color: 'var(--c-ink-dim)', width: 8, flexShrink: 0 }}>{expanded ? '▾' : '▸'}</span>
                                     <span style={{ color: ci === 0 ? 'var(--c-success)' : 'var(--c-danger)', flexShrink: 0 }}>{ci === 0 ? t('deck_keep') : t('deck_delete')} #{c.noteId}</span>
                                     {!expanded && <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}> · {vals[0]} → {vals[1]}</span>}
@@ -16442,7 +16501,11 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                           {/* Row header — click anywhere (except the buttons) to expand the full card */}
                           <div className="dk-row-head" onClick={() => setDeckBrowserExpanded(deckBrowserExpanded === note.noteId ? null : note.noteId)}
                             style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                            <span style={{ fontSize: 9, color: 'var(--c-ink-faint)', flexShrink: 0, width: 10 }}>{deckBrowserExpanded === note.noteId ? '▾' : '▸'}</span>
+                            {/* The toggle is a real button (keyboard, screen readers); the row stays clickable anywhere. A
+                                role=button row would wrap the row's own buttons (nested interactive). */}
+                            <button type="button" className="chev-btn" aria-expanded={deckBrowserExpanded === note.noteId} aria-label={front}
+                              onClick={(e) => { e.stopPropagation(); setDeckBrowserExpanded(deckBrowserExpanded === note.noteId ? null : note.noteId) }}
+                              style={{ border: 'none', background: 'transparent', padding: 0, margin: 0, font: 'inherit', fontSize: 9, lineHeight: 1, color: 'var(--c-ink-faint)', flexShrink: 0, width: 10, cursor: 'pointer' }}>{deckBrowserExpanded === note.noteId ? '▾' : '▸'}</button>
                             <div className="dk-row-text" style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               <span dir="auto" style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-ink)' }}>{front}</span>
                               {activeMode.type === 'language' && !noteOwnedElsewhere(note) && (
@@ -16793,7 +16856,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                   ) : (
                     // No API key: chat can't work, so send the user to Settings to add one.
                     <button onClick={openAiSettings} className="btn-press" style={{
-                      border: 'none', background: 'var(--c-brand)', color: '#fff', fontWeight: 700, fontSize: 13,
+                      border: 'none', background: 'var(--c-brand-fill)', color: '#fff', fontWeight: 700, fontSize: 13,
                       padding: '9px 18px', borderRadius: 8, cursor: 'pointer',
                     }}>{t('chat_addKey')}</button>
                   )}
@@ -16860,10 +16923,10 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                   {/* Web search sources */}
                   {m.sources?.length > 0 && (
                     <div style={{ maxWidth: '80%', marginTop: 6, padding: '8px 12px', borderRadius: 6, background: 'rgba(223,37,64,.06)', border: '1px solid rgba(223,37,64,.12)', overflowWrap: 'anywhere' }}>
-                      <div style={{ fontSize: 9, color: 'var(--c-brand)', fontWeight: 700, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('chat_sources')}</div>
+                      <div style={{ fontSize: 9, color: 'var(--c-brand-text)', fontWeight: 700, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{t('chat_sources')}</div>
                       {m.sources.map((src, si) => (
                         <div key={si} style={{ fontSize: 10, marginBottom: 2 }}>
-                          <a href={src.url?.startsWith('http') ? src.url : `https://${src.url}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--c-brand)', textDecoration: 'none' }}>
+                          <a href={src.url?.startsWith('http') ? src.url : `https://${src.url}`} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--c-brand-text)', textDecoration: 'none' }}>
                             {src.title || src.url}
                           </a>
                           {src.url && <span style={{ color: 'var(--c-ink-faint)', marginLeft: 6, fontSize: 9 }}>{src.url.replace(/^https?:\/\//, '').split('/')[0]}</span>}
@@ -17421,7 +17484,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                       {studySyncError && <div style={{ fontSize: 11, color: 'var(--c-danger)', background: 'rgba(229,57,46,.06)', border: '1px solid rgba(229,57,46,.2)', borderRadius: 6, padding: '6px 12px', marginBottom: 8 }}>{studySyncError}</div>}
                       {pendingSum.length > 0 && ankiConnected && (
                         <button onClick={() => syncGradedNow()} disabled={studySyncing} className="btn-press"
-                          style={{ fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 8, border: 'none', background: 'var(--c-success)', color: '#fff', cursor: studySyncing ? 'default' : 'pointer', opacity: studySyncing ? 0.6 : 1 }}>
+                          style={{ fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 8, border: 'none', background: 'var(--c-success-fill)', color: '#fff', cursor: studySyncing ? 'default' : 'pointer', opacity: studySyncing ? 0.6 : 1 }}>
                           {studySyncing ? t('study_syncing') : t('study_syncNow', { n: pendingSum.length })}
                         </button>
                       )}
@@ -17956,7 +18019,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                           </button>
                           {pending.length > 0 && ankiConnected && (
                             <button onClick={() => syncGradedNow()} disabled={studySyncing} className="btn-press hover-dim"
-                              style={{ fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 8, border: 'none', background: 'var(--c-success)', color: '#fff', cursor: studySyncing ? 'default' : 'pointer', opacity: studySyncing ? 0.6 : 1 }}>
+                              style={{ fontSize: 11, fontWeight: 700, padding: '5px 12px', borderRadius: 8, border: 'none', background: 'var(--c-success-fill)', color: '#fff', cursor: studySyncing ? 'default' : 'pointer', opacity: studySyncing ? 0.6 : 1 }}>
                               {studySyncing ? t('study_syncing') : t('study_syncNow', { n: pending.length })}
                             </button>
                           )}
@@ -18001,7 +18064,9 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                         <div className="card-head" onClick={() => { if (!cs.evaluating) setStudyGradedView(p => ({ ...p, [ci]: p[ci] === 'feedback' ? undefined : 'feedback' })) }}
                           style={{ padding: '8px 12px', background: 'linear-gradient(180deg, var(--c-surface), var(--c-surface-sunken))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
                           <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ fontSize: 9, color: 'var(--c-ink-faint)', flexShrink: 0 }}>{view === 'feedback' ? '▾' : '▸'}</span>
+                            <button type="button" className="chev-btn" aria-expanded={view === 'feedback'} aria-label={cs.front} disabled={!!cs.evaluating}
+                              onClick={(e) => { e.stopPropagation(); if (!cs.evaluating) setStudyGradedView(p => ({ ...p, [ci]: p[ci] === 'feedback' ? undefined : 'feedback' })) }}
+                              style={{ border: 'none', background: 'transparent', padding: 0, margin: 0, font: 'inherit', fontSize: 9, lineHeight: 1, color: 'var(--c-ink-faint)', flexShrink: 0, cursor: cs.evaluating ? 'default' : 'pointer' }}>{view === 'feedback' ? '▾' : '▸'}</button>
                             {cs.front}
                             {Number.isFinite(cs.tier) && questionLadderOn(activeMode.studyRules) && <TierChip t={t} tier={Number.isFinite(cs.questions?.[0]?.tier) ? cs.questions[0].tier : cs.tier} style={{ flexShrink: 0 }} />}
                             {activeMode.type === 'language' && (
@@ -18107,7 +18172,11 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, cursor: cs.rating === 'deleted' ? 'default' : 'pointer',
                       }}>
                         <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-                          {cs.rating !== 'deleted' && <span style={{ fontSize: 9, color: 'var(--c-ink-faint)', flexShrink: 0 }}>{view === 'feedback' ? '▾' : '▸'}</span>}
+                          {cs.rating !== 'deleted' && (
+                            <button type="button" className="chev-btn" aria-expanded={view === 'feedback'} aria-label={cs.front}
+                              onClick={(e) => { e.stopPropagation(); setStudyGradedView(p => ({ ...p, [ci]: p[ci] === 'feedback' ? undefined : 'feedback' })) }}
+                              style={{ border: 'none', background: 'transparent', padding: 0, margin: 0, font: 'inherit', fontSize: 9, lineHeight: 1, color: 'var(--c-ink-faint)', flexShrink: 0, cursor: 'pointer' }}>{view === 'feedback' ? '▾' : '▸'}</button>
+                          )}
                           {cs.front}
                           {Number.isFinite(cs.tier) && questionLadderOn(activeMode.studyRules) && <TierChip t={t} tier={Number.isFinite(cs.questions?.[0]?.tier) ? cs.questions[0].tier : cs.tier} style={{ flexShrink: 0 }} />}
                         </span>
@@ -18282,6 +18351,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                 <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--c-brand)', animation: 'pulse 1.5s ease infinite' }} />
                 {progress}
                 <span onClick={() => { cancelRef.current = true; setLoading(false); setStage('captured') }}
+                  {...pressable(() => { cancelRef.current = true; setLoading(false); setStage('captured') })}
                   style={{ cursor: 'pointer', color: 'var(--c-danger)', marginLeft: 4 }}>{t('cancel')}</span>
               </div>
             )}
@@ -18487,7 +18557,7 @@ Rules: Answer in ${userLangName()}, in 1-2 short sentences. Be direct. No filler
                 ) : null
               })()}
               {isPinned && (
-                <span onClick={dismissPin} style={S.ttClose}>&times;</span>
+                <span onClick={dismissPin} {...pressable(dismissPin, { label: t('close') })} style={S.ttClose}>&times;</span>
               )}
             </div>
           </div>
@@ -18899,9 +18969,12 @@ ${PALETTE_CSS}
           background: none; } /* the owner dislikes any glow behind Ebi */
         .ui-glass { background: var(--c-glass); backdrop-filter: blur(16px) saturate(1.4); -webkit-backdrop-filter: blur(16px) saturate(1.4); }
         .ui-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--c-ink-faint); }
-        button:focus-visible, a:focus-visible, [role="button"]:focus-visible, [role="radio"]:focus-visible, summary:focus-visible {
+        button:focus-visible, a:focus-visible, [role="button"]:focus-visible, [role="radio"]:focus-visible, summary:focus-visible,
+        [tabindex="0"]:not(input):not(select):not(textarea):focus-visible {
           outline: 2px solid var(--c-brand); outline-offset: 2px;
         }
+        /* Inside clipping boxes (a graded card is overflow:hidden): the ring goes inside, or its sides were cut off. */
+        .row-head:focus-visible, .chev-btn:focus-visible { outline-offset: -2px; }
         @keyframes uiPop { from { opacity: 0; transform: scale(.96) translateY(6px); } to { opacity: 1; transform: none; } }
         .ui-pop { animation: uiPop .22s var(--ease-out) both; }
         @media (prefers-reduced-motion: reduce) {

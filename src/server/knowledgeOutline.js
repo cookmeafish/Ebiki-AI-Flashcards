@@ -292,11 +292,30 @@ export const extractOutline = (files) => {
     // regex replaces per line (800 entries x 50k lines = 2 s per knowledge load).
     const index = new Map()
     const addIdx = (k, i) => { if (!k) return; const a = index.get(k); if (a) a.push(i); else index.set(k, [i]) }
-    lines.forEach((ln, i) => { addIdx('r:' + ln.raw, i); addIdx(ln.bare ? 'b:' + ln.bare : '', i); addIdx(ln.un.length >= 3 ? 'u:' + ln.un : '', i) })
+    // The number-stripped forms are indexed apart for lines WITH and WITHOUT a trailing number (`1` / `0`): numOk lets a
+    // numbered TOC entry match only a line without one, so an entry like "Exercise 12" looks only at those. Listing every
+    // "Exercise N" line as a candidate for every "Exercise N" entry was quadratic (1,500 entries x 20k lines took 2 s,
+    // 3,000 x 60k took 18 s, on every knowledge load).
+    lines.forEach((ln, i) => {
+      const n = ln.raw === ln.bare ? '0' : '1'
+      addIdx('r:' + ln.raw, i); addIdx(ln.bare ? `b${n}:` + ln.bare : '', i); addIdx(ln.un.length >= 3 ? `u${n}:` + ln.un : '', i)
+    })
+    // Index lists are in line order: the part at or after `from` starts at a binary-searched position.
+    const tail = (arr, from) => {
+      if (!arr) return []
+      let lo = 0, hi = arr.length
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (arr[mid] < from) lo = mid + 1; else hi = mid }
+      return lo ? arr.slice(lo) : arr
+    }
     const candidatesFrom = (t, from) => {
       const tu = unnumbered(t.bare)
-      const all = [...(index.get('r:' + t.raw) || []), ...(index.get('b:' + t.bare) || []), ...(tu.length >= 3 ? index.get('u:' + tu) || [] : [])]
-      return [...new Set(all)].filter((i) => i >= from).sort((x, y) => x - y)
+      const kinds = t.raw === t.bare ? ['0', '1'] : ['0'] // see numOk
+      const all = [...tail(index.get('r:' + t.raw), from)]
+      for (const n of kinds) {
+        all.push(...tail(index.get(`b${n}:` + t.bare), from))
+        if (tu.length >= 3) all.push(...tail(index.get(`u${n}:` + tu), from))
+      }
+      return [...new Set(all)].sort((x, y) => x - y)
     }
     // WHOLE LINES, searched IN ORDER from after the previous match. First-substring-anywhere matched
     // every entry to the book's own contents page ("Introduction 1"), a mention in earlier prose, or

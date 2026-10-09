@@ -294,6 +294,33 @@ describe('/api/modes/knowledge + /api/knowledge-sections', () => {
     expect((await call(knowledge, { method: 'DELETE', url: '/?mode=Book&file=..' })).statusCode).toBe(400)
     expect((await call(knowledge, { method: 'DELETE', url: '/?mode=Book' })).statusCode).toBe(400)
   })
+  it('DELETE of a copy that was switched on or off meanwhile is a 409, not "ok" with the file still there', async () => {
+    await up('w.txt', 'live')
+    await call(knowledge, { method: 'PATCH', url: '/?mode=Book&file=w.txt&disabled=1' })
+    expect((await call(knowledge, { method: 'DELETE', url: '/?mode=Book&file=w.txt&disabled=0' })).statusCode).toBe(409)
+    expect(fs.readdirSync(kdir())).toContain('w.txt.disabled')
+    // Already gone entirely: done.
+    expect((await call(knowledge, { method: 'DELETE', url: '/?mode=Book&file=never.txt&disabled=0' })).json).toEqual({ ok: true })
+  })
+  it('a knowledge folder whose stat FAILS (not missing) is a 500, never "no files"', async () => {
+    await up('s.txt', 'text')
+    const busy = { ...fs, statSync: (p, ...r) => { if (String(p).endsWith('knowledge')) { const e = new Error('busy'); e.code = 'EBUSY'; throw e } return fs.statSync(p, ...r) } }
+    const r = createKnowledgeRoutes({ dataPath, modeFolderForName, readUtf8, writeFileAtomic, fs: busy, path })
+    expect((await call(r.knowledge, { url: '/?mode=Book' })).statusCode).toBe(500)
+    expect((await call(r.sections, { url: '/?mode=Book&sections=0' })).statusCode).toBe(500)
+  })
+  it('a switched-off file is recognised in any case', async () => {
+    await up('c.txt', 'x')
+    fs.renameSync(path.join(kdir(), 'c.txt'), path.join(kdir(), 'c.txt.DISABLED'))
+    const g = (await call(knowledge, { url: '/?mode=Book' })).json
+    expect(g.files.find((f) => f.name === 'c.txt')).toMatchObject({ disabled: true })
+    // ...and can be switched on and deleted by that name (on a case-sensitive file system the lower-case path missed it).
+    expect((await call(knowledge, { method: 'PATCH', url: '/?mode=Book&file=c.txt&disabled=0' })).json).toEqual({ ok: true, disabled: false })
+    expect(fs.readdirSync(kdir())).toContain('c.txt')
+    fs.renameSync(path.join(kdir(), 'c.txt'), path.join(kdir(), 'c.txt.DISABLED'))
+    expect((await call(knowledge, { method: 'DELETE', url: '/?mode=Book&file=c.txt&disabled=1' })).json).toEqual({ ok: true })
+    expect(fs.readdirSync(kdir()).filter((f) => f.toLowerCase().startsWith('c.txt'))).toEqual([])
+  })
   it('a GET reads each knowledge file once (content and outline share it; a book on a share was read twice)', async () => {
     await up('once.md', ['# First part', 'alpha', '# Second part', 'beta'].join('\n'))
     const reads = []

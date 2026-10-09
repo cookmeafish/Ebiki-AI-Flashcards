@@ -20,8 +20,21 @@ export function knowledgeFileName(name) {
 }
 
 export function createKnowledgeRoutes({ dataPath, modeFolderForName, readUtf8, writeFileAtomic, fs, path }) {
+  // Only a folder that is really not there is "no knowledge base". existsSync answers false on ANY stat error (an
+  // SMB blip, EPERM, EBUSY on a share): read as empty, the list said "No files" and every AI call dropped the
+  // material. Any other error throws (a 500 the client keeps its copy on).
+  const folderMissing = (dir) => {
+    try { fs.statSync(dir); return false } catch (e) { if (e && (e.code === 'ENOENT' || e.code === 'ENOTDIR')) return true; throw e }
+  }
+  // The switched-off copy's REAL name: GET lists "x.txt.DISABLED" as x.txt (off), and on a case-sensitive file system
+  // the lower-case path was never found (Delete said ok and kept it; switching it on said "not found").
+  const disabledCopy = (dir, name) => {
+    const want = `${name}.disabled`
+    try { const hit = fs.readdirSync(dir).find((f) => f !== want && f.toLowerCase() === want.toLowerCase()); if (hit && !fs.existsSync(path.join(dir, want))) return path.join(dir, hit) } catch { /* no folder: the plain name */ }
+    return path.join(dir, want)
+  }
   const readKnowledgeFiles = (knowledgeDir) => {
-    if (!fs.existsSync(knowledgeDir)) return []
+    if (folderMissing(knowledgeDir)) return []
     return fs.readdirSync(knowledgeDir)
       .filter((f) => f.match(/\.(txt|md)$/i))
       // A file listed but already gone (another computer removed it; SMB lists it ~10s longer) is skipped:
@@ -64,15 +77,15 @@ export function createKnowledgeRoutes({ dataPath, modeFolderForName, readUtf8, w
 
     if (req.method === 'GET') {
       try {
-        if (!fs.existsSync(knowledgeDir)) { res.end(JSON.stringify({ files: [], content: null, fileCount: 0 })); return }
+        if (folderMissing(knowledgeDir)) { res.end(JSON.stringify({ files: [], content: null, fileCount: 0 })); return }
         const allFiles = fs.readdirSync(knowledgeDir)
         // A file listed but already gone (another computer deleted or toggled it; the SMB directory cache
         // lists it ~10s longer) is skipped, never the whole answer: one ENOENT used to report "no files" and
         // ran every AI call without the knowledge base.
         const gone = (e) => e && e.code === 'ENOENT'
         const files = allFiles.filter(f => f.match(/\.(txt|md)(\.disabled)?$/i)).map(f => {
-          const disabled = f.endsWith('.disabled')
-          const name = disabled ? f.replace(/\.disabled$/, '') : f
+          const disabled = /\.disabled$/i.test(f) // same case rule as the filter above ("x.txt.DISABLED" listed as on)
+          const name = disabled ? f.replace(/\.disabled$/i, '') : f
           let size
           try { size = fs.statSync(path.join(knowledgeDir, f)).size } catch (e) { if (gone(e)) return null; throw e }
           return { name, disabled, size }
@@ -147,12 +160,16 @@ export function createKnowledgeRoutes({ dataPath, modeFolderForName, readUtf8, w
         // mode to "<name>.disabled", dropping it from the list).
         if (/^[.\s]*$/.test(safeName)) { res.statusCode = 400; res.end('{"error":"bad file name"}'); return }
         const filePath = path.join(knowledgeDir, safeName)
-        const disabledPath = filePath + '.disabled'
+        const disabledPath = disabledCopy(knowledgeDir, safeName)
         // Which copy: a share can hold both (an offline disable is merged as a second file). Deleting the
         // struck-through row deleted the live one too. No parameter (an older client) = both, as before.
         const which = url.searchParams.get('disabled')
-        if (which !== '1' && fs.existsSync(filePath)) fs.unlinkSync(filePath)
-        if (which !== '0' && fs.existsSync(disabledPath)) fs.unlinkSync(disabledPath)
+        let removed = false
+        if (which !== '1' && fs.existsSync(filePath)) { fs.unlinkSync(filePath); removed = true }
+        if (which !== '0' && fs.existsSync(disabledPath)) { fs.unlinkSync(disabledPath); removed = true }
+        // The copy asked for is gone but the OTHER one is there (another computer switched the file on or off
+        // meanwhile): nothing was deleted, and "ok" left the file in place with no word. Already gone entirely is done.
+        if (!removed && (fs.existsSync(filePath) || fs.existsSync(disabledPath))) { res.statusCode = 409; res.end('{"error":"the file was switched on or off meanwhile"}'); return }
         res.end('{"ok":true}')
       } catch (e) { res.statusCode = 500; res.end(JSON.stringify({ error: e.message })) }
     } else if (req.method === 'PATCH') {
@@ -164,7 +181,7 @@ export function createKnowledgeRoutes({ dataPath, modeFolderForName, readUtf8, w
         // mode to "<name>.disabled", dropping it from the list).
         if (/^[.\s]*$/.test(safeName)) { res.statusCode = 400; res.end('{"error":"bad file name"}'); return }
         const filePath = path.join(knowledgeDir, safeName)
-        const disabledPath = filePath + '.disabled'
+        const disabledPath = disabledCopy(knowledgeDir, safeName)
         // `disabled=1|0`: the state the user asked for (a flip undid a double click, and re-enabled a file
         // another computer had just disabled). Already there = done. No parameter = the old flip.
         const want = new URL(req.url, 'http://x').searchParams.get('disabled')

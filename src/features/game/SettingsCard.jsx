@@ -41,7 +41,7 @@ function RestDays({ t, lang, player }) {
       </div>
       <div style={{ fontSize: 12, color: C.inkDim, margin: '10px 0 4px' }}>{t('game_restDates')}</div>
       <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-        <input type="date" aria-label={t('game_restDates')} value={pick} min={dateKey()} onChange={(e) => setPick(e.target.value)} style={{ padding: '5px 8px', borderRadius: RADIUS.sm, border: `1px solid ${C.border}`, background: C.surfaceAlt, color: C.ink, fontSize: 12 }} />
+        <input type="date" aria-label={t('game_restDates')} value={pick} min={dateKey()} onChange={(e) => setPick(e.target.value)} style={{ maxWidth: '100%', minWidth: 0, boxSizing: 'border-box', padding: '5px 8px', borderRadius: RADIUS.sm, border: `1px solid ${C.border}`, background: C.surfaceAlt, color: C.ink, fontSize: 12 }} />
         <button type="button" onClick={addDate} disabled={!pick} style={{ padding: '5px 10px', borderRadius: RADIUS.sm, border: `1px solid ${C.info}`, background: 'transparent', color: C.info, fontSize: 12, fontWeight: 800, cursor: pick ? 'pointer' : 'default', opacity: pick ? 1 : 0.5 }}>＋ {t('game_restAdd')}</button>
         {dates.map((d) => (
           <span key={d} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: RADIUS.pill, border: `1px solid ${C.border}`, fontSize: 12 }}>

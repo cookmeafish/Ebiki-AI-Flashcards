@@ -130,3 +130,18 @@ describe('realistic PDF books', () => {
     expect(Date.now() - t0).toBeLessThan(500)
   })
 })
+
+describe('a big toc.txt of numbered entries sharing one word stays fast', () => {
+  it('1,500 "Exercise N" entries over a 20k-line book match in order, well under a second', () => {
+    const N = 1500
+    const toc = Array.from({ length: N }, (_, i) => `Exercise ${i + 1}`).join('\n')
+    const body = []
+    for (let i = 1; i <= N; i++) { body.push(`Exercise ${i}`); for (let k = 0; k < 12; k++) body.push(`line ${k} of exercise ${i} text`) }
+    const start = Date.now()
+    const o = extractOutline([{ name: 'toc.txt', text: toc }, { name: 'book.txt', text: body.join('\n') }])
+    expect(Date.now() - start).toBeLessThan(1000)
+    expect(o).toHaveLength(N)
+    expect(titles(o).slice(0, 3)).toEqual(['Exercise 1', 'Exercise 2', 'Exercise 3'])
+    expect(titles(o)[N - 1]).toBe(`Exercise ${N}`)
+  })
+})

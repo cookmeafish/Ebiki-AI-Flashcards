@@ -32,6 +32,9 @@ export default function OnboardingWizard(p) {
   const panelRef = useRef(null)
   useEffect(() => {
     // Only when nothing inside the panel has focus: a step's own autoFocus field (the mode name) must keep it.
+    // Each step starts at its top: the panel kept the previous step's scroll, so on a phone the next step opened
+    // scrolled down with Ebi and the heading cut off.
+    if (panelRef.current) panelRef.current.scrollTop = 0
     const a = document.activeElement
     if (a && a !== document.body && panelRef.current?.contains(a)) return
     try { panelRef.current?.focus({ preventScroll: true }) } catch { /* not mounted */ }
@@ -113,8 +116,16 @@ export default function OnboardingWizard(p) {
   // The dialog is named after the step on screen (screen readers announced an unnamed dialog).
   const STEP_TITLE = { welcome: 'obWelcomeTitle', language: 'obLanguageTitle', appearance: 'obThemeTitle', launch: 'obLaunchTitle', provider: 'obProviderTitle', intelligence: 'obIntelTitle', mode: 'obModeTitle', finish: 'obDoneTitle' }
   const last = steps.length - 1
-  const next = () => setStep((s) => Math.min(s + 1, last))
-  const back = () => setStep((s) => Math.max(s - 1, 0))
+  // A double click on Next/Start/Continue advanced TWICE (the footer button stays under the pointer), skipping a
+  // step: from "launch" it skipped the provider and key step. A second advance within a moment is ignored.
+  const lastNextRef = useRef(0)
+  const next = () => {
+    const now = Date.now()
+    if (now - lastNextRef.current < 450) return
+    lastNextRef.current = now
+    setStep((s) => Math.min(s + 1, last))
+  }
+  const back = () => { lastNextRef.current = 0; setStep((s) => Math.max(s - 1, 0)) } // Back then Next is two real moves
 
   const heading = { fontSize: 26, fontWeight: 800, fontFamily: FONT.display, color: C.ink, margin: '14px 0 6px' }
   const sub = { fontSize: 14, color: C.inkDim, maxWidth: 460, lineHeight: 1.6, margin: '0 auto' }
@@ -137,8 +148,10 @@ export default function OnboardingWizard(p) {
     }).catch(() => {})
   }, [])
   const [launchSaveError, setLaunchSaveError] = useState(false)
+  const launchSeqRef = useRef(0) // only the NEWEST pick's answer may put a choice back (two quick picks: A failed after B saved)
   const pickLaunchMode = (m) => {
     const prev = launchMode
+    const seq = ++launchSeqRef.current
     setLaunchMode(m); setLaunchSaveError(false)
     // A refused write (a locked or read-only folder) showed the tile as chosen while the next launch ignored it:
     // put the old choice back and say so, like Settings does.
@@ -146,13 +159,20 @@ export default function OnboardingWizard(p) {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: m }),
     }).then(async (r) => {
       const d = await r.json().catch(() => ({}))
+      if (seq !== launchSeqRef.current) return
       if (!r.ok || d.error || d.ok === false) { setLaunchMode(prev); setLaunchSaveError(true) }
-    }).catch(() => { setLaunchMode(prev); setLaunchSaveError(true) })
+    }).catch(() => { if (seq === launchSeqRef.current) { setLaunchMode(prev); setLaunchSaveError(true) } })
   }
 
   // A double click ran this twice: createMode refuses a second create while one runs (returns false), so the
   // second call showed "failed" and re-enabled the button while the first was still making the mode.
   const creatingFirstRef = useRef(false)
+  const modeInputRef = useRef(null)
+  // A key the provider step already found wrong cannot create a mode: Create failed with the provider's raw 401.
+  const keyBad = keyCheck?.state === 'invalid'
+  // After a failed create, back in the field once it is enabled again (it was disabled while creating, so focus had
+  // dropped to the page): Enter retries.
+  useEffect(() => { if (modeFailed && !creatingFirst && !modeCreating) modeInputRef.current?.focus() }, [modeFailed, creatingFirst, modeCreating])
   const createFirstMode = async () => {
     if (!modeInput.trim()) { next(); return }
     if (creatingFirstRef.current) return
@@ -163,6 +183,7 @@ export default function OnboardingWizard(p) {
     try { ok = await createMode(modeInput.trim()) } catch { ok = false } finally { creatingFirstRef.current = false }
     setCreatingFirst(false)
     // Stay on this step when it failed (the finish screen then read as if the mode existed).
+    // Back in the field (it was disabled while creating, so focus had dropped to the page): Enter retries.
     if (ok === false) { setModeFailed(true); return }
     // Only from the mode step: after Back during the create, a plain next() landed back on this step with the
     // name still typed, and Create made a second mode ("Spanish 2").
@@ -191,9 +212,10 @@ export default function OnboardingWizard(p) {
         return (<>
           <div style={heading}>{t('obThemeTitle')}</div>
           <div style={sub}>{t('obThemeBody')}</div>
-          <div style={{ display: 'flex', gap: 14, justifyContent: 'center', marginTop: 22 }}>
+          {/* Tiles shrink and wrap (fixed 150px tiles cut the Light tile off at phone width and at zoom 2.0). */}
+          <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap', marginTop: 22 }}>
             {[['light', '☀️', t('themeLight')], ['dark', '🌙', t('themeDark')]].map(([val, ic, label]) => (
-              <div key={val} onClick={() => setAppTheme(val)} {...choiceProps(appTheme === val, () => setAppTheme(val))} style={{ ...choiceCard(appTheme === val), width: 150, textAlign: 'center' }}>
+              <div key={val} onClick={() => setAppTheme(val)} {...choiceProps(appTheme === val, () => setAppTheme(val))} style={{ ...choiceCard(appTheme === val), flex: '1 1 110px', maxWidth: 150, minWidth: 0, boxSizing: 'border-box', textAlign: 'center' }}>
                 <div style={{ fontSize: 30, marginBottom: 6 }}>{ic}</div>{label}
               </div>
             ))}
@@ -285,7 +307,7 @@ export default function OnboardingWizard(p) {
                   }
                   setIntelligence(opt.key)
                 }} style={{
-                  width: 240, textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
+                  flex: '1 1 200px', maxWidth: 240, minWidth: 0, boxSizing: 'border-box', textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
                   padding: '14px 16px', borderRadius: RADIUS.md,
                   border: `2px solid ${active ? C.brand : C.border}`, background: active ? C.brandTint : C.surface,
                   transition: 'all .15s ease',
@@ -317,15 +339,16 @@ export default function OnboardingWizard(p) {
           <div style={heading}>{t('obModeTitle')}</div>
           <div style={sub}>{t('obModeBody')}</div>
           <div style={{ display: 'flex', gap: 8, maxWidth: 480, margin: '20px auto 0' }}>
-            <input value={modeInput} onChange={(e) => setModeInput(e.target.value)} autoFocus
-              onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e) && modeInput.trim() && apiKey && !creatingFirst && !modeCreating) createFirstMode() }}
-              placeholder={t('createModePlaceholder')} style={{ ...S.keyInput, flex: 1 }} disabled={creatingFirst || modeCreating} />
+            <input ref={modeInputRef} value={modeInput} onChange={(e) => setModeInput(e.target.value)} autoFocus
+              onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e) && modeInput.trim() && apiKey && !keyBad && !creatingFirst && !modeCreating) createFirstMode() }}
+              placeholder={t('createModePlaceholder')} style={{ ...S.keyInput, flex: 1, minWidth: 0 }} disabled={creatingFirst || modeCreating} />
           </div>
           {!apiKey && <div style={{ fontSize: 12, color: C.warning, marginTop: 10 }}>{t('obModeNeedsKey')}</div>}
+          {apiKey && keyBad && <div style={{ fontSize: 12, color: C.danger, marginTop: 10 }}>{t('obModeFixKey')}</div>}
           {modeFailed && <div style={{ fontSize: 12, color: C.danger, marginTop: 10 }}>{t('obModeFailed')}</div>}
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 18 }}>
-            <button className="btn-press" style={{ ...bigBtn, opacity: (!modeInput.trim() || !apiKey || creatingFirst || modeCreating) ? 0.5 : 1 }}
-              disabled={!modeInput.trim() || !apiKey || creatingFirst || modeCreating} onClick={createFirstMode}>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap', marginTop: 18 }}>
+            <button className="btn-press" style={{ ...bigBtn, opacity: (!modeInput.trim() || !apiKey || keyBad || creatingFirst || modeCreating) ? 0.5 : 1 }}
+              disabled={!modeInput.trim() || !apiKey || keyBad || creatingFirst || modeCreating} onClick={createFirstMode}>
               {creatingFirst ? t('creating') : t('obCreateMode')}
             </button>
             <button style={{ ...S.ghostBtn, fontSize: 13, padding: '10px 18px', opacity: creatingFirst ? 0.5 : 1 }} disabled={creatingFirst} onClick={next}>{t('obSkip')}</button>
@@ -345,13 +368,14 @@ export default function OnboardingWizard(p) {
     // Sized for body{zoom (the app zoom, --app-zoom)} like SettingsModal: a bare inset:0 backdrop covered zoom x 100% of the window,
     // pushing the panel down-right so tall steps hid their Next/Back footer during first run.
     // Second pass: a full-screen flow on the app's own canvas (opaque, no blurred app behind it), a step bar on top.
-    <div role="dialog" aria-modal="true" aria-label={t(STEP_TITLE[steps[step]] || 'obWelcomeTitle')} style={{ ...S.backdrop, cursor: 'default', width: 'calc(100vw / var(--app-zoom))', height: 'calc(100vh / var(--app-zoom))',
+    // data-top-overlay: keys meant for the wizard never reach a quiz or a raid still mounted behind a re-run.
+    <div role="dialog" aria-modal="true" data-top-overlay="1" aria-label={t(STEP_TITLE[steps[step]] || 'obWelcomeTitle')} style={{ ...S.backdrop, cursor: 'default', width: 'calc(100vw / var(--app-zoom))', height: 'calc(100vh / var(--app-zoom))',
       background: `radial-gradient(900px 520px at 85% -10%, color-mix(in srgb, ${C.brand} 9%, transparent), transparent 65%), radial-gradient(800px 520px at 0% 110%, color-mix(in srgb, ${C.teal} 9%, transparent), transparent 60%), ${C.bg}`,
       backdropFilter: 'none', WebkitBackdropFilter: 'none' }}>
       <div ref={panelRef} tabIndex={-1} style={{ outline: 'none', position: 'relative',
         width: 'min(640px, calc(94vw / var(--app-zoom)))', maxHeight: 'calc(92vh / var(--app-zoom))', overflowY: 'auto', textAlign: 'center', boxSizing: 'border-box',
         background: C.surface, border: `1px solid ${C.border}`, borderRadius: RADIUS.xl,
-        boxShadow: SHADOW.xl, padding: '30px 36px 28px', animation: 'pop .2s cubic-bezier(.34,1.56,.64,1)',
+        boxShadow: SHADOW.xl, padding: '30px clamp(14px, 5vw, 36px) 28px', animation: 'pop .2s cubic-bezier(.34,1.56,.64,1)',
       }}>
         {step > 0 && (
           <div aria-hidden="true" style={{ display: 'flex', gap: 5, margin: '0 28px 18px' }}>
@@ -381,12 +405,12 @@ export default function OnboardingWizard(p) {
         <Fragment key={step}>{Body()}</Fragment>
         {/* Footer nav (hidden on welcome/finish which have their own primary button) */}
         {step > 0 && step < last && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 28, paddingTop: 18, borderTop: `1px solid ${C.border}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginTop: 28, paddingTop: 18, borderTop: `1px solid ${C.border}` }}>
             <button style={{ ...S.ghostBtn, fontSize: 13, padding: '9px 16px', borderRadius: 12, opacity: creatingFirst ? 0.5 : 1 }} disabled={creatingFirst} onClick={back}>{t('back')}</button>
             <span style={{ fontSize: 12, fontWeight: 800, color: C.inkFaint, letterSpacing: '.06em', whiteSpace: 'nowrap' }}>{step} / {steps.length - 1}</span>
             {steps[step] === 'mode'
               ? <span style={{ width: 60 }} />
-              : <button className="btn-press" style={{ ...S.keyDone, fontSize: 14, padding: '10px 26px', borderRadius: 12 }} onClick={next}>{t('obNext')}</button>}
+              : <button className="btn-press" style={{ ...S.keyDone, fontSize: 14, padding: '10px 26px', borderRadius: 12, marginLeft: 'auto' }} onClick={next}>{t('obNext')}</button>}
           </div>
         )}
       </div>

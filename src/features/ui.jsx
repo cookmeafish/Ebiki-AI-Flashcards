@@ -105,6 +105,9 @@ export function Modal({ open, onClose, children, width = UI.modalWidth, zoom = 1
       if (document.querySelector('[data-app-dialog]')) return
       const a = document.activeElement
       if (a && !rootRef.current?.contains(a) && a.closest?.('[data-help-panel]')) return
+      // Nor one meant for an overlay above it with the focus there ("Run setup again" over a feature screen: Esc
+      // closed the hidden modal underneath instead of the wizard).
+      if (a && !rootRef.current?.contains(a) && a.closest?.('[data-top-overlay]')) return
       e.preventDefault(); onClose?.()
     }
     window.addEventListener('keydown', onKey, true)

@@ -88,7 +88,7 @@ export function UsageDetails({ t, confirmDialog, live = true, foldModels = false
                   {/* The whole id stays readable (it is what "Set price" is for): it breaks anywhere, and on a narrow
                       screen the numbers wrap under it instead of pushing the button off the edge. */}
                   <span style={{ minWidth: 0, flex: '1 1 120px', overflowWrap: 'anywhere' }}>{r.model || r.provider}</span>
-                  <span style={{ whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto' }}>
+                  <span style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center', gap: 4, marginLeft: 'auto', maxWidth: '100%' }}>
                     {formatTokens(r.input + r.output)} · {r.cost === null ? t('usage_noPrice') : formatCost(r.cost)}{r.ownPrice ? ` (${t('usage_priceCustom')})` : ''}
                     <button type="button" className="ui-btn" onClick={() => setPriceEdit(editing ? null : { key, provider: r.provider, model: r.model, inp: own ? String(own[0]) : '', out: own ? String(own[1]) : '', error: false })}
                       aria-label={t('usage_setPrice')}

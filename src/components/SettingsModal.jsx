@@ -130,7 +130,7 @@ function DataFolderCard({ t, card, fieldLabel, hint, onChanged }) {
               placeholder={t('dataFolderPlaceholder')} disabled={busy}
               style={{ ...S.keyInput, flex: '1 1 180px', minWidth: 0, fontSize: 12 }} />
             <button onClick={() => canApply && apply(input.trim())} disabled={!canApply}
-              style={{ ...S.getKeyLink, flexShrink: 0, opacity: canApply ? 1 : 0.5, cursor: canApply ? 'pointer' : 'default' }}>
+              style={{ ...S.getKeyLink, flexShrink: 0, maxWidth: '100%', whiteSpace: 'normal', opacity: canApply ? 1 : 0.5, cursor: canApply ? 'pointer' : 'default' }}>
               {busy ? '…' : t('dataFolderApply')}
             </button>
           </div>
@@ -660,7 +660,7 @@ export default function SettingsModal(p) {
         </div>
         {proposal && (
           <div style={{ marginTop: 10, border: `1px solid ${C.brandRing}`, borderRadius: RADIUS.md, padding: '12px 14px', background: C.brandTint2 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: C.brand, marginBottom: 8, letterSpacing: '.03em' }}>{t('ebiSuggests')}</div>
+            <div style={{ fontSize: 11, fontWeight: 800, color: C.brandText, marginBottom: 8, letterSpacing: '.03em' }}>{t('ebiSuggests')}</div>
             {proposal.changes.map((ch) => (
               <div key={ch.key} style={{ marginBottom: 10 }}>
                 <div style={{ fontSize: 10, fontWeight: 700, color: C.inkDim, marginBottom: 3, textTransform: 'uppercase' }}>{ch.label}</div>
@@ -692,7 +692,8 @@ export default function SettingsModal(p) {
       {sectionTitle(t('setGeneral'))}
       <div style={card}>
         {fieldLabel(t('appearance'))}
-        <div style={{ display: 'flex', gap: 4, background: C.surfaceAlt, borderRadius: RADIUS.pill, padding: 3, width: 'fit-content' }}>
+        {/* Wraps in a very narrow pane (phone at high zoom) instead of running past the card's edge. */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, background: C.surfaceAlt, borderRadius: RADIUS.pill, padding: 3, width: 'fit-content', maxWidth: '100%', boxSizing: 'border-box' }}>
           {[['light', '☀️ ' + t('themeLight')], ['dark', '🌙 ' + t('themeDark')]].map(([val, label]) => (
             <button key={val} onClick={() => setAppTheme(val)} className={appTheme === val ? 'ui-tab-current' : undefined} style={{
               border: 'none', cursor: appTheme === val ? 'default' : 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 700, padding: '6px 16px', borderRadius: RADIUS.pill,
@@ -731,12 +732,12 @@ export default function SettingsModal(p) {
         {fieldLabel(t('translation'))}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 12, color: C.inkDim }}>{t('source')}</span>
-          <select aria-label={t('source')} value={language} onChange={(e) => setLanguage(e.target.value)} style={{ ...S.select, flex: 1, minWidth: 130 }}>
+          <select aria-label={t('source')} value={language} onChange={(e) => setLanguage(e.target.value)} style={{ ...S.select, flex: 1, minWidth: 'min(130px, 100%)', maxWidth: '100%' }}>
             {LANGS.map((l) => <option key={l.code} value={l.code}>{l.code === 'auto' ? t('lang_detect') : langDisplayName(l.label, appLanguage, { capitalize: true })}</option>)}
           </select>
           <span style={{ color: C.brand, fontWeight: 700 }}>→</span>
           <span style={{ fontSize: 12, color: C.inkDim }}>{t('target')}</span>
-          <select aria-label={t('target')} value={targetLang} onChange={(e) => setTargetLang(e.target.value)} style={{ ...S.select, flex: 1, minWidth: 130 }}>
+          <select aria-label={t('target')} value={targetLang} onChange={(e) => setTargetLang(e.target.value)} style={{ ...S.select, flex: 1, minWidth: 'min(130px, 100%)', maxWidth: '100%' }}>
             {LANGS.filter((l) => l.code !== 'auto').map((l) => <option key={l.code} value={l.code}>{langDisplayName(l.label, appLanguage, { capitalize: true })}</option>)}
           </select>
         </div>

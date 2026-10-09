@@ -249,9 +249,10 @@ Do NOT include the <mode> block while you are still asking questions. Include it
             <input ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e)) send() }}
               placeholder={apiKey ? t('studioPlaceholder') : t('studioNeedKey')} disabled={loading || !apiKey}
-              style={{ ...S.keyInput, flex: 1, fontSize: 12.5 }} />
+              /* minWidth 0: the key-input style's minimum pushed Send off the panel at phone width. */
+              style={{ ...S.keyInput, flex: 1, minWidth: 0, fontSize: 12.5 }} />
             <button onClick={() => send()} disabled={loading || !apiKey || !input.trim()} className="btn-press"
-              style={{ ...S.keyDone, opacity: (loading || !apiKey || !input.trim()) ? 0.5 : 1 }}>{t('studioSend')}</button>
+              style={{ ...S.keyDone, flex: 'none', opacity: (loading || !apiKey || !input.trim()) ? 0.5 : 1 }}>{t('studioSend')}</button>
           </div>
         )}
       </div>

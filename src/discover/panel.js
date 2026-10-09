@@ -32,3 +32,18 @@ export function resolveKind(itemType, options) {
   const keys = (Array.isArray(options) ? options : []).map((o) => o[0])
   return keys.includes(itemType) ? itemType : 'both'
 }
+
+// What the level chip shows: the estimate and a 0..1 confidence (a percentage like 70 is read as 0.7), or null when
+// there is nothing to show. A level with no estimate rendered a bare "Level:" chip (the domain-coverage scale says
+// "in progress" instead, so it still shows).
+export function levelBadge(level) {
+  if (!level || typeof level !== 'object' || Array.isArray(level)) return null
+  const scale = typeof level.scale === 'string' ? level.scale : ''
+  const estimate = String(level.estimate ?? '').trim()
+  if (!estimate && scale !== 'domain-coverage') return null
+  const raw = level.confidence
+  let confidence = raw === '' || raw == null || typeof raw === 'boolean' ? NaN : Number(raw)
+  if (!Number.isFinite(confidence)) confidence = null
+  else { if (confidence > 1) confidence /= 100; confidence = Math.max(0, Math.min(1, confidence)) }
+  return { scale, estimate, confidence }
+}

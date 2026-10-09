@@ -772,6 +772,13 @@ Shared by `/api/modes` and the knowledge endpoints; the POST removes folders the
   MISNAMED: moved, no adopt (looped).
 - A failed folder move (file open on Windows) leaves the mode untouched → `renameFailed`, old name restored
   (`mode_renameFailed`).
+- **Every mode-config read there is `readModeCfgState`** (`missing` only on ENOENT, `ok`, `corrupt` = stably non-JSON,
+  `failed` = any other error or a non-JSON file changed in the last 30s, after one retry). `failed` is never "no mode
+  here": a write into that folder, a patch over it, a rename, a create or an "it lives elsewhere" lookup while ANY
+  folder failed is refused (`unreadable` with its `dir`, POST answers 503 = "try again", never with an adopt conflict);
+  the sweep never removes it, and an explicit delete not found while a folder is unreadable is 503 too. A `corrupt`
+  target config is set aside (`.corrupt-<stamp>`) before the write. POST bodies without a `modes` list are 400; a
+  disk error is 503 (`modesPostAnswer`, tested).
 - Offline reconcile redirects `modes/<old>/` edits to the share's same-id folder only if the BASE had `<old>`.
 
 ### Names and name-keyed stores
@@ -1354,15 +1361,15 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   at `/dev/legends-gallery/` (dev server only).
 - **⭐⭐ RAID BOSSES GO ALL OUT, EVERY TIME (the owner: "super crucial").** Making a NEW raid boss, REDESIGNING one,
   or touching any raid phase, effect or animation, EVEN A SMALL EDIT ("EVEN EDITS TO A RAID BOSS SHOULD FOLLOW THE BEST
-  QA": a one-line fix gets the same zoomed checks, side by side, animation check and triple check as a redraw): read `docs/legends-art-guide.md` "RAID BOSSES GO ALL OUT" FIRST and
-  follow every line. In short: the bar is `raids/kitsune.svg` and `raids/ophanim.svg` (beside them at 300 and 120 px,
-  weaker anywhere = not done); one nameable character, big in frame, the SAME character in every phase, personality
+  QA": a one-line fix gets the same zoomed checks, animation check and triple check as a redraw): read `docs/legends-art-guide.md` "RAID BOSSES GO ALL OUT" FIRST and
+  follow every line. In short: the bar is `raids/kitsune.svg` and `raids/ophanim.svg`: the GOLD STANDARD of quality
+  (the owner: a standard to match, NOT a side-by-side render test); one nameable character, big in frame, the SAME character in every phase, personality
   constant, strong villain faces; anatomy that connects (no floating gloves, tube arms, pasted heads/necks); three
   DISTINCT phases (new camera, pose, face, light, palette, setting) with phase 3 the SPECTACLE; animations go hard on
   everything (layered idle, entrance, nine moments, the attack on the player, a themed knockout) and every ABILITY
   effect is CRAZY DISTINCT and moves the boss's real parts. No time limit ("IT DOESN'T MATTER HOW LONG IT TAKES"):
   at least three render → critique → fix rounds zoomed 2 to 4x, an animation check, the triple check, an honest
-  report with the kitsune/ophanim side by side; the coordinator inspects zoomed renders before the owner sees anything.
+  report; the coordinator inspects zoomed renders before the owner sees anything.
 - **SVG motion rules**: `<animateTransform>`/`<animateMotion>` only (the sanitizer drops `<animate>`/`<set>`/
   `calcMode`); `keyTimes` must match `values` one to one and end at 1, or the browser silently drops it (tested).
   Tag `class="lg-in"` (entrance) or `lg-loop` (idle); `withMotion` strips per `animated` mode ('intro' card, 'idle'

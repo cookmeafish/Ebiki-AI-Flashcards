@@ -3,7 +3,7 @@
 // proposes one new item at a time. Make a card, mark it known, skip, or move on. All logic
 // lives in App.jsx; this is presentational.
 import { sortTagsUsageFirst, usageTagStyle, usageTagTip } from '../tags/usage'
-import { resolveKind, shownSources } from '../discover/panel'
+import { levelBadge, resolveKind, shownSources } from '../discover/panel'
 
 const C = {
   blue: 'var(--c-brand)', info: 'var(--c-info)', purple: 'var(--c-purple)', green: 'var(--c-success)', orange: 'var(--c-warning)',
@@ -29,11 +29,9 @@ const TIERS = ['beginner', 'intermediate', 'advanced']
 const tierLabel = (v, t) => (TIERS.includes(String(v || '').toLowerCase().trim()) ? t(`d_tier_${String(v).toLowerCase().trim()}`) : v)
 
 function LevelBadge({ profile, t }) {
-  if (!profile?.level) return null
-  const { scale, estimate } = profile.level
-  let confidence = Number(profile.level.confidence)
-  if (!Number.isFinite(confidence) || profile.level.confidence === '' || profile.level.confidence == null) confidence = null
-  else { if (confidence > 1) confidence /= 100; confidence = Math.max(0, Math.min(1, confidence)) }
+  const b = levelBadge(profile?.level)
+  if (!b) return null
+  const { scale, estimate, confidence } = b
   const label = scale === 'CEFR' ? estimate
     : scale === 'domain-coverage' ? `${estimate || t('d_inProgress')}`
     : tierLabel(estimate, t)

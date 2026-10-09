@@ -1249,32 +1249,64 @@ function isDefaultTemplate(modesDir, d) {
 // config is the one on disk with the patch applied, so fields another computer changed in the SAME mode since this
 // page loaded are kept (the page's whole stale copy reverted them). A mode reported as renamed elsewhere gets its
 // patch (minus the name) in its current folder: the client then only adopts the name, and its edit is not lost.
+// One mode folder's config, read the way every decision below needs it. Only ENOENT (no config, no folder) is
+// `missing`; a file that reads but is not JSON is `corrupt` (handled as before: no mode here, the listing sets it
+// aside), unless it changed in the last 30 s (another computer's save still landing): that, and every other error
+// (an SMB blip, EBUSY, EACCES), is `failed` after one retry. A failed read is never "no mode here": it let a save
+// write over another computer's same-named folder, write a whole stale copy instead of a patch, or miss a rename.
+function readModeCfgState(modesDir, d) {
+  const file = path.join(modesDir, d, 'config.json')
+  let error
+  for (let attempt = 0; attempt < 2; attempt++) {
+    let text
+    try { text = readUtf8(file) } catch (e) {
+      if (e?.code === 'ENOENT' || e?.code === 'ENOTDIR') return { state: 'missing', cfg: null }
+      error = e
+      continue
+    }
+    try { return { state: 'ok', cfg: JSON.parse(text) } } catch (e) {
+      let age = 0
+      try { age = Date.now() - fs.statSync(file).mtimeMs } catch { age = 0 }
+      // A clock running ahead on the computer that wrote it (negative age) must not keep it 'failed' for good.
+      if (age >= 30000 || age < -30000) return { state: 'corrupt', cfg: null }
+      error = e
+    }
+  }
+  return { state: 'failed', cfg: null, error }
+}
+
 function writeModeFolders(modesDir, modes, activeModeId, deletedIds, changedIds, renamedIds, patches) {
   const patchFor = (id) => { const p = patches && typeof patches === 'object' ? patches[idKey(id)] : undefined; return isModePatch(p) ? p : null }
-  const readCfg = (d) => { try { return JSON.parse(readUtf8(path.join(modesDir, d, 'config.json'))) } catch { return null } }
+  const cfgState = (d) => readModeCfgState(modesDir, d)
+  const readCfg = (d) => { const r = cfgState(d); return r.state === 'ok' ? r.cfg : null }
   const renamed = Array.isArray(renamedIds) ? new Set(renamedIds.map((x) => (x === undefined || x === null ? undefined : String(x)))) : null
   const changed = Array.isArray(changedIds) ? new Set(changedIds.map((v) => (v === undefined || v === null ? undefined : String(v)))) : null
   const isDir = (d) => { try { return fs.statSync(path.join(modesDir, d)).isDirectory() } catch { return false } }
   const targets = modes.map((m) => modeFolderName(m.name, m.id))
   const keep = new Set(['_meta.json', ...fs.readdirSync(modesDir).filter((d) => isDefaultTemplate(modesDir, d)), ...targets].map(folderKey))
-  const idOf = (d) => { try { return JSON.parse(readUtf8(path.join(modesDir, d, 'config.json'))).id } catch { return undefined } }
+  const idOf = (d) => { const r = cfgState(d); return r.state === 'ok' ? r.cfg?.id : undefined }
   // Ids compared as TEXT: a config holding "5" (hand edit, an older merge) is the same mode the client now
   // sends as 5 (the load repair converts it). Strictly, "5" !== 5 looked like ANOTHER computer's folder: a
   // conflict, a rename to "X 2" that left the knowledge base behind, and one more copy on every launch.
   const idKey = (v) => (v === undefined || v === null ? undefined : String(v))
-  const leaving = new Map(fs.readdirSync(modesDir).filter((d) => !keep.has(folderKey(d)) && isDir(d)).map((d) => [d, idOf(d)]))
+  // Every folder's config read ONCE up front. A folder whose config could not be read (`failed`) may hold any mode:
+  // every decision that would have to know whose folder it is (a rename's source, "this mode lives elsewhere",
+  // "nobody owns this name") refuses below instead of guessing (`unreadable`, answered 503: try again).
+  const scan = new Map()
+  for (const d of fs.readdirSync(modesDir)) { if (isDir(d)) scan.set(d, cfgState(d)) }
+  const failedDirs = new Set([...scan].filter(([, r]) => r.state === 'failed').map(([d]) => folderKey(d)))
+  const unreadable = [] // modes NOT written because a config they depend on could not be read
+  const othersUnreadable = (own) => [...failedDirs].some((k) => k !== folderKey(own))
+  const leaving = new Map([...scan].filter(([d]) => !keep.has(folderKey(d))).map(([d, r]) => [d, r.state === 'ok' ? r.cfg?.id : undefined]))
   // Each mode's name as saved BEFORE this write, by id, so a rename can carry its chats along (below).
   // Only ids held by ONE folder: the load's duplicate-id repair keeps the id on one of two same-id modes
   // and re-ids the other, and reading "the last folder with id 5" made that look like a rename of the
   // other mode, re-filing all of its chats under this one's name (not undoable: both then share a tag).
   const nameBefore = new Map()
   const idSeenTwice = new Set()
-  for (const d of fs.readdirSync(modesDir)) {
-    if (!isDir(d)) continue
-    try {
-      const c = JSON.parse(readUtf8(path.join(modesDir, d, 'config.json')))
-      if (c && idKey(c.id) !== undefined && typeof c.name === 'string') { const k = idKey(c.id); if (nameBefore.has(k)) idSeenTwice.add(k); nameBefore.set(k, c.name) }
-    } catch { /* not a mode folder */ }
+  for (const [, r] of scan) {
+    const c = r.state === 'ok' ? r.cfg : null
+    if (c && idKey(c.id) !== undefined && typeof c.name === 'string') { const k = idKey(c.id); if (nameBefore.has(k)) idSeenTwice.add(k); nameBefore.set(k, c.name) }
   }
   for (const id of idSeenTwice) nameBefore.delete(id)
   const keptIds = new Set(modes.map((m) => idKey(m.id)))
@@ -1307,18 +1339,51 @@ function writeModeFolders(modesDir, modes, activeModeId, deletedIds, changedIds,
   const tombIds = new Set(tombs.map((x) => idKey(x.id)))
   const deletedElsewhere = []
   const untouched = new Set() // modes this save did not change: never written, moved or re-tagged
+  // The OTHER folders (not `own`, passing `filter`) whose config holds this mode's id. null = one of the candidates
+  // could not be read: it may be this mode's home, so the caller refuses instead of guessing.
+  const homesOf = (id, own, filter) => {
+    const out = []
+    for (const d of fs.readdirSync(modesDir)) {
+      if (folderKey(d) === folderKey(own) || !filter(d) || !isDir(d)) continue
+      const r = cfgState(d)
+      if (r.state === 'failed') return null
+      if (r.state === 'ok' && idKey(r.cfg?.id) === idKey(id)) out.push(d)
+    }
+    return out
+  }
   // A mode renamed elsewhere: its edit goes into the folder it lives in now (never its name or id: the other computer's).
+  // false = that folder's config could not be read now: the mode is reported `unreadable` (503, "try again") and the
+  // caller adds NO adopt conflict (adopting a name the save then answered as failed reverted the screen to a stale one).
   const patchHome = (home, mode) => {
     const patch = patchFor(mode.id)
-    const cfg = patch ? readCfg(home) : null
-    if (!cfg || idKey(cfg.id) !== idKey(mode.id)) return
+    if (!patch) return true
+    const r = cfgState(home)
+    // Unreadable now: the edit would be lost without a word. Said instead (the save answers 503; the edit stays only on
+    // this page, like any failed save).
+    if (r.state === 'failed') { unreadable.push({ id: mode.id, name: mode.name, dir: home }); skipped.add(idKey(mode.id)); return false }
+    const cfg = r.state === 'ok' ? r.cfg : null
+    if (!cfg || idKey(cfg.id) !== idKey(mode.id)) return true
     const own = (p) => p[0] !== 'name' && p[0] !== 'id'
     try { writeFileAtomic(path.join(modesDir, home, 'config.json'), JSON.stringify(applyModePatch(cfg, { set: patch.set.filter((e) => own(e.path)), unset: patch.unset.filter(own) }), null, 2)) } catch (e) { console.log('[Modes] could not save the edit into', JSON.stringify(home), e.message) }
   }
   modes.forEach((mode, i) => {
     if (changed && !changed.has(idKey(mode.id))) { untouched.add(idKey(mode.id)); return }
     const dir = path.join(modesDir, targets[i])
-    const owner = fs.existsSync(dir) ? idOf(targets[i]) : undefined
+    const ownState = fs.existsSync(dir) ? cfgState(targets[i]) : { state: 'missing', cfg: null }
+    // The folder this name maps to exists but its config could not be read: it may be another computer's mode, so
+    // writing here could take over its folder and knowledge base. Not written; the save answers 503 (try again).
+    const refuse = (why) => {
+      console.log('[Modes] not writing', JSON.stringify(mode.name), `(${why})`)
+      unreadable.push({ id: mode.id, name: mode.name, previous: nameBefore.get(idKey(mode.id)) ?? null, dir: targets[i] })
+      skipped.add(idKey(mode.id))
+    }
+    if (ownState.state === 'failed') { refuse('its folder\'s config could not be read'); return }
+    const owner = ownState.state === 'ok' ? ownState.cfg?.id : undefined
+    // Anything but "the folder is this mode's own, under the name it already has" has to know which folder holds
+    // which mode (a rename's source, a mode living elsewhere, whose name this is). One unreadable folder may be the
+    // answer, so such a save is refused while it stays unreadable, never guessed (a duplicate folder, a lost rename).
+    const plainWrite = idKey(owner) !== undefined && idKey(owner) === idKey(mode.id) && (!nameBefore.has(idKey(mode.id)) || nameBefore.get(idKey(mode.id)) === mode.name)
+    if (!plainWrite && othersUnreadable(targets[i])) { refuse('another mode folder could not be read'); return }
     // Foreign also when the owner is in the list but NOT being written (a one-mode save): another computer
     // renamed that mode INTO this name, and writing here took over its folder and knowledge base.
     // And in a WHOLE-list save (no changedIds: create, delete, repair) ANY other mode's folder is foreign: a
@@ -1332,11 +1397,12 @@ function writeModeFolders(modesDir, modes, activeModeId, deletedIds, changedIds,
       // reused the old name for another mode). It ADOPTS that name; answered as a plain clash it became "<old> 2",
       // which then moved the renamed folder and left its hooks, grammar log and Discover history under the new name.
       if (!dupTarget && idKey(mode.id) !== undefined && !(renamed && renamed.has(idKey(mode.id)))) {
-        const homes = fs.readdirSync(modesDir).filter((d) => folderKey(d) !== folderKey(targets[i]) && isDir(d) && idKey(idOf(d)) === idKey(mode.id))
+        const homes = homesOf(mode.id, targets[i], () => true)
+        if (homes === null) { refuse('another mode folder could not be read'); return }
         if (homes.length === 1) {
           let homeName = homes[0]
           try { homeName = JSON.parse(readUtf8(path.join(modesDir, homes[0], 'config.json'))).name || homes[0] } catch { /* the folder name */ }
-          patchHome(homes[0], mode)
+          if (patchHome(homes[0], mode) === false) return
           conflicts.push({ id: mode.id, name: mode.name, suggested: homeName, adopt: true })
           skipped.add(idKey(mode.id))
           return
@@ -1386,7 +1452,7 @@ function writeModeFolders(modesDir, modes, activeModeId, deletedIds, changedIds,
       const misnamed = prev !== undefined && folderKey(modeFolderName(prevName, mode.id)) === folderKey(targets[i])
       if (prev !== undefined && renamed && !renamed.has(idKey(mode.id)) && !misnamed) {
         keep.add(folderKey(prev)); leaving.delete(prev)
-        patchHome(prev, mode)
+        if (patchHome(prev, mode) === false) return
         conflicts.push({ id: mode.id, name: mode.name, suggested: prevName, adopt: true }) // this same mode, renamed elsewhere
         skipped.add(idKey(mode.id))
         return
@@ -1413,11 +1479,13 @@ function writeModeFolders(modesDir, modes, activeModeId, deletedIds, changedIds,
     // creating this one made a second folder with the same id and no knowledge base. Reported with the
     // folder's current name, which the client adopts.
     if (!fs.existsSync(dir) && idKey(mode.id) !== undefined) {
-      const home = fs.readdirSync(modesDir).find((d) => folderKey(d) !== folderKey(targets[i]) && keep.has(folderKey(d)) && isDir(d) && idKey(idOf(d)) === idKey(mode.id))
+      const found = homesOf(mode.id, targets[i], (d) => keep.has(folderKey(d)))
+      if (found === null) { refuse('another mode folder could not be read'); return }
+      const home = found[0]
       if (home) {
         let homeName = home
         try { homeName = JSON.parse(readUtf8(path.join(modesDir, home, 'config.json'))).name || home } catch { /* the folder name */ }
-        patchHome(home, mode)
+        if (patchHome(home, mode) === false) return
         conflicts.push({ id: mode.id, name: mode.name, suggested: homeName, adopt: true })
         skipped.add(idKey(mode.id))
         return
@@ -1431,18 +1499,47 @@ function writeModeFolders(modesDir, modes, activeModeId, deletedIds, changedIds,
     }
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
     const patch = patchFor(mode.id)
-    const onDisk = patch ? readCfg(targets[i]) : null
+    // The copy on disk the patch applies to. Unreadable now: writing the page's whole (stale) copy instead would
+    // revert what another computer changed, so nothing is written (503: the user is told to try again).
+    const disk = cfgState(targets[i])
+    if (disk.state === 'failed') { refuse('its config could not be read for the edit'); return }
+    // A damaged config is kept beside the new one (as the listing does), never silently overwritten.
+    if (disk.state === 'corrupt') {
+      const file = path.join(dir, 'config.json')
+      try { fs.renameSync(file, file + '.corrupt-' + new Date().toISOString().replace(/[:.]/g, '-')) } catch (e) { console.log('[Modes] could not set aside a damaged config:', e.message) }
+    }
+    const onDisk = patch && disk.state === 'ok' ? disk.cfg : null
     writeFileAtomic(path.join(dir, 'config.json'), JSON.stringify(onDisk && idKey(onDisk.id) === idKey(mode.id) ? applyModePatch(onDisk, patch) : mode, null, 2))
   })
   const explicit = Array.isArray(deletedIds) ? new Set(deletedIds.map(idKey)) : null
+  const removeFailed = []
+  const sweptFailed = [] // folders the sweep could not read (kept)
+  const deletedFound = new Set() // explicitly deleted ids whose folder was found (and removed or reported)
   for (const d of fs.readdirSync(modesDir)) {
     if (keep.has(folderKey(d)) || !isDir(d)) continue
+    // A folder whose config cannot be read now is never removed (it may be a mode this list does not know).
+    if (cfgState(d).state === 'failed') { sweptFailed.push(d); continue }
     if (explicit) {
       const id = idOf(d)
       if (idKey(id) === undefined || !explicit.has(idKey(id)) || keptIds.has(idKey(id))) continue
+      deletedFound.add(idKey(id))
       if (!tombIds.has(idKey(id))) { tombIds.add(idKey(id)); tombs.push({ id, at: Date.now() }) }
     }
-    fs.rmSync(path.join(modesDir, d), { recursive: true, force: true })
+    // One folder that cannot go (a knowledge file open in an editor on Windows: EBUSY/EPERM) no longer stops the
+    // sweep: thrown, it skipped the tombstones of the modes ALREADY removed (another computer then re-created them),
+    // the active-mode record, and answered the whole save as failed. It is logged and reported; the rest goes on.
+    try { fs.rmSync(path.join(modesDir, d), { recursive: true, force: true }) } catch (e) {
+      console.log('[Modes] could not remove the folder of a deleted mode', JSON.stringify(d), e.message)
+      removeFailed.push(d)
+    }
+  }
+  // A delete whose mode was not found while a folder could not be read: that folder may BE the mode. Answered 503 (the
+  // client keeps the mode and says "try again"); answered ok, the mode vanished here and came back on the next load.
+  if (explicit && sweptFailed.length) {
+    for (const id of explicit) {
+      if (id === undefined || keptIds.has(id) || deletedFound.has(id) || tombIds.has(id)) continue
+      unreadable.push({ id, name: '', dir: sweptFailed[0] })
+    }
   }
   if (!tombsReadable) console.log('[Modes] deleted-mode record unreadable; not updated this time')
   if (explicit && tombs.length && tombsReadable) {
@@ -1470,7 +1567,34 @@ function writeModeFolders(modesDir, modes, activeModeId, deletedIds, changedIds,
       }
     }
   } catch (e) { console.log('[Modes] could not re-tag chats after a rename:', e.message) }
-  return { conflicts, renameFailed, deletedElsewhere }
+  return { conflicts, renameFailed, deletedElsewhere, removeFailed, unreadable }
+}
+
+// The answer to a POST /api/modes body ({ status, body }), out of the route so it can be tested.
+function modesPostAnswer(bodyStr, modesDir) {
+  let data
+  try { data = JSON.parse(bodyStr) } catch (e) { return { status: 400, body: { error: e.message } } }
+  // A body without a modes list wrote nothing, yet answered { ok: true }: the change looked saved.
+  if (!data || typeof data !== 'object' || !Array.isArray(data.modes) || data.modes.some((m) => !m || typeof m !== 'object' || Array.isArray(m))) return { status: 400, body: { error: 'expected { modes: [...] }' } }
+  // REFUSE an empty modes write. The sweep DELETES every folder not named in the payload, so `{modes: []}` would
+  // erase all of the user's modes AND their knowledge bases, unrecoverably. The client holds an empty list only
+  // when the modes READ failed (it falls back to an in-memory default mode), and any deck picker then posts that
+  // emptiness. A real "delete a mode" always sends the remaining ones, and the app never lets the last mode go,
+  // so a legitimate save is never empty. Same clobber shape as the /api/keys guard.
+  if (data.modes.length === 0) {
+    console.log('[Modes] refused an empty write that would have deleted every mode folder')
+    return { status: 409, body: { error: 'refused: empty modes list' } }
+  }
+  try {
+    const written = writeModeFolders(modesDir, data.modes, data.activeModeId, data.deletedIds, data.changedIds, data.renamedIds, data.patches)
+    const unreadable = written?.unreadable || []
+    // A mode NOT written because a config it depends on could not be read (an SMB blip, a lock): 503, so the client
+    // says "try again" (a refused rename shows its old name again); the rest of the save is reported as usual.
+    return { status: unreadable.length ? 503 : 200, body: { ok: !unreadable.length, conflicts: written?.conflicts || [], renameFailed: written?.renameFailed || [], deletedElsewhere: written?.deletedElsewhere || [], removeFailed: written?.removeFailed || [], unreadable } }
+  } catch (e) {
+    // The body was valid: anything thrown here is the disk (EBUSY, EIO, a dead share), never the request (was 400).
+    return { status: 503, body: { error: e.message } }
+  }
 }
 
 // A config.json that EXISTS but cannot be read or parsed (a half-written file, a lock, a short SMB read)
@@ -2792,30 +2916,10 @@ function apiPlugin() {
           }
         } else if (req.method === 'POST') {
           const handleBody = (bodyStr) => {
-            try {
-              const data = JSON.parse(bodyStr)
-              // REFUSE an empty modes write. The sweep below DELETES every folder
-              // not named in the payload, so `{modes: []}` would erase all of the
-              // user's modes AND their knowledge bases, unrecoverably. The client
-              // holds an empty list only when the modes READ failed (it falls back
-              // to an in-memory default mode), and any deck picker then posts that
-              // emptiness. A real "delete a mode" always sends the remaining ones,
-              // and the app never lets the last mode go, so a legitimate save is
-              // never empty. Same clobber shape as the /api/keys guard above.
-              if (Array.isArray(data.modes) && data.modes.length === 0) {
-                console.log('[Modes] refused an empty write that would have deleted every mode folder')
-                res.setHeader('Content-Type', 'application/json')
-                res.statusCode = 409
-                res.end(JSON.stringify({ error: 'refused: empty modes list' }))
-                return
-              }
-              const written = Array.isArray(data.modes) ? writeModeFolders(MODES_DIR, data.modes, data.activeModeId, data.deletedIds, data.changedIds, data.renamedIds, data.patches) : null
-              res.setHeader('Content-Type', 'application/json')
-              res.end(JSON.stringify({ ok: true, conflicts: written?.conflicts || [], renameFailed: written?.renameFailed || [], deletedElsewhere: written?.deletedElsewhere || [] }))
-            } catch (e) {
-              res.statusCode = 400
-              res.end(JSON.stringify({ error: e.message }))
-            }
+            const out = modesPostAnswer(bodyStr, MODES_DIR)
+            res.setHeader('Content-Type', 'application/json')
+            res.statusCode = out.status
+            res.end(JSON.stringify(out.body))
           }
           if (req.body) {
             handleBody(typeof req.body === 'string' ? req.body : JSON.stringify(req.body))
@@ -2965,7 +3069,7 @@ function apiPlugin() {
       let overlayLaunchChain = Promise.resolve()
       let overlayWanted = 0 // bumped by every stop: a launch still checking when the user switched it off must not spawn
       server.middlewares.use('/api/launch-overlay', async (req, res) => {
-        console.log('[Overlay API] request:', req.method, req.url)
+        if (req.method !== 'GET') console.log('[Overlay API] request:', req.method, req.url) // the 3 s status poll filled the log
         if (req.method === 'POST') {
           res.setHeader('Content-Type', 'application/json')
           // A HEADLESS page (test automation, an agent's browser) never launches the overlay: that started the real Electron
@@ -3337,4 +3441,4 @@ export default defineConfig({
 })
 
 // Exported for the key-safety tests only; Vite consumes the default export above.
-export { readEnvFile, parseEnv, writeEnv, mirrorEnv, syncSharedKeys, writeFileAtomic, ENV_FILE, ENV_BAK, ENV_CLEARED, ENV_DECLINED, readDeclined, readConfigChecked, readConfigSettled, writeConfig, apiRequestAllowed, deckDirName, folderKey, modeFolderName, modeFolderForName, writeModeFolders, deepMergeJson, deepMergeInto, copyNewer, markJoinedFolder }
+export { readEnvFile, parseEnv, writeEnv, mirrorEnv, syncSharedKeys, writeFileAtomic, ENV_FILE, ENV_BAK, ENV_CLEARED, ENV_DECLINED, readDeclined, readConfigChecked, readConfigSettled, writeConfig, apiRequestAllowed, deckDirName, folderKey, modeFolderName, modeFolderForName, writeModeFolders, modesPostAnswer, readModeCfgState, deepMergeJson, deepMergeInto, copyNewer, markJoinedFolder }

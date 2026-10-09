@@ -838,7 +838,7 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           {/* Ebi on the right of the title line — reflects the context-aware pose (mascotFile).
               Sized up but with negative vertical margins so it doesn't bloat the header height. */}
-          <img src={shrimpUrl(mascotFile || IDLE_SHRIMP)} alt="Ebi" draggable={false} style={{ width: 46, height: 46, objectFit: 'contain', pointerEvents: 'none', margin: '-10px 0', transition: 'opacity .2s' }} />
+          <img src={shrimpUrl(mascotFile || IDLE_SHRIMP)} alt="Ebi" draggable={false} className="help-head-ebi" style={{ width: 46, height: 46, objectFit: 'contain', pointerEvents: 'none', margin: '-10px 0', transition: 'opacity .2s' }} />
           {/* The zone chooser is offered in EVERY state: once docked there was only Pop out, so moving to another
               side took a pop-out first (and a drag, which keyboard users can't do). */}
           <span
@@ -913,8 +913,10 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
           onKeyDown={(e) => { if (e.key === 'Enter' && !imeActive(e)) sendMessage() }}
           placeholder={apiKey ? (loading ? t('help_thinking') : t('help_placeholder')) : t('help_placeholderNoKey')}
           disabled={!apiKey}
+          aria-label={t('help_placeholder')}
           style={{
-            flex: 1, padding: '7px 11px', background: 'var(--c-surface)', color: 'var(--c-ink)',
+            // minWidth 0: an input's intrinsic width pushed Send out of a narrow panel (phone, high zoom).
+            flex: 1, minWidth: 0, padding: '7px 11px', background: 'var(--c-surface)', color: 'var(--c-ink)',
             border: '1px solid var(--c-border)', borderRadius: 8, fontSize: 11,
             fontFamily: 'inherit', outline: 'none',
           }}
@@ -923,9 +925,9 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
           onClick={sendMessage}
           disabled={!apiKey || loading || !input.trim()}
           style={{
-            padding: '7px 14px', background: 'linear-gradient(135deg, var(--c-brand-fill), var(--c-purple-fill))', color: '#fff',
+            flexShrink: 0, padding: '7px 14px', background: 'linear-gradient(135deg, var(--c-brand-fill), var(--c-purple-fill))', color: '#fff',
             border: 'none', borderRadius: 8, fontWeight: 700, fontSize: 11,
-            fontFamily: 'inherit', cursor: 'pointer',
+            fontFamily: 'inherit', cursor: !apiKey || loading || !input.trim() ? 'default' : 'pointer',
             boxShadow: '0 3px 12px rgba(223,37,64,.35)',
             opacity: !apiKey || loading || !input.trim() ? 0.4 : 1,
           }}
@@ -950,6 +952,8 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
         .ebi-fab-img.flipped { transform: scale(1) scaleX(-1); }
         .ebi-fab:hover .ebi-fab-img { transform: scale(1.14) scaleX(1); }
         .ebi-fab:hover .ebi-fab-img.flipped { transform: scale(1.14) scaleX(-1); }
+        /* A very narrow panel (phone at high zoom): the decorative Ebi in the header covered the new-chat button. */
+        @container helppanel (max-width: 240px) { .help-head-ebi { display: none; } }
       `}</style>
       {/* Floating help button — hidden when the chat is snapped/detached, or when the host hides it (e.g. study Ebi is shown) */}
       {!snapZone && !hideButton && (
@@ -999,7 +1003,7 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
             backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
             border: '1px solid var(--c-border)',
             borderRadius: 16, overflow: 'hidden',
-            display: 'flex', flexDirection: 'column',
+            display: 'flex', flexDirection: 'column', containerType: 'inline-size', containerName: 'helppanel',
             zIndex: 10000, boxShadow: 'var(--sh-xl)',
             fontFamily: FONT.body,
             animation: 'pop .18s cubic-bezier(.34,1.56,.64,1)',
@@ -1024,7 +1028,7 @@ export default function HelpChat({ t = (k) => k, apiKey, appContext, model = 'cl
           backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
           border: '1px solid var(--c-border)',
           borderRadius: isEdgeZone ? 0 : 16, overflow: 'hidden',
-          display: 'flex', flexDirection: 'column',
+          display: 'flex', flexDirection: 'column', containerType: 'inline-size', containerName: 'helppanel',
           zIndex: 10000, boxShadow: 'var(--sh-xl)',
           fontFamily: FONT.body,
           transition: snapDragging ? 'none' : 'left .14s ease, top .14s ease, width .14s ease, height .14s ease',
