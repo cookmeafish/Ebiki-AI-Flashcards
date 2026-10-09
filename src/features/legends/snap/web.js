@@ -16,13 +16,12 @@ const sigs = new Map() // url -> Promise<string>
 const hasCaches = () => typeof caches !== 'undefined' && typeof caches.open === 'function'
 const idOf = (key) => `/__ebiki-art-snap/${hashText(key)}${key.length.toString(36)}`
 
-// The file's version, without downloading it (a HEAD answers from its headers). '' = unknown: no snapshot is trusted.
+// The file's version, without downloading it (a HEAD answers from its headers), asked once per page load. '' = unknown.
 export function fileSig(url) {
   if (!sigs.has(url)) {
     sigs.set(url, fetch(url, { method: 'HEAD', cache: 'no-cache' })
       .then((r) => (r.ok ? (r.headers.get('etag') || r.headers.get('last-modified') || '') + '|' + (r.headers.get('content-length') || '') : ''))
       .catch(() => ''))
-    setTimeout(() => sigs.delete(url), 30000) // an edited file is noticed on the next visit
   }
   return sigs.get(url)
 }
@@ -39,8 +38,44 @@ export function boxColors(box, markup) {
 }
 const colorKey = (box) => Object.entries(boxColors(box)).map(([k, v]) => `${k}:${v}`).join(';')
 
-export function snapKey(url, sig, box, pxW, pxH) {
-  return `${url}|${sig}|${pxW}x${pxH}|${colorKey(box)}`
+// A snapshot's identity without the file version (`base`) and with it (`key`). The INDEX remembers, per base, the key
+// of the newest snapshot kept (localStorage), so a visit shows it at once and checks the file's version AFTER, in the
+// background: a tab switch never waits on 26 requests to a busy server. A page-life map answers before the first paint.
+export const snapBase = (url, box, pxW, pxH) => `${url}|${pxW}x${pxH}|${colorKey(box)}`
+export const snapKeyOf = (base, sig) => `${base}|${sig}`
+const INDEX_KEY = 'ebiki-art-snap-index'
+const INDEX_MAX = 600
+let index = null
+const readIndex = () => {
+  if (!index) {
+    try { index = new Map(Object.entries(JSON.parse(localStorage.getItem(INDEX_KEY) || '{}'))) } catch { index = new Map() }
+  }
+  return index
+}
+let indexTimer = 0
+function remember(base, key) {
+  const ix = readIndex()
+  ix.delete(base)
+  ix.set(base, key)
+  while (ix.size > INDEX_MAX) ix.delete(ix.keys().next().value)
+  clearTimeout(indexTimer)
+  indexTimer = setTimeout(() => { try { localStorage.setItem(INDEX_KEY, JSON.stringify(Object.fromEntries(ix))) } catch { /* full: memory only */ } }, 500)
+}
+export const indexedKey = (base) => readIndex().get(base) || ''
+const shownByBase = new Map() // base -> object URL shown this page life
+export const peekSnap = (base) => shownByBase.get(base) || ''
+// The kept snapshot for `base` (whatever version the index names), or ''.
+export async function findSnap(base) {
+  if (shownByBase.has(base)) return shownByBase.get(base)
+  const key = indexedKey(base)
+  const href = key ? await readSnap(key) : null
+  if (href) shownByBase.set(base, href)
+  return href || ''
+}
+// After a fresh snapshot (or a kept one of the current version) is shown for `base`.
+export function adoptSnap(base, key, href) {
+  shownByBase.set(base, href)
+  remember(base, key)
 }
 
 // A kept snapshot for `key` (an object URL), or null.

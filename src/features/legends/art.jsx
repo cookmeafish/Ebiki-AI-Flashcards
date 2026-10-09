@@ -20,7 +20,7 @@ import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef,
 import { ART_PACE, newPace, paceStep, paceFps, paceBudget, displayPeriod } from './artPace'
 import { densityBucket } from './bakePlan'
 import { bakeArt } from './bake/web'
-import { fileSig, readSnap, makeSnap, snapKey } from './snap/web'
+import { fileSig, readSnap, makeSnap, snapBase, snapKeyOf, peekSnap, findSnap, adoptSnap, indexedKey } from './snap/web'
 import { useFeatureCtx, featureCfg } from '../registry'
 import { LEGENDS_ID } from './store'
 import { RADIUS } from '../../config/tokens'
@@ -611,23 +611,37 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
     && url !== PHOTO_FILE && !(typeof window !== 'undefined' && (window.__ebikiArtEager || window.__ebikiNoBake || window.__ebikiNoSnap))
   const snapIdent = `${url}|${palette ?? ''}|${theme}`
   const [snap, setSnap] = useState(null) // { ident, href }
-  const [snapNeed, setSnapNeed] = useState(null) // { ident, key, pxW, pxH } once no kept snapshot answered (key '' = none possible)
-  useEffect(() => {
+  const [snapNeed, setSnapNeed] = useState(null) // { ident, key, base, pxW, pxH } when a snapshot must be drawn (key '' = none possible)
+  // A layout effect: a snapshot already shown this page life is put up before the first paint (a tab switch shows
+  // every tile at once); a kept one comes from Cache Storage; the file's version is checked AFTER, never before.
+  useLayoutEffect(() => {
     const box = boxRef.current
     if (!near || !snapOn || !box) return undefined
+    const ident = snapIdent
+    // The box's LAYOUT size (never its on-screen rect: a tile caught mid-animation measured another size, missed its
+    // snapshot and drew a new one) x the app zoom x the screen's density, to the exact device pixel.
+    const zoom = box.currentCSSZoom || parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--app-zoom')) || 1
+    const cs = getComputedStyle(box), dpr = window.devicePixelRatio || 1
+    const pxW = Math.round((parseFloat(cs.width) || box.offsetWidth) * zoom * dpr)
+    const pxH = Math.round((parseFloat(cs.height) || box.offsetHeight) * zoom * dpr)
+    if (!pxW || !pxH) { setSnapNeed({ ident, key: '' }); return undefined }
+    const base = snapBase(url, box, pxW, pxH)
+    const quick = peekSnap(base)
+    if (quick) setSnap({ ident, href: quick })
     let alive = true
     ;(async () => {
-      // Exactly the device pixels the box covers (its on-screen rect already carries the app zoom): a bitmap even a few
-      // pixels off is resampled when shown, and at tile size that reads as blur.
-      const r = box.getBoundingClientRect(), dpr = window.devicePixelRatio || 1
-      const pxW = Math.round(r.width * dpr), pxH = Math.round(r.height * dpr)
-      const sig = pxW && pxH ? await fileSig(url) : ''
+      let shownHref = quick || await findSnap(base)
       if (!alive) return
-      const key = sig ? snapKey(url, sig, box, pxW, pxH) : ''
-      const href = key ? await readSnap(key) : null
+      if (shownHref && !quick) setSnap({ ident, href: shownHref })
+      const sig = await fileSig(url)
       if (!alive) return
-      if (href) setSnap({ ident: snapIdent, href })
-      else setSnapNeed({ ident: snapIdent, key, pxW, pxH })
+      if (!sig) { if (!shownHref) setSnapNeed({ ident, key: '' }); return } // version unknown: keep what shows
+      const key = snapKeyOf(base, sig)
+      if (shownHref && indexedKey(base) === key) return // up to date
+      const kept = await readSnap(key)
+      if (!alive) return
+      if (kept) { adoptSnap(base, key, kept); setSnap({ ident, href: kept }); return }
+      setSnapNeed({ ident, key, base, pxW, pxH }) // none yet, or the file changed: draw it (an old one shows meanwhile)
     })()
     return () => { alive = false }
   }, [near, snapOn, snapIdent]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -674,13 +688,13 @@ export function LegendsArt({ kind, motif, palette, height, width = '100%', locke
   const shown = near && !!svg && !snapShown // off screen: out of the page (the box keeps its size)
   useEffect(() => {
     const box = boxRef.current
-    if (!shown || !snapOn || !snapNeed || snapNeed.ident !== snapIdent || !snapNeed.key || !box) return undefined
+    if (!near || !svg || !snapOn || !snapNeed || snapNeed.ident !== snapIdent || !snapNeed.key || !box) return undefined
     let alive = true
-    const ident = snapIdent
-    makeSnap(snapNeed.key, svg, box, snapNeed.pxW, snapNeed.pxH, figure ? HEADROOM_SHARE : 0)
-      .then((href) => { if (alive && href) setSnap({ ident, href }) })
+    const ident = snapIdent, { key, base } = snapNeed
+    makeSnap(key, svg, box, snapNeed.pxW, snapNeed.pxH, figure ? HEADROOM_SHARE : 0)
+      .then((href) => { if (href) adoptSnap(base, key, href); if (alive && href) setSnap({ ident, href }) })
     return () => { alive = false }
-  }, [shown, snapOn, snapNeed, snapIdent, svg, figure])
+  }, [near, snapOn, snapNeed, snapIdent, svg, figure])
   useEffect(installArtSleep, [])
   // A drawing put in the page while the window sleeps starts paused (its entrance plays on return).
   useEffect(() => { if (asleep && shown && boxRef.current) setArtPlaying(artSvgs(boxRef.current), false) }, [shown, svg])

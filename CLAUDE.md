@@ -1587,6 +1587,10 @@ Works for ANY subject (a CompTIA map teaches CompTIA). Sidebar screen `legends` 
   numeric and at most `SNAP_MAX_PX` (260), not the photo ophanim. Drawn once at the box's EXACT device pixels (rounding
   read as blur), colors resolved from the box (`resolveVars`), kept in Cache Storage `ebiki-art-snap-v1` keyed by the
   file's ETag (a HEAD), size and colors; a theme change re-keys (`useThemeTick`). The SVG file is read only on a miss.
+  **Shown first, checked after**: a layout effect puts up this page life's snapshot before the first paint
+  (`peekSnap`), else the one the localStorage index (`ebiki-art-snap-index`, base → newest key) names; the HEAD runs
+  AFTER and only replaces a snapshot whose file changed (the tab switch waited on 26 HEADs). Size from the box's
+  LAYOUT width x `currentCSSZoom` x dpr, never its rect (a tile mid-animation missed its snapshot).
   26 raid tiles: about 1.8 s of fetch + sanitize + raster before, about 0.1 s from the kept snapshots.
   `__ebikiNoSnap` (and `__ebikiArtEager`/`__ebikiNoBake`) turn it off.
 - **Art loads near the screen and pauses off it** (`useArtInView`: comes in within `ART_NEAR` (1) screens, leaves past
